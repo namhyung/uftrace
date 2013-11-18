@@ -1,0 +1,9 @@
+*.o
+a.out
+ftrace
+ftrace.data
+ftrace.data.old
+libmcount.so
+librtld-audit.so
+gmon.out
+tests/t-*
