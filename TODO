@@ -1,0 +1,10 @@
+- gcc -mfentry option support
+- argument display
+- ARM compatibility check
+- implement report command
+- thread filter on report
+- column view
+- timechart support?
+- LD_AUDIT or some other method for tracking library calls
+- better multi-thread support
+- dlopen() support
