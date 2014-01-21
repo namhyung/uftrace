@@ -66,8 +66,7 @@ int load_symtab(const char *filename)
 	Elf_Scn *shstr_sec, *sym_sec, *str_sec;
 	Elf_Data *shstr_data, *sym_data, *str_data;
 	Elf_Scn *sec;
-	Elf_Data *data;
-	size_t i, nr_sym;
+	size_t i, nr_sym = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
