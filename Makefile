@@ -3,10 +3,10 @@ RM = rm -f
 
 ASFLAGS = -g -D_GNU_SOURCE
 CFLAGS = -O2 -g -D_GNU_SOURCE
-CFLAGS-DEBUG = -g -D_GNU_SOURCE
+#CFLAGS-DEBUG = -g -D_GNU_SOURCE
 LDFLAGS = -lelf -ldl
 
-CFLAGS += -W -Wall -Wno-unused-parameter -Wno-unused-function
+CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
 TARGETS = libmcount.so librtld-audit.so ftrace
 

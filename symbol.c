@@ -68,6 +68,10 @@ int load_symtab(const char *filename)
 	Elf_Scn *sec;
 	size_t i, nr_sym = 0;
 
+	/* already loaded */
+	if (symtab.nr_sym)
+		return 0;
+
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		if (errno == ENOENT)
@@ -81,18 +85,18 @@ int load_symtab(const char *filename)
 
 	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
 	if (elf == NULL)
-		goto error;
+		goto elf_error;
 
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto error;
+		goto elf_error;
 
 	shstr_sec = elf_getscn(elf, shstr_idx);
 	if (shstr_sec == NULL)
-		goto error;
+		goto elf_error;
 
 	shstr_data = elf_getdata(shstr_sec, NULL);
 	if (shstr_data == NULL)
-		goto error;
+		goto elf_error;
 
 	sec = sym_sec = str_sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
@@ -100,7 +104,7 @@ int load_symtab(const char *filename)
 		GElf_Shdr shdr;
 
 		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto error;
+			goto elf_error;
 
 		shstr = ((char *)shstr_data->d_buf) + shdr.sh_name;
 
@@ -121,10 +125,8 @@ int load_symtab(const char *filename)
 	sym_data = elf_getdata(sym_sec, NULL);
 	str_data = elf_getdata(str_sec, NULL);
 
-	if (sym_data == NULL || str_data == NULL) {
-		printf("ftrace: cannot find symbol information in '%s'.\n", filename);
-		goto error;
-	}
+	if (sym_data == NULL || str_data == NULL)
+		goto elf_error;
 
 	symtab.sym = NULL;
 	symtab.nr_sym = 0;
@@ -133,7 +135,7 @@ int load_symtab(const char *filename)
 	for (i = 0; i < nr_sym; i++) {
 		GElf_Sym elf_sym;
 		struct sym *sym;
-		char *name;
+		char *name, *ver;
 
 		if (symtab.nr_sym >= symtab.nr_alloc) {
 			symtab.nr_alloc += SYMTAB_GROW;
@@ -146,9 +148,8 @@ int load_symtab(const char *filename)
 			}
 		}
 		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
-			goto error;
-		if (elf_sym.st_size == 0)
-			continue;
+			goto elf_error;
+
 		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
 			continue;
 
@@ -157,7 +158,14 @@ int load_symtab(const char *filename)
 		name = ((char *)str_data->d_buf) + elf_sym.st_name;
 		sym->addr = elf_sym.st_value;
 		sym->size = elf_sym.st_size;
-		sym->name = strdup(name);
+
+		/* Removing version info from undefined symbols */
+		ver = strchr(name, '@');
+		if (ver)
+			sym->name = strndup(name, ver - name);
+		else
+			sym->name = strdup(name);
+
 		if (sym->name == NULL) {
 			perror("load_symtab");
 			goto out;
@@ -165,13 +173,6 @@ int load_symtab(const char *filename)
 	}
 
 	qsort(symtab.sym, symtab.nr_sym, sizeof(*symtab.sym), addrsort);
-#if 0
-	puts("symbol sorted by addr");
-	for (i = 0; i < symtab.nr_sym; i++) {
-		struct sym *sym = &symtab.sym[i];
-		printf("  %s: %lx - %lx\n", sym->name, sym->addr, sym->addr+sym->size);
-	}
-#endif
 
 	symtab.sym_names = malloc(sizeof(*symtab.sym_names) * symtab.nr_sym);
 	if (symtab.sym_names == NULL)
@@ -180,13 +181,6 @@ int load_symtab(const char *filename)
 	for (i = 0; i < symtab.nr_sym; i++)
 		symtab.sym_names[i] = &symtab.sym[i];
 	qsort(symtab.sym_names, symtab.nr_sym, sizeof(*symtab.sym_names), namesort);
-#if 0
-	puts("symbol sorted by name");
-	for (i = 0; i < symtab.nr_sym; i++) {
-		struct sym *sym = symtab.sym_names[i];
-		printf("  %s: %lx - %lx\n", sym->name, sym->addr, sym->addr+sym->size);
-	}
-#endif
 
 	ret = 0;
 out:
@@ -194,7 +188,7 @@ out:
 	close(fd);
 	return ret;
 
-error:
+elf_error:
 	printf("ftrace:load_symtab: %s\n", elf_errmsg(elf_errno()));
 	goto out;
 }
@@ -211,7 +205,7 @@ struct sym * find_symname(const char *name)
 
 	psym = bsearch(name, symtab.sym_names, symtab.nr_sym,
 		       sizeof(*symtab.sym_names), namefind);
-	return *psym;
+	return psym ? *psym : NULL;
 }
 
 void unload_symtab(void)
@@ -225,4 +219,8 @@ void unload_symtab(void)
 
 	free(symtab.sym_names);
 	free(symtab.sym);
+
+	symtab.nr_sym = 0;
+	symtab.sym = NULL;
+	symtab.sym_names = NULL;
 }

@@ -39,8 +39,12 @@ static void mcount_init_file(void)
 		.magic = FTRACE_MAGIC_STR,
 		.version = FTRACE_VERSION,
 	};
+	char *filename = getenv("FTRACE_FILE");
 
-	fout = fopen(FTRACE_FILE_NAME, "wb");
+	if (filename == NULL)
+		filename = FTRACE_FILE_NAME;
+
+	fout = fopen(filename, "wb");
 	if (fout == NULL) {
 		perror("mcount_init_file");
 		exit(1);

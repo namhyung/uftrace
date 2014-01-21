@@ -32,7 +32,9 @@ struct mcount_ret_stack {
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];
 	uint32_t version;
-	uint32_t padding;
+	uint16_t header_size;
+	uint8_t  endian;
+	uint8_t  class;
 	uint64_t length;
 	uint64_t unused;
 };

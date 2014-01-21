@@ -1,5 +1,5 @@
 - gcc -mfentry option support
-- argument display
+- argument display (with DWARF?)
 - ARM compatibility check
 - implement report command
 - thread filter on report
