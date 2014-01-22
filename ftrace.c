@@ -407,10 +407,11 @@ out:
 	return ret;
 }
 
-static const char *tmp_filename;
+static char *tmp_filename;
 static void cleanup_tempfile(void)
 {
-	unlink(tmp_filename);
+	if (tmp_filename)
+		unlink(tmp_filename);
 }
 
 static int command_live(int argc, char *argv[], struct opts *opts)
@@ -423,13 +424,18 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 	}
 	close(fd);
 
-	tmp_filename = template;
+	tmp_filename = xstrdup(template);
 	atexit(cleanup_tempfile);
 
 	opts->filename = template;
 
 	if (command_record(argc, argv, opts) == 0)
 		command_replay(argc, argv, opts);
+
+	free(tmp_filename);
+	tmp_filename = NULL;
+
+	unlink(template);
 
 	return 0;
 }
