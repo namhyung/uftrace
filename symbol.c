@@ -62,9 +62,9 @@ int load_symtab(const char *filename)
 	int fd;
 	int ret = -1;
 	Elf *elf;
-	size_t shstr_idx;
-	Elf_Scn *shstr_sec, *sym_sec, *str_sec;
-	Elf_Data *shstr_data, *sym_data, *str_data;
+	size_t shstr_idx, symstr_idx;
+	Elf_Scn *sym_sec;
+	Elf_Data *sym_data;
 	Elf_Scn *sec;
 	size_t i, nr_sym = 0;
 
@@ -90,15 +90,7 @@ int load_symtab(const char *filename)
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	shstr_sec = elf_getscn(elf, shstr_idx);
-	if (shstr_sec == NULL)
-		goto elf_error;
-
-	shstr_data = elf_getdata(shstr_sec, NULL);
-	if (shstr_data == NULL)
-		goto elf_error;
-
-	sec = sym_sec = str_sec = NULL;
+	sec = sym_sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *shstr;
 		GElf_Shdr shdr;
@@ -106,26 +98,25 @@ int load_symtab(const char *filename)
 		if (gelf_getshdr(sec, &shdr) == NULL)
 			goto elf_error;
 
-		shstr = ((char *)shstr_data->d_buf) + shdr.sh_name;
+		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
 
 		if (strcmp(shstr, ".symtab") == 0) {
 			sym_sec = sec;
 			nr_sym = shdr.sh_size / shdr.sh_entsize;
+			symstr_idx = shdr.sh_link;
+			break;
 		}
-		if (strcmp(shstr, ".strtab") == 0)
-			str_sec = sec;
 	}
 
-	if (sym_sec == NULL || str_sec == NULL) {
-		printf("ftrace: cannot find symbol information in '%s'.  Is it stripped?\n",
-		       filename);
+	if (sym_sec == NULL) {
+		printf("ftrace: cannot find symbol information in '%s'.\n"
+		       "Is it stripped?\n", filename);
 		goto out;
 	}
 
 	sym_data = elf_getdata(sym_sec, NULL);
-	str_data = elf_getdata(str_sec, NULL);
 
-	if (sym_data == NULL || str_data == NULL)
+	if (sym_data == NULL)
 		goto elf_error;
 
 	symtab.sym = NULL;
@@ -137,6 +128,12 @@ int load_symtab(const char *filename)
 		struct sym *sym;
 		char *name, *ver;
 
+		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
+			goto elf_error;
+
+		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
+			continue;
+
 		if (symtab.nr_sym >= symtab.nr_alloc) {
 			symtab.nr_alloc += SYMTAB_GROW;
 			symtab.sym = realloc(symtab.sym,
@@ -147,17 +144,13 @@ int load_symtab(const char *filename)
 				goto out;
 			}
 		}
-		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
-			goto elf_error;
-
-		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
-			continue;
 
 		sym = &symtab.sym[symtab.nr_sym++];
 
-		name = ((char *)str_data->d_buf) + elf_sym.st_name;
 		sym->addr = elf_sym.st_value;
 		sym->size = elf_sym.st_size;
+
+		name = elf_strptr(elf, symstr_idx, elf_sym.st_name);
 
 		/* Removing version info from undefined symbols */
 		ver = strchr(name, '@');
