@@ -7,10 +7,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <dlfcn.h>
+#include <assert.h>
 
 #include "mcount.h"
 #include "symbol.h"
+#include "rbtree.h"
+#include "utils.h"
 
 const char *argp_program_version = "ftrace v0.1";
 const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
@@ -78,18 +80,25 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case ARGP_KEY_ARG:
-		if (state->arg_num == 0) {
-			if (!strcmp("record", arg))
-				opts->mode = FTRACE_MODE_RECORD;
-			else if (!strcmp("replay", arg))
-				opts->mode = FTRACE_MODE_REPLAY;
-			else if (!strcmp("live", arg))
-				opts->mode = FTRACE_MODE_LIVE;
-			else
-				return ARGP_ERR_UNKNOWN;
-			break;
+		if (state->arg_num) {
+			/*
+			 * This is a second non-option argument.
+			 * Returning _UNKNOWN will pass control to
+			 * ARGP_KEY_ARGS case.
+			 */
+			return ARGP_ERR_UNKNOWN;
 		}
-		return ARGP_ERR_UNKNOWN;
+		if (!strcmp("record", arg))
+			opts->mode = FTRACE_MODE_RECORD;
+		else if (!strcmp("replay", arg))
+			opts->mode = FTRACE_MODE_REPLAY;
+		else if (!strcmp("live", arg))
+			opts->mode = FTRACE_MODE_LIVE;
+		else if (!strcmp("report", arg))
+			opts->mode = FTRACE_MODE_REPORT;
+		else
+			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
+		break;
 
 	case ARGP_KEY_ARGS:
 		if (opts->mode == FTRACE_MODE_INVALID)
@@ -120,6 +129,7 @@ int main(int argc, char *argv[])
 {
 	struct opts opts = {
 		.mode = FTRACE_MODE_INVALID,
+		.filename = FTRACE_FILE_NAME,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -309,21 +319,8 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 	static int count;
 	struct sym *parent = find_symtab(rstack->parent_ip);
 	struct sym *child = find_symtab(rstack->child_ip);
-	const char *parent_name = parent ? parent->name : NULL;
-	const char *child_name = child ? child->name : NULL;
-
-	if (parent_name == NULL) {
-		Dl_info info;
-
-		dladdr((void *)rstack->parent_ip, &info);
-		parent_name = info.dli_sname ?: "unknown";
-	}
-	if (child_name == NULL) {
-		Dl_info info;
-
-		dladdr((void *)rstack->child_ip, &info);
-		child_name = info.dli_sname ?: "unknown";
-	}
+	const char *parent_name = parent ? parent->name : "unknown";
+	const char *child_name = child ? child->name : "unknown";
 
 	if (rstack->end_time == 0) {
 		printf("[%d] %d/%d: ip (%s -> %s), time (%lu)\n",
@@ -410,6 +407,12 @@ out:
 	return ret;
 }
 
+static const char *tmp_filename;
+static void cleanup_tempfile(void)
+{
+	unlink(tmp_filename);
+}
+
 static int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
@@ -420,17 +423,138 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 	}
 	close(fd);
 
+	tmp_filename = template;
+	atexit(cleanup_tempfile);
+
 	opts->filename = template;
 
 	if (command_record(argc, argv, opts) == 0)
 		command_replay(argc, argv, opts);
 
-	unlink(opts->filename);
-
 	return 0;
+}
+
+struct trace_entry {
+	char *name;
+	unsigned long time_total;
+	unsigned long time_self;
+	unsigned long nr_called;
+	struct rb_node link;
+};
+
+static void insert_entry(struct rb_root *root, struct trace_entry *te)
+{
+	struct trace_entry *entry;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		int cmp;
+
+		parent = *p;
+		entry = rb_entry(parent, struct trace_entry, link);
+
+		cmp = strcmp(entry->name, te->name);
+		if (cmp == 0) {
+			entry->time_total += te->time_total;
+			entry->time_self  += te->time_self;
+			entry->nr_called  += 1;
+			return;
+		}
+
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	entry = xmalloc(sizeof(*entry));
+	entry->name = xstrdup(te->name);
+	entry->time_total = te->time_total;
+	entry->time_self  = te->time_self;
+	entry->nr_called  = 1;
+
+	rb_link_node(&entry->link, parent, p);
+	rb_insert_color(&entry->link, root);
+}
+
+static void sort_by_time(struct rb_root *root, struct trace_entry *te)
+{
+	struct trace_entry *entry;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct trace_entry, link);
+
+		if (entry->time_total < te->time_total)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&te->link, parent, p);
+	rb_insert_color(&te->link, root);
 }
 
 static int command_report(int argc, char *argv[], struct opts *opts)
 {
-	return 0;
+	FILE *fp;
+	int ret;
+	struct rb_root name_tree = RB_ROOT;
+	struct rb_root time_tree = RB_ROOT;
+	struct rb_node *node;
+	struct trace_entry *entry;
+	struct mcount_ret_stack rstack;
+	const char h_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
+	const char l_format[] = "  %-40.40s  %10lu  %10lu  %10lu  \n";
+	const char line[] = "=================================================";
+
+	fp = open_data_file(opts->filename, opts->exename);
+	if (fp == NULL)
+		return -1;
+
+	ret = load_symtab(opts->exename);
+	if (ret < 0)
+		goto out;
+
+	while (fread(&rstack, sizeof(rstack), 1, fp) == 1) {
+		struct sym *sym;
+		struct trace_entry te;
+
+		if (rstack.end_time == 0)
+			continue;
+
+		sym = find_symtab(rstack.child_ip);
+		assert(sym != NULL);
+
+		te.name = sym->name;
+		te.time_total = rstack.end_time - rstack.start_time;
+		te.time_self = te.time_total - rstack.child_time;
+
+		insert_entry(&name_tree, &te);
+	}
+
+	while (!RB_EMPTY_ROOT(&name_tree)) {
+		node = rb_first(&name_tree);
+		rb_erase(node, &name_tree);
+
+		sort_by_time(&time_tree, rb_entry(node, struct trace_entry, link));
+	}
+
+	printf(h_format, "Function", "Total time", "Self time", "Nr. called");
+	printf(h_format, line, line, line, line);
+
+	for (node = rb_first(&time_tree); node; node = rb_next(node)) {
+		entry = rb_entry(node, struct trace_entry, link);
+		printf(l_format, entry->name, entry->time_total,
+		       entry->time_self, entry->nr_called);
+	}
+
+	unload_symtab();
+out:
+	fclose(fp);
+
+	return ret;
 }

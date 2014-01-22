@@ -184,7 +184,7 @@ unsigned long mcount_exit(void)
 	rstack->end_time = mcount_gettime();
 	fwrite(rstack, sizeof(*rstack), 1, fout);
 
-	if (mcount_rstack_idx > 1) {
+	if (mcount_rstack_idx > 0) {
 		int idx = mcount_rstack_idx - 1;
 		struct mcount_ret_stack *parent = &mcount_rstack[idx];
 

@@ -4,13 +4,13 @@ RM = rm -f
 ASFLAGS = -g -D_GNU_SOURCE
 CFLAGS = -O2 -g -D_GNU_SOURCE
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE
-LDFLAGS = -lelf -ldl
+LDFLAGS = -lelf
 
 CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
 TARGETS = libmcount.so librtld-audit.so ftrace
 
-FTRACE_SRCS = ftrace.c symbol.c
+FTRACE_SRCS = ftrace.c symbol.c rbtree.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
 
 all: $(TARGETS)
@@ -30,7 +30,7 @@ libmcount.so: mcount.o entry.o
 librtld-audit.so: audit.o
 	$(CC) -shared -o $@ $^
 
-ftrace: $(FTRACE_SRCS) mcount.h symbol.h
+ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
 
 test: all
