@@ -21,13 +21,16 @@ entry.op: entry.S
 plthook.op: plthook.S
 	$(CC) $(ASFLAGS) -fPIC -c -o $@ $<
 
+fentry.op: fentry.S
+	$(CC) $(ASFLAGS) -fPIC -c -o $@ $<
+
 mcount.op: mcount.c mcount.h
 	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $< -pthread
 
 symbol.op: symbol.c symbol.h
 	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $<
 
-libmcount.so: mcount.op entry.op plthook.op symbol.op
+libmcount.so: mcount.op entry.op plthook.op symbol.op fentry.op
 	$(CC) -shared -o $@ $^ -pthread -lelf
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h

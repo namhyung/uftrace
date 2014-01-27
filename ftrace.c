@@ -178,8 +178,6 @@ static void build_addrlist(char *buf, char *symlist)
 			snprintf(tmp, sizeof(tmp), "%s%#lx",
 				 p ? "" : ":", sym->addr);
 			strcat(buf, tmp);
-			if (debug)
-				printf("filter: %#lx (%s)\n", sym->addr, fname);
 		} else if (debug) {
 			printf("ftrace: cannot find symbol: %s\n", fname);
 			printf("ftrace: skip setting filter..\n");
@@ -247,8 +245,11 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	sym = find_symname("mcount");
 	if (sym == NULL /* || sym->size != 0 */) {
-		printf(mcount_msg, "mcount", opts->exename);
-		return -1;
+		sym = find_symname("__fentry__");
+		if (sym == NULL) {
+			printf(mcount_msg, "mcount", opts->exename);
+			return -1;
+		}
 	}
 
 	fflush(stdout);
@@ -284,7 +285,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
-	 * 'live' command as it also need to load symtabs again.
+	 * 'live' command as it also need to load the symtabs again.
 	 */
 	//unload_symtabs();
 	return 0;

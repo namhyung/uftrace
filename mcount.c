@@ -74,7 +74,7 @@ static void mcount_prepare(void)
 	pthread_once(&once_control, mcount_init_file);
 }
 
-#define CALL_SIZE  9  /* 1 for push; 3 for mov; 5 for call */
+#define CALL_SIZE  5  /* 1 for push; 3 for mov; 5 for call */
 
 static bool mcount_match(unsigned long ip1, unsigned long ip2)
 {
@@ -335,7 +335,8 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	}
 
 	/* should skip internal functions */
-	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup"))
+	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||
+	    !strcmp(sym->name, "__fentry__"))
 		return -1;
 
 	return mcount_entry(parent_ip, child_ip + CALL_SIZE);

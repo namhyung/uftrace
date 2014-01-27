@@ -464,7 +464,7 @@ struct sym * find_symtab(unsigned long addr)
 	if (sym)
 		return sym;
 
-	addr -= 9; /* CALL_SIZE */
+	addr -= 5; /* CALL_SIZE */
 
 	/* try dynamic symbols if failed */
 	sym = bsearch((const void *)addr, dynsymtab.sym, dynsymtab.nr_sym,
