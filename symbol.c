@@ -59,16 +59,47 @@ static const char ftrace_msg[] =
 	"it probably wasn't compiled with -pg which generates traceable code.\n"
 	"If so, recompile and run it with full pathname.\n";
 
-int load_symtab(const char *filename)
+void unload_symtabs(void)
+{
+	size_t i;
+
+	for (i = 0; i < symtab.nr_sym; i++) {
+		struct sym *sym = symtab.sym + i;
+		free(sym->name);
+	}
+
+	free(symtab.sym_names);
+	free(symtab.sym);
+
+	symtab.nr_sym = 0;
+	symtab.sym = NULL;
+	symtab.sym_names = NULL;
+
+	for (i = 0; i < dynsymtab.nr_sym; i++) {
+		struct sym *sym = dynsymtab.sym + i;
+		free(sym->name);
+	}
+
+	free(dynsymtab.sym_names);
+	free(dynsymtab.sym);
+
+	dynsymtab.nr_sym = 0;
+	dynsymtab.sym = NULL;
+	dynsymtab.sym_names = NULL;
+}
+
+int load_symtabs(const char *filename)
 {
 	int fd;
 	int ret = -1;
 	Elf *elf;
-	size_t shstr_idx, symstr_idx;
-	Elf_Scn *sym_sec;
-	Elf_Data *sym_data;
-	Elf_Scn *sec;
-	size_t i, nr_sym = 0;
+	size_t i, nr_sym = 0, nr_rels = 0;
+	Elf_Scn *sym_sec, *dynsym_sec, *relplt_sec, *sec;
+	Elf_Data *sym_data, *dynsym_data, *relplt_data;
+	size_t shstr_idx, symstr_idx = 0, dynstr_idx = 0;
+	GElf_Addr plt_addr = 0;
+	size_t plt_entsize = 1;
+	int rel_type = SHT_NULL;
 
 	/* already loaded */
 	if (symtab.nr_sym)
@@ -106,7 +137,21 @@ int load_symtab(const char *filename)
 			sym_sec = sec;
 			nr_sym = shdr.sh_size / shdr.sh_entsize;
 			symstr_idx = shdr.sh_link;
-			break;
+		} else if (strcmp(shstr, ".dynsym") == 0) {
+			dynsym_sec = sec;
+			dynstr_idx = shdr.sh_link;
+		} else if (strcmp(shstr, ".rela.plt") == 0) {
+			relplt_sec = sec;
+			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			rel_type = SHT_RELA;
+		} else if (strcmp(shstr, ".rel.plt") == 0) {
+			relplt_sec = sec;
+			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			rel_type = SHT_REL;
+		} else if (strcmp(shstr, ".plt") == 0) {
+			plt_addr = shdr.sh_addr;
+			plt_entsize = shdr.sh_entsize;
+			//plt_addr += shdr.sh_entsize; /* skip first entry */
 		}
 	}
 
@@ -116,9 +161,26 @@ int load_symtab(const char *filename)
 		goto out;
 	}
 
-	sym_data = elf_getdata(sym_sec, NULL);
+	if (dynsym_sec == NULL || plt_addr == 0) {
+		printf("ftrace: cannot find dynamic symbols.. skipping\n");
+		goto out;
+	}
 
+	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
+		printf("ftrace: cannot find relocation info for PLT\n");
+		goto out;
+	}
+
+	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
+		goto elf_error;
+
+	relplt_data = elf_getdata(relplt_sec, NULL);
+	if (relplt_data == NULL)
+		goto elf_error;
+
+	dynsym_data = elf_getdata(dynsym_sec, NULL);
+	if (dynsym_data == NULL)
 		goto elf_error;
 
 	for (i = 0; i < nr_sym; i++) {
@@ -128,6 +190,9 @@ int load_symtab(const char *filename)
 
 		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
 			goto elf_error;
+
+		if (elf_sym.st_size == 0)
+			continue;
 
 		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
 			continue;
@@ -173,6 +238,48 @@ int load_symtab(const char *filename)
 		symtab.sym_names[i] = &symtab.sym[i];
 	qsort(symtab.sym_names, symtab.nr_sym, sizeof(*symtab.sym_names), namesort);
 
+	for (i = 0; i < nr_rels; i++) {
+		GElf_Sym esym;
+		struct sym *sym;
+		int symidx;
+		char *name;
+
+		if (rel_type == SHT_RELA) {
+			GElf_Rela rela;
+
+			if (gelf_getrela(relplt_data, i, &rela) == NULL)
+				goto elf_error;
+
+			symidx = GELF_R_SYM(rela.r_info);
+		} else {
+			GElf_Rel rel;
+
+			if (gelf_getrel(relplt_data, i, &rel) == NULL)
+				goto elf_error;
+
+			symidx = GELF_R_SYM(rel.r_info);
+		}
+
+		gelf_getsym(dynsym_data, symidx, &esym);
+		name = elf_strptr(elf, dynstr_idx, esym.st_name);
+
+		if (dynsymtab.nr_sym >= dynsymtab.nr_alloc) {
+			dynsymtab.nr_alloc += SYMTAB_GROW;
+			dynsymtab.sym = realloc(dynsymtab.sym,
+						dynsymtab.nr_alloc * sizeof(*sym));
+
+			if (dynsymtab.sym == NULL) {
+				perror("ftrace:load_dynsymtab");
+				goto out;
+			}
+		}
+
+		sym = &dynsymtab.sym[dynsymtab.nr_sym++];
+
+		sym->addr = plt_addr + (i + 1) * plt_entsize;
+		sym->size = plt_entsize;
+		sym->name = xstrdup(name);
+	}
 	ret = 0;
 out:
 	elf_end(elf);
@@ -181,24 +288,25 @@ out:
 
 elf_error:
 	printf("ftrace:load_symtab: %s\n", elf_errmsg(elf_errno()));
+	unload_symtabs();
 	goto out;
 }
 
-void unload_symtab(void)
+void unload_dynsymtab(void)
 {
 	size_t i;
 
-	for (i = 0; i < symtab.nr_sym; i++) {
-		struct sym *sym = symtab.sym + i;
+	for (i = 0; i < dynsymtab.nr_sym; i++) {
+		struct sym *sym = dynsymtab.sym + i;
 		free(sym->name);
 	}
 
-	free(symtab.sym_names);
-	free(symtab.sym);
+	free(dynsymtab.sym_names);
+	free(dynsymtab.sym);
 
-	symtab.nr_sym = 0;
-	symtab.sym = NULL;
-	symtab.sym_names = NULL;
+	dynsymtab.nr_sym = 0;
+	dynsymtab.sym = NULL;
+	dynsymtab.sym_names = NULL;
 }
 
 int load_dynsymtab(const char *filename)
@@ -330,24 +438,8 @@ out:
 
 elf_error:
 	printf("ftrace:load_dynsymtab: %s\n", elf_errmsg(elf_errno()));
+	unload_dynsymtab();
 	goto out;
-}
-
-void unload_dynsymtab(void)
-{
-	size_t i;
-
-	for (i = 0; i < dynsymtab.nr_sym; i++) {
-		struct sym *sym = dynsymtab.sym + i;
-		free(sym->name);
-	}
-
-	free(dynsymtab.sym_names);
-	free(dynsymtab.sym);
-
-	dynsymtab.nr_sym = 0;
-	dynsymtab.sym = NULL;
-	dynsymtab.sym_names = NULL;
 }
 
 struct sym * find_dynsym(size_t idx)

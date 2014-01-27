@@ -178,7 +178,13 @@ static void build_addrlist(char *buf, char *symlist)
 			snprintf(tmp, sizeof(tmp), "%s%#lx",
 				 p ? "" : ":", sym->addr);
 			strcat(buf, tmp);
+			if (debug)
+				printf("filter: %#lx (%s)\n", sym->addr, fname);
+		} else if (debug) {
+			printf("ftrace: cannot find symbol: %s\n", fname);
+			printf("ftrace: skip setting filter..\n");
 		}
+
 		p = NULL;
 		fname = strtok(p, ",:");
 	}
@@ -236,7 +242,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		rename(opts->filename, oldname);
 	}
 
-	if (load_symtab(opts->exename) < 0)
+	if (load_symtabs(opts->exename) < 0)
 		return -1;
 
 	sym = find_symname("mcount");
@@ -268,12 +274,19 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (WIFSIGNALED(status)) {
 		printf("child (%s) was terminated by signal: %d\n",
 		       opts->exename, WTERMSIG(status));
-	}
+	} else if (debug)
+		printf("child terminated with %d\n", WEXITSTATUS(status));
 
 	if (access(opts->filename, F_OK) < 0) {
 		printf("Cannot generate data file\n");
 		return -1;
 	}
+
+	/*
+	 * Do not unload symbol tables.  It might save some time when used by
+	 * 'live' command as it also need to load symtabs again.
+	 */
+	//unload_symtabs();
 	return 0;
 }
 
@@ -383,11 +396,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (fp == NULL)
 		return -1;
 
-	ret = load_symtab(opts->exename);
-	if (ret < 0)
-		goto out;
-
-	ret = load_dynsymtab(opts->exename);
+	ret = load_symtabs(opts->exename);
 	if (ret < 0)
 		goto out;
 
@@ -401,8 +410,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	unload_dynsymtab();
-	unload_symtab();
+	unload_symtabs();
 out:
 	fclose(fp);
 
@@ -523,11 +531,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	if (fp == NULL)
 		return -1;
 
-	ret = load_symtab(opts->exename);
-	if (ret < 0)
-		goto out;
-
-	ret = load_dynsymtab(opts->exename);
+	ret = load_symtabs(opts->exename);
 	if (ret < 0)
 		goto out;
 
@@ -564,8 +568,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		       entry->time_self, entry->nr_called);
 	}
 
-	unload_dynsymtab();
-	unload_symtab();
+	unload_symtabs();
 out:
 	fclose(fp);
 

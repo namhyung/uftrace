@@ -18,8 +18,8 @@ struct symtab {
 
 struct sym * find_symtab(unsigned long addr);
 struct sym * find_symname(const char *name);
-int load_symtab(const char *filename);
-void unload_symtab(void);
+int load_symtabs(const char *filename);
+void unload_symtabs(void);
 
 struct sym * find_dynsym(size_t idx);
 size_t count_dynsym(void);
