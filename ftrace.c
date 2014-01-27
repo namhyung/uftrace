@@ -194,13 +194,15 @@ static void setup_child_environ(struct opts *opts)
 		strcat(buf, old_preload);
 	}
 	setenv("LD_PRELOAD", buf, 1);
-
+#if 0
 	snprintf(buf, sizeof(buf), "%s/%s", lib_path, "librtld-audit.so");
 	if (old_audit) {
 		strcat(buf, ":");
 		strcat(buf, old_audit);
 	}
 	setenv("LD_AUDIT", buf, 1);
+#endif
+	setenv("LD_BIND_NOT", "1", 1);
 
 	if (opts->filter) {
 		build_addrlist(buf, opts->filter);
@@ -390,6 +392,10 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		goto out;
 
+	ret = load_dynsymtab(opts->exename);
+	if (ret < 0)
+		goto out;
+
 	while (fread(&rstack, sizeof(rstack), 1, fp) == 1) {
 		if (opts->flat)
 			ret = print_flat_rstack(&rstack, fp);
@@ -400,6 +406,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
+	unload_dynsymtab();
 	unload_symtab();
 out:
 	fclose(fp);
@@ -525,6 +532,10 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		goto out;
 
+	ret = load_dynsymtab(opts->exename);
+	if (ret < 0)
+		goto out;
+
 	while (fread(&rstack, sizeof(rstack), 1, fp) == 1) {
 		struct sym *sym;
 		struct trace_entry te;
@@ -558,6 +569,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		       entry->time_self, entry->nr_called);
 	}
 
+	unload_dynsymtab();
 	unload_symtab();
 out:
 	fclose(fp);

@@ -21,7 +21,7 @@ mcount:
 
 	call mcount_entry
 	cmpq $0, %rax
-	jnz 1f
+	jne 1f
 
 	/* hijack return address */
 	movabs $mcount_return@GOTOFF, %rdx

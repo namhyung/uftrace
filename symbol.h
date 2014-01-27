@@ -21,4 +21,9 @@ struct sym * find_symname(const char *name);
 int load_symtab(const char *filename);
 void unload_symtab(void);
 
+struct sym * find_dynsym(size_t idx);
+size_t count_dynsym(void);
+int load_dynsymtab(const char *filename);
+void unload_dynsymtab(void);
+
 #endif /* FTRACE_SYMBOL_H */

@@ -7,8 +7,10 @@
 #include <unistd.h>
 
 #include "symbol.h"
+#include "utils.h"
 
 static struct symtab symtab;
+static struct symtab dynsymtab;
 
 static int addrsort(const void *a, const void *b)
 {
@@ -77,7 +79,7 @@ int load_symtab(const char *filename)
 		if (errno == ENOENT)
 			printf(ftrace_msg, filename, filename);
 		else
-			perror("ftrace");
+			perror("ftrace:load_symtab");
 		return ret;
 	}
 
@@ -119,10 +121,6 @@ int load_symtab(const char *filename)
 	if (sym_data == NULL)
 		goto elf_error;
 
-	symtab.sym = NULL;
-	symtab.nr_sym = 0;
-	symtab.nr_alloc = 0;
-
 	for (i = 0; i < nr_sym; i++) {
 		GElf_Sym elf_sym;
 		struct sym *sym;
@@ -140,7 +138,7 @@ int load_symtab(const char *filename)
 					     symtab.nr_alloc * sizeof(*sym));
 
 			if (symtab.sym == NULL) {
-				perror("load_symtab");
+				perror("ftrace:load_symtab");
 				goto out;
 			}
 		}
@@ -186,21 +184,6 @@ elf_error:
 	goto out;
 }
 
-struct sym * find_symtab(unsigned long addr)
-{
-	return bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
-		       sizeof(*symtab.sym), addrfind);
-}
-
-struct sym * find_symname(const char *name)
-{
-	struct sym **psym;
-
-	psym = bsearch(name, symtab.sym_names, symtab.nr_sym,
-		       sizeof(*symtab.sym_names), namefind);
-	return psym ? *psym : NULL;
-}
-
 void unload_symtab(void)
 {
 	size_t i;
@@ -216,4 +199,201 @@ void unload_symtab(void)
 	symtab.nr_sym = 0;
 	symtab.sym = NULL;
 	symtab.sym_names = NULL;
+}
+
+int load_dynsymtab(const char *filename)
+{
+	int fd;
+	int ret = -1;
+	int idx, nr_rels = 0;
+	Elf *elf;
+	Elf_Scn *dynsym_sec, *relplt_sec, *sec;
+	Elf_Data *dynsym_data, *relplt_data;
+	size_t shstr_idx, dynstr_idx = 0;
+	GElf_Addr plt_addr = 0;
+	size_t plt_entsize = 1;
+	int rel_type = SHT_NULL;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			printf(ftrace_msg, filename, filename);
+		else
+			perror("ftrace");
+		return -1;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto elf_error;
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		goto elf_error;
+
+	sec = dynsym_sec = relplt_sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *shstr;
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			goto elf_error;
+
+		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+
+		if (strcmp(shstr, ".dynsym") == 0) {
+			dynsym_sec = sec;
+			dynstr_idx = shdr.sh_link;
+		} else if (strcmp(shstr, ".rela.plt") == 0) {
+			relplt_sec = sec;
+			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			rel_type = SHT_RELA;
+		} else if (strcmp(shstr, ".rel.plt") == 0) {
+			relplt_sec = sec;
+			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			rel_type = SHT_REL;
+		} else if (strcmp(shstr, ".plt") == 0) {
+			plt_addr = shdr.sh_addr;
+			plt_entsize = shdr.sh_entsize;
+			//plt_addr += shdr.sh_entsize; /* skip first entry */
+		}
+	}
+
+	if (dynsym_sec == NULL || plt_addr == 0) {
+		printf("ftrace: cannot find dynamic symbols.. skipping\n");
+		ret = 0;
+		goto out;
+	}
+
+	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
+		printf("ftrace: cannot find relocation info for PLT\n");
+		goto out;
+	}
+
+	relplt_data = elf_getdata(relplt_sec, NULL);
+	if (relplt_data == NULL)
+		goto elf_error;
+
+	dynsym_data = elf_getdata(dynsym_sec, NULL);
+	if (dynsym_data == NULL)
+		goto elf_error;
+
+	for (idx = 0; idx < nr_rels; idx++) {
+		GElf_Sym esym;
+		struct sym *sym;
+		int symidx;
+		char *name;
+
+		if (rel_type == SHT_RELA) {
+			GElf_Rela rela;
+
+			if (gelf_getrela(relplt_data, idx, &rela) == NULL)
+				goto elf_error;
+
+			symidx = GELF_R_SYM(rela.r_info);
+		} else {
+			GElf_Rel rel;
+
+			if (gelf_getrel(relplt_data, idx, &rel) == NULL)
+				goto elf_error;
+
+			symidx = GELF_R_SYM(rel.r_info);
+		}
+
+		gelf_getsym(dynsym_data, symidx, &esym);
+		name = elf_strptr(elf, dynstr_idx, esym.st_name);
+
+		if (dynsymtab.nr_sym >= dynsymtab.nr_alloc) {
+			dynsymtab.nr_alloc += SYMTAB_GROW;
+			dynsymtab.sym = realloc(dynsymtab.sym,
+						dynsymtab.nr_alloc * sizeof(*sym));
+
+			if (dynsymtab.sym == NULL) {
+				perror("ftrace:load_dynsymtab");
+				goto out;
+			}
+		}
+
+		sym = &dynsymtab.sym[dynsymtab.nr_sym++];
+
+		sym->addr = plt_addr + (idx + 1) * plt_entsize;
+		sym->size = plt_entsize;
+		sym->name = xstrdup(name);
+	}
+	ret = 0;
+
+out:
+	elf_end(elf);
+	close(fd);
+	return ret;
+
+elf_error:
+	printf("ftrace:load_dynsymtab: %s\n", elf_errmsg(elf_errno()));
+	goto out;
+}
+
+void unload_dynsymtab(void)
+{
+	size_t i;
+
+	for (i = 0; i < dynsymtab.nr_sym; i++) {
+		struct sym *sym = dynsymtab.sym + i;
+		free(sym->name);
+	}
+
+	free(dynsymtab.sym_names);
+	free(dynsymtab.sym);
+
+	dynsymtab.nr_sym = 0;
+	dynsymtab.sym = NULL;
+	dynsymtab.sym_names = NULL;
+}
+
+struct sym * find_dynsym(size_t idx)
+{
+	if (idx >= dynsymtab.nr_sym)
+		return NULL;
+
+	return &dynsymtab.sym[idx];
+}
+
+size_t count_dynsym(void)
+{
+	return dynsymtab.nr_sym;
+}
+
+struct sym * find_symtab(unsigned long addr)
+{
+	struct sym *sym;
+	sym = bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
+		      sizeof(*symtab.sym), addrfind);
+
+	if (sym)
+		return sym;
+
+	addr -= 9; /* CALL_SIZE */
+
+	/* try dynamic symbols if failed */
+	sym = bsearch((const void *)addr, dynsymtab.sym, dynsymtab.nr_sym,
+		      sizeof(*dynsymtab.sym), addrfind);
+
+	return sym;
+}
+
+struct sym * find_symname(const char *name)
+{
+	struct sym **psym;
+	size_t i;
+
+	psym = bsearch(name, symtab.sym_names, symtab.nr_sym,
+		       sizeof(*symtab.sym_names), namefind);
+	if (psym)
+		return *psym;
+
+	for (i = 0; i < dynsymtab.nr_sym; i++)
+		if (!strcmp(name, dynsymtab.sym[i].name))
+			return &dynsymtab.sym[i];
+
+	return NULL;
 }

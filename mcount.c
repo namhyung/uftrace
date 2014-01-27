@@ -5,10 +5,13 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <assert.h>
 #include <sys/syscall.h>
+#include <gelf.h>
 
 #include "mcount.h"
+#include "symbol.h"
 
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
@@ -20,6 +23,8 @@ static unsigned long *filter_trace;
 static unsigned nr_filter;
 static unsigned long *filter_notrace;
 static unsigned nr_notrace;
+
+unsigned long plthook_resolver_addr;
 
 static unsigned long mcount_gettime(void)
 {
@@ -83,7 +88,7 @@ static bool mcount_match(unsigned long ip1, unsigned long ip2)
 }
 
 /*
- * return 1 if it should be traced, 0 if it should not.
+ * return 1 if it should be traced, 0 otherwise.
  * return -1 if it's filtered at notrace - needs special treatment.
  */
 static int mcount_filter(unsigned long ip)
@@ -251,12 +256,105 @@ static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
 	*size = 0;
 }
 
+extern void plt_hooker(void);
+
+static int hook_pltgot(void)
+{
+	int fd;
+	int ret = -1;
+	char buf[1024];
+	Elf *elf;
+	Elf_Scn *sec;
+	GElf_Shdr shdr;
+	size_t shstr_idx;
+
+	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+	if (len == -1) {
+		if (debug)
+			printf("ftrace: error during read executable link\n");
+		return -1;
+	}
+	buf[len] = '\0';
+
+	if (debug)
+		printf("opening executable image: %s\n", buf);
+
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		goto elf_error;
+
+	sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *str;
+
+		gelf_getshdr(sec, &shdr);
+
+		str = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		if (!strcmp(str, ".got.plt")) {
+			unsigned long *got = (void *)shdr.sh_addr;
+
+			plthook_resolver_addr = got[2];
+			got[2] = (unsigned long)plt_hooker;
+			break;
+		}
+	}
+	ret = 0;
+
+out:
+	elf_end(elf);
+	close(fd);
+
+	return ret;
+
+elf_error:
+	if (debug) {
+		printf("ftrace: %s\n", elf_errmsg(elf_errno()));
+	}
+	goto out;
+}
+
+unsigned long plthook_orig_resolver;
+
+unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
+			    unsigned long module_id)
+{
+	struct sym *sym = find_dynsym(child_idx);
+	unsigned long child_ip = sym ? sym->addr : 0;
+
+	if (child_ip == 0) {
+		printf("ERROR: invalid function idx found! (idx: %d, %#lx)\n",
+		       (int) child_idx, child_idx);
+		exit(1);
+	}
+
+	/* should skip internal functions */
+	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup"))
+		return -1;
+
+	return mcount_entry(parent_ip, child_ip + CALL_SIZE);
+}
+
+unsigned long plthook_exit(void)
+{
+	return mcount_exit();
+}
+
 /*
  * external interfaces
  */
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
+	int len;
+	char buf[1024];
+
 	if (getenv("FTRACE_DEBUG"))
 		debug = true;
 
@@ -265,6 +363,15 @@ __monstartup(unsigned long low, unsigned long high)
 
 	if (mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace) < 0)
 		exit(1);
+
+	len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+	if (len < 0)
+		exit(1);
+	buf[len] = '\0';
+
+	load_dynsymtab(buf);
+
+	hook_pltgot();
 }
 
 void __attribute__((visibility("default")))
