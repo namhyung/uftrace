@@ -1,4 +1,5 @@
 *.o
+*.op
 a.out
 ftrace
 ftrace.data
