@@ -185,7 +185,6 @@ static void setup_child_environ(struct opts *opts)
 {
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
-	const char *old_audit = getenv("LD_AUDIT");
 	const char *lib_path = opts->lib_path ?: ".";
 
 	snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libmcount.so");
@@ -194,14 +193,7 @@ static void setup_child_environ(struct opts *opts)
 		strcat(buf, old_preload);
 	}
 	setenv("LD_PRELOAD", buf, 1);
-#if 0
-	snprintf(buf, sizeof(buf), "%s/%s", lib_path, "librtld-audit.so");
-	if (old_audit) {
-		strcat(buf, ":");
-		strcat(buf, old_audit);
-	}
-	setenv("LD_AUDIT", buf, 1);
-#endif
+
 	setenv("LD_BIND_NOT", "1", 1);
 
 	if (opts->filter) {

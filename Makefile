@@ -8,7 +8,7 @@ LDFLAGS = -lelf
 
 CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
-TARGETS = libmcount.so librtld-audit.so ftrace
+TARGETS = libmcount.so ftrace
 
 FTRACE_SRCS = ftrace.c symbol.c rbtree.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
@@ -27,14 +27,8 @@ mcount.op: mcount.c mcount.h
 symbol.op: symbol.c symbol.h
 	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $<
 
-audit.o: audit.c
-	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
-
 libmcount.so: mcount.op entry.op plthook.op symbol.op
 	$(CC) -shared -o $@ $^ -pthread -lelf
-
-librtld-audit.so: audit.o
-	$(CC) -shared -o $@ $^
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
