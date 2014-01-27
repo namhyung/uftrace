@@ -83,8 +83,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		if (state->arg_num) {
 			/*
 			 * This is a second non-option argument.
-			 * Returning _UNKNOWN will pass control to
-			 * ARGP_KEY_ARGS case.
+			 * Returning ARGP_ERR_UNKNOWN will pass control to
+			 * the ARGP_KEY_ARGS case.
 			 */
 			return ARGP_ERR_UNKNOWN;
 		}
@@ -101,6 +101,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case ARGP_KEY_ARGS:
+		/*
+		 * process remaining non-option arguments
+		 */
 		if (opts->mode == FTRACE_MODE_INVALID)
 			opts->mode = FTRACE_MODE_DEFAULT;
 
