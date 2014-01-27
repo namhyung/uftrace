@@ -1,10 +1,9 @@
 - gcc -mfentry option support
-- argument display (with DWARF?)
 - ARM compatibility check
-- implement report command
 - thread filter on report
 - column view
 - timechart support?
-- LD_AUDIT or some other method for tracking library calls
 - better multi-thread support
+- argument display (with DWARF?)
 - dlopen() support
+- LD_BIND_NOW support?
