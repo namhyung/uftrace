@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|report] <command> [args...]",
+		.args_doc = "[record|replay|live|report] <command> [args...]",
 		.doc = "ftrace -- a function tracer",
 	};
 
