@@ -1,4 +1,3 @@
-- C++ (name mangling) support
 - ARM compatibility check
 - thread filter on report
 - column view

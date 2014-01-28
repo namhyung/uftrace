@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <gelf.h>
@@ -11,6 +12,11 @@
 
 static struct symtab symtab;
 static struct symtab dynsymtab;
+
+static bool use_demangle = true;
+/* copied from /usr/include/c++/4.7.2/cxxabi.h */
+extern char * __cxa_demangle(const char *mangled_name, char *output_buffer,
+			     size_t *length, int *status);
 
 static int addrsort(const void *a, const void *b)
 {
@@ -488,4 +494,35 @@ struct sym * find_symname(const char *name)
 			return &dynsymtab.sym[i];
 
 	return NULL;
+}
+
+char *symbol_getname(struct sym *sym)
+{
+	char *name;
+
+	if (sym == NULL)
+		return "<unknown>";
+
+	if (use_demangle && sym->name[0] == '_' && sym->name[1] == 'Z') {
+		int status = -1;
+
+		name = __cxa_demangle(sym->name, NULL, NULL, &status);
+		if (status != 0)
+			name = sym->name;
+	} else
+		name = sym->name;
+
+	return name;
+}
+
+/* must be used in pair with symbol_getname() */
+void symbol_putname(struct sym *sym, char *name)
+{
+	if (!use_demangle)
+		return;
+
+	if (!strcmp(name, "<unknown>") || !strcmp(name, sym->name))
+		return;
+
+	free(name);
 }

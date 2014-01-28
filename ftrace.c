@@ -330,8 +330,8 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 	static int count;
 	struct sym *parent = find_symtab(rstack->parent_ip);
 	struct sym *child = find_symtab(rstack->child_ip);
-	const char *parent_name = parent ? parent->name : "unknown";
-	const char *child_name = child ? child->name : "unknown";
+	char *parent_name = symbol_getname(parent);
+	char *child_name = symbol_getname(child);
 
 	if (rstack->end_time == 0) {
 		printf("[%d] %d/%d: ip (%s -> %s), time (%lu)\n",
@@ -343,12 +343,16 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 		       child_name, rstack->end_time,
 		       rstack->end_time - rstack->start_time);
 	}
+
+	symbol_putname(parent, parent_name);
+	symbol_putname(child, child_name);
 	return 0;
 }
 
 static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 {
 	struct sym *sym = find_symtab(rstack->child_ip);
+	char *symname = symbol_getname(sym);
 
 	if (rstack->end_time == 0) {
 		fpos_t pos;
@@ -358,6 +362,7 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 
 		if (fread(&rstack_next, sizeof(rstack_next), 1, fp) != 1) {
 			perror("error reading rstack");
+			symbol_putname(sym, symname);
 			return -1;
 		}
 
@@ -366,13 +371,11 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 			/* leaf function - also consume return record */
 			printf("%4lu usec [%5d] | %*s%s();\n",
 			       rstack_next.end_time - rstack->start_time,
-			       rstack->tid, rstack->depth * 2, "",
-			       sym ? sym->name : "unknown");
+			       rstack->tid, rstack->depth * 2, "", symname);
 		} else {
 			/* function entry */
 			printf("%9s [%5d] | %*s%s() {\n", "",
-			       rstack->tid, rstack->depth * 2, "",
-			       sym ? sym->name : "unknown");
+			       rstack->tid, rstack->depth * 2, "", symname);
 
 			/* need to re-process return record */
 			fsetpos(fp, &pos);
@@ -381,9 +384,10 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 		/* function exit */
 		printf("%4lu usec [%5d] | %*s} /* %s */\n",
 		       rstack->end_time - rstack->start_time,
-		       rstack->tid, rstack->depth * 2, "",
-		       sym ? sym->name : "unknown");
+		       rstack->tid, rstack->depth * 2, "", symname);
 	}
+
+	symbol_putname(sym, symname);
 	return 0;
 }
 
@@ -452,7 +456,7 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 }
 
 struct trace_entry {
-	char *name;
+	struct sym *sym;
 	unsigned long time_total;
 	unsigned long time_self;
 	unsigned long nr_called;
@@ -471,7 +475,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te)
 		parent = *p;
 		entry = rb_entry(parent, struct trace_entry, link);
 
-		cmp = strcmp(entry->name, te->name);
+		cmp = strcmp(entry->sym->name, te->sym->name);
 		if (cmp == 0) {
 			entry->time_total += te->time_total;
 			entry->time_self  += te->time_self;
@@ -486,7 +490,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te)
 	}
 
 	entry = xmalloc(sizeof(*entry));
-	entry->name = xstrdup(te->name);
+	entry->sym = te->sym;
 	entry->time_total = te->time_total;
 	entry->time_self  = te->time_self;
 	entry->nr_called  = 1;
@@ -546,7 +550,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		sym = find_symtab(rstack.child_ip);
 		assert(sym != NULL);
 
-		te.name = sym->name;
+		te.sym = sym;
 		te.time_total = rstack.end_time - rstack.start_time;
 		te.time_self = te.time_total - rstack.child_time;
 
@@ -564,9 +568,14 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	printf(h_format, line, line, line, line);
 
 	for (node = rb_first(&time_tree); node; node = rb_next(node)) {
+		char *symname;
+
 		entry = rb_entry(node, struct trace_entry, link);
-		printf(l_format, entry->name, entry->time_total,
+
+		symname = symbol_getname(entry->sym);
+		printf(l_format, symname, entry->time_total,
 		       entry->time_self, entry->nr_called);
+		symbol_putname(entry->sym, symname);
 	}
 
 	unload_symtabs();

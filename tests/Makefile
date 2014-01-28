@@ -1,10 +1,11 @@
 CC = gcc
+CXX = g++
 RM = rm -f
 FTRACE = ../ftrace
 
 CFLAGS = -O0 -g -pg
 
-TARGETS = t-abc t-threaded-abc t-arg t-fentry
+TARGETS = t-abc t-threaded-abc t-arg t-fentry t-demangle
 
 all: $(TARGETS)
 
@@ -19,6 +20,9 @@ t-arg: arg.c
 
 t-fentry: fentry.c
 	$(CC) $(CFLAGS) -mfentry -o $@ $<
+
+t-demangle: demangle.cpp
+	$(CXX) $(CFLAGS) -o $@ $<
 
 test: all
 	@for t in $(TARGETS); do $(FTRACE) -L .. $$t 1 2 3; done;

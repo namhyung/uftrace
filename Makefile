@@ -34,7 +34,7 @@ libmcount.so: mcount.op entry.op plthook.op symbol.op fentry.op
 	$(CC) -shared -o $@ $^ -pthread -lelf
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
-	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS) -lstdc++
 
 test: all
 	@$(MAKE) --no-print-directory -C tests test
