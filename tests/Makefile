@@ -28,6 +28,6 @@ test: all
 	@for t in $(TARGETS); do $(FTRACE) -L .. $$t 1 2 3; done;
 
 clean:
-	$(RM) $(TARGETS) *.o
+	$(RM) $(TARGETS) *.o ftrace.data* gmon.out
 
 .PHONY: clean test

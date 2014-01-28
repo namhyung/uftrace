@@ -40,6 +40,7 @@ test: all
 	@$(MAKE) --no-print-directory -C tests test
 
 clean:
-	$(RM) *.o *.op $(TARGETS)
+	$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out
+	@$(MAKE) --no-print-directory -C tests clean
 
 .PHONY: all clean test
