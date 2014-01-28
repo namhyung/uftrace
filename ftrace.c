@@ -240,7 +240,6 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	int pid;
 	int status;
 	char oldname[512];
-	struct sym *sym;
 
 	/* backup old 'ftrace.data' file */
 	if (strcmp(FTRACE_FILE_NAME, opts->filename) == 0) {
@@ -253,13 +252,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (load_symtabs(opts->exename) < 0)
 		return -1;
 
-	sym = find_symname("mcount");
-	if (sym == NULL /* || sym->size != 0 */) {
-		sym = find_symname("__fentry__");
-		if (sym == NULL) {
-			printf(mcount_msg, "mcount", opts->exename);
-			return -1;
-		}
+	if (!find_symname("mcount") && !find_symname("__fentry__") &&
+	    !find_symname("__gnu_mcount_nc")) {
+		printf(mcount_msg, "mcount", opts->exename);
+		return -1;
 	}
 
 	fflush(stdout);

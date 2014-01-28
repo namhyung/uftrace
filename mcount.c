@@ -298,7 +298,7 @@ static int hook_pltgot(void)
 
 		str = elf_strptr(elf, shstr_idx, shdr.sh_name);
 		if (!strcmp(str, ".got.plt")) {
-			unsigned long *got = (void *)shdr.sh_addr;
+			unsigned long *got = (void *)(long)shdr.sh_addr;
 
 			plthook_resolver_addr = got[2];
 			got[2] = (unsigned long)plt_hooker;

@@ -36,7 +36,7 @@ arch/$(ARCH)/entry.op:
 	@$(MAKE) -C arch/$(ARCH)
 
 libmcount.so: mcount.op symbol.op arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ -pthread -lelf
+	$(CC) -shared -o $@ $^ -pthread -lelf -lrt
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS) -lstdc++

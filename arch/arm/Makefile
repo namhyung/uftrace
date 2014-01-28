@@ -5,7 +5,7 @@ RM = rm -f
 ASFLAGS = -fPIC
 LDFLAGS = -r
 
-ARCH_ENTRY_SRC = mcount.S fentry.S plthook.S
+ARCH_ENTRY_SRC = mcount.S
 
 all: entry.op
 
