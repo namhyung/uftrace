@@ -17,7 +17,8 @@
 const char *argp_program_version = "ftrace v0.1";
 const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 
-#define OPT_flat  301
+#define OPT_flat 	301
+#define OPT_plthook 	302
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -26,6 +27,7 @@ static struct argp_option ftrace_options[] = {
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
+	{ "plthook", OPT_plthook, 0, 0, "Hook library function calls" },
 	{ 0 }
 };
 
@@ -44,8 +46,9 @@ struct opts {
 	char *exename;
 	char *filename;
 	int mode;
-	int flat;
 	int idx;
+	bool flat;
+	bool want_plthook;
 };
 
 static bool debug;
@@ -76,7 +79,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_flat:
-		opts->flat = 1;
+		opts->flat = true;
+		break;
+
+	case OPT_plthook:
+		opts->want_plthook = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -212,6 +219,9 @@ static void setup_child_environ(struct opts *opts)
 		build_addrlist(buf, opts->notrace);
 		setenv("FTRACE_NOTRACE", buf, 1);
 	}
+
+	if (opts->want_plthook)
+		setenv("FTRACE_PLTHOOK", "1", 1);
 
 	if (strcmp(opts->filename, FTRACE_FILE_NAME))
 		setenv("FTRACE_FILE", opts->filename, 1);

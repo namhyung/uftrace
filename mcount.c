@@ -256,7 +256,7 @@ static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
 	*size = 0;
 }
 
-extern void plt_hooker(void);
+extern void __attribute__((weak)) plt_hooker(void);
 
 static int hook_pltgot(void)
 {
@@ -353,9 +353,6 @@ unsigned long plthook_exit(void)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
-	int len;
-	char buf[1024];
-
 	if (getenv("FTRACE_DEBUG"))
 		debug = true;
 
@@ -365,14 +362,18 @@ __monstartup(unsigned long low, unsigned long high)
 	if (mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace) < 0)
 		exit(1);
 
-	len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
-	if (len < 0)
-		exit(1);
-	buf[len] = '\0';
+	if (getenv("FTRACE_PLTHOOK")) {
+		int len;
+		char buf[1024];
 
-	load_dynsymtab(buf);
+		len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+		if (len < 0)
+			exit(1);
+		buf[len] = '\0';
 
-	hook_pltgot();
+		load_dynsymtab(buf);
+		hook_pltgot();
+	}
 }
 
 void __attribute__((visibility("default")))
