@@ -36,7 +36,9 @@
  * parameters.)
  */
 
-.globl __gnu_mcount_nc
+	.text
+	.globl __gnu_mcount_nc
+	.align 2
 __gnu_mcount_nc:
 	push 	{r0-r3, lr}
 	mov 	r1, lr
@@ -67,5 +69,6 @@ mcount_return:
 	mov 	ip, r0
 	pop 	{r0-r3, lr}
 	bx	ip
+
 .type mcount_return, %function
 .size mcount_return, .-mcount_return

@@ -297,10 +297,12 @@ static int hook_pltgot(void)
 		gelf_getshdr(sec, &shdr);
 
 		str = elf_strptr(elf, shstr_idx, shdr.sh_name);
-		if (!strcmp(str, ".got.plt")) {
+		if (!strcmp(str, ".got.plt") ||
+		    (!strcmp(str, ".got") && plthook_resolver_addr == 0)) {
 			unsigned long *got = (void *)(long)shdr.sh_addr;
 
 			plthook_resolver_addr = got[2];
+			printf("found GOT: %p (resolver = %#lx)\n", got, got[2]);
 			got[2] = (unsigned long)plt_hooker;
 			break;
 		}
@@ -327,6 +329,7 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 {
 	struct sym *sym = find_dynsym(child_idx);
 	unsigned long child_ip = sym ? sym->addr : 0;
+	long ret;
 
 	if (child_ip == 0) {
 		printf("ERROR: invalid function idx found! (idx: %d, %#lx)\n",
@@ -334,12 +337,16 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 		exit(1);
 	}
 
+	if (debug)
+		printf("%s: %s\n", __func__, sym->name);
+
 	/* should skip internal functions */
 	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||
-	    !strcmp(sym->name, "__fentry__"))
+	    !strcmp(sym->name, "__fentry__") || !strcmp(sym->name, "__gnu_mcount_nc"))
 		return -1;
 
-	return mcount_entry(parent_ip, child_ip + CALL_SIZE);
+	ret = mcount_entry(parent_ip, child_ip + CALL_SIZE);
+	return ret;
 }
 
 unsigned long plthook_exit(void)
