@@ -526,3 +526,22 @@ void symbol_putname(struct sym *sym, char *name)
 
 	free(name);
 }
+
+void print_symtabs(void)
+{
+	size_t i;
+
+	printf("Normal symbols\n");
+	printf("==============\n");
+	for (i = 0; i < symtab.nr_sym; i++)
+		printf("[%2zd] %s (%lu)\n", i, symtab.sym[i].name, symtab.sym[i].size);
+
+	printf("\n\n");
+	printf("Dynamic symbols\n");
+	printf("===============\n");
+	for (i = 0; i < dynsymtab.nr_sym; i++)
+		printf("[%2zd] %s (%lu)\n", i, dynsymtab.sym[i].name, dynsymtab.sym[i].size);
+
+}
+
+

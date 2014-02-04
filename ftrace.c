@@ -19,6 +19,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 
 #define OPT_flat 	301
 #define OPT_plthook 	302
+#define OPT_symbols	303
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -28,6 +29,7 @@ static struct argp_option ftrace_options[] = {
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "plthook", OPT_plthook, 0, 0, "Hook library function calls" },
+	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ 0 }
 };
 
@@ -49,6 +51,7 @@ struct opts {
 	int idx;
 	bool flat;
 	bool want_plthook;
+	bool print_symtab;
 };
 
 static bool debug;
@@ -84,6 +87,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_plthook:
 		opts->want_plthook = true;
+		break;
+
+	case OPT_symbols:
+		opts->print_symtab = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -149,6 +156,13 @@ int main(int argc, char *argv[])
 	};
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+
+	if (opts.print_symtab) {
+		load_symtabs(opts.exename);
+		print_symtabs();
+		unload_symtabs();
+		exit(0);
+	}
 
 	switch (opts.mode) {
 	case FTRACE_MODE_RECORD:
