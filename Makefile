@@ -32,7 +32,7 @@ mcount.op: mcount.c mcount.h
 symbol.op: symbol.c symbol.h
 	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $<
 
-arch/$(ARCH)/entry.op:
+arch/$(ARCH)/entry.op: PHONY
 	@$(MAKE) -C arch/$(ARCH)
 
 libmcount.so: mcount.op symbol.op arch/$(ARCH)/entry.op
@@ -49,4 +49,4 @@ clean:
 	@$(MAKE) -C tests clean
 	@$(MAKE) -C arch/$(ARCH) clean
 
-.PHONY: all clean test
+.PHONY: all clean test PHONY
