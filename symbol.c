@@ -534,13 +534,15 @@ void print_symtabs(void)
 	printf("Normal symbols\n");
 	printf("==============\n");
 	for (i = 0; i < symtab.nr_sym; i++)
-		printf("[%2zd] %s (%lu)\n", i, symtab.sym[i].name, symtab.sym[i].size);
+		printf("[%2zd] %s (%#lx) size: %lu\n", i, symtab.sym[i].name,
+		       symtab.sym[i].addr, symtab.sym[i].size);
 
 	printf("\n\n");
 	printf("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dynsymtab.nr_sym; i++)
-		printf("[%2zd] %s (%lu)\n", i, dynsymtab.sym[i].name, dynsymtab.sym[i].size);
+		printf("[%2zd] %s (%#lx) size: %lu\n", i, dynsymtab.sym[i].name,
+		       dynsymtab.sym[i].addr, dynsymtab.sym[i].size);
 
 }
 
