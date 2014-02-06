@@ -8,3 +8,5 @@ libmcount.so
 librtld-audit.so
 gmon.out
 tests/t-*
+tests/arch/*/t-*
+
