@@ -42,11 +42,11 @@ ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS) -lstdc++
 
 test: all
-	@$(MAKE) -C tests test
+	@$(MAKE) -C tests ARCH=$(ARCH) test
 
 clean:
 	$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out
-	@$(MAKE) -C tests clean
 	@$(MAKE) -C arch/$(ARCH) clean
+	@$(MAKE) -C tests ARCH=$(ARCH) clean
 
 .PHONY: all clean test PHONY
