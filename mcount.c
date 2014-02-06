@@ -26,11 +26,11 @@ static unsigned nr_notrace;
 
 unsigned long plthook_resolver_addr;
 
-static unsigned long mcount_gettime(void)
+static uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
 static int gettid(void)

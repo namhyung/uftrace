@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <argp.h>
 #include <unistd.h>
@@ -369,6 +370,35 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 	return 0;
 }
 
+static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
+{
+	uint64_t delta = 0;
+	uint64_t delta_small;
+	char *unit[] = { "us", "ms", "s", "m", "h", };
+	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
+	unsigned idx;
+
+	if (start_nsec == 0UL && end_nsec == 0UL) {
+		printf(" %7s %2s", "", "");
+		return;
+	}
+
+	for (idx = 0; idx < ARRAY_SIZE(unit); idx++) {
+		if (delta == 0)
+			delta = end_nsec - start_nsec;
+
+		delta_small = delta % limit[idx];
+		delta = delta / limit[idx];
+
+		if (delta < limit[idx+1])
+			break;
+	}
+
+	assert(idx < ARRAY_SIZE(unit));
+
+	printf(" %3"PRIu64".%03"PRIu64" %2s", delta, delta_small, unit[idx]);
+}
+
 static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 {
 	struct sym *sym = find_symtab(rstack->child_ip);
@@ -389,22 +419,23 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 		if (rstack_next.depth == rstack->depth &&
 		    rstack_next.end_time != 0) {
 			/* leaf function - also consume return record */
-			printf("%4lu usec [%5d] | %*s%s();\n",
-			       rstack_next.end_time - rstack->start_time,
-			       rstack->tid, rstack->depth * 2, "", symname);
+			print_time_unit(rstack->start_time, rstack_next.end_time);
+			printf(" [%5d] | %*s%s();\n", rstack->tid,
+			       rstack->depth * 2, "", symname);
 		} else {
 			/* function entry */
-			printf("%9s [%5d] | %*s%s() {\n", "",
-			       rstack->tid, rstack->depth * 2, "", symname);
+			print_time_unit(0UL, 0UL);
+			printf(" [%5d] | %*s%s() {\n", rstack->tid,
+			       rstack->depth * 2, "", symname);
 
 			/* need to re-process return record */
 			fsetpos(fp, &pos);
 		}
 	} else {
 		/* function exit */
-		printf("%4lu usec [%5d] | %*s} /* %s */\n",
-		       rstack->end_time - rstack->start_time,
-		       rstack->tid, rstack->depth * 2, "", symname);
+		print_time_unit(rstack->start_time, rstack->end_time);
+		printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
+		       rstack->depth * 2, "", symname);
 	}
 
 	symbol_putname(sym, symname);
@@ -477,8 +508,8 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 
 struct trace_entry {
 	struct sym *sym;
-	unsigned long time_total;
-	unsigned long time_self;
+	uint64_t time_total;
+	uint64_t time_self;
 	unsigned long nr_called;
 	struct rb_node link;
 };
@@ -549,7 +580,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	struct trace_entry *entry;
 	struct mcount_ret_stack rstack;
 	const char h_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
-	const char l_format[] = "  %-40.40s  %10lu  %10lu  %10lu  \n";
+//	const char l_format[] = "  %-40.40s  %10"PRIu64"  %10"PRIu64"  %10lu  \n";
 	const char line[] = "=================================================";
 
 	fp = open_data_file(opts->filename, opts->exename);
@@ -593,8 +624,13 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		entry = rb_entry(node, struct trace_entry, link);
 
 		symname = symbol_getname(entry->sym);
-		printf(l_format, symname, entry->time_total,
-		       entry->time_self, entry->nr_called);
+
+		printf("  %-40.40s ", symname);
+		print_time_unit(0UL, entry->time_total);
+		putchar(' ');
+		print_time_unit(0UL, entry->time_self);
+		printf("  %10lu  \n", entry->nr_called);
+
 		symbol_putname(entry->sym, symname);
 	}
 

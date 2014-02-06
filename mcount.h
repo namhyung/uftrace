@@ -15,9 +15,9 @@ struct mcount_ret_stack {
 	unsigned long parent_ip;
 	unsigned long child_ip;
 	/* time in usec (CLOCK_MONOTONIC) */
-	unsigned long start_time;
-	unsigned long end_time;
-	unsigned long child_time;
+	uint64_t start_time;
+	uint64_t end_time;
+	uint64_t child_time;
 	int tid;
 	int depth;
 };

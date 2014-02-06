@@ -9,6 +9,8 @@
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 #endif
 
+#define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
+
 #define xmalloc(sz)							\
 ({ 	void *__ptr = malloc(sz);					\
 	if (__ptr == NULL) {						\
