@@ -1,8 +1,10 @@
 #include <pthread.h>
 
-static int a(void);
-static int b(void);
-static int c(void);
+int abc;
+
+static int __attribute__((noinline)) a(void);
+static int __attribute__((noinline)) b(void);
+static int __attribute__((noinline)) c(void);
 
 static int a(void)
 {
@@ -21,7 +23,7 @@ static int c(void)
 
 static void *foo(void *arg)
 {
-	a();
+	abc += a();
 	return NULL;
 }
 
@@ -32,7 +34,7 @@ int main(void)
 
 	for (i = 0; i < 4; i++)
 		pthread_create(&t[i], NULL, foo, NULL);
-	a();
+	abc += a();
 	for (i = 0; i < 4; i++)
 		pthread_join(t[i], NULL);
 	return 0;
