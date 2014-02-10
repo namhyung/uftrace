@@ -1,4 +1,5 @@
 - ARM compatibility check
+- libiberty usability
 - thread filter on report
 - column view
 - timechart support?
