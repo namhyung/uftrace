@@ -355,11 +355,11 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 	char *child_name = symbol_getname(child, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
-		printf("[%d] %d/%d: ip (%s -> %s), time (%lu)\n",
+		printf("[%d] %d/%d: ip (%s -> %s), time (%"PRIu64")\n",
 		       count++, rstack->tid, rstack->depth, parent_name,
 		       child_name, rstack->start_time);
 	} else {
-		printf("[%d] %d/%d: ip (%s <- %s), time (%lu:%lu)\n",
+		printf("[%d] %d/%d: ip (%s <- %s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, rstack->tid, rstack->depth, parent_name,
 		       child_name, rstack->end_time,
 		       rstack->end_time - rstack->start_time);
