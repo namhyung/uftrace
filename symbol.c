@@ -496,12 +496,15 @@ struct sym * find_symname(const char *name)
 	return NULL;
 }
 
-char *symbol_getname(struct sym *sym)
+char *symbol_getname(struct sym *sym, unsigned long addr)
 {
 	char *name;
 
-	if (sym == NULL)
-		return "<unknown>";
+	if (sym == NULL) {
+		if (asprintf(&name, "<%lx>", addr) < 0)
+			name = "<unknown>";
+		return name;
+	}
 
 	if (use_demangle && sym->name[0] == '_' && sym->name[1] == 'Z') {
 		int status = -1;
@@ -518,12 +521,16 @@ char *symbol_getname(struct sym *sym)
 /* must be used in pair with symbol_getname() */
 void symbol_putname(struct sym *sym, char *name)
 {
+	if (sym == NULL)
+		goto free;
+
 	if (!use_demangle)
 		return;
 
 	if (!strcmp(name, "<unknown>") || !strcmp(name, sym->name))
 		return;
 
+free:
 	free(name);
 }
 

@@ -27,7 +27,7 @@ size_t count_dynsym(void);
 int load_dynsymtab(const char *filename);
 void unload_dynsymtab(void);
 
-char *symbol_getname(struct sym *sym);
+char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);
 
 #endif /* FTRACE_SYMBOL_H */

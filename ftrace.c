@@ -351,8 +351,8 @@ static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 	static int count;
 	struct sym *parent = find_symtab(rstack->parent_ip);
 	struct sym *child = find_symtab(rstack->child_ip);
-	char *parent_name = symbol_getname(parent);
-	char *child_name = symbol_getname(child);
+	char *parent_name = symbol_getname(parent, rstack->parent_ip);
+	char *child_name = symbol_getname(child, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
 		printf("[%d] %d/%d: ip (%s -> %s), time (%lu)\n",
@@ -402,7 +402,7 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 {
 	struct sym *sym = find_symtab(rstack->child_ip);
-	char *symname = symbol_getname(sym);
+	char *symname = symbol_getname(sym, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
 		fpos_t pos;
@@ -623,7 +623,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 
 		entry = rb_entry(node, struct trace_entry, link);
 
-		symname = symbol_getname(entry->sym);
+		symname = symbol_getname(entry->sym, 0);
 
 		printf("  %-40.40s ", symname);
 		print_time_unit(0UL, entry->time_total);
