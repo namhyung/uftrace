@@ -36,32 +36,37 @@ t-arm-thumb_%: a.c t.c
 test: all
 	@echo testing -O0
 	@for t in $(TARGETS); do \
-		$(FTRACE) $$t | sort -k2 | cut -d/ -f2 | cut -d, -f1 > "$${t}_result"; \
+		$(FTRACE) $$t 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | \
+		sed -e 's/<[0-9a-f]\+>/<unknown>/' > "$${t}_result"; \
 	done;
 	@echo testing -O1
 	@for t in $(TARGETS_O1); do \
-		$(FTRACE) $$t | sort -k2 | cut -d/ -f2 | cut -d, -f1 > tmp.result; \
+		$(FTRACE) $$t 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | \
+		sed -e 's/<[0-9a-f]\+>/<unknown>/' > tmp.result; \
 		echo -n "  $${t}: "; diff -q "$${t%_O1}_result" tmp.result > /dev/null \
 			&& echo OK || echo NG; \
 		rm -f tmp.result; \
 	done;
 	@echo testing -O2
 	@for t in $(TARGETS_O2); do \
-		$(FTRACE) $$t | sort -k2 | cut -d/ -f2 | cut -d, -f1 > tmp.result; \
+		$(FTRACE) $$t 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | \
+		sed -e 's/<[0-9a-f]\+>/<unknown>/' > tmp.result; \
 		echo -n "  $${t}: "; diff -q "$${t%_O2}_result" tmp.result > /dev/null \
 			&& echo OK || echo NG; \
 		rm -f tmp.result; \
 	done;
 	@echo testing -O3
 	@for t in $(TARGETS_O3); do \
-		$(FTRACE) $$t | sort -k2 | cut -d/ -f2 | cut -d, -f1 > tmp.result; \
+		$(FTRACE) $$t 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | \
+		sed -e 's/<[0-9a-f]\+>/<unknown>/' > tmp.result; \
 		echo -n "  $${t}: "; diff -q "$${t%_O3}_result" tmp.result > /dev/null \
 			&& echo OK || echo NG; \
 		rm -f tmp.result; \
 	done;
 	@echo testing -Os
 	@for t in $(TARGETS_Os); do \
-		$(FTRACE) $$t | sort -k2 | cut -d/ -f2 | cut -d, -f1 > tmp.result; \
+		$(FTRACE) $$t 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | \
+		sed -e 's/<[0-9a-f]\+>/<unknown>/' > tmp.result; \
 		echo -n "  $${t}: "; diff -q "$${t%_Os}_result" tmp.result > /dev/null \
 			&& echo OK || echo NG; \
 		rm -f tmp.result; \
