@@ -8,12 +8,12 @@ static int __attribute__((noinline)) c(void);
 
 static int a(void)
 {
-	return b();
+	return b() - 1;
 }
 
 static int b(void)
 {
-	return c();
+	return c() + 1;
 }
 
 static int c(void)
