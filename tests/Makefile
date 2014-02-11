@@ -13,9 +13,10 @@ TARGETS_O2 = $(patsubst %,%_O2,$(TARGETS))
 TARGETS_O3 = $(patsubst %,%_O3,$(TARGETS))
 TARGETS_Os = $(patsubst %,%_Os,$(TARGETS))
 
+ALL_TARGETS = $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
 MAKEFLAGS = --no-print-directory
 
-all: $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
+all: $(ALL_TARGETS)
 
 t-%: %.c
 	$(CC) $(CFLAGS) -o $@ $< -pthread
@@ -87,8 +88,7 @@ ifdef ARCH
 endif
 
 clean:
-	$(RM) $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
-	$(RM) *.o ftrace.data* gmon.out
+	$(RM) $(ALL_TARGETS) *.o ftrace.data* gmon.out
 ifdef ARCH
 	@$(MAKE) -C arch/$(ARCH) clean
 endif

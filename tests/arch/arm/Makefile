@@ -13,7 +13,9 @@ TARGETS_O2 = $(patsubst %,%_O2,$(TARGETS))
 TARGETS_O3 = $(patsubst %,%_O3,$(TARGETS))
 TARGETS_Os = $(patsubst %,%_Os,$(TARGETS))
 
-all: $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
+ALL_TARGETS = $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
+
+all: $(ALL_TARGETS)
 
 t-thumb: thumb.c
 	$(CC) $(CFLAGS) -mthumb -o $@ $<
@@ -66,6 +68,6 @@ test: all
 	done;
 
 clean:
-	$(RM) $(TARGETS) *.o ftrace.data* gmon.out
+	$(RM) $(ALL_TARGETS) *.o ftrace.data* gmon.out
 
 .PHONY: clean test arch
