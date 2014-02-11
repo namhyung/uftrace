@@ -2,6 +2,7 @@ file ftrace
 set follow-fork-mode child
 set breakpoint pending on
 #b main
-b __monstartup
-r record -d --plthook tests/t-arg 1 2 3
+#b __monstartup
+b __gnu_mcount_nc
+r record tests/arch/arm/t-thumb_O2
  

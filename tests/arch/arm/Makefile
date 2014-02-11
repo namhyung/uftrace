@@ -2,7 +2,7 @@ CC = gcc
 RM = rm -f
 FTRACE = ../../../ftrace -L ../../.. --flat
 
-CFLAGS = -g -pg
+CFLAGS = -g -pg -fno-omit-frame-pointer
 
 TARGETS = t-thumb t-arm-thumb
 

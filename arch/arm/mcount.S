@@ -46,13 +46,17 @@ __gnu_mcount_nc:
 	bl 	mcount_entry
 	cmp 	r0, #0
 	bne	1f
+	ldr	r0, [sp, #16]
+	and	r3, r0, #1  /* check lr for ARM/THUMB detection */
+	cmp	r3, #0
+	moveq	r1, fp      /* fp (=r11) points to return address on ARM */
+	addne	r1, r7, #4  /* r7 points to frame on THUMB, but it's BROKEN!! */
+	ldr	r0, [sp, #20]
+	ldr	r2, [r1]
 	adr 	r3, mcount_return
-	add 	r0, sp, #20
-	ldr 	r1, [r0]
-	ldr 	r2, [r0, #8]
-	cmp 	r1, r2		/* leaf function might not push the lr */
-	addeq	r0, #8
-	str	r3, [r0]
+	cmp	r0, r2
+	streq	r3, [r1]
+	strne	r3, [sp, #20]
 1:
 	pop 	{r0-r3, lr}
 	mov	ip, lr

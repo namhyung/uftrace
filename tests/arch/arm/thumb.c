@@ -2,7 +2,9 @@
 
 void __attribute__((noinline)) foo(void)
 {
-	printf("%s\n", __func__);
+	char buf[128];
+	snprintf(buf, sizeof(buf), "%s", __func__);
+	printf("%s\n", buf);
 }
 
 void __attribute__((noinline)) bar(void)

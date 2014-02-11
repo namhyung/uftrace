@@ -6,6 +6,10 @@ FTRACE = ../ftrace -L .. --flat
 CFLAGS = -g -pg
 LDFLAGS = -pthread
 
+ifeq ($(ARCH),arm)
+CFLAGS += -fno-omit-frame-pointer
+endif
+
 TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local
 
 TARGETS_O1 = $(patsubst %,%_O1,$(TARGETS))
