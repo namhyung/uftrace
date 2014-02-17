@@ -16,8 +16,8 @@
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
+bool debug;
 static FILE *fout;
-static bool debug;
 
 static unsigned long *filter_trace;
 static unsigned nr_filter;
@@ -74,17 +74,9 @@ static void mcount_prepare(void)
 	pthread_once(&once_control, mcount_init_file);
 }
 
-#define CALL_SIZE  5  /* 1 for push; 3 for mov; 5 for call */
-
 static bool mcount_match(unsigned long ip1, unsigned long ip2)
 {
-	if (ip1 + CALL_SIZE == ip2)
-		return true;
-
-	if (ip1 < ip2 && ip1 >= ip2 - CALL_SIZE)
-		return true;
-
-	return false;
+	return ip1 == ip2;
 }
 
 /*
@@ -304,7 +296,6 @@ static int hook_pltgot(void)
 			plthook_resolver_addr = got[2];
 			printf("found GOT: %p (resolver = %#lx)\n", got, got[2]);
 			got[2] = (unsigned long)plt_hooker;
-			break;
 		}
 	}
 	ret = 0;
@@ -316,13 +307,11 @@ out:
 	return ret;
 
 elf_error:
-	if (debug) {
+	if (debug)
 		printf("ftrace: %s\n", elf_errmsg(elf_errno()));
-	}
+
 	goto out;
 }
-
-unsigned long plthook_orig_resolver;
 
 unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 			    unsigned long module_id)
@@ -342,10 +331,12 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 
 	/* should skip internal functions */
 	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||
-	    !strcmp(sym->name, "__fentry__") || !strcmp(sym->name, "__gnu_mcount_nc"))
+	    !strcmp(sym->name, "__fentry__") || !strcmp(sym->name, "__gnu_mcount_nc") ||
+	    !strcmp(sym->name, "__cyg_profile_func_enter") ||
+	    !strcmp(sym->name, "__cyg_profile_func_exit"))
 		return -1;
 
-	ret = mcount_entry(parent_ip, child_ip + CALL_SIZE);
+	ret = mcount_entry(parent_ip, child_ip);
 	return ret;
 }
 

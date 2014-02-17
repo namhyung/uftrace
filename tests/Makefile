@@ -3,12 +3,13 @@ CXX = g++
 RM = rm -f
 FTRACE = ../ftrace -L .. --flat
 
-CFLAGS = -g -pg
+#CFLAGS = -g -pg
+CFLAGS = -g -finstrument-functions
 LDFLAGS = -pthread
 
-ifeq ($(ARCH),arm)
-CFLAGS += -fno-omit-frame-pointer
-endif
+#ifeq ($(ARCH),arm)
+#CFLAGS += -fno-omit-frame-pointer
+#endif
 
 TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local
 

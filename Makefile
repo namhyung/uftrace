@@ -17,7 +17,7 @@ ifeq ($(ARCH),x86_64)
   endif
 endif
 
-TARGETS = libmcount.so ftrace
+TARGETS = libmcount.so libcygprof.so ftrace
 
 FTRACE_SRCS = ftrace.c symbol.c rbtree.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
@@ -32,10 +32,16 @@ mcount.op: mcount.c mcount.h
 symbol.op: symbol.c symbol.h
 	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $<
 
-arch/$(ARCH)/entry.op: PHONY
-	@$(MAKE) -C arch/$(ARCH)
+arch/$(ARCH)/%.op: PHONY
+	@$(MAKE) -C arch/$(ARCH) $(notdir $@)
+
+cygprofile.op: cygprofile.c mcount.h
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 libmcount.so: mcount.op symbol.op arch/$(ARCH)/entry.op
+	$(CC) -shared -o $@ $^ -pthread -lelf -lrt
+
+libcygprof.so: mcount.op symbol.op cygprofile.op arch/$(ARCH)/plthook.op
 	$(CC) -shared -o $@ $^ -pthread -lelf -lrt
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h

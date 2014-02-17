@@ -22,11 +22,19 @@ struct mcount_ret_stack {
 	int depth;
 };
 
+extern __thread int mcount_rstack_idx;
+extern __thread struct mcount_ret_stack *mcount_rstack;
+
+int mcount_entry(unsigned long parent, unsigned long child);
+unsigned long mcount_exit(void);
+void __monstartup(unsigned long low, unsigned long high);
+void _mcleanup(void);
+
+
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_VERSION  1
 #define FTRACE_FILE_NAME  "ftrace.data"
-
 
 /* file data are written in little-endian */
 struct ftrace_file_header {

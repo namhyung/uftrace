@@ -216,7 +216,11 @@ static void setup_child_environ(struct opts *opts)
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *lib_path = opts->lib_path ?: ".";
 
-	snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libmcount.so");
+	if (find_symname("__cyg_profile_func_enter"))
+		snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libcygprof.so");
+	else
+		snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libmcount.so");
+
 	if (old_preload) {
 		strcat(buf, ":");
 		strcat(buf, old_preload);
@@ -268,7 +272,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	if (!find_symname("mcount") && !find_symname("__fentry__") &&
-	    !find_symname("__gnu_mcount_nc")) {
+	    !find_symname("__gnu_mcount_nc") && !find_symname("__cyg_profile_func_enter")) {
 		printf(mcount_msg, "mcount", opts->exename);
 		return -1;
 	}
