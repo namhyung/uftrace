@@ -280,11 +280,12 @@ static int hook_pltgot(void)
 	int ret = -1;
 	char buf[1024];
 	Elf *elf;
+	GElf_Ehdr ehdr;
 	Elf_Scn *sec;
 	GElf_Shdr shdr;
 	Elf_Data *data;
 	size_t shstr_idx;
-	size_t i, nr_phdr;
+	size_t i;
 
 	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if (len == -1) {
@@ -305,13 +306,13 @@ static int hook_pltgot(void)
 
 	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
 
-	if (elf_getphdrnum(elf, &nr_phdr) < 0)
+	if (gelf_getehdr(elf, &ehdr) == NULL)
 		goto elf_error;
 
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	for (i = 0; i < nr_phdr; i++) {
+	for (i = 0; i < ehdr.e_phnum; i++) {
 		GElf_Phdr phdr;
 
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
