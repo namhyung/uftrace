@@ -133,7 +133,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 	rstack->tid = gettid();
 	rstack->depth = mcount_rstack_idx - 1;
 	rstack->parent_ip = parent;
-	rstack->child_ip = filtered > 0 ? child : MCOUNT_FILTERED_IP;
+	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 	rstack->child_time = 0;
@@ -173,13 +173,10 @@ unsigned long mcount_exit(void)
 		//exit(1);
 	}
 
-	if (was_filtered) {
-		assert(rstack->child_ip == MCOUNT_FILTERED_IP);
-		return rstack->parent_ip;
-	}
-
 	rstack->end_time = mcount_gettime();
-	fwrite(rstack, sizeof(*rstack), 1, fout);
+
+	if (!was_filtered)
+		fwrite(rstack, sizeof(*rstack), 1, fout);
 
 	if (mcount_rstack_idx > 0) {
 		int idx = mcount_rstack_idx - 1;
