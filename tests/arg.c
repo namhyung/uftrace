@@ -8,7 +8,7 @@ void __attribute__((noinline)) arg(char *str)
 int main(int argc, char *argv[])
 {
 	int i;
-	for (i = 0; i < argc; i++)
+	for (i = 1; i < argc; i++)
 		arg(argv[i]);
 	putchar('\n');
 	return 0;
