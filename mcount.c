@@ -7,7 +7,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <signal.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <gelf.h>
 
 #include "mcount.h"
@@ -245,12 +247,28 @@ static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
 	*size = 0;
 }
 
+static unsigned long got_addr;
+static bool segv_handled;
+
+void segv_handler(int sig, siginfo_t *si, void *ctx)
+{
+	if (si->si_code == SEGV_ACCERR) {
+		mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
+			 PROT_WRITE);
+		segv_handled = true;
+	} else {
+		printf("ftrace: invalid memory access.. exiting.\n");
+		exit(1);
+	}
+}
+
 extern void __attribute__((weak)) plt_hooker(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 {
 	size_t i;
 	unsigned long *got;
+	struct sigaction sa, old_sa;
 
 	for (i = 0; i < nr_dyn; i++) {
 		GElf_Dyn dyn;
@@ -261,9 +279,35 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		if (dyn.d_tag != DT_PLTGOT)
 			continue;
 
-		got = (void *)(unsigned long)dyn.d_un.d_val;
+		got_addr = (unsigned long)dyn.d_un.d_val;
+		got = (void *)got_addr;
 		plthook_resolver_addr = got[2];
+
+		/*
+		 * The GOT region is write-protected on some systems.
+		 * In that case, we need to use mprotect() to overwrite
+		 * the address of resolver function.  So install signal
+		 * handler to catch such cases.
+		 */
+		sa.sa_sigaction = segv_handler;
+		sa.sa_flags = SA_SIGINFO;
+		sigfillset(&sa.sa_mask);
+		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
+			printf("ftrace: error during install sig handler\n");
+			return -1;
+		}
+
 		got[2] = (unsigned long)plt_hooker;
+
+		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
+			printf("ftrace: error during recover sig handler\n");
+			return -1;
+		}
+
+		if (segv_handled) {
+			mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
+				 PROT_READ);
+		}
 
 		if (debug) {
 			printf("ftrace: plthook: found GOT at %p (resolver: %#lx)\n",
