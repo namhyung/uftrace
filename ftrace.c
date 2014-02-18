@@ -29,7 +29,7 @@ static struct argp_option ftrace_options[] = {
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
-	{ "plthook", OPT_plthook, 0, 0, "Hook library function calls" },
+	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ 0 }
 };
@@ -87,7 +87,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_plthook:
-		opts->want_plthook = true;
+		opts->want_plthook = false;
 		break;
 
 	case OPT_symbols:
@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
 	struct opts opts = {
 		.mode = FTRACE_MODE_INVALID,
 		.filename = FTRACE_FILE_NAME,
+		.want_plthook = true,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
