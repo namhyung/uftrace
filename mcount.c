@@ -250,6 +250,33 @@ static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
 
 extern void __attribute__((weak)) plt_hooker(void);
 
+static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
+{
+	size_t i;
+	unsigned long *got;
+
+	for (i = 0; i < nr_dyn; i++) {
+		GElf_Dyn dyn;
+
+		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
+			return -1;
+
+		if (dyn.d_tag != DT_PLTGOT)
+			continue;
+
+		got = (unsigned long *)dyn.d_un.d_val;
+		plthook_resolver_addr = got[2];
+		got[2] = (unsigned long)plt_hooker;
+
+		if (debug) {
+			printf("ftrace: plthook: found GOT at %p (resolver: %#lx)\n",
+			       got, plthook_resolver_addr);
+		}
+		break;
+	}
+	return 0;
+}
+
 static int hook_pltgot(void)
 {
 	int fd;
@@ -258,7 +285,9 @@ static int hook_pltgot(void)
 	Elf *elf;
 	Elf_Scn *sec;
 	GElf_Shdr shdr;
+	Elf_Data *data;
 	size_t shstr_idx;
+	size_t i, nr_phdr;
 
 	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if (len == -1) {
@@ -279,24 +308,32 @@ static int hook_pltgot(void)
 
 	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
 
+	if (elf_getphdrnum(elf, &nr_phdr) < 0)
+		goto elf_error;
+
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *str;
+	for (i = 0; i < nr_phdr; i++) {
+		GElf_Phdr phdr;
 
-		gelf_getshdr(sec, &shdr);
+		if (gelf_getphdr(elf, i, &phdr) == NULL)
+			goto elf_error;
 
-		str = elf_strptr(elf, shstr_idx, shdr.sh_name);
-		if (!strcmp(str, ".got.plt") ||
-		    (!strcmp(str, ".got") && plthook_resolver_addr == 0)) {
-			unsigned long *got = (void *)(long)shdr.sh_addr;
+		if (phdr.p_type != PT_DYNAMIC)
+			continue;
 
-			plthook_resolver_addr = got[2];
-			printf("found GOT: %p (resolver = %#lx)\n", got, got[2]);
-			got[2] = (unsigned long)plt_hooker;
-		}
+		sec = gelf_offscn(elf, phdr.p_offset);
+
+		if (!sec || gelf_getshdr(sec, &shdr) == NULL)
+			continue;
+
+		data = elf_getdata(sec, NULL);
+		if (data == NULL)
+			goto elf_error;
+
+		if (find_got(data, shdr.sh_size / shdr.sh_entsize) < 0)
+			goto elf_error;
 	}
 	ret = 0;
 
