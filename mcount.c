@@ -261,7 +261,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		if (dyn.d_tag != DT_PLTGOT)
 			continue;
 
-		got = (unsigned long *)dyn.d_un.d_val;
+		got = (void *)(unsigned long)dyn.d_un.d_val;
 		plthook_resolver_addr = got[2];
 		got[2] = (unsigned long)plt_hooker;
 
