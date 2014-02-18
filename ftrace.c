@@ -251,8 +251,8 @@ static void setup_child_environ(struct opts *opts)
 
 static const char mcount_msg[] =
 	"ERROR: Can't find '%s' symbol in the '%s'.\n"
-	"It seems not to be compiled with -pg flag which generates traceable code.\n"
-	"Please check your binary file.\n";
+	"It seems not to be compiled with -finstrument-functions flag\n"
+	"which generates traceable code.  Please check your binary file.\n";
 
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
@@ -325,7 +325,8 @@ static FILE *open_data_file(const char *filename, const char *exename)
 	if (fp == NULL) {
 		if (errno == ENOENT) {
 			printf("ERROR: Can't find %s file!\n"
-			       "Was '%s' compiled with -pg flag and ran ftrace record?\n",
+			       "Was '%s' compiled with -finstrument-functions flag\n"
+			       "and ran with ftrace record?\n",
 			       filename, exename);
 		} else {
 			perror("ftrace");
