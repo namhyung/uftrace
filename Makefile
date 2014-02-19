@@ -19,7 +19,7 @@ endif
 
 TARGETS = libmcount.so libcygprof.so ftrace
 
-FTRACE_SRCS = ftrace.c symbol.c rbtree.c
+FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
 
 MAKEFLAGS = --no-print-directory

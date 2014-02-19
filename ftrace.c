@@ -6,9 +6,12 @@
 #include <errno.h>
 #include <argp.h>
 #include <unistd.h>
+#include <assert.h>
+#include <fcntl.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <assert.h>
+#include <gelf.h>
 
 #include "mcount.h"
 #include "symbol.h"
@@ -39,6 +42,7 @@ static struct argp_option ftrace_options[] = {
 #define FTRACE_MODE_REPLAY  2
 #define FTRACE_MODE_LIVE    3
 #define FTRACE_MODE_REPORT  4
+#define FTRACE_MODE_INFO    5
 
 #define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
 
@@ -111,6 +115,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->mode = FTRACE_MODE_LIVE;
 		else if (!strcmp("report", arg))
 			opts->mode = FTRACE_MODE_REPORT;
+		else if (!strcmp("info", arg))
+			opts->mode = FTRACE_MODE_INFO;
 		else
 			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
 		break;
@@ -142,6 +148,7 @@ static int command_record(int argc, char *argv[], struct opts *opts);
 static int command_replay(int argc, char *argv[], struct opts *opts);
 static int command_live(int argc, char *argv[], struct opts *opts);
 static int command_report(int argc, char *argv[], struct opts *opts);
+static int command_info(int argc, char *argv[], struct opts *opts);
 
 int main(int argc, char *argv[])
 {
@@ -153,7 +160,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report] <command> [args...]",
+		.args_doc = "[record|replay|live|report|info] [<command> args...]",
 		.doc = "ftrace -- a function tracer",
 	};
 
@@ -178,6 +185,9 @@ int main(int argc, char *argv[])
 		break;
 	case FTRACE_MODE_REPORT:
 		command_report(argc, argv, &opts);
+		break;
+	case FTRACE_MODE_INFO:
+		command_info(argc, argv, &opts);
 		break;
 	case FTRACE_MODE_INVALID:
 		break;
@@ -250,6 +260,67 @@ static void setup_child_environ(struct opts *opts)
 		setenv("FTRACE_DEBUG", "1", 1);
 }
 
+static int fill_file_header(struct opts *opts, int status)
+{
+	int fd, efd;
+	int ret = -1;
+	struct stat statbuf;
+	struct ftrace_file_header hdr;
+	Elf *elf;
+	GElf_Ehdr ehdr;
+
+	fd = open(opts->filename, O_RDWR);
+	if (fd < 0)
+		return -1;
+
+	if (fstat(fd, &statbuf) < 0)
+		goto close_fd;
+
+	if (pread(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr))
+		goto close_fd;
+
+	if (strncmp(FTRACE_MAGIC_STR, hdr.magic, FTRACE_MAGIC_LEN))
+		goto close_fd;
+
+	if (hdr.version != FTRACE_VERSION)
+		goto close_fd;
+
+	efd = open(opts->exename, O_RDONLY);
+	if (efd < 0)
+		goto close_fd;
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(efd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto close_efd;
+
+	if (gelf_getehdr(elf, &ehdr) == NULL)
+		goto close_elf;
+
+	hdr.header_size = sizeof(hdr);
+	hdr.endian = ehdr.e_ident[EI_DATA];
+	hdr.class = ehdr.e_ident[EI_CLASS];
+	hdr.length = statbuf.st_size;
+
+	lseek(fd, 0, SEEK_END);
+	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
+
+	if (pwrite(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr))
+		goto close_elf;
+
+	ret = 0;
+
+close_elf:
+	elf_end(elf);
+close_efd:
+	close(efd);
+close_fd:
+	close(fd);
+
+	return ret;
+}
+
 static const char mcount_msg[] =
 	"ERROR: Can't find '%s' symbol in the '%s'.\n"
 	"It seems not to be compiled with -finstrument-functions flag\n"
@@ -304,7 +375,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	} else if (debug)
 		printf("child terminated with %d\n", WEXITSTATUS(status));
 
-	if (access(opts->filename, F_OK) < 0) {
+	if (fill_file_header(opts, status) < 0) {
 		printf("Cannot generate data file\n");
 		return -1;
 	}
@@ -317,10 +388,11 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	return 0;
 }
 
-static FILE *open_data_file(const char *filename, const char *exename)
+static int open_data_file(const char *filename, const char *exename,
+			  struct ftrace_file_handle *handle)
 {
+	int ret = -1;
 	FILE *fp;
-	struct ftrace_file_header header;
 
 	fp = fopen(filename, "rb");
 	if (fp == NULL) {
@@ -335,24 +407,59 @@ static FILE *open_data_file(const char *filename, const char *exename)
 		goto out;
 	}
 
-	fread(&header, sizeof(header), 1, fp);
-	if (memcmp(header.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN)) {
+	fread(&handle->hdr, sizeof(handle->hdr), 1, fp);
+	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN)) {
 		printf("invalid magic string found!\n");
 		fclose(fp);
-		fp = NULL;
 		goto out;
 	}
-	if (header.version != FTRACE_VERSION) {
+	if (handle->hdr.version != FTRACE_VERSION) {
 		printf("invalid vergion number found!\n");
 		fclose(fp);
-		fp = NULL;
+		goto out;
 	}
 
+	handle->fp = fp;
+
+	fseek(fp, handle->hdr.length, SEEK_SET);
+	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0) {
+		printf("error reading ftrace info!\n");
+		fclose(fp);
+		goto out;
+	}
+	fseek(fp, handle->hdr.header_size, SEEK_SET);
+
+	ret = 0;
+
 out:
-	return fp;
+	return ret;
 }
 
-static int print_flat_rstack(struct mcount_ret_stack *rstack, FILE *fp)
+static void close_data_file(struct ftrace_file_handle *handle)
+{
+	fclose(handle->fp);
+	clear_ftrace_info(&handle->info);
+}
+
+static int read_rstack(struct ftrace_file_handle *handle,
+		       struct mcount_ret_stack *rstack)
+{
+	FILE *fp = handle->fp;
+	off_t offset = ftello(fp);
+
+	if (offset >= (off_t)handle->hdr.length ||
+	    offset + sizeof(*rstack) > handle->hdr.length)
+		return -1;
+
+	if (fread(rstack, sizeof(*rstack), 1, fp) != 1) {
+		perror("ftrace: error reading rstack");
+		return -1;
+	}
+	return 0;
+}
+
+static int print_flat_rstack(struct ftrace_file_handle *handle,
+			     struct mcount_ret_stack *rstack)
 {
 	static int count;
 	struct sym *parent = find_symtab(rstack->parent_ip);
@@ -405,7 +512,8 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 	printf(" %3"PRIu64".%03"PRIu64" %2s", delta, delta_small, unit[idx]);
 }
 
-static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
+static int print_graph_rstack(struct ftrace_file_handle *handle,
+			      struct mcount_ret_stack *rstack)
 {
 	struct sym *sym = find_symtab(rstack->child_ip);
 	char *symname = symbol_getname(sym, rstack->child_ip);
@@ -414,10 +522,9 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 		fpos_t pos;
 		struct mcount_ret_stack rstack_next;
 
-		fgetpos(fp, &pos);
+		fgetpos(handle->fp, &pos);
 
-		if (fread(&rstack_next, sizeof(rstack_next), 1, fp) != 1) {
-			perror("error reading rstack");
+		if (read_rstack(handle, &rstack_next) < 0) {
 			symbol_putname(sym, symname);
 			return -1;
 		}
@@ -435,7 +542,7 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 			       rstack->depth * 2, "", symname);
 
 			/* need to re-process return record */
-			fsetpos(fp, &pos);
+			fsetpos(handle->fp, &pos);
 		}
 	} else {
 		/* function exit */
@@ -450,23 +557,23 @@ static int print_graph_rstack(struct mcount_ret_stack *rstack, FILE *fp)
 
 static int command_replay(int argc, char *argv[], struct opts *opts)
 {
-	FILE *fp;
 	int ret;
+	struct ftrace_file_handle handle;
 	struct mcount_ret_stack rstack;
 
-	fp = open_data_file(opts->filename, opts->exename);
-	if (fp == NULL)
+	ret = open_data_file(opts->filename, opts->exename, &handle);
+	if (ret < 0)
 		return -1;
 
 	ret = load_symtabs(opts->exename);
 	if (ret < 0)
 		goto out;
 
-	while (fread(&rstack, sizeof(rstack), 1, fp) == 1) {
+	while (read_rstack(&handle, &rstack) == 0) {
 		if (opts->flat)
-			ret = print_flat_rstack(&rstack, fp);
+			ret = print_flat_rstack(&handle, &rstack);
 		else
-			ret = print_graph_rstack(&rstack, fp);
+			ret = print_graph_rstack(&handle, &rstack);
 
 		if (ret)
 			break;
@@ -474,7 +581,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	unload_symtabs();
 out:
-	fclose(fp);
+	close_data_file(&handle);
 
 	return ret;
 }
@@ -578,8 +685,8 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 
 static int command_report(int argc, char *argv[], struct opts *opts)
 {
-	FILE *fp;
 	int ret;
+	struct ftrace_file_handle handle;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root time_tree = RB_ROOT;
 	struct rb_node *node;
@@ -589,15 +696,15 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 //	const char l_format[] = "  %-40.40s  %10"PRIu64"  %10"PRIu64"  %10lu  \n";
 	const char line[] = "=================================================";
 
-	fp = open_data_file(opts->filename, opts->exename);
-	if (fp == NULL)
+	ret = open_data_file(opts->filename, opts->exename, &handle);
+	if (ret < 0)
 		return -1;
 
 	ret = load_symtabs(opts->exename);
 	if (ret < 0)
 		goto out;
 
-	while (fread(&rstack, sizeof(rstack), 1, fp) == 1) {
+	while (read_rstack(&handle, &rstack) == 0) {
 		struct sym *sym;
 		struct trace_entry te;
 
@@ -642,7 +749,80 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 
 	unload_symtabs();
 out:
-	fclose(fp);
+	close_data_file(&handle);
+
+	return ret;
+}
+
+static int command_info(int argc, char *argv[], struct opts *opts)
+{
+	int ret;
+	struct stat statbuf;
+	struct ftrace_file_handle handle;
+	const char *fmt = "# %-20s: %s\n";
+
+	ret = open_data_file(opts->filename, opts->exename, &handle);
+	if (ret < 0)
+		return -1;
+
+	if (stat(opts->filename, &statbuf) < 0)
+		return -1;
+
+	printf("# ftrace information\n");
+	printf("# ==================\n");
+	printf(fmt, "program version", argp_program_version);
+	printf("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
+
+	if (handle.hdr.info_mask & (1UL << CMDLINE))
+		printf(fmt, "cmdline", handle.info.cmdline);
+
+	if (handle.hdr.info_mask & (1UL << EXE_NAME))
+		printf(fmt, "exe image", handle.info.exename);
+
+	if (handle.hdr.info_mask & (1UL << EXE_BUILD_ID)) {
+		int i;
+		printf("# %-20s: ", "build id");
+		for (i = 0; i < 20; i++)
+			printf("%02x", handle.info.build_id[i]);
+		printf("\n");
+	}
+
+	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
+		char buf[1024];
+		int status = handle.info.exit_status;
+
+		if (WIFEXITED(status)) {
+			snprintf(buf, sizeof(buf), "exited with code: %d",
+				 WEXITSTATUS(status));
+		} else if (WIFSIGNALED(status)) {
+			snprintf(buf, sizeof(buf), "terminated by signal: %d",
+				 WTERMSIG(status));
+		} else {
+			snprintf(buf, sizeof(buf), "unknown exit status: %d",
+				 status);
+		}
+		printf(fmt, "exit status", buf);
+	}
+
+	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
+		printf("# %-20s: %d/%d (online/possible)\n",
+		       "nr of cpus", handle.info.nr_cpus_online,
+		       handle.info.nr_cpus_possible);
+		printf(fmt, "cpu info", handle.info.cpudesc);
+	}
+
+	if (handle.hdr.info_mask & (1UL << MEMINFO))
+		printf(fmt, "memory info", handle.info.meminfo);
+
+	if (handle.hdr.info_mask & (1UL << OSINFO)) {
+		printf(fmt, "kernel version", handle.info.kernel);
+		printf(fmt, "hostname", handle.info.hostname);
+		printf(fmt, "distro", handle.info.distro);
+	}
+
+	printf("\n");
+
+	close_data_file(&handle);
 
 	return ret;
 }

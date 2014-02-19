@@ -45,6 +45,7 @@ static void mcount_init_file(void)
 	struct ftrace_file_header ffh = {
 		.magic = FTRACE_MAGIC_STR,
 		.version = FTRACE_VERSION,
+		/* other fields are filled by ftrace record */
 	};
 	char *filename = getenv("FTRACE_FILE");
 

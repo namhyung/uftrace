@@ -2,6 +2,7 @@
 #define FTRACE_MCOUNT_H
 
 #include <stdint.h>
+#include <libelf.h>
 
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
@@ -34,15 +35,51 @@ void _mcleanup(void);
 #define FTRACE_VERSION  1
 #define FTRACE_FILE_NAME  "ftrace.data"
 
-/* file data are written in little-endian */
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];
 	uint32_t version;
 	uint16_t header_size;
 	uint8_t  endian;
 	uint8_t  class;
-	uint64_t length;
-	uint64_t unused;
+	uint64_t length; /* file size including header size */
+	uint64_t info_mask;
 };
+
+enum ftrace_info_bits {
+	EXE_NAME,
+	EXE_BUILD_ID,
+	EXIT_STATUS,
+	CMDLINE,
+	CPUINFO,
+	MEMINFO,
+	OSINFO,
+};
+
+struct ftrace_info {
+	char *exename;
+	unsigned char build_id[20];
+	int exit_status;
+	char *cmdline;
+	int nr_cpus_online;
+	int nr_cpus_possible;
+	char *cpudesc;
+	char *meminfo;
+	char *kernel;
+	char *hostname;
+	char *distro;
+};
+
+struct ftrace_file_handle {
+	FILE *fp;
+	struct ftrace_file_header hdr;
+	struct ftrace_info info;
+};
+
+void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
+		      int status);
+int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
+void clear_ftrace_info(struct ftrace_info *info);
+
+int arch_fill_cpuinfo_model(int fd);
 
 #endif /* FTRACE_MCOUNT_H */
