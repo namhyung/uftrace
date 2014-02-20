@@ -4,7 +4,11 @@ FTRACE = ../../../ftrace -L ../../.. --flat
 
 CFLAGS = -g -finstrument-functions
 
-TARGETS = t-fentry
+TARGETS =
+
+ifdef HAVE_CC_MFENTRY
+TARGETS += t-fentry
+endif
 
 TARGETS_O1 = $(patsubst %,%_O1,$(TARGETS))
 TARGETS_O2 = $(patsubst %,%_O2,$(TARGETS))

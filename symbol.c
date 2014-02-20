@@ -7,16 +7,32 @@
 #include <gelf.h>
 #include <unistd.h>
 
+#ifdef HAVE_LIBIBERTY
+# include <libiberty.h>
+#endif
+
 #include "symbol.h"
 #include "utils.h"
 
 static struct symtab symtab;
 static struct symtab dynsymtab;
 
+#if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
+
+# ifdef HAVE_LIBIBERTY_DEMANGLE
+extern char * cplus_demangle_v3(const char *mangled_name, int options);
+# endif
+
+# ifdef HAVE_CXA_DEMANGLE
 /* copied from /usr/include/c++/4.7.2/cxxabi.h */
 extern char * __cxa_demangle(const char *mangled_name, char *output_buffer,
 			     size_t *length, int *status);
+# endif
+
+#else /* NO DEMANGLER */
+static bool use_demangle = false;
+#endif
 
 static int addrsort(const void *a, const void *b)
 {
@@ -509,7 +525,17 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 	if (use_demangle && sym->name[0] == '_' && sym->name[1] == 'Z') {
 		int status = -1;
 
+#ifdef HAVE_LIBIBERTY_DEMANGLE
+
+		name = cplus_demangle_v3(sym->name, 0);
+		if (name != NULL)
+			status = 0;
+
+#elif defined(HAVE_CXA_DEMANGLE)
+
 		name = __cxa_demangle(sym->name, NULL, NULL, &status);
+
+#endif
 		if (status != 0)
 			name = sym->name;
 	} else

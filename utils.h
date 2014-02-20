@@ -9,7 +9,13 @@
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 #endif
 
+#ifdef HAVE_LIBIBERTY
+# include <libiberty.h>
+#else
+
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
+#endif
 
 #define xmalloc(sz)							\
 ({ 	void *__ptr = malloc(sz);					\
@@ -50,5 +56,6 @@
 	}								\
 	__ptr;								\
 })
+#endif /* HAVE_LIBIBERTY */
 
 #endif /* __FTRACE_UTILS_H__ */

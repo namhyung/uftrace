@@ -1,12 +1,14 @@
 CC = gcc
 RM = rm -f
 
-ASFLAGS = -g -D_GNU_SOURCE
-CFLAGS = -O2 -g -D_GNU_SOURCE
-#CFLAGS-DEBUG = -g -D_GNU_SOURCE
-LDFLAGS = -lelf
+ASFLAGS = -g -D_GNU_SOURCE $(ASFLAGS_$@)
+CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@)
+#CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
+LDFLAGS = -lelf $(LDFLAGS_$@)
 
 CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+
+all:
 
 uname_M := $(shell uname -m 2>/dev/null || echo not)
 
@@ -17,42 +19,57 @@ ifeq ($(ARCH),x86_64)
   endif
 endif
 
+CFLAGS_mcount.op = -fPIC -fvisibility=hidden -pthread
+CFLAGS_symbol.op = -fPIC -fvisibility=hidden
+CFLAGS_cygprofile.op = -fPIC
+
+LDFLAGS_libmcount.so = -pthread
+LDFLAGS_libcygprof.so = -pthread
+
+include config/Makefile
+
+
 TARGETS = libmcount.so libcygprof.so ftrace
 
 FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
 
+LIBMCOUNT_SRCS = mcount.c symbol.c
+LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
+
+LIBCYGPROF_SRCS = mcount.c symbol.c cygprofile.c
+LIBCYGPROF_OBJS = $(LIBCYGPROF_SRCS:.c=.op)
+
 MAKEFLAGS = --no-print-directory
+
 
 all: $(TARGETS)
 
-mcount.op: mcount.c mcount.h
-	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $< -pthread
+$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-symbol.op: symbol.c symbol.h
-	$(CC) $(CFLAGS) -fPIC -c -fvisibility=hidden -o $@ $<
+cygprofile.op: cygprofile.c mcount.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/%.op: PHONY
 	@$(MAKE) -C arch/$(ARCH) $(notdir $@)
 
-cygprofile.op: cygprofile.c mcount.h
-	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
+	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
-libmcount.so: mcount.op symbol.op arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ -pthread -lelf -lrt
-
-libcygprof.so: mcount.op symbol.op cygprofile.op arch/$(ARCH)/plthook.op
-	$(CC) -shared -o $@ $^ -pthread -lelf -lrt
+libcygprof.so: $(LIBCYGPROF_OBJS) arch/$(ARCH)/plthook.op
+	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
-	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS) -lstdc++
+	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
 
 clean:
-	$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out
-	@$(MAKE) -C arch/$(ARCH) clean
-	@$(MAKE) -C tests ARCH=$(ARCH) clean
+	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out
+	@$(MAKE) -sC arch/$(ARCH) clean
+	@$(MAKE) -sC tests ARCH=$(ARCH) clean
+	@$(MAKE) -sC config check-clean BUILD_FEATURE_CHECKS=0
 
 .PHONY: all clean test PHONY
