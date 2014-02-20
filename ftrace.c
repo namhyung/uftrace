@@ -404,17 +404,16 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
+	const char msg[] = "Was '%s' compiled with -finstrument-functions flag\n"
+		"and ran with ftrace record?\n";
 
 	fp = fopen(opts->filename, "rb");
 	if (fp == NULL) {
 		if (errno == ENOENT) {
 			printf("ERROR: Can't find %s file!\n", opts->filename);
 
-			if (opts->exename) {
-				printf("Was '%s' compiled with -finstrument-functions flag\n"
-				       "and ran with ftrace record?\n",
-				       opts->exename);
-			}
+			if (opts->exename)
+				printf(msg, opts->exename);
 		} else {
 			perror("ftrace");
 		}
