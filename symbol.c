@@ -60,9 +60,11 @@ static int namefind(const void *a, const void *b)
 }
 
 static const char ftrace_msg[] =
-	"ERROR: Can't find '%s' file.  Please check your binary.\n"
+	"ERROR: Can't find '%s' file.\n"
+	"Please check your binary.\n"
 	"If you run the binary under $PATH (like /usr/bin/%s),\n"
-	"it probably wasn't compiled with -pg which generates traceable code.\n"
+	"it probably wasn't compiled with -finstrument-functions flag\n"
+	"which generates traceable code.\n"
 	"If so, recompile and run it with full pathname.\n";
 
 void unload_symtabs(void)
@@ -114,7 +116,7 @@ int load_symtabs(const char *filename)
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		if (errno == ENOENT)
-			printf(ftrace_msg, filename, filename);
+			printf(ftrace_msg, filename, basename(filename));
 		else
 			perror("ftrace:load_symtab");
 		return ret;

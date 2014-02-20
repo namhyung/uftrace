@@ -134,8 +134,20 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case ARGP_KEY_NO_ARGS:
 	case ARGP_KEY_END:
-		if (state->arg_num < 1 || opts->exename == NULL)
+		if (state->arg_num < 1)
 			argp_usage(state);
+
+		if (opts->exename == NULL) {
+			switch (opts->mode) {
+			case FTRACE_MODE_RECORD:
+			case FTRACE_MODE_LIVE:
+				argp_usage(state);
+				break;
+			default:
+				/* will be set after read_ftrace_info() */
+				break;
+			}
+		}
 		break;
 
 	default:
@@ -388,19 +400,21 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	return 0;
 }
 
-static int open_data_file(const char *filename, const char *exename,
-			  struct ftrace_file_handle *handle)
+static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
 
-	fp = fopen(filename, "rb");
+	fp = fopen(opts->filename, "rb");
 	if (fp == NULL) {
 		if (errno == ENOENT) {
-			printf("ERROR: Can't find %s file!\n"
-			       "Was '%s' compiled with -finstrument-functions flag\n"
-			       "and ran with ftrace record?\n",
-			       filename, exename);
+			printf("ERROR: Can't find %s file!\n", opts->filename);
+
+			if (opts->exename) {
+				printf("Was '%s' compiled with -finstrument-functions flag\n"
+				       "and ran with ftrace record?\n",
+				       opts->exename);
+			}
 		} else {
 			perror("ftrace");
 		}
@@ -429,14 +443,20 @@ static int open_data_file(const char *filename, const char *exename,
 	}
 	fseek(fp, handle->hdr.header_size, SEEK_SET);
 
+	if (opts->exename == NULL)
+		opts->exename = handle->info.exename;
+
 	ret = 0;
 
 out:
 	return ret;
 }
 
-static void close_data_file(struct ftrace_file_handle *handle)
+static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
+	if (opts->exename == handle->info.exename)
+		opts->exename = NULL;
+
 	fclose(handle->fp);
 	clear_ftrace_info(&handle->info);
 }
@@ -561,7 +581,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 	struct mcount_ret_stack rstack;
 
-	ret = open_data_file(opts->filename, opts->exename, &handle);
+	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
 
@@ -581,7 +601,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	unload_symtabs();
 out:
-	close_data_file(&handle);
+	close_data_file(opts, &handle);
 
 	return ret;
 }
@@ -696,7 +716,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 //	const char l_format[] = "  %-40.40s  %10"PRIu64"  %10"PRIu64"  %10lu  \n";
 	const char line[] = "=================================================";
 
-	ret = open_data_file(opts->filename, opts->exename, &handle);
+	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
 
@@ -749,7 +769,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 
 	unload_symtabs();
 out:
-	close_data_file(&handle);
+	close_data_file(opts, &handle);
 
 	return ret;
 }
@@ -761,7 +781,7 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 	const char *fmt = "# %-20s: %s\n";
 
-	ret = open_data_file(opts->filename, opts->exename, &handle);
+	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
 
@@ -822,7 +842,7 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 
 	printf("\n");
 
-	close_data_file(&handle);
+	close_data_file(opts, &handle);
 
 	return ret;
 }
