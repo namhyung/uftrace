@@ -237,7 +237,6 @@ static void setup_child_environ(struct opts *opts)
 {
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
-	const char *lib_path = opts->lib_path ?: ".";
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
 	if (find_symname("__cyg_profile_func_enter"))
@@ -251,7 +250,18 @@ static void setup_child_environ(struct opts *opts)
 	}
 	setenv("LD_PRELOAD", buf, 1);
 
-	strcpy(buf, lib_path);
+	if (opts->lib_path) {
+		strcpy(buf, opts->lib_path);
+		strcat(buf, ":");
+	} else {
+		/* to make strcat() work */
+		buf[0] = '\0';
+	}
+
+#ifdef INSTALL_LIB_PATH
+	strcat(buf, INSTALL_LIB_PATH);
+#endif
+
 	if (old_libpath) {
 		strcat(buf, ":");
 		strcat(buf, old_libpath);

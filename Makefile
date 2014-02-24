@@ -1,5 +1,6 @@
 CC = gcc
 RM = rm -f
+INSTALL = install
 
 ASFLAGS = -g -D_GNU_SOURCE $(ASFLAGS_$@)
 CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@)
@@ -7,6 +8,10 @@ CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@)
 LDFLAGS = -lelf $(LDFLAGS_$@)
 
 CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+
+prefix ?= /usr/local
+bindir = $(prefix)/bin
+libdir = $(prefix)/lib
 
 all:
 
@@ -22,6 +27,7 @@ endif
 CFLAGS_mcount.op = -fPIC -fvisibility=hidden -pthread
 CFLAGS_symbol.op = -fPIC -fvisibility=hidden
 CFLAGS_cygprofile.op = -fPIC
+CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
 
 LDFLAGS_libmcount.so = -pthread
 LDFLAGS_libcygprof.so = -pthread
@@ -51,7 +57,7 @@ $(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h
 cygprofile.op: cygprofile.c mcount.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-arch/$(ARCH)/%.op: PHONY
+arch/$(ARCH)/%.op: arch/$(ARCH)/*.S
 	@$(MAKE) -C arch/$(ARCH) $(notdir $@)
 
 libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
@@ -62,6 +68,13 @@ libcygprof.so: $(LIBCYGPROF_OBJS) arch/$(ARCH)/plthook.op
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
+
+install: all
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
+	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
+	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
+	@$(INSTALL) libcygprof.so  $(DESTDIR)$(libdir)/libcygprof.so
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
