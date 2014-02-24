@@ -9,4 +9,6 @@ libcygprof.so
 gmon.out
 tests/t-*
 tests/arch/*/t-*
-
+config/*
+!config/*.c
+!config/Makefile
