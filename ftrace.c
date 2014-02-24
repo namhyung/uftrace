@@ -238,11 +238,12 @@ static void setup_child_environ(struct opts *opts)
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *lib_path = opts->lib_path ?: ".";
+	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
 	if (find_symname("__cyg_profile_func_enter"))
-		snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libcygprof.so");
+		strcpy(buf, "libcygprof.so");
 	else
-		snprintf(buf, sizeof(buf), "%s/%s", lib_path, "libmcount.so");
+		strcpy(buf, "libmcount.so");
 
 	if (old_preload) {
 		strcat(buf, ":");
@@ -250,7 +251,12 @@ static void setup_child_environ(struct opts *opts)
 	}
 	setenv("LD_PRELOAD", buf, 1);
 
-	setenv("LD_BIND_NOT", "1", 1);
+	strcpy(buf, lib_path);
+	if (old_libpath) {
+		strcat(buf, ":");
+		strcat(buf, old_libpath);
+	}
+	setenv("LD_LIBRARY_PATH", buf, 1);
 
 	if (opts->filter) {
 		build_addrlist(buf, opts->filter);
@@ -262,8 +268,10 @@ static void setup_child_environ(struct opts *opts)
 		setenv("FTRACE_NOTRACE", buf, 1);
 	}
 
-	if (opts->want_plthook)
+	if (opts->want_plthook) {
+		setenv("LD_BIND_NOT", "1", 1);
 		setenv("FTRACE_PLTHOOK", "1", 1);
+	}
 
 	if (strcmp(opts->filename, FTRACE_FILE_NAME))
 		setenv("FTRACE_FILE", opts->filename, 1);
