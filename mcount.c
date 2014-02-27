@@ -14,6 +14,7 @@
 
 #include "mcount.h"
 #include "symbol.h"
+#include "utils.h"
 
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
@@ -317,10 +318,9 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 				 PROT_READ);
 		}
 
-		if (debug) {
-			printf("ftrace: plthook: found GOT at %p (resolver: %#lx)\n",
-			       got, plthook_resolver_addr);
-		}
+		dbg("ftrace: plthook: found GOT at %p (resolver: %#lx)\n",
+		    got, plthook_resolver_addr);
+
 		break;
 	}
 	return 0;
@@ -341,14 +341,12 @@ static int hook_pltgot(void)
 
 	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if (len == -1) {
-		if (debug)
-			printf("ftrace: error during read executable link\n");
+		dbg("ftrace: error during read executable link\n");
 		return -1;
 	}
 	buf[len] = '\0';
 
-	if (debug)
-		printf("opening executable image: %s\n", buf);
+	dbg("opening executable image: %s\n", buf);
 
 	fd = open(buf, O_RDONLY);
 	if (fd < 0)
@@ -394,8 +392,7 @@ out:
 	return ret;
 
 elf_error:
-	if (debug)
-		printf("ftrace: %s\n", elf_errmsg(elf_errno()));
+	dbg("ftrace: %s\n", elf_errmsg(elf_errno()));
 
 	goto out;
 }
@@ -413,8 +410,7 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 		exit(1);
 	}
 
-	if (debug)
-		printf("%s: %s\n", __func__, sym->name);
+	dbg("%s: %s\n", __func__, sym->name);
 
 	/* should skip internal functions */
 	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||

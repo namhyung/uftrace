@@ -51,10 +51,10 @@ MAKEFLAGS = --no-print-directory
 
 all: $(TARGETS)
 
-$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h
+$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-cygprofile.op: cygprofile.c mcount.h
+cygprofile.op: cygprofile.c mcount.h utils.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S

@@ -260,9 +260,9 @@ static void build_addrlist(char *buf, char *symlist)
 			snprintf(tmp, sizeof(tmp), "%s%#lx",
 				 p ? "" : ":", sym->addr);
 			strcat(buf, tmp);
-		} else if (debug) {
-			printf("ftrace: cannot find symbol: %s\n", fname);
-			printf("ftrace: skip setting filter..\n");
+		} else {
+			dbg("ftrace: cannot find symbol: %s\n", fname);
+			dbg("ftrace: skip setting filter..\n");
 		}
 
 		p = NULL;
@@ -342,20 +342,36 @@ static int fill_file_header(struct opts *opts, int status)
 	GElf_Ehdr ehdr;
 
 	fd = open(opts->filename, O_RDWR);
-	if (fd < 0)
+	if (fd < 0) {
+		dbg("cannot open data file: %s\n", strerror(errno));
 		return -1;
+	}
 
-	if (fstat(fd, &statbuf) < 0)
+	if (fstat(fd, &statbuf) < 0) {
+		dbg("cannot stat data file: %s\n", strerror(errno));
 		goto close_fd;
+	}
 
-	if (pread(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr))
+	if (statbuf.st_size < (int)sizeof(hdr)) {
+		dbg("invalid or corrupted file (size = %lu)\n",
+		    (unsigned long)statbuf.st_size);
 		goto close_fd;
+	}
 
-	if (strncmp(FTRACE_MAGIC_STR, hdr.magic, FTRACE_MAGIC_LEN))
+	if (pread(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr)) {
+		dbg("cannot read header part: %s\n", strerror(errno));
 		goto close_fd;
+	}
 
-	if (hdr.version != FTRACE_VERSION)
+	if (strncmp(FTRACE_MAGIC_STR, hdr.magic, FTRACE_MAGIC_LEN)) {
+		dbg("invalue magic string: %s\n", hdr.magic);
 		goto close_fd;
+	}
+
+	if (hdr.version != FTRACE_VERSION) {
+		dbg("invalid version: %d\n", hdr.version);
+		goto close_fd;
+	}
 
 	efd = open(opts->exename, O_RDONLY);
 	if (efd < 0)
@@ -384,6 +400,10 @@ static int fill_file_header(struct opts *opts, int status)
 	ret = 0;
 
 close_elf:
+	if (ret < 0) {
+		dbg("error during ELF processing: %s\n",
+		    elf_errmsg(elf_errno()));
+	}
 	elf_end(elf);
 close_efd:
 	close(efd);

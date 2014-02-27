@@ -9,6 +9,8 @@
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 #endif
 
+#define dbg(fmt, ...)  ({ if (debug) { fprintf(stdout, fmt, ##__VA_ARGS__); } })
+
 #ifdef HAVE_LIBIBERTY
 # include <libiberty.h>
 #else
