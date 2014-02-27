@@ -16,8 +16,15 @@ int arch_fill_cpuinfo_model(int fd)
 			dprintf(fd, "cpuinfo:desc=%s", &buf[12]);
 			ret = 0;
 			break;
+		} else if (!strncmp(buf, "model name\t:", 12)) {
+			dprintf(fd, "cpuinfo:desc=%s", &buf[13]);
+			ret = 0;
+			break;
 		}
 	}
+
+	if (ret < 0)
+		write(fd, "cpuinfo:desc=ARM (unknown)\n", 23);
 	fclose(fp);
 	return ret;
 }
