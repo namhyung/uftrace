@@ -398,6 +398,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
+	signal(SIGINT, SIG_IGN);
+
 	waitpid(pid, &status, 0);
 	if (WIFSIGNALED(status)) {
 		printf("child (%s) was terminated by signal: %d\n",
