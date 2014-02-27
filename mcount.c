@@ -48,6 +48,7 @@ static void mcount_init_file(void)
 		/* other fields are filled by ftrace record */
 	};
 	char *filename = getenv("FTRACE_FILE");
+	char *bufsize = getenv("FTRACE_BUFFER");
 
 	if (filename == NULL)
 		filename = FTRACE_FILE_NAME;
@@ -56,6 +57,12 @@ static void mcount_init_file(void)
 	if (fout == NULL) {
 		perror("mcount_init_file");
 		exit(1);
+	}
+
+	if (bufsize) {
+		unsigned long size = strtoul(bufsize, NULL, 0);
+
+		setvbuf(fout, NULL, size ? _IOFBF : _IONBF, size);
 	}
 
 	if (fwrite(&ffh, sizeof(ffh), 1, fout) != 1) {

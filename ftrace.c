@@ -34,6 +34,7 @@ static struct argp_option ftrace_options[] = {
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
+	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
 	{ 0 }
 };
 
@@ -54,12 +55,43 @@ struct opts {
 	char *filename;
 	int mode;
 	int idx;
+	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
 	bool print_symtab;
 };
 
 static bool debug;
+
+static unsigned long parse_size(char *str)
+{
+	unsigned long size;
+	char *unit;
+
+	size = strtoul(str, &unit, 0);
+	switch (*unit) {
+	case '\0':
+		break;
+	case 'k':
+	case 'K':
+		size <<= 10;
+		break;
+	case 'm':
+	case 'M':
+		size <<= 20;
+		break;
+	case 'g':
+	case 'G':
+		size <<= 30;
+		break;
+
+	default:
+		dbg("invalid size unit: %s\n", unit);
+		break;
+	}
+
+	return size;
+}
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
@@ -84,6 +116,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'f':
 		opts->filename = arg;
+		break;
+
+	case 'b':
+		opts->bsize = parse_size(arg);
 		break;
 
 	case OPT_flat:
@@ -168,6 +204,7 @@ int main(int argc, char *argv[])
 		.mode = FTRACE_MODE_INVALID,
 		.filename = FTRACE_FILE_NAME,
 		.want_plthook = true,
+		.bsize = ~0UL,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -285,6 +322,11 @@ static void setup_child_environ(struct opts *opts)
 
 	if (strcmp(opts->filename, FTRACE_FILE_NAME))
 		setenv("FTRACE_FILE", opts->filename, 1);
+
+	if (opts->bsize != ~0UL) {
+		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
+		setenv("FTRACE_BUFFER", buf, 1);
+	}
 
 	if (debug)
 		setenv("FTRACE_DEBUG", "1", 1);
