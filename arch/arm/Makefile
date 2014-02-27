@@ -1,5 +1,5 @@
-CC = gcc
-LD = ld
+CC = $(CROSS_COMPILE)gcc
+LD = $(CROSS_COMPILE)ld
 RM = rm -f
 
 ASFLAGS = -fPIC

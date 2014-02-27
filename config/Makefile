@@ -37,7 +37,7 @@ else # BUILD_FEATURE_CHECKS
 # This is needed for build config tests
 #
 
-CC = gcc
+CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 
 CFLAGS = $(CFLAGS_$@)

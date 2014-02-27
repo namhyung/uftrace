@@ -1,11 +1,11 @@
-CC = gcc
+CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 INSTALL = install
 
-ASFLAGS = -g -D_GNU_SOURCE $(ASFLAGS_$@)
-CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@)
+ASFLAGS = -g -D_GNU_SOURCE $(ASFLAGS_$@) $(EXTRA_AFLAGS)
+CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@) $(EXTRA_CFLAGS)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-LDFLAGS = -lelf $(LDFLAGS_$@)
+LDFLAGS = -lelf $(LDFLAGS_$@) $(EXTRA_LDFLAGS)
 
 CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
