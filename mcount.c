@@ -21,6 +21,7 @@ __thread struct mcount_ret_stack *mcount_rstack;
 
 bool debug;
 static FILE *fout;
+static bool tracing_enabled = true;
 
 static unsigned long *filter_trace;
 static unsigned nr_filter;
@@ -126,6 +127,9 @@ int mcount_entry(unsigned long parent, unsigned long child)
 {
 	int filtered;
 	struct mcount_ret_stack *rstack;
+
+	if (!tracing_enabled)
+		return -1;
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
@@ -428,6 +432,13 @@ unsigned long plthook_exit(void)
 	return mcount_exit();
 }
 
+static void stop_trace(int sig)
+{
+	tracing_enabled = false;
+
+	fflush(fout);
+}
+
 /*
  * external interfaces
  */
@@ -455,6 +466,8 @@ __monstartup(unsigned long low, unsigned long high)
 		load_dynsymtab(buf);
 		hook_pltgot();
 	}
+
+	signal(SIGPROF, stop_trace);
 }
 
 void __attribute__((visibility("default")))

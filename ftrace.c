@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <gelf.h>
 
 #include "mcount.h"
@@ -432,6 +433,11 @@ static void sighandler(int sig)
 	done = true;
 }
 
+static int tgkill(int tgid, int tid, int sig)
+{
+	return syscall(SYS_tgkill, tgid, tid, sig);
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -491,6 +497,11 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			dbg("child terminated with %d\n", WEXITSTATUS(status));
 		}
 		break;
+	}
+
+	if (opts->daemon) {
+		tgkill(pid, pid, SIGPROF);
+		usleep(1000);
 	}
 
 	if (fill_file_header(opts, status) < 0) {
