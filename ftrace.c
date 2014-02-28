@@ -24,6 +24,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_flat 	301
 #define OPT_plthook 	302
 #define OPT_symbols	303
+#define OPT_daemon	304
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -35,6 +36,7 @@ static struct argp_option ftrace_options[] = {
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
+	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
 	{ 0 }
 };
 
@@ -59,6 +61,7 @@ struct opts {
 	bool flat;
 	bool want_plthook;
 	bool print_symtab;
+	bool daemon;
 };
 
 static bool debug;
@@ -132,6 +135,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_symbols:
 		opts->print_symtab = true;
+		break;
+
+	case OPT_daemon:
+		opts->daemon = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -418,6 +425,13 @@ static const char mcount_msg[] =
 	"It seems not to be compiled with -finstrument-functions flag\n"
 	"which generates traceable code.  Please check your binary file.\n";
 
+static volatile bool done;
+
+static void sighandler(int sig)
+{
+	done = true;
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -460,14 +474,24 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
-	signal(SIGINT, SIG_IGN);
+	signal(SIGINT, sighandler);
+	signal(SIGTERM, sighandler);
 
-	waitpid(pid, &status, 0);
-	if (WIFSIGNALED(status)) {
-		printf("child (%s) was terminated by signal: %d\n",
-		       opts->exename, WTERMSIG(status));
-	} else if (debug)
-		printf("child terminated with %d\n", WEXITSTATUS(status));
+	while (!done) {
+		if (opts->daemon) {
+			sleep(1);
+			continue;
+		}
+
+		waitpid(pid, &status, 0);
+		if (WIFSIGNALED(status)) {
+			printf("child (%s) was terminated by signal: %d\n",
+			       opts->exename, WTERMSIG(status));
+		} else {
+			dbg("child terminated with %d\n", WEXITSTATUS(status));
+		}
+		break;
+	}
 
 	if (fill_file_header(opts, status) < 0) {
 		printf("Cannot generate data file\n");

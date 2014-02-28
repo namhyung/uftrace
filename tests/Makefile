@@ -11,7 +11,7 @@ LDFLAGS = -pthread
 #CFLAGS += -fno-omit-frame-pointer
 #endif
 
-TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local
+TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local t-abcd
 
 TARGETS_O1 = $(patsubst %,%_O1,$(TARGETS))
 TARGETS_O2 = $(patsubst %,%_O2,$(TARGETS))
