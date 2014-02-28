@@ -467,7 +467,12 @@ __monstartup(unsigned long low, unsigned long high)
 		hook_pltgot();
 	}
 
-	signal(SIGPROF, stop_trace);
+	if (getenv("FTRACE_SIGNAL")) {
+		char *str = getenv("FTRACE_SIGNAL");
+		int sig = strtol(str, NULL, 0);
+
+		signal(sig, stop_trace);
+	}
 }
 
 void __attribute__((visibility("default")))

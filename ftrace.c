@@ -26,6 +26,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_plthook 	302
 #define OPT_symbols	303
 #define OPT_daemon	304
+#define OPT_signal	305
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -38,6 +39,7 @@ static struct argp_option ftrace_options[] = {
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
 	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
+	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
 	{ 0 }
 };
 
@@ -58,6 +60,7 @@ struct opts {
 	char *filename;
 	int mode;
 	int idx;
+	int signal;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -142,6 +145,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->daemon = true;
 		break;
 
+	case OPT_signal:
+		opts->signal = strtol(arg, NULL, 0);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -213,6 +220,7 @@ int main(int argc, char *argv[])
 		.filename = FTRACE_FILE_NAME,
 		.want_plthook = true,
 		.bsize = ~0UL,
+		.signal = SIGPROF,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -334,6 +342,11 @@ static void setup_child_environ(struct opts *opts)
 	if (opts->bsize != ~0UL) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
 		setenv("FTRACE_BUFFER", buf, 1);
+	}
+
+	if (opts->daemon) {
+		snprintf(buf, sizeof(buf), "%d", opts->signal);
+		setenv("FTRACE_SIGNAL", buf, 1);
 	}
 
 	if (debug)
@@ -500,7 +513,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->daemon) {
-		tgkill(pid, pid, SIGPROF);
+		tgkill(pid, pid, opts->signal);
 		usleep(1000);
 	}
 
