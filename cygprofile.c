@@ -21,27 +21,27 @@ void __cyg_profile_func_enter(void *child, void *parent)
 {
 	int ret;
 
-	dbg("%s: p: %p, c: %p\n", __func__, parent, child);
+	pr_dbg("%s: p: %p, c: %p\n", __func__, parent, child);
 
 	ret = mcount_entry((unsigned long)parent, (unsigned long)child);
 	if (ret < 0)
-		dbg("\tfiltered [%d]\n", mcount_rstack_idx);
+		pr_dbg("\tfiltered [%d]\n", mcount_rstack_idx);
 	else
-		dbg("\tmcount_rstack_idx = %d\n", mcount_rstack_idx);
+		pr_dbg("\tmcount_rstack_idx = %d\n", mcount_rstack_idx);
 }
 
 void __cyg_profile_func_exit(void *child, void *parent)
 {
 	int idx = mcount_rstack_idx;
 
-	dbg("%s : p: %p, c: %p\n", __func__, parent, child);
+	pr_dbg("%s : p: %p, c: %p\n", __func__, parent, child);
 
 	if (idx < 0)
 		idx += MCOUNT_NOTRACE_IDX;
 
 	if (idx <= 0 || idx >= MCOUNT_RSTACK_MAX) {
-		dbg("%s: bad index [%d] for %p -> %p\n",
-		    __func__, idx, parent, child);
+		pr_dbg("%s: bad index [%d] for %p -> %p\n",
+		       __func__, idx, parent, child);
 		return;
 	}
 
@@ -49,6 +49,6 @@ void __cyg_profile_func_exit(void *child, void *parent)
 	    mcount_rstack[idx-1].parent_ip == (unsigned long)parent)
 		mcount_exit();
 	else
-		dbg("\tskipped (%p), mcount_rstack_idx = %d (%d)\n",
-		    child, mcount_rstack_idx, idx);
+		pr_dbg("\tskipped (%p), mcount_rstack_idx = %d (%d)\n",
+		       child, mcount_rstack_idx, idx);
 }

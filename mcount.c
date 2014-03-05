@@ -5,11 +5,13 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <gelf.h>
 
 #include "mcount.h"
@@ -19,7 +21,6 @@
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
-bool debug;
 static FILE *fout;
 static bool tracing_enabled = true;
 
@@ -51,14 +52,18 @@ static void mcount_init_file(void)
 	};
 	char *filename = getenv("FTRACE_FILE");
 	char *bufsize = getenv("FTRACE_BUFFER");
+	char buf[256];
 
 	if (filename == NULL)
 		filename = FTRACE_FILE_NAME;
 
 	fout = fopen(filename, "wb");
 	if (fout == NULL) {
-		perror("mcount_init_file");
-		exit(1);
+		char *errmsg = strerror_r(errno, buf, sizeof(buf));
+		if (errmsg == NULL)
+			errmsg = filename;
+
+		pr_err("mcount: ERROR: cannot create data file: %s\n", errmsg);
 	}
 
 	if (bufsize) {
@@ -68,8 +73,11 @@ static void mcount_init_file(void)
 	}
 
 	if (fwrite(&ffh, sizeof(ffh), 1, fout) != 1) {
-		perror("mcount_init_file");
-		exit(1);
+		char *errmsg = strerror_r(errno, buf, sizeof(buf));
+		if (errmsg == NULL)
+			errmsg = filename;
+
+		pr_err("mcount: ERROR: cannot write header info: %s\n", errmsg);
 	}
 }
 
@@ -77,11 +85,7 @@ static void mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
-	mcount_rstack = malloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
-	if (mcount_rstack == NULL) {
-		perror("mcount_prepare");
-		exit(1);
-	}
+	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
 }
@@ -135,7 +139,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 		mcount_prepare();
 
 	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		printf("mcount: too deeply nested calls\n");
+		pr_log("mcount: too deeply nested calls\n");
 		return -1;
 	}
 
@@ -175,16 +179,14 @@ unsigned long mcount_exit(void)
 		was_filtered = true;
 	}
 
-	if (mcount_rstack_idx <= 0) {
-		printf("mcount: broken ret stack (%d)\n", mcount_rstack_idx);
-		exit(1);
-	}
+	if (mcount_rstack_idx <= 0)
+		pr_err("mcount: ERROR: broken ret stack (%d)\n", mcount_rstack_idx);
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
 	if (rstack->tid != gettid() || rstack->depth != mcount_rstack_idx ||
 	    rstack->end_time != 0) {
-		printf("mcount: corrupted mcount ret stack found!\n");
+		pr_log("mcount: corrupted mcount ret stack found!\n");
 		//exit(1);
 	}
 
@@ -208,14 +210,14 @@ static void mcount_finish(void)
 	fout = NULL;
 }
 
-static int mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
+static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
 {
 	unsigned int i, nr;
 	char *str = getenv(envstr);
 	char *pos;
 
 	if (str == NULL)
-		return 0;
+		return;
 
 	pos = str;
 	nr = 0;
@@ -227,30 +229,26 @@ static int mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *s
 	}
 
 	*filter = malloc(sizeof(long) * nr);
-	if (*filter == NULL) {
-		printf("failed to allocate memory for %s\n", envstr);
-		return -1;
-	}
+	if (*filter == NULL)
+		pr_err("failed to allocate memory for %s\n", envstr);
 
 	*size = nr;
 
 	pos = str;
 	for (i = 0; i < nr; i++) {
 		(*filter)[i] = strtoul(pos, &pos, 16);
-		if (*pos && *pos != ':') {
-			printf("invalid filter string for %s\n", envstr);
-			return -1;
-		}
+		if (*pos && *pos != ':')
+			pr_err("invalid filter string for %s\n", envstr);
+
 		pos++;
 	}
 
 	if (debug) {
-		printf("%s: ", envstr);
+		pr_dbg("%s: ", envstr);
 		for (i = 0; i < nr; i++)
-			printf(" 0x%lx", (*filter)[i]);
-		putchar('\n');
+			pr_dbg(" 0x%lx", (*filter)[i]);
+		pr_dbg("\n");
 	}
-	return 0;
 }
 
 static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
@@ -270,8 +268,7 @@ void segv_handler(int sig, siginfo_t *si, void *ctx)
 			 PROT_WRITE);
 		segv_handled = true;
 	} else {
-		printf("ftrace: invalid memory access.. exiting.\n");
-		exit(1);
+		pr_err("mcount: invalid memory access.. exiting.\n");
 	}
 }
 
@@ -306,14 +303,14 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		sa.sa_flags = SA_SIGINFO;
 		sigfillset(&sa.sa_mask);
 		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-			printf("ftrace: error during install sig handler\n");
+			pr_log("mcount: error during install sig handler\n");
 			return -1;
 		}
 
 		got[2] = (unsigned long)plt_hooker;
 
 		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-			printf("ftrace: error during recover sig handler\n");
+			pr_log("mcount: error during recover sig handler\n");
 			return -1;
 		}
 
@@ -322,8 +319,8 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 				 PROT_READ);
 		}
 
-		dbg("ftrace: plthook: found GOT at %p (resolver: %#lx)\n",
-		    got, plthook_resolver_addr);
+		pr_dbg("mcount: found GOT at %p (resolver: %#lx)\n",
+		       got, plthook_resolver_addr);
 
 		break;
 	}
@@ -345,12 +342,12 @@ static int hook_pltgot(void)
 
 	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if (len == -1) {
-		dbg("ftrace: error during read executable link\n");
+		pr_log("mcount: error during read executable link\n");
 		return -1;
 	}
 	buf[len] = '\0';
 
-	dbg("opening executable image: %s\n", buf);
+	pr_dbg("opening executable image: %s\n", buf);
 
 	fd = open(buf, O_RDONLY);
 	if (fd < 0)
@@ -396,7 +393,7 @@ out:
 	return ret;
 
 elf_error:
-	dbg("ftrace: %s\n", elf_errmsg(elf_errno()));
+	pr_log("mcount: %s\n", elf_errmsg(elf_errno()));
 
 	goto out;
 }
@@ -409,12 +406,11 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	long ret;
 
 	if (child_ip == 0) {
-		printf("ERROR: invalid function idx found! (idx: %d, %#lx)\n",
+		pr_err("mcount: ERROR: invalid function idx found! (idx: %d, %#lx)\n",
 		       (int) child_idx, child_idx);
-		exit(1);
 	}
 
-	dbg("%s: %s\n", __func__, sym->name);
+	pr_dbg("%s: %s\n", __func__, sym->name);
 
 	/* should skip internal functions */
 	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||
@@ -445,14 +441,23 @@ static void stop_trace(int sig)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
+	char *log_fd = getenv("FTRACE_LOGFD");
+
+	if (log_fd) {
+		struct stat statbuf;
+
+		logfd = strtol(log_fd, NULL, 0);
+
+		/* minimal sanity check */
+		if (fstat(logfd, &statbuf) < 0)
+			logfd = STDERR_FILENO;
+	}
+
 	if (getenv("FTRACE_DEBUG"))
 		debug = true;
 
-	if (mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter) < 0)
-		exit(1);
-
-	if (mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace) < 0)
-		exit(1);
+	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
+	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		int len;
@@ -464,7 +469,9 @@ __monstartup(unsigned long low, unsigned long high)
 		buf[len] = '\0';
 
 		load_dynsymtab(buf);
-		hook_pltgot();
+
+		if (hook_pltgot() < 0)
+			pr_dbg("mcount: error when hooking plt: skipping...\n");
 	}
 
 	if (getenv("FTRACE_SIGNAL")) {

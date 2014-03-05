@@ -18,7 +18,7 @@ struct symtab {
 
 struct sym * find_symtab(unsigned long addr);
 struct sym * find_symname(const char *name);
-int load_symtabs(const char *filename);
+void load_symtabs(const char *filename);
 void unload_symtabs(void);
 void print_symtabs(void);
 

@@ -27,6 +27,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_symbols	303
 #define OPT_daemon	304
 #define OPT_signal	305
+#define OPT_logfile	306
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -40,6 +41,7 @@ static struct argp_option ftrace_options[] = {
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
 	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
 	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
+	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ 0 }
 };
 
@@ -58,6 +60,7 @@ struct opts {
 	char *notrace;
 	char *exename;
 	char *filename;
+	char *logfile;
 	int mode;
 	int idx;
 	int signal;
@@ -67,8 +70,6 @@ struct opts {
 	bool print_symtab;
 	bool daemon;
 };
-
-static bool debug;
 
 static unsigned long parse_size(char *str)
 {
@@ -93,7 +94,7 @@ static unsigned long parse_size(char *str)
 		break;
 
 	default:
-		dbg("invalid size unit: %s\n", unit);
+		fprintf(stderr, "invalid size unit: %s\n", unit);
 		break;
 	}
 
@@ -147,6 +148,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_signal:
 		opts->signal = strtol(arg, NULL, 0);
+		break;
+
+	case OPT_logfile:
+		opts->logfile = arg;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -231,6 +236,14 @@ int main(int argc, char *argv[])
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
+	if (opts.logfile) {
+		logfd = open(opts.logfile, O_WRONLY | O_CREAT);
+		if (logfd < 0) {
+			perror("cannot open log file");
+			exit(1);
+		}
+	}
+
 	if (opts.print_symtab) {
 		load_symtabs(opts.exename);
 		print_symtabs();
@@ -258,6 +271,9 @@ int main(int argc, char *argv[])
 		break;
 	}
 
+	if (opts.logfile)
+		close(logfd);
+
 	return 0;
 }
 
@@ -277,8 +293,8 @@ static void build_addrlist(char *buf, char *symlist)
 				 p ? "" : ":", sym->addr);
 			strcat(buf, tmp);
 		} else {
-			dbg("ftrace: cannot find symbol: %s\n", fname);
-			dbg("ftrace: skip setting filter..\n");
+			pr_dbg("ftrace: cannot find symbol: %s\n", fname);
+			pr_dbg("ftrace: skip setting filter..\n");
 		}
 
 		p = NULL;
@@ -349,6 +365,11 @@ static void setup_child_environ(struct opts *opts)
 		setenv("FTRACE_SIGNAL", buf, 1);
 	}
 
+	if (opts->logfile) {
+		snprintf(buf, sizeof(buf), "%d", logfd);
+		setenv("FTRACE_LOGFD", buf, 1);
+	}
+
 	if (debug)
 		setenv("FTRACE_DEBUG", "1", 1);
 }
@@ -361,36 +382,39 @@ static int fill_file_header(struct opts *opts, int status)
 	struct ftrace_file_header hdr;
 	Elf *elf;
 	GElf_Ehdr ehdr;
+	off_t header_offset;
+
+	pr_dbg("fill header (metadata) info in %s\n", opts->filename);
 
 	fd = open(opts->filename, O_RDWR);
 	if (fd < 0) {
-		dbg("cannot open data file: %s\n", strerror(errno));
+		pr_log("cannot open data file: %s\n", strerror(errno));
 		return -1;
 	}
 
 	if (fstat(fd, &statbuf) < 0) {
-		dbg("cannot stat data file: %s\n", strerror(errno));
+		pr_log("cannot stat data file: %s\n", strerror(errno));
 		goto close_fd;
 	}
 
 	if (statbuf.st_size < (int)sizeof(hdr)) {
-		dbg("invalid or corrupted file (size = %lu)\n",
-		    (unsigned long)statbuf.st_size);
+		pr_log("invalid or corrupted data file (size = %lu)\n",
+		       (unsigned long)statbuf.st_size);
 		goto close_fd;
 	}
 
 	if (pread(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr)) {
-		dbg("cannot read header part: %s\n", strerror(errno));
+		pr_log("cannot read header part: %s\n", strerror(errno));
 		goto close_fd;
 	}
 
 	if (strncmp(FTRACE_MAGIC_STR, hdr.magic, FTRACE_MAGIC_LEN)) {
-		dbg("invalue magic string: %s\n", hdr.magic);
+		pr_log("invalue magic string: %s\n", hdr.magic);
 		goto close_fd;
 	}
 
 	if (hdr.version != FTRACE_VERSION) {
-		dbg("invalid version: %d\n", hdr.version);
+		pr_log("invalid version: %d\n", hdr.version);
 		goto close_fd;
 	}
 
@@ -412,7 +436,9 @@ static int fill_file_header(struct opts *opts, int status)
 	hdr.class = ehdr.e_ident[EI_CLASS];
 	hdr.length = statbuf.st_size;
 
-	lseek(fd, 0, SEEK_END);
+	header_offset = lseek(fd, 0, SEEK_END);
+	pr_dbg("writing header info at %lu\n", (unsigned long)header_offset);
+
 	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
 
 	if (pwrite(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr))
@@ -422,8 +448,8 @@ static int fill_file_header(struct opts *opts, int status)
 
 close_elf:
 	if (ret < 0) {
-		dbg("error during ELF processing: %s\n",
-		    elf_errmsg(elf_errno()));
+		pr_log("error during ELF processing: %s\n",
+		       elf_errmsg(elf_errno()));
 	}
 	elf_end(elf);
 close_efd:
@@ -435,9 +461,9 @@ close_fd:
 }
 
 static const char mcount_msg[] =
-	"ERROR: Can't find '%s' symbol in the '%s'.\n"
-	"It seems not to be compiled with -finstrument-functions flag\n"
-	"which generates traceable code.  Please check your binary file.\n";
+	"ftrace: ERROR: Can't find '%s' symbol in the '%s'.\n"
+	"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n"
+	"\twhich generates traceable code.  Please check your binary file.\n";
 
 static volatile bool done;
 
@@ -465,21 +491,19 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		rename(opts->filename, oldname);
 	}
 
-	if (load_symtabs(opts->exename) < 0)
-		return -1;
+	load_symtabs(opts->exename);
 
 	if (!find_symname("mcount") && !find_symname("__fentry__") &&
-	    !find_symname("__gnu_mcount_nc") && !find_symname("__cyg_profile_func_enter")) {
-		printf(mcount_msg, "mcount", opts->exename);
-		return -1;
-	}
+	    !find_symname("__gnu_mcount_nc") &&
+	    !find_symname("__cyg_profile_func_enter"))
+		pr_err(mcount_msg, "mcount", opts->exename);
 
 	fflush(stdout);
 
 	pid = fork();
 	if (pid < 0) {
-		perror("fork");
-		return -1;
+		pr_err("ftrace: ERROR: cannot start child process: %s\n",
+		       strerror(errno));
 	}
 
 	if (pid == 0) {
@@ -504,10 +528,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		waitpid(pid, &status, 0);
 		if (WIFSIGNALED(status)) {
-			printf("child (%s) was terminated by signal: %d\n",
+			pr_dbg("child (%s) was terminated by signal: %d\n",
 			       opts->exename, WTERMSIG(status));
 		} else {
-			dbg("child terminated with %d\n", WEXITSTATUS(status));
+			pr_dbg("child terminated with %d\n", WEXITSTATUS(status));
 		}
 		break;
 	}
@@ -517,10 +541,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		usleep(1000);
 	}
 
-	if (fill_file_header(opts, status) < 0) {
-		printf("Cannot generate data file\n");
-		return -1;
-	}
+	if (fill_file_header(opts, status) < 0)
+		pr_err("ftrace: ERROR: cannot generate data file\n");
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
@@ -534,41 +556,49 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
-	const char msg[] = "Was '%s' compiled with -finstrument-functions flag\n"
-		"and ran with ftrace record?\n";
+	const char msg[] = "ftrace: ERROR: Was '%s' compiled with -pg or\n"
+		"\t-finstrument-functions flag and ran with ftrace record?\n";
 
 	fp = fopen(opts->filename, "rb");
 	if (fp == NULL) {
 		if (errno == ENOENT) {
-			printf("ERROR: Can't find %s file!\n", opts->filename);
+			pr_log("ftrace: cannot find %s file!\n", opts->filename);
 
 			if (opts->exename)
-				printf(msg, opts->exename);
+				pr_err(msg, opts->exename);
 		} else {
-			perror("ftrace");
+			pr_err("ftrace: ERROR: cannot open %s file: %s\n",
+			       opts->filename, strerror(errno));
 		}
 		goto out;
 	}
 
 	fread(&handle->hdr, sizeof(handle->hdr), 1, fp);
 	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN)) {
-		printf("invalid magic string found!\n");
 		fclose(fp);
-		goto out;
+		pr_err("ftrace: ERROR: invalid magic string found!\n");
 	}
 	if (handle->hdr.version != FTRACE_VERSION) {
-		printf("invalid vergion number found!\n");
 		fclose(fp);
-		goto out;
+		pr_err("ftrace: ERROR: invalid vergion number found!\n");
 	}
 
 	handle->fp = fp;
 
+	if (handle->hdr.length == 0) {
+		pr_log("ftrace: WARNING: header info was missing.\n"
+		       "\tIt seems the ftrace record sesssion was terminated abnormally.\n");
+
+		if (opts->exename == NULL) {
+			pr_err("ftrace: You need to specify the orignal executable\n"
+			       "\tas an argument to proceed.\n");
+		}
+	}
+
 	fseek(fp, handle->hdr.length, SEEK_SET);
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0) {
-		printf("error reading ftrace info!\n");
 		fclose(fp);
-		goto out;
+		pr_err("ftrace: ERROR: cannot read ftrace header info!\n");
 	}
 	fseek(fp, handle->hdr.header_size, SEEK_SET);
 
@@ -601,7 +631,7 @@ static int read_rstack(struct ftrace_file_handle *handle,
 		return -1;
 
 	if (fread(rstack, sizeof(*rstack), 1, fp) != 1) {
-		perror("ftrace: error reading rstack");
+		pr_log("ftrace: error reading rstack: %s\n", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -714,9 +744,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	ret = load_symtabs(opts->exename);
-	if (ret < 0)
-		goto out;
+	load_symtabs(opts->exename);
 
 	while (read_rstack(&handle, &rstack) == 0) {
 		if (opts->flat)
@@ -729,7 +757,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	unload_symtabs();
-out:
+
 	close_data_file(opts, &handle);
 
 	return ret;
@@ -747,12 +775,13 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
 	int fd = mkstemp(template);
 	if (fd < 0) {
-		perror("live command cannot be run");
-		return -1;
+		pr_err("ftrace: ERROR: cannot create temp file: %s\n",
+		       strerror(errno));
 	}
+
 	close(fd);
 
-	tmp_filename = xstrdup(template);
+	tmp_filename = template;
 	atexit(cleanup_tempfile);
 
 	opts->filename = template;
@@ -760,7 +789,6 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 	if (command_record(argc, argv, opts) == 0)
 		command_replay(argc, argv, opts);
 
-	free(tmp_filename);
 	tmp_filename = NULL;
 
 	unlink(template);
@@ -849,9 +877,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	ret = load_symtabs(opts->exename);
-	if (ret < 0)
-		goto out;
+	load_symtabs(opts->exename);
 
 	while (read_rstack(&handle, &rstack) == 0) {
 		struct sym *sym;
@@ -897,7 +923,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	}
 
 	unload_symtabs();
-out:
+
 	close_data_file(opts, &handle);
 
 	return ret;

@@ -76,12 +76,12 @@ static int namefind(const void *a, const void *b)
 }
 
 static const char ftrace_msg[] =
-	"ERROR: Can't find '%s' file.\n"
-	"Please check your binary.\n"
-	"If you run the binary under $PATH (like /usr/bin/%s),\n"
-	"it probably wasn't compiled with -finstrument-functions flag\n"
-	"which generates traceable code.\n"
-	"If so, recompile and run it with full pathname.\n";
+	"ftrace: ERROR: Can't find '%s' file.\n"
+	"\tPlease check your binary.\n"
+	"\tIf you run the binary under $PATH (like /usr/bin/%s),\n"
+	"\tit probably wasn't compiled with -pg or -finstrument-functions flag\n"
+	"\twhich generates traceable code.\n"
+	"\tIf so, recompile and run it with full pathname.\n";
 
 void unload_symtabs(void)
 {
@@ -112,10 +112,9 @@ void unload_symtabs(void)
 	dynsymtab.sym_names = NULL;
 }
 
-int load_symtabs(const char *filename)
+void load_symtabs(const char *filename)
 {
 	int fd;
-	int ret = -1;
 	Elf *elf;
 	size_t i, nr_sym = 0, nr_rels = 0;
 	Elf_Scn *sym_sec, *dynsym_sec, *relplt_sec, *sec;
@@ -124,18 +123,25 @@ int load_symtabs(const char *filename)
 	GElf_Addr plt_addr = 0;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
+	char buf[256];
+	const char *errmsg;
 
 	/* already loaded */
 	if (symtab.nr_sym)
-		return 0;
+		return;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		if (errno == ENOENT)
-			printf(ftrace_msg, filename, basename(filename));
-		else
-			perror("ftrace:load_symtab");
-		return ret;
+			pr_err(ftrace_msg, filename, basename(filename));
+		else {
+			errmsg = strerror_r(errno, buf, sizeof(buf));
+			if (errmsg == NULL)
+				errmsg = filename;
+
+			pr_err("ftrace: ERROR: cannot load symbol table: %s\n",
+			       errmsg);
+		}
 	}
 
 	elf_version(EV_CURRENT);
@@ -147,7 +153,7 @@ int load_symtabs(const char *filename)
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	sec = sym_sec = NULL;
+	sec = sym_sec = dynsym_sec = relplt_sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *shstr;
 		GElf_Shdr shdr;
@@ -179,21 +185,15 @@ int load_symtabs(const char *filename)
 		}
 	}
 
-	if (sym_sec == NULL) {
-		printf("ftrace: cannot find symbol information in '%s'.\n"
+	if (sym_sec == NULL)
+		pr_err("ftrace: ERROR: cannot find symbol information in '%s'.\n"
 		       "Is it stripped?\n", filename);
-		goto out;
-	}
 
-	if (dynsym_sec == NULL || plt_addr == 0) {
-		printf("ftrace: cannot find dynamic symbols.. skipping\n");
-		goto out;
-	}
+	if (dynsym_sec == NULL || plt_addr == 0)
+		pr_err("ftrace: ERROR: cannot find dynamic symbols.\n");
 
-	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
-		printf("ftrace: cannot find relocation info for PLT\n");
-		goto out;
-	}
+	if (rel_type != SHT_RELA && rel_type != SHT_REL)
+		pr_err("ftrace: ERROR: cannot find relocation info for PLT\n");
 
 	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
@@ -223,13 +223,8 @@ int load_symtabs(const char *filename)
 
 		if (symtab.nr_sym >= symtab.nr_alloc) {
 			symtab.nr_alloc += SYMTAB_GROW;
-			symtab.sym = realloc(symtab.sym,
-					     symtab.nr_alloc * sizeof(*sym));
-
-			if (symtab.sym == NULL) {
-				perror("ftrace:load_symtab");
-				goto out;
-			}
+			symtab.sym = xrealloc(symtab.sym,
+					      symtab.nr_alloc * sizeof(*sym));
 		}
 
 		sym = &symtab.sym[symtab.nr_sym++];
@@ -242,21 +237,14 @@ int load_symtabs(const char *filename)
 		/* Removing version info from undefined symbols */
 		ver = strchr(name, '@');
 		if (ver)
-			sym->name = strndup(name, ver - name);
+			sym->name = xstrndup(name, ver - name);
 		else
-			sym->name = strdup(name);
-
-		if (sym->name == NULL) {
-			perror("load_symtab");
-			goto out;
-		}
+			sym->name = xstrdup(name);
 	}
 
 	qsort(symtab.sym, symtab.nr_sym, sizeof(*symtab.sym), addrsort);
 
-	symtab.sym_names = malloc(sizeof(*symtab.sym_names) * symtab.nr_sym);
-	if (symtab.sym_names == NULL)
-		goto out;
+	symtab.sym_names = xmalloc(sizeof(*symtab.sym_names) * symtab.nr_sym);
 
 	for (i = 0; i < symtab.nr_sym; i++)
 		symtab.sym_names[i] = &symtab.sym[i];
@@ -289,13 +277,8 @@ int load_symtabs(const char *filename)
 
 		if (dynsymtab.nr_sym >= dynsymtab.nr_alloc) {
 			dynsymtab.nr_alloc += SYMTAB_GROW;
-			dynsymtab.sym = realloc(dynsymtab.sym,
+			dynsymtab.sym = xrealloc(dynsymtab.sym,
 						dynsymtab.nr_alloc * sizeof(*sym));
-
-			if (dynsymtab.sym == NULL) {
-				perror("ftrace:load_dynsymtab");
-				goto out;
-			}
 		}
 
 		sym = &dynsymtab.sym[dynsymtab.nr_sym++];
@@ -304,16 +287,14 @@ int load_symtabs(const char *filename)
 		sym->size = plt_entsize;
 		sym->name = xstrdup(name);
 	}
-	ret = 0;
-out:
+
 	elf_end(elf);
 	close(fd);
-	return ret;
+	return;
 
 elf_error:
-	printf("ftrace:load_symtab: %s\n", elf_errmsg(elf_errno()));
-	unload_symtabs();
-	goto out;
+	pr_err("ftrace: ELF error during symbol loading: %s\n",
+	       elf_errmsg(elf_errno()));
 }
 
 void unload_dynsymtab(void)
@@ -333,6 +314,7 @@ void unload_dynsymtab(void)
 	dynsymtab.sym_names = NULL;
 }
 
+/* This functions is also called from libmcount.so */
 int load_dynsymtab(const char *filename)
 {
 	int fd;
@@ -345,13 +327,16 @@ int load_dynsymtab(const char *filename)
 	GElf_Addr plt_addr = 0;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
+	char buf[256];
+	const char *errmsg;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		if (errno == ENOENT)
-			printf(ftrace_msg, filename, filename);
-		else
-			perror("ftrace");
+		errmsg = strerror_r(errno, buf, sizeof(buf));
+		if (errmsg == NULL)
+			errmsg = filename;
+
+		pr_log("error during load dynsymtab: %s\n", errmsg);
 		return -1;
 	}
 
@@ -393,13 +378,13 @@ int load_dynsymtab(const char *filename)
 	}
 
 	if (dynsym_sec == NULL || plt_addr == 0) {
-		printf("ftrace: cannot find dynamic symbols.. skipping\n");
+		pr_log("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
 
 	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
-		printf("ftrace: cannot find relocation info for PLT\n");
+		pr_log("cannot find relocation info for PLT\n");
 		goto out;
 	}
 
@@ -442,7 +427,7 @@ int load_dynsymtab(const char *filename)
 						dynsymtab.nr_alloc * sizeof(*sym));
 
 			if (dynsymtab.sym == NULL) {
-				perror("ftrace:load_dynsymtab");
+				pr_log("%s: not enough memory\n", __func__);
 				goto out;
 			}
 		}
@@ -451,7 +436,7 @@ int load_dynsymtab(const char *filename)
 
 		sym->addr = plt_addr + (idx + 1) * plt_entsize;
 		sym->size = plt_entsize;
-		sym->name = xstrdup(name);
+		sym->name = strdup(name);
 	}
 	ret = 0;
 
@@ -461,7 +446,8 @@ out:
 	return ret;
 
 elf_error:
-	printf("ftrace:load_dynsymtab: %s\n", elf_errmsg(elf_errno()));
+	printf("%s: ELF error during load dynsymtab: %s\n",
+	       __func__, elf_errmsg(elf_errno()));
 	unload_dynsymtab();
 	goto out;
 }

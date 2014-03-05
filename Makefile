@@ -26,6 +26,7 @@ endif
 
 CFLAGS_mcount.op = -fPIC -fvisibility=hidden -pthread
 CFLAGS_symbol.op = -fPIC -fvisibility=hidden
+CFLAGS_debug.op = -fPIC -fvisibility=hidden
 CFLAGS_cygprofile.op = -fPIC
 CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
 
@@ -37,13 +38,13 @@ include config/Makefile
 
 TARGETS = libmcount.so libcygprof.so ftrace
 
-FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c arch/$(ARCH)/cpuinfo.c
+FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c debug.c arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
 
-LIBMCOUNT_SRCS = mcount.c symbol.c
+LIBMCOUNT_SRCS = mcount.c symbol.c debug.c
 LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
 
-LIBCYGPROF_SRCS = mcount.c symbol.c cygprofile.c
+LIBCYGPROF_SRCS = mcount.c symbol.c debug.c cygprofile.c
 LIBCYGPROF_OBJS = $(LIBCYGPROF_SRCS:.c=.op)
 
 MAKEFLAGS = --no-print-directory
