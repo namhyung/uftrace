@@ -746,6 +746,9 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	load_symtabs(opts->exename);
 
+	if (!opts->flat)
+		printf("# DURATION    PID     FUNCTION\n");
+
 	while (read_rstack(&handle, &rstack) == 0) {
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, &rstack);
