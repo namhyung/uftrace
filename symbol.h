@@ -30,4 +30,8 @@ void unload_dynsymtab(void);
 char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);
 
+void setup_skip_idx(void);
+void destroy_skip_idx(void);
+bool should_skip_idx(unsigned idx);
+
 #endif /* FTRACE_SYMBOL_H */

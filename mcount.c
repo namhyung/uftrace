@@ -401,23 +401,21 @@ elf_error:
 unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 			    unsigned long module_id)
 {
-	struct sym *sym = find_dynsym(child_idx);
-	unsigned long child_ip = sym ? sym->addr : 0;
+	struct sym *sym;
+	unsigned long child_ip;
 	long ret;
 
+	if (should_skip_idx(child_idx))
+		return -1;
+
+	sym = find_dynsym(child_idx);
+	pr_dbg("%s: %s\n", __func__, sym->name);
+
+	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
 		pr_err("mcount: ERROR: invalid function idx found! (idx: %d, %#lx)\n",
 		       (int) child_idx, child_idx);
 	}
-
-	pr_dbg("%s: %s\n", __func__, sym->name);
-
-	/* should skip internal functions */
-	if (!strcmp(sym->name, "mcount") || !strcmp(sym->name, "_mcleanup") ||
-	    !strcmp(sym->name, "__fentry__") || !strcmp(sym->name, "__gnu_mcount_nc") ||
-	    !strcmp(sym->name, "__cyg_profile_func_enter") ||
-	    !strcmp(sym->name, "__cyg_profile_func_exit"))
-		return -1;
 
 	ret = mcount_entry(parent_ip, child_ip);
 	return ret;
@@ -469,6 +467,7 @@ __monstartup(unsigned long low, unsigned long high)
 		buf[len] = '\0';
 
 		load_dynsymtab(buf);
+		setup_skip_idx();
 
 		if (hook_pltgot() < 0)
 			pr_dbg("mcount: error when hooking plt: skipping...\n");
@@ -486,6 +485,7 @@ void __attribute__((visibility("default")))
 _mcleanup(void)
 {
 	mcount_finish();
+	destroy_skip_idx();
 
 	mcount_cleanup_filter(&filter_trace, &nr_filter);
 	mcount_cleanup_filter(&filter_notrace, &nr_notrace);

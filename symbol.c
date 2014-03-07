@@ -452,6 +452,52 @@ elf_error:
 	goto out;
 }
 
+static const char *skip_syms[] = {
+	"mcount",
+	"__fentry__",
+	"__gnu_mcount_nc",
+	"__cyg_profile_func_enter",
+	"__cyg_profile_func_exit",
+	"_mcleanup",
+};
+static unsigned *skip_idx;
+static unsigned skip_idx_nr;
+
+void setup_skip_idx(void)
+{
+	unsigned i, j;
+
+	for (i = 0; i < dynsymtab.nr_sym; i++) {
+		for (j = 0; j < ARRAY_SIZE(skip_syms); j++) {
+			if (!strcmp(dynsymtab.sym[i].name, skip_syms[j])) {
+				skip_idx = xrealloc(skip_idx,
+					(skip_idx_nr+1) * sizeof(*skip_idx));
+
+				skip_idx[skip_idx_nr++] = i;
+				break;
+			}
+		}
+	}
+}
+
+void destroy_skip_idx(void)
+{
+	free(skip_idx);
+	skip_idx = NULL;
+	skip_idx_nr = 0;
+}
+
+bool should_skip_idx(unsigned idx)
+{
+	size_t i;
+
+	for (i = 0; i < skip_idx_nr; i++) {
+		if (idx == skip_idx[i])
+			return true;
+	}
+	return false;
+}
+
 struct sym * find_dynsym(size_t idx)
 {
 	if (idx >= dynsymtab.nr_sym)
