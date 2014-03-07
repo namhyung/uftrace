@@ -13,7 +13,7 @@
 struct mcount_ret_stack {
 	unsigned long parent_ip;
 	unsigned long child_ip;
-	/* time in usec (CLOCK_MONOTONIC) */
+	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
 	uint64_t child_time;
@@ -32,7 +32,7 @@ void _mcleanup(void);
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
-#define FTRACE_VERSION  1
+#define FTRACE_FILE_VERSION  2
 #define FTRACE_FILE_NAME  "ftrace.data"
 
 struct ftrace_file_header {
@@ -43,6 +43,8 @@ struct ftrace_file_header {
 	uint8_t  class;
 	uint64_t length; /* file size including header size */
 	uint64_t info_mask;
+	uint32_t nr_maps;
+	uint32_t unused;
 };
 
 enum ftrace_info_bits {
@@ -67,6 +69,19 @@ struct ftrace_info {
 	char *kernel;
 	char *hostname;
 	char *distro;
+};
+
+#define START_MAPS "[[[MAP START]]]"
+#define END_MAPS   "[[[MAP END  ]]]"
+#define MAPS_MARKER ((void *)0xbaaddaad)
+
+struct ftrace_proc_maps {
+	struct ftrace_proc_maps *next;
+	uint64_t start;
+	uint64_t end;
+	char prot[4];
+	uint32_t len;
+	char libname[];
 };
 
 struct ftrace_file_handle {

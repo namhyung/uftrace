@@ -60,11 +60,39 @@ static int record_trace_data(void *buf, size_t size)
 	return ret - 1;
 }
 
+static void record_proc_maps(void)
+{
+	int fd, len;
+	char buf[4096];
+
+	fd = open("/proc/self/maps", O_RDONLY);
+	if (fd < 0)
+		pr_err("mcount: ERROR: cannot open proc maps file\n");
+
+	if (record_trace_data(START_MAPS, sizeof(START_MAPS)) < 0)
+		pr_err("mcount: ERROR: write proc maps failed\n");
+
+	while ((len = read(fd, buf, sizeof(buf))) > 0) {
+		if (record_trace_data(buf, len) < 0)
+			pr_err("mcount: ERROR: write proc maps failed\n");
+	}
+
+	if (len < 0) {
+		pr_log("mcount: error during read proc maps: %s\n",
+		       strerror(errno));
+	}
+
+	if (record_trace_data(END_MAPS, sizeof(END_MAPS)) < 0)
+		pr_err("mcount: ERROR: write proc maps failed\n");
+
+	close(fd);
+}
+
 static void mcount_init_file(void)
 {
 	struct ftrace_file_header ffh = {
 		.magic = FTRACE_MAGIC_STR,
-		.version = FTRACE_VERSION,
+		.version = FTRACE_FILE_VERSION,
 		/* other fields are filled by ftrace record */
 	};
 	char *use_pipe = getenv("FTRACE_PIPE");
@@ -94,6 +122,9 @@ static void mcount_init_file(void)
 	}
 
 record:
+	if (getenv("FTRACE_LIBRARY_TRACE"))
+		ffh.nr_maps = 1; /* just signal that it has maps data */
+
 	if (record_trace_data(&ffh, sizeof(ffh)) < 0) {
 		char *errmsg = strerror_r(errno, buf, sizeof(buf));
 		if (errmsg == NULL)
@@ -101,6 +132,9 @@ record:
 
 		pr_err("mcount: ERROR: cannot write header info: %s\n", errmsg);
 	}
+
+	if (ffh.nr_maps)
+		record_proc_maps();
 }
 
 static void mcount_prepare(void)
@@ -516,6 +550,7 @@ __monstartup(unsigned long low, unsigned long high)
 
 		signal(sig, stop_trace);
 	}
+
 }
 
 void __attribute__((visibility("default")))

@@ -3,8 +3,8 @@ CXX = g++
 RM = rm -f
 FTRACE = ../ftrace -L .. --flat
 
-#CFLAGS = -g -pg
-CFLAGS = -g -finstrument-functions
+CFLAGS = -g -pg
+#CFLAGS = -g -finstrument-functions
 LDFLAGS = -pthread
 
 #ifeq ($(ARCH),arm)

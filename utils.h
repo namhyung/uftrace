@@ -10,6 +10,10 @@
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 #endif
 
+#ifndef ALIGN
+# define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
+#endif
+
 extern bool debug;
 extern int logfd;
 

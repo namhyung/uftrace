@@ -30,6 +30,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_signal	305
 #define OPT_logfile	306
 #define OPT_usepipe	307
+#define OPT_library	308
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -45,6 +46,7 @@ static struct argp_option ftrace_options[] = {
 	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "use-pipe", OPT_usepipe, 0, 0, "Use pipe to record trace data" },
+	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
 	{ 0 }
 };
 
@@ -73,6 +75,7 @@ struct opts {
 	bool print_symtab;
 	bool daemon;
 	bool use_pipe;
+	bool library;
 };
 
 static unsigned long parse_size(char *str)
@@ -162,6 +165,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->use_pipe = true;
 		break;
 
+	case OPT_library:
+		opts->library = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -247,7 +254,7 @@ int main(int argc, char *argv[])
 	if (opts.logfile) {
 		logfd = open(opts.logfile, O_WRONLY | O_CREAT);
 		if (logfd < 0) {
-			perror("cannot open log file");
+			perror("ftrace: ERROR: cannot open log file");
 			exit(1);
 		}
 	}
@@ -383,6 +390,13 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("FTRACE_PIPE", buf, 1);
 	}
 
+	if (opts->library) {
+		if (opts->use_pipe)
+			setenv("FTRACE_LIBRARY_TRACE", "1", 1);
+		else
+			pr_log("--library should be used with --use-pipe for now\n");
+	}
+
 	if (debug)
 		setenv("FTRACE_DEBUG", "1", 1);
 }
@@ -426,7 +440,7 @@ static int fill_file_header(struct opts *opts, int status)
 		goto close_fd;
 	}
 
-	if (hdr.version != FTRACE_VERSION) {
+	if (hdr.version != FTRACE_FILE_VERSION) {
 		pr_log("invalid version: %d\n", hdr.version);
 		goto close_fd;
 	}
@@ -492,6 +506,103 @@ static void sighandler(int sig)
 static int tgkill(int tgid, int tid, int sig)
 {
 	return syscall(SYS_tgkill, tgid, tid, sig);
+}
+
+static struct ftrace_proc_maps *proc_maps;
+
+static int read_proc_maps(int fd, char *buf, size_t size, int *remaining)
+{
+	int len;
+	char *pos = NULL;
+	int nr_maps = 0;
+
+	len = read(fd, buf, sizeof(START_MAPS));
+	if (len != (int)sizeof(START_MAPS) ||
+	    memcmp(buf, START_MAPS, sizeof(START_MAPS))) {
+		pr_log("invalid maps data.. skipping\n");
+		goto out;
+	}
+
+	pos = buf;
+	len = read(fd, buf, size);
+	if (len < 0) {
+		pr_err("ftrace: ERROR: cannot read maps data: %s\n",
+		       strerror(errno));
+	}
+
+	while (len > 0) {
+		int n;
+		char *p = memchr(pos, '\n', len);
+		if (p) {
+			unsigned long start, end;
+			char prot[4];
+			char path[4096];
+
+			if (sscanf(pos, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+				   &start, &end, prot, path) != 4)
+				goto skip;
+
+			if (prot[2] == 'x') {
+				struct ftrace_proc_maps *map;
+				size_t namelen = ALIGN(strlen(path) + 1, 4);
+
+				map = xmalloc(sizeof(*map) + namelen);
+
+				map->start = start;
+				map->end = end;
+				map->len = namelen;
+				memcpy(map->prot, prot, sizeof(prot));
+				memcpy(map->libname, path, namelen);
+				map->libname[strlen(path)] = '\0';
+
+				pr_dbg("found mapping: %8lx-%-8lx %s\n",
+				       start, end, map->libname);
+
+				map->next = proc_maps;
+				proc_maps = map;
+
+				nr_maps++;
+			}
+
+			p++;
+			len -= p - pos;
+			pos = p;
+
+			if (len)
+				continue;
+		}
+
+skip:
+		if (len >= (int)sizeof(END_MAPS) &&
+		    !memcmp(pos, END_MAPS, sizeof(END_MAPS))) {
+			pos += sizeof(END_MAPS);
+			len -= sizeof(END_MAPS);
+
+			pr_dbg("found END MAPS marker\n");
+			break;
+		}
+
+		memcpy(buf, pos, len);
+
+		n = read(fd, buf + len, size - len);
+		if (n < 0) {
+			pr_err("ftrace: ERROR: cannot read maps data: %s\n",
+			       strerror(errno));
+		}
+
+		pos = buf;
+		len += n;
+	}
+
+out:
+	if (len) {
+		memcpy(buf, pos, len);
+		*remaining = len;
+
+		pr_dbg("%s: remaining %d bytes\n", __func__, len);
+	}
+
+	return nr_maps;
 }
 
 static int command_record(int argc, char *argv[], struct opts *opts)
@@ -561,6 +672,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		int len;
 		char buf[4096];
 		struct ftrace_file_header hdr;
+		int remaining = 0;
 
 		close(pfd[1]);
 
@@ -573,13 +685,18 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		len = read(pfd[0], &hdr, sizeof(hdr));
 		if (len < (int)sizeof(hdr)) {
-			pr_err("ftrace: ERROR: cannot read header data: %s\n",
-			       strerror(errno));
+			pr_err("ftrace: ERROR: cannot read header data: %s (len = %d)\n",
+			       strerror(errno), len);
 		}
 
 		if (strncmp(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN) ||
-		    hdr.version != FTRACE_VERSION) {
+		    hdr.version != FTRACE_FILE_VERSION) {
 			pr_err("ftrace: ERROR: invalid header data\n");
+		}
+
+		if (hdr.nr_maps != 0) {
+			hdr.nr_maps = read_proc_maps(pfd[0], buf, sizeof(buf),
+						     &remaining);
 		}
 
 		len = write(pfd[1], &hdr, sizeof(hdr));
@@ -587,6 +704,26 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			pr_err("ftrace: ERROR: cannot write header data: %s\n",
 			       strerror(errno));
 		}
+
+		if (hdr.nr_maps) {
+			struct ftrace_proc_maps *map = proc_maps;
+
+			while (map) {
+				proc_maps = map->next;
+				map->next = MAPS_MARKER;
+
+				if (write(pfd[1], map, sizeof(*map) + map->len) < 0) {
+					pr_err("ftrace: ERROR: cannot write maps data: %s\n",
+					       strerror(errno));
+				}
+
+				free(map);
+				map = proc_maps;
+			}
+		}
+
+		if (remaining)
+			write(pfd[1], buf, remaining);
 
 		while (!done) {
 			len = read(pfd[0], buf, 4096);
@@ -644,6 +781,7 @@ send_signal:
 			}
 		}
 
+		close(pfd[0]);
 		close(pfd[1]);
 	}
 
@@ -662,6 +800,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
+	fpos_t pos;
 	const char msg[] = "ftrace: ERROR: Was '%s' compiled with -pg or\n"
 		"\t-finstrument-functions flag and ran with ftrace record?\n";
 
@@ -684,7 +823,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid magic string found!\n");
 	}
-	if (handle->hdr.version != FTRACE_VERSION) {
+	if (handle->hdr.version != FTRACE_FILE_VERSION) {
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid vergion number found!\n");
 	}
@@ -701,12 +840,35 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		}
 	}
 
+	while (handle->hdr.nr_maps) {
+		struct ftrace_proc_maps *map = xmalloc(sizeof(*map));
+
+		fread(map, sizeof(*map), 1, fp);
+
+		if (map->next != MAPS_MARKER)
+			pr_err("ftrace: ERROR: invalid maps marker found\n");
+
+		map = xrealloc(map, sizeof(*map) + map->len);
+		fread(map->libname, map->len, 1, fp);
+
+		pr_dbg("reading map: %lx-%-lx: %s\n",
+		       map->start, map->end, map->libname);
+
+		map->next = proc_maps;
+		proc_maps = map;
+
+		handle->hdr.nr_maps--;
+	}
+
+	fgetpos(fp, &pos);
+
 	fseek(fp, handle->hdr.length, SEEK_SET);
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0) {
 		fclose(fp);
 		pr_err("ftrace: ERROR: cannot read ftrace header info!\n");
 	}
-	fseek(fp, handle->hdr.header_size, SEEK_SET);
+
+	fsetpos(fp, &pos);
 
 	if (opts->exename == NULL)
 		opts->exename = handle->info.exename;
@@ -853,7 +1015,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	load_symtabs(opts->exename);
 
 	if (!opts->flat)
-		printf("# DURATION    PID     FUNCTION\n");
+		printf("# DURATION    TID     FUNCTION\n");
 
 	while (read_rstack(&handle, &rstack) == 0) {
 		if (opts->flat)
