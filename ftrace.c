@@ -482,6 +482,13 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	int pid;
 	int status;
 	char oldname[512];
+	const char *profile_funcs[] = {
+		"mcount",
+		"__fentry__",
+		"__gnu_mcount_nc",
+		"__cyg_profile_func_enter",
+	};
+	size_t i;
 
 	/* backup old 'ftrace.data' file */
 	if (strcmp(FTRACE_FILE_NAME, opts->filename) == 0) {
@@ -493,9 +500,12 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	load_symtabs(opts->exename);
 
-	if (!find_symname("mcount") && !find_symname("__fentry__") &&
-	    !find_symname("__gnu_mcount_nc") &&
-	    !find_symname("__cyg_profile_func_enter"))
+	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
+		if (find_symname(profile_funcs[i]))
+			break;
+	}
+
+	if (i == ARRAY_SIZE(profile_funcs))
 		pr_err(mcount_msg, "mcount", opts->exename);
 
 	fflush(stdout);
