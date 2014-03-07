@@ -22,6 +22,7 @@ __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
 static FILE *fout;
+static int pfd = -1;
 static bool tracing_enabled = true;
 
 static unsigned long *filter_trace;
@@ -43,6 +44,22 @@ static int gettid(void)
 	return syscall(SYS_gettid);
 }
 
+static int record_trace_data(void *buf, size_t size)
+{
+	int ret;
+
+	assert(pfd >= 0 || fout != NULL);
+
+	if (fout)
+		ret = (fwrite(buf, size, 1, fout) == 1);
+	else if (pfd >= 0)
+		ret = (write(pfd, buf, size) == (ssize_t)size);
+	else
+		ret = 0;
+
+	return ret - 1;
+}
+
 static void mcount_init_file(void)
 {
 	struct ftrace_file_header ffh = {
@@ -50,9 +67,13 @@ static void mcount_init_file(void)
 		.version = FTRACE_VERSION,
 		/* other fields are filled by ftrace record */
 	};
+	char *use_pipe = getenv("FTRACE_PIPE");
 	char *filename = getenv("FTRACE_FILE");
 	char *bufsize = getenv("FTRACE_BUFFER");
 	char buf[256];
+
+	if (use_pipe && pfd >= 0)
+		goto record;
 
 	if (filename == NULL)
 		filename = FTRACE_FILE_NAME;
@@ -72,7 +93,8 @@ static void mcount_init_file(void)
 		setvbuf(fout, NULL, size ? _IOFBF : _IONBF, size);
 	}
 
-	if (fwrite(&ffh, sizeof(ffh), 1, fout) != 1) {
+record:
+	if (record_trace_data(&ffh, sizeof(ffh)) < 0) {
 		char *errmsg = strerror_r(errno, buf, sizeof(buf));
 		if (errmsg == NULL)
 			errmsg = filename;
@@ -158,7 +180,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 	rstack->child_time = 0;
 
 	if (filtered > 0)
-		fwrite(rstack, sizeof(*rstack), 1, fout);
+		record_trace_data(rstack, sizeof(*rstack));
 	else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
 
@@ -193,7 +215,7 @@ unsigned long mcount_exit(void)
 	rstack->end_time = mcount_gettime();
 
 	if (!was_filtered)
-		fwrite(rstack, sizeof(*rstack), 1, fout);
+		record_trace_data(rstack, sizeof(*rstack));
 
 	if (mcount_rstack_idx > 0) {
 		int idx = mcount_rstack_idx - 1;
@@ -206,8 +228,15 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
-	fclose(fout);
-	fout = NULL;
+	if (fout) {
+		fclose(fout);
+		fout = NULL;
+	}
+
+	if (pfd != -1) {
+		close(pfd);
+		pfd = -1;
+	}
 }
 
 static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
@@ -439,16 +468,24 @@ static void stop_trace(int sig)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
+	char *pipe_fd = getenv("FTRACE_PIPE");
 	char *log_fd = getenv("FTRACE_LOGFD");
+	struct stat statbuf;
 
 	if (log_fd) {
-		struct stat statbuf;
-
 		logfd = strtol(log_fd, NULL, 0);
 
 		/* minimal sanity check */
 		if (fstat(logfd, &statbuf) < 0)
 			logfd = STDERR_FILENO;
+	}
+
+	if (pipe_fd) {
+		pfd = strtol(pipe_fd, NULL, 0);
+
+		/* minimal sanity check */
+		if (fstat(pfd, &statbuf) < 0)
+			pfd = -1;
 	}
 
 	if (getenv("FTRACE_DEBUG"))

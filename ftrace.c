@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <gelf.h>
 
@@ -28,6 +29,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_daemon	304
 #define OPT_signal	305
 #define OPT_logfile	306
+#define OPT_usepipe	307
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -42,6 +44,7 @@ static struct argp_option ftrace_options[] = {
 	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
 	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
+	{ "use-pipe", OPT_usepipe, 0, 0, "Use pipe to record trace data" },
 	{ 0 }
 };
 
@@ -69,6 +72,7 @@ struct opts {
 	bool want_plthook;
 	bool print_symtab;
 	bool daemon;
+	bool use_pipe;
 };
 
 static unsigned long parse_size(char *str)
@@ -152,6 +156,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_logfile:
 		opts->logfile = arg;
+		break;
+
+	case OPT_usepipe:
+		opts->use_pipe = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -302,7 +310,7 @@ static void build_addrlist(char *buf, char *symlist)
 	}
 }
 
-static void setup_child_environ(struct opts *opts)
+static void setup_child_environ(struct opts *opts, int pfd)
 {
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
@@ -368,6 +376,11 @@ static void setup_child_environ(struct opts *opts)
 	if (opts->logfile) {
 		snprintf(buf, sizeof(buf), "%d", logfd);
 		setenv("FTRACE_LOGFD", buf, 1);
+	}
+
+	if (opts->use_pipe) {
+		snprintf(buf, sizeof(buf), "%d", pfd);
+		setenv("FTRACE_PIPE", buf, 1);
 	}
 
 	if (debug)
@@ -466,9 +479,13 @@ static const char mcount_msg[] =
 	"\twhich generates traceable code.  Please check your binary file.\n";
 
 static volatile bool done;
+static volatile bool child_exited;
 
 static void sighandler(int sig)
 {
+	if (sig == SIGCHLD)
+		child_exited = true;
+
 	done = true;
 }
 
@@ -489,6 +506,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		"__cyg_profile_func_enter",
 	};
 	size_t i;
+	int pfd[2];
 
 	/* backup old 'ftrace.data' file */
 	if (strcmp(FTRACE_FILE_NAME, opts->filename) == 0) {
@@ -510,6 +528,11 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	fflush(stdout);
 
+	if (opts->use_pipe && pipe(pfd) < 0) {
+		pr_err("ftrace: ERROR: cannot setup internal pipe: %s\n",
+		       strerror(errno));
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_err("ftrace: ERROR: cannot start child process: %s\n",
@@ -517,7 +540,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (pid == 0) {
-		setup_child_environ(opts);
+		if (opts->use_pipe)
+			close(pfd[0]);
+
+		setup_child_environ(opts, pfd[1]);
 
 		/*
 		 * I don't think the traced binary is in PATH.
@@ -529,6 +555,56 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
+	signal(SIGCHLD, sighandler);
+
+	if (opts->use_pipe) {
+		int len;
+		char buf[4096];
+		struct ftrace_file_header hdr;
+
+		close(pfd[1]);
+
+		/* reuse pfd[1] to write real data file */
+		pfd[1] = open(opts->filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (pfd[1] < 0) {
+			pr_err("ftrace: ERROR: cannot open data file: %s\n",
+			       strerror(errno));
+		}
+
+		len = read(pfd[0], &hdr, sizeof(hdr));
+		if (len < (int)sizeof(hdr)) {
+			pr_err("ftrace: ERROR: cannot read header data: %s\n",
+			       strerror(errno));
+		}
+
+		if (strncmp(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN) ||
+		    hdr.version != FTRACE_VERSION) {
+			pr_err("ftrace: ERROR: invalid header data\n");
+		}
+
+		len = write(pfd[1], &hdr, sizeof(hdr));
+		if (len != (int)sizeof(hdr)) {
+			pr_err("ftrace: ERROR: cannot write header data: %s\n",
+			       strerror(errno));
+		}
+
+		while (!done) {
+			len = read(pfd[0], buf, 4096);
+			if (len < 0 && errno != -EINTR) {
+				pr_err("ftrace: ERROR: cannot read data: %s\n",
+				       strerror(errno));
+			}
+
+			if (write(pfd[1], buf, len) != len)
+				pr_err("ftrace: error during write: %s\n",
+				       strerror(errno));
+		}
+
+		if (opts->daemon)
+			goto send_signal;
+
+		goto wait_child;
+	}
 
 	while (!done) {
 		if (opts->daemon) {
@@ -536,6 +612,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			continue;
 		}
 
+wait_child:
 		waitpid(pid, &status, 0);
 		if (WIFSIGNALED(status)) {
 			pr_dbg("child (%s) was terminated by signal: %d\n",
@@ -547,8 +624,27 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->daemon) {
+send_signal:
 		tgkill(pid, pid, opts->signal);
 		usleep(1000);
+	}
+
+	if (opts->use_pipe) {
+		int nread;
+		char buf[4096];
+
+		while (ioctl(pfd[0], FIONREAD, &nread) >= 0 && nread) {
+			nread = read(pfd[0], buf, sizeof(buf));
+			if (nread <= 0)
+				pr_err("ftrace: ERROR: error during read\n");
+
+			if (write(pfd[1], buf, nread) != nread) {
+				pr_err("ftrace: ERROR: error during write: %s\n",
+				       strerror(errno));
+			}
+		}
+
+		close(pfd[1]);
 	}
 
 	if (fill_file_header(opts, status) < 0)
