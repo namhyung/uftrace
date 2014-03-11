@@ -126,7 +126,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'd':
-		debug = true;
+		debug++;
 		break;
 
 	case 'f':
@@ -397,8 +397,10 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			pr_log("--library should be used with --use-pipe for now\n");
 	}
 
-	if (debug)
-		setenv("FTRACE_DEBUG", "1", 1);
+	if (debug) {
+		snprintf(buf, sizeof(buf), "%d", debug);
+		setenv("FTRACE_DEBUG", buf, 1);
+	}
 }
 
 static int fill_file_header(struct opts *opts, int status)

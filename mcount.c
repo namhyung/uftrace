@@ -488,7 +488,7 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	plthook_recursion_guard = true;
 
 	sym = find_dynsym(child_idx);
-	pr_dbg("%s: %s\n", __func__, sym->name);
+	pr_dbg2("%s: %s\n", __func__, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -522,28 +522,29 @@ static void stop_trace(int sig)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
-	char *pipe_fd = getenv("FTRACE_PIPE");
-	char *log_fd = getenv("FTRACE_LOGFD");
+	char *pipefd_str = getenv("FTRACE_PIPE");
+	char *logfd_str = getenv("FTRACE_LOGFD");
+	char *debug_str = getenv("FTRACE_DEBUG");
 	struct stat statbuf;
 
-	if (log_fd) {
-		logfd = strtol(log_fd, NULL, 0);
+	if (logfd_str) {
+		logfd = strtol(logfd_str, NULL, 0);
 
 		/* minimal sanity check */
 		if (fstat(logfd, &statbuf) < 0)
 			logfd = STDERR_FILENO;
 	}
 
-	if (pipe_fd) {
-		pfd = strtol(pipe_fd, NULL, 0);
+	if (pipefd_str) {
+		pfd = strtol(pipefd_str, NULL, 0);
 
 		/* minimal sanity check */
 		if (fstat(pfd, &statbuf) < 0)
 			pfd = -1;
 	}
 
-	if (getenv("FTRACE_DEBUG"))
-		debug = true;
+	if (debug_str)
+		debug = strtol(debug_str, NULL, 0);
 
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);

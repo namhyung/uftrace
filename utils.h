@@ -14,10 +14,11 @@
 # define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 #endif
 
-extern bool debug;
+extern int debug;
 extern int logfd;
 
 extern void pr_dbg(const char *fmt, ...);
+extern void pr_dbg2(const char *fmt, ...);
 extern void pr_log(const char *fmt, ...);
 extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 
