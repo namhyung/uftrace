@@ -634,7 +634,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(profile_funcs))
+	if (i == ARRAY_SIZE(profile_funcs) && !opts->library)
 		pr_err(mcount_msg, "mcount", opts->exename);
 
 	fflush(stdout);

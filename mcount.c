@@ -24,6 +24,7 @@ __thread struct mcount_ret_stack *mcount_rstack;
 static FILE *fout;
 static int pfd = -1;
 static bool tracing_enabled = true;
+static bool mcount_setup_done;
 
 static unsigned long *filter_trace;
 static unsigned nr_filter;
@@ -88,6 +89,8 @@ static void record_proc_maps(void)
 	close(fd);
 }
 
+extern void __monstartup(unsigned long low, unsigned long high);
+
 static void mcount_init_file(void)
 {
 	struct ftrace_file_header ffh = {
@@ -99,6 +102,10 @@ static void mcount_init_file(void)
 	char *filename = getenv("FTRACE_FILE");
 	char *bufsize = getenv("FTRACE_BUFFER");
 	char buf[256];
+
+	/* This is for the case of library-only tracing */
+	if (!mcount_setup_done)
+		__monstartup(0, ~0);
 
 	if (use_pipe && pfd >= 0)
 		goto record;
@@ -493,7 +500,7 @@ static void stop_trace(int sig)
 {
 	tracing_enabled = false;
 
-	fflush(fout);
+	mcount_finish();
 }
 
 /*
@@ -551,6 +558,7 @@ __monstartup(unsigned long low, unsigned long high)
 		signal(sig, stop_trace);
 	}
 
+	mcount_setup_done = true;
 }
 
 void __attribute__((visibility("default")))
