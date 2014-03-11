@@ -248,11 +248,8 @@ unsigned long mcount_exit(void)
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
-	if (rstack->tid != gettid() || rstack->depth != mcount_rstack_idx ||
-	    rstack->end_time != 0) {
-		pr_log("mcount: corrupted mcount ret stack found!\n");
-		//exit(1);
-	}
+	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
+		pr_err("mcount: corrupted mcount ret stack found!\n");
 
 	rstack->end_time = mcount_gettime();
 

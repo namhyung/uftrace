@@ -977,6 +977,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 
 		if (rstack_next.depth == rstack->depth &&
+		    rstack_next.tid == rstack->tid &&
 		    rstack_next.end_time != 0) {
 			/* leaf function - also consume return record */
 			print_time_unit(rstack->start_time, rstack_next.end_time);
