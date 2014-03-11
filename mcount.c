@@ -31,6 +31,7 @@ static unsigned nr_filter;
 static unsigned long *filter_notrace;
 static unsigned nr_notrace;
 
+static __thread bool plthook_recursion_guard;
 unsigned long plthook_resolver_addr;
 
 static uint64_t mcount_gettime(void)
@@ -475,8 +476,19 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	unsigned long child_ip;
 	long ret;
 
+	/*
+	 * There was a recursion like below:
+	 *
+	 * plthook_entry -> mcount_entry -> mcount_prepare -> xmalloc
+	 *   -> plthook_entry
+	 */
+	if (plthook_recursion_guard)
+		return -1;
+
 	if (should_skip_idx(child_idx))
 		return -1;
+
+	plthook_recursion_guard = true;
 
 	sym = find_dynsym(child_idx);
 	pr_dbg("%s: %s\n", __func__, sym->name);
@@ -493,7 +505,11 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 
 unsigned long plthook_exit(void)
 {
-	return mcount_exit();
+	unsigned long orig_ip = mcount_exit();
+
+	plthook_recursion_guard = false;
+
+	return orig_ip;
 }
 
 static void stop_trace(int sig)
