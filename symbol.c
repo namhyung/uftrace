@@ -541,11 +541,12 @@ void symbol_putname(struct sym *sym, char *name)
 	if (!use_demangle)
 		return;
 
-	if (!strcmp(name, "<unknown>") || !strcmp(name, sym->name))
+	if (!strcmp(name, sym->name))
 		return;
 
 free:
-	free(name);
+	if (strcmp(name, "<unknown>"))
+		free(name);
 }
 
 void print_symtabs(void)
