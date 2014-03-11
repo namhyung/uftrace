@@ -71,19 +71,6 @@ struct ftrace_info {
 	char *distro;
 };
 
-#define START_MAPS "[[[MAP START]]]"
-#define END_MAPS   "[[[MAP END  ]]]"
-#define MAPS_MARKER ((void *)0xbaaddaad)
-
-struct ftrace_proc_maps {
-	struct ftrace_proc_maps *next;
-	uint64_t start;
-	uint64_t end;
-	char prot[4];
-	uint32_t len;
-	char libname[];
-};
-
 struct ftrace_file_handle {
 	FILE *fp;
 	struct ftrace_file_header hdr;

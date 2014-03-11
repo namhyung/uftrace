@@ -909,8 +909,8 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct mcount_ret_stack *rstack)
 {
 	static int count;
-	struct sym *parent = find_symtab(rstack->parent_ip);
-	struct sym *child = find_symtab(rstack->child_ip);
+	struct sym *parent = find_symtab(rstack->parent_ip, proc_maps);
+	struct sym *child = find_symtab(rstack->child_ip, proc_maps);
 	char *parent_name = symbol_getname(parent, rstack->parent_ip);
 	char *child_name = symbol_getname(child, rstack->child_ip);
 
@@ -962,7 +962,7 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct mcount_ret_stack *rstack)
 {
-	struct sym *sym = find_symtab(rstack->child_ip);
+	struct sym *sym = find_symtab(rstack->child_ip, proc_maps);
 	char *symname = symbol_getname(sym, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
@@ -1157,7 +1157,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		if (rstack.end_time == 0)
 			continue;
 
-		sym = find_symtab(rstack.child_ip);
+		sym = find_symtab(rstack.child_ip, proc_maps);
 		assert(sym != NULL);
 
 		te.sym = sym;

@@ -16,7 +16,20 @@ struct symtab {
 	size_t nr_alloc;
 };
 
-struct sym * find_symtab(unsigned long addr);
+#define START_MAPS "[[[MAP START]]]"
+#define END_MAPS   "[[[MAP END  ]]]"
+#define MAPS_MARKER ((void *)0xbaaddaad)
+
+struct ftrace_proc_maps {
+	struct ftrace_proc_maps *next;
+	uint64_t start;
+	uint64_t end;
+	char prot[4];
+	uint32_t len;
+	char libname[];
+};
+
+struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps);
 struct sym * find_symname(const char *name);
 void load_symtabs(const char *filename);
 void unload_symtabs(void);

@@ -112,23 +112,16 @@ void unload_symtabs(void)
 	dynsymtab.sym_names = NULL;
 }
 
-void load_symtabs(const char *filename)
+void __load_symtab(const char *filename, unsigned long offset)
 {
 	int fd;
 	Elf *elf;
-	size_t i, nr_sym = 0, nr_rels = 0;
-	Elf_Scn *sym_sec, *dynsym_sec, *relplt_sec, *sec;
-	Elf_Data *sym_data, *dynsym_data, *relplt_data;
-	size_t shstr_idx, symstr_idx = 0, dynstr_idx = 0;
-	GElf_Addr plt_addr = 0;
-	size_t plt_entsize = 1;
-	int rel_type = SHT_NULL;
+	size_t i, nr_sym = 0;
+	Elf_Scn *sym_sec, *sec;
+	Elf_Data *sym_data;
+	size_t shstr_idx, symstr_idx = 0;
 	char buf[256];
 	const char *errmsg;
-
-	/* already loaded */
-	if (symtab.nr_sym)
-		return;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -153,7 +146,7 @@ void load_symtabs(const char *filename)
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	sec = sym_sec = dynsym_sec = relplt_sec = NULL;
+	sec = sym_sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *shstr;
 		GElf_Shdr shdr;
@@ -167,21 +160,7 @@ void load_symtabs(const char *filename)
 			sym_sec = sec;
 			nr_sym = shdr.sh_size / shdr.sh_entsize;
 			symstr_idx = shdr.sh_link;
-		} else if (strcmp(shstr, ".dynsym") == 0) {
-			dynsym_sec = sec;
-			dynstr_idx = shdr.sh_link;
-		} else if (strcmp(shstr, ".rela.plt") == 0) {
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
-			rel_type = SHT_RELA;
-		} else if (strcmp(shstr, ".rel.plt") == 0) {
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
-			rel_type = SHT_REL;
-		} else if (strcmp(shstr, ".plt") == 0) {
-			plt_addr = shdr.sh_addr;
-			plt_entsize = shdr.sh_entsize;
-			//plt_addr += shdr.sh_entsize; /* skip first entry */
+			break;
 		}
 	}
 
@@ -189,22 +168,8 @@ void load_symtabs(const char *filename)
 		pr_err("ftrace: ERROR: cannot find symbol information in '%s'.\n"
 		       "Is it stripped?\n", filename);
 
-	if (dynsym_sec == NULL || plt_addr == 0)
-		pr_err("ftrace: ERROR: cannot find dynamic symbols.\n");
-
-	if (rel_type != SHT_RELA && rel_type != SHT_REL)
-		pr_err("ftrace: ERROR: cannot find relocation info for PLT\n");
-
 	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
-		goto elf_error;
-
-	relplt_data = elf_getdata(relplt_sec, NULL);
-	if (relplt_data == NULL)
-		goto elf_error;
-
-	dynsym_data = elf_getdata(dynsym_sec, NULL);
-	if (dynsym_data == NULL)
 		goto elf_error;
 
 	for (i = 0; i < nr_sym; i++) {
@@ -229,7 +194,7 @@ void load_symtabs(const char *filename)
 
 		sym = &symtab.sym[symtab.nr_sym++];
 
-		sym->addr = elf_sym.st_value;
+		sym->addr = elf_sym.st_value + offset;
 		sym->size = elf_sym.st_size;
 
 		name = elf_strptr(elf, symstr_idx, elf_sym.st_name);
@@ -244,49 +209,12 @@ void load_symtabs(const char *filename)
 
 	qsort(symtab.sym, symtab.nr_sym, sizeof(*symtab.sym), addrsort);
 
-	symtab.sym_names = xmalloc(sizeof(*symtab.sym_names) * symtab.nr_sym);
+	symtab.sym_names = xrealloc(symtab.sym_names,
+				    sizeof(*symtab.sym_names) * symtab.nr_sym);
 
 	for (i = 0; i < symtab.nr_sym; i++)
 		symtab.sym_names[i] = &symtab.sym[i];
 	qsort(symtab.sym_names, symtab.nr_sym, sizeof(*symtab.sym_names), namesort);
-
-	for (i = 0; i < nr_rels; i++) {
-		GElf_Sym esym;
-		struct sym *sym;
-		int symidx;
-		char *name;
-
-		if (rel_type == SHT_RELA) {
-			GElf_Rela rela;
-
-			if (gelf_getrela(relplt_data, i, &rela) == NULL)
-				goto elf_error;
-
-			symidx = GELF_R_SYM(rela.r_info);
-		} else {
-			GElf_Rel rel;
-
-			if (gelf_getrel(relplt_data, i, &rel) == NULL)
-				goto elf_error;
-
-			symidx = GELF_R_SYM(rel.r_info);
-		}
-
-		gelf_getsym(dynsym_data, symidx, &esym);
-		name = elf_strptr(elf, dynstr_idx, esym.st_name);
-
-		if (dynsymtab.nr_sym >= dynsymtab.nr_alloc) {
-			dynsymtab.nr_alloc += SYMTAB_GROW;
-			dynsymtab.sym = xrealloc(dynsymtab.sym,
-						dynsymtab.nr_alloc * sizeof(*sym));
-		}
-
-		sym = &dynsymtab.sym[dynsymtab.nr_sym++];
-
-		sym->addr = plt_addr + (i + 1) * plt_entsize;
-		sym->size = plt_entsize;
-		sym->name = xstrdup(name);
-	}
 
 	elf_end(elf);
 	close(fd);
@@ -452,6 +380,16 @@ elf_error:
 	goto out;
 }
 
+void load_symtabs(const char *filename)
+{
+	/* already loaded */
+	if (symtab.nr_sym)
+		return;
+
+	__load_symtab(filename, 0);
+	load_dynsymtab(filename);
+}
+
 static const char *skip_syms[] = {
 	"mcount",
 	"__fentry__",
@@ -512,7 +450,7 @@ size_t count_dynsym(void)
 	return dynsymtab.nr_sym;
 }
 
-struct sym * find_symtab(unsigned long addr)
+struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
 {
 	struct sym *sym;
 	sym = bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
@@ -524,6 +462,23 @@ struct sym * find_symtab(unsigned long addr)
 	/* try dynamic symbols if failed */
 	sym = bsearch((const void *)addr, dynsymtab.sym, dynsymtab.nr_sym,
 		      sizeof(*dynsymtab.sym), addrfind);
+
+	if (sym)
+		return sym;
+
+	while (maps) {
+		if (maps->start <= addr && addr < maps->end)
+			break;
+
+		maps = maps->next;
+	}
+
+	if (maps) {
+		__load_symtab(maps->libname, maps->start);
+
+		sym = bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
+			      sizeof(*symtab.sym), addrfind);
+	}
 
 	return sym;
 }
