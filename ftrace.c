@@ -292,6 +292,21 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+static int write_all(int fd, void *buf, size_t size)
+{
+	int ret;
+
+	while (size) {
+		ret = write(fd, buf, size);
+		if (ret < 0)
+			return -1;
+
+		buf += ret;
+		size -= ret;
+	}
+	return 0;
+}
+
 static void build_addrlist(char *buf, char *symlist)
 {
 	char *p = symlist;
@@ -470,8 +485,18 @@ static int fill_file_header(struct opts *opts, int status)
 
 	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
 
-	if (pwrite(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr))
-		goto close_elf;
+try_write:
+	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
+	if (ret != (int)sizeof(hdr)) {
+		static int retry = 0;
+
+		if (ret > 0 && retry++ < 3)
+			goto try_write;
+
+		pr_log("writing header info failed.\n");
+		elf_end(elf);
+		goto close_efd;
+	}
 
 	ret = 0;
 
@@ -699,8 +724,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 						     &remaining);
 		}
 
-		len = write(pfd[1], &hdr, sizeof(hdr));
-		if (len != (int)sizeof(hdr)) {
+		len = write_all(pfd[1], &hdr, sizeof(hdr));
+		if (len < 0) {
 			pr_err("ftrace: ERROR: cannot write header data: %s\n",
 			       strerror(errno));
 		}
@@ -712,7 +737,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 				proc_maps = map->next;
 				map->next = MAPS_MARKER;
 
-				if (write(pfd[1], map, sizeof(*map) + map->len) < 0) {
+				if (write_all(pfd[1], map,
+					      sizeof(*map) + map->len) < 0) {
 					pr_err("ftrace: ERROR: cannot write maps data: %s\n",
 					       strerror(errno));
 				}
@@ -732,9 +758,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 				       strerror(errno));
 			}
 
-			if (write(pfd[1], buf, len) != len)
+			if (write_all(pfd[1], buf, len) < 0) {
 				pr_err("ftrace: error during write: %s\n",
 				       strerror(errno));
+			}
 		}
 
 		if (opts->daemon)
@@ -773,10 +800,10 @@ send_signal:
 		while (ioctl(pfd[0], FIONREAD, &nread) >= 0 && nread) {
 			nread = read(pfd[0], buf, sizeof(buf));
 			if (nread <= 0)
-				pr_err("ftrace: ERROR: error during read\n");
+				pr_err("ftrace: ERROR: error during final read\n");
 
-			if (write(pfd[1], buf, nread) != nread) {
-				pr_err("ftrace: ERROR: error during write: %s\n",
+			if (write_all(pfd[1], buf, nread) < 0) {
+				pr_err("ftrace: error during final write: %s\n",
 				       strerror(errno));
 			}
 		}
@@ -1159,7 +1186,10 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 			continue;
 
 		sym = find_symtab(rstack.child_ip, proc_maps);
-		assert(sym != NULL);
+		if (sym == NULL) {
+			pr_log("cannot find symbol for %lx\n", rstack.child_ip);
+			continue;
+		}
 
 		te.sym = sym;
 		te.time_total = rstack.end_time - rstack.start_time;
