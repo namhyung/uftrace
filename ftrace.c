@@ -495,13 +495,9 @@ static const char mcount_msg[] =
 	"\twhich generates traceable code.  Please check your binary file.\n";
 
 static volatile bool done;
-static volatile bool child_exited;
 
 static void sighandler(int sig)
 {
-	if (sig == SIGCHLD)
-		child_exited = true;
-
 	done = true;
 }
 
@@ -668,7 +664,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
-	signal(SIGCHLD, sighandler);
+
+	if (!opts->daemon)
+		signal(SIGCHLD, sighandler);
 
 	if (opts->use_pipe) {
 		int len;
