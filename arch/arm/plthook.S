@@ -12,18 +12,26 @@ plt_hooker:
 	@	lr points to &GOT[2]
 
 	push {r0-r4,ip,lr,pc}
-	ldr r0, [sp, #32]
+	add r0, sp, #32
 	sub r2, ip, lr
 	sub r2, r2, #4
 	lsr r1, r2, #2
 	ldr r2, [lr, #-4]
 	bl plthook_entry
-	/* check return value and setup plt_exit */
-	cmp r0, $0
-	bne 1f
-	adr r1, plt_return
-	str r1, [sp, #32]
 
+	cmp r0, $0
+	beq 1f
+
+	/*
+	 * if we skip the resolver, we also need to pop stack[0]
+	 * which saves the original 'lr'.
+	 */
+	str r0, [sp, #28]
+	pop {r0-r4,ip,lr}
+	add sp, sp, #8
+	ldr lr, [sp, #-4]
+	ldr pc, [sp, #-8] /* return */
+	
 1:
 	ldr r2, .L2
 .LPIC0:
@@ -43,8 +51,9 @@ plt_hooker:
 	.size plt_hooker, .-plt_hooker
 
 
-	.type plt_return, #function
-plt_return:
+	.globl plthook_return
+	.type plthook_return, #function
+plthook_return:
 	push {r0-r4,lr,pc}
 	bl plthook_exit
 	str r0, [sp, #24]
