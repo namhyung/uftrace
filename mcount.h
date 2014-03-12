@@ -9,6 +9,7 @@
 
 #define MCOUNT_RSTACK_MAX  128
 #define MCOUNT_NOTRACE_IDX 0x10000
+#define MCOUNT_INVALID_DYNIDX 0xffff
 
 struct mcount_ret_stack {
 	unsigned long parent_ip;
@@ -18,7 +19,9 @@ struct mcount_ret_stack {
 	uint64_t end_time;
 	uint64_t child_time;
 	int tid;
-	int depth;
+	unsigned char depth;
+	unsigned char unused;
+	unsigned short dyn_idx;
 };
 
 extern __thread int mcount_rstack_idx;

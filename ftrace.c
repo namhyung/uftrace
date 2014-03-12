@@ -378,7 +378,7 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	}
 
 	if (opts->want_plthook) {
-		setenv("LD_BIND_NOT", "1", 1);
+		//setenv("LD_BIND_NOT", "1", 1);
 		setenv("FTRACE_PLTHOOK", "1", 1);
 	}
 

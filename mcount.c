@@ -33,6 +33,8 @@ static unsigned nr_notrace;
 
 static __thread bool plthook_recursion_guard;
 unsigned long plthook_resolver_addr;
+unsigned long *plthook_got_ptr;
+unsigned long *plthook_dynsym_resolved;
 
 static uint64_t mcount_gettime(void)
 {
@@ -215,6 +217,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 
 	rstack->tid = gettid();
 	rstack->depth = mcount_rstack_idx - 1;
+	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip = parent;
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
@@ -345,7 +348,6 @@ extern void __attribute__((weak)) plt_hooker(void);
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 {
 	size_t i;
-	unsigned long *got;
 	struct sigaction sa, old_sa;
 
 	for (i = 0; i < nr_dyn; i++) {
@@ -358,8 +360,8 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 			continue;
 
 		got_addr = (unsigned long)dyn.d_un.d_val;
-		got = (void *)got_addr;
-		plthook_resolver_addr = got[2];
+		plthook_got_ptr = (void *)got_addr;
+		plthook_resolver_addr = plthook_got_ptr[2];
 
 		/*
 		 * The GOT region is write-protected on some systems.
@@ -375,7 +377,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 			return -1;
 		}
 
-		got[2] = (unsigned long)plt_hooker;
+		plthook_got_ptr[2] = (unsigned long)plt_hooker;
 
 		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
 			pr_log("mcount: error during recover sig handler\n");
@@ -388,7 +390,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		}
 
 		pr_dbg("mcount: found GOT at %p (resolver: %#lx)\n",
-		       got, plthook_resolver_addr);
+		       plthook_got_ptr, plthook_resolver_addr);
 
 		break;
 	}
@@ -497,12 +499,44 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	}
 
 	ret = mcount_entry(parent_ip, child_ip);
+
+	if (ret == 0) {
+		int idx = mcount_rstack_idx - 1;
+
+		if (idx < 0)
+			idx += MCOUNT_NOTRACE_IDX;
+
+		if (idx >= MCOUNT_RSTACK_MAX)
+			pr_err("mcount: plthook: invalid rstack idx: %d\n", idx);
+
+		mcount_rstack[idx].dyn_idx = child_idx;
+	}
+
 	return ret;
 }
 
 unsigned long plthook_exit(void)
 {
 	unsigned long orig_ip = mcount_exit();
+	int idx = mcount_rstack_idx;
+	int dyn_idx;
+	unsigned long new_addr;
+
+	dyn_idx = mcount_rstack[idx].dyn_idx;
+
+	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
+		pr_err("mcount: plthook: invalid dynsym idx: %d\n", dyn_idx);
+
+	if (plthook_dynsym_resolved[dyn_idx] == 0) {
+		struct sym *sym = find_dynsym(dyn_idx);
+		char *name = symbol_getname(sym, 0);
+
+		new_addr = plthook_got_ptr[3 + dyn_idx];
+		plthook_dynsym_resolved[dyn_idx] = new_addr;
+
+		pr_log("%s: [%d] %s: %lx\n", __func__, dyn_idx, name, new_addr);
+		symbol_putname(sym, name);
+	}
 
 	plthook_recursion_guard = false;
 
@@ -563,6 +597,10 @@ __monstartup(unsigned long low, unsigned long high)
 
 		if (hook_pltgot() < 0)
 			pr_dbg("mcount: error when hooking plt: skipping...\n");
+		else {
+			plthook_dynsym_resolved = xcalloc(sizeof(unsigned long),
+							  count_dynsym());
+		}
 	}
 
 	if (getenv("FTRACE_SIGNAL")) {
