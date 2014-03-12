@@ -49,6 +49,7 @@ static struct argp_option ftrace_options[] = {
 	{ "use-pipe", OPT_usepipe, 0, 0, "Use pipe to record trace data" },
 	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
+	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ 0 }
 };
 
@@ -65,6 +66,7 @@ struct opts {
 	char *lib_path;
 	char *filter;
 	char *notrace;
+	char *tid;
 	char *exename;
 	char *filename;
 	char *logfile;
@@ -126,6 +128,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'N':
 		opts->notrace = arg;
+		break;
+
+	case 'T':
+		opts->tid = arg;
 		break;
 
 	case 'd':
@@ -1059,6 +1065,8 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct mcount_ret_stack rstack;
+	int *tids = NULL;
+	int nr_tids = 0;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
@@ -1066,10 +1074,39 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	load_symtabs(opts->exename);
 
+	if (opts->tid) {
+		char *p = opts->tid;
+
+		do {
+			int id;
+
+			if (*p == ',' || *p == ':')
+				p++;
+
+			id = strtol(p, &p, 10);
+
+			tids = xrealloc(tids, (nr_tids+1) * sizeof(int));
+			tids[nr_tids++] = id;
+
+		} while (*p);
+	}
+
 	if (!opts->flat)
 		printf("# DURATION    TID     FUNCTION\n");
 
 	while (read_rstack(&handle, &rstack) == 0) {
+		if (opts->tid) {
+			int i;
+
+			for (i = 0; i < nr_tids; i++) {
+				if (rstack.tid == tids[i])
+					break;
+			}
+
+			if (i == nr_tids)
+				continue;
+		}
+
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, &rstack);
 		else
@@ -1078,6 +1115,9 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 		if (ret)
 			break;
 	}
+
+	if (opts->tid)
+		free(tids);
 
 	unload_symtabs();
 
