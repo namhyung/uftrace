@@ -2,12 +2,21 @@ CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 INSTALL = install
 
-ASFLAGS = -g -D_GNU_SOURCE $(ASFLAGS_$@) $(EXTRA_AFLAGS)
-CFLAGS = -O2 -g -D_GNU_SOURCE $(CFLAGS_$@) $(EXTRA_CFLAGS)
+COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(EXTRA_CFLAGS)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-LDFLAGS = -lelf $(LDFLAGS_$@) $(EXTRA_LDFLAGS)
+COMMON_LDFLAGS := -lelf -lrt $(EXTRA_LDFLAGS)
 
-CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+
+#
+# Note that the plain CFLAGS and LDFLAGS can be changed
+# by config/Makefile later but LIB_*FLAGS are not.
+#
+CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
+LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
+
+LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
+LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) -pthread
 
 prefix ?= /usr/local
 bindir = $(prefix)/bin
@@ -24,14 +33,8 @@ ifeq ($(ARCH),x86_64)
   endif
 endif
 
-CFLAGS_mcount.op = -fPIC -fvisibility=hidden -pthread
-CFLAGS_symbol.op = -fPIC -fvisibility=hidden
-CFLAGS_debug.op = -fPIC -fvisibility=hidden
-CFLAGS_cygprofile.op = -fPIC
+CFLAGS_mcount.op = -pthread
 CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
-
-LDFLAGS_libmcount.so = -pthread
-LDFLAGS_libcygprof.so = -pthread
 
 include config/Makefile
 
@@ -53,19 +56,19 @@ MAKEFLAGS = --no-print-directory
 all: $(TARGETS)
 
 $(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 cygprofile.op: cygprofile.c mcount.h utils.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S
 	@$(MAKE) -C arch/$(ARCH) $(notdir $@)
 
 libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ $(LDFLAGS)
+	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libcygprof.so: $(LIBCYGPROF_OBJS) arch/$(ARCH)/plthook.op
-	$(CC) -shared -o $@ $^ $(LDFLAGS)
+	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)

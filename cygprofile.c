@@ -15,7 +15,8 @@ static void __attribute__((destructor)) mcount_fini(void)
 	_mcleanup();
 }
 
-void __cyg_profile_func_enter(void *child, void *parent)
+void __attribute__((visibility("default")))
+__cyg_profile_func_enter(void *child, void *parent)
 {
 	int ret;
 
@@ -28,7 +29,8 @@ void __cyg_profile_func_enter(void *child, void *parent)
 		pr_dbg2("\tmcount_rstack_idx = %d\n", mcount_rstack_idx);
 }
 
-void __cyg_profile_func_exit(void *child, void *parent)
+void __attribute__((visibility("default")))
+__cyg_profile_func_exit(void *child, void *parent)
 {
 	int idx = mcount_rstack_idx;
 
