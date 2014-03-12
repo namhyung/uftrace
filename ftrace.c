@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
 	if (opts.logfile) {
-		logfd = open(opts.logfile, O_WRONLY | O_CREAT);
+		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
 		if (logfd < 0) {
 			perror("ftrace: ERROR: cannot open log file");
 			exit(1);
