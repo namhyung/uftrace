@@ -31,6 +31,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_logfile	306
 #define OPT_usepipe	307
 #define OPT_library	308
+#define OPT_threads	309
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -47,6 +48,7 @@ static struct argp_option ftrace_options[] = {
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "use-pipe", OPT_usepipe, 0, 0, "Use pipe to record trace data" },
 	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
+	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ 0 }
 };
 
@@ -76,6 +78,7 @@ struct opts {
 	bool daemon;
 	bool use_pipe;
 	bool library;
+	bool report_thread;
 };
 
 static unsigned long parse_size(char *str)
@@ -169,6 +172,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->library = true;
 		break;
 
+	case OPT_threads:
+		opts->report_thread = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -233,6 +240,9 @@ static int command_live(int argc, char *argv[], struct opts *opts);
 static int command_report(int argc, char *argv[], struct opts *opts);
 static int command_info(int argc, char *argv[], struct opts *opts);
 
+static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
@@ -260,6 +270,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.print_symtab) {
+		if (opts.exename == NULL) {
+			struct ftrace_file_handle handle;
+
+			if (open_data_file(&opts, &handle) < 0)
+				exit(1);
+		}
+
 		load_symtabs(opts.exename);
 		print_symtabs();
 		unload_symtabs();
@@ -1103,6 +1120,7 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 }
 
 struct trace_entry {
+	int pid;
 	struct sym *sym;
 	uint64_t time_total;
 	uint64_t time_self;
@@ -1110,11 +1128,14 @@ struct trace_entry {
 	struct rb_node link;
 };
 
-static void insert_entry(struct rb_root *root, struct trace_entry *te)
+static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
+
+	pr_dbg("%s: [%5d] %-40.40s: %"PRIu64" (%lu)\n",
+	       __func__, te->pid, te->sym->name, te->time_total, te->nr_called);
 
 	while (*p) {
 		int cmp;
@@ -1122,11 +1143,15 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te)
 		parent = *p;
 		entry = rb_entry(parent, struct trace_entry, link);
 
-		cmp = strcmp(entry->sym->name, te->sym->name);
+		if (thread)
+			cmp = te->pid - entry->pid;
+		else
+			cmp = strcmp(entry->sym->name, te->sym->name);
+
 		if (cmp == 0) {
 			entry->time_total += te->time_total;
 			entry->time_self  += te->time_self;
-			entry->nr_called  += 1;
+			entry->nr_called  += te->nr_called;
 			return;
 		}
 
@@ -1137,10 +1162,11 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te)
 	}
 
 	entry = xmalloc(sizeof(*entry));
+	entry->pid = te->pid;
 	entry->sym = te->sym;
 	entry->time_total = te->time_total;
 	entry->time_self  = te->time_self;
-	entry->nr_called  = 1;
+	entry->nr_called  = te->nr_called;
 
 	rb_link_node(&entry->link, parent, p);
 	rb_insert_color(&entry->link, root);
@@ -1169,6 +1195,7 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 static int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
+	bool first = true;
 	struct ftrace_file_handle handle;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root time_tree = RB_ROOT;
@@ -1177,6 +1204,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	struct mcount_ret_stack rstack;
 	const char h_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
 //	const char l_format[] = "  %-40.40s  %10"PRIu64"  %10"PRIu64"  %10lu  \n";
+	const char t_format[] = "  %5.5s  %-40.40s  %10.10s  %10.10s  \n";
 	const char line[] = "=================================================";
 
 	ret = open_data_file(opts, &handle);
@@ -1189,7 +1217,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		struct sym *sym;
 		struct trace_entry te;
 
-		if (rstack.end_time == 0)
+		if (!opts->report_thread && rstack.end_time == 0)
 			continue;
 
 		sym = find_symtab(rstack.child_ip, proc_maps);
@@ -1198,11 +1226,52 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 			continue;
 		}
 
+		te.pid = rstack.tid;
 		te.sym = sym;
-		te.time_total = rstack.end_time - rstack.start_time;
-		te.time_self = te.time_total - rstack.child_time;
 
-		insert_entry(&name_tree, &te);
+		if (opts->report_thread && first) {
+			sym = find_symname("main");
+			if (sym == NULL)
+				pr_log("no main thread???\n");
+			else
+				te.sym = sym;
+
+			first = false;
+		}
+
+		if (rstack.end_time) {
+			te.time_total = rstack.end_time - rstack.start_time;
+			te.time_self = te.time_total - rstack.child_time;
+			te.nr_called = 1;
+		} else {
+			te.time_total = te.time_self = 0;
+			te.nr_called = 0;
+		}
+
+		insert_entry(&name_tree, &te, opts->report_thread);
+	}
+
+	if (opts->report_thread) {
+		printf(t_format, "TID", "Start function", "Run time", "Nr. funcs");
+		printf(t_format, line, line, line, line);
+
+		while (!RB_EMPTY_ROOT(&name_tree)) {
+			char *symname;
+
+			node = rb_first(&name_tree);
+			rb_erase(node, &name_tree);
+
+			entry = rb_entry(node, struct trace_entry, link);
+			symname = symbol_getname(entry->sym, 0);
+
+			printf("  %5d  %-40.40s ", entry->pid, symname);
+			print_time_unit(0UL, entry->time_self);
+			printf("  %10lu  \n", entry->nr_called);
+
+			symbol_putname(entry->sym, symname);
+		}
+
+		goto out;
 	}
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
@@ -1231,6 +1300,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		symbol_putname(entry->sym, symname);
 	}
 
+out:
 	unload_symtabs();
 
 	close_data_file(opts, &handle);
