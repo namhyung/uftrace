@@ -32,9 +32,10 @@ static unsigned long *filter_notrace;
 static unsigned nr_notrace;
 
 static __thread bool plthook_recursion_guard;
+static unsigned long *plthook_got_ptr;
+static unsigned long *plthook_dynsym_addr;
+static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
-unsigned long *plthook_got_ptr;
-unsigned long *plthook_dynsym_resolved;
 
 static uint64_t mcount_gettime(void)
 {
@@ -468,12 +469,14 @@ elf_error:
 	goto out;
 }
 
-unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
+extern unsigned long plthook_return(void);
+
+unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id)
 {
 	struct sym *sym;
+	unsigned long parent_ip;
 	unsigned long child_ip;
-	long ret;
 
 	/*
 	 * There was a recursion like below:
@@ -482,15 +485,15 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 	 *   -> plthook_entry
 	 */
 	if (plthook_recursion_guard)
-		return -1;
+		goto out;
 
 	if (should_skip_idx(child_idx))
-		return -1;
+		goto out;
 
 	plthook_recursion_guard = true;
 
 	sym = find_dynsym(child_idx);
-	pr_dbg2("%s: %s\n", __func__, sym->name);
+	pr_dbg2("%s: [%d] %s\n", __func__, child_idx, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -498,9 +501,10 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 		       (int) child_idx, child_idx);
 	}
 
-	ret = mcount_entry(parent_ip, child_ip);
+	parent_ip = *ret_addr;
+	*ret_addr = (unsigned long)plthook_return;
 
-	if (ret == 0) {
+	if (mcount_entry(parent_ip, child_ip) == 0) {
 		int idx = mcount_rstack_idx - 1;
 
 		if (idx < 0)
@@ -512,7 +516,12 @@ unsigned long plthook_entry(unsigned long parent_ip, unsigned long child_idx,
 		mcount_rstack[idx].dyn_idx = child_idx;
 	}
 
-	return ret;
+out:
+	if (plthook_dynsym_resolved[child_idx])
+		return plthook_dynsym_addr[child_idx];
+
+	plthook_dynsym_addr[child_idx] = plthook_got_ptr[3 + child_idx];
+	return 0;
 }
 
 unsigned long plthook_exit(void)
@@ -527,14 +536,18 @@ unsigned long plthook_exit(void)
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
 		pr_err("mcount: plthook: invalid dynsym idx: %d\n", dyn_idx);
 
-	if (plthook_dynsym_resolved[dyn_idx] == 0) {
+	if (!plthook_dynsym_resolved[dyn_idx]) {
 		struct sym *sym = find_dynsym(dyn_idx);
 		char *name = symbol_getname(sym, 0);
 
 		new_addr = plthook_got_ptr[3 + dyn_idx];
-		plthook_dynsym_resolved[dyn_idx] = new_addr;
+		/* restore GOT so plt_hooker keep called */
+		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
 
-		pr_log("%s: [%d] %s: %lx\n", __func__, dyn_idx, name, new_addr);
+		plthook_dynsym_resolved[dyn_idx] = true;
+		plthook_dynsym_addr[dyn_idx] = new_addr;
+
+		pr_dbg2("%s : [%d] %s: %lx\n", __func__, dyn_idx, name, new_addr);
 		symbol_putname(sym, name);
 	}
 
@@ -598,8 +611,10 @@ __monstartup(unsigned long low, unsigned long high)
 		if (hook_pltgot() < 0)
 			pr_dbg("mcount: error when hooking plt: skipping...\n");
 		else {
-			plthook_dynsym_resolved = xcalloc(sizeof(unsigned long),
+			plthook_dynsym_resolved = xcalloc(sizeof(bool),
 							  count_dynsym());
+			plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
+						      count_dynsym());
 		}
 	}
 

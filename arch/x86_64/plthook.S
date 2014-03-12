@@ -9,20 +9,12 @@ plt_hooker:
 
 	/* child idx */
 	movq 56(%rsp), %rsi
-	/* parent ip */
-	movq 64(%rsp), %rdi
+	/* address of parent ip */
+	lea 64(%rsp), %rdi
 
 	call plthook_entry
 	cmpq $0, %rax
-	jne 1f
-
-	/* hijack return address */
-	movabs $plthook_return@GOTOFF, %rdx
-	lea _GLOBAL_OFFSET_TABLE_(%rip), %rcx
-	add %rcx, %rdx
-	movq %rdx, 64(%rsp)
-1:
-	movq plthook_resolver_addr(%rip), %rax
+	cmovz plthook_resolver_addr(%rip), %rax
 
 	popq %r9
 	popq %r8
@@ -31,12 +23,18 @@ plt_hooker:
 	popq %rsi
 	popq %rdi
 
-	jmp *%rax /* original resolver function */
+	jz 1f
+
+	add $16, %rsp /* resolver function needs 2 entries on stack */
+1:
+	jmp *%rax
 	
 .type plt_hooker, @function
 .size plt_hooker, .-plt_hooker
 .hidden plthook_resolver_addr
 
+
+.globl plthook_return
 plthook_return:
 	pushq %rax
 	pushq %rax
