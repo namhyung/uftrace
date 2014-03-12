@@ -747,8 +747,12 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			}
 		}
 
-		if (remaining)
-			write(pfd[1], buf, remaining);
+		if (remaining) {
+			if (write_all(pfd[1], buf, remaining)) {
+				pr_err("ftrace: error during remaining write: %s\n",
+				       strerror(errno));
+			}
+		}
 
 		while (!done) {
 			len = read(pfd[0], buf, 4096);
@@ -844,7 +848,9 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		goto out;
 	}
 
-	fread(&handle->hdr, sizeof(handle->hdr), 1, fp);
+	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
+		pr_err("ftrace: ERROR: cannot read header data\n");
+
 	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN)) {
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid magic string found!\n");
@@ -869,13 +875,15 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	while (handle->hdr.nr_maps) {
 		struct ftrace_proc_maps *map = xmalloc(sizeof(*map));
 
-		fread(map, sizeof(*map), 1, fp);
+		if (fread(map, sizeof(*map), 1, fp) != 1)
+			pr_err("ftrace: ERROR: failed to read map data\n");
 
 		if (map->next != MAPS_MARKER)
 			pr_err("ftrace: ERROR: invalid maps marker found\n");
 
 		map = xrealloc(map, sizeof(*map) + map->len);
-		fread(map->libname, map->len, 1, fp);
+		if (fread(map->libname, map->len, 1, fp) != 1)
+			pr_err("ftrace: ERROR: failed to read libname\n");
 
 		pr_dbg("reading map: %lx-%-lx: %s\n",
 		       map->start, map->end, map->libname);
