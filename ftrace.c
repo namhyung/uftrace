@@ -663,6 +663,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	};
 	size_t i;
 	int pfd[2];
+	struct sigaction sa;
 
 	/* backup old 'ftrace.data' file */
 	if (strcmp(FTRACE_FILE_NAME, opts->filename) == 0) {
@@ -709,11 +710,15 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
-	signal(SIGINT, sighandler);
-	signal(SIGTERM, sighandler);
+	sa.sa_handler = sighandler;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
 
 	if (!opts->daemon)
-		signal(SIGCHLD, sighandler);
+		sigaction(SIGCHLD, &sa, NULL);
 
 	if (opts->use_pipe) {
 		int len;
@@ -779,12 +784,12 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		while (!done) {
 			len = read(pfd[0], buf, 4096);
-			if (len < 0 && errno != -EINTR) {
+			if (len < 0 && errno != EINTR) {
 				pr_err("ftrace: ERROR: cannot read data: %s\n",
 				       strerror(errno));
 			}
 
-			if (write_all(pfd[1], buf, len) < 0) {
+			if (len > 0 && write_all(pfd[1], buf, len) < 0) {
 				pr_err("ftrace: error during write: %s\n",
 				       strerror(errno));
 			}
