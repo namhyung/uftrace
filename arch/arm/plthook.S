@@ -59,3 +59,4 @@ plthook_return:
 	str r0, [sp, #24]
 	pop {r0-r4,lr,pc}
 
+	.size plthook_return, .-plthook_return

@@ -43,12 +43,16 @@ __gnu_mcount_nc:
 	push 	{r0-r3, lr}
 	mov 	r1, lr
 	ldr 	r0, [sp, #20]
+	ands	r2, r0, #1
+	subeq	r1, r1, #16
+	subne	r1, r1, #10
+
 	bl 	mcount_entry
 	cmp 	r0, #0
 	bne	1f
+
 	ldr	r0, [sp, #16]
-	and	r3, r0, #1  /* check lr for ARM/THUMB detection */
-	cmp	r3, #0
+	ands	r3, r0, #1  /* check lr for ARM/THUMB detection */
 	moveq	r1, fp      /* fp (=r11) points to return address on ARM */
 	addne	r1, r7, #4  /* r7 points to frame on THUMB, but it's BROKEN!! */
 	ldr	r0, [sp, #20]

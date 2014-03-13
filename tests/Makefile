@@ -8,7 +8,7 @@ CFLAGS = -g -pg
 LDFLAGS = -pthread
 
 #ifeq ($(ARCH),arm)
-#CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -fno-omit-frame-pointer
 #endif
 
 TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local t-abcd

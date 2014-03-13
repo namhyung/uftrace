@@ -2,7 +2,8 @@ CC = gcc
 RM = rm -f
 FTRACE = ../../../ftrace -L ../../.. --flat
 
-CFLAGS = -g -finstrument-functions
+#CFLAGS = -g -finstrument-functions
+CFLAGS = -g -pg -fno-omit-frame-pointer
 
 TARGETS = t-thumb t-arm-thumb
 
