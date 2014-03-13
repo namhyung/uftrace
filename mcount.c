@@ -210,6 +210,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 		return -1;
 	}
 
+	pr_dbg2("%s: <%d> %lx\n", __func__, mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
 	if (filtered == 0)
 		return -1;
@@ -246,6 +247,9 @@ unsigned long mcount_exit(void)
 		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
 		was_filtered = true;
 	}
+
+	pr_dbg2("%s : <%d> %lx\n", __func__, mcount_rstack_idx,
+		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
 
 	if (mcount_rstack_idx <= 0)
 		pr_err("mcount: ERROR: broken ret stack (%d)\n", mcount_rstack_idx);
