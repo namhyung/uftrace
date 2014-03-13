@@ -16,6 +16,8 @@ mcount:
 
 	/* child ip */
 	movq 56(%rsp), %rsi
+	sub $9, %rsi
+
 	/* parent ip */
 	movq 8(%rbp), %rdi
 

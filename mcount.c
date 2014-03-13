@@ -502,10 +502,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 	parent_ip = *ret_addr;
-	*ret_addr = (unsigned long)plthook_return;
 
 	if (mcount_entry(parent_ip, child_ip) == 0) {
 		int idx = mcount_rstack_idx - 1;
+
+		*ret_addr = (unsigned long)plthook_return;
 
 		if (idx < 0)
 			idx += MCOUNT_NOTRACE_IDX;
