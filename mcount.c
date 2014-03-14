@@ -55,6 +55,8 @@ static int record_trace_data(void *buf, size_t size)
 
 	assert(pfd >= 0 || fout != NULL);
 
+	pr_dbg("recording %zd bytes\n", size);
+
 	if (fout)
 		ret = (fwrite(buf, size, 1, fout) == 1);
 	else if (pfd >= 0)
@@ -226,9 +228,10 @@ int mcount_entry(unsigned long parent, unsigned long child)
 	rstack->end_time = 0;
 	rstack->child_time = 0;
 
-	if (filtered > 0)
-		record_trace_data(rstack, sizeof(*rstack));
-	else
+	if (filtered > 0) {
+		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+			pr_err("mcount: error during record\n");
+	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
 
 	return 0;
@@ -261,8 +264,10 @@ unsigned long mcount_exit(void)
 
 	rstack->end_time = mcount_gettime();
 
-	if (!was_filtered)
-		record_trace_data(rstack, sizeof(*rstack));
+	if (!was_filtered) {
+		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+			pr_err("mcount: error during record\n");
+	}
 
 	if (mcount_rstack_idx > 0) {
 		int idx = mcount_rstack_idx - 1;
@@ -275,6 +280,8 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
+	pr_dbg("%s\n", __func__);
+
 	if (fout) {
 		fclose(fout);
 		fout = NULL;

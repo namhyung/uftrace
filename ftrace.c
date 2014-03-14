@@ -575,6 +575,7 @@ static int read_proc_maps(int fd, char *buf, size_t size, int *remaining)
 		       strerror(errno));
 	}
 
+	pr_dbg("%s: read %d bytes\n", __func__, len);
 	while (len > 0) {
 		int n;
 		char *p = memchr(pos, '\n', len);
@@ -629,6 +630,7 @@ skip:
 
 		memcpy(buf, pos, len);
 
+		pr_dbg("read again (with len = %d)\n", len);
 		n = read(fd, buf + len, size - len);
 		if (n < 0) {
 			pr_err("ftrace: ERROR: cannot read maps data: %s\n",
@@ -789,6 +791,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 				       strerror(errno));
 			}
 
+			pr_dbg("write %d bytes\n", len);
 			if (len > 0 && write_all(pfd[1], buf, len) < 0) {
 				pr_err("ftrace: error during write: %s\n",
 				       strerror(errno));
@@ -797,6 +800,19 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (opts->daemon)
 			goto send_signal;
+
+		fcntl(pfd[0], F_SETFL, fcntl(pfd[0], F_GETFL) | O_NONBLOCK);
+
+		len = read(pfd[0], buf, sizeof(buf));
+		while (len > 0) {
+			pr_dbg("write final %d bytes\n", len);
+			if (write_all(pfd[1], buf, len) < 0) {
+				pr_err("ftrace: error during final write: %s\n",
+				       strerror(errno));
+			}
+			len = read(pfd[0], buf, sizeof(buf));
+		}
+		pr_dbg("read returns %d (%s)\n", len, strerror(errno));
 
 		goto wait_child;
 	}
@@ -825,19 +841,19 @@ send_signal:
 	}
 
 	if (opts->use_pipe) {
-		int nread;
+		int len;
 		char buf[4096];
 
-		while (ioctl(pfd[0], FIONREAD, &nread) >= 0 && nread) {
-			nread = read(pfd[0], buf, sizeof(buf));
-			if (nread <= 0)
-				pr_err("ftrace: ERROR: error during final read\n");
-
-			if (write_all(pfd[1], buf, nread) < 0) {
+		len = read(pfd[0], buf, sizeof(buf));
+		while (len > 0) {
+			pr_dbg("write final %d bytes\n", len);
+			if (write_all(pfd[1], buf, len) < 0) {
 				pr_err("ftrace: error during final write: %s\n",
 				       strerror(errno));
 			}
+			len = read(pfd[0], buf, sizeof(buf));
 		}
+		pr_dbg("read returns %d (%s)\n", len, strerror(errno));
 
 		close(pfd[0]);
 		close(pfd[1]);
@@ -913,7 +929,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		if (fread(map->libname, map->len, 1, fp) != 1)
 			pr_err("ftrace: ERROR: failed to read libname\n");
 
-		pr_dbg("reading map: %lx-%-lx: %s\n",
+		pr_dbg("reading map: %"PRIx64"-%-"PRIx64": %s\n",
 		       map->start, map->end, map->libname);
 
 		map->next = proc_maps;
