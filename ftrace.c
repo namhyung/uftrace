@@ -321,6 +321,8 @@ static int write_all(int fd, void *buf, size_t size)
 
 	while (size) {
 		ret = write(fd, buf, size);
+		if (ret < 0 && errno == EINTR)
+			continue;
 		if (ret < 0)
 			return -1;
 
