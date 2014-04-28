@@ -6,13 +6,14 @@
 
 .globl mcount
 mcount:
-	pushq %rdi
-	pushq %rsi
-	pushq %rdx
-	pushq %rcx
-	pushq %r8
-	pushq %r9
-	pushq %rax
+	sub $56, %rsp
+	movq %rdi, 48(%rsp)
+	movq %rsi, 40(%rsp)
+	movq %rdx, 32(%rsp)
+	movq %rcx, 24(%rsp)
+	movq %r8, 16(%rsp)
+	movq %r9, 8(%rsp)
+	movq %rax, 0(%rsp)
 
 	/* child ip */
 	movq 56(%rsp), %rsi
@@ -31,13 +32,14 @@ mcount:
 	add %rcx, %rdx
 	movq %rdx, 8(%rbp)
 1:
-	popq %rax
-	popq %r9
-	popq %r8
-	popq %rcx
-	popq %rdx
-	popq %rsi
-	popq %rdi
+	movq 0(%rsp), %rax
+	movq 8(%rsp), %r9
+	movq 16(%rsp), %r8
+	movq 24(%rsp), %rcx
+	movq 32(%rsp), %rdx
+	movq 40(%rsp), %rsi
+	movq 48(%rsp), %rdi
+	add $56, %rsp
 	retq
 
 .type mcount, @function
