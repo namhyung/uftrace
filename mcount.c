@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
@@ -23,6 +24,7 @@ __thread struct mcount_ret_stack *mcount_rstack;
 
 static FILE *fout;
 static int pfd = -1;
+static bool shm = false;
 static bool tracing_enabled = true;
 static bool mcount_setup_done;
 
@@ -49,18 +51,137 @@ static int gettid(void)
 	return syscall(SYS_gettid);
 }
 
+static const char *session_name(void)
+{
+	static char session[16 + 1];
+	static uint64_t session_id;
+	int fd;
+
+	if (!session_id) {
+		fd = open("/dev/urandom", O_RDONLY);
+		if (fd < 0)
+			pr_err("mcount: ERROR: open open urandom file\n");
+
+		if (read(fd, &session_id, sizeof(session_id)) != 8)
+			pr_err("mcount: ERROR: reading from urandom\n");
+
+		close(fd);
+
+		snprintf(session, sizeof(session), "%016"PRIx64, session_id);
+	}
+	return session;
+}
+
+
+#define SHMEM_BUFFER_SIZE  (128 * 1024)
+#define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
+
+struct mcount_shmem_buffer {
+	unsigned size;
+	char data[];
+};
+
+static pthread_key_t shmem_key;
+static __thread int shmem_seqnum;
+static __thread struct mcount_shmem_buffer *shmem_buffer;
+
+static void get_new_shmem_buffer(void)
+{
+	char buf[64];
+	int fd;
+
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 session_name(), gettid(), shmem_seqnum++);
+
+	pr_dbg("opening shmem buffer: %s\n", buf);
+
+	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		pr_err("mcount: ERROR: open shmem buffer: %s\n", strerror(errno));
+
+	ftruncate(fd, SHMEM_BUFFER_SIZE);
+
+	shmem_buffer = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, fd, 0);
+	if (shmem_buffer == MAP_FAILED)
+		pr_err("mcount: ERROR: mmap shmem buffer\n");
+
+	close(fd);
+
+	shmem_buffer->size = 0;
+
+	if (pfd >= 0) {
+		ssize_t len = strlen(buf);
+
+		memmove(buf+2, buf, len);
+		buf[0] = 'S';
+		buf[1] = ':';
+
+		if (write(pfd, buf, len + 2) != len + 2)
+			pr_err("mcount: ERROR: writing shmem name to pipe\n");
+	}
+}
+
+static void finish_shmem_buffer(void)
+{
+	char buf[64];
+
+	if (shmem_buffer == NULL)
+		return;
+
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 session_name(), gettid(), shmem_seqnum - 1);
+
+	munmap(shmem_buffer, SHMEM_BUFFER_SIZE);
+	shmem_buffer = NULL;
+
+	if (pfd >= 0) {
+		ssize_t len = strlen(buf);
+
+		memmove(buf+2, buf, len);
+		buf[0] = 'E';
+		buf[1] = ':';
+
+		if (write(pfd, buf, len + 2) != len + 2)
+			pr_err("mcount: ERROR: writing shmem name to pipe\n");
+	}
+}
+
+/* to be used by pthread_create_key() */
+static void shmem_dtor(void *unused)
+{
+	finish_shmem_buffer();
+}
+
+static int record_mmap_data(void *buf, size_t size)
+{
+	assert(size < SHMEM_BUFFER_SIZE);
+
+	if (shmem_buffer == NULL ||
+	    shmem_buffer->size + size > SHMEM_BUFFER_SIZE - sizeof(*shmem_buffer)) {
+		finish_shmem_buffer();
+		get_new_shmem_buffer();
+	}
+
+	memcpy(shmem_buffer->data + shmem_buffer->size, buf, size);
+	shmem_buffer->size += size;
+	return 0;
+}
+
 static int record_trace_data(void *buf, size_t size)
 {
 	int ret;
 
-	assert(pfd >= 0 || fout != NULL);
+	assert(pfd >= 0 || fout != NULL || shm);
 
 	pr_dbg("recording %zd bytes\n", size);
 
-	if (fout)
-		ret = (fwrite(buf, size, 1, fout) == 1);
+	if (shm)
+		ret = (record_mmap_data(buf, size) == 0);
 	else if (pfd >= 0)
 		ret = (write(pfd, buf, size) == (ssize_t)size);
+	else if (fout)
+		ret = (fwrite(buf, size, 1, fout) == 1);
 	else
 		ret = 0;
 
@@ -112,6 +233,12 @@ static void mcount_init_file(void)
 	/* This is for the case of library-only tracing */
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
+
+	if (shm) {
+		if (pthread_key_create(&shmem_key, shmem_dtor))
+			pr_err("mcount: ERROR: cannot create shmem key\n");
+		return;
+	}
 
 	if (use_pipe && pfd >= 0)
 		goto record;
@@ -281,6 +408,11 @@ unsigned long mcount_exit(void)
 static void mcount_finish(void)
 {
 	pr_dbg("%s\n", __func__);
+
+	if (shm) {
+		finish_shmem_buffer();
+		pthread_key_delete(shmem_key);
+	}
 
 	if (fout) {
 		fclose(fout);
@@ -636,6 +768,9 @@ __monstartup(unsigned long low, unsigned long high)
 
 		signal(sig, stop_trace);
 	}
+
+	if (getenv("FTRACE_SHMEM"))
+		shm = true;
 
 	mcount_setup_done = true;
 }

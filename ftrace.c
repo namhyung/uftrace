@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <gelf.h>
@@ -32,6 +33,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_usepipe	307
 #define OPT_library	308
 #define OPT_threads	309
+#define OPT_usemmap	310
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -50,6 +52,7 @@ static struct argp_option ftrace_options[] = {
 	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
+	{ "use-mmap", OPT_usemmap, 0, 0, "Use mmap-ed shm buffer for record" },
 	{ 0 }
 };
 
@@ -81,6 +84,7 @@ struct opts {
 	bool use_pipe;
 	bool library;
 	bool report_thread;
+	bool use_mmap;
 };
 
 static unsigned long parse_size(char *str)
@@ -180,6 +184,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_threads:
 		opts->report_thread = true;
+		break;
+
+	case OPT_usemmap:
+		opts->use_mmap = opts->use_pipe = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -436,6 +444,10 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			pr_log("--library should be used with --use-pipe for now\n");
 	}
 
+	if (opts->use_mmap) {
+		setenv("FTRACE_SHMEM", "1", 1);
+	}
+
 	if (debug) {
 		snprintf(buf, sizeof(buf), "%d", debug);
 		setenv("FTRACE_DEBUG", buf, 1);
@@ -453,6 +465,19 @@ static int fill_file_header(struct opts *opts, int status)
 	off_t header_offset;
 
 	pr_dbg("fill header (metadata) info in %s\n", opts->filename);
+
+	if (opts->use_mmap) {
+		fd = open("ftrace.dir/info", O_WRONLY | O_CREAT| O_TRUNC, 0644);
+		if (fd < 0)
+			pr_log("cannot create data file: %s\n",
+			       strerror(errno));
+
+		memset(&hdr, 0, sizeof(hdr));
+		strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
+		hdr.version = FTRACE_FILE_VERSION;
+
+		goto fill_elf;
+	}
 
 	fd = open(opts->filename, O_RDWR);
 	if (fd < 0) {
@@ -486,6 +511,7 @@ static int fill_file_header(struct opts *opts, int status)
 		goto close_fd;
 	}
 
+fill_elf:
 	efd = open(opts->exename, O_RDONLY);
 	if (efd < 0)
 		goto close_fd;
@@ -505,7 +531,7 @@ static int fill_file_header(struct opts *opts, int status)
 	hdr.length = statbuf.st_size;
 
 	header_offset = lseek(fd, 0, SEEK_END);
-	pr_dbg("writing header info at %lu\n", (unsigned long)header_offset);
+	pr_dbg("writing header info at %lu (fd: %d)\n", (unsigned long)header_offset, fd);
 
 	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
 
@@ -654,6 +680,163 @@ out:
 	return nr_maps;
 }
 
+#define SHMEM_BUFFER_SIZE  (128 * 1024)
+#define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
+
+struct shmem_list {
+	struct shmem_list *next;
+	char id[SHMEM_NAME_SIZE];
+};
+
+struct shmem_buffer {
+	unsigned size;
+	char data[];
+};
+
+static struct shmem_list *shmem_list_head;
+
+static char *make_disk_name(char *buf, size_t size, char *id)
+{
+	char *ptr;
+	char *tid;
+
+	/*
+	 * extract tid part only from "/ftrace-SESSION-TID-SEQ".
+	 */
+	tid = strchr(id, '-');
+	assert(tid);
+
+	tid++;
+
+	tid = strchr(tid, '-');
+	assert(tid);
+
+	tid++;
+
+	ptr = strchr(tid, '-');
+	assert(ptr);
+
+	*ptr = '\0';
+	snprintf(buf, size, "ftrace.dir/%s.dat", tid);
+	*ptr = '-';
+
+	return "ftrace.dir/test.dat";
+	return buf;
+}
+
+static int record_mmap_file(char *sess_id)
+{
+	int fd;
+	char buf[128];
+	char *ptr;
+	size_t size;
+	struct shmem_buffer *shmem_buf;
+
+	/* write (append) it to disk */
+	fd = shm_open(sess_id, O_RDONLY, 0400);
+	if (fd < 0)
+		pr_err("ftrace: ERROR: open shmem buffer\n");
+
+	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ,
+			 MAP_SHARED, fd, 0);
+	if (shmem_buf == MAP_FAILED)
+		pr_err("ftrace: ERROR: mmap shmem buffer\n");
+
+	close(fd);
+
+	fd = open(make_disk_name(buf, sizeof(buf), sess_id),
+//		  O_WRONLY | O_CREAT | O_APPEND, 0644);
+		  O_WRONLY | O_CREAT | O_TRUNC, 0644);		  
+	if (fd < 0)
+		pr_err("ftrace: ERROR: open disk file\n");
+
+	ptr  = shmem_buf->data;
+	size = shmem_buf->size;
+
+	pr_log("recording: %s (size: %zd)\n", sess_id, size);
+
+	while (size) {
+		int ret = write(fd, ptr, size);
+		if (ret < 0 && errno != EINTR)
+			pr_err("ftrace: ERROR: write shmem buffer\n");
+
+		if (ret > 0) {
+			ptr  += ret;
+			size -= ret;
+		}
+	}
+
+	pr_log("closing fd: %d\n", fd);
+	close(fd);
+
+	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
+
+	/* it's no longer used */
+	shm_unlink(sess_id);
+	return 0;
+}
+
+static int read_record_mmap(int pfd)
+{
+	int ret;
+	char buf[128];
+	struct shmem_list *sl;
+
+	while (!done) {
+		ret = read(pfd, buf, sizeof(buf)-1);
+		if (ret < 0) {
+			if (errno == EINTR)
+				continue;
+
+			pr_err("ftrace: ERROR: reading pipe failed: %s\n",
+			       strerror(errno));
+		}
+
+		buf[ret] = '\0';
+		pr_dbg("reading from pipe: %s\n", buf);
+
+		if (buf[0] == 'S') {
+			sl = xmalloc(sizeof(*sl));
+			strncpy(sl->id, &buf[2], SHMEM_NAME_SIZE);
+
+			/* link to shmem_list */
+			sl->next = shmem_list_head;
+			shmem_list_head = sl;
+		} else {
+			struct shmem_list **psl = &shmem_list_head;
+
+			assert(buf[0] == 'E');
+
+			/* remove from shmem_list */
+			while (*psl) {
+				sl = *psl;
+
+				if (!strncmp(sl->id, &buf[2], SHMEM_NAME_SIZE)) {
+					*psl = sl->next;
+				}
+
+				psl = &sl->next;
+			}
+
+			record_mmap_file(&buf[2]);
+		}
+	}
+
+	/* flush remaining list (due to abnormal termination) */
+	sl = shmem_list_head;
+	while (sl) {
+		struct shmem_list *tmp = sl;
+		sl = sl->next;
+
+		pr_dbg("flushing %s\n", tmp->id);
+
+		record_mmap_file(tmp->id);
+		free(tmp);
+	}
+	shmem_list_head = NULL;
+	return 0;
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -724,7 +907,11 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (!opts->daemon)
 		sigaction(SIGCHLD, &sa, NULL);
 
-	if (opts->use_pipe) {
+	if (opts->use_mmap) {
+		mkdir("ftrace.dir", 0755);
+		read_record_mmap(pfd[0]);
+		goto fill_header;
+	} else if (opts->use_pipe) {
 		int len;
 		char buf[4096];
 		struct ftrace_file_header hdr;
@@ -861,6 +1048,7 @@ send_signal:
 		close(pfd[1]);
 	}
 
+fill_header:
 	if (fill_file_header(opts, status) < 0)
 		pr_err("ftrace: ERROR: cannot generate data file\n");
 
@@ -879,6 +1067,12 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	fpos_t pos;
 	const char msg[] = "ftrace: ERROR: Was '%s' compiled with -pg or\n"
 		"\t-finstrument-functions flag and ran with ftrace record?\n";
+
+	if (opts->use_mmap) {
+		fp = fopen("ftrace.dir/test.dat", "rb");
+		opts->exename = "tests/t-abc";
+		return 0;
+	}
 
 	fp = fopen(opts->filename, "rb");
 	if (fp == NULL) {
