@@ -37,6 +37,7 @@ void _mcleanup(void);
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_FILE_VERSION  2
 #define FTRACE_FILE_NAME  "ftrace.data"
+#define FTRACE_DIR_NAME   "ftrace.dir"
 
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];

@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <time.h>
+#include <dirent.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -71,7 +72,7 @@ struct opts {
 	char *notrace;
 	char *tid;
 	char *exename;
-	char *filename;
+	char *dirname;
 	char *logfile;
 	int mode;
 	int idx;
@@ -143,7 +144,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'f':
-		opts->filename = arg;
+		opts->dirname = arg;
 		break;
 
 	case 'b':
@@ -261,7 +262,7 @@ int main(int argc, char *argv[])
 {
 	struct opts opts = {
 		.mode = FTRACE_MODE_INVALID,
-		.filename = FTRACE_FILE_NAME,
+		.dirname = FTRACE_DIR_NAME,
 		.want_plthook = true,
 		.bsize = ~0UL,
 		.signal = SIGPROF,
@@ -414,8 +415,8 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("FTRACE_PLTHOOK", "1", 1);
 	}
 
-	if (strcmp(opts->filename, FTRACE_FILE_NAME))
-		setenv("FTRACE_FILE", opts->filename, 1);
+	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
+		setenv("FTRACE_DIR", opts->dirname, 1);
 
 	if (opts->bsize != ~0UL) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
@@ -454,64 +455,23 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	}
 }
 
-static int fill_file_header(struct opts *opts, int status)
+static int fill_file_header(struct opts *opts, int status, char *buf, size_t size)
 {
 	int fd, efd;
 	int ret = -1;
-	struct stat statbuf;
 	struct ftrace_file_header hdr;
 	Elf *elf;
 	GElf_Ehdr ehdr;
-	off_t header_offset;
 
-	pr_dbg("fill header (metadata) info in %s\n", opts->filename);
+	snprintf(buf, size, "%s/info", opts->dirname);
+	pr_dbg("fill header (metadata) info in %s\n", buf);
 
-	if (opts->use_mmap) {
-		fd = open("ftrace.dir/info", O_WRONLY | O_CREAT| O_TRUNC, 0644);
-		if (fd < 0)
-			pr_log("cannot create data file: %s\n",
-			       strerror(errno));
-
-		memset(&hdr, 0, sizeof(hdr));
-		strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
-		hdr.version = FTRACE_FILE_VERSION;
-
-		goto fill_elf;
-	}
-
-	fd = open(opts->filename, O_RDWR);
+	fd = open(buf, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 	if (fd < 0) {
-		pr_log("cannot open data file: %s\n", strerror(errno));
+		pr_log("cannot open info file: %s\n", strerror(errno));
 		return -1;
 	}
 
-	if (fstat(fd, &statbuf) < 0) {
-		pr_log("cannot stat data file: %s\n", strerror(errno));
-		goto close_fd;
-	}
-
-	if (statbuf.st_size < (int)sizeof(hdr)) {
-		pr_log("invalid or corrupted data file (size = %lu)\n",
-		       (unsigned long)statbuf.st_size);
-		goto close_fd;
-	}
-
-	if (pread(fd, &hdr, sizeof(hdr), 0) != sizeof(hdr)) {
-		pr_log("cannot read header part: %s\n", strerror(errno));
-		goto close_fd;
-	}
-
-	if (strncmp(FTRACE_MAGIC_STR, hdr.magic, FTRACE_MAGIC_LEN)) {
-		pr_log("invalue magic string: %s\n", hdr.magic);
-		goto close_fd;
-	}
-
-	if (hdr.version != FTRACE_FILE_VERSION) {
-		pr_log("invalid version: %d\n", hdr.version);
-		goto close_fd;
-	}
-
-fill_elf:
 	efd = open(opts->exename, O_RDONLY);
 	if (efd < 0)
 		goto close_fd;
@@ -525,13 +485,18 @@ fill_elf:
 	if (gelf_getehdr(elf, &ehdr) == NULL)
 		goto close_elf;
 
+	strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
+	hdr.version = FTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
 	hdr.endian = ehdr.e_ident[EI_DATA];
 	hdr.class = ehdr.e_ident[EI_CLASS];
-	hdr.length = statbuf.st_size;
+	hdr.length = 0;
+	hdr.info_mask = 0;
+	hdr.nr_maps = 0;
+	hdr.unused = 0;
 
-	header_offset = lseek(fd, 0, SEEK_END);
-	pr_dbg("writing header info at %lu (fd: %d)\n", (unsigned long)header_offset, fd);
+	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
+		pr_err("writing header info failed: %s\n", strerror(errno));
 
 	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
 
@@ -695,7 +660,7 @@ struct shmem_buffer {
 
 static struct shmem_list *shmem_list_head;
 
-static char *make_disk_name(char *buf, size_t size, char *id)
+static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
 {
 	char *ptr;
 	char *tid;
@@ -717,14 +682,16 @@ static char *make_disk_name(char *buf, size_t size, char *id)
 	assert(ptr);
 
 	*ptr = '\0';
-	snprintf(buf, size, "ftrace.dir/%s.dat", tid);
+	snprintf(buf, size, "%s/%s.dat", dirname, tid);
 	*ptr = '-';
 
-	return "ftrace.dir/test.dat";
+	/* XXX */
+	snprintf(buf, size, "%s/trace.dat", dirname);
+
 	return buf;
 }
 
-static int record_mmap_file(char *sess_id)
+static int record_mmap_file(const char *dirname, char *sess_id)
 {
 	int fd;
 	char buf[128];
@@ -744,16 +711,13 @@ static int record_mmap_file(char *sess_id)
 
 	close(fd);
 
-	fd = open(make_disk_name(buf, sizeof(buf), sess_id),
-//		  O_WRONLY | O_CREAT | O_APPEND, 0644);
+	fd = open(make_disk_name(buf, sizeof(buf), dirname, sess_id),
 		  O_WRONLY | O_CREAT | O_TRUNC, 0644);		  
 	if (fd < 0)
 		pr_err("ftrace: ERROR: open disk file\n");
 
 	ptr  = shmem_buf->data;
 	size = shmem_buf->size;
-
-	pr_log("recording: %s (size: %zd)\n", sess_id, size);
 
 	while (size) {
 		int ret = write(fd, ptr, size);
@@ -766,7 +730,6 @@ static int record_mmap_file(char *sess_id)
 		}
 	}
 
-	pr_log("closing fd: %d\n", fd);
 	close(fd);
 
 	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
@@ -776,7 +739,7 @@ static int record_mmap_file(char *sess_id)
 	return 0;
 }
 
-static int read_record_mmap(int pfd)
+static int read_record_mmap(int pfd, const char *dirname)
 {
 	int ret;
 	char buf[128];
@@ -818,7 +781,7 @@ static int read_record_mmap(int pfd)
 				psl = &sl->next;
 			}
 
-			record_mmap_file(&buf[2]);
+			record_mmap_file(dirname, &buf[2]);
 		}
 	}
 
@@ -830,7 +793,7 @@ static int read_record_mmap(int pfd)
 
 		pr_dbg("flushing %s\n", tmp->id);
 
-		record_mmap_file(tmp->id);
+		record_mmap_file(dirname, tmp->id);
 		free(tmp);
 	}
 	shmem_list_head = NULL;
@@ -841,7 +804,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
 	int status;
-	char oldname[512];
+	char buf[4096];
 	const char *profile_funcs[] = {
 		"mcount",
 		"__fentry__",
@@ -852,13 +815,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	int pfd[2];
 	struct sigaction sa;
 
-	/* backup old 'ftrace.data' file */
-	if (strcmp(FTRACE_FILE_NAME, opts->filename) == 0) {
-		snprintf(oldname, sizeof(oldname), "%s.old", opts->filename);
+	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
-		/* don't care about the failure */
-		rename(opts->filename, oldname);
-	}
+	/* don't care about the failure */
+	rename(opts->dirname, buf);
 
 	load_symtabs(opts->exename);
 
@@ -907,50 +867,32 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (!opts->daemon)
 		sigaction(SIGCHLD, &sa, NULL);
 
-	if (opts->use_mmap) {
-		mkdir("ftrace.dir", 0755);
-		read_record_mmap(pfd[0]);
+       mkdir(opts->dirname, 0755);
+
+       if (opts->use_mmap) {
+		read_record_mmap(pfd[0], opts->dirname);
 		goto fill_header;
 	} else if (opts->use_pipe) {
 		int len;
-		char buf[4096];
-		struct ftrace_file_header hdr;
 		int remaining = 0;
 
 		close(pfd[1]);
 
+		snprintf(buf, sizeof(buf), "%s/trace.dat", opts->dirname);
+
 		/* reuse pfd[1] to write real data file */
-		pfd[1] = open(opts->filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		pfd[1] = open(buf, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (pfd[1] < 0) {
 			pr_err("ftrace: ERROR: cannot open data file: %s\n",
 			       strerror(errno));
 		}
 
-		len = read(pfd[0], &hdr, sizeof(hdr));
-		if (len < (int)sizeof(hdr)) {
-			pr_err("ftrace: ERROR: cannot read header data: %s (len = %d)\n",
-			       strerror(errno), len);
-		}
+		if (opts->library) {
+			struct ftrace_proc_maps *map;
 
-		if (strncmp(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN) ||
-		    hdr.version != FTRACE_FILE_VERSION) {
-			pr_err("ftrace: ERROR: invalid header data\n");
-		}
+			read_proc_maps(pfd[0], buf, sizeof(buf), &remaining);
 
-		if (hdr.nr_maps != 0) {
-			hdr.nr_maps = read_proc_maps(pfd[0], buf, sizeof(buf),
-						     &remaining);
-		}
-
-		len = write_all(pfd[1], &hdr, sizeof(hdr));
-		if (len < 0) {
-			pr_err("ftrace: ERROR: cannot write header data: %s\n",
-			       strerror(errno));
-		}
-
-		if (hdr.nr_maps) {
-			struct ftrace_proc_maps *map = proc_maps;
-
+			map = proc_maps;
 			while (map) {
 				proc_maps = map->next;
 				map->next = MAPS_MARKER;
@@ -1031,7 +973,6 @@ send_signal:
 
 	if (opts->use_pipe) {
 		int len;
-		char buf[4096];
 
 		len = read(pfd[0], buf, sizeof(buf));
 		while (len > 0) {
@@ -1049,7 +990,7 @@ send_signal:
 	}
 
 fill_header:
-	if (fill_file_header(opts, status) < 0)
+	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("ftrace: ERROR: cannot generate data file\n");
 
 	/*
@@ -1064,29 +1005,27 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
-	fpos_t pos;
+	char buf[PATH_MAX];
 	const char msg[] = "ftrace: ERROR: Was '%s' compiled with -pg or\n"
 		"\t-finstrument-functions flag and ran with ftrace record?\n";
 
-	if (opts->use_mmap) {
-		fp = fopen("ftrace.dir/test.dat", "rb");
-		opts->exename = "tests/t-abc";
-		return 0;
-	}
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
-	fp = fopen(opts->filename, "rb");
+	fp = fopen(buf, "rb");
 	if (fp == NULL) {
 		if (errno == ENOENT) {
-			pr_log("ftrace: cannot find %s file!\n", opts->filename);
+			pr_log("ftrace: cannot find %s file!\n", buf);
 
 			if (opts->exename)
 				pr_err(msg, opts->exename);
 		} else {
 			pr_err("ftrace: ERROR: cannot open %s file: %s\n",
-			       opts->filename, strerror(errno));
+			       buf, strerror(errno));
 		}
 		goto out;
 	}
+
+	handle->fp = fp;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("ftrace: ERROR: cannot read header data\n");
@@ -1098,18 +1037,6 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (handle->hdr.version != FTRACE_FILE_VERSION) {
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid vergion number found!\n");
-	}
-
-	handle->fp = fp;
-
-	if (handle->hdr.length == 0) {
-		pr_log("ftrace: WARNING: header info was missing.\n"
-		       "\tIt seems the ftrace record sesssion was terminated abnormally.\n");
-
-		if (opts->exename == NULL) {
-			pr_err("ftrace: You need to specify the orignal executable\n"
-			       "\tas an argument to proceed.\n");
-		}
 	}
 
 	while (handle->hdr.nr_maps) {
@@ -1134,18 +1061,21 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		handle->hdr.nr_maps--;
 	}
 
-	fgetpos(fp, &pos);
-
-	fseek(fp, handle->hdr.length, SEEK_SET);
-	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0) {
-		fclose(fp);
+	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("ftrace: ERROR: cannot read ftrace header info!\n");
-	}
 
-	fsetpos(fp, &pos);
+	fclose(fp);
 
 	if (opts->exename == NULL)
 		opts->exename = handle->info.exename;
+
+	snprintf(buf, sizeof(buf), "%s/trace.dat", opts->dirname);
+
+	fp = fopen(buf, "rb");
+	if (fp == NULL)
+		pr_err("ftrace: ERROR: cannot open data file\n");
+
+	handle->fp = fp;
 
 	ret = 0;
 
@@ -1166,13 +1096,11 @@ static int read_rstack(struct ftrace_file_handle *handle,
 		       struct mcount_ret_stack *rstack)
 {
 	FILE *fp = handle->fp;
-	off_t offset = ftello(fp);
-
-	if (offset >= (off_t)handle->hdr.length ||
-	    offset + sizeof(*rstack) > handle->hdr.length)
-		return -1;
 
 	if (fread(rstack, sizeof(*rstack), 1, fp) != 1) {
+		if (feof(fp))
+			return -1;
+
 		pr_log("ftrace: error reading rstack: %s\n", strerror(errno));
 		return -1;
 	}
@@ -1343,11 +1271,32 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	return ret;
 }
 
-static char *tmp_filename;
-static void cleanup_tempfile(void)
+static char *tmp_dirname;
+static void cleanup_tempdir(void)
 {
-	if (tmp_filename)
-		unlink(tmp_filename);
+	DIR *dp;
+	struct dirent *ent;
+
+	if (!tmp_dirname)
+		return;
+
+	dp = opendir(tmp_dirname);
+	if (dp == NULL) {
+		pr_err("ftrace: ERROR: cannot open temp dir: %s\n",
+		       strerror(errno));
+	}
+
+	while ((ent = readdir(dp)) != NULL) {
+		if (ent->d_name[0] == '.')
+			continue;
+
+		unlink(ent->d_name);
+	}
+
+	closedir(dp);
+
+	rmdir(tmp_dirname);
+	tmp_dirname = NULL;
 }
 
 static int command_live(int argc, char *argv[], struct opts *opts)
@@ -1355,23 +1304,22 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
 	int fd = mkstemp(template);
 	if (fd < 0) {
-		pr_err("ftrace: ERROR: cannot create temp file: %s\n",
+		pr_err("ftrace: ERROR: cannot create temp dir: %s\n",
 		       strerror(errno));
 	}
 
 	close(fd);
+	unlink(template);
 
-	tmp_filename = template;
-	atexit(cleanup_tempfile);
+	tmp_dirname = template;
+	atexit(cleanup_tempdir);
 
-	opts->filename = template;
+	opts->dirname = template;
 
 	if (command_record(argc, argv, opts) == 0)
 		command_replay(argc, argv, opts);
 
-	tmp_filename = NULL;
-
-	unlink(template);
+	cleanup_tempdir();
 
 	return 0;
 }
@@ -1568,6 +1516,7 @@ out:
 static int command_info(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
+	char buf[PATH_MAX];
 	struct stat statbuf;
 	struct ftrace_file_handle handle;
 	const char *fmt = "# %-20s: %s\n";
@@ -1576,7 +1525,9 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	if (stat(opts->filename, &statbuf) < 0)
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+
+	if (stat(buf, &statbuf) < 0)
 		return -1;
 
 	printf("# ftrace information\n");
@@ -1599,7 +1550,6 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
-		char buf[1024];
 		int status = handle.info.exit_status;
 
 		if (WIFEXITED(status)) {

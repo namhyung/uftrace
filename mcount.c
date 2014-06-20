@@ -220,13 +220,8 @@ extern void __monstartup(unsigned long low, unsigned long high);
 
 static void mcount_init_file(void)
 {
-	struct ftrace_file_header ffh = {
-		.magic = FTRACE_MAGIC_STR,
-		.version = FTRACE_FILE_VERSION,
-		/* other fields are filled by ftrace record */
-	};
 	char *use_pipe = getenv("FTRACE_PIPE");
-	char *filename = getenv("FTRACE_FILE");
+	char *dirname = getenv("FTRACE_DIR");
 	char *bufsize = getenv("FTRACE_BUFFER");
 	char buf[256];
 
@@ -243,14 +238,15 @@ static void mcount_init_file(void)
 	if (use_pipe && pfd >= 0)
 		goto record;
 
-	if (filename == NULL)
-		filename = FTRACE_FILE_NAME;
+	if (dirname == NULL)
+		dirname = FTRACE_DIR_NAME;
 
-	fout = fopen(filename, "wb");
+	snprintf(buf, sizeof(buf), "%s/trace.dat", dirname);
+	fout = fopen(buf, "wb");
 	if (fout == NULL) {
 		char *errmsg = strerror_r(errno, buf, sizeof(buf));
 		if (errmsg == NULL)
-			errmsg = filename;
+			errmsg = dirname;
 
 		pr_err("mcount: ERROR: cannot create data file: %s\n", errmsg);
 	}
@@ -263,17 +259,6 @@ static void mcount_init_file(void)
 
 record:
 	if (getenv("FTRACE_LIBRARY_TRACE"))
-		ffh.nr_maps = 1; /* just signal that it has maps data */
-
-	if (record_trace_data(&ffh, sizeof(ffh)) < 0) {
-		char *errmsg = strerror_r(errno, buf, sizeof(buf));
-		if (errmsg == NULL)
-			errmsg = filename;
-
-		pr_err("mcount: ERROR: cannot write header info: %s\n", errmsg);
-	}
-
-	if (ffh.nr_maps)
 		record_proc_maps();
 }
 
