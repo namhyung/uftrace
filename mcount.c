@@ -22,9 +22,7 @@
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
-static FILE *fout;
 static int pfd = -1;
-static bool shm = false;
 static bool tracing_enabled = true;
 static bool mcount_setup_done;
 
@@ -170,22 +168,9 @@ static int record_mmap_data(void *buf, size_t size)
 
 static int record_trace_data(void *buf, size_t size)
 {
-	int ret;
+	pr_dbg2("recording %zd bytes\n", size);
 
-	assert(pfd >= 0 || fout != NULL || shm);
-
-	pr_dbg("recording %zd bytes\n", size);
-
-	if (shm)
-		ret = (record_mmap_data(buf, size) == 0);
-	else if (pfd >= 0)
-		ret = (write(pfd, buf, size) == (ssize_t)size);
-	else if (fout)
-		ret = (fwrite(buf, size, 1, fout) == 1);
-	else
-		ret = 0;
-
-	return ret - 1;
+	return record_mmap_data(buf, size);
 }
 
 static void record_proc_maps(char *dirname)
@@ -199,7 +184,7 @@ static void record_proc_maps(char *dirname)
 
 	snprintf(buf, sizeof(buf), "%s/maps", dirname);
 
-	ofd = open(buf, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	ofd = open(buf, O_WRONLY | O_CREAT, 0644);
 	if (ofd < 0)
 		pr_err("mcount: ERROR: cannot open for writing maps file\n");
 
@@ -216,44 +201,18 @@ extern void __monstartup(unsigned long low, unsigned long high);
 
 static void mcount_init_file(void)
 {
-	char *use_pipe = getenv("FTRACE_PIPE");
 	char *dirname = getenv("FTRACE_DIR");
-	char *bufsize = getenv("FTRACE_BUFFER");
-	char buf[256];
 
 	/* This is for the case of library-only tracing */
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
 
-	if (shm) {
-		if (pthread_key_create(&shmem_key, shmem_dtor))
-			pr_err("mcount: ERROR: cannot create shmem key\n");
-		return;
-	}
-
-	if (use_pipe && pfd >= 0)
-		goto record;
+	if (pthread_key_create(&shmem_key, shmem_dtor))
+		pr_err("mcount: ERROR: cannot create shmem key\n");
 
 	if (dirname == NULL)
 		dirname = FTRACE_DIR_NAME;
 
-	snprintf(buf, sizeof(buf), "%s/trace.dat", dirname);
-	fout = fopen(buf, "wb");
-	if (fout == NULL) {
-		char *errmsg = strerror_r(errno, buf, sizeof(buf));
-		if (errmsg == NULL)
-			errmsg = dirname;
-
-		pr_err("mcount: ERROR: cannot create data file: %s\n", errmsg);
-	}
-
-	if (bufsize) {
-		unsigned long size = strtoul(bufsize, NULL, 0);
-
-		setvbuf(fout, NULL, size ? _IOFBF : _IONBF, size);
-	}
-
-record:
 	record_proc_maps(dirname);
 }
 
@@ -389,15 +348,8 @@ static void mcount_finish(void)
 {
 	pr_dbg("%s\n", __func__);
 
-	if (shm) {
-		finish_shmem_buffer();
-		pthread_key_delete(shmem_key);
-	}
-
-	if (fout) {
-		fclose(fout);
-		fout = NULL;
-	}
+	finish_shmem_buffer();
+	pthread_key_delete(shmem_key);
 
 	if (pfd != -1) {
 		close(pfd);
@@ -748,9 +700,6 @@ __monstartup(unsigned long low, unsigned long high)
 
 		signal(sig, stop_trace);
 	}
-
-	if (getenv("FTRACE_SHMEM"))
-		shm = true;
 
 	mcount_setup_done = true;
 }

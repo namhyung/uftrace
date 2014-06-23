@@ -31,10 +31,8 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_daemon	304
 #define OPT_signal	305
 #define OPT_logfile	306
-#define OPT_usepipe	307
-#define OPT_library	308
-#define OPT_threads	309
-#define OPT_usemmap	310
+#define OPT_library	307
+#define OPT_threads	308
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -49,11 +47,9 @@ static struct argp_option ftrace_options[] = {
 	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
 	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
-	{ "use-pipe", OPT_usepipe, 0, 0, "Use pipe to record trace data" },
 	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
-	{ "use-mmap", OPT_usemmap, 0, 0, "Use mmap-ed shm buffer for record" },
 	{ 0 }
 };
 
@@ -82,10 +78,8 @@ struct opts {
 	bool want_plthook;
 	bool print_symtab;
 	bool daemon;
-	bool use_pipe;
 	bool library;
 	bool report_thread;
-	bool use_mmap;
 };
 
 static unsigned long parse_size(char *str)
@@ -175,20 +169,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->logfile = arg;
 		break;
 
-	case OPT_usepipe:
-		opts->use_pipe = true;
-		break;
-
 	case OPT_library:
 		opts->library = true;
 		break;
 
 	case OPT_threads:
 		opts->report_thread = true;
-		break;
-
-	case OPT_usemmap:
-		opts->use_mmap = opts->use_pipe = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -433,14 +419,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("FTRACE_LOGFD", buf, 1);
 	}
 
-	if (opts->use_pipe) {
-		snprintf(buf, sizeof(buf), "%d", pfd);
-		setenv("FTRACE_PIPE", buf, 1);
-	}
-
-	if (opts->use_mmap) {
-		setenv("FTRACE_SHMEM", "1", 1);
-	}
+	snprintf(buf, sizeof(buf), "%d", pfd);
+	setenv("FTRACE_PIPE", buf, 1);
+	setenv("FTRACE_SHMEM", "1", 1);
 
 	if (debug) {
 		snprintf(buf, sizeof(buf), "%d", debug);
@@ -626,16 +607,8 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	ptr  = shmem_buf->data;
 	size = shmem_buf->size;
 
-	while (size) {
-		int ret = write(fd, ptr, size);
-		if (ret < 0 && errno != EINTR)
-			pr_err("ftrace: ERROR: write shmem buffer\n");
-
-		if (ret > 0) {
-			ptr  += ret;
-			size -= ret;
-		}
-	}
+	if (write_all(fd, ptr, size) < 0)
+		pr_err("ftrace: ERROR: write shmem buffer\n");
 
 	close(fd);
 
@@ -646,51 +619,54 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	return 0;
 }
 
-static int read_record_mmap(int pfd, const char *dirname)
+static void read_record_mmap(int pfd, const char *dirname)
 {
 	int ret;
 	char buf[128];
 	struct shmem_list *sl;
 
-	while (!done) {
-		ret = read(pfd, buf, sizeof(buf)-1);
-		if (ret < 0) {
-			if (errno == EINTR)
-				continue;
+	ret = read(pfd, buf, sizeof(buf)-1);
+	if (ret < 0) {
+		if (errno == EINTR)
+			return;
 
-			pr_err("ftrace: ERROR: reading pipe failed: %s\n",
-			       strerror(errno));
-		}
+		pr_err("ftrace: ERROR: reading pipe failed: %s\n",
+		       strerror(errno));
+	}
 
-		buf[ret] = '\0';
-		pr_dbg("reading from pipe: %s\n", buf);
+	buf[ret] = '\0';
+	pr_dbg("reading from pipe: %s\n", buf);
 
-		if (buf[0] == 'S') {
-			sl = xmalloc(sizeof(*sl));
-			strncpy(sl->id, &buf[2], SHMEM_NAME_SIZE);
+	if (buf[0] == 'S') {
+		sl = xmalloc(sizeof(*sl));
+		strncpy(sl->id, &buf[2], SHMEM_NAME_SIZE);
 
-			/* link to shmem_list */
-			sl->next = shmem_list_head;
-			shmem_list_head = sl;
-		} else {
-			struct shmem_list **psl = &shmem_list_head;
+		/* link to shmem_list */
+		sl->next = shmem_list_head;
+		shmem_list_head = sl;
+	} else {
+		struct shmem_list **psl = &shmem_list_head;
 
-			assert(buf[0] == 'E');
+		assert(buf[0] == 'E');
 
-			/* remove from shmem_list */
-			while (*psl) {
-				sl = *psl;
+		/* remove from shmem_list */
+		while (*psl) {
+			sl = *psl;
 
-				if (!strncmp(sl->id, &buf[2], SHMEM_NAME_SIZE)) {
-					*psl = sl->next;
-				}
-
-				psl = &sl->next;
+			if (!strncmp(sl->id, &buf[2], SHMEM_NAME_SIZE)) {
+				*psl = sl->next;
 			}
 
-			record_mmap_file(dirname, &buf[2]);
+			psl = &sl->next;
 		}
+
+		record_mmap_file(dirname, &buf[2]);
 	}
+}
+
+static void flush_shmem_list(char *dirname)
+{
+	struct shmem_list *sl;
 
 	/* flush remaining list (due to abnormal termination) */
 	sl = shmem_list_head;
@@ -766,7 +742,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (i == ARRAY_SIZE(profile_funcs) && !opts->library)
 		pr_err(mcount_msg, "mcount", opts->exename);
 
-	if (opts->use_pipe && pipe(pfd) < 0) {
+	if (pipe(pfd) < 0) {
 		pr_err("ftrace: ERROR: cannot setup internal pipe: %s\n",
 		       strerror(errno));
 	}
@@ -782,8 +758,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (pid == 0) {
-		if (opts->use_pipe)
-			close(pfd[0]);
+		close(pfd[0]);
 
 		setup_child_environ(opts, pfd[1]);
 
@@ -805,63 +780,14 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (!opts->daemon)
 		sigaction(SIGCHLD, &sa, NULL);
 
-	if (opts->use_mmap) {
+	while (!done) {
 		read_record_mmap(pfd[0], opts->dirname);
-		goto fill_header;
-	} else if (opts->use_pipe) {
-		int len;
-
-		close(pfd[1]);
-
-		snprintf(buf, sizeof(buf), "%s/trace.dat", opts->dirname);
-
-		/* reuse pfd[1] to write real data file */
-		pfd[1] = open(buf, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-		if (pfd[1] < 0) {
-			pr_err("ftrace: ERROR: cannot open data file: %s\n",
-			       strerror(errno));
-		}
-
-		while (!done) {
-			len = read(pfd[0], buf, 4096);
-			if (len < 0 && errno != EINTR) {
-				pr_err("ftrace: ERROR: cannot read data: %s\n",
-				       strerror(errno));
-			}
-
-			pr_dbg("write %d bytes\n", len);
-			if (len > 0 && write_all(pfd[1], buf, len) < 0) {
-				pr_err("ftrace: error during write: %s\n",
-				       strerror(errno));
-			}
-		}
-
-		if (opts->daemon)
-			goto send_signal;
-
-		fcntl(pfd[0], F_SETFL, fcntl(pfd[0], F_GETFL) | O_NONBLOCK);
-
-		len = read(pfd[0], buf, sizeof(buf));
-		while (len > 0) {
-			pr_dbg("write final %d bytes\n", len);
-			if (write_all(pfd[1], buf, len) < 0) {
-				pr_err("ftrace: error during final write: %s\n",
-				       strerror(errno));
-			}
-			len = read(pfd[0], buf, sizeof(buf));
-		}
-		pr_dbg("read returns %d (%s)\n", len, strerror(errno));
-
-		goto wait_child;
 	}
 
-	while (!done) {
-		if (opts->daemon) {
-			sleep(1);
-			continue;
-		}
-
-wait_child:
+	if (opts->daemon) {
+		tgkill(pid, pid, opts->signal);
+		usleep(1000);
+	} else {
 		waitpid(pid, &status, 0);
 		if (WIFSIGNALED(status)) {
 			pr_dbg("child (%s) was terminated by signal: %d\n",
@@ -869,34 +795,10 @@ wait_child:
 		} else {
 			pr_dbg("child terminated with %d\n", WEXITSTATUS(status));
 		}
-		break;
 	}
 
-	if (opts->daemon) {
-send_signal:
-		tgkill(pid, pid, opts->signal);
-		usleep(1000);
-	}
+	flush_shmem_list(opts->dirname);
 
-	if (opts->use_pipe) {
-		int len;
-
-		len = read(pfd[0], buf, sizeof(buf));
-		while (len > 0) {
-			pr_dbg("write final %d bytes\n", len);
-			if (write_all(pfd[1], buf, len) < 0) {
-				pr_err("ftrace: error during final write: %s\n",
-				       strerror(errno));
-			}
-			len = read(pfd[0], buf, sizeof(buf));
-		}
-		pr_dbg("read returns %d (%s)\n", len, strerror(errno));
-
-		close(pfd[0]);
-		close(pfd[1]);
-	}
-
-fill_header:
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("ftrace: ERROR: cannot generate data file\n");
 
