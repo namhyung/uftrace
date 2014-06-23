@@ -188,32 +188,28 @@ static int record_trace_data(void *buf, size_t size)
 	return ret - 1;
 }
 
-static void record_proc_maps(void)
+static void record_proc_maps(char *dirname)
 {
-	int fd, len;
+	int ifd, ofd, len;
 	char buf[4096];
 
-	fd = open("/proc/self/maps", O_RDONLY);
-	if (fd < 0)
+	ifd = open("/proc/self/maps", O_RDONLY);
+	if (ifd < 0)
 		pr_err("mcount: ERROR: cannot open proc maps file\n");
 
-	if (record_trace_data(START_MAPS, sizeof(START_MAPS)) < 0)
-		pr_err("mcount: ERROR: write proc maps failed\n");
+	snprintf(buf, sizeof(buf), "%s/maps", dirname);
 
-	while ((len = read(fd, buf, sizeof(buf))) > 0) {
-		if (record_trace_data(buf, len) < 0)
+	ofd = open(buf, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	if (ofd < 0)
+		pr_err("mcount: ERROR: cannot open for writing maps file\n");
+
+	while ((len = read(ifd, buf, sizeof(buf))) > 0) {
+		if (write(ofd, buf, len) != len)
 			pr_err("mcount: ERROR: write proc maps failed\n");
 	}
 
-	if (len < 0) {
-		pr_log("mcount: error during read proc maps: %s\n",
-		       strerror(errno));
-	}
-
-	if (record_trace_data(END_MAPS, sizeof(END_MAPS)) < 0)
-		pr_err("mcount: ERROR: write proc maps failed\n");
-
-	close(fd);
+	close(ifd);
+	close(ofd);
 }
 
 extern void __monstartup(unsigned long low, unsigned long high);
@@ -258,8 +254,7 @@ static void mcount_init_file(void)
 	}
 
 record:
-	if (getenv("FTRACE_LIBRARY_TRACE"))
-		record_proc_maps();
+	record_proc_maps(dirname);
 }
 
 static void mcount_prepare(void)

@@ -438,13 +438,6 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("FTRACE_PIPE", buf, 1);
 	}
 
-	if (opts->library) {
-		if (opts->use_pipe)
-			setenv("FTRACE_LIBRARY_TRACE", "1", 1);
-		else
-			pr_log("--library should be used with --use-pipe for now\n");
-	}
-
 	if (opts->use_mmap) {
 		setenv("FTRACE_SHMEM", "1", 1);
 	}
@@ -544,105 +537,6 @@ static void sighandler(int sig)
 static int tgkill(int tgid, int tid, int sig)
 {
 	return syscall(SYS_tgkill, tgid, tid, sig);
-}
-
-static struct ftrace_proc_maps *proc_maps;
-
-static int read_proc_maps(int fd, char *buf, size_t size, int *remaining)
-{
-	int len;
-	char *pos = NULL;
-	int nr_maps = 0;
-
-	len = read(fd, buf, sizeof(START_MAPS));
-	if (len != (int)sizeof(START_MAPS) ||
-	    memcmp(buf, START_MAPS, sizeof(START_MAPS))) {
-		pr_log("invalid maps data.. skipping\n");
-		goto out;
-	}
-
-	pos = buf;
-	len = read(fd, buf, size);
-	if (len < 0) {
-		pr_err("ftrace: ERROR: cannot read maps data: %s\n",
-		       strerror(errno));
-	}
-
-	pr_dbg("%s: read %d bytes\n", __func__, len);
-	while (len > 0) {
-		int n;
-		char *p = memchr(pos, '\n', len);
-		if (p) {
-			unsigned long start, end;
-			char prot[4];
-			char path[4096];
-
-			if (sscanf(pos, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
-				   &start, &end, prot, path) != 4)
-				goto skip;
-
-			if (prot[2] == 'x') {
-				struct ftrace_proc_maps *map;
-				size_t namelen = ALIGN(strlen(path) + 1, 4);
-
-				map = xmalloc(sizeof(*map) + namelen);
-
-				map->start = start;
-				map->end = end;
-				map->len = namelen;
-				memcpy(map->prot, prot, sizeof(prot));
-				memcpy(map->libname, path, namelen);
-				map->libname[strlen(path)] = '\0';
-
-				pr_dbg("found mapping: %8lx-%-8lx %s\n",
-				       start, end, map->libname);
-
-				map->next = proc_maps;
-				proc_maps = map;
-
-				nr_maps++;
-			}
-
-			p++;
-			len -= p - pos;
-			pos = p;
-
-			if (len)
-				continue;
-		}
-
-skip:
-		if (len >= (int)sizeof(END_MAPS) &&
-		    !memcmp(pos, END_MAPS, sizeof(END_MAPS))) {
-			pos += sizeof(END_MAPS);
-			len -= sizeof(END_MAPS);
-
-			pr_dbg("found END MAPS marker\n");
-			break;
-		}
-
-		memcpy(buf, pos, len);
-
-		pr_dbg("read again (with len = %d)\n", len);
-		n = read(fd, buf + len, size - len);
-		if (n < 0) {
-			pr_err("ftrace: ERROR: cannot read maps data: %s\n",
-			       strerror(errno));
-		}
-
-		pos = buf;
-		len += n;
-	}
-
-out:
-	if (len) {
-		memcpy(buf, pos, len);
-		*remaining = len;
-
-		pr_dbg("%s: remaining %d bytes\n", __func__, len);
-	}
-
-	return nr_maps;
 }
 
 #define SHMEM_BUFFER_SIZE  (128 * 1024)
@@ -874,7 +768,6 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		goto fill_header;
 	} else if (opts->use_pipe) {
 		int len;
-		int remaining = 0;
 
 		close(pfd[1]);
 
@@ -885,34 +778,6 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		if (pfd[1] < 0) {
 			pr_err("ftrace: ERROR: cannot open data file: %s\n",
 			       strerror(errno));
-		}
-
-		if (opts->library) {
-			struct ftrace_proc_maps *map;
-
-			read_proc_maps(pfd[0], buf, sizeof(buf), &remaining);
-
-			map = proc_maps;
-			while (map) {
-				proc_maps = map->next;
-				map->next = MAPS_MARKER;
-
-				if (write_all(pfd[1], map,
-					      sizeof(*map) + map->len) < 0) {
-					pr_err("ftrace: ERROR: cannot write maps data: %s\n",
-					       strerror(errno));
-				}
-
-				free(map);
-				map = proc_maps;
-			}
-		}
-
-		if (remaining) {
-			if (write_all(pfd[1], buf, remaining)) {
-				pr_err("ftrace: error during remaining write: %s\n",
-				       strerror(errno));
-			}
 		}
 
 		while (!done) {
@@ -1001,6 +866,8 @@ fill_header:
 	return 0;
 }
 
+static struct ftrace_proc_maps *proc_maps;
+
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
@@ -1039,28 +906,6 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		pr_err("ftrace: ERROR: invalid vergion number found!\n");
 	}
 
-	while (handle->hdr.nr_maps) {
-		struct ftrace_proc_maps *map = xmalloc(sizeof(*map));
-
-		if (fread(map, sizeof(*map), 1, fp) != 1)
-			pr_err("ftrace: ERROR: failed to read map data\n");
-
-		if (map->next != MAPS_MARKER)
-			pr_err("ftrace: ERROR: invalid maps marker found\n");
-
-		map = xrealloc(map, sizeof(*map) + map->len);
-		if (fread(map->libname, map->len, 1, fp) != 1)
-			pr_err("ftrace: ERROR: failed to read libname\n");
-
-		pr_dbg("reading map: %"PRIx64"-%-"PRIx64": %s\n",
-		       map->start, map->end, map->libname);
-
-		map->next = proc_maps;
-		proc_maps = map;
-
-		handle->hdr.nr_maps--;
-	}
-
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("ftrace: ERROR: cannot read ftrace header info!\n");
 
@@ -1068,6 +913,44 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	if (opts->exename == NULL)
 		opts->exename = handle->info.exename;
+
+	snprintf(buf, sizeof(buf), "%s/maps", opts->dirname);
+
+	fp = fopen(buf, "rb");
+	if (fp == NULL)
+		pr_err("ftrace: ERROR: cannot open maps file\n");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		unsigned long start, end;
+		char prot[5];
+		char path[PATH_MAX];
+		size_t namelen;
+		struct ftrace_proc_maps *map;
+
+		/* skip anon mappings */
+		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+			   &start, &end, prot, path) != 4)
+			continue;
+
+		/* skip non-executable mappings */
+		if (prot[2] != 'x')
+			continue;
+
+		namelen = ALIGN(strlen(path) + 1, 4);
+
+		map = xmalloc(sizeof(*map) + namelen);
+
+		map->start = start;
+		map->end = end;
+		map->len = namelen;
+		memcpy(map->prot, prot, 4);
+		memcpy(map->libname, path, namelen);
+		map->libname[strlen(path)] = '\0';
+
+		map->next = proc_maps;
+		proc_maps = map;
+	}
+	fclose(fp);
 
 	snprintf(buf, sizeof(buf), "%s/trace.dat", opts->dirname);
 
@@ -1085,11 +968,20 @@ out:
 
 static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
+	struct ftrace_proc_maps *map;
+
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
 	fclose(handle->fp);
 	clear_ftrace_info(&handle->info);
+
+	while (proc_maps) {
+		map = proc_maps;
+		proc_maps = map->next;
+
+		free(map);
+	}
 }
 
 static int read_rstack(struct ftrace_file_handle *handle,
