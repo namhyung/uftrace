@@ -35,7 +35,8 @@ void _mcleanup(void);
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
-#define FTRACE_FILE_VERSION  2
+#define FTRACE_FILE_VERSION  3
+#define FTRACE_FILE_VERSION_MIN  2
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
@@ -45,10 +46,15 @@ struct ftrace_file_header {
 	uint16_t header_size;
 	uint8_t  endian;
 	uint8_t  class;
-	uint64_t length; /* file size including header size */
+	uint64_t feat_mask;
 	uint64_t info_mask;
-	uint32_t nr_maps;
-	uint32_t unused;
+	uint64_t unused;
+};
+
+enum ftrace_feat_bits {
+	PLTHOOK,
+	DAEMON_MODE,
+	LIBRARY_MODE,
 };
 
 enum ftrace_info_bits {

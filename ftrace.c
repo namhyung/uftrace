@@ -448,6 +448,20 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	}
 }
 
+static uint64_t calc_feat_mask(struct opts *opts)
+{
+	uint64_t features = 0;
+
+	if (opts->want_plthook)
+		features |= 1U << PLTHOOK;
+	if (opts->daemon)
+		features |= 1U << DAEMON_MODE;
+	if (opts->library)
+		features |= 1U << LIBRARY_MODE;
+
+	return features;
+}
+
 static int fill_file_header(struct opts *opts, int status, char *buf, size_t size)
 {
 	int fd, efd;
@@ -483,9 +497,8 @@ static int fill_file_header(struct opts *opts, int status, char *buf, size_t siz
 	hdr.header_size = sizeof(hdr);
 	hdr.endian = ehdr.e_ident[EI_DATA];
 	hdr.class = ehdr.e_ident[EI_CLASS];
-	hdr.length = 0;
+	hdr.feat_mask = calc_feat_mask(opts);
 	hdr.info_mask = 0;
-	hdr.nr_maps = 0;
 	hdr.unused = 0;
 
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
@@ -901,7 +914,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid magic string found!\n");
 	}
-	if (handle->hdr.version != FTRACE_FILE_VERSION) {
+	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN) {
 		fclose(fp);
 		pr_err("ftrace: ERROR: invalid vergion number found!\n");
 	}
