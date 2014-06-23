@@ -37,6 +37,7 @@ void _mcleanup(void);
 
 #define FTRACE_MSG_REC_START  1U
 #define FTRACE_MSG_REC_END    2U
+#define FTRACE_MSG_TID        3U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -78,6 +79,7 @@ enum ftrace_info_bits {
 	CPUINFO,
 	MEMINFO,
 	OSINFO,
+	TASKINFO,
 };
 
 struct ftrace_info {
@@ -92,6 +94,8 @@ struct ftrace_info {
 	char *kernel;
 	char *hostname;
 	char *distro;
+	int nr_tid;
+	int *tids;
 };
 
 struct ftrace_file_handle {
@@ -99,6 +103,9 @@ struct ftrace_file_handle {
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
 };
+
+int read_tid_list(int *tids);
+void free_tid_list(void);
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
 		      int status);

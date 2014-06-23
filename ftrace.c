@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <time.h>
+#include <poll.h>
 #include <dirent.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -565,6 +566,13 @@ struct shmem_buffer {
 
 static struct shmem_list *shmem_list_head;
 
+struct tid_list {
+	struct tid_list *next;
+	int tid;
+};
+
+static struct tid_list *tid_list_head;
+
 static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
 {
 	char *ptr;
@@ -640,6 +648,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
 	struct shmem_list *sl, **psl;
+	struct tid_list *tl;
 	struct ftrace_msg msg;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0) {
@@ -695,6 +704,20 @@ static void read_record_mmap(int pfd, const char *dirname)
 		record_mmap_file(dirname, buf);
 		break;
 
+	case FTRACE_MSG_TID:
+		if (msg.len != sizeof(int))
+			pr_err("invalid message length");
+
+		tl = xmalloc(sizeof(*tl));
+
+		if (read_all(pfd, &tl->tid, msg.len) < 0)
+			pr_err("ftrace: ERROR: reading pipe failed\n");
+
+		/* link to tid_list */
+		tl->next = tid_list_head;
+		tid_list_head = tl;
+		break;
+
 	default:
 		pr_err("Unknown message type: %u\n", msg.type);
 		break;
@@ -717,6 +740,38 @@ static void flush_shmem_list(char *dirname)
 		free(tmp);
 	}
 	shmem_list_head = NULL;
+}
+
+int read_tid_list(int *tids)
+{
+	int nr = 0;
+	struct tid_list *tl = tid_list_head;
+
+	while (tl) {
+		struct tid_list *tmp = tl;
+		tl = tl->next;
+
+		if (tids)
+			tids[nr] = tmp->tid;
+
+		nr++;
+	}
+
+	return nr;
+}
+
+void free_tid_list(void)
+{
+	struct tid_list *tl = tid_list_head;
+
+	while (tl) {
+		struct tid_list *tmp = tl;
+		tl = tl->next;
+
+		free(tmp);
+	}
+
+	tid_list_head = NULL;
 }
 
 static int remove_directory(char *dirname)
@@ -820,7 +875,21 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		sigaction(SIGCHLD, &sa, NULL);
 
 	while (!done) {
-		read_record_mmap(pfd[0], opts->dirname);
+		struct pollfd pollfd = {
+			.fd = pfd[0],
+			.events = POLLIN,
+		};
+		int ret;
+
+		ret = poll(&pollfd, 1, 1000);
+		if (ret < 0 && errno == EINTR)
+			continue;
+		if (ret < 0)
+			pr_err("ftrace: ERROR: error during poll: %s\n",
+			       strerror(errno));
+
+		if (pollfd.revents & POLLIN)
+			read_record_mmap(pfd[0], opts->dirname);
 	}
 
 	if (opts->daemon) {
@@ -1454,6 +1523,20 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 		printf(fmt, "kernel version", handle.info.kernel);
 		printf(fmt, "hostname", handle.info.hostname);
 		printf(fmt, "distro", handle.info.distro);
+	}
+
+	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
+		int nr = handle.info.nr_tid;
+		bool first = true;
+
+		printf("# %-20s: %d\n", "nr of tasks", nr);
+
+		printf("# %-20s: ", "task list");
+		while (nr--) {
+			printf("%s%d", first ? "" : ", ", handle.info.tids[nr]);
+			first = false;
+		}
+		printf("\n");
 	}
 
 	printf("\n");

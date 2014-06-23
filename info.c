@@ -411,6 +411,81 @@ static int read_osinfo(void *arg)
 
 	return 0;
 }
+
+static int fill_taskinfo(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	bool first = true;
+	int i, nr, *tids;
+
+	nr = read_tid_list(NULL);
+
+	tids = xcalloc(sizeof(*tids), nr);
+	read_tid_list(tids);
+
+	dprintf(fha->fd, "taskinfo:lines=2\n");
+	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", nr);
+
+	dprintf(fha->fd, "taskinfo:tids=");
+	for (i = 0; i < nr; i++) {
+		dprintf(fha->fd, "%s%d", first ? "" : ",", tids[i]);
+		first = false;
+	}
+	dprintf(fha->fd, "\n");
+
+	free_tid_list();
+	free(tids);
+	return 0;
+}
+
+static int read_taskinfo(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct ftrace_info *info = &handle->info;
+	char buf[4096];
+	int i, lines;
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "taskinfo:", 9))
+		return -1;
+
+	if (sscanf(&buf[9], "lines=%d\n", &lines) == EOF)
+		return -1;
+
+	for (i = 0; i < lines; i++) {
+		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+			return -1;
+
+		if (strncmp(buf, "taskinfo:", 9))
+			return -1;
+
+		if (!strncmp(&buf[9], "nr_tid=", 7)) {
+			info->nr_tid = strtol(&buf[16], NULL, 10);
+		} else if (!strncmp(&buf[9], "tids=", 5)) {
+			char *tids_str = &buf[14];
+			char *endp = tids_str;
+			int *tids = xcalloc(sizeof(*tids), info->nr_tid);
+			int nr_tid = 0;
+
+			while (*endp != '\n') {
+				int tid = strtol(tids_str, &endp, 10);
+				tids[nr_tid++] = tid;
+
+				if (*endp != ',' && *endp != '\n')
+					return -1;
+
+				tids_str = endp + 1;
+			}
+			info->tids = tids;
+
+			assert(nr_tid == info->nr_tid);
+		}
+	}
+	return 0;
+}
+
 struct ftrace_info_handler {
 	enum ftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -435,6 +510,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
 		{ CPUINFO,	fill_cpuinfo },
 		{ MEMINFO,	fill_meminfo },
 		{ OSINFO,	fill_osinfo },
+		{ TASKINFO,	fill_taskinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -460,6 +536,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ CPUINFO,	read_cpuinfo },
 		{ MEMINFO,	read_meminfo },
 		{ OSINFO,	read_osinfo },
+		{ TASKINFO,	read_taskinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(read_handlers); i++) {
@@ -484,4 +561,5 @@ void clear_ftrace_info(struct ftrace_info *info)
 	free(info->kernel);
 	free(info->hostname);
 	free(info->distro);
+	free(info->tids);
 }
