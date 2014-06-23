@@ -704,6 +704,30 @@ static int read_record_mmap(int pfd, const char *dirname)
 		free(tmp);
 	}
 	shmem_list_head = NULL;
+}
+
+static int remove_directory(char *dirname)
+{
+	DIR *dp;
+	struct dirent *ent;
+	char buf[PATH_MAX];
+
+	dp = opendir(dirname);
+	if (dp == NULL)
+		return -1;
+
+	pr_dbg("ftrace: removing %s directory\n", dirname);
+
+	while ((ent = readdir(dp)) != NULL) {
+		if (ent->d_name[0] == '.')
+			continue;
+
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
+		unlink(buf);
+	}
+
+	closedir(dp);
+	rmdir(dirname);
 	return 0;
 }
 
@@ -724,8 +748,13 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
+	if (!access(buf, F_OK))
+		remove_directory(buf);
+
 	/* don't care about the failure */
-	rename(opts->dirname, buf);
+	if (rename(opts->dirname, buf) < 0)
+		pr_log("ftrace: rename %s -> %s failed: %s\n",
+		       opts->dirname, buf, strerror(errno));
 
 	load_symtabs(opts->exename);
 
