@@ -724,12 +724,14 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (i == ARRAY_SIZE(profile_funcs) && !opts->library)
 		pr_err(mcount_msg, "mcount", opts->exename);
 
-	fflush(stdout);
-
 	if (opts->use_pipe && pipe(pfd) < 0) {
 		pr_err("ftrace: ERROR: cannot setup internal pipe: %s\n",
 		       strerror(errno));
 	}
+
+	mkdir(opts->dirname, 0755);
+
+	fflush(stdout);
 
 	pid = fork();
 	if (pid < 0) {
@@ -761,9 +763,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (!opts->daemon)
 		sigaction(SIGCHLD, &sa, NULL);
 
-       mkdir(opts->dirname, 0755);
-
-       if (opts->use_mmap) {
+	if (opts->use_mmap) {
 		read_record_mmap(pfd[0], opts->dirname);
 		goto fill_header;
 	} else if (opts->use_pipe) {
