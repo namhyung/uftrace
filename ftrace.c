@@ -770,6 +770,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
+	close(pfd[1]);
+
 	sa.sa_handler = sighandler;
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
