@@ -310,6 +310,23 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+static int read_all(int fd, void *buf, size_t size)
+{
+	int ret;
+
+	while (size) {
+		ret = read(fd, buf, size);
+		if (ret < 0 && errno == EINTR)
+			continue;
+		if (ret < 0)
+			return -1;
+
+		buf += ret;
+		size -= ret;
+	}
+	return 0;
+}
+
 static int write_all(int fd, void *buf, size_t size)
 {
 	int ret;
@@ -621,46 +638,66 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 
 static void read_record_mmap(int pfd, const char *dirname)
 {
-	int ret;
 	char buf[128];
-	struct shmem_list *sl;
+	struct shmem_list *sl, **psl;
+	struct ftrace_msg msg;
 
-	ret = read(pfd, buf, sizeof(buf)-1);
-	if (ret < 0) {
-		if (errno == EINTR)
-			return;
-
+	if (read_all(pfd, &msg, sizeof(msg)) < 0) {
 		pr_err("ftrace: ERROR: reading pipe failed: %s\n",
 		       strerror(errno));
 	}
 
-	buf[ret] = '\0';
-	pr_dbg("reading from pipe: %s\n", buf);
+	if (msg.magic != FTRACE_MSG_MAGIC)
+		pr_err("ftrace: ERROR: invalid message received: %x\n", msg.magic);
 
-	if (buf[0] == 'S') {
+	switch (msg.type) {
+	case FTRACE_MSG_REC_START:
+		if (msg.len > SHMEM_NAME_SIZE)
+			pr_err("invalid message length");
+
 		sl = xmalloc(sizeof(*sl));
-		strncpy(sl->id, &buf[2], SHMEM_NAME_SIZE);
+
+		if (read_all(pfd, sl->id, msg.len) < 0)
+			pr_err("ftrace: ERROR: reading pipe failed\n");
+
+		sl->id[msg.len] = '\0';
 
 		/* link to shmem_list */
 		sl->next = shmem_list_head;
 		shmem_list_head = sl;
-	} else {
-		struct shmem_list **psl = &shmem_list_head;
+		break;
 
-		assert(buf[0] == 'E');
+	case FTRACE_MSG_REC_END:
+		if (msg.len > SHMEM_NAME_SIZE)
+			pr_err("invalid message length");
+
+		if (read_all(pfd, buf, msg.len) < 0)
+			pr_err("ftrace: ERROR: reading pipe failed\n");
+
+		buf[msg.len] = '\0';
+
+		psl = &shmem_list_head;
 
 		/* remove from shmem_list */
 		while (*psl) {
 			sl = *psl;
 
-			if (!strncmp(sl->id, &buf[2], SHMEM_NAME_SIZE)) {
+			if (!strncmp(sl->id, buf, SHMEM_NAME_SIZE)) {
 				*psl = sl->next;
+
+				free(sl);
+				break;
 			}
 
 			psl = &sl->next;
 		}
 
-		record_mmap_file(dirname, &buf[2]);
+		record_mmap_file(dirname, buf);
+		break;
+
+	default:
+		pr_err("Unknown message type: %u\n", msg.type);
+		break;
 	}
 }
 

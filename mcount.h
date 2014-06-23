@@ -33,6 +33,19 @@ void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 
 
+#define FTRACE_MSG_MAGIC 0xface
+
+#define FTRACE_MSG_REC_START  1U
+#define FTRACE_MSG_REC_END    2U
+
+/* msg format for communicating by pipe */
+struct ftrace_msg {
+	unsigned short magic; /* FTRACE_MSG_MAGIC */
+	unsigned short type;  /* FTRACE_MSG_REC_* */
+	unsigned int len;
+	unsigned char data[];
+};
+
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_FILE_VERSION  3

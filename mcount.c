@@ -85,7 +85,7 @@ static __thread struct mcount_shmem_buffer *shmem_buffer;
 
 static void get_new_shmem_buffer(void)
 {
-	char buf[64];
+	char buf[128];
 	int fd;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
@@ -110,12 +110,18 @@ static void get_new_shmem_buffer(void)
 
 	if (pfd >= 0) {
 		ssize_t len = strlen(buf);
+		const struct ftrace_msg msg = {
+			.magic = FTRACE_MSG_MAGIC,
+			.type = FTRACE_MSG_REC_START,
+			.len = len,
+		};
 
-		memmove(buf+2, buf, len);
-		buf[0] = 'S';
-		buf[1] = ':';
+		/* combine msg header and data for atomicity */
+		memmove(buf+sizeof(msg), buf, len + 1);
+		memcpy(buf, &msg, sizeof(msg));
 
-		if (write(pfd, buf, len + 2) != len + 2)
+		len += sizeof(msg);
+		if (write(pfd, buf, len) != len)
 			pr_err("mcount: ERROR: writing shmem name to pipe\n");
 	}
 }
@@ -135,12 +141,18 @@ static void finish_shmem_buffer(void)
 
 	if (pfd >= 0) {
 		ssize_t len = strlen(buf);
+		const struct ftrace_msg msg = {
+			.magic = FTRACE_MSG_MAGIC,
+			.type = FTRACE_MSG_REC_END,
+			.len = len,
+		};
 
-		memmove(buf+2, buf, len);
-		buf[0] = 'E';
-		buf[1] = ':';
+		/* combine msg header and data for atomicity */
+		memmove(buf+sizeof(msg), buf, len + 1);
+		memcpy(buf, &msg, sizeof(msg));
 
-		if (write(pfd, buf, len + 2) != len + 2)
+		len += sizeof(msg);
+		if (write(pfd, buf, len) != len)
 			pr_err("mcount: ERROR: writing shmem name to pipe\n");
 	}
 }
