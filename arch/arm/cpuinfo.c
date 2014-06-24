@@ -24,7 +24,8 @@ int arch_fill_cpuinfo_model(int fd)
 	}
 
 	if (ret < 0)
-		write(fd, "cpuinfo:desc=ARM (unknown)\n", 23);
+		dprintf(fd, "cpuinfo:desc=ARM (unknown)\n");
+
 	fclose(fp);
 	return ret;
 }
