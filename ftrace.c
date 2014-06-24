@@ -814,10 +814,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (!access(buf, F_OK))
 		remove_directory(buf);
 
-	/* don't care about the failure */
-	if (rename(opts->dirname, buf) < 0) {
+	if (!access(opts->dirname, F_OK) && rename(opts->dirname, buf) < 0) {
 		pr_log("rename %s -> %s failed: %s\n",
 		       opts->dirname, buf, strerror(errno));
+		/* don't care about the failure */
 	}
 
 	load_symtabs(opts->exename);
