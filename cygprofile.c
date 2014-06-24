@@ -20,7 +20,7 @@ __cyg_profile_func_enter(void *child, void *parent)
 {
 	int ret;
 
-	pr_dbg2("%s: p: %p, c: %p\n", __func__, parent, child);
+	pr_dbg2("p: %p, c: %p\n", parent, child);
 
 	ret = mcount_entry((unsigned long)parent, (unsigned long)child);
 	if (ret < 0)
@@ -34,14 +34,14 @@ __cyg_profile_func_exit(void *child, void *parent)
 {
 	int idx = mcount_rstack_idx;
 
-	pr_dbg2("%s : p: %p, c: %p\n", __func__, parent, child);
+	pr_dbg2("p: %p, c: %p\n", parent, child);
 
 	if (idx < 0)
 		idx += MCOUNT_NOTRACE_IDX;
 
 	if (idx <= 0 || idx >= MCOUNT_RSTACK_MAX) {
-		pr_dbg2("%s: bad index [%d] for %p -> %p\n",
-			__func__, idx, parent, child);
+		pr_dbg2("bad index [%d] for %p -> %p\n",
+			idx, parent, child);
 		return;
 	}
 

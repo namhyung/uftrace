@@ -15,6 +15,9 @@
 #include <sys/stat.h>
 #include <gelf.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT  "mcount"
+
 #include "mcount.h"
 #include "symbol.h"
 #include "utils.h"
@@ -58,10 +61,10 @@ static const char *session_name(void)
 	if (!session_id) {
 		fd = open("/dev/urandom", O_RDONLY);
 		if (fd < 0)
-			pr_err("mcount: ERROR: open open urandom file\n");
+			pr_err("open open urandom file");
 
 		if (read(fd, &session_id, sizeof(session_id)) != 8)
-			pr_err("mcount: ERROR: reading from urandom\n");
+			pr_err("reading from urandom");
 
 		close(fd);
 
@@ -95,14 +98,14 @@ static void get_new_shmem_buffer(void)
 
 	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0)
-		pr_err("mcount: ERROR: open shmem buffer: %s\n", strerror(errno));
+		pr_err("open shmem buffer");
 
 	ftruncate(fd, SHMEM_BUFFER_SIZE);
 
 	shmem_buffer = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, fd, 0);
 	if (shmem_buffer == MAP_FAILED)
-		pr_err("mcount: ERROR: mmap shmem buffer\n");
+		pr_err("mmap shmem buffer");
 
 	close(fd);
 
@@ -122,7 +125,7 @@ static void get_new_shmem_buffer(void)
 
 		len += sizeof(msg);
 		if (write(pfd, buf, len) != len)
-			pr_err("mcount: ERROR: writing shmem name to pipe\n");
+			pr_err("writing shmem name to pipe");
 	}
 }
 
@@ -153,7 +156,7 @@ static void finish_shmem_buffer(void)
 
 		len += sizeof(msg);
 		if (write(pfd, buf, len) != len)
-			pr_err("mcount: ERROR: writing shmem name to pipe\n");
+			pr_err("writing shmem name to pipe");
 	}
 }
 
@@ -192,17 +195,17 @@ static void record_proc_maps(char *dirname)
 
 	ifd = open("/proc/self/maps", O_RDONLY);
 	if (ifd < 0)
-		pr_err("mcount: ERROR: cannot open proc maps file\n");
+		pr_err("cannot open proc maps file");
 
 	snprintf(buf, sizeof(buf), "%s/maps", dirname);
 
 	ofd = open(buf, O_WRONLY | O_CREAT, 0644);
 	if (ofd < 0)
-		pr_err("mcount: ERROR: cannot open for writing maps file\n");
+		pr_err("cannot open for writing maps file");
 
 	while ((len = read(ifd, buf, sizeof(buf))) > 0) {
 		if (write(ofd, buf, len) != len)
-			pr_err("mcount: ERROR: write proc maps failed\n");
+			pr_err("write proc maps failed");
 	}
 
 	close(ifd);
@@ -220,7 +223,7 @@ static void mcount_init_file(void)
 		__monstartup(0, ~0);
 
 	if (pthread_key_create(&shmem_key, shmem_dtor))
-		pr_err("mcount: ERROR: cannot create shmem key\n");
+		pr_err("cannot create shmem key");
 
 	if (dirname == NULL)
 		dirname = FTRACE_DIR_NAME;
@@ -248,7 +251,7 @@ static void mcount_prepare(void)
 	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
 
 	if (write(pfd, buf, len) != len)
-		pr_err("mcount: ERROR: write tid info failed\n");
+		pr_err("write tid info failed");
 }
 
 static bool mcount_match(unsigned long ip1, unsigned long ip2)
@@ -300,11 +303,11 @@ int mcount_entry(unsigned long parent, unsigned long child)
 		mcount_prepare();
 
 	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		pr_log("mcount: too deeply nested calls\n");
+		pr_log("too deeply nested calls\n");
 		return -1;
 	}
 
-	pr_dbg2("%s: <%d> %lx\n", __func__, mcount_rstack_idx, child);
+	pr_dbg2("<%d> %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
 	if (filtered == 0)
 		return -1;
@@ -322,7 +325,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 
 	if (filtered > 0) {
 		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
-			pr_err("mcount: error during record\n");
+			pr_err("error during record");
 	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
 
@@ -343,22 +346,22 @@ unsigned long mcount_exit(void)
 		was_filtered = true;
 	}
 
-	pr_dbg2("%s : <%d> %lx\n", __func__, mcount_rstack_idx,
+	pr_dbg2("<%d> %lx\n", mcount_rstack_idx,
 		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
 
 	if (mcount_rstack_idx <= 0)
-		pr_err("mcount: ERROR: broken ret stack (%d)\n", mcount_rstack_idx);
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
 	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
-		pr_err("mcount: corrupted mcount ret stack found!\n");
+		pr_err_ns("corrupted mcount ret stack found!\n");
 
 	rstack->end_time = mcount_gettime();
 
 	if (!was_filtered) {
 		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
-			pr_err("mcount: error during record\n");
+			pr_err("error during record");
 	}
 
 	if (mcount_rstack_idx > 0) {
@@ -372,8 +375,6 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
-	pr_dbg("%s\n", __func__);
-
 	finish_shmem_buffer();
 	pthread_key_delete(shmem_key);
 
@@ -403,7 +404,7 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 
 	*filter = malloc(sizeof(long) * nr);
 	if (*filter == NULL)
-		pr_err("failed to allocate memory for %s\n", envstr);
+		pr_err("failed to allocate memory for %s", envstr);
 
 	*size = nr;
 
@@ -411,7 +412,7 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 	for (i = 0; i < nr; i++) {
 		(*filter)[i] = strtoul(pos, &pos, 16);
 		if (*pos && *pos != ':')
-			pr_err("invalid filter string for %s\n", envstr);
+			pr_err_ns("invalid filter string for %s\n", envstr);
 
 		pos++;
 	}
@@ -419,8 +420,8 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 	if (debug) {
 		pr_dbg("%s: ", envstr);
 		for (i = 0; i < nr; i++)
-			pr_dbg(" 0x%lx", (*filter)[i]);
-		pr_dbg("\n");
+			pr_cont(" 0x%lx", (*filter)[i]);
+		pr_cont("\n");
 	}
 }
 
@@ -441,7 +442,7 @@ void segv_handler(int sig, siginfo_t *si, void *ctx)
 			 PROT_WRITE);
 		segv_handled = true;
 	} else {
-		pr_err("mcount: invalid memory access.. exiting.\n");
+		pr_err_ns("mcount: invalid memory access.. exiting.\n");
 	}
 }
 
@@ -475,14 +476,14 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		sa.sa_flags = SA_SIGINFO;
 		sigfillset(&sa.sa_mask);
 		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-			pr_log("mcount: error during install sig handler\n");
+			pr_log("error during install sig handler\n");
 			return -1;
 		}
 
 		plthook_got_ptr[2] = (unsigned long)plt_hooker;
 
 		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-			pr_log("mcount: error during recover sig handler\n");
+			pr_log("error during recover sig handler\n");
 			return -1;
 		}
 
@@ -491,7 +492,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 				 PROT_READ);
 		}
 
-		pr_dbg("mcount: found GOT at %p (resolver: %#lx)\n",
+		pr_dbg("found GOT at %p (resolver: %#lx)\n",
 		       plthook_got_ptr, plthook_resolver_addr);
 
 		break;
@@ -514,7 +515,7 @@ static int hook_pltgot(void)
 
 	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
 	if (len == -1) {
-		pr_log("mcount: error during read executable link\n");
+		pr_log("error during read executable link\n");
 		return -1;
 	}
 	buf[len] = '\0';
@@ -565,7 +566,7 @@ out:
 	return ret;
 
 elf_error:
-	pr_log("mcount: %s\n", elf_errmsg(elf_errno()));
+	pr_log("%s\n", elf_errmsg(elf_errno()));
 
 	goto out;
 }
@@ -594,12 +595,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	plthook_recursion_guard = true;
 
 	sym = find_dynsym(child_idx);
-	pr_dbg2("%s: [%d] %s\n", __func__, child_idx, sym->name);
+	pr_dbg2("[%d] %s\n", child_idx, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
-		pr_err("mcount: ERROR: invalid function idx found! (idx: %d, %#lx)\n",
-		       (int) child_idx, child_idx);
+		pr_err_ns("invalid function idx found! (idx: %d, %#lx)\n",
+			  (int) child_idx, child_idx);
 	}
 
 	parent_ip = *ret_addr;
@@ -613,7 +614,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			idx += MCOUNT_NOTRACE_IDX;
 
 		if (idx >= MCOUNT_RSTACK_MAX)
-			pr_err("mcount: plthook: invalid rstack idx: %d\n", idx);
+			pr_err_ns("invalid rstack idx: %d\n", idx);
 
 		mcount_rstack[idx].dyn_idx = child_idx;
 	}
@@ -636,7 +637,7 @@ unsigned long plthook_exit(void)
 	dyn_idx = mcount_rstack[idx].dyn_idx;
 
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
-		pr_err("mcount: plthook: invalid dynsym idx: %d\n", dyn_idx);
+		pr_err_ns("invalid dynsym idx: %d\n", dyn_idx);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 		struct sym *sym = find_dynsym(dyn_idx);
@@ -649,7 +650,7 @@ unsigned long plthook_exit(void)
 		plthook_dynsym_resolved[dyn_idx] = true;
 		plthook_dynsym_addr[dyn_idx] = new_addr;
 
-		pr_dbg2("%s : [%d] %s: %lx\n", __func__, dyn_idx, name, new_addr);
+		pr_dbg2("[%d] %s: %lx\n", dyn_idx, name, new_addr);
 		symbol_putname(sym, name);
 	}
 
@@ -711,7 +712,7 @@ __monstartup(unsigned long low, unsigned long high)
 		setup_skip_idx();
 
 		if (hook_pltgot() < 0)
-			pr_dbg("mcount: error when hooking plt: skipping...\n");
+			pr_dbg("error when hooking plt: skipping...\n");
 		else {
 			plthook_dynsym_resolved = xcalloc(sizeof(bool),
 							  count_dynsym());

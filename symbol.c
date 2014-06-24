@@ -11,6 +11,9 @@
 # include <libiberty.h>
 #endif
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT  "ftrace"
+
 #include "symbol.h"
 #include "utils.h"
 
@@ -75,13 +78,12 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
-static const char ftrace_msg[] =
-	"ftrace: ERROR: Can't find '%s' file.\n"
-	"\tPlease check your binary.\n"
-	"\tIf you run the binary under $PATH (like /usr/bin/%s),\n"
-	"\tit probably wasn't compiled with -pg or -finstrument-functions flag\n"
-	"\twhich generates traceable code.\n"
-	"\tIf so, recompile and run it with full pathname.\n";
+#define FTRACE_MSG  "Can't find '%s' file.\n" 					\
+"\tPlease check your binary is instrumented.\n"					\
+"\tIf you run the binary under $PATH (like /usr/bin/%s),\n"			\
+"\tit probably wasn't compiled with -pg or -finstrument-functions flag\n" 	\
+"\twhich generates traceable code.\n"						\
+"\tIf so, recompile and run it with full pathname.\n"
 
 void unload_symtabs(void)
 {
@@ -120,21 +122,13 @@ void __load_symtab(const char *filename, unsigned long offset)
 	Elf_Scn *sym_sec, *sec;
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0;
-	char buf[256];
-	const char *errmsg;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		if (errno == ENOENT)
-			pr_err(ftrace_msg, filename, basename(filename));
-		else {
-			errmsg = strerror_r(errno, buf, sizeof(buf));
-			if (errmsg == NULL)
-				errmsg = filename;
-
-			pr_err("ftrace: ERROR: cannot load symbol table: %s\n",
-			       errmsg);
-		}
+			pr_err_ns(FTRACE_MSG, filename, basename(filename));
+		else
+			pr_err("cannot load symbol table");
 	}
 
 	elf_version(EV_CURRENT);
@@ -165,8 +159,8 @@ void __load_symtab(const char *filename, unsigned long offset)
 	}
 
 	if (sym_sec == NULL)
-		pr_err("ftrace: ERROR: cannot find symbol information in '%s'.\n"
-		       "Is it stripped?\n", filename);
+		pr_err_ns("cannot find symbol information in '%s'.\n"
+			  "Is it stripped?\n", filename);
 
 	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
@@ -221,8 +215,8 @@ void __load_symtab(const char *filename, unsigned long offset)
 	return;
 
 elf_error:
-	pr_err("ftrace: ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
+	pr_err_ns("ELF error during symbol loading: %s\n",
+		  elf_errmsg(elf_errno()));
 }
 
 void unload_dynsymtab(void)
@@ -355,7 +349,7 @@ int load_dynsymtab(const char *filename)
 						dynsymtab.nr_alloc * sizeof(*sym));
 
 			if (dynsymtab.sym == NULL) {
-				pr_log("%s: not enough memory\n", __func__);
+				pr_log("not enough memory\n");
 				goto out;
 			}
 		}
@@ -374,8 +368,8 @@ out:
 	return ret;
 
 elf_error:
-	printf("%s: ELF error during load dynsymtab: %s\n",
-	       __func__, elf_errmsg(elf_errno()));
+	printf("ELF error during load dynsymtab: %s\n",
+	       elf_errmsg(elf_errno()));
 	unload_dynsymtab();
 	goto out;
 }

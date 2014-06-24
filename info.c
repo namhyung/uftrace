@@ -544,7 +544,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 			continue;
 
 		if (read_handlers[i].handler(handle) < 0) {
-			printf("error during read ftrace info (%x)\n",
+			pr_log("error during read ftrace info (%x)\n",
 			       (1U << read_handlers[i].bit));
 			return -1;
 		}

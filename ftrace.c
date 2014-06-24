@@ -18,6 +18,9 @@
 #include <sys/syscall.h>
 #include <gelf.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT "ftrace"
+
 #include "mcount.h"
 #include "symbol.h"
 #include "rbtree.h"
@@ -265,10 +268,8 @@ int main(int argc, char *argv[])
 
 	if (opts.logfile) {
 		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
-		if (logfd < 0) {
-			perror("ftrace: ERROR: cannot open log file");
-			exit(1);
-		}
+		if (logfd < 0)
+			pr_err("cannot open log file");
 	}
 
 	if (opts.print_symtab) {
@@ -361,8 +362,8 @@ static void build_addrlist(char *buf, char *symlist)
 				 p ? "" : ":", sym->addr);
 			strcat(buf, tmp);
 		} else {
-			pr_dbg("ftrace: cannot find symbol: %s\n", fname);
-			pr_dbg("ftrace: skip setting filter..\n");
+			pr_dbg("cannot find symbol: %s\n", fname);
+			pr_dbg("skip setting filter..\n");
 		}
 
 		p = NULL;
@@ -501,7 +502,7 @@ static int fill_file_header(struct opts *opts, int status, char *buf, size_t siz
 	hdr.unused = 0;
 
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
-		pr_err("writing header info failed: %s\n", strerror(errno));
+		pr_err("writing header info failed");
 
 	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
 
@@ -534,10 +535,9 @@ close_fd:
 	return ret;
 }
 
-static const char mcount_msg[] =
-	"ftrace: ERROR: Can't find '%s' symbol in the '%s'.\n"
-	"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n"
-	"\twhich generates traceable code.  Please check your binary file.\n";
+#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
+"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
+"\twhich generates traceable code.  Please check your binary file.\n"
 
 static volatile bool done;
 
@@ -615,25 +615,25 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	/* write (append) it to disk */
 	fd = shm_open(sess_id, O_RDONLY, 0400);
 	if (fd < 0)
-		pr_err("ftrace: ERROR: open shmem buffer\n");
+		pr_err("open shmem buffer");
 
 	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ,
 			 MAP_SHARED, fd, 0);
 	if (shmem_buf == MAP_FAILED)
-		pr_err("ftrace: ERROR: mmap shmem buffer\n");
+		pr_err("mmap shmem buffer");
 
 	close(fd);
 
 	fd = open(make_disk_name(buf, sizeof(buf), dirname, sess_id),
 		  O_WRONLY | O_CREAT | O_TRUNC, 0644);		  
 	if (fd < 0)
-		pr_err("ftrace: ERROR: open disk file\n");
+		pr_err("open disk file");
 
 	ptr  = shmem_buf->data;
 	size = shmem_buf->size;
 
 	if (write_all(fd, ptr, size) < 0)
-		pr_err("ftrace: ERROR: write shmem buffer\n");
+		pr_err("write shmem buffer");
 
 	close(fd);
 
@@ -651,23 +651,21 @@ static void read_record_mmap(int pfd, const char *dirname)
 	struct tid_list *tl;
 	struct ftrace_msg msg;
 
-	if (read_all(pfd, &msg, sizeof(msg)) < 0) {
-		pr_err("ftrace: ERROR: reading pipe failed: %s\n",
-		       strerror(errno));
-	}
+	if (read_all(pfd, &msg, sizeof(msg)) < 0)
+		pr_err("reading pipe failed:");
 
 	if (msg.magic != FTRACE_MSG_MAGIC)
-		pr_err("ftrace: ERROR: invalid message received: %x\n", msg.magic);
+		pr_err_ns("invalid message received: %x\n", msg.magic);
 
 	switch (msg.type) {
 	case FTRACE_MSG_REC_START:
 		if (msg.len > SHMEM_NAME_SIZE)
-			pr_err("invalid message length");
+			pr_err_ns("invalid message length\n");
 
 		sl = xmalloc(sizeof(*sl));
 
 		if (read_all(pfd, sl->id, msg.len) < 0)
-			pr_err("ftrace: ERROR: reading pipe failed\n");
+			pr_err("reading pipe failed");
 
 		sl->id[msg.len] = '\0';
 
@@ -678,10 +676,10 @@ static void read_record_mmap(int pfd, const char *dirname)
 
 	case FTRACE_MSG_REC_END:
 		if (msg.len > SHMEM_NAME_SIZE)
-			pr_err("invalid message length");
+			pr_err_ns("invalid message length\n");
 
 		if (read_all(pfd, buf, msg.len) < 0)
-			pr_err("ftrace: ERROR: reading pipe failed\n");
+			pr_err("reading pipe failed");
 
 		buf[msg.len] = '\0';
 
@@ -706,12 +704,12 @@ static void read_record_mmap(int pfd, const char *dirname)
 
 	case FTRACE_MSG_TID:
 		if (msg.len != sizeof(int))
-			pr_err("invalid message length");
+			pr_err_ns("invalid message length\n");
 
 		tl = xmalloc(sizeof(*tl));
 
 		if (read_all(pfd, &tl->tid, msg.len) < 0)
-			pr_err("ftrace: ERROR: reading pipe failed\n");
+			pr_err("reading pipe failed");
 
 		/* link to tid_list */
 		tl->next = tid_list_head;
@@ -719,7 +717,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		break;
 
 	default:
-		pr_err("Unknown message type: %u\n", msg.type);
+		pr_err_ns("Unknown message type: %u\n", msg.type);
 		break;
 	}
 }
@@ -784,7 +782,7 @@ static int remove_directory(char *dirname)
 	if (dp == NULL)
 		return -1;
 
-	pr_dbg("ftrace: removing %s directory\n", dirname);
+	pr_dbg("removing %s directory\n", dirname);
 
 	while ((ent = readdir(dp)) != NULL) {
 		if (ent->d_name[0] == '.')
@@ -820,9 +818,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		remove_directory(buf);
 
 	/* don't care about the failure */
-	if (rename(opts->dirname, buf) < 0)
-		pr_log("ftrace: rename %s -> %s failed: %s\n",
+	if (rename(opts->dirname, buf) < 0) {
+		pr_log("rename %s -> %s failed: %s\n",
 		       opts->dirname, buf, strerror(errno));
+	}
 
 	load_symtabs(opts->exename);
 
@@ -832,22 +831,18 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (i == ARRAY_SIZE(profile_funcs) && !opts->library)
-		pr_err(mcount_msg, "mcount", opts->exename);
+		pr_err(MCOUNT_MSG, "mcount", opts->exename);
 
-	if (pipe(pfd) < 0) {
-		pr_err("ftrace: ERROR: cannot setup internal pipe: %s\n",
-		       strerror(errno));
-	}
+	if (pipe(pfd) < 0)
+		pr_err("cannot setup internal pipe");
 
 	mkdir(opts->dirname, 0755);
 
 	fflush(stdout);
 
 	pid = fork();
-	if (pid < 0) {
-		pr_err("ftrace: ERROR: cannot start child process: %s\n",
-		       strerror(errno));
-	}
+	if (pid < 0)
+		pr_err("cannot start child process");
 
 	if (pid == 0) {
 		close(pfd[0]);
@@ -885,8 +880,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		if (ret < 0 && errno == EINTR)
 			continue;
 		if (ret < 0)
-			pr_err("ftrace: ERROR: error during poll: %s\n",
-			       strerror(errno));
+			pr_err("error during poll");
 
 		if (pollfd.revents & POLLIN)
 			read_record_mmap(pfd[0], opts->dirname);
@@ -908,7 +902,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	flush_shmem_list(opts->dirname);
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
-		pr_err("ftrace: ERROR: cannot generate data file\n");
+		pr_err("cannot generate data file");
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
@@ -920,26 +914,26 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 static struct ftrace_proc_maps *proc_maps;
 
+#define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
+"\t-finstrument-functions flag and ran with ftrace record?\n"
+
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
 	FILE *fp;
 	char buf[PATH_MAX];
-	const char msg[] = "ftrace: ERROR: Was '%s' compiled with -pg or\n"
-		"\t-finstrument-functions flag and ran with ftrace record?\n";
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
 	fp = fopen(buf, "rb");
 	if (fp == NULL) {
 		if (errno == ENOENT) {
-			pr_log("ftrace: cannot find %s file!\n", buf);
+			pr_log("cannot find %s file!\n", buf);
 
 			if (opts->exename)
-				pr_err(msg, opts->exename);
+				pr_err(RECORD_MSG, opts->exename);
 		} else {
-			pr_err("ftrace: ERROR: cannot open %s file: %s\n",
-			       buf, strerror(errno));
+			pr_err("cannot open %s file", buf);
 		}
 		goto out;
 	}
@@ -947,19 +941,16 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	handle->fp = fp;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
-		pr_err("ftrace: ERROR: cannot read header data\n");
+		pr_err("cannot read header data");
 
-	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN)) {
-		fclose(fp);
-		pr_err("ftrace: ERROR: invalid magic string found!\n");
-	}
-	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN) {
-		fclose(fp);
-		pr_err("ftrace: ERROR: invalid vergion number found!\n");
-	}
+	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN))
+		pr_err("invalid magic string found!");
+
+	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN)
+		pr_err("invalid vergion number found!");
 
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
-		pr_err("ftrace: ERROR: cannot read ftrace header info!\n");
+		pr_err("cannot read ftrace header info!");
 
 	fclose(fp);
 
@@ -970,7 +961,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	fp = fopen(buf, "rb");
 	if (fp == NULL)
-		pr_err("ftrace: ERROR: cannot open maps file\n");
+		pr_err("cannot open maps file");
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		unsigned long start, end;
@@ -1008,7 +999,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	fp = fopen(buf, "rb");
 	if (fp == NULL)
-		pr_err("ftrace: ERROR: cannot open data file\n");
+		pr_err("cannot open data file");
 
 	handle->fp = fp;
 
@@ -1045,7 +1036,7 @@ static int read_rstack(struct ftrace_file_handle *handle,
 		if (feof(fp))
 			return -1;
 
-		pr_log("ftrace: error reading rstack: %s\n", strerror(errno));
+		pr_log("error reading rstack: %s\n", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -1225,10 +1216,8 @@ static void cleanup_tempdir(void)
 		return;
 
 	dp = opendir(tmp_dirname);
-	if (dp == NULL) {
-		pr_err("ftrace: ERROR: cannot open temp dir: %s\n",
-		       strerror(errno));
-	}
+	if (dp == NULL)
+		pr_err("cannot open temp dir");
 
 	while ((ent = readdir(dp)) != NULL) {
 		if (ent->d_name[0] == '.')
@@ -1247,10 +1236,8 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
 	int fd = mkstemp(template);
-	if (fd < 0) {
-		pr_err("ftrace: ERROR: cannot create temp dir: %s\n",
-		       strerror(errno));
-	}
+	if (fd < 0)
+		pr_err("cannot create temp name");
 
 	close(fd);
 	unlink(template);

@@ -17,10 +17,40 @@
 extern int debug;
 extern int logfd;
 
-extern void pr_dbg(const char *fmt, ...);
-extern void pr_dbg2(const char *fmt, ...);
-extern void pr_log(const char *fmt, ...);
-extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
+extern void __pr_log(const char *fmt, ...);
+extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
+extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
+
+#ifndef PR_FMT
+# define PR_FMT  "ftrace"
+#endif
+
+#define pr_dbg(fmt, ...) 					\
+({								\
+	if (debug)						\
+		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+})
+
+#define pr_dbg2(fmt, ...) 					\
+({								\
+	if (debug > 1)						\
+		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+})
+
+#define pr_log(fmt, ...)					\
+	__pr_log(PR_FMT ": %s:%d:%s: " fmt,			\
+		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
+#define pr_err(fmt, ...)					\
+	__pr_err_s(PR_FMT ": ERROR: %s:%d:%s: " fmt,		\
+		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
+#define pr_err_ns(fmt, ...)					\
+	__pr_err(PR_FMT ": ERROR: %s:%d:%s: " fmt,		\
+		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
+#define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
+
 
 #ifdef HAVE_LIBIBERTY
 # include <libiberty.h>
@@ -33,8 +63,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xmalloc(sz)							\
 ({ 	void *__ptr = malloc(sz);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xmalloc");					\
 	}								\
 	__ptr;								\
 })
@@ -42,8 +71,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xzalloc(sz)							\
 ({ 	void *__ptr = calloc(sz, 1);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xzalloc");					\
 	}								\
 	__ptr;								\
 })
@@ -51,8 +79,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xcalloc(sz, n)							\
 ({ 	void *__ptr = calloc(sz, n);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xcalloc");					\
 	}								\
 	__ptr;								\
 })
@@ -60,8 +87,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xrealloc(p, n)							\
 ({ 	void *__ptr = realloc(p, n);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xrealloc");					\
 	}								\
 	__ptr;								\
 })
@@ -69,8 +95,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xstrdup(s)							\
 ({ 	void *__ptr = strdup(s);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xstrdup");					\
 	}								\
 	__ptr;								\
 })
@@ -78,8 +103,7 @@ extern void pr_err(const char *fmt, ...) __attribute__((noreturn));
 #define xstrndup(s, sz)							\
 ({ 	void *__ptr = strndup(s, sz);					\
 	if (__ptr == NULL) {						\
-		pr_err("%s:%d:%s: memory allocation failed.\n",		\
-			__FILE__, __LINE__, __func__);			\
+		pr_err("xstrndup");					\
 	}								\
 	__ptr;								\
 })
