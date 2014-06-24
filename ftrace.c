@@ -26,7 +26,7 @@
 #include "rbtree.h"
 #include "utils.h"
 
-const char *argp_program_version = "ftrace v0.1";
+const char *argp_program_version = "ftrace v0.2";
 const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 
 #define OPT_flat 	301
