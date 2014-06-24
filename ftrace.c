@@ -1036,10 +1036,79 @@ static int nr_tasks;
 
 static void reset_task_handle(void)
 {
+	int i;
+
+	for (i = 0; i < nr_tasks; i++) {
+		tasks[i].done = true;
+
+		if (tasks[i].fp) {
+			fclose(tasks[i].fp);
+			tasks[i].fp = NULL;
+		}
+	}
+
 	free(tasks);
 	tasks = NULL;
 
 	nr_tasks = 0;
+}
+
+static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
+{
+	int i, k;
+	int nr_filters = 0;
+	int *filter_tids = NULL;
+	char *p = tid_filter;
+
+	assert(tid_filter);
+
+	do {
+		int id;
+
+		if (*p == ',' || *p == ':')
+			p++;
+
+		id = strtol(p, &p, 10);
+
+		filter_tids = xrealloc(filter_tids, (nr_filters+1) * sizeof(int));
+		filter_tids[nr_filters++] = id;
+
+	} while (*p);
+
+	nr_tasks = handle->info.nr_tid;
+	tasks = xcalloc(sizeof(*tasks), nr_tasks);
+
+	for (i = 0; i < nr_tasks; i++) {
+		char *filename;
+		bool found = false;
+		int tid = handle->info.tids[i];
+
+		tasks[i].tid = tid;
+
+		for (k = 0; k < nr_filters; k++) {
+			if (tid == filter_tids[k]) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			tasks[i].done = true;
+			continue;
+		}
+
+		if (asprintf(&filename, "%s/%d.dat", handle->dirname, tid) < 0)
+			pr_err("cannot open task data file");
+
+		tasks[i].fp = fopen(filename, "rb");
+		if (tasks[i].fp == NULL)
+			pr_err("cannot open task data file");
+
+		pr_dbg("opening %s\n", filename);
+		free(filename);
+	}
+
+	free(filter_tids);
 }
 
 static int read_task_rstack(struct ftrace_task_handle *handle)
@@ -1247,8 +1316,6 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct mcount_ret_stack rstack;
-	int *tids = NULL;
-	int nr_tids = 0;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
@@ -1256,39 +1323,13 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	load_symtabs(opts->exename);
 
-	if (opts->tid) {
-		char *p = opts->tid;
-
-		do {
-			int id;
-
-			if (*p == ',' || *p == ':')
-				p++;
-
-			id = strtol(p, &p, 10);
-
-			tids = xrealloc(tids, (nr_tids+1) * sizeof(int));
-			tids[nr_tids++] = id;
-
-		} while (*p);
-	}
+	if (opts->tid)
+		setup_task_filter(opts->tid, &handle);
 
 	if (!opts->flat)
 		printf("# DURATION    TID     FUNCTION\n");
 
 	while (read_rstack(&handle, &rstack) == 0) {
-		if (opts->tid) {
-			int i;
-
-			for (i = 0; i < nr_tids; i++) {
-				if (rstack.tid == tids[i])
-					break;
-			}
-
-			if (i == nr_tids)
-				continue;
-		}
-
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, &rstack);
 		else
@@ -1297,9 +1338,6 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 		if (ret)
 			break;
 	}
-
-	if (opts->tid)
-		free(tids);
 
 	unload_symtabs();
 
@@ -1601,6 +1639,9 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	load_symtabs(opts->exename);
+
+	if (opts->tid)
+		setup_task_filter(opts->tid, &handle);
 
 	if (opts->report_thread)
 		report_threads(&handle);
