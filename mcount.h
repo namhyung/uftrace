@@ -100,6 +100,7 @@ struct ftrace_info {
 
 struct ftrace_file_handle {
 	FILE *fp;
+	const char *dirname;
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
 };

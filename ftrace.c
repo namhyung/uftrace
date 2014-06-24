@@ -598,9 +598,6 @@ static char *make_disk_name(char *buf, size_t size, const char *dirname, char *i
 	snprintf(buf, size, "%s/%s.dat", dirname, tid);
 	*ptr = '-';
 
-	/* XXX */
-	snprintf(buf, size, "%s/trace.dat", dirname);
-
 	return buf;
 }
 
@@ -917,6 +914,8 @@ static struct ftrace_proc_maps *proc_maps;
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
 "\t-finstrument-functions flag and ran with ftrace record?\n"
 
+static void reset_task_handle(void);
+
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
@@ -939,6 +938,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	}
 
 	handle->fp = fp;
+	handle->dirname = opts->dirname;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -995,13 +995,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	}
 	fclose(fp);
 
-	snprintf(buf, sizeof(buf), "%s/trace.dat", opts->dirname);
-
-	fp = fopen(buf, "rb");
-	if (fp == NULL)
-		pr_err("cannot open data file");
-
-	handle->fp = fp;
+	reset_task_handle();
 
 	ret = 0;
 
@@ -1016,7 +1010,6 @@ static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
-	fclose(handle->fp);
 	clear_ftrace_info(&handle->info);
 
 	while (proc_maps) {
@@ -1025,14 +1018,35 @@ static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle
 
 		free(map);
 	}
+
+	reset_task_handle();
 }
 
-static int read_rstack(struct ftrace_file_handle *handle,
-		       struct mcount_ret_stack *rstack)
+struct ftrace_task_handle {
+	int tid;
+	bool valid;
+	bool done;
+	FILE *fp;
+	struct sym *func;
+	struct mcount_ret_stack rstack;
+};
+
+static struct ftrace_task_handle *tasks;
+static int nr_tasks;
+
+static void reset_task_handle(void)
+{
+	free(tasks);
+	tasks = NULL;
+
+	nr_tasks = 0;
+}
+
+static int read_task_rstack(struct ftrace_task_handle *handle)
 {
 	FILE *fp = handle->fp;
 
-	if (fread(rstack, sizeof(*rstack), 1, fp) != 1) {
+	if (fread(&handle->rstack, sizeof(handle->rstack), 1, fp) != 1) {
 		if (feof(fp))
 			return -1;
 
@@ -1040,6 +1054,97 @@ static int read_rstack(struct ftrace_file_handle *handle,
 		return -1;
 	}
 	return 0;
+}
+
+static struct mcount_ret_stack *
+get_task_rstack(struct ftrace_file_handle *handle, int idx)
+{
+	struct ftrace_task_handle *fth;
+	char *filename;
+
+	if (unlikely(idx >= nr_tasks)) {
+		nr_tasks = idx + 1;
+		tasks = xrealloc(tasks, sizeof(*tasks) * nr_tasks);
+
+		memset(&tasks[idx], 0, sizeof(*tasks));
+
+		if (asprintf(&filename, "%s/%d.dat",
+			     handle->dirname, handle->info.tids[idx]) < 0)
+			pr_err("cannot read task rstack");
+
+		tasks[idx].tid = handle->info.tids[idx];
+		tasks[idx].fp = fopen(filename, "rb");
+
+		if (tasks[idx].fp == NULL)
+			pr_err("cannot open task data file");
+
+		pr_dbg("opening %s\n", filename);
+		free(filename);
+	}
+
+	fth = &tasks[idx];
+
+	if (fth->valid)
+		return &fth->rstack;
+
+	if (fth->done)
+		return NULL;
+
+	if (read_task_rstack(fth) < 0) {
+		fth->done = true;
+		fclose(fth->fp);
+		fth->fp = NULL;
+		return NULL;
+	}
+
+	fth->valid = true;
+	return &fth->rstack;
+}
+
+static uint64_t rstack_time(struct mcount_ret_stack *rstack)
+{
+	assert(rstack->end_time || rstack->start_time);
+
+	return rstack->end_time ? : rstack->start_time;
+}
+
+static int __read_rstack(struct ftrace_file_handle *handle,
+			 struct mcount_ret_stack *rstack, bool invalidate)
+{
+	int i, next_i;
+	struct mcount_ret_stack *tmp, *next = NULL;
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		tmp = get_task_rstack(handle, i);
+		if (tmp == NULL)
+			continue;
+
+		if (!next || rstack_time(tmp) < rstack_time(next)) {
+			next = tmp;
+			next_i = i;
+		}
+	}
+
+	if (next == NULL)
+		return -1;
+
+	memcpy(rstack, next, sizeof(*rstack));
+	if (invalidate)
+		tasks[next_i].valid = false;
+
+	return 0;
+}
+
+static int read_rstack(struct ftrace_file_handle *handle,
+		       struct mcount_ret_stack *rstack)
+{
+	return __read_rstack(handle, rstack, true);
+}
+
+static int peek_rstack(struct ftrace_file_handle *handle,
+		       struct mcount_ret_stack *rstack)
+{
+	return __read_rstack(handle, rstack, false);
 }
 
 static int print_flat_rstack(struct ftrace_file_handle *handle,
@@ -1103,12 +1208,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	char *symname = symbol_getname(sym, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
-		fpos_t pos;
 		struct mcount_ret_stack rstack_next;
 
-		fgetpos(handle->fp, &pos);
-
-		if (read_rstack(handle, &rstack_next) < 0) {
+		if (peek_rstack(handle, &rstack_next) < 0) {
 			symbol_putname(sym, symname);
 			return -1;
 		}
@@ -1120,14 +1222,14 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			print_time_unit(rstack->start_time, rstack_next.end_time);
 			printf(" [%5d] | %*s%s();\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
+
+			/* consume the rstack */
+			read_rstack(handle, &rstack_next);
 		} else {
 			/* function entry */
 			print_time_unit(0UL, 0UL);
 			printf(" [%5d] | %*s%s() {\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
-
-			/* need to re-process return record */
-			fsetpos(handle->fp, &pos);
 		}
 	} else {
 		/* function exit */
@@ -1328,86 +1430,41 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 	rb_insert_color(&te->link, root);
 }
 
-static int command_report(int argc, char *argv[], struct opts *opts)
+static void report_functions(struct ftrace_file_handle *handle)
 {
-	int ret;
-	bool first = true;
-	struct ftrace_file_handle handle;
+	int i;
+	struct sym *sym;
+	struct trace_entry te;
+	struct mcount_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root time_tree = RB_ROOT;
 	struct rb_node *node;
-	struct trace_entry *entry;
-	struct mcount_ret_stack rstack;
-	const char h_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
-//	const char l_format[] = "  %-40.40s  %10"PRIu64"  %10"PRIu64"  %10lu  \n";
-	const char t_format[] = "  %5.5s  %-40.40s  %10.10s  %10.10s  \n";
+	const char f_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
 	const char line[] = "=================================================";
 
-	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		return -1;
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		while ((rstack = get_task_rstack(handle, i)) != NULL) {
+			if (rstack->end_time == 0)
+				goto next;
 
-	load_symtabs(opts->exename);
+			sym = find_symtab(rstack->child_ip, proc_maps);
+			if (sym == NULL) {
+				pr_log("cannot find symbol for %lx\n",
+				       rstack->child_ip);
+				goto next;
+			}
 
-	while (read_rstack(&handle, &rstack) == 0) {
-		struct sym *sym;
-		struct trace_entry te;
-
-		if (!opts->report_thread && rstack.end_time == 0)
-			continue;
-
-		sym = find_symtab(rstack.child_ip, proc_maps);
-		if (sym == NULL) {
-			pr_log("cannot find symbol for %lx\n", rstack.child_ip);
-			continue;
-		}
-
-		te.pid = rstack.tid;
-		te.sym = sym;
-
-		if (opts->report_thread && first) {
-			sym = find_symname("main");
-			if (sym == NULL)
-				pr_log("no main thread???\n");
-			else
-				te.sym = sym;
-
-			first = false;
-		}
-
-		if (rstack.end_time) {
-			te.time_total = rstack.end_time - rstack.start_time;
-			te.time_self = te.time_total - rstack.child_time;
+			te.pid = rstack->tid;
+			te.sym = sym;
+			te.time_total = rstack->end_time - rstack->start_time;
+			te.time_self = te.time_total - rstack->child_time;
 			te.nr_called = 1;
-		} else {
-			te.time_total = te.time_self = 0;
-			te.nr_called = 0;
+
+			insert_entry(&name_tree, &te, false);
+
+		next:
+			tasks[i].valid = false; /* force re-read */
 		}
-
-		insert_entry(&name_tree, &te, opts->report_thread);
-	}
-
-	if (opts->report_thread) {
-		printf(t_format, "TID", "Start function", "Run time", "Nr. funcs");
-		printf(t_format, line, line, line, line);
-
-		while (!RB_EMPTY_ROOT(&name_tree)) {
-			char *symname;
-
-			node = rb_first(&name_tree);
-			rb_erase(node, &name_tree);
-
-			entry = rb_entry(node, struct trace_entry, link);
-			symname = symbol_getname(entry->sym, 0);
-
-			printf("  %5d  %-40.40s ", entry->pid, symname);
-			print_time_unit(0UL, entry->time_self);
-			printf("  %10lu  \n", entry->nr_called);
-
-			symbol_putname(entry->sym, symname);
-		}
-
-		goto out;
 	}
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
@@ -1417,11 +1474,12 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		sort_by_time(&time_tree, rb_entry(node, struct trace_entry, link));
 	}
 
-	printf(h_format, "Function", "Total time", "Self time", "Nr. called");
-	printf(h_format, line, line, line, line);
+	printf(f_format, "Function", "Total time", "Self time", "Nr. called");
+	printf(f_format, line, line, line, line);
 
 	for (node = rb_first(&time_tree); node; node = rb_next(node)) {
 		char *symname;
+		struct trace_entry *entry;
 
 		entry = rb_entry(node, struct trace_entry, link);
 
@@ -1436,7 +1494,119 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		symbol_putname(entry->sym, symname);
 	}
 
-out:
+	while (!RB_EMPTY_ROOT(&time_tree)) {
+		node = rb_first(&time_tree);
+		rb_erase(node, &time_tree);
+
+		free(rb_entry(node, struct trace_entry, link));
+	}
+}
+
+static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
+				  struct mcount_ret_stack *rstack)
+{
+	struct sym *sym;
+
+	if (tasks[idx].func)
+		return tasks[idx].func;
+
+	if (idx == handle->info.nr_tid - 1) {
+		/* This is the main thread */
+		tasks[idx].func = sym = find_symname("main");
+		if (sym)
+			return sym;
+
+		pr_log("no main thread???\n");
+		/* fall through */
+	}
+
+	tasks[idx].func = sym = find_symtab(rstack->child_ip, proc_maps);
+	if (sym == NULL) {
+		pr_log("cannot find symbol for %lx\n",
+		       rstack->child_ip);
+	}
+
+	return sym;
+}
+
+static void report_threads(struct ftrace_file_handle *handle)
+{
+	int i;
+	struct trace_entry te;
+	struct mcount_ret_stack *rstack;
+	struct rb_root name_tree = RB_ROOT;
+	struct rb_node *node;
+	const char t_format[] = "  %5.5s  %-40.40s  %10.10s  %10.10s  \n";
+	const char line[] = "=================================================";
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		while ((rstack = get_task_rstack(handle, i)) != NULL) {
+			if (!rstack->end_time && tasks[i].func)
+				goto next;
+
+			te.pid = rstack->tid;
+			te.sym = find_task_sym(handle, i, rstack);
+
+			if (rstack->end_time == 0) {
+				te.time_total = te.time_self = 0;
+				te.nr_called = 0;
+			} else {
+				te.time_total = rstack->end_time - rstack->start_time;
+				te.time_self = te.time_total - rstack->child_time;
+				te.nr_called = 1;
+			}
+
+			insert_entry(&name_tree, &te, true);
+
+		next:
+			tasks[i].valid = false; /* force re-read */
+		}
+	}
+
+	printf(t_format, "TID", "Start function", "Run time", "Nr. funcs");
+	printf(t_format, line, line, line, line);
+
+	while (!RB_EMPTY_ROOT(&name_tree)) {
+		char *symname;
+		struct trace_entry *entry;
+
+		node = rb_first(&name_tree);
+		rb_erase(node, &name_tree);
+
+		entry = rb_entry(node, struct trace_entry, link);
+		symname = symbol_getname(entry->sym, 0);
+
+		printf("  %5d  %-40.40s ", entry->pid, symname);
+		print_time_unit(0UL, entry->time_self);
+		printf("  %10lu  \n", entry->nr_called);
+
+		symbol_putname(entry->sym, symname);
+	}
+
+	while (!RB_EMPTY_ROOT(&name_tree)) {
+		node = rb_first(&name_tree);
+		rb_erase(node, &name_tree);
+
+		free(rb_entry(node, struct trace_entry, link));
+	}
+}
+
+static int command_report(int argc, char *argv[], struct opts *opts)
+{
+	int ret;
+	struct ftrace_file_handle handle;
+
+	ret = open_data_file(opts, &handle);
+	if (ret < 0)
+		return -1;
+
+	load_symtabs(opts->exename);
+
+	if (opts->report_thread)
+		report_threads(&handle);
+	else
+		report_functions(&handle);
+
 	unload_symtabs();
 
 	close_data_file(opts, &handle);
