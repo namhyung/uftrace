@@ -1,3 +1,11 @@
+/*
+ * data structures for handling mcount records
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #ifndef FTRACE_MCOUNT_H
 #define FTRACE_MCOUNT_H
 

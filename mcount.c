@@ -1,3 +1,11 @@
+/*
+ * mcount() handling routines for ftrace
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>

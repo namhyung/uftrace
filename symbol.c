@@ -1,3 +1,11 @@
+/*
+ * symbol management routines for ftrace
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

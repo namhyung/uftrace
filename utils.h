@@ -1,3 +1,11 @@
+/*
+ * utiltily functions and macros for ftrace
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #ifndef __FTRACE_UTILS_H__
 #define __FTRACE_UTILS_H__
 

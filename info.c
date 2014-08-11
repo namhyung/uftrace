@@ -1,3 +1,11 @@
+/*
+ * ftrace info command related routines
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

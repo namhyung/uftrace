@@ -1,3 +1,11 @@
+/*
+ * __cyg_profile_func_{enter,exit} routines for ftrace
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <pthread.h>

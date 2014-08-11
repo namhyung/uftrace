@@ -1,3 +1,11 @@
+/*
+ * symbol management data structures for ftrace
+ *
+ * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ *
+ * Released under the GPL v2.
+ */
+
 #ifndef FTRACE_SYMBOL_H
 #define FTRACE_SYMBOL_H
 
