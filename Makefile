@@ -22,6 +22,13 @@ prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 
+# Check if bulid flags changed
+BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
+SAVED_FLAGS := $(shell cat FLAGS 2> /dev/null)
+ifneq ($(BUILD_FLAGS),$(SAVED_FLAGS))
+  $(shell echo "$(BUILD_FLAGS)" > FLAGS)
+endif
+
 all:
 
 uname_M := $(shell uname -m 2>/dev/null || echo not)
@@ -55,14 +62,14 @@ MAKEFLAGS = --no-print-directory
 
 all: $(TARGETS)
 
-$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h
+$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-cygprofile.op: cygprofile.c mcount.h utils.h
+cygprofile.op: cygprofile.c mcount.h utils.h FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-arch/$(ARCH)/%.op: arch/$(ARCH)/*.S
-	@$(MAKE) -C arch/$(ARCH) $(notdir $@)
+arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
+	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
 libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
@@ -84,7 +91,7 @@ test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
 
 clean:
-	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out
+	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out FLAGS
 	@$(MAKE) -sC arch/$(ARCH) clean
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC config check-clean BUILD_FEATURE_CHECKS=0

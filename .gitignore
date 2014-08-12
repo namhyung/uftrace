@@ -12,3 +12,4 @@ tests/arch/*/t-*
 config/*
 !config/*.c
 !config/Makefile
+FLAGS
