@@ -21,6 +21,7 @@ static int c(void)
 
 int main(void)
 {
-	daemon(0, 0);
+	if (daemon(0, 0) < 0)
+		return -1;
 	return a() + 1;
 }
