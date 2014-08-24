@@ -122,10 +122,11 @@ void unload_symtabs(void)
 	dynsymtab.sym_names = NULL;
 }
 
-void __load_symtab(const char *filename, unsigned long offset)
+int __load_symtab(const char *filename, unsigned long offset)
 {
 	int fd;
 	Elf *elf;
+	int ret = -1;
 	size_t i, nr_sym = 0;
 	Elf_Scn *sym_sec, *sec;
 	Elf_Data *sym_data;
@@ -167,8 +168,7 @@ void __load_symtab(const char *filename, unsigned long offset)
 	}
 
 	if (sym_sec == NULL)
-		pr_err_ns("cannot find symbol information in '%s'.\n"
-			  "Is it stripped?\n", filename);
+		goto out;
 
 	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
@@ -218,13 +218,15 @@ void __load_symtab(const char *filename, unsigned long offset)
 		symtab.sym_names[i] = &symtab.sym[i];
 	qsort(symtab.sym_names, symtab.nr_sym, sizeof(*symtab.sym_names), namesort);
 
+out:
 	elf_end(elf);
 	close(fd);
-	return;
+	return ret;
 
 elf_error:
-	pr_err_ns("ELF error during symbol loading: %s\n",
-		  elf_errmsg(elf_errno()));
+	pr_log("ELF error during symbol loading: %s\n",
+	       elf_errmsg(elf_errno()));
+	goto out;
 }
 
 void unload_dynsymtab(void)
