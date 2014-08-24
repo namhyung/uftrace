@@ -108,7 +108,8 @@ static void get_new_shmem_buffer(void)
 	if (fd < 0)
 		pr_err("open shmem buffer");
 
-	ftruncate(fd, SHMEM_BUFFER_SIZE);
+	if (ftruncate(fd, SHMEM_BUFFER_SIZE) < 0)
+		pr_err("resizing shmem buffer");
 
 	shmem_buffer = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
 			    MAP_SHARED, fd, 0);
