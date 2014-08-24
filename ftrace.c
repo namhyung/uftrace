@@ -1199,7 +1199,7 @@ static uint64_t rstack_time(struct mcount_ret_stack *rstack)
 static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct mcount_ret_stack *rstack, bool invalidate)
 {
-	int i, next_i;
+	int i, next_i = 0;
 	struct mcount_ret_stack *tmp, *next = NULL;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
