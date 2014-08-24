@@ -24,10 +24,6 @@ struct symtab {
 	size_t nr_alloc;
 };
 
-#define START_MAPS "[[[MAP START]]]"
-#define END_MAPS   "[[[MAP END  ]]]"
-#define MAPS_MARKER ((void *)0xbaaddaad)
-
 struct ftrace_proc_maps {
 	struct ftrace_proc_maps *next;
 	uint64_t start;
