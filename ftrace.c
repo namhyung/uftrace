@@ -630,8 +630,10 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 
 	/* write (append) it to disk */
 	fd = shm_open(sess_id, O_RDONLY, 0400);
-	if (fd < 0)
-		pr_err("open shmem buffer");
+	if (fd < 0) {
+		pr_log("open shmem buffer failed: %s: %m\n", sess_id);
+		return 0;
+	}
 
 	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ,
 			 MAP_SHARED, fd, 0);
@@ -684,6 +686,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			pr_err("reading pipe failed");
 
 		sl->id[msg.len] = '\0';
+		pr_dbg2("MSG START: %s\n", sl->id);
 
 		/* link to shmem_list */
 		sl->next = shmem_list_head;
@@ -698,6 +701,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			pr_err("reading pipe failed");
 
 		buf[msg.len] = '\0';
+		pr_dbg2("MSG  END : %s\n", buf);
 
 		psl = &shmem_list_head;
 
