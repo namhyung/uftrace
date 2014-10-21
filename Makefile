@@ -22,6 +22,8 @@ prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 
+VERSION_GIT := $(patsubst v%,%,$(shell git describe --tags))
+
 # Check if bulid flags changed
 BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
 SAVED_FLAGS := $(shell cat FLAGS 2> /dev/null)
@@ -90,10 +92,15 @@ install: all
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
 
+dist:
+	git archive --format=tar.gz --prefix=ftrace-$(VERSION_GIT)/ \
+		v$(VERSION_GIT) > ftrace-$(VERSION_GIT).tar.gz
+
 clean:
 	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out FLAGS
+	@$(RM) ftrace-*.tar.gz
 	@$(MAKE) -sC arch/$(ARCH) clean
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC config check-clean BUILD_FEATURE_CHECKS=0
 
-.PHONY: all clean test PHONY
+.PHONY: all clean test dist PHONY
