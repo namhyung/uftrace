@@ -698,8 +698,10 @@ __monstartup(unsigned long low, unsigned long high)
 		pfd = strtol(pipefd_str, NULL, 0);
 
 		/* minimal sanity check */
-		if (fstat(pfd, &statbuf) < 0)
+		if (fstat(pfd, &statbuf) < 0 || !S_ISFIFO(statbuf.st_mode)) {
+			pr_log("ignore invalid pipe fd: %d\n", pfd);
 			pfd = -1;
+		}
 	}
 
 	if (debug_str)
