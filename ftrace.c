@@ -1370,6 +1370,7 @@ static void cleanup_tempdir(void)
 {
 	DIR *dp;
 	struct dirent *ent;
+	char path[PATH_MAX];
 
 	if (!tmp_dirname)
 		return;
@@ -1382,12 +1383,15 @@ static void cleanup_tempdir(void)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		unlink(ent->d_name);
+		snprintf(path, sizeof(path), "%s/%s", tmp_dirname, ent->d_name);
+		if (unlink(path) < 0)
+			pr_err("unlink failed: %s: %m\n", path);
 	}
 
 	closedir(dp);
 
-	rmdir(tmp_dirname);
+	if (rmdir(tmp_dirname) < 0)
+		pr_err("rmdir failed: %s: %m\n", tmp_dirname);
 	tmp_dirname = NULL;
 }
 
