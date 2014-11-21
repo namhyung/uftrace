@@ -643,7 +643,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	close(fd);
 
 	fd = open(make_disk_name(buf, sizeof(buf), dirname, sess_id),
-		  O_WRONLY | O_CREAT | O_TRUNC, 0644);		  
+		  O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
 
