@@ -1,7 +1,7 @@
 CC = gcc
 CXX = g++
 RM = rm -f
-FTRACE = ../ftrace -L .. --flat
+FTRACE = ../ftrace -L .. --flat -b 4096
 
 CFLAGS = -g -pg
 #CFLAGS = -g -finstrument-functions
@@ -11,7 +11,7 @@ LDFLAGS = -pthread
 CFLAGS += -fno-omit-frame-pointer
 #endif
 
-TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local t-abcd
+TARGETS = t-abc t-threaded-abc t-arg t-demangle t-local t-abcd t-fork
 
 TARGETS_O1 = $(patsubst %,%_O1,$(TARGETS))
 TARGETS_O2 = $(patsubst %,%_O2,$(TARGETS))

@@ -675,6 +675,38 @@ static void stop_trace(int sig)
 	mcount_finish();
 }
 
+static void atfork_prepare_handler(void)
+{
+	const struct ftrace_msg msg = {
+		.magic = FTRACE_MSG_MAGIC,
+		.type = FTRACE_MSG_FORK_START,
+	};
+	int len = sizeof(msg);
+
+	if (pfd >= 0 && write(pfd, &msg, len) != len)
+		pr_err("write fork info failed");
+}
+
+static void atfork_child_handler(void)
+{
+	const struct ftrace_msg msg = {
+		.magic = FTRACE_MSG_MAGIC,
+		.type = FTRACE_MSG_FORK_END,
+		.len = sizeof(int),
+	};
+	char buf[128];
+	int tid = gettid();
+	int len = sizeof(msg) + msg.len;
+
+	memcpy(buf, &msg, sizeof(msg));
+	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
+
+	if (pfd >= 0 && write(pfd, buf, len) != len)
+		pr_err("write fork info failed");
+
+	get_new_shmem_buffer();
+}
+
 /*
  * external interfaces
  */
@@ -738,6 +770,8 @@ __monstartup(unsigned long low, unsigned long high)
 
 		signal(sig, stop_trace);
 	}
+
+	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_setup_done = true;
 }

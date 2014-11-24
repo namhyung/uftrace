@@ -588,6 +588,7 @@ static struct shmem_list *shmem_list_head;
 struct tid_list {
 	struct tid_list *next;
 	int tid;
+	bool exited;
 };
 
 static struct tid_list *tid_list_head;
@@ -731,9 +732,48 @@ static void read_record_mmap(int pfd, const char *dirname)
 		if (read_all(pfd, &tl->tid, msg.len) < 0)
 			pr_err("reading pipe failed");
 
+		pr_dbg2("MSG  TID : %d\n", tl->tid);
+
+		tl->exited = false;
+
 		/* link to tid_list */
 		tl->next = tid_list_head;
 		tid_list_head = tl;
+		break;
+
+	case FTRACE_MSG_FORK_START:
+		if (msg.len != 0)
+			pr_err_ns("invalid message length\n");
+
+		tl = xmalloc(sizeof(*tl));
+
+		pr_dbg2("MSG FORK1: start\n");
+
+		tl->tid = -1;
+		tl->exited = false;
+
+		/* link to tid_list */
+		tl->next = tid_list_head;
+		tid_list_head = tl;
+		break;
+
+	case FTRACE_MSG_FORK_END:
+		if (msg.len != sizeof(int))
+			pr_err_ns("invalid message length\n");
+
+		tl = tid_list_head;
+		while (tl) {
+			if (tl->tid == -1)
+				break;
+			tl = tl->next;
+		}
+		if (tl == NULL)
+			pr_err("cannot find fork pid\n");
+
+		if (read_all(pfd, &tl->tid, msg.len) < 0)
+			pr_err("reading pipe failed");
+
+		pr_dbg2("MSG FORK2: %d\n", tl->tid);
 		break;
 
 	default:
@@ -792,6 +832,60 @@ void free_tid_list(void)
 	tid_list_head = NULL;
 }
 
+void check_tid_list(void)
+{
+	struct tid_list *tl = tid_list_head;
+	char buf[128];
+	struct stat stbuf;
+
+	if (done)
+		return;
+
+	while (tl) {
+		struct tid_list *tmp = tl;
+		tl = tl->next;
+
+		if (tmp->exited)
+			continue;
+
+		snprintf(buf, sizeof(buf), "/proc/%d/status", tmp->tid);
+		if (stat(buf, &stbuf) < 0 && errno == ENOENT)
+			tmp->exited = true;
+	}
+
+	while (tl) {
+		struct tid_list *tmp = tl;
+		tl = tl->next;
+
+		if (!tmp->exited)
+			return;
+	}
+
+	pr_dbg("all process/thread exited\n");
+	done = true;
+}
+
+static bool child_exited;
+
+static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
+{
+	int tid = sainfo->si_pid;
+	struct tid_list *tl = tid_list_head;
+
+	while (tl) {
+		struct tid_list *tmp = tl;
+		tl = tl->next;
+
+		if (tmp->tid == tid) {
+			tmp->exited = true;
+			break;
+		}
+	}
+
+	pr_dbg("SIGCHLD: %d\n", tid);
+	child_exited = true;
+}
+
 static int remove_directory(char *dirname)
 {
 	DIR *dp;
@@ -830,7 +924,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	};
 	size_t i;
 	int pfd[2];
-	struct sigaction sa;
+	struct sigaction sa = {
+		.sa_flags = 0,
+	};
+	int remaining = 0;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -880,14 +977,15 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	close(pfd[1]);
 
 	sa.sa_handler = sighandler;
-	sa.sa_flags = 0;
-	sigemptyset(&sa.sa_mask);
+	sigfillset(&sa.sa_mask);
 
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGTERM, &sa, NULL);
 
-	if (!opts->daemon)
-		sigaction(SIGCHLD, &sa, NULL);
+	sa.sa_handler = NULL;
+	sa.sa_sigaction = sigchld_handler;
+	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
+	sigaction(SIGCHLD, &sa, NULL);
 
 	while (!done) {
 		struct pollfd pollfd = {
@@ -904,19 +1002,25 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (pollfd.revents & POLLIN)
 			read_record_mmap(pfd[0], opts->dirname);
+
+		if (child_exited)
+			check_tid_list();
 	}
 
 	if (opts->daemon) {
 		tgkill(pid, pid, opts->signal);
 		usleep(1000);
+	}
+
+	while (!ioctl(pfd[0], FIONREAD, &remaining) && remaining)
+		read_record_mmap(pfd[0], opts->dirname);
+
+	waitpid(pid, &status, 0);
+	if (WIFSIGNALED(status)) {
+		pr_dbg("child (%s) was terminated by signal: %d\n",
+		       opts->exename, WTERMSIG(status));
 	} else {
-		waitpid(pid, &status, 0);
-		if (WIFSIGNALED(status)) {
-			pr_dbg("child (%s) was terminated by signal: %d\n",
-			       opts->exename, WTERMSIG(status));
-		} else {
-			pr_dbg("child terminated with %d\n", WEXITSTATUS(status));
-		}
+		pr_dbg("child terminated with %d\n", WEXITSTATUS(status));
 	}
 
 	flush_shmem_list(opts->dirname);

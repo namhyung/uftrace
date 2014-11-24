@@ -46,6 +46,8 @@ void _mcleanup(void);
 #define FTRACE_MSG_REC_START  1U
 #define FTRACE_MSG_REC_END    2U
 #define FTRACE_MSG_TID        3U
+#define FTRACE_MSG_FORK_START 4U
+#define FTRACE_MSG_FORK_END   5U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
