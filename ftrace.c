@@ -836,23 +836,45 @@ void check_tid_list(void)
 {
 	struct tid_list *tl = tid_list_head;
 	char buf[128];
-	struct stat stbuf;
 
 	if (done)
 		return;
 
 	while (tl) {
+		int fd, len;
+		char state;
+		char line[4096];
 		struct tid_list *tmp = tl;
 		tl = tl->next;
 
-		if (tmp->exited)
+		if (tmp->exited || tmp->tid < 0)
 			continue;
 
-		snprintf(buf, sizeof(buf), "/proc/%d/status", tmp->tid);
-		if (stat(buf, &stbuf) < 0 && errno == ENOENT)
+		snprintf(buf, sizeof(buf), "/proc/%d/stat", tmp->tid);
+
+		fd = open(buf, O_RDONLY);
+		if (fd < 0) {
 			tmp->exited = true;
+			continue;
+		}
+
+		len = read(fd, line, sizeof(line) - 1);
+		if (len < 0) {
+			tmp->exited = true;
+			close(fd);
+			continue;
+		}
+
+		line[len] = '\0';
+
+		sscanf(line, "%*d %*s %c", &state);
+		if (state == 'Z')
+			tmp->exited = true;
+
+		close(fd);
 	}
 
+	tl = tid_list_head;
 	while (tl) {
 		struct tid_list *tmp = tl;
 		tl = tl->next;
