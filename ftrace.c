@@ -1171,17 +1171,30 @@ static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle
 	reset_task_handle();
 }
 
+#define FILTER_COUNT_NOTRACE  10000
+
 struct ftrace_task_handle {
 	int tid;
 	bool valid;
 	bool done;
 	FILE *fp;
 	struct sym *func;
+	int filter_count;
+	int filter_depth;
 	struct mcount_ret_stack rstack;
+};
+
+struct ftrace_func_filter {
+	int nr_filters;
+	int nr_notrace;
+	unsigned long *filters;
+	unsigned long *notrace;
 };
 
 static struct ftrace_task_handle *tasks;
 static int nr_tasks;
+
+static struct ftrace_func_filter filters;
 
 static void reset_task_handle(void)
 {
@@ -1253,11 +1266,95 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 		if (tasks[i].fp == NULL)
 			pr_err("cannot open task data file");
 
+		if (filters.nr_filters)
+			tasks[i].filter_count = 0;
+		else
+			tasks[i].filter_count = 1;
+
 		pr_dbg("opening %s\n", filename);
 		free(filename);
 	}
 
 	free(filter_tids);
+}
+
+static int setup_function_filter(unsigned long **filters, char *filter_str)
+{
+	char buf[4096];
+	char *pos = buf;
+	int count = 0;
+
+	build_addrlist(buf, filter_str);
+
+	do {
+		unsigned long addr;
+		unsigned long *new_filters;
+
+		addr = strtoul(pos, &pos, 16);
+		if (*pos != ':' && *pos != '\0')
+			return -1;
+
+		new_filters = realloc(*filters, (count + 1) * sizeof(**filters));
+		if (new_filters == NULL)
+			return -1;
+
+		new_filters[count++] = addr;
+		*filters = new_filters;
+	} while (*pos == ':');
+
+	return count;
+}
+
+static struct ftrace_task_handle *get_task_handle(int pid)
+{
+	int i;
+
+	for (i = 0; i < nr_tasks; i++) {
+		if (tasks[i].tid == pid)
+			return &tasks[i];
+	}
+	return NULL;
+}
+
+static int match_filter_addr(unsigned long *filters, int nr_filters, unsigned long addr)
+{
+	int i;
+
+	for (i = 0; i < nr_filters; i++) {
+		if (addr == filters[i])
+			return 1;
+	}
+	return 0;
+}
+
+static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned long addr)
+{
+	if (filters.nr_filters && match_filter_addr(filters.filters,
+						    filters.nr_filters,
+						    addr)) {
+		task->filter_count++;
+		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
+	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
+							   filters.nr_notrace,
+							   addr)) {
+		task->filter_count -= FILTER_COUNT_NOTRACE;
+		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
+	}
+}
+
+static void update_filter_count_exit(struct ftrace_task_handle *task, unsigned long addr)
+{
+	if (filters.nr_filters && match_filter_addr(filters.filters,
+						    filters.nr_filters,
+						    addr)) {
+		task->filter_count--;
+		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
+	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
+							   filters.nr_notrace,
+							   addr)) {
+		task->filter_count += FILTER_COUNT_NOTRACE;
+		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
+	}
 }
 
 static int read_task_rstack(struct ftrace_task_handle *handle)
@@ -1295,6 +1392,11 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 
 		if (tasks[idx].fp == NULL)
 			pr_err("cannot open task data file");
+
+		if (filters.nr_filters)
+			tasks[idx].filter_count = 0;
+		else
+			tasks[idx].filter_count = 1;
 
 		pr_dbg("opening %s\n", filename);
 		free(filename);
@@ -1424,9 +1526,17 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 {
 	struct sym *sym = find_symtab(rstack->child_ip, proc_maps);
 	char *symname = symbol_getname(sym, rstack->child_ip);
+	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+
+	if (task == NULL)
+		goto out;
 
 	if (rstack->end_time == 0) {
 		struct mcount_ret_stack rstack_next;
+
+		update_filter_count_entry(task, rstack->child_ip);
+		if (task->filter_count <= 0)
+			goto out;
 
 		if (peek_rstack(handle, &rstack_next) < 0) {
 			symbol_putname(sym, symname);
@@ -1443,6 +1553,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			/* consume the rstack */
 			read_rstack(handle, &rstack_next);
+
+			update_filter_count_exit(task, rstack_next.child_ip);
 		} else {
 			/* function entry */
 			print_time_unit(0UL, 0UL);
@@ -1451,11 +1563,15 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 	} else {
 		/* function exit */
-		print_time_unit(rstack->start_time, rstack->end_time);
-		printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
-		       rstack->depth * 2, "", symname);
-	}
+		if (task->filter_count > 0) {
+			print_time_unit(rstack->start_time, rstack->end_time);
+			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
+			       rstack->depth * 2, "", symname);
+		}
 
+		update_filter_count_exit(task, rstack->child_ip);
+	}
+out:
 	symbol_putname(sym, symname);
 	return 0;
 }
@@ -1471,6 +1587,20 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	load_symtabs(opts->exename);
+
+	if (opts->filter) {
+		filters.nr_filters = setup_function_filter(&filters.filters,
+							   opts->filter);
+		if (filters.nr_filters < 0)
+			return -1;
+	}
+
+	if (opts->notrace) {
+		filters.nr_notrace = setup_function_filter(&filters.notrace,
+							   opts->notrace);
+		if (filters.nr_notrace < 0)
+			return -1;
+	}
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
