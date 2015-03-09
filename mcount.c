@@ -34,7 +34,6 @@ __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
 static int pfd = -1;
-static bool tracing_enabled = true;
 static bool mcount_setup_done;
 
 static unsigned long *filter_trace;
@@ -304,9 +303,6 @@ int mcount_entry(unsigned long parent, unsigned long child)
 {
 	int filtered;
 	struct mcount_ret_stack *rstack;
-
-	if (!tracing_enabled)
-		return -1;
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
@@ -668,13 +664,6 @@ unsigned long plthook_exit(void)
 	return orig_ip;
 }
 
-static void stop_trace(int sig)
-{
-	tracing_enabled = false;
-
-	mcount_finish();
-}
-
 static void atfork_prepare_handler(void)
 {
 	const struct ftrace_msg msg = {
@@ -762,13 +751,6 @@ __monstartup(unsigned long low, unsigned long high)
 			plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
 						      count_dynsym());
 		}
-	}
-
-	if (getenv("FTRACE_SIGNAL")) {
-		char *str = getenv("FTRACE_SIGNAL");
-		int sig = strtol(str, NULL, 0);
-
-		signal(sig, stop_trace);
 	}
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);

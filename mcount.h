@@ -77,7 +77,6 @@ struct ftrace_file_header {
 
 enum ftrace_feat_bits {
 	PLTHOOK,
-	DAEMON_MODE,
 	LIBRARY_MODE,
 };
 

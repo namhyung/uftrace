@@ -51,11 +51,9 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_flat 	301
 #define OPT_plthook 	302
 #define OPT_symbols	303
-#define OPT_daemon	304
-#define OPT_signal	305
-#define OPT_logfile	306
-#define OPT_library	307
-#define OPT_threads	308
+#define OPT_logfile	304
+#define OPT_library	305
+#define OPT_threads	306
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -67,8 +65,6 @@ static struct argp_option ftrace_options[] = {
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
-	{ "daemon", OPT_daemon, 0, 0, "Trace daemon process" },
-	{ "signal", OPT_signal, "SIGNAL", 0, "Signal number to send to child (daemon)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
@@ -95,12 +91,10 @@ struct opts {
 	char *logfile;
 	int mode;
 	int idx;
-	int signal;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
 	bool print_symtab;
-	bool daemon;
 	bool library;
 	bool report_thread;
 };
@@ -178,14 +172,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_symbols:
 		opts->print_symtab = true;
-		break;
-
-	case OPT_daemon:
-		opts->daemon = true;
-		break;
-
-	case OPT_signal:
-		opts->signal = strtol(arg, NULL, 0);
 		break;
 
 	case OPT_logfile:
@@ -274,7 +260,6 @@ int main(int argc, char *argv[])
 		.dirname = FTRACE_DIR_NAME,
 		.want_plthook = true,
 		.bsize = ~0UL,
-		.signal = SIGPROF,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -447,11 +432,6 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("FTRACE_BUFFER", buf, 1);
 	}
 
-	if (opts->daemon) {
-		snprintf(buf, sizeof(buf), "%d", opts->signal);
-		setenv("FTRACE_SIGNAL", buf, 1);
-	}
-
 	if (opts->logfile) {
 		snprintf(buf, sizeof(buf), "%d", logfd);
 		setenv("FTRACE_LOGFD", buf, 1);
@@ -473,8 +453,6 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->want_plthook)
 		features |= 1U << PLTHOOK;
-	if (opts->daemon)
-		features |= 1U << DAEMON_MODE;
 	if (opts->library)
 		features |= 1U << LIBRARY_MODE;
 
@@ -563,11 +541,6 @@ static volatile bool done;
 static void sighandler(int sig)
 {
 	done = true;
-}
-
-static int tgkill(int tgid, int tid, int sig)
-{
-	return syscall(SYS_tgkill, tgid, tid, sig);
 }
 
 #define SHMEM_BUFFER_SIZE  (128 * 1024)
@@ -1024,11 +997,6 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (child_exited && check_tid_list())
 			break;
-	}
-
-	if (opts->daemon) {
-		tgkill(pid, pid, opts->signal);
-		usleep(1000);
 	}
 
 again:
