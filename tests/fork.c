@@ -1,34 +1,38 @@
 #include <unistd.h>
+#include <stdlib.h>
 
-static volatile int __attribute__((noinline)) a(void);
-static volatile int __attribute__((noinline)) b(void);
-static volatile int __attribute__((noinline)) c(void);
+static volatile int __attribute__((noinline)) a(int);
+static volatile int __attribute__((noinline)) b(int);
+static volatile int __attribute__((noinline)) c(int);
 
-static volatile int a(void)
+static volatile int a(int n)
 {
-	return b() - 1;
+	return b(n) - 1;
 }
 
-static volatile int b(void)
+static volatile int b(int n)
 {
-	return c() + 1;
+	return c(n) + 1;
 }
 
-static volatile int c(void)
+static volatile int c(int n)
 {
-	return 0;
+	return n;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	int i;
 	int n;
+
+	if (argc > 1)
+		n = strtol(argv[1], NULL, 0);
 
 	if (fork() < 0)
 		return -1;
 
 	for (i = 0; i < 1000; i++)
-		n += a();
+		n += a(n);
 
 	return n;
 }
