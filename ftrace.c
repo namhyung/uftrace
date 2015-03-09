@@ -52,7 +52,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_plthook 	302
 #define OPT_symbols	303
 #define OPT_logfile	304
-#define OPT_library	305
+#define OPT_force	305
 #define OPT_threads	306
 
 static struct argp_option ftrace_options[] = {
@@ -66,7 +66,7 @@ static struct argp_option ftrace_options[] = {
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
-	{ "library", OPT_library, 0, 0, "Also trace internal library functions" },
+	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ 0 }
@@ -95,7 +95,7 @@ struct opts {
 	bool flat;
 	bool want_plthook;
 	bool print_symtab;
-	bool library;
+	bool force;
 	bool report_thread;
 };
 
@@ -178,8 +178,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->logfile = arg;
 		break;
 
-	case OPT_library:
-		opts->library = true;
+	case OPT_force:
+		opts->force = true;
 		break;
 
 	case OPT_threads:
@@ -453,8 +453,6 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->want_plthook)
 		features |= 1U << PLTHOOK;
-	if (opts->library)
-		features |= 1U << LIBRARY_MODE;
 
 	return features;
 }
@@ -939,7 +937,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(profile_funcs) && !opts->library)
+	if (i == ARRAY_SIZE(profile_funcs) && !opts->force)
 		pr_err(MCOUNT_MSG, "mcount", opts->exename);
 
 	if (pipe(pfd) < 0)
