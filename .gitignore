@@ -2,6 +2,8 @@
 *.op
 a.out
 ftrace
+ftrace.dir
+ftrace.dir.old
 ftrace.data
 ftrace.data.old
 libmcount.so
