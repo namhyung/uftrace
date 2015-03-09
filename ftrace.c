@@ -832,13 +832,10 @@ void free_tid_list(void)
 	tid_list_head = NULL;
 }
 
-void check_tid_list(void)
+bool check_tid_list(void)
 {
 	struct tid_list *tl = tid_list_head;
 	char buf[128];
-
-	if (done)
-		return;
 
 	while (tl) {
 		int fd, len;
@@ -880,11 +877,11 @@ void check_tid_list(void)
 		tl = tl->next;
 
 		if (!tmp->exited)
-			return;
+			return false;
 	}
 
 	pr_dbg("all process/thread exited\n");
-	done = true;
+	return true;
 }
 
 static bool child_exited;
@@ -1025,8 +1022,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		if (pollfd.revents & POLLIN)
 			read_record_mmap(pfd[0], opts->dirname);
 
-		if (child_exited)
-			check_tid_list();
+		if (child_exited && check_tid_list())
+			break;
 	}
 
 	if (opts->daemon) {
@@ -1034,8 +1031,21 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		usleep(1000);
 	}
 
+again:
 	while (!ioctl(pfd[0], FIONREAD, &remaining) && remaining)
 		read_record_mmap(pfd[0], opts->dirname);
+
+	/*
+	 * It's possible to receive a remaining FORK_START message.
+	 * In this case, we need to wait FORK_END message also in
+	 * order to get proper pid.  Otherwise replay will fail with
+	 * pid of -1.
+	 */
+	if (!check_tid_list()) {
+		usleep(1000);
+		pr_dbg2("waiting for FORK2\n");
+		goto again;
+	}
 
 	waitpid(pid, &status, 0);
 	if (WIFSIGNALED(status)) {
@@ -1260,11 +1270,11 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 		}
 
 		if (asprintf(&filename, "%s/%d.dat", handle->dirname, tid) < 0)
-			pr_err("cannot open task data file");
+			pr_err("cannot open task data file for %d", tid);
 
 		tasks[i].fp = fopen(filename, "rb");
 		if (tasks[i].fp == NULL)
-			pr_err("cannot open task data file");
+			pr_err("cannot open task data file [%s]", filename);
 
 		if (filters.nr_filters)
 			tasks[i].filter_count = 0;
@@ -1385,13 +1395,14 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 
 		if (asprintf(&filename, "%s/%d.dat",
 			     handle->dirname, handle->info.tids[idx]) < 0)
-			pr_err("cannot read task rstack");
+			pr_err("cannot read task rstack for %d",
+			       handle->info.tids[idx]);
 
 		tasks[idx].tid = handle->info.tids[idx];
 		tasks[idx].fp = fopen(filename, "rb");
 
 		if (tasks[idx].fp == NULL)
-			pr_err("cannot open task data file");
+			pr_err("cannot open task data file [%s]", filename);
 
 		if (filters.nr_filters)
 			tasks[idx].filter_count = 0;
