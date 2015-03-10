@@ -21,6 +21,7 @@ LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) -pthread
 prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
+mandir = $(prefix)/share/man
 
 VERSION_GIT := $(patsubst v%,%,$(shell git describe --tags))
 
@@ -88,6 +89,7 @@ install: all
 	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
 	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
 	@$(INSTALL) libcygprof.so  $(DESTDIR)$(libdir)/libcygprof.so
+	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
@@ -96,11 +98,15 @@ dist:
 	git archive --format=tar.gz --prefix=ftrace-$(VERSION_GIT)/ \
 		v$(VERSION_GIT) > ftrace-$(VERSION_GIT).tar.gz
 
+doc:
+	@$(MAKE) -C doc
+
 clean:
 	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out FLAGS
 	@$(RM) ftrace-*.tar.gz
 	@$(MAKE) -sC arch/$(ARCH) clean
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC config check-clean BUILD_FEATURE_CHECKS=0
+	@$(MAKE) -sC doc clean
 
-.PHONY: all clean test dist PHONY
+.PHONY: all clean test dist doc PHONY
