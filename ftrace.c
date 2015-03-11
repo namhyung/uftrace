@@ -993,24 +993,30 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		if (pollfd.revents & POLLIN)
 			read_record_mmap(pfd[0], opts->dirname);
 
-		if (child_exited && check_tid_list())
+		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
 	}
 
-again:
-	while (!ioctl(pfd[0], FIONREAD, &remaining) && remaining)
-		read_record_mmap(pfd[0], opts->dirname);
+	while (!done) {
+		if (ioctl(pfd[0], FIONREAD, &remaining) < 0)
+			break;
 
-	/*
-	 * It's possible to receive a remaining FORK_START message.
-	 * In this case, we need to wait FORK_END message also in
-	 * order to get proper pid.  Otherwise replay will fail with
-	 * pid of -1.
-	 */
-	if (!check_tid_list()) {
-		usleep(1000);
+		if (remaining) {
+			read_record_mmap(pfd[0], opts->dirname);
+			continue;
+		}
+
+		/*
+		 * It's possible to receive a remaining FORK_START message.
+		 * In this case, we need to wait FORK_END message also in
+		 * order to get proper pid.  Otherwise replay will fail with
+		 * pid of -1.
+		 */
+		if (child_exited && check_tid_list())
+			break;
+
 		pr_dbg2("waiting for FORK2\n");
-		goto again;
+		usleep(1000);
 	}
 
 	waitpid(pid, &status, 0);
