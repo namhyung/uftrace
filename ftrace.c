@@ -872,7 +872,6 @@ static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
 		}
 	}
 
-	pr_dbg("SIGCHLD: %d\n", tid);
 	child_exited = true;
 }
 
