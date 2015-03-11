@@ -658,7 +658,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			pr_err("reading pipe failed");
 
 		sl->id[msg.len] = '\0';
-		pr_dbg2("MSG START: %s\n", sl->id);
+		pr_dbg("MSG START: %s\n", sl->id);
 
 		/* link to shmem_list */
 		sl->next = shmem_list_head;
@@ -673,7 +673,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			pr_err("reading pipe failed");
 
 		buf[msg.len] = '\0';
-		pr_dbg2("MSG  END : %s\n", buf);
+		pr_dbg("MSG  END : %s\n", buf);
 
 		psl = &shmem_list_head;
 
@@ -703,7 +703,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		if (read_all(pfd, &tl->tid, msg.len) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg2("MSG  TID : %d\n", tl->tid);
+		pr_dbg("MSG  TID : %d\n", tl->tid);
 
 		tl->exited = false;
 
@@ -718,7 +718,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 
 		tl = xmalloc(sizeof(*tl));
 
-		pr_dbg2("MSG FORK1: start\n");
+		pr_dbg("MSG FORK1: start\n");
 
 		tl->tid = -1;
 		tl->exited = false;
@@ -744,7 +744,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		if (read_all(pfd, &tl->tid, msg.len) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg2("MSG FORK2: %d\n", tl->tid);
+		pr_dbg("MSG FORK2: %d\n", tl->tid);
 		break;
 
 	default:
