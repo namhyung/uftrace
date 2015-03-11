@@ -1018,12 +1018,16 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		usleep(1000);
 	}
 
-	waitpid(pid, &status, 0);
-	if (WIFSIGNALED(status)) {
-		pr_dbg("child (%s) was terminated by signal: %d\n",
-		       opts->exename, WTERMSIG(status));
+	if (child_exited) {
+		waitpid(pid, &status, WNOHANG);
+		if (WIFEXITED(status))
+			pr_dbg("child terminated with exit code: %d\n",
+			       WEXITSTATUS(status));
+		else
+			pr_dbg("child terminated by signal: %s\n",
+			       strsignal(WTERMSIG(status)));
 	} else {
-		pr_dbg("child terminated with %d\n", WEXITSTATUS(status));
+		status = -1;
 	}
 
 	flush_shmem_list(opts->dirname);
