@@ -426,10 +426,10 @@ static int fill_taskinfo(void *arg)
 	bool first = true;
 	int i, nr, *tids;
 
-	nr = read_tid_list(NULL);
+	nr = read_tid_list(NULL, true);
 
 	tids = xcalloc(sizeof(*tids), nr);
-	read_tid_list(tids);
+	read_tid_list(tids, true);
 
 	dprintf(fha->fd, "taskinfo:lines=2\n");
 	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", nr);

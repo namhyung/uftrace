@@ -20,8 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <inttypes.h>
 #include <errno.h>
 #include <argp.h>
 #include <unistd.h>
@@ -771,7 +769,7 @@ static void flush_shmem_list(char *dirname)
 	shmem_list_head = NULL;
 }
 
-int read_tid_list(int *tids)
+int read_tid_list(int *tids, bool skip_unknown)
 {
 	int nr = 0;
 	struct tid_list *tl = tid_list_head;
@@ -779,6 +777,9 @@ int read_tid_list(int *tids)
 	while (tl) {
 		struct tid_list *tmp = tl;
 		tl = tl->next;
+
+		if (tmp->tid == -1 && skip_unknown)
+			continue;
 
 		if (tids)
 			tids[nr] = tmp->tid;

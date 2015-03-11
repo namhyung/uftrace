@@ -10,6 +10,8 @@
 #define FTRACE_MCOUNT_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <inttypes.h>
 #include <libelf.h>
 
 #define likely(x)  __builtin_expect(!!(x), 1)
@@ -114,7 +116,7 @@ struct ftrace_file_handle {
 	struct ftrace_info info;
 };
 
-int read_tid_list(int *tids);
+int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
