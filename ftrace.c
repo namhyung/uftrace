@@ -1168,6 +1168,8 @@ struct ftrace_task_handle {
 	int filter_count;
 	int filter_depth;
 	struct mcount_ret_stack rstack;
+	int stack_count;
+	unsigned long func_stack[MCOUNT_RSTACK_MAX];
 };
 
 struct ftrace_func_filter {
@@ -1388,6 +1390,8 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		else
 			tasks[idx].filter_count = 1;
 
+		tasks[idx].stack_count = 0;
+
 		pr_dbg("opening %s\n", filename);
 		free(filename);
 	}
@@ -1406,6 +1410,11 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		fth->fp = NULL;
 		return NULL;
 	}
+
+	if (fth->rstack.end_time == 0)
+		fth->func_stack[fth->stack_count++] = fth->rstack.child_ip;
+	else
+		fth->stack_count--;
 
 	fth->valid = true;
 	return &fth->rstack;
@@ -1566,6 +1575,41 @@ out:
 	return 0;
 }
 
+static void print_remaining_stack(void)
+{
+	int i;
+	int total = 0;
+
+	for (i = 0; i < nr_tasks; i++)
+		total += tasks[i].stack_count;
+
+	if (total == 0)
+		return;
+
+	printf("\nftrace stopped tracing with remaining functions");
+	printf("\n===============================================\n");
+
+	for (i = 0; i < nr_tasks; i++) {
+		struct ftrace_task_handle *task = &tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		printf("task: %d\n", task->tid);
+
+		while (task->stack_count-- > 0) {
+			unsigned long ip = task->func_stack[task->stack_count];
+			struct sym *sym = find_symtab(ip, proc_maps);
+			char *symname = symbol_getname(sym, ip);
+
+			printf("[%d] %s\n", task->stack_count, symname);
+
+			symbol_putname(sym, symname);
+		}
+		printf("\n");
+	}
+}
+
 static int command_replay(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -1608,6 +1652,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
+	print_remaining_stack();
 	unload_symtabs();
 
 	close_data_file(opts, &handle);
