@@ -507,6 +507,9 @@ struct sym * find_symname(const char *name)
 char *symbol_getname(struct sym *sym, unsigned long addr)
 {
 	char *name;
+	char *symname;
+	bool has_gsi = false;
+	static const size_t size_of_gsi = sizeof("_GLOBAL__sub_I") - 1;
 
 	if (sym == NULL) {
 		if (asprintf(&name, "<%lx>", addr) < 0)
@@ -514,24 +517,51 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 		return name;
 	}
 
-	if (use_demangle && sym->name[0] == '_' && sym->name[1] == 'Z') {
+	if (!use_demangle)
+		return sym->name;
+
+	symname = sym->name;
+
+	/* skip global initialze (constructor?) functions */
+	if (strncmp(symname, "_GLOBAL__sub_I", size_of_gsi) == 0) {
+		symname += size_of_gsi;
+
+		while (*symname++ != '_')
+			continue;
+
+		has_gsi = true;
+	}
+
+	if (symname[0] == '_' && symname[1] == 'Z') {
 		int status = -1;
 
 #ifdef HAVE_LIBIBERTY_DEMANGLE
 
-		name = cplus_demangle_v3(sym->name, 0);
+		name = cplus_demangle_v3(symname, 0);
 		if (name != NULL)
 			status = 0;
 
 #elif defined(HAVE_CXA_DEMANGLE)
 
-		name = __cxa_demangle(sym->name, NULL, NULL, &status);
+		name = __cxa_demangle(symname, NULL, NULL, &status);
 
 #endif
 		if (status != 0)
-			name = sym->name;
-	} else
-		name = sym->name;
+			name = symname;
+
+		/* omit template and/or argument part */
+		symname = strchr(name, '<');
+		if (symname == NULL)
+			symname = strchr(name, '(');
+		if (symname)
+			*symname = '\0';
+
+	} else {
+		if (has_gsi)
+			name = xstrdup(symname);
+		else
+			name = symname;
+	}
 
 	return name;
 }
@@ -545,7 +575,7 @@ void symbol_putname(struct sym *sym, char *name)
 	if (!use_demangle)
 		return;
 
-	if (!strcmp(name, sym->name))
+	if (name == sym->name)
 		return;
 
 free:
