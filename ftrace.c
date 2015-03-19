@@ -1413,7 +1413,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 
 	if (fth->rstack.end_time == 0)
 		fth->func_stack[fth->stack_count++] = fth->rstack.child_ip;
-	else
+	else if (fth->stack_count > 0)
 		fth->stack_count--;
 
 	fth->valid = true;
