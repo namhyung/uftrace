@@ -76,6 +76,7 @@ static struct argp_option ftrace_options[] = {
 #define FTRACE_MODE_LIVE    3
 #define FTRACE_MODE_REPORT  4
 #define FTRACE_MODE_INFO    5
+#define FTRACE_MODE_DUMP    6
 
 #define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
 
@@ -203,6 +204,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->mode = FTRACE_MODE_REPORT;
 		else if (!strcmp("info", arg))
 			opts->mode = FTRACE_MODE_INFO;
+		else if (!strcmp("dump", arg))
+			opts->mode = FTRACE_MODE_DUMP;
 		else
 			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
 		break;
@@ -247,6 +250,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts);
 static int command_live(int argc, char *argv[], struct opts *opts);
 static int command_report(int argc, char *argv[], struct opts *opts);
 static int command_info(int argc, char *argv[], struct opts *opts);
+static int command_dump(int argc, char *argv[], struct opts *opts);
 
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
@@ -262,7 +266,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info] [<command> args...]",
+		.args_doc = "[record|replay|live|report|info|dump] [<command> args...]",
 		.doc = "ftrace -- a function tracer",
 	};
 
@@ -303,6 +307,9 @@ int main(int argc, char *argv[])
 		break;
 	case FTRACE_MODE_INFO:
 		command_info(argc, argv, &opts);
+		break;
+	case FTRACE_MODE_DUMP:
+		command_dump(argc, argv, &opts);
 		break;
 	case FTRACE_MODE_INVALID:
 		break;
@@ -2056,6 +2063,55 @@ static int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	printf("\n");
+
+	close_data_file(opts, &handle);
+
+	return ret;
+}
+
+static int command_dump(int argc, char *argv[], struct opts *opts)
+{
+	int i;
+	int ret;
+	char buf[PATH_MAX];
+	struct ftrace_file_handle handle;
+	struct ftrace_task_handle task;
+
+	ret = open_data_file(opts, &handle);
+	if (ret < 0)
+		return -1;
+
+	load_symtabs(opts->exename);
+
+	for (i = 0; i < handle.info.nr_tid; i++) {
+		int tid = handle.info.tids[i];
+
+		snprintf(buf, sizeof(buf), "%s/%d.dat", opts->dirname, tid);
+		task.fp = fopen(buf, "rb");
+		if (task.fp == NULL)
+			continue;
+
+		printf("reading %d.dat\n", tid);
+		while (!read_task_rstack(&task)) {
+			struct mcount_ret_stack *mrs = &task.rstack;
+			struct sym *parent = find_symtab(mrs->parent_ip, proc_maps);
+			struct sym *child = find_symtab(mrs->child_ip, proc_maps);
+			char *parent_name = symbol_getname(parent, mrs->parent_ip);
+			char *child_name = symbol_getname(child, mrs->child_ip);
+
+			printf("%5d: [%s] %s(%lx)/%s(%lx) depth: %u\n",
+			       mrs->tid, mrs->end_time ? "exit " : "entry",
+			       parent_name, mrs->parent_ip,
+			       child_name, mrs->child_ip, mrs->depth);
+
+			symbol_putname(parent, parent_name);
+			symbol_putname(child, child_name);
+		}
+
+		fclose(task.fp);
+	}
+
+	unload_symtabs();
 
 	close_data_file(opts, &handle);
 
