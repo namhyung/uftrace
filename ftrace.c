@@ -643,7 +643,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
 	struct shmem_list *sl, **psl;
-	struct tid_list *tl;
+	struct tid_list *tl, *pos;
 	struct ftrace_msg msg;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
@@ -709,6 +709,16 @@ static void read_record_mmap(int pfd, const char *dirname)
 			pr_err("reading pipe failed");
 
 		pr_dbg("MSG  TID : %d\n", tl->tid);
+
+		/* check existing tid (due to exec) */
+		pos = tid_list_head;
+		while (pos) {
+			if (pos->tid == tl->tid) {
+				free(tl);
+				return;
+			}
+			pos = pos->next;
+		}
 
 		tl->exited = false;
 
