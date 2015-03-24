@@ -17,7 +17,7 @@
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
-#define MCOUNT_RSTACK_MAX  128
+#define MCOUNT_RSTACK_MAX  256
 #define MCOUNT_NOTRACE_IDX 0x10000
 #define MCOUNT_INVALID_DYNIDX 0xffff
 
