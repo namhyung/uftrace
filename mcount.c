@@ -361,6 +361,7 @@ unsigned long mcount_exit(void)
 		pr_err_ns("corrupted mcount ret stack found!\n");
 
 	rstack->end_time = mcount_gettime();
+	rstack->tid = gettid();
 
 	if (!was_filtered) {
 		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
