@@ -23,7 +23,11 @@ bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 mandir = $(prefix)/share/man
 
+ifdef MAKECMDGOALS
+ifneq ($(filter dist,$(MAKECMDGOALS)),)
 VERSION_GIT := $(patsubst v%,%,$(shell git describe --tags))
+endif
+endif
 
 # Check if bulid flags changed
 BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
