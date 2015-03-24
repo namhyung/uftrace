@@ -494,6 +494,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		if (segv_handled) {
 			mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
 				 PROT_READ);
+			segv_handled = false;
 		}
 
 		pr_dbg("found GOT at %p (resolver: %#lx)\n",
