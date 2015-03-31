@@ -1397,7 +1397,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		tasks[idx].fp = fopen(filename, "rb");
 
 		if (tasks[idx].fp == NULL) {
-			pr_log("cannot open task data file [%s]", filename);
+			pr_log("cannot open task data file [%s]\n", filename);
 			tasks[idx].done = true;
 			return NULL;
 		}
