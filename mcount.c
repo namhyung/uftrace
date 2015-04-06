@@ -189,7 +189,7 @@ static int record_mmap_data(void *buf, size_t size)
 
 static int record_trace_data(void *buf, size_t size)
 {
-	pr_dbg2("recording %zd bytes\n", size);
+	pr_dbg2("%d recording %zd bytes\n", gettid(), size);
 
 	return record_mmap_data(buf, size);
 }
@@ -310,7 +310,7 @@ int mcount_entry(unsigned long parent, unsigned long child)
 		return -1;
 	}
 
-	pr_dbg2("<%d> %lx\n", mcount_rstack_idx, child);
+	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
 	if (filtered == 0)
 		return -1;
@@ -349,7 +349,7 @@ unsigned long mcount_exit(void)
 		was_filtered = true;
 	}
 
-	pr_dbg2("<%d> %lx\n", mcount_rstack_idx,
+	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
 		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
 
 	if (mcount_rstack_idx <= 0)
@@ -600,7 +600,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	plthook_recursion_guard = true;
 
 	sym = find_dynsym(child_idx);
-	pr_dbg2("[%d] %s\n", child_idx, sym->name);
+	pr_dbg2("[%d] n %s\n", child_idx, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -642,7 +642,7 @@ unsigned long plthook_exit(void)
 	dyn_idx = mcount_rstack[idx].dyn_idx;
 
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
-		pr_err_ns("invalid dynsym idx: %d\n", dyn_idx);
+		pr_err_ns("invalid dynsym idx: %d\n", idx);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 		struct sym *sym = find_dynsym(dyn_idx);
@@ -655,7 +655,7 @@ unsigned long plthook_exit(void)
 		plthook_dynsym_resolved[dyn_idx] = true;
 		plthook_dynsym_addr[dyn_idx] = new_addr;
 
-		pr_dbg2("[%d] %s: %lx\n", dyn_idx, name, new_addr);
+		pr_dbg2("[%d] x %s: %lx\n", dyn_idx, name, new_addr);
 		symbol_putname(sym, name);
 	}
 
