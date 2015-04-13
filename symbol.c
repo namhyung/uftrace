@@ -516,17 +516,6 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
-#if __SIZEOF_LONG__ == 8
-# define KADDR_SHIFT  47
-#else
-# define KADDR_SHIFT  31
-#endif
-
-static bool is_kernel_address(unsigned long addr)
-{
-	return !!(addr & (1UL << KADDR_SHIFT));
-}
-
 static unsigned long get_real_address(unsigned long addr)
 {
 	if (is_kernel_address(addr))

@@ -40,6 +40,17 @@ struct ftrace_proc_maps {
 	char libname[];
 };
 
+#if __SIZEOF_LONG__ == 8
+# define KADDR_SHIFT  47
+#else
+# define KADDR_SHIFT  31
+#endif
+
+static inline bool is_kernel_address(unsigned long addr)
+{
+	return !!(addr & (1UL << KADDR_SHIFT));
+}
+
 struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 			 struct ftrace_proc_maps *maps);
 struct sym * find_symname(struct symtabs *symtabs, const char *name);

@@ -2216,6 +2216,8 @@ static int peek_rstack(struct ftrace_file_handle *handle,
 	return __read_rstack(handle, task, false);
 }
 
+static bool skip_kernel_before_user = true;
+
 static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct ftrace_task_handle *task)
 {
@@ -2282,6 +2284,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
+	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2297,6 +2300,13 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+
+	if (skip_kernel_before_user) {
+		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
+			seen_user_rstack = true;
+		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+			goto out;
+	}
 
 	if (rstack->type == FTRACE_ENTRY) {
 		update_filter_count_entry(task, rstack->addr, handle->depth);
@@ -2336,6 +2346,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct ftrace_task_handle *task)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
+	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2351,6 +2362,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+
+	if (skip_kernel_before_user) {
+		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
+			seen_user_rstack = true;
+		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+			goto out;
+	}
 
 	if (rstack->type == FTRACE_ENTRY) {
 		struct ftrace_task_handle *next;
