@@ -5134,8 +5134,8 @@ static int find_event_handle(struct pevent *pevent, struct event_format *event)
 	if (!(*next))
 		return 0;
 
-	pr_stat("overriding event (%d) %s:%s with new print handler",
-		event->id, event->system, event->name);
+//	pr_stat("overriding event (%d) %s:%s with new print handler",
+//		event->id, event->system, event->name);
 
 	event->handler = handle->func;
 	event->context = handle->context;
@@ -5771,8 +5771,8 @@ int pevent_register_event_handler(struct pevent *pevent, int id,
 	if (event == NULL)
 		goto not_found;
 
-	pr_stat("overriding event (%d) %s:%s with new print handler",
-		event->id, event->system, event->name);
+//	pr_stat("overriding event (%d) %s:%s with new print handler",
+//		event->id, event->system, event->name);
 
 	event->handler = func;
 	event->context = context;
