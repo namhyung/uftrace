@@ -48,20 +48,24 @@ ifeq ($(ARCH),x86_64)
 endif
 
 CFLAGS_mcount.op = -pthread
-CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
+LDFLAGS_ftrace = -Wl,-rpath,'$$ORIGIN/libtraceevent' -L ./libtraceevent -ltraceevent -ldl # TODO: remove -rpath ?
 
 include config/Makefile
 
 
 TARGETS := ftrace libmcount.so libmcount-nop.so
 TARGETS += libmcount-fast.so libmcount-single.so libmcount-fast-single.so
+TARGETS += libtraceevent/libtraceevent.a
 
 FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
+FTRACE_HDRS  = mcount.h symbol.h utils.h rbtree.h
 
 LIBMCOUNT_SRCS = mcount.c symbol.c debug.c rbtree.c filter.c
 LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
+LIBMCOUNT_HDRS = mcount.h symbol.h utils.h rbtree.h
 
 LIBMCOUNT_NOP_SRCS = mcount-nop.c
 LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)
@@ -85,7 +89,7 @@ MAKEFLAGS = --no-print-directory
 
 all: $(TARGETS)
 
-$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h rbtree.h FLAGS
+$(LIBMCOUNT_OBJS): %.op: %.c $(LIBMCOUNT_HDRS) FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 mcount-nop.op: mcount-nop.c
@@ -118,7 +122,10 @@ libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) arch/$(ARCH)/entry.op
 libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
+libtraceevent/libtraceevent.a: PHONY
+	@$(MAKE) -sC libtraceevent
+
+ftrace: $(FTRACE_SRCS) $(FTRACE_HDRS) libtraceevent/libtraceevent.a
 	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
 
 install: all
@@ -150,5 +157,6 @@ clean:
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC config check-clean BUILD_FEATURE_CHECKS=0
 	@$(MAKE) -sC doc clean
+	@$(MAKE) -sC libtraceevent clean
 
 .PHONY: all clean test dist doc PHONY
