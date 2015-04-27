@@ -52,7 +52,7 @@ class TestBase:
             A test case can extend this to setup a complex configuration.  """
         return '%s %s' % (TestBase.ftrace, 't-' + self.name)
 
-    def sort(self, output):
+    def sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
         pids = {}
@@ -82,8 +82,12 @@ class TestBase:
 
         result = ''
         pid_list = sorted(list(pids), key=lambda p: pids[p]['order'])
-        for p in pid_list:
-            result += '\n'.join(pids[p]['result'])
+
+        if ignore_children:
+            result += '\n'.join(pids[pid_list[0]]['result'])
+        else:
+            for p in pid_list:
+                result += '\n'.join(pids[p]['result'])
         return result
 
     def run(self):
