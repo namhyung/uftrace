@@ -1,3 +1,6 @@
+/*
+ * This test calls fork() and then exec() to run the t-abc executable.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
