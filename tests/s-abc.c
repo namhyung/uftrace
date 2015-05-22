@@ -1,3 +1,7 @@
+/*
+ * This is a basic test to verify whether ftrace works on the system.
+ */
+#include <stdlib.h>
 #include <unistd.h>
 
 static int __attribute__((noinline)) a(void);
@@ -16,10 +20,16 @@ static int b(void)
 
 static int c(void)
 {
-	return getpid() % 1000;
+	return getpid() % 100000;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	return a() + 1;
+	int ret = 0;
+
+	if (argc > 1)
+		ret = atoi(argv[1]);
+
+	ret += a();
+	return ret ? 0 : 1;
 }

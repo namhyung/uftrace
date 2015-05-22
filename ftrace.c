@@ -52,6 +52,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
 #define OPT_logfile	304
 #define OPT_force	305
 #define OPT_threads	306
+#define OPT_no_merge	307
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -67,6 +68,7 @@ static struct argp_option ftrace_options[] = {
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
+	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ 0 }
 };
 
@@ -96,6 +98,7 @@ struct opts {
 	bool print_symtab;
 	bool force;
 	bool report_thread;
+	bool no_merge;
 };
 
 static unsigned long parse_size(char *str)
@@ -183,6 +186,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_threads:
 		opts->report_thread = true;
+		break;
+
+	case OPT_no_merge:
+		opts->no_merge = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -1537,6 +1544,40 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 	printf(" %3"PRIu64".%03"PRIu64" %2s", delta, delta_small, unit[idx]);
 }
 
+static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
+				       struct mcount_ret_stack *rstack)
+{
+	struct sym *sym = find_symtab(rstack->child_ip, proc_maps);
+	char *symname = symbol_getname(sym, rstack->child_ip);
+	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+
+	if (task == NULL)
+		goto out;
+
+	if (rstack->end_time == 0) {
+		update_filter_count_entry(task, rstack->child_ip);
+		if (task->filter_count <= 0)
+			goto out;
+
+		/* function entry */
+		print_time_unit(0UL, 0UL);
+		printf(" [%5d] | %*s%s() {\n", rstack->tid,
+		       rstack->depth * 2, "", symname);
+	} else {
+		/* function exit */
+		if (task->filter_count > 0) {
+			print_time_unit(rstack->start_time, rstack->end_time);
+			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
+			       rstack->depth * 2, "", symname);
+		}
+
+		update_filter_count_exit(task, rstack->child_ip);
+	}
+out:
+	symbol_putname(sym, symname);
+	return 0;
+}
+
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct mcount_ret_stack *rstack)
 {
@@ -1662,6 +1703,8 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	while (read_rstack(&handle, &rstack) == 0) {
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, &rstack);
+		else if (opts->no_merge)
+			ret = print_graph_no_merge_rstack(&handle, &rstack);
 		else
 			ret = print_graph_rstack(&handle, &rstack);
 
