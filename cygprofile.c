@@ -1,7 +1,7 @@
 /*
  * __cyg_profile_func_{enter,exit} routines for ftrace
  *
- * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ * Copyright (C) 2014-2015, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * Released under the GPL v2.
  */

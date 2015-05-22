@@ -1,7 +1,7 @@
 /*
  * ftrace - Function Tracer
  *
- * Copyright (C) 2014  LG Electornics, Namhyung Kim <namhyung@gmail.com>
+ * Copyright (C) 2014-2015  LG Electornics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 #include "utils.h"
 
 const char *argp_program_version = "ftrace v0.3";
-const char *argp_program_bug_address = "Namhyung Kim <namhyung@gmail.com>";
+const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
 
 #define OPT_flat 	301
 #define OPT_plthook 	302
