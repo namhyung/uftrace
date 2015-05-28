@@ -22,6 +22,9 @@ else
   ifneq ($(MAKECMDGOALS),clean)
     $(warning To install man pages, please install 'pandoc'.)
   endif
+
+install:
+
 endif
 
 clean:
