@@ -94,6 +94,7 @@ install: all
 	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
 	@$(INSTALL) libcygprof.so  $(DESTDIR)$(libdir)/libcygprof.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
+	@ldconfig $(DESTDIR)$(libdir)
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) test
