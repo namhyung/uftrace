@@ -128,7 +128,7 @@ class TestBase:
 
 
 trace_flags = ['-finstrument-functions', '-pg']
-optimizations = ['-O0', '-O1', '-O2', '-O3', '-Os', '-Og']
+optimizations = ['-O0', '-O1', '-O2', '-O3', '-Os']
 
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
