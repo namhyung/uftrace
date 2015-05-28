@@ -83,11 +83,14 @@ class TestBase:
         result = ''
         pid_list = sorted(list(pids), key=lambda p: pids[p]['order'])
 
-        if ignore_children:
-            result += '\n'.join(pids[pid_list[0]]['result'])
-        else:
-            for p in pid_list:
-                result += '\n'.join(pids[p]['result'])
+        try:
+            if ignore_children:
+                result += '\n'.join(pids[pid_list[0]]['result'])
+            else:
+                for p in pid_list:
+                    result += '\n'.join(pids[p]['result'])
+        except:
+            pass  # this leads to failuire with 'NG'
         return result
 
     def run(self):
