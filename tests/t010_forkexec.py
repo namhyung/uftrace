@@ -53,7 +53,7 @@ task: 29474
         # build t-abc (to be exec-ed) first
         build_cmd = 'gcc -o t-abc %s s-abc.c %s' % (build_cflags, build_ldflags)
         if sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE) != 0:
-            return TestBase.TEST_BUILD_FAILURE
+            return TestBase.TEST_BUILD_FAIL
 
         build_cmd = '%s -o %s %s %s %s' % \
                     (lang['cc'], prog, build_cflags, src, build_ldflags)
