@@ -1,6 +1,6 @@
 all:
 
-has_pandoc := $(shell pandoc -v &> /dev/null && echo yes || echo no)
+has_pandoc := $(shell pandoc -v > /dev/null 2>&1 && echo yes || echo no)
 
 INSTALL = install
 
