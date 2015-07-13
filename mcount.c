@@ -45,6 +45,8 @@ static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
 
+static char mcount_exename[1024];
+
 static uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
@@ -55,6 +57,22 @@ static uint64_t mcount_gettime(void)
 static int gettid(void)
 {
 	return syscall(SYS_gettid);
+}
+
+static void read_exename(void)
+{
+	int len;
+	static bool exename_read;
+
+	if (!exename_read) {
+		len = readlink("/proc/self/exe", mcount_exename,
+			       sizeof(mcount_exename)-1);
+		if (len < 0)
+			exit(1);
+		mcount_exename[len] = '\0';
+
+		exename_read = true;
+	}
 }
 
 static const char *session_name(void)
@@ -513,7 +531,6 @@ static int hook_pltgot(void)
 {
 	int fd;
 	int ret = -1;
-	char buf[1024];
 	Elf *elf;
 	GElf_Ehdr ehdr;
 	Elf_Scn *sec;
@@ -522,16 +539,9 @@ static int hook_pltgot(void)
 	size_t shstr_idx;
 	size_t i;
 
-	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-	if (len == -1) {
-		pr_log("error during read executable link\n");
-		return -1;
-	}
-	buf[len] = '\0';
+	pr_dbg("opening executable image: %s\n", mcount_exename);
 
-	pr_dbg("opening executable image: %s\n", buf);
-
-	fd = open(buf, O_RDONLY);
+	fd = open(mcount_exename, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -749,16 +759,10 @@ __monstartup(unsigned long low, unsigned long high)
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
 
+	read_exename();
+
 	if (getenv("FTRACE_PLTHOOK")) {
-		int len;
-		char buf[1024];
-
-		len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
-		if (len < 0)
-			exit(1);
-		buf[len] = '\0';
-
-		load_dynsymtab(buf);
+		load_dynsymtab(mcount_exename);
 		setup_skip_idx();
 
 		if (hook_pltgot() < 0)
