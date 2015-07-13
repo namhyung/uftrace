@@ -130,9 +130,6 @@ class TestBase:
         return 0
 
 
-trace_flags = ['-finstrument-functions', '-pg']
-optimizations = ['-O0', '-O1', '-O2', '-O3', '-Os']
-
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
 YELLOW  = '\033[1;33m'
@@ -168,7 +165,7 @@ result_string = {
     TestBase.TEST_NONZERO_RETURN: 'NZ: Non-zero return value',
 }
 
-def run_single_case(case):
+def run_single_case(case, flags, opts):
     result = {}
 
     # for python3
@@ -176,9 +173,9 @@ def run_single_case(case):
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
 
-    for flag in trace_flags:
-        for opt in optimizations:
-            cflags = ' '.join([flag, opt])
+    for flag in flags:
+        for opt in opts:
+            cflags = ' '.join(["-" + flag, "-" + opt])
             if tc.build(cflags) != 0:
                 ret = TestBase.TEST_BUILD_FAIL
             else:
@@ -199,37 +196,53 @@ def print_test_result(case, result):
     sys.stdout.write(output)
 
 
+def parse_argument():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--profile-flags", dest='flags',
+                        default="pg finstrument-functions",
+                        help="comma separated list of compiler profiling flags")
+    parser.add_argument("-O", "--optimize-levels", dest='opts', default="0123s",
+                        help="compiler optimization levels")
+    parser.add_argument("case", help="test case: 'all' or test number or (partial) name")
+
+    return parser.parse_args()
+
 if __name__ == "__main__":
+    arg = parse_argument()
+
     if len(sys.argv) < 2:
-        print("Usage: runtest.py <testcase>")
+        print("Usage: runtest.py <testcase> [<option>]")
         sys.exit(1)
 
-    opts = ' '.join(sorted([o[1:] for o in optimizations]))
+    opts = ' '.join(sorted(['O'+o for o in arg.opts]))
     optslen = len(opts);
 
     header1 = '%-20s ' % 'Test case'
     header2 = '-' * 20 + ':'
     empty = '                      '
 
-    for flags in sorted(trace_flags):
+    flags = arg.flags.split()
+    for flag in sorted(flags):
         # align with optimization flags
-        header1 += ' ' + flags[:optslen] + empty[len(flags):optslen]
+        header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
         header2 += ' ' + opts
 
     print(header1)
     print(header2)
 
-    if sys.argv[1] != 'all':
-        try:
-            testcase = glob.glob('t*' + sys.argv[1] + '*.py')[0][:-3]
-        except:
-            print("cannot find testcase for : %s" % sys.argv[1])
-            sys.exit(1)
-        result = run_single_case(testcase)
-        print_test_result(testcase, result)
-    else:
+    if arg.case == 'all':
         testcases = sorted(glob.glob('t???_*.py'))
         for tc in testcases:
             name = tc[:-3]  # remove '.py'
-            result = run_single_case(name)
+            result = run_single_case(name, flags, opts.split())
             print_test_result(name, result)
+    else:
+        try:
+            testcase = glob.glob('t*' + arg.case + '*.py')[0][:-3]
+        except:
+            print("cannot find testcase for : %s" % arg.case)
+            sys.exit(1)
+        result = run_single_case(testcase, flags, opts.split())
+        print_test_result(testcase, result)
