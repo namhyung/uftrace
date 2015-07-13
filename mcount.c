@@ -670,29 +670,42 @@ unsigned long plthook_exit(void)
 
 static void atfork_prepare_handler(void)
 {
+	struct ftrace_msg_task tmsg = {
+		.time = mcount_gettime(),
+		.pid = getpid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_FORK_START,
+		.len = sizeof(tmsg),
 	};
-	int len = sizeof(msg);
+	int len = sizeof(msg) + sizeof(tmsg);
+	char buf[len];
 
-	if (pfd >= 0 && write(pfd, &msg, len) != len)
+	memcpy(buf, &msg, sizeof(msg));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
+
+	if (pfd >= 0 && write(pfd, &buf, len) != len)
 		pr_err("write fork info failed");
 }
 
 static void atfork_child_handler(void)
 {
+	struct ftrace_msg_task tmsg = {
+		.time = mcount_gettime(),
+		.pid = getppid(),
+		.tid = getpid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_FORK_END,
-		.len = sizeof(int),
+		.len = sizeof(tmsg),
 	};
-	char buf[128];
-	int tid = gettid();
-	int len = sizeof(msg) + msg.len;
+	int len = sizeof(msg) + sizeof(tmsg);
+	char buf[len];
 
 	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
 
 	if (pfd >= 0 && write(pfd, buf, len) != len)
 		pr_err("write fork info failed");

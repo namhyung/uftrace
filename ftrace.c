@@ -740,14 +740,19 @@ static void read_record_mmap(int pfd, const char *dirname)
 		break;
 
 	case FTRACE_MSG_FORK_START:
-		if (msg.len != 0)
+		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
 		tl = xmalloc(sizeof(*tl));
 
+		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
+			pr_err("reading pipe failed");
+
+		tl->pid = tmsg.pid;
+		tl->tid = -1;
+
 		pr_dbg("MSG FORK1: start\n");
 
-		tl->tid = -1;
 		tl->exited = false;
 
 		/* link to tid_list */
@@ -756,20 +761,22 @@ static void read_record_mmap(int pfd, const char *dirname)
 		break;
 
 	case FTRACE_MSG_FORK_END:
-		if (msg.len != sizeof(int))
+		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
+			pr_err("reading pipe failed");
 
 		tl = tid_list_head;
 		while (tl) {
-			if (tl->tid == -1)
+			if (tl->pid == tmsg.pid && tl->tid == -1)
 				break;
 			tl = tl->next;
 		}
 		if (tl == NULL)
 			pr_err("cannot find fork pid\n");
 
-		if (read_all(pfd, &tl->tid, msg.len) < 0)
-			pr_err("reading pipe failed");
+		tl->tid = tmsg.tid;
 
 		pr_dbg("MSG FORK2: %d\n", tl->tid);
 		break;
