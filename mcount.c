@@ -240,21 +240,25 @@ static void mcount_init_file(void)
 static void mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+	struct ftrace_msg_task tmsg = {
+		.time = mcount_gettime(),
+		.pid = getpid(),
+		.tid = gettid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_TID,
-		.len = sizeof(int),
+		.len = sizeof(tmsg),
 	};
 	char buf[128];
-	int tid = gettid();
-	int len = sizeof(msg) + sizeof(tid);
+	int len = sizeof(msg) + sizeof(tmsg);
 
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
 
 	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
 
 	if (write(pfd, buf, len) != len)
 		pr_err("write tid info failed");

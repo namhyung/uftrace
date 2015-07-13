@@ -570,6 +570,7 @@ static struct shmem_list *shmem_list_head;
 
 struct tid_list {
 	struct tid_list *next;
+	int pid;
 	int tid;
 	bool exited;
 };
@@ -652,6 +653,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 	struct shmem_list *sl, **psl;
 	struct tid_list *tl, *pos;
 	struct ftrace_msg msg;
+	struct ftrace_msg_task tmsg;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
@@ -707,20 +709,23 @@ static void read_record_mmap(int pfd, const char *dirname)
 		break;
 
 	case FTRACE_MSG_TID:
-		if (msg.len != sizeof(int))
+		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
 		tl = xmalloc(sizeof(*tl));
 
-		if (read_all(pfd, &tl->tid, msg.len) < 0)
+		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg("MSG  TID : %d\n", tl->tid);
+		tl->pid = tmsg.pid;
+		tl->tid = tmsg.tid;
+
+		pr_dbg("MSG  TID : %d/%d\n", tl->pid, tl->tid);
 
 		/* check existing tid (due to exec) */
 		pos = tid_list_head;
 		while (pos) {
-			if (pos->tid == tl->tid) {
+			if (pos->pid == tl->pid && pos->tid == tl->tid) {
 				free(tl);
 				return;
 			}

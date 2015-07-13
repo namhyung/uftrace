@@ -59,6 +59,12 @@ struct ftrace_msg {
 	unsigned char data[];
 };
 
+struct ftrace_msg_task {
+	uint64_t time;
+	int32_t  pid;
+	int32_t  tid;
+};
+
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_FILE_VERSION  3
