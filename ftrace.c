@@ -843,6 +843,52 @@ static void read_record_mmap(int pfd, const char *dirname)
 
 static char *map_file;
 
+struct ftrace_session {
+	struct rb_node		 node;
+	char			 sid[16];
+	uint64_t		 start_time;
+	int			 pid, tid;
+	struct ftrace_proc_maps *maps;
+	int 			 namelen;
+	char 			 exename[];
+};
+
+static struct rb_root sessions = RB_ROOT;
+
+static void create_session(struct ftrace_msg_sess *msg, char *exename)
+{
+	struct ftrace_session *s;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &sessions.rb_node;
+
+	while (*p) {
+		parent = *p;
+		s = rb_entry(parent, struct ftrace_session, node);
+
+		if (s->pid > msg->task.pid)
+			p = &parent->rb_left;
+		else if (s->pid < msg->task.pid)
+			p = &parent->rb_right;
+		else if (s->start_time > msg->task.time)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	s = xmalloc(sizeof(*s) + msg->namelen + 1);
+
+	memcpy(s->sid, msg->sid, sizeof(s->sid));
+	s->start_time = msg->task.time;
+	s->pid = msg->task.pid;
+	s->tid = msg->task.tid;
+	s->namelen = msg->namelen;
+	memcpy(s->exename, exename, s->namelen);
+	s->exename[s->namelen] = 0;
+
+	rb_link_node(&s->node, parent, p);
+	rb_insert_color(&s->node, &sessions);
+}
+
 static int read_task_file(char *dirname)
 {
 	int fd;
@@ -870,6 +916,8 @@ static int read_task_file(char *dirname)
 			if (sess.namelen % 8 &&
 			    read_all(fd, pad, 8 - (sess.namelen % 8)) < 0)
 				return -1;
+
+			create_session(&sess, buf);
 
 			if (map_file == NULL)
 				asprintf(&map_file, "sid-%.16s.map", sess.sid);
