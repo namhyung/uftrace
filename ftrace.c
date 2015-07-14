@@ -336,7 +336,7 @@ static int read_all(int fd, void *buf, size_t size)
 		ret = read(fd, buf, size);
 		if (ret < 0 && errno == EINTR)
 			continue;
-		if (ret < 0)
+		if (ret <= 0)
 			return -1;
 
 		buf += ret;
