@@ -69,6 +69,7 @@ struct ftrace_msg_task {
 struct ftrace_msg_sess {
 	struct ftrace_msg_task task;
 	char sid[16];
+	int  unused;
 	int  namelen;
 	char exename[];
 };
