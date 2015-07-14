@@ -1189,6 +1189,48 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 static struct ftrace_proc_maps *proc_maps;
 
+static void read_map_file(char *filename, struct ftrace_proc_maps **maps)
+{
+	FILE *fp;
+	char buf[PATH_MAX];
+
+	fp = fopen(filename, "rb");
+	if (fp == NULL)
+		pr_err("cannot open maps file");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		unsigned long start, end;
+		char prot[5];
+		char path[PATH_MAX];
+		size_t namelen;
+		struct ftrace_proc_maps *map;
+
+		/* skip anon mappings */
+		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+			   &start, &end, prot, path) != 4)
+			continue;
+
+		/* skip non-executable mappings */
+		if (prot[2] != 'x')
+			continue;
+
+		namelen = ALIGN(strlen(path) + 1, 4);
+
+		map = xmalloc(sizeof(*map) + namelen);
+
+		map->start = start;
+		map->end = end;
+		map->len = namelen;
+		memcpy(map->prot, prot, 4);
+		memcpy(map->libname, path, namelen);
+		map->libname[strlen(path)] = '\0';
+
+		map->next = *maps;
+		*maps = map;
+	}
+	fclose(fp);
+}
+
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
 "\t-finstrument-functions flag and ran with ftrace record?\n"
 
@@ -1242,42 +1284,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		map_file = "maps";
 
 	snprintf(buf, sizeof(buf), "%s/%s", opts->dirname, map_file);
-
-	fp = fopen(buf, "rb");
-	if (fp == NULL)
-		pr_err("cannot open maps file");
-
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		unsigned long start, end;
-		char prot[5];
-		char path[PATH_MAX];
-		size_t namelen;
-		struct ftrace_proc_maps *map;
-
-		/* skip anon mappings */
-		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
-			   &start, &end, prot, path) != 4)
-			continue;
-
-		/* skip non-executable mappings */
-		if (prot[2] != 'x')
-			continue;
-
-		namelen = ALIGN(strlen(path) + 1, 4);
-
-		map = xmalloc(sizeof(*map) + namelen);
-
-		map->start = start;
-		map->end = end;
-		map->len = namelen;
-		memcpy(map->prot, prot, 4);
-		memcpy(map->libname, path, namelen);
-		map->libname[strlen(path)] = '\0';
-
-		map->next = proc_maps;
-		proc_maps = map;
-	}
-	fclose(fp);
+	read_map_file(buf, &proc_maps);
 
 	reset_task_handle();
 
