@@ -94,6 +94,7 @@ struct ftrace_file_header {
 
 enum ftrace_feat_bits {
 	PLTHOOK,
+	TASK_SESSION,
 };
 
 enum ftrace_info_bits {

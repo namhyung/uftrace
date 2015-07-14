@@ -466,6 +466,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->want_plthook)
 		features |= 1U << PLTHOOK;
 
+	/* mcount code creates task and sid-XXX.map files */
+	features |= 1U << TASK_SESSION;
+
 	return features;
 }
 
@@ -838,6 +841,59 @@ static void read_record_mmap(int pfd, const char *dirname)
 	}
 }
 
+static char *map_file;
+
+static int read_task_file(char *dirname)
+{
+	int fd;
+	char pad[8];
+	char buf[1024];
+	struct ftrace_msg msg;
+	struct ftrace_msg_task task;
+	struct ftrace_msg_sess sess;
+
+	snprintf(buf, sizeof(buf), "%s/task", dirname);
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		pr_err("open task file");
+
+	while (read_all(fd, &msg, sizeof(msg)) == 0) {
+		if (msg.magic != FTRACE_MSG_MAGIC)
+			return -1;
+
+		switch (msg.type) {
+		case FTRACE_MSG_SESSION:
+			if (read_all(fd, &sess, sizeof(sess)) < 0)
+				return -1;
+			if (read_all(fd, buf, sess.namelen) < 0)
+				return -1;
+			if (sess.namelen % 8 &&
+			    read_all(fd, pad, 8 - (sess.namelen % 8)) < 0)
+				return -1;
+
+			if (map_file == NULL)
+				asprintf(&map_file, "sid-%.16s.map", sess.sid);
+			if (map_file == NULL)
+				return -1;
+			break;
+
+		case FTRACE_MSG_TID:
+		case FTRACE_MSG_FORK_START:
+		case FTRACE_MSG_FORK_END:
+			if (read_all(fd, &task, sizeof(task)) < 0)
+				return -1;
+			break;
+
+		default:
+			pr_log("invalid contents in task file\n");
+			return -1;
+		}
+	}
+
+	close(fd);
+	return 0;
+}
+
 static void flush_shmem_list(char *dirname)
 {
 	struct shmem_list *sl;
@@ -1179,7 +1235,13 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (opts->exename == NULL)
 		opts->exename = handle->info.exename;
 
-	snprintf(buf, sizeof(buf), "%s/maps", opts->dirname);
+	if (handle->hdr.feat_mask & TASK_SESSION) {
+		if (read_task_file(opts->dirname) < 0)
+			pr_err("invalid task file");
+	} else
+		map_file = "maps";
+
+	snprintf(buf, sizeof(buf), "%s/%s", opts->dirname, map_file);
 
 	fp = fopen(buf, "rb");
 	if (fp == NULL)
