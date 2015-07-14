@@ -654,6 +654,8 @@ static void read_record_mmap(int pfd, const char *dirname)
 	struct tid_list *tl, *pos;
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess sess;
+	char *exename;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
@@ -779,6 +781,24 @@ static void read_record_mmap(int pfd, const char *dirname)
 		tl->tid = tmsg.tid;
 
 		pr_dbg("MSG FORK2: %d\n", tl->tid);
+		break;
+
+	case FTRACE_MSG_SESSION:
+		if (msg.len < sizeof(sess))
+			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &sess, sizeof(sess)) < 0)
+			pr_err("reading pipe failed");
+
+		exename = xmalloc(sess.namelen + 1);
+		if (read_all(pfd, exename, sess.namelen) < 0)
+			pr_err("reading pipe failed");
+		exename[sess.namelen] = '\0';
+
+		memcpy(buf, sess.sid, 16);
+		buf[16] = '\0';
+
+		pr_dbg("MSG SESSION: %d: %s (%s)\n", sess.task.tid, exename, buf);
 		break;
 
 	default:

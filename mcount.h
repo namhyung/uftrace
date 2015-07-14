@@ -50,6 +50,7 @@ void _mcleanup(void);
 #define FTRACE_MSG_TID        3U
 #define FTRACE_MSG_FORK_START 4U
 #define FTRACE_MSG_FORK_END   5U
+#define FTRACE_MSG_SESSION    6U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -63,6 +64,13 @@ struct ftrace_msg_task {
 	uint64_t time;
 	int32_t  pid;
 	int32_t  tid;
+};
+
+struct ftrace_msg_sess {
+	struct ftrace_msg_task task;
+	char sid[16];
+	int  namelen;
+	char exename[];
 };
 
 #define FTRACE_MAGIC_LEN  8
