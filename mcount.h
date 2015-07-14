@@ -94,7 +94,6 @@ struct ftrace_file_header {
 
 enum ftrace_feat_bits {
 	PLTHOOK,
-	LIBRARY_MODE,
 };
 
 enum ftrace_info_bits {
