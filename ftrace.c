@@ -735,27 +735,25 @@ static void read_record_mmap(int pfd, const char *dirname)
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
-		tl = xmalloc(sizeof(*tl));
-
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		tl->pid = tmsg.pid;
-		tl->tid = tmsg.tid;
-
-		pr_dbg("MSG  TID : %d/%d\n", tl->pid, tl->tid);
+		pr_dbg("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
 		pos = tid_list_head;
 		while (pos) {
-			if (pos->pid == tl->pid && pos->tid == tl->tid) {
-				free(tl);
+			if (pos->pid == tmsg.pid && pos->tid == tmsg.tid)
 				break;
-			}
+
 			pos = pos->next;
 		}
 
 		if (pos == NULL) {
+			tl = xmalloc(sizeof(*tl));
+
+			tl->pid = tmsg.pid;
+			tl->tid = tmsg.tid;
 			tl->exited = false;
 
 			/* link to tid_list */
