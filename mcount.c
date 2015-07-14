@@ -710,6 +710,7 @@ static void atfork_child_handler(void)
 	if (pfd >= 0 && write(pfd, buf, len) != len)
 		pr_err("write fork info failed");
 
+	shmem_seqnum = 0;
 	get_new_shmem_buffer();
 }
 
