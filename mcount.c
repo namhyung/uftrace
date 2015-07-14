@@ -212,7 +212,7 @@ static int record_trace_data(void *buf, size_t size)
 	return record_mmap_data(buf, size);
 }
 
-static void record_proc_maps(char *dirname)
+static void record_proc_maps(char *dirname, const char *sess_id)
 {
 	int ifd, ofd, len;
 	char buf[4096];
@@ -221,7 +221,7 @@ static void record_proc_maps(char *dirname)
 	if (ifd < 0)
 		pr_err("cannot open proc maps file");
 
-	snprintf(buf, sizeof(buf), "%s/maps", dirname);
+	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, sess_id);
 
 	ofd = open(buf, O_WRONLY | O_CREAT, 0644);
 	if (ofd < 0)
@@ -287,7 +287,7 @@ static void mcount_init_file(void)
 		dirname = FTRACE_DIR_NAME;
 
 	send_session_msg(session_name());
-	record_proc_maps(dirname);
+	record_proc_maps(dirname, session_name());
 }
 
 static void mcount_prepare(void)
