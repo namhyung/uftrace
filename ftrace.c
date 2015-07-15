@@ -784,9 +784,6 @@ static void read_record_mmap(int pfd, const char *dirname)
 		/* link to tid_list */
 		tl->next = tid_list_head;
 		tid_list_head = tl;
-
-		record_task_file(dirname, &msg, sizeof(msg));
-		record_task_file(dirname, &tmsg, sizeof(tmsg));
 		break;
 
 	case FTRACE_MSG_FORK_END:
