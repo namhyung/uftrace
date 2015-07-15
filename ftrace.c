@@ -930,10 +930,14 @@ struct ftrace_task {
 
 static struct rb_root task_tree = RB_ROOT;
 
+static struct ftrace_task *find_task(int tid);
+
 static void add_session_ref(struct ftrace_task *task, struct ftrace_session *sess,
 			    uint64_t timestamp)
 {
 	struct ftrace_sess_ref *ref;
+
+	assert(sess);
 
 	if (task->sess_last) {
 		task->sess_last->next = ref = xmalloc(sizeof(*ref));
@@ -949,7 +953,31 @@ static void add_session_ref(struct ftrace_task *task, struct ftrace_session *ses
 	task->sess_last = ref;
 }
 
-static void create_task(struct ftrace_msg_task *msg)
+static struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
+{
+	struct ftrace_task *t;
+	struct ftrace_sess_ref *r;
+	struct ftrace_session *s = find_session(pid, timestamp);
+
+	if (s)
+		return s;
+
+	/* if it cannot find its own session, inherit from parent or leader */
+	t = find_task(pid);
+	if (t == NULL)
+		return NULL;
+
+	r = &t->sess;
+	while (r) {
+		if (r->start <= timestamp && timestamp < r->end)
+			return r->sess;
+		r = r->next;
+	}
+
+	return NULL;
+}
+
+static void create_task(struct ftrace_msg_task *msg, bool fork)
 {
 	struct ftrace_task *t;
 	struct ftrace_session *s;
@@ -969,7 +997,7 @@ static void create_task(struct ftrace_msg_task *msg)
 			/* add new session */
 			r = xmalloc(sizeof(*r));
 
-			s = find_session(t->pid, msg->time);
+			s = find_task_session(msg->pid, msg->time);
 			add_session_ref(t, s, msg->time);
 
 			pr_dbg("new session: tid = %d, session = %.16s\n",
@@ -980,17 +1008,38 @@ static void create_task(struct ftrace_msg_task *msg)
 
 	t = xmalloc(sizeof(*t));
 
-	t->pid = msg->pid;
+	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
 	t->sess_last = NULL;
 
-	s = find_session(t->pid, msg->time);
+	s = find_task_session(msg->pid, msg->time);
 	add_session_ref(t, s, msg->time);
 
 	pr_dbg("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &task_tree);
+}
+
+static struct ftrace_task *find_task(int tid)
+{
+	struct ftrace_task *t;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &task_tree.rb_node;
+
+	while (*p) {
+		parent = *p;
+		t = rb_entry(parent, struct ftrace_task, node);
+
+		if (t->tid > tid)
+			p = &parent->rb_left;
+		else if (t->tid < tid)
+			p = &parent->rb_right;
+		else
+			return t;
+	}
+
+	return NULL;
 }
 
 static int read_task_file(char *dirname)
@@ -1033,13 +1082,14 @@ static int read_task_file(char *dirname)
 			if (read_all(fd, &task, sizeof(task)) < 0)
 				return -1;
 
-			create_task(&task);
+			create_task(&task, false);
 			break;
 
-		case FTRACE_MSG_FORK_START:
 		case FTRACE_MSG_FORK_END:
 			if (read_all(fd, &task, sizeof(task)) < 0)
 				return -1;
+
+			create_task(&task, true);
 			break;
 
 		default:
