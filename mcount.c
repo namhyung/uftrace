@@ -294,7 +294,6 @@ static void mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 	struct ftrace_msg_task tmsg = {
-		.time = mcount_gettime(),
 		.pid = getpid(),
 		.tid = gettid(),
 	};
@@ -309,6 +308,9 @@ static void mcount_prepare(void)
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
+
+	/* time should be get after session message sent */
+	tmsg.time = mcount_gettime();
 
 	memcpy(buf, &msg, sizeof(msg));
 	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
