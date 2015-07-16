@@ -24,6 +24,11 @@ struct symtab {
 	size_t nr_alloc;
 };
 
+struct symtabs {
+	struct symtab symtab;
+	struct symtab dsymtab;
+};
+
 struct ftrace_proc_maps {
 	struct ftrace_proc_maps *next;
 	uint64_t start;
