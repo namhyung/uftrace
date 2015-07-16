@@ -262,8 +262,6 @@ static int command_dump(int argc, char *argv[], struct opts *opts);
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
-static struct symtabs symtabs;
-
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
@@ -288,6 +286,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.print_symtab) {
+		struct symtabs symtabs;
+
 		if (opts.exename == NULL) {
 			struct ftrace_file_handle handle;
 
@@ -364,14 +364,14 @@ static int write_all(int fd, void *buf, size_t size)
 	return 0;
 }
 
-static void build_addrlist(char *buf, char *symlist)
+static void build_addrlist(struct symtabs *symtabs, char *buf, char *symlist)
 {
 	char *p = symlist;
 	char *fname = strtok(p, ",:");
 
 	buf[0] = '\0';
 	while (fname) {
-		struct sym *sym = find_symname(&symtabs, fname);
+		struct sym *sym = find_symname(symtabs, fname);
 
 		if (sym) {
 			char tmp[64];
@@ -389,13 +389,13 @@ static void build_addrlist(char *buf, char *symlist)
 	}
 }
 
-static void setup_child_environ(struct opts *opts, int pfd)
+static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
 {
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
-	if (find_symname(&symtabs, "__cyg_profile_func_enter"))
+	if (find_symname(symtabs, "__cyg_profile_func_enter"))
 		strcpy(buf, "libcygprof.so");
 	else
 		strcpy(buf, "libmcount.so");
@@ -425,12 +425,12 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
 	if (opts->filter) {
-		build_addrlist(buf, opts->filter);
+		build_addrlist(symtabs, buf, opts->filter);
 		setenv("FTRACE_FILTER", buf, 1);
 	}
 
 	if (opts->notrace) {
-		build_addrlist(buf, opts->notrace);
+		build_addrlist(symtabs, buf, opts->notrace);
 		setenv("FTRACE_NOTRACE", buf, 1);
 	}
 
@@ -851,11 +851,13 @@ struct ftrace_session {
 	uint64_t		 start_time;
 	int			 pid, tid;
 	struct ftrace_proc_maps *maps;
+	struct symtabs		 symtabs;
 	int 			 namelen;
 	char 			 exename[];
 };
 
 static struct rb_root sessions = RB_ROOT;
+static struct ftrace_session *first_session;
 
 static void create_session(struct ftrace_msg_sess *msg, char *exename)
 {
@@ -877,7 +879,7 @@ static void create_session(struct ftrace_msg_sess *msg, char *exename)
 			p = &parent->rb_right;
 	}
 
-	s = xmalloc(sizeof(*s) + msg->namelen + 1);
+	s = xzalloc(sizeof(*s) + msg->namelen + 1);
 
 	memcpy(s->sid, msg->sid, sizeof(s->sid));
 	s->start_time = msg->task.time;
@@ -886,6 +888,11 @@ static void create_session(struct ftrace_msg_sess *msg, char *exename)
 	s->namelen = msg->namelen;
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
+
+	load_symtabs(&s->symtabs, s->exename);
+
+	if (first_session == NULL)
+		first_session = s;
 
 	rb_link_node(&s->node, parent, p);
 	rb_insert_color(&s->node, &sessions);
@@ -1271,6 +1278,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		.sa_flags = 0,
 	};
 	int remaining = 0;
+	struct symtabs symtabs;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1307,7 +1315,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (pid == 0) {
 		close(pfd[0]);
 
-		setup_child_environ(opts, pfd[1]);
+		setup_child_environ(opts, pfd[1], &symtabs);
 
 		/*
 		 * I don't think the traced binary is in PATH.
@@ -1638,7 +1646,7 @@ static int setup_function_filter(unsigned long **filters, char *filter_str)
 	char *pos = buf;
 	int count = 0;
 
-	build_addrlist(buf, filter_str);
+	build_addrlist(&first_session->symtabs, buf, filter_str);
 
 	do {
 		unsigned long addr;
@@ -1836,8 +1844,10 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct mcount_ret_stack *rstack)
 {
 	static int count;
-	struct sym *parent = find_symtab(&symtabs, rstack->parent_ip, proc_maps);
-	struct sym *child = find_symtab(&symtabs, rstack->child_ip, proc_maps);
+	struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+	struct symtabs *symtabs = &sess->symtabs;
+	struct sym *parent = find_symtab(symtabs, rstack->parent_ip, proc_maps);
+	struct sym *child = find_symtab(symtabs, rstack->child_ip, proc_maps);
 	char *parent_name = symbol_getname(parent, rstack->parent_ip);
 	char *child_name = symbol_getname(child, rstack->child_ip);
 
@@ -1889,12 +1899,19 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct mcount_ret_stack *rstack)
 {
-	struct sym *sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
-	char *symname = symbol_getname(sym, rstack->child_ip);
 	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+	struct ftrace_session *sess;
+	struct symtabs *symtabs;
+	struct sym *sym;
+	char *symname;
 
 	if (task == NULL)
-		goto out;
+		return 0;
+
+	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	symtabs = &sess->symtabs;
+	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
+	symname = symbol_getname(sym, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
 		update_filter_count_entry(task, rstack->child_ip);
@@ -1923,12 +1940,19 @@ out:
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct mcount_ret_stack *rstack)
 {
-	struct sym *sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
-	char *symname = symbol_getname(sym, rstack->child_ip);
 	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+	struct ftrace_session *sess;
+	struct symtabs *symtabs;
+	struct sym *sym;
+	char *symname;
 
 	if (task == NULL)
-		goto out;
+		return 0;
+
+	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	symtabs = &sess->symtabs;
+	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
+	symname = symbol_getname(sym, rstack->child_ip);
 
 	if (rstack->end_time == 0) {
 		struct mcount_ret_stack rstack_next;
@@ -1998,8 +2022,10 @@ static void print_remaining_stack(void)
 		printf("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
+			struct ftrace_session *sess = find_task_session(task->tid, -2ULL);
+			struct symtabs *symtabs = &sess->symtabs;
 			unsigned long ip = task->func_stack[task->stack_count];
-			struct sym *sym = find_symtab(&symtabs, ip, proc_maps);
+			struct sym *sym = find_symtab(symtabs, ip, proc_maps);
 			char *symname = symbol_getname(sym, ip);
 
 			printf("[%d] %s\n", task->stack_count, symname);
@@ -2019,8 +2045,6 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
-
-	load_symtabs(&symtabs, opts->exename);
 
 	if (opts->filter) {
 		filters.nr_filters = setup_function_filter(&filters.filters,
@@ -2055,7 +2079,6 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	print_remaining_stack();
-	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 
@@ -2202,10 +2225,13 @@ static void report_functions(struct ftrace_file_handle *handle)
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		while ((rstack = get_task_rstack(handle, i)) != NULL) {
+			struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+			struct symtabs *symtabs = &sess->symtabs;
+
 			if (rstack->end_time == 0)
 				goto next;
 
-			sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
+			sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
 			if (sym == NULL) {
 				pr_log("cannot find symbol for %lx\n",
 				       rstack->child_ip);
@@ -2264,13 +2290,15 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 				  struct mcount_ret_stack *rstack)
 {
 	struct sym *sym;
+	struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+	struct symtabs *symtabs = &sess->symtabs;
 
 	if (tasks[idx].func)
 		return tasks[idx].func;
 
 	if (idx == handle->info.nr_tid - 1) {
 		/* This is the main thread */
-		tasks[idx].func = sym = find_symname(&symtabs, "main");
+		tasks[idx].func = sym = find_symname(symtabs, "main");
 		if (sym)
 			return sym;
 
@@ -2278,7 +2306,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 		/* fall through */
 	}
 
-	tasks[idx].func = sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
+	tasks[idx].func = sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
 	if (sym == NULL) {
 		pr_log("cannot find symbol for %lx\n",
 		       rstack->child_ip);
@@ -2358,8 +2386,6 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	load_symtabs(&symtabs, opts->exename);
-
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
 
@@ -2367,8 +2393,6 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		report_threads(&handle);
 	else
 		report_functions(&handle);
-
-	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 
@@ -2476,8 +2500,6 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	load_symtabs(&symtabs, opts->exename);
-
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
 
@@ -2489,8 +2511,10 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		printf("reading %d.dat\n", tid);
 		while (!read_task_rstack(&task)) {
 			struct mcount_ret_stack *mrs = &task.rstack;
-			struct sym *parent = find_symtab(&symtabs, mrs->parent_ip, proc_maps);
-			struct sym *child = find_symtab(&symtabs, mrs->child_ip, proc_maps);
+			struct ftrace_session *sess = find_task_session(mrs->tid, rstack_time(mrs));
+			struct symtabs *symtabs = &sess->symtabs;
+			struct sym *parent = find_symtab(symtabs, mrs->parent_ip, proc_maps);
+			struct sym *child = find_symtab(symtabs, mrs->child_ip, proc_maps);
 			char *parent_name = symbol_getname(parent, mrs->parent_ip);
 			char *child_name = symbol_getname(child, mrs->child_ip);
 
@@ -2505,8 +2529,6 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 		fclose(task.fp);
 	}
-
-	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 
