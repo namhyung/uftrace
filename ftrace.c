@@ -262,6 +262,8 @@ static int command_dump(int argc, char *argv[], struct opts *opts);
 static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
+static struct symtabs symtabs;
+
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
@@ -293,9 +295,9 @@ int main(int argc, char *argv[])
 				exit(1);
 		}
 
-		load_symtabs(opts.exename);
-		print_symtabs();
-		unload_symtabs();
+		load_symtabs(&symtabs, opts.exename);
+		print_symtabs(&symtabs);
+		unload_symtabs(&symtabs);
 		exit(0);
 	}
 
@@ -369,7 +371,7 @@ static void build_addrlist(char *buf, char *symlist)
 
 	buf[0] = '\0';
 	while (fname) {
-		struct sym *sym = find_symname(fname);
+		struct sym *sym = find_symname(&symtabs, fname);
 
 		if (sym) {
 			char tmp[64];
@@ -393,7 +395,7 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
-	if (find_symname("__cyg_profile_func_enter"))
+	if (find_symname(&symtabs, "__cyg_profile_func_enter"))
 		strcpy(buf, "libcygprof.so");
 	else
 		strcpy(buf, "libmcount.so");
@@ -1281,10 +1283,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		/* don't care about the failure */
 	}
 
-	load_symtabs(opts->exename);
+	load_symtabs(&symtabs, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-		if (find_symname(profile_funcs[i]))
+		if (find_symname(&symtabs, profile_funcs[i]))
 			break;
 	}
 
@@ -1391,7 +1393,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	 * Do not unload symbol tables.  It might save some time when used by
 	 * 'live' command as it also need to load the symtabs again.
 	 */
-	//unload_symtabs();
+	//unload_symtabs(&symtabs);
 	return 0;
 }
 
@@ -1834,8 +1836,8 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct mcount_ret_stack *rstack)
 {
 	static int count;
-	struct sym *parent = find_symtab(rstack->parent_ip, proc_maps);
-	struct sym *child = find_symtab(rstack->child_ip, proc_maps);
+	struct sym *parent = find_symtab(&symtabs, rstack->parent_ip, proc_maps);
+	struct sym *child = find_symtab(&symtabs, rstack->child_ip, proc_maps);
 	char *parent_name = symbol_getname(parent, rstack->parent_ip);
 	char *child_name = symbol_getname(child, rstack->child_ip);
 
@@ -1887,7 +1889,7 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct mcount_ret_stack *rstack)
 {
-	struct sym *sym = find_symtab(rstack->child_ip, proc_maps);
+	struct sym *sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
 	char *symname = symbol_getname(sym, rstack->child_ip);
 	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
 
@@ -1921,7 +1923,7 @@ out:
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct mcount_ret_stack *rstack)
 {
-	struct sym *sym = find_symtab(rstack->child_ip, proc_maps);
+	struct sym *sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
 	char *symname = symbol_getname(sym, rstack->child_ip);
 	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
 
@@ -1997,7 +1999,7 @@ static void print_remaining_stack(void)
 
 		while (task->stack_count-- > 0) {
 			unsigned long ip = task->func_stack[task->stack_count];
-			struct sym *sym = find_symtab(ip, proc_maps);
+			struct sym *sym = find_symtab(&symtabs, ip, proc_maps);
 			char *symname = symbol_getname(sym, ip);
 
 			printf("[%d] %s\n", task->stack_count, symname);
@@ -2018,7 +2020,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	load_symtabs(opts->exename);
+	load_symtabs(&symtabs, opts->exename);
 
 	if (opts->filter) {
 		filters.nr_filters = setup_function_filter(&filters.filters,
@@ -2053,7 +2055,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	print_remaining_stack();
-	unload_symtabs();
+	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 
@@ -2203,7 +2205,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 			if (rstack->end_time == 0)
 				goto next;
 
-			sym = find_symtab(rstack->child_ip, proc_maps);
+			sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
 			if (sym == NULL) {
 				pr_log("cannot find symbol for %lx\n",
 				       rstack->child_ip);
@@ -2268,7 +2270,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 
 	if (idx == handle->info.nr_tid - 1) {
 		/* This is the main thread */
-		tasks[idx].func = sym = find_symname("main");
+		tasks[idx].func = sym = find_symname(&symtabs, "main");
 		if (sym)
 			return sym;
 
@@ -2276,7 +2278,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 		/* fall through */
 	}
 
-	tasks[idx].func = sym = find_symtab(rstack->child_ip, proc_maps);
+	tasks[idx].func = sym = find_symtab(&symtabs, rstack->child_ip, proc_maps);
 	if (sym == NULL) {
 		pr_log("cannot find symbol for %lx\n",
 		       rstack->child_ip);
@@ -2356,7 +2358,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	load_symtabs(opts->exename);
+	load_symtabs(&symtabs, opts->exename);
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
@@ -2366,7 +2368,7 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 	else
 		report_functions(&handle);
 
-	unload_symtabs();
+	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 
@@ -2474,7 +2476,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	load_symtabs(opts->exename);
+	load_symtabs(&symtabs, opts->exename);
 
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
@@ -2487,8 +2489,8 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		printf("reading %d.dat\n", tid);
 		while (!read_task_rstack(&task)) {
 			struct mcount_ret_stack *mrs = &task.rstack;
-			struct sym *parent = find_symtab(mrs->parent_ip, proc_maps);
-			struct sym *child = find_symtab(mrs->child_ip, proc_maps);
+			struct sym *parent = find_symtab(&symtabs, mrs->parent_ip, proc_maps);
+			struct sym *child = find_symtab(&symtabs, mrs->child_ip, proc_maps);
 			char *parent_name = symbol_getname(parent, mrs->parent_ip);
 			char *child_name = symbol_getname(child, mrs->child_ip);
 
@@ -2504,7 +2506,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		fclose(task.fp);
 	}
 
-	unload_symtabs();
+	unload_symtabs(&symtabs);
 
 	close_data_file(opts, &handle);
 

@@ -45,6 +45,7 @@ static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
 
+static struct symtabs symtabs;
 static char mcount_exename[1024];
 
 static uint64_t mcount_gettime(void)
@@ -650,7 +651,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	plthook_recursion_guard = true;
 
-	sym = find_dynsym(child_idx);
+	sym = find_dynsym(&symtabs, child_idx);
 	pr_dbg2("[%d] n %s\n", child_idx, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
@@ -696,7 +697,7 @@ unsigned long plthook_exit(void)
 		pr_err_ns("invalid dynsym idx: %d\n", idx);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
-		struct sym *sym = find_dynsym(dyn_idx);
+		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
 		char *name = symbol_getname(sym, 0);
 
 		new_addr = plthook_got_ptr[3 + dyn_idx];
@@ -799,16 +800,16 @@ __monstartup(unsigned long low, unsigned long high)
 	read_exename();
 
 	if (getenv("FTRACE_PLTHOOK")) {
-		load_dynsymtab(mcount_exename);
-		setup_skip_idx();
+		load_dynsymtab(&symtabs, mcount_exename);
+		setup_skip_idx(&symtabs);
 
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
 		else {
 			plthook_dynsym_resolved = xcalloc(sizeof(bool),
-							  count_dynsym());
+							  count_dynsym(&symtabs));
 			plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
-						      count_dynsym());
+						      count_dynsym(&symtabs));
 		}
 	}
 

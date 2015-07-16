@@ -25,8 +25,6 @@
 #include "symbol.h"
 #include "utils.h"
 
-static struct symtabs symtabs;
-
 #if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
 
@@ -109,13 +107,13 @@ static void __unload_symtab(struct symtab *symtab)
 	symtab->sym_names = NULL;
 }
 
-void unload_symtabs(void)
+void unload_symtabs(struct symtabs *symtabs)
 {
-	__unload_symtab(&symtabs.symtab);
-	__unload_symtab(&symtabs.dsymtab);
+	__unload_symtab(&symtabs->symtab);
+	__unload_symtab(&symtabs->dsymtab);
 }
 
-int __load_symtab(struct symtab *symtab, const char *filename, unsigned long offset)
+int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long offset)
 {
 	int fd;
 	Elf *elf;
@@ -124,6 +122,7 @@ int __load_symtab(struct symtab *symtab, const char *filename, unsigned long off
 	Elf_Scn *sym_sec, *sec;
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0;
+	struct symtab *symtab = &symtabs->symtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -223,7 +222,7 @@ elf_error:
 }
 
 /* This functions is also called from libmcount.so */
-int load_dynsymtab(const char *filename)
+int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 {
 	int fd;
 	int ret = -1;
@@ -237,7 +236,7 @@ int load_dynsymtab(const char *filename)
 	int rel_type = SHT_NULL;
 	char buf[256];
 	const char *errmsg;
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -361,14 +360,14 @@ elf_error:
 	goto out;
 }
 
-void load_symtabs(const char *filename)
+void load_symtabs(struct symtabs *symtabs, const char *filename)
 {
 	/* already loaded */
-	if (symtabs.symtab.nr_sym)
+	if (symtabs->symtab.nr_sym)
 		return;
 
-	__load_symtab(&symtabs.symtab, filename, 0);
-	load_dynsymtab(filename);
+	load_symtab(symtabs, filename, 0);
+	load_dynsymtab(symtabs, filename);
 }
 
 static const char *skip_syms[] = {
@@ -383,10 +382,10 @@ static const char *skip_syms[] = {
 static unsigned *skip_idx;
 static unsigned skip_idx_nr;
 
-void setup_skip_idx(void)
+void setup_skip_idx(struct symtabs *symtabs)
 {
 	unsigned i, j;
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (j = 0; j < ARRAY_SIZE(skip_syms); j++) {
@@ -419,9 +418,9 @@ bool should_skip_idx(unsigned idx)
 	return false;
 }
 
-struct sym * find_dynsym(size_t idx)
+struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
 {
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	if (idx >= dsymtab->nr_sym)
 		return NULL;
@@ -429,17 +428,18 @@ struct sym * find_dynsym(size_t idx)
 	return &dsymtab->sym[idx];
 }
 
-size_t count_dynsym(void)
+size_t count_dynsym(struct symtabs *symtabs)
 {
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	return dsymtab->nr_sym;
 }
 
-struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
+struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
+			 struct ftrace_proc_maps *maps)
 {
-	struct symtab *stab = &symtabs.symtab;
-	struct symtab *dtab = &symtabs.dsymtab;
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 	struct sym *sym;
 
 	sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
@@ -463,7 +463,7 @@ struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
 	}
 
 	if (maps) {
-		__load_symtab(stab, maps->libname, maps->start);
+		load_symtab(symtabs, maps->libname, maps->start);
 
 		sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
@@ -472,10 +472,10 @@ struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
 	return sym;
 }
 
-struct sym * find_symname(const char *name)
+struct sym * find_symname(struct symtabs *symtabs, const char *name)
 {
-	struct symtab *stab = &symtabs.symtab;
-	struct symtab *dtab = &symtabs.dsymtab;
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 	struct sym **psym;
 	size_t i;
 
@@ -570,11 +570,11 @@ free:
 		free(name);
 }
 
-void print_symtabs(void)
+void print_symtabs(struct symtabs *symtabs)
 {
 	size_t i;
-	struct symtab *stab = &symtabs.symtab;
-	struct symtab *dtab = &symtabs.dsymtab;
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 
 	printf("Normal symbols\n");
 	printf("==============\n");
