@@ -748,7 +748,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		/* check existing tid (due to exec) */
 		pos = tid_list_head;
 		while (pos) {
-			if (pos->pid == tmsg.pid && pos->tid == tmsg.tid)
+			if (pos->tid == tmsg.tid)
 				break;
 
 			pos = pos->next;
@@ -809,7 +809,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 
 		tl->tid = tmsg.tid;
 
-		pr_dbg("MSG FORK2: %d\n", tl->tid);
+		pr_dbg("MSG FORK2: %d/%d\n", tl->pid, tl->tid);
 
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &tmsg, sizeof(tmsg));
