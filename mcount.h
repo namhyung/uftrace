@@ -17,7 +17,7 @@
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
-#define MCOUNT_RSTACK_MAX  256
+#define MCOUNT_RSTACK_MAX  1024
 #define MCOUNT_NOTRACE_IDX 0x10000
 #define MCOUNT_INVALID_DYNIDX 0xffff
 
@@ -29,8 +29,7 @@ struct mcount_ret_stack {
 	uint64_t end_time;
 	uint64_t child_time;
 	int tid;
-	unsigned char depth;
-	unsigned char unused;
+	unsigned short depth;
 	unsigned short dyn_idx;
 };
 
