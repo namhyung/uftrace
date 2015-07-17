@@ -1909,6 +1909,9 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	if (sess == NULL)
+		return 0;
+
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
 	symname = symbol_getname(sym, rstack->child_ip);
@@ -1950,6 +1953,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	if (sess == NULL)
+		return 0;
+
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
 	symname = symbol_getname(sym, rstack->child_ip);
@@ -2231,6 +2237,9 @@ static void report_functions(struct ftrace_file_handle *handle)
 			if (rstack->end_time == 0)
 				goto next;
 
+			if (sess == NULL)
+				goto next;
+
 			sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
 			if (sym == NULL) {
 				pr_log("cannot find symbol for %lx\n",
@@ -2295,6 +2304,11 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 
 	if (tasks[idx].func)
 		return tasks[idx].func;
+
+	if (sess == NULL) {
+		pr_log("cannot find session for tid %d\n", rstack->tid);
+		return NULL;
+	}
 
 	if (idx == handle->info.nr_tid - 1) {
 		/* This is the main thread */
