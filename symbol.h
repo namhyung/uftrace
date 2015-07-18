@@ -25,6 +25,7 @@ struct symtab {
 };
 
 struct symtabs {
+	bool loaded;
 	struct symtab symtab;
 	struct symtab dsymtab;
 };

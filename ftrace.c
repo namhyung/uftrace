@@ -286,7 +286,9 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.print_symtab) {
-		struct symtabs symtabs;
+		struct symtabs symtabs = {
+			.loaded = false,
+		};
 
 		if (opts.exename == NULL) {
 			struct ftrace_file_handle handle;
@@ -1311,7 +1313,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		.sa_flags = 0,
 	};
 	int remaining = 0;
-	struct symtabs symtabs;
+	struct symtabs symtabs = {
+		.loaded = false,
+	};
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 

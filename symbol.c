@@ -362,12 +362,13 @@ elf_error:
 
 void load_symtabs(struct symtabs *symtabs, const char *filename)
 {
-	/* already loaded */
-	if (symtabs->symtab.nr_sym)
+	if (symtabs->loaded)
 		return;
 
 	load_symtab(symtabs, filename, 0);
 	load_dynsymtab(symtabs, filename);
+
+	symtabs->loaded = true;
 }
 
 static const char *skip_syms[] = {
