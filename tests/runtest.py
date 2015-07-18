@@ -237,9 +237,10 @@ if __name__ == "__main__":
             print_test_result(name, result)
     else:
         try:
-            testcase = glob.glob('t*' + arg.case + '*.py')[0][:-3]
+            testcases = glob.glob('t*' + arg.case + '*.py')
         except:
             print("cannot find testcase for : %s" % arg.case)
             sys.exit(1)
-        result = run_single_case(testcase, flags, opts.split())
-        print_test_result(testcase, result)
+        for testcase in sorted(testcases):
+            result = run_single_case(testcase[:-3], flags, opts.split())
+            print_test_result(testcase[:-3], result)
