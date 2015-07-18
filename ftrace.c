@@ -1576,7 +1576,10 @@ struct ftrace_task_handle {
 	int filter_depth;
 	struct mcount_ret_stack rstack;
 	int stack_count;
-	unsigned long func_stack[MCOUNT_RSTACK_MAX];
+	struct {
+		unsigned long ip;
+		uint64_t time;
+	} func_stack[MCOUNT_RSTACK_MAX];
 };
 
 struct ftrace_func_filter {
@@ -1818,9 +1821,11 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
-	if (fth->rstack.end_time == 0)
-		fth->func_stack[fth->stack_count++] = fth->rstack.child_ip;
-	else if (fth->stack_count > 0)
+	if (fth->rstack.end_time == 0) {
+		fth->func_stack[fth->stack_count].time = fth->rstack.start_time;
+		fth->func_stack[fth->stack_count].ip = fth->rstack.child_ip;
+		fth->stack_count++;
+	} else if (fth->stack_count > 0)
 		fth->stack_count--;
 
 	fth->valid = true;
@@ -2061,9 +2066,10 @@ static void print_remaining_stack(void)
 		printf("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
-			struct ftrace_session *sess = find_task_session(task->tid, -2ULL);
+			uint64_t time = task->func_stack[task->stack_count].time;
+			struct ftrace_session *sess = find_task_session(task->tid, time);
 			struct symtabs *symtabs = &sess->symtabs;
-			unsigned long ip = task->func_stack[task->stack_count];
+			unsigned long ip = task->func_stack[task->stack_count].ip;
 			struct sym *sym = find_symtab(symtabs, ip, proc_maps);
 			char *symname = symbol_getname(sym, ip);
 
