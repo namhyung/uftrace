@@ -205,16 +205,13 @@ def parse_argument():
                         help="comma separated list of compiler profiling flags")
     parser.add_argument("-O", "--optimize-levels", dest='opts', default="0123s",
                         help="compiler optimization levels")
-    parser.add_argument("case", help="test case: 'all' or test number or (partial) name")
+    parser.add_argument("case", nargs='?', default="all",
+                        help="test case: 'all' or test number or (partial) name")
 
     return parser.parse_args()
 
 if __name__ == "__main__":
     arg = parse_argument()
-
-    if len(sys.argv) < 2:
-        print("Usage: runtest.py <testcase> [<option>]")
-        sys.exit(1)
 
     opts = ' '.join(sorted(['O'+o for o in arg.opts]))
     optslen = len(opts);
