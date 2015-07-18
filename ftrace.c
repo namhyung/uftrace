@@ -673,6 +673,55 @@ static int record_task_file(const char *dirname, void *data, int len)
 	return 0;
 }
 
+static void flush_shmem_list(const char *dirname)
+{
+	struct shmem_list *sl;
+
+	/* flush remaining list (due to abnormal termination) */
+	sl = shmem_list_head;
+	while (sl) {
+		struct shmem_list *tmp = sl;
+		sl = sl->next;
+
+		pr_dbg("flushing %s\n", tmp->id);
+
+		record_mmap_file(dirname, tmp->id);
+		free(tmp);
+	}
+	shmem_list_head = NULL;
+}
+
+static void flush_old_shmem(const char *dirname, int tid)
+{
+	struct shmem_list *curr, *prev;
+
+	/* flush old session (due to exec) */
+	prev = NULL;
+	curr = shmem_list_head;
+
+	while (curr) {
+		int tmp_id;
+
+		sscanf(curr->id, "/ftrace-%*x-%d-%*d", &tmp_id);
+
+		if (tid == tmp_id) {
+			if (prev)
+				prev->next = curr->next;
+			else
+				shmem_list_head = curr->next;
+
+			pr_dbg("flushing %s\n", curr->id);
+
+			record_mmap_file(dirname, curr->id);
+			free(curr);
+			return;
+		}
+
+		prev = curr;
+		curr = prev->next;
+	}
+}
+
 static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
@@ -748,8 +797,10 @@ static void read_record_mmap(int pfd, const char *dirname)
 		/* check existing tid (due to exec) */
 		pos = tid_list_head;
 		while (pos) {
-			if (pos->tid == tmsg.tid)
+			if (pos->tid == tmsg.tid) {
+				flush_old_shmem(dirname, tmsg.tid);
 				break;
+			}
 
 			pos = pos->next;
 		}
@@ -1109,24 +1160,6 @@ static int read_task_file(char *dirname)
 
 	close(fd);
 	return 0;
-}
-
-static void flush_shmem_list(char *dirname)
-{
-	struct shmem_list *sl;
-
-	/* flush remaining list (due to abnormal termination) */
-	sl = shmem_list_head;
-	while (sl) {
-		struct shmem_list *tmp = sl;
-		sl = sl->next;
-
-		pr_dbg("flushing %s\n", tmp->id);
-
-		record_mmap_file(dirname, tmp->id);
-		free(tmp);
-	}
-	shmem_list_head = NULL;
 }
 
 int read_tid_list(int *tids, bool skip_unknown)
