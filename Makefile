@@ -97,7 +97,7 @@ install: all
 	@ldconfig $(DESTDIR)$(libdir)
 
 test: all
-	@$(MAKE) -C tests ARCH=$(ARCH) test
+	@$(MAKE) -C tests ARCH=$(ARCH) TESTARG="$(TESTARG)" test
 
 dist:
 	git archive --format=tar.gz --prefix=ftrace-$(VERSION_GIT)/ \

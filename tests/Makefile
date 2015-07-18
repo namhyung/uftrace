@@ -1,5 +1,5 @@
 test:
-	./runtest.py all
+	./runtest.py $(TESTARG)
 
 clean:
 	@rm -f *.o *.so *.pyc t-*
