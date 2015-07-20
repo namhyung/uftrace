@@ -54,6 +54,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
 #define OPT_threads	306
 #define OPT_no_merge	307
 #define OPT_nop		308
+#define OPT_time	309
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -71,6 +72,7 @@ static struct argp_option ftrace_options[] = {
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
+	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ 0 }
 };
 
@@ -102,6 +104,7 @@ struct opts {
 	bool report_thread;
 	bool no_merge;
 	bool nop;
+	bool time;
 };
 
 static unsigned long parse_size(char *str)
@@ -197,6 +200,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_nop:
 		opts->nop = true;
+		break;
+
+	case OPT_time:
+		opts->time = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -1310,6 +1317,21 @@ static int remove_directory(char *dirname)
 	return 0;
 }
 
+static void print_child_time(struct timespec *ts1, struct timespec *ts2)
+{
+#define SEC_TO_NSEC  (1000000000ULL)
+
+	uint64_t  sec = ts2->tv_sec  - ts1->tv_sec;
+	uint64_t nsec = ts2->tv_nsec - ts1->tv_nsec;
+
+	if (nsec > SEC_TO_NSEC) {
+		nsec += SEC_TO_NSEC;
+		sec--;
+	}
+
+	printf("elapsed time: %lu.%09lu sec\n", sec, nsec);
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -1330,6 +1352,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	struct symtabs symtabs = {
 		.loaded = false,
 	};
+	struct timespec ts1, ts2;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1376,6 +1399,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
+	clock_gettime(CLOCK_MONOTONIC, &ts1);
 	close(pfd[1]);
 
 	sa.sa_handler = sighandler;
@@ -1408,6 +1432,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
 	}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts2);
 
 	while (!done) {
 		if (ioctl(pfd[0], FIONREAD, &remaining) < 0)
@@ -1447,6 +1473,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
+
+	if (opts->time)
+		print_child_time(&ts1, &ts2);
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
