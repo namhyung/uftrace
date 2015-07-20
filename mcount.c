@@ -55,9 +55,13 @@ static uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
+static __thread int tid;
 static int gettid(void)
 {
-	return syscall(SYS_gettid);
+	if (!tid)
+		tid = syscall(SYS_gettid);
+
+	return tid;
 }
 
 static void read_exename(void)
@@ -758,6 +762,7 @@ static void atfork_child_handler(void)
 	if (pfd >= 0 && write(pfd, buf, len) != len)
 		pr_err("write fork info failed");
 
+	tid = 0;
 	shmem_seqnum = 0;
 	get_new_shmem_buffer();
 }
