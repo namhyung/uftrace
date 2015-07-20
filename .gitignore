@@ -7,6 +7,7 @@ ftrace.dir.old
 ftrace.data
 ftrace.data.old
 libmcount.so
+libmcount-nop.so
 libcygprof.so
 libcygprof-nop.so
 gmon.out
