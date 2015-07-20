@@ -24,6 +24,12 @@ struct symtab {
 	size_t nr_alloc;
 };
 
+struct symtabs {
+	bool loaded;
+	struct symtab symtab;
+	struct symtab dsymtab;
+};
+
 struct ftrace_proc_maps {
 	struct ftrace_proc_maps *next;
 	uint64_t start;
@@ -33,21 +39,22 @@ struct ftrace_proc_maps {
 	char libname[];
 };
 
-struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps);
-struct sym * find_symname(const char *name);
-void load_symtabs(const char *filename);
-void unload_symtabs(void);
-void print_symtabs(void);
+struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
+			 struct ftrace_proc_maps *maps);
+struct sym * find_symname(struct symtabs *symtabs, const char *name);
+void load_symtabs(struct symtabs *symtabs, const char *filename);
+void unload_symtabs(struct symtabs *symtabs);
+void print_symtabs(struct symtabs *symtabs);
 
-struct sym * find_dynsym(size_t idx);
-size_t count_dynsym(void);
-int load_dynsymtab(const char *filename);
-void unload_dynsymtab(void);
+struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
+size_t count_dynsym(struct symtabs *symtabs);
+int load_dynsymtab(struct symtabs *symtabs, const char *filename);
+void unload_dynsymtab(struct symtabs *symtabs);
 
 char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);
 
-void setup_skip_idx(void);
+void setup_skip_idx(struct symtabs *symtabs);
 void destroy_skip_idx(void);
 bool should_skip_idx(unsigned idx);
 

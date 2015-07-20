@@ -17,7 +17,7 @@
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
-#define MCOUNT_RSTACK_MAX  256
+#define MCOUNT_RSTACK_MAX  1024
 #define MCOUNT_NOTRACE_IDX 0x10000
 #define MCOUNT_INVALID_DYNIDX 0xffff
 
@@ -29,8 +29,7 @@ struct mcount_ret_stack {
 	uint64_t end_time;
 	uint64_t child_time;
 	int tid;
-	unsigned char depth;
-	unsigned char unused;
+	unsigned short depth;
 	unsigned short dyn_idx;
 };
 
@@ -50,6 +49,7 @@ void _mcleanup(void);
 #define FTRACE_MSG_TID        3U
 #define FTRACE_MSG_FORK_START 4U
 #define FTRACE_MSG_FORK_END   5U
+#define FTRACE_MSG_SESSION    6U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -57,6 +57,20 @@ struct ftrace_msg {
 	unsigned short type;  /* FTRACE_MSG_REC_* */
 	unsigned int len;
 	unsigned char data[];
+};
+
+struct ftrace_msg_task {
+	uint64_t time;
+	int32_t  pid;
+	int32_t  tid;
+};
+
+struct ftrace_msg_sess {
+	struct ftrace_msg_task task;
+	char sid[16];
+	int  unused;
+	int  namelen;
+	char exename[];
 };
 
 #define FTRACE_MAGIC_LEN  8
@@ -79,7 +93,7 @@ struct ftrace_file_header {
 
 enum ftrace_feat_bits {
 	PLTHOOK,
-	LIBRARY_MODE,
+	TASK_SESSION,
 };
 
 enum ftrace_info_bits {

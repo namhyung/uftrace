@@ -25,9 +25,6 @@
 #include "symbol.h"
 #include "utils.h"
 
-static struct symtab symtab;
-static struct symtab dynsymtab;
-
 #if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
 
@@ -93,36 +90,30 @@ static int namefind(const void *a, const void *b)
 "\twhich generates traceable code.\n"						\
 "\tIf so, recompile and run it with full pathname.\n"
 
-void unload_symtabs(void)
+static void __unload_symtab(struct symtab *symtab)
 {
 	size_t i;
 
-	for (i = 0; i < symtab.nr_sym; i++) {
-		struct sym *sym = symtab.sym + i;
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = symtab->sym + i;
 		free(sym->name);
 	}
 
-	free(symtab.sym_names);
-	free(symtab.sym);
+	free(symtab->sym_names);
+	free(symtab->sym);
 
-	symtab.nr_sym = 0;
-	symtab.sym = NULL;
-	symtab.sym_names = NULL;
-
-	for (i = 0; i < dynsymtab.nr_sym; i++) {
-		struct sym *sym = dynsymtab.sym + i;
-		free(sym->name);
-	}
-
-	free(dynsymtab.sym_names);
-	free(dynsymtab.sym);
-
-	dynsymtab.nr_sym = 0;
-	dynsymtab.sym = NULL;
-	dynsymtab.sym_names = NULL;
+	symtab->nr_sym = 0;
+	symtab->sym = NULL;
+	symtab->sym_names = NULL;
 }
 
-int __load_symtab(const char *filename, unsigned long offset)
+void unload_symtabs(struct symtabs *symtabs)
+{
+	__unload_symtab(&symtabs->symtab);
+	__unload_symtab(&symtabs->dsymtab);
+}
+
+int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long offset)
 {
 	int fd;
 	Elf *elf;
@@ -131,6 +122,7 @@ int __load_symtab(const char *filename, unsigned long offset)
 	Elf_Scn *sym_sec, *sec;
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0;
+	struct symtab *symtab = &symtabs->symtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -188,13 +180,13 @@ int __load_symtab(const char *filename, unsigned long offset)
 		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
 			continue;
 
-		if (symtab.nr_sym >= symtab.nr_alloc) {
-			symtab.nr_alloc += SYMTAB_GROW;
-			symtab.sym = xrealloc(symtab.sym,
-					      symtab.nr_alloc * sizeof(*sym));
+		if (symtab->nr_sym >= symtab->nr_alloc) {
+			symtab->nr_alloc += SYMTAB_GROW;
+			symtab->sym = xrealloc(symtab->sym,
+					       symtab->nr_alloc * sizeof(*sym));
 		}
 
-		sym = &symtab.sym[symtab.nr_sym++];
+		sym = &symtab->sym[symtab->nr_sym++];
 
 		sym->addr = elf_sym.st_value + offset;
 		sym->size = elf_sym.st_size;
@@ -209,14 +201,14 @@ int __load_symtab(const char *filename, unsigned long offset)
 			sym->name = xstrdup(name);
 	}
 
-	qsort(symtab.sym, symtab.nr_sym, sizeof(*symtab.sym), addrsort);
+	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
 
-	symtab.sym_names = xrealloc(symtab.sym_names,
-				    sizeof(*symtab.sym_names) * symtab.nr_sym);
+	symtab->sym_names = xrealloc(symtab->sym_names,
+				     sizeof(*symtab->sym_names) * symtab->nr_sym);
 
-	for (i = 0; i < symtab.nr_sym; i++)
-		symtab.sym_names[i] = &symtab.sym[i];
-	qsort(symtab.sym_names, symtab.nr_sym, sizeof(*symtab.sym_names), namesort);
+	for (i = 0; i < symtab->nr_sym; i++)
+		symtab->sym_names[i] = &symtab->sym[i];
+	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 
 out:
 	elf_end(elf);
@@ -229,25 +221,8 @@ elf_error:
 	goto out;
 }
 
-void unload_dynsymtab(void)
-{
-	size_t i;
-
-	for (i = 0; i < dynsymtab.nr_sym; i++) {
-		struct sym *sym = dynsymtab.sym + i;
-		free(sym->name);
-	}
-
-	free(dynsymtab.sym_names);
-	free(dynsymtab.sym);
-
-	dynsymtab.nr_sym = 0;
-	dynsymtab.sym = NULL;
-	dynsymtab.sym_names = NULL;
-}
-
 /* This functions is also called from libmcount.so */
-int load_dynsymtab(const char *filename)
+int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 {
 	int fd;
 	int ret = -1;
@@ -261,6 +236,7 @@ int load_dynsymtab(const char *filename)
 	int rel_type = SHT_NULL;
 	char buf[256];
 	const char *errmsg;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -353,18 +329,18 @@ int load_dynsymtab(const char *filename)
 		gelf_getsym(dynsym_data, symidx, &esym);
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
-		if (dynsymtab.nr_sym >= dynsymtab.nr_alloc) {
-			dynsymtab.nr_alloc += SYMTAB_GROW;
-			dynsymtab.sym = realloc(dynsymtab.sym,
-						dynsymtab.nr_alloc * sizeof(*sym));
+		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
+			dsymtab->nr_alloc += SYMTAB_GROW;
+			dsymtab->sym = realloc(dsymtab->sym,
+					       dsymtab->nr_alloc * sizeof(*sym));
 
-			if (dynsymtab.sym == NULL) {
+			if (dsymtab->sym == NULL) {
 				pr_log("not enough memory\n");
 				goto out;
 			}
 		}
 
-		sym = &dynsymtab.sym[dynsymtab.nr_sym++];
+		sym = &dsymtab->sym[dsymtab->nr_sym++];
 
 		sym->addr = plt_addr + (idx + 1) * plt_entsize;
 		sym->size = plt_entsize;
@@ -380,18 +356,19 @@ out:
 elf_error:
 	printf("ELF error during load dynsymtab: %s\n",
 	       elf_errmsg(elf_errno()));
-	unload_dynsymtab();
+	__unload_symtab(dsymtab);
 	goto out;
 }
 
-void load_symtabs(const char *filename)
+void load_symtabs(struct symtabs *symtabs, const char *filename)
 {
-	/* already loaded */
-	if (symtab.nr_sym)
+	if (symtabs->loaded)
 		return;
 
-	__load_symtab(filename, 0);
-	load_dynsymtab(filename);
+	load_symtab(symtabs, filename, 0);
+	load_dynsymtab(symtabs, filename);
+
+	symtabs->loaded = true;
 }
 
 static const char *skip_syms[] = {
@@ -406,13 +383,14 @@ static const char *skip_syms[] = {
 static unsigned *skip_idx;
 static unsigned skip_idx_nr;
 
-void setup_skip_idx(void)
+void setup_skip_idx(struct symtabs *symtabs)
 {
 	unsigned i, j;
+	struct symtab *dsymtab = &symtabs->dsymtab;
 
-	for (i = 0; i < dynsymtab.nr_sym; i++) {
+	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (j = 0; j < ARRAY_SIZE(skip_syms); j++) {
-			if (!strcmp(dynsymtab.sym[i].name, skip_syms[j])) {
+			if (!strcmp(dsymtab->sym[i].name, skip_syms[j])) {
 				skip_idx = xrealloc(skip_idx,
 					(skip_idx_nr+1) * sizeof(*skip_idx));
 
@@ -441,31 +419,39 @@ bool should_skip_idx(unsigned idx)
 	return false;
 }
 
-struct sym * find_dynsym(size_t idx)
+struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
 {
-	if (idx >= dynsymtab.nr_sym)
+	struct symtab *dsymtab = &symtabs->dsymtab;
+
+	if (idx >= dsymtab->nr_sym)
 		return NULL;
 
-	return &dynsymtab.sym[idx];
+	return &dsymtab->sym[idx];
 }
 
-size_t count_dynsym(void)
+size_t count_dynsym(struct symtabs *symtabs)
 {
-	return dynsymtab.nr_sym;
+	struct symtab *dsymtab = &symtabs->dsymtab;
+
+	return dsymtab->nr_sym;
 }
 
-struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
+struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
+			 struct ftrace_proc_maps *maps)
 {
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 	struct sym *sym;
-	sym = bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
-		      sizeof(*symtab.sym), addrfind);
+
+	sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
+		      sizeof(*sym), addrfind);
 
 	if (sym)
 		return sym;
 
 	/* try dynamic symbols if failed */
-	sym = bsearch((const void *)addr, dynsymtab.sym, dynsymtab.nr_sym,
-		      sizeof(*dynsymtab.sym), addrfind);
+	sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
+		      sizeof(*sym), addrfind);
 
 	if (sym)
 		return sym;
@@ -478,28 +464,30 @@ struct sym * find_symtab(unsigned long addr, struct ftrace_proc_maps *maps)
 	}
 
 	if (maps) {
-		__load_symtab(maps->libname, maps->start);
+		load_symtab(symtabs, maps->libname, maps->start);
 
-		sym = bsearch((const void *)addr, symtab.sym, symtab.nr_sym,
-			      sizeof(*symtab.sym), addrfind);
+		sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
+			      sizeof(*sym), addrfind);
 	}
 
 	return sym;
 }
 
-struct sym * find_symname(const char *name)
+struct sym * find_symname(struct symtabs *symtabs, const char *name)
 {
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 	struct sym **psym;
 	size_t i;
 
-	psym = bsearch(name, symtab.sym_names, symtab.nr_sym,
-		       sizeof(*symtab.sym_names), namefind);
+	psym = bsearch(name, stab->sym_names, stab->nr_sym,
+		       sizeof(*psym), namefind);
 	if (psym)
 		return *psym;
 
-	for (i = 0; i < dynsymtab.nr_sym; i++)
-		if (!strcmp(name, dynsymtab.sym[i].name))
-			return &dynsymtab.sym[i];
+	for (i = 0; i < dtab->nr_sym; i++)
+		if (!strcmp(name, dtab->sym[i].name))
+			return &dtab->sym[i];
 
 	return NULL;
 }
@@ -583,23 +571,24 @@ free:
 		free(name);
 }
 
-void print_symtabs(void)
+void print_symtabs(struct symtabs *symtabs)
 {
 	size_t i;
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
 
 	printf("Normal symbols\n");
 	printf("==============\n");
-	for (i = 0; i < symtab.nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %lu\n", i, symtab.sym[i].name,
-		       symtab.sym[i].addr, symtab.sym[i].size);
+	for (i = 0; i < stab->nr_sym; i++)
+		printf("[%2zd] %s (%#lx) size: %lu\n", i, stab->sym[i].name,
+		       stab->sym[i].addr, stab->sym[i].size);
 
 	printf("\n\n");
 	printf("Dynamic symbols\n");
 	printf("===============\n");
-	for (i = 0; i < dynsymtab.nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %lu\n", i, dynsymtab.sym[i].name,
-		       dynsymtab.sym[i].addr, dynsymtab.sym[i].size);
-
+	for (i = 0; i < dtab->nr_sym; i++)
+		printf("[%2zd] %s (%#lx) size: %lu\n", i, dtab->sym[i].name,
+		       dtab->sym[i].addr, dtab->sym[i].size);
 }
 
 

@@ -8,30 +8,31 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'forkexec', """
 # DURATION    TID     FUNCTION
-  79.003 us [29473] | __cxa_atexit();
-            [29473] | main() {
-  10.136 us [29473] |   readlink();
-   1.100 us [29473] |   strrchr();
- 112.028 us [29473] |   fork();
-            [29473] |   waitpid() {
-  75.782 us [29474] | <4004d0>();     <-----------------------+
-            [29474] | exit() {                                |
-            [29474] |   __libc_start_main() {                 |
-            [29474] |     __monstartup() {                    |
-            [29474] |       mcount() {                    currently
-   5.597 us [29474] |         <400480>();                  ignored
-   6.507 us [29474] |       } /* mcount */                    |
-   7.106 us [29474] |     } /* __monstartup */                |
-   7.743 us [29474] |   } /* __libc_start_main */             |
-   8.500 us [29474] | } /* exit */                            |
- 328.763 us [29474] |   } /* fork */                          |
-            [29474] |   execl() {      <----------------------+
-   1.834 ms [29473] |   } /* waitpid */
-   1.977 ms [29473] | } /* main */
+ 106.139 us [ 9874] | __cxa_atexit();
+            [ 9874] | main() {
+  19.427 us [ 9874] |   readlink();
+   1.841 us [ 9874] |   strrchr();
+ 142.145 us [ 9874] |   fork();
+            [ 9874] |   waitpid() {
+ 473.298 us [ 9875] |   } /* fork */
+            [ 9875] |   execl() {
+  85.235 us [ 9875] | __cxa_atexit();
+            [ 9875] | main() {
+   1.828 us [ 9875] |   atoi();
+            [ 9875] |   a() {
+            [ 9875] |     b() {
+            [ 9875] |       c() {
+   0.976 us [ 9875] |         getpid();
+   1.992 us [ 9875] |       } /* c */
+   2.828 us [ 9875] |     } /* b */
+   3.658 us [ 9875] |   } /* a */
+   7.713 us [ 9875] | } /* main */
+   2.515 ms [ 9874] |   } /* waitpid */
+   2.708 ms [ 9874] | } /* main */
 
 ftrace stopped tracing with remaining functions
 ===============================================
-task: 29474
+task: 9875
 [0] execl
 
 """)
@@ -60,6 +61,3 @@ task: 29474
 
 #        print("build command:", build_cmd)
         return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
-
-    def sort(self, output):
-        return TestBase.sort(self, output, True)

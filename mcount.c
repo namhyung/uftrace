@@ -45,6 +45,9 @@ static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
 
+static struct symtabs symtabs;
+static char mcount_exename[1024];
+
 static uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
@@ -55,6 +58,22 @@ static uint64_t mcount_gettime(void)
 static int gettid(void)
 {
 	return syscall(SYS_gettid);
+}
+
+static void read_exename(void)
+{
+	int len;
+	static bool exename_read;
+
+	if (!exename_read) {
+		len = readlink("/proc/self/exe", mcount_exename,
+			       sizeof(mcount_exename)-1);
+		if (len < 0)
+			exit(1);
+		mcount_exename[len] = '\0';
+
+		exename_read = true;
+	}
 }
 
 static const char *session_name(void)
@@ -194,7 +213,7 @@ static int record_trace_data(void *buf, size_t size)
 	return record_mmap_data(buf, size);
 }
 
-static void record_proc_maps(char *dirname)
+static void record_proc_maps(char *dirname, const char *sess_id)
 {
 	int ifd, ofd, len;
 	char buf[4096];
@@ -203,7 +222,7 @@ static void record_proc_maps(char *dirname)
 	if (ifd < 0)
 		pr_err("cannot open proc maps file");
 
-	snprintf(buf, sizeof(buf), "%s/maps", dirname);
+	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, sess_id);
 
 	ofd = open(buf, O_WRONLY | O_CREAT, 0644);
 	if (ofd < 0)
@@ -220,6 +239,40 @@ static void record_proc_maps(char *dirname)
 
 extern void __monstartup(unsigned long low, unsigned long high);
 
+static void send_session_msg(const char *sess_id)
+{
+	struct ftrace_msg_sess sess = {
+		.task = {
+			.time = mcount_gettime(),
+			.pid = getpid(),
+			.tid = gettid(),
+		},
+		.namelen = strlen(mcount_exename),
+	};
+	const struct ftrace_msg msg = {
+		.magic = FTRACE_MSG_MAGIC,
+		.type = FTRACE_MSG_SESSION,
+		.len = sizeof(sess) + sess.namelen,
+	};
+	int len = sizeof(msg) + msg.len;
+	char buf[len];
+	char *ptr = buf;
+
+	if (pfd < 0)
+		return;
+
+	memcpy(sess.sid, sess_id, sizeof(sess.sid));
+
+	memcpy(ptr, &msg, sizeof(msg));
+	ptr += sizeof(msg);
+	memcpy(ptr, &sess, sizeof(sess));
+	ptr += sizeof(sess);
+	memcpy(ptr, mcount_exename, sess.namelen);
+
+	if (write(pfd, buf, len) != len)
+		pr_err("write tid info failed");
+}
+
 static void mcount_init_file(void)
 {
 	char *dirname = getenv("FTRACE_DIR");
@@ -234,27 +287,34 @@ static void mcount_init_file(void)
 	if (dirname == NULL)
 		dirname = FTRACE_DIR_NAME;
 
-	record_proc_maps(dirname);
+	send_session_msg(session_name());
+	record_proc_maps(dirname, session_name());
 }
 
 static void mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+	struct ftrace_msg_task tmsg = {
+		.pid = getpid(),
+		.tid = gettid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_TID,
-		.len = sizeof(int),
+		.len = sizeof(tmsg),
 	};
 	char buf[128];
-	int tid = gettid();
-	int len = sizeof(msg) + sizeof(tid);
+	int len = sizeof(msg) + sizeof(tmsg);
 
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
 
+	/* time should be get after session message sent */
+	tmsg.time = mcount_gettime();
+
 	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
 
 	if (write(pfd, buf, len) != len)
 		pr_err("write tid info failed");
@@ -509,7 +569,6 @@ static int hook_pltgot(void)
 {
 	int fd;
 	int ret = -1;
-	char buf[1024];
 	Elf *elf;
 	GElf_Ehdr ehdr;
 	Elf_Scn *sec;
@@ -518,16 +577,9 @@ static int hook_pltgot(void)
 	size_t shstr_idx;
 	size_t i;
 
-	int len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-	if (len == -1) {
-		pr_log("error during read executable link\n");
-		return -1;
-	}
-	buf[len] = '\0';
+	pr_dbg("opening executable image: %s\n", mcount_exename);
 
-	pr_dbg("opening executable image: %s\n", buf);
-
-	fd = open(buf, O_RDONLY);
+	fd = open(mcount_exename, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -599,7 +651,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	plthook_recursion_guard = true;
 
-	sym = find_dynsym(child_idx);
+	sym = find_dynsym(&symtabs, child_idx);
 	pr_dbg2("[%d] n %s\n", child_idx, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
@@ -645,7 +697,7 @@ unsigned long plthook_exit(void)
 		pr_err_ns("invalid dynsym idx: %d\n", idx);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
-		struct sym *sym = find_dynsym(dyn_idx);
+		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
 		char *name = symbol_getname(sym, 0);
 
 		new_addr = plthook_got_ptr[3 + dyn_idx];
@@ -666,33 +718,47 @@ unsigned long plthook_exit(void)
 
 static void atfork_prepare_handler(void)
 {
+	struct ftrace_msg_task tmsg = {
+		.time = mcount_gettime(),
+		.pid = getpid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_FORK_START,
+		.len = sizeof(tmsg),
 	};
-	int len = sizeof(msg);
+	int len = sizeof(msg) + sizeof(tmsg);
+	char buf[len];
 
-	if (pfd >= 0 && write(pfd, &msg, len) != len)
+	memcpy(buf, &msg, sizeof(msg));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
+
+	if (pfd >= 0 && write(pfd, &buf, len) != len)
 		pr_err("write fork info failed");
 }
 
 static void atfork_child_handler(void)
 {
+	struct ftrace_msg_task tmsg = {
+		.time = mcount_gettime(),
+		.pid = getppid(),
+		.tid = getpid(),
+	};
 	const struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_FORK_END,
-		.len = sizeof(int),
+		.len = sizeof(tmsg),
 	};
-	char buf[128];
-	int tid = gettid();
-	int len = sizeof(msg) + msg.len;
+	int len = sizeof(msg) + sizeof(tmsg);
+	char buf[len];
 
 	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tid, sizeof(tid));
+	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
 
 	if (pfd >= 0 && write(pfd, buf, len) != len)
 		pr_err("write fork info failed");
 
+	shmem_seqnum = 0;
 	get_new_shmem_buffer();
 }
 
@@ -731,25 +797,19 @@ __monstartup(unsigned long low, unsigned long high)
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
 
+	read_exename();
+
 	if (getenv("FTRACE_PLTHOOK")) {
-		int len;
-		char buf[1024];
-
-		len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
-		if (len < 0)
-			exit(1);
-		buf[len] = '\0';
-
-		load_dynsymtab(buf);
-		setup_skip_idx();
+		load_dynsymtab(&symtabs, mcount_exename);
+		setup_skip_idx(&symtabs);
 
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
 		else {
 			plthook_dynsym_resolved = xcalloc(sizeof(bool),
-							  count_dynsym());
+							  count_dynsym(&symtabs));
 			plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
-						      count_dynsym());
+						      count_dynsym(&symtabs));
 		}
 	}
 
