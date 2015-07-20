@@ -53,6 +53,7 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
 #define OPT_force	305
 #define OPT_threads	306
 #define OPT_no_merge	307
+#define OPT_nop		308
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -69,6 +70,7 @@ static struct argp_option ftrace_options[] = {
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
+	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ 0 }
 };
 
@@ -99,6 +101,7 @@ struct opts {
 	bool force;
 	bool report_thread;
 	bool no_merge;
+	bool nop;
 };
 
 static unsigned long parse_size(char *str)
@@ -190,6 +193,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_no_merge:
 		opts->no_merge = true;
+		break;
+
+	case OPT_nop:
+		opts->nop = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -397,10 +404,17 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
-	if (find_symname(symtabs, "__cyg_profile_func_enter"))
-		strcpy(buf, "libcygprof.so");
-	else
-		strcpy(buf, "libmcount.so");
+	if (find_symname(symtabs, "__cyg_profile_func_enter")) {
+		if (opts->nop)
+			strcpy(buf, "libcygprof-nop.so");
+		else
+			strcpy(buf, "libcygprof.so");
+	} else {
+		if (opts->nop)
+			strcpy(buf, "libmcount-nop.so");
+		else
+			strcpy(buf, "libmcount.so");
+	}
 
 	if (old_preload) {
 		strcat(buf, ":");
