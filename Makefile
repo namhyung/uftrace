@@ -53,7 +53,7 @@ CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
 include config/Makefile
 
 
-TARGETS = libmcount.so libcygprof.so ftrace
+TARGETS = libmcount.so libmcount-nop.so libcygprof.so libcygprof-nop.so ftrace
 
 FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c debug.c arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
@@ -63,6 +63,12 @@ LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
 
 LIBCYGPROF_SRCS = mcount.c symbol.c debug.c cygprofile.c
 LIBCYGPROF_OBJS = $(LIBCYGPROF_SRCS:.c=.op)
+
+LIBMCOUNT_NOP_SRCS = mcount-nop.c
+LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)
+
+LIBCYGPROF_NOP_SRCS = cygprofile-nop.c
+LIBCYGPROF_NOP_OBJS = $(LIBCYGPROF_NOP_SRCS:.c=.op)
 
 MAKEFLAGS = --no-print-directory
 
@@ -75,13 +81,25 @@ $(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h FLAGS
 cygprofile.op: cygprofile.c mcount.h utils.h FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
+cygprofile-nop.op: cygprofile-nop.c
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
+mcount-nop.op: mcount-nop.c
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
 libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
+libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
+	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+
 libcygprof.so: $(LIBCYGPROF_OBJS) arch/$(ARCH)/plthook.op
+	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+
+libcygprof-nop.so: $(LIBCYGPROF_NOP_OBJS)
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h

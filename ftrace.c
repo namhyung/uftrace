@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <sys/resource.h>
 #include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
@@ -53,6 +54,8 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
 #define OPT_force	305
 #define OPT_threads	306
 #define OPT_no_merge	307
+#define OPT_nop		308
+#define OPT_time	309
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -69,6 +72,8 @@ static struct argp_option ftrace_options[] = {
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
 	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
+	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
+	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ 0 }
 };
 
@@ -99,6 +104,8 @@ struct opts {
 	bool force;
 	bool report_thread;
 	bool no_merge;
+	bool nop;
+	bool time;
 };
 
 static unsigned long parse_size(char *str)
@@ -190,6 +197,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_no_merge:
 		opts->no_merge = true;
+		break;
+
+	case OPT_nop:
+		opts->nop = true;
+		break;
+
+	case OPT_time:
+		opts->time = true;
 		break;
 
 	case ARGP_KEY_ARG:
@@ -397,10 +412,17 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
-	if (find_symname(symtabs, "__cyg_profile_func_enter"))
-		strcpy(buf, "libcygprof.so");
-	else
-		strcpy(buf, "libmcount.so");
+	if (find_symname(symtabs, "__cyg_profile_func_enter")) {
+		if (opts->nop)
+			strcpy(buf, "libcygprof-nop.so");
+		else
+			strcpy(buf, "libcygprof.so");
+	} else {
+		if (opts->nop)
+			strcpy(buf, "libmcount-nop.so");
+		else
+			strcpy(buf, "libmcount.so");
+	}
 
 	if (old_preload) {
 		strcat(buf, ":");
@@ -1296,6 +1318,29 @@ static int remove_directory(char *dirname)
 	return 0;
 }
 
+static void print_child_time(struct timespec *ts1, struct timespec *ts2)
+{
+#define SEC_TO_NSEC  (1000000000ULL)
+
+	uint64_t  sec = ts2->tv_sec  - ts1->tv_sec;
+	uint64_t nsec = ts2->tv_nsec - ts1->tv_nsec;
+
+	if (nsec > SEC_TO_NSEC) {
+		nsec += SEC_TO_NSEC;
+		sec--;
+	}
+
+	printf("elapsed time: %lu.%09lu sec\n", sec, nsec);
+}
+
+static void print_child_usage(struct rusage *ru)
+{
+	printf(" system time: %lu.%06lu000 sec\n",
+	       ru->ru_stime.tv_sec, ru->ru_stime.tv_usec);
+	printf("   user time: %lu.%06lu000 sec\n",
+	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -1316,6 +1361,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	struct symtabs symtabs = {
 		.loaded = false,
 	};
+	struct timespec ts1, ts2;
+	struct rusage usage;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1362,6 +1409,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		abort();
 	}
 
+	clock_gettime(CLOCK_MONOTONIC, &ts1);
 	close(pfd[1]);
 
 	sa.sa_handler = sighandler;
@@ -1395,6 +1443,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
+	clock_gettime(CLOCK_MONOTONIC, &ts2);
+
 	while (!done) {
 		if (ioctl(pfd[0], FIONREAD, &remaining) < 0)
 			break;
@@ -1418,7 +1468,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (child_exited) {
-		waitpid(pid, &status, WNOHANG);
+		wait4(pid, &status, WNOHANG, &usage);
 		if (WIFEXITED(status))
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
@@ -1427,12 +1477,18 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			       strsignal(WTERMSIG(status)));
 	} else {
 		status = -1;
+		getrusage(RUSAGE_CHILDREN, &usage);
 	}
 
 	flush_shmem_list(opts->dirname);
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
+
+	if (opts->time) {
+		print_child_time(&ts1, &ts2);
+		print_child_usage(&usage);
+	}
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
