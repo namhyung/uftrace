@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
+#include <sys/resource.h>
 #include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
@@ -1332,6 +1333,14 @@ static void print_child_time(struct timespec *ts1, struct timespec *ts2)
 	printf("elapsed time: %lu.%09lu sec\n", sec, nsec);
 }
 
+static void print_child_usage(struct rusage *ru)
+{
+	printf(" system time: %lu.%06lu000 sec\n",
+	       ru->ru_stime.tv_sec, ru->ru_stime.tv_usec);
+	printf("   user time: %lu.%06lu000 sec\n",
+	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
+}
+
 static int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -1353,6 +1362,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		.loaded = false,
 	};
 	struct timespec ts1, ts2;
+	struct rusage usage;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1458,7 +1468,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (child_exited) {
-		waitpid(pid, &status, WNOHANG);
+		wait4(pid, &status, WNOHANG, &usage);
 		if (WIFEXITED(status))
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
@@ -1467,6 +1477,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			       strsignal(WTERMSIG(status)));
 	} else {
 		status = -1;
+		getrusage(RUSAGE_CHILDREN, &usage);
 	}
 
 	flush_shmem_list(opts->dirname);
@@ -1474,8 +1485,10 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
 
-	if (opts->time)
+	if (opts->time) {
 		print_child_time(&ts1, &ts2);
+		print_child_usage(&usage);
+	}
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
