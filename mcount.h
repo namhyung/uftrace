@@ -28,7 +28,6 @@ struct mcount_ret_stack {
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
-	uint64_t child_time;
 	int tid;
 	unsigned short depth;
 	unsigned short dyn_idx;

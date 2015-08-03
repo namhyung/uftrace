@@ -389,7 +389,6 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
-	rstack->child_time = 0;
 
 	if (filtered > 0) {
 		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
@@ -433,12 +432,6 @@ unsigned long mcount_exit(void)
 			pr_err("error during record");
 	}
 
-	if (mcount_rstack_idx > 0) {
-		int idx = mcount_rstack_idx - 1;
-		struct mcount_ret_stack *parent = &mcount_rstack[idx];
-
-		parent->child_time += rstack->end_time - rstack->start_time;
-	}
 	return rstack->parent_ip;
 }
 
@@ -480,7 +473,6 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
-	rstack->child_time = 0;
 
 	if (filtered > 0) {
 		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
@@ -524,12 +516,6 @@ unsigned long cygprof_exit(void)
 			pr_err("error during record");
 	}
 
-	if (mcount_rstack_idx > 0) {
-		int idx = mcount_rstack_idx - 1;
-		struct mcount_ret_stack *parent = &mcount_rstack[idx];
-
-		parent->child_time += rstack->end_time - rstack->start_time;
-	}
 	return rstack->parent_ip;
 }
 
