@@ -1962,10 +1962,18 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	static int count;
 	struct ftrace_ret_stack *rstack = &task->rstack;
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
-	struct symtabs *symtabs = &sess->symtabs;
-	struct sym *sym = find_symtab(symtabs, rstack->addr, proc_maps);
-	char *name = symbol_getname(sym, rstack->addr);
-	struct fstack *fstack = &task->func_stack[task->stack_count];
+	struct symtabs *symtabs;
+	struct sym *sym;
+	char *name;
+	struct fstack *fstack;
+
+	if (sess == NULL)
+		return 0;
+
+	symtabs = &sess->symtabs;
+	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	name = symbol_getname(sym, rstack->addr);
+	fstack = &task->func_stack[task->stack_count];
 
 	if (rstack->type == FTRACE_ENTRY) {
 		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
@@ -2657,15 +2665,22 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		while (!read_task_rstack(&task)) {
 			struct ftrace_ret_stack *frs = &task.rstack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
-			struct symtabs *symtabs = &sess->symtabs;
-			struct sym *child = find_symtab(symtabs, frs->addr, proc_maps);
-			char *child_name = symbol_getname(child, frs->addr);
+			struct symtabs *symtabs;
+			struct sym *sym;
+			char *name;
+
+			if (sess == NULL)
+				continue;
+
+			symtabs = &sess->symtabs;
+			sym = find_symtab(symtabs, frs->addr, proc_maps);
+			name = symbol_getname(sym, frs->addr);
 
 			printf("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
-			       child_name, (unsigned long)frs->addr, frs->depth);
+			       name, (unsigned long)frs->addr, frs->depth);
 
-			symbol_putname(child, child_name);
+			symbol_putname(sym, name);
 		}
 
 		fclose(task.fp);
