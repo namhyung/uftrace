@@ -225,8 +225,12 @@ static void shmem_dtor(void *unused)
 	clear_shmem_buffer();
 }
 
-static int record_mmap_data(void *buf, size_t size)
+static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
+	struct ftrace_ret_stack *frstack;
+	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
+	size_t size = sizeof(*frstack);
+
 	assert(size < SHMEM_BUFFER_SIZE);
 
 	if (shmem_curr == NULL ||
@@ -238,36 +242,31 @@ static int record_mmap_data(void *buf, size_t size)
 			return 0;
 
 		if (shmem_losts) {
-			struct ftrace_ret_stack frstack = {
-				.type = FTRACE_LOST,
-				.unused = FTRACE_UNUSED,
-				.addr = shmem_losts,
-			};
+			frstack = (void *)shmem_curr->data;
 
-			memcpy(shmem_curr->data, &frstack, sizeof(frstack));
-			shmem_curr->size += sizeof(frstack);
+			frstack->time = timestamp;
+			frstack->type = FTRACE_LOST;
+			frstack->unused = FTRACE_UNUSED;
+			frstack->addr = shmem_losts;
+
+			size += sizeof(*frstack);
+			shmem_curr->size += sizeof(*frstack);
 			shmem_losts = 0;
 		}
 	}
 
-	memcpy(shmem_curr->data + shmem_curr->size, buf, size);
-	shmem_curr->size += size;
+	pr_dbg2("%d recording %zd bytes\n", mrstack->tid, size);
+
+	frstack = (void *)(shmem_curr->data + shmem_curr->size);
+
+	frstack->time = timestamp;
+	frstack->type = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY;
+	frstack->unused = FTRACE_UNUSED;
+	frstack->depth = mrstack->depth;
+	frstack->addr = mrstack->child_ip;
+
+	shmem_curr->size += sizeof(*frstack);
 	return 0;
-}
-
-static int record_trace_data(struct mcount_ret_stack *mrstack)
-{
-	struct ftrace_ret_stack frstack = {
-		.time = mrstack->end_time ?: mrstack->start_time,
-		.type = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY,
-		.unused = FTRACE_UNUSED,
-		.depth = mrstack->depth,
-		.addr = mrstack->child_ip,
-	};
-
-	pr_dbg2("%d recording %zd bytes\n", mrstack->tid, sizeof(frstack));
-
-	return record_mmap_data(&frstack, sizeof(frstack));
 }
 
 static void record_proc_maps(char *dirname, const char *sess_id)
