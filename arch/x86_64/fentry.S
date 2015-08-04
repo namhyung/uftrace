@@ -43,14 +43,17 @@ __fentry__:
 
 
 fentry_return:
-	pushq %rax
-	pushq %rax
+	sub  $24, %rsp
+	movq %rdx, 8(%rsp)
+	movq %rax, 0(%rsp)
 
 	/* returns original parent address */
 	call mcount_exit
+	movq %rax, 16(%rsp)
 
-	movq %rax, 8(%rsp)
-	popq %rax
+	movq 0(%rsp), %rax
+	movq 8(%rsp), %rdx
+	add  $16, %rsp
 	retq
 
 .type fentry_return, @function
