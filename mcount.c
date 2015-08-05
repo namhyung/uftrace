@@ -910,3 +910,29 @@ _mcleanup(void)
 	mcount_cleanup_filter(&filter_trace, &nr_filter);
 	mcount_cleanup_filter(&filter_notrace, &nr_notrace);
 }
+
+void __attribute__((visibility("default")))
+mcount_restore(void)
+{
+	int idx;
+
+	if (unlikely(mcount_rstack == NULL))
+		return;
+
+	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
+		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
+}
+
+extern __attribute__((weak)) void mcount_return(void);
+
+void __attribute__((visibility("default")))
+mcount_reset(void)
+{
+	int idx;
+
+	if (unlikely(mcount_rstack == NULL))
+		return;
+
+	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
+		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
+}

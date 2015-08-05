@@ -46,6 +46,7 @@ mcount:
 .size mcount, .-mcount
 
 
+.globl mcount_return
 mcount_return:
 	sub $24, %rsp
 	movq %rdx, 8(%rsp)
