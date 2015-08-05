@@ -452,6 +452,86 @@ static void mcount_finish(void)
 	}
 }
 
+int cygprof_entry(unsigned long parent, unsigned long child)
+{
+	int filtered;
+	struct mcount_ret_stack *rstack;
+
+	if (unlikely(mcount_rstack == NULL))
+		mcount_prepare();
+
+	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
+		pr_log("too deeply nested calls\n");
+		return -1;
+	}
+
+	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
+	filtered = mcount_filter(child);
+	if (filtered == 0)
+		return -1;
+
+	rstack = &mcount_rstack[mcount_rstack_idx++];
+
+	rstack->tid = gettid();
+	rstack->depth = mcount_rstack_idx - 1;
+	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
+	rstack->parent_ip = parent;
+	rstack->child_ip = child;
+	rstack->start_time = mcount_gettime();
+	rstack->end_time = 0;
+	rstack->child_time = 0;
+
+	if (filtered > 0) {
+		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+			pr_err("error during record");
+	} else
+		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
+
+	return 0;
+}
+
+unsigned long cygprof_exit(void)
+{
+	bool was_filtered = false;
+	struct mcount_ret_stack *rstack;
+
+	/*
+	 * We subtracted big number for notrace filtered functions
+	 * so that it can be identified when entering the exit handler.
+	 */
+	if (mcount_rstack_idx < 0) {
+		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
+		was_filtered = true;
+	}
+
+	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
+		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
+
+	if (mcount_rstack_idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+
+	rstack = &mcount_rstack[--mcount_rstack_idx];
+
+	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
+		pr_err_ns("corrupted mcount ret stack found!\n");
+
+	rstack->end_time = mcount_gettime();
+	rstack->tid = gettid();
+
+	if (!was_filtered) {
+		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+			pr_err("error during record");
+	}
+
+	if (mcount_rstack_idx > 0) {
+		int idx = mcount_rstack_idx - 1;
+		struct mcount_ret_stack *parent = &mcount_rstack[idx];
+
+		parent->child_time += rstack->end_time - rstack->start_time;
+	}
+	return rstack->parent_ip;
+}
+
 static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
 {
 	unsigned int i, nr;
