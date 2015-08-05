@@ -22,6 +22,7 @@
 #define MCOUNT_INVALID_DYNIDX 0xffff
 
 struct mcount_ret_stack {
+	unsigned long *parent_loc;
 	unsigned long parent_ip;
 	unsigned long child_ip;
 	/* time in nsec (CLOCK_MONOTONIC) */
@@ -36,7 +37,7 @@ struct mcount_ret_stack {
 extern __thread int mcount_rstack_idx;
 extern __thread struct mcount_ret_stack *mcount_rstack;
 
-int mcount_entry(unsigned long parent, unsigned long child);
+int mcount_entry(unsigned long *parent, unsigned long child);
 unsigned long mcount_exit(void);
 int cygprof_entry(unsigned long parent, unsigned long child);
 unsigned long cygprof_exit(void);

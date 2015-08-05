@@ -17,7 +17,7 @@ __fentry__:
 	/* child ip */
 	movq 56(%rsp), %rsi
 	/* parent ip */
-	movq 64(%rsp), %rdi
+	lea 64(%rsp), %rdi
 
 	call mcount_entry
 	cmpq $0, %rax

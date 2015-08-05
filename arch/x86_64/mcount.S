@@ -20,7 +20,7 @@ mcount:
 	sub $9, %rsi
 
 	/* parent ip */
-	movq 8(%rbp), %rdi
+	lea 8(%rbp), %rdi
 
 	call mcount_entry
 	cmpq $0, %rax

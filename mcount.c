@@ -361,7 +361,7 @@ static int mcount_filter(unsigned long ip)
 	return ret;
 }
 
-int mcount_entry(unsigned long parent, unsigned long child)
+int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	int filtered;
 	struct mcount_ret_stack *rstack;
@@ -384,7 +384,8 @@ int mcount_entry(unsigned long parent, unsigned long child)
 	rstack->tid = gettid();
 	rstack->depth = mcount_rstack_idx - 1;
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
-	rstack->parent_ip = parent;
+	rstack->parent_loc = parent_loc;
+	rstack->parent_ip = *parent_loc;
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
@@ -718,7 +719,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id)
 {
 	struct sym *sym;
-	unsigned long parent_ip;
 	unsigned long child_ip;
 
 	/*
@@ -744,9 +744,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	parent_ip = *ret_addr;
-
-	if (mcount_entry(parent_ip, child_ip) == 0) {
+	if (mcount_entry(ret_addr, child_ip) == 0) {
 		int idx = mcount_rstack_idx - 1;
 
 		*ret_addr = (unsigned long)plthook_return;
