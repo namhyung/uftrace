@@ -378,6 +378,8 @@ static const char *skip_syms[] = {
 	"__cyg_profile_func_enter",
 	"__cyg_profile_func_exit",
 	"_mcleanup",
+	"mcount_restore",
+	"mcount_reset",
 	"__libc_start_main",
 };
 static unsigned *skip_idx;
