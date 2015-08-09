@@ -1980,23 +1980,20 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	return 0;
 }
 
-static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
+static void print_time_unit(uint64_t delta_nsec)
 {
-	uint64_t delta = 0;
+	uint64_t delta = delta_nsec;
 	uint64_t delta_small;
 	char *unit[] = { "us", "ms", "s", "m", "h", };
 	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
 	unsigned idx;
 
-	if (start_nsec == 0UL && end_nsec == 0UL) {
+	if (delta_nsec == 0UL) {
 		printf(" %7s %2s", "", "");
 		return;
 	}
 
 	for (idx = 0; idx < ARRAY_SIZE(unit); idx++) {
-		if (delta == 0)
-			delta = end_nsec - start_nsec;
-
 		delta_small = delta % limit[idx];
 		delta = delta / limit[idx];
 
@@ -2035,13 +2032,16 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 			goto out;
 
 		/* function entry */
-		print_time_unit(0UL, 0UL);
+		print_time_unit(0UL);
 		printf(" [%5d] | %*s%s() {\n", rstack->tid,
 		       rstack->depth * 2, "", symname);
 	} else {
 		/* function exit */
 		if (task->filter_count > 0) {
-			print_time_unit(rstack->start_time, rstack->end_time);
+			struct fstack *fstack;
+
+			fstack= &task->func_stack[task->stack_count];
+			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
 		}
@@ -2075,6 +2075,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (rstack->end_time == 0) {
 		struct mcount_ret_stack rstack_next;
+		struct fstack *fstack;
 
 		update_filter_count_entry(task, rstack->child_ip);
 		if (task->filter_count <= 0)
@@ -2089,7 +2090,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    rstack_next.tid == rstack->tid &&
 		    rstack_next.end_time != 0) {
 			/* leaf function - also consume return record */
-			print_time_unit(rstack->start_time, rstack_next.end_time);
+			fstack = &task->func_stack[task->stack_count];
+
+			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s%s();\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
 
@@ -2099,14 +2102,18 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			update_filter_count_exit(task, rstack_next.child_ip);
 		} else {
 			/* function entry */
-			print_time_unit(0UL, 0UL);
+			print_time_unit(0UL);
 			printf(" [%5d] | %*s%s() {\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
 		}
 	} else {
 		/* function exit */
 		if (task->filter_count > 0) {
-			print_time_unit(rstack->start_time, rstack->end_time);
+			struct fstack *fstack;
+
+			fstack = &task->func_stack[task->stack_count];
+
+			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
 			       rstack->depth * 2, "", symname);
 		}
@@ -2396,9 +2403,9 @@ static void report_functions(struct ftrace_file_handle *handle)
 		symname = symbol_getname(entry->sym, 0);
 
 		printf("  %-40.40s ", symname);
-		print_time_unit(0UL, entry->time_total);
+		print_time_unit(entry->time_total);
 		putchar(' ');
-		print_time_unit(0UL, entry->time_self);
+		print_time_unit(entry->time_self);
 		printf("  %10lu  \n", entry->nr_called);
 
 		symbol_putname(entry->sym, symname);
@@ -2500,7 +2507,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 		symname = symbol_getname(entry->sym, 0);
 
 		printf("  %5d  %-40.40s ", entry->pid, symname);
-		print_time_unit(0UL, entry->time_self);
+		print_time_unit(entry->time_self);
 		printf("  %10lu  \n", entry->nr_called);
 
 		symbol_putname(entry->sym, symname);
