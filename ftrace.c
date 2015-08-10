@@ -1893,15 +1893,17 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 	}
 
 	if (fth->rstack.type == FTRACE_ENTRY) {
-		struct fstack *fstack = &fth->func_stack[fth->stack_count++];
+		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
 		fstack->total_time = fth->rstack.time;
 		fstack->child_time = 0;
 		fstack->addr = fth->rstack.addr;
 
-	} else if (fth->rstack.type == FTRACE_EXIT && fth->stack_count > 0) {
+		fth->stack_count = fth->rstack.depth + 1;
+
+	} else if (fth->rstack.type == FTRACE_EXIT) {
 		uint64_t delta;
-		struct fstack *fstack = &fth->func_stack[--fth->stack_count];
+		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
 		delta = fth->rstack.time - fstack->total_time;
 
@@ -1909,6 +1911,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		if (fstack->child_time > fstack->total_time)
 			fstack->child_time = fstack->total_time;
 
+		fth->stack_count = fth->rstack.depth;
 		if (fth->stack_count > 0)
 			fth->func_stack[fth->stack_count - 1].child_time += delta;
 	}
@@ -1974,7 +1977,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	name = symbol_getname(sym, rstack->addr);
-	fstack = &task->func_stack[task->stack_count];
+	fstack = &task->func_stack[rstack->depth];
 
 	if (rstack->type == FTRACE_ENTRY) {
 		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
@@ -2050,7 +2053,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
 
-			fstack= &task->func_stack[task->stack_count];
+			fstack= &task->func_stack[rstack->depth];
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
@@ -2101,7 +2104,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack.depth == depth &&
 		    next->rstack.type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s%s();\n", task->tid,
@@ -2122,7 +2125,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
 
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
@@ -2367,7 +2370,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 			struct ftrace_task_handle *fth = &tasks[i];
 			struct ftrace_session *sess = find_task_session(fth->tid, rstack->time);
 			struct symtabs *symtabs = &sess->symtabs;
-			struct fstack *fstack = &fth->func_stack[fth->stack_count];
+			struct fstack *fstack = &fth->func_stack[rstack->depth];
 
 			if (rstack->type == FTRACE_ENTRY)
 				goto next;
@@ -2485,7 +2488,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 			te.pid = task->tid;
 			te.sym = find_task_sym(handle, i, rstack);
 
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			if (rstack->type == FTRACE_ENTRY) {
 				te.time_total = te.time_self = 0;
