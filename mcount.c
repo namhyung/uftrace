@@ -252,27 +252,24 @@ static void send_session_msg(const char *sess_id)
 		},
 		.namelen = strlen(mcount_exename),
 	};
-	const struct ftrace_msg msg = {
+	struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
 		.type = FTRACE_MSG_SESSION,
 		.len = sizeof(sess) + sess.namelen,
 	};
+	struct iovec iov[3] = {
+		{ .iov_base = &msg, .iov_len = sizeof(msg), },
+		{ .iov_base = &sess, .iov_len = sizeof(sess), },
+		{ .iov_base = mcount_exename, .iov_len = sess.namelen, },
+	};
 	int len = sizeof(msg) + msg.len;
-	char buf[len];
-	char *ptr = buf;
 
 	if (pfd < 0)
 		return;
 
 	memcpy(sess.sid, sess_id, sizeof(sess.sid));
 
-	memcpy(ptr, &msg, sizeof(msg));
-	ptr += sizeof(msg);
-	memcpy(ptr, &sess, sizeof(sess));
-	ptr += sizeof(sess);
-	memcpy(ptr, mcount_exename, sess.namelen);
-
-	if (write(pfd, buf, len) != len)
+	if (writev(pfd, iov, 3) != len)
 		pr_err("write tid info failed");
 }
 
