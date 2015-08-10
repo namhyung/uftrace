@@ -59,6 +59,13 @@ struct ftrace_ret_stack {
 	uint64_t addr:   48;
 };
 
+#define SHMEM_BUFFER_SIZE  (128 * 1024)
+
+struct mcount_shmem_buffer {
+	unsigned size;
+	char data[];
+};
+
 #define FTRACE_MSG_MAGIC 0xface
 
 #define FTRACE_MSG_REC_START  1U

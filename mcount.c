@@ -123,13 +123,7 @@ static void ftrace_send_message(int type, void *data, size_t len)
 }
 
 
-#define SHMEM_BUFFER_SIZE  (128 * 1024)
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
-
-struct mcount_shmem_buffer {
-	unsigned size;
-	char data[];
-};
 
 static pthread_key_t shmem_key;
 static __thread int shmem_seqnum;

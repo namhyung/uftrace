@@ -582,17 +582,11 @@ static void sighandler(int sig)
 	done = true;
 }
 
-#define SHMEM_BUFFER_SIZE  (128 * 1024)
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
 	struct shmem_list *next;
 	char id[SHMEM_NAME_SIZE];
-};
-
-struct shmem_buffer {
-	unsigned size;
-	char data[];
 };
 
 static struct shmem_list *shmem_list_head;
@@ -640,7 +634,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	char buf[128];
 	char *ptr;
 	size_t size;
-	struct shmem_buffer *shmem_buf;
+	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
 	fd = shm_open(sess_id, O_RDONLY, 0400);
