@@ -19,6 +19,7 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
@@ -101,6 +102,26 @@ static const char *session_name(void)
 	return session;
 }
 
+static void ftrace_send_message(int type, void *data, size_t len)
+{
+	struct ftrace_msg msg = {
+		.magic = FTRACE_MSG_MAGIC,
+		.type = type,
+		.len = len,
+	};
+	struct iovec iov[2] = {
+		{ .iov_base = &msg, .iov_len = sizeof(msg), },
+		{ .iov_base = data, .iov_len = len, },
+	};
+
+	if (pfd < 0)
+		return;
+
+	len += sizeof(msg);
+	if (writev(pfd, iov, 2) != (ssize_t)len)
+		pr_err("writing shmem name to pipe");
+}
+
 
 #define SHMEM_BUFFER_SIZE  (128 * 1024)
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
@@ -140,22 +161,7 @@ static void get_new_shmem_buffer(void)
 
 	shmem_buffer->size = 0;
 
-	if (pfd >= 0) {
-		ssize_t len = strlen(buf);
-		const struct ftrace_msg msg = {
-			.magic = FTRACE_MSG_MAGIC,
-			.type = FTRACE_MSG_REC_START,
-			.len = len,
-		};
-
-		/* combine msg header and data for atomicity */
-		memmove(buf+sizeof(msg), buf, len + 1);
-		memcpy(buf, &msg, sizeof(msg));
-
-		len += sizeof(msg);
-		if (write(pfd, buf, len) != len)
-			pr_err("writing shmem name to pipe");
-	}
+	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 }
 
 static void finish_shmem_buffer(void)
@@ -171,22 +177,7 @@ static void finish_shmem_buffer(void)
 	munmap(shmem_buffer, SHMEM_BUFFER_SIZE);
 	shmem_buffer = NULL;
 
-	if (pfd >= 0) {
-		ssize_t len = strlen(buf);
-		const struct ftrace_msg msg = {
-			.magic = FTRACE_MSG_MAGIC,
-			.type = FTRACE_MSG_REC_END,
-			.len = len,
-		};
-
-		/* combine msg header and data for atomicity */
-		memmove(buf+sizeof(msg), buf, len + 1);
-		memcpy(buf, &msg, sizeof(msg));
-
-		len += sizeof(msg);
-		if (write(pfd, buf, len) != len)
-			pr_err("writing shmem name to pipe");
-	}
+	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
 }
 
 /* to be used by pthread_create_key() */
@@ -310,13 +301,6 @@ static void mcount_prepare(void)
 		.pid = getpid(),
 		.tid = gettid(),
 	};
-	const struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_TID,
-		.len = sizeof(tmsg),
-	};
-	char buf[128];
-	int len = sizeof(msg) + sizeof(tmsg);
 
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
@@ -325,11 +309,7 @@ static void mcount_prepare(void)
 	/* time should be get after session message sent */
 	tmsg.time = mcount_gettime();
 
-	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
-
-	if (write(pfd, buf, len) != len)
-		pr_err("write tid info failed");
+	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
 static bool mcount_match(unsigned long ip1, unsigned long ip2)
@@ -798,19 +778,8 @@ static void atfork_prepare_handler(void)
 		.time = mcount_gettime(),
 		.pid = getpid(),
 	};
-	const struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_FORK_START,
-		.len = sizeof(tmsg),
-	};
-	int len = sizeof(msg) + sizeof(tmsg);
-	char buf[len];
 
-	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
-
-	if (pfd >= 0 && write(pfd, &buf, len) != len)
-		pr_err("write fork info failed");
+	ftrace_send_message(FTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
 }
 
 static void atfork_child_handler(void)
@@ -820,23 +789,12 @@ static void atfork_child_handler(void)
 		.pid = getppid(),
 		.tid = getpid(),
 	};
-	const struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_FORK_END,
-		.len = sizeof(tmsg),
-	};
-	int len = sizeof(msg) + sizeof(tmsg);
-	char buf[len];
-
-	memcpy(buf, &msg, sizeof(msg));
-	memcpy(buf + sizeof(msg), &tmsg, sizeof(tmsg));
-
-	if (pfd >= 0 && write(pfd, buf, len) != len)
-		pr_err("write fork info failed");
 
 	tid = 0;
 	shmem_seqnum = 0;
 	get_new_shmem_buffer();
+
+	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 }
 
 /*
