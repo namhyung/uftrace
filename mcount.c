@@ -127,33 +127,39 @@ static void ftrace_send_message(int type, void *data, size_t len)
 
 static pthread_key_t shmem_key;
 static __thread int shmem_seqnum;
-static __thread struct mcount_shmem_buffer *shmem_buffer;
+static __thread struct mcount_shmem_buffer *shmem_buffer[2];
+static __thread struct mcount_shmem_buffer *shmem_curr;
 
 static void get_new_shmem_buffer(void)
 {
 	char buf[128];
+	int idx = shmem_seqnum % 2;
 	int fd;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), shmem_seqnum++);
+		 session_name(), gettid(), idx);
 
-	pr_dbg("opening shmem buffer: %s\n", buf);
+	if (shmem_buffer[idx] == NULL) {
+		pr_dbg("opening shmem buffer: %s\n", buf);
 
-	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if (fd < 0)
-		pr_err("open shmem buffer");
+		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
+		if (fd < 0)
+			pr_err("open shmem buffer");
 
-	if (ftruncate(fd, SHMEM_BUFFER_SIZE) < 0)
-		pr_err("resizing shmem buffer");
+		if (ftruncate(fd, SHMEM_BUFFER_SIZE) < 0)
+			pr_err("resizing shmem buffer");
 
-	shmem_buffer = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
-			    MAP_SHARED, fd, 0);
-	if (shmem_buffer == MAP_FAILED)
-		pr_err("mmap shmem buffer");
+		shmem_buffer[idx] = mmap(NULL, SHMEM_BUFFER_SIZE,
+					 PROT_READ | PROT_WRITE,
+					 MAP_SHARED, fd, 0);
+		if (shmem_buffer[idx] == MAP_FAILED)
+			pr_err("mmap shmem buffer");
 
-	close(fd);
+		close(fd);
+	}
 
-	shmem_buffer->size = 0;
+	shmem_curr = shmem_buffer[idx];
+	shmem_curr->size = 0;
 
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 }
@@ -161,37 +167,57 @@ static void get_new_shmem_buffer(void)
 static void finish_shmem_buffer(void)
 {
 	char buf[64];
+	int idx = shmem_seqnum % 2;
 
-	if (shmem_buffer == NULL)
+	if (shmem_curr == NULL)
 		return;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), shmem_seqnum - 1);
-
-	munmap(shmem_buffer, SHMEM_BUFFER_SIZE);
-	shmem_buffer = NULL;
+		 session_name(), gettid(), idx);
 
 	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
+
+	shmem_curr = NULL;
+	shmem_seqnum++;
+}
+
+static void clear_shmem_buffer(void)
+{
+	if (shmem_buffer[0])
+		munmap(shmem_buffer[0], SHMEM_BUFFER_SIZE);
+	if (shmem_buffer[1])
+		munmap(shmem_buffer[1], SHMEM_BUFFER_SIZE);
+
+	shmem_buffer[0] = shmem_buffer[1] = NULL;
+	shmem_seqnum = 0;
 }
 
 /* to be used by pthread_create_key() */
 static void shmem_dtor(void *unused)
 {
+	int seq = shmem_seqnum;
+
 	finish_shmem_buffer();
+	/* force update seqnum to call finish on both buffer */
+	if (seq == shmem_seqnum)
+		shmem_seqnum++;
+	finish_shmem_buffer();
+
+	clear_shmem_buffer();
 }
 
 static int record_mmap_data(void *buf, size_t size)
 {
 	assert(size < SHMEM_BUFFER_SIZE);
 
-	if (shmem_buffer == NULL ||
-	    shmem_buffer->size + size > SHMEM_BUFFER_SIZE - sizeof(*shmem_buffer)) {
+	if (shmem_curr == NULL ||
+	    shmem_curr->size + size > SHMEM_BUFFER_SIZE - sizeof(*shmem_buffer)) {
 		finish_shmem_buffer();
 		get_new_shmem_buffer();
 	}
 
-	memcpy(shmem_buffer->data + shmem_buffer->size, buf, size);
-	shmem_buffer->size += size;
+	memcpy(shmem_curr->data + shmem_curr->size, buf, size);
+	shmem_curr->size += size;
 	return 0;
 }
 
@@ -782,7 +808,8 @@ static void atfork_child_handler(void)
 	};
 
 	tid = 0;
-	shmem_seqnum = 0;
+
+	clear_shmem_buffer();
 	get_new_shmem_buffer();
 
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
