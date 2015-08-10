@@ -1899,7 +1899,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		fstack->child_time = 0;
 		fstack->addr = fth->rstack.addr;
 
-	} else if (fth->stack_count > 0) {
+	} else if (fth->rstack.type == FTRACE_EXIT && fth->stack_count > 0) {
 		uint64_t delta;
 		struct fstack *fstack = &fth->func_stack[--fth->stack_count];
 
@@ -1980,7 +1980,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time);
-	} else {
+	} else if (rstack->type == FTRACE_EXIT) {
 		printf("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
@@ -2045,7 +2045,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		print_time_unit(0UL);
 		printf(" [%5d] | %*s%s() {\n", task->tid,
 		       rstack->depth * 2, "", symname);
-	} else {
+	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
@@ -2117,7 +2117,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			printf(" [%5d] | %*s%s() {\n", task->tid,
 			       depth * 2, "", symname);
 		}
-	} else {
+	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
@@ -2490,7 +2490,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 			if (rstack->type == FTRACE_ENTRY) {
 				te.time_total = te.time_self = 0;
 				te.nr_called = 0;
-			} else {
+			} else if (rstack->type == FTRACE_EXIT) {
 				te.time_total = fstack->total_time;
 				te.time_self = te.time_total - fstack->child_time;
 				te.nr_called = 1;
