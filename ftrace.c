@@ -639,13 +639,13 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
-	fd = shm_open(sess_id, O_RDONLY, 0400);
+	fd = shm_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
 		pr_log("open shmem buffer failed: %s: %m\n", sess_id);
 		return 0;
 	}
 
-	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ,
+	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
 			 MAP_SHARED, fd, 0);
 	if (shmem_buf == MAP_FAILED)
 		pr_err("mmap shmem buffer");
@@ -673,6 +673,13 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 		pr_err("write shmem buffer");
 
 	close(fd);
+
+	/*
+	 * Now it has consumed all contents in the shmem buffer,
+	 * make it so that mcount can reuse it.
+	 * This is paired with get_new_shmem_buffer().
+	 */
+	__sync_fetch_and_or(&shmem_buf->flag, SHMEM_FL_WRITTEN);
 
 	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
 	return 0;

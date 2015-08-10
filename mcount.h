@@ -63,6 +63,7 @@ struct ftrace_ret_stack {
 
 enum shmem_buffer_flags {
 	SHMEM_FL_NEW		= (1U << 0),
+	SHMEM_FL_WRITTEN	= (1U << 1),
 };
 
 struct mcount_shmem_buffer {

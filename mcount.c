@@ -160,10 +160,20 @@ static void get_new_shmem_buffer(void)
 
 		close(fd);
 	} else {
-		/* it's not a new buffer, clear the flag */
-		shmem_buffer[idx]->flag &= ~SHMEM_FL_NEW;
-	}
+		/*
+		 * It's not a new buffer, check ftrace record already
+		 * consumed it.
+		 */
+		if (!(shmem_buffer[idx]->flag & SHMEM_FL_WRITTEN))
+			return;
 
+		/*
+		 * Start a new buffer and clear the flags.
+		 * See record_mmap_file().
+		 */
+		__sync_fetch_and_and(&shmem_buffer[idx]->flag,
+				     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
+	}
 	shmem_curr = shmem_buffer[idx];
 	shmem_curr->size = 0;
 
@@ -220,6 +230,9 @@ static int record_mmap_data(void *buf, size_t size)
 	    shmem_curr->size + size > SHMEM_BUFFER_SIZE - sizeof(*shmem_buffer)) {
 		finish_shmem_buffer();
 		get_new_shmem_buffer();
+
+		if (shmem_curr == NULL)
+			return 0;
 	}
 
 	memcpy(shmem_curr->data + shmem_curr->size, buf, size);
