@@ -155,7 +155,13 @@ static void get_new_shmem_buffer(void)
 		if (shmem_buffer[idx] == MAP_FAILED)
 			pr_err("mmap shmem buffer");
 
+		/* mark it's a new buffer */
+		shmem_buffer[idx]->flag |= SHMEM_FL_NEW;
+
 		close(fd);
+	} else {
+		/* it's not a new buffer, clear the flag */
+		shmem_buffer[idx]->flag &= ~SHMEM_FL_NEW;
 	}
 
 	shmem_curr = shmem_buffer[idx];

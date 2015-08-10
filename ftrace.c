@@ -590,6 +590,7 @@ struct shmem_list {
 };
 
 static struct shmem_list *shmem_list_head;
+static struct shmem_list *shmem_need_unlink;
 
 struct tid_list {
 	struct tid_list *next;
@@ -634,6 +635,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	char buf[128];
 	char *ptr;
 	size_t size;
+	struct shmem_list *sl;
 	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
@@ -658,15 +660,21 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	ptr  = shmem_buf->data;
 	size = shmem_buf->size;
 
+	if (shmem_buf->flag & SHMEM_FL_NEW) {
+		sl = xmalloc(sizeof(*sl));
+		memcpy(sl->id, sess_id, sizeof(sl->id));
+
+		/* link to shmem_list */
+		sl->next = shmem_need_unlink;
+		shmem_need_unlink = sl;
+	}
+
 	if (write_all(fd, ptr, size) < 0)
 		pr_err("write shmem buffer");
 
 	close(fd);
 
 	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
-
-	/* it's no longer used */
-	shm_unlink(sess_id);
 	return 0;
 }
 
@@ -707,6 +715,24 @@ static void flush_shmem_list(const char *dirname)
 		free(tmp);
 	}
 	shmem_list_head = NULL;
+}
+
+static void unlink_shmem_list(void)
+{
+	struct shmem_list *sl;
+
+	/* unlink shmem list (not used anymore) */
+	sl = shmem_need_unlink;
+	while (sl) {
+		struct shmem_list *tmp = sl;
+		sl = sl->next;
+
+		pr_dbg("unlink %s\n", tmp->id);
+
+		shm_unlink(tmp->id);
+		free(tmp);
+	}
+	shmem_need_unlink = NULL;
 }
 
 static void flush_old_shmem(const char *dirname, int tid)
@@ -1490,6 +1516,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	flush_shmem_list(opts->dirname);
+	unlink_shmem_list();
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");

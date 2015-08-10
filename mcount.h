@@ -61,8 +61,13 @@ struct ftrace_ret_stack {
 
 #define SHMEM_BUFFER_SIZE  (128 * 1024)
 
+enum shmem_buffer_flags {
+	SHMEM_FL_NEW		= (1U << 0),
+};
+
 struct mcount_shmem_buffer {
 	unsigned size;
+	unsigned flag;
 	char data[];
 };
 
