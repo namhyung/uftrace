@@ -857,7 +857,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		tl->pid = tmsg.pid;
 		tl->tid = -1;
 
-		pr_dbg("MSG FORK1: start\n");
+		pr_dbg("MSG FORK1: %d/%d\n", tl->pid, tl->tid);
 
 		tl->exited = false;
 
@@ -879,8 +879,23 @@ static void read_record_mmap(int pfd, const char *dirname)
 				break;
 			tl = tl->next;
 		}
+
+		if (tl == NULL && tmsg.pid == 1) {
+			/* daemon process has pid of 1, just pick a
+			 * first task has tid of -1 */
+			tl = tid_list_head;
+			while (tl) {
+				if (tl->tid == -1) {
+					pr_log("assume -1 tid a new daemon child\n");
+					tmsg.pid = tl->pid;
+					break;
+				}
+				tl = tl->next;
+			}
+		}
+
 		if (tl == NULL)
-			pr_err("cannot find fork pid\n");
+			pr_err("cannot find fork pid: %d\n", tmsg.pid);
 
 		tl->tid = tmsg.tid;
 
