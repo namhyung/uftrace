@@ -1896,6 +1896,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		struct fstack *fstack = &fth->func_stack[fth->stack_count++];
 
 		fstack->total_time = fth->rstack.time;
+		fstack->child_time = 0;
 		fstack->addr = fth->rstack.addr;
 
 	} else if (fth->stack_count > 0) {
