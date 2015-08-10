@@ -1647,6 +1647,7 @@ struct ftrace_task_handle {
 	int stack_count;
 	struct fstack {
 		unsigned long addr;
+		bool valid;
 		uint64_t total_time;
 		uint64_t child_time;
 	} func_stack[MCOUNT_RSTACK_MAX];
@@ -1891,6 +1892,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 
 		fstack->total_time = fth->rstack.time;
 		fstack->child_time = 0;
+		fstack->valid = true;
 		fstack->addr = fth->rstack.addr;
 
 		fth->stack_count = fth->rstack.depth + 1;
@@ -1900,6 +1902,10 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
 		delta = fth->rstack.time - fstack->total_time;
+
+		if (!fstack->valid)
+			delta = 0UL;
+		fstack->valid = false;
 
 		fstack->total_time = delta;
 		if (fstack->child_time > fstack->total_time)
