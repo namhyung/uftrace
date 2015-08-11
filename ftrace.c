@@ -1673,6 +1673,7 @@ struct ftrace_task_handle {
 	int tid;
 	bool valid;
 	bool done;
+	bool lost_seen;
 	FILE *fp;
 	struct sym *func;
 	int filter_count;
@@ -1922,6 +1923,15 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
+	if (fth->lost_seen) {
+		int i;
+
+		for (i = 0; i <= fth->rstack.depth; i++)
+			fth->func_stack[i].valid = false;
+
+		fth->lost_seen = false;
+	}
+
 	if (fth->rstack.type == FTRACE_ENTRY) {
 		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
@@ -1949,6 +1959,9 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		fth->stack_count = fth->rstack.depth;
 		if (fth->stack_count > 0)
 			fth->func_stack[fth->stack_count - 1].child_time += delta;
+
+	} else if (fth->rstack.type == FTRACE_LOST) {
+		fth->lost_seen = true;
 	}
 
 	fth->valid = true;
