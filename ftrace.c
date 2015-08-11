@@ -1679,6 +1679,7 @@ struct ftrace_task_handle {
 	int filter_depth;
 	struct ftrace_ret_stack rstack;
 	int stack_count;
+	int lost_count;
 	struct fstack {
 		unsigned long addr;
 		bool valid;
@@ -2021,6 +2022,9 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		printf("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
+	} else if (rstack->type == FTRACE_LOST) {
+		printf("[%d] XXX %d: lost %d records\n",
+		       count++, task->tid, (int)rstack->addr);
 	}
 
 	symbol_putname(sym, name);
@@ -2094,6 +2098,10 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		}
 
 		update_filter_count_exit(task, rstack->addr);
+	} else if (rstack->type == FTRACE_LOST) {
+		print_time_unit(0UL);
+		printf(" [%5d] |     /* LOST %d records!! */\n",
+		       task->tid, (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -2167,6 +2175,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 
 		update_filter_count_exit(task, rstack->addr);
+
+	} else if (rstack->type == FTRACE_LOST) {
+		print_time_unit(0UL);
+		printf(" [%5d] |     /* LOST %d records!! */\n",
+		       task->tid, (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);

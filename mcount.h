@@ -46,15 +46,16 @@ void _mcleanup(void);
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,
 	FTRACE_EXIT,
+	FTRACE_LOST,
 };
 
-#define FTRACE_UNUSED  0x1a
+#define FTRACE_UNUSED  0xa
 
 /* reduced version of mcount_ret_stack */
 struct ftrace_ret_stack {
 	uint64_t time;
-	uint64_t type:   1;
-	uint64_t unused: 5;
+	uint64_t type:   2;
+	uint64_t unused: 4;
 	uint64_t depth:  10;
 	uint64_t addr:   48;
 };

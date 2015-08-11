@@ -129,6 +129,7 @@ static pthread_key_t shmem_key;
 static __thread int shmem_seqnum;
 static __thread struct mcount_shmem_buffer *shmem_buffer[2];
 static __thread struct mcount_shmem_buffer *shmem_curr;
+static __thread int shmem_losts;
 
 static void get_new_shmem_buffer(void)
 {
@@ -164,8 +165,10 @@ static void get_new_shmem_buffer(void)
 		 * It's not a new buffer, check ftrace record already
 		 * consumed it.
 		 */
-		if (!(shmem_buffer[idx]->flag & SHMEM_FL_WRITTEN))
+		if (!(shmem_buffer[idx]->flag & SHMEM_FL_WRITTEN)) {
+			shmem_losts++;
 			return;
+		}
 
 		/*
 		 * Start a new buffer and clear the flags.
@@ -233,6 +236,18 @@ static int record_mmap_data(void *buf, size_t size)
 
 		if (shmem_curr == NULL)
 			return 0;
+
+		if (shmem_losts) {
+			struct ftrace_ret_stack frstack = {
+				.type = FTRACE_LOST,
+				.unused = FTRACE_UNUSED,
+				.addr = shmem_losts,
+			};
+
+			memcpy(shmem_curr->data, &frstack, sizeof(frstack));
+			shmem_curr->size += sizeof(frstack);
+			shmem_losts = 0;
+		}
 	}
 
 	memcpy(shmem_curr->data + shmem_curr->size, buf, size);
