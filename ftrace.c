@@ -586,12 +586,12 @@ static void sighandler(int sig)
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
-	struct shmem_list *next;
+	struct list_head list;
 	char id[SHMEM_NAME_SIZE];
 };
 
-static struct shmem_list *shmem_list_head;
-static struct shmem_list *shmem_need_unlink;
+static LIST_HEAD(shmem_list_head);
+static LIST_HEAD(shmem_need_unlink);
 
 struct tid_list {
 	struct list_head list;
@@ -666,8 +666,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 		memcpy(sl->id, sess_id, sizeof(sl->id));
 
 		/* link to shmem_list */
-		sl->next = shmem_need_unlink;
-		shmem_need_unlink = sl;
+		list_add_tail(&sl->list, &shmem_need_unlink);
 	}
 
 	if (write_all(fd, ptr, size) < 0)
@@ -709,75 +708,58 @@ static int record_task_file(const char *dirname, void *data, int len)
 
 static void flush_shmem_list(const char *dirname)
 {
-	struct shmem_list *sl;
+	struct shmem_list *sl, *tmp;
 
 	/* flush remaining list (due to abnormal termination) */
-	sl = shmem_list_head;
-	while (sl) {
-		struct shmem_list *tmp = sl;
-		sl = sl->next;
+	list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
+		pr_dbg("flushing %s\n", sl->id);
 
-		pr_dbg("flushing %s\n", tmp->id);
-
-		record_mmap_file(dirname, tmp->id);
-		free(tmp);
+		list_del(&sl->list);
+		record_mmap_file(dirname, sl->id);
+		free(sl);
 	}
-	shmem_list_head = NULL;
 }
 
 static void unlink_shmem_list(void)
 {
-	struct shmem_list *sl;
+	struct shmem_list *sl, *tmp;
 
 	/* unlink shmem list (not used anymore) */
-	sl = shmem_need_unlink;
-	while (sl) {
-		struct shmem_list *tmp = sl;
-		sl = sl->next;
+	/* flush remaining list (due to abnormal termination) */
+	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
+		pr_dbg("unlink %s\n", sl->id);
 
-		pr_dbg("unlink %s\n", tmp->id);
-
-		shm_unlink(tmp->id);
-		free(tmp);
+		list_del(&sl->list);
+		shm_unlink(sl->id);
+		free(sl);
 	}
-	shmem_need_unlink = NULL;
 }
 
 static void flush_old_shmem(const char *dirname, int tid)
 {
-	struct shmem_list *curr, *prev;
+	struct shmem_list *sl;
 
-	/* flush old session (due to exec) */
-	prev = NULL;
-	curr = shmem_list_head;
+	/* flush remaining list (due to abnormal termination) */
+	list_for_each_entry(sl, &shmem_list_head, list) {
+		int sl_tid;
 
-	while (curr) {
-		int tmp_id;
+		sscanf(sl->id, "/ftrace-%*x-%d-%*d", &sl_tid);
 
-		sscanf(curr->id, "/ftrace-%*x-%d-%*d", &tmp_id);
+		if (tid == sl_tid) {
+			pr_dbg("flushing %s\n", sl->id);
 
-		if (tid == tmp_id) {
-			if (prev)
-				prev->next = curr->next;
-			else
-				shmem_list_head = curr->next;
-
-			pr_dbg("flushing %s\n", curr->id);
-
-			record_mmap_file(dirname, curr->id);
-			free(curr);
+			list_del(&sl->list);
+			record_mmap_file(dirname, sl->id);
+			free(sl);
 			return;
 		}
-
-		prev = curr;
-		curr = prev->next;
 	}
 }
 
 static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
-	struct shmem_list *sl, **psl;
+	struct shmem_list *sl, *tmp;
 	struct tid_list *tl, *pos;
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
@@ -804,8 +786,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		pr_dbg("MSG START: %s\n", sl->id);
 
 		/* link to shmem_list */
-		sl->next = shmem_list_head;
-		shmem_list_head = sl;
+		list_add_tail(&sl->list, &shmem_list_head);
 		break;
 
 	case FTRACE_MSG_REC_END:
@@ -818,20 +799,13 @@ static void read_record_mmap(int pfd, const char *dirname)
 		buf[msg.len] = '\0';
 		pr_dbg("MSG  END : %s\n", buf);
 
-		psl = &shmem_list_head;
-
 		/* remove from shmem_list */
-		while (*psl) {
-			sl = *psl;
-
+		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
 			if (!strncmp(sl->id, buf, SHMEM_NAME_SIZE)) {
-				*psl = sl->next;
-
+				list_del(&sl->list);
 				free(sl);
 				break;
 			}
-
-			psl = &sl->next;
 		}
 
 		record_mmap_file(dirname, buf);
