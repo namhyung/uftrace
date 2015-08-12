@@ -43,6 +43,7 @@
 #include "symbol.h"
 #include "rbtree.h"
 #include "utils.h"
+#include "list.h"
 
 const char *argp_program_version = "ftrace v0.3";
 const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
@@ -585,21 +586,21 @@ static void sighandler(int sig)
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
-	struct shmem_list *next;
+	struct list_head list;
 	char id[SHMEM_NAME_SIZE];
 };
 
-static struct shmem_list *shmem_list_head;
-static struct shmem_list *shmem_need_unlink;
+static LIST_HEAD(shmem_list_head);
+static LIST_HEAD(shmem_need_unlink);
 
 struct tid_list {
-	struct tid_list *next;
+	struct list_head list;
 	int pid;
 	int tid;
 	bool exited;
 };
 
-static struct tid_list *tid_list_head;
+static LIST_HEAD(tid_list_head);
 
 static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
 {
@@ -665,8 +666,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 		memcpy(sl->id, sess_id, sizeof(sl->id));
 
 		/* link to shmem_list */
-		sl->next = shmem_need_unlink;
-		shmem_need_unlink = sl;
+		list_add_tail(&sl->list, &shmem_need_unlink);
 	}
 
 	if (write_all(fd, ptr, size) < 0)
@@ -708,75 +708,58 @@ static int record_task_file(const char *dirname, void *data, int len)
 
 static void flush_shmem_list(const char *dirname)
 {
-	struct shmem_list *sl;
+	struct shmem_list *sl, *tmp;
 
 	/* flush remaining list (due to abnormal termination) */
-	sl = shmem_list_head;
-	while (sl) {
-		struct shmem_list *tmp = sl;
-		sl = sl->next;
+	list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
+		pr_dbg("flushing %s\n", sl->id);
 
-		pr_dbg("flushing %s\n", tmp->id);
-
-		record_mmap_file(dirname, tmp->id);
-		free(tmp);
+		list_del(&sl->list);
+		record_mmap_file(dirname, sl->id);
+		free(sl);
 	}
-	shmem_list_head = NULL;
 }
 
 static void unlink_shmem_list(void)
 {
-	struct shmem_list *sl;
+	struct shmem_list *sl, *tmp;
 
 	/* unlink shmem list (not used anymore) */
-	sl = shmem_need_unlink;
-	while (sl) {
-		struct shmem_list *tmp = sl;
-		sl = sl->next;
+	/* flush remaining list (due to abnormal termination) */
+	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
+		pr_dbg("unlink %s\n", sl->id);
 
-		pr_dbg("unlink %s\n", tmp->id);
-
-		shm_unlink(tmp->id);
-		free(tmp);
+		list_del(&sl->list);
+		shm_unlink(sl->id);
+		free(sl);
 	}
-	shmem_need_unlink = NULL;
 }
 
 static void flush_old_shmem(const char *dirname, int tid)
 {
-	struct shmem_list *curr, *prev;
+	struct shmem_list *sl;
 
-	/* flush old session (due to exec) */
-	prev = NULL;
-	curr = shmem_list_head;
+	/* flush remaining list (due to abnormal termination) */
+	list_for_each_entry(sl, &shmem_list_head, list) {
+		int sl_tid;
 
-	while (curr) {
-		int tmp_id;
+		sscanf(sl->id, "/ftrace-%*x-%d-%*d", &sl_tid);
 
-		sscanf(curr->id, "/ftrace-%*x-%d-%*d", &tmp_id);
+		if (tid == sl_tid) {
+			pr_dbg("flushing %s\n", sl->id);
 
-		if (tid == tmp_id) {
-			if (prev)
-				prev->next = curr->next;
-			else
-				shmem_list_head = curr->next;
-
-			pr_dbg("flushing %s\n", curr->id);
-
-			record_mmap_file(dirname, curr->id);
-			free(curr);
+			list_del(&sl->list);
+			record_mmap_file(dirname, sl->id);
+			free(sl);
 			return;
 		}
-
-		prev = curr;
-		curr = prev->next;
 	}
 }
 
 static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
-	struct shmem_list *sl, **psl;
+	struct shmem_list *sl, *tmp;
 	struct tid_list *tl, *pos;
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
@@ -803,8 +786,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		pr_dbg("MSG START: %s\n", sl->id);
 
 		/* link to shmem_list */
-		sl->next = shmem_list_head;
-		shmem_list_head = sl;
+		list_add_tail(&sl->list, &shmem_list_head);
 		break;
 
 	case FTRACE_MSG_REC_END:
@@ -817,20 +799,13 @@ static void read_record_mmap(int pfd, const char *dirname)
 		buf[msg.len] = '\0';
 		pr_dbg("MSG  END : %s\n", buf);
 
-		psl = &shmem_list_head;
-
 		/* remove from shmem_list */
-		while (*psl) {
-			sl = *psl;
-
+		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
 			if (!strncmp(sl->id, buf, SHMEM_NAME_SIZE)) {
-				*psl = sl->next;
-
+				list_del(&sl->list);
 				free(sl);
 				break;
 			}
-
-			psl = &sl->next;
 		}
 
 		record_mmap_file(dirname, buf);
@@ -846,17 +821,14 @@ static void read_record_mmap(int pfd, const char *dirname)
 		pr_dbg("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
-		pos = tid_list_head;
-		while (pos) {
+		list_for_each_entry(pos, &tid_list_head, list) {
 			if (pos->tid == tmsg.tid) {
 				flush_old_shmem(dirname, tmsg.tid);
 				break;
 			}
-
-			pos = pos->next;
 		}
 
-		if (pos == NULL) {
+		if (list_no_entry(pos, &tid_list_head, list)) {
 			tl = xmalloc(sizeof(*tl));
 
 			tl->pid = tmsg.pid;
@@ -864,8 +836,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			tl->exited = false;
 
 			/* link to tid_list */
-			tl->next = tid_list_head;
-			tid_list_head = tl;
+			list_add(&tl->list, &tid_list_head);
 		}
 
 		record_task_file(dirname, &msg, sizeof(msg));
@@ -889,8 +860,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		tl->exited = false;
 
 		/* link to tid_list */
-		tl->next = tid_list_head;
-		tid_list_head = tl;
+		list_add(&tl->list, &tid_list_head);
 		break;
 
 	case FTRACE_MSG_FORK_END:
@@ -900,28 +870,24 @@ static void read_record_mmap(int pfd, const char *dirname)
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		tl = tid_list_head;
-		while (tl) {
+		list_for_each_entry(tl, &tid_list_head, list) {
 			if (tl->pid == tmsg.pid && tl->tid == -1)
 				break;
-			tl = tl->next;
 		}
 
-		if (tl == NULL && tmsg.pid == 1) {
+		if (list_no_entry(tl, &tid_list_head, list) && tmsg.pid == 1) {
 			/* daemon process has pid of 1, just pick a
 			 * first task has tid of -1 */
-			tl = tid_list_head;
-			while (tl) {
+			list_for_each_entry(tl, &tid_list_head, list) {
 				if (tl->tid == -1) {
-					pr_log("assume -1 tid a new daemon child\n");
+					pr_dbg("assume tid 1 as new daemon child\n");
 					tmsg.pid = tl->pid;
 					break;
 				}
-				tl = tl->next;
 			}
 		}
 
-		if (tl == NULL)
+		if (list_no_entry(tl, &tid_list_head, list))
 			pr_err("cannot find fork pid: %d\n", tmsg.pid);
 
 		tl->tid = tmsg.tid;
@@ -1231,12 +1197,9 @@ static int read_task_file(char *dirname)
 int read_tid_list(int *tids, bool skip_unknown)
 {
 	int nr = 0;
-	struct tid_list *tl = tid_list_head;
+	struct tid_list *tmp;
 
-	while (tl) {
-		struct tid_list *tmp = tl;
-		tl = tl->next;
-
+	list_for_each_entry(tmp, &tid_list_head, list) {
 		if (tmp->tid == -1 && skip_unknown)
 			continue;
 
@@ -1251,44 +1214,38 @@ int read_tid_list(int *tids, bool skip_unknown)
 
 void free_tid_list(void)
 {
-	struct tid_list *tl = tid_list_head;
+	struct tid_list *tl, *tmp;
 
-	while (tl) {
-		struct tid_list *tmp = tl;
-		tl = tl->next;
-
-		free(tmp);
+	list_for_each_entry_safe(tl, tmp, &tid_list_head, list) {
+		list_del(&tl->list);
+		free(tl);
 	}
-
-	tid_list_head = NULL;
 }
 
 bool check_tid_list(void)
 {
-	struct tid_list *tl = tid_list_head;
+	struct tid_list *tl;
 	char buf[128];
 
-	while (tl) {
+	list_for_each_entry(tl, &tid_list_head, list) {
 		int fd, len;
 		char state;
 		char line[4096];
-		struct tid_list *tmp = tl;
-		tl = tl->next;
 
-		if (tmp->exited || tmp->tid < 0)
+		if (tl->exited || tl->tid < 0)
 			continue;
 
-		snprintf(buf, sizeof(buf), "/proc/%d/stat", tmp->tid);
+		snprintf(buf, sizeof(buf), "/proc/%d/stat", tl->tid);
 
 		fd = open(buf, O_RDONLY);
 		if (fd < 0) {
-			tmp->exited = true;
+			tl->exited = true;
 			continue;
 		}
 
 		len = read(fd, line, sizeof(line) - 1);
 		if (len < 0) {
-			tmp->exited = true;
+			tl->exited = true;
 			close(fd);
 			continue;
 		}
@@ -1297,17 +1254,13 @@ bool check_tid_list(void)
 
 		sscanf(line, "%*d %*s %c", &state);
 		if (state == 'Z')
-			tmp->exited = true;
+			tl->exited = true;
 
 		close(fd);
 	}
 
-	tl = tid_list_head;
-	while (tl) {
-		struct tid_list *tmp = tl;
-		tl = tl->next;
-
-		if (!tmp->exited)
+	list_for_each_entry(tl, &tid_list_head, list) {
+		if (!tl->exited)
 			return false;
 	}
 
@@ -1320,14 +1273,11 @@ static bool child_exited;
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
 {
 	int tid = sainfo->si_pid;
-	struct tid_list *tl = tid_list_head;
+	struct tid_list *tl;
 
-	while (tl) {
-		struct tid_list *tmp = tl;
-		tl = tl->next;
-
-		if (tmp->tid == tid) {
-			tmp->exited = true;
+	list_for_each_entry(tl, &tid_list_head, list) {
+		if (tl->tid == tid) {
+			tl->exited = true;
 			break;
 		}
 	}
