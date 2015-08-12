@@ -854,7 +854,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			}
 		}
 
-		if (&pos->list == &tid_list_head) {
+		if (list_no_entry(pos, &tid_list_head, list)) {
 			tl = xmalloc(sizeof(*tl));
 
 			tl->pid = tmsg.pid;
@@ -901,7 +901,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 				break;
 		}
 
-		if ((&tl->list == &tid_list_head) && tmsg.pid == 1) {
+		if (list_no_entry(tl, &tid_list_head, list) && tmsg.pid == 1) {
 			/* daemon process has pid of 1, just pick a
 			 * first task has tid of -1 */
 			list_for_each_entry(tl, &tid_list_head, list) {
@@ -913,7 +913,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			}
 		}
 
-		if (&tl->list == &tid_list_head)
+		if (list_no_entry(tl, &tid_list_head, list))
 			pr_err("cannot find fork pid: %d\n", tmsg.pid);
 
 		tl->tid = tmsg.tid;
