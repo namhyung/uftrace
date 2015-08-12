@@ -490,10 +490,10 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	uint64_t features = 0;
 
 	if (opts->want_plthook)
-		features |= 1U << PLTHOOK;
+		features |= PLTHOOK;
 
 	/* mcount code creates task and sid-XXX.map files */
-	features |= 1U << TASK_SESSION;
+	features |= TASK_SESSION;
 
 	return features;
 }
@@ -1522,7 +1522,7 @@ static void read_map_file(char *filename, struct ftrace_proc_maps **maps)
 
 	fp = fopen(filename, "rb");
 	if (fp == NULL)
-		pr_err("cannot open maps file");
+		pr_err("cannot open maps file: %s", filename);
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		unsigned long start, end;

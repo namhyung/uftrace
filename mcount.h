@@ -95,8 +95,13 @@ struct ftrace_file_header {
 };
 
 enum ftrace_feat_bits {
-	PLTHOOK,
-	TASK_SESSION,
+	/* bit index */
+	PLTHOOK_BIT,
+	TASK_SESSION_BIT,
+
+	/* bit mask */
+	PLTHOOK			= (1U << PLTHOOK_BIT),
+	TASK_SESSION		= (1U << TASK_SESSION_BIT),
 };
 
 enum ftrace_info_bits {
