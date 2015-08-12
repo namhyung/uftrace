@@ -210,11 +210,19 @@ static int record_mmap_data(void *buf, size_t size)
 	return 0;
 }
 
-static int record_trace_data(void *buf, size_t size)
+static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
-	pr_dbg2("%d recording %zd bytes\n", gettid(), size);
+	struct ftrace_ret_stack frstack = {
+		.time = mrstack->end_time ?: mrstack->start_time,
+		.type = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY,
+		.unused = FTRACE_UNUSED,
+		.depth = mrstack->depth,
+		.addr = mrstack->child_ip,
+	};
 
-	return record_mmap_data(buf, size);
+	pr_dbg2("%d recording %zd bytes\n", mrstack->tid, sizeof(frstack));
+
+	return record_mmap_data(&frstack, sizeof(frstack));
 }
 
 static void record_proc_maps(char *dirname, const char *sess_id)
@@ -389,10 +397,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
-	rstack->child_time = 0;
 
 	if (filtered > 0) {
-		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
@@ -429,16 +436,10 @@ unsigned long mcount_exit(void)
 	rstack->tid = gettid();
 
 	if (!was_filtered) {
-		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	}
 
-	if (mcount_rstack_idx > 0) {
-		int idx = mcount_rstack_idx - 1;
-		struct mcount_ret_stack *parent = &mcount_rstack[idx];
-
-		parent->child_time += rstack->end_time - rstack->start_time;
-	}
 	return rstack->parent_ip;
 }
 
@@ -480,10 +481,9 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
-	rstack->child_time = 0;
 
 	if (filtered > 0) {
-		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
@@ -520,16 +520,10 @@ unsigned long cygprof_exit(void)
 	rstack->tid = gettid();
 
 	if (!was_filtered) {
-		if (record_trace_data(rstack, sizeof(*rstack)) < 0)
+		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	}
 
-	if (mcount_rstack_idx > 0) {
-		int idx = mcount_rstack_idx - 1;
-		struct mcount_ret_stack *parent = &mcount_rstack[idx];
-
-		parent->child_time += rstack->end_time - rstack->start_time;
-	}
 	return rstack->parent_ip;
 }
 

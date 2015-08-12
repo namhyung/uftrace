@@ -28,7 +28,6 @@ struct mcount_ret_stack {
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
-	uint64_t child_time;
 	int tid;
 	unsigned short depth;
 	unsigned short dyn_idx;
@@ -44,6 +43,21 @@ unsigned long cygprof_exit(void);
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 
+enum ftrace_ret_stack_type {
+	FTRACE_ENTRY,
+	FTRACE_EXIT,
+};
+
+#define FTRACE_UNUSED  0x1a
+
+/* reduced version of mcount_ret_stack */
+struct ftrace_ret_stack {
+	uint64_t time;
+	uint64_t type:   1;
+	uint64_t unused: 5;
+	uint64_t depth:  10;
+	uint64_t addr:   48;
+};
 
 #define FTRACE_MSG_MAGIC 0xface
 

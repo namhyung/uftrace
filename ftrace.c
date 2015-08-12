@@ -1649,11 +1649,12 @@ struct ftrace_task_handle {
 	struct sym *func;
 	int filter_count;
 	int filter_depth;
-	struct mcount_ret_stack rstack;
+	struct ftrace_ret_stack rstack;
 	int stack_count;
-	struct {
-		unsigned long ip;
-		uint64_t time;
+	struct fstack {
+		unsigned long addr;
+		uint64_t total_time;
+		uint64_t child_time;
 	} func_stack[MCOUNT_RSTACK_MAX];
 };
 
@@ -1778,17 +1779,6 @@ static int setup_function_filter(unsigned long **filters, char *filter_str)
 	return count;
 }
 
-static struct ftrace_task_handle *get_task_handle(int pid)
-{
-	int i;
-
-	for (i = 0; i < nr_tasks; i++) {
-		if (tasks[i].tid == pid)
-			return &tasks[i];
-	}
-	return NULL;
-}
-
 static int match_filter_addr(unsigned long *filters, int nr_filters, unsigned long addr)
 {
 	int i;
@@ -1841,10 +1831,16 @@ static int read_task_rstack(struct ftrace_task_handle *handle)
 		pr_log("error reading rstack: %s\n", strerror(errno));
 		return -1;
 	}
+
+	if (handle->rstack.unused != FTRACE_UNUSED) {
+		pr_log("invalid rstack read\n");
+		return -1;
+	}
+
 	return 0;
 }
 
-static struct mcount_ret_stack *
+static struct ftrace_ret_stack *
 get_task_rstack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *fth;
@@ -1896,107 +1892,109 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
-	if (fth->rstack.end_time == 0) {
-		fth->func_stack[fth->stack_count].time = fth->rstack.start_time;
-		fth->func_stack[fth->stack_count].ip = fth->rstack.child_ip;
-		fth->stack_count++;
-	} else if (fth->stack_count > 0)
-		fth->stack_count--;
+	if (fth->rstack.type == FTRACE_ENTRY) {
+		struct fstack *fstack = &fth->func_stack[fth->stack_count++];
+
+		fstack->total_time = fth->rstack.time;
+		fstack->addr = fth->rstack.addr;
+
+	} else if (fth->stack_count > 0) {
+		uint64_t delta;
+		struct fstack *fstack = &fth->func_stack[--fth->stack_count];
+
+		delta = fth->rstack.time - fstack->total_time;
+
+		fstack->total_time = delta;
+		if (fstack->child_time > fstack->total_time)
+			fstack->child_time = fstack->total_time;
+
+		if (fth->stack_count > 0)
+			fth->func_stack[fth->stack_count - 1].child_time += delta;
+	}
 
 	fth->valid = true;
 	return &fth->rstack;
 }
 
-static uint64_t rstack_time(struct mcount_ret_stack *rstack)
-{
-	assert(rstack->end_time || rstack->start_time);
-
-	return rstack->end_time ? : rstack->start_time;
-}
-
 static int __read_rstack(struct ftrace_file_handle *handle,
-			 struct mcount_ret_stack *rstack, bool invalidate)
+			 struct ftrace_task_handle **task, bool invalidate)
 {
-	int i, next_i = 0;
-	struct mcount_ret_stack *tmp, *next = NULL;
+	int i, next_i = -1;
+	uint64_t next_time;
+	struct ftrace_ret_stack *tmp;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		tmp = get_task_rstack(handle, i);
 		if (tmp == NULL)
 			continue;
 
-		if (!next || rstack_time(tmp) < rstack_time(next)) {
-			next = tmp;
+		if (next_i < 0 || tmp->time < next_time) {
+			next_time = tmp->time;
 			next_i = i;
 		}
 	}
 
-	if (next == NULL)
+	if (next_i < 0)
 		return -1;
 
-	memcpy(rstack, next, sizeof(*rstack));
+	*task = &tasks[next_i];
 	if (invalidate)
-		tasks[next_i].valid = false;
+		(*task)->valid = false;
 
 	return 0;
 }
 
 static int read_rstack(struct ftrace_file_handle *handle,
-		       struct mcount_ret_stack *rstack)
+		       struct ftrace_task_handle **task)
 {
-	return __read_rstack(handle, rstack, true);
+	return __read_rstack(handle, task, true);
 }
 
 static int peek_rstack(struct ftrace_file_handle *handle,
-		       struct mcount_ret_stack *rstack)
+		       struct ftrace_task_handle **task)
 {
-	return __read_rstack(handle, rstack, false);
+	return __read_rstack(handle, task, false);
 }
 
 static int print_flat_rstack(struct ftrace_file_handle *handle,
-			     struct mcount_ret_stack *rstack)
+			     struct ftrace_task_handle *task)
 {
 	static int count;
-	struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+	struct ftrace_ret_stack *rstack = &task->rstack;
+	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
-	struct sym *parent = find_symtab(symtabs, rstack->parent_ip, proc_maps);
-	struct sym *child = find_symtab(symtabs, rstack->child_ip, proc_maps);
-	char *parent_name = symbol_getname(parent, rstack->parent_ip);
-	char *child_name = symbol_getname(child, rstack->child_ip);
+	struct sym *sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	char *name = symbol_getname(sym, rstack->addr);
+	struct fstack *fstack = &task->func_stack[task->stack_count];
 
-	if (rstack->end_time == 0) {
-		printf("[%d] %d/%d: ip (%s -> %s), time (%"PRIu64")\n",
-		       count++, rstack->tid, rstack->depth, parent_name,
-		       child_name, rstack->start_time);
+	if (rstack->type == FTRACE_ENTRY) {
+		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
+		       count++, task->tid, rstack->depth,
+		       name, rstack->time);
 	} else {
-		printf("[%d] %d/%d: ip (%s <- %s), time (%"PRIu64":%"PRIu64")\n",
-		       count++, rstack->tid, rstack->depth, parent_name,
-		       child_name, rstack->end_time,
-		       rstack->end_time - rstack->start_time);
+		printf("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
+		       count++, task->tid, rstack->depth,
+		       name, rstack->time, fstack->total_time);
 	}
 
-	symbol_putname(parent, parent_name);
-	symbol_putname(child, child_name);
+	symbol_putname(sym, name);
 	return 0;
 }
 
-static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
+static void print_time_unit(uint64_t delta_nsec)
 {
-	uint64_t delta = 0;
+	uint64_t delta = delta_nsec;
 	uint64_t delta_small;
 	char *unit[] = { "us", "ms", "s", "m", "h", };
 	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
 	unsigned idx;
 
-	if (start_nsec == 0UL && end_nsec == 0UL) {
+	if (delta_nsec == 0UL) {
 		printf(" %7s %2s", "", "");
 		return;
 	}
 
 	for (idx = 0; idx < ARRAY_SIZE(unit); idx++) {
-		if (delta == 0)
-			delta = end_nsec - start_nsec;
-
 		delta_small = delta % limit[idx];
 		delta = delta / limit[idx];
 
@@ -2010,9 +2008,9 @@ static void print_time_unit(uint64_t start_nsec, uint64_t end_nsec)
 }
 
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
-				       struct mcount_ret_stack *rstack)
+				       struct ftrace_task_handle *task)
 {
-	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+	struct ftrace_ret_stack *rstack = &task->rstack;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2021,32 +2019,35 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	if (task == NULL)
 		return 0;
 
-	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
-	symname = symbol_getname(sym, rstack->child_ip);
+	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	symname = symbol_getname(sym, rstack->addr);
 
-	if (rstack->end_time == 0) {
-		update_filter_count_entry(task, rstack->child_ip);
+	if (rstack->type == FTRACE_ENTRY) {
+		update_filter_count_entry(task, rstack->addr);
 		if (task->filter_count <= 0)
 			goto out;
 
 		/* function entry */
-		print_time_unit(0UL, 0UL);
-		printf(" [%5d] | %*s%s() {\n", rstack->tid,
+		print_time_unit(0UL);
+		printf(" [%5d] | %*s%s() {\n", task->tid,
 		       rstack->depth * 2, "", symname);
 	} else {
 		/* function exit */
 		if (task->filter_count > 0) {
-			print_time_unit(rstack->start_time, rstack->end_time);
-			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
+			struct fstack *fstack;
+
+			fstack= &task->func_stack[task->stack_count];
+			print_time_unit(fstack->total_time);
+			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->child_ip);
+		update_filter_count_exit(task, rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -2054,9 +2055,9 @@ out:
 }
 
 static int print_graph_rstack(struct ftrace_file_handle *handle,
-			      struct mcount_ret_stack *rstack)
+			      struct ftrace_task_handle *task)
 {
-	struct ftrace_task_handle *task = get_task_handle(rstack->tid);
+	struct ftrace_ret_stack *rstack = &task->rstack;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2065,53 +2066,61 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (task == NULL)
 		return 0;
 
-	sess = find_task_session(rstack->tid, rstack_time(rstack));
+	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
-	symname = symbol_getname(sym, rstack->child_ip);
+	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	symname = symbol_getname(sym, rstack->addr);
 
-	if (rstack->end_time == 0) {
-		struct mcount_ret_stack rstack_next;
+	if (rstack->type == FTRACE_ENTRY) {
+		struct ftrace_task_handle *next;
+		struct fstack *fstack;
+		int depth = rstack->depth;
 
-		update_filter_count_entry(task, rstack->child_ip);
+		update_filter_count_entry(task, rstack->addr);
 		if (task->filter_count <= 0)
 			goto out;
 
-		if (peek_rstack(handle, &rstack_next) < 0) {
+		if (peek_rstack(handle, &next) < 0) {
 			symbol_putname(sym, symname);
 			return -1;
 		}
 
-		if (rstack_next.depth == rstack->depth &&
-		    rstack_next.tid == rstack->tid &&
-		    rstack_next.end_time != 0) {
+		if (task == next &&
+		    next->rstack.depth == depth &&
+		    next->rstack.type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
-			print_time_unit(rstack->start_time, rstack_next.end_time);
-			printf(" [%5d] | %*s%s();\n", rstack->tid,
+			fstack = &task->func_stack[task->stack_count];
+
+			print_time_unit(fstack->total_time);
+			printf(" [%5d] | %*s%s();\n", task->tid,
 			       rstack->depth * 2, "", symname);
 
 			/* consume the rstack */
-			read_rstack(handle, &rstack_next);
+			read_rstack(handle, &next);
 
-			update_filter_count_exit(task, rstack_next.child_ip);
+			update_filter_count_exit(task, next->rstack.addr);
 		} else {
 			/* function entry */
-			print_time_unit(0UL, 0UL);
-			printf(" [%5d] | %*s%s() {\n", rstack->tid,
-			       rstack->depth * 2, "", symname);
+			print_time_unit(0UL);
+			printf(" [%5d] | %*s%s() {\n", task->tid,
+			       depth * 2, "", symname);
 		}
 	} else {
 		/* function exit */
 		if (task->filter_count > 0) {
-			print_time_unit(rstack->start_time, rstack->end_time);
-			printf(" [%5d] | %*s} /* %s */\n", rstack->tid,
+			struct fstack *fstack;
+
+			fstack = &task->func_stack[task->stack_count];
+
+			print_time_unit(fstack->total_time);
+			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->child_ip);
+		update_filter_count_exit(task, rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -2141,10 +2150,11 @@ static void print_remaining_stack(void)
 		printf("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
-			uint64_t time = task->func_stack[task->stack_count].time;
+			struct fstack *fstack = &task->func_stack[task->stack_count];
+			uint64_t time = fstack->total_time;
 			struct ftrace_session *sess = find_task_session(task->tid, time);
 			struct symtabs *symtabs = &sess->symtabs;
-			unsigned long ip = task->func_stack[task->stack_count].ip;
+			unsigned long ip = fstack->addr;
 			struct sym *sym = find_symtab(symtabs, ip, proc_maps);
 			char *symname = symbol_getname(sym, ip);
 
@@ -2160,7 +2170,7 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
-	struct mcount_ret_stack rstack;
+	struct ftrace_task_handle *task;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
@@ -2186,13 +2196,13 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (!opts->flat)
 		printf("# DURATION    TID     FUNCTION\n");
 
-	while (read_rstack(&handle, &rstack) == 0) {
+	while (read_rstack(&handle, &task) == 0) {
 		if (opts->flat)
-			ret = print_flat_rstack(&handle, &rstack);
+			ret = print_flat_rstack(&handle, task);
 		else if (opts->no_merge)
-			ret = print_graph_no_merge_rstack(&handle, &rstack);
+			ret = print_graph_no_merge_rstack(&handle, task);
 		else
-			ret = print_graph_rstack(&handle, &rstack);
+			ret = print_graph_rstack(&handle, task);
 
 		if (ret)
 			break;
@@ -2336,7 +2346,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 	int i;
 	struct sym *sym;
 	struct trace_entry te;
-	struct mcount_ret_stack *rstack;
+	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root time_tree = RB_ROOT;
 	struct rb_node *node;
@@ -2345,26 +2355,28 @@ static void report_functions(struct ftrace_file_handle *handle)
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		while ((rstack = get_task_rstack(handle, i)) != NULL) {
-			struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+			struct ftrace_task_handle *fth = &tasks[i];
+			struct ftrace_session *sess = find_task_session(fth->tid, rstack->time);
 			struct symtabs *symtabs = &sess->symtabs;
+			struct fstack *fstack = &fth->func_stack[fth->stack_count];
 
-			if (rstack->end_time == 0)
+			if (rstack->type == FTRACE_ENTRY)
 				goto next;
 
 			if (sess == NULL)
 				goto next;
 
-			sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
+			sym = find_symtab(symtabs, rstack->addr, proc_maps);
 			if (sym == NULL) {
 				pr_log("cannot find symbol for %lx\n",
-				       rstack->child_ip);
+				       rstack->addr);
 				goto next;
 			}
 
-			te.pid = rstack->tid;
+			te.pid = fth->tid;
 			te.sym = sym;
-			te.time_total = rstack->end_time - rstack->start_time;
-			te.time_self = te.time_total - rstack->child_time;
+			te.time_total = fstack->total_time;
+			te.time_self = te.time_total - fstack->child_time;
 			te.nr_called = 1;
 
 			insert_entry(&name_tree, &te, false);
@@ -2393,9 +2405,9 @@ static void report_functions(struct ftrace_file_handle *handle)
 		symname = symbol_getname(entry->sym, 0);
 
 		printf("  %-40.40s ", symname);
-		print_time_unit(0UL, entry->time_total);
+		print_time_unit(entry->time_total);
 		putchar(' ');
-		print_time_unit(0UL, entry->time_self);
+		print_time_unit(entry->time_self);
 		printf("  %10lu  \n", entry->nr_called);
 
 		symbol_putname(entry->sym, symname);
@@ -2410,23 +2422,24 @@ static void report_functions(struct ftrace_file_handle *handle)
 }
 
 static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
-				  struct mcount_ret_stack *rstack)
+				  struct ftrace_ret_stack *rstack)
 {
 	struct sym *sym;
-	struct ftrace_session *sess = find_task_session(rstack->tid, rstack_time(rstack));
+	struct ftrace_task_handle *task = &tasks[idx];
+	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
 
-	if (tasks[idx].func)
-		return tasks[idx].func;
+	if (task->func)
+		return task->func;
 
 	if (sess == NULL) {
-		pr_log("cannot find session for tid %d\n", rstack->tid);
+		pr_log("cannot find session for tid %d\n", task->tid);
 		return NULL;
 	}
 
 	if (idx == handle->info.nr_tid - 1) {
 		/* This is the main thread */
-		tasks[idx].func = sym = find_symname(symtabs, "main");
+		task->func = sym = find_symname(symtabs, "main");
 		if (sym)
 			return sym;
 
@@ -2434,11 +2447,9 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 		/* fall through */
 	}
 
-	tasks[idx].func = sym = find_symtab(symtabs, rstack->child_ip, proc_maps);
-	if (sym == NULL) {
-		pr_log("cannot find symbol for %lx\n",
-		       rstack->child_ip);
-	}
+	task->func = sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	if (sym == NULL)
+		pr_log("cannot find symbol for %lx\n", rstack->addr);
 
 	return sym;
 }
@@ -2447,26 +2458,32 @@ static void report_threads(struct ftrace_file_handle *handle)
 {
 	int i;
 	struct trace_entry te;
-	struct mcount_ret_stack *rstack;
+	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_node *node;
+	struct ftrace_task_handle *task;
+	struct fstack *fstack;
 	const char t_format[] = "  %5.5s  %-40.40s  %10.10s  %10.10s  \n";
 	const char line[] = "=================================================";
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		while ((rstack = get_task_rstack(handle, i)) != NULL) {
-			if (!rstack->end_time && tasks[i].func)
+			task = &tasks[i];
+
+			if (rstack->type == FTRACE_ENTRY && task->func)
 				goto next;
 
-			te.pid = rstack->tid;
+			te.pid = task->tid;
 			te.sym = find_task_sym(handle, i, rstack);
 
-			if (rstack->end_time == 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (rstack->type == FTRACE_ENTRY) {
 				te.time_total = te.time_self = 0;
 				te.nr_called = 0;
 			} else {
-				te.time_total = rstack->end_time - rstack->start_time;
-				te.time_self = te.time_total - rstack->child_time;
+				te.time_total = fstack->total_time;
+				te.time_self = te.time_total - fstack->child_time;
 				te.nr_called = 1;
 			}
 
@@ -2491,7 +2508,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 		symname = symbol_getname(entry->sym, 0);
 
 		printf("  %5d  %-40.40s ", entry->pid, symname);
-		print_time_unit(0UL, entry->time_self);
+		print_time_unit(entry->time_self);
 		printf("  %10lu  \n", entry->nr_called);
 
 		symbol_putname(entry->sym, symname);
@@ -2638,20 +2655,16 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 		printf("reading %d.dat\n", tid);
 		while (!read_task_rstack(&task)) {
-			struct mcount_ret_stack *mrs = &task.rstack;
-			struct ftrace_session *sess = find_task_session(mrs->tid, rstack_time(mrs));
+			struct ftrace_ret_stack *frs = &task.rstack;
+			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs = &sess->symtabs;
-			struct sym *parent = find_symtab(symtabs, mrs->parent_ip, proc_maps);
-			struct sym *child = find_symtab(symtabs, mrs->child_ip, proc_maps);
-			char *parent_name = symbol_getname(parent, mrs->parent_ip);
-			char *child_name = symbol_getname(child, mrs->child_ip);
+			struct sym *child = find_symtab(symtabs, frs->addr, proc_maps);
+			char *child_name = symbol_getname(child, frs->addr);
 
-			printf("%5d: [%s] %s(%lx)/%s(%lx) depth: %u\n",
-			       mrs->tid, mrs->end_time ? "exit " : "entry",
-			       parent_name, mrs->parent_ip,
-			       child_name, mrs->child_ip, mrs->depth);
+			printf("%5d: [%s] %s(%lx) depth: %u\n",
+			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
+			       child_name, (unsigned long)frs->addr, frs->depth);
 
-			symbol_putname(parent, parent_name);
 			symbol_putname(child, child_name);
 		}
 
