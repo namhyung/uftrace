@@ -582,7 +582,6 @@ static void sighandler(int sig)
 	done = true;
 }
 
-#define SHMEM_BUFFER_SIZE  (128 * 1024)
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
@@ -590,12 +589,8 @@ struct shmem_list {
 	char id[SHMEM_NAME_SIZE];
 };
 
-struct shmem_buffer {
-	unsigned size;
-	char data[];
-};
-
 static struct shmem_list *shmem_list_head;
+static struct shmem_list *shmem_need_unlink;
 
 struct tid_list {
 	struct tid_list *next;
@@ -640,16 +635,17 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	char buf[128];
 	char *ptr;
 	size_t size;
-	struct shmem_buffer *shmem_buf;
+	struct shmem_list *sl;
+	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
-	fd = shm_open(sess_id, O_RDONLY, 0400);
+	fd = shm_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
 		pr_log("open shmem buffer failed: %s: %m\n", sess_id);
 		return 0;
 	}
 
-	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ,
+	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
 			 MAP_SHARED, fd, 0);
 	if (shmem_buf == MAP_FAILED)
 		pr_err("mmap shmem buffer");
@@ -664,15 +660,28 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	ptr  = shmem_buf->data;
 	size = shmem_buf->size;
 
+	if (shmem_buf->flag & SHMEM_FL_NEW) {
+		sl = xmalloc(sizeof(*sl));
+		memcpy(sl->id, sess_id, sizeof(sl->id));
+
+		/* link to shmem_list */
+		sl->next = shmem_need_unlink;
+		shmem_need_unlink = sl;
+	}
+
 	if (write_all(fd, ptr, size) < 0)
 		pr_err("write shmem buffer");
 
 	close(fd);
 
-	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
+	/*
+	 * Now it has consumed all contents in the shmem buffer,
+	 * make it so that mcount can reuse it.
+	 * This is paired with get_new_shmem_buffer().
+	 */
+	__sync_fetch_and_or(&shmem_buf->flag, SHMEM_FL_WRITTEN);
 
-	/* it's no longer used */
-	shm_unlink(sess_id);
+	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
 	return 0;
 }
 
@@ -713,6 +722,24 @@ static void flush_shmem_list(const char *dirname)
 		free(tmp);
 	}
 	shmem_list_head = NULL;
+}
+
+static void unlink_shmem_list(void)
+{
+	struct shmem_list *sl;
+
+	/* unlink shmem list (not used anymore) */
+	sl = shmem_need_unlink;
+	while (sl) {
+		struct shmem_list *tmp = sl;
+		sl = sl->next;
+
+		pr_dbg("unlink %s\n", tmp->id);
+
+		shm_unlink(tmp->id);
+		free(tmp);
+	}
+	shmem_need_unlink = NULL;
 }
 
 static void flush_old_shmem(const char *dirname, int tid)
@@ -1496,6 +1523,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	flush_shmem_list(opts->dirname);
+	unlink_shmem_list();
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
@@ -1645,14 +1673,17 @@ struct ftrace_task_handle {
 	int tid;
 	bool valid;
 	bool done;
+	bool lost_seen;
 	FILE *fp;
 	struct sym *func;
 	int filter_count;
 	int filter_depth;
 	struct ftrace_ret_stack rstack;
 	int stack_count;
+	int lost_count;
 	struct fstack {
 		unsigned long addr;
+		bool valid;
 		uint64_t total_time;
 		uint64_t child_time;
 	} func_stack[MCOUNT_RSTACK_MAX];
@@ -1892,25 +1923,45 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
+	if (fth->lost_seen) {
+		int i;
+
+		for (i = 0; i <= fth->rstack.depth; i++)
+			fth->func_stack[i].valid = false;
+
+		fth->lost_seen = false;
+	}
+
 	if (fth->rstack.type == FTRACE_ENTRY) {
-		struct fstack *fstack = &fth->func_stack[fth->stack_count++];
+		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
 		fstack->total_time = fth->rstack.time;
 		fstack->child_time = 0;
+		fstack->valid = true;
 		fstack->addr = fth->rstack.addr;
 
-	} else if (fth->rstack.type == FTRACE_EXIT && fth->stack_count > 0) {
+		fth->stack_count = fth->rstack.depth + 1;
+
+	} else if (fth->rstack.type == FTRACE_EXIT) {
 		uint64_t delta;
-		struct fstack *fstack = &fth->func_stack[--fth->stack_count];
+		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
 
 		delta = fth->rstack.time - fstack->total_time;
+
+		if (!fstack->valid)
+			delta = 0UL;
+		fstack->valid = false;
 
 		fstack->total_time = delta;
 		if (fstack->child_time > fstack->total_time)
 			fstack->child_time = fstack->total_time;
 
+		fth->stack_count = fth->rstack.depth;
 		if (fth->stack_count > 0)
 			fth->func_stack[fth->stack_count - 1].child_time += delta;
+
+	} else if (fth->rstack.type == FTRACE_LOST) {
+		fth->lost_seen = true;
 	}
 
 	fth->valid = true;
@@ -1974,7 +2025,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	name = symbol_getname(sym, rstack->addr);
-	fstack = &task->func_stack[task->stack_count];
+	fstack = &task->func_stack[rstack->depth];
 
 	if (rstack->type == FTRACE_ENTRY) {
 		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
@@ -1984,6 +2035,9 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		printf("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
+	} else if (rstack->type == FTRACE_LOST) {
+		printf("[%d] XXX %d: lost %d records\n",
+		       count++, task->tid, (int)rstack->addr);
 	}
 
 	symbol_putname(sym, name);
@@ -2050,13 +2104,17 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
 
-			fstack= &task->func_stack[task->stack_count];
+			fstack= &task->func_stack[rstack->depth];
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
 		update_filter_count_exit(task, rstack->addr);
+	} else if (rstack->type == FTRACE_LOST) {
+		print_time_unit(0UL);
+		printf(" [%5d] |     /* LOST %d records!! */\n",
+		       task->tid, (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -2101,7 +2159,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack.depth == depth &&
 		    next->rstack.type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s%s();\n", task->tid,
@@ -2122,7 +2180,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (task->filter_count > 0) {
 			struct fstack *fstack;
 
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
@@ -2130,6 +2188,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 
 		update_filter_count_exit(task, rstack->addr);
+
+	} else if (rstack->type == FTRACE_LOST) {
+		print_time_unit(0UL);
+		printf(" [%5d] |     /* LOST %d records!! */\n",
+		       task->tid, (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -2367,7 +2430,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 			struct ftrace_task_handle *fth = &tasks[i];
 			struct ftrace_session *sess = find_task_session(fth->tid, rstack->time);
 			struct symtabs *symtabs = &sess->symtabs;
-			struct fstack *fstack = &fth->func_stack[fth->stack_count];
+			struct fstack *fstack = &fth->func_stack[rstack->depth];
 
 			if (rstack->type == FTRACE_ENTRY)
 				goto next;
@@ -2485,7 +2548,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 			te.pid = task->tid;
 			te.sym = find_task_sym(handle, i, rstack);
 
-			fstack = &task->func_stack[task->stack_count];
+			fstack = &task->func_stack[rstack->depth];
 
 			if (rstack->type == FTRACE_ENTRY) {
 				te.time_total = te.time_self = 0;
