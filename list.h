@@ -464,6 +464,21 @@ static inline void list_splice_tail_init(struct list_head *list,
 	     pos = list_prev_entry(pos, member))
 
 /**
+ * list_none - found no element after list_for_each()
+ * @pos:	the &struct list_head * to use as a loop cursor.
+ * @head:	the header for your list.
+ */
+#define list_none(pos, head)	(pos == head)
+
+/**
+ * list_no_entry - found no entry after list_for_each_entry()
+ * @pos:	the type * to use as a loop cursor.
+ * @head:	the header for your list.
+ * @member:	the name of the list_header within the struct.
+ */
+#define list_no_entry(pos, head, member)  (&(pos)->member == head)
+
+/**
  * list_prepare_entry - prepare a pos entry for use in list_for_each_entry_continue()
  * @pos:	the type * to use as a start point
  * @head:	the head of the list
