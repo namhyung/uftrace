@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <gelf.h>
+#include <regex.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "mcount"
@@ -639,6 +640,57 @@ next:
 	free(str);
 }
 
+static void mcount_setup_filter_regex(char *envstr, struct rb_root *root,
+				      bool *has_filter)
+{
+	char *str = getenv(envstr);
+	char *pos, *patt, *symname;
+	struct sym *sym;
+	struct ftrace_filter *filter;
+	unsigned int i;
+	regex_t re;
+
+	if (str == NULL)
+		return;
+
+	pos = str = strdup(str);
+	if (str == NULL)
+		return;
+
+	patt = strtok(pos, ",:");
+	while (patt) {
+		if (regcomp(&re, patt, REG_NOSUB)) {
+			pr_log("regex pattern failed: %s\n", patt);
+			goto next;
+		}
+
+		for (i = 0; i < symtabs.symtab.nr_sym; i++) {
+			sym = &symtabs.symtab.sym[i];
+			symname = symbol_getname(sym, sym->addr);
+
+			if (regexec(&re, symname, 0, NULL, 0))
+				continue;
+
+			filter = xmalloc(sizeof(*filter));
+
+			filter->sym = sym;
+			filter->name = symname;
+			filter->start = sym->addr;
+			filter->end = sym->addr + sym->size;
+
+			add_filter(root, filter);
+			*has_filter = true;
+
+			pr_dbg("%s: %s (0x%lx-0x%lx)\n", envstr, filter->name,
+			       filter->start, filter->end);
+		}
+next:
+		patt = strtok(NULL, ",:");
+	}
+
+	free(str);
+}
+
 static void mcount_cleanup_filter(struct rb_root *root)
 {
 	struct rb_node *node;
@@ -938,6 +990,8 @@ __monstartup(unsigned long low, unsigned long high)
 	load_symtabs(&symtabs, mcount_exename);
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &has_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &has_notrace);
+	mcount_setup_filter_regex("FTRACE_FILTER_REGEX", &filter_trace, &has_filter);
+	mcount_setup_filter_regex("FTRACE_NOTRACE_REGEX", &filter_notrace, &has_notrace);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_skip_idx(&symtabs);
