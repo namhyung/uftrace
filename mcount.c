@@ -375,7 +375,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 		parent = *p;
 		iter = rb_entry(parent, struct ftrace_filter, node);
 
-		if (iter->ip > filter->ip)
+		if (iter->start > filter->start)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
@@ -385,9 +385,9 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 	rb_insert_color(&filter->node, root);
 }
 
-static bool mcount_match(unsigned long ip1, unsigned long ip2)
+static bool mcount_match(struct ftrace_filter *filter, unsigned long ip)
 {
-	return ip1 == ip2;
+	return filter->start <= ip && ip < filter->end;
 }
 
 static int match_filter(struct rb_root *root, unsigned long ip)
@@ -400,10 +400,10 @@ static int match_filter(struct rb_root *root, unsigned long ip)
 		parent = *p;
 		iter = rb_entry(parent, struct ftrace_filter, node);
 
-		if (mcount_match(iter->ip, ip))
+		if (mcount_match(iter, ip))
 			return 1;
 
-		if (iter->ip > ip)
+		if (iter->start > ip)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
@@ -624,12 +624,14 @@ static void mcount_setup_filter(char *envstr, struct rb_root *root,
 
 		filter->sym = sym;
 		filter->name = symbol_getname(sym, sym->addr);
-		filter->ip = sym->addr;
+		filter->start = sym->addr;
+		filter->end = sym->addr + sym->size;
 
 		add_filter(root, filter);
 		*has_filter = true;
 
-		pr_dbg("%s: %s (0x%lx)\n", envstr, filter->name, filter->ip);
+		pr_dbg("%s: %s (0x%lx-0x%lx)\n", envstr, filter->name,
+		       filter->start, filter->end);
 next:
 		name = strtok(NULL, ",:");
 	}

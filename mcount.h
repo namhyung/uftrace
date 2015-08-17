@@ -173,7 +173,8 @@ struct ftrace_filter {
 	struct rb_node node;
 	struct sym *sym;
 	char *name;
-	unsigned long ip;
+	unsigned long start;
+	unsigned long end;
 };
 
 int read_tid_list(int *tids, bool skip_unknown);
