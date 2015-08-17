@@ -452,19 +452,14 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	}
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
-	if (opts->filter) {
-		build_addrlist(symtabs, buf, opts->filter);
-		setenv("FTRACE_FILTER", buf, 1);
-	}
+	if (opts->filter)
+		setenv("FTRACE_FILTER", opts->filter, 1);
 
-	if (opts->notrace) {
-		build_addrlist(symtabs, buf, opts->notrace);
-		setenv("FTRACE_NOTRACE", buf, 1);
-	}
+	if (opts->notrace)
+		setenv("FTRACE_NOTRACE", opts->notrace, 1);
 
-	if (opts->want_plthook) {
+	if (opts->want_plthook)
 		setenv("FTRACE_PLTHOOK", "1", 1);
-	}
 
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);

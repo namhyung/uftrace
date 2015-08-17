@@ -565,21 +565,25 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 {
 	unsigned int i, nr;
 	char *str = getenv(envstr);
-	char *pos;
+	char *pos, *name;
+	struct sym *sym;
 
 	if (str == NULL)
 		return;
 
-	pos = str;
+	pos = str = strdup(str);
+	if (str == NULL)
+		return;
+
 	nr = 0;
 	while (pos) {
 		nr++;
-		pos = strchr(pos, ':');
+		pos = strpbrk(pos, ",:");
 		if (pos)
 			pos++;
 	}
 
-	*filter = malloc(sizeof(long) * nr);
+	*filter = calloc(sizeof(long), nr);
 	if (*filter == NULL)
 		pr_err("failed to allocate memory for %s", envstr);
 
@@ -587,11 +591,18 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 
 	pos = str;
 	for (i = 0; i < nr; i++) {
-		(*filter)[i] = strtoul(pos, &pos, 16);
-		if (*pos && *pos != ':')
-			pr_err_ns("invalid filter string for %s\n", envstr);
+		name = strtok(pos, ",:");
+		if (name == NULL)
+			break;
 
-		pos++;
+		sym = find_symname(&symtabs, name);
+
+		if (sym)
+			(*filter)[i] = sym->addr;
+		else
+			pr_dbg("cannot find symbol: %s\n", name);
+
+		pos = NULL;
 	}
 
 	if (debug) {
@@ -600,6 +611,8 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 			pr_cont(" 0x%lx", (*filter)[i]);
 		pr_cont("\n");
 	}
+
+	free(str);
 }
 
 static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
@@ -888,13 +901,13 @@ __monstartup(unsigned long low, unsigned long high)
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
+	read_exename();
+
+	load_symtabs(&symtabs, mcount_exename);
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
 
-	read_exename();
-
 	if (getenv("FTRACE_PLTHOOK")) {
-		load_dynsymtab(&symtabs, mcount_exename);
 		setup_skip_idx(&symtabs);
 
 		if (hook_pltgot() < 0)
