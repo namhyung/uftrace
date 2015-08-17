@@ -864,6 +864,9 @@ __monstartup(unsigned long low, unsigned long high)
 	char *bufsize_str = getenv("FTRACE_BUFFER");
 	struct stat statbuf;
 
+	if (mcount_setup_done)
+		return;
+
 	if (logfd_str) {
 		logfd = strtol(logfd_str, NULL, 0);
 
@@ -946,4 +949,21 @@ mcount_reset(void)
 
 	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
 		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
+}
+
+
+/*
+ * Initializer and Finalizer
+ */
+static void __attribute__((constructor))
+mcount_init(void)
+{
+	if (!mcount_setup_done)
+		__monstartup(0UL, ~0UL);
+}
+
+static void __attribute__((destructor))
+mcount_fini(void)
+{
+	_mcleanup();
 }

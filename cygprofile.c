@@ -13,16 +13,6 @@
 #include "mcount.h"
 #include "utils.h"
 
-static void __attribute__((constructor)) mcount_init(void)
-{
-	__monstartup(0, ~0);
-}
-
-static void __attribute__((destructor)) mcount_fini(void)
-{
-	_mcleanup();
-}
-
 void __attribute__((visibility("default")))
 __cyg_profile_func_enter(void *child, void *parent)
 {
