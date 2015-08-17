@@ -35,10 +35,9 @@ __thread struct mcount_ret_stack *mcount_rstack;
 static int pfd = -1;
 static bool mcount_setup_done;
 
-static unsigned long *filter_trace;
-static unsigned nr_filter;
-static unsigned long *filter_notrace;
-static unsigned nr_notrace;
+static struct rb_root filter_trace = RB_ROOT;
+static struct rb_root filter_notrace = RB_ROOT;
+static bool has_filter, has_notrace;
 
 static __thread bool plthook_recursion_guard;
 static unsigned long *plthook_got_ptr;
@@ -366,9 +365,50 @@ static void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
+static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct ftrace_filter *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct ftrace_filter, node);
+
+		if (iter->ip > filter->ip)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&filter->node, parent, p);
+	rb_insert_color(&filter->node, root);
+}
+
 static bool mcount_match(unsigned long ip1, unsigned long ip2)
 {
 	return ip1 == ip2;
+}
+
+static int match_filter(struct rb_root *root, unsigned long ip)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct ftrace_filter *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct ftrace_filter, node);
+
+		if (mcount_match(iter->ip, ip))
+			return 1;
+
+		if (iter->ip > ip)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+	return 0;
 }
 
 /*
@@ -381,24 +421,19 @@ static int mcount_filter(unsigned long ip)
 	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
 	 */
 	int ret = mcount_rstack_idx >= 0;
-	unsigned i;
 
 	if (mcount_rstack_idx < 0)
 		return 0;
 
-	if (nr_filter && mcount_rstack_idx == 0) {
-		for (i = 0; i < nr_filter; i++) {
-			if (mcount_match(filter_trace[i], ip))
-				return 1;
-		}
+	if (has_filter && mcount_rstack_idx == 0) {
+		if (match_filter(&filter_trace, ip))
+			return 1;
 		ret = 0;
 	}
 
-	if (nr_notrace && ret) {
-		for (i = 0; i < nr_notrace; i++) {
-			if (mcount_match(filter_notrace[i], ip))
-				return -1;
-		}
+	if (has_notrace && ret) {
+		if (match_filter(&filter_notrace, ip))
+			return -1;
 	}
 	return ret;
 }
@@ -561,12 +596,13 @@ unsigned long cygprof_exit(void)
 	return rstack->parent_ip;
 }
 
-static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
+static void mcount_setup_filter(char *envstr, struct rb_root *root,
+				bool *has_filter)
 {
-	unsigned int i, nr;
 	char *str = getenv(envstr);
 	char *pos, *name;
 	struct sym *sym;
+	struct ftrace_filter *filter;
 
 	if (str == NULL)
 		return;
@@ -575,51 +611,45 @@ static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *
 	if (str == NULL)
 		return;
 
-	nr = 0;
-	while (pos) {
-		nr++;
-		pos = strpbrk(pos, ",:");
-		if (pos)
-			pos++;
-	}
-
-	*filter = calloc(sizeof(long), nr);
-	if (*filter == NULL)
-		pr_err("failed to allocate memory for %s", envstr);
-
-	*size = nr;
-
-	pos = str;
-	for (i = 0; i < nr; i++) {
-		name = strtok(pos, ",:");
+	name = strtok(pos, ",:");
+	while (name) {
 		if (name == NULL)
 			break;
 
 		sym = find_symname(&symtabs, name);
+		if (sym == NULL)
+			goto next;
 
-		if (sym)
-			(*filter)[i] = sym->addr;
-		else
-			pr_dbg("cannot find symbol: %s\n", name);
+		filter = xmalloc(sizeof(*filter));
 
-		pos = NULL;
-	}
+		filter->sym = sym;
+		filter->name = symbol_getname(sym, sym->addr);
+		filter->ip = sym->addr;
 
-	if (debug) {
-		pr_dbg("%s: ", envstr);
-		for (i = 0; i < nr; i++)
-			pr_cont(" 0x%lx", (*filter)[i]);
-		pr_cont("\n");
+		add_filter(root, filter);
+		*has_filter = true;
+
+		pr_dbg("%s: %s (0x%lx)\n", envstr, filter->name, filter->ip);
+next:
+		name = strtok(NULL, ",:");
 	}
 
 	free(str);
 }
 
-static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
+static void mcount_cleanup_filter(struct rb_root *root)
 {
-	free(*filter);
-	*filter = NULL;
-	*size = 0;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+
+	while (!RB_EMPTY_ROOT(root)) {
+		node = rb_first(root);
+		filter = rb_entry(node, struct ftrace_filter, node);
+
+		rb_erase(node, root);
+		symbol_putname(filter->sym, filter->name);
+		free(filter);
+	}
 }
 
 static unsigned long got_addr;
@@ -904,8 +934,8 @@ __monstartup(unsigned long low, unsigned long high)
 	read_exename();
 
 	load_symtabs(&symtabs, mcount_exename);
-	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
-	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
+	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &has_filter);
+	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &has_notrace);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_skip_idx(&symtabs);
@@ -931,8 +961,8 @@ _mcleanup(void)
 	mcount_finish();
 	destroy_skip_idx();
 
-	mcount_cleanup_filter(&filter_trace, &nr_filter);
-	mcount_cleanup_filter(&filter_notrace, &nr_notrace);
+	mcount_cleanup_filter(&filter_trace);
+	mcount_cleanup_filter(&filter_notrace);
 }
 
 void __attribute__((visibility("default")))

@@ -58,10 +58,10 @@ TARGETS = libmcount.so libmcount-nop.so libcygprof.so libcygprof-nop.so ftrace
 FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c debug.c arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
 
-LIBMCOUNT_SRCS = mcount.c symbol.c debug.c
+LIBMCOUNT_SRCS = mcount.c symbol.c debug.c rbtree.c
 LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
 
-LIBCYGPROF_SRCS = mcount.c symbol.c debug.c cygprofile.c
+LIBCYGPROF_SRCS = mcount.c symbol.c debug.c cygprofile.c rbtree.c
 LIBCYGPROF_OBJS = $(LIBCYGPROF_SRCS:.c=.op)
 
 LIBMCOUNT_NOP_SRCS = mcount-nop.c
@@ -75,7 +75,7 @@ MAKEFLAGS = --no-print-directory
 
 all: $(TARGETS)
 
-$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h FLAGS
+$(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h rbtree.h FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 cygprofile.op: cygprofile.c mcount.h utils.h FLAGS
