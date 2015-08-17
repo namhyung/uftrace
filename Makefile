@@ -4,7 +4,7 @@ INSTALL = install
 
 COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(EXTRA_CFLAGS)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lelf -lrt $(EXTRA_LDFLAGS)
+COMMON_LDFLAGS := -lelf -lrt -pthread $(EXTRA_LDFLAGS)
 
 COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
@@ -16,7 +16,7 @@ CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
 LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
 
 LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
-LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) -pthread
+LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
 
 prefix ?= /usr/local
 bindir = $(prefix)/bin

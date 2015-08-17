@@ -35,6 +35,7 @@
 #include <sys/syscall.h>
 #include <sys/resource.h>
 #include <gelf.h>
+#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
@@ -604,6 +605,21 @@ struct tid_list {
 
 static LIST_HEAD(tid_list_head);
 
+struct buf_list {
+	struct list_head list;
+	char id[SHMEM_NAME_SIZE];
+	void *data;
+	size_t len;
+};
+
+static LIST_HEAD(buf_free_list);
+static LIST_HEAD(buf_write_list);
+
+static pthread_mutex_t free_list_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t write_list_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
+static bool buf_done;
+
 static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
 {
 	char *ptr;
@@ -632,12 +648,107 @@ static char *make_disk_name(char *buf, size_t size, const char *dirname, char *i
 	return buf;
 }
 
+static int write_buffer_file(const char *dirname, struct buf_list *buf)
+{
+	int fd;
+	char name[1024];
+
+	fd = open(make_disk_name(name, sizeof(name), dirname, buf->id),
+		  O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if (fd < 0)
+		pr_err("open disk file");
+
+	if (write_all(fd, buf->data, buf->len) < 0)
+		pr_err("write shmem buffer");
+
+	close(fd);
+	return 0;
+}
+
+void *writer_thread(void *arg)
+{
+	struct buf_list *buf;
+	char *dirname = arg;
+
+	while (true) {
+		pthread_mutex_lock(&write_list_lock);
+		while (list_empty(&buf_write_list)) {
+			if (buf_done)
+				break;
+			pthread_cond_wait(&write_cond, &write_list_lock);
+		}
+
+		if (buf_done && list_empty(&buf_write_list)) {
+			pthread_mutex_unlock(&write_list_lock);
+			return NULL;
+		}
+
+		buf = list_first_entry(&buf_write_list, struct buf_list, list);
+		list_del(&buf->list);
+
+		pthread_mutex_unlock(&write_list_lock);
+
+		write_buffer_file(dirname, buf);
+
+		pthread_mutex_lock(&free_list_lock);
+		list_add(&buf->list, &buf_free_list);
+		pthread_mutex_unlock(&free_list_lock);
+	}
+
+	return NULL;
+}
+
+static struct buf_list *make_write_buffer(void)
+{
+	struct buf_list *buf;
+
+	buf = malloc(sizeof(*buf));
+	if (buf == NULL)
+		return NULL;
+
+	INIT_LIST_HEAD(&buf->list);
+	buf->len = SHMEM_BUFFER_SIZE;
+	buf->data = malloc(buf->len);
+	if (buf->data == NULL) {
+		free(buf);
+		return NULL;
+	}
+
+	return buf;
+}
+
+static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
+{
+	struct buf_list *buf = NULL;
+
+	pthread_mutex_lock(&free_list_lock);
+	if (!list_empty(&buf_free_list)) {
+		buf = list_first_entry(&buf_free_list, struct buf_list, list);
+		list_del(&buf->list);
+	}
+	pthread_mutex_unlock(&free_list_lock);
+
+	if (buf == NULL) {
+		buf = make_write_buffer();
+		if (buf == NULL)
+			pr_err_ns("not enough memory!\n");
+
+		pr_dbg("make a new write buffer\n");
+	}
+
+	memcpy(buf->id, sess_id, strlen(sess_id));
+	memcpy(buf->data, shm->data, shm->size);
+	buf->len = shm->size;
+
+	pthread_mutex_lock(&write_list_lock);
+	list_add_tail(&buf->list, &buf_write_list);
+	pthread_cond_signal(&write_cond);
+	pthread_mutex_unlock(&write_list_lock);
+}
+
 static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 {
 	int fd;
-	char buf[128];
-	char *ptr;
-	size_t size;
 	struct shmem_list *sl;
 	struct mcount_shmem_buffer *shmem_buf;
 
@@ -655,13 +766,7 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 
 	close(fd);
 
-	fd = open(make_disk_name(buf, sizeof(buf), dirname, sess_id),
-		  O_WRONLY | O_CREAT | O_APPEND, 0644);
-	if (fd < 0)
-		pr_err("open disk file");
-
-	ptr  = shmem_buf->data;
-	size = shmem_buf->size;
+	copy_to_buffer(shmem_buf, sess_id);
 
 	if (shmem_buf->flag & SHMEM_FL_NEW) {
 		sl = xmalloc(sizeof(*sl));
@@ -670,11 +775,6 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 		/* link to shmem_list */
 		list_add_tail(&sl->list, &shmem_need_unlink);
 	}
-
-	if (write_all(fd, ptr, size) < 0)
-		pr_err("write shmem buffer");
-
-	close(fd);
 
 	/*
 	 * Now it has consumed all contents in the shmem buffer,
@@ -720,6 +820,11 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 		record_mmap_file(dirname, sl->id, bufsize);
 		free(sl);
 	}
+
+	pthread_mutex_lock(&write_list_lock);
+	buf_done = true;
+	pthread_cond_signal(&write_cond);
+	pthread_mutex_unlock(&write_list_lock);
 }
 
 static void unlink_shmem_list(void)
@@ -1370,6 +1475,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	};
 	struct timespec ts1, ts2;
 	struct rusage usage;
+	pthread_t writer;
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1429,6 +1535,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	sa.sa_sigaction = sigchld_handler;
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
 	sigaction(SIGCHLD, &sa, NULL);
+
+	pthread_create(&writer, NULL, writer_thread, opts->dirname);
 
 	while (!done) {
 		struct pollfd pollfd = {
@@ -1500,6 +1608,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (shmem_lost_count)
 		printf("LOST %d records\n", shmem_lost_count);
+
+	pthread_join(writer, NULL);
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
