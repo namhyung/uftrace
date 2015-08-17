@@ -281,7 +281,6 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		} else if (strcmp(shstr, ".plt") == 0) {
 			plt_addr = shdr.sh_addr;
 			plt_entsize = shdr.sh_entsize;
-			//plt_addr += shdr.sh_entsize; /* skip first entry */
 		}
 	}
 
@@ -342,7 +341,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
 
-		sym->addr = plt_addr + (idx + 1) * plt_entsize;
+		sym->addr = esym.st_value ?: plt_addr + symidx * plt_entsize;
 		sym->size = plt_entsize;
 		sym->name = strdup(name);
 	}
