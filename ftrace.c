@@ -170,6 +170,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'b':
 		opts->bsize = parse_size(arg);
+		if (opts->bsize & (getpagesize() - 1))
+			pr_err_ns("buffer size should be multiple of page size");
 		break;
 
 	case OPT_flat:
@@ -284,7 +286,7 @@ int main(int argc, char *argv[])
 		.mode = FTRACE_MODE_INVALID,
 		.dirname = FTRACE_DIR_NAME,
 		.want_plthook = true,
-		.bsize = ~0UL,
+		.bsize = SHMEM_BUFFER_SIZE,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -466,7 +468,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);
 
-	if (opts->bsize != ~0UL) {
+	if (opts->bsize != SHMEM_BUFFER_SIZE) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
 		setenv("FTRACE_BUFFER", buf, 1);
 	}
@@ -630,7 +632,7 @@ static char *make_disk_name(char *buf, size_t size, const char *dirname, char *i
 	return buf;
 }
 
-static int record_mmap_file(const char *dirname, char *sess_id)
+static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 {
 	int fd;
 	char buf[128];
@@ -646,7 +648,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 		return 0;
 	}
 
-	shmem_buf = mmap(NULL, SHMEM_BUFFER_SIZE, PROT_READ | PROT_WRITE,
+	shmem_buf = mmap(NULL, bufsize, PROT_READ | PROT_WRITE,
 			 MAP_SHARED, fd, 0);
 	if (shmem_buf == MAP_FAILED)
 		pr_err("mmap shmem buffer");
@@ -681,7 +683,7 @@ static int record_mmap_file(const char *dirname, char *sess_id)
 	 */
 	__sync_fetch_and_or(&shmem_buf->flag, SHMEM_FL_WRITTEN);
 
-	munmap(shmem_buf, SHMEM_BUFFER_SIZE);
+	munmap(shmem_buf, bufsize);
 	return 0;
 }
 
@@ -706,7 +708,7 @@ static int record_task_file(const char *dirname, void *data, int len)
 	return 0;
 }
 
-static void flush_shmem_list(const char *dirname)
+static void flush_shmem_list(const char *dirname, int bufsize)
 {
 	struct shmem_list *sl, *tmp;
 
@@ -715,7 +717,7 @@ static void flush_shmem_list(const char *dirname)
 		pr_dbg("flushing %s\n", sl->id);
 
 		list_del(&sl->list);
-		record_mmap_file(dirname, sl->id);
+		record_mmap_file(dirname, sl->id, bufsize);
 		free(sl);
 	}
 }
@@ -735,7 +737,7 @@ static void unlink_shmem_list(void)
 	}
 }
 
-static void flush_old_shmem(const char *dirname, int tid)
+static void flush_old_shmem(const char *dirname, int tid, int bufsize)
 {
 	struct shmem_list *sl;
 
@@ -749,7 +751,7 @@ static void flush_old_shmem(const char *dirname, int tid)
 			pr_dbg("flushing %s\n", sl->id);
 
 			list_del(&sl->list);
-			record_mmap_file(dirname, sl->id);
+			record_mmap_file(dirname, sl->id, bufsize);
 			free(sl);
 			return;
 		}
@@ -758,7 +760,7 @@ static void flush_old_shmem(const char *dirname, int tid)
 
 static int shmem_lost_count;
 
-static void read_record_mmap(int pfd, const char *dirname)
+static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 {
 	char buf[128];
 	struct shmem_list *sl, *tmp;
@@ -811,7 +813,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 			}
 		}
 
-		record_mmap_file(dirname, buf);
+		record_mmap_file(dirname, buf, bufsize);
 		break;
 
 	case FTRACE_MSG_TID:
@@ -826,7 +828,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 		/* check existing tid (due to exec) */
 		list_for_each_entry(pos, &tid_list_head, list) {
 			if (pos->tid == tmsg.tid) {
-				flush_old_shmem(dirname, tmsg.tid);
+				flush_old_shmem(dirname, tmsg.tid, bufsize);
 				break;
 			}
 		}
@@ -1442,7 +1444,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			pr_err("error during poll");
 
 		if (pollfd.revents & POLLIN)
-			read_record_mmap(pfd[0], opts->dirname);
+			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
 
 		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
@@ -1455,7 +1457,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 
 		if (remaining) {
-			read_record_mmap(pfd[0], opts->dirname);
+			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
 			continue;
 		}
 
@@ -1485,7 +1487,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		getrusage(RUSAGE_CHILDREN, &usage);
 	}
 
-	flush_shmem_list(opts->dirname);
+	flush_shmem_list(opts->dirname, opts->bsize);
 	unlink_shmem_list();
 
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)

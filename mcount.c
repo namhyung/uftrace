@@ -130,6 +130,7 @@ static __thread int shmem_seqnum;
 static __thread struct mcount_shmem_buffer *shmem_buffer[2];
 static __thread struct mcount_shmem_buffer *shmem_curr;
 static __thread int shmem_losts;
+static int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 static void get_new_shmem_buffer(void)
 {
@@ -147,10 +148,10 @@ static void get_new_shmem_buffer(void)
 		if (fd < 0)
 			pr_err("open shmem buffer");
 
-		if (ftruncate(fd, SHMEM_BUFFER_SIZE) < 0)
+		if (ftruncate(fd, shmem_bufsize) < 0)
 			pr_err("resizing shmem buffer");
 
-		shmem_buffer[idx] = mmap(NULL, SHMEM_BUFFER_SIZE,
+		shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
 					 PROT_READ | PROT_WRITE,
 					 MAP_SHARED, fd, 0);
 		if (shmem_buffer[idx] == MAP_FAILED)
@@ -203,9 +204,9 @@ static void finish_shmem_buffer(void)
 static void clear_shmem_buffer(void)
 {
 	if (shmem_buffer[0])
-		munmap(shmem_buffer[0], SHMEM_BUFFER_SIZE);
+		munmap(shmem_buffer[0], shmem_bufsize);
 	if (shmem_buffer[1])
-		munmap(shmem_buffer[1], SHMEM_BUFFER_SIZE);
+		munmap(shmem_buffer[1], shmem_bufsize);
 
 	shmem_buffer[0] = shmem_buffer[1] = NULL;
 	shmem_seqnum = 0;
@@ -231,10 +232,10 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
 	size_t size = sizeof(*frstack);
 
-	assert(size < SHMEM_BUFFER_SIZE);
+	assert(size < (size_t)shmem_bufsize);
 
 	if (shmem_curr == NULL ||
-	    shmem_curr->size + size > SHMEM_BUFFER_SIZE - sizeof(*shmem_buffer)) {
+	    shmem_curr->size + size > shmem_bufsize - sizeof(*shmem_buffer)) {
 		finish_shmem_buffer();
 		get_new_shmem_buffer();
 
@@ -860,6 +861,7 @@ __monstartup(unsigned long low, unsigned long high)
 	char *pipefd_str = getenv("FTRACE_PIPE");
 	char *logfd_str = getenv("FTRACE_LOGFD");
 	char *debug_str = getenv("FTRACE_DEBUG");
+	char *bufsize_str = getenv("FTRACE_BUFFER");
 	struct stat statbuf;
 
 	if (logfd_str) {
@@ -882,6 +884,9 @@ __monstartup(unsigned long low, unsigned long high)
 
 	if (debug_str)
 		debug = strtol(debug_str, NULL, 0);
+
+	if (bufsize_str)
+		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
 	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
