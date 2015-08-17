@@ -81,6 +81,7 @@ struct mcount_shmem_buffer {
 #define FTRACE_MSG_FORK_START 4U
 #define FTRACE_MSG_FORK_END   5U
 #define FTRACE_MSG_SESSION    6U
+#define FTRACE_MSG_LOST       7U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {

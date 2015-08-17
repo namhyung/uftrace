@@ -756,6 +756,8 @@ static void flush_old_shmem(const char *dirname, int tid)
 	}
 }
 
+static int shmem_lost_count;
+
 static void read_record_mmap(int pfd, const char *dirname)
 {
 	char buf[128];
@@ -765,6 +767,7 @@ static void read_record_mmap(int pfd, const char *dirname)
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess sess;
 	char *exename;
+	int lost;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
@@ -918,6 +921,16 @@ static void read_record_mmap(int pfd, const char *dirname)
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &sess, sizeof(sess));
 		record_task_file(dirname, exename, sess.namelen);
+		break;
+
+	case FTRACE_MSG_LOST:
+		if (msg.len < sizeof(lost))
+			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &lost, sizeof(lost)) < 0)
+			pr_err("reading pipe failed");
+
+		shmem_lost_count += lost;
 		break;
 
 	default:
@@ -1482,6 +1495,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		print_child_time(&ts1, &ts2);
 		print_child_usage(&usage);
 	}
+
+	if (shmem_lost_count)
+		printf("LOST %d records\n", shmem_lost_count);
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by

@@ -249,6 +249,9 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 			frstack->unused = FTRACE_UNUSED;
 			frstack->addr = shmem_losts;
 
+			ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
+					    sizeof(shmem_losts));
+
 			size += sizeof(*frstack);
 			shmem_curr->size += sizeof(*frstack);
 			shmem_losts = 0;
