@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <libelf.h>
+#include <limits.h>
 
 #include "rbtree.h"
 
@@ -22,6 +23,7 @@
 #define MCOUNT_RSTACK_MAX  1024
 #define MCOUNT_NOTRACE_IDX 0x10000
 #define MCOUNT_INVALID_DYNIDX 0xffff
+#define MCOUNT_DEFAULT_DEPTH  (INT_MAX - 1)
 
 struct mcount_ret_stack {
 	unsigned long *parent_loc;

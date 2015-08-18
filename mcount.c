@@ -33,6 +33,9 @@
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
+static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
+static __thread int mcount_rstack_depth;
+
 static int pfd = -1;
 static bool mcount_setup_done;
 
@@ -356,6 +359,7 @@ static void mcount_prepare(void)
 		.tid = gettid(),
 	};
 
+	mcount_rstack_depth = mcount_depth;
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
@@ -413,7 +417,9 @@ static int match_filter(struct rb_root *root, unsigned long ip)
 }
 
 /*
- * return 1 if it should be traced, 0 otherwise.
+ * return 2 if it matches one of the filters.
+ * return 1 if it's inside of a filter function (or there's no filters),
+ * return 0 if it's outside of filter functions.
  * return -1 if it's filtered at notrace - needs special treatment.
  */
 static int mcount_filter(unsigned long ip)
@@ -426,9 +432,9 @@ static int mcount_filter(unsigned long ip)
 	if (mcount_rstack_idx < 0)
 		return 0;
 
-	if (has_filter && mcount_rstack_idx == 0) {
+	if (has_filter && (mcount_rstack_idx == 0 || mcount_rstack_depth == 0)) {
 		if (match_filter(&filter_trace, ip))
-			return 1;
+			return 2;
 		ret = 0;
 	}
 
@@ -454,8 +460,20 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
-	if (filtered == 0)
+
+	if (filtered == 2)
+		mcount_rstack_depth = mcount_depth;
+	else if (filtered == 0)
 		return -1;
+
+	/*
+	 * it can be < 0 in case it is called from plthook_entry()
+	 * which in turn is called libcygprof.so.
+	 */
+	if (mcount_rstack_depth <= 0)
+		return -1;
+
+	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -497,6 +515,7 @@ unsigned long mcount_exit(void)
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
+	mcount_rstack_depth++;
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
 	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
@@ -539,8 +558,13 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
-	if (filtered == 0)
+
+	if (filtered == 2)
+		mcount_rstack_depth = mcount_depth;
+	else if (filtered == 0)
 		return -1;
+
+	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -553,8 +577,10 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->end_time = 0;
 
 	if (filtered > 0) {
-		if (record_trace_data(rstack) < 0)
-			pr_err("error during record");
+		if (mcount_rstack_depth >= 0) {
+			if (record_trace_data(rstack) < 0)
+				pr_err("error during record");
+		}
 	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
 
@@ -574,6 +600,9 @@ unsigned long cygprof_exit(void)
 		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
 		was_filtered = true;
 	}
+
+	if (mcount_rstack_depth++ < 0)
+		was_filtered = true;
 
 	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
 		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
@@ -959,6 +988,7 @@ __monstartup(unsigned long low, unsigned long high)
 	char *logfd_str = getenv("FTRACE_LOGFD");
 	char *debug_str = getenv("FTRACE_DEBUG");
 	char *bufsize_str = getenv("FTRACE_BUFFER");
+	char *depth_str = getenv("FTRACE_DEPTH");
 	struct stat statbuf;
 
 	if (logfd_str) {
@@ -992,6 +1022,9 @@ __monstartup(unsigned long low, unsigned long high)
 	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &has_notrace);
 	mcount_setup_filter_regex("FTRACE_FILTER_REGEX", &filter_trace, &has_filter);
 	mcount_setup_filter_regex("FTRACE_NOTRACE_REGEX", &filter_notrace, &has_notrace);
+
+	if (depth_str)
+		mcount_depth = strtol(depth_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_skip_idx(&symtabs);

@@ -63,6 +63,7 @@ static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
+	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
@@ -99,6 +100,7 @@ struct opts {
 	char *logfile;
 	int mode;
 	int idx;
+	int depth;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -155,6 +157,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'N':
 		opts->notrace = arg;
+		break;
+
+	case 'D':
+		opts->depth = strtol(arg, NULL, 0);
+		if (opts->depth <= 0)
+			pr_err_ns("invalid depth given: %s\n", arg);
 		break;
 
 	case 'T':
@@ -288,6 +296,7 @@ int main(int argc, char *argv[])
 		.dirname = FTRACE_DIR_NAME,
 		.want_plthook = true,
 		.bsize = SHMEM_BUFFER_SIZE,
+		.depth = MCOUNT_DEFAULT_DEPTH,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -466,6 +475,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 			setenv("FTRACE_NOTRACE_REGEX", opts->notrace, 1);
 		else
 			setenv("FTRACE_NOTRACE", opts->notrace, 1);
+	}
+
+	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
+		snprintf(buf, sizeof(buf), "%d", opts->depth);
+		setenv("FTRACE_DEPTH", buf, 1);
 	}
 
 	if (opts->want_plthook)
