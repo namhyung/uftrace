@@ -29,8 +29,8 @@
 #include "symbol.h"
 #include "utils.h"
 
-__thread int mcount_rstack_idx;
-__thread struct mcount_ret_stack *mcount_rstack;
+static __thread int mcount_rstack_idx;
+static __thread struct mcount_ret_stack *mcount_rstack;
 
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static __thread int mcount_rstack_depth;

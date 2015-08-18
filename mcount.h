@@ -38,9 +38,6 @@ struct mcount_ret_stack {
 	unsigned short dyn_idx;
 };
 
-extern __thread int mcount_rstack_idx;
-extern __thread struct mcount_ret_stack *mcount_rstack;
-
 int mcount_entry(unsigned long *parent, unsigned long child);
 unsigned long mcount_exit(void);
 int cygprof_entry(unsigned long parent, unsigned long child);
