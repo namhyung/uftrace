@@ -2395,6 +2395,16 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
+static void reset_live_opts(struct opts *opts)
+{
+	/*
+	 * These options are handled in record and no need to do it in
+	 * replay again.
+	 */
+	opts->filter	= NULL;
+	opts->notrace	= NULL;
+}
+
 static int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
@@ -2410,8 +2420,10 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 
 	opts->dirname = template;
 
-	if (command_record(argc, argv, opts) == 0)
+	if (command_record(argc, argv, opts) == 0) {
+		reset_live_opts(opts);
 		command_replay(argc, argv, opts);
+	}
 
 	cleanup_tempdir();
 
