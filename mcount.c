@@ -21,7 +21,6 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <gelf.h>
-#include <regex.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "mcount"
@@ -370,52 +369,6 @@ static void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
-static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
-{
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct ftrace_filter *iter;
-
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct ftrace_filter, node);
-
-		if (iter->start > filter->start)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	rb_link_node(&filter->node, parent, p);
-	rb_insert_color(&filter->node, root);
-}
-
-static bool mcount_match(struct ftrace_filter *filter, unsigned long ip)
-{
-	return filter->start <= ip && ip < filter->end;
-}
-
-static int match_filter(struct rb_root *root, unsigned long ip)
-{
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct ftrace_filter *iter;
-
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct ftrace_filter, node);
-
-		if (mcount_match(iter, ip))
-			return 1;
-
-		if (iter->start > ip)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-	return 0;
-}
-
 /*
  * return 2 if it matches one of the filters.
  * return 1 if it's inside of a filter function (or there's no filters),
@@ -433,13 +386,13 @@ static int mcount_filter(unsigned long ip)
 		return 0;
 
 	if (has_filter && (mcount_rstack_idx == 0 || mcount_rstack_depth == 0)) {
-		if (match_filter(&filter_trace, ip))
+		if (ftrace_match_filter(&filter_trace, ip))
 			return 2;
 		ret = 0;
 	}
 
 	if (has_notrace && ret) {
-		if (match_filter(&filter_notrace, ip))
+		if (ftrace_match_filter(&filter_notrace, ip))
 			return -1;
 	}
 	return ret;
@@ -624,112 +577,6 @@ unsigned long cygprof_exit(void)
 	}
 
 	return rstack->parent_ip;
-}
-
-static void mcount_setup_filter(char *envstr, struct rb_root *root,
-				bool *has_filter)
-{
-	char *str = getenv(envstr);
-	char *pos, *name;
-	struct sym *sym;
-	struct ftrace_filter *filter;
-
-	if (str == NULL)
-		return;
-
-	pos = str = strdup(str);
-	if (str == NULL)
-		return;
-
-	name = strtok(pos, ",");
-	while (name) {
-		sym = find_symname(&symtabs, name);
-		if (sym == NULL)
-			goto next;
-
-		filter = xmalloc(sizeof(*filter));
-
-		filter->sym = sym;
-		filter->name = symbol_getname(sym, sym->addr);
-		filter->start = sym->addr;
-		filter->end = sym->addr + sym->size;
-
-		add_filter(root, filter);
-		*has_filter = true;
-
-		pr_dbg("%s: %s (0x%lx-0x%lx)\n", envstr, filter->name,
-		       filter->start, filter->end);
-next:
-		name = strtok(NULL, ",");
-	}
-
-	free(str);
-}
-
-static void mcount_setup_filter_regex(char *envstr, struct rb_root *root,
-				      bool *has_filter)
-{
-	char *str = getenv(envstr);
-	char *pos, *patt, *symname;
-	struct sym *sym;
-	struct ftrace_filter *filter;
-	unsigned int i;
-	regex_t re;
-
-	if (str == NULL)
-		return;
-
-	pos = str = strdup(str);
-	if (str == NULL)
-		return;
-
-	patt = strtok(pos, ",");
-	while (patt) {
-		if (regcomp(&re, patt, REG_NOSUB)) {
-			pr_log("regex pattern failed: %s\n", patt);
-			goto next;
-		}
-
-		for (i = 0; i < symtabs.symtab.nr_sym; i++) {
-			sym = &symtabs.symtab.sym[i];
-			symname = symbol_getname(sym, sym->addr);
-
-			if (regexec(&re, symname, 0, NULL, 0))
-				continue;
-
-			filter = xmalloc(sizeof(*filter));
-
-			filter->sym = sym;
-			filter->name = symname;
-			filter->start = sym->addr;
-			filter->end = sym->addr + sym->size;
-
-			add_filter(root, filter);
-			*has_filter = true;
-
-			pr_dbg("%s: %s (0x%lx-0x%lx)\n", envstr, filter->name,
-			       filter->start, filter->end);
-		}
-next:
-		patt = strtok(NULL, ",");
-	}
-
-	free(str);
-}
-
-static void mcount_cleanup_filter(struct rb_root *root)
-{
-	struct rb_node *node;
-	struct ftrace_filter *filter;
-
-	while (!RB_EMPTY_ROOT(root)) {
-		node = rb_first(root);
-		filter = rb_entry(node, struct ftrace_filter, node);
-
-		rb_erase(node, root);
-		symbol_putname(filter->sym, filter->name);
-		free(filter);
-	}
 }
 
 static unsigned long got_addr;
@@ -1013,12 +860,16 @@ __monstartup(unsigned long low, unsigned long high)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
 	read_exename();
-
 	load_symtabs(&symtabs, mcount_exename);
-	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &has_filter);
-	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &has_notrace);
-	mcount_setup_filter_regex("FTRACE_FILTER_REGEX", &filter_trace, &has_filter);
-	mcount_setup_filter_regex("FTRACE_NOTRACE_REGEX", &filter_notrace, &has_notrace);
+
+	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs,
+			    &filter_trace, &has_filter);
+	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs,
+			    &filter_notrace, &has_notrace);
+	ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs,
+				  &filter_trace, &has_filter);
+	ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs,
+				  &filter_notrace, &has_notrace);
 
 	if (depth_str)
 		mcount_depth = strtol(depth_str, NULL, 0);
@@ -1047,8 +898,8 @@ _mcleanup(void)
 	mcount_finish();
 	destroy_skip_idx();
 
-	mcount_cleanup_filter(&filter_trace);
-	mcount_cleanup_filter(&filter_notrace);
+	ftrace_cleanup_filter(&filter_trace);
+	ftrace_cleanup_filter(&filter_notrace);
 }
 
 void __attribute__((visibility("default")))
