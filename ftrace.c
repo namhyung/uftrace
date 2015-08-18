@@ -404,8 +404,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 
 	if (opts->nop)
 		strcpy(buf, "libmcount-nop.so");
-	else
+	else if (opts->filter || opts->notrace || debug ||
+		 opts->depth != MCOUNT_DEFAULT_DEPTH)
 		strcpy(buf, "libmcount.so");
+	else
+		strcpy(buf, "libmcount-fast.so");
 
 	if (old_preload) {
 		strcat(buf, ":");

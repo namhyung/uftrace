@@ -2,7 +2,7 @@ CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 INSTALL = install
 
-COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(EXTRA_CFLAGS)
+COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE -DENABLE_MCOUNT_FILTER $(EXTRA_CFLAGS)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -pthread $(EXTRA_LDFLAGS)
 
@@ -53,7 +53,7 @@ CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
 include config/Makefile
 
 
-TARGETS = libmcount.so libmcount-nop.so ftrace
+TARGETS = libmcount.so libmcount-nop.so libmcount-fast.so ftrace
 
 FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
@@ -64,6 +64,11 @@ LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
 
 LIBMCOUNT_NOP_SRCS = mcount-nop.c
 LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)
+
+LIBMCOUNT_FAST_SRCS = symbol.c debug.c
+LIBMCOUNT_FAST_OBJS = $(LIBMCOUNT_FAST_SRCS:.c=.op) mcount-fast.op
+
+CFLAGS_mcount-fast.op = -UENABLE_MCOUNT_FILTER
 
 MAKEFLAGS = --no-print-directory
 
@@ -76,6 +81,9 @@ $(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h rbtree.h FLAGS
 mcount-nop.op: mcount-nop.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
+mcount-fast.op: mcount.c
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
@@ -83,6 +91,9 @@ libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
+	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+
+libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h

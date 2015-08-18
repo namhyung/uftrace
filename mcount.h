@@ -170,6 +170,7 @@ struct ftrace_file_handle {
 	int depth;
 };
 
+#ifdef ENABLE_MCOUNT_FILTER
 struct ftrace_filter {
 	struct rb_node node;
 	struct sym *sym;
@@ -184,6 +185,7 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 			       struct rb_root *root, bool *has_filter);
 int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
+#endif /* ENABLE_MCOUNT_FILTER */
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);
