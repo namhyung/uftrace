@@ -44,7 +44,7 @@ extern __thread struct mcount_ret_stack *mcount_rstack;
 int mcount_entry(unsigned long *parent, unsigned long child);
 unsigned long mcount_exit(void);
 int cygprof_entry(unsigned long parent, unsigned long child);
-unsigned long cygprof_exit(void);
+void cygprof_exit(unsigned long parent, unsigned long child);
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 

@@ -539,7 +539,7 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	return 0;
 }
 
-unsigned long cygprof_exit(void)
+void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	bool was_filtered = false;
 	struct mcount_ret_stack *rstack;
@@ -573,8 +573,6 @@ unsigned long cygprof_exit(void)
 		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	}
-
-	return rstack->parent_ip;
 }
 
 static unsigned long got_addr;

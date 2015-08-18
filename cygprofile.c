@@ -45,7 +45,7 @@ __cyg_profile_func_exit(void *child, void *parent)
 
 	if (mcount_rstack[idx-1].child_ip == (unsigned long)child &&
 	    mcount_rstack[idx-1].parent_ip == (unsigned long)parent)
-		cygprof_exit();
+		cygprof_exit((unsigned long)parent, (unsigned long)child);
 	else
 		pr_dbg2("\tskipped (%p), mcount_rstack_idx = %d (%d)\n",
 			child, mcount_rstack_idx, idx);
