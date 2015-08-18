@@ -402,17 +402,10 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 
-	if (find_symname(symtabs, "__cyg_profile_func_enter")) {
-		if (opts->nop)
-			strcpy(buf, "libcygprof-nop.so");
-		else
-			strcpy(buf, "libcygprof.so");
-	} else {
-		if (opts->nop)
-			strcpy(buf, "libmcount-nop.so");
-		else
-			strcpy(buf, "libmcount.so");
-	}
+	if (opts->nop)
+		strcpy(buf, "libmcount-nop.so");
+	else
+		strcpy(buf, "libmcount.so");
 
 	if (old_preload) {
 		strcat(buf, ":");

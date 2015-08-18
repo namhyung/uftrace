@@ -930,6 +930,17 @@ mcount_reset(void)
 		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
+void __attribute__((visibility("default")))
+__cyg_profile_func_enter(void *child, void *parent)
+{
+	cygprof_entry((unsigned long)parent, (unsigned long)child);
+}
+
+void __attribute__((visibility("default")))
+__cyg_profile_func_exit(void *child, void *parent)
+{
+	cygprof_exit((unsigned long)parent, (unsigned long)child);
+}
 
 /*
  * Initializer and Finalizer
