@@ -1685,6 +1685,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
+	handle->depth = opts->depth;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -1756,6 +1757,7 @@ struct ftrace_task_handle {
 	struct fstack {
 		unsigned long addr;
 		bool valid;
+		int orig_depth;
 		uint64_t total_time;
 		uint64_t child_time;
 	} func_stack[MCOUNT_RSTACK_MAX];
@@ -1855,10 +1857,13 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 	free(filter_tids);
 }
 
-static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned long addr)
+static void update_filter_count_entry(struct ftrace_task_handle *task,
+				      unsigned long addr, int depth)
 {
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count++;
+		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
+		task->filter_depth = depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count -= FILTER_COUNT_NOTRACE;
@@ -1866,10 +1871,12 @@ static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned 
 	}
 }
 
-static void update_filter_count_exit(struct ftrace_task_handle *task, unsigned long addr)
+static void update_filter_count_exit(struct ftrace_task_handle *task,
+				     unsigned long addr, int depth)
 {
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count--;
+		task->filter_depth = task->func_stack[task->stack_count].orig_depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count += FILTER_COUNT_NOTRACE;
@@ -1929,6 +1936,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 			tasks[idx].filter_count = 1;
 
 		tasks[idx].stack_count = 0;
+		tasks[idx].filter_depth = handle->depth;
 
 		pr_dbg("opening %s\n", filename);
 		free(filename);
@@ -2117,8 +2125,11 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == FTRACE_ENTRY) {
-		update_filter_count_entry(task, rstack->addr);
+		update_filter_count_entry(task, rstack->addr, handle->depth);
 		if (task->filter_count <= 0)
+			goto out;
+
+		if (task->filter_depth-- <= 0)
 			goto out;
 
 		/* function entry */
@@ -2127,7 +2138,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		       rstack->depth * 2, "", symname);
 	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
-		if (task->filter_count > 0) {
+		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
 			struct fstack *fstack;
 
 			fstack= &task->func_stack[rstack->depth];
@@ -2136,7 +2147,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr);
+		update_filter_count_exit(task, rstack->addr, handle->depth);
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
 		printf(" [%5d] |     /* LOST %d records!! */\n",
@@ -2172,8 +2183,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct fstack *fstack;
 		int depth = rstack->depth;
 
-		update_filter_count_entry(task, rstack->addr);
+		update_filter_count_entry(task, rstack->addr, handle->depth);
 		if (task->filter_count <= 0)
+			goto out;
+
+		if (task->filter_depth-- <= 0)
 			goto out;
 
 		if (peek_rstack(handle, &next) < 0) {
@@ -2194,7 +2208,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			/* consume the rstack */
 			read_rstack(handle, &next);
 
-			update_filter_count_exit(task, next->rstack.addr);
+			task->filter_depth++;
+			update_filter_count_exit(task, next->rstack.addr, handle->depth);
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
@@ -2203,7 +2218,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
-		if (task->filter_count > 0) {
+		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
 			struct fstack *fstack;
 
 			fstack = &task->func_stack[rstack->depth];
@@ -2213,7 +2228,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr);
+		update_filter_count_exit(task, rstack->addr, handle->depth);
 
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
@@ -2351,6 +2366,7 @@ static void reset_live_opts(struct opts *opts)
 	 */
 	opts->filter	= NULL;
 	opts->notrace	= NULL;
+	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 }
 
 static int command_live(int argc, char *argv[], struct opts *opts)

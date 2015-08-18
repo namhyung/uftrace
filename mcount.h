@@ -170,6 +170,7 @@ struct ftrace_file_handle {
 	const char *dirname;
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
+	int depth;
 };
 
 struct ftrace_filter {
