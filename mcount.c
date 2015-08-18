@@ -462,14 +462,13 @@ unsigned long mcount_exit(void)
 		was_filtered = true;
 	}
 
-	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
-		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
-
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
 	mcount_rstack_depth++;
 	rstack = &mcount_rstack[--mcount_rstack_idx];
+
+	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
 
 	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
 		pr_err_ns("corrupted mcount ret stack found!\n");
@@ -557,13 +556,12 @@ unsigned long cygprof_exit(void)
 	if (mcount_rstack_depth++ < 0)
 		was_filtered = true;
 
-	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
-		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
-
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
+
+	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
 
 	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
 		pr_err_ns("corrupted mcount ret stack found!\n");
