@@ -539,9 +539,9 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 			name = symname;
 
 		/* omit template and/or argument part */
-		symname = strchr(name, '<');
+		symname = strchr(name, '(');
 		if (symname == NULL)
-			symname = strchr(name, '(');
+			symname = strchr(name, '<');
 		if (symname)
 			*symname = '\0';
 
