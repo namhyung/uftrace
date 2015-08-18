@@ -419,7 +419,7 @@ static void build_addrlist(struct symtabs *symtabs, char *buf, char *symlist)
 	}
 }
 
-#define REGEX_CHARS  ".?*+-^$|()[]{}"
+#define REGEX_CHARS  ".?*+-^$|:()[]{}"
 
 static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
 {

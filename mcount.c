@@ -641,11 +641,8 @@ static void mcount_setup_filter(char *envstr, struct rb_root *root,
 	if (str == NULL)
 		return;
 
-	name = strtok(pos, ",:");
+	name = strtok(pos, ",");
 	while (name) {
-		if (name == NULL)
-			break;
-
 		sym = find_symname(&symtabs, name);
 		if (sym == NULL)
 			goto next;
@@ -663,7 +660,7 @@ static void mcount_setup_filter(char *envstr, struct rb_root *root,
 		pr_dbg("%s: %s (0x%lx-0x%lx)\n", envstr, filter->name,
 		       filter->start, filter->end);
 next:
-		name = strtok(NULL, ",:");
+		name = strtok(NULL, ",");
 	}
 
 	free(str);
@@ -686,7 +683,7 @@ static void mcount_setup_filter_regex(char *envstr, struct rb_root *root,
 	if (str == NULL)
 		return;
 
-	patt = strtok(pos, ",:");
+	patt = strtok(pos, ",");
 	while (patt) {
 		if (regcomp(&re, patt, REG_NOSUB)) {
 			pr_log("regex pattern failed: %s\n", patt);
@@ -714,7 +711,7 @@ static void mcount_setup_filter_regex(char *envstr, struct rb_root *root,
 			       filter->start, filter->end);
 		}
 next:
-		patt = strtok(NULL, ",:");
+		patt = strtok(NULL, ",");
 	}
 
 	free(str);
