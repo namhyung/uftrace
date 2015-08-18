@@ -32,13 +32,15 @@
 __thread int mcount_rstack_idx;
 __thread struct mcount_ret_stack *mcount_rstack;
 
+static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
+static __thread int mcount_rstack_depth;
+
 static int pfd = -1;
 static bool mcount_setup_done;
 
-static unsigned long *filter_trace;
-static unsigned nr_filter;
-static unsigned long *filter_notrace;
-static unsigned nr_notrace;
+static struct rb_root filter_trace = RB_ROOT;
+static struct rb_root filter_notrace = RB_ROOT;
+static bool has_filter, has_notrace;
 
 static __thread bool plthook_recursion_guard;
 static unsigned long *plthook_got_ptr;
@@ -356,6 +358,7 @@ static void mcount_prepare(void)
 		.tid = gettid(),
 	};
 
+	mcount_rstack_depth = mcount_depth;
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
@@ -366,13 +369,10 @@ static void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
-static bool mcount_match(unsigned long ip1, unsigned long ip2)
-{
-	return ip1 == ip2;
-}
-
 /*
- * return 1 if it should be traced, 0 otherwise.
+ * return 2 if it matches one of the filters.
+ * return 1 if it's inside of a filter function (or there's no filters),
+ * return 0 if it's outside of filter functions.
  * return -1 if it's filtered at notrace - needs special treatment.
  */
 static int mcount_filter(unsigned long ip)
@@ -381,24 +381,19 @@ static int mcount_filter(unsigned long ip)
 	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
 	 */
 	int ret = mcount_rstack_idx >= 0;
-	unsigned i;
 
 	if (mcount_rstack_idx < 0)
 		return 0;
 
-	if (nr_filter && mcount_rstack_idx == 0) {
-		for (i = 0; i < nr_filter; i++) {
-			if (mcount_match(filter_trace[i], ip))
-				return 1;
-		}
+	if (has_filter && (mcount_rstack_idx == 0 || mcount_rstack_depth == 0)) {
+		if (ftrace_match_filter(&filter_trace, ip))
+			return 2;
 		ret = 0;
 	}
 
-	if (nr_notrace && ret) {
-		for (i = 0; i < nr_notrace; i++) {
-			if (mcount_match(filter_notrace[i], ip))
-				return -1;
-		}
+	if (has_notrace && ret) {
+		if (ftrace_match_filter(&filter_notrace, ip))
+			return -1;
 	}
 	return ret;
 }
@@ -418,8 +413,20 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
-	if (filtered == 0)
+
+	if (filtered == 2)
+		mcount_rstack_depth = mcount_depth;
+	else if (filtered == 0)
 		return -1;
+
+	/*
+	 * it can be < 0 in case it is called from plthook_entry()
+	 * which in turn is called libcygprof.so.
+	 */
+	if (mcount_rstack_depth <= 0)
+		return -1;
+
+	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -461,6 +468,7 @@ unsigned long mcount_exit(void)
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
+	mcount_rstack_depth++;
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
 	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
@@ -503,8 +511,13 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
-	if (filtered == 0)
+
+	if (filtered == 2)
+		mcount_rstack_depth = mcount_depth;
+	else if (filtered == 0)
 		return -1;
+
+	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -517,8 +530,10 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->end_time = 0;
 
 	if (filtered > 0) {
-		if (record_trace_data(rstack) < 0)
-			pr_err("error during record");
+		if (mcount_rstack_depth >= 0) {
+			if (record_trace_data(rstack) < 0)
+				pr_err("error during record");
+		}
 	} else
 		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
 
@@ -538,6 +553,9 @@ unsigned long cygprof_exit(void)
 		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
 		was_filtered = true;
 	}
+
+	if (mcount_rstack_depth++ < 0)
+		was_filtered = true;
 
 	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx - 1,
 		mcount_rstack[mcount_rstack_idx - 1].parent_ip);
@@ -559,54 +577,6 @@ unsigned long cygprof_exit(void)
 	}
 
 	return rstack->parent_ip;
-}
-
-static void mcount_setup_filter(char *envstr, unsigned long **filter, unsigned *size)
-{
-	unsigned int i, nr;
-	char *str = getenv(envstr);
-	char *pos;
-
-	if (str == NULL)
-		return;
-
-	pos = str;
-	nr = 0;
-	while (pos) {
-		nr++;
-		pos = strchr(pos, ':');
-		if (pos)
-			pos++;
-	}
-
-	*filter = malloc(sizeof(long) * nr);
-	if (*filter == NULL)
-		pr_err("failed to allocate memory for %s", envstr);
-
-	*size = nr;
-
-	pos = str;
-	for (i = 0; i < nr; i++) {
-		(*filter)[i] = strtoul(pos, &pos, 16);
-		if (*pos && *pos != ':')
-			pr_err_ns("invalid filter string for %s\n", envstr);
-
-		pos++;
-	}
-
-	if (debug) {
-		pr_dbg("%s: ", envstr);
-		for (i = 0; i < nr; i++)
-			pr_cont(" 0x%lx", (*filter)[i]);
-		pr_cont("\n");
-	}
-}
-
-static void mcount_cleanup_filter(unsigned long **filter, unsigned *size)
-{
-	free(*filter);
-	*filter = NULL;
-	*size = 0;
 }
 
 static unsigned long got_addr;
@@ -862,6 +832,7 @@ __monstartup(unsigned long low, unsigned long high)
 	char *logfd_str = getenv("FTRACE_LOGFD");
 	char *debug_str = getenv("FTRACE_DEBUG");
 	char *bufsize_str = getenv("FTRACE_BUFFER");
+	char *depth_str = getenv("FTRACE_DEPTH");
 	struct stat statbuf;
 
 	if (mcount_setup_done)
@@ -891,13 +862,22 @@ __monstartup(unsigned long low, unsigned long high)
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
-	mcount_setup_filter("FTRACE_FILTER", &filter_trace, &nr_filter);
-	mcount_setup_filter("FTRACE_NOTRACE", &filter_notrace, &nr_notrace);
-
 	read_exename();
+	load_symtabs(&symtabs, mcount_exename);
+
+	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs,
+			    &filter_trace, &has_filter);
+	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs,
+			    &filter_notrace, &has_notrace);
+	ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs,
+				  &filter_trace, &has_filter);
+	ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs,
+				  &filter_notrace, &has_notrace);
+
+	if (depth_str)
+		mcount_depth = strtol(depth_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
-		load_dynsymtab(&symtabs, mcount_exename);
 		setup_skip_idx(&symtabs);
 
 		if (hook_pltgot() < 0)
@@ -921,8 +901,8 @@ _mcleanup(void)
 	mcount_finish();
 	destroy_skip_idx();
 
-	mcount_cleanup_filter(&filter_trace, &nr_filter);
-	mcount_cleanup_filter(&filter_notrace, &nr_notrace);
+	ftrace_cleanup_filter(&filter_trace);
+	ftrace_cleanup_filter(&filter_notrace);
 }
 
 void __attribute__((visibility("default")))

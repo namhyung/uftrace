@@ -13,6 +13,10 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <libelf.h>
+#include <limits.h>
+
+#include "rbtree.h"
+#include "symbol.h"
 
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
@@ -20,6 +24,7 @@
 #define MCOUNT_RSTACK_MAX  1024
 #define MCOUNT_NOTRACE_IDX 0x10000
 #define MCOUNT_INVALID_DYNIDX 0xffff
+#define MCOUNT_DEFAULT_DEPTH  (INT_MAX - 1)
 
 struct mcount_ret_stack {
 	unsigned long *parent_loc;
@@ -165,7 +170,23 @@ struct ftrace_file_handle {
 	const char *dirname;
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
+	int depth;
 };
+
+struct ftrace_filter {
+	struct rb_node node;
+	struct sym *sym;
+	char *name;
+	unsigned long start;
+	unsigned long end;
+};
+
+void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+			 struct rb_root *root, bool *has_filter);
+void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
+			       struct rb_root *root, bool *has_filter);
+int ftrace_match_filter(struct rb_root *root, unsigned long ip);
+void ftrace_cleanup_filter(struct rb_root *root);
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);

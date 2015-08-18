@@ -63,6 +63,7 @@ static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
+	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
@@ -99,6 +100,7 @@ struct opts {
 	char *logfile;
 	int mode;
 	int idx;
+	int depth;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -155,6 +157,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'N':
 		opts->notrace = arg;
+		break;
+
+	case 'D':
+		opts->depth = strtol(arg, NULL, 0);
+		if (opts->depth <= 0)
+			pr_err_ns("invalid depth given: %s\n", arg);
 		break;
 
 	case 'T':
@@ -288,6 +296,7 @@ int main(int argc, char *argv[])
 		.dirname = FTRACE_DIR_NAME,
 		.want_plthook = true,
 		.bsize = SHMEM_BUFFER_SIZE,
+		.depth = MCOUNT_DEFAULT_DEPTH,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -385,30 +394,7 @@ static int write_all(int fd, void *buf, size_t size)
 	return 0;
 }
 
-static void build_addrlist(struct symtabs *symtabs, char *buf, char *symlist)
-{
-	char *p = symlist;
-	char *fname = strtok(p, ",:");
-
-	buf[0] = '\0';
-	while (fname) {
-		struct sym *sym = find_symname(symtabs, fname);
-
-		if (sym) {
-			char tmp[64];
-
-			snprintf(tmp, sizeof(tmp), "%s%#lx",
-				 p ? "" : ":", sym->addr);
-			strcat(buf, tmp);
-		} else {
-			pr_dbg("cannot find symbol: %s\n", fname);
-			pr_dbg("skip setting filter..\n");
-		}
-
-		p = NULL;
-		fname = strtok(p, ",:");
-	}
-}
+#define REGEX_CHARS  ".?*+-^$|:()[]{}"
 
 static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
 {
@@ -453,18 +439,26 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
 	if (opts->filter) {
-		build_addrlist(symtabs, buf, opts->filter);
-		setenv("FTRACE_FILTER", buf, 1);
+		if (strpbrk(opts->filter, REGEX_CHARS))
+			setenv("FTRACE_FILTER_REGEX", opts->filter, 1);
+		else
+			setenv("FTRACE_FILTER", opts->filter, 1);
 	}
 
 	if (opts->notrace) {
-		build_addrlist(symtabs, buf, opts->notrace);
-		setenv("FTRACE_NOTRACE", buf, 1);
+		if (strpbrk(opts->notrace, REGEX_CHARS))
+			setenv("FTRACE_NOTRACE_REGEX", opts->notrace, 1);
+		else
+			setenv("FTRACE_NOTRACE", opts->notrace, 1);
 	}
 
-	if (opts->want_plthook) {
-		setenv("FTRACE_PLTHOOK", "1", 1);
+	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
+		snprintf(buf, sizeof(buf), "%d", opts->depth);
+		setenv("FTRACE_DEPTH", buf, 1);
 	}
+
+	if (opts->want_plthook)
+		setenv("FTRACE_PLTHOOK", "1", 1);
 
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);
@@ -1691,6 +1685,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
+	handle->depth = opts->depth;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -1762,16 +1757,17 @@ struct ftrace_task_handle {
 	struct fstack {
 		unsigned long addr;
 		bool valid;
+		int orig_depth;
 		uint64_t total_time;
 		uint64_t child_time;
 	} func_stack[MCOUNT_RSTACK_MAX];
 };
 
 struct ftrace_func_filter {
-	int nr_filters;
-	int nr_notrace;
-	unsigned long *filters;
-	unsigned long *notrace;
+	bool has_filters;
+	bool has_notrace;
+	struct rb_root filters;
+	struct rb_root notrace;
 };
 
 static struct ftrace_task_handle *tasks;
@@ -1849,7 +1845,7 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 		if (tasks[i].fp == NULL)
 			pr_err("cannot open task data file [%s]", filename);
 
-		if (filters.nr_filters)
+		if (filters.has_filters)
 			tasks[i].filter_count = 0;
 		else
 			tasks[i].filter_count = 1;
@@ -1861,69 +1857,28 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 	free(filter_tids);
 }
 
-static int setup_function_filter(unsigned long **filters, char *filter_str)
+static void update_filter_count_entry(struct ftrace_task_handle *task,
+				      unsigned long addr, int depth)
 {
-	char buf[4096];
-	char *pos = buf;
-	int count = 0;
-
-	build_addrlist(&first_session->symtabs, buf, filter_str);
-
-	do {
-		unsigned long addr;
-		unsigned long *new_filters;
-
-		addr = strtoul(pos, &pos, 16);
-		if (*pos != ':' && *pos != '\0')
-			return -1;
-
-		new_filters = realloc(*filters, (count + 1) * sizeof(**filters));
-		if (new_filters == NULL)
-			return -1;
-
-		new_filters[count++] = addr;
-		*filters = new_filters;
-	} while (*pos == ':');
-
-	return count;
-}
-
-static int match_filter_addr(unsigned long *filters, int nr_filters, unsigned long addr)
-{
-	int i;
-
-	for (i = 0; i < nr_filters; i++) {
-		if (addr == filters[i])
-			return 1;
-	}
-	return 0;
-}
-
-static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned long addr)
-{
-	if (filters.nr_filters && match_filter_addr(filters.filters,
-						    filters.nr_filters,
-						    addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count++;
+		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
+		task->filter_depth = depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
-							   filters.nr_notrace,
-							   addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count -= FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	}
 }
 
-static void update_filter_count_exit(struct ftrace_task_handle *task, unsigned long addr)
+static void update_filter_count_exit(struct ftrace_task_handle *task,
+				     unsigned long addr, int depth)
 {
-	if (filters.nr_filters && match_filter_addr(filters.filters,
-						    filters.nr_filters,
-						    addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count--;
+		task->filter_depth = task->func_stack[task->stack_count].orig_depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
-							   filters.nr_notrace,
-							   addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count += FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	}
@@ -1975,12 +1930,13 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 			return NULL;
 		}
 
-		if (filters.nr_filters)
+		if (filters.has_filters)
 			tasks[idx].filter_count = 0;
 		else
 			tasks[idx].filter_count = 1;
 
 		tasks[idx].stack_count = 0;
+		tasks[idx].filter_depth = handle->depth;
 
 		pr_dbg("opening %s\n", filename);
 		free(filename);
@@ -2169,8 +2125,11 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == FTRACE_ENTRY) {
-		update_filter_count_entry(task, rstack->addr);
+		update_filter_count_entry(task, rstack->addr, handle->depth);
 		if (task->filter_count <= 0)
+			goto out;
+
+		if (task->filter_depth-- <= 0)
 			goto out;
 
 		/* function entry */
@@ -2179,7 +2138,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		       rstack->depth * 2, "", symname);
 	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
-		if (task->filter_count > 0) {
+		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
 			struct fstack *fstack;
 
 			fstack= &task->func_stack[rstack->depth];
@@ -2188,7 +2147,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr);
+		update_filter_count_exit(task, rstack->addr, handle->depth);
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
 		printf(" [%5d] |     /* LOST %d records!! */\n",
@@ -2224,8 +2183,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct fstack *fstack;
 		int depth = rstack->depth;
 
-		update_filter_count_entry(task, rstack->addr);
+		update_filter_count_entry(task, rstack->addr, handle->depth);
 		if (task->filter_count <= 0)
+			goto out;
+
+		if (task->filter_depth-- <= 0)
 			goto out;
 
 		if (peek_rstack(handle, &next) < 0) {
@@ -2246,7 +2208,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			/* consume the rstack */
 			read_rstack(handle, &next);
 
-			update_filter_count_exit(task, next->rstack.addr);
+			task->filter_depth++;
+			update_filter_count_exit(task, next->rstack.addr, handle->depth);
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
@@ -2255,7 +2218,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 	} else if (rstack->type == FTRACE_EXIT) {
 		/* function exit */
-		if (task->filter_count > 0) {
+		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
 			struct fstack *fstack;
 
 			fstack = &task->func_stack[rstack->depth];
@@ -2265,7 +2228,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr);
+		update_filter_count_exit(task, rstack->addr, handle->depth);
 
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
@@ -2327,16 +2290,16 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	if (opts->filter) {
-		filters.nr_filters = setup_function_filter(&filters.filters,
-							   opts->filter);
-		if (filters.nr_filters < 0)
+		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs,
+					  &filters.filters, &filters.has_filters);
+		if (!filters.has_filters)
 			return -1;
 	}
 
 	if (opts->notrace) {
-		filters.nr_notrace = setup_function_filter(&filters.notrace,
-							   opts->notrace);
-		if (filters.nr_notrace < 0)
+		ftrace_setup_filter_regex(opts->notrace, &first_session->symtabs,
+					  &filters.notrace, &filters.has_notrace);
+		if (!filters.has_notrace)
 			return -1;
 	}
 
@@ -2395,6 +2358,17 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
+static void reset_live_opts(struct opts *opts)
+{
+	/*
+	 * These options are handled in record and no need to do it in
+	 * replay again.
+	 */
+	opts->filter	= NULL;
+	opts->notrace	= NULL;
+	opts->depth	= MCOUNT_DEFAULT_DEPTH;
+}
+
 static int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
@@ -2410,8 +2384,10 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 
 	opts->dirname = template;
 
-	if (command_record(argc, argv, opts) == 0)
+	if (command_record(argc, argv, opts) == 0) {
+		reset_live_opts(opts);
 		command_replay(argc, argv, opts);
+	}
 
 	cleanup_tempdir();
 

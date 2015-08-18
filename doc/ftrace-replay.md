@@ -31,6 +31,9 @@ OPTIONS
 -T *TID*[,*TID*,...], \--tid=*TID*[,*TID*,...]
 :   Only print functions from given threads.  To see the list of threads in the data file, you can use `ftrace-report --threads` or `ftrace-info` command.
 
+-D *DEPTH*, \--depth *DEPTH*
+:   Set trace limit in nesting level.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.
@@ -74,8 +77,8 @@ Normally ftrace will trace all the functions from `main()` to `c()`.
 
 But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.
 
-    $ ftrace record -F b
-    $ ftrace replay
+    $ ftrace record ./abc
+    $ ftrace replay -F b
     # DURATION    TID     FUNCTION
                 [ 1234] |     b() {
        3.880 us [ 1234] |       c();
@@ -85,7 +88,7 @@ The second type is an opt-out filter; By default, it trace everything and when i
 
 In the above example, you can omit the function b() and its children with -N option.
 
-    $ ftrace record
+    $ ftrace record ./abc
     $ ftrace replay -N b
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
@@ -93,6 +96,21 @@ In the above example, you can omit the function b() and its children with -N opt
                 [ 1234] |   a() {
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
+
+In addition, you can limit the print nesting level with -D option.
+
+    $ ftrace record ./abc
+    $ ftrace replay -D 3
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+                [ 1234] |     b() {
+       5.475 us [ 1234] |     } /* b */
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
 
 SEE ALSO
 ========

@@ -13,17 +13,17 @@ ifndef BUILD_FEATURE_CHECKS
   endif
 
   ifneq ($(wildcard config/libiberty),)
-    CFLAGS += -DHAVE_LIBIBERTY
-    LDFLAGS += -liberty
+    COMMON_CFLAGS += -DHAVE_LIBIBERTY
+    COMMON_LDFLAGS += -liberty
     ifneq ($(wildcard config/libiberty_demangle),)
-      CFLAGS += -DHAVE_LIBIBERTY_DEMANGLE
+      COMMON_CFLAGS += -DHAVE_LIBIBERTY_DEMANGLE
     endif
   endif
 
   ifneq ($(wildcard config/cxa_demangle),)
     ifeq ($(wildcard config/libiberty_demangle),)
-      CFLAGS += -DHAVE_CXA_DEMANGLE
-      LDFLAGS += -lstdc++
+      COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
+      COMMON_LDFLAGS += -lstdc++
     endif
   endif
 
