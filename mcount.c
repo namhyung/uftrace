@@ -399,6 +399,89 @@ static enum filter_result mcount_filter(unsigned long ip)
 	return ret;
 }
 
+static __inline__
+enum filter_result mcount_entry_filter_check(unsigned long child)
+{
+	enum filter_result ret;
+
+	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
+		pr_log("too deeply nested calls\n");
+		return FILTER_OUT;
+	}
+
+	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
+	ret = mcount_filter(child);
+
+	if (ret == FILTER_MATCH)
+		mcount_rstack_depth = mcount_depth;
+	else if (ret == FILTER_OUT)
+		return ret;
+
+	/*
+	 * it can be < 0 in case it is called from plthook_entry()
+	 * which in turn is called libcygprof.so.
+	 */
+	if (mcount_rstack_depth <= 0)
+		return FILTER_OUT;
+
+	mcount_rstack_depth--;
+	return ret;
+}
+
+static __inline__
+void mcount_entry_filter_record(enum filter_result res,
+				struct mcount_ret_stack *rstack)
+{
+	if (res != FILTER_NOTRACE) {
+		if (record_trace_data(rstack) < 0)
+			pr_err("error during record");
+	} else
+		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
+
+}
+
+static __inline__
+enum filter_result mcount_exit_filter_check(void)
+{
+	enum filter_result ret = FILTER_IN;
+
+	/*
+	 * We subtracted big number for notrace filtered functions
+	 * so that it can be identified when entering the exit handler.
+	 */
+	if (mcount_rstack_idx < 0) {
+		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
+		ret = FILTER_OUT;
+	}
+
+	if (mcount_rstack_idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+
+	mcount_rstack_depth++;
+	return ret;
+}
+
+static __inline__
+void mcount_exit_filter_record(enum filter_result res,
+			       struct mcount_ret_stack *rstack)
+{
+	if (res != FILTER_IN)
+		return;
+
+	if (record_trace_data(rstack) < 0)
+		pr_err("error during record");
+}
+
+static __inline__
+void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
+{
+	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
+
+	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
+		pr_err_ns("corrupted mcount ret stack found!\n");
+
+}
+
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
@@ -407,27 +490,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
-	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		pr_log("too deeply nested calls\n");
+	filtered = mcount_entry_filter_check(child);
+	if (filtered == FILTER_OUT)
 		return -1;
-	}
-
-	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
-	filtered = mcount_filter(child);
-
-	if (filtered == FILTER_MATCH)
-		mcount_rstack_depth = mcount_depth;
-	else if (filtered == FILTER_OUT)
-		return -1;
-
-	/*
-	 * it can be < 0 in case it is called from plthook_entry()
-	 * which in turn is called libcygprof.so.
-	 */
-	if (mcount_rstack_depth <= 0)
-		return -1;
-
-	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -440,47 +505,25 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 
-	if (filtered != FILTER_NOTRACE) {
-		if (record_trace_data(rstack) < 0)
-			pr_err("error during record");
-	} else
-		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
-
+	mcount_entry_filter_record(filtered, rstack);
 	return 0;
 }
 
 unsigned long mcount_exit(void)
 {
-	bool was_filtered = false;
+	enum filter_result was_filtered;
 	struct mcount_ret_stack *rstack;
 
-	/*
-	 * We subtracted big number for notrace filtered functions
-	 * so that it can be identified when entering the exit handler.
-	 */
-	if (mcount_rstack_idx < 0) {
-		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
-		was_filtered = true;
-	}
+	was_filtered = mcount_exit_filter_check();
 
-	if (mcount_rstack_idx <= 0)
-		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
-
-	mcount_rstack_depth++;
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
-	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
-
-	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
-		pr_err_ns("corrupted mcount ret stack found!\n");
+	mcount_exit_check_rstack(rstack);
 
 	rstack->end_time = mcount_gettime();
 	rstack->tid = gettid();
 
-	if (!was_filtered) {
-		if (record_trace_data(rstack) < 0)
-			pr_err("error during record");
-	}
+	mcount_exit_filter_record(was_filtered, rstack);
 
 	return rstack->parent_ip;
 }
@@ -496,6 +539,82 @@ static void mcount_finish(void)
 	}
 }
 
+static __inline__
+enum filter_result cygprof_entry_filter_check(unsigned long child)
+{
+	enum filter_result ret;
+
+	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
+		pr_log("too deeply nested calls\n");
+		return FILTER_OUT;
+	}
+
+	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
+	ret = mcount_filter(child);
+
+	if (ret == FILTER_MATCH)
+		mcount_rstack_depth = mcount_depth;
+	else if (ret == FILTER_OUT)
+		return ret;
+
+	mcount_rstack_depth--;
+	return ret;
+}
+
+static __inline__
+void cygprof_entry_filter_record(enum filter_result res,
+				 struct mcount_ret_stack *rstack)
+{
+	if (res == FILTER_NOTRACE) {
+		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
+		return;
+	}
+
+	if (mcount_rstack_depth < 0)
+		return;
+
+	if (record_trace_data(rstack) < 0)
+		pr_err("error during record");
+}
+
+static __inline__
+enum filter_result cygprof_exit_filter_check(void)
+{
+	enum filter_result ret = FILTER_IN;
+
+	/*
+	 * We subtracted big number for notrace filtered functions
+	 * so that it can be identified when entering the exit handler.
+	 */
+	if (mcount_rstack_idx < 0) {
+		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
+		ret = FILTER_OUT;
+	}
+
+	if (mcount_rstack_depth++ < 0)
+		ret = FILTER_OUT;
+
+	if (mcount_rstack_idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+
+	return ret;
+}
+
+static __inline__
+void cygprof_exit_filter_record(enum filter_result res,
+				struct mcount_ret_stack *rstack,
+				unsigned long parent, unsigned long child)
+{
+	if (res != FILTER_IN)
+		return;
+
+	if (rstack->parent_ip != parent || rstack->child_ip != child)
+		return;
+
+	if (record_trace_data(rstack) < 0)
+		pr_err("error during record");
+}
+
 int cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
@@ -504,20 +623,9 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
-	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		pr_log("too deeply nested calls\n");
+	filtered = cygprof_entry_filter_check(child);
+	if (filtered == FILTER_OUT)
 		return -1;
-	}
-
-	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
-	filtered = mcount_filter(child);
-
-	if (filtered == FILTER_MATCH)
-		mcount_rstack_depth = mcount_depth;
-	else if (filtered == FILTER_OUT)
-		return -1;
-
-	mcount_rstack_depth--;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -529,54 +637,25 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 
-	if (filtered != FILTER_NOTRACE) {
-		if (mcount_rstack_depth >= 0) {
-			if (record_trace_data(rstack) < 0)
-				pr_err("error during record");
-		}
-	} else
-		mcount_rstack_idx -= MCOUNT_NOTRACE_IDX; /* see below */
-
+	cygprof_entry_filter_record(filtered, rstack);
 	return 0;
 }
 
 void cygprof_exit(unsigned long parent, unsigned long child)
 {
-	bool was_filtered = false;
+	bool was_filtered;
 	struct mcount_ret_stack *rstack;
 
-	/*
-	 * We subtracted big number for notrace filtered functions
-	 * so that it can be identified when entering the exit handler.
-	 */
-	if (mcount_rstack_idx < 0) {
-		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
-		was_filtered = true;
-	}
-
-	if (mcount_rstack_depth++ < 0)
-		was_filtered = true;
-
-	if (mcount_rstack_idx <= 0)
-		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+	was_filtered = cygprof_exit_filter_check();
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
-	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
-
-	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
-		pr_err_ns("corrupted mcount ret stack found!\n");
+	mcount_exit_check_rstack(rstack);
 
 	rstack->end_time = mcount_gettime();
 	rstack->tid = gettid();
 
-	if (!was_filtered) {
-		if (rstack->parent_ip != parent || rstack->child_ip != child)
-			return;
-
-		if (record_trace_data(rstack) < 0)
-			pr_err("error during record");
-	}
+	cygprof_exit_filter_record(was_filtered, rstack, parent, child);
 }
 
 static unsigned long got_addr;
