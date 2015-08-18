@@ -19,7 +19,7 @@ This data can then be inspected later on, using `ftrace-replay` or `ftrace-repor
 OPTIONS
 =======
 -b *SIZE*, \--buffer=*SIZE*
-:   Size of internal buffer which trace data will be saved.  (Now it has no effect and the size is fixed as 128KiB.)
+:   Size of internal buffer which trace data will be saved.
 
 -f *FILE*, \--file=*FILE*
 :   Specify name of output trace data (directory).  Default is `ftrace.dir`.
@@ -41,6 +41,15 @@ OPTIONS
 
 -N *FUNC*[,*FUNC*,...], \--notrace=*FUNC*[,*FUNC*,...]
 :   Set filter not trace selected functions only.  See *FILTERS*.
+
+-D *DEPTH*, \--depth=*DEPTH*
+:   Set trace limit in nesting level.
+
+\--nop
+:   Do not record any functions.  It's a no-op and only meaningful for performance comparison.
+
+\--time
+:   Print running time of children in time(1)-style.
 
 FILTERS
 =======
@@ -85,7 +94,7 @@ Normally ftrace will trace all the functions from `main()` to `c()`.
 
 But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.
 
-    $ ftrace record -F b
+    $ ftrace record -F b ./abc
     $ ftrace replay
     # DURATION    TID     FUNCTION
                 [ 1234] |     b() {
@@ -96,14 +105,27 @@ The second type is an opt-out filter; By default, it trace everything and when i
 
 In the above example, you can omit the function b() and its children with -N option.
 
-    $ ftrace record
-    $ ftrace replay -N b
+    $ ftrace record -N b ./abc
+    $ ftrace replay
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+       6.448 us [ 1234] |   a();
+       8.631 us [ 1234] | } /* main */
+
+In addition, you can limit the print nesting level with -D option.
+
+    $ ftrace record -D 3 ./abc
+    $ ftrace replay
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
                 [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
+
+In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
 
 SEE ALSO
 ========
