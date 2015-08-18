@@ -55,8 +55,9 @@ include config/Makefile
 
 TARGETS = libmcount.so libmcount-nop.so libcygprof.so libcygprof-nop.so ftrace
 
-FTRACE_SRCS = ftrace.c symbol.c rbtree.c info.c debug.c arch/$(ARCH)/cpuinfo.c
-FTRACE_OBJS = $(FTRACE_SRCS:.c=.o)
+FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c
+FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
+FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
 
 LIBMCOUNT_SRCS = mcount.c symbol.c debug.c rbtree.c filter.c
 LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)

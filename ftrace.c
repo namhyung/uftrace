@@ -394,31 +394,6 @@ static int write_all(int fd, void *buf, size_t size)
 	return 0;
 }
 
-static void build_addrlist(struct symtabs *symtabs, char *buf, char *symlist)
-{
-	char *p = symlist;
-	char *fname = strtok(p, ",:");
-
-	buf[0] = '\0';
-	while (fname) {
-		struct sym *sym = find_symname(symtabs, fname);
-
-		if (sym) {
-			char tmp[64];
-
-			snprintf(tmp, sizeof(tmp), "%s%#lx",
-				 p ? "" : ":", sym->addr);
-			strcat(buf, tmp);
-		} else {
-			pr_dbg("cannot find symbol: %s\n", fname);
-			pr_dbg("skip setting filter..\n");
-		}
-
-		p = NULL;
-		fname = strtok(p, ",:");
-	}
-}
-
 #define REGEX_CHARS  ".?*+-^$|:()[]{}"
 
 static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
@@ -1787,10 +1762,10 @@ struct ftrace_task_handle {
 };
 
 struct ftrace_func_filter {
-	int nr_filters;
-	int nr_notrace;
-	unsigned long *filters;
-	unsigned long *notrace;
+	bool has_filters;
+	bool has_notrace;
+	struct rb_root filters;
+	struct rb_root notrace;
 };
 
 static struct ftrace_task_handle *tasks;
@@ -1868,7 +1843,7 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 		if (tasks[i].fp == NULL)
 			pr_err("cannot open task data file [%s]", filename);
 
-		if (filters.nr_filters)
+		if (filters.has_filters)
 			tasks[i].filter_count = 0;
 		else
 			tasks[i].filter_count = 1;
@@ -1880,54 +1855,12 @@ static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handl
 	free(filter_tids);
 }
 
-static int setup_function_filter(unsigned long **filters, char *filter_str)
-{
-	char buf[4096];
-	char *pos = buf;
-	int count = 0;
-
-	build_addrlist(&first_session->symtabs, buf, filter_str);
-
-	do {
-		unsigned long addr;
-		unsigned long *new_filters;
-
-		addr = strtoul(pos, &pos, 16);
-		if (*pos != ':' && *pos != '\0')
-			return -1;
-
-		new_filters = realloc(*filters, (count + 1) * sizeof(**filters));
-		if (new_filters == NULL)
-			return -1;
-
-		new_filters[count++] = addr;
-		*filters = new_filters;
-	} while (*pos == ':');
-
-	return count;
-}
-
-static int match_filter_addr(unsigned long *filters, int nr_filters, unsigned long addr)
-{
-	int i;
-
-	for (i = 0; i < nr_filters; i++) {
-		if (addr == filters[i])
-			return 1;
-	}
-	return 0;
-}
-
 static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned long addr)
 {
-	if (filters.nr_filters && match_filter_addr(filters.filters,
-						    filters.nr_filters,
-						    addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count++;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
-							   filters.nr_notrace,
-							   addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count -= FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	}
@@ -1935,14 +1868,10 @@ static void update_filter_count_entry(struct ftrace_task_handle *task, unsigned 
 
 static void update_filter_count_exit(struct ftrace_task_handle *task, unsigned long addr)
 {
-	if (filters.nr_filters && match_filter_addr(filters.filters,
-						    filters.nr_filters,
-						    addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count--;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.nr_notrace && match_filter_addr(filters.notrace,
-							   filters.nr_notrace,
-							   addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
 		task->filter_count += FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	}
@@ -1994,7 +1923,7 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 			return NULL;
 		}
 
-		if (filters.nr_filters)
+		if (filters.has_filters)
 			tasks[idx].filter_count = 0;
 		else
 			tasks[idx].filter_count = 1;
@@ -2346,16 +2275,16 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	if (opts->filter) {
-		filters.nr_filters = setup_function_filter(&filters.filters,
-							   opts->filter);
-		if (filters.nr_filters < 0)
+		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs,
+					  &filters.filters, &filters.has_filters);
+		if (!filters.has_filters)
 			return -1;
 	}
 
 	if (opts->notrace) {
-		filters.nr_notrace = setup_function_filter(&filters.notrace,
-							   opts->notrace);
-		if (filters.nr_notrace < 0)
+		ftrace_setup_filter_regex(opts->notrace, &first_session->symtabs,
+					  &filters.notrace, &filters.has_notrace);
+		if (!filters.has_notrace)
 			return -1;
 	}
 
