@@ -570,6 +570,9 @@ void cygprof_exit(unsigned long parent, unsigned long child)
 	rstack->tid = gettid();
 
 	if (!was_filtered) {
+		if (rstack->parent_ip != parent || rstack->child_ip != child)
+			return;
+
 		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	}

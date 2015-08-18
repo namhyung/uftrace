@@ -16,37 +16,15 @@
 void __attribute__((visibility("default")))
 __cyg_profile_func_enter(void *child, void *parent)
 {
-	int ret;
-
 	pr_dbg2("p: %p, c: %p\n", parent, child);
 
-	ret = cygprof_entry((unsigned long)parent, (unsigned long)child);
-	if (ret < 0)
-		pr_dbg2("\tfiltered [%d]\n", mcount_rstack_idx);
-	else
-		pr_dbg2("\tmcount_rstack_idx = %d\n", mcount_rstack_idx);
+	cygprof_entry((unsigned long)parent, (unsigned long)child);
 }
 
 void __attribute__((visibility("default")))
 __cyg_profile_func_exit(void *child, void *parent)
 {
-	int idx = mcount_rstack_idx;
-
 	pr_dbg2("p: %p, c: %p\n", parent, child);
 
-	if (idx < 0)
-		idx += MCOUNT_NOTRACE_IDX;
-
-	if (idx <= 0 || idx >= MCOUNT_RSTACK_MAX) {
-		pr_dbg2("bad index [%d] for %p -> %p\n",
-			idx, parent, child);
-		return;
-	}
-
-	if (mcount_rstack[idx-1].child_ip == (unsigned long)child &&
-	    mcount_rstack[idx-1].parent_ip == (unsigned long)parent)
-		cygprof_exit((unsigned long)parent, (unsigned long)child);
-	else
-		pr_dbg2("\tskipped (%p), mcount_rstack_idx = %d (%d)\n",
-			child, mcount_rstack_idx, idx);
+	cygprof_exit((unsigned long)parent, (unsigned long)child);
 }
