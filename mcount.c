@@ -369,38 +369,39 @@ static void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
-/*
- * return 2 if it matches one of the filters.
- * return 1 if it's inside of a filter function (or there's no filters),
- * return 0 if it's outside of filter functions.
- * return -1 if it's filtered at notrace - needs special treatment.
- */
-static int mcount_filter(unsigned long ip)
+enum filter_result {
+	FILTER_NOTRACE = -1,
+	FILTER_OUT,
+	FILTER_IN,
+	FILTER_MATCH,
+};
+
+static enum filter_result mcount_filter(unsigned long ip)
 {
 	/*
 	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
 	 */
-	int ret = mcount_rstack_idx >= 0;
+	enum filter_result ret = (mcount_rstack_idx >= 0) ? FILTER_IN : FILTER_OUT;
 
 	if (mcount_rstack_idx < 0)
-		return 0;
+		return FILTER_OUT;
 
 	if (has_filter && (mcount_rstack_idx == 0 || mcount_rstack_depth == 0)) {
 		if (ftrace_match_filter(&filter_trace, ip))
-			return 2;
-		ret = 0;
+			return FILTER_MATCH;
+		ret = FILTER_OUT;
 	}
 
 	if (has_notrace && ret) {
 		if (ftrace_match_filter(&filter_notrace, ip))
-			return -1;
+			return FILTER_NOTRACE;
 	}
 	return ret;
 }
 
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
-	int filtered;
+	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
 
 	if (unlikely(mcount_rstack == NULL))
@@ -414,9 +415,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
 
-	if (filtered == 2)
+	if (filtered == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
-	else if (filtered == 0)
+	else if (filtered == FILTER_OUT)
 		return -1;
 
 	/*
@@ -439,7 +440,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 
-	if (filtered > 0) {
+	if (filtered != FILTER_NOTRACE) {
 		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	} else
@@ -497,7 +498,7 @@ static void mcount_finish(void)
 
 int cygprof_entry(unsigned long parent, unsigned long child)
 {
-	int filtered;
+	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
 
 	if (unlikely(mcount_rstack == NULL))
@@ -511,9 +512,9 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	filtered = mcount_filter(child);
 
-	if (filtered == 2)
+	if (filtered == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
-	else if (filtered == 0)
+	else if (filtered == FILTER_OUT)
 		return -1;
 
 	mcount_rstack_depth--;
@@ -528,7 +529,7 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 
-	if (filtered > 0) {
+	if (filtered != FILTER_NOTRACE) {
 		if (mcount_rstack_depth >= 0) {
 			if (record_trace_data(rstack) < 0)
 				pr_err("error during record");
