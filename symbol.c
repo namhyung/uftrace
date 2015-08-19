@@ -210,6 +210,7 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		symtab->sym_names[i] = &symtab->sym[i];
 	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 
+	ret = 0;
 out:
 	elf_end(elf);
 	close(fd);
@@ -237,6 +238,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	char buf[256];
 	const char *errmsg;
 	struct symtab *dsymtab = &symtabs->dsymtab;
+	unsigned long prev_addr = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -344,6 +346,11 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->addr = esym.st_value ?: plt_addr + symidx * plt_entsize;
 		sym->size = plt_entsize;
 		sym->name = strdup(name);
+
+		if (prev_addr > sym->addr)
+			symtabs->unsorted_dynsyms = true;
+
+		prev_addr = sym->addr;
 	}
 	ret = 0;
 
@@ -451,8 +458,20 @@ struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 		return sym;
 
 	/* try dynamic symbols if failed */
-	sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
-		      sizeof(*sym), addrfind);
+	if (symtabs->unsorted_dynsyms) {
+		unsigned i;
+
+		for (i = 0; i < dtab->nr_sym; i++) {
+			sym = &dtab->sym[i];
+
+			if (sym->addr <= addr && addr < sym->addr + sym->size)
+				return sym;
+		}
+		sym = NULL;
+	} else {
+		sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
+			      sizeof(*sym), addrfind);
+	}
 
 	if (sym)
 		return sym;

@@ -1432,7 +1432,7 @@ static void print_child_time(struct timespec *ts1, struct timespec *ts2)
 		sec--;
 	}
 
-	printf("elapsed time: %lu.%09lu sec\n", sec, nsec);
+	printf("elapsed time: %"PRIu64".%09"PRIu64" sec\n", sec, nsec);
 }
 
 static void print_child_usage(struct rusage *ru)

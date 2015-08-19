@@ -26,6 +26,7 @@ struct symtab {
 
 struct symtabs {
 	bool loaded;
+	bool unsorted_dynsyms;
 	struct symtab symtab;
 	struct symtab dsymtab;
 };
