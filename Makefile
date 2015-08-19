@@ -104,6 +104,7 @@ install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
 	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
+	@$(INSTALL) libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
 	@ldconfig $(DESTDIR)$(libdir)
 
