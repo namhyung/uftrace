@@ -2,7 +2,7 @@ CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 INSTALL = install
 
-COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(EXTRA_CFLAGS)
+COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE -DENABLE_MCOUNT_FILTER $(EXTRA_CFLAGS)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -pthread $(EXTRA_LDFLAGS)
 
@@ -53,7 +53,7 @@ CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"'
 include config/Makefile
 
 
-TARGETS = libmcount.so libmcount-nop.so libcygprof.so libcygprof-nop.so ftrace
+TARGETS = libmcount.so libmcount-nop.so libmcount-fast.so ftrace
 
 FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
@@ -62,14 +62,13 @@ FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
 LIBMCOUNT_SRCS = mcount.c symbol.c debug.c rbtree.c filter.c
 LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
 
-LIBCYGPROF_SRCS = mcount.c symbol.c debug.c cygprofile.c rbtree.c filter.c
-LIBCYGPROF_OBJS = $(LIBCYGPROF_SRCS:.c=.op)
-
 LIBMCOUNT_NOP_SRCS = mcount-nop.c
 LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)
 
-LIBCYGPROF_NOP_SRCS = cygprofile-nop.c
-LIBCYGPROF_NOP_OBJS = $(LIBCYGPROF_NOP_SRCS:.c=.op)
+LIBMCOUNT_FAST_SRCS = symbol.c debug.c
+LIBMCOUNT_FAST_OBJS = $(LIBMCOUNT_FAST_SRCS:.c=.op) mcount-fast.op
+
+CFLAGS_mcount-fast.op = -UENABLE_MCOUNT_FILTER
 
 MAKEFLAGS = --no-print-directory
 
@@ -79,13 +78,10 @@ all: $(TARGETS)
 $(LIBMCOUNT_OBJS): %.op: %.c mcount.h symbol.h utils.h rbtree.h FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-cygprofile.op: cygprofile.c mcount.h utils.h FLAGS
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
-
-cygprofile-nop.op: cygprofile-nop.c
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
-
 mcount-nop.op: mcount-nop.c
+	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
+mcount-fast.op: mcount.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
@@ -97,10 +93,7 @@ libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
 libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-libcygprof.so: $(LIBCYGPROF_OBJS) arch/$(ARCH)/plthook.op
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
-
-libcygprof-nop.so: $(LIBCYGPROF_NOP_OBJS)
+libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 ftrace: $(FTRACE_SRCS) mcount.h symbol.h utils.h rbtree.h
@@ -111,7 +104,6 @@ install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
 	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
-	@$(INSTALL) libcygprof.so  $(DESTDIR)$(libdir)/libcygprof.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
 	@ldconfig $(DESTDIR)$(libdir)
 
