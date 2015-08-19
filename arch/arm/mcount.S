@@ -42,10 +42,7 @@
 __gnu_mcount_nc:
 	push 	{r0-r3, lr}
 	mov 	r1, lr
-	ldr 	r0, [sp, #20]
-	ands	r2, r0, #1
-	subeq	r1, r1, #16
-	subne	r1, r1, #10
+	add 	r0, sp, #20
 
 	bl 	mcount_entry
 	cmp 	r0, #0
