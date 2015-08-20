@@ -41,14 +41,14 @@ static TLS struct mcount_ret_stack *mcount_rstack;
 static int pfd = -1;
 static bool mcount_setup_done;
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static TLS int mcount_rstack_depth;
 
 static struct rb_root filter_trace = RB_ROOT;
 static struct rb_root filter_notrace = RB_ROOT;
 static bool has_filter, has_notrace;
-#endif /* ENABLE_MCOUNT_FILTER */
+#endif /* DISABLE_MCOUNT_FILTER */
 
 static TLS bool plthook_recursion_guard;
 static unsigned long *plthook_got_ptr;
@@ -366,7 +366,7 @@ static void mcount_prepare(void)
 		.tid = gettid(),
 	};
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 	mcount_rstack_depth = mcount_depth;
 #endif
 	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
@@ -386,7 +386,7 @@ enum filter_result {
 	FILTER_MATCH,
 };
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 static enum filter_result mcount_filter(unsigned long ip)
 {
 	/*
@@ -493,7 +493,7 @@ void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 
 }
 
-#else /* ENABLE_MCOUNT_FILTER */
+#else /* DISABLE_MCOUNT_FILTER */
 static __inline__
 enum filter_result mcount_entry_filter_check(unsigned long child)
 {
@@ -526,7 +526,7 @@ static __inline__
 void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 {
 }
-#endif /* ENABLE_MCOUNT_FILTER */
+#endif /* DISABLE_MCOUNT_FILTER */
 
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
@@ -583,7 +583,7 @@ static void mcount_finish(void)
 	}
 }
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 static __inline__
 enum filter_result cygprof_entry_filter_check(unsigned long child)
 {
@@ -659,7 +659,7 @@ void cygprof_exit_filter_record(enum filter_result res,
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
 }
-#else /* ENABLE_MCOUNT_FILTER */
+#else /* DISABLE_MCOUNT_FILTER */
 static __inline__
 enum filter_result cygprof_entry_filter_check(unsigned long child)
 {
@@ -688,7 +688,7 @@ void cygprof_exit_filter_record(enum filter_result res,
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
 }
-#endif /* ENABLE_MCOUNT_FILTER */
+#endif /* DISABLE_MCOUNT_FILTER */
 
 int cygprof_entry(unsigned long parent, unsigned long child)
 {
@@ -1016,7 +1016,7 @@ __monstartup(unsigned long low, unsigned long high)
 	read_exename();
 	load_symtabs(&symtabs, mcount_exename);
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs,
 			    &filter_trace, &has_filter);
 	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs,
@@ -1028,7 +1028,7 @@ __monstartup(unsigned long low, unsigned long high)
 
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
-#endif /* ENABLE_MCOUNT_FILTER */
+#endif /* DISABLE_MCOUNT_FILTER */
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_skip_idx(&symtabs);
@@ -1054,7 +1054,7 @@ _mcleanup(void)
 	mcount_finish();
 	destroy_skip_idx();
 
-#ifdef ENABLE_MCOUNT_FILTER
+#ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter(&filter_trace);
 	ftrace_cleanup_filter(&filter_notrace);
 #endif
