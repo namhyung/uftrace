@@ -536,7 +536,6 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
-	rstack->tid = gettid();
 	rstack->depth = mcount_rstack_idx - 1;
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_loc = parent_loc;
@@ -561,7 +560,6 @@ unsigned long mcount_exit(void)
 	mcount_exit_check_rstack(rstack);
 
 	rstack->end_time = mcount_gettime();
-	rstack->tid = gettid();
 
 	mcount_exit_filter_record(was_filtered, rstack);
 
@@ -700,7 +698,6 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
-	rstack->tid = gettid();
 	rstack->depth = mcount_rstack_idx - 1;
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip = parent;
@@ -724,7 +721,6 @@ void cygprof_exit(unsigned long parent, unsigned long child)
 	mcount_exit_check_rstack(rstack);
 
 	rstack->end_time = mcount_gettime();
-	rstack->tid = gettid();
 
 	cygprof_exit_filter_record(was_filtered, rstack, parent, child);
 }
