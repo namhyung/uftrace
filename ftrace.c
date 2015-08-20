@@ -2386,10 +2386,21 @@ static void reset_live_opts(struct opts *opts)
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 }
 
+static void sigsegv_handler(int sig)
+{
+	fprintf(stderr, "ftrace: ERROR: Segmentation fault\n");
+	cleanup_tempdir();
+	raise(sig);
+}
+
 static int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/ftrace-live-XXXXXX";
 	int fd = mkstemp(template);
+	struct sigaction sa = {
+		.sa_flags = SA_RESETHAND,
+	};
+
 	if (fd < 0)
 		pr_err("cannot create temp name");
 
@@ -2398,6 +2409,10 @@ static int command_live(int argc, char *argv[], struct opts *opts)
 
 	tmp_dirname = template;
 	atexit(cleanup_tempdir);
+
+	sa.sa_handler = sigsegv_handler;
+	sigfillset(&sa.sa_mask);
+	sigaction(SIGSEGV, &sa, NULL);
 
 	opts->dirname = template;
 
