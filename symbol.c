@@ -343,7 +343,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
 
-		sym->addr = esym.st_value ?: plt_addr + symidx * plt_entsize;
+		sym->addr = esym.st_value ?: plt_addr + (idx+1) * plt_entsize;
 		sym->size = plt_entsize;
 		sym->name = strdup(name);
 
