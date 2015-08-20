@@ -912,6 +912,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			pr_err_ns("invalid rstack idx: %d\n", idx);
 
 		mcount_rstack[idx].dyn_idx = child_idx;
+	} else {
+		plthook_recursion_guard = false;
 	}
 
 out:
