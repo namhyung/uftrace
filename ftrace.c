@@ -2292,6 +2292,9 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle *task;
+	struct sigaction sa = {
+		.sa_flags = 0,
+	};
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
@@ -2317,7 +2320,13 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	if (!opts->flat)
 		printf("# DURATION    TID     FUNCTION\n");
 
-	while (read_rstack(&handle, &task) == 0) {
+	sa.sa_handler = sighandler;
+	sigfillset(&sa.sa_mask);
+
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+
+	while (read_rstack(&handle, &task) == 0 && !done) {
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task);
 		else if (opts->no_merge)
