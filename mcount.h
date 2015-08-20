@@ -38,12 +38,10 @@ struct mcount_ret_stack {
 	unsigned short dyn_idx;
 };
 
-int mcount_entry(unsigned long *parent, unsigned long child);
-unsigned long mcount_exit(void);
-int cygprof_entry(unsigned long parent, unsigned long child);
-void cygprof_exit(unsigned long parent, unsigned long child);
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
+void mcount_restore(void);
+void mcount_reset(void);
 
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,

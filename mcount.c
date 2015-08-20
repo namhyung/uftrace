@@ -269,7 +269,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 		}
 	}
 
-	pr_dbg2("%d recording %zd bytes\n", mrstack->tid, size);
+	pr_dbg2("%d recording %zd bytes\n", gettid(), size);
 
 	frstack = (void *)(shmem_curr->data + shmem_curr->size);
 
@@ -623,37 +623,41 @@ void cygprof_entry_filter_record(enum filter_result res,
 }
 
 static __inline__
-enum filter_result cygprof_exit_filter_check(void)
+enum filter_result cygprof_exit_filter_check(unsigned long parent,
+					     unsigned long child)
 {
 	enum filter_result ret = FILTER_IN;
+	struct mcount_ret_stack *rstack;
+	int idx = mcount_rstack_idx;
 
 	/*
 	 * We subtracted big number for notrace filtered functions
 	 * so that it can be identified when entering the exit handler.
 	 */
-	if (mcount_rstack_idx < 0) {
-		mcount_rstack_idx += MCOUNT_NOTRACE_IDX;
+	if (idx < 0) {
+		idx += MCOUNT_NOTRACE_IDX;
 		ret = FILTER_OUT;
 	}
+
+	rstack = &mcount_rstack[idx - 1];
+	if (rstack->parent_ip != parent || rstack->child_ip != child)
+		return FILTER_NOTRACE;
 
 	if (mcount_rstack_depth++ < 0)
 		ret = FILTER_OUT;
 
-	if (mcount_rstack_idx <= 0)
-		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+	if (idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", idx);
 
+	mcount_rstack_idx = idx;
 	return ret;
 }
 
 static __inline__
 void cygprof_exit_filter_record(enum filter_result res,
-				struct mcount_ret_stack *rstack,
-				unsigned long parent, unsigned long child)
+				struct mcount_ret_stack *rstack)
 {
 	if (res != FILTER_IN)
-		return;
-
-	if (rstack->parent_ip != parent || rstack->child_ip != child)
 		return;
 
 	if (record_trace_data(rstack) < 0)
@@ -675,22 +679,22 @@ void cygprof_entry_filter_record(enum filter_result res,
 }
 
 static __inline__
-enum filter_result cygprof_exit_filter_check(void)
+enum filter_result cygprof_exit_filter_check(unsigned long parent,
+					     unsigned long child)
 {
 	return FILTER_IN;
 }
 
 static __inline__
 void cygprof_exit_filter_record(enum filter_result res,
-				struct mcount_ret_stack *rstack,
-				unsigned long parent, unsigned long child)
+				struct mcount_ret_stack *rstack)
 {
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
 }
 #endif /* DISABLE_MCOUNT_FILTER */
 
-int cygprof_entry(unsigned long parent, unsigned long child)
+static int cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
@@ -715,12 +719,14 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	return 0;
 }
 
-void cygprof_exit(unsigned long parent, unsigned long child)
+static void cygprof_exit(unsigned long parent, unsigned long child)
 {
-	bool was_filtered;
+	enum filter_result was_filtered;
 	struct mcount_ret_stack *rstack;
 
-	was_filtered = cygprof_exit_filter_check();
+	was_filtered = cygprof_exit_filter_check(parent, child);
+	if (was_filtered == FILTER_NOTRACE)
+		return;
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
@@ -728,7 +734,7 @@ void cygprof_exit(unsigned long parent, unsigned long child)
 
 	rstack->end_time = mcount_gettime();
 
-	cygprof_exit_filter_record(was_filtered, rstack, parent, child);
+	cygprof_exit_filter_record(was_filtered, rstack);
 }
 
 static unsigned long got_addr;
@@ -906,6 +912,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			pr_err_ns("invalid rstack idx: %d\n", idx);
 
 		mcount_rstack[idx].dyn_idx = child_idx;
+	} else {
+		plthook_recursion_guard = false;
 	}
 
 out:
