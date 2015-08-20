@@ -401,14 +401,26 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
+	bool multi_thread = !!find_symname(symtabs, "pthread_create");
 
-	if (opts->nop)
+	if (opts->nop) {
 		strcpy(buf, "libmcount-nop.so");
-	else if (opts->filter || opts->notrace || debug ||
-		 opts->depth != MCOUNT_DEFAULT_DEPTH)
-		strcpy(buf, "libmcount.so");
-	else
-		strcpy(buf, "libmcount-fast.so");
+	}
+	else if (multi_thread) {
+		if (opts->filter || opts->notrace || debug ||
+		    opts->depth != MCOUNT_DEFAULT_DEPTH)
+			strcpy(buf, "libmcount.so");
+		else
+			strcpy(buf, "libmcount-fast.so");
+	}
+	else {
+		if (opts->filter || opts->notrace || debug ||
+		    opts->depth != MCOUNT_DEFAULT_DEPTH)
+			strcpy(buf, "libmcount-single.so");
+		else
+			strcpy(buf, "libmcount-fast-single.so");
+	}
+	pr_dbg("using %s library for tracing\n", buf);
 
 	if (old_preload) {
 		strcat(buf, ":");
