@@ -6,7 +6,6 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc', """
 # DURATION    TID     FUNCTION
-# DURATION    TID     FUNCTION
   62.202 us [28141] | __cxa_atexit();
             [28141] | main() {
             [28141] |   a() {

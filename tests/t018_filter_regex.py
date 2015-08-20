@@ -10,7 +10,9 @@ class TestCase(TestBase):
             [11583] |   alloc2() {
             [11583] |     alloc3() {
             [11583] |       alloc4() {
-   2.909 us [11583] |         alloc5();
+            [11583] |         alloc5() {
+   1.873 us [11583] |           malloc();
+   2.909 us [11583] |         } /* alloc5 */
    3.652 us [11583] |       } /* alloc4 */
    4.239 us [11583] |     } /* alloc3 */
    5.016 us [11583] |   } /* alloc2 */
