@@ -694,7 +694,7 @@ void cygprof_exit_filter_record(enum filter_result res,
 }
 #endif /* DISABLE_MCOUNT_FILTER */
 
-int cygprof_entry(unsigned long parent, unsigned long child)
+static int cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
@@ -719,7 +719,7 @@ int cygprof_entry(unsigned long parent, unsigned long child)
 	return 0;
 }
 
-void cygprof_exit(unsigned long parent, unsigned long child)
+static void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	enum filter_result was_filtered;
 	struct mcount_ret_stack *rstack;
