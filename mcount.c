@@ -269,7 +269,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 		}
 	}
 
-	pr_dbg2("%d recording %zd bytes\n", mrstack->tid, size);
+	pr_dbg2("%d recording %zd bytes\n", gettid(), size);
 
 	frstack = (void *)(shmem_curr->data + shmem_curr->size);
 
