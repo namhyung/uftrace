@@ -29,22 +29,28 @@
 #include "symbol.h"
 #include "utils.h"
 
-static __thread int mcount_rstack_idx;
-static __thread struct mcount_ret_stack *mcount_rstack;
+#ifdef SINGLE_THREAD
+# define TLS
+#else
+# define TLS  __thread
+#endif
+
+static TLS int mcount_rstack_idx;
+static TLS struct mcount_ret_stack *mcount_rstack;
 
 static int pfd = -1;
 static bool mcount_setup_done;
 
 #ifdef ENABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
-static __thread int mcount_rstack_depth;
+static TLS int mcount_rstack_depth;
 
 static struct rb_root filter_trace = RB_ROOT;
 static struct rb_root filter_notrace = RB_ROOT;
 static bool has_filter, has_notrace;
 #endif /* ENABLE_MCOUNT_FILTER */
 
-static __thread bool plthook_recursion_guard;
+static TLS bool plthook_recursion_guard;
 static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
@@ -60,7 +66,7 @@ static uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-static __thread int tid;
+static TLS int tid;
 static int gettid(void)
 {
 	if (!tid)
@@ -130,10 +136,10 @@ static void ftrace_send_message(int type, void *data, size_t len)
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
 
 static pthread_key_t shmem_key;
-static __thread int shmem_seqnum;
-static __thread struct mcount_shmem_buffer *shmem_buffer[2];
-static __thread struct mcount_shmem_buffer *shmem_curr;
-static __thread int shmem_losts;
+static TLS int shmem_seqnum;
+static TLS struct mcount_shmem_buffer *shmem_buffer[2];
+static TLS struct mcount_shmem_buffer *shmem_curr;
+static TLS int shmem_losts;
 static int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 static void get_new_shmem_buffer(void)
