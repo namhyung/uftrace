@@ -47,7 +47,7 @@
 #include "list.h"
 
 const char *argp_program_version = "ftrace v0.3";
-const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
+const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
 #define OPT_flat 	301
 #define OPT_plthook 	302
