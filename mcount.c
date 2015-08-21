@@ -37,6 +37,7 @@
 
 static TLS int mcount_rstack_idx;
 static TLS struct mcount_ret_stack *mcount_rstack;
+static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 
 static int pfd = -1;
 static bool mcount_setup_done;
@@ -369,7 +370,7 @@ static void mcount_prepare(void)
 #ifndef DISABLE_MCOUNT_FILTER
 	mcount_rstack_depth = mcount_depth;
 #endif
-	mcount_rstack = xmalloc(MCOUNT_RSTACK_MAX * sizeof(*mcount_rstack));
+	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
 
 	pthread_once(&once_control, mcount_init_file);
 
@@ -415,10 +416,8 @@ enum filter_result mcount_entry_filter_check(unsigned long child)
 {
 	enum filter_result ret;
 
-	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		pr_log("too deeply nested calls\n");
-		return FILTER_OUT;
-	}
+	if (mcount_rstack_idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	ret = mcount_filter(child);
@@ -497,6 +496,9 @@ void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 static __inline__
 enum filter_result mcount_entry_filter_check(unsigned long child)
 {
+	if (mcount_rstack_idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+
 	return FILTER_IN;
 }
 
@@ -511,6 +513,9 @@ void mcount_entry_filter_record(enum filter_result res,
 static __inline__
 enum filter_result mcount_exit_filter_check(void)
 {
+	if (mcount_rstack_idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+
 	return FILTER_IN;
 }
 
@@ -589,10 +594,8 @@ enum filter_result cygprof_entry_filter_check(unsigned long child)
 {
 	enum filter_result ret;
 
-	if (mcount_rstack_idx >= MCOUNT_RSTACK_MAX) {
-		pr_log("too deeply nested calls\n");
-		return FILTER_OUT;
-	}
+	if (mcount_rstack_idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	ret = mcount_filter(child);
@@ -667,6 +670,9 @@ void cygprof_exit_filter_record(enum filter_result res,
 static __inline__
 enum filter_result cygprof_entry_filter_check(unsigned long child)
 {
+	if (mcount_rstack_idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+
 	return FILTER_IN;
 }
 
@@ -682,6 +688,9 @@ static __inline__
 enum filter_result cygprof_exit_filter_check(unsigned long parent,
 					     unsigned long child)
 {
+	if (mcount_rstack_idx <= 0)
+		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
+
 	return FILTER_IN;
 }
 
@@ -908,7 +917,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		if (idx < 0)
 			idx += MCOUNT_NOTRACE_IDX;
 
-		if (idx >= MCOUNT_RSTACK_MAX)
+		if (idx >= mcount_rstack_max)
 			pr_err_ns("invalid rstack idx: %d\n", idx);
 
 		mcount_rstack[idx].dyn_idx = child_idx;
@@ -992,6 +1001,7 @@ __monstartup(unsigned long low, unsigned long high)
 	char *logfd_str = getenv("FTRACE_LOGFD");
 	char *debug_str = getenv("FTRACE_DEBUG");
 	char *bufsize_str = getenv("FTRACE_BUFFER");
+	char *maxstack_str = getenv("FTRACE_MAX_STACK");
 	struct stat statbuf;
 
 	if (mcount_setup_done)
@@ -1037,6 +1047,9 @@ __monstartup(unsigned long low, unsigned long high)
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
 #endif /* DISABLE_MCOUNT_FILTER */
+
+	if (maxstack_str)
+		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_skip_idx(&symtabs);

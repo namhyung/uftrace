@@ -45,6 +45,9 @@ OPTIONS
 -D *DEPTH*, \--depth=*DEPTH*
 :   Set trace limit in nesting level.
 
+\--max-stack=*DEPTH*
+:   Set max stack depth to trace function.  Default is 1024.
+
 \--nop
 :   Do not record any functions.  It's a no-op and only meaningful for performance comparison.
 

@@ -58,6 +58,8 @@ const char *argp_program_bug_address = "Namhyung Kim <namhyung.kim@lge.com>";
 #define OPT_no_merge	307
 #define OPT_nop		308
 #define OPT_time	309
+#define OPT_max_stack	310
+
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -77,6 +79,7 @@ static struct argp_option ftrace_options[] = {
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
+	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
 	{ 0 }
 };
 
@@ -101,6 +104,7 @@ struct opts {
 	int mode;
 	int idx;
 	int depth;
+	int max_stack;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -219,6 +223,13 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->time = true;
 		break;
 
+	case OPT_max_stack:
+		opts->max_stack = strtol(arg, NULL, 0);
+		if (opts->max_stack <= 0 || opts->max_stack > MCOUNT_RSTACK_MAX)
+			pr_err_ns("max stack depth should be >0 and <%d\n",
+				  MCOUNT_RSTACK_MAX);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -292,11 +303,12 @@ static void close_data_file(struct opts *opts, struct ftrace_file_handle *handle
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
-		.mode = FTRACE_MODE_INVALID,
-		.dirname = FTRACE_DIR_NAME,
-		.want_plthook = true,
-		.bsize = SHMEM_BUFFER_SIZE,
-		.depth = MCOUNT_DEFAULT_DEPTH,
+		.mode		= FTRACE_MODE_INVALID,
+		.dirname	= FTRACE_DIR_NAME,
+		.want_plthook	= true,
+		.bsize		= SHMEM_BUFFER_SIZE,
+		.depth		= MCOUNT_DEFAULT_DEPTH,
+		.max_stack	= MCOUNT_RSTACK_MAX,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -463,6 +475,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
 		setenv("FTRACE_DEPTH", buf, 1);
+	}
+
+	if (opts->max_stack != MCOUNT_RSTACK_MAX) {
+		snprintf(buf, sizeof(buf), "%d", opts->max_stack);
+		setenv("FTRACE_MAX_STACK", buf, 1);
 	}
 
 	if (opts->want_plthook)
