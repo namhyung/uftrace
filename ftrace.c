@@ -34,6 +34,7 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
+#include <sys/eventfd.h>
 #include <gelf.h>
 #include <pthread.h>
 
@@ -80,6 +81,7 @@ static struct argp_option ftrace_options[] = {
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
+	{ "kernel", 'K', 0, 0, "Trace kernel functions also (if supported)" },
 	{ 0 }
 };
 
@@ -114,6 +116,7 @@ struct opts {
 	bool no_merge;
 	bool nop;
 	bool time;
+	bool kernel;
 };
 
 static unsigned long parse_size(char *str)
@@ -185,6 +188,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->bsize = parse_size(arg);
 		if (opts->bsize & (getpagesize() - 1))
 			pr_err_ns("buffer size should be multiple of page size");
+		break;
+
+	case 'K':
+		opts->kernel = true;
 		break;
 
 	case OPT_flat:
@@ -518,6 +525,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
 
+	if (opts->kernel)
+		features |= KERNEL;
+
 	return features;
 }
 
@@ -684,10 +694,15 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 	return 0;
 }
 
+struct writer_arg {
+	struct opts		*opts;
+	struct ftrace_kernel	*kern;
+};
+
 void *writer_thread(void *arg)
 {
 	struct buf_list *buf;
-	char *dirname = arg;
+	struct writer_arg *warg = arg;
 
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
@@ -707,11 +722,14 @@ void *writer_thread(void *arg)
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		write_buffer_file(dirname, buf);
+		write_buffer_file(warg->opts->dirname, buf);
 
 		pthread_mutex_lock(&free_list_lock);
 		list_add(&buf->list, &buf_free_list);
 		pthread_mutex_unlock(&free_list_lock);
+
+		if (warg->opts->kernel)
+			record_kernel_tracing(warg->kern);
 	}
 
 	return NULL;
@@ -1495,6 +1513,13 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	struct timespec ts1, ts2;
 	struct rusage usage;
 	pthread_t writer;
+	struct ftrace_kernel kern;
+	int efd;
+	uint64_t go = 1;
+	struct writer_arg warg = {
+		.opts = opts,
+		.kern = &kern,
+	};
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1524,14 +1549,23 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	fflush(stdout);
 
+	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
+	if (efd < 0)
+		pr_dbg("creating eventfd failed: %d\n", efd);
+
 	pid = fork();
 	if (pid < 0)
 		pr_err("cannot start child process");
 
 	if (pid == 0) {
+		uint64_t dummy;
+
 		close(pfd[0]);
 
 		setup_child_environ(opts, pfd[1], &symtabs);
+
+		/* wait for parent ready */
+		read(efd, &dummy, sizeof(dummy));
 
 		/*
 		 * I don't think the traced binary is in PATH.
@@ -1555,7 +1589,21 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
 	sigaction(SIGCHLD, &sa, NULL);
 
-	pthread_create(&writer, NULL, writer_thread, opts->dirname);
+	pthread_create(&writer, NULL, writer_thread, &warg);
+
+	if (opts->kernel) {
+		kern.pid = pid;
+		kern.output_dir = opts->dirname;
+
+		if (start_kernel_tracing(&kern) < 0) {
+			opts->kernel = false;
+			pr_log("kernel tracing disabled due to an error\n");
+		}
+	}
+
+	/* signal child that I'm ready */
+	write(efd, &go, sizeof(go));
+	close(efd);
 
 	while (!done) {
 		struct pollfd pollfd = {
@@ -1617,6 +1665,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	flush_shmem_list(opts->dirname, opts->bsize);
 	unlink_shmem_list();
 
+	if (opts->kernel)
+		stop_kernel_tracing(&kern);
+
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
 
@@ -1629,6 +1680,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		printf("LOST %d records\n", shmem_lost_count);
 
 	pthread_join(writer, NULL);
+
+	if (opts->kernel)
+		finish_kernel_tracing(&kern);
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by

@@ -58,7 +58,7 @@ TARGETS := ftrace libmcount.so libmcount-nop.so
 TARGETS += libmcount-fast.so libmcount-single.so libmcount-fast-single.so
 TARGETS += libtraceevent/libtraceevent.a
 
-FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c
+FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c kernel.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
 FTRACE_HDRS  = mcount.h symbol.h utils.h rbtree.h

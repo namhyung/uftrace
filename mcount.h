@@ -127,10 +127,12 @@ enum ftrace_feat_bits {
 	/* bit index */
 	PLTHOOK_BIT,
 	TASK_SESSION_BIT,
+	KERNEL_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
 	TASK_SESSION		= (1U << TASK_SESSION_BIT),
+	KERNEL			= (1U << KERNEL_BIT),
 };
 
 enum ftrace_info_bits {
@@ -184,6 +186,21 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
 #endif /* DISABLE_MCOUNT_FILTER */
+
+struct ftrace_kernel {
+	int pid;
+	int nr_cpus;
+	int *traces;
+	int *fds;
+	char *output_dir;
+	char *filters;
+	char *notrace;
+};
+
+int start_kernel_tracing(struct ftrace_kernel *kernel);
+int record_kernel_tracing(struct ftrace_kernel *kernel);
+int stop_kernel_tracing(struct ftrace_kernel *kernel);
+int finish_kernel_tracing(struct ftrace_kernel *kernel);
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);
