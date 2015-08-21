@@ -81,7 +81,8 @@ static struct argp_option ftrace_options[] = {
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
-	{ "kernel", 'K', 0, 0, "Trace kernel functions also (if supported)" },
+	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
+	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
 	{ 0 }
 };
 
@@ -107,6 +108,7 @@ struct opts {
 	int idx;
 	int depth;
 	int max_stack;
+	int kernel;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -116,7 +118,6 @@ struct opts {
 	bool no_merge;
 	bool nop;
 	bool time;
-	bool kernel;
 };
 
 static unsigned long parse_size(char *str)
@@ -190,8 +191,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_err_ns("buffer size should be multiple of page size");
 		break;
 
+	case 'k':
+		opts->kernel = 1;
+		break;
+
 	case 'K':
-		opts->kernel = true;
+		opts->kernel = 2;
 		break;
 
 	case OPT_flat:
@@ -1594,6 +1599,7 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel) {
 		kern.pid = pid;
 		kern.output_dir = opts->dirname;
+		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
 
 		if (start_kernel_tracing(&kern) < 0) {
 			opts->kernel = false;

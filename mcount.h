@@ -196,6 +196,7 @@ struct pevent;
 struct ftrace_kernel {
 	int pid;
 	int nr_cpus;
+	int depth;
 	int *traces;
 	int *fds;
 	int64_t *offsets;

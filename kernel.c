@@ -143,6 +143,18 @@ static int set_tracing_filter(struct ftrace_kernel *kernel)
 	return 0;
 }
 
+static int set_tracing_depth(struct ftrace_kernel *kernel)
+{
+	int ret = 0;
+	char buf[32];
+
+	if (kernel->depth != MCOUNT_RSTACK_MAX) {
+		snprintf(buf, sizeof(buf), "%d", kernel->depth);
+		ret = write_tracing_file("max_graph_depth", buf);
+	}
+	return ret;
+}
+
 static int reset_tracing_files(void)
 {
 	if (write_tracing_file("tracing_on", "0") < 0)
@@ -162,6 +174,9 @@ static int reset_tracing_files(void)
 
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
+
+	if (write_tracing_file("max_graph_depth", "0") < 0)
+		return -1;
 
 	kernel_tracing_enabled = false;
 	return 0;
@@ -197,6 +212,11 @@ static int setup_kernel_tracing(struct ftrace_kernel *kernel)
 
 	if (set_tracing_filter(kernel) < 0) {
 		pr_log("failed to set ftrace filter\n");
+		goto out;
+	}
+
+	if (set_tracing_depth(kernel) < 0) {
+		pr_log("failed to set ftrace depth\n");
 		goto out;
 	}
 
