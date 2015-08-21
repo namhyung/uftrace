@@ -11,12 +11,18 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "kernel"
 
 #include "utils.h"
 #include "mcount.h"
+
+#include <libtraceevent/kbuffer.h>
+#include <libtraceevent/event-parse.h>
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
 #define FTRACE_TRACER  "function_graph"
@@ -336,7 +342,7 @@ int record_kernel_tracing(struct ftrace_kernel *kernel)
 		bytes += n;
 	}
 
-	pr_dbg2("recording %zd bytes of kernel data\n", bytes);
+	pr_dbg("%s returns %zd\n", __func__, bytes);
 	return bytes;
 }
 
@@ -379,4 +385,355 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel)
 	reset_tracing_files();
 
 	return 0;
+}
+
+static size_t trace_pagesize;
+static struct trace_seq trace_seq;
+static struct mcount_ret_stack trace_rstack;
+
+static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu);
+
+static int
+funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
+			struct event_format *event, void *context);
+static int
+funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
+		       struct event_format *event, void *context);
+
+static int scandir_filter(const struct dirent *d)
+{
+	return !strncmp(d->d_name, "kernel-cpu", 10);
+}
+
+/**
+ * setup_kernel_data - prepare to read kernel ftrace data from files
+ * @kernel - kernel ftrace handle
+ *
+ * This function initializes necessary data structures for reading
+ * kernel ftrace data files.  It should be called in pair with
+ * finish_kernel_data().
+ */
+int setup_kernel_data(struct ftrace_kernel *kernel)
+{
+	int i;
+	int fd;
+	size_t len;
+	char buf[4096];
+	enum kbuffer_endian endian = KBUFFER_ENDIAN_LITTLE;
+	enum kbuffer_long_size longsize = KBUFFER_LSIZE_8;
+	struct dirent **list;
+
+	kernel->pevent = pevent_alloc();
+	if (kernel->pevent == NULL)
+		return -1;
+
+	trace_seq_init(&trace_seq);
+
+	kernel->nr_cpus = scandir(kernel->output_dir, &list, scandir_filter, versionsort);
+	if (kernel->nr_cpus <= 0) {
+		pr_log("cannot find kernel trace data\n");
+		return -1;
+	}
+
+	pr_dbg("found kernel ftrace data for %d cpus\n", kernel->nr_cpus);
+
+	kernel->fds	= xcalloc(kernel->nr_cpus, sizeof(*kernel->fds));
+	kernel->offsets	= xcalloc(kernel->nr_cpus, sizeof(*kernel->offsets));
+	kernel->sizes	= xcalloc(kernel->nr_cpus, sizeof(*kernel->sizes));
+	kernel->mmaps	= xcalloc(kernel->nr_cpus, sizeof(*kernel->mmaps));
+	kernel->kbufs	= xcalloc(kernel->nr_cpus, sizeof(*kernel->kbufs));
+	kernel->rstacks = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstacks));
+
+	kernel->rstack_valid = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
+	kernel->rstack_done  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
+
+	/* FIXME: should read recorded data file */
+	if (pevent_is_file_bigendian(kernel->pevent))
+		endian = KBUFFER_ENDIAN_BIG;
+	if (pevent_get_long_size(kernel->pevent) == 4)
+		longsize = KBUFFER_LSIZE_4;
+	trace_pagesize = getpagesize(); /* pevent_get_page_size() */
+
+	for (i = 0; i < kernel->nr_cpus; i++) {
+		struct stat stbuf;
+
+		snprintf(buf, sizeof(buf), "%s/%s",
+			 kernel->output_dir, list[i]->d_name);
+
+		kernel->fds[i] = open(buf, O_RDONLY);
+		if (kernel->fds[i] < 0)
+			break;
+
+		if (fstat(kernel->fds[i], &stbuf) < 0)
+			break;
+
+		kernel->sizes[i] = stbuf.st_size;
+
+		kernel->kbufs[i] = kbuffer_alloc(longsize, endian);
+
+		if (kernel->pevent->old_format)
+			kbuffer_set_old_format(kernel->kbufs[i]);
+
+		if (!kernel->sizes[i])
+			continue;
+
+		if (prepare_kbuffer(kernel, i) < 0)
+			break;
+	}
+
+	free(list);
+	if (i != kernel->nr_cpus) {
+		pr_log("failed to access to kernel trace data: %s: %m\n", buf);
+		return -1;
+	}
+
+	fd = open(TRACING_DIR"/events/header_page", O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, sizeof(buf));
+	pevent_parse_header_page(kernel->pevent, buf, len, pevent_get_long_size(kernel->pevent));
+	close(fd);
+
+	fd = open(TRACING_DIR"/events/ftrace/funcgraph_entry/format", O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, sizeof(buf));
+	pevent_parse_event(kernel->pevent, buf, len, "ftrace");
+	close(fd);
+
+	fd = open(TRACING_DIR"/events/ftrace/funcgraph_exit/format", O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, sizeof(buf));
+	pevent_parse_event(kernel->pevent, buf, len, "ftrace");
+	close(fd);
+
+	/* TODO: read /proc/kallsyms and register functions */
+
+	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_entry",
+				      funcgraph_entry_handler, NULL);
+	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_exit",
+				      funcgraph_exit_handler, NULL);
+	return 0;
+}
+
+/**
+ * finish_kernel_data - tear down data structures for kernel ftrace
+ * @kernel - kernel ftrace handle
+ *
+ * This function destroys all data structures created by
+ * setup_kernel_data().
+ */
+int finish_kernel_data(struct ftrace_kernel *kernel)
+{
+	int i;
+
+	for (i = 0; i < kernel->nr_cpus; i++) {
+		close(kernel->fds[i]);
+
+		if (!kernel->rstack_done[i])
+			munmap(kernel->mmaps[i], trace_pagesize);
+
+		kbuffer_free(kernel->kbufs[i]);
+	}
+
+	free(kernel->fds);
+	free(kernel->offsets);
+	free(kernel->sizes);
+	free(kernel->mmaps);
+	free(kernel->kbufs);
+	free(kernel->rstacks);
+
+	free(kernel->rstack_valid);
+	free(kernel->rstack_done);
+
+	trace_seq_destroy(&trace_seq);
+	pevent_free(kernel->pevent);
+
+	return 0;
+}
+
+static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu)
+{
+	kernel->mmaps[cpu] = mmap(NULL, trace_pagesize, PROT_READ, MAP_PRIVATE,
+				  kernel->fds[cpu], kernel->offsets[cpu]);
+	if (kernel->mmaps[cpu] == MAP_FAILED) {
+		pr_log("loading kbuffer for cpu %d failed", cpu);
+		return -1;
+	}
+
+	kbuffer_load_subbuffer(kernel->kbufs[cpu], kernel->mmaps[cpu]);
+	return 0;
+}
+
+static int next_kbuffer_page(struct ftrace_kernel *kernel, int cpu)
+{
+	munmap(kernel->mmaps[cpu], trace_pagesize);
+	kernel->mmaps[cpu] = NULL;
+
+	kernel->offsets[cpu] += trace_pagesize;
+
+	if (kernel->offsets[cpu] >= (loff_t)kernel->sizes[cpu]) {
+		kernel->rstack_done[cpu] = true;
+		return -1;
+	}
+
+	return prepare_kbuffer(kernel, cpu);
+}
+
+static int
+funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
+			struct event_format *event, void *context)
+{
+	unsigned long long tid;
+	unsigned long long depth;
+	unsigned long long addr;
+
+	if (pevent_get_any_field_val(s, event, "common_pid", record, &tid, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
+		return -1;
+
+	trace_rstack.tid = tid;
+	trace_rstack.depth = depth;
+	trace_rstack.child_ip = addr;
+	trace_rstack.start_time = record->ts;
+	trace_rstack.end_time = 0;
+
+	return 0;
+}
+
+static int
+funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
+		       struct event_format *event, void *context)
+{
+	unsigned long long tid;
+	unsigned long long depth;
+	unsigned long long addr;
+	unsigned long long start;
+	unsigned long long end;
+
+	if (pevent_get_any_field_val(s, event, "common_pid", record, &tid, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "calltime", record, &start, 1))
+		return -1;
+
+	if (pevent_get_any_field_val(s, event, "rettime", record, &end, 1))
+		return -1;
+
+	trace_rstack.tid = tid;
+	trace_rstack.depth = depth;
+	trace_rstack.child_ip = addr;
+	/*
+	 * It seems that 'mono' clock is applied only to record->ts,
+	 * so convert start and end time to correlated to record->ts.
+	 */
+	trace_rstack.start_time = record->ts - end + start ;
+	trace_rstack.end_time = record->ts;
+
+	return 0;
+}
+
+static int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
+{
+	unsigned long long timestamp;
+	void *data;
+	int type;
+	struct pevent_record record;
+	struct event_format *event;
+
+	data = kbuffer_read_event(kernel->kbufs[cpu], &timestamp);
+	while (!data) {
+		if (next_kbuffer_page(kernel, cpu) < 0)
+			return -1;
+		data = kbuffer_read_event(kernel->kbufs[cpu], &timestamp);
+	}
+
+	record.ts = timestamp;
+	record.cpu = cpu;
+	record.data = data;
+	record.offset = kbuffer_curr_offset(kernel->kbufs[cpu]);
+	record.missed_events = kbuffer_missed_events(kernel->kbufs[cpu]);
+	record.size = kbuffer_event_size(kernel->kbufs[cpu]);
+	record.record_size = kbuffer_curr_size(kernel->kbufs[cpu]);
+//	record.ref_count = 1;
+//	record.locked = 1;
+
+	trace_seq_reset(&trace_seq);
+	type = pevent_data_type(kernel->pevent, &record);
+	event = pevent_find_event(kernel->pevent, type);
+	if (event == NULL) {
+		pr_log("cannot find event for type: %d\n", type);
+		return -1;
+	}
+
+	/* this will call event handlers */
+	pevent_event_info(&trace_seq, event, &record);
+
+	memcpy(&kernel->rstacks[cpu], &trace_rstack, sizeof(trace_rstack));
+	kernel->rstack_valid[cpu] = true;
+
+	kbuffer_next_event(kernel->kbufs[cpu], NULL);
+
+	return 0;
+}
+
+/**
+ * read_kernel_stack - peek next kernel ftrace data
+ * @kernel - kernel ftrace handle
+ * @rstack - ftrace return stack
+ *
+ * This function returns next return stack (based on timestamp)
+ * from data files.
+ */
+int read_kernel_stack(struct ftrace_kernel *kernel,
+		      struct mcount_ret_stack *rstack)
+{
+	int i;
+	int first_cpu;
+	uint64_t first_timestamp = 0;
+	struct mcount_ret_stack *first_rstack = NULL;
+
+	for (i = 0; i < kernel->nr_cpus; i++) {
+		uint64_t timestamp;
+
+		if (kernel->rstack_done[i])
+			continue;
+
+		if (!kernel->rstack_valid[i]) {
+			read_kernel_cpu_data(kernel, i);
+			if (!kernel->rstack_valid[i])
+				continue;
+		}
+
+		timestamp = kernel->rstacks[i].end_time ?: kernel->rstacks[i].start_time;
+		if (!first_rstack || first_timestamp > timestamp) {
+			first_rstack = &kernel->rstacks[i];
+			first_timestamp = timestamp;
+			first_cpu = i;
+		}
+	}
+
+	if (first_rstack == NULL) {
+		pr_dbg("no more kernel data\n");
+		return -1;
+	}
+
+	memcpy(rstack, first_rstack, sizeof(*rstack));
+
+	return first_cpu;
 }
