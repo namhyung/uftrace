@@ -25,6 +25,8 @@
 #include "symbol.h"
 #include "utils.h"
 
+static struct symtab ksymtab;
+
 #if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
 
@@ -377,6 +379,76 @@ void load_symtabs(struct symtabs *symtabs, const char *filename)
 	symtabs->loaded = true;
 }
 
+int load_kernel_symbol(void)
+{
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	unsigned int i;
+
+	fp = fopen("/proc/kallsyms", "r");
+	if (fp == NULL) {
+		pr_log("reading /proc/kallsyms failed\n");
+		return -1;
+	}
+
+	while (getline(&line, &len, fp) > 0) {
+		struct sym *sym;
+		uint64_t addr;
+		char type;
+		char *name;
+		char *pos;
+
+		pos = strchr(line, '\n');
+		if (pos)
+			*pos = '\0';
+
+		addr = strtoul(line, &pos, 16);
+
+		if (*pos++ != ' ') {
+			pr_log("invalid kallsyms format before type\n");
+			continue;
+		}
+		type = *pos++;
+
+		if (*pos++ != ' ') {
+			pr_log("invalid kallsyms format after type\n");
+			continue;
+		}
+		name = pos;
+
+		if (type != 'T' && type != 't' && type != 'W')
+			continue;
+
+		if (ksymtab.nr_sym >= ksymtab.nr_alloc) {
+			ksymtab.nr_alloc += SYMTAB_GROW;
+			ksymtab.sym = xrealloc(ksymtab.sym,
+					       ksymtab.nr_alloc * sizeof(*sym));
+		}
+
+		sym = &ksymtab.sym[ksymtab.nr_sym++];
+
+		sym->addr = addr;
+		sym->name = xstrdup(name);
+
+		if (ksymtab.nr_sym > 1)
+			sym[-2].size = addr - sym[-2].addr;
+	}
+	free(line);
+
+	qsort(ksymtab.sym, ksymtab.nr_sym, sizeof(*ksymtab.sym), addrsort);
+
+	ksymtab.sym_names = xrealloc(ksymtab.sym_names,
+				     sizeof(*ksymtab.sym_names) * ksymtab.nr_sym);
+
+	for (i = 0; i < ksymtab.nr_sym; i++)
+		ksymtab.sym_names[i] = &ksymtab.sym[i];
+	qsort(ksymtab.sym_names, ksymtab.nr_sym, sizeof(*ksymtab.sym_names), namesort);
+
+	fclose(fp);
+	return 0;
+}
+
 static const char *skip_syms[] = {
 	"mcount",
 	"__fentry__",
@@ -444,12 +516,38 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
+#if __SIZEOF_LONG__ == 8
+# define KADDR_SHIFT  47
+#else
+# define KADDR_SHIFT  31
+#endif
+
+static bool is_kernel_address(unsigned long addr)
+{
+	return !!(addr & (1UL << KADDR_SHIFT));
+}
+
+static unsigned long get_real_address(unsigned long addr)
+{
+	if (is_kernel_address(addr))
+		return addr | (-1UL << KADDR_SHIFT);
+	return addr;
+}
+
 struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 			 struct ftrace_proc_maps *maps)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
 	struct sym *sym;
+
+	if (is_kernel_address(addr)) {
+		const void *kaddr = (const void *)get_real_address(addr);
+
+		sym = bsearch(kaddr, ksymtab.sym, ksymtab.nr_sym,
+			      sizeof(*ksymtab.sym), addrfind);
+		return sym;
+	}
 
 	sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
 		      sizeof(*sym), addrfind);

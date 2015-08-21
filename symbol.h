@@ -52,6 +52,8 @@ size_t count_dynsym(struct symtabs *symtabs);
 int load_dynsymtab(struct symtabs *symtabs, const char *filename);
 void unload_dynsymtab(struct symtabs *symtabs);
 
+int load_kernel_symbol(void);
+
 char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);
 

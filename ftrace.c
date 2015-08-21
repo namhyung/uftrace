@@ -2469,8 +2469,10 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
 		kern.output_dir = opts->dirname;
-		if (setup_kernel_data(&kern) == 0)
+		if (setup_kernel_data(&kern) == 0) {
 			handle.kern = &kern;
+			load_kernel_symbol();
+		}
 	}
 
 	if (opts->filter) {
