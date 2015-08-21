@@ -34,6 +34,7 @@
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
+#include <sys/eventfd.h>
 #include <gelf.h>
 #include <pthread.h>
 
@@ -80,6 +81,8 @@ static struct argp_option ftrace_options[] = {
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
+	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
+	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
 	{ 0 }
 };
 
@@ -105,6 +108,7 @@ struct opts {
 	int idx;
 	int depth;
 	int max_stack;
+	int kernel;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -185,6 +189,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->bsize = parse_size(arg);
 		if (opts->bsize & (getpagesize() - 1))
 			pr_err_ns("buffer size should be multiple of page size");
+		break;
+
+	case 'k':
+		opts->kernel = 1;
+		break;
+
+	case 'K':
+		opts->kernel = 2;
 		break;
 
 	case OPT_flat:
@@ -518,6 +530,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
 
+	if (opts->kernel)
+		features |= KERNEL;
+
 	return features;
 }
 
@@ -684,10 +699,15 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 	return 0;
 }
 
+struct writer_arg {
+	struct opts		*opts;
+	struct ftrace_kernel	*kern;
+};
+
 void *writer_thread(void *arg)
 {
 	struct buf_list *buf;
-	char *dirname = arg;
+	struct writer_arg *warg = arg;
 
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
@@ -707,11 +727,14 @@ void *writer_thread(void *arg)
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		write_buffer_file(dirname, buf);
+		write_buffer_file(warg->opts->dirname, buf);
 
 		pthread_mutex_lock(&free_list_lock);
 		list_add(&buf->list, &buf_free_list);
 		pthread_mutex_unlock(&free_list_lock);
+
+		if (warg->opts->kernel)
+			record_kernel_tracing(warg->kern);
 	}
 
 	return NULL;
@@ -1495,6 +1518,13 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	struct timespec ts1, ts2;
 	struct rusage usage;
 	pthread_t writer;
+	struct ftrace_kernel kern;
+	int efd;
+	uint64_t go = 1;
+	struct writer_arg warg = {
+		.opts = opts,
+		.kern = &kern,
+	};
 
 	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
 
@@ -1524,14 +1554,23 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 
 	fflush(stdout);
 
+	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
+	if (efd < 0)
+		pr_dbg("creating eventfd failed: %d\n", efd);
+
 	pid = fork();
 	if (pid < 0)
 		pr_err("cannot start child process");
 
 	if (pid == 0) {
+		uint64_t dummy;
+
 		close(pfd[0]);
 
 		setup_child_environ(opts, pfd[1], &symtabs);
+
+		/* wait for parent ready */
+		read(efd, &dummy, sizeof(dummy));
 
 		/*
 		 * I don't think the traced binary is in PATH.
@@ -1555,7 +1594,22 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
 	sigaction(SIGCHLD, &sa, NULL);
 
-	pthread_create(&writer, NULL, writer_thread, opts->dirname);
+	pthread_create(&writer, NULL, writer_thread, &warg);
+
+	if (opts->kernel) {
+		kern.pid = pid;
+		kern.output_dir = opts->dirname;
+		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
+
+		if (start_kernel_tracing(&kern) < 0) {
+			opts->kernel = false;
+			pr_log("kernel tracing disabled due to an error\n");
+		}
+	}
+
+	/* signal child that I'm ready */
+	write(efd, &go, sizeof(go));
+	close(efd);
 
 	while (!done) {
 		struct pollfd pollfd = {
@@ -1617,6 +1671,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	flush_shmem_list(opts->dirname, opts->bsize);
 	unlink_shmem_list();
 
+	if (opts->kernel)
+		stop_kernel_tracing(&kern);
+
 	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
 		pr_err("cannot generate data file");
 
@@ -1629,6 +1686,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		printf("LOST %d records\n", shmem_lost_count);
 
 	pthread_join(writer, NULL);
+
+	if (opts->kernel)
+		finish_kernel_tracing(&kern);
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by
@@ -1711,6 +1771,7 @@ static int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
+	handle->kern = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -1776,7 +1837,9 @@ struct ftrace_task_handle {
 	struct sym *func;
 	int filter_count;
 	int filter_depth;
-	struct ftrace_ret_stack rstack;
+	struct ftrace_ret_stack ustack;
+	struct ftrace_ret_stack kstack;
+	struct ftrace_ret_stack *rstack;
 	int stack_count;
 	int lost_count;
 	struct fstack {
@@ -1909,11 +1972,11 @@ static void update_filter_count_exit(struct ftrace_task_handle *task,
 	}
 }
 
-static int read_task_rstack(struct ftrace_task_handle *handle)
+static int read_task_ustack(struct ftrace_task_handle *handle)
 {
 	FILE *fp = handle->fp;
 
-	if (fread(&handle->rstack, sizeof(handle->rstack), 1, fp) != 1) {
+	if (fread(&handle->ustack, sizeof(handle->ustack), 1, fp) != 1) {
 		if (feof(fp))
 			return -1;
 
@@ -1921,7 +1984,7 @@ static int read_task_rstack(struct ftrace_task_handle *handle)
 		return -1;
 	}
 
-	if (handle->rstack.unused != FTRACE_UNUSED) {
+	if (handle->ustack.unused != FTRACE_UNUSED) {
 		pr_log("invalid rstack read\n");
 		return -1;
 	}
@@ -1930,7 +1993,7 @@ static int read_task_rstack(struct ftrace_task_handle *handle)
 }
 
 static struct ftrace_ret_stack *
-get_task_rstack(struct ftrace_file_handle *handle, int idx)
+get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *fth;
 	char *filename;
@@ -1970,12 +2033,12 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 	fth = &tasks[idx];
 
 	if (fth->valid)
-		return &fth->rstack;
+		return &fth->ustack;
 
 	if (fth->done)
 		return NULL;
 
-	if (read_task_rstack(fth) < 0) {
+	if (read_task_ustack(fth) < 0) {
 		fth->done = true;
 		fclose(fth->fp);
 		fth->fp = NULL;
@@ -1985,27 +2048,27 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 	if (fth->lost_seen) {
 		int i;
 
-		for (i = 0; i <= fth->rstack.depth; i++)
+		for (i = 0; i <= fth->ustack.depth; i++)
 			fth->func_stack[i].valid = false;
 
 		fth->lost_seen = false;
 	}
 
-	if (fth->rstack.type == FTRACE_ENTRY) {
-		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
+	if (fth->ustack.type == FTRACE_ENTRY) {
+		struct fstack *fstack = &fth->func_stack[fth->ustack.depth];
 
-		fstack->total_time = fth->rstack.time;
+		fstack->total_time = fth->ustack.time;
 		fstack->child_time = 0;
 		fstack->valid = true;
-		fstack->addr = fth->rstack.addr;
+		fstack->addr = fth->ustack.addr;
 
-		fth->stack_count = fth->rstack.depth + 1;
+		fth->stack_count = fth->ustack.depth + 1;
 
-	} else if (fth->rstack.type == FTRACE_EXIT) {
+	} else if (fth->ustack.type == FTRACE_EXIT) {
 		uint64_t delta;
-		struct fstack *fstack = &fth->func_stack[fth->rstack.depth];
+		struct fstack *fstack = &fth->func_stack[fth->ustack.depth];
 
-		delta = fth->rstack.time - fstack->total_time;
+		delta = fth->ustack.time - fstack->total_time;
 
 		if (!fstack->valid)
 			delta = 0UL;
@@ -2015,27 +2078,38 @@ get_task_rstack(struct ftrace_file_handle *handle, int idx)
 		if (fstack->child_time > fstack->total_time)
 			fstack->child_time = fstack->total_time;
 
-		fth->stack_count = fth->rstack.depth;
+		fth->stack_count = fth->ustack.depth;
 		if (fth->stack_count > 0)
 			fth->func_stack[fth->stack_count - 1].child_time += delta;
 
-	} else if (fth->rstack.type == FTRACE_LOST) {
+	} else if (fth->ustack.type == FTRACE_LOST) {
 		fth->lost_seen = true;
 	}
 
 	fth->valid = true;
-	return &fth->rstack;
+	return &fth->ustack;
 }
 
-static int __read_rstack(struct ftrace_file_handle *handle,
-			 struct ftrace_task_handle **task, bool invalidate)
+static struct ftrace_task_handle *get_task_handle(int tid)
+{
+	int i;
+
+	for (i = 0; i < nr_tasks; i++) {
+		if (tasks[i].tid == tid)
+			return &tasks[i];
+	}
+	return NULL;
+}
+
+static int read_user_stack(struct ftrace_file_handle *handle,
+			   struct ftrace_task_handle **task)
 {
 	int i, next_i = -1;
 	uint64_t next_time;
 	struct ftrace_ret_stack *tmp;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
-		tmp = get_task_rstack(handle, i);
+		tmp = get_task_ustack(handle, i);
 		if (tmp == NULL)
 			continue;
 
@@ -2049,9 +2123,90 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		return -1;
 
 	*task = &tasks[next_i];
-	if (invalidate)
-		(*task)->valid = false;
 
+	return next_i;
+}
+
+static int __read_rstack(struct ftrace_file_handle *handle,
+			 struct ftrace_task_handle **taskp,
+			 bool invalidate)
+{
+	int u, k = -1;
+	struct ftrace_task_handle *task = NULL;
+	struct ftrace_kernel *kernel = handle->kern;
+	struct mcount_ret_stack kstack;
+	uint64_t ktime;
+
+	u = read_user_stack(handle, taskp);
+	if (kernel)
+		k = read_kernel_stack(kernel, &kstack);
+
+	if (u < 0 && k < 0)
+		return -1;
+
+	if (k < 0)
+		goto user;
+	if (u < 0)
+		goto kernel;
+
+	ktime = kstack.end_time ?: kstack.start_time;
+
+	if ((*taskp)->ustack.time < ktime) {
+user:
+		task = *taskp;
+
+		if (invalidate)
+			task->valid = false;
+
+		task->rstack = &task->ustack;
+	}
+	else {
+kernel:
+		task = get_task_handle(kstack.tid);
+		if (task == NULL)
+			pr_err_ns("cannot find task for tid %d\n", kstack.tid);
+
+		/* convert to ftrace_rstack */
+		task->kstack.time = kstack.end_time ?: kstack.start_time;
+		task->kstack.type = kstack.end_time ? FTRACE_EXIT : FTRACE_ENTRY;
+		task->kstack.addr = kstack.child_ip;
+		task->kstack.depth = kstack.depth;
+		task->kstack.unused = FTRACE_UNUSED;
+
+		/* account current task stack depth */
+		task->kstack.depth += task->stack_count;
+		if (!task->done)
+			task->kstack.depth++;
+
+		if (invalidate)
+			kernel->rstack_valid[k] = false;
+
+		task->rstack = &task->kstack;
+
+		if (task->rstack->type == FTRACE_ENTRY) {
+			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+
+			fstack->valid = true;
+			fstack->addr = kstack.child_ip;
+			fstack->child_time = 0;
+		}
+		else if (task->rstack->type == FTRACE_EXIT) {
+			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+
+			fstack->valid = false;
+			fstack->addr = kstack.child_ip;
+			fstack->total_time = kstack.end_time - kstack.start_time;
+
+			if (task->kstack.depth > 0) {
+				uint64_t child_time = fstack->total_time;
+
+				fstack = &task->func_stack[task->kstack.depth - 1];
+				fstack->child_time += child_time;
+			}
+		}
+	}
+
+	*taskp = task;
 	return 0;
 }
 
@@ -2067,11 +2222,13 @@ static int peek_rstack(struct ftrace_file_handle *handle,
 	return __read_rstack(handle, task, false);
 }
 
+static bool skip_kernel_before_user = true;
+
 static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct ftrace_task_handle *task)
 {
 	static int count;
-	struct ftrace_ret_stack *rstack = &task->rstack;
+	struct ftrace_ret_stack *rstack = task->rstack;
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2132,7 +2289,8 @@ static void print_time_unit(uint64_t delta_nsec)
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task)
 {
-	struct ftrace_ret_stack *rstack = &task->rstack;
+	struct ftrace_ret_stack *rstack = task->rstack;
+	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2148,6 +2306,13 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+
+	if (skip_kernel_before_user) {
+		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
+			seen_user_rstack = true;
+		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+			goto out;
+	}
 
 	if (rstack->type == FTRACE_ENTRY) {
 		update_filter_count_entry(task, rstack->addr, handle->depth);
@@ -2186,7 +2351,8 @@ out:
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct ftrace_task_handle *task)
 {
-	struct ftrace_ret_stack *rstack = &task->rstack;
+	struct ftrace_ret_stack *rstack = task->rstack;
+	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -2202,6 +2368,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtab(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+
+	if (skip_kernel_before_user) {
+		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
+			seen_user_rstack = true;
+		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+			goto out;
+	}
 
 	if (rstack->type == FTRACE_ENTRY) {
 		struct ftrace_task_handle *next;
@@ -2221,8 +2394,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 
 		if (task == next &&
-		    next->rstack.depth == depth &&
-		    next->rstack.type == FTRACE_EXIT) {
+		    next->rstack->depth == depth &&
+		    next->rstack->type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
 			fstack = &task->func_stack[rstack->depth];
 
@@ -2234,7 +2407,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			read_rstack(handle, &next);
 
 			task->filter_depth++;
-			update_filter_count_exit(task, next->rstack.addr, handle->depth);
+			update_filter_count_exit(task, next->rstack->addr, handle->depth);
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
@@ -2312,10 +2485,19 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	struct sigaction sa = {
 		.sa_flags = 0,
 	};
+	struct ftrace_kernel kern;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
+
+	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
+		kern.output_dir = opts->dirname;
+		if (setup_kernel_data(&kern) == 0) {
+			handle.kern = &kern;
+			load_kernel_symbol();
+		}
+	}
 
 	if (opts->filter) {
 		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs,
@@ -2356,6 +2538,9 @@ static int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	print_remaining_stack();
+
+	if (handle.kern)
+		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 
@@ -2518,7 +2703,6 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 
 static void report_functions(struct ftrace_file_handle *handle)
 {
-	int i;
 	struct sym *sym;
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
@@ -2528,37 +2712,36 @@ static void report_functions(struct ftrace_file_handle *handle)
 	const char f_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
 	const char line[] = "=================================================";
 
-	for (i = 0; i < handle->info.nr_tid; i++) {
-		while ((rstack = get_task_rstack(handle, i)) != NULL) {
-			struct ftrace_task_handle *fth = &tasks[i];
-			struct ftrace_session *sess = find_task_session(fth->tid, rstack->time);
-			struct symtabs *symtabs = &sess->symtabs;
-			struct fstack *fstack = &fth->func_stack[rstack->depth];
+	struct ftrace_task_handle *task;
+	struct ftrace_session *sess;
+	struct fstack *fstack;
 
-			if (rstack->type == FTRACE_ENTRY)
-				goto next;
+	while (read_rstack(handle, &task) >= 0) {
+		rstack = task->rstack;
+		if (rstack->type != FTRACE_EXIT)
+			continue;
 
-			if (sess == NULL)
-				goto next;
+		if (rstack == &task->kstack)
+			sess = first_session;
+		else
+			sess = find_task_session(task->tid, rstack->time);
 
-			sym = find_symtab(symtabs, rstack->addr, proc_maps);
-			if (sym == NULL) {
-				pr_log("cannot find symbol for %lx\n",
-				       rstack->addr);
-				goto next;
-			}
+		if (sess == NULL)
+			continue;
 
-			te.pid = fth->tid;
-			te.sym = sym;
-			te.time_total = fstack->total_time;
-			te.time_self = te.time_total - fstack->child_time;
-			te.nr_called = 1;
+		sym = find_symtab(&sess->symtabs, rstack->addr, NULL);
+		if (sym == NULL)
+			continue;
 
-			insert_entry(&name_tree, &te, false);
+		fstack = &task->func_stack[rstack->depth];
 
-		next:
-			tasks[i].valid = false; /* force re-read */
-		}
+		te.pid = task->tid;
+		te.sym = sym;
+		te.time_total = fstack->total_time;
+		te.time_self = te.time_total - fstack->child_time;
+		te.nr_called = 1;
+
+		insert_entry(&name_tree, &te, false);
 	}
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
@@ -2642,7 +2825,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 	const char line[] = "=================================================";
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
-		while ((rstack = get_task_rstack(handle, i)) != NULL) {
+		while ((rstack = get_task_ustack(handle, i)) != NULL) {
 			task = &tasks[i];
 
 			if (rstack->type == FTRACE_ENTRY && task->func)
@@ -2701,10 +2884,19 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
+	struct ftrace_kernel kern;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
+
+	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
+		kern.output_dir = opts->dirname;
+		if (setup_kernel_data(&kern) == 0) {
+			handle.kern = &kern;
+			load_kernel_symbol();
+		}
+	}
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
@@ -2713,6 +2905,9 @@ static int command_report(int argc, char *argv[], struct opts *opts)
 		report_threads(&handle);
 	else
 		report_functions(&handle);
+
+	if (handle.kern)
+		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 
@@ -2829,8 +3024,8 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 			continue;
 
 		printf("reading %d.dat\n", tid);
-		while (!read_task_rstack(&task)) {
-			struct ftrace_ret_stack *frs = &task.rstack;
+		while (!read_task_ustack(&task)) {
+			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
 			struct sym *sym;
