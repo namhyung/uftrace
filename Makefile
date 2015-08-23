@@ -49,7 +49,7 @@ endif
 
 CFLAGS_mcount.op = -pthread
 CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
-LDFLAGS_ftrace = -Wl,-rpath,'$$ORIGIN/libtraceevent' -L ./libtraceevent -ltraceevent -ldl # TODO: remove -rpath ?
+LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
 
 include config/Makefile
 
