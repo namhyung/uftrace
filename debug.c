@@ -22,8 +22,25 @@
 
 int debug;
 int logfd = STDERR_FILENO;
+int log_color = 1;
 
-#define color(C)  write(logfd, C, sizeof(C)-1)
+static void color(const char *code)
+{
+	ssize_t len = strlen(code);
+
+	if (!log_color)
+		return;
+
+	if (write(logfd, code, len) == len)
+		return;  /* ok */
+
+	/* disable color */
+	log_color = 0;
+
+	len = sizeof(TERM_COLOR_RESET) - 1;
+	if (write(logfd, TERM_COLOR_RESET, len) != len)
+		pr_err("resetting terminal color failed");
+}
 
 void __pr_log(const char *fmt, ...)
 {
