@@ -29,6 +29,9 @@
 # define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 #endif
 
+#define likely(x)    __builtin_expect(!!(x), 1)
+#define unlikely(x)  __builtin_expect(!!(x), 0)
+
 extern int debug;
 extern int logfd;
 

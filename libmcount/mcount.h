@@ -17,9 +17,6 @@
 #include "../utils/rbtree.h"
 #include "../utils/symbol.h"
 
-#define likely(x)  __builtin_expect(!!(x), 1)
-#define unlikely(x)  __builtin_expect(!!(x), 0)
-
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
