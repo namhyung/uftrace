@@ -1571,7 +1571,8 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 		setup_child_environ(opts, pfd[1], &symtabs);
 
 		/* wait for parent ready */
-		read(efd, &dummy, sizeof(dummy));
+		if (read(efd, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
+			pr_err("waiting for parent failed");
 
 		/*
 		 * I don't think the traced binary is in PATH.
@@ -1609,7 +1610,9 @@ static int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	/* signal child that I'm ready */
-	write(efd, &go, sizeof(go));
+	if (write(efd, &go, sizeof(go)) != (ssize_t)sizeof(go))
+		pr_err("signal to child failed");
+
 	close(efd);
 
 	while (!done) {
