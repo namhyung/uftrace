@@ -6,6 +6,9 @@
 #include <stdbool.h>
 #include <libelf.h>
 
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
@@ -75,6 +78,84 @@ struct ftrace_file_handle {
 	int depth;
 };
 
+#define FTRACE_MODE_INVALID 0
+#define FTRACE_MODE_RECORD  1
+#define FTRACE_MODE_REPLAY  2
+#define FTRACE_MODE_LIVE    3
+#define FTRACE_MODE_REPORT  4
+#define FTRACE_MODE_INFO    5
+#define FTRACE_MODE_DUMP    6
+
+#define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
+
+struct opts {
+	char *lib_path;
+	char *filter;
+	char *notrace;
+	char *tid;
+	char *exename;
+	char *dirname;
+	char *logfile;
+	int mode;
+	int idx;
+	int depth;
+	int max_stack;
+	int kernel;
+	unsigned long bsize;
+	bool flat;
+	bool want_plthook;
+	bool print_symtab;
+	bool force;
+	bool report_thread;
+	bool no_merge;
+	bool nop;
+	bool time;
+};
+
+int command_record(int argc, char *argv[], struct opts *opts);
+
+extern volatile bool ftrace_done;
+
+void sighandler(int sig);
+
+struct ftrace_session {
+	struct rb_node		 node;
+	char			 sid[16];
+	uint64_t		 start_time;
+	int			 pid, tid;
+	struct ftrace_proc_maps *maps;
+	struct symtabs		 symtabs;
+	int 			 namelen;
+	char 			 exename[];
+};
+
+struct ftrace_sess_ref {
+	struct ftrace_sess_ref	*next;
+	struct ftrace_session	*sess;
+	uint64_t		 start, end;
+};
+
+struct ftrace_task {
+	int			 pid, tid;
+	struct rb_node		 node;
+	struct ftrace_sess_ref	 sess;
+	struct ftrace_sess_ref	*sess_last;
+};
+
+struct ftrace_msg_task;
+struct ftrace_msg_sess;
+
+extern struct ftrace_session *first_session;
+
+void create_session(struct ftrace_msg_sess *msg, char *exename);
+struct ftrace_session *find_session(int pid, uint64_t timestamp);
+struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
+void create_task(struct ftrace_msg_task *msg, bool fork);
+struct ftrace_task *find_task(int tid);
+
+int read_tid_list(int *tids, bool skip_unknown);
+void free_tid_list(void);
+
 struct kbuffer;
 struct pevent;
 
@@ -105,9 +186,6 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel);
 int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
 int finish_kernel_data(struct ftrace_kernel *kernel);
-
-int read_tid_list(int *tids, bool skip_unknown);
-void free_tid_list(void);
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
 		      int status);

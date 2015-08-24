@@ -122,6 +122,10 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 	__ptr;								\
 })
 
+int read_all(int fd, void *buf, size_t size);
+int write_all(int fd, void *buf, size_t size);
+int remove_directory(char *dirname);
+
 #ifndef DISABLE_MCOUNT_FILTER
 struct ftrace_filter {
 	struct rb_node node;
