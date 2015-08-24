@@ -3,7 +3,7 @@
 #include <string.h>
 #include <regex.h>
 
-#include "../mcount.h"
+#include "../libmcount/mcount.h"
 #include "symbol.h"
 #include "rbtree.h"
 #include "utils.h"

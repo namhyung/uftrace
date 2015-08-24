@@ -19,7 +19,7 @@
 #define PR_FMT "kernel"
 
 #include "utils.h"
-#include "mcount.h"
+#include "../libmcount/mcount.h"
 
 #include <libtraceevent/kbuffer.h>
 #include <libtraceevent/event-parse.h>

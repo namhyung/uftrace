@@ -41,7 +41,7 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
 
-#include "mcount.h"
+#include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
@@ -427,22 +427,27 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
 	bool multi_thread = !!find_symname(symtabs, "pthread_create");
 
+	if (opts->lib_path)
+		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
+	else
+		buf[0] = '\0';  /* to make strcat() work */
+
 	if (opts->nop) {
-		strcpy(buf, "libmcount-nop.so");
+		strcat(buf, "libmcount-nop.so");
 	}
 	else if (multi_thread) {
 		if (opts->filter || opts->notrace || debug ||
 		    opts->depth != MCOUNT_DEFAULT_DEPTH)
-			strcpy(buf, "libmcount.so");
+			strcat(buf, "libmcount.so");
 		else
-			strcpy(buf, "libmcount-fast.so");
+			strcat(buf, "libmcount-fast.so");
 	}
 	else {
 		if (opts->filter || opts->notrace || debug ||
 		    opts->depth != MCOUNT_DEFAULT_DEPTH)
-			strcpy(buf, "libmcount-single.so");
+			strcat(buf, "libmcount-single.so");
 		else
-			strcpy(buf, "libmcount-fast-single.so");
+			strcat(buf, "libmcount-fast-single.so");
 	}
 	pr_dbg("using %s library for tracing\n", buf);
 
@@ -454,7 +459,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 
 	if (opts->lib_path) {
 		strcpy(buf, opts->lib_path);
-		strcat(buf, ":");
+		strcat(buf, "/libmcount:");
 	} else {
 		/* to make strcat() work */
 		buf[0] = '\0';

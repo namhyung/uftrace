@@ -15,8 +15,8 @@
 #include <libelf.h>
 #include <limits.h>
 
-#include "utils/rbtree.h"
-#include "utils/symbol.h"
+#include "../utils/rbtree.h"
+#include "../utils/symbol.h"
 
 #define likely(x)  __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
