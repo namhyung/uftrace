@@ -42,10 +42,10 @@
 #define PR_FMT "ftrace"
 
 #include "mcount.h"
-#include "symbol.h"
-#include "rbtree.h"
-#include "utils.h"
-#include "list.h"
+#include "utils/utils.h"
+#include "utils/symbol.h"
+#include "utils/rbtree.h"
+#include "utils/list.h"
 
 const char *argp_program_version = "ftrace v0.4";
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";

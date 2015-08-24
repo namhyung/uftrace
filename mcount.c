@@ -26,8 +26,8 @@
 #define PR_FMT  "mcount"
 
 #include "mcount.h"
-#include "symbol.h"
-#include "utils.h"
+#include "utils/utils.h"
+#include "utils/symbol.h"
 
 #ifdef SINGLE_THREAD
 # define TLS

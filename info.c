@@ -15,7 +15,7 @@
 #include <gelf.h>
 
 #include "mcount.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 struct fill_handler_arg {
 	int fd;
