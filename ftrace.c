@@ -263,7 +263,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static int command_live(int argc, char *argv[], struct opts *opts);
 static int command_report(int argc, char *argv[], struct opts *opts);
 static int command_info(int argc, char *argv[], struct opts *opts);
 static int command_dump(int argc, char *argv[], struct opts *opts);
@@ -336,87 +335,6 @@ int main(int argc, char *argv[])
 
 	if (opts.logfile)
 		close(logfd);
-
-	return 0;
-}
-
-static char *tmp_dirname;
-static void cleanup_tempdir(void)
-{
-	DIR *dp;
-	struct dirent *ent;
-	char path[PATH_MAX];
-
-	if (!tmp_dirname)
-		return;
-
-	dp = opendir(tmp_dirname);
-	if (dp == NULL)
-		pr_err("cannot open temp dir");
-
-	while ((ent = readdir(dp)) != NULL) {
-		if (ent->d_name[0] == '.')
-			continue;
-
-		snprintf(path, sizeof(path), "%s/%s", tmp_dirname, ent->d_name);
-		if (unlink(path) < 0)
-			pr_err("unlink failed: %s: %m\n", path);
-	}
-
-	closedir(dp);
-
-	if (rmdir(tmp_dirname) < 0)
-		pr_err("rmdir failed: %s: %m\n", tmp_dirname);
-	tmp_dirname = NULL;
-}
-
-static void reset_live_opts(struct opts *opts)
-{
-	/*
-	 * These options are handled in record and no need to do it in
-	 * replay again.
-	 */
-	opts->filter	= NULL;
-	opts->notrace	= NULL;
-	opts->depth	= MCOUNT_DEFAULT_DEPTH;
-}
-
-static void sigsegv_handler(int sig)
-{
-	fprintf(stderr, "ftrace: ERROR: Segmentation fault\n");
-	cleanup_tempdir();
-	raise(sig);
-}
-
-static int command_live(int argc, char *argv[], struct opts *opts)
-{
-	char template[32] = "/tmp/ftrace-live-XXXXXX";
-	int fd = mkstemp(template);
-	struct sigaction sa = {
-		.sa_flags = SA_RESETHAND,
-	};
-
-	if (fd < 0)
-		pr_err("cannot create temp name");
-
-	close(fd);
-	unlink(template);
-
-	tmp_dirname = template;
-	atexit(cleanup_tempdir);
-
-	sa.sa_handler = sigsegv_handler;
-	sigfillset(&sa.sa_mask);
-	sigaction(SIGSEGV, &sa, NULL);
-
-	opts->dirname = template;
-
-	if (command_record(argc, argv, opts) == 0) {
-		reset_live_opts(opts);
-		command_replay(argc, argv, opts);
-	}
-
-	cleanup_tempdir();
 
 	return 0;
 }
