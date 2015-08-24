@@ -14,6 +14,7 @@
 #include <sys/utsname.h>
 #include <gelf.h>
 
+#include "ftrace.h"
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 

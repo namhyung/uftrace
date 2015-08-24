@@ -18,8 +18,9 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "kernel"
 
-#include "utils.h"
+#include "../ftrace.h"
 #include "../libmcount/mcount.h"
+#include "utils.h"
 
 #include <libtraceevent/kbuffer.h>
 #include <libtraceevent/event-parse.h>
