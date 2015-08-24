@@ -1326,10 +1326,11 @@ static int read_task_file(char *dirname)
 
 			create_session(&sess, buf);
 
-			if (map_file == NULL)
-				asprintf(&map_file, "sid-%.16s.map", sess.sid);
-			if (map_file == NULL)
-				return -1;
+			if (map_file == NULL) {
+				if (asprintf(&map_file, "sid-%.16s.map",
+					     sess.sid) < 0)
+					return -1;
+			}
 			break;
 
 		case FTRACE_MSG_TID:
