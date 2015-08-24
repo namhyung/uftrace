@@ -126,6 +126,8 @@ int read_all(int fd, void *buf, size_t size);
 int write_all(int fd, void *buf, size_t size);
 int remove_directory(char *dirname);
 
+void print_time_unit(uint64_t delta_nsec);
+
 #ifndef DISABLE_MCOUNT_FILTER
 struct ftrace_filter {
 	struct rb_node node;

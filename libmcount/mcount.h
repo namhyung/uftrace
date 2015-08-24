@@ -56,36 +56,4 @@ struct mcount_shmem_buffer {
 	char data[];
 };
 
-#define FTRACE_MSG_MAGIC 0xface
-
-#define FTRACE_MSG_REC_START  1U
-#define FTRACE_MSG_REC_END    2U
-#define FTRACE_MSG_TID        3U
-#define FTRACE_MSG_FORK_START 4U
-#define FTRACE_MSG_FORK_END   5U
-#define FTRACE_MSG_SESSION    6U
-#define FTRACE_MSG_LOST       7U
-
-/* msg format for communicating by pipe */
-struct ftrace_msg {
-	unsigned short magic; /* FTRACE_MSG_MAGIC */
-	unsigned short type;  /* FTRACE_MSG_REC_* */
-	unsigned int len;
-	unsigned char data[];
-};
-
-struct ftrace_msg_task {
-	uint64_t time;
-	int32_t  pid;
-	int32_t  tid;
-};
-
-struct ftrace_msg_sess {
-	struct ftrace_msg_task task;
-	char sid[16];
-	int  unused;
-	int  namelen;
-	char exename[];
-};
-
 #endif /* FTRACE_MCOUNT_H */

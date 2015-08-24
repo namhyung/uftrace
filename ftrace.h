@@ -113,8 +113,13 @@ struct opts {
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
+int command_replay(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool ftrace_done;
+extern struct ftrace_proc_maps *proc_maps;
+
+extern int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+extern void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
 void sighandler(int sig);
 
@@ -142,8 +147,37 @@ struct ftrace_task {
 	struct ftrace_sess_ref	*sess_last;
 };
 
-struct ftrace_msg_task;
-struct ftrace_msg_sess;
+#define FTRACE_MSG_MAGIC 0xface
+
+#define FTRACE_MSG_REC_START  1U
+#define FTRACE_MSG_REC_END    2U
+#define FTRACE_MSG_TID        3U
+#define FTRACE_MSG_FORK_START 4U
+#define FTRACE_MSG_FORK_END   5U
+#define FTRACE_MSG_SESSION    6U
+#define FTRACE_MSG_LOST       7U
+
+/* msg format for communicating by pipe */
+struct ftrace_msg {
+	unsigned short magic; /* FTRACE_MSG_MAGIC */
+	unsigned short type;  /* FTRACE_MSG_REC_* */
+	unsigned int len;
+	unsigned char data[];
+};
+
+struct ftrace_msg_task {
+	uint64_t time;
+	int32_t  pid;
+	int32_t  tid;
+};
+
+struct ftrace_msg_sess {
+	struct ftrace_msg_task task;
+	char sid[16];
+	int  unused;
+	int  namelen;
+	char exename[];
+};
 
 extern struct ftrace_session *first_session;
 
