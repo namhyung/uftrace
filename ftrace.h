@@ -156,6 +156,77 @@ struct ftrace_task *find_task(int tid);
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);
 
+enum ftrace_ret_stack_type {
+	FTRACE_ENTRY,
+	FTRACE_EXIT,
+	FTRACE_LOST,
+};
+
+#define FTRACE_UNUSED  0xa
+
+/* reduced version of mcount_ret_stack */
+struct ftrace_ret_stack {
+	uint64_t time;
+	uint64_t type:   2;
+	uint64_t unused: 4;
+	uint64_t depth:  10;
+	uint64_t addr:   48;
+};
+
+#define FSTACK_MAX  1024
+
+struct ftrace_task_handle {
+	int tid;
+	bool valid;
+	bool done;
+	bool lost_seen;
+	FILE *fp;
+	struct sym *func;
+	int filter_count;
+	int filter_depth;
+	struct ftrace_ret_stack ustack;
+	struct ftrace_ret_stack kstack;
+	struct ftrace_ret_stack *rstack;
+	int stack_count;
+	int lost_count;
+	struct fstack {
+		unsigned long addr;
+		bool valid;
+		int orig_depth;
+		uint64_t total_time;
+		uint64_t child_time;
+	} func_stack[FSTACK_MAX];
+};
+
+struct ftrace_func_filter {
+	bool has_filters;
+	bool has_notrace;
+	struct rb_root filters;
+	struct rb_root notrace;
+};
+
+extern struct ftrace_task_handle *tasks;
+extern int nr_tasks;
+
+extern struct ftrace_func_filter filters;
+
+int read_rstack(struct ftrace_file_handle *handle,
+		struct ftrace_task_handle **task);
+int peek_rstack(struct ftrace_file_handle *handle,
+		struct ftrace_task_handle **task);
+struct ftrace_task_handle *get_task_handle(int tid);
+void reset_task_handle(void);
+struct ftrace_ret_stack *
+get_task_ustack(struct ftrace_file_handle *handle, int idx);
+int read_task_ustack(struct ftrace_task_handle *handle);
+
+void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
+
+void update_filter_count_entry(struct ftrace_task_handle *task,
+			       unsigned long addr, int depth);
+void update_filter_count_exit(struct ftrace_task_handle *task,
+			      unsigned long addr, int depth);
+
 struct kbuffer;
 struct pevent;
 
