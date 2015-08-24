@@ -20,17 +20,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <argp.h>
 #include <unistd.h>
-#include <signal.h>
-#include <assert.h>
 #include <fcntl.h>
-#include <time.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/syscall.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
@@ -263,7 +255,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static int command_info(int argc, char *argv[], struct opts *opts);
 static int command_dump(int argc, char *argv[], struct opts *opts);
 
 int main(int argc, char *argv[])
@@ -336,95 +327,6 @@ int main(int argc, char *argv[])
 		close(logfd);
 
 	return 0;
-}
-
-static int command_info(int argc, char *argv[], struct opts *opts)
-{
-	int ret;
-	char buf[PATH_MAX];
-	struct stat statbuf;
-	struct ftrace_file_handle handle;
-	const char *fmt = "# %-20s: %s\n";
-
-	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		return -1;
-
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-
-	if (stat(buf, &statbuf) < 0)
-		return -1;
-
-	printf("# ftrace information\n");
-	printf("# ==================\n");
-	printf(fmt, "program version", argp_program_version);
-	printf("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
-
-	if (handle.hdr.info_mask & (1UL << CMDLINE))
-		printf(fmt, "cmdline", handle.info.cmdline);
-
-	if (handle.hdr.info_mask & (1UL << EXE_NAME))
-		printf(fmt, "exe image", handle.info.exename);
-
-	if (handle.hdr.info_mask & (1UL << EXE_BUILD_ID)) {
-		int i;
-		printf("# %-20s: ", "build id");
-		for (i = 0; i < 20; i++)
-			printf("%02x", handle.info.build_id[i]);
-		printf("\n");
-	}
-
-	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
-		int status = handle.info.exit_status;
-
-		if (WIFEXITED(status)) {
-			snprintf(buf, sizeof(buf), "exited with code: %d",
-				 WEXITSTATUS(status));
-		} else if (WIFSIGNALED(status)) {
-			snprintf(buf, sizeof(buf), "terminated by signal: %d",
-				 WTERMSIG(status));
-		} else {
-			snprintf(buf, sizeof(buf), "unknown exit status: %d",
-				 status);
-		}
-		printf(fmt, "exit status", buf);
-	}
-
-	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
-		printf("# %-20s: %d/%d (online/possible)\n",
-		       "nr of cpus", handle.info.nr_cpus_online,
-		       handle.info.nr_cpus_possible);
-		printf(fmt, "cpu info", handle.info.cpudesc);
-	}
-
-	if (handle.hdr.info_mask & (1UL << MEMINFO))
-		printf(fmt, "memory info", handle.info.meminfo);
-
-	if (handle.hdr.info_mask & (1UL << OSINFO)) {
-		printf(fmt, "kernel version", handle.info.kernel);
-		printf(fmt, "hostname", handle.info.hostname);
-		printf(fmt, "distro", handle.info.distro);
-	}
-
-	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
-		int nr = handle.info.nr_tid;
-		bool first = true;
-
-		printf("# %-20s: %d\n", "nr of tasks", nr);
-
-		printf("# %-20s: ", "task list");
-		while (nr--) {
-			printf("%s%d", first ? "" : ", ", handle.info.tids[nr]);
-			first = false;
-		}
-		printf("\n");
-	}
-
-	printf("\n");
-
-	close_data_file(opts, &handle);
-
-	return ret;
 }
 
 static int command_dump(int argc, char *argv[], struct opts *opts)

@@ -58,8 +58,8 @@ TARGETS := ftrace libmcount/libmcount.so libmcount/libmcount-nop.so
 TARGETS += libmcount/libmcount-fast.so libmcount/libmcount-single.so
 TARGETS += libmcount/libmcount-fast-single.so libtraceevent/libtraceevent.a
 
-FTRACE_SRCS  = ftrace.c cmd-record.c cmd-replay.c cmd-live.c cmd-report.c
-FTRACE_SRCS += utils/symbol.c utils/rbtree.c info.c utils/debug.c
+FTRACE_SRCS  = ftrace.c cmd-record.c cmd-replay.c cmd-live.c cmd-report.c cmd-info.c
+FTRACE_SRCS += utils/symbol.c utils/rbtree.c utils/debug.c
 FTRACE_SRCS += utils/filter.c utils/kernel.c utils/utils.c utils/session.c
 FTRACE_SRCS += utils/fstack.c utils/data-file.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
