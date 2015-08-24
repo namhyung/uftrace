@@ -724,7 +724,7 @@ int read_kernel_stack(struct ftrace_kernel *kernel,
 		      struct mcount_ret_stack *rstack)
 {
 	int i;
-	int first_cpu;
+	int first_cpu = -1;
 	uint64_t first_timestamp = 0;
 	struct mcount_ret_stack *first_rstack = NULL;
 
