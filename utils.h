@@ -62,7 +62,7 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 
 #ifdef HAVE_LIBIBERTY
 # include <libiberty.h>
-#else
+#endif
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
@@ -115,6 +115,5 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 	}								\
 	__ptr;								\
 })
-#endif /* HAVE_LIBIBERTY */
 
 #endif /* __FTRACE_UTILS_H__ */
