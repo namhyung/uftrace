@@ -108,7 +108,7 @@ libmcount/mcount-single.op: libmcount/mcount.c
 libmcount/mcount-fast-single.op: libmcount/mcount.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
+arch/$(ARCH)/entry.op: $(wildcard arch/$(ARCH)/*.[cS]) FLAGS
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
 libmcount/libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
