@@ -11,6 +11,13 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#ifdef HAVE_LIBIBERTY
+# include <libiberty.h>
+#endif
+
+#include "rbtree.h"
+#include "symbol.h"
+
 
 #ifndef container_of
 # define container_of(ptr, type, member) ({			\
@@ -21,6 +28,9 @@
 #ifndef ALIGN
 # define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 #endif
+
+#define likely(x)    __builtin_expect(!!(x), 1)
+#define unlikely(x)  __builtin_expect(!!(x), 0)
 
 extern int debug;
 extern int logfd;
@@ -59,10 +69,6 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
 
-
-#ifdef HAVE_LIBIBERTY
-# include <libiberty.h>
-#endif
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
@@ -115,5 +121,28 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 	}								\
 	__ptr;								\
 })
+
+int read_all(int fd, void *buf, size_t size);
+int write_all(int fd, void *buf, size_t size);
+int remove_directory(char *dirname);
+
+void print_time_unit(uint64_t delta_nsec);
+
+#ifndef DISABLE_MCOUNT_FILTER
+struct ftrace_filter {
+	struct rb_node node;
+	struct sym *sym;
+	char *name;
+	unsigned long start;
+	unsigned long end;
+};
+
+void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+			 struct rb_root *root, bool *has_filter);
+void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
+			       struct rb_root *root, bool *has_filter);
+int ftrace_match_filter(struct rb_root *root, unsigned long ip);
+void ftrace_cleanup_filter(struct rb_root *root);
+#endif /* DISABLE_MCOUNT_FILTER */
 
 #endif /* __FTRACE_UTILS_H__ */

@@ -54,35 +54,39 @@ LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
 include config/Makefile
 
 
-TARGETS := ftrace libmcount.so libmcount-nop.so
-TARGETS += libmcount-fast.so libmcount-single.so libmcount-fast-single.so
-TARGETS += libtraceevent/libtraceevent.a
+TARGETS := ftrace libmcount/libmcount.so libmcount/libmcount-nop.so
+TARGETS += libmcount/libmcount-fast.so libmcount/libmcount-single.so
+TARGETS += libmcount/libmcount-fast-single.so libtraceevent/libtraceevent.a
 
-FTRACE_SRCS  = ftrace.c symbol.c rbtree.c info.c debug.c filter.c kernel.c
+FTRACE_SRCS  = ftrace.c cmd-record.c cmd-replay.c cmd-live.c cmd-report.c cmd-info.c
+FTRACE_SRCS += utils/symbol.c utils/rbtree.c utils/debug.c
+FTRACE_SRCS += utils/filter.c utils/kernel.c utils/utils.c utils/session.c
+FTRACE_SRCS += utils/fstack.c utils/data-file.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
-FTRACE_HDRS  = mcount.h symbol.h utils.h rbtree.h
+FTRACE_HDRS  = libmcount/mcount.h utils/symbol.h utils/utils.h utils/rbtree.h utils/list.h
 
-LIBMCOUNT_SRCS = mcount.c symbol.c debug.c rbtree.c filter.c
-LIBMCOUNT_OBJS = $(LIBMCOUNT_SRCS:.c=.op)
-LIBMCOUNT_HDRS = mcount.h symbol.h utils.h rbtree.h
+LIBMCOUNT_SRCS  = $(filter-out %-nop.c,$(wildcard libmcount/*.c))
+LIBMCOUNT_SRCS += utils/symbol.c utils/debug.c utils/rbtree.c utils/filter.c
+LIBMCOUNT_OBJS  = $(LIBMCOUNT_SRCS:.c=.op)
+LIBMCOUNT_HDRS  = libmcount/mcount.h utils/symbol.h utils/utils.h utils/rbtree.h
 
-LIBMCOUNT_NOP_SRCS = mcount-nop.c
+LIBMCOUNT_NOP_SRCS = libmcount/mcount-nop.c
 LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)
 
-LIBMCOUNT_FAST_SRCS = symbol.c debug.c
-LIBMCOUNT_FAST_OBJS = $(LIBMCOUNT_FAST_SRCS:.c=.op) mcount-fast.op
+LIBMCOUNT_FAST_SRCS = utils/symbol.c utils/debug.c
+LIBMCOUNT_FAST_OBJS = $(LIBMCOUNT_FAST_SRCS:.c=.op) libmcount/mcount-fast.op
 
-LIBMCOUNT_SINGLE_SRCS = symbol.c debug.c rbtree.c filter.c
-LIBMCOUNT_SINGLE_OBJS = $(LIBMCOUNT_SINGLE_SRCS:.c=.op) mcount-single.op
+LIBMCOUNT_SINGLE_SRCS = utils/symbol.c utils/debug.c utils/rbtree.c utils/filter.c
+LIBMCOUNT_SINGLE_OBJS = $(LIBMCOUNT_SINGLE_SRCS:.c=.op) libmcount/mcount-single.op
 
-LIBMCOUNT_FAST_SINGLE_SRCS = symbol.c debug.c
-LIBMCOUNT_FAST_SINGLE_OBJS = $(LIBMCOUNT_FAST_SINGLE_SRCS:.c=.op) mcount-fast-single.op
+LIBMCOUNT_FAST_SINGLE_SRCS = utils/symbol.c utils/debug.c
+LIBMCOUNT_FAST_SINGLE_OBJS = $(LIBMCOUNT_FAST_SINGLE_SRCS:.c=.op) libmcount/mcount-fast-single.op
 
 
-CFLAGS_mcount-fast.op = -DDISABLE_MCOUNT_FILTER
-CFLAGS_mcount-single.op = -DSINGLE_THREAD
-CFLAGS_mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
+CFLAGS_libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
+CFLAGS_libmcount/mcount-single.op = -DSINGLE_THREAD
+CFLAGS_libmcount/mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 
 MAKEFLAGS = --no-print-directory
 
@@ -92,34 +96,34 @@ all: $(TARGETS)
 $(LIBMCOUNT_OBJS): %.op: %.c $(LIBMCOUNT_HDRS) FLAGS
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-mcount-nop.op: mcount-nop.c
+libmcount/mcount-nop.op: libmcount/mcount-nop.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-mcount-fast.op: mcount.c
+libmcount/mcount-fast.op: libmcount/mcount.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-mcount-single.op: mcount.c
+libmcount/mcount-single.op: libmcount/mcount.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-mcount-fast-single.op: mcount.c
+libmcount/mcount-fast-single.op: libmcount/mcount.c
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/%.op: arch/$(ARCH)/*.S FLAGS
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
-libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
+libmcount/libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
+libmcount/libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) arch/$(ARCH)/entry.op
+libmcount/libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) arch/$(ARCH)/entry.op
+libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/entry.op
+libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/entry.op
 	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libtraceevent/libtraceevent.a: PHONY
@@ -132,11 +136,11 @@ install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
-	@$(INSTALL) libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
-	@$(INSTALL) libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
-	@$(INSTALL) libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
-	@$(INSTALL) libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
-	@$(INSTALL) libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	@$(INSTALL) libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
+	@$(INSTALL) libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
+	@$(INSTALL) libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
+	@$(INSTALL) libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
+	@$(INSTALL) libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
 	@ldconfig $(DESTDIR)$(libdir)
 
@@ -151,7 +155,8 @@ doc:
 	@$(MAKE) -C doc
 
 clean:
-	@$(RM) *.o *.op $(TARGETS) ftrace.data* gmon.out FLAGS
+	@$(RM) *.o utils/*.o utils/*.op libmcount/*.op $(TARGETS)
+	@$(RM) ftrace.data* gmon.out FLAGS
 	@$(RM) ftrace-*.tar.gz
 	@$(MAKE) -sC arch/$(ARCH) clean
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean

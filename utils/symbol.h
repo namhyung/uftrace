@@ -9,6 +9,9 @@
 #ifndef FTRACE_SYMBOL_H
 #define FTRACE_SYMBOL_H
 
+#include <stdint.h>
+
+
 struct sym {
 	unsigned long addr;
 	unsigned long size;

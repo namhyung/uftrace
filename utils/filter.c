@@ -1,10 +1,12 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <regex.h>
 
-#include "mcount.h"
+#include "../libmcount/mcount.h"
 #include "symbol.h"
 #include "rbtree.h"
+#include "utils.h"
 
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
