@@ -129,8 +129,11 @@ libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/e
 libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -sC libtraceevent
 
-ftrace: $(FTRACE_SRCS) $(FTRACE_HDRS) libtraceevent/libtraceevent.a
-	$(CC) $(CFLAGS) -o $@ $(FTRACE_SRCS) $(LDFLAGS)
+$(FTRACE_OBJS): %.o: %.c $(FTRACE_HDRS) FLAGS
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+ftrace: $(FTRACE_OBJS) libtraceevent/libtraceevent.a
+	$(CC) $(CFLAGS) -o $@ $(FTRACE_OBJS) $(LDFLAGS)
 
 install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)

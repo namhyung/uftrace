@@ -20,10 +20,9 @@
 
 #include "../ftrace.h"
 #include "../libmcount/mcount.h"
+#include "../libtraceevent/kbuffer.h"
+#include "../libtraceevent/event-parse.h"
 #include "utils.h"
-
-#include <libtraceevent/kbuffer.h>
-#include <libtraceevent/event-parse.h>
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
 #define FTRACE_TRACER  "function_graph"
