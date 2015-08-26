@@ -148,10 +148,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (task->filter_depth-- <= 0)
 			goto out;
 
-		if (peek_rstack(handle, &next) < 0) {
-			symbol_putname(sym, symname);
-			return -1;
-		}
+		if (peek_rstack(handle, &next) < 0)
+			next = NULL;
 
 		if (task == next &&
 		    next->rstack->depth == depth &&
