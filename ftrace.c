@@ -47,6 +47,7 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_nop		308
 #define OPT_time	309
 #define OPT_max_stack	310
+#define OPT_backtrace	311
 
 
 static struct argp_option ftrace_options[] = {
@@ -70,6 +71,7 @@ static struct argp_option ftrace_options[] = {
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
+	{ "backtrace", OPT_backtrace, 0, 0, "Show backtrace of filtered function" },
 	{ 0 }
 };
 
@@ -195,6 +197,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 				  MCOUNT_RSTACK_MAX);
 		break;
 
+	case OPT_backtrace:
+		opts->backtrace = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -297,6 +303,11 @@ int main(int argc, char *argv[])
 		load_symtabs(&symtabs, opts.exename);
 		print_symtabs(&symtabs);
 		unload_symtabs(&symtabs);
+		exit(0);
+	}
+
+	if (opts.backtrace && opts.filter == NULL) {
+		printf("--backtrace option needs -F/--filter option\n");
 		exit(0);
 	}
 
