@@ -142,7 +142,7 @@ install: all
 	@$(INSTALL) libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	@$(INSTALL) libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
-	@ldconfig $(DESTDIR)$(libdir)
+	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir); fi
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) TESTARG="$(TESTARG)" test
