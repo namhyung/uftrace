@@ -220,6 +220,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->mode = FTRACE_MODE_REPORT;
 		else if (!strcmp("info", arg))
 			opts->mode = FTRACE_MODE_INFO;
+		else if (!strcmp("recv", arg))
+			opts->mode = FTRACE_MODE_RECV;
 		else if (!strcmp("dump", arg))
 			opts->mode = FTRACE_MODE_DUMP;
 		else
@@ -272,6 +274,7 @@ int main(int argc, char *argv[])
 		.bsize		= SHMEM_BUFFER_SIZE,
 		.depth		= MCOUNT_DEFAULT_DEPTH,
 		.max_stack	= MCOUNT_RSTACK_MAX,
+		.port		= FTRACE_RECV_PORT,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -326,6 +329,9 @@ int main(int argc, char *argv[])
 		break;
 	case FTRACE_MODE_INFO:
 		command_info(argc, argv, &opts);
+		break;
+	case FTRACE_MODE_RECV:
+		command_recv(argc, argv, &opts);
 		break;
 	case FTRACE_MODE_DUMP:
 		command_dump(argc, argv, &opts);

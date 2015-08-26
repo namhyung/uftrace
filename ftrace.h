@@ -17,6 +17,9 @@
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
+#define FTRACE_RECV_PORT  8090
+
+
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];
 	uint32_t version;
@@ -84,7 +87,8 @@ struct ftrace_file_handle {
 #define FTRACE_MODE_LIVE    3
 #define FTRACE_MODE_REPORT  4
 #define FTRACE_MODE_INFO    5
-#define FTRACE_MODE_DUMP    6
+#define FTRACE_MODE_RECV    6
+#define FTRACE_MODE_DUMP    7
 
 #define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
 
@@ -101,6 +105,7 @@ struct opts {
 	int depth;
 	int max_stack;
 	int kernel;
+	int port;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -118,6 +123,7 @@ int command_replay(int argc, char *argv[], struct opts *opts);
 int command_live(int argc, char *argv[], struct opts *opts);
 int command_report(int argc, char *argv[], struct opts *opts);
 int command_info(int argc, char *argv[], struct opts *opts);
+int command_recv(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool ftrace_done;
 extern struct ftrace_proc_maps *proc_maps;
