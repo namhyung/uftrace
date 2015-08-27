@@ -10,8 +10,33 @@
 
 static bool skip_kernel_before_user = true;
 
+static void print_backtrace(struct ftrace_task_handle *task)
+{
+	int i;
+	struct ftrace_session *sess;
+	struct fstack *fstack;
+	struct sym *sym;
+	char *name;
+
+	for (i = 0; i < task->stack_count - 1; i++) {
+		fstack = &task->func_stack[i];
+		sess = find_task_session(task->tid, fstack->total_time);
+
+		if (sess)
+			sym = find_symtab(&sess->symtabs, fstack->addr, proc_maps);
+		else
+			sym = NULL;
+
+		name = symbol_getname(sym, fstack->addr);
+		printf("  backtrace [%5d] | /* [%2d] %s */\n",
+		       task->tid, i, name);
+		symbol_putname(sym, name);
+	}
+}
+
 static int print_flat_rstack(struct ftrace_file_handle *handle,
-			     struct ftrace_task_handle *task)
+			     struct ftrace_task_handle *task,
+			     struct opts *opts)
 {
 	static int count;
 	struct ftrace_ret_stack *rstack = task->rstack;
@@ -47,7 +72,8 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 }
 
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
-				       struct ftrace_task_handle *task)
+				       struct ftrace_task_handle *task,
+				       struct opts *opts)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
 	static bool seen_user_rstack = false;
@@ -75,7 +101,11 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	}
 
 	if (rstack->type == FTRACE_ENTRY) {
-		update_filter_count_entry(task, rstack->addr, handle->depth);
+		if (update_filter_count_entry(task, rstack->addr,
+					      handle->depth) == 1 &&
+		    opts->backtrace)
+			print_backtrace(task);
+
 		if (task->filter_count <= 0)
 			goto out;
 
@@ -109,7 +139,8 @@ out:
 }
 
 static int print_graph_rstack(struct ftrace_file_handle *handle,
-			      struct ftrace_task_handle *task)
+			      struct ftrace_task_handle *task,
+			      struct opts *opts)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
 	static bool seen_user_rstack = false;
@@ -141,7 +172,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct fstack *fstack;
 		int depth = rstack->depth;
 
-		update_filter_count_entry(task, rstack->addr, handle->depth);
+		if (update_filter_count_entry(task, rstack->addr,
+					      handle->depth) == 1 &&
+		    opts->backtrace)
+			print_backtrace(task);
+
 		if (task->filter_count <= 0)
 			goto out;
 
@@ -285,11 +320,11 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		if (opts->flat)
-			ret = print_flat_rstack(&handle, task);
+			ret = print_flat_rstack(&handle, task, opts);
 		else if (opts->no_merge)
-			ret = print_graph_no_merge_rstack(&handle, task);
+			ret = print_graph_no_merge_rstack(&handle, task, opts);
 		else
-			ret = print_graph_rstack(&handle, task);
+			ret = print_graph_rstack(&handle, task, opts);
 
 		if (ret)
 			break;

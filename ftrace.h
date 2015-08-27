@@ -110,6 +110,7 @@ struct opts {
 	bool no_merge;
 	bool nop;
 	bool time;
+	bool backtrace;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
@@ -259,8 +260,8 @@ int read_task_ustack(struct ftrace_task_handle *handle);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 
-void update_filter_count_entry(struct ftrace_task_handle *task,
-			       unsigned long addr, int depth);
+int update_filter_count_entry(struct ftrace_task_handle *task,
+			      unsigned long addr, int depth);
 void update_filter_count_exit(struct ftrace_task_handle *task,
 			      unsigned long addr, int depth);
 
