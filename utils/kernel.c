@@ -34,9 +34,7 @@ static char *get_tracing_file(const char *name)
 {
 	char *file = NULL;
 
-	if (asprintf(&file, "%s/%s", TRACING_DIR, name) < 0)
-		return NULL;
-
+	xasprintf(&file, "%s/%s", TRACING_DIR, name);
 	return file;
 }
 

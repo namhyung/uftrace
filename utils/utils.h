@@ -122,6 +122,13 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 	__ptr;								\
 })
 
+#define xasprintf(s, fmt, ...)						\
+({ 	int __ret = asprintf(s, fmt, ## __VA_ARGS__);			\
+	if (__ret < 0) {						\
+		pr_err("xasprintf");					\
+	}								\
+})
+
 int read_all(int fd, void *buf, size_t size);
 int write_all(int fd, void *buf, size_t size);
 int remove_directory(char *dirname);
