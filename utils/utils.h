@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <endian.h>
 #ifdef HAVE_LIBIBERTY
 # include <libiberty.h>
 #endif
@@ -129,8 +130,17 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 	}								\
 })
 
+#define htonq(x)  htobe64(x)
+#define ntohq(x)  be64toh(x)
+
+struct iovec;
+
 int read_all(int fd, void *buf, size_t size);
+int fread_all(void *byf, size_t size, FILE *fp);
 int write_all(int fd, void *buf, size_t size);
+int writev_all(int fd, struct iovec *iov, int count);
+
+int create_directory(char *dirname);
 int remove_directory(char *dirname);
 
 void print_time_unit(uint64_t delta_nsec);

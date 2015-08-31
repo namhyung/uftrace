@@ -838,17 +838,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
-	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
-
-	if (!access(buf, F_OK))
-		remove_directory(buf);
-
-	if (!access(opts->dirname, F_OK) && rename(opts->dirname, buf) < 0) {
-		pr_log("rename %s -> %s failed: %s\n",
-		       opts->dirname, buf, strerror(errno));
-		/* don't care about the failure */
-	}
-
 	load_symtabs(&symtabs, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
@@ -862,7 +851,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	mkdir(opts->dirname, 0755);
+	create_directory(opts->dirname);
 
 	fflush(stdout);
 
