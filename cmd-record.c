@@ -301,6 +301,7 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 struct writer_arg {
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
+	int			sock;
 };
 
 void *writer_thread(void *arg)
@@ -839,6 +840,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	struct ftrace_kernel kern;
 	int efd;
 	uint64_t go = 1;
+	int sock = -1;
 	struct writer_arg warg = {
 		.opts = opts,
 		.kern = &kern,
@@ -901,6 +903,11 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	sa.sa_sigaction = sigchld_handler;
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
 	sigaction(SIGCHLD, &sa, NULL);
+
+	if (opts->host) {
+		sock = setup_client_socket(opts);
+		warg.sock = sock;
+	}
 
 	pthread_create(&writer, NULL, writer_thread, &warg);
 
@@ -999,6 +1006,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);
+
+	if (opts->host) {
+		close(sock);
+	}
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by

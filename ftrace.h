@@ -74,6 +74,7 @@ struct ftrace_kernel;
 
 struct ftrace_file_handle {
 	FILE *fp;
+	int sock;
 	const char *dirname;
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
@@ -100,6 +101,7 @@ struct opts {
 	char *exename;
 	char *dirname;
 	char *logfile;
+	char *host;
 	int mode;
 	int idx;
 	int depth;
@@ -128,8 +130,10 @@ int command_recv(int argc, char *argv[], struct opts *opts);
 extern volatile bool ftrace_done;
 extern struct ftrace_proc_maps *proc_maps;
 
-extern int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-extern void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+
+int setup_client_socket(struct opts *opts);
 
 void sighandler(int sig);
 

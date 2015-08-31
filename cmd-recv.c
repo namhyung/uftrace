@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
 
@@ -54,6 +55,34 @@ static int signal_fd(struct opts *opts)
 		pr_err("signalfd failed");
 
 	return fd;
+}
+
+int setup_client_socket(struct opts *opts)
+{
+	struct sockaddr_in addr = {
+		.sin_family	= AF_INET,
+		.sin_port	= htons(opts->port),
+	};
+	struct hostent *hostinfo;
+	int sock;
+	int one = 1;
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0)
+		pr_err("socket create failed");
+
+	setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+
+	hostinfo = gethostbyname(opts->host);
+	if (hostinfo == NULL)
+		pr_err("cannot find host: %s", opts->host);
+
+	addr.sin_addr = *(struct in_addr *) hostinfo->h_addr;
+
+	if (connect(sock, &addr, sizeof(addr)) < 0)
+		pr_err("socket connect failed");
+
+	return sock;
 }
 
 static void epoll_add(int efd, int fd, unsigned event)
