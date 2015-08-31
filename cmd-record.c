@@ -173,20 +173,22 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status, char *buf, size_t size)
+static int fill_file_header(struct opts *opts, int status)
 {
 	int fd, efd;
 	int ret = -1;
+	char *filename = NULL;
 	struct ftrace_file_header hdr;
 	Elf *elf;
 	GElf_Ehdr ehdr;
 
-	snprintf(buf, size, "%s/info", opts->dirname);
-	pr_dbg("fill header (metadata) info in %s\n", buf);
+	xasprintf(&filename, "%s/info", opts->dirname);
+	pr_dbg("fill header (metadata) info in %s\n", filename);
 
-	fd = open(buf, O_WRONLY | O_CREAT| O_TRUNC, 0644);
+	fd = open(filename, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 	if (fd < 0) {
 		pr_log("cannot open info file: %s\n", strerror(errno));
+		free(filename);
 		return -1;
 	}
 
@@ -242,6 +244,7 @@ close_efd:
 	close(efd);
 close_fd:
 	close(fd);
+	free(filename);
 
 	return ret;
 }
@@ -811,7 +814,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
 	int status;
-	char buf[4096];
 	const char *profile_funcs[] = {
 		"mcount",
 		"__fentry__",
@@ -978,7 +980,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);
 
-	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
+	if (fill_file_header(opts, status) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {
