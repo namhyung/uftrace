@@ -249,45 +249,44 @@ close_fd:
 	return ret;
 }
 
-#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
-"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
-"\twhich generates traceable code.  Please check your binary file.\n"
-
-static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
+static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 {
-	char *ptr;
-	char *tid;
+	uint64_t _sid;
+	unsigned _tid;
+	unsigned _seq;
 
 	/*
-	 * extract tid part only from "/ftrace-SESSION-TID-SEQ".
+	 * parse message id of "/ftrace-SESSION-TID-SEQ".
 	 */
-	tid = strchr(id, '-');
-	assert(tid);
+	if (sscanf(id, "/ftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
+		pr_err("parse msg id failed");
 
-	tid++;
+	if (sid)
+		*sid = _sid;
+	if (tid)
+		*tid = _tid;
+	if (seq)
+		*seq = _seq;
+}
 
-	tid = strchr(tid, '-');
-	assert(tid);
+static char *make_disk_name(const char *dirname, char *id)
+{
+	int tid;
+	char *filename = NULL;
 
-	tid++;
+	parse_msg_id(id, NULL, &tid, NULL);
+	xasprintf(&filename, "%s/%d.dat", dirname, tid);
 
-	ptr = strchr(tid, '-');
-	assert(ptr);
-
-	*ptr = '\0';
-	snprintf(buf, size, "%s/%s.dat", dirname, tid);
-	*ptr = '-';
-
-	return buf;
+	return filename;
 }
 
 static int write_buffer_file(const char *dirname, struct buf_list *buf)
 {
 	int fd;
-	char name[1024];
+	char *filename;
 
-	fd = open(make_disk_name(name, sizeof(name), dirname, buf->id),
-		  O_WRONLY | O_CREAT | O_APPEND, 0644);
+	filename = make_disk_name(dirname, buf->id);
+	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
 
@@ -295,6 +294,7 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 		pr_err("write shmem buffer");
 
 	close(fd);
+	free(filename);
 	return 0;
 }
 
@@ -809,6 +809,10 @@ static void print_child_usage(struct rusage *ru)
 	printf("   user time: %lu.%06lu000 sec\n",
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
+
+#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
+"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
+"\twhich generates traceable code.  Please check your binary file.\n"
 
 int command_record(int argc, char *argv[], struct opts *opts)
 {
