@@ -134,6 +134,7 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
 int setup_client_socket(struct opts *opts);
+void send_trace_header(int sock, char *name);
 
 void sighandler(int sig);
 
@@ -170,6 +171,7 @@ struct ftrace_task {
 #define FTRACE_MSG_FORK_END   5U
 #define FTRACE_MSG_SESSION    6U
 #define FTRACE_MSG_LOST       7U
+#define FTRACE_MSG_SEND_HDR   8U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -10,6 +12,16 @@
 
 #include "ftrace.h"
 #include "utils/utils.h"
+#include "utils/list.h"
+
+struct client_data {
+	struct list_head	list;
+	int			sock;
+	char			*dirname;
+	int			dir_fd;
+};
+
+static LIST_HEAD(client_list);
 
 static int server_socket(struct opts *opts)
 {
@@ -57,6 +69,7 @@ static int signal_fd(struct opts *opts)
 	return fd;
 }
 
+/* client (record) side API */
 int setup_client_socket(struct opts *opts)
 {
 	struct sockaddr_in addr = {
@@ -83,6 +96,61 @@ int setup_client_socket(struct opts *opts)
 		pr_err("socket connect failed");
 
 	return sock;
+}
+
+void send_trace_header(int sock, char *name)
+{
+	ssize_t len = strlen(name);
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_HDR),
+		.len   = htonl(len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg, .iov_len = sizeof(msg), },
+		{ .iov_base = name, .iov_len = len, },
+	};
+
+	pr_dbg("send FTRACE_MSG_SEND_HDR\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send header failed");
+}
+
+/* server (recv) side API */
+static struct client_data *find_client(int sock)
+{
+	struct client_data *c;
+
+	list_for_each_entry(c, &client_list, list) {
+		if (c->sock == sock)
+			return c;
+	}
+	return NULL;
+}
+
+static void recv_trace_header(int sock, int len)
+{
+	char dirname[len + 1];
+	struct client_data *client;
+
+	if (read_all(sock, dirname, len) < 0)
+		pr_err("recv header failed");
+	dirname[len] = '\0';
+
+	client = xmalloc(sizeof(*client));
+
+	client->sock = sock;
+	client->dirname = xstrdup(dirname);
+	INIT_LIST_HEAD(&client->list);
+
+	create_directory(dirname);
+	pr_dbg("create directory: %s\n", dirname);
+
+	client->dir_fd = open(dirname, O_PATH | O_DIRECTORY);
+	if (client->dir_fd < 0)
+		pr_err("open dir failed");
+
+	list_add(&client->list, &client_list);
 }
 
 static void epoll_add(int efd, int fd, unsigned event)
@@ -115,6 +183,47 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 
 static void handle_client_sock(struct epoll_event *ev, int efd)
 {
+	int sock = ev->data.fd;
+	struct ftrace_msg msg;
+
+	if (ev->events & (EPOLLERR | EPOLLHUP)) {
+		struct client_data *c;
+
+		pr_log("client socket closed\n");
+
+		if (epoll_ctl(efd, EPOLL_CTL_DEL, sock, NULL) < 0)
+			pr_log("epoll del failed");
+
+		c = find_client(sock);
+		if (c) {
+			free(c->dirname);
+			close(c->dir_fd);
+			close(c->sock);
+			free(c);
+		}
+
+		return;
+	}
+
+	if (read_all(sock, &msg, sizeof(msg)) < 0)
+		pr_err("message recv failed");
+
+	msg.magic = ntohs(msg.magic);
+	msg.type  = ntohs(msg.type);
+	msg.len   = ntohl(msg.len);
+
+	if (msg.magic != FTRACE_MSG_MAGIC)
+		pr_err_ns("invalid message\n");
+
+	switch (msg.type) {
+	case FTRACE_MSG_SEND_HDR:
+		pr_dbg("receive FTRACE_MSG_SEND_HDR\n");
+		recv_trace_header(sock, msg.len);
+		break;
+	default:
+		pr_log("unknown message: %d\n", msg.type);
+		break;
+	}
 }
 
 int command_recv(int argc, char *argv[], struct opts *opts)

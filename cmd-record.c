@@ -906,6 +906,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->host) {
 		sock = setup_client_socket(opts);
+		send_trace_header(sock, opts->dirname);
 		warg.sock = sock;
 	}
 
