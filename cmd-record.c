@@ -835,6 +835,61 @@ static void send_task_file(int sock, const char *dirname)
 	free(filename);
 }
 
+/* find "sid-XXX.map" file */
+static int filter_map(const struct dirent *de)
+{
+	size_t len = strlen(de->d_name);
+
+	return !strncmp("sid-", de->d_name, 4) &&
+	       !strncmp(".map", de->d_name + len - 4, 4);
+}
+
+static void send_map_files(int sock, const char *dirname)
+{
+	int dir_fd;
+	int i, maps;
+	int map_fd;
+	uint64_t sid;
+	struct dirent **map_list;
+	struct stat stbuf;
+	void *map;
+	int len;
+
+	dir_fd = open(dirname, O_PATH | O_DIRECTORY);
+	if (dir_fd < 0)
+		pr_err("dir open failed");
+
+	maps = scandirat(dir_fd, ".", &map_list, filter_map, alphasort);
+	if (maps < 0)
+		pr_err("cannot scan map files");
+
+	for (i = 0; i < maps; i++) {
+		map_fd = openat(dir_fd, map_list[i]->d_name, O_RDONLY);
+		if (map_fd < 0)
+			pr_err("map open failed");
+
+		if (sscanf(map_list[i]->d_name, "sid-%"PRIx64".map", &sid) < 0)
+			pr_err("map sid parse failed");
+
+		if (fstat(map_fd, &stbuf) < 0)
+			pr_err("map stat failed");
+
+		len = stbuf.st_size;
+		map = xmalloc(len);
+
+		if (read_all(map_fd, map, len) < 0)
+			pr_err("map read failed");
+
+		send_trace_map(sock, sid, map, len);
+
+		free(map);
+		free(map_list[i]);
+		close(map_fd);
+	}
+	free(map_list);
+	close(dir_fd);
+}
+
 static bool child_exited;
 
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
@@ -1074,6 +1129,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->host) {
 		send_task_file(sock, opts->dirname);
+		send_map_files(sock, opts->dirname);
 		close(sock);
 	}
 

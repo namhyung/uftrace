@@ -201,6 +201,26 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 		pr_err("send session data failed");
 }
 
+void send_trace_map(int sock, uint64_t sid, void *map, int len)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_MAP),
+		.len   = htonl(sizeof(sid) + len),
+	};
+	uint64_t msg_sid = htonq(sid);
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = &msg_sid, .iov_len = sizeof(msg_sid), },
+		{ .iov_base = map,      .iov_len = len, },
+	};
+
+	pr_dbg("send FTRACE_MSG_SEND_MAP\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send map failed");
+}
+
+
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
 {
@@ -371,6 +391,35 @@ static void recv_trace_session(int sock, int len)
 	free(exename);
 }
 
+static void recv_trace_map(int sock, int len)
+{
+	struct client_data *client;
+	uint64_t sid;
+	char *mapname = NULL;
+	void *mapdata;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &sid, sizeof(sid)) < 0)
+		pr_err("recv map session id failed");
+
+	sid = ntohq(sid);
+	xasprintf(&mapname, "sid-%016"PRIx64".map", sid);
+
+	len -= sizeof(sid);
+	mapdata = xmalloc(len);
+
+	if (read_all(sock, mapdata, len) < 0)
+		pr_err("recv map file failed");
+
+	write_client_file(client, mapname, 1, mapdata, len);
+
+	free(mapdata);
+	free(mapname);
+}
+
 static void epoll_add(int efd, int fd, unsigned event)
 {
 	struct epoll_event ev = {
@@ -449,6 +498,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_SESSION:
 		pr_dbg("receive FTRACE_MSG_SEND_SESSION\n");
 		recv_trace_session(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_MAP:
+		pr_dbg("receive FTRACE_MSG_SEND_MAP\n");
+		recv_trace_map(sock, msg.len);
 		break;
 	default:
 		pr_log("unknown message: %d\n", msg.type);
