@@ -173,6 +173,7 @@ struct ftrace_task {
 #define FTRACE_MSG_SEND_TASK     10U
 #define FTRACE_MSG_SEND_SESSION  11U
 #define FTRACE_MSG_SEND_MAP      12U
+#define FTRACE_MSG_SEND_INFO     13U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -213,6 +214,8 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 			struct ftrace_msg_sess *smsg,
 			char *exename, int namelen);
 void send_trace_map(int sock, uint64_t sid, void *map, int len);
+void send_trace_info(int sock, struct ftrace_file_header *hdr,
+		     void *info, int len);
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);

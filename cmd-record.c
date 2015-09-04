@@ -890,6 +890,38 @@ static void send_map_files(int sock, const char *dirname)
 	close(dir_fd);
 }
 
+static void send_info_file(int sock, const char *dirname)
+{
+	int fd;
+	char *filename = NULL;
+	struct ftrace_file_header hdr;
+	struct stat stbuf;
+	void *info;
+	int len;
+
+	xasprintf(&filename, "%s/info", dirname);
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		pr_err("open info failed");
+
+	if (fstat(fd, &stbuf) < 0)
+		pr_err("stat info failed");
+
+	if (read_all(fd, &hdr, sizeof(hdr)) < 0)
+		pr_err("read file header failed");
+
+	len = stbuf.st_size - sizeof(hdr);
+	info = xmalloc(len);
+
+	if (read_all(fd, info, len) < 0)
+		pr_err("read info failed");
+
+	send_trace_info(sock, &hdr, info, len);
+
+	close(fd);
+	free(filename);
+}
+
 static bool child_exited;
 
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
@@ -1130,6 +1162,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->host) {
 		send_task_file(sock, opts->dirname);
 		send_map_files(sock, opts->dirname);
+		send_info_file(sock, opts->dirname);
 		close(sock);
 	}
 

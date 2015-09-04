@@ -220,6 +220,30 @@ void send_trace_map(int sock, uint64_t sid, void *map, int len)
 		pr_err("send map failed");
 }
 
+void send_trace_info(int sock, struct ftrace_file_header *hdr,
+		     void *info, int len)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_INFO),
+		.len   = htonl(sizeof(*hdr) + len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg, .iov_len = sizeof(msg), },
+		{ .iov_base = hdr,  .iov_len = sizeof(*hdr), },
+		{ .iov_base = info, .iov_len = len, },
+	};
+
+	hdr->version     = htonl(hdr->version);
+	hdr->header_size = htons(hdr->header_size);
+	hdr->feat_mask   = htonq(hdr->feat_mask);
+	hdr->info_mask   = htonq(hdr->info_mask);
+
+	pr_dbg("send FTRACE_MSG_SEND_INFO\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send info failed");
+}
+
 
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
@@ -420,6 +444,35 @@ static void recv_trace_map(int sock, int len)
 	free(mapname);
 }
 
+static void recv_trace_info(int sock, int len)
+{
+	struct client_data *client;
+	struct ftrace_file_header hdr;
+	void *info;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &hdr, sizeof(hdr)) < 0)
+		pr_err("recv file header failed");
+
+	hdr.version     = ntohl(hdr.version);
+	hdr.header_size = ntohs(hdr.header_size);
+	hdr.feat_mask   = ntohq(hdr.feat_mask);
+	hdr.info_mask   = ntohq(hdr.info_mask);
+
+	len -= sizeof(hdr);
+	info = xmalloc(len);
+
+	if (read_all(sock, info, len) < 0)
+		pr_err("recv info file failed");
+
+	write_client_file(client, "info", 2, &hdr, sizeof(hdr), info, len);
+
+	free(info);
+}
+
 static void epoll_add(int efd, int fd, unsigned event)
 {
 	struct epoll_event ev = {
@@ -502,6 +555,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_MAP:
 		pr_dbg("receive FTRACE_MSG_SEND_MAP\n");
 		recv_trace_map(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_INFO:
+		pr_dbg("receive FTRACE_MSG_SEND_INFO\n");
+		recv_trace_info(sock, msg.len);
 		break;
 	default:
 		pr_log("unknown message: %d\n", msg.type);
