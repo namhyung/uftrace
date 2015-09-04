@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdarg.h>
+#include <inttypes.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -135,6 +137,70 @@ void send_trace_data(int sock, int tid, void *data, size_t len)
 		pr_err("send data failed");
 }
 
+void send_trace_task(int sock, struct ftrace_msg *hmsg,
+		     struct ftrace_msg_task *tmsg)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_TASK),
+		.len   = htonl(sizeof(*hmsg) + sizeof(*tmsg)),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg, .iov_len = sizeof(msg), },
+		{ .iov_base = hmsg, .iov_len = sizeof(*hmsg), },
+		{ .iov_base = tmsg, .iov_len = sizeof(*tmsg), },
+	};
+
+	hmsg->magic = htons(hmsg->magic);
+	hmsg->type  = htons(hmsg->type);
+	hmsg->len   = htonl(hmsg->len);
+
+	tmsg->time = htonq(tmsg->time);
+	tmsg->pid  = htonl(tmsg->pid);
+	tmsg->tid  = htonl(tmsg->tid);
+
+	pr_dbg("send FTRACE_MSG_SEND_TASK\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send task data failed");
+}
+
+/* namelen is 8-byte aligned length of smsg->namelen */
+void send_trace_session(int sock, struct ftrace_msg *hmsg,
+			struct ftrace_msg_sess *smsg,
+			char *exename, int namelen)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_SESSION),
+		.len   = htonl(sizeof(*hmsg) + sizeof(*smsg)),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,    .iov_len = sizeof(msg), },
+		{ .iov_base = hmsg,    .iov_len = sizeof(*hmsg), },
+		{ .iov_base = smsg,    .iov_len = sizeof(*smsg), },
+		{ .iov_base = exename, .iov_len = namelen, },
+	};
+	uint64_t sid;
+	char sidbuf[sizeof(smsg->sid) + 1];
+
+	hmsg->magic = htons(hmsg->magic);
+	hmsg->type  = htons(hmsg->type);
+	hmsg->len   = htonl(hmsg->len);
+
+	smsg->task.time = htonq(smsg->task.time);
+	smsg->task.pid  = htonl(smsg->task.pid);
+	smsg->task.tid  = htonl(smsg->task.tid);
+	smsg->namelen   = htonl(smsg->namelen);
+
+	sscanf(smsg->sid, "%016"SCNx64, &sid);
+	snprintf(sidbuf, sizeof(sidbuf), "%016"PRIx64, htonq(sid));
+	memcpy(smsg->sid, sidbuf, sizeof(smsg->sid));
+
+	pr_dbg("send FTRACE_MSG_SEND_SESSION\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send session data failed");
+}
+
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
 {
@@ -145,6 +211,31 @@ static struct client_data *find_client(int sock)
 			return c;
 	}
 	return NULL;
+}
+
+#define O_CLIENT_FLAGS  (O_WRONLY | O_APPEND | O_CREAT)
+
+static void write_client_file(struct client_data *c, char *filename, int nr, ...)
+{
+	int i, fd;
+	va_list ap;
+	struct iovec iov[nr];
+
+	fd = openat(c->dir_fd, filename, O_CLIENT_FLAGS, 0644);
+	if (fd < 0)
+		pr_err("file open failed: %s", filename);
+
+	va_start(ap, nr);
+	for (i = 0; i < nr; i++) {
+		iov[i].iov_base = va_arg(ap, void *);
+		iov[i].iov_len  = va_arg(ap, int);
+	}
+	va_end(ap);
+
+	if (writev_all(fd, iov, nr) < 0)
+		pr_err("write client data failed on %s", filename);
+
+	close(fd);
 }
 
 static void recv_trace_header(int sock, int len)
@@ -172,15 +263,12 @@ static void recv_trace_header(int sock, int len)
 	list_add(&client->list, &client_list);
 }
 
-#define O_CLIENT_FLAGS  (O_WRONLY | O_APPEND | O_CREAT)
-
 static void recv_trace_data(int sock, int len)
 {
 	struct client_data *client;
 	int32_t tid;
 	char *filename = NULL;
 	void *buffer;
-	int fd;
 
 	client = find_client(sock);
 	if (client == NULL)
@@ -198,16 +286,89 @@ static void recv_trace_data(int sock, int len)
 	if (read_all(sock, buffer, len) < 0)
 		pr_err("recv buffer failed");
 
-	fd = openat(client->dir_fd, filename, O_CLIENT_FLAGS, 0644);
-	if (fd < 0)
-		pr_err("file open failed: %s", filename);
+	write_client_file(client, filename, 1, buffer, len);
 
-	if (write_all(fd, buffer, len) < 0)
-		pr_err("file write failed");
-
-	close(fd);
 	free(buffer);
 	free(filename);
+}
+
+static void recv_trace_task(int sock, int len)
+{
+	struct client_data *client;
+	struct ftrace_msg msg;
+	struct ftrace_msg_task tmsg;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &msg, sizeof(msg)) < 0)
+		pr_err("recv task message failed");
+
+	msg.magic = htons(msg.magic);
+	msg.type  = htons(msg.type);
+	msg.len   = htonl(msg.len);
+
+	if (msg.type != FTRACE_MSG_TID && msg.type != FTRACE_MSG_FORK_END)
+		pr_err("invalid task message type: %u\n", msg.type);
+
+	if (read_all(sock, &tmsg, sizeof(tmsg)) < 0)
+		pr_err("recv task message failed");
+
+	tmsg.time = htonq(tmsg.time);
+	tmsg.pid  = htonl(tmsg.pid);
+	tmsg.tid  = htonl(tmsg.tid);
+
+	write_client_file(client, "task", 2, &msg, sizeof(msg),
+			  &tmsg, sizeof(tmsg));
+}
+
+static void recv_trace_session(int sock, int len)
+{
+	struct client_data *client;
+	struct ftrace_msg msg;
+	struct ftrace_msg_sess smsg;
+	uint64_t sid;
+	char sidbuf[sizeof(smsg.sid) + 1];
+	char *exename;
+	int namelen;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &msg, sizeof(msg)) < 0)
+		pr_err("recv session message failed");
+
+	msg.magic = htons(msg.magic);
+	msg.type  = htons(msg.type);
+	msg.len   = htonl(msg.len);
+
+	if (msg.type != FTRACE_MSG_SESSION)
+		pr_err("invalid session message type: %u\n", msg.type);
+
+	if (read_all(sock, &smsg, sizeof(smsg)) < 0)
+		pr_err("recv session message failed");
+
+	smsg.task.time = htonq(smsg.task.time);
+	smsg.task.pid  = htonl(smsg.task.pid);
+	smsg.task.tid  = htonl(smsg.task.tid);
+	smsg.namelen   = htonl(smsg.namelen);
+
+	sscanf(smsg.sid, "%016"SCNx64, &sid);
+	snprintf(sidbuf, sizeof(sidbuf), "%016"PRIx64, htonq(sid));
+	memcpy(smsg.sid, sidbuf, sizeof(smsg.sid));
+
+	namelen = ALIGN(smsg.namelen, 8);
+	exename = xmalloc(namelen);
+
+	if (read_all(sock, exename, namelen) < 0)
+		pr_err("recv exename failed");
+
+	write_client_file(client, "task", 3, &msg, sizeof(msg),
+			  &smsg, sizeof(smsg), exename, namelen);
+
+	free(exename);
 }
 
 static void epoll_add(int efd, int fd, unsigned event)
@@ -280,6 +441,14 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_DATA:
 		pr_dbg("receive FTRACE_MSG_SEND_DATA\n");
 		recv_trace_data(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_TASK:
+		pr_dbg("receive FTRACE_MSG_SEND_TASK\n");
+		recv_trace_task(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_SESSION:
+		pr_dbg("receive FTRACE_MSG_SEND_SESSION\n");
+		recv_trace_session(sock, msg.len);
 		break;
 	default:
 		pr_log("unknown message: %d\n", msg.type);

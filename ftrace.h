@@ -133,10 +133,6 @@ extern struct ftrace_proc_maps *proc_maps;
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
-int setup_client_socket(struct opts *opts);
-void send_trace_header(int sock, char *name);
-void send_trace_data(int sock, int tid, void *data, size_t len);
-
 void sighandler(int sig);
 
 struct ftrace_session {
@@ -165,15 +161,17 @@ struct ftrace_task {
 
 #define FTRACE_MSG_MAGIC 0xface
 
-#define FTRACE_MSG_REC_START  1U
-#define FTRACE_MSG_REC_END    2U
-#define FTRACE_MSG_TID        3U
-#define FTRACE_MSG_FORK_START 4U
-#define FTRACE_MSG_FORK_END   5U
-#define FTRACE_MSG_SESSION    6U
-#define FTRACE_MSG_LOST       7U
-#define FTRACE_MSG_SEND_HDR   8U
-#define FTRACE_MSG_SEND_DATA  9U
+#define FTRACE_MSG_REC_START      1U
+#define FTRACE_MSG_REC_END        2U
+#define FTRACE_MSG_TID            3U
+#define FTRACE_MSG_FORK_START     4U
+#define FTRACE_MSG_FORK_END       5U
+#define FTRACE_MSG_SESSION        6U
+#define FTRACE_MSG_LOST           7U
+#define FTRACE_MSG_SEND_HDR       8U
+#define FTRACE_MSG_SEND_DATA      9U
+#define FTRACE_MSG_SEND_TASK     10U
+#define FTRACE_MSG_SEND_SESSION  11U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -204,6 +202,15 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
 struct ftrace_task *find_task(int tid);
+
+int setup_client_socket(struct opts *opts);
+void send_trace_header(int sock, char *name);
+void send_trace_data(int sock, int tid, void *data, size_t len);
+void send_trace_task(int sock, struct ftrace_msg *hmsg,
+		     struct ftrace_msg_task *tmsg);
+void send_trace_session(int sock, struct ftrace_msg *hmsg,
+			struct ftrace_msg_sess *smsg,
+			char *exename, int namelen);
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);

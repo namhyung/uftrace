@@ -779,6 +779,62 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
+static void send_task_file(int sock, const char *dirname)
+{
+	FILE *fp;
+	char *filename = NULL;
+	struct ftrace_msg msg;
+	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess smsg;
+	int namelen;
+	char *exename;
+
+	xasprintf(&filename, "%s/task", dirname);
+
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("open task file failed");
+
+	while (fread_all(&msg, sizeof(msg), fp) == 0) {
+		if (msg.magic  != FTRACE_MSG_MAGIC) {
+			pr_err_ns("invalid message in task file: %x\n",
+				  msg.magic);
+		}
+
+		switch (msg.type) {
+		case FTRACE_MSG_TID:
+		case FTRACE_MSG_FORK_END:
+			if (fread_all(&tmsg, sizeof(tmsg), fp) < 0)
+				pr_err("read task message failed");
+
+			send_trace_task(sock, &msg, &tmsg);
+			break;
+
+		case FTRACE_MSG_SESSION:
+			if (fread_all(&smsg, sizeof(smsg), fp) < 0)
+				pr_err("read session message failed");
+
+			namelen = ALIGN(smsg.namelen, 8);
+			exename = xmalloc(namelen);
+			if (fread_all(exename, namelen, fp) < 0)
+				pr_err("read exename failed");
+
+			send_trace_session(sock, &msg, &smsg, exename, namelen);
+			break;
+
+		default:
+			pr_err_ns("unknown task file message: %d\n", msg.type);
+			break;
+		}
+	}
+
+	if (!feof(fp))
+		pr_err_ns("read task file failed\n");
+
+	fclose(fp);
+	free(filename);
+}
+
 static bool child_exited;
 
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
@@ -1017,6 +1073,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		finish_kernel_tracing(&kern);
 
 	if (opts->host) {
+		send_task_file(sock, opts->dirname);
 		close(sock);
 	}
 
