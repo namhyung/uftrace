@@ -244,6 +244,18 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		pr_err("send info failed");
 }
 
+void send_trace_end(int sock)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_END),
+	};
+
+	pr_dbg("send FTRACE_MSG_SEND_END\n");
+	if (write_all(sock, &msg, sizeof(msg)) < 0)
+		pr_err("send end failed");
+}
+
 
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
@@ -473,6 +485,25 @@ static void recv_trace_info(int sock, int len)
 	free(info);
 }
 
+static void recv_trace_end(int sock, int efd)
+{
+	struct client_data *client;
+
+	client = find_client(sock);
+	if (client) {
+		list_del(&client->list);
+
+		free(client->dirname);
+		close(client->dir_fd);
+		free(client);
+	}
+
+	if (epoll_ctl(efd, EPOLL_CTL_DEL, sock, NULL) < 0)
+		pr_err("epoll del failed");
+
+	close(sock);
+}
+
 static void epoll_add(int efd, int fd, unsigned event)
 {
 	struct epoll_event ev = {
@@ -507,21 +538,8 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	struct ftrace_msg msg;
 
 	if (ev->events & (EPOLLERR | EPOLLHUP)) {
-		struct client_data *c;
-
 		pr_log("client socket closed\n");
-
-		if (epoll_ctl(efd, EPOLL_CTL_DEL, sock, NULL) < 0)
-			pr_log("epoll del failed");
-
-		c = find_client(sock);
-		if (c) {
-			free(c->dirname);
-			close(c->dir_fd);
-			close(c->sock);
-			free(c);
-		}
-
+		recv_trace_end(sock, efd);
 		return;
 	}
 
@@ -559,6 +577,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_INFO:
 		pr_dbg("receive FTRACE_MSG_SEND_INFO\n");
 		recv_trace_info(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_END:
+		pr_dbg("receive FTRACE_MSG_SEND_END\n");
+		recv_trace_end(sock, efd);
 		break;
 	default:
 		pr_log("unknown message: %d\n", msg.type);

@@ -1163,6 +1163,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		send_task_file(sock, opts->dirname);
 		send_map_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
+		send_trace_end(sock);
 		close(sock);
 	}
 
