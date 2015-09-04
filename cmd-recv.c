@@ -116,6 +116,25 @@ void send_trace_header(int sock, char *name)
 		pr_err("send header failed");
 }
 
+void send_trace_data(int sock, int tid, void *data, size_t len)
+{
+	int32_t msg_tid = htonl(tid);
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_DATA),
+		.len   = htonl(sizeof(msg_tid) + len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = &msg_tid, .iov_len = sizeof(msg_tid), },
+		{ .iov_base = data,     .iov_len = len, },
+	};
+
+	pr_dbg("send FTRACE_MSG_SEND_DATA\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send data failed");
+}
+
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
 {
@@ -151,6 +170,44 @@ static void recv_trace_header(int sock, int len)
 		pr_err("open dir failed");
 
 	list_add(&client->list, &client_list);
+}
+
+#define O_CLIENT_FLAGS  (O_WRONLY | O_APPEND | O_CREAT)
+
+static void recv_trace_data(int sock, int len)
+{
+	struct client_data *client;
+	int32_t tid;
+	char *filename = NULL;
+	void *buffer;
+	int fd;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &tid, sizeof(tid)) < 0)
+		pr_err("recv tid failed");
+	tid = ntohl(tid);
+
+	xasprintf(&filename, "%d.dat", tid);
+
+	len -= sizeof(tid);
+	buffer = xmalloc(len);
+
+	if (read_all(sock, buffer, len) < 0)
+		pr_err("recv buffer failed");
+
+	fd = openat(client->dir_fd, filename, O_CLIENT_FLAGS, 0644);
+	if (fd < 0)
+		pr_err("file open failed: %s", filename);
+
+	if (write_all(fd, buffer, len) < 0)
+		pr_err("file write failed");
+
+	close(fd);
+	free(buffer);
+	free(filename);
 }
 
 static void epoll_add(int efd, int fd, unsigned event)
@@ -219,6 +276,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_HDR:
 		pr_dbg("receive FTRACE_MSG_SEND_HDR\n");
 		recv_trace_header(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_DATA:
+		pr_dbg("receive FTRACE_MSG_SEND_DATA\n");
+		recv_trace_data(sock, msg.len);
 		break;
 	default:
 		pr_log("unknown message: %d\n", msg.type);

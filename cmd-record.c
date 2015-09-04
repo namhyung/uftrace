@@ -308,6 +308,7 @@ void *writer_thread(void *arg)
 {
 	struct buf_list *buf;
 	struct writer_arg *warg = arg;
+	struct opts *opts = warg->opts;
 
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
@@ -327,13 +328,20 @@ void *writer_thread(void *arg)
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		write_buffer_file(warg->opts->dirname, buf);
+		if (opts->host) {
+			int tid = 0;
+
+			parse_msg_id(buf->id, NULL, &tid, NULL);
+			send_trace_data(warg->sock, tid, buf->data, buf->len);
+		} else {
+			write_buffer_file(opts->dirname, buf);
+		}
 
 		pthread_mutex_lock(&free_list_lock);
 		list_add(&buf->list, &buf_free_list);
 		pthread_mutex_unlock(&free_list_lock);
 
-		if (warg->opts->kernel)
+		if (opts->kernel)
 			record_kernel_tracing(warg->kern);
 	}
 
