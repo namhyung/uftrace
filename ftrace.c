@@ -48,6 +48,7 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_time	309
 #define OPT_max_stack	310
 #define OPT_backtrace	311
+#define OPT_port	312
 
 
 static struct argp_option ftrace_options[] = {
@@ -72,6 +73,8 @@ static struct argp_option ftrace_options[] = {
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
 	{ "backtrace", OPT_backtrace, 0, 0, "Show backtrace of filtered function" },
+	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
+	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ 0 }
 };
 
@@ -154,6 +157,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->kernel = 2;
 		break;
 
+	case 'H':
+		opts->host = arg;
+		break;
+
 	case OPT_flat:
 		opts->flat = true;
 		break;
@@ -199,6 +206,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_backtrace:
 		opts->backtrace = true;
+		break;
+
+	case OPT_port:
+		opts->port = strtol(arg, NULL, 0);
+		if (opts->port <= 0)
+			pr_err_ns("invalid port number: %s\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:

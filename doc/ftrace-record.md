@@ -60,6 +60,12 @@ OPTIONS
 -K, \--kernel-full
 :   Trace kernel functions as well as user functions.  Kernel functions will be traced in full detail (ie. without depth limit unless explicitly given)
 
+-H *HOST*, \--host=*HOST*
+:   Send trace data to given host via network, not writing to files.  The `ftrace-recv` should be run on the host to receive the data.
+
+\--port=*PORT*
+:   When sending data to network (with -H option), use given port instead of the default port (8090).
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/\--filter option and opt-out filter with -N/\--notrace option.  These filters can be applied either record time or replay time.

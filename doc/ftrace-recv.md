@@ -14,6 +14,9 @@ DESCRIPTION
 ===========
 This command receives tracing data from network and saves it to files.
 
+\--port=*PORT*
+:   Use given port instead of the default (8090).
+
 SEE ALSO
 ========
 `ftrace`(1), `ftrace-record`(1)
