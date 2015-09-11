@@ -80,8 +80,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 			continue;
 		}
 
-		if (asprintf(&filename, "%s/%d.dat", handle->dirname, tid) < 0)
-			pr_err("cannot open task data file for %d", tid);
+		xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
 
 		tasks[i].fp = fopen(filename, "rb");
 		if (tasks[i].fp == NULL)
@@ -165,10 +164,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		memset(&tasks[idx], 0, sizeof(*tasks));
 
-		if (asprintf(&filename, "%s/%d.dat",
-			     handle->dirname, handle->info.tids[idx]) < 0)
-			pr_err("cannot read task rstack for %d",
-			       handle->info.tids[idx]);
+		xasprintf(&filename, "%s/%d.dat",
+			  handle->dirname, handle->info.tids[idx]);
 
 		tasks[idx].tid = handle->info.tids[idx];
 		tasks[idx].fp = fopen(filename, "rb");

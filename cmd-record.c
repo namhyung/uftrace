@@ -173,20 +173,22 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status, char *buf, size_t size)
+static int fill_file_header(struct opts *opts, int status)
 {
 	int fd, efd;
 	int ret = -1;
+	char *filename = NULL;
 	struct ftrace_file_header hdr;
 	Elf *elf;
 	GElf_Ehdr ehdr;
 
-	snprintf(buf, size, "%s/info", opts->dirname);
-	pr_dbg("fill header (metadata) info in %s\n", buf);
+	xasprintf(&filename, "%s/info", opts->dirname);
+	pr_dbg("fill header (metadata) info in %s\n", filename);
 
-	fd = open(buf, O_WRONLY | O_CREAT| O_TRUNC, 0644);
+	fd = open(filename, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 	if (fd < 0) {
 		pr_log("cannot open info file: %s\n", strerror(errno));
+		free(filename);
 		return -1;
 	}
 
@@ -242,49 +244,49 @@ close_efd:
 	close(efd);
 close_fd:
 	close(fd);
+	free(filename);
 
 	return ret;
 }
 
-#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
-"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
-"\twhich generates traceable code.  Please check your binary file.\n"
-
-static char *make_disk_name(char *buf, size_t size, const char *dirname, char *id)
+static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 {
-	char *ptr;
-	char *tid;
+	uint64_t _sid;
+	unsigned _tid;
+	unsigned _seq;
 
 	/*
-	 * extract tid part only from "/ftrace-SESSION-TID-SEQ".
+	 * parse message id of "/ftrace-SESSION-TID-SEQ".
 	 */
-	tid = strchr(id, '-');
-	assert(tid);
+	if (sscanf(id, "/ftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
+		pr_err("parse msg id failed");
 
-	tid++;
+	if (sid)
+		*sid = _sid;
+	if (tid)
+		*tid = _tid;
+	if (seq)
+		*seq = _seq;
+}
 
-	tid = strchr(tid, '-');
-	assert(tid);
+static char *make_disk_name(const char *dirname, char *id)
+{
+	int tid;
+	char *filename = NULL;
 
-	tid++;
+	parse_msg_id(id, NULL, &tid, NULL);
+	xasprintf(&filename, "%s/%d.dat", dirname, tid);
 
-	ptr = strchr(tid, '-');
-	assert(ptr);
-
-	*ptr = '\0';
-	snprintf(buf, size, "%s/%s.dat", dirname, tid);
-	*ptr = '-';
-
-	return buf;
+	return filename;
 }
 
 static int write_buffer_file(const char *dirname, struct buf_list *buf)
 {
 	int fd;
-	char name[1024];
+	char *filename;
 
-	fd = open(make_disk_name(name, sizeof(name), dirname, buf->id),
-		  O_WRONLY | O_CREAT | O_APPEND, 0644);
+	filename = make_disk_name(dirname, buf->id);
+	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
 
@@ -292,18 +294,21 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 		pr_err("write shmem buffer");
 
 	close(fd);
+	free(filename);
 	return 0;
 }
 
 struct writer_arg {
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
+	int			sock;
 };
 
 void *writer_thread(void *arg)
 {
 	struct buf_list *buf;
 	struct writer_arg *warg = arg;
+	struct opts *opts = warg->opts;
 
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
@@ -323,13 +328,20 @@ void *writer_thread(void *arg)
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		write_buffer_file(warg->opts->dirname, buf);
+		if (opts->host) {
+			int tid = 0;
+
+			parse_msg_id(buf->id, NULL, &tid, NULL);
+			send_trace_data(warg->sock, tid, buf->data, buf->len);
+		} else {
+			write_buffer_file(opts->dirname, buf);
+		}
 
 		pthread_mutex_lock(&free_list_lock);
 		list_add(&buf->list, &buf_free_list);
 		pthread_mutex_unlock(&free_list_lock);
 
-		if (warg->opts->kernel)
+		if (opts->kernel)
 			record_kernel_tracing(warg->kern);
 	}
 
@@ -767,6 +779,149 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
+static void send_task_file(int sock, const char *dirname)
+{
+	FILE *fp;
+	char *filename = NULL;
+	struct ftrace_msg msg;
+	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess smsg;
+	int namelen;
+	char *exename;
+
+	xasprintf(&filename, "%s/task", dirname);
+
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("open task file failed");
+
+	while (fread_all(&msg, sizeof(msg), fp) == 0) {
+		if (msg.magic  != FTRACE_MSG_MAGIC) {
+			pr_err_ns("invalid message in task file: %x\n",
+				  msg.magic);
+		}
+
+		switch (msg.type) {
+		case FTRACE_MSG_TID:
+		case FTRACE_MSG_FORK_END:
+			if (fread_all(&tmsg, sizeof(tmsg), fp) < 0)
+				pr_err("read task message failed");
+
+			send_trace_task(sock, &msg, &tmsg);
+			break;
+
+		case FTRACE_MSG_SESSION:
+			if (fread_all(&smsg, sizeof(smsg), fp) < 0)
+				pr_err("read session message failed");
+
+			namelen = ALIGN(smsg.namelen, 8);
+			exename = xmalloc(namelen);
+			if (fread_all(exename, namelen, fp) < 0)
+				pr_err("read exename failed");
+
+			send_trace_session(sock, &msg, &smsg, exename, namelen);
+			break;
+
+		default:
+			pr_err_ns("unknown task file message: %d\n", msg.type);
+			break;
+		}
+	}
+
+	if (!feof(fp))
+		pr_err_ns("read task file failed\n");
+
+	fclose(fp);
+	free(filename);
+}
+
+/* find "sid-XXX.map" file */
+static int filter_map(const struct dirent *de)
+{
+	size_t len = strlen(de->d_name);
+
+	return !strncmp("sid-", de->d_name, 4) &&
+	       !strncmp(".map", de->d_name + len - 4, 4);
+}
+
+static void send_map_files(int sock, const char *dirname)
+{
+	int dir_fd;
+	int i, maps;
+	int map_fd;
+	uint64_t sid;
+	struct dirent **map_list;
+	struct stat stbuf;
+	void *map;
+	int len;
+
+	dir_fd = open(dirname, O_PATH | O_DIRECTORY);
+	if (dir_fd < 0)
+		pr_err("dir open failed");
+
+	maps = scandirat(dir_fd, ".", &map_list, filter_map, alphasort);
+	if (maps < 0)
+		pr_err("cannot scan map files");
+
+	for (i = 0; i < maps; i++) {
+		map_fd = openat(dir_fd, map_list[i]->d_name, O_RDONLY);
+		if (map_fd < 0)
+			pr_err("map open failed");
+
+		if (sscanf(map_list[i]->d_name, "sid-%"PRIx64".map", &sid) < 0)
+			pr_err("map sid parse failed");
+
+		if (fstat(map_fd, &stbuf) < 0)
+			pr_err("map stat failed");
+
+		len = stbuf.st_size;
+		map = xmalloc(len);
+
+		if (read_all(map_fd, map, len) < 0)
+			pr_err("map read failed");
+
+		send_trace_map(sock, sid, map, len);
+
+		free(map);
+		free(map_list[i]);
+		close(map_fd);
+	}
+	free(map_list);
+	close(dir_fd);
+}
+
+static void send_info_file(int sock, const char *dirname)
+{
+	int fd;
+	char *filename = NULL;
+	struct ftrace_file_header hdr;
+	struct stat stbuf;
+	void *info;
+	int len;
+
+	xasprintf(&filename, "%s/info", dirname);
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		pr_err("open info failed");
+
+	if (fstat(fd, &stbuf) < 0)
+		pr_err("stat info failed");
+
+	if (read_all(fd, &hdr, sizeof(hdr)) < 0)
+		pr_err("read file header failed");
+
+	len = stbuf.st_size - sizeof(hdr);
+	info = xmalloc(len);
+
+	if (read_all(fd, info, len) < 0)
+		pr_err("read info failed");
+
+	send_trace_info(sock, &hdr, info, len);
+
+	close(fd);
+	free(filename);
+}
+
 static bool child_exited;
 
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
@@ -807,11 +962,14 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
+#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
+"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
+"\twhich generates traceable code.  Please check your binary file.\n"
+
 int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
 	int status;
-	char buf[4096];
 	const char *profile_funcs[] = {
 		"mcount",
 		"__fentry__",
@@ -833,21 +991,11 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	struct ftrace_kernel kern;
 	int efd;
 	uint64_t go = 1;
+	int sock = -1;
 	struct writer_arg warg = {
 		.opts = opts,
 		.kern = &kern,
 	};
-
-	snprintf(buf, sizeof(buf), "%s.old", opts->dirname);
-
-	if (!access(buf, F_OK))
-		remove_directory(buf);
-
-	if (!access(opts->dirname, F_OK) && rename(opts->dirname, buf) < 0) {
-		pr_log("rename %s -> %s failed: %s\n",
-		       opts->dirname, buf, strerror(errno));
-		/* don't care about the failure */
-	}
 
 	load_symtabs(&symtabs, opts->exename);
 
@@ -862,7 +1010,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	mkdir(opts->dirname, 0755);
+	create_directory(opts->dirname);
 
 	fflush(stdout);
 
@@ -906,6 +1054,12 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	sa.sa_sigaction = sigchld_handler;
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
 	sigaction(SIGCHLD, &sa, NULL);
+
+	if (opts->host) {
+		sock = setup_client_socket(opts);
+		send_trace_header(sock, opts->dirname);
+		warg.sock = sock;
+	}
 
 	pthread_create(&writer, NULL, writer_thread, &warg);
 
@@ -989,7 +1143,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);
 
-	if (fill_file_header(opts, status, buf, sizeof(buf)) < 0)
+	if (fill_file_header(opts, status) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {
@@ -1004,6 +1158,14 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);
+
+	if (opts->host) {
+		send_task_file(sock, opts->dirname);
+		send_map_files(sock, opts->dirname);
+		send_info_file(sock, opts->dirname);
+		send_trace_end(sock);
+		close(sock);
+	}
 
 	/*
 	 * Do not unload symbol tables.  It might save some time when used by

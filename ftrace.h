@@ -17,6 +17,9 @@
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
+#define FTRACE_RECV_PORT  8090
+
+
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];
 	uint32_t version;
@@ -71,6 +74,7 @@ struct ftrace_kernel;
 
 struct ftrace_file_handle {
 	FILE *fp;
+	int sock;
 	const char *dirname;
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
@@ -84,7 +88,8 @@ struct ftrace_file_handle {
 #define FTRACE_MODE_LIVE    3
 #define FTRACE_MODE_REPORT  4
 #define FTRACE_MODE_INFO    5
-#define FTRACE_MODE_DUMP    6
+#define FTRACE_MODE_RECV    6
+#define FTRACE_MODE_DUMP    7
 
 #define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
 
@@ -96,11 +101,13 @@ struct opts {
 	char *exename;
 	char *dirname;
 	char *logfile;
+	char *host;
 	int mode;
 	int idx;
 	int depth;
 	int max_stack;
 	int kernel;
+	int port;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -118,12 +125,13 @@ int command_replay(int argc, char *argv[], struct opts *opts);
 int command_live(int argc, char *argv[], struct opts *opts);
 int command_report(int argc, char *argv[], struct opts *opts);
 int command_info(int argc, char *argv[], struct opts *opts);
+int command_recv(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool ftrace_done;
 extern struct ftrace_proc_maps *proc_maps;
 
-extern int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-extern void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 
 void sighandler(int sig);
 
@@ -153,13 +161,20 @@ struct ftrace_task {
 
 #define FTRACE_MSG_MAGIC 0xface
 
-#define FTRACE_MSG_REC_START  1U
-#define FTRACE_MSG_REC_END    2U
-#define FTRACE_MSG_TID        3U
-#define FTRACE_MSG_FORK_START 4U
-#define FTRACE_MSG_FORK_END   5U
-#define FTRACE_MSG_SESSION    6U
-#define FTRACE_MSG_LOST       7U
+#define FTRACE_MSG_REC_START      1U
+#define FTRACE_MSG_REC_END        2U
+#define FTRACE_MSG_TID            3U
+#define FTRACE_MSG_FORK_START     4U
+#define FTRACE_MSG_FORK_END       5U
+#define FTRACE_MSG_SESSION        6U
+#define FTRACE_MSG_LOST           7U
+#define FTRACE_MSG_SEND_HDR       8U
+#define FTRACE_MSG_SEND_DATA      9U
+#define FTRACE_MSG_SEND_TASK     10U
+#define FTRACE_MSG_SEND_SESSION  11U
+#define FTRACE_MSG_SEND_MAP      12U
+#define FTRACE_MSG_SEND_INFO     13U
+#define FTRACE_MSG_SEND_END      14U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -190,6 +205,19 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
 struct ftrace_task *find_task(int tid);
+
+int setup_client_socket(struct opts *opts);
+void send_trace_header(int sock, char *name);
+void send_trace_data(int sock, int tid, void *data, size_t len);
+void send_trace_task(int sock, struct ftrace_msg *hmsg,
+		     struct ftrace_msg_task *tmsg);
+void send_trace_session(int sock, struct ftrace_msg *hmsg,
+			struct ftrace_msg_sess *smsg,
+			char *exename, int namelen);
+void send_trace_map(int sock, uint64_t sid, void *map, int len);
+void send_trace_info(int sock, struct ftrace_file_header *hdr,
+		     void *info, int len);
+void send_trace_end(int sock);
 
 int read_tid_list(int *tids, bool skip_unknown);
 void free_tid_list(void);
