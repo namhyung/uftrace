@@ -460,43 +460,64 @@ static const char *skip_syms[] = {
 	"mcount_reset",
 	"__libc_start_main",
 };
-static unsigned *skip_idx;
-static unsigned skip_idx_nr;
 
-void setup_skip_idx(struct symtabs *symtabs)
+static struct dynsym_idxlist skip_idxlist;
+
+void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+			  const char *symlist[], unsigned symcount)
 {
-	unsigned i, j;
+	unsigned i, k;
+	unsigned *idx = NULL;
+	unsigned count = 0;
 	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
-		for (j = 0; j < ARRAY_SIZE(skip_syms); j++) {
-			if (!strcmp(dsymtab->sym[i].name, skip_syms[j])) {
-				skip_idx = xrealloc(skip_idx,
-					(skip_idx_nr+1) * sizeof(*skip_idx));
+		for (k = 0; k < symcount; k++) {
+			if (!strcmp(dsymtab->sym[i].name, symlist[k])) {
+				idx = xrealloc(idx, (count + 1) * sizeof(*idx));
 
-				skip_idx[skip_idx_nr++] = i;
+				idx[count++] = i;
 				break;
 			}
 		}
 	}
+
+	idxlist->idx   = idx;
+	idxlist->count = count;
+}
+
+void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist)
+{
+	free(idxlist->idx);
+	idxlist->idx = NULL;
+	idxlist->count = 0;
+}
+
+bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
+{
+	unsigned i;
+
+	for (i = 0; i < idxlist->count; i++) {
+		if (idx == idxlist->idx[i])
+			return true;
+	}
+	return false;
+}
+
+void setup_skip_idx(struct symtabs *symtabs)
+{
+	build_dynsym_idxlist(symtabs, &skip_idxlist,
+			     skip_syms, ARRAY_SIZE(skip_syms));
 }
 
 void destroy_skip_idx(void)
 {
-	free(skip_idx);
-	skip_idx = NULL;
-	skip_idx_nr = 0;
+	destroy_dynsym_idxlist(&skip_idxlist);
 }
 
 bool should_skip_idx(unsigned idx)
 {
-	size_t i;
-
-	for (i = 0; i < skip_idx_nr; i++) {
-		if (idx == skip_idx[i])
-			return true;
-	}
-	return false;
+	return check_dynsym_idxlist(&skip_idxlist, idx);
 }
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
