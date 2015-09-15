@@ -554,6 +554,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
+	rstack->flags = 0;
 
 	mcount_entry_filter_record(filtered, rstack);
 	return 0;
@@ -723,6 +724,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->child_ip = child;
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
+	rstack->flags = 0;
 
 	cygprof_entry_filter_record(filtered, rstack);
 	return 0;
@@ -926,6 +928,52 @@ static void destroy_dynsym_indexes(void)
 	destroy_dynsym_idxlist(&longjmp_idxlist);
 }
 
+struct mcount_jmpbuf_rstack {
+	int count;
+	unsigned long parent[MCOUNT_RSTACK_MAX];
+	unsigned long child[MCOUNT_RSTACK_MAX];
+};
+
+static struct mcount_jmpbuf_rstack setjmp_rstack;
+
+static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
+{
+	int i;
+	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+
+	pr_dbg("setup jmpbuf rstack: %d\n", idx);
+
+	/* currently, only saves a single jmpbuf */
+	jbstack->count = idx;
+	for (i = 0; i <= idx; i++) {
+		jbstack->parent[i] = rstack[i].parent_ip;
+		jbstack->child[i]  = rstack[i].child_ip;
+	}
+
+	rstack[idx].flags |= MCOUNT_FL_SETJMP;
+}
+
+static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
+{
+	int i, dyn_idx;
+	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+
+	dyn_idx = rstack[idx].dyn_idx;
+
+	pr_dbg("restore jmpbuf: %d\n", jbstack->count);
+
+	mcount_rstack_idx = jbstack->count + 1;
+	for (i = 0; i < jbstack->count + 1; i++) {
+		mcount_rstack[i].parent_ip = jbstack->parent[i];
+		mcount_rstack[i].child_ip  = jbstack->child[i];
+	}
+
+	rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
+
+	/* to avoid check in plthook_exit() */
+	rstack[jbstack->count].dyn_idx = dyn_idx;
+}
+
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
@@ -969,6 +1017,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			pr_err_ns("invalid rstack idx: %d\n", idx);
 
 		mcount_rstack[idx].dyn_idx = child_idx;
+
+		if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
+			setup_jmpbuf_rstack(mcount_rstack, idx);
+		if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
+			mcount_rstack[idx].flags |= MCOUNT_FL_LONGJMP;
 	} else {
 		plthook_recursion_guard = false;
 	}
@@ -983,10 +1036,16 @@ out:
 
 unsigned long plthook_exit(void)
 {
-	unsigned long orig_ip = mcount_exit();
-	int idx = mcount_rstack_idx;
+	unsigned long orig_ip;
+	int idx = mcount_rstack_idx - 1;
 	int dyn_idx;
 	unsigned long new_addr;
+
+	if (idx >= 0 && (mcount_rstack[idx].flags & MCOUNT_FL_LONGJMP))
+		restore_jmpbuf_rstack(mcount_rstack, idx);
+
+	orig_ip = mcount_exit();
+	idx = mcount_rstack_idx;
 
 	dyn_idx = mcount_rstack[idx].dyn_idx;
 

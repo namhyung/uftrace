@@ -26,10 +26,16 @@
 #define MCOUNT_INVALID_DYNIDX 0xffff
 #define MCOUNT_DEFAULT_DEPTH  (INT_MAX - 1)
 
+enum {
+	MCOUNT_FL_SETJMP	= (1U << 0),
+	MCOUNT_FL_LONGJMP	= (1U << 1),
+};
+
 struct mcount_ret_stack {
 	unsigned long *parent_loc;
 	unsigned long parent_ip;
 	unsigned long child_ip;
+	unsigned long flags;
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
