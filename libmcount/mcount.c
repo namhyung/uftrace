@@ -878,6 +878,54 @@ elf_error:
 	goto out;
 }
 
+/* functions should skip PLT hooking */
+static const char *skip_syms[] = {
+	"mcount",
+	"__fentry__",
+	"__gnu_mcount_nc",
+	"__cyg_profile_func_enter",
+	"__cyg_profile_func_exit",
+	"_mcleanup",
+	"mcount_restore",
+	"mcount_reset",
+	"__libc_start_main",
+};
+
+static struct dynsym_idxlist skip_idxlist;
+
+static const char *setjmp_syms[] = {
+	"setjmp",
+	"_setjmp",
+	"sigsetjmp",
+	"__sigsetjmp",
+};
+
+static struct dynsym_idxlist setjmp_idxlist;
+
+static const char *longjmp_syms[] = {
+	"longjmp",
+	"siglongjmp",
+};
+
+static struct dynsym_idxlist longjmp_idxlist;
+
+static void setup_dynsym_indexes(struct symtabs *symtabs)
+{
+	build_dynsym_idxlist(symtabs, &skip_idxlist,
+			     skip_syms, ARRAY_SIZE(skip_syms));
+	build_dynsym_idxlist(symtabs, &setjmp_idxlist,
+			     setjmp_syms, ARRAY_SIZE(setjmp_syms));
+	build_dynsym_idxlist(symtabs, &longjmp_idxlist,
+			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
+}
+
+static void destroy_dynsym_indexes(void)
+{
+	destroy_dynsym_idxlist(&skip_idxlist);
+	destroy_dynsym_idxlist(&setjmp_idxlist);
+	destroy_dynsym_idxlist(&longjmp_idxlist);
+}
+
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
@@ -895,7 +943,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (plthook_recursion_guard)
 		goto out;
 
-	if (should_skip_idx(child_idx))
+	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
 		goto out;
 
 	plthook_recursion_guard = true;
@@ -1052,7 +1100,7 @@ __monstartup(unsigned long low, unsigned long high)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
-		setup_skip_idx(&symtabs);
+		setup_dynsym_indexes(&symtabs);
 
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
@@ -1073,7 +1121,7 @@ void __attribute__((visibility("default")))
 _mcleanup(void)
 {
 	mcount_finish();
-	destroy_skip_idx();
+	destroy_dynsym_indexes();
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter(&filter_trace);

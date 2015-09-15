@@ -449,20 +449,6 @@ int load_kernel_symbol(void)
 	return 0;
 }
 
-static const char *skip_syms[] = {
-	"mcount",
-	"__fentry__",
-	"__gnu_mcount_nc",
-	"__cyg_profile_func_enter",
-	"__cyg_profile_func_exit",
-	"_mcleanup",
-	"mcount_restore",
-	"mcount_reset",
-	"__libc_start_main",
-};
-
-static struct dynsym_idxlist skip_idxlist;
-
 void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
@@ -502,22 +488,6 @@ bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 			return true;
 	}
 	return false;
-}
-
-void setup_skip_idx(struct symtabs *symtabs)
-{
-	build_dynsym_idxlist(symtabs, &skip_idxlist,
-			     skip_syms, ARRAY_SIZE(skip_syms));
-}
-
-void destroy_skip_idx(void)
-{
-	destroy_dynsym_idxlist(&skip_idxlist);
-}
-
-bool should_skip_idx(unsigned idx)
-{
-	return check_dynsym_idxlist(&skip_idxlist, idx);
 }
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
