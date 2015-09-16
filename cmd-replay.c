@@ -257,10 +257,18 @@ static void print_remaining_stack(void)
 			struct fstack *fstack = &task->func_stack[task->stack_count];
 			uint64_t time = fstack->total_time;
 			struct ftrace_session *sess = find_task_session(task->tid, time);
-			struct symtabs *symtabs = &sess->symtabs;
 			unsigned long ip = fstack->addr;
-			struct sym *sym = find_symtab(symtabs, ip, proc_maps);
-			char *symname = symbol_getname(sym, ip);
+			struct symtabs *symtabs;
+			struct sym *sym;
+			char *symname;
+
+			if (sess) {
+				symtabs = &sess->symtabs;
+				sym = find_symtab(symtabs, ip, proc_maps);
+			} else
+				sym = NULL;
+
+			symname = symbol_getname(sym, ip);
 
 			printf("[%d] %s\n", task->stack_count, symname);
 
