@@ -475,7 +475,7 @@ static __inline__
 void mcount_exit_filter_record(enum filter_result res,
 			       struct mcount_ret_stack *rstack)
 {
-	if (res != FILTER_IN)
+	if (res < FILTER_IN)
 		return;
 
 	if (record_trace_data(rstack) < 0)
@@ -603,10 +603,10 @@ enum filter_result cygprof_entry_filter_check(unsigned long child)
 
 	if (ret == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
-	else if (ret == FILTER_OUT)
-		return ret;
 
-	mcount_rstack_depth--;
+	if (mcount_rstack_depth-- <= 0 && ret == FILTER_IN)
+		ret = FILTER_OUT;
+
 	return ret;
 }
 
@@ -619,8 +619,10 @@ void cygprof_entry_filter_record(enum filter_result res,
 		return;
 	}
 
-	if (mcount_rstack_depth < 0)
+	if (res == FILTER_OUT) {
+		rstack->flags |= MCOUNT_FL_NORECORD;
 		return;
+	}
 
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
@@ -644,8 +646,10 @@ enum filter_result cygprof_exit_filter_check(unsigned long parent,
 	}
 
 	rstack = &mcount_rstack[idx - 1];
-	if (rstack->parent_ip != parent || rstack->child_ip != child)
-		return FILTER_NOTRACE;
+	if (rstack->flags & MCOUNT_FL_NORECORD) {
+		rstack->flags &= ~MCOUNT_FL_NORECORD;
+		ret = FILTER_OUT;
+	}
 
 	if (mcount_rstack_depth++ < 0)
 		ret = FILTER_OUT;
@@ -713,8 +717,6 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		mcount_prepare();
 
 	filtered = cygprof_entry_filter_check(child);
-	if (filtered == FILTER_OUT)
-		return -1;
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -736,8 +738,6 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	struct mcount_ret_stack *rstack;
 
 	was_filtered = cygprof_exit_filter_check(parent, child);
-	if (was_filtered == FILTER_NOTRACE)
-		return;
 
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 

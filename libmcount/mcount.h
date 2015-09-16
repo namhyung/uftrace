@@ -29,6 +29,7 @@
 enum {
 	MCOUNT_FL_SETJMP	= (1U << 0),
 	MCOUNT_FL_LONGJMP	= (1U << 1),
+	MCOUNT_FL_NORECORD	= (1U << 2),
 };
 
 struct mcount_ret_stack {
