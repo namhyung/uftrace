@@ -956,6 +956,7 @@ static struct dynsym_idxlist setjmp_idxlist;
 static const char *longjmp_syms[] = {
 	"longjmp",
 	"siglongjmp",
+	"__longjmp_chk",
 };
 
 static struct dynsym_idxlist longjmp_idxlist;
