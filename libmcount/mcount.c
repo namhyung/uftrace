@@ -744,7 +744,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip = parent;
 	rstack->child_ip = child;
-	rstack->start_time = mcount_gettime();
+	rstack->start_time = filtered >= FILTER_IN ? mcount_gettime() : 0;
 	rstack->end_time = 0;
 	rstack->flags = 0;
 
@@ -763,7 +763,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mcount_exit_check_rstack(rstack);
 
-	rstack->end_time = mcount_gettime();
+	rstack->end_time = was_filtered >= FILTER_IN ? mcount_gettime() : 0;
 
 	cygprof_exit_filter_record(was_filtered, rstack);
 }
