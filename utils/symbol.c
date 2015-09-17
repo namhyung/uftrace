@@ -449,51 +449,42 @@ int load_kernel_symbol(void)
 	return 0;
 }
 
-static const char *skip_syms[] = {
-	"mcount",
-	"__fentry__",
-	"__gnu_mcount_nc",
-	"__cyg_profile_func_enter",
-	"__cyg_profile_func_exit",
-	"_mcleanup",
-	"mcount_restore",
-	"mcount_reset",
-	"__libc_start_main",
-};
-static unsigned *skip_idx;
-static unsigned skip_idx_nr;
-
-void setup_skip_idx(struct symtabs *symtabs)
+void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+			  const char *symlist[], unsigned symcount)
 {
-	unsigned i, j;
+	unsigned i, k;
+	unsigned *idx = NULL;
+	unsigned count = 0;
 	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
-		for (j = 0; j < ARRAY_SIZE(skip_syms); j++) {
-			if (!strcmp(dsymtab->sym[i].name, skip_syms[j])) {
-				skip_idx = xrealloc(skip_idx,
-					(skip_idx_nr+1) * sizeof(*skip_idx));
+		for (k = 0; k < symcount; k++) {
+			if (!strcmp(dsymtab->sym[i].name, symlist[k])) {
+				idx = xrealloc(idx, (count + 1) * sizeof(*idx));
 
-				skip_idx[skip_idx_nr++] = i;
+				idx[count++] = i;
 				break;
 			}
 		}
 	}
+
+	idxlist->idx   = idx;
+	idxlist->count = count;
 }
 
-void destroy_skip_idx(void)
+void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist)
 {
-	free(skip_idx);
-	skip_idx = NULL;
-	skip_idx_nr = 0;
+	free(idxlist->idx);
+	idxlist->idx = NULL;
+	idxlist->count = 0;
 }
 
-bool should_skip_idx(unsigned idx)
+bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 {
-	size_t i;
+	unsigned i;
 
-	for (i = 0; i < skip_idx_nr; i++) {
-		if (idx == skip_idx[i])
+	for (i = 0; i < idxlist->count; i++) {
+		if (idx == idxlist->idx[i])
 			return true;
 	}
 	return false;

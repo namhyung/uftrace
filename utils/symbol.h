@@ -71,6 +71,16 @@ int load_kernel_symbol(void);
 char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);
 
+struct dynsym_idxlist {
+	unsigned *idx;
+	unsigned count;
+};
+
+void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+			  const char *symlist[], unsigned symcount);
+void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist);
+bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx);
+
 void setup_skip_idx(struct symtabs *symtabs);
 void destroy_skip_idx(void);
 bool should_skip_idx(unsigned idx);
