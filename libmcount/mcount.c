@@ -35,7 +35,18 @@
 # define TLS  __thread
 #endif
 
+/*
+ * The mcount_rstack_idx and mcount_record_idx are to save current
+ * index of mcount_rstack.  In general, both will have same value but
+ * in case of cygprof functions, it may differ if filters applied.
+ *
+ * This is because how cygprof handles filters - cygprof_exit() should
+ * be called for filtered functions while mcount_exit() is not.  The
+ * mcount_record_idx is only increased/decreased when the function is
+ * not filtered out so that we can keep proper depth in the output.
+ */
 static TLS int mcount_rstack_idx;
+static TLS int mcount_record_idx;
 static TLS struct mcount_ret_stack *mcount_rstack;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 
@@ -390,18 +401,20 @@ enum filter_result {
 #ifndef DISABLE_MCOUNT_FILTER
 static enum filter_result mcount_filter(unsigned long ip)
 {
+	enum filter_result ret = FILTER_IN;
+
 	/*
 	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
 	 */
-	enum filter_result ret = (mcount_rstack_idx >= 0) ? FILTER_IN : FILTER_OUT;
-
 	if (mcount_rstack_idx < 0)
 		return FILTER_OUT;
 
-	if (has_filter && (mcount_rstack_idx == 0 || mcount_rstack_depth == 0)) {
+	if (has_filter) {
 		if (ftrace_match_filter(&filter_trace, ip))
 			return FILTER_MATCH;
-		ret = FILTER_OUT;
+
+		if (mcount_record_idx == 0)
+			ret = FILTER_OUT;
 	}
 
 	if (has_notrace && ret) {
@@ -487,7 +500,7 @@ void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 {
 	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->parent_ip);
 
-	if (rstack->depth != mcount_rstack_idx || rstack->end_time != 0)
+	if (rstack->depth != mcount_record_idx || rstack->end_time != 0)
 		pr_err_ns("corrupted mcount ret stack found!\n");
 
 }
@@ -547,7 +560,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
-	rstack->depth = mcount_rstack_idx - 1;
+	rstack->depth = mcount_record_idx++;
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_loc = parent_loc;
 	rstack->parent_ip = *parent_loc;
@@ -567,6 +580,7 @@ unsigned long mcount_exit(void)
 
 	was_filtered = mcount_exit_filter_check();
 
+	mcount_record_idx--;
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
 	mcount_exit_check_rstack(rstack);
@@ -624,6 +638,8 @@ void cygprof_entry_filter_record(enum filter_result res,
 		return;
 	}
 
+	mcount_record_idx++;
+
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
 }
@@ -649,10 +665,11 @@ enum filter_result cygprof_exit_filter_check(unsigned long parent,
 	if (rstack->flags & MCOUNT_FL_NORECORD) {
 		rstack->flags &= ~MCOUNT_FL_NORECORD;
 		ret = FILTER_OUT;
+	} else if (ret >= FILTER_IN) {
+		mcount_record_idx--;
 	}
 
-	if (mcount_rstack_depth++ < 0)
-		ret = FILTER_OUT;
+	mcount_rstack_depth++;
 
 	if (idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", idx);
@@ -685,6 +702,8 @@ static __inline__
 void cygprof_entry_filter_record(enum filter_result res,
 				 struct mcount_ret_stack *rstack)
 {
+	mcount_record_idx++;
+
 	if (record_trace_data(rstack) < 0)
 		pr_err("error during record");
 }
@@ -696,6 +715,7 @@ enum filter_result cygprof_exit_filter_check(unsigned long parent,
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
+	mcount_record_idx--;
 	return FILTER_IN;
 }
 
@@ -720,7 +740,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
-	rstack->depth = mcount_rstack_idx - 1;
+	rstack->depth = mcount_record_idx;
 	rstack->dyn_idx = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip = parent;
 	rstack->child_ip = child;
@@ -930,6 +950,7 @@ static void destroy_dynsym_indexes(void)
 
 struct mcount_jmpbuf_rstack {
 	int count;
+	int record_idx;
 	unsigned long parent[MCOUNT_RSTACK_MAX];
 	unsigned long child[MCOUNT_RSTACK_MAX];
 };
@@ -945,6 +966,7 @@ static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	/* currently, only saves a single jmpbuf */
 	jbstack->count = idx;
+	jbstack->record_idx = mcount_record_idx;
 	for (i = 0; i <= idx; i++) {
 		jbstack->parent[i] = rstack[i].parent_ip;
 		jbstack->child[i]  = rstack[i].child_ip;
@@ -963,6 +985,8 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 	pr_dbg("restore jmpbuf: %d\n", jbstack->count);
 
 	mcount_rstack_idx = jbstack->count + 1;
+	mcount_record_idx = jbstack->record_idx;
+
 	for (i = 0; i < jbstack->count + 1; i++) {
 		mcount_rstack[i].parent_ip = jbstack->parent[i];
 		mcount_rstack[i].child_ip  = jbstack->child[i];
