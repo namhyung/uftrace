@@ -26,7 +26,7 @@ OPTIONS
 :   Do not use pager
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
-:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call'.
+:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call', 'avg', 'min', 'max'.  Note that first 3 keys should be used when neither of '--avg-total' nor '--avg-self' is used.  Likewise, the last 3 keys should be used when either of those option is used.
 
 \--avg-total
 :   Show average, min, max of each functions total time.

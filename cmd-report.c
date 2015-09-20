@@ -93,10 +93,11 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 struct sort_item {
 	const char *name;
 	int (*cmp)(struct trace_entry *a, struct trace_entry *b);
+	int avg_mode;
 	struct list_head list;
 };
 
-#define SORT_ITEM(_name, _field)					\
+#define SORT_ITEM(_name, _field, _mode)					\
 static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
 {									\
 	if (a->_field == b->_field)					\
@@ -106,17 +107,24 @@ static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
 static struct sort_item sort_##_field = {				\
 	.name = _name,							\
 	.cmp = cmp_##_field,						\
+	.avg_mode = _mode,						\
 	LIST_HEAD_INIT(sort_##_field.list)				\
 }
 
-SORT_ITEM("total", time_total);
-SORT_ITEM("self", time_self);
-SORT_ITEM("call", nr_called);
+SORT_ITEM("total", time_total, AVG_NONE);
+SORT_ITEM("self", time_self, AVG_NONE);
+SORT_ITEM("call", nr_called, AVG_NONE);
+SORT_ITEM("avg", time_avg, AVG_TOTAL);
+SORT_ITEM("min", time_min, AVG_TOTAL);
+SORT_ITEM("max", time_max, AVG_TOTAL);
 
 struct sort_item *all_sort_items[] = {
 	&sort_time_total,
 	&sort_time_self,
 	&sort_nr_called,
+	&sort_time_avg,
+	&sort_time_min,
+	&sort_time_max,
 };
 
 static LIST_HEAD(sort_list);
@@ -164,6 +172,15 @@ static void setup_sort(char *sort_keys)
 		for (i = 0; i < ARRAY_SIZE(all_sort_items); i++) {
 			if (strcmp(k, all_sort_items[i]->name))
 				continue;
+
+			if (all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) {
+				printf("ftrace: '%s' sort key %s be used with %s or %s.\n",
+				       all_sort_items[i]->name,
+				       avg_mode == AVG_NONE ? "should" : "cannot",
+				       "--avg-total", "--avg-self");
+				exit(1);
+			}
+
 			list_add_tail(&all_sort_items[i]->list, &sort_list);
 			break;
 		}
@@ -423,8 +440,12 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		setup_sort(opts->sort_keys);
 
 	/* default: sort by total time */
-	if (list_empty(&sort_list))
-		list_add(&sort_time_total.list, &sort_list);
+	if (list_empty(&sort_list)) {
+		if (avg_mode == AVG_NONE)
+			list_add(&sort_time_total.list, &sort_list);
+		else
+			list_add(&sort_time_avg.list, &sort_list);
+	}
 
 	if (opts->report_thread)
 		report_threads(&handle);
