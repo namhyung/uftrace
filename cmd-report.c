@@ -9,11 +9,20 @@
 #include "utils/list.h"
 
 
+enum {
+	AVG_NONE,
+	AVG_TOTAL,
+	AVG_SELF,
+} avg_mode = AVG_NONE;
+
 struct trace_entry {
 	int pid;
 	struct sym *sym;
 	uint64_t time_total;
 	uint64_t time_self;
+	uint64_t time_avg;
+	uint64_t time_min;
+	uint64_t time_max;
 	unsigned long nr_called;
 	struct rb_node link;
 };
@@ -23,6 +32,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
+	uint64_t entry_time = 0;
 
 	pr_dbg("%s: [%5d] %"PRIu64" (%lu) %-s\n",
 	       __func__, te->pid, te->time_total, te->nr_called, te->sym->name);
@@ -42,6 +52,16 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 			entry->time_total += te->time_total;
 			entry->time_self  += te->time_self;
 			entry->nr_called  += te->nr_called;
+
+			if (avg_mode == AVG_TOTAL)
+				entry_time = te->time_total;
+			else if (avg_mode == AVG_SELF)
+				entry_time = te->time_self;
+
+			if (entry->time_min > entry_time)
+				entry->time_min = entry_time;
+			if (entry->time_max < entry_time)
+				entry->time_max = entry_time;
 			return;
 		}
 
@@ -57,6 +77,14 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	entry->time_total = te->time_total;
 	entry->time_self  = te->time_self;
 	entry->nr_called  = te->nr_called;
+
+	if (avg_mode == AVG_TOTAL)
+		entry_time = te->time_total;
+	else if (avg_mode == AVG_SELF)
+		entry_time = te->time_self;
+
+	entry->time_min = entry_time;
+	entry->time_max = entry_time;
 
 	rb_link_node(&entry->link, parent, p);
 	rb_insert_color(&entry->link, root);
@@ -153,6 +181,29 @@ static void setup_sort(char *sort_keys)
 	free(keys);
 }
 
+static void print_function(struct trace_entry *entry)
+{
+	char *symname = symbol_getname(entry->sym, 0);
+
+	if (avg_mode == AVG_NONE) {
+		putchar(' ');
+		print_time_unit(entry->time_total);
+		putchar(' ');
+		print_time_unit(entry->time_self);
+		printf("  %10lu  %-s\n", entry->nr_called, symname);
+	} else {
+		putchar(' ');
+		print_time_unit(entry->time_avg);
+		putchar(' ');
+		print_time_unit(entry->time_min);
+		putchar(' ');
+		print_time_unit(entry->time_max);
+		printf("  %-s\n", symname);
+	}
+
+	symbol_putname(entry->sym, symname);
+}
+
 static void report_functions(struct ftrace_file_handle *handle)
 {
 	struct sym *sym;
@@ -197,30 +248,34 @@ static void report_functions(struct ftrace_file_handle *handle)
 	}
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
+		struct trace_entry *entry;
+
 		node = rb_first(&name_tree);
 		rb_erase(node, &name_tree);
 
-		sort_entries(&sort_tree, rb_entry(node, struct trace_entry, link));
+		entry = rb_entry(node, struct trace_entry, link);
+		if (avg_mode == AVG_TOTAL)
+			entry->time_avg = entry->time_total / entry->nr_called;
+		else if (avg_mode == AVG_SELF)
+			entry->time_avg = entry->time_self / entry->nr_called;
+
+		sort_entries(&sort_tree, entry);
 	}
 
-	printf(f_format, "Total time", "Self time", "Nr. called", "Function");
+	if (avg_mode == AVG_NONE)
+		printf(f_format, "Total time", "Self time", "Nr. called", "Function");
+	else if (avg_mode == AVG_TOTAL)
+		printf(f_format, "Avg total", "Min total", "Max total", "Function");
+	else if (avg_mode == AVG_SELF)
+		printf(f_format, "Avg self", "Min self", "Max self", "Function");
+
 	printf(f_format, line, line, line, line);
 
 	for (node = rb_first(&sort_tree); node; node = rb_next(node)) {
-		char *symname;
 		struct trace_entry *entry;
 
 		entry = rb_entry(node, struct trace_entry, link);
-
-		symname = symbol_getname(entry->sym, 0);
-
-		putchar(' ');
-		print_time_unit(entry->time_total);
-		putchar(' ');
-		print_time_unit(entry->time_self);
-		printf("  %10lu  %-s\n", entry->nr_called, symname);
-
-		symbol_putname(entry->sym, symname);
+		print_function(entry);
 	}
 
 	while (!RB_EMPTY_ROOT(&sort_tree)) {
@@ -337,6 +392,14 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct ftrace_kernel kern;
+
+	if (opts->avg_total && opts->avg_self) {
+		printf("--avg-total and --avg-self options should not be used together.\n");
+		exit(1);
+	} else if (opts->avg_total)
+		avg_mode = AVG_TOTAL;
+	else if (opts->avg_self)
+		avg_mode = AVG_SELF;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)

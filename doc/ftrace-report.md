@@ -28,6 +28,12 @@ OPTIONS
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call'.
 
+\--avg-total
+:   Show average, min, max of each functions total time.
+
+\--avg-self
+:   Show average, min, max of each functions self time.
+
 EXAMPLE
 =======
 This command shows information like below:
@@ -52,6 +58,16 @@ This command shows information like below:
        27.289 us    1.243 us           1  main
        26.046 us    0.939 us           1  a
        25.107 us    0.934 us           1  b
+
+    $ ftrace report --avg-self
+        Avg self    Min self    Max self  Function
+      ==========  ==========  ==========  =======================================
+      150.829 us  150.829 us  150.829 us  __cxa_atexit
+       22.458 us   22.458 us   22.458 us  getpid
+        1.715 us    1.715 us    1.715 us  c
+        1.243 us    1.243 us    1.243 us  main
+        0.939 us    0.939 us    0.939 us  a
+        0.934 us    0.934 us    0.934 us  b
 
     $ ftrace report --threads
         TID  Start function                              Run time   Nr. funcs

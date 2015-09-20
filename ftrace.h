@@ -120,6 +120,8 @@ struct opts {
 	bool time;
 	bool backtrace;
 	bool use_pager;
+	bool avg_total;
+	bool avg_self;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
