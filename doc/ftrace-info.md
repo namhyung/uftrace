@@ -22,6 +22,9 @@ OPTIONS
 \--symbols
 :   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.
 
+\--no-pager
+:   Do not use pager
+
 EXAMPLE
 =======
 This command shows information like below:

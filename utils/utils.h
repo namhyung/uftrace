@@ -162,4 +162,7 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
 #endif /* DISABLE_MCOUNT_FILTER */
 
+void start_pager(void);
+void wait_for_pager(void);
+
 #endif /* __FTRACE_UTILS_H__ */

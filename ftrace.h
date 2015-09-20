@@ -118,6 +118,7 @@ struct opts {
 	bool nop;
 	bool time;
 	bool backtrace;
+	bool use_pager;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

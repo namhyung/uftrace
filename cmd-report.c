@@ -278,6 +278,9 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
+	if (opts->use_pager)
+		start_pager();
+
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
 
@@ -291,5 +294,6 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	close_data_file(opts, &handle);
 
+	wait_for_pager();
 	return ret;
 }

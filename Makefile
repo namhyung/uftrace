@@ -62,7 +62,7 @@ FTRACE_SRCS  = ftrace.c cmd-record.c cmd-replay.c cmd-live.c cmd-report.c cmd-in
 FTRACE_SRCS += cmd-recv.c
 FTRACE_SRCS += utils/symbol.c utils/rbtree.c utils/debug.c
 FTRACE_SRCS += utils/filter.c utils/kernel.c utils/utils.c utils/session.c
-FTRACE_SRCS += utils/fstack.c utils/data-file.c
+FTRACE_SRCS += utils/fstack.c utils/data-file.c utils/pager.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
 FTRACE_HDRS := ftrace.h libmcount/mcount.h utils/utils.h
