@@ -63,6 +63,7 @@ ifneq ($(findstring $(MAKEFLAGS),s),s)
 	QUIET_CC       = @echo '  CC       '$@;
 	QUIET_CC_FPIC  = @echo '  CC FPIC  '$@;
 	QUIET_AR       = @echo '  AR       '$@;
+	QUIET_ASM      = @echo '  ASM      '$@;
 	QUIET_LINK     = @echo '  LINK     '$@;
 	QUIET_MKDIR    = @echo '  MKDIR    '$@;
 	QUIET_GEN      = @echo '  GEN      '$@;

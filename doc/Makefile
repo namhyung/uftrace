@@ -2,7 +2,10 @@ all:
 
 has_pandoc := $(shell pandoc -v > /dev/null 2>&1 && echo yes || echo no)
 
+RM := rm -f
 INSTALL = install
+
+include ../config/Makefile.include
 
 COMMANDS = record replay live report info
 MANPAGES = ftrace.1 $(patsubst %,ftrace-%.1,$(COMMANDS))
@@ -12,11 +15,16 @@ ifeq ($(has_pandoc),yes)
 all: $(MANPAGES)
 
 %.1: %.md
-	pandoc -s $< -t man -o $@
+	$(QUIET_GEN)pandoc -s $< -t man -o $@
 
 install: all
+	$(call QUIET_INSTALL, man-pages)
 	$(INSTALL) -d -m 755 $(DESTDIR)/man1
 	for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/man1; done
+
+clean:
+	$(call QUIET_CLEAN, man-pages)
+	$(RM) *.1
 
 else
   ifneq ($(MAKECMDGOALS),clean)
@@ -25,9 +33,8 @@ else
 
 install:
 
-endif
-
 clean:
-	rm -f *.1
+
+endif
 
 .PHONY: all clean PHONY
