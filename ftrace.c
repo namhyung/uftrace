@@ -50,6 +50,8 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_backtrace	311
 #define OPT_port	312
 #define OPT_nopager	313
+#define OPT_avg_total	314
+#define OPT_avg_self	315
 
 
 static struct argp_option ftrace_options[] = {
@@ -77,6 +79,9 @@ static struct argp_option ftrace_options[] = {
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
+	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs" },
+	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
+	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ 0 }
 };
 
@@ -163,6 +168,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->host = arg;
 		break;
 
+	case 's':
+		opts->sort_keys = arg;
+		break;
+
 	case OPT_flat:
 		opts->flat = true;
 		break;
@@ -218,6 +227,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_nopager:
 		opts->use_pager = false;
+		break;
+
+	case OPT_avg_total:
+		opts->avg_total = true;
+		break;
+
+	case OPT_avg_self:
+		opts->avg_self = true;
 		break;
 
 	case ARGP_KEY_ARG:
