@@ -31,14 +31,14 @@ This command shows information like below:
 
     $ ftrace record abc
     $ ftrace report
-      Function                                  Total time   Self time  Nr. called
-      ========================================  ==========  ==========  ==========
-      __cxa_atexit                              150.829 us  150.829 us           1
-      main                                       27.289 us    1.243 us           1
-      a                                          26.046 us    0.939 us           1
-      b                                          25.107 us    0.934 us           1
-      c                                          24.173 us    1.715 us           1
-      getpid                                     22.458 us   22.458 us           1
+      Total time   Self time  Nr. called     Function
+      ==========  ==========  ==========  =======================================
+      150.829 us  150.829 us           1  __cxa_atexit
+       27.289 us    1.243 us           1  main
+       26.046 us    0.939 us           1  a
+       25.107 us    0.934 us           1  b
+       24.173 us    1.715 us           1  c
+       22.458 us   22.458 us           1  getpid
 
     $ ./ftrace report --threads
         TID  Start function                              Run time   Nr. funcs

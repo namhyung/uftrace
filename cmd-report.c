@@ -23,8 +23,8 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 
-	pr_dbg("%s: [%5d] %-40.40s: %"PRIu64" (%lu)\n",
-	       __func__, te->pid, te->sym->name, te->time_total, te->nr_called);
+	pr_dbg("%s: [%5d] %"PRIu64" (%lu) %-s\n",
+	       __func__, te->pid, te->time_total, te->nr_called, te->sym->name);
 
 	while (*p) {
 		int cmp;
@@ -89,8 +89,8 @@ static void report_functions(struct ftrace_file_handle *handle)
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root time_tree = RB_ROOT;
 	struct rb_node *node;
-	const char f_format[] = "  %-40.40s  %10.10s  %10.10s  %10.10s  \n";
-	const char line[] = "=================================================";
+	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
+	const char line[] = "====================================";
 
 	struct ftrace_task_handle *task;
 	struct ftrace_session *sess;
@@ -131,7 +131,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 		sort_by_time(&time_tree, rb_entry(node, struct trace_entry, link));
 	}
 
-	printf(f_format, "Function", "Total time", "Self time", "Nr. called");
+	printf(f_format, "Total time", "Self time", "Nr. called", "Function");
 	printf(f_format, line, line, line, line);
 
 	for (node = rb_first(&time_tree); node; node = rb_next(node)) {
@@ -142,11 +142,11 @@ static void report_functions(struct ftrace_file_handle *handle)
 
 		symname = symbol_getname(entry->sym, 0);
 
-		printf("  %-40.40s ", symname);
+		putchar(' ');
 		print_time_unit(entry->time_total);
 		putchar(' ');
 		print_time_unit(entry->time_self);
-		printf("  %10lu  \n", entry->nr_called);
+		printf("  %10lu  %-s\n", entry->nr_called, symname);
 
 		symbol_putname(entry->sym, symname);
 	}
@@ -201,8 +201,8 @@ static void report_threads(struct ftrace_file_handle *handle)
 	struct rb_node *node;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;
-	const char t_format[] = "  %5.5s  %-40.40s  %10.10s  %10.10s  \n";
-	const char line[] = "=================================================";
+	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
+	const char line[] = "====================================";
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		while ((rstack = get_task_ustack(handle, i)) != NULL) {
@@ -232,7 +232,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 		}
 	}
 
-	printf(t_format, "TID", "Start function", "Run time", "Nr. funcs");
+	printf(t_format, "TID", "Run time", "Num funcs", "Start function");
 	printf(t_format, line, line, line, line);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
@@ -245,9 +245,9 @@ static void report_threads(struct ftrace_file_handle *handle)
 		entry = rb_entry(node, struct trace_entry, link);
 		symname = symbol_getname(entry->sym, 0);
 
-		printf("  %5d  %-40.40s ", entry->pid, symname);
+		printf("  %5d ", entry->pid);
 		print_time_unit(entry->time_self);
-		printf("  %10lu  \n", entry->nr_called);
+		printf("  %10lu  %-s\n", entry->nr_called, symname);
 
 		symbol_putname(entry->sym, symname);
 	}
