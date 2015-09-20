@@ -22,6 +22,9 @@ OPTIONS
 \--threads
 :   Report thread summary information rather than function statistics.
 
+\--no-pager
+:   Do not use pager
+
 EXAMPLE
 =======
 This command shows information like below:

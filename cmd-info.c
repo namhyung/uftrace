@@ -594,7 +594,8 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (stat(buf, &statbuf) < 0)
 		return -1;
 
-	start_pager();
+	if (opts->use_pager)
+		start_pager();
 
 	printf("# ftrace information\n");
 	printf("# ==================\n");

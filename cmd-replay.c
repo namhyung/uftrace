@@ -314,7 +314,8 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			return -1;
 	}
 
-	start_pager();
+	if (opts->use_pager)
+		start_pager();
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);

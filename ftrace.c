@@ -49,6 +49,7 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_max_stack	310
 #define OPT_backtrace	311
 #define OPT_port	312
+#define OPT_nopager	313
 
 
 static struct argp_option ftrace_options[] = {
@@ -75,6 +76,7 @@ static struct argp_option ftrace_options[] = {
 	{ "backtrace", OPT_backtrace, 0, 0, "Show backtrace of filtered function" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
+	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
 	{ 0 }
 };
 
@@ -214,6 +216,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_err_ns("invalid port number: %s\n", arg);
 		break;
 
+	case OPT_nopager:
+		opts->use_pager = false;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -288,6 +294,7 @@ int main(int argc, char *argv[])
 		.depth		= MCOUNT_DEFAULT_DEPTH,
 		.max_stack	= MCOUNT_RSTACK_MAX,
 		.port		= FTRACE_RECV_PORT,
+		.use_pager	= true,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
