@@ -6,6 +6,7 @@
 #include "utils/utils.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
+#include "utils/list.h"
 
 
 struct trace_entry {
@@ -61,7 +62,51 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	rb_insert_color(&entry->link, root);
 }
 
-static void sort_by_time(struct rb_root *root, struct trace_entry *te)
+struct sort_item {
+	const char *name;
+	int (*cmp)(struct trace_entry *a, struct trace_entry *b);
+	struct list_head list;
+};
+
+#define SORT_ITEM(_name, _field)					\
+static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
+{									\
+	if (a->_field == b->_field)					\
+		return 0;						\
+	return a->_field > b->_field ? 1 : -1;				\
+}									\
+static struct sort_item sort_##_field = {				\
+	.name = _name,							\
+	.cmp = cmp_##_field,						\
+	LIST_HEAD_INIT(sort_##_field.list)				\
+}
+
+SORT_ITEM("total", time_total);
+SORT_ITEM("self", time_self);
+SORT_ITEM("call", nr_called);
+
+struct sort_item *all_sort_items[] = {
+	&sort_time_total,
+	&sort_time_self,
+	&sort_nr_called,
+};
+
+static LIST_HEAD(sort_list);
+
+static int cmp_entry(struct trace_entry *a, struct trace_entry *b)
+{
+	int ret;
+	struct sort_item *item;
+
+	list_for_each_entry(item, &sort_list, list) {
+		ret = item->cmp(a, b);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static void sort_entries(struct rb_root *root, struct trace_entry *te)
 {
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
@@ -71,7 +116,7 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 		parent = *p;
 		entry = rb_entry(parent, struct trace_entry, link);
 
-		if (entry->time_total < te->time_total)
+		if (cmp_entry(entry, te) < 0)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
@@ -81,13 +126,40 @@ static void sort_by_time(struct rb_root *root, struct trace_entry *te)
 	rb_insert_color(&te->link, root);
 }
 
+static void setup_sort(char *sort_keys)
+{
+	char *keys = xstrdup(sort_keys);
+	char *k, *p = keys;
+	unsigned i;
+
+	while ((k = strtok(p, ",")) != NULL) {
+		for (i = 0; i < ARRAY_SIZE(all_sort_items); i++) {
+			if (strcmp(k, all_sort_items[i]->name))
+				continue;
+			list_add_tail(&all_sort_items[i]->list, &sort_list);
+			break;
+		}
+
+		if (i == ARRAY_SIZE(all_sort_items)) {
+			printf("ftrace: Unknown sort key '%s'\n", k);
+			printf("ftrace:   Possible keys:");
+			for (i = 0; i < ARRAY_SIZE(all_sort_items); i++)
+				printf(" %s", all_sort_items[i]->name);
+			putchar('\n');
+			exit(1);
+		}
+		p = NULL;
+	}
+	free(keys);
+}
+
 static void report_functions(struct ftrace_file_handle *handle)
 {
 	struct sym *sym;
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
-	struct rb_root time_tree = RB_ROOT;
+	struct rb_root sort_tree = RB_ROOT;
 	struct rb_node *node;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
@@ -128,13 +200,13 @@ static void report_functions(struct ftrace_file_handle *handle)
 		node = rb_first(&name_tree);
 		rb_erase(node, &name_tree);
 
-		sort_by_time(&time_tree, rb_entry(node, struct trace_entry, link));
+		sort_entries(&sort_tree, rb_entry(node, struct trace_entry, link));
 	}
 
 	printf(f_format, "Total time", "Self time", "Nr. called", "Function");
 	printf(f_format, line, line, line, line);
 
-	for (node = rb_first(&time_tree); node; node = rb_next(node)) {
+	for (node = rb_first(&sort_tree); node; node = rb_next(node)) {
 		char *symname;
 		struct trace_entry *entry;
 
@@ -151,9 +223,9 @@ static void report_functions(struct ftrace_file_handle *handle)
 		symbol_putname(entry->sym, symname);
 	}
 
-	while (!RB_EMPTY_ROOT(&time_tree)) {
-		node = rb_first(&time_tree);
-		rb_erase(node, &time_tree);
+	while (!RB_EMPTY_ROOT(&sort_tree)) {
+		node = rb_first(&sort_tree);
+		rb_erase(node, &sort_tree);
 
 		free(rb_entry(node, struct trace_entry, link));
 	}
@@ -283,6 +355,13 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
+
+	if (opts->sort_keys)
+		setup_sort(opts->sort_keys);
+
+	/* default: sort by total time */
+	if (list_empty(&sort_list))
+		list_add(&sort_time_total.list, &sort_list);
 
 	if (opts->report_thread)
 		report_threads(&handle);

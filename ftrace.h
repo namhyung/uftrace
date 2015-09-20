@@ -102,6 +102,7 @@ struct opts {
 	char *dirname;
 	char *logfile;
 	char *host;
+	char *sort_keys;
 	int mode;
 	int idx;
 	int depth;

@@ -77,6 +77,7 @@ static struct argp_option ftrace_options[] = {
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
+	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs" },
 	{ 0 }
 };
 
@@ -161,6 +162,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'H':
 		opts->host = arg;
+		break;
+
+	case 's':
+		opts->sort_keys = arg;
 		break;
 
 	case OPT_flat:

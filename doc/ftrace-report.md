@@ -25,6 +25,9 @@ OPTIONS
 \--no-pager
 :   Do not use pager
 
+-s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
+:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call'.
+
 EXAMPLE
 =======
 This command shows information like below:
@@ -40,7 +43,17 @@ This command shows information like below:
        24.173 us    1.715 us           1  c
        22.458 us   22.458 us           1  getpid
 
-    $ ./ftrace report --threads
+    $ ftrace report -s call,self
+      Total time   Self time  Nr. called     Function
+      ==========  ==========  ==========  =======================================
+      150.829 us  150.829 us           1  __cxa_atexit
+       22.458 us   22.458 us           1  getpid
+       24.173 us    1.715 us           1  c
+       27.289 us    1.243 us           1  main
+       26.046 us    0.939 us           1  a
+       25.107 us    0.934 us           1  b
+
+    $ ftrace report --threads
         TID  Start function                              Run time   Nr. funcs
       =====  ========================================  ==========  ==========
       21959  main                                      178.118 us           6
