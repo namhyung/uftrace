@@ -594,6 +594,8 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (stat(buf, &statbuf) < 0)
 		return -1;
 
+	start_pager();
+
 	printf("# ftrace information\n");
 	printf("# ==================\n");
 	printf(fmt, "program version", argp_program_version);
@@ -663,5 +665,6 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 	close_data_file(opts, &handle);
 
+	wait_for_pager();
 	return ret;
 }
