@@ -5,15 +5,17 @@ RM = rm -f
 ASFLAGS = -fPIC
 LDFLAGS = -r
 
+include ../../config/Makefile.include
+
 ARCH_ENTRY_SRC = mcount.S fentry.S plthook.S
 
 all: entry.op
 
 entry.op: $(ARCH_ENTRY_SRC:.S=.op)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(QUIET_LINK)$(LD) $(LDFLAGS) -o $@ $^
 
 %.op: %.S
-	$(CC) $(ASFLAGS) -c -o $@ $<
+	$(QUIET_ASM)$(CC) $(ASFLAGS) -c -o $@ $<
 
 clean:
 	$(RM) *.op *.o

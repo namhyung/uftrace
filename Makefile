@@ -32,9 +32,6 @@ endif
 # Check if bulid flags changed
 BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
 SAVED_FLAGS := $(shell cat FLAGS 2> /dev/null)
-ifneq ($(BUILD_FLAGS),$(SAVED_FLAGS))
-  $(shell echo "$(BUILD_FLAGS)" > FLAGS)
-endif
 
 all:
 
@@ -52,6 +49,7 @@ CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
 LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
 
 include config/Makefile
+include config/Makefile.include
 
 
 TARGETS := ftrace libmcount/libmcount.so libmcount/libmcount-nop.so
@@ -96,55 +94,66 @@ MAKEFLAGS = --no-print-directory
 all: $(TARGETS)
 
 $(LIBMCOUNT_OBJS): %.op: %.c $(LIBMCOUNT_HDRS) FLAGS
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 libmcount/mcount-nop.op: libmcount/mcount-nop.c
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 libmcount/mcount-fast.op: libmcount/mcount.c
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 libmcount/mcount-single.op: libmcount/mcount.c
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 libmcount/mcount-fast-single.op: libmcount/mcount.c
-	$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 arch/$(ARCH)/entry.op: $(wildcard arch/$(ARCH)/*.[cS]) FLAGS
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
 libmcount/libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libmcount/libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libmcount/libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/entry.op
-	$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -sC libtraceevent
 
 $(FTRACE_OBJS): %.o: %.c $(FTRACE_HDRS) FLAGS
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(CFLAGS) -c -o $@ $<
 
-ftrace: $(FTRACE_OBJS) libtraceevent/libtraceevent.a
-	$(CC) $(CFLAGS) -o $@ $(FTRACE_OBJS) $(LDFLAGS)
+FLAGS:
+ifneq ($(BUILD_FLAGS),$(SAVED_FLAGS))
+	$(QUIET_GEN)$(shell echo "$(BUILD_FLAGS)" > FLAGS)
+endif
+
+ftrace: libtraceevent/libtraceevent.a $(FTRACE_OBJS)
+	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $(FTRACE_OBJS) $(LDFLAGS)
 
 install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	$(call QUIET_INSTALL, ftrace)
 	@$(INSTALL) ftrace         $(DESTDIR)$(bindir)/ftrace
+	$(call QUIET_INSTALL, libmcount.so)
 	@$(INSTALL) libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
+	$(call QUIET_INSTALL, libmcount-nop.so)
 	@$(INSTALL) libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
+	$(call QUIET_INSTALL, libmcount-fast.so)
 	@$(INSTALL) libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
+	$(call QUIET_INSTALL, libmcount-single.so)
 	@$(INSTALL) libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
+	$(call QUIET_INSTALL, libmcount-fast-single.so)
 	@$(INSTALL) libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir); fi
@@ -160,8 +169,9 @@ doc:
 	@$(MAKE) -C doc
 
 clean:
-	@$(RM) *.o utils/*.o utils/*.op libmcount/*.op $(TARGETS)
-	@$(RM) ftrace.data* gmon.out FLAGS
+	$(call QUIET_CLEAN, ftrace)
+	@$(RM) *.o *.op *.so utils/*.o utils/*.op libmcount/*.op
+	@$(RM) ftrace.data* gmon.out FLAGS $(TARGETS)
 	@$(RM) ftrace-*.tar.gz
 	@$(MAKE) -sC arch/$(ARCH) clean
 	@$(MAKE) -sC tests ARCH=$(ARCH) clean

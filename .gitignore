@@ -16,5 +16,5 @@ tests/arch/*/t-*
 tests/libabc_test_lib.so
 config/*
 !config/*.c
-!config/Makefile
+!config/Makefile*
 FLAGS
