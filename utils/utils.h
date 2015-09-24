@@ -9,6 +9,7 @@
 #ifndef __FTRACE_UTILS_H__
 #define __FTRACE_UTILS_H__
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <endian.h>
@@ -164,5 +165,7 @@ void ftrace_cleanup_filter(struct rb_root *root);
 
 void start_pager(void);
 void wait_for_pager(void);
+
+char *demangle(char *str);
 
 #endif /* __FTRACE_UTILS_H__ */

@@ -619,28 +619,7 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 	}
 
 	if (symname[0] == '_' && symname[1] == 'Z') {
-		int status = -1;
-
-#ifdef HAVE_LIBIBERTY_DEMANGLE
-
-		name = cplus_demangle_v3(symname, 0);
-		if (name != NULL)
-			status = 0;
-
-#elif defined(HAVE_CXA_DEMANGLE)
-
-		name = __cxa_demangle(symname, NULL, NULL, &status);
-
-#endif
-		if (status != 0)
-			name = symname;
-
-		/* omit template and/or argument part */
-		symname = strchr(name, '(');
-		if (symname == NULL)
-			symname = strchr(name, '<');
-		if (symname)
-			*symname = '\0';
+		name = demangle(symname);
 
 	} else {
 		if (has_gsi)
