@@ -13,9 +13,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <endian.h>
-#ifdef HAVE_LIBIBERTY
-# include <libiberty.h>
-#endif
 
 #include "rbtree.h"
 #include "symbol.h"

@@ -1,5 +1,4 @@
-CHECK_LIST  = clock_without_librt libiberty libiberty_demangle cxa_demangle
-CHECK_LIST += cc_has_mfentry
+CHECK_LIST  = clock_without_librt cc_has_mfentry
 
 ifndef BUILD_FEATURE_CHECKS
 
@@ -10,21 +9,6 @@ ifndef BUILD_FEATURE_CHECKS
   ifeq ($(wildcard config/clock_without_librt),)
     LDFLAGS_libmcount.so += -lrt
     LDFLAGS_libcygprof.so += -lrt
-  endif
-
-  ifneq ($(wildcard config/libiberty),)
-    COMMON_CFLAGS += -DHAVE_LIBIBERTY
-    COMMON_LDFLAGS += -liberty
-    ifneq ($(wildcard config/libiberty_demangle),)
-      COMMON_CFLAGS += -DHAVE_LIBIBERTY_DEMANGLE
-    endif
-  endif
-
-  ifneq ($(wildcard config/cxa_demangle),)
-    ifeq ($(wildcard config/libiberty_demangle),)
-      COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
-      COMMON_LDFLAGS += -lstdc++
-    endif
   endif
 
   ifneq ($(wildcard config/cc_has_mfentry),)
@@ -44,10 +28,6 @@ CFLAGS = $(CFLAGS_$@)
 LDFLAGS = $(LDFLAGS_$@)
 
 CFLAGS_cc_has_mfentry = -mfentry
-
-LDFLAGS_libiberty = -liberty
-LDFLAGS_libiberty_demangle = -liberty
-LDFLAGS_cxa_demangle = -lstdc++
 
 check-build: check-tstamp $(CHECK_LIST)
 

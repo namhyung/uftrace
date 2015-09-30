@@ -15,10 +15,6 @@
 #include <gelf.h>
 #include <unistd.h>
 
-#ifdef HAVE_LIBIBERTY
-# include <libiberty.h>
-#endif
-
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "ftrace"
 
@@ -27,22 +23,7 @@
 
 static struct symtab ksymtab;
 
-#if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
-
-# ifdef HAVE_LIBIBERTY_DEMANGLE
-extern char * cplus_demangle_v3(const char *mangled_name, int options);
-# endif
-
-# ifdef HAVE_CXA_DEMANGLE
-/* copied from /usr/include/c++/4.7.2/cxxabi.h */
-extern char * __cxa_demangle(const char *mangled_name, char *output_buffer,
-			     size_t *length, int *status);
-# endif
-
-#else /* NO DEMANGLER */
-static bool use_demangle = false;
-#endif
 
 static int addrsort(const void *a, const void *b)
 {
