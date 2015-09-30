@@ -15,10 +15,6 @@
 #include <gelf.h>
 #include <unistd.h>
 
-#ifdef HAVE_LIBIBERTY
-# include <libiberty.h>
-#endif
-
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "ftrace"
 
@@ -27,22 +23,7 @@
 
 static struct symtab ksymtab;
 
-#if defined(HAVE_LIBIBERTY_DEMANGLE) || defined(HAVE_CXA_DEMANGLE)
 static bool use_demangle = true;
-
-# ifdef HAVE_LIBIBERTY_DEMANGLE
-extern char * cplus_demangle_v3(const char *mangled_name, int options);
-# endif
-
-# ifdef HAVE_CXA_DEMANGLE
-/* copied from /usr/include/c++/4.7.2/cxxabi.h */
-extern char * __cxa_demangle(const char *mangled_name, char *output_buffer,
-			     size_t *length, int *status);
-# endif
-
-#else /* NO DEMANGLER */
-static bool use_demangle = false;
-#endif
 
 static int addrsort(const void *a, const void *b)
 {
@@ -619,28 +600,7 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 	}
 
 	if (symname[0] == '_' && symname[1] == 'Z') {
-		int status = -1;
-
-#ifdef HAVE_LIBIBERTY_DEMANGLE
-
-		name = cplus_demangle_v3(symname, 0);
-		if (name != NULL)
-			status = 0;
-
-#elif defined(HAVE_CXA_DEMANGLE)
-
-		name = __cxa_demangle(symname, NULL, NULL, &status);
-
-#endif
-		if (status != 0)
-			name = symname;
-
-		/* omit template and/or argument part */
-		symname = strchr(name, '(');
-		if (symname == NULL)
-			symname = strchr(name, '<');
-		if (symname)
-			*symname = '\0';
+		name = demangle(symname);
 
 	} else {
 		if (has_gsi)

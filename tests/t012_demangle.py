@@ -8,7 +8,7 @@ class TestCase(TestBase):
 # DURATION    TID     FUNCTION
             [31433] | ABC::foo() {
             [31433] |   __static_initialization_and_destruction_0() {
-  96.867 us [31433] |     std::ios_base::Init::Init();
+  96.867 us [31433] |     ::std::ios_base::Init::Init();
    1.403 us [31433] |     __cxa_atexit();
  101.554 us [31433] |   } /* __static_initialization_and_destruction_0 */
  171.419 us [31433] | } /* ABC::foo */
@@ -21,5 +21,5 @@ class TestCase(TestBase):
    0.714 us [31433] |     } /* ABC::bar */
    1.323 us [31433] |   } /* ABC::foo */
    5.623 us [31433] | } /* main */
-   9.223 us [31433] | std::ios_base::Init::~Init();
+   9.223 us [31433] | ::std::ios_base::Init::~Init();
 """)
