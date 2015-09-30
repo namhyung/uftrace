@@ -1180,6 +1180,8 @@ static int dd_nested_name(struct demangle_data *dd)
 			dd_decltype(dd);
 		else if (c0 == 'M')
 			dd_consume(dd);  /* assumed data-member-prefix */
+		else if (c0 == 'L')
+			dd_consume(dd);  /* local-source-name ? */
 		else if (strchr(qual, c0))
 			dd_qualifier(dd);
 		else
