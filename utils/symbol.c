@@ -494,6 +494,35 @@ out:
 	return 0;
 }
 
+void save_symbol_file(struct symtabs *symtabs, const char *dirname,
+		      const char *exename)
+{
+	FILE *fp;
+	unsigned i;
+	char *symfile = NULL;
+	struct symtab *stab = &symtabs->symtab;
+	struct symtab *dtab = &symtabs->dsymtab;
+
+	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
+
+	fp = fopen(symfile, "w");
+	if (fp == NULL)
+		pr_err("cannot open %s file", symfile);
+
+	/* dynamic symbols */
+	for (i = 0; i < dtab->nr_sym; i++)
+		fprintf(fp, "%016lx %c %s\n", dtab->sym[i].addr,
+		       (char) dtab->sym[i].type, dtab->sym[i].name);
+
+	/* normal symbols */
+	for (i = 0; i < stab->nr_sym; i++)
+		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr,
+		       (char) stab->sym[i].type, stab->sym[i].name);
+
+	free(symfile);
+	fclose(fp);
+}
+
 int load_kernel_symbol(void)
 {
 	unsigned i;
@@ -730,5 +759,3 @@ void print_symtabs(struct symtabs *symtabs)
 		printf("[%2zd] %s (%#lx) size: %u\n", i, dtab->sym[i].name,
 		       dtab->sym[i].addr, dtab->sym[i].size);
 }
-
-

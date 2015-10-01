@@ -779,7 +779,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
-static void send_task_file(int sock, const char *dirname)
+static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
 {
 	FILE *fp;
 	char *filename = NULL;
@@ -820,6 +820,8 @@ static void send_task_file(int sock, const char *dirname)
 				pr_err("read exename failed");
 
 			send_trace_session(sock, &msg, &smsg, exename, namelen);
+			save_symbol_file(symtabs, dirname, exename);
+			free(exename);
 			break;
 
 		default:
@@ -1160,7 +1162,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		finish_kernel_tracing(&kern);
 
 	if (opts->host) {
-		send_task_file(sock, opts->dirname);
+		send_task_file(sock, opts->dirname, &symtabs);
 		send_map_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
 		send_trace_end(sock);
