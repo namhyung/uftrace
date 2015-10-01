@@ -1218,6 +1218,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		send_info_file(sock, opts->dirname);
 		send_trace_end(sock);
 		close(sock);
+
+		remove_directory(opts->dirname);
 	}
 
 	/*
