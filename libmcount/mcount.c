@@ -1193,7 +1193,7 @@ __monstartup(unsigned long low, unsigned long high)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
 	read_exename();
-	load_symtabs(&symtabs, mcount_exename);
+	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs,

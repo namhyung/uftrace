@@ -12,9 +12,19 @@
 #include <stdint.h>
 
 
+enum symtype {
+	ST_UNKNOWN,
+	ST_LOCAL	= 't',
+	ST_GLOBAL	= 'T',
+	ST_WEAK		= 'w',
+	ST_PLT		= 'P',
+	ST_KERNEL	= 'K',
+};
+
 struct sym {
 	unsigned long addr;
-	unsigned long size;
+	unsigned size;
+	enum symtype type;
 	char *name;
 };
 
@@ -57,7 +67,8 @@ static inline bool is_kernel_address(unsigned long addr)
 struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 			 struct ftrace_proc_maps *maps);
 struct sym * find_symname(struct symtabs *symtabs, const char *name);
-void load_symtabs(struct symtabs *symtabs, const char *filename);
+void load_symtabs(struct symtabs *symtabs, const char *dirname,
+		  const char *filename);
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
@@ -67,6 +78,9 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename);
 void unload_dynsymtab(struct symtabs *symtabs);
 
 int load_kernel_symbol(void);
+int load_symbol_file(const char *symfile, struct symtabs *symtabs);
+void save_symbol_file(struct symtabs *symtabs, const char *dirname,
+		      const char *exename);
 
 char *symbol_getname(struct sym *sym, unsigned long addr);
 void symbol_putname(struct sym *sym, char *name);

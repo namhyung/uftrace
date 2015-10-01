@@ -779,7 +779,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
-static void send_task_file(int sock, const char *dirname)
+static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
 {
 	FILE *fp;
 	char *filename = NULL;
@@ -820,6 +820,8 @@ static void send_task_file(int sock, const char *dirname)
 				pr_err("read exename failed");
 
 			send_trace_session(sock, &msg, &smsg, exename, namelen);
+			save_symbol_file(symtabs, dirname, exename);
+			free(exename);
 			break;
 
 		default:
@@ -887,6 +889,56 @@ static void send_map_files(int sock, const char *dirname)
 		close(map_fd);
 	}
 	free(map_list);
+	close(dir_fd);
+}
+
+/* find "XXX.sym" file */
+static int filter_sym(const struct dirent *de)
+{
+	size_t len = strlen(de->d_name);
+
+	return !strncmp(".sym", de->d_name + len - 4, 4);
+}
+
+static void send_sym_files(int sock, const char *dirname)
+{
+	int dir_fd;
+	int i, syms;
+	int sym_fd;
+	struct dirent **sym_list;
+	struct stat stbuf;
+	void *sym;
+	int len;
+
+	dir_fd = open(dirname, O_PATH | O_DIRECTORY);
+	if (dir_fd < 0)
+		pr_err("dir open failed");
+
+	syms = scandirat(dir_fd, ".", &sym_list, filter_sym, alphasort);
+	if (syms < 0)
+		pr_err("cannot scan sym files");
+
+	for (i = 0; i < syms; i++) {
+		sym_fd = openat(dir_fd, sym_list[i]->d_name, O_RDONLY);
+		if (sym_fd < 0)
+			pr_err("open symfile failed");
+
+		if (fstat(sym_fd, &stbuf) < 0)
+			pr_err("stat symfile failed");
+
+		len = stbuf.st_size;
+		sym = xmalloc(len);
+
+		if (read_all(sym_fd, sym, len) < 0)
+			pr_err("read symfile failed");
+
+		send_trace_sym(sock, sym_list[i]->d_name, sym, len);
+
+		free(sym);
+		free(sym_list[i]);
+		close(sym_fd);
+	}
+	free(sym_list);
 	close(dir_fd);
 }
 
@@ -997,7 +1049,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
-	load_symtabs(&symtabs, opts->exename);
+	load_symtabs(&symtabs, opts->dirname, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
 		if (find_symname(&symtabs, profile_funcs[i]))
@@ -1160,11 +1212,14 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		finish_kernel_tracing(&kern);
 
 	if (opts->host) {
-		send_task_file(sock, opts->dirname);
+		send_task_file(sock, opts->dirname, &symtabs);
 		send_map_files(sock, opts->dirname);
+		send_sym_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
 		send_trace_end(sock);
 		close(sock);
+
+		remove_directory(opts->dirname);
 	}
 
 	/*

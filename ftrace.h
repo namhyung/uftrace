@@ -177,8 +177,9 @@ struct ftrace_task {
 #define FTRACE_MSG_SEND_TASK     10U
 #define FTRACE_MSG_SEND_SESSION  11U
 #define FTRACE_MSG_SEND_MAP      12U
-#define FTRACE_MSG_SEND_INFO     13U
-#define FTRACE_MSG_SEND_END      14U
+#define FTRACE_MSG_SEND_SYM      13U
+#define FTRACE_MSG_SEND_INFO     14U
+#define FTRACE_MSG_SEND_END      15U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -204,7 +205,7 @@ struct ftrace_msg_sess {
 
 extern struct ftrace_session *first_session;
 
-void create_session(struct ftrace_msg_sess *msg, char *exename);
+void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename);
 struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
@@ -219,6 +220,7 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 			struct ftrace_msg_sess *smsg,
 			char *exename, int namelen);
 void send_trace_map(int sock, uint64_t sid, void *map, int len);
+void send_trace_sym(int sock, char *symfile, void *map, int len);
 void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len);
 void send_trace_end(int sock);
