@@ -85,7 +85,7 @@ static int read_task_file(char *dirname)
 			    read_all(fd, pad, 8 - (sess.namelen % 8)) < 0)
 				return -1;
 
-			create_session(&sess, buf);
+			create_session(&sess, dirname, buf);
 
 			if (map_file == NULL)
 				xasprintf(&map_file, "sid-%.16s.map", sess.sid);

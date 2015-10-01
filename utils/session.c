@@ -14,7 +14,7 @@ static struct rb_root sessions = RB_ROOT;
 
 struct ftrace_session *first_session;
 
-void create_session(struct ftrace_msg_sess *msg, char *exename)
+void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 {
 	struct ftrace_session *s;
 	struct rb_node *parent = NULL;
@@ -44,7 +44,7 @@ void create_session(struct ftrace_msg_sess *msg, char *exename)
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
 
-	load_symtabs(&s->symtabs, s->exename);
+	load_symtabs(&s->symtabs, dirname, s->exename);
 
 	if (first_session == NULL)
 		first_session = s;

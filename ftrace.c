@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
 				exit(1);
 		}
 
-		load_symtabs(&symtabs, opts.exename);
+		load_symtabs(&symtabs, opts.dirname, opts.exename);
 		print_symtabs(&symtabs);
 		unload_symtabs(&symtabs);
 		exit(0);

@@ -204,7 +204,7 @@ struct ftrace_msg_sess {
 
 extern struct ftrace_session *first_session;
 
-void create_session(struct ftrace_msg_sess *msg, char *exename);
+void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename);
 struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);

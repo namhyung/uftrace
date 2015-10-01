@@ -997,7 +997,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
-	load_symtabs(&symtabs, opts->exename);
+	load_symtabs(&symtabs, opts->dirname, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
 		if (find_symname(&symtabs, profile_funcs[i]))

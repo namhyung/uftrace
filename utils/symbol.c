@@ -121,10 +121,8 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		if (errno == ENOENT)
-			pr_err_ns(FTRACE_MSG, filename, basename(filename));
-		else
-			pr_err("cannot load symbol table");
+		pr_dbg("error during load symtab: %s: %m\n", filename);
+		return -1;
 	}
 
 	elf_version(EV_CURRENT);
@@ -245,18 +243,12 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	GElf_Addr plt_addr = 0;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
-	char buf[256];
-	const char *errmsg;
 	struct symtab *dsymtab = &symtabs->dsymtab;
 	unsigned long prev_addr = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		errmsg = strerror_r(errno, buf, sizeof(buf));
-		if (errmsg == NULL)
-			errmsg = filename;
-
-		pr_log("error during load dynsymtab: %s\n", errmsg);
+		pr_dbg("error during load dynsymtab: %s: %m\n", filename);
 		return -1;
 	}
 
@@ -377,13 +369,24 @@ elf_error:
 	goto out;
 }
 
-void load_symtabs(struct symtabs *symtabs, const char *filename)
+void load_symtabs(struct symtabs *symtabs, const char *dirname,
+		  const char *filename)
 {
 	if (symtabs->loaded)
 		return;
 
 	load_symtab(symtabs, filename, 0);
 	load_dynsymtab(symtabs, filename);
+
+	/* If the exefile doesn't exist, try .sym file */
+	if (symtabs->symtab.nr_sym == 0 && dirname != NULL) {
+		char *symfile = NULL;
+
+		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
+
+		load_symbol_file(symfile, symtabs);
+		free(symfile);
+	}
 
 	symtabs->loaded = true;
 }
