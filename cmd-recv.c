@@ -220,6 +220,28 @@ void send_trace_map(int sock, uint64_t sid, void *map, int len)
 		pr_err("send map failed");
 }
 
+void send_trace_sym(int sock, char *symfile, void *sym, int len)
+{
+	int32_t namelen = strlen(symfile);
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_SYM),
+		.len   = htonl(sizeof(namelen) + namelen + len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = &namelen, .iov_len = sizeof(namelen), },
+		{ .iov_base = symfile,  .iov_len = namelen, },
+		{ .iov_base = sym,      .iov_len = len, },
+	};
+
+	namelen = htonl(namelen);
+
+	pr_dbg("send FTRACE_MSG_SEND_SYM\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send symfile failed");
+}
+
 void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len)
 {
@@ -456,6 +478,39 @@ static void recv_trace_map(int sock, int len)
 	free(mapname);
 }
 
+static void recv_trace_sym(int sock, int len)
+{
+	struct client_data *client;
+	int32_t namelen;
+	char *symname = NULL;
+	void *symdata;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &namelen, sizeof(namelen)) < 0)
+		pr_err("recv symfile name length failed");
+
+	namelen = ntohl(namelen);
+	symname = xmalloc(namelen + 1);
+
+	if (read_all(sock, symname, namelen) < 0)
+		pr_err("recv symfile name failed");
+	symname[namelen] = '\0';
+
+	len -= sizeof(namelen) + namelen;
+	symdata = xmalloc(len);
+
+	if (read_all(sock, symdata, len) < 0)
+		pr_err("recv symfile failed");
+
+	write_client_file(client, symname, 1, symdata, len);
+
+	free(symdata);
+	free(symname);
+}
+
 static void recv_trace_info(int sock, int len)
 {
 	struct client_data *client;
@@ -573,6 +628,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_MAP:
 		pr_dbg("receive FTRACE_MSG_SEND_MAP\n");
 		recv_trace_map(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_SYM:
+		pr_dbg("receive FTRACE_MSG_SEND_SYM\n");
+		recv_trace_sym(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_INFO:
 		pr_dbg("receive FTRACE_MSG_SEND_INFO\n");
