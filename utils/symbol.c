@@ -430,7 +430,7 @@ int load_kernel_symbol(void)
 		sym->name = xstrdup(name);
 
 		if (ksymtab.nr_sym > 1)
-			sym[-2].size = addr - sym[-2].addr;
+			sym[-1].size = addr - sym[-1].addr;
 	}
 	free(line);
 
