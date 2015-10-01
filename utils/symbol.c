@@ -174,6 +174,21 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		sym->addr = elf_sym.st_value + offset;
 		sym->size = elf_sym.st_size;
 
+		switch (GELF_ST_BIND(elf_sym.st_info)) {
+		case STB_LOCAL:
+			sym->type = ST_LOCAL;
+			break;
+		case STB_GLOBAL:
+			sym->type = ST_GLOBAL;
+			break;
+		case STB_WEAK:
+			sym->type = ST_WEAK;
+			break;
+		default:
+			sym->type = ST_UNKNOWN;
+			break;
+		}
+
 		name = elf_strptr(elf, symstr_idx, elf_sym.st_name);
 
 		/* Removing version info from undefined symbols */
@@ -328,6 +343,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		sym->addr = esym.st_value ?: plt_addr + (idx+1) * plt_entsize;
 		sym->size = plt_entsize;
+		sym->type = ST_PLT,
 		sym->name = strdup(name);
 
 		if (prev_addr > sym->addr)
@@ -410,6 +426,7 @@ int load_kernel_symbol(void)
 		sym = &ksymtab.sym[ksymtab.nr_sym++];
 
 		sym->addr = addr;
+		sym->type = ST_KERNEL;
 		sym->name = xstrdup(name);
 
 		if (ksymtab.nr_sym > 1)
@@ -638,14 +655,14 @@ void print_symtabs(struct symtabs *symtabs)
 	printf("Normal symbols\n");
 	printf("==============\n");
 	for (i = 0; i < stab->nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %lu\n", i, stab->sym[i].name,
+		printf("[%2zd] %s (%#lx) size: %u\n", i, stab->sym[i].name,
 		       stab->sym[i].addr, stab->sym[i].size);
 
 	printf("\n\n");
 	printf("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %lu\n", i, dtab->sym[i].name,
+		printf("[%2zd] %s (%#lx) size: %u\n", i, dtab->sym[i].name,
 		       dtab->sym[i].addr, dtab->sym[i].size);
 }
 

@@ -12,9 +12,19 @@
 #include <stdint.h>
 
 
+enum symtype {
+	ST_UNKNOWN,
+	ST_LOCAL	= 't',
+	ST_GLOBAL	= 'T',
+	ST_WEAK		= 'w',
+	ST_PLT		= 'P',
+	ST_KERNEL	= 'K',
+};
+
 struct sym {
 	unsigned long addr;
-	unsigned long size;
+	unsigned size;
+	enum symtype type;
 	char *name;
 };
 
