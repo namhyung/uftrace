@@ -509,25 +509,21 @@ struct tid_list {
 
 static LIST_HEAD(tid_list_head);
 
-int read_tid_list(int *tids, bool skip_unknown)
+static void add_tid_list(int pid, int tid)
 {
-	int nr = 0;
-	struct tid_list *tmp;
+	struct tid_list *tl;
 
-	list_for_each_entry(tmp, &tid_list_head, list) {
-		if (tmp->tid == -1 && skip_unknown)
-			continue;
+	tl = xmalloc(sizeof(*tl));
 
-		if (tids)
-			tids[nr] = tmp->tid;
+	tl->pid = pid;
+	tl->tid = tid;
+	tl->exited = false;
 
-		nr++;
-	}
-
-	return nr;
+	/* link to tid_list */
+	list_add(&tl->list, &tid_list_head);
 }
 
-void free_tid_list(void)
+static void free_tid_list(void)
 {
 	struct tid_list *tl, *tmp;
 
@@ -656,16 +652,8 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			}
 		}
 
-		if (list_no_entry(pos, &tid_list_head, list)) {
-			tl = xmalloc(sizeof(*tl));
-
-			tl->pid = tmsg.pid;
-			tl->tid = tmsg.tid;
-			tl->exited = false;
-
-			/* link to tid_list */
-			list_add(&tl->list, &tid_list_head);
-		}
+		if (list_no_entry(pos, &tid_list_head, list))
+			add_tid_list(tmsg.pid, tmsg.tid);
 
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &tmsg, sizeof(tmsg));
@@ -675,20 +663,12 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
-		tl = xmalloc(sizeof(*tl));
-
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		tl->pid = tmsg.pid;
-		tl->tid = -1;
+		pr_dbg("MSG FORK1: %d/%d\n", tmsg.pid, -1);
 
-		pr_dbg("MSG FORK1: %d/%d\n", tl->pid, tl->tid);
-
-		tl->exited = false;
-
-		/* link to tid_list */
-		list_add(&tl->list, &tid_list_head);
+		add_tid_list(tmsg.pid, -1);
 		break;
 
 	case FTRACE_MSG_FORK_END:
@@ -1176,6 +1156,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	flush_shmem_list(opts->dirname, opts->bsize);
 	unlink_shmem_list();
+	free_tid_list();
 
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);

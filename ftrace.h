@@ -229,9 +229,6 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len);
 void send_trace_end(int sock);
 
-int read_tid_list(int *tids, bool skip_unknown);
-void free_tid_list(void);
-
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,
 	FTRACE_EXIT,
