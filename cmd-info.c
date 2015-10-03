@@ -25,7 +25,7 @@
 
 struct fill_handler_arg {
 	int fd;
-	char *exename;
+	struct opts *opts;
 	int exit_status;
 };
 
@@ -46,9 +46,9 @@ static int fill_exe_name(void *arg)
 	char buf[4096];
 	char *exename;
 
-	exename = realpath(fha->exename, buf);
+	exename = realpath(fha->opts->exename, buf);
 	if (exename == NULL)
-		exename = fha->exename;
+		exename = fha->opts->exename;
 
 	return dprintf(fha->fd, "exename:%s\n", exename);
 }
@@ -84,7 +84,7 @@ static int fill_exe_build_id(void *arg)
 	size_t offset = 0;
 	size_t name_offset, desc_offset;
 
-	fd = open(fha->exename, O_RDONLY);
+	fd = open(fha->opts->exename, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -526,13 +526,13 @@ struct ftrace_info_handler {
 	int (*handler)(void *arg);
 };
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, int status)
+void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status)
 {
 	size_t i;
 	off_t offset;
 	struct fill_handler_arg arg = {
 		.fd = fd,
-		.exename = exename,
+		.opts = opts,
 		.exit_status = status,
 	};
 	struct ftrace_info_handler fill_handlers[] = {

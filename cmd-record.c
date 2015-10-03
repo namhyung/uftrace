@@ -209,7 +209,7 @@ static int fill_file_header(struct opts *opts, int status)
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, status);
+	fill_ftrace_info(&hdr.info_mask, fd, opts, status);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
