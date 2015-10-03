@@ -266,7 +266,7 @@ static int fill_cpuinfo(void *arg)
 	nr_online = sysconf(_SC_NPROCESSORS_ONLN);
 
 	dprintf(fha->fd, "cpuinfo:lines=2\n");
-	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu/%lu (online/possible)\n",
+	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu / %lu (online/possible)\n",
 		nr_online, nr_possible);
 
 	return arch_fill_cpuinfo_model(fha->fd);
@@ -345,7 +345,7 @@ static int fill_meminfo(void *arg)
 		mem_free >>= 10;
 	}
 
-	dprintf(fha->fd, "meminfo:%ld.%ld/%ld.%ld %s (free/total)\n",
+	dprintf(fha->fd, "meminfo:%ld.%ld / %ld.%ld %s (free/total)\n",
 		mem_free, mem_free_small, mem_total, mem_total_small, unit);
 
 	return 0;
@@ -671,10 +671,10 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
-		printf("# %-20s: %d/%d (online/possible)\n",
+		printf(fmt, "cpu info", handle.info.cpudesc);
+		printf("# %-20s: %d / %d (online/possible)\n",
 		       "nr of cpus", handle.info.nr_cpus_online,
 		       handle.info.nr_cpus_possible);
-		printf(fmt, "cpu info", handle.info.cpudesc);
 	}
 
 	if (handle.hdr.info_mask & (1UL << MEMINFO))
