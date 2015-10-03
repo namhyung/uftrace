@@ -9,7 +9,6 @@
 #include <poll.h>
 #include <assert.h>
 #include <dirent.h>
-#include <gelf.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -173,14 +172,13 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status)
+static int fill_file_header(struct opts *opts, int status, struct rusage *rusage)
 {
 	int fd, efd;
 	int ret = -1;
 	char *filename = NULL;
 	struct ftrace_file_header hdr;
-	Elf *elf;
-	GElf_Ehdr ehdr;
+	char elf_ident[EI_NIDENT];
 
 	xasprintf(&filename, "%s/info", opts->dirname);
 	pr_dbg("fill header (metadata) info in %s\n", filename);
@@ -196,20 +194,14 @@ static int fill_file_header(struct opts *opts, int status)
 	if (efd < 0)
 		goto close_fd;
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(efd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
+	if (read(efd, elf_ident, sizeof(elf_ident)) < 0)
 		goto close_efd;
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto close_elf;
 
 	strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
 	hdr.version = FTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
-	hdr.endian = ehdr.e_ident[EI_DATA];
-	hdr.class = ehdr.e_ident[EI_CLASS];
+	hdr.endian = elf_ident[EI_DATA];
+	hdr.class = elf_ident[EI_CLASS];
 	hdr.feat_mask = calc_feat_mask(opts);
 	hdr.info_mask = 0;
 	hdr.unused = 0;
@@ -217,7 +209,7 @@ static int fill_file_header(struct opts *opts, int status)
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
+	fill_ftrace_info(&hdr.info_mask, fd, opts, status, rusage);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -228,18 +220,11 @@ try_write:
 			goto try_write;
 
 		pr_log("writing header info failed.\n");
-		elf_end(elf);
 		goto close_efd;
 	}
 
 	ret = 0;
 
-close_elf:
-	if (ret < 0) {
-		pr_log("error during ELF processing: %s\n",
-		       elf_errmsg(elf_errno()));
-	}
-	elf_end(elf);
 close_efd:
 	close(efd);
 close_fd:
@@ -524,25 +509,21 @@ struct tid_list {
 
 static LIST_HEAD(tid_list_head);
 
-int read_tid_list(int *tids, bool skip_unknown)
+static void add_tid_list(int pid, int tid)
 {
-	int nr = 0;
-	struct tid_list *tmp;
+	struct tid_list *tl;
 
-	list_for_each_entry(tmp, &tid_list_head, list) {
-		if (tmp->tid == -1 && skip_unknown)
-			continue;
+	tl = xmalloc(sizeof(*tl));
 
-		if (tids)
-			tids[nr] = tmp->tid;
+	tl->pid = pid;
+	tl->tid = tid;
+	tl->exited = false;
 
-		nr++;
-	}
-
-	return nr;
+	/* link to tid_list */
+	list_add(&tl->list, &tid_list_head);
 }
 
-void free_tid_list(void)
+static void free_tid_list(void)
 {
 	struct tid_list *tl, *tmp;
 
@@ -671,16 +652,8 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			}
 		}
 
-		if (list_no_entry(pos, &tid_list_head, list)) {
-			tl = xmalloc(sizeof(*tl));
-
-			tl->pid = tmsg.pid;
-			tl->tid = tmsg.tid;
-			tl->exited = false;
-
-			/* link to tid_list */
-			list_add(&tl->list, &tid_list_head);
-		}
+		if (list_no_entry(pos, &tid_list_head, list))
+			add_tid_list(tmsg.pid, tmsg.tid);
 
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &tmsg, sizeof(tmsg));
@@ -690,20 +663,12 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
-		tl = xmalloc(sizeof(*tl));
-
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		tl->pid = tmsg.pid;
-		tl->tid = -1;
+		pr_dbg("MSG FORK1: %d/%d\n", tmsg.pid, -1);
 
-		pr_dbg("MSG FORK1: %d/%d\n", tl->pid, tl->tid);
-
-		tl->exited = false;
-
-		/* link to tid_list */
-		list_add(&tl->list, &tid_list_head);
+		add_tid_list(tmsg.pid, -1);
 		break;
 
 	case FTRACE_MSG_FORK_END:
@@ -1191,11 +1156,12 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	flush_shmem_list(opts->dirname, opts->bsize);
 	unlink_shmem_list();
+	free_tid_list();
 
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);
 
-	if (fill_file_header(opts, status) < 0)
+	if (fill_file_header(opts, status, &usage) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {

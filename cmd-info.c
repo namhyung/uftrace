@@ -13,9 +13,11 @@
 #include <ctype.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <time.h>
 #include <gelf.h>
 #include <argp.h>
+#include <fcntl.h>
 
 #include "ftrace.h"
 #include "libmcount/mcount.h"
@@ -24,9 +26,9 @@
 
 struct fill_handler_arg {
 	int fd;
-	Elf *elf;
-	char *exename;
 	int exit_status;
+	struct opts *opts;
+	struct rusage *rusage;
 };
 
 static char *copy_info_str(char *src)
@@ -46,9 +48,9 @@ static int fill_exe_name(void *arg)
 	char buf[4096];
 	char *exename;
 
-	exename = realpath(fha->exename, buf);
+	exename = realpath(fha->opts->exename, buf);
 	if (exename == NULL)
-		exename = fha->exename;
+		exename = fha->opts->exename;
 
 	return dprintf(fha->fd, "exename:%s\n", exename);
 }
@@ -75,36 +77,47 @@ static int fill_exe_build_id(void *arg)
 	struct fill_handler_arg *fha = arg;
 	unsigned char build_id[20];
 	char build_id_str[41];
-	Elf_Scn *sec;
+	int fd;
+	Elf *elf;
+	Elf_Scn *sec = NULL;
 	Elf_Data *data;
 	GElf_Nhdr nhdr;
 	size_t shdrstr_idx;
-	size_t offset, name_offset, desc_offset;
+	size_t offset = 0;
+	size_t name_offset, desc_offset;
 
-	if (elf_getshdrstrndx(fha->elf, &shdrstr_idx) < 0)
+	fd = open(fha->opts->exename, O_RDONLY);
+	if (fd < 0)
 		return -1;
 
-	sec = NULL;
-	while ((sec = elf_nextscn(fha->elf, sec)) != NULL) {
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto close_fd;
+
+	if (elf_getshdrstrndx(elf, &shdrstr_idx) < 0)
+		goto end_elf;
+
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		GElf_Shdr shdr;
 		char *str;
 
 		if (gelf_getshdr(sec, &shdr) == NULL)
-			return -1;
+			goto end_elf;
 
-		str = elf_strptr(fha->elf, shdrstr_idx, shdr.sh_name);
+		str = elf_strptr(elf, shdrstr_idx, shdr.sh_name);
 		if (!strcmp(str, ".note.gnu.build-id"))
 			break;
 	}
 
 	if (sec == NULL)
-		return -1;
+		goto end_elf;
 
 	data = elf_getdata(sec, NULL);
 	if (data == NULL)
-		return -1;
+		goto end_elf;
 
-	offset = 0;
 	while ((offset = gelf_getnote(data, offset, &nhdr,
 				      &name_offset, &desc_offset)) != 0) {
 		if (nhdr.n_type == NT_GNU_BUILD_ID &&
@@ -113,8 +126,19 @@ static int fill_exe_build_id(void *arg)
 			break;
 		}
 	}
-	if (offset == 0)
+end_elf:
+	elf_end(elf);
+close_fd:
+	close(fd);
+
+	if (offset == 0) {
+		if (sec == NULL)
+			pr_dbg("cannot find build-id section\n");
+		else
+			pr_dbg("error during ELF processing: %s\n",
+			       elf_errmsg(elf_errno()));
 		return -1;
+	}
 
 	for (offset = 0; offset < 20; offset++) {
 		unsigned char c = build_id[offset];
@@ -244,7 +268,7 @@ static int fill_cpuinfo(void *arg)
 	nr_online = sysconf(_SC_NPROCESSORS_ONLN);
 
 	dprintf(fha->fd, "cpuinfo:lines=2\n");
-	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu/%lu (online/possible)\n",
+	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu / %lu (online/possible)\n",
 		nr_online, nr_possible);
 
 	return arch_fill_cpuinfo_model(fha->fd);
@@ -274,7 +298,7 @@ static int read_cpuinfo(void *arg)
 			return -1;
 
 		if (!strncmp(&buf[8], "nr_cpus=", 7)) {
-			sscanf(&buf[8], "nr_cpus=%d/%d\n",
+			sscanf(&buf[8], "nr_cpus=%d / %d\n",
 			       &info->nr_cpus_online, &info->nr_cpus_possible);
 		} else if (!strncmp(&buf[8], "desc=", 5)) {
 			info->cpudesc = copy_info_str(&buf[13]);
@@ -323,7 +347,7 @@ static int fill_meminfo(void *arg)
 		mem_free >>= 10;
 	}
 
-	dprintf(fha->fd, "meminfo:%ld.%ld/%ld.%ld %s (free/total)\n",
+	dprintf(fha->fd, "meminfo:%ld.%ld / %ld.%ld %s (free / total)\n",
 		mem_free, mem_free_small, mem_total, mem_total_small, unit);
 
 	return 0;
@@ -425,29 +449,47 @@ static int read_osinfo(void *arg)
 	return 0;
 }
 
+struct tid_list {
+	int nr;
+	int *tid;
+};
+
+static int build_tid_list(struct ftrace_task *t, void *arg)
+{
+	struct tid_list *list = arg;
+
+	list->nr++;
+	list->tid = xrealloc(list->tid, list->nr * sizeof(list->tid));
+
+	list->tid[list->nr - 1] = t->tid;
+	return 0;
+}
+
 static int fill_taskinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 	bool first = true;
-	int i, nr, *tids;
+	struct tid_list tlist = {
+		.nr = 0,
+	};
+	int i;
 
-	nr = read_tid_list(NULL, true);
+	if (read_task_file(fha->opts->dirname) < 0)
+		return -1;
 
-	tids = xcalloc(sizeof(*tids), nr);
-	read_tid_list(tids, true);
+	walk_tasks(build_tid_list, &tlist);
 
 	dprintf(fha->fd, "taskinfo:lines=2\n");
-	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", nr);
+	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", tlist.nr);
 
 	dprintf(fha->fd, "taskinfo:tids=");
-	for (i = 0; i < nr; i++) {
-		dprintf(fha->fd, "%s%d", first ? "" : ",", tids[i]);
+	for (i = 0; i < tlist.nr; i++) {
+		dprintf(fha->fd, "%s%d", first ? "" : ",", tlist.tid[i]);
 		first = false;
 	}
 	dprintf(fha->fd, "\n");
 
-	free_tid_list();
-	free(tids);
+	free(tlist.tid);
 	return 0;
 }
 
@@ -499,21 +541,114 @@ static int read_taskinfo(void *arg)
 	return 0;
 }
 
+static int fill_usageinfo(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	struct rusage *r = fha->rusage;
+
+	dprintf(fha->fd, "usageinfo:lines=6\n");
+	dprintf(fha->fd, "usageinfo:systime=%lu.%06lu\n",
+		r->ru_stime.tv_sec, r->ru_stime.tv_usec);
+	dprintf(fha->fd, "usageinfo:usrtime=%lu.%06lu\n",
+		r->ru_utime.tv_sec, r->ru_utime.tv_usec);
+	dprintf(fha->fd, "usageinfo:ctxsw=%ld / %ld (voluntary / involuntary)\n",
+		r->ru_nvcsw, r->ru_nivcsw);
+	dprintf(fha->fd, "usageinfo:maxrss=%ld\n", r->ru_maxrss);
+	dprintf(fha->fd, "usageinfo:pagefault=%ld / %ld (major / minor)\n",
+		r->ru_majflt, r->ru_minflt);
+	dprintf(fha->fd, "usageinfo:iops=%ld / %ld (read / write)\n",
+		r->ru_inblock, r->ru_oublock);
+	return 0;
+}
+
+static int read_usageinfo(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct ftrace_info *info = &handle->info;
+	char buf[4096];
+	int i, lines;
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "usageinfo:", 10))
+		return -1;
+
+	if (sscanf(&buf[10], "lines=%d\n", &lines) == EOF)
+		return -1;
+
+	for (i = 0; i < lines; i++) {
+		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+			return -1;
+
+		if (strncmp(buf, "usageinfo:", 10))
+			return -1;
+
+		if (!strncmp(&buf[10], "systime=", 8))
+			sscanf(&buf[18], "%lf", &info->stime);
+		else if (!strncmp(&buf[10], "usrtime=", 8))
+			sscanf(&buf[18], "%lf", &info->utime);
+		else if (!strncmp(&buf[10], "ctxsw=", 6))
+			sscanf(&buf[16], "%ld / %ld", &info->vctxsw, &info->ictxsw);
+		else if (!strncmp(&buf[10], "maxrss=", 7))
+			sscanf(&buf[17], "%ld", &info->maxrss);
+		else if (!strncmp(&buf[10], "pagefault=", 10))
+			sscanf(&buf[20], "%ld / %ld",
+			       &info->major_fault, &info->minor_fault);
+		else if (!strncmp(&buf[10], "iops=", 5))
+			sscanf(&buf[15], "%ld / %ld", &info->rblock, &info->wblock);
+	}
+	return 0;
+}
+
+static int fill_loadinfo(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	FILE *fp = fopen("/proc/loadavg", "r");
+	float loadavg[3];
+
+	if (fp == NULL)
+		return -1;
+
+	fscanf(fp, "%f %f %f", &loadavg[0], &loadavg[1], &loadavg[2]);
+	dprintf(fha->fd, "loadinfo:%.02f / %.02f / %.02f\n",
+		loadavg[0], loadavg[1], loadavg[2]);
+
+	fclose(fp);
+	return 0;
+}
+
+static int read_loadinfo(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct ftrace_info *info = &handle->info;
+	char buf[4096];
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "loadinfo:", 9))
+		return -1;
+
+	sscanf(&buf[9], "%f / %f / %f", &info->load1, &info->load5, &info->load15);
+	return 0;
+}
+
 struct ftrace_info_handler {
 	enum ftrace_info_bits bit;
 	int (*handler)(void *arg);
 };
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
-		      int status)
+void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+		      struct rusage *rusage)
 {
 	size_t i;
 	off_t offset;
 	struct fill_handler_arg arg = {
 		.fd = fd,
-		.elf = elf,
-		.exename = exename,
+		.opts = opts,
 		.exit_status = status,
+		.rusage = rusage,
 	};
 	struct ftrace_info_handler fill_handlers[] = {
 		{ EXE_NAME,	fill_exe_name },
@@ -524,6 +659,8 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
 		{ MEMINFO,	fill_meminfo },
 		{ OSINFO,	fill_osinfo },
 		{ TASKINFO,	fill_taskinfo },
+		{ USAGEINFO,	fill_usageinfo },
+		{ LOADINFO,	fill_loadinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -550,6 +687,8 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ MEMINFO,	read_meminfo },
 		{ OSINFO,	read_osinfo },
 		{ TASKINFO,	read_taskinfo },
+		{ USAGEINFO,	read_usageinfo },
+		{ LOADINFO,	read_loadinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(read_handlers); i++) {
@@ -605,6 +744,44 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (handle.hdr.info_mask & (1UL << CMDLINE))
 		printf(fmt, "cmdline", handle.info.cmdline);
 
+	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
+		printf(fmt, "cpu info", handle.info.cpudesc);
+		printf("# %-20s: %d / %d (online / possible)\n",
+		       "nr of cpus", handle.info.nr_cpus_online,
+		       handle.info.nr_cpus_possible);
+	}
+
+	if (handle.hdr.info_mask & (1UL << MEMINFO))
+		printf(fmt, "memory info", handle.info.meminfo);
+
+	if (handle.hdr.info_mask & (1UL << LOADINFO))
+		printf("# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
+		       handle.info.load1, handle.info.load5, handle.info.load15);
+
+	if (handle.hdr.info_mask & (1UL << OSINFO)) {
+		printf(fmt, "kernel version", handle.info.kernel);
+		printf(fmt, "hostname", handle.info.hostname);
+		printf(fmt, "distro", handle.info.distro);
+	}
+
+	printf("#\n");
+	printf("# task information\n");
+	printf("# ================\n");
+
+	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
+		int nr = handle.info.nr_tid;
+		bool first = true;
+
+		printf("# %-20s: %d\n", "nr of tasks", nr);
+
+		printf("# %-20s: ", "task list");
+		while (nr--) {
+			printf("%s%d", first ? "" : ", ", handle.info.tids[nr]);
+			first = false;
+		}
+		printf("\n");
+	}
+
 	if (handle.hdr.info_mask & (1UL << EXE_NAME))
 		printf(fmt, "exe image", handle.info.exename);
 
@@ -632,36 +809,18 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		printf(fmt, "exit status", buf);
 	}
 
-	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
-		printf("# %-20s: %d/%d (online/possible)\n",
-		       "nr of cpus", handle.info.nr_cpus_online,
-		       handle.info.nr_cpus_possible);
-		printf(fmt, "cpu info", handle.info.cpudesc);
+	if (handle.hdr.info_mask & (1UL << USAGEINFO)) {
+		printf("# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
+		       handle.info.stime, handle.info.utime);
+		printf("# %-20s: %ld / %ld (voluntary / involuntary)\n",
+		       "context switch", handle.info.vctxsw, handle.info.ictxsw);
+		printf("# %-20s: %ld KB\n", "max rss",
+		       handle.info.maxrss);
+		printf("# %-20s: %ld / %ld (major / minor)\n", "page fault",
+		       handle.info.major_fault, handle.info.minor_fault);
+		printf("# %-20s: %ld / %ld (read / write)\n", "disk iops",
+		       handle.info.rblock, handle.info.wblock);
 	}
-
-	if (handle.hdr.info_mask & (1UL << MEMINFO))
-		printf(fmt, "memory info", handle.info.meminfo);
-
-	if (handle.hdr.info_mask & (1UL << OSINFO)) {
-		printf(fmt, "kernel version", handle.info.kernel);
-		printf(fmt, "hostname", handle.info.hostname);
-		printf(fmt, "distro", handle.info.distro);
-	}
-
-	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
-		int nr = handle.info.nr_tid;
-		bool first = true;
-
-		printf("# %-20s: %d\n", "nr of tasks", nr);
-
-		printf("# %-20s: ", "task list");
-		while (nr--) {
-			printf("%s%d", first ? "" : ", ", handle.info.tids[nr]);
-			first = false;
-		}
-		printf("\n");
-	}
-
 	printf("\n");
 
 	close_data_file(opts, &handle);

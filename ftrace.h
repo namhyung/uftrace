@@ -52,6 +52,8 @@ enum ftrace_info_bits {
 	MEMINFO,
 	OSINFO,
 	TASKINFO,
+	USAGEINFO,
+	LOADINFO,
 };
 
 struct ftrace_info {
@@ -68,6 +70,18 @@ struct ftrace_info {
 	char *distro;
 	int nr_tid;
 	int *tids;
+	double stime;
+	double utime;
+	long vctxsw;
+	long ictxsw;
+	long maxrss;
+	long major_fault;
+	long minor_fault;
+	long rblock;
+	long wblock;
+	float load1;
+	float load5;
+	float load15;
 };
 
 struct ftrace_kernel;
@@ -136,6 +150,7 @@ extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int read_task_file(char *dirname);
 
 void sighandler(int sig);
 
@@ -211,6 +226,9 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
 struct ftrace_task *find_task(int tid);
 
+typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
+void walk_tasks(walk_tasks_cb_t callback, void *arg);
+
 int setup_client_socket(struct opts *opts);
 void send_trace_header(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
@@ -224,9 +242,6 @@ void send_trace_sym(int sock, char *symfile, void *map, int len);
 void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len);
 void send_trace_end(int sock);
-
-int read_tid_list(int *tids, bool skip_unknown);
-void free_tid_list(void);
 
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,
@@ -330,8 +345,10 @@ int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
-		      int status);
+struct rusage;
+
+void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+		      struct rusage *rusage);
 int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
 void clear_ftrace_info(struct ftrace_info *info);
 

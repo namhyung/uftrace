@@ -190,3 +190,18 @@ struct ftrace_task *find_task(int tid)
 
 	return NULL;
 }
+
+void walk_tasks(walk_tasks_cb_t callback, void *arg)
+{
+	struct rb_node *n = rb_first(&task_tree);
+	struct ftrace_task *t;
+
+	while (n) {
+		t = rb_entry(n, struct ftrace_task, node);
+
+		if (callback(t, arg) != 0)
+			break;
+
+		n = rb_next(n);
+	}
+}
