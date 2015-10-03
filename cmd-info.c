@@ -16,6 +16,7 @@
 #include <time.h>
 #include <gelf.h>
 #include <argp.h>
+#include <fcntl.h>
 
 #include "ftrace.h"
 #include "libmcount/mcount.h"
@@ -24,7 +25,6 @@
 
 struct fill_handler_arg {
 	int fd;
-	Elf *elf;
 	char *exename;
 	int exit_status;
 };
@@ -75,36 +75,47 @@ static int fill_exe_build_id(void *arg)
 	struct fill_handler_arg *fha = arg;
 	unsigned char build_id[20];
 	char build_id_str[41];
-	Elf_Scn *sec;
+	int fd;
+	Elf *elf;
+	Elf_Scn *sec = NULL;
 	Elf_Data *data;
 	GElf_Nhdr nhdr;
 	size_t shdrstr_idx;
-	size_t offset, name_offset, desc_offset;
+	size_t offset = 0;
+	size_t name_offset, desc_offset;
 
-	if (elf_getshdrstrndx(fha->elf, &shdrstr_idx) < 0)
+	fd = open(fha->exename, O_RDONLY);
+	if (fd < 0)
 		return -1;
 
-	sec = NULL;
-	while ((sec = elf_nextscn(fha->elf, sec)) != NULL) {
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto close_fd;
+
+	if (elf_getshdrstrndx(elf, &shdrstr_idx) < 0)
+		goto end_elf;
+
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		GElf_Shdr shdr;
 		char *str;
 
 		if (gelf_getshdr(sec, &shdr) == NULL)
-			return -1;
+			goto end_elf;
 
-		str = elf_strptr(fha->elf, shdrstr_idx, shdr.sh_name);
+		str = elf_strptr(elf, shdrstr_idx, shdr.sh_name);
 		if (!strcmp(str, ".note.gnu.build-id"))
 			break;
 	}
 
 	if (sec == NULL)
-		return -1;
+		goto end_elf;
 
 	data = elf_getdata(sec, NULL);
 	if (data == NULL)
-		return -1;
+		goto end_elf;
 
-	offset = 0;
 	while ((offset = gelf_getnote(data, offset, &nhdr,
 				      &name_offset, &desc_offset)) != 0) {
 		if (nhdr.n_type == NT_GNU_BUILD_ID &&
@@ -113,8 +124,19 @@ static int fill_exe_build_id(void *arg)
 			break;
 		}
 	}
-	if (offset == 0)
+end_elf:
+	elf_end(elf);
+close_fd:
+	close(fd);
+
+	if (offset == 0) {
+		if (sec == NULL)
+			pr_dbg("cannot find build-id section\n");
+		else
+			pr_dbg("error during ELF processing: %s\n",
+			       elf_errmsg(elf_errno()));
 		return -1;
+	}
 
 	for (offset = 0; offset < 20; offset++) {
 		unsigned char c = build_id[offset];
@@ -504,14 +526,12 @@ struct ftrace_info_handler {
 	int (*handler)(void *arg);
 };
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
-		      int status)
+void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, int status)
 {
 	size_t i;
 	off_t offset;
 	struct fill_handler_arg arg = {
 		.fd = fd,
-		.elf = elf,
 		.exename = exename,
 		.exit_status = status,
 	};

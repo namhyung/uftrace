@@ -330,8 +330,7 @@ int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, Elf *elf,
-		      int status);
+void fill_ftrace_info(uint64_t *info_mask, int fd, char *exename, int status);
 int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
 void clear_ftrace_info(struct ftrace_info *info);
 

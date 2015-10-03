@@ -9,7 +9,6 @@
 #include <poll.h>
 #include <assert.h>
 #include <dirent.h>
-#include <gelf.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -179,7 +178,6 @@ static int fill_file_header(struct opts *opts, int status)
 	int ret = -1;
 	char *filename = NULL;
 	struct ftrace_file_header hdr;
-	Elf *elf;
 	char elf_ident[EI_NIDENT];
 
 	xasprintf(&filename, "%s/info", opts->dirname);
@@ -196,14 +194,8 @@ static int fill_file_header(struct opts *opts, int status)
 	if (efd < 0)
 		goto close_fd;
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(efd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
+	if (read(efd, elf_ident, sizeof(elf_ident)) < 0)
 		goto close_efd;
-
-	if (pread(efd, elf_ident, sizeof(elf_ident), 0) < 0)
-		goto close_elf;
 
 	strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
 	hdr.version = FTRACE_FILE_VERSION;
@@ -217,7 +209,7 @@ static int fill_file_header(struct opts *opts, int status)
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, elf, status);
+	fill_ftrace_info(&hdr.info_mask, fd, opts->exename, status);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -228,18 +220,11 @@ try_write:
 			goto try_write;
 
 		pr_log("writing header info failed.\n");
-		elf_end(elf);
 		goto close_efd;
 	}
 
 	ret = 0;
 
-close_elf:
-	if (ret < 0) {
-		pr_log("error during ELF processing: %s\n",
-		       elf_errmsg(elf_errno()));
-	}
-	elf_end(elf);
 close_efd:
 	close(efd);
 close_fd:
