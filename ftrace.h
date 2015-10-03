@@ -53,6 +53,7 @@ enum ftrace_info_bits {
 	OSINFO,
 	TASKINFO,
 	USAGEINFO,
+	LOADINFO,
 };
 
 struct ftrace_info {
@@ -78,6 +79,9 @@ struct ftrace_info {
 	long minor_fault;
 	long rblock;
 	long wblock;
+	float load1;
+	float load5;
+	float load15;
 };
 
 struct ftrace_kernel;

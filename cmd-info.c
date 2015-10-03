@@ -601,6 +601,39 @@ static int read_usageinfo(void *arg)
 	return 0;
 }
 
+static int fill_loadinfo(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	FILE *fp = fopen("/proc/loadavg", "r");
+	float loadavg[3];
+
+	if (fp == NULL)
+		return -1;
+
+	fscanf(fp, "%f %f %f", &loadavg[0], &loadavg[1], &loadavg[2]);
+	dprintf(fha->fd, "loadinfo:%.02f / %.02f / %.02f\n",
+		loadavg[0], loadavg[1], loadavg[2]);
+
+	fclose(fp);
+	return 0;
+}
+
+static int read_loadinfo(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct ftrace_info *info = &handle->info;
+	char buf[4096];
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "loadinfo:", 9))
+		return -1;
+
+	sscanf(&buf[9], "%f / %f / %f", &info->load1, &info->load5, &info->load15);
+	return 0;
+}
+
 struct ftrace_info_handler {
 	enum ftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -627,6 +660,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 		{ OSINFO,	fill_osinfo },
 		{ TASKINFO,	fill_taskinfo },
 		{ USAGEINFO,	fill_usageinfo },
+		{ LOADINFO,	fill_loadinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -654,6 +688,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ OSINFO,	read_osinfo },
 		{ TASKINFO,	read_taskinfo },
 		{ USAGEINFO,	read_usageinfo },
+		{ LOADINFO,	read_loadinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(read_handlers); i++) {
@@ -718,6 +753,10 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 	if (handle.hdr.info_mask & (1UL << MEMINFO))
 		printf(fmt, "memory info", handle.info.meminfo);
+
+	if (handle.hdr.info_mask & (1UL << LOADINFO))
+		printf("# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
+		       handle.info.load1, handle.info.load5, handle.info.load15);
 
 	if (handle.hdr.info_mask & (1UL << OSINFO)) {
 		printf(fmt, "kernel version", handle.info.kernel);
