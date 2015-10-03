@@ -172,7 +172,7 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status)
+static int fill_file_header(struct opts *opts, int status, struct rusage *rusage)
 {
 	int fd, efd;
 	int ret = -1;
@@ -209,7 +209,7 @@ static int fill_file_header(struct opts *opts, int status)
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts, status);
+	fill_ftrace_info(&hdr.info_mask, fd, opts, status, rusage);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -1161,7 +1161,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);
 
-	if (fill_file_header(opts, status) < 0)
+	if (fill_file_header(opts, status, &usage) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {

@@ -52,6 +52,7 @@ enum ftrace_info_bits {
 	MEMINFO,
 	OSINFO,
 	TASKINFO,
+	USAGEINFO,
 };
 
 struct ftrace_info {
@@ -68,6 +69,15 @@ struct ftrace_info {
 	char *distro;
 	int nr_tid;
 	int *tids;
+	double stime;
+	double utime;
+	long vctxsw;
+	long ictxsw;
+	long maxrss;
+	long major_fault;
+	long minor_fault;
+	long rblock;
+	long wblock;
 };
 
 struct ftrace_kernel;
@@ -331,7 +341,10 @@ int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status);
+struct rusage;
+
+void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+		      struct rusage *rusage);
 int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
 void clear_ftrace_info(struct ftrace_info *info);
 
