@@ -375,18 +375,21 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	if (symtabs->loaded)
 		return;
 
-	load_symtab(symtabs, filename, 0);
-	load_dynsymtab(symtabs, filename);
-
-	/* If the exefile doesn't exist, try .sym file */
-	if (symtabs->symtab.nr_sym == 0 && dirname != NULL) {
+	/* try .sym files first */
+	if (dirname != NULL) {
 		char *symfile = NULL;
 
 		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
+		if (access(symfile, F_OK) == 0)
+			load_symbol_file(symfile, symtabs);
 
-		load_symbol_file(symfile, symtabs);
 		free(symfile);
 	}
+
+	if (symtabs->symtab.nr_sym == 0)
+		load_symtab(symtabs, filename, 0);
+	if (symtabs->dsymtab.nr_sym == 0)
+		load_dynsymtab(symtabs, filename);
 
 	symtabs->loaded = true;
 }
