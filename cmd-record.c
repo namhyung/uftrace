@@ -180,7 +180,7 @@ static int fill_file_header(struct opts *opts, int status)
 	char *filename = NULL;
 	struct ftrace_file_header hdr;
 	Elf *elf;
-	GElf_Ehdr ehdr;
+	char elf_ident[EI_NIDENT];
 
 	xasprintf(&filename, "%s/info", opts->dirname);
 	pr_dbg("fill header (metadata) info in %s\n", filename);
@@ -202,14 +202,14 @@ static int fill_file_header(struct opts *opts, int status)
 	if (elf == NULL)
 		goto close_efd;
 
-	if (gelf_getehdr(elf, &ehdr) == NULL)
+	if (pread(efd, elf_ident, sizeof(elf_ident), 0) < 0)
 		goto close_elf;
 
 	strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
 	hdr.version = FTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
-	hdr.endian = ehdr.e_ident[EI_DATA];
-	hdr.class = ehdr.e_ident[EI_CLASS];
+	hdr.endian = elf_ident[EI_DATA];
+	hdr.class = elf_ident[EI_CLASS];
 	hdr.feat_mask = calc_feat_mask(opts);
 	hdr.info_mask = 0;
 	hdr.unused = 0;
