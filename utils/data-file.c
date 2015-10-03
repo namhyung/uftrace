@@ -57,7 +57,7 @@ static void read_map_file(char *filename, struct ftrace_proc_maps **maps)
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
 "\t-finstrument-functions flag and ran with ftrace record?\n"
 
-static int read_task_file(char *dirname)
+int read_task_file(char *dirname)
 {
 	int fd;
 	char pad[8];

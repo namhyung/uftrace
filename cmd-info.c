@@ -447,29 +447,47 @@ static int read_osinfo(void *arg)
 	return 0;
 }
 
+struct tid_list {
+	int nr;
+	int *tid;
+};
+
+static int build_tid_list(struct ftrace_task *t, void *arg)
+{
+	struct tid_list *list = arg;
+
+	list->nr++;
+	list->tid = xrealloc(list->tid, list->nr * sizeof(list->tid));
+
+	list->tid[list->nr - 1] = t->tid;
+	return 0;
+}
+
 static int fill_taskinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 	bool first = true;
-	int i, nr, *tids;
+	struct tid_list tlist = {
+		.nr = 0,
+	};
+	int i;
 
-	nr = read_tid_list(NULL, true);
+	if (read_task_file(fha->opts->dirname) < 0)
+		return -1;
 
-	tids = xcalloc(sizeof(*tids), nr);
-	read_tid_list(tids, true);
+	walk_tasks(build_tid_list, &tlist);
 
 	dprintf(fha->fd, "taskinfo:lines=2\n");
-	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", nr);
+	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", tlist.nr);
 
 	dprintf(fha->fd, "taskinfo:tids=");
-	for (i = 0; i < nr; i++) {
-		dprintf(fha->fd, "%s%d", first ? "" : ",", tids[i]);
+	for (i = 0; i < tlist.nr; i++) {
+		dprintf(fha->fd, "%s%d", first ? "" : ",", tlist.tid[i]);
 		first = false;
 	}
 	dprintf(fha->fd, "\n");
 
-	free_tid_list();
-	free(tids);
+	free(tlist.tid);
 	return 0;
 }
 

@@ -136,6 +136,7 @@ extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int read_task_file(char *dirname);
 
 void sighandler(int sig);
 
@@ -210,6 +211,9 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
 struct ftrace_task *find_task(int tid);
+
+typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
+void walk_tasks(walk_tasks_cb_t callback, void *arg);
 
 int setup_client_socket(struct opts *opts);
 void send_trace_header(int sock, char *name);
