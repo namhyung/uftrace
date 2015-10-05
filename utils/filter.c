@@ -74,7 +74,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 	while (name) {
 		pos = strchr(name, '@');
 		if (pos) {
-			if (module == NULL || strcmp(pos+1, module))
+			if (module == NULL || strcasecmp(pos+1, module))
 				goto next;
 			*pos = '\0';
 		} else {
@@ -110,6 +110,7 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 {
 	char *str;
 	char *pos, *patt, *symname;
+	struct symtab *symtab = &symtabs->symtab;
 	struct sym *sym;
 	struct ftrace_filter *filter;
 	unsigned int i;
@@ -126,7 +127,7 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 	while (patt) {
 		pos = strchr(patt, '@');
 		if (pos) {
-			if (module == NULL || strcmp(pos+1, module))
+			if (module == NULL || strcasecmp(pos+1, module))
 				goto next;
 			*pos = '\0';
 		} else {
@@ -139,8 +140,11 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 			goto next;
 		}
 
-		for (i = 0; i < symtabs->symtab.nr_sym; i++) {
-			sym = &symtabs->symtab.sym[i];
+		if (module && !strcasecmp(module, "plt"))
+			symtab = &symtabs->dsymtab;
+
+		for (i = 0; i < symtab->nr_sym; i++) {
+			sym = &symtab->sym[i];
 			symname = symbol_getname(sym, sym->addr);
 
 			if (regexec(&re, symname, 0, NULL, 0))

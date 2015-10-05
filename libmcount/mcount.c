@@ -59,7 +59,10 @@ static TLS int mcount_rstack_depth;
 
 static struct rb_root filter_trace = RB_ROOT;
 static struct rb_root filter_notrace = RB_ROOT;
+static struct rb_root filter_plt_trace = RB_ROOT;
+static struct rb_root filter_plt_notrace = RB_ROOT;
 static bool has_filter, has_notrace;
+static bool has_plt_filter, has_plt_notrace;
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static TLS bool plthook_recursion_guard;
@@ -1028,6 +1031,36 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 	rstack[jbstack->count].dyn_idx = dyn_idx;
 }
 
+#ifndef DISABLE_MCOUNT_FILTER
+static enum filter_result plthook_filter(unsigned long ip)
+{
+	enum filter_result ret = FILTER_IN;
+
+	/*
+	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
+	 */
+	if (mcount_rstack_idx < 0)
+		return FILTER_OUT;
+
+	if (has_plt_filter) {
+		if (ftrace_match_filter(&filter_plt_trace, ip))
+			return FILTER_IN;
+		ret = FILTER_OUT;
+	}
+
+	if (has_plt_notrace && ret) {
+		if (ftrace_match_filter(&filter_plt_notrace, ip))
+			return FILTER_OUT;
+	}
+	return ret;
+}
+#else
+static enum filter_result plthook_filter(unsigned long ip)
+{
+	return FILTER_IN;
+}
+#endif
+
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
@@ -1048,8 +1081,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
 		goto out;
 
-	plthook_recursion_guard = true;
-
 	sym = find_dynsym(&symtabs, child_idx);
 	pr_dbg2("[%d] n %s\n", child_idx, sym->name);
 
@@ -1058,6 +1089,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		pr_err_ns("invalid function idx found! (idx: %d, %#lx)\n",
 			  (int) child_idx, child_idx);
 	}
+
+	if (plthook_filter(sym->addr) == FILTER_OUT)
+		goto out;
+
+	plthook_recursion_guard = true;
 
 	if (mcount_entry(ret_addr, child_ip) == 0) {
 		int idx = mcount_rstack_idx - 1;
@@ -1215,6 +1251,16 @@ __monstartup(unsigned long low, unsigned long high)
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_dynsym_indexes(&symtabs);
 
+#ifndef DISABLE_MCOUNT_FILTER
+		ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, "plt",
+				    &filter_plt_trace, &has_plt_filter);
+		ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, "plt",
+				    &filter_plt_notrace, &has_plt_notrace);
+		ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs, "plt",
+					  &filter_plt_trace, &has_plt_filter);
+		ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs, "plt",
+					  &filter_plt_notrace, &has_plt_notrace);
+#endif
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
 		else {
