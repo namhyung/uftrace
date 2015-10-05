@@ -301,14 +301,14 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->filter) {
-		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs,
+		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs, NULL,
 					  &filters.filters, &filters.has_filters);
 		if (!filters.has_filters)
 			return -1;
 	}
 
 	if (opts->notrace) {
-		ftrace_setup_filter_regex(opts->notrace, &first_session->symtabs,
+		ftrace_setup_filter_regex(opts->notrace, &first_session->symtabs, NULL,
 					  &filters.notrace, &filters.has_notrace);
 		if (!filters.has_notrace)
 			return -1;

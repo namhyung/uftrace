@@ -153,9 +153,10 @@ struct ftrace_filter {
 };
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 struct rb_root *root, bool *has_filter);
+			 char *module, struct rb_root *root, bool *has_filter);
 void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
-			       struct rb_root *root, bool *has_filter);
+			       char *module, struct rb_root *root,
+			       bool *has_filter);
 int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
 #endif /* DISABLE_MCOUNT_FILTER */

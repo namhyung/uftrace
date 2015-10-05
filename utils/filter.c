@@ -56,7 +56,7 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip)
 }
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 struct rb_root *root, bool *has_filter)
+			 char *module, struct rb_root *root, bool *has_filter)
 {
 	char *str;
 	char *pos, *name;
@@ -72,6 +72,15 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 
 	name = strtok(pos, ",");
 	while (name) {
+		pos = strchr(name, '@');
+		if (pos) {
+			if (module == NULL || strcmp(pos+1, module))
+				goto next;
+			*pos = '\0';
+		} else {
+			if (module)
+				goto next;
+		}
 		sym = find_symname(symtabs, name);
 		if (sym == NULL)
 			goto next;
@@ -96,7 +105,8 @@ next:
 }
 
 void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
-			       struct rb_root *root, bool *has_filter)
+			       char *module, struct rb_root *root,
+			       bool *has_filter)
 {
 	char *str;
 	char *pos, *patt, *symname;
@@ -114,6 +124,16 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 
 	patt = strtok(pos, ",");
 	while (patt) {
+		pos = strchr(patt, '@');
+		if (pos) {
+			if (module == NULL || strcmp(pos+1, module))
+				goto next;
+			*pos = '\0';
+		} else {
+			if (module)
+				goto next;
+		}
+
 		if (regcomp(&re, patt, REG_NOSUB)) {
 			pr_log("regex pattern failed: %s\n", patt);
 			goto next;

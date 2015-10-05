@@ -1196,13 +1196,13 @@ __monstartup(unsigned long low, unsigned long high)
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs,
+	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, NULL,
 			    &filter_trace, &has_filter);
-	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs,
+	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, NULL,
 			    &filter_notrace, &has_notrace);
-	ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs,
+	ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs, NULL,
 				  &filter_trace, &has_filter);
-	ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs,
+	ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs, NULL,
 				  &filter_notrace, &has_notrace);
 
 	if (getenv("FTRACE_DEPTH"))
