@@ -264,6 +264,9 @@ static int dd_number(struct demangle_data *dd)
 	char *end;
 	int num;
 
+	if (dd_eof(dd))
+		return -1;
+
 	if (!isdigit(*str))
 		DD_DEBUG(dd, "digit", 0);
 
@@ -276,6 +279,9 @@ static int dd_number(struct demangle_data *dd)
 static int dd_seq_id(struct demangle_data *dd)
 {
 	char c = dd_curr(dd);
+
+	if (dd_eof(dd))
+		return -1;
 
 	/* just skip for now */
 	while (isdigit(c) || isupper(c))
@@ -315,6 +321,9 @@ static int dd_qualifier(struct demangle_data *dd)
 	char c = dd_curr(dd);
 	char qual[] = "rVKRO";
 
+	if (dd_eof(dd))
+		return -1;
+
 	/* qualifiers are optional and we ignore them */
 	if (strchr(qual, c))
 		dd_consume(dd);
@@ -326,6 +335,9 @@ static int dd_initializer(struct demangle_data *dd)
 {
 	char c0 = dd_consume(dd);
 	char c1 = dd_consume(dd);
+
+	if (dd_eof(dd))
+		return -1;
 
 	if (c0 != 'p' || c1 != 'i')
 		DD_DEBUG(dd, "pi", -2);
@@ -407,6 +419,9 @@ static int dd_template_arg(struct demangle_data *dd)
 {
 	char c = dd_curr(dd);
 
+	if (dd_eof(dd))
+		return -1;
+
 	if (c == 'X') {
 		dd_consume(dd);
 
@@ -460,6 +475,9 @@ static int dd_template_args(struct demangle_data *dd)
 
 static int dd_simple_id(struct demangle_data *dd)
 {
+	if (dd_eof(dd))
+		return -1;
+
 	if (!isdigit(dd_curr(dd)))
 		DD_DEBUG(dd, "digit", -1);
 
@@ -476,6 +494,9 @@ static int dd_unresolved_type(struct demangle_data *dd)
 {
 	char c = dd_curr(dd);
 
+	if (dd_eof(dd))
+		return -1;
+
 	if (c == 'T')
 		return dd_template_param(dd);
 	if (c == 'D')
@@ -489,6 +510,9 @@ static int dd_destructor_name(struct demangle_data *dd)
 {
 	char c = dd_curr(dd);
 
+	if (dd_eof(dd))
+		return -1;
+
 	if (isdigit(c))
 		return dd_source_name(dd);
 	return dd_unresolved_type(dd);
@@ -498,6 +522,9 @@ static int dd_base_unresolved_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
+
+	if (dd_eof(dd))
+		return -1;
 
 	if (c0 == 'o' && c1 == 'n') {
 		dd_consume_n(dd, 2);
@@ -518,6 +545,9 @@ static int dd_unresolved_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
+
+	if (dd_eof(dd))
+		return -1;
 
 	if (c0 == 'g' && c1 == 's') {
 		dd_consume_n(dd, 2);
@@ -595,6 +625,9 @@ static int dd_expr_list(struct demangle_data *dd)
 {
 	char c = dd_curr(dd);
 
+	if (dd_eof(dd))
+		return -1;
+
 	dd->level++;
 	while (c != 'E' && c != '_') {
 		if (dd_expression(dd) < 0)
@@ -616,6 +649,9 @@ static int dd_expression(struct demangle_data *dd)
 		"ps", "ng", "ad", "de", "pp_", "mm_", "gs", "dl", "da",
 		"te", "sz", "az", "nx", "sp", "tw",
 	};
+
+	if (dd_eof(dd))
+		return -1;
 
 	if (c0 == 'L')
 		return dd_expr_primary(dd);
@@ -843,10 +879,13 @@ static int dd_type(struct demangle_data *dd)
 	int done = 0;
 	int ret = -1;
 
+	if (dd_eof(dd))
+		return -1;
+
 	/* ignore type names */
 	dd->type++;
 
-	while (!done) {
+	while (!done && !dd_eof(dd)) {
 		char c = dd_curr(dd);
 
 		if (strchr(cv_qual, c)) {
@@ -1163,7 +1202,7 @@ static int dd_nested_name(struct demangle_data *dd)
 	DD_DEBUG_CONSUME(dd, 'N');
 	dd->level++;
 
-	while (dd_curr(dd) != 'E') {
+	while (dd_curr(dd) != 'E' && !dd_eof(dd)) {
 		char c0 = dd_curr(dd);
 		char c1 = dd_peek(dd, 1);
 
