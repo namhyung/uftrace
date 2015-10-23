@@ -716,6 +716,10 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 	if (symname[0] == '_' && symname[1] == 'Z') {
 		name = demangle(symname);
 
+		/* demangle failed: restore original name */
+		if (name == symname && has_gsi)
+			name = sym->name;
+
 	} else {
 		if (has_gsi)
 			name = xstrdup(symname);
