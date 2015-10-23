@@ -971,6 +971,11 @@ static int dd_type(struct demangle_data *dd)
 			ret = dd_source_name(dd);
 			done = 1;
 		}
+		else if (c == 'I') {
+			/* template args?? - not specified in the spec */
+			ret = dd_template_args(dd);
+			done = 1;
+		}
 		else if (isdigit(c)) {
 			ret = dd_source_name(dd);
 			done = 1;
