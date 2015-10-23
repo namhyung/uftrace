@@ -947,6 +947,16 @@ static int dd_type(struct demangle_data *dd)
 			ret = dd_nested_name(dd);
 			done = 1;
 		}
+		else if (c == 'u') {
+			/* vendor extended type */
+			dd_consume(dd);
+			ret = dd_source_name(dd);
+			done = 1;
+		}
+		else if (isdigit(c)) {
+			ret = dd_source_name(dd);
+			done = 1;
+		}
 		else {
 			/* builtin types */
 			for (i = 0; i < ARRAY_SIZE(types); i++) {
@@ -956,10 +966,6 @@ static int dd_type(struct demangle_data *dd)
 					break;
 				}
 			}
-			if (c == 'u')
-				dd_consume(dd);
-			if (isdigit(dd_curr(dd)))
-				ret = dd_source_name(dd);
 			done = 1;
 		}
 	}
