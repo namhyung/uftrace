@@ -1092,6 +1092,8 @@ static int dd_ctor_dtor_name(struct demangle_data *dd)
 	else
 		pos++;
 
+	/* pos can be invalidated after dd_apend() below, so copy it */
+	pos = xstrdup(pos);
 	len = strlen(pos);
 
 	if (c0 == 'C')
@@ -1100,6 +1102,7 @@ static int dd_ctor_dtor_name(struct demangle_data *dd)
 		dd_append(dd, "::~");
 
 	dd_append_len(dd, pos, len);
+	free(pos);
 	return 0;
 }
 
