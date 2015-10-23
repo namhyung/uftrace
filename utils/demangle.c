@@ -15,6 +15,8 @@
 
 #include "utils.h"
 
+#define MAX_DEBUG_DEPTH  32
+
 struct demangle_data {
 	char *old;
 	char *new;
@@ -27,6 +29,8 @@ struct demangle_data {
 	int alloc;
 	int level;
 	int type;
+	int nr_dbg;
+	const char *debug[MAX_DEBUG_DEPTH];
 };
 
 static char dd_expbuf[2];
@@ -48,9 +52,12 @@ static char dd_curr(struct demangle_data *dd)
 	return dd_peek(dd, 0);
 }
 
-static char dd_consume_n(struct demangle_data *dd, int n)
+static char __dd_consume_n(struct demangle_data *dd, int n, const char *dbg)
 {
 	char c = dd_curr(dd);
+
+	if (dd->nr_dbg < MAX_DEBUG_DEPTH)
+		dd->debug[dd->nr_dbg++] = dbg;
 
 	if (dd->pos + n > dd->len)
 		return 0;
@@ -59,10 +66,13 @@ static char dd_consume_n(struct demangle_data *dd, int n)
 	return c;
 }
 
-static char dd_consume(struct demangle_data *dd)
+static char __dd_consume(struct demangle_data *dd, const char *dbg)
 {
-	return dd_consume_n(dd, 1);
+	return __dd_consume_n(dd, 1, dbg);
 }
+
+#define dd_consume(dd)  __dd_consume(dd, __func__)
+#define dd_consume_n(dd, n)  __dd_consume_n(dd, n, __func__)
 
 #define DD_DEBUG(dd, exp, inc)						\
 ({	dd->func = __func__; dd->line = __LINE__ - 1; dd->pos += inc;	\
@@ -80,6 +90,7 @@ static char dd_consume(struct demangle_data *dd)
 
 static void dd_debug_print(struct demangle_data *dd)
 {
+	int i;
 	const char *expected = dd->expected;
 
 	if (expected == NULL) {
@@ -89,8 +100,15 @@ static void dd_debug_print(struct demangle_data *dd)
 			expected = "unknown input";
 	}
 
-	pr_dbg("demangle failed:\n%s\n%*c\n%s:%d: \"%s\" expected\n",
+	if (dd->func == NULL)
+		dd->func = "demangle";
+
+	pr_dbg("demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
+	       dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
 	       dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
+
+	for (i = 0; i < dd->nr_dbg; i++)
+		pr_dbg("  [%d] %s\n", i, dd->debug[i]);
 }
 
 static const struct {
