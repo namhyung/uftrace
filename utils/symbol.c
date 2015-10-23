@@ -543,6 +543,14 @@ int load_kernel_symbol(void)
 	return 0;
 }
 
+struct symtab * get_kernel_symtab(void)
+{
+	if (ksymtabs.loaded)
+		return &ksymtabs.symtab;
+
+	return NULL;
+}
+
 void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
@@ -613,11 +621,14 @@ struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct symtab *ktab = &ksymtabs.symtab;
 	struct sym *sym;
 
 	if (is_kernel_address(addr)) {
+		struct symtab *ktab = get_kernel_symtab();
 		const void *kaddr = (const void *)get_real_address(addr);
+
+		if (!ktab)
+			return NULL;
 
 		sym = bsearch(kaddr, ktab->sym, ktab->nr_sym,
 			      sizeof(*ktab->sym), addrfind);

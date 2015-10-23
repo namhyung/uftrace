@@ -78,6 +78,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename);
 void unload_dynsymtab(struct symtabs *symtabs);
 
 int load_kernel_symbol(void);
+struct symtab * get_kernel_symtab(void);
 int load_symbol_file(const char *symfile, struct symtabs *symtabs);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);

@@ -1085,6 +1085,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
 
+		setup_kernel_filters(&kern, opts->filter, opts->notrace);
+
 		if (start_kernel_tracing(&kern) < 0) {
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");

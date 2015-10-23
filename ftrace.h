@@ -7,6 +7,7 @@
 #include <libelf.h>
 
 #include "utils/rbtree.h"
+#include "utils/list.h"
 #include "utils/symbol.h"
 
 
@@ -332,10 +333,11 @@ struct ftrace_kernel {
 	bool *rstack_valid;
 	bool *rstack_done;
 	char *output_dir;
-	char *filters;
-	char *notrace;
+	struct list_head filters;
+	struct list_head notrace;
 };
 
+int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters, char *notrace);
 int start_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_tracing(struct ftrace_kernel *kernel);
 int stop_kernel_tracing(struct ftrace_kernel *kernel);
