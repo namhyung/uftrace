@@ -1220,6 +1220,8 @@ static int dd_unqualified_name(struct demangle_data *dd)
 	}
 	if (islower(c0))
 		return dd_operator_name(dd);
+	else if (c0 == 'L')
+		dd_consume(dd);  /* local-source-name ? */
 
 	return dd_source_name(dd);
 }
