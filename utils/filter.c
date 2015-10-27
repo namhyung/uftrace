@@ -135,7 +135,7 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 				goto next;
 		}
 
-		if (regcomp(&re, patt, REG_NOSUB)) {
+		if (regcomp(&re, patt, REG_NOSUB | REG_EXTENDED)) {
 			pr_log("regex pattern failed: %s\n", patt);
 			goto next;
 		}
