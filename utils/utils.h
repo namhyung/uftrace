@@ -159,6 +159,7 @@ void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
 			       bool *has_filter);
 int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
+void ftrace_print_filter(struct rb_root *root);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 void start_pager(void);

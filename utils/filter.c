@@ -184,3 +184,16 @@ void ftrace_cleanup_filter(struct rb_root *root)
 		free(filter);
 	}
 }
+
+void ftrace_print_filter(struct rb_root *root)
+{
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+
+	node = rb_first(root);
+	while (node) {
+		filter = rb_entry(node, struct ftrace_filter, node);
+		pr_log("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
+		node = rb_next(node);
+	}
+}
