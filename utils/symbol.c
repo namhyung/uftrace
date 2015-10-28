@@ -677,21 +677,24 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
 	return sym;
 }
 
-struct sym * find_symname(struct symtabs *symtabs, const char *name)
+struct sym * find_symname(struct symtab *symtab, const char *name)
 {
-	struct symtab *stab = &symtabs->symtab;
-	struct symtab *dtab = &symtabs->dsymtab;
-	struct sym **psym;
 	size_t i;
 
-	psym = bsearch(name, stab->sym_names, stab->nr_sym,
-		       sizeof(*psym), namefind);
-	if (psym)
-		return *psym;
+	if (symtab->name_sorted) {
+		struct sym **psym;
 
-	for (i = 0; i < dtab->nr_sym; i++)
-		if (!strcmp(name, dtab->sym[i].name))
-			return &dtab->sym[i];
+		psym = bsearch(name, symtab->sym_names, symtab->nr_sym,
+			       sizeof(*psym), namefind);
+		if (psym)
+			return *psym;
+
+		return NULL;
+	}
+
+	for (i = 0; i < symtab->nr_sym; i++)
+		if (!strcmp(name, symtab->sym[i].name))
+			return &symtab->sym[i];
 
 	return NULL;
 }

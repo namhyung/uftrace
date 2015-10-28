@@ -56,7 +56,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
-	bool multi_thread = !!find_symname(symtabs, "pthread_create");
+	bool multi_thread = !!find_symname(&symtabs->dsymtab, "pthread_create");
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
@@ -1017,7 +1017,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	load_symtabs(&symtabs, opts->dirname, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-		if (find_symname(&symtabs, profile_funcs[i]))
+		if (find_symname(&symtabs.dsymtab, profile_funcs[i]))
 			break;
 	}
 

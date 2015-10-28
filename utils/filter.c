@@ -61,6 +61,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 	char *str;
 	char *pos, *name;
 	struct sym *sym;
+	struct symtab *symtab = &symtabs->symtab;
 	struct ftrace_filter *filter;
 
 	if (filter_str == NULL)
@@ -81,7 +82,11 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			if (module)
 				goto next;
 		}
-		sym = find_symname(symtabs, name);
+
+		if (module && !strcasecmp(module, "plt"))
+			symtab = &symtabs->dsymtab;
+
+		sym = find_symname(symtab, name);
 		if (sym == NULL)
 			goto next;
 

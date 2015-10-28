@@ -321,7 +321,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 
 	if (idx == handle->info.nr_tid - 1) {
 		/* This is the main thread */
-		task->func = sym = find_symname(symtabs, "main");
+		task->func = sym = find_symname(&symtabs->symtab, "main");
 		if (sym)
 			return sym;
 
