@@ -35,11 +35,11 @@ struct symtab {
 	struct sym **sym_names;
 	size_t nr_sym;
 	size_t nr_alloc;
+	bool name_sorted;
 };
 
 struct symtabs {
 	bool loaded;
-	bool unsorted_dynsyms;
 	struct symtab symtab;
 	struct symtab dsymtab;
 };
@@ -63,10 +63,11 @@ static inline bool is_kernel_address(unsigned long addr)
 {
 	return !!(addr & (1UL << KADDR_SHIFT));
 }
+unsigned long get_real_address(unsigned long addr);
 
-struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
+struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
 			 struct ftrace_proc_maps *maps);
-struct sym * find_symname(struct symtabs *symtabs, const char *name);
+struct sym * find_symname(struct symtab *symtab, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename);
 void unload_symtabs(struct symtabs *symtabs);
@@ -78,6 +79,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename);
 void unload_dynsymtab(struct symtabs *symtabs);
 
 int load_kernel_symbol(void);
+struct symtab * get_kernel_symtab(void);
 int load_symbol_file(const char *symfile, struct symtabs *symtabs);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);

@@ -37,18 +37,6 @@ static int addrsort(const void *a, const void *b)
 	return 0;
 }
 
-static int paddrsort(const void *a, const void *b)
-{
-	const struct sym *syma = *(const struct sym **)a;
-	const struct sym *symb = *(const struct sym **)b;
-
-	if (syma->addr > symb->addr)
-		return 1;
-	if (syma->addr < symb->addr)
-		return -1;
-	return 0;
-}
-
 static int addrfind(const void *a, const void *b)
 {
 	unsigned long addr = (unsigned long) a;
@@ -218,6 +206,7 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		symtab->sym_names[i] = &symtab->sym[i];
 	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 
+	symtab->name_sorted = true;
 	ret = 0;
 out:
 	elf_end(elf);
@@ -244,7 +233,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
 	struct symtab *dsymtab = &symtabs->dsymtab;
-	unsigned long prev_addr = 0;
+	unsigned i, k;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -349,12 +338,30 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->size = plt_entsize;
 		sym->type = ST_PLT,
 		sym->name = strdup(name);
-
-		if (prev_addr > sym->addr)
-			symtabs->unsorted_dynsyms = true;
-
-		prev_addr = sym->addr;
 	}
+
+	/*
+	 * abuse ->sym_names[] to save original index
+	 */
+	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
+				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
+
+	/* save current address for each symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++)
+		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
+
+	/* sort ->sym by address now */
+	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
+
+	/* find position of sorted symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++) {
+		for (k = 0; k < dsymtab->nr_sym; k++) {
+			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr)
+				dsymtab->sym_names[i] = &dsymtab->sym[k];
+		}
+	}
+
+	dsymtab->name_sorted = false;
 	ret = 0;
 
 out:
@@ -469,29 +476,30 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		stab->sym_names[i] = &stab->sym[i];
 	qsort(stab->sym_names, stab->nr_sym, sizeof(*stab->sym_names), namesort);
 
+	stab->name_sorted = true;
+
+	/*
+	 * sort dynamic symbol while reserving original index in ->sym_names[]
+	 */
 	stab = &symtabs->dsymtab;
 	if (stab->nr_sym == 0)
 		goto out;
-
-	/*
-	 * reuse sym_names to calculate the size of a dynamic symbol
-	 * since dynamic symbol table might be unsorted.
-	 */
-	symtabs->unsorted_dynsyms = true;
 
 	stab->sym_names = xrealloc(stab->sym_names,
 				   sizeof(*stab->sym_names) * stab->nr_sym);
 
 	for (i = 0; i < stab->nr_sym; i++)
 		stab->sym_names[i] = &stab->sym[i];
-	qsort(stab->sym_names, stab->nr_sym, sizeof(*stab->sym_names), paddrsort);
+
+	qsort(stab->sym, stab->nr_sym, sizeof(*stab->sym), addrsort);
 
 	for (i = 0; i < stab->nr_sym - 1; i++) {
-		struct sym *sym = stab->sym_names[i];
-		sym->size = stab->sym_names[i + 1]->addr - sym->addr;
+		struct sym *sym = &stab->sym[i];
+		sym->size = stab->sym[i + 1].addr - sym->addr;
 	}
 	stab->sym_names[i]->size = stab->sym_names[i - 1]->size;
 
+	stab->name_sorted = false;
 out:
 	fclose(fp);
 	return 0;
@@ -514,13 +522,18 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", dtab->sym[i].addr,
-		       (char) dtab->sym[i].type, dtab->sym[i].name);
+		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
+		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
+	/* this last entry should come from ->sym[] to know the real end */
+	fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
+		(char) dtab->sym[i-1].type, "__dynsym_end");
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr,
 		       (char) stab->sym[i].type, stab->sym[i].name);
+	fprintf(fp, "%016lx %c %s\n", stab->sym[i-1].addr + stab->sym[i-1].size,
+		(char) stab->sym[i-1].type, "__sym_end");
 
 	free(symfile);
 	fclose(fp);
@@ -543,6 +556,14 @@ int load_kernel_symbol(void)
 	return 0;
 }
 
+struct symtab * get_kernel_symtab(void)
+{
+	if (ksymtabs.loaded)
+		return &ksymtabs.symtab;
+
+	return NULL;
+}
+
 void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
@@ -553,7 +574,7 @@ void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlis
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < symcount; k++) {
-			if (!strcmp(dsymtab->sym[i].name, symlist[k])) {
+			if (!strcmp(dsymtab->sym_names[i]->name, symlist[k])) {
 				idx = xrealloc(idx, (count + 1) * sizeof(*idx));
 
 				idx[count++] = i;
@@ -591,7 +612,8 @@ struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
 	if (idx >= dsymtab->nr_sym)
 		return NULL;
 
-	return &dsymtab->sym[idx];
+	/* ->sym_names are sorted by original index */
+	return dsymtab->sym_names[idx];
 }
 
 size_t count_dynsym(struct symtabs *symtabs)
@@ -601,23 +623,26 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
-static unsigned long get_real_address(unsigned long addr)
+unsigned long get_real_address(unsigned long addr)
 {
 	if (is_kernel_address(addr))
 		return addr | (-1UL << KADDR_SHIFT);
 	return addr;
 }
 
-struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
-			 struct ftrace_proc_maps *maps)
+struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
+			  struct ftrace_proc_maps *maps)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct symtab *ktab = &ksymtabs.symtab;
 	struct sym *sym;
 
 	if (is_kernel_address(addr)) {
+		struct symtab *ktab = get_kernel_symtab();
 		const void *kaddr = (const void *)get_real_address(addr);
+
+		if (!ktab)
+			return NULL;
 
 		sym = bsearch(kaddr, ktab->sym, ktab->nr_sym,
 			      sizeof(*ktab->sym), addrfind);
@@ -626,26 +651,12 @@ struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 
 	sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
 		      sizeof(*sym), addrfind);
-
 	if (sym)
 		return sym;
 
 	/* try dynamic symbols if failed */
-	if (symtabs->unsorted_dynsyms) {
-		unsigned i;
-
-		for (i = 0; i < dtab->nr_sym; i++) {
-			sym = &dtab->sym[i];
-
-			if (sym->addr <= addr && addr < sym->addr + sym->size)
-				return sym;
-		}
-		sym = NULL;
-	} else {
-		sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
-			      sizeof(*sym), addrfind);
-	}
-
+	sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
+		      sizeof(*sym), addrfind);
 	if (sym)
 		return sym;
 
@@ -666,21 +677,24 @@ struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
 	return sym;
 }
 
-struct sym * find_symname(struct symtabs *symtabs, const char *name)
+struct sym * find_symname(struct symtab *symtab, const char *name)
 {
-	struct symtab *stab = &symtabs->symtab;
-	struct symtab *dtab = &symtabs->dsymtab;
-	struct sym **psym;
 	size_t i;
 
-	psym = bsearch(name, stab->sym_names, stab->nr_sym,
-		       sizeof(*psym), namefind);
-	if (psym)
-		return *psym;
+	if (symtab->name_sorted) {
+		struct sym **psym;
 
-	for (i = 0; i < dtab->nr_sym; i++)
-		if (!strcmp(name, dtab->sym[i].name))
-			return &dtab->sym[i];
+		psym = bsearch(name, symtab->sym_names, symtab->nr_sym,
+			       sizeof(*psym), namefind);
+		if (psym)
+			return *psym;
+
+		return NULL;
+	}
+
+	for (i = 0; i < symtab->nr_sym; i++)
+		if (!strcmp(name, symtab->sym[i].name))
+			return &symtab->sym[i];
 
 	return NULL;
 }
@@ -756,13 +770,13 @@ void print_symtabs(struct symtabs *symtabs)
 	printf("Normal symbols\n");
 	printf("==============\n");
 	for (i = 0; i < stab->nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %u\n", i, stab->sym[i].name,
-		       stab->sym[i].addr, stab->sym[i].size);
+		printf("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
+		       stab->sym[i].name, stab->sym[i].size);
 
 	printf("\n\n");
 	printf("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++)
-		printf("[%2zd] %s (%#lx) size: %u\n", i, dtab->sym[i].name,
-		       dtab->sym[i].addr, dtab->sym[i].size);
+		printf("[%2zd] %#lx: %s (size: %u)\n", i, dtab->sym_names[i]->addr,
+		       dtab->sym_names[i]->name, dtab->sym_names[i]->size);
 }

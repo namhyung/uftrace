@@ -23,6 +23,7 @@
 #include "../libtraceevent/kbuffer.h"
 #include "../libtraceevent/event-parse.h"
 #include "utils.h"
+#include "rbtree.h"
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
 #define FTRACE_TRACER  "function_graph"
@@ -104,38 +105,32 @@ static int set_tracing_clock(void)
 	return write_tracing_file("trace_clock", "mono");
 }
 
+struct kfilter {
+	struct list_head list;
+	char name[];
+};
+
 static int set_tracing_filter(struct ftrace_kernel *kernel)
 {
 	const char *filter_file;
+	struct kfilter *pos, *tmp;
 
-	if (kernel->filters) {
-		char *pos = kernel->filters;
-		char *tok;
+	filter_file = "set_graph_function";
+	list_for_each_entry_safe(pos, tmp, &kernel->filters, list) {
+		if (append_tracing_file(filter_file, pos->name) < 0)
+			return -1;
 
-		filter_file = "set_graph_function";
-
-		tok = strtok(pos, ":");
-		while (tok) {
-			if (append_tracing_file(filter_file, tok) < 0)
-				return -1;
-
-			pos = NULL;
-		}
+		list_del(&pos->list);
+		free(pos);
 	}
 
-	if (kernel->notrace) {
-		char *pos = kernel->notrace;
-		char *tok;
+	filter_file = "set_graph_notrace";
+	list_for_each_entry_safe(pos, tmp, &kernel->notrace, list) {
+		if (append_tracing_file(filter_file, pos->name) < 0)
+			return -1;
 
-		filter_file = "set_graph_notrace";
-
-		tok = strtok(pos, ":");
-		while (tok) {
-			if (append_tracing_file(filter_file, tok) < 0)
-				break; /* ignore error on old kernel */
-
-			pos = NULL;
-		}
+		list_del(&pos->list);
+		free(pos);
 	}
 
 	return 0;
@@ -229,6 +224,42 @@ static int setup_kernel_tracing(struct ftrace_kernel *kernel)
 out:
 	reset_tracing_files();
 	return -1;
+}
+
+void __setup_kfilter(struct list_head *head, char *filter_str)
+{
+	char *pos, *str, *name;
+	struct kfilter *kfilter;
+
+	pos = str = xstrdup(filter_str);
+
+	name = strtok(pos, ",");
+	while (name) {
+		pos = strchr(name, '@');
+		if (!pos || strcasecmp(pos+1, "kernel"))
+			goto next;
+		*pos = '\0';
+
+		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+		strcpy(kfilter->name, name);
+		list_add(&kfilter->list, head);
+next:
+		name = strtok(NULL, ",");
+	}
+}
+
+int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters, char *notrace)
+{
+	INIT_LIST_HEAD(&kernel->filters);
+	INIT_LIST_HEAD(&kernel->notrace);
+
+	if (filters)
+		__setup_kfilter(&kernel->filters, filters);
+
+	if (notrace)
+		__setup_kfilter(&kernel->notrace, notrace);
+
+	return 0;
 }
 
 /**

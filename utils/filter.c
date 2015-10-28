@@ -55,13 +55,75 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip)
 	return 0;
 }
 
-void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 struct rb_root *root, bool *has_filter)
+static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
+			    char *module, char *filter_str)
 {
+	struct ftrace_filter *filter;
+	struct sym *sym;
+
+	sym = find_symname(symtab, filter_str);
+	if (sym == NULL)
+		return 0;
+
+	filter = xmalloc(sizeof(*filter));
+
+	filter->sym = sym;
+	filter->name = symbol_getname(sym, sym->addr);
+	filter->start = sym->addr;
+	filter->end = sym->addr + sym->size;
+
+	pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter->name,
+	       filter->start, filter->end);
+
+	add_filter(root, filter);
+	return 1;
+}
+
+static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
+			    char *module, char *filter_str)
+{
+	struct ftrace_filter *filter;
+	struct sym *sym;
+	regex_t re;
+	char *symname;
+	unsigned i;
+	int ret = 0;
+
+	if (regcomp(&re, filter_str, REG_NOSUB | REG_EXTENDED)) {
+		pr_log("regex pattern failed: %s\n", filter_str);
+		return 0;
+	}
+
+	for (i = 0; i < symtab->nr_sym; i++) {
+		sym = &symtab->sym[i];
+		symname = symbol_getname(sym, sym->addr);
+
+		if (regexec(&re, symname, 0, NULL, 0))
+			continue;
+
+		filter = xmalloc(sizeof(*filter));
+
+		filter->sym = sym;
+		filter->name = symname;
+		filter->start = sym->addr;
+		filter->end = sym->addr + sym->size;
+
+		pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter->name,
+		       filter->start, filter->end);
+
+		add_filter(root, filter);
+		ret++;
+	}
+	return ret;
+}
+
+void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+			 char *module, struct rb_root *root, bool *has_filter)
+{
+	int ret;
 	char *str;
 	char *pos, *name;
-	struct sym *sym;
-	struct ftrace_filter *filter;
+	struct symtab *symtab = &symtabs->symtab;
 
 	if (filter_str == NULL)
 		return;
@@ -72,75 +134,31 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 
 	name = strtok(pos, ",");
 	while (name) {
-		sym = find_symname(symtabs, name);
-		if (sym == NULL)
-			goto next;
+		pos = strchr(name, '@');
+		if (pos) {
+			if (module == NULL || strcasecmp(pos+1, module))
+				goto next;
+			*pos = '\0';
 
-		filter = xmalloc(sizeof(*filter));
-
-		filter->sym = sym;
-		filter->name = symbol_getname(sym, sym->addr);
-		filter->start = sym->addr;
-		filter->end = sym->addr + sym->size;
-
-		add_filter(root, filter);
-		*has_filter = true;
-
-		pr_dbg("%s: %s (0x%lx-0x%lx)\n", __func__, filter->name,
-		       filter->start, filter->end);
-next:
-		name = strtok(NULL, ",");
-	}
-
-	free(str);
-}
-
-void ftrace_setup_filter_regex(char *filter_str, struct symtabs *symtabs,
-			       struct rb_root *root, bool *has_filter)
-{
-	char *str;
-	char *pos, *patt, *symname;
-	struct sym *sym;
-	struct ftrace_filter *filter;
-	unsigned int i;
-	regex_t re;
-
-	if (filter_str == NULL)
-		return;
-
-	pos = str = strdup(filter_str);
-	if (str == NULL)
-		return;
-
-	patt = strtok(pos, ",");
-	while (patt) {
-		if (regcomp(&re, patt, REG_NOSUB)) {
-			pr_log("regex pattern failed: %s\n", patt);
-			goto next;
+			if (!strcasecmp(module, "plt"))
+				symtab = &symtabs->dsymtab;
+			else if (!strcasecmp(module, "kernel"))
+				symtab = get_kernel_symtab();
+		} else {
+			if (module)
+				goto next;
 		}
 
-		for (i = 0; i < symtabs->symtab.nr_sym; i++) {
-			sym = &symtabs->symtab.sym[i];
-			symname = symbol_getname(sym, sym->addr);
+		if (strpbrk(name, REGEX_CHARS))
+			ret = add_regex_filter(root, symtab, module, name);
+		else
+			ret = add_exact_filter(root, symtab, module, name);
 
-			if (regexec(&re, symname, 0, NULL, 0))
-				continue;
-
-			filter = xmalloc(sizeof(*filter));
-
-			filter->sym = sym;
-			filter->name = symname;
-			filter->start = sym->addr;
-			filter->end = sym->addr + sym->size;
-
-			add_filter(root, filter);
+		if (ret)
 			*has_filter = true;
 
-			pr_dbg("%s: %s (0x%lx-0x%lx)\n", __func__, filter->name,
-			       filter->start, filter->end);
-		}
 next:
-		patt = strtok(NULL, ",");
+		name = strtok(NULL, ",");
 	}
 
 	free(str);
@@ -158,5 +176,18 @@ void ftrace_cleanup_filter(struct rb_root *root)
 		rb_erase(node, root);
 		symbol_putname(filter->sym, filter->name);
 		free(filter);
+	}
+}
+
+void ftrace_print_filter(struct rb_root *root)
+{
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+
+	node = rb_first(root);
+	while (node) {
+		filter = rb_entry(node, struct ftrace_filter, node);
+		pr_log("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
+		node = rb_next(node);
 	}
 }

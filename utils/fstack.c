@@ -104,6 +104,9 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 {
 	int ret = 0;
 
+	if (is_kernel_address(addr))
+		addr = get_real_address(addr);
+
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count++;
 		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
@@ -122,6 +125,9 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 void update_filter_count_exit(struct ftrace_task_handle *task,
 			      unsigned long addr, int depth)
 {
+	if (is_kernel_address(addr))
+		addr = get_real_address(addr);
+
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count--;
 		task->filter_depth = task->func_stack[task->stack_count].orig_depth;
@@ -209,39 +215,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		for (i = 0; i <= fth->ustack.depth; i++)
 			fth->func_stack[i].valid = false;
 
+		pr_dbg("lost seen: invalidating existing stack..\n");
 		fth->lost_seen = false;
-	}
-
-	if (fth->ustack.type == FTRACE_ENTRY) {
-		struct fstack *fstack = &fth->func_stack[fth->ustack.depth];
-
-		fstack->total_time = fth->ustack.time;
-		fstack->child_time = 0;
-		fstack->valid = true;
-		fstack->addr = fth->ustack.addr;
-
-		fth->stack_count = fth->ustack.depth + 1;
-
-	} else if (fth->ustack.type == FTRACE_EXIT) {
-		uint64_t delta;
-		struct fstack *fstack = &fth->func_stack[fth->ustack.depth];
-
-		delta = fth->ustack.time - fstack->total_time;
-
-		if (!fstack->valid)
-			delta = 0UL;
-		fstack->valid = false;
-
-		fstack->total_time = delta;
-		if (fstack->child_time > fstack->total_time)
-			fstack->child_time = fstack->total_time;
-
-		fth->stack_count = fth->ustack.depth;
-		if (fth->stack_count > 0)
-			fth->func_stack[fth->stack_count - 1].child_time += delta;
-
-	} else if (fth->ustack.type == FTRACE_LOST) {
-		fth->lost_seen = true;
 	}
 
 	fth->valid = true;
@@ -317,6 +292,39 @@ user:
 			task->valid = false;
 
 		task->rstack = &task->ustack;
+
+		/* update stack count when the user stack is actually used */
+		if (task->ustack.type == FTRACE_ENTRY) {
+			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+
+			fstack->total_time = task->ustack.time;
+			fstack->child_time = 0;
+			fstack->valid = true;
+			fstack->addr = task->ustack.addr;
+
+			task->stack_count = task->rstack->depth + 1;
+		} else if (task->ustack.type == FTRACE_EXIT) {
+			uint64_t delta;
+			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+
+			delta = task->ustack.time - fstack->total_time;
+
+			if (!fstack->valid)
+				delta = 0UL;
+			fstack->valid = false;
+
+			fstack->total_time = delta;
+			if (fstack->child_time > fstack->total_time)
+				fstack->child_time = fstack->total_time;
+
+			task->stack_count = task->rstack->depth;
+			if (task->stack_count > 0)
+				fstack[-1].child_time += delta;
+
+		} else if (task->ustack.type == FTRACE_LOST) {
+			task->lost_seen = true;
+		}
+
 	}
 	else {
 kernel:
@@ -333,8 +341,6 @@ kernel:
 
 		/* account current task stack depth */
 		task->kstack.depth += task->stack_count;
-		if (!task->done)
-			task->kstack.depth++;
 
 		if (invalidate)
 			kernel->rstack_valid[k] = false;

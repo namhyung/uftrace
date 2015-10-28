@@ -23,8 +23,6 @@
 #include "utils/symbol.h"
 #include "utils/list.h"
 
-#define REGEX_CHARS  ".?*+-^$|:()[]{}"
-
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
@@ -56,7 +54,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
-	bool multi_thread = !!find_symname(symtabs, "pthread_create");
+	bool multi_thread = !!find_symname(&symtabs->dsymtab, "pthread_create");
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
@@ -106,19 +104,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	}
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
-	if (opts->filter) {
-		if (strpbrk(opts->filter, REGEX_CHARS))
-			setenv("FTRACE_FILTER_REGEX", opts->filter, 1);
-		else
-			setenv("FTRACE_FILTER", opts->filter, 1);
-	}
+	if (opts->filter)
+		setenv("FTRACE_FILTER", opts->filter, 1);
 
-	if (opts->notrace) {
-		if (strpbrk(opts->notrace, REGEX_CHARS))
-			setenv("FTRACE_NOTRACE_REGEX", opts->notrace, 1);
-		else
-			setenv("FTRACE_NOTRACE", opts->notrace, 1);
-	}
+	if (opts->notrace)
+		setenv("FTRACE_NOTRACE", opts->notrace, 1);
 
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
@@ -1017,7 +1007,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	load_symtabs(&symtabs, opts->dirname, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-		if (find_symname(&symtabs, profile_funcs[i]))
+		if (find_symname(&symtabs.dsymtab, profile_funcs[i]))
 			break;
 	}
 
@@ -1084,6 +1074,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.pid = pid;
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
+
+		setup_kernel_filters(&kern, opts->filter, opts->notrace);
 
 		if (start_kernel_tracing(&kern) < 0) {
 			opts->kernel = false;

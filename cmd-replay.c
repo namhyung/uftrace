@@ -23,7 +23,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 		sess = find_task_session(task->tid, fstack->total_time);
 
 		if (sess)
-			sym = find_symtab(&sess->symtabs, fstack->addr, proc_maps);
+			sym = find_symtabs(&sess->symtabs, fstack->addr, proc_maps);
 		else
 			sym = NULL;
 
@@ -50,7 +50,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
@@ -90,7 +90,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (skip_kernel_before_user) {
@@ -157,7 +157,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (skip_kernel_before_user) {
@@ -264,7 +264,7 @@ static void print_remaining_stack(void)
 
 			if (sess) {
 				symtabs = &sess->symtabs;
-				sym = find_symtab(symtabs, ip, proc_maps);
+				sym = find_symtabs(symtabs, ip, proc_maps);
 			} else
 				sym = NULL;
 
@@ -301,15 +301,23 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->filter) {
-		ftrace_setup_filter_regex(opts->filter, &first_session->symtabs,
-					  &filters.filters, &filters.has_filters);
+		ftrace_setup_filter(opts->filter, &first_session->symtabs, NULL,
+				    &filters.filters, &filters.has_filters);
+		ftrace_setup_filter(opts->filter, &first_session->symtabs, "PLT",
+				    &filters.filters, &filters.has_filters);
+		ftrace_setup_filter(opts->filter, &first_session->symtabs, "kernel",
+				    &filters.filters, &filters.has_filters);
 		if (!filters.has_filters)
 			return -1;
 	}
 
 	if (opts->notrace) {
-		ftrace_setup_filter_regex(opts->notrace, &first_session->symtabs,
-					  &filters.notrace, &filters.has_notrace);
+		ftrace_setup_filter(opts->notrace, &first_session->symtabs, NULL,
+				    &filters.notrace, &filters.has_notrace);
+		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "PLT",
+				    &filters.notrace, &filters.has_notrace);
+		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "kernel",
+				    &filters.notrace, &filters.has_notrace);
 		if (!filters.has_notrace)
 			return -1;
 	}
