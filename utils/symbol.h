@@ -35,11 +35,11 @@ struct symtab {
 	struct sym **sym_names;
 	size_t nr_sym;
 	size_t nr_alloc;
+	bool name_sorted;
 };
 
 struct symtabs {
 	bool loaded;
-	bool unsorted_dynsyms;
 	struct symtab symtab;
 	struct symtab dsymtab;
 };
