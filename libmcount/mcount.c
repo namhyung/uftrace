@@ -1236,10 +1236,6 @@ __monstartup(unsigned long low, unsigned long high)
 			    &filter_trace, &has_filter);
 	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, NULL,
 			    &filter_notrace, &has_notrace);
-	ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs, NULL,
-				  &filter_trace, &has_filter);
-	ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs, NULL,
-				  &filter_notrace, &has_notrace);
 
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
@@ -1256,10 +1252,6 @@ __monstartup(unsigned long low, unsigned long high)
 				    &filter_plt_trace, &has_plt_filter);
 		ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, "plt",
 				    &filter_plt_notrace, &has_plt_notrace);
-		ftrace_setup_filter_regex(getenv("FTRACE_FILTER_REGEX"), &symtabs, "plt",
-					  &filter_plt_trace, &has_plt_filter);
-		ftrace_setup_filter_regex(getenv("FTRACE_NOTRACE_REGEX"), &symtabs, "plt",
-					  &filter_plt_notrace, &has_plt_notrace);
 #endif
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");

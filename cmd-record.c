@@ -23,8 +23,6 @@
 #include "utils/symbol.h"
 #include "utils/list.h"
 
-#define REGEX_CHARS  ".?*+-^$|:()[]{}"
-
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
 struct shmem_list {
@@ -106,19 +104,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	}
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
-	if (opts->filter) {
-		if (strpbrk(opts->filter, REGEX_CHARS))
-			setenv("FTRACE_FILTER_REGEX", opts->filter, 1);
-		else
-			setenv("FTRACE_FILTER", opts->filter, 1);
-	}
+	if (opts->filter)
+		setenv("FTRACE_FILTER", opts->filter, 1);
 
-	if (opts->notrace) {
-		if (strpbrk(opts->notrace, REGEX_CHARS))
-			setenv("FTRACE_NOTRACE_REGEX", opts->notrace, 1);
-		else
-			setenv("FTRACE_NOTRACE", opts->notrace, 1);
-	}
+	if (opts->notrace)
+		setenv("FTRACE_NOTRACE", opts->notrace, 1);
 
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
