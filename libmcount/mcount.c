@@ -56,6 +56,9 @@ static bool mcount_setup_done;
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static TLS int mcount_rstack_depth;
+/* restore mcount_rstack_depth after a filter is applied. */
+static TLS int mcount_orig_depth;
+static TLS int plthook_orig_depth;
 
 static struct rb_root filter_trace = RB_ROOT;
 static struct rb_root filter_notrace = RB_ROOT;
@@ -438,6 +441,7 @@ enum filter_result mcount_entry_filter_check(unsigned long child)
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	ret = mcount_filter(child);
 
+	mcount_orig_depth = mcount_rstack_depth;
 	if (ret == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
 	else if (ret == FILTER_OUT)
@@ -496,7 +500,6 @@ enum filter_result mcount_exit_filter_check(void)
 	if (mcount_rstack_idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", mcount_rstack_idx);
 
-	mcount_rstack_depth++;
 	return ret;
 }
 
@@ -519,6 +522,7 @@ void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 	if (rstack->depth != mcount_record_idx || rstack->end_time != 0)
 		pr_err_ns("corrupted mcount ret stack found!\n");
 
+	mcount_rstack_depth = rstack->filter_depth;
 }
 
 #else /* DISABLE_MCOUNT_FILTER */
@@ -584,6 +588,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time = 0;
 	rstack->flags = 0;
+#ifndef DISABLE_MCOUNT_FILTER
+	rstack->filter_depth = mcount_orig_depth;
+#endif
 
 	mcount_entry_filter_record(filtered, rstack);
 	return 0;
@@ -631,6 +638,7 @@ enum filter_result cygprof_entry_filter_check(unsigned long child)
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 	ret = mcount_filter(child);
 
+	mcount_orig_depth = mcount_rstack_depth;
 	if (ret == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
 
@@ -692,7 +700,6 @@ enum filter_result cygprof_exit_filter_check(unsigned long parent,
 
 	if (ret >= FILTER_IN)
 		mcount_record_idx--;
-	mcount_rstack_depth++;
 
 	if (idx <= 0)
 		pr_err_ns("broken ret stack (%d)\n", idx);
@@ -704,6 +711,8 @@ static __inline__
 void cygprof_exit_filter_record(enum filter_result res,
 				struct mcount_ret_stack *rstack)
 {
+	mcount_rstack_depth = rstack->filter_depth;
+
 	if (res != FILTER_IN)
 		return;
 
@@ -773,6 +782,9 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->start_time = filtered >= FILTER_IN ? mcount_gettime() : 0;
 	rstack->end_time = 0;
 	rstack->flags = 0;
+#ifndef DISABLE_MCOUNT_FILTER
+	rstack->filter_depth = mcount_orig_depth;
+#endif
 
 	mcount_rstack_idx++;
 	cygprof_entry_filter_record(filtered, rstack);
@@ -1032,7 +1044,7 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 }
 
 #ifndef DISABLE_MCOUNT_FILTER
-static enum filter_result plthook_filter(unsigned long ip)
+static enum filter_result plthook_entry_filter(unsigned long ip)
 {
 	enum filter_result ret = FILTER_IN;
 
@@ -1043,8 +1055,13 @@ static enum filter_result plthook_filter(unsigned long ip)
 		return FILTER_OUT;
 
 	if (has_plt_filter) {
-		if (ftrace_match_filter(&filter_plt_trace, ip))
-			return FILTER_IN;
+		if (ftrace_match_filter(&filter_plt_trace, ip)) {
+			plthook_orig_depth = mcount_rstack_depth;
+			mcount_rstack_depth = mcount_depth;
+			pr_dbg("set rstack depth to %d (orig: %d)\n",
+			       mcount_depth, plthook_orig_depth);
+			return FILTER_MATCH;
+		}
 		ret = FILTER_OUT;
 	}
 
@@ -1054,11 +1071,28 @@ static enum filter_result plthook_filter(unsigned long ip)
 	}
 	return ret;
 }
+
+static void plthook_exit_filter(unsigned idx)
+{
+	struct sym *sym;
+
+	if (!has_plt_filter)
+		return;
+
+	sym = find_dynsym(&symtabs, idx);
+	if (ftrace_match_filter(&filter_plt_trace, sym->addr)) {
+		mcount_rstack_depth = plthook_orig_depth;
+		pr_dbg("restore rstack depth to (%d)\n",
+		       plthook_orig_depth);
+	}
+}
 #else
-static enum filter_result plthook_filter(unsigned long ip)
+static enum filter_result plthook_entry_filter(unsigned long ip)
 {
 	return FILTER_IN;
 }
+
+static void plthook_exit_filter(unsigned idx) {}
 #endif
 
 extern unsigned long plthook_return(void);
@@ -1090,7 +1124,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (plthook_filter(sym->addr) == FILTER_OUT)
+	if (plthook_entry_filter(sym->addr) == FILTER_OUT)
 		goto out;
 
 	plthook_recursion_guard = true;
@@ -1141,6 +1175,8 @@ unsigned long plthook_exit(void)
 
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
 		pr_err_ns("invalid dynsym idx: %d\n", idx);
+
+	plthook_exit_filter(dyn_idx);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
