@@ -104,6 +104,9 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 {
 	int ret = 0;
 
+	if (is_kernel_address(addr))
+		addr = get_real_address(addr);
+
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count++;
 		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
@@ -122,6 +125,9 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 void update_filter_count_exit(struct ftrace_task_handle *task,
 			      unsigned long addr, int depth)
 {
+	if (is_kernel_address(addr))
+		addr = get_real_address(addr);
+
 	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
 		task->filter_count--;
 		task->filter_depth = task->func_stack[task->stack_count].orig_depth;

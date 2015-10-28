@@ -303,12 +303,20 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	if (opts->filter) {
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, NULL,
 				    &filters.filters, &filters.has_filters);
+		ftrace_setup_filter(opts->filter, &first_session->symtabs, "PLT",
+				    &filters.filters, &filters.has_filters);
+		ftrace_setup_filter(opts->filter, &first_session->symtabs, "kernel",
+				    &filters.filters, &filters.has_filters);
 		if (!filters.has_filters)
 			return -1;
 	}
 
 	if (opts->notrace) {
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, NULL,
+				    &filters.notrace, &filters.has_notrace);
+		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "PLT",
+				    &filters.notrace, &filters.has_notrace);
+		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "kernel",
 				    &filters.notrace, &filters.has_notrace);
 		if (!filters.has_notrace)
 			return -1;

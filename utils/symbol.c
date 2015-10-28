@@ -623,7 +623,7 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
-static unsigned long get_real_address(unsigned long addr)
+unsigned long get_real_address(unsigned long addr)
 {
 	if (is_kernel_address(addr))
 		return addr | (-1UL << KADDR_SHIFT);
