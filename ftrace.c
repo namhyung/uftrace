@@ -115,6 +115,19 @@ static unsigned long parse_size(char *str)
 	return size;
 }
 
+static char * opt_add_string(char *old, char *new)
+{
+	size_t oldlen = old ? strlen(old) : 0;
+	size_t newlen = strlen(new);
+	char *opt;
+
+	opt = xrealloc(old, oldlen + newlen + 2);
+	if (old)
+		opt[oldlen++] = ',';
+	strcpy(opt + oldlen, new);
+	return opt;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -125,11 +138,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'F':
-		opts->filter = arg;
+		opts->filter = opt_add_string(opts->filter, arg);
 		break;
 
 	case 'N':
-		opts->notrace = arg;
+		opts->notrace = opt_add_string(opts->notrace, arg);
 		break;
 
 	case 'D':
@@ -139,7 +152,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'T':
-		opts->tid = arg;
+		opts->tid = opt_add_string(opts->tid, arg);
 		break;
 
 	case 'd':
@@ -169,7 +182,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 's':
-		opts->sort_keys = arg;
+		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
 		break;
 
 	case OPT_flat:
