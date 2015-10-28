@@ -630,8 +630,8 @@ static unsigned long get_real_address(unsigned long addr)
 	return addr;
 }
 
-struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
-			 struct ftrace_proc_maps *maps)
+struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
+			  struct ftrace_proc_maps *maps)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;

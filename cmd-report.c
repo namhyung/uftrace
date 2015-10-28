@@ -249,7 +249,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 		if (sess == NULL)
 			continue;
 
-		sym = find_symtab(&sess->symtabs, rstack->addr, NULL);
+		sym = find_symtabs(&sess->symtabs, rstack->addr, NULL);
 		if (sym == NULL)
 			continue;
 
@@ -329,7 +329,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 		/* fall through */
 	}
 
-	task->func = sym = find_symtab(symtabs, rstack->addr, proc_maps);
+	task->func = sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	if (sym == NULL)
 		pr_log("cannot find symbol for %lx\n", rstack->addr);
 

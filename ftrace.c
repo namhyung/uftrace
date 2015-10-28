@@ -415,7 +415,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 				continue;
 
 			symtabs = &sess->symtabs;
-			sym = find_symtab(symtabs, frs->addr, proc_maps);
+			sym = find_symtabs(symtabs, frs->addr, proc_maps);
 			name = symbol_getname(sym, frs->addr);
 
 			printf("%5d: [%s] %s(%lx) depth: %u\n",

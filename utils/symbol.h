@@ -64,7 +64,7 @@ static inline bool is_kernel_address(unsigned long addr)
 	return !!(addr & (1UL << KADDR_SHIFT));
 }
 
-struct sym * find_symtab(struct symtabs *symtabs, unsigned long addr,
+struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
 			 struct ftrace_proc_maps *maps);
 struct sym * find_symname(struct symtabs *symtabs, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
