@@ -524,11 +524,16 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	for (i = 0; i < dtab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
+	/* this last entry should come from ->sym[] to know the real end */
+	fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
+		(char) dtab->sym[i-1].type, "__dynsym_end");
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr,
 		       (char) stab->sym[i].type, stab->sym[i].name);
+	fprintf(fp, "%016lx %c %s\n", stab->sym[i-1].addr + stab->sym[i-1].size,
+		(char) stab->sym[i-1].type, "__sym_end");
 
 	free(symfile);
 	fclose(fp);
