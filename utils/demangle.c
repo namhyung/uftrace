@@ -1193,8 +1193,8 @@ static int dd_unqualified_name(struct demangle_data *dd)
 				return -1;
 			DD_DEBUG_CONSUME(dd, '_');
 		}
-		else if (c1 == 'I') {
-			/* closure type name */
+		else if (c1 == 'I' || c1 == 'l') {
+			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
 
 			dd->level++;
