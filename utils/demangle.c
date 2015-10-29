@@ -1193,8 +1193,8 @@ static int dd_unqualified_name(struct demangle_data *dd)
 				return -1;
 			DD_DEBUG_CONSUME(dd, '_');
 		}
-		else if (c1 == 'I') {
-			/* closure type name */
+		else if (c1 == 'I' || c1 == 'l') {
+			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
 
 			dd->level++;
@@ -1229,6 +1229,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 static int dd_nested_name(struct demangle_data *dd)
 {
 	char qual[] = "rVKRO";
+	int ret = 0;
 
 	if (dd_eof(dd))
 		return -1;
@@ -1236,21 +1237,21 @@ static int dd_nested_name(struct demangle_data *dd)
 	DD_DEBUG_CONSUME(dd, 'N');
 	dd->level++;
 
-	while (dd_curr(dd) != 'E' && !dd_eof(dd)) {
+	while (dd_curr(dd) != 'E' && !dd_eof(dd) && !ret) {
 		char c0 = dd_curr(dd);
 		char c1 = dd_peek(dd, 1);
 
 		if (((c0 == 'C' || c0 == 'D') && isdigit(c1)) ||
 		    c0 == 'U' || islower(c0) || isdigit(c0))
-			dd_unqualified_name(dd);
+			ret = dd_unqualified_name(dd);
 		else if (c0 == 'T')
-			dd_template_param(dd);
+			ret = dd_template_param(dd);
 		else if (c0 == 'I')
-			dd_template_args(dd);
+			ret = dd_template_args(dd);
 		else if (c0 == 'S')
-			dd_substitution(dd);
+			ret = dd_substitution(dd);
 		else if (c0 == 'D' && (c1 == 'T' || c1 == 't'))
-			dd_decltype(dd);
+			ret = dd_decltype(dd);
 		else if (c0 == 'M')
 			dd_consume(dd);  /* assumed data-member-prefix */
 		else if (c0 == 'L')
@@ -1264,7 +1265,7 @@ static int dd_nested_name(struct demangle_data *dd)
 	DD_DEBUG_CONSUME(dd, 'E');
 	dd->level--;
 
-	return 0;
+	return ret;
 }
 
 static int dd_local_name(struct demangle_data *dd)
@@ -1353,7 +1354,7 @@ static int dd_encoding(struct demangle_data *dd)
 	if (ret < 0)
 		return ret;
 
-	while (!dd_eof(dd)) {
+	while (!dd_eof(dd) && dd_curr(dd) != 'E') {
 		if (dd_type(dd) < 0)
 			break;
 	}
