@@ -1,3 +1,5 @@
+VERSION := 0.4
+
 CC = $(CROSS_COMPILE)gcc
 RM = rm -f
 INSTALL = install
@@ -23,11 +25,7 @@ bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 mandir = $(prefix)/share/man
 
-ifdef MAKECMDGOALS
-ifneq ($(filter dist,$(MAKECMDGOALS)),)
-VERSION_GIT := $(patsubst v%,%,$(shell git describe --tags))
-endif
-endif
+VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
 # Check if bulid flags changed
 BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
@@ -134,13 +132,19 @@ libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/e
 libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -sC libtraceevent
 
-$(FTRACE_OBJS): %.o: %.c $(FTRACE_HDRS) FLAGS
+ftrace.o: ftrace.c version.h $(FTRACE_HDRS) FLAGS
+	$(QUIET_CC)$(CC) $(CFLAGS) -c -o $@ $<
+
+$(filter-out ftrace.o,$(FTRACE_OBJS)): %.o: %.c $(FTRACE_HDRS) FLAGS
 	$(QUIET_CC)$(CC) $(CFLAGS) -c -o $@ $<
 
 FLAGS:
 ifneq ($(BUILD_FLAGS),$(SAVED_FLAGS))
 	$(QUIET_GEN)$(shell echo "$(BUILD_FLAGS)" > FLAGS)
 endif
+
+version.h: PHONY
+	@misc/version.sh $(VERSION_GIT)
 
 ftrace: libtraceevent/libtraceevent.a $(FTRACE_OBJS)
 	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $(FTRACE_OBJS) $(LDFLAGS)
@@ -167,8 +171,9 @@ test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) TESTARG="$(TESTARG)" test
 
 dist:
-	git archive --format=tar.gz --prefix=ftrace-$(VERSION_GIT)/ \
-		v$(VERSION_GIT) > ftrace-$(VERSION_GIT).tar.gz
+	@git archive --prefix=ftrace-$(VERSION)/ $(VERSION_GIT) -o ftrace-$(VERSION).tar
+	@tar rf ftrace-$(VERSION).tar --transform="s|^|ftrace-$(VERSION)/|" version.h
+	@gzip ftrace-$(VERSION).tar
 
 doc:
 	@$(MAKE) -C doc
