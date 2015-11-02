@@ -610,7 +610,9 @@ static int fill_loadinfo(void *arg)
 	if (fp == NULL)
 		return -1;
 
-	fscanf(fp, "%f %f %f", &loadavg[0], &loadavg[1], &loadavg[2]);
+	if (fscanf(fp, "%f %f %f", &loadavg[0], &loadavg[1], &loadavg[2]) != 3)
+		return -1;
+
 	dprintf(fha->fd, "loadinfo:%.02f / %.02f / %.02f\n",
 		loadavg[0], loadavg[1], loadavg[2]);
 
