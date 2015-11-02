@@ -766,17 +766,24 @@ void print_symtabs(struct symtabs *symtabs)
 	size_t i;
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
+	char *name;
 
 	printf("Normal symbols\n");
 	printf("==============\n");
-	for (i = 0; i < stab->nr_sym; i++)
+	for (i = 0; i < stab->nr_sym; i++) {
+		name = symbol_getname(&stab->sym[i], stab->sym[i].addr);
 		printf("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
-		       stab->sym[i].name, stab->sym[i].size);
+		       name, stab->sym[i].size);
+		symbol_putname(&stab->sym[i], name);
+	}
 
 	printf("\n\n");
 	printf("Dynamic symbols\n");
 	printf("===============\n");
-	for (i = 0; i < dtab->nr_sym; i++)
+	for (i = 0; i < dtab->nr_sym; i++) {
+		name = symbol_getname(&dtab->sym[i], dtab->sym[i].addr);
 		printf("[%2zd] %#lx: %s (size: %u)\n", i, dtab->sym_names[i]->addr,
-		       dtab->sym_names[i]->name, dtab->sym_names[i]->size);
+		       name, dtab->sym_names[i]->size);
+		symbol_putname(&dtab->sym[i], name);
+	}
 }
