@@ -102,7 +102,7 @@ class TestBase:
         """This function is called after running a testcase"""
         return result
 
-    def run(self):
+    def run(self, name, cflags, diff):
         test_cmd = self.runcmd()
 #        print("test command: %s" % test_cmd)
 
@@ -134,6 +134,18 @@ class TestBase:
 #        print(result_tested)
 
         if result_expect != result_tested:
+            if diff:
+                f = open('expect', 'w')
+                f.write(result_expect + '\n')
+                f.close()
+                f = open('result', 'w')
+                f.write(result_tested + '\n')
+                f.close()
+                p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
+                print("%s: diff result of %s" % (name, cflags))
+                print(p.communicate()[0].decode())
+                os.remove('expect')
+                os.remove('result')
             return TestBase.TEST_DIFF_RESULT
 
         return 0
@@ -177,7 +189,7 @@ result_string = {
     TestBase.TEST_SKIP:           'SK: Skipped',
 }
 
-def run_single_case(case, flags, opts):
+def run_single_case(case, flags, opts, diff):
     result = {}
 
     # for python3
@@ -193,7 +205,7 @@ def run_single_case(case, flags, opts):
             else:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:
-                    ret = tc.run()
+                    ret = tc.run(case, cflags, diff)
                     ret = tc.post(ret)
             result[cflags] = ret
 
@@ -226,6 +238,8 @@ def parse_argument():
                         help="profiling with -pg option")
     parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
                         help="profiling with -finstrument-functions option")
+    parser.add_argument("-d", "--diff", dest='diff', action='store_true',
+                        help="show diff result if not matched")
 
     return parser.parse_args()
 
@@ -257,7 +271,7 @@ if __name__ == "__main__":
         testcases = sorted(glob.glob('t???_*.py'))
         for tc in testcases:
             name = tc[:-3]  # remove '.py'
-            result = run_single_case(name, flags, opts.split())
+            result = run_single_case(name, flags, opts.split(), arg.diff)
             print_test_result(name, result)
     else:
         try:
@@ -266,5 +280,5 @@ if __name__ == "__main__":
             print("cannot find testcase for : %s" % arg.case)
             sys.exit(1)
         for testcase in sorted(testcases):
-            result = run_single_case(testcase[:-3], flags, opts.split())
+            result = run_single_case(testcase[:-3], flags, opts.split(), arg.diff)
             print_test_result(testcase[:-3], result)
