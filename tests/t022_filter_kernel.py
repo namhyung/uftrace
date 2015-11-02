@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
+import os
 
 class TestCase(TestBase):
     def __init__(self):
@@ -28,5 +29,10 @@ class TestCase(TestBase):
   81.933 us [20769] | } /* main */
 """)
 
+    def pre(self):
+        if os.geteuid() != 0:
+            return TestBase.TEST_SKIP
+        return TestBase.TEST_SUCCESS
+
     def runcmd(self):
-        return 'sudo %s -k -F "sys_get*@kernel" %s' % (TestBase.ftrace, 't-getids')
+        return '%s -k -F "sys_get*@kernel" %s' % (TestBase.ftrace, 't-getids')

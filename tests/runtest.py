@@ -17,6 +17,7 @@ class TestBase:
     TEST_TIME_OUT = -4
     TEST_DIFF_RESULT = -5
     TEST_NONZERO_RETURN = -6
+    TEST_SKIP = -7
 
     ftrace = '../ftrace -L ..'
 
@@ -93,7 +94,15 @@ class TestBase:
             pass  # this leads to failuire with 'NG'
         return result
 
-    def run(self):
+    def pre(self):
+        """This function is called before running a testcase"""
+        return TestBase.TEST_SUCCESS
+
+    def post(self, result):
+        """This function is called after running a testcase"""
+        return result
+
+    def run(self, name, cflags, diff):
         test_cmd = self.runcmd()
 #        print("test command: %s" % test_cmd)
 
@@ -125,6 +134,18 @@ class TestBase:
 #        print(result_tested)
 
         if result_expect != result_tested:
+            if diff:
+                f = open('expect', 'w')
+                f.write(result_expect + '\n')
+                f.close()
+                f = open('result', 'w')
+                f.write(result_tested + '\n')
+                f.close()
+                p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
+                print("%s: diff result of %s" % (name, cflags))
+                print(p.communicate()[0].decode())
+                os.remove('expect')
+                os.remove('result')
             return TestBase.TEST_DIFF_RESULT
 
         return 0
@@ -139,10 +160,11 @@ colored_result = {
     TestBase.TEST_SUCCESS:        GREEN  + 'OK' + NORMAL,
     TestBase.TEST_UNSUPP_LANG:    YELLOW + 'LA' + NORMAL,
     TestBase.TEST_BUILD_FAIL:     YELLOW + 'BI' + NORMAL,
-    TestBase.TEST_ABNORMAL_EXIT:  YELLOW + 'SG' + NORMAL,
+    TestBase.TEST_ABNORMAL_EXIT:  RED    + 'SG' + NORMAL,
     TestBase.TEST_TIME_OUT:       YELLOW + 'TM' + NORMAL,
     TestBase.TEST_DIFF_RESULT:    RED    + 'NG' + NORMAL,
     TestBase.TEST_NONZERO_RETURN: YELLOW + 'NZ' + NORMAL,
+    TestBase.TEST_SKIP:           YELLOW + 'SK' + NORMAL,
 }
 
 text_result = {
@@ -153,6 +175,7 @@ text_result = {
     TestBase.TEST_TIME_OUT:       'TM',
     TestBase.TEST_DIFF_RESULT:    'NG',
     TestBase.TEST_NONZERO_RETURN: 'NZ',
+    TestBase.TEST_SKIP:           'SK',
 }
 
 result_string = {
@@ -163,9 +186,10 @@ result_string = {
     TestBase.TEST_TIME_OUT:       'TM: Test ran too long',
     TestBase.TEST_DIFF_RESULT:    'NG: Different test result',
     TestBase.TEST_NONZERO_RETURN: 'NZ: Non-zero return value',
+    TestBase.TEST_SKIP:           'SK: Skipped',
 }
 
-def run_single_case(case, flags, opts):
+def run_single_case(case, flags, opts, diff):
     result = {}
 
     # for python3
@@ -179,7 +203,10 @@ def run_single_case(case, flags, opts):
             if tc.build(cflags) != 0:
                 ret = TestBase.TEST_BUILD_FAIL
             else:
-                ret = tc.run()
+                ret = tc.pre()
+                if ret == TestBase.TEST_SUCCESS:
+                    ret = tc.run(case, cflags, diff)
+                    ret = tc.post(ret)
             result[cflags] = ret
 
     return result
@@ -207,6 +234,12 @@ def parse_argument():
                         help="compiler optimization levels")
     parser.add_argument("case", nargs='?', default="all",
                         help="test case: 'all' or test number or (partial) name")
+    parser.add_argument("-p", "--profile-pg", dest='pg_flag', action='store_true',
+                        help="profiling with -pg option")
+    parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
+                        help="profiling with -finstrument-functions option")
+    parser.add_argument("-d", "--diff", dest='diff', action='store_true',
+                        help="show diff result if not matched")
 
     return parser.parse_args()
 
@@ -220,8 +253,13 @@ if __name__ == "__main__":
     header2 = '-' * 20 + ':'
     empty = '                      '
 
-    flags = arg.flags.split()
-    for flag in sorted(flags):
+    if arg.pg_flag:
+        flags = ['pg']
+    elif arg.if_flag:
+        flags = ['finstrument-functions']
+    else:
+        flags = arg.flags.split()
+    for flag in flags:
         # align with optimization flags
         header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
         header2 += ' ' + opts
@@ -233,7 +271,7 @@ if __name__ == "__main__":
         testcases = sorted(glob.glob('t???_*.py'))
         for tc in testcases:
             name = tc[:-3]  # remove '.py'
-            result = run_single_case(name, flags, opts.split())
+            result = run_single_case(name, flags, opts.split(), arg.diff)
             print_test_result(name, result)
     else:
         try:
@@ -242,5 +280,5 @@ if __name__ == "__main__":
             print("cannot find testcase for : %s" % arg.case)
             sys.exit(1)
         for testcase in sorted(testcases):
-            result = run_single_case(testcase[:-3], flags, opts.split())
+            result = run_single_case(testcase[:-3], flags, opts.split(), arg.diff)
             print_test_result(testcase[:-3], result)
