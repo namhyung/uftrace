@@ -207,6 +207,10 @@ def parse_argument():
                         help="compiler optimization levels")
     parser.add_argument("case", nargs='?', default="all",
                         help="test case: 'all' or test number or (partial) name")
+    parser.add_argument("-p", "--profile-pg", dest='pg_flag', action='store_true',
+                        help="profiling with -pg option")
+    parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
+                        help="profiling with -finstrument-functions option")
 
     return parser.parse_args()
 
@@ -220,8 +224,13 @@ if __name__ == "__main__":
     header2 = '-' * 20 + ':'
     empty = '                      '
 
-    flags = arg.flags.split()
-    for flag in sorted(flags):
+    if arg.pg_flag:
+        flags = ['pg']
+    elif arg.if_flag:
+        flags = ['finstrument-functions']
+    else:
+        flags = arg.flags.split()
+    for flag in flags:
         # align with optimization flags
         header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
         header2 += ' ' + opts
