@@ -342,24 +342,6 @@ int main(int argc, char *argv[])
 			pr_err("cannot open log file");
 	}
 
-	if (opts.print_symtab) {
-		struct symtabs symtabs = {
-			.loaded = false,
-		};
-
-		if (opts.exename == NULL) {
-			struct ftrace_file_handle handle;
-
-			if (open_data_file(&opts, &handle) < 0)
-				exit(1);
-		}
-
-		load_symtabs(&symtabs, opts.dirname, opts.exename);
-		print_symtabs(&symtabs);
-		unload_symtabs(&symtabs);
-		exit(0);
-	}
-
 	if (opts.backtrace && opts.filter == NULL) {
 		printf("--backtrace option needs -F/--filter option\n");
 		exit(0);

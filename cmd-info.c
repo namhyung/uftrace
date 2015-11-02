@@ -736,6 +736,17 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (opts->use_pager)
 		start_pager();
 
+	if (opts->print_symtab) {
+		struct symtabs symtabs = {
+			.loaded = false,
+		};
+
+		load_symtabs(&symtabs, opts->dirname, opts->exename);
+		print_symtabs(&symtabs);
+		unload_symtabs(&symtabs);
+		goto out;
+	}
+
 	printf("# ftrace information\n");
 	printf("# ==================\n");
 	printf(fmt, "program version", argp_program_version);
@@ -823,6 +834,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 	printf("\n");
 
+out:
 	close_data_file(opts, &handle);
 
 	wait_for_pager();
