@@ -17,6 +17,7 @@ class TestBase:
     TEST_TIME_OUT = -4
     TEST_DIFF_RESULT = -5
     TEST_NONZERO_RETURN = -6
+    TEST_SKIP = -7
 
     ftrace = '../ftrace -L ..'
 
@@ -93,6 +94,14 @@ class TestBase:
             pass  # this leads to failuire with 'NG'
         return result
 
+    def pre(self):
+        """This function is called before running a testcase"""
+        return TestBase.TEST_SUCCESS
+
+    def post(self, result):
+        """This function is called after running a testcase"""
+        return result
+
     def run(self):
         test_cmd = self.runcmd()
 #        print("test command: %s" % test_cmd)
@@ -139,10 +148,11 @@ colored_result = {
     TestBase.TEST_SUCCESS:        GREEN  + 'OK' + NORMAL,
     TestBase.TEST_UNSUPP_LANG:    YELLOW + 'LA' + NORMAL,
     TestBase.TEST_BUILD_FAIL:     YELLOW + 'BI' + NORMAL,
-    TestBase.TEST_ABNORMAL_EXIT:  YELLOW + 'SG' + NORMAL,
+    TestBase.TEST_ABNORMAL_EXIT:  RED    + 'SG' + NORMAL,
     TestBase.TEST_TIME_OUT:       YELLOW + 'TM' + NORMAL,
     TestBase.TEST_DIFF_RESULT:    RED    + 'NG' + NORMAL,
     TestBase.TEST_NONZERO_RETURN: YELLOW + 'NZ' + NORMAL,
+    TestBase.TEST_SKIP:           YELLOW + 'SK' + NORMAL,
 }
 
 text_result = {
@@ -153,6 +163,7 @@ text_result = {
     TestBase.TEST_TIME_OUT:       'TM',
     TestBase.TEST_DIFF_RESULT:    'NG',
     TestBase.TEST_NONZERO_RETURN: 'NZ',
+    TestBase.TEST_SKIP:           'SK',
 }
 
 result_string = {
@@ -163,6 +174,7 @@ result_string = {
     TestBase.TEST_TIME_OUT:       'TM: Test ran too long',
     TestBase.TEST_DIFF_RESULT:    'NG: Different test result',
     TestBase.TEST_NONZERO_RETURN: 'NZ: Non-zero return value',
+    TestBase.TEST_SKIP:           'SK: Skipped',
 }
 
 def run_single_case(case, flags, opts):
@@ -179,7 +191,10 @@ def run_single_case(case, flags, opts):
             if tc.build(cflags) != 0:
                 ret = TestBase.TEST_BUILD_FAIL
             else:
-                ret = tc.run()
+                ret = tc.pre()
+                if ret == TestBase.TEST_SUCCESS:
+                    ret = tc.run()
+                    ret = tc.post(ret)
             result[cflags] = ret
 
     return result
