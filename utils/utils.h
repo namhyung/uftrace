@@ -152,7 +152,7 @@ struct ftrace_filter {
 	unsigned long end;
 };
 
-#define REGEX_CHARS  ".?*+-^$|:()[]{}"
+#define REGEX_CHARS  ".?*+-^$|()[]{}"
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 char *module, struct rb_root *root, bool *has_filter);
