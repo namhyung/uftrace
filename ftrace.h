@@ -18,8 +18,8 @@
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
-#define FTRACE_FILE_VERSION  3
-#define FTRACE_FILE_VERSION_MIN  2
+#define FTRACE_FILE_VERSION  4
+#define FTRACE_FILE_VERSION_MIN  3
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
@@ -265,16 +265,25 @@ enum ftrace_ret_stack_type {
 	FTRACE_LOST,
 };
 
-#define FTRACE_UNUSED  0xa
+#define FTRACE_UNUSED_V3  0xa
+#define FTRACE_UNUSED_V4  0x5
+#define FTRACE_UNUSED     FTRACE_UNUSED_V4
 
 /* reduced version of mcount_ret_stack */
 struct ftrace_ret_stack {
 	uint64_t time;
 	uint64_t type:   2;
-	uint64_t unused: 4;
+	uint64_t more:   1;
+	uint64_t unused: 3;
 	uint64_t depth:  10;
 	uint64_t addr:   48;
 };
+
+static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
+{
+	/* (FTRACE_UNUSED_V4 << 1 | more) == FTRACE_UNUSED_V3 */
+	return stack->unused == FTRACE_UNUSED && stack->more == 0;
+}
 
 struct kbuffer;
 struct pevent;

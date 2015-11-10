@@ -231,6 +231,7 @@ static void get_new_shmem_buffer(void)
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
 		frstack->unused = FTRACE_UNUSED;
+		frstack->more   = 0;
 		frstack->addr   = shmem_losts;
 
 		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
@@ -311,6 +312,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->time   = timestamp;
 	frstack->type   = type;
 	frstack->unused = FTRACE_UNUSED;
+	frstack->more   = 0;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 

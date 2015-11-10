@@ -664,6 +664,7 @@ kernel:
 		task->kstack.addr = kstack.child_ip;
 		task->kstack.depth = kstack.depth;
 		task->kstack.unused = FTRACE_UNUSED;
+		task->kstack.more = 0;
 
 		/* account current task stack depth */
 		task->kstack.depth += task->stack_count;
