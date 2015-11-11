@@ -14,7 +14,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct ftrace_filter *iter;
+	struct ftrace_filter *iter, *new;
 
 	while (*p) {
 		parent = *p;
@@ -26,8 +26,12 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 			p = &parent->rb_right;
 	}
 
-	rb_link_node(&filter->node, parent, p);
-	rb_insert_color(&filter->node, root);
+	new = xmalloc(sizeof(*new));
+	memcpy(new, filter, sizeof(*new));
+	new->name = symbol_getname(new->sym, new->sym->addr);
+
+	rb_link_node(&new->node, parent, p);
+	rb_insert_color(&new->node, root);
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -59,31 +63,28 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip)
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 			    char *module, char *filter_str)
 {
-	struct ftrace_filter *filter;
+	struct ftrace_filter filter;
 	struct sym *sym;
 
 	sym = find_symname(symtab, filter_str);
 	if (sym == NULL)
 		return 0;
 
-	filter = xmalloc(sizeof(*filter));
+	filter.sym = sym;
+	filter.start = sym->addr;
+	filter.end = sym->addr + sym->size;
 
-	filter->sym = sym;
-	filter->name = symbol_getname(sym, sym->addr);
-	filter->start = sym->addr;
-	filter->end = sym->addr + sym->size;
+	pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter.sym->name,
+	       filter.start, filter.end);
 
-	pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter->name,
-	       filter->start, filter->end);
-
-	add_filter(root, filter);
+	add_filter(root, &filter);
 	return 1;
 }
 
 static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 			    char *module, char *filter_str)
 {
-	struct ftrace_filter *filter;
+	struct ftrace_filter filter;
 	struct sym *sym;
 	regex_t re;
 	char *symname;
@@ -102,17 +103,14 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		if (regexec(&re, symname, 0, NULL, 0))
 			goto next;
 
-		filter = xmalloc(sizeof(*filter));
+		filter.sym = sym;
+		filter.start = sym->addr;
+		filter.end = sym->addr + sym->size;
 
-		filter->sym = sym;
-		filter->name = symname;
-		filter->start = sym->addr;
-		filter->end = sym->addr + sym->size;
+		pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", symname,
+		       filter.start, filter.end);
 
-		pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter->name,
-		       filter->start, filter->end);
-
-		add_filter(root, filter);
+		add_filter(root, &filter);
 		ret++;
 
 next:
