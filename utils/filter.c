@@ -121,9 +121,8 @@ next:
 }
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root, bool *has_filter)
+			 char *module, struct rb_root *root)
 {
-	int ret;
 	char *str;
 	char *pos, *name;
 	struct symtab *symtab = &symtabs->symtab;
@@ -153,12 +152,9 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 		}
 
 		if (strpbrk(name, REGEX_CHARS))
-			ret = add_regex_filter(root, symtab, module, name);
+			add_regex_filter(root, symtab, module, name);
 		else
-			ret = add_exact_filter(root, symtab, module, name);
-
-		if (ret)
-			*has_filter = true;
+			add_exact_filter(root, symtab, module, name);
 
 next:
 		name = strtok(NULL, ",");

@@ -302,24 +302,26 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->filter) {
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, NULL,
-				    &filters.filters, &filters.has_filters);
+				    &filters.filters);
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, "PLT",
-				    &filters.filters, &filters.has_filters);
+				    &filters.filters);
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, "kernel",
-				    &filters.filters, &filters.has_filters);
-		if (!filters.has_filters)
+				    &filters.filters);
+		if (RB_EMPTY_ROOT(&filters.filters))
 			return -1;
+		filters.has_filters = true;
 	}
 
 	if (opts->notrace) {
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, NULL,
-				    &filters.notrace, &filters.has_notrace);
+				    &filters.notrace);
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "PLT",
-				    &filters.notrace, &filters.has_notrace);
+				    &filters.notrace);
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "kernel",
-				    &filters.notrace, &filters.has_notrace);
-		if (!filters.has_notrace)
+				    &filters.notrace);
+		if (RB_EMPTY_ROOT(&filters.notrace))
 			return -1;
+		filters.has_notrace = true;
 	}
 
 	if (opts->use_pager)

@@ -155,7 +155,7 @@ struct ftrace_filter {
 #define REGEX_CHARS  ".?*+-^$|()[]{}"
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root, bool *has_filter);
+			 char *module, struct rb_root *root);
 int ftrace_match_filter(struct rb_root *root, unsigned long ip);
 void ftrace_cleanup_filter(struct rb_root *root);
 void ftrace_print_filter(struct rb_root *root);
