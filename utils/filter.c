@@ -3,6 +3,9 @@
 #include <string.h>
 #include <regex.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT  "filter"
+
 #include "../libmcount/mcount.h"
 #include "filter.h"
 #include "symbol.h"
@@ -10,7 +13,48 @@
 #include "utils.h"
 
 
-static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
+static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
+{
+	return filter->start <= ip && ip < filter->end;
+}
+
+/**
+ * ftrace_match_filter - try to match @ip with filters in @root
+ * @root - root of rbtree which has filters
+ * @ip   - instruction address to match
+ * @tr   - trigger data
+ */
+int ftrace_match_filter(struct rb_root *root, unsigned long ip,
+			struct ftrace_trigger *tr)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct ftrace_filter *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct ftrace_filter, node);
+
+		if (match_ip(iter, ip)) {
+			memcpy(tr, &iter->trigger, sizeof(*tr));
+			return 1;
+		}
+
+		if (iter->start > ip)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+	return 0;
+}
+
+static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr)
+{
+	memcpy(&filter->trigger, tr, sizeof(*tr));
+}
+
+static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
+		       struct ftrace_trigger *tr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -19,6 +63,11 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 	while (*p) {
 		parent = *p;
 		iter = rb_entry(parent, struct ftrace_filter, node);
+
+		if (iter->start == filter->start) {
+			add_trigger(iter, tr);
+			return;
+		}
 
 		if (iter->start > filter->start)
 			p = &parent->rb_left;
@@ -30,38 +79,15 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter)
 	memcpy(new, filter, sizeof(*new));
 	new->name = symbol_getname(new->sym, new->sym->addr);
 
+	add_trigger(new, tr);
+
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);
 }
 
-static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
-{
-	return filter->start <= ip && ip < filter->end;
-}
-
-int ftrace_match_filter(struct rb_root *root, unsigned long ip)
-{
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct ftrace_filter *iter;
-
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct ftrace_filter, node);
-
-		if (match_ip(iter, ip))
-			return 1;
-
-		if (iter->start > ip)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-	return 0;
-}
-
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
-			    char *module, char *filter_str)
+			    char *module, char *filter_str,
+			    struct ftrace_trigger *tr)
 {
 	struct ftrace_filter filter;
 	struct sym *sym;
@@ -77,12 +103,13 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter.sym->name,
 	       filter.start, filter.end);
 
-	add_filter(root, &filter);
+	add_filter(root, &filter, tr);
 	return 1;
 }
 
 static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
-			    char *module, char *filter_str)
+			    char *module, char *filter_str,
+			    struct ftrace_trigger *tr)
 {
 	struct ftrace_filter filter;
 	struct sym *sym;
@@ -110,7 +137,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", symname,
 		       filter.start, filter.end);
 
-		add_filter(root, &filter);
+		add_filter(root, &filter, tr);
 		ret++;
 
 next:
@@ -119,12 +146,18 @@ next:
 	return ret;
 }
 
+/**
+ * ftrace_setup_filter - construct rbtree of filters
+ * @filter_str - CSV of filter string
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ */
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 char *module, struct rb_root *root)
 {
 	char *str;
 	char *pos, *name;
-	struct symtab *symtab = &symtabs->symtab;
 
 	if (filter_str == NULL)
 		return;
@@ -135,6 +168,11 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 
 	name = strtok(pos, ",");
 	while (name) {
+		struct symtab *symtab = &symtabs->symtab;
+		struct ftrace_trigger tr = {
+			.flags = 0,
+		};
+
 		pos = strchr(name, '@');
 		if (pos) {
 			if (module == NULL || strcasecmp(pos+1, module))
@@ -151,9 +189,9 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 		}
 
 		if (strpbrk(name, REGEX_CHARS))
-			add_regex_filter(root, symtab, module, name);
+			add_regex_filter(root, symtab, module, name, &tr);
 		else
-			add_exact_filter(root, symtab, module, name);
+			add_exact_filter(root, symtab, module, name, &tr);
 
 next:
 		name = strtok(NULL, ",");
@@ -162,6 +200,10 @@ next:
 	free(str);
 }
 
+/**
+ * ftrace_cleanup_filter - delete filters in rbtree
+ * @root - root of the filter rbtree
+ */
 void ftrace_cleanup_filter(struct rb_root *root)
 {
 	struct rb_node *node;
@@ -172,11 +214,16 @@ void ftrace_cleanup_filter(struct rb_root *root)
 		filter = rb_entry(node, struct ftrace_filter, node);
 
 		rb_erase(node, root);
+
 		symbol_putname(filter->sym, filter->name);
 		free(filter);
 	}
 }
 
+/**
+ * ftrace_print_filter - print all filters in rbtree
+ * @root - root of the filter rbtree
+ */
 void ftrace_print_filter(struct rb_root *root)
 {
 	struct rb_node *node;

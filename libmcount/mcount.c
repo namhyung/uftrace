@@ -406,7 +406,8 @@ enum filter_result {
 };
 
 #ifndef DISABLE_MCOUNT_FILTER
-static enum filter_result mcount_filter(unsigned long ip)
+static enum filter_result mcount_filter(unsigned long ip,
+					struct ftrace_trigger *tr)
 {
 	enum filter_result ret = FILTER_IN;
 
@@ -417,7 +418,7 @@ static enum filter_result mcount_filter(unsigned long ip)
 		return FILTER_OUT;
 
 	if (has_filter) {
-		if (ftrace_match_filter(&filter_trace, ip))
+		if (ftrace_match_filter(&filter_trace, ip, tr))
 			return FILTER_MATCH;
 
 		if (mcount_record_idx == 0)
@@ -425,14 +426,15 @@ static enum filter_result mcount_filter(unsigned long ip)
 	}
 
 	if (has_notrace && ret) {
-		if (ftrace_match_filter(&filter_notrace, ip))
+		if (ftrace_match_filter(&filter_notrace, ip, tr))
 			return FILTER_NOTRACE;
 	}
 	return ret;
 }
 
 static __inline__
-enum filter_result mcount_entry_filter_check(unsigned long child)
+enum filter_result mcount_entry_filter_check(unsigned long child,
+					     struct ftrace_trigger *tr)
 {
 	enum filter_result ret;
 
@@ -440,7 +442,7 @@ enum filter_result mcount_entry_filter_check(unsigned long child)
 		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
-	ret = mcount_filter(child);
+	ret = mcount_filter(child, tr);
 
 	mcount_orig_depth = mcount_rstack_depth;
 	if (ret == FILTER_MATCH)
@@ -528,7 +530,8 @@ void mcount_exit_check_rstack(struct mcount_ret_stack *rstack)
 
 #else /* DISABLE_MCOUNT_FILTER */
 static __inline__
-enum filter_result mcount_entry_filter_check(unsigned long child)
+enum filter_result mcount_entry_filter_check(unsigned long child,
+					     struct ftrace_trigger *tr)
 {
 	if (mcount_rstack_idx >= mcount_rstack_max)
 		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
@@ -571,11 +574,14 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
-	filtered = mcount_entry_filter_check(child);
+	filtered = mcount_entry_filter_check(child, &tr);
 	if (filtered == FILTER_OUT)
 		return -1;
 
@@ -629,7 +635,8 @@ static void mcount_finish(void)
 
 #ifndef DISABLE_MCOUNT_FILTER
 static __inline__
-enum filter_result cygprof_entry_filter_check(unsigned long child)
+enum filter_result cygprof_entry_filter_check(unsigned long child,
+					      struct ftrace_trigger *tr)
 {
 	enum filter_result ret;
 
@@ -637,7 +644,7 @@ enum filter_result cygprof_entry_filter_check(unsigned long child)
 		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
 
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
-	ret = mcount_filter(child);
+	ret = mcount_filter(child, tr);
 
 	mcount_orig_depth = mcount_rstack_depth;
 	if (ret == FILTER_MATCH)
@@ -722,7 +729,8 @@ void cygprof_exit_filter_record(enum filter_result res,
 }
 #else /* DISABLE_MCOUNT_FILTER */
 static __inline__
-enum filter_result cygprof_entry_filter_check(unsigned long child)
+enum filter_result cygprof_entry_filter_check(unsigned long child,
+					      struct ftrace_trigger *tr)
 {
 	if (mcount_rstack_idx >= mcount_rstack_max)
 		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
@@ -765,11 +773,14 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
 	int idx = mcount_rstack_idx;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
-	filtered = cygprof_entry_filter_check(child);
+	filtered = cygprof_entry_filter_check(child, &tr);
 
 	if (idx < 0)
 		idx += MCOUNT_NOTRACE_IDX;
@@ -1045,7 +1056,8 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 }
 
 #ifndef DISABLE_MCOUNT_FILTER
-static enum filter_result plthook_entry_filter(unsigned long ip)
+static enum filter_result plthook_entry_filter(unsigned long ip,
+					       struct ftrace_trigger *tr)
 {
 	enum filter_result ret = FILTER_IN;
 
@@ -1056,7 +1068,7 @@ static enum filter_result plthook_entry_filter(unsigned long ip)
 		return FILTER_OUT;
 
 	if (has_plt_filter) {
-		if (ftrace_match_filter(&filter_plt_trace, ip)) {
+		if (ftrace_match_filter(&filter_plt_trace, ip, tr)) {
 			plthook_orig_depth = mcount_rstack_depth;
 			mcount_rstack_depth = mcount_depth;
 			pr_dbg("set rstack depth to %d (orig: %d)\n",
@@ -1067,13 +1079,13 @@ static enum filter_result plthook_entry_filter(unsigned long ip)
 	}
 
 	if (has_plt_notrace && ret) {
-		if (ftrace_match_filter(&filter_plt_notrace, ip))
+		if (ftrace_match_filter(&filter_plt_notrace, ip, tr))
 			return FILTER_OUT;
 	}
 	return ret;
 }
 
-static void plthook_exit_filter(unsigned idx)
+static void plthook_exit_filter(unsigned idx, struct ftrace_trigger *tr)
 {
 	struct sym *sym;
 
@@ -1081,19 +1093,20 @@ static void plthook_exit_filter(unsigned idx)
 		return;
 
 	sym = find_dynsym(&symtabs, idx);
-	if (ftrace_match_filter(&filter_plt_trace, sym->addr)) {
+	if (ftrace_match_filter(&filter_plt_trace, sym->addr, tr)) {
 		mcount_rstack_depth = plthook_orig_depth;
 		pr_dbg("restore rstack depth to (%d)\n",
 		       plthook_orig_depth);
 	}
 }
 #else
-static enum filter_result plthook_entry_filter(unsigned long ip)
+static enum filter_result plthook_entry_filter(unsigned long ip,
+					       struct ftrace_trigger *tr)
 {
 	return FILTER_IN;
 }
 
-static void plthook_exit_filter(unsigned idx) {}
+static void plthook_exit_filter(unsigned idx, struct ftrace_trigger *tr) {}
 #endif
 
 extern unsigned long plthook_return(void);
@@ -1103,6 +1116,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 {
 	struct sym *sym;
 	unsigned long child_ip;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	/*
 	 * There was a recursion like below:
@@ -1125,7 +1141,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (plthook_entry_filter(sym->addr) == FILTER_OUT)
+	if (plthook_entry_filter(sym->addr, &tr) == FILTER_OUT)
 		goto out;
 
 	plthook_recursion_guard = true;
@@ -1165,6 +1181,9 @@ unsigned long plthook_exit(void)
 	int idx = mcount_rstack_idx - 1;
 	int dyn_idx;
 	unsigned long new_addr;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	if (idx >= 0 && (mcount_rstack[idx].flags & MCOUNT_FL_LONGJMP))
 		restore_jmpbuf_rstack(mcount_rstack, idx);
@@ -1177,7 +1196,7 @@ unsigned long plthook_exit(void)
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
 		pr_err_ns("invalid dynsym idx: %d\n", idx);
 
-	plthook_exit_filter(dyn_idx);
+	plthook_exit_filter(dyn_idx, &tr);
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 		struct sym *sym = find_dynsym(&symtabs, dyn_idx);

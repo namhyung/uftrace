@@ -104,17 +104,20 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 			      unsigned long addr, int depth)
 {
 	int ret = 0;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	if (is_kernel_address(addr))
 		addr = get_real_address(addr);
 
-	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr, &tr)) {
 		task->filter_count++;
 		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
 		task->filter_depth = depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 		ret = 1;
-	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr, &tr)) {
 		task->filter_count -= FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 		ret = -1;
@@ -126,14 +129,18 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 void update_filter_count_exit(struct ftrace_task_handle *task,
 			      unsigned long addr, int depth)
 {
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
+
 	if (is_kernel_address(addr))
 		addr = get_real_address(addr);
 
-	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr)) {
+	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr, &tr)) {
 		task->filter_count--;
 		task->filter_depth = task->func_stack[task->stack_count].orig_depth;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr)) {
+	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr, &tr)) {
 		task->filter_count += FILTER_COUNT_NOTRACE;
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 	}
