@@ -204,7 +204,8 @@ static int setup_module_and_trigger(char *str, char *module,
  * @root       - root of resulting rbtree
  */
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root)
+			 char *module, struct rb_root *root,
+			 enum filter_mode mode)
 {
 	char *str;
 	char *pos, *name;
@@ -220,7 +221,8 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 	while (name) {
 		struct symtab *symtab = &symtabs->symtab;
 		struct ftrace_trigger tr = {
-			.flags = 0,
+			.flags = TRIGGER_FL_FILTER,
+			.fmode = mode,
 		};
 
 		if (setup_module_and_trigger(name, module, symtabs, &symtab,

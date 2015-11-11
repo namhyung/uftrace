@@ -303,11 +303,11 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->filter) {
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, NULL,
-				    &filters.filters);
+				    &filters.filters, FILTER_MODE_IN);
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, "PLT",
-				    &filters.filters);
+				    &filters.filters, FILTER_MODE_IN);
 		ftrace_setup_filter(opts->filter, &first_session->symtabs, "kernel",
-				    &filters.filters);
+				    &filters.filters, FILTER_MODE_IN);
 		if (RB_EMPTY_ROOT(&filters.filters))
 			return -1;
 		filters.has_filters = true;
@@ -315,11 +315,11 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->notrace) {
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, NULL,
-				    &filters.notrace);
+				    &filters.notrace, FILTER_MODE_OUT);
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "PLT",
-				    &filters.notrace);
+				    &filters.notrace, FILTER_MODE_OUT);
 		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "kernel",
-				    &filters.notrace);
+				    &filters.notrace, FILTER_MODE_OUT);
 		if (RB_EMPTY_ROOT(&filters.notrace))
 			return -1;
 		filters.has_notrace = true;

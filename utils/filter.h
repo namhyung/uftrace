@@ -13,11 +13,19 @@
 
 enum trigger_flag {
 	TRIGGER_FL_DEPTH	= (1U << 0),
+	TRIGGER_FL_FILTER	= (1U << 1),
+};
+
+enum filter_mode {
+	FILTER_MODE_NONE,
+	FILTER_MODE_IN,
+	FILTER_MODE_OUT,
 };
 
 struct ftrace_trigger {
 	unsigned long		flags;
 	int			depth;
+	enum filter_mode	fmode;
 };
 
 struct ftrace_filter {
@@ -32,7 +40,8 @@ struct ftrace_filter {
 typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root);
+			 char *module, struct rb_root *root,
+			 enum filter_mode mode);
 int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 			struct ftrace_trigger *tr);
 void ftrace_cleanup_filter(struct rb_root *root);
