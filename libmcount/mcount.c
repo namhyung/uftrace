@@ -450,6 +450,9 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	else if (ret == FILTER_OUT)
 		return ret;
 
+	if (tr->flags & TRIGGER_FL_DEPTH)
+		mcount_rstack_depth = tr->depth;
+
 	/*
 	 * it can be < 0 in case it is called from plthook_entry()
 	 * which in turn is called libcygprof.so.
@@ -649,6 +652,9 @@ enum filter_result cygprof_entry_filter_check(unsigned long child,
 	mcount_orig_depth = mcount_rstack_depth;
 	if (ret == FILTER_MATCH)
 		mcount_rstack_depth = mcount_depth;
+
+	if (tr->flags & TRIGGER_FL_DEPTH)
+		mcount_rstack_depth = tr->depth;
 
 	if (mcount_rstack_depth-- <= 0 && ret == FILTER_IN)
 		ret = FILTER_OUT;
@@ -1071,6 +1077,10 @@ static enum filter_result plthook_entry_filter(unsigned long ip,
 		if (ftrace_match_filter(&filter_plt_trace, ip, tr)) {
 			plthook_orig_depth = mcount_rstack_depth;
 			mcount_rstack_depth = mcount_depth;
+
+			if (tr->flags & TRIGGER_FL_DEPTH)
+				mcount_rstack_depth = tr->depth;
+
 			pr_dbg("set rstack depth to %d (orig: %d)\n",
 			       mcount_depth, plthook_orig_depth);
 			return FILTER_MATCH;

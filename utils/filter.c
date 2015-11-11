@@ -146,6 +146,56 @@ next:
 	return ret;
 }
 
+static int setup_module_and_trigger(char *str, char *module,
+				    struct symtabs *symtabs,
+				    struct symtab **psymtab,
+				    struct ftrace_trigger *tr)
+{
+	char *pos = strchr(str, '@');
+
+	*psymtab = &symtabs->symtab;
+
+	if (pos) {
+		char *tr_str;
+		bool found_mod = false;
+
+		*pos++ = '\0';
+		tr_str = xstrdup(pos);
+
+		while ((pos = strsep(&tr_str, ":")) != NULL) {
+			if (!strncasecmp(pos, "depth=", 6)) {
+				tr->flags |= TRIGGER_FL_DEPTH;
+				tr->depth = strtoul(pos+6, NULL, 10);
+
+				if (tr->depth < 0 ||
+				    tr->depth > MCOUNT_RSTACK_MAX)
+					pr_err_ns("invalid depth: %d\n",
+						  tr->depth);
+				continue;
+			}
+
+			if (module == NULL || strcasecmp(pos, module))
+				return -1;
+
+			found_mod = true;
+
+			if (!strcasecmp(module, "plt"))
+				*psymtab = &symtabs->dsymtab;
+			else if (!strcasecmp(module, "kernel"))
+				*psymtab = get_kernel_symtab();
+		}
+
+		if (module && !found_mod)
+			return -1;
+	}
+	else {
+		if (module)
+			return -1;
+	}
+
+	return 0;
+}
+
 /**
  * ftrace_setup_filter - construct rbtree of filters
  * @filter_str - CSV of filter string
@@ -173,20 +223,9 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			.flags = 0,
 		};
 
-		pos = strchr(name, '@');
-		if (pos) {
-			if (module == NULL || strcasecmp(pos+1, module))
-				goto next;
-			*pos = '\0';
-
-			if (!strcasecmp(module, "plt"))
-				symtab = &symtabs->dsymtab;
-			else if (!strcasecmp(module, "kernel"))
-				symtab = get_kernel_symtab();
-		} else {
-			if (module)
-				goto next;
-		}
+		if (setup_module_and_trigger(name, module, symtabs, &symtab,
+					     &tr) < 0)
+			goto next;
 
 		if (strpbrk(name, REGEX_CHARS))
 			add_regex_filter(root, symtab, module, name, &tr);

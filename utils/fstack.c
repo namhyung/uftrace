@@ -115,6 +115,10 @@ int update_filter_count_entry(struct ftrace_task_handle *task,
 		task->filter_count++;
 		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
 		task->filter_depth = depth;
+
+		if (tr.flags & TRIGGER_FL_DEPTH)
+			task->filter_depth = tr.depth;
+
 		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
 		ret = 1;
 	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr, &tr)) {

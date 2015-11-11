@@ -11,8 +11,13 @@
  */
 #define REGEX_CHARS  ".?*+-^$|()[]{}"
 
+enum trigger_flag {
+	TRIGGER_FL_DEPTH	= (1U << 0),
+};
+
 struct ftrace_trigger {
 	unsigned long		flags;
+	int			depth;
 };
 
 struct ftrace_filter {
