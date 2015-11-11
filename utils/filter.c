@@ -4,6 +4,7 @@
 #include <regex.h>
 
 #include "../libmcount/mcount.h"
+#include "filter.h"
 #include "symbol.h"
 #include "rbtree.h"
 #include "utils.h"

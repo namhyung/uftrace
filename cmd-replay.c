@@ -6,6 +6,7 @@
 #include "ftrace.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
 
 
 static bool skip_kernel_before_user = true;

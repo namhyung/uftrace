@@ -61,14 +61,15 @@ FTRACE_SRCS += utils/filter.c utils/kernel.c utils/utils.c utils/session.c
 FTRACE_SRCS += utils/fstack.c utils/data-file.c utils/pager.c utils/demangle.c
 FTRACE_SRCS += arch/$(ARCH)/cpuinfo.c
 FTRACE_OBJS  = $(FTRACE_SRCS:.c=.o)
-FTRACE_HDRS := ftrace.h libmcount/mcount.h utils/utils.h
+FTRACE_HDRS := ftrace.h libmcount/mcount.h utils/utils.h utils/filter.h
 FTRACE_HDRS += utils/symbol.h utils/rbtree.h utils/list.h
 
 LIBMCOUNT_SRCS  = $(filter-out %-nop.c,$(wildcard libmcount/*.c))
 LIBMCOUNT_SRCS += utils/symbol.c utils/debug.c utils/rbtree.c utils/filter.c
 LIBMCOUNT_SRCS += utils/demangle.c
 LIBMCOUNT_OBJS  = $(LIBMCOUNT_SRCS:.c=.op)
-LIBMCOUNT_HDRS  = libmcount/mcount.h utils/symbol.h utils/utils.h utils/rbtree.h
+LIBMCOUNT_HDRS  = libmcount/mcount.h utils/utils.h utils/symbol.h utils/filter.h
+LIBMCOUNT_HDRS += utils/rbtree.h
 
 LIBMCOUNT_NOP_SRCS = libmcount/mcount-nop.c
 LIBMCOUNT_NOP_OBJS = $(LIBMCOUNT_NOP_SRCS:.c=.op)

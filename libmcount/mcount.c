@@ -28,6 +28,7 @@
 #include "mcount.h"
 #include "../utils/utils.h"
 #include "../utils/symbol.h"
+#include "../utils/filter.h"
 
 #ifdef SINGLE_THREAD
 # define TLS

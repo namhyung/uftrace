@@ -8,6 +8,7 @@
 #include "../ftrace.h"
 #include "../libmcount/mcount.h"
 #include "utils.h"
+#include "filter.h"
 
 
 #define FILTER_COUNT_NOTRACE  10000

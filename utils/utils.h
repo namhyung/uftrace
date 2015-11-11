@@ -14,7 +14,6 @@
 #include <stdbool.h>
 #include <endian.h>
 
-#include "rbtree.h"
 #include "symbol.h"
 
 
@@ -142,24 +141,6 @@ int create_directory(char *dirname);
 int remove_directory(char *dirname);
 
 void print_time_unit(uint64_t delta_nsec);
-
-#ifndef DISABLE_MCOUNT_FILTER
-struct ftrace_filter {
-	struct rb_node node;
-	struct sym *sym;
-	char *name;
-	unsigned long start;
-	unsigned long end;
-};
-
-#define REGEX_CHARS  ".?*+-^$|()[]{}"
-
-void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root);
-int ftrace_match_filter(struct rb_root *root, unsigned long ip);
-void ftrace_cleanup_filter(struct rb_root *root);
-void ftrace_print_filter(struct rb_root *root);
-#endif /* DISABLE_MCOUNT_FILTER */
 
 void start_pager(void);
 void wait_for_pager(void);
