@@ -54,6 +54,14 @@ void reset_task_handle(void)
 	nr_tasks = 0;
 }
 
+/**
+ * setup_task_filter - setup task filters using tid
+ * @tid_filter - CSV of tid (or possibly separated by  ':')
+ * @handle     - file handle
+ *
+ * This function sets up task filters using @tid_filter.
+ * Tasks not listed will be ignored.
+ */
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 {
 	int i, k;
@@ -113,8 +121,21 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	free(filter_tids);
 }
 
-int setup_fstack_filter(char *filter_str, char *notrace_str,
-			struct symtabs *symtabs)
+/**
+ * setup_fstack_filters - setup symbol filters and triggers
+ * @filter_str  - CSV of opt-in filter symbol names
+ * @notrace_str - CSV of opt-out filter symbol names
+ * @trigger_str - CSV of trigger definitions
+ * @symtabs     - symbol tables
+ *
+ * This function sets up the symbol filters and triggers using following syntax:
+ *   filter_strs = filter | filter "," filter_strs
+ *   filter      = symbol | symbol "@" trigger
+ *   trigger     = trigger_def | trigger_def ":" trigger
+ *   trigger_def = "depth=" NUM | "backtrace"
+ */
+int setup_fstack_filters(char *filter_str, char *notrace_str, char *trigger_str,
+			 struct symtabs *symtabs)
 {
 	if (filter_str) {
 		ftrace_setup_filter(filter_str, symtabs, NULL,
@@ -141,6 +162,17 @@ int setup_fstack_filter(char *filter_str, char *notrace_str,
 
 		if (fstack_filter_mode == FILTER_MODE_NONE)
 			fstack_filter_mode = FILTER_MODE_OUT;
+	}
+
+	if (trigger_str) {
+		ftrace_setup_trigger(trigger_str, symtabs, NULL,
+				     &fstack_filters);
+		ftrace_setup_trigger(trigger_str, symtabs, "PLT",
+				     &fstack_filters);
+		ftrace_setup_trigger(trigger_str, symtabs, "kernel",
+				     &fstack_filters);
+		if (RB_EMPTY_ROOT(&fstack_filters))
+			return -1;
 	}
 
 	return 0;

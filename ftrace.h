@@ -112,6 +112,7 @@ struct opts {
 	char *lib_path;
 	char *filter;
 	char *notrace;
+	char *trigger;
 	char *tid;
 	char *exename;
 	char *dirname;

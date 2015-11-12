@@ -59,6 +59,7 @@ static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
+	{ "trigger", 'T', "FUNC@act[:act:...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
@@ -69,7 +70,7 @@ static struct argp_option ftrace_options[] = {
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
-	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
+	{ "tid", 't', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
@@ -145,13 +146,17 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->notrace = opt_add_string(opts->notrace, arg);
 		break;
 
+	case 'T':
+		opts->trigger = opt_add_string(opts->trigger, arg);
+		break;
+
 	case 'D':
 		opts->depth = strtol(arg, NULL, 0);
 		if (opts->depth <= 0)
 			pr_err_ns("invalid depth given: %s\n", arg);
 		break;
 
-	case 'T':
+	case 't':
 		opts->tid = opt_add_string(opts->tid, arg);
 		break;
 

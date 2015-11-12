@@ -304,9 +304,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->filter || opts->notrace) {
-		if (setup_fstack_filter(opts->filter, opts->notrace,
-					&first_session->symtabs) < 0)
+	if (opts->filter || opts->notrace || opts->trigger) {
+		if (setup_fstack_filters(opts->filter, opts->notrace, opts->trigger,
+					 &first_session->symtabs) < 0)
 			return -1;
 	}
 

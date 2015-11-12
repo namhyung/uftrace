@@ -200,16 +200,9 @@ static int setup_module_and_trigger(char *str, char *module,
 	return 0;
 }
 
-/**
- * ftrace_setup_filter - construct rbtree of filters
- * @filter_str - CSV of filter string
- * @symtabs    - symbol tables to find symbol address
- * @module     - optional module (binary/dso) name
- * @root       - root of resulting rbtree
- */
-void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root,
-			 enum filter_mode mode)
+static void setup_trigger(char *filter_str, struct symtabs *symtabs,
+			  char *module, struct rb_root *root,
+			  unsigned long flags, enum filter_mode mode)
 {
 	char *str;
 	char *pos, *name;
@@ -225,7 +218,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 	while (name) {
 		struct symtab *symtab = &symtabs->symtab;
 		struct ftrace_trigger tr = {
-			.flags = TRIGGER_FL_FILTER,
+			.flags = flags,
 			.fmode = mode,
 		};
 		int ret;
@@ -251,6 +244,34 @@ next:
 	}
 
 	free(str);
+}
+
+/**
+ * ftrace_setup_filter - construct rbtree of filters
+ * @filter_str - CSV of filter string
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ * @mode       - filter mode: opt-in (-F) or opt-out (-N)
+ */
+void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+			 char *module, struct rb_root *root,
+			 enum filter_mode mode)
+{
+	setup_trigger(filter_str, symtabs, module, root, TRIGGER_FL_FILTER, mode);
+}
+
+/**
+ * ftrace_setup_trigger - construct rbtree of triggers
+ * @trigger_str - CSV of trigger string (FUNC @ act)
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ */
+void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
+			  char *module, struct rb_root *root)
+{
+	setup_trigger(trigger_str, symtabs, module, root, 0, FILTER_MODE_NONE);
 }
 
 /**

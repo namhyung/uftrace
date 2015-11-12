@@ -426,6 +426,9 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 
 	ftrace_match_filter(&mcount_triggers, child, tr);
 
+	pr_dbg2(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
+		tr->flags, mcount_filter_mode, mcount_filter.in_count, mcount_filter.out_count);
+
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
 			mcount_filter.in_count++;
@@ -1083,6 +1086,9 @@ __monstartup(unsigned long low, unsigned long high)
 		if (mcount_filter_mode == FILTER_MODE_NONE &&
 		    !RB_EMPTY_ROOT(&mcount_triggers))
 			mcount_filter_mode = FILTER_MODE_OUT;
+
+		ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, "PLT",
+				    &mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 		if (hook_pltgot() < 0)
@@ -1094,6 +1100,15 @@ __monstartup(unsigned long low, unsigned long high)
 						      count_dynsym(&symtabs));
 		}
 	}
+
+#ifndef DISABLE_MCOUNT_FILTER
+	/*
+	 * This should be called after setting filters due to
+	 * filter mode determination.
+	 */
+	ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, NULL,
+			     &mcount_triggers);
+#endif /* DISABLE_MCOUNT_FILTER */
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 

@@ -61,8 +61,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_task_handle *handle);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
-int setup_fstack_filter(char *filter_str, char *notrace_str,
-			struct symtabs *symtabs);
+int setup_fstack_filters(char *filter_str, char *notrace_str, char *trigger_str,
+			 struct symtabs *symtabs);
 
 int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 			int depth, struct ftrace_trigger *tr);
