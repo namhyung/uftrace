@@ -173,6 +173,10 @@ static int setup_module_and_trigger(char *str, char *module,
 						  tr->depth);
 				continue;
 			}
+			if (!strcasecmp(pos, "backtrace")) {
+				tr->flags |= TRIGGER_FL_BACKTRACE;
+				continue;
+			}
 
 			if (module == NULL || strcasecmp(pos, module))
 				return -1;

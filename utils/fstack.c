@@ -158,13 +158,11 @@ int setup_fstack_filter(char *filter_str, char *notrace_str,
  * determine how to react. Callers can do whatever they want based
  * on the trigger result.
  *
- * This function returns 1 if filter matched, 0 if not, and -1 if
- * it should be skipped.
+ * This function returns -1 if it should be skipped, 0 otherwise.
  */
 int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 		 int depth, struct ftrace_trigger *tr)
 {
-	int ret = 0;
 	struct fstack *fstack;
 
 	/* stack_count was increased in __read_rstack */
@@ -191,7 +189,6 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 		if (tr->fmode == FILTER_MODE_IN) {
 			task->filter.in_count++;
 			fstack->flags |= FSTACK_FL_FILTERED;
-			ret = 1;
 		}
 		else {
 			task->filter.out_count++;
@@ -219,7 +216,7 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 
 	task->filter.depth--;
 
-	return ret;
+	return 0;
 }
 
 /**

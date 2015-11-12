@@ -112,7 +112,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (ret < 0)
 			goto out;
 
-		if (ret == 1 && opts->backtrace)
+		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
 		/* function entry */
@@ -184,7 +184,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (ret < 0)
 			goto out;
 
-		if (ret == 1 && opts->backtrace)
+		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
 		fstack = &task->func_stack[rstack->depth];

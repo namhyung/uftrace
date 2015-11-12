@@ -34,9 +34,6 @@ OPTIONS
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
-\--backtrace
-:   Print backtrace of filtered function.  This option requires -F option.
-
 \--no-pager
 :   Do not use pager
 

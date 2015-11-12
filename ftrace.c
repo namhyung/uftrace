@@ -49,7 +49,6 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_nop		308
 #define OPT_time	309
 #define OPT_max_stack	310
-#define OPT_backtrace	311
 #define OPT_port	312
 #define OPT_nopager	313
 #define OPT_avg_total	314
@@ -77,7 +76,6 @@ static struct argp_option ftrace_options[] = {
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
-	{ "backtrace", OPT_backtrace, 0, 0, "Show backtrace of filtered function" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
@@ -230,10 +228,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 				  MCOUNT_RSTACK_MAX);
 		break;
 
-	case OPT_backtrace:
-		opts->backtrace = true;
-		break;
-
 	case OPT_port:
 		opts->port = strtol(arg, NULL, 0);
 		if (opts->port <= 0)
@@ -341,11 +335,6 @@ int main(int argc, char *argv[])
 		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
 		if (logfd < 0)
 			pr_err("cannot open log file");
-	}
-
-	if (opts.backtrace && opts.filter == NULL) {
-		printf("--backtrace option needs -F/--filter option\n");
-		exit(0);
 	}
 
 	switch (opts.mode) {
