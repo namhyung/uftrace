@@ -272,6 +272,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *fth;
 	char *filename;
+	int i;
 
 	if (unlikely(idx >= nr_tasks)) {
 		nr_tasks = idx + 1;
@@ -293,6 +294,10 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		tasks[idx].stack_count = 0;
 		tasks[idx].filter.depth = handle->depth;
+
+		/* FIXME: save filter depth at fork() and restore */
+		for (i = 0; i < FSTACK_MAX; i++)
+			tasks[idx].func_stack[i].orig_depth = handle->depth;
 
 		pr_dbg("opening %s\n", filename);
 		free(filename);
