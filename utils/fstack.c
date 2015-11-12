@@ -5,11 +5,15 @@
 #include <assert.h>
 #include <errno.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT  "fstack"
+
 #include "../ftrace.h"
 #include "../libmcount/mcount.h"
 #include "utils.h"
 #include "filter.h"
 #include "fstack.h"
+#include "rbtree.h"
 
 
 #define FILTER_COUNT_NOTRACE  10000
@@ -17,7 +21,8 @@
 struct ftrace_task_handle *tasks;
 int nr_tasks;
 
-struct ftrace_func_filter filters;
+static struct rb_root fstack_filters = RB_ROOT;
+static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
 struct ftrace_task_handle *get_task_handle(int tid)
 {
@@ -99,67 +104,147 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 		if (tasks[i].fp == NULL)
 			pr_err("cannot open task data file [%s]", filename);
 
-		if (filters.has_filters)
-			tasks[i].filter_count = 0;
-		else
-			tasks[i].filter_count = 1;
-
 		pr_dbg("opening %s\n", filename);
 		free(filename);
+
+		tasks[i].filter.depth = handle->depth;
 	}
 
 	free(filter_tids);
 }
 
-/* return 1 if filtered by -F, -1 by -N, otherwise 0 */
-int update_filter_count_entry(struct ftrace_task_handle *task,
-			      unsigned long addr, int depth)
+int setup_fstack_filter(char *filter_str, char *notrace_str,
+			struct symtabs *symtabs)
+{
+	if (filter_str) {
+		ftrace_setup_filter(filter_str, symtabs, NULL,
+				    &fstack_filters, FILTER_MODE_IN);
+		ftrace_setup_filter(filter_str, symtabs, "PLT",
+				    &fstack_filters, FILTER_MODE_IN);
+		ftrace_setup_filter(filter_str, symtabs, "kernel",
+				    &fstack_filters, FILTER_MODE_IN);
+		if (RB_EMPTY_ROOT(&fstack_filters))
+			return -1;
+
+		fstack_filter_mode = FILTER_MODE_IN;
+	}
+
+	if (notrace_str) {
+		ftrace_setup_filter(notrace_str, symtabs, NULL,
+				    &fstack_filters, FILTER_MODE_OUT);
+		ftrace_setup_filter(notrace_str, symtabs, "PLT",
+				    &fstack_filters, FILTER_MODE_OUT);
+		ftrace_setup_filter(notrace_str, symtabs, "kernel",
+				    &fstack_filters, FILTER_MODE_OUT);
+		if (RB_EMPTY_ROOT(&fstack_filters))
+			return -1;
+
+		if (fstack_filter_mode == FILTER_MODE_NONE)
+			fstack_filter_mode = FILTER_MODE_OUT;
+	}
+
+	return 0;
+}
+
+/**
+ * fstack_entry - function entry handler
+ * @task  - tracee task
+ * @addr  - function address
+ * @depth - default function filter depth if filter matched
+ * @tr    - trigger data
+ *
+ * This function should be called when replaying a recorded session.
+ * It updates function stack, filter status, trigger result and
+ * determine how to react. Callers can do whatever they want based
+ * on the trigger result.
+ *
+ * This function returns 1 if filter matched, 0 if not, and -1 if
+ * it should be skipped.
+ */
+int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
+		 int depth, struct ftrace_trigger *tr)
 {
 	int ret = 0;
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
+	struct fstack *fstack;
+
+	/* stack_count was increased in __read_rstack */
+	fstack = &task->func_stack[task->stack_count - 1];
+
+	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+		task->tid, task->stack_count-1, task->filter.in_count,
+		task->filter.out_count, task->filter.depth, fstack->flags);
+
+	fstack->orig_depth = task->filter.depth;
+	fstack->flags = 0;
+
+	if (task->filter.out_count > 0) {
+		fstack->flags |= FSTACK_FL_NORECORD;
+		return -1;
+	}
 
 	if (is_kernel_address(addr))
 		addr = get_real_address(addr);
 
-	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr, &tr)) {
-		task->filter_count++;
-		task->func_stack[task->stack_count-1].orig_depth = task->filter_depth;
-		task->filter_depth = depth;
+	ftrace_match_filter(&fstack_filters, addr, tr);
 
-		if (tr.flags & TRIGGER_FL_DEPTH)
-			task->filter_depth = tr.depth;
+	if (tr->flags & TRIGGER_FL_FILTER) {
+		if (tr->fmode == FILTER_MODE_IN) {
+			task->filter.in_count++;
+			fstack->flags |= FSTACK_FL_FILTERED;
+			ret = 1;
+		}
+		else {
+			task->filter.out_count++;
+			fstack->flags |= FSTACK_FL_NOTRACE | FSTACK_FL_NORECORD;
+			return -1;
+		}
 
-		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-		ret = 1;
-	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr, &tr)) {
-		task->filter_count -= FILTER_COUNT_NOTRACE;
-		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-		ret = -1;
+		task->filter.depth = depth;
 	}
+	else {
+		if (fstack_filter_mode == FILTER_MODE_IN &&
+		    task->filter.in_count == 0) {
+			fstack->flags |= FSTACK_FL_NORECORD;
+			return -1;
+		}
+	}
+
+	if (tr->flags & TRIGGER_FL_DEPTH)
+		task->filter.depth = tr->depth;
+
+	if (task->filter.depth <= 0) {
+		fstack->flags |= FSTACK_FL_NORECORD;
+		return -1;
+	}
+
+	task->filter.depth--;
 
 	return ret;
 }
 
-void update_filter_count_exit(struct ftrace_task_handle *task,
-			      unsigned long addr, int depth)
+/**
+ * fstack_exit - function exit handler
+ * @task - tracee task
+ *
+ * This function should be paired with fstack_entry().
+ */
+void fstack_exit(struct ftrace_task_handle *task)
 {
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
+	struct fstack *fstack;
 
-	if (is_kernel_address(addr))
-		addr = get_real_address(addr);
+	fstack = &task->func_stack[task->stack_count];
 
-	if (filters.has_filters && ftrace_match_filter(&filters.filters, addr, &tr)) {
-		task->filter_count--;
-		task->filter_depth = task->func_stack[task->stack_count].orig_depth;
-		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	} else if (filters.has_notrace && ftrace_match_filter(&filters.notrace, addr, &tr)) {
-		task->filter_count += FILTER_COUNT_NOTRACE;
-		pr_dbg("  [%5d] filter count: %d\n", task->tid, task->filter_count);
-	}
+	pr_dbg2("EXIT : [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+		task->tid, task->stack_count, task->filter.in_count,
+		task->filter.out_count, task->filter.depth, fstack->flags);
+
+	if (fstack->flags & FSTACK_FL_FILTERED)
+		task->filter.in_count--;
+	else if (fstack->flags & FSTACK_FL_NOTRACE)
+		task->filter.out_count--;
+
+	fstack->flags = 0;
+	task->filter.depth = fstack->orig_depth;
 }
 
 int read_task_ustack(struct ftrace_task_handle *handle)
@@ -206,13 +291,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 			return NULL;
 		}
 
-		if (filters.has_filters)
-			tasks[idx].filter_count = 0;
-		else
-			tasks[idx].filter_count = 1;
-
 		tasks[idx].stack_count = 0;
-		tasks[idx].filter_depth = handle->depth;
+		tasks[idx].filter.depth = handle->depth;
 
 		pr_dbg("opening %s\n", filename);
 		free(filename);

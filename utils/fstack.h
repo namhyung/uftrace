@@ -6,11 +6,17 @@
 #include <stdbool.h>
 
 #include "../ftrace.h"
-#include "rbtree.h"
 
 #define FSTACK_MAX  1024
 
 struct sym;
+struct ftrace_trigger;
+
+enum fstack_flag {
+	FSTACK_FL_FILTERED	= (1U << 0),
+	FSTACK_FL_NOTRACE	= (1U << 1),
+	FSTACK_FL_NORECORD	= (1U << 2),
+};
 
 struct ftrace_task_handle {
 	int tid;
@@ -19,33 +25,28 @@ struct ftrace_task_handle {
 	bool lost_seen;
 	FILE *fp;
 	struct sym *func;
-	int filter_count;
-	int filter_depth;
 	struct ftrace_ret_stack ustack;
 	struct ftrace_ret_stack kstack;
 	struct ftrace_ret_stack *rstack;
 	int stack_count;
 	int lost_count;
+	struct filter {
+		int	in_count;
+		int	out_count;
+		int	depth;
+	} filter;
 	struct fstack {
 		unsigned long addr;
 		bool valid;
 		int orig_depth;
+		unsigned long flags;
 		uint64_t total_time;
 		uint64_t child_time;
 	} func_stack[FSTACK_MAX];
 };
 
-struct ftrace_func_filter {
-	bool has_filters;
-	bool has_notrace;
-	struct rb_root filters;
-	struct rb_root notrace;
-};
-
 extern struct ftrace_task_handle *tasks;
 extern int nr_tasks;
-
-extern struct ftrace_func_filter filters;
 
 struct ftrace_task_handle *get_task_handle(int tid);
 void reset_task_handle(void);
@@ -60,10 +61,11 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_task_handle *handle);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
+int setup_fstack_filter(char *filter_str, char *notrace_str,
+			struct symtabs *symtabs);
 
-int update_filter_count_entry(struct ftrace_task_handle *task,
-			      unsigned long addr, int depth);
-void update_filter_count_exit(struct ftrace_task_handle *task,
-			      unsigned long addr, int depth);
+int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
+			int depth, struct ftrace_trigger *tr);
+void fstack_exit(struct ftrace_task_handle *task);
 
 #endif /* __FTRACE_FSTACK_H__ */
