@@ -9,6 +9,7 @@
 #include "../libmcount/mcount.h"
 #include "utils.h"
 #include "filter.h"
+#include "fstack.h"
 
 
 #define FILTER_COUNT_NOTRACE  10000
@@ -17,6 +18,17 @@ struct ftrace_task_handle *tasks;
 int nr_tasks;
 
 struct ftrace_func_filter filters;
+
+struct ftrace_task_handle *get_task_handle(int tid)
+{
+	int i;
+
+	for (i = 0; i < nr_tasks; i++) {
+		if (tasks[i].tid == tid)
+			return &tasks[i];
+	}
+	return NULL;
+}
 
 void reset_task_handle(void)
 {
@@ -233,17 +245,6 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 	fth->valid = true;
 	return &fth->ustack;
-}
-
-struct ftrace_task_handle *get_task_handle(int tid)
-{
-	int i;
-
-	for (i = 0; i < nr_tasks; i++) {
-		if (tasks[i].tid == tid)
-			return &tasks[i];
-	}
-	return NULL;
 }
 
 static int read_user_stack(struct ftrace_file_handle *handle,

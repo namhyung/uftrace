@@ -34,6 +34,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/fstack.h"
 
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";

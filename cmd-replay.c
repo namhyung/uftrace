@@ -7,6 +7,7 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/fstack.h"
 
 
 static bool skip_kernel_before_user = true;
