@@ -56,10 +56,6 @@ static bool mcount_setup_done;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
-static TLS int mcount_rstack_depth;
-/* restore mcount_rstack_depth after a filter is applied. */
-static TLS int mcount_orig_depth;
-static TLS int plthook_orig_depth;
 
 struct filter_control {
 	int in_count;
@@ -72,10 +68,6 @@ static TLS struct filter_control mcount_filter;
 static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
-
-static struct rb_root filter_plt_trace = RB_ROOT;
-static struct rb_root filter_plt_notrace = RB_ROOT;
-static bool has_plt_filter, has_plt_notrace;
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static TLS bool plthook_recursion_guard;
@@ -395,7 +387,6 @@ static void mcount_prepare(void)
 	};
 
 #ifndef DISABLE_MCOUNT_FILTER
-	mcount_rstack_depth = mcount_depth;
 	mcount_filter.depth = mcount_depth;
 #endif
 	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
@@ -427,7 +418,6 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
 
 	/* save original depth to restore at exit time */
-	mcount_orig_depth = mcount_rstack_depth;
 	mcount_filter.saved_depth = mcount_filter.depth;
 
 	/* already filtered by notrace option */
@@ -876,64 +866,6 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 	rstack[jbstack->count].dyn_idx = dyn_idx;
 }
 
-#ifndef DISABLE_MCOUNT_FILTER
-static enum filter_result plthook_entry_filter(unsigned long ip,
-					       struct ftrace_trigger *tr)
-{
-	enum filter_result ret = FILTER_IN;
-
-	/*
-	 * mcount_rstack_idx > 0 means it's now traced (not filtered)
-	 */
-	if (mcount_rstack_idx < 0)
-		return FILTER_OUT;
-
-	if (has_plt_filter) {
-		if (ftrace_match_filter(&filter_plt_trace, ip, tr)) {
-			plthook_orig_depth = mcount_rstack_depth;
-			mcount_rstack_depth = mcount_depth;
-
-			if (tr->flags & TRIGGER_FL_DEPTH)
-				mcount_rstack_depth = tr->depth;
-
-			pr_dbg("set rstack depth to %d (orig: %d)\n",
-			       mcount_depth, plthook_orig_depth);
-			return FILTER_MATCH;
-		}
-		ret = FILTER_OUT;
-	}
-
-	if (has_plt_notrace && ret) {
-		if (ftrace_match_filter(&filter_plt_notrace, ip, tr))
-			return FILTER_OUT;
-	}
-	return ret;
-}
-
-static void plthook_exit_filter(unsigned idx, struct ftrace_trigger *tr)
-{
-	struct sym *sym;
-
-	if (!has_plt_filter)
-		return;
-
-	sym = find_dynsym(&symtabs, idx);
-	if (ftrace_match_filter(&filter_plt_trace, sym->addr, tr)) {
-		mcount_rstack_depth = plthook_orig_depth;
-		pr_dbg("restore rstack depth to (%d)\n",
-		       plthook_orig_depth);
-	}
-}
-#else
-static enum filter_result plthook_entry_filter(unsigned long ip,
-					       struct ftrace_trigger *tr)
-{
-	return FILTER_IN;
-}
-
-static void plthook_exit_filter(unsigned idx, struct ftrace_trigger *tr) {}
-#endif
-
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
@@ -941,9 +873,13 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 {
 	struct sym *sym;
 	unsigned long child_ip;
+	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
 	};
+
+	if (unlikely(mcount_rstack == NULL))
+		mcount_prepare();
 
 	/*
 	 * There was a recursion like below:
@@ -958,7 +894,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		goto out;
 
 	sym = find_dynsym(&symtabs, child_idx);
-	pr_dbg2("[%d] n %s\n", child_idx, sym->name);
+	pr_dbg2("[%d] n %"PRIx64": %s\n", child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -966,31 +902,30 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (plthook_entry_filter(sym->addr, &tr) == FILTER_OUT)
+	if (mcount_entry_filter_check(sym->addr, &tr) == FILTER_OUT)
 		goto out;
 
 	plthook_recursion_guard = true;
 
-	if (mcount_entry(ret_addr, child_ip) == 0) {
-		int idx = mcount_rstack_idx - 1;
+	rstack = &mcount_rstack[mcount_rstack_idx++];
 
-		*ret_addr = (unsigned long)plthook_return;
+	rstack->depth      = mcount_record_idx;
+	rstack->dyn_idx    = child_idx;
+	rstack->parent_loc = ret_addr;
+	rstack->parent_ip  = *ret_addr;
+	rstack->child_ip   = child_ip;
+	rstack->start_time = mcount_gettime();
+	rstack->end_time   = 0;
+	rstack->flags      = 0;
 
-		if (idx < 0)
-			idx += MCOUNT_NOTRACE_IDX;
+	mcount_entry_filter_record(rstack, &tr);
 
-		if (idx >= mcount_rstack_max)
-			pr_err_ns("invalid rstack idx: %d\n", idx);
+	*ret_addr = (unsigned long)plthook_return;
 
-		mcount_rstack[idx].dyn_idx = child_idx;
-
-		if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
-			setup_jmpbuf_rstack(mcount_rstack, idx);
-		if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
-			mcount_rstack[idx].flags |= MCOUNT_FL_LONGJMP;
-	} else {
-		plthook_recursion_guard = false;
-	}
+	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
+		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
+	if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
+		rstack->flags |= MCOUNT_FL_LONGJMP;
 
 out:
 	if (plthook_dynsym_resolved[child_idx])
@@ -1002,45 +937,47 @@ out:
 
 unsigned long plthook_exit(void)
 {
-	unsigned long orig_ip;
-	int idx = mcount_rstack_idx - 1;
 	int dyn_idx;
 	unsigned long new_addr;
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
+	struct mcount_ret_stack *rstack;
 
-	if (idx >= 0 && (mcount_rstack[idx].flags & MCOUNT_FL_LONGJMP))
-		restore_jmpbuf_rstack(mcount_rstack, idx);
+again:
+	rstack = &mcount_rstack[--mcount_rstack_idx];
 
-	orig_ip = mcount_exit();
-	idx = mcount_rstack_idx;
+	if (rstack->flags & MCOUNT_FL_LONGJMP) {
+		restore_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx+1);
+		goto again;
+	}
 
-	dyn_idx = mcount_rstack[idx].dyn_idx;
+	rstack->end_time = mcount_gettime();
 
-	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
-		pr_err_ns("invalid dynsym idx: %d\n", idx);
+	mcount_exit_filter_record(rstack);
 
-	plthook_exit_filter(dyn_idx, &tr);
+	dyn_idx = rstack->dyn_idx;
+	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {
+		pr_err_ns("<%d> invalid dynsym idx: %d\n",
+			  mcount_rstack_idx, dyn_idx);
+	}
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
-		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
-		char *name = symbol_getname(sym, 0);
-
 		new_addr = plthook_got_ptr[3 + dyn_idx];
 		/* restore GOT so plt_hooker keep called */
 		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
 
 		plthook_dynsym_resolved[dyn_idx] = true;
 		plthook_dynsym_addr[dyn_idx] = new_addr;
+	}
 
-		pr_dbg2("[%d] x %s: %lx\n", dyn_idx, name, new_addr);
-		symbol_putname(sym, name);
+	if (debug >= 2) {
+		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
+
+		pr_dbg2("[%d] x %"PRIx64": %s\n", dyn_idx,
+			plthook_dynsym_addr[dyn_idx], sym->name);
 	}
 
 	plthook_recursion_guard = false;
 
-	return orig_ip;
+	return rstack->parent_ip;
 }
 
 static void atfork_prepare_handler(void)
@@ -1135,16 +1072,19 @@ __monstartup(unsigned long low, unsigned long high)
 		setup_dynsym_indexes(&symtabs);
 
 #ifndef DISABLE_MCOUNT_FILTER
-		ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, "plt",
-				    &filter_plt_trace, FILTER_MODE_IN);
-		if (!RB_EMPTY_ROOT(&filter_plt_trace))
-			has_plt_filter = true;
+		ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, "PLT",
+				    &mcount_triggers, FILTER_MODE_IN);
+		if (mcount_filter_mode == FILTER_MODE_NONE &&
+		    !RB_EMPTY_ROOT(&mcount_triggers))
+			mcount_filter_mode = FILTER_MODE_IN;
 
-		ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, "plt",
-				    &filter_plt_notrace, FILTER_MODE_OUT);
-		if (!RB_EMPTY_ROOT(&filter_plt_notrace))
-			has_plt_notrace = true;
-#endif
+		ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, "PLT",
+				    &mcount_triggers, FILTER_MODE_OUT);
+		if (mcount_filter_mode == FILTER_MODE_NONE &&
+		    !RB_EMPTY_ROOT(&mcount_triggers))
+			mcount_filter_mode = FILTER_MODE_OUT;
+#endif /* DISABLE_MCOUNT_FILTER */
+
 		if (hook_pltgot() < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
 		else {

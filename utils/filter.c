@@ -224,16 +224,24 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			.flags = TRIGGER_FL_FILTER,
 			.fmode = mode,
 		};
+		int ret;
+		char *mod = module;
 
-		if (setup_module_and_trigger(name, module, symtabs, &symtab,
+		if (setup_module_and_trigger(name, mod, symtabs, &symtab,
 					     &tr) < 0)
 			goto next;
 
+again:
 		if (strpbrk(name, REGEX_CHARS))
-			add_regex_filter(root, symtab, module, name, &tr);
+			ret = add_regex_filter(root, symtab, mod, name, &tr);
 		else
-			add_exact_filter(root, symtab, module, name, &tr);
+			ret = add_exact_filter(root, symtab, mod, name, &tr);
 
+		if (ret == 0 && mod == NULL) {
+			mod = "plt";
+			symtab = &symtabs->dsymtab;
+			goto again;
+		}
 next:
 		name = strtok(NULL, ",");
 	}
