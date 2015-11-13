@@ -99,7 +99,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		symname = symbol_getname(sym, sym->addr);
 
 		if (regexec(&re, symname, 0, NULL, 0))
-			continue;
+			goto next;
 
 		filter = xmalloc(sizeof(*filter));
 
@@ -113,6 +113,9 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 
 		add_filter(root, filter);
 		ret++;
+
+next:
+		symbol_putname(sym, symname);
 	}
 	return ret;
 }

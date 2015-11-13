@@ -681,7 +681,7 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 {
 	size_t i;
 
-	if (symtab->name_sorted) {
+	if (!strchr(name, ':') && symtab->name_sorted) {
 		struct sym **psym;
 
 		psym = bsearch(name, symtab->sym_names, symtab->nr_sym,
@@ -692,9 +692,18 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 		return NULL;
 	}
 
-	for (i = 0; i < symtab->nr_sym; i++)
-		if (!strcmp(name, symtab->sym[i].name))
-			return &symtab->sym[i];
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
+		char *symname;
+		int ret;
+
+		symname = symbol_getname(sym, sym->addr);
+		ret = strcmp(name, symname);
+		symbol_putname(sym, symname);
+
+		if (ret == 0)
+			return sym;
+	}
 
 	return NULL;
 }
