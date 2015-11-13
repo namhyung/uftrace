@@ -28,7 +28,10 @@ OPTIONS
 -N *FUNC*[,*FUNC*,...], \--notrace=*FUNC*[,*FUNC*,...]
 :   Set filter not trace selected functions only.  See *FILTERS*.
 
--T *TID*[,*TID*,...], \--tid=*TID*[,*TID*,...]
+-T *TRG*[,*TRG*,...], \--trigger=*TRG*[,*TRG*,...]
+:   Set trigger on selected functions.  See *TRIGGERS*.
+
+-t *TID*[,*TID*,...], \--tid=*TID*[,*TID*,...]
 :   Only print functions from given threads.  To see the list of threads in the data file, you can use `ftrace-report --threads` or `ftrace-info` command.
 
 -D *DEPTH*, \--depth *DEPTH*
@@ -114,6 +117,32 @@ In addition, you can limit the print nesting level with -D option.
        8.631 us [ 1234] | } /* main */
 
 In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
+
+You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
+
+
+TRIGGERS
+========
+The ftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth (for record and replay) and backtrace (for replay only).  The BNF for the trigger is like below:
+
+    <triggers> :=  <trigger> | <trigger> "," <triggers>
+    <trigger>  :=  <symbol> "@" <actions>
+    <actions>  :=  <action>  | <action> ":" <actions>
+    <action>   :=  "depth=" <num> | "backtrace"
+
+The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
+
+Following example shows how trigger works.  We set filter on function 'b' with the backtrace trigger and depth trigger of 2.
+
+    $ ftrace record ./abc
+    $ ftrace replay -F 'b@backtrace:depth=2'
+    # DURATION    TID     FUNCTION
+      backtrace [ 1234] | /* [ 0] main */
+      backtrace [ 1234] | /* [ 1] a */
+                [ 1234] |     b {
+       3.880 us [ 1234] |       c();
+       5.475 us [ 1234] |     } /* b */
+
 
 SEE ALSO
 ========

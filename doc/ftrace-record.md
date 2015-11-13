@@ -42,6 +42,9 @@ OPTIONS
 -N *FUNC*[,*FUNC*,...], \--notrace=*FUNC*[,*FUNC*,...]
 :   Set filter not trace selected functions only.  See *FILTERS*.
 
+-T *TRG*,[*TRG*,...], \--trigger=*TRG*[,*TRG*,...]
+:   Set trigger on selected functions.  See *TRIGGERS*.
+
 -D *DEPTH*, \--depth=*DEPTH*
 :   Set trace limit in nesting level.
 
@@ -141,6 +144,52 @@ In addition, you can limit the print nesting level with -D option.
        8.631 us [ 1234] | } /* main */
 
 In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
+
+You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
+
+When kernel function tracing is enabled, you can also set the filters on kernel functions.  It needs to mark the symbol with '@kernel' modifier.  Following example will show all user functions and (kernel) page fault handler.
+
+    $ sudo ftrace -k -F '*page_fault@kernel' ./abc
+    # DURATION    TID     FUNCTION
+               [14721] | main() {
+      7.713 us [14721] |   __do_page_fault();
+      6.600 us [14721] |   __do_page_fault();
+      6.544 us [14721] |   __do_page_fault();
+               [14721] |   a() {
+               [14721] |     b() {
+               [14721] |       c() {
+      0.860 us [14721] |         getpid();
+      2.346 us [14721] |       } /* c */
+      2.956 us [14721] |     } /* b */
+      3.340 us [14721] |   } /* a */
+     79.086 us [14721] | } /* main */
+
+
+TRIGGERS
+========
+The ftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth (for record and replay) and backtrace (for replay only).  The BNF for the trigger is like below:
+
+    <triggers> :=  <trigger> | <trigger> "," <triggers>
+    <trigger>  :=  <symbol> "@" <actions>
+    <actions>  :=  <action>  | <action> ":" <actions>
+    <action>   :=  "depth=" <num> | "backtrace"
+
+The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
+
+Following example shows how trigger works.  The global filter depth is 5, but function 'b' changed it to 1 so functions below the 'b' will not shown.
+
+    $ ftrace record -D 5 -T 'b@depth=1' ./abc
+    $ ftrace replay
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+The ftrace trigger only works for user-level functions for now.
+
 
 SEE ALSO
 ========
