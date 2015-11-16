@@ -880,6 +880,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	struct ftrace_trigger tr = {
 		.flags = 0,
 	};
+	bool skip = false;
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
@@ -891,10 +892,10 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	 *   -> plthook_entry
 	 */
 	if (plthook_recursion_guard)
-		goto out;
+		return 0;
 
 	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
-		goto out;
+		return 0;
 
 	sym = find_dynsym(&symtabs, child_idx);
 	pr_dbg2("[%d] n %"PRIx64": %s\n", child_idx, sym->addr, sym->name);
@@ -905,11 +906,19 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (mcount_entry_filter_check(sym->addr, &tr) == FILTER_OUT)
+	if (mcount_entry_filter_check(sym->addr, &tr) == FILTER_OUT) {
+		/*
+		 * Skip recording but still hook the return address,
+		 * otherwise it cannot trace further invocations due to
+		 * the overwritten PLT entry by the resolver function.
+		 */
+		skip = true;
 		goto out;
+	}
 
 	plthook_recursion_guard = true;
 
+out:
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
 	rstack->depth      = mcount_record_idx;
@@ -917,9 +926,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
 	rstack->child_ip   = child_ip;
-	rstack->start_time = mcount_gettime();
+	rstack->start_time = skip ? 0 : mcount_gettime();
 	rstack->end_time   = 0;
-	rstack->flags      = 0;
+	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
 
 	mcount_entry_filter_record(rstack, &tr);
 
@@ -930,7 +939,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
 
-out:
 	if (plthook_dynsym_resolved[child_idx])
 		return plthook_dynsym_addr[child_idx];
 
@@ -952,23 +960,10 @@ again:
 		goto again;
 	}
 
-	rstack->end_time = mcount_gettime();
-
-	mcount_exit_filter_record(rstack);
-
 	dyn_idx = rstack->dyn_idx;
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {
 		pr_err_ns("<%d> invalid dynsym idx: %d\n",
 			  mcount_rstack_idx, dyn_idx);
-	}
-
-	if (!plthook_dynsym_resolved[dyn_idx]) {
-		new_addr = plthook_got_ptr[3 + dyn_idx];
-		/* restore GOT so plt_hooker keep called */
-		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
-
-		plthook_dynsym_resolved[dyn_idx] = true;
-		plthook_dynsym_addr[dyn_idx] = new_addr;
 	}
 
 	if (debug >= 2) {
@@ -978,8 +973,21 @@ again:
 			plthook_dynsym_addr[dyn_idx], sym->name);
 	}
 
+	if (!(rstack->flags & MCOUNT_FL_NORECORD))
+		rstack->end_time = mcount_gettime();
+
+	mcount_exit_filter_record(rstack);
+
 	plthook_recursion_guard = false;
 
+	if (!plthook_dynsym_resolved[dyn_idx]) {
+		new_addr = plthook_got_ptr[3 + dyn_idx];
+		/* restore GOT so plt_hooker keep called */
+		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
+
+		plthook_dynsym_resolved[dyn_idx] = true;
+		plthook_dynsym_addr[dyn_idx] = new_addr;
+	}
 	return rstack->parent_ip;
 }
 
