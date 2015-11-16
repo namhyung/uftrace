@@ -100,9 +100,6 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
-	pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", filter.sym->name,
-	       filter.start, filter.end);
-
 	add_filter(root, &filter, tr);
 	return 1;
 }
@@ -133,9 +130,6 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		filter.sym = sym;
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
-
-		pr_dbg("%s: %s (0x%lx-0x%lx)\n", module ?: "<exe>", symname,
-		       filter.start, filter.end);
 
 		add_filter(root, &filter, tr);
 		ret++;
@@ -307,6 +301,18 @@ void ftrace_print_filter(struct rb_root *root)
 	while (node) {
 		filter = rb_entry(node, struct ftrace_filter, node);
 		pr_log("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
+
+		if (filter->trigger.flags & TRIGGER_FL_DEPTH)
+			pr_log("\ttrigger: depth %d\n", filter->trigger.depth);
+		if (filter->trigger.flags & TRIGGER_FL_FILTER) {
+			if (filter->trigger.fmode == FILTER_MODE_IN)
+				pr_log("\ttrigger: filter IN\n");
+			else
+				pr_log("\ttrigger: filter OUT\n");
+		}
+		if (filter->trigger.flags & TRIGGER_FL_BACKTRACE)
+			pr_log("\ttrigger: backtrace\n");
+
 		node = rb_next(node);
 	}
 }

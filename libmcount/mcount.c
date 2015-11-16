@@ -1116,6 +1116,9 @@ __monstartup(unsigned long low, unsigned long high)
 	 */
 	ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, NULL,
 			     &mcount_triggers);
+
+	if (debug >= 1)
+		ftrace_print_filter(&mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
