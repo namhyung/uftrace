@@ -6,6 +6,8 @@
 #include "ftrace.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
 
 
 static bool skip_kernel_before_user = true;
@@ -101,33 +103,35 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	}
 
 	if (rstack->type == FTRACE_ENTRY) {
-		if (update_filter_count_entry(task, rstack->addr,
-					      handle->depth) == 1 &&
-		    opts->backtrace)
+		struct ftrace_trigger tr = {
+			.flags = 0,
+		};
+		int ret;
+
+		ret = fstack_entry(task, rstack->addr, handle->depth, &tr);
+		if (ret < 0)
+			goto out;
+
+		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
-
-		if (task->filter_count <= 0)
-			goto out;
-
-		if (task->filter_depth-- <= 0)
-			goto out;
 
 		/* function entry */
 		print_time_unit(0UL);
 		printf(" [%5d] | %*s%s() {\n", task->tid,
 		       rstack->depth * 2, "", symname);
 	} else if (rstack->type == FTRACE_EXIT) {
-		/* function exit */
-		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
-			struct fstack *fstack;
+		struct fstack *fstack;
 
-			fstack= &task->func_stack[rstack->depth];
+		/* function exit */
+		fstack = &task->func_stack[rstack->depth];
+
+		if (!(fstack->flags & FSTACK_FL_NORECORD)) {
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr, handle->depth);
+		fstack_exit(task);
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
 		printf(" [%5d] |     /* LOST %d records!! */\n",
@@ -171,17 +175,19 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle *next;
 		struct fstack *fstack;
 		int depth = rstack->depth;
+		struct ftrace_trigger tr = {
+			.flags = 0,
+		};
+		int ret;
 
-		if (update_filter_count_entry(task, rstack->addr,
-					      handle->depth) == 1 &&
-		    opts->backtrace)
+		ret = fstack_entry(task, rstack->addr, handle->depth, &tr);
+		if (ret < 0)
+			goto out;
+
+		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
-		if (task->filter_count <= 0)
-			goto out;
-
-		if (task->filter_depth-- <= 0)
-			goto out;
+		fstack = &task->func_stack[rstack->depth];
 
 		if (peek_rstack(handle, &next) < 0)
 			next = NULL;
@@ -190,8 +196,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack->depth == depth &&
 		    next->rstack->type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
-			fstack = &task->func_stack[rstack->depth];
-
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s%s();\n", task->tid,
 			       rstack->depth * 2, "", symname);
@@ -199,29 +203,29 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			/* consume the rstack */
 			read_rstack(handle, &next);
 
-			task->filter_depth++;
-			update_filter_count_exit(task, next->rstack->addr, handle->depth);
+			fstack_exit(task);
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
 			printf(" [%5d] | %*s%s() {\n", task->tid,
 			       depth * 2, "", symname);
 		}
-	} else if (rstack->type == FTRACE_EXIT) {
+	}
+	else if (rstack->type == FTRACE_EXIT) {
+		struct fstack *fstack;
+
 		/* function exit */
-		if (task->filter_count > 0 && task->filter_depth++ >= 0) {
-			struct fstack *fstack;
+		fstack = &task->func_stack[rstack->depth];
 
-			fstack = &task->func_stack[rstack->depth];
-
+		if (!(fstack->flags & FSTACK_FL_NORECORD)) {
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
-		update_filter_count_exit(task, rstack->addr, handle->depth);
-
-	} else if (rstack->type == FTRACE_LOST) {
+		fstack_exit(task);
+	}
+	else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
 		printf(" [%5d] |     /* LOST %d records!! */\n",
 		       task->tid, (int)rstack->addr);
@@ -300,25 +304,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->filter) {
-		ftrace_setup_filter(opts->filter, &first_session->symtabs, NULL,
-				    &filters.filters, &filters.has_filters);
-		ftrace_setup_filter(opts->filter, &first_session->symtabs, "PLT",
-				    &filters.filters, &filters.has_filters);
-		ftrace_setup_filter(opts->filter, &first_session->symtabs, "kernel",
-				    &filters.filters, &filters.has_filters);
-		if (!filters.has_filters)
-			return -1;
-	}
-
-	if (opts->notrace) {
-		ftrace_setup_filter(opts->notrace, &first_session->symtabs, NULL,
-				    &filters.notrace, &filters.has_notrace);
-		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "PLT",
-				    &filters.notrace, &filters.has_notrace);
-		ftrace_setup_filter(opts->notrace, &first_session->symtabs, "kernel",
-				    &filters.notrace, &filters.has_notrace);
-		if (!filters.has_notrace)
+	if (opts->filter || opts->trigger) {
+		if (setup_fstack_filters(opts->filter, opts->trigger,
+					 &first_session->symtabs) < 0)
 			return -1;
 	}
 

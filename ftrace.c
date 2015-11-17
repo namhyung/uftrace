@@ -34,6 +34,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/fstack.h"
 
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
@@ -48,7 +49,6 @@ const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues
 #define OPT_nop		308
 #define OPT_time	309
 #define OPT_max_stack	310
-#define OPT_backtrace	311
 #define OPT_port	312
 #define OPT_nopager	313
 #define OPT_avg_total	314
@@ -59,6 +59,7 @@ static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
+	{ "trigger", 'T', "FUNC@act[:act:...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
@@ -69,14 +70,13 @@ static struct argp_option ftrace_options[] = {
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
-	{ "tid", 'T', "TID[,TID,...]", 0, "Only replay those tasks" },
+	{ "tid", 't', "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
-	{ "backtrace", OPT_backtrace, 0, 0, "Show backtrace of filtered function" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
@@ -129,6 +129,21 @@ static char * opt_add_string(char *old, char *new)
 	return opt;
 }
 
+static char * opt_add_prefix_string(char *old, char *prefix, char *new)
+{
+	size_t oldlen = old ? strlen(old) : 0;
+	size_t prelen = strlen(prefix);
+	size_t newlen = strlen(new);
+	char *opt;
+
+	opt = xrealloc(old, oldlen + prelen + newlen + 2);
+	if (old)
+		opt[oldlen++] = ',';
+	strcpy(opt + oldlen, prefix);
+	strcpy(opt + oldlen + prelen, new);
+	return opt;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -143,7 +158,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'N':
-		opts->notrace = opt_add_string(opts->notrace, arg);
+		opts->filter = opt_add_prefix_string(opts->filter, "!", arg);
+		break;
+
+	case 'T':
+		opts->trigger = opt_add_string(opts->trigger, arg);
 		break;
 
 	case 'D':
@@ -152,7 +171,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_err_ns("invalid depth given: %s\n", arg);
 		break;
 
-	case 'T':
+	case 't':
 		opts->tid = opt_add_string(opts->tid, arg);
 		break;
 
@@ -227,10 +246,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		if (opts->max_stack <= 0 || opts->max_stack > MCOUNT_RSTACK_MAX)
 			pr_err_ns("max stack depth should be >0 and <%d\n",
 				  MCOUNT_RSTACK_MAX);
-		break;
-
-	case OPT_backtrace:
-		opts->backtrace = true;
 		break;
 
 	case OPT_port:
@@ -340,11 +355,6 @@ int main(int argc, char *argv[])
 		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
 		if (logfd < 0)
 			pr_err("cannot open log file");
-	}
-
-	if (opts.backtrace && opts.filter == NULL) {
-		printf("--backtrace option needs -F/--filter option\n");
-		exit(0);
 	}
 
 	switch (opts.mode) {

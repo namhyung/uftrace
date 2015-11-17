@@ -7,6 +7,7 @@
 
 #include "../ftrace.h"
 #include "utils.h"
+#include "fstack.h"
 
 
 char *map_file;

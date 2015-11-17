@@ -49,6 +49,15 @@ static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
 static bool buf_done;
 
 
+static bool can_use_fast_libmcount(struct opts *opts)
+{
+	if (opts->filter || opts->trigger || debug)
+		return false;
+	if (opts->depth != MCOUNT_DEFAULT_DEPTH)
+		return false;
+	return true;
+}
+
 static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
 {
 	char buf[4096];
@@ -65,18 +74,16 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 		strcat(buf, "libmcount-nop.so");
 	}
 	else if (multi_thread) {
-		if (opts->filter || opts->notrace || debug ||
-		    opts->depth != MCOUNT_DEFAULT_DEPTH)
-			strcat(buf, "libmcount.so");
-		else
+		if (can_use_fast_libmcount(opts))
 			strcat(buf, "libmcount-fast.so");
+		else
+			strcat(buf, "libmcount.so");
 	}
 	else {
-		if (opts->filter || opts->notrace || debug ||
-		    opts->depth != MCOUNT_DEFAULT_DEPTH)
-			strcat(buf, "libmcount-single.so");
-		else
+		if (can_use_fast_libmcount(opts))
 			strcat(buf, "libmcount-fast-single.so");
+		else
+			strcat(buf, "libmcount-single.so");
 	}
 	pr_dbg("using %s library for tracing\n", buf);
 
@@ -107,8 +114,8 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (opts->filter)
 		setenv("FTRACE_FILTER", opts->filter, 1);
 
-	if (opts->notrace)
-		setenv("FTRACE_NOTRACE", opts->notrace, 1);
+	if (opts->trigger)
+		setenv("FTRACE_TRIGGER", opts->trigger, 1);
 
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
@@ -1075,7 +1082,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
 
-		setup_kernel_filters(&kern, opts->filter, opts->notrace);
+		setup_kernel_filters(&kern, opts->filter);
 
 		if (start_kernel_tracing(&kern) < 0) {
 			opts->kernel = false;

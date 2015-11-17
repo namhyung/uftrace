@@ -7,6 +7,7 @@
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
 #include "utils/list.h"
+#include "utils/fstack.h"
 
 
 enum {
