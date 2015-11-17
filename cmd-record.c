@@ -51,7 +51,7 @@ static bool buf_done;
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
-	if (opts->filter || opts->notrace || opts->trigger || debug)
+	if (opts->filter || opts->trigger || debug)
 		return false;
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH)
 		return false;
@@ -113,9 +113,6 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 
 	if (opts->filter)
 		setenv("FTRACE_FILTER", opts->filter, 1);
-
-	if (opts->notrace)
-		setenv("FTRACE_NOTRACE", opts->notrace, 1);
 
 	if (opts->trigger)
 		setenv("FTRACE_TRIGGER", opts->trigger, 1);
@@ -1085,7 +1082,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
 
-		setup_kernel_filters(&kern, opts->filter, opts->notrace);
+		setup_kernel_filters(&kern, opts->filter);
 
 		if (start_kernel_tracing(&kern) < 0) {
 			opts->kernel = false;

@@ -123,8 +123,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 
 /**
  * setup_fstack_filters - setup symbol filters and triggers
- * @filter_str  - CSV of opt-in filter symbol names
- * @notrace_str - CSV of opt-out filter symbol names
+ * @filter_str  - CSV of filter symbol names
  * @trigger_str - CSV of trigger definitions
  * @symtabs     - symbol tables
  *
@@ -134,34 +133,19 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
  *   trigger     = trigger_def | trigger_def ":" trigger
  *   trigger_def = "depth=" NUM | "backtrace"
  */
-int setup_fstack_filters(char *filter_str, char *notrace_str, char *trigger_str,
+int setup_fstack_filters(char *filter_str, char *trigger_str,
 			 struct symtabs *symtabs)
 {
 	if (filter_str) {
 		ftrace_setup_filter(filter_str, symtabs, NULL,
-				    &fstack_filters, FILTER_MODE_IN);
+				    &fstack_filters, &fstack_filter_mode);
 		ftrace_setup_filter(filter_str, symtabs, "PLT",
-				    &fstack_filters, FILTER_MODE_IN);
+				    &fstack_filters, &fstack_filter_mode);
 		ftrace_setup_filter(filter_str, symtabs, "kernel",
-				    &fstack_filters, FILTER_MODE_IN);
+				    &fstack_filters, &fstack_filter_mode);
+
 		if (RB_EMPTY_ROOT(&fstack_filters))
 			return -1;
-
-		fstack_filter_mode = FILTER_MODE_IN;
-	}
-
-	if (notrace_str) {
-		ftrace_setup_filter(notrace_str, symtabs, NULL,
-				    &fstack_filters, FILTER_MODE_OUT);
-		ftrace_setup_filter(notrace_str, symtabs, "PLT",
-				    &fstack_filters, FILTER_MODE_OUT);
-		ftrace_setup_filter(notrace_str, symtabs, "kernel",
-				    &fstack_filters, FILTER_MODE_OUT);
-		if (RB_EMPTY_ROOT(&fstack_filters))
-			return -1;
-
-		if (fstack_filter_mode == FILTER_MODE_NONE)
-			fstack_filter_mode = FILTER_MODE_OUT;
 	}
 
 	if (trigger_str) {

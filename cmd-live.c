@@ -45,7 +45,6 @@ static void reset_live_opts(struct opts *opts)
 	 * replay again.
 	 */
 	opts->filter	= NULL;
-	opts->notrace	= NULL;
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 }
 

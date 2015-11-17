@@ -111,7 +111,6 @@ struct ftrace_file_handle {
 struct opts {
 	char *lib_path;
 	char *filter;
-	char *notrace;
 	char *trigger;
 	char *tid;
 	char *exename;
@@ -284,7 +283,7 @@ struct ftrace_kernel {
 	struct list_head notrace;
 };
 
-int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters, char *notrace);
+int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters);
 int start_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_tracing(struct ftrace_kernel *kernel);
 int stop_kernel_tracing(struct ftrace_kernel *kernel);

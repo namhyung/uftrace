@@ -196,7 +196,7 @@ static int setup_module_and_trigger(char *str, char *module,
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root,
-			  unsigned long flags, enum filter_mode mode)
+			  unsigned long flags, enum filter_mode *fmode)
 {
 	char *str;
 	char *pos, *name;
@@ -213,7 +213,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		struct symtab *symtab = &symtabs->symtab;
 		struct ftrace_trigger tr = {
 			.flags = flags,
-			.fmode = mode,
 		};
 		int ret;
 		char *mod = module;
@@ -221,6 +220,12 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		if (setup_module_and_trigger(name, mod, symtabs, &symtab,
 					     &tr) < 0)
 			goto next;
+
+		if (name[0] == '!') {
+			tr.fmode = FILTER_MODE_OUT;
+			name++;
+		} else if (fmode != NULL)
+			tr.fmode = FILTER_MODE_IN;
 
 again:
 		if (strpbrk(name, REGEX_CHARS))
@@ -232,6 +237,13 @@ again:
 			mod = "plt";
 			symtab = &symtabs->dsymtab;
 			goto again;
+		}
+
+		if (ret > 0 && fmode != NULL) {
+			if (tr.fmode == FILTER_MODE_IN)
+				*fmode = FILTER_MODE_IN;
+			else if (*fmode == FILTER_MODE_NONE)
+				*fmode = FILTER_MODE_OUT;
 		}
 next:
 		name = strtok(NULL, ",");
@@ -250,7 +262,7 @@ next:
  */
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 char *module, struct rb_root *root,
-			 enum filter_mode mode)
+			 enum filter_mode *mode)
 {
 	setup_trigger(filter_str, symtabs, module, root, TRIGGER_FL_FILTER, mode);
 }
@@ -265,7 +277,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
-	setup_trigger(trigger_str, symtabs, module, root, 0, FILTER_MODE_NONE);
+	setup_trigger(trigger_str, symtabs, module, root, 0, NULL);
 }
 
 /**

@@ -129,6 +129,21 @@ static char * opt_add_string(char *old, char *new)
 	return opt;
 }
 
+static char * opt_add_prefix_string(char *old, char *prefix, char *new)
+{
+	size_t oldlen = old ? strlen(old) : 0;
+	size_t prelen = strlen(prefix);
+	size_t newlen = strlen(new);
+	char *opt;
+
+	opt = xrealloc(old, oldlen + prelen + newlen + 2);
+	if (old)
+		opt[oldlen++] = ',';
+	strcpy(opt + oldlen, prefix);
+	strcpy(opt + oldlen + prelen, new);
+	return opt;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -143,7 +158,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'N':
-		opts->notrace = opt_add_string(opts->notrace, arg);
+		opts->filter = opt_add_prefix_string(opts->filter, "!", arg);
 		break;
 
 	case 'T':

@@ -304,13 +304,10 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->filter || opts->notrace || opts->trigger) {
-		if (setup_fstack_filters(opts->filter, opts->notrace, opts->trigger,
+	if (opts->filter || opts->trigger) {
+		if (setup_fstack_filters(opts->filter, opts->trigger,
 					 &first_session->symtabs) < 0)
 			return -1;
-	}
-
-	if (opts->notrace) {
 	}
 
 	if (opts->use_pager)

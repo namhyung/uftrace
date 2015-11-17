@@ -1062,15 +1062,10 @@ __monstartup(unsigned long low, unsigned long high)
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, NULL,
-			    &mcount_triggers, FILTER_MODE_IN);
-	if (!RB_EMPTY_ROOT(&mcount_triggers))
-		mcount_filter_mode = FILTER_MODE_IN;
+			    &mcount_triggers, &mcount_filter_mode);
 
-	ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, NULL,
-			    &mcount_triggers, FILTER_MODE_OUT);
-	if (mcount_filter_mode == FILTER_MODE_NONE &&
-	    !RB_EMPTY_ROOT(&mcount_triggers))
-		mcount_filter_mode = FILTER_MODE_OUT;
+	ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, NULL,
+			     &mcount_triggers);
 
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
@@ -1084,16 +1079,7 @@ __monstartup(unsigned long low, unsigned long high)
 
 #ifndef DISABLE_MCOUNT_FILTER
 		ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, "PLT",
-				    &mcount_triggers, FILTER_MODE_IN);
-		if (mcount_filter_mode == FILTER_MODE_NONE &&
-		    !RB_EMPTY_ROOT(&mcount_triggers))
-			mcount_filter_mode = FILTER_MODE_IN;
-
-		ftrace_setup_filter(getenv("FTRACE_NOTRACE"), &symtabs, "PLT",
-				    &mcount_triggers, FILTER_MODE_OUT);
-		if (mcount_filter_mode == FILTER_MODE_NONE &&
-		    !RB_EMPTY_ROOT(&mcount_triggers))
-			mcount_filter_mode = FILTER_MODE_OUT;
+				    &mcount_triggers, &mcount_filter_mode);
 
 		ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, "PLT",
 				    &mcount_triggers);
@@ -1110,13 +1096,6 @@ __monstartup(unsigned long low, unsigned long high)
 	}
 
 #ifndef DISABLE_MCOUNT_FILTER
-	/*
-	 * This should be called after setting filters due to
-	 * filter mode determination.
-	 */
-	ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, NULL,
-			     &mcount_triggers);
-
 	if (debug >= 1)
 		ftrace_print_filter(&mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */

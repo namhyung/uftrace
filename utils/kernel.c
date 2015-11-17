@@ -226,12 +226,16 @@ out:
 	return -1;
 }
 
-void __setup_kfilter(struct list_head *head, char *filter_str)
+int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters)
 {
 	char *pos, *str, *name;
 	struct kfilter *kfilter;
+	struct list_head *head;
 
-	pos = str = xstrdup(filter_str);
+	INIT_LIST_HEAD(&kernel->filters);
+	INIT_LIST_HEAD(&kernel->notrace);
+
+	pos = str = xstrdup(filters);
 
 	name = strtok(pos, ",");
 	while (name) {
@@ -240,24 +244,18 @@ void __setup_kfilter(struct list_head *head, char *filter_str)
 			goto next;
 		*pos = '\0';
 
+		if (name[0] == '!') {
+			head = &kernel->notrace;
+			name++;
+		} else
+			head = &kernel->filters;
+
 		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
 next:
 		name = strtok(NULL, ",");
 	}
-}
-
-int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters, char *notrace)
-{
-	INIT_LIST_HEAD(&kernel->filters);
-	INIT_LIST_HEAD(&kernel->notrace);
-
-	if (filters)
-		__setup_kfilter(&kernel->filters, filters);
-
-	if (notrace)
-		__setup_kfilter(&kernel->notrace, notrace);
 
 	return 0;
 }
