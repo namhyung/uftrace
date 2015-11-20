@@ -39,21 +39,22 @@
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
-#define OPT_flat 	301
-#define OPT_plthook 	302
-#define OPT_symbols	303
-#define OPT_logfile	304
-#define OPT_force	305
-#define OPT_threads	306
-#define OPT_no_merge	307
-#define OPT_nop		308
-#define OPT_time	309
-#define OPT_max_stack	310
-#define OPT_port	312
-#define OPT_nopager	313
-#define OPT_avg_total	314
-#define OPT_avg_self	315
-
+enum options {
+	OPT_flat	= 301,
+	OPT_plthook,
+	OPT_symbols,
+	OPT_logfile,
+	OPT_force,
+	OPT_threads,
+	OPT_no_merge,
+	OPT_nop,
+	OPT_time,
+	OPT_max_stack,
+	OPT_port,
+	OPT_nopager,
+	OPT_avg_total,
+	OPT_avg_self,
+};
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
