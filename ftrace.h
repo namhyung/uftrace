@@ -129,6 +129,7 @@ struct opts {
 	int max_stack;
 	int kernel;
 	int port;
+	int color;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;

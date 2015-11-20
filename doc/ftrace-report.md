@@ -34,6 +34,9 @@ OPTIONS
 \--avg-self
 :   Show average, min, max of each functions self time.
 
+\--color=*VAL*
+:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
+
 EXAMPLE
 =======
 This command shows information like below:

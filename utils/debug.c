@@ -42,6 +42,19 @@ static void color(const char *code)
 		pr_err("resetting terminal color failed");
 }
 
+void setup_color(int color)
+{
+	log_color = color;
+
+	if (log_color >= 0)
+		return;
+
+	if (isatty(logfd))
+		log_color = 1;
+	else
+		log_color = 0;
+}
+
 void __pr_log(const char *fmt, ...)
 {
 	va_list ap;

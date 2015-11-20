@@ -40,6 +40,9 @@ OPTIONS
 \--no-pager
 :   Do not use pager
 
+\--color=*VAL*
+:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.

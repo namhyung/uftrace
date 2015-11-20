@@ -54,6 +54,7 @@ enum options {
 	OPT_nopager,
 	OPT_avg_total,
 	OPT_avg_self,
+	OPT_color,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -84,6 +85,7 @@ static struct argp_option ftrace_options[] = {
 	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs" },
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
+	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ 0 }
 };
 
@@ -143,6 +145,34 @@ static char * opt_add_prefix_string(char *old, char *prefix, char *new)
 	strcpy(opt + oldlen, prefix);
 	strcpy(opt + oldlen + prelen, new);
 	return opt;
+}
+
+static const char * true_str[] = {
+	"true", "yes", "on", "y", "1",
+};
+
+static const char * false_str[] = {
+	"false", "no", "off", "n", "0",
+};
+
+static int parse_color(char *arg)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(true_str); i++) {
+		if (!strcmp(arg, true_str[i]))
+			return 1;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
+		if (!strcmp(arg, false_str[i]))
+			return 0;
+	}
+
+	if (!strcmp(arg, "auto"))
+		return -1;
+
+	return -2;
 }
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -267,6 +297,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->avg_self = true;
 		break;
 
+	case OPT_color:
+		opts->color = parse_color(arg);
+		if (opts->color == -2)
+			pr_err_ns("unknown color setting: %s\n", arg);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -342,6 +378,7 @@ int main(int argc, char *argv[])
 		.max_stack	= MCOUNT_RSTACK_MAX,
 		.port		= FTRACE_RECV_PORT,
 		.use_pager	= true,
+		.color		= -1,  /* default to 'auto' (turn on if terminal) */
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -357,6 +394,8 @@ int main(int argc, char *argv[])
 		if (logfd < 0)
 			pr_err("cannot open log file");
 	}
+
+	setup_color(opts.color);
 
 	switch (opts.mode) {
 	case FTRACE_MODE_RECORD:
