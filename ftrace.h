@@ -5,11 +5,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <libelf.h>
+#include <fcntl.h>
 
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/symbol.h"
 
+
+#ifndef  O_PATH
+# define O_PATH  0
+#endif
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
