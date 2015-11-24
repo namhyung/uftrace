@@ -190,7 +190,7 @@ result_string = {
 }
 
 def run_single_case(case, flags, opts, diff):
-    result = {}
+    result = []
 
     # for python3
     _locals = locals()
@@ -207,16 +207,15 @@ def run_single_case(case, flags, opts, diff):
                 if ret == TestBase.TEST_SUCCESS:
                     ret = tc.run(case, cflags, diff)
                     ret = tc.post(ret)
-            result[cflags] = ret
+            result.append(ret)
 
     return result
 
 def print_test_result(case, result):
-    cflags = sorted(list(result))
     if sys.stdout.isatty():
-        result_list = [colored_result[result[f]] for f in cflags]
+        result_list = [colored_result[r] for r in result]
     else:
-        result_list = [text_result[result[f]] for f in cflags]
+        result_list = [text_result[r] for r in result]
 
     output = case[1:4]
     output += ' %-16s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
