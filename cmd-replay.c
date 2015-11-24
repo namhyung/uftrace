@@ -306,8 +306,13 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->filter || opts->trigger) {
 		if (setup_fstack_filters(opts->filter, opts->trigger,
-					 &first_session->symtabs) < 0)
+					 &first_session->symtabs) < 0) {
+			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
+				  opts->filter ?: "",
+				  (opts->filter && opts->trigger) ? " or " : "",
+				  opts->trigger ?: "");
 			return -1;
+		}
 	}
 
 	if (opts->use_pager)
