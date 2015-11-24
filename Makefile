@@ -183,7 +183,7 @@ install: all
 	$(call QUIET_INSTALL, libmcount-fast-single.so)
 	@$(INSTALL) libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC doc install DESTDIR=$(DESTDIR)$(mandir)
-	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir); fi
+	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
 test: all
 	@$(MAKE) -C tests ARCH=$(ARCH) TESTARG="$(TESTARG)" test
