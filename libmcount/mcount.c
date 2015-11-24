@@ -56,6 +56,7 @@ static bool mcount_setup_done;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
+static bool mcount_enabled = true;
 
 struct filter_control {
 	int in_count;
@@ -448,6 +449,15 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		mcount_filter.depth = tr->depth;
 
+	if (tr->flags & TRIGGER_FL_TRACE_ON)
+		mcount_enabled = true;
+
+	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+		mcount_enabled = false;
+
+	if (!mcount_enabled)
+		return FILTER_IN;
+
 	/*
 	 * it can be < 0 in case it is called from plthook_entry()
 	 * which in turn is called libcygprof.so.
@@ -480,7 +490,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mcount_record_idx++;
 
-		if (record_trace_data(rstack) < 0)
+		if (mcount_enabled && (record_trace_data(rstack) < 0))
 			pr_err("error during record");
 	}
 
@@ -500,9 +510,10 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 	mcount_filter.depth = rstack->filter_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		mcount_record_idx--;
+		if (mcount_record_idx > 0)
+			mcount_record_idx--;
 
-		if (record_trace_data(rstack) < 0)
+		if (mcount_enabled && (record_trace_data(rstack) < 0))
 			pr_err("error during record");
 	}
 }

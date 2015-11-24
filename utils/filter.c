@@ -172,6 +172,19 @@ static int setup_module_and_trigger(char *str, char *module,
 				continue;
 			}
 
+			if (!strncasecmp(pos, "trace", 5)) {
+				pos += 5;
+				if (*pos == '_' || *pos == '-')
+					pos++;
+
+				if (!strcasecmp(pos, "on"))
+					tr->flags |= TRIGGER_FL_TRACE_ON;
+				else if (!strcasecmp(pos, "off"))
+					tr->flags |= TRIGGER_FL_TRACE_OFF;
+
+				continue;
+			}
+
 			if (module == NULL || strcasecmp(pos, module))
 				return -1;
 
@@ -324,6 +337,10 @@ void ftrace_print_filter(struct rb_root *root)
 		}
 		if (filter->trigger.flags & TRIGGER_FL_BACKTRACE)
 			pr_log("\ttrigger: backtrace\n");
+		if (filter->trigger.flags & TRIGGER_FL_TRACE_ON)
+			pr_log("\ttrigger: trace_on\n");
+		if (filter->trigger.flags & TRIGGER_FL_TRACE_OFF)
+			pr_log("\ttrigger: trace_off\n");
 
 		node = rb_next(node);
 	}

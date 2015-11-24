@@ -15,6 +15,8 @@ enum trigger_flag {
 	TRIGGER_FL_DEPTH	= (1U << 0),
 	TRIGGER_FL_FILTER	= (1U << 1),
 	TRIGGER_FL_BACKTRACE	= (1U << 2),
+	TRIGGER_FL_TRACE_ON	= (1U << 3),
+	TRIGGER_FL_TRACE_OFF	= (1U << 4),
 };
 
 enum filter_mode {
