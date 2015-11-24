@@ -1,7 +1,3 @@
-CC = $(CROSS_COMPILE)gcc
-LD = $(CROSS_COMPILE)ld
-RM = rm -f
-
 ASFLAGS = -fPIC
 LDFLAGS = -r
 

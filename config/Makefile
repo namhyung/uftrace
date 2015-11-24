@@ -21,9 +21,6 @@ else # BUILD_FEATURE_CHECKS
 # This is needed for build config tests
 #
 
-CC = $(CROSS_COMPILE)gcc
-RM = rm -f
-
 CFLAGS = $(CFLAGS_$@)
 LDFLAGS = $(LDFLAGS_$@)
 

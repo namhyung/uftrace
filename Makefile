@@ -61,6 +61,8 @@ CFLAGS_mcount.op = -pthread
 CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
 LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
 
+export ARCH CC AR LD RM
+
 include config/Makefile
 include config/Makefile.include
 
