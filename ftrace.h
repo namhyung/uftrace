@@ -143,6 +143,7 @@ struct opts {
 	bool use_pager;
 	bool avg_total;
 	bool avg_self;
+	bool disabled;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

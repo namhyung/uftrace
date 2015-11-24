@@ -1090,6 +1090,9 @@ __monstartup(unsigned long low, unsigned long high)
 
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
+
+	if (getenv("FTRACE_DISABLED"))
+		mcount_enabled = false;
 #endif /* DISABLE_MCOUNT_FILTER */
 
 	if (maxstack_str)
