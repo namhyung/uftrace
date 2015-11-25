@@ -31,7 +31,7 @@
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
 extern int debug;
-extern int logfd;
+extern FILE *logfp;
 
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));

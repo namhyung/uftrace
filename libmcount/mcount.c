@@ -1034,12 +1034,17 @@ __monstartup(unsigned long low, unsigned long high)
 		return;
 
 	if (logfd_str) {
-		logfd = strtol(logfd_str, NULL, 0);
+		int fd = strtol(logfd_str, NULL, 0);
 
 		/* minimal sanity check */
-		if (fstat(logfd, &statbuf) < 0)
-			logfd = STDERR_FILENO;
-	}
+		if (fstat(fd, &statbuf) < 0)
+			logfp = stderr;
+		else {
+			logfp = fdopen(fd, "a");
+			setvbuf(logfp, NULL, _IOLBF, 1024);
+		}
+	} else
+		logfp = stderr;
 
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);

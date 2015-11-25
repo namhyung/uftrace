@@ -387,12 +387,17 @@ int main(int argc, char *argv[])
 		.doc = "ftrace -- a function tracer",
 	};
 
+	/* this must be done before argp_parse() */
+	logfp = stderr;
+
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
 	if (opts.logfile) {
-		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
-		if (logfd < 0)
+		logfp = fopen(opts.logfile, "w");
+		if (logfp == NULL)
 			pr_err("cannot open log file");
+
+		setvbuf(logfp, NULL, _IOLBF, 1024);
 	}
 
 	setup_color(opts.color);
@@ -424,7 +429,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.logfile)
-		close(logfd);
+		fclose(logfp);
 
 	return 0;
 }

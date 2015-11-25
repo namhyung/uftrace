@@ -21,24 +21,24 @@
 #define TERM_COLOR_GREEN	"\033[32m"
 
 int debug;
-int logfd = STDERR_FILENO;
+FILE *logfp;
 int log_color = 1;
 
 static void color(const char *code)
 {
-	ssize_t len = strlen(code);
+	size_t len = strlen(code);
 
 	if (!log_color)
 		return;
 
-	if (write(logfd, code, len) == len)
+	if (fwrite(code, 1, len, logfp) == len)
 		return;  /* ok */
 
 	/* disable color */
 	log_color = 0;
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
-	if (write(logfd, TERM_COLOR_RESET, len) != len)
+	if (fwrite(TERM_COLOR_RESET, 1, len, logfp) != len)
 		pr_err("resetting terminal color failed");
 }
 
@@ -49,7 +49,7 @@ void setup_color(int color)
 	if (log_color >= 0)
 		return;
 
-	if (isatty(logfd))
+	if (isatty(fileno(logfp)))
 		log_color = 1;
 	else
 		log_color = 0;
@@ -62,7 +62,7 @@ void __pr_log(const char *fmt, ...)
 	color(TERM_COLOR_BOLD);
 
 	va_start(ap, fmt);
-	vdprintf(logfd, fmt, ap);
+	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
 	color(TERM_COLOR_RESET);
@@ -75,7 +75,7 @@ void __pr_err(const char *fmt, ...)
 	color(TERM_COLOR_RED);
 
 	va_start(ap, fmt);
-	vdprintf(logfd, fmt, ap);
+	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
 	color(TERM_COLOR_RESET);
@@ -92,10 +92,10 @@ void __pr_err_s(const char *fmt, ...)
 	color(TERM_COLOR_RED);
 
 	va_start(ap, fmt);
-	vdprintf(logfd, fmt, ap);
+	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
-	dprintf(logfd, ": %s\n", strerror_r(saved_errno, buf, sizeof(buf)));
+	fprintf(logfp, ": %s\n", strerror_r(saved_errno, buf, sizeof(buf)));
 
 	color(TERM_COLOR_RESET);
 
