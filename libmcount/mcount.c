@@ -1028,6 +1028,7 @@ __monstartup(unsigned long low, unsigned long high)
 	char *debug_str = getenv("FTRACE_DEBUG");
 	char *bufsize_str = getenv("FTRACE_BUFFER");
 	char *maxstack_str = getenv("FTRACE_MAX_STACK");
+	char *color_str = getenv("FTRACE_COLOR");
 	struct stat statbuf;
 
 	if (mcount_setup_done)
@@ -1045,6 +1046,9 @@ __monstartup(unsigned long low, unsigned long high)
 		}
 	} else
 		logfp = stderr;
+
+	if (color_str)
+		setup_color(strtol(color_str, NULL, 0));
 
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);
