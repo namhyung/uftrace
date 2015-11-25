@@ -749,61 +749,61 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	printf("# ftrace information\n");
-	printf("# ==================\n");
-	printf(fmt, "program version", argp_program_version);
-	printf("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
+	pr_out("# ftrace information\n");
+	pr_out("# ==================\n");
+	pr_out(fmt, "program version", argp_program_version);
+	pr_out("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
 
 	if (handle.hdr.info_mask & (1UL << CMDLINE))
-		printf(fmt, "cmdline", handle.info.cmdline);
+		pr_out(fmt, "cmdline", handle.info.cmdline);
 
 	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
-		printf(fmt, "cpu info", handle.info.cpudesc);
-		printf("# %-20s: %d / %d (online / possible)\n",
+		pr_out(fmt, "cpu info", handle.info.cpudesc);
+		pr_out("# %-20s: %d / %d (online / possible)\n",
 		       "nr of cpus", handle.info.nr_cpus_online,
 		       handle.info.nr_cpus_possible);
 	}
 
 	if (handle.hdr.info_mask & (1UL << MEMINFO))
-		printf(fmt, "memory info", handle.info.meminfo);
+		pr_out(fmt, "memory info", handle.info.meminfo);
 
 	if (handle.hdr.info_mask & (1UL << LOADINFO))
-		printf("# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
+		pr_out("# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
 		       handle.info.load1, handle.info.load5, handle.info.load15);
 
 	if (handle.hdr.info_mask & (1UL << OSINFO)) {
-		printf(fmt, "kernel version", handle.info.kernel);
-		printf(fmt, "hostname", handle.info.hostname);
-		printf(fmt, "distro", handle.info.distro);
+		pr_out(fmt, "kernel version", handle.info.kernel);
+		pr_out(fmt, "hostname", handle.info.hostname);
+		pr_out(fmt, "distro", handle.info.distro);
 	}
 
-	printf("#\n");
-	printf("# task information\n");
-	printf("# ================\n");
+	pr_out("#\n");
+	pr_out("# task information\n");
+	pr_out("# ================\n");
 
 	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
 		int nr = handle.info.nr_tid;
 		bool first = true;
 
-		printf("# %-20s: %d\n", "nr of tasks", nr);
+		pr_out("# %-20s: %d\n", "nr of tasks", nr);
 
-		printf("# %-20s: ", "task list");
+		pr_out("# %-20s: ", "task list");
 		while (nr--) {
-			printf("%s%d", first ? "" : ", ", handle.info.tids[nr]);
+			pr_out("%s%d", first ? "" : ", ", handle.info.tids[nr]);
 			first = false;
 		}
-		printf("\n");
+		pr_out("\n");
 	}
 
 	if (handle.hdr.info_mask & (1UL << EXE_NAME))
-		printf(fmt, "exe image", handle.info.exename);
+		pr_out(fmt, "exe image", handle.info.exename);
 
 	if (handle.hdr.info_mask & (1UL << EXE_BUILD_ID)) {
 		int i;
-		printf("# %-20s: ", "build id");
+		pr_out("# %-20s: ", "build id");
 		for (i = 0; i < 20; i++)
-			printf("%02x", handle.info.build_id[i]);
-		printf("\n");
+			pr_out("%02x", handle.info.build_id[i]);
+		pr_out("\n");
 	}
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
@@ -819,22 +819,22 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			snprintf(buf, sizeof(buf), "unknown exit status: %d",
 				 status);
 		}
-		printf(fmt, "exit status", buf);
+		pr_out(fmt, "exit status", buf);
 	}
 
 	if (handle.hdr.info_mask & (1UL << USAGEINFO)) {
-		printf("# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
+		pr_out("# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
 		       handle.info.stime, handle.info.utime);
-		printf("# %-20s: %ld / %ld (voluntary / involuntary)\n",
+		pr_out("# %-20s: %ld / %ld (voluntary / involuntary)\n",
 		       "context switch", handle.info.vctxsw, handle.info.ictxsw);
-		printf("# %-20s: %ld KB\n", "max rss",
+		pr_out("# %-20s: %ld KB\n", "max rss",
 		       handle.info.maxrss);
-		printf("# %-20s: %ld / %ld (major / minor)\n", "page fault",
+		pr_out("# %-20s: %ld / %ld (major / minor)\n", "page fault",
 		       handle.info.major_fault, handle.info.minor_fault);
-		printf("# %-20s: %ld / %ld (read / write)\n", "disk iops",
+		pr_out("# %-20s: %ld / %ld (read / write)\n", "disk iops",
 		       handle.info.rblock, handle.info.wblock);
 	}
-	printf("\n");
+	pr_out("\n");
 
 out:
 	close_data_file(opts, &handle);

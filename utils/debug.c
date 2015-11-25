@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
+#include <limits.h>
+#include <inttypes.h>
 
 #include "utils.h"
 
@@ -23,6 +26,7 @@
 int debug;
 FILE *logfp;
 int log_color = 1;
+FILE *outfp;
 
 static void color(const char *code)
 {
@@ -49,7 +53,7 @@ void setup_color(int color)
 	if (log_color >= 0)
 		return;
 
-	if (isatty(fileno(logfp)))
+	if (isatty(fileno(logfp)) && isatty(fileno(outfp)))
 		log_color = 1;
 	else
 		log_color = 0;
@@ -100,4 +104,39 @@ void __pr_err_s(const char *fmt, ...)
 	color(TERM_COLOR_RESET);
 
 	exit(1);
+}
+
+void __pr_out(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(outfp, fmt, ap);
+	va_end(ap);
+}
+
+void print_time_unit(uint64_t delta_nsec)
+{
+	uint64_t delta = delta_nsec;
+	uint64_t delta_small = 0;
+	char *unit[] = { "us", "ms", "s", "m", "h", };
+	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
+	unsigned idx;
+
+	if (delta_nsec == 0UL) {
+		pr_out(" %7s %2s", "", "");
+		return;
+	}
+
+	for (idx = 0; idx < ARRAY_SIZE(unit); idx++) {
+		delta_small = delta % limit[idx];
+		delta = delta / limit[idx];
+
+		if (delta < limit[idx+1])
+			break;
+	}
+
+	assert(idx < ARRAY_SIZE(unit));
+
+	pr_out(" %3"PRIu64".%03"PRIu64" %2s", delta, delta_small, unit[idx]);
 }

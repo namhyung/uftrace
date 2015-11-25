@@ -1046,6 +1046,7 @@ __monstartup(unsigned long low, unsigned long high)
 		}
 	} else
 		logfp = stderr;
+	outfp = stdout;
 
 	if (color_str)
 		setup_color(strtol(color_str, NULL, 0));

@@ -389,6 +389,7 @@ int main(int argc, char *argv[])
 
 	/* this must be done before argp_parse() */
 	logfp = stderr;
+	outfp = stdout;
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
@@ -398,6 +399,10 @@ int main(int argc, char *argv[])
 			pr_err("cannot open log file");
 
 		setvbuf(logfp, NULL, _IOLBF, 1024);
+	}
+	else if (debug) {
+		/* ensure normal output is not mixed by debug message */
+		outfp = stderr;
 	}
 
 	setup_color(opts.color);
@@ -454,7 +459,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		if (task.fp == NULL)
 			continue;
 
-		printf("reading %d.dat\n", tid);
+		pr_out("reading %d.dat\n", tid);
 		while (!read_task_ustack(&task)) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
@@ -469,7 +474,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 			sym = find_symtabs(symtabs, frs->addr, proc_maps);
 			name = symbol_getname(sym, frs->addr);
 
-			printf("%5d: [%s] %s(%lx) depth: %u\n",
+			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
 			       name, (unsigned long)frs->addr, frs->depth);
 
