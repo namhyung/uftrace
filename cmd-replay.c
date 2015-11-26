@@ -30,7 +30,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 			sym = NULL;
 
 		name = symbol_getname(sym, fstack->addr);
-		printf("  backtrace [%5d] | /* [%2d] %s */\n",
+		pr_out("  backtrace [%5d] | /* [%2d] %s */\n",
 		       task->tid, i, name);
 		symbol_putname(sym, name);
 	}
@@ -57,15 +57,15 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	fstack = &task->func_stack[rstack->depth];
 
 	if (rstack->type == FTRACE_ENTRY) {
-		printf("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
+		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time);
 	} else if (rstack->type == FTRACE_EXIT) {
-		printf("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
+		pr_out("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
 	} else if (rstack->type == FTRACE_LOST) {
-		printf("[%d] XXX %d: lost %d records\n",
+		pr_out("[%d] XXX %d: lost %d records\n",
 		       count++, task->tid, (int)rstack->addr);
 	}
 
@@ -117,7 +117,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		/* function entry */
 		print_time_unit(0UL);
-		printf(" [%5d] | %*s%s() {\n", task->tid,
+		pr_out(" [%5d] | %*s%s() {\n", task->tid,
 		       rstack->depth * 2, "", symname);
 	} else if (rstack->type == FTRACE_EXIT) {
 		struct fstack *fstack;
@@ -134,7 +134,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		fstack_exit(task);
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
-		printf(" [%5d] |     /* LOST %d records!! */\n",
+		pr_out(" [%5d] |     /* LOST %d records!! */\n",
 		       task->tid, (int)rstack->addr);
 	}
 out:
@@ -197,7 +197,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack->type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
-			printf(" [%5d] | %*s%s();\n", task->tid,
+			pr_out(" [%5d] | %*s%s();\n", task->tid,
 			       rstack->depth * 2, "", symname);
 
 			/* consume the rstack */
@@ -207,7 +207,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
-			printf(" [%5d] | %*s%s() {\n", task->tid,
+			pr_out(" [%5d] | %*s%s() {\n", task->tid,
 			       depth * 2, "", symname);
 		}
 	}
@@ -219,7 +219,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD)) {
 			print_time_unit(fstack->total_time);
-			printf(" [%5d] | %*s} /* %s */\n", task->tid,
+			pr_out(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
@@ -227,7 +227,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	}
 	else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
-		printf(" [%5d] |     /* LOST %d records!! */\n",
+		pr_out(" [%5d] |     /* LOST %d records!! */\n",
 		       task->tid, (int)rstack->addr);
 	}
 out:
@@ -246,8 +246,8 @@ static void print_remaining_stack(void)
 	if (total == 0)
 		return;
 
-	printf("\nftrace stopped tracing with remaining functions");
-	printf("\n===============================================\n");
+	pr_out("\nftrace stopped tracing with remaining functions");
+	pr_out("\n===============================================\n");
 
 	for (i = 0; i < nr_tasks; i++) {
 		struct ftrace_task_handle *task = &tasks[i];
@@ -255,7 +255,7 @@ static void print_remaining_stack(void)
 		if (task->stack_count == 0)
 			continue;
 
-		printf("task: %d\n", task->tid);
+		pr_out("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
 			struct fstack *fstack = &task->func_stack[task->stack_count];
@@ -274,7 +274,7 @@ static void print_remaining_stack(void)
 
 			symname = symbol_getname(sym, ip);
 
-			printf("[%d] %s\n", task->stack_count, symname);
+			pr_out("[%d] %s\n", task->stack_count, symname);
 
 			symbol_putname(sym, symname);
 		}
@@ -317,7 +317,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		setup_task_filter(opts->tid, &handle);
 
 	if (!opts->flat)
-		printf("# DURATION    TID     FUNCTION\n");
+		pr_out("# DURATION    TID     FUNCTION\n");
 
 	sa.sa_handler = sighandler;
 	sigfillset(&sa.sa_mask);

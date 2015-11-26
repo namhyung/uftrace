@@ -175,7 +175,7 @@ static void setup_sort(char *sort_keys)
 				continue;
 
 			if (all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) {
-				printf("ftrace: '%s' sort key %s be used with %s or %s.\n",
+				pr_out("ftrace: '%s' sort key %s be used with %s or %s.\n",
 				       all_sort_items[i]->name,
 				       avg_mode == AVG_NONE ? "should" : "cannot",
 				       "--avg-total", "--avg-self");
@@ -187,11 +187,11 @@ static void setup_sort(char *sort_keys)
 		}
 
 		if (i == ARRAY_SIZE(all_sort_items)) {
-			printf("ftrace: Unknown sort key '%s'\n", k);
-			printf("ftrace:   Possible keys:");
+			pr_out("ftrace: Unknown sort key '%s'\n", k);
+			pr_out("ftrace:   Possible keys:");
 			for (i = 0; i < ARRAY_SIZE(all_sort_items); i++)
-				printf(" %s", all_sort_items[i]->name);
-			putchar('\n');
+				pr_out(" %s", all_sort_items[i]->name);
+			pr_out("\n");
 			exit(1);
 		}
 		p = NULL;
@@ -204,19 +204,19 @@ static void print_function(struct trace_entry *entry)
 	char *symname = symbol_getname(entry->sym, 0);
 
 	if (avg_mode == AVG_NONE) {
-		putchar(' ');
+		pr_out(" ");
 		print_time_unit(entry->time_total);
-		putchar(' ');
+		pr_out(" ");
 		print_time_unit(entry->time_self);
-		printf("  %10lu  %-s\n", entry->nr_called, symname);
+		pr_out("  %10lu  %-s\n", entry->nr_called, symname);
 	} else {
-		putchar(' ');
+		pr_out(" ");
 		print_time_unit(entry->time_avg);
-		putchar(' ');
+		pr_out(" ");
 		print_time_unit(entry->time_min);
-		putchar(' ');
+		pr_out(" ");
 		print_time_unit(entry->time_max);
-		printf("  %-s\n", symname);
+		pr_out("  %-s\n", symname);
 	}
 
 	symbol_putname(entry->sym, symname);
@@ -281,11 +281,11 @@ static void report_functions(struct ftrace_file_handle *handle)
 	}
 
 	if (avg_mode == AVG_NONE)
-		printf(f_format, "Total time", "Self time", "Nr. called", "Function");
+		pr_out(f_format, "Total time", "Self time", "Nr. called", "Function");
 	else if (avg_mode == AVG_TOTAL)
-		printf(f_format, "Avg total", "Min total", "Max total", "Function");
+		pr_out(f_format, "Avg total", "Min total", "Max total", "Function");
 	else if (avg_mode == AVG_SELF)
-		printf(f_format, "Avg self", "Min self", "Max self", "Function");
+		pr_out(f_format, "Avg self", "Min self", "Max self", "Function");
 
 	printf(f_format, line, line, line, line);
 
@@ -377,8 +377,8 @@ static void report_threads(struct ftrace_file_handle *handle)
 		}
 	}
 
-	printf(t_format, "TID", "Run time", "Num funcs", "Start function");
-	printf(t_format, line, line, line, line);
+	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");
+	pr_out(t_format, line, line, line, line);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
 		char *symname;
@@ -390,9 +390,9 @@ static void report_threads(struct ftrace_file_handle *handle)
 		entry = rb_entry(node, struct trace_entry, link);
 		symname = symbol_getname(entry->sym, 0);
 
-		printf("  %5d ", entry->pid);
+		pr_out("  %5d ", entry->pid);
 		print_time_unit(entry->time_self);
-		printf("  %10lu  %-s\n", entry->nr_called, symname);
+		pr_out("  %10lu  %-s\n", entry->nr_called, symname);
 
 		symbol_putname(entry->sym, symname);
 	}
@@ -412,7 +412,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	struct ftrace_kernel kern;
 
 	if (opts->avg_total && opts->avg_self) {
-		printf("--avg-total and --avg-self options should not be used together.\n");
+		pr_out("--avg-total and --avg-self options should not be used together.\n");
 		exit(1);
 	} else if (opts->avg_total)
 		avg_mode = AVG_TOTAL;

@@ -31,11 +31,15 @@
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
 extern int debug;
-extern int logfd;
+extern FILE *logfp;
+extern FILE *outfp;
 
 extern void __pr_log(const char *fmt, ...);
+extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
+
+extern void setup_color(int color);
 
 #ifndef PR_FMT
 # define PR_FMT  "ftrace"
@@ -66,6 +70,7 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
+#define pr_out(fmt, ...)  __pr_out(fmt, ## __VA_ARGS__)
 
 
 #ifndef ARRAY_SIZE

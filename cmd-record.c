@@ -139,7 +139,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	}
 
 	if (opts->logfile) {
-		snprintf(buf, sizeof(buf), "%d", logfd);
+		snprintf(buf, sizeof(buf), "%d", fileno(logfp));
 		setenv("FTRACE_LOGFD", buf, 1);
 	}
 
@@ -150,6 +150,11 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (debug) {
 		snprintf(buf, sizeof(buf), "%d", debug);
 		setenv("FTRACE_DEBUG", buf, 1);
+	}
+
+	if (opts->color) {
+		snprintf(buf, sizeof(buf), "%d", opts->color);
+		setenv("FTRACE_COLOR", buf, 1);
 	}
 }
 

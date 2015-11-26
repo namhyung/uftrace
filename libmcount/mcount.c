@@ -1028,18 +1028,28 @@ __monstartup(unsigned long low, unsigned long high)
 	char *debug_str = getenv("FTRACE_DEBUG");
 	char *bufsize_str = getenv("FTRACE_BUFFER");
 	char *maxstack_str = getenv("FTRACE_MAX_STACK");
+	char *color_str = getenv("FTRACE_COLOR");
 	struct stat statbuf;
 
 	if (mcount_setup_done)
 		return;
 
 	if (logfd_str) {
-		logfd = strtol(logfd_str, NULL, 0);
+		int fd = strtol(logfd_str, NULL, 0);
 
 		/* minimal sanity check */
-		if (fstat(logfd, &statbuf) < 0)
-			logfd = STDERR_FILENO;
-	}
+		if (fstat(fd, &statbuf) < 0)
+			logfp = stderr;
+		else {
+			logfp = fdopen(fd, "a");
+			setvbuf(logfp, NULL, _IOLBF, 1024);
+		}
+	} else
+		logfp = stderr;
+	outfp = stdout;
+
+	if (color_str)
+		setup_color(strtol(color_str, NULL, 0));
 
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);

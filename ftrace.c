@@ -39,21 +39,23 @@
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
-#define OPT_flat 	301
-#define OPT_plthook 	302
-#define OPT_symbols	303
-#define OPT_logfile	304
-#define OPT_force	305
-#define OPT_threads	306
-#define OPT_no_merge	307
-#define OPT_nop		308
-#define OPT_time	309
-#define OPT_max_stack	310
-#define OPT_port	312
-#define OPT_nopager	313
-#define OPT_avg_total	314
-#define OPT_avg_self	315
-
+enum options {
+	OPT_flat	= 301,
+	OPT_plthook,
+	OPT_symbols,
+	OPT_logfile,
+	OPT_force,
+	OPT_threads,
+	OPT_no_merge,
+	OPT_nop,
+	OPT_time,
+	OPT_max_stack,
+	OPT_port,
+	OPT_nopager,
+	OPT_avg_total,
+	OPT_avg_self,
+	OPT_color,
+};
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
@@ -83,6 +85,7 @@ static struct argp_option ftrace_options[] = {
 	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs" },
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
+	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ 0 }
 };
 
@@ -142,6 +145,34 @@ static char * opt_add_prefix_string(char *old, char *prefix, char *new)
 	strcpy(opt + oldlen, prefix);
 	strcpy(opt + oldlen + prelen, new);
 	return opt;
+}
+
+static const char * true_str[] = {
+	"true", "yes", "on", "y", "1",
+};
+
+static const char * false_str[] = {
+	"false", "no", "off", "n", "0",
+};
+
+static int parse_color(char *arg)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(true_str); i++) {
+		if (!strcmp(arg, true_str[i]))
+			return 1;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
+		if (!strcmp(arg, false_str[i]))
+			return 0;
+	}
+
+	if (!strcmp(arg, "auto"))
+		return -1;
+
+	return -2;
 }
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -266,6 +297,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->avg_self = true;
 		break;
 
+	case OPT_color:
+		opts->color = parse_color(arg);
+		if (opts->color == -2)
+			pr_err_ns("unknown color setting: %s\n", arg);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -341,6 +378,7 @@ int main(int argc, char *argv[])
 		.max_stack	= MCOUNT_RSTACK_MAX,
 		.port		= FTRACE_RECV_PORT,
 		.use_pager	= true,
+		.color		= -1,  /* default to 'auto' (turn on if terminal) */
 	};
 	struct argp argp = {
 		.options = ftrace_options,
@@ -349,13 +387,25 @@ int main(int argc, char *argv[])
 		.doc = "ftrace -- a function tracer",
 	};
 
+	/* this must be done before argp_parse() */
+	logfp = stderr;
+	outfp = stdout;
+
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
 	if (opts.logfile) {
-		logfd = open(opts.logfile, O_WRONLY | O_CREAT, 0644);
-		if (logfd < 0)
+		logfp = fopen(opts.logfile, "w");
+		if (logfp == NULL)
 			pr_err("cannot open log file");
+
+		setvbuf(logfp, NULL, _IOLBF, 1024);
 	}
+	else if (debug) {
+		/* ensure normal output is not mixed by debug message */
+		outfp = stderr;
+	}
+
+	setup_color(opts.color);
 
 	switch (opts.mode) {
 	case FTRACE_MODE_RECORD:
@@ -384,7 +434,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.logfile)
-		close(logfd);
+		fclose(logfp);
 
 	return 0;
 }
@@ -409,7 +459,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 		if (task.fp == NULL)
 			continue;
 
-		printf("reading %d.dat\n", tid);
+		pr_out("reading %d.dat\n", tid);
 		while (!read_task_ustack(&task)) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
@@ -424,7 +474,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 			sym = find_symtabs(symtabs, frs->addr, proc_maps);
 			name = symbol_getname(sym, frs->addr);
 
-			printf("%5d: [%s] %s(%lx) depth: %u\n",
+			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
 			       name, (unsigned long)frs->addr, frs->depth);
 
