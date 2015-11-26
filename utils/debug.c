@@ -22,6 +22,7 @@
 #define TERM_COLOR_BOLD		"\033[1m"
 #define TERM_COLOR_RED		"\033[31m"
 #define TERM_COLOR_GREEN	"\033[32m"
+#define TERM_COLOR_YELLOW	"\033[33m"
 
 int debug;
 FILE *logfp;
@@ -119,7 +120,15 @@ void print_time_unit(uint64_t delta_nsec)
 {
 	uint64_t delta = delta_nsec;
 	uint64_t delta_small = 0;
-	char *unit[] = { "us", "ms", "s", "m", "h", };
+	char *units[] = { "us", "ms", " s", " m", " h", };
+	char *color_units[] = {
+		TERM_COLOR_NORMAL "us" TERM_COLOR_RESET,
+		TERM_COLOR_GREEN  "ms" TERM_COLOR_RESET,
+		TERM_COLOR_YELLOW " s" TERM_COLOR_RESET,
+		TERM_COLOR_RED    " m" TERM_COLOR_RESET,
+		TERM_COLOR_RED    " h" TERM_COLOR_RESET,
+	};
+	char *unit;
 	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
 	unsigned idx;
 
@@ -136,7 +145,12 @@ void print_time_unit(uint64_t delta_nsec)
 			break;
 	}
 
-	assert(idx < ARRAY_SIZE(unit));
+	assert(idx < ARRAY_SIZE(units));
 
-	pr_out(" %3"PRIu64".%03"PRIu64" %2s", delta, delta_small, unit[idx]);
+	if (log_color)
+		unit = color_units[idx];
+	else
+		unit = units[idx];
+
+	pr_out(" %3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
 }
