@@ -47,7 +47,7 @@ OPTIONS
 :   Start ftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
 
 \--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
+:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
 FILTERS
 =======

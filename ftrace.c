@@ -89,7 +89,7 @@ static struct argp_option ftrace_options[] = {
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
-	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: simple, no" },
+	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: full, simple, no" },
 	{ 0 }
 };
 
@@ -185,6 +185,12 @@ static int parse_demangle(char *arg)
 
 	if (!strcmp(arg, "simple"))
 		return DEMANGLE_SIMPLE;
+
+	if (!strcmp(arg, "full")) {
+		if (support_full_demangle())
+			return DEMANGLE_FULL;
+		return DEMANGLE_NOT_SUPPORTED;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
 		if (!strcmp(arg, false_str[i]))
@@ -329,6 +335,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		demangler = parse_demangle(arg);
 		if (demangler == DEMANGLE_ERROR)
 			pr_err_ns("unknown demangle value: %s\n", arg);
+		else if (demangler == DEMANGLE_NOT_SUPPORTED)
+			pr_err_ns("'%s' demangler is not supported\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:

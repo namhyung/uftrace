@@ -38,7 +38,7 @@ OPTIONS
 :   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
 
 \--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
+:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
 EXAMPLE
 =======
