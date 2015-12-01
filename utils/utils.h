@@ -150,6 +150,14 @@ void print_time_unit(uint64_t delta_nsec);
 void start_pager(void);
 void wait_for_pager(void);
 
+enum symbol_demangler {
+	DEMANGLE_ERROR		= -1,
+	DEMANGLE_NONE,
+	DEMANGLE_SIMPLE,
+};
+
+extern enum symbol_demangler demangler;
+
 char *demangle(char *str);
 
 #endif /* __FTRACE_UTILS_H__ */

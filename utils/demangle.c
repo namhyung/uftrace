@@ -17,6 +17,8 @@
 
 #define MAX_DEBUG_DEPTH  128
 
+enum symbol_demangler demangler = DEMANGLE_SIMPLE;
+
 struct demangle_data {
 	char *old;
 	char *new;
@@ -1367,6 +1369,9 @@ char *demangle(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
+
+	if (demangler == DEMANGLE_NONE)
+		return str;
 
 	if (str[0] != '_' || str[1] != 'Z')
 		return str;

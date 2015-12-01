@@ -56,6 +56,7 @@ enum options {
 	OPT_avg_self,
 	OPT_color,
 	OPT_disabled,
+	OPT_demangle,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -88,6 +89,7 @@ static struct argp_option ftrace_options[] = {
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
+	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: simple, no" },
 	{ 0 }
 };
 
@@ -175,6 +177,21 @@ static int parse_color(char *arg)
 		return -1;
 
 	return -2;
+}
+
+static int parse_demangle(char *arg)
+{
+	size_t i;
+
+	if (!strcmp(arg, "simple"))
+		return DEMANGLE_SIMPLE;
+
+	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
+		if (!strcmp(arg, false_str[i]))
+			return DEMANGLE_NONE;
+	}
+
+	return DEMANGLE_ERROR;
 }
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -306,6 +323,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_disabled:
 		opts->disabled = true;
+		break;
+
+	case OPT_demangle:
+		demangler = parse_demangle(arg);
+		if (demangler == DEMANGLE_ERROR)
+			pr_err_ns("unknown demangle value: %s\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:
