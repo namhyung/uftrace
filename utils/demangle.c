@@ -1369,9 +1369,18 @@ char *demangle(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
+	static const size_t size_of_gsi = sizeof("_GLOBAL__sub_I") - 1;
 
 	if (demangler == DEMANGLE_NONE)
 		return xstrdup(str);
+
+	/* skip global initialize (constructor?) functions */
+	if (strncmp(str, "_GLOBAL__sub_I", size_of_gsi) == 0) {
+		str += size_of_gsi;
+
+		while (*str++ != '_')
+			continue;
+	}
 
 	if (str[0] != '_' || str[1] != 'Z')
 		return xstrdup(str);

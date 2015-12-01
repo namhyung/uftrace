@@ -711,56 +711,21 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 char *symbol_getname(struct sym *sym, unsigned long addr)
 {
 	char *name;
-	char *symname;
-	bool has_gsi = false;
-	static const size_t size_of_gsi = sizeof("_GLOBAL__sub_I") - 1;
 
 	if (sym == NULL) {
-		if (asprintf(&name, "<%lx>", addr) < 0)
-			name = "<unknown>";
+		xasprintf(&name, "<%lx>", addr);
 		return name;
 	}
 
-	symname = sym->name;
-
-	/* skip global initialize (constructor?) functions */
-	if (strncmp(symname, "_GLOBAL__sub_I", size_of_gsi) == 0) {
-		symname += size_of_gsi;
-
-		while (*symname++ != '_')
-			continue;
-
-		has_gsi = true;
-	}
-
-	if (symname[0] == '_' && symname[1] == 'Z') {
-		name = demangle(symname);
-
-		/* demangle failed: restore original name */
-		if (name == symname && has_gsi)
-			name = sym->name;
-	} else {
-		if (has_gsi)
-			name = xstrdup(symname);
-		else
-			name = symname;
-	}
-
-	return name;
+	return sym->name;
 }
 
 /* must be used in pair with symbol_getname() */
 void symbol_putname(struct sym *sym, char *name)
 {
-	if (sym == NULL)
-		goto free;
-
-	if (name == sym->name)
+	if (sym != NULL)
 		return;
-
-free:
-	if (strcmp(name, "<unknown>"))
-		free(name);
+	free(name);
 }
 
 void print_symtabs(struct symtabs *symtabs)
