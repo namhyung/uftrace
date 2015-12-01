@@ -23,8 +23,6 @@
 
 static struct symtabs ksymtabs;
 
-static bool use_demangle = true;
-
 static int addrsort(const void *a, const void *b)
 {
 	const struct sym *syma = a;
@@ -192,9 +190,11 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		/* Removing version info from undefined symbols */
 		ver = strchr(name, '@');
 		if (ver)
-			sym->name = xstrndup(name, ver - name);
-		else
-			sym->name = xstrdup(name);
+			name = xstrndup(name, ver - name);
+
+		sym->name = demangle(name);
+		if (ver)
+			free(name);
 	}
 
 	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
@@ -337,7 +337,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->addr = esym.st_value ?: plt_addr + (idx+1) * plt_entsize;
 		sym->size = plt_entsize;
 		sym->type = ST_PLT,
-		sym->name = strdup(name);
+		sym->name = demangle(name);
 	}
 
 	/*
@@ -459,7 +459,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 
 		sym->addr = addr;
 		sym->type = type;
-		sym->name = xstrdup(name);
+		sym->name = demangle(name);
 
 		if (stab->nr_sym > 1)
 			sym[-1].size = addr - sym[-1].addr;
@@ -721,12 +721,9 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 		return name;
 	}
 
-	if (!use_demangle)
-		return sym->name;
-
 	symname = sym->name;
 
-	/* skip global initialze (constructor?) functions */
+	/* skip global initialize (constructor?) functions */
 	if (strncmp(symname, "_GLOBAL__sub_I", size_of_gsi) == 0) {
 		symname += size_of_gsi;
 
@@ -742,7 +739,6 @@ char *symbol_getname(struct sym *sym, unsigned long addr)
 		/* demangle failed: restore original name */
 		if (name == symname && has_gsi)
 			name = sym->name;
-
 	} else {
 		if (has_gsi)
 			name = xstrdup(symname);
@@ -758,9 +754,6 @@ void symbol_putname(struct sym *sym, char *name)
 {
 	if (sym == NULL)
 		goto free;
-
-	if (!use_demangle)
-		return;
 
 	if (name == sym->name)
 		return;

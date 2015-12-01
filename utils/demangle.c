@@ -1371,10 +1371,10 @@ char *demangle(char *str)
 	};
 
 	if (demangler == DEMANGLE_NONE)
-		return str;
+		return xstrdup(str);
 
 	if (str[0] != '_' || str[1] != 'Z')
-		return str;
+		return xstrdup(str);
 
 	dd.pos = 2;
 	dd.new = xzalloc(0);
@@ -1382,7 +1382,7 @@ char *demangle(char *str)
 	if (dd_encoding(&dd) < 0 || !dd_eof(&dd) || dd.level != 0) {
 		dd_debug_print(&dd);
 		free(dd.new);
-		return str;
+		return xstrdup(str);
 	}
 
 	/* caller should free it */
