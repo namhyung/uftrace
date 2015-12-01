@@ -19,6 +19,7 @@ enum {
 struct trace_entry {
 	int pid;
 	struct sym *sym;
+	uint64_t addr;
 	uint64_t time_total;
 	uint64_t time_self;
 	uint64_t time_avg;
@@ -75,6 +76,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	entry = xmalloc(sizeof(*entry));
 	entry->pid = te->pid;
 	entry->sym = te->sym;
+	entry->addr = te->addr;
 	entry->time_total = te->time_total;
 	entry->time_self  = te->time_self;
 	entry->nr_called  = te->nr_called;
@@ -201,7 +203,7 @@ static void setup_sort(char *sort_keys)
 
 static void print_function(struct trace_entry *entry)
 {
-	char *symname = symbol_getname(entry->sym, 0);
+	char *symname = symbol_getname(entry->sym, entry->addr);
 
 	if (avg_mode == AVG_NONE) {
 		pr_out(" ");
@@ -251,13 +253,12 @@ static void report_functions(struct ftrace_file_handle *handle)
 			continue;
 
 		sym = find_symtabs(&sess->symtabs, rstack->addr, NULL);
-		if (sym == NULL)
-			continue;
 
 		fstack = &task->func_stack[rstack->depth];
 
 		te.pid = task->tid;
 		te.sym = sym;
+		te.addr = rstack->addr;
 		te.time_total = fstack->total_time;
 		te.time_self = te.time_total - fstack->child_time;
 		te.nr_called = 1;
@@ -388,7 +389,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 		rb_erase(node, &name_tree);
 
 		entry = rb_entry(node, struct trace_entry, link);
-		symname = symbol_getname(entry->sym, 0);
+		symname = symbol_getname(entry->sym, entry->addr);
 
 		pr_out("  %5d ", entry->pid);
 		print_time_unit(entry->time_self);
