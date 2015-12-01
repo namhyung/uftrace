@@ -33,7 +33,6 @@ struct ftrace_trigger {
 
 struct ftrace_filter {
 	struct rb_node		node;
-	struct sym		*sym;
 	char 			*name;
 	unsigned long		start;
 	unsigned long		end;

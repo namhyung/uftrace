@@ -77,7 +77,6 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 
 	new = xmalloc(sizeof(*new));
 	memcpy(new, filter, sizeof(*new));
-	new->name = symbol_getname(new->sym, new->sym->addr);
 
 	add_trigger(new, tr);
 
@@ -96,7 +95,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	if (sym == NULL)
 		return 0;
 
-	filter.sym = sym;
+	filter.name = sym->name;
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
@@ -111,7 +110,6 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 	struct ftrace_filter filter;
 	struct sym *sym;
 	regex_t re;
-	char *symname;
 	unsigned i;
 	int ret = 0;
 
@@ -122,20 +120,16 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 
 	for (i = 0; i < symtab->nr_sym; i++) {
 		sym = &symtab->sym[i];
-		symname = symbol_getname(sym, sym->addr);
 
-		if (regexec(&re, symname, 0, NULL, 0))
-			goto next;
+		if (regexec(&re, sym->name, 0, NULL, 0))
+			continue;
 
-		filter.sym = sym;
+		filter.name = sym->name;
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
 		add_filter(root, &filter, tr);
 		ret++;
-
-next:
-		symbol_putname(sym, symname);
 	}
 	return ret;
 }
@@ -308,7 +302,6 @@ void ftrace_cleanup_filter(struct rb_root *root)
 
 		rb_erase(node, root);
 
-		symbol_putname(filter->sym, filter->name);
 		free(filter);
 	}
 }
