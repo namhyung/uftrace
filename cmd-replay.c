@@ -125,7 +125,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		/* function exit */
 		fstack = &task->func_stack[rstack->depth];
 
-		if (!(fstack->flags & FSTACK_FL_NORECORD)) {
+		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
 			printf(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
@@ -217,7 +217,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		/* function exit */
 		fstack = &task->func_stack[rstack->depth];
 
-		if (!(fstack->flags & FSTACK_FL_NORECORD)) {
+		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
@@ -306,9 +306,17 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->filter || opts->trigger) {
 		if (setup_fstack_filters(opts->filter, opts->trigger,
-					 &first_session->symtabs) < 0)
+					 &first_session->symtabs) < 0) {
+			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
+				  opts->filter ?: "",
+				  (opts->filter && opts->trigger) ? " or " : "",
+				  opts->trigger ?: "");
 			return -1;
+		}
 	}
+
+	if (opts->disabled)
+		fstack_enabled = false;
 
 	if (opts->use_pager)
 		start_pager();

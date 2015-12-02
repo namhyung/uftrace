@@ -20,6 +20,7 @@
 
 struct ftrace_task_handle *tasks;
 int nr_tasks;
+bool fstack_enabled = true;
 
 static struct rb_root fstack_filters = RB_ROOT;
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
@@ -224,6 +225,20 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		task->filter.depth = tr->depth;
+
+	if (tr->flags & TRIGGER_FL_TRACE_ON)
+		fstack_enabled = true;
+
+	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+		fstack_enabled = false;
+
+	if (!fstack_enabled) {
+		/*
+		 * don't set NORECORD flag so that it can be printed
+		 * when trace-on again
+		 */
+		return -1;
+	}
 
 	if (task->filter.depth <= 0) {
 		fstack->flags |= FSTACK_FL_NORECORD;

@@ -55,6 +55,7 @@ enum options {
 	OPT_avg_total,
 	OPT_avg_self,
 	OPT_color,
+	OPT_disabled,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -86,6 +87,7 @@ static struct argp_option ftrace_options[] = {
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
+	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
 	{ 0 }
 };
 
@@ -301,6 +303,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->color = parse_color(arg);
 		if (opts->color == -2)
 			pr_err_ns("unknown color setting: %s\n", arg);
+
+	case OPT_disabled:
+		opts->disabled = true;
 		break;
 
 	case ARGP_KEY_ARG:

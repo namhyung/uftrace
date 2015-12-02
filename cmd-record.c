@@ -152,6 +152,9 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 		setenv("FTRACE_DEBUG", buf, 1);
 	}
 
+	if(opts->disabled)
+		setenv("FTRACE_DISABLED", "1", 1);
+
 	if (opts->color) {
 		snprintf(buf, sizeof(buf), "%d", opts->color);
 		setenv("FTRACE_COLOR", buf, 1);
