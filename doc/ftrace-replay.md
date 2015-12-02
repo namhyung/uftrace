@@ -46,6 +46,9 @@ OPTIONS
 \--disabled
 :   Start ftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
 
+\--demangle=*TYPE*
+:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.

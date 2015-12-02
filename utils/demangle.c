@@ -14,8 +14,11 @@
 #include <assert.h>
 
 #include "utils.h"
+#include "symbol.h"
 
 #define MAX_DEBUG_DEPTH  128
+
+enum symbol_demangler demangler = DEMANGLE_SIMPLE;
 
 struct demangle_data {
 	char *old;
@@ -1361,7 +1364,7 @@ static int dd_encoding(struct demangle_data *dd)
 	return 0;
 }
 
-char *demangle(char *str)
+static char *demangle_simple(char *str)
 {
 	struct demangle_data dd = {
 		.old = str,
@@ -1369,7 +1372,7 @@ char *demangle(char *str)
 	};
 
 	if (str[0] != '_' || str[1] != 'Z')
-		return str;
+		return xstrdup(str);
 
 	dd.pos = 2;
 	dd.new = xzalloc(0);
@@ -1377,9 +1380,55 @@ char *demangle(char *str)
 	if (dd_encoding(&dd) < 0 || !dd_eof(&dd) || dd.level != 0) {
 		dd_debug_print(&dd);
 		free(dd.new);
-		return str;
+		return xstrdup(str);
 	}
 
 	/* caller should free it */
 	return dd.new;
+}
+
+#ifdef HAVE_CXA_DEMANGLE
+static char *demangle_full(char *str)
+{
+	char *symname;
+	size_t len = 64;  /* minimum length */
+	int status;
+
+	/* reserve 4 times of the original length for safety */
+	if (strlen(str) > 16)
+		len = strlen(str) * 4;
+
+	symname = xmalloc(len);
+	__cxa_demangle(str, symname, &len, &status);
+
+	if (status < 0)
+		return xstrdup(str);
+
+	return symname;
+}
+#endif
+
+char *demangle(char *str)
+{
+	static const size_t size_of_gsi = sizeof("_GLOBAL__sub_I") - 1;
+
+	/* skip global initialize (constructor?) functions */
+	if (strncmp(str, "_GLOBAL__sub_I", size_of_gsi) == 0) {
+		str += size_of_gsi;
+
+		while (*str++ != '_')
+			continue;
+	}
+
+	switch (demangler) {
+	case DEMANGLE_SIMPLE:
+		return demangle_simple(str);
+	case DEMANGLE_FULL:
+		return demangle_full(str);
+	case DEMANGLE_NONE:
+		return xstrdup(str);
+	default:
+		pr_log("demangler error\n");
+		return str;
+	}
 }

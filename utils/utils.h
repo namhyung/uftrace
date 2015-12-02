@@ -11,10 +11,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <endian.h>
-
-#include "symbol.h"
 
 
 #ifndef container_of
@@ -149,7 +148,5 @@ void print_time_unit(uint64_t delta_nsec);
 
 void start_pager(void);
 void wait_for_pager(void);
-
-char *demangle(char *str);
 
 #endif /* __FTRACE_UTILS_H__ */

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 #include <inttypes.h>
 
 #include "ftrace.h"
@@ -83,6 +84,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	struct symtabs *symtabs;
 	struct sym *sym;
 	char *symname;
+	bool needs_paren;
 
 	if (task == NULL)
 		return 0;
@@ -94,6 +96,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+	needs_paren = (symname[strlen(symname) - 1] != ')');
 
 	if (skip_kernel_before_user) {
 		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
@@ -117,8 +120,9 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		/* function entry */
 		print_time_unit(0UL);
-		pr_out(" [%5d] | %*s%s() {\n", task->tid,
-		       rstack->depth * 2, "", symname);
+		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
+		       rstack->depth * 2, "", symname,
+		       needs_paren ? "()" : "");
 	} else if (rstack->type == FTRACE_EXIT) {
 		struct fstack *fstack;
 
@@ -152,6 +156,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct symtabs *symtabs;
 	struct sym *sym;
 	char *symname;
+	bool needs_paren;
 
 	if (task == NULL)
 		return 0;
@@ -163,6 +168,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
+	needs_paren = (symname[strlen(symname) - 1] != ')');
 
 	if (skip_kernel_before_user) {
 		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
@@ -197,8 +203,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack->type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s%s();\n", task->tid,
-			       rstack->depth * 2, "", symname);
+			pr_out(" [%5d] | %*s%s%s;\n", task->tid,
+			       rstack->depth * 2, "", symname,
+			       needs_paren ? "()" : "");
 
 			/* consume the rstack */
 			read_rstack(handle, &next);
@@ -207,8 +214,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		} else {
 			/* function entry */
 			print_time_unit(0UL);
-			pr_out(" [%5d] | %*s%s() {\n", task->tid,
-			       depth * 2, "", symname);
+			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
+			       depth * 2, "", symname,
+			       needs_paren ? "()" : "");
 		}
 	}
 	else if (rstack->type == FTRACE_EXIT) {
