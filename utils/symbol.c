@@ -99,10 +99,10 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 	int fd;
 	Elf *elf;
 	int ret = -1;
-	size_t i, nr_sym = 0;
-	Elf_Scn *sym_sec, *sec;
+	size_t i, nr_sym = 0, nr_dynsym = 0;
+	Elf_Scn *sym_sec, *dynsym_sec, *sec;
 	Elf_Data *sym_data;
-	size_t shstr_idx, symstr_idx = 0;
+	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
 	struct symtab *symtab = &symtabs->symtab;
 
 	fd = open(filename, O_RDONLY);
@@ -120,7 +120,7 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
-	sec = sym_sec = NULL;
+	sec = sym_sec = dynsym_sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *shstr;
 		GElf_Shdr shdr;
@@ -136,10 +136,29 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 			symstr_idx = shdr.sh_link;
 			break;
 		}
+
+		if (strcmp(shstr, ".dynsym") == 0) {
+			dynsym_sec = sec;
+			nr_dynsym = shdr.sh_size / shdr.sh_entsize;
+			dynsymstr_idx = shdr.sh_link;
+		}
 	}
 
-	if (sym_sec == NULL)
+	if (sym_sec == NULL) {
+		/*
+		 * fallback to dynamic symbol table when there's no symbol table
+		 * (e.g. stripped binary built with -rdynamic option)
+		 */
+		sym_sec = dynsym_sec;
+		nr_sym = nr_dynsym;
+		symstr_idx = dynsymstr_idx;
+		pr_dbg("using dynsym instead\n");
+	}
+
+	if (sym_sec == NULL) {
+		pr_log("no symbol table is found\n");
 		goto out;
+	}
 
 	sym_data = elf_getdata(sym_sec, NULL);
 	if (sym_data == NULL)
@@ -196,6 +215,9 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		if (ver)
 			free(name);
 	}
+
+	if (symtab->nr_sym == 0)
+		goto out;
 
 	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
 
@@ -339,6 +361,9 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->type = ST_PLT,
 		sym->name = demangle(name);
 	}
+
+	if (dsymtab->nr_sym == 0)
+		goto out;
 
 	/*
 	 * abuse ->sym_names[] to save original index
@@ -525,15 +550,19 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
 	/* this last entry should come from ->sym[] to know the real end */
-	fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
-		(char) dtab->sym[i-1].type, "__dynsym_end");
+	if (i > 0) {
+		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
+			(char) dtab->sym[i-1].type, "__dynsym_end");
+	}
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr,
 		       (char) stab->sym[i].type, stab->sym[i].name);
-	fprintf(fp, "%016lx %c %s\n", stab->sym[i-1].addr + stab->sym[i-1].size,
-		(char) stab->sym[i-1].type, "__sym_end");
+	if (i > 0) {
+		fprintf(fp, "%016lx %c %s\n", stab->sym[i-1].addr + stab->sym[i-1].size,
+			(char) stab->sym[i-1].type, "__sym_end");
+	}
 
 	free(symfile);
 	fclose(fp);
