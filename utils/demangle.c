@@ -241,13 +241,13 @@ static const struct {
 	char code;
 	char *name;
 } std_abbrevs[] = {
-	{ 't', "::std" },
-	{ 'a', "::std::allocator" },
-	{ 'b', "::std::basic_string" },
-	{ 's', "::std::basic_string<>" },
-	{ 'i', "::std::basic_istream" },
-	{ 'o', "::std::basic_ostream" },
-	{ 'd', "::std::basic_iostream" },
+	{ 't', "std" },
+	{ 'a', "std::allocator" },
+	{ 'b', "std::basic_string" },
+	{ 's', "std::basic_string<>" },
+	{ 'i', "std::basic_istream" },
+	{ 'o', "std::basic_ostream" },
+	{ 'd', "std::basic_iostream" },
 };
 
 static int dd_encoding(struct demangle_data *dd);
@@ -287,6 +287,12 @@ static int dd_number(struct demangle_data *dd)
 
 	if (dd_eof(dd))
 		return -1;
+
+	if (*str == 'n') {
+		/* negative number */
+		str++;
+		dd->pos++;
+	}
 
 	if (!isdigit(*str))
 		DD_DEBUG(dd, "digit", 0);
@@ -582,11 +588,13 @@ static int dd_unresolved_name(struct demangle_data *dd)
 			__dd_consume(dd, NULL);
 
 		c0 = dd_curr(dd);
-		c1 = dd_peek(dd, 1);
 		if (c0 == 'T' || c0 == 'D' || c0 == 'S') {
 			if (dd_unresolved_type(dd) < 0)
 				return -1;
 		}
+
+		c0 = dd_curr(dd);
+		c1 = dd_peek(dd, 1);
 
 		while (isdigit(c0)) {
 			if (dd_simple_id(dd) < 0)
