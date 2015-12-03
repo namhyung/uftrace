@@ -241,13 +241,13 @@ static const struct {
 	char code;
 	char *name;
 } std_abbrevs[] = {
-	{ 't', "::std" },
-	{ 'a', "::std::allocator" },
-	{ 'b', "::std::basic_string" },
-	{ 's', "::std::basic_string<>" },
-	{ 'i', "::std::basic_istream" },
-	{ 'o', "::std::basic_ostream" },
-	{ 'd', "::std::basic_iostream" },
+	{ 't', "std" },
+	{ 'a', "std::allocator" },
+	{ 'b', "std::basic_string" },
+	{ 's', "std::basic_string<>" },
+	{ 'i', "std::basic_istream" },
+	{ 'o', "std::basic_ostream" },
+	{ 'd', "std::basic_iostream" },
 };
 
 static int dd_encoding(struct demangle_data *dd);
