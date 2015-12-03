@@ -18,6 +18,7 @@ class TestBase:
     TEST_DIFF_RESULT = -5
     TEST_NONZERO_RETURN = -6
     TEST_SKIP = -7
+    TEST_SUCCESS_FIXED = -8
 
     ftrace = '../ftrace -L ..'
 
@@ -102,7 +103,15 @@ class TestBase:
         """This function is called after running a testcase"""
         return result
 
+    def fixup(self, cflags, result):
+        """This function is called when result is different to expected.
+           But if we know some known difference on some optimization level,
+           apply it and re-test with the modified result."""
+        return result
+
     def run(self, name, cflags, diff):
+        ret = TestBase.TEST_SUCCESS
+
         test_cmd = self.runcmd()
 #        print("test command: %s" % test_cmd)
 
@@ -134,6 +143,10 @@ class TestBase:
 #        print(result_tested)
 
         if result_expect != result_tested:
+            result_expect = self.sort(self.fixup(cflags, self.result))
+            ret = TestBase.TEST_SUCCESS_FIXED
+
+        if result_expect != result_tested:
             if diff:
                 f = open('expect', 'w')
                 f.write(result_expect + '\n')
@@ -148,7 +161,7 @@ class TestBase:
                 os.remove('result')
             return TestBase.TEST_DIFF_RESULT
 
-        return 0
+        return ret
 
 
 RED     = '\033[1;31m'
@@ -165,6 +178,7 @@ colored_result = {
     TestBase.TEST_DIFF_RESULT:    RED    + 'NG' + NORMAL,
     TestBase.TEST_NONZERO_RETURN: YELLOW + 'NZ' + NORMAL,
     TestBase.TEST_SKIP:           YELLOW + 'SK' + NORMAL,
+    TestBase.TEST_SUCCESS_FIXED:  YELLOW + 'OK' + NORMAL,
 }
 
 text_result = {
@@ -176,6 +190,7 @@ text_result = {
     TestBase.TEST_DIFF_RESULT:    'NG',
     TestBase.TEST_NONZERO_RETURN: 'NZ',
     TestBase.TEST_SKIP:           'SK',
+    TestBase.TEST_SUCCESS_FIXED:  'OK',
 }
 
 result_string = {
@@ -187,6 +202,7 @@ result_string = {
     TestBase.TEST_DIFF_RESULT:    'NG: Different test result',
     TestBase.TEST_NONZERO_RETURN: 'NZ: Non-zero return value',
     TestBase.TEST_SKIP:           'SK: Skipped',
+    TestBase.TEST_SUCCESS_FIXED:  'OK: Test almost succeeded',
 }
 
 def run_single_case(case, flags, opts, diff):
