@@ -288,6 +288,12 @@ static int dd_number(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
+	if (*str == 'n') {
+		/* negative number */
+		str++;
+		dd->pos++;
+	}
+
 	if (!isdigit(*str))
 		DD_DEBUG(dd, "digit", 0);
 
