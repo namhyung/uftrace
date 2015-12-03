@@ -36,8 +36,9 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	struct rb_node **p = &root->rb_node;
 	uint64_t entry_time = 0;
 
-	pr_dbg("%s: [%5d] %"PRIu64" (%lu) %-s\n",
-	       __func__, te->pid, te->time_total, te->nr_called, te->sym->name);
+	pr_dbg("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
+	       __func__, te->pid, te->time_total, te->time_self, te->nr_called,
+	       te->sym ? te->sym->name : "<unknown>");
 
 	while (*p) {
 		int cmp;
@@ -48,7 +49,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 		if (thread)
 			cmp = te->pid - entry->pid;
 		else
-			cmp = strcmp(entry->sym->name, te->sym->name);
+			cmp = te->addr - entry->addr;
 
 		if (cmp == 0) {
 			entry->time_total += te->time_total;
@@ -359,6 +360,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 
 			te.pid = task->tid;
 			te.sym = find_task_sym(handle, i, rstack);
+			te.addr = rstack->addr;
 
 			fstack = &task->func_stack[rstack->depth];
 
