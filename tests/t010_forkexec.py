@@ -8,7 +8,6 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'forkexec', """
 # DURATION    TID     FUNCTION
- 106.139 us [ 9874] | __cxa_atexit();
             [ 9874] | main() {
   19.427 us [ 9874] |   readlink();
    1.841 us [ 9874] |   strrchr();
@@ -16,7 +15,6 @@ class TestCase(TestBase):
             [ 9874] |   waitpid() {
  473.298 us [ 9875] |   } /* fork */
             [ 9875] |   execl() {
-  85.235 us [ 9875] | __cxa_atexit();
             [ 9875] | main() {
    1.828 us [ 9875] |   atoi();
             [ 9875] |   a() {
@@ -61,3 +59,21 @@ task: 9875
 
 #        print("build command:", build_cmd)
         return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+
+    def fixup(self, cflags, result):
+        r = result
+        f = cflags.split()
+
+        if f[-1] == '-Os':
+            r = r.replace('fork();', """strcpy();
+                                [ 9874] |   fork();""")
+
+        if f[0] == '-pg':
+            r = r.replace('execl() {', """execl() {
+                                [ 9875] | __monstartup();
+                                [ 9875] | __cxa_atexit();""")
+
+            if f[-1] in ('-O1', '-O2', '-O3'):
+                r = r.replace('atoi', 'strtol')
+
+        return r
