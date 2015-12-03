@@ -40,4 +40,6 @@ class TestCase(TestBase):
         sp.call(['rm', '-rf', TDIR])
         return ret
 
-    
+    def fixup(self, cflags, result):
+        r = result.replace('   0.842 us [ 7102] |   ns::ns1::foo::foo();\n', '')
+        return r.replace('   0.115 us [ 7102] |   ns::ns2::foo::foo();\n', '')
