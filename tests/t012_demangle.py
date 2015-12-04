@@ -23,3 +23,6 @@ class TestCase(TestBase):
    5.623 us [31433] | } /* main */
    9.223 us [31433] | std::ios_base::Init::~Init();
 """)
+
+    def fixup(self, cflags, result):
+        return result.replace('   0.146 us [31433] |   ABC::ABC();\n', '')
