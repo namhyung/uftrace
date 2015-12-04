@@ -813,6 +813,12 @@ static const char *longjmp_syms[] = {
 
 static struct dynsym_idxlist longjmp_idxlist;
 
+static const char *vfork_syms[] = {
+	"vfork",
+};
+
+static struct dynsym_idxlist vfork_idxlist;
+
 static void setup_dynsym_indexes(struct symtabs *symtabs)
 {
 	build_dynsym_idxlist(symtabs, &skip_idxlist,
@@ -821,6 +827,8 @@ static void setup_dynsym_indexes(struct symtabs *symtabs)
 			     setjmp_syms, ARRAY_SIZE(setjmp_syms));
 	build_dynsym_idxlist(symtabs, &longjmp_idxlist,
 			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
+	build_dynsym_idxlist(symtabs, &vfork_idxlist,
+			     vfork_syms, ARRAY_SIZE(vfork_syms));
 }
 
 static void destroy_dynsym_indexes(void)
@@ -828,6 +836,7 @@ static void destroy_dynsym_indexes(void)
 	destroy_dynsym_idxlist(&skip_idxlist);
 	destroy_dynsym_idxlist(&setjmp_idxlist);
 	destroy_dynsym_idxlist(&longjmp_idxlist);
+	destroy_dynsym_idxlist(&vfork_idxlist);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -878,6 +887,67 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	/* to avoid check in plthook_exit() */
 	rstack[jbstack->count].dyn_idx = dyn_idx;
+}
+
+/* it's crazy to call vfork() concurrently */
+static int vfork_parent;
+static TLS int vfork_shmem_seqnum;
+static TLS struct mcount_shmem_buffer *vfork_shmem_buffer[2];
+static TLS struct mcount_shmem_buffer *vfork_shmem_curr;
+
+static void prepare_vfork(void)
+{
+	/* save original parent pid */
+	vfork_parent = getpid();
+}
+
+/* this function will be called in child */
+static void setup_vfork(void)
+{
+	struct ftrace_msg_task tmsg = {
+		.pid = getppid(),
+		.tid = getpid(),
+		.time = mcount_gettime(),
+	};
+
+	vfork_shmem_seqnum = shmem_seqnum;
+	vfork_shmem_buffer[0] = shmem_buffer[0];
+	vfork_shmem_buffer[1] = shmem_buffer[1];
+	vfork_shmem_curr = shmem_curr;
+
+	/* setup new shmem buffer for child */
+	tid = 0;
+	shmem_seqnum = 0;
+	shmem_buffer[0] = NULL;
+	shmem_buffer[1] = NULL;
+	shmem_curr = NULL;
+
+	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+}
+
+/* this function detects whether child finished */
+static void restore_vfork(struct mcount_ret_stack *rstack)
+{
+	/*
+	 * On vfork, parent sleeps until child exec'ed or exited.
+	 * So if it sees parent pid, that means child was done.
+	 */
+	if (getpid() == vfork_parent) {
+		struct sym *sym;
+
+		shmem_seqnum = vfork_shmem_seqnum;
+		shmem_buffer[0] = vfork_shmem_buffer[0];
+		shmem_buffer[1] = vfork_shmem_buffer[1];
+		shmem_curr = vfork_shmem_curr;
+
+		tid = 0;
+		vfork_parent = 0;
+
+		/* make parent returning from vfork() */
+		sym = find_dynsym(&symtabs, vfork_idxlist.idx[0]);
+		if (sym)
+			rstack->child_ip = sym->addr;
+	}
 }
 
 extern unsigned long plthook_return(void);
@@ -949,6 +1019,10 @@ out:
 		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
 	if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
+	if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
+		rstack->flags |= MCOUNT_FL_VFORK;
+		prepare_vfork();
+	}
 
 	if (plthook_dynsym_resolved[child_idx])
 		return plthook_dynsym_addr[child_idx];
@@ -966,10 +1040,18 @@ unsigned long plthook_exit(void)
 again:
 	rstack = &mcount_rstack[--mcount_rstack_idx];
 
-	if (rstack->flags & MCOUNT_FL_LONGJMP) {
-		restore_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx+1);
-		goto again;
+	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
+		if (rstack->flags & MCOUNT_FL_LONGJMP) {
+			restore_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx+1);
+			goto again;
+		}
+
+		if (rstack->flags & MCOUNT_FL_VFORK)
+			setup_vfork();
 	}
+
+	if (unlikely(vfork_parent))
+		restore_vfork(rstack);
 
 	dyn_idx = rstack->dyn_idx;
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {

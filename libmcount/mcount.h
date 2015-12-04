@@ -32,6 +32,7 @@ enum {
 	MCOUNT_FL_NORECORD	= (1U << 2),
 	MCOUNT_FL_NOTRACE	= (1U << 3),
 	MCOUNT_FL_FILTERED	= (1U << 4),
+	MCOUNT_FL_VFORK		= (1U << 5),
 };
 
 struct mcount_ret_stack {
