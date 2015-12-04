@@ -2,19 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-void __attribute__((noinline)) child(void)
-{
-	char buf[4096] = {};
-	char *pos;
-	int len;
-
-	len = readlink("/proc/self/exe", buf, sizeof(buf));
-
-	pos = strrchr(buf, '/');
-	strcpy(pos, "/t-abc");
-	execl(buf, "t-abc", NULL);
-}
-
 int main(int argc, char *argv[])
 {
 	int i;
@@ -29,7 +16,15 @@ int main(int argc, char *argv[])
 		return -1;
 
 	if (pid == 0) {
-		child();
+		char buf[4096] = {};
+		char *pos;
+		int len;
+
+		len = readlink("/proc/self/exe", buf, sizeof(buf));
+
+		pos = strrchr(buf, '/');
+		strcpy(pos, "/t-abc");
+		execl(buf, "t-abc", NULL);
 		return -1;
 	}
 
