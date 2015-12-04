@@ -8,32 +8,23 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'vforkexec', """
 # DURATION    TID     FUNCTION
-  77.595 us [30337] | __cxa_atexit();
-            [30337] | main() {
-            [30337] |   vfork() {
-  85.943 us [30338] |   } /* vfork */
-            [30338] |   child() {
-  35.030 us [30338] |     readlink();
-   1.420 us [30338] |     strrchr();
-            [30338] |     execl() {
- 191.488 us [30337] |     } /* execl */   <--- ???
- 232.328 us [30337] |   } /* child */
-  74.979 us [30338] | <4004d0>();      <---------------------+
-            [30338] | _start() {                             |
-            [30338] |   waitpid() {                          |
-            [30338] |     vfork() {                          |
-            [30338] |       __cxa_atexit() {             should be
-   5.880 us [30338] |         <400480>();                 ignored
-   6.834 us [30338] |       } /* __cxa_atexit */             |
-   7.444 us [30338] |     } /* vfork */                      |
-   8.076 us [30338] |   } /* waitpid */                      |
-   8.830 us [30338] | } /* _start */   <---------------------+
-
-ftrace stopped tracing with remaining functions
-===============================================
-task: 30337
-[0] main
-
+            [ 3122] | main() {
+            [ 3122] |   vfork() {
+            [ 3124] |   } /* vfork */
+  61.715 us [ 3124] |   readlink();
+   2.799 us [ 3124] |   strrchr();
+            [ 3124] |   execl() {
+            [ 3122] |   } /* vfork */
+ 549.064 us [ 3122] | } /* main */
+            [ 3124] | main() {
+            [ 3124] |   a() {
+            [ 3124] |     b() {
+            [ 3124] |       c() {
+   1.655 us [ 3124] |         getpid();
+   3.861 us [ 3124] |       } /* c */
+   4.393 us [ 3124] |     } /* b */
+   4.901 us [ 3124] |   } /* a */
+  75.511 us [ 3124] | } /* main */
 """)
 
     def build(self, cflags='', ldflags=''):
@@ -61,5 +52,17 @@ task: 30337
 #        print("build command:", build_cmd)
         return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
 
-    def sort(self, output):
-        return TestBase.sort(self, output, True)
+    def fixup(self, cflags, result):
+        r = result
+        f = cflags.split()
+
+        if f[-1] == '-Os':
+            r = r.replace('execl() {', """strcpy();
+                                [ 3124] |   execl() {""")
+
+        if f[0] == '-pg':
+            r = r.replace('execl() {', """execl() {
+                                [ 3124] | __monstartup();
+                                [ 3124] | __cxa_atexit();""")
+
+        return r
