@@ -36,8 +36,9 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	struct rb_node **p = &root->rb_node;
 	uint64_t entry_time = 0;
 
-	pr_dbg("%s: [%5d] %"PRIu64" (%lu) %-s\n",
-	       __func__, te->pid, te->time_total, te->nr_called, te->sym->name);
+	pr_dbg("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
+	       __func__, te->pid, te->time_total, te->time_self, te->nr_called,
+	       te->sym ? te->sym->name : "<unknown>");
 
 	while (*p) {
 		int cmp;
@@ -48,7 +49,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 		if (thread)
 			cmp = te->pid - entry->pid;
 		else
-			cmp = strcmp(entry->sym->name, te->sym->name);
+			cmp = te->addr - entry->addr;
 
 		if (cmp == 0) {
 			entry->time_total += te->time_total;
@@ -64,6 +65,10 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 				entry->time_min = entry_time;
 			if (entry->time_max < entry_time)
 				entry->time_max = entry_time;
+
+			if (entry->sym == NULL && te->sym)
+				entry->sym = te->sym;
+
 			return;
 		}
 
@@ -305,11 +310,12 @@ static void report_functions(struct ftrace_file_handle *handle)
 	}
 }
 
-static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
+static struct sym * find_task_sym(struct ftrace_file_handle *handle,
+				  struct ftrace_task_handle *task,
 				  struct ftrace_ret_stack *rstack)
 {
 	struct sym *sym;
-	struct ftrace_task_handle *task = &tasks[idx];
+	struct ftrace_task_handle *main_task = &tasks[0];
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
 
@@ -321,26 +327,25 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle, int idx,
 		return NULL;
 	}
 
-	if (idx == handle->info.nr_tid - 1) {
+	if (task == main_task) {
 		/* This is the main thread */
 		task->func = sym = find_symname(&symtabs->symtab, "main");
 		if (sym)
 			return sym;
 
-		pr_log("no main thread???\n");
+		pr_dbg("no main thread???\n");
 		/* fall through */
 	}
 
 	task->func = sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	if (sym == NULL)
-		pr_log("cannot find symbol for %lx\n", rstack->addr);
+		pr_dbg("cannot find symbol for %lx\n", rstack->addr);
 
 	return sym;
 }
 
 static void report_threads(struct ftrace_file_handle *handle)
 {
-	int i;
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
@@ -350,32 +355,30 @@ static void report_threads(struct ftrace_file_handle *handle)
 	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
-	for (i = 0; i < handle->info.nr_tid; i++) {
-		while ((rstack = get_task_ustack(handle, i)) != NULL) {
-			task = &tasks[i];
+	while (read_rstack(handle, &task) >= 0) {
+		rstack = task->rstack;
+		if (rstack->type == FTRACE_ENTRY && task->func)
+			continue;
+		if (rstack->type == FTRACE_LOST)
+			continue;
 
-			if (rstack->type == FTRACE_ENTRY && task->func)
-				goto next;
+		fstack = &task->func_stack[rstack->depth];
 
-			te.pid = task->tid;
-			te.sym = find_task_sym(handle, i, rstack);
+		te.pid = task->tid;
+		te.sym = find_task_sym(handle, task, rstack);
+		te.addr = rstack->addr;
 
-			fstack = &task->func_stack[rstack->depth];
-
-			if (rstack->type == FTRACE_ENTRY) {
-				te.time_total = te.time_self = 0;
-				te.nr_called = 0;
-			} else if (rstack->type == FTRACE_EXIT) {
-				te.time_total = fstack->total_time;
-				te.time_self = te.time_total - fstack->child_time;
-				te.nr_called = 1;
-			}
-
-			insert_entry(&name_tree, &te, true);
-
-		next:
-			tasks[i].valid = false; /* force re-read */
+		if (rstack->type == FTRACE_ENTRY) {
+			te.time_total = te.time_self = 0;
+			te.nr_called = 0;
 		}
+		else {
+			te.time_total = fstack->total_time;
+			te.time_self = te.time_total - fstack->child_time;
+			te.nr_called = 1;
+		}
+
+		insert_entry(&name_tree, &te, true);
 	}
 
 	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");

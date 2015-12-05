@@ -20,6 +20,9 @@ void foo(void)
 
 void bar(void)
 {
+	int i;
+	for (i = 0; i < 1000; i++)
+		asm volatile("" ::: "memory");
 	usleep(1000);
 }
 
