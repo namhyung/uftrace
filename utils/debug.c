@@ -18,7 +18,7 @@
 #include "utils.h"
 
 #define TERM_COLOR_NORMAL	""
-#define TERM_COLOR_RESET	"\033[m"
+#define TERM_COLOR_RESET	"\033[0m"
 #define TERM_COLOR_BOLD		"\033[1m"
 #define TERM_COLOR_RED		"\033[31m"
 #define TERM_COLOR_GREEN	"\033[32m"
