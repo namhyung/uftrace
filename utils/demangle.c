@@ -1423,6 +1423,17 @@ static char *demangle_full(char *str)
 }
 #endif
 
+/**
+ * demangle - demangle if given @str is a mangled C++ symbol name
+ * @str: symbol name
+ *
+ * This function returns malloc-ed string of demangled name of @str.
+ * If @str is not a C++ symbol or @demangler global variable is set to
+ * #DEMANGLE_NONE, the returned string is same as the input string.
+ * If @demangler is #DEMANGLE_SIMPLE, it'd be demangled using our own
+ * implementation.  If @demangler is #DEMANGLE_FULL, it'd be demangled
+ * using libstdc++ (if available).
+ */
 char *demangle(char *str)
 {
 	static const size_t size_of_gsi = sizeof("_GLOBAL__sub_I") - 1;
@@ -1447,3 +1458,28 @@ char *demangle(char *str)
 		return str;
 	}
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(demangle_simple1)
+{
+	TEST_STREQ("normal", demangle_simple("normal"));
+	TEST_STREQ("ABC::foo", demangle_simple("_ZN3ABC3fooEv"));
+	TEST_STREQ("ABC::ABC", demangle_simple("_ZN3ABCC1Ei"));
+	TEST_STREQ("operator new", demangle_simple("_Znwm"));
+	TEST_STREQ("ns::ns1::foo::bar1", demangle_simple("_ZN2ns3ns13foo4bar1Ev"));
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple2)
+{
+	TEST_STREQ("FtraceService::~FtraceService",
+		   demangle_simple("_ZThn8_N13FtraceServiceD0Ev"));
+	TEST_STREQ("v8::internal::ScopedVector::ScopedVector",
+		   demangle_simple("_ZN2v88internal12ScopedVectorIcEC1Ei"));
+	TEST_STREQ("std::allocator_traits::construct",
+		   demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_nodeISt4pairIKSsN7pbnjson7JSchemaEEEEE9constructIS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_"));
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
