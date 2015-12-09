@@ -349,3 +349,238 @@ void ftrace_print_filter(struct rb_root *root)
 		node = rb_next(node);
 	}
 }
+
+#ifdef UNIT_TEST
+
+static void filter_test_load_symtabs(struct symtabs *stabs)
+{
+	static struct sym syms[] = {
+		{ 0x1000, 0x1000, ST_GLOBAL, "foo::foo" },
+		{ 0x2000, 0x1000, ST_GLOBAL, "foo::bar" },
+		{ 0x3000, 0x1000, ST_GLOBAL, "foo::baz1" },
+		{ 0x4000, 0x1000, ST_GLOBAL, "foo::baz2" },
+		{ 0x5000, 0x1000, ST_GLOBAL, "foo::baz3" },
+		{ 0x6000, 0x1000, ST_GLOBAL, "foo::~foo" },
+	};
+	static struct sym dsyms[] = {
+		{ 0x21000, 0x1000, ST_PLT, "malloc" },
+		{ 0x22000, 0x1000, ST_PLT, "free" },
+	};
+
+	stabs->symtab.sym = syms;
+	stabs->symtab.nr_sym = ARRAY_SIZE(syms);
+	stabs->dsymtab.sym = dsyms;
+	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
+	stabs->loaded = true;
+}
+
+TEST_CASE(filter_setup_exact)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+
+	filter_test_load_symtabs(&stabs);
+
+	/* test1: simple method */
+	ftrace_setup_filter("foo::bar", &stabs, NULL, &root, NULL);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::bar");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	/* test2: destructor */
+	ftrace_setup_filter("foo::~foo", &stabs, NULL, &root, NULL);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::~foo");
+	TEST_EQ(filter->start, 0x6000UL);
+	TEST_EQ(filter->end, 0x6000UL + 0x1000UL);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	/* test3: unknown symbol */
+	ftrace_setup_filter("invalid_name", &stabs, NULL, &root, NULL);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(filter_setup_regex)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+
+	filter_test_load_symtabs(&stabs);
+
+	ftrace_setup_filter("foo::b.*", &stabs, NULL, &root, NULL);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::bar");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz1");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz2");
+	TEST_EQ(filter->start, 0x4000UL);
+	TEST_EQ(filter->end, 0x4000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz3");
+	TEST_EQ(filter->start, 0x5000UL);
+	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(filter_setup_notrace)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+	enum filter_mode fmode;
+
+	filter_test_load_symtabs(&stabs);
+
+	ftrace_setup_filter("foo::.*", &stabs, NULL, &root, &fmode);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	ftrace_setup_filter("!foo::foo", &stabs, NULL, &root, &fmode);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_IN);  /* overall filter mode doesn't change */
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::foo");
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_OUT);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct ftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::bar");
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(filter_match)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+	enum filter_mode fmode;
+	struct ftrace_trigger tr;
+
+	filter_test_load_symtabs(&stabs);
+
+	ftrace_setup_filter("foo::foo", &stabs, NULL, &root, &fmode);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x1000, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x1fff, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0xfff, &tr), 0);
+	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x2000, &tr), 0);
+	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(trigger_setup)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct ftrace_filter *filter;
+	struct ftrace_trigger tr;
+
+	filter_test_load_symtabs(&stabs);
+
+	ftrace_setup_trigger("foo::bar@depth=2", &stabs, NULL, &root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x2500, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
+	TEST_EQ(tr.depth, 2);
+
+	ftrace_setup_trigger("foo::bar@backtrace", &stabs, NULL, &root);
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x2500, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
+
+	ftrace_setup_trigger("foo::baz1@traceon", &stabs, NULL, &root);
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x3000, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
+
+	ftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, NULL, &root);
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(ftrace_match_filter(&root, 0x5000, &tr), 1);
+	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
+	TEST_EQ(tr.depth, 1);
+
+	ftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
