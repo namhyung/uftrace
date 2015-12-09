@@ -9,7 +9,7 @@ test_run:
 	./runtest.py $(TESTARG)
 
 test_unit: unittest
-	./unittest
+	./unittest $(filter -d,$(TESTARG))
 
 unittest: unittest.c unittest.h $(UNIT_TEST_SRC)
 	@$(CC) -o $@ $(TEST_CFLAGS) $(filter-out %.h,$^) $(TEST_LDFLAGS)

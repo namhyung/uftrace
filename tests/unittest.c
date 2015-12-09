@@ -168,7 +168,8 @@ int main(int argc, char *argv[])
 
 	printf("Running %d test cases\n======================\n", test_num);
 
-//	debug = 1;
+	if (argc > 1 && !strcmp(argv[1], "-d"))
+		debug = 1;
 	outfp = logfp = stdout;
 
 	for (i = 0; i < test_num; i++)
