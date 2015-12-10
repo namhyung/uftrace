@@ -50,7 +50,17 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 
 static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr)
 {
-	memcpy(&filter->trigger, tr, sizeof(*tr));
+	filter->trigger.flags |= tr->flags;
+
+	if (tr->flags & TRIGGER_FL_DEPTH)
+		filter->trigger.depth = tr->depth;
+	if (tr->flags & TRIGGER_FL_FILTER)
+		filter->trigger.fmode = tr->fmode;
+
+	if (tr->flags & TRIGGER_FL_TRACE_ON)
+		filter->trigger.flags &= ~TRIGGER_FL_TRACE_OFF;
+	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+		filter->trigger.flags &= ~TRIGGER_FL_TRACE_ON;
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
@@ -77,6 +87,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 
 	new = xmalloc(sizeof(*new));
 	memcpy(new, filter, sizeof(*new));
+	new->trigger.flags = 0;
 
 	add_trigger(new, tr);
 
@@ -150,7 +161,7 @@ static int setup_module_and_trigger(char *str, char *module,
 		*pos++ = '\0';
 		tr_str = xstrdup(pos);
 
-		while ((pos = strsep(&tr_str, ":")) != NULL) {
+		while ((pos = strsep(&tr_str, ",")) != NULL) {
 			if (!strncasecmp(pos, "depth=", 6)) {
 				tr->flags |= TRIGGER_FL_DEPTH;
 				tr->depth = strtoul(pos+6, NULL, 10);
@@ -215,7 +226,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 	if (str == NULL)
 		return;
 
-	name = strtok(pos, ",");
+	name = strtok(pos, ";");
 	while (name) {
 		struct symtab *symtab = &symtabs->symtab;
 		struct ftrace_trigger tr = {
@@ -253,7 +264,7 @@ again:
 				*fmode = FILTER_MODE_OUT;
 		}
 next:
-		name = strtok(NULL, ",");
+		name = strtok(NULL, ";");
 	}
 
 	free(str);

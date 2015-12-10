@@ -28,8 +28,14 @@ OPTIONS
 -f *FILE*, \--file=*FILE*
 :   (XXX: rename to 'data-directory'?) Specify trace data (directory) name.  Default is ftrace.dir
 
--F *FUNC*[,*FUNC*,...], \--filter=*FUNC*[,*FUNC*,...]
-:   Set filter to trace selected functions only.  See *FILTERS*.
+-F *FUNC*, \--filter=*FUNC*
+:   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
+
+-N *FUNC*, \--notrace=*FUNC*
+:   Set filter not trace selected functions only.  This option can be used more than once.  See *FILTERS*.
+
+-T *TRG*, \--trigger=*TRG*
+:   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
 \--flat
 :   Print flat format rather than C-like format.  This is usually for debugging and testing purpose.
@@ -45,9 +51,6 @@ OPTIONS
 
 \--no-plthook
 :   Do not record library function invocations.  The ftrace traces library calls by hooking dynamic linker's resolve function in the PLT.  One can disable it with this option.
-
--N *FUNC*[,*FUNC*,...], \--notrace=*FUNC*[,*FUNC*,...]
-:   Set filter not trace selected functions only.  See *FILTERS*.
 
 \--color=*VAL*
 :   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
@@ -120,6 +123,36 @@ In the above example, you can omit the function b() and its children with -N opt
                 [ 1234] |   a() {
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
+
+
+You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
+
+
+TRIGGERS
+========
+The ftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth (for record and replay) and backtrace (for replay only).  The BNF for the trigger is like below:
+
+    <trigger>  :=  <symbol> "@" <actions>
+    <actions>  :=  <action>  | <action> "," <actions>
+    <action>   :=  "depth=" <num> | "backtrace" | "trace_on" | "trace_off"
+
+The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
+
+Following example shows how trigger works.  The global filter depth is 5, but function 'b' changed it to 1 so functions below the 'b' will not shown.
+
+    $ ftrace live -D 5 -T 'b@depth=1' ./abc
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+The 'backtrace' trigger is only meaningful in replay command.  The 'traceon' and 'traceoff' (you can omit '_' between 'trace' and 'on/off') controls whether ftrace records functions or not.
+
+The ftrace trigger only works for user-level functions for now.
+
 
 SEE ALSO
 ========

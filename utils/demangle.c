@@ -85,8 +85,13 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 
 #define DD_DEBUG_CONSUME(dd, exp_c)					\
 ({	if (dd_consume(dd) != exp_c) {					\
-		dd->func = __func__; dd->line = __LINE__; dd->pos--;	\
-		dd->expected = dd_expbuf; dd_expbuf[0] = exp_c;		\
+		if (!dd->expected) {					\
+			dd->func = __func__;				\
+			dd->line = __LINE__;				\
+			dd->pos--;					\
+			dd->expected = dd_expbuf;			\
+			dd_expbuf[0] = exp_c;				\
+		}							\
 		return -1;						\
 	}								\
 })
@@ -413,12 +418,14 @@ static int dd_function_param(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
-	if (c0 != 'F' || (c1 != 'p' && c1 != 'L'))
-		DD_DEBUG(dd, "Fp or FL", -2);
+	if (c0 != 'f' || (c1 != 'p' && c1 != 'L'))
+		DD_DEBUG(dd, "fp or fL", -2);
 
 	if (isdigit(dd_curr(dd))) {
 		dd_number(dd);
-		DD_DEBUG_CONSUME(dd, 'p');
+
+		if (c1 == 'L')
+			DD_DEBUG_CONSUME(dd, 'p');
 	}
 
 	dd_qualifier(dd);
