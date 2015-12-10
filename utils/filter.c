@@ -161,7 +161,7 @@ static int setup_module_and_trigger(char *str, char *module,
 		*pos++ = '\0';
 		tr_str = xstrdup(pos);
 
-		while ((pos = strsep(&tr_str, ":")) != NULL) {
+		while ((pos = strsep(&tr_str, ",")) != NULL) {
 			if (!strncasecmp(pos, "depth=", 6)) {
 				tr->flags |= TRIGGER_FL_DEPTH;
 				tr->depth = strtoul(pos+6, NULL, 10);
@@ -226,7 +226,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 	if (str == NULL)
 		return;
 
-	name = strtok(pos, ",");
+	name = strtok(pos, ";");
 	while (name) {
 		struct symtab *symtab = &symtabs->symtab;
 		struct ftrace_trigger tr = {
@@ -264,7 +264,7 @@ again:
 				*fmode = FILTER_MODE_OUT;
 		}
 next:
-		name = strtok(NULL, ",");
+		name = strtok(NULL, ";");
 	}
 
 	free(str);

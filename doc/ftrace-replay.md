@@ -22,14 +22,14 @@ OPTIONS
 \--flat
 :   Print flat format rather than C-like format.  This is usually for debugging and testing purpose.
 
--F *FUNC*[,*FUNC*,...], \--filter=FUNC[,*FUNC*,...]
-:   Set filter to trace selected functions only.  See *FILTERS*.
+-F *FUNC*, \--filter=FUNC
+:   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 
--N *FUNC*[,*FUNC*,...], \--notrace=*FUNC*[,*FUNC*,...]
-:   Set filter not trace selected functions only.  See *FILTERS*.
+-N *FUNC*, \--notrace=*FUNC*
+:   Set filter not trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 
--T *TRG*[,*TRG*,...], \--trigger=*TRG*[,*TRG*,...]
-:   Set trigger on selected functions.  See *TRIGGERS*.
+-T *TRG*, \--trigger=*TRG*
+:   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
 -t *TID*[,*TID*,...], \--tid=*TID*[,*TID*,...]
 :   Only print functions from given threads.  To see the list of threads in the data file, you can use `ftrace-report --threads` or `ftrace-info` command.
@@ -134,10 +134,9 @@ TRIGGERS
 ========
 The ftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth (for record and replay) and backtrace (for replay only).  The BNF for the trigger is like below:
 
-    <triggers> :=  <trigger> | <trigger> "," <triggers>
     <trigger>  :=  <symbol> "@" <actions>
-    <actions>  :=  <action>  | <action> ":" <actions>
-    <action>   :=  "depth=" <num> | "backtrace"
+    <actions>  :=  <action>  | <action> "," <actions>
+    <action>   :=  "depth=" <num> | "backtrace" | "trace_on" | "trace_off"
 
 The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
 
@@ -151,6 +150,8 @@ Following example shows how trigger works.  We set filter on function 'b' with t
                 [ 1234] |     b {
        3.880 us [ 1234] |       c();
        5.475 us [ 1234] |     } /* b */
+
+The 'traceon' and 'traceoff' (you can omit '_' between 'trace' and 'on/off') controls whether ftrace shows functions or not.  The trigger runs on replay time so that it can handle kernel functions as well.
 
 
 SEE ALSO

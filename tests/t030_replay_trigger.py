@@ -29,7 +29,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -T "alloc1@depth=2" -T "free2@depth=1:backtrace" -f %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -T "alloc1@depth=2" -T "free2@depth=1,backtrace" -f %s' % (TestBase.ftrace, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

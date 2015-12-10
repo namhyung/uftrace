@@ -131,7 +131,7 @@ static char * opt_add_string(char *old, char *new)
 
 	opt = xrealloc(old, oldlen + newlen + 2);
 	if (old)
-		opt[oldlen++] = ',';
+		opt[oldlen++] = ';';
 	strcpy(opt + oldlen, new);
 	return opt;
 }
@@ -145,7 +145,7 @@ static char * opt_add_prefix_string(char *old, char *prefix, char *new)
 
 	opt = xrealloc(old, oldlen + prelen + newlen + 2);
 	if (old)
-		opt[oldlen++] = ',';
+		opt[oldlen++] = ';';
 	strcpy(opt + oldlen, prefix);
 	strcpy(opt + oldlen + prelen, new);
 	return opt;
