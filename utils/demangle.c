@@ -85,8 +85,13 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 
 #define DD_DEBUG_CONSUME(dd, exp_c)					\
 ({	if (dd_consume(dd) != exp_c) {					\
-		dd->func = __func__; dd->line = __LINE__; dd->pos--;	\
-		dd->expected = dd_expbuf; dd_expbuf[0] = exp_c;		\
+		if (!dd->expected) {					\
+			dd->func = __func__;				\
+			dd->line = __LINE__;				\
+			dd->pos--;					\
+			dd->expected = dd_expbuf;			\
+			dd_expbuf[0] = exp_c;				\
+		}							\
 		return -1;						\
 	}								\
 })
