@@ -556,3 +556,126 @@ int peek_rstack(struct ftrace_file_handle *handle,
 {
 	return __read_rstack(handle, task, false);
 }
+
+
+#ifdef UNIT_TEST
+
+#include <sys/stat.h>
+
+#define NUM_TASK    2
+#define NUM_RECORD  4
+
+static int test_tids[NUM_TASK] = { 1234, 5678 };
+struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
+	{
+		{ 100, FTRACE_ENTRY, FTRACE_UNUSED, 0, 0x40000 },
+		{ 200, FTRACE_ENTRY, FTRACE_UNUSED, 1, 0x41000 },
+		{ 300, FTRACE_EXIT,  FTRACE_UNUSED, 1, 0x41000 },
+		{ 400, FTRACE_EXIT,  FTRACE_UNUSED, 0, 0x40000 },
+	},
+	{
+		{ 150, FTRACE_ENTRY, FTRACE_UNUSED, 0, 0x40000 },
+		{ 250, FTRACE_ENTRY, FTRACE_UNUSED, 1, 0x41000 },
+		{ 350, FTRACE_EXIT,  FTRACE_UNUSED, 1, 0x41000 },
+		{ 450, FTRACE_EXIT,  FTRACE_UNUSED, 0, 0x40000 },
+	}
+};
+
+static struct ftrace_file_handle fstack_test_handle;
+static void fstack_test_finish_file(void);
+
+static int fstack_test_setup_file(struct ftrace_file_handle *handle)
+{
+	int i;
+	char *filename;
+
+	handle->dirname = "tmp.dir";
+	handle->info.tids = test_tids;
+	handle->info.nr_tid = ARRAY_SIZE(test_tids);
+
+	if (mkdir(handle->dirname, 0755) < 0) {
+		pr_dbg("cannot create temp dir: %m\n");
+		return -1;
+	}
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		FILE *fp;
+
+		if (asprintf(&filename, "%s/%d.dat",
+			     handle->dirname, handle->info.tids[i]) < 0) {
+			pr_dbg("cannot alloc filename: %s/%d.dat",
+			       handle->dirname, handle->info.tids[i]);
+			return -1;
+		}
+
+		fp = fopen(filename, "w");
+		if (fp == NULL) {
+			pr_dbg("file open failed: %m\n");
+			free(filename);
+			return -1;
+		}
+
+		fwrite(test_record[i], sizeof(test_record[i][0]),
+		       ARRAY_SIZE(test_record[i]), fp);
+
+		free(filename);
+		fclose(fp);
+	}
+
+	atexit(fstack_test_finish_file);
+	return 0;
+}
+
+static void fstack_test_finish_file(void)
+{
+	int i;
+	char *filename;
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+
+	if (handle->dirname == NULL)
+		return;
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		if (asprintf(&filename, "%s/%d.dat",
+			     handle->dirname, handle->info.tids[i]) < 0)
+			return;
+
+		remove(filename);
+		free(filename);
+	}
+	remove(handle->dirname);
+	handle->dirname = NULL;
+}
+
+TEST_CASE(fstack_read)
+{
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+	struct ftrace_task_handle *task;
+	int i;
+
+	TEST_EQ(fstack_test_setup_file(handle), 0);
+
+	for (i = 0; i < NUM_RECORD; i++) {
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[0]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i].addr);
+
+		TEST_EQ(peek_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+	}
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
