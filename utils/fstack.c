@@ -275,11 +275,20 @@ void fstack_exit(struct ftrace_task_handle *task)
 	task->filter.depth = fstack->orig_depth;
 }
 
-int read_task_ustack(struct ftrace_task_handle *handle)
+/**
+ * read_task_ustack - read user function record for @task
+ * @task: tracee task
+ *
+ * This function reads current ftrace rcord and save it to @task->ustack.
+ * Data file it accesses should be opened already.
+ *
+ * This function returns 0 if succeeded, -1 otherwise.
+ */
+int read_task_ustack(struct ftrace_task_handle *task)
 {
-	FILE *fp = handle->fp;
+	FILE *fp = task->fp;
 
-	if (fread(&handle->ustack, sizeof(handle->ustack), 1, fp) != 1) {
+	if (fread(&task->ustack, sizeof(task->ustack), 1, fp) != 1) {
 		if (feof(fp))
 			return -1;
 
@@ -287,7 +296,7 @@ int read_task_ustack(struct ftrace_task_handle *handle)
 		return -1;
 	}
 
-	if (handle->ustack.unused != FTRACE_UNUSED) {
+	if (task->ustack.unused != FTRACE_UNUSED) {
 		pr_log("invalid rstack read\n");
 		return -1;
 	}
@@ -295,10 +304,18 @@ int read_task_ustack(struct ftrace_task_handle *handle)
 	return 0;
 }
 
+/**
+ * get_task_ustack - read task's user function record
+ * @handle: file handle
+ * @idx: task index
+ *
+ * This function returns current ftrace record of @idx-th task from
+ * data file in @handle.
+ */
 struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
-	struct ftrace_task_handle *fth;
+	struct ftrace_task_handle *task;
 	char *filename;
 	int i;
 
@@ -331,33 +348,33 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		free(filename);
 	}
 
-	fth = &tasks[idx];
+	task = &tasks[idx];
 
-	if (fth->valid)
-		return &fth->ustack;
+	if (task->valid)
+		return &task->ustack;
 
-	if (fth->done)
+	if (task->done)
 		return NULL;
 
-	if (read_task_ustack(fth) < 0) {
-		fth->done = true;
-		fclose(fth->fp);
-		fth->fp = NULL;
+	if (read_task_ustack(task) < 0) {
+		task->done = true;
+		fclose(task->fp);
+		task->fp = NULL;
 		return NULL;
 	}
 
-	if (fth->lost_seen) {
+	if (task->lost_seen) {
 		int i;
 
-		for (i = 0; i <= fth->ustack.depth; i++)
-			fth->func_stack[i].valid = false;
+		for (i = 0; i <= task->ustack.depth; i++)
+			task->func_stack[i].valid = false;
 
 		pr_dbg("lost seen: invalidating existing stack..\n");
-		fth->lost_seen = false;
+		task->lost_seen = false;
 	}
 
-	fth->valid = true;
-	return &fth->ustack;
+	task->valid = true;
+	return &task->ustack;
 }
 
 static int read_user_stack(struct ftrace_file_handle *handle,
@@ -500,12 +517,40 @@ kernel:
 	return 0;
 }
 
+/**
+ * read_rstack - read and consume the oldest ftrace stack
+ * @handle: file handle
+ * @task: pointer to the oldest task
+ *
+ * This function reads all function trace records of each task,
+ * compares the timestamp, and find the oldest one.  After this
+ * function @task will point a task which has the oldest record, and
+ * it can be accessed by @task->rstack.  The oldest record will be
+ * consumed, that means it sets another (*@task)->rstack for next
+ * call.
+ *
+ * This function returns 0 if it reads a rstack, -1 if it's done.
+ */
 int read_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task)
 {
 	return __read_rstack(handle, task, true);
 }
 
+/**
+ * peek_rstack - read the oldest ftrace stack
+ * @handle: file handle
+ * @task: pointer to the oldest task
+ *
+ * This function reads all function trace records of each task,
+ * compares the timestamp, and find the oldest one.  After this
+ * function @task will point a task which has the oldest record, and
+ * it can be accessed by @task->rstack.  The oldest record will *NOT*
+ * be consumed, that means another call to this or @read_rstack will
+ * return same (*@task)->rstack.
+ *
+ * This function returns 0 if it reads a rstack, -1 if it's done.
+ */
 int peek_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task)
 {
