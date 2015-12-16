@@ -984,7 +984,12 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
-#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"			\
+#define FTRACE_MSG  "Cannot trace '%s': No such file\n"			\
+"\tNote that ftrace doesn't search $PATH for you.\n"			\
+"\tIf you really want to trace executables in the $PATH,\n"		\
+"\tplease give it the absolute pathname (like /usr/bin/%s).\n"
+
+#define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"		\
 "\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
 "\twhich generates traceable code.  Please check your binary file.\n"
 
@@ -1019,6 +1024,13 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
+	if (access(opts->exename, X_OK) < 0) {
+		if (errno == ENOENT && opts->exename[0] != '/') {
+			pr_err_ns(FTRACE_MSG, opts->exename, opts->exename);
+		}
+		pr_err("Cannot trace '%s'", opts->exename);
+	}
+
 	load_symtabs(&symtabs, opts->dirname, opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
@@ -1027,7 +1039,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (i == ARRAY_SIZE(profile_funcs) && !opts->force)
-		pr_err(MCOUNT_MSG, "mcount", opts->exename);
+		pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -19,8 +20,11 @@ static void cleanup_tempdir(void)
 		return;
 
 	dp = opendir(tmp_dirname);
-	if (dp == NULL)
+	if (dp == NULL) {
+		if (errno == ENOENT)
+			return;
 		pr_err("cannot open temp dir");
+	}
 
 	while ((ent = readdir(dp)) != NULL) {
 		if (ent->d_name[0] == '.')
