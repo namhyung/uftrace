@@ -1,0 +1,65 @@
+#!/bin/sh
+#-*- mode: shell-script; -*-
+
+prefix=/usr/local
+output=.config
+
+usage() {
+    echo "Usage: $0 [<options>]
+
+  --help             print this message
+  --prefix=<DIR>     set install root dir as <DIR>        (default: /usr/local)
+  --bindir=<DIR>     set executable install dir as <DIR>  (default: \${prefix}/bin)
+  --libbdir=<DIR>    set library install dir as <DIR>     (default: \${prefix}/lib)
+  --libdir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/man)
+"
+    exit 1
+}
+
+while getopts ":ho:-:" opt; do
+    case "$opt" in
+        -)
+	    # process --long-options
+	    case $OPTARG in
+                help)  usage ;;
+                *=*)   opt=${OPTARG%=*}; val=${OPTARG#*=}
+                       eval "$opt=$val" ;;
+                *)     val="${!OPTIND}"; OPTIND=$((OPTIND + 1));
+                       eval "$OPTARG=$val" ;;
+            esac
+	    ;;
+        o)       output=$OPTARG ;;
+        *)       usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+for arg in "$@"; do
+    opt=${arg%=*}
+    val=${arg#*=}
+    eval "$opt='$val'"
+done
+
+if [ -z "$ARCH" ]; then
+    uname_M=$(uname -m 2>/dev/null || echo not)
+    ARCH=$(echo $uname_M | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
+    if [ "$ARCH" = "x86_64" ] && echo "$CFLAGS" | grep -w m32 ; then
+        ARCH=i386
+    fi
+fi
+
+bindir=${bindir:-${prefix}/bin}
+libdir=${libdir:-${prefix}/lib}
+mandir=${mandir:-${prefix}/share/man}
+
+echo "# this file is generated automatically" > $output
+echo override prefix := $prefix  >> $output
+echo override bindir := $bindir  >> $output
+echo override libdir := $libdir  >> $output
+echo override mandir := $mandir  >> $output
+echo                             >> $output
+echo override ARCH   := $ARCH    >> $output
+echo override CC     := $CC      >> $output
+echo override LD     := $LD      >> $output
+echo override CFLAGS  = $CFLAGS  >> $output
+echo override LDFLAGS = $LDFLAGS >> $output

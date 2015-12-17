@@ -16,38 +16,6 @@ $(call allow-override,CC,$(CROSS_COMPILE)gcc)
 $(call allow-override,AR,$(CROSS_COMPILE)ar)
 $(call allow-override,LD,$(CROSS_COMPILE)ld)
 
-RM = rm -f
-INSTALL = install
-
-COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(EXTRA_CFLAGS)
-#CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lelf -lrt -pthread $(EXTRA_LDFLAGS)
-
-COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
-
-#
-# Note that the plain CFLAGS and LDFLAGS can be changed
-# by config/Makefile later but LIB_*FLAGS are not.
-#
-CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
-LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
-
-LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
-LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
-
-prefix ?= /usr/local
-bindir = $(prefix)/bin
-libdir = $(prefix)/lib
-mandir = $(prefix)/share/man
-
-VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
-
-# Check if bulid flags changed
-BUILD_FLAGS := $(COMMON_CFLAGS) $(COMMON_LDFLAGS) $(prefix)
-SAVED_FLAGS := $(shell cat FLAGS 2> /dev/null)
-
-all:
-
 uname_M := $(shell uname -m 2>/dev/null || echo not)
 
 ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
@@ -57,11 +25,39 @@ ifeq ($(ARCH),x86_64)
   endif
 endif
 
-CFLAGS_mcount.op = -pthread
-CFLAGS_ftrace = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
-LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
+prefix ?= /usr/local
+bindir = $(prefix)/bin
+libdir = $(prefix)/lib
+mandir = $(prefix)/share/man
+
+ifneq ($(wildcard .config),)
+  include .config
+endif
+
+RM = rm -f
+INSTALL = install
 
 export ARCH CC AR LD RM
+
+COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
+#CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
+COMMON_LDFLAGS := -lelf -lrt -pthread $(LDFLAGS)
+
+COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+
+#
+# Note that the plain CFLAGS and LDFLAGS can be changed
+# by config/Makefile later but LIB_*FLAGS are not.
+#
+FTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
+LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
+
+FTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
+LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
+
+VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
+
+all:
 
 include config/Makefile
 include config/Makefile.include
@@ -102,6 +98,10 @@ LIBMCOUNT_FAST_SINGLE_SRCS = utils/symbol.c utils/debug.c utils/demangle.c
 LIBMCOUNT_FAST_SINGLE_OBJS = $(LIBMCOUNT_FAST_SINGLE_SRCS:.c=.op) libmcount/mcount-fast-single.op
 
 
+CFLAGS_mcount.op = -pthread
+CFLAGS_ftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"' -I.
+LDFLAGS_ftrace = libtraceevent/libtraceevent.a -ldl
+
 CFLAGS_libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
 CFLAGS_libmcount/mcount-single.op = -DSINGLE_THREAD
 CFLAGS_libmcount/mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
@@ -112,9 +112,15 @@ CFLAGS_utils/demangle.op = -Wno-unused-value
 MAKEFLAGS = --no-print-directory
 
 
-all: $(TARGETS)
+all: .config $(TARGETS)
 
-$(LIBMCOUNT_OBJS): %.op: %.c $(LIBMCOUNT_HDRS) FLAGS
+.config: configure
+	$(QUIET_GEN)./configure $(MAKEOVERRIDES)
+
+config: configure
+	$(QUIET_GEN)./configure $(MAKEOVERRIDES)
+
+$(LIBMCOUNT_OBJS): %.op: %.c $(LIBMCOUNT_HDRS) .config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 libmcount/mcount-nop.op: libmcount/mcount-nop.c
@@ -129,7 +135,7 @@ libmcount/mcount-single.op: libmcount/mcount.c
 libmcount/mcount-fast-single.op: libmcount/mcount.c
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-arch/$(ARCH)/entry.op: $(wildcard arch/$(ARCH)/*.[cS]) FLAGS
+arch/$(ARCH)/entry.op: $(wildcard arch/$(ARCH)/*.[cS]) .config
 	@$(MAKE) -B -C arch/$(ARCH) $(notdir $@)
 
 libmcount/libmcount.so: $(LIBMCOUNT_OBJS) arch/$(ARCH)/entry.op
@@ -150,22 +156,17 @@ libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) arch/$(ARCH)/e
 libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -sC libtraceevent
 
-ftrace.o: ftrace.c version.h $(FTRACE_HDRS) FLAGS
-	$(QUIET_CC)$(CC) $(CFLAGS) -c -o $@ $<
+ftrace.o: ftrace.c version.h $(FTRACE_HDRS) .config
+	$(QUIET_CC)$(CC) $(FTRACE_CFLAGS) -c -o $@ $<
 
-$(filter-out ftrace.o,$(FTRACE_OBJS)): %.o: %.c $(FTRACE_HDRS) FLAGS
-	$(QUIET_CC)$(CC) $(CFLAGS) -c -o $@ $<
-
-FLAGS:
-ifneq ($(BUILD_FLAGS),$(SAVED_FLAGS))
-	$(QUIET_GEN)$(shell echo "$(BUILD_FLAGS)" > FLAGS)
-endif
+$(filter-out ftrace.o,$(FTRACE_OBJS)): %.o: %.c $(FTRACE_HDRS) .config
+	$(QUIET_CC)$(CC) $(FTRACE_CFLAGS) -c -o $@ $<
 
 version.h: PHONY
 	@misc/version.sh $(VERSION_GIT)
 
-ftrace: libtraceevent/libtraceevent.a $(FTRACE_OBJS)
-	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $(FTRACE_OBJS) $(LDFLAGS)
+ftrace: $(FTRACE_OBJS) libtraceevent/libtraceevent.a
+	$(QUIET_LINK)$(CC) $(FTRACE_CFLAGS) -o $@ $(FTRACE_OBJS) $(FTRACE_LDFLAGS)
 
 install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
@@ -207,4 +208,4 @@ clean:
 	@$(MAKE) -sC doc clean
 	@$(MAKE) -sC libtraceevent clean
 
-.PHONY: all clean test dist doc PHONY
+.PHONY: all config clean test dist doc PHONY

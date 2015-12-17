@@ -35,7 +35,7 @@ LDFLAGS_cxa_demangle = -lstdc++
 check-build: check-tstamp $(CHECK_LIST)
 
 $(CHECK_LIST): %: check-%.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) > /dev/null 2>&1
+	@$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) > /dev/null 2>&1
 
 check-tstamp: PHONY
 	@touch $@

@@ -19,3 +19,4 @@ config/*
 !config/Makefile*
 FLAGS
 version.h
+.config
