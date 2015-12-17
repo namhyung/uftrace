@@ -59,10 +59,10 @@ ifeq ("$(origin O)", "command line")
 endif
 
 ifeq ($(BUILD_SRC),)
-ifneq ($(OUTPUT),)
+ifneq ($(BUILD_OUTPUT),)
 
 define build_output
-  $(if $(VERBOSE:1=),@)+$(MAKE) -C $(OUTPUT) \
+  $(if $(VERBOSE:1=),@)+$(MAKE) -C $(BUILD_OUTPUT) \
   BUILD_SRC=$(CURDIR)/ -f $(CURDIR)/Makefile $1
 endef
 
@@ -77,14 +77,14 @@ sub-make: force
 # Leave processing to above invocation of make
 skip-makefile := 1
 
-endif # OUTPUT
+endif # BUILD_OUTPUT
 endif # BUILD_SRC
 
 # We process the rest of the Makefile if this is the final invocation of make
 ifeq ($(skip-makefile),)
 
 srctree		:= $(if $(BUILD_SRC),$(BUILD_SRC),$(CURDIR))
-objtree		:= $(CURDIR)
+objtree		:= $(if $(BUILD_OUTPUT),$(BUILD_OUTPUT),$(CURDIR))
 src		:= $(srctree)
 obj		:= $(objtree)
 
@@ -94,7 +94,7 @@ export prefix bindir src obj
 bindir_SQ = $(subst ','\'',$(bindir))
 bindir_relative_SQ = $(subst ','\'',$(bindir_relative))
 
-LIB_FILE = libtraceevent.a libtraceevent.so
+LIB_FILE = $(obj)/libtraceevent.a # $(obj)/libtraceevent.so
 
 CONFIG_INCLUDES = 
 CONFIG_LIBS	=
@@ -135,20 +135,17 @@ do_build_static_lib =				\
 	$(RM) $@;  $(AR) rcs $@ $^)
 
 
-do_compile = $(QUIET_CC)$(CC) -c $(CFLAGS) $(EXT) $< -o $(obj)/$@;
+do_compile = $(QUIET_CC)$(CC) -c $(CFLAGS) $(EXT) $< -o $@;
 
 $(obj)/%.o: $(src)/%.c
 	$(call do_compile)
 
-%.o: $(src)/%.c
-	$(call do_compile)
-
-PEVENT_LIB_OBJS  = event-parse.o
-PEVENT_LIB_OBJS += event-plugin.o
-PEVENT_LIB_OBJS += trace-seq.o
-PEVENT_LIB_OBJS += parse-filter.o
-PEVENT_LIB_OBJS += parse-utils.o
-PEVENT_LIB_OBJS += kbuffer-parse.o
+PEVENT_LIB_OBJS  = $(obj)/event-parse.o
+PEVENT_LIB_OBJS += $(obj)/event-plugin.o
+PEVENT_LIB_OBJS += $(obj)/trace-seq.o
+PEVENT_LIB_OBJS += $(obj)/parse-filter.o
+PEVENT_LIB_OBJS += $(obj)/parse-utils.o
+PEVENT_LIB_OBJS += $(obj)/kbuffer-parse.o
 
 ALL_OBJS = $(PEVENT_LIB_OBJS) $(PLUGIN_OBJS)
 
@@ -161,13 +158,13 @@ all: all_cmd
 
 all_cmd: $(CMD_TARGETS)
 
-libtraceevent.so: $(PEVENT_LIB_OBJS)
+$(obj)/libtraceevent.so: $(PEVENT_LIB_OBJS)
 	$(QUIET_LINK)$(CC) --shared $^ -o $@
 
-libtraceevent.a: $(PEVENT_LIB_OBJS)
+$(obj)/libtraceevent.a: $(PEVENT_LIB_OBJS)
 	$(QUIET_LINK)$(RM) $@; $(AR) rcs $@ $^
 
-$(PEVENT_LIB_OBJS): %.o: $(src)/%.c TRACEEVENT-CFLAGS
+$(PEVENT_LIB_OBJS): $(obj)/%.o: $(src)/%.c TRACEEVENT-CFLAGS
 	$(QUIET_CC_FPIC)$(CC) -c $(CFLAGS) $(EXT) -fPIC $< -o $@
 
 define make_version.h
@@ -208,7 +205,7 @@ endef
 ## make deps
 
 all_objs := $(sort $(ALL_OBJS))
-all_deps := $(all_objs:%.o=.%.d)
+all_deps := $(all_objs:$(obj)/%.o=$(obj)/.%.d)
 
 # let .d file also depends on the source and header files
 define check_deps
@@ -218,10 +215,10 @@ define check_deps
   $(RM) $@.$$$$
 endef
 
-$(all_deps): .%.d: $(src)/%.c
+$(all_deps): $(obj)/.%.d: $(src)/%.c
 	$(Q)$(call check_deps)
 
-$(all_objs) : %.o : .%.d
+$(all_objs) : $(obj)/%.o : $(obj)/.%.d
 
 dep_includes := $(wildcard $(all_deps))
 
@@ -264,8 +261,8 @@ install: install_lib
 
 clean:
 	$(call QUIET_CLEAN, libtraceevent) \
-		$(RM) *.o *~ $(TARGETS) *.a *.so $(VERSION_FILES) .*.d \
-		$(RM) TRACEEVENT-CFLAGS tags TAGS
+		$(RM) $(obj)/*.o $(obj)/*~ $(TARGETS) $(obj)/*.a $(obj)/*.so \
+		$(VERSION_FILES) $(obj)/.*.d $(RM) TRACEEVENT-CFLAGS tags TAGS
 
 endif # skip-makefile
 

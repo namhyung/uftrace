@@ -1,17 +1,20 @@
 ASFLAGS = -fPIC
 LDFLAGS = -r
 
-include ../../config/Makefile.include
+sdir = $(srcdir)/arch/x86_64
+odir = $(objdir)/arch/x86_64
 
-ARCH_ENTRY_SRC = mcount.S fentry.S plthook.S
+include $(srcdir)/config/Makefile.include
 
-all: entry.op
+ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 
-entry.op: $(ARCH_ENTRY_SRC:.S=.op)
+all: $(odir)/entry.op
+
+$(odir)/entry.op: $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
 	$(QUIET_LINK)$(LD) $(LDFLAGS) -o $@ $^
 
-%.op: %.S
+$(odir)/%.op: $(sdir)/%.S
 	$(QUIET_ASM)$(CC) $(ASFLAGS) -c -o $@ $<
 
 clean:
-	$(RM) *.op *.o
+	$(RM) $(odir)/*.op $(odir)/*.o

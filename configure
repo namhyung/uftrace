@@ -2,7 +2,6 @@
 #-*- mode: shell-script; -*-
 
 prefix=/usr/local
-output=.config
 
 usage() {
     echo "Usage: $0 [<options>]
@@ -12,6 +11,7 @@ usage() {
   --bindir=<DIR>     set executable install dir as <DIR>  (default: \${prefix}/bin)
   --libbdir=<DIR>    set library install dir as <DIR>     (default: \${prefix}/lib)
   --libdir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/man)
+  --objdir=<DIR>     set build dir as <DIR>               (default: \${PWD})
 "
     exit 1
 }
@@ -20,7 +20,7 @@ while getopts ":ho:-:" opt; do
     case "$opt" in
         -)
 	    # process --long-options
-	    case $OPTARG in
+	    case "$OPTARG" in
                 help)  usage ;;
                 *=*)   opt=${OPTARG%=*}; val=${OPTARG#*=}
                        eval "$opt=$val" ;;
@@ -52,6 +52,13 @@ bindir=${bindir:-${prefix}/bin}
 libdir=${libdir:-${prefix}/lib}
 mandir=${mandir:-${prefix}/share/man}
 
+CC=${CC:-${CROSS_COMPILE}gcc}
+LD=${LD:-${CROSS_COMPILE}ld}
+
+srcdir=$(readlink -f $(dirname $0))
+objdir=${objdir:-${PWD}}
+output=${output:-${objdir}/.config}
+
 echo "# this file is generated automatically" > $output
 echo override prefix := $prefix  >> $output
 echo override bindir := $bindir  >> $output
@@ -63,3 +70,37 @@ echo override CC     := $CC      >> $output
 echo override LD     := $LD      >> $output
 echo override CFLAGS  = $CFLAGS  >> $output
 echo override LDFLAGS = $LDFLAGS >> $output
+echo                             >> $output
+echo override srcdir := $srcdir  >> $output
+echo override objdir := $objdir  >> $output
+
+if [ "$srcdir" != "$objdir" ]; then
+    cat > $objdir/Makefile <<EOF
+ARCH := $ARCH
+
+srcdir := $srcdir
+objdir := $objdir
+
+export ARCH srcdir objdir
+
+MAKEFLAGS = --no-print-directory
+
+all: prepare
+	@\$(MAKE) -C \$(srcdir)
+
+config:
+	@\$(srcdir)/configure \$(MAKEOVERRIDES)
+
+clean:
+	@rm -rf arch libmcount libtraceevent utils
+	@rm -f ftrace version.h *.o *.op
+
+prepare:
+	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
+
+test: all
+	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
+
+.PHONY: all config clean test
+EOF
+fi
