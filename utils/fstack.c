@@ -275,11 +275,20 @@ void fstack_exit(struct ftrace_task_handle *task)
 	task->filter.depth = fstack->orig_depth;
 }
 
-int read_task_ustack(struct ftrace_task_handle *handle)
+/**
+ * read_task_ustack - read user function record for @task
+ * @task: tracee task
+ *
+ * This function reads current ftrace rcord and save it to @task->ustack.
+ * Data file it accesses should be opened already.
+ *
+ * This function returns 0 if succeeded, -1 otherwise.
+ */
+int read_task_ustack(struct ftrace_task_handle *task)
 {
-	FILE *fp = handle->fp;
+	FILE *fp = task->fp;
 
-	if (fread(&handle->ustack, sizeof(handle->ustack), 1, fp) != 1) {
+	if (fread(&task->ustack, sizeof(task->ustack), 1, fp) != 1) {
 		if (feof(fp))
 			return -1;
 
@@ -287,7 +296,7 @@ int read_task_ustack(struct ftrace_task_handle *handle)
 		return -1;
 	}
 
-	if (handle->ustack.unused != FTRACE_UNUSED) {
+	if (task->ustack.unused != FTRACE_UNUSED) {
 		pr_log("invalid rstack read\n");
 		return -1;
 	}
@@ -295,10 +304,18 @@ int read_task_ustack(struct ftrace_task_handle *handle)
 	return 0;
 }
 
+/**
+ * get_task_ustack - read task's user function record
+ * @handle: file handle
+ * @idx: task index
+ *
+ * This function returns current ftrace record of @idx-th task from
+ * data file in @handle.
+ */
 struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
-	struct ftrace_task_handle *fth;
+	struct ftrace_task_handle *task;
 	char *filename;
 	int i;
 
@@ -331,33 +348,33 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		free(filename);
 	}
 
-	fth = &tasks[idx];
+	task = &tasks[idx];
 
-	if (fth->valid)
-		return &fth->ustack;
+	if (task->valid)
+		return &task->ustack;
 
-	if (fth->done)
+	if (task->done)
 		return NULL;
 
-	if (read_task_ustack(fth) < 0) {
-		fth->done = true;
-		fclose(fth->fp);
-		fth->fp = NULL;
+	if (read_task_ustack(task) < 0) {
+		task->done = true;
+		fclose(task->fp);
+		task->fp = NULL;
 		return NULL;
 	}
 
-	if (fth->lost_seen) {
+	if (task->lost_seen) {
 		int i;
 
-		for (i = 0; i <= fth->ustack.depth; i++)
-			fth->func_stack[i].valid = false;
+		for (i = 0; i <= task->ustack.depth; i++)
+			task->func_stack[i].valid = false;
 
 		pr_dbg("lost seen: invalidating existing stack..\n");
-		fth->lost_seen = false;
+		task->lost_seen = false;
 	}
 
-	fth->valid = true;
-	return &fth->ustack;
+	task->valid = true;
+	return &task->ustack;
 }
 
 static int read_user_stack(struct ftrace_file_handle *handle,
@@ -500,14 +517,165 @@ kernel:
 	return 0;
 }
 
+/**
+ * read_rstack - read and consume the oldest ftrace stack
+ * @handle: file handle
+ * @task: pointer to the oldest task
+ *
+ * This function reads all function trace records of each task,
+ * compares the timestamp, and find the oldest one.  After this
+ * function @task will point a task which has the oldest record, and
+ * it can be accessed by @task->rstack.  The oldest record will be
+ * consumed, that means it sets another (*@task)->rstack for next
+ * call.
+ *
+ * This function returns 0 if it reads a rstack, -1 if it's done.
+ */
 int read_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task)
 {
 	return __read_rstack(handle, task, true);
 }
 
+/**
+ * peek_rstack - read the oldest ftrace stack
+ * @handle: file handle
+ * @task: pointer to the oldest task
+ *
+ * This function reads all function trace records of each task,
+ * compares the timestamp, and find the oldest one.  After this
+ * function @task will point a task which has the oldest record, and
+ * it can be accessed by @task->rstack.  The oldest record will *NOT*
+ * be consumed, that means another call to this or @read_rstack will
+ * return same (*@task)->rstack.
+ *
+ * This function returns 0 if it reads a rstack, -1 if it's done.
+ */
 int peek_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task)
 {
 	return __read_rstack(handle, task, false);
 }
+
+
+#ifdef UNIT_TEST
+
+#include <sys/stat.h>
+
+#define NUM_TASK    2
+#define NUM_RECORD  4
+
+static int test_tids[NUM_TASK] = { 1234, 5678 };
+struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
+	{
+		{ 100, FTRACE_ENTRY, FTRACE_UNUSED, 0, 0x40000 },
+		{ 200, FTRACE_ENTRY, FTRACE_UNUSED, 1, 0x41000 },
+		{ 300, FTRACE_EXIT,  FTRACE_UNUSED, 1, 0x41000 },
+		{ 400, FTRACE_EXIT,  FTRACE_UNUSED, 0, 0x40000 },
+	},
+	{
+		{ 150, FTRACE_ENTRY, FTRACE_UNUSED, 0, 0x40000 },
+		{ 250, FTRACE_ENTRY, FTRACE_UNUSED, 1, 0x41000 },
+		{ 350, FTRACE_EXIT,  FTRACE_UNUSED, 1, 0x41000 },
+		{ 450, FTRACE_EXIT,  FTRACE_UNUSED, 0, 0x40000 },
+	}
+};
+
+static struct ftrace_file_handle fstack_test_handle;
+static void fstack_test_finish_file(void);
+
+static int fstack_test_setup_file(struct ftrace_file_handle *handle)
+{
+	int i;
+	char *filename;
+
+	handle->dirname = "tmp.dir";
+	handle->info.tids = test_tids;
+	handle->info.nr_tid = ARRAY_SIZE(test_tids);
+
+	if (mkdir(handle->dirname, 0755) < 0) {
+		pr_dbg("cannot create temp dir: %m\n");
+		return -1;
+	}
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		FILE *fp;
+
+		if (asprintf(&filename, "%s/%d.dat",
+			     handle->dirname, handle->info.tids[i]) < 0) {
+			pr_dbg("cannot alloc filename: %s/%d.dat",
+			       handle->dirname, handle->info.tids[i]);
+			return -1;
+		}
+
+		fp = fopen(filename, "w");
+		if (fp == NULL) {
+			pr_dbg("file open failed: %m\n");
+			free(filename);
+			return -1;
+		}
+
+		fwrite(test_record[i], sizeof(test_record[i][0]),
+		       ARRAY_SIZE(test_record[i]), fp);
+
+		free(filename);
+		fclose(fp);
+	}
+
+	atexit(fstack_test_finish_file);
+	return 0;
+}
+
+static void fstack_test_finish_file(void)
+{
+	int i;
+	char *filename;
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+
+	if (handle->dirname == NULL)
+		return;
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		if (asprintf(&filename, "%s/%d.dat",
+			     handle->dirname, handle->info.tids[i]) < 0)
+			return;
+
+		remove(filename);
+		free(filename);
+	}
+	remove(handle->dirname);
+	handle->dirname = NULL;
+}
+
+TEST_CASE(fstack_read)
+{
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+	struct ftrace_task_handle *task;
+	int i;
+
+	TEST_EQ(fstack_test_setup_file(handle), 0);
+
+	for (i = 0; i < NUM_RECORD; i++) {
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[0]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i].addr);
+
+		TEST_EQ(peek_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+	}
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */

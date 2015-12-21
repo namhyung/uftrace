@@ -403,6 +403,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 static int command_dump(int argc, char *argv[], struct opts *opts);
 
+#ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
@@ -474,6 +475,7 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+#endif /* UNIT_TEST */
 
 static int command_dump(int argc, char *argv[], struct opts *opts)
 {
