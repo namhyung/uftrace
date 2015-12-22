@@ -327,6 +327,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->color = parse_color(arg);
 		if (opts->color == -2)
 			pr_use("unknown color setting: %s\n", arg);
+		break;
 
 	case OPT_disabled:
 		opts->disabled = true;
