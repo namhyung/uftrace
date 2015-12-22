@@ -225,6 +225,8 @@ static unsigned parse_debug_domain(char *arg)
 			domain |= DBG_SESSION;
 		else if (!strcmp(tok, "kernel"))
 			domain |= DBG_KERNEL;
+		else if (!strcmp(tok, "mcount"))
+			domain |= DBG_MCOUNT;
 
 		str = NULL;
 	}

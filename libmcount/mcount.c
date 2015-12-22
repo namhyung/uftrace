@@ -23,7 +23,8 @@
 #include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT  "mcount"
+#define PR_FMT     "mcount"
+#define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
@@ -121,7 +122,7 @@ static const char *session_name(void)
 	if (!session_id) {
 		fd = open("/dev/urandom", O_RDONLY);
 		if (fd < 0)
-			pr_err("open open urandom file");
+			pr_err("cannot open urandom file");
 
 		if (read(fd, &session_id, sizeof(session_id)) != 8)
 			pr_err("reading from urandom");
@@ -173,7 +174,7 @@ static void get_new_shmem_buffer(void)
 		 session_name(), gettid(), idx);
 
 	if (shmem_buffer[idx] == NULL) {
-		pr_dbg("opening shmem buffer: %s\n", buf);
+		pr_dbg2("opening shmem buffer: %s\n", buf);
 
 		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 		if (fd < 0)
@@ -290,7 +291,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 		}
 	}
 
-	pr_dbg2("%d recording %zd bytes\n", gettid(), size);
+	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
 
 	frstack = (void *)(shmem_curr->data + shmem_curr->size);
 
@@ -416,7 +417,7 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	if (mcount_rstack_idx >= mcount_rstack_max)
 		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
 
-	pr_dbg2("<%d> N %lx\n", mcount_rstack_idx, child);
+	pr_dbg3("<%d> enter %lx\n", mcount_rstack_idx, child);
 
 	/* save original depth to restore at exit time */
 	mcount_filter.saved_depth = mcount_filter.depth;
@@ -427,7 +428,7 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 
 	ftrace_match_filter(&mcount_triggers, child, tr);
 
-	pr_dbg2(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
+	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
 		tr->flags, mcount_filter_mode, mcount_filter.in_count, mcount_filter.out_count);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
@@ -500,7 +501,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 static __inline__
 void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
-	pr_dbg2("<%d> X %lx\n", mcount_rstack_idx, rstack->child_ip);
+	pr_dbg3("<%d> exit  %lx\n", mcount_rstack_idx, rstack->child_ip);
 
 	if (rstack->flags & MCOUNT_FL_FILTERED)
 		mcount_filter.in_count--;
@@ -693,14 +694,14 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		sa.sa_flags = SA_SIGINFO;
 		sigfillset(&sa.sa_mask);
 		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-			pr_log("error during install sig handler\n");
+			pr_dbg("error during install sig handler\n");
 			return -1;
 		}
 
 		plthook_got_ptr[2] = (unsigned long)plt_hooker;
 
 		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-			pr_log("error during recover sig handler\n");
+			pr_dbg("error during recover sig handler\n");
 			return -1;
 		}
 
@@ -710,8 +711,8 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 			segv_handled = false;
 		}
 
-		pr_dbg("found GOT at %p (resolver: %#lx)\n",
-		       plthook_got_ptr, plthook_resolver_addr);
+		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
+			plthook_got_ptr, plthook_resolver_addr);
 
 		break;
 	}
@@ -730,7 +731,7 @@ static int hook_pltgot(void)
 	size_t shstr_idx;
 	size_t i;
 
-	pr_dbg("opening executable image: %s\n", mcount_exename);
+	pr_dbg2("opening executable image: %s\n", mcount_exename);
 
 	fd = open(mcount_exename, O_RDONLY);
 	if (fd < 0)
@@ -776,7 +777,7 @@ out:
 	return ret;
 
 elf_error:
-	pr_log("%s\n", elf_errmsg(elf_errno()));
+	pr_dbg("%s\n", elf_errmsg(elf_errno()));
 
 	goto out;
 }
@@ -853,7 +854,7 @@ static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 	int i;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
 
-	pr_dbg("setup jmpbuf rstack: %d\n", idx);
+	pr_dbg2("setup jmpbuf rstack: %d\n", idx);
 
 	/* currently, only saves a single jmpbuf */
 	jbstack->count = idx;
@@ -873,7 +874,7 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	dyn_idx = rstack[idx].dyn_idx;
 
-	pr_dbg("restore jmpbuf: %d\n", jbstack->count);
+	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
 
 	mcount_rstack_idx = jbstack->count + 1;
 	mcount_record_idx = jbstack->record_idx;
@@ -979,7 +980,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		return 0;
 
 	sym = find_dynsym(&symtabs, child_idx);
-	pr_dbg2("[%d] n %"PRIx64": %s\n", child_idx, sym->addr, sym->name);
+	pr_dbg3("[%d] enter %"PRIx64": %s\n", child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -1059,12 +1060,9 @@ again:
 			  mcount_rstack_idx, dyn_idx);
 	}
 
-	if (debug >= 2) {
-		struct sym *sym = find_dynsym(&symtabs, dyn_idx);
-
-		pr_dbg2("[%d] x %"PRIx64": %s\n", dyn_idx,
-			plthook_dynsym_addr[dyn_idx], sym->name);
-	}
+	pr_dbg3("[%d] exit  %"PRIx64": %s\n", dyn_idx,
+		plthook_dynsym_addr[dyn_idx],
+		find_dynsym(&symtabs, dyn_idx)->name);
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
@@ -1171,7 +1169,7 @@ __monstartup(unsigned long low, unsigned long high)
 
 		/* minimal sanity check */
 		if (fstat(pfd, &statbuf) < 0 || !S_ISFIFO(statbuf.st_mode)) {
-			pr_log("ignore invalid pipe fd: %d\n", pfd);
+			pr_dbg("ignore invalid pipe fd: %d\n", pfd);
 			pfd = -1;
 		}
 	}
@@ -1224,11 +1222,6 @@ __monstartup(unsigned long low, unsigned long high)
 						      count_dynsym(&symtabs));
 		}
 	}
-
-#ifndef DISABLE_MCOUNT_FILTER
-	if (debug >= 1)
-		ftrace_print_filter(&mcount_triggers);
-#endif /* DISABLE_MCOUNT_FILTER */
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
