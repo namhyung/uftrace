@@ -61,9 +61,9 @@ enum options {
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
-	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
-	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
-	{ "trigger", 'T', "FUNC@act[:act:...]", 0, "Trigger action on those FUNCs" },
+	{ "filter", 'F', "FUNC", 0, "Only trace those FUNCs" },
+	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
+	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
