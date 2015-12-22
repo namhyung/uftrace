@@ -69,7 +69,8 @@ extern void setup_color(int color);
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
-#define pr_out(fmt, ...)  __pr_out(fmt, ## __VA_ARGS__)
+#define pr_out(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
+#define pr_use(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
 
 
 #ifndef ARRAY_SIZE

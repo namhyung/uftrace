@@ -116,7 +116,8 @@ static unsigned long parse_size(char *str)
 		break;
 
 	default:
-		fprintf(stderr, "invalid size unit: %s\n", unit);
+		pr_use("invalid size: %s\n", str);
+		size = 0;
 		break;
 	}
 
@@ -224,7 +225,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case 'D':
 		opts->depth = strtol(arg, NULL, 0);
 		if (opts->depth <= 0)
-			pr_err_ns("invalid depth given: %s\n", arg);
+			pr_use("invalid depth given: %s\n", arg);
 		break;
 
 	case 't':
@@ -242,7 +243,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case 'b':
 		opts->bsize = parse_size(arg);
 		if (opts->bsize & (getpagesize() - 1))
-			pr_err_ns("buffer size should be multiple of page size");
+			pr_use("buffer size should be multiple of page size\n");
 		break;
 
 	case 'k':
@@ -300,14 +301,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_max_stack:
 		opts->max_stack = strtol(arg, NULL, 0);
 		if (opts->max_stack <= 0 || opts->max_stack > MCOUNT_RSTACK_MAX)
-			pr_err_ns("max stack depth should be >0 and <%d\n",
-				  MCOUNT_RSTACK_MAX);
+			pr_use("max stack depth should be >0 and <%d\n",
+			       MCOUNT_RSTACK_MAX);
 		break;
 
 	case OPT_port:
 		opts->port = strtol(arg, NULL, 0);
 		if (opts->port <= 0)
-			pr_err_ns("invalid port number: %s\n", arg);
+			pr_use("invalid port number: %s\n", arg);
 		break;
 
 	case OPT_nopager:
@@ -325,7 +326,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_color:
 		opts->color = parse_color(arg);
 		if (opts->color == -2)
-			pr_err_ns("unknown color setting: %s\n", arg);
+			pr_use("unknown color setting: %s\n", arg);
 
 	case OPT_disabled:
 		opts->disabled = true;
@@ -334,9 +335,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_demangle:
 		demangler = parse_demangle(arg);
 		if (demangler == DEMANGLE_ERROR)
-			pr_err_ns("unknown demangle value: %s\n", arg);
+			pr_use("unknown demangle value: %s\n", arg);
 		else if (demangler == DEMANGLE_NOT_SUPPORTED)
-			pr_err_ns("'%s' demangler is not supported\n", arg);
+			pr_use("'%s' demangler is not supported\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:
