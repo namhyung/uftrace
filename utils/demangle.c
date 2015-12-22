@@ -13,6 +13,10 @@
 #include <ctype.h>
 #include <assert.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "demangle"
+#define PR_DOMAIN  DBG_DEMANGLE
+
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
@@ -111,12 +115,17 @@ static void dd_debug_print(struct demangle_data *dd)
 	if (dd->func == NULL)
 		dd->func = "demangle";
 
-	pr_dbg("demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
-	       dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
-	       dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
+	if (debug <= 1) {
+		pr_dbg("demangle failed: %s\n", dd->old);
+		return;
+	}
+
+	pr_dbg2("demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
+		dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
+		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
 
 	for (i = 0; i < dd->nr_dbg; i++)
-		pr_dbg("  [%d] %s\n", i, dd->debug[i]);
+		pr_dbg2("  [%d] %s\n", i, dd->debug[i]);
 }
 
 static const struct {
@@ -1454,7 +1463,7 @@ char *demangle(char *str)
 	case DEMANGLE_NONE:
 		return xstrdup(str);
 	default:
-		pr_log("demangler error\n");
+		pr_dbg("demangler error\n");
 		return str;
 	}
 }
@@ -1478,7 +1487,10 @@ TEST_CASE(demangle_simple2)
 	TEST_STREQ("v8::internal::ScopedVector::ScopedVector",
 		   demangle_simple("_ZN2v88internal12ScopedVectorIcEC1Ei"));
 	TEST_STREQ("std::allocator_traits::construct",
-		   demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_nodeISt4pairIKSsN7pbnjson7JSchemaEEEEE9constructIS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_"));
+		   demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
+				   "ISt4pairIKSsN7pbnjson7JSchemaEEEEE9construct"
+				   "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
+				   "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_"));
 
 	return TEST_OK;
 }

@@ -215,6 +215,8 @@ static unsigned parse_debug_domain(char *arg)
 			domain |= DBG_FTRACE;
 		else if (!strcmp(tok, "symbol"))
 			domain |= DBG_SYMBOL;
+		else if (!strcmp(tok, "demangle"))
+			domain |= DBG_DEMANGLE;
 
 		str = NULL;
 	}
