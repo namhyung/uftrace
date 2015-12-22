@@ -6,11 +6,11 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "filter"
 
-#include "../libmcount/mcount.h"
-#include "filter.h"
-#include "symbol.h"
-#include "rbtree.h"
-#include "utils.h"
+#include "libmcount/mcount.h"
+#include "utils/filter.h"
+#include "utils/symbol.h"
+#include "utils/rbtree.h"
+#include "utils/utils.h"
 
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)

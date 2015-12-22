@@ -49,7 +49,7 @@ INSTALL = install
 
 export ARCH CC AR LD RM srcdir objdir
 
-COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
+COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS) -iquote $(srcdir) -iquote $(objdir)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -pthread $(LDFLAGS)
 
@@ -117,7 +117,7 @@ LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUN
 LIBMCOUNT_MCOUNT_OBJS := $(patsubst libmcount/lib%.so,$(objdir)/libmcount/%.op,$(LIBMCOUNT_TARGETS))
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/ftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"' -I$(srcdir) -I$(objdir)
+CFLAGS_$(objdir)/ftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/ftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER

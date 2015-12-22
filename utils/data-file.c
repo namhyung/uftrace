@@ -5,9 +5,9 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "../ftrace.h"
-#include "utils.h"
-#include "fstack.h"
+#include "ftrace.h"
+#include "utils/utils.h"
+#include "utils/fstack.h"
 
 
 char *map_file;

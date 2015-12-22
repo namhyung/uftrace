@@ -25,10 +25,10 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "mcount"
 
-#include "mcount.h"
-#include "../utils/utils.h"
-#include "../utils/symbol.h"
-#include "../utils/filter.h"
+#include "libmcount/mcount.h"
+#include "utils/utils.h"
+#include "utils/symbol.h"
+#include "utils/filter.h"
 
 #ifdef SINGLE_THREAD
 # define TLS
