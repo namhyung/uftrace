@@ -446,6 +446,9 @@ int main(int argc, char *argv[])
 
 	setup_color(opts.color);
 
+	if (opts.use_pager)
+		start_pager();
+
 	switch (opts.mode) {
 	case FTRACE_MODE_RECORD:
 		command_record(argc, argv, &opts);
@@ -471,6 +474,8 @@ int main(int argc, char *argv[])
 	case FTRACE_MODE_INVALID:
 		break;
 	}
+
+	wait_for_pager();
 
 	if (opts.logfile)
 		fclose(logfp);

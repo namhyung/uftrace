@@ -735,9 +735,6 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (stat(buf, &statbuf) < 0)
 		return -1;
 
-	if (opts->use_pager)
-		start_pager();
-
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
 			.loaded = false,
@@ -839,6 +836,5 @@ int command_info(int argc, char *argv[], struct opts *opts)
 out:
 	close_data_file(opts, &handle);
 
-	wait_for_pager();
 	return ret;
 }
