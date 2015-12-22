@@ -35,9 +35,13 @@ extern FILE *logfp;
 extern FILE *outfp;
 
 enum debug_domain {
+	DBG_FTRACE_BIT	= 0,
+	DBG_SYMBOL_BIT,
+
 	DBG_ALL		= -1,
-	DBG_NONE,
-	DBG_FTRACE,
+	DBG_NONE	= 0,
+	DBG_FTRACE	= (1U << DBG_FTRACE_BIT),
+	DBG_SYMBOL	= (1U << DBG_SYMBOL_BIT),
 };
 
 extern void __pr_log(const char *fmt, ...);

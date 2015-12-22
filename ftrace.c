@@ -213,6 +213,8 @@ static unsigned parse_debug_domain(char *arg)
 	while ((tok = strtok_r(str, ",", &pos)) != NULL) {
 		if (!strcmp(tok, "ftrace"))
 			domain |= DBG_FTRACE;
+		else if (!strcmp(tok, "symbol"))
+			domain |= DBG_SYMBOL;
 
 		str = NULL;
 	}

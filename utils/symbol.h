@@ -76,8 +76,6 @@ void print_symtabs(struct symtabs *symtabs);
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
-int load_dynsymtab(struct symtabs *symtabs, const char *filename);
-void unload_dynsymtab(struct symtabs *symtabs);
 
 int load_kernel_symbol(void);
 struct symtab * get_kernel_symtab(void);
