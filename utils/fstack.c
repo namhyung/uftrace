@@ -6,7 +6,8 @@
 #include <errno.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT  "fstack"
+#define PR_FMT     "fstack"
+#define PR_DOMAIN  DBG_FSTACK
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -110,10 +111,13 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 		xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
 
 		tasks[i].fp = fopen(filename, "rb");
-		if (tasks[i].fp == NULL)
-			pr_err("cannot open task data file [%s]", filename);
+		if (tasks[i].fp == NULL) {
+			pr_dbg("cannot open task data file: %s", filename);
+			tasks[i].done = true;
+		}
+		else
+			pr_dbg2("opening %s\n", filename);
 
-		pr_dbg("opening %s\n", filename);
 		free(filename);
 
 		tasks[i].filter.depth = handle->depth;
@@ -297,7 +301,7 @@ int read_task_ustack(struct ftrace_task_handle *task)
 	}
 
 	if (task->ustack.unused != FTRACE_UNUSED) {
-		pr_log("invalid rstack read\n");
+		pr_dbg("invalid rstack read\n");
 		return -1;
 	}
 
@@ -344,7 +348,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		for (i = 0; i < FSTACK_MAX; i++)
 			tasks[idx].func_stack[i].orig_depth = handle->depth;
 
-		pr_dbg("opening %s\n", filename);
+		pr_dbg2("opening %s\n", filename);
 		free(filename);
 	}
 

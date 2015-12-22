@@ -219,6 +219,8 @@ static unsigned parse_debug_domain(char *arg)
 			domain |= DBG_DEMANGLE;
 		else if (!strcmp(tok, "filter"))
 			domain |= DBG_FILTER;
+		else if (!strcmp(tok, "fstack"))
+			domain |= DBG_FSTACK;
 
 		str = NULL;
 	}
