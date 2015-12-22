@@ -28,6 +28,7 @@ int debug;
 FILE *logfp;
 int log_color = 1;
 FILE *outfp;
+unsigned dbg_domain;
 
 static void color(const char *code)
 {

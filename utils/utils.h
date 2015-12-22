@@ -30,8 +30,15 @@
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
 extern int debug;
+extern unsigned dbg_domain;
 extern FILE *logfp;
 extern FILE *outfp;
+
+enum debug_domain {
+	DBG_ALL		= -1,
+	DBG_NONE,
+	DBG_FTRACE,
+};
 
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
@@ -44,15 +51,25 @@ extern void setup_color(int color);
 # define PR_FMT  "ftrace"
 #endif
 
+#ifndef PR_DOMAIN
+# define PR_DOMAIN  DBG_FTRACE
+#endif
+
 #define pr_dbg(fmt, ...) 					\
 ({								\
-	if (debug)						\
+	if (debug && (dbg_domain & PR_DOMAIN))			\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg2(fmt, ...) 					\
 ({								\
-	if (debug > 1)						\
+	if (debug > 1 && (dbg_domain & PR_DOMAIN))		\
+		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+})
+
+#define pr_dbg3(fmt, ...) 					\
+({								\
+	if (debug > 2 && (dbg_domain & PR_DOMAIN))		\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 

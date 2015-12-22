@@ -57,6 +57,7 @@ enum options {
 	OPT_color,
 	OPT_disabled,
 	OPT_demangle,
+	OPT_dbg_domain,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -90,6 +91,7 @@ static struct argp_option ftrace_options[] = {
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
 	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: full, simple, no" },
+	{ "debug-domain", OPT_dbg_domain, "DOMAIN", 0, "Filter debugging domain" },
 	{ 0 }
 };
 
@@ -199,6 +201,24 @@ static int parse_demangle(char *arg)
 	}
 
 	return DEMANGLE_ERROR;
+}
+
+static unsigned parse_debug_domain(char *arg)
+{
+	char *str, *saved_str;
+	char *tok, *pos;
+	unsigned domain = 0;
+
+	saved_str = str = xstrdup(arg);
+	while ((tok = strtok_r(str, ",", &pos)) != NULL) {
+		if (!strcmp(tok, "ftrace"))
+			domain |= DBG_FTRACE;
+
+		str = NULL;
+	}
+
+	free(saved_str);
+	return domain;
 }
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -341,6 +361,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("'%s' demangler is not supported\n", arg);
 		break;
 
+	case OPT_dbg_domain:
+		dbg_domain = parse_debug_domain(arg);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -443,6 +467,9 @@ int main(int argc, char *argv[])
 		/* ensure normal output is not mixed by debug message */
 		setvbuf(outfp, NULL, _IOLBF, 1024);
 	}
+
+	if (debug && !dbg_domain)
+		dbg_domain = DBG_ALL;
 
 	setup_color(opts.color);
 
