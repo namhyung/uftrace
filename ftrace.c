@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
 	}
 	else if (debug) {
 		/* ensure normal output is not mixed by debug message */
-		outfp = stderr;
+		setvbuf(outfp, NULL, _IOLBF, 1024);
 	}
 
 	setup_color(opts.color);
