@@ -16,7 +16,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT "kernel"
+#define PR_FMT     "kernel"
+#define PR_DOMAIN  DBG_KERNEL
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -68,13 +69,13 @@ static int __write_tracing_file(const char *name, const char *val, bool append)
 		goto out;
 	}
 
-	pr_dbg("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
+	pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
 	       val, name);
 
 	if (write(fd, val, size) == size)
 		ret = 0;
 	else
-		pr_log("write '%s' to tracing/%s failed: %m\n", val, name);
+		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
 
 	close(fd);
 out:
@@ -183,40 +184,30 @@ static int setup_kernel_tracing(struct ftrace_kernel *kernel)
 	}
 
 	if (reset_tracing_files() < 0) {
-		pr_log("failed to reset tracing files\n");
+		pr_dbg("failed to reset tracing files\n");
 		return -1;
 	}
 
+	pr_dbg("setting up kernel tracing\n");
+
 	/* reset ftrace buffer */
-	if (write_tracing_file("trace", "0") < 0) {
-		pr_log("failed to reset ftrace buffer\n");
+	if (write_tracing_file("trace", "0") < 0)
 		goto out;
-	}
 
-	if (set_tracing_clock() < 0) {
-		pr_log("failed to set trace clock\n");
+	if (set_tracing_clock() < 0)
 		goto out;
-	}
 
-	if (set_tracing_pid(kernel->pid) < 0) {
-		pr_log("failed to set ftrace pid\n");
+	if (set_tracing_pid(kernel->pid) < 0)
 		goto out;
-	}
 
-	if (set_tracing_filter(kernel) < 0) {
-		pr_log("failed to set ftrace filter\n");
+	if (set_tracing_filter(kernel) < 0)
 		goto out;
-	}
 
-	if (set_tracing_depth(kernel) < 0) {
-		pr_log("failed to set ftrace depth\n");
+	if (set_tracing_depth(kernel) < 0)
 		goto out;
-	}
 
-	if (write_tracing_file("current_tracer", FTRACE_TRACER) < 0) {
-		pr_log("failed to set current_tracer\n");
+	if (write_tracing_file("current_tracer", FTRACE_TRACER) < 0)
 		goto out;
-	}
 
 	kernel_tracing_enabled = true;
 	return 0;
@@ -294,7 +285,7 @@ int start_kernel_tracing(struct ftrace_kernel *kernel)
 
 		trace_file = get_tracing_file(buf);
 		if (!trace_file) {
-			pr_log("failed to open %s: %m\n", buf);
+			pr_dbg("failed to open %s: %m\n", buf);
 			goto out;
 		}
 
@@ -305,7 +296,7 @@ int start_kernel_tracing(struct ftrace_kernel *kernel)
 
 		if (kernel->traces[i] < 0) {
 			errno = saved_errno;
-			pr_log("failed to open %s: %m\n", buf);
+			pr_dbg("failed to open %s: %m\n", buf);
 			goto out;
 		}
 
@@ -316,17 +307,17 @@ int start_kernel_tracing(struct ftrace_kernel *kernel)
 
 		kernel->fds[i] = open(buf, O_WRONLY | O_TRUNC | O_CREAT, 0600);
 		if (kernel->fds[i] < 0) {
-			pr_log("failed to open output file: %s: %m\n", buf);
+			pr_dbg("failed to open output file: %s: %m\n", buf);
 			goto out;
 		}
 	}
 
-
 	if (write_tracing_file("tracing_on", "1") < 0) {
-		pr_log("can't enable tracing\n");
+		pr_dbg("can't enable tracing\n");
 		goto out;
 	}
 
+	pr_dbg("kernel tracing started..\n");
 	return 0;
 
 out:
@@ -389,7 +380,7 @@ int record_kernel_tracing(struct ftrace_kernel *kernel)
 		bytes += n;
 	}
 
-	pr_dbg("%s returns %zd\n", __func__, bytes);
+	pr_dbg2("kernel ftrace record wrote %zd bytes\n", bytes);
 	return bytes;
 }
 
@@ -417,6 +408,8 @@ int stop_kernel_tracing(struct ftrace_kernel *kernel)
 int finish_kernel_tracing(struct ftrace_kernel *kernel)
 {
 	int i;
+
+	pr_dbg("kernel tracing stopped.\n");
 
 	while (record_kernel_tracing(kernel) > 0)
 		continue;
@@ -530,7 +523,7 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 
 	free(list);
 	if (i != kernel->nr_cpus) {
-		pr_log("failed to access to kernel trace data: %s: %m\n", buf);
+		pr_dbg("failed to access to kernel trace data: %s: %m\n", buf);
 		return -1;
 	}
 
@@ -608,7 +601,7 @@ static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu)
 	kernel->mmaps[cpu] = mmap(NULL, trace_pagesize, PROT_READ, MAP_PRIVATE,
 				  kernel->fds[cpu], kernel->offsets[cpu]);
 	if (kernel->mmaps[cpu] == MAP_FAILED) {
-		pr_log("loading kbuffer for cpu %d failed", cpu);
+		pr_dbg("loading kbuffer for cpu %d failed", cpu);
 		return -1;
 	}
 
@@ -724,7 +717,7 @@ static int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 	type = pevent_data_type(kernel->pevent, &record);
 	event = pevent_find_event(kernel->pevent, type);
 	if (event == NULL) {
-		pr_log("cannot find event for type: %d\n", type);
+		pr_dbg("cannot find event for type: %d\n", type);
 		return -1;
 	}
 

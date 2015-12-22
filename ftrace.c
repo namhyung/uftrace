@@ -223,6 +223,8 @@ static unsigned parse_debug_domain(char *arg)
 			domain |= DBG_FSTACK;
 		else if (!strcmp(tok, "session"))
 			domain |= DBG_SESSION;
+		else if (!strcmp(tok, "kernel"))
+			domain |= DBG_KERNEL;
 
 		str = NULL;
 	}
