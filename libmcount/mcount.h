@@ -14,9 +14,9 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#include "../ftrace.h"
-#include "../utils/rbtree.h"
-#include "../utils/symbol.h"
+#include "ftrace.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
 
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
