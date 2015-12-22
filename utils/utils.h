@@ -40,6 +40,7 @@ enum debug_domain {
 	DBG_DEMANGLE_BIT,
 	DBG_FILTER_BIT,
 	DBG_FSTACK_BIT,
+	DBG_SESSION_BIT,
 
 	DBG_ALL		= -1,
 	DBG_NONE	= 0,
@@ -48,6 +49,7 @@ enum debug_domain {
 	DBG_DEMANGLE	= (1U << DBG_DEMANGLE_BIT),
 	DBG_FILTER	= (1U << DBG_FILTER_BIT),
 	DBG_FSTACK	= (1U << DBG_FSTACK_BIT),
+	DBG_SESSION	= (1U << DBG_SESSION_BIT),
 };
 
 extern void __pr_log(const char *fmt, ...);

@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-#undef  PR_FMT
-#define PR_FMT  "session"
+#define PR_FMT     "session"
+#define PR_DOMAIN  DBG_SESSION
 
 #include "ftrace.h"
 #include "utils/symbol.h"
@@ -56,6 +56,9 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
 
+
+	pr_dbg2("new session: pid = %d, session = %.16s\n",
+		s->pid, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
 
 	if (first_session == NULL)
@@ -120,6 +123,8 @@ static void add_session_ref(struct ftrace_task *task, struct ftrace_session *ses
 	ref->start = timestamp;
 	ref->end = -1ULL;
 
+	pr_dbg2("task session: tid = %d, session = %.16s\n",
+		task->tid, sess->sid);
 	task->sess_last = ref;
 }
 
@@ -187,9 +192,6 @@ void create_task(struct ftrace_msg_task *msg, bool fork)
 
 			s = find_task_session(msg->pid, msg->time);
 			add_session_ref(t, s, msg->time);
-
-			pr_dbg("new session: tid = %d, session = %.16s\n",
-			       t->tid, s->sid);
 			return;
 		}
 	}
@@ -204,7 +206,7 @@ void create_task(struct ftrace_msg_task *msg, bool fork)
 	s = find_task_session(msg->pid, msg->time);
 	add_session_ref(t, s, msg->time);
 
-	pr_dbg("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
+	pr_dbg2("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &task_tree);
