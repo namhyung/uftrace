@@ -9,8 +9,8 @@
 #include <gelf.h>
 #include <libelf.h>
 
-#include "unittest.h"
-#include "../utils/utils.h"
+#include "utils/utils.h"
+#include "tests/unittest.h"
 
 
 /* example test case */

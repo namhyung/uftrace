@@ -6,11 +6,11 @@
 #undef  PR_FMT
 #define PR_FMT  "session"
 
-#include "../ftrace.h"
-#include "../libmcount/mcount.h"
-#include "symbol.h"
-#include "rbtree.h"
-#include "utils.h"
+#include "ftrace.h"
+#include "utils/symbol.h"
+#include "utils/rbtree.h"
+#include "utils/utils.h"
+#include "libmcount/mcount.h"
 
 
 static struct rb_root sessions = RB_ROOT;

@@ -18,8 +18,8 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "ftrace"
 
-#include "symbol.h"
-#include "utils.h"
+#include "utils/utils.h"
+#include "utils/symbol.h"
 
 static struct symtabs ksymtabs;
 

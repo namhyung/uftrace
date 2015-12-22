@@ -20,7 +20,8 @@ class TestBase:
     TEST_SKIP = -7
     TEST_SUCCESS_FIXED = -8
 
-    ftrace = '../ftrace -L ..'
+    objdir = os.environ['objdir'] or '..'
+    ftrace = objdir + '/ftrace -L' + objdir
 
     def __init__(self, name, result, lang='C', cflags='', ldflags=''):
         self.name = name

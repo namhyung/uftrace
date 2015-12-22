@@ -18,12 +18,12 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "kernel"
 
-#include "../ftrace.h"
-#include "../libmcount/mcount.h"
-#include "../libtraceevent/kbuffer.h"
-#include "../libtraceevent/event-parse.h"
-#include "utils.h"
-#include "rbtree.h"
+#include "ftrace.h"
+#include "utils/utils.h"
+#include "utils/rbtree.h"
+#include "libmcount/mcount.h"
+#include "libtraceevent/kbuffer.h"
+#include "libtraceevent/event-parse.h"
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
 #define FTRACE_TRACER  "function_graph"

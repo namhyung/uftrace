@@ -15,7 +15,7 @@
 #include <limits.h>
 #include <inttypes.h>
 
-#include "utils.h"
+#include "utils/utils.h"
 
 #define TERM_COLOR_NORMAL	""
 #define TERM_COLOR_RESET	"\033[0m"

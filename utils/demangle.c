@@ -13,8 +13,8 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "utils.h"
-#include "symbol.h"
+#include "utils/utils.h"
+#include "utils/symbol.h"
 
 #define MAX_DEBUG_DEPTH  128
 

@@ -8,12 +8,12 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT  "fstack"
 
-#include "../ftrace.h"
-#include "../libmcount/mcount.h"
-#include "utils.h"
-#include "filter.h"
-#include "fstack.h"
-#include "rbtree.h"
+#include "ftrace.h"
+#include "utils/utils.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/rbtree.h"
+#include "libmcount/mcount.h"
 
 
 #define FILTER_COUNT_NOTRACE  10000

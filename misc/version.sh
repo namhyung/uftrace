@@ -1,13 +1,13 @@
 #!/bin/sh
 
-VERSION_FILE=version.h
+VERSION_FILE=$1
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <version>"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <filename> <version>"
     exit 1
 fi
 
-CURR_VERSION=$1
+CURR_VERSION=$2
 FILE_VERSION=
 GIT_VERSION=
 
