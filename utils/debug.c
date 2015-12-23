@@ -23,6 +23,7 @@
 #define TERM_COLOR_RED		"\033[31m"
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
+#define TERM_COLOR_GRAY		"\033[37m"
 
 int debug;
 FILE *logfp;
@@ -59,6 +60,19 @@ void setup_color(int color)
 		log_color = 1;
 	else
 		log_color = 0;
+}
+
+void __pr_dbg(const char *fmt, ...)
+{
+	va_list ap;
+
+	color(TERM_COLOR_GRAY);
+
+	va_start(ap, fmt);
+	vfprintf(logfp, fmt, ap);
+	va_end(ap);
+
+	color(TERM_COLOR_RESET);
 }
 
 void __pr_log(const char *fmt, ...)

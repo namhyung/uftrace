@@ -46,6 +46,7 @@ enum debug_domain {
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];
 
+extern void __pr_dbg(const char *fmt, ...);
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
@@ -64,19 +65,19 @@ extern void setup_color(int color);
 #define pr_dbg(fmt, ...) 					\
 ({								\
 	if (dbg_domain[PR_DOMAIN])			\
-		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg2(fmt, ...) 					\
 ({								\
 	if (dbg_domain[PR_DOMAIN] > 1)		\
-		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg3(fmt, ...) 					\
 ({								\
 	if (dbg_domain[PR_DOMAIN] > 2)		\
-		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_log(fmt, ...)					\
