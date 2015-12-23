@@ -46,11 +46,21 @@ enum debug_domain {
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];
 
+#define COLOR_CODE_RED      'R'
+#define COLOR_CODE_GREEN    'G'
+#define COLOR_CODE_BLUE     'B'
+#define COLOR_CODE_YELLOW   'Y'
+#define COLOR_CODE_MAGENTA  'M'
+#define COLOR_CODE_CYAN     'C'
+#define COLOR_CODE_GRAY     'g'
+#define COLOR_CODE_BOLD     'b'
+
 extern void __pr_dbg(const char *fmt, ...);
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
+extern void __pr_color(char code, const char *fmt, ...);
 
 extern int log_color;
 extern void setup_color(int color);
@@ -96,6 +106,15 @@ extern void setup_color(int color);
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
 #define pr_out(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
 #define pr_use(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
+
+#define pr_red(fmt, ...)	__pr_color(COLOR_CODE_RED,     fmt, ## __VA_ARGS__)
+#define pr_green(fmt, ...)	__pr_color(COLOR_CODE_GREEN,   fmt, ## __VA_ARGS__)
+#define pr_blue(fmt, ...)	__pr_color(COLOR_CODE_BLUE,    fmt, ## __VA_ARGS__)
+#define pr_yellow(fmt, ...)	__pr_color(COLOR_CODE_YELLOW,  fmt, ## __VA_ARGS__)
+#define pr_magenta(fmt, ...)	__pr_color(COLOR_CODE_MAGENTA, fmt, ## __VA_ARGS__)
+#define pr_cyan(fmt, ...)	__pr_color(COLOR_CODE_CYAN,    fmt, ## __VA_ARGS__)
+#define pr_bold(fmt, ...)	__pr_color(COLOR_CODE_BOLD,    fmt, ## __VA_ARGS__)
+#define pr_gray(fmt, ...)	__pr_color(COLOR_CODE_GRAY   , fmt, ## __VA_ARGS__)
 
 
 #ifndef ARRAY_SIZE
