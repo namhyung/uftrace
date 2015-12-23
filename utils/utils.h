@@ -63,6 +63,7 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_color(char code, const char *fmt, ...);
 
 extern int log_color;
+extern int out_color;
 extern void setup_color(int color);
 
 #ifndef PR_FMT

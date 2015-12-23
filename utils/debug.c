@@ -30,8 +30,9 @@
 
 int debug;
 FILE *logfp;
-int log_color;
 FILE *outfp;
+int log_color;
+int out_color;
 int dbg_domain[DBG_DOMAIN_MAX];
 
 static const struct color_code {
@@ -52,7 +53,8 @@ static void color(const char *code, FILE *fp)
 {
 	size_t len = strlen(code);
 
-	if (!log_color)
+	if ((fp == logfp && !log_color) ||
+	    (fp == outfp && !out_color))
 		return;
 
 	if (fwrite(code, 1, len, fp) == len)
@@ -60,6 +62,7 @@ static void color(const char *code, FILE *fp)
 
 	/* disable color */
 	log_color = 0;
+	out_color = 0;
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
 	if (fwrite(TERM_COLOR_RESET, 1, len, fp) != len)
@@ -69,14 +72,20 @@ static void color(const char *code, FILE *fp)
 void setup_color(int color)
 {
 	log_color = color;
+	out_color = color;
 
 	if (log_color >= 0)
 		return;
 
-	if (isatty(fileno(logfp)) && isatty(fileno(outfp)))
+	if (isatty(fileno(logfp)))
 		log_color = 1;
 	else
 		log_color = 0;
+
+	if (isatty(fileno(outfp)))
+		out_color = 1;
+	else
+		out_color = 0;
 }
 
 void __pr_dbg(const char *fmt, ...)
