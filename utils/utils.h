@@ -42,6 +42,7 @@ enum debug_domain {
 	DBG_FSTACK_BIT,
 	DBG_SESSION_BIT,
 	DBG_KERNEL_BIT,
+	DBG_DOMAIN_BIT_MAX,
 
 	DBG_ALL		= -1,
 	DBG_NONE	= 0,

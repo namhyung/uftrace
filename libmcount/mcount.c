@@ -1110,6 +1110,28 @@ static void atfork_child_handler(void)
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 }
 
+static void build_debug_domain(char *dbg_domain_str)
+{
+	int i, len;
+
+	if (dbg_domain_str == NULL)
+		return;
+
+	len = strlen(dbg_domain_str);
+	for (i = 0; i < len; i++) {
+		int bit;
+		const char *pos;
+		char domain = dbg_domain_str[i];
+
+		pos = strchr(DBG_DOMAIN_STR, domain);
+		if (pos == NULL)
+			continue;
+
+		bit = pos - DBG_DOMAIN_STR;
+		dbg_domain |= (1U << bit);
+	}
+}
+
 /*
  * external interfaces
  */
@@ -1154,8 +1176,10 @@ __monstartup(unsigned long low, unsigned long high)
 		}
 	}
 
-	if (debug_str)
+	if (debug_str) {
 		debug = strtol(debug_str, NULL, 0);
+		build_debug_domain(getenv("FTRACE_DEBUG_DOMAIN"));
+	}
 
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);

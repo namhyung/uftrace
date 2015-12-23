@@ -58,6 +58,20 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	return true;
 }
 
+static char *build_debug_domain_string(void)
+{
+	int i, bit;
+	static char domain[DBG_DOMAIN_BIT_MAX + 1];
+
+	for (i = 0, bit = 0; bit < DBG_DOMAIN_BIT_MAX; bit++) {
+		if (dbg_domain & (1U << bit))
+			domain[i++] = DBG_DOMAIN_STR[bit];
+	}
+	domain[i] = '\0';
+
+	return domain;
+}
+
 static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
 {
 	char buf[4096];
@@ -150,6 +164,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (debug) {
 		snprintf(buf, sizeof(buf), "%d", debug);
 		setenv("FTRACE_DEBUG", buf, 1);
+		setenv("FTRACE_DEBUG_DOMAIN", build_debug_domain_string(), 1);
 	}
 
 	if(opts->disabled)
