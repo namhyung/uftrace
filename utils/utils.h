@@ -82,15 +82,15 @@ extern void setup_color(int color);
 })
 
 #define pr_log(fmt, ...)					\
-	__pr_log(PR_FMT ": %s:%d:%s: " fmt,			\
+	__pr_log(PR_FMT ": %s:%d:%s\n" fmt,			\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_err(fmt, ...)					\
-	__pr_err_s(PR_FMT ": ERROR: %s:%d:%s: " fmt,		\
+	__pr_err_s(PR_FMT ": %s:%d:%s\n ERROR: " fmt,		\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_err_ns(fmt, ...)					\
-	__pr_err(PR_FMT ": ERROR: %s:%d:%s: " fmt,		\
+	__pr_err(PR_FMT ": %s:%d:%s\n ERROR: " fmt,		\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
