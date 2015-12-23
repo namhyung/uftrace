@@ -131,7 +131,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
-			printf(" [%5d] | %*s} /* %s */\n", task->tid,
+			pr_out(" [%5d] | %*s} /* %s */\n", task->tid,
 			       rstack->depth * 2, "", symname);
 		}
 
@@ -286,7 +286,7 @@ static void print_remaining_stack(void)
 
 			symbol_putname(sym, symname);
 		}
-		printf("\n");
+		pr_out("\n");
 	}
 }
 

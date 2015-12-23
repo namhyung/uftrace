@@ -36,9 +36,9 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	struct rb_node **p = &root->rb_node;
 	uint64_t entry_time = 0;
 
-	pr_dbg("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
-	       __func__, te->pid, te->time_total, te->time_self, te->nr_called,
-	       te->sym ? te->sym->name : "<unknown>");
+	pr_dbg3("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
+		__func__, te->pid, te->time_total, te->time_self, te->nr_called,
+		te->sym ? te->sym->name : "<unknown>");
 
 	while (*p) {
 		int cmp;
@@ -323,7 +323,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 		return task->func;
 
 	if (sess == NULL) {
-		pr_log("cannot find session for tid %d\n", task->tid);
+		pr_dbg("cannot find session for tid %d\n", task->tid);
 		return NULL;
 	}
 

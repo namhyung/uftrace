@@ -203,7 +203,7 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	char elf_ident[EI_NIDENT];
 
 	xasprintf(&filename, "%s/info", opts->dirname);
-	pr_dbg("fill header (metadata) info in %s\n", filename);
+	pr_dbg3("fill header (metadata) info in %s\n", filename);
 
 	fd = open(filename, O_WRONLY | O_CREAT| O_TRUNC, 0644);
 	if (fd < 0) {
@@ -241,7 +241,7 @@ try_write:
 		if (ret > 0 && retry++ < 3)
 			goto try_write;
 
-		pr_log("writing header info failed.\n");
+		pr_dbg("writing header info failed.\n");
 		goto close_efd;
 	}
 
@@ -390,7 +390,7 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 		if (buf == NULL)
 			pr_err_ns("not enough memory!\n");
 
-		pr_dbg("make a new write buffer\n");
+		pr_dbg3("make a new write buffer\n");
 	}
 
 	memcpy(buf->id, sess_id, strlen(sess_id));
@@ -412,7 +412,7 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	/* write (append) it to disk */
 	fd = shm_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
-		pr_log("open shmem buffer failed: %s: %m\n", sess_id);
+		pr_dbg("open shmem buffer failed: %s: %m\n", sess_id);
 		return 0;
 	}
 
@@ -491,7 +491,7 @@ static void unlink_shmem_list(void)
 	/* unlink shmem list (not used anymore) */
 	/* flush remaining list (due to abnormal termination) */
 	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
-		pr_dbg("unlink %s\n", sl->id);
+		pr_dbg3("unlink %s\n", sl->id);
 
 		list_del(&sl->list);
 		shm_unlink(sl->id);
@@ -510,7 +510,7 @@ static void flush_old_shmem(const char *dirname, int tid, int bufsize)
 		sscanf(sl->id, "/ftrace-%*x-%d-%*d", &sl_tid);
 
 		if (tid == sl_tid) {
-			pr_dbg("flushing %s\n", sl->id);
+			pr_dbg3("flushing %s\n", sl->id);
 
 			list_del(&sl->list);
 			record_mmap_file(dirname, sl->id, bufsize);
@@ -597,7 +597,7 @@ static bool check_tid_list(void)
 			return false;
 	}
 
-	pr_dbg("all process/thread exited\n");
+	pr_dbg2("all process/thread exited\n");
 	return true;
 }
 
@@ -629,7 +629,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			pr_err("reading pipe failed");
 
 		sl->id[msg.len] = '\0';
-		pr_dbg("MSG START: %s\n", sl->id);
+		pr_dbg2("MSG START: %s\n", sl->id);
 
 		/* link to shmem_list */
 		list_add_tail(&sl->list, &shmem_list_head);
@@ -643,7 +643,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			pr_err("reading pipe failed");
 
 		buf[msg.len] = '\0';
-		pr_dbg("MSG  END : %s\n", buf);
+		pr_dbg2("MSG  END : %s\n", buf);
 
 		/* remove from shmem_list */
 		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
@@ -664,7 +664,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
+		pr_dbg2("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
 		list_for_each_entry(pos, &tid_list_head, list) {
@@ -688,7 +688,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg("MSG FORK1: %d/%d\n", tmsg.pid, -1);
+		pr_dbg2("MSG FORK1: %d/%d\n", tmsg.pid, -1);
 
 		add_tid_list(tmsg.pid, -1);
 		break;
@@ -710,7 +710,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			 * first task has tid of -1 */
 			list_for_each_entry(tl, &tid_list_head, list) {
 				if (tl->tid == -1) {
-					pr_dbg("assume tid 1 as new daemon child\n");
+					pr_dbg3("assume tid 1 as new daemon child\n");
 					tmsg.pid = tl->pid;
 					break;
 				}
@@ -722,7 +722,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		tl->tid = tmsg.tid;
 
-		pr_dbg("MSG FORK2: %d/%d\n", tl->pid, tl->tid);
+		pr_dbg2("MSG FORK2: %d/%d\n", tl->pid, tl->tid);
 
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &tmsg, sizeof(tmsg));
@@ -743,7 +743,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		memcpy(buf, sess.sid, 16);
 		buf[16] = '\0';
 
-		pr_dbg("MSG SESSION: %d: %s (%s)\n", sess.task.tid, exename, buf);
+		pr_dbg2("MSG SESSION: %d: %s (%s)\n", sess.task.tid, exename, buf);
 
 		record_task_file(dirname, &msg, sizeof(msg));
 		record_task_file(dirname, &sess, sizeof(sess));
@@ -761,7 +761,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		break;
 
 	default:
-		pr_err_ns("Unknown message type: %u\n", msg.type);
+		pr_log("Unknown message type: %u\n", msg.type);
 		break;
 	}
 }
@@ -990,14 +990,14 @@ static void print_child_time(struct timespec *ts1, struct timespec *ts2)
 		sec--;
 	}
 
-	printf("elapsed time: %"PRIu64".%09"PRIu64" sec\n", sec, nsec);
+	pr_out("elapsed time: %"PRIu64".%09"PRIu64" sec\n", sec, nsec);
 }
 
 static void print_child_usage(struct rusage *ru)
 {
-	printf(" system time: %lu.%06lu000 sec\n",
+	pr_out(" system time: %lu.%06lu000 sec\n",
 	       ru->ru_stime.tv_sec, ru->ru_stime.tv_usec);
-	printf("   user time: %lu.%06lu000 sec\n",
+	pr_out("   user time: %lu.%06lu000 sec\n",
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
@@ -1206,7 +1206,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (shmem_lost_count)
-		printf("LOST %d records\n", shmem_lost_count);
+		pr_log("LOST %d records\n", shmem_lost_count);
 
 	pthread_join(writer, NULL);
 
