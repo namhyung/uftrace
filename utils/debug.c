@@ -23,68 +23,108 @@
 #define TERM_COLOR_RED		"\033[31m"
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
+#define TERM_COLOR_BLUE		"\033[34m"
+#define TERM_COLOR_MAGENTA	"\033[35m"
+#define TERM_COLOR_CYAN		"\033[36m"
+#define TERM_COLOR_GRAY		"\033[37m"
 
 int debug;
 FILE *logfp;
-int log_color = 1;
 FILE *outfp;
+int log_color;
+int out_color;
 int dbg_domain[DBG_DOMAIN_MAX];
 
-static void color(const char *code)
+static const struct color_code {
+	char		code;
+	const char	*color;
+} colors[] = {
+	{ COLOR_CODE_RED,	TERM_COLOR_RED },
+	{ COLOR_CODE_GREEN,	TERM_COLOR_GREEN },
+	{ COLOR_CODE_BLUE,	TERM_COLOR_BLUE },
+	{ COLOR_CODE_YELLOW,	TERM_COLOR_YELLOW },
+	{ COLOR_CODE_MAGENTA,	TERM_COLOR_MAGENTA },
+	{ COLOR_CODE_CYAN,	TERM_COLOR_CYAN },
+	{ COLOR_CODE_GRAY,	TERM_COLOR_GRAY },
+	{ COLOR_CODE_BOLD,	TERM_COLOR_BOLD },
+};
+
+static void color(const char *code, FILE *fp)
 {
 	size_t len = strlen(code);
 
-	if (!log_color)
+	if ((fp == logfp && !log_color) ||
+	    (fp == outfp && !out_color))
 		return;
 
-	if (fwrite(code, 1, len, logfp) == len)
+	if (fwrite(code, 1, len, fp) == len)
 		return;  /* ok */
 
 	/* disable color */
 	log_color = 0;
+	out_color = 0;
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
-	if (fwrite(TERM_COLOR_RESET, 1, len, logfp) != len)
+	if (fwrite(TERM_COLOR_RESET, 1, len, fp) != len)
 		pr_err("resetting terminal color failed");
 }
 
 void setup_color(int color)
 {
 	log_color = color;
+	out_color = color;
 
 	if (log_color >= 0)
 		return;
 
-	if (isatty(fileno(logfp)) && isatty(fileno(outfp)))
+	if (isatty(fileno(logfp)))
 		log_color = 1;
 	else
 		log_color = 0;
+
+	if (isatty(fileno(outfp)))
+		out_color = 1;
+	else
+		out_color = 0;
+}
+
+void __pr_dbg(const char *fmt, ...)
+{
+	va_list ap;
+
+	color(TERM_COLOR_GRAY, logfp);
+
+	va_start(ap, fmt);
+	vfprintf(logfp, fmt, ap);
+	va_end(ap);
+
+	color(TERM_COLOR_RESET, logfp);
 }
 
 void __pr_log(const char *fmt, ...)
 {
 	va_list ap;
 
-	color(TERM_COLOR_BOLD);
+	color(TERM_COLOR_BOLD, logfp);
 
 	va_start(ap, fmt);
 	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
-	color(TERM_COLOR_RESET);
+	color(TERM_COLOR_RESET, logfp);
 }
 
 void __pr_err(const char *fmt, ...)
 {
 	va_list ap;
 
-	color(TERM_COLOR_RED);
+	color(TERM_COLOR_RED, logfp);
 
 	va_start(ap, fmt);
 	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
-	color(TERM_COLOR_RESET);
+	color(TERM_COLOR_RESET, logfp);
 
 	exit(1);
 }
@@ -95,7 +135,7 @@ void __pr_err_s(const char *fmt, ...)
 	int saved_errno = errno;
 	char buf[512];
 
-	color(TERM_COLOR_RED);
+	color(TERM_COLOR_RED, logfp);
 
 	va_start(ap, fmt);
 	vfprintf(logfp, fmt, ap);
@@ -103,7 +143,7 @@ void __pr_err_s(const char *fmt, ...)
 
 	fprintf(logfp, ": %s\n", strerror_r(saved_errno, buf, sizeof(buf)));
 
-	color(TERM_COLOR_RESET);
+	color(TERM_COLOR_RESET, logfp);
 
 	exit(1);
 }
@@ -115,6 +155,26 @@ void __pr_out(const char *fmt, ...)
 	va_start(ap, fmt);
 	vfprintf(outfp, fmt, ap);
 	va_end(ap);
+}
+
+void __pr_color(char code, const char *fmt, ...)
+{
+	size_t i;
+	va_list ap;
+	const char *cs = TERM_COLOR_NORMAL;
+
+	for (i = 0; i < ARRAY_SIZE(colors); i++) {
+		if (code == colors[i].code)
+			cs = colors[i].color;
+	}
+
+	color(cs, outfp);
+
+	va_start(ap, fmt);
+	vfprintf(outfp, fmt, ap);
+	va_end(ap);
+
+	color(TERM_COLOR_RESET, outfp);
 }
 
 void print_time_unit(uint64_t delta_nsec)

@@ -1148,19 +1148,25 @@ __monstartup(unsigned long low, unsigned long high)
 	if (mcount_setup_done)
 		return;
 
+	outfp = stdout;
+	logfp = stderr;
+
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
 
 		/* minimal sanity check */
-		if (fstat(fd, &statbuf) < 0)
-			logfp = stderr;
-		else {
+		if (!fstat(fd, &statbuf)) {
 			logfp = fdopen(fd, "a");
 			setvbuf(logfp, NULL, _IOLBF, 1024);
 		}
-	} else
-		logfp = stderr;
-	outfp = stdout;
+	}
+
+	if (debug_str) {
+		debug = strtol(debug_str, NULL, 0);
+		build_debug_domain(getenv("FTRACE_DEBUG_DOMAIN"));
+	}
+
+	pr_dbg("initializing mcount library\n");
 
 	if (color_str)
 		setup_color(strtol(color_str, NULL, 0));
@@ -1173,11 +1179,6 @@ __monstartup(unsigned long low, unsigned long high)
 			pr_dbg("ignore invalid pipe fd: %d\n", pfd);
 			pfd = -1;
 		}
-	}
-
-	if (debug_str) {
-		debug = strtol(debug_str, NULL, 0);
-		build_debug_domain(getenv("FTRACE_DEBUG_DOMAIN"));
 	}
 
 	if (bufsize_str)
