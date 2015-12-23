@@ -16,7 +16,8 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT  "ftrace"
+#define PR_FMT     "symbol"
+#define PR_DOMAIN  DBG_SYMBOL
 
 #include "utils/utils.h"
 #include "utils/symbol.h"
@@ -64,13 +65,6 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
-#define FTRACE_MSG  "Can't find '%s' file.\n" 					\
-"\tPlease check your binary is instrumented.\n"					\
-"\tIf you run the binary under $PATH (like /usr/bin/%s),\n"			\
-"\tit probably wasn't compiled with -pg or -finstrument-functions flag\n" 	\
-"\twhich generates traceable code.\n"						\
-"\tIf so, recompile and run it with full pathname.\n"
-
 static void __unload_symtab(struct symtab *symtab)
 {
 	size_t i;
@@ -90,11 +84,13 @@ static void __unload_symtab(struct symtab *symtab)
 
 void unload_symtabs(struct symtabs *symtabs)
 {
+	pr_dbg2("unload symbol tables\n");
 	__unload_symtab(&symtabs->symtab);
 	__unload_symtab(&symtabs->dsymtab);
 }
 
-int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long offset)
+static int load_symtab(struct symtabs *symtabs, const char *filename,
+		       unsigned long offset)
 {
 	int fd;
 	Elf *elf;
@@ -107,7 +103,7 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		pr_dbg("error during load symtab: %s: %m\n", filename);
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return -1;
 	}
 
@@ -152,11 +148,11 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		sym_sec = dynsym_sec;
 		nr_sym = nr_dynsym;
 		symstr_idx = dynsymstr_idx;
-		pr_dbg("using dynsym instead\n");
+		pr_dbg2("using dynsym instead\n");
 	}
 
 	if (sym_sec == NULL) {
-		pr_log("no symbol table is found\n");
+		pr_dbg("no symbol table is found\n");
 		goto out;
 	}
 
@@ -164,6 +160,7 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 	if (sym_data == NULL)
 		goto elf_error;
 
+	pr_dbg2("loading symbols from %s\n", filename);
 	for (i = 0; i < nr_sym; i++) {
 		GElf_Sym elf_sym;
 		struct sym *sym;
@@ -214,6 +211,9 @@ int load_symtab(struct symtabs *symtabs, const char *filename, unsigned long off
 		sym->name = demangle(name);
 		if (ver)
 			free(name);
+
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
+			sym->type, sym->addr, sym->size, sym->name);
 	}
 
 	if (symtab->nr_sym == 0)
@@ -236,13 +236,12 @@ out:
 	return ret;
 
 elf_error:
-	pr_log("ELF error during symbol loading: %s\n",
+	pr_dbg("ELF error during symbol loading: %s\n",
 	       elf_errmsg(elf_errno()));
 	goto out;
 }
 
-/* This functions is also called from libmcount.so */
-int load_dynsymtab(struct symtabs *symtabs, const char *filename)
+static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 {
 	int fd;
 	int ret = -1;
@@ -259,7 +258,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		pr_dbg("error during load dynsymtab: %s: %m\n", filename);
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return -1;
 	}
 
@@ -300,13 +299,13 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	}
 
 	if (dynsym_sec == NULL || plt_addr == 0) {
-		pr_log("cannot find dynamic symbols.. skipping\n");
+		pr_dbg("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
 
 	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
-		pr_log("cannot find relocation info for PLT\n");
+		pr_dbg("cannot find relocation info for PLT\n");
 		goto out;
 	}
 
@@ -318,6 +317,7 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	if (dynsym_data == NULL)
 		goto elf_error;
 
+	pr_dbg2("loading dynamic symbols from %s\n", filename);
 	for (idx = 0; idx < nr_rels; idx++) {
 		GElf_Sym esym;
 		struct sym *sym;
@@ -345,13 +345,8 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
 			dsymtab->nr_alloc += SYMTAB_GROW;
-			dsymtab->sym = realloc(dsymtab->sym,
-					       dsymtab->nr_alloc * sizeof(*sym));
-
-			if (dsymtab->sym == NULL) {
-				pr_log("not enough memory\n");
-				goto out;
-			}
+			dsymtab->sym = xrealloc(dsymtab->sym,
+						dsymtab->nr_alloc * sizeof(*sym));
 		}
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
@@ -360,6 +355,9 @@ int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->size = plt_entsize;
 		sym->type = ST_PLT,
 		sym->name = demangle(name);
+
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym,
+			sym->type, sym->addr, sym->size, sym->name);
 	}
 
 	if (dsymtab->nr_sym == 0)
@@ -395,7 +393,7 @@ out:
 	return ret;
 
 elf_error:
-	printf("ELF error during load dynsymtab: %s\n",
+	pr_dbg("ELF error during load dynsymtab: %s\n",
 	       elf_errmsg(elf_errno()));
 	__unload_symtab(dsymtab);
 	goto out;
@@ -437,10 +435,11 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 
 	fp = fopen(symfile, "r");
 	if (fp == NULL) {
-		pr_log("reading %s failed\n", symfile);
+		pr_dbg("reading %s failed: %m\n", symfile);
 		return -1;
 	}
 
+	pr_dbg2("loading symbols from %s\n", symfile);
 	while (getline(&line, &len, fp) > 0) {
 		struct sym *sym;
 		uint64_t addr;
@@ -455,13 +454,13 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		addr = strtoul(line, &pos, 16);
 
 		if (*pos++ != ' ') {
-			pr_log("invalid symbol file format before type\n");
+			pr_dbg2("invalid symbol file format before type\n");
 			continue;
 		}
 		type = *pos++;
 
 		if (*pos++ != ' ') {
-			pr_log("invalid symbol file format after type\n");
+			pr_dbg2("invalid symbol file format after type\n");
 			continue;
 		}
 		name = pos;
@@ -485,6 +484,9 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		sym->addr = addr;
 		sym->type = type;
 		sym->name = demangle(name);
+
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", stab->nr_sym,
+			sym->type, sym->addr, sym->size, sym->name);
 
 		if (stab->nr_sym > 1)
 			sym[-1].size = addr - sym[-1].addr;
@@ -544,6 +546,8 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	fp = fopen(symfile, "w");
 	if (fp == NULL)
 		pr_err("cannot open %s file", symfile);
+
+	pr_dbg2("saving symbols to %s\n", symfile);
 
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
@@ -758,17 +762,17 @@ void print_symtabs(struct symtabs *symtabs)
 	struct symtab *dtab = &symtabs->dsymtab;
 	char *name;
 
-	printf("Normal symbols\n");
-	printf("==============\n");
+	pr_out("Normal symbols\n");
+	pr_out("==============\n");
 	for (i = 0; i < stab->nr_sym; i++) {
 		name = symbol_getname(&stab->sym[i], stab->sym[i].addr);
-		printf("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
+		pr_out("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
 		       name, stab->sym[i].size);
 		symbol_putname(&stab->sym[i], name);
 	}
 
-	printf("\n\n");
-	printf("Dynamic symbols\n");
+	pr_out("\n\n");
+	pr_out("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++) {
 		name = symbol_getname(&dtab->sym[i], dtab->sym[i].addr);

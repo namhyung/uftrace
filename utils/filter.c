@@ -4,7 +4,8 @@
 #include <regex.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT  "filter"
+#define PR_FMT     "filter"
+#define PR_DOMAIN  DBG_FILTER
 
 #include "libmcount/mcount.h"
 #include "utils/filter.h"
@@ -12,6 +13,24 @@
 #include "utils/rbtree.h"
 #include "utils/utils.h"
 
+
+static void print_trigger(struct ftrace_trigger *tr)
+{
+	if (tr->flags & TRIGGER_FL_DEPTH)
+		pr_dbg("\ttrigger: depth %d\n", tr->depth);
+	if (tr->flags & TRIGGER_FL_FILTER) {
+		if (tr->fmode == FILTER_MODE_IN)
+			pr_dbg("\ttrigger: filter IN\n");
+		else
+			pr_dbg("\ttrigger: filter OUT\n");
+	}
+	if (tr->flags & TRIGGER_FL_BACKTRACE)
+		pr_dbg("\ttrigger: backtrace\n");
+	if (tr->flags & TRIGGER_FL_TRACE_ON)
+		pr_dbg("\ttrigger: trace_on\n");
+	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+		pr_dbg("\ttrigger: trace_off\n");
+}
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
 {
@@ -37,6 +56,10 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 
 		if (match_ip(iter, ip)) {
 			memcpy(tr, &iter->trigger, sizeof(*tr));
+
+			pr_dbg2("filter match: %s\n", iter->name);
+			if (dbg_domain[DBG_FILTER] >= 3)
+				print_trigger(tr);
 			return 1;
 		}
 
@@ -69,6 +92,10 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	struct ftrace_filter *iter, *new;
+
+	pr_dbg("add filter for %s\n", filter->name);
+	if (dbg_domain[DBG_FILTER] >= 3)
+		print_trigger(tr);
 
 	while (*p) {
 		parent = *p;
@@ -125,7 +152,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 	int ret = 0;
 
 	if (regcomp(&re, filter_str, REG_NOSUB | REG_EXTENDED)) {
-		pr_log("regex pattern failed: %s\n", filter_str);
+		pr_dbg("regex pattern failed: %s\n", filter_str);
 		return 0;
 	}
 
@@ -167,9 +194,11 @@ static int setup_module_and_trigger(char *str, char *module,
 				tr->depth = strtoul(pos+6, NULL, 10);
 
 				if (tr->depth < 0 ||
-				    tr->depth > MCOUNT_RSTACK_MAX)
-					pr_err_ns("invalid depth: %d\n",
-						  tr->depth);
+				    tr->depth > MCOUNT_RSTACK_MAX) {
+					pr_use("skipping invalid trigger depth: %d\n",
+					       tr->depth);
+					return -1;
+				}
 				continue;
 			}
 			if (!strcasecmp(pos, "backtrace")) {
@@ -329,22 +358,8 @@ void ftrace_print_filter(struct rb_root *root)
 	node = rb_first(root);
 	while (node) {
 		filter = rb_entry(node, struct ftrace_filter, node);
-		pr_log("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
-
-		if (filter->trigger.flags & TRIGGER_FL_DEPTH)
-			pr_log("\ttrigger: depth %d\n", filter->trigger.depth);
-		if (filter->trigger.flags & TRIGGER_FL_FILTER) {
-			if (filter->trigger.fmode == FILTER_MODE_IN)
-				pr_log("\ttrigger: filter IN\n");
-			else
-				pr_log("\ttrigger: filter OUT\n");
-		}
-		if (filter->trigger.flags & TRIGGER_FL_BACKTRACE)
-			pr_log("\ttrigger: backtrace\n");
-		if (filter->trigger.flags & TRIGGER_FL_TRACE_ON)
-			pr_log("\ttrigger: trace_on\n");
-		if (filter->trigger.flags & TRIGGER_FL_TRACE_OFF)
-			pr_log("\ttrigger: trace_off\n");
+		pr_dbg("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
+		print_trigger(&filter->trigger);
 
 		node = rb_next(node);
 	}

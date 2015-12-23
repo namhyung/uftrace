@@ -33,6 +33,19 @@ extern int debug;
 extern FILE *logfp;
 extern FILE *outfp;
 
+enum debug_domain {
+	DBG_FTRACE	= 0,
+	DBG_SYMBOL,
+	DBG_DEMANGLE,
+	DBG_FILTER,
+	DBG_FSTACK,
+	DBG_SESSION,
+	DBG_KERNEL,
+	DBG_MCOUNT,
+	DBG_DOMAIN_MAX,
+};
+extern int dbg_domain[DBG_DOMAIN_MAX];
+
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
@@ -44,15 +57,25 @@ extern void setup_color(int color);
 # define PR_FMT  "ftrace"
 #endif
 
+#ifndef PR_DOMAIN
+# define PR_DOMAIN  DBG_FTRACE
+#endif
+
 #define pr_dbg(fmt, ...) 					\
 ({								\
-	if (debug)						\
+	if (dbg_domain[PR_DOMAIN])			\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg2(fmt, ...) 					\
 ({								\
-	if (debug > 1)						\
+	if (dbg_domain[PR_DOMAIN] > 1)		\
+		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+})
+
+#define pr_dbg3(fmt, ...) 					\
+({								\
+	if (dbg_domain[PR_DOMAIN] > 2)		\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
@@ -69,7 +92,8 @@ extern void setup_color(int color);
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 #define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
-#define pr_out(fmt, ...)  __pr_out(fmt, ## __VA_ARGS__)
+#define pr_out(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
+#define pr_use(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
 
 
 #ifndef ARRAY_SIZE

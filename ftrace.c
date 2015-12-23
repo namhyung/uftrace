@@ -39,6 +39,8 @@
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
+static bool dbg_domain_set = false;
+
 enum options {
 	OPT_flat	= 301,
 	OPT_plthook,
@@ -57,13 +59,14 @@ enum options {
 	OPT_color,
 	OPT_disabled,
 	OPT_demangle,
+	OPT_dbg_domain,
 };
 
 static struct argp_option ftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
-	{ "filter", 'F', "FUNC[,FUNC,...]", 0, "Only trace those FUNCs" },
-	{ "notrace", 'N', "FUNC[,FUNC,...]", 0, "Don't trace those FUNCs" },
-	{ "trigger", 'T', "FUNC@act[:act:...]", 0, "Trigger action on those FUNCs" },
+	{ "filter", 'F', "FUNC", 0, "Only trace those FUNCs" },
+	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
+	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
 	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
@@ -90,6 +93,7 @@ static struct argp_option ftrace_options[] = {
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto" },
 	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
 	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: full, simple, no" },
+	{ "debug-domain", OPT_dbg_domain, "DOMAIN", 0, "Filter debugging domain" },
 	{ 0 }
 };
 
@@ -116,7 +120,8 @@ static unsigned long parse_size(char *str)
 		break;
 
 	default:
-		fprintf(stderr, "invalid size unit: %s\n", unit);
+		pr_use("invalid size: %s\n", str);
+		size = 0;
 		break;
 	}
 
@@ -200,6 +205,45 @@ static int parse_demangle(char *arg)
 	return DEMANGLE_ERROR;
 }
 
+static void parse_debug_domain(char *arg)
+{
+	char *str, *saved_str;
+	char *tok, *pos, *tmp;
+
+	saved_str = str = xstrdup(arg);
+	while ((tok = strtok_r(str, ",", &pos)) != NULL) {
+		int level = -1;
+
+		tmp = strchr(tok, ':');
+		if (tmp) {
+			*tmp++ = '\0';
+			level = strtol(tmp, NULL, 0);
+		}
+
+		if (!strcmp(tok, "ftrace"))
+			dbg_domain[DBG_FTRACE] = level;
+		else if (!strcmp(tok, "symbol"))
+			dbg_domain[DBG_SYMBOL] = level;
+		else if (!strcmp(tok, "demangle"))
+			dbg_domain[DBG_DEMANGLE] = level;
+		else if (!strcmp(tok, "filter"))
+			dbg_domain[DBG_FILTER] = level;
+		else if (!strcmp(tok, "fstack"))
+			dbg_domain[DBG_FSTACK] = level;
+		else if (!strcmp(tok, "session"))
+			dbg_domain[DBG_SESSION] = level;
+		else if (!strcmp(tok, "kernel"))
+			dbg_domain[DBG_KERNEL] = level;
+		else if (!strcmp(tok, "mcount"))
+			dbg_domain[DBG_MCOUNT] = level;
+
+		str = NULL;
+	}
+
+	dbg_domain_set = true;
+	free(saved_str);
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -224,7 +268,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case 'D':
 		opts->depth = strtol(arg, NULL, 0);
 		if (opts->depth <= 0)
-			pr_err_ns("invalid depth given: %s\n", arg);
+			pr_use("invalid depth given: %s\n", arg);
 		break;
 
 	case 't':
@@ -242,7 +286,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case 'b':
 		opts->bsize = parse_size(arg);
 		if (opts->bsize & (getpagesize() - 1))
-			pr_err_ns("buffer size should be multiple of page size");
+			pr_use("buffer size should be multiple of page size\n");
 		break;
 
 	case 'k':
@@ -300,14 +344,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_max_stack:
 		opts->max_stack = strtol(arg, NULL, 0);
 		if (opts->max_stack <= 0 || opts->max_stack > MCOUNT_RSTACK_MAX)
-			pr_err_ns("max stack depth should be >0 and <%d\n",
-				  MCOUNT_RSTACK_MAX);
+			pr_use("max stack depth should be >0 and <%d\n",
+			       MCOUNT_RSTACK_MAX);
 		break;
 
 	case OPT_port:
 		opts->port = strtol(arg, NULL, 0);
 		if (opts->port <= 0)
-			pr_err_ns("invalid port number: %s\n", arg);
+			pr_use("invalid port number: %s\n", arg);
 		break;
 
 	case OPT_nopager:
@@ -325,7 +369,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_color:
 		opts->color = parse_color(arg);
 		if (opts->color == -2)
-			pr_err_ns("unknown color setting: %s\n", arg);
+			pr_use("unknown color setting: %s\n", arg);
+		break;
 
 	case OPT_disabled:
 		opts->disabled = true;
@@ -334,9 +379,13 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_demangle:
 		demangler = parse_demangle(arg);
 		if (demangler == DEMANGLE_ERROR)
-			pr_err_ns("unknown demangle value: %s\n", arg);
+			pr_use("unknown demangle value: %s\n", arg);
 		else if (demangler == DEMANGLE_NOT_SUPPORTED)
-			pr_err_ns("'%s' demangler is not supported\n", arg);
+			pr_use("'%s' demangler is not supported\n", arg);
+		break;
+
+	case OPT_dbg_domain:
+		parse_debug_domain(arg);
 		break;
 
 	case ARGP_KEY_ARG:
@@ -430,6 +479,9 @@ int main(int argc, char *argv[])
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
+	if (dbg_domain_set && !debug)
+		debug = 1;
+
 	if (opts.logfile) {
 		logfp = fopen(opts.logfile, "w");
 		if (logfp == NULL)
@@ -439,10 +491,23 @@ int main(int argc, char *argv[])
 	}
 	else if (debug) {
 		/* ensure normal output is not mixed by debug message */
-		outfp = stderr;
+		setvbuf(outfp, NULL, _IOLBF, 1024);
+	}
+
+	if (debug) {
+		int d;
+
+		/* set default debug level */
+		for (d = 0; d < DBG_DOMAIN_MAX; d++) {
+			if (dbg_domain[d] == -1 || !dbg_domain_set)
+				dbg_domain[d] = debug;
+		}
 	}
 
 	setup_color(opts.color);
+
+	if (opts.use_pager)
+		start_pager();
 
 	switch (opts.mode) {
 	case FTRACE_MODE_RECORD:
@@ -469,6 +534,8 @@ int main(int argc, char *argv[])
 	case FTRACE_MODE_INVALID:
 		break;
 	}
+
+	wait_for_pager();
 
 	if (opts.logfile)
 		fclose(logfp);

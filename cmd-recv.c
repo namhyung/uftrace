@@ -113,7 +113,7 @@ void send_trace_header(int sock, char *name)
 		{ .iov_base = name, .iov_len = len, },
 	};
 
-	pr_dbg("send FTRACE_MSG_SEND_HDR\n");
+	pr_dbg2("send FTRACE_MSG_SEND_HDR\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send header failed");
 }
@@ -132,7 +132,7 @@ void send_trace_data(int sock, int tid, void *data, size_t len)
 		{ .iov_base = data,     .iov_len = len, },
 	};
 
-	pr_dbg("send FTRACE_MSG_SEND_DATA\n");
+	pr_dbg2("send FTRACE_MSG_SEND_DATA\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send data failed");
 }
@@ -159,7 +159,7 @@ void send_trace_task(int sock, struct ftrace_msg *hmsg,
 	tmsg->pid  = htonl(tmsg->pid);
 	tmsg->tid  = htonl(tmsg->tid);
 
-	pr_dbg("send FTRACE_MSG_SEND_TASK\n");
+	pr_dbg2("send FTRACE_MSG_SEND_TASK\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send task data failed");
 }
@@ -196,7 +196,7 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 	snprintf(sidbuf, sizeof(sidbuf), "%016"PRIx64, htonq(sid));
 	memcpy(smsg->sid, sidbuf, sizeof(smsg->sid));
 
-	pr_dbg("send FTRACE_MSG_SEND_SESSION\n");
+	pr_dbg2("send FTRACE_MSG_SEND_SESSION\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send session data failed");
 }
@@ -215,7 +215,7 @@ void send_trace_map(int sock, uint64_t sid, void *map, int len)
 		{ .iov_base = map,      .iov_len = len, },
 	};
 
-	pr_dbg("send FTRACE_MSG_SEND_MAP\n");
+	pr_dbg2("send FTRACE_MSG_SEND_MAP\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send map failed");
 }
@@ -237,7 +237,7 @@ void send_trace_sym(int sock, char *symfile, void *sym, int len)
 
 	namelen = htonl(namelen);
 
-	pr_dbg("send FTRACE_MSG_SEND_SYM\n");
+	pr_dbg2("send FTRACE_MSG_SEND_SYM\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send symfile failed");
 }
@@ -261,7 +261,7 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 	hdr->feat_mask   = htonq(hdr->feat_mask);
 	hdr->info_mask   = htonq(hdr->info_mask);
 
-	pr_dbg("send FTRACE_MSG_SEND_INFO\n");
+	pr_dbg2("send FTRACE_MSG_SEND_INFO\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
 		pr_err("send info failed");
 }
@@ -273,7 +273,7 @@ void send_trace_end(int sock)
 		.type  = htons(FTRACE_MSG_SEND_END),
 	};
 
-	pr_dbg("send FTRACE_MSG_SEND_END\n");
+	pr_dbg2("send FTRACE_MSG_SEND_END\n");
 	if (write_all(sock, &msg, sizeof(msg)) < 0)
 		pr_err("send end failed");
 }
@@ -332,7 +332,7 @@ static void recv_trace_header(int sock, int len)
 	INIT_LIST_HEAD(&client->list);
 
 	create_directory(dirname);
-	pr_dbg("create directory: %s\n", dirname);
+	pr_dbg3("create directory: %s\n", dirname);
 
 	client->dir_fd = open(dirname, O_PATH | O_DIRECTORY);
 	if (client->dir_fd < 0)
@@ -584,7 +584,7 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 		pr_err("socket accept failed");
 
 	epoll_add(efd, client, EPOLLIN);
-	pr_dbg("new connection added\n");
+	pr_log("new connection added\n");
 }
 
 static void handle_client_sock(struct epoll_event *ev, int efd)
@@ -610,39 +610,39 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 
 	switch (msg.type) {
 	case FTRACE_MSG_SEND_HDR:
-		pr_dbg("receive FTRACE_MSG_SEND_HDR\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_HDR\n");
 		recv_trace_header(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_DATA:
-		pr_dbg("receive FTRACE_MSG_SEND_DATA\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_DATA\n");
 		recv_trace_data(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_TASK:
-		pr_dbg("receive FTRACE_MSG_SEND_TASK\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_TASK\n");
 		recv_trace_task(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_SESSION:
-		pr_dbg("receive FTRACE_MSG_SEND_SESSION\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_SESSION\n");
 		recv_trace_session(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_MAP:
-		pr_dbg("receive FTRACE_MSG_SEND_MAP\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_MAP\n");
 		recv_trace_map(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_SYM:
-		pr_dbg("receive FTRACE_MSG_SEND_SYM\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_SYM\n");
 		recv_trace_sym(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_INFO:
-		pr_dbg("receive FTRACE_MSG_SEND_INFO\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_INFO\n");
 		recv_trace_info(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_END:
-		pr_dbg("receive FTRACE_MSG_SEND_END\n");
+		pr_dbg2("receive FTRACE_MSG_SEND_END\n");
 		recv_trace_end(sock, efd);
 		break;
 	default:
-		pr_log("unknown message: %d\n", msg.type);
+		pr_dbg("unknown message: %d\n", msg.type);
 		break;
 	}
 }

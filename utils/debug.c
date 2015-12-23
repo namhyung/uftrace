@@ -28,6 +28,7 @@ int debug;
 FILE *logfp;
 int log_color = 1;
 FILE *outfp;
+int dbg_domain[DBG_DOMAIN_MAX];
 
 static void color(const char *code)
 {

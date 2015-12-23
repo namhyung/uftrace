@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -19,8 +20,11 @@ static void cleanup_tempdir(void)
 		return;
 
 	dp = opendir(tmp_dirname);
-	if (dp == NULL)
+	if (dp == NULL) {
+		if (errno == ENOENT)
+			return;
 		pr_err("cannot open temp dir");
+	}
 
 	while ((ent = readdir(dp)) != NULL) {
 		if (ent->d_name[0] == '.')
@@ -51,7 +55,7 @@ static void reset_live_opts(struct opts *opts)
 
 static void sigsegv_handler(int sig)
 {
-	fprintf(stderr, "ftrace: ERROR: Segmentation fault\n");
+	pr_log("Segmentation fault\n");
 	cleanup_tempdir();
 	raise(sig);
 }
@@ -80,6 +84,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	opts->dirname = template;
 
 	if (command_record(argc, argv, opts) == 0) {
+		pr_dbg("live-record finished.. start replaying...\n");
 		reset_live_opts(opts);
 		command_replay(argc, argv, opts);
 	}

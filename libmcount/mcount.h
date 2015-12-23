@@ -14,9 +14,9 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#include "../ftrace.h"
-#include "../utils/rbtree.h"
-#include "../utils/symbol.h"
+#include "ftrace.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
 
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
@@ -66,5 +66,8 @@ struct mcount_shmem_buffer {
 	unsigned flag;
 	char data[];
 };
+
+/* must be in sync with enum debug_domain (bits) */
+#define DBG_DOMAIN_STR  "TSDFfsKM"
 
 #endif /* FTRACE_MCOUNT_H */

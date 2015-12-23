@@ -698,7 +698,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 			continue;
 
 		if (read_handlers[i].handler(handle) < 0) {
-			pr_log("error during read ftrace info (%x)\n",
+			pr_dbg("error during read ftrace info (%x)\n",
 			       (1U << read_handlers[i].bit));
 			return -1;
 		}
@@ -734,9 +734,6 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 	if (stat(buf, &statbuf) < 0)
 		return -1;
-
-	if (opts->use_pager)
-		start_pager();
 
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
@@ -839,6 +836,5 @@ int command_info(int argc, char *argv[], struct opts *opts)
 out:
 	close_data_file(opts, &handle);
 
-	wait_for_pager();
 	return ret;
 }
