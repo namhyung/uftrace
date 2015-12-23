@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdio_ext.h>
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -299,6 +300,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		.sa_flags = 0,
 	};
 	struct ftrace_kernel kern;
+
+	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
+	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
