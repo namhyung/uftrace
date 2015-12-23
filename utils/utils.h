@@ -30,32 +30,21 @@
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
 extern int debug;
-extern unsigned dbg_domain;
 extern FILE *logfp;
 extern FILE *outfp;
 
 enum debug_domain {
-	DBG_FTRACE_BIT	= 0,
-	DBG_SYMBOL_BIT,
-	DBG_DEMANGLE_BIT,
-	DBG_FILTER_BIT,
-	DBG_FSTACK_BIT,
-	DBG_SESSION_BIT,
-	DBG_KERNEL_BIT,
-	DBG_MCOUNT_BIT,
-	DBG_DOMAIN_BIT_MAX,
-
-	DBG_ALL		= -1,
-	DBG_NONE	= 0,
-	DBG_FTRACE	= (1U << DBG_FTRACE_BIT),
-	DBG_SYMBOL	= (1U << DBG_SYMBOL_BIT),
-	DBG_DEMANGLE	= (1U << DBG_DEMANGLE_BIT),
-	DBG_FILTER	= (1U << DBG_FILTER_BIT),
-	DBG_FSTACK	= (1U << DBG_FSTACK_BIT),
-	DBG_SESSION	= (1U << DBG_SESSION_BIT),
-	DBG_KERNEL	= (1U << DBG_KERNEL_BIT),
-	DBG_MCOUNT	= (1U << DBG_MCOUNT_BIT),
+	DBG_FTRACE	= 0,
+	DBG_SYMBOL,
+	DBG_DEMANGLE,
+	DBG_FILTER,
+	DBG_FSTACK,
+	DBG_SESSION,
+	DBG_KERNEL,
+	DBG_MCOUNT,
+	DBG_DOMAIN_MAX,
 };
+extern int dbg_domain[DBG_DOMAIN_MAX];
 
 extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
@@ -74,19 +63,19 @@ extern void setup_color(int color);
 
 #define pr_dbg(fmt, ...) 					\
 ({								\
-	if (debug && (dbg_domain & PR_DOMAIN))			\
+	if (dbg_domain[PR_DOMAIN])			\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg2(fmt, ...) 					\
 ({								\
-	if (debug > 1 && (dbg_domain & PR_DOMAIN))		\
+	if (dbg_domain[PR_DOMAIN] > 1)		\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
 #define pr_dbg3(fmt, ...) 					\
 ({								\
-	if (debug > 2 && (dbg_domain & PR_DOMAIN))		\
+	if (dbg_domain[PR_DOMAIN] > 2)		\
 		__pr_log(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 

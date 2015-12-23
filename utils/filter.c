@@ -58,7 +58,7 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 			memcpy(tr, &iter->trigger, sizeof(*tr));
 
 			pr_dbg2("filter match: %s\n", iter->name);
-			if (debug >= 3 && (dbg_domain & DBG_FILTER))
+			if (dbg_domain[DBG_FILTER] >= 3)
 				print_trigger(tr);
 			return 1;
 		}
@@ -94,7 +94,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 	struct ftrace_filter *iter, *new;
 
 	pr_dbg("add filter for %s\n", filter->name);
-	if (debug >= 3 && (dbg_domain & DBG_FILTER))
+	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
 
 	while (*p) {
@@ -359,8 +359,7 @@ void ftrace_print_filter(struct rb_root *root)
 	while (node) {
 		filter = rb_entry(node, struct ftrace_filter, node);
 		pr_dbg("%lx-%lx: %s\n", filter->start, filter->end, filter->name);
-		if (debug && (dbg_domain & DBG_FILTER))
-			print_trigger(&filter->trigger);
+		print_trigger(&filter->trigger);
 
 		node = rb_next(node);
 	}

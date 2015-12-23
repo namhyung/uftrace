@@ -39,6 +39,8 @@
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
+static bool dbg_domain_set = false;
+
 enum options {
 	OPT_flat	= 301,
 	OPT_plthook,
@@ -203,36 +205,43 @@ static int parse_demangle(char *arg)
 	return DEMANGLE_ERROR;
 }
 
-static unsigned parse_debug_domain(char *arg)
+static void parse_debug_domain(char *arg)
 {
 	char *str, *saved_str;
-	char *tok, *pos;
-	unsigned domain = 0;
+	char *tok, *pos, *tmp;
 
 	saved_str = str = xstrdup(arg);
 	while ((tok = strtok_r(str, ",", &pos)) != NULL) {
+		int level = -1;
+
+		tmp = strchr(tok, ':');
+		if (tmp) {
+			*tmp++ = '\0';
+			level = strtol(tmp, NULL, 0);
+		}
+
 		if (!strcmp(tok, "ftrace"))
-			domain |= DBG_FTRACE;
+			dbg_domain[DBG_FTRACE] = level;
 		else if (!strcmp(tok, "symbol"))
-			domain |= DBG_SYMBOL;
+			dbg_domain[DBG_SYMBOL] = level;
 		else if (!strcmp(tok, "demangle"))
-			domain |= DBG_DEMANGLE;
+			dbg_domain[DBG_DEMANGLE] = level;
 		else if (!strcmp(tok, "filter"))
-			domain |= DBG_FILTER;
+			dbg_domain[DBG_FILTER] = level;
 		else if (!strcmp(tok, "fstack"))
-			domain |= DBG_FSTACK;
+			dbg_domain[DBG_FSTACK] = level;
 		else if (!strcmp(tok, "session"))
-			domain |= DBG_SESSION;
+			dbg_domain[DBG_SESSION] = level;
 		else if (!strcmp(tok, "kernel"))
-			domain |= DBG_KERNEL;
+			dbg_domain[DBG_KERNEL] = level;
 		else if (!strcmp(tok, "mcount"))
-			domain |= DBG_MCOUNT;
+			dbg_domain[DBG_MCOUNT] = level;
 
 		str = NULL;
 	}
 
+	dbg_domain_set = true;
 	free(saved_str);
-	return domain;
 }
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -376,7 +385,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_dbg_domain:
-		dbg_domain = parse_debug_domain(arg);
+		parse_debug_domain(arg);
 		break;
 
 	case ARGP_KEY_ARG:
@@ -470,6 +479,9 @@ int main(int argc, char *argv[])
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
+	if (dbg_domain_set && !debug)
+		debug = 1;
+
 	if (opts.logfile) {
 		logfp = fopen(opts.logfile, "w");
 		if (logfp == NULL)
@@ -482,8 +494,15 @@ int main(int argc, char *argv[])
 		setvbuf(outfp, NULL, _IOLBF, 1024);
 	}
 
-	if (debug && !dbg_domain)
-		dbg_domain = DBG_ALL;
+	if (debug) {
+		int d;
+
+		/* set default debug level */
+		for (d = 0; d < DBG_DOMAIN_MAX; d++) {
+			if (dbg_domain[d] == -1 || !dbg_domain_set)
+				dbg_domain[d] = debug;
+		}
+	}
 
 	setup_color(opts.color);
 

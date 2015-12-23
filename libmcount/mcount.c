@@ -1116,17 +1116,18 @@ static void build_debug_domain(char *dbg_domain_str)
 		return;
 
 	len = strlen(dbg_domain_str);
-	for (i = 0; i < len; i++) {
-		int bit;
+	for (i = 0; i < len; i += 2) {
 		const char *pos;
 		char domain = dbg_domain_str[i];
+		int level = dbg_domain_str[i+1] - '0';
+		int d;
 
 		pos = strchr(DBG_DOMAIN_STR, domain);
 		if (pos == NULL)
 			continue;
 
-		bit = pos - DBG_DOMAIN_STR;
-		dbg_domain |= (1U << bit);
+		d = pos - DBG_DOMAIN_STR;
+		dbg_domain[d] = level;
 	}
 }
 

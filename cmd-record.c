@@ -60,12 +60,14 @@ static bool can_use_fast_libmcount(struct opts *opts)
 
 static char *build_debug_domain_string(void)
 {
-	int i, bit;
-	static char domain[DBG_DOMAIN_BIT_MAX + 1];
+	int i, d;
+	static char domain[2*DBG_DOMAIN_MAX + 1];
 
-	for (i = 0, bit = 0; bit < DBG_DOMAIN_BIT_MAX; bit++) {
-		if (dbg_domain & (1U << bit))
-			domain[i++] = DBG_DOMAIN_STR[bit];
+	for (i = 0, d = 0; d < DBG_DOMAIN_MAX; d++) {
+		if (dbg_domain[d]) {
+			domain[i++] = DBG_DOMAIN_STR[d];
+			domain[i++] = dbg_domain[d] + '0';
+		}
 	}
 	domain[i] = '\0';
 
