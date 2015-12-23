@@ -27,7 +27,7 @@
 
 int debug;
 FILE *logfp;
-int log_color = 1;
+int log_color;
 FILE *outfp;
 int dbg_domain[DBG_DOMAIN_MAX];
 
