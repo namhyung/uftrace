@@ -32,8 +32,8 @@ static void print_backtrace(struct ftrace_task_handle *task)
 			sym = NULL;
 
 		name = symbol_getname(sym, fstack->addr);
-		pr_out("  backtrace [%5d] | /* [%2d] %s */\n",
-		       task->tid, i, name);
+		pr_out("  backtrace [%5d] |", task->tid);
+		pr_gray(" /* [%2d] %s */\n", i, name);
 		symbol_putname(sym, name);
 	}
 }
@@ -132,15 +132,15 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s} /* %s */\n", task->tid,
-			       rstack->depth * 2, "", symname);
+			pr_out(" [%5d] | %*s}", task->tid, rstack->depth * 2, "");
+			pr_gray(" /* %s */\n", symname);
 		}
 
 		fstack_exit(task);
 	} else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
-		pr_out(" [%5d] |     /* LOST %d records!! */\n",
-		       task->tid, (int)rstack->addr);
+		pr_out(" [%5d] |", task->tid);
+		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
@@ -228,16 +228,16 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s} /* %s */\n", task->tid,
-			       rstack->depth * 2, "", symname);
+			pr_out(" [%5d] | %*s}", task->tid, rstack->depth * 2, "");
+			pr_gray(" /* %s */\n", symname);
 		}
 
 		fstack_exit(task);
 	}
 	else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
-		pr_out(" [%5d] |     /* LOST %d records!! */\n",
-		       task->tid, (int)rstack->addr);
+		pr_out(" [%5d] |", task->tid);
+		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
 	}
 out:
 	symbol_putname(sym, symname);
