@@ -554,7 +554,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
-		return -1;
+		pr_err("cannot open data: %s", opts->dirname);
 
 	pr_out("ftrace file header: magic         = ");
 	for (i = 0; i < FTRACE_MAGIC_LEN; i++)
@@ -575,22 +575,24 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 		snprintf(buf, sizeof(buf), "%s/%d.dat", opts->dirname, tid);
 		task.fp = fopen(buf, "rb");
-		if (task.fp == NULL)
+		if (task.fp == NULL) {
+			pr_red("cannot open %s: %m\n", buf);
 			continue;
+		}
 
 		pr_out("reading %d.dat\n", tid);
 		while (!read_task_ustack(&task)) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
-			struct sym *sym;
+			struct sym *sym = NULL;
 			char *name;
 
-			if (sess == NULL)
-				continue;
+			if (sess) {
+				symtabs = &sess->symtabs;
+				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+			}
 
-			symtabs = &sess->symtabs;
-			sym = find_symtabs(symtabs, frs->addr, proc_maps);
 			name = symbol_getname(sym, frs->addr);
 
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
