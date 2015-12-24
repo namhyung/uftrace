@@ -544,6 +544,14 @@ int main(int argc, char *argv[])
 }
 #endif /* UNIT_TEST */
 
+static void pr_time(uint64_t timestamp)
+{
+	unsigned sec   = timestamp / 1000000000;
+	unsigned nsec  = timestamp % 1000000000;
+
+	pr_out("%u.%u  ", sec, nsec);
+}
+
 static int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int i;
@@ -595,6 +603,7 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 			name = symbol_getname(sym, frs->addr);
 
+			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
 			       name, (unsigned long)frs->addr, frs->depth);
