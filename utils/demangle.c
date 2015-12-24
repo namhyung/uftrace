@@ -1394,12 +1394,18 @@ static char *demangle_simple(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
+	char *dot;
 
 	if (str[0] != '_' || str[1] != 'Z')
 		return xstrdup(str);
 
 	dd.pos = 2;
 	dd.new = xzalloc(0);
+
+	/* ignore compiler generated suffix: XXX.part.0 */
+	dot = strchr(dd.old, '.');
+	if (dot)
+		dd.len = dot - dd.old;
 
 	if (dd_encoding(&dd) < 0 || !dd_eof(&dd) || dd.level != 0) {
 		dd_debug_print(&dd);
