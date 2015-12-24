@@ -469,7 +469,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump] [<command> args...]",
+		.args_doc = "[record|replay|live|report|info] [<command> args...]",
 		.doc = "ftrace -- a function tracer",
 	};
 
