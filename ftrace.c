@@ -469,7 +469,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump] [<command> args...]",
+		.args_doc = "[record|replay|live|report|info] [<command> args...]",
 		.doc = "ftrace -- a function tracer",
 	};
 
@@ -544,6 +544,76 @@ int main(int argc, char *argv[])
 }
 #endif /* UNIT_TEST */
 
+static void pr_time(uint64_t timestamp)
+{
+	unsigned sec   = timestamp / 1000000000;
+	unsigned nsec  = timestamp % 1000000000;
+
+	pr_out("%u.%u  ", sec, nsec);
+}
+
+static void pr_hex(uint64_t *offset, void *data, size_t len)
+{
+	size_t i, l;
+	unsigned char *h = data;
+	uint64_t ofs = *offset;
+
+	if (!debug)
+		return;
+
+	if (ofs % 16) {
+		l = ofs % 16;
+		pr_green(" <%016"PRIx64">:", ofs);
+		if (l > 8) {
+			pr_green(" %02x %02x %02x %02x %02x %02x %02x %02x ",
+				 h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+			l -= 8;
+			h += 8;
+			ofs += 8;
+			len -= 8;
+		}
+
+		for (i = 0; i < l; i++)
+			pr_green(" %02x", *h++);
+		pr_green("\n");
+
+		ofs += l;
+		len -= l;
+	}
+
+	while (len >= 16) {
+		pr_green(" <%016"PRIx64">:", ofs);
+		pr_green(" %02x %02x %02x %02x %02x %02x %02x %02x "
+			 " %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			 h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7],
+			 h[8], h[9], h[10], h[11], h[12], h[13], h[14], h[15]);
+
+		ofs += 16;
+		len -= 16;
+		h += 16;
+	}
+
+	if (len) {
+		pr_green(" <%016"PRIx64">:", ofs);
+		if (len > 8) {
+			pr_green(" %02x %02x %02x %02x %02x %02x %02x %02x ",
+				 h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+
+			ofs += 8;
+			len -= 8;
+			h += 8;
+		}
+
+		for (i = 0; i < len; i++)
+			pr_green(" %02x", *h++);
+		pr_green("\n");
+
+		ofs += len;
+	}
+
+	*offset = ofs;
+}
+
 static int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int i;
@@ -551,37 +621,58 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	char buf[PATH_MAX];
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle task;
+	uint64_t file_offset = 0;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
-		return -1;
+		pr_err("cannot open data: %s", opts->dirname);
+
+	pr_out("ftrace file header: magic         = ");
+	for (i = 0; i < FTRACE_MAGIC_LEN; i++)
+		pr_out("%02x", handle.hdr.magic[i]);
+	pr_out("\n");
+	pr_out("ftrace file header: version       = %u\n", handle.hdr.version);
+	pr_out("ftrace file header: header size   = %u\n", handle.hdr.header_size);
+	pr_out("ftrace file header: endian        = %u (%s)\n",
+	       handle.hdr.endian, handle.hdr.endian == 1 ? "little" : "big");
+	pr_out("ftrace file header: class         = %u (%s bit)\n",
+	       handle.hdr.class, handle.hdr.class == 2 ? "64" : "32");
+	pr_out("ftrace file header: features      = %#"PRIx64"\n", handle.hdr.feat_mask);
+	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle.hdr.info_mask);
+	pr_hex(&file_offset, &handle.hdr, handle.hdr.header_size);
+	pr_out("\n");
 
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
 
 		snprintf(buf, sizeof(buf), "%s/%d.dat", opts->dirname, tid);
 		task.fp = fopen(buf, "rb");
-		if (task.fp == NULL)
+		if (task.fp == NULL) {
+			pr_red("cannot open %s: %m\n", buf);
 			continue;
+		}
 
+		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
 		while (!read_task_ustack(&task)) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
-			struct sym *sym;
+			struct sym *sym = NULL;
 			char *name;
 
-			if (sess == NULL)
-				continue;
+			if (sess) {
+				symtabs = &sess->symtabs;
+				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+			}
 
-			symtabs = &sess->symtabs;
-			sym = find_symtabs(symtabs, frs->addr, proc_maps);
 			name = symbol_getname(sym, frs->addr);
 
+			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
 			       name, (unsigned long)frs->addr, frs->depth);
+			pr_hex(&file_offset, frs, sizeof(*frs));
 
 			symbol_putname(sym, name);
 		}
