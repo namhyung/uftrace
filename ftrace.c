@@ -556,6 +556,20 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
+	pr_out("ftrace file header: magic         = ");
+	for (i = 0; i < FTRACE_MAGIC_LEN; i++)
+		pr_out("%02x", handle.hdr.magic[i]);
+	pr_out("\n");
+	pr_out("ftrace file header: version       = %u\n", handle.hdr.version);
+	pr_out("ftrace file header: header size   = %u\n", handle.hdr.header_size);
+	pr_out("ftrace file header: endian        = %u (%s)\n",
+	       handle.hdr.endian, handle.hdr.endian == 1 ? "little" : "big");
+	pr_out("ftrace file header: class         = %u (%s bit)\n",
+	       handle.hdr.class, handle.hdr.class == 2 ? "64" : "32");
+	pr_out("ftrace file header: features      = %#"PRIx64"\n", handle.hdr.feat_mask);
+	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle.hdr.info_mask);
+	pr_out("\n");
+
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
 
