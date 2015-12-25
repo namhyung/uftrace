@@ -725,6 +725,8 @@ static int dd_expression(struct demangle_data *dd)
 		if (c0 == 'c' || c1 == 'v')
 			continue;
 		dd_consume_n(dd, 2);
+		if (dd_expression(dd) < 0)
+			return -1;
 		return dd_expression(dd);
 	}
 	if (c0 == 'c' && c1 == 'l') {
