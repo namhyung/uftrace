@@ -545,8 +545,13 @@ static int dd_unresolved_type(struct demangle_data *dd)
 		return dd_template_param(dd);
 	if (c == 'D')
 		return dd_decltype(dd);
-	if (c == 'S')
-		return dd_substitution(dd);
+	if (c == 'S') {
+		if (dd_substitution(dd) < 0)
+			return -1;
+		if (dd_curr(dd) == 'I')
+			return dd_template_args(dd);
+		return 0;
+	}
 	return -1;
 }
 
