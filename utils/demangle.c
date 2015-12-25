@@ -1350,7 +1350,7 @@ static int dd_name(struct demangle_data *dd)
 			dd_consume_n(dd, 2);
 
 			if (!dd->type)
-				dd_append(dd, "::std");
+				dd_append(dd, "std");
 			/* fall through to dd_unqualified_name() */
 		} else if (c1 == '_' || isdigit(c1) || isupper(c1)) {
 			dd_substitution(dd);
