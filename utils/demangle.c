@@ -115,15 +115,16 @@ static void dd_debug_print(struct demangle_data *dd)
 	if (dd->func == NULL)
 		dd->func = "demangle";
 
-	if (debug <= 1) {
+	if (dbg_domain[DBG_DEMANGLE] <= 1) {
 		pr_dbg("demangle failed: %s\n", dd->old);
 		return;
 	}
 
-	pr_dbg2("demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
+	pr_dbg2("simple demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
 		dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
 		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
 
+	pr_dbg2("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
 	for (i = 0; i < dd->nr_dbg; i++)
 		pr_dbg2("  [%d] %s\n", i, dd->debug[i]);
 }
