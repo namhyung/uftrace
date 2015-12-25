@@ -1499,6 +1499,8 @@ char *demangle(char *str)
 #ifdef UNIT_TEST
 TEST_CASE(demangle_simple1)
 {
+	dbg_domain[DBG_DEMANGLE] = 2;
+
 	TEST_STREQ("normal", demangle_simple("normal"));
 	TEST_STREQ("ABC::foo", demangle_simple("_ZN3ABC3fooEv"));
 	TEST_STREQ("ABC::ABC", demangle_simple("_ZN3ABCC1Ei"));
@@ -1510,6 +1512,8 @@ TEST_CASE(demangle_simple1)
 
 TEST_CASE(demangle_simple2)
 {
+	dbg_domain[DBG_DEMANGLE] = 2;
+
 	TEST_STREQ("FtraceService::~FtraceService",
 		   demangle_simple("_ZThn8_N13FtraceServiceD0Ev"));
 	TEST_STREQ("v8::internal::ScopedVector::ScopedVector",
@@ -1521,5 +1525,31 @@ TEST_CASE(demangle_simple2)
 				   "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_"));
 
 	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple3)
+{
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	TEST_STREQ("node::Watchdog::Destroy",
+		   demangle_simple("_ZN4node8Watchdog7DestroyEv.part.0"));
+	TEST_STREQ("v8::internal::CodeStub::GetKey",
+		   demangle_simple("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17"));
+	TEST_STREQ("std::operator ==",
+		   demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
+				   "bRKSt15_Deque_iteratorIT_T0_T1_ESE_"));
+	TEST_STREQ("v8::base::internal::operator *",
+		   demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
+				   "INS1_19ArithmeticPromotionIT_T0_XqugtsrNS1_"
+				   "11MaxExponentIS5_EE5valuesrNS7_IS6_EE5value"
+				   "qugtsrS8_5valueL_ZNS7_IiE5valueEELNS1_"
+				   "27ArithmeticPromotionCategoryE0ELSB_2E"
+				   "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
+				   "4typeEEERKNS3_IS5_EES6_"));
+	TEST_STREQ("std::pow",
+		   demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
+				   "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
+				   "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
+				   "6__typeES2_S3_"));
 }
 #endif /* UNIT_TEST */
