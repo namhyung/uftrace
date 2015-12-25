@@ -1344,23 +1344,11 @@ static int dd_name(struct demangle_data *dd)
 	if (c == 'Z')
 		return dd_local_name(dd);
 	if (c == 'S') {
-		char c1 = dd_peek(dd, 1);
-
-		if (c1 == 't') {
-			dd_consume_n(dd, 2);
-
-			if (!dd->type)
-				dd_append(dd, "std");
-			/* fall through to dd_unqualified_name() */
-		} else if (c1 == '_' || isdigit(c1) || isupper(c1)) {
-			dd_substitution(dd);
-
-			if (dd_curr(dd) == 'I')
-				return dd_template_args(dd);
-			return 0;
-		} else {
+		if (dd_substitution(dd) < 0)
 			return -1;
-		}
+
+		if (dd_curr(dd) == 'I')
+			return dd_template_args(dd);
 	}
 	if (dd_unqualified_name(dd) < 0)
 		return -1;
