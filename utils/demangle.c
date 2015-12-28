@@ -59,12 +59,18 @@ static char dd_curr(struct demangle_data *dd)
 	return dd_peek(dd, 0);
 }
 
+static void __dd_add_debug(struct demangle_data *dd, const char *dbg)
+{
+	if (dd->nr_dbg < MAX_DEBUG_DEPTH && dbg)
+		dd->debug[dd->nr_dbg++] = dbg;
+}
+
 static char __dd_consume_n(struct demangle_data *dd, int n, const char *dbg)
 {
 	char c = dd_curr(dd);
 
-	if (dd->nr_dbg < MAX_DEBUG_DEPTH && dbg)
-		dd->debug[dd->nr_dbg++] = dbg;
+	if (dbg)
+		__dd_add_debug(dd, dbg);
 
 	if (dd->pos + n > dd->len)
 		return 0;
@@ -78,8 +84,9 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 	return __dd_consume_n(dd, 1, dbg);
 }
 
-#define dd_consume(dd)  __dd_consume(dd, __func__)
+#define dd_consume(dd)       __dd_consume(dd, __func__)
 #define dd_consume_n(dd, n)  __dd_consume_n(dd, n, __func__)
+#define dd_add_debug(dd)     __dd_add_debug(dd, __func__)
 
 #define DD_DEBUG(dd, exp, inc)						\
 ({	dd->func = __func__; dd->line = __LINE__ - 1; dd->pos += inc;	\
@@ -717,6 +724,8 @@ static int dd_expression(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
+	dd_add_debug(dd);
+
 	if (c0 == 'L')
 		return dd_expr_primary(dd);
 
@@ -947,6 +956,8 @@ static int dd_type(struct demangle_data *dd)
 
 	if (dd_eof(dd))
 		return -1;
+
+	dd_add_debug(dd);
 
 	/* ignore type names */
 	dd->type++;
@@ -1382,6 +1393,8 @@ static int dd_encoding(struct demangle_data *dd)
 
 	if (dd_eof(dd))
 		return -1;
+
+	dd_add_debug(dd);
 
 	if (c == 'T' || c == 'G')
 		return dd_special_name(dd);
