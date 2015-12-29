@@ -263,37 +263,52 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
 	size_t size = sizeof(*frstack);
+	size_t curr_size;
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	sigset_t set, oset;
+	bool needs_sigmask = false;
 
-	assert(size < (size_t)shmem_bufsize);
+	assert(size < maxsize);
 
-	if (shmem_curr == NULL ||
-	    shmem_curr->size + size > shmem_bufsize - sizeof(*shmem_buffer)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	do {
+		curr_size = shmem_curr ? shmem_curr->size : 0;
+	}
+	while (shmem_curr &&
+	       __sync_fetch_and_add(&shmem_curr->size, size) != curr_size);
 
-		if (shmem_curr == NULL)
-			return 0;
+	if (shmem_curr == NULL || curr_size + size > maxsize) {
+		sigfillset(&set);
+		pthread_sigmask(SIG_BLOCK, &set, &oset);
+		needs_sigmask = true;
 
-		if (shmem_losts) {
-			frstack = (void *)shmem_curr->data;
+		/* signal handler might beat us */
+		if (shmem_curr == NULL || shmem_curr->size + size > maxsize) {
+			finish_shmem_buffer();
+			get_new_shmem_buffer();
 
-			frstack->time = timestamp;
-			frstack->type = FTRACE_LOST;
-			frstack->unused = FTRACE_UNUSED;
-			frstack->addr = shmem_losts;
+			if (shmem_losts) {
+				frstack = (void *)shmem_curr->data;
 
-			ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-					    sizeof(shmem_losts));
+				frstack->time = timestamp;
+				frstack->type = FTRACE_LOST;
+				frstack->unused = FTRACE_UNUSED;
+				frstack->addr = shmem_losts;
 
-			size += sizeof(*frstack);
-			shmem_curr->size += sizeof(*frstack);
-			shmem_losts = 0;
+				ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
+						    sizeof(shmem_losts));
+
+				size += sizeof(*frstack);
+				shmem_losts = 0;
+			}
 		}
+
+		curr_size = shmem_curr->size;
+		shmem_curr->size += size;
 	}
 
 	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
 
-	frstack = (void *)(shmem_curr->data + shmem_curr->size);
+	frstack = (void *)(shmem_curr->data + curr_size);
 
 	frstack->time = timestamp;
 	frstack->type = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY;
@@ -301,7 +316,9 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	frstack->depth = mrstack->depth;
 	frstack->addr = mrstack->child_ip;
 
-	shmem_curr->size += sizeof(*frstack);
+	if (needs_sigmask)
+		pthread_sigmask(SIG_SETMASK, &oset, NULL);
+
 	return 0;
 }
 
