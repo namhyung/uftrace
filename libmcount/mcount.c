@@ -77,6 +77,7 @@ static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
+static TLS unsigned long plthook_saved_addr;
 
 static struct symtabs symtabs;
 static char mcount_exename[1024];
@@ -1042,10 +1043,17 @@ out:
 		prepare_vfork();
 	}
 
-	if (plthook_dynsym_resolved[child_idx])
-		return plthook_dynsym_addr[child_idx];
+	if (plthook_dynsym_resolved[child_idx]) {
+		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
 
-	plthook_dynsym_addr[child_idx] = plthook_got_ptr[3 + child_idx];
+		/* ensure resolved address was set */
+		while (!*resolved_addr)
+			continue;
+
+		return *resolved_addr;;
+	}
+
+	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
 	return 0;
 }
 
@@ -1089,12 +1097,22 @@ again:
 	plthook_recursion_guard = false;
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
-		new_addr = plthook_got_ptr[3 + dyn_idx];
-		/* restore GOT so plt_hooker keep called */
-		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
+#ifndef SINGLE_THREAD
+		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-		plthook_dynsym_resolved[dyn_idx] = true;
-		plthook_dynsym_addr[dyn_idx] = new_addr;
+		pthread_mutex_lock(&resolver_mutex);
+#endif
+		if (!plthook_dynsym_resolved[dyn_idx]) {
+			new_addr = plthook_got_ptr[3 + dyn_idx];
+			/* restore GOT so plt_hooker keep called */
+			plthook_got_ptr[3 + dyn_idx] = plthook_saved_addr;
+
+			plthook_dynsym_addr[dyn_idx] = new_addr;
+			plthook_dynsym_resolved[dyn_idx] = true;
+		}
+#ifndef SINGLE_THREAD
+		pthread_mutex_unlock(&resolver_mutex);
+#endif
 	}
 	return rstack->parent_ip;
 }
