@@ -287,6 +287,7 @@ static const struct {
 
 static int dd_encoding(struct demangle_data *dd);
 static int dd_name(struct demangle_data *dd);
+static int dd_local_name(struct demangle_data *dd);
 static int dd_source_name(struct demangle_data *dd);
 static int dd_operator_name(struct demangle_data *dd);
 static int dd_nested_name(struct demangle_data *dd);
@@ -1033,6 +1034,10 @@ static int dd_type(struct demangle_data *dd)
 		else if (c == 'I') {
 			/* template args?? - not specified in the spec */
 			ret = dd_template_args(dd);
+			done = 1;
+		}
+		else if (c == 'Z') {
+			ret = dd_local_name(dd);
 			done = 1;
 		}
 		else if (isdigit(c)) {
