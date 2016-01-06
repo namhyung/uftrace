@@ -416,6 +416,19 @@ static int dd_initializer(struct demangle_data *dd)
 	return 0;
 }
 
+static int dd_abi_tag(struct demangle_data *dd)
+{
+	if (dd_eof(dd))
+		return -1;
+
+	DD_DEBUG_CONSUME(dd, 'B');
+
+	if (dd_source_name(dd) < 0)
+		return -1;
+
+	return 0;
+}
+
 static int dd_substitution(struct demangle_data *dd)
 {
 	char c;
@@ -432,6 +445,9 @@ static int dd_substitution(struct demangle_data *dd)
 			__dd_consume(dd, NULL);
 			if (dd->type == 0)
 				dd_append(dd, std_abbrevs[i].name);
+
+			if (dd_curr(dd) == 'B')
+				dd_abi_tag(dd);
 			return 0;
 		}
 	}
@@ -620,7 +636,7 @@ static int dd_unresolved_name(struct demangle_data *dd)
 		return -1;
 
 	if (c0 == 'g' && c1 == 's') {
-		dd_consume_n(dd, 2);
+		__dd_consume_n(dd, 2, NULL);
 		c0 = dd_curr(dd);
 		c1 = dd_peek(dd, 1);
 	}
@@ -718,14 +734,20 @@ static int dd_expression(struct demangle_data *dd)
 	char c1 = dd_peek(dd, 1);
 	char *exp = &dd->old[dd->pos];
 	char *unary_ops[] = {
-		"ps", "ng", "ad", "de", "pp_", "mm_", "gs", "dl", "da",
-		"te", "sz", "az", "nx", "sp", "tw",
+		"ps", "ng", "ad", "de", "pp_", "mm_", "pp", "mm", "dl", "da",
+		"te", "sz", "az", "nx", "sp", "tw", "nt",
 	};
 
 	if (dd_eof(dd))
 		return -1;
 
 	dd_add_debug(dd);
+
+	if (c0 == 'g' && c1 == 's') {
+		__dd_consume_n(dd, 2, NULL);
+		c0 = dd_curr(dd);
+		c1 = dd_peek(dd, 1);
+	}
 
 	if (c0 == 'L')
 		return dd_expr_primary(dd);
@@ -1239,13 +1261,14 @@ static int dd_unqualified_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
+	int ret = 0;
 
 	if (dd_eof(dd))
 		return -1;
 
 	if ((c0 == 'C' || c0 == 'D') && isdigit(c1))
-		return dd_ctor_dtor_name(dd);
-	if (c0 == 'U') {
+		ret = dd_ctor_dtor_name(dd);
+	else if (c0 == 'U') {
 		dd->type++;
 
 		if (c1 == 't') {
@@ -1273,18 +1296,23 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			DD_DEBUG_CONSUME(dd, '_');
 		}
 		else {
-			return -1;
+			ret = -1;
 		}
 
 		dd->type--;
-		return 0;
 	}
-	if (islower(c0))
-		return dd_operator_name(dd);
-	else if (c0 == 'L')
-		dd_consume(dd);  /* local-source-name ? */
+	else if (islower(c0))
+		ret = dd_operator_name(dd);
+	else {
+		if (c0 == 'L')
+			dd_consume(dd);  /* local-source-name ? */
+		ret = dd_source_name(dd);
+	}
 
-	return dd_source_name(dd);
+	if (dd_curr(dd) == 'B')
+		ret = dd_abi_tag(dd);
+
+	return ret;
 }
 
 static int dd_nested_name(struct demangle_data *dd)
@@ -1571,6 +1599,15 @@ TEST_CASE(demangle_simple4)
 
 	TEST_STREQ("convertToWindowType::~convertToWindowType",
 		   demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev"));
+
+	TEST_STREQ("std::set::erase::cxx11",
+		   demangle_simple("_ZNSt3setISsSt4lessISsESaISsEE5eraseB5cxx11E"
+				   "St23_Rb_tree_const_iteratorISsE"));
+
+	TEST_STREQ("std::allocator_traits::_S_select",
+		   demangle_simple("_ZNSt16allocator_traitsISaISsEE9_S_select"
+				   "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
+				   "IT_EE5valueES6_E4typeERS6_"));
 
 	return TEST_OK;
 }
