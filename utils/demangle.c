@@ -287,6 +287,7 @@ static const struct {
 
 static int dd_encoding(struct demangle_data *dd);
 static int dd_name(struct demangle_data *dd);
+static int dd_local_name(struct demangle_data *dd);
 static int dd_source_name(struct demangle_data *dd);
 static int dd_operator_name(struct demangle_data *dd);
 static int dd_nested_name(struct demangle_data *dd);
@@ -957,8 +958,6 @@ static int dd_type(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
-	dd_add_debug(dd);
-
 	/* ignore type names */
 	dd->type++;
 
@@ -1033,6 +1032,10 @@ static int dd_type(struct demangle_data *dd)
 		else if (c == 'I') {
 			/* template args?? - not specified in the spec */
 			ret = dd_template_args(dd);
+			done = 1;
+		}
+		else if (c == 'Z') {
+			ret = dd_local_name(dd);
 			done = 1;
 		}
 		else if (isdigit(c)) {
@@ -1248,8 +1251,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 		if (c1 == 't') {
 			/* unnamed type name */
 			dd_consume_n(dd, 2);
-			if (dd_number(dd) < 0)
-				return -1;
+			dd_number(dd);
 			DD_DEBUG_CONSUME(dd, '_');
 		}
 		else if (c1 == 'I' || c1 == 'l') {
@@ -1404,6 +1406,8 @@ static int dd_encoding(struct demangle_data *dd)
 		return ret;
 
 	while (!dd_eof(dd) && dd_curr(dd) != 'E') {
+		__dd_add_debug(dd, "dd_type");
+
 		if (dd_type(dd) < 0)
 			break;
 	}
@@ -1551,5 +1555,23 @@ TEST_CASE(demangle_simple3)
 				   "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
 				   "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
 				   "6__typeES2_S3_"));
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple4)
+{
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	TEST_STREQ("std::__find_if",
+		   demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
+				   "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
+				   "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
+				   "St18input_iterator_tag"));
+
+	TEST_STREQ("convertToWindowType::~convertToWindowType",
+		   demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev"));
+
+	return TEST_OK;
 }
 #endif /* UNIT_TEST */
