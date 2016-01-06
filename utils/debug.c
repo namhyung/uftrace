@@ -208,6 +208,10 @@ void print_time_unit(uint64_t delta_nsec)
 
 	assert(idx < ARRAY_SIZE(units));
 
+	/* for some error cases */
+	if (delta > 999)
+		delta = delta_small = 999;
+
 	if (log_color)
 		unit = color_units[idx];
 	else
