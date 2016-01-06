@@ -1555,5 +1555,23 @@ TEST_CASE(demangle_simple3)
 				   "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
 				   "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
 				   "6__typeES2_S3_"));
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple4)
+{
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	TEST_STREQ("std::__find_if",
+		   demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
+				   "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
+				   "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
+				   "St18input_iterator_tag"));
+
+	TEST_STREQ("convertToWindowType::~convertToWindowType",
+		   demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev"));
+
+	return TEST_OK;
 }
 #endif /* UNIT_TEST */
