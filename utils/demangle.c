@@ -1253,8 +1253,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 		if (c1 == 't') {
 			/* unnamed type name */
 			dd_consume_n(dd, 2);
-			if (dd_number(dd) < 0)
-				return -1;
+			dd_number(dd);
 			DD_DEBUG_CONSUME(dd, '_');
 		}
 		else if (c1 == 'I' || c1 == 'l') {
