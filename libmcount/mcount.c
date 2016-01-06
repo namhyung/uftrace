@@ -30,6 +30,7 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/compiler.h"
 
 #ifdef SINGLE_THREAD
 # define TLS
@@ -1048,7 +1049,7 @@ out:
 
 		/* ensure resolved address was set */
 		while (!*resolved_addr)
-			continue;
+			cpu_relax();
 
 		return *resolved_addr;;
 	}
