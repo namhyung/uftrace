@@ -30,6 +30,7 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/compiler.h"
 
 #ifdef SINGLE_THREAD
 # define TLS
@@ -77,6 +78,7 @@ static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
+static TLS unsigned long plthook_saved_addr;
 
 static struct symtabs symtabs;
 static char mcount_exename[1024];
@@ -263,37 +265,52 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
 	size_t size = sizeof(*frstack);
+	size_t curr_size;
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	sigset_t set, oset;
+	bool needs_sigmask = false;
 
-	assert(size < (size_t)shmem_bufsize);
+	assert(size < maxsize);
 
-	if (shmem_curr == NULL ||
-	    shmem_curr->size + size > shmem_bufsize - sizeof(*shmem_buffer)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	do {
+		curr_size = shmem_curr ? shmem_curr->size : 0;
+	}
+	while (shmem_curr &&
+	       __sync_fetch_and_add(&shmem_curr->size, size) != curr_size);
 
-		if (shmem_curr == NULL)
-			return 0;
+	if (shmem_curr == NULL || curr_size + size > maxsize) {
+		sigfillset(&set);
+		pthread_sigmask(SIG_BLOCK, &set, &oset);
+		needs_sigmask = true;
 
-		if (shmem_losts) {
-			frstack = (void *)shmem_curr->data;
+		/* signal handler might beat us */
+		if (shmem_curr == NULL || shmem_curr->size + size > maxsize) {
+			finish_shmem_buffer();
+			get_new_shmem_buffer();
 
-			frstack->time = timestamp;
-			frstack->type = FTRACE_LOST;
-			frstack->unused = FTRACE_UNUSED;
-			frstack->addr = shmem_losts;
+			if (shmem_losts) {
+				frstack = (void *)shmem_curr->data;
 
-			ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-					    sizeof(shmem_losts));
+				frstack->time = timestamp;
+				frstack->type = FTRACE_LOST;
+				frstack->unused = FTRACE_UNUSED;
+				frstack->addr = shmem_losts;
 
-			size += sizeof(*frstack);
-			shmem_curr->size += sizeof(*frstack);
-			shmem_losts = 0;
+				ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
+						    sizeof(shmem_losts));
+
+				size += sizeof(*frstack);
+				shmem_losts = 0;
+			}
 		}
+
+		curr_size = shmem_curr->size;
+		shmem_curr->size += size;
 	}
 
 	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
 
-	frstack = (void *)(shmem_curr->data + shmem_curr->size);
+	frstack = (void *)(shmem_curr->data + curr_size);
 
 	frstack->time = timestamp;
 	frstack->type = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY;
@@ -301,7 +318,9 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	frstack->depth = mrstack->depth;
 	frstack->addr = mrstack->child_ip;
 
-	shmem_curr->size += sizeof(*frstack);
+	if (needs_sigmask)
+		pthread_sigmask(SIG_SETMASK, &oset, NULL);
+
 	return 0;
 }
 
@@ -1025,10 +1044,17 @@ out:
 		prepare_vfork();
 	}
 
-	if (plthook_dynsym_resolved[child_idx])
-		return plthook_dynsym_addr[child_idx];
+	if (plthook_dynsym_resolved[child_idx]) {
+		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
 
-	plthook_dynsym_addr[child_idx] = plthook_got_ptr[3 + child_idx];
+		/* ensure resolved address was set */
+		while (!*resolved_addr)
+			cpu_relax();
+
+		return *resolved_addr;;
+	}
+
+	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
 	return 0;
 }
 
@@ -1072,12 +1098,22 @@ again:
 	plthook_recursion_guard = false;
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
-		new_addr = plthook_got_ptr[3 + dyn_idx];
-		/* restore GOT so plt_hooker keep called */
-		plthook_got_ptr[3 + dyn_idx] = plthook_dynsym_addr[dyn_idx];
+#ifndef SINGLE_THREAD
+		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-		plthook_dynsym_resolved[dyn_idx] = true;
-		plthook_dynsym_addr[dyn_idx] = new_addr;
+		pthread_mutex_lock(&resolver_mutex);
+#endif
+		if (!plthook_dynsym_resolved[dyn_idx]) {
+			new_addr = plthook_got_ptr[3 + dyn_idx];
+			/* restore GOT so plt_hooker keep called */
+			plthook_got_ptr[3 + dyn_idx] = plthook_saved_addr;
+
+			plthook_dynsym_addr[dyn_idx] = new_addr;
+			plthook_dynsym_resolved[dyn_idx] = true;
+		}
+#ifndef SINGLE_THREAD
+		pthread_mutex_unlock(&resolver_mutex);
+#endif
 	}
 	return rstack->parent_ip;
 }

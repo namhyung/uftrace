@@ -133,9 +133,9 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
  * @symtabs     - symbol tables
  *
  * This function sets up the symbol filters and triggers using following syntax:
- *   filter_strs = filter | filter "," filter_strs
+ *   filter_strs = filter | filter ";" filter_strs
  *   filter      = symbol | symbol "@" trigger
- *   trigger     = trigger_def | trigger_def ":" trigger
+ *   trigger     = trigger_def | trigger_def "," trigger
  *   trigger_def = "depth=" NUM | "backtrace"
  */
 int setup_fstack_filters(char *filter_str, char *trigger_str,

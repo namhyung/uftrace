@@ -70,7 +70,7 @@ int read_task_file(char *dirname)
 	snprintf(buf, sizeof(buf), "%s/task", dirname);
 	fd = open(buf, O_RDONLY);
 	if (fd < 0)
-		pr_err("open task file");
+		return -1;
 
 	while (read_all(fd, &msg, sizeof(msg)) == 0) {
 		if (msg.magic != FTRACE_MSG_MAGIC)
