@@ -958,8 +958,6 @@ static int dd_type(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
-	dd_add_debug(dd);
-
 	/* ignore type names */
 	dd->type++;
 
@@ -1408,6 +1406,8 @@ static int dd_encoding(struct demangle_data *dd)
 		return ret;
 
 	while (!dd_eof(dd) && dd_curr(dd) != 'E') {
+		__dd_add_debug(dd, "dd_type");
+
 		if (dd_type(dd) < 0)
 			break;
 	}
