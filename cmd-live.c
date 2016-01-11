@@ -83,7 +83,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 
 	opts->dirname = template;
 
-	if (command_record(argc, argv, opts) == 0) {
+	if (command_record(argc, argv, opts) == 0 && !opts->nop) {
 		pr_dbg("live-record finished.. start replaying...\n");
 		reset_live_opts(opts);
 		command_replay(argc, argv, opts);
