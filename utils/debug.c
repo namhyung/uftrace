@@ -212,7 +212,7 @@ void print_time_unit(uint64_t delta_nsec)
 	if (delta > 999)
 		delta = delta_small = 999;
 
-	if (log_color)
+	if (out_color)
 		unit = color_units[idx];
 	else
 		unit = units[idx];
