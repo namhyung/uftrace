@@ -166,17 +166,16 @@ static TLS struct mcount_shmem_buffer *shmem_curr;
 static TLS int shmem_losts;
 static int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
-static void get_new_shmem_buffer(void)
+static void prepare_shmem_buffer(void)
 {
 	char buf[128];
-	int idx = shmem_seqnum % 2;
-	int fd;
+	int idx, fd;
 
-	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), idx);
+	pr_dbg2("preparing shmem buffers\n");
 
-	if (shmem_buffer[idx] == NULL) {
-		pr_dbg2("opening shmem buffer: %s\n", buf);
+	for (idx = 0; idx < 2; idx++) {
+		snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+			 session_name(), gettid(), idx);
 
 		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 		if (fd < 0)
@@ -188,33 +187,46 @@ static void get_new_shmem_buffer(void)
 		shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
 					 PROT_READ | PROT_WRITE,
 					 MAP_SHARED, fd, 0);
-		if (shmem_buffer[idx] == MAP_FAILED)
+		if (shmem_buffer[idx] == MAP_FAILED) {
+			shmem_buffer[idx] = NULL;
 			pr_err("mmap shmem buffer");
-
-		/* mark it's a new buffer */
-		shmem_buffer[idx]->flag |= SHMEM_FL_NEW;
-
-		close(fd);
-	} else {
-		/*
-		 * It's not a new buffer, check ftrace record already
-		 * consumed it.
-		 */
-		if (!(shmem_buffer[idx]->flag & SHMEM_FL_WRITTEN)) {
-			shmem_losts++;
-			return;
 		}
 
-		/*
-		 * Start a new buffer and clear the flags.
-		 * See record_mmap_file().
-		 */
-		__sync_fetch_and_and(&shmem_buffer[idx]->flag,
-				     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
+		/* mark it's a new buffer */
+		shmem_buffer[idx]->flag = SHMEM_FL_NEW;
+
+		close(fd);
 	}
+}
+
+static void get_new_shmem_buffer(void)
+{
+	char buf[128];
+	int idx = shmem_seqnum % 2;
+
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 session_name(), gettid(), idx);
+
+	/*
+	 * It's not a new buffer, check ftrace record already
+	 * consumed it.
+	 */
+	if (!(shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
+		shmem_losts++;
+		return;
+	}
+
+	/*
+	 * Start a new buffer and clear the flags.
+	 * See record_mmap_file().
+	 */
+	__sync_fetch_and_and(&shmem_buffer[idx]->flag,
+			     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
+
 	shmem_curr = shmem_buffer[idx];
 	shmem_curr->size = 0;
 
+	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 }
 
@@ -229,6 +241,7 @@ static void finish_shmem_buffer(void)
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
 		 session_name(), gettid(), idx);
 
+	pr_dbg2("done buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
 
 	shmem_curr = NULL;
@@ -237,10 +250,10 @@ static void finish_shmem_buffer(void)
 
 static void clear_shmem_buffer(void)
 {
-	if (shmem_buffer[0])
-		munmap(shmem_buffer[0], shmem_bufsize);
-	if (shmem_buffer[1])
-		munmap(shmem_buffer[1], shmem_bufsize);
+	pr_dbg2("releasing all shmem buffers\n");
+
+	munmap(shmem_buffer[0], shmem_bufsize);
+	munmap(shmem_buffer[1], shmem_bufsize);
 
 	shmem_buffer[0] = shmem_buffer[1] = NULL;
 	shmem_seqnum = 0;
@@ -424,6 +437,7 @@ static void mcount_prepare(void)
 	mcount_filter.depth = mcount_depth;
 #endif
 	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
+	prepare_shmem_buffer();
 
 	pthread_once(&once_control, mcount_init_file);
 
@@ -950,10 +964,10 @@ static void setup_vfork(void)
 
 	/* setup new shmem buffer for child */
 	tid = 0;
+	shmem_losts = 0;
 	shmem_seqnum = 0;
-	shmem_buffer[0] = NULL;
-	shmem_buffer[1] = NULL;
 	shmem_curr = NULL;
+	prepare_shmem_buffer();
 
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
@@ -1152,7 +1166,7 @@ static void atfork_child_handler(void)
 	tid = 0;
 
 	clear_shmem_buffer();
-	get_new_shmem_buffer();
+	prepare_shmem_buffer();
 
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 }
