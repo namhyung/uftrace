@@ -81,7 +81,7 @@ unsigned long plthook_resolver_addr;
 static TLS unsigned long plthook_saved_addr;
 
 static struct symtabs symtabs;
-static char mcount_exename[1024];
+static char *mcount_exename;
 
 static uint64_t mcount_gettime(void)
 {
@@ -97,22 +97,6 @@ static int gettid(void)
 		tid = syscall(SYS_gettid);
 
 	return tid;
-}
-
-static void read_exename(void)
-{
-	int len;
-	static bool exename_read;
-
-	if (!exename_read) {
-		len = readlink("/proc/self/exe", mcount_exename,
-			       sizeof(mcount_exename)-1);
-		if (len < 0)
-			exit(1);
-		mcount_exename[len] = '\0';
-
-		exename_read = true;
-	}
 }
 
 static const char *session_name(void)
@@ -1245,7 +1229,7 @@ __monstartup(unsigned long low, unsigned long high)
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
-	read_exename();
+	mcount_exename = read_exename();
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER

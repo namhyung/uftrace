@@ -189,6 +189,7 @@ int writev_all(int fd, struct iovec *iov, int count);
 
 int create_directory(char *dirname);
 int remove_directory(char *dirname);
+char *read_exename(void);
 
 void print_time_unit(uint64_t delta_nsec);
 

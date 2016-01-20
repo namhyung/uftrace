@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/auxv.h>
 #include <sys/wait.h>
 #include <gelf.h>
 #include <libelf.h>
@@ -83,7 +82,7 @@ static Elf *setup_unit_test(struct ftrace_unit_test **test_cases, size_t *test_n
 	size_t shstr_idx, sec_size;
 	Elf_Scn *sec, *test_sec;
 
-	exename = (void *)getauxval(AT_EXECFN);
+	exename = read_exename();
 	fd = open(exename, O_RDONLY);
 	if (fd < 0) {
 		printf("error during load ELF header: %s: %m\n", exename);
