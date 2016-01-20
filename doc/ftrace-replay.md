@@ -143,7 +143,7 @@ The depth trigger is to change filter depth during execution of the function.  I
 Following example shows how trigger works.  We set filter on function 'b' with the backtrace trigger and depth trigger of 2.
 
     $ ftrace record ./abc
-    $ ftrace replay -F 'b@backtrace:depth=2'
+    $ ftrace replay -F 'b@backtrace,depth=2'
     # DURATION    TID     FUNCTION
       backtrace [ 1234] | /* [ 0] main */
       backtrace [ 1234] | /* [ 1] a */
