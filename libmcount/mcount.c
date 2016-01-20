@@ -1041,12 +1041,10 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		 * the overwritten PLT entry by the resolver function.
 		 */
 		skip = true;
-		goto out;
 	}
 
 	plthook_recursion_guard = true;
 
-out:
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
 	rstack->depth      = mcount_record_idx;
@@ -1078,7 +1076,7 @@ out:
 		while (!*resolved_addr)
 			cpu_relax();
 
-		return *resolved_addr;;
+		return *resolved_addr;
 	}
 
 	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
