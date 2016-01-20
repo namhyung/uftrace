@@ -149,3 +149,19 @@ int create_directory(char *dirname)
 	free(oldname);
 	return ret;
 }
+
+char *read_exename(void)
+{
+	int len;
+	static char exename[4096];
+
+	if (!*exename) {
+		len = readlink("/proc/self/exe", exename, sizeof(exename)-1);
+		if (len < 0)
+			pr_err("cannot read executable name");
+
+		exename[len] = '\0';
+	}
+
+	return exename;
+}

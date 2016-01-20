@@ -90,7 +90,7 @@ FTRACE_HDRS += $(srcdir)/libmcount/mcount.h
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
 LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
-LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c
+LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
 
 LIBMCOUNT_HDRS := $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/utils/*.h)
@@ -99,18 +99,18 @@ LIBMCOUNT_NOP_SRCS := $(srcdir)/libmcount/mcount-nop.c
 LIBMCOUNT_NOP_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_NOP_SRCS))
 
 LIBMCOUNT_FAST_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c
+LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_OBJS := $(objdir)/libmcount/mcount-fast.op
 LIBMCOUNT_FAST_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SRCS))
 
 LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
-LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c
+LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
 LIBMCOUNT_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SINGLE_SRCS))
 
 LIBMCOUNT_FAST_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c
+LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SINGLE_OBJS := $(objdir)/libmcount/mcount-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SINGLE_SRCS))
 
