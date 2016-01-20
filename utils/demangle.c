@@ -1051,6 +1051,18 @@ static int dd_type(struct demangle_data *dd)
 			ret = dd_source_name(dd);
 			done = 1;
 		}
+		else if (c == 'U') {
+			/* vendor extended type qualifier */
+			dd_consume(dd);
+			ret = dd_source_name(dd);
+			if (ret < 0)
+				done = 1;
+
+			if (!ret && dd_curr(dd) == 'I')
+				ret = dd_template_args(dd);
+			if (ret < 0)
+				done = 1;
+		}
 		else if (c == 'I') {
 			/* template args?? - not specified in the spec */
 			ret = dd_template_args(dd);
@@ -1608,6 +1620,9 @@ TEST_CASE(demangle_simple4)
 		   demangle_simple("_ZNSt16allocator_traitsISaISsEE9_S_select"
 				   "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
 				   "IT_EE5valueES6_E4typeERS6_"));
+
+	TEST_STREQ("icu_54::umtx_loadAcquire",
+		   demangle_simple("_ZN6icu_5416umtx_loadAcquireERU7_Atomici"));
 
 	return TEST_OK;
 }
