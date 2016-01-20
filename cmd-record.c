@@ -1010,17 +1010,87 @@ static void print_child_usage(struct rusage *ru)
 "\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
 "\twhich generates traceable code.  Please check your binary file.\n"
 
-int command_record(int argc, char *argv[], struct opts *opts)
+#define FTRACE_ELF_MSG  "Cannot trace '%s': Invalid file\n"		\
+"\tThis file doesn't look like an executable ELF file.\n"		\
+"\tPlease check whether it's a kind of script or shell functions.\n"
+
+#define OBJTYPE_MSG  "Cannot trace '%s': Invalid ELF object\n"		\
+"\tNote that ftrace only trace ELF executables by default,\n"		\
+"\tIf you want to trace shared libraries, please use --force option.\n"
+
+#define MACHINE_MSG  "Cannot trace '%s': Unsupported machine\n"		\
+"\tThis machine type (%u) is not supported currently.\n"		\
+"\tSorry about that!\n"
+
+static void check_binary(struct opts *opts, struct symtabs *symtabs)
 {
-	int pid;
-	int status;
+	int fd;
+	size_t i;
+	char elf_ident[EI_NIDENT];
+	uint16_t e_type;
+	uint16_t e_machine;
+	uint16_t supported_machines[] = {
+		EM_X86_64, EM_ARM,
+	};
 	const char *profile_funcs[] = {
 		"mcount",
 		"__fentry__",
 		"__gnu_mcount_nc",
 		"__cyg_profile_func_enter",
 	};
-	size_t i;
+
+	pr_dbg3("checking binary %s\n", opts->exename);
+
+	if (access(opts->exename, X_OK) < 0) {
+		if (errno == ENOENT && opts->exename[0] != '/') {
+			pr_err_ns(FTRACE_MSG, opts->exename, opts->exename);
+		}
+		pr_err("Cannot trace '%s'", opts->exename);
+	}
+
+	fd = open(opts->exename, O_RDONLY);
+	if (fd < 0)
+		pr_err("Cannot open '%s'", opts->exename);
+
+	if (read(fd, elf_ident, sizeof(elf_ident)) < 0)
+		pr_err("Cannot read '%s'", opts->exename);
+
+	if (memcmp(elf_ident, ELFMAG, SELFMAG))
+		pr_err_ns(FTRACE_ELF_MSG, opts->exename);
+
+	if (read(fd, &e_type, sizeof(e_type)) < 0)
+		pr_err("Cannot read '%s'", opts->exename);
+
+	if (e_type != ET_EXEC)
+		pr_err_ns(OBJTYPE_MSG, opts->exename);
+
+	if (read(fd, &e_machine, sizeof(e_machine)) < 0)
+		pr_err("Cannot read '%s'", opts->exename);
+
+	for (i = 0; i < ARRAY_SIZE(supported_machines); i++) {
+		if (e_machine == supported_machines[i])
+			break;
+	}
+	if (i == ARRAY_SIZE(supported_machines))
+		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
+
+	load_symtabs(symtabs, opts->dirname, opts->exename);
+
+	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
+		if (find_symname(&symtabs->dsymtab, profile_funcs[i]))
+			break;
+	}
+
+	if (i == ARRAY_SIZE(profile_funcs) && !opts->force)
+		pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
+
+	close(fd);
+}
+
+int command_record(int argc, char *argv[], struct opts *opts)
+{
+	int pid;
+	int status;
 	int pfd[2];
 	struct sigaction sa = {
 		.sa_flags = 0,
@@ -1041,22 +1111,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
-	if (access(opts->exename, X_OK) < 0) {
-		if (errno == ENOENT && opts->exename[0] != '/') {
-			pr_err_ns(FTRACE_MSG, opts->exename, opts->exename);
-		}
-		pr_err("Cannot trace '%s'", opts->exename);
-	}
-
-	load_symtabs(&symtabs, opts->dirname, opts->exename);
-
-	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-		if (find_symname(&symtabs.dsymtab, profile_funcs[i]))
-			break;
-	}
-
-	if (i == ARRAY_SIZE(profile_funcs) && !opts->force)
-		pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
+	check_binary(opts, &symtabs);
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
