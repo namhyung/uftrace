@@ -614,13 +614,19 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 unsigned long mcount_exit(void)
 {
 	struct mcount_ret_stack *rstack;
+	unsigned long retaddr;
 
-	rstack = &mcount_rstack[--mcount_rstack_idx];
+	rstack = &mcount_rstack[mcount_rstack_idx - 1];
 
 	rstack->end_time = mcount_gettime();
 	mcount_exit_filter_record(rstack);
 
-	return rstack->parent_ip;
+	retaddr = rstack->parent_ip;
+
+	compiler_barrier();
+	mcount_rstack_idx--;
+
+	return retaddr;
 }
 
 static void mcount_finish(void)
@@ -672,12 +678,15 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	struct mcount_ret_stack *rstack;
 
-	rstack = &mcount_rstack[--mcount_rstack_idx];
+	rstack = &mcount_rstack[mcount_rstack_idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(rstack);
+
+	compiler_barrier();
+	mcount_rstack_idx--;
 }
 
 static unsigned long got_addr;

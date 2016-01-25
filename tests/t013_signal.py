@@ -8,9 +8,13 @@ class TestCase(TestBase):
 # DURATION    TID     FUNCTION
   78.933 us [28901] | __cxa_atexit();
             [28901] | main() {
+   0.996 us [28901] |   foo();
    1.930 us [28901] |   signal();
             [28901] |   raise() {
-   0.236 us [28901] |     sighandler();
+            [28901] |     sighandler() {
+   0.236 us [28901] |       bar();
+   0.236 us [28901] |     } /* sighandler */
   13.464 us [28901] |   } /* raise */
+   0.102 us [28901] |   foo();
   17.113 us [28901] | } /* main */
 """)
