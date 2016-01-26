@@ -157,7 +157,7 @@ static void prepare_shmem_buffer(void)
 
 	pr_dbg2("preparing shmem buffers\n");
 
-	for (idx = 0; idx < 2; idx++) {
+	for (idx = 1; idx >= 0; idx--) {
 		snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
 			 session_name(), gettid(), idx);
 
@@ -181,6 +181,10 @@ static void prepare_shmem_buffer(void)
 
 		close(fd);
 	}
+
+	/* set idx 0 as current buffer */
+	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
+	shmem_curr = shmem_buffer[0];
 }
 
 static void get_new_shmem_buffer(void)
