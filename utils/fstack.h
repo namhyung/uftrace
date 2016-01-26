@@ -25,6 +25,8 @@ struct ftrace_task_handle {
 	bool lost_seen;
 	FILE *fp;
 	struct sym *func;
+	struct ftrace_task *t;
+	struct ftrace_file_handle *h;
 	struct ftrace_ret_stack ustack;
 	struct ftrace_ret_stack kstack;
 	struct ftrace_ret_stack *rstack;

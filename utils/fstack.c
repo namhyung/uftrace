@@ -46,6 +46,9 @@ static void setup_task_handle(struct ftrace_file_handle *handle,
 
 	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
 
+	task->h = handle;
+	task->t = find_task(tid);
+
 	task->tid = tid;
 	task->fp = fopen(filename, "rb");
 	if (task->fp == NULL) {
