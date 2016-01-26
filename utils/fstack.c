@@ -370,6 +370,38 @@ void fstack_exit(struct ftrace_task_handle *task)
 }
 
 /**
+ * fstack_update - Update fstack related info
+ * @type   - FTRACE_ENTRY or FTRACE_EXIT
+ * @task   - tracee task
+ * @fstack - function tracing stack
+ *
+ * This funciton updates current display depth according to @type and
+ * flags of @fstack, and return a new depth.
+ */
+int fstack_update(int type, struct ftrace_task_handle *task,
+		  struct fstack *fstack)
+{
+	if (type == FTRACE_ENTRY) {
+		if (fstack->flags & FSTACK_FL_EXEC)
+			task->display_depth = 0;
+		else
+			task->display_depth++;
+
+		fstack->flags &= ~FSTACK_FL_EXEC;
+	}
+	else if (type == FTRACE_EXIT) {
+		if (task->display_depth > 1)
+			task->display_depth--;
+		else
+			task->display_depth = 0;
+	}
+	else {
+		pr_err_ns("wrong type of fstack entry: %d\n", type);
+	}
+	return task->display_depth;
+}
+
+/**
  * read_task_ustack - read user function record for @task
  * @task: tracee task
  *
