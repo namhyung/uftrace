@@ -214,6 +214,34 @@ int setup_fstack_filters(char *filter_str, char *trigger_str)
 	return 0;
 }
 
+static const char *fixup_syms[] = {
+	"execl", "execlp", "execle", "execv", "execvp", "execvpe",
+	"setjmp", "_setjmp", "sigsetjmp", "__sigsetjmp",
+	"longjmp", "siglongjmp", "__longjmp_chk",
+};
+
+static int build_fixup_filter(struct ftrace_session *s, void *arg)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
+		ftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs, NULL,
+				     &s->fixups);
+	}
+	return 0;
+}
+
+/**
+ * fstack_prepare_fixup - setup special filters for fixup routines
+ *
+ * This function sets up special symbol filter tables which need
+ * special handling like fork/exec, setjmp/longjmp cases.
+ */
+void fstack_prepare_fixup(void)
+{
+	walk_sessions(build_fixup_filter, NULL);
+}
+
 /**
  * fstack_entry - function entry handler
  * @task    - tracee task

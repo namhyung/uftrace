@@ -171,6 +171,7 @@ struct ftrace_session {
 	struct ftrace_proc_maps *maps;
 	struct symtabs		 symtabs;
 	struct rb_root		 filters;
+	struct rb_root		 fixups;
 	int 			 namelen;
 	char 			 exename[];
 };
