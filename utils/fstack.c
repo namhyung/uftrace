@@ -220,6 +220,8 @@ static const char *fixup_syms[] = {
 	"longjmp", "siglongjmp", "__longjmp_chk",
 };
 
+static int setjmp_depth;
+
 static int build_fixup_filter(struct ftrace_session *s, void *arg)
 {
 	size_t i;
@@ -289,6 +291,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 		if (unlikely(fixup)) {
 			if (!strncmp(fixup->name, "exec", 4))
 				fstack->flags |= FSTACK_FL_EXEC;
+			else if (strstr(fixup->name, "setjmp"))
+				setjmp_depth = task->display_depth + 1;
+			else if (strstr(fixup->name, "longjmp"))
+				fstack->flags |= FSTACK_FL_LONGJMP;
 		}
 
 		ftrace_match_filter(&sess->filters, addr, tr);
@@ -384,10 +390,12 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 	if (type == FTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC)
 			task->display_depth = 0;
+		else if (fstack->flags & FSTACK_FL_LONGJMP)
+			task->display_depth = setjmp_depth;
 		else
 			task->display_depth++;
 
-		fstack->flags &= ~FSTACK_FL_EXEC;
+		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
 	}
 	else if (type == FTRACE_EXIT) {
 		if (task->display_depth > 1)
