@@ -144,6 +144,7 @@ struct opts {
 	bool avg_total;
 	bool avg_self;
 	bool disabled;
+	bool report;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

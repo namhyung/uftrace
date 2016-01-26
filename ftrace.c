@@ -60,6 +60,7 @@ enum options {
 	OPT_disabled,
 	OPT_demangle,
 	OPT_dbg_domain,
+	OPT_report,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -94,6 +95,7 @@ static struct argp_option ftrace_options[] = {
 	{ "disable", OPT_disabled, 0, 0, "Start with tracing disabled" },
 	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: full, simple, no" },
 	{ "debug-domain", OPT_dbg_domain, "DOMAIN", 0, "Filter debugging domain" },
+	{ "report", OPT_report, 0, 0, "Show live report" },
 	{ 0 }
 };
 
@@ -386,6 +388,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_dbg_domain:
 		parse_debug_domain(arg);
+		break;
+
+	case OPT_report:
+		opts->report = true;
 		break;
 
 	case ARGP_KEY_ARG:

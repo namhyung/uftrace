@@ -84,7 +84,14 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	opts->dirname = template;
 
 	if (command_record(argc, argv, opts) == 0 && !opts->nop) {
-		pr_dbg("live-record finished.. start replaying...\n");
+		pr_dbg("live-record finished.. \n");
+		if (opts->report) {
+			pr_out("#\n# ftrace report\n#\n");
+			command_report(argc, argv, opts);
+			pr_out("\n#\n# ftrace replay\n#\n");
+		}
+
+		pr_dbg("start live-replaying...\n");
 		reset_live_opts(opts);
 		command_replay(argc, argv, opts);
 	}

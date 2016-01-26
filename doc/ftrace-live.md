@@ -61,6 +61,9 @@ OPTIONS
 \--demangle=*TYPE*
 :   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
+\--report
+:   Show live-report before replay.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.
@@ -156,4 +159,4 @@ The ftrace trigger only works for user-level functions for now.
 
 SEE ALSO
 ========
-`ftrace-record`(1), `ftrace-replay`(1)
+`ftrace-record`(1), `ftrace-replay`(1), `ftrace-report`(1)
