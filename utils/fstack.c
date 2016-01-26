@@ -399,6 +399,14 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
+	if (!task->display_depth_set) {
+		/* inherit display_depth after [v]fork() */
+		task->display_depth = task->ustack.depth;
+		if (task->ustack.type == FTRACE_EXIT)
+			task->display_depth++;
+		task->display_depth_set = true;
+	}
+
 	if (task->lost_seen) {
 		int i;
 
