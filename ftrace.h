@@ -170,6 +170,7 @@ struct ftrace_session {
 	int			 pid, tid;
 	struct ftrace_proc_maps *maps;
 	struct symtabs		 symtabs;
+	struct rb_root		 filters;
 	int 			 namelen;
 	char 			 exename[];
 };

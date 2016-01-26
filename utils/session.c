@@ -55,7 +55,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 	s->namelen = msg->namelen;
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
-
+	s->filters = RB_ROOT;
 
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);

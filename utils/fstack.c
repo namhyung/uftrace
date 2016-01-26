@@ -144,6 +144,29 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	free(filter_tids);
 }
 
+static int setup_filters(struct ftrace_session *s, void *arg)
+{
+	char *filter_str = arg;
+
+	ftrace_setup_filter(filter_str, &s->symtabs, NULL, &s->filters,
+			    &fstack_filter_mode);
+	ftrace_setup_filter(filter_str, &s->symtabs, "PLT", &s->filters,
+			    &fstack_filter_mode);
+	ftrace_setup_filter(filter_str, &s->symtabs, "kernel", &s->filters,
+			    &fstack_filter_mode);
+	return 0;
+}
+
+static int setup_trigger(struct ftrace_session *s, void *arg)
+{
+	char *trigger_str = arg;
+
+	ftrace_setup_trigger(trigger_str, &s->symtabs, NULL, &s->filters);
+	ftrace_setup_trigger(trigger_str, &s->symtabs, "PLT", &s->filters);
+	ftrace_setup_trigger(trigger_str, &s->symtabs, "kernel", &s->filters);
+	return 0;
+}
+
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @filter_str  - CSV of filter symbol names
@@ -167,6 +190,8 @@ int setup_fstack_filters(char *filter_str, char *trigger_str,
 		ftrace_setup_filter(filter_str, symtabs, "kernel",
 				    &fstack_filters, &fstack_filter_mode);
 
+		walk_sessions(setup_filters, filter_str);
+
 		if (RB_EMPTY_ROOT(&fstack_filters))
 			return -1;
 	}
@@ -178,6 +203,9 @@ int setup_fstack_filters(char *filter_str, char *trigger_str,
 				     &fstack_filters);
 		ftrace_setup_trigger(trigger_str, symtabs, "kernel",
 				     &fstack_filters);
+
+		walk_sessions(setup_trigger, trigger_str);
+
 		if (RB_EMPTY_ROOT(&fstack_filters))
 			return -1;
 	}
