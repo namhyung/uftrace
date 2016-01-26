@@ -23,7 +23,6 @@ struct ftrace_task_handle *tasks;
 int nr_tasks;
 bool fstack_enabled = true;
 
-static struct rb_root fstack_filters = RB_ROOT;
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
 struct ftrace_task_handle *get_task_handle(int tid)
@@ -167,11 +166,22 @@ static int setup_trigger(struct ftrace_session *s, void *arg)
 	return 0;
 }
 
+static int count_filters(struct ftrace_session *s, void *arg)
+{
+	int *count = arg;
+	struct rb_node *node = rb_first(&s->filters);
+
+	while (node) {
+		(*count)++;
+		node = rb_next(node);
+	}
+	return 0;
+}
+
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @filter_str  - CSV of filter symbol names
  * @trigger_str - CSV of trigger definitions
- * @symtabs     - symbol tables
  *
  * This function sets up the symbol filters and triggers using following syntax:
  *   filter_strs = filter | filter ";" filter_strs
@@ -179,34 +189,25 @@ static int setup_trigger(struct ftrace_session *s, void *arg)
  *   trigger     = trigger_def | trigger_def "," trigger
  *   trigger_def = "depth=" NUM | "backtrace"
  */
-int setup_fstack_filters(char *filter_str, char *trigger_str,
-			 struct symtabs *symtabs)
+int setup_fstack_filters(char *filter_str, char *trigger_str)
 {
+	int count = 0;
+
 	if (filter_str) {
-		ftrace_setup_filter(filter_str, symtabs, NULL,
-				    &fstack_filters, &fstack_filter_mode);
-		ftrace_setup_filter(filter_str, symtabs, "PLT",
-				    &fstack_filters, &fstack_filter_mode);
-		ftrace_setup_filter(filter_str, symtabs, "kernel",
-				    &fstack_filters, &fstack_filter_mode);
-
 		walk_sessions(setup_filters, filter_str);
+		walk_sessions(count_filters, &count);
 
-		if (RB_EMPTY_ROOT(&fstack_filters))
+		if (count == 0)
 			return -1;
 	}
 
 	if (trigger_str) {
-		ftrace_setup_trigger(trigger_str, symtabs, NULL,
-				     &fstack_filters);
-		ftrace_setup_trigger(trigger_str, symtabs, "PLT",
-				     &fstack_filters);
-		ftrace_setup_trigger(trigger_str, symtabs, "kernel",
-				     &fstack_filters);
+		int prev = count;
 
 		walk_sessions(setup_trigger, trigger_str);
+		walk_sessions(count_filters, &count);
 
-		if (RB_EMPTY_ROOT(&fstack_filters))
+		if (prev == count)
 			return -1;
 	}
 
@@ -231,6 +232,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 		 struct ftrace_trigger *tr)
 {
 	struct fstack *fstack;
+	struct ftrace_session *sess;
 	unsigned long addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
@@ -251,7 +253,9 @@ int fstack_entry(struct ftrace_task_handle *task,
 	if (is_kernel_address(addr))
 		addr = get_real_address(addr);
 
-	ftrace_match_filter(&fstack_filters, addr, tr);
+	sess = find_task_session(task->t->pid, rstack->time);
+	if (sess)
+		ftrace_match_filter(&sess->filters, addr, tr);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN) {
