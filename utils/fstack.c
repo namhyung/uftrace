@@ -37,6 +37,34 @@ struct ftrace_task_handle *get_task_handle(int tid)
 	return NULL;
 }
 
+static void setup_task_handle(struct ftrace_file_handle *handle,
+			      struct ftrace_task_handle *task,
+			      int tid)
+{
+	int i;
+	char *filename;
+
+	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+
+	task->tid = tid;
+	task->fp = fopen(filename, "rb");
+	if (task->fp == NULL) {
+		pr_dbg("cannot open task data file: %s", filename);
+		task->done = true;
+	}
+	else
+		pr_dbg2("opening %s\n", filename);
+
+	free(filename);
+
+	task->stack_count = 0;
+	task->filter.depth = handle->depth;
+
+	/* FIXME: save filter depth at fork() and restore */
+	for (i = 0; i < FSTACK_MAX; i++)
+		task->func_stack[i].orig_depth = handle->depth;
+}
+
 void reset_task_handle(void)
 {
 	int i;
@@ -90,7 +118,6 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	tasks = xcalloc(sizeof(*tasks), nr_tasks);
 
 	for (i = 0; i < nr_tasks; i++) {
-		char *filename;
 		bool found = false;
 		int tid = handle->info.tids[i];
 
@@ -108,19 +135,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 			continue;
 		}
 
-		xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
-
-		tasks[i].fp = fopen(filename, "rb");
-		if (tasks[i].fp == NULL) {
-			pr_dbg("cannot open task data file: %s", filename);
-			tasks[i].done = true;
-		}
-		else
-			pr_dbg2("opening %s\n", filename);
-
-		free(filename);
-
-		tasks[i].filter.depth = handle->depth;
+		setup_task_handle(handle, &tasks[i], tid);
 	}
 
 	free(filter_tids);
@@ -320,36 +335,16 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
-	char *filename;
-	int i;
 
 	if (unlikely(idx >= nr_tasks)) {
 		nr_tasks = idx + 1;
 		tasks = xrealloc(tasks, sizeof(*tasks) * nr_tasks);
 
 		memset(&tasks[idx], 0, sizeof(*tasks));
+		setup_task_handle(handle, &tasks[idx], handle->info.tids[idx]);
 
-		xasprintf(&filename, "%s/%d.dat",
-			  handle->dirname, handle->info.tids[idx]);
-
-		tasks[idx].tid = handle->info.tids[idx];
-		tasks[idx].fp = fopen(filename, "rb");
-
-		if (tasks[idx].fp == NULL) {
-			pr_dbg("cannot open task data file [%s]\n", filename);
-			tasks[idx].done = true;
+		if (tasks[idx].fp == NULL)
 			return NULL;
-		}
-
-		tasks[idx].stack_count = 0;
-		tasks[idx].filter.depth = handle->depth;
-
-		/* FIXME: save filter depth at fork() and restore */
-		for (i = 0; i < FSTACK_MAX; i++)
-			tasks[idx].func_stack[i].orig_depth = handle->depth;
-
-		pr_dbg2("opening %s\n", filename);
-		free(filename);
 	}
 
 	task = &tasks[idx];
