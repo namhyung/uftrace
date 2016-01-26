@@ -112,7 +112,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		};
 		int ret;
 
-		ret = fstack_entry(task, rstack->addr, handle->depth, &tr);
+		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
 			goto out;
 
@@ -187,7 +187,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		};
 		int ret;
 
-		ret = fstack_entry(task, rstack->addr, handle->depth, &tr);
+		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
 			goto out;
 

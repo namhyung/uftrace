@@ -187,10 +187,9 @@ int setup_fstack_filters(char *filter_str, char *trigger_str,
 
 /**
  * fstack_entry - function entry handler
- * @task  - tracee task
- * @addr  - function address
- * @depth - default function filter depth if filter matched
- * @tr    - trigger data
+ * @task    - tracee task
+ * @rstack  - function return stack
+ * @tr      - trigger data
  *
  * This function should be called when replaying a recorded session.
  * It updates function stack, filter status, trigger result and
@@ -199,10 +198,12 @@ int setup_fstack_filters(char *filter_str, char *trigger_str,
  *
  * This function returns -1 if it should be skipped, 0 otherwise.
  */
-int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
-		 int depth, struct ftrace_trigger *tr)
+int fstack_entry(struct ftrace_task_handle *task,
+		 struct ftrace_ret_stack *rstack,
+		 struct ftrace_trigger *tr)
 {
 	struct fstack *fstack;
+	unsigned long addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
 	fstack = &task->func_stack[task->stack_count - 1];
@@ -235,7 +236,8 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 			return -1;
 		}
 
-		task->filter.depth = depth;
+		/* restore default filter depth */
+		task->filter.depth = task->h->depth;
 	}
 	else {
 		if (fstack_filter_mode == FILTER_MODE_IN &&
