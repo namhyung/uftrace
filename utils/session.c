@@ -103,6 +103,30 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp)
 	return s;
 }
 
+/**
+ * walk_sessions - iterates all session and invokes @callback
+ * @callback: function to be called for each task
+ * @arg: argument passed to the @callback
+ *
+ * This function traverses the task tree and invokes @callback with
+ * @arg.  As the @callback returns a non-zero value, it'll stop and
+ * return in the middle.
+ */
+void walk_sessions(walk_sessions_cb_t callback, void *arg)
+{
+	struct rb_node *n = rb_first(&sessions);
+	struct ftrace_session *s;
+
+	while (n) {
+		s = rb_entry(n, struct ftrace_session, node);
+
+		if (callback(s, arg) != 0)
+			break;
+
+		n = rb_next(n);
+	}
+}
+
 static struct rb_root task_tree = RB_ROOT;
 
 static void add_session_ref(struct ftrace_task *task, struct ftrace_session *sess,
