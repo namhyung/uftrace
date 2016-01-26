@@ -110,6 +110,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_trigger tr = {
 			.flags = 0,
 		};
+		struct fstack *fstack;
 		int ret;
 
 		ret = fstack_entry(task, rstack, &tr);
@@ -119,13 +120,19 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
+		fstack = &task->func_stack[rstack->depth];
+
 		/* function entry */
 		print_time_unit(0UL);
 		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
 		       task->display_depth * 2, "", symname,
 		       needs_paren ? "()" : "");
 
-		task->display_depth++;
+		if (fstack->flags & FSTACK_FL_EXEC)
+			task->display_depth = 0;
+		else
+			task->display_depth++;
+		fstack->flags &= ~FSTACK_FL_EXEC;
 	}
 	else if (rstack->type == FTRACE_EXIT) {
 		struct fstack *fstack;
@@ -226,7 +233,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
 			       depth * 2, "", symname,
 			       needs_paren ? "()" : "");
-			task->display_depth++;
+
+			if (fstack->flags & FSTACK_FL_EXEC)
+				task->display_depth = 0;
+			else
+				task->display_depth++;
+
+			fstack->flags &= ~FSTACK_FL_EXEC;
 		}
 	}
 	else if (rstack->type == FTRACE_EXIT) {

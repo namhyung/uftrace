@@ -282,8 +282,18 @@ int fstack_entry(struct ftrace_task_handle *task,
 		addr = get_real_address(addr);
 
 	sess = find_task_session(task->t->pid, rstack->time);
-	if (sess)
+	if (sess) {
+		struct ftrace_filter *fixup;
+
+		fixup = ftrace_match_filter(&sess->fixups, addr, tr);
+		if (unlikely(fixup)) {
+			if (!strncmp(fixup->name, "exec", 4))
+				fstack->flags |= FSTACK_FL_EXEC;
+		}
+
 		ftrace_match_filter(&sess->filters, addr, tr);
+	}
+
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN) {

@@ -16,6 +16,7 @@ enum fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
 	FSTACK_FL_NOTRACE	= (1U << 1),
 	FSTACK_FL_NORECORD	= (1U << 2),
+	FSTACK_FL_EXEC		= (1U << 3),
 };
 
 struct ftrace_task_handle {
