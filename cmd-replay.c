@@ -122,22 +122,28 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		/* function entry */
 		print_time_unit(0UL);
 		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-		       rstack->depth * 2, "", symname,
+		       task->display_depth * 2, "", symname,
 		       needs_paren ? "()" : "");
-	} else if (rstack->type == FTRACE_EXIT) {
+
+		task->display_depth++;
+	}
+	else if (rstack->type == FTRACE_EXIT) {
 		struct fstack *fstack;
 
 		/* function exit */
 		fstack = &task->func_stack[rstack->depth];
+		task->display_depth--;
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s}", task->tid, rstack->depth * 2, "");
+			pr_out(" [%5d] | %*s}", task->tid,
+			       task->display_depth * 2, "");
 			pr_gray(" /* %s */\n", symname);
 		}
 
 		fstack_exit(task);
-	} else if (rstack->type == FTRACE_LOST) {
+	}
+	else if (rstack->type == FTRACE_LOST) {
 		print_time_unit(0UL);
 		pr_out(" [%5d] |", task->tid);
 		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
@@ -181,7 +187,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == FTRACE_ENTRY) {
 		struct ftrace_task_handle *next;
 		struct fstack *fstack;
-		int depth = rstack->depth;
+		int rstack_depth = rstack->depth;
+		int depth = task->display_depth;
 		struct ftrace_trigger tr = {
 			.flags = 0,
 		};
@@ -200,24 +207,26 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			next = NULL;
 
 		if (task == next &&
-		    next->rstack->depth == depth &&
+		    next->rstack->depth == rstack_depth &&
 		    next->rstack->type == FTRACE_EXIT) {
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s%s%s;\n", task->tid,
-			       rstack->depth * 2, "", symname,
+			       depth * 2, "", symname,
 			       needs_paren ? "()" : "");
 
 			/* consume the rstack */
 			read_rstack(handle, &next);
 
 			fstack_exit(task);
-		} else {
+		}
+		else {
 			/* function entry */
 			print_time_unit(0UL);
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
 			       depth * 2, "", symname,
 			       needs_paren ? "()" : "");
+			task->display_depth++;
 		}
 	}
 	else if (rstack->type == FTRACE_EXIT) {
@@ -227,8 +236,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack = &task->func_stack[rstack->depth];
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+			int depth = --task->display_depth;
+
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s}", task->tid, rstack->depth * 2, "");
+			pr_out(" [%5d] | %*s}", task->tid, depth * 2, "");
 			pr_gray(" /* %s */\n", symname);
 		}
 

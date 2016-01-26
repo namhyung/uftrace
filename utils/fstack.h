@@ -32,6 +32,7 @@ struct ftrace_task_handle {
 	struct ftrace_ret_stack *rstack;
 	int stack_count;
 	int lost_count;
+	int display_depth;
 	struct filter {
 		int	in_count;
 		int	out_count;
