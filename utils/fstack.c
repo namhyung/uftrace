@@ -493,6 +493,9 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		pr_dbg("lost seen: invalidating existing stack..\n");
 		task->lost_seen = false;
+
+		/* reset display depth after lost */
+		task->display_depth_set = false;
 	}
 
 	task->valid = true;
