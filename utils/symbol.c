@@ -379,8 +379,10 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	/* find position of sorted symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < dsymtab->nr_sym; k++) {
-			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr)
+			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
 				dsymtab->sym_names[i] = &dsymtab->sym[k];
+				break;
+			}
 		}
 	}
 
@@ -775,9 +777,9 @@ void print_symtabs(struct symtabs *symtabs)
 	pr_out("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++) {
-		name = symbol_getname(&dtab->sym[i], dtab->sym[i].addr);
+		name = symbol_getname(dtab->sym_names[i], dtab->sym_names[i]->addr);
 		printf("[%2zd] %#lx: %s (size: %u)\n", i, dtab->sym_names[i]->addr,
 		       name, dtab->sym_names[i]->size);
-		symbol_putname(&dtab->sym[i], name);
+		symbol_putname(dtab->sym_names[i], name);
 	}
 }
