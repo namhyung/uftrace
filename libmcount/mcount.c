@@ -257,6 +257,7 @@ static void shmem_dtor(void *unused)
 	/* force update seqnum to call finish on both buffer */
 	if (seq == shmem_seqnum)
 		shmem_seqnum++;
+	shmem_curr = shmem_buffer[shmem_seqnum % 2];
 	finish_shmem_buffer();
 
 	clear_shmem_buffer();
@@ -636,7 +637,7 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
-	finish_shmem_buffer();
+	shmem_dtor(NULL);
 	pthread_key_delete(shmem_key);
 
 	if (pfd != -1) {
