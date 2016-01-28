@@ -77,5 +77,8 @@ int fstack_entry(struct ftrace_task_handle *task,
 void fstack_exit(struct ftrace_task_handle *task);
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);
+struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
+				       struct ftrace_task_handle *task,
+				       int curr_depth);
 
 #endif /* __FTRACE_FSTACK_H__ */

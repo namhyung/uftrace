@@ -203,8 +203,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		fstack = &task->func_stack[task->stack_count - 1];
 
-		if (peek_rstack(handle, &next) < 0)
-			next = NULL;
+		next = fstack_skip(handle, task, rstack_depth);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&

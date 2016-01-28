@@ -410,6 +410,59 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 }
 
 /**
+ * fstack_skip - Skip filtered record as many as possible
+ * @handle     - file handle
+ * @task       - tracee task
+ * @curr_depth - current rstack depth
+ *
+ * This function checks next rstack and skip if it's filtered out.
+ * The intention is to merge EXIT record after skipped ones.  It
+ * returns updated @task pointer which contains next non-filtered
+ * rstack or NULL if it's the last record.
+ */
+struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
+				       struct ftrace_task_handle *task,
+				       int curr_depth)
+{
+	struct ftrace_task_handle *next;
+	struct fstack *fstack;
+
+	fstack = &task->func_stack[task->rstack->depth];
+	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
+		return NULL;
+
+	if (peek_rstack(handle, &next) < 0)
+		return NULL;
+
+	while (next == task && next->rstack->depth > curr_depth) {
+		struct ftrace_trigger tr = { 0 };
+
+		/* return if it's not filtered */
+		if (next->rstack->type == FTRACE_ENTRY) {
+			if (!fstack_entry(next, next->rstack, &tr)) {
+				/* restore original state */
+				task->stack_count--;
+				fstack_exit(next);
+				break;
+			}
+		}
+		else if (next->rstack->type == FTRACE_EXIT)
+			fstack_exit(next);
+		else
+			break;
+
+		/* consume the filtered rstack */
+		read_rstack(handle, &next);
+
+		/* and then read next */
+		if (peek_rstack(handle, &next) < 0)
+			return NULL;
+	}
+
+	return next;
+}
+
+/**
  * read_task_ustack - read user function record for @task
  * @task: tracee task
  *
