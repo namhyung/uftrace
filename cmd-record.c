@@ -423,7 +423,8 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 
 	close(fd);
 
-	copy_to_buffer(shmem_buf, sess_id);
+	if (shmem_buf->size)
+		copy_to_buffer(shmem_buf, sess_id);
 
 	if (shmem_buf->flag & SHMEM_FL_NEW) {
 		sl = xmalloc(sizeof(*sl));
