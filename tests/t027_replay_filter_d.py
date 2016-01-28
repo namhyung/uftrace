@@ -12,8 +12,7 @@ class TestCase(TestBase):
             [ 4629] | main() {
             [ 4629] |   alloc1() {
             [ 4629] |     alloc2() {
-            [ 4629] |       alloc3() {
-   4.999 us [ 4629] |       } /* alloc3 */
+   4.999 us [ 4629] |       alloc3();
    5.360 us [ 4629] |     } /* alloc2 */
    5.811 us [ 4629] |   } /* alloc1 */
             [ 4629] |   free1() {

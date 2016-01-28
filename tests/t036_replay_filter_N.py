@@ -14,16 +14,14 @@ class TestCase(TestBase):
    0.842 us [ 7102] |   ns::ns1::foo::foo();
             [ 7102] |   ns::ns1::foo::bar() {
             [ 7102] |     ns::ns1::foo::bar1() {
-            [ 7102] |       ns::ns1::foo::bar2() {
-   1.926 us [ 7102] |       } /* ns::ns1::foo::bar2 */
+   1.926 us [ 7102] |       ns::ns1::foo::bar2();
    2.169 us [ 7102] |     } /* ns::ns1::foo::bar1 */
    1.215 us [ 7102] |     free();
    3.897 us [ 7102] |   } /* ns::ns1::foo::bar */
    1.865 us [ 7102] |   operator delete();
    0.274 us [ 7102] |   operator new();
    0.115 us [ 7102] |   ns::ns2::foo::foo();
-            [ 7102] |   ns::ns2::foo::bar() {
-   1.566 us [ 7102] |   } /* ns::ns2::foo::bar */
+   1.566 us [ 7102] |   ns::ns2::foo::bar();
    0.168 us [ 7102] |   operator delete();
   78.921 us [ 7102] | } /* main */
 """)

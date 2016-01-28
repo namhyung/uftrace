@@ -11,14 +11,12 @@ class TestCase(TestBase):
 # DURATION    TID     FUNCTION
             [12561] | main() {
             [12561] |   alloc1() {
-            [12561] |     alloc2() {
-   4.499 us [12561] |     } /* alloc2 */
+   4.499 us [12561] |     alloc2();
    4.998 us [12561] |   } /* alloc1 */
             [12561] |   free1() {
   backtrace [12561] | /* [ 0] main */
   backtrace [12561] | /* [ 1] free1 */
-            [12561] |     free2() {
-   3.905 us [12561] |     } /* free2 */
+   3.905 us [12561] |     free2();
    4.392 us [12561] |   } /* free1 */
   10.380 us [12561] | } /* main */
 """)
