@@ -266,7 +266,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 	unsigned long addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
-	fstack = &task->func_stack[task->stack_count - 1];
+	fstack = &task->func_stack[rstack->depth];
 
 	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count-1, task->filter.in_count,
@@ -360,7 +360,7 @@ void fstack_exit(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 
-	fstack = &task->func_stack[task->stack_count];
+	fstack = &task->func_stack[task->rstack->depth];
 
 	pr_dbg2("EXIT : [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count, task->filter.in_count,

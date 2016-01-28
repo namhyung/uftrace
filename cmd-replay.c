@@ -201,7 +201,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count - 1];
 
 		if (peek_rstack(handle, &next) < 0)
 			next = NULL;
@@ -236,7 +236,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct fstack *fstack;
 
 		/* function exit */
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count];
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			int depth = fstack_update(FTRACE_EXIT, task, fstack);
