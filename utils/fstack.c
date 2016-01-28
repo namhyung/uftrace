@@ -589,6 +589,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_kernel *kernel = handle->kern;
 	struct mcount_ret_stack kstack;
+	struct fstack *fstack;
 	uint64_t ktime;
 
 	u = read_user_stack(handle, taskp);
@@ -616,7 +617,7 @@ user:
 
 		/* update stack count when the user stack is actually used */
 		if (task->ustack.type == FTRACE_ENTRY) {
-			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->ustack.depth];
 
 			fstack->total_time = task->ustack.time;
 			fstack->child_time = 0;
@@ -626,7 +627,7 @@ user:
 			task->stack_count = task->rstack->depth + 1;
 		} else if (task->ustack.type == FTRACE_EXIT) {
 			uint64_t delta;
-			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->ustack.depth];
 
 			delta = task->ustack.time - fstack->total_time;
 
@@ -669,14 +670,14 @@ kernel:
 		task->rstack = &task->kstack;
 
 		if (task->rstack->type == FTRACE_ENTRY) {
-			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->kstack.depth];
 
 			fstack->valid = true;
 			fstack->addr = kstack.child_ip;
 			fstack->child_time = 0;
 		}
 		else if (task->rstack->type == FTRACE_EXIT) {
-			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->kstack.depth];
 
 			fstack->valid = false;
 			fstack->addr = kstack.child_ip;
