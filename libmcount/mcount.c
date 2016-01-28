@@ -1023,7 +1023,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		return 0;
 
 	sym = find_dynsym(&symtabs, child_idx);
-	pr_dbg3("[%d] enter %"PRIx64": %s\n", child_idx, sym->addr, sym->name);
+	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
@@ -1108,7 +1108,7 @@ again:
 			  mcount_rstack_idx, dyn_idx);
 	}
 
-	pr_dbg3("[%d] exit  %"PRIx64": %s\n", dyn_idx,
+	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
 		plthook_dynsym_addr[dyn_idx],
 		find_dynsym(&symtabs, dyn_idx)->name);
 
