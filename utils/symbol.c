@@ -379,8 +379,10 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	/* find position of sorted symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < dsymtab->nr_sym; k++) {
-			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr)
+			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
 				dsymtab->sym_names[i] = &dsymtab->sym[k];
+				break;
+			}
 		}
 	}
 
