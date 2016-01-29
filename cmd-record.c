@@ -728,12 +728,16 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 				break;
 		}
 
-		if (list_no_entry(tl, &tid_list_head, list) && tmsg.pid == 1) {
-			/* daemon process has pid of 1, just pick a
-			 * first task has tid of -1 */
+		if (list_no_entry(tl, &tid_list_head, list)) {
+			/*
+			 * daemon process has no guarantee that having parent
+			 * pid of 1 anymore due to the systemd, just pick a
+			 * first task which has tid of -1.
+			 */
 			list_for_each_entry(tl, &tid_list_head, list) {
 				if (tl->tid == -1) {
-					pr_dbg3("assume tid 1 as new daemon child\n");
+					pr_dbg3("override parent of daemon to %d\n",
+						tl->pid);
 					tmsg.pid = tl->pid;
 					break;
 				}
