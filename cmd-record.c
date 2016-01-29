@@ -485,17 +485,39 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 	pthread_mutex_unlock(&write_list_lock);
 }
 
+static char shmem_session[20];
+
+static int filter_shmem(const struct dirent *de)
+{
+	/* compare session ID after the "ftrace-" part */
+	return !memcmp(&de->d_name[7], shmem_session, 16);
+}
+
 static void unlink_shmem_list(void)
 {
 	struct shmem_list *sl, *tmp;
 
 	/* unlink shmem list (not used anymore) */
-	/* flush remaining list (due to abnormal termination) */
 	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
-		pr_dbg3("unlink %s\n", sl->id);
+		char sid[128];
+		struct dirent **shmem_bufs;
+		int i, num;
 
 		list_del(&sl->list);
-		shm_unlink(sl->id);
+
+		sscanf(sl->id, "/ftrace-%[^-]-%*d-%*d", shmem_session);
+		pr_dbg2("unlink for session: %s\n", shmem_session);
+
+		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
+		for (i = 0; i < num; i++) {
+			sid[0] = '/';
+			strcpy(&sid[1], shmem_bufs[i]->d_name);
+			pr_dbg3("unlink %s\n", sid);
+			shm_unlink(sid);
+			free(shmem_bufs[i]);
+		}
+
+		free(shmem_bufs);
 		free(sl);
 	}
 }
