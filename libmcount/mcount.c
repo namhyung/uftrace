@@ -185,6 +185,7 @@ static void prepare_shmem_buffer(void)
 	/* set idx 0 as current buffer */
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 	shmem_curr = shmem_buffer[0];
+	pthread_setspecific(shmem_key, shmem_curr);
 }
 
 static void get_new_shmem_buffer(void)
@@ -256,6 +257,7 @@ static void shmem_dtor(void *unused)
 	/* force update seqnum to call finish on both buffer */
 	if (seq == shmem_seqnum)
 		shmem_seqnum++;
+	shmem_curr = shmem_buffer[shmem_seqnum % 2];
 	finish_shmem_buffer();
 
 	clear_shmem_buffer();
@@ -425,9 +427,9 @@ static void mcount_prepare(void)
 	mcount_filter.depth = mcount_depth;
 #endif
 	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
-	prepare_shmem_buffer();
 
 	pthread_once(&once_control, mcount_init_file);
+	prepare_shmem_buffer();
 
 	/* time should be get after session message sent */
 	tmsg.time = mcount_gettime();
@@ -635,7 +637,7 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
-	finish_shmem_buffer();
+	shmem_dtor(NULL);
 	pthread_key_delete(shmem_key);
 
 	if (pfd != -1) {
