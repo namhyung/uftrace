@@ -747,7 +747,7 @@ void segv_handler(int sig, siginfo_t *si, void *ctx)
 	}
 }
 
-extern void __attribute__((weak)) plt_hooker(void);
+extern void __weak plt_hooker(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 {
@@ -1376,7 +1376,7 @@ mcount_restore(void)
 		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
 }
 
-extern __attribute__((weak)) void mcount_return(void);
+extern __weak void mcount_return(void);
 
 void __attribute__((visibility("default")))
 mcount_reset(void)
