@@ -43,8 +43,8 @@ static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
  * @ip   - instruction address to match
  * @tr   - trigger data
  */
-int ftrace_match_filter(struct rb_root *root, unsigned long ip,
-			struct ftrace_trigger *tr)
+struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip,
+					  struct ftrace_trigger *tr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -60,7 +60,7 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 			pr_dbg2("filter match: %s\n", iter->name);
 			if (dbg_domain[DBG_FILTER] >= 3)
 				print_trigger(tr);
-			return 1;
+			return iter;
 		}
 
 		if (iter->start > ip)
@@ -68,7 +68,7 @@ int ftrace_match_filter(struct rb_root *root, unsigned long ip,
 		else
 			p = &parent->rb_right;
 	}
-	return 0;
+	return NULL;
 }
 
 static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr)
@@ -533,21 +533,21 @@ TEST_CASE(filter_match)
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x1000, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x1000, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x1fff, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x1fff, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0xfff, &tr), 0);
+	TEST_EQ(ftrace_match_filter(&root, 0xfff, &tr), NULL);
 	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
 
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x2000, &tr), 0);
+	TEST_EQ(ftrace_match_filter(&root, 0x2000, &tr), NULL);
 	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
 
 	ftrace_cleanup_filter(&root);
@@ -572,23 +572,23 @@ TEST_CASE(trigger_setup)
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x2500, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x2500, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 2);
 
 	ftrace_setup_trigger("foo::bar@backtrace", &stabs, NULL, &root);
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x2500, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x2500, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
 	ftrace_setup_trigger("foo::baz1@traceon", &stabs, NULL, &root);
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x3000, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x3000, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
 	ftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, NULL, &root);
 	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(ftrace_match_filter(&root, 0x5000, &tr), 1);
+	TEST_NE(ftrace_match_filter(&root, 0x5000, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
 

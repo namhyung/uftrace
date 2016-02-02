@@ -170,6 +170,8 @@ struct ftrace_session {
 	int			 pid, tid;
 	struct ftrace_proc_maps *maps;
 	struct symtabs		 symtabs;
+	struct rb_root		 filters;
+	struct rb_root		 fixups;
 	int 			 namelen;
 	char 			 exename[];
 };
@@ -235,6 +237,8 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork);
 struct ftrace_task *find_task(int tid);
 
+typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
+void walk_sessions(walk_sessions_cb_t callback, void *arg);
 typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
 void walk_tasks(walk_tasks_cb_t callback, void *arg);
 

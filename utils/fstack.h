@@ -16,6 +16,8 @@ enum fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
 	FSTACK_FL_NOTRACE	= (1U << 1),
 	FSTACK_FL_NORECORD	= (1U << 2),
+	FSTACK_FL_EXEC		= (1U << 3),
+	FSTACK_FL_LONGJMP	= (1U << 4),
 };
 
 struct ftrace_task_handle {
@@ -23,13 +25,17 @@ struct ftrace_task_handle {
 	bool valid;
 	bool done;
 	bool lost_seen;
+	bool display_depth_set;
 	FILE *fp;
 	struct sym *func;
+	struct ftrace_task *t;
+	struct ftrace_file_handle *h;
 	struct ftrace_ret_stack ustack;
 	struct ftrace_ret_stack kstack;
 	struct ftrace_ret_stack *rstack;
 	int stack_count;
 	int lost_count;
+	int display_depth;
 	struct filter {
 		int	in_count;
 		int	out_count;
@@ -62,11 +68,17 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_task_handle *handle);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
-int setup_fstack_filters(char *filter_str, char *trigger_str,
-			 struct symtabs *symtabs);
+int setup_fstack_filters(char *filter_str, char *trigger_str);
+void fstack_prepare_fixup(void);
 
-int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
-			int depth, struct ftrace_trigger *tr);
+int fstack_entry(struct ftrace_task_handle *task,
+		 struct ftrace_ret_stack *rstack,
+		 struct ftrace_trigger *tr);
 void fstack_exit(struct ftrace_task_handle *task);
+int fstack_update(int type, struct ftrace_task_handle *task,
+		  struct fstack *fstack);
+struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
+				       struct ftrace_task_handle *task,
+				       int curr_depth);
 
 #endif /* __FTRACE_FSTACK_H__ */

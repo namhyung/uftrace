@@ -23,7 +23,6 @@ struct ftrace_task_handle *tasks;
 int nr_tasks;
 bool fstack_enabled = true;
 
-static struct rb_root fstack_filters = RB_ROOT;
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
 struct ftrace_task_handle *get_task_handle(int tid)
@@ -35,6 +34,37 @@ struct ftrace_task_handle *get_task_handle(int tid)
 			return &tasks[i];
 	}
 	return NULL;
+}
+
+static void setup_task_handle(struct ftrace_file_handle *handle,
+			      struct ftrace_task_handle *task,
+			      int tid)
+{
+	int i;
+	char *filename;
+
+	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+
+	task->h = handle;
+	task->t = find_task(tid);
+
+	task->tid = tid;
+	task->fp = fopen(filename, "rb");
+	if (task->fp == NULL) {
+		pr_dbg("cannot open task data file: %s", filename);
+		task->done = true;
+	}
+	else
+		pr_dbg2("opening %s\n", filename);
+
+	free(filename);
+
+	task->stack_count = 0;
+	task->filter.depth = handle->depth;
+
+	/* FIXME: save filter depth at fork() and restore */
+	for (i = 0; i < FSTACK_MAX; i++)
+		task->func_stack[i].orig_depth = handle->depth;
 }
 
 void reset_task_handle(void)
@@ -90,7 +120,6 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	tasks = xcalloc(sizeof(*tasks), nr_tasks);
 
 	for (i = 0; i < nr_tasks; i++) {
-		char *filename;
 		bool found = false;
 		int tid = handle->info.tids[i];
 
@@ -108,29 +137,51 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 			continue;
 		}
 
-		xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
-
-		tasks[i].fp = fopen(filename, "rb");
-		if (tasks[i].fp == NULL) {
-			pr_dbg("cannot open task data file: %s", filename);
-			tasks[i].done = true;
-		}
-		else
-			pr_dbg2("opening %s\n", filename);
-
-		free(filename);
-
-		tasks[i].filter.depth = handle->depth;
+		setup_task_handle(handle, &tasks[i], tid);
 	}
 
 	free(filter_tids);
+}
+
+static int setup_filters(struct ftrace_session *s, void *arg)
+{
+	char *filter_str = arg;
+
+	ftrace_setup_filter(filter_str, &s->symtabs, NULL, &s->filters,
+			    &fstack_filter_mode);
+	ftrace_setup_filter(filter_str, &s->symtabs, "PLT", &s->filters,
+			    &fstack_filter_mode);
+	ftrace_setup_filter(filter_str, &s->symtabs, "kernel", &s->filters,
+			    &fstack_filter_mode);
+	return 0;
+}
+
+static int setup_trigger(struct ftrace_session *s, void *arg)
+{
+	char *trigger_str = arg;
+
+	ftrace_setup_trigger(trigger_str, &s->symtabs, NULL, &s->filters);
+	ftrace_setup_trigger(trigger_str, &s->symtabs, "PLT", &s->filters);
+	ftrace_setup_trigger(trigger_str, &s->symtabs, "kernel", &s->filters);
+	return 0;
+}
+
+static int count_filters(struct ftrace_session *s, void *arg)
+{
+	int *count = arg;
+	struct rb_node *node = rb_first(&s->filters);
+
+	while (node) {
+		(*count)++;
+		node = rb_next(node);
+	}
+	return 0;
 }
 
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @filter_str  - CSV of filter symbol names
  * @trigger_str - CSV of trigger definitions
- * @symtabs     - symbol tables
  *
  * This function sets up the symbol filters and triggers using following syntax:
  *   filter_strs = filter | filter ";" filter_strs
@@ -138,41 +189,66 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
  *   trigger     = trigger_def | trigger_def "," trigger
  *   trigger_def = "depth=" NUM | "backtrace"
  */
-int setup_fstack_filters(char *filter_str, char *trigger_str,
-			 struct symtabs *symtabs)
+int setup_fstack_filters(char *filter_str, char *trigger_str)
 {
-	if (filter_str) {
-		ftrace_setup_filter(filter_str, symtabs, NULL,
-				    &fstack_filters, &fstack_filter_mode);
-		ftrace_setup_filter(filter_str, symtabs, "PLT",
-				    &fstack_filters, &fstack_filter_mode);
-		ftrace_setup_filter(filter_str, symtabs, "kernel",
-				    &fstack_filters, &fstack_filter_mode);
+	int count = 0;
 
-		if (RB_EMPTY_ROOT(&fstack_filters))
+	if (filter_str) {
+		walk_sessions(setup_filters, filter_str);
+		walk_sessions(count_filters, &count);
+
+		if (count == 0)
 			return -1;
 	}
 
 	if (trigger_str) {
-		ftrace_setup_trigger(trigger_str, symtabs, NULL,
-				     &fstack_filters);
-		ftrace_setup_trigger(trigger_str, symtabs, "PLT",
-				     &fstack_filters);
-		ftrace_setup_trigger(trigger_str, symtabs, "kernel",
-				     &fstack_filters);
-		if (RB_EMPTY_ROOT(&fstack_filters))
+		int prev = count;
+
+		walk_sessions(setup_trigger, trigger_str);
+		walk_sessions(count_filters, &count);
+
+		if (prev == count)
 			return -1;
 	}
 
 	return 0;
 }
 
+static const char *fixup_syms[] = {
+	"execl", "execlp", "execle", "execv", "execvp", "execvpe",
+	"setjmp", "_setjmp", "sigsetjmp", "__sigsetjmp",
+	"longjmp", "siglongjmp", "__longjmp_chk",
+};
+
+static int setjmp_depth;
+
+static int build_fixup_filter(struct ftrace_session *s, void *arg)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
+		ftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs, NULL,
+				     &s->fixups);
+	}
+	return 0;
+}
+
+/**
+ * fstack_prepare_fixup - setup special filters for fixup routines
+ *
+ * This function sets up special symbol filter tables which need
+ * special handling like fork/exec, setjmp/longjmp cases.
+ */
+void fstack_prepare_fixup(void)
+{
+	walk_sessions(build_fixup_filter, NULL);
+}
+
 /**
  * fstack_entry - function entry handler
- * @task  - tracee task
- * @addr  - function address
- * @depth - default function filter depth if filter matched
- * @tr    - trigger data
+ * @task    - tracee task
+ * @rstack  - function return stack
+ * @tr      - trigger data
  *
  * This function should be called when replaying a recorded session.
  * It updates function stack, filter status, trigger result and
@@ -181,13 +257,16 @@ int setup_fstack_filters(char *filter_str, char *trigger_str,
  *
  * This function returns -1 if it should be skipped, 0 otherwise.
  */
-int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
-		 int depth, struct ftrace_trigger *tr)
+int fstack_entry(struct ftrace_task_handle *task,
+		 struct ftrace_ret_stack *rstack,
+		 struct ftrace_trigger *tr)
 {
 	struct fstack *fstack;
+	struct ftrace_session *sess;
+	unsigned long addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
-	fstack = &task->func_stack[task->stack_count - 1];
+	fstack = &task->func_stack[rstack->depth];
 
 	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count-1, task->filter.in_count,
@@ -204,7 +283,23 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 	if (is_kernel_address(addr))
 		addr = get_real_address(addr);
 
-	ftrace_match_filter(&fstack_filters, addr, tr);
+	sess = find_task_session(task->t->pid, rstack->time);
+	if (sess) {
+		struct ftrace_filter *fixup;
+
+		fixup = ftrace_match_filter(&sess->fixups, addr, tr);
+		if (unlikely(fixup)) {
+			if (!strncmp(fixup->name, "exec", 4))
+				fstack->flags |= FSTACK_FL_EXEC;
+			else if (strstr(fixup->name, "setjmp"))
+				setjmp_depth = task->display_depth + 1;
+			else if (strstr(fixup->name, "longjmp"))
+				fstack->flags |= FSTACK_FL_LONGJMP;
+		}
+
+		ftrace_match_filter(&sess->filters, addr, tr);
+	}
+
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN) {
@@ -217,7 +312,8 @@ int fstack_entry(struct ftrace_task_handle *task, unsigned long addr,
 			return -1;
 		}
 
-		task->filter.depth = depth;
+		/* restore default filter depth */
+		task->filter.depth = task->h->depth;
 	}
 	else {
 		if (fstack_filter_mode == FILTER_MODE_IN &&
@@ -264,7 +360,7 @@ void fstack_exit(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 
-	fstack = &task->func_stack[task->stack_count];
+	fstack = &task->func_stack[task->rstack->depth];
 
 	pr_dbg2("EXIT : [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count, task->filter.in_count,
@@ -277,6 +373,93 @@ void fstack_exit(struct ftrace_task_handle *task)
 
 	fstack->flags = 0;
 	task->filter.depth = fstack->orig_depth;
+}
+
+/**
+ * fstack_update - Update fstack related info
+ * @type   - FTRACE_ENTRY or FTRACE_EXIT
+ * @task   - tracee task
+ * @fstack - function tracing stack
+ *
+ * This funciton updates current display depth according to @type and
+ * flags of @fstack, and return a new depth.
+ */
+int fstack_update(int type, struct ftrace_task_handle *task,
+		  struct fstack *fstack)
+{
+	if (type == FTRACE_ENTRY) {
+		if (fstack->flags & FSTACK_FL_EXEC)
+			task->display_depth = 0;
+		else if (fstack->flags & FSTACK_FL_LONGJMP)
+			task->display_depth = setjmp_depth;
+		else
+			task->display_depth++;
+
+		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
+	}
+	else if (type == FTRACE_EXIT) {
+		if (task->display_depth > 1)
+			task->display_depth--;
+		else
+			task->display_depth = 0;
+	}
+	else {
+		pr_err_ns("wrong type of fstack entry: %d\n", type);
+	}
+	return task->display_depth;
+}
+
+/**
+ * fstack_skip - Skip filtered record as many as possible
+ * @handle     - file handle
+ * @task       - tracee task
+ * @curr_depth - current rstack depth
+ *
+ * This function checks next rstack and skip if it's filtered out.
+ * The intention is to merge EXIT record after skipped ones.  It
+ * returns updated @task pointer which contains next non-filtered
+ * rstack or NULL if it's the last record.
+ */
+struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
+				       struct ftrace_task_handle *task,
+				       int curr_depth)
+{
+	struct ftrace_task_handle *next;
+	struct fstack *fstack;
+
+	fstack = &task->func_stack[task->rstack->depth];
+	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
+		return NULL;
+
+	if (peek_rstack(handle, &next) < 0)
+		return NULL;
+
+	while (next == task && next->rstack->depth > curr_depth) {
+		struct ftrace_trigger tr = { 0 };
+
+		/* return if it's not filtered */
+		if (next->rstack->type == FTRACE_ENTRY) {
+			if (!fstack_entry(next, next->rstack, &tr)) {
+				/* restore original state */
+				task->stack_count--;
+				fstack_exit(next);
+				break;
+			}
+		}
+		else if (next->rstack->type == FTRACE_EXIT)
+			fstack_exit(next);
+		else
+			break;
+
+		/* consume the filtered rstack */
+		read_rstack(handle, &next);
+
+		/* and then read next */
+		if (peek_rstack(handle, &next) < 0)
+			return NULL;
+	}
+
+	return next;
 }
 
 /**
@@ -320,36 +503,16 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
-	char *filename;
-	int i;
 
 	if (unlikely(idx >= nr_tasks)) {
 		nr_tasks = idx + 1;
 		tasks = xrealloc(tasks, sizeof(*tasks) * nr_tasks);
 
 		memset(&tasks[idx], 0, sizeof(*tasks));
+		setup_task_handle(handle, &tasks[idx], handle->info.tids[idx]);
 
-		xasprintf(&filename, "%s/%d.dat",
-			  handle->dirname, handle->info.tids[idx]);
-
-		tasks[idx].tid = handle->info.tids[idx];
-		tasks[idx].fp = fopen(filename, "rb");
-
-		if (tasks[idx].fp == NULL) {
-			pr_dbg("cannot open task data file [%s]\n", filename);
-			tasks[idx].done = true;
+		if (tasks[idx].fp == NULL)
 			return NULL;
-		}
-
-		tasks[idx].stack_count = 0;
-		tasks[idx].filter.depth = handle->depth;
-
-		/* FIXME: save filter depth at fork() and restore */
-		for (i = 0; i < FSTACK_MAX; i++)
-			tasks[idx].func_stack[i].orig_depth = handle->depth;
-
-		pr_dbg2("opening %s\n", filename);
-		free(filename);
 	}
 
 	task = &tasks[idx];
@@ -367,6 +530,14 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
+	if (!task->display_depth_set) {
+		/* inherit display_depth after [v]fork() */
+		task->display_depth = task->ustack.depth;
+		if (task->ustack.type == FTRACE_EXIT)
+			task->display_depth++;
+		task->display_depth_set = true;
+	}
+
 	if (task->lost_seen) {
 		int i;
 
@@ -375,6 +546,9 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		pr_dbg("lost seen: invalidating existing stack..\n");
 		task->lost_seen = false;
+
+		/* reset display depth after lost */
+		task->display_depth_set = false;
 	}
 
 	task->valid = true;
@@ -415,6 +589,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_kernel *kernel = handle->kern;
 	struct mcount_ret_stack kstack;
+	struct fstack *fstack;
 	uint64_t ktime;
 
 	u = read_user_stack(handle, taskp);
@@ -442,7 +617,7 @@ user:
 
 		/* update stack count when the user stack is actually used */
 		if (task->ustack.type == FTRACE_ENTRY) {
-			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->ustack.depth];
 
 			fstack->total_time = task->ustack.time;
 			fstack->child_time = 0;
@@ -452,7 +627,7 @@ user:
 			task->stack_count = task->rstack->depth + 1;
 		} else if (task->ustack.type == FTRACE_EXIT) {
 			uint64_t delta;
-			struct fstack *fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->ustack.depth];
 
 			delta = task->ustack.time - fstack->total_time;
 
@@ -495,14 +670,14 @@ kernel:
 		task->rstack = &task->kstack;
 
 		if (task->rstack->type == FTRACE_ENTRY) {
-			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->kstack.depth];
 
 			fstack->valid = true;
 			fstack->addr = kstack.child_ip;
 			fstack->child_time = 0;
 		}
 		else if (task->rstack->type == FTRACE_EXIT) {
-			struct fstack *fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->kstack.depth];
 
 			fstack->valid = false;
 			fstack->addr = kstack.child_ip;
