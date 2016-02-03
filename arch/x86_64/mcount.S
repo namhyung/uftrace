@@ -33,14 +33,7 @@ mcount:
 
 	call mcount_entry
 	cmpq $0, %rax
-	jne 1f
 
-	/* hijack return address */
-	movabs $mcount_return@GOTOFF, %rdx
-	lea _GLOBAL_OFFSET_TABLE_(%rip), %rcx
-	add %rcx, %rdx
-	movq %rdx, 8(%rbp)
-1:
 	movq 0(%rsp), %rax
 	movq 8(%rsp), %r9
 	movq 16(%rsp), %r8

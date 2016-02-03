@@ -85,6 +85,9 @@ static TLS unsigned long plthook_saved_addr;
 static struct symtabs symtabs;
 static char *mcount_exename;
 
+extern void __monstartup(unsigned long low, unsigned long high);
+extern void mcount_return(void);
+
 static uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
@@ -366,8 +369,6 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 	close(ofd);
 }
 
-extern void __monstartup(unsigned long low, unsigned long high);
-
 static void send_session_msg(const char *sess_id)
 {
 	struct ftrace_msg_sess sess = {
@@ -631,6 +632,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = 0;
+
+	/* hijack the return address */
+	*parent_loc = (unsigned long)mcount_return;
 
 	mcount_entry_filter_record(rstack, &tr);
 	mcount_recursion_guard = false;
@@ -1372,8 +1376,6 @@ void __visible_default mcount_restore(void)
 	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
 		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
 }
-
-extern __weak void mcount_return(void);
 
 void __visible_default mcount_reset(void)
 {
