@@ -1245,8 +1245,7 @@ static void build_debug_domain(char *dbg_domain_str)
 /*
  * external interfaces
  */
-void __attribute__((visibility("default")))
-__monstartup(unsigned long low, unsigned long high)
+void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
 	char *pipefd_str;
 	char *logfd_str;
@@ -1353,8 +1352,7 @@ __monstartup(unsigned long low, unsigned long high)
 	mcount_recursion_guard = false;
 }
 
-void __attribute__((visibility("default")))
-_mcleanup(void)
+void __visible_default mcleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
@@ -1364,8 +1362,7 @@ _mcleanup(void)
 #endif
 }
 
-void __attribute__((visibility("default")))
-mcount_restore(void)
+void __visible_default mcount_restore(void)
 {
 	int idx;
 
@@ -1378,8 +1375,7 @@ mcount_restore(void)
 
 extern __weak void mcount_return(void);
 
-void __attribute__((visibility("default")))
-mcount_reset(void)
+void __visible_default mcount_reset(void)
 {
 	int idx;
 
@@ -1390,14 +1386,12 @@ mcount_reset(void)
 		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
-void __attribute__((visibility("default")))
-__cyg_profile_func_enter(void *child, void *parent)
+void __visible_default __cyg_profile_func_enter(void *child, void *parent)
 {
 	cygprof_entry((unsigned long)parent, (unsigned long)child);
 }
 
-void __attribute__((visibility("default")))
-__cyg_profile_func_exit(void *child, void *parent)
+void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 {
 	cygprof_exit((unsigned long)parent, (unsigned long)child);
 }
