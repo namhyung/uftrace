@@ -595,6 +595,13 @@ static bool mcount_should_stop(void)
 	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
 }
 
+__weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
+						  unsigned long *parent_loc,
+						  unsigned long child_ip)
+{
+	return parent_loc;
+}
+
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
@@ -621,6 +628,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 		mcount_recursion_guard = false;
 		return -1;
 	}
+
+	/* fixup the parent_loc in an arch-dependant way (if needed) */
+	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
