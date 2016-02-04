@@ -309,9 +309,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle *task;
-	struct sigaction sa = {
-		.sa_flags = 0,
-	};
 	struct ftrace_kernel kern;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
@@ -349,12 +346,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (!opts->flat)
 		pr_out("# DURATION    TID     FUNCTION\n");
-
-	sa.sa_handler = sighandler;
-	sigfillset(&sa.sa_mask);
-
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
 
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		if (opts->flat)

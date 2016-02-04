@@ -65,6 +65,7 @@ extern void __pr_color(char code, const char *fmt, ...);
 extern int log_color;
 extern int out_color;
 extern void setup_color(int color);
+extern void setup_signal(void);
 
 #ifndef PR_FMT
 # define PR_FMT  "ftrace"

@@ -1177,12 +1177,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	clock_gettime(CLOCK_MONOTONIC, &ts1);
 	close(pfd[1]);
 
-	sa.sa_handler = sighandler;
 	sigfillset(&sa.sa_mask);
-
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-
 	sa.sa_handler = NULL;
 	sa.sa_sigaction = sigchld_handler;
 	sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;

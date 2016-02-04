@@ -511,6 +511,7 @@ int main(int argc, char *argv[])
 	}
 
 	setup_color(opts.color);
+	setup_signal();
 
 	if (opts.use_pager)
 		start_pager();

@@ -17,6 +17,12 @@ void sighandler(int sig)
 	ftrace_done = true;
 }
 
+void setup_signal(void)
+{
+	signal(SIGINT,  sighandler);
+	signal(SIGTERM, sighandler);
+}
+
 int read_all(int fd, void *buf, size_t size)
 {
 	int ret;
