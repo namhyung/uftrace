@@ -1,11 +1,20 @@
 - ARM compatibility check
-- more debugging facility
 - library tracing
-- enable/disable tracing at runtime
-- allow ^C to terminate gracefully
-- libiberty usability
 - column view
-- timechart support?
 - argument display (with DWARF?)
+- return value display
+- source file and line number display
+- more trigger action
+- trigger filtering (ignore, count, at return, ...)
+- dynamic instrumentation
+- gcc5 -mrecord-mcount support
+- gcc5 -mnop-mcount support
+- documentation
+- time/percent filter
+- perf-like callgraph view
+- flamegraph support
+- timechart support?
+- report w/ multi-thread
+- config file support
 - dlopen() support
 - LD_BIND_NOW support?
