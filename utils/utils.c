@@ -21,6 +21,7 @@ void setup_signal(void)
 {
 	signal(SIGINT,  sighandler);
 	signal(SIGTERM, sighandler);
+	signal(SIGPIPE, sighandler);
 }
 
 int read_all(int fd, void *buf, size_t size)
