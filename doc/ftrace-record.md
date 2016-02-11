@@ -45,6 +45,9 @@ OPTIONS
 \--no-plthook
 :   Do not record library function invocations.  The ftrace traces library calls by hooking dynamic linker's resolve function in the PLT.  One can disable it with this option.
 
+\--no-pltbind
+:   Do not bind dynamic symbol address.  This option uses the LD_BIND_NOT environment variable to trace library function calls which might be missing due to concurrent (first) accesses.  It's only meaningful to use this option without the --no-plthook option.
+
 -D *DEPTH*, \--depth=*DEPTH*
 :   Set global trace limit in nesting level.
 

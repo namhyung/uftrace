@@ -63,6 +63,7 @@ enum options {
 	OPT_report,
 	OPT_column_view,
 	OPT_column_offset,
+	OPT_bind_not,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -100,6 +101,7 @@ static struct argp_option ftrace_options[] = {
 	{ "report", OPT_report, 0, 0, "Show live report" },
 	{ "column-view", OPT_column_view, 0, 0, "Print tasks in separate columns" },
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
+	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ 0 }
 };
 
@@ -404,6 +406,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_column_offset:
 		opts->column_offset = strtol(arg, NULL, 0);
+		break;
+
+	case OPT_bind_not:
+		opts->want_bind_not = true;
 		break;
 
 	case ARGP_KEY_ARG:

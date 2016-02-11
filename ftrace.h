@@ -147,6 +147,7 @@ struct opts {
 	bool disabled;
 	bool report;
 	bool column_view;
+	bool want_bind_not;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
