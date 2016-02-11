@@ -12,7 +12,19 @@
 #include "utils/fstack.h"
 
 
+static int column_index;
 static bool skip_kernel_before_user = true;
+
+static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
+{
+	if (!opts->column_view)
+		return 0;
+
+	if (task->column_index == -1)
+		task->column_index = column_index++;
+
+	return task->column_index * opts->column_offset;
+}
 
 static void print_backtrace(struct ftrace_task_handle *task)
 {
@@ -112,6 +124,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		};
 		struct fstack *fstack;
 		int ret;
+		int depth = task->display_depth;
 
 		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
@@ -120,12 +133,14 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
+		depth += task_column_depth(task, opts);
+
 		fstack = &task->func_stack[rstack->depth];
 
 		/* function entry */
 		print_time_unit(0UL);
 		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-		       task->display_depth * 2, "", symname,
+		       depth * 2, "", symname,
 		       needs_paren ? "()" : "");
 
 		fstack_update(FTRACE_ENTRY, task, fstack);
@@ -133,6 +148,8 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	else if (rstack->type == FTRACE_EXIT) {
 		struct fstack *fstack = &task->func_stack[rstack->depth];
 		int depth = fstack_update(FTRACE_EXIT, task, fstack);
+
+		depth += task_column_depth(task, opts);
 
 		/* function exit */
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
@@ -201,6 +218,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
+		depth += task_column_depth(task, opts);
+
 		fstack = &task->func_stack[task->stack_count - 1];
 
 		next = fstack_skip(handle, task, rstack_depth);
@@ -239,6 +258,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			int depth = fstack_update(FTRACE_EXIT, task, fstack);
+
+			depth += task_column_depth(task, opts);
 
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s}", task->tid, depth * 2, "");

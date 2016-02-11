@@ -130,6 +130,7 @@ struct opts {
 	int kernel;
 	int port;
 	int color;
+	int column_offset;
 	unsigned long bsize;
 	bool flat;
 	bool want_plthook;
@@ -145,6 +146,7 @@ struct opts {
 	bool avg_self;
 	bool disabled;
 	bool report;
+	bool column_view;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

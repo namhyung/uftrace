@@ -61,6 +61,8 @@ enum options {
 	OPT_demangle,
 	OPT_dbg_domain,
 	OPT_report,
+	OPT_column_view,
+	OPT_column_offset,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -96,6 +98,8 @@ static struct argp_option ftrace_options[] = {
 	{ "demangle", OPT_demangle, "TYPE", 0, "C++ symbol demangling: full, simple, no" },
 	{ "debug-domain", OPT_dbg_domain, "DOMAIN", 0, "Filter debugging domain" },
 	{ "report", OPT_report, 0, 0, "Show live report" },
+	{ "column-view", OPT_column_view, 0, 0, "Print tasks in separate columns" },
+	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ 0 }
 };
 
@@ -394,6 +398,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->report = true;
 		break;
 
+	case OPT_column_view:
+		opts->column_view = true;
+		break;
+
+	case OPT_column_offset:
+		opts->column_offset = strtol(arg, NULL, 0);
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -471,6 +483,7 @@ int main(int argc, char *argv[])
 		.port		= FTRACE_RECV_PORT,
 		.use_pager	= true,
 		.color		= -1,  /* default to 'auto' (turn on if terminal) */
+		.column_offset	= 8,
 	};
 	struct argp argp = {
 		.options = ftrace_options,

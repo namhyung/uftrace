@@ -60,6 +60,7 @@ static void setup_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	task->stack_count = 0;
+	task->column_index = -1;
 	task->filter.depth = handle->depth;
 
 	/* FIXME: save filter depth at fork() and restore */
