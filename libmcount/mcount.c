@@ -55,6 +55,7 @@ static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 
 static int pfd = -1;
 static bool mcount_setup_done;
+static bool mcount_finished;
 static TLS bool mcount_recursion_guard;
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -588,6 +589,11 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 
 #endif /* DISABLE_MCOUNT_FILTER */
 
+static bool mcount_should_stop(void)
+{
+	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
+}
+
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
@@ -601,7 +607,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	 *
 	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
 	 */
-	if (unlikely(!mcount_setup_done || mcount_recursion_guard))
+	if (unlikely(mcount_should_stop()))
 		return -1;
 
 	mcount_recursion_guard = true;
@@ -654,6 +660,8 @@ unsigned long mcount_exit(void)
 
 static void mcount_finish(void)
 {
+	mcount_finished = true;
+
 	shmem_dtor(NULL);
 	pthread_key_delete(shmem_key);
 
@@ -671,7 +679,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		.flags = 0,
 	};
 
-	if (unlikely(!mcount_setup_done || mcount_recursion_guard))
+	if (unlikely(mcount_should_stop()))
 		return -1;
 
 	mcount_recursion_guard = true;
@@ -707,7 +715,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	struct mcount_ret_stack *rstack;
 
-	if (unlikely(!mcount_setup_done || mcount_recursion_guard))
+	if (unlikely(mcount_should_stop()))
 		return;
 
 	mcount_recursion_guard = true;
@@ -1039,7 +1047,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	};
 	bool skip = false;
 
-	if (unlikely(!mcount_setup_done || mcount_recursion_guard))
+	if (unlikely(mcount_should_stop()))
 		return 0;
 
 	mcount_recursion_guard = true;
