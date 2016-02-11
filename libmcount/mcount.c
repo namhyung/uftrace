@@ -595,6 +595,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 		.flags = 0,
 	};
 
+	if (unlikely(!mcount_setup_done))
+		return -1;
+
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
@@ -654,6 +657,9 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		.flags = 0,
 	};
 
+	if (unlikely(!mcount_setup_done))
+		return -1;
+
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
@@ -683,6 +689,9 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 static void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	struct mcount_ret_stack *rstack;
+
+	if (unlikely(!mcount_setup_done))
+		return;
 
 	rstack = &mcount_rstack[mcount_rstack_idx - 1];
 
@@ -1009,6 +1018,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	};
 	bool skip = false;
 
+	if (unlikely(!mcount_setup_done))
+		return 0;
+
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
@@ -1197,12 +1209,12 @@ static void build_debug_domain(char *dbg_domain_str)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
-	char *pipefd_str = getenv("FTRACE_PIPE");
-	char *logfd_str = getenv("FTRACE_LOGFD");
-	char *debug_str = getenv("FTRACE_DEBUG");
-	char *bufsize_str = getenv("FTRACE_BUFFER");
-	char *maxstack_str = getenv("FTRACE_MAX_STACK");
-	char *color_str = getenv("FTRACE_COLOR");
+	char *pipefd_str;
+	char *logfd_str;
+	char *debug_str;
+	char *bufsize_str;
+	char *maxstack_str;
+	char *color_str;
 	struct stat statbuf;
 
 	if (mcount_setup_done)
@@ -1210,6 +1222,13 @@ __monstartup(unsigned long low, unsigned long high)
 
 	outfp = stdout;
 	logfp = stderr;
+
+	pipefd_str = getenv("FTRACE_PIPE");
+	logfd_str = getenv("FTRACE_LOGFD");
+	debug_str = getenv("FTRACE_DEBUG");
+	bufsize_str = getenv("FTRACE_BUFFER");
+	maxstack_str = getenv("FTRACE_MAX_STACK");
+	color_str = getenv("FTRACE_COLOR");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
