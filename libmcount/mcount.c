@@ -55,6 +55,8 @@ static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 
 static int pfd = -1;
 static bool mcount_setup_done;
+static bool mcount_finished;
+static TLS bool mcount_recursion_guard;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
@@ -587,6 +589,11 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 
 #endif /* DISABLE_MCOUNT_FILTER */
 
+static bool mcount_should_stop(void)
+{
+	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
+}
+
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
@@ -595,12 +602,24 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 		.flags = 0,
 	};
 
+	/*
+	 * If an executable has its own malloc(), following recursion could occur
+	 *
+	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
+	 */
+	if (unlikely(mcount_should_stop()))
+		return -1;
+
+	mcount_recursion_guard = true;
+
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
 	filtered = mcount_entry_filter_check(child, &tr);
-	if (filtered == FILTER_OUT)
+	if (filtered == FILTER_OUT) {
+		mcount_recursion_guard = false;
 		return -1;
+	}
 
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
@@ -614,6 +633,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->flags      = 0;
 
 	mcount_entry_filter_record(rstack, &tr);
+	mcount_recursion_guard = false;
 	return 0;
 }
 
@@ -621,6 +641,8 @@ unsigned long mcount_exit(void)
 {
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
+
+	mcount_recursion_guard = true;
 
 	rstack = &mcount_rstack[mcount_rstack_idx - 1];
 
@@ -632,11 +654,14 @@ unsigned long mcount_exit(void)
 	compiler_barrier();
 	mcount_rstack_idx--;
 
+	mcount_recursion_guard = false;
 	return retaddr;
 }
 
 static void mcount_finish(void)
 {
+	mcount_finished = true;
+
 	shmem_dtor(NULL);
 	pthread_key_delete(shmem_key);
 
@@ -653,6 +678,11 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	struct ftrace_trigger tr = {
 		.flags = 0,
 	};
+
+	if (unlikely(mcount_should_stop()))
+		return -1;
+
+	mcount_recursion_guard = true;
 
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
@@ -677,12 +707,18 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	mcount_entry_filter_record(rstack, &tr);
+	mcount_recursion_guard = false;
 	return 0;
 }
 
 static void cygprof_exit(unsigned long parent, unsigned long child)
 {
 	struct mcount_ret_stack *rstack;
+
+	if (unlikely(mcount_should_stop()))
+		return;
+
+	mcount_recursion_guard = true;
 
 	rstack = &mcount_rstack[mcount_rstack_idx - 1];
 
@@ -693,6 +729,8 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	compiler_barrier();
 	mcount_rstack_idx--;
+
+	mcount_recursion_guard = false;
 }
 
 static unsigned long got_addr;
@@ -1009,6 +1047,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	};
 	bool skip = false;
 
+	if (unlikely(mcount_should_stop()))
+		return 0;
+
+	mcount_recursion_guard = true;
+
 	if (unlikely(mcount_rstack == NULL))
 		mcount_prepare();
 
@@ -1019,10 +1062,10 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	 *   -> plthook_entry
 	 */
 	if (plthook_recursion_guard)
-		return 0;
+		goto out;
 
 	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
-		return 0;
+		goto out;
 
 	sym = find_dynsym(&symtabs, child_idx);
 	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
@@ -1075,10 +1118,14 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		while (!*resolved_addr)
 			cpu_relax();
 
+		mcount_recursion_guard = false;
 		return *resolved_addr;
 	}
 
 	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
+
+out:
+	mcount_recursion_guard = false;
 	return 0;
 }
 
@@ -1087,6 +1134,8 @@ unsigned long plthook_exit(void)
 	int dyn_idx;
 	unsigned long new_addr;
 	struct mcount_ret_stack *rstack;
+
+	mcount_recursion_guard = true;
 
 again:
 	rstack = &mcount_rstack[--mcount_rstack_idx];
@@ -1139,6 +1188,8 @@ again:
 		pthread_mutex_unlock(&resolver_mutex);
 #endif
 	}
+
+	mcount_recursion_guard = false;
 	return rstack->parent_ip;
 }
 
@@ -1197,19 +1248,28 @@ static void build_debug_domain(char *dbg_domain_str)
 void __attribute__((visibility("default")))
 __monstartup(unsigned long low, unsigned long high)
 {
-	char *pipefd_str = getenv("FTRACE_PIPE");
-	char *logfd_str = getenv("FTRACE_LOGFD");
-	char *debug_str = getenv("FTRACE_DEBUG");
-	char *bufsize_str = getenv("FTRACE_BUFFER");
-	char *maxstack_str = getenv("FTRACE_MAX_STACK");
-	char *color_str = getenv("FTRACE_COLOR");
+	char *pipefd_str;
+	char *logfd_str;
+	char *debug_str;
+	char *bufsize_str;
+	char *maxstack_str;
+	char *color_str;
 	struct stat statbuf;
 
-	if (mcount_setup_done)
+	if (mcount_setup_done || mcount_recursion_guard)
 		return;
+
+	mcount_recursion_guard = true;
 
 	outfp = stdout;
 	logfp = stderr;
+
+	pipefd_str = getenv("FTRACE_PIPE");
+	logfd_str = getenv("FTRACE_LOGFD");
+	debug_str = getenv("FTRACE_DEBUG");
+	bufsize_str = getenv("FTRACE_BUFFER");
+	maxstack_str = getenv("FTRACE_MAX_STACK");
+	color_str = getenv("FTRACE_COLOR");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1287,7 +1347,10 @@ __monstartup(unsigned long low, unsigned long high)
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
+	compiler_barrier();
+
 	mcount_setup_done = true;
+	mcount_recursion_guard = false;
 }
 
 void __attribute__((visibility("default")))
