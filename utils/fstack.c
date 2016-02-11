@@ -60,6 +60,7 @@ static void setup_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	task->stack_count = 0;
+	task->column_index = -1;
 	task->filter.depth = handle->depth;
 
 	/* FIXME: save filter depth at fork() and restore */
@@ -745,7 +746,8 @@ int peek_rstack(struct ftrace_file_handle *handle,
 #define NUM_RECORD  4
 
 static int test_tids[NUM_TASK] = { 1234, 5678 };
-struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
+static struct ftrace_task test_tasks[NUM_TASK];
+static struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
 	{
 		{ 100, FTRACE_ENTRY, FTRACE_UNUSED, 0, 0x40000 },
 		{ 200, FTRACE_ENTRY, FTRACE_UNUSED, 1, 0x41000 },
@@ -763,14 +765,14 @@ struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
 static struct ftrace_file_handle fstack_test_handle;
 static void fstack_test_finish_file(void);
 
-static int fstack_test_setup_file(struct ftrace_file_handle *handle)
+static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 {
 	int i;
 	char *filename;
 
 	handle->dirname = "tmp.dir";
 	handle->info.tids = test_tids;
-	handle->info.nr_tid = ARRAY_SIZE(test_tids);
+	handle->info.nr_tid = nr_tid;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
 		pr_dbg("cannot create temp dir: %m\n");
@@ -799,6 +801,8 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle)
 
 		free(filename);
 		fclose(fp);
+
+		test_tasks[i].tid = handle->info.tids[i];
 	}
 
 	atexit(fstack_test_finish_file);
@@ -832,7 +836,7 @@ TEST_CASE(fstack_read)
 	struct ftrace_task_handle *task;
 	int i;
 
-	TEST_EQ(fstack_test_setup_file(handle), 0);
+	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
 
 	for (i = 0; i < NUM_RECORD; i++) {
 		TEST_EQ(read_rstack(handle, &task), 0);
@@ -853,6 +857,39 @@ TEST_CASE(fstack_read)
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
 		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
 	}
+
+	return TEST_OK;
+}
+
+TEST_CASE(fstack_skip)
+{
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+	struct ftrace_task_handle *task;
+	struct ftrace_trigger tr = { 0, };
+	int i;
+
+	TEST_EQ(fstack_test_setup_file(handle, 1), 0);
+
+	/* this makes to skip depth 1 records */
+	handle->depth = 1;
+
+	TEST_EQ(read_rstack(handle, &task), 0);
+
+	/* for fstack_entry not to crash */
+	task->t = &test_tasks[0];
+
+	TEST_EQ(fstack_entry(task, task->rstack, &tr), 0);
+	TEST_EQ(task->tid, test_tids[0]);
+	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][0].type);
+	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][0].depth);
+	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
+
+	/* skip filtered records (due to depth) */
+	TEST_EQ(fstack_skip(handle, task, task->rstack->depth), task);
+	TEST_EQ(task->tid, test_tids[0]);
+	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
+	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
+	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][3].addr);
 
 	return TEST_OK;
 }

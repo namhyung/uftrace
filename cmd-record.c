@@ -143,8 +143,14 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 		setenv("FTRACE_MAX_STACK", buf, 1);
 	}
 
-	if (opts->want_plthook)
+	if (opts->want_plthook) {
 		setenv("FTRACE_PLTHOOK", "1", 1);
+
+		if (opts->want_bind_not) {
+			/* do not update GOTPLT after resolving symbols */
+			setenv("LD_BIND_NOT", "1", 1);
+		}
+	}
 
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);

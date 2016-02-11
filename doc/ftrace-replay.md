@@ -49,6 +49,12 @@ OPTIONS
 \--demangle=*TYPE*
 :   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
+--column-view
+:   Show each task in separate column.  This makes easy to distinguish functions in different tasks.
+
+--column-offset=*DEPTH*
+:   When `--column-view` option is used, this option specifies the amount of offsets between each task.  Default is 8.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.
