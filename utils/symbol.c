@@ -356,6 +356,9 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->type = ST_PLT,
 		sym->name = demangle(name);
 
+		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC)
+			sym->addr = 0;
+
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 	}
