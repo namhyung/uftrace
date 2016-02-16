@@ -3,6 +3,7 @@
 
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/rbtree.h"
 
 struct lr_offset {
 	int           offset;  // 4-byte unit
@@ -10,6 +11,43 @@ struct lr_offset {
 };
 
 #define REG_SP  13
+
+static struct rb_root offset_cache = RB_ROOT;
+
+struct offset_entry {
+	struct rb_node node;
+	unsigned long  addr;
+	unsigned long  offset;
+};
+
+static struct offset_entry *lookup_cache(struct rb_root *root,
+					 unsigned long addr, bool create)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct offset_entry *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct offset_entry, node);
+
+		if (iter->addr == addr)
+			return iter;
+
+		if (iter->addr > addr)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	if (!create)
+		return NULL;
+
+	iter = xmalloc(sizeof(*iter));
+	iter->addr = addr;
+
+	return iter;
+}
 
 static unsigned rotate_right(unsigned val, unsigned bits, unsigned shift)
 {
@@ -177,6 +215,7 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	struct lr_offset lr = {
 		.offset = 0,
 	};
+	struct offset_entry *cache;
 
 	sym = find_symtabs(symtabs, child_ip, NULL);
 	if (sym == NULL)
@@ -186,10 +225,17 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	if ((sym->addr & 1) == 0)
 		return parent_loc;
 
+	cache = lookup_cache(&offset_cache, sym->addr, false);
+	if (cache)
+		return parent_loc + cache->offset;
+
 	pr_dbg2("copying instructions of %s\n", sym->name);
 	memcpy(buf, (void *)(sym->addr & ~1), sizeof(buf));
 
 	analyze_mcount_instructions(buf, &lr);
+
+	cache = lookup_cache(&offset_cache, sym->addr, true);
+	cache->offset = lr.offset;
 
 	return parent_loc + lr.offset;
 }
