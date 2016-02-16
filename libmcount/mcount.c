@@ -85,6 +85,9 @@ static TLS unsigned long plthook_saved_addr;
 static struct symtabs symtabs;
 static char *mcount_exename;
 
+extern void __monstartup(unsigned long low, unsigned long high);
+extern void mcount_return(void);
+
 static uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
@@ -366,8 +369,6 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 	close(ofd);
 }
 
-extern void __monstartup(unsigned long low, unsigned long high);
-
 static void send_session_msg(const char *sess_id)
 {
 	struct ftrace_msg_sess sess = {
@@ -594,6 +595,13 @@ static bool mcount_should_stop(void)
 	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
 }
 
+__weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
+						  unsigned long *parent_loc,
+						  unsigned long child_ip)
+{
+	return parent_loc;
+}
+
 int mcount_entry(unsigned long *parent_loc, unsigned long child)
 {
 	enum filter_result filtered;
@@ -621,6 +629,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 		return -1;
 	}
 
+	/* fixup the parent_loc in an arch-dependant way (if needed) */
+	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
+
 	rstack = &mcount_rstack[mcount_rstack_idx++];
 
 	rstack->depth      = mcount_record_idx;
@@ -631,6 +642,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	rstack->start_time = mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = 0;
+
+	/* hijack the return address */
+	*parent_loc = (unsigned long)mcount_return;
 
 	mcount_entry_filter_record(rstack, &tr);
 	mcount_recursion_guard = false;
@@ -747,7 +761,7 @@ void segv_handler(int sig, siginfo_t *si, void *ctx)
 	}
 }
 
-extern void __attribute__((weak)) plt_hooker(void);
+extern void __weak plt_hooker(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 {
@@ -1245,8 +1259,7 @@ static void build_debug_domain(char *dbg_domain_str)
 /*
  * external interfaces
  */
-void __attribute__((visibility("default")))
-__monstartup(unsigned long low, unsigned long high)
+void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
 	char *pipefd_str;
 	char *logfd_str;
@@ -1353,8 +1366,7 @@ __monstartup(unsigned long low, unsigned long high)
 	mcount_recursion_guard = false;
 }
 
-void __attribute__((visibility("default")))
-_mcleanup(void)
+void __visible_default mcleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
@@ -1364,8 +1376,7 @@ _mcleanup(void)
 #endif
 }
 
-void __attribute__((visibility("default")))
-mcount_restore(void)
+void __visible_default mcount_restore(void)
 {
 	int idx;
 
@@ -1376,10 +1387,7 @@ mcount_restore(void)
 		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
 }
 
-extern __attribute__((weak)) void mcount_return(void);
-
-void __attribute__((visibility("default")))
-mcount_reset(void)
+void __visible_default mcount_reset(void)
 {
 	int idx;
 
@@ -1390,14 +1398,12 @@ mcount_reset(void)
 		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
-void __attribute__((visibility("default")))
-__cyg_profile_func_enter(void *child, void *parent)
+void __visible_default __cyg_profile_func_enter(void *child, void *parent)
 {
 	cygprof_entry((unsigned long)parent, (unsigned long)child);
 }
 
-void __attribute__((visibility("default")))
-__cyg_profile_func_exit(void *child, void *parent)
+void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 {
 	cygprof_exit((unsigned long)parent, (unsigned long)child);
 }

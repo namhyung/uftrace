@@ -41,33 +41,22 @@
 	.align 2
 __gnu_mcount_nc:
 	push 	{r0-r3, lr}
+	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
+	moveq	r0, fp      /* fp (=r11) points to return address on ARM */
+	addne	r0, sp, #20 /* adjust r0 points to pushed LR on THUMB */
 	mov 	r1, lr
-	add 	r0, sp, #20
 
 	bl 	mcount_entry
-	cmp 	r0, #0
-	bne	1f
 
-	ldr	r0, [sp, #16]
-	ands	r3, r0, #1  /* check lr for ARM/THUMB detection */
-	moveq	r1, fp      /* fp (=r11) points to return address on ARM */
-	addne	r1, r7, #4  /* r7 points to frame on THUMB, but it's BROKEN!! */
-	ldr	r0, [sp, #20]
-	ldr	r2, [r1]
-	adr 	r3, mcount_return
-	cmp	r0, r2
-	streq	r3, [r1]
-	strne	r3, [sp, #20]
-1:
-	pop 	{r0-r3, lr}
-	mov	ip, lr
-	pop	{ lr }
+	pop 	{r0-r3, ip, lr}
 	bx	ip
 
 .type __gnu_mcount_nc, %function
 .size __gnu_mcount_nc, .-__gnu_mcount_nc
 
 
+	.globl mcount_return
+	.align 2
 mcount_return:
 	push 	{r0-r3, lr}
 	bl 	mcount_exit

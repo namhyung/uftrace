@@ -11,4 +11,7 @@
 # define cpu_relax()	compiler_barrier()
 #endif
 
+#define __weak  __attribute__((weak))
+#define __visible_default  __attribute__((visibility("default")))
+
 #endif /* __FTRACE_COMPILER_H__ */
