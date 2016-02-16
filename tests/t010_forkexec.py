@@ -11,6 +11,7 @@ class TestCase(TestBase):
             [ 9874] | main() {
   19.427 us [ 9874] |   readlink();
    1.841 us [ 9874] |   strrchr();
+   0.911 us [ 9874] |   strcpy();
  142.145 us [ 9874] |   fork();
             [ 9874] |   waitpid() {
  473.298 us [ 9875] |   } /* fork */
@@ -28,11 +29,6 @@ class TestCase(TestBase):
    2.515 ms [ 9874] |   } /* waitpid */
    2.708 ms [ 9874] | } /* main */
 
-ftrace stopped tracing with remaining functions
-===============================================
-task: 9875
-[0] execl
-
 """)
 
     def build(self, cflags='', ldflags=''):
@@ -44,7 +40,7 @@ task: 9875
         prog = 't-' + self.name
         src  = 's-' + self.name + lang['ext']
 
-        build_cflags  = ' '.join([self.cflags, cflags, \
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])
@@ -64,16 +60,9 @@ task: 9875
         r = result
         f = cflags.split()
 
-        if f[-1] == '-Os':
-            r = r.replace('fork();', """strcpy();
-                                [ 9874] |   fork();""")
-
         if f[0] == '-pg':
             r = r.replace('execl() {', """execl() {
                                 [ 9875] | __monstartup();
                                 [ 9875] | __cxa_atexit();""")
-
-            if f[-1] in ('-O1', '-O2', '-O3'):
-                r = r.replace('atoi', 'strtol')
 
         return r

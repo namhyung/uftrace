@@ -1,10 +1,6 @@
 #include <ucontext.h>
 #include <unistd.h>
 
-int __attribute__((noinline)) foo(ucontext_t *, ucontext_t *);
-int __attribute__((noinline)) bar(int);
-int __attribute__((noinline)) baz(int);
-
 int foo(ucontext_t *old, ucontext_t *new)
 {
 	swapcontext(old, new);

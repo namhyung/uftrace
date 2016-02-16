@@ -1,8 +1,5 @@
 #include <setjmp.h>
 
-int __attribute__((noinline)) foo(void);
-int __attribute__((noinline)) bar(void);
-
 jmp_buf env;
 
 int foo(void)

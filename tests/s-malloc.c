@@ -2,10 +2,6 @@
 
 #define MALLOC_BUFSIZE  (1024 * 1024 * 1024)
 
-
-__attribute__((noinline)) void *malloc(unsigned size);
-__attribute__((noinline)) void free(void *ptr);
-
 void *malloc(unsigned size)
 {
 	static char buf[MALLOC_BUFSIZE];

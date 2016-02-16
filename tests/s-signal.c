@@ -1,9 +1,6 @@
 #include <signal.h>
 #include <stdlib.h>
 
-__attribute__((noinline)) void foo(void);
-__attribute__((noinline)) void bar(int n);
-
 volatile int dummy;
 
 void foo(void)

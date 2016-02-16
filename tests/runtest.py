@@ -23,6 +23,8 @@ class TestBase:
     objdir = os.environ['objdir'] or '..'
     ftrace = objdir + '/ftrace -L' + objdir
 
+    default_cflags = ['-fno-inline', '-fno-builtin']
+
     def __init__(self, name, result, lang='C', cflags='', ldflags=''):
         self.name = name
         self.result = result
@@ -39,7 +41,7 @@ class TestBase:
         prog = 't-' + self.name
         src  = 's-' + self.name + lang['ext']
 
-        build_cflags  = ' '.join([self.cflags, cflags, \
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])

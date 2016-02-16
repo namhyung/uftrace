@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static int __attribute__((noinline)) a(void);
-static int __attribute__((noinline)) b(void);
-static int __attribute__((noinline)) c(void);
+static int a(void);
+static int b(void);
+static int c(void);
 
 static int a(void)
 {

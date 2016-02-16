@@ -20,3 +20,9 @@ config/*
 FLAGS
 version.h
 .config
+GPATH
+GRTAGS
+GTAGS
+TAGS
+tags
+cscope.*

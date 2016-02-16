@@ -22,12 +22,6 @@ struct big {
 	long l;
 };
 
-int __attribute__((noinline)) bar(unsigned, const char *);
-int __attribute__((noinline)) foo(unsigned);
-int __attribute__((noinline)) many(unsigned, ...);
-int __attribute__((noinline)) check(struct big, struct big *);
-int __attribute__((noinline)) pass(int);
-
 int bar(unsigned n, const char *str)
 {
 	if (n >= nr_strs)

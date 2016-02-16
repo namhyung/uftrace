@@ -3,8 +3,8 @@
 #include <sys/time.h>
 #include "../utils/compiler.h"
 
-__attribute__((noinline)) void foo(void);
-__attribute__((noinline)) void bar(void);
+void foo(void);
+void bar(void);
 
 volatile int count;
 volatile int max = 3;
