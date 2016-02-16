@@ -73,7 +73,4 @@ task: 9875
                                 [ 9875] | __monstartup();
                                 [ 9875] | __cxa_atexit();""")
 
-            if f[-1] in ('-O1', '-O2', '-O3'):
-                r = r.replace('atoi', 'strtol')
-
         return r
