@@ -27,6 +27,3 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s --demangle=full -N "ns2.*" %s' % (TestBase.ftrace, 't-namespace')
-
-    def fixup(self, cflags, result):
-        return result.replace('   1.040 us [22757] |   ns::ns1::foo::foo(int);\n', '')

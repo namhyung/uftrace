@@ -27,6 +27,3 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -N ".*ns1::.*" %s' % (TestBase.ftrace, 't-namespace')
-
-    def fixup(self, cflags, result):
-        return result.replace('   0.386 us [ 3357] |   ns::ns2::foo::foo();\n', '')
