@@ -1,3 +1,4 @@
+*.ot
 *.pyc
 __pycache__/
 unittest

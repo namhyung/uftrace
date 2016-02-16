@@ -3,6 +3,9 @@ TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h
 TEST_LDFLAGS := -L$(objdir)/libtraceevent -ltraceevent -lelf -pthread -lrt -ldl
 
 UNIT_TEST_SRC := $(wildcard $(srcdir)/*.c $(srcdir)/utils/*.c)
+UNIT_TEST_OBJ := $(patsubst %.c,%.ot,$(UNIT_TEST_SRC))
+
+include $(srcdir)/config/Makefile.include
 
 test: test_unit test_run
 
@@ -12,10 +15,14 @@ test_run:
 test_unit: unittest
 	./unittest $(filter -d,$(TESTARG))
 
-unittest: unittest.c unittest.h $(UNIT_TEST_SRC)
-	@$(CC) -o $@ $(TEST_CFLAGS) $(filter-out %.h,$^) $(TEST_LDFLAGS)
+unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
+	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
+
+$(UNIT_TEST_OBJ): %.ot: %.c
+	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $^
 
 clean:
-	@rm -f *.o *.so *.pyc t-* unittest
+	$(call QUIET_CLEAN, test)
+	@rm -f *.o *.so *.pyc t-* unittest $(UNIT_TEST_OBJ)
 
-.PHONY: clean test test_run test_unit unittest
+.PHONY: clean test test_run test_unit
