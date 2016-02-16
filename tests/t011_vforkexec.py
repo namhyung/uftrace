@@ -13,6 +13,7 @@ class TestCase(TestBase):
             [ 3124] |   } /* vfork */
   61.715 us [ 3124] |   readlink();
    2.799 us [ 3124] |   strrchr();
+   1.192 us [ 3124] |   strcpy();
             [ 3124] |   execl() {
             [ 3122] |   } /* vfork */
  549.064 us [ 3122] | } /* main */
@@ -55,10 +56,6 @@ class TestCase(TestBase):
     def fixup(self, cflags, result):
         r = result
         f = cflags.split()
-
-        if f[-1] == '-Os':
-            r = r.replace('execl() {', """strcpy();
-                                [ 3124] |   execl() {""")
 
         if f[0] == '-pg':
             r = r.replace('execl() {', """execl() {
