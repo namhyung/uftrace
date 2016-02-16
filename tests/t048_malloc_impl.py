@@ -10,7 +10,8 @@ class TestCase(TestBase):
    0.426 us [16726] |   malloc();
    0.397 us [16726] |   free();
    3.074 us [16726] | } /* main */
+   0.562 us [16726] | free();
 """)
 
     def fixup(self, cflags, result):
-        return result.replace('   0.397 us [16726] |   free();\n', '')
+        return result.replace('| free();', '| free();\n [16726] | free();')
