@@ -11,7 +11,7 @@ struct small {
 	unsigned char bit:1;
 };
 
-__attribute__((noinline)) struct large return_large(char patt)
+struct large return_large(char patt)
 {
 	struct large l;
 
@@ -20,13 +20,13 @@ __attribute__((noinline)) struct large return_large(char patt)
 	return l;
 }
 
-__attribute__((noinline)) struct small return_small(void)
+struct small return_small(void)
 {
 	struct small s = { .bit = 1 };
 	return s;
 }
 
-__attribute__((noinline)) long double return_long_double(void)
+long double return_long_double(void)
 {
 	return LDBL_MAX;
 }

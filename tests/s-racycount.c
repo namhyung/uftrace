@@ -4,7 +4,7 @@
 
 static volatile int count;
 
-static __attribute__((noinline)) void racy_count(pthread_barrier_t *bar)
+static void racy_count(pthread_barrier_t *bar)
 {
   int i;
 

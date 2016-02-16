@@ -1,8 +1,5 @@
 #include <pthread.h>
 
-void __attribute__((noinline)) foo(void);
-void * __attribute__((noinline)) bar(void *);
-
 void foo(void)
 {
 	int i;

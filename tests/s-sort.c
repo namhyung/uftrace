@@ -1,9 +1,5 @@
 #include <unistd.h>
 
-void __attribute__((noinline)) foo(void);
-void __attribute__((noinline)) bar(void);
-void __attribute__((noinline)) loop(void);
-
 void loop(void)
 {
 	int i;

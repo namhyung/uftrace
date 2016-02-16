@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-__attribute__((noinline)) int foo(void)
+int foo(void)
 {
 	int count = 0;
 
@@ -11,7 +11,7 @@ __attribute__((noinline)) int foo(void)
 	return foo_internal();
 }
 
-__attribute__((noinline)) int bar(void)
+int bar(void)
 {
 	int arr[3] = { 2, 3, 1 };
 

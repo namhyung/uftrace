@@ -19,22 +19,22 @@ namespace ns {
 			size_ = size;
 		}
 
-		void * __attribute__((noinline)) foo::bar1(void)
+		void * foo::bar1(void)
 		{
 			return bar2();
 		}
 
-		void * __attribute__((noinline)) foo::bar2(void)
+		void * foo::bar2(void)
 		{
 			return bar3();
 		}
 
-		void * __attribute__((noinline)) foo::bar3(void)
+		void * foo::bar3(void)
 		{
 			return malloc(size_);
 		}
 
-		void __attribute__((noinline)) foo::bar(void)
+		void foo::bar(void)
 		{
 			free(bar1());
 		}
@@ -58,22 +58,22 @@ namespace ns {
 			size_ = size;
 		}
 
-		void * __attribute__((noinline)) foo::bar1(void)
+		void * foo::bar1(void)
 		{
 			return bar2();
 		}
 
-		void * __attribute__((noinline)) foo::bar2(void)
+		void * foo::bar2(void)
 		{
 			return bar3();
 		}
 
-		void * __attribute__((noinline)) foo::bar3(void)
+		void * foo::bar3(void)
 		{
 			return malloc(size_);
 		}
 
-		void __attribute__((noinline)) foo::bar(void)
+		void foo::bar(void)
 		{
 			free(bar1());
 		}

@@ -2,9 +2,6 @@
 #include <stdlib.h>
 #include <alloca.h>
 
-int __attribute__((noinline)) foo(int);
-int __attribute__((noinline)) bar(int);
-
 int foo(int c)
 {
 	char *ptr = alloca(c);

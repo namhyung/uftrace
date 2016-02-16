@@ -44,7 +44,7 @@ task: 9875
         prog = 't-' + self.name
         src  = 's-' + self.name + lang['ext']
 
-        build_cflags  = ' '.join([self.cflags, cflags, \
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])

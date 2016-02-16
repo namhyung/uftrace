@@ -11,17 +11,17 @@ public:
   int foo(void);
 };
 
-int __attribute__((noinline)) ABC::foo(void)
+int ABC::foo(void)
 {
 	return bar() + 1;
 }
 
-int __attribute__((noinline)) ABC::bar(void)
+int ABC::bar(void)
 {
 	return baz() - 1;
 }
 
-int __attribute__((noinline)) ABC::baz(void)
+int ABC::baz(void)
 {
 	return n;
 }
