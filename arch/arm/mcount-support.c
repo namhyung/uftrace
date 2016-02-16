@@ -177,6 +177,13 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 			lr->offset -= imm >> 2;
 		}
 	}
+	else if (opcode == 0xf84d) {
+		/* STR [SP + imm]! */
+		unsigned short opcode2 = insn[1];
+
+		if (lr->pushed && (opcode2 & 0xfff) == 0xd04)
+			lr->offset++;
+	}
 	else {
 		pr_err_ns("cannot analyze insn: %hx\n", opcode);
 	}
