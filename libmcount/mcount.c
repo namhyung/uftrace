@@ -306,45 +306,25 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
 	struct ftrace_ret_stack *frstack;
 	struct mcount_shmem_buffer *shmem_buf;
-	int seqnum;
 	size_t size = sizeof(*frstack);
 	size_t curr_size;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
-	sigset_t set, oset;
-	bool needs_sigmask = false;
 
 	assert(size < maxsize);
 
-	do {
-		seqnum = shmem_seqnum;
-		shmem_buf = shmem_curr;
-		curr_size = shmem_buf ? shmem_buf->size : 0;
-	}
-	while (shmem_buf &&
-	       __sync_fetch_and_add(&shmem_buf->size, size) != curr_size);
+	shmem_buf = shmem_curr;
+	curr_size = shmem_buf->size;
 
-	if (shmem_buf == NULL || curr_size + size > maxsize) {
-		sigfillset(&set);
-		pthread_sigmask(SIG_BLOCK, &set, &oset);
-		needs_sigmask = true;
+	if (curr_size + size > maxsize) {
+		finish_shmem_buffer();
+		get_new_shmem_buffer();
 
-		/* signal handler might beat us */
-		if (seqnum == shmem_seqnum || shmem_curr->size + size > maxsize) {
-			/* restore original size */
-			if (shmem_buf)
-				shmem_buf->size = curr_size;
-
-			finish_shmem_buffer();
-			get_new_shmem_buffer();
-
-			if (shmem_curr == NULL)
-				return 0;
-		}
+		if (shmem_curr == NULL)
+			return 0;
 
 		/* update to new shmem buffer */
 		shmem_buf = shmem_curr;
 		curr_size = shmem_buf->size;
-		shmem_buf->size += size;
 	}
 
 	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
@@ -352,9 +332,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	record_ret_stack(mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY,
 			 mrstack, (void *)shmem_buf->data + curr_size);
 
-	if (needs_sigmask)
-		pthread_sigmask(SIG_SETMASK, &oset, NULL);
-
+	shmem_buf->size += size;
 	return 0;
 }
 
