@@ -222,6 +222,21 @@ static void get_new_shmem_buffer(void)
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
+
+	if (shmem_losts) {
+		struct ftrace_ret_stack *frstack = (void *)shmem_curr->data;
+
+		frstack->time   = 0;
+		frstack->type   = FTRACE_LOST;
+		frstack->unused = FTRACE_UNUSED;
+		frstack->addr   = shmem_losts;
+
+		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
+				    sizeof(shmem_losts));
+
+		shmem_curr->size = sizeof(*frstack);
+		shmem_losts = 0;
+	}
 }
 
 static void finish_shmem_buffer(void)
@@ -306,21 +321,6 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 
 			if (shmem_curr == NULL)
 				return 0;
-
-			if (shmem_losts) {
-				frstack = (void *)shmem_curr->data;
-
-				frstack->time = timestamp;
-				frstack->type = FTRACE_LOST;
-				frstack->unused = FTRACE_UNUSED;
-				frstack->addr = shmem_losts;
-
-				ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-						    sizeof(shmem_losts));
-
-				shmem_curr->size = sizeof(*frstack);
-				shmem_losts = 0;
-			}
 		}
 
 		/* update to new shmem buffer */
