@@ -283,10 +283,28 @@ static void shmem_dtor(void *unused)
 	clear_shmem_buffer();
 }
 
+static void record_ret_stack(enum ftrace_ret_stack_type type,
+			     struct mcount_ret_stack *mrstack, void *data)
+{
+	struct ftrace_ret_stack *frstack = data;
+	uint64_t timestamp = mrstack->start_time;
+
+	if (type == FTRACE_EXIT)
+		timestamp = mrstack->end_time;
+
+	frstack->time   = timestamp;
+	frstack->type   = type;
+	frstack->unused = FTRACE_UNUSED;
+	frstack->depth  = mrstack->depth;
+	frstack->addr   = mrstack->child_ip;
+
+	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
+	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+}
+
 static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
 	struct ftrace_ret_stack *frstack;
-	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
 	struct mcount_shmem_buffer *shmem_buf;
 	int seqnum;
 	size_t size = sizeof(*frstack);
@@ -331,13 +349,8 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 
 	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
 
-	frstack = (void *)(shmem_buf->data + curr_size);
-
-	frstack->time   = timestamp;
-	frstack->type   = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY;
-	frstack->unused = FTRACE_UNUSED;
-	frstack->depth  = mrstack->depth;
-	frstack->addr   = mrstack->child_ip;
+	record_ret_stack(mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY,
+			 mrstack, (void *)shmem_buf->data + curr_size);
 
 	if (needs_sigmask)
 		pthread_sigmask(SIG_SETMASK, &oset, NULL);
