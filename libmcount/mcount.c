@@ -304,35 +304,79 @@ static void record_ret_stack(enum ftrace_ret_stack_type type,
 
 static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
+	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
-	struct mcount_shmem_buffer *shmem_buf;
-	size_t size = sizeof(*frstack);
-	size_t curr_size;
+	size_t size;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	int count = 0;
 
-	assert(size < maxsize);
+	if (mrstack < mcount_rstack)
+		return 0;
 
-	shmem_buf = shmem_curr;
-	curr_size = shmem_buf->size;
+	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
+		non_written_mrstack = mrstack;
+		count++;
 
-	if (curr_size + size > maxsize) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+		while (non_written_mrstack > mcount_rstack) {
+			struct mcount_ret_stack *prev = non_written_mrstack - 1;
 
-		if (shmem_curr == NULL)
-			return 0;
+			if (prev->flags & MCOUNT_FL_WRITTEN)
+				break;
 
-		/* update to new shmem buffer */
-		shmem_buf = shmem_curr;
-		curr_size = shmem_buf->size;
+			if (!(prev->flags & MCOUNT_FL_NORECORD))
+				count++;
+
+			non_written_mrstack = prev;
+		}
 	}
 
-	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
+	if (mrstack->end_time)
+		count++;  /* for exit */
 
-	record_ret_stack(mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY,
-			 mrstack, (void *)shmem_buf->data + curr_size);
+	size = count * sizeof(*frstack);
 
-	shmem_buf->size += size;
+	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
+		gettid(), size, count);
+
+	while (non_written_mrstack && non_written_mrstack <= mrstack) {
+		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
+			finish_shmem_buffer();
+			get_new_shmem_buffer();
+
+			if (shmem_curr == NULL) {
+				shmem_losts += --count;
+				return 0;
+			}
+		}
+
+		if (!(non_written_mrstack->flags & MCOUNT_FL_NORECORD)) {
+			record_ret_stack(FTRACE_ENTRY, non_written_mrstack,
+					 shmem_curr->data + shmem_curr->size);
+
+			size -= sizeof(*frstack);
+			shmem_curr->size += sizeof(*frstack);
+			non_written_mrstack->flags |= MCOUNT_FL_WRITTEN;
+		}
+		non_written_mrstack++;
+	}
+
+	if (mrstack->end_time) {
+		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
+			finish_shmem_buffer();
+			get_new_shmem_buffer();
+
+			if (shmem_curr == NULL)
+				return 0;
+		}
+
+		record_ret_stack(FTRACE_EXIT, mrstack,
+				 shmem_curr->data + shmem_curr->size);
+
+		size -= sizeof(*frstack);
+		shmem_curr->size += sizeof(*frstack);
+	}
+
+	assert(size == 0);
 	return 0;
 }
 
@@ -518,13 +562,8 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 
 	rstack->filter_depth = mcount_filter.saved_depth;
 
-	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
+	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		mcount_record_idx++;
-
-		if (mcount_enabled && (record_trace_data(rstack) < 0))
-			pr_err("error during record");
-	}
-
 }
 
 /* restore filter state from rstack */
@@ -565,9 +604,6 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr)
 {
 	mcount_record_idx++;
-
-	if (record_trace_data(rstack) < 0)
-		pr_err("error during record");
 }
 
 static __inline__
