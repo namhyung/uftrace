@@ -52,6 +52,7 @@ static TLS int mcount_rstack_idx;
 static TLS int mcount_record_idx;
 static TLS struct mcount_ret_stack *mcount_rstack;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
+static uint64_t mcount_threshold;  /* nsec */
 
 static int pfd = -1;
 static bool mcount_setup_done;
@@ -583,8 +584,10 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 		if (mcount_record_idx > 0)
 			mcount_record_idx--;
 
-		if (mcount_enabled && (record_trace_data(rstack) < 0))
-			pr_err("error during record");
+		if (rstack->end_time - rstack->start_time > mcount_threshold) {
+			if (mcount_enabled && record_trace_data(rstack) < 0)
+				pr_err("error during record");
+		}
 	}
 }
 
@@ -611,8 +614,10 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
 	mcount_record_idx--;
 
-	if (record_trace_data(rstack) < 0)
-		pr_err("error during record");
+	if (rstack->end_time - rstack->start_time > mcount_threshold) {
+		if (record_trace_data(rstack) < 0)
+			pr_err("error during record");
+	}
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -1293,6 +1298,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *debug_str;
 	char *bufsize_str;
 	char *maxstack_str;
+	char *threshold_str;
 	char *color_str;
 	struct stat statbuf;
 
@@ -1310,6 +1316,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	bufsize_str = getenv("FTRACE_BUFFER");
 	maxstack_str = getenv("FTRACE_MAX_STACK");
 	color_str = getenv("FTRACE_COLOR");
+	threshold_str = getenv("FTRACE_THRESHOLD");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1363,6 +1370,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
+
+	if (threshold_str)
+		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_dynsym_indexes(&symtabs);

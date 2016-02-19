@@ -104,6 +104,7 @@ static struct argp_option ftrace_options[] = {
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
+	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
 	{ 0 }
 };
 
@@ -254,6 +255,24 @@ static void parse_debug_domain(char *arg)
 	free(saved_str);
 }
 
+static uint64_t parse_time(char *arg)
+{
+	char *unit;
+	uint64_t val = strtoull(arg, &unit, 0);
+
+	if (unit == NULL || *unit == '\0')
+		return val;
+
+	if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
+		val *= 1000;
+	else if (!strcasecmp(unit, "ms") || !strcasecmp(unit, "msec"))
+		val *= 1000 * 1000;
+	else if (!strcasecmp(unit, "s") || !strcasecmp(unit, "sec"))
+		val *= 1000 * 1000 * 1000;
+
+	return val;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -313,6 +332,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 's':
 		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
+		break;
+
+	case 'r':
+		opts->threshold = parse_time(arg);
 		break;
 
 	case OPT_flat:
