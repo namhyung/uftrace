@@ -1,5 +1,6 @@
 *.o
 *.op
+*.ot
 a.out
 ftrace
 ftrace.dir
