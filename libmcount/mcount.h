@@ -34,6 +34,7 @@ enum {
 	MCOUNT_FL_FILTERED	= (1U << 4),
 	MCOUNT_FL_VFORK		= (1U << 5),
 	MCOUNT_FL_WRITTEN	= (1U << 6),
+	MCOUNT_FL_DISABLED	= (1U << 7),
 };
 
 struct mcount_ret_stack {

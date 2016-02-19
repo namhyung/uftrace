@@ -62,6 +62,7 @@ static TLS bool mcount_recursion_guard;
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static bool mcount_enabled = true;
+static TLS bool mcount_enable_cached;
 
 struct filter_control {
 	int in_count;
@@ -311,12 +312,16 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
 	int count = 0;
 
+#define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
+
 	if (mrstack < mcount_rstack)
 		return 0;
 
 	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
 		non_written_mrstack = mrstack;
-		count++;
+
+		if (!(non_written_mrstack->flags & SKIP_FLAGS))
+			count++;
 
 		while (non_written_mrstack > mcount_rstack) {
 			struct mcount_ret_stack *prev = non_written_mrstack - 1;
@@ -324,7 +329,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 			if (prev->flags & MCOUNT_FL_WRITTEN)
 				break;
 
-			if (!(prev->flags & MCOUNT_FL_NORECORD))
+			if (!(prev->flags & SKIP_FLAGS))
 				count++;
 
 			non_written_mrstack = prev;
@@ -350,7 +355,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 			}
 		}
 
-		if (!(non_written_mrstack->flags & MCOUNT_FL_NORECORD)) {
+		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
 			record_ret_stack(FTRACE_ENTRY, non_written_mrstack,
 					 shmem_curr->data + shmem_curr->size);
 
@@ -464,6 +469,7 @@ static void mcount_prepare(void)
 
 #ifndef DISABLE_MCOUNT_FILTER
 	mcount_filter.depth = mcount_depth;
+	mcount_enable_cached = mcount_enabled;
 #endif
 	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
 
@@ -563,8 +569,25 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 
 	rstack->filter_depth = mcount_filter.saved_depth;
 
-	if (!(rstack->flags & MCOUNT_FL_NORECORD))
+	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mcount_record_idx++;
+
+		if (!mcount_enabled)
+			rstack->flags |= MCOUNT_FL_DISABLED;
+
+		if (mcount_enable_cached != mcount_enabled) {
+			/*
+			 * Flush existing rstack when mcount_enabled is off
+			 * (i.e. disabled).  Note that changing to enabled is
+			 * already handled in record_trace_data() on exit path
+			 * using the MCOUNT_FL_DISALBED flag.
+			 */
+			if (!mcount_enabled)
+				record_trace_data(rstack);
+
+			mcount_enable_cached = mcount_enabled;
+		}
+	}
 }
 
 /* restore filter state from rstack */
