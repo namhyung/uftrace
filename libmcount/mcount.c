@@ -607,7 +607,8 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 		if (mcount_record_idx > 0)
 			mcount_record_idx--;
 
-		if (rstack->end_time - rstack->start_time > mcount_threshold) {
+		if (rstack->end_time - rstack->start_time > mcount_threshold ||
+		    rstack->flags & MCOUNT_FL_WRITTEN) {
 			if (mcount_enabled && record_trace_data(rstack) < 0)
 				pr_err("error during record");
 		}
@@ -637,7 +638,8 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
 	mcount_record_idx--;
 
-	if (rstack->end_time - rstack->start_time > mcount_threshold) {
+	if (rstack->end_time - rstack->start_time > mcount_threshold ||
+	    rstack->flags & MCOUNT_FL_WRITTEN) {
 		if (record_trace_data(rstack) < 0)
 			pr_err("error during record");
 	}
@@ -972,6 +974,14 @@ static const char *vfork_syms[] = {
 
 static struct dynsym_idxlist vfork_idxlist;
 
+static const char *flush_syms[] = {
+	"fork", "vfork", "daemon", "exit",
+	"longjmp", "siglongjmp", "__longjmp_chk",
+	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
+};
+
+static struct dynsym_idxlist flush_idxlist;
+
 static void setup_dynsym_indexes(struct symtabs *symtabs)
 {
 	build_dynsym_idxlist(symtabs, &skip_idxlist,
@@ -982,6 +992,8 @@ static void setup_dynsym_indexes(struct symtabs *symtabs)
 			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
 	build_dynsym_idxlist(symtabs, &vfork_idxlist,
 			     vfork_syms, ARRAY_SIZE(vfork_syms));
+	build_dynsym_idxlist(symtabs, &flush_idxlist,
+			     flush_syms, ARRAY_SIZE(flush_syms));
 }
 
 static void destroy_dynsym_indexes(void)
@@ -990,6 +1002,7 @@ static void destroy_dynsym_indexes(void)
 	destroy_dynsym_idxlist(&setjmp_idxlist);
 	destroy_dynsym_idxlist(&longjmp_idxlist);
 	destroy_dynsym_idxlist(&vfork_idxlist);
+	destroy_dynsym_idxlist(&flush_idxlist);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -1173,12 +1186,16 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
 		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
-	if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
+	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
-	if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
+	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
 		rstack->flags |= MCOUNT_FL_VFORK;
 		prepare_vfork();
 	}
+
+	/* force flush rstack on some special functions */
+	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
+		record_trace_data(rstack);
 
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
