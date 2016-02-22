@@ -1126,7 +1126,7 @@ static void restore_vfork(struct mcount_ret_stack *rstack)
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
-			    unsigned long module_id)
+			    unsigned long module_id, struct mcount_regs *regs)
 {
 	struct sym *sym;
 	unsigned long child_ip;

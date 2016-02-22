@@ -17,6 +17,7 @@ plt_hooker:
 	sub r2, r2, #4
 	lsr r1, r2, #2
 	ldr r2, [lr, #-4]
+	mov r3, sp
 	bl plthook_entry
 
 	cmp r0, $0

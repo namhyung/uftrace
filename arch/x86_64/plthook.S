@@ -22,6 +22,10 @@ plt_hooker:
 	movq 56(%rsp), %rsi
 	/* address of parent ip */
 	lea 64(%rsp), %rdi
+	/* module id */
+	movq 48(%rsp), %rdx
+	/* mcount_args */
+	movq %rsp, %rcx
 
 	call plthook_entry
 
