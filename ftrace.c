@@ -64,6 +64,7 @@ enum options {
 	OPT_column_view,
 	OPT_column_offset,
 	OPT_bind_not,
+	OPT_task_newline,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -102,6 +103,7 @@ static struct argp_option ftrace_options[] = {
 	{ "column-view", OPT_column_view, 0, 0, "Print tasks in separate columns" },
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
+	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ 0 }
 };
 
@@ -410,6 +412,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_bind_not:
 		opts->want_bind_not = true;
+		break;
+
+	case OPT_task_newline:
+		opts->task_newline = true;
 		break;
 
 	case ARGP_KEY_ARG:

@@ -148,6 +148,7 @@ struct opts {
 	bool report;
 	bool column_view;
 	bool want_bind_not;
+	bool task_newline;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
