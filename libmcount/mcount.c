@@ -27,10 +27,15 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/compiler.h"
+
+#ifndef mcount_regs
+struct mcount_regs {};  /* dummy */
+#endif
 
 #ifdef SINGLE_THREAD
 # define TLS
@@ -660,7 +665,8 @@ __weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	return parent_loc;
 }
 
-int mcount_entry(unsigned long *parent_loc, unsigned long child)
+int mcount_entry(unsigned long *parent_loc, unsigned long child,
+		 struct mcount_regs *regs)
 {
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
