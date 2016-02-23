@@ -52,6 +52,7 @@ static TLS int mcount_rstack_idx;
 static TLS int mcount_record_idx;
 static TLS struct mcount_ret_stack *mcount_rstack;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
+static uint64_t mcount_threshold;  /* nsec */
 
 static int pfd = -1;
 static bool mcount_setup_done;
@@ -61,6 +62,7 @@ static TLS bool mcount_recursion_guard;
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static bool mcount_enabled = true;
+static TLS bool mcount_enable_cached;
 
 struct filter_control {
 	int in_count;
@@ -222,6 +224,21 @@ static void get_new_shmem_buffer(void)
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
+
+	if (shmem_losts) {
+		struct ftrace_ret_stack *frstack = (void *)shmem_curr->data;
+
+		frstack->time   = 0;
+		frstack->type   = FTRACE_LOST;
+		frstack->unused = FTRACE_UNUSED;
+		frstack->addr   = shmem_losts;
+
+		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
+				    sizeof(shmem_losts));
+
+		shmem_curr->size = sizeof(*frstack);
+		shmem_losts = 0;
+	}
 }
 
 static void finish_shmem_buffer(void)
@@ -268,80 +285,104 @@ static void shmem_dtor(void *unused)
 	clear_shmem_buffer();
 }
 
+static void record_ret_stack(enum ftrace_ret_stack_type type,
+			     struct mcount_ret_stack *mrstack, void *data)
+{
+	struct ftrace_ret_stack *frstack = data;
+	uint64_t timestamp = mrstack->start_time;
+
+	if (type == FTRACE_EXIT)
+		timestamp = mrstack->end_time;
+
+	frstack->time   = timestamp;
+	frstack->type   = type;
+	frstack->unused = FTRACE_UNUSED;
+	frstack->depth  = mrstack->depth;
+	frstack->addr   = mrstack->child_ip;
+
+	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
+	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+}
+
 static int record_trace_data(struct mcount_ret_stack *mrstack)
 {
+	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
-	uint64_t timestamp = mrstack->end_time ?: mrstack->start_time;
-	struct mcount_shmem_buffer *shmem_buf;
-	int seqnum;
-	size_t size = sizeof(*frstack);
-	size_t curr_size;
+	size_t size;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
-	sigset_t set, oset;
-	bool needs_sigmask = false;
+	int count = 0;
 
-	assert(size < maxsize);
+#define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
 
-	do {
-		seqnum = shmem_seqnum;
-		shmem_buf = shmem_curr;
-		curr_size = shmem_buf ? shmem_buf->size : 0;
+	if (mrstack < mcount_rstack)
+		return 0;
+
+	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
+		non_written_mrstack = mrstack;
+
+		if (!(non_written_mrstack->flags & SKIP_FLAGS))
+			count++;
+
+		while (non_written_mrstack > mcount_rstack) {
+			struct mcount_ret_stack *prev = non_written_mrstack - 1;
+
+			if (prev->flags & MCOUNT_FL_WRITTEN)
+				break;
+
+			if (!(prev->flags & SKIP_FLAGS))
+				count++;
+
+			non_written_mrstack = prev;
+		}
 	}
-	while (shmem_buf &&
-	       __sync_fetch_and_add(&shmem_buf->size, size) != curr_size);
 
-	if (shmem_buf == NULL || curr_size + size > maxsize) {
-		sigfillset(&set);
-		pthread_sigmask(SIG_BLOCK, &set, &oset);
-		needs_sigmask = true;
+	if (mrstack->end_time)
+		count++;  /* for exit */
 
-		/* signal handler might beat us */
-		if (seqnum == shmem_seqnum || shmem_curr->size + size > maxsize) {
-			/* restore original size */
-			if (shmem_buf)
-				shmem_buf->size = curr_size;
+	size = count * sizeof(*frstack);
 
+	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
+		gettid(), size, count);
+
+	while (non_written_mrstack && non_written_mrstack <= mrstack) {
+		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
+			finish_shmem_buffer();
+			get_new_shmem_buffer();
+
+			if (shmem_curr == NULL) {
+				shmem_losts += --count;
+				return 0;
+			}
+		}
+
+		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
+			record_ret_stack(FTRACE_ENTRY, non_written_mrstack,
+					 shmem_curr->data + shmem_curr->size);
+
+			size -= sizeof(*frstack);
+			shmem_curr->size += sizeof(*frstack);
+			non_written_mrstack->flags |= MCOUNT_FL_WRITTEN;
+		}
+		non_written_mrstack++;
+	}
+
+	if (mrstack->end_time) {
+		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
 			finish_shmem_buffer();
 			get_new_shmem_buffer();
 
 			if (shmem_curr == NULL)
 				return 0;
-
-			if (shmem_losts) {
-				frstack = (void *)shmem_curr->data;
-
-				frstack->time = timestamp;
-				frstack->type = FTRACE_LOST;
-				frstack->unused = FTRACE_UNUSED;
-				frstack->addr = shmem_losts;
-
-				ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-						    sizeof(shmem_losts));
-
-				shmem_curr->size = sizeof(*frstack);
-				shmem_losts = 0;
-			}
 		}
 
-		/* update to new shmem buffer */
-		shmem_buf = shmem_curr;
-		curr_size = shmem_buf->size;
-		shmem_buf->size += size;
+		record_ret_stack(FTRACE_EXIT, mrstack,
+				 shmem_curr->data + shmem_curr->size);
+
+		size -= sizeof(*frstack);
+		shmem_curr->size += sizeof(*frstack);
 	}
 
-	pr_dbg3("task %d recorded %zd bytes\n", gettid(), size);
-
-	frstack = (void *)(shmem_buf->data + curr_size);
-
-	frstack->time   = timestamp;
-	frstack->type   = mrstack->end_time ? FTRACE_EXIT : FTRACE_ENTRY;
-	frstack->unused = FTRACE_UNUSED;
-	frstack->depth  = mrstack->depth;
-	frstack->addr   = mrstack->child_ip;
-
-	if (needs_sigmask)
-		pthread_sigmask(SIG_SETMASK, &oset, NULL);
-
+	assert(size == 0);
 	return 0;
 }
 
@@ -428,6 +469,7 @@ static void mcount_prepare(void)
 
 #ifndef DISABLE_MCOUNT_FILTER
 	mcount_filter.depth = mcount_depth;
+	mcount_enable_cached = mcount_enabled;
 #endif
 	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
 
@@ -530,10 +572,22 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mcount_record_idx++;
 
-		if (mcount_enabled && (record_trace_data(rstack) < 0))
-			pr_err("error during record");
-	}
+		if (!mcount_enabled)
+			rstack->flags |= MCOUNT_FL_DISABLED;
 
+		if (mcount_enable_cached != mcount_enabled) {
+			/*
+			 * Flush existing rstack when mcount_enabled is off
+			 * (i.e. disabled).  Note that changing to enabled is
+			 * already handled in record_trace_data() on exit path
+			 * using the MCOUNT_FL_DISALBED flag.
+			 */
+			if (!mcount_enabled)
+				record_trace_data(rstack);
+
+			mcount_enable_cached = mcount_enabled;
+		}
+	}
 }
 
 /* restore filter state from rstack */
@@ -553,8 +607,11 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 		if (mcount_record_idx > 0)
 			mcount_record_idx--;
 
-		if (mcount_enabled && (record_trace_data(rstack) < 0))
-			pr_err("error during record");
+		if (rstack->end_time - rstack->start_time > mcount_threshold ||
+		    rstack->flags & MCOUNT_FL_WRITTEN) {
+			if (mcount_enabled && record_trace_data(rstack) < 0)
+				pr_err("error during record");
+		}
 	}
 }
 
@@ -574,9 +631,6 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr)
 {
 	mcount_record_idx++;
-
-	if (record_trace_data(rstack) < 0)
-		pr_err("error during record");
 }
 
 static __inline__
@@ -584,8 +638,11 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
 	mcount_record_idx--;
 
-	if (record_trace_data(rstack) < 0)
-		pr_err("error during record");
+	if (rstack->end_time - rstack->start_time > mcount_threshold ||
+	    rstack->flags & MCOUNT_FL_WRITTEN) {
+		if (record_trace_data(rstack) < 0)
+			pr_err("error during record");
+	}
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -917,6 +974,14 @@ static const char *vfork_syms[] = {
 
 static struct dynsym_idxlist vfork_idxlist;
 
+static const char *flush_syms[] = {
+	"fork", "vfork", "daemon", "exit",
+	"longjmp", "siglongjmp", "__longjmp_chk",
+	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
+};
+
+static struct dynsym_idxlist flush_idxlist;
+
 static void setup_dynsym_indexes(struct symtabs *symtabs)
 {
 	build_dynsym_idxlist(symtabs, &skip_idxlist,
@@ -927,6 +992,8 @@ static void setup_dynsym_indexes(struct symtabs *symtabs)
 			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
 	build_dynsym_idxlist(symtabs, &vfork_idxlist,
 			     vfork_syms, ARRAY_SIZE(vfork_syms));
+	build_dynsym_idxlist(symtabs, &flush_idxlist,
+			     flush_syms, ARRAY_SIZE(flush_syms));
 }
 
 static void destroy_dynsym_indexes(void)
@@ -935,6 +1002,7 @@ static void destroy_dynsym_indexes(void)
 	destroy_dynsym_idxlist(&setjmp_idxlist);
 	destroy_dynsym_idxlist(&longjmp_idxlist);
 	destroy_dynsym_idxlist(&vfork_idxlist);
+	destroy_dynsym_idxlist(&flush_idxlist);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -1118,12 +1186,16 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
 		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
-	if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
+	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
-	if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
+	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
 		rstack->flags |= MCOUNT_FL_VFORK;
 		prepare_vfork();
 	}
+
+	/* force flush rstack on some special functions */
+	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
+		record_trace_data(rstack);
 
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
@@ -1266,6 +1338,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *debug_str;
 	char *bufsize_str;
 	char *maxstack_str;
+	char *threshold_str;
 	char *color_str;
 	struct stat statbuf;
 
@@ -1283,6 +1356,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	bufsize_str = getenv("FTRACE_BUFFER");
 	maxstack_str = getenv("FTRACE_MAX_STACK");
 	color_str = getenv("FTRACE_COLOR");
+	threshold_str = getenv("FTRACE_THRESHOLD");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1336,6 +1410,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
+
+	if (threshold_str)
+		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
 		setup_dynsym_indexes(&symtabs);

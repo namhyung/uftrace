@@ -132,6 +132,7 @@ struct opts {
 	int color;
 	int column_offset;
 	unsigned long bsize;
+	uint64_t threshold;
 	bool flat;
 	bool want_plthook;
 	bool print_symtab;
