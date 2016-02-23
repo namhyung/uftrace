@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <regex.h>
+#include <ctype.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "filter"
@@ -12,6 +13,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/utils.h"
+#include "utils/list.h"
 
 
 static void print_trigger(struct ftrace_trigger *tr)
@@ -30,6 +32,15 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: trace_on\n");
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
 		pr_dbg("\ttrigger: trace_off\n");
+
+	if (tr->flags & TRIGGER_FL_ARGUMENT) {
+		struct ftrace_arg_spec *arg;
+
+		pr_dbg("\ttrigger: argument\n");
+		list_for_each_entry(arg, tr->pargs, list) {
+			pr_dbg("\t\t arg%d\n", arg->idx);
+		}
+	}
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -71,7 +82,8 @@ struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip
 	return NULL;
 }
 
-static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr)
+static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
+			bool copy_args)
 {
 	filter->trigger.flags |= tr->flags;
 
@@ -84,10 +96,25 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr)
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_OFF;
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_ON;
+
+	if (tr->flags & TRIGGER_FL_ARGUMENT) {
+		struct ftrace_arg_spec *arg, *new;
+
+		if (!copy_args) {
+			list_splice_tail_init(tr->pargs, &filter->args);
+			return;
+		}
+
+		list_for_each_entry(arg, tr->pargs, list) {
+			new = xmalloc(sizeof(*new));
+			memcpy(new, arg, sizeof(*new));
+			list_add_tail(&new->list, &filter->args);
+		}
+	}
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
-		       struct ftrace_trigger *tr)
+		       struct ftrace_trigger *tr, bool copy_args)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -102,7 +129,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 		iter = rb_entry(parent, struct ftrace_filter, node);
 
 		if (iter->start == filter->start) {
-			add_trigger(iter, tr);
+			add_trigger(iter, tr, copy_args);
 			return;
 		}
 
@@ -115,8 +142,10 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 	new = xmalloc(sizeof(*new));
 	memcpy(new, filter, sizeof(*new));
 	new->trigger.flags = 0;
+	INIT_LIST_HEAD(&new->args);
+	new->trigger.pargs = &new->args;
 
-	add_trigger(new, tr);
+	add_trigger(new, tr, copy_args);
 
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);
@@ -137,7 +166,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
-	add_filter(root, &filter, tr);
+	add_filter(root, &filter, tr, false);
 	return 1;
 }
 
@@ -166,9 +195,10 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
-		add_filter(root, &filter, tr);
+		add_filter(root, &filter, tr, true);
 		ret++;
 	}
+
 	return ret;
 }
 
@@ -218,6 +248,23 @@ static int setup_module_and_trigger(char *str, char *module,
 
 				continue;
 			}
+			else if (!strncasecmp(pos, "arg", 3)) {
+				struct ftrace_arg_spec *arg;
+
+				if (!isdigit(pos[3])) {
+					pr_use("skipping invalid argument: %s\n",
+					       pos);
+					return -1;
+				}
+
+				arg = xmalloc(sizeof(*arg));
+				INIT_LIST_HEAD(&arg->list);
+				arg->idx = strtol(pos+3, NULL, 0);
+
+				tr->flags |= TRIGGER_FL_ARGUMENT;
+				list_add_tail(&arg->list, tr->pargs);
+				continue;
+			}
 
 			if (module == NULL || strcasecmp(pos, module))
 				return -1;
@@ -258,11 +305,14 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 	name = strtok(pos, ";");
 	while (name) {
 		struct symtab *symtab = &symtabs->symtab;
+		LIST_HEAD(args);
 		struct ftrace_trigger tr = {
 			.flags = flags,
+			.pargs = &args,
 		};
 		int ret;
 		char *mod = module;
+		struct ftrace_arg_spec *arg;
 
 		if (setup_module_and_trigger(name, mod, symtabs, &symtab,
 					     &tr) < 0)
@@ -294,6 +344,13 @@ again:
 		}
 next:
 		name = strtok(NULL, ";");
+
+		while (!list_empty(&args)) {
+			arg = list_first_entry(&args, struct ftrace_arg_spec, list);
+			list_del(&arg->list);
+			free(arg);
+		}
+
 	}
 
 	free(str);
@@ -328,6 +385,19 @@ void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 }
 
 /**
+ * ftrace_setup_argument - construct rbtree of argument
+ * @args_str   - CSV of argument string (FUNC @ arg)
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ */
+void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
+			  char *module, struct rb_root *root)
+{
+	setup_trigger(args_str, symtabs, module, root, 0, NULL);
+}
+
+/**
  * ftrace_cleanup_filter - delete filters in rbtree
  * @root - root of the filter rbtree
  */
@@ -335,6 +405,7 @@ void ftrace_cleanup_filter(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct ftrace_filter *filter;
+	struct ftrace_arg_spec *arg, *tmp;
 
 	while (!RB_EMPTY_ROOT(root)) {
 		node = rb_first(root);
@@ -342,6 +413,10 @@ void ftrace_cleanup_filter(struct rb_root *root)
 
 		rb_erase(node, root);
 
+		list_for_each_entry_safe(arg, tmp, &filter->args, list) {
+			list_del(&arg->list);
+			free(arg);
+		}
 		free(filter);
 	}
 }

@@ -105,6 +105,7 @@ static struct argp_option ftrace_options[] = {
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
+	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ 0 }
 };
 
@@ -336,6 +337,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'r':
 		opts->threshold = parse_time(arg);
+		break;
+
+	case 'A':
+		opts->args = opt_add_string(opts->args, arg);
 		break;
 
 	case OPT_flat:

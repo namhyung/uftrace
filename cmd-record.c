@@ -133,6 +133,9 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (opts->trigger)
 		setenv("FTRACE_TRIGGER", opts->trigger, 1);
 
+	if (opts->args)
+		setenv("FTRACE_ARGUMENT", opts->args, 1);
+
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
 		setenv("FTRACE_DEPTH", buf, 1);

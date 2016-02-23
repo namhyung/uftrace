@@ -123,6 +123,7 @@ struct opts {
 	char *logfile;
 	char *host;
 	char *sort_keys;
+	char *args;
 	int mode;
 	int idx;
 	int depth;
