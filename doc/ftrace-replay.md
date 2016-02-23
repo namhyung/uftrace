@@ -55,6 +55,9 @@ OPTIONS
 --column-offset=*DEPTH*
 :   When `--column-view` option is used, this option specifies the amount of offsets between each task.  Default is 8.
 
+--task-newline
+:   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
+
 FILTERS
 =======
 The ftrace support filtering only interested functions.  When ftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.

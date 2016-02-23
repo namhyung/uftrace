@@ -14,6 +14,7 @@
 
 static int column_index;
 static bool skip_kernel_before_user = true;
+static int prev_tid = -1;
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 {
@@ -87,6 +88,14 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	return 0;
 }
 
+static void print_task_newline(int current_tid)
+{
+	if (prev_tid != -1 && current_tid != prev_tid)
+		pr_out(" %7s %2s %7s |\n", "", "", "");
+
+	prev_tid = current_tid;
+}
+
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       struct opts *opts)
@@ -137,6 +146,10 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		fstack = &task->func_stack[rstack->depth];
 
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
 		/* function entry */
 		print_time_unit(0UL);
 		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
@@ -153,6 +166,10 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		/* function exit */
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+			/* give a new line when tid is changed */
+			if (opts->task_newline)
+				print_task_newline(task->tid);
+
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s}", task->tid, depth * 2, "");
 			pr_gray(" /* %s */\n", symname);
@@ -161,6 +178,10 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		fstack_exit(task);
 	}
 	else if (rstack->type == FTRACE_LOST) {
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
 		print_time_unit(0UL);
 		pr_out(" [%5d] |", task->tid);
 		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
@@ -227,6 +248,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
 		    next->rstack->type == FTRACE_EXIT) {
+
+			/* give a new line when tid is changed */
+			if (opts->task_newline)
+				print_task_newline(task->tid);
+
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s%s%s;\n", task->tid,
@@ -241,6 +267,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			fstack_exit(task);
 		}
 		else {
+			/* give a new line when tid is changed */
+			if (opts->task_newline)
+				print_task_newline(task->tid);
+
 			/* function entry */
 			print_time_unit(0UL);
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
@@ -261,6 +291,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			depth += task_column_depth(task, opts);
 
+			/* give a new line when tid is changed */
+			if (opts->task_newline)
+				print_task_newline(task->tid);
+
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s}", task->tid, depth * 2, "");
 			pr_gray(" /* %s */\n", symname);
@@ -269,6 +303,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack_exit(task);
 	}
 	else if (rstack->type == FTRACE_LOST) {
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
 		print_time_unit(0UL);
 		pr_out(" [%5d] |", task->tid);
 		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
