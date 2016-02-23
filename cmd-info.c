@@ -636,6 +636,33 @@ static int read_loadinfo(void *arg)
 	return 0;
 }
 
+static int fill_arg_spec(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+
+	if (!fha->opts->args)
+		return -1;
+
+	dprintf(fha->fd, "argspec:%s\n", fha->opts->args);
+	return 0;
+}
+
+static int read_arg_spec(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct ftrace_info *info = &handle->info;
+	char buf[4096];
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "argspec:", 8))
+		return -1;
+
+	info->argspec = copy_info_str(&buf[8]);
+	return 0;
+}
+
 struct ftrace_info_handler {
 	enum ftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -663,6 +690,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 		{ TASKINFO,	fill_taskinfo },
 		{ USAGEINFO,	fill_usageinfo },
 		{ LOADINFO,	fill_loadinfo },
+		{ ARG_SPEC,	fill_arg_spec },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -691,7 +719,10 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ TASKINFO,	read_taskinfo },
 		{ USAGEINFO,	read_usageinfo },
 		{ LOADINFO,	read_loadinfo },
+		{ ARG_SPEC,	read_arg_spec },
 	};
+
+	memset(&handle->info, 0, sizeof(handle->info));
 
 	for (i = 0; i < ARRAY_SIZE(read_handlers); i++) {
 		if (!(info_mask & (1UL << read_handlers[i].bit)))
@@ -716,6 +747,7 @@ void clear_ftrace_info(struct ftrace_info *info)
 	free(info->hostname);
 	free(info->distro);
 	free(info->tids);
+	free(info->argspec);
 }
 
 int command_info(int argc, char *argv[], struct opts *opts)
@@ -802,6 +834,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			pr_out("%02x", handle.info.build_id[i]);
 		pr_out("\n");
 	}
+
+	if (handle.hdr.info_mask & (1UL << ARG_SPEC))
+		pr_out(fmt, "arguments", handle.info.argspec);
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
 		int status = handle.info.exit_status;

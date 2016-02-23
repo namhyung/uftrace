@@ -42,11 +42,13 @@ enum ftrace_feat_bits {
 	PLTHOOK_BIT,
 	TASK_SESSION_BIT,
 	KERNEL_BIT,
+	ARGUMENT_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
 	TASK_SESSION		= (1U << TASK_SESSION_BIT),
 	KERNEL			= (1U << KERNEL_BIT),
+	ARGUMENT		= (1U << ARGUMENT_BIT),
 };
 
 enum ftrace_info_bits {
@@ -60,6 +62,7 @@ enum ftrace_info_bits {
 	TASKINFO,
 	USAGEINFO,
 	LOADINFO,
+	ARG_SPEC,
 };
 
 struct ftrace_info {
@@ -74,6 +77,7 @@ struct ftrace_info {
 	char *kernel;
 	char *hostname;
 	char *distro;
+	char *argspec;
 	int nr_tid;
 	int *tids;
 	double stime;
