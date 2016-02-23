@@ -290,6 +290,10 @@ static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
 	return stack->unused == FTRACE_UNUSED && stack->more == 0;
 }
 
+enum ftrace_ext_type {
+	FTRACE_ARGUMENT		= 1,
+};
+
 struct kbuffer;
 struct pevent;
 

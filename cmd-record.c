@@ -51,7 +51,7 @@ static bool buf_done;
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
-	if (opts->filter || opts->trigger || debug)
+	if (opts->filter || opts->trigger || opts->args || debug)
 		return false;
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH)
 		return false;
