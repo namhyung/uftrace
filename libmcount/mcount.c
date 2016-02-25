@@ -285,14 +285,28 @@ static void shmem_dtor(void *unused)
 	clear_shmem_buffer();
 }
 
-static void record_ret_stack(enum ftrace_ret_stack_type type,
-			     struct mcount_ret_stack *mrstack, void *data)
+static int record_ret_stack(enum ftrace_ret_stack_type type,
+			    struct mcount_ret_stack *mrstack)
 {
-	struct ftrace_ret_stack *frstack = data;
+	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+
+	if (unlikely(shmem_curr == NULL ||
+		     shmem_curr->size + sizeof(*frstack) > maxsize)) {
+		finish_shmem_buffer();
+		get_new_shmem_buffer();
+
+		if (shmem_curr == NULL) {
+			shmem_losts++;
+			return -1;
+		}
+	}
 
 	if (type == FTRACE_EXIT)
 		timestamp = mrstack->end_time;
+
+	frstack = (void *)(shmem_curr->data + shmem_curr->size);
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
@@ -300,8 +314,12 @@ static void record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
+	shmem_curr->size += sizeof(*frstack);
+	mrstack->flags |= MCOUNT_FL_WRITTEN;
+
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+	return 0;
 }
 
 static int record_trace_data(struct mcount_ret_stack *mrstack)
@@ -309,7 +327,6 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
 	size_t size;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
 	int count = 0;
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
@@ -345,41 +362,23 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 		gettid(), size, count);
 
 	while (non_written_mrstack && non_written_mrstack <= mrstack) {
-		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
-			finish_shmem_buffer();
-			get_new_shmem_buffer();
-
-			if (shmem_curr == NULL) {
-				shmem_losts += --count;
+		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
+			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack)) {
+				shmem_losts += count - 1;
 				return 0;
 			}
-		}
-
-		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
-			record_ret_stack(FTRACE_ENTRY, non_written_mrstack,
-					 shmem_curr->data + shmem_curr->size);
 
 			size -= sizeof(*frstack);
-			shmem_curr->size += sizeof(*frstack);
-			non_written_mrstack->flags |= MCOUNT_FL_WRITTEN;
+			count--;
 		}
 		non_written_mrstack++;
 	}
 
 	if (mrstack->end_time) {
-		if (unlikely(shmem_curr->size + sizeof(*frstack) > maxsize)) {
-			finish_shmem_buffer();
-			get_new_shmem_buffer();
-
-			if (shmem_curr == NULL)
-				return 0;
-		}
-
-		record_ret_stack(FTRACE_EXIT, mrstack,
-				 shmem_curr->data + shmem_curr->size);
+		if (record_ret_stack(FTRACE_EXIT, mrstack))
+			return 0;
 
 		size -= sizeof(*frstack);
-		shmem_curr->size += sizeof(*frstack);
 	}
 
 	assert(size == 0);
