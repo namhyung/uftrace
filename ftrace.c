@@ -614,32 +614,12 @@ static void pr_time(uint64_t timestamp)
 
 static void pr_hex(uint64_t *offset, void *data, size_t len)
 {
-	size_t i, l;
+	size_t i;
 	unsigned char *h = data;
 	uint64_t ofs = *offset;
 
 	if (!debug)
 		return;
-
-	if (ofs % 16) {
-		l = ofs % 16;
-		pr_green(" <%016"PRIx64">:", ofs);
-		if (l > 8) {
-			pr_green(" %02x %02x %02x %02x %02x %02x %02x %02x ",
-				 h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
-			l -= 8;
-			h += 8;
-			ofs += 8;
-			len -= 8;
-		}
-
-		for (i = 0; i < l; i++)
-			pr_green(" %02x", *h++);
-		pr_green("\n");
-
-		ofs += l;
-		len -= l;
-	}
 
 	while (len >= 16) {
 		pr_green(" <%016"PRIx64">:", ofs);
@@ -730,7 +710,8 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
-			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
+			       tid, frs->type == FTRACE_EXIT ? "exit " :
+			       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
 			       name, (unsigned long)frs->addr, frs->depth);
 			pr_hex(&file_offset, frs, sizeof(*frs));
 

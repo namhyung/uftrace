@@ -79,6 +79,9 @@ void reset_task_handle(void)
 			fclose(tasks[i].fp);
 			tasks[i].fp = NULL;
 		}
+
+		free(tasks[i].args.data);
+		tasks[i].args.data = NULL;
 	}
 
 	free(tasks);
@@ -243,6 +246,21 @@ static int build_fixup_filter(struct ftrace_session *s, void *arg)
 void fstack_prepare_fixup(void)
 {
 	walk_sessions(build_fixup_filter, NULL);
+}
+
+static int build_arg_spec(struct ftrace_session *s, void *arg)
+{
+	char *argspec = arg;
+
+	ftrace_setup_argument(argspec, &s->symtabs, NULL, &s->filters);
+	ftrace_setup_argument(argspec, &s->symtabs, "PLT", &s->filters);
+	ftrace_setup_argument(argspec, &s->symtabs, "kernel", &s->filters);
+	return 0;
+}
+
+void setup_fstack_args(char *argspec)
+{
+	walk_sessions(build_arg_spec, argspec);
 }
 
 /**
@@ -495,6 +513,61 @@ int read_task_ustack(struct ftrace_task_handle *task)
 	return 0;
 }
 
+static int read_task_arg(struct ftrace_task_handle *task,
+			 struct ftrace_arg_spec *spec)
+{
+	FILE *fp = task->fp;
+	struct fstack_arguments *args = &task->args;
+
+	args->data = xrealloc(args->data, args->len + sizeof(long));
+
+	if (fread(args->data + args->len, sizeof(long), 1, fp) != 1) {
+		if (feof(fp))
+			return -1;
+	}
+
+	args->len += sizeof(long);
+	return 0;
+}
+
+/**
+ * read_task_args - read arguments of current function of the task
+ * @task: tracee task
+ * @spec: argument spec
+ *
+ * This function reads argument records of @task's current function
+ * according to the @spec.
+ */
+int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rstack)
+{
+	struct ftrace_session *sess;
+	struct ftrace_trigger tr = {};
+	struct ftrace_filter *fl;
+	struct ftrace_arg_spec *arg;
+
+
+	sess = find_task_session(task->tid, rstack->time);
+	if (sess == NULL) {
+		pr_dbg("cannot find session\n");
+		return -1;
+	}
+
+	fl = ftrace_match_filter(&sess->filters, task->ustack.addr, &tr);
+	if (fl == NULL || !(tr.flags & TRIGGER_FL_ARGUMENT)) {
+		pr_dbg("cannot find arg spec\n");
+		return -1;
+	}
+
+	task->args.len = 0;
+	task->args.args = &fl->args;
+
+	list_for_each_entry(arg, &fl->args, list) {
+		if (read_task_arg(task, arg) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 /**
  * get_task_ustack - read task's user function record
  * @handle: file handle
@@ -553,6 +626,14 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		/* reset display depth after lost */
 		task->display_depth_set = false;
+	}
+
+	if (task->ustack.more) {
+		if (!(handle->hdr.feat_mask & ARGUMENT) ||
+		    handle->info.argspec == NULL)
+			pr_err_ns("invalid data (more bit set w/o args)");
+
+		read_task_args(task, &task->ustack);
 	}
 
 	task->valid = true;
