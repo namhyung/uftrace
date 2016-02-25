@@ -27,9 +27,21 @@ enum filter_mode {
 	FILTER_MODE_OUT,
 };
 
+enum ftrace_arg_format {
+	ARG_FMT_AUTO,
+	ARG_FMT_SINT,
+	ARG_FMT_UINT,
+	ARG_FMT_HEX,
+};
+
+/* should match with ftrace_arg_format above */
+#define ARG_SPEC_CHARS  "diux"
+
 struct ftrace_arg_spec {
 	struct list_head	list;
 	int			idx;
+	enum ftrace_arg_format	fmt;
+	int			size;
 };
 
 struct ftrace_trigger {

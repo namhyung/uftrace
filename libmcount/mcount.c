@@ -337,10 +337,8 @@ static void record_argument(struct list_head *args_spec,
 	size_t size = 0;
 	void *ptr;
 
-	list_for_each_entry(spec, args_spec, list) {
-		/* FIXME: support various type of different size */
-		size += sizeof(long);
-	}
+	list_for_each_entry(spec, args_spec, list)
+		size += ALIGN(spec->size, 4);
 
 	assert(size < maxsize);
 
@@ -354,10 +352,12 @@ static void record_argument(struct list_head *args_spec,
 
 	ptr = (void *)(shmem_curr->data + shmem_curr->size);
 	list_for_each_entry(spec, args_spec, list) {
-		long *val = ptr;
+		long val;
 
-		*val = mcount_get_arg(regs, spec);
-		ptr += sizeof(long);
+		val = mcount_get_arg(regs, spec);
+		memcpy(ptr, &val, spec->size);
+
+		ptr += ALIGN(spec->size, 4);
 	}
 
 	shmem_curr->size += ALIGN(size, 8);

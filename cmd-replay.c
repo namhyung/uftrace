@@ -117,21 +117,45 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 
 	args[0] = '(';
 	list_for_each_entry(spec, task->args.args, list) {
+		char fmtstr[16];
+		char *len_mod[] = { "hh", "h", "", "ll" };
+		char fmt, *lm;
+		unsigned idx;
+
 		if (i > 0) {
 			n += snprintf(args + n, len, ", ");
 			len -= n;
 		}
 
-		/* assume 'long' type for now */
-		memcpy(&val, data, sizeof(long));
+		val = 0ULL;
+		fmt = ARG_SPEC_CHARS[spec->fmt];
+		memcpy(&val, data, spec->size);
 
-		if (val > 100000 || val < -100000)
-			n += snprintf(args + n, len, "%ld", val);
-		else
-			n += snprintf(args + n, len, "%#lx", val);
+		switch (spec->fmt) {
+		case ARG_FMT_SINT:
+		case ARG_FMT_UINT:
+		case ARG_FMT_HEX:
+			idx = ffs(spec->size) - 1;
+			break;
+		case ARG_FMT_AUTO:
+			if (val > 100000 || val < -100000)
+				fmt = 'x';
+			/* fall through */
+		default:
+			idx = 2;
+			break;
+		}
+		assert(idx < ARRAY_SIZE(len_mod));
+		lm = len_mod[idx];
 
+		/* it looks like '#' flag is ignored for decimal output */
+		snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+
+		n += snprintf(args + n, len, fmtstr, val);
+
+		i++;
 		len -= n;
-		data += sizeof(long);
+		data += spec->size;
 	}
 	args[n] = ')';
 	args[n+1] = '\0';

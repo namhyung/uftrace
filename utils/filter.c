@@ -38,7 +38,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 
 		pr_dbg("\ttrigger: argument\n");
 		list_for_each_entry(arg, tr->pargs, list) {
-			pr_dbg("\t\t arg%d\n", arg->idx);
+			pr_dbg("\t\t arg%d: %c%d\n", arg->idx,
+			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
 		}
 	}
 }
@@ -202,6 +203,74 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 	return ret;
 }
 
+/* argument_spec = arg1/i32,arg2/x64,... */
+static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+	int fmt;
+	int size;
+	int bit;
+
+	if (!isdigit(str[3])) {
+		pr_use("skipping invalid argument: %s\n", str);
+		return -1;
+	}
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = strtol(str+3, &suffix, 0);
+
+	if (suffix == NULL || *suffix == '\0') {
+		arg->fmt  = ARG_FMT_AUTO;
+		arg->size = sizeof(long);
+		goto add_arg;
+	}
+
+	suffix++;
+	switch (*suffix) {
+	case 'i':
+		fmt = ARG_FMT_SINT;
+		break;
+	case 'u':
+		fmt = ARG_FMT_UINT;
+		break;
+	case 'x':
+		fmt = ARG_FMT_HEX;
+		break;
+	default:
+		pr_use("unsupported argument type: %s\n", str);
+		return -1;
+	}
+	arg->fmt = fmt;
+
+	suffix++;
+	if (*suffix == '\0') {
+		arg->size = sizeof(long);
+		goto add_arg;
+	}
+
+	bit = strtol(suffix, NULL, 10);
+	switch (bit) {
+	case 8:
+	case 16:
+	case 32:
+	case 64:
+		size = bit / 8;
+		break;
+	default:
+		pr_use("unsupported argument size: %s\n", str);
+		return -1;
+	}
+	arg->size = size;
+
+add_arg:
+	tr->flags |= TRIGGER_FL_ARGUMENT;
+	list_add_tail(&arg->list, tr->pargs);
+
+	return 0;
+}
+
 static int setup_module_and_trigger(char *str, char *module,
 				    struct symtabs *symtabs,
 				    struct symtab **psymtab,
@@ -249,20 +318,8 @@ static int setup_module_and_trigger(char *str, char *module,
 				continue;
 			}
 			else if (!strncasecmp(pos, "arg", 3)) {
-				struct ftrace_arg_spec *arg;
-
-				if (!isdigit(pos[3])) {
-					pr_use("skipping invalid argument: %s\n",
-					       pos);
+				if (parse_argument_spec(pos, tr) < 0)
 					return -1;
-				}
-
-				arg = xmalloc(sizeof(*arg));
-				INIT_LIST_HEAD(&arg->list);
-				arg->idx = strtol(pos+3, NULL, 0);
-
-				tr->flags |= TRIGGER_FL_ARGUMENT;
-				list_add_tail(&arg->list, tr->pargs);
 				continue;
 			}
 
