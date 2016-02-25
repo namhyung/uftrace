@@ -287,9 +287,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 	/* stack_count was increased in __read_rstack */
 	fstack = &task->func_stack[rstack->depth];
 
-	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
 		task->tid, task->stack_count-1, task->filter.in_count,
-		task->filter.out_count, task->filter.depth, fstack->flags);
+		task->filter.out_count, task->filter.depth, fstack->flags,
+		rstack->more ? "more" : "");
 
 	fstack->orig_depth = task->filter.depth;
 	fstack->flags = 0;

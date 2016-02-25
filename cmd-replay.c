@@ -4,6 +4,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdio_ext.h>
+#include <assert.h>
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -96,6 +97,46 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
+static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
+			   bool have_args, char *args, size_t len)
+{
+	int i = 0, n = 1;
+	long val;
+	void *data = task->args.data;
+	struct ftrace_arg_spec *spec;
+
+	if (!have_args) {
+		if (need_paren)
+			strcpy(args, "()");
+		else
+			args[0] = '\0';
+		return;
+	}
+
+	assert(task->args.args && !list_empty(task->args.args));
+
+	args[0] = '(';
+	list_for_each_entry(spec, task->args.args, list) {
+		if (i > 0) {
+			n += snprintf(args + n, len, ", ");
+			len -= n;
+		}
+
+		/* assume 'long' type for now */
+		memcpy(&val, data, sizeof(long));
+
+		if (val > 100000 || val < -100000)
+			n += snprintf(args + n, len, "%ld", val);
+		else
+			n += snprintf(args + n, len, "%#lx", val);
+
+		len -= n;
+		data += sizeof(long);
+	}
+	args[n] = ')';
+	args[n+1] = '\0';
+}
+
 static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       struct opts *opts)
@@ -107,6 +148,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	struct sym *sym;
 	char *symname;
 	bool needs_paren;
+	char args[1024];
 
 	if (task == NULL)
 		return 0;
@@ -150,11 +192,12 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (opts->task_newline)
 			print_task_newline(task->tid);
 
+		get_arg_string(task, needs_paren, rstack->more, args, sizeof(args));
+
 		/* function entry */
 		print_time_unit(0UL);
 		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-		       depth * 2, "", symname,
-		       needs_paren ? "()" : "");
+		       depth * 2, "", symname, args);
 
 		fstack_update(FTRACE_ENTRY, task, fstack);
 	}
@@ -200,8 +243,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
-	char *symname;
 	bool needs_paren;
+	char *symname;
 
 	if (task == NULL)
 		return 0;
@@ -231,6 +274,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			.flags = 0,
 		};
 		int ret;
+		char args[1024];
 
 		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
@@ -240,6 +284,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			print_backtrace(task);
 
 		depth += task_column_depth(task, opts);
+
+		get_arg_string(task, needs_paren, rstack->more, args, sizeof(args));
 
 		fstack = &task->func_stack[task->stack_count - 1];
 
@@ -255,10 +301,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s%s%s;\n", task->tid,
-			       depth * 2, "", symname,
-			       needs_paren ? "()" : "");
 
+			pr_out(" [%5d] | %*s%s%s;\n", task->tid,
+			       depth * 2, "", symname, args);
 			/* consume the rstack */
 			read_rstack(handle, &next);
 
@@ -274,8 +319,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			/* function entry */
 			print_time_unit(0UL);
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-			       depth * 2, "", symname,
-			       needs_paren ? "()" : "");
+			       depth * 2, "", symname, args);
 
 			fstack_update(FTRACE_ENTRY, task, fstack);
 		}
@@ -400,6 +444,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
+
+	if (handle.hdr.feat_mask & ARGUMENT)
+		setup_fstack_args(handle.info.argspec);
 
 	fstack_prepare_fixup();
 
