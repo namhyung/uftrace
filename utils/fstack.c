@@ -519,15 +519,36 @@ static int read_task_arg(struct ftrace_task_handle *task,
 {
 	FILE *fp = task->fp;
 	struct fstack_arguments *args = &task->args;
+	unsigned size = spec->size;
+	int rem;
 
-	args->data = xrealloc(args->data, args->len + sizeof(long));
+	if (spec->fmt == ARG_FMT_STR) {
+		args->data = xrealloc(args->data, args->len + 2);
 
-	if (fread(args->data + args->len, sizeof(long), 1, fp) != 1) {
+		if (fread(args->data + args->len, 2, 1, fp) != 1) {
+			if (feof(fp))
+				return -1;
+		}
+
+		size = *(unsigned short *)(args->data + args->len);
+		args->len += 2;
+	}
+
+	args->data = xrealloc(args->data, args->len + size);
+
+	if (fread(args->data + args->len, size, 1, fp) != 1) {
 		if (feof(fp))
 			return -1;
 	}
 
-	args->len += sizeof(long);
+	args->len += size;
+
+	rem = args->len % 4;
+	if (rem) {
+		fseek(fp, 4 - rem, SEEK_CUR);
+		args->len += 4 - rem;
+	}
+
 	return 0;
 }
 
@@ -545,7 +566,7 @@ int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rst
 	struct ftrace_trigger tr = {};
 	struct ftrace_filter *fl;
 	struct ftrace_arg_spec *arg;
-
+	int rem;
 
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL) {
@@ -566,6 +587,11 @@ int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rst
 		if (read_task_arg(task, arg) < 0)
 			return -1;
 	}
+
+	rem = task->args.len % 8;
+	if (rem)
+		fseek(task->fp, 8 - rem, SEEK_CUR);
+
 	return 0;
 }
 

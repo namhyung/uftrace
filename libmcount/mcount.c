@@ -336,9 +336,31 @@ static void record_argument(struct list_head *args_spec,
 	struct ftrace_arg_spec *spec;
 	size_t size = 0;
 	void *ptr;
+	char buf[64];
+	int nr_strarg = 0;
 
-	list_for_each_entry(spec, args_spec, list)
-		size += ALIGN(spec->size, 4);
+	list_for_each_entry(spec, args_spec, list) {
+		if (spec->fmt == ARG_FMT_STR) {
+			ptr = (void *)mcount_get_arg(regs, spec);
+			if (ptr) {
+				size_t len;
+
+				strncpy(buf, ptr, sizeof(buf));
+				buf[sizeof(buf) - 1] = '\0';
+				len = strlen(buf);
+
+				/* store 2-byte length before string */
+				size += ALIGN(len + 2, 4);
+			}
+			else {
+				buf[0] = '\0';
+				size += 8;
+			}
+			nr_strarg++;
+		}
+		else
+			size += ALIGN(spec->size, 4);
+	}
 
 	assert(size < maxsize);
 
@@ -355,9 +377,31 @@ static void record_argument(struct list_head *args_spec,
 		long val;
 
 		val = mcount_get_arg(regs, spec);
-		memcpy(ptr, &val, spec->size);
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
 
-		ptr += ALIGN(spec->size, 4);
+			if (val) {
+				if (nr_strarg > 1) {
+					strncpy(buf, (void *)val, sizeof(buf));
+					buf[sizeof(buf) - 1] = '\0';
+				}
+				len = strlen(buf);
+
+				memcpy(ptr, &len, sizeof(len));
+				strcpy(ptr + 2, buf);
+				ptr += ALIGN(len + 2, 4);
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+				ptr += 8;
+			}
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			ptr += ALIGN(spec->size, 4);
+		}
 	}
 
 	shmem_curr->size += ALIGN(size, 8);

@@ -238,6 +238,9 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	case 'x':
 		fmt = ARG_FMT_HEX;
 		break;
+	case 's':
+		fmt = ARG_FMT_STR;
+		break;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;

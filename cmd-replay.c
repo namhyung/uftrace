@@ -102,6 +102,8 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 {
 	int i = 0, n = 1;
 	long val;
+	char str[64];
+	const int null_str = -1;
 	void *data = task->args.data;
 	struct ftrace_arg_spec *spec;
 
@@ -121,6 +123,7 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 		char *len_mod[] = { "hh", "h", "", "ll" };
 		char fmt, *lm;
 		unsigned idx;
+		size_t size = spec->size;
 
 		if (i > 0) {
 			n += snprintf(args + n, len, ", ");
@@ -129,7 +132,6 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 
 		val = 0ULL;
 		fmt = ARG_SPEC_CHARS[spec->fmt];
-		memcpy(&val, data, spec->size);
 
 		switch (spec->fmt) {
 		case ARG_FMT_SINT:
@@ -138,24 +140,45 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 			idx = ffs(spec->size) - 1;
 			break;
 		case ARG_FMT_AUTO:
-			if (val > 100000 || val < -100000)
+			memcpy(&val, data, spec->size);
+			if (val > 100000LL || val < -100000LL)
 				fmt = 'x';
 			/* fall through */
 		default:
 			idx = 2;
 			break;
 		}
-		assert(idx < ARRAY_SIZE(len_mod));
-		lm = len_mod[idx];
 
-		/* it looks like '#' flag is ignored for decimal output */
-		snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short slen;
+			memcpy(&slen, data, 2);
 
-		n += snprintf(args + n, len, fmtstr, val);
+			memcpy(str, data + 2, slen);
+			str[slen] = '\0';
+
+			if (!memcmp(str, &null_str, sizeof(null_str)))
+				n += snprintf(args + n, len, "NULL");
+			else
+				n += snprintf(args + n, len, "\"%.*s\"",
+					      slen, str);
+
+			size = slen + 2;
+		}
+		else {
+			assert(idx < ARRAY_SIZE(len_mod));
+			lm = len_mod[idx];
+
+			if (spec->fmt != ARG_FMT_AUTO)
+				memcpy(&val, data, spec->size);
+
+			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+
+			n += snprintf(args + n, len, fmtstr, val);
+		}
 
 		i++;
 		len -= n;
-		data += spec->size;
+		data += ALIGN(size, 4);
 	}
 	args[n] = ')';
 	args[n+1] = '\0';
