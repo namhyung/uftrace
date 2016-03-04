@@ -63,6 +63,8 @@ extern struct ftrace_task_handle *tasks;
 extern int nr_tasks;
 extern bool fstack_enabled;
 
+void setup_task_handle(struct ftrace_file_handle *handle,
+		       struct ftrace_task_handle *task, int tid);
 struct ftrace_task_handle *get_task_handle(int tid);
 void reset_task_handle(void);
 

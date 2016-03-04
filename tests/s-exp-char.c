@@ -16,6 +16,6 @@ int main(void)
 
 	d = foo('f', 'o', 'o');
 	d += bar(0, 'B', 'a', 'r');
-	
+
 	return d == 'd' ? 0 : 1;
 }

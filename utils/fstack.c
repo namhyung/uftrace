@@ -36,14 +36,15 @@ struct ftrace_task_handle *get_task_handle(int tid)
 	return NULL;
 }
 
-static void setup_task_handle(struct ftrace_file_handle *handle,
-			      struct ftrace_task_handle *task,
-			      int tid)
+void setup_task_handle(struct ftrace_file_handle *handle,
+		       struct ftrace_task_handle *task, int tid)
 {
 	int i;
 	char *filename;
 
 	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+
+	memset(task, 0, sizeof(*task));
 
 	task->h = handle;
 	task->t = find_task(tid);
@@ -121,7 +122,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	} while (*p);
 
 	nr_tasks = handle->info.nr_tid;
-	tasks = xcalloc(sizeof(*tasks), nr_tasks);
+	tasks = xmalloc(sizeof(*tasks) * nr_tasks);
 
 	for (i = 0; i < nr_tasks; i++) {
 		bool found = false;
@@ -574,7 +575,7 @@ int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rst
 		return -1;
 	}
 
-	fl = ftrace_match_filter(&sess->filters, task->ustack.addr, &tr);
+	fl = ftrace_match_filter(&sess->filters, rstack->addr, &tr);
 	if (fl == NULL || !(tr.flags & TRIGGER_FL_ARGUMENT)) {
 		pr_dbg("cannot find arg spec\n");
 		return -1;
@@ -612,7 +613,6 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		nr_tasks = idx + 1;
 		tasks = xrealloc(tasks, sizeof(*tasks) * nr_tasks);
 
-		memset(&tasks[idx], 0, sizeof(*tasks));
 		setup_task_handle(handle, &tasks[idx], handle->info.tids[idx]);
 
 		if (tasks[idx].fp == NULL)
