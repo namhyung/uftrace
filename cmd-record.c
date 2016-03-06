@@ -1277,8 +1277,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
 		else
-			pr_dbg("child terminated by signal: %s\n",
-			       strsignal(WTERMSIG(status)));
+			pr_yellow("child terminated by signal: %d: %s\n",
+				  WTERMSIG(status), strsignal(WTERMSIG(status)));
 	} else {
 		status = -1;
 		getrusage(RUSAGE_CHILDREN, &usage);
