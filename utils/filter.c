@@ -32,6 +32,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: trace_on\n");
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
 		pr_dbg("\ttrigger: trace_off\n");
+	if (tr->flags & TRIGGER_FL_RECOVER)
+		pr_dbg("\ttrigger: recover\n");
 
 	if (tr->flags & TRIGGER_FL_ARGUMENT) {
 		struct ftrace_arg_spec *arg;
@@ -309,6 +311,7 @@ static int setup_module_and_trigger(char *str, char *module,
 				}
 				continue;
 			}
+
 			if (!strcasecmp(pos, "backtrace")) {
 				tr->flags |= TRIGGER_FL_BACKTRACE;
 				continue;
@@ -329,6 +332,11 @@ static int setup_module_and_trigger(char *str, char *module,
 			else if (!strncasecmp(pos, "arg", 3)) {
 				if (parse_argument_spec(pos, tr) < 0)
 					return -1;
+				continue;
+			}
+
+			if (!strcasecmp(pos, "recover")) {
+				tr->flags |= TRIGGER_FL_RECOVER;
 				continue;
 			}
 

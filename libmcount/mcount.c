@@ -675,10 +675,18 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mcount_record_idx++;
 
-		if (!mcount_enabled)
+		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
-		else if (tr->flags & TRIGGER_FL_ARGUMENT)
+		}
+		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
 			record_trace_data(rstack, tr->pargs, regs);
+		}
+		else if (tr->flags & TRIGGER_FL_RECOVER) {
+			record_trace_data(rstack, tr->pargs, regs);
+			mcount_restore();
+			*rstack->parent_loc = (unsigned long) mcount_return;
+			rstack->flags |= MCOUNT_FL_RECOVER;
+		}
 
 		if (mcount_enable_cached != mcount_enabled) {
 			/*
@@ -705,6 +713,9 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 		mcount_filter.in_count--;
 	else if (rstack->flags & MCOUNT_FL_NOTRACE)
 		mcount_filter.out_count--;
+
+	if (rstack->flags & MCOUNT_FL_RECOVER)
+		mcount_reset();
 
 	mcount_filter.depth = rstack->filter_depth;
 

@@ -183,7 +183,7 @@ The ftrace support triggering some actions on selected function with or without 
 
     <trigger>  :=  <symbol> "@" <actions>
     <actions>  :=  <action>  | <action> "," <actions>
-    <action>   :=  "depth=" <num> | "backtrace" | "trace_on" | "trace_off"
+    <action>   :=  "depth=" <num> | "backtrace" | "trace_on" | "trace_off" | "recover"
 
 The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
 
@@ -200,6 +200,8 @@ Following example shows how trigger works.  The global filter depth is 5, but fu
        8.631 us [ 1234] | } /* main */
 
 The 'backtrace' trigger is only meaningful in replay command.  The 'traceon' and 'traceoff' (you can omit '_' between 'trace' and 'on/off') controls whether ftrace records functions or not.
+
+The 'recover' trigger is for some corner cases which the process accesses the callstack directly.  During tracing the v8 javascript engine, it kept get segfault in the garbage collection stage.  It was because the v8 interpretes the return address into compiled code object(?).  The 'recover' trigger restores the original return address at the function entry and reset to the ftrace's return hooking address again at the function exit.  I was managed to work around the segfault by setting 'recover' trigger on the related function (specifically ExitFrame::Iterate).
 
 The ftrace trigger only works for user-level functions for now.
 
