@@ -610,7 +610,57 @@ static void pr_time(uint64_t timestamp)
 	unsigned sec   = timestamp / 1000000000;
 	unsigned nsec  = timestamp % 1000000000;
 
-	pr_out("%u.%u  ", sec, nsec);
+	pr_out("%u.%09u  ", sec, nsec);
+}
+
+static void pr_task(struct opts *opts)
+{
+	FILE *fp;
+	char buf[PATH_MAX];
+	struct ftrace_msg msg;
+	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess smsg;
+	char *exename;
+
+	snprintf(buf, sizeof(buf), "%s/task", opts->dirname);
+	fp = fopen(buf, "r");
+	if (fp == NULL) {
+		pr_red("cannot open file %s", buf);
+		return;
+	}
+
+	while (fread(&msg, sizeof(msg), 1, fp) == 1) {
+		if (msg.magic != FTRACE_MSG_MAGIC) {
+			pr_red("invalid message magic: %hx\n", msg.magic);
+			return;
+		}
+
+		switch (msg.type) {
+		case FTRACE_MSG_TID:
+		case FTRACE_MSG_FORK_END:
+			fread(&tmsg, sizeof(tmsg), 1, fp);
+
+			pr_time(tmsg.time);
+			pr_out("task tid %d (pid %d)\n", tmsg.tid, tmsg.pid);
+			break;
+		case FTRACE_MSG_SESSION:
+			fread(&smsg, sizeof(smsg), 1, fp);
+			exename = xmalloc(ALIGN(smsg.namelen, 8));
+			fread(exename, ALIGN(smsg.namelen, 8), 1,fp);
+
+			pr_time(smsg.task.time);
+			pr_out("session of task %d/%d: %.*s (%s)\n",
+			       smsg.task.tid, smsg.task.pid,
+			       sizeof(smsg.sid), smsg.sid, exename);
+			free(exename);
+			break;
+		default:
+			pr_out("unknown message type: %u\n", msg.type);
+			break;
+		}
+	}
+
+	fclose(fp);
 }
 
 static void pr_hex(uint64_t *offset, void *data, size_t len)
@@ -716,6 +766,11 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle.hdr.info_mask);
 	pr_hex(&file_offset, &handle.hdr, handle.hdr.header_size);
 	pr_out("\n");
+
+	if (debug) {
+		pr_out("%d tasks found\n", handle.info.nr_tid);
+		pr_task(opts);
+	}
 
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
