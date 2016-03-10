@@ -241,6 +241,9 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	case 's':
 		fmt = ARG_FMT_STR;
 		break;
+	case 'c':
+		fmt = ARG_FMT_CHAR;
+		break;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;
@@ -249,7 +252,10 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 
 	suffix++;
 	if (*suffix == '\0') {
-		arg->size = sizeof(long);
+		if (fmt == ARG_FMT_CHAR)
+			arg->size = 1;
+		else
+			arg->size = sizeof(long);
 		goto add_arg;
 	}
 

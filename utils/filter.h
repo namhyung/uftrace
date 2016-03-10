@@ -33,10 +33,11 @@ enum ftrace_arg_format {
 	ARG_FMT_UINT,
 	ARG_FMT_HEX,
 	ARG_FMT_STR,
+	ARG_FMT_CHAR,
 };
 
 /* should match with ftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxs"
+#define ARG_SPEC_CHARS  "diuxsc"
 
 struct ftrace_arg_spec {
 	struct list_head	list;

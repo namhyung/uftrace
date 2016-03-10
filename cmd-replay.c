@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <stdio_ext.h>
 #include <assert.h>
+#include <ctype.h>
 
 #include "ftrace.h"
 #include "utils/utils.h"
@@ -163,6 +164,16 @@ static void get_arg_string(struct ftrace_task_handle *task, bool need_paren,
 					      slen, str);
 
 			size = slen + 2;
+		}
+		else if (spec->fmt == ARG_FMT_CHAR) {
+			char c;
+
+			memcpy(&c, data, 1);
+			if (isprint(c))
+				n += snprintf(args + n, len, "'%c'", c);
+			else
+				n += snprintf(args + n, len, "'\\x%02hhx'", c);
+			size = 1;
 		}
 		else {
 			assert(idx < ARRAY_SIZE(len_mod));
