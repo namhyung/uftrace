@@ -44,7 +44,8 @@ __gnu_mcount_nc:
 	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
 	moveq	r0, fp      /* fp (=r11) points to return address on ARM */
 	addne	r0, sp, #20 /* adjust r0 points to pushed LR on THUMB */
-	mov 	r1, lr
+	mov 	r1, lr      /* child ip */
+	mov	r2, sp      /* mcount_args */
 
 	bl 	mcount_entry
 

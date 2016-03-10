@@ -1,9 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
+#include "mcount-arch.h"
+#include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
+#include "utils/filter.h"
 
 struct lr_offset {
 	int           offset;  // 4-byte unit
@@ -245,4 +249,22 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	cache->offset = lr.offset;
 
 	return parent_loc + lr.offset;
+}
+
+long mcount_get_arg(struct mcount_regs *regs, struct ftrace_arg_spec *spec)
+{
+	assert(spec->idx <= ARCH_MAX_REG_ARGS);
+
+	switch (spec->idx) {
+	case 1:
+		return ARG1(regs);
+	case 2:
+		return ARG2(regs);
+	case 3:
+		return ARG3(regs);
+	case 4:
+		return ARG4(regs);
+	default:
+		return 0;
+	}
 }

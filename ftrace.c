@@ -35,6 +35,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/fstack.h"
+#include "utils/filter.h"
 
 const char *argp_program_version = "ftrace " FTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
@@ -105,6 +106,7 @@ static struct argp_option ftrace_options[] = {
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
+	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ 0 }
 };
 
@@ -336,6 +338,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'r':
 		opts->threshold = parse_time(arg);
+		break;
+
+	case 'A':
+		opts->args = opt_add_string(opts->args, arg);
 		break;
 
 	case OPT_flat:
@@ -609,32 +615,12 @@ static void pr_time(uint64_t timestamp)
 
 static void pr_hex(uint64_t *offset, void *data, size_t len)
 {
-	size_t i, l;
+	size_t i;
 	unsigned char *h = data;
 	uint64_t ofs = *offset;
 
 	if (!debug)
 		return;
-
-	if (ofs % 16) {
-		l = ofs % 16;
-		pr_green(" <%016"PRIx64">:", ofs);
-		if (l > 8) {
-			pr_green(" %02x %02x %02x %02x %02x %02x %02x %02x ",
-				 h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
-			l -= 8;
-			h += 8;
-			ofs += 8;
-			len -= 8;
-		}
-
-		for (i = 0; i < l; i++)
-			pr_green(" %02x", *h++);
-		pr_green("\n");
-
-		ofs += l;
-		len -= l;
-	}
 
 	while (len >= 16) {
 		pr_green(" <%016"PRIx64">:", ofs);
@@ -669,11 +655,45 @@ static void pr_hex(uint64_t *offset, void *data, size_t len)
 	*offset = ofs;
 }
 
+static void pr_args(struct fstack_arguments *args)
+{
+	struct ftrace_arg_spec *spec;
+	void *ptr = args->data;
+	size_t size;
+	int i = 0;
+
+	list_for_each_entry(spec, args->args, list) {
+		if (spec->fmt == ARG_FMT_STR) {
+			char buf[64];
+			const int null_str = -1;
+
+			size = *(unsigned short *)ptr;
+			strncpy(buf, ptr + 2, size);
+
+			if (!memcmp(buf, &null_str, 4))
+				strcpy(buf, "NULL");
+
+			pr_out("  args[%d] str: %s\n", i , buf);
+			size += 2;
+		}
+		else {
+			long long val = 0;
+
+			memcpy(&val, ptr, spec->size);
+			pr_out("  args[%d] %c%d: %#llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			size = spec->size;
+		}
+
+		ptr += ALIGN(size, 4);
+		i++;
+	}
+}
+
 static int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int i;
 	int ret;
-	char buf[PATH_MAX];
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle task;
 	uint64_t file_offset = 0;
@@ -697,15 +717,12 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	pr_hex(&file_offset, &handle.hdr, handle.hdr.header_size);
 	pr_out("\n");
 
+	setup_fstack_args(handle.info.argspec);
+
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
 
-		snprintf(buf, sizeof(buf), "%s/%d.dat", opts->dirname, tid);
-		task.fp = fopen(buf, "rb");
-		if (task.fp == NULL) {
-			pr_red("cannot open %s: %m\n", buf);
-			continue;
-		}
+		setup_task_handle(&handle, &task, tid);
 
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
@@ -725,9 +742,20 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
-			       tid, frs->type == FTRACE_EXIT ? "exit " : "entry",
+			       tid, frs->type == FTRACE_EXIT ? "exit " :
+			       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
 			       name, (unsigned long)frs->addr, frs->depth);
 			pr_hex(&file_offset, frs, sizeof(*frs));
+
+			if (frs->more) {
+				read_task_args(&task, frs);
+
+				pr_time(frs->time);
+				pr_out("%5d: [%s] length = %d\n", tid, "args ",
+				       task.args.len);
+				pr_args(&task.args);
+				pr_hex(&file_offset, task.args.data, task.args.len);
+			}
 
 			symbol_putname(sym, name);
 		}

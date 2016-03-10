@@ -148,8 +148,9 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN))
 		pr_err("invalid magic string found!");
 
-	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN)
-		pr_err("invalid vergion number found!");
+	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN ||
+	    handle->hdr.version > FTRACE_FILE_VERSION)
+		pr_err("unsupported file version: %u", handle->hdr.version);
 
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("cannot read ftrace header info!");

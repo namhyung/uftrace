@@ -18,8 +18,8 @@
 
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
-#define FTRACE_FILE_VERSION  3
-#define FTRACE_FILE_VERSION_MIN  2
+#define FTRACE_FILE_VERSION  4
+#define FTRACE_FILE_VERSION_MIN  3
 #define FTRACE_FILE_NAME  "ftrace.data"
 #define FTRACE_DIR_NAME   "ftrace.dir"
 
@@ -42,11 +42,13 @@ enum ftrace_feat_bits {
 	PLTHOOK_BIT,
 	TASK_SESSION_BIT,
 	KERNEL_BIT,
+	ARGUMENT_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
 	TASK_SESSION		= (1U << TASK_SESSION_BIT),
 	KERNEL			= (1U << KERNEL_BIT),
+	ARGUMENT		= (1U << ARGUMENT_BIT),
 };
 
 enum ftrace_info_bits {
@@ -60,6 +62,7 @@ enum ftrace_info_bits {
 	TASKINFO,
 	USAGEINFO,
 	LOADINFO,
+	ARG_SPEC,
 };
 
 struct ftrace_info {
@@ -74,6 +77,7 @@ struct ftrace_info {
 	char *kernel;
 	char *hostname;
 	char *distro;
+	char *argspec;
 	int nr_tid;
 	int *tids;
 	double stime;
@@ -123,6 +127,7 @@ struct opts {
 	char *logfile;
 	char *host;
 	char *sort_keys;
+	char *args;
 	int mode;
 	int idx;
 	int depth;
@@ -265,15 +270,28 @@ enum ftrace_ret_stack_type {
 	FTRACE_LOST,
 };
 
-#define FTRACE_UNUSED  0xa
+#define FTRACE_UNUSED_V3  0xa
+#define FTRACE_UNUSED_V4  0x5
+#define FTRACE_UNUSED     FTRACE_UNUSED_V4
 
 /* reduced version of mcount_ret_stack */
 struct ftrace_ret_stack {
 	uint64_t time;
 	uint64_t type:   2;
-	uint64_t unused: 4;
+	uint64_t more:   1;
+	uint64_t unused: 3;
 	uint64_t depth:  10;
 	uint64_t addr:   48;
+};
+
+static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
+{
+	/* (FTRACE_UNUSED_V4 << 1 | more) == FTRACE_UNUSED_V3 */
+	return stack->unused == FTRACE_UNUSED && stack->more == 0;
+}
+
+enum ftrace_ext_type {
+	FTRACE_ARGUMENT		= 1,
 };
 
 struct kbuffer;

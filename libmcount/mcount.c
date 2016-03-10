@@ -27,10 +27,15 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/compiler.h"
+
+#ifndef mcount_regs
+struct mcount_regs {};  /* dummy */
+#endif
 
 #ifdef SINGLE_THREAD
 # define TLS
@@ -231,6 +236,7 @@ static void get_new_shmem_buffer(void)
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
 		frstack->unused = FTRACE_UNUSED;
+		frstack->more   = 0;
 		frstack->addr   = shmem_losts;
 
 		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
@@ -286,7 +292,7 @@ static void shmem_dtor(void *unused)
 }
 
 static int record_ret_stack(enum ftrace_ret_stack_type type,
-			    struct mcount_ret_stack *mrstack)
+			    struct mcount_ret_stack *mrstack, bool more)
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
@@ -311,6 +317,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->time   = timestamp;
 	frstack->type   = type;
 	frstack->unused = FTRACE_UNUSED;
+	frstack->more   = more;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
@@ -322,7 +329,88 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	return 0;
 }
 
-static int record_trace_data(struct mcount_ret_stack *mrstack)
+static void record_argument(struct list_head *args_spec,
+			    struct mcount_regs *regs)
+{
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	struct ftrace_arg_spec *spec;
+	size_t size = 0;
+	void *ptr;
+	char buf[64];
+	int nr_strarg = 0;
+
+	list_for_each_entry(spec, args_spec, list) {
+		if (spec->fmt == ARG_FMT_STR) {
+			ptr = (void *)mcount_get_arg(regs, spec);
+			if (ptr) {
+				size_t len;
+
+				strncpy(buf, ptr, sizeof(buf));
+				buf[sizeof(buf) - 1] = '\0';
+				len = strlen(buf);
+
+				/* store 2-byte length before string */
+				size += ALIGN(len + 2, 4);
+			}
+			else {
+				buf[0] = '\0';
+				size += 8;
+			}
+			nr_strarg++;
+		}
+		else
+			size += ALIGN(spec->size, 4);
+	}
+
+	assert(size < maxsize);
+
+	if (unlikely(shmem_curr->size + size > maxsize)) {
+		finish_shmem_buffer();
+		get_new_shmem_buffer();
+
+		if (shmem_curr == NULL)
+			return;
+	}
+
+	ptr = (void *)(shmem_curr->data + shmem_curr->size);
+	list_for_each_entry(spec, args_spec, list) {
+		long val;
+
+		val = mcount_get_arg(regs, spec);
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
+
+			if (val) {
+				if (nr_strarg > 1) {
+					strncpy(buf, (void *)val, sizeof(buf));
+					buf[sizeof(buf) - 1] = '\0';
+				}
+				len = strlen(buf);
+
+				memcpy(ptr, &len, sizeof(len));
+				strcpy(ptr + 2, buf);
+				ptr += ALIGN(len + 2, 4);
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+				ptr += 8;
+			}
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			ptr += ALIGN(spec->size, 4);
+		}
+	}
+
+	shmem_curr->size += ALIGN(size, 8);
+	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
+}
+
+static int record_trace_data(struct mcount_ret_stack *mrstack,
+			     struct list_head *args_spec,
+			     struct mcount_regs *regs)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
@@ -361,9 +449,9 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
 		gettid(), size, count);
 
-	while (non_written_mrstack && non_written_mrstack <= mrstack) {
+	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
-			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack)) {
+			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, false)) {
 				shmem_losts += count - 1;
 				return 0;
 			}
@@ -374,8 +462,23 @@ static int record_trace_data(struct mcount_ret_stack *mrstack)
 		non_written_mrstack++;
 	}
 
+	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
+		bool more = false;
+
+		if (regs && args_spec && !list_empty(args_spec))
+			more = true;
+
+		if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, more))
+			return 0;
+
+		size -= sizeof(*frstack);
+
+		if (more)
+			record_argument(args_spec, regs);
+	}
+
 	if (mrstack->end_time) {
-		if (record_ret_stack(FTRACE_EXIT, mrstack))
+		if (record_ret_stack(FTRACE_EXIT, mrstack, false))
 			return 0;
 
 		size -= sizeof(*frstack);
@@ -553,7 +656,8 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 /* save current filter state to rstack */
 static __inline__
 void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
-				struct ftrace_trigger *tr)
+				struct ftrace_trigger *tr,
+				struct mcount_regs *regs)
 {
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
@@ -573,6 +677,8 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 
 		if (!mcount_enabled)
 			rstack->flags |= MCOUNT_FL_DISABLED;
+		else if (tr->flags & TRIGGER_FL_ARGUMENT)
+			record_trace_data(rstack, tr->pargs, regs);
 
 		if (mcount_enable_cached != mcount_enabled) {
 			/*
@@ -582,7 +688,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(rstack);
+				record_trace_data(rstack, NULL, regs);
 
 			mcount_enable_cached = mcount_enabled;
 		}
@@ -608,7 +714,7 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
-			if (mcount_enabled && record_trace_data(rstack) < 0)
+			if (mcount_enabled && record_trace_data(rstack, NULL, NULL) < 0)
 				pr_err("error during record");
 		}
 	}
@@ -627,7 +733,8 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 
 static __inline__
 void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
-				struct ftrace_trigger *tr)
+				struct ftrace_trigger *tr,
+				struct mcount_regs *regs)
 {
 	mcount_record_idx++;
 }
@@ -639,7 +746,7 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(rstack) < 0)
+		if (record_trace_data(rstack, NULL, NULL) < 0)
 			pr_err("error during record");
 	}
 }
@@ -658,7 +765,8 @@ __weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	return parent_loc;
 }
 
-int mcount_entry(unsigned long *parent_loc, unsigned long child)
+int mcount_entry(unsigned long *parent_loc, unsigned long child,
+		 struct mcount_regs *regs)
 {
 	enum filter_result filtered;
 	struct mcount_ret_stack *rstack;
@@ -702,7 +810,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child)
 	/* hijack the return address */
 	*parent_loc = (unsigned long)mcount_return;
 
-	mcount_entry_filter_record(rstack, &tr);
+	mcount_entry_filter_record(rstack, &tr, regs);
 	mcount_recursion_guard = false;
 	return 0;
 }
@@ -776,7 +884,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		rstack->flags      = MCOUNT_FL_NORECORD;
 	}
 
-	mcount_entry_filter_record(rstack, &tr);
+	mcount_entry_filter_record(rstack, &tr, NULL);
 	mcount_recursion_guard = false;
 	return 0;
 }
@@ -1118,7 +1226,7 @@ static void restore_vfork(struct mcount_ret_stack *rstack)
 extern unsigned long plthook_return(void);
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
-			    unsigned long module_id)
+			    unsigned long module_id, struct mcount_regs *regs)
 {
 	struct sym *sym;
 	unsigned long child_ip;
@@ -1179,7 +1287,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->end_time   = 0;
 	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
 
-	mcount_entry_filter_record(rstack, &tr);
+	mcount_entry_filter_record(rstack, &tr, regs);
 
 	*ret_addr = (unsigned long)plthook_return;
 
@@ -1194,7 +1302,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	/* force flush rstack on some special functions */
 	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
-		record_trace_data(rstack);
+		record_trace_data(rstack, NULL, regs);
 
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
@@ -1400,6 +1508,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, NULL,
 			     &mcount_triggers);
 
+	ftrace_setup_argument(getenv("FTRACE_ARGUMENT"), &symtabs, NULL,
+			      &mcount_triggers);
+
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
 
@@ -1422,6 +1533,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 		ftrace_setup_trigger(getenv("FTRACE_TRIGGER"), &symtabs, "PLT",
 				    &mcount_triggers);
+
+		ftrace_setup_argument(getenv("FTRACE_ARGUMENT"), &symtabs, "PLT",
+				      &mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 		if (hook_pltgot() < 0)

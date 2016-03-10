@@ -28,8 +28,11 @@ mcount:
 	movq 56(%rsp), %rsi
 	sub $9, %rsi
 
-	/* parent ip */
+	/* parent location */
 	lea 8(%rbp), %rdi
+
+	/* mcount_args */
+	lea 8(%rsp), %rdx
 
 	call mcount_entry
 	cmpq $0, %rax
