@@ -28,17 +28,21 @@ extern int shmem_bufsize;
 extern struct symtabs symtabs;
 
 extern uint64_t mcount_gettime(void);
-extern void prepare_shmem_buffer(void);
+extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
 extern bool mcount_should_stop(void);
 extern void mcount_prepare(void);
-extern enum filter_result mcount_entry_filter_check(unsigned long child,
+extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+						    unsigned long child,
 						    struct ftrace_trigger *tr);
-extern void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
+extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				       struct mcount_ret_stack *rstack,
 				       struct ftrace_trigger *tr,
 				       struct mcount_regs *regs);
-extern void mcount_exit_filter_record(struct mcount_ret_stack *rstack);
-extern int record_trace_data(struct mcount_ret_stack *mrstack,
+extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+				      struct mcount_ret_stack *rstack);
+extern int record_trace_data(struct mcount_thread_data *mtdp,
+				     struct mcount_ret_stack *mrstack,
 				     struct list_head *args_spec,
 				     struct mcount_regs *regs);
 
@@ -259,7 +263,7 @@ struct mcount_jmpbuf_rstack {
 
 static struct mcount_jmpbuf_rstack setjmp_rstack;
 
-static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
+static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 {
 	int i;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
@@ -268,36 +272,40 @@ static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	/* currently, only saves a single jmpbuf */
 	jbstack->count = idx;
-	jbstack->record_idx = mtd.record_idx;
+	jbstack->record_idx = mtdp->record_idx;
+
 	for (i = 0; i <= idx; i++) {
-		jbstack->parent[i] = rstack[i].parent_ip;
-		jbstack->child[i]  = rstack[i].child_ip;
+		jbstack->parent[i] = mtdp->rstack[i].parent_ip;
+		jbstack->child[i]  = mtdp->rstack[i].child_ip;
 	}
 
-	rstack[idx].flags |= MCOUNT_FL_SETJMP;
+	mtdp->rstack[idx].flags |= MCOUNT_FL_SETJMP;
 }
 
-static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
+static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 {
 	int i, dyn_idx;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
 
-	dyn_idx = rstack[idx].dyn_idx;
+	dyn_idx = mtdp->rstack[idx].dyn_idx;
 
 	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
 
 	mtd.idx = jbstack->count + 1;
 	mtd.record_idx = jbstack->record_idx;
 
+	mtdp->idx = jbstack->count + 1;
+	mtdp->record_idx = jbstack->record_idx;
+
 	for (i = 0; i < jbstack->count + 1; i++) {
-		mtd.rstack[i].parent_ip = jbstack->parent[i];
-		mtd.rstack[i].child_ip  = jbstack->child[i];
+		mtdp->rstack[i].parent_ip = jbstack->parent[i];
+		mtdp->rstack[i].child_ip  = jbstack->child[i];
 	}
 
-	rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
+	mtdp->rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
 
 	/* to avoid check in plthook_exit() */
-	rstack[jbstack->count].dyn_idx = dyn_idx;
+	mtdp->rstack[jbstack->count].dyn_idx = dyn_idx;
 }
 
 /* it's crazy to call vfork() concurrently */
@@ -313,7 +321,7 @@ static void prepare_vfork(void)
 }
 
 /* this function will be called in child */
-static void setup_vfork(void)
+static void setup_vfork(struct mcount_thread_data *mtdp)
 {
 	struct ftrace_msg_task tmsg = {
 		.pid = getppid(),
@@ -321,23 +329,24 @@ static void setup_vfork(void)
 		.time = mcount_gettime(),
 	};
 
-	vfork_shmem_seqnum    = mtd.shmem_seqnum;
-	vfork_shmem_buffer[0] = mtd.shmem_buffer[0];
-	vfork_shmem_buffer[1] = mtd.shmem_buffer[1];
-	vfork_shmem_curr      = mtd.shmem_curr;
+	vfork_shmem_seqnum    = mtdp->shmem_seqnum;
+	vfork_shmem_buffer[0] = mtdp->shmem_buffer[0];
+	vfork_shmem_buffer[1] = mtdp->shmem_buffer[1];
+	vfork_shmem_curr      = mtdp->shmem_curr;
 
 	/* setup new shmem buffer for child */
-	mtd.tid = 0;
-	mtd.shmem_losts = 0;
-	mtd.shmem_seqnum = 0;
-	mtd.shmem_curr = NULL;
-	prepare_shmem_buffer();
+	mtdp->tid = 0;
+	mtdp->shmem_losts = 0;
+	mtdp->shmem_seqnum = 0;
+	mtdp->shmem_curr = NULL;
+	prepare_shmem_buffer(mtdp);
 
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
 /* this function detects whether child finished */
-static void restore_vfork(struct mcount_ret_stack *rstack)
+static void restore_vfork(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack)
 {
 	/*
 	 * On vfork, parent sleeps until child exec'ed or exited.
@@ -346,12 +355,12 @@ static void restore_vfork(struct mcount_ret_stack *rstack)
 	if (getpid() == vfork_parent) {
 		struct sym *sym;
 
-		mtd.shmem_seqnum    = vfork_shmem_seqnum;
-		mtd.shmem_buffer[0] = vfork_shmem_buffer[0];
-		mtd.shmem_buffer[1] = vfork_shmem_buffer[1];
-		mtd.shmem_curr      = vfork_shmem_curr;
+		mtdp->shmem_seqnum    = vfork_shmem_seqnum;
+		mtdp->shmem_buffer[0] = vfork_shmem_buffer[0];
+		mtdp->shmem_buffer[1] = vfork_shmem_buffer[1];
+		mtdp->shmem_curr      = vfork_shmem_curr;
 
-		mtd.tid = 0;
+		mtdp->tid = 0;
 		vfork_parent = 0;
 
 		/* make parent returning from vfork() */
@@ -368,6 +377,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 {
 	struct sym *sym;
 	unsigned long child_ip;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
@@ -379,7 +389,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	mtd.recursion_guard = true;
 
-	if (unlikely(mtd.rstack == NULL))
+	mtdp = &mtd;
+	if (unlikely(mtdp->rstack == NULL))
 		mcount_prepare();
 
 	/*
@@ -403,7 +414,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (mcount_entry_filter_check(sym->addr, &tr) == FILTER_OUT) {
+	if (mcount_entry_filter_check(mtdp, sym->addr, &tr) == FILTER_OUT) {
 		/*
 		 * Skip recording but still hook the return address,
 		 * otherwise it cannot trace further invocations due to
@@ -414,9 +425,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	plthook_recursion_guard = true;
 
-	rstack = &mtd.rstack[mtd.idx++];
+	rstack = &mtdp->rstack[mtdp->idx++];
 
-	rstack->depth      = mtd.record_idx;
+	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = child_idx;
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
@@ -425,12 +436,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->end_time   = 0;
 	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
 
-	mcount_entry_filter_record(rstack, &tr, regs);
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
 	*ret_addr = (unsigned long)plthook_return;
 
 	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
-		setup_jmpbuf_rstack(mtd.rstack, mtd.idx-1);
+		setup_jmpbuf_rstack(mtdp, mtdp->idx - 1);
 	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
 	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
@@ -440,7 +451,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	/* force flush rstack on some special functions */
 	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
-		record_trace_data(rstack, NULL, regs);
+		record_trace_data(mtdp, rstack, NULL, regs);
 
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
@@ -449,14 +460,14 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		while (!*resolved_addr)
 			cpu_relax();
 
-		mtd.recursion_guard = false;
+		mtdp->recursion_guard = false;
 		return *resolved_addr;
 	}
 
 	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
 
 out:
-	mtd.recursion_guard = false;
+	mtdp->recursion_guard = false;
 	return 0;
 }
 
@@ -464,31 +475,31 @@ unsigned long plthook_exit(void)
 {
 	int dyn_idx;
 	unsigned long new_addr;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
-	mtd.recursion_guard = true;
+	mtdp = &mtd;
+	mtdp->recursion_guard = true;
 
 again:
-	rstack = &mtd.rstack[--mtd.idx];
+	rstack = &mtdp->rstack[--mtdp->idx];
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			restore_jmpbuf_rstack(mtd.rstack, mtd.idx+1);
+			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
 			goto again;
 		}
 
 		if (rstack->flags & MCOUNT_FL_VFORK)
-			setup_vfork();
+			setup_vfork(mtdp);
 	}
 
 	if (unlikely(vfork_parent))
-		restore_vfork(rstack);
+		restore_vfork(mtdp, rstack);
 
 	dyn_idx = rstack->dyn_idx;
-	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {
-		pr_err_ns("<%d> invalid dynsym idx: %d\n",
-			  mtd.idx, dyn_idx);
-	}
+	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
+		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
 		plthook_dynsym_addr[dyn_idx],
@@ -497,7 +508,7 @@ again:
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(rstack);
+	mcount_exit_filter_record(mtdp, rstack);
 
 	plthook_recursion_guard = false;
 
@@ -520,7 +531,7 @@ again:
 #endif
 	}
 
-	mtd.recursion_guard = false;
+	mtdp->recursion_guard = false;
 	return rstack->parent_ip;
 }
 

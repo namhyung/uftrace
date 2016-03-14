@@ -80,12 +80,12 @@ uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-static int gettid(void)
+static int gettid(struct mcount_thread_data *mtdp)
 {
-	if (!mtd.tid)
-		mtd.tid = syscall(SYS_gettid);
+	if (!mtdp->tid)
+		mtdp->tid = syscall(SYS_gettid);
 
-	return mtd.tid;
+	return mtdp->tid;
 }
 
 static const char *session_name(void)
@@ -132,7 +132,7 @@ void ftrace_send_message(int type, void *data, size_t len)
 
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
 
-void prepare_shmem_buffer(void)
+void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	int idx, fd;
@@ -141,7 +141,7 @@ void prepare_shmem_buffer(void)
 
 	for (idx = 1; idx >= 0; idx--) {
 		snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-			 session_name(), gettid(), idx);
+			 session_name(), gettid(mtdp), idx);
 
 		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 		if (fd < 0)
@@ -150,40 +150,40 @@ void prepare_shmem_buffer(void)
 		if (ftruncate(fd, shmem_bufsize) < 0)
 			pr_err("resizing shmem buffer");
 
-		mtd.shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
+		mtdp->shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
 					    PROT_READ | PROT_WRITE,
 					    MAP_SHARED, fd, 0);
-		if (mtd.shmem_buffer[idx] == MAP_FAILED) {
-			mtd.shmem_buffer[idx] = NULL;
+		if (mtdp->shmem_buffer[idx] == MAP_FAILED) {
+			mtdp->shmem_buffer[idx] = NULL;
 			pr_err("mmap shmem buffer");
 		}
 
 		/* mark it's a new buffer */
-		mtd.shmem_buffer[idx]->flag = SHMEM_FL_NEW;
+		mtdp->shmem_buffer[idx]->flag = SHMEM_FL_NEW;
 
 		close(fd);
 	}
 
 	/* set idx 0 as current buffer */
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
-	mtd.shmem_curr = mtd.shmem_buffer[0];
-	pthread_setspecific(shmem_key, mtd.shmem_curr);
+	mtdp->shmem_curr = mtdp->shmem_buffer[0];
+	pthread_setspecific(shmem_key, mtdp->shmem_curr);
 }
 
-static void get_new_shmem_buffer(void)
+static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
-	int idx = mtd.shmem_seqnum % 2;
+	int idx = mtdp->shmem_seqnum % 2;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), idx);
+		 session_name(), gettid(mtdp), idx);
 
 	/*
 	 * It's not a new buffer, check ftrace record already
 	 * consumed it.
 	 */
-	if (!(mtd.shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
-		mtd.shmem_losts++;
+	if (!(mtdp->shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
+		mtdp->shmem_losts++;
 		return;
 	}
 
@@ -191,90 +191,92 @@ static void get_new_shmem_buffer(void)
 	 * Start a new buffer and clear the flags.
 	 * See record_mmap_file().
 	 */
-	__sync_fetch_and_and(&mtd.shmem_buffer[idx]->flag,
+	__sync_fetch_and_and(&mtdp->shmem_buffer[idx]->flag,
 			     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
 
-	mtd.shmem_curr = mtd.shmem_buffer[idx];
-	mtd.shmem_curr->size = 0;
+	mtdp->shmem_curr = mtdp->shmem_buffer[idx];
+	mtdp->shmem_curr->size = 0;
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 
-	if (mtd.shmem_losts) {
-		struct ftrace_ret_stack *frstack = (void *)mtd.shmem_curr->data;
+	if (mtdp->shmem_losts) {
+		struct ftrace_ret_stack *frstack = (void *)mtdp->shmem_curr->data;
 
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
 		frstack->unused = FTRACE_UNUSED;
 		frstack->more   = 0;
-		frstack->addr   = mtd.shmem_losts;
+		frstack->addr   = mtdp->shmem_losts;
 
-		ftrace_send_message(FTRACE_MSG_LOST, &mtd.shmem_losts,
-				    sizeof(mtd.shmem_losts));
+		ftrace_send_message(FTRACE_MSG_LOST, &mtdp->shmem_losts,
+				    sizeof(mtdp->shmem_losts));
 
-		mtd.shmem_curr->size = sizeof(*frstack);
-		mtd.shmem_losts = 0;
+		mtdp->shmem_curr->size = sizeof(*frstack);
+		mtdp->shmem_losts = 0;
 	}
 }
 
-static void finish_shmem_buffer(void)
+static void finish_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[64];
-	int idx = mtd.shmem_seqnum % 2;
+	int idx = mtdp->shmem_seqnum % 2;
 
-	if (mtd.shmem_curr == NULL)
+	if (mtdp->shmem_curr == NULL)
 		return;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), idx);
+		 session_name(), gettid(mtdp), idx);
 
 	pr_dbg2("done buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
 
-	mtd.shmem_curr = NULL;
-	mtd.shmem_seqnum++;
+	mtdp->shmem_curr = NULL;
+	mtdp->shmem_seqnum++;
 }
 
-static void clear_shmem_buffer(void)
+static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	pr_dbg2("releasing all shmem buffers\n");
 
-	munmap(mtd.shmem_buffer[0], shmem_bufsize);
-	munmap(mtd.shmem_buffer[1], shmem_bufsize);
+	munmap(mtdp->shmem_buffer[0], shmem_bufsize);
+	munmap(mtdp->shmem_buffer[1], shmem_bufsize);
 
-	mtd.shmem_buffer[0] = mtd.shmem_buffer[1] = NULL;
-	mtd.shmem_seqnum = 0;
+	mtdp->shmem_buffer[0] = mtdp->shmem_buffer[1] = NULL;
+	mtdp->shmem_seqnum = 0;
 }
 
 /* to be used by pthread_create_key() */
 static void shmem_dtor(void *unused)
 {
-	int seq = mtd.shmem_seqnum;
+	struct mcount_thread_data *mtdp = &mtd;
+	int seq = mtdp->shmem_seqnum;
 
-	finish_shmem_buffer();
+	finish_shmem_buffer(mtdp);
 	/* force update seqnum to call finish on both buffer */
-	if (seq == mtd.shmem_seqnum)
-		mtd.shmem_seqnum++;
-	mtd.shmem_curr = mtd.shmem_buffer[mtd.shmem_seqnum % 2];
-	finish_shmem_buffer();
+	if (seq == mtdp->shmem_seqnum)
+		mtdp->shmem_seqnum++;
+	mtdp->shmem_curr = mtdp->shmem_buffer[mtdp->shmem_seqnum % 2];
+	finish_shmem_buffer(mtdp);
 
-	clear_shmem_buffer();
+	clear_shmem_buffer(mtdp);
 }
 
-static int record_ret_stack(enum ftrace_ret_stack_type type,
+static int record_ret_stack(struct mcount_thread_data *mtdp,
+			    enum ftrace_ret_stack_type type,
 			    struct mcount_ret_stack *mrstack, bool more)
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtd.shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtdp->shmem_buffer);
 
-	if (unlikely(mtd.shmem_curr == NULL ||
-		     mtd.shmem_curr->size + sizeof(*frstack) > maxsize)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	if (unlikely(mtdp->shmem_curr == NULL ||
+		     mtdp->shmem_curr->size + sizeof(*frstack) > maxsize)) {
+		finish_shmem_buffer(mtdp);
+		get_new_shmem_buffer(mtdp);
 
-		if (mtd.shmem_curr == NULL) {
-			mtd.shmem_losts++;
+		if (mtdp->shmem_curr == NULL) {
+			mtdp->shmem_losts++;
 			return -1;
 		}
 	}
@@ -282,7 +284,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	if (type == FTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	frstack = (void *)(mtd.shmem_curr->data + mtd.shmem_curr->size);
+	frstack = (void *)(mtdp->shmem_curr->data + mtdp->shmem_curr->size);
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
@@ -291,7 +293,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
-	mtd.shmem_curr->size += sizeof(*frstack);
+	mtdp->shmem_curr->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
@@ -299,10 +301,11 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	return 0;
 }
 
-static void record_argument(struct list_head *args_spec,
+static void record_argument(struct mcount_thread_data *mtdp,
+			    struct list_head *args_spec,
 			    struct mcount_regs *regs)
 {
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtd.shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtdp->shmem_buffer);
 	struct ftrace_arg_spec *spec;
 	size_t size = 0;
 	void *ptr;
@@ -334,15 +337,15 @@ static void record_argument(struct list_head *args_spec,
 
 	assert(size < maxsize);
 
-	if (unlikely(mtd.shmem_curr->size + size > maxsize)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	if (unlikely(mtdp->shmem_curr->size + size > maxsize)) {
+		finish_shmem_buffer(mtdp);
+		get_new_shmem_buffer(mtdp);
 
-		if (mtd.shmem_curr == NULL)
+		if (mtdp->shmem_curr == NULL)
 			return;
 	}
 
-	ptr = (void *)(mtd.shmem_curr->data + mtd.shmem_curr->size);
+	ptr = (void *)(mtdp->shmem_curr->data + mtdp->shmem_curr->size);
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
@@ -374,11 +377,12 @@ static void record_argument(struct list_head *args_spec,
 		}
 	}
 
-	mtd.shmem_curr->size += ALIGN(size, 8);
+	mtdp->shmem_curr->size += ALIGN(size, 8);
 	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
 }
 
-int record_trace_data(struct mcount_ret_stack *mrstack,
+int record_trace_data(struct mcount_thread_data *mtdp,
+		      struct mcount_ret_stack *mrstack,
 		      struct list_head *args_spec,
 		      struct mcount_regs *regs)
 {
@@ -389,7 +393,7 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
 
-	if (mrstack < mtd.rstack)
+	if (mrstack < mtdp->rstack)
 		return 0;
 
 	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
@@ -398,7 +402,7 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 		if (!(non_written_mrstack->flags & SKIP_FLAGS))
 			count++;
 
-		while (non_written_mrstack > mtd.rstack) {
+		while (non_written_mrstack > mtdp->rstack) {
 			struct mcount_ret_stack *prev = non_written_mrstack - 1;
 
 			if (prev->flags & MCOUNT_FL_WRITTEN)
@@ -417,12 +421,13 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 	size = count * sizeof(*frstack);
 
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
-		gettid(), size, count);
+		gettid(mtdp), size, count);
 
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
-			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, false)) {
-				mtd.shmem_losts += count - 1;
+			if (record_ret_stack(mtdp, FTRACE_ENTRY,
+					     non_written_mrstack, false)) {
+				mtdp->shmem_losts += count - 1;
 				return 0;
 			}
 
@@ -438,17 +443,17 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 		if (regs && args_spec && !list_empty(args_spec))
 			more = true;
 
-		if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack, more))
 			return 0;
 
 		size -= sizeof(*frstack);
 
 		if (more)
-			record_argument(args_spec, regs);
+			record_argument(mtdp, args_spec, regs);
 	}
 
 	if (mrstack->end_time) {
-		if (record_ret_stack(FTRACE_EXIT, mrstack, false))
+		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, false))
 			return 0;
 
 		size -= sizeof(*frstack);
@@ -482,13 +487,13 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 	close(ofd);
 }
 
-static void send_session_msg(const char *sess_id)
+static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
 	struct ftrace_msg_sess sess = {
 		.task = {
 			.time = mcount_gettime(),
 			.pid = getpid(),
-			.tid = gettid(),
+			.tid = gettid(mtdp),
 		},
 		.namelen = strlen(mcount_exename),
 	};
@@ -527,7 +532,7 @@ static void mcount_init_file(void)
 	if (dirname == NULL)
 		dirname = FTRACE_DIR_NAME;
 
-	send_session_msg(session_name());
+	send_session_msg(&mtd, session_name());
 	record_proc_maps(dirname, session_name());
 }
 
@@ -536,7 +541,7 @@ void mcount_prepare(void)
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 	struct ftrace_msg_task tmsg = {
 		.pid = getpid(),
-		.tid = gettid(),
+		.tid = gettid(&mtd),
 	};
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -546,7 +551,7 @@ void mcount_prepare(void)
 	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
-	prepare_shmem_buffer();
+	prepare_shmem_buffer(&mtd);
 
 	/* time should be get after session message sent */
 	tmsg.time = mcount_gettime();
@@ -556,44 +561,46 @@ void mcount_prepare(void)
 
 #ifndef DISABLE_MCOUNT_FILTER
 /* update filter state from trigger result */
-enum filter_result mcount_entry_filter_check(unsigned long child,
+enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+					     unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	pr_dbg3("<%d> enter %lx\n", mtd.idx, child);
+	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 
-	if (mtd.idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mtd.idx);
+	if (mtdp->idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
 
 	/* save original depth to restore at exit time */
-	mtd.filter.saved_depth = mtd.filter.depth;
+	mtdp->filter.saved_depth = mtdp->filter.depth;
 
 	/* already filtered by notrace option */
-	if (mtd.filter.out_count > 0)
+	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
 	ftrace_match_filter(&mcount_triggers, child, tr);
 
 	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
-		tr->flags, mcount_filter_mode, mtd.filter.in_count, mtd.filter.out_count);
+		tr->flags, mcount_filter_mode, mtdp->filter.in_count,
+		mtdp->filter.out_count);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
-			mtd.filter.in_count++;
+			mtdp->filter.in_count++;
 		else if (tr->fmode == FILTER_MODE_OUT)
-			mtd.filter.out_count++;
+			mtdp->filter.out_count++;
 
 		/* apply default filter depth when match */
-		mtd.filter.depth = mcount_depth;
+		mtdp->filter.depth = mcount_depth;
 	}
 	else {
 		/* not matched by filter */
 		if (mcount_filter_mode == FILTER_MODE_IN &&
-		    mtd.filter.in_count == 0)
+		    mtdp->filter.in_count == 0)
 			return FILTER_OUT;
 	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
-		mtd.filter.depth = tr->depth;
+		mtdp->filter.depth = tr->depth;
 
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		mcount_enabled = true;
@@ -608,15 +615,16 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	 * it can be < 0 in case it is called from plthook_entry()
 	 * which in turn is called libcygprof.so.
 	 */
-	if (mtd.filter.depth <= 0)
+	if (mtdp->filter.depth <= 0)
 		return FILTER_OUT;
 
-	mtd.filter.depth--;
+	mtdp->filter.depth--;
 	return FILTER_IN;
 }
 
 /* save current filter state to rstack */
-void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
+void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
@@ -627,29 +635,29 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			rstack->flags |= MCOUNT_FL_NOTRACE;
 	}
 
-	if (mtd.filter.out_count > 0 ||
-	    (mtd.filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
+	if (mtdp->filter.out_count > 0 ||
+	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
-	rstack->filter_depth = mtd.filter.saved_depth;
+	rstack->filter_depth = mtdp->filter.saved_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		mtd.record_idx++;
+		mtdp->record_idx++;
 
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			record_trace_data(rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
 
-		if (mtd.enable_cached != mcount_enabled) {
+		if (mtdp->enable_cached != mcount_enabled) {
 			/*
 			 * Flush existing rstack when mcount_enabled is off
 			 * (i.e. disabled).  Note that changing to enabled is
@@ -657,64 +665,69 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(rstack, NULL, regs);
+				record_trace_data(mtdp, rstack, NULL, regs);
 
-			mtd.enable_cached = mcount_enabled;
+			mtdp->enable_cached = mcount_enabled;
 		}
 	}
 }
 
 /* restore filter state from rstack */
-void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
+void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+			       struct mcount_ret_stack *rstack)
 {
-	pr_dbg3("<%d> exit  %lx\n", mtd.idx, rstack->child_ip);
+	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
 	if (rstack->flags & MCOUNT_FL_FILTERED)
-		mtd.filter.in_count--;
+		mtdp->filter.in_count--;
 	else if (rstack->flags & MCOUNT_FL_NOTRACE)
-		mtd.filter.out_count--;
+		mtdp->filter.out_count--;
 
 	if (rstack->flags & MCOUNT_FL_RECOVER)
 		mcount_reset();
 
-	mtd.filter.depth = rstack->filter_depth;
+	mtdp->filter.depth = rstack->filter_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		if (mtd.record_idx > 0)
-			mtd.record_idx--;
+		if (mtdp->record_idx > 0)
+			mtdp->record_idx--;
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
-			if (mcount_enabled && record_trace_data(rstack, NULL, NULL) < 0)
+			if (mcount_enabled &&
+			    record_trace_data(mtdp, rstack, NULL, NULL) < 0)
 				pr_err("error during record");
 		}
 	}
 }
 
 #else /* DISABLE_MCOUNT_FILTER */
-enum filter_result mcount_entry_filter_check(unsigned long child,
+enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+					     unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mtd.idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mtd.idx);
+	if (mtdp->idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
 
 	return FILTER_IN;
 }
 
-void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
+void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
-	mtd.record_idx++;
+	mtdp->record_idx++;
 }
 
-void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
+void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+			       struct mcount_ret_stack *rstack)
 {
-	mtd.record_idx--;
+	mtdp->record_idx--;
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(rstack, NULL, NULL) < 0)
+		if (record_trace_data(mtdp, rstack, NULL, NULL) < 0)
 			pr_err("error during record");
 	}
 }
@@ -737,6 +750,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		 struct mcount_regs *regs)
 {
 	enum filter_result filtered;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
@@ -752,21 +766,22 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 
 	mtd.recursion_guard = true;
 
-	if (unlikely(mtd.rstack == NULL))
+	mtdp = &mtd;
+	if (unlikely(mtdp->rstack == NULL))
 		mcount_prepare();
 
-	filtered = mcount_entry_filter_check(child, &tr);
+	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered == FILTER_OUT) {
-		mtd.recursion_guard = false;
+		mtdp->recursion_guard = false;
 		return -1;
 	}
 
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
 	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
-	rstack = &mtd.rstack[mtd.idx++];
+	rstack = &mtdp->rstack[mtdp->idx++];
 
-	rstack->depth      = mtd.record_idx;
+	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_loc = parent_loc;
 	rstack->parent_ip  = *parent_loc;
@@ -778,29 +793,31 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	/* hijack the return address */
 	*parent_loc = (unsigned long)mcount_return;
 
-	mcount_entry_filter_record(rstack, &tr, regs);
-	mtd.recursion_guard = false;
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
+	mtdp->recursion_guard = false;
 	return 0;
 }
 
 unsigned long mcount_exit(void)
 {
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
 
-	mtd.recursion_guard = true;
+	mtdp = &mtd;
+	mtdp->recursion_guard = true;
 
-	rstack = &mtd.rstack[mtd.idx - 1];
+	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	rstack->end_time = mcount_gettime();
-	mcount_exit_filter_record(rstack);
+	mcount_exit_filter_record(mtdp, rstack);
 
 	retaddr = rstack->parent_ip;
 
 	compiler_barrier();
 
-	mtd.idx--;
-	mtd.recursion_guard = false;
+	mtdp->idx--;
+	mtdp->recursion_guard = false;
 
 	return retaddr;
 }
@@ -821,6 +838,7 @@ static void mcount_finish(void)
 static int cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
@@ -831,14 +849,15 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	mtd.recursion_guard = true;
 
-	if (unlikely(mtd.rstack == NULL))
+	mtdp = &mtd;
+	if (unlikely(mtdp->rstack == NULL))
 		mcount_prepare();
 
-	filtered = mcount_entry_filter_check(child, &tr);
+	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
-	rstack = &mtd.rstack[mtd.idx++];
+	rstack = &mtdp->rstack[mtdp->idx++];
 
-	rstack->depth      = mtd.record_idx;
+	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
@@ -853,13 +872,14 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		rstack->flags      = MCOUNT_FL_NORECORD;
 	}
 
-	mcount_entry_filter_record(rstack, &tr, NULL);
-	mtd.recursion_guard = false;
+	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
+	mtdp->recursion_guard = false;
 	return 0;
 }
 
 static void cygprof_exit(unsigned long parent, unsigned long child)
 {
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
 	if (unlikely(mcount_should_stop()))
@@ -867,17 +887,18 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mtd.recursion_guard = true;
 
-	rstack = &mtd.rstack[mtd.idx - 1];
+	mtdp = &mtd;
+	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(rstack);
+	mcount_exit_filter_record(mtdp, rstack);
 
 	compiler_barrier();
 
-	mtd.idx--;
-	mtd.recursion_guard = false;
+	mtdp->idx--;
+	mtdp->recursion_guard = false;
 }
 
 static void atfork_prepare_handler(void)
@@ -900,8 +921,8 @@ static void atfork_child_handler(void)
 
 	mtd.tid = 0;
 
-	clear_shmem_buffer();
-	prepare_shmem_buffer();
+	clear_shmem_buffer(&mtd);
+	prepare_shmem_buffer(&mtd);
 
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 }
@@ -1059,23 +1080,27 @@ void __visible_default mcleanup(void)
 void __visible_default mcount_restore(void)
 {
 	int idx;
+	struct mcount_thread_data *mtdp;
 
-	if (unlikely(mtd.rstack == NULL))
+	mtdp = &mtd;
+	if (unlikely(mtdp->rstack == NULL))
 		return;
 
-	for (idx = mtd.idx - 1; idx >= 0; idx--)
-		*mtd.rstack[idx].parent_loc = mtd.rstack[idx].parent_ip;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
 }
 
 void __visible_default mcount_reset(void)
 {
 	int idx;
+	struct mcount_thread_data *mtdp;
 
-	if (unlikely(mtd.rstack == NULL))
+	mtdp = &mtd;
+	if (unlikely(mtdp->rstack == NULL))
 		return;
 
-	for (idx = mtd.idx - 1; idx >= 0; idx--)
-		*mtd.rstack[idx].parent_loc = (unsigned long)mcount_return;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)
