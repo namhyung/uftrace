@@ -52,6 +52,13 @@ struct mcount_ret_stack {
 	unsigned short dyn_idx;
 };
 
+struct mcount_rstack {
+	int			idx;
+	int			record_idx;
+	bool			recursion_guard;
+	struct mcount_ret_stack	*rstack;
+};
+
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);
@@ -81,6 +88,17 @@ enum filter_result {
 	FILTER_MATCH,
 };
 
+#ifndef DISABLE_MCOUNT_FILTER
+struct filter_control {
+	int in_count;
+	int out_count;
+	int depth;
+	int saved_depth;
+};
+#else
+struct filter_control {};
+#endif
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -96,6 +114,8 @@ struct mcount_thread_data {
 	int				record_idx;
 	bool				recursion_guard;
 	struct mcount_ret_stack		*rstack;
+	struct filter_control		filter;
+	bool				enable_cached;
 };
 
 #endif /* FTRACE_MCOUNT_H */

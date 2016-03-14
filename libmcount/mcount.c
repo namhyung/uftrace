@@ -55,16 +55,6 @@ static bool mcount_finished;
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static bool mcount_enabled = true;
-static TLS bool mcount_enable_cached;
-
-struct filter_control {
-	int in_count;
-	int out_count;
-	int depth;
-	int saved_depth;
-};
-
-static TLS struct filter_control mcount_filter;
 static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
@@ -555,8 +545,8 @@ void mcount_prepare(void)
 	};
 
 #ifndef DISABLE_MCOUNT_FILTER
-	mcount_filter.depth = mcount_depth;
-	mcount_enable_cached = mcount_enabled;
+	mtd.filter.depth  = mcount_depth;
+	mtd.enable_cached = mcount_enabled;
 #endif
 	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
@@ -580,35 +570,35 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 		pr_err_ns("too deeply nested calls: %d\n", mtd.idx);
 
 	/* save original depth to restore at exit time */
-	mcount_filter.saved_depth = mcount_filter.depth;
+	mtd.filter.saved_depth = mtd.filter.depth;
 
 	/* already filtered by notrace option */
-	if (mcount_filter.out_count > 0)
+	if (mtd.filter.out_count > 0)
 		return FILTER_OUT;
 
 	ftrace_match_filter(&mcount_triggers, child, tr);
 
 	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
-		tr->flags, mcount_filter_mode, mcount_filter.in_count, mcount_filter.out_count);
+		tr->flags, mcount_filter_mode, mtd.filter.in_count, mtd.filter.out_count);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
-			mcount_filter.in_count++;
+			mtd.filter.in_count++;
 		else if (tr->fmode == FILTER_MODE_OUT)
-			mcount_filter.out_count++;
+			mtd.filter.out_count++;
 
 		/* apply default filter depth when match */
-		mcount_filter.depth = mcount_depth;
+		mtd.filter.depth = mcount_depth;
 	}
 	else {
 		/* not matched by filter */
 		if (mcount_filter_mode == FILTER_MODE_IN &&
-		    mcount_filter.in_count == 0)
+		    mtd.filter.in_count == 0)
 			return FILTER_OUT;
 	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
-		mcount_filter.depth = tr->depth;
+		mtd.filter.depth = tr->depth;
 
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		mcount_enabled = true;
@@ -623,10 +613,10 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	 * it can be < 0 in case it is called from plthook_entry()
 	 * which in turn is called libcygprof.so.
 	 */
-	if (mcount_filter.depth <= 0)
+	if (mtd.filter.depth <= 0)
 		return FILTER_OUT;
 
-	mcount_filter.depth--;
+	mtd.filter.depth--;
 	return FILTER_IN;
 }
 
@@ -642,11 +632,11 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			rstack->flags |= MCOUNT_FL_NOTRACE;
 	}
 
-	if (mcount_filter.out_count > 0 ||
-	    (mcount_filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
+	if (mtd.filter.out_count > 0 ||
+	    (mtd.filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
-	rstack->filter_depth = mcount_filter.saved_depth;
+	rstack->filter_depth = mtd.filter.saved_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mtd.record_idx++;
@@ -664,7 +654,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
 
-		if (mcount_enable_cached != mcount_enabled) {
+		if (mtd.enable_cached != mcount_enabled) {
 			/*
 			 * Flush existing rstack when mcount_enabled is off
 			 * (i.e. disabled).  Note that changing to enabled is
@@ -674,7 +664,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			if (!mcount_enabled)
 				record_trace_data(rstack, NULL, regs);
 
-			mcount_enable_cached = mcount_enabled;
+			mtd.enable_cached = mcount_enabled;
 		}
 	}
 }
@@ -685,14 +675,14 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 	pr_dbg3("<%d> exit  %lx\n", mtd.idx, rstack->child_ip);
 
 	if (rstack->flags & MCOUNT_FL_FILTERED)
-		mcount_filter.in_count--;
+		mtd.filter.in_count--;
 	else if (rstack->flags & MCOUNT_FL_NOTRACE)
-		mcount_filter.out_count--;
+		mtd.filter.out_count--;
 
 	if (rstack->flags & MCOUNT_FL_RECOVER)
 		mcount_reset();
 
-	mcount_filter.depth = rstack->filter_depth;
+	mtd.filter.depth = rstack->filter_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		if (mtd.record_idx > 0)
