@@ -46,6 +46,7 @@ struct mcount_regs {};  /* dummy */
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 uint64_t mcount_threshold;  /* nsec */
 
+pthread_key_t mtd_key;
 TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
@@ -518,6 +519,14 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		pr_err("write tid info failed");
 }
 
+/* to be used by pthread_create_key() */
+static void mtd_dtor(void *arg)
+{
+	struct mcount_thread_data *mtdp = arg;
+
+	free(mtdp->rstack);
+}
+
 static void mcount_init_file(void)
 {
 	char *dirname = getenv("FTRACE_DIR");
@@ -525,6 +534,9 @@ static void mcount_init_file(void)
 	/* This is for the case of library-only tracing */
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
+
+	if (pthread_key_create(&mtd_key, mtd_dtor))
+		pr_err("cannot create shmem key");
 
 	if (pthread_key_create(&shmem_key, shmem_dtor))
 		pr_err("cannot create shmem key");
@@ -552,6 +564,8 @@ void mcount_prepare(void)
 
 	pthread_once(&once_control, mcount_init_file);
 	prepare_shmem_buffer(&mtd);
+
+	pthread_setspecific(mtd_key, &mtd);
 
 	/* time should be get after session message sent */
 	tmsg.time = mcount_gettime();
@@ -766,9 +780,14 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 
 	mtd.recursion_guard = true;
 
-	mtdp = &mtd;
-	if (unlikely(mtdp->rstack == NULL))
+	/* Access the mtd through TSD pointer to reduce TLS overhead */
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL)) {
 		mcount_prepare();
+
+		mtdp = pthread_getspecific(mtd_key);
+		assert(mtdp);
+	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered == FILTER_OUT) {
@@ -804,7 +823,9 @@ unsigned long mcount_exit(void)
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
 
-	mtdp = &mtd;
+	mtdp = pthread_getspecific(mtd_key);
+	assert(mtdp);
+
 	mtdp->recursion_guard = true;
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
@@ -829,6 +850,9 @@ static void mcount_finish(void)
 	shmem_dtor(NULL);
 	pthread_key_delete(shmem_key);
 
+	mtd_dtor(&mtd);
+	pthread_key_delete(mtd_key);
+
 	if (pfd != -1) {
 		close(pfd);
 		pfd = -1;
@@ -849,9 +873,14 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	mtd.recursion_guard = true;
 
-	mtdp = &mtd;
-	if (unlikely(mtdp->rstack == NULL))
+	/* Access the mtd through TSD pointer to reduce TLS overhead */
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL)) {
 		mcount_prepare();
+
+		mtdp = pthread_getspecific(mtd_key);
+		assert(mtdp);
+	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
@@ -887,7 +916,14 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mtd.recursion_guard = true;
 
-	mtdp = &mtd;
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL)) {
+		mcount_prepare();
+
+		mtdp = pthread_getspecific(mtd_key);
+		assert(mtdp);
+	}
+
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
@@ -913,11 +949,20 @@ static void atfork_prepare_handler(void)
 
 static void atfork_child_handler(void)
 {
+	struct mcount_thread_data *mtdp;
 	struct ftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getppid(),
 		.tid = getpid(),
 	};
+
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL)) {
+		mcount_prepare();
+
+		mtdp = pthread_getspecific(mtd_key);
+		assert(mtdp);
+	}
 
 	mtd.tid = 0;
 
@@ -1082,8 +1127,8 @@ void __visible_default mcount_restore(void)
 	int idx;
 	struct mcount_thread_data *mtdp;
 
-	mtdp = &mtd;
-	if (unlikely(mtdp->rstack == NULL))
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL))
 		return;
 
 	for (idx = mtdp->idx - 1; idx >= 0; idx--)
@@ -1095,8 +1140,8 @@ void __visible_default mcount_reset(void)
 	int idx;
 	struct mcount_thread_data *mtdp;
 
-	mtdp = &mtd;
-	if (unlikely(mtdp->rstack == NULL))
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL))
 		return;
 
 	for (idx = mtdp->idx - 1; idx >= 0; idx--)

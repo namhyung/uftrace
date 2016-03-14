@@ -4,6 +4,7 @@
 #include <gelf.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <assert.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -20,6 +21,7 @@
 # define TLS  __thread
 #endif
 
+extern pthread_key_t mtd_key;
 extern TLS struct mcount_thread_data mtd;
 
 extern pthread_key_t shmem_key;
@@ -389,9 +391,13 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	mtd.recursion_guard = true;
 
-	mtdp = &mtd;
-	if (unlikely(mtdp->rstack == NULL))
+	mtdp = pthread_getspecific(mtd_key);
+	if (unlikely(mtdp == NULL)) {
 		mcount_prepare();
+
+		mtdp = pthread_getspecific(mtd_key);
+		assert(mtdp);
+	}
 
 	/*
 	 * There was a recursion like below:
@@ -478,7 +484,9 @@ unsigned long plthook_exit(void)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
-	mtdp = &mtd;
+	mtdp = pthread_getspecific(mtd_key);
+	assert(mtdp);
+
 	mtdp->recursion_guard = true;
 
 again:
