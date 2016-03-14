@@ -74,4 +74,11 @@ struct mcount_shmem_buffer {
 /* must be in sync with enum debug_domain (bits) */
 #define DBG_DOMAIN_STR  "TSDFfsKM"
 
+enum filter_result {
+	FILTER_NOTRACE = -1,
+	FILTER_OUT,
+	FILTER_IN,
+	FILTER_MATCH,
+};
+
 #endif /* FTRACE_MCOUNT_H */
