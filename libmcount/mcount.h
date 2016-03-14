@@ -110,6 +110,10 @@ struct mcount_thread_data {
 	struct mcount_ret_stack		*rstack;
 	struct filter_control		filter;
 	bool				enable_cached;
+	int				shmem_seqnum;
+	int				shmem_losts;
+	struct mcount_shmem_buffer	*shmem_buffer[2];
+	struct mcount_shmem_buffer	*shmem_curr;
 };
 
 #endif /* FTRACE_MCOUNT_H */

@@ -63,6 +63,9 @@ static struct rb_root mcount_triggers = RB_ROOT;
 struct symtabs symtabs;
 static char *mcount_exename;
 
+pthread_key_t shmem_key;
+int shmem_bufsize = SHMEM_BUFFER_SIZE;
+
 extern void __monstartup(unsigned long low, unsigned long high);
 extern void mcount_return(void);
 extern int hook_pltgot(char *exename);
@@ -129,13 +132,6 @@ void ftrace_send_message(int type, void *data, size_t len)
 
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
 
-pthread_key_t shmem_key;
-TLS int shmem_seqnum;
-TLS struct mcount_shmem_buffer *shmem_buffer[2];
-TLS struct mcount_shmem_buffer *shmem_curr;
-TLS int shmem_losts;
-int shmem_bufsize = SHMEM_BUFFER_SIZE;
-
 void prepare_shmem_buffer(void)
 {
 	char buf[128];
@@ -154,30 +150,30 @@ void prepare_shmem_buffer(void)
 		if (ftruncate(fd, shmem_bufsize) < 0)
 			pr_err("resizing shmem buffer");
 
-		shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
-					 PROT_READ | PROT_WRITE,
-					 MAP_SHARED, fd, 0);
-		if (shmem_buffer[idx] == MAP_FAILED) {
-			shmem_buffer[idx] = NULL;
+		mtd.shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
+					    PROT_READ | PROT_WRITE,
+					    MAP_SHARED, fd, 0);
+		if (mtd.shmem_buffer[idx] == MAP_FAILED) {
+			mtd.shmem_buffer[idx] = NULL;
 			pr_err("mmap shmem buffer");
 		}
 
 		/* mark it's a new buffer */
-		shmem_buffer[idx]->flag = SHMEM_FL_NEW;
+		mtd.shmem_buffer[idx]->flag = SHMEM_FL_NEW;
 
 		close(fd);
 	}
 
 	/* set idx 0 as current buffer */
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
-	shmem_curr = shmem_buffer[0];
-	pthread_setspecific(shmem_key, shmem_curr);
+	mtd.shmem_curr = mtd.shmem_buffer[0];
+	pthread_setspecific(shmem_key, mtd.shmem_curr);
 }
 
 static void get_new_shmem_buffer(void)
 {
 	char buf[128];
-	int idx = shmem_seqnum % 2;
+	int idx = mtd.shmem_seqnum % 2;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
 		 session_name(), gettid(), idx);
@@ -186,8 +182,8 @@ static void get_new_shmem_buffer(void)
 	 * It's not a new buffer, check ftrace record already
 	 * consumed it.
 	 */
-	if (!(shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
-		shmem_losts++;
+	if (!(mtd.shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
+		mtd.shmem_losts++;
 		return;
 	}
 
@@ -195,38 +191,38 @@ static void get_new_shmem_buffer(void)
 	 * Start a new buffer and clear the flags.
 	 * See record_mmap_file().
 	 */
-	__sync_fetch_and_and(&shmem_buffer[idx]->flag,
+	__sync_fetch_and_and(&mtd.shmem_buffer[idx]->flag,
 			     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
 
-	shmem_curr = shmem_buffer[idx];
-	shmem_curr->size = 0;
+	mtd.shmem_curr = mtd.shmem_buffer[idx];
+	mtd.shmem_curr->size = 0;
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 
-	if (shmem_losts) {
-		struct ftrace_ret_stack *frstack = (void *)shmem_curr->data;
+	if (mtd.shmem_losts) {
+		struct ftrace_ret_stack *frstack = (void *)mtd.shmem_curr->data;
 
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
 		frstack->unused = FTRACE_UNUSED;
 		frstack->more   = 0;
-		frstack->addr   = shmem_losts;
+		frstack->addr   = mtd.shmem_losts;
 
-		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-				    sizeof(shmem_losts));
+		ftrace_send_message(FTRACE_MSG_LOST, &mtd.shmem_losts,
+				    sizeof(mtd.shmem_losts));
 
-		shmem_curr->size = sizeof(*frstack);
-		shmem_losts = 0;
+		mtd.shmem_curr->size = sizeof(*frstack);
+		mtd.shmem_losts = 0;
 	}
 }
 
 static void finish_shmem_buffer(void)
 {
 	char buf[64];
-	int idx = shmem_seqnum % 2;
+	int idx = mtd.shmem_seqnum % 2;
 
-	if (shmem_curr == NULL)
+	if (mtd.shmem_curr == NULL)
 		return;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
@@ -235,31 +231,31 @@ static void finish_shmem_buffer(void)
 	pr_dbg2("done buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
 
-	shmem_curr = NULL;
-	shmem_seqnum++;
+	mtd.shmem_curr = NULL;
+	mtd.shmem_seqnum++;
 }
 
 static void clear_shmem_buffer(void)
 {
 	pr_dbg2("releasing all shmem buffers\n");
 
-	munmap(shmem_buffer[0], shmem_bufsize);
-	munmap(shmem_buffer[1], shmem_bufsize);
+	munmap(mtd.shmem_buffer[0], shmem_bufsize);
+	munmap(mtd.shmem_buffer[1], shmem_bufsize);
 
-	shmem_buffer[0] = shmem_buffer[1] = NULL;
-	shmem_seqnum = 0;
+	mtd.shmem_buffer[0] = mtd.shmem_buffer[1] = NULL;
+	mtd.shmem_seqnum = 0;
 }
 
 /* to be used by pthread_create_key() */
 static void shmem_dtor(void *unused)
 {
-	int seq = shmem_seqnum;
+	int seq = mtd.shmem_seqnum;
 
 	finish_shmem_buffer();
 	/* force update seqnum to call finish on both buffer */
-	if (seq == shmem_seqnum)
-		shmem_seqnum++;
-	shmem_curr = shmem_buffer[shmem_seqnum % 2];
+	if (seq == mtd.shmem_seqnum)
+		mtd.shmem_seqnum++;
+	mtd.shmem_curr = mtd.shmem_buffer[mtd.shmem_seqnum % 2];
 	finish_shmem_buffer();
 
 	clear_shmem_buffer();
@@ -270,15 +266,15 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtd.shmem_buffer);
 
-	if (unlikely(shmem_curr == NULL ||
-		     shmem_curr->size + sizeof(*frstack) > maxsize)) {
+	if (unlikely(mtd.shmem_curr == NULL ||
+		     mtd.shmem_curr->size + sizeof(*frstack) > maxsize)) {
 		finish_shmem_buffer();
 		get_new_shmem_buffer();
 
-		if (shmem_curr == NULL) {
-			shmem_losts++;
+		if (mtd.shmem_curr == NULL) {
+			mtd.shmem_losts++;
 			return -1;
 		}
 	}
@@ -286,7 +282,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	if (type == FTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	frstack = (void *)(shmem_curr->data + shmem_curr->size);
+	frstack = (void *)(mtd.shmem_curr->data + mtd.shmem_curr->size);
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
@@ -295,7 +291,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
-	shmem_curr->size += sizeof(*frstack);
+	mtd.shmem_curr->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
@@ -306,7 +302,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 static void record_argument(struct list_head *args_spec,
 			    struct mcount_regs *regs)
 {
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtd.shmem_buffer);
 	struct ftrace_arg_spec *spec;
 	size_t size = 0;
 	void *ptr;
@@ -338,15 +334,15 @@ static void record_argument(struct list_head *args_spec,
 
 	assert(size < maxsize);
 
-	if (unlikely(shmem_curr->size + size > maxsize)) {
+	if (unlikely(mtd.shmem_curr->size + size > maxsize)) {
 		finish_shmem_buffer();
 		get_new_shmem_buffer();
 
-		if (shmem_curr == NULL)
+		if (mtd.shmem_curr == NULL)
 			return;
 	}
 
-	ptr = (void *)(shmem_curr->data + shmem_curr->size);
+	ptr = (void *)(mtd.shmem_curr->data + mtd.shmem_curr->size);
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
@@ -378,7 +374,7 @@ static void record_argument(struct list_head *args_spec,
 		}
 	}
 
-	shmem_curr->size += ALIGN(size, 8);
+	mtd.shmem_curr->size += ALIGN(size, 8);
 	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
 }
 
@@ -426,7 +422,7 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
 			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, false)) {
-				shmem_losts += count - 1;
+				mtd.shmem_losts += count - 1;
 				return 0;
 			}
 
