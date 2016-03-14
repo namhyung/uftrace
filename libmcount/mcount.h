@@ -81,4 +81,21 @@ enum filter_result {
 	FILTER_MATCH,
 };
 
+/*
+ * The idx and record_idx are to save current index of the rstack.
+ * In general, both will have same value but in case of cygprof
+ * functions, it may differ if filters applied.
+ *
+ * This is because how cygprof handles filters - cygprof_exit() should
+ * be called for filtered functions while mcount_exit() is not.  The
+ * mcount_record_idx is only increased/decreased when the function is
+ * not filtered out so that we can keep proper depth in the output.
+ */
+struct mcount_thread_data {
+	int				idx;
+	int				record_idx;
+	bool				recursion_guard;
+	struct mcount_ret_stack		*rstack;
+};
+
 #endif /* FTRACE_MCOUNT_H */

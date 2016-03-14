@@ -43,26 +43,14 @@ struct mcount_regs {};  /* dummy */
 # define TLS  __thread
 #endif
 
-/*
- * The mcount_rstack_idx and mcount_record_idx are to save current
- * index of mcount_rstack.  In general, both will have same value but
- * in case of cygprof functions, it may differ if filters applied.
- *
- * This is because how cygprof handles filters - cygprof_exit() should
- * be called for filtered functions while mcount_exit() is not.  The
- * mcount_record_idx is only increased/decreased when the function is
- * not filtered out so that we can keep proper depth in the output.
- */
-TLS int mcount_rstack_idx;
-TLS int mcount_record_idx;
-TLS struct mcount_ret_stack *mcount_rstack;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 uint64_t mcount_threshold;  /* nsec */
+
+TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
 static bool mcount_setup_done;
 static bool mcount_finished;
-TLS bool mcount_recursion_guard;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
@@ -416,7 +404,7 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
 
-	if (mrstack < mcount_rstack)
+	if (mrstack < mtd.rstack)
 		return 0;
 
 	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
@@ -425,7 +413,7 @@ int record_trace_data(struct mcount_ret_stack *mrstack,
 		if (!(non_written_mrstack->flags & SKIP_FLAGS))
 			count++;
 
-		while (non_written_mrstack > mcount_rstack) {
+		while (non_written_mrstack > mtd.rstack) {
 			struct mcount_ret_stack *prev = non_written_mrstack - 1;
 
 			if (prev->flags & MCOUNT_FL_WRITTEN)
@@ -570,7 +558,7 @@ void mcount_prepare(void)
 	mcount_filter.depth = mcount_depth;
 	mcount_enable_cached = mcount_enabled;
 #endif
-	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
+	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
 	prepare_shmem_buffer();
@@ -586,10 +574,10 @@ void mcount_prepare(void)
 enum filter_result mcount_entry_filter_check(unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mcount_rstack_idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+	pr_dbg3("<%d> enter %lx\n", mtd.idx, child);
 
-	pr_dbg3("<%d> enter %lx\n", mcount_rstack_idx, child);
+	if (mtd.idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtd.idx);
 
 	/* save original depth to restore at exit time */
 	mcount_filter.saved_depth = mcount_filter.depth;
@@ -661,7 +649,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 	rstack->filter_depth = mcount_filter.saved_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		mcount_record_idx++;
+		mtd.record_idx++;
 
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
@@ -694,7 +682,7 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 /* restore filter state from rstack */
 void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
-	pr_dbg3("<%d> exit  %lx\n", mcount_rstack_idx, rstack->child_ip);
+	pr_dbg3("<%d> exit  %lx\n", mtd.idx, rstack->child_ip);
 
 	if (rstack->flags & MCOUNT_FL_FILTERED)
 		mcount_filter.in_count--;
@@ -707,8 +695,8 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 	mcount_filter.depth = rstack->filter_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		if (mcount_record_idx > 0)
-			mcount_record_idx--;
+		if (mtd.record_idx > 0)
+			mtd.record_idx--;
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
@@ -722,8 +710,8 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 enum filter_result mcount_entry_filter_check(unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mcount_rstack_idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+	if (mtd.idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtd.idx);
 
 	return FILTER_IN;
 }
@@ -732,12 +720,12 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
-	mcount_record_idx++;
+	mtd.record_idx++;
 }
 
 void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 {
-	mcount_record_idx--;
+	mtd.record_idx--;
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
@@ -750,7 +738,7 @@ void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
 
 bool mcount_should_stop(void)
 {
-	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
+	return !mcount_setup_done || mcount_finished || mtd.recursion_guard;
 }
 
 __weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
@@ -777,23 +765,23 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	if (unlikely(mcount_rstack == NULL))
+	if (unlikely(mtd.rstack == NULL))
 		mcount_prepare();
 
 	filtered = mcount_entry_filter_check(child, &tr);
 	if (filtered == FILTER_OUT) {
-		mcount_recursion_guard = false;
+		mtd.recursion_guard = false;
 		return -1;
 	}
 
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
 	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
-	rstack = &mcount_rstack[mcount_rstack_idx++];
+	rstack = &mtd.rstack[mtd.idx++];
 
-	rstack->depth      = mcount_record_idx;
+	rstack->depth      = mtd.record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_loc = parent_loc;
 	rstack->parent_ip  = *parent_loc;
@@ -806,7 +794,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	*parent_loc = (unsigned long)mcount_return;
 
 	mcount_entry_filter_record(rstack, &tr, regs);
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 	return 0;
 }
 
@@ -815,9 +803,9 @@ unsigned long mcount_exit(void)
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	rstack = &mcount_rstack[mcount_rstack_idx - 1];
+	rstack = &mtd.rstack[mtd.idx - 1];
 
 	rstack->end_time = mcount_gettime();
 	mcount_exit_filter_record(rstack);
@@ -825,9 +813,10 @@ unsigned long mcount_exit(void)
 	retaddr = rstack->parent_ip;
 
 	compiler_barrier();
-	mcount_rstack_idx--;
 
-	mcount_recursion_guard = false;
+	mtd.idx--;
+	mtd.recursion_guard = false;
+
 	return retaddr;
 }
 
@@ -855,16 +844,16 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	if (unlikely(mcount_rstack == NULL))
+	if (unlikely(mtd.rstack == NULL))
 		mcount_prepare();
 
 	filtered = mcount_entry_filter_check(child, &tr);
 
-	rstack = &mcount_rstack[mcount_rstack_idx++];
+	rstack = &mtd.rstack[mtd.idx++];
 
-	rstack->depth      = mcount_record_idx;
+	rstack->depth      = mtd.record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
@@ -880,7 +869,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	mcount_entry_filter_record(rstack, &tr, NULL);
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 	return 0;
 }
 
@@ -891,9 +880,9 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_should_stop()))
 		return;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	rstack = &mcount_rstack[mcount_rstack_idx - 1];
+	rstack = &mtd.rstack[mtd.idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
@@ -901,9 +890,9 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	mcount_exit_filter_record(rstack);
 
 	compiler_barrier();
-	mcount_rstack_idx--;
 
-	mcount_recursion_guard = false;
+	mtd.idx--;
+	mtd.recursion_guard = false;
 }
 
 static void atfork_prepare_handler(void)
@@ -969,10 +958,10 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *color_str;
 	struct stat statbuf;
 
-	if (mcount_setup_done || mcount_recursion_guard)
+	if (mcount_setup_done || mtd.recursion_guard)
 		return;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
 	outfp = stdout;
 	logfp = stderr;
@@ -1069,7 +1058,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	compiler_barrier();
 
 	mcount_setup_done = true;
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 }
 
 void __visible_default mcleanup(void)
@@ -1086,22 +1075,22 @@ void __visible_default mcount_restore(void)
 {
 	int idx;
 
-	if (unlikely(mcount_rstack == NULL))
+	if (unlikely(mtd.rstack == NULL))
 		return;
 
-	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
-		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
+	for (idx = mtd.idx - 1; idx >= 0; idx--)
+		*mtd.rstack[idx].parent_loc = mtd.rstack[idx].parent_ip;
 }
 
 void __visible_default mcount_reset(void)
 {
 	int idx;
 
-	if (unlikely(mcount_rstack == NULL))
+	if (unlikely(mtd.rstack == NULL))
 		return;
 
-	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
-		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
+	for (idx = mtd.idx - 1; idx >= 0; idx--)
+		*mtd.rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

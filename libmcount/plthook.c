@@ -20,12 +20,14 @@
 # define TLS  __thread
 #endif
 
-extern TLS int mcount_rstack_idx;
-extern TLS int mcount_record_idx;
-extern TLS struct mcount_ret_stack *mcount_rstack;
+extern TLS struct mcount_thread_data mtd;
 
 extern pthread_key_t shmem_key;
-extern TLS int shmem_seqnum;
+extern
+
+
+
+TLS int shmem_seqnum;
 extern TLS struct mcount_shmem_buffer *shmem_buffer[2];
 extern TLS struct mcount_shmem_buffer *shmem_curr;
 extern TLS int shmem_losts;
@@ -33,7 +35,6 @@ extern int shmem_bufsize;
 
 extern TLS int tid;
 extern struct symtabs symtabs;
-extern TLS bool mcount_recursion_guard;
 
 extern uint64_t mcount_gettime(void);
 extern void prepare_shmem_buffer(void);
@@ -276,7 +277,7 @@ static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	/* currently, only saves a single jmpbuf */
 	jbstack->count = idx;
-	jbstack->record_idx = mcount_record_idx;
+	jbstack->record_idx = mtd.record_idx;
 	for (i = 0; i <= idx; i++) {
 		jbstack->parent[i] = rstack[i].parent_ip;
 		jbstack->child[i]  = rstack[i].child_ip;
@@ -294,12 +295,12 @@ static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
 
 	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
 
-	mcount_rstack_idx = jbstack->count + 1;
-	mcount_record_idx = jbstack->record_idx;
+	mtd.idx = jbstack->count + 1;
+	mtd.record_idx = jbstack->record_idx;
 
 	for (i = 0; i < jbstack->count + 1; i++) {
-		mcount_rstack[i].parent_ip = jbstack->parent[i];
-		mcount_rstack[i].child_ip  = jbstack->child[i];
+		mtd.rstack[i].parent_ip = jbstack->parent[i];
+		mtd.rstack[i].child_ip  = jbstack->child[i];
 	}
 
 	rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
@@ -385,9 +386,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(mcount_should_stop()))
 		return 0;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	if (unlikely(mcount_rstack == NULL))
+	if (unlikely(mtd.rstack == NULL))
 		mcount_prepare();
 
 	/*
@@ -422,9 +423,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	plthook_recursion_guard = true;
 
-	rstack = &mcount_rstack[mcount_rstack_idx++];
+	rstack = &mtd.rstack[mtd.idx++];
 
-	rstack->depth      = mcount_record_idx;
+	rstack->depth      = mtd.record_idx;
 	rstack->dyn_idx    = child_idx;
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
@@ -438,7 +439,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	*ret_addr = (unsigned long)plthook_return;
 
 	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
-		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
+		setup_jmpbuf_rstack(mtd.rstack, mtd.idx-1);
 	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
 		rstack->flags |= MCOUNT_FL_LONGJMP;
 	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
@@ -457,14 +458,14 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		while (!*resolved_addr)
 			cpu_relax();
 
-		mcount_recursion_guard = false;
+		mtd.recursion_guard = false;
 		return *resolved_addr;
 	}
 
 	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
 
 out:
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 	return 0;
 }
 
@@ -474,14 +475,14 @@ unsigned long plthook_exit(void)
 	unsigned long new_addr;
 	struct mcount_ret_stack *rstack;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
 again:
-	rstack = &mcount_rstack[--mcount_rstack_idx];
+	rstack = &mtd.rstack[--mtd.idx];
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			restore_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx+1);
+			restore_jmpbuf_rstack(mtd.rstack, mtd.idx+1);
 			goto again;
 		}
 
@@ -495,7 +496,7 @@ again:
 	dyn_idx = rstack->dyn_idx;
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {
 		pr_err_ns("<%d> invalid dynsym idx: %d\n",
-			  mcount_rstack_idx, dyn_idx);
+			  mtd.idx, dyn_idx);
 	}
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
@@ -528,7 +529,7 @@ again:
 #endif
 	}
 
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 	return rstack->parent_ip;
 }
 
