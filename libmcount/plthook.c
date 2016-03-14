@@ -33,7 +33,6 @@ extern TLS struct mcount_shmem_buffer *shmem_curr;
 extern TLS int shmem_losts;
 extern int shmem_bufsize;
 
-extern TLS int tid;
 extern struct symtabs symtabs;
 
 extern uint64_t mcount_gettime(void);
@@ -336,7 +335,7 @@ static void setup_vfork(void)
 	vfork_shmem_curr = shmem_curr;
 
 	/* setup new shmem buffer for child */
-	tid = 0;
+	mtd.tid = 0;
 	shmem_losts = 0;
 	shmem_seqnum = 0;
 	shmem_curr = NULL;
@@ -360,7 +359,7 @@ static void restore_vfork(struct mcount_ret_stack *rstack)
 		shmem_buffer[1] = vfork_shmem_buffer[1];
 		shmem_curr = vfork_shmem_curr;
 
-		tid = 0;
+		mtd.tid = 0;
 		vfork_parent = 0;
 
 		/* make parent returning from vfork() */

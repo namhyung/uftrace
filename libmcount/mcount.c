@@ -77,13 +77,12 @@ uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-TLS int tid;
 static int gettid(void)
 {
-	if (!tid)
-		tid = syscall(SYS_gettid);
+	if (!mtd.tid)
+		mtd.tid = syscall(SYS_gettid);
 
-	return tid;
+	return mtd.tid;
 }
 
 static const char *session_name(void)
@@ -903,7 +902,7 @@ static void atfork_child_handler(void)
 		.tid = getpid(),
 	};
 
-	tid = 0;
+	mtd.tid = 0;
 
 	clear_shmem_buffer();
 	prepare_shmem_buffer();

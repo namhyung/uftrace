@@ -52,13 +52,6 @@ struct mcount_ret_stack {
 	unsigned short dyn_idx;
 };
 
-struct mcount_rstack {
-	int			idx;
-	int			record_idx;
-	bool			recursion_guard;
-	struct mcount_ret_stack	*rstack;
-};
-
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);
@@ -110,6 +103,7 @@ struct filter_control {};
  * not filtered out so that we can keep proper depth in the output.
  */
 struct mcount_thread_data {
+	int				tid;
 	int				idx;
 	int				record_idx;
 	bool				recursion_guard;
