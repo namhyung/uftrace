@@ -67,6 +67,7 @@ enum shmem_buffer_flags {
 struct mcount_shmem_buffer {
 	unsigned size;
 	unsigned flag;
+	unsigned unused[2];
 	char data[];
 };
 
