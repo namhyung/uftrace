@@ -48,12 +48,10 @@ extern int record_trace_data(struct mcount_thread_data *mtdp,
 				     struct list_head *args_spec,
 				     struct mcount_regs *regs);
 
-static TLS bool plthook_recursion_guard;
 static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 unsigned long plthook_resolver_addr;
-static TLS unsigned long plthook_saved_addr;
 
 static unsigned long got_addr;
 static bool segv_handled;
@@ -405,7 +403,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	 * plthook_entry -> mcount_entry -> mcount_prepare -> xmalloc
 	 *   -> plthook_entry
 	 */
-	if (plthook_recursion_guard)
+	if (mtdp->plthook_guard)
 		goto out;
 
 	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
@@ -429,7 +427,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		skip = true;
 	}
 
-	plthook_recursion_guard = true;
+	mtdp->plthook_guard = true;
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -470,7 +468,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		return *resolved_addr;
 	}
 
-	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
+	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
 
 out:
 	mtdp->recursion_guard = false;
@@ -518,7 +516,7 @@ again:
 
 	mcount_exit_filter_record(mtdp, rstack);
 
-	plthook_recursion_guard = false;
+	mtdp->plthook_guard = false;
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 #ifndef SINGLE_THREAD
@@ -529,7 +527,7 @@ again:
 		if (!plthook_dynsym_resolved[dyn_idx]) {
 			new_addr = plthook_got_ptr[3 + dyn_idx];
 			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = plthook_saved_addr;
+			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
 
 			plthook_dynsym_addr[dyn_idx] = new_addr;
 			plthook_dynsym_resolved[dyn_idx] = true;

@@ -107,6 +107,8 @@ struct mcount_thread_data {
 	int				idx;
 	int				record_idx;
 	bool				recursion_guard;
+	bool				plthook_guard;
+	unsigned long			plthook_addr;
 	struct mcount_ret_stack		*rstack;
 	struct filter_control		filter;
 	bool				enable_cached;
