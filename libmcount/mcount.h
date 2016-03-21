@@ -93,10 +93,11 @@ struct filter_control {};
 #endif
 
 struct mcount_shmem {
-	int				seqnum;
+	unsigned			seqnum;
 	int				losts;
-	struct mcount_shmem_buffer	*buffer[2];
-	struct mcount_shmem_buffer	*curr;
+	int				curr;
+	int				nr_buf;
+	struct mcount_shmem_buffer	**buffer;
 };
 
 /*
