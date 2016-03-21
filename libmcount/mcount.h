@@ -133,6 +133,8 @@ extern TLS struct mcount_thread_data mtd;
 extern uint64_t mcount_threshold;  /* nsec */
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
+extern bool mcount_setup_done;
+extern bool mcount_finished;
 
 extern unsigned long plthook_resolver_addr;
 
@@ -142,12 +144,16 @@ extern void mcount_prepare(void);
 extern uint64_t mcount_gettime(void);
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
-extern bool mcount_should_stop(void);
 
 extern int hook_pltgot(char *exename);
 extern void plthook_setup(struct symtabs *symtabs);
 extern void setup_dynsym_indexes(struct symtabs *symtabs);
 extern void destroy_dynsym_indexes(void);
+
+static inline bool mcount_should_stop(void)
+{
+	return !mcount_setup_done || mcount_finished || mtd.recursion_guard;
+}
 
 struct ftrace_trigger;
 struct mcount_regs;

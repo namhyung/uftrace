@@ -36,13 +36,13 @@
 uint64_t mcount_threshold;  /* nsec */
 struct symtabs symtabs;
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
+bool mcount_setup_done;
+bool mcount_finished;
 
 pthread_key_t mtd_key;
 TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
-static bool mcount_setup_done;
-static bool mcount_finished;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 static char *mcount_exename;
 
@@ -721,11 +721,6 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
-
-bool mcount_should_stop(void)
-{
-	return !mcount_setup_done || mcount_finished || mtd.recursion_guard;
-}
 
 __weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 						  unsigned long *parent_loc,
