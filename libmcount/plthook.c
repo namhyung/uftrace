@@ -15,42 +15,13 @@
 #include "utils/filter.h"
 #include "utils/compiler.h"
 
-#ifdef SINGLE_THREAD
-# define TLS
-#else
-# define TLS  __thread
-#endif
-
-extern pthread_key_t mtd_key;
-extern TLS struct mcount_thread_data mtd;
-
-extern int shmem_bufsize;
-
 extern struct symtabs symtabs;
 
-extern uint64_t mcount_gettime(void);
-extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
-extern void ftrace_send_message(int type, void *data, size_t len);
-extern bool mcount_should_stop(void);
-extern void mcount_prepare(void);
-extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
-						    unsigned long child,
-						    struct ftrace_trigger *tr);
-extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
-				       struct mcount_ret_stack *rstack,
-				       struct ftrace_trigger *tr,
-				       struct mcount_regs *regs);
-extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
-				      struct mcount_ret_stack *rstack);
-extern int record_trace_data(struct mcount_thread_data *mtdp,
-				     struct mcount_ret_stack *mrstack,
-				     struct list_head *args_spec,
-				     struct mcount_regs *regs);
+unsigned long plthook_resolver_addr;
 
 static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
-unsigned long plthook_resolver_addr;
 
 static unsigned long got_addr;
 static bool segv_handled;

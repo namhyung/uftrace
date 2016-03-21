@@ -33,18 +33,9 @@
 #include "utils/filter.h"
 #include "utils/compiler.h"
 
-#ifndef mcount_regs
-struct mcount_regs {};  /* dummy */
-#endif
-
-#ifdef SINGLE_THREAD
-# define TLS
-#else
-# define TLS  __thread
-#endif
-
-static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 uint64_t mcount_threshold;  /* nsec */
+struct symtabs symtabs;
+int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 pthread_key_t mtd_key;
 TLS struct mcount_thread_data mtd;
@@ -52,6 +43,8 @@ TLS struct mcount_thread_data mtd;
 static int pfd = -1;
 static bool mcount_setup_done;
 static bool mcount_finished;
+static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
+static char *mcount_exename;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
@@ -60,18 +53,6 @@ static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
-
-struct symtabs symtabs;
-static char *mcount_exename;
-
-int shmem_bufsize = SHMEM_BUFFER_SIZE;
-
-extern void __monstartup(unsigned long low, unsigned long high);
-extern void mcount_return(void);
-extern int hook_pltgot(char *exename);
-extern void plthook_setup(struct symtabs *symtabs);
-extern void setup_dynsym_indexes(struct symtabs *symtabs);
-extern void destroy_dynsym_indexes(void);
 
 uint64_t mcount_gettime(void)
 {
