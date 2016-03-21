@@ -359,11 +359,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	mtd.recursion_guard = true;
 
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL)) {
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-		mtdp = pthread_getspecific(mtd_key);
+		mtdp = get_thread_data();
 		assert(mtdp);
 	}
 
@@ -452,7 +452,7 @@ unsigned long plthook_exit(void)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
-	mtdp = pthread_getspecific(mtd_key);
+	mtdp = get_thread_data();
 	assert(mtdp);
 
 	mtdp->recursion_guard = true;

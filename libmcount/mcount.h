@@ -120,8 +120,12 @@ struct mcount_thread_data {
 
 #ifdef SINGLE_THREAD
 # define TLS
+# define get_thread_data()  &mtd
+# define check_thread_data(mtdp)  (mtdp->rstack == NULL)
 #else
 # define TLS  __thread
+# define get_thread_data()  pthread_getspecific(mtd_key)
+# define check_thread_data(mtdp)  (mtdp == NULL)
 #endif
 
 extern TLS struct mcount_thread_data mtd;

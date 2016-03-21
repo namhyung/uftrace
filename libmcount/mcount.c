@@ -755,11 +755,11 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	mtd.recursion_guard = true;
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL)) {
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-		mtdp = pthread_getspecific(mtd_key);
+		mtdp = get_thread_data();
 		assert(mtdp);
 	}
 
@@ -797,7 +797,7 @@ unsigned long mcount_exit(void)
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
 
-	mtdp = pthread_getspecific(mtd_key);
+	mtdp = get_thread_data();
 	assert(mtdp);
 
 	mtdp->recursion_guard = true;
@@ -846,11 +846,11 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	mtd.recursion_guard = true;
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL)) {
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-		mtdp = pthread_getspecific(mtd_key);
+		mtdp = get_thread_data();
 		assert(mtdp);
 	}
 
@@ -888,11 +888,11 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mtd.recursion_guard = true;
 
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL)) {
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-		mtdp = pthread_getspecific(mtd_key);
+		mtdp = get_thread_data();
 		assert(mtdp);
 	}
 
@@ -928,11 +928,11 @@ static void atfork_child_handler(void)
 		.tid = getpid(),
 	};
 
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL)) {
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-		mtdp = pthread_getspecific(mtd_key);
+		mtdp = get_thread_data();
 		assert(mtdp);
 	}
 
@@ -1099,8 +1099,8 @@ void __visible_default mcount_restore(void)
 	int idx;
 	struct mcount_thread_data *mtdp;
 
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL))
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
 	for (idx = mtdp->idx - 1; idx >= 0; idx--)
@@ -1112,8 +1112,8 @@ void __visible_default mcount_reset(void)
 	int idx;
 	struct mcount_thread_data *mtdp;
 
-	mtdp = pthread_getspecific(mtd_key);
-	if (unlikely(mtdp == NULL))
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
 	for (idx = mtdp->idx - 1; idx >= 0; idx--)
