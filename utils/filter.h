@@ -48,7 +48,7 @@ struct ftrace_arg_spec {
 };
 
 struct ftrace_trigger {
-	unsigned long		flags;
+	enum trigger_flag	flags;
 	int			depth;
 	enum filter_mode	fmode;
 	struct list_head	*pargs;
