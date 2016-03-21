@@ -64,7 +64,6 @@ static struct rb_root mcount_triggers = RB_ROOT;
 struct symtabs symtabs;
 static char *mcount_exename;
 
-pthread_key_t shmem_key;
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 extern void __monstartup(unsigned long low, unsigned long high);
@@ -168,7 +167,6 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	/* set idx 0 as current buffer */
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 	mtdp->shmem_curr = mtdp->shmem_buffer[0];
-	pthread_setspecific(shmem_key, mtdp->shmem_curr);
 }
 
 static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
@@ -247,10 +245,8 @@ static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 	mtdp->shmem_seqnum = 0;
 }
 
-/* to be used by pthread_create_key() */
-static void shmem_dtor(void *unused)
+static void shmem_finish(struct mcount_thread_data *mtdp)
 {
-	struct mcount_thread_data *mtdp = &mtd;
 	int seq = mtdp->shmem_seqnum;
 
 	finish_shmem_buffer(mtdp);
@@ -536,9 +532,6 @@ static void mcount_init_file(void)
 		__monstartup(0, ~0);
 
 	if (pthread_key_create(&mtd_key, mtd_dtor))
-		pr_err("cannot create shmem key");
-
-	if (pthread_key_create(&shmem_key, shmem_dtor))
 		pr_err("cannot create shmem key");
 
 	if (dirname == NULL)
@@ -847,9 +840,7 @@ static void mcount_finish(void)
 {
 	mcount_finished = true;
 
-	shmem_dtor(NULL);
-	pthread_key_delete(shmem_key);
-
+	shmem_finish(&mtd);
 	mtd_dtor(&mtd);
 	pthread_key_delete(mtd_key);
 

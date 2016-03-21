@@ -24,7 +24,6 @@
 extern pthread_key_t mtd_key;
 extern TLS struct mcount_thread_data mtd;
 
-extern pthread_key_t shmem_key;
 extern int shmem_bufsize;
 
 extern struct symtabs symtabs;
