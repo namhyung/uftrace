@@ -167,9 +167,55 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 	 * consumed it.
 	 */
 	if (!(curr_buf->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
-		mtdp->shmem.losts++;
-		mtdp->shmem.curr = -1;
-		return;
+		struct mcount_shmem_buffer **new_buffer;
+		int nr_buf = mtdp->shmem.nr_buf + 1;
+		int fd = -1;
+
+		new_buffer = realloc(mtdp->shmem.buffer, sizeof(*new_buffer) * nr_buf);
+		if (new_buffer == NULL) {
+out_err:
+			free(new_buffer);
+			close(fd);
+
+			mtdp->shmem.losts++;
+			mtdp->shmem.curr = -1;
+			return;
+		}
+
+		idx = nr_buf - 1;
+
+		snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+			 session_name(), gettid(mtdp), idx);
+
+		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
+		if (fd < 0) {
+			pr_dbg("failed to open shmem buffer: %s\n", buf);
+			goto out_err;
+		}
+
+		if (ftruncate(fd, shmem_bufsize) < 0) {
+			pr_dbg("failed to resizing shmem buffer: %s\n", buf);
+			goto out_err;
+		}
+
+		curr_buf = mmap(NULL, shmem_bufsize, PROT_READ | PROT_WRITE,
+				  MAP_SHARED, fd, 0);
+		if (curr_buf == MAP_FAILED) {
+			pr_dbg("failed to mmap shmem buffer: %s\n", buf);
+			goto out_err;
+		}
+
+		/* mark it's a new buffer */
+		curr_buf->flag = SHMEM_FL_NEW;
+
+		close(fd);
+
+		mtdp->shmem.seqnum = ROUND_UP(mtdp->shmem.seqnum, nr_buf);
+		mtdp->shmem.seqnum += idx;
+
+		mtdp->shmem.nr_buf = nr_buf;
+		mtdp->shmem.buffer = new_buffer;
+		mtdp->shmem.buffer[idx] = curr_buf;
 	}
 
 	/*

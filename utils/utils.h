@@ -123,6 +123,8 @@ extern void setup_signal(void);
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
 #endif
 
+#define ROUND_UP(v, r)  (((v) + (r) - 1) / (r) * (r))
+
 #define xmalloc(sz)							\
 ({ 	void *__ptr = malloc(sz);					\
 	if (__ptr == NULL) {						\
