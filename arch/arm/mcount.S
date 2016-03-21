@@ -60,6 +60,12 @@ __gnu_mcount_nc:
 	.align 2
 mcount_return:
 	push 	{r0-r3, lr}
+
+	/* set the first argument of mcount_exit to return value */
+	/* but there's no need to set r0, and r1 since return value is */
+	/* contained in r0 and r1, and these registers are also directly used */
+	/* as the arguments to mcount_exit function */
+
 	bl 	mcount_exit
 	mov 	ip, r0
 	pop 	{r0-r3, lr}
