@@ -67,10 +67,109 @@ enum shmem_buffer_flags {
 struct mcount_shmem_buffer {
 	unsigned size;
 	unsigned flag;
+	unsigned unused[2];
 	char data[];
 };
 
 /* must be in sync with enum debug_domain (bits) */
 #define DBG_DOMAIN_STR  "TSDFfsKM"
+
+enum filter_result {
+	FILTER_NOTRACE = -1,
+	FILTER_OUT,
+	FILTER_IN,
+	FILTER_MATCH,
+};
+
+#ifndef DISABLE_MCOUNT_FILTER
+struct filter_control {
+	int in_count;
+	int out_count;
+	int depth;
+	int saved_depth;
+};
+#else
+struct filter_control {};
+#endif
+
+/*
+ * The idx and record_idx are to save current index of the rstack.
+ * In general, both will have same value but in case of cygprof
+ * functions, it may differ if filters applied.
+ *
+ * This is because how cygprof handles filters - cygprof_exit() should
+ * be called for filtered functions while mcount_exit() is not.  The
+ * mcount_record_idx is only increased/decreased when the function is
+ * not filtered out so that we can keep proper depth in the output.
+ */
+struct mcount_thread_data {
+	int				tid;
+	int				idx;
+	int				record_idx;
+	bool				recursion_guard;
+	bool				plthook_guard;
+	unsigned long			plthook_addr;
+	struct mcount_ret_stack		*rstack;
+	struct filter_control		filter;
+	bool				enable_cached;
+	int				shmem_seqnum;
+	int				shmem_losts;
+	struct mcount_shmem_buffer	*shmem_buffer[2];
+	struct mcount_shmem_buffer	*shmem_curr;
+};
+
+#ifdef SINGLE_THREAD
+# define TLS
+# define get_thread_data()  &mtd
+# define check_thread_data(mtdp)  (mtdp->rstack == NULL)
+#else
+# define TLS  __thread
+# define get_thread_data()  pthread_getspecific(mtd_key)
+# define check_thread_data(mtdp)  (mtdp == NULL)
+#endif
+
+extern TLS struct mcount_thread_data mtd;
+
+extern uint64_t mcount_threshold;  /* nsec */
+extern pthread_key_t mtd_key;
+extern int shmem_bufsize;
+extern bool mcount_setup_done;
+extern bool mcount_finished;
+
+extern unsigned long plthook_resolver_addr;
+
+extern void __monstartup(unsigned long low, unsigned long high);
+extern void mcount_return(void);
+extern void mcount_prepare(void);
+extern uint64_t mcount_gettime(void);
+extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
+extern void ftrace_send_message(int type, void *data, size_t len);
+
+extern int hook_pltgot(char *exename);
+extern void plthook_setup(struct symtabs *symtabs);
+extern void setup_dynsym_indexes(struct symtabs *symtabs);
+extern void destroy_dynsym_indexes(void);
+
+static inline bool mcount_should_stop(void)
+{
+	return !mcount_setup_done || mcount_finished || mtd.recursion_guard;
+}
+
+struct ftrace_trigger;
+struct mcount_regs;
+
+extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+						    unsigned long child,
+						    struct ftrace_trigger *tr);
+extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				       struct mcount_ret_stack *rstack,
+				       struct ftrace_trigger *tr,
+				       struct mcount_regs *regs);
+extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+				      struct mcount_ret_stack *rstack);
+extern int record_trace_data(struct mcount_thread_data *mtdp,
+				     struct mcount_ret_stack *mrstack,
+				     struct list_head *args_spec,
+				     struct mcount_regs *regs);
 
 #endif /* FTRACE_MCOUNT_H */

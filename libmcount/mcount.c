@@ -33,82 +33,40 @@
 #include "utils/filter.h"
 #include "utils/compiler.h"
 
-#ifndef mcount_regs
-struct mcount_regs {};  /* dummy */
-#endif
+uint64_t mcount_threshold;  /* nsec */
+struct symtabs symtabs;
+int shmem_bufsize = SHMEM_BUFFER_SIZE;
+bool mcount_setup_done;
+bool mcount_finished;
 
-#ifdef SINGLE_THREAD
-# define TLS
-#else
-# define TLS  __thread
-#endif
-
-/*
- * The mcount_rstack_idx and mcount_record_idx are to save current
- * index of mcount_rstack.  In general, both will have same value but
- * in case of cygprof functions, it may differ if filters applied.
- *
- * This is because how cygprof handles filters - cygprof_exit() should
- * be called for filtered functions while mcount_exit() is not.  The
- * mcount_record_idx is only increased/decreased when the function is
- * not filtered out so that we can keep proper depth in the output.
- */
-static TLS int mcount_rstack_idx;
-static TLS int mcount_record_idx;
-static TLS struct mcount_ret_stack *mcount_rstack;
-static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
-static uint64_t mcount_threshold;  /* nsec */
+pthread_key_t mtd_key;
+TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
-static bool mcount_setup_done;
-static bool mcount_finished;
-static TLS bool mcount_recursion_guard;
+static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
+static char *mcount_exename;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
 static bool mcount_enabled = true;
-static TLS bool mcount_enable_cached;
-
-struct filter_control {
-	int in_count;
-	int out_count;
-	int depth;
-	int saved_depth;
-};
-
-static TLS struct filter_control mcount_filter;
 static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
 
-static TLS bool plthook_recursion_guard;
-static unsigned long *plthook_got_ptr;
-static unsigned long *plthook_dynsym_addr;
-static bool *plthook_dynsym_resolved;
-unsigned long plthook_resolver_addr;
-static TLS unsigned long plthook_saved_addr;
-
-static struct symtabs symtabs;
-static char *mcount_exename;
-
-extern void __monstartup(unsigned long low, unsigned long high);
-extern void mcount_return(void);
-
-static uint64_t mcount_gettime(void)
+uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (uint64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
-static TLS int tid;
-static int gettid(void)
+static int gettid(struct mcount_thread_data *mtdp)
 {
-	if (!tid)
-		tid = syscall(SYS_gettid);
+	if (!mtdp->tid)
+		mtdp->tid = syscall(SYS_gettid);
 
-	return tid;
+	return mtdp->tid;
 }
 
 static const char *session_name(void)
@@ -132,7 +90,7 @@ static const char *session_name(void)
 	return session;
 }
 
-static void ftrace_send_message(int type, void *data, size_t len)
+void ftrace_send_message(int type, void *data, size_t len)
 {
 	struct ftrace_msg msg = {
 		.magic = FTRACE_MSG_MAGIC,
@@ -155,14 +113,7 @@ static void ftrace_send_message(int type, void *data, size_t len)
 
 #define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
 
-static pthread_key_t shmem_key;
-static TLS int shmem_seqnum;
-static TLS struct mcount_shmem_buffer *shmem_buffer[2];
-static TLS struct mcount_shmem_buffer *shmem_curr;
-static TLS int shmem_losts;
-static int shmem_bufsize = SHMEM_BUFFER_SIZE;
-
-static void prepare_shmem_buffer(void)
+void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	int idx, fd;
@@ -171,7 +122,7 @@ static void prepare_shmem_buffer(void)
 
 	for (idx = 1; idx >= 0; idx--) {
 		snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-			 session_name(), gettid(), idx);
+			 session_name(), gettid(mtdp), idx);
 
 		fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 		if (fd < 0)
@@ -180,40 +131,39 @@ static void prepare_shmem_buffer(void)
 		if (ftruncate(fd, shmem_bufsize) < 0)
 			pr_err("resizing shmem buffer");
 
-		shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
-					 PROT_READ | PROT_WRITE,
-					 MAP_SHARED, fd, 0);
-		if (shmem_buffer[idx] == MAP_FAILED) {
-			shmem_buffer[idx] = NULL;
+		mtdp->shmem_buffer[idx] = mmap(NULL, shmem_bufsize,
+					    PROT_READ | PROT_WRITE,
+					    MAP_SHARED, fd, 0);
+		if (mtdp->shmem_buffer[idx] == MAP_FAILED) {
+			mtdp->shmem_buffer[idx] = NULL;
 			pr_err("mmap shmem buffer");
 		}
 
 		/* mark it's a new buffer */
-		shmem_buffer[idx]->flag = SHMEM_FL_NEW;
+		mtdp->shmem_buffer[idx]->flag = SHMEM_FL_NEW;
 
 		close(fd);
 	}
 
 	/* set idx 0 as current buffer */
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
-	shmem_curr = shmem_buffer[0];
-	pthread_setspecific(shmem_key, shmem_curr);
+	mtdp->shmem_curr = mtdp->shmem_buffer[0];
 }
 
-static void get_new_shmem_buffer(void)
+static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
-	int idx = shmem_seqnum % 2;
+	int idx = mtdp->shmem_seqnum % 2;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), idx);
+		 session_name(), gettid(mtdp), idx);
 
 	/*
 	 * It's not a new buffer, check ftrace record already
 	 * consumed it.
 	 */
-	if (!(shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
-		shmem_losts++;
+	if (!(mtdp->shmem_buffer[idx]->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
+		mtdp->shmem_losts++;
 		return;
 	}
 
@@ -221,90 +171,90 @@ static void get_new_shmem_buffer(void)
 	 * Start a new buffer and clear the flags.
 	 * See record_mmap_file().
 	 */
-	__sync_fetch_and_and(&shmem_buffer[idx]->flag,
+	__sync_fetch_and_and(&mtdp->shmem_buffer[idx]->flag,
 			     ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
 
-	shmem_curr = shmem_buffer[idx];
-	shmem_curr->size = 0;
+	mtdp->shmem_curr = mtdp->shmem_buffer[idx];
+	mtdp->shmem_curr->size = 0;
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 
-	if (shmem_losts) {
-		struct ftrace_ret_stack *frstack = (void *)shmem_curr->data;
+	if (mtdp->shmem_losts) {
+		struct ftrace_ret_stack *frstack = (void *)mtdp->shmem_curr->data;
 
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
 		frstack->unused = FTRACE_UNUSED;
 		frstack->more   = 0;
-		frstack->addr   = shmem_losts;
+		frstack->addr   = mtdp->shmem_losts;
 
-		ftrace_send_message(FTRACE_MSG_LOST, &shmem_losts,
-				    sizeof(shmem_losts));
+		ftrace_send_message(FTRACE_MSG_LOST, &mtdp->shmem_losts,
+				    sizeof(mtdp->shmem_losts));
 
-		shmem_curr->size = sizeof(*frstack);
-		shmem_losts = 0;
+		mtdp->shmem_curr->size = sizeof(*frstack);
+		mtdp->shmem_losts = 0;
 	}
 }
 
-static void finish_shmem_buffer(void)
+static void finish_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[64];
-	int idx = shmem_seqnum % 2;
+	int idx = mtdp->shmem_seqnum % 2;
 
-	if (shmem_curr == NULL)
+	if (mtdp->shmem_curr == NULL)
 		return;
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(), idx);
+		 session_name(), gettid(mtdp), idx);
 
 	pr_dbg2("done buffer: [%d] %s\n", idx, buf);
 	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
 
-	shmem_curr = NULL;
-	shmem_seqnum++;
+	mtdp->shmem_curr = NULL;
+	mtdp->shmem_seqnum++;
 }
 
-static void clear_shmem_buffer(void)
+static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	pr_dbg2("releasing all shmem buffers\n");
 
-	munmap(shmem_buffer[0], shmem_bufsize);
-	munmap(shmem_buffer[1], shmem_bufsize);
+	munmap(mtdp->shmem_buffer[0], shmem_bufsize);
+	munmap(mtdp->shmem_buffer[1], shmem_bufsize);
 
-	shmem_buffer[0] = shmem_buffer[1] = NULL;
-	shmem_seqnum = 0;
+	mtdp->shmem_buffer[0] = mtdp->shmem_buffer[1] = NULL;
+	mtdp->shmem_seqnum = 0;
 }
 
-/* to be used by pthread_create_key() */
-static void shmem_dtor(void *unused)
+static void shmem_finish(struct mcount_thread_data *mtdp)
 {
-	int seq = shmem_seqnum;
+	int seq = mtdp->shmem_seqnum;
 
-	finish_shmem_buffer();
+	finish_shmem_buffer(mtdp);
 	/* force update seqnum to call finish on both buffer */
-	if (seq == shmem_seqnum)
-		shmem_seqnum++;
-	shmem_curr = shmem_buffer[shmem_seqnum % 2];
-	finish_shmem_buffer();
+	if (seq == mtdp->shmem_seqnum)
+		mtdp->shmem_seqnum++;
+	mtdp->shmem_curr = mtdp->shmem_buffer[mtdp->shmem_seqnum % 2];
+	finish_shmem_buffer(mtdp);
 
-	clear_shmem_buffer();
+	clear_shmem_buffer(mtdp);
 }
 
-static int record_ret_stack(enum ftrace_ret_stack_type type,
+static int record_ret_stack(struct mcount_thread_data *mtdp,
+			    enum ftrace_ret_stack_type type,
 			    struct mcount_ret_stack *mrstack, bool more)
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtdp->shmem_buffer);
 
-	if (unlikely(shmem_curr == NULL ||
-		     shmem_curr->size + sizeof(*frstack) > maxsize)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	if (unlikely(mtdp->shmem_curr == NULL ||
+		     mtdp->shmem_curr->size + sizeof(*frstack) > maxsize)) {
+		finish_shmem_buffer(mtdp);
+		get_new_shmem_buffer(mtdp);
 
-		if (shmem_curr == NULL) {
-			shmem_losts++;
+		if (mtdp->shmem_curr == NULL) {
+			mtdp->shmem_losts++;
 			return -1;
 		}
 	}
@@ -312,7 +262,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	if (type == FTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	frstack = (void *)(shmem_curr->data + shmem_curr->size);
+	frstack = (void *)(mtdp->shmem_curr->data + mtdp->shmem_curr->size);
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
@@ -321,7 +271,7 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
-	shmem_curr->size += sizeof(*frstack);
+	mtdp->shmem_curr->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
@@ -329,10 +279,11 @@ static int record_ret_stack(enum ftrace_ret_stack_type type,
 	return 0;
 }
 
-static void record_argument(struct list_head *args_spec,
+static void record_argument(struct mcount_thread_data *mtdp,
+			    struct list_head *args_spec,
 			    struct mcount_regs *regs)
 {
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(*shmem_buffer);
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**mtdp->shmem_buffer);
 	struct ftrace_arg_spec *spec;
 	size_t size = 0;
 	void *ptr;
@@ -364,15 +315,15 @@ static void record_argument(struct list_head *args_spec,
 
 	assert(size < maxsize);
 
-	if (unlikely(shmem_curr->size + size > maxsize)) {
-		finish_shmem_buffer();
-		get_new_shmem_buffer();
+	if (unlikely(mtdp->shmem_curr->size + size > maxsize)) {
+		finish_shmem_buffer(mtdp);
+		get_new_shmem_buffer(mtdp);
 
-		if (shmem_curr == NULL)
+		if (mtdp->shmem_curr == NULL)
 			return;
 	}
 
-	ptr = (void *)(shmem_curr->data + shmem_curr->size);
+	ptr = (void *)(mtdp->shmem_curr->data + mtdp->shmem_curr->size);
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
@@ -404,13 +355,14 @@ static void record_argument(struct list_head *args_spec,
 		}
 	}
 
-	shmem_curr->size += ALIGN(size, 8);
+	mtdp->shmem_curr->size += ALIGN(size, 8);
 	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
 }
 
-static int record_trace_data(struct mcount_ret_stack *mrstack,
-			     struct list_head *args_spec,
-			     struct mcount_regs *regs)
+int record_trace_data(struct mcount_thread_data *mtdp,
+		      struct mcount_ret_stack *mrstack,
+		      struct list_head *args_spec,
+		      struct mcount_regs *regs)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
@@ -419,7 +371,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack,
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
 
-	if (mrstack < mcount_rstack)
+	if (mrstack < mtdp->rstack)
 		return 0;
 
 	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
@@ -428,7 +380,7 @@ static int record_trace_data(struct mcount_ret_stack *mrstack,
 		if (!(non_written_mrstack->flags & SKIP_FLAGS))
 			count++;
 
-		while (non_written_mrstack > mcount_rstack) {
+		while (non_written_mrstack > mtdp->rstack) {
 			struct mcount_ret_stack *prev = non_written_mrstack - 1;
 
 			if (prev->flags & MCOUNT_FL_WRITTEN)
@@ -447,12 +399,13 @@ static int record_trace_data(struct mcount_ret_stack *mrstack,
 	size = count * sizeof(*frstack);
 
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
-		gettid(), size, count);
+		gettid(mtdp), size, count);
 
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
-			if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, false)) {
-				shmem_losts += count - 1;
+			if (record_ret_stack(mtdp, FTRACE_ENTRY,
+					     non_written_mrstack, false)) {
+				mtdp->shmem_losts += count - 1;
 				return 0;
 			}
 
@@ -468,17 +421,17 @@ static int record_trace_data(struct mcount_ret_stack *mrstack,
 		if (regs && args_spec && !list_empty(args_spec))
 			more = true;
 
-		if (record_ret_stack(FTRACE_ENTRY, non_written_mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack, more))
 			return 0;
 
 		size -= sizeof(*frstack);
 
 		if (more)
-			record_argument(args_spec, regs);
+			record_argument(mtdp, args_spec, regs);
 	}
 
 	if (mrstack->end_time) {
-		if (record_ret_stack(FTRACE_EXIT, mrstack, false))
+		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, false))
 			return 0;
 
 		size -= sizeof(*frstack);
@@ -512,13 +465,13 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 	close(ofd);
 }
 
-static void send_session_msg(const char *sess_id)
+static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
 	struct ftrace_msg_sess sess = {
 		.task = {
 			.time = mcount_gettime(),
 			.pid = getpid(),
-			.tid = gettid(),
+			.tid = gettid(mtdp),
 		},
 		.namelen = strlen(mcount_exename),
 	};
@@ -543,6 +496,14 @@ static void send_session_msg(const char *sess_id)
 		pr_err("write tid info failed");
 }
 
+/* to be used by pthread_create_key() */
+static void mtd_dtor(void *arg)
+{
+	struct mcount_thread_data *mtdp = arg;
+
+	free(mtdp->rstack);
+}
+
 static void mcount_init_file(void)
 {
 	char *dirname = getenv("FTRACE_DIR");
@@ -551,32 +512,34 @@ static void mcount_init_file(void)
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
 
-	if (pthread_key_create(&shmem_key, shmem_dtor))
+	if (pthread_key_create(&mtd_key, mtd_dtor))
 		pr_err("cannot create shmem key");
 
 	if (dirname == NULL)
 		dirname = FTRACE_DIR_NAME;
 
-	send_session_msg(session_name());
+	send_session_msg(&mtd, session_name());
 	record_proc_maps(dirname, session_name());
 }
 
-static void mcount_prepare(void)
+void mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 	struct ftrace_msg_task tmsg = {
 		.pid = getpid(),
-		.tid = gettid(),
+		.tid = gettid(&mtd),
 	};
 
 #ifndef DISABLE_MCOUNT_FILTER
-	mcount_filter.depth = mcount_depth;
-	mcount_enable_cached = mcount_enabled;
+	mtd.filter.depth  = mcount_depth;
+	mtd.enable_cached = mcount_enabled;
 #endif
-	mcount_rstack = xmalloc(mcount_rstack_max * sizeof(*mcount_rstack));
+	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
-	prepare_shmem_buffer();
+	prepare_shmem_buffer(&mtd);
+
+	pthread_setspecific(mtd_key, &mtd);
 
 	/* time should be get after session message sent */
 	tmsg.time = mcount_gettime();
@@ -584,54 +547,48 @@ static void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
-enum filter_result {
-	FILTER_NOTRACE = -1,
-	FILTER_OUT,
-	FILTER_IN,
-	FILTER_MATCH,
-};
-
 #ifndef DISABLE_MCOUNT_FILTER
 /* update filter state from trigger result */
-static __inline__
-enum filter_result mcount_entry_filter_check(unsigned long child,
+enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+					     unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mcount_rstack_idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 
-	pr_dbg3("<%d> enter %lx\n", mcount_rstack_idx, child);
+	if (mtdp->idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
 
 	/* save original depth to restore at exit time */
-	mcount_filter.saved_depth = mcount_filter.depth;
+	mtdp->filter.saved_depth = mtdp->filter.depth;
 
 	/* already filtered by notrace option */
-	if (mcount_filter.out_count > 0)
+	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
 	ftrace_match_filter(&mcount_triggers, child, tr);
 
 	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
-		tr->flags, mcount_filter_mode, mcount_filter.in_count, mcount_filter.out_count);
+		tr->flags, mcount_filter_mode, mtdp->filter.in_count,
+		mtdp->filter.out_count);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
-			mcount_filter.in_count++;
+			mtdp->filter.in_count++;
 		else if (tr->fmode == FILTER_MODE_OUT)
-			mcount_filter.out_count++;
+			mtdp->filter.out_count++;
 
 		/* apply default filter depth when match */
-		mcount_filter.depth = mcount_depth;
+		mtdp->filter.depth = mcount_depth;
 	}
 	else {
 		/* not matched by filter */
 		if (mcount_filter_mode == FILTER_MODE_IN &&
-		    mcount_filter.in_count == 0)
+		    mtdp->filter.in_count == 0)
 			return FILTER_OUT;
 	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
-		mcount_filter.depth = tr->depth;
+		mtdp->filter.depth = tr->depth;
 
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		mcount_enabled = true;
@@ -646,16 +603,16 @@ enum filter_result mcount_entry_filter_check(unsigned long child,
 	 * it can be < 0 in case it is called from plthook_entry()
 	 * which in turn is called libcygprof.so.
 	 */
-	if (mcount_filter.depth <= 0)
+	if (mtdp->filter.depth <= 0)
 		return FILTER_OUT;
 
-	mcount_filter.depth--;
+	mtdp->filter.depth--;
 	return FILTER_IN;
 }
 
 /* save current filter state to rstack */
-static __inline__
-void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
+void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
@@ -666,29 +623,29 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			rstack->flags |= MCOUNT_FL_NOTRACE;
 	}
 
-	if (mcount_filter.out_count > 0 ||
-	    (mcount_filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
+	if (mtdp->filter.out_count > 0 ||
+	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
-	rstack->filter_depth = mcount_filter.saved_depth;
+	rstack->filter_depth = mtdp->filter.saved_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		mcount_record_idx++;
+		mtdp->record_idx++;
 
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			record_trace_data(rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
 
-		if (mcount_enable_cached != mcount_enabled) {
+		if (mtdp->enable_cached != mcount_enabled) {
 			/*
 			 * Flush existing rstack when mcount_enabled is off
 			 * (i.e. disabled).  Note that changing to enabled is
@@ -696,78 +653,74 @@ void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(rstack, NULL, regs);
+				record_trace_data(mtdp, rstack, NULL, regs);
 
-			mcount_enable_cached = mcount_enabled;
+			mtdp->enable_cached = mcount_enabled;
 		}
 	}
 }
 
 /* restore filter state from rstack */
-static __inline__
-void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
+void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+			       struct mcount_ret_stack *rstack)
 {
-	pr_dbg3("<%d> exit  %lx\n", mcount_rstack_idx, rstack->child_ip);
+	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
 	if (rstack->flags & MCOUNT_FL_FILTERED)
-		mcount_filter.in_count--;
+		mtdp->filter.in_count--;
 	else if (rstack->flags & MCOUNT_FL_NOTRACE)
-		mcount_filter.out_count--;
+		mtdp->filter.out_count--;
 
 	if (rstack->flags & MCOUNT_FL_RECOVER)
 		mcount_reset();
 
-	mcount_filter.depth = rstack->filter_depth;
+	mtdp->filter.depth = rstack->filter_depth;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
-		if (mcount_record_idx > 0)
-			mcount_record_idx--;
+		if (mtdp->record_idx > 0)
+			mtdp->record_idx--;
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
-			if (mcount_enabled && record_trace_data(rstack, NULL, NULL) < 0)
+			if (mcount_enabled &&
+			    record_trace_data(mtdp, rstack, NULL, NULL) < 0)
 				pr_err("error during record");
 		}
 	}
 }
 
 #else /* DISABLE_MCOUNT_FILTER */
-static __inline__
-enum filter_result mcount_entry_filter_check(unsigned long child,
+enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
+					     unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mcount_rstack_idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mcount_rstack_idx);
+	if (mtdp->idx >= mcount_rstack_max)
+		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
 
 	return FILTER_IN;
 }
 
-static __inline__
-void mcount_entry_filter_record(struct mcount_ret_stack *rstack,
+void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
+				struct mcount_ret_stack *rstack,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
-	mcount_record_idx++;
+	mtdp->record_idx++;
 }
 
-static __inline__
-void mcount_exit_filter_record(struct mcount_ret_stack *rstack)
+void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
+			       struct mcount_ret_stack *rstack)
 {
-	mcount_record_idx--;
+	mtdp->record_idx--;
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(rstack, NULL, NULL) < 0)
+		if (record_trace_data(mtdp, rstack, NULL, NULL) < 0)
 			pr_err("error during record");
 	}
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
-
-static bool mcount_should_stop(void)
-{
-	return !mcount_setup_done || mcount_finished || mcount_recursion_guard;
-}
 
 __weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 						  unsigned long *parent_loc,
@@ -780,6 +733,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		 struct mcount_regs *regs)
 {
 	enum filter_result filtered;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
@@ -793,23 +747,29 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	if (unlikely(mcount_rstack == NULL))
+	/* Access the mtd through TSD pointer to reduce TLS overhead */
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-	filtered = mcount_entry_filter_check(child, &tr);
+		mtdp = get_thread_data();
+		assert(mtdp);
+	}
+
+	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered == FILTER_OUT) {
-		mcount_recursion_guard = false;
+		mtdp->recursion_guard = false;
 		return -1;
 	}
 
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
 	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
-	rstack = &mcount_rstack[mcount_rstack_idx++];
+	rstack = &mtdp->rstack[mtdp->idx++];
 
-	rstack->depth      = mcount_record_idx;
+	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_loc = parent_loc;
 	rstack->parent_ip  = *parent_loc;
@@ -821,29 +781,34 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	/* hijack the return address */
 	*parent_loc = (unsigned long)mcount_return;
 
-	mcount_entry_filter_record(rstack, &tr, regs);
-	mcount_recursion_guard = false;
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
+	mtdp->recursion_guard = false;
 	return 0;
 }
 
 unsigned long mcount_exit(void)
 {
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	unsigned long retaddr;
 
-	mcount_recursion_guard = true;
+	mtdp = get_thread_data();
+	assert(mtdp);
 
-	rstack = &mcount_rstack[mcount_rstack_idx - 1];
+	mtdp->recursion_guard = true;
+
+	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	rstack->end_time = mcount_gettime();
-	mcount_exit_filter_record(rstack);
+	mcount_exit_filter_record(mtdp, rstack);
 
 	retaddr = rstack->parent_ip;
 
 	compiler_barrier();
-	mcount_rstack_idx--;
 
-	mcount_recursion_guard = false;
+	mtdp->idx--;
+	mtdp->recursion_guard = false;
+
 	return retaddr;
 }
 
@@ -851,8 +816,9 @@ static void mcount_finish(void)
 {
 	mcount_finished = true;
 
-	shmem_dtor(NULL);
-	pthread_key_delete(shmem_key);
+	shmem_finish(&mtd);
+	mtd_dtor(&mtd);
+	pthread_key_delete(mtd_key);
 
 	if (pfd != -1) {
 		close(pfd);
@@ -863,6 +829,7 @@ static void mcount_finish(void)
 static int cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	struct ftrace_trigger tr = {
 		.flags = 0,
@@ -871,16 +838,22 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	if (unlikely(mcount_rstack == NULL))
+	/* Access the mtd through TSD pointer to reduce TLS overhead */
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-	filtered = mcount_entry_filter_check(child, &tr);
+		mtdp = get_thread_data();
+		assert(mtdp);
+	}
 
-	rstack = &mcount_rstack[mcount_rstack_idx++];
+	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
-	rstack->depth      = mcount_record_idx;
+	rstack = &mtdp->rstack[mtdp->idx++];
+
+	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
@@ -895,506 +868,40 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		rstack->flags      = MCOUNT_FL_NORECORD;
 	}
 
-	mcount_entry_filter_record(rstack, &tr, NULL);
-	mcount_recursion_guard = false;
+	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
+	mtdp->recursion_guard = false;
 	return 0;
 }
 
 static void cygprof_exit(unsigned long parent, unsigned long child)
 {
+	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
 	if (unlikely(mcount_should_stop()))
 		return;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
-	rstack = &mcount_rstack[mcount_rstack_idx - 1];
-
-	if (!(rstack->flags & MCOUNT_FL_NORECORD))
-		rstack->end_time = mcount_gettime();
-
-	mcount_exit_filter_record(rstack);
-
-	compiler_barrier();
-	mcount_rstack_idx--;
-
-	mcount_recursion_guard = false;
-}
-
-static unsigned long got_addr;
-static bool segv_handled;
-
-void segv_handler(int sig, siginfo_t *si, void *ctx)
-{
-	if (si->si_code == SEGV_ACCERR) {
-		mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
-			 PROT_WRITE);
-		segv_handled = true;
-	} else {
-		pr_err_ns("mcount: invalid memory access.. exiting.\n");
-	}
-}
-
-extern void __weak plt_hooker(void);
-
-static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
-{
-	size_t i;
-	struct sigaction sa, old_sa;
-
-	for (i = 0; i < nr_dyn; i++) {
-		GElf_Dyn dyn;
-
-		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
-			return -1;
-
-		if (dyn.d_tag != DT_PLTGOT)
-			continue;
-
-		got_addr = (unsigned long)dyn.d_un.d_val;
-		plthook_got_ptr = (void *)got_addr;
-		plthook_resolver_addr = plthook_got_ptr[2];
-
-		/*
-		 * The GOT region is write-protected on some systems.
-		 * In that case, we need to use mprotect() to overwrite
-		 * the address of resolver function.  So install signal
-		 * handler to catch such cases.
-		 */
-		sa.sa_sigaction = segv_handler;
-		sa.sa_flags = SA_SIGINFO;
-		sigfillset(&sa.sa_mask);
-		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-			pr_dbg("error during install sig handler\n");
-			return -1;
-		}
-
-		plthook_got_ptr[2] = (unsigned long)plt_hooker;
-
-		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-			pr_dbg("error during recover sig handler\n");
-			return -1;
-		}
-
-		if (segv_handled) {
-			mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
-				 PROT_READ);
-			segv_handled = false;
-		}
-
-		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
-			plthook_got_ptr, plthook_resolver_addr);
-
-		break;
-	}
-	return 0;
-}
-
-static int hook_pltgot(void)
-{
-	int fd;
-	int ret = -1;
-	Elf *elf;
-	GElf_Ehdr ehdr;
-	Elf_Scn *sec;
-	GElf_Shdr shdr;
-	Elf_Data *data;
-	size_t shstr_idx;
-	size_t i;
-
-	pr_dbg2("opening executable image: %s\n", mcount_exename);
-
-	fd = open(mcount_exename, O_RDONLY);
-	if (fd < 0)
-		return -1;
-
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	for (i = 0; i < ehdr.e_phnum; i++) {
-		GElf_Phdr phdr;
-
-		if (gelf_getphdr(elf, i, &phdr) == NULL)
-			goto elf_error;
-
-		if (phdr.p_type != PT_DYNAMIC)
-			continue;
-
-		sec = gelf_offscn(elf, phdr.p_offset);
-
-		if (!sec || gelf_getshdr(sec, &shdr) == NULL)
-			continue;
-
-		data = elf_getdata(sec, NULL);
-		if (data == NULL)
-			goto elf_error;
-
-		if (find_got(data, shdr.sh_size / shdr.sh_entsize) < 0)
-			goto elf_error;
-	}
-	ret = 0;
-
-out:
-	elf_end(elf);
-	close(fd);
-
-	return ret;
-
-elf_error:
-	pr_dbg("%s\n", elf_errmsg(elf_errno()));
-
-	goto out;
-}
-
-/* functions should skip PLT hooking */
-static const char *skip_syms[] = {
-	"mcount",
-	"__fentry__",
-	"__gnu_mcount_nc",
-	"__cyg_profile_func_enter",
-	"__cyg_profile_func_exit",
-	"_mcleanup",
-	"mcount_restore",
-	"mcount_reset",
-	"__libc_start_main",
-};
-
-static struct dynsym_idxlist skip_idxlist;
-
-static const char *setjmp_syms[] = {
-	"setjmp",
-	"_setjmp",
-	"sigsetjmp",
-	"__sigsetjmp",
-};
-
-static struct dynsym_idxlist setjmp_idxlist;
-
-static const char *longjmp_syms[] = {
-	"longjmp",
-	"siglongjmp",
-	"__longjmp_chk",
-};
-
-static struct dynsym_idxlist longjmp_idxlist;
-
-static const char *vfork_syms[] = {
-	"vfork",
-};
-
-static struct dynsym_idxlist vfork_idxlist;
-
-static const char *flush_syms[] = {
-	"fork", "vfork", "daemon", "exit",
-	"longjmp", "siglongjmp", "__longjmp_chk",
-	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
-};
-
-static struct dynsym_idxlist flush_idxlist;
-
-static void setup_dynsym_indexes(struct symtabs *symtabs)
-{
-	build_dynsym_idxlist(symtabs, &skip_idxlist,
-			     skip_syms, ARRAY_SIZE(skip_syms));
-	build_dynsym_idxlist(symtabs, &setjmp_idxlist,
-			     setjmp_syms, ARRAY_SIZE(setjmp_syms));
-	build_dynsym_idxlist(symtabs, &longjmp_idxlist,
-			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
-	build_dynsym_idxlist(symtabs, &vfork_idxlist,
-			     vfork_syms, ARRAY_SIZE(vfork_syms));
-	build_dynsym_idxlist(symtabs, &flush_idxlist,
-			     flush_syms, ARRAY_SIZE(flush_syms));
-}
-
-static void destroy_dynsym_indexes(void)
-{
-	destroy_dynsym_idxlist(&skip_idxlist);
-	destroy_dynsym_idxlist(&setjmp_idxlist);
-	destroy_dynsym_idxlist(&longjmp_idxlist);
-	destroy_dynsym_idxlist(&vfork_idxlist);
-	destroy_dynsym_idxlist(&flush_idxlist);
-}
-
-struct mcount_jmpbuf_rstack {
-	int count;
-	int record_idx;
-	unsigned long parent[MCOUNT_RSTACK_MAX];
-	unsigned long child[MCOUNT_RSTACK_MAX];
-};
-
-static struct mcount_jmpbuf_rstack setjmp_rstack;
-
-static void setup_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
-{
-	int i;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
-
-	pr_dbg2("setup jmpbuf rstack: %d\n", idx);
-
-	/* currently, only saves a single jmpbuf */
-	jbstack->count = idx;
-	jbstack->record_idx = mcount_record_idx;
-	for (i = 0; i <= idx; i++) {
-		jbstack->parent[i] = rstack[i].parent_ip;
-		jbstack->child[i]  = rstack[i].child_ip;
-	}
-
-	rstack[idx].flags |= MCOUNT_FL_SETJMP;
-}
-
-static void restore_jmpbuf_rstack(struct mcount_ret_stack *rstack, int idx)
-{
-	int i, dyn_idx;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
-
-	dyn_idx = rstack[idx].dyn_idx;
-
-	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
-
-	mcount_rstack_idx = jbstack->count + 1;
-	mcount_record_idx = jbstack->record_idx;
-
-	for (i = 0; i < jbstack->count + 1; i++) {
-		mcount_rstack[i].parent_ip = jbstack->parent[i];
-		mcount_rstack[i].child_ip  = jbstack->child[i];
-	}
-
-	rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
-
-	/* to avoid check in plthook_exit() */
-	rstack[jbstack->count].dyn_idx = dyn_idx;
-}
-
-/* it's crazy to call vfork() concurrently */
-static int vfork_parent;
-static TLS int vfork_shmem_seqnum;
-static TLS struct mcount_shmem_buffer *vfork_shmem_buffer[2];
-static TLS struct mcount_shmem_buffer *vfork_shmem_curr;
-
-static void prepare_vfork(void)
-{
-	/* save original parent pid */
-	vfork_parent = getpid();
-}
-
-/* this function will be called in child */
-static void setup_vfork(void)
-{
-	struct ftrace_msg_task tmsg = {
-		.pid = getppid(),
-		.tid = getpid(),
-		.time = mcount_gettime(),
-	};
-
-	vfork_shmem_seqnum = shmem_seqnum;
-	vfork_shmem_buffer[0] = shmem_buffer[0];
-	vfork_shmem_buffer[1] = shmem_buffer[1];
-	vfork_shmem_curr = shmem_curr;
-
-	/* setup new shmem buffer for child */
-	tid = 0;
-	shmem_losts = 0;
-	shmem_seqnum = 0;
-	shmem_curr = NULL;
-	prepare_shmem_buffer();
-
-	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
-}
-
-/* this function detects whether child finished */
-static void restore_vfork(struct mcount_ret_stack *rstack)
-{
-	/*
-	 * On vfork, parent sleeps until child exec'ed or exited.
-	 * So if it sees parent pid, that means child was done.
-	 */
-	if (getpid() == vfork_parent) {
-		struct sym *sym;
-
-		shmem_seqnum = vfork_shmem_seqnum;
-		shmem_buffer[0] = vfork_shmem_buffer[0];
-		shmem_buffer[1] = vfork_shmem_buffer[1];
-		shmem_curr = vfork_shmem_curr;
-
-		tid = 0;
-		vfork_parent = 0;
-
-		/* make parent returning from vfork() */
-		sym = find_dynsym(&symtabs, vfork_idxlist.idx[0]);
-		if (sym)
-			rstack->child_ip = sym->addr;
-	}
-}
-
-extern unsigned long plthook_return(void);
-
-unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
-			    unsigned long module_id, struct mcount_regs *regs)
-{
-	struct sym *sym;
-	unsigned long child_ip;
-	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
-	bool skip = false;
-
-	if (unlikely(mcount_should_stop()))
-		return 0;
-
-	mcount_recursion_guard = true;
-
-	if (unlikely(mcount_rstack == NULL))
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
 		mcount_prepare();
 
-	/*
-	 * There was a recursion like below:
-	 *
-	 * plthook_entry -> mcount_entry -> mcount_prepare -> xmalloc
-	 *   -> plthook_entry
-	 */
-	if (plthook_recursion_guard)
-		goto out;
-
-	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
-		goto out;
-
-	sym = find_dynsym(&symtabs, child_idx);
-	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
-
-	child_ip = sym ? sym->addr : 0;
-	if (child_ip == 0) {
-		pr_err_ns("invalid function idx found! (idx: %d, %#lx)\n",
-			  (int) child_idx, child_idx);
+		mtdp = get_thread_data();
+		assert(mtdp);
 	}
 
-	if (mcount_entry_filter_check(sym->addr, &tr) == FILTER_OUT) {
-		/*
-		 * Skip recording but still hook the return address,
-		 * otherwise it cannot trace further invocations due to
-		 * the overwritten PLT entry by the resolver function.
-		 */
-		skip = true;
-	}
-
-	plthook_recursion_guard = true;
-
-	rstack = &mcount_rstack[mcount_rstack_idx++];
-
-	rstack->depth      = mcount_record_idx;
-	rstack->dyn_idx    = child_idx;
-	rstack->parent_loc = ret_addr;
-	rstack->parent_ip  = *ret_addr;
-	rstack->child_ip   = child_ip;
-	rstack->start_time = skip ? 0 : mcount_gettime();
-	rstack->end_time   = 0;
-	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
-
-	mcount_entry_filter_record(rstack, &tr, regs);
-
-	*ret_addr = (unsigned long)plthook_return;
-
-	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
-		setup_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx-1);
-	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
-		rstack->flags |= MCOUNT_FL_LONGJMP;
-	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
-		rstack->flags |= MCOUNT_FL_VFORK;
-		prepare_vfork();
-	}
-
-	/* force flush rstack on some special functions */
-	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
-		record_trace_data(rstack, NULL, regs);
-
-	if (plthook_dynsym_resolved[child_idx]) {
-		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
-
-		/* ensure resolved address was set */
-		while (!*resolved_addr)
-			cpu_relax();
-
-		mcount_recursion_guard = false;
-		return *resolved_addr;
-	}
-
-	plthook_saved_addr = plthook_got_ptr[3 + child_idx];
-
-out:
-	mcount_recursion_guard = false;
-	return 0;
-}
-
-unsigned long plthook_exit(void)
-{
-	int dyn_idx;
-	unsigned long new_addr;
-	struct mcount_ret_stack *rstack;
-
-	mcount_recursion_guard = true;
-
-again:
-	rstack = &mcount_rstack[--mcount_rstack_idx];
-
-	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
-		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			restore_jmpbuf_rstack(mcount_rstack, mcount_rstack_idx+1);
-			goto again;
-		}
-
-		if (rstack->flags & MCOUNT_FL_VFORK)
-			setup_vfork();
-	}
-
-	if (unlikely(vfork_parent))
-		restore_vfork(rstack);
-
-	dyn_idx = rstack->dyn_idx;
-	if (dyn_idx == MCOUNT_INVALID_DYNIDX) {
-		pr_err_ns("<%d> invalid dynsym idx: %d\n",
-			  mcount_rstack_idx, dyn_idx);
-	}
-
-	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
-		plthook_dynsym_addr[dyn_idx],
-		find_dynsym(&symtabs, dyn_idx)->name);
+	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(rstack);
+	mcount_exit_filter_record(mtdp, rstack);
 
-	plthook_recursion_guard = false;
+	compiler_barrier();
 
-	if (!plthook_dynsym_resolved[dyn_idx]) {
-#ifndef SINGLE_THREAD
-		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-		pthread_mutex_lock(&resolver_mutex);
-#endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			new_addr = plthook_got_ptr[3 + dyn_idx];
-			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = plthook_saved_addr;
-
-			plthook_dynsym_addr[dyn_idx] = new_addr;
-			plthook_dynsym_resolved[dyn_idx] = true;
-		}
-#ifndef SINGLE_THREAD
-		pthread_mutex_unlock(&resolver_mutex);
-#endif
-	}
-
-	mcount_recursion_guard = false;
-	return rstack->parent_ip;
+	mtdp->idx--;
+	mtdp->recursion_guard = false;
 }
 
 static void atfork_prepare_handler(void)
@@ -1409,16 +916,25 @@ static void atfork_prepare_handler(void)
 
 static void atfork_child_handler(void)
 {
+	struct mcount_thread_data *mtdp;
 	struct ftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getppid(),
 		.tid = getpid(),
 	};
 
-	tid = 0;
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
+		mcount_prepare();
 
-	clear_shmem_buffer();
-	prepare_shmem_buffer();
+		mtdp = get_thread_data();
+		assert(mtdp);
+	}
+
+	mtd.tid = 0;
+
+	clear_shmem_buffer(&mtd);
+	prepare_shmem_buffer(&mtd);
 
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 }
@@ -1460,10 +976,10 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *color_str;
 	struct stat statbuf;
 
-	if (mcount_setup_done || mcount_recursion_guard)
+	if (mcount_setup_done || mtd.recursion_guard)
 		return;
 
-	mcount_recursion_guard = true;
+	mtd.recursion_guard = true;
 
 	outfp = stdout;
 	logfp = stderr;
@@ -1549,14 +1065,10 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 				      &mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 
-		if (hook_pltgot() < 0)
+		if (hook_pltgot(mcount_exename) < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
-		else {
-			plthook_dynsym_resolved = xcalloc(sizeof(bool),
-							  count_dynsym(&symtabs));
-			plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
-						      count_dynsym(&symtabs));
-		}
+		else
+			plthook_setup(&symtabs);
 	}
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
@@ -1564,7 +1076,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	compiler_barrier();
 
 	mcount_setup_done = true;
-	mcount_recursion_guard = false;
+	mtd.recursion_guard = false;
 }
 
 void __visible_default mcleanup(void)
@@ -1580,23 +1092,27 @@ void __visible_default mcleanup(void)
 void __visible_default mcount_restore(void)
 {
 	int idx;
+	struct mcount_thread_data *mtdp;
 
-	if (unlikely(mcount_rstack == NULL))
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
-		*mcount_rstack[idx].parent_loc = mcount_rstack[idx].parent_ip;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
 }
 
 void __visible_default mcount_reset(void)
 {
 	int idx;
+	struct mcount_thread_data *mtdp;
 
-	if (unlikely(mcount_rstack == NULL))
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	for (idx = mcount_rstack_idx - 1; idx >= 0; idx--)
-		*mcount_rstack[idx].parent_loc = (unsigned long)mcount_return;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = (unsigned long)mcount_return;
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

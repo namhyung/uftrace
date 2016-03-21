@@ -104,6 +104,7 @@ LIBMCOUNT_FAST_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
 LIBMCOUNT_FAST_OBJS := $(objdir)/libmcount/mcount-fast.op
+LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/plthook-fast.op
 LIBMCOUNT_FAST_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SRCS))
 
 LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
@@ -111,23 +112,32 @@ LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
 LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
+LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/plthook-single.op
 LIBMCOUNT_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SINGLE_SRCS))
 
 LIBMCOUNT_FAST_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
 LIBMCOUNT_FAST_SINGLE_OBJS := $(objdir)/libmcount/mcount-fast-single.op
+LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/plthook-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SINGLE_SRCS))
 
 LIBMCOUNT_MCOUNT_OBJS := $(patsubst libmcount/lib%.so,$(objdir)/libmcount/%.op,$(LIBMCOUNT_TARGETS))
+LIBMCOUNT_PLTHOOK_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/plthook%.op,$(LIBMCOUNT_TARGETS))
+
+LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_OBJS))
+LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
 
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/ftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/ftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
+CFLAGS_$(objdir)/libmcount/plthook-fast.op = -DDISABLE_MCOUNT_FILTER
 CFLAGS_$(objdir)/libmcount/mcount-single.op = -DSINGLE_THREAD
+CFLAGS_$(objdir)/libmcount/plthook-single.op = -DSINGLE_THREAD
 CFLAGS_$(objdir)/libmcount/mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
+CFLAGS_$(objdir)/libmcount/plthook-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 
 CFLAGS_$(objdir)/utils/demangle.o  = -Wno-unused-value
 CFLAGS_$(objdir)/utils/demangle.op = -Wno-unused-value
@@ -143,10 +153,13 @@ $(objdir)/.config: $(srcdir)/configure
 config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
-$(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_OBJS)): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_HDRS) $(objdir)/.config
+$(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_HDRS) $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(objdir)/.config
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
+$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(objdir)/.config
