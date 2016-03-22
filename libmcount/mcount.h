@@ -176,6 +176,7 @@ extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 extern int record_trace_data(struct mcount_thread_data *mtdp,
 				     struct mcount_ret_stack *mrstack,
 				     struct list_head *args_spec,
-				     struct mcount_regs *regs);
+				     struct mcount_regs *regs,
+				     long *retval);
 
 #endif /* FTRACE_MCOUNT_H */

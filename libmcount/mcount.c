@@ -442,7 +442,8 @@ static void record_argument(struct mcount_thread_data *mtdp,
 int record_trace_data(struct mcount_thread_data *mtdp,
 		      struct mcount_ret_stack *mrstack,
 		      struct list_head *args_spec,
-		      struct mcount_regs *regs)
+		      struct mcount_regs *regs,
+		      long *retval)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
@@ -716,10 +717,10 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			record_trace_data(mtdp, rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(mtdp, rstack, tr->pargs, regs);
+			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
@@ -733,7 +734,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(mtdp, rstack, NULL, regs);
+				record_trace_data(mtdp, rstack, NULL, regs, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
 		}
@@ -764,7 +765,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
 			if (mcount_enabled &&
-			    record_trace_data(mtdp, rstack, NULL, NULL) < 0)
+			    record_trace_data(mtdp, rstack, NULL, NULL, retval) < 0)
 				pr_err("error during record");
 		}
 	}
@@ -797,7 +798,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(mtdp, rstack, NULL, NULL) < 0)
+		if (record_trace_data(mtdp, rstack, NULL, NULL, retval) < 0)
 			pr_err("error during record");
 	}
 }
