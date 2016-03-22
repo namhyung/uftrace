@@ -206,27 +206,16 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 }
 
 /* argument_spec = arg1/i32,arg2/x64,... */
-static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
+static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 {
-	struct ftrace_arg_spec *arg;
-	char *suffix;
 	int fmt;
 	int size;
 	int bit;
 
-	if (!isdigit(str[3])) {
-		pr_use("skipping invalid argument: %s\n", str);
-		return -1;
-	}
-
-	arg = xmalloc(sizeof(*arg));
-	INIT_LIST_HEAD(&arg->list);
-	arg->idx = strtol(str+3, &suffix, 0);
-
 	if (suffix == NULL || *suffix == '\0') {
 		arg->fmt  = ARG_FMT_AUTO;
 		arg->size = sizeof(long);
-		goto add_arg;
+		return 0;
 	}
 
 	suffix++;
@@ -258,7 +247,7 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 			arg->size = 1;
 		else
 			arg->size = sizeof(long);
-		goto add_arg;
+		return 0;
 	}
 
 	bit = strtol(suffix, NULL, 10);
@@ -275,8 +264,49 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	}
 	arg->size = size;
 
-add_arg:
+	return 0;
+}
+
+/* argument_spec = arg1/i32,arg2/x64,... */
+static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+
+	if (!isdigit(str[3])) {
+		pr_use("skipping invalid argument: %s\n", str);
+		return -1;
+	}
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = strtol(str+3, &suffix, 0);
+
+	if (parse_spec(str, arg, suffix) == -1)
+		return -1;
+
 	tr->flags |= TRIGGER_FL_ARGUMENT;
+	list_add_tail(&arg->list, tr->pargs);
+
+	return 0;
+}
+
+/* argument_spec = retval/i32 or retval/x64 ... */
+static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = 0;
+	/* set suffix after string "retval" */
+	suffix = str + 6;
+
+	if (parse_spec(str, arg, suffix) == -1)
+		return -1;
+
+	tr->flags |= TRIGGER_FL_RETVAL;
 	list_add_tail(&arg->list, tr->pargs);
 
 	return 0;
@@ -331,6 +361,11 @@ static int setup_module_and_trigger(char *str, char *module,
 			}
 			else if (!strncasecmp(pos, "arg", 3)) {
 				if (parse_argument_spec(pos, tr) < 0)
+					return -1;
+				continue;
+			}
+			else if (!strncasecmp(pos, "retval", 6)) {
+				if (parse_retval_spec(pos, tr) < 0)
 					return -1;
 				continue;
 			}
