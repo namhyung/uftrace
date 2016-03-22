@@ -171,7 +171,8 @@ extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				       struct ftrace_trigger *tr,
 				       struct mcount_regs *regs);
 extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
-				      struct mcount_ret_stack *rstack);
+				      struct mcount_ret_stack *rstack,
+				      long *retval);
 extern int record_trace_data(struct mcount_thread_data *mtdp,
 				     struct mcount_ret_stack *mrstack,
 				     struct list_head *args_spec,

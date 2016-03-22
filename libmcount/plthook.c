@@ -435,7 +435,7 @@ out:
 	return 0;
 }
 
-unsigned long plthook_exit(void)
+unsigned long plthook_exit(long retval)
 {
 	int dyn_idx;
 	unsigned long new_addr;
@@ -475,7 +475,7 @@ again:
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(mtdp, rstack);
+	mcount_exit_filter_record(mtdp, rstack, &retval);
 
 	mtdp->plthook_guard = false;
 

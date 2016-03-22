@@ -742,7 +742,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 /* restore filter state from rstack */
 void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
-			       struct mcount_ret_stack *rstack)
+			       struct mcount_ret_stack *rstack,
+			       long *retval)
 {
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
@@ -789,7 +790,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 }
 
 void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
-			       struct mcount_ret_stack *rstack)
+			       struct mcount_ret_stack *rstack,
+			       long *retval)
 {
 	mtdp->record_idx--;
 
@@ -866,7 +868,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	return 0;
 }
 
-unsigned long mcount_exit(void)
+unsigned long mcount_exit(long retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
@@ -880,7 +882,7 @@ unsigned long mcount_exit(void)
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	rstack->end_time = mcount_gettime();
-	mcount_exit_filter_record(mtdp, rstack);
+	mcount_exit_filter_record(mtdp, rstack, &retval);
 
 	retaddr = rstack->parent_ip;
 
@@ -976,7 +978,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(mtdp, rstack);
+	mcount_exit_filter_record(mtdp, rstack, NULL);
 
 	compiler_barrier();
 
