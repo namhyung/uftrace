@@ -1121,6 +1121,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	ftrace_setup_argument(getenv("FTRACE_ARGUMENT"), &symtabs, NULL,
 			      &mcount_triggers);
 
+	ftrace_setup_retval(getenv("FTRACE_RETVAL"), &symtabs, NULL,
+			      &mcount_triggers);
+
 	if (getenv("FTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("FTRACE_DEPTH"), NULL, 0);
 
@@ -1145,6 +1148,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 				    &mcount_triggers);
 
 		ftrace_setup_argument(getenv("FTRACE_ARGUMENT"), &symtabs, "PLT",
+				      &mcount_triggers);
+
+		ftrace_setup_retval(getenv("FTRACE_RETVAL"), &symtabs, "PLT",
 				      &mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 

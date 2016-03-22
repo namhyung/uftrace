@@ -472,6 +472,19 @@ void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 }
 
 /**
+ * ftrace_setup_retval - construct rbtree of retval
+ * @retval_str   - CSV of argument string (FUNC @ arg)
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ */
+void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
+			  char *module, struct rb_root *root)
+{
+	setup_trigger(retval_str, symtabs, module, root, 0, NULL);
+}
+
+/**
  * ftrace_cleanup_filter - delete filters in rbtree
  * @root - root of the filter rbtree
  */
