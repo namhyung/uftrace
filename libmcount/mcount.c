@@ -174,6 +174,8 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	shmem->curr = 0;
 }
 
+#define BUFFER_FLAGS  (SHMEM_FL_WRITTEN | SHMEM_FL_NEW)
+
 static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
@@ -181,16 +183,25 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 	int idx = shmem->seqnum % shmem->nr_buf;
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[idx];
 
-	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(mtdp), idx);
-
 	/*
 	 * It's not a new buffer, check ftrace record already
 	 * consumed it.
 	 */
-	if (!(curr_buf->flag & (SHMEM_FL_WRITTEN | SHMEM_FL_NEW))) {
+	if (!(curr_buf->flag & BUFFER_FLAGS)) {
 		struct mcount_shmem_buffer **new_buffer;
 		int nr_buf = shmem->nr_buf + 1;
+		int i;
+
+		for (i = 1; i < shmem->nr_buf; i++) {
+			idx = (shmem->seqnum + i) % shmem->nr_buf;
+
+			if (shmem->buffer[idx]->flag & BUFFER_FLAGS) {
+				shmem->seqnum += i;
+
+				curr_buf = shmem->buffer[idx];
+				goto reuse;
+			}
+		}
 
 		new_buffer = realloc(shmem->buffer, sizeof(*new_buffer) * nr_buf);
 		if (new_buffer == NULL) {
@@ -220,11 +231,15 @@ out_err:
 		shmem->nr_buf = nr_buf;
 	}
 
+reuse:
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 session_name(), gettid(mtdp), idx);
+
 	/*
 	 * Start a new buffer and clear the flags.
 	 * See record_mmap_file().
 	 */
-	__sync_fetch_and_and(&curr_buf->flag, ~(SHMEM_FL_NEW | SHMEM_FL_WRITTEN));
+	__sync_fetch_and_and(&curr_buf->flag, ~BUFFER_FLAGS);
 
 	shmem->curr = idx;
 	curr_buf->size = 0;
