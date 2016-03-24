@@ -92,6 +92,14 @@ struct filter_control {
 struct filter_control {};
 #endif
 
+struct mcount_shmem {
+	unsigned			seqnum;
+	int				losts;
+	int				curr;
+	int				nr_buf;
+	struct mcount_shmem_buffer	**buffer;
+};
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -112,10 +120,7 @@ struct mcount_thread_data {
 	struct mcount_ret_stack		*rstack;
 	struct filter_control		filter;
 	bool				enable_cached;
-	int				shmem_seqnum;
-	int				shmem_losts;
-	struct mcount_shmem_buffer	*shmem_buffer[2];
-	struct mcount_shmem_buffer	*shmem_curr;
+	struct mcount_shmem		shmem;
 };
 
 #ifdef SINGLE_THREAD

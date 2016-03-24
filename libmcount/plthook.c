@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <assert.h>
+#include <string.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -280,9 +281,7 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 
 /* it's crazy to call vfork() concurrently */
 static int vfork_parent;
-static TLS int vfork_shmem_seqnum;
-static TLS struct mcount_shmem_buffer *vfork_shmem_buffer[2];
-static TLS struct mcount_shmem_buffer *vfork_shmem_curr;
+static struct mcount_shmem vfork_shmem;
 
 static void prepare_vfork(void)
 {
@@ -299,16 +298,12 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 		.time = mcount_gettime(),
 	};
 
-	vfork_shmem_seqnum    = mtdp->shmem_seqnum;
-	vfork_shmem_buffer[0] = mtdp->shmem_buffer[0];
-	vfork_shmem_buffer[1] = mtdp->shmem_buffer[1];
-	vfork_shmem_curr      = mtdp->shmem_curr;
+	mtdp->tid = 0;
+
+	memcpy(&vfork_shmem, &mtdp->shmem, sizeof(vfork_shmem));
 
 	/* setup new shmem buffer for child */
-	mtdp->tid = 0;
-	mtdp->shmem_losts = 0;
-	mtdp->shmem_seqnum = 0;
-	mtdp->shmem_curr = NULL;
+	memset(&mtdp->shmem, 0, sizeof(mtdp->shmem));
 	prepare_shmem_buffer(mtdp);
 
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
@@ -325,10 +320,7 @@ static void restore_vfork(struct mcount_thread_data *mtdp,
 	if (getpid() == vfork_parent) {
 		struct sym *sym;
 
-		mtdp->shmem_seqnum    = vfork_shmem_seqnum;
-		mtdp->shmem_buffer[0] = vfork_shmem_buffer[0];
-		mtdp->shmem_buffer[1] = vfork_shmem_buffer[1];
-		mtdp->shmem_curr      = vfork_shmem_curr;
+		memcpy(&mtdp->shmem, &vfork_shmem, sizeof(vfork_shmem));
 
 		mtdp->tid = 0;
 		vfork_parent = 0;
