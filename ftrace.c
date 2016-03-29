@@ -717,8 +717,6 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 	pr_hex(&file_offset, &handle.hdr, handle.hdr.header_size);
 	pr_out("\n");
 
-	setup_fstack_args(handle.info.argspec);
-
 	for (i = 0; i < handle.info.nr_tid; i++) {
 		int tid = handle.info.tids[i];
 
