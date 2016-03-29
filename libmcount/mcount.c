@@ -369,6 +369,9 @@ static void record_argument(struct mcount_thread_data *mtdp,
 	int nr_strarg = 0;
 
 	list_for_each_entry(spec, args_spec, list) {
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
 		if (spec->fmt == ARG_FMT_STR) {
 			ptr = (void *)mcount_get_arg(regs, spec);
 			if (ptr) {
@@ -407,6 +410,9 @@ static void record_argument(struct mcount_thread_data *mtdp,
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
 		val = mcount_get_arg(regs, spec);
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;
@@ -437,6 +443,90 @@ static void record_argument(struct mcount_thread_data *mtdp,
 
 	curr_buf->size += ALIGN(size, 8);
 	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
+}
+
+static void record_retval(struct mcount_thread_data *mtdp,
+			  struct list_head *args_spec,
+			  long *retval)
+{
+	struct mcount_shmem *shmem = &mtdp->shmem;
+	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
+	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
+	struct ftrace_arg_spec *spec;
+	size_t size = 0;
+	void *ptr;
+	char buf[64];
+
+	list_for_each_entry(spec, args_spec, list) {
+		if (spec->idx != RETVAL_IDX)
+			continue;
+
+		if (spec->fmt == ARG_FMT_STR) {
+			ptr = (void *)*retval;
+			if (ptr) {
+				size_t len;
+
+				strncpy(buf, ptr, sizeof(buf));
+				buf[sizeof(buf) - 1] = '\0';
+				len = strlen(buf);
+
+				/* store 2-byte length before string */
+				size += ALIGN(len + 2, 4);
+			}
+			else {
+				buf[0] = '\0';
+				size += 8;
+			}
+		}
+		else
+			size += ALIGN(spec->size, 4);
+	}
+
+	assert(size < maxsize);
+
+	if (unlikely(curr_buf->size + size > maxsize)) {
+		finish_shmem_buffer(mtdp);
+		get_new_shmem_buffer(mtdp);
+
+		if (shmem->curr == -1)
+			return;
+
+		curr_buf = shmem->buffer[shmem->curr];
+	}
+
+	ptr = (void *)(curr_buf->data + curr_buf->size);
+	list_for_each_entry(spec, args_spec, list) {
+		long val;
+
+		if (spec->idx != RETVAL_IDX)
+			continue;
+
+		val = *retval;
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
+
+			if (val) {
+				len = strlen(buf);
+
+				memcpy(ptr, &len, sizeof(len));
+				strcpy(ptr + 2, buf);
+				ptr += ALIGN(len + 2, 4);
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+				ptr += 8;
+			}
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			ptr += ALIGN(spec->size, 4);
+		}
+	}
+
+	curr_buf->size += ALIGN(size, 8);
+	pr_dbg3("%s %zd bytes\n", "RETVAL", size);
 }
 
 int record_trace_data(struct mcount_thread_data *mtdp,
@@ -512,10 +602,18 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	}
 
 	if (mrstack->end_time) {
-		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, false))
+		bool more = false;
+
+		if (retval && args_spec && !list_empty(args_spec))
+			more = true;
+
+		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, more))
 			return 0;
 
 		size -= sizeof(*frstack);
+
+		if (more)
+			record_retval(mtdp, args_spec, retval);
 	}
 
 	assert(size == 0);

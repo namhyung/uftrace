@@ -211,6 +211,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->args)
 		features |= ARGUMENT;
 
+	if (opts->retval)
+		features |= RETVAL;
+
 	return features;
 }
 

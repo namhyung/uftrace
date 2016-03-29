@@ -40,7 +40,20 @@ static void print_trigger(struct ftrace_trigger *tr)
 
 		pr_dbg("\ttrigger: argument\n");
 		list_for_each_entry(arg, tr->pargs, list) {
+			if (arg->idx == RETVAL_IDX)
+				continue;
 			pr_dbg("\t\t arg%d: %c%d\n", arg->idx,
+			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
+		}
+	}
+	if (tr->flags & TRIGGER_FL_RETVAL) {
+		struct ftrace_arg_spec *arg;
+
+		pr_dbg("\ttrigger: return value\n");
+		list_for_each_entry(arg, tr->pargs, list) {
+			if (arg->idx != RETVAL_IDX)
+				continue;
+			pr_dbg("\t\t retval%d: %c%d\n", arg->idx,
 			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
 		}
 	}
@@ -101,6 +114,20 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_ON;
 
 	if (tr->flags & TRIGGER_FL_ARGUMENT) {
+		struct ftrace_arg_spec *arg, *new;
+
+		if (!copy_args) {
+			list_splice_tail_init(tr->pargs, &filter->args);
+			return;
+		}
+
+		list_for_each_entry(arg, tr->pargs, list) {
+			new = xmalloc(sizeof(*new));
+			memcpy(new, arg, sizeof(*new));
+			list_add_tail(&new->list, &filter->args);
+		}
+	}
+	if (tr->flags & TRIGGER_FL_RETVAL) {
 		struct ftrace_arg_spec *arg, *new;
 
 		if (!copy_args) {

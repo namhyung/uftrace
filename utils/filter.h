@@ -41,6 +41,16 @@ enum ftrace_arg_format {
 /* should match with ftrace_arg_format above */
 #define ARG_SPEC_CHARS  "diuxsc"
 
+/**
+ * ftrace_arg_spec contains arguments and return value info.
+ *
+ * If idx is zero, it means the recorded data is return value.
+ *
+ * If idx is not zero, it means the recorded data is arguments
+ * and idx shows the sequence order of arguments.
+ */
+#define RETVAL_IDX 0
+
 struct ftrace_arg_spec {
 	struct list_head	list;
 	int			idx;

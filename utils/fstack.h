@@ -77,7 +77,8 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_task_handle *task);
 int read_task_args(struct ftrace_task_handle *task,
-		   struct ftrace_ret_stack *rstack);
+		   struct ftrace_ret_stack *rstack,
+		   bool is_retval);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 int setup_fstack_filters(char *filter_str, char *trigger_str);
