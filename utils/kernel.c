@@ -226,6 +226,9 @@ int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters)
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
 
+	if (filters == NULL)
+		return 0;
+
 	pos = str = xstrdup(filters);
 
 	name = strtok(pos, ",");
