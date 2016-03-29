@@ -726,6 +726,10 @@ static void pr_args(struct fstack_arguments *args)
 	int i = 0;
 
 	list_for_each_entry(spec, args->args, list) {
+		/* skip return value info */
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
 		if (spec->fmt == ARG_FMT_STR) {
 			char buf[64];
 			const int null_str = -1;
@@ -744,6 +748,45 @@ static void pr_args(struct fstack_arguments *args)
 
 			memcpy(&val, ptr, spec->size);
 			pr_out("  args[%d] %c%d: %#llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			size = spec->size;
+		}
+
+		ptr += ALIGN(size, 4);
+		i++;
+	}
+}
+
+static void pr_retval(struct fstack_arguments *args)
+{
+	struct ftrace_arg_spec *spec;
+	void *ptr = args->data;
+	size_t size;
+	int i = 0;
+
+	list_for_each_entry(spec, args->args, list) {
+		/* skip argument info */
+		if (spec->idx != RETVAL_IDX)
+			continue;
+
+		if (spec->fmt == ARG_FMT_STR) {
+			char buf[64];
+			const int null_str = -1;
+
+			size = *(unsigned short *)ptr;
+			strncpy(buf, ptr + 2, size);
+
+			if (!memcmp(buf, &null_str, 4))
+				strcpy(buf, "NULL");
+
+			pr_out("  retval[%d] str: %s\n", i , buf);
+			size += 2;
+		}
+		else {
+			long long val = 0;
+
+			memcpy(&val, ptr, spec->size);
+			pr_out("  retval[%d] %c%d: %#llx\n", i,
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
 			size = spec->size;
 		}
@@ -813,13 +856,24 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 			pr_hex(&file_offset, frs, sizeof(*frs));
 
 			if (frs->more) {
-				read_task_args(&task, frs);
+				if (frs->type == FTRACE_ENTRY) {
+					read_task_args(&task, frs, false);
 
-				pr_time(frs->time);
-				pr_out("%5d: [%s] length = %d\n", tid, "args ",
-				       task.args.len);
-				pr_args(&task.args);
-				pr_hex(&file_offset, task.args.data, task.args.len);
+					pr_time(frs->time);
+					pr_out("%5d: [%s] length = %d\n", tid, "args ",
+							task.args.len);
+					pr_args(&task.args);
+					pr_hex(&file_offset, task.args.data, task.args.len);
+				} else if (frs->type == FTRACE_EXIT) {
+					read_task_args(&task, frs, true);
+
+					pr_time(frs->time);
+					pr_out("%5d: [%s] length = %d\n", tid, "retval",
+							task.args.len);
+					pr_retval(&task.args);
+					pr_hex(&file_offset, task.args.data, task.args.len);
+				} else
+					abort();
 			}
 
 			symbol_putname(sym, name);
@@ -836,8 +890,6 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 	struct ftrace_task_handle task;
 	char buf[PATH_MAX];
 	struct stat statbuf;
-
-	setup_fstack_args(handle->info.argspec);
 
 	/* read recorded date and time */
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -884,8 +936,14 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 					frs->time / 1000, ph, tid, name);
 			last_comma = true;
 
-			if (frs->more)
-				read_task_args(&task, frs);
+			if (frs->more) {
+				if (frs->type == FTRACE_ENTRY)
+					read_task_args(&task, frs, false);
+				else if (frs->type == FTRACE_EXIT)
+					read_task_args(&task, frs, true);
+				else
+					abort();
+			}
 
 			symbol_putname(sym, name);
 		}
