@@ -57,6 +57,7 @@ struct ftrace_arg_spec {
 	int			idx;
 	enum ftrace_arg_format	fmt;
 	int			size;
+	int			exact;
 };
 
 struct ftrace_trigger {

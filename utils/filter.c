@@ -100,8 +100,37 @@ struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip
 	return NULL;
 }
 
+static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg,
+			 bool exact_match)
+{
+	bool found = false;
+	struct ftrace_arg_spec *oarg, *narg;
+
+	list_for_each_entry(oarg, arg_list, list) {
+		if (oarg->idx == arg->idx) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) {
+		/* do not overwrite exact match by regex match */
+		if (exact_match || !oarg->exact) {
+			oarg->fmt   = arg->fmt;
+			oarg->size  = arg->size;
+			oarg->exact = exact_match;
+		}
+	}
+	else {
+		narg = xmalloc(sizeof(*narg));
+		memcpy(narg, arg, sizeof(*narg));
+		narg->exact = exact_match;
+		list_add_tail(&narg->list, arg_list);
+	}
+}
+
 static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
-			bool copy_args)
+			bool exact_match)
 {
 	filter->trigger.flags |= tr->flags;
 
@@ -115,38 +144,16 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_ON;
 
-	if (tr->flags & TRIGGER_FL_ARGUMENT) {
-		struct ftrace_arg_spec *arg, *new;
+	if (tr->flags & (TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL)) {
+		struct ftrace_arg_spec *arg;
 
-		if (!copy_args) {
-			list_splice_tail_init(tr->pargs, &filter->args);
-			return;
-		}
-
-		list_for_each_entry(arg, tr->pargs, list) {
-			new = xmalloc(sizeof(*new));
-			memcpy(new, arg, sizeof(*new));
-			list_add_tail(&new->list, &filter->args);
-		}
-	}
-	if (tr->flags & TRIGGER_FL_RETVAL) {
-		struct ftrace_arg_spec *arg, *new;
-
-		if (!copy_args) {
-			list_splice_tail_init(tr->pargs, &filter->args);
-			return;
-		}
-
-		list_for_each_entry(arg, tr->pargs, list) {
-			new = xmalloc(sizeof(*new));
-			memcpy(new, arg, sizeof(*new));
-			list_add_tail(&new->list, &filter->args);
-		}
+		list_for_each_entry(arg, tr->pargs, list)
+			add_arg_spec(&filter->args, arg, exact_match);
 	}
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
-		       struct ftrace_trigger *tr, bool copy_args)
+		       struct ftrace_trigger *tr, bool exact_match)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -161,7 +168,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 		iter = rb_entry(parent, struct ftrace_filter, node);
 
 		if (iter->start == filter->start) {
-			add_trigger(iter, tr, copy_args);
+			add_trigger(iter, tr, exact_match);
 			return;
 		}
 
@@ -177,7 +184,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
 
-	add_trigger(new, tr, copy_args);
+	add_trigger(new, tr, exact_match);
 
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);
@@ -198,7 +205,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
-	add_filter(root, &filter, tr, false);
+	add_filter(root, &filter, tr, true);
 	return 1;
 }
 
@@ -227,7 +234,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
-		add_filter(root, &filter, tr, true);
+		add_filter(root, &filter, tr, false);
 		ret++;
 	}
 
