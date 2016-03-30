@@ -155,6 +155,7 @@ struct opts {
 	bool column_view;
 	bool want_bind_not;
 	bool task_newline;
+	bool chrome_trace;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
