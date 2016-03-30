@@ -23,6 +23,8 @@
 #include <argp.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <time.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
@@ -823,8 +825,18 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 {
 	int i;
 	struct ftrace_task_handle task;
+	char buf[PATH_MAX];
+	struct stat statbuf;
 
 	setup_fstack_args(handle->info.argspec);
+
+	/* read recorded date and time */
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	if (stat(buf, &statbuf) < 0)
+		return;
+
+	ctime_r(&statbuf.st_mtime, buf);
+	buf[strlen(buf) - 1] = '\0';
 
 	pr_out("{\"traceEvents\":[\n");
 	for (i = 0; i < handle->info.nr_tid; i++) {
@@ -869,7 +881,11 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 		fclose(task.fp);
 	}
 	pr_out("\n");
-	pr_out("], \"metadata\": {} }\n");
+	pr_out("], \"metadata\": {\n");
+	if (handle->hdr.info_mask & (1UL << CMDLINE))
+		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
+	pr_out("\"recorded_time\":\"%s\"\n", buf);
+	pr_out("} }\n");
 }
 
 static int command_dump(int argc, char *argv[], struct opts *opts)
