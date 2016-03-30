@@ -503,9 +503,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	if (opts->tid)
 		setup_task_filter(opts->tid, &handle);
 
-	if (handle.hdr.feat_mask & ARGUMENT)
-		setup_fstack_args(handle.info.argspec);
-
 	fstack_prepare_fixup();
 
 	if (!opts->flat)

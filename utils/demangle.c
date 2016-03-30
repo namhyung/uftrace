@@ -692,6 +692,8 @@ static int dd_expr_primary(struct demangle_data *dd)
 		__DD_DEBUG_CONSUME(dd, 'E');
 
 		dd->level--;
+		dd->type--;
+
 		return 0;
 	}
 
@@ -890,9 +892,6 @@ static int dd_function_type(struct demangle_data *dd)
 	c = dd_curr(dd);
 	while (c != 'E') {
 		int old_pos = dd->pos;
-
-		if (c == 'R' || c == 'O')
-			dd_qualifier(dd);
 
 		if (dd_type(dd) < 0) {
 			dd->pos = old_pos;
@@ -1399,7 +1398,9 @@ static int dd_local_name(struct demangle_data *dd)
 	else
 		dd_name(dd);
 
-	dd_discriminator(dd);
+	if (dd_curr(dd) == '_')
+		dd_discriminator(dd);
+
 	return 0;
 }
 
@@ -1623,6 +1624,25 @@ TEST_CASE(demangle_simple4)
 
 	TEST_STREQ("icu_54::umtx_loadAcquire",
 		   demangle_simple("_ZN6icu_5416umtx_loadAcquireERU7_Atomici"));
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple5)
+{
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	TEST_STREQ("v8::internal::RememberedSet::Iterate",
+		   demangle_simple("_ZN2v88internal13RememberedSetILNS0_"
+				   "16PointerDirectionE1EE7IterateIZNS3_"
+				   "18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+				   "S7_EEEvPNS0_4HeapET_EUlPhE_EEvSC_SD_"));
+
+	TEST_STREQ("v8::internal::SlotSet::Iterate",
+		   demangle_simple("_ZN2v88internal7SlotSet7Iterate"
+				   "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
+				   "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+				   "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_"));
 
 	return TEST_OK;
 }

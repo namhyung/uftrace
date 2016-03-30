@@ -273,8 +273,6 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 		mtdp->rstack[i].child_ip  = jbstack->child[i];
 	}
 
-	mtdp->rstack[idx].flags &= ~MCOUNT_FL_LONGJMP;
-
 	/* to avoid check in plthook_exit() */
 	mtdp->rstack[jbstack->count].dyn_idx = dyn_idx;
 }
@@ -455,6 +453,7 @@ again:
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
 			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
+			rstack->flags &= ~MCOUNT_FL_LONGJMP;
 			goto again;
 		}
 
