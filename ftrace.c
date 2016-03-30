@@ -110,6 +110,7 @@ static struct argp_option ftrace_options[] = {
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
+	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
 	{ 0 }
 };
@@ -346,6 +347,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'A':
 		opts->args = opt_add_string(opts->args, arg);
+		break;
+
+	case 'R':
+		opts->retval = opt_add_string(opts->retval, arg);
 		break;
 
 	case OPT_flat:

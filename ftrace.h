@@ -128,6 +128,7 @@ struct opts {
 	char *host;
 	char *sort_keys;
 	char *args;
+	char *retval;
 	int mode;
 	int idx;
 	int depth;

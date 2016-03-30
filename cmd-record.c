@@ -51,7 +51,7 @@ static bool buf_done;
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
-	if (opts->filter || opts->trigger || opts->args || debug)
+	if (opts->filter || opts->trigger || opts->args || opts->retval || debug)
 		return false;
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH)
 		return false;
@@ -135,6 +135,9 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 
 	if (opts->args)
 		setenv("FTRACE_ARGUMENT", opts->args, 1);
+
+	if (opts->retval)
+		setenv("FTRACE_RETVAL", opts->retval, 1);
 
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
