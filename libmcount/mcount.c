@@ -710,6 +710,12 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 	rstack->filter_depth = mtdp->filter.saved_depth;
 
+	/* check if it has to keep arg_spec for retval */
+	if (tr->flags & TRIGGER_FL_RETVAL) {
+		rstack->pargs = tr->pargs;
+		rstack->flags |= MCOUNT_FL_RETVAL;
+	}
+
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mtdp->record_idx++;
 
@@ -762,10 +768,13 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (mtdp->record_idx > 0)
 			mtdp->record_idx--;
 
+		if (!(rstack->flags & MCOUNT_FL_RETVAL))
+			retval = NULL;
+
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN) {
 			if (mcount_enabled &&
-			    record_trace_data(mtdp, rstack, NULL, NULL, retval) < 0)
+			    record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
 				pr_err("error during record");
 		}
 	}
