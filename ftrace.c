@@ -23,6 +23,8 @@
 #include <argp.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <time.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
@@ -66,6 +68,7 @@ enum options {
 	OPT_column_offset,
 	OPT_bind_not,
 	OPT_task_newline,
+	OPT_chrome_trace,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -107,6 +110,7 @@ static struct argp_option ftrace_options[] = {
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
+	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
 	{ 0 }
 };
 
@@ -447,6 +451,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->task_newline = true;
 		break;
 
+	case OPT_chrome_trace:
+		opts->chrome_trace = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -740,42 +748,37 @@ static void pr_args(struct fstack_arguments *args)
 	}
 }
 
-static int command_dump(int argc, char *argv[], struct opts *opts)
+static void dump_raw(int argc, char *argv[], struct opts *opts,
+		     struct ftrace_file_handle *handle)
 {
 	int i;
-	int ret;
-	struct ftrace_file_handle handle;
-	struct ftrace_task_handle task;
 	uint64_t file_offset = 0;
-
-	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		pr_err("cannot open data: %s", opts->dirname);
+	struct ftrace_task_handle task;
 
 	pr_out("ftrace file header: magic         = ");
 	for (i = 0; i < FTRACE_MAGIC_LEN; i++)
-		pr_out("%02x", handle.hdr.magic[i]);
+		pr_out("%02x", handle->hdr.magic[i]);
 	pr_out("\n");
-	pr_out("ftrace file header: version       = %u\n", handle.hdr.version);
-	pr_out("ftrace file header: header size   = %u\n", handle.hdr.header_size);
+	pr_out("ftrace file header: version       = %u\n", handle->hdr.version);
+	pr_out("ftrace file header: header size   = %u\n", handle->hdr.header_size);
 	pr_out("ftrace file header: endian        = %u (%s)\n",
-	       handle.hdr.endian, handle.hdr.endian == 1 ? "little" : "big");
+	       handle->hdr.endian, handle->hdr.endian == 1 ? "little" : "big");
 	pr_out("ftrace file header: class         = %u (%s bit)\n",
-	       handle.hdr.class, handle.hdr.class == 2 ? "64" : "32");
-	pr_out("ftrace file header: features      = %#"PRIx64"\n", handle.hdr.feat_mask);
-	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle.hdr.info_mask);
-	pr_hex(&file_offset, &handle.hdr, handle.hdr.header_size);
+	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
+	pr_out("ftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
+	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
+	pr_hex(&file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");
 
 	if (debug) {
-		pr_out("%d tasks found\n", handle.info.nr_tid);
+		pr_out("%d tasks found\n", handle->info.nr_tid);
 		pr_task(opts);
 	}
 
-	for (i = 0; i < handle.info.nr_tid; i++) {
-		int tid = handle.info.tids[i];
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		int tid = handle->info.tids[i];
 
-		setup_task_handle(&handle, &task, tid);
+		setup_task_handle(handle, &task, tid);
 
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
@@ -815,6 +818,89 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 
 		fclose(task.fp);
 	}
+}
+
+static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
+			      struct ftrace_file_handle *handle)
+{
+	int i;
+	struct ftrace_task_handle task;
+	char buf[PATH_MAX];
+	struct stat statbuf;
+
+	setup_fstack_args(handle->info.argspec);
+
+	/* read recorded date and time */
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	if (stat(buf, &statbuf) < 0)
+		return;
+
+	ctime_r(&statbuf.st_mtime, buf);
+	buf[strlen(buf) - 1] = '\0';
+
+	pr_out("{\"traceEvents\":[\n");
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		int tid = handle->info.tids[i];
+
+		setup_task_handle(handle, &task, tid);
+
+		while (!read_task_ustack(&task)) {
+			struct ftrace_ret_stack *frs = &task.ustack;
+			struct ftrace_session *sess = find_task_session(tid, frs->time);
+			struct symtabs *symtabs;
+			struct sym *sym = NULL;
+			char *name;
+			static bool last_comma = false;
+
+			if (sess) {
+				symtabs = &sess->symtabs;
+				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+			}
+
+			name = symbol_getname(sym, frs->addr);
+
+			char ph;
+			if (frs->type == FTRACE_ENTRY)
+				ph = 'B';
+			else if (frs->type == FTRACE_EXIT)
+				ph = 'E';
+			else
+				ph = 'L';
+			if (last_comma)
+				pr_out(",\n");
+			pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%5d,\"name\":\"%s\"}",
+					frs->time / 1000, ph, tid, name);
+			last_comma = true;
+
+			if (frs->more)
+				read_task_args(&task, frs);
+
+			symbol_putname(sym, name);
+		}
+
+		fclose(task.fp);
+	}
+	pr_out("\n");
+	pr_out("], \"metadata\": {\n");
+	if (handle->hdr.info_mask & (1UL << CMDLINE))
+		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
+	pr_out("\"recorded_time\":\"%s\"\n", buf);
+	pr_out("} }\n");
+}
+
+static int command_dump(int argc, char *argv[], struct opts *opts)
+{
+	int ret;
+	struct ftrace_file_handle handle;
+
+	ret = open_data_file(opts, &handle);
+	if (ret < 0)
+		pr_err("cannot open data: %s", opts->dirname);
+
+	if (opts->chrome_trace)
+		dump_chrome_trace(argc, argv, opts, &handle);
+	else
+		dump_raw(argc, argv, opts, &handle);
 
 	close_data_file(opts, &handle);
 
