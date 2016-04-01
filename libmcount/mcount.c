@@ -814,6 +814,9 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		rstack->flags |= MCOUNT_FL_RETVAL;
 	}
 
+	if (tr->flags & TRIGGER_FL_TRACE)
+		rstack->flags |= MCOUNT_FL_TRACE;
+
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mtdp->record_idx++;
 
@@ -870,7 +873,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			retval = NULL;
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
-		    rstack->flags & MCOUNT_FL_WRITTEN) {
+		    rstack->flags & MCOUNT_FL_WRITTEN ||
+		    rstack->flags & MCOUNT_FL_TRACE) {
 			if (mcount_enabled &&
 			    record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
 				pr_err("error during record");
