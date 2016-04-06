@@ -286,7 +286,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		depth += task_column_depth(task, opts);
 
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count - 1];
 
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
@@ -302,7 +302,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		fstack_update(FTRACE_ENTRY, task, fstack);
 	}
 	else if (rstack->type == FTRACE_EXIT) {
-		struct fstack *fstack = &task->func_stack[rstack->depth];
+		struct fstack *fstack = &task->func_stack[task->stack_count];
 		int depth = fstack_update(FTRACE_EXIT, task, fstack);
 		char *retval = args;
 
