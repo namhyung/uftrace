@@ -232,103 +232,6 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	}
 }
 
-static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
-				       struct ftrace_task_handle *task,
-				       struct opts *opts)
-{
-	struct ftrace_ret_stack *rstack = task->rstack;
-	struct ftrace_session *sess;
-	struct symtabs *symtabs;
-	struct sym *sym;
-	char *symname;
-	enum argspec_string_bits str_mode = 0;
-	char args[1024];
-
-	if (task == NULL)
-		return 0;
-
-	sess = find_task_session(task->tid, rstack->time);
-	if (sess == NULL)
-		return 0;
-
-	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
-	symname = symbol_getname(sym, rstack->addr);
-
-	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
-		str_mode |= NEEDS_PAREN;
-	if (rstack->more)
-		str_mode |= HAS_MORE;
-
-	if (rstack->type == FTRACE_ENTRY) {
-		struct ftrace_trigger tr = {
-			.flags = 0,
-		};
-		struct fstack *fstack;
-		int ret;
-		int depth = task->display_depth;
-
-		ret = fstack_entry(task, rstack, &tr);
-		if (ret < 0)
-			goto out;
-
-		if (tr.flags & TRIGGER_FL_BACKTRACE)
-			print_backtrace(task);
-
-		depth += task_column_depth(task, opts);
-
-		fstack = &task->func_stack[task->stack_count - 1];
-
-		/* give a new line when tid is changed */
-		if (opts->task_newline)
-			print_task_newline(task->tid);
-
-		get_argspec_string(task, args, sizeof(args), str_mode);
-
-		/* function entry */
-		print_time_unit(0UL);
-		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-		       depth * 2, "", symname, args);
-
-		fstack_update(FTRACE_ENTRY, task, fstack);
-	}
-	else if (rstack->type == FTRACE_EXIT) {
-		struct fstack *fstack = &task->func_stack[task->stack_count];
-		int depth = fstack_update(FTRACE_EXIT, task, fstack);
-		char *retval = args;
-
-		depth += task_column_depth(task, opts);
-
-		str_mode |= IS_RETVAL;
-		get_argspec_string(task, retval, sizeof(args), str_mode);
-
-		/* function exit */
-		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
-
-			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s}%s", task->tid, depth * 2, "", retval);
-			pr_gray(" /* %s */\n", symname);
-		}
-
-		fstack_exit(task);
-	}
-	else if (rstack->type == FTRACE_LOST) {
-		/* give a new line when tid is changed */
-		if (opts->task_newline)
-			print_task_newline(task->tid);
-
-		print_time_unit(0UL);
-		pr_out(" [%5d] |", task->tid);
-		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
-	}
-out:
-	symbol_putname(sym, symname);
-	return 0;
-}
-
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct ftrace_task_handle *task,
 			      struct opts *opts)
@@ -363,7 +266,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	char args[1024];
 	if (rstack->type == FTRACE_ENTRY) {
-		struct ftrace_task_handle *next;
+		struct ftrace_task_handle *next = NULL;
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
 		int depth = task->display_depth;
@@ -387,7 +290,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		fstack = &task->func_stack[task->stack_count - 1];
 
-		next = fstack_skip(handle, task, rstack_depth);
+		if (!opts->no_merge)
+			next = fstack_skip(handle, task, rstack_depth);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -568,8 +472,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task, opts);
-		else if (opts->no_merge)
-			ret = print_graph_no_merge_rstack(&handle, task, opts);
 		else
 			ret = print_graph_rstack(&handle, task, opts);
 
