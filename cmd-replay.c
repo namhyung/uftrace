@@ -516,7 +516,7 @@ static void print_remaining_stack(void)
 			struct sym *sym;
 			char *symname;
 
-			if (sess) {
+			if (sess || is_kernel_address(ip)) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, ip, proc_maps);
 			} else
