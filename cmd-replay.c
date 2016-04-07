@@ -15,7 +15,6 @@
 
 
 static int column_index;
-static bool skip_kernel_before_user = true;
 static int prev_tid = -1;
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
@@ -238,7 +237,6 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 				       struct opts *opts)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
-	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -261,13 +259,6 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		str_mode |= NEEDS_PAREN;
 	if (rstack->more)
 		str_mode |= HAS_MORE;
-
-	if (skip_kernel_before_user) {
-		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
-			seen_user_rstack = true;
-		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
-			goto out;
-	}
 
 	if (rstack->type == FTRACE_ENTRY) {
 		struct ftrace_trigger tr = {
@@ -343,7 +334,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct opts *opts)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
-	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -354,7 +344,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	sess = find_task_session(task->tid, rstack->time);
-	if (sess == NULL)
+	if (sess == NULL && !is_kernel_address(rstack->addr))
 		return 0;
 
 	symtabs = &sess->symtabs;
@@ -364,10 +354,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
 		str_mode |= NEEDS_PAREN;
 
-	if (skip_kernel_before_user) {
-		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
-			seen_user_rstack = true;
-		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+	if (opts->kernel == 1) {
+		/* skip kernel functions outside user functions */
+		if (is_kernel_address(task->func_stack[0].addr) &&
+		    is_kernel_address(rstack->addr))
 			goto out;
 	}
 
