@@ -279,6 +279,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (ret < 0)
 			goto out;
 
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
@@ -305,10 +309,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
-
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
 
@@ -323,10 +323,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			fstack_exit(task);
 		}
 		else {
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
-
 			/* function entry */
 			print_time_unit(0UL);
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
