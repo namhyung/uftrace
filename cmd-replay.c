@@ -375,13 +375,26 @@ out:
 	return 0;
 }
 
-static void print_remaining_stack(void)
+static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
+{
+	/* skip 'sys_exit[_group] at last for simple kernel tracing (-k) */
+	if (opts->kernel != 1 || task->stack_count != 1)
+		return false;
+
+	return is_kernel_address(task->func_stack[0].addr);
+}
+
+static void print_remaining_stack(struct opts *opts)
 {
 	int i;
 	int total = 0;
 
-	for (i = 0; i < nr_tasks; i++)
+	for (i = 0; i < nr_tasks; i++) {
+		if (skip_sys_exit(opts, &tasks[i]))
+			continue;
+
 		total += tasks[i].stack_count;
+	}
 
 	if (total == 0)
 		return;
@@ -393,6 +406,9 @@ static void print_remaining_stack(void)
 		struct ftrace_task_handle *task = &tasks[i];
 
 		if (task->stack_count == 0)
+			continue;
+
+		if (skip_sys_exit(opts, &tasks[i]))
 			continue;
 
 		pr_out("task: %d\n", task->tid);
@@ -475,7 +491,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	print_remaining_stack();
+	print_remaining_stack(opts);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
