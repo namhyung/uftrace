@@ -18,20 +18,6 @@ static int column_index;
 static bool skip_kernel_before_user = true;
 static int prev_tid = -1;
 
-enum argspec_string_bits {
-	/* bit index */
-	NEEDS_PAREN_BIT,
-	NEEDS_SEMI_COLON_BIT,
-	HAS_MORE_BIT,
-	IS_RETVAL_BIT,
-
-	/* bit mask */
-	NEEDS_PAREN		= (1U << NEEDS_PAREN_BIT),
-	NEEDS_SEMI_COLON	= (1U << NEEDS_SEMI_COLON_BIT),
-	HAS_MORE		= (1U << HAS_MORE_BIT),
-	IS_RETVAL		= (1U << IS_RETVAL_BIT),
-};
-
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 {
 	if (!opts->column_view)
@@ -112,9 +98,9 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
-static void get_argspec_string(struct ftrace_task_handle *task,
-				  char *args, size_t len,
-				  enum argspec_string_bits str_mode)
+void get_argspec_string(struct ftrace_task_handle *task,
+		        char *args, size_t len,
+		        enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
 	long val;
@@ -128,6 +114,8 @@ static void get_argspec_string(struct ftrace_task_handle *task,
 	bool needs_semi_colon = !!(str_mode & NEEDS_SEMI_COLON);
 	bool has_more         = !!(str_mode & HAS_MORE);
 	bool is_retval        = !!(str_mode & IS_RETVAL);
+	bool needs_assignment = !!(str_mode & NEEDS_ASSIGNMENT);
+	bool needs_escape     = !!(str_mode & NEEDS_ESCAPE);
 
 	if (!has_more) {
 		if (needs_paren)
@@ -138,14 +126,14 @@ static void get_argspec_string(struct ftrace_task_handle *task,
 			args[n] = '\0';
 		}
 		return;
-	} else
+	} else if (!needs_escape)
 		needs_semi_colon = true;
 
 	assert(arg_list && !list_empty(arg_list));
 
 	if (!is_retval)
 		args[n++] = '(';
-	else {
+	else if (needs_assignment) {
 		args[n++] = ' ';
 		args[n++] = '=';
 		args[n++] = ' ';
@@ -194,6 +182,11 @@ static void get_argspec_string(struct ftrace_task_handle *task,
 
 			if (!memcmp(str, &null_str, sizeof(null_str)))
 				n += snprintf(args + n, len, "NULL");
+			else if (needs_escape)
+				/* quotation mark has to be escaped by backslash
+				   in chrome trace json format */
+				n += snprintf(args + n, len, "\\\"%.*s\\\"",
+					      slen, str);
 			else
 				n += snprintf(args + n, len, "\"%.*s\"",
 					      slen, str);
@@ -412,8 +405,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			char retval[1024];
 
 			str_mode = IS_RETVAL | NEEDS_SEMI_COLON;
-			if (next->rstack->more)
+			if (next->rstack->more) {
 				str_mode |= HAS_MORE;
+				str_mode |= NEEDS_ASSIGNMENT;
+			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			/* give a new line when tid is changed */
@@ -459,8 +454,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			depth += task_column_depth(task, opts);
 
 			str_mode = IS_RETVAL;
-			if (rstack->more)
+			if (rstack->more) {
 				str_mode |= HAS_MORE;
+				str_mode |= NEEDS_ASSIGNMENT;
+			}
 			get_argspec_string(task, retval, sizeof(args), str_mode);
 
 			/* give a new line when tid is changed */

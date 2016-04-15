@@ -883,6 +883,46 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	}
 }
 
+static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
+				      struct ftrace_ret_stack *frs,
+				      int tid, const char* name)
+{
+	char ph;
+	char spec_buf[1024];
+	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+
+	if (frs->type == FTRACE_ENTRY) {
+		ph = 'B';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, ph, tid, name);
+		if (frs->more) {
+			bool is_retval = false;
+			read_task_args(task, frs, is_retval);
+
+			str_mode |= HAS_MORE;
+			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
+				spec_buf);
+		} else
+			pr_out("}");
+	} else if (frs->type == FTRACE_EXIT) {
+		ph = 'E';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, ph, tid, name);
+		if (frs->more) {
+			bool is_retval = true;
+			read_task_args(task, frs, is_retval);
+
+			str_mode |= IS_RETVAL | HAS_MORE;
+			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+			pr_out(",\"args\":{\"retval\":\"%s\"}}",
+				spec_buf);
+		} else
+			pr_out("}");
+	} else
+		abort();
+}
+
 static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			      struct ftrace_file_handle *handle)
 {
@@ -923,27 +963,12 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			name = symbol_getname(sym, frs->addr);
 
-			char ph;
-			if (frs->type == FTRACE_ENTRY)
-				ph = 'B';
-			else if (frs->type == FTRACE_EXIT)
-				ph = 'E';
-			else
-				ph = 'L';
 			if (last_comma)
 				pr_out(",\n");
-			pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%5d,\"name\":\"%s\"}",
-					frs->time / 1000, ph, tid, name);
-			last_comma = true;
 
-			if (frs->more) {
-				if (frs->type == FTRACE_ENTRY)
-					read_task_args(&task, frs, false);
-				else if (frs->type == FTRACE_EXIT)
-					read_task_args(&task, frs, true);
-				else
-					abort();
-			}
+			print_ustack_chrome_trace(&task, frs, tid, name);
+
+			last_comma = true;
 
 			symbol_putname(sym, name);
 		}
