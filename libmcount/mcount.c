@@ -589,7 +589,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
 		bool more = false;
 
-		if (regs && args_spec && !list_empty(args_spec))
+		if (regs)
 			more = true;
 
 		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack, more))
@@ -604,7 +604,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	if (mrstack->end_time) {
 		bool more = false;
 
-		if (retval && args_spec && !list_empty(args_spec))
+		if (retval)
 			more = true;
 
 		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, more))
@@ -824,7 +824,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
+			record_trace_data(mtdp, rstack, NULL, NULL, NULL);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
@@ -838,7 +838,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(mtdp, rstack, NULL, regs, NULL);
+				record_trace_data(mtdp, rstack, NULL, NULL, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
 		}
@@ -905,7 +905,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(mtdp, rstack, NULL, NULL, retval) < 0)
+		if (record_trace_data(mtdp, rstack, NULL, NULL, NULL) < 0)
 			pr_err("error during record");
 	}
 }
