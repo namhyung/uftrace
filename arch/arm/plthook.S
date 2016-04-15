@@ -56,6 +56,12 @@ plt_hooker:
 	.type plthook_return, #function
 plthook_return:
 	push {r0-r4,lr,pc}
+
+	/* set the first argument of plthook_exit to return value */
+	/* but there's no need to set r0, and r1 since return value is */
+	/* contained in r0 and r1, and these registers are also directly used */
+	/* as the arguments to plthook_exit function */
+
 	bl plthook_exit
 	str r0, [sp, #24]
 	pop {r0-r4,lr,pc}

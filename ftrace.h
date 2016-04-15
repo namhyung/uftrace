@@ -43,12 +43,14 @@ enum ftrace_feat_bits {
 	TASK_SESSION_BIT,
 	KERNEL_BIT,
 	ARGUMENT_BIT,
+	RETVAL_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
 	TASK_SESSION		= (1U << TASK_SESSION_BIT),
 	KERNEL			= (1U << KERNEL_BIT),
 	ARGUMENT		= (1U << ARGUMENT_BIT),
+	RETVAL			= (1U << RETVAL_BIT),
 };
 
 enum ftrace_info_bits {
@@ -128,6 +130,7 @@ struct opts {
 	char *host;
 	char *sort_keys;
 	char *args;
+	char *retval;
 	int mode;
 	int idx;
 	int depth;

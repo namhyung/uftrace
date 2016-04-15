@@ -110,6 +110,7 @@ static struct argp_option ftrace_options[] = {
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
+	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
 	{ 0 }
 };
@@ -346,6 +347,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'A':
 		opts->args = opt_add_string(opts->args, arg);
+		break;
+
+	case 'R':
+		opts->retval = opt_add_string(opts->retval, arg);
 		break;
 
 	case OPT_flat:
@@ -721,6 +726,10 @@ static void pr_args(struct fstack_arguments *args)
 	int i = 0;
 
 	list_for_each_entry(spec, args->args, list) {
+		/* skip return value info */
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
 		if (spec->fmt == ARG_FMT_STR) {
 			char buf[64];
 			const int null_str = -1;
@@ -739,6 +748,45 @@ static void pr_args(struct fstack_arguments *args)
 
 			memcpy(&val, ptr, spec->size);
 			pr_out("  args[%d] %c%d: %#llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			size = spec->size;
+		}
+
+		ptr += ALIGN(size, 4);
+		i++;
+	}
+}
+
+static void pr_retval(struct fstack_arguments *args)
+{
+	struct ftrace_arg_spec *spec;
+	void *ptr = args->data;
+	size_t size;
+	int i = 0;
+
+	list_for_each_entry(spec, args->args, list) {
+		/* skip argument info */
+		if (spec->idx != RETVAL_IDX)
+			continue;
+
+		if (spec->fmt == ARG_FMT_STR) {
+			char buf[64];
+			const int null_str = -1;
+
+			size = *(unsigned short *)ptr;
+			strncpy(buf, ptr + 2, size);
+
+			if (!memcmp(buf, &null_str, 4))
+				strcpy(buf, "NULL");
+
+			pr_out("  retval[%d] str: %s\n", i , buf);
+			size += 2;
+		}
+		else {
+			long long val = 0;
+
+			memcpy(&val, ptr, spec->size);
+			pr_out("  retval[%d] %c%d: %#llx\n", i,
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
 			size = spec->size;
 		}
@@ -808,13 +856,24 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 			pr_hex(&file_offset, frs, sizeof(*frs));
 
 			if (frs->more) {
-				read_task_args(&task, frs);
+				if (frs->type == FTRACE_ENTRY) {
+					read_task_args(&task, frs, false);
 
-				pr_time(frs->time);
-				pr_out("%5d: [%s] length = %d\n", tid, "args ",
-				       task.args.len);
-				pr_args(&task.args);
-				pr_hex(&file_offset, task.args.data, task.args.len);
+					pr_time(frs->time);
+					pr_out("%5d: [%s] length = %d\n", tid, "args ",
+							task.args.len);
+					pr_args(&task.args);
+					pr_hex(&file_offset, task.args.data, task.args.len);
+				} else if (frs->type == FTRACE_EXIT) {
+					read_task_args(&task, frs, true);
+
+					pr_time(frs->time);
+					pr_out("%5d: [%s] length = %d\n", tid, "retval",
+							task.args.len);
+					pr_retval(&task.args);
+					pr_hex(&file_offset, task.args.data, task.args.len);
+				} else
+					abort();
 			}
 
 			symbol_putname(sym, name);
@@ -824,6 +883,46 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	}
 }
 
+static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
+				      struct ftrace_ret_stack *frs,
+				      int tid, const char* name)
+{
+	char ph;
+	char spec_buf[1024];
+	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+
+	if (frs->type == FTRACE_ENTRY) {
+		ph = 'B';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, ph, tid, name);
+		if (frs->more) {
+			bool is_retval = false;
+			read_task_args(task, frs, is_retval);
+
+			str_mode |= HAS_MORE;
+			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
+				spec_buf);
+		} else
+			pr_out("}");
+	} else if (frs->type == FTRACE_EXIT) {
+		ph = 'E';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, ph, tid, name);
+		if (frs->more) {
+			bool is_retval = true;
+			read_task_args(task, frs, is_retval);
+
+			str_mode |= IS_RETVAL | HAS_MORE;
+			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+			pr_out(",\"args\":{\"retval\":\"%s\"}}",
+				spec_buf);
+		} else
+			pr_out("}");
+	} else
+		abort();
+}
+
 static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			      struct ftrace_file_handle *handle)
 {
@@ -831,8 +930,6 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 	struct ftrace_task_handle task;
 	char buf[PATH_MAX];
 	struct stat statbuf;
-
-	setup_fstack_args(handle->info.argspec);
 
 	/* read recorded date and time */
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -866,21 +963,12 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			name = symbol_getname(sym, frs->addr);
 
-			char ph;
-			if (frs->type == FTRACE_ENTRY)
-				ph = 'B';
-			else if (frs->type == FTRACE_EXIT)
-				ph = 'E';
-			else
-				ph = 'L';
 			if (last_comma)
 				pr_out(",\n");
-			pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%5d,\"name\":\"%s\"}",
-					frs->time / 1000, ph, tid, name);
-			last_comma = true;
 
-			if (frs->more)
-				read_task_args(&task, frs);
+			print_ustack_chrome_trace(&task, frs, tid, name);
+
+			last_comma = true;
 
 			symbol_putname(sym, name);
 		}

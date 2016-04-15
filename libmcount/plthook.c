@@ -414,8 +414,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 	/* force flush rstack on some special functions */
-	if (check_dynsym_idxlist(&flush_idxlist, child_idx))
-		record_trace_data(mtdp, rstack, NULL, regs);
+	if (check_dynsym_idxlist(&flush_idxlist, child_idx)) {
+		if (!(tr.flags & TRIGGER_FL_ARGUMENT))
+			regs = NULL;
+		record_trace_data(mtdp, rstack, NULL, regs, NULL);
+	}
 
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
@@ -435,7 +438,7 @@ out:
 	return 0;
 }
 
-unsigned long plthook_exit(void)
+unsigned long plthook_exit(long retval)
 {
 	int dyn_idx;
 	unsigned long new_addr;
@@ -475,7 +478,7 @@ again:
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
-	mcount_exit_filter_record(mtdp, rstack);
+	mcount_exit_filter_record(mtdp, rstack, &retval);
 
 	mtdp->plthook_guard = false;
 

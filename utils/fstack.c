@@ -556,12 +556,15 @@ static int read_task_arg(struct ftrace_task_handle *task,
 /**
  * read_task_args - read arguments of current function of the task
  * @task: tracee task
- * @spec: argument spec
+ * @rstack: ftrace_ret_stack
+ * @is_retval: 0 reads argument, 1 reads return value
  *
  * This function reads argument records of @task's current function
  * according to the @spec.
  */
-int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rstack)
+int read_task_args(struct ftrace_task_handle *task,
+		   struct ftrace_ret_stack *rstack,
+		   bool is_retval)
 {
 	struct ftrace_session *sess;
 	struct ftrace_trigger tr = {};
@@ -576,7 +579,11 @@ int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rst
 	}
 
 	fl = ftrace_match_filter(&sess->filters, rstack->addr, &tr);
-	if (fl == NULL || !(tr.flags & TRIGGER_FL_ARGUMENT)) {
+	if (fl == NULL) {
+		pr_dbg("cannot find filter\n");
+		return -1;
+	}
+	if (!(tr.flags & (TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL))) {
 		pr_dbg("cannot find arg spec\n");
 		return -1;
 	}
@@ -585,6 +592,10 @@ int read_task_args(struct ftrace_task_handle *task, struct ftrace_ret_stack *rst
 	task->args.args = &fl->args;
 
 	list_for_each_entry(arg, &fl->args, list) {
+		/* skip unwanted arguments or retval */
+		if (is_retval != (arg->idx == RETVAL_IDX))
+			continue;
+
 		if (read_task_arg(task, arg) < 0)
 			return -1;
 	}
@@ -656,11 +667,16 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 	}
 
 	if (task->ustack.more) {
-		if (!(handle->hdr.feat_mask & ARGUMENT) ||
+		if (!(handle->hdr.feat_mask & (ARGUMENT | RETVAL)) ||
 		    handle->info.argspec == NULL)
 			pr_err_ns("invalid data (more bit set w/o args)");
 
-		read_task_args(task, &task->ustack);
+		if (task->ustack.type == FTRACE_ENTRY)
+			read_task_args(task, &task->ustack, false);
+		else if (task->ustack.type == FTRACE_EXIT)
+			read_task_args(task, &task->ustack, true);
+		else
+			abort();
 	}
 
 	task->valid = true;

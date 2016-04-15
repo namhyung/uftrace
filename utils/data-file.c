@@ -171,7 +171,7 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	reset_task_handle();
 
-	if (handle->hdr.feat_mask & ARGUMENT)
+	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
 		setup_fstack_args(handle->info.argspec);
 
 	ret = 0;

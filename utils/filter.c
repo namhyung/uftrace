@@ -40,7 +40,20 @@ static void print_trigger(struct ftrace_trigger *tr)
 
 		pr_dbg("\ttrigger: argument\n");
 		list_for_each_entry(arg, tr->pargs, list) {
+			if (arg->idx == RETVAL_IDX)
+				continue;
 			pr_dbg("\t\t arg%d: %c%d\n", arg->idx,
+			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
+		}
+	}
+	if (tr->flags & TRIGGER_FL_RETVAL) {
+		struct ftrace_arg_spec *arg;
+
+		pr_dbg("\ttrigger: return value\n");
+		list_for_each_entry(arg, tr->pargs, list) {
+			if (arg->idx != RETVAL_IDX)
+				continue;
+			pr_dbg("\t\t retval%d: %c%d\n", arg->idx,
 			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
 		}
 	}
@@ -101,6 +114,20 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_ON;
 
 	if (tr->flags & TRIGGER_FL_ARGUMENT) {
+		struct ftrace_arg_spec *arg, *new;
+
+		if (!copy_args) {
+			list_splice_tail_init(tr->pargs, &filter->args);
+			return;
+		}
+
+		list_for_each_entry(arg, tr->pargs, list) {
+			new = xmalloc(sizeof(*new));
+			memcpy(new, arg, sizeof(*new));
+			list_add_tail(&new->list, &filter->args);
+		}
+	}
+	if (tr->flags & TRIGGER_FL_RETVAL) {
 		struct ftrace_arg_spec *arg, *new;
 
 		if (!copy_args) {
@@ -206,27 +233,16 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 }
 
 /* argument_spec = arg1/i32,arg2/x64,... */
-static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
+static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 {
-	struct ftrace_arg_spec *arg;
-	char *suffix;
 	int fmt;
 	int size;
 	int bit;
 
-	if (!isdigit(str[3])) {
-		pr_use("skipping invalid argument: %s\n", str);
-		return -1;
-	}
-
-	arg = xmalloc(sizeof(*arg));
-	INIT_LIST_HEAD(&arg->list);
-	arg->idx = strtol(str+3, &suffix, 0);
-
 	if (suffix == NULL || *suffix == '\0') {
 		arg->fmt  = ARG_FMT_AUTO;
 		arg->size = sizeof(long);
-		goto add_arg;
+		return 0;
 	}
 
 	suffix++;
@@ -258,7 +274,7 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 			arg->size = 1;
 		else
 			arg->size = sizeof(long);
-		goto add_arg;
+		return 0;
 	}
 
 	bit = strtol(suffix, NULL, 10);
@@ -275,8 +291,49 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	}
 	arg->size = size;
 
-add_arg:
+	return 0;
+}
+
+/* argument_spec = arg1/i32,arg2/x64,... */
+static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+
+	if (!isdigit(str[3])) {
+		pr_use("skipping invalid argument: %s\n", str);
+		return -1;
+	}
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = strtol(str+3, &suffix, 0);
+
+	if (parse_spec(str, arg, suffix) == -1)
+		return -1;
+
 	tr->flags |= TRIGGER_FL_ARGUMENT;
+	list_add_tail(&arg->list, tr->pargs);
+
+	return 0;
+}
+
+/* argument_spec = retval/i32 or retval/x64 ... */
+static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = 0;
+	/* set suffix after string "retval" */
+	suffix = str + 6;
+
+	if (parse_spec(str, arg, suffix) == -1)
+		return -1;
+
+	tr->flags |= TRIGGER_FL_RETVAL;
 	list_add_tail(&arg->list, tr->pargs);
 
 	return 0;
@@ -331,6 +388,11 @@ static int setup_module_and_trigger(char *str, char *module,
 			}
 			else if (!strncasecmp(pos, "arg", 3)) {
 				if (parse_argument_spec(pos, tr) < 0)
+					return -1;
+				continue;
+			}
+			else if (!strncasecmp(pos, "retval", 6)) {
+				if (parse_retval_spec(pos, tr) < 0)
 					return -1;
 				continue;
 			}
@@ -469,6 +531,19 @@ void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
 	setup_trigger(args_str, symtabs, module, root, 0, NULL);
+}
+
+/**
+ * ftrace_setup_retval - construct rbtree of retval
+ * @retval_str   - CSV of argument string (FUNC @ arg)
+ * @symtabs    - symbol tables to find symbol address
+ * @module     - optional module (binary/dso) name
+ * @root       - root of resulting rbtree
+ */
+void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
+			  char *module, struct rb_root *root)
+{
+	setup_trigger(retval_str, symtabs, module, root, 0, NULL);
 }
 
 /**

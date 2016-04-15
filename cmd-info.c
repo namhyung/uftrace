@@ -640,10 +640,15 @@ static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 
-	if (!fha->opts->args)
+	if (!(fha->opts->args || fha->opts->retval))
 		return -1;
 
-	dprintf(fha->fd, "argspec:%s\n", fha->opts->args);
+	dprintf(fha->fd, "argspec:");
+	if (fha->opts->args)
+		dprintf(fha->fd, "%s;", fha->opts->args);
+	if (fha->opts->retval)
+		dprintf(fha->fd, "%s;", fha->opts->retval);
+
 	return 0;
 }
 
@@ -836,7 +841,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (handle.hdr.info_mask & (1UL << ARG_SPEC))
-		pr_out(fmt, "arguments", handle.info.argspec);
+		pr_out(fmt, "arguments/retval", handle.info.argspec);
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
 		int status = handle.info.exit_status;

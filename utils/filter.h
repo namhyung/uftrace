@@ -20,6 +20,7 @@ enum trigger_flag {
 	TRIGGER_FL_TRACE_OFF	= (1U << 4),
 	TRIGGER_FL_ARGUMENT	= (1U << 5),
 	TRIGGER_FL_RECOVER	= (1U << 6),
+	TRIGGER_FL_RETVAL	= (1U << 7),
 };
 
 enum filter_mode {
@@ -40,6 +41,16 @@ enum ftrace_arg_format {
 /* should match with ftrace_arg_format above */
 #define ARG_SPEC_CHARS  "diuxsc"
 
+/**
+ * ftrace_arg_spec contains arguments and return value info.
+ *
+ * If idx is zero, it means the recorded data is return value.
+ *
+ * If idx is not zero, it means the recorded data is arguments
+ * and idx shows the sequence order of arguments.
+ */
+#define RETVAL_IDX 0
+
 struct ftrace_arg_spec {
 	struct list_head	list;
 	int			idx;
@@ -48,7 +59,7 @@ struct ftrace_arg_spec {
 };
 
 struct ftrace_trigger {
-	unsigned long		flags;
+	enum trigger_flag	flags;
 	int			depth;
 	enum filter_mode	fmode;
 	struct list_head	*pargs;
@@ -72,6 +83,8 @@ void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root);
 void ftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			   char *module, struct rb_root *root);
+void ftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
+			 char *module, struct rb_root *root);
 
 struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip,
 			struct ftrace_trigger *tr);

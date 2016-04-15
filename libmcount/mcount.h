@@ -26,7 +26,7 @@
 #define MCOUNT_INVALID_DYNIDX 0xffff
 #define MCOUNT_DEFAULT_DEPTH  (INT_MAX - 1)
 
-enum {
+enum mcount_flag {
 	MCOUNT_FL_SETJMP	= (1U << 0),
 	MCOUNT_FL_LONGJMP	= (1U << 1),
 	MCOUNT_FL_NORECORD	= (1U << 2),
@@ -36,13 +36,14 @@ enum {
 	MCOUNT_FL_WRITTEN	= (1U << 6),
 	MCOUNT_FL_DISABLED	= (1U << 7),
 	MCOUNT_FL_RECOVER	= (1U << 8),
+	MCOUNT_FL_RETVAL	= (1U << 9),
 };
 
 struct mcount_ret_stack {
 	unsigned long *parent_loc;
 	unsigned long parent_ip;
 	unsigned long child_ip;
-	unsigned long flags;
+	enum mcount_flag flags;
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
@@ -50,6 +51,8 @@ struct mcount_ret_stack {
 	int filter_depth;
 	unsigned short depth;
 	unsigned short dyn_idx;
+	/* set arg_spec at function entry and use it at exit */
+	struct list_head *pargs;
 };
 
 void __monstartup(unsigned long low, unsigned long high);
@@ -171,10 +174,12 @@ extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				       struct ftrace_trigger *tr,
 				       struct mcount_regs *regs);
 extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
-				      struct mcount_ret_stack *rstack);
+				      struct mcount_ret_stack *rstack,
+				      long *retval);
 extern int record_trace_data(struct mcount_thread_data *mtdp,
 				     struct mcount_ret_stack *mrstack,
 				     struct list_head *args_spec,
-				     struct mcount_regs *regs);
+				     struct mcount_regs *regs,
+				     long *retval);
 
 #endif /* FTRACE_MCOUNT_H */

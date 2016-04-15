@@ -59,6 +59,24 @@ struct ftrace_task_handle {
 	struct fstack_arguments args;
 };
 
+enum argspec_string_bits {
+	/* bit index */
+	NEEDS_PAREN_BIT,
+	NEEDS_SEMI_COLON_BIT,
+	HAS_MORE_BIT,
+	IS_RETVAL_BIT,
+	NEEDS_ASSIGNMENT_BIT,
+	NEEDS_ESCAPE_BIT,
+
+	/* bit mask */
+	NEEDS_PAREN		= (1U << NEEDS_PAREN_BIT),
+	NEEDS_SEMI_COLON	= (1U << NEEDS_SEMI_COLON_BIT),
+	HAS_MORE		= (1U << HAS_MORE_BIT),
+	IS_RETVAL		= (1U << IS_RETVAL_BIT),
+	NEEDS_ASSIGNMENT	= (1U << NEEDS_ASSIGNMENT_BIT),
+	NEEDS_ESCAPE		= (1U << NEEDS_ESCAPE_BIT),
+};
+
 extern struct ftrace_task_handle *tasks;
 extern int nr_tasks;
 extern bool fstack_enabled;
@@ -77,7 +95,8 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_task_handle *task);
 int read_task_args(struct ftrace_task_handle *task,
-		   struct ftrace_ret_stack *rstack);
+		   struct ftrace_ret_stack *rstack,
+		   bool is_retval);
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 int setup_fstack_filters(char *filter_str, char *trigger_str);
@@ -93,5 +112,8 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth);
+void get_argspec_string(struct ftrace_task_handle *task,
+		        char *args, size_t len,
+		        enum argspec_string_bits str_mode);
 
 #endif /* __FTRACE_FSTACK_H__ */
