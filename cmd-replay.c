@@ -18,6 +18,20 @@ static int column_index;
 static bool skip_kernel_before_user = true;
 static int prev_tid = -1;
 
+enum argspec_string_bits {
+	/* bit index */
+	NEEDS_PAREN_BIT,
+	NEEDS_SEMI_COLON_BIT,
+	HAS_MORE_BIT,
+	IS_RETVAL_BIT,
+
+	/* bit mask */
+	NEEDS_PAREN		= (1U << NEEDS_PAREN_BIT),
+	NEEDS_SEMI_COLON	= (1U << NEEDS_SEMI_COLON_BIT),
+	HAS_MORE		= (1U << HAS_MORE_BIT),
+	IS_RETVAL		= (1U << IS_RETVAL_BIT),
+};
+
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 {
 	if (!opts->column_view)
@@ -98,29 +112,36 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
-static void get_argspec_string(struct ftrace_task_handle *task, bool need_paren,
-				  bool has_more, char *args, size_t len,
-				  bool is_retval)
+static void get_argspec_string(struct ftrace_task_handle *task,
+				  char *args, size_t len,
+				  enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
 	long val;
 	char str[64];
 	const int null_str = -1;
 	void *data = task->args.data;
+	struct list_head *arg_list = task->args.args;
 	struct ftrace_arg_spec *spec;
 
+	bool needs_paren      = !!(str_mode & NEEDS_PAREN);
+	bool needs_semi_colon = !!(str_mode & NEEDS_SEMI_COLON);
+	bool has_more         = !!(str_mode & HAS_MORE);
+	bool is_retval        = !!(str_mode & IS_RETVAL);
+
 	if (!has_more) {
-		if (need_paren)
+		if (needs_paren)
 			strcpy(args, "()");
 		else {
-			if (is_retval)
+			if (is_retval && needs_semi_colon)
 				args[n++] = ';';
 			args[n] = '\0';
 		}
 		return;
-	}
+	} else
+		needs_semi_colon = true;
 
-	assert(task->args.args && !list_empty(task->args.args));
+	assert(arg_list && !list_empty(arg_list));
 
 	if (!is_retval)
 		args[n++] = '(';
@@ -129,7 +150,7 @@ static void get_argspec_string(struct ftrace_task_handle *task, bool need_paren,
 		args[n++] = '=';
 		args[n++] = ' ';
 	}
-	list_for_each_entry(spec, task->args.args, list) {
+	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
 		char *len_mod[] = { "hh", "h", "", "ll" };
 		char fmt, *lm;
@@ -213,8 +234,9 @@ static void get_argspec_string(struct ftrace_task_handle *task, bool need_paren,
 		args[n] = ')';
 		args[n+1] = '\0';
 	} else {
-		args[n] = ';';
-		args[n+1] = '\0';
+		if (needs_semi_colon)
+			args[n++] = ';';
+		args[n] = '\0';
 	}
 }
 
@@ -228,7 +250,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	struct symtabs *symtabs;
 	struct sym *sym;
 	char *symname;
-	bool needs_paren;
+	enum argspec_string_bits str_mode = 0;
 	char args[1024];
 
 	if (task == NULL)
@@ -241,7 +263,11 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
-	needs_paren = (symname[strlen(symname) - 1] != ')');
+
+	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
+		str_mode |= NEEDS_PAREN;
+	if (rstack->more)
+		str_mode |= HAS_MORE;
 
 	if (skip_kernel_before_user) {
 		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
@@ -273,7 +299,7 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 		if (opts->task_newline)
 			print_task_newline(task->tid);
 
-		get_argspec_string(task, needs_paren, rstack->more, args, sizeof(args), false);
+		get_argspec_string(task, args, sizeof(args), str_mode);
 
 		/* function entry */
 		print_time_unit(0UL);
@@ -289,7 +315,8 @@ static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
 
 		depth += task_column_depth(task, opts);
 
-		get_argspec_string(task, needs_paren, rstack->more, retval, sizeof(args), true);
+		str_mode |= IS_RETVAL;
+		get_argspec_string(task, retval, sizeof(args), str_mode);
 
 		/* function exit */
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
@@ -327,7 +354,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
-	bool needs_paren;
+	enum argspec_string_bits str_mode = 0;
 	char *symname;
 
 	if (task == NULL)
@@ -340,7 +367,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	symtabs = &sess->symtabs;
 	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
 	symname = symbol_getname(sym, rstack->addr);
-	needs_paren = (symname[strlen(symname) - 1] != ')');
+
+	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
+		str_mode |= NEEDS_PAREN;
 
 	if (skip_kernel_before_user) {
 		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
@@ -369,7 +398,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		depth += task_column_depth(task, opts);
 
-		get_argspec_string(task, needs_paren, rstack->more, args, sizeof(args), false);
+		if (rstack->more)
+			str_mode |= HAS_MORE;
+		get_argspec_string(task, args, sizeof(args), str_mode);
 
 		fstack = &task->func_stack[task->stack_count - 1];
 
@@ -379,8 +410,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack->depth == rstack_depth &&
 		    next->rstack->type == FTRACE_EXIT) {
 			char retval[1024];
-			get_argspec_string(task, false, next->rstack->more, retval,
-					      sizeof(retval), true);
+
+			str_mode = IS_RETVAL | NEEDS_SEMI_COLON;
+			if (next->rstack->more)
+				str_mode |= HAS_MORE;
+			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			/* give a new line when tid is changed */
 			if (opts->task_newline)
@@ -424,7 +458,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			depth += task_column_depth(task, opts);
 
-			get_argspec_string(task, false, rstack->more, retval, sizeof(args), true);
+			str_mode = IS_RETVAL;
+			if (rstack->more)
+				str_mode |= HAS_MORE;
+			get_argspec_string(task, retval, sizeof(args), str_mode);
 
 			/* give a new line when tid is changed */
 			if (opts->task_newline)
