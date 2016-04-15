@@ -52,7 +52,7 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	task->tid = tid;
 	task->fp = fopen(filename, "rb");
 	if (task->fp == NULL) {
-		pr_dbg("cannot open task data file: %s\n", filename);
+		pr_dbg("cannot open task data file: %s: %m\n", filename);
 		task->done = true;
 	}
 	else

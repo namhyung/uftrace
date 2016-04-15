@@ -773,12 +773,16 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	if (debug) {
 		pr_out("%d tasks found\n", handle->info.nr_tid);
 		pr_task(opts);
+		pr_out("\n");
 	}
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid = handle->info.tids[i];
 
 		setup_task_handle(handle, &task, tid);
+
+		if (task.fp == NULL)
+			continue;
 
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
@@ -843,6 +847,9 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 		int tid = handle->info.tids[i];
 
 		setup_task_handle(handle, &task, tid);
+
+		if (task.fp == NULL)
+			continue;
 
 		while (!read_task_ustack(&task)) {
 			struct ftrace_ret_stack *frs = &task.ustack;
