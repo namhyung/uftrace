@@ -15,7 +15,6 @@
 
 
 static int column_index;
-static bool skip_kernel_before_user = true;
 static int prev_tid = -1;
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
@@ -233,117 +232,11 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	}
 }
 
-static int print_graph_no_merge_rstack(struct ftrace_file_handle *handle,
-				       struct ftrace_task_handle *task,
-				       struct opts *opts)
-{
-	struct ftrace_ret_stack *rstack = task->rstack;
-	static bool seen_user_rstack = false;
-	struct ftrace_session *sess;
-	struct symtabs *symtabs;
-	struct sym *sym;
-	char *symname;
-	enum argspec_string_bits str_mode = 0;
-	char args[1024];
-
-	if (task == NULL)
-		return 0;
-
-	sess = find_task_session(task->tid, rstack->time);
-	if (sess == NULL)
-		return 0;
-
-	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
-	symname = symbol_getname(sym, rstack->addr);
-
-	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
-		str_mode |= NEEDS_PAREN;
-	if (rstack->more)
-		str_mode |= HAS_MORE;
-
-	if (skip_kernel_before_user) {
-		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
-			seen_user_rstack = true;
-		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
-			goto out;
-	}
-
-	if (rstack->type == FTRACE_ENTRY) {
-		struct ftrace_trigger tr = {
-			.flags = 0,
-		};
-		struct fstack *fstack;
-		int ret;
-		int depth = task->display_depth;
-
-		ret = fstack_entry(task, rstack, &tr);
-		if (ret < 0)
-			goto out;
-
-		if (tr.flags & TRIGGER_FL_BACKTRACE)
-			print_backtrace(task);
-
-		depth += task_column_depth(task, opts);
-
-		fstack = &task->func_stack[rstack->depth];
-
-		/* give a new line when tid is changed */
-		if (opts->task_newline)
-			print_task_newline(task->tid);
-
-		get_argspec_string(task, args, sizeof(args), str_mode);
-
-		/* function entry */
-		print_time_unit(0UL);
-		pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-		       depth * 2, "", symname, args);
-
-		fstack_update(FTRACE_ENTRY, task, fstack);
-	}
-	else if (rstack->type == FTRACE_EXIT) {
-		struct fstack *fstack = &task->func_stack[rstack->depth];
-		int depth = fstack_update(FTRACE_EXIT, task, fstack);
-		char *retval = args;
-
-		depth += task_column_depth(task, opts);
-
-		str_mode |= IS_RETVAL;
-		get_argspec_string(task, retval, sizeof(args), str_mode);
-
-		/* function exit */
-		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
-
-			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s}%s", task->tid, depth * 2, "", retval);
-			pr_gray(" /* %s */\n", symname);
-		}
-
-		fstack_exit(task);
-	}
-	else if (rstack->type == FTRACE_LOST) {
-		/* give a new line when tid is changed */
-		if (opts->task_newline)
-			print_task_newline(task->tid);
-
-		print_time_unit(0UL);
-		pr_out(" [%5d] |", task->tid);
-		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
-	}
-out:
-	symbol_putname(sym, symname);
-	return 0;
-}
-
 static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct ftrace_task_handle *task,
 			      struct opts *opts)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
-	static bool seen_user_rstack = false;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym;
@@ -354,7 +247,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	sess = find_task_session(task->tid, rstack->time);
-	if (sess == NULL)
+	if (sess == NULL && !is_kernel_address(rstack->addr))
 		return 0;
 
 	symtabs = &sess->symtabs;
@@ -364,16 +257,16 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
 		str_mode |= NEEDS_PAREN;
 
-	if (skip_kernel_before_user) {
-		if (!seen_user_rstack && !is_kernel_address(rstack->addr))
-			seen_user_rstack = true;
-		if (is_kernel_address(rstack->addr) && !seen_user_rstack)
+	if (opts->kernel == 1) {
+		/* skip kernel functions outside user functions */
+		if (is_kernel_address(task->func_stack[0].addr) &&
+		    is_kernel_address(rstack->addr))
 			goto out;
 	}
 
 	char args[1024];
 	if (rstack->type == FTRACE_ENTRY) {
-		struct ftrace_task_handle *next;
+		struct ftrace_task_handle *next = NULL;
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
 		int depth = task->display_depth;
@@ -386,6 +279,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (ret < 0)
 			goto out;
 
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
@@ -397,7 +294,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		fstack = &task->func_stack[task->stack_count - 1];
 
-		next = fstack_skip(handle, task, rstack_depth);
+		if (!opts->no_merge)
+			next = fstack_skip(handle, task, rstack_depth);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -410,10 +308,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				str_mode |= NEEDS_ASSIGNMENT;
 			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
-
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
 
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
@@ -429,10 +323,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			fstack_exit(task);
 		}
 		else {
-			/* give a new line when tid is changed */
-			if (opts->task_newline)
-				print_task_newline(task->tid);
-
 			/* function entry */
 			print_time_unit(0UL);
 			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
@@ -485,13 +375,26 @@ out:
 	return 0;
 }
 
-static void print_remaining_stack(void)
+static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
+{
+	/* skip 'sys_exit[_group] at last for simple kernel tracing (-k) */
+	if (opts->kernel != 1 || task->stack_count != 1)
+		return false;
+
+	return is_kernel_address(task->func_stack[0].addr);
+}
+
+static void print_remaining_stack(struct opts *opts)
 {
 	int i;
 	int total = 0;
 
-	for (i = 0; i < nr_tasks; i++)
+	for (i = 0; i < nr_tasks; i++) {
+		if (skip_sys_exit(opts, &tasks[i]))
+			continue;
+
 		total += tasks[i].stack_count;
+	}
 
 	if (total == 0)
 		return;
@@ -505,6 +408,9 @@ static void print_remaining_stack(void)
 		if (task->stack_count == 0)
 			continue;
 
+		if (skip_sys_exit(opts, &tasks[i]))
+			continue;
+
 		pr_out("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
@@ -516,7 +422,7 @@ static void print_remaining_stack(void)
 			struct sym *sym;
 			char *symname;
 
-			if (sess) {
+			if (sess || is_kernel_address(ip)) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, ip, proc_maps);
 			} else
@@ -578,8 +484,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task, opts);
-		else if (opts->no_merge)
-			ret = print_graph_no_merge_rstack(&handle, task, opts);
 		else
 			ret = print_graph_rstack(&handle, task, opts);
 
@@ -587,7 +491,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	print_remaining_stack();
+	print_remaining_stack(opts);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);

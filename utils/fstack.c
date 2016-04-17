@@ -226,6 +226,7 @@ static const char *fixup_syms[] = {
 };
 
 static int setjmp_depth;
+static int setjmp_count;
 
 static int build_fixup_filter(struct ftrace_session *s, void *arg)
 {
@@ -286,10 +287,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 	unsigned long addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
-	fstack = &task->func_stack[rstack->depth];
+	fstack = &task->func_stack[task->stack_count - 1];
 
-	pr_dbg2("ENTRY: [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
-		task->tid, task->stack_count-1, task->filter.in_count,
+	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
+		task->tid, task->stack_count-1, rstack->depth, task->filter.in_count,
 		task->filter.out_count, task->filter.depth, fstack->flags,
 		rstack->more ? "more" : "");
 
@@ -315,8 +316,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 		if (unlikely(fixup)) {
 			if (!strncmp(fixup->name, "exec", 4))
 				fstack->flags |= FSTACK_FL_EXEC;
-			else if (strstr(fixup->name, "setjmp"))
+			else if (strstr(fixup->name, "setjmp")) {
 				setjmp_depth = task->display_depth + 1;
+				setjmp_count = task->stack_count;
+			}
 			else if (strstr(fixup->name, "longjmp"))
 				fstack->flags |= FSTACK_FL_LONGJMP;
 		}
@@ -384,10 +387,10 @@ void fstack_exit(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 
-	fstack = &task->func_stack[task->rstack->depth];
+	fstack = &task->func_stack[task->stack_count];
 
-	pr_dbg2("EXIT : [%5d] stack: %d, I: %d, O: %d, D: %d, flags = %lx\n",
-		task->tid, task->stack_count, task->filter.in_count,
+	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+		task->tid, task->stack_count, fstack->orig_depth, task->filter.in_count,
 		task->filter.out_count, task->filter.depth, fstack->flags);
 
 	if (fstack->flags & FSTACK_FL_FILTERED)
@@ -412,10 +415,14 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack)
 {
 	if (type == FTRACE_ENTRY) {
-		if (fstack->flags & FSTACK_FL_EXEC)
+		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
-		else if (fstack->flags & FSTACK_FL_LONGJMP)
+			task->stack_count = 0;
+		}
+		else if (fstack->flags & FSTACK_FL_LONGJMP) {
 			task->display_depth = setjmp_depth;
+			task->stack_count = setjmp_count;
+		}
 		else
 			task->display_depth++;
 
@@ -433,6 +440,50 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 	return task->display_depth;
 }
 
+/* returns -1 if it can skip the rstack */
+static int fstack_check_skip(struct ftrace_task_handle *task,
+			     struct ftrace_ret_stack *rstack)
+{
+	struct ftrace_session *sess;
+	unsigned long addr = rstack->addr;
+	struct ftrace_trigger tr = { 0 };
+	int depth = task->filter.depth;
+
+	if (task->filter.out_count > 0)
+		return -1;
+
+	if (is_kernel_address(addr))
+		addr = get_real_address(addr);
+
+	sess = find_task_session(task->tid, rstack->time);
+	if (sess == NULL)
+		sess = find_task_session(task->t->pid, rstack->time);
+
+	if (sess == NULL)
+		return -1;
+
+	ftrace_match_filter(&sess->filters, addr, &tr);
+
+	if (tr.flags & TRIGGER_FL_FILTER) {
+		if (tr.fmode == FILTER_MODE_OUT)
+			return -1;
+
+		depth = task->h->depth;
+	}
+	else if (fstack_filter_mode == FILTER_MODE_IN &&
+		 task->filter.in_count == 0) {
+			return -1;
+	}
+
+	if (tr.flags & (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON))
+		return 1;
+
+	if (tr.flags & TRIGGER_FL_TRACE_OFF || depth <= 0)
+		return -1;
+
+	return 0;
+}
+
 /**
  * fstack_skip - Skip filtered record as many as possible
  * @handle     - file handle
@@ -448,35 +499,41 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth)
 {
-	struct ftrace_task_handle *next;
+	struct ftrace_task_handle *next = NULL;
 	struct fstack *fstack;
+	struct ftrace_ret_stack *curr_stack = task->rstack;
 
-	fstack = &task->func_stack[task->rstack->depth];
+	fstack = &task->func_stack[task->stack_count - 1];
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
 		return NULL;
 
 	if (peek_rstack(handle, &next) < 0)
 		return NULL;
 
-	while (next == task && next->rstack->depth > curr_depth) {
+	while (next == task && next->rstack->depth > curr_depth &&
+	       curr_stack == next->rstack) {
+		struct ftrace_ret_stack *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
 		/* return if it's not filtered */
-		if (next->rstack->type == FTRACE_ENTRY) {
-			if (!fstack_entry(next, next->rstack, &tr)) {
-				/* restore original state */
-				task->stack_count--;
-				fstack_exit(next);
+		if (next_stack->type == FTRACE_ENTRY) {
+			if (fstack_check_skip(task, next_stack) >= 0)
 				break;
-			}
 		}
-		else if (next->rstack->type == FTRACE_EXIT)
-			fstack_exit(next);
-		else
+		else if (next_stack->type != FTRACE_EXIT)
 			break;
 
 		/* consume the filtered rstack */
 		read_rstack(handle, &next);
+
+		/*
+		 * call fstack_entry/exit() after read_rstack() so
+		 * that it can changes stack_count properly.
+		 */
+		if (next_stack->type == FTRACE_ENTRY)
+			fstack_entry(task, next_stack, &tr);
+		else
+			fstack_exit(task);
 
 		/* and then read next */
 		if (peek_rstack(handle, &next) < 0)
@@ -651,6 +708,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		if (task->ustack.type == FTRACE_EXIT)
 			task->display_depth++;
 		task->display_depth_set = true;
+
+		task->stack_count = task->display_depth;
 	}
 
 	if (task->lost_seen) {
@@ -743,19 +802,17 @@ user:
 
 		task->rstack = &task->ustack;
 
-		/* update stack count when the user stack is actually used */
 		if (task->ustack.type == FTRACE_ENTRY) {
-			fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->stack_count];
 
 			fstack->total_time = task->ustack.time;
 			fstack->child_time = 0;
 			fstack->valid = true;
 			fstack->addr = task->ustack.addr;
 
-			task->stack_count = task->rstack->depth + 1;
 		} else if (task->ustack.type == FTRACE_EXIT) {
 			uint64_t delta;
-			fstack = &task->func_stack[task->ustack.depth];
+			fstack = &task->func_stack[task->stack_count - 1];
 
 			delta = task->ustack.time - fstack->total_time;
 
@@ -767,8 +824,7 @@ user:
 			if (fstack->child_time > fstack->total_time)
 				fstack->child_time = fstack->total_time;
 
-			task->stack_count = task->rstack->depth;
-			if (task->stack_count > 0)
+			if (task->stack_count > 1)
 				fstack[-1].child_time += delta;
 
 		} else if (task->ustack.type == FTRACE_LOST) {
@@ -790,35 +846,40 @@ kernel:
 		task->kstack.unused = FTRACE_UNUSED;
 		task->kstack.more = 0;
 
-		/* account current task stack depth */
-		task->kstack.depth += task->stack_count;
-
 		if (invalidate)
 			kernel->rstack_valid[k] = false;
 
 		task->rstack = &task->kstack;
 
 		if (task->rstack->type == FTRACE_ENTRY) {
-			fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->stack_count];
 
 			fstack->valid = true;
 			fstack->addr = kstack.child_ip;
 			fstack->child_time = 0;
 		}
 		else if (task->rstack->type == FTRACE_EXIT) {
-			fstack = &task->func_stack[task->kstack.depth];
+			fstack = &task->func_stack[task->stack_count - 1];
 
 			fstack->valid = false;
 			fstack->addr = kstack.child_ip;
 			fstack->total_time = kstack.end_time - kstack.start_time;
 
-			if (task->kstack.depth > 0) {
+			if (task->stack_count > 1) {
 				uint64_t child_time = fstack->total_time;
 
-				fstack = &task->func_stack[task->kstack.depth - 1];
-				fstack->child_time += child_time;
+				fstack[-1].child_time += child_time;
 			}
 		}
+	}
+
+	/* update stack count when the rstack is actually used */
+	if (invalidate) {
+		if (task->rstack->type == FTRACE_ENTRY)
+			task->stack_count++;
+		else if (task->rstack->type == FTRACE_EXIT &&
+			 task->stack_count > 0)
+			task->stack_count--;
 	}
 
 	*taskp = task;
@@ -995,6 +1056,8 @@ TEST_CASE(fstack_skip)
 	struct ftrace_task_handle *task;
 	struct ftrace_trigger tr = { 0, };
 	int i;
+
+	dbg_domain[DBG_FSTACK] = 1;
 
 	TEST_EQ(fstack_test_setup_file(handle, 1), 0);
 
