@@ -2,24 +2,28 @@
 
 #define MALLOC_BUFSIZE  (1024 * 1024 * 1024)
 
-void *malloc(unsigned size)
+int malloc_count;
+int free_count;
+
+void *malloc(size_t size)
 {
 	static char buf[MALLOC_BUFSIZE];
-	static unsigned count;
+	static unsigned alloc_size;
 	void *ptr;
 
-	if (count + size > sizeof(buf))
+	if (alloc_size + size > sizeof(buf))
 		return NULL;
 
-	ptr = buf + count;
-	count += size;
+	ptr = buf + alloc_size;
+	alloc_size += size;
 
+	malloc_count++;
 	return ptr;
 }
 
 void free(void *ptr)
 {
-	/* do nothing */
+	free_count++;
 }
 
 int main(void)
