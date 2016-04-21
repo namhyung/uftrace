@@ -1275,7 +1275,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	mtd.recursion_guard = false;
 }
 
-void __visible_default mcleanup(void)
+void __visible_default _mcleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
