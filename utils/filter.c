@@ -28,6 +28,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 	}
 	if (tr->flags & TRIGGER_FL_BACKTRACE)
 		pr_dbg("\ttrigger: backtrace\n");
+	if (tr->flags & TRIGGER_FL_TRACE)
+		pr_dbg("\ttrigger: trace\n");
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		pr_dbg("\ttrigger: trace_on\n");
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
@@ -379,7 +381,9 @@ static int setup_module_and_trigger(char *str, char *module,
 				if (*pos == '_' || *pos == '-')
 					pos++;
 
-				if (!strcasecmp(pos, "on"))
+				if (*pos == '\0')
+					tr->flags |= TRIGGER_FL_TRACE;
+				else if (!strcasecmp(pos, "on"))
 					tr->flags |= TRIGGER_FL_TRACE_ON;
 				else if (!strcasecmp(pos, "off"))
 					tr->flags |= TRIGGER_FL_TRACE_OFF;
