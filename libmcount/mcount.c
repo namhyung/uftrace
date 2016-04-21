@@ -1004,7 +1004,8 @@ unsigned long mcount_exit(long retval)
 
 static void mcount_finish(void)
 {
-	mcount_finished = true;
+	if (mcount_finished)
+		return;
 
 	shmem_finish(&mtd);
 	mtd_dtor(&mtd);
@@ -1014,6 +1015,8 @@ static void mcount_finish(void)
 		close(pfd);
 		pfd = -1;
 	}
+
+	mcount_finished = true;
 }
 
 static int cygprof_entry(unsigned long parent, unsigned long child)
@@ -1275,7 +1278,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	mtd.recursion_guard = false;
 }
 
-void __visible_default mcleanup(void)
+void __visible_default _mcleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();

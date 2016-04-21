@@ -651,15 +651,24 @@ static void pr_task(struct opts *opts)
 		switch (msg.type) {
 		case FTRACE_MSG_TID:
 		case FTRACE_MSG_FORK_END:
-			fread(&tmsg, sizeof(tmsg), 1, fp);
+			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
+				pr_red("cannot read task message: %m\n");
+				return;
+			}
 
 			pr_time(tmsg.time);
 			pr_out("task tid %d (pid %d)\n", tmsg.tid, tmsg.pid);
 			break;
 		case FTRACE_MSG_SESSION:
-			fread(&smsg, sizeof(smsg), 1, fp);
+			if (fread(&smsg, sizeof(smsg), 1, fp) != 1) {
+				pr_red("cannot read session message: %m\n");
+				return;
+			}
 			exename = xmalloc(ALIGN(smsg.namelen, 8));
-			fread(exename, ALIGN(smsg.namelen, 8), 1,fp);
+			if (fread(exename, ALIGN(smsg.namelen, 8), 1,fp) != 1 ) {
+				pr_red("cannot read executable name: %m\n");
+				return;
+			}
 
 			pr_time(smsg.task.time);
 			pr_out("session of task %d/%d: %.*s (%s)\n",
