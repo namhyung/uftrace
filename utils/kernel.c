@@ -691,7 +691,16 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	return 0;
 }
 
-static int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
+/**
+ * read_kernel_cpu_data - read next kernel tracing data of specific cpu
+ * @kernel - kernel ftrace handle
+ * @cpu    - cpu number
+ *
+ * This function reads tracing data from kbuffer and saves it to the
+ * @kernel->rstacks[@cpu].  It returns 0 if succeeded, -1 if there's
+ * no more data.
+ */
+int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 {
 	unsigned long long timestamp;
 	void *data;

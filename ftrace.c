@@ -32,6 +32,7 @@
 #include "ftrace.h"
 #include "version.h"
 #include "libmcount/mcount.h"
+#include "libtraceevent/kbuffer.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
@@ -836,6 +837,9 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid = handle->info.tids[i];
 
+		if (opts->kernel == 2)
+			continue;
+
 		setup_task_handle(handle, &task, tid);
 
 		if (task.fp == NULL)
@@ -889,6 +893,54 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		}
 
 		fclose(task.fp);
+	}
+
+	if (opts->kernel == 0 || handle->kern == NULL)
+		return;
+
+	pr_out("\n");
+	for (i = 0; i < handle->kern->nr_cpus; i++) {
+		struct ftrace_kernel *kernel = handle->kern;
+		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
+		struct kbuffer *kbuf = kernel->kbufs[i];
+		int offset, size;
+		struct sym *sym;
+		char *name;
+
+		file_offset = 0;
+		offset = kbuffer_curr_offset(kbuf);
+		pr_out("reading kernel-cpu%d.dat\n", i);
+		while (!read_kernel_cpu_data(kernel, i)) {
+			sym = find_symtabs(NULL, mrs->child_ip, proc_maps);
+			name = symbol_getname(sym, mrs->child_ip);
+
+			pr_time(mrs->end_time ?: mrs->start_time);
+			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
+			       mrs->tid, mrs->end_time ? "exit " : "entry",
+			       name, mrs->child_ip, mrs->depth);
+
+			if (debug) {
+				/* this is only needed for hex dump */
+				void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
+				int losts = kbuffer_missed_events(kbuf);
+
+				if (losts) {
+					pr_time(kbuffer_timestamp(kbuf));
+					pr_red(" [%s ]: %d events\n", "lost", losts);
+				}
+
+				size = kbuffer_event_size(kbuf);
+				file_offset = kernel->offsets[i] + kbuffer_curr_offset(kbuf);
+				pr_hex(&file_offset, data, size);
+
+				if (kbuffer_next_event(kbuf, NULL))
+					offset += size + 4;  // 4 = event header size
+				else
+					offset = 0;
+			}
+
+			symbol_putname(sym, name);
+		}
 	}
 }
 
@@ -996,10 +1048,19 @@ static int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
+	struct ftrace_kernel kern;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		pr_err("cannot open data: %s", opts->dirname);
+
+	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
+		kern.output_dir = opts->dirname;
+		if (setup_kernel_data(&kern) == 0) {
+			handle.kern = &kern;
+			load_kernel_symbol();
+		}
+	}
 
 	if (opts->chrome_trace)
 		dump_chrome_trace(argc, argv, opts, &handle);
