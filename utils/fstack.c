@@ -453,7 +453,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 		return -1;
 
 	if (is_kernel_address(addr))
-		addr = get_real_address(addr);
+		return 0;
 
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
@@ -510,8 +510,8 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	if (peek_rstack(handle, &next) < 0)
 		return NULL;
 
-	while (next == task && next->rstack->depth > curr_depth &&
-	       curr_stack == next->rstack) {
+	while (next == task && curr_stack == next->rstack &&
+	       next->rstack->depth > curr_depth) {
 		struct ftrace_ret_stack *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
@@ -521,10 +521,11 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				break;
 		}
 		else if (next_stack->type != FTRACE_EXIT)
-			break;
+			return NULL;
 
 		/* consume the filtered rstack */
-		read_rstack(handle, &next);
+		if (read_rstack(handle, &next) < 0)
+			pr_err("error during skip rstack");
 
 		/*
 		 * call fstack_entry/exit() after read_rstack() so
@@ -702,16 +703,6 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		return NULL;
 	}
 
-	if (!task->display_depth_set) {
-		/* inherit display_depth after [v]fork() */
-		task->display_depth = task->ustack.depth;
-		if (task->ustack.type == FTRACE_EXIT)
-			task->display_depth++;
-		task->display_depth_set = true;
-
-		task->stack_count = task->display_depth;
-	}
-
 	if (task->lost_seen) {
 		int i;
 
@@ -802,6 +793,16 @@ user:
 
 		task->rstack = &task->ustack;
 
+		if (!task->display_depth_set) {
+			/* inherit display_depth after [v]fork() */
+			task->display_depth = task->ustack.depth;
+			if (task->ustack.type == FTRACE_EXIT)
+				task->display_depth++;
+			task->display_depth_set = true;
+
+			task->stack_count = task->display_depth;
+		}
+
 		if (task->ustack.type == FTRACE_ENTRY) {
 			fstack = &task->func_stack[task->stack_count];
 
@@ -855,6 +856,16 @@ kernel:
 			kernel->rstack_valid[k] = false;
 
 		task->rstack = &task->kstack;
+
+		if (!task->display_depth_set) {
+			/* kernel functions might start with >0 depth */
+			task->display_depth = task->kstack.depth;
+			if (task->kstack.type == FTRACE_EXIT)
+				task->display_depth++;
+			task->display_depth_set = true;
+
+			task->stack_count = task->display_depth;
+		}
 
 		if (task->rstack->type == FTRACE_ENTRY) {
 			fstack = &task->func_stack[task->stack_count];
