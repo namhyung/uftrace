@@ -812,7 +812,12 @@ user:
 
 		} else if (task->ustack.type == FTRACE_EXIT) {
 			uint64_t delta;
-			fstack = &task->func_stack[task->stack_count - 1];
+			int idx = task->stack_count - 1;
+
+			if (idx < 0)
+				idx = 0;
+
+			fstack = &task->func_stack[idx];
 
 			delta = task->ustack.time - fstack->total_time;
 
@@ -859,7 +864,12 @@ kernel:
 			fstack->child_time = 0;
 		}
 		else if (task->rstack->type == FTRACE_EXIT) {
-			fstack = &task->func_stack[task->stack_count - 1];
+			int idx = task->stack_count - 1;
+
+			if (idx < 0)
+				idx = 0;
+
+			fstack = &task->func_stack[idx];
 
 			fstack->valid = false;
 			fstack->addr = kstack.child_ip;
