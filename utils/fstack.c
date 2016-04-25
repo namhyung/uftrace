@@ -418,13 +418,23 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
 			task->stack_count = 0;
+			/* these are user functions */
+			task->user_display_depth = 0;
+			task->user_stack_count = 0;
 		}
 		else if (fstack->flags & FSTACK_FL_LONGJMP) {
 			task->display_depth = setjmp_depth;
 			task->stack_count = setjmp_count;
+			/* these are user functions */
+			task->user_display_depth = setjmp_depth;
+			task->user_stack_count = setjmp_count;
 		}
-		else
+		else {
 			task->display_depth++;
+			if (task->ctx == FSTACK_CTX_USER) {
+				task->user_display_depth++;
+			}
+		}
 
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
 	}
@@ -433,6 +443,13 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 			task->display_depth--;
 		else
 			task->display_depth = 0;
+
+		if (task->ctx == FSTACK_CTX_USER) {
+			if (task->user_display_depth > 1)
+				task->user_display_depth--;
+			else
+				task->user_display_depth -= 0;
+		}
 	}
 	else {
 		pr_err_ns("wrong type of fstack entry: %d\n", type);
@@ -803,6 +820,12 @@ user:
 			task->stack_count = task->display_depth;
 		}
 
+		if (task->ctx == FSTACK_CTX_KERNEL && invalidate) {
+			/* protect from broken kernel records */
+			task->display_depth = task->user_display_depth;
+			task->stack_count = task->user_stack_count;
+		}
+
 		if (task->ustack.type == FTRACE_ENTRY) {
 			fstack = &task->func_stack[task->stack_count];
 
@@ -810,8 +833,8 @@ user:
 			fstack->child_time = 0;
 			fstack->valid = true;
 			fstack->addr = task->ustack.addr;
-
-		} else if (task->ustack.type == FTRACE_EXIT) {
+		}
+		else if (task->ustack.type == FTRACE_EXIT) {
 			uint64_t delta;
 			int idx = task->stack_count - 1;
 
@@ -832,11 +855,13 @@ user:
 
 			if (task->stack_count > 1)
 				fstack[-1].child_time += delta;
-
-		} else if (task->ustack.type == FTRACE_LOST) {
+		}
+		else if (task->ustack.type == FTRACE_LOST) {
 			task->lost_seen = true;
 		}
 
+		if (invalidate)
+			task->ctx = FSTACK_CTX_USER;
 	}
 	else {
 kernel:
@@ -859,12 +884,12 @@ kernel:
 
 		if (!task->display_depth_set) {
 			/* kernel functions might start with >0 depth */
-			task->display_depth = task->kstack.depth;
+			task->display_depth = task->user_display_depth + task->kstack.depth;
 			if (task->kstack.type == FTRACE_EXIT)
 				task->display_depth++;
 			task->display_depth_set = true;
 
-			task->stack_count = task->display_depth;
+			task->stack_count = task->user_stack_count + task->kstack.depth;
 		}
 
 		if (task->rstack->type == FTRACE_ENTRY) {
@@ -892,6 +917,9 @@ kernel:
 				fstack[-1].child_time += child_time;
 			}
 		}
+
+		if (invalidate)
+			task->ctx = FSTACK_CTX_KERNEL;
 	}
 
 	/* update stack count when the rstack is actually used */
@@ -901,6 +929,14 @@ kernel:
 		else if (task->rstack->type == FTRACE_EXIT &&
 			 task->stack_count > 0)
 			task->stack_count--;
+
+		if (task->ctx == FSTACK_CTX_USER) {
+			if (task->rstack->type == FTRACE_ENTRY)
+				task->user_stack_count++;
+			else if (task->rstack->type == FTRACE_EXIT &&
+				 task->user_stack_count > 0)
+				task->user_stack_count--;
+		}
 	}
 
 	*taskp = task;
