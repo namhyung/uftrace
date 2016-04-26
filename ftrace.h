@@ -315,6 +315,7 @@ struct ftrace_kernel {
 	struct mcount_ret_stack *rstacks;
 	bool *rstack_valid;
 	bool *rstack_done;
+	int *missed_events;
 	char *output_dir;
 	struct list_head filters;
 	struct list_head notrace;

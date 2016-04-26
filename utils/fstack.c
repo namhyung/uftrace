@@ -869,16 +869,35 @@ kernel:
 		if (task == NULL)
 			pr_err_ns("cannot find task for tid %d\n", kstack.tid);
 
-		/* convert to ftrace_rstack */
-		task->kstack.time = kstack.end_time ?: kstack.start_time;
-		task->kstack.type = kstack.end_time ? FTRACE_EXIT : FTRACE_ENTRY;
-		task->kstack.addr = kstack.child_ip;
-		task->kstack.depth = kstack.depth;
-		task->kstack.unused = FTRACE_UNUSED;
-		task->kstack.more = 0;
+		if (kernel->missed_events[k]) {
+			/* convert to ftrace_rstack */
+			task->kstack.time = 0;
+			task->kstack.type = FTRACE_LOST;
+			task->kstack.addr = kernel->missed_events[k];
+			task->kstack.depth = kstack.depth;
+			task->kstack.unused = FTRACE_UNUSED;
+			task->kstack.more = 0;
 
-		if (invalidate)
-			kernel->rstack_valid[k] = false;
+			/*
+			 * NOTE: do not invalidate the kstack since we didn't
+			 * read the first record yet.  Next read_kernel_stack()
+			 * will return the first record.
+			 */
+		}
+		else {
+			/* convert to ftrace_rstack */
+			task->kstack.time = kstack.end_time ?: kstack.start_time;
+			task->kstack.type = kstack.end_time ? FTRACE_EXIT : FTRACE_ENTRY;
+			task->kstack.addr = kstack.child_ip;
+			task->kstack.depth = kstack.depth;
+			task->kstack.unused = FTRACE_UNUSED;
+			task->kstack.more = 0;
+
+			if (invalidate) {
+				kernel->rstack_valid[k] = false;
+				task->lost_seen = false;
+			}
+		}
 
 		task->rstack = &task->kstack;
 
@@ -917,6 +936,17 @@ kernel:
 				fstack[-1].child_time += child_time;
 			}
 		}
+		else if (task->rstack->type == FTRACE_LOST) {
+			int i;
+
+			task->lost_seen = true;
+			task->display_depth_set = false;
+
+			for (i = 0; i < task->kstack.depth; i++) {
+				fstack = &task->func_stack[task->user_stack_count + i];
+				fstack->valid = false;
+			}
+		}
 
 		if (invalidate)
 			task->ctx = FSTACK_CTX_KERNEL;
@@ -929,6 +959,9 @@ kernel:
 		else if (task->rstack->type == FTRACE_EXIT &&
 			 task->stack_count > 0)
 			task->stack_count--;
+		else if (task->rstack->type == FTRACE_LOST &&
+			 task->ctx == FSTACK_CTX_KERNEL)
+			kernel->missed_events[k] = 0;
 
 		if (task->ctx == FSTACK_CTX_USER) {
 			if (task->rstack->type == FTRACE_ENTRY)

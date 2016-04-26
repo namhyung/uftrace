@@ -239,12 +239,15 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_ret_stack *rstack = task->rstack;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
-	struct sym *sym;
+	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
-	char *symname;
+	char *symname = NULL;
 
 	if (task == NULL)
 		return 0;
+
+	if (rstack->type == FTRACE_LOST)
+		goto lost;
 
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL && !is_kernel_address(rstack->addr))
@@ -362,6 +365,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack_exit(task);
 	}
 	else if (rstack->type == FTRACE_LOST) {
+lost:
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
 			print_task_newline(task->tid);
