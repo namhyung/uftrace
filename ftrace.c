@@ -911,8 +911,17 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		offset = kbuffer_curr_offset(kbuf);
 		pr_out("reading kernel-cpu%d.dat\n", i);
 		while (!read_kernel_cpu_data(kernel, i)) {
+			int losts = kernel->missed_events[i];
+
 			sym = find_symtabs(NULL, mrs->child_ip, proc_maps);
 			name = symbol_getname(sym, mrs->child_ip);
+
+			if (losts) {
+				pr_time(mrs->end_time ?: mrs->start_time);
+				pr_red("%5d: [%s ]: %d events\n",
+				       mrs->tid, "lost", losts);
+				kernel->missed_events[i] = 0;
+			}
 
 			pr_time(mrs->end_time ?: mrs->start_time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
@@ -922,12 +931,6 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 			if (debug) {
 				/* this is only needed for hex dump */
 				void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
-				int losts = kbuffer_missed_events(kbuf);
-
-				if (losts) {
-					pr_time(kbuffer_timestamp(kbuf));
-					pr_red(" [%s ]: %d events\n", "lost", losts);
-				}
 
 				size = kbuffer_event_size(kbuf);
 				file_offset = kernel->offsets[i] + kbuffer_curr_offset(kbuf);
