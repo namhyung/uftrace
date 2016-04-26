@@ -125,7 +125,14 @@ static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg
 		narg = xmalloc(sizeof(*narg));
 		memcpy(narg, arg, sizeof(*narg));
 		narg->exact = exact_match;
-		list_add_tail(&narg->list, arg_list);
+
+		/* sort args by index */
+		list_for_each_entry(oarg, arg_list, list) {
+			if (oarg->idx > arg->idx)
+				break;
+		}
+
+		list_add_tail(&narg->list, &oarg->list);
 	}
 }
 
