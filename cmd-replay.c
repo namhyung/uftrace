@@ -365,14 +365,24 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack_exit(task);
 	}
 	else if (rstack->type == FTRACE_LOST) {
+		int depth, losts;
 lost:
+		depth = task->display_depth + 1;
+		losts = (int)rstack->addr;
+
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
 			print_task_newline(task->tid);
 
 		print_time_unit(0UL);
 		pr_out(" [%5d] |", task->tid);
-		pr_gray("     /* LOST %d records!! */\n", (int)rstack->addr);
+
+		if (losts > 0)
+			pr_red(" %*s/* LOST %d records!! */\n",
+			       depth * 2, "", losts);
+		else /* kernel sometimes have unknown count */
+			pr_red(" %*s/* LOST some records!! /*\n",
+			       depth * 2, "");
 	}
 out:
 	symbol_putname(sym, symname);
