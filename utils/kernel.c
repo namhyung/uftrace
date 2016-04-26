@@ -487,8 +487,9 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 	kernel->kbufs	= xcalloc(kernel->nr_cpus, sizeof(*kernel->kbufs));
 	kernel->rstacks = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstacks));
 
-	kernel->rstack_valid = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
-	kernel->rstack_done  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
+	kernel->rstack_valid  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
+	kernel->rstack_done   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
+	kernel->missed_events = xcalloc(kernel->nr_cpus, sizeof(*kernel->missed_events));
 
 	/* FIXME: should read recorded data file */
 	if (pevent_is_file_bigendian(kernel->pevent))
@@ -592,6 +593,7 @@ int finish_kernel_data(struct ftrace_kernel *kernel)
 
 	free(kernel->rstack_valid);
 	free(kernel->rstack_done);
+	free(kernel->missed_events);
 
 	trace_seq_destroy(&trace_seq);
 	pevent_free(kernel->pevent);
@@ -609,6 +611,8 @@ static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu)
 	}
 
 	kbuffer_load_subbuffer(kernel->kbufs[cpu], kernel->mmaps[cpu]);
+	kernel->missed_events[cpu] = kbuffer_missed_events(kernel->kbufs[cpu]);
+
 	return 0;
 }
 
@@ -691,7 +695,16 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	return 0;
 }
 
-static int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
+/**
+ * read_kernel_cpu_data - read next kernel tracing data of specific cpu
+ * @kernel - kernel ftrace handle
+ * @cpu    - cpu number
+ *
+ * This function reads tracing data from kbuffer and saves it to the
+ * @kernel->rstacks[@cpu].  It returns 0 if succeeded, -1 if there's
+ * no more data.
+ */
+int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 {
 	unsigned long long timestamp;
 	void *data;

@@ -470,6 +470,14 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		}
 		name = pos;
 
+		/*
+		 * remove kernel module if any.
+		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
+		 */
+		pos = strchr(name, '\t');
+		if (pos)
+			*pos = '\0';
+
 		if (strchr(allowed_types, type) == NULL)
 			continue;
 

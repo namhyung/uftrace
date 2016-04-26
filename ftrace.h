@@ -315,6 +315,7 @@ struct ftrace_kernel {
 	struct mcount_ret_stack *rstacks;
 	bool *rstack_valid;
 	bool *rstack_done;
+	int *missed_events;
 	char *output_dir;
 	struct list_head filters;
 	struct list_head notrace;
@@ -328,6 +329,7 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel);
 
 int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
+int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
 struct rusage;

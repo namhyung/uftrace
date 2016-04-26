@@ -26,6 +26,12 @@ struct fstack_arguments {
 	void			*data;
 };
 
+enum context {
+	FSTACK_CTX_UNKNOWN	= 0,
+	FSTACK_CTX_USER		= 1,
+	FSTACK_CTX_KERNEL	= 2,
+};
+
 struct ftrace_task_handle {
 	int tid;
 	bool valid;
@@ -41,8 +47,11 @@ struct ftrace_task_handle {
 	struct ftrace_ret_stack *rstack;
 	int stack_count;
 	int lost_count;
+	int user_stack_count;
 	int display_depth;
+	int user_display_depth;
 	int column_index;
+	enum context ctx;
 	struct filter {
 		int	in_count;
 		int	out_count;
