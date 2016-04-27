@@ -1072,6 +1072,10 @@ static void print_child_usage(struct rusage *ru)
 "\tThis machine type (%u) is not supported currently.\n"		\
 "\tSorry about that!\n"
 
+#define ARGUMENT_MSG  "-A and/or -R option can be used only for binaries\n" \
+"\tbuilt with -pg flag.  Use --force option if you want to proceed\n"   \
+"\twith no argument and/or return value info.\n"
+
 static void check_binary(struct opts *opts, struct symtabs *symtabs)
 {
 	int fd;
@@ -1131,8 +1135,16 @@ static void check_binary(struct opts *opts, struct symtabs *symtabs)
 			break;
 	}
 
-	if (i == ARRAY_SIZE(profile_funcs) && !opts->force)
-		pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
+	if (!opts->force) {
+		/* there's no function to trace */
+		if (i == ARRAY_SIZE(profile_funcs))
+			pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
+
+		/* arg/retval doesn't support -finstrument-functions */
+		if (i == (ARRAY_SIZE(profile_funcs) - 1) &&
+		    (opts->args || opts->retval))
+			pr_err_ns(ARGUMENT_MSG);
+	}
 
 	close(fd);
 }
