@@ -30,13 +30,13 @@ bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 mandir = $(prefix)/share/man
 
-srcdir = $(PWD)
+srcdir = $(CURDIR)
 # set objdir to $(O) by default (if any)
 ifeq ($(objdir),)
     ifneq ($(O),)
         objdir = $(O)
     else
-        objdir = $(PWD)
+        objdir = $(CURDIR)
     endif
 endif
 
