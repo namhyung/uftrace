@@ -174,6 +174,7 @@ extern struct ftrace_proc_maps *proc_maps;
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 int read_task_file(char *dirname);
+int read_task_txt_file(char *dirname);
 
 struct ftrace_session {
 	struct rb_node		 node;

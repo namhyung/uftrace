@@ -71,6 +71,7 @@ int read_task_file(char *dirname)
 	if (fd < 0)
 		return -1;
 
+	pr_dbg("reading task file\n");
 	while (read_all(fd, &msg, sizeof(msg)) == 0) {
 		if (msg.magic != FTRACE_MSG_MAGIC)
 			return -1;
@@ -112,6 +113,69 @@ int read_task_file(char *dirname)
 	}
 
 	close(fd);
+	return 0;
+}
+
+int read_task_txt_file(char *dirname)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char *line = NULL;
+	size_t sz = 0;
+	long sec, nsec;
+	struct ftrace_msg_task task;
+	struct ftrace_msg_sess sess;
+	char *exename, *pos;
+
+	xasprintf(&fname, "%s/%s", dirname, "task.txt");
+
+	fp = fopen(fname, "r");
+	if (fp == NULL) {
+		free(fname);
+		return -errno;
+	}
+
+	pr_dbg("reading %s file\n", fname);
+	while (getline(&line, &sz, fp) >= 0) {
+		if (!strncmp(line, "TASK", 4)) {
+			sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
+			       &sec, &nsec, &task.tid, &task.pid);
+
+			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			create_task(&task, false);
+		}
+		else if (!strncmp(line, "FORK", 4)) {
+			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
+			       &sec, &nsec, &task.tid, &task.pid);
+
+			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			create_task(&task, true);
+		}
+		else if (!strncmp(line, "SESS", 4)) {
+			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s",
+			       &sec, &nsec, &sess.task.tid, (char *)&sess.sid);
+
+			pos = strstr(line, "exename=");
+			if (pos == NULL)
+				pr_err_ns("invalid task.txt format");
+			exename = pos + 8 + 1;  // skip double-quote
+			pos = strrchr(exename, '\"');
+			if (pos)
+				*pos = '\0';
+
+			sess.task.pid = sess.task.tid;
+			sess.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			sess.namelen = strlen(exename);
+
+			create_session(&sess, dirname, exename);
+
+			if (map_file == NULL)
+				xasprintf(&map_file, "sid-%.16s.map", sess.sid);
+		}
+	}
+
+	fclose(fp);
+	free(fname);
 	return 0;
 }
 
@@ -230,7 +294,9 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		opts->exename = handle->info.exename;
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
-		if (read_task_file(opts->dirname) < 0)
+		// read task.txt first and then try old task file
+		if (read_task_txt_file(opts->dirname) < 0 &&
+		    read_task_file(opts->dirname) < 0)
 			pr_err("invalid task file");
 	} else
 		map_file = "maps";
