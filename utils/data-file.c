@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -54,9 +56,6 @@ static void read_map_file(char *filename, struct ftrace_proc_maps **maps)
 	}
 	fclose(fp);
 }
-
-#define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
-"\t-finstrument-functions flag and ran with ftrace record?\n"
 
 int read_task_file(char *dirname)
 {
@@ -115,6 +114,76 @@ int read_task_file(char *dirname)
 	close(fd);
 	return 0;
 }
+
+static void snprint_timestamp(char *buf, size_t sz, uint64_t timestamp)
+{
+	snprintf(buf, sz, "%"PRIu64".%09"PRIu64,  // sec.nsec
+		 timestamp / NSEC_PER_SEC, timestamp % NSEC_PER_SEC);
+}
+
+void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char ts[128];
+
+	xasprintf(&fname, "%s/%s", dirname, "task.txt");
+
+	fp = fopen(fname, "a");
+	if (fp == NULL)
+		pr_err("cannot open %s", fname);
+
+	snprint_timestamp(ts, sizeof(ts), tmsg->time);
+	fprintf(fp, "TASK timestamp=%s tid=%d pid=%d\n",
+		ts, tmsg->tid, tmsg->pid);
+
+	fclose(fp);
+	free(fname);
+}
+
+void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char ts[128];
+
+	xasprintf(&fname, "%s/%s", dirname, "task.txt");
+
+	fp = fopen(fname, "a");
+	if (fp == NULL)
+		pr_err("cannot open %s", fname);
+
+	snprint_timestamp(ts, sizeof(ts), tmsg->time);
+	fprintf(fp, "FORK timestamp=%s pid=%d ppid=%d\n",
+		ts, tmsg->tid, tmsg->pid);
+
+	fclose(fp);
+	free(fname);
+}
+
+void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
+			const char *exename)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char ts[128];
+
+	xasprintf(&fname, "%s/%s", dirname, "task.txt");
+
+	fp = fopen(fname, "a");
+	if (fp == NULL)
+		pr_err("cannot open %s", fname);
+
+	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
+	fprintf(fp, "SESS timestamp=%s tid=%d sid=%s exename=\"%s\"\n",
+		ts, smsg->task.tid, smsg->sid, exename);
+
+	fclose(fp);
+	free(fname);
+}
+
+#define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
+"\t-finstrument-functions flag and ran with ftrace record?\n"
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {

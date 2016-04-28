@@ -268,6 +268,11 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len);
 void send_trace_end(int sock);
 
+void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg);
+void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg);
+void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
+			const char *exename);
+
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,
 	FTRACE_EXIT,
