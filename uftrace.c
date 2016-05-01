@@ -79,7 +79,7 @@ static struct argp_option ftrace_options[] = {
 	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
-	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
+	{ "file", 'f', "FILE", 0, "Use this FILE instead of uftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },

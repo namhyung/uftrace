@@ -254,12 +254,28 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	int ret = -1;
 	FILE *fp;
 	char buf[PATH_MAX];
+	bool again = false;
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
+retry:
 	fp = fopen(buf, "rb");
 	if (fp == NULL) {
+		if (again) {
+			/* restore original file name for error reporting */
+			snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+		}
+
 		if (errno == ENOENT) {
+			if (!again && !strcmp(opts->dirname, FTRACE_DIR_NAME)) {
+				/* retry with old default dirname */
+				snprintf(buf, sizeof(buf), "%s/info",
+					FTRACE_DIR_OLD_NAME);
+
+				again = true;
+				goto retry;
+			}
+
 			pr_log("cannot find %s file!\n", buf);
 
 			if (opts->exename)
@@ -268,6 +284,11 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 			pr_err("cannot open %s file", buf);
 		}
 		goto out;
+	}
+
+	if (again) {
+		/* found data in old dirname, rename it */
+		opts->dirname = FTRACE_DIR_OLD_NAME;
 	}
 
 	handle->fp = fp;

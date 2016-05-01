@@ -18,8 +18,7 @@
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
 
-#define FTRACE_FILE_NAME  "ftrace.data"
-#define FTRACE_DIR_NAME   "ftrace.dir"
+#define FTRACE_DIR_NAME   "uftrace.data"
 
 #define MCOUNT_RSTACK_MAX  1024
 #define MCOUNT_NOTRACE_IDX 0x10000
