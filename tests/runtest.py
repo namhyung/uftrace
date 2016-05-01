@@ -21,7 +21,7 @@ class TestBase:
     TEST_SUCCESS_FIXED = -8
 
     objdir = os.environ['objdir'] or '..'
-    ftrace = objdir + '/ftrace -L' + objdir
+    ftrace = objdir + '/uftrace -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin']
 

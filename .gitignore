@@ -3,6 +3,7 @@
 *.ot
 a.out
 ftrace
+uftrace
 ftrace.dir
 ftrace.dir.old
 ftrace.data

@@ -28,6 +28,6 @@ fi
 
 if test "${CURR_VERSION}" != "${FILE_VERSION}"; then
     # update file version only if it's different
-    echo "#define FTRACE_VERSION  \"${CURR_VERSION}\"" > ${VERSION_FILE}
+    echo "#define UFTRACE_VERSION  \"${CURR_VERSION}\"" > ${VERSION_FILE}
     exit 0
 fi

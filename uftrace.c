@@ -1,5 +1,5 @@
 /*
- * ftrace - Function Tracer
+ * uftrace - Function (Graph) Tracer for Userspace
  *
  * Copyright (C) 2014-2015  LG Electornics, Namhyung Kim <namhyung.kim@lge.com>
  *
@@ -40,7 +40,7 @@
 #include "utils/fstack.h"
 #include "utils/filter.h"
 
-const char *argp_program_version = "ftrace " FTRACE_VERSION;
+const char *argp_program_version = "uftrace " UFTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
 static bool dbg_domain_set = false;
@@ -544,7 +544,7 @@ int main(int argc, char *argv[])
 		.options = ftrace_options,
 		.parser = parse_option,
 		.args_doc = "[record|replay|live|report|info] [<command> args...]",
-		.doc = "ftrace -- a function tracer",
+		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 
 	/* this must be done before argp_parse() */
