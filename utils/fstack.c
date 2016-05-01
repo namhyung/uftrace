@@ -9,7 +9,7 @@
 #define PR_FMT     "fstack"
 #define PR_DOMAIN  DBG_FSTACK
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"

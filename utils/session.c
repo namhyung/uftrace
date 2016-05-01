@@ -6,7 +6,7 @@
 #define PR_FMT     "session"
 #define PR_DOMAIN  DBG_SESSION
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/utils.h"

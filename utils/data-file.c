@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
 

@@ -29,7 +29,7 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "version.h"
 #include "libmcount/mcount.h"
 #include "libtraceevent/kbuffer.h"

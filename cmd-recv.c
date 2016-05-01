@@ -12,7 +12,7 @@
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/list.h"
 

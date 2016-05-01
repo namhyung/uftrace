@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../ftrace.h"
+#include "../uftrace.h"
 
 #define FSTACK_MAX  1024
 
