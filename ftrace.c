@@ -627,7 +627,7 @@ static void pr_time(uint64_t timestamp)
 	pr_out("%u.%09u  ", sec, nsec);
 }
 
-static void pr_task(struct opts *opts)
+static int pr_task(struct opts *opts)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
@@ -638,15 +638,13 @@ static void pr_task(struct opts *opts)
 
 	snprintf(buf, sizeof(buf), "%s/task", opts->dirname);
 	fp = fopen(buf, "r");
-	if (fp == NULL) {
-		pr_red("cannot open file %s", buf);
-		return;
-	}
+	if (fp == NULL)
+		return -1;
 
 	while (fread(&msg, sizeof(msg), 1, fp) == 1) {
 		if (msg.magic != FTRACE_MSG_MAGIC) {
 			pr_red("invalid message magic: %hx\n", msg.magic);
-			return;
+			goto out;
 		}
 
 		switch (msg.type) {
@@ -654,7 +652,7 @@ static void pr_task(struct opts *opts)
 		case FTRACE_MSG_FORK_END:
 			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
 				pr_red("cannot read task message: %m\n");
-				return;
+				goto out;
 			}
 
 			pr_time(tmsg.time);
@@ -663,12 +661,12 @@ static void pr_task(struct opts *opts)
 		case FTRACE_MSG_SESSION:
 			if (fread(&smsg, sizeof(smsg), 1, fp) != 1) {
 				pr_red("cannot read session message: %m\n");
-				return;
+				goto out;
 			}
 			exename = xmalloc(ALIGN(smsg.namelen, 8));
 			if (fread(exename, ALIGN(smsg.namelen, 8), 1,fp) != 1 ) {
 				pr_red("cannot read executable name: %m\n");
-				return;
+				goto out;
 			}
 
 			pr_time(smsg.task.time);
@@ -683,7 +681,105 @@ static void pr_task(struct opts *opts)
 		}
 	}
 
+out:
 	fclose(fp);
+	return 0;
+}
+
+static int pr_task_txt(struct opts *opts)
+{
+	FILE *fp;
+	char buf[PATH_MAX];
+	char *ptr, *end;
+	char *timestamp;
+	int pid, tid;
+	char sid[20];
+
+	snprintf(buf, sizeof(buf), "%s/task.txt", opts->dirname);
+	fp = fopen(buf, "r");
+	if (fp == NULL)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), fp)) {
+		if (!strncmp(buf, "TASK", 4)) {
+			ptr = strstr(buf, "timestamp=");
+			if (ptr == NULL) {
+				pr_red("invalid task timestamp\n");
+				goto out;
+			}
+			timestamp = ptr + 10;
+
+			end = strchr(ptr, ' ');
+			if (end == NULL) {
+				pr_red("invalid task timestamp\n");
+				goto out;
+			}
+			*end++ = '\0';
+
+			sscanf(end, "tid=%d pid=%d", &tid, &pid);
+
+			pr_out("%s  task tid %d (pid %d)\n", timestamp, tid, pid);
+		}
+		else if (!strncmp(buf, "FORK", 4)) {
+			ptr = strstr(buf, "timestamp=");
+			if (ptr == NULL) {
+				pr_red("invalid task timestamp\n");
+				goto out;
+			}
+			timestamp = ptr + 10;
+
+			end = strchr(ptr, ' ');
+			if (end == NULL) {
+				pr_red("invalid task timestamp\n");
+				goto out;
+			}
+			*end++ = '\0';
+
+			sscanf(end, "pid=%d ppid=%d", &tid, &pid);
+
+			pr_out("%s  fork pid %d (ppid %d)\n", timestamp, tid, pid);
+		}
+		else if (!strncmp(buf, "SESS", 4)) {
+			char *exename;
+
+			ptr = strstr(buf, "timestamp=");
+			if (ptr == NULL) {
+				pr_red("invalid session timestamp\n");
+				goto out;
+			}
+			timestamp = ptr + 10;
+
+			end = strchr(ptr, ' ');
+			if (end == NULL) {
+				pr_red("invalid session timestamp\n");
+				goto out;
+			}
+			*end++ = '\0';
+
+			sscanf(end, "tid=%d sid=%s", &tid, sid);
+
+			ptr = strstr(end, "exename=");
+			if (ptr == NULL) {
+				pr_red("invalid session exename\n");
+				goto out;
+			}
+			exename = ptr + 8 + 1;  // skip double-quote
+
+			end = strrchr(ptr, '\"');
+			if (end == NULL) {
+				pr_red("invalid session exename\n");
+				goto out;
+			}
+			*end++ = '\0';
+
+			pr_out("%s  session of task %d: %.*s (%s)\n",
+			       timestamp, tid, 16, sid, exename);
+		}
+	}
+
+out:
+	fclose(fp);
+	return 0;
 }
 
 static void pr_hex(uint64_t *offset, void *data, size_t len)
@@ -830,7 +926,11 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 	if (debug) {
 		pr_out("%d tasks found\n", handle->info.nr_tid);
-		pr_task(opts);
+
+		/* try to read task.txt first */
+		if (pr_task_txt(opts) < 0 && pr_task(opts) < 0)
+			pr_red("cannot open task file\n");
+
 		pr_out("\n");
 	}
 
