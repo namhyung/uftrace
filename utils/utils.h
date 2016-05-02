@@ -26,8 +26,16 @@
 # define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 #endif
 
+#define ROUND_UP(v, r)  (((v) + (r) - 1) / (r) * (r))
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
+#endif
+
 #define likely(x)    __builtin_expect(!!(x), 1)
 #define unlikely(x)  __builtin_expect(!!(x), 0)
+
+#define NSEC_PER_SEC  1000000000
 
 extern int debug;
 extern FILE *logfp;
@@ -118,12 +126,6 @@ extern void setup_signal(void);
 #define pr_bold(fmt, ...)	__pr_color(COLOR_CODE_BOLD,    fmt, ## __VA_ARGS__)
 #define pr_gray(fmt, ...)	__pr_color(COLOR_CODE_GRAY   , fmt, ## __VA_ARGS__)
 
-
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
-#endif
-
-#define ROUND_UP(v, r)  (((v) + (r) - 1) / (r) * (r))
 
 #define xmalloc(sz)							\
 ({ 	void *__ptr = malloc(sz);					\

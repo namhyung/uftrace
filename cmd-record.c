@@ -468,27 +468,6 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	return 0;
 }
 
-static int record_task_file(const char *dirname, void *data, int len)
-{
-	int fd;
-	char buf[1024];
-	char zero[8] = {};
-
-	snprintf(buf, sizeof(buf), "%s/task", dirname);
-	fd = open(buf, O_WRONLY | O_CREAT | O_APPEND, 0644);
-	if (fd < 0)
-		pr_err("open task file");
-
-	if (write_all(fd, data, len) < 0)
-		pr_err("write task file");
-
-	if ((len % 8) && write_all(fd, zero, 8 - (len % 8)) < 0)
-		pr_err("write task padding");
-
-	close(fd);
-	return 0;
-}
-
 static void flush_shmem_list(const char *dirname, int bufsize)
 {
 	struct shmem_list *sl, *tmp;
@@ -723,8 +702,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		if (list_no_entry(pos, &tid_list_head, list))
 			add_tid_list(tmsg.pid, tmsg.tid);
 
-		record_task_file(dirname, &msg, sizeof(msg));
-		record_task_file(dirname, &tmsg, sizeof(tmsg));
+		write_task_info(dirname, &tmsg);
 		break;
 
 	case FTRACE_MSG_FORK_START:
@@ -774,8 +752,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		pr_dbg2("MSG FORK2: %d/%d\n", tl->pid, tl->tid);
 
-		record_task_file(dirname, &msg, sizeof(msg));
-		record_task_file(dirname, &tmsg, sizeof(tmsg));
+		write_fork_info(dirname, &tmsg);
 		break;
 
 	case FTRACE_MSG_SESSION:
@@ -795,9 +772,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		pr_dbg2("MSG SESSION: %d: %s (%s)\n", sess.task.tid, exename, buf);
 
-		record_task_file(dirname, &msg, sizeof(msg));
-		record_task_file(dirname, &sess, sizeof(sess));
-		record_task_file(dirname, exename, sess.namelen);
+		write_session_info(dirname, &sess, exename);
 		break;
 
 	case FTRACE_MSG_LOST:

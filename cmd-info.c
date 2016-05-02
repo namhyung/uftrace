@@ -474,7 +474,8 @@ static int fill_taskinfo(void *arg)
 	};
 	int i;
 
-	if (read_task_file(fha->opts->dirname) < 0)
+	if (read_task_txt_file(fha->opts->dirname) < 0 &&
+	    read_task_file(fha->opts->dirname) < 0)
 		return -1;
 
 	walk_tasks(build_tid_list, &tlist);
