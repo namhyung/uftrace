@@ -35,12 +35,3 @@ required libraries/files.
 On redhat based systems (like Fedora, RHEL), it'll be elfutils-libelf-devel.
 
     $ sudo yum install elfutils-libelf-devel
-
-And there's an optional dependency for demangling C++ symbols to libiberty.
-You need to install related package to enable that feature.
-
-    $ sudo apt-get install libiberty-dev
-
-or
-
-    $ sudo yum install binutils-devel
