@@ -286,11 +286,12 @@ static void finish_shmem_buffer(struct mcount_thread_data *mtdp)
 static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
+	int i;
 
 	pr_dbg2("releasing all shmem buffers\n");
 
-	munmap(shmem->buffer[0], shmem_bufsize);
-	munmap(shmem->buffer[1], shmem_bufsize);
+	for (i = 0; i < shmem->nr_buf; i++)
+		munmap(shmem->buffer[i], shmem_bufsize);
 
 	free(shmem->buffer);
 	shmem->buffer = NULL;
@@ -300,14 +301,20 @@ static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 static void shmem_finish(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	unsigned seq = shmem->seqnum;
+	int i;
 
-	finish_shmem_buffer(mtdp);
-	/* force update seqnum to call finish on both buffer */
-	if (seq == shmem->seqnum)
-		shmem->seqnum++;
-	shmem->curr = shmem->seqnum % shmem->nr_buf;
-	finish_shmem_buffer(mtdp);
+	/* force update seqnum to call finish on remaining buffers */
+	for (i = 0; i < shmem->nr_buf; i++) {
+		struct mcount_shmem_buffer *curr_buf;
+
+		shmem->curr = shmem->seqnum % shmem->nr_buf;
+		curr_buf = shmem->buffer[shmem->curr];
+
+		if (!(curr_buf->flag & BUFFER_FLAGS))
+			finish_shmem_buffer(mtdp);  // seqnum increased
+		else
+			shmem->seqnum++;
+	}
 
 	clear_shmem_buffer(mtdp);
 }
