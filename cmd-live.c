@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <errno.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "libmcount/mcount.h"
 

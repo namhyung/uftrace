@@ -1,5 +1,5 @@
 /*
- * ftrace - Function Tracer
+ * uftrace - Function (Graph) Tracer for Userspace
  *
  * Copyright (C) 2014-2015  LG Electornics, Namhyung Kim <namhyung.kim@lge.com>
  *
@@ -29,7 +29,7 @@
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "ftrace"
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "version.h"
 #include "libmcount/mcount.h"
 #include "libtraceevent/kbuffer.h"
@@ -40,7 +40,7 @@
 #include "utils/fstack.h"
 #include "utils/filter.h"
 
-const char *argp_program_version = "ftrace " FTRACE_VERSION;
+const char *argp_program_version = "uftrace " UFTRACE_VERSION;
 const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
 
 static bool dbg_domain_set = false;
@@ -79,7 +79,7 @@ static struct argp_option ftrace_options[] = {
 	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'd', 0, 0, "Print debug messages" },
-	{ "file", 'f', "FILE", 0, "Use this FILE instead of ftrace.data" },
+	{ "file", 'f', "FILE", 0, "Use this FILE instead of uftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
@@ -544,7 +544,7 @@ int main(int argc, char *argv[])
 		.options = ftrace_options,
 		.parser = parse_option,
 		.args_doc = "[record|replay|live|report|info] [<command> args...]",
-		.doc = "ftrace -- a function tracer",
+		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 
 	/* this must be done before argp_parse() */

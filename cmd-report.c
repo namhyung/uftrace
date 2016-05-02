@@ -2,7 +2,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"

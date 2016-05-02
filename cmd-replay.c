@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"

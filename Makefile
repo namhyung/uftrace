@@ -47,7 +47,7 @@ endif
 RM = rm -f
 INSTALL = install
 
-export ARCH CC AR LD RM srcdir objdir
+export ARCH CC AR LD RM srcdir objdir mandir
 
 COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
@@ -60,10 +60,10 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 # Note that the plain CFLAGS and LDFLAGS can be changed
 # by config/Makefile later but LIB_*FLAGS are not.
 #
-FTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
+UFTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
 LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
 
-FTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
+UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
 LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
 
 VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
@@ -77,16 +77,16 @@ include $(srcdir)/config/Makefile.include
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
 LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-single.so
 
-_TARGETS := ftrace libtraceevent/libtraceevent.a
+_TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
-FTRACE_SRCS := $(srcdir)/ftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
-FTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
-FTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(FTRACE_SRCS))
+UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
+UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
+UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
-FTRACE_HDRS := $(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h)
-FTRACE_HDRS += $(srcdir)/libmcount/mcount.h
+UFTRACE_HDRS := $(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h)
+UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
 LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
@@ -129,8 +129,8 @@ LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/ftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
-LDFLAGS_$(objdir)/ftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
+CFLAGS_$(objdir)/uftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
 CFLAGS_$(objdir)/libmcount/plthook-fast.op = -DDISABLE_MCOUNT_FILTER
@@ -186,23 +186,23 @@ $(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(ob
 $(objdir)/libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent
 
-$(objdir)/ftrace.o: $(srcdir)/ftrace.c $(objdir)/version.h $(FTRACE_HDRS) $(objdir)/.config
-	$(QUIET_CC)$(CC) $(FTRACE_CFLAGS) -c -o $@ $<
+$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(UFTRACE_HDRS) $(objdir)/.config
+	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
-$(filter-out $(objdir)/ftrace.o,$(FTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(FTRACE_HDRS) $(objdir)/.config
-	$(QUIET_CC)$(CC) $(FTRACE_CFLAGS) -c -o $@ $<
+$(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(UFTRACE_HDRS) $(objdir)/.config
+	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
 	@$(srcdir)/misc/version.sh $(objdir)/version.h $(VERSION_GIT)
 
-$(objdir)/ftrace: $(FTRACE_OBJS) $(objdir)/libtraceevent/libtraceevent.a
-	$(QUIET_LINK)$(CC) $(FTRACE_CFLAGS) -o $@ $(FTRACE_OBJS) $(FTRACE_LDFLAGS)
+$(objdir)/uftrace: $(UFTRACE_OBJS) $(objdir)/libtraceevent/libtraceevent.a
+	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_LDFLAGS)
 
 install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
-	$(call QUIET_INSTALL, ftrace)
-	@$(INSTALL) $(objdir)/ftrace         $(DESTDIR)$(bindir)/ftrace
+	$(call QUIET_INSTALL, uftrace)
+	@$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_INSTALL, libmcount.so)
 	@$(INSTALL) $(objdir)/libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
 	$(call QUIET_INSTALL, libmcount-nop.so)
@@ -220,19 +220,19 @@ test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
 
 dist:
-	@git archive --prefix=ftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/ftrace-$(VERSION).tar
-	@tar rf $(objdir)/ftrace-$(VERSION).tar --transform="s|^|ftrace-$(VERSION)/|" $(objdir)/version.h
-	@gzip $(objdir)/ftrace-$(VERSION).tar
+	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar
+	@tar rf $(objdir)/uftrace-$(VERSION).tar --transform="s|^|uftrace-$(VERSION)/|" $(objdir)/version.h
+	@gzip $(objdir)/uftrace-$(VERSION).tar
 
 doc:
 	@$(MAKE) -C $(srcdir)/doc
 
 clean:
-	$(call QUIET_CLEAN, ftrace)
+	$(call QUIET_CLEAN, uftrace)
 	@$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
 	@$(RM) $(objdir)/utils/*.o $(objdir)/utils/*.op $(objdir)/libmcount/*.op
-	@$(RM) $(objdir)/ftrace.data* $(objdir)/gmon.out $(TARGETS)
-	@$(RM) $(objdir)/ftrace-*.tar.gz $(objdir)/version.h
+	@$(RM) $(objdir)/uftrace.data* $(objdir)/gmon.out $(TARGETS)
+	@$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/config check-clean BUILD_FEATURE_CHECKS=0

@@ -1,7 +1,7 @@
-How to install ftrace
-=====================
+How to install uftrace
+======================
 
-The ftrace was written in GNU C and tried to minimize external dependencies.
+The uftrace was written in GNU C and tried to minimize external dependencies.
 Currently it requires libelf in elfutils package to build, and there's some
 more optional dependencies.
 
@@ -31,13 +31,13 @@ You can setup a filter to exclude or include specific functions when tracing.
 It also support multi-threaded applications.
 
 
-How to use ftrace
-=================
-The ftrace command has 5 subcommands: record, report, replay, live, info.
+How to use uftrace
+==================
+The uftrace command has 5 subcommands: record, replay, report, live, info.
 
-    $ ftrace
-    Usage: ftrace [OPTION...] [record|replay|live|report|info] [<command> args...]
-    Try `ftrace --help' or `ftrace --usage' for more information.
+    $ uftrace
+    Usage: uftrace [OPTION...] [record|replay|live|report|info] [<command> args...]
+    Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the live command which is almost same as running
 record and replay subcommand in a row (but does not record the trace info
@@ -46,7 +46,7 @@ to files).
 For recording, the executable should be compiled with -pg option which
 generates profiling code (calling mcount) for each function.
 
-    $ ftrace live tests/t-abc
+    $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION
      223.736 us [ 1892] | __cxa_atexit();
                 [ 1892] | main() {
@@ -62,9 +62,9 @@ generates profiling code (calling mcount) for each function.
 For more analysis, you'd be better recording it first so that it can run
 analysis commands like replay, report and/or info multiple times.
 
-    $ ftrace record tests/t-abc
+    $ uftrace record tests/t-abc
 
-It'll create ftrace.dir directory and contains trace data files.
+It'll create uftrace.data directory and contains trace data files.
 Other analysis commands expect the directory exists in the current directory,
 but one can use another using -f option.
 
@@ -76,7 +76,7 @@ in the C library (glibc) on normal systems - the same goes to __cxa_atexit().
 The report command lets you know which function spends longest time
 including its children (total time).
 
-    $ ftrace report
+    $ uftrace report
       Function                          Total time   Self time  Nr. called  
       ================================  ==========  ==========  ==========  
       __cxa_atexit                      464.085 us  464.085 us           1  
@@ -88,12 +88,12 @@ including its children (total time).
 
 The info command shows system and program information when recorded.
 
-    $ ftrace info
+    $ uftrace info
     # ftrace information
     # ==================
-    # program version     : ftrace v0.2
+    # program version     : uftrace v0.5
     # recorded on         : Mon Aug 11 14:03:52 2014
-    # cmdline             : ftrace record tests/t-abc 
+    # cmdline             : uftrace record tests/t-abc 
     # exe image           : /home/namhyung/project/ftrace/tests/t-abc
     # build id            : 4520d7c12661902a03cc03853219d26aeef0f9cf
     # exit status         : exited with code: 46
@@ -116,4 +116,4 @@ Limitations
 
 License
 =======
-The ftrace program is released under GPL v2.  See COPYING file for details.
+The ftraceu program is released under GPL v2.  See COPYING file for details.

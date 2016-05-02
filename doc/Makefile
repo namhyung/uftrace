@@ -7,8 +7,8 @@ INSTALL = install
 
 include ../config/Makefile.include
 
-COMMANDS = record replay live report info
-MANPAGES = ftrace.1 $(patsubst %,ftrace-%.1,$(COMMANDS))
+COMMANDS = record replay live report recv info
+MANPAGES = uftrace.1 $(patsubst %,uftrace-%.1,$(COMMANDS))
 
 ifeq ($(has_pandoc),yes)
 
@@ -19,8 +19,8 @@ all: $(MANPAGES)
 
 install: all
 	$(call QUIET_INSTALL, man-pages)
-	$(INSTALL) -d -m 755 $(DESTDIR)/man1
-	for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/man1; done
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(mandir)/man1
+	for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/$(mandir)/man1; done
 
 clean:
 	$(call QUIET_CLEAN, man-pages)

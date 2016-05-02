@@ -17,7 +17,7 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"

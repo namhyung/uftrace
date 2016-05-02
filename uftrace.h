@@ -20,8 +20,8 @@
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_FILE_VERSION  4
 #define FTRACE_FILE_VERSION_MIN  3
-#define FTRACE_FILE_NAME  "ftrace.data"
-#define FTRACE_DIR_NAME   "ftrace.dir"
+#define FTRACE_DIR_NAME     "uftrace.data"
+#define FTRACE_DIR_OLD_NAME  "ftrace.dir"
 
 #define FTRACE_RECV_PORT  8090
 

@@ -3,10 +3,13 @@
 *.ot
 a.out
 ftrace
+uftrace
 ftrace.dir
 ftrace.dir.old
 ftrace.data
 ftrace.data.old
+uftrace.data
+uftrace.data.old
 libmcount.so
 libmcount-*.so
 libcygprof.so

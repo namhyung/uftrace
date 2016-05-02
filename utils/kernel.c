@@ -19,7 +19,7 @@
 #define PR_FMT     "kernel"
 #define PR_DOMAIN  DBG_KERNEL
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/rbtree.h"
 #include "libmcount/mcount.h"

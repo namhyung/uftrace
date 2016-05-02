@@ -1,5 +1,5 @@
 /*
- * ftrace info command related routines
+ * uftrace info command related routines
  *
  * Copyright (C) 2014-2015, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
@@ -19,7 +19,7 @@
 #include <argp.h>
 #include <fcntl.h>
 
-#include "ftrace.h"
+#include "uftrace.h"
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 
