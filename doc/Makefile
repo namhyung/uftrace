@@ -7,8 +7,8 @@ INSTALL = install
 
 include ../config/Makefile.include
 
-COMMANDS = record replay live report info
-MANPAGES = ftrace.1 $(patsubst %,ftrace-%.1,$(COMMANDS))
+COMMANDS = record replay live report recv info
+MANPAGES = uftrace.1 $(patsubst %,uftrace-%.1,$(COMMANDS))
 
 ifeq ($(has_pandoc),yes)
 

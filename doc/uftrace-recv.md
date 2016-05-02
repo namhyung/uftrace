@@ -1,14 +1,14 @@
-% FTRACE-RECV(1) Ftrace User Manuals
+% UFTRACE-RECV(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
 % March, 2015
 
 NAME
 ====
-ftrace-recv - Receive tracing data from socket and save it to files
+uftrace-recv - Receive tracing data from socket and save it to files
 
 SYNOPSIS
 ========
-ftrace recv [*options*]
+uftrace recv [*options*]
 
 DESCRIPTION
 ===========
@@ -19,4 +19,4 @@ This command receives tracing data from network and saves it to files.
 
 SEE ALSO
 ========
-`ftrace`(1), `ftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1)

@@ -1,22 +1,22 @@
-% FTRACE(1) Ftrace User Manuals
+% UFTRACE(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
 % March, 2015
 
 NAME
 ====
-ftrace - A function tracer
+uftrace - Function graph tracer for userspace
 
 SYNOPSIS
 ========
-ftrace [*record*|*replay*|*live*|*report*|*info*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*] [*options*] COMMAND [*command-options*]
 
 DESCRIPTION
 ===========
-The ftrace is a function tracer that traces an execution of given COMMAND in the function level.  The COMMAND should be a C/C++ executable built with compiler instrumentation (-pg).  Also the COMMAND needs to have an ELF symbol table (i.e. not `strip`(1)-ed) in order to print the name of traced functions.
+The uftrace is a function tracer that traces an execution of given COMMAND in the function level.  The COMMAND should be a C/C++ executable built with compiler instrumentation (-pg).  Also the COMMAND needs to have an ELF symbol table (i.e. not `strip`(1)-ed) in order to print the name of traced functions.
 
 This command consists of a number of sub-commands like `git`(1) or `perf`(1).  The below is a short description of each sub-commands.  For more detailed information, see its manual page.  The options in this page can be given to any sub-command also.
 
-For convenience, if no sub-command is given, it'd act like `live` sub-command which runs `record` and `replay` sub-command in turn.  See `ftrace-live`(1) for options belongs to the `live` sub-command.  For more detailed analysis, it'd be better using `ftrace-record`(1) to save trace data, and then analyze it with other ftrace commands like `ftrace-report`(1), `ftrace-info`(1) or `ftrace-replay`(1).
+For convenience, if no sub-command is given, it'd act like `live` sub-command which runs `record` and `replay` sub-command in turn.  See `uftrace-live`(1) for options belongs to the `live` sub-command.  For more detailed analysis, it'd be better using `uftrace-record`(1) to save trace data, and then analyze it with other uftrace commands like `uftrace-report`(1), `uftrace-info`(1) or `uftrace-replay`(1).
 
 SUB-COMMANDS
 ============
@@ -54,4 +54,4 @@ OPTIONS
 
 SEE ALSO
 ========
-`ftrace-live`(1), `ftrace-record`(1), `ftrace-replay`(1), `ftrace-report`(1), `ftrace-info`(1)
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1)

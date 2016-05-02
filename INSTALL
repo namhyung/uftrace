@@ -1,7 +1,7 @@
 QUICK GUIDE
 ===========
 
-To build ftrace, you need to install basic software development tools first -
+To build uftrace, you need to install basic software development tools first -
 like gcc and make.  And also you need to install dependent softwares, please
 see DEPENDENCY section for details.
 
@@ -9,23 +9,23 @@ Once you installed required software(s), you can run `make' to build it.
 
     $ make
 
-It builds ftrace and resulting binary exists in the current directory.
+It builds uftrace and resulting binary exists in the current directory.
 This is good for testing, but you'll want to install it for normal use.
 
     $ sudo make install
 
-It installs the ftrace under /usr/local by default, if you want install it
+It installs the uftrace under /usr/local by default, if you want install it
 to other location, you can set prefix variable when invoking make.
 
     $ make prefix=/usr
-    $ sudo make prefix=/usr install
+    $ sudo make install
 
 
 DEPENDENCY
 ==========
 
-Currently ftrace depends on libelf from elfutils project for ELF symbol
-manipulation.  You need to install it first in order to build ftrace.
+Currently uftrace depends on libelf from elfutils project for ELF symbol
+manipulation.  You need to install it first in order to build uftrace.
 
 On debian based systems (like Ubuntu), libelf-dev package will provide
 required libraries/files.

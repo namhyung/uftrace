@@ -1,14 +1,14 @@
-% FTRACE-INFO(1) Ftrace User Manuals
+% UFTRACE-INFO(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
 % March, 2015
 
 NAME
 ====
-ftrace-info - Print tracing information for trace data
+uftrace-info - Print tracing information for trace data
 
 SYNOPSIS
 ========
-ftrace info [*options*] [*COMMAND*]
+uftrace info [*options*] [*COMMAND*]
 
 DESCRIPTION
 ===========
@@ -17,7 +17,7 @@ This command prints metadata recorded in the header of a given data file.  When 
 OPTIONS
 =======
 -f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `ftrace.dir`.
+:   Use this filename for trace data.  Default is `uftrace.data`.
 
 \--symbols
 :   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.
@@ -29,14 +29,14 @@ EXAMPLE
 =======
 This command shows information like below:
 
-    $ ftrace record abc
+    $ uftrace record abc
 
-    $ ftrace info
+    $ uftrace info
     # ftrace information
     # ==================
-    # program version     : ftrace v0.2
+    # program version     : uftrace v0.5
     # recorded on         : Thu Mar  5 12:08:46 2015
-    # cmdline             : ftrace record abc
+    # cmdline             : uftrace record abc
     # exe image           : /home/namhyung/tmp/abc
     # build id            : 5d7e716244b178f4eea9c5fd82d2f822459e7080
     # exit status         : exited with code: 192
@@ -51,7 +51,7 @@ This command shows information like below:
 
 To see symbol table, one can use \--symbols option.
 
-    $ ftrace info --symbols
+    $ uftrace info --symbols
     Normal symbols
     ==============
     [ 0] _start (0x400590) size: 42
@@ -75,4 +75,4 @@ To see symbol table, one can use \--symbols option.
 
 SEE ALSO
 ========
-`ftrace`(1), `ftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1)

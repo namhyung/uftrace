@@ -1,14 +1,14 @@
-% FTRACE-REPORT(1) Ftrace User Manuals
+% UFTRACE-REPORT(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
 % March, 2015
 
 NAME
 ====
-ftrace-report - Print statistics and summary for trace data
+uftrace-report - Print statistics and summary for trace data
 
 SYNOPSIS
 ========
-ftrace report [*options*]
+uftrace report [*options*]
 
 DESCRIPTION
 ===========
@@ -17,7 +17,7 @@ This command collects trace data from a given data file and prints statistics an
 OPTIONS
 =======
 -f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `ftrace.dir`.
+:   Use this filename for trace data.  Default is `uftrace.data`.
 
 \--threads
 :   Report thread summary information rather than function statistics.
@@ -44,8 +44,8 @@ EXAMPLE
 =======
 This command shows information like below:
 
-    $ ftrace record abc
-    $ ftrace report
+    $ uftrace record abc
+    $ uftrace report
       Total time   Self time  Nr. called     Function
       ==========  ==========  ==========  =======================================
       150.829 us  150.829 us           1  __cxa_atexit
@@ -55,7 +55,7 @@ This command shows information like below:
        24.173 us    1.715 us           1  c
        22.458 us   22.458 us           1  getpid
 
-    $ ftrace report -s call,self
+    $ uftrace report -s call,self
       Total time   Self time  Nr. called     Function
       ==========  ==========  ==========  =======================================
       150.829 us  150.829 us           1  __cxa_atexit
@@ -65,7 +65,7 @@ This command shows information like below:
        26.046 us    0.939 us           1  a
        25.107 us    0.934 us           1  b
 
-    $ ftrace report --avg-self
+    $ uftrace report --avg-self
         Avg self    Min self    Max self  Function
       ==========  ==========  ==========  =======================================
       150.829 us  150.829 us  150.829 us  __cxa_atexit
@@ -75,11 +75,11 @@ This command shows information like below:
         0.939 us    0.939 us    0.939 us  a
         0.934 us    0.934 us    0.934 us  b
 
-    $ ftrace report --threads
+    $ uftrace report --threads
         TID  Start function                              Run time   Nr. funcs
       =====  ========================================  ==========  ==========
       21959  main                                      178.118 us           6
 	
 SEE ALSO
 ========
-`ftrace`(1), `ftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1)
