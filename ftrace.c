@@ -649,7 +649,6 @@ static int pr_task(struct opts *opts)
 
 		switch (msg.type) {
 		case FTRACE_MSG_TID:
-		case FTRACE_MSG_FORK_END:
 			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
 				pr_red("cannot read task message: %m\n");
 				goto out;
@@ -657,6 +656,15 @@ static int pr_task(struct opts *opts)
 
 			pr_time(tmsg.time);
 			pr_out("task tid %d (pid %d)\n", tmsg.tid, tmsg.pid);
+			break;
+		case FTRACE_MSG_FORK_END:
+			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
+				pr_red("cannot read task message: %m\n");
+				goto out;
+			}
+
+			pr_time(tmsg.time);
+			pr_out("fork pid %d (ppid %d)\n", tmsg.tid, tmsg.pid);
 			break;
 		case FTRACE_MSG_SESSION:
 			if (fread(&smsg, sizeof(smsg), 1, fp) != 1) {
@@ -670,9 +678,8 @@ static int pr_task(struct opts *opts)
 			}
 
 			pr_time(smsg.task.time);
-			pr_out("session of task %d/%d: %.*s (%s)\n",
-			       smsg.task.tid, smsg.task.pid,
-			       sizeof(smsg.sid), smsg.sid, exename);
+			pr_out("session of task %d: %.*s (%s)\n",
+			       smsg.task.tid, sizeof(smsg.sid), smsg.sid, exename);
 			free(exename);
 			break;
 		default:
