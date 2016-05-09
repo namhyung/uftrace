@@ -17,10 +17,11 @@ all: $(MANPAGES)
 %.1: %.md
 	$(QUIET_GEN)pandoc -s $< -t man -o $@
 
+# $(DESTDIR) already contains $(mandir) by ../Makefile
 install: all
 	$(call QUIET_INSTALL, man-pages)
-	$(INSTALL) -d -m 755 $(DESTDIR)/$(mandir)/man1
-	for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/$(mandir)/man1; done
+	$(INSTALL) -d -m 755 $(DESTDIR)/man1
+	for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/man1; done
 
 clean:
 	$(call QUIET_CLEAN, man-pages)

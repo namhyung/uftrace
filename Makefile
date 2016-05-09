@@ -47,7 +47,7 @@ endif
 RM = rm -f
 INSTALL = install
 
-export ARCH CC AR LD RM srcdir objdir mandir
+export ARCH CC AR LD RM srcdir objdir
 
 COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
