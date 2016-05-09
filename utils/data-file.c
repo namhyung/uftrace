@@ -295,6 +295,8 @@ retry:
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
 	handle->kern = NULL;
+	handle->nr_tasks = 0;
+	handle->tasks = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -325,8 +327,6 @@ retry:
 	snprintf(buf, sizeof(buf), "%s/%s", opts->dirname, map_file);
 	read_map_file(buf, &proc_maps);
 
-	reset_task_handle();
-
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
 		setup_fstack_args(handle->info.argspec);
 
@@ -352,5 +352,5 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		free(map);
 	}
 
-	reset_task_handle();
+	reset_task_handle(handle);
 }

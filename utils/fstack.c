@@ -19,19 +19,18 @@
 
 #define FILTER_COUNT_NOTRACE  10000
 
-struct ftrace_task_handle *tasks;
-int nr_tasks;
 bool fstack_enabled = true;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
-struct ftrace_task_handle *get_task_handle(int tid)
+struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
+					   int tid)
 {
 	int i;
 
-	for (i = 0; i < nr_tasks; i++) {
-		if (tasks[i].tid == tid)
-			return &tasks[i];
+	for (i = 0; i < handle->nr_tasks; i++) {
+		if (handle->tasks[i].tid == tid)
+			return &handle->tasks[i];
 	}
 	return NULL;
 }
@@ -69,26 +68,26 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 		task->func_stack[i].orig_depth = handle->depth;
 }
 
-void reset_task_handle(void)
+void reset_task_handle(struct ftrace_file_handle *handle)
 {
 	int i;
 
-	for (i = 0; i < nr_tasks; i++) {
-		tasks[i].done = true;
+	for (i = 0; i < handle->nr_tasks; i++) {
+		handle->tasks[i].done = true;
 
-		if (tasks[i].fp) {
-			fclose(tasks[i].fp);
-			tasks[i].fp = NULL;
+		if (handle->tasks[i].fp) {
+			fclose(handle->tasks[i].fp);
+			handle->tasks[i].fp = NULL;
 		}
 
-		free(tasks[i].args.data);
-		tasks[i].args.data = NULL;
+		free(handle->tasks[i].args.data);
+		handle->tasks[i].args.data = NULL;
 	}
 
-	free(tasks);
-	tasks = NULL;
+	free(handle->tasks);
+	handle->tasks = NULL;
 
-	nr_tasks = 0;
+	handle->nr_tasks = 0;
 }
 
 /**
@@ -121,14 +120,14 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 
 	} while (*p);
 
-	nr_tasks = handle->info.nr_tid;
-	tasks = xmalloc(sizeof(*tasks) * nr_tasks);
+	handle->nr_tasks = handle->info.nr_tid;
+	handle->tasks = xmalloc(sizeof(*handle->tasks) * handle->nr_tasks);
 
-	for (i = 0; i < nr_tasks; i++) {
+	for (i = 0; i < handle->nr_tasks; i++) {
 		bool found = false;
 		int tid = handle->info.tids[i];
 
-		tasks[i].tid = tid;
+		handle->tasks[i].tid = tid;
 
 		for (k = 0; k < nr_filters; k++) {
 			if (tid == filter_tids[k]) {
@@ -138,11 +137,11 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 		}
 
 		if (!found) {
-			tasks[i].done = true;
+			handle->tasks[i].done = true;
 			continue;
 		}
 
-		setup_task_handle(handle, &tasks[i], tid);
+		setup_task_handle(handle, &handle->tasks[i], tid);
 	}
 
 	free(filter_tids);
@@ -695,17 +694,19 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
 
-	if (unlikely(idx >= nr_tasks)) {
-		nr_tasks = idx + 1;
-		tasks = xrealloc(tasks, sizeof(*tasks) * nr_tasks);
+	if (unlikely(idx >= handle->nr_tasks)) {
+		handle->nr_tasks = idx + 1;
+		handle->tasks = xrealloc(handle->tasks,
+					 sizeof(*handle->tasks) * handle->nr_tasks);
 
-		setup_task_handle(handle, &tasks[idx], handle->info.tids[idx]);
+		setup_task_handle(handle, &handle->tasks[idx],
+				  handle->info.tids[idx]);
 
-		if (tasks[idx].fp == NULL)
+		if (handle->tasks[idx].fp == NULL)
 			return NULL;
 	}
 
-	task = &tasks[idx];
+	task = &handle->tasks[idx];
 
 	if (task->valid)
 		return &task->ustack;
@@ -771,7 +772,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	if (next_i < 0)
 		return -1;
 
-	*task = &tasks[next_i];
+	*task = &handle->tasks[next_i];
 
 	return next_i;
 }
@@ -865,7 +866,7 @@ user:
 	}
 	else {
 kernel:
-		task = get_task_handle(kstack.tid);
+		task = get_task_handle(handle, kstack.tid);
 		if (task == NULL)
 			pr_err_ns("cannot find task for tid %d\n", kstack.tid);
 

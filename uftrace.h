@@ -105,6 +105,8 @@ struct ftrace_file_handle {
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
 	struct ftrace_kernel *kern;
+	struct ftrace_task_handle *tasks;
+	int nr_tasks;
 	int depth;
 };
 

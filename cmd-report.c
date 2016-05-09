@@ -315,7 +315,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 				  struct ftrace_ret_stack *rstack)
 {
 	struct sym *sym;
-	struct ftrace_task_handle *main_task = &tasks[0];
+	struct ftrace_task_handle *main_task = &handle->tasks[0];
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
 

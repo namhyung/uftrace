@@ -398,16 +398,17 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 	return is_kernel_address(task->func_stack[0].addr);
 }
 
-static void print_remaining_stack(struct opts *opts)
+static void print_remaining_stack(struct opts *opts,
+				  struct ftrace_file_handle *handle)
 {
 	int i;
 	int total = 0;
 
-	for (i = 0; i < nr_tasks; i++) {
-		if (skip_sys_exit(opts, &tasks[i]))
+	for (i = 0; i < handle->nr_tasks; i++) {
+		if (skip_sys_exit(opts, &handle->tasks[i]))
 			continue;
 
-		total += tasks[i].stack_count;
+		total += handle->tasks[i].stack_count;
 	}
 
 	if (total == 0)
@@ -416,13 +417,13 @@ static void print_remaining_stack(struct opts *opts)
 	pr_out("\nftrace stopped tracing with remaining functions");
 	pr_out("\n===============================================\n");
 
-	for (i = 0; i < nr_tasks; i++) {
-		struct ftrace_task_handle *task = &tasks[i];
+	for (i = 0; i < handle->nr_tasks; i++) {
+		struct ftrace_task_handle *task = &handle->tasks[i];
 
 		if (task->stack_count == 0)
 			continue;
 
-		if (skip_sys_exit(opts, &tasks[i]))
+		if (skip_sys_exit(opts, task))
 			continue;
 
 		pr_out("task: %d\n", task->tid);
@@ -505,7 +506,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	print_remaining_stack(opts);
+	print_remaining_stack(opts, &handle);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
