@@ -203,18 +203,21 @@ install: all
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	$(call QUIET_INSTALL, uftrace)
 	@$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
-	$(call QUIET_INSTALL, libmcount.so)
+	$(call QUIET_INSTALL, libmcount)
 	@$(INSTALL) $(objdir)/libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
-	$(call QUIET_INSTALL, libmcount-nop.so)
 	@$(INSTALL) $(objdir)/libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
-	$(call QUIET_INSTALL, libmcount-fast.so)
 	@$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
-	$(call QUIET_INSTALL, libmcount-single.so)
 	@$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
-	$(call QUIET_INSTALL, libmcount-fast-single.so)
 	@$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
+
+uninstall:
+	$(call QUIET_UNINSTALL, uftrace)
+	@$(RM) $(DESTDIR)$(bindir)/uftrace
+	$(call QUIET_UNINSTALL, libmcount)
+	@$(RM) $(DESTDIR)$(libdir)/libmcount{,-nop,-fast,-single,-fast-single}.so
+	@$(MAKE) -sC $(srcdir)/doc uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
