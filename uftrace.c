@@ -963,7 +963,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 			if (sess) {
 				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+				sym = find_symtabs(symtabs, frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);
@@ -1020,7 +1020,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		while (!read_kernel_cpu_data(kernel, i)) {
 			int losts = kernel->missed_events[i];
 
-			sym = find_symtabs(NULL, mrs->child_ip, proc_maps);
+			sym = find_symtabs(NULL, mrs->child_ip);
 			name = symbol_getname(sym, mrs->child_ip);
 
 			if (losts) {
@@ -1129,7 +1129,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			if (sess) {
 				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+				sym = find_symtabs(symtabs, frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);

@@ -121,7 +121,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (sess == NULL)
 			continue;
 
-		sym = find_symtabs(&sess->symtabs, rstack->addr, NULL);
+		sym = find_symtabs(&sess->symtabs, rstack->addr);
 
 		fstack = &task->func_stack[rstack->depth];
 
@@ -343,7 +343,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 		/* fall through */
 	}
 
-	task->func = sym = find_symtabs(symtabs, rstack->addr, proc_maps);
+	task->func = sym = find_symtabs(symtabs, rstack->addr);
 	if (sym == NULL)
 		pr_dbg("cannot find symbol for %lx\n", rstack->addr);
 

@@ -41,7 +41,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 		sess = find_task_session(task->tid, fstack->total_time);
 
 		if (sess)
-			sym = find_symtabs(&sess->symtabs, fstack->addr, proc_maps);
+			sym = find_symtabs(&sess->symtabs, fstack->addr);
 		else
 			sym = NULL;
 
@@ -68,7 +68,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
+	sym = find_symtabs(symtabs, rstack->addr);
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
@@ -254,7 +254,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		return 0;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr, proc_maps);
+	sym = find_symtabs(symtabs, rstack->addr);
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
@@ -439,7 +439,7 @@ static void print_remaining_stack(struct opts *opts,
 
 			if (sess || is_kernel_address(ip)) {
 				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, ip, proc_maps);
+				sym = find_symtabs(symtabs, ip);
 			} else
 				sym = NULL;
 
