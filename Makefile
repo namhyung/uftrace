@@ -47,7 +47,7 @@ endif
 RM = rm -f
 INSTALL = install
 
-export ARCH CC AR LD RM srcdir objdir mandir
+export ARCH CC AR LD RM srcdir objdir
 
 COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
@@ -199,22 +199,25 @@ $(objdir)/uftrace: $(UFTRACE_OBJS) $(objdir)/libtraceevent/libtraceevent.a
 	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_LDFLAGS)
 
 install: all
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	$(call QUIET_INSTALL, uftrace)
-	@$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
-	$(call QUIET_INSTALL, libmcount.so)
-	@$(INSTALL) $(objdir)/libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
-	$(call QUIET_INSTALL, libmcount-nop.so)
-	@$(INSTALL) $(objdir)/libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
-	$(call QUIET_INSTALL, libmcount-fast.so)
-	@$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
-	$(call QUIET_INSTALL, libmcount-single.so)
-	@$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
-	$(call QUIET_INSTALL, libmcount-fast-single.so)
-	@$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(Q)$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
+	$(call QUIET_INSTALL, libmcount)
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
+
+uninstall:
+	$(call QUIET_UNINSTALL, uftrace)
+	$(Q)$(RM) $(DESTDIR)$(bindir)/uftrace
+	$(call QUIET_UNINSTALL, libmcount)
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount{,-nop,-fast,-single,-fast-single}.so
+	@$(MAKE) -sC $(srcdir)/doc uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
@@ -229,10 +232,10 @@ doc:
 
 clean:
 	$(call QUIET_CLEAN, uftrace)
-	@$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
-	@$(RM) $(objdir)/utils/*.o $(objdir)/utils/*.op $(objdir)/libmcount/*.op
-	@$(RM) $(objdir)/uftrace.data* $(objdir)/gmon.out $(TARGETS)
-	@$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
+	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
+	$(Q)$(RM) $(objdir)/utils/*.o $(objdir)/utils/*.op $(objdir)/libmcount/*.op
+	$(Q)$(RM) $(objdir)/uftrace.data* $(objdir)/gmon.out $(TARGETS)
+	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/config check-clean BUILD_FEATURE_CHECKS=0
