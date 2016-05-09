@@ -98,6 +98,44 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	rb_insert_color(&entry->link, root);
 }
 
+static void build_function_tree(struct ftrace_file_handle *handle,
+				struct rb_root *root)
+{
+	struct sym *sym;
+	struct trace_entry te;
+	struct ftrace_ret_stack *rstack;
+	struct ftrace_task_handle *task;
+	struct ftrace_session *sess;
+	struct fstack *fstack;
+
+	while (read_rstack(handle, &task) >= 0) {
+		rstack = task->rstack;
+		if (rstack->type != FTRACE_EXIT)
+			continue;
+
+		if (rstack == &task->kstack)
+			sess = first_session;
+		else
+			sess = find_task_session(task->tid, rstack->time);
+
+		if (sess == NULL)
+			continue;
+
+		sym = find_symtabs(&sess->symtabs, rstack->addr, NULL);
+
+		fstack = &task->func_stack[rstack->depth];
+
+		te.pid = task->tid;
+		te.sym = sym;
+		te.addr = rstack->addr;
+		te.time_total = fstack->total_time;
+		te.time_self = te.time_total - fstack->child_time;
+		te.nr_called = 1;
+
+		insert_entry(root, &te, false);
+	}
+}
+
 struct sort_item {
 	const char *name;
 	int (*cmp)(struct trace_entry *a, struct trace_entry *b);
@@ -231,45 +269,13 @@ static void print_function(struct trace_entry *entry)
 
 static void report_functions(struct ftrace_file_handle *handle)
 {
-	struct sym *sym;
-	struct trace_entry te;
-	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
 	struct rb_node *node;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
-	struct ftrace_task_handle *task;
-	struct ftrace_session *sess;
-	struct fstack *fstack;
-
-	while (read_rstack(handle, &task) >= 0) {
-		rstack = task->rstack;
-		if (rstack->type != FTRACE_EXIT)
-			continue;
-
-		if (rstack == &task->kstack)
-			sess = first_session;
-		else
-			sess = find_task_session(task->tid, rstack->time);
-
-		if (sess == NULL)
-			continue;
-
-		sym = find_symtabs(&sess->symtabs, rstack->addr, NULL);
-
-		fstack = &task->func_stack[rstack->depth];
-
-		te.pid = task->tid;
-		te.sym = sym;
-		te.addr = rstack->addr;
-		te.time_total = fstack->total_time;
-		te.time_self = te.time_total - fstack->child_time;
-		te.nr_called = 1;
-
-		insert_entry(&name_tree, &te, false);
-	}
+	build_function_tree(handle, &name_tree);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
 		struct trace_entry *entry;
@@ -293,7 +299,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 	else if (avg_mode == AVG_SELF)
 		pr_out(f_format, "Avg self", "Min self", "Max self", "Function");
 
-	printf(f_format, line, line, line, line);
+	pr_out(f_format, line, line, line, line);
 
 	for (node = rb_first(&sort_tree); node; node = rb_next(node)) {
 		struct trace_entry *entry;
