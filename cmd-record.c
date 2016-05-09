@@ -1157,6 +1157,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		pr_err("cannot setup internal pipe");
 
 	create_directory(opts->dirname);
+	save_symbol_file(&symtabs, opts->dirname, opts->exename);
 
 	fflush(stdout);
 
