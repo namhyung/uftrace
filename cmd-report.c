@@ -244,6 +244,23 @@ static void setup_sort(char *sort_keys)
 	free(keys);
 }
 
+static void print_and_delete(struct rb_root *root,
+			     void (*print_func)(struct trace_entry *))
+{
+	while (!RB_EMPTY_ROOT(root)) {
+		struct rb_node *node;
+		struct trace_entry *entry;
+
+		node = rb_first(root);
+		rb_erase(node, root);
+
+		entry = rb_entry(node, struct trace_entry, link);
+		print_func(entry);
+
+		free(entry);
+	}
+}
+
 static void print_function(struct trace_entry *entry)
 {
 	char *symname = symbol_getname(entry->sym, entry->addr);
@@ -271,13 +288,13 @@ static void report_functions(struct ftrace_file_handle *handle)
 {
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
-	struct rb_node *node;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
 	build_function_tree(handle, &name_tree);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
+		struct rb_node *node;
 		struct trace_entry *entry;
 
 		node = rb_first(&name_tree);
@@ -301,19 +318,7 @@ static void report_functions(struct ftrace_file_handle *handle)
 
 	pr_out(f_format, line, line, line, line);
 
-	for (node = rb_first(&sort_tree); node; node = rb_next(node)) {
-		struct trace_entry *entry;
-
-		entry = rb_entry(node, struct trace_entry, link);
-		print_function(entry);
-	}
-
-	while (!RB_EMPTY_ROOT(&sort_tree)) {
-		node = rb_first(&sort_tree);
-		rb_erase(node, &sort_tree);
-
-		free(rb_entry(node, struct trace_entry, link));
-	}
+	print_and_delete(&sort_tree, print_function);
 }
 
 static struct sym * find_task_sym(struct ftrace_file_handle *handle,
@@ -350,12 +355,22 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 	return sym;
 }
 
+static void print_thread(struct trace_entry *entry)
+{
+	char *symname = symbol_getname(entry->sym, entry->addr);
+
+	pr_out("  %5d ", entry->pid);
+	print_time_unit(entry->time_self);
+	pr_out("  %10lu  %-s\n", entry->nr_called, symname);
+
+	symbol_putname(entry->sym, symname);
+}
+
 static void report_threads(struct ftrace_file_handle *handle)
 {
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
 	struct rb_root name_tree = RB_ROOT;
-	struct rb_node *node;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;
 	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
@@ -390,29 +405,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");
 	pr_out(t_format, line, line, line, line);
 
-	while (!RB_EMPTY_ROOT(&name_tree)) {
-		char *symname;
-		struct trace_entry *entry;
-
-		node = rb_first(&name_tree);
-		rb_erase(node, &name_tree);
-
-		entry = rb_entry(node, struct trace_entry, link);
-		symname = symbol_getname(entry->sym, entry->addr);
-
-		pr_out("  %5d ", entry->pid);
-		print_time_unit(entry->time_self);
-		pr_out("  %10lu  %-s\n", entry->nr_called, symname);
-
-		symbol_putname(entry->sym, symname);
-	}
-
-	while (!RB_EMPTY_ROOT(&name_tree)) {
-		node = rb_first(&name_tree);
-		rb_erase(node, &name_tree);
-
-		free(rb_entry(node, struct trace_entry, link));
-	}
+	print_and_delete(&name_tree, print_thread);
 }
 
 int command_report(int argc, char *argv[], struct opts *opts)
