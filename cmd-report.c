@@ -26,6 +26,7 @@ struct trace_entry {
 	uint64_t time_min;
 	uint64_t time_max;
 	unsigned long nr_called;
+	struct trace_entry *pair;
 	struct rb_node link;
 };
 
@@ -85,6 +86,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	entry->time_total = te->time_total;
 	entry->time_self  = te->time_self;
 	entry->nr_called  = te->nr_called;
+	entry->pair = NULL;
 
 	if (avg_mode == AVG_TOTAL)
 		entry_time = te->time_total;
@@ -257,6 +259,8 @@ static void print_and_delete(struct rb_root *root,
 		entry = rb_entry(node, struct trace_entry, link);
 		print_func(entry);
 
+		if (entry->pair)
+			free(entry->pair);
 		free(entry);
 	}
 }
@@ -408,6 +412,230 @@ static void report_threads(struct ftrace_file_handle *handle)
 	print_and_delete(&name_tree, print_thread);
 }
 
+struct diff_data {
+	char				*dirname;
+	struct rb_root			root;
+	struct ftrace_file_handle	handle;
+};
+
+static void sort_by_name(struct rb_root *root, struct trace_entry *te)
+{
+	struct trace_entry *entry;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	int ret;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct trace_entry, link);
+
+		if (!entry->sym || !te->sym) {
+			if (entry->addr < te->addr)
+				p = &parent->rb_left;
+			else
+				p = &parent->rb_right;
+			continue;
+		}
+
+		ret = strcmp(entry->sym->name, te->sym->name);
+		if (ret == 0) {
+			entry->time_total += te->time_total;
+			entry->time_self  += te->time_self;
+			entry->nr_called  += te->nr_called;
+
+			if (avg_mode == AVG_TOTAL)
+				entry->time_avg = entry->time_total / entry->nr_called;
+			else if (avg_mode == AVG_SELF)
+				entry->time_avg = entry->time_self / entry->nr_called;
+
+			if (entry->time_min > te->time_min)
+				entry->time_min = te->time_min;
+			if (entry->time_max < te->time_max)
+				entry->time_max = te->time_max;
+
+			free(te);
+			return;
+		};
+
+		if (ret < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&te->link, parent, p);
+	rb_insert_color(&te->link, root);
+}
+
+static struct trace_entry * find_by_name(struct rb_root *root, char *name)
+{
+	struct trace_entry *entry;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct trace_entry, link);
+
+		if (strcmp(entry->sym->name, name) == 0)
+			return entry;
+
+		if (strcmp(entry->sym->name, name) < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	return NULL;
+}
+
+static void sort_function_name(struct rb_root *root_in,
+			       struct rb_root *root_out)
+{
+	while (!RB_EMPTY_ROOT(root_in)) {
+		struct rb_node *node;
+		struct trace_entry *entry;
+
+		node = rb_first(root_in);
+		rb_erase(node, root_in);
+
+		entry = rb_entry(node, struct trace_entry, link);
+		if (avg_mode == AVG_TOTAL)
+			entry->time_avg = entry->time_total / entry->nr_called;
+		else if (avg_mode == AVG_SELF)
+			entry->time_avg = entry->time_self / entry->nr_called;
+
+		if (entry->sym)
+			sort_by_name(root_out, entry);
+	}
+}
+
+static void calculate_diff(struct rb_root *base, struct rb_root *pair,
+			   struct rb_root *diff, struct rb_root *remaining)
+{
+	while (!RB_EMPTY_ROOT(base)) {
+		struct rb_node *node;
+		struct trace_entry *e, *p;
+
+		node = rb_first(base);
+		rb_erase(node, base);
+
+		e = rb_entry(node, struct trace_entry, link);
+		p = find_by_name(pair, e->sym->name);
+		if (p == NULL) {
+			sort_entries(remaining, e);
+			continue;
+		}
+
+		rb_erase(&p->link, pair);
+		RB_CLEAR_NODE(&p->link);
+
+		e->pair = p;
+		p->pair = e;
+
+		sort_entries(diff, e);
+	}
+}
+
+static void print_diff(struct trace_entry *entry)
+{
+	char *symname = symbol_getname(entry->sym, entry->addr);
+	struct trace_entry *pair = entry->pair;
+
+	if (avg_mode == AVG_NONE) {
+		pr_out(" ");
+		print_time_unit(entry->time_total);
+		pr_out(" ");
+		print_time_unit(pair->time_total);
+		pr_out(" ");
+		print_diff_percent(entry->time_total, pair->time_total);
+
+		pr_out("  ");
+		print_time_unit(entry->time_self);
+		pr_out(" ");
+		print_time_unit(pair->time_self);
+		pr_out(" ");
+		print_diff_percent(entry->time_self, pair->time_self);
+
+		pr_out("    %9lu  %9lu  %+9ld   %-s\n",
+		       entry->nr_called, pair->nr_called,
+		       (long)(pair->nr_called - entry->nr_called), symname);
+	} else {
+		pr_out(" ");
+		print_time_unit(entry->time_avg);
+		pr_out(" ");
+		print_time_unit(pair->time_avg);
+		pr_out(" ");
+		print_diff_percent(entry->time_avg, pair->time_avg);
+
+		pr_out("  ");
+		print_time_unit(entry->time_min);
+		pr_out(" ");
+		print_time_unit(pair->time_min);
+		pr_out(" ");
+		print_diff_percent(entry->time_min, pair->time_min);
+
+		pr_out("  ");
+		print_time_unit(entry->time_max);
+		pr_out(" ");
+		print_time_unit(pair->time_max);
+		pr_out(" ");
+		print_diff_percent(entry->time_max, pair->time_max);
+
+		pr_out("   %-s\n", symname);
+	}
+
+	symbol_putname(entry->sym, symname);
+}
+
+static void report_diff(struct ftrace_file_handle *handle, char *diff)
+{
+	struct opts dummy_opts = {
+		.dirname = diff,
+	};
+	struct diff_data data = {
+		.dirname = diff,
+		.root    = RB_ROOT,
+	};
+	struct rb_root tmp = RB_ROOT;
+	struct rb_root name_tree = RB_ROOT;
+	struct rb_root diff_tree = RB_ROOT;
+	struct rb_root remaining = RB_ROOT;
+	const char format[] = "  %32.32s   %32.32s   %32.32s   %-s\n";
+	const char line[] = "====================================";
+
+	build_function_tree(handle, &tmp);
+	sort_function_name(&tmp, &name_tree);
+
+	open_data_file(&dummy_opts, &data.handle);
+	build_function_tree(&data.handle, &tmp);
+	sort_function_name(&tmp, &data.root);
+
+	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining);
+
+	pr_out("#\n");
+	pr_out("# uftrace diff\n");
+	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
+	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, diff, data.handle.info.cmdline);
+	pr_out("#\n");
+
+	if (avg_mode == AVG_NONE)
+		pr_out(format, "Total time (diff)", "Self time (diff)",
+		       "Nr. called (diff)", "Function");
+	else if (avg_mode == AVG_TOTAL)
+		pr_out(format, "Avg total (diff)", "Min total (diff)",
+		       "Max total (diff)", "Function");
+	else if (avg_mode == AVG_SELF)
+		pr_out(format, "Avg self (diff)", "Min self (diff)",
+		       "Max self (diff)", "Function");
+
+	pr_out(format, line, line, line, line);
+
+	print_and_delete(&diff_tree, print_diff);
+
+	close_data_file(&dummy_opts, &data.handle);
+}
+
 int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -450,6 +678,8 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	if (opts->report_thread)
 		report_threads(&handle);
+	else if (opts->diff)
+		report_diff(&handle, opts->diff);
 	else
 		report_functions(&handle);
 

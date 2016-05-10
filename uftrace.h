@@ -133,6 +133,7 @@ struct opts {
 	char *sort_keys;
 	char *args;
 	char *retval;
+	char *diff;
 	int mode;
 	int idx;
 	int depth;

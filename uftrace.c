@@ -70,6 +70,7 @@ enum options {
 	OPT_bind_not,
 	OPT_task_newline,
 	OPT_chrome_trace,
+	OPT_diff,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -113,6 +114,7 @@ static struct argp_option ftrace_options[] = {
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
+	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ 0 }
 };
 
@@ -459,6 +461,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_chrome_trace:
 		opts->chrome_trace = true;
+		break;
+
+	case OPT_diff:
+		opts->diff = arg;
 		break;
 
 	case ARGP_KEY_ARG:

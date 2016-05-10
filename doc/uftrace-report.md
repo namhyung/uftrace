@@ -40,6 +40,9 @@ OPTIONS
 \--demangle=*TYPE*
 :   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
+\--diff=*DATA*
+:   Report difference between the input trace data and the given DATA.
+
 EXAMPLE
 =======
 This command shows information like below:
