@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -145,7 +146,7 @@ struct sort_item {
 	struct list_head list;
 };
 
-#define SORT_ITEM(_name, _field, _mode)					\
+#define SORT_ITEM_BASE(_name, _field, _mode)				\
 static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
 {									\
 	if (a->_field == b->_field)					\
@@ -159,9 +160,56 @@ static struct sort_item sort_##_field = {				\
 	LIST_HEAD_INIT(sort_##_field.list)				\
 }
 
+#define SORT_ITEM_DIFF(_name, _field, _mode)				\
+static int cmp_diff_##_field(struct trace_entry *a,			\
+			     struct trace_entry *b)			\
+{									\
+	double pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;	\
+	double pcnt_b = 100.0 * (int64_t) b->pair->_field / b->_field;	\
+									\
+	if (pcnt_a == pcnt_b)						\
+		return 0;						\
+	return pcnt_a > pcnt_b ? 1: -1;					\
+}									\
+static struct sort_item sort_diff_##_field = {				\
+	.name = _name "_diff",						\
+	.cmp = cmp_diff_##_field,					\
+	.avg_mode = _mode,						\
+	LIST_HEAD_INIT(sort_diff_##_field.list)				\
+}
+
+#define SORT_ITEM(_name, _field, _mode)					\
+	SORT_ITEM_BASE(_name, _field, _mode);				\
+	SORT_ITEM_DIFF(_name, _field, _mode)				\
+
+/* call count is not shown as percentage */
+static int cmp_diff_nr_called(struct trace_entry *a,
+			      struct trace_entry *b)
+{
+	long call_diff_a = a->pair->nr_called - a->nr_called;
+	long call_diff_b = b->pair->nr_called - b->nr_called;
+
+	if (call_diff_a == call_diff_b) {
+		/* call count used to same, compare original count then */
+		if (a->nr_called == b->nr_called)
+			return 0;
+
+		return a->nr_called > b->nr_called ? 1 : -1;
+	}
+
+	return call_diff_a > call_diff_b ? 1 : -1;
+}
+
+static struct sort_item sort_diff_nr_called = {
+	.name = "call_diff",
+	.cmp = cmp_diff_nr_called,
+	.avg_mode = AVG_NONE,
+	LIST_HEAD_INIT(sort_diff_nr_called.list)
+};
+
 SORT_ITEM("total", time_total, AVG_NONE);
 SORT_ITEM("self", time_self, AVG_NONE);
-SORT_ITEM("call", nr_called, AVG_NONE);
+SORT_ITEM_BASE("call", nr_called, AVG_NONE);
 SORT_ITEM("avg", time_avg, AVG_TOTAL);
 SORT_ITEM("min", time_min, AVG_TOTAL);
 SORT_ITEM("max", time_max, AVG_TOTAL);
@@ -175,7 +223,17 @@ struct sort_item *all_sort_items[] = {
 	&sort_time_max,
 };
 
+struct sort_item *diff_sort_items[] = {
+	&sort_diff_time_total,
+	&sort_diff_time_self,
+	&sort_diff_nr_called,
+	&sort_diff_time_avg,
+	&sort_diff_time_min,
+	&sort_diff_time_max,
+};
+
 static LIST_HEAD(sort_list);
+static LIST_HEAD(diff_sort_list);
 
 static int cmp_entry(struct trace_entry *a, struct trace_entry *b)
 {
@@ -184,6 +242,45 @@ static int cmp_entry(struct trace_entry *a, struct trace_entry *b)
 
 	list_for_each_entry(item, &sort_list, list) {
 		ret = item->cmp(a, b);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static int cmp_diff_entry(struct trace_entry *a, struct trace_entry *b,
+			  int sort_column)
+{
+	int ret;
+	struct sort_item *item;
+	struct list_head *sort_list_head = &sort_list;
+	struct trace_entry *entry_a = a;
+	struct trace_entry *entry_b = b;
+
+	switch (sort_column) {
+	case 0:
+		sort_list_head = &sort_list;
+		entry_a = a;
+		entry_b = b;
+		break;
+	case 1:
+		sort_list_head = &sort_list;
+		entry_a = a->pair;
+		entry_b = b->pair;
+		break;
+	case 2:
+		sort_list_head = &diff_sort_list;
+		entry_a = a;
+		entry_b = b;
+		break;
+	default:
+		/* this should not happend */
+		assert(0);
+		break;
+	}
+
+	list_for_each_entry(item, sort_list_head, list) {
+		ret = item->cmp(entry_a, entry_b);
 		if (ret)
 			return ret;
 	}
@@ -201,6 +298,27 @@ static void sort_entries(struct rb_root *root, struct trace_entry *te)
 		entry = rb_entry(parent, struct trace_entry, link);
 
 		if (cmp_entry(entry, te) < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&te->link, parent, p);
+	rb_insert_color(&te->link, root);
+}
+
+static void sort_diff_entries(struct rb_root *root, struct trace_entry *te,
+			      int sort_column)
+{
+	struct trace_entry *entry;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		parent = *p;
+		entry = rb_entry(parent, struct trace_entry, link);
+
+		if (cmp_diff_entry(entry, te, sort_column) < 0)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
@@ -230,6 +348,7 @@ static void setup_sort(char *sort_keys)
 			}
 
 			list_add_tail(&all_sort_items[i]->list, &sort_list);
+			list_add_tail(&diff_sort_items[i]->list, &diff_sort_list);
 			break;
 		}
 
@@ -517,7 +636,8 @@ static void sort_function_name(struct rb_root *root_in,
 }
 
 static void calculate_diff(struct rb_root *base, struct rb_root *pair,
-			   struct rb_root *diff, struct rb_root *remaining)
+			   struct rb_root *diff, struct rb_root *remaining,
+			   int sort_column)
 {
 	struct rb_root tmp = RB_ROOT;
 
@@ -541,7 +661,7 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 		e->pair = p;
 		p->pair = e;
 
-		sort_entries(diff, e);
+		sort_diff_entries(diff, e, sort_column);
 	}
 
 	/* sort remaining pair entries by time */
@@ -675,7 +795,7 @@ static void print_remaining_pair(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_diff(struct ftrace_file_handle *handle, char *diff)
+static void report_diff(struct ftrace_file_handle *handle, char *diff, int sort_column)
 {
 	struct opts dummy_opts = {
 		.dirname = diff,
@@ -701,7 +821,7 @@ static void report_diff(struct ftrace_file_handle *handle, char *diff)
 	build_function_tree(&data.handle, &tmp);
 	sort_function_name(&tmp, &data.root);
 
-	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining);
+	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, sort_column);
 
 	pr_out("#\n");
 	pr_out("# uftrace diff\n");
@@ -762,16 +882,20 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	/* default: sort by total time */
 	if (list_empty(&sort_list)) {
-		if (avg_mode == AVG_NONE)
+		if (avg_mode == AVG_NONE) {
 			list_add(&sort_time_total.list, &sort_list);
-		else
+			list_add(&sort_diff_time_total.list, &diff_sort_list);
+		}
+		else {
 			list_add(&sort_time_avg.list, &sort_list);
+			list_add(&sort_diff_time_avg.list, &diff_sort_list);
+		}
 	}
 
 	if (opts->report_thread)
 		report_threads(&handle);
 	else if (opts->diff)
-		report_diff(&handle, opts->diff);
+		report_diff(&handle, opts->diff, opts->sort_column);
 	else
 		report_functions(&handle);
 

@@ -142,6 +142,7 @@ struct opts {
 	int port;
 	int color;
 	int column_offset;
+	int sort_column;
 	unsigned long bsize;
 	uint64_t threshold;
 	bool flat;
