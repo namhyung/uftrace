@@ -232,47 +232,6 @@ static const struct {
 };
 
 static const struct {
-	char *code;
-	char *name;
-} exprs[] = {
-	{ "pp_", "++" },
-	{ "mm_", "--" },
-	{ "cl",  "call()" },
-	{ "cv",  "(cast)" },
-	{ "ti",  "initializer" },
-	{ "il",  "initializer" },
-	{ "nw",  "new() <type>" },
-	{ "na",  "new[]() <type>" },
-	{ "dl",  "delete" },
-	{ "da",  "delete[]" },
-	{ "dc",  "dynamic_cast<type>" },
-	{ "sc",  "static_cast<type>" },
-	{ "cc",  "const_cast<type>" },
-	{ "rc",  "reinterprete_cast<type>" },
-	{ "ti",  "typeid" },
-	{ "te",  "typeid()" },
-	{ "st",  "sizeof" },
-	{ "sz",  "sizeof()" },
-	{ "at",  "alignof" },
-	{ "az",  "alignof()" },
-	{ "nx",  "noexcept()" },
-	{ "dt",  "<expr>.<name>" },
-	{ "pt",  "<expr>-><name>" },
-	{ "ds",  "<expr>.*<expr>" },
-	{ "sZ",  "sizeof<T>" },
-	{ "sP",  "sizeof<T>" },
-	{ "sp",  "pack expansion" },
-	{ "tw",  "throw()" },
-	{ "tr",  "throw" },
-	{ "gs",  ":: (global scope)" },
-	{ "sr",  "unresolved name" },
-	{ "srN", "unresolved name" },
-	{ "on",  "operator name" },
-	{ "dn",  "destructor name" },
-	{ "pi",  "initializer" },
-};
-
-static const struct {
 	char code;
 	char *name;
 } std_abbrevs[] = {
