@@ -492,6 +492,8 @@ static struct trace_entry * find_by_name(struct rb_root *root, char *name)
 static void sort_function_name(struct rb_root *root_in,
 			       struct rb_root *root_out)
 {
+	struct rb_root no_name = RB_ROOT;
+
 	while (!RB_EMPTY_ROOT(root_in)) {
 		struct rb_node *node;
 		struct trace_entry *entry;
@@ -507,12 +509,18 @@ static void sort_function_name(struct rb_root *root_in,
 
 		if (entry->sym)
 			sort_by_name(root_out, entry);
+		else
+			insert_entry(&no_name, entry, false);
 	}
+
+	*root_in = no_name;
 }
 
 static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 			   struct rb_root *diff, struct rb_root *remaining)
 {
+	struct rb_root tmp = RB_ROOT;
+
 	while (!RB_EMPTY_ROOT(base)) {
 		struct rb_node *node;
 		struct trace_entry *e, *p;
@@ -535,6 +543,20 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 
 		sort_entries(diff, e);
 	}
+
+	/* sort remaining pair entries by time */
+	while (!RB_EMPTY_ROOT(pair)) {
+		struct rb_node *node;
+		struct trace_entry *entry;
+
+		node = rb_first(pair);
+		rb_erase(node, pair);
+
+		entry = rb_entry(node, struct trace_entry, link);
+		sort_entries(&tmp, entry);
+	}
+
+	*pair = tmp;
 }
 
 static void print_diff(struct trace_entry *entry)
@@ -588,6 +610,71 @@ static void print_diff(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
+#define NODATA  "-"
+static void print_remaining(struct trace_entry *entry)
+{
+	char *symname = symbol_getname(entry->sym, entry->addr);
+
+	if (avg_mode == AVG_NONE) {
+		pr_out(" ");
+		print_time_unit(entry->time_total);
+		pr_out("  %10s  %8s  ", NODATA, NODATA);
+
+		print_time_unit(entry->time_self);
+		pr_out("  %10s  %8s ",  NODATA, NODATA);
+
+		pr_out("  %10lu  %9s  %9s   %-s\n",
+		       entry->nr_called, NODATA, NODATA, symname);
+	} else {
+		pr_out(" ");
+		print_time_unit(entry->time_avg);
+		pr_out("  %10s  %8s  ", NODATA, NODATA);
+
+		print_time_unit(entry->time_min);
+		pr_out("  %10s  %8s  ", NODATA, NODATA);
+
+		print_time_unit(entry->time_max);
+		pr_out("  %10s  %8s   %-s\n",  NODATA, NODATA, symname);
+	}
+
+	symbol_putname(entry->sym, symname);
+}
+
+static void print_remaining_pair(struct trace_entry *entry)
+{
+	char *symname = symbol_getname(entry->sym, entry->addr);
+
+	if (avg_mode == AVG_NONE) {
+		pr_out("  %10s ", NODATA);
+		print_time_unit(entry->time_total);
+		pr_out("  %8s ", NODATA);
+
+		pr_out("  %10s ", NODATA);
+		print_time_unit(entry->time_self);
+		pr_out("  %8s ", NODATA);
+
+		pr_out("  %10s %10lu %10s   %-s\n",
+		       NODATA, entry->nr_called, NODATA, symname);
+	} else {
+
+		pr_out("  %10s ", NODATA);
+		print_time_unit(entry->time_avg);
+		pr_out("  %8s ", NODATA);
+
+		pr_out("  %10s ", NODATA);
+		print_time_unit(entry->time_min);
+		pr_out("  %8s ", NODATA);
+
+		pr_out("  %10s ",  NODATA);
+		print_time_unit(entry->time_max);
+		pr_out("  %8s ", NODATA);
+
+		pr_out("  %-s\n", symname);
+	}
+
+	symbol_putname(entry->sym, symname);
+}
+
 static void report_diff(struct ftrace_file_handle *handle, char *diff)
 {
 	struct opts dummy_opts = {
@@ -606,6 +693,9 @@ static void report_diff(struct ftrace_file_handle *handle, char *diff)
 
 	build_function_tree(handle, &tmp);
 	sort_function_name(&tmp, &name_tree);
+
+	remaining = tmp;
+	tmp = RB_ROOT;
 
 	open_data_file(&dummy_opts, &data.handle);
 	build_function_tree(&data.handle, &tmp);
@@ -631,6 +721,8 @@ static void report_diff(struct ftrace_file_handle *handle, char *diff)
 
 	pr_out(format, line, line, line, line);
 
+	print_and_delete(&remaining, print_remaining);
+	print_and_delete(&data.root, print_remaining_pair);
 	print_and_delete(&diff_tree, print_diff);
 
 	close_data_file(&dummy_opts, &data.handle);
