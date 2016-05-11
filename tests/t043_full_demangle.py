@@ -27,3 +27,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s --demangle=full -N "ns2.*" %s' % (TestBase.ftrace, 't-namespace')
+
+    def fixup(self, cflags, result):
+        return result.replace('delete(void*);',
+                              'delete(void*, unsigned long);')
