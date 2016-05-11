@@ -193,6 +193,9 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 		snprintf(buf, sizeof(buf), "%d", log_color);
 		setenv("FTRACE_COLOR", buf, 1);
 	}
+
+	snprintf(buf, sizeof(buf), "%d", demangler);
+	setenv("FTRACE_DEMANGLE", buf, 1);
 }
 
 static uint64_t calc_feat_mask(struct opts *opts)

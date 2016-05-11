@@ -1178,6 +1178,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *maxstack_str;
 	char *threshold_str;
 	char *color_str;
+	char *demangle_str;
 	struct stat statbuf;
 
 	if (mcount_setup_done || mtd.recursion_guard)
@@ -1195,6 +1196,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	maxstack_str = getenv("FTRACE_MAX_STACK");
 	color_str = getenv("FTRACE_COLOR");
 	threshold_str = getenv("FTRACE_THRESHOLD");
+	demangle_str = getenv("FTRACE_DEMANGLE");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1210,6 +1212,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 		debug = strtol(debug_str, NULL, 0);
 		build_debug_domain(getenv("FTRACE_DEBUG_DOMAIN"));
 	}
+
+	if (demangle_str)
+		demangler = strtol(demangle_str, NULL, 0);
 
 	pr_dbg("initializing mcount library\n");
 
