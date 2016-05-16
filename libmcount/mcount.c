@@ -720,6 +720,8 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 
 		if (more)
 			record_argument(mtdp, args_spec, regs);
+
+		count--;
 	}
 
 	if (mrstack->end_time) {
@@ -735,9 +737,11 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 
 		if (more)
 			record_retval(mtdp, args_spec, retval);
+
+		count--;
 	}
 
-	assert(size == 0);
+	assert(count == 0);
 	return 0;
 }
 
