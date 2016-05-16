@@ -431,20 +431,34 @@ static void save_retval(struct mcount_thread_data *mtdp,
 
 	*(unsigned *)argbuf = size;
 }
+#else
+static void *get_argbuf(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack)
+{
+	return NULL;
+}
 #endif
 
 static int record_ret_stack(struct mcount_thread_data *mtdp,
 			    enum ftrace_ret_stack_type type,
-			    struct mcount_ret_stack *mrstack, bool more)
+			    struct mcount_ret_stack *mrstack)
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
+	size_t size = sizeof(*frstack);
+	void *argbuf = NULL;
 
-	if (unlikely(shmem->curr == -1 ||
-		     curr_buf->size + sizeof(*frstack) > maxsize)) {
+	if ((type == FTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
+	    (type == FTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
+		argbuf = get_argbuf(mtdp, mrstack);
+		if (argbuf)
+			size += *(unsigned *)argbuf;
+	}
+
+	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
 		finish_shmem_buffer(mtdp);
 		get_new_shmem_buffer(mtdp);
 
@@ -464,12 +478,20 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	frstack->time   = timestamp;
 	frstack->type   = type;
 	frstack->unused = FTRACE_UNUSED;
-	frstack->more   = more;
+	frstack->more   = !!argbuf;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
 	curr_buf->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
+
+	if (argbuf) {
+		size -= sizeof(*frstack);
+		memcpy(curr_buf->data + curr_buf->size,
+		       argbuf  + sizeof(unsigned), size);
+
+		curr_buf->size += ALIGN(size, 8);
+	}
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
@@ -658,7 +680,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
-	size_t size;
+	size_t size = 0;
 	int count = 0;
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
@@ -678,8 +700,17 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 			if (prev->flags & MCOUNT_FL_WRITTEN)
 				break;
 
-			if (!(prev->flags & SKIP_FLAGS))
+			if (!(prev->flags & SKIP_FLAGS)) {
 				count++;
+
+				if (prev->flags & MCOUNT_FL_ARGUMENT) {
+					unsigned *argbuf_size;
+
+					argbuf_size = get_argbuf(mtdp, prev);
+					if (argbuf_size)
+						size += *argbuf_size;
+				}
+			}
 
 			non_written_mrstack = prev;
 		}
@@ -688,7 +719,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	if (mrstack->end_time)
 		count++;  /* for exit */
 
-	size = count * sizeof(*frstack);
+	size += count * sizeof(*frstack);
 
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
 		gettid(mtdp), size, count);
@@ -696,47 +727,29 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
 			if (record_ret_stack(mtdp, FTRACE_ENTRY,
-					     non_written_mrstack, false)) {
+					     non_written_mrstack)) {
 				mtdp->shmem.losts += count - 1;
 				return 0;
 			}
 
-			size -= sizeof(*frstack);
 			count--;
 		}
 		non_written_mrstack++;
 	}
 
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
-		bool more = false;
-
-		if (regs)
-			more = true;
-
-		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack))
 			return 0;
-
-		size -= sizeof(*frstack);
-
-		if (more)
-			record_argument(mtdp, args_spec, regs);
 
 		count--;
 	}
 
 	if (mrstack->end_time) {
-		bool more = false;
-
 		if (retval)
-			more = true;
+			save_retval(mtdp, rstack, retval);
 
-		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack))
 			return 0;
-
-		size -= sizeof(*frstack);
-
-		if (more)
-			record_retval(mtdp, args_spec, retval);
 
 		count--;
 	}
@@ -954,7 +967,6 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
 			save_argument(mtdp, rstack, tr->pargs, regs);
-			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
 			record_trace_data(mtdp, rstack, NULL, NULL, NULL);
@@ -1005,8 +1017,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN ||
 		    rstack->flags & MCOUNT_FL_TRACE) {
-			if (mcount_enabled &&
-			    record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
+			if (!mcount_enabled)
+				return;
+
+			if (record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
 				pr_err("error during record");
 		}
 	}
