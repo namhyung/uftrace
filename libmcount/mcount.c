@@ -437,6 +437,11 @@ static void *get_argbuf(struct mcount_thread_data *mtdp,
 {
 	return NULL;
 }
+
+static void save_retval(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack, long *retval)
+{
+}
 #endif
 
 static int record_ret_stack(struct mcount_thread_data *mtdp,
@@ -500,8 +505,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 int record_trace_data(struct mcount_thread_data *mtdp,
 		      struct mcount_ret_stack *mrstack,
-		      struct list_head *args_spec,
-		      struct mcount_regs *regs,
 		      long *retval)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
@@ -572,7 +575,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 
 	if (mrstack->end_time) {
 		if (retval)
-			save_retval(mtdp, rstack, retval);
+			save_retval(mtdp, mrstack, retval);
 
 		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack))
 			return 0;
@@ -795,7 +798,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			save_argument(mtdp, rstack, tr->pargs, regs);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(mtdp, rstack, NULL, NULL, NULL);
+			record_trace_data(mtdp, rstack, NULL);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
@@ -809,7 +812,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(mtdp, rstack, NULL, NULL, NULL);
+				record_trace_data(mtdp, rstack, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
 		}
@@ -846,7 +849,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			if (!mcount_enabled)
 				return;
 
-			if (record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
+			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}
 	}
@@ -879,7 +882,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(mtdp, rstack, NULL, NULL, NULL) < 0)
+		if (record_trace_data(mtdp, rstack, NULL) < 0)
 			pr_err("error during record");
 	}
 }
