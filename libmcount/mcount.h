@@ -37,6 +37,7 @@ enum mcount_flag {
 	MCOUNT_FL_RECOVER	= (1U << 8),
 	MCOUNT_FL_RETVAL	= (1U << 9),
 	MCOUNT_FL_TRACE		= (1U << 10),
+	MCOUNT_FL_ARGUMENT	= (1U << 11),
 };
 
 struct mcount_ret_stack {

@@ -327,6 +327,60 @@ static void *get_argbuf(struct mcount_thread_data *mtdp,
 
 	return mtdp->argbuf + (idx * ARGBUF_SIZE);
 }
+
+static void save_argument(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack,
+			  struct list_head *args_spec,
+			  struct mcount_regs *regs)
+{
+	void *argbuf = get_argbuf(mtdp, rstack);
+	struct ftrace_arg_spec *spec;
+	unsigned size, total_size = 0;
+	unsigned max_size = ARGBUF_SIZE - sizeof(size);
+	void *ptr;
+
+	ptr = argbuf + sizeof(total_size);
+	list_for_each_entry(spec, args_spec, list) {
+		long val;
+
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
+		val = mcount_get_arg(regs, spec);
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
+			char *str = (void *)val;
+
+			if (val) {
+				/* store 2-byte length before string */
+				len = strlen(str);
+				memcpy(ptr, &len, sizeof(len));
+				memcpy(ptr + 2, str, len + 1);
+
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+			}
+			size = ALIGN(len + 2, 4);
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			size = ALIGN(spec->size, 4);
+		}
+		ptr += size;
+		total_size += size;
+	}
+
+	if (total_size > max_size) {
+		pr_log("argument data is too big\n");
+		return;
+	}
+
+	*(unsigned *)argbuf = total_size;
+	rstack->flags |= MCOUNT_FL_ARGUMENT;
+}
 #endif
 
 static int record_ret_stack(struct mcount_thread_data *mtdp,
@@ -845,6 +899,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
+			save_argument(mtdp, rstack, tr->pargs, regs);
 			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
