@@ -17,6 +17,50 @@ static struct rb_root sessions = RB_ROOT;
 
 struct ftrace_session *first_session;
 
+static void read_map_file(char *dirname, struct ftrace_session *sess)
+{
+	FILE *fp;
+	char buf[PATH_MAX];
+	struct ftrace_proc_maps **maps = &sess->maps;
+
+	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sess->sid);
+	fp = fopen(buf, "rb");
+	if (fp == NULL)
+		pr_err("cannot open maps file: %s", buf);
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		unsigned long start, end;
+		char prot[5];
+		char path[PATH_MAX];
+		size_t namelen;
+		struct ftrace_proc_maps *map;
+
+		/* skip anon mappings */
+		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+			   &start, &end, prot, path) != 4)
+			continue;
+
+		/* skip non-executable mappings */
+		if (prot[2] != 'x')
+			continue;
+
+		namelen = ALIGN(strlen(path) + 1, 4);
+
+		map = xmalloc(sizeof(*map) + namelen);
+
+		map->start = start;
+		map->end = end;
+		map->len = namelen;
+		memcpy(map->prot, prot, 4);
+		memcpy(map->libname, path, namelen);
+		map->libname[strlen(path)] = '\0';
+
+		map->next = *maps;
+		*maps = map;
+	}
+	fclose(fp);
+}
+
 /**
  * create_session - create a new task session from session message
  * @msg: ftrace session message read from task file
@@ -60,6 +104,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
+	read_map_file(dirname, s);
 
 	if (first_session == NULL)
 		first_session = s;
@@ -300,10 +345,13 @@ TEST_CASE(session_search)
 				.tid = 1,
 				.time = i * 100,
 			},
+			.sid = "test",
 			.namelen = 8,  /* = strlen("unittest") */
 		};
 
+		creat("sid-test.map", 0400);
 		create_session(&msg, ".", "unittest");
+		remove("sid-test.map");
 	}
 
 	TEST_NE(first_session, NULL);
@@ -348,8 +396,10 @@ TEST_CASE(task_search)
 			.time = 100,
 		};
 
+		creat("sid-initial.map", 0400);
 		create_session(&smsg, ".", "unittest");
 		create_task(&tmsg, false);
+		remove("sid-initial.map");
 
 		task = find_task(tmsg.tid);
 
@@ -448,8 +498,10 @@ TEST_CASE(task_search)
 			.time = 500,
 		};
 
+		creat("sid-after_exec.map", 0400);
 		create_session(&smsg, ".", "unittest");
 		create_task(&tmsg, false);
+		remove("sid-after_exec.map");
 
 		task = find_task(tmsg.tid);
 

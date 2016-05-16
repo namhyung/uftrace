@@ -228,7 +228,7 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	};
 	struct offset_entry *cache;
 
-	sym = find_symtabs(symtabs, child_ip, NULL);
+	sym = find_symtabs(symtabs, child_ip);
 	if (sym == NULL)
 		pr_err_ns("cannot find symbol for %lx\n", child_ip);
 

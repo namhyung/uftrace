@@ -219,3 +219,26 @@ void print_time_unit(uint64_t delta_nsec)
 
 	pr_out(" %3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
 }
+
+void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
+{
+	double percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
+	char *color = percent > 20 ? TERM_COLOR_RED :
+		percent > 3 ? TERM_COLOR_MAGENTA :
+		percent < -20 ? TERM_COLOR_BLUE :
+		percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+
+	if (percent == 0) {
+		pr_out(" %7s ", "");
+		return;
+	}
+
+	/* for some error cases */
+	if (percent > 999.99)
+		percent = 999.99;
+
+	if (out_color)
+		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
+	else
+		pr_out(" %+7.2f%%", percent);
+}

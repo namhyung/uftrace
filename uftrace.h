@@ -105,6 +105,8 @@ struct ftrace_file_handle {
 	struct ftrace_file_header hdr;
 	struct ftrace_info info;
 	struct ftrace_kernel *kern;
+	struct ftrace_task_handle *tasks;
+	int nr_tasks;
 	int depth;
 };
 
@@ -131,6 +133,7 @@ struct opts {
 	char *sort_keys;
 	char *args;
 	char *retval;
+	char *diff;
 	int mode;
 	int idx;
 	int depth;
@@ -139,6 +142,7 @@ struct opts {
 	int port;
 	int color;
 	int column_offset;
+	int sort_column;
 	unsigned long bsize;
 	uint64_t threshold;
 	bool flat;

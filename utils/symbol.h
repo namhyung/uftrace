@@ -39,12 +39,6 @@ struct symtab {
 	bool name_sorted;
 };
 
-struct symtabs {
-	bool loaded;
-	struct symtab symtab;
-	struct symtab dsymtab;
-};
-
 struct ftrace_proc_maps {
 	struct ftrace_proc_maps *next;
 	uint64_t start;
@@ -52,6 +46,13 @@ struct ftrace_proc_maps {
 	char prot[4];
 	uint32_t len;
 	char libname[];
+};
+
+struct symtabs {
+	bool loaded;
+	struct symtab symtab;
+	struct symtab dsymtab;
+	struct ftrace_proc_maps *maps;
 };
 
 #if __SIZEOF_LONG__ == 8
@@ -66,8 +67,7 @@ static inline bool is_kernel_address(unsigned long addr)
 }
 unsigned long get_real_address(unsigned long addr);
 
-struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr,
-			 struct ftrace_proc_maps *maps);
+struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename);

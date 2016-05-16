@@ -70,6 +70,8 @@ enum options {
 	OPT_bind_not,
 	OPT_task_newline,
 	OPT_chrome_trace,
+	OPT_diff,
+	OPT_sort_column,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -113,6 +115,8 @@ static struct argp_option ftrace_options[] = {
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
+	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
+	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
 	{ 0 }
 };
 
@@ -459,6 +463,16 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_chrome_trace:
 		opts->chrome_trace = true;
+		break;
+
+	case OPT_diff:
+		opts->diff = arg;
+		break;
+
+	case OPT_sort_column:
+		opts->sort_column = strtol(arg, NULL, 0);
+		if (opts->sort_column < 0 || opts->sort_column > 2)
+			pr_use("invalid column number: %s\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:
@@ -963,7 +977,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 			if (sess) {
 				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+				sym = find_symtabs(symtabs, frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);
@@ -1020,7 +1034,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		while (!read_kernel_cpu_data(kernel, i)) {
 			int losts = kernel->missed_events[i];
 
-			sym = find_symtabs(NULL, mrs->child_ip, proc_maps);
+			sym = find_symtabs(NULL, mrs->child_ip);
 			name = symbol_getname(sym, mrs->child_ip);
 
 			if (losts) {
@@ -1129,7 +1143,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			if (sess) {
 				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr, proc_maps);
+				sym = find_symtabs(symtabs, frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);

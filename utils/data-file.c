@@ -12,51 +12,6 @@
 #include "utils/fstack.h"
 
 
-char *map_file;
-struct ftrace_proc_maps *proc_maps;
-
-static void read_map_file(char *filename, struct ftrace_proc_maps **maps)
-{
-	FILE *fp;
-	char buf[PATH_MAX];
-
-	fp = fopen(filename, "rb");
-	if (fp == NULL)
-		pr_err("cannot open maps file: %s", filename);
-
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		unsigned long start, end;
-		char prot[5];
-		char path[PATH_MAX];
-		size_t namelen;
-		struct ftrace_proc_maps *map;
-
-		/* skip anon mappings */
-		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
-			   &start, &end, prot, path) != 4)
-			continue;
-
-		/* skip non-executable mappings */
-		if (prot[2] != 'x')
-			continue;
-
-		namelen = ALIGN(strlen(path) + 1, 4);
-
-		map = xmalloc(sizeof(*map) + namelen);
-
-		map->start = start;
-		map->end = end;
-		map->len = namelen;
-		memcpy(map->prot, prot, 4);
-		memcpy(map->libname, path, namelen);
-		map->libname[strlen(path)] = '\0';
-
-		map->next = *maps;
-		*maps = map;
-	}
-	fclose(fp);
-}
-
 int read_task_file(char *dirname)
 {
 	int fd;
@@ -87,9 +42,6 @@ int read_task_file(char *dirname)
 				return -1;
 
 			create_session(&sess, dirname, buf);
-
-			if (map_file == NULL)
-				xasprintf(&map_file, "sid-%.16s.map", sess.sid);
 			break;
 
 		case FTRACE_MSG_TID:
@@ -168,9 +120,6 @@ int read_task_txt_file(char *dirname)
 			sess.namelen = strlen(exename);
 
 			create_session(&sess, dirname, exename);
-
-			if (map_file == NULL)
-				xasprintf(&map_file, "sid-%.16s.map", sess.sid);
 		}
 	}
 
@@ -295,6 +244,8 @@ retry:
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
 	handle->kern = NULL;
+	handle->nr_tasks = 0;
+	handle->tasks = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -319,13 +270,7 @@ retry:
 		if (read_task_txt_file(opts->dirname) < 0 &&
 		    read_task_file(opts->dirname) < 0)
 			pr_err("invalid task file");
-	} else
-		map_file = "maps";
-
-	snprintf(buf, sizeof(buf), "%s/%s", opts->dirname, map_file);
-	read_map_file(buf, &proc_maps);
-
-	reset_task_handle();
+	}
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
 		setup_fstack_args(handle->info.argspec);
@@ -338,19 +283,9 @@ out:
 
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
-	struct ftrace_proc_maps *map;
-
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
 	clear_ftrace_info(&handle->info);
-
-	while (proc_maps) {
-		map = proc_maps;
-		proc_maps = map->next;
-
-		free(map);
-	}
-
-	reset_task_handle();
+	reset_task_handle(handle);
 }

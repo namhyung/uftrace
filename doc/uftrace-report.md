@@ -40,6 +40,12 @@ OPTIONS
 \--demangle=*TYPE*
 :   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
+\--diff=*DATA*
+:   Report difference between the input trace data and the given DATA.
+
+\--sort-column=*IDX*
+:   When --diff option is used, 3 columns will be shown for each total time, self time and call count.  This is option is to select the index of column to be used as a sort key.
+
 EXAMPLE
 =======
 This command shows information like below:

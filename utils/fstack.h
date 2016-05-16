@@ -86,14 +86,13 @@ enum argspec_string_bits {
 	NEEDS_ESCAPE		= (1U << NEEDS_ESCAPE_BIT),
 };
 
-extern struct ftrace_task_handle *tasks;
-extern int nr_tasks;
 extern bool fstack_enabled;
 
 void setup_task_handle(struct ftrace_file_handle *handle,
 		       struct ftrace_task_handle *task, int tid);
-struct ftrace_task_handle *get_task_handle(int tid);
-void reset_task_handle(void);
+struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
+					   int tid);
+void reset_task_handle(struct ftrace_file_handle *handle);
 
 int read_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task);
