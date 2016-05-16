@@ -319,6 +319,16 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
+#ifndef DISABLE_MCOUNT_FILTER
+static void *get_argbuf(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack)
+{
+	ptrdiff_t idx = rstack - mtdp->rstack;
+
+	return mtdp->argbuf + (idx * ARGBUF_SIZE);
+}
+#endif
+
 static int record_ret_stack(struct mcount_thread_data *mtdp,
 			    enum ftrace_ret_stack_type type,
 			    struct mcount_ret_stack *mrstack, bool more)
@@ -688,6 +698,9 @@ static void mtd_dtor(void *arg)
 	struct mcount_thread_data *mtdp = arg;
 
 	free(mtdp->rstack);
+#ifndef DISABLE_MCOUNT_FILTER
+	free(mtdp->argbuf);
+#endif
 }
 
 static void mcount_init_file(void)
@@ -719,6 +732,7 @@ void mcount_prepare(void)
 #ifndef DISABLE_MCOUNT_FILTER
 	mtd.filter.depth  = mcount_depth;
 	mtd.enable_cached = mcount_enabled;
+	mtd.argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 #endif
 	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 

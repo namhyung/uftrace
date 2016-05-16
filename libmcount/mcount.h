@@ -103,6 +103,9 @@ struct mcount_shmem {
 	struct mcount_shmem_buffer	**buffer;
 };
 
+/* first 4 byte saves the actual size of the argbuf */
+#define ARGBUF_SIZE  1024
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -121,6 +124,7 @@ struct mcount_thread_data {
 	bool				plthook_guard;
 	unsigned long			plthook_addr;
 	struct mcount_ret_stack		*rstack;
+	void				*argbuf;
 	struct filter_control		filter;
 	bool				enable_cached;
 	struct mcount_shmem		shmem;
