@@ -415,9 +415,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	/* force flush rstack on some special functions */
 	if (check_dynsym_idxlist(&flush_idxlist, child_idx)) {
-		if (!(tr.flags & TRIGGER_FL_ARGUMENT))
-			regs = NULL;
-		record_trace_data(mtdp, rstack, NULL, regs, NULL);
+		record_trace_data(mtdp, rstack, NULL);
 	}
 
 	if (plthook_dynsym_resolved[child_idx]) {

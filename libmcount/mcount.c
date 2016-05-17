@@ -319,18 +319,151 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
+#ifndef DISABLE_MCOUNT_FILTER
+static void *get_argbuf(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack)
+{
+	ptrdiff_t idx = rstack - mtdp->rstack;
+
+	return mtdp->argbuf + (idx * ARGBUF_SIZE);
+}
+
+static void save_argument(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack,
+			  struct list_head *args_spec,
+			  struct mcount_regs *regs)
+{
+	void *argbuf = get_argbuf(mtdp, rstack);
+	struct ftrace_arg_spec *spec;
+	unsigned size, total_size = 0;
+	unsigned max_size = ARGBUF_SIZE - sizeof(size);
+	void *ptr;
+
+	ptr = argbuf + sizeof(total_size);
+	list_for_each_entry(spec, args_spec, list) {
+		long val;
+
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
+		val = mcount_get_arg(regs, spec);
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
+			char *str = (void *)val;
+
+			if (val) {
+				/* store 2-byte length before string */
+				len = strlen(str);
+				memcpy(ptr, &len, sizeof(len));
+				memcpy(ptr + 2, str, len + 1);
+
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+			}
+			size = ALIGN(len + 2, 4);
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			size = ALIGN(spec->size, 4);
+		}
+		ptr += size;
+		total_size += size;
+	}
+
+	if (total_size > max_size) {
+		pr_log("argument data is too big\n");
+		return;
+	}
+
+	*(unsigned *)argbuf = total_size;
+	rstack->flags |= MCOUNT_FL_ARGUMENT;
+}
+
+static void save_retval(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack, long *retval)
+{
+	struct list_head *args_spec = rstack->pargs;
+	struct ftrace_arg_spec *spec;
+	void *argbuf = get_argbuf(mtdp, rstack);
+	unsigned size = 0;
+	unsigned max_size = ARGBUF_SIZE - sizeof(size);
+	void *ptr;
+
+	ptr = argbuf + sizeof(size);
+	list_for_each_entry(spec, args_spec, list) {
+		long val;
+
+		if (spec->idx != RETVAL_IDX)
+			continue;
+
+		val = *retval;
+		if (spec->fmt == ARG_FMT_STR) {
+			unsigned short len;
+			char *str = (void *)val;
+
+			if (str) {
+				/* store 2-byte length before string */
+				len = strlen(str);
+				memcpy(ptr, &len, sizeof(len));
+				memcpy(ptr + 2, str, len + 1);
+			}
+			else {
+				len = 4;
+				memcpy(ptr, &len, sizeof(len));
+				memset(ptr + 2, 0xff, 4);
+			}
+			size = ALIGN(len + 2, 4);
+		}
+		else {
+			memcpy(ptr, &val, spec->size);
+			size = ALIGN(spec->size, 4);
+		}
+	}
+
+	if (size > max_size) {
+		pr_log("retval data is too big\n");
+		rstack->flags &= ~MCOUNT_FL_RETVAL;
+		return;
+	}
+
+	*(unsigned *)argbuf = size;
+}
+#else
+static void *get_argbuf(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack)
+{
+	return NULL;
+}
+
+static void save_retval(struct mcount_thread_data *mtdp,
+			struct mcount_ret_stack *rstack, long *retval)
+{
+}
+#endif
+
 static int record_ret_stack(struct mcount_thread_data *mtdp,
 			    enum ftrace_ret_stack_type type,
-			    struct mcount_ret_stack *mrstack, bool more)
+			    struct mcount_ret_stack *mrstack)
 {
 	struct ftrace_ret_stack *frstack;
 	uint64_t timestamp = mrstack->start_time;
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
+	size_t size = sizeof(*frstack);
+	void *argbuf = NULL;
 
-	if (unlikely(shmem->curr == -1 ||
-		     curr_buf->size + sizeof(*frstack) > maxsize)) {
+	if ((type == FTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
+	    (type == FTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
+		argbuf = get_argbuf(mtdp, mrstack);
+		if (argbuf)
+			size += *(unsigned *)argbuf;
+	}
+
+	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
 		finish_shmem_buffer(mtdp);
 		get_new_shmem_buffer(mtdp);
 
@@ -350,201 +483,33 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	frstack->time   = timestamp;
 	frstack->type   = type;
 	frstack->unused = FTRACE_UNUSED;
-	frstack->more   = more;
+	frstack->more   = !!argbuf;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
 
 	curr_buf->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
+	if (argbuf) {
+		size -= sizeof(*frstack);
+		memcpy(curr_buf->data + curr_buf->size,
+		       argbuf  + sizeof(unsigned), size);
+
+		curr_buf->size += ALIGN(size, 8);
+	}
+
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
 	return 0;
 }
 
-static void record_argument(struct mcount_thread_data *mtdp,
-			    struct list_head *args_spec,
-			    struct mcount_regs *regs)
-{
-	struct mcount_shmem *shmem = &mtdp->shmem;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
-	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
-	struct ftrace_arg_spec *spec;
-	size_t size = 0;
-	void *ptr;
-	char buf[64];
-	int nr_strarg = 0;
-
-	list_for_each_entry(spec, args_spec, list) {
-		if (spec->idx == RETVAL_IDX)
-			continue;
-
-		if (spec->fmt == ARG_FMT_STR) {
-			ptr = (void *)mcount_get_arg(regs, spec);
-			if (ptr) {
-				size_t len;
-
-				strncpy(buf, ptr, sizeof(buf));
-				buf[sizeof(buf) - 1] = '\0';
-				len = strlen(buf);
-
-				/* store 2-byte length before string */
-				size += ALIGN(len + 2, 4);
-			}
-			else {
-				buf[0] = '\0';
-				size += 8;
-			}
-			nr_strarg++;
-		}
-		else
-			size += ALIGN(spec->size, 4);
-	}
-
-	assert(size < maxsize);
-
-	if (unlikely(curr_buf->size + size > maxsize)) {
-		finish_shmem_buffer(mtdp);
-		get_new_shmem_buffer(mtdp);
-
-		if (shmem->curr == -1)
-			return;
-
-		curr_buf = shmem->buffer[shmem->curr];
-	}
-
-	ptr = (void *)(curr_buf->data + curr_buf->size);
-	list_for_each_entry(spec, args_spec, list) {
-		long val;
-
-		if (spec->idx == RETVAL_IDX)
-			continue;
-
-		val = mcount_get_arg(regs, spec);
-		if (spec->fmt == ARG_FMT_STR) {
-			unsigned short len;
-
-			if (val) {
-				if (nr_strarg > 1) {
-					strncpy(buf, (void *)val, sizeof(buf));
-					buf[sizeof(buf) - 1] = '\0';
-				}
-				len = strlen(buf);
-
-				memcpy(ptr, &len, sizeof(len));
-				strcpy(ptr + 2, buf);
-				ptr += ALIGN(len + 2, 4);
-			}
-			else {
-				len = 4;
-				memcpy(ptr, &len, sizeof(len));
-				memset(ptr + 2, 0xff, 4);
-				ptr += 8;
-			}
-		}
-		else {
-			memcpy(ptr, &val, spec->size);
-			ptr += ALIGN(spec->size, 4);
-		}
-	}
-
-	curr_buf->size += ALIGN(size, 8);
-	pr_dbg3("%s %zd bytes\n", "ARGUMENT", size);
-}
-
-static void record_retval(struct mcount_thread_data *mtdp,
-			  struct list_head *args_spec,
-			  long *retval)
-{
-	struct mcount_shmem *shmem = &mtdp->shmem;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
-	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
-	struct ftrace_arg_spec *spec;
-	size_t size = 0;
-	void *ptr;
-	char buf[64];
-
-	list_for_each_entry(spec, args_spec, list) {
-		if (spec->idx != RETVAL_IDX)
-			continue;
-
-		if (spec->fmt == ARG_FMT_STR) {
-			ptr = (void *)*retval;
-			if (ptr) {
-				size_t len;
-
-				strncpy(buf, ptr, sizeof(buf));
-				buf[sizeof(buf) - 1] = '\0';
-				len = strlen(buf);
-
-				/* store 2-byte length before string */
-				size += ALIGN(len + 2, 4);
-			}
-			else {
-				buf[0] = '\0';
-				size += 8;
-			}
-		}
-		else
-			size += ALIGN(spec->size, 4);
-	}
-
-	assert(size < maxsize);
-
-	if (unlikely(curr_buf->size + size > maxsize)) {
-		finish_shmem_buffer(mtdp);
-		get_new_shmem_buffer(mtdp);
-
-		if (shmem->curr == -1)
-			return;
-
-		curr_buf = shmem->buffer[shmem->curr];
-	}
-
-	ptr = (void *)(curr_buf->data + curr_buf->size);
-	list_for_each_entry(spec, args_spec, list) {
-		long val;
-
-		if (spec->idx != RETVAL_IDX)
-			continue;
-
-		val = *retval;
-		if (spec->fmt == ARG_FMT_STR) {
-			unsigned short len;
-
-			if (val) {
-				len = strlen(buf);
-
-				memcpy(ptr, &len, sizeof(len));
-				strcpy(ptr + 2, buf);
-				ptr += ALIGN(len + 2, 4);
-			}
-			else {
-				len = 4;
-				memcpy(ptr, &len, sizeof(len));
-				memset(ptr + 2, 0xff, 4);
-				ptr += 8;
-			}
-		}
-		else {
-			memcpy(ptr, &val, spec->size);
-			ptr += ALIGN(spec->size, 4);
-		}
-	}
-
-	curr_buf->size += ALIGN(size, 8);
-	pr_dbg3("%s %zd bytes\n", "RETVAL", size);
-}
-
 int record_trace_data(struct mcount_thread_data *mtdp,
 		      struct mcount_ret_stack *mrstack,
-		      struct list_head *args_spec,
-		      struct mcount_regs *regs,
 		      long *retval)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
 	struct ftrace_ret_stack *frstack;
-	size_t size;
+	size_t size = 0;
 	int count = 0;
 
 #define SKIP_FLAGS  (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
@@ -564,8 +529,17 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 			if (prev->flags & MCOUNT_FL_WRITTEN)
 				break;
 
-			if (!(prev->flags & SKIP_FLAGS))
+			if (!(prev->flags & SKIP_FLAGS)) {
 				count++;
+
+				if (prev->flags & MCOUNT_FL_ARGUMENT) {
+					unsigned *argbuf_size;
+
+					argbuf_size = get_argbuf(mtdp, prev);
+					if (argbuf_size)
+						size += *argbuf_size;
+				}
+			}
 
 			non_written_mrstack = prev;
 		}
@@ -574,7 +548,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	if (mrstack->end_time)
 		count++;  /* for exit */
 
-	size = count * sizeof(*frstack);
+	size += count * sizeof(*frstack);
 
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
 		gettid(mtdp), size, count);
@@ -582,48 +556,34 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
 			if (record_ret_stack(mtdp, FTRACE_ENTRY,
-					     non_written_mrstack, false)) {
+					     non_written_mrstack)) {
 				mtdp->shmem.losts += count - 1;
 				return 0;
 			}
 
-			size -= sizeof(*frstack);
 			count--;
 		}
 		non_written_mrstack++;
 	}
 
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
-		bool more = false;
-
-		if (regs)
-			more = true;
-
-		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack))
 			return 0;
 
-		size -= sizeof(*frstack);
-
-		if (more)
-			record_argument(mtdp, args_spec, regs);
+		count--;
 	}
 
 	if (mrstack->end_time) {
-		bool more = false;
-
 		if (retval)
-			more = true;
+			save_retval(mtdp, mrstack, retval);
 
-		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack, more))
+		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack))
 			return 0;
 
-		size -= sizeof(*frstack);
-
-		if (more)
-			record_retval(mtdp, args_spec, retval);
+		count--;
 	}
 
-	assert(size == 0);
+	assert(count == 0);
 	return 0;
 }
 
@@ -688,6 +648,9 @@ static void mtd_dtor(void *arg)
 	struct mcount_thread_data *mtdp = arg;
 
 	free(mtdp->rstack);
+#ifndef DISABLE_MCOUNT_FILTER
+	free(mtdp->argbuf);
+#endif
 }
 
 static void mcount_init_file(void)
@@ -719,6 +682,7 @@ void mcount_prepare(void)
 #ifndef DISABLE_MCOUNT_FILTER
 	mtd.filter.depth  = mcount_depth;
 	mtd.enable_cached = mcount_enabled;
+	mtd.argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 #endif
 	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
@@ -831,10 +795,10 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			record_trace_data(mtdp, rstack, tr->pargs, regs, NULL);
+			save_argument(mtdp, rstack, tr->pargs, regs);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(mtdp, rstack, NULL, NULL, NULL);
+			record_trace_data(mtdp, rstack, NULL);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
@@ -848,7 +812,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
 			if (!mcount_enabled)
-				record_trace_data(mtdp, rstack, NULL, NULL, NULL);
+				record_trace_data(mtdp, rstack, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
 		}
@@ -882,8 +846,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
 		    rstack->flags & MCOUNT_FL_WRITTEN ||
 		    rstack->flags & MCOUNT_FL_TRACE) {
-			if (mcount_enabled &&
-			    record_trace_data(mtdp, rstack, rstack->pargs, NULL, retval) < 0)
+			if (!mcount_enabled)
+				return;
+
+			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}
 	}
@@ -916,7 +882,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	if (rstack->end_time - rstack->start_time > mcount_threshold ||
 	    rstack->flags & MCOUNT_FL_WRITTEN) {
-		if (record_trace_data(mtdp, rstack, NULL, NULL, NULL) < 0)
+		if (record_trace_data(mtdp, rstack, NULL) < 0)
 			pr_err("error during record");
 	}
 }

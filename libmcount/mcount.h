@@ -37,6 +37,7 @@ enum mcount_flag {
 	MCOUNT_FL_RECOVER	= (1U << 8),
 	MCOUNT_FL_RETVAL	= (1U << 9),
 	MCOUNT_FL_TRACE		= (1U << 10),
+	MCOUNT_FL_ARGUMENT	= (1U << 11),
 };
 
 struct mcount_ret_stack {
@@ -103,6 +104,9 @@ struct mcount_shmem {
 	struct mcount_shmem_buffer	**buffer;
 };
 
+/* first 4 byte saves the actual size of the argbuf */
+#define ARGBUF_SIZE  1024
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -121,6 +125,7 @@ struct mcount_thread_data {
 	bool				plthook_guard;
 	unsigned long			plthook_addr;
 	struct mcount_ret_stack		*rstack;
+	void				*argbuf;
 	struct filter_control		filter;
 	bool				enable_cached;
 	struct mcount_shmem		shmem;
@@ -177,9 +182,6 @@ extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				      struct mcount_ret_stack *rstack,
 				      long *retval);
 extern int record_trace_data(struct mcount_thread_data *mtdp,
-				     struct mcount_ret_stack *mrstack,
-				     struct list_head *args_spec,
-				     struct mcount_regs *regs,
-				     long *retval);
+			     struct mcount_ret_stack *mrstack, long *retval);
 
 #endif /* FTRACE_MCOUNT_H */
