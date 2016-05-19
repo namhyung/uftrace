@@ -798,7 +798,6 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			save_argument(mtdp, rstack, tr->pargs, regs);
 		}
 		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			record_trace_data(mtdp, rstack, NULL);
 			mcount_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
