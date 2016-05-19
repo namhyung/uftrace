@@ -797,11 +797,6 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
 			save_argument(mtdp, rstack, tr->pargs, regs);
 		}
-		else if (tr->flags & TRIGGER_FL_RECOVER) {
-			mcount_restore();
-			*rstack->parent_loc = (unsigned long) mcount_return;
-			rstack->flags |= MCOUNT_FL_RECOVER;
-		}
 
 		if (mtdp->enable_cached != mcount_enabled) {
 			/*
@@ -814,6 +809,12 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				record_trace_data(mtdp, rstack, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
+		}
+
+		if (tr->flags & TRIGGER_FL_RECOVER) {
+			mcount_restore();
+			*rstack->parent_loc = (unsigned long) mcount_return;
+			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
 	}
 }
