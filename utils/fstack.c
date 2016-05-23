@@ -654,7 +654,7 @@ int read_task_args(struct ftrace_task_handle *task,
 
 	fl = ftrace_match_filter(&sess->filters, rstack->addr, &tr);
 	if (fl == NULL) {
-		pr_dbg("cannot find filter\n");
+		pr_dbg("cannot find filter: %lx\n", rstack->addr);
 		return -1;
 	}
 	if (!(tr.flags & (TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL))) {
