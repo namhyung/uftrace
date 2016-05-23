@@ -863,7 +863,6 @@ static int filter_map(const struct dirent *de)
 
 static void send_map_files(int sock, const char *dirname)
 {
-	int dir_fd;
 	int i, maps;
 	int map_fd;
 	uint64_t sid;
@@ -871,17 +870,16 @@ static void send_map_files(int sock, const char *dirname)
 	struct stat stbuf;
 	void *map;
 	int len;
+	char buf[PATH_MAX];
 
-	dir_fd = open(dirname, O_PATH | O_DIRECTORY);
-	if (dir_fd < 0)
-		pr_err("dir open failed");
-
-	maps = scandirat(dir_fd, ".", &map_list, filter_map, alphasort);
+	maps = scandir(dirname, &map_list, filter_map, alphasort);
 	if (maps < 0)
 		pr_err("cannot scan map files");
 
 	for (i = 0; i < maps; i++) {
-		map_fd = openat(dir_fd, map_list[i]->d_name, O_RDONLY);
+		snprintf(buf, sizeof(buf), "%s/%s",
+			 dirname, map_list[i]->d_name);
+		map_fd = open(buf, O_RDONLY);
 		if (map_fd < 0)
 			pr_err("map open failed");
 
@@ -904,7 +902,6 @@ static void send_map_files(int sock, const char *dirname)
 		close(map_fd);
 	}
 	free(map_list);
-	close(dir_fd);
 }
 
 /* find "XXX.sym" file */
@@ -917,24 +914,22 @@ static int filter_sym(const struct dirent *de)
 
 static void send_sym_files(int sock, const char *dirname)
 {
-	int dir_fd;
 	int i, syms;
 	int sym_fd;
 	struct dirent **sym_list;
 	struct stat stbuf;
 	void *sym;
 	int len;
+	char buf[PATH_MAX];
 
-	dir_fd = open(dirname, O_PATH | O_DIRECTORY);
-	if (dir_fd < 0)
-		pr_err("dir open failed");
-
-	syms = scandirat(dir_fd, ".", &sym_list, filter_sym, alphasort);
+	syms = scandir(dirname, &sym_list, filter_sym, alphasort);
 	if (syms < 0)
 		pr_err("cannot scan sym files");
 
 	for (i = 0; i < syms; i++) {
-		sym_fd = openat(dir_fd, sym_list[i]->d_name, O_RDONLY);
+		snprintf(buf, sizeof(buf), "%s/%s",
+			 dirname, sym_list[i]->d_name);
+		sym_fd = open(buf, O_RDONLY);
 		if (sym_fd < 0)
 			pr_err("open symfile failed");
 
@@ -954,7 +949,6 @@ static void send_sym_files(int sock, const char *dirname)
 		close(sym_fd);
 	}
 	free(sym_list);
-	close(dir_fd);
 }
 
 static void send_info_file(int sock, const char *dirname)
