@@ -8,7 +8,6 @@ ifndef BUILD_FEATURE_CHECKS
 
   ifeq ($(wildcard config/clock_without_librt),)
     LDFLAGS_libmcount.so += -lrt
-    LDFLAGS_libcygprof.so += -lrt
   endif
 
   ifneq ($(wildcard config/cc_has_mfentry),)

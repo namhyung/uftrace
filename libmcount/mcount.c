@@ -738,10 +738,6 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (!mcount_enabled)
 		return FILTER_IN;
 
-	/*
-	 * it can be < 0 in case it is called from plthook_entry()
-	 * which in turn is called libcygprof.so.
-	 */
 	if (mtdp->filter.depth <= 0)
 		return FILTER_OUT;
 
