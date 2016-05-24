@@ -164,8 +164,12 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			break;
 		case ARG_FMT_AUTO:
 			memcpy(&val, data, spec->size);
-			if (val > 100000LL || val < -100000LL)
+			if (val > 100000LL || val < -100000LL) {
 				fmt = 'x';
+				/* show small negative integers */
+				if (val > 0xffff0000 && val <= 0xffffffff)
+					fmt = 'd';
+			}
 			/* fall through */
 		default:
 			idx = 2;

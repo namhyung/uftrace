@@ -221,6 +221,22 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 
 	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
 
+	/* remove duplicated (overlapped?) symbols */
+	for (i = 0; i < symtab->nr_sym - 1; i++) {
+		struct sym *curr = &symtab->sym[i];
+		struct sym *next = &symtab->sym[i + 1];
+
+		while (curr->addr == next->addr) {
+			memmove(next, next + 1,
+				(symtab->nr_sym - i - 2) * sizeof(*next));
+
+			symtab->nr_sym--;
+
+			if (i + 2 >= symtab->nr_sym)
+				break;
+		}
+	}
+
 	symtab->sym_names = xrealloc(symtab->sym_names,
 				     sizeof(*symtab->sym_names) * symtab->nr_sym);
 
@@ -437,6 +453,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 	unsigned int i;
 	struct symtab *stab = &symtabs->symtab;
 	char allowed_types[] = "TtwPK";
+	unsigned long prev_addr = -1;
 
 	fp = fopen(symfile, "r");
 	if (fp == NULL) {
@@ -469,6 +486,12 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 			continue;
 		}
 		name = pos;
+
+		if (addr == prev_addr) {
+			pr_dbg("skip duplicated symbols: %s\n", name);
+			continue;
+		}
+		prev_addr = addr;
 
 		/*
 		 * remove kernel module if any.
@@ -566,11 +589,6 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	for (i = 0; i < dtab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
-	/* this last entry should come from ->sym[] to know the real end */
-	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
-			(char) dtab->sym[i-1].type, "__dynsym_end");
-	}
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
