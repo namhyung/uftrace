@@ -1,8 +1,7 @@
+- cleanup task management
 - ARM compatibility check
 - library tracing
-- column view
-- argument display (with DWARF?)
-- return value display
+- improve argument display (with DWARF?)
 - source file and line number display
 - more trigger action
 - trigger filtering (ignore, count, at return, ...)
@@ -10,7 +9,6 @@
 - gcc5 -mrecord-mcount support
 - gcc5 -mnop-mcount support
 - documentation
-- time/percent filter
 - perf-like callgraph view
 - flamegraph support
 - timechart support?
