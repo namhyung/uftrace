@@ -1,7 +1,7 @@
 /*
  * Very simple (and incomplete by design) C++ name demangler.
  *
- * Copyright (C) 2015, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+ * Copyright (C) 2015-2016, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * Released under the GPL v2.
  *
