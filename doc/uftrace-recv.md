@@ -1,6 +1,6 @@
 % UFTRACE-RECV(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
-% March, 2015
+% May, 2016
 
 NAME
 ====

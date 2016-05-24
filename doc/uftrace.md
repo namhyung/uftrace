@@ -8,7 +8,7 @@ uftrace - Function graph tracer for userspace
 
 SYNOPSIS
 ========
-uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*] [*options*] COMMAND [*command-options*]
 
 DESCRIPTION
 ===========
@@ -38,6 +38,9 @@ info
 dump
 :   Print raw tracing data in the data files.
 
+recv
+:   Save tracing data sent to network
+
 OPTIONS
 =======
 -?, \--help
@@ -57,4 +60,4 @@ OPTIONS
 
 SEE ALSO
 ========
-`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1)
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1)

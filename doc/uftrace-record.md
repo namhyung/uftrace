@@ -261,4 +261,4 @@ Note that these arguments and return value are recorded only if the executable w
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1)
+`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1)
