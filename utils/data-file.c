@@ -12,7 +12,19 @@
 #include "utils/fstack.h"
 
 
-int read_task_file(char *dirname)
+/**
+ * read_task_file - read 'task' file from data directory
+ * @dirname: name of the data directory
+ * @needs_session: read session info too
+ *
+ * This function read the task file in the @dirname and build task
+ * (and session when @needs_session is %true) information.  Note that
+ * this functions is for backward compatibility.  Recent data
+ * directory contains 'task.txt' file instead.
+ *
+ * It returns 0 for success, -1 for error.
+ */
+int read_task_file(char *dirname, bool needs_session)
 {
 	int fd;
 	char pad[8];
@@ -41,21 +53,22 @@ int read_task_file(char *dirname)
 			    read_all(fd, pad, 8 - (sess.namelen % 8)) < 0)
 				return -1;
 
-			create_session(&sess, dirname, buf);
+			if (needs_session)
+				create_session(&sess, dirname, buf);
 			break;
 
 		case FTRACE_MSG_TID:
 			if (read_all(fd, &task, sizeof(task)) < 0)
 				return -1;
 
-			create_task(&task, false);
+			create_task(&task, false, needs_session);
 			break;
 
 		case FTRACE_MSG_FORK_END:
 			if (read_all(fd, &task, sizeof(task)) < 0)
 				return -1;
 
-			create_task(&task, true);
+			create_task(&task, true, needs_session);
 			break;
 
 		default:
@@ -68,7 +81,17 @@ int read_task_file(char *dirname)
 	return 0;
 }
 
-int read_task_txt_file(char *dirname)
+/**
+ * read_task_txt_file - read 'task.txt' file from data directory
+ * @dirname: name of the data directory
+ * @needs_session: read session info too
+ *
+ * This function read the task.txt file in the @dirname and build task
+ * (and session when @needs_session is %true) information.
+ *
+ * It returns 0 for success, -1 for error.
+ */
+int read_task_txt_file(char *dirname, bool needs_session)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -94,16 +117,19 @@ int read_task_txt_file(char *dirname)
 			       &sec, &nsec, &task.tid, &task.pid);
 
 			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(&task, false);
+			create_task(&task, false, needs_session);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
 			       &sec, &nsec, &task.tid, &task.pid);
 
 			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(&task, true);
+			create_task(&task, true, needs_session);
 		}
 		else if (!strncmp(line, "SESS", 4)) {
+			if (!needs_session)
+				continue;
+
 			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s",
 			       &sec, &nsec, &sess.task.tid, (char *)&sess.sid);
 
@@ -267,8 +293,8 @@ retry:
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		// read task.txt first and then try old task file
-		if (read_task_txt_file(opts->dirname) < 0 &&
-		    read_task_file(opts->dirname) < 0)
+		if (read_task_txt_file(opts->dirname, true) < 0 &&
+		    read_task_file(opts->dirname, true) < 0)
 			pr_err("invalid task file");
 	}
 
