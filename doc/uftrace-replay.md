@@ -1,6 +1,6 @@
 % UFTRACE-REPLAY(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
-% March, 2015
+% May, 2016
 
 NAME
 ====
@@ -43,7 +43,7 @@ OPTIONS
 \--color=*VAL*
 :   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
 
-\--disabled
+\--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
 
 \--demangle=*TYPE*
@@ -62,7 +62,7 @@ FILTERS
 =======
 The uftrace support filtering only interested functions.  When uftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.
 
-The first one is an opt-in filter; By default, it doesn't trace anything and when it executes one of given functions it starts tracing.  Also when it returns from the given funciton, it stops again tracing.
+The first one is an opt-in filter; By default, it doesn't show anything and when it meets one of given functions it starts printing.  Also when it returns from the given function, it stops again printing.
 
 For example, suppose a simple program which calls a(), b() and c() in turn.
 
@@ -84,9 +84,9 @@ For example, suppose a simple program which calls a(), b() and c() in turn.
         return 0;
     }
 
-    $ gcc -o abc abc.c
+    $ gcc -pg -o abc abc.c
 
-Normally uftrace will trace all the functions from `main()` to `c()`.
+Normally uftrace replay will show all the functions from `main()` to `c()`.
 
     $ uftrace ./abc
     # DURATION    TID     FUNCTION
@@ -99,16 +99,16 @@ Normally uftrace will trace all the functions from `main()` to `c()`.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.
+But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.  Note that the filter was set on 'uftrace replay', not record time.
 
     $ uftrace record ./abc
     $ uftrace replay -F b
     # DURATION    TID     FUNCTION
-                [ 1234] |     b() {
-       3.880 us [ 1234] |       c();
-       5.475 us [ 1234] |     } /* b */
+                [ 1234] | b() {
+       3.880 us [ 1234] |   c();
+       5.475 us [ 1234] | } /* b */
 
-The second type is an opt-out filter; By default, it trace everything and when it executes one of given functions it stops tracing.  Also when it returns from the given funciton, it starts tracing again.
+The second type is an opt-out filter; When used, it shows everything and stops printing once it meets one of given functions.  Also when it returns from the given funciton, it starts printing again.
 
 In the above example, you can omit the function b() and its children with -N option.
 
@@ -117,8 +117,7 @@ In the above example, you can omit the function b() and its children with -N opt
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
-                [ 1234] |   a() {
-       6.448 us [ 1234] |   } /* a */
+       6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
 In addition, you can limit the print nesting level with -D option.
@@ -129,19 +128,18 @@ In addition, you can limit the print nesting level with -D option.
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
                 [ 1234] |   a() {
-                [ 1234] |     b() {
-       5.475 us [ 1234] |     } /* b */
+       5.475 us [ 1234] |     b();
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
+In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option also works with -F option.
 
 You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
 
 
 TRIGGERS
 ========
-The uftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth (for record and replay) and backtrace (for replay only).  The BNF for the trigger is like below:
+The uftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth, backtrace, trace_on and trace_off.  The BNF for the trigger is like below:
 
     <trigger>  :=  <symbol> "@" <actions>
     <actions>  :=  <action>  | <action> "," <actions>
@@ -156,9 +154,9 @@ Following example shows how trigger works.  We set filter on function 'b' with t
     # DURATION    TID     FUNCTION
       backtrace [ 1234] | /* [ 0] main */
       backtrace [ 1234] | /* [ 1] a */
-                [ 1234] |     b {
-       3.880 us [ 1234] |       c();
-       5.475 us [ 1234] |     } /* b */
+                [ 1234] | b {
+       3.880 us [ 1234] |   c();
+       5.475 us [ 1234] | } /* b */
 
 The 'traceon' and 'traceoff' (you can omit '_' between 'trace' and 'on/off') controls whether uftrace shows functions or not.  The trigger runs on replay time so that it can handle kernel functions as well.
 
