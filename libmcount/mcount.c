@@ -328,12 +328,9 @@ static void *get_argbuf(struct mcount_thread_data *mtdp,
 	return mtdp->argbuf + (idx * ARGBUF_SIZE);
 }
 
-static void save_argument(struct mcount_thread_data *mtdp,
-			  struct mcount_ret_stack *rstack,
-			  struct list_head *args_spec,
-			  struct mcount_regs *regs)
+static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
+			       void *data, bool is_retval)
 {
-	void *argbuf = get_argbuf(mtdp, rstack);
 	struct ftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
@@ -343,10 +340,14 @@ static void save_argument(struct mcount_thread_data *mtdp,
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
-		if (spec->idx == RETVAL_IDX)
+		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
 
-		val = mcount_get_arg(regs, spec);
+		if (is_retval)
+			val = *(long *)data;
+		else
+			val = mcount_get_arg(data, spec);
+
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;
 			char *str = (void *)val;
@@ -373,12 +374,27 @@ static void save_argument(struct mcount_thread_data *mtdp,
 		total_size += size;
 	}
 
-	if (total_size > max_size) {
+	if (total_size > max_size)
+		return -1U;
+
+	return total_size;
+}
+
+static void save_argument(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack,
+			  struct list_head *args_spec,
+			  struct mcount_regs *regs)
+{
+	void *argbuf = get_argbuf(mtdp, rstack);
+	unsigned size;
+
+	size = save_to_argbuf(argbuf, args_spec, regs, false);
+	if (size == -1U) {
 		pr_log("argument data is too big\n");
 		return;
 	}
 
-	*(unsigned *)argbuf = total_size;
+	*(unsigned *)argbuf = size;
 	rstack->flags |= MCOUNT_FL_ARGUMENT;
 }
 
@@ -386,44 +402,11 @@ static void save_retval(struct mcount_thread_data *mtdp,
 			struct mcount_ret_stack *rstack, long *retval)
 {
 	struct list_head *args_spec = rstack->pargs;
-	struct ftrace_arg_spec *spec;
 	void *argbuf = get_argbuf(mtdp, rstack);
-	unsigned size = 0;
-	unsigned max_size = ARGBUF_SIZE - sizeof(size);
-	void *ptr;
+	unsigned size;
 
-	ptr = argbuf + sizeof(size);
-	list_for_each_entry(spec, args_spec, list) {
-		long val;
-
-		if (spec->idx != RETVAL_IDX)
-			continue;
-
-		val = *retval;
-		if (spec->fmt == ARG_FMT_STR) {
-			unsigned short len;
-			char *str = (void *)val;
-
-			if (str) {
-				/* store 2-byte length before string */
-				len = strlen(str);
-				memcpy(ptr, &len, sizeof(len));
-				memcpy(ptr + 2, str, len + 1);
-			}
-			else {
-				len = 4;
-				memcpy(ptr, &len, sizeof(len));
-				memset(ptr + 2, 0xff, 4);
-			}
-			size = ALIGN(len + 2, 4);
-		}
-		else {
-			memcpy(ptr, &val, spec->size);
-			size = ALIGN(spec->size, 4);
-		}
-	}
-
-	if (size > max_size) {
+	size = save_to_argbuf(argbuf, args_spec, retval, true);
+	if (size == -1U) {
 		pr_log("retval data is too big\n");
 		rstack->flags &= ~MCOUNT_FL_RETVAL;
 		return;
