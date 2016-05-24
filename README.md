@@ -11,7 +11,7 @@ installed like following:
     make
     sudo make install
 
-For more advanced setup, please refer INSTALL file.
+For more advanced setup, please refer INSTALL.md file.
 
 
 Features
