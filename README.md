@@ -93,22 +93,22 @@ including its children (total time).
 The info command shows system and program information when recorded.
 
     $ uftrace info
-    # ftrace information
+    # system information
     # ==================
-    # program version     : uftrace v0.5-191-g30a3
+    # program version     : uftrace v0.6
     # recorded on         : Tue May 24 11:21:59 2016
     # cmdline             : uftrace record tests/t-abc 
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
-    # nr of cpus          : 12 / 12 (online / possible)
+    # number of cpus      : 12 / 12 (online / possible)
     # memory info         : 20.1 / 23.5 GB (free / total)
     # system load         : 0.00 / 0.06 / 0.06 (1 / 5 / 15 min)
     # kernel version      : Linux 4.5.4-1-ARCH
     # hostname            : sejong
     # distro              : "Arch Linux"
     #
-    # task information
-    # ================
-    # nr of tasks         : 1
+    # process information
+    # ===================
+    # number of tasks     : 1
     # task list           : 5098
     # exe image           : /home/namhyung/project/ftrace/tests/t-abc
     # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434

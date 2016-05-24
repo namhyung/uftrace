@@ -12,7 +12,7 @@ uftrace info [*options*] [*COMMAND*]
 
 DESCRIPTION
 ===========
-This command prints metadata recorded in the header of a given data file.  When COMMAND is given, it should provides symbol information which might not be available from the recorded path of 'exe image'.
+This command prints metadata recorded in the header of a given data file.
 
 OPTIONS
 =======
@@ -20,7 +20,7 @@ OPTIONS
 :   Use this filename for trace data.  Default is `uftrace.data`.
 
 \--symbols
-:   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.
+:   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.   When COMMAND is given, it should provides symbol information which might not be available from the recorded path of 'exe image' or symbol file in the data directory.
 
 \--no-pager
 :   Do not use pager
@@ -33,22 +33,22 @@ This command shows information like below:
     $ uftrace record abc
 
     $ uftrace info
-    # ftrace information
+    # system information
     # ==================
     # program version     : uftrace v0.5-191-g30a3
     # recorded on         : Tue May 24 15:59:00 2016
     # cmdline             : uftrace record abc
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
-    # nr of cpus          : 12 / 12 (online / possible)
+    # number of cpus      : 12 / 12 (online / possible)
     # memory info         : 19.8 / 23.5 GB (free / total)
     # system load         : 0.02 / 0.07 / 0.11 (1 / 5 / 15 min)
     # kernel version      : Linux 4.5.4-1-ARCH
     # hostname            : sejong
     # distro              : "Arch Linux"
     #
-    # task information
-    # ================
-    # nr of tasks         : 1
+    # process information
+    # ===================
+    # number of tasks     : 1
     # task list           : 8284
     # exe image           : /home/namhyung/tmp/abc
     # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434
