@@ -1,6 +1,6 @@
 % UFTRACE-INFO(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
-% March, 2015
+% May, 2016
 
 NAME
 ====
@@ -25,6 +25,7 @@ OPTIONS
 \--no-pager
 :   Do not use pager
 
+
 EXAMPLE
 =======
 This command shows information like below:
@@ -34,20 +35,29 @@ This command shows information like below:
     $ uftrace info
     # ftrace information
     # ==================
-    # program version     : uftrace v0.5
-    # recorded on         : Thu Mar  5 12:08:46 2015
+    # program version     : uftrace v0.5-191-g30a3
+    # recorded on         : Tue May 24 15:59:00 2016
     # cmdline             : uftrace record abc
-    # exe image           : /home/namhyung/tmp/abc
-    # build id            : 5d7e716244b178f4eea9c5fd82d2f822459e7080
-    # exit status         : exited with code: 192
-    # nr of cpus          : 4/4 (online/possible)
-    # cpu info            : Intel(R) Core(TM) i7-2640M CPU @ 2.80GHz
-    # memory info         : 0.1/15.5 GB (free/total)
-    # kernel version      : Linux 3.18.6-1-ARCH
-    # hostname            : danjae
+    # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
+    # nr of cpus          : 12 / 12 (online / possible)
+    # memory info         : 19.8 / 23.5 GB (free / total)
+    # system load         : 0.02 / 0.07 / 0.11 (1 / 5 / 15 min)
+    # kernel version      : Linux 4.5.4-1-ARCH
+    # hostname            : sejong
     # distro              : "Arch Linux"
+    #
+    # task information
+    # ================
     # nr of tasks         : 1
-    # task list           : 21959
+    # task list           : 8284
+    # exe image           : /home/namhyung/tmp/abc
+    # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434
+    # exit status         : exited with code: 0
+    # cpu time            : 0.003 / 0.000 sec (sys / user)
+    # context switch      : 1 / 1 (voluntary / involuntary)
+    # max rss             : 3104 KB
+    # page fault          : 0 / 169 (major / minor)
+    # disk iops           : 0 / 24 (read / write)
 
 To see symbol table, one can use \--symbols option.
 
