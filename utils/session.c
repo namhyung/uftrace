@@ -235,11 +235,13 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
  * create_task - create a new task from task message
  * @msg: ftrace task message read from task file
  * @fork: whether it's forked or not (i.e. thread)
+ * @needs_session: add reference to session of the task
  *
  * This function creates a new task from @msg and add it to task tree.
- * The newly created task will have a reference to a session.
+ * The newly created task will have a reference to a session if
+ * @needs_session is %true.
  */
-void create_task(struct ftrace_msg_task *msg, bool fork)
+void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 {
 	struct ftrace_task *t;
 	struct ftrace_session *s;
@@ -256,11 +258,13 @@ void create_task(struct ftrace_msg_task *msg, bool fork)
 		else if (t->tid < msg->tid)
 			p = &parent->rb_right;
 		else {
-			/* add new session */
-			r = xmalloc(sizeof(*r));
+			if (needs_session) {
+				/* add new session */
+				r = xmalloc(sizeof(*r));
 
-			s = find_task_session(msg->pid, msg->time);
-			add_session_ref(t, s, msg->time);
+				s = find_task_session(msg->pid, msg->time);
+				add_session_ref(t, s, msg->time);
+			}
 			return;
 		}
 	}
@@ -272,10 +276,14 @@ void create_task(struct ftrace_msg_task *msg, bool fork)
 	t->tid = msg->tid;
 	t->sess_last = NULL;
 
-	s = find_task_session(msg->pid, msg->time);
-	add_session_ref(t, s, msg->time);
+	if (needs_session) {
+		s = find_task_session(msg->pid, msg->time);
+		add_session_ref(t, s, msg->time);
 
-	pr_dbg2("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
+		pr_dbg2("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
+	}
+	else
+		pr_dbg2("new task: tid = %d\n", t->tid);
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &task_tree);
@@ -398,7 +406,7 @@ TEST_CASE(task_search)
 
 		creat("sid-initial.map", 0400);
 		create_session(&smsg, ".", "unittest");
-		create_task(&tmsg, false);
+		create_task(&tmsg, false, true);
 		remove("sid-initial.map");
 
 		task = find_task(tmsg.tid);
@@ -422,7 +430,7 @@ TEST_CASE(task_search)
 			.time = 200,
 		};
 
-		create_task(&tmsg, true);
+		create_task(&tmsg, true, true);
 
 		task = find_task(tmsg.tid);
 
@@ -444,7 +452,7 @@ TEST_CASE(task_search)
 			.time = 300,
 		};
 
-		create_task(&tmsg, false);
+		create_task(&tmsg, false, true);
 
 		task = find_task(tmsg.tid);
 
@@ -466,7 +474,7 @@ TEST_CASE(task_search)
 			.time = 400,
 		};
 
-		create_task(&tmsg, false);
+		create_task(&tmsg, false, true);
 
 		task = find_task(tmsg.tid);
 
@@ -500,7 +508,7 @@ TEST_CASE(task_search)
 
 		creat("sid-after_exec.map", 0400);
 		create_session(&smsg, ".", "unittest");
-		create_task(&tmsg, false);
+		create_task(&tmsg, false, true);
 		remove("sid-after_exec.map");
 
 		task = find_task(tmsg.tid);
@@ -523,7 +531,7 @@ TEST_CASE(task_search)
 			.time = 600,
 		};
 
-		create_task(&tmsg, true);
+		create_task(&tmsg, true, true);
 
 		task = find_task(tmsg.tid);
 
@@ -544,7 +552,7 @@ TEST_CASE(task_search)
 			.time = 700,
 		};
 
-		create_task(&tmsg, false);
+		create_task(&tmsg, false, true);
 
 		task = find_task(tmsg.tid);
 

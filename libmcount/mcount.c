@@ -328,12 +328,9 @@ static void *get_argbuf(struct mcount_thread_data *mtdp,
 	return mtdp->argbuf + (idx * ARGBUF_SIZE);
 }
 
-static void save_argument(struct mcount_thread_data *mtdp,
-			  struct mcount_ret_stack *rstack,
-			  struct list_head *args_spec,
-			  struct mcount_regs *regs)
+static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
+			       void *data, bool is_retval)
 {
-	void *argbuf = get_argbuf(mtdp, rstack);
 	struct ftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
@@ -343,10 +340,14 @@ static void save_argument(struct mcount_thread_data *mtdp,
 	list_for_each_entry(spec, args_spec, list) {
 		long val;
 
-		if (spec->idx == RETVAL_IDX)
+		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
 
-		val = mcount_get_arg(regs, spec);
+		if (is_retval)
+			val = *(long *)data;
+		else
+			val = mcount_get_arg(data, spec);
+
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;
 			char *str = (void *)val;
@@ -373,12 +374,27 @@ static void save_argument(struct mcount_thread_data *mtdp,
 		total_size += size;
 	}
 
-	if (total_size > max_size) {
+	if (total_size > max_size)
+		return -1U;
+
+	return total_size;
+}
+
+static void save_argument(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack,
+			  struct list_head *args_spec,
+			  struct mcount_regs *regs)
+{
+	void *argbuf = get_argbuf(mtdp, rstack);
+	unsigned size;
+
+	size = save_to_argbuf(argbuf, args_spec, regs, false);
+	if (size == -1U) {
 		pr_log("argument data is too big\n");
 		return;
 	}
 
-	*(unsigned *)argbuf = total_size;
+	*(unsigned *)argbuf = size;
 	rstack->flags |= MCOUNT_FL_ARGUMENT;
 }
 
@@ -386,44 +402,11 @@ static void save_retval(struct mcount_thread_data *mtdp,
 			struct mcount_ret_stack *rstack, long *retval)
 {
 	struct list_head *args_spec = rstack->pargs;
-	struct ftrace_arg_spec *spec;
 	void *argbuf = get_argbuf(mtdp, rstack);
-	unsigned size = 0;
-	unsigned max_size = ARGBUF_SIZE - sizeof(size);
-	void *ptr;
+	unsigned size;
 
-	ptr = argbuf + sizeof(size);
-	list_for_each_entry(spec, args_spec, list) {
-		long val;
-
-		if (spec->idx != RETVAL_IDX)
-			continue;
-
-		val = *retval;
-		if (spec->fmt == ARG_FMT_STR) {
-			unsigned short len;
-			char *str = (void *)val;
-
-			if (str) {
-				/* store 2-byte length before string */
-				len = strlen(str);
-				memcpy(ptr, &len, sizeof(len));
-				memcpy(ptr + 2, str, len + 1);
-			}
-			else {
-				len = 4;
-				memcpy(ptr, &len, sizeof(len));
-				memset(ptr + 2, 0xff, 4);
-			}
-			size = ALIGN(len + 2, 4);
-		}
-		else {
-			memcpy(ptr, &val, spec->size);
-			size = ALIGN(spec->size, 4);
-		}
-	}
-
-	if (size > max_size) {
+	size = save_to_argbuf(argbuf, args_spec, retval, true);
+	if (size == -1U) {
 		pr_log("retval data is too big\n");
 		rstack->flags &= ~MCOUNT_FL_RETVAL;
 		return;
@@ -737,22 +720,24 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 			return FILTER_OUT;
 	}
 
-	if (tr->flags & TRIGGER_FL_DEPTH)
-		mtdp->filter.depth = tr->depth;
+#define FLAGS_TO_CHECK  (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
 
-	if (tr->flags & TRIGGER_FL_TRACE_ON)
-		mcount_enabled = true;
+	if (tr->flags & FLAGS_TO_CHECK) {
+		if (tr->flags & TRIGGER_FL_DEPTH)
+			mtdp->filter.depth = tr->depth;
 
-	if (tr->flags & TRIGGER_FL_TRACE_OFF)
-		mcount_enabled = false;
+		if (tr->flags & TRIGGER_FL_TRACE_ON)
+			mcount_enabled = true;
+
+		if (tr->flags & TRIGGER_FL_TRACE_OFF)
+			mcount_enabled = false;
+	}
+
+#undef FLAGS_TO_CHECK
 
 	if (!mcount_enabled)
 		return FILTER_IN;
 
-	/*
-	 * it can be < 0 in case it is called from plthook_entry()
-	 * which in turn is called libcygprof.so.
-	 */
 	if (mtdp->filter.depth <= 0)
 		return FILTER_OUT;
 
@@ -766,27 +751,33 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct ftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
-	if (tr->flags & TRIGGER_FL_FILTER) {
-		if (tr->fmode == FILTER_MODE_IN)
-			rstack->flags |= MCOUNT_FL_FILTERED;
-		else
-			rstack->flags |= MCOUNT_FL_NOTRACE;
-	}
-
 	if (mtdp->filter.out_count > 0 ||
 	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
 	rstack->filter_depth = mtdp->filter.saved_depth;
 
-	/* check if it has to keep arg_spec for retval */
-	if (tr->flags & TRIGGER_FL_RETVAL) {
-		rstack->pargs = tr->pargs;
-		rstack->flags |= MCOUNT_FL_RETVAL;
+#define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE)
+
+	if (tr->flags & FLAGS_TO_CHECK) {
+		if (tr->flags & TRIGGER_FL_FILTER) {
+			if (tr->fmode == FILTER_MODE_IN)
+				rstack->flags |= MCOUNT_FL_FILTERED;
+			else
+				rstack->flags |= MCOUNT_FL_NOTRACE;
+		}
+
+		/* check if it has to keep arg_spec for retval */
+		if (tr->flags & TRIGGER_FL_RETVAL) {
+			rstack->pargs = tr->pargs;
+			rstack->flags |= MCOUNT_FL_RETVAL;
+		}
+
+		if (tr->flags & TRIGGER_FL_TRACE)
+			rstack->flags |= MCOUNT_FL_TRACE;
 	}
 
-	if (tr->flags & TRIGGER_FL_TRACE)
-		rstack->flags |= MCOUNT_FL_TRACE;
+#undef FLAGS_TO_CHECK
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		mtdp->record_idx++;
@@ -826,13 +817,19 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 {
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
-	if (rstack->flags & MCOUNT_FL_FILTERED)
-		mtdp->filter.in_count--;
-	else if (rstack->flags & MCOUNT_FL_NOTRACE)
-		mtdp->filter.out_count--;
+#define FLAGS_TO_CHECK  (MCOUNT_FL_FILTERED | MCOUNT_FL_NOTRACE | MCOUNT_FL_RECOVER)
 
-	if (rstack->flags & MCOUNT_FL_RECOVER)
-		mcount_reset();
+	if (rstack->flags & FLAGS_TO_CHECK) {
+		if (rstack->flags & MCOUNT_FL_FILTERED)
+			mtdp->filter.in_count--;
+		else if (rstack->flags & MCOUNT_FL_NOTRACE)
+			mtdp->filter.out_count--;
+
+		if (rstack->flags & MCOUNT_FL_RECOVER)
+			mcount_reset();
+	}
+
+#undef FLAGS_TO_CHECK
 
 	mtdp->filter.depth = rstack->filter_depth;
 
@@ -844,8 +841,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			retval = NULL;
 
 		if (rstack->end_time - rstack->start_time > mcount_threshold ||
-		    rstack->flags & MCOUNT_FL_WRITTEN ||
-		    rstack->flags & MCOUNT_FL_TRACE) {
+		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
 			if (!mcount_enabled)
 				return;
 

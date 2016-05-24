@@ -178,8 +178,8 @@ extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-int read_task_file(char *dirname);
-int read_task_txt_file(char *dirname);
+int read_task_file(char *dirname, bool needs_session);
+int read_task_txt_file(char *dirname, bool needs_session);
 
 struct ftrace_session {
 	struct rb_node		 node;
@@ -252,7 +252,7 @@ extern struct ftrace_session *first_session;
 void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename);
 struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
-void create_task(struct ftrace_msg_task *msg, bool fork);
+void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
 struct ftrace_task *find_task(int tid);
 
 typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);

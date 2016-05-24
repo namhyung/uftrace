@@ -474,8 +474,8 @@ static int fill_taskinfo(void *arg)
 	};
 	int i;
 
-	if (read_task_txt_file(fha->opts->dirname) < 0 &&
-	    read_task_file(fha->opts->dirname) < 0)
+	if (read_task_txt_file(fha->opts->dirname, false) < 0 &&
+	    read_task_file(fha->opts->dirname, false) < 0)
 		return -1;
 
 	walk_tasks(build_tid_list, &tlist);
@@ -784,7 +784,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	pr_out("# ftrace information\n");
+	pr_out("# system information\n");
 	pr_out("# ==================\n");
 	pr_out(fmt, "program version", argp_program_version);
 	pr_out("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
@@ -795,7 +795,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
 		pr_out(fmt, "cpu info", handle.info.cpudesc);
 		pr_out("# %-20s: %d / %d (online / possible)\n",
-		       "nr of cpus", handle.info.nr_cpus_online,
+		       "number of cpus", handle.info.nr_cpus_online,
 		       handle.info.nr_cpus_possible);
 	}
 
@@ -813,14 +813,14 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	pr_out("#\n");
-	pr_out("# task information\n");
-	pr_out("# ================\n");
+	pr_out("# process information\n");
+	pr_out("# ===================\n");
 
 	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
 		int nr = handle.info.nr_tid;
 		bool first = true;
 
-		pr_out("# %-20s: %d\n", "nr of tasks", nr);
+		pr_out("# %-20s: %d\n", "number of tasks", nr);
 
 		pr_out("# %-20s: ", "task list");
 		while (nr--) {
