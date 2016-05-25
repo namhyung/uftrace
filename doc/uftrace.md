@@ -64,8 +64,14 @@ OPTIONS
 -d *DATA*, \--data=*DATA*
 :   Specify name of trace data (directory).  Default is `uftrace.data`.
 
---logfile=*FILE*
+\--logfile=*FILE*
 :   Save warning and debug messages into this file instead of stderr.
+
+\--color=*VAL*
+:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
+
+\--no-pager
+:   Do not use pager
 
 SEE ALSO
 ========

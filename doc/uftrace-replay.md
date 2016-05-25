@@ -6,13 +6,16 @@ NAME
 ====
 uftrace-replay - Print recorded function trace
 
+
 SYNOPSIS
 ========
 uftrace replay [*options*]
 
+
 DESCRIPTION
 ===========
 This command prints trace data recorded using `uftrace-record`(1) command.  The traced functions are printed like a C program in time order.
+
 
 OPTIONS
 =======
@@ -34,12 +37,6 @@ OPTIONS
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
-\--no-pager
-:   Do not use pager
-
-\--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
-
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
 
@@ -51,6 +48,7 @@ OPTIONS
 
 --task-newline
 :   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
+
 
 FILTERS
 =======

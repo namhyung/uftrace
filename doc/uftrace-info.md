@@ -19,9 +19,6 @@ OPTIONS
 \--symbols
 :   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.   When COMMAND is given, it should provides symbol information which might not be available from the recorded path of 'exe image' or symbol file in the data directory.
 
-\--no-pager
-:   Do not use pager
-
 
 EXAMPLE
 =======

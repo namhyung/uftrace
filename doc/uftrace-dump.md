@@ -20,9 +20,6 @@ OPTIONS
 \--debug
 :   Show hex dump of data as well
 
-\--no-pager
-:   Do not use pager
-
 \--chrome
 :   Show JSON style output used by Google chrome tracing facility.
 
