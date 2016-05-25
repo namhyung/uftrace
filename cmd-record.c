@@ -1151,12 +1151,12 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		.kern = &kern,
 	};
 
-	check_binary(opts, &symtabs);
-
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
 	create_directory(opts->dirname);
+
+	check_binary(opts, &symtabs);
 	save_symbol_file(&symtabs, opts->dirname, opts->exename);
 
 	fflush(stdout);

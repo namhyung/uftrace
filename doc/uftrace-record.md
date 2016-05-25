@@ -21,9 +21,6 @@ OPTIONS
 -b *SIZE*, \--buffer=*SIZE*
 :   Size of internal buffer which trace data will be saved.  Default is 128k.
 
--f *FILE*, \--file=*FILE*
-:   Specify name of output trace data (directory).  Default is `uftrace.data`.
-
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 
@@ -41,9 +38,6 @@ OPTIONS
 
 -L *PATH*, \--library-path=*PATH*
 :   Load necessary internal libraries from this path.  This is for testing purpose.
-
-\--logfile=FILE
-:   Save log message to this file instead of stderr.
 
 \--no-plthook
 :   Do not record library function invocations.  The uftrace traces library calls by hooking dynamic linker's resolve function in the PLT.  One can disable it with this option.
@@ -74,9 +68,6 @@ OPTIONS
 
 \--port=*PORT*
 :   When sending data to network (with -H option), use given port instead of the default port (8090).
-
-\--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
 
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.

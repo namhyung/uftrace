@@ -6,21 +6,21 @@ NAME
 ====
 uftrace-live - Trace functions in a command lively
 
+
 SYNOPSIS
 ========
 uftrace [live] [*options*] COMMAND [*command-options*]
+
 
 DESCRIPTION
 ===========
 This command runs COMMAND and prints its functions with time and thread info.  This is basically same as running `uftrace-record` and `uftrace-replay` command in turn, but it does not save data file.  This command accepts most of options that are accepted by either of record or replay command.
 
+
 OPTIONS
 =======
 -b *SIZE*, \--buffer=*SIZE*
 :   Size of internal buffer which trace data will be saved.  Default size is 128k.
-
--d, \--debug
-:   Print debug messages.  This option increases a debug level and can be used at most 3 times.
 
 \--daemon
 :   (XXX: rename to 'dont-wait' or 'keep') Trace daemon process which calls `fork`(2) and then `exit`(2).  Usually uftrace stops recording when its child exited but daemon process calls `exit`(2) before doing its real job (in the child process).  So this option is used to keep tracing such daemon processes.
@@ -55,9 +55,6 @@ OPTIONS
 -L *PATH*, \--library-path=*PATH*
 :   Load necessary internal libraries from this path.  This is for testing.
 
-\--logfile=FILE
-:   Save log message to this file instead of stderr.
-
 -k, \--kernel
 :   Trace kernel functions as well as user functions.  Only kernel entry/exit functions will be traced as if -D 1 was given.
 
@@ -69,9 +66,6 @@ OPTIONS
 
 \--no-pltbind
 :   Do not bind dynamic symbol address.  This option uses the LD_BIND_NOT environment variable to trace library function calls which might be missing due to concurrent (first) accesses.  It's only meaningful to use this option without the --no-plthook option.
-
-\--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
 
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.

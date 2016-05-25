@@ -11,8 +11,8 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'abc', """
 #
 # uftrace diff
-#  [0] base: xxx   (from uftrace record -f xxx tests/t-abc )
-#  [1] diff: yyy   (from uftrace record -f yyy tests/t-abc )
+#  [0] base: xxx   (from uftrace record -d xxx tests/t-abc )
+#  [1] diff: yyy   (from uftrace record -d yyy tests/t-abc )
 #
                  Total time (diff)                   Self time (diff)                  Nr. called (diff)   Function
   ================================   ================================   ================================   ====================================
@@ -24,14 +24,14 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -f %s %s' % (TestBase.ftrace, XDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, XDIR, 't-abc')
         sp.call(record_cmd.split())
-        record_cmd = '%s record -f %s %s' % (TestBase.ftrace, YDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, YDIR, 't-abc')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report -f %s --diff %s' % (TestBase.ftrace, XDIR, YDIR)
+        return '%s report -d %s --diff %s' % (TestBase.ftrace, XDIR, YDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', XDIR, YDIR])

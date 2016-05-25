@@ -6,24 +6,21 @@ NAME
 ====
 uftrace-report - Print statistics and summary for trace data
 
+
 SYNOPSIS
 ========
 uftrace report [*options*]
+
 
 DESCRIPTION
 ===========
 This command collects trace data from a given data file and prints statistics and summary information.  It shows function statistics by default, but can show threads statistics with `--threads` option and show differences to given data with `--diff` option.
 
+
 OPTIONS
 =======
--f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `uftrace.data`.
-
 \--threads
 :   Report thread summary information rather than function statistics.
-
-\--no-pager
-:   Do not use pager
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call', 'avg', 'min', 'max'.  Note that first 3 keys should be used when neither of '--avg-total' nor '--avg-self' is used.  Likewise, the last 3 keys should be used when either of those option is used.
@@ -34,17 +31,12 @@ OPTIONS
 \--avg-self
 :   Show average, min, max of each functions self time.
 
-\--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
-
-\--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
-
 \--diff=*DATA*
 :   Report difference between the input trace data and the given DATA.
 
 \--sort-column=*IDX*
 :   When --diff option is used, 3 columns will be shown for each total time, self time and call count.  This is option is to select the index of column to be used as a sort key.  The index 0 is for original data given by --file option, and index 1 is for data given by --diff option, and index 2 is for (percentage of) difference between the two data.
+
 
 EXAMPLE
 =======
@@ -118,6 +110,7 @@ This command shows information like below:
         2.409 us    2.146 us   -10.92%     0.342 us    0.272 us   -20.47%            1          1         +0   a
 
 In the above example, the result was sorted by percentage of difference of self times.
+
 
 SEE ALSO
 ========

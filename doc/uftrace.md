@@ -52,11 +52,26 @@ OPTIONS
 -V, \--version
 :   Print program version
 
--d, \--debug
-:   Print debug messages.  This option increases a debug level and can be used at most 3 times.
+-v, \--verbose
+:   Print verbose messages.  This option increases a debug level and can be used at most 3 times.
 
---logfile=*FILE*
+\--debug
+:   Print debug messages.  This option is same as -v/\--verbose and provides only for backward compatibility.
+
+\--debug-domain=*DOMAIN*[,*DOMAIN*, ...]
+:   Limit debug messages belong to DOMAIN to be printed.  Available domains are: ftrace, symbol, demangle, filter, fstack, session, kernel, mcount.  The domains can have an their own debug level optionally (preceded by a colon).  For example, `-v --debug-domain=filter:2` will apply debug level of 2 to "filter" domain and apply debug level of 1 to others.
+
+-d *DATA*, \--data=*DATA*
+:   Specify name of trace data (directory).  Default is `uftrace.data`.
+
+\--logfile=*FILE*
 :   Save warning and debug messages into this file instead of stderr.
+
+\--color=*VAL*
+:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
+
+\--no-pager
+:   Do not use pager
 
 SEE ALSO
 ========

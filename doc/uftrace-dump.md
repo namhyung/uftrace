@@ -17,14 +17,8 @@ This command shows raw tracing data recorded in the data file.
 
 OPTIONS
 =======
--f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `uftrace.data`.
-
--d, \--debug
+\--debug
 :   Show hex dump of data as well
-
-\--no-pager
-:   Do not use pager
 
 \--chrome
 :   Show JSON style output used by Google chrome tracing facility.

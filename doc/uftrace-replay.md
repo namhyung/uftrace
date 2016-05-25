@@ -6,19 +6,19 @@ NAME
 ====
 uftrace-replay - Print recorded function trace
 
+
 SYNOPSIS
 ========
 uftrace replay [*options*]
+
 
 DESCRIPTION
 ===========
 This command prints trace data recorded using `uftrace-record`(1) command.  The traced functions are printed like a C program in time order.
 
+
 OPTIONS
 =======
--f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `uftrace.data`.
-
 \--flat
 :   Print flat format rather than C-like format.  This is usually for debugging and testing purpose.
 
@@ -37,17 +37,8 @@ OPTIONS
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
-\--no-pager
-:   Do not use pager
-
-\--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" is default and turn on coloring if stdout is a terminal.
-
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
-
-\--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
 --column-view
 :   Show each task in separate column.  This makes easy to distinguish functions in different tasks.
@@ -57,6 +48,7 @@ OPTIONS
 
 --task-newline
 :   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
+
 
 FILTERS
 =======

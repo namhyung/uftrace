@@ -68,7 +68,7 @@ analysis commands like replay, report and/or info multiple times.
 
 It'll create uftrace.data directory contains trace data files.
 Other analysis commands expect the directory exists in the current directory,
-but one can use another using -f option.
+but one can use another using -d option.
 
 The replay command shows execution information like above.  As you can see,
 the t-abc is a very simple program merely calls a, b and c functions.

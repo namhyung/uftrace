@@ -80,8 +80,9 @@ static struct argp_option ftrace_options[] = {
 	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
 	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
-	{ "debug", 'd', 0, 0, "Print debug messages" },
-	{ "file", 'f', "FILE", 0, "Use this FILE instead of uftrace.data" },
+	{ "debug", 'v', 0, 0, "Print debug messages" },
+	{ "verbose", 'v', 0, 0, "Print verbose (debug) messages" },
+	{ "data", 'd', "DATA", 0, "Use this DATA instead of uftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
@@ -316,11 +317,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->tid = opt_add_string(opts->tid, arg);
 		break;
 
-	case 'd':
+	case 'v':
 		debug++;
 		break;
 
-	case 'f':
+	case 'd':
 		opts->dirname = arg;
 		break;
 
