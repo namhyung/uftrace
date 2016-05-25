@@ -21,9 +21,6 @@ OPTIONS
 -b *SIZE*, \--buffer=*SIZE*
 :   Size of internal buffer which trace data will be saved.  Default is 128k.
 
--f *FILE*, \--file=*FILE*
-:   Specify name of output trace data (directory).  Default is `uftrace.data`.
-
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 

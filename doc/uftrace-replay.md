@@ -16,9 +16,6 @@ This command prints trace data recorded using `uftrace-record`(1) command.  The 
 
 OPTIONS
 =======
--f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `uftrace.data`.
-
 \--flat
 :   Print flat format rather than C-like format.  This is usually for debugging and testing purpose.
 

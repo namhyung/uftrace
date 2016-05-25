@@ -61,6 +61,9 @@ OPTIONS
 \--debug-domain=*DOMAIN*[,*DOMAIN*, ...]
 :   Limit debug messages belong to DOMAIN to be printed.  Available domains are: ftrace, symbol, demangle, filter, fstack, session, kernel, mcount.  The domains can have an their own debug level optionally (preceded by a colon).  For example, `-v --debug-domain=filter:2` will apply debug level of 2 to "filter" domain and apply debug level of 1 to others.
 
+-d *DATA*, \--data=*DATA*
+:   Specify name of trace data (directory).  Default is `uftrace.data`.
+
 --logfile=*FILE*
 :   Save warning and debug messages into this file instead of stderr.
 

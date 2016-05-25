@@ -22,12 +22,12 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -f %s %s' % (TestBase.ftrace, TDIR, 't-allocfree')
+        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-allocfree')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -T "alloc1@depth=2" -T "free2@depth=1,backtrace" -f %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -T "alloc1@depth=2" -T "free2@depth=1,backtrace" -d %s' % (TestBase.ftrace, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

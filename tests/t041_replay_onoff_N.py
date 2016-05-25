@@ -23,12 +23,12 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -f %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
+        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -f %s --disable -N "ns2.*" -T "operator new@trace-on" -T "malloc@traceoff"' % \
+        return '%s replay -d %s --disable -N "ns2.*" -T "operator new@trace-on" -T "malloc@traceoff"' % \
             (TestBase.ftrace, TDIR)
 
     def post(self, ret):

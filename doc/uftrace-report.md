@@ -16,9 +16,6 @@ This command collects trace data from a given data file and prints statistics an
 
 OPTIONS
 =======
--f *FILE*, \--file=*FILE*
-:   Use this filename for trace data.  Default is `uftrace.data`.
-
 \--threads
 :   Report thread summary information rather than function statistics.
 
