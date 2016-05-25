@@ -43,9 +43,6 @@ OPTIONS
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
 
-\--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
-
 --column-view
 :   Show each task in separate column.  This makes easy to distinguish functions in different tasks.
 
