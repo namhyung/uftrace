@@ -449,23 +449,26 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 
 	close(fd);
 
-	if (shmem_buf->size)
-		copy_to_buffer(shmem_buf, sess_id);
+	if (shmem_buf->flag & SHMEM_FL_RECORDING) {
+		if (shmem_buf->size)
+			copy_to_buffer(shmem_buf, sess_id);
 
-	if (shmem_buf->flag & SHMEM_FL_NEW) {
-		sl = xmalloc(sizeof(*sl));
-		memcpy(sl->id, sess_id, sizeof(sl->id));
+		if (shmem_buf->flag & SHMEM_FL_NEW) {
+			sl = xmalloc(sizeof(*sl));
+			memcpy(sl->id, sess_id, sizeof(sl->id));
 
-		/* link to shmem_list */
-		list_add_tail(&sl->list, &shmem_need_unlink);
+			/* link to shmem_list */
+			list_add_tail(&sl->list, &shmem_need_unlink);
+		}
+
+		/*
+		 * Now it has consumed all contents in the shmem buffer,
+		 * make it so that mcount can reuse it.
+		 * This is paired with get_new_shmem_buffer().
+		 */
+		__sync_synchronize();
+		shmem_buf->flag = SHMEM_FL_WRITTEN;
 	}
-
-	/*
-	 * Now it has consumed all contents in the shmem buffer,
-	 * make it so that mcount can reuse it.
-	 * This is paired with get_new_shmem_buffer().
-	 */
-	__sync_fetch_and_or(&shmem_buf->flag, SHMEM_FL_WRITTEN);
 
 	munmap(shmem_buf, bufsize);
 	return 0;
