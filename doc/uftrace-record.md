@@ -30,7 +30,7 @@ OPTIONS
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
--r *TIME*, \--threshold=*TIME*
+-t *TIME*, \--time-filter=*TIME*
 :   Do not show small functions under the time threshold.  If some functions explicitly have 'trace' trigger, those are always traced regardless of execution time.
 
 \--force
@@ -158,9 +158,9 @@ In addition, you can limit the print nesting level with -D option.
 
 In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
 
-Sometimes it's useful to see long-running functions only.  This is good because there're many tiny functions that are not interestedThe -r/\--threshold option implements the time-based filter that only records functions run longer than the given threshold.  In the above example, user might want to see functions running more than 5 micro-seconds like below:
+Sometimes it'as useful to see long-running functions only.  This is good because there're many tiny functions that are not interested usually.  The -t/\--time-filter option implements the time-based filter that only records functions run longer than the given threshold.  In the above example, user might want to see functions running more than 5 micro-seconds like below:
 
-    $ uftrace record -r 5us ./abc
+    $ uftrace record -t 5us ./abc
     $ uftrace replay
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
@@ -170,7 +170,7 @@ Sometimes it's useful to see long-running functions only.  This is good because 
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-The -r/\--threshold option works for user-level functions only.
+The -t/\--time-filter option works for user-level functions only.
 
 You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
 

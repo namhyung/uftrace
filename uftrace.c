@@ -113,7 +113,7 @@ static struct argp_option ftrace_options[] = {
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
-	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
+	{ "time-filter", 't', "TIME", 0, "Hide small functions below the limit" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
@@ -344,7 +344,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
 		break;
 
-	case 'r':
+	case 't':
 		opts->threshold = parse_time(arg);
 		break;
 

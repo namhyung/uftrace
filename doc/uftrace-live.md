@@ -37,7 +37,7 @@ OPTIONS
 -D *DEPTH*, \--depth=*DEPTH*
 :   Set global trace limit in nesting level.
 
--r *TIME*, \--threshold=*TIME*
+-t *TIME*, \--time-filter=*TIME*
 :   Do not show small functions under the time threshold.  If some functions explicitly have 'trace' trigger, those are always traced regardless of execution time.
 
 -A *SPEC*, \--argument=*SPEC*
@@ -129,8 +129,7 @@ Normally uftrace will trace all the functions from `main()` to `c()`.
 
 But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.
 
-    $ uftrace record -F b
-    $ uftrace replay
+    $ uftrace -F b ./abc
     # DURATION    TID     FUNCTION
                 [ 1234] | b() {
        3.880 us [ 1234] |   c();
@@ -140,14 +139,38 @@ The second type is an opt-out filter; By default, it trace everything and when i
 
 In the above example, you can omit the function b() and its children with -N option.
 
-    $ uftrace record
-    $ uftrace replay -N b
+    $ uftrace live -N b ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+In addition, you can limit the print nesting level with -D option.
+
+    $ uftrace -D 3 ./abc
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
+
+Sometimes it'as useful to see long-running functions only.  This is good because there're many tiny functions that are not interested usually.  The -t/\--time-filter option implements the time-based filter that only records functions run longer than the given threshold.  In the above example, user might want to see functions running more than 5 micro-seconds like below:
+
+    $ uftrace live -t 5us ./abc
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+The -t/\--time-filter option works for user-level functions only.
 
 You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
 
