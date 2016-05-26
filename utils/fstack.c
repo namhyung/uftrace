@@ -137,8 +137,8 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 		}
 
 		if (!found) {
+			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
 			handle->tasks[i].done = true;
-			handle->tasks[i].valid = false;
 			continue;
 		}
 
