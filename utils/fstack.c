@@ -138,6 +138,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 
 		if (!found) {
 			handle->tasks[i].done = true;
+			handle->tasks[i].valid = false;
 			continue;
 		}
 
