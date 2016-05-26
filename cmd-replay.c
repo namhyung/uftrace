@@ -153,7 +153,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			len -= n;
 		}
 
-		val = 0ULL;
+		val = 0;
 		fmt = ARG_SPEC_CHARS[spec->fmt];
 
 		switch (spec->fmt) {
@@ -164,11 +164,21 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			break;
 		case ARG_FMT_AUTO:
 			memcpy(&val, data, spec->size);
-			if (val > 100000LL || val < -100000LL) {
+			if (val > 100000L || val < -100000L) {
 				fmt = 'x';
-				/* show small negative integers */
-				if (val > 0xffff0000 && val <= 0xffffffff)
-					fmt = 'd';
+				/*
+				 * Show small negative integers naturally
+				 * on 64-bit systems.  The conversion is
+				 * required to avoid compiler warnings
+				 * on 32-bit systems.
+				 */
+				if (sizeof(long) == sizeof(uint64_t)) {
+					uint64_t val64 = val;
+
+					if (val64 >  0xffff0000 &&
+					    val64 <= 0xffffffff)
+						fmt = 'd';
+				}
 			}
 			/* fall through */
 		default:

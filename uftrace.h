@@ -12,10 +12,6 @@
 #include "utils/symbol.h"
 
 
-#ifndef  O_PATH
-# define O_PATH  0
-#endif
-
 #define FTRACE_MAGIC_LEN  8
 #define FTRACE_MAGIC_STR  "Ftrace!"
 #define FTRACE_FILE_VERSION  4

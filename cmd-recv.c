@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
+#include <linux/limits.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -20,7 +21,6 @@ struct client_data {
 	struct list_head	list;
 	int			sock;
 	char			*dirname;
-	int			dir_fd;
 };
 
 static LIST_HEAD(client_list);
@@ -298,10 +298,12 @@ static void write_client_file(struct client_data *c, char *filename, int nr, ...
 	int i, fd;
 	va_list ap;
 	struct iovec iov[nr];
+	char buf[PATH_MAX];
 
-	fd = openat(c->dir_fd, filename, O_CLIENT_FLAGS, 0644);
+	snprintf(buf, sizeof(buf), "%s/%s", c->dirname, filename);
+	fd = open(buf, O_CLIENT_FLAGS, 0644);
 	if (fd < 0)
-		pr_err("file open failed: %s", filename);
+		pr_err("file open failed: %s", buf);
 
 	va_start(ap, nr);
 	for (i = 0; i < nr; i++) {
@@ -311,7 +313,7 @@ static void write_client_file(struct client_data *c, char *filename, int nr, ...
 	va_end(ap);
 
 	if (writev_all(fd, iov, nr) < 0)
-		pr_err("write client data failed on %s", filename);
+		pr_err("write client data failed on %s", buf);
 
 	close(fd);
 }
@@ -333,10 +335,6 @@ static void recv_trace_header(int sock, int len)
 
 	create_directory(dirname);
 	pr_dbg3("create directory: %s\n", dirname);
-
-	client->dir_fd = open(dirname, O_PATH | O_DIRECTORY);
-	if (client->dir_fd < 0)
-		pr_err("open dir failed");
 
 	list_add(&client->list, &client_list);
 }
@@ -549,7 +547,6 @@ static void recv_trace_end(int sock, int efd)
 		list_del(&client->list);
 
 		free(client->dirname);
-		close(client->dir_fd);
 		free(client);
 	}
 
