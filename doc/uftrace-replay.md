@@ -31,7 +31,7 @@ OPTIONS
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
--t *TID*[,*TID*,...], \--tid=*TID*[,*TID*,...]
+\--tid=*TID*[,*TID*,...]
 :   Only print functions from given threads.  To see the list of threads in the data file, you can use `uftrace-report --threads` or `uftrace-info` command.
 
 -D *DEPTH*, \--depth *DEPTH*

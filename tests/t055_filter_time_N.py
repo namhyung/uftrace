@@ -7,10 +7,10 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sleep', result="""
 # DURATION    TID     FUNCTION
-            [18229] | bar() {
-   2.078 ms [18229] |   usleep();
-   2.080 ms [18229] | } /* bar */
+            [18224] | main() {
+   2.083 ms [18224] |   foo();
+   2.085 ms [18224] | } /* main */
 """)
 
     def runcmd(self):
-        return '%s -r 1ms -F bar %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -t 1ms -N bar %s' % (TestBase.ftrace, 't-' + self.name)

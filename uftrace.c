@@ -72,6 +72,7 @@ enum options {
 	OPT_chrome_trace,
 	OPT_diff,
 	OPT_sort_column,
+	OPT_tid_filter,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -90,7 +91,7 @@ static struct argp_option ftrace_options[] = {
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
-	{ "tid", 't', "TID[,TID,...]", 0, "Only replay those tasks" },
+	{ "tid", OPT_tid_filter, "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
@@ -112,7 +113,7 @@ static struct argp_option ftrace_options[] = {
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
-	{ "threshold", 'r', "TIME", 0, "Hide small functions below the limit" },
+	{ "time-filter", 't', "TIME", 0, "Hide small functions below the limit" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
@@ -313,10 +314,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("invalid depth given: %s\n", arg);
 		break;
 
-	case 't':
-		opts->tid = opt_add_string(opts->tid, arg);
-		break;
-
 	case 'v':
 		debug++;
 		break;
@@ -347,7 +344,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
 		break;
 
-	case 'r':
+	case 't':
 		opts->threshold = parse_time(arg);
 		break;
 
@@ -381,6 +378,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_threads:
 		opts->report_thread = true;
+		break;
+
+	case OPT_tid_filter:
+		opts->tid = opt_add_string(opts->tid, arg);
 		break;
 
 	case OPT_no_merge:
