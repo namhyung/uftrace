@@ -268,6 +268,7 @@ static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	free(shmem->buffer);
 	shmem->buffer = NULL;
+	shmem->nr_buf = 0;
 }
 
 static void shmem_finish(struct mcount_thread_data *mtdp)
@@ -604,6 +605,7 @@ static void mtd_dtor(void *arg)
 #ifndef DISABLE_MCOUNT_FILTER
 	free(mtdp->argbuf);
 #endif
+	shmem_finish(mtdp);
 }
 
 static void mcount_init_file(void)
@@ -950,7 +952,6 @@ static void mcount_finish(void)
 	if (mcount_finished)
 		return;
 
-	shmem_finish(&mtd);
 	mtd_dtor(&mtd);
 	pthread_key_delete(mtd_key);
 
