@@ -335,6 +335,7 @@ struct writer_arg {
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
 	int			sock;
+	int			idx;
 };
 
 void *writer_thread(void *arg)
@@ -343,6 +344,7 @@ void *writer_thread(void *arg)
 	struct writer_arg *warg = arg;
 	struct opts *opts = warg->opts;
 
+	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
 		while (list_empty(&buf_write_list)) {
@@ -377,7 +379,9 @@ void *writer_thread(void *arg)
 		if (opts->kernel)
 			record_kernel_tracing(warg->kern);
 	}
+	pr_dbg2("stop writer thread %d\n", warg->idx);
 
+	free(warg);
 	return NULL;
 }
 
@@ -489,7 +493,7 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 
 	pthread_mutex_lock(&write_list_lock);
 	buf_done = true;
-	pthread_cond_signal(&write_cond);
+	pthread_cond_broadcast(&write_cond);
 	pthread_mutex_unlock(&write_list_lock);
 }
 
@@ -1138,15 +1142,13 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	};
 	struct timespec ts1, ts2;
 	struct rusage usage;
-	pthread_t writer;
+	pthread_t *writers;
 	struct ftrace_kernel kern;
 	int efd;
 	uint64_t go = 1;
 	int sock = -1;
-	struct writer_arg warg = {
-		.opts = opts,
-		.kern = &kern,
-	};
+	int nr_cpu;
+	int i;
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
@@ -1197,10 +1199,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->host) {
 		sock = setup_client_socket(opts);
 		send_trace_header(sock, opts->dirname);
-		warg.sock = sock;
 	}
-
-	pthread_create(&writer, NULL, writer_thread, &warg);
 
 	if (opts->kernel) {
 		kern.pid = pid;
@@ -1213,6 +1212,34 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}
+	}
+
+	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (!opts->nr_thread) {
+		if (opts->kernel == 2)
+			opts->nr_thread = nr_cpu;
+		else
+			opts->nr_thread = DIV_ROUND_UP(nr_cpu, 4);
+	}
+	else if (opts->nr_thread > nr_cpu)
+		opts->nr_thread = nr_cpu;
+
+	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
+	writers = xmalloc(opts->nr_thread * sizeof(*writers));
+
+	for (i = 0; i < opts->nr_thread; i++) {
+		struct writer_arg *warg;
+		int cpu_per_thread = DIV_ROUND_UP(nr_cpu, opts->nr_thread);
+		size_t sizeof_warg = sizeof(*warg) + sizeof(int) * cpu_per_thread;
+
+		warg = xmalloc(sizeof_warg);
+		warg->opts = opts;
+		warg->idx  = i;
+		warg->sock = sock;
+		warg->kern = &kern;
+
+		pthread_create(&writers[i], NULL, writer_thread, warg);
 	}
 
 	/* signal child that I'm ready */
@@ -1296,7 +1323,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (shmem_lost_count)
 		pr_log("LOST %d records\n", shmem_lost_count);
 
-	pthread_join(writer, NULL);
+	for (i = 0; i < opts->nr_thread; i++)
+		pthread_join(writers[i], NULL);
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);

@@ -73,6 +73,7 @@ enum options {
 	OPT_diff,
 	OPT_sort_column,
 	OPT_tid_filter,
+	OPT_num_thread,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -119,6 +120,7 @@ static struct argp_option ftrace_options[] = {
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
+	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
 	{ 0 }
 };
 
@@ -475,6 +477,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->sort_column = strtol(arg, NULL, 0);
 		if (opts->sort_column < 0 || opts->sort_column > 2)
 			pr_use("invalid column number: %s\n", arg);
+		break;
+
+	case OPT_num_thread:
+		opts->nr_thread = strtol(arg, NULL, 0);
+		if (opts->nr_thread <= 0)
+			pr_use("invalid thread number: %s\n", arg);
 		break;
 
 	case ARGP_KEY_ARG:

@@ -139,6 +139,7 @@ struct opts {
 	int color;
 	int column_offset;
 	int sort_column;
+	int nr_thread;
 	unsigned long bsize;
 	uint64_t threshold;
 	bool flat;

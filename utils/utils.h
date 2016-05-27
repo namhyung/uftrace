@@ -26,7 +26,8 @@
 # define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 #endif
 
-#define ROUND_UP(v, r)  (((v) + (r) - 1) / (r) * (r))
+#define DIV_ROUND_UP(v, r)  (((v) + (r) - 1) / (r))
+#define ROUND_UP(v, r)      (DIV_ROUND_UP((v), (r)) * (r))
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))

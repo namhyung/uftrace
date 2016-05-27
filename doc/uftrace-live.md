@@ -85,6 +85,9 @@ OPTIONS
 --task-newline
 :   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
 
+\--num-thread=*NUM*
+:   Use NUM of thread to record trace data.  Default is 1/4 of online cpus (but when full kernel tracing is enabled, it'll use the same number of the cpus).
+
 
 FILTERS
 =======
