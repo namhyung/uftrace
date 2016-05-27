@@ -348,14 +348,12 @@ void *writer_thread(void *arg)
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
 		while (list_empty(&buf_write_list)) {
-			if (buf_done)
-				break;
+			if (buf_done) {
+				pthread_mutex_unlock(&write_list_lock);
+				/* escape from nested loop */
+				goto out;
+			}
 			pthread_cond_wait(&write_cond, &write_list_lock);
-		}
-
-		if (buf_done && list_empty(&buf_write_list)) {
-			pthread_mutex_unlock(&write_list_lock);
-			return NULL;
 		}
 
 		buf = list_first_entry(&buf_write_list, struct buf_list, list);
@@ -379,6 +377,7 @@ void *writer_thread(void *arg)
 		if (opts->kernel)
 			record_kernel_tracing(warg->kern);
 	}
+out:
 	pr_dbg2("stop writer thread %d\n", warg->idx);
 
 	free(warg);
