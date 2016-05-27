@@ -336,6 +336,8 @@ struct writer_arg {
 	struct ftrace_kernel	*kern;
 	int			sock;
 	int			idx;
+	int			nr_cpu;
+	int			cpus[];
 };
 
 void *writer_thread(void *arg)
@@ -374,8 +376,14 @@ void *writer_thread(void *arg)
 		list_add(&buf->list, &buf_free_list);
 		pthread_mutex_unlock(&free_list_lock);
 
-		if (opts->kernel)
-			record_kernel_tracing(warg->kern);
+		if (opts->kernel) {
+			int i;
+
+			for (i = 0; i < warg->nr_cpu; i++) {
+				record_kernel_trace_pipe(warg->kern,
+							 warg->cpus[i]);
+			}
+		}
 	}
 out:
 	pr_dbg2("stop writer thread %d\n", warg->idx);
@@ -1147,7 +1155,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	uint64_t go = 1;
 	int sock = -1;
 	int nr_cpu;
-	int i;
+	int i, k;
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
@@ -1237,6 +1245,17 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		warg->idx  = i;
 		warg->sock = sock;
 		warg->kern = &kern;
+
+		if (opts->kernel) {
+			warg->nr_cpu = cpu_per_thread;
+
+			for (k = 0; k < cpu_per_thread; k++) {
+				if (i * cpu_per_thread + k < nr_cpu)
+					warg->cpus[k] = i * cpu_per_thread + k;
+				else
+					warg->cpus[k] = -1;
+			}
+		}
 
 		pthread_create(&writers[i], NULL, writer_thread, warg);
 	}
