@@ -1312,10 +1312,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		remove_directory(opts->dirname);
 	}
 
-	/*
-	 * Do not unload symbol tables.  It might save some time when used by
-	 * 'live' command as it also need to load the symtabs again.
-	 */
-	//unload_symtabs(&symtabs);
+	unload_symtabs(&symtabs);
 	return 0;
 }
