@@ -218,7 +218,7 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 reuse:
 	/*
 	 * Start a new buffer and mark it recording data.
-	 * See record_mmap_file().
+	 * See cmd-record.c::writer_thread().
 	 */
 	__sync_fetch_and_or(&curr_buf->flag, SHMEM_FL_RECORDING);
 

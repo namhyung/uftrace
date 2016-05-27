@@ -36,8 +36,7 @@ static LIST_HEAD(shmem_need_unlink);
 struct buf_list {
 	struct list_head list;
 	char id[SHMEM_NAME_SIZE];
-	void *data;
-	size_t len;
+	void *shmem_buf;
 };
 
 static LIST_HEAD(buf_free_list);
@@ -317,13 +316,14 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 {
 	int fd;
 	char *filename;
+	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
 	filename = make_disk_name(dirname, buf->id);
 	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
 
-	if (write_all(fd, buf->data, buf->len) < 0)
+	if (write_all(fd, shmbuf->data, shmbuf->size) < 0)
 		pr_err("write shmem buffer");
 
 	close(fd);
@@ -336,6 +336,7 @@ struct writer_arg {
 	struct ftrace_kernel	*kern;
 	int			sock;
 	int			idx;
+	int			bufsize;
 	int			nr_cpu;
 	int			cpus[];
 };
@@ -386,14 +387,28 @@ void *writer_thread(void *arg)
 		pthread_mutex_unlock(&write_list_lock);
 
 		if (buf) {
+			struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
+
 			if (opts->host) {
 				int tid = 0;
 
 				parse_msg_id(buf->id, NULL, &tid, NULL);
-				send_trace_data(warg->sock, tid, buf->data, buf->len);
+				send_trace_data(warg->sock, tid, shmbuf->data,
+						shmbuf->size);
 			} else {
 				write_buffer_file(opts->dirname, buf);
 			}
+
+			/*
+			 * Now it has consumed all contents in the shmem buffer,
+			 * make it so that mcount can reuse it.
+			 * This is paired with get_new_shmem_buffer().
+			 */
+			__sync_synchronize();
+			shmbuf->flag = SHMEM_FL_WRITTEN;
+
+			munmap(shmbuf, opts->bsize);
+			buf->shmem_buf = NULL;
 
 			pthread_mutex_lock(&free_list_lock);
 			list_add(&buf->list, &buf_free_list);
@@ -425,12 +440,6 @@ static struct buf_list *make_write_buffer(void)
 		return NULL;
 
 	INIT_LIST_HEAD(&buf->list);
-	buf->len = SHMEM_BUFFER_SIZE;
-	buf->data = malloc(buf->len);
-	if (buf->data == NULL) {
-		free(buf);
-		return NULL;
-	}
 
 	return buf;
 }
@@ -455,8 +464,7 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 	}
 
 	memcpy(buf->id, sess_id, strlen(sess_id));
-	memcpy(buf->data, shm->data, shm->size);
-	buf->len = shm->size;
+	buf->shmem_buf = shm;
 
 	pthread_mutex_lock(&write_list_lock);
 	list_add_tail(&buf->list, &buf_write_list);
@@ -495,17 +503,8 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 			/* link to shmem_list */
 			list_add_tail(&sl->list, &shmem_need_unlink);
 		}
-
-		/*
-		 * Now it has consumed all contents in the shmem buffer,
-		 * make it so that mcount can reuse it.
-		 * This is paired with get_new_shmem_buffer().
-		 */
-		__sync_synchronize();
-		shmem_buf->flag = SHMEM_FL_WRITTEN;
 	}
 
-	munmap(shmem_buf, bufsize);
 	return 0;
 }
 
