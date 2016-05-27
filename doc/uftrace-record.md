@@ -158,7 +158,7 @@ In addition, you can limit the print nesting level with -D option.
 
 In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option works with -F option.
 
-Sometimes it'as useful to see long-running functions only.  This is good because there're many tiny functions that are not interested usually.  The -t/\--time-filter option implements the time-based filter that only records functions run longer than the given threshold.  In the above example, user might want to see functions running more than 5 micro-seconds like below:
+Sometimes it's useful to see long-running functions only.  This is good because there're many tiny functions that are not interested usually.  The -t/\--time-filter option implements the time-based filter that only records functions run longer than the given threshold.  In the above example, user might want to see functions running more than 5 micro-seconds like below:
 
     $ uftrace record -t 5us ./abc
     $ uftrace replay

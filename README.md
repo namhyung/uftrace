@@ -1,8 +1,8 @@
 How to install uftrace
 ======================
 
-The uftrace was written in C and tried to minimize external dependencies.
-Currently it requires libelf in elfutils package to build, and there's some
+The uftrace is written in C and tried to minimize external dependencies.
+Currently it requires libelf in elfutils package to build, and there're some
 more optional dependencies.
 
 Once you installed required software(s) on your system, it can be built and
@@ -28,7 +28,7 @@ related the execution environment.
 
 You can setup a filter to exclude or include specific functions when tracing.
 
-It also support multi-process and/or multi-threaded applications.
+It also supports multi-process and/or multi-threaded applications.
 
 
 How to use uftrace
@@ -66,7 +66,7 @@ analysis commands like replay, report and/or info multiple times.
 
     $ uftrace record tests/t-abc
 
-It'll create uftrace.data directory contains trace data files.
+It'll create uftrace.data directory that contains trace data files.
 Other analysis commands expect the directory exists in the current directory,
 but one can use another using -d option.
 
