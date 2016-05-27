@@ -350,31 +350,55 @@ void *writer_thread(void *arg)
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
 		while (list_empty(&buf_write_list)) {
+			struct timespec timeout;
+
 			if (buf_done) {
 				pthread_mutex_unlock(&write_list_lock);
 				/* escape from nested loop */
 				goto out;
 			}
-			pthread_cond_wait(&write_cond, &write_list_lock);
+
+			/* check kernel data every 1ms */
+			clock_gettime(CLOCK_REALTIME, &timeout);
+			if (opts->kernel)
+				timeout.tv_nsec += 1000000;
+			else
+				timeout.tv_sec++;
+
+			if (timeout.tv_nsec > NSEC_PER_SEC) {
+				timeout.tv_nsec -= NSEC_PER_SEC;
+				timeout.tv_sec++;
+			}
+
+			pthread_cond_timedwait(&write_cond, &write_list_lock,
+					       &timeout);
+			if (opts->kernel)
+				break;
 		}
 
-		buf = list_first_entry(&buf_write_list, struct buf_list, list);
-		list_del(&buf->list);
+		if (!list_empty(&buf_write_list)) {
+			buf = list_first_entry(&buf_write_list, struct buf_list, list);
+			list_del(&buf->list);
+		}
+		else
+			buf = NULL;
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		if (opts->host) {
-			int tid = 0;
+		if (buf) {
+			if (opts->host) {
+				int tid = 0;
 
-			parse_msg_id(buf->id, NULL, &tid, NULL);
-			send_trace_data(warg->sock, tid, buf->data, buf->len);
-		} else {
-			write_buffer_file(opts->dirname, buf);
+				parse_msg_id(buf->id, NULL, &tid, NULL);
+				send_trace_data(warg->sock, tid, buf->data, buf->len);
+			} else {
+				write_buffer_file(opts->dirname, buf);
+			}
+
+			pthread_mutex_lock(&free_list_lock);
+			list_add(&buf->list, &buf_free_list);
+			pthread_mutex_unlock(&free_list_lock);
 		}
-
-		pthread_mutex_lock(&free_list_lock);
-		list_add(&buf->list, &buf_free_list);
-		pthread_mutex_unlock(&free_list_lock);
 
 		if (opts->kernel) {
 			int i;
