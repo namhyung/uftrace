@@ -336,10 +336,20 @@ out:
 	return -1;
 }
 
-static int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu)
+/**
+ * record_kernel_trace_pipe - read and save kernel ftrace data for specific cpu
+ * @kernel - kernel ftrace handle
+ * @cpu - cpu to read
+ *
+ * This function read trace data for @cpu and save it to file.
+ */
+int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu)
 {
 	char buf[4096];
 	ssize_t n;
+
+	if (cpu < 0 || cpu >= kernel->nr_cpus)
+		return 0;
 
 retry:
 	n = read(kernel->traces[cpu], buf, sizeof(buf));
