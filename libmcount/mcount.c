@@ -159,6 +159,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	pr_dbg2("preparing shmem buffers\n");
 
 	shmem->nr_buf = 2;
+	shmem->max_buf = 2;
 	shmem->buffer = xcalloc(sizeof(*shmem->buffer), 2);
 
 	for (idx = 0; idx < shmem->nr_buf; idx++) {
@@ -211,6 +212,8 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	shmem->buffer[idx] = curr_buf;
 	shmem->nr_buf++;
+	if (shmem->nr_buf > shmem->max_buf)
+		shmem->max_buf = shmem->nr_buf;
 
 reuse:
 	/*
@@ -222,6 +225,25 @@ reuse:
 	shmem->seqnum++;
 	shmem->curr = idx;
 	curr_buf->size = 0;
+
+	/* shrink unused buffers */
+	if (idx + 3 <= shmem->nr_buf) {
+		int i;
+		int count = 0;
+		struct mcount_shmem_buffer *b;
+
+		for (i = idx + 1; i < shmem->nr_buf; i++) {
+			b = shmem->buffer[i];
+			if (b->flag == SHMEM_FL_WRITTEN)
+				count++;
+		}
+
+		/* if 3 or more buffers are unused, free the last one */
+		if (count >= 3 && b->flag == SHMEM_FL_WRITTEN) {
+			shmem->nr_buf--;
+			munmap(b, shmem_bufsize);
+		}
+	}
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
 		 session_name(), gettid(mtdp), idx);
@@ -286,7 +308,8 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 			finish_shmem_buffer(mtdp, i);
 	}
 
-	pr_dbg("%s: tid: %d, seqnum = %u, nr_buf = %d\n", __func__, gettid(mtdp), shmem->seqnum, shmem->nr_buf);
+	pr_dbg("%s: tid: %d, seqnum = %u, nr_buf = %d max_buf = %d\n",
+	       __func__, gettid(mtdp), shmem->seqnum, shmem->nr_buf, shmem->max_buf);
 	clear_shmem_buffer(mtdp);
 }
 

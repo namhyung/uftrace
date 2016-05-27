@@ -102,6 +102,7 @@ struct mcount_shmem {
 	int				losts;
 	int				curr;
 	int				nr_buf;
+	int				max_buf;
 	struct mcount_shmem_buffer	**buffer;
 };
 
