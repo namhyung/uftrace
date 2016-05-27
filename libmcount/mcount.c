@@ -286,6 +286,7 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 			finish_shmem_buffer(mtdp, i);
 	}
 
+	pr_dbg("%s: tid: %d, seqnum = %u, nr_buf = %d\n", __func__, gettid(mtdp), shmem->seqnum, shmem->nr_buf);
 	clear_shmem_buffer(mtdp);
 }
 
