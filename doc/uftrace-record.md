@@ -81,6 +81,9 @@ OPTIONS
 -R *SPEC*, \--retval=*SPEC*
 :   Record function return value.  This option can be used more than once.  See *ARGUMENTS*.
 
+\--num-thread=*NUM*
+:   Use NUM of thread to record trace data.  Default is 1/4 of online cpus (but when full kernel tracing is enabled, it'll use the same number of the cpus).
+
 
 FILTERS
 =======

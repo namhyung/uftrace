@@ -36,8 +36,7 @@ static LIST_HEAD(shmem_need_unlink);
 struct buf_list {
 	struct list_head list;
 	char id[SHMEM_NAME_SIZE];
-	void *data;
-	size_t len;
+	void *shmem_buf;
 };
 
 static LIST_HEAD(buf_free_list);
@@ -317,13 +316,14 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 {
 	int fd;
 	char *filename;
+	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
 	filename = make_disk_name(dirname, buf->id);
 	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
 
-	if (write_all(fd, buf->data, buf->len) < 0)
+	if (write_all(fd, shmbuf->data, shmbuf->size) < 0)
 		pr_err("write shmem buffer");
 
 	close(fd);
@@ -335,6 +335,10 @@ struct writer_arg {
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
 	int			sock;
+	int			idx;
+	int			bufsize;
+	int			nr_cpu;
+	int			cpus[];
 };
 
 void *writer_thread(void *arg)
@@ -343,41 +347,87 @@ void *writer_thread(void *arg)
 	struct writer_arg *warg = arg;
 	struct opts *opts = warg->opts;
 
+	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
 		pthread_mutex_lock(&write_list_lock);
 		while (list_empty(&buf_write_list)) {
-			if (buf_done)
+			struct timespec timeout;
+
+			if (buf_done) {
+				pthread_mutex_unlock(&write_list_lock);
+				/* escape from nested loop */
+				goto out;
+			}
+
+			/* check kernel data every 1ms */
+			clock_gettime(CLOCK_REALTIME, &timeout);
+			if (opts->kernel)
+				timeout.tv_nsec += 1000000;
+			else
+				timeout.tv_sec++;
+
+			if (timeout.tv_nsec > NSEC_PER_SEC) {
+				timeout.tv_nsec -= NSEC_PER_SEC;
+				timeout.tv_sec++;
+			}
+
+			pthread_cond_timedwait(&write_cond, &write_list_lock,
+					       &timeout);
+			if (opts->kernel)
 				break;
-			pthread_cond_wait(&write_cond, &write_list_lock);
 		}
 
-		if (buf_done && list_empty(&buf_write_list)) {
-			pthread_mutex_unlock(&write_list_lock);
-			return NULL;
+		if (!list_empty(&buf_write_list)) {
+			buf = list_first_entry(&buf_write_list, struct buf_list, list);
+			list_del(&buf->list);
 		}
-
-		buf = list_first_entry(&buf_write_list, struct buf_list, list);
-		list_del(&buf->list);
+		else
+			buf = NULL;
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		if (opts->host) {
-			int tid = 0;
+		if (buf) {
+			struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
-			parse_msg_id(buf->id, NULL, &tid, NULL);
-			send_trace_data(warg->sock, tid, buf->data, buf->len);
-		} else {
-			write_buffer_file(opts->dirname, buf);
+			if (opts->host) {
+				int tid = 0;
+
+				parse_msg_id(buf->id, NULL, &tid, NULL);
+				send_trace_data(warg->sock, tid, shmbuf->data,
+						shmbuf->size);
+			} else {
+				write_buffer_file(opts->dirname, buf);
+			}
+
+			/*
+			 * Now it has consumed all contents in the shmem buffer,
+			 * make it so that mcount can reuse it.
+			 * This is paired with get_new_shmem_buffer().
+			 */
+			__sync_synchronize();
+			shmbuf->flag = SHMEM_FL_WRITTEN;
+
+			munmap(shmbuf, opts->bsize);
+			buf->shmem_buf = NULL;
+
+			pthread_mutex_lock(&free_list_lock);
+			list_add(&buf->list, &buf_free_list);
+			pthread_mutex_unlock(&free_list_lock);
 		}
 
-		pthread_mutex_lock(&free_list_lock);
-		list_add(&buf->list, &buf_free_list);
-		pthread_mutex_unlock(&free_list_lock);
+		if (opts->kernel) {
+			int i;
 
-		if (opts->kernel)
-			record_kernel_tracing(warg->kern);
+			for (i = 0; i < warg->nr_cpu; i++) {
+				record_kernel_trace_pipe(warg->kern,
+							 warg->cpus[i]);
+			}
+		}
 	}
+out:
+	pr_dbg2("stop writer thread %d\n", warg->idx);
 
+	free(warg);
 	return NULL;
 }
 
@@ -390,12 +440,6 @@ static struct buf_list *make_write_buffer(void)
 		return NULL;
 
 	INIT_LIST_HEAD(&buf->list);
-	buf->len = SHMEM_BUFFER_SIZE;
-	buf->data = malloc(buf->len);
-	if (buf->data == NULL) {
-		free(buf);
-		return NULL;
-	}
 
 	return buf;
 }
@@ -420,8 +464,7 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 	}
 
 	memcpy(buf->id, sess_id, strlen(sess_id));
-	memcpy(buf->data, shm->data, shm->size);
-	buf->len = shm->size;
+	buf->shmem_buf = shm;
 
 	pthread_mutex_lock(&write_list_lock);
 	list_add_tail(&buf->list, &buf_write_list);
@@ -449,25 +492,19 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 
 	close(fd);
 
-	if (shmem_buf->size)
-		copy_to_buffer(shmem_buf, sess_id);
+	if (shmem_buf->flag & SHMEM_FL_RECORDING) {
+		if (shmem_buf->size)
+			copy_to_buffer(shmem_buf, sess_id);
 
-	if (shmem_buf->flag & SHMEM_FL_NEW) {
-		sl = xmalloc(sizeof(*sl));
-		memcpy(sl->id, sess_id, sizeof(sl->id));
+		if (shmem_buf->flag & SHMEM_FL_NEW) {
+			sl = xmalloc(sizeof(*sl));
+			memcpy(sl->id, sess_id, sizeof(sl->id));
 
-		/* link to shmem_list */
-		list_add_tail(&sl->list, &shmem_need_unlink);
+			/* link to shmem_list */
+			list_add_tail(&sl->list, &shmem_need_unlink);
+		}
 	}
 
-	/*
-	 * Now it has consumed all contents in the shmem buffer,
-	 * make it so that mcount can reuse it.
-	 * This is paired with get_new_shmem_buffer().
-	 */
-	__sync_fetch_and_or(&shmem_buf->flag, SHMEM_FL_WRITTEN);
-
-	munmap(shmem_buf, bufsize);
 	return 0;
 }
 
@@ -486,7 +523,7 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 
 	pthread_mutex_lock(&write_list_lock);
 	buf_done = true;
-	pthread_cond_signal(&write_cond);
+	pthread_cond_broadcast(&write_cond);
 	pthread_mutex_unlock(&write_list_lock);
 }
 
@@ -1135,15 +1172,13 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	};
 	struct timespec ts1, ts2;
 	struct rusage usage;
-	pthread_t writer;
+	pthread_t *writers;
 	struct ftrace_kernel kern;
 	int efd;
 	uint64_t go = 1;
 	int sock = -1;
-	struct writer_arg warg = {
-		.opts = opts,
-		.kern = &kern,
-	};
+	int nr_cpu;
+	int i, k;
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
@@ -1194,10 +1229,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->host) {
 		sock = setup_client_socket(opts);
 		send_trace_header(sock, opts->dirname);
-		warg.sock = sock;
 	}
-
-	pthread_create(&writer, NULL, writer_thread, &warg);
 
 	if (opts->kernel) {
 		kern.pid = pid;
@@ -1210,6 +1242,45 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}
+	}
+
+	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (!opts->nr_thread) {
+		if (opts->kernel == 2)
+			opts->nr_thread = nr_cpu;
+		else
+			opts->nr_thread = DIV_ROUND_UP(nr_cpu, 4);
+	}
+	else if (opts->nr_thread > nr_cpu)
+		opts->nr_thread = nr_cpu;
+
+	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
+	writers = xmalloc(opts->nr_thread * sizeof(*writers));
+
+	for (i = 0; i < opts->nr_thread; i++) {
+		struct writer_arg *warg;
+		int cpu_per_thread = DIV_ROUND_UP(nr_cpu, opts->nr_thread);
+		size_t sizeof_warg = sizeof(*warg) + sizeof(int) * cpu_per_thread;
+
+		warg = xmalloc(sizeof_warg);
+		warg->opts = opts;
+		warg->idx  = i;
+		warg->sock = sock;
+		warg->kern = &kern;
+
+		if (opts->kernel) {
+			warg->nr_cpu = cpu_per_thread;
+
+			for (k = 0; k < cpu_per_thread; k++) {
+				if (i * cpu_per_thread + k < nr_cpu)
+					warg->cpus[k] = i * cpu_per_thread + k;
+				else
+					warg->cpus[k] = -1;
+			}
+		}
+
+		pthread_create(&writers[i], NULL, writer_thread, warg);
 	}
 
 	/* signal child that I'm ready */
@@ -1293,7 +1364,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (shmem_lost_count)
 		pr_log("LOST %d records\n", shmem_lost_count);
 
-	pthread_join(writer, NULL);
+	for (i = 0; i < opts->nr_thread; i++)
+		pthread_join(writers[i], NULL);
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);
@@ -1309,10 +1381,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		remove_directory(opts->dirname);
 	}
 
-	/*
-	 * Do not unload symbol tables.  It might save some time when used by
-	 * 'live' command as it also need to load the symtabs again.
-	 */
-	//unload_symtabs(&symtabs);
+	unload_symtabs(&symtabs);
 	return 0;
 }

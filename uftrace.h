@@ -139,6 +139,7 @@ struct opts {
 	int color;
 	int column_offset;
 	int sort_column;
+	int nr_thread;
 	unsigned long bsize;
 	uint64_t threshold;
 	bool flat;
@@ -328,12 +329,15 @@ struct ftrace_kernel {
 	struct list_head notrace;
 };
 
+/* these functions will be used at record time */
 int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters);
 int start_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_tracing(struct ftrace_kernel *kernel);
+int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu);
 int stop_kernel_tracing(struct ftrace_kernel *kernel);
 int finish_kernel_tracing(struct ftrace_kernel *kernel);
 
+/* these functions will be used at replay time */
 int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_kernel *kernel, struct mcount_ret_stack *rstack);
 int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);

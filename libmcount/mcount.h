@@ -66,6 +66,7 @@ void mcount_reset(void);
 enum shmem_buffer_flags {
 	SHMEM_FL_NEW		= (1U << 0),
 	SHMEM_FL_WRITTEN	= (1U << 1),
+	SHMEM_FL_RECORDING	= (1U << 2),
 };
 
 struct mcount_shmem_buffer {
@@ -101,6 +102,7 @@ struct mcount_shmem {
 	int				losts;
 	int				curr;
 	int				nr_buf;
+	int				max_buf;
 	struct mcount_shmem_buffer	**buffer;
 };
 
