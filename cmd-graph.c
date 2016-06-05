@@ -22,11 +22,13 @@ struct graph_backtrace {
 };
 
 struct graph_node {
+	unsigned long addr;
 	int nr_edges;
 	int nr_calls;
 	uint64_t time;
 	uint64_t child_time;
-	struct list_head edges;
+	struct list_head head;
+	struct list_head list;
 	struct graph_node *parent;
 };
 
@@ -38,6 +40,7 @@ struct uftrace_graph {
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
 	struct graph_backtrace **bt_list;
+	struct graph_node *curr_node;
 	struct graph_node root;
 };
 
@@ -49,6 +52,7 @@ static int create_graph(struct ftrace_session *sess, void *func)
 
 	graph->sess = sess;
 	graph->func = xstrdup(func);
+	INIT_LIST_HEAD(&graph->root.head);
 
 	graph->next = graph_list;
 	graph_list = graph;
@@ -161,15 +165,6 @@ static int print_backtrace(struct uftrace_graph *graph)
 	return 0;
 }
 
-static void print_graph(struct uftrace_graph *graph)
-{
-	pr_out("#\n");
-	pr_out("# function graph for '%s'\n", graph->func);
-	pr_out("#\n\n");
-
-	print_backtrace(graph);
-}
-
 static void func_enter(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack = &task->func_stack[task->stack_count++];
@@ -199,19 +194,170 @@ static int func_lost(void)
 static int start_graph(struct uftrace_graph *graph,
 		       struct ftrace_task_handle *task)
 {
-	save_backtrace_addr(graph, task);
+	if (!graph->enabled++) {
+		save_backtrace_addr(graph, task);
+		graph->curr_node = &graph->root;
+		graph->curr_node->addr = task->ustack.addr;
+		graph->curr_node->nr_calls++;
+	}
 
-	graph->enabled++;
 	return 0;
 }
 
 static int end_graph(struct uftrace_graph *graph,
 		     struct ftrace_task_handle *task)
 {
-	save_backtrace_time(graph, task);
+	if (!--graph->enabled)
+		save_backtrace_time(graph, task);
 
-	graph->enabled--;
 	return 0;
+}
+
+static int add_graph_entry(struct uftrace_graph *graph,
+			   struct ftrace_task_handle *task)
+{
+	struct graph_node *node = NULL;
+	struct ftrace_ret_stack *rstack = &task->ustack;
+
+	list_for_each_entry(node, &graph->curr_node->head, list) {
+		if (node->addr == rstack->addr)
+			break;
+	}
+
+	if (list_no_entry(node, &graph->curr_node->head, list)) {
+		node = xcalloc(1, sizeof(*node));
+
+		node->addr = rstack->addr;
+		INIT_LIST_HEAD(&node->head);
+
+		node->parent = graph->curr_node;
+		list_add_tail(&node->list, &node->parent->head);
+		node->parent->nr_edges++;
+	}
+
+	node->nr_calls++;
+	graph->curr_node = node;
+
+	return 0;
+}
+
+static int add_graph_exit(struct uftrace_graph *graph,
+			  struct ftrace_task_handle *task)
+{
+	struct fstack *fstack = &task->func_stack[task->stack_count];
+	struct graph_node *node = graph->curr_node;
+
+	node->time       += fstack->total_time;
+	node->child_time += fstack->child_time;
+
+	graph->curr_node = node->parent;
+
+	return 0;
+}
+
+static int add_graph(struct uftrace_graph *graph,
+		     struct ftrace_task_handle *task)
+{
+	struct ftrace_ret_stack *rstack = &task->ustack;
+
+	if (rstack->type == FTRACE_ENTRY)
+		return add_graph_entry(graph, task);
+	else if (rstack->type == FTRACE_EXIT)
+		return add_graph_exit(graph, task);
+	else
+		return 0;
+}
+
+static void pr_indent(bool *indent_mask, int indent, bool line)
+{
+	int i;
+	int last = -1;
+
+	for (i = 0; i < indent; i++) {
+		if (line && indent_mask[i])
+			last = i;
+	}
+
+	for (i = 0; i < indent; i++) {
+		if (!line || i < last) {
+			if (indent_mask[i])
+				pr_out(" | ");
+			else
+				pr_out("   ");
+		}
+		else {
+			if (i == last)
+				pr_out(" +-");
+			else
+				pr_out("---");
+		}
+	}
+}
+
+static void print_graph_node(struct uftrace_graph *graph,
+			     struct graph_node *node,
+			     bool *indent_mask, int indent, bool needs_line)
+{
+	struct sym *sym;
+	char *symname;
+	struct graph_node *parent = node->parent;
+	struct graph_node *child;
+	int orig_indent = indent;
+
+	sym = find_symtabs(&graph->sess->symtabs, node->addr);
+	symname = symbol_getname(sym, node->addr);
+
+	print_time_unit(node->time);
+	pr_out(" : ");
+	pr_indent(indent_mask, indent, needs_line);
+	pr_out("(%d) %s\n", node->nr_calls, symname);
+
+	if (node->nr_edges > 1) {
+		pr_dbg2("add mask (%d) for %s\n", indent, symname);
+		indent_mask[indent++] = true;
+	}
+
+	/* clear parent indent mask at the last node */
+	if (parent && parent->nr_edges > 1 && orig_indent > 0 &&
+	    parent->head.prev == &node->list)
+		indent_mask[orig_indent - 1] = false;
+
+	needs_line = (node->nr_edges > 1);
+	list_for_each_entry(child, &node->head, list) {
+		print_graph_node(graph, child, indent_mask, indent, needs_line);
+
+		if (&child->list != node->head.prev) {
+			/* print blank line between siblings */
+			pr_out("%*s: ", 12, "");
+			pr_indent(indent_mask, indent, false);
+			pr_out("\n");
+		}
+	}
+
+	indent_mask[orig_indent] = false;
+	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
+
+	symbol_putname(sym, symname);
+}
+
+static void print_graph(struct uftrace_graph *graph)
+{
+	bool indent_mask[1024];
+
+	pr_out("#\n");
+	pr_out("# function graph for '%s'\n", graph->func);
+	pr_out("#\n\n");
+
+	if (graph->nr_bt) {
+		pr_out("backtrace\n");
+		pr_out("================================\n");
+		print_backtrace(graph);
+	}
+
+	pr_out("calling functions\n");
+	pr_out("================================\n");
+	memset(indent_mask, 0, sizeof(indent_mask));
+	print_graph_node(graph, &graph->root, indent_mask, 0, graph->root.nr_edges > 1);
 }
 
 static int build_graph(struct ftrace_file_handle *handle, char *func)
@@ -250,6 +396,9 @@ static int build_graph(struct ftrace_file_handle *handle, char *func)
 				func_exit(&task);
 			else if (frs->type == FTRACE_LOST)
 				return func_lost();
+
+			if (graph->enabled)
+				add_graph(graph, &task);
 
 			if (!strcmp(name, func)) {
 				if (frs->type == FTRACE_ENTRY)
