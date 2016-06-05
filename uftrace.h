@@ -114,6 +114,7 @@ struct ftrace_file_handle {
 #define FTRACE_MODE_INFO    5
 #define FTRACE_MODE_RECV    6
 #define FTRACE_MODE_DUMP    7
+#define FTRACE_MODE_GRAPH   8
 
 #define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
 
@@ -169,6 +170,7 @@ int command_report(int argc, char *argv[], struct opts *opts);
 int command_info(int argc, char *argv[], struct opts *opts);
 int command_recv(int argc, char *argv[], struct opts *opts);
 int command_dump(int argc, char *argv[], struct opts *opts);
+int command_graph(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool ftrace_done;
 extern struct ftrace_proc_maps *proc_maps;
