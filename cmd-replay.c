@@ -157,11 +157,6 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		fmt = ARG_SPEC_CHARS[spec->fmt];
 
 		switch (spec->fmt) {
-		case ARG_FMT_SINT:
-		case ARG_FMT_UINT:
-		case ARG_FMT_HEX:
-			idx = ffs(spec->size) - 1;
-			break;
 		case ARG_FMT_AUTO:
 			memcpy(&val, data, spec->size);
 			if (val > 100000L || val < -100000L) {
@@ -181,6 +176,11 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				}
 			}
 			/* fall through */
+		case ARG_FMT_SINT:
+		case ARG_FMT_UINT:
+		case ARG_FMT_HEX:
+			idx = ffs(spec->size) - 1;
+			break;
 		default:
 			idx = 2;
 			break;
