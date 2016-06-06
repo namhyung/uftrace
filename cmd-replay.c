@@ -171,8 +171,11 @@ void get_argspec_string(struct ftrace_task_handle *task,
 					uint64_t val64 = val;
 
 					if (val64 >  0xffff0000 &&
-					    val64 <= 0xffffffff)
+					    val64 <= 0xffffffff) {
 						fmt = 'd';
+						idx = 2;
+						break;
+					}
 				}
 			}
 			/* fall through */
