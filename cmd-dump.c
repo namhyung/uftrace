@@ -350,7 +350,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		prev_time = 0;
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
-		while (!read_task_ustack(&task) && !ftrace_done) {
+		while (!read_task_ustack(handle, &task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
@@ -382,16 +382,12 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 			if (frs->more) {
 				if (frs->type == FTRACE_ENTRY) {
-					read_task_args(&task, frs, false);
-
 					pr_time(frs->time);
 					pr_out("%5d: [%s] length = %d\n", tid, "args ",
 							task.args.len);
 					pr_args(&task.args);
 					pr_hex(&file_offset, task.args.data, task.args.len);
 				} else if (frs->type == FTRACE_EXIT) {
-					read_task_args(&task, frs, true);
-
 					pr_time(frs->time);
 					pr_out("%5d: [%s] length = %d\n", tid, "retval",
 							task.args.len);
@@ -401,10 +397,10 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 					abort();
 			}
 
+			/* force re-read in read_task_ustack() */
+			task.valid = false;
 			symbol_putname(sym, name);
 		}
-
-		fclose(task.fp);
 	}
 
 	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
@@ -472,9 +468,6 @@ static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, ph, tid, name);
 		if (frs->more) {
-			bool is_retval = false;
-			read_task_args(task, frs, is_retval);
-
 			str_mode |= HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
@@ -486,9 +479,6 @@ static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, ph, tid, name);
 		if (frs->more) {
-			bool is_retval = true;
-			read_task_args(task, frs, is_retval);
-
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"retval\":\"%s\"}}",
@@ -524,7 +514,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 		if (task.fp == NULL)
 			continue;
 
-		while (!read_task_ustack(&task) && !ftrace_done) {
+		while (!read_task_ustack(handle, &task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
@@ -546,10 +536,10 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			last_comma = true;
 
+			/* force re-read in read_task_ustack() */
+			task.valid = false;
 			symbol_putname(sym, name);
 		}
-
-		fclose(task.fp);
 	}
 	pr_out("\n");
 	pr_out("], \"metadata\": {\n");
