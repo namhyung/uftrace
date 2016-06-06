@@ -493,15 +493,17 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	close(fd);
 
 	if (shmem_buf->flag & SHMEM_FL_RECORDING) {
-		if (shmem_buf->size)
-			copy_to_buffer(shmem_buf, sess_id);
-
 		if (shmem_buf->flag & SHMEM_FL_NEW) {
 			sl = xmalloc(sizeof(*sl));
 			memcpy(sl->id, sess_id, sizeof(sl->id));
 
 			/* link to shmem_list */
 			list_add_tail(&sl->list, &shmem_need_unlink);
+		}
+
+		if (shmem_buf->size) {
+			/* shmem_buf will be unmapped */
+			copy_to_buffer(shmem_buf, sess_id);
 		}
 	}
 
