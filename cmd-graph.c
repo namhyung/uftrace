@@ -347,7 +347,7 @@ out:
 
 static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 {
-	bool indent_mask[1024];
+	bool *indent_mask;
 
 	pr_out("#\n");
 	pr_out("# function graph for '%s'\n", graph->func);
@@ -361,9 +361,10 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 
 	pr_out("calling functions\n");
 	pr_out("================================\n");
-	memset(indent_mask, 0, sizeof(indent_mask));
+	indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 	print_graph_node(graph, &graph->root, opts->depth,
 			 indent_mask, 0, graph->root.nr_edges > 1);
+	free(indent_mask);
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
