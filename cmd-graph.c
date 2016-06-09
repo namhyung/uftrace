@@ -295,7 +295,7 @@ static void pr_indent(bool *indent_mask, int indent, bool line)
 }
 
 static void print_graph_node(struct uftrace_graph *graph,
-			     struct graph_node *node,
+			     struct graph_node *node, int depth,
 			     bool *indent_mask, int indent, bool needs_line)
 {
 	struct sym *sym;
@@ -322,9 +322,13 @@ static void print_graph_node(struct uftrace_graph *graph,
 	    parent->head.prev == &node->list)
 		indent_mask[orig_indent - 1] = false;
 
+	if (depth == 1)
+		goto out;
+
 	needs_line = (node->nr_edges > 1);
 	list_for_each_entry(child, &node->head, list) {
-		print_graph_node(graph, child, indent_mask, indent, needs_line);
+		print_graph_node(graph, child, depth - 1, indent_mask, indent,
+				 needs_line);
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
@@ -334,13 +338,14 @@ static void print_graph_node(struct uftrace_graph *graph,
 		}
 	}
 
+out:
 	indent_mask[orig_indent] = false;
 	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
 
 	symbol_putname(sym, symname);
 }
 
-static void print_graph(struct uftrace_graph *graph)
+static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 {
 	bool indent_mask[1024];
 
@@ -357,10 +362,11 @@ static void print_graph(struct uftrace_graph *graph)
 	pr_out("calling functions\n");
 	pr_out("================================\n");
 	memset(indent_mask, 0, sizeof(indent_mask));
-	print_graph_node(graph, &graph->root, indent_mask, 0, graph->root.nr_edges > 1);
+	print_graph_node(graph, &graph->root, opts->depth,
+			 indent_mask, 0, graph->root.nr_edges > 1);
 }
 
-static int build_graph(struct ftrace_file_handle *handle, char *func)
+static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
 {
 	int i, ret = 0;
 	struct ftrace_task_handle task;
@@ -415,7 +421,7 @@ static int build_graph(struct ftrace_file_handle *handle, char *func)
 
 	graph = graph_list;
 	while (graph) {
-		print_graph(graph);
+		print_graph(graph, opts);
 		graph = graph->next;
 	}
 
@@ -448,7 +454,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_prepare_fixup();
 
-	ret = build_graph(&handle, func);
+	ret = build_graph(opts, &handle, func);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
