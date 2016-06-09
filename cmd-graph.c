@@ -372,6 +372,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 	int i, ret = 0;
 	struct ftrace_task_handle task;
 	struct uftrace_graph *graph;
+	uint64_t prev_time;
 
 	setup_graph_list(func);
 
@@ -383,7 +384,9 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 		if (task.fp == NULL)
 			continue;
 
-		while (!read_task_ustack(handle, &task)) {
+		prev_time = 0;
+
+		while (!read_task_ustack(handle, &task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct sym *sym = NULL;
 			char *name;
@@ -404,6 +407,18 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			else if (frs->type == FTRACE_LOST)
 				return func_lost();
 
+			if (prev_time > frs->time) {
+				pr_log("inverted time: broken data?\n");
+				return -1;
+			}
+			prev_time = frs->time;
+
+			if (task.stack_count < 0 ||
+			    task.stack_count > opts->max_stack) {
+				pr_log("invalid stack count: broken data?\n");
+				return -1;
+			}
+
 			if (graph->enabled)
 				add_graph(graph, &task);
 
@@ -421,7 +436,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 	}
 
 	graph = graph_list;
-	while (graph) {
+	while (graph && !ftrace_done) {
 		print_graph(graph, opts);
 		graph = graph->next;
 	}
