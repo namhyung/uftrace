@@ -42,6 +42,9 @@ struct buf_list {
 static LIST_HEAD(buf_free_list);
 static LIST_HEAD(buf_write_list);
 
+/* currently active writers */
+static LIST_HEAD(writer_list);
+
 static pthread_mutex_t free_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t write_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t write_cond = PTHREAD_COND_INITIALIZER;
@@ -332,11 +335,12 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 }
 
 struct writer_arg {
+	struct list_head	list;
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
 	int			sock;
 	int			idx;
-	int			bufsize;
+	int			tid;
 	int			nr_cpu;
 	int			cpus[];
 };
@@ -377,11 +381,31 @@ void *writer_thread(void *arg)
 				break;
 		}
 
-		if (!list_empty(&buf_write_list)) {
-			buf = list_first_entry(&buf_write_list, struct buf_list, list);
-			list_del(&buf->list);
+		list_for_each_entry(buf, &buf_write_list, list) {
+			int tid = 0;
+			struct writer_arg *writer;
+
+			parse_msg_id(buf->id, NULL, &tid, NULL);
+
+			/* check other writers work for this tid */
+			list_for_each_entry(writer, &writer_list, list) {
+				if (tid == writer->tid)
+					break;
+			}
+
+			/* currently no other writer works for this task */
+			if (list_no_entry(writer, &writer_list, list)) {
+				/* remove buf from the list */
+				list_del(&buf->list);
+
+				/* inform current writer is working on this tid */
+				warg->tid = tid;
+				list_add(&warg->list, &writer_list);
+				break;
+			}
 		}
-		else
+
+		if (list_no_entry(buf, &buf_write_list, list))
 			buf = NULL;
 
 		pthread_mutex_unlock(&write_list_lock);
@@ -406,6 +430,11 @@ void *writer_thread(void *arg)
 			 */
 			__sync_synchronize();
 			shmbuf->flag = SHMEM_FL_WRITTEN;
+
+			pthread_mutex_lock(&write_list_lock);
+			warg->tid = -1;
+			list_del_init(&warg->list);
+			pthread_mutex_unlock(&write_list_lock);
 
 			munmap(shmbuf, opts->bsize);
 			buf->shmem_buf = NULL;
@@ -1270,6 +1299,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		warg->idx  = i;
 		warg->sock = sock;
 		warg->kern = &kern;
+		INIT_LIST_HEAD(&warg->list);
 
 		if (opts->kernel) {
 			warg->nr_cpu = cpu_per_thread;
