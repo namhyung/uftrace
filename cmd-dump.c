@@ -307,6 +307,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		     struct ftrace_file_handle *handle)
 {
 	int i;
+	uint64_t prev_time;
 	uint64_t file_offset = 0;
 	struct ftrace_task_handle task;
 
@@ -346,6 +347,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		if (task.fp == NULL)
 			continue;
 
+		prev_time = 0;
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
 		while (!read_task_ustack(&task) && !ftrace_done) {
@@ -361,6 +363,15 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 			}
 
 			name = symbol_getname(sym, frs->addr);
+
+			if (prev_time > frs->time) {
+				pr_red("\n");
+				pr_red("*************************************\n");
+				pr_red("* inverted time - data seems broken *\n");
+				pr_red("*************************************\n");
+				pr_red("\n");
+			}
+			prev_time = frs->time;
 
 			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
