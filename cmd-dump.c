@@ -348,7 +348,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 		file_offset = 0;
 		pr_out("reading %d.dat\n", tid);
-		while (!read_task_ustack(&task)) {
+		while (!read_task_ustack(&task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
@@ -396,7 +396,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		fclose(task.fp);
 	}
 
-	if (opts->kernel == 0 || handle->kern == NULL)
+	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
 		return;
 
 	pr_out("\n");
@@ -411,7 +411,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		file_offset = 0;
 		offset = kbuffer_curr_offset(kbuf);
 		pr_out("reading kernel-cpu%d.dat\n", i);
-		while (!read_kernel_cpu_data(kernel, i)) {
+		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
 			int losts = kernel->missed_events[i];
 
 			sym = find_symtabs(NULL, mrs->child_ip);
@@ -513,7 +513,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 		if (task.fp == NULL)
 			continue;
 
-		while (!read_task_ustack(&task)) {
+		while (!read_task_ustack(&task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task.ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
