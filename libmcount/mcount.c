@@ -283,7 +283,7 @@ static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	int i;
 
-	pr_dbg2("releasing all shmem buffers\n");
+	pr_dbg2("releasing all shmem buffers for task %d\n", gettid(mtdp));
 
 	for (i = 0; i < shmem->nr_buf; i++)
 		munmap(shmem->buffer[i], shmem_bufsize);
@@ -296,20 +296,19 @@ static void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 static void shmem_finish(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	int i;
+	struct mcount_shmem_buffer *curr_buf;
 
-	/* force update seqnum to call finish on remaining buffers */
-	for (i = 0; i < shmem->nr_buf; i++) {
-		struct mcount_shmem_buffer *curr_buf;
-
-		curr_buf = shmem->buffer[i];
+	if (shmem->curr >= 0) {
+		curr_buf = shmem->buffer[shmem->curr];
 
 		if (curr_buf->flag & SHMEM_FL_RECORDING)
-			finish_shmem_buffer(mtdp, i);
+			finish_shmem_buffer(mtdp, shmem->curr);
 	}
 
-	pr_dbg("%s: tid: %d, seqnum = %u, nr_buf = %d max_buf = %d\n",
-	       __func__, gettid(mtdp), shmem->seqnum, shmem->nr_buf, shmem->max_buf);
+	pr_dbg("%s: tid: %d seqnum = %u curr = %d, nr_buf = %d max_buf = %d\n",
+	       __func__, gettid(mtdp), shmem->seqnum, shmem->curr,
+	       shmem->nr_buf, shmem->max_buf);
+
 	clear_shmem_buffer(mtdp);
 }
 
