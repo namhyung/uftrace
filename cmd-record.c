@@ -315,7 +315,7 @@ static char *make_disk_name(const char *dirname, char *id)
 	return filename;
 }
 
-static int write_buffer_file(const char *dirname, struct buf_list *buf)
+static void write_buffer_file(const char *dirname, struct buf_list *buf)
 {
 	int fd;
 	char *filename;
@@ -331,7 +331,18 @@ static int write_buffer_file(const char *dirname, struct buf_list *buf)
 
 	close(fd);
 	free(filename);
-	return 0;
+}
+
+static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
+{
+	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
+	int tid;
+
+	if (!opts->host)
+		return write_buffer_file(opts->dirname, buf);
+
+	parse_msg_id(buf->id, NULL, &tid, NULL);
+	send_trace_data(sock, tid, shmbuf->data, shmbuf->size);
 }
 
 struct writer_arg {
@@ -413,15 +424,7 @@ void *writer_thread(void *arg)
 		if (buf) {
 			struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
-			if (opts->host) {
-				int tid = 0;
-
-				parse_msg_id(buf->id, NULL, &tid, NULL);
-				send_trace_data(warg->sock, tid, shmbuf->data,
-						shmbuf->size);
-			} else {
-				write_buffer_file(opts->dirname, buf);
-			}
+			write_buffer(buf, opts, warg->sock);
 
 			/*
 			 * Now it has consumed all contents in the shmem buffer,
@@ -539,6 +542,35 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	return 0;
 }
 
+static void stop_all_writers(void)
+{
+	pthread_mutex_lock(&write_list_lock);
+	buf_done = true;
+	pthread_cond_broadcast(&write_cond);
+	pthread_mutex_unlock(&write_list_lock);
+}
+
+static void record_remaining_buffer(struct opts *opts, int sock)
+{
+	struct buf_list *buf;
+
+	/* called after all writers gone, no lock is needed */
+	while (!list_empty(&buf_write_list)) {
+		buf = list_first_entry(&buf_write_list, struct buf_list, list);
+		write_buffer(buf, opts, sock);
+
+		list_del(&buf->list);
+		free(buf);
+	}
+
+	while (!list_empty(&buf_free_list)) {
+		buf = list_first_entry(&buf_free_list, struct buf_list, list);
+
+		list_del(&buf->list);
+		free(buf);
+	}
+}
+
 static void flush_shmem_list(const char *dirname, int bufsize)
 {
 	struct shmem_list *sl, *tmp;
@@ -551,11 +583,6 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 		record_mmap_file(dirname, sl->id, bufsize);
 		free(sl);
 	}
-
-	pthread_mutex_lock(&write_list_lock);
-	buf_done = true;
-	pthread_cond_broadcast(&write_cond);
-	pthread_mutex_unlock(&write_list_lock);
 }
 
 static char shmem_session[20];
@@ -1378,10 +1405,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		getrusage(RUSAGE_CHILDREN, &usage);
 	}
 
-	flush_shmem_list(opts->dirname, opts->bsize);
-	unlink_shmem_list();
-	free_tid_list();
-
+	stop_all_writers();
 	if (opts->kernel)
 		stop_kernel_tracing(&kern);
 
@@ -1398,6 +1422,11 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	for (i = 0; i < opts->nr_thread; i++)
 		pthread_join(writers[i], NULL);
+
+	flush_shmem_list(opts->dirname, opts->bsize);
+	record_remaining_buffer(opts, sock);
+	unlink_shmem_list();
+	free_tid_list();
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);
