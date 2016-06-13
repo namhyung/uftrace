@@ -508,6 +508,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->mode = FTRACE_MODE_RECV;
 		else if (!strcmp("dump", arg))
 			opts->mode = FTRACE_MODE_DUMP;
+		else if (!strcmp("graph", arg))
+			opts->mode = FTRACE_MODE_GRAPH;
 		else
 			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
 		break;
@@ -532,6 +534,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			switch (opts->mode) {
 			case FTRACE_MODE_RECORD:
 			case FTRACE_MODE_LIVE:
+			case FTRACE_MODE_GRAPH:
 				argp_usage(state);
 				break;
 			default:
@@ -565,7 +568,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump|recv] [<command> args...]",
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<command> args...]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 
@@ -627,6 +630,9 @@ int main(int argc, char *argv[])
 		break;
 	case FTRACE_MODE_DUMP:
 		command_dump(argc, argv, &opts);
+		break;
+	case FTRACE_MODE_GRAPH:
+		command_graph(argc, argv, &opts);
 		break;
 	case FTRACE_MODE_INVALID:
 		break;

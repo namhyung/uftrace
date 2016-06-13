@@ -561,16 +561,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	return next;
 }
 
-/**
- * read_task_ustack - read user function record for @task
- * @task: tracee task
- *
- * This function reads current ftrace rcord and save it to @task->ustack.
- * Data file it accesses should be opened already.
- *
- * This function returns 0 if succeeded, -1 otherwise.
- */
-int read_task_ustack(struct ftrace_task_handle *task)
+static int __read_task_ustack(struct ftrace_task_handle *task)
 {
 	FILE *fp = task->fp;
 
@@ -683,43 +674,32 @@ int read_task_args(struct ftrace_task_handle *task,
 }
 
 /**
- * get_task_ustack - read task's user function record
+ * read_task_ustack - read user function record for @task
  * @handle: file handle
- * @idx: task index
+ * @task: tracee task
  *
- * This function returns current ftrace record of @idx-th task from
- * data file in @handle.
+ * This function reads current ftrace rcord and save it to @task->ustack.
+ * Data file it accesses should be opened already.  When @task->valid is
+ * set, it just returns @task->ustack already read, so if you want to force
+ * read from file, the @task->valid should be reset before calling this
+ * function.
+ *
+ * This function returns 0 if succeeded, -1 otherwise.
  */
-struct ftrace_ret_stack *
-get_task_ustack(struct ftrace_file_handle *handle, int idx)
+int read_task_ustack(struct ftrace_file_handle *handle,
+		     struct ftrace_task_handle *task)
 {
-	struct ftrace_task_handle *task;
-
-	if (unlikely(idx >= handle->nr_tasks)) {
-		handle->nr_tasks = idx + 1;
-		handle->tasks = xrealloc(handle->tasks,
-					 sizeof(*handle->tasks) * handle->nr_tasks);
-
-		setup_task_handle(handle, &handle->tasks[idx],
-				  handle->info.tids[idx]);
-
-		if (handle->tasks[idx].fp == NULL)
-			return NULL;
-	}
-
-	task = &handle->tasks[idx];
-
 	if (task->valid)
-		return &task->ustack;
+		return 0;
 
-	if (task->done)
-		return NULL;
+	if (task->done || task->fp == NULL)
+		return -1;
 
-	if (read_task_ustack(task) < 0) {
+	if (__read_task_ustack(task) < 0) {
 		task->done = true;
 		fclose(task->fp);
 		task->fp = NULL;
-		return NULL;
+		return -1;
 	}
 
 	if (task->lost_seen) {
@@ -749,6 +729,39 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 	}
 
 	task->valid = true;
+	return 0;
+}
+
+/**
+ * get_task_ustack - read task's user function record
+ * @handle: file handle
+ * @idx: task index
+ *
+ * This function returns current ftrace record of @idx-th task from
+ * data file in @handle.
+ */
+struct ftrace_ret_stack *
+get_task_ustack(struct ftrace_file_handle *handle, int idx)
+{
+	struct ftrace_task_handle *task;
+
+	if (unlikely(idx >= handle->nr_tasks)) {
+		handle->nr_tasks = idx + 1;
+		handle->tasks = xrealloc(handle->tasks,
+					 sizeof(*handle->tasks) * handle->nr_tasks);
+
+		setup_task_handle(handle, &handle->tasks[idx],
+				  handle->info.tids[idx]);
+
+		if (handle->tasks[idx].fp == NULL)
+			return NULL;
+	}
+
+	task = &handle->tasks[idx];
+
+	if (read_task_ustack(handle, task) < 0)
+		return NULL;
+
 	return &task->ustack;
 }
 
