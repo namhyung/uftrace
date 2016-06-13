@@ -406,6 +406,14 @@ out:
 	return 0;
 }
 
+static void print_warning(struct ftrace_task_handle *task)
+{
+	print_time_unit(0UL);
+	pr_out(" %7s |", "");
+	pr_red(" %*s/* inverted time: broken data? */\n",
+	       (task->display_depth + 1) * 2, "");
+}
+
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
 	/* skip 'sys_exit[_group] at last for simple kernel tracing (-k) */
@@ -473,6 +481,7 @@ static void print_remaining_stack(struct opts *opts,
 int command_replay(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
+	uint64_t prev_time = 0;
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle *task;
 	struct ftrace_kernel kern;
@@ -514,6 +523,15 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		pr_out("# DURATION    TID     FUNCTION\n");
 
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
+		/*
+		 * data sanity check: timestamp should be ordered.
+		 * But print_graph_rstack() may change task->rstack
+		 * during fstack_skip().  So check the timestamp here.
+		 */
+		if (prev_time > task->rstack->time)
+			print_warning(task);
+		prev_time = task->rstack->time;
+
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task, opts);
 		else
