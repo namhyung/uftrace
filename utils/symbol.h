@@ -51,6 +51,7 @@ struct ftrace_proc_maps {
 enum symtab_flag {
 	SYMTAB_FL_DEMANGLE	= (1U << 0),
 	SYMTAB_FL_USE_SYMFILE	= (1U << 1),
+	SYMTAB_FL_ADJ_OFFSET	= (1U << 2),
 };
 
 struct symtabs {

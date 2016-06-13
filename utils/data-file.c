@@ -16,6 +16,7 @@
  * read_task_file - read 'task' file from data directory
  * @dirname: name of the data directory
  * @needs_session: read session info too
+ * @sym_rel_addr: whether symbol address is relative
  *
  * This function read the task file in the @dirname and build task
  * (and session when @needs_session is %true) information.  Note that
@@ -24,7 +25,7 @@
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_file(char *dirname, bool needs_session)
+int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
 {
 	int fd;
 	char pad[8];
@@ -54,7 +55,7 @@ int read_task_file(char *dirname, bool needs_session)
 				return -1;
 
 			if (needs_session)
-				create_session(&sess, dirname, buf);
+				create_session(&sess, dirname, buf, sym_rel_addr);
 			break;
 
 		case FTRACE_MSG_TID:
@@ -85,13 +86,14 @@ int read_task_file(char *dirname, bool needs_session)
  * read_task_txt_file - read 'task.txt' file from data directory
  * @dirname: name of the data directory
  * @needs_session: read session info too
+ * @sym_rel_addr: whethere symbol address is relative
  *
  * This function read the task.txt file in the @dirname and build task
  * (and session when @needs_session is %true) information.
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_txt_file(char *dirname, bool needs_session)
+int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -145,7 +147,7 @@ int read_task_txt_file(char *dirname, bool needs_session)
 			sess.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			sess.namelen = strlen(exename);
 
-			create_session(&sess, dirname, exename);
+			create_session(&sess, dirname, exename, sym_rel_addr);
 		}
 	}
 
@@ -292,9 +294,14 @@ retry:
 		opts->exename = handle->info.exename;
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
+		bool sym_rel = false;
+
+		if (handle->hdr.feat_mask & SYM_REL_ADDR)
+			sym_rel = true;
+
 		// read task.txt first and then try old task file
-		if (read_task_txt_file(opts->dirname, true) < 0 &&
-		    read_task_file(opts->dirname, true) < 0)
+		if (read_task_txt_file(opts->dirname, true, sym_rel) < 0 &&
+		    read_task_file(opts->dirname, true, sym_rel) < 0)
 			pr_err("invalid task file");
 	}
 

@@ -212,6 +212,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
 
+	/* symbol file saves relative address */
+	features |= SYM_REL_ADDR;
+
 	if (opts->kernel)
 		features |= KERNEL;
 

@@ -40,6 +40,7 @@ enum ftrace_feat_bits {
 	KERNEL_BIT,
 	ARGUMENT_BIT,
 	RETVAL_BIT,
+	SYM_REL_ADDR_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
@@ -47,6 +48,7 @@ enum ftrace_feat_bits {
 	KERNEL			= (1U << KERNEL_BIT),
 	ARGUMENT		= (1U << ARGUMENT_BIT),
 	RETVAL			= (1U << RETVAL_BIT),
+	SYM_REL_ADDR		= (1U << SYM_REL_ADDR_BIT),
 };
 
 enum ftrace_info_bits {
@@ -179,8 +181,8 @@ extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-int read_task_file(char *dirname, bool needs_session);
-int read_task_txt_file(char *dirname, bool needs_session);
+int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr);
+int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr);
 
 struct ftrace_session {
 	struct rb_node		 node;
@@ -249,7 +251,8 @@ struct ftrace_msg_sess {
 
 extern struct ftrace_session *first_session;
 
-void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename);
+void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
+		    bool sym_rel_addr);
 struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);

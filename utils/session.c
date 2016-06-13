@@ -70,7 +70,8 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
  * This function allocates a new session started by a task.  The new
  * session will be added to sessions tree sorted by pid and timestamp.
  */
-void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
+void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
+		    bool sym_rel_addr)
 {
 	struct ftrace_session *s;
 	struct rb_node *parent = NULL;
@@ -105,6 +106,9 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 		s->pid, s->sid);
 
 	s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
+	if (sym_rel_addr)
+		s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
+
 	read_map_file(dirname, s);
 	load_symtabs(&s->symtabs, dirname, s->exename);
 
@@ -360,7 +364,7 @@ TEST_CASE(session_search)
 		};
 
 		creat("sid-test.map", 0400);
-		create_session(&msg, ".", "unittest");
+		create_session(&msg, ".", "unittest", false);
 		remove("sid-test.map");
 	}
 
@@ -407,7 +411,7 @@ TEST_CASE(task_search)
 		};
 
 		creat("sid-initial.map", 0400);
-		create_session(&smsg, ".", "unittest");
+		create_session(&smsg, ".", "unittest", false);
 		create_task(&tmsg, false, true);
 		remove("sid-initial.map");
 
@@ -509,7 +513,7 @@ TEST_CASE(task_search)
 		};
 
 		creat("sid-after_exec.map", 0400);
-		create_session(&smsg, ".", "unittest");
+		create_session(&smsg, ".", "unittest", false);
 		create_task(&tmsg, false, true);
 		remove("sid-after_exec.map");
 
