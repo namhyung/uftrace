@@ -1152,7 +1152,7 @@ static void print_child_usage(struct rusage *ru)
 "\tThis file doesn't look like an executable ELF file.\n"		\
 "\tPlease check whether it's a kind of script or shell functions.\n"
 
-#define OBJTYPE_MSG  "Cannot trace '%s': Invalid ELF object\n"		\
+#define OBJTYPE_MSG  "Cannot trace '%s': Invalid ELF object type\n"	\
 "\tNote that ftrace only trace ELF executables by default,\n"		\
 "\tIf you want to trace shared libraries, please use --force option.\n"
 
@@ -1203,7 +1203,7 @@ static void check_binary(struct opts *opts, struct symtabs *symtabs)
 	if (read(fd, &e_type, sizeof(e_type)) < 0)
 		pr_err("Cannot read '%s'", opts->exename);
 
-	if (e_type != ET_EXEC)
+	if (e_type != ET_EXEC && !opts->force)
 		pr_err_ns(OBJTYPE_MSG, opts->exename);
 
 	if (read(fd, &e_machine, sizeof(e_machine)) < 0)
