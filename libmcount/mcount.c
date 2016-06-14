@@ -34,7 +34,9 @@
 #include "utils/compiler.h"
 
 uint64_t mcount_threshold;  /* nsec */
-struct symtabs symtabs;
+struct symtabs symtabs = {
+	.flags = SYMTAB_FL_DEMANGLE,
+};
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
 bool mcount_finished;

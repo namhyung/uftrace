@@ -87,6 +87,8 @@ void unload_symtabs(struct symtabs *symtabs)
 	pr_dbg2("unload symbol tables\n");
 	__unload_symtab(&symtabs->symtab);
 	__unload_symtab(&symtabs->dsymtab);
+
+	symtabs->loaded = false;
 }
 
 static int load_symtab(struct symtabs *symtabs, const char *filename,
@@ -208,9 +210,18 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 		if (ver)
 			name = xstrndup(name, ver - name);
 
-		sym->name = demangle(name);
-		if (ver)
-			free(name);
+		if (symtabs->flags & SYMTAB_FL_DEMANGLE) {
+			if (ver)
+				name = xstrndup(name, ver - name);
+			sym->name = demangle(name);
+			if (ver)
+				free(name);
+		}
+		else {
+			if (ver == NULL)
+				name = strdup(name);
+			sym->name = name;
+		}
 
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
@@ -369,8 +380,12 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		sym->addr = esym.st_value ?: plt_addr + (idx+1) * plt_entsize;
 		sym->size = plt_entsize;
-		sym->type = ST_PLT,
-		sym->name = demangle(name);
+		sym->type = ST_PLT;
+
+		if (symtabs->flags & SYMTAB_FL_DEMANGLE)
+			sym->name = demangle(name);
+		else
+			sym->name = xstrdup(name);
 
 		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC)
 			sym->addr = 0;
@@ -427,7 +442,7 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		return;
 
 	/* try .sym files first */
-	if (dirname != NULL) {
+	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
 		char *symfile = NULL;
 
 		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
