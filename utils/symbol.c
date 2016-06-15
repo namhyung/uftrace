@@ -298,7 +298,8 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
+static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
+			  unsigned long offset)
 {
 	int fd;
 	int ret = -1;
@@ -444,6 +445,8 @@ elf_error:
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
 {
+	unsigned long offset = 0;
+
 	if (symtabs->loaded)
 		return;
 
@@ -453,20 +456,21 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 
 		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
 		if (access(symfile, F_OK) == 0)
-			load_symbol_file(symfile, symtabs);
+			load_symbol_file(symtabs, symfile, offset);
 
 		free(symfile);
 	}
 
 	if (symtabs->symtab.nr_sym == 0)
-		load_symtab(symtabs, filename, 0);
+		load_symtab(symtabs, filename, offset);
 	if (symtabs->dsymtab.nr_sym == 0)
-		load_dynsymtab(symtabs, filename);
+		load_dynsymtab(symtabs, filename, offset);
 
 	symtabs->loaded = true;
 }
 
-int load_symbol_file(const char *symfile, struct symtabs *symtabs)
+int load_symbol_file(struct symtabs *symtabs, const char *symfile,
+		     unsigned long offset)
 {
 	FILE *fp;
 	char *line = NULL;
@@ -483,7 +487,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		return -1;
 	}
 
-	pr_dbg2("loading symbols from %s\n", symfile);
+	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
 	while (getline(&line, &len, fp) > 0) {
 		struct sym *sym;
 		uint64_t addr;
@@ -554,7 +558,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 
 		sym = &stab->sym[stab->nr_sym++];
 
-		sym->addr = addr;
+		sym->addr = addr + offset;
 		sym->type = type;
 		sym->name = demangle(name);
 		sym->size = 0;
@@ -563,7 +567,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 			sym->type, sym->addr, sym->size, sym->name);
 
 		if (stab->nr_sym > 1)
-			sym[-1].size = addr - sym[-1].addr;
+			sym[-1].size = sym->addr - sym[-1].addr;
 	}
 	free(line);
 
@@ -640,7 +644,7 @@ int load_kernel_symbol(void)
 	if (ksymtabs.loaded)
 		return 0;
 
-	if (load_symbol_file("/proc/kallsyms", &ksymtabs) < 0)
+	if (load_symbol_file(&ksymtabs, "/proc/kallsyms", 0) < 0)
 		return -1;
 
 	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)

@@ -85,7 +85,8 @@ size_t count_dynsym(struct symtabs *symtabs);
 
 int load_kernel_symbol(void);
 struct symtab * get_kernel_symtab(void);
-int load_symbol_file(const char *symfile, struct symtabs *symtabs);
+int load_symbol_file(struct symtabs *symtabs, const char *symfile,
+		     unsigned long offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);
 
