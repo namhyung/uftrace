@@ -185,7 +185,6 @@ struct ftrace_session {
 	char			 sid[16];
 	uint64_t		 start_time;
 	int			 pid, tid;
-	struct ftrace_proc_maps *maps;
 	struct symtabs		 symtabs;
 	struct rb_root		 filters;
 	struct rb_root		 fixups;

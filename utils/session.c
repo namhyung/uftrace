@@ -21,7 +21,7 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	struct ftrace_proc_maps **maps = &sess->maps;
+	struct ftrace_proc_maps **maps = &sess->symtabs.maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sess->sid);
 	fp = fopen(buf, "rb");
