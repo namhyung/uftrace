@@ -1450,15 +1450,12 @@ static char *demangle_full(char *str)
 	size_t len = 64;  /* minimum length */
 	int status;
 
-	/* reserve 4 times of the original length for safety */
-	if (strlen(str) > 16)
-		len = strlen(str) * 4;
+	__cxa_demangle(str, NULL, &len, &status);
+	if (status < 0)
+		return xstrdup(str);
 
 	symname = xmalloc(len);
 	__cxa_demangle(str, symname, &len, &status);
-
-	if (status < 0)
-		return xstrdup(str);
 
 	return symname;
 }
