@@ -1,14 +1,16 @@
 % UFTRACE(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
-% March, 2015
+% Jun, 2016
 
 NAME
 ====
 uftrace - Function graph tracer for userspace
 
+
 SYNOPSIS
 ========
-uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*] [*options*] COMMAND [*command-options*]
+
 
 DESCRIPTION
 ===========
@@ -17,6 +19,7 @@ The uftrace is a function tracer that traces an execution of given COMMAND in th
 This command consists of a number of sub-commands like `git`(1) or `perf`(1).  The below is a short description of each sub-commands.  For more detailed information, see its manual page.  The options in this page can be given to any sub-command also.
 
 For convenience, if no sub-command is given, it'd act like `live` sub-command which runs `record` and `replay` sub-command in turn.  See `uftrace-live`(1) for options belongs to the `live` sub-command.  For more detailed analysis, it'd be better using `uftrace-record`(1) to save trace data, and then analyze it with other uftrace commands like `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1) or `uftrace-replay`(1).
+
 
 SUB-COMMANDS
 ============
@@ -40,6 +43,10 @@ dump
 
 recv
 :   Save tracing data sent to network
+
+graph
+:   Print function call graph
+
 
 OPTIONS
 =======
@@ -73,6 +80,7 @@ OPTIONS
 \--no-pager
 :   Do not use pager
 
+
 SEE ALSO
 ========
-`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1)
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1)
