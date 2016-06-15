@@ -23,20 +23,24 @@ supported and cannot trace internal function calls in the library call
 unless the library itself built with profiling enabled.
 
 It can show detailed execution flow at function level, and report which
-function has highest overhead.  And it also shows various information
+function has the highest overhead.  And it also shows various information
 related the execution environment.
 
 You can setup a filter to exclude or include specific functions when tracing.
+In addition, it can save and show function arguments and return value.
 
-It also supports multi-process and/or multi-threaded applications.
+It supports multi-process and/or multi-threaded applications.  With root
+privilege, it can also trace kernel functions with (-k option) if the
+system enables the function graph tracer in the kernel
+(`CONFIG_FUNCTION_GRAPH_TRACER=y`).
 
 
 How to use uftrace
 ==================
-The uftrace command has 5 subcommands: record, replay, report, live, info.
+The uftrace command has following subcommands: record, replay, report, live, info, dump, recv, graph.
 
     $ uftrace
-    Usage: uftrace [OPTION...] [record|replay|live|report|info] [<command> args...]
+    Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the live command which is almost same as running
@@ -62,7 +66,7 @@ For recording, the executable should be compiled with -pg
        5.769 us [ 1892] | } /* main */
 
 For more analysis, you'd be better recording it first so that it can run
-analysis commands like replay, report and/or info multiple times.
+analysis commands like replay, report, graph, dump and/or info multiple times.
 
     $ uftrace record tests/t-abc
 
@@ -75,7 +79,13 @@ the t-abc is a very simple program merely calls a, b and c functions.
 In the c function it called getpid() which is a library function implemented
 in the C library (glibc) on normal systems - the same goes to __cxa_atexit().
 
-The report command lets you know which function spends longest time
+Users can use various filter options to limit functions it records/prints.
+The depth filter (-D option) is to omit functions under the given call depth.
+The time filter (-t option) is to omit functions running less than the given
+time. And the function filters (-F and -N options) are to show/hide functions
+under the given function.
+
+The report command lets you know which function spends the longest time
 including its children (total time).
 
     $ uftrace report
@@ -89,6 +99,31 @@ including its children (total time).
         0.936 us    0.936 us           1  __cxa_atexit
         0.763 us    0.763 us           1  getpid
 
+
+The graph command shows function call graph of given function.  In the above
+example, function graph of function 'a' looks like below:
+
+    $ uftrace graph  a
+    # 
+    # function graph for 'a'
+    # 
+    
+    backtrace
+    ================================
+     backtrace #0: hit 1, time  19.334 us
+       [0] main (0x4004f0)
+       [1] a (0x40069f)
+    
+    calling functions
+    ================================
+      19.334 us : (1) a
+      16.667 us : (1) b
+      15.001 us : (1) c
+       5.333 us : (1) getpid
+
+
+The dump command shows raw output of each trace record.  You can see the result
+in the chrome browser, once the data is processed with `uftrace dump --chrome`.
 
 The info command shows system and program information when recorded.
 
