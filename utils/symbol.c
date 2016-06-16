@@ -670,9 +670,12 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
-	fp = fopen(symfile, "w");
-	if (fp == NULL)
+	fp = fopen(symfile, "wx");
+	if (fp == NULL) {
+		if (errno == EEXIST)
+			return;
 		pr_err("cannot open %s file", symfile);
+	}
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
