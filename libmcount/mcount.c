@@ -35,7 +35,7 @@
 
 uint64_t mcount_threshold;  /* nsec */
 struct symtabs symtabs = {
-	.flags = SYMTAB_FL_DEMANGLE,
+	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
 };
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
@@ -575,26 +575,62 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 
 static void record_proc_maps(char *dirname, const char *sess_id)
 {
-	int ifd, ofd, len;
+	FILE *ifp, *ofp;
 	char buf[4096];
+	bool found = false;
 
-	ifd = open("/proc/self/maps", O_RDONLY);
-	if (ifd < 0)
+	ifp = fopen("/proc/self/maps", "r");
+	if (ifp == NULL)
 		pr_err("cannot open proc maps file");
 
 	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, sess_id);
 
-	ofd = open(buf, O_WRONLY | O_CREAT, 0644);
-	if (ofd < 0)
+	ofp = fopen(buf, "w");
+	if (ofp == NULL)
 		pr_err("cannot open for writing maps file");
 
-	while ((len = read(ifd, buf, sizeof(buf))) > 0) {
-		if (write(ofd, buf, len) != len)
-			pr_err("write proc maps failed");
+	while (fgets(buf, sizeof(buf), ifp)) {
+		unsigned long start, end;
+		char prot[5];
+		char path[PATH_MAX];
+		size_t namelen;
+		struct ftrace_proc_maps *map;
+
+		if (!found) {
+			/* skip anon mappings */
+			if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+				   &start, &end, prot, path) != 4)
+				goto next;
+
+			/* skip non-executable mappings */
+			if (prot[2] != 'x')
+				goto next;
+
+			if (strcmp(path, mcount_exename))
+				goto next;
+
+			/* save map for the executable */
+			namelen = ALIGN(strlen(path) + 1, 4);
+
+			map = xmalloc(sizeof(*map) + namelen);
+
+			map->start = start;
+			map->end = end;
+			map->len = namelen;
+			memcpy(map->prot, prot, 4);
+			memcpy(map->libname, path, namelen);
+			map->libname[strlen(path)] = '\0';
+
+			symtabs.maps = map;
+			found = true;
+		}
+
+next:
+		fprintf(ofp, "%s", buf);
 	}
 
-	close(ifd);
-	close(ofd);
+	fclose(ifp);
+	fclose(ofp);
 }
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
@@ -642,8 +678,6 @@ static void mtd_dtor(void *arg)
 
 static void mcount_init_file(void)
 {
-	char *dirname = getenv("FTRACE_DIR");
-
 	/* This is for the case of library-only tracing */
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
@@ -651,11 +685,7 @@ static void mcount_init_file(void)
 	if (pthread_key_create(&mtd_key, mtd_dtor))
 		pr_err("cannot create shmem key");
 
-	if (dirname == NULL)
-		dirname = FTRACE_DIR_NAME;
-
 	send_session_msg(&mtd, session_name());
-	record_proc_maps(dirname, session_name());
 }
 
 void mcount_prepare(void)
@@ -1144,6 +1174,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *threshold_str;
 	char *color_str;
 	char *demangle_str;
+	char *dirname;
 	struct stat statbuf;
 
 	if (mcount_setup_done || mtd.recursion_guard)
@@ -1199,7 +1230,12 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
+	dirname = getenv("FTRACE_DIR");
+	if (dirname == NULL)
+		dirname = FTRACE_DIR_NAME;
+
 	mcount_exename = read_exename();
+	record_proc_maps(dirname, session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
