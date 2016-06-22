@@ -183,7 +183,7 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	struct mcount_shmem_buffer *curr_buf;
+	struct mcount_shmem_buffer *curr_buf = NULL;
 	struct mcount_shmem_buffer **new_buffer;
 	int idx;
 
