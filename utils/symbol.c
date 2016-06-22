@@ -268,6 +268,36 @@ elf_error:
 	goto out;
 }
 
+static void sort_dynsymtab(struct symtab *dsymtab)
+{
+	unsigned i, k;
+
+	/*
+	 * abuse ->sym_names[] to save original index
+	 */
+	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
+				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
+
+	/* save current address for each symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++)
+		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
+
+	/* sort ->sym by address now */
+	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
+
+	/* find position of sorted symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++) {
+		for (k = 0; k < dsymtab->nr_sym; k++) {
+			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
+				dsymtab->sym_names[i] = &dsymtab->sym[k];
+				break;
+			}
+		}
+	}
+
+	dsymtab->name_sorted = false;
+}
+
 static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 {
 	int fd;
@@ -281,7 +311,6 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
 	struct symtab *dsymtab = &symtabs->dsymtab;
-	unsigned i, k;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -397,30 +426,7 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	if (dsymtab->nr_sym == 0)
 		goto out;
 
-	/*
-	 * abuse ->sym_names[] to save original index
-	 */
-	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
-				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
-
-	/* save current address for each symbol */
-	for (i = 0; i < dsymtab->nr_sym; i++)
-		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
-
-	/* sort ->sym by address now */
-	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
-
-	/* find position of sorted symbol */
-	for (i = 0; i < dsymtab->nr_sym; i++) {
-		for (k = 0; k < dsymtab->nr_sym; k++) {
-			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
-				dsymtab->sym_names[i] = &dsymtab->sym[k];
-				break;
-			}
-		}
-	}
-
-	dsymtab->name_sorted = false;
+	sort_dynsymtab(dsymtab);
 	ret = 0;
 
 out:
@@ -580,21 +586,8 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 	if (stab->nr_sym == 0)
 		goto out;
 
-	stab->sym_names = xrealloc(stab->sym_names,
-				   sizeof(*stab->sym_names) * stab->nr_sym);
+	sort_dynsymtab(stab);
 
-	for (i = 0; i < stab->nr_sym; i++)
-		stab->sym_names[i] = &stab->sym[i];
-
-	qsort(stab->sym, stab->nr_sym, sizeof(*stab->sym), addrsort);
-
-	for (i = 0; i < stab->nr_sym - 1; i++) {
-		struct sym *sym = &stab->sym[i];
-		sym->size = stab->sym[i + 1].addr - sym->addr;
-	}
-	stab->sym_names[i]->size = stab->sym_names[i - 1]->size;
-
-	stab->name_sorted = false;
 out:
 	fclose(fp);
 	return 0;
