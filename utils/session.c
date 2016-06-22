@@ -21,6 +21,7 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
+	char *last_libname = NULL;
 	struct ftrace_proc_maps **maps = &sess->symtabs.maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sess->sid);
@@ -44,6 +45,10 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 		if (prot[2] != 'x')
 			continue;
 
+		/* use first mapping only */
+		if (last_libname && !strcmp(last_libname, path))
+			continue;
+
 		namelen = ALIGN(strlen(path) + 1, 4);
 
 		map = xmalloc(sizeof(*map) + namelen);
@@ -54,6 +59,7 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 		memcpy(map->prot, prot, 4);
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
+		last_libname = map->libname;
 
 		map->next = *maps;
 		*maps = map;
