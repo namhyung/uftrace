@@ -818,19 +818,23 @@ void print_symtabs(struct symtabs *symtabs)
 	pr_out("Normal symbols\n");
 	pr_out("==============\n");
 	for (i = 0; i < stab->nr_sym; i++) {
-		name = symbol_getname(&stab->sym[i], stab->sym[i].addr);
-		pr_out("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
-		       name, stab->sym[i].size);
-		symbol_putname(&stab->sym[i], name);
+		struct sym *sym = &stab->sym[i];
+
+		name = symbol_getname(sym, sym->addr);
+		pr_out("[%2zd] %#lx: %s (size: %u)\n",
+		       i, sym->addr, name, sym->size);
+		symbol_putname(sym, name);
 	}
 
 	pr_out("\n\n");
 	pr_out("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++) {
-		name = symbol_getname(dtab->sym_names[i], dtab->sym_names[i]->addr);
-		printf("[%2zd] %#lx: %s (size: %u)\n", i, dtab->sym_names[i]->addr,
-		       name, dtab->sym_names[i]->size);
-		symbol_putname(dtab->sym_names[i], name);
+		struct sym *sym = &dtab->sym[i];
+
+		name = symbol_getname(sym, sym->addr);
+		printf("[%2zd] %#lx: %s (size: %u)\n",
+		       i, sym->addr, name, sym->size);
+		symbol_putname(sym, name);
 	}
 }
