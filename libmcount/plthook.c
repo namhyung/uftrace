@@ -40,7 +40,7 @@ void segv_handler(int sig, siginfo_t *si, void *ctx)
 
 extern void __weak plt_hooker(void);
 
-static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
+static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
 	struct sigaction sa, old_sa;
@@ -54,7 +54,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 		if (dyn.d_tag != DT_PLTGOT)
 			continue;
 
-		got_addr = (unsigned long)dyn.d_un.d_val;
+		got_addr = (unsigned long)dyn.d_un.d_val + offset;
 		plthook_got_ptr = (void *)got_addr;
 		plthook_resolver_addr = plthook_got_ptr[2];
 
@@ -93,7 +93,7 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn)
 	return 0;
 }
 
-int hook_pltgot(char *exename)
+int hook_pltgot(char *exename, unsigned long offset)
 {
 	int fd;
 	int ret = -1;
@@ -104,6 +104,7 @@ int hook_pltgot(char *exename)
 	Elf_Data *data;
 	size_t shstr_idx;
 	size_t i;
+	bool found = false;
 
 	pr_dbg2("opening executable image: %s\n", exename);
 
@@ -127,6 +128,11 @@ int hook_pltgot(char *exename)
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
 			goto elf_error;
 
+		if (phdr.p_type == PT_LOAD && !found) {
+			offset -= phdr.p_vaddr;
+			found = true;
+		}
+
 		if (phdr.p_type != PT_DYNAMIC)
 			continue;
 
@@ -139,7 +145,7 @@ int hook_pltgot(char *exename)
 		if (data == NULL)
 			goto elf_error;
 
-		if (find_got(data, shdr.sh_size / shdr.sh_entsize) < 0)
+		if (find_got(data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
 			goto elf_error;
 	}
 	ret = 0;

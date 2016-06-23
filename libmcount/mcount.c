@@ -1281,7 +1281,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 				      &mcount_triggers);
 #endif /* DISABLE_MCOUNT_FILTER */
 
-		if (hook_pltgot(mcount_exename) < 0)
+		if (hook_pltgot(mcount_exename, symtabs.maps->start) < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
 		else
 			plthook_setup(&symtabs);
