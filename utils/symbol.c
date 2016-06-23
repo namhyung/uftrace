@@ -87,6 +87,8 @@ void unload_symtabs(struct symtabs *symtabs)
 	pr_dbg2("unload symbol tables\n");
 	__unload_symtab(&symtabs->symtab);
 	__unload_symtab(&symtabs->dsymtab);
+
+	symtabs->loaded = false;
 }
 
 static int load_symtab(struct symtabs *symtabs, const char *filename,
@@ -208,9 +210,18 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 		if (ver)
 			name = xstrndup(name, ver - name);
 
-		sym->name = demangle(name);
-		if (ver)
-			free(name);
+		if (symtabs->flags & SYMTAB_FL_DEMANGLE) {
+			if (ver)
+				name = xstrndup(name, ver - name);
+			sym->name = demangle(name);
+			if (ver)
+				free(name);
+		}
+		else {
+			if (ver == NULL)
+				name = strdup(name);
+			sym->name = name;
+		}
 
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
@@ -257,6 +268,36 @@ elf_error:
 	goto out;
 }
 
+static void sort_dynsymtab(struct symtab *dsymtab)
+{
+	unsigned i, k;
+
+	/*
+	 * abuse ->sym_names[] to save original index
+	 */
+	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
+				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
+
+	/* save current address for each symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++)
+		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
+
+	/* sort ->sym by address now */
+	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
+
+	/* find position of sorted symbol */
+	for (i = 0; i < dsymtab->nr_sym; i++) {
+		for (k = 0; k < dsymtab->nr_sym; k++) {
+			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
+				dsymtab->sym_names[i] = &dsymtab->sym[k];
+				break;
+			}
+		}
+	}
+
+	dsymtab->name_sorted = false;
+}
+
 static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 {
 	int fd;
@@ -270,7 +311,6 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
 	struct symtab *dsymtab = &symtabs->dsymtab;
-	unsigned i, k;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -369,8 +409,12 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 
 		sym->addr = esym.st_value ?: plt_addr + (idx+1) * plt_entsize;
 		sym->size = plt_entsize;
-		sym->type = ST_PLT,
-		sym->name = demangle(name);
+		sym->type = ST_PLT;
+
+		if (symtabs->flags & SYMTAB_FL_DEMANGLE)
+			sym->name = demangle(name);
+		else
+			sym->name = xstrdup(name);
 
 		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC)
 			sym->addr = 0;
@@ -382,30 +426,7 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	if (dsymtab->nr_sym == 0)
 		goto out;
 
-	/*
-	 * abuse ->sym_names[] to save original index
-	 */
-	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
-				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
-
-	/* save current address for each symbol */
-	for (i = 0; i < dsymtab->nr_sym; i++)
-		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
-
-	/* sort ->sym by address now */
-	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
-
-	/* find position of sorted symbol */
-	for (i = 0; i < dsymtab->nr_sym; i++) {
-		for (k = 0; k < dsymtab->nr_sym; k++) {
-			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
-				dsymtab->sym_names[i] = &dsymtab->sym[k];
-				break;
-			}
-		}
-	}
-
-	dsymtab->name_sorted = false;
+	sort_dynsymtab(dsymtab);
 	ret = 0;
 
 out:
@@ -427,7 +448,7 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		return;
 
 	/* try .sym files first */
-	if (dirname != NULL) {
+	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
 		char *symfile = NULL;
 
 		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
@@ -454,6 +475,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 	struct symtab *stab = &symtabs->symtab;
 	char allowed_types[] = "TtwPK";
 	unsigned long prev_addr = -1;
+	char prev_type = 'X';
 
 	fp = fopen(symfile, "r");
 	if (fp == NULL) {
@@ -487,12 +509,6 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		}
 		name = pos;
 
-		if (addr == prev_addr) {
-			pr_dbg("skip duplicated symbols: %s\n", name);
-			continue;
-		}
-		prev_addr = addr;
-
 		/*
 		 * remove kernel module if any.
 		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
@@ -501,8 +517,29 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		if (pos)
 			*pos = '\0';
 
+		if (addr == prev_addr && type == prev_type) {
+			sym = &stab->sym[stab->nr_sym - 1];
+
+			/* for kernel symbols, replace SyS_xxx to sys_xxx */
+			if (!strncmp(sym->name, "SyS_", 4) &&
+			    !strncmp(name, "sys_", 4) &&
+			    !strcmp(sym->name + 4, name + 4))
+				strncpy(sym->name, name, 4);
+
+			pr_dbg("skip duplicated symbols: %s\n", name);
+			continue;
+		}
+
 		if (strchr(allowed_types, type) == NULL)
 			continue;
+
+		/*
+		 * it should be updated after the type check
+		 * otherwise, it might access invalid sym
+		 * in the above.
+		 */
+		prev_addr = addr;
+		prev_type = type;
 
 		if (type == ST_PLT)
 			stab = &symtabs->dsymtab;
@@ -520,6 +557,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		sym->addr = addr;
 		sym->type = type;
 		sym->name = demangle(name);
+		sym->size = 0;
 
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", stab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
@@ -548,21 +586,8 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 	if (stab->nr_sym == 0)
 		goto out;
 
-	stab->sym_names = xrealloc(stab->sym_names,
-				   sizeof(*stab->sym_names) * stab->nr_sym);
+	sort_dynsymtab(stab);
 
-	for (i = 0; i < stab->nr_sym; i++)
-		stab->sym_names[i] = &stab->sym[i];
-
-	qsort(stab->sym, stab->nr_sym, sizeof(*stab->sym), addrsort);
-
-	for (i = 0; i < stab->nr_sym - 1; i++) {
-		struct sym *sym = &stab->sym[i];
-		sym->size = stab->sym[i + 1].addr - sym->addr;
-	}
-	stab->sym_names[i]->size = stab->sym_names[i - 1]->size;
-
-	stab->name_sorted = false;
 out:
 	fclose(fp);
 	return 0;
@@ -589,6 +614,11 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	for (i = 0; i < dtab->nr_sym; i++)
 		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
+	/* this last entry should come from ->sym[] to know the real end */
+	if (i > 0) {
+		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
+			(char) dtab->sym[i-1].type, "__dynsym_end");
+	}
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
@@ -796,19 +826,23 @@ void print_symtabs(struct symtabs *symtabs)
 	pr_out("Normal symbols\n");
 	pr_out("==============\n");
 	for (i = 0; i < stab->nr_sym; i++) {
-		name = symbol_getname(&stab->sym[i], stab->sym[i].addr);
-		pr_out("[%2zd] %#lx: %s (size: %u)\n", i, stab->sym[i].addr,
-		       name, stab->sym[i].size);
-		symbol_putname(&stab->sym[i], name);
+		struct sym *sym = &stab->sym[i];
+
+		name = symbol_getname(sym, sym->addr);
+		pr_out("[%2zd] %#lx: %s (size: %u)\n",
+		       i, sym->addr, name, sym->size);
+		symbol_putname(sym, name);
 	}
 
 	pr_out("\n\n");
 	pr_out("Dynamic symbols\n");
 	printf("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++) {
-		name = symbol_getname(dtab->sym_names[i], dtab->sym_names[i]->addr);
-		printf("[%2zd] %#lx: %s (size: %u)\n", i, dtab->sym_names[i]->addr,
-		       name, dtab->sym_names[i]->size);
-		symbol_putname(dtab->sym_names[i], name);
+		struct sym *sym = &dtab->sym[i];
+
+		name = symbol_getname(sym, sym->addr);
+		printf("[%2zd] %#lx: %s (size: %u)\n",
+		       i, sym->addr, name, sym->size);
+		symbol_putname(sym, name);
 	}
 }

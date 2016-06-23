@@ -34,7 +34,9 @@
 #include "utils/compiler.h"
 
 uint64_t mcount_threshold;  /* nsec */
-struct symtabs symtabs;
+struct symtabs symtabs = {
+	.flags = SYMTAB_FL_DEMANGLE,
+};
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
 bool mcount_finished;
@@ -181,7 +183,7 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	struct mcount_shmem_buffer *curr_buf;
+	struct mcount_shmem_buffer *curr_buf = NULL;
 	struct mcount_shmem_buffer **new_buffer;
 	int idx;
 

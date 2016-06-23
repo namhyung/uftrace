@@ -48,8 +48,14 @@ struct ftrace_proc_maps {
 	char libname[];
 };
 
+enum symtab_flag {
+	SYMTAB_FL_DEMANGLE	= (1U << 0),
+	SYMTAB_FL_USE_SYMFILE	= (1U << 1),
+};
+
 struct symtabs {
 	bool loaded;
+	enum symtab_flag flags;
 	struct symtab symtab;
 	struct symtab dsymtab;
 	struct ftrace_proc_maps *maps;

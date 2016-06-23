@@ -1195,14 +1195,12 @@ static void check_binary(struct opts *opts, struct symtabs *symtabs)
 	if (i == ARRAY_SIZE(supported_machines))
 		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
 
-	load_symtabs(symtabs, opts->dirname, opts->exename);
-
-	for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-		if (find_symname(&symtabs->dsymtab, profile_funcs[i]))
-			break;
-	}
-
 	if (!opts->force) {
+		for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
+			if (find_symname(&symtabs->dsymtab, profile_funcs[i]))
+				break;
+		}
+
 		/* there's no function to trace */
 		if (i == ARRAY_SIZE(profile_funcs))
 			pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
@@ -1243,6 +1241,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	create_directory(opts->dirname);
 
+	load_symtabs(&symtabs, opts->dirname, opts->exename);
 	check_binary(opts, &symtabs);
 	save_symbol_file(&symtabs, opts->dirname, opts->exename);
 

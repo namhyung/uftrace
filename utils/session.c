@@ -21,7 +21,7 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	struct ftrace_proc_maps **maps = &sess->maps;
+	struct ftrace_proc_maps **maps = &sess->symtabs.maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sess->sid);
 	fp = fopen(buf, "rb");
@@ -103,8 +103,10 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename)
 
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);
-	load_symtabs(&s->symtabs, dirname, s->exename);
+
+	s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 	read_map_file(dirname, s);
+	load_symtabs(&s->symtabs, dirname, s->exename);
 
 	if (first_session == NULL)
 		first_session = s;
