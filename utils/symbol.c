@@ -454,7 +454,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 	struct symtab *stab = &symtabs->symtab;
 	char allowed_types[] = "TtwPK";
 	unsigned long prev_addr = -1;
-	char prev_type = 0;
+	char prev_type = 'X';
 
 	fp = fopen(symfile, "r");
 	if (fp == NULL) {
@@ -488,13 +488,6 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		}
 		name = pos;
 
-		if (addr == prev_addr && type == prev_type) {
-			pr_dbg("skip duplicated symbols: %s\n", name);
-			continue;
-		}
-		prev_addr = addr;
-		prev_type = type;
-
 		/*
 		 * remove kernel module if any.
 		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
@@ -503,8 +496,29 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		if (pos)
 			*pos = '\0';
 
+		if (addr == prev_addr && type == prev_type) {
+			sym = &stab->sym[stab->nr_sym - 1];
+
+			/* for kernel symbols, replace SyS_xxx to sys_xxx */
+			if (!strncmp(sym->name, "SyS_", 4) &&
+			    !strncmp(name, "sys_", 4) &&
+			    !strcmp(sym->name + 4, name + 4))
+				strncpy(sym->name, name, 4);
+
+			pr_dbg("skip duplicated symbols: %s\n", name);
+			continue;
+		}
+
 		if (strchr(allowed_types, type) == NULL)
 			continue;
+
+		/*
+		 * it should be updated after the type check
+		 * otherwise, it might access invalid sym
+		 * in the above.
+		 */
+		prev_addr = addr;
+		prev_type = type;
 
 		if (type == ST_PLT)
 			stab = &symtabs->dsymtab;
