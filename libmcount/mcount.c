@@ -175,6 +175,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, session_name(), tid, 0);
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 
+	shmem->done = false;
 	shmem->curr = 0;
 	shmem->buffer[0]->flag = SHMEM_FL_RECORDING;
 }
@@ -299,16 +300,20 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	struct mcount_shmem_buffer *curr_buf;
+	int curr = shmem->curr;
 
-	if (shmem->curr >= 0) {
-		curr_buf = shmem->buffer[shmem->curr];
+	if (curr >= 0) {
+		curr_buf = shmem->buffer[curr];
 
 		if (curr_buf->flag & SHMEM_FL_RECORDING)
-			finish_shmem_buffer(mtdp, shmem->curr);
+			finish_shmem_buffer(mtdp, curr);
 	}
 
+	shmem->done = true;
+	shmem->curr = -1;
+
 	pr_dbg("%s: tid: %d seqnum = %u curr = %d, nr_buf = %d max_buf = %d\n",
-	       __func__, gettid(mtdp), shmem->seqnum, shmem->curr,
+	       __func__, gettid(mtdp), shmem->seqnum, curr,
 	       shmem->nr_buf, shmem->max_buf);
 
 	clear_shmem_buffer(mtdp);
@@ -442,6 +447,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	}
 
 	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
+		if (shmem->done)
+			return 0;
 		if (shmem->curr > -1)
 			finish_shmem_buffer(mtdp, shmem->curr);
 		get_new_shmem_buffer(mtdp);

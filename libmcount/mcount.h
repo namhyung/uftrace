@@ -103,6 +103,7 @@ struct mcount_shmem {
 	int				curr;
 	int				nr_buf;
 	int				max_buf;
+	bool				done;
 	struct mcount_shmem_buffer	**buffer;
 };
 
