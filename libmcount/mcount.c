@@ -1265,6 +1265,11 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (getenv("FTRACE_PLTHOOK")) {
+		if (symtabs.loaded && symtabs.dsymtab.nr_sym == 0) {
+			pr_dbg("skip PLT hooking due to no dynamic symbols\n");
+			goto out;
+		}
+
 		setup_dynsym_indexes(&symtabs);
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -1287,6 +1292,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 			plthook_setup(&symtabs);
 	}
 
+out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	compiler_barrier();
