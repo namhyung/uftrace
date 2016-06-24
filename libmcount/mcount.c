@@ -302,7 +302,7 @@ static void shmem_finish(struct mcount_thread_data *mtdp)
 	struct mcount_shmem_buffer *curr_buf;
 	int curr = shmem->curr;
 
-	if (curr >= 0) {
+	if (curr >= 0 && shmem->buffer) {
 		curr_buf = shmem->buffer[curr];
 
 		if (curr_buf->flag & SHMEM_FL_RECORDING)
