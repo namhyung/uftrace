@@ -35,7 +35,7 @@ static LIST_HEAD(shmem_need_unlink);
 
 struct buf_list {
 	struct list_head list;
-	char id[SHMEM_NAME_SIZE];
+	int tid;
 	void *shmem_buf;
 };
 
@@ -306,12 +306,10 @@ static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 		*seq = _seq;
 }
 
-static char *make_disk_name(const char *dirname, char *id)
+static char *make_disk_name(const char *dirname, int tid)
 {
-	int tid;
 	char *filename = NULL;
 
-	parse_msg_id(id, NULL, &tid, NULL);
 	xasprintf(&filename, "%s/%d.dat", dirname, tid);
 
 	return filename;
@@ -323,7 +321,7 @@ static void write_buffer_file(const char *dirname, struct buf_list *buf)
 	char *filename;
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
-	filename = make_disk_name(dirname, buf->id);
+	filename = make_disk_name(dirname, buf->tid);
 	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
@@ -338,17 +336,16 @@ static void write_buffer_file(const char *dirname, struct buf_list *buf)
 static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
 {
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
-	int tid;
 
 	if (!opts->host)
 		return write_buffer_file(opts->dirname, buf);
 
-	parse_msg_id(buf->id, NULL, &tid, NULL);
-	send_trace_data(sock, tid, shmbuf->data, shmbuf->size);
+	send_trace_data(sock, buf->tid, shmbuf->data, shmbuf->size);
 }
 
 struct writer_arg {
 	struct list_head	list;
+	struct list_head	bufs;
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
 	int			sock;
@@ -395,14 +392,11 @@ void *writer_thread(void *arg)
 		}
 
 		list_for_each_entry(buf, &buf_write_list, list) {
-			int tid = 0;
 			struct writer_arg *writer;
-
-			parse_msg_id(buf->id, NULL, &tid, NULL);
 
 			/* check other writers work for this tid */
 			list_for_each_entry(writer, &writer_list, list) {
-				if (tid == writer->tid)
+				if (buf->tid == writer->tid)
 					break;
 			}
 
@@ -412,7 +406,7 @@ void *writer_thread(void *arg)
 				list_del(&buf->list);
 
 				/* inform current writer is working on this tid */
-				warg->tid = tid;
+				warg->tid = buf->tid;
 				list_add(&warg->list, &writer_list);
 				break;
 			}
@@ -497,8 +491,8 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 		pr_dbg3("make a new write buffer\n");
 	}
 
-	memcpy(buf->id, sess_id, strlen(sess_id));
 	buf->shmem_buf = shm;
+	parse_msg_id(sess_id, NULL, &buf->tid, NULL);
 
 	pthread_mutex_lock(&write_list_lock);
 	list_add_tail(&buf->list, &buf_write_list);
