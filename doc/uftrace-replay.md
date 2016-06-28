@@ -49,6 +49,9 @@ OPTIONS
 --task-newline
 :   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
 
+--no-comment
+:   Do not show comments of returned functions.
+
 
 FILTERS
 =======

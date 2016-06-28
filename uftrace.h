@@ -161,6 +161,7 @@ struct opts {
 	bool want_bind_not;
 	bool task_newline;
 	bool chrome_trace;
+	bool comment;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
