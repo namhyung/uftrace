@@ -156,7 +156,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 		setenv("FTRACE_THRESHOLD", buf, 1);
 	}
 
-	if (opts->want_plthook) {
+	if (opts->libcall) {
 		setenv("FTRACE_PLTHOOK", "1", 1);
 
 		if (opts->want_bind_not) {
@@ -204,7 +204,7 @@ static uint64_t calc_feat_mask(struct opts *opts)
 {
 	uint64_t features = 0;
 
-	if (opts->want_plthook)
+	if (opts->libcall)
 		features |= PLTHOOK;
 
 	/* mcount code creates task and sid-XXX.map files */
