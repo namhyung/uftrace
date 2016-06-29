@@ -81,7 +81,7 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
-	bool multi_thread = !!find_symname(&symtabs->dsymtab, "pthread_create");
+	bool must_use_multi_thread = !!find_symname(&symtabs->dsymtab, "pthread_create");
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
@@ -91,17 +91,19 @@ static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symt
 	if (opts->nop) {
 		strcat(buf, "libmcount-nop.so");
 	}
-	else if (multi_thread) {
-		if (can_use_fast_libmcount(opts))
-			strcat(buf, "libmcount-fast.so");
-		else
-			strcat(buf, "libmcount.so");
-	}
-	else {
+	else if (opts->libmcount_single && !must_use_multi_thread) {
 		if (can_use_fast_libmcount(opts))
 			strcat(buf, "libmcount-fast-single.so");
 		else
 			strcat(buf, "libmcount-single.so");
+	}
+	else {
+		if (must_use_multi_thread && opts->libmcount_single)
+			pr_dbg("--libmcount-single is off because it calls pthread_create()\n");
+		if (can_use_fast_libmcount(opts))
+			strcat(buf, "libmcount-fast.so");
+		else
+			strcat(buf, "libmcount.so");
 	}
 	pr_dbg("using %s library for tracing\n", buf);
 

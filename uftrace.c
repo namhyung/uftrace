@@ -75,6 +75,7 @@ enum options {
 	OPT_tid_filter,
 	OPT_num_thread,
 	OPT_no_comment,
+	OPT_libmcount_single,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -123,6 +124,7 @@ static struct argp_option ftrace_options[] = {
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
+	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ 0 }
 };
 
@@ -489,6 +491,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_no_comment:
 		opts->comment = false;
+		break;
+
+	case OPT_libmcount_single:
+		opts->libmcount_single = true;
 		break;
 
 	case ARGP_KEY_ARG:

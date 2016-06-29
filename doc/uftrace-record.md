@@ -84,6 +84,9 @@ OPTIONS
 \--num-thread=*NUM*
 :   Use NUM of thread to record trace data.  Default is 1/4 of online cpus (but when full kernel tracing is enabled, it'll use the same number of the cpus).
 
+\--libmcount-single
+:   Use single thread version of libmcount for faster recording.  This is ignored if target program calls pthread_create().
+
 
 FILTERS
 =======

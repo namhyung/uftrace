@@ -91,6 +91,9 @@ OPTIONS
 --no-comment
 :   Do not show comments of returned functions.
 
+\--libmcount-single
+:   Use single thread version of libmcount for faster recording.  This is ignored if target program calls pthread_create().
+
 
 FILTERS
 =======
