@@ -47,7 +47,7 @@ static bool dbg_domain_set = false;
 
 enum options {
 	OPT_flat	= 301,
-	OPT_plthook,
+	OPT_no_libcall,
 	OPT_symbols,
 	OPT_logfile,
 	OPT_force,
@@ -74,6 +74,8 @@ enum options {
 	OPT_sort_column,
 	OPT_tid_filter,
 	OPT_num_thread,
+	OPT_no_comment,
+	OPT_libmcount_single,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -86,7 +88,7 @@ static struct argp_option ftrace_options[] = {
 	{ "verbose", 'v', 0, 0, "Print verbose (debug) messages" },
 	{ "data", 'd', "DATA", 0, "Use this DATA instead of uftrace.data" },
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
-	{ "no-plthook", OPT_plthook, 0, 0, "Don't hook library function calls" },
+	{ "no-libcall", OPT_no_libcall, 0, 0, "Don't trace library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
@@ -121,6 +123,8 @@ static struct argp_option ftrace_options[] = {
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
+	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
+	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ 0 }
 };
 
@@ -362,8 +366,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->flat = true;
 		break;
 
-	case OPT_plthook:
-		opts->want_plthook = false;
+	case OPT_no_libcall:
+		opts->libcall = false;
 		break;
 
 	case OPT_symbols:
@@ -485,6 +489,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("invalid thread number: %s\n", arg);
 		break;
 
+	case OPT_no_comment:
+		opts->comment = false;
+		break;
+
+	case OPT_libmcount_single:
+		opts->libmcount_single = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -556,7 +568,7 @@ int main(int argc, char *argv[])
 	struct opts opts = {
 		.mode		= FTRACE_MODE_INVALID,
 		.dirname	= FTRACE_DIR_NAME,
-		.want_plthook	= true,
+		.libcall	= true,
 		.bsize		= SHMEM_BUFFER_SIZE,
 		.depth		= MCOUNT_DEFAULT_DEPTH,
 		.max_stack	= MCOUNT_RSTACK_MAX,
@@ -564,6 +576,7 @@ int main(int argc, char *argv[])
 		.use_pager	= true,
 		.color		= -1,  /* default to 'auto' (turn on if terminal) */
 		.column_offset	= 8,
+		.comment	= true,
 	};
 	struct argp argp = {
 		.options = ftrace_options,

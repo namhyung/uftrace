@@ -144,7 +144,7 @@ struct opts {
 	unsigned long bsize;
 	uint64_t threshold;
 	bool flat;
-	bool want_plthook;
+	bool libcall;
 	bool print_symtab;
 	bool force;
 	bool report_thread;
@@ -161,6 +161,8 @@ struct opts {
 	bool want_bind_not;
 	bool task_newline;
 	bool chrome_trace;
+	bool comment;
+	bool libmcount_single;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

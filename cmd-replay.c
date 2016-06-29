@@ -376,7 +376,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			print_time_unit(fstack->total_time);
 			pr_out(" [%5d] | %*s}%s", task->tid, depth * 2, "", retval);
-			pr_gray(" /* %s */\n", symname);
+			if (opts->comment)
+				pr_gray(" /* %s */\n", symname);
+			else
+				pr_gray("\n");
 		}
 
 		fstack_exit(task);
