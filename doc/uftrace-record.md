@@ -174,6 +174,12 @@ OPTIONS
 -W, \--watch=*POINT*
 :   Add watch point to display POINT if the value is changed.  See *WATCH POINT*.
 
+\--signal=*TRG*
+:   Set trigger on selected signals rather than functions.  But there are
+    restrictions so only a few of trigger actions are support for signals.
+    The available actions are: traceon, traceoff, finish.
+    This option can be used more than once.  See *TRIGGERS*.
+
 
 FILTERS
 =======
@@ -325,8 +331,8 @@ example will show all user functions and the (kernel) page fault handler.
 
 TRIGGERS
 ========
-The uftrace tool supports triggering actions on selected function calls with or
-without filters.  Currently supported triggers are listed below.
+The uftrace tool supports triggering actions on selected function calls (with or
+without filters) and/or signals.  Currently supported triggers are listed below.
 The BNF for trigger specification is:
 
     <trigger>    :=  <symbol> "@" <actions>
@@ -335,9 +341,8 @@ The BNF for trigger specification is:
                      "time="<time_spec> | "read="<read_spec> | "finish" |
                      "filter" | "notrace" | "recover"
     <time_spec>  :=  <num> [ <time_unit> ]
-    <time_unit>  :=  "ns" | "us" | "ms" | "s"
-    <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" |
-                     "pmu-branch"
+    <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
+    <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.
@@ -407,6 +412,12 @@ The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
 `-N`/`--notrace` options respectively.
 
 Triggers only work for user-level functions for now.
+
+The trigger can be used for signals as well.  This is done by signal trigger
+with \--signal option.  The syntax is similar to function trigger but only
+"trace_on", "trace_off" and "finish" trigger actions are supported.
+
+    $ uftrace record --signal 'SIGUSR1@finish' ./some-daemon
 
 
 ARGUMENTS

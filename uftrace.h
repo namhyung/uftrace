@@ -132,8 +132,8 @@ enum {
 	UFTRACE_EXIT_SUCCESS	= 0,
 	UFTRACE_EXIT_FAILURE,
 	UFTRACE_EXIT_SIGNALED,
-	UFTRACE_EXIT_FINISHED,
 	UFTRACE_EXIT_UNKNOWN,
+	UFTRACE_EXIT_FINISHED	= 1 << 16,
 };
 
 struct kbuffer;
@@ -194,6 +194,7 @@ struct opts {
 	char *lib_path;
 	char *filter;
 	char *trigger;
+	char *sig_trigger;
 	char *tid;
 	char *exename;
 	char *dirname;

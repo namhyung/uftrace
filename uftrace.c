@@ -97,6 +97,7 @@ enum options {
 	OPT_match_type,
 	OPT_no_randomize_addr,
 	OPT_no_event,
+	OPT_signal,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -174,6 +175,7 @@ static struct argp_option uftrace_options[] = {
 	{ "no-randomize-addr", OPT_no_randomize_addr, 0, 0, "Disable ASLR (Address Space Layout Randomization)" },
 	{ "no-event", OPT_no_event, 0, 0, "Disable (default) events" },
 	{ "watch", 'W', "POINT", 0, "Watch and report POINT if it's changed" },
+	{ "signal", OPT_signal, "SIG@act[,act,...]", 0, "Trigger action on those SIGnal" },
 	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
@@ -754,6 +756,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_no_event:
 		opts->no_event = true;
+		break;
+
+	case OPT_signal:
+		opts->sig_trigger = opt_add_string(opts->sig_trigger, arg);
 		break;
 
 	case ARGP_KEY_ARG:
