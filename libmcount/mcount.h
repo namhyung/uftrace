@@ -27,7 +27,7 @@
 #define MCOUNT_NOTRACE_IDX     0x10000
 #define MCOUNT_INVALID_DYNIDX  0xffff
 
-enum mcount_flag {
+enum mcount_rstack_flag {
 	MCOUNT_FL_SETJMP	= (1U << 0),
 	MCOUNT_FL_LONGJMP	= (1U << 1),
 	MCOUNT_FL_NORECORD	= (1U << 2),
@@ -46,7 +46,7 @@ struct mcount_ret_stack {
 	unsigned long *parent_loc;
 	unsigned long parent_ip;
 	unsigned long child_ip;
-	enum mcount_flag flags;
+	enum mcount_rstack_flag flags;
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
@@ -167,8 +167,12 @@ extern TLS struct mcount_thread_data mtd;
 extern uint64_t mcount_threshold;  /* nsec */
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
-extern bool mcount_setup_done;
-extern bool mcount_finished;
+extern unsigned long mcount_global_flags;
+
+enum mcount_global_flag {
+	MCOUNT_GFL_SETUP	= (1U << 0),
+	MCOUNT_GFL_FINISH	= (1U << 1),
+};
 
 extern unsigned long plthook_resolver_addr;
 
@@ -198,7 +202,7 @@ extern void destroy_dynsym_indexes(void);
 
 static inline bool mcount_should_stop(void)
 {
-	return !mcount_setup_done || mcount_finished;
+	return mcount_global_flags != 0UL;
 }
 
 struct ftrace_trigger;
