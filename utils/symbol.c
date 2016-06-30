@@ -728,7 +728,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct ftrace_proc_maps *maps = symtabs->maps;
+	struct ftrace_proc_maps *maps;
 	struct sym *sym;
 
 	if (is_kernel_address(addr)) {
@@ -754,6 +754,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 	if (sym)
 		return sym;
 
+	maps = symtabs->maps;
 	while (maps) {
 		if (maps->start <= addr && addr < maps->end)
 			break;
