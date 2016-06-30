@@ -35,7 +35,7 @@ static LIST_HEAD(shmem_need_unlink);
 
 struct buf_list {
 	struct list_head list;
-	char id[SHMEM_NAME_SIZE];
+	int tid;
 	void *shmem_buf;
 };
 
@@ -306,12 +306,10 @@ static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 		*seq = _seq;
 }
 
-static char *make_disk_name(const char *dirname, char *id)
+static char *make_disk_name(const char *dirname, int tid)
 {
-	int tid;
 	char *filename = NULL;
 
-	parse_msg_id(id, NULL, &tid, NULL);
 	xasprintf(&filename, "%s/%d.dat", dirname, tid);
 
 	return filename;
@@ -323,7 +321,7 @@ static void write_buffer_file(const char *dirname, struct buf_list *buf)
 	char *filename;
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
-	filename = make_disk_name(dirname, buf->id);
+	filename = make_disk_name(dirname, buf->tid);
 	fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
 	if (fd < 0)
 		pr_err("open disk file");
@@ -338,17 +336,16 @@ static void write_buffer_file(const char *dirname, struct buf_list *buf)
 static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
 {
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
-	int tid;
 
 	if (!opts->host)
 		return write_buffer_file(opts->dirname, buf);
 
-	parse_msg_id(buf->id, NULL, &tid, NULL);
-	send_trace_data(sock, tid, shmbuf->data, shmbuf->size);
+	send_trace_data(sock, buf->tid, shmbuf->data, shmbuf->size);
 }
 
 struct writer_arg {
 	struct list_head	list;
+	struct list_head	bufs;
 	struct opts		*opts;
 	struct ftrace_kernel	*kern;
 	int			sock;
@@ -358,14 +355,46 @@ struct writer_arg {
 	int			cpus[];
 };
 
-void *writer_thread(void *arg)
+static void write_buf_list(struct list_head *buf_head, struct opts *opts,
+			   struct writer_arg *warg)
 {
 	struct buf_list *buf;
+
+	list_for_each_entry(buf, buf_head, list) {
+		struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
+
+		write_buffer(buf, opts, warg->sock);
+
+		/*
+		 * Now it has consumed all contents in the shmem buffer,
+		 * make it so that mcount can reuse it.
+		 * This is paired with get_new_shmem_buffer().
+		 */
+		__sync_synchronize();
+		shmbuf->flag = SHMEM_FL_WRITTEN;
+
+		munmap(shmbuf, opts->bsize);
+		buf->shmem_buf = NULL;
+	}
+
+	pthread_mutex_lock(&free_list_lock);
+	while (!list_empty(buf_head)) {
+		struct list_head *l = buf_head->next;
+		list_move(l, &buf_free_list);
+	}
+	pthread_mutex_unlock(&free_list_lock);
+}
+
+void *writer_thread(void *arg)
+{
+	struct buf_list *buf, *pos;
 	struct writer_arg *warg = arg;
 	struct opts *opts = warg->opts;
 
 	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
+		LIST_HEAD(head);
+
 		pthread_mutex_lock(&write_list_lock);
 		while (list_empty(&buf_write_list)) {
 			struct timespec timeout;
@@ -394,59 +423,37 @@ void *writer_thread(void *arg)
 				break;
 		}
 
-		list_for_each_entry(buf, &buf_write_list, list) {
-			int tid = 0;
-			struct writer_arg *writer;
+		if (!list_empty(&buf_write_list)) {
+			/* pick first unhandled buf  */
+			buf = list_first_entry(&buf_write_list,
+					       struct buf_list, list);
+			list_move(&buf->list, &head);
 
-			parse_msg_id(buf->id, NULL, &tid, NULL);
-
-			/* check other writers work for this tid */
-			list_for_each_entry(writer, &writer_list, list) {
-				if (tid == writer->tid)
-					break;
-			}
-
-			/* currently no other writer works for this task */
-			if (list_no_entry(writer, &writer_list, list)) {
-				/* remove buf from the list */
-				list_del(&buf->list);
-
-				/* inform current writer is working on this tid */
-				warg->tid = tid;
-				list_add(&warg->list, &writer_list);
-				break;
-			}
+			warg->tid = buf->tid;
+			list_add(&warg->list, &writer_list);
 		}
 
-		if (list_no_entry(buf, &buf_write_list, list))
-			buf = NULL;
+		list_for_each_entry_safe(buf, pos, &buf_write_list, list) {
+			/* list may have multiple buf for this task */
+			if (buf->tid == warg->tid)
+				list_move_tail(&buf->list, &head);
+		}
 
 		pthread_mutex_unlock(&write_list_lock);
 
-		if (buf) {
-			struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
-
-			write_buffer(buf, opts, warg->sock);
-
-			/*
-			 * Now it has consumed all contents in the shmem buffer,
-			 * make it so that mcount can reuse it.
-			 * This is paired with get_new_shmem_buffer().
-			 */
-			__sync_synchronize();
-			shmbuf->flag = SHMEM_FL_WRITTEN;
+		while (!list_empty(&head)) {
+			write_buf_list(&head, opts, warg);
 
 			pthread_mutex_lock(&write_list_lock);
-			warg->tid = -1;
-			list_del_init(&warg->list);
+			/* check someone sends bufs for me directly */
+			list_splice_tail_init(&warg->bufs, &head);
+
+			if (list_empty(&head)) {
+				/* I'm done with this tid */
+				warg->tid = -1;
+				list_del_init(&warg->list);
+			}
 			pthread_mutex_unlock(&write_list_lock);
-
-			munmap(shmbuf, opts->bsize);
-			buf->shmem_buf = NULL;
-
-			pthread_mutex_lock(&free_list_lock);
-			list_add(&buf->list, &buf_free_list);
-			pthread_mutex_unlock(&free_list_lock);
 		}
 
 		if (opts->kernel) {
@@ -481,6 +488,7 @@ static struct buf_list *make_write_buffer(void)
 static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 {
 	struct buf_list *buf = NULL;
+	struct writer_arg *writer;
 
 	pthread_mutex_lock(&free_list_lock);
 	if (!list_empty(&buf_free_list)) {
@@ -497,12 +505,23 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 		pr_dbg3("make a new write buffer\n");
 	}
 
-	memcpy(buf->id, sess_id, strlen(sess_id));
 	buf->shmem_buf = shm;
+	parse_msg_id(sess_id, NULL, &buf->tid, NULL);
 
 	pthread_mutex_lock(&write_list_lock);
-	list_add_tail(&buf->list, &buf_write_list);
-	pthread_cond_signal(&write_cond);
+	/* check some writers work for this tid */
+	list_for_each_entry(writer, &writer_list, list) {
+		if (buf->tid == writer->tid) {
+			/* if so, pass the buf directly */
+			list_add_tail(&buf->list, &writer->bufs);
+			break;
+		}
+	}
+	if (list_no_entry(writer, &writer_list, list)) {
+		/* no writer is dealing with the tid */
+		list_add_tail(&buf->list, &buf_write_list);
+		pthread_cond_signal(&write_cond);
+	}
 	pthread_mutex_unlock(&write_list_lock);
 }
 
@@ -1328,6 +1347,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		warg->sock = sock;
 		warg->kern = &kern;
 		INIT_LIST_HEAD(&warg->list);
+		INIT_LIST_HEAD(&warg->bufs);
 
 		if (opts->kernel) {
 			warg->nr_cpu = cpu_per_thread;
