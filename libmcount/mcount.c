@@ -132,6 +132,250 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
+/* be careful: this can be called from signal handler */
+static void mcount_finish_trigger(void)
+{
+	if (mcount_global_flags & MCOUNT_GFL_FINISH)
+		return;
+
+	/* mark other threads can see the finish flag */
+	mcount_global_flags |= MCOUNT_GFL_FINISH;
+}
+
+static LIST_HEAD(siglist);
+
+struct signal_trigger_item {
+	struct list_head list;
+	int sig;
+	struct uftrace_trigger tr;
+};
+
+static struct uftrace_trigger * get_signal_trigger(int sig)
+{
+	struct signal_trigger_item *item;
+
+	list_for_each_entry(item, &siglist, list) {
+		if (item->sig == sig)
+			return &item->tr;
+	}
+
+	return NULL;
+}
+
+static void add_signal_trigger(int sig, const char *name,
+			       struct uftrace_trigger *tr)
+{
+	struct signal_trigger_item *item;
+
+	item = xmalloc(sizeof(*item));
+	item->sig = sig;
+	memcpy(&item->tr, tr, sizeof(*tr));
+
+	pr_dbg("add signal trigger: %s (%d), flags = %lx\n",
+	       name, sig, tr->flags);
+
+	list_add(&item->list, &siglist);
+}
+
+static void mcount_signal_trigger(int sig)
+{
+	struct uftrace_trigger *tr;
+
+	tr = get_signal_trigger(sig);
+	if (tr == NULL)
+		return;
+
+	pr_dbg("got signal %d\n", sig);
+
+	if (tr->flags & TRIGGER_FL_TRACE_ON) {
+		mcount_enabled = true;
+	}
+	if (tr->flags & TRIGGER_FL_TRACE_OFF) {
+		mcount_enabled = false;
+	}
+	if (tr->flags & TRIGGER_FL_FINISH) {
+		mcount_finish_trigger();
+	}
+}
+
+#define SIGTABLE_ENTRY(s)  { #s, s }
+
+static const struct sigtable {
+	const char *name;
+	int sig;
+} sigtable[] = {
+	SIGTABLE_ENTRY(SIGHUP),
+	SIGTABLE_ENTRY(SIGINT),
+	SIGTABLE_ENTRY(SIGQUIT),
+	SIGTABLE_ENTRY(SIGILL),
+	SIGTABLE_ENTRY(SIGTRAP),
+	SIGTABLE_ENTRY(SIGABRT),
+	SIGTABLE_ENTRY(SIGBUS),
+	SIGTABLE_ENTRY(SIGFPE),
+	SIGTABLE_ENTRY(SIGKILL),
+	SIGTABLE_ENTRY(SIGUSR1),
+	SIGTABLE_ENTRY(SIGSEGV),
+	SIGTABLE_ENTRY(SIGUSR2),
+	SIGTABLE_ENTRY(SIGPIPE),
+	SIGTABLE_ENTRY(SIGALRM),
+	SIGTABLE_ENTRY(SIGTERM),
+	SIGTABLE_ENTRY(SIGSTKFLT),
+	SIGTABLE_ENTRY(SIGCHLD),
+	SIGTABLE_ENTRY(SIGCONT),
+	SIGTABLE_ENTRY(SIGSTOP),
+	SIGTABLE_ENTRY(SIGTSTP),
+	SIGTABLE_ENTRY(SIGTTIN),
+	SIGTABLE_ENTRY(SIGTTOU),
+	SIGTABLE_ENTRY(SIGURG),
+	SIGTABLE_ENTRY(SIGXCPU),
+	SIGTABLE_ENTRY(SIGXFSZ),
+	SIGTABLE_ENTRY(SIGVTALRM),
+	SIGTABLE_ENTRY(SIGPROF),
+	SIGTABLE_ENTRY(SIGWINCH),
+	SIGTABLE_ENTRY(SIGIO),
+	SIGTABLE_ENTRY(SIGPWR),
+	SIGTABLE_ENTRY(SIGSYS),
+};
+
+#undef SIGTABLE_ENTRY
+
+static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
+{
+	char *pos, *tmp;
+	unsigned i;
+	int sig = -1;
+	int off = 0;
+	const char *signame = NULL;
+	bool num_spec = false;
+	char num_spec_str[16];
+	struct uftrace_trigger tr = {
+		.flags = 0,
+	};
+	struct sigaction old_sa;
+	struct sigaction sa = {
+		.sa_handler  = mcount_signal_trigger,
+		.sa_flags    = SA_RESTART,
+	};
+
+	pos = strchr(spec, '@');
+	if (pos == NULL)
+		return -1;
+	*pos = '\0';
+
+	if (isdigit(spec[0]))
+		num_spec = true;
+	else if (strncmp(spec, "SIG", 3))
+		off = 3;  /* skip "SIG" prefix */
+
+	for (i = 0; i < ARRAY_SIZE(sigtable); i++) {
+		if (num_spec) {
+			int num = strtol(spec, &tmp, 0);
+
+			if (num == sigtable[i].sig) {
+				sig = num;
+				signame = sigtable[i].name;
+				break;
+			}
+
+			continue;
+		}
+
+		if (!strcmp(sigtable[i].name + off, spec)) {
+			sig = sigtable[i].sig;
+			signame = sigtable[i].name;
+			break;
+		}
+	}
+
+	/* real-time signals */
+	if (!strncmp(spec, "SIGRTM" + off, 6 - off)) {
+		if (!strncmp(spec, "SIGRTMIN" + off, 8 - off))
+			sig = SIGRTMIN + strtol(&spec[8 - off], NULL, 0);
+		if (!strncmp(spec, "SIGRTMAX" + off, 8 - off))
+			sig = SIGRTMAX + strtol(&spec[8 - off], NULL, 0);
+		signame = spec;
+	}
+
+	if (sig == -1 && num_spec) {
+		int sigrtmid = (SIGRTMIN + SIGRTMAX) / 2;
+
+		sig = strtol(spec, &tmp, 0);
+
+		/* SIGRTMIN/MAX might not be constant, avoid switch/case */
+		if (sig == SIGRTMIN) {
+			strcpy(num_spec_str, "SIGRTMIN");
+		}
+		else if (SIGRTMIN < sig && sig <= sigrtmid) {
+			snprintf(num_spec_str, sizeof(num_spec_str), "%s+%d",
+				 "SIGRTMIN", sig - SIGRTMIN);
+		}
+		else if (sigrtmid < sig && sig < SIGRTMAX) {
+			snprintf(num_spec_str, sizeof(num_spec_str), "%s-%d",
+				 "SIGRTMAX", SIGRTMAX - sig);
+		}
+		else if (sig == SIGRTMAX) {
+			strcpy(num_spec_str, "SIGRTMAX");
+		}
+		else {
+			sig = -1;
+		}
+		signame = num_spec_str;
+	}
+
+	if (sig == -1) {
+		pr_use("failed to parse signal: %s\n", spec);
+		return -1;
+	}
+
+	/* setup_trigger_action() requires the '@' sign */
+	*pos = '@';
+
+	if (setup_trigger_action(spec, &tr, &tmp, TRIGGER_FL_SIGNAL, setting) < 0)
+		return -1;
+
+	add_signal_trigger(sig, signame, &tr);
+	if (sigaction(sig, &sa, &old_sa) < 0) {
+		pr_warn("cannot overwrite signal handler for %s\n", spec);
+		sigaction(sig, &old_sa, NULL);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int mcount_signal_init(char *sigspec,
+			      struct uftrace_filter_setting *setting)
+{
+	struct strv strv = STRV_INIT;
+	char *spec;
+	int i;
+	int ret = 0;
+
+	if (sigspec == NULL)
+		return 0;
+
+	strv_split(&strv, sigspec, ";");
+
+	strv_for_each(&strv, spec, i) {
+		if (parse_sigspec(spec, setting) < 0)
+			ret = -1;
+	}
+	strv_free(&strv);
+
+	return ret;
+}
+
+static void mcount_signal_finish(void)
+{
+	struct signal_trigger_item *item;
+
+	while (!list_empty(&siglist)) {
+		item = list_first_entry(&siglist, typeof(*item), list);
+		list_del(&item->list);
+		free(item);
+	}
+}
+
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       bool force)
 {
@@ -151,6 +395,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	};
 
 	load_module_symtabs(&symtabs);
+
+	mcount_signal_init(getenv("UFTRACE_SIGNAL"), &filter_setting);
 
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
@@ -232,6 +478,7 @@ static void mcount_filter_finish(void)
 	finish_debug_info(&symtabs);
 
 	finish_pmu_event();
+	mcount_signal_finish();
 }
 
 static void mcount_watch_init(void)
@@ -699,16 +946,6 @@ static void script_hook_exit(struct mcount_thread_data *mtdp,
 
 skip:
 	symbol_putname(sym, symname);
-}
-
-/* be careful: this can be called from signal handler */
-static void mcount_finish_trigger(void)
-{
-	if (mcount_global_flags & MCOUNT_GFL_FINISH)
-		return;
-
-	/* mark other threads can see the finish flag */
-	mcount_global_flags |= MCOUNT_GFL_FINISH;
 }
 
 /* save current filter state to rstack */

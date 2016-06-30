@@ -33,6 +33,7 @@ enum trigger_flag {
 	TRIGGER_FL_FINISH	= (1U << 13),
 	TRIGGER_FL_AUTO_ARGS	= (1U << 14),
 	TRIGGER_FL_CALLER	= (1U << 15),
+	TRIGGER_FL_SIGNAL	= (1U << 16),
 };
 
 enum filter_mode {
@@ -224,5 +225,11 @@ void save_enum_def(struct rb_root *root, FILE *fp);
 void release_enum_def(struct rb_root *root);
 
 extern struct rb_root dwarf_enum;
+
+void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+		 bool exact_match);
+int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
+			 unsigned long orig_flags,
+			 struct uftrace_filter_setting *setting);
 
 #endif /* UFTRACE_FILTER_H */
