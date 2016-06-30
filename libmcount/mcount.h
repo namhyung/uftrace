@@ -161,7 +161,7 @@ extern uint64_t mcount_gettime(void);
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
 
-extern int hook_pltgot(char *exename);
+extern int hook_pltgot(char *exename, unsigned long offset);
 extern void plthook_setup(struct symtabs *symtabs);
 extern void setup_dynsym_indexes(struct symtabs *symtabs);
 extern void destroy_dynsym_indexes(void);

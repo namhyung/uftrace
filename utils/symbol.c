@@ -115,6 +115,24 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 	if (elf == NULL)
 		goto elf_error;
 
+	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET) {
+		GElf_Phdr phdr;
+		size_t nr_phdr;
+
+		if (elf_getphdrnum(elf, &nr_phdr) < 0)
+			goto elf_error;
+
+		for (i = 0; i < nr_phdr; i++) {
+			if (!gelf_getphdr(elf, i, &phdr))
+				goto elf_error;
+
+			if (phdr.p_type == PT_LOAD) {
+				offset -= phdr.p_vaddr;
+				break;
+			}
+		}
+	}
+
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
 
@@ -298,7 +316,8 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
+static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
+			  unsigned long offset)
 {
 	int fd;
 	int ret = -1;
@@ -323,6 +342,25 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
 	if (elf == NULL)
 		goto elf_error;
+
+	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET) {
+		GElf_Phdr phdr;
+		size_t nr_phdr;
+		unsigned i;
+
+		if (elf_getphdrnum(elf, &nr_phdr) < 0)
+			goto elf_error;
+
+		for (i = 0; i < nr_phdr; i++) {
+			if (!gelf_getphdr(elf, i, &phdr))
+				goto elf_error;
+
+			if (phdr.p_type == PT_LOAD) {
+				offset -= phdr.p_vaddr;
+				break;
+			}
+		}
+	}
 
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;
@@ -411,6 +449,9 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename)
 		sym->size = plt_entsize;
 		sym->type = ST_PLT;
 
+		if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
+			sym->addr += offset;
+
 		if (symtabs->flags & SYMTAB_FL_DEMANGLE)
 			sym->name = demangle(name);
 		else
@@ -441,11 +482,30 @@ elf_error:
 	goto out;
 }
 
+static unsigned long find_map_offset(struct symtabs *symtabs,
+				     const char *filename)
+{
+	struct ftrace_proc_maps *maps = symtabs->maps;
+
+	while (maps) {
+		if (!strcmp(maps->libname, filename))
+			return maps->start;
+
+		maps = maps->next;
+	}
+	return 0;
+}
+
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
 {
+	unsigned long offset = 0;
+
 	if (symtabs->loaded)
 		return;
+
+	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
+		offset = find_map_offset(symtabs, filename);
 
 	/* try .sym files first */
 	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
@@ -453,20 +513,21 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 
 		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
 		if (access(symfile, F_OK) == 0)
-			load_symbol_file(symfile, symtabs);
+			load_symbol_file(symtabs, symfile, offset);
 
 		free(symfile);
 	}
 
 	if (symtabs->symtab.nr_sym == 0)
-		load_symtab(symtabs, filename, 0);
+		load_symtab(symtabs, filename, offset);
 	if (symtabs->dsymtab.nr_sym == 0)
-		load_dynsymtab(symtabs, filename);
+		load_dynsymtab(symtabs, filename, offset);
 
 	symtabs->loaded = true;
 }
 
-int load_symbol_file(const char *symfile, struct symtabs *symtabs)
+int load_symbol_file(struct symtabs *symtabs, const char *symfile,
+		     unsigned long offset)
 {
 	FILE *fp;
 	char *line = NULL;
@@ -483,7 +544,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 		return -1;
 	}
 
-	pr_dbg2("loading symbols from %s\n", symfile);
+	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
 	while (getline(&line, &len, fp) > 0) {
 		struct sym *sym;
 		uint64_t addr;
@@ -554,7 +615,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 
 		sym = &stab->sym[stab->nr_sym++];
 
-		sym->addr = addr;
+		sym->addr = addr + offset;
 		sym->type = type;
 		sym->name = demangle(name);
 		sym->size = 0;
@@ -563,7 +624,7 @@ int load_symbol_file(const char *symfile, struct symtabs *symtabs)
 			sym->type, sym->addr, sym->size, sym->name);
 
 		if (stab->nr_sym > 1)
-			sym[-1].size = addr - sym[-1].addr;
+			sym[-1].size = sym->addr - sym[-1].addr;
 	}
 	free(line);
 
@@ -601,18 +662,54 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	char *symfile = NULL;
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
+	unsigned long offset = 0;
+	int fd;
+	Elf *elf = NULL;
+	GElf_Phdr phdr;
+	size_t nr = 0;
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
-	fp = fopen(symfile, "w");
-	if (fp == NULL)
+	fp = fopen(symfile, "wx");
+	if (fp == NULL) {
+		if (errno == EEXIST)
+			return;
 		pr_err("cannot open %s file", symfile);
+	}
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
+	fd = open(exename, O_RDONLY);
+	if (fd < 0) {
+		pr_dbg("error during open elf file: %s: %m\n", exename);
+		goto do_it;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto do_it;
+
+	if (elf_getphdrnum(elf, &nr) < 0)
+		goto do_it;
+
+	for (i = 0; i < nr; i++) {
+		if (!gelf_getphdr(elf, i, &phdr))
+			break;
+		if (phdr.p_type == PT_LOAD) {
+			offset = phdr.p_vaddr;
+			break;
+		}
+	}
+
+	/* save relative offset of symbol address */
+	symtabs->flags |= SYMTAB_FL_ADJ_OFFSET;
+
+do_it:
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr,
+		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr - offset,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
 	/* this last entry should come from ->sym[] to know the real end */
 	if (i > 0) {
@@ -622,13 +719,16 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr,
+		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr - offset,
 		       (char) stab->sym[i].type, stab->sym[i].name);
 	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n", stab->sym[i-1].addr + stab->sym[i-1].size,
+		fprintf(fp, "%016lx %c %s\n",
+			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
 			(char) stab->sym[i-1].type, "__sym_end");
 	}
 
+	elf_end(elf);
+	close(fd);
 	free(symfile);
 	fclose(fp);
 }
@@ -640,7 +740,7 @@ int load_kernel_symbol(void)
 	if (ksymtabs.loaded)
 		return 0;
 
-	if (load_symbol_file("/proc/kallsyms", &ksymtabs) < 0)
+	if (load_symbol_file(&ksymtabs, "/proc/kallsyms", 0) < 0)
 		return -1;
 
 	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)
