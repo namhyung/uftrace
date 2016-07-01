@@ -526,14 +526,18 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		pr_out("# DURATION    TID     FUNCTION\n");
 
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
+		uint64_t curr_time = task->rstack->time;
+
 		/*
 		 * data sanity check: timestamp should be ordered.
 		 * But print_graph_rstack() may change task->rstack
 		 * during fstack_skip().  So check the timestamp here.
 		 */
-		if (prev_time > task->rstack->time)
-			print_warning(task);
-		prev_time = task->rstack->time;
+		if (curr_time) {
+			if (prev_time > curr_time)
+				print_warning(task);
+			prev_time = task->rstack->time;
+		}
 
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task, opts);
