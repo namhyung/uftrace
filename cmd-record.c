@@ -393,6 +393,7 @@ void *writer_thread(void *arg)
 	struct buf_list *buf, *pos;
 	struct writer_arg *warg = arg;
 	struct opts *opts = warg->opts;
+	int i;
 
 	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
@@ -410,14 +411,21 @@ void *writer_thread(void *arg)
 
 			/* check kernel data every 1ms */
 			clock_gettime(CLOCK_REALTIME, &timeout);
-			if (opts->kernel)
-				timeout.tv_nsec += 1000000;
-			else
-				timeout.tv_sec++;
+			switch (opts->kernel) {
+			case 1:
+				timeout.tv_nsec += 990000;
+				/* fall through */
+			case 2:
+				timeout.tv_nsec += 10000;
 
-			if (timeout.tv_nsec > NSEC_PER_SEC) {
-				timeout.tv_nsec -= NSEC_PER_SEC;
+				if (timeout.tv_nsec > NSEC_PER_SEC) {
+					timeout.tv_nsec -= NSEC_PER_SEC;
+					timeout.tv_sec++;
+				}
+				break;
+			default:
 				timeout.tv_sec++;
+				break;
 			}
 
 			pthread_cond_timedwait(&write_cond, &write_list_lock,
@@ -444,6 +452,13 @@ void *writer_thread(void *arg)
 
 		pthread_mutex_unlock(&write_list_lock);
 
+		if (opts->kernel) {
+			for (i = 0; i < warg->nr_cpu; i++) {
+				record_kernel_trace_pipe(warg->kern,
+							 warg->cpus[i]);
+			}
+		}
+
 		while (!list_empty(&head)) {
 			write_buf_list(&head, opts, warg);
 
@@ -457,10 +472,9 @@ void *writer_thread(void *arg)
 				list_del_init(&warg->list);
 			}
 			pthread_mutex_unlock(&write_list_lock);
-		}
 
-		if (opts->kernel) {
-			int i;
+			if (!opts->kernel)
+				continue;
 
 			for (i = 0; i < warg->nr_cpu; i++) {
 				record_kernel_trace_pipe(warg->kern,
