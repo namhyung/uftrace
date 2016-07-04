@@ -713,7 +713,7 @@ do_it:
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
 	/* this last entry should come from ->sym[] to know the real end */
 	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size,
+		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size - offset,
 			(char) dtab->sym[i-1].type, "__dynsym_end");
 	}
 
