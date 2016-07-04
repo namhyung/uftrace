@@ -102,7 +102,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 }
 
 static void build_function_tree(struct ftrace_file_handle *handle,
-				struct rb_root *root)
+				struct rb_root *root, struct opts *opts)
 {
 	struct sym *sym;
 	struct trace_entry te;
@@ -116,6 +116,13 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (rstack->type != FTRACE_EXIT)
 			continue;
 
+		if (opts->kernel == 1) {
+			/* skip kernel functions outside user functions */
+			if (is_kernel_address(task->func_stack[0].addr) &&
+			    is_kernel_address(rstack->addr))
+				continue;
+		}
+
 		if (rstack == &task->kstack)
 			sess = first_session;
 		else
@@ -126,7 +133,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 		sym = find_symtabs(&sess->symtabs, rstack->addr);
 
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count];
 
 		te.pid = task->tid;
 		te.sym = sym;
@@ -134,6 +141,10 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		te.time_total = fstack->total_time;
 		te.time_self = te.time_total - fstack->child_time;
 		te.nr_called = 1;
+
+		/* some LOST entries make invalid self tiem */
+		if (te.time_self > te.time_total)
+			te.time_self = te.time_total;
 
 		insert_entry(root, &te, false);
 	}
@@ -407,14 +418,14 @@ static void print_function(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_functions(struct ftrace_file_handle *handle)
+static void report_functions(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
-	build_function_tree(handle, &name_tree);
+	build_function_tree(handle, &name_tree, opts);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
 		struct rb_node *node;
@@ -489,7 +500,7 @@ static void print_thread(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_threads(struct ftrace_file_handle *handle)
+static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
@@ -506,7 +517,14 @@ static void report_threads(struct ftrace_file_handle *handle)
 		if (rstack->type == FTRACE_LOST)
 			continue;
 
-		fstack = &task->func_stack[rstack->depth];
+		if (opts->kernel == 1) {
+			/* skip kernel functions outside user functions */
+			if (is_kernel_address(task->func_stack[0].addr) &&
+			    is_kernel_address(rstack->addr))
+				continue;
+		}
+
+		fstack = &task->func_stack[task->stack_count];
 
 		te.pid = task->tid;
 		te.sym = find_task_sym(handle, task, rstack);
@@ -795,13 +813,14 @@ static void print_remaining_pair(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_diff(struct ftrace_file_handle *handle, char *diff, int sort_column)
+static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
-		.dirname = diff,
+		.dirname = opts->diff,
+		.kernel  = opts->kernel,
 	};
 	struct diff_data data = {
-		.dirname = diff,
+		.dirname = opts->diff,
 		.root    = RB_ROOT,
 	};
 	struct rb_root tmp = RB_ROOT;
@@ -811,22 +830,22 @@ static void report_diff(struct ftrace_file_handle *handle, char *diff, int sort_
 	const char format[] = "  %32.32s   %32.32s   %32.32s   %-s\n";
 	const char line[] = "====================================";
 
-	build_function_tree(handle, &tmp);
+	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
 
 	remaining = tmp;
 	tmp = RB_ROOT;
 
 	open_data_file(&dummy_opts, &data.handle);
-	build_function_tree(&data.handle, &tmp);
+	build_function_tree(&data.handle, &tmp, &dummy_opts);
 	sort_function_name(&tmp, &data.root);
 
-	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, sort_column);
+	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, opts->sort_column);
 
 	pr_out("#\n");
 	pr_out("# uftrace diff\n");
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
-	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, diff, data.handle.info.cmdline);
+	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
 
 	if (avg_mode == AVG_NONE)
@@ -893,11 +912,11 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->report_thread)
-		report_threads(&handle);
+		report_threads(&handle, opts);
 	else if (opts->diff)
-		report_diff(&handle, opts->diff, opts->sort_column);
+		report_diff(&handle, opts);
 	else
-		report_functions(&handle);
+		report_functions(&handle, opts);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
