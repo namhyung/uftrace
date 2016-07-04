@@ -411,7 +411,7 @@ static void print_function(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_functions(struct ftrace_file_handle *handle)
+static void report_functions(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
@@ -493,7 +493,7 @@ static void print_thread(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_threads(struct ftrace_file_handle *handle)
+static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
@@ -799,13 +799,13 @@ static void print_remaining_pair(struct trace_entry *entry)
 	symbol_putname(entry->sym, symname);
 }
 
-static void report_diff(struct ftrace_file_handle *handle, char *diff, int sort_column)
+static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
-		.dirname = diff,
+		.dirname = opts->diff,
 	};
 	struct diff_data data = {
-		.dirname = diff,
+		.dirname = opts->diff,
 		.root    = RB_ROOT,
 	};
 	struct rb_root tmp = RB_ROOT;
@@ -825,12 +825,12 @@ static void report_diff(struct ftrace_file_handle *handle, char *diff, int sort_
 	build_function_tree(&data.handle, &tmp);
 	sort_function_name(&tmp, &data.root);
 
-	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, sort_column);
+	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, opts->sort_column);
 
 	pr_out("#\n");
 	pr_out("# uftrace diff\n");
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
-	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, diff, data.handle.info.cmdline);
+	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
 
 	if (avg_mode == AVG_NONE)
@@ -897,11 +897,11 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->report_thread)
-		report_threads(&handle);
+		report_threads(&handle, opts);
 	else if (opts->diff)
-		report_diff(&handle, opts->diff, opts->sort_column);
+		report_diff(&handle, opts);
 	else
-		report_functions(&handle);
+		report_functions(&handle, opts);
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
