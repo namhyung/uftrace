@@ -126,7 +126,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 		sym = find_symtabs(&sess->symtabs, rstack->addr);
 
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count];
 
 		te.pid = task->tid;
 		te.sym = sym;
@@ -510,7 +510,7 @@ static void report_threads(struct ftrace_file_handle *handle)
 		if (rstack->type == FTRACE_LOST)
 			continue;
 
-		fstack = &task->func_stack[rstack->depth];
+		fstack = &task->func_stack[task->stack_count];
 
 		te.pid = task->tid;
 		te.sym = find_task_sym(handle, task, rstack);
