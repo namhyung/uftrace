@@ -553,6 +553,9 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		else
 			fstack_exit(task);
 
+		if (!fstack_enabled)
+			return NULL;
+
 		/* and then read next */
 		if (peek_rstack(handle, &next) < 0)
 			return NULL;
