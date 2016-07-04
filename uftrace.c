@@ -479,8 +479,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_sort_column:
 		opts->sort_column = strtol(arg, NULL, 0);
-		if (opts->sort_column < 0 || opts->sort_column > 2)
-			pr_use("invalid column number: %s\n", arg);
+		if (opts->sort_column < 0 || opts->sort_column > 2) {
+			pr_use("invalid column number: %d\n", opts->sort_column);
+			pr_use("force to set it to --sort-column=2 for diff percentage\n");
+			opts->sort_column = 2;
+		}
 		break;
 
 	case OPT_num_thread:
