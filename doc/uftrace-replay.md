@@ -52,6 +52,12 @@ OPTIONS
 --no-comment
 :   Do not show comments of returned functions.
 
+-k, \--kernel
+:   Trace kernel functions as well as user functions.  Only kernel functions inside user functions will be shown.
+
+-K, \--kernel-full
+:   Trace kernel functions as well as user functions.  All kernel functions will be shown.
+
 
 FILTERS
 =======
