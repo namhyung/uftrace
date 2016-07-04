@@ -102,7 +102,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 }
 
 static void build_function_tree(struct ftrace_file_handle *handle,
-				struct rb_root *root)
+				struct rb_root *root, struct opts *opts)
 {
 	struct sym *sym;
 	struct trace_entry te;
@@ -115,6 +115,13 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		rstack = task->rstack;
 		if (rstack->type != FTRACE_EXIT)
 			continue;
+
+		if (opts->kernel == 1) {
+			/* skip kernel functions outside user functions */
+			if (is_kernel_address(task->func_stack[0].addr) &&
+			    is_kernel_address(rstack->addr))
+				continue;
+		}
 
 		if (rstack == &task->kstack)
 			sess = first_session;
@@ -418,7 +425,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
-	build_function_tree(handle, &name_tree);
+	build_function_tree(handle, &name_tree, opts);
 
 	while (!RB_EMPTY_ROOT(&name_tree)) {
 		struct rb_node *node;
@@ -509,6 +516,13 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 			continue;
 		if (rstack->type == FTRACE_LOST)
 			continue;
+
+		if (opts->kernel == 1) {
+			/* skip kernel functions outside user functions */
+			if (is_kernel_address(task->func_stack[0].addr) &&
+			    is_kernel_address(rstack->addr))
+				continue;
+		}
 
 		fstack = &task->func_stack[task->stack_count];
 
@@ -803,6 +817,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
 		.dirname = opts->diff,
+		.kernel  = opts->kernel,
 	};
 	struct diff_data data = {
 		.dirname = opts->diff,
@@ -815,14 +830,14 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	const char format[] = "  %32.32s   %32.32s   %32.32s   %-s\n";
 	const char line[] = "====================================";
 
-	build_function_tree(handle, &tmp);
+	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
 
 	remaining = tmp;
 	tmp = RB_ROOT;
 
 	open_data_file(&dummy_opts, &data.handle);
-	build_function_tree(&data.handle, &tmp);
+	build_function_tree(&data.handle, &tmp, &dummy_opts);
 	sort_function_name(&tmp, &data.root);
 
 	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, opts->sort_column);
