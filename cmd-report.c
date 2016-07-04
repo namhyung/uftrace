@@ -135,6 +135,10 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		te.time_self = te.time_total - fstack->child_time;
 		te.nr_called = 1;
 
+		/* some LOST entries make invalid self tiem */
+		if (te.time_self > te.time_total)
+			te.time_self = te.time_total;
+
 		insert_entry(root, &te, false);
 	}
 }

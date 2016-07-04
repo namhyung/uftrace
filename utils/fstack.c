@@ -938,15 +938,22 @@ kernel:
 		}
 		else if (task->rstack->type == FTRACE_EXIT) {
 			int idx = task->stack_count - 1;
+			uint64_t delta = kstack.end_time - kstack.start_time;
 
 			if (idx < 0)
 				idx = 0;
 
 			fstack = &task->func_stack[idx];
 
+			if (!fstack->valid) {
+				delta = 0UL;
+				fstack->addr = kstack.child_ip;
+			}
 			fstack->valid = false;
-			fstack->addr = kstack.child_ip;
-			fstack->total_time = kstack.end_time - kstack.start_time;
+
+			fstack->total_time = delta;
+			if (fstack->child_time > fstack->total_time)
+				fstack->child_time = fstack->total_time;
 
 			if (task->stack_count > 1) {
 				uint64_t child_time = fstack->total_time;
@@ -960,8 +967,9 @@ kernel:
 			task->lost_seen = true;
 			task->display_depth_set = false;
 
-			for (i = 0; i < task->kstack.depth; i++) {
-				fstack = &task->func_stack[task->user_stack_count + i];
+			for (i = task->user_stack_count; i <= task->stack_count; i++) {
+				fstack = &task->func_stack[i];
+				fstack->total_time = 0;
 				fstack->valid = false;
 			}
 		}
