@@ -153,6 +153,65 @@ void mcount_rstack_reset(struct mcount_thread_data *mtdp)
 	}
 }
 
+void mcount_auto_restore(struct mcount_thread_data *mtdp)
+{
+	struct mcount_ret_stack *curr_rstack;
+	struct mcount_ret_stack *prev_rstack;
+
+	/* auto recover is meaningful only if parent rstack is hooked */
+	if (mtdp->idx < 2)
+		return;
+
+	if (mtdp->in_exception)
+		return;
+
+	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
+	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
+
+	/* ignore tail calls */
+	if (curr_rstack->parent_loc == prev_rstack->parent_loc)
+		return;
+
+	while (prev_rstack >= mtdp->rstack) {
+		unsigned long parent_ip = prev_rstack->parent_ip;
+
+		/* parent also can be tail-called; skip */
+		if (parent_ip == (unsigned long)mcount_return ||
+		    parent_ip == (unsigned long)plthook_return) {
+			prev_rstack--;
+			continue;
+		}
+
+		*prev_rstack->parent_loc = parent_ip;
+		return;
+	}
+}
+
+void mcount_auto_reset(struct mcount_thread_data *mtdp)
+{
+	struct mcount_ret_stack *curr_rstack;
+	struct mcount_ret_stack *prev_rstack;
+
+	/* auto recover is meaningful only if parent rstack is hooked */
+	if (mtdp->idx < 2)
+		return;
+
+	if (mtdp->in_exception)
+		return;
+
+	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
+	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
+
+	/* ignore tail calls */
+	if (curr_rstack->parent_loc == prev_rstack->parent_loc)
+		return;
+
+	if (prev_rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
+		*prev_rstack->parent_loc = (unsigned long)mcount_return;
+	else
+		*prev_rstack->parent_loc = (unsigned long)plthook_return;
+}
+
 #ifdef UNIT_TEST
 
 TEST_CASE(mcount_debug_domain)

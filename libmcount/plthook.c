@@ -788,7 +788,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
+	/* hijack the return address of child */
 	*ret_addr = (unsigned long)plthook_return;
+
+	/* restore return address of parent */
+	if (mcount_auto_recover)
+		mcount_auto_restore(mtdp);
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
@@ -879,6 +884,10 @@ again:
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
+
+	/* re-hijack return address of parent */
+	if (mcount_auto_recover)
+		mcount_auto_reset(mtdp);
 
 	compiler_barrier();
 
