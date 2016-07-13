@@ -442,7 +442,7 @@ static void print_remaining_stack(struct opts *opts,
 	if (total == 0)
 		return;
 
-	pr_out("\nftrace stopped tracing with remaining functions");
+	pr_out("\nuftrace stopped tracing with remaining functions");
 	pr_out("\n===============================================\n");
 
 	for (i = 0; i < handle->nr_tasks; i++) {

@@ -41,7 +41,7 @@
 #include "utils/filter.h"
 
 const char *argp_program_version = "uftrace " UFTRACE_VERSION;
-const char *argp_program_bug_address = "http://mod.lge.com/hub/otc/ftrace/issues";
+const char *argp_program_bug_address = "https://github.com/namhyung/uftrace/issues";
 
 static bool dbg_domain_set = false;
 
