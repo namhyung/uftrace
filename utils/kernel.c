@@ -176,7 +176,7 @@ static int reset_tracing_files(void)
 	return 0;
 }
 
-static int setup_kernel_tracing(struct ftrace_kernel *kernel)
+static int __setup_kernel_tracing(struct ftrace_kernel *kernel)
 {
 	if (geteuid() != 0) {
 		pr_log("kernel tracing requires root privilege\n");
@@ -217,17 +217,26 @@ out:
 	return -1;
 }
 
-int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters)
+/**
+ * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
+ * @kernel : kernel ftrace handle
+ * @filters: CSV of functions to filter
+ *
+ * This function sets up all necessary data structures and configure
+ * kernel ftrace subsystem.
+ */
+int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
 {
 	char *pos, *str, *name;
 	struct kfilter *kfilter;
 	struct list_head *head;
+	int i, n;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
 
 	if (filters == NULL)
-		return 0;
+		goto setup;
 
 	pos = str = xstrdup(filters);
 
@@ -251,6 +260,20 @@ next:
 		name = strtok(NULL, ",");
 	}
 
+setup:
+	if (__setup_kernel_tracing(kernel) < 0)
+		return -1;
+
+	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_ONLN);
+
+	kernel->traces	= xcalloc(n, sizeof(*kernel->traces));
+	kernel->fds	= xcalloc(n, sizeof(*kernel->fds));
+
+ 	for (i = 0; i < kernel->nr_cpus; i++) {
+		kernel->traces[i] = -1;
+		kernel->fds[i] = -1;
+	}
+
 	return 0;
 }
 
@@ -271,16 +294,8 @@ int start_kernel_tracing(struct ftrace_kernel *kernel)
 {
 	char *trace_file;
 	char buf[4096];
-	int n, i;
+	int i;
 	int saved_errno;
-
-	if (setup_kernel_tracing(kernel) < 0)
-		return -1;
-
-	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_ONLN);
-
-	kernel->traces	= xcalloc(n, sizeof(*kernel->traces));
-	kernel->fds	= xcalloc(n, sizeof(*kernel->fds));
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		/* TODO: take an account of (currently) offline cpus */

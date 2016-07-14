@@ -1331,10 +1331,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
 
-		setup_kernel_filters(&kern, opts->filter);
-
-		if (start_kernel_tracing(&kern) < 0) {
-			opts->kernel = false;
+		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
+			opts->kernel = 0;
 			pr_log("kernel tracing disabled due to an error\n");
 		}
 	}
@@ -1378,6 +1376,11 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		}
 
 		pthread_create(&writers[i], NULL, writer_thread, warg);
+	}
+
+	if (opts->kernel && start_kernel_tracing(&kern) < 0) {
+		opts->kernel = 0;
+		pr_log("kernel tracing disabled due to an error\n");
 	}
 
 	/* signal child that I'm ready */

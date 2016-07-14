@@ -336,7 +336,7 @@ struct ftrace_kernel {
 };
 
 /* these functions will be used at record time */
-int setup_kernel_filters(struct ftrace_kernel *kernel, char *filters);
+int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters);
 int start_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu);

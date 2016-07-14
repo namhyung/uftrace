@@ -279,8 +279,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (opts->kernel == 1) {
 		/* skip kernel functions outside user functions */
-		if (is_kernel_address(task->func_stack[0].addr) &&
-		    is_kernel_address(rstack->addr))
+		if (!task->user_stack_count && is_kernel_address(rstack->addr))
 			goto out;
 	}
 
@@ -390,6 +389,10 @@ lost:
 		depth = task->display_depth + 1;
 		losts = (int)rstack->addr;
 
+		/* skip kernel lost messages outside of user functions */
+		if (opts->kernel == 1 && task->user_stack_count == 0)
+			return 0;
+
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
 			print_task_newline(task->tid);
@@ -401,7 +404,7 @@ lost:
 			pr_red(" %*s/* LOST %d records!! */\n",
 			       depth * 2, "", losts);
 		else /* kernel sometimes have unknown count */
-			pr_red(" %*s/* LOST some records!! /*\n",
+			pr_red(" %*s/* LOST some records!! */\n",
 			       depth * 2, "");
 	}
 out:

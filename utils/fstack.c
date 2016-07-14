@@ -439,16 +439,16 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
 	}
 	else if (type == FTRACE_EXIT) {
-		if (task->display_depth > 1)
+		if (task->display_depth > 0)
 			task->display_depth--;
 		else
 			task->display_depth = 0;
 
 		if (task->ctx == FSTACK_CTX_USER) {
-			if (task->user_display_depth > 1)
+			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
-				task->user_display_depth -= 0;
+				task->user_display_depth = 0;
 		}
 	}
 	else {
