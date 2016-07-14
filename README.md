@@ -2,7 +2,7 @@ How to install uftrace
 ======================
 
 The uftrace is written in C and tried to minimize external dependencies.
-Currently it requires libelf in elfutils package to build, and there're some
+Currently it requires `libelf` in elfutils package to build, and there're some
 more optional dependencies.
 
 Once you installed required software(s) on your system, it can be built and
@@ -11,7 +11,8 @@ installed like following:
     make
     sudo make install
 
-For more advanced setup, please refer INSTALL.md file.
+For more advanced setup, please refer
+[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md) file.
 
 
 Features
@@ -30,7 +31,7 @@ You can setup a filter to exclude or include specific functions when tracing.
 In addition, it can save and show function arguments and return value.
 
 It supports multi-process and/or multi-threaded applications.  With root
-privilege, it can also trace kernel functions with (-k option) if the
+privilege, it can also trace kernel functions with (`-k` option) if the
 system enables the function graph tracer in the kernel
 (`CONFIG_FUNCTION_GRAPH_TRACER=y`).
 
@@ -43,12 +44,12 @@ The uftrace command has following subcommands: record, replay, report, live, inf
     Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
-If omitted, it defaults to the live command which is almost same as running
+If omitted, it defaults to the `live` command which is almost same as running
 record and replay subcommand in a row (but does not record the trace info
 to files).
 
-For recording, the executable should be compiled with -pg
-(or -finstrument-functions) option which generates profiling code
+For recording, the executable should be compiled with `-pg`
+(or `-finstrument-functions`) option which generates profiling code
 (calling mcount or __cyg_profile_func_enter/exit) for each function.
 
     $ uftrace tests/t-abc
@@ -72,20 +73,20 @@ analysis commands like replay, report, graph, dump and/or info multiple times.
 
 It'll create uftrace.data directory that contains trace data files.
 Other analysis commands expect the directory exists in the current directory,
-but one can use another using -d option.
+but one can use another using `-d` option.
 
-The replay command shows execution information like above.  As you can see,
+The `replay` command shows execution information like above.  As you can see,
 the t-abc is a very simple program merely calls a, b and c functions.
 In the c function it called getpid() which is a library function implemented
 in the C library (glibc) on normal systems - the same goes to __cxa_atexit().
 
 Users can use various filter options to limit functions it records/prints.
-The depth filter (-D option) is to omit functions under the given call depth.
-The time filter (-t option) is to omit functions running less than the given
-time. And the function filters (-F and -N options) are to show/hide functions
+The depth filter (`-D` option) is to omit functions under the given call depth.
+The time filter (`-t` option) is to omit functions running less than the given
+time. And the function filters (`-F` and `-N` options) are to show/hide functions
 under the given function.
 
-The report command lets you know which function spends the longest time
+The `report` command lets you know which function spends the longest time
 including its children (total time).
 
     $ uftrace report
@@ -100,7 +101,7 @@ including its children (total time).
         0.763 us    0.763 us           1  getpid
 
 
-The graph command shows function call graph of given function.  In the above
+The `graph` command shows function call graph of given function.  In the above
 example, function graph of function 'a' looks like below:
 
     $ uftrace graph  a
@@ -122,10 +123,10 @@ example, function graph of function 'a' looks like below:
        5.333 us : (1) getpid
 
 
-The dump command shows raw output of each trace record.  You can see the result
+The `dump` command shows raw output of each trace record.  You can see the result
 in the chrome browser, once the data is processed with `uftrace dump --chrome`.
 
-The info command shows system and program information when recorded.
+The `info` command shows system and program information when recorded.
 
     $ uftrace info
     # system information
