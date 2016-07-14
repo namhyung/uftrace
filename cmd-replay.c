@@ -279,8 +279,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (opts->kernel == 1) {
 		/* skip kernel functions outside user functions */
-		if (is_kernel_address(task->func_stack[0].addr) &&
-		    is_kernel_address(rstack->addr))
+		if (!task->user_stack_count && is_kernel_address(rstack->addr))
 			goto out;
 	}
 
