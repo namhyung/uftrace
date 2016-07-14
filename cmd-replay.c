@@ -401,7 +401,7 @@ lost:
 			pr_red(" %*s/* LOST %d records!! */\n",
 			       depth * 2, "", losts);
 		else /* kernel sometimes have unknown count */
-			pr_red(" %*s/* LOST some records!! /*\n",
+			pr_red(" %*s/* LOST some records!! */\n",
 			       depth * 2, "");
 	}
 out:
