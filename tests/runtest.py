@@ -23,7 +23,7 @@ class TestBase:
     objdir = os.environ['objdir'] or '..'
     ftrace = objdir + '/uftrace -L' + objdir
 
-    default_cflags = ['-fno-inline', '-fno-builtin']
+    default_cflags = ['-fno-inline', '-fno-builtin', '-fno-omit-frame-pointer']
 
     def __init__(self, name, result, lang='C', cflags='', ldflags=''):
         self.name = name

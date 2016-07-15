@@ -62,4 +62,9 @@ class TestCase(TestBase):
                                 [ 3124] | __monstartup();
                                 [ 3124] | __cxa_atexit();""")
 
+        import platform
+        if platform.machine().startswith('arm'):
+            r = r.replace('readlink', """memset();
+                                [ 3124] |   readlink""")
+
         return r
