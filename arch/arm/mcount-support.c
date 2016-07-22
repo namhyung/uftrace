@@ -50,6 +50,8 @@ static struct offset_entry *lookup_cache(struct rb_root *root,
 	iter = xmalloc(sizeof(*iter));
 	iter->addr = addr;
 
+	rb_link_node(&iter->node, parent, p);
+	rb_insert_color(&iter->node, root);
 	return iter;
 }
 
