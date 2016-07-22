@@ -137,7 +137,7 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 			lr->pushed = true;
 
 			for (i = 0; i < 13; i++) {
-				if (opcode & (1 << i))
+				if (opcode2 & (1 << i))
 					lr->offset++;
 			}
 		}
@@ -145,7 +145,7 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 	else if ((opcode & 0xff80) == 0xb080) {
 		/* SUB (SP - imm) */
 		if (lr->pushed)
-			lr->offset += opcode & 0x3f;
+			lr->offset += opcode & 0x7f;
 	}
 	else if ((opcode & 0xfbef) == 0xf1ad) {
 		/* SUB (SP - imm) : 32 bit insn */
