@@ -158,6 +158,19 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 			lr->offset += imm >> 2;
 		}
 	}
+	else if ((opcode & 0xfbff) == 0xf2ad) {
+		/* SUB (SP - imm) : 32 bit insn */
+		unsigned short opcode2 = insn[1];
+		int target = (opcode2 & 0xf00) >> 8;
+
+		if (lr->pushed && target == REG_SP) {
+			unsigned imm = opcode2 & 0xff;
+
+			imm |= (opcode2 & 0x7000) >> 4;
+			imm |= (opcode & 0x400) << 1;
+			lr->offset += imm >> 2;
+		}
+	}
 	else if ((opcode & 0xf800) == 0xa800) {
 		/* ADD (SP + imm) */
 		int target = (opcode & 0x380) >> 7;
