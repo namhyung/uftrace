@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <gelf.h>
 #include <unistd.h>
+#include <assert.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
@@ -21,6 +22,7 @@
 
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
 
 static struct symtabs ksymtabs;
 
@@ -494,6 +496,27 @@ static unsigned long find_map_offset(struct symtabs *symtabs,
 	return 0;
 }
 
+struct ftrace_proc_maps *find_map_by_name(struct symtabs *symtabs,
+					  const char *prefix)
+{
+	struct ftrace_proc_maps *maps = symtabs->maps;
+	char *mod_name;
+
+	while (maps) {
+		mod_name = strrchr(maps->libname, '/');
+		if (mod_name == NULL)
+			mod_name = maps->libname;
+		else
+			mod_name++;
+
+		if (!strncmp(mod_name, prefix, strlen(prefix)))
+			return maps;
+
+		maps = maps->next;
+	}
+	return NULL;
+}
+
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
 {
@@ -522,6 +545,28 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
 
 	symtabs->loaded = true;
+}
+
+void load_module_symtabs(struct symtabs *symtabs, struct list_head *head)
+{
+	struct filter_module *fm;
+	struct ftrace_proc_maps *maps;
+
+	assert(symtabs->maps);
+
+	list_for_each_entry(fm, head, list) {
+		if (!strcasecmp(fm->name, "main") ||
+		    !strcasecmp(fm->name, "PLT") ||
+		    !strcasecmp(fm->name, "kernel"))
+			continue;
+
+		maps = find_map_by_name(symtabs, fm->name);
+		if (maps == NULL || maps->symtab.nr_sym)
+			continue;
+
+		load_symtab(&maps->symtab, maps->libname,
+			    maps->start, symtabs->flags);
+	}
 }
 
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
@@ -861,9 +906,12 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 	}
 
 	if (maps) {
-		load_symtab(&symtabs->symtab, maps->libname, maps->start,
-			    symtabs->flags);
+		if (maps->symtab.nr_sym == 0) {
+			load_symtab(&maps->symtab, maps->libname, maps->start,
+				    symtabs->flags);
+		}
 
+		stab = &maps->symtab;
 		sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 	}

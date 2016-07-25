@@ -57,6 +57,10 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 		map->end = end;
 		map->len = namelen;
 		memcpy(map->prot, prot, 4);
+		map->symtab.sym = NULL;
+		map->symtab.sym_names = NULL;
+		map->symtab.nr_sym = 0;
+		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;

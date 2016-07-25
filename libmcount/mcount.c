@@ -618,6 +618,10 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 			map->end = end;
 			map->len = namelen;
 			memcpy(map->prot, prot, 4);
+			map->symtab.sym = NULL;
+			map->symtab.sym_names = NULL;
+			map->symtab.nr_sym = 0;
+			map->symtab.nr_alloc = 0;
 			memcpy(map->libname, path, namelen);
 			map->libname[strlen(path)] = '\0';
 
