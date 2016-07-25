@@ -420,15 +420,26 @@ static int setup_module_and_trigger(char *str, char *module,
 				continue;
 			}
 
-			if (module == NULL || strcasecmp(pos, module))
+			if (module && strcasecmp(pos, module))
 				return -1;
 
-			found_mod = true;
-
-			if (!strcasecmp(module, "plt"))
+			if (!strcasecmp(pos, "plt"))
 				*psymtab = &symtabs->dsymtab;
-			else if (!strcasecmp(module, "kernel"))
+			else if (!strcasecmp(pos, "kernel"))
 				*psymtab = get_kernel_symtab();
+			else {
+				struct ftrace_proc_maps *map;
+
+				map = find_map_by_name(symtabs, pos);
+				if (map == NULL) {
+					pr_dbg("cannot find module %s\n", pos);
+					return -1;
+				}
+
+				*psymtab = &map->symtab;
+			}
+
+			found_mod = true;
 		}
 
 		if (module && !found_mod)
