@@ -50,6 +50,8 @@ static struct offset_entry *lookup_cache(struct rb_root *root,
 	iter = xmalloc(sizeof(*iter));
 	iter->addr = addr;
 
+	rb_link_node(&iter->node, parent, p);
+	rb_insert_color(&iter->node, root);
 	return iter;
 }
 
@@ -137,7 +139,7 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 			lr->pushed = true;
 
 			for (i = 0; i < 13; i++) {
-				if (opcode & (1 << i))
+				if (opcode2 & (1 << i))
 					lr->offset++;
 			}
 		}
@@ -145,7 +147,7 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 	else if ((opcode & 0xff80) == 0xb080) {
 		/* SUB (SP - imm) */
 		if (lr->pushed)
-			lr->offset += opcode & 0x3f;
+			lr->offset += opcode & 0x7f;
 	}
 	else if ((opcode & 0xfbef) == 0xf1ad) {
 		/* SUB (SP - imm) : 32 bit insn */
@@ -155,6 +157,19 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 		if (lr->pushed && target == REG_SP) {
 			unsigned imm = expand_thumb_imm(opcode, opcode2);
 
+			lr->offset += imm >> 2;
+		}
+	}
+	else if ((opcode & 0xfbff) == 0xf2ad) {
+		/* SUB (SP - imm) : 32 bit insn */
+		unsigned short opcode2 = insn[1];
+		int target = (opcode2 & 0xf00) >> 8;
+
+		if (lr->pushed && target == REG_SP) {
+			unsigned imm = opcode2 & 0xff;
+
+			imm |= (opcode2 & 0x7000) >> 4;
+			imm |= (opcode & 0x400) << 1;
 			lr->offset += imm >> 2;
 		}
 	}

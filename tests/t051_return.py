@@ -15,3 +15,7 @@ class TestCase(TestBase):
    0.157 us [12703] |   return_long_double();
    4.097 us [12703] | } /* main */
 """)
+
+    def fixup(self, cflags, result):
+        return result.replace('memset', """memset();
+   1.440 us [12703] |     memcpy""");
