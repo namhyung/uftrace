@@ -39,7 +39,7 @@ class TestCase(TestBase):
         if sp.call(build_cmd.split(), stdout=sp.PIPE) < 0:
             return TestBase.TEST_BUILD_FAIL
 
-        exe_ldflags = build_ldflags + ' -Wl,-rpath,. -L. -labc_test_lib'
+        exe_ldflags = build_ldflags + ' -Wl,-rpath,"$ORIGIN" -L. -labc_test_lib'
 
         build_cmd = '%s -o %s s-libmain.c %s' % \
                     (lang['cc'], prog, exe_ldflags)
@@ -49,5 +49,17 @@ class TestCase(TestBase):
             return TestBase.TEST_BUILD_FAIL
         return 0
 
+    def sort(self, output, ignore_children=False):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        result = []
+        for ln in output.split('\n'):
+            # ignore blank lines and header
+            if ln.strip() == '' or ln.startswith('#'):
+                continue
+            func = ln.split('|', 1)[-1]
+            result.append(func)
+        return '\n'.join(result)
+
     def runcmd(self):
-        return '%s --force %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --force --no-libcall %s' % (TestBase.ftrace, 't-' + self.name)
