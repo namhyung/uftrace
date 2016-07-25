@@ -577,7 +577,8 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 {
 	FILE *ifp, *ofp;
 	char buf[4096];
-	bool found = false;
+	struct ftrace_proc_maps *prev_map = NULL;
+	char *last_module = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -596,38 +597,41 @@ static void record_proc_maps(char *dirname, const char *sess_id)
 		size_t namelen;
 		struct ftrace_proc_maps *map;
 
-		if (!found) {
-			/* skip anon mappings */
-			if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
-				   &start, &end, prot, path) != 4)
-				goto next;
+		/* skip anon mappings */
+		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+			   &start, &end, prot, path) != 4)
+			goto next;
 
-			/* skip non-executable mappings */
-			if (prot[2] != 'x')
-				goto next;
+		/* skip non-executable mappings */
+		if (prot[2] != 'x')
+			goto next;
 
-			if (strcmp(path, mcount_exename))
-				goto next;
+		if (last_module && !strcmp(path, last_module))
+			goto next;
 
-			/* save map for the executable */
-			namelen = ALIGN(strlen(path) + 1, 4);
+		/* save map for the executable */
+		namelen = ALIGN(strlen(path) + 1, 4);
 
-			map = xmalloc(sizeof(*map) + namelen);
+		map = xmalloc(sizeof(*map) + namelen);
 
-			map->start = start;
-			map->end = end;
-			map->len = namelen;
-			memcpy(map->prot, prot, 4);
-			map->symtab.sym = NULL;
-			map->symtab.sym_names = NULL;
-			map->symtab.nr_sym = 0;
-			map->symtab.nr_alloc = 0;
-			memcpy(map->libname, path, namelen);
-			map->libname[strlen(path)] = '\0';
+		map->start = start;
+		map->end = end;
+		map->len = namelen;
+		memcpy(map->prot, prot, 4);
+		map->symtab.sym = NULL;
+		map->symtab.sym_names = NULL;
+		map->symtab.nr_sym = 0;
+		map->symtab.nr_alloc = 0;
+		memcpy(map->libname, path, namelen);
+		map->libname[strlen(path)] = '\0';
 
+		if (prev_map)
+			prev_map->next = map;
+		else
 			symtabs.maps = map;
-			found = true;
-		}
+
+		map->next = NULL;
+		prev_map = map;
 
 next:
 		fprintf(ofp, "%s", buf);
