@@ -91,8 +91,8 @@ void unload_symtabs(struct symtabs *symtabs)
 	symtabs->loaded = false;
 }
 
-static int load_symtab(struct symtabs *symtabs, const char *filename,
-		       unsigned long offset)
+static int load_symtab(struct symtab *symtab, const char *filename,
+		       unsigned long offset, unsigned long flags)
 {
 	int fd;
 	Elf *elf;
@@ -101,7 +101,6 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 	Elf_Scn *sym_sec, *dynsym_sec, *sec;
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
-	struct symtab *symtab = &symtabs->symtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -115,7 +114,7 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 	if (elf == NULL)
 		goto elf_error;
 
-	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET) {
+	if (flags & SYMTAB_FL_ADJ_OFFSET) {
 		GElf_Phdr phdr;
 		size_t nr_phdr;
 
@@ -228,7 +227,7 @@ static int load_symtab(struct symtabs *symtabs, const char *filename,
 		if (ver)
 			name = xstrndup(name, ver - name);
 
-		if (symtabs->flags & SYMTAB_FL_DEMANGLE) {
+		if (flags & SYMTAB_FL_DEMANGLE) {
 			if (ver)
 				name = xstrndup(name, ver - name);
 			sym->name = demangle(name);
@@ -316,8 +315,8 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
-			  unsigned long offset)
+static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
+			  unsigned long offset, unsigned long flags)
 {
 	int fd;
 	int ret = -1;
@@ -329,7 +328,6 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
 	GElf_Addr plt_addr = 0;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
-	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -343,7 +341,7 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
 	if (elf == NULL)
 		goto elf_error;
 
-	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET) {
+	if (flags & SYMTAB_FL_ADJ_OFFSET) {
 		GElf_Phdr phdr;
 		size_t nr_phdr;
 		unsigned i;
@@ -449,10 +447,10 @@ static int load_dynsymtab(struct symtabs *symtabs, const char *filename,
 		sym->size = plt_entsize;
 		sym->type = ST_PLT;
 
-		if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
+		if (flags & SYMTAB_FL_ADJ_OFFSET)
 			sym->addr += offset;
 
-		if (symtabs->flags & SYMTAB_FL_DEMANGLE)
+		if (flags & SYMTAB_FL_DEMANGLE)
 			sym->name = demangle(name);
 		else
 			sym->name = xstrdup(name);
@@ -519,9 +517,9 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	}
 
 	if (symtabs->symtab.nr_sym == 0)
-		load_symtab(symtabs, filename, offset);
+		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
 	if (symtabs->dsymtab.nr_sym == 0)
-		load_dynsymtab(symtabs, filename, offset);
+		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
 
 	symtabs->loaded = true;
 }
@@ -863,7 +861,8 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 	}
 
 	if (maps) {
-		load_symtab(symtabs, maps->libname, maps->start);
+		load_symtab(&symtabs->symtab, maps->libname, maps->start,
+			    symtabs->flags);
 
 		sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
