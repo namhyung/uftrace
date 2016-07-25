@@ -1184,6 +1184,7 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *demangle_str;
 	char *dirname;
 	struct stat statbuf;
+	LIST_HEAD(modules);
 
 	if (mcount_setup_done || mtd.recursion_guard)
 		return;
@@ -1247,6 +1248,13 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
+	ftrace_setup_filter_module(getenv("FTRACE_FILTER"), &modules);
+	ftrace_setup_filter_module(getenv("FTRACE_TRIGGER"), &modules);
+	ftrace_setup_filter_module(getenv("FTRACE_ARGUMENT"), &modules);
+	ftrace_setup_filter_module(getenv("FTRACE_RETVAL"), &modules);
+
+	load_module_symtabs(&symtabs, &modules);
+
 	ftrace_setup_filter(getenv("FTRACE_FILTER"), &symtabs, NULL,
 			    &mcount_triggers, &mcount_filter_mode);
 
@@ -1302,6 +1310,10 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
+
+#ifndef DISABLE_MCOUNT_FILTER
+	ftrace_cleanup_filter_module(&modules);
+#endif /* DISABLE_MCOUNT_FILTER */
 
 	compiler_barrier();
 
