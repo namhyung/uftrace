@@ -525,6 +525,8 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	if (symtabs->loaded)
 		return;
 
+	symtabs->dirname = dirname;
+
 	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
 		offset = find_map_offset(symtabs, filename);
 

@@ -58,6 +58,7 @@ enum symtab_flag {
 
 struct symtabs {
 	bool loaded;
+	const char *dirname;
 	enum symtab_flag flags;
 	struct symtab symtab;
 	struct symtab dsymtab;
