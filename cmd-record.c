@@ -22,6 +22,7 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/list.h"
+#include "utils/filter.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
 
@@ -1116,6 +1117,49 @@ static void send_info_file(int sock, const char *dirname)
 	free(filename);
 }
 
+static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
+{
+	struct ftrace_proc_maps *map, *tmp;
+	LIST_HEAD(modules);
+	struct dirent **map_list;
+	char sid[20] = { 0, };
+	int i, maps;
+
+	ftrace_setup_filter_module(opts->filter, &modules);
+	ftrace_setup_filter_module(opts->trigger, &modules);
+	ftrace_setup_filter_module(opts->args, &modules);
+	ftrace_setup_filter_module(opts->retval, &modules);
+
+	if (list_empty(&modules))
+		return;
+
+	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
+	if (maps <= 0)
+		pr_err("cannot find map files");
+
+	for (i = 0; i < maps; i++) {
+		if (sid[0] == '\0')
+			sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
+		free(map_list[i]);
+	}
+	free(map_list);
+
+	read_session_map(opts->dirname, symtabs, sid);
+	load_module_symtabs(symtabs, &modules);
+	save_module_symtabs(symtabs, &modules);
+
+	map = symtabs->maps;
+	while (map) {
+		tmp = map;
+		map = map->next;
+
+		free(tmp);
+	}
+	symtabs->maps = NULL;
+
+	ftrace_cleanup_filter_module(&modules);
+}
+
 static bool child_exited;
 
 static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
@@ -1468,6 +1512,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	record_remaining_buffer(opts, sock);
 	unlink_shmem_list();
 	free_tid_list();
+
+	save_module_symbols(opts, &symtabs);
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);
