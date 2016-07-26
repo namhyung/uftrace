@@ -549,6 +549,9 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	symtabs->loaded = true;
 }
 
+static int load_module_symbol(struct symtab *symtab, const char *symfile,
+			      unsigned long offset);
+
 void load_module_symtabs(struct symtabs *symtabs, struct list_head *head)
 {
 	struct filter_module *fm;
@@ -565,6 +568,24 @@ void load_module_symtabs(struct symtabs *symtabs, struct list_head *head)
 		maps = find_map_by_name(symtabs, fm->name);
 		if (maps == NULL || maps->symtab.nr_sym)
 			continue;
+
+		if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
+			char *symfile = NULL;
+			bool ok = false;
+			unsigned long offset = 0;
+
+			if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
+				offset = maps->start;
+
+			xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
+				  basename(maps->libname));
+			if (!load_module_symbol(&maps->symtab, symfile, offset))
+				ok = true;
+			free(symfile);
+
+			if (ok)
+				continue;
+		}
 
 		load_symtab(&maps->symtab, maps->libname,
 			    maps->start, symtabs->flags);
@@ -778,6 +799,118 @@ do_it:
 	fclose(fp);
 }
 
+static int load_module_symbol(struct symtab *symtab, const char *symfile,
+			      unsigned long offset)
+{
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	unsigned int i;
+	char allowed_types[] = "TtwPK";
+	unsigned long prev_addr = -1;
+	char prev_type = 'X';
+
+	fp = fopen(symfile, "r");
+	if (fp == NULL) {
+		pr_dbg("reading %s failed: %m\n", symfile);
+		return -1;
+	}
+
+	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
+	while (getline(&line, &len, fp) > 0) {
+		struct sym *sym;
+		uint64_t addr;
+		char type;
+		char *name;
+		char *pos;
+
+		pos = strchr(line, '\n');
+		if (pos)
+			*pos = '\0';
+
+		addr = strtoul(line, &pos, 16);
+
+		if (*pos++ != ' ') {
+			pr_dbg2("invalid symbol file format before type\n");
+			continue;
+		}
+		type = *pos++;
+
+		if (*pos++ != ' ') {
+			pr_dbg2("invalid symbol file format after type\n");
+			continue;
+		}
+		name = pos;
+
+		/*
+		 * remove kernel module if any.
+		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
+		 */
+		pos = strchr(name, '\t');
+		if (pos)
+			*pos = '\0';
+
+		if (addr == prev_addr && type == prev_type) {
+			sym = &symtab->sym[symtab->nr_sym - 1];
+
+			/* for kernel symbols, replace SyS_xxx to sys_xxx */
+			if (!strncmp(sym->name, "SyS_", 4) &&
+			    !strncmp(name, "sys_", 4) &&
+			    !strcmp(sym->name + 4, name + 4))
+				strncpy(sym->name, name, 4);
+
+			pr_dbg("skip duplicated symbols: %s\n", name);
+			continue;
+		}
+
+		if (strchr(allowed_types, type) == NULL)
+			continue;
+
+		/*
+		 * it should be updated after the type check
+		 * otherwise, it might access invalid sym
+		 * in the above.
+		 */
+		prev_addr = addr;
+		prev_type = type;
+
+		if (symtab->nr_sym >= symtab->nr_alloc) {
+			symtab->nr_alloc += SYMTAB_GROW;
+			symtab->sym = xrealloc(symtab->sym,
+					       symtab->nr_alloc * sizeof(*sym));
+		}
+
+		sym = &symtab->sym[symtab->nr_sym++];
+
+		sym->addr = addr + offset;
+		sym->type = type;
+		sym->name = demangle(name);
+		sym->size = 0;
+
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
+			sym->type, sym->addr, sym->size, sym->name);
+
+		if (symtab->nr_sym > 1)
+			sym[-1].size = sym->addr - sym[-1].addr;
+	}
+	free(line);
+
+	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
+
+	symtab->sym_names = xrealloc(symtab->sym_names,
+				     sizeof(*symtab->sym_names) * symtab->nr_sym);
+
+	for (i = 0; i < symtab->nr_sym; i++)
+		symtab->sym_names[i] = &symtab->sym[i];
+	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names),
+	      namesort);
+
+	symtab->name_sorted = true;
+
+	fclose(fp);
+	return 0;
+}
+
 static void save_module_symbol(struct symtab *stab, const char *symfile,
 			       unsigned long offset)
 {
@@ -960,8 +1093,28 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 
 	if (maps) {
 		if (maps->symtab.nr_sym == 0) {
-			load_symtab(&maps->symtab, maps->libname, maps->start,
-				    symtabs->flags);
+			bool found = false;
+
+			if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
+				char *symfile = NULL;
+				unsigned long offset = 0;
+
+				if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
+					offset = maps->start;
+
+				xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
+					  basename(maps->libname));
+				if (!load_module_symbol(&maps->symtab, symfile,
+							offset)) {
+					found = true;
+				}
+				free(symfile);
+			}
+
+			if (!found) {
+				load_symtab(&maps->symtab, maps->libname,
+					    maps->start, symtabs->flags);
+			}
 		}
 
 		stab = &maps->symtab;
