@@ -257,6 +257,7 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp);
 struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
 struct ftrace_task *find_task(int tid);
+void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
 
 typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
 void walk_sessions(walk_sessions_cb_t callback, void *arg);
