@@ -6,11 +6,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-extern int lib_a(void);
+extern int lib_a(int mask);
 
 int foo(void)
 {
-	return lib_a();
+	return lib_a(0xfff);
 }
 
 int main(int argc, char *argv[])
