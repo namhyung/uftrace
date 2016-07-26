@@ -778,6 +778,57 @@ do_it:
 	fclose(fp);
 }
 
+static void save_module_symbol(struct symtab *stab, const char *symfile,
+			       unsigned long offset)
+{
+	FILE *fp;
+	unsigned i;
+
+	fp = fopen(symfile, "wx");
+	if (fp == NULL) {
+		if (errno == EEXIST)
+			return;
+		pr_err("cannot open %s file", symfile);
+	}
+
+	pr_dbg2("saving symbols to %s\n", symfile);
+
+	/* normal symbols */
+	for (i = 0; i < stab->nr_sym; i++)
+		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr - offset,
+		       (char) stab->sym[i].type, stab->sym[i].name);
+	if (i > 0) {
+		fprintf(fp, "%016lx %c %s\n",
+			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
+			(char) stab->sym[i-1].type, "__sym_end");
+	}
+
+	fclose(fp);
+}
+
+void save_module_symtabs(struct symtabs *symtabs, struct list_head *modules)
+{
+	char *symfile = NULL;
+	struct filter_module *fm;
+	struct ftrace_proc_maps *map;
+
+	list_for_each_entry(fm, modules, list) {
+		map = find_map_by_name(symtabs, fm->name);
+		if (map == NULL) {
+			pr_dbg("cannot find module: %s\n", fm->name);
+			continue;
+		}
+
+		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
+			  basename(map->libname));
+
+		save_module_symbol(&map->symtab, symfile, map->start);
+
+		free(symfile);
+		symfile = NULL;
+	}
+}
+
 int load_kernel_symbol(void)
 {
 	unsigned i;

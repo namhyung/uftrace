@@ -85,6 +85,7 @@ void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
 void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
