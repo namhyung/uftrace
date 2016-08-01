@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "utils.h"
+#include "list.h"
 
 enum symtype {
 	ST_UNKNOWN,
@@ -45,6 +46,7 @@ struct ftrace_proc_maps {
 	uint64_t end;
 	char prot[4];
 	uint32_t len;
+	struct symtab symtab;
 	char libname[];
 };
 
@@ -56,6 +58,7 @@ enum symtab_flag {
 
 struct symtabs {
 	bool loaded;
+	const char *dirname;
 	enum symtab_flag flags;
 	struct symtab symtab;
 	struct symtab dsymtab;
@@ -81,8 +84,14 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
+void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
+
+struct ftrace_proc_maps *find_map_by_name(struct symtabs *symtabs,
+					  const char *prefix);
 
 int load_kernel_symbol(void);
 struct symtab * get_kernel_symtab(void);

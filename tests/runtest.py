@@ -219,9 +219,8 @@ def run_single_case(case, flags, opts, diff):
     for flag in flags:
         for opt in opts:
             cflags = ' '.join(["-" + flag, "-" + opt])
-            if tc.build(cflags) != 0:
-                ret = TestBase.TEST_BUILD_FAIL
-            else:
+            ret = tc.build(cflags)
+            if ret == TestBase.TEST_SUCCESS:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:
                     ret = tc.run(case, cflags, diff)

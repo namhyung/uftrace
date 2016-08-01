@@ -420,15 +420,26 @@ static int setup_module_and_trigger(char *str, char *module,
 				continue;
 			}
 
-			if (module == NULL || strcasecmp(pos, module))
+			if (module && strcasecmp(pos, module))
 				return -1;
 
-			found_mod = true;
-
-			if (!strcasecmp(module, "plt"))
+			if (!strcasecmp(pos, "plt"))
 				*psymtab = &symtabs->dsymtab;
-			else if (!strcasecmp(module, "kernel"))
+			else if (!strcasecmp(pos, "kernel"))
 				*psymtab = get_kernel_symtab();
+			else {
+				struct ftrace_proc_maps *map;
+
+				map = find_map_by_name(symtabs, pos);
+				if (map == NULL) {
+					pr_dbg("cannot find module %s\n", pos);
+					return -1;
+				}
+
+				*psymtab = &map->symtab;
+			}
+
+			found_mod = true;
 		}
 
 		if (module && !found_mod)
@@ -562,6 +573,78 @@ void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
 	setup_trigger(retval_str, symtabs, module, root, 0, NULL);
+}
+
+void ftrace_setup_filter_module(char *trigger_str, struct list_head *head)
+{
+	char *str, *tmp;
+	char *pos, *name, *action;
+	struct filter_module *fm;
+
+	if (trigger_str == NULL)
+		return;
+
+	pos = str = strdup(trigger_str);
+	if (str == NULL)
+		return;
+
+	name = strtok_r(pos, ";", &tmp);
+	while (name) {
+		pos = strchr(name, '@');
+		if (pos == NULL)
+			goto next;
+
+		*pos++ = '\0';
+		action = pos;
+
+		while ((pos = strsep(&action, ",")) != NULL) {
+			if (!strncasecmp(pos, "depth=", 6))
+				continue;
+			if (!strcasecmp(pos, "backtrace"))
+				continue;
+			if (!strcasecmp(pos, "recover"))
+				continue;
+			if (!strncasecmp(pos, "arg", 3) && isdigit(pos[3]))
+				continue;
+			if (!strcasecmp(pos, "retval"))
+				continue;
+			if (!strncasecmp(pos, "trace", 5)) {
+				int n = 5;
+				if (pos[n] == '_' || pos[n] == '-')
+					n++;
+
+				if (pos[n] == '\0' ||
+				    !strcasecmp(&pos[n], "on") ||
+				    !strcasecmp(&pos[n], "off"))
+					continue;
+			}
+
+			list_for_each_entry(fm, head, list) {
+				if (!strcasecmp(fm->name, pos))
+					goto next;
+			}
+
+			fm = xmalloc(sizeof(*fm) + strlen(pos) + 1);
+			strcpy(fm->name, pos);
+			list_add_tail(&fm->list, head);
+		}
+
+next:
+		name = strtok_r(NULL, ";", &tmp);
+	}
+
+	free(str);
+}
+
+void ftrace_cleanup_filter_module(struct list_head *head)
+{
+	struct filter_module *fm;
+
+	while (!list_empty(head)) {
+		fm = list_first_entry(head, struct filter_module, list);
+		list_del(&fm->list);
+		free(fm);
+	}
 }
 
 /**

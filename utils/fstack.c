@@ -151,6 +151,10 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 static int setup_filters(struct ftrace_session *s, void *arg)
 {
 	char *filter_str = arg;
+	LIST_HEAD(modules);
+
+	ftrace_setup_filter_module(filter_str, &modules);
+	load_module_symtabs(&s->symtabs, &modules);
 
 	ftrace_setup_filter(filter_str, &s->symtabs, NULL, &s->filters,
 			    &fstack_filter_mode);
@@ -158,16 +162,24 @@ static int setup_filters(struct ftrace_session *s, void *arg)
 			    &fstack_filter_mode);
 	ftrace_setup_filter(filter_str, &s->symtabs, "kernel", &s->filters,
 			    &fstack_filter_mode);
+
+	ftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 
 static int setup_trigger(struct ftrace_session *s, void *arg)
 {
 	char *trigger_str = arg;
+	LIST_HEAD(modules);
+
+	ftrace_setup_filter_module(trigger_str, &modules);
+	load_module_symtabs(&s->symtabs, &modules);
 
 	ftrace_setup_trigger(trigger_str, &s->symtabs, NULL, &s->filters);
 	ftrace_setup_trigger(trigger_str, &s->symtabs, "PLT", &s->filters);
 	ftrace_setup_trigger(trigger_str, &s->symtabs, "kernel", &s->filters);
+
+	ftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 
@@ -253,10 +265,16 @@ void fstack_prepare_fixup(void)
 static int build_arg_spec(struct ftrace_session *s, void *arg)
 {
 	char *argspec = arg;
+	LIST_HEAD(modules);
+
+	ftrace_setup_filter_module(argspec, &modules);
+	load_module_symtabs(&s->symtabs, &modules);
 
 	ftrace_setup_argument(argspec, &s->symtabs, NULL, &s->filters);
 	ftrace_setup_argument(argspec, &s->symtabs, "PLT", &s->filters);
 	ftrace_setup_argument(argspec, &s->symtabs, "kernel", &s->filters);
+
+	ftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 

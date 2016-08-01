@@ -3,22 +3,22 @@
  */
 #include <unistd.h>
 
-int lib_a(void);
-int lib_b(void);
-int lib_c(void);
+int lib_a(int i);
+int lib_b(int i);
+int lib_c(int i);
 
-int lib_a(void)
+int lib_a(int i)
 {
-	return lib_b() - 1;
+	return lib_b(i + 1) - 1;
 }
 
-int lib_b(void)
+int lib_b(int i)
 {
-	return lib_c() + 1;
+	return lib_c(i - 1) + 1;
 }
 
-int lib_c(void)
+int lib_c(int mask)
 {
-	return getpid() % 100000;
+	return getpid() % mask;
 }
 

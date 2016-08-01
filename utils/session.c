@@ -17,14 +17,14 @@ static struct rb_root sessions = RB_ROOT;
 
 struct ftrace_session *first_session;
 
-static void read_map_file(char *dirname, struct ftrace_session *sess)
+void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
 	char *last_libname = NULL;
-	struct ftrace_proc_maps **maps = &sess->symtabs.maps;
+	struct ftrace_proc_maps **maps = &symtabs->maps;
 
-	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sess->sid);
+	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
 	fp = fopen(buf, "rb");
 	if (fp == NULL)
 		pr_err("cannot open maps file: %s", buf);
@@ -57,6 +57,10 @@ static void read_map_file(char *dirname, struct ftrace_session *sess)
 		map->end = end;
 		map->len = namelen;
 		memcpy(map->prot, prot, 4);
+		map->symtab.sym = NULL;
+		map->symtab.sym_names = NULL;
+		map->symtab.nr_sym = 0;
+		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
@@ -115,7 +119,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 	if (sym_rel_addr)
 		s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
 
-	read_map_file(dirname, s);
+	read_session_map(dirname, &s->symtabs, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
 
 	if (first_session == NULL)

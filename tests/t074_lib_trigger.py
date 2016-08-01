@@ -6,11 +6,9 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'lib', """
 # DURATION    TID     FUNCTION
-            [17455] | lib_a() {
-            [17455] |   lib_b() {
-  61.911 us [17455] |     lib_c();
- 217.279 us [17455] |   } /* lib_b */
- 566.261 us [17455] | } /* lib_a */
+            [17457] | lib_a() {
+   6.911 us [17457] |   lib_b();
+   8.279 us [17457] | } /* lib_a */
 """)
 
     def build(self, cflags='', ldflags=''):
@@ -62,4 +60,4 @@ class TestCase(TestBase):
         return '\n'.join(result)
 
     def runcmd(self):
-        return '%s --force --no-libcall %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --force --no-libcall -T lib_b@libabc_test,depth=1 %s' % (TestBase.ftrace, 't-' + self.name)

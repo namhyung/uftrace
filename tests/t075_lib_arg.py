@@ -6,11 +6,11 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'lib', """
 # DURATION    TID     FUNCTION
-            [17455] | lib_a() {
-            [17455] |   lib_b() {
-  61.911 us [17455] |     lib_c();
- 217.279 us [17455] |   } /* lib_b */
- 566.261 us [17455] | } /* lib_a */
+            [17458] | lib_a(4095) {
+            [17458] |   lib_b(4096) {
+   5.193 us [17458] |     lib_c(4095);
+   6.911 us [17458] |   } /* lib_b */
+   8.279 us [17458] | } /* lib_a */
 """)
 
     def build(self, cflags='', ldflags=''):
@@ -28,6 +28,10 @@ class TestCase(TestBase):
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])
+
+        # cygprof doesn't support arguments now
+        if build_cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -62,4 +66,4 @@ class TestCase(TestBase):
         return '\n'.join(result)
 
     def runcmd(self):
-        return '%s --force --no-libcall %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --force --no-libcall -A ^lib@libabc_test,arg1 %s' % (TestBase.ftrace, 't-' + self.name)
