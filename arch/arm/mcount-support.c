@@ -203,6 +203,14 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 		if (lr->pushed && (opcode2 & 0xfff) == 0xd04)
 			lr->offset++;
 	}
+	else if ((opcode & 0xffbf) == 0xed2d) {
+		/* VPUSH (VFP/NEON reg list) */
+		unsigned short opcode2 = insn[1];
+		unsigned imm = opcode2 & 0xff;
+
+		if (lr->pushed)
+			lr->offset += imm;
+	}
 	else {
 		pr_err_ns("cannot analyze insn: %hx\n", opcode);
 	}
