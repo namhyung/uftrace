@@ -1106,10 +1106,13 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 	handle->dirname = "tmp.dir";
 	handle->info.tids = test_tids;
 	handle->info.nr_tid = nr_tid;
+	handle->hdr.max_stack = 16;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
-		pr_dbg("cannot create temp dir: %m\n");
-		return -1;
+		if (errno != EEXIST) {
+			pr_dbg("cannot create temp dir: %m\n");
+			return -1;
+		}
 	}
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
@@ -1150,6 +1153,8 @@ static void fstack_test_finish_file(void)
 
 	if (handle->dirname == NULL)
 		return;
+
+	reset_task_handle(handle);
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		if (asprintf(&filename, "%s/%d.dat",
