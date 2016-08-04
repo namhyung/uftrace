@@ -722,6 +722,20 @@ void mcount_prepare(void)
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
 }
 
+bool mcount_check_rstack(struct mcount_thread_data *mtdp)
+{
+	if (mtdp->idx >= mcount_rstack_max) {
+		static bool warned = false;
+
+		if (!warned) {
+			pr_log("too deeply nested calls: %d\n", mtdp->idx);
+			warned = true;
+		}
+		return true;
+	}
+	return false;
+}
+
 #ifndef DISABLE_MCOUNT_FILTER
 /* update filter state from trigger result */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
@@ -730,8 +744,8 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 {
 	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 
-	if (mtdp->idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
+	if (mcount_check_rstack(mtdp))
+		return FILTER_RSTACK;
 
 	/* save original depth to restore at exit time */
 	mtdp->filter.saved_depth = mtdp->filter.depth;
@@ -898,8 +912,8 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 					     unsigned long child,
 					     struct ftrace_trigger *tr)
 {
-	if (mtdp->idx >= mcount_rstack_max)
-		pr_err_ns("too deeply nested calls: %d\n", mtdp->idx);
+	if (mcount_check_rstack(mtdp))
+		return FILTER_RSTACK;
 
 	return FILTER_IN;
 }
@@ -964,7 +978,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
-	if (filtered == FILTER_OUT) {
+	if (filtered != FILTER_IN) {
 		mtdp->recursion_guard = false;
 		return -1;
 	}
@@ -1060,6 +1074,15 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
+	/*
+	 * even if it already exceeds the rstack max, it needs to increase idx
+	 * since the cygprof_exit() will be called anyway
+	 */
+	if (filtered == FILTER_RSTACK) {
+		mtdp->recursion_guard = false;
+		return 0;
+	}
+
 	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
 	rstack->parent_ip  = parent;
@@ -1098,6 +1121,14 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 		assert(mtdp);
 	}
 
+	/*
+	 * cygprof_exit() can be called beyond rstack max.
+	 * it cannot use mcount_check_rstack() here
+	 * since we didn't decrease the idx yet.
+	 */
+	if (mtdp->idx > mcount_rstack_max)
+		goto out;
+
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
@@ -1107,6 +1138,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	compiler_barrier();
 
+out:
 	mtdp->idx--;
 	mtdp->recursion_guard = false;
 }

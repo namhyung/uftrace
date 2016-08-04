@@ -80,10 +80,9 @@ struct mcount_shmem_buffer {
 #define DBG_DOMAIN_STR  "TSDFfsKM"
 
 enum filter_result {
-	FILTER_NOTRACE = -1,
+	FILTER_RSTACK = -1,
 	FILTER_OUT,
 	FILTER_IN,
-	FILTER_MATCH,
 };
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -158,6 +157,7 @@ extern void __monstartup(unsigned long low, unsigned long high);
 extern void mcount_return(void);
 extern void mcount_prepare(void);
 extern uint64_t mcount_gettime(void);
+extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
 
