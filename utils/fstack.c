@@ -63,6 +63,8 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
 
+	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * FSTACK_MAX);
+
 	/* FIXME: save filter depth at fork() and restore */
 	for (i = 0; i < FSTACK_MAX; i++)
 		task->func_stack[i].orig_depth = handle->depth;
@@ -71,17 +73,23 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 void reset_task_handle(struct ftrace_file_handle *handle)
 {
 	int i;
+	struct ftrace_task_handle *task;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		handle->tasks[i].done = true;
+		task = &handle->tasks[i];
 
-		if (handle->tasks[i].fp) {
-			fclose(handle->tasks[i].fp);
-			handle->tasks[i].fp = NULL;
+		task->done = true;
+
+		if (task->fp) {
+			fclose(task->fp);
+			task->fp = NULL;
 		}
 
-		free(handle->tasks[i].args.data);
-		handle->tasks[i].args.data = NULL;
+		free(task->args.data);
+		task->args.data = NULL;
+
+		free(task->func_stack);
+		task->func_stack = NULL;
 	}
 
 	free(handle->tasks);
