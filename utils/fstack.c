@@ -40,6 +40,7 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 {
 	int i;
 	char *filename;
+	int max_stack;
 
 	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
 
@@ -63,25 +64,34 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
 
+	max_stack = handle->hdr.max_stack;
+	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
+
 	/* FIXME: save filter depth at fork() and restore */
-	for (i = 0; i < FSTACK_MAX; i++)
+	for (i = 0; i < max_stack; i++)
 		task->func_stack[i].orig_depth = handle->depth;
 }
 
 void reset_task_handle(struct ftrace_file_handle *handle)
 {
 	int i;
+	struct ftrace_task_handle *task;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		handle->tasks[i].done = true;
+		task = &handle->tasks[i];
 
-		if (handle->tasks[i].fp) {
-			fclose(handle->tasks[i].fp);
-			handle->tasks[i].fp = NULL;
+		task->done = true;
+
+		if (task->fp) {
+			fclose(task->fp);
+			task->fp = NULL;
 		}
 
-		free(handle->tasks[i].args.data);
-		handle->tasks[i].args.data = NULL;
+		free(task->args.data);
+		task->args.data = NULL;
+
+		free(task->func_stack);
+		task->func_stack = NULL;
 	}
 
 	free(handle->tasks);
@@ -1096,10 +1106,13 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 	handle->dirname = "tmp.dir";
 	handle->info.tids = test_tids;
 	handle->info.nr_tid = nr_tid;
+	handle->hdr.max_stack = 16;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
-		pr_dbg("cannot create temp dir: %m\n");
-		return -1;
+		if (errno != EEXIST) {
+			pr_dbg("cannot create temp dir: %m\n");
+			return -1;
+		}
 	}
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
@@ -1140,6 +1153,8 @@ static void fstack_test_finish_file(void)
 
 	if (handle->dirname == NULL)
 		return;
+
+	reset_task_handle(handle);
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		if (asprintf(&filename, "%s/%d.dat",

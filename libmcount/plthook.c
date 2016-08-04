@@ -349,6 +349,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		.flags = 0,
 	};
 	bool skip = false;
+	enum filter_result filtered;
 
 	if (unlikely(mcount_should_stop()))
 		return 0;
@@ -384,13 +385,18 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			  (int) child_idx, child_idx);
 	}
 
-	if (mcount_entry_filter_check(mtdp, sym->addr, &tr) == FILTER_OUT) {
+	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);
+	if (filtered != FILTER_IN) {
 		/*
 		 * Skip recording but still hook the return address,
 		 * otherwise it cannot trace further invocations due to
 		 * the overwritten PLT entry by the resolver function.
 		 */
 		skip = true;
+
+		/* but if we don't have rstack, just bail out */
+		if (filtered == FILTER_RSTACK)
+			goto out;
 	}
 
 	mtdp->plthook_guard = true;

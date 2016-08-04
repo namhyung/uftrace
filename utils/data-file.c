@@ -10,6 +10,7 @@
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
+#include "libmcount/mcount.h"
 
 
 /**
@@ -307,6 +308,9 @@ retry:
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
 		setup_fstack_args(handle->info.argspec);
+
+	if (!(handle->hdr.feat_mask & MAX_STACK))
+		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;
 
 	ret = 0;
 
