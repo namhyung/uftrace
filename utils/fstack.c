@@ -40,6 +40,7 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 {
 	int i;
 	char *filename;
+	int max_stack;
 
 	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
 
@@ -63,10 +64,11 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
 
-	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * FSTACK_MAX);
+	max_stack = handle->hdr.max_stack;
+	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
 
 	/* FIXME: save filter depth at fork() and restore */
-	for (i = 0; i < FSTACK_MAX; i++)
+	for (i = 0; i < max_stack; i++)
 		task->func_stack[i].orig_depth = handle->depth;
 }
 

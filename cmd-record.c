@@ -207,14 +207,17 @@ static uint64_t calc_feat_mask(struct opts *opts)
 {
 	uint64_t features = 0;
 
-	if (opts->libcall)
-		features |= PLTHOOK;
-
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
 
 	/* symbol file saves relative address */
 	features |= SYM_REL_ADDR;
+
+	/* save mcount_max_stack */
+	features |= MAX_STACK;
+
+	if (opts->libcall)
+		features |= PLTHOOK;
 
 	if (opts->kernel)
 		features |= KERNEL;
@@ -260,7 +263,9 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	hdr.class = elf_ident[EI_CLASS];
 	hdr.feat_mask = calc_feat_mask(opts);
 	hdr.info_mask = 0;
-	hdr.unused = 0;
+	hdr.max_stack = opts->max_stack;
+	hdr.unused1 = 0;
+	hdr.unused2 = 0;
 
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");

@@ -7,8 +7,6 @@
 
 #include "../uftrace.h"
 
-#define FSTACK_MAX  1024
-
 struct sym;
 struct ftrace_trigger;
 

@@ -30,7 +30,9 @@ struct ftrace_file_header {
 	uint8_t  class;
 	uint64_t feat_mask;
 	uint64_t info_mask;
-	uint64_t unused;
+	uint16_t max_stack;
+	uint16_t unused1;
+	uint32_t unused2;
 };
 
 enum ftrace_feat_bits {
@@ -41,6 +43,7 @@ enum ftrace_feat_bits {
 	ARGUMENT_BIT,
 	RETVAL_BIT,
 	SYM_REL_ADDR_BIT,
+	MAX_STACK_BIT,
 
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
@@ -49,6 +52,7 @@ enum ftrace_feat_bits {
 	ARGUMENT		= (1U << ARGUMENT_BIT),
 	RETVAL			= (1U << RETVAL_BIT),
 	SYM_REL_ADDR		= (1U << SYM_REL_ADDR_BIT),
+	MAX_STACK		= (1U << MAX_STACK_BIT),
 };
 
 enum ftrace_info_bits {
