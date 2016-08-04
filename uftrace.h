@@ -21,6 +21,7 @@
 
 #define FTRACE_RECV_PORT  8090
 
+#define OPT_RSTACK_MAX  65535
 
 struct ftrace_file_header {
 	char magic[FTRACE_MAGIC_LEN];

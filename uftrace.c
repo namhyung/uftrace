@@ -404,9 +404,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_max_stack:
 		opts->max_stack = strtol(arg, NULL, 0);
-		if (opts->max_stack <= 0 || opts->max_stack > MCOUNT_RSTACK_MAX)
+		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX)
 			pr_use("max stack depth should be >0 and <%d\n",
-			       MCOUNT_RSTACK_MAX);
+			       OPT_RSTACK_MAX);
 		break;
 
 	case OPT_port:
