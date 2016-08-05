@@ -50,7 +50,10 @@ class TestBase:
                     (lang['cc'], prog, build_cflags, src, build_ldflags)
 
 #        print("build command:", build_cmd)
-        return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+        try:
+            return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+        except:
+            return TestBase.TEST_BUILD_FAIL
 
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
