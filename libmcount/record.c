@@ -247,7 +247,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			continue;
 
 		if (is_retval)
-			val = *ctx->retval;
+			val = mcount_arch_get_retval(ctx, spec);
 		else
 			val = mcount_arch_get_arg(ctx, spec);
 

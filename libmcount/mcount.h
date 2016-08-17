@@ -190,6 +190,8 @@ struct mcount_arg_context {
 
 extern long mcount_arch_get_arg(struct mcount_arg_context *ctx,
 				struct ftrace_arg_spec *spec);
+extern long mcount_arch_get_retval(struct mcount_arg_context *ctx,
+				   struct ftrace_arg_spec *spec);
 
 extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 						    unsigned long child,

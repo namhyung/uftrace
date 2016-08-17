@@ -298,3 +298,9 @@ long mcount_arch_get_arg(struct mcount_arg_context *ctx,
 	/* TODO: limit max argument index */
 	return ctx->stack_base[spec->idx - ARCH_MAX_REG_ARGS];
 }
+
+long mcount_arch_get_retval(struct mcount_arg_context *ctx,
+			    struct ftrace_arg_spec *spec)
+{
+	return *ctx->retval;
+}
