@@ -249,7 +249,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 		if (is_retval)
 			val = *ctx->retval;
 		else
-			val = mcount_get_arg(ctx->regs, spec);
+			val = mcount_arch_get_arg(ctx, spec);
 
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;

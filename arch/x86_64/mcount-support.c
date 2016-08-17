@@ -4,8 +4,11 @@
 #include "libmcount/mcount.h"
 #include "utils/filter.h"
 
-long mcount_get_arg(struct mcount_regs *regs, struct ftrace_arg_spec *spec)
+long mcount_arch_get_arg(struct mcount_arg_context *ctx,
+			 struct ftrace_arg_spec *spec)
 {
+	struct mcount_regs *regs = ctx->regs;
+
 	assert(spec->idx <= ARCH_MAX_REG_ARGS);
 
 	switch (spec->idx) {

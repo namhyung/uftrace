@@ -17,8 +17,4 @@ struct mcount_regs {
 
 #define ARCH_MAX_REG_ARGS  4
 
-struct ftrace_arg_spec;
-
-long mcount_get_arg(struct mcount_regs *regs, struct ftrace_arg_spec *spec);
-
 #endif /* __MCOUNT_ARCH_H__ */
