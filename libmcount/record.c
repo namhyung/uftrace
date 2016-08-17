@@ -231,11 +231,12 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 }
 
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
-			       void *data, bool is_retval)
+			       struct mcount_arg_context *ctx)
 {
 	struct ftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
+	bool is_retval = !!ctx->retval;
 	void *ptr;
 
 	ptr = argbuf + sizeof(total_size);
@@ -246,9 +247,9 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			continue;
 
 		if (is_retval)
-			val = *(long *)data;
+			val = *ctx->retval;
 		else
-			val = mcount_get_arg(data, spec);
+			val = mcount_get_arg(ctx->regs, spec);
 
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;
@@ -289,8 +290,11 @@ void save_argument(struct mcount_thread_data *mtdp,
 {
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
+	struct mcount_arg_context ctx = {
+		.regs = regs,
+	};
 
-	size = save_to_argbuf(argbuf, args_spec, regs, false);
+	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
 		pr_log("argument data is too big\n");
 		return;
@@ -306,8 +310,11 @@ void save_retval(struct mcount_thread_data *mtdp,
 	struct list_head *args_spec = rstack->pargs;
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
+	struct mcount_arg_context ctx = {
+		.retval = retval,
+	};
 
-	size = save_to_argbuf(argbuf, args_spec, retval, true);
+	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
 		pr_log("retval data is too big\n");
 		rstack->flags &= ~MCOUNT_FL_RETVAL;

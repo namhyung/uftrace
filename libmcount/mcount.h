@@ -181,6 +181,11 @@ static inline bool mcount_should_stop(void)
 struct ftrace_trigger;
 struct mcount_regs;
 
+struct mcount_arg_context {
+	struct mcount_regs	*regs;
+	long			*retval;
+};
+
 extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 						    unsigned long child,
 						    struct ftrace_trigger *tr);
