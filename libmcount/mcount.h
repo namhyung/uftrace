@@ -184,6 +184,7 @@ struct mcount_regs;
 
 struct mcount_arg_context {
 	struct mcount_regs	*regs;
+	unsigned long		*stack_base;
 	long			*retval;
 };
 

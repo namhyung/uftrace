@@ -292,6 +292,7 @@ void save_argument(struct mcount_thread_data *mtdp,
 	unsigned size;
 	struct mcount_arg_context ctx = {
 		.regs = regs,
+		.stack_base = rstack->parent_loc,
 	};
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
