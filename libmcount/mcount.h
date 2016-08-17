@@ -158,8 +158,15 @@ extern void mcount_return(void);
 extern void mcount_prepare(void);
 extern uint64_t mcount_gettime(void);
 extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
-extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
+extern const char *session_name(void);
+extern int gettid(struct mcount_thread_data *mtdp);
+
+extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
+extern void get_new_shmem_buffer(struct mcount_thread_data *mtdp);
+extern void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx);
+extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);
+extern void shmem_finish(struct mcount_thread_data *mtdp);
 
 extern int hook_pltgot(char *exename, unsigned long offset);
 extern void plthook_setup(struct symtabs *symtabs);
@@ -186,5 +193,16 @@ extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				      long *retval);
 extern int record_trace_data(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *mrstack, long *retval);
+extern void record_proc_maps(char *dirname, const char *sess_id,
+			     struct symtabs *symtabs);
+
+#ifndef DISABLE_MCOUNT_FILTER
+extern void save_argument(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack,
+			  struct list_head *args_spec,
+			  struct mcount_regs *regs);
+void save_retval(struct mcount_thread_data *mtdp,
+		 struct mcount_ret_stack *rstack, long *retval);
+#endif  /* DISABLE_MCOUNT_FILTER */
 
 #endif /* FTRACE_MCOUNT_H */
