@@ -13,5 +13,5 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -A "foo@arg1/c,arg2/c,arg3/c" -A "bar@arg1/c,arg2/c,arg3/i,arg4/x8" %s' % \
-            (TestBase.ftrace, 't-' + self.name)
+        argopt = '-A "foo@arg1/c,arg2/c,arg3/c" -A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'
+        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)

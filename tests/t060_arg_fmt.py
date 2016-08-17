@@ -16,5 +16,5 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -A "int_add@arg1/i32,arg2/u" -A "int_div@arg1/i16,arg2/x8" %s' % \
-            (TestBase.ftrace, 't-' + self.name)
+        argopt = '-A "int_add@arg1/i32,arg2/u" -A "int_div@arg1/i16,arg2/x8"'
+        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
