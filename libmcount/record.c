@@ -241,21 +241,19 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 
 	ptr = argbuf + sizeof(total_size);
 	list_for_each_entry(spec, args_spec, list) {
-		long val;
-
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
 
 		if (is_retval)
-			val = mcount_arch_get_retval(ctx, spec);
+			mcount_arch_get_retval(ctx, spec);
 		else
-			val = mcount_arch_get_arg(ctx, spec);
+			mcount_arch_get_arg(ctx, spec);
 
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short len;
-			char *str = (void *)val;
+			char *str = ctx->val.p;
 
-			if (val) {
+			if (str) {
 				/* store 2-byte length before string */
 				len = strlen(str);
 				memcpy(ptr, &len, sizeof(len));
@@ -270,7 +268,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			size = ALIGN(len + 2, 4);
 		}
 		else {
-			memcpy(ptr, &val, spec->size);
+			memcpy(ptr, ctx->val.v, spec->size);
 			size = ALIGN(spec->size, 4);
 		}
 		ptr += size;

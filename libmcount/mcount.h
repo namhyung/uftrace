@@ -186,11 +186,16 @@ struct mcount_arg_context {
 	struct mcount_regs	*regs;
 	unsigned long		*stack_base;
 	long			*retval;
+	union {
+		unsigned long	i;
+		void		*p;
+		unsigned char	v[16];
+	} val;
 };
 
-extern long mcount_arch_get_arg(struct mcount_arg_context *ctx,
+extern void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 				struct ftrace_arg_spec *spec);
-extern long mcount_arch_get_retval(struct mcount_arg_context *ctx,
+extern void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 				   struct ftrace_arg_spec *spec);
 
 extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,

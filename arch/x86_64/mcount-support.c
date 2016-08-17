@@ -1,40 +1,53 @@
 #include <assert.h>
+#include <string.h>
 
 #include "mcount-arch.h"
 #include "libmcount/mcount.h"
 #include "utils/filter.h"
 
-long mcount_arch_get_arg(struct mcount_arg_context *ctx,
+void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 			 struct ftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
+	long val;
 
 	if (spec->idx <= ARCH_MAX_REG_ARGS) {
 		switch (spec->idx) {
 		case 1:
-			return ARG1(regs);
+			val = ARG1(regs);
+			break;
 		case 2:
-			return ARG2(regs);
+			val = ARG2(regs);
+			break;
 		case 3:
-			return ARG3(regs);
+			val = ARG3(regs);
+			break;
 		case 4:
-			return ARG4(regs);
+			val = ARG4(regs);
+			break;
 		case 5:
-			return ARG5(regs);
+			val = ARG5(regs);
+			break;
 		case 6:
-			return ARG6(regs);
+			val = ARG6(regs);
+			break;
 		default:
 			/* cannot reach here */
-			return 0;
+			val = 0;
+			break;
 		}
 	}
+	else {
+		/* TODO: limit max argument index */
+		val = ctx->stack_base[spec->idx - ARCH_MAX_REG_ARGS];
+	}
 
-	/* TODO: limit max argument index */
-	return ctx->stack_base[spec->idx - ARCH_MAX_REG_ARGS];
+	/* XXX: this assumes little endian */
+	memcpy(ctx->val.v, &val, spec->size);
 }
 
-long mcount_arch_get_retval(struct mcount_arg_context *ctx,
+void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 			    struct ftrace_arg_spec *spec)
 {
-	return *ctx->retval;
+	memcpy(ctx->val.v, ctx->retval, spec->size);
 }
