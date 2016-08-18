@@ -475,7 +475,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	return 0;
 }
 
-unsigned long mcount_exit(long retval)
+unsigned long mcount_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
@@ -489,7 +489,7 @@ unsigned long mcount_exit(long retval)
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	rstack->end_time = mcount_gettime();
-	mcount_exit_filter_record(mtdp, rstack, &retval);
+	mcount_exit_filter_record(mtdp, rstack, retval);
 
 	retaddr = rstack->parent_ip;
 

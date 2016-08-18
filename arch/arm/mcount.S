@@ -66,10 +66,8 @@ __gnu_mcount_nc:
 mcount_return:
 	push 	{r0-r3, lr}
 
-	/* set the first argument of mcount_exit to return value */
-	/* but there's no need to set r0, and r1 since return value is */
-	/* contained in r0 and r1, and these registers are also directly used */
-	/* as the arguments to mcount_exit function */
+	/* set the first argument of mcount_exit as pointer to return values */
+	mov	r0, sp
 
 	bl 	mcount_exit
 	mov 	ip, r0
