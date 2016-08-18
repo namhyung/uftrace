@@ -190,6 +190,10 @@ struct mcount_arg_context {
 		unsigned long	i;
 		void		*p;
 		double		f;
+		struct {
+			long	lo;
+			long	hi;
+		} ll;
 		unsigned char	v[16];
 	} val;
 };

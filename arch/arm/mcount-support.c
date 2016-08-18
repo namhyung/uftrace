@@ -318,12 +318,16 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	switch (reg_idx) {
 	case ARM_REG_R0:
 		ctx->val.i = ARG1(regs);
+		if (spec->size == 8)
+			ctx->val.ll.hi = ARG2(regs);
 		break;
 	case ARM_REG_R1:
 		ctx->val.i = ARG2(regs);
 		break;
 	case ARM_REG_R2:
 		ctx->val.i = ARG3(regs);
+		if (spec->size == 8)
+			ctx->val.ll.hi = ARG4(regs);
 		break;
 	case ARM_REG_R3:
 		ctx->val.i = ARG4(regs);

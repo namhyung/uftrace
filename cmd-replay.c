@@ -111,6 +111,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		long i;
 		float f;
 		double d;
+		long long ll;
 		unsigned char v[16];
 	} val;
 
@@ -252,7 +253,10 @@ void get_argspec_string(struct ftrace_task_handle *task,
 
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
 
-			n += snprintf(args + n, len, fmtstr, val.i);
+			if (spec->size > (int)sizeof(long))
+				n += snprintf(args + n, len, fmtstr, val.ll);
+			else
+				n += snprintf(args + n, len, fmtstr, val.i);
 		}
 
 		i++;
