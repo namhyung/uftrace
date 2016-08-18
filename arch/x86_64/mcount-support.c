@@ -117,6 +117,8 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt != ARG_FMT_FLOAT)
 		memcpy(ctx->val.v, ctx->retval, spec->size);
+	else if (spec->size == 10) /* for long double type */
+		asm volatile ("fstpt %0\n\tfldt %0" : "=m" (ctx->val.v));
 	else
 		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
 }

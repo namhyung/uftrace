@@ -467,6 +467,10 @@ void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 	if (!float_abi_checked)
 		check_float_abi();
 
+	/* don't support long double, treat it as double */
+	if (unlikely(spec->size == 10))
+		spec->size = 8;
+
 	if (mcount_get_register_arg(ctx, spec) < 0)
 		mcount_get_stack_arg(ctx, spec);
 }
@@ -476,6 +480,10 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 {
 	if (!float_abi_checked)
 		check_float_abi();
+
+	/* don't support long double, treat it as double */
+	if (unlikely(spec->size == 10))
+		spec->size = 8;
 
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {

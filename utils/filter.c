@@ -3,6 +3,7 @@
 #include <string.h>
 #include <regex.h>
 #include <ctype.h>
+#include <sys/utsname.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "filter"
@@ -264,6 +265,20 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 	return ret;
 }
 
+static bool is_arm_machine(void)
+{
+	static char *mach = NULL;
+
+	if (mach == NULL) {
+		struct utsname utsbuf;
+
+		uname(&utsbuf);
+		mach = xstrdup(utsbuf.machine);
+	}
+
+	return mach[0] == 'a' && mach[1] == 'r' && mach[2] == 'm';
+}
+
 /* argument_spec = arg1/i32,arg2/x64,... */
 static int parse_spec(char *str, struct ftrace_arg_spec *arg, char *suffix)
 {
@@ -319,6 +334,12 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char *suffix)
 	case 64:
 		size = bit / 8;
 		break;
+	case 80:
+		if (fmt == ARG_FMT_FLOAT) {
+			size = bit / 8;
+			break;
+		}
+		/* fall through */
 	default:
 		pr_use("unsupported argument size: %s\n", str);
 		return -1;
@@ -344,6 +365,10 @@ type:
 	}
 
 out:
+	/* it seems ARM falls back 'long double' to 'double' */
+	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine())
+		size = 8;
+
 	arg->fmt  = fmt;
 	arg->size = size;
 	arg->type = type;
@@ -419,10 +444,13 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 	if (*suffix == '/') {
 		long size = strtol(suffix+1, &suffix, 0);
 
-		if (size != 32 && size != 64) {
+		if (size != 32 && size != 64 && size != 80) {
 			pr_use("invalid argument size: %s\n", str);
 			return -1;
 		}
+		if (size == 80 && is_arm_machine())
+			size = 64;
+
 		arg->size = size / 8;
 	}
 

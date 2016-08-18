@@ -112,6 +112,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		float f;
 		double d;
 		long long ll;
+		long double D;
 		unsigned char v[16];
 	} val;
 
@@ -226,7 +227,10 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			size = 1;
 		}
 		else if (spec->fmt == ARG_FMT_FLOAT) {
-			lm = len_mod[idx];
+			if (spec->size == 10)
+				lm = "L";
+			else
+				lm = len_mod[idx];
 
 			memcpy(val.v, data, spec->size);
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
@@ -237,6 +241,9 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				break;
 			case 8:
 				n += snprintf(args + n, len, fmtstr, val.d);
+				break;
+			case 10:
+				n += snprintf(args + n, len, fmtstr, val.D);
 				break;
 			default:
 				pr_dbg("invalid floating-point type size %d\n",
