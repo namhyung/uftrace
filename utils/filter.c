@@ -107,7 +107,7 @@ static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg
 	struct ftrace_arg_spec *oarg, *narg;
 
 	list_for_each_entry(oarg, arg_list, list) {
-		if (oarg->idx == arg->idx) {
+		if (oarg->type == arg->type && oarg->idx == arg->idx) {
 			found = true;
 			break;
 		}
@@ -128,7 +128,7 @@ static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg
 
 		/* sort args by index */
 		list_for_each_entry(oarg, arg_list, list) {
-			if (oarg->idx > arg->idx)
+			if (oarg->type == arg->type && oarg->idx > arg->idx)
 				break;
 		}
 
@@ -278,6 +278,9 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 	case 'c':
 		fmt = ARG_FMT_CHAR;
 		break;
+	case 'f':
+		fmt = ARG_FMT_FLOAT;
+		break;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;
@@ -287,7 +290,7 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 	suffix++;
 	if (*suffix == '\0') {
 		if (fmt == ARG_FMT_CHAR)
-			arg->size = 1;
+			arg->size = sizeof(char);
 		else
 			arg->size = sizeof(long);
 		return 0;
@@ -324,6 +327,7 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	arg = xmalloc(sizeof(*arg));
 	INIT_LIST_HEAD(&arg->list);
 	arg->idx = strtol(str+3, &suffix, 0);
+	arg->type = ARG_TYPE_INDEX;
 
 	if (parse_spec(str, arg, suffix) == -1)
 		return -1;
@@ -333,7 +337,6 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 
 	return 0;
 }
-
 /* argument_spec = retval/i32 or retval/x64 ... */
 static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 {
@@ -343,6 +346,8 @@ static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 	arg = xmalloc(sizeof(*arg));
 	INIT_LIST_HEAD(&arg->list);
 	arg->idx = 0;
+	arg->type = ARG_TYPE_INDEX;
+
 	/* set suffix after string "retval" */
 	suffix = str + 6;
 
@@ -350,6 +355,41 @@ static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 		return -1;
 
 	tr->flags |= TRIGGER_FL_RETVAL;
+	list_add_tail(&arg->list, tr->pargs);
+
+	return 0;
+}
+
+/* argument_spec = fparg1/32,fparg2/64,... */
+static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
+{
+	struct ftrace_arg_spec *arg;
+	char *suffix;
+
+	if (!isdigit(str[5])) {
+		pr_use("skipping invalid argument: %s\n", str);
+		return -1;
+	}
+
+	arg = xmalloc(sizeof(*arg));
+	INIT_LIST_HEAD(&arg->list);
+	arg->idx = strtol(str+5, &suffix, 0);
+	arg->fmt = ARG_FMT_FLOAT;
+	arg->type = ARG_TYPE_FLOAT;
+
+	if (*suffix == '\0')
+		arg->size = sizeof(double);
+	else {
+		long size = strtol(suffix+1, NULL, 0);
+
+		if (size != 32 && size != 64) {
+			pr_use("invalid argument size: %s\n", str);
+			return -1;
+		}
+		arg->size = size / 8;
+	}
+
+	tr->flags |= TRIGGER_FL_ARGUMENT;
 	list_add_tail(&arg->list, tr->pargs);
 
 	return 0;
@@ -406,6 +446,11 @@ static int setup_module_and_trigger(char *str, char *module,
 			}
 			else if (!strncasecmp(pos, "arg", 3)) {
 				if (parse_argument_spec(pos, tr) < 0)
+					return -1;
+				continue;
+			}
+			else if (!strncasecmp(pos, "fparg", 5)) {
+				if (parse_float_argument_spec(pos, tr) < 0)
 					return -1;
 				continue;
 			}
