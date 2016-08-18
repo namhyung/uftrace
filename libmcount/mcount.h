@@ -189,6 +189,7 @@ struct mcount_arg_context {
 	union {
 		unsigned long	i;
 		void		*p;
+		double		f;
 		unsigned char	v[16];
 	} val;
 };
