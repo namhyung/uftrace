@@ -304,16 +304,30 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 			    struct ftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
-	int reg_idx = spec->idx;
+	int reg_idx;
 
-	if (spec->type == ARG_TYPE_FLOAT && use_hard_float) {
-		if (spec->size <= 4)
-			reg_idx += ARM_REG_FLOAT_BASE;
-		else
-			reg_idx += ARM_REG_DOUBLE_BASE;
+	switch (spec->type) {
+	case ARG_TYPE_REG:
+		reg_idx = spec->reg_idx;
+		break;
+	case ARG_TYPE_FLOAT:
+		if (use_hard_float) {
+			if (spec->size <= 4)
+				reg_idx = spec->idx + ARM_REG_FLOAT_BASE;
+			else
+				reg_idx = spec->idx + ARM_REG_DOUBLE_BASE;
+			break;
+		}
+		/* fall through */
+	case ARG_TYPE_INDEX:
+		reg_idx = spec->idx; /* for integer arguments */
+		if (spec->size == 8 && (reg_idx & 1) == 0)
+			reg_idx++;
+		break;
+	case ARG_TYPE_STACK:
+	default:
+		return -1;
 	}
-	else if (spec->size == 8 && (reg_idx & 1) == 0)
-		reg_idx++;
 
 	switch (reg_idx) {
 	case ARM_REG_R0:
@@ -414,16 +428,32 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 			  struct ftrace_arg_spec *spec)
 {
-	int offset = spec->idx - ARCH_MAX_REG_ARGS;
+	int offset = 1;
 
-	if (spec->type == ARG_TYPE_FLOAT && use_hard_float) {
-		if (spec->size <= 4)
-			offset = spec->idx - ARCH_MAX_FLOAT_REGS;
-		else
-			offset = spec->idx - ARCH_MAX_DOUBLE_REGS;
+	switch (spec->type) {
+	case ARG_TYPE_STACK:
+		offset = spec->stack_ofs;
+		break;
+	case ARG_TYPE_FLOAT:
+		if (use_hard_float) {
+			if (spec->size <= 4)
+				offset = spec->idx - ARCH_MAX_FLOAT_REGS;
+			else
+				offset = (spec->idx - ARCH_MAX_DOUBLE_REGS) * 2 - 1;
+			break;
+		}
+		/* fall through */
+	case ARG_TYPE_INDEX:
+		offset = spec->idx - ARCH_MAX_REG_ARGS;
+		if (spec->size == 8 && (offset & 1) == 0)
+			offset++;
+		break;
+	case ARG_TYPE_REG:
+	default:
+		/* should not reach here */
+		pr_err_ns("invalid stack access for arguments\n");
+		break;
 	}
-	else if (spec->size == 8 && (offset & 1) == 0)
-		offset++;
 
 	if (offset < 1 || offset > 100)
 		pr_dbg("invalid stack offset: %d\n", offset);
@@ -447,7 +477,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	if (!float_abi_checked)
 		check_float_abi();
 
-	/* type of return value is always INDEX, so check format instead */
+	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
 		if (spec->size <= 4)
 			asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
