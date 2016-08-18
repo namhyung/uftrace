@@ -42,6 +42,8 @@ enum ftrace_arg_format {
 
 #define ARG_TYPE_INDEX  0
 #define ARG_TYPE_FLOAT  1
+#define ARG_TYPE_REG    2
+#define ARG_TYPE_STACK  3
 
 /* should match with ftrace_arg_format above */
 #define ARG_SPEC_CHARS  "diuxscf"
@@ -63,6 +65,10 @@ struct ftrace_arg_spec {
 	int			size;
 	bool			exact;
 	unsigned char		type;
+	union {
+		short		reg_idx;
+		short		stack_ofs;
+	};
 };
 
 struct ftrace_trigger {
