@@ -107,10 +107,24 @@ static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg
 	struct ftrace_arg_spec *oarg, *narg;
 
 	list_for_each_entry(oarg, arg_list, list) {
-		if (oarg->type == arg->type && oarg->idx == arg->idx) {
-			found = true;
+		switch (arg->type) {
+		case ARG_TYPE_INDEX:
+		case ARG_TYPE_FLOAT:
+			if (arg->type == oarg->type && arg->idx == oarg->idx)
+				found = true;
+			break;
+		case ARG_TYPE_REG:
+			if (arg->reg_idx == oarg->reg_idx)
+				found = true;
+			break;
+		case ARG_TYPE_STACK:
+			if (arg->stack_ofs == oarg->stack_ofs)
+				found = true;
 			break;
 		}
+
+		if (found)
+			break;
 	}
 
 	if (found) {
@@ -119,6 +133,8 @@ static void add_arg_spec(struct list_head *arg_list, struct ftrace_arg_spec *arg
 			oarg->fmt   = arg->fmt;
 			oarg->size  = arg->size;
 			oarg->exact = exact_match;
+			oarg->type  = arg->type;
+			oarg->reg_idx = arg->reg_idx;
 		}
 	}
 	else {
@@ -249,17 +265,18 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 }
 
 /* argument_spec = arg1/i32,arg2/x64,... */
-static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
+static int parse_spec(char *str, struct ftrace_arg_spec *arg, char *suffix)
 {
-	int fmt;
-	int size;
+	int fmt = ARG_FMT_AUTO;
+	int size = sizeof(long);
+	int type = arg->type;
 	int bit;
 
-	if (suffix == NULL || *suffix == '\0') {
-		arg->fmt  = ARG_FMT_AUTO;
-		arg->size = sizeof(long);
-		return 0;
-	}
+	if (suffix == NULL || *suffix == '\0')
+		goto out;
+
+	if (*suffix == '%')
+		goto type;
 
 	suffix++;
 	switch (*suffix) {
@@ -277,26 +294,24 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 		break;
 	case 'c':
 		fmt = ARG_FMT_CHAR;
+		size = sizeof(char);
 		break;
 	case 'f':
 		fmt = ARG_FMT_FLOAT;
+		size = sizeof(double);
 		break;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;
 	}
-	arg->fmt = fmt;
 
 	suffix++;
-	if (*suffix == '\0') {
-		if (fmt == ARG_FMT_CHAR)
-			arg->size = sizeof(char);
-		else
-			arg->size = sizeof(long);
-		return 0;
-	}
+	if (*suffix == '\0')
+		goto out;
+	if (*suffix == '%')
+		goto type;
 
-	bit = strtol(suffix, NULL, 10);
+	bit = strtol(suffix, &suffix, 10);
 	switch (bit) {
 	case 8:
 	case 16:
@@ -308,12 +323,35 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char* suffix)
 		pr_use("unsupported argument size: %s\n", str);
 		return -1;
 	}
+
+type:
+	if (*suffix == '%') {
+		suffix++;
+
+		if (!strncmp(suffix, "stack", 5)) {
+			arg->stack_ofs = strtol(suffix+5, NULL, 0);
+			type = ARG_TYPE_STACK;
+		}
+		else {
+			arg->reg_idx = arch_register_index(suffix);
+			type = ARG_TYPE_REG;
+
+			if (arg->reg_idx < 0) {
+				pr_use("unknown register name: %s\n", str);
+				return -1;
+			}
+		}
+	}
+
+out:
+	arg->fmt  = fmt;
 	arg->size = size;
+	arg->type = type;
 
 	return 0;
 }
 
-/* argument_spec = arg1/i32,arg2/x64,... */
+/* argument_spec = arg1/i32,arg2/x64%reg,arg3%stack+1,... */
 static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 {
 	struct ftrace_arg_spec *arg;
@@ -360,7 +398,7 @@ static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 	return 0;
 }
 
-/* argument_spec = fparg1/32,fparg2/64,... */
+/* argument_spec = fparg1/32,fparg2/64%stack+1,... */
 static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 {
 	struct ftrace_arg_spec *arg;
@@ -376,17 +414,34 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 	arg->idx = strtol(str+5, &suffix, 0);
 	arg->fmt = ARG_FMT_FLOAT;
 	arg->type = ARG_TYPE_FLOAT;
+	arg->size = sizeof(double);
 
-	if (*suffix == '\0')
-		arg->size = sizeof(double);
-	else {
-		long size = strtol(suffix+1, NULL, 0);
+	if (*suffix == '/') {
+		long size = strtol(suffix+1, &suffix, 0);
 
 		if (size != 32 && size != 64) {
 			pr_use("invalid argument size: %s\n", str);
 			return -1;
 		}
 		arg->size = size / 8;
+	}
+
+	if (*suffix == '%') {
+		suffix++;
+
+		if (!strncmp(suffix, "stack", 5)) {
+			arg->stack_ofs = strtol(suffix+5, NULL, 0);
+			arg->type = ARG_TYPE_STACK;
+		}
+		else {
+			arg->reg_idx = arch_register_index(suffix);
+			arg->type = ARG_TYPE_REG;
+
+			if (arg->reg_idx < 0) {
+				pr_use("unknown register name: %s\n", str);
+				return -1;
+			}
+		}
 	}
 
 	tr->flags |= TRIGGER_FL_ARGUMENT;
@@ -657,7 +712,9 @@ void ftrace_setup_filter_module(char *trigger_str, struct list_head *head)
 				continue;
 			if (!strncasecmp(pos, "arg", 3) && isdigit(pos[3]))
 				continue;
-			if (!strcasecmp(pos, "retval"))
+			if (!strncasecmp(pos, "fparg", 5) && isdigit(pos[5]))
+				continue;
+			if (!strncasecmp(pos, "retval", 6))
 				continue;
 			if (!strncasecmp(pos, "trace", 5)) {
 				int n = 5;
