@@ -368,5 +368,6 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
 void clear_ftrace_info(struct ftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);
+int arch_register_index(char *reg_name);
 
 #endif /* __FTRACE_H__ */

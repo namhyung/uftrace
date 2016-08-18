@@ -83,6 +83,7 @@ TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
 UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
+UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
 UFTRACE_HDRS := $(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h)
@@ -93,6 +94,7 @@ LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
 
 LIBMCOUNT_HDRS := $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/utils/*.h)
@@ -113,6 +115,7 @@ LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
 LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/record-single.op
 LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/plthook-single.op
