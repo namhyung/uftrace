@@ -254,13 +254,26 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			char *str = ctx->val.p;
 
 			if (str) {
-				/* store 2-byte length before string */
-				len = strlen(str);
-				memcpy(ptr, &len, sizeof(len));
-				memcpy(ptr + 2, str, len + 1);
+				unsigned i;
+				char *dst = ptr + 2;
 
+				/*
+				 * Calling strlen() might clobber floating-point
+				 * registers (on x86) depends on the internal
+				 * implementation.  Do it manually.
+				 */
+				len = 0;
+				for (i = 0; i < max_size - total_size; i++) {
+					dst[i] = str[i];
+					if (!str[i])
+						break;
+					len++;
+				}
+				/* store 2-byte length before string */
+				*(unsigned short *)ptr = len;
 			}
 			else {
+				/* mark NULL pointer with -1 */
 				len = 4;
 				memcpy(ptr, &len, sizeof(len));
 				memset(ptr + 2, 0xff, 4);
@@ -385,9 +398,18 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
 	if (argbuf) {
+		unsigned int *ptr = (void *)curr_buf->data + curr_buf->size;
+		unsigned i;
+
 		size -= sizeof(*frstack);
-		memcpy(curr_buf->data + curr_buf->size,
-		       argbuf  + sizeof(unsigned), size);
+
+		/*
+		 * Calling memcpy() here (esp. with a large size) can
+		 * clobber floating-point registers (SSE registers on x86).
+		 * As the argbuf was aligned to 4-bytes, copy the words.
+		 */
+		for (i = 0; i < size; i += 4, ptr++)
+			*ptr = *(unsigned int *)(argbuf + sizeof(unsigned) + i);
 
 		curr_buf->size += ALIGN(size, 8);
 	}
