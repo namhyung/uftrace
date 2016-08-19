@@ -230,15 +230,13 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			name = xstrndup(name, ver - name);
 
 		if (flags & SYMTAB_FL_DEMANGLE) {
-			if (ver)
-				name = xstrndup(name, ver - name);
 			sym->name = demangle(name);
 			if (ver)
 				free(name);
 		}
 		else {
 			if (ver == NULL)
-				name = strdup(name);
+				name = xstrdup(name);
 			sym->name = name;
 		}
 
