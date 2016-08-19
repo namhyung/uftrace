@@ -236,7 +236,7 @@ clean:
 	$(call QUIET_CLEAN, uftrace)
 	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
 	$(Q)$(RM) $(objdir)/utils/*.o $(objdir)/utils/*.op $(objdir)/libmcount/*.op
-	$(Q)$(RM) $(objdir)/uftrace.data* $(objdir)/gmon.out $(TARGETS)
+	$(Q)$(RM) $(objdir)/gmon.out $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
