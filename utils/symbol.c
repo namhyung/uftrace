@@ -255,10 +255,13 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	for (i = 0; i < nr_sym; i++) {
 		GElf_Sym elf_sym;
 		struct sym *sym;
-		char *name, *ver;
+		char *name;
 
 		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
 			goto elf_error;
+
+		if (elf_sym.st_shndx == STN_UNDEF)
+			continue;
 
 		if (elf_sym.st_size == 0)
 			continue;
@@ -294,21 +297,10 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 
 		name = elf_strptr(elf, symstr_idx, elf_sym.st_name);
 
-		/* Removing version info from undefined symbols */
-		ver = strchr(name, '@');
-		if (ver)
-			name = xstrndup(name, ver - name);
-
-		if (flags & SYMTAB_FL_DEMANGLE) {
+		if (flags & SYMTAB_FL_DEMANGLE)
 			sym->name = demangle(name);
-			if (ver)
-				free(name);
-		}
-		else {
-			if (ver == NULL)
-				name = xstrdup(name);
-			sym->name = name;
-		}
+		else
+			sym->name = xstrdup(name);
 
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
