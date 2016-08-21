@@ -77,12 +77,12 @@ static char *build_debug_domain_string(void)
 	return domain;
 }
 
-static void setup_child_environ(struct opts *opts, int pfd, struct symtabs *symtabs)
+static void setup_child_environ(struct opts *opts, int pfd)
 {
 	char buf[4096];
 	const char *old_preload = getenv("LD_PRELOAD");
 	const char *old_libpath = getenv("LD_LIBRARY_PATH");
-	bool must_use_multi_thread = !!find_symname(&symtabs->dsymtab, "pthread_create");
+	bool must_use_multi_thread = check_libpthread(opts->exename);
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
@@ -1347,7 +1347,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		close(pfd[0]);
 
-		setup_child_environ(opts, pfd[1], &symtabs);
+		setup_child_environ(opts, pfd[1]);
 
 		/* wait for parent ready */
 		if (read(efd, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
