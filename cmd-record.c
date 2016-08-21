@@ -1230,7 +1230,7 @@ static void print_child_usage(struct rusage *ru)
 "\tbuilt with -pg flag.  Use --force option if you want to proceed\n"   \
 "\twith no argument and/or return value info.\n"
 
-static void check_binary(struct opts *opts, struct symtabs *symtabs)
+static void check_binary(struct opts *opts)
 {
 	int fd;
 	size_t i;
@@ -1239,12 +1239,6 @@ static void check_binary(struct opts *opts, struct symtabs *symtabs)
 	uint16_t e_machine;
 	uint16_t supported_machines[] = {
 		EM_X86_64, EM_ARM,
-	};
-	const char *profile_funcs[] = {
-		"mcount",
-		"__fentry__",
-		"__gnu_mcount_nc",
-		"__cyg_profile_func_enter",
 	};
 
 	pr_dbg3("checking binary %s\n", opts->exename);
@@ -1283,19 +1277,16 @@ static void check_binary(struct opts *opts, struct symtabs *symtabs)
 		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
 
 	if (!opts->force) {
-		for (i = 0; i < ARRAY_SIZE(profile_funcs); i++) {
-			if (find_symname(&symtabs->dsymtab, profile_funcs[i]))
-				break;
-		}
+		int chk = check_trace_functions(opts->exename);
 
-		/* there's no function to trace */
-		if (i == ARRAY_SIZE(profile_funcs))
+		if (chk == 0) {
+			/* there's no function to trace */
 			pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
-
-		/* arg/retval doesn't support -finstrument-functions */
-		if (i == (ARRAY_SIZE(profile_funcs) - 1) &&
-		    (opts->args || opts->retval))
+		}
+		else if (chk == 2 && (opts->args || opts->retval)) {
+			/* arg/retval doesn't support -finstrument-functions */
 			pr_err_ns(ARGUMENT_MSG);
+		}
 	}
 
 	close(fd);
@@ -1328,9 +1319,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	create_directory(opts->dirname);
 
-	load_symtabs(&symtabs, opts->dirname, opts->exename);
-	check_binary(opts, &symtabs);
-	save_symbol_file(&symtabs, opts->dirname, opts->exename);
+	check_binary(opts);
 
 	fflush(stdout);
 
@@ -1518,6 +1507,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	unlink_shmem_list();
 	free_tid_list();
 
+	load_symtabs(&symtabs, opts->dirname, opts->exename);
+	save_symbol_file(&symtabs, opts->dirname, opts->exename);
 	save_module_symbols(opts, &symtabs);
 
 	if (opts->kernel)
