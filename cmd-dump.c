@@ -489,6 +489,39 @@ static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
 		abort();
 }
 
+static void print_kstack_chrome_trace(struct ftrace_task_handle *task,
+				      struct mcount_ret_stack *mrs,
+				      const char* name)
+{
+	char ph;
+	uint64_t timestamp = mrs->end_time ?: mrs->start_time;
+	enum ftrace_ret_stack_type rstack_type;
+
+	if (mrs->end_time)
+		rstack_type = FTRACE_EXIT;
+	else
+		rstack_type = FTRACE_ENTRY;
+
+	/*
+	 * We may add a category info with "cat" field later to distinguish that
+	 * this record is from kernel function.
+	 */
+	if (rstack_type == FTRACE_ENTRY) {
+		ph = 'B';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			timestamp / 1000, ph, mrs->tid, name);
+		/* kernel trace data doesn't have more field */
+		pr_out("}");
+	} else if (rstack_type == FTRACE_EXIT) {
+		ph = 'E';
+		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			timestamp / 1000, ph, mrs->tid, name);
+		/* kernel trace data doesn't have more field */
+		pr_out("}");
+	} else
+		abort();
+}
+
 static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			      struct ftrace_file_handle *handle)
 {
@@ -541,8 +574,37 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			symbol_putname(sym, name);
 		}
 	}
-	pr_out("\n");
-	pr_out("], \"metadata\": {\n");
+	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
+		goto json_footer;
+
+	pr_out(",\n");
+	for (i = 0; i < handle->kern->nr_cpus; i++) {
+		struct ftrace_kernel *kernel = handle->kern;
+		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
+		struct sym *sym;
+		char *name;
+
+		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
+			static bool last_comma = false;
+
+			/* NOTE: do we have to handle lost record here */
+			// int losts = kernel->missed_events[i];
+
+			sym = find_symtabs(NULL, mrs->child_ip);
+			name = symbol_getname(sym, mrs->child_ip);
+
+			if (last_comma)
+				pr_out(",\n");
+
+			print_kstack_chrome_trace(&task, mrs, name);
+			last_comma = true;
+
+			symbol_putname(sym, name);
+		}
+	}
+
+json_footer:
+	pr_out("\n], \"metadata\": {\n");
 	if (handle->hdr.info_mask & (1UL << CMDLINE))
 		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
 	pr_out("\"recorded_time\":\"%s\"\n", buf);
