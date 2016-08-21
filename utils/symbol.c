@@ -173,6 +173,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	Elf_Scn *sym_sec, *dynsym_sec, *sec;
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
+	unsigned long prev_sym_value = -1;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -268,6 +269,11 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 
 		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
 			continue;
+
+		/* skip aliases */
+		if (prev_sym_value == elf_sym.st_value)
+			continue;
+		prev_sym_value = elf_sym.st_value;
 
 		if (symtab->nr_sym >= symtab->nr_alloc) {
 			symtab->nr_alloc += SYMTAB_GROW;
