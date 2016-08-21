@@ -88,6 +88,7 @@ void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 
 bool check_libpthread(const char *filename);
+int check_trace_functions(const char *filename);
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);

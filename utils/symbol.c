@@ -550,6 +550,91 @@ elf_error:
 	goto out;
 }
 
+int check_trace_functions(const char *filename)
+{
+	int fd;
+	int ret = -1;
+	int idx, nr_dynsym = 0;
+	size_t i;
+	Elf *elf;
+	Elf_Scn *dynsym_sec, *sec;
+	Elf_Data *dynsym_data;
+	size_t shstr_idx, dynstr_idx = 0;
+	const char *trace_funcs[] = {
+		"mcount",
+		"__fentry__",
+		"__gnu_mcount_nc",
+		"__cyg_profile_func_enter",
+	};
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return false;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto elf_error;
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		goto elf_error;
+
+	sec = dynsym_sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			goto elf_error;
+
+		if (shdr.sh_type == SHT_DYNSYM) {
+			dynsym_sec = sec;
+			dynstr_idx = shdr.sh_link;
+			nr_dynsym = shdr.sh_size / shdr.sh_entsize;
+			break;
+		}
+	}
+
+	if (dynsym_sec == NULL) {
+		pr_dbg("cannot find dynamic symbols.. skipping\n");
+		ret = 0;
+		goto out;
+	}
+
+	dynsym_data = elf_getdata(dynsym_sec, NULL);
+	if (dynsym_data == NULL)
+		goto elf_error;
+
+	pr_dbg2("check trace functions in %s\n", filename);
+	for (idx = 0; idx < nr_dynsym; idx++) {
+		GElf_Sym dsym;
+		char *name;
+
+		gelf_getsym(dynsym_data, idx, &dsym);
+		name = elf_strptr(elf, dynstr_idx, dsym.st_name);
+
+		for (i = 0; i < ARRAY_SIZE(trace_funcs); i++) {
+			if (!strcmp(name, trace_funcs[i])) {
+				/* 1 for mcount, 2 for cyg_prof.. */
+				ret = (i == 3) ? 2 : 1;
+				goto out;
+			}
+		}
+	}
+
+out:
+	elf_end(elf);
+	close(fd);
+	return ret;
+
+elf_error:
+	pr_dbg("ELF error during load dynsymtab: %s\n",
+	       elf_errmsg(elf_errno()));
+	goto out;
+}
+
 static unsigned long find_map_offset(struct symtabs *symtabs,
 				     const char *filename)
 {
