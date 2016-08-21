@@ -67,6 +67,76 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
+bool check_libpthread(const char *filename)
+{
+	int fd;
+	Elf *elf;
+	bool ret = false;
+	size_t i, nr_dyn = 0;
+	int shstr_idx;
+	Elf_Scn *dyn_sec, *sec;
+	Elf_Data *dyn_data;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return -1;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto elf_error;
+
+	sec = dyn_sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			goto elf_error;
+
+		if (shdr.sh_type == SHT_DYNAMIC) {
+			dyn_sec = sec;
+			shstr_idx = shdr.sh_link;
+			nr_dyn = shdr.sh_size / shdr.sh_entsize;
+			break;
+		}
+	}
+
+	if (dyn_sec == NULL)
+		return false;
+
+	dyn_data = elf_getdata(dyn_sec, NULL);
+	if (dyn_data == NULL)
+		goto elf_error;
+
+	for (i = 0; i < nr_dyn; i++) {
+		GElf_Dyn dyn;
+
+		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
+			goto elf_error;
+
+		if (dyn.d_tag == DT_NEEDED) {
+			char *soname = elf_strptr(elf, shstr_idx, dyn.d_un.d_ptr);
+			if (!strcmp(soname, "libpthread.so.0")) {
+				ret = true;
+				break;
+			}
+		}
+	}
+
+out:
+	elf_end(elf);
+	close(fd);
+	return ret;
+
+elf_error:
+	pr_dbg("ELF error during symbol loading: %s\n",
+	       elf_errmsg(elf_errno()));
+	goto out;
+}
+
 static void __unload_symtab(struct symtab *symtab)
 {
 	size_t i;
