@@ -339,6 +339,8 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			symtab->nr_sym -= count;
 		}
 	}
+	symtab->nr_alloc = symtab->nr_sym;
+	symtab->sym = xrealloc(symtab->sym, symtab->nr_sym * sizeof(*symtab->sym));
 
 	symtab->sym_names = xmalloc(sizeof(*symtab->sym_names) * symtab->nr_sym);
 
