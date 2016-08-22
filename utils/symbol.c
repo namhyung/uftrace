@@ -169,6 +169,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	int fd;
 	Elf *elf;
 	int ret = -1;
+	unsigned grow = SYMTAB_GROW;
 	size_t i, nr_sym = 0, nr_dynsym = 0;
 	Elf_Scn *sym_sec, *dynsym_sec, *sec;
 	Elf_Data *sym_data;
@@ -276,7 +277,9 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		prev_sym_value = elf_sym.st_value;
 
 		if (symtab->nr_sym >= symtab->nr_alloc) {
-			symtab->nr_alloc += SYMTAB_GROW;
+			if (symtab->nr_alloc >= grow * 4)
+				grow *= 2;
+			symtab->nr_alloc += grow;
 			symtab->sym = xrealloc(symtab->sym,
 					       symtab->nr_alloc * sizeof(*sym));
 		}
@@ -389,6 +392,7 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	int fd;
 	int ret = -1;
 	int idx, nr_rels = 0;
+	unsigned grow = SYMTAB_GROW;
 	Elf *elf;
 	Elf_Scn *dynsym_sec, *relplt_sec, *sec;
 	Elf_Data *dynsym_data, *relplt_data;
@@ -504,7 +508,9 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
 		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
-			dsymtab->nr_alloc += SYMTAB_GROW;
+			if (dsymtab->nr_alloc >= grow * 4)
+				grow *= 2;
+			dsymtab->nr_alloc += grow;
 			dsymtab->sym = xrealloc(dsymtab->sym,
 						dsymtab->nr_alloc * sizeof(*sym));
 		}
@@ -750,6 +756,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 	char *line = NULL;
 	size_t len = 0;
 	unsigned int i;
+	unsigned int grow = SYMTAB_GROW;
 	struct symtab *stab = &symtabs->symtab;
 	char allowed_types[] = "TtwPK";
 	unsigned long prev_addr = -1;
@@ -825,9 +832,11 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 			stab = &symtabs->symtab;
 
 		if (stab->nr_sym >= stab->nr_alloc) {
-			stab->nr_alloc += SYMTAB_GROW;
+			if (stab->nr_alloc >= grow * 4)
+				grow *= 2;
+			stab->nr_alloc += grow;
 			stab->sym = xrealloc(stab->sym,
-					       stab->nr_alloc * sizeof(*sym));
+					     stab->nr_alloc * sizeof(*sym));
 		}
 
 		sym = &stab->sym[stab->nr_sym++];
@@ -957,6 +966,7 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 	char *line = NULL;
 	size_t len = 0;
 	unsigned int i;
+	unsigned int grow = SYMTAB_GROW;
 	char allowed_types[] = "TtwPK";
 	unsigned long prev_addr = -1;
 	char prev_type = 'X';
@@ -1026,7 +1036,9 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 		prev_type = type;
 
 		if (symtab->nr_sym >= symtab->nr_alloc) {
-			symtab->nr_alloc += SYMTAB_GROW;
+			if (symtab->nr_alloc >= grow * 4)
+				grow *= 2;
+			symtab->nr_alloc += grow;
 			symtab->sym = xrealloc(symtab->sym,
 					       symtab->nr_alloc * sizeof(*sym));
 		}
