@@ -324,15 +324,19 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	for (i = 0; i < symtab->nr_sym - 1; i++) {
 		struct sym *curr = &symtab->sym[i];
 		struct sym *next = &symtab->sym[i + 1];
+		int count = 0;
 
-		while (curr->addr == next->addr) {
-			memmove(next, next + 1,
-				(symtab->nr_sym - i - 2) * sizeof(*next));
+		while (curr->addr == next->addr &&
+		       next < &symtab->sym[symtab->nr_sym]) {
+			count++;
+			next++;
+		}
 
-			symtab->nr_sym--;
+		if (count) {
+			memmove(curr, next - 1,
+				(symtab->nr_sym - i - count) * sizeof(*next));
 
-			if (i + 2 >= symtab->nr_sym)
-				break;
+			symtab->nr_sym -= count;
 		}
 	}
 
