@@ -651,7 +651,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
 
-			pr_dbg("skip duplicated symbols: %s\n", name);
+			pr_dbg2("skip duplicated symbols: %s\n", name);
 			continue;
 		}
 
@@ -857,7 +857,7 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
 
-			pr_dbg("skip duplicated symbols: %s\n", name);
+			pr_dbg2("skip duplicated symbols: %s\n", name);
 			continue;
 		}
 
