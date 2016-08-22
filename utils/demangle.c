@@ -882,7 +882,7 @@ static int dd_array_type(struct demangle_data *dd)
 	c = dd_curr(dd);
 	if (isdigit(c))
 		dd_number(dd);
-	else
+	else if (c != '_')
 		dd_expression(dd); /* optional */
 
 	__DD_DEBUG_CONSUME(dd, '_');
@@ -1599,6 +1599,9 @@ TEST_CASE(demangle_simple5)
 				   "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
 				   "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
 				   "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_"));
+
+	TEST_STREQ("std::tuple::tuple",
+		   demangle_simple("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev"));
 
 	return TEST_OK;
 }
