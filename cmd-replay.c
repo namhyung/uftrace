@@ -422,11 +422,19 @@ static void print_warning(struct ftrace_task_handle *task)
 
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
-	/* skip 'sys_exit[_group] at last for simple kernel tracing (-k) */
-	if (opts->kernel != 1 || task->stack_count != 1)
+	unsigned long ip = task->func_stack[0].addr;
+
+	/* skip 'sys_exit[_group] at last for kernel tracing */
+	if (opts->kernel == 0 || task->user_stack_count != 0)
 		return false;
 
-	return is_kernel_address(task->func_stack[0].addr);
+	if (is_kernel_address(ip)) {
+		struct sym *sym = find_symtabs(NULL, ip);
+
+		if (!strncmp(sym->name, "sys_exit", 8))
+			return true;
+	}
+	return false;
 }
 
 static void print_remaining_stack(struct opts *opts,
