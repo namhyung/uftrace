@@ -336,8 +336,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		}
 	}
 
-	symtab->sym_names = xrealloc(symtab->sym_names,
-				     sizeof(*symtab->sym_names) * symtab->nr_sym);
+	symtab->sym_names = xmalloc(sizeof(*symtab->sym_names) * symtab->nr_sym);
 
 	for (i = 0; i < symtab->nr_sym; i++)
 		symtab->sym_names[i] = &symtab->sym[i];
@@ -363,8 +362,7 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	/*
 	 * abuse ->sym_names[] to save original index
 	 */
-	dsymtab->sym_names = xrealloc(dsymtab->sym_names,
-				      sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
+	dsymtab->sym_names = xmalloc(sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
 
 	/* save current address for each symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++)
@@ -857,8 +855,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 	stab = &symtabs->symtab;
 	qsort(stab->sym, stab->nr_sym, sizeof(*stab->sym), addrsort);
 
-	stab->sym_names = xrealloc(stab->sym_names,
-				   sizeof(*stab->sym_names) * stab->nr_sym);
+	stab->sym_names = xmalloc(sizeof(*stab->sym_names) * stab->nr_sym);
 
 	for (i = 0; i < stab->nr_sym; i++)
 		stab->sym_names[i] = &stab->sym[i];
@@ -1060,8 +1057,7 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 
 	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
 
-	symtab->sym_names = xrealloc(symtab->sym_names,
-				     sizeof(*symtab->sym_names) * symtab->nr_sym);
+	symtab->sym_names = xmalloc(sizeof(*symtab->sym_names) * symtab->nr_sym);
 
 	for (i = 0; i < symtab->nr_sym; i++)
 		symtab->sym_names[i] = &symtab->sym[i];
