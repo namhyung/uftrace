@@ -864,12 +864,14 @@ user:
 			task->display_depth_set = true;
 
 			task->stack_count = task->display_depth;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->ctx == FSTACK_CTX_KERNEL && invalidate) {
 			/* protect from broken kernel records */
 			task->display_depth = task->user_display_depth;
 			task->stack_count = task->user_stack_count;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->ustack.type == FTRACE_ENTRY) {
@@ -955,6 +957,7 @@ kernel:
 			task->display_depth_set = true;
 
 			task->stack_count = task->user_stack_count + task->kstack.depth;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->rstack->type == FTRACE_ENTRY) {
