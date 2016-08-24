@@ -497,15 +497,16 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 	if (task->filter.out_count > 0)
 		return -1;
 
-	if (is_kernel_address(addr))
-		return 0;
-
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
 		sess = find_task_session(task->t->pid, rstack->time);
 
-	if (sess == NULL)
-		return -1;
+	if (sess == NULL) {
+		if (is_kernel_address(addr))
+			sess = first_session;
+		else
+			return -1;
+	}
 
 	ftrace_match_filter(&sess->filters, addr, &tr);
 
@@ -555,8 +556,12 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	if (peek_rstack(handle, &next) < 0)
 		return NULL;
 
-	while (next == task && curr_stack == next->rstack &&
-	       next->rstack->depth > curr_depth) {
+	/*
+	 * different rstack means a context change between user and kernel,
+	 * so the depth was increased and it needs checking.
+	 */
+	while (next == task && (curr_stack != next->rstack ||
+				next->rstack->depth > curr_depth)) {
 		struct ftrace_ret_stack *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
@@ -864,12 +869,14 @@ user:
 			task->display_depth_set = true;
 
 			task->stack_count = task->display_depth;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->ctx == FSTACK_CTX_KERNEL && invalidate) {
 			/* protect from broken kernel records */
 			task->display_depth = task->user_display_depth;
 			task->stack_count = task->user_stack_count;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->ustack.type == FTRACE_ENTRY) {
@@ -955,6 +962,7 @@ kernel:
 			task->display_depth_set = true;
 
 			task->stack_count = task->user_stack_count + task->kstack.depth;
+			task->filter.depth = handle->depth - task->stack_count;
 		}
 
 		if (task->rstack->type == FTRACE_ENTRY) {
