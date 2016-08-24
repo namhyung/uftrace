@@ -483,6 +483,10 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 					     &tr) < 0)
 			goto next;
 
+		/* skip unintended kernel symbols */
+		if (symtab == NULL)
+			goto next;
+
 		if (name[0] == '!') {
 			tr.fmode = FILTER_MODE_OUT;
 			name++;
@@ -501,7 +505,9 @@ again:
 			goto again;
 		}
 
-		if (ret > 0 && fmode != NULL) {
+		/* kernel filter should not affect user functions */
+		if (ret > 0 && fmode != NULL &&
+		    (module == NULL || strcmp(module, "kernel"))) {
 			if (tr.fmode == FILTER_MODE_IN)
 				*fmode = FILTER_MODE_IN;
 			else if (*fmode == FILTER_MODE_NONE)
