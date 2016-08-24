@@ -240,10 +240,10 @@ int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
 
 	pos = str = xstrdup(filters);
 
-	name = strtok(pos, ",");
+	name = strtok(pos, ";");
 	while (name) {
 		pos = strchr(name, '@');
-		if (!pos || strcasecmp(pos+1, "kernel"))
+		if (!pos || strncasecmp(pos+1, "kernel", 6))
 			goto next;
 		*pos = '\0';
 
@@ -257,7 +257,7 @@ int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
 next:
-		name = strtok(NULL, ",");
+		name = strtok(NULL, ";");
 	}
 
 setup:
