@@ -76,6 +76,7 @@ enum options {
 	OPT_num_thread,
 	OPT_no_comment,
 	OPT_libmcount_single,
+	OPT_rt_prio,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -125,6 +126,7 @@ static struct argp_option ftrace_options[] = {
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
+	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
 	{ 0 }
 };
 
@@ -514,6 +516,15 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_libmcount_single:
 		opts->libmcount_single = true;
+		break;
+
+	case OPT_rt_prio:
+		opts->rt_prio = strtol(arg, NULL, 0);
+		if (opts->rt_prio < 1 || opts->rt_prio > 99) {
+			pr_use("invalid rt prioity: %d (ignoring...)\n",
+				opts->rt_prio);
+			opts->rt_prio = 0;
+		}
 		break;
 
 	case ARGP_KEY_ARG:

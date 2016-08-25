@@ -401,6 +401,15 @@ void *writer_thread(void *arg)
 	struct opts *opts = warg->opts;
 	int i;
 
+	if (opts->rt_prio) {
+		struct sched_param param = {
+			.sched_priority = opts->rt_prio,
+		};
+
+		if (sched_setscheduler(0, SCHED_FIFO, &param) < 0)
+			pr_log("set scheduling param failed\n");
+	}
+
 	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
 		LIST_HEAD(head);

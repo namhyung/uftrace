@@ -148,6 +148,7 @@ struct opts {
 	int column_offset;
 	int sort_column;
 	int nr_thread;
+	int rt_prio;
 	unsigned long bufsize;
 	uint64_t threshold;
 	bool flat;
