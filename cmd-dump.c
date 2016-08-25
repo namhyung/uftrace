@@ -529,6 +529,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 	struct ftrace_task_handle task;
 	char buf[PATH_MAX];
 	struct stat statbuf;
+	unsigned lost_event_cnt = 0;
 
 	/* read recorded date and time */
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -574,6 +575,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			symbol_putname(sym, name);
 		}
 	}
+
 	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
 		goto json_footer;
 
@@ -586,15 +588,19 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
 			static bool last_comma = false;
-
-			/* NOTE: do we have to handle lost record here */
-			// int losts = kernel->missed_events[i];
+			int losts = kernel->missed_events[i];
 
 			sym = find_symtabs(NULL, mrs->child_ip);
 			name = symbol_getname(sym, mrs->child_ip);
 
 			if (last_comma)
 				pr_out(",\n");
+
+			/* it just counts the number of LOST events occured */
+			if (losts) {
+				kernel->missed_events[i] = 0;
+				lost_event_cnt++;
+			}
 
 			print_kstack_chrome_trace(&task, mrs, name);
 			last_comma = true;
@@ -609,6 +615,24 @@ json_footer:
 		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
 	pr_out("\"recorded_time\":\"%s\"\n", buf);
 	pr_out("} }\n");
+
+	/*
+	 * Chrome trace format requires to have both entry and exit records so
+	 * that it can identify the range of function call and return.
+	 * However, if there are some lost records, it cannot match the entry
+	 * and exit of some functions.  It may show some of functions do not
+	 * return until the program is finished or vice versa.
+	 *
+	 * Since it's very difficult to generate fake records for lost data to
+	 * match entry and exit of some lost functions, we just inform the fact
+	 * to users as of now.
+	 */
+	if (lost_event_cnt) {
+		pr_warn("Some of function trace records are lost. "
+			"(%d times shown)\n", lost_event_cnt);
+		pr_warn("The output json format may not show the correct view "
+			"in chrome browser.\n");
+	}
 }
 
 int command_dump(int argc, char *argv[], struct opts *opts)
