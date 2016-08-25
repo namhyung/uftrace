@@ -45,7 +45,8 @@ static void put_tracing_file(char *file)
 	free(file);
 }
 
-static int __write_tracing_file(const char *name, const char *val, bool append)
+static int __write_tracing_file(const char *name, const char *val, bool append,
+				bool correct_sys_prefix)
 {
 	char *file;
 	int fd, ret = -1;
@@ -74,8 +75,25 @@ static int __write_tracing_file(const char *name, const char *val, bool append)
 
 	if (write(fd, val, size) == size)
 		ret = 0;
-	else
-		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
+	else {
+		if (errno == EINVAL && correct_sys_prefix) {
+			char *newval = (char *)val;
+
+			if (!strncmp(val, "sys_", 4))
+				newval[0] = newval[2] = 'S';
+			else if (!strncmp(val, "compat_sys_", 11))
+				newval[7] = newval[9] = 'S';
+
+			if (write(fd, newval, size) == size)
+				ret = 0;
+			else if (!strncmp(newval, "SyS_", 4) ||
+				 !strncmp(newval, "compat_SyS_", 11))
+				ret = 0;
+		}
+		if (ret < 0)
+			pr_dbg("write '%s' to tracing/%s failed: %m\n",
+			       val, name);
+	}
 
 	close(fd);
 out:
@@ -85,12 +103,12 @@ out:
 
 static int write_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, false);
+	return __write_tracing_file(name, val, false, false);
 }
 
 static int append_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, true);
+	return __write_tracing_file(name, val, true, false);
 }
 
 static int set_tracing_pid(int pid)
@@ -118,7 +136,8 @@ static int set_tracing_filter(struct ftrace_kernel *kernel)
 
 	filter_file = "set_graph_function";
 	list_for_each_entry_safe(pos, tmp, &kernel->filters, list) {
-		if (append_tracing_file(filter_file, pos->name) < 0)
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
 			return -1;
 
 		list_del(&pos->list);
@@ -127,7 +146,8 @@ static int set_tracing_filter(struct ftrace_kernel *kernel)
 
 	filter_file = "set_graph_notrace";
 	list_for_each_entry_safe(pos, tmp, &kernel->notrace, list) {
-		if (append_tracing_file(filter_file, pos->name) < 0)
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
 			return -1;
 
 		list_del(&pos->list);
@@ -275,6 +295,22 @@ int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
 		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
+
+		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
+		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[0] = 'S';
+			kfilter->name[2] = 'S';
+			list_add(&kfilter->list, head);
+		}
+		if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[7] = 'S';
+			kfilter->name[9] = 'S';
+			list_add(&kfilter->list, head);
+		}
 next:
 		name = strtok(NULL, ";");
 	}
