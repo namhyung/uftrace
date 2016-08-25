@@ -149,6 +149,18 @@ static int set_tracing_depth(struct ftrace_kernel *kernel)
 	return ret;
 }
 
+static int set_tracing_bufsize(struct ftrace_kernel *kernel)
+{
+	int ret = 0;
+	char buf[32];
+
+	if (kernel->bufsize) {
+		snprintf(buf, sizeof(buf), "%lu", kernel->bufsize >> 10);
+		ret = write_tracing_file("buffer_size_kb", buf);
+	}
+	return ret;
+}
+
 static int reset_tracing_files(void)
 {
 	if (write_tracing_file("tracing_on", "0") < 0)
@@ -170,6 +182,10 @@ static int reset_tracing_files(void)
 	write_tracing_file("set_graph_notrace", " ");
 
 	if (write_tracing_file("max_graph_depth", "0") < 0)
+		return -1;
+
+	/* default kernel buffer size: 16384 * 88 / 1024 = 1408 */
+	if (write_tracing_file("buffer_size_kb", "1408") < 0)
 		return -1;
 
 	kernel_tracing_enabled = false;
@@ -204,6 +220,9 @@ static int __setup_kernel_tracing(struct ftrace_kernel *kernel)
 		goto out;
 
 	if (set_tracing_depth(kernel) < 0)
+		goto out;
+
+	if (set_tracing_bufsize(kernel) < 0)
 		goto out;
 
 	if (write_tracing_file("current_tracer", FTRACE_TRACER) < 0)

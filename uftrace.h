@@ -151,6 +151,7 @@ struct opts {
 	int nr_thread;
 	int rt_prio;
 	unsigned long bufsize;
+	unsigned long kernel_bufsize;
 	uint64_t threshold;
 	bool flat;
 	bool libcall;
@@ -327,6 +328,7 @@ struct ftrace_kernel {
 	int pid;
 	int nr_cpus;
 	int depth;
+	unsigned long bufsize;
 	int *traces;
 	int *fds;
 	int64_t *offsets;

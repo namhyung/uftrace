@@ -100,6 +100,9 @@ OPTIONS
 \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Note that this option is meaningful only when used with -K,\--kernel-full option.
 
+\--kernel-buffer=*SIZE*
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
+
 
 FILTERS
 =======

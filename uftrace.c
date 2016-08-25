@@ -78,6 +78,7 @@ enum options {
 	OPT_libmcount_single,
 	OPT_rt_prio,
 	OPT_kernel_depth,
+	OPT_kernel_bufsize,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -129,6 +130,7 @@ static struct argp_option ftrace_options[] = {
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
 	{ "kernel-depth", OPT_kernel_depth, "DEPTH", 0, "Trace kernel functions within DEPTH" },
+	{ "kernel-buffer", OPT_kernel_bufsize, "SIZE", 0, "Size of kernel tracing buffer" },
 	{ 0 }
 };
 
@@ -534,6 +536,15 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		if (opts->kernel_depth < 1 || opts->kernel_depth > 50) {
 			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
 			opts->kernel_depth = 0;
+		}
+		break;
+
+	case OPT_kernel_bufsize:
+		opts->kernel_bufsize = parse_size(arg);
+		if (opts->kernel_bufsize & (getpagesize() - 1)) {
+			pr_use("buffer size should be multiple of page size\n");
+			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize,
+							getpagesize());
 		}
 		break;
 

@@ -1378,6 +1378,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.output_dir = opts->dirname;
 		kern.depth = (opts->kernel == 1) ? 1 :
 			opts->kernel_depth ?: MCOUNT_RSTACK_MAX;
+		kern.bufsize = opts->kernel_bufsize;
 
 		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
 			opts->kernel = 0;
