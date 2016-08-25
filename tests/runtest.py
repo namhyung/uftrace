@@ -132,7 +132,7 @@ class TestBase:
         signal.signal(signal.SIGALRM, timeout)
 
         result_expect = self.sort(self.result)
-        signal.alarm(2)
+        signal.alarm(5)
         result_tested = self.sort(p.communicate()[0].decode())  # for python3
         signal.alarm(0)
 
