@@ -316,8 +316,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'D':
 		opts->depth = strtol(arg, NULL, 0);
-		if (opts->depth <= 0)
-			pr_use("invalid depth given: %s\n", arg);
+		if (opts->depth <= 0) {
+			pr_use("invalid depth given: %s (ignoring..)\n", arg);
+			opts->depth = MCOUNT_DEFAULT_DEPTH;
+		}
 		break;
 
 	case 'v':
@@ -330,8 +332,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'b':
 		opts->bufsize = parse_size(arg);
-		if (opts->bufsize & (getpagesize() - 1))
+		if (opts->bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
+			opts->bufsize = ROUND_UP(opts->bufsize, getpagesize());
+		}
 		break;
 
 	case 'k':
@@ -404,15 +408,19 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_max_stack:
 		opts->max_stack = strtol(arg, NULL, 0);
-		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX)
+		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX) {
 			pr_use("max stack depth should be >0 and <%d\n",
 			       OPT_RSTACK_MAX);
+			opts->max_stack = OPT_RSTACK_MAX;
+		}
 		break;
 
 	case OPT_port:
 		opts->port = strtol(arg, NULL, 0);
-		if (opts->port <= 0)
-			pr_use("invalid port number: %s\n", arg);
+		if (opts->port <= 0) {
+			pr_use("invalid port number: %s (ignoring..)\n", arg);
+			opts->port = FTRACE_RECV_PORT;
+		}
 		break;
 
 	case OPT_nopager:
@@ -429,8 +437,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_color:
 		opts->color = parse_color(arg);
-		if (opts->color == -2)
-			pr_use("unknown color setting: %s\n", arg);
+		if (opts->color == -2) {
+			pr_use("unknown color setting: %s (ignoring..)\n", arg);
+			opts->color = -1;
+		}
 		break;
 
 	case OPT_disabled:
@@ -439,10 +449,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_demangle:
 		demangler = parse_demangle(arg);
-		if (demangler == DEMANGLE_ERROR)
-			pr_use("unknown demangle value: %s\n", arg);
-		else if (demangler == DEMANGLE_NOT_SUPPORTED)
+		if (demangler == DEMANGLE_ERROR) {
+			pr_use("unknown demangle value: %s (ignoring..)\n", arg);
+			demangler = DEMANGLE_SIMPLE;
+		}
+		else if (demangler == DEMANGLE_NOT_SUPPORTED) {
 			pr_use("'%s' demangler is not supported\n", arg);
+			demangler = DEMANGLE_SIMPLE;
+		}
 		break;
 
 	case OPT_dbg_domain:
@@ -488,8 +502,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_num_thread:
 		opts->nr_thread = strtol(arg, NULL, 0);
-		if (opts->nr_thread <= 0)
+		if (opts->nr_thread < 0) {
 			pr_use("invalid thread number: %s\n", arg);
+			opts->nr_thread = 0;
+		}
 		break;
 
 	case OPT_no_comment:
