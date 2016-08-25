@@ -329,8 +329,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'b':
-		opts->bsize = parse_size(arg);
-		if (opts->bsize & (getpagesize() - 1))
+		opts->bufsize = parse_size(arg);
+		if (opts->bufsize & (getpagesize() - 1))
 			pr_use("buffer size should be multiple of page size\n");
 		break;
 
@@ -572,7 +572,7 @@ int main(int argc, char *argv[])
 		.mode		= FTRACE_MODE_INVALID,
 		.dirname	= FTRACE_DIR_NAME,
 		.libcall	= true,
-		.bsize		= SHMEM_BUFFER_SIZE,
+		.bufsize	= SHMEM_BUFFER_SIZE,
 		.depth		= MCOUNT_DEFAULT_DEPTH,
 		.max_stack	= MCOUNT_RSTACK_MAX,
 		.port		= FTRACE_RECV_PORT,

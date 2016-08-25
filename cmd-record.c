@@ -171,8 +171,8 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);
 
-	if (opts->bsize != SHMEM_BUFFER_SIZE) {
-		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
+	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
+		snprintf(buf, sizeof(buf), "%lu", opts->bufsize);
 		setenv("FTRACE_BUFFER", buf, 1);
 	}
 
@@ -382,7 +382,7 @@ static void write_buf_list(struct list_head *buf_head, struct opts *opts,
 		__sync_synchronize();
 		shmbuf->flag = SHMEM_FL_WRITTEN;
 
-		munmap(shmbuf, opts->bsize);
+		munmap(shmbuf, opts->bufsize);
 		buf->shmem_buf = NULL;
 	}
 
@@ -1444,7 +1444,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			pr_err("error during poll");
 
 		if (pollfd.revents & POLLIN)
-			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
+			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
 
 		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
@@ -1457,7 +1457,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 
 		if (remaining) {
-			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
+			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
 			continue;
 		}
 
@@ -1505,7 +1505,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	for (i = 0; i < opts->nr_thread; i++)
 		pthread_join(writers[i], NULL);
 
-	flush_shmem_list(opts->dirname, opts->bsize);
+	flush_shmem_list(opts->dirname, opts->bufsize);
 	record_remaining_buffer(opts, sock);
 	unlink_shmem_list();
 	free_tid_list();
