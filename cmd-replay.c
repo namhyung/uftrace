@@ -277,7 +277,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
 		str_mode |= NEEDS_PAREN;
 
-	if (opts->kernel == 1) {
+	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
 		if (!task->user_stack_count && is_kernel_address(rstack->addr))
 			goto out;
@@ -513,6 +513,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
+
+		if (opts->kernel == 1)
+			opts->kernel_skip_out = true;
 	}
 
 	if (opts->filter || opts->trigger) {

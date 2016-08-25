@@ -53,10 +53,13 @@ OPTIONS
 :   Do not show comments of returned functions.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  Only kernel functions inside user functions will be shown.
+:   Trace kernel functions as well as user functions.  Implies \--kernel-skip-out.
 
 -K, \--kernel-full
 :   Trace kernel functions as well as user functions.  All kernel functions will be shown.
+
+\--kernel-skip-out
+:   Do not show kernel functions out of user functions.
 
 
 FILTERS

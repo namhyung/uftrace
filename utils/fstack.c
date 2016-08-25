@@ -839,8 +839,17 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	uint64_t ktime;
 
 	u = read_user_stack(handle, taskp);
-	if (kernel)
+	if (kernel) {
 		k = read_kernel_stack(kernel, &kstack);
+		if (k < 0) {
+			static bool warn = false;
+
+			if (!warn && invalidate) {
+				pr_dbg("no more kernel data\n");
+				warn = true;
+			}
+		}
+	}
 
 	if (u < 0 && k < 0)
 		return -1;

@@ -171,8 +171,8 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
 		setenv("FTRACE_DIR", opts->dirname, 1);
 
-	if (opts->bsize != SHMEM_BUFFER_SIZE) {
-		snprintf(buf, sizeof(buf), "%lu", opts->bsize);
+	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
+		snprintf(buf, sizeof(buf), "%lu", opts->bufsize);
 		setenv("FTRACE_BUFFER", buf, 1);
 	}
 
@@ -382,7 +382,7 @@ static void write_buf_list(struct list_head *buf_head, struct opts *opts,
 		__sync_synchronize();
 		shmbuf->flag = SHMEM_FL_WRITTEN;
 
-		munmap(shmbuf, opts->bsize);
+		munmap(shmbuf, opts->bufsize);
 		buf->shmem_buf = NULL;
 	}
 
@@ -401,6 +401,15 @@ void *writer_thread(void *arg)
 	struct opts *opts = warg->opts;
 	int i;
 
+	if (opts->rt_prio) {
+		struct sched_param param = {
+			.sched_priority = opts->rt_prio,
+		};
+
+		if (sched_setscheduler(0, SCHED_FIFO, &param) < 0)
+			pr_log("set scheduling param failed\n");
+	}
+
 	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (true) {
 		LIST_HEAD(head);
@@ -415,7 +424,7 @@ void *writer_thread(void *arg)
 				goto out;
 			}
 
-			/* check kernel data every 1ms */
+			/* check kernel data every 1ms (or 10us) */
 			clock_gettime(CLOCK_REALTIME, &timeout);
 			switch (opts->kernel) {
 			case 1:
@@ -1367,7 +1376,9 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel) {
 		kern.pid = pid;
 		kern.output_dir = opts->dirname;
-		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
+		kern.depth = (opts->kernel == 1) ? 1 :
+			opts->kernel_depth ?: MCOUNT_RSTACK_MAX;
+		kern.bufsize = opts->kernel_bufsize;
 
 		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
 			opts->kernel = 0;
@@ -1393,6 +1404,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		struct writer_arg *warg;
 		int cpu_per_thread = DIV_ROUND_UP(nr_cpu, opts->nr_thread);
 		size_t sizeof_warg = sizeof(*warg) + sizeof(int) * cpu_per_thread;
+		cpu_set_t cpuset;
 
 		warg = xmalloc(sizeof_warg);
 		warg->opts = opts;
@@ -1402,18 +1414,20 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		INIT_LIST_HEAD(&warg->list);
 		INIT_LIST_HEAD(&warg->bufs);
 
-		if (opts->kernel) {
-			warg->nr_cpu = cpu_per_thread;
+		warg->nr_cpu = cpu_per_thread;
+		CPU_ZERO(&cpuset);
 
-			for (k = 0; k < cpu_per_thread; k++) {
-				if (i * cpu_per_thread + k < nr_cpu)
-					warg->cpus[k] = i * cpu_per_thread + k;
-				else
-					warg->cpus[k] = -1;
+		for (k = 0; k < cpu_per_thread; k++) {
+			if (i * cpu_per_thread + k < nr_cpu) {
+				warg->cpus[k] = i * cpu_per_thread + k;
+				CPU_SET(warg->cpus[k], &cpuset);
 			}
+			else
+				warg->cpus[k] = -1;
 		}
 
 		pthread_create(&writers[i], NULL, writer_thread, warg);
+		pthread_setaffinity_np(writers[i], sizeof(cpuset), &cpuset);
 	}
 
 	if (opts->kernel && start_kernel_tracing(&kern) < 0) {
@@ -1441,7 +1455,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			pr_err("error during poll");
 
 		if (pollfd.revents & POLLIN)
-			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
+			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
 
 		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
@@ -1454,7 +1468,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 			break;
 
 		if (remaining) {
-			read_record_mmap(pfd[0], opts->dirname, opts->bsize);
+			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
 			continue;
 		}
 
@@ -1502,7 +1516,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	for (i = 0; i < opts->nr_thread; i++)
 		pthread_join(writers[i], NULL);
 
-	flush_shmem_list(opts->dirname, opts->bsize);
+	flush_shmem_list(opts->dirname, opts->bufsize);
 	record_remaining_buffer(opts, sock);
 	unlink_shmem_list();
 	free_tid_list();

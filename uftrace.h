@@ -141,6 +141,7 @@ struct opts {
 	int mode;
 	int idx;
 	int depth;
+	int kernel_depth;
 	int max_stack;
 	int kernel;
 	int port;
@@ -148,7 +149,9 @@ struct opts {
 	int column_offset;
 	int sort_column;
 	int nr_thread;
-	unsigned long bsize;
+	int rt_prio;
+	unsigned long bufsize;
+	unsigned long kernel_bufsize;
 	uint64_t threshold;
 	bool flat;
 	bool libcall;
@@ -170,6 +173,7 @@ struct opts {
 	bool chrome_trace;
 	bool comment;
 	bool libmcount_single;
+	bool kernel_skip_out;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);
@@ -325,6 +329,7 @@ struct ftrace_kernel {
 	int pid;
 	int nr_cpus;
 	int depth;
+	unsigned long bufsize;
 	int *traces;
 	int *fds;
 	int64_t *offsets;
