@@ -173,6 +173,7 @@ struct opts {
 	bool chrome_trace;
 	bool comment;
 	bool libmcount_single;
+	bool kernel_skip_out;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

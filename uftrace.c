@@ -79,6 +79,7 @@ enum options {
 	OPT_rt_prio,
 	OPT_kernel_depth,
 	OPT_kernel_bufsize,
+	OPT_kernel_skip_out,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -131,6 +132,7 @@ static struct argp_option ftrace_options[] = {
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
 	{ "kernel-depth", OPT_kernel_depth, "DEPTH", 0, "Trace kernel functions within DEPTH" },
 	{ "kernel-buffer", OPT_kernel_bufsize, "SIZE", 0, "Size of kernel tracing buffer" },
+	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user" },
 	{ 0 }
 };
 
@@ -546,6 +548,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize,
 							getpagesize());
 		}
+		break;
+
+	case OPT_kernel_skip_out:
+		opts->kernel_skip_out = true;
 		break;
 
 	case ARGP_KEY_ARG:
