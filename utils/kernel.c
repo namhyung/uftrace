@@ -864,10 +864,8 @@ int read_kernel_stack(struct ftrace_kernel *kernel,
 		}
 	}
 
-	if (first_rstack == NULL) {
-		pr_dbg("no more kernel data\n");
+	if (first_rstack == NULL)
 		return -1;
-	}
 
 	memcpy(rstack, first_rstack, sizeof(*rstack));
 
