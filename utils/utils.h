@@ -69,6 +69,7 @@ extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
+extern void __pr_warn(const char *fmt, ...);
 extern void __pr_color(char code, const char *fmt, ...);
 
 extern int log_color;
@@ -114,9 +115,11 @@ extern void setup_signal(void);
 	__pr_err(PR_FMT ": %s:%d:%s\n ERROR: " fmt,		\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
-#define pr_cont(fmt, ...)  __pr_log(fmt, ## __VA_ARGS__)
-#define pr_out(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
-#define pr_use(fmt, ...)   __pr_out(fmt, ## __VA_ARGS__)
+#define pr_warn(fmt, ...)	__pr_warn(fmt, ## __VA_ARGS__)
+
+#define pr_cont(fmt, ...)	__pr_log(fmt, ## __VA_ARGS__)
+#define pr_out(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
+#define pr_use(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
 
 #define pr_red(fmt, ...)	__pr_color(COLOR_CODE_RED,     fmt, ## __VA_ARGS__)
 #define pr_green(fmt, ...)	__pr_color(COLOR_CODE_GREEN,   fmt, ## __VA_ARGS__)
