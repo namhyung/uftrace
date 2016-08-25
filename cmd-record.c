@@ -424,7 +424,7 @@ void *writer_thread(void *arg)
 				goto out;
 			}
 
-			/* check kernel data every 1ms */
+			/* check kernel data every 1ms (or 10us) */
 			clock_gettime(CLOCK_REALTIME, &timeout);
 			switch (opts->kernel) {
 			case 1:
@@ -1376,7 +1376,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (opts->kernel) {
 		kern.pid = pid;
 		kern.output_dir = opts->dirname;
-		kern.depth = opts->kernel == 1 ? 1 : MCOUNT_RSTACK_MAX;
+		kern.depth = (opts->kernel == 1) ? 1 :
+			opts->kernel_depth ?: MCOUNT_RSTACK_MAX;
 
 		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
 			opts->kernel = 0;

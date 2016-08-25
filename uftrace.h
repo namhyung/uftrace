@@ -141,6 +141,7 @@ struct opts {
 	int mode;
 	int idx;
 	int depth;
+	int kernel_depth;
 	int max_stack;
 	int kernel;
 	int port;

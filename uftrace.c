@@ -77,6 +77,7 @@ enum options {
 	OPT_no_comment,
 	OPT_libmcount_single,
 	OPT_rt_prio,
+	OPT_kernel_depth,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -127,6 +128,7 @@ static struct argp_option ftrace_options[] = {
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
+	{ "kernel-depth", OPT_kernel_depth, "DEPTH", 0, "Trace kernel functions within DEPTH" },
 	{ 0 }
 };
 
@@ -524,6 +526,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("invalid rt prioity: %d (ignoring...)\n",
 				opts->rt_prio);
 			opts->rt_prio = 0;
+		}
+		break;
+
+	case OPT_kernel_depth:
+		opts->kernel_depth = strtol(arg, NULL, 0);
+		if (opts->kernel_depth < 1 || opts->kernel_depth > 50) {
+			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
+			opts->kernel_depth = 0;
 		}
 		break;
 
