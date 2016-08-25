@@ -148,6 +148,19 @@ void __pr_err_s(const char *fmt, ...)
 	exit(1);
 }
 
+void __pr_warn(const char *fmt, ...)
+{
+	va_list ap;
+
+	color(TERM_COLOR_RED, logfp);
+
+	va_start(ap, fmt);
+	vfprintf(logfp, fmt, ap);
+	va_end(ap);
+
+	color(TERM_COLOR_RESET, logfp);
+}
+
 void __pr_out(const char *fmt, ...)
 {
 	va_list ap;
