@@ -1393,6 +1393,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		struct writer_arg *warg;
 		int cpu_per_thread = DIV_ROUND_UP(nr_cpu, opts->nr_thread);
 		size_t sizeof_warg = sizeof(*warg) + sizeof(int) * cpu_per_thread;
+		cpu_set_t cpuset;
 
 		warg = xmalloc(sizeof_warg);
 		warg->opts = opts;
@@ -1402,18 +1403,20 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		INIT_LIST_HEAD(&warg->list);
 		INIT_LIST_HEAD(&warg->bufs);
 
-		if (opts->kernel) {
-			warg->nr_cpu = cpu_per_thread;
+		warg->nr_cpu = cpu_per_thread;
+		CPU_ZERO(&cpuset);
 
-			for (k = 0; k < cpu_per_thread; k++) {
-				if (i * cpu_per_thread + k < nr_cpu)
-					warg->cpus[k] = i * cpu_per_thread + k;
-				else
-					warg->cpus[k] = -1;
+		for (k = 0; k < cpu_per_thread; k++) {
+			if (i * cpu_per_thread + k < nr_cpu) {
+				warg->cpus[k] = i * cpu_per_thread + k;
+				CPU_SET(warg->cpus[k], &cpuset);
 			}
+			else
+				warg->cpus[k] = -1;
 		}
 
 		pthread_create(&writers[i], NULL, writer_thread, warg);
+		pthread_setaffinity_np(writers[i], sizeof(cpuset), &cpuset);
 	}
 
 	if (opts->kernel && start_kernel_tracing(&kern) < 0) {
