@@ -52,7 +52,7 @@ export ARCH CC AR LD RM srcdir objdir
 COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lelf -lrt -pthread $(LDFLAGS)
+COMMON_LDFLAGS := -lelf -lrt -ldl -pthread $(LDFLAGS)
 
 COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
@@ -83,6 +83,7 @@ TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
 UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
+UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
 UFTRACE_HDRS := $(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h)
@@ -93,6 +94,7 @@ LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
 
 LIBMCOUNT_HDRS := $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/utils/*.h)
@@ -105,6 +107,7 @@ LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/rbtree.c
 LIBMCOUNT_FAST_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
 LIBMCOUNT_FAST_OBJS := $(objdir)/libmcount/mcount-fast.op
+LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/record-fast.op
 LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/plthook-fast.op
 LIBMCOUNT_FAST_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SRCS))
 
@@ -112,7 +115,9 @@ LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
+LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/record-single.op
 LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/plthook-single.op
 LIBMCOUNT_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SINGLE_SRCS))
 
@@ -121,13 +126,16 @@ LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/rbtree.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
 LIBMCOUNT_FAST_SINGLE_OBJS := $(objdir)/libmcount/mcount-fast-single.op
+LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/record-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/plthook-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SINGLE_SRCS))
 
 LIBMCOUNT_MCOUNT_OBJS := $(patsubst libmcount/lib%.so,$(objdir)/libmcount/%.op,$(LIBMCOUNT_TARGETS))
+LIBMCOUNT_RECORD_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/record%.op,$(LIBMCOUNT_TARGETS))
 LIBMCOUNT_PLTHOOK_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/plthook%.op,$(LIBMCOUNT_TARGETS))
 
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_OBJS))
+LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/record.op,$(LIBMCOUNT_COMMON_OBJS))
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
 
 CFLAGS_$(objdir)/mcount.op = -pthread
@@ -135,10 +143,13 @@ CFLAGS_$(objdir)/uftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
+CFLAGS_$(objdir)/libmcount/record-fast.op = -DDISABLE_MCOUNT_FILTER
 CFLAGS_$(objdir)/libmcount/plthook-fast.op = -DDISABLE_MCOUNT_FILTER
 CFLAGS_$(objdir)/libmcount/mcount-single.op = -DSINGLE_THREAD
+CFLAGS_$(objdir)/libmcount/record-single.op = -DSINGLE_THREAD
 CFLAGS_$(objdir)/libmcount/plthook-single.op = -DSINGLE_THREAD
 CFLAGS_$(objdir)/libmcount/mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
+CFLAGS_$(objdir)/libmcount/record-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 CFLAGS_$(objdir)/libmcount/plthook-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 
 CFLAGS_$(objdir)/utils/demangle.o  = -Wno-unused-value
@@ -159,6 +170,9 @@ $(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_HDRS) $(objd
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(objdir)/.config
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
+$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(objdir)/.config

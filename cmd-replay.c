@@ -102,12 +102,19 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		        enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
-	long val;
 	char str[64];
 	const int null_str = -1;
 	void *data = task->args.data;
 	struct list_head *arg_list = task->args.args;
 	struct ftrace_arg_spec *spec;
+	union {
+		long i;
+		float f;
+		double d;
+		long long ll;
+		long double D;
+		unsigned char v[16];
+	} val;
 
 	bool needs_paren      = !!(str_mode & NEEDS_PAREN);
 	bool needs_semi_colon = !!(str_mode & NEEDS_SEMI_COLON);
@@ -153,13 +160,13 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			len -= n;
 		}
 
-		val = 0;
+		memset(val.v, 0, sizeof(val));
 		fmt = ARG_SPEC_CHARS[spec->fmt];
 
 		switch (spec->fmt) {
 		case ARG_FMT_AUTO:
-			memcpy(&val, data, spec->size);
-			if (val > 100000L || val < -100000L) {
+			memcpy(val.v, data, spec->size);
+			if (val.i > 100000L || val.i < -100000L) {
 				fmt = 'x';
 				/*
 				 * Show small negative integers naturally
@@ -168,7 +175,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				 * on 32-bit systems.
 				 */
 				if (sizeof(long) == sizeof(uint64_t)) {
-					uint64_t val64 = val;
+					uint64_t val64 = val.i;
 
 					if (val64 >  0xffff0000 &&
 					    val64 <= 0xffffffff) {
@@ -219,16 +226,44 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				n += snprintf(args + n, len, "'\\x%02hhx'", c);
 			size = 1;
 		}
+		else if (spec->fmt == ARG_FMT_FLOAT) {
+			if (spec->size == 10)
+				lm = "L";
+			else
+				lm = len_mod[idx];
+
+			memcpy(val.v, data, spec->size);
+			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+
+			switch (spec->size) {
+			case 4:
+				n += snprintf(args + n, len, fmtstr, val.f);
+				break;
+			case 8:
+				n += snprintf(args + n, len, fmtstr, val.d);
+				break;
+			case 10:
+				n += snprintf(args + n, len, fmtstr, val.D);
+				break;
+			default:
+				pr_dbg("invalid floating-point type size %d\n",
+				       spec->size);
+				break;
+			}
+		}
 		else {
 			assert(idx < ARRAY_SIZE(len_mod));
 			lm = len_mod[idx];
 
 			if (spec->fmt != ARG_FMT_AUTO)
-				memcpy(&val, data, spec->size);
+				memcpy(val.v, data, spec->size);
 
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
 
-			n += snprintf(args + n, len, fmtstr, val);
+			if (spec->size > (int)sizeof(long))
+				n += snprintf(args + n, len, fmtstr, val.ll);
+			else
+				n += snprintf(args + n, len, fmtstr, val.i);
 		}
 
 		i++;

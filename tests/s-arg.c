@@ -4,11 +4,13 @@
  */
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 const char *strs[] = { "a", "b", "c" };
 const unsigned nr_strs = sizeof(strs)/sizeof(strs[0]);
 
-const ints[] = { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144 };
+const int ints[] = { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144 };
 const unsigned nr_ints = sizeof(ints)/sizeof(ints[0]);
 
 /* adds some holes/pads in purpose */

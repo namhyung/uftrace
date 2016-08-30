@@ -63,8 +63,8 @@ mcount_return:
 	movq %rax, 0(%rsp)
 	.cfi_offset rax, -24
 
-	/* set the first argument of mcount_exit to return value */
-	movq %rax, %rdi
+	/* set the first argument of mcount_exit as pointer to return values */
+	movq %rsp, %rdi
 
 	/* returns original parent address */
 	call mcount_exit

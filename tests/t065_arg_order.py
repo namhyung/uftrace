@@ -16,5 +16,13 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -A "int_mul@arg2/x" -A "^int_@arg1,arg2" -A "int_add@arg1/i32" %s' % \
-            (TestBase.ftrace, 't-' + self.name)
+        argopt = '-A "int_mul@arg2/x" -A "^int_@arg1,arg2" -A "int_add@arg1/i32"'
+
+        import platform
+        if platform.machine().startswith('arm'):
+            # int_mul@arg1 is a 'long long', so we should skip arg2
+            argopt  = '-A "int_mul@arg1/i64" -A "^int_@arg1" '
+            argopt += '-A "int_(add|sub|div)@arg2" -A "int_mul@arg3/x" '
+            argopt += '-A "int_add@arg1/i32"'
+
+        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
