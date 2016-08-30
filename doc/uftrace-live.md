@@ -226,15 +226,27 @@ ARGUMENTS
 =========
 The uftrace supports recording function arguments and/or return value using -A/\--argument and -R,\--retval options respectively.  The syntax is very similar to the trigger:
 
-    <argument> :=  <symbol> "@" <specs>
-    <specs>    :=  <spec>  | <spec> "," <spec>
-    <spec>     :=  ( "arg" N | "retval" ) [ "/" <format> [ <size> ] ]
-    <format>   :=  "i" | "u" | "x" | "s" | "c"
-    <size>     :=  "8" | "16" | "32" | "64"
+    <argument>    :=  <symbol> "@" <specs>
+    <specs>       :=  <spec>  | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ]
+    <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
+    <format>      :=  "i" | "u" | "x" | "s" | "c" | "f"
+    <size>        :=  "8" | "16" | "32" | "64"
 
-The -A,\--argument option takes argN where N is an index of the arguments.  The index starts from 1 and corresponds to argument passing order of the calling convention on the system.  Currently it assumes all the arguments are integer (or pointer) type, so the result might not correct if there're floating-point arguments as well.  The -R,\--retval option takes "retval" and also assumes it's an integer type.
+The -A,\--argument option takes argN where N is an index of the arguments.  The index starts from 1 and corresponds to argument passing order of the calling convention on the system.  Note that the index of arguments are separately counted for integer (or pointer) and floating-point type, and they can interfere depending on the calling convention.  The argN is for integer arguments and fpargN is for floating-point arguments.
 
-Users can specify optional format and size of the arguments and/or return value.  Without this, the uftrace treats them as 'long int' type and print them appropriately.  The "i" format makes it signed integer type and "u" format is for unsigned type.  Both are printed as decimal while "x" format makes it printed as hexa-decimal.  The "s" format is for string type and "c" format is for character type.
+Users can specify optional format and size of the arguments and/or return value.  Without this, the uftrace treats them as 'long int' type for integers and 'double' for floating-point numbers.  The "i" format makes it signed integer type and "u" format is for unsigned type.  Both are printed as decimal while "x" format makes it printed as hexa-decimal.  The "s" format is for string type and "c" format is for character type.  Finally the "f" format is for floating-point type and is meaningful only for return value (generally).  Note that fpargN doesn't take the format field since it's always floating-point.
+
+Please beware when using string type arguments since it can crash the program if the (pointer) value is invalid.
+
+It's also possible to specific a certain register name or stack offset for arguments (not for return value).  Following register names can be used for argument:
+
+ * x86: rdi, rsi, rdx, rcx, r8, r9 (for integer), xmm[0-7] (for floating-point)
+ * arm: r[0-3] (for integer), s[0-15] or d[0-7] (for floating-point)
+
+Examples are below:
 
     $ uftrace -A main@arg1/x -R main@retval/i32 ./abc
     # DURATION    TID     FUNCTION
@@ -246,6 +258,15 @@ Users can specify optional format and size of the arguments and/or return value.
        5.475 us [ 1234] |     } /* b */
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } = 0; /* main */
+
+    $ uftrace -A puts@arg1/s -R puts@retval ./hello
+    Hello world
+    # DURATION    TID     FUNCTION
+       1.457 us [21534] | __monstartup();
+       0.997 us [21534] | __cxa_atexit();
+                [21534] | main() {
+       7.226 us [21534] |   puts("Hello world") = 12;
+       8.708 us [21534] | } /* main */
 
 Note that these arguments and return value are recorded only if the executable was built with -pg option.  The executables built with -finstrument-functions will exit with an error message.  Also it only works for user-level functions for now.
 
