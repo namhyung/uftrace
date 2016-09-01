@@ -39,7 +39,7 @@ class TestCase(TestBase):
         if sp.call(build_cmd.split(), stdout=sp.PIPE) < 0:
             return TestBase.TEST_BUILD_FAIL
 
-        exe_ldflags = build_ldflags + ' -Wl,-rpath,"$ORIGIN" -L. -labc_test_lib'
+        exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. -labc_test_lib'
 
         build_cmd = '%s -o %s s-libmain.c %s' % \
                     (lang['cc'], prog, exe_ldflags)
