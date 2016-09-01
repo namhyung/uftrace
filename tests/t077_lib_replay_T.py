@@ -25,7 +25,7 @@ class TestCase(TestBase):
         lang = TestBase.supported_lang[self.lang]
         prog = 't-' + self.name
 
-        build_cflags  = ' '.join([self.cflags, cflags, \
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])
