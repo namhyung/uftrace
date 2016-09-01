@@ -11,3 +11,6 @@ class TestCase(TestBase):
    0.397 us [16726] |   free();
    3.074 us [16726] | } /* main */
 """)
+
+    def runcmd(self):
+        return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
