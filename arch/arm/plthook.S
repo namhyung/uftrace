@@ -57,10 +57,8 @@ plt_hooker:
 plthook_return:
 	push {r0-r4,lr,pc}
 
-	/* set the first argument of plthook_exit to return value */
-	/* but there's no need to set r0, and r1 since return value is */
-	/* contained in r0 and r1, and these registers are also directly used */
-	/* as the arguments to plthook_exit function */
+	/* set the first argument of plthook_exit as a pointer return values */
+	mov r0, sp
 
 	bl plthook_exit
 	str r0, [sp, #24]

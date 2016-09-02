@@ -63,8 +63,8 @@ plthook_return:
 	movq %rax, 0(%rsp)
 	.cfi_offset rax, -24
 
-	/* set the first argument of plthook_exit to return value */
-	movq %rax, %rdi
+	/* set the first argument of plthook_exit as pointer to return values */
+	movq %rsp, %rdi
 
 	call plthook_exit
 	movq %rax, 16(%rsp)
