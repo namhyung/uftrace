@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <link.h>
 
+#ifndef EF_ARM_ABI_FLOAT_HARD
+# define EF_ARM_ABI_FLOAT_HARD  EF_ARM_VFP_FLOAT
+#endif
+
 #include "mcount-arch.h"
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
