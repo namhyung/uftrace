@@ -22,7 +22,7 @@ class TestCase(TestBase):
         lang = TestBase.supported_lang[self.lang]
         prog = 't-' + self.name
 
-        build_cflags  = ' '.join([self.cflags, cflags, \
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, \
                                   os.getenv('LDFLAGS', '')])
@@ -37,7 +37,7 @@ class TestCase(TestBase):
         if sp.call(build_cmd.split(), stdout=sp.PIPE) < 0:
             return TestBase.TEST_BUILD_FAIL
 
-        exe_ldflags = build_ldflags + ' -Wl,-rpath,"$ORIGIN" -L. -labc_test_lib'
+        exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. -labc_test_lib'
 
         build_cmd = '%s -o %s s-libmain.c %s' % \
                     (lang['cc'], prog, exe_ldflags)

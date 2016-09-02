@@ -53,14 +53,11 @@ class TestCase(TestBase):
 #        print("build command:", build_cmd)
         return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
 
+    def runcmd(self):
+        return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
+
     def fixup(self, cflags, result):
         r = result
-        f = cflags.split()
-
-        if f[0] == '-pg':
-            r = r.replace('execl() {', """execl() {
-                                [ 3124] | __monstartup();
-                                [ 3124] | __cxa_atexit();""")
 
         import platform
         if platform.machine().startswith('arm'):
