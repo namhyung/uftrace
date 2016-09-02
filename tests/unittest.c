@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	printf("Running %d test cases\n======================\n", test_num);
+	printf("Running %zd test cases\n======================\n", test_num);
 
 	if (argc > 1 && !strcmp(argv[1], "-d"))
 		debug = 1;
