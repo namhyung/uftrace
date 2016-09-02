@@ -611,6 +611,7 @@ static void record_remaining_buffer(struct opts *opts, int sock)
 	while (!list_empty(&buf_write_list)) {
 		buf = list_first_entry(&buf_write_list, struct buf_list, list);
 		write_buffer(buf, opts, sock);
+		munmap(buf->shmem_buf, opts->bufsize);
 
 		list_del(&buf->list);
 		free(buf);
