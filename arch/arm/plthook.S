@@ -11,8 +11,8 @@ plt_hooker:
 	@	ip contains &GOT[n+3] (pointer to function)
 	@	lr points to &GOT[2]
 
-	push {r0-r4,ip,lr,pc}
-	add r0, sp, #32
+	push {r0-r3,ip,lr,pc}
+	add r0, sp, #28
 	sub r2, ip, lr
 	sub r2, r2, #4
 	lsr r1, r2, #2
@@ -27,8 +27,8 @@ plt_hooker:
 	 * if we skip the resolver, we also need to pop stack[0]
 	 * which saves the original 'lr'.
 	 */
-	str r0, [sp, #28]
-	pop {r0-r4,ip,lr}
+	str r0, [sp, #24]
+	pop {r0-r3,ip,lr}
 	add sp, sp, #8
 	ldr lr, [sp, #-4]
 	ldr pc, [sp, #-8] /* return */
@@ -40,8 +40,8 @@ plt_hooker:
 	ldr r3, .L2+4
 	ldr r1, [r2, r3]
 	ldr r2, [r1]
-	str r2, [sp, #28]
-	pop {r0-r4,ip,lr,pc}
+	str r2, [sp, #24]
+	pop {r0-r3,ip,lr,pc}
 
 .L3:
 	.align 2
@@ -55,15 +55,13 @@ plt_hooker:
 	.globl plthook_return
 	.type plthook_return, #function
 plthook_return:
-	push {r0-r4,lr,pc}
+	push {r0-r3,lr,pc}
 
-	/* set the first argument of plthook_exit to return value */
-	/* but there's no need to set r0, and r1 since return value is */
-	/* contained in r0 and r1, and these registers are also directly used */
-	/* as the arguments to plthook_exit function */
+	/* set the first argument of plthook_exit as a pointer return values */
+	mov r0, sp
 
 	bl plthook_exit
-	str r0, [sp, #24]
-	pop {r0-r4,lr,pc}
+	str r0, [sp, #20]
+	pop {r0-r3,lr,pc}
 
 	.size plthook_return, .-plthook_return

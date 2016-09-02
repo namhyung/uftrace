@@ -19,6 +19,9 @@ __fentry__:
 	/* parent ip */
 	lea 64(%rsp), %rdi
 
+	/* mcount_args */
+	lea 8(%rsp), %rdx
+
 	call mcount_entry
 	cmpq $0, %rax
 	jne 1f
@@ -46,6 +49,9 @@ fentry_return:
 	sub  $24, %rsp
 	movq %rdx, 8(%rsp)
 	movq %rax, 0(%rsp)
+
+	/* set the first argument of mcount_exit as pointer to return values */
+	movq %rsp, %rdi
 
 	/* returns original parent address */
 	call mcount_exit
