@@ -1297,6 +1297,9 @@ static void check_binary(struct opts *opts)
 			/* arg/retval doesn't support -finstrument-functions */
 			pr_err_ns(ARGUMENT_MSG);
 		}
+		else if (chk < 0) {
+			pr_err_ns("Cannot check '%s'\n", opts->exename);
+		}
 	}
 
 	close(fd);

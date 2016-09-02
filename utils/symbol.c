@@ -590,7 +590,7 @@ int check_trace_functions(const char *filename)
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return false;
+		return -1;
 	}
 
 	elf_version(EV_CURRENT);
@@ -643,6 +643,7 @@ int check_trace_functions(const char *filename)
 			}
 		}
 	}
+	ret = 0;
 
 out:
 	elf_end(elf);
