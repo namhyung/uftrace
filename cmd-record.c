@@ -579,11 +579,24 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 
 	if (shmem_buf->flag & SHMEM_FL_RECORDING) {
 		if (shmem_buf->flag & SHMEM_FL_NEW) {
-			sl = xmalloc(sizeof(*sl));
-			memcpy(sl->id, sess_id, sizeof(sl->id));
+			bool found = false;
 
-			/* link to shmem_list */
-			list_add_tail(&sl->list, &shmem_need_unlink);
+			if (!list_empty(&shmem_need_unlink)) {
+				sl = list_last_entry(&shmem_need_unlink,
+						     struct shmem_list, list);
+
+				/* length of "ftrace-<session id>-" is 24 */
+				if (!strncmp(sl->id, sess_id, 24))
+					found = true;
+			}
+
+			if (!found) {
+				sl = xmalloc(sizeof(*sl));
+				memcpy(sl->id, sess_id, sizeof(sl->id));
+
+				/* link to shmem_list */
+				list_add_tail(&sl->list, &shmem_need_unlink);
+			}
 		}
 
 		if (shmem_buf->size) {
@@ -611,6 +624,7 @@ static void record_remaining_buffer(struct opts *opts, int sock)
 	while (!list_empty(&buf_write_list)) {
 		buf = list_first_entry(&buf_write_list, struct buf_list, list);
 		write_buffer(buf, opts, sock);
+		munmap(buf->shmem_buf, opts->bufsize);
 
 		list_del(&buf->list);
 		free(buf);
@@ -1295,6 +1309,9 @@ static void check_binary(struct opts *opts)
 		else if (chk == 2 && (opts->args || opts->retval)) {
 			/* arg/retval doesn't support -finstrument-functions */
 			pr_err_ns(ARGUMENT_MSG);
+		}
+		else if (chk < 0) {
+			pr_err_ns("Cannot check '%s'\n", opts->exename);
 		}
 	}
 

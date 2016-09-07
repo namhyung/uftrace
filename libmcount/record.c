@@ -44,9 +44,6 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 		goto out;
 	}
 
-	/* mark it's a new buffer */
-	buffer->flag = SHMEM_FL_NEW;
-
 	close(fd);
 
 out:
@@ -79,7 +76,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	shmem->done = false;
 	shmem->curr = 0;
-	shmem->buffer[0]->flag = SHMEM_FL_RECORDING;
+	shmem->buffer[0]->flag = SHMEM_FL_RECORDING | SHMEM_FL_NEW;
 }
 
 void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
