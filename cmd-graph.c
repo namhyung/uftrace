@@ -413,10 +413,15 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			}
 			prev_time = frs->time;
 
-			if (task.stack_count < 0 ||
-			    task.stack_count > opts->max_stack) {
-				pr_log("invalid stack count: broken data?\n");
-				return -1;
+			if (task.stack_count >= opts->max_stack)
+				goto next;
+
+			if (task.stack_count < 0) {
+				/*
+				 * If we're returned from fork(),
+				 * the stack count of the child is -1.
+				 */
+				task.stack_count = frs->depth;
 			}
 
 			if (graph->enabled)
@@ -429,6 +434,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 					end_graph(graph, &task);
 			}
 
+next:
 			/* force re-read in read_task_ustack() */
 			task.valid = false;
 			symbol_putname(sym, name);
