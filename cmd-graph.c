@@ -173,6 +173,7 @@ static void func_enter(struct ftrace_task_handle *task)
 	fstack->addr       = rstack->addr;
 	fstack->total_time = rstack->time;
 	fstack->child_time = 0;
+	fstack->valid      = true;
 }
 
 static void func_exit(struct ftrace_task_handle *task)
@@ -180,15 +181,19 @@ static void func_exit(struct ftrace_task_handle *task)
 	struct fstack *fstack = &task->func_stack[--task->stack_count];
 	struct ftrace_ret_stack *rstack = &task->ustack;
 
-	fstack->total_time = rstack->time - fstack->total_time;
-	if (task->stack_count > 0)
-		fstack[-1].child_time += fstack->total_time;
+	if (fstack->valid) {
+		fstack->total_time = rstack->time - fstack->total_time;
+		if (task->stack_count > 0)
+			fstack[-1].child_time += fstack->total_time;
+	}
 }
 
-static int func_lost(void)
+static void func_lost(struct ftrace_task_handle *task)
 {
-	pr_out("uftrace: cannot process data that contains LOST records, sorry!\n");
-	return -1;
+	int i;
+
+	for (i = 0; i <= task->stack_count; i++)
+		task->func_stack[i].valid = false;
 }
 
 static int start_graph(struct uftrace_graph *graph,
@@ -247,8 +252,10 @@ static int add_graph_exit(struct uftrace_graph *graph,
 	struct fstack *fstack = &task->func_stack[task->stack_count];
 	struct graph_node *node = graph->curr_node;
 
-	node->time       += fstack->total_time;
-	node->child_time += fstack->child_time;
+	if (fstack->valid) {
+		node->time       += fstack->total_time;
+		node->child_time += fstack->child_time;
+	}
 
 	graph->curr_node = node->parent;
 
@@ -407,7 +414,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			else if (frs->type == FTRACE_EXIT)
 				func_exit(&task);
 			else if (frs->type == FTRACE_LOST)
-				return func_lost();
+				func_lost(&task);
 
 			if (prev_time > frs->time) {
 				pr_log("inverted time: broken data?\n");
@@ -419,11 +426,15 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 				goto next;
 
 			if (task.stack_count < 0) {
+				int d = frs->depth;;
+
 				/*
 				 * If we're returned from fork(),
 				 * the stack count of the child is -1.
 				 */
-				task.stack_count = frs->depth;
+				task.stack_count = d;
+				while (--d >= 0)
+					task.func_stack[d].valid = false;
 			}
 
 			if (graph->enabled)
