@@ -350,7 +350,8 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	bool *indent_mask;
 
 	pr_out("#\n");
-	pr_out("# function graph for '%s'\n", graph->func);
+	pr_out("# function graph for '%s' (session: %.16s)\n",
+	       graph->func, graph->sess->sid);
 	pr_out("#\n\n");
 
 	if (graph->nr_bt) {
@@ -365,6 +366,7 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	print_graph_node(graph, &graph->root, opts->depth,
 			 indent_mask, 0, graph->root.nr_edges > 1);
 	free(indent_mask);
+	pr_out("\n");
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
