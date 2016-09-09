@@ -460,7 +460,10 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	func = argv[opts->idx];
+	if (opts->idx)
+		func = argv[opts->idx];
+	else
+		func = "main";
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)

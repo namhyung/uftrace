@@ -9,12 +9,12 @@ uftrace-graph - Show function call graph
 
 SYNOPSIS
 ========
-uftrace graph [*options*] <function>
+uftrace graph [*options*] [<function>]
 
 
 DESCRIPTION
 ===========
-This command shows function call graph of the given function.  The function call graph contains backtrace and calling functions.  Each data will contain hit count and total time.
+This command shows function call graph of the given function.  If the function name is omitted, "main" is used by default.  The function call graph contains backtrace and calling functions.  Each data will contain hit count and total time.
 
 
 OPTIONS
