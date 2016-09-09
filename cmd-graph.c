@@ -212,6 +212,9 @@ static int start_graph(struct uftrace_graph *graph,
 static int end_graph(struct uftrace_graph *graph,
 		     struct ftrace_task_handle *task)
 {
+	if (!graph->enabled)
+		return 0;
+
 	if (!--graph->enabled)
 		save_backtrace_time(graph, task);
 
@@ -222,20 +225,24 @@ static int add_graph_entry(struct uftrace_graph *graph,
 			   struct ftrace_task_handle *task)
 {
 	struct graph_node *node = NULL;
+	struct graph_node *curr = graph->curr_node;
 	struct ftrace_ret_stack *rstack = &task->ustack;
 
-	list_for_each_entry(node, &graph->curr_node->head, list) {
+	if (curr == NULL)
+		return -1;
+
+	list_for_each_entry(node, &curr->head, list) {
 		if (node->addr == rstack->addr)
 			break;
 	}
 
-	if (list_no_entry(node, &graph->curr_node->head, list)) {
+	if (list_no_entry(node, &curr->head, list)) {
 		node = xcalloc(1, sizeof(*node));
 
 		node->addr = rstack->addr;
 		INIT_LIST_HEAD(&node->head);
 
-		node->parent = graph->curr_node;
+		node->parent = curr;
 		list_add_tail(&node->list, &node->parent->head);
 		node->parent->nr_edges++;
 	}
@@ -251,6 +258,9 @@ static int add_graph_exit(struct uftrace_graph *graph,
 {
 	struct fstack *fstack = &task->func_stack[task->stack_count];
 	struct graph_node *node = graph->curr_node;
+
+	if (node == NULL)
+		return -1;
 
 	if (fstack->valid) {
 		node->time       += fstack->total_time;
