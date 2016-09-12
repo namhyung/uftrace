@@ -173,6 +173,7 @@ static void func_enter(struct ftrace_task_handle *task)
 	fstack->addr       = rstack->addr;
 	fstack->total_time = rstack->time;
 	fstack->child_time = 0;
+	fstack->valid      = true;
 }
 
 static void func_exit(struct ftrace_task_handle *task)
@@ -180,15 +181,19 @@ static void func_exit(struct ftrace_task_handle *task)
 	struct fstack *fstack = &task->func_stack[--task->stack_count];
 	struct ftrace_ret_stack *rstack = &task->ustack;
 
-	fstack->total_time = rstack->time - fstack->total_time;
-	if (task->stack_count > 0)
-		fstack[-1].child_time += fstack->total_time;
+	if (fstack->valid) {
+		fstack->total_time = rstack->time - fstack->total_time;
+		if (task->stack_count > 0)
+			fstack[-1].child_time += fstack->total_time;
+	}
 }
 
-static int func_lost(void)
+static void func_lost(struct ftrace_task_handle *task)
 {
-	pr_out("uftrace: cannot process data that contains LOST records, sorry!\n");
-	return -1;
+	int i;
+
+	for (i = 0; i <= task->stack_count; i++)
+		task->func_stack[i].valid = false;
 }
 
 static int start_graph(struct uftrace_graph *graph,
@@ -207,6 +212,9 @@ static int start_graph(struct uftrace_graph *graph,
 static int end_graph(struct uftrace_graph *graph,
 		     struct ftrace_task_handle *task)
 {
+	if (!graph->enabled)
+		return 0;
+
 	if (!--graph->enabled)
 		save_backtrace_time(graph, task);
 
@@ -217,20 +225,24 @@ static int add_graph_entry(struct uftrace_graph *graph,
 			   struct ftrace_task_handle *task)
 {
 	struct graph_node *node = NULL;
+	struct graph_node *curr = graph->curr_node;
 	struct ftrace_ret_stack *rstack = &task->ustack;
 
-	list_for_each_entry(node, &graph->curr_node->head, list) {
+	if (curr == NULL)
+		return -1;
+
+	list_for_each_entry(node, &curr->head, list) {
 		if (node->addr == rstack->addr)
 			break;
 	}
 
-	if (list_no_entry(node, &graph->curr_node->head, list)) {
+	if (list_no_entry(node, &curr->head, list)) {
 		node = xcalloc(1, sizeof(*node));
 
 		node->addr = rstack->addr;
 		INIT_LIST_HEAD(&node->head);
 
-		node->parent = graph->curr_node;
+		node->parent = curr;
 		list_add_tail(&node->list, &node->parent->head);
 		node->parent->nr_edges++;
 	}
@@ -247,8 +259,13 @@ static int add_graph_exit(struct uftrace_graph *graph,
 	struct fstack *fstack = &task->func_stack[task->stack_count];
 	struct graph_node *node = graph->curr_node;
 
-	node->time       += fstack->total_time;
-	node->child_time += fstack->child_time;
+	if (node == NULL)
+		return -1;
+
+	if (fstack->valid) {
+		node->time       += fstack->total_time;
+		node->child_time += fstack->child_time;
+	}
 
 	graph->curr_node = node->parent;
 
@@ -350,7 +367,8 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	bool *indent_mask;
 
 	pr_out("#\n");
-	pr_out("# function graph for '%s'\n", graph->func);
+	pr_out("# function graph for '%s' (session: %.16s)\n",
+	       graph->func, graph->sess->sid);
 	pr_out("#\n\n");
 
 	if (graph->nr_bt) {
@@ -365,6 +383,7 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	print_graph_node(graph, &graph->root, opts->depth,
 			 indent_mask, 0, graph->root.nr_edges > 1);
 	free(indent_mask);
+	pr_out("\n");
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
@@ -405,7 +424,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			else if (frs->type == FTRACE_EXIT)
 				func_exit(&task);
 			else if (frs->type == FTRACE_LOST)
-				return func_lost();
+				func_lost(&task);
 
 			if (prev_time > frs->time) {
 				pr_log("inverted time: broken data?\n");
@@ -413,10 +432,19 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			}
 			prev_time = frs->time;
 
-			if (task.stack_count < 0 ||
-			    task.stack_count > opts->max_stack) {
-				pr_log("invalid stack count: broken data?\n");
-				return -1;
+			if (task.stack_count >= opts->max_stack)
+				goto next;
+
+			if (task.stack_count < 0) {
+				int d = frs->depth;;
+
+				/*
+				 * If we're returned from fork(),
+				 * the stack count of the child is -1.
+				 */
+				task.stack_count = d;
+				while (--d >= 0)
+					task.func_stack[d].valid = false;
 			}
 
 			if (graph->enabled)
@@ -429,6 +457,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 					end_graph(graph, &task);
 			}
 
+next:
 			/* force re-read in read_task_ustack() */
 			task.valid = false;
 			symbol_putname(sym, name);
@@ -454,7 +483,10 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	func = argv[opts->idx];
+	if (opts->idx)
+		func = argv[opts->idx];
+	else
+		func = "main";
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)

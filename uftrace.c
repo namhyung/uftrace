@@ -603,7 +603,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			switch (opts->mode) {
 			case FTRACE_MODE_RECORD:
 			case FTRACE_MODE_LIVE:
-			case FTRACE_MODE_GRAPH:
 				argp_usage(state);
 				break;
 			default:
