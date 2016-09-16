@@ -1,6 +1,48 @@
 QUICK GUIDE
 ===========
 
+On Ubuntu machines, following commands will build and install uftrace from
+source.
+
+    $ sudo apt-get install libelf-dev
+    $ make
+    $ sudo make install
+
+For more information, please see below.
+
+
+GETTING THE SOURCE
+==================
+The latest version of uftrace is available at Github.
+
+  https://github.com/namhyung/uftrace
+
+
+DEPENDENCY
+==========
+
+Currently uftrace depends on the `libelf` from elfutils project for ELF symbol
+manipulation.  You need to install it first in order to build uftrace.
+
+On debian based systems (like Ubuntu), `libelf-dev` package will provide
+required libraries/files.
+
+    $ sudo apt-get install libelf-dev
+
+On redhat based systems (like Fedora, RHEL), it'll be `elfutils-libelf-devel`.
+
+    $ sudo dnf install elfutils-libelf-devel
+
+It also uses libstdc++ library to demangle C++ symbols in full detail.
+But it's not mandatory as uftrace has its own demangler for shorter symbol
+name (it omits arguments, templates and so on).
+
+Also it needs `pandoc` to build man pages from the markdown document.
+
+
+BUILD
+=====
+
 To build uftrace, you need to install basic software development tools first -
 like gcc and make.  And also you need to install dependent softwares, please
 see DEPENDENCY section for details.
@@ -55,25 +97,3 @@ For cross compile, you may want to setup the toolchain something like below:
 
 This assumes you already installed the cross-built `libelf` on the sysroot
 directory.
-
-
-DEPENDENCY
-==========
-
-Currently uftrace depends on the `libelf` from elfutils project for ELF symbol
-manipulation.  You need to install it first in order to build uftrace.
-
-On debian based systems (like Ubuntu), `libelf-dev` package will provide
-required libraries/files.
-
-    $ sudo apt-get install libelf-dev
-
-On redhat based systems (like Fedora, RHEL), it'll be `elfutils-libelf-devel`.
-
-    $ sudo yum install elfutils-libelf-devel
-
-It also uses libstdc++ library to demangle C++ symbols in full detail.
-But it's not mandatory as uftrace has its own demangler for shorter symbol
-name (it omits arguments, templates and so on).
-
-Also it needs `pandoc` to build man pages from the markdown document.
