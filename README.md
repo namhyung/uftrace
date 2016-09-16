@@ -1,18 +1,11 @@
-How to install uftrace
-======================
+uftrace
+=======
 
-The uftrace is written in C and tried to minimize external dependencies.
-Currently it requires `libelf` in elfutils package to build, and there're some
-more optional dependencies.
-
-Once you installed required software(s) on your system, it can be built and
-installed like following:
-
-    make
-    sudo make install
-
-For more advanced setup, please refer
-[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md) file.
+The uftrace tool is to trace and analyze execution of a program
+written in C/C++.  It was heavily inspired by the ftrace framework
+of the Linux kernel (especially function graph tracer) and supports
+userspace programs.  It support various kind of commands and filters
+to help analysis of the program execution and performance.
 
 
 Features
@@ -27,18 +20,27 @@ It can show detailed execution flow at function level, and report which
 function has the highest overhead.  And it also shows various information
 related the execution environment.
 
-You can setup a filter to exclude or include specific functions when tracing.
+You can setup filters to exclude or include specific functions when tracing.
 In addition, it can save and show function arguments and return value.
 
 It supports multi-process and/or multi-threaded applications.  With root
-privilege, it can also trace kernel functions with (`-k` option) if the
-system enables the function graph tracer in the kernel
+privilege, it can also trace kernel functions as well( with `-k` option)
+if the system enables the function graph tracer in the kernel
 (`CONFIG_FUNCTION_GRAPH_TRACER=y`).
 
 
 How to use uftrace
 ==================
-The uftrace command has following subcommands: record, replay, report, live, info, dump, recv, graph.
+The uftrace command has following subcommands:
+
+ * `record` : runs a program and saves the trace data
+ * `replay` : shows program execution in the trace data
+ * `report` : shows performance statistics in the trace data
+ * `live` : does record and replay in a row (default)
+ * `info` : shows system and program info in the trace data
+ * `dump` : shows low-level trace data
+ * `recv` : saves the trace data from network
+ * `graph` : shows function call graph in the trace data
 
     $ uftrace
     Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
@@ -156,11 +158,29 @@ The `info` command shows system and program information when recorded.
     # disk iops           : 0 / 24 (read / write)
 
 
+How to install uftrace
+======================
+
+The uftrace is written in C and tried to minimize external dependencies.
+Currently it requires `libelf` in elfutils package to build, and there're some
+more optional dependencies.
+
+Once you installed required software(s) on your system, it can be built and
+installed like following:
+
+    $ make
+    $ sudo make install
+
+For more advanced setup, please refer
+[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md) file.
+
+
 Limitations
 ===========
 - It can only trace a native C/C++ application compiled with -pg option.
 - It *cannot* trace already running process.
 - It *cannot* be used for system-wide tracing.
+- It only supports x86_64 and ARM (v6,7) for now.
 
 
 License
