@@ -88,41 +88,86 @@ The time filter (`-t` option) is to omit functions running less than the given
 time. And the function filters (`-F` and `-N` options) are to show/hide functions
 under the given function.
 
+The `-k` option enables to trace kernel functions as well (needs root access).
+With the classic hello world program, the output would look like below (Note,
+I changed it to use fprint() with stderr rather than the plain printf() to make
+it invoke system call directly):
+
+    $ sudo uftrace -k hello
+    Hello world
+    # DURATION    TID     FUNCTION
+       1.365 us [21901] | __monstartup();
+       0.951 us [21901] | __cxa_atexit();
+                [21901] | main() {
+                [21901] |   fprintf() {
+       3.569 us [21901] |     __do_page_fault();
+      10.127 us [21901] |     sys_write();
+      20.103 us [21901] |   } /* fprintf */
+      21.286 us [21901] | } /* main */
+
+You can see the page fault handler and the write syscall handler were called
+inside the fprintf() call.
+
+Also it can record and show function arguments and return value with `-A` and
+`-R` options respectively.
+
+    $ uftrace -A fib@arg1 -R fib@retval fibonacci 5
+    # DURATION    TID     FUNCTION
+       2.725 us [22080] | __monstartup();
+       2.315 us [22080] | __cxa_atexit();
+                [22080] | main() {
+       2.271 us [22080] |   atoi();
+                [22080] |   fib(5) {
+                [22080] |     fib(4) {
+                [22080] |       fib(3) {
+       7.196 us [22080] |         fib(2) = 2;
+       0.502 us [22080] |         fib(1) = 1;
+      10.799 us [22080] |       } = 3; /* fib */
+       0.397 us [22080] |       fib(2) = 2;
+      12.838 us [22080] |     } = 5; /* fib */
+                [22080] |     fib(3) {
+       0.578 us [22080] |       fib(2) = 2;
+       0.385 us [22080] |       fib(1) = 1;
+       2.821 us [22080] |     } = 3; /* fib */
+      18.311 us [22080] |   } = 8; /* fib */
+      23.560 us [22080] | } /* main */
+
 The `report` command lets you know which function spends the longest time
-including its children (total time).
+including its children (total time).  If we recorded above example, it'll show
+something like following:
 
     $ uftrace report
       Total time   Self time  Nr. called  Function
       ==========  ==========  ==========  ====================================
-        2.723 us    0.337 us           1  main
-        2.386 us    0.330 us           1  a
-        2.056 us    0.366 us           1  b
-        1.690 us    0.927 us           1  c
-        1.277 us    1.277 us           1  __monstartup
-        0.936 us    0.936 us           1  __cxa_atexit
-        0.763 us    0.763 us           1  getpid
+       19.600 us   19.600 us           9  fib
+       25.024 us    2.718 us           1  main
+        2.853 us    2.853 us           1  __monstartup
+        2.706 us    2.706 us           1  atoi
+        2.194 us    2.194 us           1  __cxa_atexit
 
 
 The `graph` command shows function call graph of given function.  In the above
-example, function graph of function 'a' looks like below:
+example, function graph of function 'main' looks like below:
 
-    $ uftrace graph  a
-    # 
-    # function graph for 'a'
-    # 
+    $ uftrace graph  main
+    #
+    # function graph for 'main' (session: 8823ea321c31e531)
+    #
     
     backtrace
     ================================
-     backtrace #0: hit 1, time  19.334 us
-       [0] main (0x4004f0)
-       [1] a (0x40069f)
+     backtrace #0: hit 1, time  25.024 us
+       [0] main (0x40066b)
     
     calling functions
     ================================
-      19.334 us : (1) a
-      16.667 us : (1) b
-      15.001 us : (1) c
-       5.333 us : (1) getpid
+      25.024 us : (1) main
+       2.706 us :  +-(1) atoi
+                :  | 
+      19.600 us :  +-(1) fib
+      16.683 us :    (2) fib
+      12.773 us :    (4) fib
+       7.892 us :    (2) fib
 
 
 The `dump` command shows raw output of each trace record.  You can see the result
