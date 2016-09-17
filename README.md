@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/namhyung/uftrace.svg?branch=master)](https://travis-ci.org/namhyung/uftrace)
+
 uftrace
 =======
 
