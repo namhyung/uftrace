@@ -47,9 +47,11 @@ The uftrace command has following subcommands:
  * `recv` : saves the trace data from network
  * `graph` : shows function call graph in the trace data
 
+You can use `-?` or `--help` option to see avaiable command and options.
 
     $ uftrace
-    Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
+    Usage: uftrace [OPTION...]
+                [record|replay|live|report|info|dump|recv|graph] [<command>]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running
@@ -96,7 +98,7 @@ under the given function.
 
 The `-k` option enables to trace kernel functions as well (needs root access).
 With the classic hello world program, the output would look like below (Note,
-I changed it to use fprint() with stderr rather than the plain printf() to make
+I changed it to use fprintf() with stderr rather than the plain printf() to make
 it invoke system call directly):
 
     $ sudo uftrace -k hello

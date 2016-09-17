@@ -637,7 +637,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = ftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<command> args...]",
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<command>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 
