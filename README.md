@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/namhyung/uftrace.svg?branch=master)](https://travis-ci.org/namhyung/uftrace)
+
 uftrace
 =======
 
@@ -44,6 +46,7 @@ The uftrace command has following subcommands:
  * `dump` : shows low-level trace data
  * `recv` : saves the trace data from network
  * `graph` : shows function call graph in the trace data
+
 
     $ uftrace
     Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
@@ -123,16 +126,16 @@ Also it can record and show function arguments and return value with `-A` and
                 [22080] |   fib(5) {
                 [22080] |     fib(4) {
                 [22080] |       fib(3) {
-       7.196 us [22080] |         fib(2) = 2;
+       7.196 us [22080] |         fib(2) = 1;
        0.502 us [22080] |         fib(1) = 1;
-      10.799 us [22080] |       } = 3; /* fib */
-       0.397 us [22080] |       fib(2) = 2;
-      12.838 us [22080] |     } = 5; /* fib */
+      10.799 us [22080] |       } = 2; /* fib */
+       0.397 us [22080] |       fib(2) = 1;
+      12.838 us [22080] |     } = 3; /* fib */
                 [22080] |     fib(3) {
-       0.578 us [22080] |       fib(2) = 2;
+       0.578 us [22080] |       fib(2) = 1;
        0.385 us [22080] |       fib(1) = 1;
-       2.821 us [22080] |     } = 3; /* fib */
-      18.311 us [22080] |   } = 8; /* fib */
+       2.821 us [22080] |     } = 2; /* fib */
+      18.311 us [22080] |   } = 5; /* fib */
       23.560 us [22080] | } /* main */
 
 The `report` command lets you know which function spends the longest time
