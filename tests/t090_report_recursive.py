@@ -13,8 +13,8 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'fibonacci', """
   Total time   Self time       Calls  Function
   ==========  ==========  ==========  ====================================
-   19.600 us   19.600 us           9  fib
    25.024 us    2.718 us           1  main
+   19.600 us   19.600 us           9  fib
     2.853 us    2.853 us           1  __monstartup
     2.706 us    2.706 us           1  atoi
     2.194 us    2.194 us           1  __cxa_atexit

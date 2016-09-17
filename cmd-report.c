@@ -231,7 +231,46 @@ static struct sort_item sort_diff_nr_called = {
 	LIST_HEAD_INIT(sort_diff_nr_called.list)
 };
 
-SORT_ITEM("total", time_total, AVG_NONE);
+/* exclude recursive time from total time */
+static int cmp_time_total(struct trace_entry *a, struct trace_entry *b)
+{
+	uint64_t a_time = a->time_total - a->time_recursive;
+	uint64_t b_time = b->time_total - b->time_recursive;
+
+	if (a_time == b_time)
+		return 0;
+	return a_time > b_time ? 1 : -1;
+}
+
+static struct sort_item sort_time_total = {
+	.name = "total",
+	.cmp = cmp_time_total,
+	.avg_mode = AVG_NONE,
+	LIST_HEAD_INIT(sort_time_total.list)
+};
+
+static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b)
+{
+	uint64_t a_time = a->time_total - a->time_recursive;
+	uint64_t b_time = b->time_total - b->time_recursive;
+	uint64_t a_pair_time = a->pair->time_total - a->pair->time_recursive;
+	uint64_t b_pair_time = b->pair->time_total - b->pair->time_recursive;
+	double a_pcnt = 100.0 * a_pair_time / a_time;
+	double b_pcnt = 100.0 * b_pair_time / b_time;
+
+	if (a_pcnt == b_pcnt)
+		return 0;
+	return a_pcnt > b_pcnt ? 1 : -1;
+}
+
+static struct sort_item sort_diff_time_total = {
+	.name = "total_diff",
+	.cmp = cmp_diff_time_total,
+	.avg_mode = AVG_NONE,
+	LIST_HEAD_INIT(sort_diff_time_total.list)
+};
+
+//SORT_ITEM("total", time_total, AVG_NONE);
 SORT_ITEM("self", time_self, AVG_NONE);
 SORT_ITEM_BASE("call", nr_called, AVG_NONE);
 SORT_ITEM("avg", time_avg, AVG_TOTAL);

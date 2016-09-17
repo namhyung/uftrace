@@ -117,9 +117,12 @@ You can see the page fault handler and the write syscall handler were called
 inside the fprintf() call.
 
 Also it can record and show function arguments and return value with `-A` and
-`-R` options respectively.
+`-R` options respectively.  The following example records first argument and
+return value of 'fib' (fibonacci number) function.
 
-    $ uftrace -A fib@arg1 -R fib@retval fibonacci 5
+    $ uftrace record -A fib@arg1 -R fib@retval fibonacci 5
+
+    $ uftrace replay
     # DURATION    TID     FUNCTION
        2.853 us [22080] | __monstartup();
        2.194 us [22080] | __cxa_atexit();
@@ -141,14 +144,13 @@ Also it can record and show function arguments and return value with `-A` and
       25.024 us [22080] | } /* main */
 
 The `report` command lets you know which function spends the longest time
-including its children (total time).  If we recorded above example, it'll show
-something like following:
+including its children (total time).
 
     $ uftrace report
       Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================================
-       19.600 us   19.600 us           9  fib
        25.024 us    2.718 us           1  main
+       19.600 us   19.600 us           9  fib
         2.853 us    2.853 us           1  __monstartup
         2.706 us    2.706 us           1  atoi
         2.194 us    2.194 us           1  __cxa_atexit
