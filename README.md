@@ -145,7 +145,7 @@ including its children (total time).  If we recorded above example, it'll show
 something like following:
 
     $ uftrace report
-      Total time   Self time  Nr. called  Function
+      Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================================
        19.600 us   19.600 us           9  fib
        25.024 us    2.718 us           1  main

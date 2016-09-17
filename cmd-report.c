@@ -444,7 +444,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 	}
 
 	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Nr. called", "Function");
+		pr_out(f_format, "Total time", "Self time", "Calls", "Function");
 	else if (avg_mode == AVG_TOTAL)
 		pr_out(f_format, "Avg total", "Min total", "Max total", "Function");
 	else if (avg_mode == AVG_SELF)
