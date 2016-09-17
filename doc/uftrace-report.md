@@ -50,7 +50,7 @@ This command shows information like below:
 
     $ uftrace record abc
     $ uftrace report
-      Total time   Self time  Nr. called     Function
+      Total time   Self time       Calls  Function
       ==========  ==========  ==========  =======================================
       150.829 us  150.829 us           1  __cxa_atexit
        27.289 us    1.243 us           1  main
@@ -60,7 +60,7 @@ This command shows information like below:
        22.458 us   22.458 us           1  getpid
 
     $ uftrace report -s call,self
-      Total time   Self time  Nr. called     Function
+      Total time   Self time       Calls  Function
       ==========  ==========  ==========  =======================================
       150.829 us  150.829 us           1  __cxa_atexit
        22.458 us   22.458 us           1  getpid

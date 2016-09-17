@@ -47,9 +47,11 @@ The uftrace command has following subcommands:
  * `recv` : saves the trace data from network
  * `graph` : shows function call graph in the trace data
 
+You can use `-?` or `--help` option to see avaiable command and options.
 
     $ uftrace
-    Usage: uftrace [OPTION...] [record|replay|live|report|info|dump|recv|graph] [<command> args...]
+    Usage: uftrace [OPTION...]
+                [record|replay|live|report|info|dump|recv|graph] [<command>]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running
@@ -96,7 +98,7 @@ under the given function.
 
 The `-k` option enables to trace kernel functions as well (needs root access).
 With the classic hello world program, the output would look like below (Note,
-I changed it to use fprint() with stderr rather than the plain printf() to make
+I changed it to use fprintf() with stderr rather than the plain printf() to make
 it invoke system call directly):
 
     $ sudo uftrace -k hello
@@ -119,31 +121,31 @@ Also it can record and show function arguments and return value with `-A` and
 
     $ uftrace -A fib@arg1 -R fib@retval fibonacci 5
     # DURATION    TID     FUNCTION
-       2.725 us [22080] | __monstartup();
-       2.315 us [22080] | __cxa_atexit();
+       2.853 us [22080] | __monstartup();
+       2.194 us [22080] | __cxa_atexit();
                 [22080] | main() {
-       2.271 us [22080] |   atoi();
+       2.706 us [22080] |   atoi();
                 [22080] |   fib(5) {
                 [22080] |     fib(4) {
                 [22080] |       fib(3) {
-       7.196 us [22080] |         fib(2) = 1;
-       0.502 us [22080] |         fib(1) = 1;
-      10.799 us [22080] |       } = 2; /* fib */
-       0.397 us [22080] |       fib(2) = 1;
-      12.838 us [22080] |     } = 3; /* fib */
+       7.473 us [22080] |         fib(2) = 1;
+       0.419 us [22080] |         fib(1) = 1;
+      11.452 us [22080] |       } = 2; /* fib */
+       0.460 us [22080] |       fib(2) = 1;
+      13.823 us [22080] |     } = 3; /* fib */
                 [22080] |     fib(3) {
-       0.578 us [22080] |       fib(2) = 1;
-       0.385 us [22080] |       fib(1) = 1;
-       2.821 us [22080] |     } = 2; /* fib */
-      18.311 us [22080] |   } = 5; /* fib */
-      23.560 us [22080] | } /* main */
+       0.424 us [22080] |       fib(2) = 1;
+       0.437 us [22080] |       fib(1) = 1;
+       2.860 us [22080] |     } = 2; /* fib */
+      19.600 us [22080] |   } = 5; /* fib */
+      25.024 us [22080] | } /* main */
 
 The `report` command lets you know which function spends the longest time
 including its children (total time).  If we recorded above example, it'll show
 something like following:
 
     $ uftrace report
-      Total time   Self time  Nr. called  Function
+      Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================================
        19.600 us   19.600 us           9  fib
        25.024 us    2.718 us           1  main

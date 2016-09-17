@@ -23,6 +23,7 @@ struct trace_entry {
 	uint64_t addr;
 	uint64_t time_total;
 	uint64_t time_self;
+	uint64_t time_recursive;
 	uint64_t time_avg;
 	uint64_t time_min;
 	uint64_t time_max;
@@ -68,6 +69,8 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 			if (entry->time_max < entry_time)
 				entry->time_max = entry_time;
 
+			entry->time_recursive += te->time_recursive;
+
 			if (entry->sym == NULL && te->sym)
 				entry->sym = te->sym;
 
@@ -96,6 +99,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 
 	entry->time_min = entry_time;
 	entry->time_max = entry_time;
+	entry->time_recursive = te->time_recursive;
 
 	rb_link_node(&entry->link, parent, p);
 	rb_insert_color(&entry->link, root);
@@ -110,13 +114,14 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task;
 	struct ftrace_session *sess;
 	struct fstack *fstack;
+	int i;
 
 	while (read_rstack(handle, &task) >= 0) {
 		rstack = task->rstack;
 		if (rstack->type != FTRACE_EXIT)
 			continue;
 
-		if (opts->kernel == 1) {
+		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (is_kernel_address(task->func_stack[0].addr) &&
 			    is_kernel_address(rstack->addr))
@@ -145,6 +150,14 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		/* some LOST entries make invalid self tiem */
 		if (te.time_self > te.time_total)
 			te.time_self = te.time_total;
+
+		te.time_recursive = 0;
+		for (i = 0; i < task->stack_count; i++) {
+			if (rstack->addr == task->func_stack[i].addr) {
+				te.time_recursive = te.time_total;
+				break;
+			}
+		}
 
 		insert_entry(root, &te, false);
 	}
@@ -401,7 +414,7 @@ static void print_function(struct trace_entry *entry)
 
 	if (avg_mode == AVG_NONE) {
 		pr_out(" ");
-		print_time_unit(entry->time_total);
+		print_time_unit(entry->time_total - entry->time_recursive);
 		pr_out(" ");
 		print_time_unit(entry->time_self);
 		pr_out("  %10lu  %-s\n", entry->nr_called, symname);
@@ -444,7 +457,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 	}
 
 	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Nr. called", "Function");
+		pr_out(f_format, "Total time", "Self time", "Calls", "Function");
 	else if (avg_mode == AVG_TOTAL)
 		pr_out(f_format, "Avg total", "Min total", "Max total", "Function");
 	else if (avg_mode == AVG_SELF)
@@ -891,6 +904,9 @@ int command_report(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
+
+		if (opts->kernel == 1)
+			opts->kernel_skip_out = true;
 	}
 
 	if (opts->tid)
