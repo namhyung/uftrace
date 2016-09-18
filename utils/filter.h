@@ -22,6 +22,7 @@ enum trigger_flag {
 	TRIGGER_FL_ARGUMENT	= (1U << 6),
 	TRIGGER_FL_RECOVER	= (1U << 7),
 	TRIGGER_FL_RETVAL	= (1U << 8),
+	TRIGGER_FL_COLOR	= (1U << 9),
 };
 
 enum filter_mode {
@@ -74,6 +75,7 @@ struct ftrace_arg_spec {
 struct ftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
+	char			color;
 	enum filter_mode	fmode;
 	struct list_head	*pargs;
 };

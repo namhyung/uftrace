@@ -366,8 +366,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			/* leaf function - also consume return record */
 			print_time_unit(fstack->total_time);
 
-			pr_out(" [%5d] | %*s%s%s%s\n", task->tid,
-			       depth * 2, "", symname, args, retval);
+			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
+			if (tr.flags & TRIGGER_FL_COLOR) {
+				pr_color(tr.color, "%s", symname);
+				pr_out("%s%s\n", args, retval);
+			}
+			else
+				pr_out("%s%s%s\n", symname, args, retval);
 
 			/* consume the rstack */
 			read_rstack(handle, &next);
@@ -379,8 +384,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		else {
 			/* function entry */
 			print_time_unit(0UL);
-			pr_out(" [%5d] | %*s%s%s {\n", task->tid,
-			       depth * 2, "", symname, args);
+			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
+			if (tr.flags & TRIGGER_FL_COLOR) {
+				pr_color(tr.color, "%s", symname);
+				pr_out("%s {\n", args);
+			}
+			else
+				pr_out("%s%s {\n", symname, args);
 
 			fstack_update(FTRACE_ENTRY, task, fstack);
 		}
