@@ -47,11 +47,11 @@ The uftrace command has following subcommands:
  * `recv` : saves the trace data from network
  * `graph` : shows function call graph in the trace data
 
-You can use `-?` or `--help` option to see avaiable command and options.
+You can use `-?` or `--help` option to see available commands and options.
 
     $ uftrace
     Usage: uftrace [OPTION...]
-                [record|replay|live|report|info|dump|recv|graph] [<command>]
+                [record|replay|live|report|info|dump|recv|graph] [<program>]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running
