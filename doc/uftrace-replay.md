@@ -147,9 +147,11 @@ The uftrace support triggering some actions on selected function with or without
 
     <trigger>  :=  <symbol> "@" <actions>
     <actions>  :=  <action>  | <action> "," <actions>
-    <action>   :=  "depth=" <num> | "backtrace" | "trace_on" | "trace_off"
+    <action>   :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" | "color="<color>
 
 The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
+
+The color trigger is to change color of the function in replay output.  The supported colors are 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'bold', and 'gray'.
 
 Following example shows how trigger works.  We set filter on function 'b' with the backtrace trigger and depth trigger of 2.
 

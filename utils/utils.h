@@ -128,7 +128,8 @@ extern void setup_signal(void);
 #define pr_magenta(fmt, ...)	__pr_color(COLOR_CODE_MAGENTA, fmt, ## __VA_ARGS__)
 #define pr_cyan(fmt, ...)	__pr_color(COLOR_CODE_CYAN,    fmt, ## __VA_ARGS__)
 #define pr_bold(fmt, ...)	__pr_color(COLOR_CODE_BOLD,    fmt, ## __VA_ARGS__)
-#define pr_gray(fmt, ...)	__pr_color(COLOR_CODE_GRAY   , fmt, ## __VA_ARGS__)
+#define pr_gray(fmt, ...)	__pr_color(COLOR_CODE_GRAY,    fmt, ## __VA_ARGS__)
+#define pr_color(c, fmt, ...)	__pr_color(c,                  fmt, ## __VA_ARGS__)
 
 
 #define xmalloc(sz)							\

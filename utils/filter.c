@@ -60,6 +60,9 @@ static void print_trigger(struct ftrace_trigger *tr)
 			       ARG_SPEC_CHARS[arg->fmt], arg->size * 8);
 		}
 	}
+
+	if (tr->flags & TRIGGER_FL_COLOR)
+		pr_dbg("\ttrigger: color '%c'\n", tr->color);
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -174,6 +177,9 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 		list_for_each_entry(arg, tr->pargs, list)
 			add_arg_spec(&filter->args, arg, exact_match);
 	}
+
+	if (tr->flags & TRIGGER_FL_COLOR)
+		filter->trigger.color = tr->color;
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
@@ -545,6 +551,32 @@ static int setup_module_and_trigger(char *str, char *module,
 
 			if (!strcasecmp(pos, "recover")) {
 				tr->flags |= TRIGGER_FL_RECOVER;
+				continue;
+			}
+
+			if (!strncasecmp(pos, "color=", 6)) {
+				const char *color = pos + 6;
+				tr->flags |= TRIGGER_FL_COLOR;
+
+				if (!strcmp(color, "red"))
+					tr->color = COLOR_CODE_RED;
+				else if (!strcmp(color, "green"))
+					tr->color = COLOR_CODE_GREEN;
+				else if (!strcmp(color, "blue"))
+					tr->color = COLOR_CODE_BLUE;
+				else if (!strcmp(color, "yellow"))
+					tr->color = COLOR_CODE_YELLOW;
+				else if (!strcmp(color, "magenta"))
+					tr->color = COLOR_CODE_MAGENTA;
+				else if (!strcmp(color, "cyan"))
+					tr->color = COLOR_CODE_CYAN;
+				else if (!strcmp(color, "bold"))
+					tr->color = COLOR_CODE_GRAY;
+				else if (!strcmp(color, "gray"))
+					tr->color = COLOR_CODE_BOLD;
+				else {
+					/* invalid color is ignored */
+				}
 				continue;
 			}
 
