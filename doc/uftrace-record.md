@@ -213,7 +213,7 @@ The uftrace supports triggering some actions on selected function with or withou
 
     <trigger>  :=  <symbol> "@" <actions>
     <actions>  :=  <action>  | <action> "," <actions>
-    <action>   :=  "depth=" <num> | "trace" | "trace_on" | "trace_off" | "recover"
+    <action>   :=  "depth="<num> | "trace" | "trace_on" | "trace_off" | "recover"
 
 The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
 
