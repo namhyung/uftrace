@@ -571,9 +571,9 @@ static int setup_module_and_trigger(char *str, char *module,
 				else if (!strcmp(color, "cyan"))
 					tr->color = COLOR_CODE_CYAN;
 				else if (!strcmp(color, "bold"))
-					tr->color = COLOR_CODE_GRAY;
-				else if (!strcmp(color, "gray"))
 					tr->color = COLOR_CODE_BOLD;
+				else if (!strcmp(color, "gray"))
+					tr->color = COLOR_CODE_GRAY;
 				else {
 					/* invalid color is ignored */
 				}
