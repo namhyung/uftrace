@@ -15,7 +15,7 @@ if test -f ${VERSION_FILE}; then
     FILE_VERSION=$(cat ${VERSION_FILE} 2>/dev/null | cut -d'"' -f2)
 fi
 
-if test -d .git -a "`git --version > /dev/null 2>&1`"; then
+if test -d .git -a -n "`git --version 2>/dev/null`"; then
     # update current version using git tags
     GIT_VERSION=`git describe --tags --abbrev=4 --match="v[0-9].[0-9]*" 2>/dev/null`
     CURR_VERSION=${GIT_VERSION}
