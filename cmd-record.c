@@ -1553,6 +1553,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		remove_directory(opts->dirname);
 	}
+	else if (geteuid() == 0)
+		chown_directory(opts->dirname);
 
 	unload_symtabs(&symtabs);
 	return 0;
