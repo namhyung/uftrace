@@ -116,6 +116,8 @@ int remove_directory(char *dirname)
 	DIR *dp;
 	struct dirent *ent;
 	char buf[PATH_MAX];
+	int saved_errno = 0;
+	int ret = 0;
 
 	dp = opendir(dirname);
 	if (dp == NULL)
@@ -128,32 +130,85 @@ int remove_directory(char *dirname)
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
-		unlink(buf);
+		if (unlink(buf) < 0) {
+			saved_errno = errno;
+			ret = -1;
+			break;
+		}
 	}
 
 	closedir(dp);
-	rmdir(dirname);
-	return 0;
+	if (rmdir(dirname) < 0 && ret == 0)
+		ret = -1;
+	else
+		errno = saved_errno;
+	return ret;
 }
 
 int create_directory(char *dirname)
 {
-	int ret = 0;
+	int ret = -1;
 	char *oldname = NULL;
 
 	xasprintf(&oldname, "%s.old", dirname);
 
-	if (!access(oldname, F_OK))
-		remove_directory(oldname);
+	if (!access(oldname, F_OK)) {
+		if (remove_directory(oldname) < 0) {
+			pr_log("removing old directory failed: %m\n");
+			goto out;
+		}
+	}
 
 	if (!access(dirname, F_OK) && rename(dirname, oldname) < 0) {
 		pr_log("rename %s -> %s failed: %m\n", dirname, oldname);
-		/* don't care about the failure */
+		goto out;
 	}
 
 	ret = mkdir(dirname, 0755);
 
+out:
 	free(oldname);
+	return ret;
+}
+
+int chown_directory(char *dirname)
+{
+	DIR *dp;
+	struct dirent *ent;
+	char buf[PATH_MAX];
+	char *uidstr;
+	char *gidstr;
+	uid_t uid;
+	gid_t gid;
+	int ret = 0;
+
+	/* When invoked with sudo, real uid is also 0.  Use env instead. */
+	uidstr = getenv("SUDO_UID");
+	gidstr = getenv("SUDO_GID");
+	if (uidstr == NULL || gidstr == NULL)
+		return 0;
+
+	uid = strtol(uidstr, NULL, 0);
+	gid = strtol(gidstr, NULL, 0);
+
+	dp = opendir(dirname);
+	if (dp == NULL)
+		return -1;
+
+	pr_dbg("chown %s directory to (%d:%d)\n", dirname, (int)uid, (int)gid);
+
+	while ((ent = readdir(dp)) != NULL) {
+		if (ent->d_name[0] == '.')
+			continue;
+
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
+		if (chown(buf, uid, gid) < 0)
+			ret = -1;
+	}
+
+	closedir(dp);
+	if (chown(dirname, uid, gid) < 0)
+		ret = -1;
 	return ret;
 }
 

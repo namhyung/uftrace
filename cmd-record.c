@@ -1343,7 +1343,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	create_directory(opts->dirname);
+	if (create_directory(opts->dirname) < 0)
+		return -1;
 
 	check_binary(opts);
 
@@ -1552,6 +1553,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		remove_directory(opts->dirname);
 	}
+	else if (geteuid() == 0)
+		chown_directory(opts->dirname);
 
 	unload_symtabs(&symtabs);
 	return 0;
