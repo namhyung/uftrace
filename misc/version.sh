@@ -26,7 +26,7 @@ if test -z "${GIT_VERSION}" -a -n "${FILE_VERSION}"; then
     exit 0
 fi
 
-if test "${CURR_VERSION}" != "${FILE_VERSION}"; then
+if test -z "${FILE_VERSION}" -o "${CURR_VERSION}" != "${FILE_VERSION}"; then
     # update file version only if it's different
     echo "#define UFTRACE_VERSION  \"${CURR_VERSION}\"" > ${VERSION_FILE}
     echo "  GEN     " ${VERSION_FILE#${objdir}/}
