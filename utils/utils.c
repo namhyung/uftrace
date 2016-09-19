@@ -171,6 +171,47 @@ out:
 	return ret;
 }
 
+int chown_directory(char *dirname)
+{
+	DIR *dp;
+	struct dirent *ent;
+	char buf[PATH_MAX];
+	char *uidstr;
+	char *gidstr;
+	uid_t uid;
+	gid_t gid;
+	int ret = 0;
+
+	/* When invoked with sudo, real uid is also 0.  Use env instead. */
+	uidstr = getenv("SUDO_UID");
+	gidstr = getenv("SUDO_GID");
+	if (uidstr == NULL || gidstr == NULL)
+		return 0;
+
+	uid = strtol(uidstr, NULL, 0);
+	gid = strtol(gidstr, NULL, 0);
+
+	dp = opendir(dirname);
+	if (dp == NULL)
+		return -1;
+
+	pr_dbg("chown %s directory to (%d:%d)\n", dirname, (int)uid, (int)gid);
+
+	while ((ent = readdir(dp)) != NULL) {
+		if (ent->d_name[0] == '.')
+			continue;
+
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
+		if (chown(buf, uid, gid) < 0)
+			ret = -1;
+	}
+
+	closedir(dp);
+	if (chown(dirname, uid, gid) < 0)
+		ret = -1;
+	return ret;
+}
+
 char *read_exename(void)
 {
 	int len;
