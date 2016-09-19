@@ -1343,7 +1343,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	create_directory(opts->dirname);
+	if (create_directory(opts->dirname) < 0)
+		return -1;
 
 	check_binary(opts);
 

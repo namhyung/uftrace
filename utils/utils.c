@@ -116,6 +116,8 @@ int remove_directory(char *dirname)
 	DIR *dp;
 	struct dirent *ent;
 	char buf[PATH_MAX];
+	int saved_errno = 0;
+	int ret = 0;
 
 	dp = opendir(dirname);
 	if (dp == NULL)
@@ -128,31 +130,43 @@ int remove_directory(char *dirname)
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
-		unlink(buf);
+		if (unlink(buf) < 0) {
+			saved_errno = errno;
+			ret = -1;
+			break;
+		}
 	}
 
 	closedir(dp);
-	rmdir(dirname);
-	return 0;
+	if (rmdir(dirname) < 0 && ret == 0)
+		ret = -1;
+	else
+		errno = saved_errno;
+	return ret;
 }
 
 int create_directory(char *dirname)
 {
-	int ret = 0;
+	int ret = -1;
 	char *oldname = NULL;
 
 	xasprintf(&oldname, "%s.old", dirname);
 
-	if (!access(oldname, F_OK))
-		remove_directory(oldname);
+	if (!access(oldname, F_OK)) {
+		if (remove_directory(oldname) < 0) {
+			pr_log("removing old directory failed: %m\n");
+			goto out;
+		}
+	}
 
 	if (!access(dirname, F_OK) && rename(dirname, oldname) < 0) {
 		pr_log("rename %s -> %s failed: %m\n", dirname, oldname);
-		/* don't care about the failure */
+		goto out;
 	}
 
 	ret = mkdir(dirname, 0755);
 
+out:
 	free(oldname);
 	return ret;
 }
