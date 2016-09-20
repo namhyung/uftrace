@@ -136,6 +136,8 @@ LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/record.op,$(LIBMCOUNT_COMMON_OBJS))
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
 
+COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
+
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/uftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
@@ -164,22 +166,22 @@ $(objdir)/.config: $(srcdir)/configure
 config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
-$(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(UFTRACE_HDRS) $(objdir)/.config
+$(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(UFTRACE_HDRS) $(objdir)/.config
+$(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(UFTRACE_HDRS) $(objdir)/.config
+$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(UFTRACE_HDRS) $(objdir)/.config
+$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(objdir)/.config
+$(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(objdir)/arch/$(ARCH)/entry.op: $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(UFTRACE_HDRS) $(objdir)/.config
+$(objdir)/arch/$(ARCH)/entry.op: $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
 $(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(objdir)/arch/$(ARCH)/entry.op
@@ -200,10 +202,10 @@ $(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(ob
 $(objdir)/libtraceevent/libtraceevent.a: PHONY
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent
 
-$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(UFTRACE_HDRS) $(objdir)/.config
+$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
-$(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(UFTRACE_HDRS) $(objdir)/.config
+$(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
