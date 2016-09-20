@@ -169,19 +169,19 @@ config: $(srcdir)/configure
 $(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_HDRS) $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(objdir)/.config
+$(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(LIBMCOUNT_HDRS) $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(objdir)/.config
+$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(LIBMCOUNT_HDRS) $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(objdir)/.config
+$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(LIBMCOUNT_HDRS) $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(objdir)/.config
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(objdir)/arch/$(ARCH)/entry.op: $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(objdir)/.config
+$(objdir)/arch/$(ARCH)/entry.op: $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(LIBMCOUNT_HDRS) $(objdir)/.config
 	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
 $(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(objdir)/arch/$(ARCH)/entry.op
