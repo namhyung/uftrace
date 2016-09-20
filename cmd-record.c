@@ -133,34 +133,34 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	setenv("LD_LIBRARY_PATH", buf, 1);
 
 	if (opts->filter)
-		setenv("FTRACE_FILTER", opts->filter, 1);
+		setenv("UFTRACE_FILTER", opts->filter, 1);
 
 	if (opts->trigger)
-		setenv("FTRACE_TRIGGER", opts->trigger, 1);
+		setenv("UFTRACE_TRIGGER", opts->trigger, 1);
 
 	if (opts->args)
-		setenv("FTRACE_ARGUMENT", opts->args, 1);
+		setenv("UFTRACE_ARGUMENT", opts->args, 1);
 
 	if (opts->retval)
-		setenv("FTRACE_RETVAL", opts->retval, 1);
+		setenv("UFTRACE_RETVAL", opts->retval, 1);
 
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
-		setenv("FTRACE_DEPTH", buf, 1);
+		setenv("UFTRACE_DEPTH", buf, 1);
 	}
 
 	if (opts->max_stack != MCOUNT_RSTACK_MAX) {
 		snprintf(buf, sizeof(buf), "%d", opts->max_stack);
-		setenv("FTRACE_MAX_STACK", buf, 1);
+		setenv("UFTRACE_MAX_STACK", buf, 1);
 	}
 
 	if (opts->threshold) {
 		snprintf(buf, sizeof(buf), "%"PRIu64, opts->threshold);
-		setenv("FTRACE_THRESHOLD", buf, 1);
+		setenv("UFTRACE_THRESHOLD", buf, 1);
 	}
 
 	if (opts->libcall) {
-		setenv("FTRACE_PLTHOOK", "1", 1);
+		setenv("UFTRACE_PLTHOOK", "1", 1);
 
 		if (opts->want_bind_not) {
 			/* do not update GOTPLT after resolving symbols */
@@ -168,39 +168,39 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		}
 	}
 
-	if (strcmp(opts->dirname, FTRACE_DIR_NAME))
-		setenv("FTRACE_DIR", opts->dirname, 1);
+	if (strcmp(opts->dirname, UFTRACE_DIR_NAME))
+		setenv("UFTRACE_DIR", opts->dirname, 1);
 
 	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bufsize);
-		setenv("FTRACE_BUFFER", buf, 1);
+		setenv("UFTRACE_BUFFER", buf, 1);
 	}
 
 	if (opts->logfile) {
 		snprintf(buf, sizeof(buf), "%d", fileno(logfp));
-		setenv("FTRACE_LOGFD", buf, 1);
+		setenv("UFTRACE_LOGFD", buf, 1);
 	}
 
 	snprintf(buf, sizeof(buf), "%d", pfd);
-	setenv("FTRACE_PIPE", buf, 1);
-	setenv("FTRACE_SHMEM", "1", 1);
+	setenv("UFTRACE_PIPE", buf, 1);
+	setenv("UFTRACE_SHMEM", "1", 1);
 
 	if (debug) {
 		snprintf(buf, sizeof(buf), "%d", debug);
-		setenv("FTRACE_DEBUG", buf, 1);
-		setenv("FTRACE_DEBUG_DOMAIN", build_debug_domain_string(), 1);
+		setenv("UFTRACE_DEBUG", buf, 1);
+		setenv("UFTRACE_DEBUG_DOMAIN", build_debug_domain_string(), 1);
 	}
 
 	if(opts->disabled)
-		setenv("FTRACE_DISABLED", "1", 1);
+		setenv("UFTRACE_DISABLED", "1", 1);
 
 	if (log_color) {
 		snprintf(buf, sizeof(buf), "%d", log_color);
-		setenv("FTRACE_COLOR", buf, 1);
+		setenv("UFTRACE_COLOR", buf, 1);
 	}
 
 	snprintf(buf, sizeof(buf), "%d", demangler);
-	setenv("FTRACE_DEMANGLE", buf, 1);
+	setenv("UFTRACE_DEMANGLE", buf, 1);
 }
 
 static uint64_t calc_feat_mask(struct opts *opts)
@@ -256,8 +256,8 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (read(efd, elf_ident, sizeof(elf_ident)) < 0)
 		goto close_efd;
 
-	strncpy(hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN);
-	hdr.version = FTRACE_FILE_VERSION;
+	strncpy(hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
+	hdr.version = UFTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
 	hdr.endian = elf_ident[EI_DATA];
 	hdr.class = elf_ident[EI_CLASS];
@@ -302,9 +302,9 @@ static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 	unsigned _seq;
 
 	/*
-	 * parse message id of "/ftrace-SESSION-TID-SEQ".
+	 * parse message id of "/uftrace-SESSION-TID-SEQ".
 	 */
-	if (sscanf(id, "/ftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
+	if (sscanf(id, "/uftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
 		pr_err("parse msg id failed");
 
 	if (sid)
@@ -585,8 +585,8 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 				sl = list_last_entry(&shmem_need_unlink,
 						     struct shmem_list, list);
 
-				/* length of "ftrace-<session id>-" is 24 */
-				if (!strncmp(sl->id, sess_id, 24))
+				/* length of "uftrace-<session id>-" is 25 */
+				if (!strncmp(sl->id, sess_id, 25))
 					found = true;
 			}
 
@@ -656,8 +656,8 @@ static char shmem_session[20];
 
 static int filter_shmem(const struct dirent *de)
 {
-	/* compare session ID after the "ftrace-" part */
-	return !memcmp(&de->d_name[7], shmem_session, 16);
+	/* compare session ID after the "uftrace-" part */
+	return !memcmp(&de->d_name[8], shmem_session, 16);
 }
 
 static void unlink_shmem_list(void)
@@ -672,7 +672,7 @@ static void unlink_shmem_list(void)
 
 		list_del(&sl->list);
 
-		sscanf(sl->id, "/ftrace-%[^-]-%*d-%*d", shmem_session);
+		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
 		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
@@ -697,7 +697,7 @@ static void flush_old_shmem(const char *dirname, int tid, int bufsize)
 	list_for_each_entry(sl, &shmem_list_head, list) {
 		int sl_tid;
 
-		sscanf(sl->id, "/ftrace-%*x-%d-%*d", &sl_tid);
+		sscanf(sl->id, "/uftrace-%*x-%d-%*d", &sl_tid);
 
 		if (tid == sl_tid) {
 			pr_dbg3("flushing %s\n", sl->id);

@@ -78,7 +78,7 @@ extern void setup_color(int color);
 extern void setup_signal(void);
 
 #ifndef PR_FMT
-# define PR_FMT  "ftrace"
+# define PR_FMT  "uftrace"
 #endif
 
 #ifndef PR_DOMAIN

@@ -62,7 +62,7 @@ static void sigsegv_handler(int sig)
 
 int command_live(int argc, char *argv[], struct opts *opts)
 {
-	char template[32] = "/tmp/ftrace-live-XXXXXX";
+	char template[32] = "/tmp/uftrace-live-XXXXXX";
 	int fd = mkstemp(template);
 	struct sigaction sa = {
 		.sa_flags = SA_RESETHAND,

@@ -1,5 +1,5 @@
-#ifndef __FTRACE_H__
-#define __FTRACE_H__
+#ifndef __UFTRACE_H__
+#define __UFTRACE_H__
 
 #include <stdio.h>
 #include <stdint.h>
@@ -12,19 +12,19 @@
 #include "utils/symbol.h"
 
 
-#define FTRACE_MAGIC_LEN  8
-#define FTRACE_MAGIC_STR  "Ftrace!"
-#define FTRACE_FILE_VERSION  4
-#define FTRACE_FILE_VERSION_MIN  3
-#define FTRACE_DIR_NAME     "uftrace.data"
-#define FTRACE_DIR_OLD_NAME  "ftrace.dir"
+#define UFTRACE_MAGIC_LEN  8
+#define UFTRACE_MAGIC_STR  "Ftrace!"
+#define UFTRACE_FILE_VERSION  4
+#define UFTRACE_FILE_VERSION_MIN  3
+#define UFTRACE_DIR_NAME     "uftrace.data"
+#define UFTRACE_DIR_OLD_NAME  "ftrace.dir"
 
-#define FTRACE_RECV_PORT  8090
+#define UFTRACE_RECV_PORT  8090
 
 #define OPT_RSTACK_MAX  65535
 
 struct ftrace_file_header {
-	char magic[FTRACE_MAGIC_LEN];
+	char magic[UFTRACE_MAGIC_LEN];
 	uint32_t version;
 	uint16_t header_size;
 	uint8_t  endian;
@@ -113,17 +113,17 @@ struct ftrace_file_handle {
 	int depth;
 };
 
-#define FTRACE_MODE_INVALID 0
-#define FTRACE_MODE_RECORD  1
-#define FTRACE_MODE_REPLAY  2
-#define FTRACE_MODE_LIVE    3
-#define FTRACE_MODE_REPORT  4
-#define FTRACE_MODE_INFO    5
-#define FTRACE_MODE_RECV    6
-#define FTRACE_MODE_DUMP    7
-#define FTRACE_MODE_GRAPH   8
+#define UFTRACE_MODE_INVALID 0
+#define UFTRACE_MODE_RECORD  1
+#define UFTRACE_MODE_REPLAY  2
+#define UFTRACE_MODE_LIVE    3
+#define UFTRACE_MODE_REPORT  4
+#define UFTRACE_MODE_INFO    5
+#define UFTRACE_MODE_RECV    6
+#define UFTRACE_MODE_DUMP    7
+#define UFTRACE_MODE_GRAPH   8
 
-#define FTRACE_MODE_DEFAULT  FTRACE_MODE_LIVE
+#define UFTRACE_MODE_DEFAULT  UFTRACE_MODE_LIVE
 
 struct opts {
 	char *lib_path;
@@ -370,4 +370,4 @@ void clear_ftrace_info(struct ftrace_info *info);
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);
 
-#endif /* __FTRACE_H__ */
+#endif /* __UFTRACE_H__ */

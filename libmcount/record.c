@@ -15,7 +15,7 @@
 #include "utils/utils.h"
 #include "utils/filter.h"
 
-#define SHMEM_SESSION_FMT  "/ftrace-%s-%d-%03d" /* session-id, tid, seq */
+#define SHMEM_SESSION_FMT  "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 							 int tid, int idx)

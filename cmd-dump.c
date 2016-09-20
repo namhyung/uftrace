@@ -312,7 +312,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	struct ftrace_task_handle task;
 
 	pr_out("ftrace file header: magic         = ");
-	for (i = 0; i < FTRACE_MAGIC_LEN; i++)
+	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)
 		pr_out("%02x", handle->hdr.magic[i]);
 	pr_out("\n");
 	pr_out("ftrace file header: version       = %u\n", handle->hdr.version);

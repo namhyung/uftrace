@@ -27,7 +27,7 @@
 #include <time.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT "ftrace"
+#define PR_FMT "uftrace"
 
 #include "uftrace.h"
 #include "version.h"
@@ -427,7 +427,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->port = strtol(arg, NULL, 0);
 		if (opts->port <= 0) {
 			pr_use("invalid port number: %s (ignoring..)\n", arg);
-			opts->port = FTRACE_RECV_PORT;
+			opts->port = UFTRACE_RECV_PORT;
 		}
 		break;
 
@@ -564,21 +564,21 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			return ARGP_ERR_UNKNOWN;
 		}
 		if (!strcmp("record", arg))
-			opts->mode = FTRACE_MODE_RECORD;
+			opts->mode = UFTRACE_MODE_RECORD;
 		else if (!strcmp("replay", arg))
-			opts->mode = FTRACE_MODE_REPLAY;
+			opts->mode = UFTRACE_MODE_REPLAY;
 		else if (!strcmp("live", arg))
-			opts->mode = FTRACE_MODE_LIVE;
+			opts->mode = UFTRACE_MODE_LIVE;
 		else if (!strcmp("report", arg))
-			opts->mode = FTRACE_MODE_REPORT;
+			opts->mode = UFTRACE_MODE_REPORT;
 		else if (!strcmp("info", arg))
-			opts->mode = FTRACE_MODE_INFO;
+			opts->mode = UFTRACE_MODE_INFO;
 		else if (!strcmp("recv", arg))
-			opts->mode = FTRACE_MODE_RECV;
+			opts->mode = UFTRACE_MODE_RECV;
 		else if (!strcmp("dump", arg))
-			opts->mode = FTRACE_MODE_DUMP;
+			opts->mode = UFTRACE_MODE_DUMP;
 		else if (!strcmp("graph", arg))
-			opts->mode = FTRACE_MODE_GRAPH;
+			opts->mode = UFTRACE_MODE_GRAPH;
 		else
 			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
 		break;
@@ -587,8 +587,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		/*
 		 * process remaining non-option arguments
 		 */
-		if (opts->mode == FTRACE_MODE_INVALID)
-			opts->mode = FTRACE_MODE_DEFAULT;
+		if (opts->mode == UFTRACE_MODE_INVALID)
+			opts->mode = UFTRACE_MODE_DEFAULT;
 
 		opts->exename = state->argv[state->next];
 		opts->idx = state->next;
@@ -601,8 +601,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 		if (opts->exename == NULL) {
 			switch (opts->mode) {
-			case FTRACE_MODE_RECORD:
-			case FTRACE_MODE_LIVE:
+			case UFTRACE_MODE_RECORD:
+			case UFTRACE_MODE_LIVE:
 				argp_usage(state);
 				break;
 			default:
@@ -622,13 +622,13 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
-		.mode		= FTRACE_MODE_INVALID,
-		.dirname	= FTRACE_DIR_NAME,
+		.mode		= UFTRACE_MODE_INVALID,
+		.dirname	= UFTRACE_DIR_NAME,
 		.libcall	= true,
 		.bufsize	= SHMEM_BUFFER_SIZE,
 		.depth		= MCOUNT_DEFAULT_DEPTH,
 		.max_stack	= MCOUNT_RSTACK_MAX,
-		.port		= FTRACE_RECV_PORT,
+		.port		= UFTRACE_RECV_PORT,
 		.use_pager	= true,
 		.color		= -1,  /* default to 'auto' (turn on if terminal) */
 		.column_offset	= 8,
@@ -679,31 +679,31 @@ int main(int argc, char *argv[])
 		start_pager();
 
 	switch (opts.mode) {
-	case FTRACE_MODE_RECORD:
+	case UFTRACE_MODE_RECORD:
 		command_record(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_REPLAY:
+	case UFTRACE_MODE_REPLAY:
 		command_replay(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_LIVE:
+	case UFTRACE_MODE_LIVE:
 		command_live(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_REPORT:
+	case UFTRACE_MODE_REPORT:
 		command_report(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_INFO:
+	case UFTRACE_MODE_INFO:
 		command_info(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_RECV:
+	case UFTRACE_MODE_RECV:
 		command_recv(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_DUMP:
+	case UFTRACE_MODE_DUMP:
 		command_dump(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_GRAPH:
+	case UFTRACE_MODE_GRAPH:
 		command_graph(argc, argv, &opts);
 		break;
-	case FTRACE_MODE_INVALID:
+	case UFTRACE_MODE_INVALID:
 		break;
 	}
 
