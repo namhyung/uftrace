@@ -10,6 +10,7 @@ userspace programs.  It support various kind of commands and filters
 to help analysis of the program execution and performance.
 
  * Homepage: https://github.com/namhyung/uftrace
+ * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
  * Chat: https://gitter.im/uftrace/uftrace
 
 
@@ -206,7 +207,7 @@ The `info` command shows system and program information when recorded.
     # ===================
     # number of tasks     : 1
     # task list           : 5098
-    # exe image           : /home/namhyung/project/ftrace/tests/t-abc
+    # exe image           : /home/namhyung/project/uftrace/tests/t-abc
     # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434
     # exit status         : exited with code: 0
     # cpu time            : 0.000 / 0.003 sec (sys / user)
