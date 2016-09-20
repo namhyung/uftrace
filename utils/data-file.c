@@ -245,10 +245,10 @@ retry:
 		}
 
 		if (errno == ENOENT) {
-			if (!again && !strcmp(opts->dirname, FTRACE_DIR_NAME)) {
+			if (!again && !strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
 				/* retry with old default dirname */
 				snprintf(buf, sizeof(buf), "%s/info",
-					FTRACE_DIR_OLD_NAME);
+					UFTRACE_DIR_OLD_NAME);
 
 				again = true;
 				goto retry;
@@ -266,7 +266,7 @@ retry:
 
 	if (again) {
 		/* found data in old dirname, rename it */
-		opts->dirname = FTRACE_DIR_OLD_NAME;
+		opts->dirname = UFTRACE_DIR_OLD_NAME;
 	}
 
 	handle->fp = fp;
@@ -279,11 +279,11 @@ retry:
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
 
-	if (memcmp(handle->hdr.magic, FTRACE_MAGIC_STR, FTRACE_MAGIC_LEN))
+	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))
 		pr_err("invalid magic string found!");
 
-	if (handle->hdr.version < FTRACE_FILE_VERSION_MIN ||
-	    handle->hdr.version > FTRACE_FILE_VERSION)
+	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
+	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err("unsupported file version: %u", handle->hdr.version);
 
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
