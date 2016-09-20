@@ -302,9 +302,9 @@ static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 	unsigned _seq;
 
 	/*
-	 * parse message id of "/ftrace-SESSION-TID-SEQ".
+	 * parse message id of "/uftrace-SESSION-TID-SEQ".
 	 */
-	if (sscanf(id, "/ftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
+	if (sscanf(id, "/uftrace-%016"SCNx64"-%u-%03u", &_sid, &_tid, &_seq) != 3)
 		pr_err("parse msg id failed");
 
 	if (sid)
@@ -585,8 +585,8 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 				sl = list_last_entry(&shmem_need_unlink,
 						     struct shmem_list, list);
 
-				/* length of "ftrace-<session id>-" is 24 */
-				if (!strncmp(sl->id, sess_id, 24))
+				/* length of "uftrace-<session id>-" is 25 */
+				if (!strncmp(sl->id, sess_id, 25))
 					found = true;
 			}
 
@@ -656,8 +656,8 @@ static char shmem_session[20];
 
 static int filter_shmem(const struct dirent *de)
 {
-	/* compare session ID after the "ftrace-" part */
-	return !memcmp(&de->d_name[7], shmem_session, 16);
+	/* compare session ID after the "uftrace-" part */
+	return !memcmp(&de->d_name[8], shmem_session, 16);
 }
 
 static void unlink_shmem_list(void)
@@ -672,7 +672,7 @@ static void unlink_shmem_list(void)
 
 		list_del(&sl->list);
 
-		sscanf(sl->id, "/ftrace-%[^-]-%*d-%*d", shmem_session);
+		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
 		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
@@ -697,7 +697,7 @@ static void flush_old_shmem(const char *dirname, int tid, int bufsize)
 	list_for_each_entry(sl, &shmem_list_head, list) {
 		int sl_tid;
 
-		sscanf(sl->id, "/ftrace-%*x-%d-%*d", &sl_tid);
+		sscanf(sl->id, "/uftrace-%*x-%d-%*d", &sl_tid);
 
 		if (tid == sl_tid) {
 			pr_dbg3("flushing %s\n", sl->id);
