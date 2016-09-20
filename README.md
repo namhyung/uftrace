@@ -182,6 +182,9 @@ example, function graph of function 'main' looks like below:
 
 The `dump` command shows raw output of each trace record.  You can see the result
 in the chrome browser, once the data is processed with `uftrace dump --chrome`.
+Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
+
+![uftrace-chrome-dump](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-chrome.png)
 
 The `info` command shows system and program information when recorded.
 
