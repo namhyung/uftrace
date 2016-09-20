@@ -27,7 +27,7 @@
 #include <time.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT "ftrace"
+#define PR_FMT "uftrace"
 
 #include "uftrace.h"
 #include "version.h"
