@@ -344,6 +344,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 		task = &handle->tasks[i];
 		tid = task->tid;
+		task->rstack = &task->ustack;
 
 		prev_time = 0;
 		file_offset = 0;
@@ -371,6 +372,10 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 			}
 			prev_time = frs->time;
 
+			fstack_update_stack_count(task);
+			if (!fstack_check_filter(task))
+				goto next;
+
 			pr_time(frs->time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 			       tid, frs->type == FTRACE_EXIT ? "exit " :
@@ -394,10 +399,11 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 				} else
 					abort();
 			}
+			symbol_putname(sym, name);
 
+next:
 			/* force re-read in read_task_ustack() */
 			task->valid = false;
-			symbol_putname(sym, name);
 		}
 	}
 
@@ -419,15 +425,15 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
 			int losts = kernel->missed_events[i];
 
-			sym = find_symtabs(NULL, mrs->child_ip);
-			name = symbol_getname(sym, mrs->child_ip);
-
 			if (losts) {
 				pr_time(mrs->end_time ?: mrs->start_time);
 				pr_red("%5d: [%s ]: %d events\n",
 				       mrs->tid, "lost", losts);
 				kernel->missed_events[i] = 0;
 			}
+
+			sym = find_symtabs(NULL, mrs->child_ip);
+			name = symbol_getname(sym, mrs->child_ip);
 
 			pr_time(mrs->end_time ?: mrs->start_time);
 			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
@@ -543,6 +549,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 		task = &handle->tasks[i];
 		tid = task->tid;
+		task->rstack = &task->ustack;
 
 		while (!read_task_ustack(handle, task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task->ustack;
@@ -551,6 +558,10 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			struct sym *sym = NULL;
 			char *name;
 			static bool last_comma = false;
+
+			fstack_update_stack_count(task);
+			if (!fstack_check_filter(task))
+				goto next;
 
 			if (sess) {
 				symtabs = &sess->symtabs;
@@ -563,12 +574,13 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 				pr_out(",\n");
 
 			print_ustack_chrome_trace(task, frs, tid, name);
+			symbol_putname(sym, name);
 
 			last_comma = true;
 
+next:
 			/* force re-read in read_task_ustack() */
 			task->valid = false;
-			symbol_putname(sym, name);
 		}
 	}
 
@@ -649,12 +661,15 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	setup_task_filter(opts->tid, &handle);
+	fstack_setup_filters(opts, &handle);
 
 	if (opts->chrome_trace)
 		dump_chrome_trace(argc, argv, opts, &handle);
 	else
 		dump_raw(argc, argv, opts, &handle);
+
+	if (handle.kern)
+		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 
