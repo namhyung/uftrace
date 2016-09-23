@@ -1386,11 +1386,27 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		send_trace_header(sock, opts->dirname);
 	}
 
+	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+
 	if (opts->kernel) {
 		kern.pid = pid;
 		kern.output_dir = opts->dirname;
 		kern.depth = opts->kernel_depth ?: 1;
 		kern.bufsize = opts->kernel_bufsize;
+
+		if (!opts->nr_thread) {
+			if (opts->kernel_depth >= 16)
+				opts->nr_thread = nr_cpu;
+			else if (opts->kernel_depth >= 8)
+				opts->nr_thread = nr_cpu / 2;
+		}
+
+		if (!opts->kernel_bufsize) {
+			if (opts->kernel_depth >= 16)
+				kern.bufsize = 4096 * 1024;
+			else if (opts->kernel_depth >= 8)
+				kern.bufsize = 2048 * 1024;
+		}
 
 		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
 			opts->kernel = false;
@@ -1398,14 +1414,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
-
-	if (!opts->nr_thread) {
-		if (opts->kernel == 2)
-			opts->nr_thread = nr_cpu;
-		else
-			opts->nr_thread = DIV_ROUND_UP(nr_cpu, 4);
-	}
+	if (!opts->nr_thread)
+		opts->nr_thread = DIV_ROUND_UP(nr_cpu, 4);
 	else if (opts->nr_thread > nr_cpu)
 		opts->nr_thread = nr_cpu;
 
