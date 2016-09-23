@@ -174,6 +174,7 @@ struct opts {
 	bool comment;
 	bool libmcount_single;
 	bool kernel_skip_out;
+	bool kernel_only;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

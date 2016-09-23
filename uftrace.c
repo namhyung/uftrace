@@ -80,6 +80,7 @@ enum options {
 	OPT_kernel_bufsize,
 	OPT_kernel_skip_out,
 	OPT_kernel_full,
+	OPT_kernel_only,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -133,6 +134,7 @@ static struct argp_option ftrace_options[] = {
 	{ "kernel-buffer", OPT_kernel_bufsize, "SIZE", 0, "Size of kernel tracing buffer" },
 	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user (deprecated)" },
 	{ "kernel-full", OPT_kernel_full, 0, 0, "Show kernel functions outside of user" },
+	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
 	{ 0 }
 };
 
@@ -552,6 +554,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_kernel_full:
 		opts->kernel_skip_out = false;
+		break;
+
+	case OPT_kernel_only:
+		opts->kernel_only = true;
 		break;
 
 	case ARGP_KEY_ARG:

@@ -339,7 +339,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid = handle->info.tids[i];
 
-		if (opts->kernel == 2)
+		if (opts->kernel && opts->kernel_only)
 			continue;
 
 		setup_task_handle(handle, &task, tid);
