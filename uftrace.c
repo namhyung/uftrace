@@ -349,7 +349,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'k':
-		opts->kernel = 1;
+		opts->kernel = true;
 		break;
 
 	case 'K':

@@ -424,23 +424,18 @@ void *writer_thread(void *arg)
 				goto out;
 			}
 
-			/* check kernel data every 1ms (or 10us) */
+			/* check kernel data every 1ms */
 			clock_gettime(CLOCK_REALTIME, &timeout);
-			switch (opts->kernel) {
-			case 1:
-				timeout.tv_nsec += 990000;
-				/* fall through */
-			case 2:
-				timeout.tv_nsec += 10000;
+			if (opts->kernel) {
+				timeout.tv_nsec += 100000;
 
 				if (timeout.tv_nsec > NSEC_PER_SEC) {
 					timeout.tv_nsec -= NSEC_PER_SEC;
 					timeout.tv_sec++;
 				}
-				break;
-			default:
+			}
+			else {
 				timeout.tv_sec++;
-				break;
 			}
 
 			pthread_cond_timedwait(&write_cond, &write_list_lock,
@@ -1398,7 +1393,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.bufsize = opts->kernel_bufsize;
 
 		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
-			opts->kernel = 0;
+			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}
 	}
@@ -1445,7 +1440,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->kernel && start_kernel_tracing(&kern) < 0) {
-		opts->kernel = 0;
+		opts->kernel = false;
 		pr_log("kernel tracing disabled due to an error\n");
 	}
 
