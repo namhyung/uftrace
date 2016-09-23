@@ -348,6 +348,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'k':
 		opts->kernel = 1;
+		opts->kernel_skip_out = true;
 		break;
 
 	case 'K':

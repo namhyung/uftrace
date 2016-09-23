@@ -558,9 +558,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
-
-		if (opts->kernel == 1)
-			opts->kernel_skip_out = true;
 	}
 
 	if (opts->filter || opts->trigger) {
