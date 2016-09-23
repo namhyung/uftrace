@@ -29,5 +29,5 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s -K --kernel-depth=2 --kernel-skip-out -N %s@kernel %s' % \
+        return '%s -k --kernel-depth=2 -N %s@kernel %s' % \
             (TestBase.ftrace, 'exit_to_usermode_loop', 't-' + self.name)

@@ -22,7 +22,7 @@ class TestCase(TestBase):
     def pre(self):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
-        record_cmd = '%s record -K -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record -K3 -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
