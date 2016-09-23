@@ -58,10 +58,7 @@ OPTIONS
 :   Print running time of children in time(1)-style.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  Only kernel entry/exit functions will be traced as if -D 1 was given.
-
--K, \--kernel-full
-:   Trace kernel functions as well as user functions.  Kernel functions will be traced in full detail (ie. without depth limit unless explicitly given)
+:   Trace kernel functions as well as user functions.  Only kernel entry/exit functions will be traced by default.  Use \--kernel-depth option to override it.
 
 -H *HOST*, \--host=*HOST*
 :   Send trace data to given host via network, not writing to files.  The `uftrace-recv` should be run on the host to receive the data.

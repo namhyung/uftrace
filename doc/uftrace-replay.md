@@ -55,11 +55,11 @@ OPTIONS
 -k, \--kernel
 :   Trace kernel functions as well as user functions.  Implies \--kernel-skip-out.
 
--K, \--kernel-full
-:   Trace kernel functions as well as user functions.  All kernel functions will be shown.
+\--kernel-full
+:   Show all kernel functions called outside of user functions.  This option is inverse of \--kernel-skip-out option.
 
 \--kernel-skip-out
-:   Do not show kernel functions out of user functions.
+:   Do not show kernel functions out of user functions.  This option is deprecated and set to true by default.
 
 
 FILTERS

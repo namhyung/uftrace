@@ -40,8 +40,8 @@ OPTIONS
 -k, \--kernel
 :   Trace kernel functions as well as user functions.  Only kernel functions inside user functions will be shown.
 
--K, \--kernel-full
-:   Trace kernel functions as well as user functions.  All kernel functions will be shown.
+--kernel-full
+:   Show all kernel functions called outside of user functions.
 
 
 EXAMPLE

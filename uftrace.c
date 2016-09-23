@@ -80,6 +80,7 @@ enum options {
 	OPT_kernel_depth,
 	OPT_kernel_bufsize,
 	OPT_kernel_skip_out,
+	OPT_kernel_full,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -104,7 +105,7 @@ static struct argp_option ftrace_options[] = {
 	{ "time", OPT_time, 0, 0, "Print time information" },
 	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
-	{ "kernel-full", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
+	{ "kernel2", 'K', 0, 0, "Trace kernel functions in detail (if supported)" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
@@ -132,7 +133,8 @@ static struct argp_option ftrace_options[] = {
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
 	{ "kernel-depth", OPT_kernel_depth, "DEPTH", 0, "Trace kernel functions within DEPTH" },
 	{ "kernel-buffer", OPT_kernel_bufsize, "SIZE", 0, "Size of kernel tracing buffer" },
-	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user" },
+	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user (deprecated)" },
+	{ "kernel-full", OPT_kernel_full, 0, 0, "Show kernel functions outside of user" },
 	{ 0 }
 };
 
@@ -348,7 +350,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'k':
 		opts->kernel = 1;
-		opts->kernel_skip_out = true;
 		break;
 
 	case 'K':
@@ -555,6 +556,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->kernel_skip_out = true;
 		break;
 
+	case OPT_kernel_full:
+		opts->kernel_skip_out = false;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -634,6 +639,7 @@ int main(int argc, char *argv[])
 		.color		= -1,  /* default to 'auto' (turn on if terminal) */
 		.column_offset	= 8,
 		.comment	= true,
+		.kernel_skip_out= true,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
