@@ -435,7 +435,7 @@ lost:
 		losts = (int)rstack->addr;
 
 		/* skip kernel lost messages outside of user functions */
-		if (opts->kernel == 1 && task->user_stack_count == 0)
+		if (opts->kernel_skip_out && task->user_stack_count == 0)
 			return 0;
 
 		/* give a new line when tid is changed */
