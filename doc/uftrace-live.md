@@ -56,7 +56,7 @@ OPTIONS
 :   Load necessary internal libraries from this path.  This is for testing.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  This is simply a shortcut to `--kernel-full --kernel-depth=1 --kernel-skip-out`.
+:   Trace kernel functions as well as user functions.  This is simply a shortcut to `--kernel-depth=1`.
 
 \--no-libcall
 :   Do not record library function invocations.  The uftrace traces library calls by hooking dynamic linker's resolve function in the PLT.  One can disable it with this option.
@@ -95,16 +95,16 @@ OPTIONS
 :   Boost priority of recording threads to real-time (FIFO) with priority of *PRIO*.  This is particularly useful high-volume data such as full kernel tracing.
 
 -K *DEPTH*, \--kernel-depth=*DEPTH*
-:   Set kernel max function depth separately.  Note that this option is meaningful only when used with -k,\--kernel option.
+:   Set kernel max function depth separately.  Implies \--kernel option.
 
 \--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.  Implied \--kernel option.
 
 \--kernel-skip-out
 :   Do not show kernel functions out of user functions.  This option is deprecated and set to true by default.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is inverse of \--kernel-skip-out option.
+:   Show all kernel functions called outside of user functions.  This option is inverse of \--kernel-skip-out option.  Implies \--kernel option.
 
 
 FILTERS

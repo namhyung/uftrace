@@ -41,7 +41,7 @@ OPTIONS
 :   Trace kernel functions as well as user functions.  Only kernel functions inside user functions will be shown.
 
 --kernel-full
-:   Show all kernel functions called outside of user functions.
+:   Show all kernel functions called outside of user functions.  Implies \--kernel option.
 
 
 EXAMPLE

@@ -88,10 +88,10 @@ OPTIONS
 :   Boost priority of recording threads to real-time (FIFO) with priority of *PRIO*.  This is particularly useful high-volume data such as full kernel tracing.
 
 -K *DEPTH*, \--kernel-depth=*DEPTH*
-:   Set kernel max function depth separately.  Note that this option is meaningful only when used with -k,\--kernel option.
+:   Set kernel max function depth separately.  Note that this option is meaningful only when used with -k,\--kernel option.  Implies --kernel option.
 
 \--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.  Implies \--kernel option.
 
 
 FILTERS

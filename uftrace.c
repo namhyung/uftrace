@@ -353,6 +353,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'K':
+		opts->kernel = true;
 		opts->kernel_depth = strtol(arg, NULL, 0);
 		if (opts->kernel_depth < 1 || opts->kernel_depth > 50) {
 			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
@@ -540,6 +541,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_kernel_bufsize:
+		opts->kernel = true;
 		opts->kernel_bufsize = parse_size(arg);
 		if (opts->kernel_bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
@@ -549,14 +551,17 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_kernel_skip_out:
+		opts->kernel = true;
 		opts->kernel_skip_out = true;
 		break;
 
 	case OPT_kernel_full:
+		opts->kernel = true;
 		opts->kernel_skip_out = false;
 		break;
 
 	case OPT_kernel_only:
+		opts->kernel = true;
 		opts->kernel_only = true;
 		break;
 

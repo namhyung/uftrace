@@ -27,7 +27,7 @@ OPTIONS
 :   Dump kernel functions as well
 
 \--kernel-only
-:   Dump kernel functions only.  This option is only meaningful when used with -k,\--kernel option.
+:   Dump kernel functions only.  Implies \--kernel option.
 
 
 EXAMPLE
