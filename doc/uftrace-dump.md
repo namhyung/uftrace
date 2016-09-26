@@ -23,6 +23,9 @@ OPTIONS
 \--chrome
 :   Show JSON style output used by Google chrome tracing facility.
 
+\--flame-graph
+:   Show FlameGraph style output (svg) used by modern web browsers.
+
 -k, \--kernel
 :   Dump kernel functions as well
 
@@ -96,6 +99,15 @@ This command dumps data like below:
     "command_line":"uftrace record abc ",
     "recorded_time":"Tue May 24 19:44:54 2016"
     } }
+
+    $ uftrace dump --flame-graph
+    __monstartup 1
+    __cxa_atexit 1
+    main 1
+    main;a 1
+    main;a;b 1
+    main;a;b;c 1
+    main;a;b;c;getpid 1
 
 
 SEE ALSO

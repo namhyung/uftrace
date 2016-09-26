@@ -56,6 +56,11 @@ struct uftrace_chrome_dump {
 	bool last_comma;
 };
 
+struct uftrace_flame_dump {
+	struct uftrace_dump_ops ops;
+	struct fg_node *node;
+};
+
 static void pr_time(uint64_t timestamp)
 {
 	unsigned sec   = timestamp / 1000000000;
@@ -650,6 +655,146 @@ static void print_chrome_footer(struct uftrace_dump_ops *ops,
 	}
 }
 
+/* flamegraph support */
+struct fg_node {
+	int calls;
+	char *name;
+	struct fg_node *parent;
+	struct list_head siblings;
+	struct list_head children;
+};
+
+static struct fg_node fg_root = {
+	.siblings = LIST_HEAD_INIT(fg_root.siblings),
+	.children = LIST_HEAD_INIT(fg_root.children),
+};
+
+static struct fg_node * add_fg_node(struct fg_node *parent, char *name)
+{
+	struct fg_node *child;
+
+	list_for_each_entry(child, &parent->children, siblings) {
+		if (!strcmp(name, child->name))
+			break;
+	}
+
+	if (list_no_entry(child, &parent->children, siblings)) {
+		child = xmalloc(sizeof(*child));
+
+		child->name = xstrdup(name);
+		child->calls = 0;
+		child->parent = parent;
+
+		INIT_LIST_HEAD(&child->children);
+		list_add(&child->siblings, &parent->children);
+	}
+
+	child->calls++;
+	return child;
+}
+
+static void print_flame_graph(struct fg_node *node, struct opts *opts)
+{
+	struct fg_node *child;
+
+	if (node->calls) {
+		struct fg_node *parent = node;
+		char *names[opts->max_stack];
+		char *buf, *ptr;
+		int i = 0;
+		size_t len = 0;
+
+		while (parent != &fg_root) {
+			names[i++] = parent->name;
+			len += strlen(parent->name) + 1;
+			parent = parent->parent;
+		}
+
+		buf = ptr = xmalloc(len + 32);
+		while (--i >= 0)
+			ptr += snprintf(ptr, len, "%s;", names[i]);
+		ptr[-1] = ' ';
+		snprintf(ptr, len, "%d", node->calls);
+
+		pr_out("%s\n", buf);
+		free(buf);
+	}
+
+	list_for_each_entry(child, &node->children, siblings)
+		print_flame_graph(child, opts);
+
+	free(node->name);
+	if (node != &fg_root)
+		free(node);
+}
+
+static void print_flame_header(struct uftrace_dump_ops *ops,
+			       struct ftrace_file_handle *handle,
+			       struct opts *opts)
+{
+}
+
+static void print_flame_task_start(struct uftrace_dump_ops *ops,
+				   struct ftrace_task_handle *task)
+{
+	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
+
+	flame->node = &fg_root;
+}
+
+static void print_flame_inverted_time(struct uftrace_dump_ops *ops,
+				      struct ftrace_task_handle *task)
+{
+}
+
+static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
+				    struct ftrace_task_handle *task, char *name)
+{
+	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
+	struct fg_node *node = flame->node;
+
+	if (frs->type == FTRACE_ENTRY)
+		node = add_fg_node(node, name);
+	else if (frs->type == FTRACE_EXIT)
+		node = node->parent;
+	else
+		node = &fg_root;
+
+	if (unlikely(node == NULL))
+		node = &fg_root;
+
+	flame->node = node;
+}
+
+static void print_flame_kernel_start(struct uftrace_dump_ops *ops,
+				     struct ftrace_kernel *kernel)
+{
+}
+
+static void print_flame_cpu_start(struct uftrace_dump_ops *ops,
+				  struct ftrace_kernel *kernel, int cpu)
+{
+}
+
+static void print_flame_kernel_mstack(struct uftrace_dump_ops *ops,
+				      struct ftrace_kernel *kernel, int cpu,
+				      struct mcount_ret_stack *mrs, char *name)
+{
+}
+
+static void print_flame_kernel_lost(struct uftrace_dump_ops *ops,
+				    uint64_t time, int tid, int losts)
+{
+}
+
+static void print_flame_footer(struct uftrace_dump_ops *ops,
+			       struct ftrace_file_handle *handle,
+			       struct opts *opts)
+{
+	print_flame_graph(&fg_root, opts);
+}
+
 static void do_dump(struct uftrace_dump_ops *ops, struct opts *opts,
 		    struct ftrace_file_handle *handle)
 {
@@ -772,6 +917,23 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.kernel         = print_chrome_kernel_mstack,
 				.lost           = print_chrome_kernel_lost,
 				.footer         = print_chrome_footer,
+			},
+		};
+
+		do_dump(&dump.ops, opts, &handle);
+	}
+	else if (opts->flame_graph) {
+		struct uftrace_flame_dump dump = {
+			.ops = {
+				.header         = print_flame_header,
+				.task_start     = print_flame_task_start,
+				.inverted_time  = print_flame_inverted_time,
+				.task_rstack    = print_flame_task_rstack,
+				.kernel_start   = print_flame_kernel_start,
+				.cpu_start      = print_flame_cpu_start,
+				.kernel         = print_flame_kernel_mstack,
+				.lost           = print_flame_kernel_lost,
+				.footer         = print_flame_footer,
 			},
 		};
 

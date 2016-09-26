@@ -70,6 +70,7 @@ enum options {
 	OPT_bind_not,
 	OPT_task_newline,
 	OPT_chrome_trace,
+	OPT_flame_graph,
 	OPT_diff,
 	OPT_sort_column,
 	OPT_tid_filter,
@@ -123,7 +124,7 @@ static struct argp_option ftrace_options[] = {
 	{ "time-filter", 't', "TIME", 0, "Hide small functions run less than the TIME" },
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
-	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recored data in chrome trace format" },
+	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recorded data in chrome trace format" },
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
@@ -135,6 +136,7 @@ static struct argp_option ftrace_options[] = {
 	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user (deprecated)" },
 	{ "kernel-full", OPT_kernel_full, 0, 0, "Show kernel functions outside of user" },
 	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
+	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ 0 }
 };
 
@@ -500,6 +502,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_chrome_trace:
 		opts->chrome_trace = true;
+		break;
+
+	case OPT_flame_graph:
+		opts->flame_graph = true;
 		break;
 
 	case OPT_diff:
