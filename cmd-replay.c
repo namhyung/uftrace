@@ -364,6 +364,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			/* leaf function - also consume return record */
+			read_rstack(handle, &next);
+
 			print_time_unit(fstack->total_time);
 
 			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
@@ -373,9 +375,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			}
 			else
 				pr_out("%s%s%s\n", symname, args, retval);
-
-			/* consume the rstack */
-			read_rstack(handle, &next);
 
 			/* fstack_update() is not needed here */
 

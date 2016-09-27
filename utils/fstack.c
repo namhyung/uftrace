@@ -844,6 +844,106 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
+void fstack_account_time(struct ftrace_task_handle *task)
+{
+	struct fstack *fstack;
+	struct ftrace_ret_stack *rstack = task->rstack;
+	bool is_kernel_func = (rstack == &task->kstack);
+
+	if (!task->display_depth_set) {
+		/* inherit display_depth after [v]fork() or recover from lost */
+		task->display_depth = rstack->depth;
+		if (rstack->type == FTRACE_EXIT)
+			task->display_depth++;
+		task->display_depth_set = true;
+
+		task->stack_count = rstack->depth;
+
+		if (is_kernel_func) {
+			task->display_depth += task->user_display_depth;
+			task->stack_count += task->user_stack_count;
+		}
+
+		task->filter.depth = task->h->depth - task->stack_count;
+	}
+
+	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
+		/* protect from broken kernel records */
+		task->display_depth = task->user_display_depth;
+		task->stack_count = task->user_stack_count;
+		task->filter.depth = task->h->depth - task->stack_count;
+	}
+
+	if (rstack->type == FTRACE_ENTRY) {
+		fstack = &task->func_stack[task->stack_count];
+
+		fstack->addr = rstack->addr;
+		fstack->total_time = rstack->time;
+		fstack->child_time = 0;
+		fstack->valid = true;
+	}
+	else if (rstack->type == FTRACE_EXIT) {
+		uint64_t delta;
+		int idx = task->stack_count - 1;
+
+		if (idx < 0) {
+			pr_dbg("Warning: negative stack count\n");
+			idx = 0;
+		}
+
+		fstack = &task->func_stack[idx];
+
+		delta = rstack->time - fstack->total_time;
+
+		if (!fstack->valid)
+			delta = 0UL;
+		fstack->valid = false;
+
+		fstack->total_time = delta;
+		if (fstack->child_time > fstack->total_time)
+			fstack->child_time = fstack->total_time;
+
+		/* add current time to parent's child time */
+		if (task->stack_count > 1)
+			fstack[-1].child_time += delta;
+	}
+	else if (rstack->type == FTRACE_LOST) {
+		int i;
+
+		task->lost_seen = true;
+		task->display_depth_set = false;
+
+		/* for user functions, these two have same value */
+		for (i = task->user_stack_count; i <= task->stack_count; i++) {
+			fstack = &task->func_stack[i];
+			fstack->total_time = 0;
+			fstack->valid = false;
+		}
+	}
+}
+
+void fstack_update_stack_count(struct ftrace_task_handle *task)
+{
+	if (task->rstack == &task->ustack)
+		task->ctx = FSTACK_CTX_USER;
+	else
+		task->ctx = FSTACK_CTX_KERNEL;
+
+	if (task->rstack->type == FTRACE_ENTRY)
+		task->stack_count++;
+	else if (task->rstack->type == FTRACE_EXIT &&
+		 task->stack_count > 0)
+		task->stack_count--;
+
+	if (task->ctx == FSTACK_CTX_USER) {
+		if (task->rstack->type == FTRACE_ENTRY)
+			task->user_stack_count++;
+		else if (task->rstack->type == FTRACE_EXIT &&
+			 task->user_stack_count > 0)
+			task->user_stack_count--;
+	}
+}
+
 static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct ftrace_task_handle **taskp,
 			 bool invalidate)
@@ -852,7 +952,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_kernel *kernel = handle->kern;
 	struct mcount_ret_stack kstack;
-	struct fstack *fstack;
 	uint64_t ktime;
 
 	u = read_user_stack(handle, taskp);
@@ -881,66 +980,11 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	if ((*taskp)->ustack.time < ktime) {
 user:
 		task = *taskp;
-
-		if (invalidate)
-			task->valid = false;
-
 		task->rstack = &task->ustack;
 
-		if (!task->display_depth_set) {
-			/* inherit display_depth after [v]fork() */
-			task->display_depth = task->ustack.depth;
-			if (task->ustack.type == FTRACE_EXIT)
-				task->display_depth++;
-			task->display_depth_set = true;
-
-			task->stack_count = task->display_depth;
-			task->filter.depth = handle->depth - task->stack_count;
+		if (invalidate) {
+			task->valid = false;
 		}
-
-		if (task->ctx == FSTACK_CTX_KERNEL && invalidate) {
-			/* protect from broken kernel records */
-			task->display_depth = task->user_display_depth;
-			task->stack_count = task->user_stack_count;
-			task->filter.depth = handle->depth - task->stack_count;
-		}
-
-		if (task->ustack.type == FTRACE_ENTRY) {
-			fstack = &task->func_stack[task->stack_count];
-
-			fstack->total_time = task->ustack.time;
-			fstack->child_time = 0;
-			fstack->valid = true;
-			fstack->addr = task->ustack.addr;
-		}
-		else if (task->ustack.type == FTRACE_EXIT) {
-			uint64_t delta;
-			int idx = task->stack_count - 1;
-
-			if (idx < 0)
-				idx = 0;
-
-			fstack = &task->func_stack[idx];
-
-			delta = task->ustack.time - fstack->total_time;
-
-			if (!fstack->valid)
-				delta = 0UL;
-			fstack->valid = false;
-
-			fstack->total_time = delta;
-			if (fstack->child_time > fstack->total_time)
-				fstack->child_time = fstack->total_time;
-
-			if (task->stack_count > 1)
-				fstack[-1].child_time += delta;
-		}
-		else if (task->ustack.type == FTRACE_LOST) {
-			task->lost_seen = true;
-		}
-
-		if (invalidate)
-			task->ctx = FSTACK_CTX_USER;
 	}
 	else {
 kernel:
@@ -980,84 +1024,16 @@ kernel:
 
 		task->rstack = &task->kstack;
 
-		if (!task->display_depth_set) {
-			/* kernel functions might start with >0 depth */
-			task->display_depth = task->user_display_depth + task->kstack.depth;
-			if (task->kstack.type == FTRACE_EXIT)
-				task->display_depth++;
-			task->display_depth_set = true;
-
-			task->stack_count = task->user_stack_count + task->kstack.depth;
-			task->filter.depth = handle->depth - task->stack_count;
+		if (invalidate) {
+			if (task->rstack->type == FTRACE_LOST)
+				kernel->missed_events[k] = 0;
 		}
-
-		if (task->rstack->type == FTRACE_ENTRY) {
-			fstack = &task->func_stack[task->stack_count];
-
-			fstack->valid = true;
-			fstack->addr = kstack.child_ip;
-			fstack->child_time = 0;
-		}
-		else if (task->rstack->type == FTRACE_EXIT) {
-			int idx = task->stack_count - 1;
-			uint64_t delta = kstack.end_time - kstack.start_time;
-
-			if (idx < 0)
-				idx = 0;
-
-			fstack = &task->func_stack[idx];
-
-			if (!fstack->valid) {
-				delta = 0UL;
-				fstack->addr = kstack.child_ip;
-			}
-			fstack->valid = false;
-
-			fstack->total_time = delta;
-			if (fstack->child_time > fstack->total_time)
-				fstack->child_time = fstack->total_time;
-
-			if (task->stack_count > 1) {
-				uint64_t child_time = fstack->total_time;
-
-				fstack[-1].child_time += child_time;
-			}
-		}
-		else if (task->rstack->type == FTRACE_LOST) {
-			int i;
-
-			task->lost_seen = true;
-			task->display_depth_set = false;
-
-			for (i = task->user_stack_count; i <= task->stack_count; i++) {
-				fstack = &task->func_stack[i];
-				fstack->total_time = 0;
-				fstack->valid = false;
-			}
-		}
-
-		if (invalidate)
-			task->ctx = FSTACK_CTX_KERNEL;
 	}
 
 	/* update stack count when the rstack is actually used */
 	if (invalidate) {
-		if (task->rstack->type == FTRACE_ENTRY)
-			task->stack_count++;
-		else if (task->rstack->type == FTRACE_EXIT &&
-			 task->stack_count > 0)
-			task->stack_count--;
-		else if (task->rstack->type == FTRACE_LOST &&
-			 task->ctx == FSTACK_CTX_KERNEL)
-			kernel->missed_events[k] = 0;
-
-		if (task->ctx == FSTACK_CTX_USER) {
-			if (task->rstack->type == FTRACE_ENTRY)
-				task->user_stack_count++;
-			else if (task->rstack->type == FTRACE_EXIT &&
-				 task->user_stack_count > 0)
-				task->user_stack_count--;
-		}
+		fstack_account_time(task);
+		fstack_update_stack_count(task);
 	}
 
 	*taskp = task;
