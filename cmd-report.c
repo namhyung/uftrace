@@ -569,7 +569,7 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 		if (rstack->type == FTRACE_LOST)
 			continue;
 
-		if (opts->kernel == 1) {
+		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (is_kernel_address(task->func_stack[0].addr) &&
 			    is_kernel_address(rstack->addr))
@@ -943,9 +943,6 @@ int command_report(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
-
-		if (opts->kernel == 1)
-			opts->kernel_skip_out = true;
 	}
 
 	if (opts->tid)

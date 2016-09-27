@@ -435,7 +435,7 @@ lost:
 		losts = (int)rstack->addr;
 
 		/* skip kernel lost messages outside of user functions */
-		if (opts->kernel == 1 && task->user_stack_count == 0)
+		if (opts->kernel_skip_out && task->user_stack_count == 0)
 			return 0;
 
 		/* give a new line when tid is changed */
@@ -470,7 +470,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 	unsigned long ip = task->func_stack[0].addr;
 
 	/* skip 'sys_exit[_group] at last for kernel tracing */
-	if (opts->kernel == 0 || task->user_stack_count != 0)
+	if (!opts->kernel || task->user_stack_count != 0)
 		return false;
 
 	if (is_kernel_address(ip)) {
@@ -558,9 +558,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
-
-		if (opts->kernel == 1)
-			opts->kernel_skip_out = true;
 	}
 
 	if (opts->filter || opts->trigger) {

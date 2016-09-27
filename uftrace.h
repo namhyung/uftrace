@@ -143,7 +143,6 @@ struct opts {
 	int depth;
 	int kernel_depth;
 	int max_stack;
-	int kernel;
 	int port;
 	int color;
 	int column_offset;
@@ -173,7 +172,9 @@ struct opts {
 	bool chrome_trace;
 	bool comment;
 	bool libmcount_single;
+	bool kernel;
 	bool kernel_skip_out;
+	bool kernel_only;
 };
 
 int command_record(int argc, char *argv[], struct opts *opts);

@@ -23,6 +23,12 @@ OPTIONS
 \--chrome
 :   Show JSON style output used by Google chrome tracing facility.
 
+-k, \--kernel
+:   Dump kernel functions as well
+
+\--kernel-only
+:   Dump kernel functions only.  Implies \--kernel option.
+
 
 EXAMPLE
 =======

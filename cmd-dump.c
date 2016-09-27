@@ -339,7 +339,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid = handle->info.tids[i];
 
-		if (opts->kernel == 2)
+		if (opts->kernel && opts->kernel_only)
 			continue;
 
 		setup_task_handle(handle, &task, tid);
@@ -403,7 +403,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 		}
 	}
 
-	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
+	if (!opts->kernel || handle->kern == NULL || ftrace_done)
 		return;
 
 	pr_out("\n");
@@ -576,7 +576,7 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 		}
 	}
 
-	if (opts->kernel == 0 || handle->kern == NULL || ftrace_done)
+	if (!opts->kernel || handle->kern == NULL || ftrace_done)
 		goto json_footer;
 
 	pr_out(",\n");
