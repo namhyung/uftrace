@@ -115,7 +115,8 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	int *filter_tids = NULL;
 	char *p = tid_filter;
 
-	assert(tid_filter);
+	if (tid_filter == NULL)
+		goto setup;
 
 	do {
 		int id;
@@ -130,14 +131,13 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 
 	} while (*p);
 
+setup:
 	handle->nr_tasks = handle->info.nr_tid;
 	handle->tasks = xmalloc(sizeof(*handle->tasks) * handle->nr_tasks);
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		bool found = false;
 		int tid = handle->info.tids[i];
-
-		handle->tasks[i].tid = tid;
 
 		for (k = 0; k < nr_filters; k++) {
 			if (tid == filter_tids[k]) {
@@ -149,9 +149,12 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 		if (!found) {
 			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
 			handle->tasks[i].done = true;
+			handle->tasks[i].fp = NULL;
+			handle->tasks[i].tid = tid;
 			continue;
 		}
 
+		handle->tasks[i].tid = tid;
 		setup_task_handle(handle, &handle->tasks[i], tid);
 	}
 
