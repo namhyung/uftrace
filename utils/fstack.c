@@ -136,7 +136,7 @@ setup:
 	handle->tasks = xmalloc(sizeof(*handle->tasks) * handle->nr_tasks);
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		bool found = false;
+		bool found = !tid_filter;
 		int tid = handle->info.tids[i];
 
 		for (k = 0; k < nr_filters; k++) {
@@ -784,18 +784,6 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
 
-	if (unlikely(idx >= handle->nr_tasks)) {
-		handle->nr_tasks = idx + 1;
-		handle->tasks = xrealloc(handle->tasks,
-					 sizeof(*handle->tasks) * handle->nr_tasks);
-
-		setup_task_handle(handle, &handle->tasks[idx],
-				  handle->info.tids[idx]);
-
-		if (handle->tasks[idx].fp == NULL)
-			return NULL;
-	}
-
 	task = &handle->tasks[idx];
 
 	if (read_task_ustack(handle, task) < 0)
@@ -1160,6 +1148,7 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 
 		test_tasks[i].tid = handle->info.tids[i];
 	}
+	setup_task_filter(NULL, handle);
 
 	atexit(fstack_test_finish_file);
 	return 0;

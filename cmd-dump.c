@@ -653,6 +653,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
+	setup_task_filter(opts->tid, &handle);
+
 	if (opts->chrome_trace)
 		dump_chrome_trace(argc, argv, opts, &handle);
 	else

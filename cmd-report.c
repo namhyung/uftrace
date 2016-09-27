@@ -889,6 +889,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	tmp = RB_ROOT;
 
 	open_data_file(&dummy_opts, &data.handle);
+	fstack_setup_filters(&dummy_opts, &data.handle);
 	build_function_tree(&data.handle, &tmp, &dummy_opts);
 	sort_function_name(&tmp, &data.root);
 
@@ -945,8 +946,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->tid)
-		setup_task_filter(opts->tid, &handle);
+	setup_task_filter(opts->tid, &handle);
 
 	if (opts->sort_keys)
 		setup_sort(opts->sort_keys);

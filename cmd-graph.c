@@ -500,6 +500,8 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
+	setup_task_filter(opts->tid, &handle);
+
 	fstack_prepare_fixup();
 
 	ret = build_graph(opts, &handle, func);
