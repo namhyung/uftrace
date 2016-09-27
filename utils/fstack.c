@@ -297,6 +297,32 @@ void setup_fstack_args(char *argspec)
 }
 
 /**
+ * fstack_setup_filters - setup necessary filters for processing data
+ *
+ * This function sets up all kind of filters given by user.
+ */
+int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle)
+{
+	if (opts->filter || opts->trigger) {
+		if (setup_fstack_filters(opts->filter, opts->trigger) < 0) {
+			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
+				  opts->filter ?: "",
+				  (opts->filter && opts->trigger) ? " or " : "",
+				  opts->trigger ?: "");
+			return -1;
+		}
+	}
+
+	if (opts->disabled)
+		fstack_enabled = false;
+
+	setup_task_filter(opts->tid, handle);
+
+	fstack_prepare_fixup();
+	return 0;
+}
+
+/**
  * fstack_entry - function entry handler
  * @task    - tracee task
  * @rstack  - function return stack

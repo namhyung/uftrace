@@ -109,6 +109,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 int setup_fstack_filters(char *filter_str, char *trigger_str);
 void setup_fstack_args(char *argspec);
 void fstack_prepare_fixup(void);
+int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle);
 
 int fstack_entry(struct ftrace_task_handle *task,
 		 struct ftrace_ret_stack *rstack,

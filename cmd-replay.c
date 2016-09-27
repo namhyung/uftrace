@@ -560,22 +560,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->filter || opts->trigger) {
-		if (setup_fstack_filters(opts->filter, opts->trigger) < 0) {
-			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
-				  opts->filter ?: "",
-				  (opts->filter && opts->trigger) ? " or " : "",
-				  opts->trigger ?: "");
-			return -1;
-		}
-	}
-
-	if (opts->disabled)
-		fstack_enabled = false;
-
-	setup_task_filter(opts->tid, &handle);
-
-	fstack_prepare_fixup();
+	fstack_setup_filters(opts, &handle);
 
 	if (!opts->flat)
 		pr_out("# DURATION    TID     FUNCTION\n");
