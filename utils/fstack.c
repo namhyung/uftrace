@@ -626,6 +626,42 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	return next;
 }
 
+/**
+ * fstack_check_filter - Check filter for current function
+ * @task       - tracee task
+ *
+ * This function checks @task->func_stack and returns whether it
+ * should be filtered out or not.  True means it's ok to process
+ * this function and false means it should be skipped.
+ */
+bool fstack_check_filter(struct ftrace_task_handle *task)
+{
+	struct fstack *fstack;
+	struct ftrace_trigger tr = {};
+
+	if (task->rstack->type == FTRACE_ENTRY) {
+		fstack = &task->func_stack[task->stack_count - 1];
+
+		if (fstack_entry(task, task->rstack, &tr) < 0)
+			return false;
+
+		fstack_update(FTRACE_ENTRY, task, fstack);
+	}
+	else if (task->rstack->type == FTRACE_EXIT) {
+		fstack = &task->func_stack[task->stack_count];
+
+		if ((fstack->flags & FSTACK_FL_NORECORD) || !fstack_enabled) {
+			fstack_exit(task);
+			return false;
+		}
+
+		fstack_update(FTRACE_EXIT, task, fstack);
+		fstack_exit(task);
+	}
+
+	return true;
+}
+
 static int __read_task_ustack(struct ftrace_task_handle *task)
 {
 	FILE *fp = task->fp;

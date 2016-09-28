@@ -122,6 +122,7 @@ void fstack_update_stack_count(struct ftrace_task_handle *task);
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth);
+bool fstack_check_filter(struct ftrace_task_handle *task);
 void get_argspec_string(struct ftrace_task_handle *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode);
