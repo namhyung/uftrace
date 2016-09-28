@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+#
+# don't use $(MAKE) for the sub-makes here; having MAKEFLAGS=w active for
+# config/Makefile makes its subshell `make` invocation produce output, which
+# causes Make to try and parse that output as Makefile contents, which breaks.
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	./configure --prefix=/usr --libdir=/usr/lib/uftrace
+
+override_dh_auto_build:
+	MAKEFLAGS= make
+
+override_dh_auto_install:
+	MAKEFLAGS= make install DESTDIR=$(CURDIR)/debian/tmp/
+
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+override_dh_auto_test:
+	@# pipe to avoid pager invocation, plus strip out ansi codes that are
+	@# apparently not opt-outable in tests/unittest.c
+	MAKEFLAGS= make test | sed -e "$$(printf 's/\033\\[[0-9;]*m//g')"
+endif
+
+override_dh_auto_clean:
+	MAKEFLAGS= make clean
+	$(RM) .config

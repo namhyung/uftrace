@@ -1,0 +1,35 @@
+Source: uftrace
+Section: utils
+Priority: optional
+Maintainer: paul cannon <pik@debian.org>
+Build-Depends: debhelper (>= 9), libelf-dev, pandoc
+Standards-Version: 3.9.7
+Homepage: https://github.com/namhyung/uftrace
+
+Package: uftrace
+Architecture: amd64 armel armhf arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Traces and analyzes execution of programs written in C/C++
+ The uftrace tool is intended for tracing and analyzing the execution of
+ programs written in C or C++. It was heavily inspired by the ftrace framework
+ of the Linux kernel (especially the function graph tracer) and supports
+ userspace programs. It supports various kinds of commands and filters to help
+ analysis of the program's execution and performance.
+ .
+ It traces each function in the executable and shows time durations. It can
+ also trace external library calls - but only entry and exit are supported, and
+ internal function calls within the library cannot be traced unless the library
+ itself was built with profiling enabled.
+ .
+ It can show detailed execution flow at function level, and report which
+ function has the highest overhead. It also shows various information
+ related to the execution environment.
+ .
+ You can setup filters to exclude or include specific functions when tracing.
+ In addition, function arguments and return values can be saved and shown
+ later.
+ .
+ The uftrace tool supports multi-process and/or multi-threaded applications.
+ It can also trace kernel functions as well, with root privileges and if the
+ system enables the function graph tracer in the kernel
+ (CONFIG_FUNCTION_GRAPH_TRACER=y).
