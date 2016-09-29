@@ -139,7 +139,7 @@ LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT
 COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/uftrace.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmd-record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
