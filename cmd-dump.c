@@ -13,6 +13,49 @@
 #include "libtraceevent/kbuffer.h"
 
 
+struct uftrace_dump_ops {
+	/* this is called at the beginning */
+	void (*header)(struct uftrace_dump_ops *ops,
+		       struct ftrace_file_handle *handle, struct opts *opts);
+	/* this is called when a task starts */
+	void (*task_start)(struct uftrace_dump_ops *ops,
+			   struct ftrace_task_handle *task);
+	/* this is called when a record's time is before the previous */
+	void (*inverted_time)(struct uftrace_dump_ops *ops,
+			      struct ftrace_task_handle *task);
+	/* this is called for each user-level function entry/exit */
+	void (*task_rstack)(struct uftrace_dump_ops *ops,
+			    struct ftrace_task_handle *task, char *name);
+	/* this is called when kernel data starts */
+	void (*kernel_start)(struct uftrace_dump_ops *ops,
+			     struct ftrace_kernel *kernel);
+	/* this is called when a cpu data start */
+	void (*cpu_start)(struct uftrace_dump_ops *ops,
+			  struct ftrace_kernel *kernel, int cpu);
+	/* this is called for each kernel-level function entry/exit */
+	void (*kernel)(struct uftrace_dump_ops *ops,
+		       struct ftrace_kernel *kernel, int cpu,
+		       struct mcount_ret_stack *mrs, char *name);
+	/* thius is called when there's a lost record (usually in kernel) */
+	void (*lost)(struct uftrace_dump_ops *ops,
+		     uint64_t time, int tid, int losts);
+	/* this is called at the end */
+	void (*footer)(struct uftrace_dump_ops *ops,
+		       struct ftrace_file_handle *handle, struct opts *opts);
+};
+
+struct uftrace_raw_dump {
+	struct uftrace_dump_ops ops;
+	uint64_t file_offset;
+	uint64_t kbuf_offset;
+};
+
+struct uftrace_chrome_dump {
+	struct uftrace_dump_ops ops;
+	unsigned lost_event_cnt;
+	bool last_comma;
+};
+
 static void pr_time(uint64_t timestamp)
 {
 	unsigned sec   = timestamp / 1000000000;
@@ -303,11 +346,12 @@ static void pr_retval(struct fstack_arguments *args)
 	}
 }
 
-static void print_raw_header(struct ftrace_file_handle *handle,
-			     uint64_t *file_offset,
+static void print_raw_header(struct uftrace_dump_ops *ops,
+			     struct ftrace_file_handle *handle,
 			     struct opts *opts)
 {
 	int i;
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_out("uftrace file header: magic         = ");
 	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)
@@ -321,7 +365,7 @@ static void print_raw_header(struct ftrace_file_handle *handle,
 	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
 	pr_out("uftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
 	pr_out("uftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
-	pr_hex(file_offset, &handle->hdr, handle->hdr.header_size);
+	pr_hex(&raw->file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");
 
 	if (debug) {
@@ -335,12 +379,14 @@ static void print_raw_header(struct ftrace_file_handle *handle,
 	}
 }
 
-static void print_raw_task_start(struct ftrace_task_handle *task)
+static void print_raw_task_start(struct uftrace_dump_ops *ops,
+				 struct ftrace_task_handle *task)
 {
 	pr_out("reading %d.dat\n", task->tid);
 }
 
-static void print_raw_inverted_time(struct ftrace_task_handle *task)
+static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
+				    struct ftrace_task_handle *task)
 {
 	pr_red("\n");
 	pr_red("*************************************\n");
@@ -349,17 +395,18 @@ static void print_raw_inverted_time(struct ftrace_task_handle *task)
 	pr_red("\n");
 }
 
-static void print_raw_task_rstack(struct ftrace_task_handle *task,
-				  char *name, uint64_t *file_offset)
+static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
+				  struct ftrace_task_handle *task, char *name)
 {
 	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
 	       task->tid, frs->type == FTRACE_EXIT ? "exit " :
 	       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
 	       name, (unsigned long)frs->addr, frs->depth);
-	pr_hex(file_offset, frs, sizeof(*frs));
+	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
 	if (frs->more) {
 		if (frs->type == FTRACE_ENTRY) {
@@ -367,33 +414,42 @@ static void print_raw_task_rstack(struct ftrace_task_handle *task,
 			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
 			       task->args.len);
 			pr_args(&task->args);
-			pr_hex(file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data, task->args.len);
 		} else if (frs->type == FTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
-			pr_hex(file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data, task->args.len);
 		} else
 			abort();
 	}
 }
 
-static void print_raw_kernel_start(struct ftrace_kernel *kernel)
+static void print_raw_kernel_start(struct uftrace_dump_ops *ops,
+				   struct ftrace_kernel *kernel)
 {
 	pr_out("\n");
 }
 
-static void print_raw_cpu_start(struct ftrace_kernel *kernel, int cpu)
+static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
+				struct ftrace_kernel *kernel, int cpu)
 {
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+	struct kbuffer *kbuf = kernel->kbufs[cpu];
+
 	pr_out("reading kernel-cpu%d.dat\n", cpu);
+
+	raw->file_offset = 0;
+	raw->kbuf_offset = kbuffer_curr_offset(kbuf);
 }
 
-static void print_raw_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
-				    struct mcount_ret_stack *mrs, char *name,
-				    uint64_t *file_offset, int *kbuf_offset)
+static void print_raw_kernel_mstack(struct uftrace_dump_ops *ops,
+				    struct ftrace_kernel *kernel, int cpu,
+				    struct mcount_ret_stack *mrs, char *name)
 {
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_time(mrs->end_time ?: mrs->start_time);
 	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
@@ -402,149 +458,66 @@ static void print_raw_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
 
 	if (debug) {
 		/* this is only needed for hex dump */
-		void *data = kbuffer_read_at_offset(kbuf, *kbuf_offset, NULL);
+		void *data = kbuffer_read_at_offset(kbuf, raw->kbuf_offset, NULL);
 		int size;
 
 		size = kbuffer_event_size(kbuf);
-		*file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
-		pr_hex(file_offset, data, size);
+		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
+		pr_hex(&raw->file_offset, data, size);
 
 		if (kbuffer_next_event(kbuf, NULL))
-			*kbuf_offset += size + 4;  // 4 = event header size
+			raw->kbuf_offset += size + 4;  // 4 = event header size
 		else
-			*kbuf_offset = 0;
+			raw->kbuf_offset = 0;
 	}
 }
 
-static void print_raw_kernel_lost(uint64_t time, int tid, int losts)
+static void print_raw_kernel_lost(struct uftrace_dump_ops *ops,
+				    uint64_t time, int tid, int losts)
 {
 	pr_time(time);
 	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
 }
 
-static void print_raw_footer(struct opts *opts,
-			     struct ftrace_file_handle *handle)
+static void print_raw_footer(struct uftrace_dump_ops *ops,
+			     struct ftrace_file_handle *handle,
+			     struct opts *opts)
 {
 }
 
-static void dump_raw(int argc, char *argv[], struct opts *opts,
-		     struct ftrace_file_handle *handle)
-{
-	int i;
-	uint64_t prev_time;
-	uint64_t file_offset = 0;
-	struct ftrace_task_handle *task;
-
-	print_raw_header(handle, &file_offset, opts);
-
-	for (i = 0; i < handle->info.nr_tid; i++) {
-		int tid;
-
-		if (opts->kernel && opts->kernel_only)
-			continue;
-
-		task = &handle->tasks[i];
-		tid = task->tid;
-		task->rstack = &task->ustack;
-
-		prev_time = 0;
-		file_offset = 0;
-
-		print_raw_task_start(task);
-
-		while (!read_task_ustack(handle, task) && !ftrace_done) {
-			struct ftrace_ret_stack *frs = &task->ustack;
-			struct ftrace_session *sess = find_task_session(tid, frs->time);
-			struct symtabs *symtabs;
-			struct sym *sym = NULL;
-			char *name;
-
-			if (sess) {
-				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr);
-			}
-
-			name = symbol_getname(sym, frs->addr);
-
-			if (prev_time > frs->time)
-				print_raw_inverted_time(task);
-			prev_time = frs->time;
-
-			fstack_update_stack_count(task);
-			if (!fstack_check_filter(task))
-				goto next;
-
-			print_raw_task_rstack(task, name, &file_offset);
-			symbol_putname(sym, name);
-
-next:
-			/* force re-read in read_task_ustack() */
-			task->valid = false;
-		}
-	}
-
-	if (!opts->kernel || handle->kern == NULL || ftrace_done)
-		goto footer;
-
-	print_raw_kernel_start(handle->kern);
-
-	for (i = 0; i < handle->kern->nr_cpus; i++) {
-		struct ftrace_kernel *kernel = handle->kern;
-		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
-		struct kbuffer *kbuf = kernel->kbufs[i];
-		int offset;
-		struct sym *sym;
-		char *name;
-
-		file_offset = 0;
-		offset = kbuffer_curr_offset(kbuf);
-
-		print_raw_cpu_start(kernel, i);
-
-		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
-			int losts = kernel->missed_events[i];
-
-			if (losts) {
-				uint64_t time = mrs->end_time ?: mrs->start_time;
-
-				print_raw_kernel_lost(time, mrs->tid, losts);
-				kernel->missed_events[i] = 0;
-			}
-
-			sym = find_symtabs(NULL, mrs->child_ip);
-			name = symbol_getname(sym, mrs->child_ip);
-
-			print_raw_kernel_mstack(kernel, i, mrs, name,
-						&file_offset, &offset);
-
-			symbol_putname(sym, name);
-		}
-	}
-
-footer:
-	print_raw_footer(opts, handle);
-}
-
-static void print_chrome_header(struct ftrace_file_handle *handle,
+static void print_chrome_header(struct uftrace_dump_ops *ops,
+				struct ftrace_file_handle *handle,
 				struct opts *opts)
 {
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+
 	pr_out("{\"traceEvents\":[\n");
+
+	chrome->last_comma = false;
 }
 
-static void print_chrome_task_start(struct ftrace_task_handle *task)
+static void print_chrome_task_start(struct uftrace_dump_ops *ops,
+				    struct ftrace_task_handle *task)
 {
 }
 
-static void print_chrome_inverted_time(struct ftrace_task_handle *task)
+static void print_chrome_inverted_time(struct uftrace_dump_ops *ops,
+				       struct ftrace_task_handle *task)
 {
 }
 
-static void print_chrome_task_rstack(struct ftrace_task_handle *task, char *name)
+static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
+				     struct ftrace_task_handle *task, char *name)
 {
 	char ph;
 	char spec_buf[1024];
 	struct ftrace_ret_stack *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+
+	if (chrome->last_comma)
+		pr_out(",\n");
+	chrome->last_comma = true;
 
 	if (frs->type == FTRACE_ENTRY) {
 		ph = 'B';
@@ -555,9 +528,11 @@ static void print_chrome_task_rstack(struct ftrace_task_handle *task, char *name
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
 				spec_buf);
-		} else
+		}
+		else
 			pr_out("}");
-	} else if (frs->type == FTRACE_EXIT) {
+	}
+	else if (frs->type == FTRACE_EXIT) {
 		ph = 'E';
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, ph, task->tid, name);
@@ -566,32 +541,45 @@ static void print_chrome_task_rstack(struct ftrace_task_handle *task, char *name
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"retval\":\"%s\"}}",
 				spec_buf);
-		} else
+		}
+		else
 			pr_out("}");
-	} else
+	}
+	else
 		abort();
 }
 
-static void print_chrome_kernel_start(struct ftrace_kernel *kernel)
+static void print_chrome_kernel_start(struct uftrace_dump_ops *ops,
+				      struct ftrace_kernel *kernel)
 {
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+
 	pr_out(",\n");
+	chrome->last_comma = false;
 }
 
-static void print_chrome_cpu_start(struct ftrace_kernel *kernel, int cpu)
+static void print_chrome_cpu_start(struct uftrace_dump_ops *ops,
+				   struct ftrace_kernel *kernel, int cpu)
 {
 }
 
-static void print_chrome_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
+static void print_chrome_kernel_mstack(struct uftrace_dump_ops *ops,
+				       struct ftrace_kernel *kernel, int cpu,
 				       struct mcount_ret_stack *mrs, char *name)
 {
 	char ph;
 	uint64_t timestamp = mrs->end_time ?: mrs->start_time;
 	enum ftrace_ret_stack_type rstack_type;
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
 	if (mrs->end_time)
 		rstack_type = FTRACE_EXIT;
 	else
 		rstack_type = FTRACE_ENTRY;
+
+	if (chrome->last_comma)
+		pr_out(",\n");
+	chrome->last_comma = true;
 
 	/*
 	 * We may add a category info with "cat" field later to distinguish that
@@ -613,16 +601,21 @@ static void print_chrome_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
 		abort();
 }
 
-static void print_chrome_kernel_lost(uint64_t time, int tid, int losts)
+static void print_chrome_kernel_lost(struct uftrace_dump_ops *ops,
+				     uint64_t time, int tid, int losts)
 {
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+
+	chrome->lost_event_cnt++;
 }
 
-static void print_chrome_footer(struct opts *opts,
+static void print_chrome_footer(struct uftrace_dump_ops *ops,
 				struct ftrace_file_handle *handle,
-				unsigned lost_event_cnt)
+				struct opts *opts)
 {
 	char buf[PATH_MAX];
 	struct stat statbuf;
+	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
 	/* read recorded date and time */
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -649,31 +642,36 @@ static void print_chrome_footer(struct opts *opts,
 	 * match entry and exit of some lost functions, we just inform the fact
 	 * to users as of now.
 	 */
-	if (lost_event_cnt) {
+	if (chrome->lost_event_cnt) {
 		pr_warn("Some of function trace records are lost. "
-			"(%d times shown)\n", lost_event_cnt);
+			"(%d times shown)\n", chrome->lost_event_cnt);
 		pr_warn("The output json format may not show the correct view "
 			"in chrome browser.\n");
 	}
 }
 
-static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
-			      struct ftrace_file_handle *handle)
+static void do_dump(struct uftrace_dump_ops *ops, struct opts *opts,
+		    struct ftrace_file_handle *handle)
 {
 	int i;
-	unsigned lost_event_cnt = 0;
+	uint64_t prev_time;
 	struct ftrace_task_handle *task;
 
-	print_chrome_header(handle, opts);
+	ops->header(ops, handle, opts);
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid;
+
+		if (opts->kernel && opts->kernel_only)
+			continue;
 
 		task = &handle->tasks[i];
 		tid = task->tid;
 		task->rstack = &task->ustack;
 
-		print_chrome_task_start(task);
+		prev_time = 0;
+
+		ops->task_start(ops, task);
 
 		while (!read_task_ustack(handle, task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task->ustack;
@@ -681,11 +679,6 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 			struct symtabs *symtabs;
 			struct sym *sym = NULL;
 			char *name;
-			static bool last_comma = false;
-
-			fstack_update_stack_count(task);
-			if (!fstack_check_filter(task))
-				goto next;
 
 			if (sess) {
 				symtabs = &sess->symtabs;
@@ -694,13 +687,16 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 
 			name = symbol_getname(sym, frs->addr);
 
-			if (last_comma)
-				pr_out(",\n");
+			if (prev_time > frs->time)
+				ops->inverted_time(ops, task);
+			prev_time = frs->time;
 
-			print_chrome_task_rstack(task, name);
+			fstack_update_stack_count(task);
+			if (!fstack_check_filter(task))
+				goto next;
+
+			ops->task_rstack(ops, task, name);
 			symbol_putname(sym, name);
-
-			last_comma = true;
 
 next:
 			/* force re-read in read_task_ustack() */
@@ -709,9 +705,9 @@ next:
 	}
 
 	if (!opts->kernel || handle->kern == NULL || ftrace_done)
-		goto json_footer;
+		goto footer;
 
-	print_chrome_kernel_start(handle->kern);
+	ops->kernel_start(ops, handle->kern);
 
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
@@ -719,36 +715,29 @@ next:
 		struct sym *sym;
 		char *name;
 
-		print_chrome_cpu_start(kernel, i);
+		ops->cpu_start(ops, kernel, i);
 
 		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
-			static bool last_comma = false;
 			int losts = kernel->missed_events[i];
+
+			if (losts) {
+				uint64_t time = mrs->end_time ?: mrs->start_time;
+
+				ops->lost(ops, time, mrs->tid, losts);
+				kernel->missed_events[i] = 0;
+			}
 
 			sym = find_symtabs(NULL, mrs->child_ip);
 			name = symbol_getname(sym, mrs->child_ip);
 
-			if (last_comma)
-				pr_out(",\n");
-
-			/* it just counts the number of LOST events occured */
-			if (losts) {
-				uint64_t time = mrs->end_time ?: mrs->start_time;
-
-				print_chrome_kernel_lost(time, mrs->tid, losts);
-				kernel->missed_events[i] = 0;
-				lost_event_cnt++;
-			}
-
-			print_chrome_kernel_mstack(kernel, i, mrs, name);
-			last_comma = true;
+			ops->kernel(ops, kernel, i, mrs, name);
 
 			symbol_putname(sym, name);
 		}
 	}
 
-json_footer:
-	print_chrome_footer(opts, handle, lost_event_cnt);
+footer:
+	ops->footer(ops, handle, opts);
 }
 
 int command_dump(int argc, char *argv[], struct opts *opts)
@@ -771,10 +760,40 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	if (opts->chrome_trace)
-		dump_chrome_trace(argc, argv, opts, &handle);
-	else
-		dump_raw(argc, argv, opts, &handle);
+	if (opts->chrome_trace) {
+		struct uftrace_chrome_dump dump = {
+			.ops = {
+				.header         = print_chrome_header,
+				.task_start     = print_chrome_task_start,
+				.inverted_time  = print_chrome_inverted_time,
+				.task_rstack    = print_chrome_task_rstack,
+				.kernel_start   = print_chrome_kernel_start,
+				.cpu_start      = print_chrome_cpu_start,
+				.kernel         = print_chrome_kernel_mstack,
+				.lost           = print_chrome_kernel_lost,
+				.footer         = print_chrome_footer,
+			},
+		};
+
+		do_dump(&dump.ops, opts, &handle);
+	}
+	else {
+		struct uftrace_raw_dump dump = {
+			.ops = {
+				.header         = print_raw_header,
+				.task_start     = print_raw_task_start,
+				.inverted_time  = print_raw_inverted_time,
+				.task_rstack    = print_raw_task_rstack,
+				.kernel_start   = print_raw_kernel_start,
+				.cpu_start      = print_raw_cpu_start,
+				.kernel         = print_raw_kernel_mstack,
+				.lost           = print_raw_kernel_lost,
+				.footer         = print_raw_footer,
+			},
+		};
+
+		do_dump(&dump.ops, opts, &handle);
+	}
 
 	if (handle.kern)
 		finish_kernel_data(handle.kern);
