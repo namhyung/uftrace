@@ -422,6 +422,11 @@ static void print_raw_kernel_lost(uint64_t time, int tid, int losts)
 	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
 }
 
+static void print_raw_footer(struct opts *opts,
+			     struct ftrace_file_handle *handle)
+{
+}
+
 static void dump_raw(int argc, char *argv[], struct opts *opts,
 		     struct ftrace_file_handle *handle)
 {
@@ -479,7 +484,7 @@ next:
 	}
 
 	if (!opts->kernel || handle->kern == NULL || ftrace_done)
-		return;
+		goto footer;
 
 	print_raw_kernel_start(handle->kern);
 
@@ -515,20 +520,36 @@ next:
 			symbol_putname(sym, name);
 		}
 	}
+
+footer:
+	print_raw_footer(opts, handle);
 }
 
-static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
-				      struct ftrace_ret_stack *frs,
-				      int tid, const char* name)
+static void print_chrome_header(struct ftrace_file_handle *handle,
+				struct opts *opts)
+{
+	pr_out("{\"traceEvents\":[\n");
+}
+
+static void print_chrome_task_start(struct ftrace_task_handle *task)
+{
+}
+
+static void print_chrome_inverted_time(struct ftrace_task_handle *task)
+{
+}
+
+static void print_chrome_task_rstack(struct ftrace_task_handle *task, char *name)
 {
 	char ph;
 	char spec_buf[1024];
+	struct ftrace_ret_stack *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
 
 	if (frs->type == FTRACE_ENTRY) {
 		ph = 'B';
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, ph, tid, name);
+			frs->time / 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -539,7 +560,7 @@ static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
 	} else if (frs->type == FTRACE_EXIT) {
 		ph = 'E';
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, ph, tid, name);
+			frs->time / 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -551,9 +572,17 @@ static void print_ustack_chrome_trace(struct ftrace_task_handle *task,
 		abort();
 }
 
-static void print_kstack_chrome_trace(struct ftrace_task_handle *task,
-				      struct mcount_ret_stack *mrs,
-				      const char* name)
+static void print_chrome_kernel_start(struct ftrace_kernel *kernel)
+{
+	pr_out(",\n");
+}
+
+static void print_chrome_cpu_start(struct ftrace_kernel *kernel, int cpu)
+{
+}
+
+static void print_chrome_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
+				       struct mcount_ret_stack *mrs, char *name)
 {
 	char ph;
 	uint64_t timestamp = mrs->end_time ?: mrs->start_time;
@@ -584,14 +613,16 @@ static void print_kstack_chrome_trace(struct ftrace_task_handle *task,
 		abort();
 }
 
-static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
-			      struct ftrace_file_handle *handle)
+static void print_chrome_kernel_lost(uint64_t time, int tid, int losts)
 {
-	int i;
-	struct ftrace_task_handle *task;
+}
+
+static void print_chrome_footer(struct opts *opts,
+				struct ftrace_file_handle *handle,
+				unsigned lost_event_cnt)
+{
 	char buf[PATH_MAX];
 	struct stat statbuf;
-	unsigned lost_event_cnt = 0;
 
 	/* read recorded date and time */
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -601,81 +632,6 @@ static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
 	ctime_r(&statbuf.st_mtime, buf);
 	buf[strlen(buf) - 1] = '\0';
 
-	pr_out("{\"traceEvents\":[\n");
-	for (i = 0; i < handle->info.nr_tid; i++) {
-		int tid;
-
-		task = &handle->tasks[i];
-		tid = task->tid;
-		task->rstack = &task->ustack;
-
-		while (!read_task_ustack(handle, task) && !ftrace_done) {
-			struct ftrace_ret_stack *frs = &task->ustack;
-			struct ftrace_session *sess = find_task_session(tid, frs->time);
-			struct symtabs *symtabs;
-			struct sym *sym = NULL;
-			char *name;
-			static bool last_comma = false;
-
-			fstack_update_stack_count(task);
-			if (!fstack_check_filter(task))
-				goto next;
-
-			if (sess) {
-				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, frs->addr);
-			}
-
-			name = symbol_getname(sym, frs->addr);
-
-			if (last_comma)
-				pr_out(",\n");
-
-			print_ustack_chrome_trace(task, frs, tid, name);
-			symbol_putname(sym, name);
-
-			last_comma = true;
-
-next:
-			/* force re-read in read_task_ustack() */
-			task->valid = false;
-		}
-	}
-
-	if (!opts->kernel || handle->kern == NULL || ftrace_done)
-		goto json_footer;
-
-	pr_out(",\n");
-	for (i = 0; i < handle->kern->nr_cpus; i++) {
-		struct ftrace_kernel *kernel = handle->kern;
-		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
-		struct sym *sym;
-		char *name;
-
-		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
-			static bool last_comma = false;
-			int losts = kernel->missed_events[i];
-
-			sym = find_symtabs(NULL, mrs->child_ip);
-			name = symbol_getname(sym, mrs->child_ip);
-
-			if (last_comma)
-				pr_out(",\n");
-
-			/* it just counts the number of LOST events occured */
-			if (losts) {
-				kernel->missed_events[i] = 0;
-				lost_event_cnt++;
-			}
-
-			print_kstack_chrome_trace(task, mrs, name);
-			last_comma = true;
-
-			symbol_putname(sym, name);
-		}
-	}
-
-json_footer:
 	pr_out("\n], \"metadata\": {\n");
 	if (handle->hdr.info_mask & (1UL << CMDLINE))
 		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
@@ -699,6 +655,100 @@ json_footer:
 		pr_warn("The output json format may not show the correct view "
 			"in chrome browser.\n");
 	}
+}
+
+static void dump_chrome_trace(int argc, char *argv[], struct opts *opts,
+			      struct ftrace_file_handle *handle)
+{
+	int i;
+	unsigned lost_event_cnt = 0;
+	struct ftrace_task_handle *task;
+
+	print_chrome_header(handle, opts);
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		int tid;
+
+		task = &handle->tasks[i];
+		tid = task->tid;
+		task->rstack = &task->ustack;
+
+		print_chrome_task_start(task);
+
+		while (!read_task_ustack(handle, task) && !ftrace_done) {
+			struct ftrace_ret_stack *frs = &task->ustack;
+			struct ftrace_session *sess = find_task_session(tid, frs->time);
+			struct symtabs *symtabs;
+			struct sym *sym = NULL;
+			char *name;
+			static bool last_comma = false;
+
+			fstack_update_stack_count(task);
+			if (!fstack_check_filter(task))
+				goto next;
+
+			if (sess) {
+				symtabs = &sess->symtabs;
+				sym = find_symtabs(symtabs, frs->addr);
+			}
+
+			name = symbol_getname(sym, frs->addr);
+
+			if (last_comma)
+				pr_out(",\n");
+
+			print_chrome_task_rstack(task, name);
+			symbol_putname(sym, name);
+
+			last_comma = true;
+
+next:
+			/* force re-read in read_task_ustack() */
+			task->valid = false;
+		}
+	}
+
+	if (!opts->kernel || handle->kern == NULL || ftrace_done)
+		goto json_footer;
+
+	print_chrome_kernel_start(handle->kern);
+
+	for (i = 0; i < handle->kern->nr_cpus; i++) {
+		struct ftrace_kernel *kernel = handle->kern;
+		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
+		struct sym *sym;
+		char *name;
+
+		print_chrome_cpu_start(kernel, i);
+
+		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
+			static bool last_comma = false;
+			int losts = kernel->missed_events[i];
+
+			sym = find_symtabs(NULL, mrs->child_ip);
+			name = symbol_getname(sym, mrs->child_ip);
+
+			if (last_comma)
+				pr_out(",\n");
+
+			/* it just counts the number of LOST events occured */
+			if (losts) {
+				uint64_t time = mrs->end_time ?: mrs->start_time;
+
+				print_chrome_kernel_lost(time, mrs->tid, losts);
+				kernel->missed_events[i] = 0;
+				lost_event_cnt++;
+			}
+
+			print_chrome_kernel_mstack(kernel, i, mrs, name);
+			last_comma = true;
+
+			symbol_putname(sym, name);
+		}
+	}
+
+json_footer:
+	print_chrome_footer(opts, handle, lost_event_cnt);
 }
 
 int command_dump(int argc, char *argv[], struct opts *opts)
