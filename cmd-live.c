@@ -86,9 +86,9 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	if (command_record(argc, argv, opts) == 0 && !opts->nop) {
 		pr_dbg("live-record finished.. \n");
 		if (opts->report) {
-			pr_out("#\n# ftrace report\n#\n");
+			pr_out("#\n# uftrace report\n#\n");
 			command_report(argc, argv, opts);
-			pr_out("\n#\n# ftrace replay\n#\n");
+			pr_out("\n#\n# uftrace replay\n#\n");
 		}
 
 		pr_dbg("start live-replaying...\n");

@@ -364,6 +364,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			/* leaf function - also consume return record */
+			read_rstack(handle, &next);
+
 			print_time_unit(fstack->total_time);
 
 			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
@@ -373,9 +375,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			}
 			else
 				pr_out("%s%s%s\n", symname, args, retval);
-
-			/* consume the rstack */
-			read_rstack(handle, &next);
 
 			/* fstack_update() is not needed here */
 
@@ -560,23 +559,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	if (opts->filter || opts->trigger) {
-		if (setup_fstack_filters(opts->filter, opts->trigger) < 0) {
-			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
-				  opts->filter ?: "",
-				  (opts->filter && opts->trigger) ? " or " : "",
-				  opts->trigger ?: "");
-			return -1;
-		}
-	}
-
-	if (opts->disabled)
-		fstack_enabled = false;
-
-	if (opts->tid)
-		setup_task_filter(opts->tid, &handle);
-
-	fstack_prepare_fixup();
+	fstack_setup_filters(opts, &handle);
 
 	if (!opts->flat)
 		pr_out("# DURATION    TID     FUNCTION\n");
