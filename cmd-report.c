@@ -118,6 +118,10 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 	while (read_rstack(handle, &task) >= 0) {
 		rstack = task->rstack;
+
+		if (!fstack_check_filter(task))
+			continue;
+
 		if (rstack->type != FTRACE_EXIT)
 			continue;
 
@@ -870,6 +874,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	struct opts dummy_opts = {
 		.dirname = opts->diff,
 		.kernel  = opts->kernel,
+		.depth   = opts->depth,
 	};
 	struct diff_data data = {
 		.dirname = opts->diff,
@@ -946,7 +951,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	setup_task_filter(opts->tid, &handle);
+	fstack_setup_filters(opts, &handle);
 
 	if (opts->sort_keys)
 		setup_sort(opts->sort_keys);
