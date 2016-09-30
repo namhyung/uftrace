@@ -303,13 +303,11 @@ static void pr_retval(struct fstack_arguments *args)
 	}
 }
 
-static void dump_raw(int argc, char *argv[], struct opts *opts,
-		     struct ftrace_file_handle *handle)
+static void print_raw_header(struct ftrace_file_handle *handle,
+			     uint64_t *file_offset,
+			     struct opts *opts)
 {
 	int i;
-	uint64_t prev_time;
-	uint64_t file_offset = 0;
-	struct ftrace_task_handle *task;
 
 	pr_out("uftrace file header: magic         = ");
 	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)
@@ -323,7 +321,7 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
 	pr_out("uftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
 	pr_out("uftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
-	pr_hex(&file_offset, &handle->hdr, handle->hdr.header_size);
+	pr_hex(file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");
 
 	if (debug) {
@@ -335,6 +333,104 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 		pr_out("\n");
 	}
+}
+
+static void print_raw_task_start(struct ftrace_task_handle *task)
+{
+	pr_out("reading %d.dat\n", task->tid);
+}
+
+static void print_raw_inverted_time(struct ftrace_task_handle *task)
+{
+	pr_red("\n");
+	pr_red("*************************************\n");
+	pr_red("* inverted time - data seems broken *\n");
+	pr_red("*************************************\n");
+	pr_red("\n");
+}
+
+static void print_raw_task_rstack(struct ftrace_task_handle *task,
+				  char *name, uint64_t *file_offset)
+{
+	struct ftrace_ret_stack *frs = task->rstack;
+
+	pr_time(frs->time);
+	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
+	       task->tid, frs->type == FTRACE_EXIT ? "exit " :
+	       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
+	       name, (unsigned long)frs->addr, frs->depth);
+	pr_hex(file_offset, frs, sizeof(*frs));
+
+	if (frs->more) {
+		if (frs->type == FTRACE_ENTRY) {
+			pr_time(frs->time);
+			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
+			       task->args.len);
+			pr_args(&task->args);
+			pr_hex(file_offset, task->args.data, task->args.len);
+		} else if (frs->type == FTRACE_EXIT) {
+			pr_time(frs->time);
+			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
+			       task->args.len);
+			pr_retval(&task->args);
+			pr_hex(file_offset, task->args.data, task->args.len);
+		} else
+			abort();
+	}
+}
+
+static void print_raw_kernel_start(struct ftrace_kernel *kernel)
+{
+	pr_out("\n");
+}
+
+static void print_raw_cpu_start(struct ftrace_kernel *kernel, int cpu)
+{
+	pr_out("reading kernel-cpu%d.dat\n", cpu);
+}
+
+static void print_raw_kernel_mstack(struct ftrace_kernel *kernel, int cpu,
+				    struct mcount_ret_stack *mrs, char *name,
+				    uint64_t *file_offset, int *kbuf_offset)
+{
+	struct kbuffer *kbuf = kernel->kbufs[cpu];
+
+	pr_time(mrs->end_time ?: mrs->start_time);
+	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
+	       mrs->tid, mrs->end_time ? "exit " : "entry",
+	       name, mrs->child_ip, mrs->depth);
+
+	if (debug) {
+		/* this is only needed for hex dump */
+		void *data = kbuffer_read_at_offset(kbuf, *kbuf_offset, NULL);
+		int size;
+
+		size = kbuffer_event_size(kbuf);
+		*file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
+		pr_hex(file_offset, data, size);
+
+		if (kbuffer_next_event(kbuf, NULL))
+			*kbuf_offset += size + 4;  // 4 = event header size
+		else
+			*kbuf_offset = 0;
+	}
+}
+
+static void print_raw_kernel_lost(uint64_t time, int tid, int losts)
+{
+	pr_time(time);
+	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
+}
+
+static void dump_raw(int argc, char *argv[], struct opts *opts,
+		     struct ftrace_file_handle *handle)
+{
+	int i;
+	uint64_t prev_time;
+	uint64_t file_offset = 0;
+	struct ftrace_task_handle *task;
+
+	print_raw_header(handle, &file_offset, opts);
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		int tid;
@@ -348,7 +444,9 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 		prev_time = 0;
 		file_offset = 0;
-		pr_out("reading %d.dat\n", tid);
+
+		print_raw_task_start(task);
+
 		while (!read_task_ustack(handle, task) && !ftrace_done) {
 			struct ftrace_ret_stack *frs = &task->ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
@@ -363,42 +461,15 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 
 			name = symbol_getname(sym, frs->addr);
 
-			if (prev_time > frs->time) {
-				pr_red("\n");
-				pr_red("*************************************\n");
-				pr_red("* inverted time - data seems broken *\n");
-				pr_red("*************************************\n");
-				pr_red("\n");
-			}
+			if (prev_time > frs->time)
+				print_raw_inverted_time(task);
 			prev_time = frs->time;
 
 			fstack_update_stack_count(task);
 			if (!fstack_check_filter(task))
 				goto next;
 
-			pr_time(frs->time);
-			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
-			       tid, frs->type == FTRACE_EXIT ? "exit " :
-			       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
-			       name, (unsigned long)frs->addr, frs->depth);
-			pr_hex(&file_offset, frs, sizeof(*frs));
-
-			if (frs->more) {
-				if (frs->type == FTRACE_ENTRY) {
-					pr_time(frs->time);
-					pr_out("%5d: [%s] length = %d\n", tid, "args ",
-							task->args.len);
-					pr_args(&task->args);
-					pr_hex(&file_offset, task->args.data, task->args.len);
-				} else if (frs->type == FTRACE_EXIT) {
-					pr_time(frs->time);
-					pr_out("%5d: [%s] length = %d\n", tid, "retval",
-							task->args.len);
-					pr_retval(&task->args);
-					pr_hex(&file_offset, task->args.data, task->args.len);
-				} else
-					abort();
-			}
+			print_raw_task_rstack(task, name, &file_offset);
 			symbol_putname(sym, name);
 
 next:
@@ -410,49 +481,36 @@ next:
 	if (!opts->kernel || handle->kern == NULL || ftrace_done)
 		return;
 
-	pr_out("\n");
+	print_raw_kernel_start(handle->kern);
+
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
 		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
 		struct kbuffer *kbuf = kernel->kbufs[i];
-		int offset, size;
+		int offset;
 		struct sym *sym;
 		char *name;
 
 		file_offset = 0;
 		offset = kbuffer_curr_offset(kbuf);
-		pr_out("reading kernel-cpu%d.dat\n", i);
+
+		print_raw_cpu_start(kernel, i);
+
 		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
 			int losts = kernel->missed_events[i];
 
 			if (losts) {
-				pr_time(mrs->end_time ?: mrs->start_time);
-				pr_red("%5d: [%s ]: %d events\n",
-				       mrs->tid, "lost", losts);
+				uint64_t time = mrs->end_time ?: mrs->start_time;
+
+				print_raw_kernel_lost(time, mrs->tid, losts);
 				kernel->missed_events[i] = 0;
 			}
 
 			sym = find_symtabs(NULL, mrs->child_ip);
 			name = symbol_getname(sym, mrs->child_ip);
 
-			pr_time(mrs->end_time ?: mrs->start_time);
-			pr_out("%5d: [%s] %s(%lx) depth: %u\n",
-			       mrs->tid, mrs->end_time ? "exit " : "entry",
-			       name, mrs->child_ip, mrs->depth);
-
-			if (debug) {
-				/* this is only needed for hex dump */
-				void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
-
-				size = kbuffer_event_size(kbuf);
-				file_offset = kernel->offsets[i] + kbuffer_curr_offset(kbuf);
-				pr_hex(&file_offset, data, size);
-
-				if (kbuffer_next_event(kbuf, NULL))
-					offset += size + 4;  // 4 = event header size
-				else
-					offset = 0;
-			}
+			print_raw_kernel_mstack(kernel, i, mrs, name,
+						&file_offset, &offset);
 
 			symbol_putname(sym, name);
 		}
