@@ -165,37 +165,6 @@ static int print_backtrace(struct uftrace_graph *graph)
 	return 0;
 }
 
-static void func_enter(struct ftrace_task_handle *task)
-{
-	struct fstack *fstack = &task->func_stack[task->stack_count++];
-	struct ftrace_ret_stack *rstack = &task->ustack;
-
-	fstack->addr       = rstack->addr;
-	fstack->total_time = rstack->time;
-	fstack->child_time = 0;
-	fstack->valid      = true;
-}
-
-static void func_exit(struct ftrace_task_handle *task)
-{
-	struct fstack *fstack = &task->func_stack[--task->stack_count];
-	struct ftrace_ret_stack *rstack = &task->ustack;
-
-	if (fstack->valid) {
-		fstack->total_time = rstack->time - fstack->total_time;
-		if (task->stack_count > 0)
-			fstack[-1].child_time += fstack->total_time;
-	}
-}
-
-static void func_lost(struct ftrace_task_handle *task)
-{
-	int i;
-
-	for (i = 0; i <= task->stack_count; i++)
-		task->func_stack[i].valid = false;
-}
-
 static int start_graph(struct uftrace_graph *graph,
 		       struct ftrace_task_handle *task)
 {
@@ -262,10 +231,8 @@ static int add_graph_exit(struct uftrace_graph *graph,
 	if (node == NULL)
 		return -1;
 
-	if (fstack->valid) {
-		node->time       += fstack->total_time;
-		node->child_time += fstack->child_time;
-	}
+	node->time       += fstack->total_time;
+	node->child_time += fstack->child_time;
 
 	graph->curr_node = node->parent;
 
@@ -339,9 +306,6 @@ static void print_graph_node(struct uftrace_graph *graph,
 	    parent->head.prev == &node->list)
 		indent_mask[orig_indent - 1] = false;
 
-	if (depth == 1)
-		goto out;
-
 	needs_line = (node->nr_edges > 1);
 	list_for_each_entry(child, &node->head, list) {
 		print_graph_node(graph, child, depth - 1, indent_mask, indent,
@@ -355,7 +319,6 @@ static void print_graph_node(struct uftrace_graph *graph,
 		}
 	}
 
-out:
 	indent_mask[orig_indent] = false;
 	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
 
@@ -397,6 +360,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		task = &handle->tasks[i];
+		task->rstack = &task->ustack;
 
 		prev_time = 0;
 
@@ -414,12 +378,11 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 			sym = find_symtabs(&graph->sess->symtabs, frs->addr);
 			name = symbol_getname(sym, frs->addr);
 
-			if (frs->type == FTRACE_ENTRY)
-				func_enter(task);
-			else if (frs->type == FTRACE_EXIT)
-				func_exit(task);
-			else if (frs->type == FTRACE_LOST)
-				func_lost(task);
+			fstack_account_time(task);
+			fstack_update_stack_count(task);
+
+			if (!fstack_check_filter(task))
+				goto next;
 
 			if (prev_time > frs->time) {
 				pr_log("inverted time: broken data?\n");
@@ -429,18 +392,6 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 
 			if (task->stack_count >= opts->max_stack)
 				goto next;
-
-			if (task->stack_count < 0) {
-				int d = frs->depth;;
-
-				/*
-				 * If we're returned from fork(),
-				 * the stack count of the child is -1.
-				 */
-				task->stack_count = d;
-				while (--d >= 0)
-					task->func_stack[d].valid = false;
-			}
 
 			if (graph->enabled)
 				add_graph(graph, task);
@@ -495,9 +446,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		}
 	}
 
-	setup_task_filter(opts->tid, &handle);
-
-	fstack_prepare_fixup();
+	fstack_setup_filters(opts, &handle);
 
 	ret = build_graph(opts, &handle, func);
 
