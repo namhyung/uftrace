@@ -986,13 +986,13 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 {
 	int u, k = -1;
 	struct ftrace_task_handle *task = NULL;
+	struct ftrace_task_handle *utask = NULL;
+	struct ftrace_task_handle *ktask = NULL;
 	struct ftrace_kernel *kernel = handle->kern;
-	struct mcount_ret_stack kstack;
-	uint64_t ktime;
 
-	u = read_user_stack(handle, taskp);
+	u = read_user_stack(handle, &utask);
 	if (kernel) {
-		k = read_kernel_stack(kernel, &kstack);
+		k = read_kernel_stack(handle, &ktask);
 		if (k < 0) {
 			static bool warn = false;
 
@@ -1011,12 +1011,10 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	if (u < 0)
 		goto kernel;
 
-	ktime = kstack.end_time ?: kstack.start_time;
-
-	if ((*taskp)->ustack.time < ktime) {
+	if (utask->ustack.time < ktask->kstack.time) {
 user:
-		task = *taskp;
-		task->rstack = &task->ustack;
+		utask->rstack = &utask->ustack;
+		task = utask;
 
 		if (invalidate) {
 			task->valid = false;
@@ -1024,45 +1022,36 @@ user:
 	}
 	else {
 kernel:
-		task = get_task_handle(handle, kstack.tid);
-		if (task == NULL)
-			pr_err_ns("cannot find task for tid %d\n", kstack.tid);
+		ktask->rstack = &ktask->kstack;
+		task = ktask;
 
 		if (kernel->missed_events[k]) {
+			static struct ftrace_ret_stack lost_rstack;
+
 			/* convert to ftrace_rstack */
-			task->kstack.time = 0;
-			task->kstack.type = FTRACE_LOST;
-			task->kstack.addr = kernel->missed_events[k];
-			task->kstack.depth = kstack.depth;
-			task->kstack.unused = FTRACE_UNUSED;
-			task->kstack.more = 0;
+			lost_rstack.time = 0;
+			lost_rstack.type = FTRACE_LOST;
+			lost_rstack.addr = kernel->missed_events[k];
+			lost_rstack.depth = task->kstack.depth;
+			lost_rstack.unused = FTRACE_UNUSED;
+			lost_rstack.more = 0;
 
 			/*
 			 * NOTE: do not invalidate the kstack since we didn't
 			 * read the first record yet.  Next read_kernel_stack()
 			 * will return the first record.
 			 */
+			task->rstack = &lost_rstack;
 		}
-		else {
-			/* convert to ftrace_rstack */
-			task->kstack.time = kstack.end_time ?: kstack.start_time;
-			task->kstack.type = kstack.end_time ? FTRACE_EXIT : FTRACE_ENTRY;
-			task->kstack.addr = kstack.child_ip;
-			task->kstack.depth = kstack.depth;
-			task->kstack.unused = FTRACE_UNUSED;
-			task->kstack.more = 0;
-
-			if (invalidate) {
-				kernel->rstack_valid[k] = false;
-				task->lost_seen = false;
-			}
-		}
-
-		task->rstack = &task->kstack;
 
 		if (invalidate) {
 			if (task->rstack->type == FTRACE_LOST)
 				kernel->missed_events[k] = 0;
+			else {
+				kernel->rstack_valid[k] = false;
+				task->lost_seen = false;
+			}
+
 		}
 	}
 

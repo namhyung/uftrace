@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
 
@@ -9,7 +13,6 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
-#include "libmcount/mcount.h"
 #include "libtraceevent/kbuffer.h"
 
 
@@ -35,7 +38,7 @@ struct uftrace_dump_ops {
 	/* this is called for each kernel-level function entry/exit */
 	void (*kernel)(struct uftrace_dump_ops *ops,
 		       struct ftrace_kernel *kernel, int cpu,
-		       struct mcount_ret_stack *mrs, char *name);
+		       struct ftrace_ret_stack *frs, char *name);
 	/* thius is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
 		     uint64_t time, int tid, int losts);
@@ -450,17 +453,19 @@ static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
 	raw->kbuf_offset = kbuffer_curr_offset(kbuf);
 }
 
-static void print_raw_kernel_mstack(struct uftrace_dump_ops *ops,
+static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 				    struct ftrace_kernel *kernel, int cpu,
-				    struct mcount_ret_stack *mrs, char *name)
+				    struct ftrace_ret_stack *frs, char *name)
 {
+	int tid = kernel->tids[cpu];
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
-	pr_time(mrs->end_time ?: mrs->start_time);
+	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
-	       mrs->tid, mrs->end_time ? "exit " : "entry",
-	       name, mrs->child_ip, mrs->depth);
+	       tid, frs->type == FTRACE_EXIT ? "exit " :
+	       frs->type == FTRACE_ENTRY ? "entry" : "lost",
+	       name, (unsigned long)frs->addr, frs->depth);
 
 	if (debug) {
 		/* this is only needed for hex dump */
@@ -479,7 +484,7 @@ static void print_raw_kernel_mstack(struct uftrace_dump_ops *ops,
 }
 
 static void print_raw_kernel_lost(struct uftrace_dump_ops *ops,
-				    uint64_t time, int tid, int losts)
+				  uint64_t time, int tid, int losts)
 {
 	pr_time(time);
 	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
@@ -569,19 +574,13 @@ static void print_chrome_cpu_start(struct uftrace_dump_ops *ops,
 {
 }
 
-static void print_chrome_kernel_mstack(struct uftrace_dump_ops *ops,
+static void print_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
 				       struct ftrace_kernel *kernel, int cpu,
-				       struct mcount_ret_stack *mrs, char *name)
+				       struct ftrace_ret_stack *frs, char *name)
 {
 	char ph;
-	uint64_t timestamp = mrs->end_time ?: mrs->start_time;
-	enum ftrace_ret_stack_type rstack_type;
+	int tid = kernel->tids[cpu];
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
-
-	if (mrs->end_time)
-		rstack_type = FTRACE_EXIT;
-	else
-		rstack_type = FTRACE_ENTRY;
 
 	if (chrome->last_comma)
 		pr_out(",\n");
@@ -591,16 +590,16 @@ static void print_chrome_kernel_mstack(struct uftrace_dump_ops *ops,
 	 * We may add a category info with "cat" field later to distinguish that
 	 * this record is from kernel function.
 	 */
-	if (rstack_type == FTRACE_ENTRY) {
+	if (frs->type == FTRACE_ENTRY) {
 		ph = 'B';
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			timestamp / 1000, ph, mrs->tid, name);
+			frs->time / 1000, ph, tid, name);
 		/* kernel trace data doesn't have more field */
 		pr_out("}");
-	} else if (rstack_type == FTRACE_EXIT) {
+	} else if (frs->type == FTRACE_EXIT) {
 		ph = 'E';
 		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			timestamp / 1000, ph, mrs->tid, name);
+			frs->time / 1000, ph, tid, name);
 		/* kernel trace data doesn't have more field */
 		pr_out("}");
 	} else
@@ -829,9 +828,9 @@ static void print_flame_cpu_start(struct uftrace_dump_ops *ops,
 {
 }
 
-static void print_flame_kernel_mstack(struct uftrace_dump_ops *ops,
-				      struct ftrace_kernel *kernel, int cpu,
-				      struct mcount_ret_stack *mrs, char *name)
+static void print_flame_kernel_rstack(struct uftrace_dump_ops *ops,
+				      struct ftrace_kernel *kernel, int cpu, int tid,
+				      struct ftrace_ret_stack *frs, char *name)
 {
 }
 
@@ -909,26 +908,25 @@ next:
 
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
-		struct mcount_ret_stack *mrs = &kernel->rstacks[i];
+		struct ftrace_ret_stack *frs = &kernel->rstacks[i];
 		struct sym *sym;
 		char *name;
 
 		ops->cpu_start(ops, kernel, i);
 
 		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
+			int tid = kernel->tids[i];
 			int losts = kernel->missed_events[i];
 
 			if (losts) {
-				uint64_t time = mrs->end_time ?: mrs->start_time;
-
-				ops->lost(ops, time, mrs->tid, losts);
+				ops->lost(ops, frs->time, tid, losts);
 				kernel->missed_events[i] = 0;
 			}
 
-			sym = find_symtabs(NULL, mrs->child_ip);
-			name = symbol_getname(sym, mrs->child_ip);
+			sym = find_symtabs(NULL, frs->addr);
+			name = symbol_getname(sym, frs->addr);
 
-			ops->kernel(ops, kernel, i, mrs, name);
+			ops->kernel(ops, kernel, i, tid, frs, name);
 
 			symbol_putname(sym, name);
 		}
@@ -967,7 +965,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_chrome_task_rstack,
 				.kernel_start   = print_chrome_kernel_start,
 				.cpu_start      = print_chrome_cpu_start,
-				.kernel         = print_chrome_kernel_mstack,
+				.kernel         = print_chrome_kernel_rstack,
 				.lost           = print_chrome_kernel_lost,
 				.footer         = print_chrome_footer,
 			},
@@ -984,7 +982,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_flame_task_rstack,
 				.kernel_start   = print_flame_kernel_start,
 				.cpu_start      = print_flame_cpu_start,
-				.kernel         = print_flame_kernel_mstack,
+				.kernel         = print_flame_kernel_rstack,
 				.lost           = print_flame_kernel_lost,
 				.footer         = print_flame_footer,
 			},
@@ -1002,7 +1000,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_raw_task_rstack,
 				.kernel_start   = print_raw_kernel_start,
 				.cpu_start      = print_raw_cpu_start,
-				.kernel         = print_raw_kernel_mstack,
+				.kernel         = print_raw_kernel_rstack,
 				.lost           = print_raw_kernel_lost,
 				.footer         = print_raw_footer,
 			},

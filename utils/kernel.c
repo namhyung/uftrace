@@ -21,8 +21,8 @@
 
 #include "uftrace.h"
 #include "utils/utils.h"
+#include "utils/fstack.h"
 #include "utils/rbtree.h"
-#include "libmcount/mcount.h"
 #include "libtraceevent/kbuffer.h"
 #include "libtraceevent/event-parse.h"
 
@@ -162,10 +162,9 @@ static int set_tracing_depth(struct ftrace_kernel *kernel)
 	int ret = 0;
 	char buf[32];
 
-	if (kernel->depth != MCOUNT_RSTACK_MAX) {
-		snprintf(buf, sizeof(buf), "%d", kernel->depth);
-		ret = write_tracing_file("max_graph_depth", buf);
-	}
+	snprintf(buf, sizeof(buf), "%d", kernel->depth);
+	ret = write_tracing_file("max_graph_depth", buf);
+
 	return ret;
 }
 
@@ -512,7 +511,9 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel)
 
 static size_t trace_pagesize;
 static struct trace_seq trace_seq;
-static struct mcount_ret_stack trace_rstack;
+static struct ftrace_ret_stack trace_rstack = {
+	.unused = FTRACE_UNUSED,
+};
 
 static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu);
 
@@ -570,6 +571,7 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 	kernel->rstack_valid  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
 	kernel->rstack_done   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
 	kernel->missed_events = xcalloc(kernel->nr_cpus, sizeof(*kernel->missed_events));
+	kernel->tids          = xcalloc(kernel->nr_cpus, sizeof(*kernel->tids));
 
 	/* FIXME: should read recorded data file */
 	if (pevent_is_file_bigendian(kernel->pevent))
@@ -674,6 +676,7 @@ int finish_kernel_data(struct ftrace_kernel *kernel)
 	free(kernel->rstack_valid);
 	free(kernel->rstack_done);
 	free(kernel->missed_events);
+	free(kernel->tids);
 
 	trace_seq_destroy(&trace_seq);
 	pevent_free(kernel->pevent);
@@ -715,12 +718,8 @@ static int
 funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 			struct event_format *event, void *context)
 {
-	unsigned long long tid;
 	unsigned long long depth;
 	unsigned long long addr;
-
-	if (pevent_get_any_field_val(s, event, "common_pid", record, &tid, 1))
-		return -1;
 
 	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
 		return -1;
@@ -728,11 +727,10 @@ funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	trace_rstack.tid = tid;
+	trace_rstack.type  = FTRACE_ENTRY;
+	trace_rstack.time  = record->ts;
+	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
-	trace_rstack.child_ip = addr;
-	trace_rstack.start_time = record->ts;
-	trace_rstack.end_time = 0;
 
 	return 0;
 }
@@ -741,14 +739,8 @@ static int
 funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 		       struct event_format *event, void *context)
 {
-	unsigned long long tid;
 	unsigned long long depth;
 	unsigned long long addr;
-	unsigned long long start;
-	unsigned long long end;
-
-	if (pevent_get_any_field_val(s, event, "common_pid", record, &tid, 1))
-		return -1;
 
 	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
 		return -1;
@@ -756,21 +748,10 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	if (pevent_get_any_field_val(s, event, "calltime", record, &start, 1))
-		return -1;
-
-	if (pevent_get_any_field_val(s, event, "rettime", record, &end, 1))
-		return -1;
-
-	trace_rstack.tid = tid;
+	trace_rstack.type  = FTRACE_EXIT;
+	trace_rstack.time  = record->ts;
+	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
-	trace_rstack.child_ip = addr;
-	/*
-	 * It seems that 'mono' clock is applied only to record->ts,
-	 * so convert start and end time to correlated to record->ts.
-	 */
-	trace_rstack.start_time = record->ts - end + start ;
-	trace_rstack.end_time = record->ts;
 
 	return 0;
 }
@@ -820,6 +801,7 @@ int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 	/* this will call event handlers */
 	pevent_event_info(&trace_seq, event, &record);
 
+	kernel->tids[cpu] = pevent_data_pid(kernel->pevent, &record);
 	memcpy(&kernel->rstacks[cpu], &trace_rstack, sizeof(trace_rstack));
 	kernel->rstack_valid[cpu] = true;
 
@@ -830,19 +812,28 @@ int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 
 /**
  * read_kernel_stack - peek next kernel ftrace data
- * @kernel - kernel ftrace handle
- * @rstack - ftrace return stack
+ * @handle - ftrace file handle
+ * @taskp  - pointer to the oldest task
  *
- * This function returns next return stack (based on timestamp)
- * from data files.
+ * This function reads all kernel function trace records of each cpu,
+ * compares the timestamp, and find the oldest one.  After this
+ * function @task will point a task which has the oldest record, and
+ * it can be accessed by @task->kstack.  The oldest record will *NOT*
+ * be consumed, that means another call to this function will give you
+ * same (*@taskp)->kstack.
+ *
+ * This function returns the cpu number (> 0) if it reads a rstck,
+ * -1 if it's done.
  */
-int read_kernel_stack(struct ftrace_kernel *kernel,
-		      struct mcount_ret_stack *rstack)
+int read_kernel_stack(struct ftrace_file_handle *handle,
+		      struct ftrace_task_handle **taskp)
 {
 	int i;
 	int first_cpu = -1;
+	int first_tid = -1;
 	uint64_t first_timestamp = 0;
-	struct mcount_ret_stack *first_rstack = NULL;
+	struct ftrace_kernel *kernel = handle->kern;
+	struct ftrace_ret_stack *first_rstack = NULL;
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		uint64_t timestamp;
@@ -856,10 +847,11 @@ int read_kernel_stack(struct ftrace_kernel *kernel,
 				continue;
 		}
 
-		timestamp = kernel->rstacks[i].end_time ?: kernel->rstacks[i].start_time;
+		timestamp = kernel->rstacks[i].time;
 		if (!first_rstack || first_timestamp > timestamp) {
 			first_rstack = &kernel->rstacks[i];
 			first_timestamp = timestamp;
+			first_tid = kernel->tids[i];
 			first_cpu = i;
 		}
 	}
@@ -867,7 +859,8 @@ int read_kernel_stack(struct ftrace_kernel *kernel,
 	if (first_rstack == NULL)
 		return -1;
 
-	memcpy(rstack, first_rstack, sizeof(*rstack));
+	*taskp = get_task_handle(handle, first_tid);
+	memcpy(&(*taskp)->kstack, first_rstack, sizeof(*first_rstack));
 
 	return first_cpu;
 }
