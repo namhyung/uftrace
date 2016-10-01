@@ -23,6 +23,9 @@ OPTIONS
 \--chrome
 :   Show JSON style output used by Google chrome tracing facility.
 
+\--flame-graph
+:   Show FlameGraph style output (svg) used by modern web browsers.
+
 -k, \--kernel
 :   Dump kernel functions as well
 
@@ -43,6 +46,9 @@ OPTIONS
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
+
+\--sample-time=*TIME*
+:   Apply sampling time when generating output for the flamegraph.  By default it uses number of calls for each function.  When this option is used it simulates sampling by counting execution time at the given unit.  So functions ran less than the sampling time will be removed from the output but functions longer than the time will be shown as larger.
 
 
 EXAMPLE
@@ -96,6 +102,10 @@ This command dumps data like below:
     "command_line":"uftrace record abc ",
     "recorded_time":"Tue May 24 19:44:54 2016"
     } }
+
+    $ uftrace dump --flame-graph --sample-time 1us
+    main 1
+    main;a;b;c 1
 
 
 SEE ALSO

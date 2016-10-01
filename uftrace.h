@@ -152,6 +152,7 @@ struct opts {
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
+	uint64_t sample_time;
 	bool flat;
 	bool libcall;
 	bool print_symtab;
@@ -171,6 +172,7 @@ struct opts {
 	bool task_newline;
 	bool chrome_trace;
 	bool comment;
+	bool flame_graph;
 	bool libmcount_single;
 	bool kernel;
 	bool kernel_skip_out;
