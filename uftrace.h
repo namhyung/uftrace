@@ -152,6 +152,7 @@ struct opts {
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
+	uint64_t sample_time;
 	bool flat;
 	bool libcall;
 	bool print_symtab;

@@ -71,6 +71,7 @@ enum options {
 	OPT_task_newline,
 	OPT_chrome_trace,
 	OPT_flame_graph,
+	OPT_sample_time,
 	OPT_diff,
 	OPT_sort_column,
 	OPT_tid_filter,
@@ -137,6 +138,7 @@ static struct argp_option ftrace_options[] = {
 	{ "kernel-full", OPT_kernel_full, 0, 0, "Show kernel functions outside of user" },
 	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
+	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampliing time" },
 	{ 0 }
 };
 
@@ -569,6 +571,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_kernel_only:
 		opts->kernel = true;
 		opts->kernel_only = true;
+		break;
+
+	case OPT_sample_time:
+		opts->sample_time = parse_time(arg);
 		break;
 
 	case ARGP_KEY_ARG:
