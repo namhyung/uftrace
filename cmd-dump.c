@@ -311,18 +311,18 @@ static void dump_raw(int argc, char *argv[], struct opts *opts,
 	uint64_t file_offset = 0;
 	struct ftrace_task_handle *task;
 
-	pr_out("ftrace file header: magic         = ");
+	pr_out("uftrace file header: magic         = ");
 	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)
 		pr_out("%02x", handle->hdr.magic[i]);
 	pr_out("\n");
-	pr_out("ftrace file header: version       = %u\n", handle->hdr.version);
-	pr_out("ftrace file header: header size   = %u\n", handle->hdr.header_size);
-	pr_out("ftrace file header: endian        = %u (%s)\n",
+	pr_out("uftrace file header: version       = %u\n", handle->hdr.version);
+	pr_out("uftrace file header: header size   = %u\n", handle->hdr.header_size);
+	pr_out("uftrace file header: endian        = %u (%s)\n",
 	       handle->hdr.endian, handle->hdr.endian == 1 ? "little" : "big");
-	pr_out("ftrace file header: class         = %u (%s bit)\n",
+	pr_out("uftrace file header: class         = %u (%s bit)\n",
 	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
-	pr_out("ftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
-	pr_out("ftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
+	pr_out("uftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
+	pr_out("uftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
 	pr_hex(&file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");
 
