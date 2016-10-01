@@ -61,6 +61,7 @@ struct uftrace_chrome_dump {
 
 struct uftrace_flame_dump {
 	struct uftrace_dump_ops ops;
+	struct rb_root tasks;
 	struct fg_node *node;
 	uint64_t sample_time;
 };
@@ -638,6 +639,41 @@ static struct fg_node fg_root = {
 	.children = LIST_HEAD_INIT(fg_root.children),
 };
 
+struct fg_task {
+	int tid;
+	struct fg_node *node;
+	struct rb_node link;
+};
+
+static struct fg_task * find_fg_task(struct rb_root *root, int tid)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct fg_task *iter, *new;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct fg_task, link);
+
+		if (iter->tid == tid)
+			return iter;
+
+		if (iter->tid > tid)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	new = xmalloc(sizeof(*new));
+	new->tid = tid;
+	new->node = &fg_root;
+
+	rb_link_node(&new->link, parent, p);
+	rb_insert_color(&new->link, root);
+
+	return new;
+}
+
 static struct fg_node * add_fg_node(struct fg_node *parent, char *name)
 {
 	struct fg_node *child;
@@ -755,9 +791,6 @@ static void print_flame_header(struct uftrace_dump_ops *ops,
 static void print_flame_task_start(struct uftrace_dump_ops *ops,
 				   struct ftrace_task_handle *task)
 {
-	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
-
-	flame->node = &fg_root;
 }
 
 static void print_flame_inverted_time(struct uftrace_dump_ops *ops,
@@ -770,7 +803,8 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 {
 	struct ftrace_ret_stack *frs = task->rstack;
 	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
-	struct fg_node *node = flame->node;
+	struct fg_task *t = find_fg_task(&flame->tasks, task->tid);
+	struct fg_node *node = t->node;
 
 	if (frs->type == FTRACE_ENTRY)
 		node = add_fg_node(node, name);
@@ -782,7 +816,7 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 	if (unlikely(node == NULL))
 		node = &fg_root;
 
-	flame->node = node;
+	t->node = node;
 }
 
 static void print_flame_kernel_start(struct uftrace_dump_ops *ops,
@@ -1001,6 +1035,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.lost           = print_flame_kernel_lost,
 				.footer         = print_flame_footer,
 			},
+			.tasks = RB_ROOT,
 			.sample_time = opts->sample_time,
 		};
 
