@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+from runtest import TestBase
+import subprocess as sp
+
+TDIR='xxx'
+
+class TestCase(TestBase):
+    def __init__(self):
+        TestBase.__init__(self, 'fork', """
+uftrace file header: magic         = 4674726163652100
+uftrace file header: version       = 4
+uftrace file header: header size   = 40
+uftrace file header: endian        = 1 (little)
+uftrace file header: class         = 2 (64 bit)
+uftrace file header: features      = 0x63
+uftrace file header: info          = 0x3ff
+
+reading 5186.dat
+58071.916834908   5186: [entry] main(400590) depth: 0
+58071.916835853   5186: [entry] fork(400580) depth: 1
+58071.917056572   5186: [exit ] fork(400580) depth: 1
+58071.917091028   5186: [entry] wait(400570) depth: 1
+58071.918038822   5186: [exit ] wait(400570) depth: 1
+58071.918040938   5186: [entry] a(400774) depth: 1
+58071.918041182   5186: [entry] b(400741) depth: 2
+58071.918041482   5186: [entry] c(400706) depth: 3
+58071.918042306   5186: [entry] getpid(400530) depth: 4
+58071.918045615   5186: [exit ] getpid(400530) depth: 4
+58071.918048103   5186: [exit ] c(400706) depth: 3
+58071.918048457   5186: [exit ] b(400741) depth: 2
+58071.918048760   5186: [exit ] a(400774) depth: 1
+58071.918049117   5186: [exit ] main(400590) depth: 0
+reading 5188.dat
+""")
+
+    def pre(self):
+        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        sp.call(record_cmd.split())
+        return TestBase.TEST_SUCCESS
+
+    def runcmd(self):
+        import os.path
+        t = 0
+        for ln in open(os.path.join(TDIR, 'task.txt')):
+            if not ln.startswith('TASK'):
+                continue
+            try:
+                t = int(ln.split()[2].split('=')[1])
+            except:
+                pass
+        if t == 0:
+            return 'FAILED TO FIND TID'
+        return '%s dump -d %s --tid %d' % (TestBase.ftrace, TDIR, t)
+
+    def post(self, ret):
+        sp.call(['rm', '-rf', TDIR])
+        return ret
+
+    def sort(self, output):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        import re
+
+        mode = 1
+        patt = re.compile(r'[^[]*(?P<type>\[(entry|exit )\]) (?P<func>[_a-z0-9]*)\([0-9a-f]+\) (?P<depth>.*)')
+        result = []
+        for ln in output.split('\n'):
+            if ln.startswith('uftrace'):
+                result.append(ln)
+            else:
+                m = patt.match(ln)
+                if m is None:
+                    continue
+                # ignore __monstartup and __cxa_atexit
+                if m.group('func').startswith('__'):
+                    continue
+                result.append(patt.sub(r'\g<type> \g<depth> \g<func>', ln))
+
+        return '\n'.join(result)
