@@ -661,6 +661,82 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 	return true;
 }
 
+void setup_rstack_list(struct uftrace_rstack_list *list)
+{
+	INIT_LIST_HEAD(&list->read);
+	INIT_LIST_HEAD(&list->unused);
+	list->count = 0;
+}
+
+void add_to_rstack_list(struct uftrace_rstack_list *list,
+			struct ftrace_ret_stack *rstack)
+{
+	struct uftrace_rstack_list_node *node;
+
+	if (list_empty(&list->unused))
+		node = xmalloc(sizeof(*node));
+	else {
+		node = list_first_entry(&list->unused, typeof(*node), list);
+		list_del(&node->list);
+	}
+
+	memcpy(&node->rstack, rstack, sizeof(*rstack));
+
+	list_add_tail(&node->list, &list->read);
+	list->count++;
+}
+
+struct ftrace_ret_stack *get_first_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_first_entry(&list->read, typeof(*node), list);
+	return &node->rstack;
+}
+
+void consume_first_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_first_entry(&list->read, typeof(*node), list);
+	list_move(&node->list, &list->unused);
+	list->count--;
+}
+
+void delete_last_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_last_entry(&list->read, typeof(*node), list);
+	list_move(&node->list, &list->unused);
+	list->count--;
+}
+
+void reset_rstack_list(struct uftrace_rstack_list *list)
+{
+	while (!list_empty(&list->read)) {
+		struct uftrace_rstack_list_node *node;
+
+		node = list_first_entry(&list->read, typeof(*node), list);
+		list_del(&node->list);
+		free(node);
+	}
+
+	while (!list_empty(&list->unused)) {
+		struct uftrace_rstack_list_node *node;
+
+		node = list_first_entry(&list->unused, typeof(*node), list);
+		list_del(&node->list);
+		free(node);
+	}
+}
+
 static int __read_task_ustack(struct ftrace_task_handle *task)
 {
 	FILE *fp = task->fp;
