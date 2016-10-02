@@ -58,13 +58,13 @@ This command dumps data like below:
     $ uftrace record abc
 
     $ uftrace dump
-    ftrace file header: magic         = 4674726163652100
-    ftrace file header: version       = 4
-    ftrace file header: header size   = 40
-    ftrace file header: endian        = 1 (little)
-    ftrace file header: class         = 2 (64 bit)
-    ftrace file header: features      = 0x3
-    ftrace file header: info          = 0x3ff
+    uftrace file header: magic         = 4674726163652100
+    uftrace file header: version       = 4
+    uftrace file header: header size   = 40
+    uftrace file header: endian        = 1 (little)
+    uftrace file header: class         = 2 (64 bit)
+    uftrace file header: features      = 0x3
+    uftrace file header: info          = 0x3ff
 
     reading 23043.dat
     105430.415350255  23043: [entry] __monstartup(4004d0) depth: 0
@@ -82,12 +82,8 @@ This command dumps data like below:
     105430.415355943  23043: [exit ] a(4006b2) depth: 1
     105430.415356109  23043: [exit ] main(400512) depth: 0
 
-    $ uftrace dump --chrome
+    $ uftrace dump --chrome -F main
     {"traceEvents":[
-    {"ts":105430415350,"ph":"B","pid":23043,"name":"__monstartup"},
-    {"ts":105430415351,"ph":"E","pid":23043,"name":"__monstartup"},
-    {"ts":105430415351,"ph":"B","pid":23043,"name":"__cxa_atexit"},
-    {"ts":105430415352,"ph":"E","pid":23043,"name":"__cxa_atexit"},
     {"ts":105430415353,"ph":"B","pid":23043,"name":"main"},
     {"ts":105430415353,"ph":"B","pid":23043,"name":"a"},
     {"ts":105430415354,"ph":"B","pid":23043,"name":"b"},
@@ -110,4 +106,4 @@ This command dumps data like below:
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1)

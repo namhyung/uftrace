@@ -15,6 +15,7 @@
 
 
 struct graph_backtrace {
+	struct list_head list;
 	int len;
 	int hit;
 	uint64_t time;
@@ -32,18 +33,25 @@ struct graph_node {
 	struct graph_node *parent;
 };
 
-struct uftrace_graph {
-	int nr_bt;
+struct task_graph {
 	int enabled;
+	struct ftrace_task_handle *task;
+	struct uftrace_graph *graph;
+	struct graph_node *node;
+	struct graph_backtrace *bt_curr;
+	struct rb_node link;
+};
+
+struct uftrace_graph {
 	char *func;
 	struct ftrace_session *sess;
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
-	struct graph_backtrace **bt_list;
-	struct graph_node *curr_node;
+	struct list_head bt_list;
 	struct graph_node root;
 };
 
+static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
 
 static int create_graph(struct ftrace_session *sess, void *func)
@@ -53,6 +61,7 @@ static int create_graph(struct ftrace_session *sess, void *func)
 	graph->sess = sess;
 	graph->func = xstrdup(func);
 	INIT_LIST_HEAD(&graph->root.head);
+	INIT_LIST_HEAD(&graph->bt_list);
 
 	graph->next = graph_list;
 	graph_list = graph;
@@ -84,11 +93,42 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
 	return NULL;
 }
 
-static int save_backtrace_addr(struct uftrace_graph *graph,
-			       struct ftrace_task_handle *task)
+static struct task_graph * get_task_graph(struct ftrace_task_handle *task)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &tasks.rb_node;
+	struct task_graph *tg;
+
+	while (*p) {
+		parent = *p;
+		tg = rb_entry(parent, struct task_graph, link);
+
+		if (tg->task->tid == task->tid)
+			goto out;
+
+		if (tg->task->tid > task->tid)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	tg = xmalloc(sizeof(*tg));
+	tg->task = task;
+	tg->enabled = 0;
+	tg->bt_curr = NULL;
+
+	rb_link_node(&tg->link, parent, p);
+	rb_insert_color(&tg->link, &tasks);
+
+out:
+	tg->graph = get_graph(task);
+	return tg;
+}
+
+static int save_backtrace_addr(struct task_graph *tg)
 {
 	int i;
-	int len = task->stack_count;
+	int len = tg->task->stack_count;
 	unsigned long addrs[len];
 	struct graph_backtrace *bt;
 
@@ -96,18 +136,13 @@ static int save_backtrace_addr(struct uftrace_graph *graph,
 		return 0;
 
 	for (i = len - 1; i >= 0; i--)
-		addrs[i] = task->func_stack[i].addr;
+		addrs[i] = tg->task->func_stack[i].addr;
 
-	for (i = 0; i < graph->nr_bt; i++) {
-		bt = graph->bt_list[i];
-
+	list_for_each_entry(bt, &tg->graph->bt_list, list) {
 		if (len == bt->len &&
 		    !memcmp(addrs, bt->addr, len * sizeof(*addrs)))
 			goto found;
 	}
-
-	graph->bt_list = xrealloc(graph->bt_list,
-				  (graph->nr_bt + 1) * sizeof(*graph->bt_list));
 
 	bt = xmalloc(sizeof(*bt) + len * sizeof(*addrs));
 
@@ -116,35 +151,34 @@ static int save_backtrace_addr(struct uftrace_graph *graph,
 	bt->time = 0;
 	memcpy(bt->addr, addrs, len * sizeof(*addrs));
 
-	graph->bt_list[graph->nr_bt++] = bt;
+	list_add(&bt->list, &tg->graph->bt_list);
 
 found:
 	bt->hit++;
-	graph->bt_curr = bt;
+	tg->bt_curr = bt;
 
 	return 0;
 }
 
-static void save_backtrace_time(struct uftrace_graph *graph,
-				struct ftrace_task_handle *task)
+static void save_backtrace_time(struct task_graph *tg)
 {
-	struct fstack *fstack = &task->func_stack[task->stack_count];
+	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count];
 
-	if (graph->bt_curr)
-		graph->bt_curr->time += fstack->total_time;
+	if (tg->bt_curr)
+		tg->bt_curr->time += fstack->total_time;
+
+	tg->bt_curr = NULL;
 }
 
 static int print_backtrace(struct uftrace_graph *graph)
 {
-	int i, k;
+	int i = 0, k;
 	struct graph_backtrace *bt;
 	struct sym *sym;
 	char *symname;
 
-	for (i = 0; i < graph->nr_bt; i++) {
-		bt = graph->bt_list[i];
-
-		pr_out(" backtrace #%d: hit %d, time", i, bt->hit);
+	list_for_each_entry(bt, &graph->bt_list, list) {
+		pr_out(" backtrace #%d: hit %d, time", i++, bt->hit);
 		print_time_unit(bt->time);
 		pr_out("\n");
 
@@ -165,37 +199,35 @@ static int print_backtrace(struct uftrace_graph *graph)
 	return 0;
 }
 
-static int start_graph(struct uftrace_graph *graph,
-		       struct ftrace_task_handle *task)
+static int start_graph(struct task_graph *tg)
 {
-	if (!graph->enabled++) {
-		save_backtrace_addr(graph, task);
-		graph->curr_node = &graph->root;
-		graph->curr_node->addr = task->ustack.addr;
-		graph->curr_node->nr_calls++;
+	if (!tg->enabled++) {
+		save_backtrace_addr(tg);
+
+		tg->node = &tg->graph->root;
+		tg->node->addr = tg->task->rstack->addr;
+		tg->node->nr_calls++;
 	}
 
 	return 0;
 }
 
-static int end_graph(struct uftrace_graph *graph,
-		     struct ftrace_task_handle *task)
+static int end_graph(struct task_graph *tg)
 {
-	if (!graph->enabled)
+	if (!tg->enabled)
 		return 0;
 
-	if (!--graph->enabled)
-		save_backtrace_time(graph, task);
+	if (!--tg->enabled)
+		save_backtrace_time(tg);
 
 	return 0;
 }
 
-static int add_graph_entry(struct uftrace_graph *graph,
-			   struct ftrace_task_handle *task)
+static int add_graph_entry(struct task_graph *tg)
 {
 	struct graph_node *node = NULL;
-	struct graph_node *curr = graph->curr_node;
-	struct ftrace_ret_stack *rstack = &task->ustack;
+	struct graph_node *curr = tg->node;
+	struct ftrace_ret_stack *rstack = tg->task->rstack;
 
 	if (curr == NULL)
 		return -1;
@@ -217,16 +249,15 @@ static int add_graph_entry(struct uftrace_graph *graph,
 	}
 
 	node->nr_calls++;
-	graph->curr_node = node;
+	tg->node = node;
 
 	return 0;
 }
 
-static int add_graph_exit(struct uftrace_graph *graph,
-			  struct ftrace_task_handle *task)
+static int add_graph_exit(struct task_graph *tg)
 {
-	struct fstack *fstack = &task->func_stack[task->stack_count];
-	struct graph_node *node = graph->curr_node;
+	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count];
+	struct graph_node *node = tg->node;
 
 	if (node == NULL)
 		return -1;
@@ -234,20 +265,19 @@ static int add_graph_exit(struct uftrace_graph *graph,
 	node->time       += fstack->total_time;
 	node->child_time += fstack->child_time;
 
-	graph->curr_node = node->parent;
+	tg->node = node->parent;
 
 	return 0;
 }
 
-static int add_graph(struct uftrace_graph *graph,
-		     struct ftrace_task_handle *task)
+static int add_graph(struct task_graph *tg)
 {
-	struct ftrace_ret_stack *rstack = &task->ustack;
+	struct ftrace_ret_stack *rstack = tg->task->rstack;
 
 	if (rstack->type == FTRACE_ENTRY)
-		return add_graph_entry(graph, task);
+		return add_graph_entry(tg);
 	else if (rstack->type == FTRACE_EXIT)
-		return add_graph_exit(graph, task);
+		return add_graph_exit(tg);
 	else
 		return 0;
 }
@@ -334,7 +364,7 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	       graph->func, graph->sess->sid);
 	pr_out("#\n\n");
 
-	if (graph->nr_bt) {
+	if (!list_empty(&graph->bt_list)) {
 		pr_out("backtrace\n");
 		pr_out("================================\n");
 		print_backtrace(graph);
@@ -351,63 +381,46 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
 {
-	int i, ret = 0;
+	int ret = 0;
 	struct ftrace_task_handle *task;
 	struct uftrace_graph *graph;
-	uint64_t prev_time;
+	uint64_t prev_time = 0;
 
 	setup_graph_list(func);
 
-	for (i = 0; i < handle->info.nr_tid; i++) {
-		task = &handle->tasks[i];
-		task->rstack = &task->ustack;
+	while (!read_rstack(handle, &task) && !ftrace_done) {
+		struct ftrace_ret_stack *frs = task->rstack;
+		struct task_graph *tg;
+		struct sym *sym = NULL;
+		char *name;
 
-		prev_time = 0;
+		if (!fstack_check_filter(task))
+			continue;
 
-		while (!read_task_ustack(handle, task) && !ftrace_done) {
-			struct ftrace_ret_stack *frs = &task->ustack;
-			struct sym *sym = NULL;
-			char *name;
-
-			graph = get_graph(task);
-			if (graph == NULL) {
-				pr_log("cannot find graph\n");
-				return -1;
-			}
-
-			sym = find_symtabs(&graph->sess->symtabs, frs->addr);
-			name = symbol_getname(sym, frs->addr);
-
-			fstack_account_time(task);
-			fstack_update_stack_count(task);
-
-			if (!fstack_check_filter(task))
-				goto next;
-
-			if (prev_time > frs->time) {
-				pr_log("inverted time: broken data?\n");
-				return -1;
-			}
-			prev_time = frs->time;
-
-			if (task->stack_count >= opts->max_stack)
-				goto next;
-
-			if (graph->enabled)
-				add_graph(graph, task);
-
-			if (!strcmp(name, func)) {
-				if (frs->type == FTRACE_ENTRY)
-					start_graph(graph, task);
-				else if (frs->type == FTRACE_EXIT)
-					end_graph(graph, task);
-			}
-
-next:
-			/* force re-read in read_task_ustack() */
-			task->valid = false;
-			symbol_putname(sym, name);
+		if (prev_time > frs->time) {
+			pr_log("inverted time: broken data?\n");
+			return -1;
 		}
+		prev_time = frs->time;
+
+		if (task->stack_count >= opts->max_stack)
+			continue;
+
+		tg = get_task_graph(task);
+		if (tg->enabled)
+			add_graph(tg);
+
+		sym = find_symtabs(&tg->graph->sess->symtabs, frs->addr);
+		name = symbol_getname(sym, frs->addr);
+
+		if (!strcmp(name, func)) {
+			if (frs->type == FTRACE_ENTRY)
+				start_graph(tg);
+			else if (frs->type == FTRACE_EXIT)
+				end_graph(tg);
+		}
+
+		symbol_putname(sym, name);
 	}
 
 	graph = graph_list;
