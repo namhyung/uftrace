@@ -603,8 +603,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 			return NULL;
 
 		/* consume the filtered rstack */
-		if (read_rstack(handle, &next) < 0)
-			pr_err("error during skip rstack");
+		fstack_consume(handle, next);
 
 		/*
 		 * call fstack_entry/exit() after read_rstack() so
@@ -880,7 +879,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
-void fstack_account_time(struct ftrace_task_handle *task)
+static void fstack_account_time(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 	struct ftrace_ret_stack *rstack = task->rstack;
@@ -958,7 +957,7 @@ void fstack_account_time(struct ftrace_task_handle *task)
 	}
 }
 
-void fstack_update_stack_count(struct ftrace_task_handle *task)
+static void fstack_update_stack_count(struct ftrace_task_handle *task)
 {
 	if (task->rstack == &task->ustack)
 		task->ctx = FSTACK_CTX_USER;
@@ -980,9 +979,73 @@ void fstack_update_stack_count(struct ftrace_task_handle *task)
 	}
 }
 
+static int find_rstack_cpu(struct ftrace_kernel *kernel,
+			   struct ftrace_ret_stack *rstack)
+{
+	int cpu = -1;
+
+	if (rstack->type == FTRACE_LOST) {
+		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+			if (rstack->addr == (unsigned)kernel->missed_events[cpu] &&
+			    rstack->depth == kernel->rstacks[cpu].depth)
+				break;
+		}
+		assert(cpu < kernel->nr_cpus);
+	}
+	else {
+		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+			if (rstack->time == kernel->rstacks[cpu].time &&
+			    rstack->addr == kernel->rstacks[cpu].addr)
+				break;
+		}
+		assert(cpu < kernel->nr_cpus);
+	}
+
+	return cpu;
+}
+
+static void __fstack_consume(struct ftrace_task_handle *task,
+			     struct ftrace_kernel *kernel, int cpu)
+{
+	struct ftrace_ret_stack *rstack = task->rstack;
+
+	if (rstack == &task->ustack)
+		task->valid = false;
+	else if (rstack->type == FTRACE_LOST)
+		kernel->missed_events[cpu] = 0;
+	else {
+		kernel->rstack_valid[cpu] = false;
+		task->lost_seen = false;
+	}
+
+	fstack_account_time(task);
+	fstack_update_stack_count(task);
+}
+
+/**
+ * fstack_consume - consume current rstack read
+ * @handle: file handle
+ * @task: task that holds current rstack
+ *
+ * This function consumes currently read stack by peek_rstack() so that
+ * it can read next rstack in the data file.
+ */
+void fstack_consume(struct ftrace_file_handle *handle,
+		    struct ftrace_task_handle *task)
+{
+	struct ftrace_ret_stack *rstack = task->rstack;
+	struct ftrace_kernel *kernel = handle->kern;
+	int cpu = 0;
+
+	if (rstack != &task->ustack)
+		cpu = find_rstack_cpu(kernel, rstack);
+
+	__fstack_consume(task, kernel, cpu);
+}
+
 static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct ftrace_task_handle **taskp,
-			 bool invalidate)
+			 bool consume)
 {
 	int u, k = -1;
 	struct ftrace_task_handle *task = NULL;
@@ -996,7 +1059,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		if (k < 0) {
 			static bool warn = false;
 
-			if (!warn && invalidate) {
+			if (!warn && consume) {
 				pr_dbg("no more kernel data\n");
 				warn = true;
 			}
@@ -1015,10 +1078,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 user:
 		utask->rstack = &utask->ustack;
 		task = utask;
-
-		if (invalidate) {
-			task->valid = false;
-		}
 	}
 	else {
 kernel:
@@ -1037,29 +1096,17 @@ kernel:
 			lost_rstack.more = 0;
 
 			/*
-			 * NOTE: do not invalidate the kstack since we didn't
+			 * NOTE: do not consume the kstack since we didn't
 			 * read the first record yet.  Next read_kernel_stack()
 			 * will return the first record.
 			 */
 			task->rstack = &lost_rstack;
 		}
-
-		if (invalidate) {
-			if (task->rstack->type == FTRACE_LOST)
-				kernel->missed_events[k] = 0;
-			else {
-				kernel->rstack_valid[k] = false;
-				task->lost_seen = false;
-			}
-
-		}
 	}
 
 	/* update stack count when the rstack is actually used */
-	if (invalidate) {
-		fstack_account_time(task);
-		fstack_update_stack_count(task);
-	}
+	if (consume)
+		__fstack_consume(task, kernel, k);
 
 	*taskp = task;
 	return 0;

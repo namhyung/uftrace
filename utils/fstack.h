@@ -96,6 +96,8 @@ int read_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task);
 int peek_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task);
+void fstack_consume(struct ftrace_file_handle *handle,
+		    struct ftrace_task_handle *task);
 
 struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx);
@@ -117,8 +119,6 @@ int fstack_entry(struct ftrace_task_handle *task,
 void fstack_exit(struct ftrace_task_handle *task);
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);
-void fstack_account_time(struct ftrace_task_handle *task);
-void fstack_update_stack_count(struct ftrace_task_handle *task);
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth);
