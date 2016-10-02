@@ -111,6 +111,7 @@ struct ftrace_file_handle {
 	struct ftrace_task_handle *tasks;
 	int nr_tasks;
 	int depth;
+	uint64_t time_filter;
 };
 
 #define UFTRACE_MODE_INVALID 0

@@ -67,6 +67,8 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
 
+	setup_rstack_list(&task->rstack_list);
+
 	/* FIXME: save filter depth at fork() and restore */
 	for (i = 0; i < max_stack; i++)
 		task->func_stack[i].orig_depth = handle->depth;
@@ -92,6 +94,8 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 
 		free(task->func_stack);
 		task->func_stack = NULL;
+
+		reset_rstack_list(&task->rstack_list);
 	}
 
 	free(handle->tasks);
@@ -148,6 +152,7 @@ setup:
 
 		if (!found) {
 			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
+			setup_rstack_list(&handle->tasks[i].rstack_list);
 			handle->tasks[i].done = true;
 			handle->tasks[i].fp = NULL;
 			handle->tasks[i].tid = tid;
@@ -920,12 +925,96 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
+	struct ftrace_ret_stack *curr;
+	struct uftrace_rstack_list *rstack_list;
 
 	task = &handle->tasks[idx];
+	rstack_list = &task->rstack_list;
 
-	if (read_task_ustack(handle, task) < 0)
+	if (!handle->time_filter) {
+		if (read_task_ustack(handle, task) < 0)
+			return NULL;
+		return &task->ustack;
+	}
+
+	if (rstack_list->count)
+		goto out;
+
+	/*
+	 * read task (user) stack until it found an entry that exceeds
+	 * the given time filter (-t option).
+	 */
+	while (read_task_ustack(handle, task) == 0) {
+		curr = &task->ustack;
+
+		/* prevent ustack from invalid access */
+		task->valid = false;
+
+		if (curr->type == FTRACE_ENTRY) {
+			/* it needs to wait until matching exit found */
+			add_to_rstack_list(rstack_list, curr);
+		}
+		else if (curr->type == FTRACE_EXIT) {
+			struct uftrace_rstack_list_node *last;
+			uint64_t delta;
+
+			if (rstack_list->count == 0) {
+				/* it's already exceeded time filter, just return */
+				add_to_rstack_list(rstack_list, curr);
+				break;
+			}
+
+			last = list_last_entry(&rstack_list->read,
+					       typeof(*last), list);
+			delta = curr->time - last->rstack.time;
+
+			if (delta < handle->time_filter) {
+				struct ftrace_session *sess;
+
+				sess = find_task_session(task->tid, curr->time);
+				if (sess == NULL)
+					sess = find_task_session(task->t->pid,
+								 curr->time);
+
+				if (sess) {
+					/*
+					 * it might set TRACE trigger, which
+					 * shows function even if it's less
+					 * than the time filter.
+					 */
+					struct ftrace_trigger tr = {};
+
+					ftrace_match_filter(&sess->filters,
+							    curr->addr, &tr);
+					if (tr.flags & TRIGGER_FL_TRACE) {
+						add_to_rstack_list(rstack_list,
+								   curr);
+						break;
+					}
+				}
+
+				/* also delete matching entry (at the last) */
+				delete_last_rstack_list(rstack_list);
+			} else {
+				/* found! process all existing rstacks in the list */
+				add_to_rstack_list(rstack_list, curr);
+				break;
+			}
+		}
+		else {
+			/* TODO: handle LOST properly */
+			add_to_rstack_list(rstack_list, curr);
+			break;
+		}
+
+	}
+	if (task->done && rstack_list->count == 0)
 		return NULL;
 
+out:
+	task->valid = true;
+	curr = get_first_rstack_list(rstack_list);
+	memcpy(&task->ustack, curr, sizeof(*task->rstack));
 	return &task->ustack;
 }
 
@@ -1085,8 +1174,11 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
 
-	if (rstack == &task->ustack)
+	if (rstack == &task->ustack) {
 		task->valid = false;
+		if (task->rstack_list.count)
+			consume_first_rstack_list(&task->rstack_list);
+	}
 	else if (rstack->type == FTRACE_LOST)
 		kernel->missed_events[cpu] = 0;
 	else {

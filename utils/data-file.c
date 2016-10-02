@@ -275,6 +275,7 @@ retry:
 	handle->kern = NULL;
 	handle->nr_tasks = 0;
 	handle->tasks = NULL;
+	handle->time_filter = opts->threshold;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
