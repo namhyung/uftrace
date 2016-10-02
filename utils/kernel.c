@@ -568,6 +568,7 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 	kernel->kbufs	= xcalloc(kernel->nr_cpus, sizeof(*kernel->kbufs));
 	kernel->rstacks = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstacks));
 
+	kernel->rstack_list   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_list));
 	kernel->rstack_valid  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
 	kernel->rstack_done   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
 	kernel->missed_events = xcalloc(kernel->nr_cpus, sizeof(*kernel->missed_events));
@@ -599,6 +600,8 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 
 		if (kernel->pevent->old_format)
 			kbuffer_set_old_format(kernel->kbufs[i]);
+
+		setup_rstack_list(&kernel->rstack_list[i]);
 
 		if (!kernel->sizes[i])
 			continue;
@@ -664,6 +667,8 @@ int finish_kernel_data(struct ftrace_kernel *kernel)
 			munmap(kernel->mmaps[i], trace_pagesize);
 
 		kbuffer_free(kernel->kbufs[i]);
+
+		reset_rstack_list(&kernel->rstack_list[i]);
 	}
 
 	free(kernel->fds);
@@ -673,6 +678,7 @@ int finish_kernel_data(struct ftrace_kernel *kernel)
 	free(kernel->kbufs);
 	free(kernel->rstacks);
 
+	free(kernel->rstack_list);
 	free(kernel->rstack_valid);
 	free(kernel->rstack_done);
 	free(kernel->missed_events);
@@ -810,6 +816,98 @@ int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 	return 0;
 }
 
+static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
+{
+	struct ftrace_kernel *kernel = handle->kern;
+	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
+	struct ftrace_ret_stack *curr;
+	int tid, prev_tid = -1;
+
+	if (!handle->time_filter)
+		return read_kernel_cpu_data(kernel, cpu);
+
+	if (rstack_list->count)
+		goto out;
+
+	/*
+	 * read task (kernel) stack until it found an entry that exceeds
+	 * the given time filter (-t option).
+	 */
+	while (read_kernel_cpu_data(kernel, cpu) == 0) {
+		curr = &kernel->rstacks[cpu];
+
+		/* prevent ustack from invalid access */
+		kernel->rstack_valid[cpu] = false;
+
+		tid = kernel->tids[cpu];
+		if (prev_tid == -1)
+			prev_tid = tid;
+
+		/* XXX: handle scheduled task properly */
+		if (tid != prev_tid) {
+			add_to_rstack_list(rstack_list, curr);
+			break;
+		}
+		prev_tid = tid;
+
+		if (curr->type == FTRACE_ENTRY) {
+			/* it needs to wait until matching exit found */
+			add_to_rstack_list(rstack_list, curr);
+		}
+		else if (curr->type == FTRACE_EXIT) {
+			struct uftrace_rstack_list_node *last;
+			uint64_t delta;
+
+			if (rstack_list->count == 0) {
+				/* it's already exceeded time filter, just return */
+				add_to_rstack_list(rstack_list, curr);
+				break;
+			}
+
+			last = list_last_entry(&rstack_list->read,
+					       typeof(*last), list);
+			delta = curr->time - last->rstack.time;
+
+			if (delta < handle->time_filter) {
+				struct ftrace_session *sess = first_session;
+				struct ftrace_trigger tr = {};
+
+				/*
+				 * it might set TRACE trigger, which shows
+				 * function even if it's less than the time filter.
+				 */
+				ftrace_match_filter(&sess->filters,
+						    curr->addr, &tr);
+				if (tr.flags & TRIGGER_FL_TRACE) {
+					add_to_rstack_list(rstack_list, curr);
+					continue;
+				}
+
+				/* also delete matching entry (at the last) */
+				delete_last_rstack_list(rstack_list);
+			} else {
+				/* found! process all existing rstacks in the list */
+				add_to_rstack_list(rstack_list, curr);
+				break;
+			}
+		}
+		else {
+			/* TODO: handle LOST properly */
+			add_to_rstack_list(rstack_list, curr);
+			break;
+		}
+
+	}
+	if (kernel->rstack_done[cpu] && rstack_list->count == 0)
+		return -1;
+
+out:
+	kernel->rstack_valid[cpu] = true;
+	curr = get_first_rstack_list(rstack_list);
+	memcpy(&kernel->rstacks[cpu], curr, sizeof(*curr));
+	return 0;
+}
+
 /**
  * read_kernel_stack - peek next kernel ftrace data
  * @handle - ftrace file handle
@@ -822,7 +920,7 @@ int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
  * be consumed, that means another call to this function will give you
  * same (*@taskp)->kstack.
  *
- * This function returns the cpu number (> 0) if it reads a rstck,
+ * This function returns the cpu number (> 0) if it reads a rstack,
  * -1 if it's done.
  */
 int read_kernel_stack(struct ftrace_file_handle *handle,
@@ -838,11 +936,11 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		uint64_t timestamp;
 
-		if (kernel->rstack_done[i])
+		if (kernel->rstack_done[i] && kernel->rstack_list[i].count == 0)
 			continue;
 
 		if (!kernel->rstack_valid[i]) {
-			read_kernel_cpu_data(kernel, i);
+			read_kernel_cpu(handle, i);
 			if (!kernel->rstack_valid[i])
 				continue;
 		}
