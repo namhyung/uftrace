@@ -361,6 +361,7 @@ struct ftrace_kernel {
 	struct kbuffer **kbufs;
 	struct pevent *pevent;
 	struct ftrace_ret_stack *rstacks;
+	struct uftrace_rstack_list *rstack_list;
 	bool *rstack_valid;
 	bool *rstack_done;
 	int *missed_events;

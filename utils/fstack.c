@@ -1184,6 +1184,8 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 	else {
 		kernel->rstack_valid[cpu] = false;
 		task->lost_seen = false;
+		if (kernel->rstack_list[cpu].count)
+			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
 
 	fstack_account_time(task);
