@@ -6,7 +6,7 @@ uftrace
 The uftrace tool is to trace and analyze execution of a program
 written in C/C++.  It was heavily inspired by the ftrace framework
 of the Linux kernel (especially function graph tracer) and supports
-userspace programs.  It support various kind of commands and filters
+userspace programs.  It supports various kind of commands and filters
 to help analysis of the program execution and performance.
 
  * Homepage: https://github.com/namhyung/uftrace
