@@ -8,24 +8,23 @@ FUNC='main'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', result="""
+        TestBase.__init__(self, 'sleep', result="""
 #
-# function graph for 'main'
+# function graph for 'main' (session: 0bc5da823389c319)
 #
 
 backtrace
 ================================
- backtrace #0: hit 1, time  10.293 ms
-   [0] main (0x4004f0)
+ backtrace #0: hit 1, time   2.103 ms
+   [0] main (0x400550)
 
 calling functions
 ================================
-  10.293 ms : (1) main
-  46.626 us :  +-(2) foo
-  44.360 us :  | (6) loop
-            :  | 
-  10.138 ms :  +-(1) bar
-  10.100 ms :    (1) usleep
+   2.103 ms : (1) main
+   2.102 ms : (1) foo
+   2.084 ms : (1) bar
+   2.080 ms : (1) usleep
+
 """)
 
     def pre(self):
@@ -34,7 +33,7 @@ calling functions
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s graph -d %s %s' % (TestBase.ftrace, TDIR, FUNC)
+        return '%s graph -t 1ms -d %s %s' % (TestBase.ftrace, TDIR, FUNC)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
