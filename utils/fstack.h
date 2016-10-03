@@ -18,12 +18,6 @@ enum fstack_flag {
 	FSTACK_FL_LONGJMP	= (1U << 4),
 };
 
-struct fstack_arguments {
-	struct list_head	*args;
-	unsigned		len;
-	void			*data;
-};
-
 enum context {
 	FSTACK_CTX_UNKNOWN	= 0,
 	FSTACK_CTX_USER		= 1,
