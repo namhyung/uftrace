@@ -7,16 +7,13 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', """
+        TestBase.__init__(self, 'sleep', """
   Total time   Self time       Calls  Function
   ==========  ==========  ==========  ====================================
-    1.152 ms   71.683 us           1  main
-    1.080 ms    1.813 us           1  bar
-    1.078 ms    1.078 ms           1  usleep
-   70.176 us   70.176 us           1  __monstartup   # ignore this
-   37.525 us    1.137 us           2  foo
-   36.388 us   36.388 us           6  loop
-    1.200 us    1.200 us           1  __cxa_atexit   # and this too
+    2.103 ms    0.910 us           1  main
+    2.102 ms   18.787 us           1  foo
+    2.084 ms    4.107 us           1  bar
+    2.080 ms    2.080 ms           1  usleep
 """)
 
     def pre(self):
@@ -25,7 +22,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report -d %s' % (TestBase.ftrace, TDIR)
+        return '%s report -t 1ms -d %s' % (TestBase.ftrace, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
