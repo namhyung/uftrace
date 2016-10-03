@@ -846,14 +846,14 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 		/* XXX: handle scheduled task properly */
 		if (tid != prev_tid) {
-			add_to_rstack_list(rstack_list, curr);
+			add_to_rstack_list(rstack_list, curr, NULL);
 			break;
 		}
 		prev_tid = tid;
 
 		if (curr->type == FTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
-			add_to_rstack_list(rstack_list, curr);
+			add_to_rstack_list(rstack_list, curr, NULL);
 		}
 		else if (curr->type == FTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
@@ -861,7 +861,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 			if (rstack_list->count == 0) {
 				/* it's already exceeded time filter, just return */
-				add_to_rstack_list(rstack_list, curr);
+				add_to_rstack_list(rstack_list, curr, NULL);
 				break;
 			}
 
@@ -880,7 +880,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 				ftrace_match_filter(&sess->filters,
 						    curr->addr, &tr);
 				if (tr.flags & TRIGGER_FL_TRACE) {
-					add_to_rstack_list(rstack_list, curr);
+					add_to_rstack_list(rstack_list, curr, NULL);
 					break;
 				}
 
@@ -888,13 +888,13 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 				delete_last_rstack_list(rstack_list);
 			} else {
 				/* found! process all existing rstacks in the list */
-				add_to_rstack_list(rstack_list, curr);
+				add_to_rstack_list(rstack_list, curr, NULL);
 				break;
 			}
 		}
 		else {
 			/* TODO: handle LOST properly */
-			add_to_rstack_list(rstack_list, curr);
+			add_to_rstack_list(rstack_list, curr, NULL);
 			break;
 		}
 

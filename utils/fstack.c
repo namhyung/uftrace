@@ -674,18 +674,26 @@ void setup_rstack_list(struct uftrace_rstack_list *list)
 }
 
 void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct ftrace_ret_stack *rstack)
+			struct ftrace_ret_stack *rstack,
+			struct fstack_arguments *args)
 {
 	struct uftrace_rstack_list_node *node;
 
-	if (list_empty(&list->unused))
+	if (list_empty(&list->unused)) {
 		node = xmalloc(sizeof(*node));
+		node->args.data = NULL;
+	}
 	else {
 		node = list_first_entry(&list->unused, typeof(*node), list);
 		list_del(&node->list);
 	}
 
 	memcpy(&node->rstack, rstack, sizeof(*rstack));
+	if (rstack->more) {
+		memcpy(&node->args, args, sizeof(*args));
+		node->args.data = xmalloc(args->len);
+		memcpy(node->args.data, args->data, args->len);
+	}
 
 	list_add_tail(&node->list, &list->read);
 	list->count++;
@@ -709,6 +717,10 @@ void consume_first_rstack_list(struct uftrace_rstack_list *list)
 
 	node = list_first_entry(&list->read, typeof(*node), list);
 	list_move(&node->list, &list->unused);
+
+	if (node->rstack.more)
+		assert(node->args.data == NULL);
+
 	list->count--;
 }
 
@@ -719,6 +731,11 @@ void delete_last_rstack_list(struct uftrace_rstack_list *list)
 	assert(list->count > 0);
 
 	node = list_last_entry(&list->read, typeof(*node), list);
+	if (node->rstack.more) {
+		free(node->args.data);
+		node->args.data = NULL;
+	}
+
 	list_move(&node->list, &list->unused);
 	list->count--;
 }
@@ -952,7 +969,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 		if (curr->type == FTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
-			add_to_rstack_list(rstack_list, curr);
+			add_to_rstack_list(rstack_list, curr, &task->args);
 		}
 		else if (curr->type == FTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
@@ -960,7 +977,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 			if (rstack_list->count == 0) {
 				/* it's already exceeded time filter, just return */
-				add_to_rstack_list(rstack_list, curr);
+				add_to_rstack_list(rstack_list, curr, &task->args);
 				break;
 			}
 
@@ -988,7 +1005,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 							    curr->addr, &tr);
 					if (tr.flags & TRIGGER_FL_TRACE) {
 						add_to_rstack_list(rstack_list,
-								   curr);
+								   curr,
+								   &task->args);
 						break;
 					}
 				}
@@ -997,13 +1015,13 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				delete_last_rstack_list(rstack_list);
 			} else {
 				/* found! process all existing rstacks in the list */
-				add_to_rstack_list(rstack_list, curr);
+				add_to_rstack_list(rstack_list, curr, &task->args);
 				break;
 			}
 		}
 		else {
 			/* TODO: handle LOST properly */
-			add_to_rstack_list(rstack_list, curr);
+			add_to_rstack_list(rstack_list, curr, &task->args);
 			break;
 		}
 
@@ -1015,6 +1033,7 @@ out:
 	task->valid = true;
 	curr = get_first_rstack_list(rstack_list);
 	memcpy(&task->ustack, curr, sizeof(*task->rstack));
+
 	return &task->ustack;
 }
 
@@ -1176,8 +1195,23 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 
 	if (rstack == &task->ustack) {
 		task->valid = false;
-		if (task->rstack_list.count)
+		if (task->rstack_list.count) {
+			if (rstack->more) {
+				struct uftrace_rstack_list_node *node;
+
+				node = list_first_entry(&task->rstack_list.read,
+							typeof(*node), list);
+				assert(node->args.data);
+
+				/* restore args/retval to task */
+				free(task->args.data);
+				task->args.args = node->args.args;
+				task->args.data = node->args.data;
+				task->args.len  = node->args.len;
+				node->args.data = NULL;
+			}
 			consume_first_rstack_list(&task->rstack_list);
+		}
 	}
 	else if (rstack->type == FTRACE_LOST)
 		kernel->missed_events[cpu] = 0;

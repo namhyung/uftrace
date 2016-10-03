@@ -322,6 +322,12 @@ static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
 	return stack->unused == FTRACE_UNUSED && stack->more == 0;
 }
 
+struct fstack_arguments {
+	struct list_head	*args;
+	unsigned		len;
+	void			*data;
+};
+
 struct uftrace_rstack_list {
 	struct list_head read;
 	struct list_head unused;
@@ -331,11 +337,13 @@ struct uftrace_rstack_list {
 struct uftrace_rstack_list_node {
 	struct list_head list;
 	struct ftrace_ret_stack rstack;
+	struct fstack_arguments args;
 };
 
 void setup_rstack_list(struct uftrace_rstack_list *list);
 void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct ftrace_ret_stack *rstack);
+			struct ftrace_ret_stack *rstack,
+			struct fstack_arguments *args);
 struct ftrace_ret_stack * get_first_rstack_list(struct uftrace_rstack_list *);
 void consume_first_rstack_list(struct uftrace_rstack_list *list);
 void delete_last_rstack_list(struct uftrace_rstack_list *list);
