@@ -28,7 +28,18 @@ endif
 prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
+etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
+
+# use /etc if it's installed in the system directory (i.e. /usr{,/local})
+ifneq ($(findstring /usr/local,$(prefix)),)
+  etcdir_in_usr := $(etcdir)
+  etcdir = $(patsubst /usr/local/%,/%,$(etcdir_in_usr))
+endif
+ifneq ($(findstring /usr,$(prefix)),)
+  etcdir_in_usr := $(etcdir)
+  etcdir = $(patsubst /usr/%,/%,$(etcdir_in_usr))
+endif
 
 srcdir = $(CURDIR)
 # set objdir to $(O) by default (if any)
@@ -217,6 +228,7 @@ $(objdir)/uftrace: $(UFTRACE_OBJS) $(objdir)/libtraceevent/libtraceevent.a
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(etcdir)/bash_completion.d
 	$(call QUIET_INSTALL, uftrace)
 	$(Q)$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_INSTALL, libmcount)
@@ -225,6 +237,8 @@ install: all
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(call QUIET_INSTALL, bash-completion)
+	$(Q)$(INSTALL) $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
