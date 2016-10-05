@@ -50,7 +50,15 @@ fi
 
 bindir=${bindir:-${prefix}/bin}
 libdir=${libdir:-${prefix}/lib}
+etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
+
+if [[ ${etcdir} =~ "/usr/local" ]]; then
+    etcdir=${etcdir/\/usr\/local//}
+fi
+if [[ ${etcdir} =~ "/usr" ]]; then
+    etcdir=${etcdir/\/usr//}
+fi
 
 CC=${CC:-${CROSS_COMPILE}gcc}
 LD=${LD:-${CROSS_COMPILE}ld}
@@ -64,6 +72,7 @@ echo override prefix := $prefix  >> $output
 echo override bindir := $bindir  >> $output
 echo override libdir := $libdir  >> $output
 echo override mandir := $mandir  >> $output
+echo override etcdir := $etcdir  >> $output
 echo                             >> $output
 echo override ARCH   := $ARCH    >> $output
 echo override CC     := $CC      >> $output

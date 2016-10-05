@@ -31,14 +31,14 @@ libdir = $(prefix)/lib
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 
-# use /etc if it's installed in the system directory (i.e. /usr{,/local})
+# XXX: use /etc if it's installed in the system directory (i.e. /usr{,/local})
 ifneq ($(findstring /usr/local,$(prefix)),)
   etcdir_in_usr := $(etcdir)
-  etcdir = $(patsubst /usr/local/%,/%,$(etcdir_in_usr))
+  etcdir = $(subst /usr/local/,/,$(etcdir_in_usr))
 endif
 ifneq ($(findstring /usr,$(prefix)),)
   etcdir_in_usr := $(etcdir)
-  etcdir = $(patsubst /usr/%,/%,$(etcdir_in_usr))
+  etcdir = $(subst /usr/,/,$(etcdir_in_usr))
 endif
 
 srcdir = $(CURDIR)
@@ -238,7 +238,7 @@ install: all
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	$(call QUIET_INSTALL, bash-completion)
-	$(Q)$(INSTALL) $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
+	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
@@ -247,6 +247,8 @@ uninstall:
 	$(Q)$(RM) $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_UNINSTALL, libmcount)
 	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount{,-nop,-fast,-single,-fast-single}.so
+	$(call QUIET_UNINSTALL, bash-completion)
+	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(srcdir)/doc uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
