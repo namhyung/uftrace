@@ -509,6 +509,7 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel)
 	free(kernel->fds);
 
 	save_kernel_files(kernel);
+	save_kernel_symbol(kernel->output_dir);
 
 	reset_tracing_files();
 
@@ -796,8 +797,6 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 		return -1;
 	}
 
-	/* TODO: read /proc/kallsyms and register functions */
-
 	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_entry",
 				      funcgraph_entry_handler, NULL);
 	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_exit",
@@ -851,7 +850,8 @@ static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu)
 	kernel->mmaps[cpu] = mmap(NULL, trace_pagesize, PROT_READ, MAP_PRIVATE,
 				  kernel->fds[cpu], kernel->offsets[cpu]);
 	if (kernel->mmaps[cpu] == MAP_FAILED) {
-		pr_dbg("loading kbuffer for cpu %d failed", cpu);
+		pr_dbg("loading kbuffer for cpu %d (fd: %d, offset: %lu, pagesize: %zd) failed\n",
+		       cpu, kernel->fds[cpu], kernel->offsets[cpu], trace_pagesize);
 		return -1;
 	}
 

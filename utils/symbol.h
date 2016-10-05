@@ -99,7 +99,9 @@ size_t count_dynsym(struct symtabs *symtabs);
 struct ftrace_proc_maps *find_map_by_name(struct symtabs *symtabs,
 					  const char *prefix);
 
-int load_kernel_symbol(void);
+int save_kernel_symbol(char *dirname);
+int load_kernel_symbol(char *dirname);
+
 struct symtab * get_kernel_symtab(void);
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     unsigned long offset);
