@@ -53,11 +53,11 @@ libdir=${libdir:-${prefix}/lib}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
 
-if [[ ${etcdir} =~ "/usr/local" ]]; then
-    etcdir=${etcdir/\/usr\/local//}
+if echo ${etcdir} | grep -qs /usr/local; then
+    etcdir=$(echo ${etcdir} | sed -e "s^/usr/local^^")
 fi
-if [[ ${etcdir} =~ "/usr" ]]; then
-    etcdir=${etcdir/\/usr//}
+if echo ${etcdir} | grep -qs /usr; then
+    etcdir=$(echo ${etcdir} | sed -e "s^/usr^^")
 fi
 
 CC=${CC:-${CROSS_COMPILE}gcc}
