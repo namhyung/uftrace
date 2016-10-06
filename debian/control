@@ -7,7 +7,7 @@ Standards-Version: 3.9.7
 Homepage: https://github.com/namhyung/uftrace
 
 Package: uftrace
-Architecture: amd64 armel armhf arm64
+Architecture: amd64 armel armhf
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Traces and analyzes execution of programs written in C/C++
  The uftrace tool is intended for tracing and analyzing the execution of
