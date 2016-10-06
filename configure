@@ -109,9 +109,12 @@ clean:
 prepare:
 	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
 
+install:
+	@\$(MAKE) -C \$(srcdir) install
+
 test: all
 	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
 
-.PHONY: all config clean test
+.PHONY: all config clean test install
 EOF
 fi
