@@ -1008,7 +1008,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 						add_to_rstack_list(rstack_list,
 								   curr,
 								   &task->args);
-						continue;
+						break;
 					}
 				}
 
