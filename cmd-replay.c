@@ -356,15 +356,15 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		    next->rstack->type == FTRACE_EXIT) {
 			char retval[1024];
 
+			/* leaf function - also consume return record */
+			fstack_consume(handle, next);
+
 			str_mode = IS_RETVAL | NEEDS_SEMI_COLON;
 			if (next->rstack->more) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
 			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
-
-			/* leaf function - also consume return record */
-			read_rstack(handle, &next);
 
 			print_time_unit(fstack->total_time);
 
