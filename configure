@@ -65,6 +65,7 @@ LD=${LD:-${CROSS_COMPILE}ld}
 
 srcdir=$(readlink -f $(dirname $0))
 objdir=${objdir:-${PWD}}
+[ ${objdir:0:1} != '/' ] && objdir=${PWD}/${objdir}
 [ -e "$objdir" ] || mkdir -p "$objdir"
 output=${output:-${objdir}/.config}
 
