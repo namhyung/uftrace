@@ -35,7 +35,7 @@ OPTIONS
 :   Report differences between the input trace data and the given DATA.
 
 \--sort-column=*IDX*
-:   When `--diff` is used, 3 columns will be shown: total time, self time and call count.  This option selects the index of the column to be used as a sort key.  Index 0 is for original data given by the `--file` option, index 1 is for data given by the `--diff` option, and index 2 is for (percentage) differences between the two data.
+:   When `--diff` is used, 3 columns will be shown: total time, self time and call count.  This option selects the index of the column to be used as a sort key.  Index 0 is for original data given by the `--data` option, index 1 is for data given by the `--diff` option, and index 2 is for (percentage) differences between the two data.
 
 -k, \--kernel
 :   Show kernel functions as well as user functions.  Only kernel functions called inside user functions will be shown.
