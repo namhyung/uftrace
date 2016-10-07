@@ -18,12 +18,6 @@ enum fstack_flag {
 	FSTACK_FL_LONGJMP	= (1U << 4),
 };
 
-struct fstack_arguments {
-	struct list_head	*args;
-	unsigned		len;
-	void			*data;
-};
-
 enum context {
 	FSTACK_CTX_UNKNOWN	= 0,
 	FSTACK_CTX_USER		= 1,
@@ -43,6 +37,7 @@ struct ftrace_task_handle {
 	struct ftrace_ret_stack ustack;
 	struct ftrace_ret_stack kstack;
 	struct ftrace_ret_stack *rstack;
+	struct uftrace_rstack_list rstack_list;
 	int stack_count;
 	int lost_count;
 	int user_stack_count;
@@ -96,6 +91,8 @@ int read_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task);
 int peek_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle **task);
+void fstack_consume(struct ftrace_file_handle *handle,
+		    struct ftrace_task_handle *task);
 
 struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx);
@@ -117,8 +114,6 @@ int fstack_entry(struct ftrace_task_handle *task,
 void fstack_exit(struct ftrace_task_handle *task);
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);
-void fstack_account_time(struct ftrace_task_handle *task);
-void fstack_update_stack_count(struct ftrace_task_handle *task);
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth);

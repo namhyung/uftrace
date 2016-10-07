@@ -877,28 +877,24 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct sym *sym = NULL;
 			char *name;
 
+			/* consume the rstack as it didn't call read_rstack() */
+			fstack_consume(handle, task);
+
+			if (prev_time > frs->time)
+				ops->inverted_time(ops, task);
+			prev_time = frs->time;
+
+			if (!fstack_check_filter(task))
+				continue;
+
 			if (sess) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);
-
-			if (prev_time > frs->time)
-				ops->inverted_time(ops, task);
-			prev_time = frs->time;
-
-			fstack_account_time(task);
-			fstack_update_stack_count(task);
-			if (!fstack_check_filter(task))
-				goto next;
-
 			ops->task_rstack(ops, task, name);
 			symbol_putname(sym, name);
-
-next:
-			/* force re-read in read_task_ustack() */
-			task->valid = false;
 		}
 	}
 

@@ -67,6 +67,8 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
 
+	setup_rstack_list(&task->rstack_list);
+
 	/* FIXME: save filter depth at fork() and restore */
 	for (i = 0; i < max_stack; i++)
 		task->func_stack[i].orig_depth = handle->depth;
@@ -92,6 +94,8 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 
 		free(task->func_stack);
 		task->func_stack = NULL;
+
+		reset_rstack_list(&task->rstack_list);
 	}
 
 	free(handle->tasks);
@@ -148,6 +152,7 @@ setup:
 
 		if (!found) {
 			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
+			setup_rstack_list(&handle->tasks[i].rstack_list);
 			handle->tasks[i].done = true;
 			handle->tasks[i].fp = NULL;
 			handle->tasks[i].tid = tid;
@@ -603,8 +608,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 			return NULL;
 
 		/* consume the filtered rstack */
-		if (read_rstack(handle, &next) < 0)
-			pr_err("error during skip rstack");
+		fstack_consume(handle, next);
 
 		/*
 		 * call fstack_entry/exit() after read_rstack() so
@@ -660,6 +664,99 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 	}
 
 	return true;
+}
+
+void setup_rstack_list(struct uftrace_rstack_list *list)
+{
+	INIT_LIST_HEAD(&list->read);
+	INIT_LIST_HEAD(&list->unused);
+	list->count = 0;
+}
+
+void add_to_rstack_list(struct uftrace_rstack_list *list,
+			struct ftrace_ret_stack *rstack,
+			struct fstack_arguments *args)
+{
+	struct uftrace_rstack_list_node *node;
+
+	if (list_empty(&list->unused)) {
+		node = xmalloc(sizeof(*node));
+		node->args.data = NULL;
+	}
+	else {
+		node = list_first_entry(&list->unused, typeof(*node), list);
+		list_del(&node->list);
+	}
+
+	memcpy(&node->rstack, rstack, sizeof(*rstack));
+	if (rstack->more) {
+		memcpy(&node->args, args, sizeof(*args));
+		node->args.data = xmalloc(args->len);
+		memcpy(node->args.data, args->data, args->len);
+	}
+
+	list_add_tail(&node->list, &list->read);
+	list->count++;
+}
+
+struct ftrace_ret_stack *get_first_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_first_entry(&list->read, typeof(*node), list);
+	return &node->rstack;
+}
+
+void consume_first_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_first_entry(&list->read, typeof(*node), list);
+	list_move(&node->list, &list->unused);
+
+	if (node->rstack.more)
+		assert(node->args.data == NULL);
+
+	list->count--;
+}
+
+void delete_last_rstack_list(struct uftrace_rstack_list *list)
+{
+	struct uftrace_rstack_list_node *node;
+
+	assert(list->count > 0);
+
+	node = list_last_entry(&list->read, typeof(*node), list);
+	if (node->rstack.more) {
+		free(node->args.data);
+		node->args.data = NULL;
+	}
+
+	list_move(&node->list, &list->unused);
+	list->count--;
+}
+
+void reset_rstack_list(struct uftrace_rstack_list *list)
+{
+	while (!list_empty(&list->read)) {
+		struct uftrace_rstack_list_node *node;
+
+		node = list_first_entry(&list->read, typeof(*node), list);
+		list_del(&node->list);
+		free(node);
+	}
+
+	while (!list_empty(&list->unused)) {
+		struct uftrace_rstack_list_node *node;
+
+		node = list_first_entry(&list->unused, typeof(*node), list);
+		list_del(&node->list);
+		free(node);
+	}
 }
 
 static int __read_task_ustack(struct ftrace_task_handle *task)
@@ -779,7 +876,7 @@ int read_task_args(struct ftrace_task_handle *task,
  * @handle: file handle
  * @task: tracee task
  *
- * This function reads current ftrace rcord and save it to @task->ustack.
+ * This function reads current ftrace record and save it to @task->ustack.
  * Data file it accesses should be opened already.  When @task->valid is
  * set, it just returns @task->ustack already read, so if you want to force
  * read from file, the @task->valid should be reset before calling this
@@ -845,11 +942,97 @@ struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
+	struct ftrace_ret_stack *curr;
+	struct uftrace_rstack_list *rstack_list;
 
 	task = &handle->tasks[idx];
+	rstack_list = &task->rstack_list;
 
-	if (read_task_ustack(handle, task) < 0)
+	if (!handle->time_filter) {
+		if (read_task_ustack(handle, task) < 0)
+			return NULL;
+		return &task->ustack;
+	}
+
+	if (rstack_list->count)
+		goto out;
+
+	/*
+	 * read task (user) stack until it found an entry that exceeds
+	 * the given time filter (-t option).
+	 */
+	while (read_task_ustack(handle, task) == 0) {
+		curr = &task->ustack;
+
+		/* prevent ustack from invalid access */
+		task->valid = false;
+
+		if (curr->type == FTRACE_ENTRY) {
+			/* it needs to wait until matching exit found */
+			add_to_rstack_list(rstack_list, curr, &task->args);
+		}
+		else if (curr->type == FTRACE_EXIT) {
+			struct uftrace_rstack_list_node *last;
+			uint64_t delta;
+
+			if (rstack_list->count == 0) {
+				/* it's already exceeded time filter, just return */
+				add_to_rstack_list(rstack_list, curr, &task->args);
+				break;
+			}
+
+			last = list_last_entry(&rstack_list->read,
+					       typeof(*last), list);
+			delta = curr->time - last->rstack.time;
+
+			if (delta < handle->time_filter) {
+				struct ftrace_session *sess;
+
+				sess = find_task_session(task->tid, curr->time);
+				if (sess == NULL)
+					sess = find_task_session(task->t->pid,
+								 curr->time);
+
+				if (sess) {
+					/*
+					 * it might set TRACE trigger, which
+					 * shows function even if it's less
+					 * than the time filter.
+					 */
+					struct ftrace_trigger tr = {};
+
+					ftrace_match_filter(&sess->filters,
+							    curr->addr, &tr);
+					if (tr.flags & TRIGGER_FL_TRACE) {
+						add_to_rstack_list(rstack_list,
+								   curr,
+								   &task->args);
+						break;
+					}
+				}
+
+				/* also delete matching entry (at the last) */
+				delete_last_rstack_list(rstack_list);
+			} else {
+				/* found! process all existing rstacks in the list */
+				add_to_rstack_list(rstack_list, curr, &task->args);
+				break;
+			}
+		}
+		else {
+			/* TODO: handle LOST properly */
+			add_to_rstack_list(rstack_list, curr, &task->args);
+			break;
+		}
+
+	}
+	if (task->done && rstack_list->count == 0)
 		return NULL;
+
+out:
+	task->valid = true;
+	curr = get_first_rstack_list(rstack_list);
+	memcpy(&task->ustack, curr, sizeof(*task->rstack));
 
 	return &task->ustack;
 }
@@ -880,7 +1063,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
-void fstack_account_time(struct ftrace_task_handle *task)
+static void fstack_account_time(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 	struct ftrace_ret_stack *rstack = task->rstack;
@@ -958,7 +1141,7 @@ void fstack_account_time(struct ftrace_task_handle *task)
 	}
 }
 
-void fstack_update_stack_count(struct ftrace_task_handle *task)
+static void fstack_update_stack_count(struct ftrace_task_handle *task)
 {
 	if (task->rstack == &task->ustack)
 		task->ctx = FSTACK_CTX_USER;
@@ -980,9 +1163,93 @@ void fstack_update_stack_count(struct ftrace_task_handle *task)
 	}
 }
 
+static int find_rstack_cpu(struct ftrace_kernel *kernel,
+			   struct ftrace_ret_stack *rstack)
+{
+	int cpu = -1;
+
+	if (rstack->type == FTRACE_LOST) {
+		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+			if (rstack->addr == (unsigned)kernel->missed_events[cpu] &&
+			    rstack->depth == kernel->rstacks[cpu].depth)
+				break;
+		}
+		assert(cpu < kernel->nr_cpus);
+	}
+	else {
+		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+			if (rstack->time == kernel->rstacks[cpu].time &&
+			    rstack->addr == kernel->rstacks[cpu].addr)
+				break;
+		}
+		assert(cpu < kernel->nr_cpus);
+	}
+
+	return cpu;
+}
+
+static void __fstack_consume(struct ftrace_task_handle *task,
+			     struct ftrace_kernel *kernel, int cpu)
+{
+	struct ftrace_ret_stack *rstack = task->rstack;
+
+	if (rstack == &task->ustack) {
+		task->valid = false;
+		if (task->rstack_list.count) {
+			if (rstack->more) {
+				struct uftrace_rstack_list_node *node;
+
+				node = list_first_entry(&task->rstack_list.read,
+							typeof(*node), list);
+				assert(node->args.data);
+
+				/* restore args/retval to task */
+				free(task->args.data);
+				task->args.args = node->args.args;
+				task->args.data = node->args.data;
+				task->args.len  = node->args.len;
+				node->args.data = NULL;
+			}
+			consume_first_rstack_list(&task->rstack_list);
+		}
+	}
+	else if (rstack->type == FTRACE_LOST)
+		kernel->missed_events[cpu] = 0;
+	else {
+		kernel->rstack_valid[cpu] = false;
+		task->lost_seen = false;
+		if (kernel->rstack_list[cpu].count)
+			consume_first_rstack_list(&kernel->rstack_list[cpu]);
+	}
+
+	fstack_account_time(task);
+	fstack_update_stack_count(task);
+}
+
+/**
+ * fstack_consume - consume current rstack read
+ * @handle: file handle
+ * @task: task that holds current rstack
+ *
+ * This function consumes currently read stack by peek_rstack() so that
+ * it can read next rstack in the data file.
+ */
+void fstack_consume(struct ftrace_file_handle *handle,
+		    struct ftrace_task_handle *task)
+{
+	struct ftrace_ret_stack *rstack = task->rstack;
+	struct ftrace_kernel *kernel = handle->kern;
+	int cpu = 0;
+
+	if (rstack != &task->ustack)
+		cpu = find_rstack_cpu(kernel, rstack);
+
+	__fstack_consume(task, kernel, cpu);
+}
+
 static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct ftrace_task_handle **taskp,
-			 bool invalidate)
+			 bool consume)
 {
 	int u, k = -1;
 	struct ftrace_task_handle *task = NULL;
@@ -996,7 +1263,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		if (k < 0) {
 			static bool warn = false;
 
-			if (!warn && invalidate) {
+			if (!warn && consume) {
 				pr_dbg("no more kernel data\n");
 				warn = true;
 			}
@@ -1015,10 +1282,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 user:
 		utask->rstack = &utask->ustack;
 		task = utask;
-
-		if (invalidate) {
-			task->valid = false;
-		}
 	}
 	else {
 kernel:
@@ -1037,29 +1300,17 @@ kernel:
 			lost_rstack.more = 0;
 
 			/*
-			 * NOTE: do not invalidate the kstack since we didn't
+			 * NOTE: do not consume the kstack since we didn't
 			 * read the first record yet.  Next read_kernel_stack()
 			 * will return the first record.
 			 */
 			task->rstack = &lost_rstack;
 		}
-
-		if (invalidate) {
-			if (task->rstack->type == FTRACE_LOST)
-				kernel->missed_events[k] = 0;
-			else {
-				kernel->rstack_valid[k] = false;
-				task->lost_seen = false;
-			}
-
-		}
 	}
 
 	/* update stack count when the rstack is actually used */
-	if (invalidate) {
-		fstack_account_time(task);
-		fstack_update_stack_count(task);
-	}
+	if (consume)
+		__fstack_consume(task, kernel, k);
 
 	*taskp = task;
 	return 0;

@@ -111,6 +111,7 @@ struct ftrace_file_handle {
 	struct ftrace_task_handle *tasks;
 	int nr_tasks;
 	int depth;
+	uint64_t time_filter;
 };
 
 #define UFTRACE_MODE_INVALID 0
@@ -321,6 +322,33 @@ static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
 	return stack->unused == FTRACE_UNUSED && stack->more == 0;
 }
 
+struct fstack_arguments {
+	struct list_head	*args;
+	unsigned		len;
+	void			*data;
+};
+
+struct uftrace_rstack_list {
+	struct list_head read;
+	struct list_head unused;
+	int count;
+};
+
+struct uftrace_rstack_list_node {
+	struct list_head list;
+	struct ftrace_ret_stack rstack;
+	struct fstack_arguments args;
+};
+
+void setup_rstack_list(struct uftrace_rstack_list *list);
+void add_to_rstack_list(struct uftrace_rstack_list *list,
+			struct ftrace_ret_stack *rstack,
+			struct fstack_arguments *args);
+struct ftrace_ret_stack * get_first_rstack_list(struct uftrace_rstack_list *);
+void consume_first_rstack_list(struct uftrace_rstack_list *list);
+void delete_last_rstack_list(struct uftrace_rstack_list *list);
+void reset_rstack_list(struct uftrace_rstack_list *list);
+
 enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
@@ -341,6 +369,7 @@ struct ftrace_kernel {
 	struct kbuffer **kbufs;
 	struct pevent *pevent;
 	struct ftrace_ret_stack *rstacks;
+	struct uftrace_rstack_list *rstack_list;
 	bool *rstack_valid;
 	bool *rstack_done;
 	int *missed_events;
