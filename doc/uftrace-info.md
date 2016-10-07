@@ -17,7 +17,7 @@ This command prints metadata recorded in the header of a given data file.
 OPTIONS
 =======
 \--symbols
-:   Print symbols table instead of the recorded tracing info.  It will print two symbols tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.   When COMMAND is given, it should provides symbol information which might not be available from the recorded path of 'exe image' or symbol file in the data directory.
+:   Print symbols table instead of the recorded tracing info.  It will print two symbol tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.   When COMMAND is given, it should provide symbol information which might not be available from the recorded path of 'exe image' or the symbol file in the data directory.
 
 
 EXAMPLE
@@ -53,7 +53,7 @@ This command shows information like below:
     # page fault          : 0 / 169 (major / minor)
     # disk iops           : 0 / 24 (read / write)
 
-To see symbol table, one can use \--symbols option.
+To see the symbol table, one can use the `--symbols` option.
 
     $ uftrace info --symbols
     Normal symbols

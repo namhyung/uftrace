@@ -21,34 +21,34 @@ OPTIONS
 :   Show hex dump of data as well
 
 \--chrome
-:   Show JSON style output used by Google chrome tracing facility.
+:   Show JSON style output as used by the Google Chrome tracing facility.
 
 \--flame-graph
-:   Show FlameGraph style output (svg) used by modern web browsers.
+:   Show FlameGraph style output (svg) viewable by modern web browsers.
 
 -k, \--kernel
-:   Dump kernel functions as well
+:   Dump kernel functions as well as user functions.
 
 \--kernel-only
-:   Dump kernel functions only.  Implies \--kernel option.
+:   Dump kernel functions only.  Implies `--kernel`.
 
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (and their children).  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter not to trace selected functions (or the functions called underneath them).  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay` for triggers.
+:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of triggers.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions from given threads.  To see the list of threads in the data file, you can use `uftrace-report --threads` or `uftrace-info` command.
+:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
 \--sample-time=*TIME*
-:   Apply sampling time when generating output for the flamegraph.  By default it uses number of calls for each function.  When this option is used it simulates sampling by counting execution time at the given unit.  So functions ran less than the sampling time will be removed from the output but functions longer than the time will be shown as larger.
+:   Apply sampling time when generating output for the flamegraph.  By default it uses the number of calls for each function.  When this option is used it simulates sampling by counting execution time at the given unit.  So functions which ran less than the sampling time will be removed from the output but functions longer than the time will be shown as larger.
 
 
 EXAMPLE

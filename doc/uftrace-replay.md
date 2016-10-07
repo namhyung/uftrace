@@ -14,7 +14,7 @@ uftrace replay [*options*]
 
 DESCRIPTION
 ===========
-This command prints trace data recorded using `uftrace-record`(1) command.  The traced functions are printed like a C program in time order.
+This command prints trace data recorded using the `uftrace-record`(1) command.  The traced functions are printed like a C program in time order.
 
 
 OPTIONS
@@ -26,25 +26,25 @@ OPTIONS
 :   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (and their children).  This option can be used more than once.  See *FILTERS*.
+:   Set filter not to trace selected functions (or the functions called underneath them).  This option can be used more than once.  See *FILTERS*.
 
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions from given threads.  To see the list of threads in the data file, you can use `uftrace-report --threads` or `uftrace-info` command.
+:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
 \--disable
-:   Start uftrace with tracing disabled.  This is only meaningful when used with 'trace_on' trigger.
+:   Start uftrace with tracing disabled.  This is only meaningful when used with a `trace_on` trigger.
 
 --column-view
 :   Show each task in separate column.  This makes easy to distinguish functions in different tasks.
 
 --column-offset=*DEPTH*
-:   When `--column-view` option is used, this option specifies the amount of offsets between each task.  Default is 8.
+:   When `--column-view` option is used, this option specifies the amount of offset between each task.  Default is 8.
 
 --task-newline
 :   Interleave a new line when task is changed.  This makes easy to distinguish functions in different tasks.
@@ -53,22 +53,22 @@ OPTIONS
 :   Do not show comments of returned functions.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  Implies \--kernel-skip-out.
+:   Trace kernel functions as well as user functions.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is inverse of \--kernel-skip-out option.  Implies \--kernel option.
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
 
 \--kernel-skip-out
-:   Do not show kernel functions out of user functions.  This option is deprecated and set to true by default.
+:   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
 
 FILTERS
 =======
-The uftrace support filtering only interested functions.  When uftrace is called it receives two types of function filter; opt-in filter with -F/--filter option and opt-out filter with -N/--notrace option.  These filters can be applied either record time or replay time.
+The uftrace tool supports filtering out uninteresting functions.  When uftrace is called it receives two types of function filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with `-N`/`--notrace`.  These filters can be applied either at record time or replay time.
 
-The first one is an opt-in filter; By default, it doesn't show anything and when it meets one of given functions it starts printing.  Also when it returns from the given function, it stops again printing.
+The first one is an opt-in filter. By default, it doesn't show anything. But when one of the specified functions is met, printing is started.  When the function returns, printing is stopped again.
 
-For example, suppose a simple program which calls a(), b() and c() in turn.
+For example, consider a simple program which calls `a()`, `b()` and `c()` in turn.
 
     $ cat abc.c
     void c(void) {
@@ -103,7 +103,7 @@ Normally uftrace replay will show all the functions from `main()` to `c()`.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-But when `-F b` filter option is used, it'll not trace `main()` and `a()` but only `b()` and `c()`.  Note that the filter was set on 'uftrace replay', not record time.
+But when the `-F b` filter option is used, it will not show `main()` or `a()` but only `b()` and `c()`.  Note that the filter was set on `uftrace replay`, not at record time.
 
     $ uftrace record ./abc
     $ uftrace replay -F b
@@ -112,9 +112,9 @@ But when `-F b` filter option is used, it'll not trace `main()` and `a()` but on
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
-The second type is an opt-out filter; When used, it shows everything and stops printing once it meets one of given functions.  Also when it returns from the given funciton, it starts printing again.
+The second type of filter is opt-out. When used, everything is shown by default, but printing stops once one of the specified functions is met.  When the given function returns, printing is started again.
 
-In the above example, you can omit the function b() and its children with -N option.
+In the above example, you can omit the function `b()` and all calls it makes with the `-N` option.
 
     $ uftrace record ./abc
     $ uftrace replay -N b
@@ -136,24 +136,24 @@ In addition, you can limit the print nesting level with -D option.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-In the above example, it prints functions up to 3 depth, so leaf function c() was omitted.  Note that the -D option also works with -F option.
+In the above example, uftrace only prints functions up to a depth of 3, so leaf function `c()` was omitted.  Note that the `-D` option also works with `-F`.
 
-You can also set triggers to filtered functions.  See *TRIGGERS* section below for details.
+You can also set triggers on filtered functions.  See *TRIGGERS* section below for details.
 
 
 TRIGGERS
 ========
-The uftrace support triggering some actions on selected function with or without filters.  Currently supported triggers are depth, backtrace, trace_on and trace_off.  The BNF for the trigger is like below:
+The uftrace tool supports triggering actions on selected function calls with or without filters.  Currently supported triggers are `depth`, `backtrace`, `trace_on` and `trace_off`.  The BNF for trigger specifications is like below:
 
     <trigger>  :=  <symbol> "@" <actions>
     <actions>  :=  <action>  | <action> "," <actions>
     <action>   :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" | "color="<color>
 
-The depth trigger is to change filter depth during execution of the function.  It can be use to apply different filter depths for different functions.  And the backrace trigger is to print stack backtrace at replay time.
+The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.  And the `backtrace` trigger is used to print a stack backtrace at replay time.
 
-The color trigger is to change color of the function in replay output.  The supported colors are 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'bold', and 'gray'.
+The color trigger is to change the color of the function in replay output.  The supported colors are `red`, `green`, `blue`, `yellow`, `magenta`, `cyan`, `bold`, and `gray`.
 
-Following example shows how trigger works.  We set filter on function 'b' with the backtrace trigger and depth trigger of 2.
+The following example shows how triggers work.  We set a filter on function `b()` with the `backtrace` action and change the maximum filter depth under `b()` to 2.
 
     $ uftrace record ./abc
     $ uftrace replay -F 'b@backtrace,depth=2'
@@ -164,7 +164,7 @@ Following example shows how trigger works.  We set filter on function 'b' with t
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
-The 'traceon' and 'traceoff' (you can omit '_' between 'trace' and 'on/off') controls whether uftrace shows functions or not.  The trigger runs on replay time so that it can handle kernel functions as well.
+The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace shows functions or not.  The trigger runs at replay time, not run time, so it can handle kernel functions as well. Contrast this with triggers used under `uftrace record`.
 
 
 SEE ALSO
