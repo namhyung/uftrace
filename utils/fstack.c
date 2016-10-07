@@ -876,7 +876,7 @@ int read_task_args(struct ftrace_task_handle *task,
  * @handle: file handle
  * @task: tracee task
  *
- * This function reads current ftrace rcord and save it to @task->ustack.
+ * This function reads current ftrace record and save it to @task->ustack.
  * Data file it accesses should be opened already.  When @task->valid is
  * set, it just returns @task->ustack already read, so if you want to force
  * read from file, the @task->valid should be reset before calling this
