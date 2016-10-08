@@ -28,6 +28,9 @@ OPTIONS
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of triggers.
 
+-t *TIME*, \--time-filter=*TIME*
+:   Do not show small functions under the time threshold.  If some functions explicitly have 'trace' trigger, those are always traced regardless of execution time.
+
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
