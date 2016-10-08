@@ -12,7 +12,7 @@ uftrace recv [*options*]
 
 DESCRIPTION
 ===========
-This command receives tracing data from network and saves it to files.
+This command receives tracing data from the network and saves it to files.
 
 \--port=*PORT*
 :   Use given port instead of the default (8090).

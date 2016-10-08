@@ -14,22 +14,22 @@ uftrace graph [*options*] [<function>]
 
 DESCRIPTION
 ===========
-This command shows function call graph of the given function.  If the function name is omitted, "main" is used by default.  The function call graph contains backtrace and calling functions.  Each data will contain hit count and total time.
+This command shows a function call graph for the given function in a uftrace record datafile.  If the function name is omitted, `main` is used by default.  The function call graph contains backtrace and calling functions.  Each function in the output is annotated with a hit count and the total time spent running that function.
 
 
 OPTIONS
 =======
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (and their children).  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter not to trace selected functions (or the functions called underneath them).  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay` for triggers.
+:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of triggers.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions from given threads.  To see the list of threads in the data file, you can use `uftrace-report --threads` or `uftrace-info` command.
+:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
@@ -62,7 +62,7 @@ This command show data like below:
       10.138 ms [24447] |   } /* bar */
       10.293 ms [24447] | } /* main */
 
-Running graph command on 'main' function show called functions like below.
+Running the `graph` command on the `main` function shows called functions like below:
 
     $ uftrace graph main
     #
@@ -83,9 +83,9 @@ Running graph command on 'main' function show called functions like below.
       10.138 ms :  +-(1) bar
       10.100 ms :    (1) usleep
 
-The left side shows total time running the function on the right side.  The number in parenthesis before function name is the invocation count.  As you can see 'main' function was called once and ran around 10 msec.  It called 'foo' twice and then the 'foo' called 'loop' 6 times in total.  The time is the sum of all execution time of the function.
+The left side shows total time running the function on the right side.  The number in parentheses before the function name is the invocation count.  As you can see, `main` was called once and ran around 10 msec.  It called `foo` twice and then `foo` called `loop` 6 times in total.  The time is the sum of all execution time of the function.
 
-Also 'main' called 'bar' once and then the 'bar' called 'usleep' once.  To avoid too deep nesting level, it shows calls that have only single call path at the same level.  So 'usleep' is not called from 'main' directly.
+It can also be seen that `main` called `bar` once and that `bar` then called `usleep` once.  To avoid too deep nesting level, it shows calls that have only a single call path at the same level.  So `usleep` is not called from `main` directly.
 
 Running graph command on a leaf function looks like below.
 
@@ -105,7 +105,7 @@ Running graph command on a leaf function looks like below.
     ================================
       44.360 us : (6) loop
 
-The backtrace shows it's called from 'foo' and 'foo' is called from 'main'.  Since the 'loop' is a leaf function, it didn't call any other function.  In this case, 'loop' was called only from a single path so the backtrace #0 hits 6 times.
+The backtrace shows that loop is called from `foo` and that `foo` is called from `main`.  Since `loop` is a leaf function, it didn't call any other function.  In this case, `loop` was called only from a single path so backtrace #0 is hit 6 times.
 
 
 SEE ALSO

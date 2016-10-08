@@ -14,7 +14,7 @@ uftrace report [*options*]
 
 DESCRIPTION
 ===========
-This command collects trace data from a given data file and prints statistics and summary information.  It shows function statistics by default, but can show threads statistics with `--threads` option and show differences to given data with `--diff` option.
+This command collects trace data from a given data file and prints statistics and summary information.  It shows function statistics by default, but can show thread statistics with the `--threads` option and show differences between traces with the `--diff` option.
 
 
 OPTIONS
@@ -23,37 +23,37 @@ OPTIONS
 :   Report thread summary information rather than function statistics.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
-:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are 'total' (time), 'self' (time), 'call', 'avg', 'min', 'max'.  Note that first 3 keys should be used when neither of '--avg-total' nor '--avg-self' is used.  Likewise, the last 3 keys should be used when either of those option is used.
+:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by comma (,).  Possible keys are `total` (time), `self` (time), `call`, `avg`, `min`, `max`.  Note that the first 3 keys should be used when neither of `--avg-total` nor `--avg-self` is used.  Likewise, the last 3 keys should be used when either of those options is used.
 
 \--avg-total
-:   Show average, min, max of each functions total time.
+:   Show average, min, max of each function's total time.
 
 \--avg-self
-:   Show average, min, max of each functions self time.
+:   Show average, min, max of each function's self time.
 
 \--diff=*DATA*
-:   Report difference between the input trace data and the given DATA.
+:   Report differences between the input trace data and the given DATA.
 
 \--sort-column=*IDX*
-:   When --diff option is used, 3 columns will be shown for each total time, self time and call count.  This is option is to select the index of column to be used as a sort key.  The index 0 is for original data given by --file option, and index 1 is for data given by --diff option, and index 2 is for (percentage of) difference between the two data.
+:   When `--diff` is used, 3 columns will be shown: total time, self time and call count.  This option selects the index of the column to be used as a sort key.  Index 0 is for original data given by the `--data` option, index 1 is for data given by the `--diff` option, and index 2 is for (percentage) differences between the two data.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  Only kernel functions inside user functions will be shown.
+:   Show kernel functions as well as user functions.  Only kernel functions called inside user functions will be shown.
 
 --kernel-full
-:   Show all kernel functions called outside of user functions.  Implies \--kernel option.
+:   Show all kernel functions, including those called outside of user functions.
 
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (and their children).  This option can be used more than once.  See `uftrace-replay` for filters.
+:   Set filter not to trace selected functions (or the functions called underneath them).  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay` for triggers.
+:   Set trigger on selected functions.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of triggers.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions from given threads.  To see the list of threads in the data file, you can use `uftrace-report --threads` or `uftrace-info` command.
+:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
@@ -61,7 +61,7 @@ OPTIONS
 
 EXAMPLE
 =======
-This command shows information like below:
+This command shows information like the following:
 
     $ uftrace record abc
     $ uftrace report
