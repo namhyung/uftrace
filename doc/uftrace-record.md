@@ -182,7 +182,7 @@ Sometimes it's useful to see long-running functions only.  This is good because 
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-The `-t`/`--time-filter` option works for user-level functions only.
+The `-t`/`--time-filter` option works for user-level functions only.  It does not work for recording kernel functions, but they can be hidden in replay, report, dump and graph commands with `-t`/`--time-filter` option.
 
 You can also set triggers on filtered functions.  See *TRIGGERS* section below for details.
 

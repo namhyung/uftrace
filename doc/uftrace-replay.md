@@ -31,6 +31,9 @@ OPTIONS
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.  See *TRIGGERS*.
 
+-t *TIME*, \--time-filter=*TIME*
+:   Do not show functions which run under the time threshold.  If some functions explicitly have the 'trace' trigger applied, those are always traced regardless of execution time.
+
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
 
@@ -137,6 +140,27 @@ In addition, you can limit the print nesting level with -D option.
        8.631 us [ 1234] | } /* main */
 
 In the above example, uftrace only prints functions up to a depth of 3, so leaf function `c()` was omitted.  Note that the `-D` option also works with `-F`.
+
+Sometimes it's useful to see long-running functions only.  This is good because there are usually many tiny functions that are not interesting.  The `-t`/`--time-filter` option implements the time-based filter that only records functions which run longer than the given threshold.  In the above example, the user might want to see functions running more than 5 microseconds like below:
+
+    $ uftrace record ./abc
+    $ uftrace replay -t 5us
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+You can also see replay output with different time threshold for the same recorded data.
+
+    $ uftrace replay -t 6us
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+       6.448 us [ 1234] |   a();
+       8.631 us [ 1234] | } /* main */
 
 You can also set triggers on filtered functions.  See *TRIGGERS* section below for details.
 
