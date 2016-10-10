@@ -591,18 +591,18 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	if (peek_rstack(handle, &next) < 0)
 		return NULL;
 
-	/*
-	 * different rstack means a context change between user and kernel,
-	 * so the depth was increased and it needs checking.
-	 */
-	while (next == task && (curr_stack != next->rstack ||
-				next->rstack->depth > curr_depth)) {
+	while (true) {
 		struct ftrace_ret_stack *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
+		/* skip filtered entries until current matching EXIT records */
+		if (next == task && curr_stack == next_stack &&
+		    curr_depth >= next_stack->depth)
+			break;
+
 		/* return if it's not filtered */
-		if (next_stack->type == FTRACE_ENTRY) {
-			if (fstack_check_skip(task, next_stack) >= 0)
+		if (next_stack->type == FTRACE_ENTRY || task != next) {
+			if (fstack_check_skip(next, next_stack) >= 0)
 				break;
 		}
 		else if (next_stack->type != FTRACE_EXIT)
@@ -616,9 +616,9 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		 * that it can changes stack_count properly.
 		 */
 		if (next_stack->type == FTRACE_ENTRY)
-			fstack_entry(task, next_stack, &tr);
+			fstack_entry(next, next_stack, &tr);
 		else
-			fstack_exit(task);
+			fstack_exit(next);
 
 		if (!fstack_enabled)
 			return NULL;
