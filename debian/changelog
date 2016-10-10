@@ -1,5 +1,5 @@
 uftrace (0.6.0.20161006-1) UNRELEASED; urgency=low
 
-  * Initial packaging of git snapshot at commit cc8fd74c55.
+  * Initial packaging of git snapshot at commit cc8fd74c55 (closes: #839877).
 
  -- paul cannon <pik@debian.org>  Thu, 06 Oct 2016 13:07:58 -0500
