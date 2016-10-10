@@ -872,13 +872,16 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			if (delta < handle->time_filter) {
 				struct ftrace_session *sess = first_session;
 				struct ftrace_trigger tr = {};
+				unsigned long real_addr;
 
+				/* filter match needs full (64-bit) address */
+				real_addr = get_real_address(curr->addr);
 				/*
 				 * it might set TRACE trigger, which shows
 				 * function even if it's less than the time filter.
 				 */
 				ftrace_match_filter(&sess->filters,
-						    curr->addr, &tr);
+						    real_addr, &tr);
 				if (tr.flags & TRIGGER_FL_TRACE) {
 					add_to_rstack_list(rstack_list, curr, NULL);
 					break;
