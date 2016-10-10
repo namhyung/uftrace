@@ -360,6 +360,7 @@ struct ftrace_kernel {
 	int pid;
 	int nr_cpus;
 	int depth;
+	bool skip_out;
 	unsigned long bufsize;
 	int *traces;
 	int *fds;

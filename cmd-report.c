@@ -945,6 +945,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
 		kern.output_dir = opts->dirname;
+		kern.skip_out = opts->kernel_skip_out;
 		if (setup_kernel_data(&kern) == 0) {
 			handle.kern = &kern;
 			load_kernel_symbol();

@@ -611,6 +611,13 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		    curr_depth >= next_stack->depth)
 			break;
 
+		/* skip kernel functions outside user functions */
+		if (is_kernel_address(next_stack->addr)) {
+			if (!next->user_stack_count &&
+			    handle->kern && handle->kern->skip_out)
+				goto next;
+		}
+
 		if (next_stack->type == FTRACE_LOST)
 			return NULL;
 
@@ -618,6 +625,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		if (fstack_check_skip(next, next_stack) >= 0)
 			break;
 
+next:
 		/* consume the filtered rstack */
 		fstack_consume(handle, next);
 
