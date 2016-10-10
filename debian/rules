@@ -7,20 +7,26 @@
 %:
 	dh $@
 
+MAKEVARS := \
+	V=1 \
+	DESTDIR=$(CURDIR)/debian/tmp/ \
+	CFLAGS_uftrace=-fPIE \
+	CFLAGS_traceevent=-fPIE \
+	LDFLAGS_uftrace=-pie
+
 override_dh_auto_configure:
-	./configure --prefix=/usr --libdir=/usr/lib/uftrace
+	LDFLAGS=-Wl,-z,now,-z,relro ./configure --prefix=/usr --libdir=/usr/lib/uftrace
 
 override_dh_auto_build:
-	MAKEFLAGS= make V=1
+	MAKEFLAGS= make $(MAKEVARS)
 
 override_dh_auto_install:
-	MAKEFLAGS= make install V=1 DESTDIR=$(CURDIR)/debian/tmp/
+	MAKEFLAGS= make install $(MAKEVARS)
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	@# pipe to avoid pager invocation, plus strip out ansi codes that are
-	@# apparently not opt-outable in tests/unittest.c
-	MAKEFLAGS= make test V=1 | sed -e "$$(printf 's/\033\\[[0-9;]*m//g')"
+	@# strip out ansi codes that are apparently not opt-outable in tests/unittest.c
+	MAKEFLAGS= make test $(MAKEVARS) | sed -e "$$(printf 's/\033\\[[0-9;]*m//g')"
 endif
 
 override_dh_auto_clean:
