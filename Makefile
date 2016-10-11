@@ -69,13 +69,14 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
 #
 # Note that the plain CFLAGS and LDFLAGS can be changed
-# by config/Makefile later but LIB_*FLAGS are not.
+# by config/Makefile later but *_*FLAGS can not.
 #
-UFTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@)
-LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) -fPIC -fvisibility=hidden
+UFTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
+TRACEEVENT_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
+LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib) -fPIC -fvisibility=hidden
 
-UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
-LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@)
+UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
+LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib)
 
 VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
@@ -211,7 +212,7 @@ $(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(ob
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 $(objdir)/libtraceevent/libtraceevent.a: PHONY
-	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent
+	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
 
 $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
