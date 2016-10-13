@@ -379,7 +379,8 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	pr_out("\n");
 }
 
-static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, char *func)
+static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
+		       char *func)
 {
 	int ret = 0;
 	struct ftrace_task_handle *task;
@@ -393,6 +394,13 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle, cha
 		struct task_graph *tg;
 		struct sym *sym = NULL;
 		char *name;
+
+		if (opts->kernel_skip_out) {
+			/* skip kernel functions outside user functions */
+			if (!task->user_stack_count &&
+			    is_kernel_address(frs->addr))
+				continue;
+		}
 
 		if (!fstack_check_filter(task))
 			continue;
