@@ -20,7 +20,7 @@ class TestBase:
     TEST_SKIP = -7
     TEST_SUCCESS_FIXED = -8
 
-    objdir = os.environ['objdir'] or '..'
+    objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
     ftrace = objdir + '/uftrace --no-pager -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-omit-frame-pointer']
