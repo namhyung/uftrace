@@ -494,7 +494,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		}
 		else {
 			task->display_depth++;
-			if (task->ctx == FSTACK_CTX_USER) {
+			if (!is_kernel_address(fstack->addr)) {
 				task->user_display_depth++;
 			}
 		}
@@ -507,7 +507,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		else
 			task->display_depth = 0;
 
-		if (task->ctx == FSTACK_CTX_USER) {
+		if (!is_kernel_address(fstack->addr)) {
 			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
