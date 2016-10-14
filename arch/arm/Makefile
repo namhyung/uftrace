@@ -1,5 +1,5 @@
 ASFLAGS = -fPIC
-LDFLAGS = -r
+LINKFLAGS = -r
 
 sdir = $(srcdir)/arch/arm
 odir = $(objdir)/arch/arm
@@ -11,7 +11,7 @@ ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 all: $(odir)/entry.op
 
 $(odir)/entry.op: $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
-	$(QUIET_LINK)$(LD) $(LDFLAGS) -o $@ $^
+	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
 
 $(odir)/%.op: $(sdir)/%.S
 	$(QUIET_ASM)$(CC) $(ASFLAGS) -c -o $@ $<
