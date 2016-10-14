@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: paul cannon <pik@debian.org>
 Build-Depends: debhelper (>= 9), libelf-dev, pandoc, python
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Homepage: https://github.com/namhyung/uftrace
 
 Package: uftrace
