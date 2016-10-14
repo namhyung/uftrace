@@ -1,4 +1,4 @@
-uftrace (0.6.0.20161014-1) UNRELEASED; urgency=low
+uftrace (0.6.0.20161014-1) unstable; urgency=low
 
   * Initial packaging of git snapshot at commit 06e6740256 (closes: #839877).
 
