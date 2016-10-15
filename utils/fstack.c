@@ -1041,7 +1041,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 			   struct ftrace_task_handle **task)
 {
 	int i, next_i = -1;
-	uint64_t next_time;
+	uint64_t next_time = 0;
 	struct ftrace_ret_stack *tmp;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
