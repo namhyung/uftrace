@@ -49,6 +49,9 @@ calling functions
     def pre(self):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
+        if os.path.exists('/.dockerenv'):
+            return TestBase.TEST_SKIP
+
         record_cmd = '%s record -k -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
