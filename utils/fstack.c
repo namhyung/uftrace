@@ -1093,6 +1093,10 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		task->filter.depth = task->h->depth - task->stack_count;
 	}
 
+	/* if task filter was set, it doesn't have func_stack */
+	if (task->func_stack == NULL)
+		return;
+
 	if (rstack->type == FTRACE_ENTRY) {
 		fstack = &task->func_stack[task->stack_count];
 
