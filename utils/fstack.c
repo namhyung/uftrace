@@ -156,6 +156,7 @@ setup:
 			handle->tasks[i].done = true;
 			handle->tasks[i].fp = NULL;
 			handle->tasks[i].tid = tid;
+			handle->tasks[i].h = handle;
 			continue;
 		}
 
@@ -895,8 +896,6 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 
 	if (__read_task_ustack(task) < 0) {
 		task->done = true;
-		fclose(task->fp);
-		task->fp = NULL;
 		return -1;
 	}
 
@@ -1093,6 +1092,10 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		task->filter.depth = task->h->depth - task->stack_count;
 	}
 
+	/* if task filter was set, it doesn't have func_stack */
+	if (task->func_stack == NULL)
+		return;
+
 	if (rstack->type == FTRACE_ENTRY) {
 		fstack = &task->func_stack[task->stack_count];
 
@@ -1259,6 +1262,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 
 	u = read_user_stack(handle, &utask);
 	if (kernel) {
+retry:
 		k = read_kernel_stack(handle, &ktask);
 		if (k < 0) {
 			static bool warn = false;
@@ -1267,6 +1271,12 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 				pr_dbg("no more kernel data\n");
 				warn = true;
 			}
+		}
+		else if (ktask->fp == NULL) {
+			/* task might be filtered */
+			ktask->rstack = &ktask->kstack;
+			__fstack_consume(ktask, kernel, k);
+			goto retry;
 		}
 	}
 

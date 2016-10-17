@@ -466,12 +466,16 @@ static void print_warning(struct ftrace_task_handle *task)
 
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
-	unsigned long ip = task->func_stack[0].addr;
+	unsigned long ip;
+
+	if (task->func_stack == NULL)
+		return true;
 
 	/* skip 'sys_exit[_group] at last for kernel tracing */
 	if (!opts->kernel || task->user_stack_count != 0)
 		return false;
 
+	ip = task->func_stack[0].addr;
 	if (is_kernel_address(ip)) {
 		struct sym *sym = find_symtabs(NULL, ip);
 

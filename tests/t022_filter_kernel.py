@@ -26,6 +26,9 @@ class TestCase(TestBase):
     def pre(self):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
+        if os.path.exists('/.dockerenv'):
+            return TestBase.TEST_SKIP
+
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
