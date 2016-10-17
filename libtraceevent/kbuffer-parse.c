@@ -294,7 +294,7 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 	unsigned int type;
 	unsigned int len;
 	unsigned int delta;
-	unsigned int length;
+	unsigned int length = 0;
 	void *ptr = kbuf->data + kbuf->curr;
 
 	type_len_ts = read_4(kbuf, ptr);
