@@ -156,6 +156,7 @@ setup:
 			handle->tasks[i].done = true;
 			handle->tasks[i].fp = NULL;
 			handle->tasks[i].tid = tid;
+			handle->tasks[i].h = handle;
 			continue;
 		}
 
@@ -1263,6 +1264,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 
 	u = read_user_stack(handle, &utask);
 	if (kernel) {
+retry:
 		k = read_kernel_stack(handle, &ktask);
 		if (k < 0) {
 			static bool warn = false;
@@ -1271,6 +1273,12 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 				pr_dbg("no more kernel data\n");
 				warn = true;
 			}
+		}
+		else if (ktask->done) {
+			/* task might be filtered */
+			ktask->rstack = &ktask->kstack;
+			__fstack_consume(ktask, kernel, k);
+			goto retry;
 		}
 	}
 
