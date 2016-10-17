@@ -896,8 +896,6 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 
 	if (__read_task_ustack(task) < 0) {
 		task->done = true;
-		fclose(task->fp);
-		task->fp = NULL;
 		return -1;
 	}
 
@@ -1274,7 +1272,7 @@ retry:
 				warn = true;
 			}
 		}
-		else if (ktask->done) {
+		else if (ktask->fp == NULL) {
 			/* task might be filtered */
 			ktask->rstack = &ktask->kstack;
 			__fstack_consume(ktask, kernel, k);
