@@ -528,9 +528,20 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 	unsigned long addr = rstack->addr;
 	struct ftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
+	struct fstack *fstack;
 
 	if (task->filter.out_count > 0)
 		return -1;
+
+	if (rstack->type == FTRACE_EXIT) {
+		/* fstack_consume() is not called yet */
+		fstack = &task->func_stack[task->stack_count - 1];
+
+		if (fstack->flags & FSTACK_FL_NORECORD)
+			return -1;
+
+		return 0;
+	}
 
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
@@ -600,13 +611,12 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		    curr_depth >= next_stack->depth)
 			break;
 
-		/* return if it's not filtered */
-		if (next_stack->type == FTRACE_ENTRY || task != next) {
-			if (fstack_check_skip(next, next_stack) >= 0)
-				break;
-		}
-		else if (next_stack->type != FTRACE_EXIT)
+		if (next_stack->type == FTRACE_LOST)
 			return NULL;
+
+		/* return if it's not filtered */
+		if (fstack_check_skip(next, next_stack) >= 0)
+			break;
 
 		/* consume the filtered rstack */
 		fstack_consume(handle, next);
