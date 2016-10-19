@@ -525,7 +525,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 			     struct ftrace_ret_stack *rstack)
 {
 	struct ftrace_session *sess;
-	unsigned long addr = rstack->addr;
+	unsigned long addr = get_real_address(rstack->addr);
 	struct ftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
 	struct fstack *fstack;
