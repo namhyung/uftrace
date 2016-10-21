@@ -43,6 +43,9 @@ OPTIONS
 --kernel-full
 :   Show all kernel functions, including those called outside of user functions.
 
+\--kernel-only
+:   Show kernel functions only without user functions.  Implies `--kernel`.
+
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
