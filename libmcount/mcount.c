@@ -167,9 +167,6 @@ static void mcount_init_file(void)
 	if (!mcount_setup_done)
 		__monstartup(0, ~0);
 
-	if (pthread_key_create(&mtd_key, mtd_dtor))
-		pr_err("cannot create shmem key");
-
 	send_session_msg(&mtd, session_name());
 }
 
@@ -858,6 +855,9 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 	outfp = stdout;
 	logfp = stderr;
+
+	if (pthread_key_create(&mtd_key, mtd_dtor))
+		pr_err("cannot create mtd key");
 
 	pipefd_str = getenv("UFTRACE_PIPE");
 	logfd_str = getenv("UFTRACE_LOGFD");
