@@ -43,8 +43,8 @@ static void show_error(char *error_buf, const char *fmt, ...)
 	unsigned long long index;
 	const char *input;
 	va_list ap;
-	int len;
-	int i;
+	unsigned len;
+	unsigned i;
 
 	input = pevent_get_input_buf();
 	index = pevent_get_input_buf_ptr();
@@ -2108,7 +2108,8 @@ static char *op_to_str(struct event_filter *filter, struct filter_arg *arg)
 				default:
 					break;
 				}
-				asprintf(&str, val ? "TRUE" : "FALSE");
+				if (asprintf(&str, val ? "TRUE" : "FALSE") < 0)
+					return NULL;
 				break;
 			}
 		}
@@ -2126,7 +2127,8 @@ static char *op_to_str(struct event_filter *filter, struct filter_arg *arg)
 			break;
 		}
 
-		asprintf(&str, "(%s) %s (%s)", left, op, right);
+		if (asprintf(&str, "(%s) %s (%s)", left, op, right) < 0)
+			return NULL;
 		break;
 
 	case FILTER_OP_NOT:
@@ -2142,10 +2144,12 @@ static char *op_to_str(struct event_filter *filter, struct filter_arg *arg)
 			right_val = 0;
 		if (right_val >= 0) {
 			/* just return the opposite */
-			asprintf(&str, right_val ? "FALSE" : "TRUE");
+			if (asprintf(&str, right_val ? "FALSE" : "TRUE") < 0)
+				return NULL;
 			break;
 		}
-		asprintf(&str, "%s(%s)", op, right);
+		if (asprintf(&str, "%s(%s)", op, right) < 0)
+			return NULL;
 		break;
 
 	default:
@@ -2161,7 +2165,8 @@ static char *val_to_str(struct event_filter *filter, struct filter_arg *arg)
 {
 	char *str = NULL;
 
-	asprintf(&str, "%lld", arg->value.val);
+	if (asprintf(&str, "%lld", arg->value.val) < 0)
+		return NULL;
 
 	return str;
 }
@@ -2219,7 +2224,8 @@ static char *exp_to_str(struct event_filter *filter, struct filter_arg *arg)
 		break;
 	}
 
-	asprintf(&str, "%s %s %s", lstr, op, rstr);
+	if (asprintf(&str, "%s %s %s", lstr, op, rstr) < 0)
+		return NULL;
 out:
 	free(lstr);
 	free(rstr);
@@ -2263,7 +2269,8 @@ static char *num_to_str(struct event_filter *filter, struct filter_arg *arg)
 		if (!op)
 			op = "<=";
 
-		asprintf(&str, "%s %s %s", lstr, op, rstr);
+		if (asprintf(&str, "%s %s %s", lstr, op, rstr) < 0)
+			return NULL;
 		break;
 
 	default:
@@ -2298,8 +2305,9 @@ static char *str_to_str(struct event_filter *filter, struct filter_arg *arg)
 		if (!op)
 			op = "!~";
 
-		asprintf(&str, "%s %s \"%s\"",
-			 arg->str.field->name, op, arg->str.val);
+		if (asprintf(&str, "%s %s \"%s\"",
+			 arg->str.field->name, op, arg->str.val) < 0)
+			return NULL;
 		break;
 
 	default:
@@ -2315,7 +2323,8 @@ static char *arg_to_str(struct event_filter *filter, struct filter_arg *arg)
 
 	switch (arg->type) {
 	case FILTER_ARG_BOOLEAN:
-		asprintf(&str, arg->boolean.value ? "TRUE" : "FALSE");
+		if (asprintf(&str, arg->boolean.value ? "TRUE" : "FALSE") < 0)
+			return NULL;
 		return str;
 
 	case FILTER_ARG_OP:

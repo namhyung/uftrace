@@ -294,7 +294,7 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 	unsigned int type;
 	unsigned int len;
 	unsigned int delta;
-	unsigned int length;
+	unsigned int length = 0;
 	void *ptr = kbuf->data + kbuf->curr;
 
 	type_len_ts = read_4(kbuf, ptr);
@@ -611,7 +611,7 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf)
  * data and timestamp, and kbuffer_next_event() will increment from
  * this record.
  */
-void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset,
+void *kbuffer_read_at_offset(struct kbuffer *kbuf, unsigned offset,
 			     unsigned long long *ts)
 {
 	void *data;

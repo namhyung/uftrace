@@ -1548,7 +1548,7 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 			else if (field->flags & FIELD_IS_LONG)
 				field->elementsize = event->pevent ?
 						     event->pevent->long_size :
-						     sizeof(long);
+						     (int)sizeof(long);
 		} else
 			field->elementsize = field->size;
 
@@ -3301,7 +3301,7 @@ struct event_format *
 pevent_find_event_by_name(struct pevent *pevent,
 			  const char *sys, const char *name)
 {
-	struct event_format *event;
+	struct event_format *event = NULL;
 	int i;
 
 	if (pevent->last_event &&
@@ -4245,7 +4245,7 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 	char format[32];
 	int show_func;
 	int len_as_arg;
-	int len_arg;
+	int len_arg = 0;
 	int len;
 	int ls;
 
@@ -4495,8 +4495,8 @@ void pevent_data_lat_fmt(struct pevent *pevent,
 	static int migrate_disable_exists;
 	unsigned int lat_flags;
 	unsigned int pc;
-	int lock_depth;
-	int migrate_disable;
+	int lock_depth = -1;
+	int migrate_disable = 0;
 	int hardirq;
 	int softirq;
 	void *data = record->data;
