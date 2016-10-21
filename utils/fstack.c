@@ -1310,11 +1310,13 @@ retry:
 user:
 		utask->rstack = &utask->ustack;
 		task = utask;
+		task->is_kernel = false;
 	}
 	else {
 kernel:
 		ktask->rstack = &ktask->kstack;
 		task = ktask;
+		task->is_kernel = true;
 
 		if (kernel->missed_events[k]) {
 			static struct ftrace_ret_stack lost_rstack;

@@ -572,6 +572,11 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		uint64_t curr_time = task->rstack->time;
 
+		if (opts->kernel_only && !task->is_kernel) {
+			/* skip user functions if --kernel-only is set */
+			continue;
+		}
+
 		/*
 		 * data sanity check: timestamp should be ordered.
 		 * But print_graph_rstack() may change task->rstack
