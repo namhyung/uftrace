@@ -395,6 +395,10 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		struct sym *sym = NULL;
 		char *name;
 
+		/* skip user functions if --kernel-only is set */
+		if (opts->kernel_only && !is_kernel_address(frs->addr))
+			continue;
+
 		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (!task->user_stack_count &&
