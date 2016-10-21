@@ -40,6 +40,15 @@ OPTIONS
 --max-stack=*DEPTH*
 :   Allocate internal graph structure up to *DEPTH*.
 
+-k, \--kernel
+:   Trace kernel functions as well as user functions.
+
+\--kernel-full
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
+
+\--kernel-skip-out
+:   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
+
 
 EXAMPLES
 ========
