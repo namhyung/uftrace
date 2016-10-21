@@ -106,6 +106,9 @@ OPTIONS
 \--kernel-full
 :   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
 
+\--kernel-only
+:   Show kernel functions only without user functions.  Implies `--kernel`.
+
 
 FILTERS
 =======
