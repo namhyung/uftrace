@@ -325,6 +325,8 @@ void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg);
 void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg);
 void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 			const char *exename);
+void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
+		       const char *libname);
 
 enum ftrace_ret_stack_type {
 	FTRACE_ENTRY,

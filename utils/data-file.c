@@ -225,6 +225,27 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 	free(fname);
 }
 
+void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
+		       const char *libname)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char ts[128];
+
+	xasprintf(&fname, "%s/%s", dirname, "task.txt");
+
+	fp = fopen(fname, "a");
+	if (fp == NULL)
+		pr_err("cannot open %s", fname);
+
+	snprint_timestamp(ts, sizeof(ts), dmsg->task.time);
+	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%s base=%lx libname=\"%s\"\n",
+		ts, dmsg->task.tid, dmsg->sid, dmsg->base_addr, libname);
+
+	fclose(fp);
+	free(fname);
+}
+
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
 "\t-finstrument-functions flag and ran with ftrace record?\n"
 
