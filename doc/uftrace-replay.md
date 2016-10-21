@@ -64,6 +64,9 @@ OPTIONS
 \--kernel-skip-out
 :   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
+\--kernel-only
+:   Show kernel functions only without user functions.  Implies `--kernel`.
+
 
 FILTERS
 =======

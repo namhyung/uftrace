@@ -30,7 +30,7 @@ OPTIONS
 :   Dump kernel functions as well as user functions.
 
 \--kernel-only
-:   Dump kernel functions only.  Implies `--kernel`.
+:   Dump kernel functions only without user functions.  Implies `--kernel`.
 
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
