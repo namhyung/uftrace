@@ -228,6 +228,24 @@ void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 	list_add_tail(&udl->list, &pos->list);
 }
 
+struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+				unsigned long addr)
+{
+	struct uftrace_dlopen_list *pos, *udl = NULL;
+	struct sym *sym = NULL;
+
+	list_for_each_entry(pos, &sess->dlopen_libs, list) {
+		if (pos->time > timestamp)
+			break;
+
+		udl = pos;
+	}
+	if (udl)
+		sym = find_symtabs(&udl->symtabs, addr);
+
+	return sym;
+}
+
 static struct rb_root task_tree = RB_ROOT;
 
 static void add_session_ref(struct ftrace_task *task, struct ftrace_session *sess,

@@ -314,6 +314,8 @@ struct ftrace_session * get_session_from_sid(char sid[]);
 void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 			uint64_t timestamp, unsigned long base_addr,
 			const char *libname);
+struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+				unsigned long addr);
 
 typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
 void walk_sessions(walk_sessions_cb_t callback, void *arg);
