@@ -494,7 +494,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		}
 		else {
 			task->display_depth++;
-			if (task->ctx == FSTACK_CTX_USER) {
+			if (!is_kernel_address(fstack->addr)) {
 				task->user_display_depth++;
 			}
 		}
@@ -507,7 +507,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		else
 			task->display_depth = 0;
 
-		if (task->ctx == FSTACK_CTX_USER) {
+		if (!is_kernel_address(fstack->addr)) {
 			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
@@ -525,12 +525,23 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 			     struct ftrace_ret_stack *rstack)
 {
 	struct ftrace_session *sess;
-	unsigned long addr = rstack->addr;
+	unsigned long addr = get_real_address(rstack->addr);
 	struct ftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
+	struct fstack *fstack;
 
 	if (task->filter.out_count > 0)
 		return -1;
+
+	if (rstack->type == FTRACE_EXIT) {
+		/* fstack_consume() is not called yet */
+		fstack = &task->func_stack[task->stack_count - 1];
+
+		if (fstack->flags & FSTACK_FL_NORECORD)
+			return -1;
+
+		return 0;
+	}
 
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
@@ -591,23 +602,30 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	if (peek_rstack(handle, &next) < 0)
 		return NULL;
 
-	/*
-	 * different rstack means a context change between user and kernel,
-	 * so the depth was increased and it needs checking.
-	 */
-	while (next == task && (curr_stack != next->rstack ||
-				next->rstack->depth > curr_depth)) {
+	while (true) {
 		struct ftrace_ret_stack *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
-		/* return if it's not filtered */
-		if (next_stack->type == FTRACE_ENTRY) {
-			if (fstack_check_skip(task, next_stack) >= 0)
-				break;
+		/* skip filtered entries until current matching EXIT records */
+		if (next == task && curr_stack == next_stack &&
+		    curr_depth >= next_stack->depth)
+			break;
+
+		/* skip kernel functions outside user functions */
+		if (is_kernel_address(next_stack->addr)) {
+			if (!next->user_stack_count &&
+			    handle->kern && handle->kern->skip_out)
+				goto next;
 		}
-		else if (next_stack->type != FTRACE_EXIT)
+
+		if (next_stack->type == FTRACE_LOST)
 			return NULL;
 
+		/* return if it's not filtered */
+		if (fstack_check_skip(next, next_stack) >= 0)
+			break;
+
+next:
 		/* consume the filtered rstack */
 		fstack_consume(handle, next);
 
@@ -616,9 +634,9 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		 * that it can changes stack_count properly.
 		 */
 		if (next_stack->type == FTRACE_ENTRY)
-			fstack_entry(task, next_stack, &tr);
+			fstack_entry(next, next_stack, &tr);
 		else
-			fstack_exit(task);
+			fstack_exit(next);
 
 		if (!fstack_enabled)
 			return NULL;
