@@ -111,6 +111,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
 	s->filters = RB_ROOT;
+	INIT_LIST_HEAD(&s->dlopen_libs);
 
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);
@@ -186,6 +187,45 @@ void walk_sessions(walk_sessions_cb_t callback, void *arg)
 
 		n = rb_next(n);
 	}
+}
+
+struct ftrace_session * get_session_from_sid(char sid[])
+{
+	struct rb_node *n = rb_first(&sessions);
+	struct ftrace_session *s;
+
+	while (n) {
+		s = rb_entry(n, struct ftrace_session, node);
+
+		if (!memcmp(s->sid, sid, sizeof(s->sid)) != 0)
+			return s;
+
+		n = rb_next(n);
+	}
+	return NULL;
+}
+
+void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
+			uint64_t timestamp, unsigned long base_addr,
+			const char *libname)
+{
+	struct uftrace_dlopen_list *udl, *pos;
+
+	udl = xmalloc(sizeof(*udl) + strlen(libname) + 1);
+	udl->time = timestamp;
+	udl->base = base_addr;
+	strcpy(udl->name, libname);
+
+	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
+	udl->symtabs.flags = SYMTAB_FL_DEMANGLE;
+
+	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
+
+	list_for_each_entry(pos, &sess->dlopen_libs, list) {
+		if (pos->time > timestamp)
+			break;
+	}
+	list_add_tail(&udl->list, &pos->list);
 }
 
 static struct rb_root task_tree = RB_ROOT;

@@ -225,6 +225,7 @@ struct ftrace_session {
 	struct symtabs		 symtabs;
 	struct rb_root		 filters;
 	struct rb_root		 fixups;
+	struct list_head	 dlopen_libs;
 	int 			 namelen;
 	char 			 exename[];
 };
@@ -233,6 +234,14 @@ struct ftrace_sess_ref {
 	struct ftrace_sess_ref	*next;
 	struct ftrace_session	*sess;
 	uint64_t		 start, end;
+};
+
+struct uftrace_dlopen_list {
+	struct list_head	list;
+	uint64_t		time;
+	unsigned long		base;
+	struct symtabs		symtabs;
+	char			name[];
 };
 
 struct ftrace_task {
@@ -301,6 +310,10 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
 struct ftrace_task *find_task(int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
+struct ftrace_session * get_session_from_sid(char sid[]);
+void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
+			uint64_t timestamp, unsigned long base_addr,
+			const char *libname);
 
 typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
 void walk_sessions(walk_sessions_cb_t callback, void *arg);
