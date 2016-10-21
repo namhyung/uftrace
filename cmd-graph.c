@@ -44,6 +44,7 @@ struct task_graph {
 
 struct uftrace_graph {
 	char *func;
+	bool kernel_only;
 	struct ftrace_session *sess;
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
@@ -69,9 +70,17 @@ static int create_graph(struct ftrace_session *sess, void *func)
 	return 0;
 }
 
-static void setup_graph_list(char *func)
+static void setup_graph_list(struct opts *opts, char *func)
 {
+	struct uftrace_graph *graph;
+
 	walk_sessions(create_graph, func);
+
+	graph = graph_list;
+	while (graph) {
+		graph->kernel_only = opts->kernel_only;
+		graph = graph->next;
+	}
 }
 
 static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
@@ -128,15 +137,21 @@ out:
 static int save_backtrace_addr(struct task_graph *tg)
 {
 	int i;
+	int skip = 0;
 	int len = tg->task->stack_count;
 	unsigned long addrs[len];
 	struct graph_backtrace *bt;
+
+	if (tg->graph->kernel_only) {
+		skip = tg->task->user_stack_count;
+		len -= skip;
+	}
 
 	if (len == 0)
 		return 0;
 
 	for (i = len - 1; i >= 0; i--)
-		addrs[i] = tg->task->func_stack[i].addr;
+		addrs[i] = tg->task->func_stack[i + skip].addr;
 
 	list_for_each_entry(bt, &tg->graph->bt_list, list) {
 		if (len == bt->len &&
@@ -387,7 +402,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
 
-	setup_graph_list(func);
+	setup_graph_list(opts, func);
 
 	while (!read_rstack(handle, &task) && !ftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
