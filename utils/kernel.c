@@ -576,11 +576,13 @@ int setup_kernel_data(struct ftrace_kernel *kernel)
 	kernel->tids          = xcalloc(kernel->nr_cpus, sizeof(*kernel->tids));
 
 	/* FIXME: should read recorded data file */
+	pevent_set_long_size(kernel->pevent, sizeof(long));
+	trace_pagesize = getpagesize(); /* pevent_get_page_size() */
+
 	if (pevent_is_file_bigendian(kernel->pevent))
 		endian = KBUFFER_ENDIAN_BIG;
 	if (pevent_get_long_size(kernel->pevent) == 4)
 		longsize = KBUFFER_LSIZE_4;
-	trace_pagesize = getpagesize(); /* pevent_get_page_size() */
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		struct stat stbuf;
