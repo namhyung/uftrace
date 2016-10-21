@@ -721,6 +721,20 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	symtabs->loaded = true;
 }
 
+void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
+			 const char *filename)
+{
+	if (symtabs->loaded)
+		return;
+
+	if (symtabs->symtab.nr_sym == 0)
+		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
+	if (symtabs->dsymtab.nr_sym == 0)
+		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
+
+	symtabs->loaded = true;
+}
+
 static int load_module_symbol(struct symtab *symtab, const char *symfile,
 			      unsigned long offset);
 

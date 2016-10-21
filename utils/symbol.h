@@ -87,6 +87,8 @@ void print_symtabs(struct symtabs *symtabs);
 
 void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
+			 const char *filename);
 
 bool check_libpthread(const char *filename);
 int check_trace_functions(const char *filename);
