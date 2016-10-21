@@ -259,6 +259,7 @@ struct ftrace_task {
 #define FTRACE_MSG_SEND_SYM      13U
 #define FTRACE_MSG_SEND_INFO     14U
 #define FTRACE_MSG_SEND_END      15U
+#define FTRACE_MSG_DLOPEN        16U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -276,6 +277,15 @@ struct ftrace_msg_task {
 
 struct ftrace_msg_sess {
 	struct ftrace_msg_task task;
+	char sid[16];
+	int  unused;
+	int  namelen;
+	char exename[];
+};
+
+struct ftrace_msg_dlopen {
+	struct ftrace_msg_task task;
+	uint64_t base_addr;
 	char sid[16];
 	int  unused;
 	int  namelen;
