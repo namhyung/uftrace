@@ -1548,7 +1548,7 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 			else if (field->flags & FIELD_IS_LONG)
 				field->elementsize = event->pevent ?
 						     event->pevent->long_size :
-						     sizeof(long);
+						     (int)sizeof(long);
 		} else
 			field->elementsize = field->size;
 

@@ -43,8 +43,8 @@ static void show_error(char *error_buf, const char *fmt, ...)
 	unsigned long long index;
 	const char *input;
 	va_list ap;
-	int len;
-	int i;
+	unsigned len;
+	unsigned i;
 
 	input = pevent_get_input_buf();
 	index = pevent_get_input_buf_ptr();

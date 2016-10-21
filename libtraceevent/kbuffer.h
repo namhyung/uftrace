@@ -52,7 +52,7 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf);
 
 void *kbuffer_translate_data(int swap, void *data, unsigned int *size);
 
-void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset, unsigned long long *ts);
+void *kbuffer_read_at_offset(struct kbuffer *kbuf, unsigned int offset, unsigned long long *ts);
 
 int kbuffer_curr_index(struct kbuffer *kbuf);
 

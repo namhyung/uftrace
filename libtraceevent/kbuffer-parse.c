@@ -611,7 +611,7 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf)
  * data and timestamp, and kbuffer_next_event() will increment from
  * this record.
  */
-void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset,
+void *kbuffer_read_at_offset(struct kbuffer *kbuf, unsigned offset,
 			     unsigned long long *ts)
 {
 	void *data;

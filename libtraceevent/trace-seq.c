@@ -192,7 +192,7 @@ trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
  */
 int trace_seq_puts(struct trace_seq *s, const char *str)
 {
-	int len;
+	size_t len;
 
 	TRACE_SEQ_CHECK_RET0(s);
 
