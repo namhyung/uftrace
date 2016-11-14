@@ -373,6 +373,11 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 {
 	bool *indent_mask;
 
+	/* skip empty graph */
+	if (list_empty(&graph->bt_list) && graph->root.time == 0 &&
+	    graph->root.nr_edges == 0)
+		return;
+
 	pr_out("#\n");
 	pr_out("# function graph for '%s' (session: %.16s)\n",
 	       graph->func, graph->sess->sid);
@@ -384,13 +389,15 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 		print_backtrace(graph);
 	}
 
-	pr_out("calling functions\n");
-	pr_out("================================\n");
-	indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
-	print_graph_node(graph, &graph->root, indent_mask, 0,
-			 graph->root.nr_edges > 1);
-	free(indent_mask);
-	pr_out("\n");
+	if (graph->root.time || graph->root.nr_edges) {
+		pr_out("calling functions\n");
+		pr_out("================================\n");
+		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
+		print_graph_node(graph, &graph->root, indent_mask, 0,
+				 graph->root.nr_edges > 1);
+		free(indent_mask);
+		pr_out("\n");
+	}
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
