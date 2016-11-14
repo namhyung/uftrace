@@ -21,7 +21,10 @@
 
 #define UFTRACE_RECV_PORT  8090
 
-#define OPT_RSTACK_MAX  65535
+#define OPT_RSTACK_MAX      65535
+#define OPT_RSTACK_DEFAULT  1024
+#define OPT_DEPTH_MAX       OPT_RSTACK_MAX
+#define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
 
 struct ftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];

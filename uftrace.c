@@ -330,9 +330,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'D':
 		opts->depth = strtol(arg, NULL, 0);
-		if (opts->depth <= 0) {
+		if (opts->depth <= 0 || opts->depth >= OPT_DEPTH_MAX) {
 			pr_use("invalid depth given: %s (ignoring..)\n", arg);
-			opts->depth = MCOUNT_DEFAULT_DEPTH;
+			opts->depth = OPT_DEPTH_DEFAULT;
 		}
 		break;
 
@@ -430,7 +430,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX) {
 			pr_use("max stack depth should be >0 and <%d\n",
 			       OPT_RSTACK_MAX);
-			opts->max_stack = OPT_RSTACK_MAX;
+			opts->max_stack = OPT_RSTACK_DEFAULT;
 		}
 		break;
 
@@ -649,8 +649,8 @@ int main(int argc, char *argv[])
 		.dirname	= UFTRACE_DIR_NAME,
 		.libcall	= true,
 		.bufsize	= SHMEM_BUFFER_SIZE,
-		.depth		= MCOUNT_DEFAULT_DEPTH,
-		.max_stack	= MCOUNT_RSTACK_MAX,
+		.depth		= OPT_DEPTH_DEFAULT,
+		.max_stack	= OPT_RSTACK_DEFAULT,
 		.port		= UFTRACE_RECV_PORT,
 		.use_pager	= true,
 		.color		= -1,  /* default to 'auto' (turn on if terminal) */
