@@ -183,6 +183,12 @@ struct opts {
 	bool kernel_only;
 };
 
+static inline bool opts_has_filter(struct opts *opts)
+{
+	return opts->filter || opts->trigger || opts->threshold ||
+		opts->depth != OPT_DEPTH_DEFAULT;
+}
+
 int command_record(int argc, char *argv[], struct opts *opts);
 int command_replay(int argc, char *argv[], struct opts *opts);
 int command_live(int argc, char *argv[], struct opts *opts);

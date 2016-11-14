@@ -369,14 +369,14 @@ static void print_graph_node(struct uftrace_graph *graph,
 	symbol_putname(sym, symname);
 }
 
-static void print_graph(struct uftrace_graph *graph, struct opts *opts)
+static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 {
 	bool *indent_mask;
 
 	/* skip empty graph */
 	if (list_empty(&graph->bt_list) && graph->root.time == 0 &&
 	    graph->root.nr_edges == 0)
-		return;
+		return 0;
 
 	pr_out("#\n");
 	pr_out("# function graph for '%s' (session: %.16s)\n",
@@ -398,6 +398,7 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 		free(indent_mask);
 		pr_out("\n");
 	}
+	return 1;
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
@@ -458,11 +459,17 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 	graph = graph_list;
 	while (graph && !ftrace_done) {
-		print_graph(graph, opts);
+		ret += print_graph(graph, opts);
 		graph = graph->next;
 	}
 
-	return ret;
+	if (!ret) {
+		pr_out("uftrace: cannot find graph for '%s'\n", func);
+		if (opts_has_filter(opts))
+			pr_out("\t please check your filter settings.\n");
+	}
+
+	return 0;
 }
 
 static void synthesize_depth_trigger(struct opts *opts, char *func)
