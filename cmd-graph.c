@@ -324,8 +324,8 @@ static void pr_indent(bool *indent_mask, int indent, bool line)
 }
 
 static void print_graph_node(struct uftrace_graph *graph,
-			     struct graph_node *node, int depth,
-			     bool *indent_mask, int indent, bool needs_line)
+			     struct graph_node *node, bool *indent_mask,
+			     int indent, bool needs_line)
 {
 	struct sym *sym;
 	char *symname;
@@ -353,8 +353,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	needs_line = (node->nr_edges > 1);
 	list_for_each_entry(child, &node->head, list) {
-		print_graph_node(graph, child, depth - 1, indent_mask, indent,
-				 needs_line);
+		print_graph_node(graph, child, indent_mask, indent, needs_line);
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
@@ -370,9 +369,14 @@ static void print_graph_node(struct uftrace_graph *graph,
 	symbol_putname(sym, symname);
 }
 
-static void print_graph(struct uftrace_graph *graph, struct opts *opts)
+static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 {
 	bool *indent_mask;
+
+	/* skip empty graph */
+	if (list_empty(&graph->bt_list) && graph->root.time == 0 &&
+	    graph->root.nr_edges == 0)
+		return 0;
 
 	pr_out("#\n");
 	pr_out("# function graph for '%s' (session: %.16s)\n",
@@ -385,13 +389,16 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 		print_backtrace(graph);
 	}
 
-	pr_out("calling functions\n");
-	pr_out("================================\n");
-	indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
-	print_graph_node(graph, &graph->root, opts->depth,
-			 indent_mask, 0, graph->root.nr_edges > 1);
-	free(indent_mask);
-	pr_out("\n");
+	if (graph->root.time || graph->root.nr_edges) {
+		pr_out("calling functions\n");
+		pr_out("================================\n");
+		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
+		print_graph_node(graph, &graph->root, indent_mask, 0,
+				 graph->root.nr_edges > 1);
+		free(indent_mask);
+		pr_out("\n");
+	}
+	return 1;
 }
 
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
@@ -452,11 +459,27 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 	graph = graph_list;
 	while (graph && !ftrace_done) {
-		print_graph(graph, opts);
+		ret += print_graph(graph, opts);
 		graph = graph->next;
 	}
 
-	return ret;
+	if (!ret) {
+		pr_out("uftrace: cannot find graph for '%s'\n", func);
+		if (opts_has_filter(opts))
+			pr_out("\t please check your filter settings.\n");
+	}
+
+	return 0;
+}
+
+static void synthesize_depth_trigger(struct opts *opts, char *func)
+{
+	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
+	size_t new_len = strlen(func) + 16;
+
+	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
+	snprintf(opts->trigger + old_len, new_len,
+		 "%s%s@depth=%d", old_len ? ";" : "", func, opts->depth);
 }
 
 int command_graph(int argc, char *argv[], struct opts *opts)
@@ -485,6 +508,15 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
+	}
+
+	if (opts->depth != OPT_DEPTH_DEFAULT) {
+		/*
+		 * Applying depth filter before the function might
+		 * lead to undesired result.  Set a synthetic depth
+		 * trigger to prevent the function from filtering out.
+		 */
+		synthesize_depth_trigger(opts, func);
 	}
 
 	fstack_setup_filters(opts, &handle);

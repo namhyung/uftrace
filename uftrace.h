@@ -21,7 +21,10 @@
 
 #define UFTRACE_RECV_PORT  8090
 
-#define OPT_RSTACK_MAX  65535
+#define OPT_RSTACK_MAX      65535
+#define OPT_RSTACK_DEFAULT  1024
+#define OPT_DEPTH_MAX       OPT_RSTACK_MAX
+#define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
 
 struct ftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];
@@ -179,6 +182,12 @@ struct opts {
 	bool kernel_skip_out;
 	bool kernel_only;
 };
+
+static inline bool opts_has_filter(struct opts *opts)
+{
+	return opts->filter || opts->trigger || opts->threshold ||
+		opts->depth != OPT_DEPTH_DEFAULT;
+}
 
 int command_record(int argc, char *argv[], struct opts *opts);
 int command_replay(int argc, char *argv[], struct opts *opts);
