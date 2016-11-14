@@ -324,8 +324,8 @@ static void pr_indent(bool *indent_mask, int indent, bool line)
 }
 
 static void print_graph_node(struct uftrace_graph *graph,
-			     struct graph_node *node, int depth,
-			     bool *indent_mask, int indent, bool needs_line)
+			     struct graph_node *node, bool *indent_mask,
+			     int indent, bool needs_line)
 {
 	struct sym *sym;
 	char *symname;
@@ -353,8 +353,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	needs_line = (node->nr_edges > 1);
 	list_for_each_entry(child, &node->head, list) {
-		print_graph_node(graph, child, depth - 1, indent_mask, indent,
-				 needs_line);
+		print_graph_node(graph, child, indent_mask, indent, needs_line);
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
@@ -388,8 +387,8 @@ static void print_graph(struct uftrace_graph *graph, struct opts *opts)
 	pr_out("calling functions\n");
 	pr_out("================================\n");
 	indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
-	print_graph_node(graph, &graph->root, opts->depth,
-			 indent_mask, 0, graph->root.nr_edges > 1);
+	print_graph_node(graph, &graph->root, indent_mask, 0,
+			 graph->root.nr_edges > 1);
 	free(indent_mask);
 	pr_out("\n");
 }
