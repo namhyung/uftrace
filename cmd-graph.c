@@ -459,6 +459,16 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	return ret;
 }
 
+static void synthesize_depth_trigger(struct opts *opts, char *func)
+{
+	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
+	size_t new_len = strlen(func) + 16;
+
+	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
+	snprintf(opts->trigger + old_len, new_len,
+		 "%s%s@depth=%d", old_len ? ";" : "", func, opts->depth);
+}
+
 int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -485,6 +495,15 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 			handle.kern = &kern;
 			load_kernel_symbol();
 		}
+	}
+
+	if (opts->depth != OPT_DEPTH_DEFAULT) {
+		/*
+		 * Applying depth filter before the function might
+		 * lead to undesired result.  Set a synthetic depth
+		 * trigger to prevent the function from filtering out.
+		 */
+		synthesize_depth_trigger(opts, func);
 	}
 
 	fstack_setup_filters(opts, &handle);
