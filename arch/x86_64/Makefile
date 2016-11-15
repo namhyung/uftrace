@@ -4,7 +4,7 @@ LINKFLAGS = -r
 sdir = $(srcdir)/arch/x86_64
 odir = $(objdir)/arch/x86_64
 
-include $(srcdir)/config/Makefile.include
+include $(srcdir)/Makefile.include
 
 ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 

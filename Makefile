@@ -86,7 +86,7 @@ ifneq ($(wildcard $(srcdir)/config/check-tstamp),)
   include $(srcdir)/config/Makefile.check
 endif
 
-include $(srcdir)/config/Makefile.include
+include $(srcdir)/Makefile.include
 
 
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
