@@ -99,12 +99,9 @@ MAKEFLAGS = --no-print-directory
 all: prepare
 	@\$(MAKE) -C \$(srcdir)
 
-config:
-	@\$(srcdir)/configure \$(MAKEOVERRIDES)
-
 clean:
 	@rm -rf arch libmcount libtraceevent utils
-	@rm -f ftrace version.h *.o *.op
+	@rm -f uftrace version.h *.o *.op
 
 prepare:
 	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
@@ -115,6 +112,6 @@ install:
 test: all
 	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
 
-.PHONY: all config clean test install
+.PHONY: all clean prepare test install
 EOF
 fi
