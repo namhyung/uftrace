@@ -1,12 +1,12 @@
-ifeq ($(wildcard config/clock_without_librt),)
+ifeq ($(wildcard $(srcdir)/check-deps/clock_without_librt),)
   LDFLAGS_libmcount.so += -lrt
 endif
 
-ifneq ($(wildcard config/cc_has_mfentry),)
+ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mfentry),)
   export HAVE_CC_MFENTRY = 1
 endif
 
-ifneq ($(wildcard $(srcdir)/config/cxa_demangle),)
+ifneq ($(wildcard $(srcdir)/check-deps/cxa_demangle),)
   COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
   COMMON_LDFLAGS += -lstdc++
 endif

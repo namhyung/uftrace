@@ -69,6 +69,11 @@ output=${output:-${objdir}/.config}
 
 make -siC ${srcdir}/check-deps check-build
 
+if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
+    echo "Error: cannot find 'libelf': Please install it first."
+    exit 1
+fi
+
 echo "# this file is generated automatically" > $output
 echo override prefix := $prefix  >> $output
 echo override bindir := $bindir  >> $output
