@@ -1,26 +1,5 @@
 CHECK_LIST  = clock_without_librt cc_has_mfentry cxa_demangle
 
-ifndef BUILD_FEATURE_CHECKS
-
-  ifeq ($(wildcard config/check-tstamp),)
-    $(shell make -si -C config check-build BUILD_FEATURE_CHECKS=1)
-  endif
-
-  ifeq ($(wildcard config/clock_without_librt),)
-    LDFLAGS_libmcount.so += -lrt
-  endif
-
-  ifneq ($(wildcard config/cc_has_mfentry),)
-    export HAVE_CC_MFENTRY = 1
-  endif
-
-  ifneq ($(wildcard config/cxa_demangle),)
-    COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
-    COMMON_LDFLAGS += -lstdc++
-  endif
-
-else # BUILD_FEATURE_CHECKS
-
 #
 # This is needed for build config tests
 #
@@ -39,9 +18,7 @@ $(CHECK_LIST): %: check-%.c
 check-tstamp: PHONY
 	@touch $@
 
-.PHONY: PHONY;
-
-endif # BUILD_FEATURE_CHECKS
-
 check-clean:
 	@$(RM) $(CHECK_LIST) check-tstamp *.o
+
+.PHONY: PHONY;
