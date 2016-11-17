@@ -67,7 +67,7 @@ srcdir=$(readlink -f $(dirname $0))
 objdir=$(readlink -f ${objdir:-${PWD}})
 output=${output:-${objdir}/.config}
 
-make -siC ${srcdir}/config check-build
+make -siC ${srcdir}/check-deps check-build
 
 echo "# this file is generated automatically" > $output
 echo override prefix := $prefix  >> $output

@@ -82,8 +82,8 @@ VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
 all:
 
-ifneq ($(wildcard $(srcdir)/config/check-tstamp),)
-  include $(srcdir)/config/Makefile.check
+ifneq ($(wildcard $(srcdir)/check-deps/check-tstamp),)
+  include $(srcdir)/check-deps/Makefile.check
 endif
 
 include $(srcdir)/Makefile.include
