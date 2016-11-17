@@ -63,6 +63,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 
 	if (tr->flags & TRIGGER_FL_COLOR)
 		pr_dbg("\ttrigger: color '%c'\n", tr->color);
+	if (tr->flags & TRIGGER_FL_TIME_FILTER)
+		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -180,6 +182,8 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 
 	if (tr->flags & TRIGGER_FL_COLOR)
 		filter->trigger.color = tr->color;
+	if (tr->flags & TRIGGER_FL_TIME_FILTER)
+		filter->trigger.time = tr->time;
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
@@ -577,6 +581,22 @@ static int setup_module_and_trigger(char *str, char *module,
 				else {
 					/* invalid color is ignored */
 				}
+				continue;
+			}
+
+			if (!strncasecmp(pos, "time=", 5)) {
+				char *unit = NULL;
+
+				tr->flags |= TRIGGER_FL_TIME_FILTER;
+				tr->time = strtoull(pos+5, &unit, 10);
+
+				if (!strcmp(unit, "s"))
+					tr->time *= 1000 * 1000 * 1000;
+				else if (!strcmp(unit, "ms"))
+					tr->time *= 1000 * 1000;
+				else if (!strcmp(unit, "us"))
+					tr->time *= 1000;
+
 				continue;
 			}
 
