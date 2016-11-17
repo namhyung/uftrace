@@ -67,6 +67,16 @@ srcdir=$(readlink -f $(dirname $0))
 objdir=$(readlink -f ${objdir:-${PWD}})
 output=${output:-${objdir}/.config}
 
+#
+# this is needed to suppress warning from make below.
+# otherwise it'll get the following warning
+# when called from make -jN.
+#
+# warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+#
+MAKEFLAGS=
+MAKEOVERRIDES=
+
 make -siC ${srcdir}/check-deps check-build
 
 if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
