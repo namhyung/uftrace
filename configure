@@ -64,7 +64,7 @@ CC=${CC:-${CROSS_COMPILE}gcc}
 LD=${LD:-${CROSS_COMPILE}ld}
 
 srcdir=$(readlink -f $(dirname $0))
-objdir=${objdir:-${PWD}}
+objdir=$(readlink -f ${objdir:-${PWD}})
 output=${output:-${objdir}/.config}
 
 echo "# this file is generated automatically" > $output
