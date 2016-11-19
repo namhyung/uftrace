@@ -1281,7 +1281,7 @@ static void check_binary(struct opts *opts)
 	if (read(fd, &e_type, sizeof(e_type)) < 0)
 		pr_err("Cannot read '%s'", opts->exename);
 
-	if (e_type != ET_EXEC && !opts->force)
+	if (e_type != ET_EXEC && e_type != ET_DYN && !opts->force)
 		pr_err_ns(OBJTYPE_MSG, opts->exename);
 
 	if (read(fd, &e_machine, sizeof(e_machine)) < 0)
