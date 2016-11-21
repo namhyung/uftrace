@@ -1004,6 +1004,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.time;
 				tfs->depth = curr->depth;
+				tfs->context = FSTACK_CTX_USER;
 				tfs->threshold = tr.time;
 
 				task->filter.time = tfs;
@@ -1017,7 +1018,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				struct time_filter_stack *tfs;
 
 				tfs = task->filter.time;
-				if (tfs->depth == curr->depth) {
+				if (tfs->depth == curr->depth &&
+				    tfs->context == FSTACK_CTX_USER) {
 					/* discard stale filter */
 					task->filter.time = tfs->next;
 					free(tfs);

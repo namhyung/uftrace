@@ -28,6 +28,7 @@ struct time_filter_stack {
 	struct time_filter_stack *next;
 	uint64_t threshold;
 	int depth;
+	enum context context;
 };
 
 struct ftrace_task_handle {

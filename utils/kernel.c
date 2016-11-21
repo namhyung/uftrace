@@ -826,9 +826,6 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	struct ftrace_ret_stack *curr;
 	int tid, prev_tid = -1;
 
-	if (!handle->time_filter)
-		return read_kernel_cpu_data(kernel, cpu);
-
 	if (rstack_list->count)
 		goto out;
 
@@ -837,29 +834,71 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	 * the given time filter (-t option).
 	 */
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
+		struct ftrace_session *sess = first_session;
+		struct ftrace_task_handle *task;
+		struct ftrace_trigger tr = {};
+		unsigned long real_addr;
+		uint64_t time_filter = handle->time_filter;
+
 		curr = &kernel->rstacks[cpu];
 
 		/* prevent ustack from invalid access */
 		kernel->rstack_valid[cpu] = false;
 
 		tid = kernel->tids[cpu];
+		task = get_task_handle(handle, tid);
+		if (task == NULL)
+			continue;
+
 		if (prev_tid == -1)
 			prev_tid = tid;
 
-		/* XXX: handle scheduled task properly */
-		if (tid != prev_tid) {
-			add_to_rstack_list(rstack_list, curr, NULL);
-			break;
-		}
-		prev_tid = tid;
+		if (task->filter.time)
+			time_filter = task->filter.time->threshold;
+
+		/* filter match needs full (64-bit) address */
+		real_addr = get_real_address(curr->addr);
+		/*
+		 * it might set TRACE trigger, which shows
+		 * function even if it's less than the time filter.
+		 */
+		ftrace_match_filter(&sess->filters, real_addr, &tr);
 
 		if (curr->type == FTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, NULL);
+
+			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
+				struct time_filter_stack *tfs;
+
+				tfs = xmalloc(sizeof(*tfs));
+				tfs->next = task->filter.time;
+				tfs->depth = curr->depth;
+				tfs->context = FSTACK_CTX_KERNEL;
+				tfs->threshold = tr.time;
+
+				task->filter.time = tfs;
+			}
+
+			/* XXX: handle scheduled task properly */
+			if (tid != prev_tid)
+				break;
 		}
 		else if (curr->type == FTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
+
+			if (task->filter.time) {
+				struct time_filter_stack *tfs;
+
+				tfs = task->filter.time;
+				if (tfs->depth == curr->depth &&
+				    tfs->context == FSTACK_CTX_KERNEL) {
+					/* discard stale filter */
+					task->filter.time = tfs->next;
+					free(tfs);
+				}
+			}
 
 			if (rstack_list->count == 0) {
 				/* it's already exceeded time filter, just return */
@@ -871,19 +910,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 					       typeof(*last), list);
 			delta = curr->time - last->rstack.time;
 
-			if (delta < handle->time_filter) {
-				struct ftrace_session *sess = first_session;
-				struct ftrace_trigger tr = {};
-				unsigned long real_addr;
-
-				/* filter match needs full (64-bit) address */
-				real_addr = get_real_address(curr->addr);
-				/*
-				 * it might set TRACE trigger, which shows
-				 * function even if it's less than the time filter.
-				 */
-				ftrace_match_filter(&sess->filters,
-						    real_addr, &tr);
+			if (delta < time_filter) {
 				if (tr.flags & TRIGGER_FL_TRACE) {
 					add_to_rstack_list(rstack_list, curr, NULL);
 					break;
@@ -891,6 +918,10 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 				/* also delete matching entry (at the last) */
 				delete_last_rstack_list(rstack_list);
+
+				/* XXX: handle scheduled task properly */
+				if (tid != prev_tid)
+					break;
 			} else {
 				/* found! process all existing rstacks in the list */
 				add_to_rstack_list(rstack_list, curr, NULL);
@@ -903,6 +934,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			break;
 		}
 
+		prev_tid = tid;
 	}
 	if (kernel->rstack_done[cpu] && rstack_list->count == 0)
 		return -1;
