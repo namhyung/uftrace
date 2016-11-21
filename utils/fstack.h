@@ -24,6 +24,12 @@ enum context {
 	FSTACK_CTX_KERNEL	= 2,
 };
 
+struct time_filter_stack {
+	struct time_filter_stack *next;
+	uint64_t threshold;
+	int depth;
+};
+
 struct ftrace_task_handle {
 	int tid;
 	bool valid;
@@ -49,6 +55,7 @@ struct ftrace_task_handle {
 		int	in_count;
 		int	out_count;
 		int	depth;
+		struct time_filter_stack *time;
 	} filter;
 	struct fstack {
 		unsigned long addr;
