@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
 
 	printf("Running %zd test cases\n======================\n", test_num);
 
-	if (argc > 1 && !strcmp(argv[1], "-d"))
+	if (argc > 1 && (!strcmp(argv[1], "-d") || !strcmp(argv[1], "-v")))
 		debug = 1;
 	outfp = logfp = stdout;
 
