@@ -1570,4 +1570,34 @@ TEST_CASE(fstack_skip)
 	return TEST_OK;
 }
 
+TEST_CASE(fstack_time)
+{
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+	struct ftrace_task_handle *task;
+	int i;
+
+	dbg_domain[DBG_FSTACK] = 1;
+
+	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
+
+	/* this makes to discard depth 1 records */
+	handle->time_filter = 200;
+
+	for (i = 0; i < NUM_TASK; i++) {
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[0]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i*3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i*3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i*3].addr);
+
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i*3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i*3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i*3].addr);
+	}
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
