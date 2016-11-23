@@ -965,12 +965,6 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 	task = &handle->tasks[idx];
 	rstack_list = &task->rstack_list;
 
-	if (!handle->time_filter) {
-		if (read_task_ustack(handle, task) < 0)
-			return NULL;
-		return &task->ustack;
-	}
-
 	if (rstack_list->count)
 		goto out;
 
@@ -979,18 +973,58 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 	 * the given time filter (-t option).
 	 */
 	while (read_task_ustack(handle, task) == 0) {
+		struct ftrace_session *sess;
+		struct ftrace_trigger tr = {};
+		uint64_t time_filter = handle->time_filter;
+
 		curr = &task->ustack;
 
 		/* prevent ustack from invalid access */
 		task->valid = false;
 
+		sess = find_task_session(task->tid, curr->time);
+		if (sess == NULL)
+			sess = find_task_session(task->t->pid,
+						 curr->time);
+
+		if (sess)
+			ftrace_match_filter(&sess->filters,
+					    curr->addr, &tr);
+
+		if (task->filter.time)
+			time_filter = task->filter.time->threshold;
+
 		if (curr->type == FTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, &task->args);
+
+			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
+				struct time_filter_stack *tfs;
+
+				tfs = xmalloc(sizeof(*tfs));
+				tfs->next = task->filter.time;
+				tfs->depth = curr->depth;
+				tfs->context = FSTACK_CTX_USER;
+				tfs->threshold = tr.time;
+
+				task->filter.time = tfs;
+			}
 		}
 		else if (curr->type == FTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
+
+			if (task->filter.time) {
+				struct time_filter_stack *tfs;
+
+				tfs = task->filter.time;
+				if (tfs->depth == curr->depth &&
+				    tfs->context == FSTACK_CTX_USER) {
+					/* discard stale filter */
+					task->filter.time = tfs->next;
+					free(tfs);
+				}
+			}
 
 			if (rstack_list->count == 0) {
 				/* it's already exceeded time filter, just return */
@@ -1002,30 +1036,16 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 					       typeof(*last), list);
 			delta = curr->time - last->rstack.time;
 
-			if (delta < handle->time_filter) {
-				struct ftrace_session *sess;
-
-				sess = find_task_session(task->tid, curr->time);
-				if (sess == NULL)
-					sess = find_task_session(task->t->pid,
-								 curr->time);
-
-				if (sess) {
-					/*
-					 * it might set TRACE trigger, which
-					 * shows function even if it's less
-					 * than the time filter.
-					 */
-					struct ftrace_trigger tr = {};
-
-					ftrace_match_filter(&sess->filters,
-							    curr->addr, &tr);
-					if (tr.flags & TRIGGER_FL_TRACE) {
-						add_to_rstack_list(rstack_list,
-								   curr,
-								   &task->args);
-						break;
-					}
+			if (delta < time_filter) {
+				/*
+				 * it might set TRACE trigger, which shows
+				 * function even if it's less than the time
+				 * filter.
+				 */
+				if (tr.flags & TRIGGER_FL_TRACE) {
+					add_to_rstack_list(rstack_list, curr,
+							   &task->args);
+					break;
 				}
 
 				/* also delete matching entry (at the last) */
@@ -1456,6 +1476,10 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 	}
 	setup_task_filter(NULL, handle);
 
+	/* for fstack_entry not to crash */
+	for (i = 0; i < handle->info.nr_tid; i++)
+		handle->tasks[i].t = &test_tasks[i];
+
 	atexit(fstack_test_finish_file);
 	return 0;
 }
@@ -1530,9 +1554,6 @@ TEST_CASE(fstack_skip)
 
 	TEST_EQ(read_rstack(handle, &task), 0);
 
-	/* for fstack_entry not to crash */
-	task->t = &test_tasks[0];
-
 	TEST_EQ(fstack_entry(task, task->rstack, &tr), 0);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][0].type);
@@ -1545,6 +1566,36 @@ TEST_CASE(fstack_skip)
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
 	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][3].addr);
+
+	return TEST_OK;
+}
+
+TEST_CASE(fstack_time)
+{
+	struct ftrace_file_handle *handle = &fstack_test_handle;
+	struct ftrace_task_handle *task;
+	int i;
+
+	dbg_domain[DBG_FSTACK] = 1;
+
+	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
+
+	/* this makes to discard depth 1 records */
+	handle->time_filter = 200;
+
+	for (i = 0; i < NUM_TASK; i++) {
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[0]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i*3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i*3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i*3].addr);
+
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(task->tid, test_tids[1]);
+		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i*3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i*3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i*3].addr);
+	}
 
 	return TEST_OK;
 }

@@ -176,6 +176,7 @@ void mcount_prepare(void)
 
 #ifndef DISABLE_MCOUNT_FILTER
 	mtd.filter.depth  = mcount_depth;
+	mtd.filter.time   = mcount_threshold;
 	mtd.enable_cached = mcount_enabled;
 	mtd.argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 #endif
@@ -217,8 +218,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
-	/* save original depth to restore at exit time */
+	/* save original depth and time to restore at exit time */
 	mtdp->filter.saved_depth = mtdp->filter.depth;
+	mtdp->filter.saved_time  = mtdp->filter.time;
 
 	/* already filtered by notrace option */
 	if (mtdp->filter.out_count > 0)
@@ -246,7 +248,8 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 			return FILTER_OUT;
 	}
 
-#define FLAGS_TO_CHECK  (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
+#define FLAGS_TO_CHECK  (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON |	\
+			 TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
 		if (tr->flags & TRIGGER_FL_DEPTH)
@@ -257,6 +260,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_TRACE_OFF)
 			mcount_enabled = false;
+
+		if (tr->flags & TRIGGER_FL_TIME_FILTER)
+			mtdp->filter.time = tr->time;
 	}
 
 #undef FLAGS_TO_CHECK
@@ -282,6 +288,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
 	rstack->filter_depth = mtdp->filter.saved_depth;
+	rstack->filter_time  = mtdp->filter.saved_time;
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE)
 
@@ -341,6 +348,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			       struct mcount_ret_stack *rstack,
 			       long *retval)
 {
+	uint64_t time_filter = mtdp->filter.time;
+
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
 #define FLAGS_TO_CHECK  (MCOUNT_FL_FILTERED | MCOUNT_FL_NOTRACE | MCOUNT_FL_RECOVER)
@@ -358,6 +367,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 #undef FLAGS_TO_CHECK
 
 	mtdp->filter.depth = rstack->filter_depth;
+	mtdp->filter.time  = rstack->filter_time;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		if (mtdp->record_idx > 0)
@@ -366,7 +376,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (!(rstack->flags & MCOUNT_FL_RETVAL))
 			retval = NULL;
 
-		if (rstack->end_time - rstack->start_time > mcount_threshold ||
+		if (rstack->end_time - rstack->start_time > time_filter ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
 			if (!mcount_enabled)
 				return;

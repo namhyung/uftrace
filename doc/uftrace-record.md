@@ -208,9 +208,11 @@ TRIGGERS
 ========
 The uftrace tool supports triggering actions on selected function calls with or without filters.  Currently supported triggers are listed below.  The BNF for trigger specification is:
 
-    <trigger>  :=  <symbol> "@" <actions>
-    <actions>  :=  <action>  | <action> "," <actions>
-    <action>   :=  "depth="<num> | "trace" | "trace_on" | "trace_off" | "recover"
+    <trigger>    :=  <symbol> "@" <actions>
+    <actions>    :=  <action>  | <action> "," <actions>
+    <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" | "recover" | "time="<time_spec>
+    <time_spec>  :=  <num> [ <time_unit> ]
+    <time_unit>  :=  "ns" | "us" | "ms" | "s"
 
 The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.
 
@@ -231,6 +233,8 @@ The `backtrace` trigger is only meaningful in the replay command.
 The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace records the specified functions or not.
 
 The 'recover' trigger is for some corner cases in which the process accesses the callstack directly.  During tracing of the v8 javascript engine, for example, it kept getting segfaults in the garbage collection stage.  It was because v8 incorporates the return address into compiled code objects(?).  The `recover` trigger restores the original return address at the function entry point and resets to the uftrace return hook address again at function exit.  I was managed to work around the segfault by setting the `recover` trigger on the related function (specifically `ExitFrame::Iterate`).
+
+The 'time' trigger is to change time filter setting during execution of the function.  It can use used to apply differernt time filter for different functions.
 
 Triggers only work for user-level functions for now.
 

@@ -172,9 +172,11 @@ TRIGGERS
 ========
 The uftrace tool supports triggering actions on selected function calls with or without filters.  Currently supported triggers are `depth`, `backtrace`, `trace_on` and `trace_off`.  The BNF for trigger specifications is like below:
 
-    <trigger>  :=  <symbol> "@" <actions>
-    <actions>  :=  <action>  | <action> "," <actions>
-    <action>   :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" | "color="<color>
+    <trigger>    :=  <symbol> "@" <actions>
+    <actions>    :=  <action>  | <action> "," <actions>
+    <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" | "color="<color> | "time="<time_spec>
+    <time_spec>  :=  <num> [ <time_unit> ]
+    <time_unit>  :=  "ns" | "us" | "ms" | "s"
 
 The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.  And the `backtrace` trigger is used to print a stack backtrace at replay time.
 
@@ -192,6 +194,8 @@ The following example shows how triggers work.  We set a filter on function `b()
        5.475 us [ 1234] | } /* b */
 
 The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace shows functions or not.  The trigger runs at replay time, not run time, so it can handle kernel functions as well. Contrast this with triggers used under `uftrace record`.
+
+The 'time' trigger is to change time filter setting during execution of the function.  It can be used to apply different time filter for different functions.
 
 
 SEE ALSO

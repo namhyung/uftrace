@@ -51,6 +51,7 @@ struct mcount_ret_stack {
 	uint64_t end_time;
 	int tid;
 	int filter_depth;
+	uint64_t filter_time;
 	unsigned short depth;
 	unsigned short dyn_idx;
 	/* set arg_spec at function entry and use it at exit */
@@ -92,6 +93,8 @@ struct filter_control {
 	int out_count;
 	int depth;
 	int saved_depth;
+	uint64_t time;
+	uint64_t saved_time;
 };
 #else
 struct filter_control {};
