@@ -1,3 +1,9 @@
+uftrace (0.6.0.20161123-1) unstable; urgency=medium
+
+  * New upstream snapshot at commit c8f17dffd0
+
+ -- paul cannon <pik@debian.org>  Wed, 23 Nov 2016 18:49:24 -0600
+
 uftrace (0.6.0.20161014-1) unstable; urgency=low
 
   * Initial packaging of git snapshot at commit 06e6740256 (closes: #839877).
