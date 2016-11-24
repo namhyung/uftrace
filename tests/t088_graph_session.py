@@ -65,6 +65,11 @@ calling functions
         sp.call(['rm', '-rf', TDIR])
         return ret
 
+    def fixup(self, cflags, result):
+        return result.replace("readlink", """memset
+            :  | 
+   9.814 us :  +-(1) readlink""")
+
     def sort(self, output):
         """ This function post-processes output of the test to be compared.
             It ignores blank and comment (#) lines and header lines.  """

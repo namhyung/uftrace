@@ -533,7 +533,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 
 	if (frs->type == FTRACE_ENTRY) {
 		ph = 'B';
-		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+		pr_out("{\"ts\":%"PRIu64",\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= HAS_MORE;
@@ -546,7 +546,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	}
 	else if (frs->type == FTRACE_EXIT) {
 		ph = 'E';
-		pr_out("{\"ts\":%lu,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+		pr_out("{\"ts\":%"PRIu64",\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
