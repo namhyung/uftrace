@@ -65,6 +65,8 @@ LD=${LD:-${CROSS_COMPILE}ld}
 
 srcdir=$(readlink -f $(dirname $0))
 objdir=${objdir:-${PWD}}
+[ ${objdir:0:1} != '/' ] && objdir=${PWD}/${objdir}
+[ -e "$objdir" ] || mkdir -p "$objdir"
 output=${output:-${objdir}/.config}
 
 echo "# this file is generated automatically" > $output
@@ -107,9 +109,12 @@ clean:
 prepare:
 	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
 
+install:
+	@\$(MAKE) -C \$(srcdir) install
+
 test: all
 	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
 
-.PHONY: all config clean test
+.PHONY: all config clean test install
 EOF
 fi
