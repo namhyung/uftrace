@@ -832,6 +832,7 @@ static void mcount_startup(void)
 	char *argument_str;
 	char *retval_str;
 	char *plthook_str;
+	char *patch_str;
 	char *dirname;
 	struct stat statbuf;
 	LIST_HEAD(modules);
@@ -860,6 +861,7 @@ static void mcount_startup(void)
 	argument_str = getenv("UFTRACE_ARGUMENT");
 	retval_str = getenv("UFTRACE_RETVAL");
 	plthook_str = getenv("UFTRACE_PLTHOOK");
+	patch_str = getenv("UFTRACE_PATCH");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -903,7 +905,7 @@ static void mcount_startup(void)
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
 
-	if (filter_str || trigger_str || argument_str || retval_str)
+	if (filter_str || trigger_str || argument_str || retval_str || patch_str)
 		symtabs.flags &= ~SYMTAB_FL_SKIP_NORMAL;
 	if (plthook_str)
 		symtabs.flags &= ~SYMTAB_FL_SKIP_DYNAMIC;
@@ -939,6 +941,9 @@ static void mcount_startup(void)
 
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
+
+	if (patch_str)
+		mcount_dynamic_update(&symtabs, patch_str);
 
 	if (plthook_str) {
 		if (symtabs.dsymtab.nr_sym == 0) {
