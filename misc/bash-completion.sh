@@ -9,19 +9,27 @@ _uftrace () {
     subcmds='record replay report live dump graph info recv'
     options=$(uftrace -? | awk '$1 ~ /--[a-z]/ { split($1, r, "="); print r[1] } \
                                 $2 ~ /--[a-z]/ { split($2, r, "="); print r[1] }')
+    demangle='full simple no'
+    sort_key='total self call avg min max'
 
     uftrace_comp="${subcmds} ${options}"
 
     case $prev in
-	-d|--data)
+	-d|--data|--diff|-L|--library-path)
 	    # complete directory name
 	    COMPREPLY=($(compgen -d -- "${cur}"))
 	    ;;
+	--demangle)
+	    COMPREPLY=($(compgen -W "${demangle}" -- "${cur}"))
+	    ;;
+	-s|--sort)
+	    COMPREPLY=($(compgen -W "${sort_key}" -- "${cur}"))
+	    ;;
 	*)
-	    # complete subcommand or long option
-	    COMPREPLY=($(compgen -W "${uftrace_comp}" -- "${cur}"))
+	    # complete subcommand, long option or (executable) filename
+	    COMPREPLY=($(compgen -f -W "${uftrace_comp}" -- "${cur}"))
 	    ;;
     esac
     return 0
 }
-complete -F _uftrace uftrace
+complete -o filenames -F _uftrace uftrace
