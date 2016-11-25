@@ -18,9 +18,9 @@ gmon.out
 tests/t-*
 tests/arch/*/t-*
 tests/libabc_test_lib.so
-config/*
-!config/*.c
-!config/Makefile*
+check-deps/*
+!check-deps/*.c
+!check-deps/Makefile*
 FLAGS
 version.h
 .config

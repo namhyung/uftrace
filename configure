@@ -67,6 +67,23 @@ srcdir=$(readlink -f $(dirname $0))
 objdir=$(readlink -f ${objdir:-${PWD}})
 output=${output:-${objdir}/.config}
 
+#
+# this is needed to suppress warning from make below.
+# otherwise it'll get the following warning
+# when called from make -jN.
+#
+# warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+#
+MAKEFLAGS=
+MAKEOVERRIDES=
+
+make -siC ${srcdir}/check-deps check-build
+
+if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
+    echo "Error: cannot find 'libelf': Please install it first."
+    exit 1
+fi
+
 echo "# this file is generated automatically" > $output
 echo override prefix := $prefix  >> $output
 echo override bindir := $bindir  >> $output
@@ -97,19 +114,19 @@ MAKEFLAGS = --no-print-directory
 all: prepare
 	@\$(MAKE) -C \$(srcdir)
 
-config:
-	@\$(srcdir)/configure \$(MAKEOVERRIDES)
-
 clean:
 	@rm -rf arch libmcount libtraceevent utils
-	@rm -f ftrace version.h *.o *.op
+	@rm -f uftrace version.h *.o *.op
 
 prepare:
 	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
 
+install:
+	@\$(MAKE) -C \$(srcdir) install
+
 test: all
 	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
 
-.PHONY: all config clean test
+.PHONY: all clean prepare test install
 EOF
 fi

@@ -5,7 +5,7 @@ has_pandoc := $(shell pandoc -v > /dev/null 2>&1 && echo yes || echo no)
 RM := rm -f
 INSTALL = install
 
-include ../config/Makefile.include
+include ../Makefile.include
 
 COMMANDS = record replay live report recv info dump graph
 MANPAGES = uftrace.1 $(patsubst %,uftrace-%.1,$(COMMANDS))

@@ -1,0 +1,20 @@
+#-*- mode: makefile -*-
+ifneq ($(findstring $(MAKEFLAGS),s),s)
+  ifneq ($(V),1)
+	QUIET_CC       = @echo '  CC       '$(patsubst $(objdir)/%,%,$@);
+	QUIET_CC_FPIC  = @echo '  CC FPIC  '$(patsubst $(objdir)/%,%,$@);
+	QUIET_AR       = @echo '  AR       '$(patsubst $(objdir)/%,%,$@);
+	QUIET_ASM      = @echo '  ASM      '$(patsubst $(objdir)/%,%,$@);
+	QUIET_LINK     = @echo '  LINK     '$(patsubst $(objdir)/%,%,$@);
+	QUIET_MKDIR    = @echo '  MKDIR    '$(patsubst $(objdir)/%,%,$@);
+	QUIET_GEN      = @echo '  GEN      '$(patsubst $(objdir)/%,%,$@);
+	QUIET_FLEX     = @echo '  FLEX     '$@;
+	QUIET_BISON    = @echo '  BISON    '$@;
+
+	QUIET_CLEAN    = @printf '  CLEAN    %s\n' $1;
+	QUIET_INSTALL  = @printf '  INSTALL  %s\n' $1;
+	QUIET_UNINSTALL= @printf '  REMOVE   %s\n' $1;
+
+	Q = @
+  endif
+endif

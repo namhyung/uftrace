@@ -82,8 +82,11 @@ VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
 all:
 
-include $(srcdir)/config/Makefile
-include $(srcdir)/config/Makefile.include
+ifneq ($(wildcard $(srcdir)/check-deps/check-tstamp),)
+  include $(srcdir)/check-deps/Makefile.check
+endif
+
+include $(srcdir)/Makefile.include
 
 
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
@@ -174,6 +177,10 @@ all: $(objdir)/.config $(TARGETS)
 
 $(objdir)/.config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $@ $(MAKEOVERRIDES)
+	@$(MAKE) -C $(objdir)
+# The above recursive make will handle all build procedure with
+# updated dependency.  So just abort the current build.
+	$(error)
 
 config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
@@ -211,7 +218,7 @@ $(objdir)/libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) $(objdir)/arch
 $(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(objdir)/arch/$(ARCH)/entry.op
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libtraceevent/libtraceevent.a: PHONY
+$(objdir)/libtraceevent/libtraceevent.a: $(wildcard $(srcdir)/libtraceevent/*.[ch])
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
 
 $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
@@ -271,7 +278,6 @@ clean:
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
-	@$(MAKE) -sC $(srcdir)/config check-clean BUILD_FEATURE_CHECKS=0
 	@$(MAKE) -sC $(srcdir)/doc clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent clean
 
