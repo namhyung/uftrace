@@ -82,7 +82,11 @@ static void print_header(void)
 	pr_out("#");
 	list_for_each_entry(field, &output_fields, list)
 		pr_out("%s ", field->header);
-	pr_out("  FUNCTION\n");
+
+	if (!list_empty(&output_fields))
+		pr_out(" ");
+
+	pr_out(" FUNCTION\n");
 }
 
 struct replay_field *field_table[] = {
@@ -94,6 +98,9 @@ static void print_field(struct ftrace_task_handle *task,
 			struct fstack *fstack, void *arg)
 {
 	struct replay_field *field;
+
+	if (list_empty(&output_fields))
+		return;
 
 	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list) {
@@ -107,6 +114,9 @@ static void print_empty_field(void)
 {
 	struct replay_field *field;
 
+	if (list_empty(&output_fields))
+		return;
+
 	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list)
 		pr_out("%*s ", field->length, "");
@@ -118,6 +128,9 @@ static void setup_field(struct opts *opts)
 	struct replay_field *field;
 	unsigned i;
 	char *str, *p;
+
+	if (!strcmp(opts->fields, "none"))
+		return;
 
 	str = xstrdup(opts->fields);
 
@@ -190,7 +203,8 @@ static void print_backtrace(struct ftrace_task_handle *task)
 				field->print(task, fstack, NULL);
 			pr_out(" ");
 		}
-		pr_out("|");
+		if (!list_empty(&output_fields))
+			pr_out("|");
 
 		name = symbol_getname(sym, fstack->addr);
 		pr_gray(" /* [%2d] %s */\n", i, name);
