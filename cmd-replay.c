@@ -71,6 +71,7 @@ static void print_field(struct ftrace_task_handle *task,
 {
 	struct replay_field *field;
 
+	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list) {
 		field->print(task, fstack, arg);
 		pr_out(" ");
@@ -82,9 +83,10 @@ static void print_empty_field(void)
 {
 	struct replay_field *field;
 
+	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list)
 		pr_out("%*s ", field->length, "");
-	pr_out(" |");
+	pr_out("|");
 }
 
 static void setup_field(void)
@@ -142,9 +144,10 @@ static void print_backtrace(struct ftrace_task_handle *task)
 		else
 			sym = NULL;
 
+		pr_out(" ");
 		list_for_each_entry(field, &output_fields, list) {
 			if (field->id == REPLAY_F_DURATION)
-				pr_out(" %*s", field->length, "backtrace");
+				pr_out("%*s", field->length, "backtrace");
 			else
 				field->print(task, fstack, NULL);
 			pr_out(" ");

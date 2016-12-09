@@ -193,7 +193,7 @@ static int print_backtrace(struct uftrace_graph *graph)
 	char *symname;
 
 	list_for_each_entry(bt, &graph->bt_list, list) {
-		pr_out(" backtrace #%d: hit %d, time", i++, bt->hit);
+		pr_out(" backtrace #%d: hit %d, time ", i++, bt->hit);
 		print_time_unit(bt->time);
 		pr_out("\n");
 
@@ -336,6 +336,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 	sym = find_symtabs(&graph->sess->symtabs, node->addr);
 	symname = symbol_getname(sym, node->addr);
 
+	pr_out(" ");
 	print_time_unit(node->time);
 	pr_out(" : ");
 	pr_indent(indent_mask, indent, needs_line);

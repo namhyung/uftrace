@@ -460,17 +460,17 @@ static void print_function(struct trace_entry *entry)
 	char *symname = symbol_getname(entry->sym, entry->addr);
 
 	if (avg_mode == AVG_NONE) {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_total - entry->time_recursive);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_self);
 		pr_out("  %10lu  %-s\n", entry->nr_called, symname);
 	} else {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_avg);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_min);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_max);
 		pr_out("  %-s\n", symname);
 	}
@@ -553,7 +553,7 @@ static void print_thread(struct trace_entry *entry)
 {
 	char *symname = symbol_getname(entry->sym, entry->addr);
 
-	pr_out("  %5d ", entry->pid);
+	pr_out("  %5d  ", entry->pid);
 	print_time_unit(entry->time_self);
 	pr_out("  %10lu  %-s\n", entry->nr_called, symname);
 
@@ -767,16 +767,16 @@ static void print_diff(struct trace_entry *entry)
 	struct trace_entry *pair = entry->pair;
 
 	if (avg_mode == AVG_NONE) {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_total);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(pair->time_total);
 		pr_out(" ");
 		print_diff_percent(entry->time_total, pair->time_total);
 
-		pr_out("  ");
+		pr_out("   ");
 		print_time_unit(entry->time_self);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(pair->time_self);
 		pr_out(" ");
 		print_diff_percent(entry->time_self, pair->time_self);
@@ -785,23 +785,23 @@ static void print_diff(struct trace_entry *entry)
 		       entry->nr_called, pair->nr_called,
 		       (long)(pair->nr_called - entry->nr_called), symname);
 	} else {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_avg);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(pair->time_avg);
 		pr_out(" ");
 		print_diff_percent(entry->time_avg, pair->time_avg);
 
-		pr_out("  ");
+		pr_out("   ");
 		print_time_unit(entry->time_min);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(pair->time_min);
 		pr_out(" ");
 		print_diff_percent(entry->time_min, pair->time_min);
 
-		pr_out("  ");
+		pr_out("   ");
 		print_time_unit(entry->time_max);
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(pair->time_max);
 		pr_out(" ");
 		print_diff_percent(entry->time_max, pair->time_max);
@@ -818,9 +818,9 @@ static void print_remaining(struct trace_entry *entry)
 	char *symname = symbol_getname(entry->sym, entry->addr);
 
 	if (avg_mode == AVG_NONE) {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_total);
-		pr_out("  %10s  %8s  ", NODATA, NODATA);
+		pr_out("  %10s  %8s   ", NODATA, NODATA);
 
 		print_time_unit(entry->time_self);
 		pr_out("  %10s  %8s ",  NODATA, NODATA);
@@ -828,12 +828,12 @@ static void print_remaining(struct trace_entry *entry)
 		pr_out("  %10lu  %9s  %9s   %-s\n",
 		       entry->nr_called, NODATA, NODATA, symname);
 	} else {
-		pr_out(" ");
+		pr_out("  ");
 		print_time_unit(entry->time_avg);
-		pr_out("  %10s  %8s  ", NODATA, NODATA);
+		pr_out("  %10s  %8s   ", NODATA, NODATA);
 
 		print_time_unit(entry->time_min);
-		pr_out("  %10s  %8s  ", NODATA, NODATA);
+		pr_out("  %10s  %8s   ", NODATA, NODATA);
 
 		print_time_unit(entry->time_max);
 		pr_out("  %10s  %8s   %-s\n",  NODATA, NODATA, symname);
@@ -847,11 +847,11 @@ static void print_remaining_pair(struct trace_entry *entry)
 	char *symname = symbol_getname(entry->sym, entry->addr);
 
 	if (avg_mode == AVG_NONE) {
-		pr_out("  %10s ", NODATA);
+		pr_out("  %10s  ", NODATA);
 		print_time_unit(entry->time_total);
 		pr_out("  %8s ", NODATA);
 
-		pr_out("  %10s ", NODATA);
+		pr_out("  %10s  ", NODATA);
 		print_time_unit(entry->time_self);
 		pr_out("  %8s ", NODATA);
 
@@ -859,15 +859,15 @@ static void print_remaining_pair(struct trace_entry *entry)
 		       NODATA, entry->nr_called, NODATA, symname);
 	} else {
 
-		pr_out("  %10s ", NODATA);
+		pr_out("  %10s  ", NODATA);
 		print_time_unit(entry->time_avg);
 		pr_out("  %8s ", NODATA);
 
-		pr_out("  %10s ", NODATA);
+		pr_out("  %10s  ", NODATA);
 		print_time_unit(entry->time_min);
 		pr_out("  %8s ", NODATA);
 
-		pr_out("  %10s ",  NODATA);
+		pr_out("  %10s  ",  NODATA);
 		print_time_unit(entry->time_max);
 		pr_out("  %8s ", NODATA);
 
