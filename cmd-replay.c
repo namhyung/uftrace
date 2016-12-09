@@ -23,6 +23,7 @@ enum replay_field_id {
 	REPLAY_F_DURATION,
 	REPLAY_F_TID,
 	REPLAY_F_ADDR,
+	REPLAY_F_TIMESTAMP,
 };
 
 struct replay_field {
@@ -65,6 +66,15 @@ static void print_addr(struct ftrace_task_handle *task,
 	pr_out("%*lx", sizeof(long) == 4 ? 8 : 12, fstack->addr);
 }
 
+static void print_timestamp(struct ftrace_task_handle *task,
+			    struct fstack *fstack, void *arg)
+{
+	uint64_t  sec = task->timestamp / NSEC_PER_SEC;
+	uint64_t nsec = task->timestamp % NSEC_PER_SEC;
+
+	pr_out("%8"PRIu64".%09"PRIu64, sec, nsec);
+}
+
 static struct replay_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
@@ -97,6 +107,15 @@ static struct replay_field field_addr = {
 	.list    = LIST_HEAD_INIT(field_addr.list),
 };
 
+static struct replay_field field_time = {
+	.id      = REPLAY_F_TIMESTAMP,
+	.name    = "time",
+	.header  = "     TIMESTAMP    ",
+	.length  = 18,
+	.print   = print_timestamp,
+	.list    = LIST_HEAD_INIT(field_time.list),
+};
+
 static void print_header(void)
 {
 	struct replay_field *field;
@@ -115,6 +134,7 @@ struct replay_field *field_table[] = {
 	&field_duration,
 	&field_tid,
 	&field_addr,
+	&field_time,
 };
 
 static void print_field(struct ftrace_task_handle *task,
@@ -480,6 +500,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
+	char args[1024];
 
 	if (task == NULL)
 		return 0;
@@ -504,7 +525,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			goto out;
 	}
 
-	char args[1024];
+	task->timestamp = rstack->time;
+
 	if (rstack->type == FTRACE_ENTRY) {
 		struct ftrace_task_handle *next = NULL;
 		struct fstack *fstack;
