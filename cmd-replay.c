@@ -22,6 +22,7 @@ enum replay_field_id {
 	REPLAY_F_NONE           = 0,
 	REPLAY_F_DURATION,
 	REPLAY_F_TID,
+	REPLAY_F_ADDR,
 };
 
 struct replay_field {
@@ -57,6 +58,13 @@ static void print_tid(struct ftrace_task_handle *task,
 	pr_out("[%5d]", task->tid);
 }
 
+static void print_addr(struct ftrace_task_handle *task,
+		       struct fstack *fstack, void *arg)
+{
+	/* uftrace records (truncated) 48-bit addresses */
+	pr_out("%*lx", sizeof(long) == 4 ? 8 : 12, fstack->addr);
+}
+
 static struct replay_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
@@ -73,6 +81,20 @@ static struct replay_field field_tid = {
 	.length  = 7,
 	.print   = print_tid,
 	.list    = LIST_HEAD_INIT(field_tid.list),
+};
+
+static struct replay_field field_addr = {
+	.id      = REPLAY_F_ADDR,
+	.name    = "addr",
+#if __SIZEOF_LONG == 4
+	.header  = "  ADDR  ",
+	.length  = 8,
+#else
+	.header  = "   ADDRESS  ",
+	.length  = 12,
+#endif
+	.print   = print_addr,
+	.list    = LIST_HEAD_INIT(field_addr.list),
 };
 
 static void print_header(void)
@@ -92,6 +114,7 @@ static void print_header(void)
 struct replay_field *field_table[] = {
 	&field_duration,
 	&field_tid,
+	&field_addr,
 };
 
 static void print_field(struct ftrace_task_handle *task,
