@@ -411,7 +411,7 @@ static void setup_sort(char *sort_keys)
 				continue;
 
 			if (all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) {
-				pr_out("ftrace: '%s' sort key %s be used with %s or %s.\n",
+				pr_out("uftrace: '%s' sort key %s be used with %s or %s.\n",
 				       all_sort_items[i]->name,
 				       avg_mode == AVG_NONE ? "should" : "cannot",
 				       "--avg-total", "--avg-self");
@@ -424,8 +424,8 @@ static void setup_sort(char *sort_keys)
 		}
 
 		if (i == ARRAY_SIZE(all_sort_items)) {
-			pr_out("ftrace: Unknown sort key '%s'\n", k);
-			pr_out("ftrace:   Possible keys:");
+			pr_out("uftrace: Unknown sort key '%s'\n", k);
+			pr_out("uftrace:   Possible keys:");
 			for (i = 0; i < ARRAY_SIZE(all_sort_items); i++)
 				pr_out(" %s", all_sort_items[i]->name);
 			pr_out("\n");
