@@ -12,10 +12,105 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
+#include "utils/list.h"
 
 
 static int column_index;
 static int prev_tid = -1;
+
+enum replay_field_id {
+	REPLAY_F_NONE           = 0,
+	REPLAY_F_DURATION,
+	REPLAY_F_TID,
+};
+
+struct replay_field {
+	struct list_head list;
+	enum replay_field_id id;
+	const char *name;
+	const char *header;
+	int length;
+	void (*print)(struct ftrace_task_handle *task,
+		      struct fstack *fstack, void *arg);
+};
+
+static LIST_HEAD(output_fields);
+
+#define NO_TIME  (void *)1  /* to suppress duration */
+
+static void print_duration(struct ftrace_task_handle *task,
+			   struct fstack *fstack, void *arg)
+{
+	uint64_t d = 0;
+
+	/* any non-NULL argument suppresses the output */
+	if (fstack && arg == NULL)
+		d = fstack->total_time;
+
+	print_time_unit(d);
+}
+
+static void print_tid(struct ftrace_task_handle *task,
+		      struct fstack *fstack, void *arg)
+{
+	pr_out("[%5d]", task->tid);
+}
+
+static void print_header(void)
+{
+	struct replay_field *field;
+
+	pr_out("#");
+	list_for_each_entry(field, &output_fields, list)
+		pr_out("%s ", field->header);
+	pr_out("  FUNCTION\n");
+}
+
+static void print_field(struct ftrace_task_handle *task,
+			struct fstack *fstack, void *arg)
+{
+	struct replay_field *field;
+
+	list_for_each_entry(field, &output_fields, list) {
+		field->print(task, fstack, arg);
+		pr_out(" ");
+	}
+	pr_out("|");
+}
+
+static void print_empty_field(void)
+{
+	struct replay_field *field;
+
+	list_for_each_entry(field, &output_fields, list)
+		pr_out("%*s ", field->length, "");
+	pr_out(" |");
+}
+
+static void setup_field(void)
+{
+	struct replay_field *field;
+
+	field = xmalloc(sizeof(*field));
+	field->id = REPLAY_F_DURATION;
+	field->name = "duration";
+	field->header = " DURATION ";
+	field->length = 10;
+	field->print = print_duration;
+	INIT_LIST_HEAD(&field->list);
+
+	list_add_tail(&field->list, &output_fields);
+
+	field = xmalloc(sizeof(*field));
+	field->id = REPLAY_F_TID;
+	field->name = "tid";
+	field->header = "  TID  ";
+	field->length = 7;
+	field->print = print_tid;
+	INIT_LIST_HEAD(&field->list);
+
+	list_add_tail(&field->list, &output_fields);
+}
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 {
@@ -37,6 +132,8 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	char *name;
 
 	for (i = 0; i < task->stack_count - 1; i++) {
+		struct replay_field *field;
+
 		fstack = &task->func_stack[i];
 		sess = find_task_session(task->tid, fstack->total_time);
 
@@ -45,8 +142,16 @@ static void print_backtrace(struct ftrace_task_handle *task)
 		else
 			sym = NULL;
 
+		list_for_each_entry(field, &output_fields, list) {
+			if (field->id == REPLAY_F_DURATION)
+				pr_out(" %*s", field->length, "backtrace");
+			else
+				field->print(task, fstack, NULL);
+			pr_out(" ");
+		}
+		pr_out("|");
+
 		name = symbol_getname(sym, fstack->addr);
-		pr_out("  backtrace [%5d] |", task->tid);
 		pr_gray(" /* [%2d] %s */\n", i, name);
 		symbol_putname(sym, name);
 	}
@@ -91,8 +196,10 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 
 static void print_task_newline(int current_tid)
 {
-	if (prev_tid != -1 && current_tid != prev_tid)
-		pr_out(" %7s %2s %7s |\n", "", "", "");
+	if (prev_tid != -1 && current_tid != prev_tid) {
+		print_empty_field();
+		pr_out("\n");
+	}
 
 	prev_tid = current_tid;
 }
@@ -103,6 +210,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 {
 	int i = 0, n = 0;
 	char str[64];
+
 	const int null_str = -1;
 	void *data = task->args.data;
 	struct list_head *arg_list = task->args.args;
@@ -366,9 +474,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
-			print_time_unit(fstack->total_time);
-
-			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
+			print_field(task, fstack, NULL);
+			pr_out(" %*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
 				pr_out("%s%s\n", args, retval);
@@ -382,8 +489,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		}
 		else {
 			/* function entry */
-			print_time_unit(0UL);
-			pr_out(" [%5d] | %*s", task->tid, depth * 2, "");
+			print_field(task, fstack, NO_TIME);
+			pr_out(" %*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
 				pr_out("%s {\n", args);
@@ -417,8 +524,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			if (opts->task_newline)
 				print_task_newline(task->tid);
 
-			print_time_unit(fstack->total_time);
-			pr_out(" [%5d] | %*s}%s", task->tid, depth * 2, "", retval);
+			print_field(task, fstack, NULL);
+			pr_out(" %*s}%s", depth * 2, "", retval);
 			if (opts->comment)
 				pr_gray(" /* %s */\n", symname);
 			else
@@ -441,8 +548,7 @@ lost:
 		if (opts->task_newline)
 			print_task_newline(task->tid);
 
-		print_time_unit(0UL);
-		pr_out(" [%5d] |", task->tid);
+		print_field(task, NULL, NO_TIME);
 
 		if (losts > 0)
 			pr_red(" %*s/* LOST %d records!! */\n",
@@ -458,8 +564,7 @@ out:
 
 static void print_warning(struct ftrace_task_handle *task)
 {
-	print_time_unit(0UL);
-	pr_out(" %7s |", "");
+	print_empty_field();
 	pr_red(" %*s/* inverted time: broken data? */\n",
 	       (task->display_depth + 1) * 2, "");
 }
@@ -565,9 +670,10 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	fstack_setup_filters(opts, &handle);
+	setup_field();
 
 	if (!opts->flat)
-		pr_out("# DURATION    TID     FUNCTION\n");
+		print_header();
 
 	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
 		struct ftrace_ret_stack *rstack = task->rstack;
