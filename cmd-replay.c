@@ -30,6 +30,7 @@ struct replay_field {
 	const char *name;
 	const char *header;
 	int length;
+	bool used;
 	void (*print)(struct ftrace_task_handle *task,
 		      struct fstack *fstack, void *arg);
 };
@@ -56,6 +57,24 @@ static void print_tid(struct ftrace_task_handle *task,
 	pr_out("[%5d]", task->tid);
 }
 
+static struct replay_field field_duration = {
+	.id      = REPLAY_F_DURATION,
+	.name    = "duration",
+	.header  = " DURATION ",
+	.length  = 10,
+	.print   = print_duration,
+	.list    = LIST_HEAD_INIT(field_duration.list),
+};
+
+static struct replay_field field_tid = {
+	.id      = REPLAY_F_TID,
+	.name    = "tid",
+	.header  = "  TID  ",
+	.length  = 7,
+	.print   = print_tid,
+	.list    = LIST_HEAD_INIT(field_tid.list),
+};
+
 static void print_header(void)
 {
 	struct replay_field *field;
@@ -65,6 +84,11 @@ static void print_header(void)
 		pr_out("%s ", field->header);
 	pr_out("  FUNCTION\n");
 }
+
+struct replay_field *field_table[] = {
+	&field_duration,
+	&field_tid,
+};
 
 static void print_field(struct ftrace_task_handle *task,
 			struct fstack *fstack, void *arg)
@@ -89,29 +113,43 @@ static void print_empty_field(void)
 	pr_out("|");
 }
 
-static void setup_field(void)
+static void setup_field(struct opts *opts)
 {
 	struct replay_field *field;
+	unsigned i;
+	char *str, *p;
 
-	field = xmalloc(sizeof(*field));
-	field->id = REPLAY_F_DURATION;
-	field->name = "duration";
-	field->header = " DURATION ";
-	field->length = 10;
-	field->print = print_duration;
-	INIT_LIST_HEAD(&field->list);
+	str = xstrdup(opts->fields);
 
-	list_add_tail(&field->list, &output_fields);
+	p = strtok(str, ",");
+	while (p) {
+		for (i = 0; i < ARRAY_SIZE(field_table); i++) {
+			field = field_table[i];
 
-	field = xmalloc(sizeof(*field));
-	field->id = REPLAY_F_TID;
-	field->name = "tid";
-	field->header = "  TID  ";
-	field->length = 7;
-	field->print = print_tid;
-	INIT_LIST_HEAD(&field->list);
+			if (strcmp(field->name, p))
+				continue;
 
-	list_add_tail(&field->list, &output_fields);
+			if (field->used)
+				continue;
+
+			field->used = true;
+			list_add_tail(&field->list, &output_fields);
+			break;
+		}
+
+		if (i == ARRAY_SIZE(field_table)) {
+			pr_out("uftrace: Unknown field name '%s'\n", p);
+			pr_out("uftrace:   Possible fields are:");
+			for (i = 0; i < ARRAY_SIZE(field_table); i++)
+				pr_out(" %s", field_table[i]->name);
+			pr_out("\n");
+			exit(1);
+		}
+
+		p = strtok(NULL, ",");
+	}
+
+	free(str);
 }
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
@@ -673,7 +711,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	fstack_setup_filters(opts, &handle);
-	setup_field();
+	setup_field(opts);
 
 	if (!opts->flat)
 		print_header();

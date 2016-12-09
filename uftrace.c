@@ -139,6 +139,7 @@ static struct argp_option ftrace_options[] = {
 	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampliing time" },
+	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
 	{ 0 }
 };
 
@@ -383,6 +384,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'R':
 		opts->retval = opt_add_string(opts->retval, arg);
+		break;
+
+	case 'f':
+		opts->fields = arg;
 		break;
 
 	case OPT_flat:
@@ -657,6 +662,7 @@ int main(int argc, char *argv[])
 		.column_offset	= 8,
 		.comment	= true,
 		.kernel_skip_out= true,
+		.fields         = OPT_FIELD_DEFAULT,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
