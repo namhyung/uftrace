@@ -40,6 +40,9 @@ OPTIONS
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
+-f *FIELD*, \--output-fields=*FIELD*
+:   Customize field in the output.  Possible values are: duration, tid, time, delta and addr.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
+
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with a `trace_on` trigger.
 
@@ -196,6 +199,35 @@ The following example shows how triggers work.  We set a filter on function `b()
 The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace shows functions or not.  The trigger runs at replay time, not run time, so it can handle kernel functions as well. Contrast this with triggers used under `uftrace record`.
 
 The 'time' trigger is to change time filter setting during execution of the function.  It can be used to apply different time filter for different functions.
+
+
+FIELDS
+======
+The uftrace allows for user to customize the replay output with a couple of fields.  Here the field means info on the left side of the pipe (|) character.  By default it uses duration and tid fields, but you can use other fields in any order like:
+
+    $ uftrace replay -f time,delta,duration,addr
+    #     TIMESTAMP      TIMEDELTA  DURATION     ADDRESS     FUNCTION
+        74469.340757350              1.583 us       4004d0 | __monstartup();
+        74469.340762221   4.871 us   0.766 us       4004f0 | __cxa_atexit();
+        74469.340764847   2.626 us                  4006b1 | main() {
+        74469.340765061   0.214 us                  400656 |   a() {
+        74469.340765195   0.134 us                  400669 |     b() {
+        74469.340765344   0.149 us                  40067c |       c() {
+        74469.340765524   0.180 us   0.742 us       4004b0 |         getpid();
+        74469.340766935   1.411 us   1.591 us       40067c |       } /* c */
+        74469.340767195   0.260 us   2.000 us       400669 |     } /* b */
+        74469.340767372   0.177 us   2.311 us       400656 |   } /* a */
+        74469.340767541   0.169 us   2.694 us       4006b1 | } /* main */
+
+Each field has following meaning:
+
+ * tid: task id (obtained by gettid(2))
+ * duration: function execution time
+ * time: timestamp at the execution
+ * delta: difference between two timestamp in a task
+ * addr: address of the function
+
+The default value is 'duration,tid'.  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
 
 
 SEE ALSO
