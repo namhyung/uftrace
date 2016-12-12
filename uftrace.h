@@ -25,6 +25,7 @@
 #define OPT_RSTACK_DEFAULT  1024
 #define OPT_DEPTH_MAX       OPT_RSTACK_MAX
 #define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
+#define OPT_FIELD_DEFAULT   (char *)"duration,tid"
 
 struct ftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];
@@ -142,6 +143,7 @@ struct opts {
 	char *args;
 	char *retval;
 	char *diff;
+	char *fields;
 	int mode;
 	int idx;
 	int depth;

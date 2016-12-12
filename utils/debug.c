@@ -207,7 +207,7 @@ void print_time_unit(uint64_t delta_nsec)
 	unsigned idx;
 
 	if (delta_nsec == 0UL) {
-		pr_out(" %7s %2s", "", "");
+		pr_out("%7s %2s", "", "");
 		return;
 	}
 
@@ -230,7 +230,7 @@ void print_time_unit(uint64_t delta_nsec)
 	else
 		unit = units[idx];
 
-	pr_out(" %3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+	pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
 }
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)

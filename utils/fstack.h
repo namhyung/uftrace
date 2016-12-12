@@ -52,6 +52,8 @@ struct ftrace_task_handle {
 	int user_display_depth;
 	int column_index;
 	enum context ctx;
+	uint64_t timestamp;
+	uint64_t timestamp_last;
 	struct filter {
 		int	in_count;
 		int	out_count;
