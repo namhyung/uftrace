@@ -52,7 +52,7 @@ calling functions
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s --no-pager record -k -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
