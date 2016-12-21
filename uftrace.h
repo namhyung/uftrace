@@ -116,6 +116,7 @@ struct ftrace_file_handle {
 	int nr_tasks;
 	int depth;
 	uint64_t time_filter;
+	struct uftrace_time_range time_range;
 };
 
 #define UFTRACE_MODE_INVALID 0
@@ -183,6 +184,7 @@ struct opts {
 	bool kernel;
 	bool kernel_skip_out;
 	bool kernel_only;
+	struct uftrace_time_range range;
 };
 
 static inline bool opts_has_filter(struct opts *opts)

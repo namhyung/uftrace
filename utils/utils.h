@@ -190,6 +190,11 @@ extern void setup_signal(void);
 #define htonq(x)  htobe64(x)
 #define ntohq(x)  be64toh(x)
 
+struct uftrace_time_range {
+	uint64_t start;
+	uint64_t stop;
+};
+
 struct iovec;
 
 int read_all(int fd, void *buf, size_t size);
@@ -207,5 +212,7 @@ void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
 
 void start_pager(void);
 void wait_for_pager(void);
+
+bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp);
 
 #endif /* __FTRACE_UTILS_H__ */

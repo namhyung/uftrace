@@ -982,6 +982,9 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		/* prevent ustack from invalid access */
 		task->valid = false;
 
+		if (!check_time_range(&handle->time_range, curr->time))
+			continue;
+
 		sess = find_task_session(task->tid, curr->time);
 		if (sess == NULL)
 			sess = find_task_session(task->t->pid,

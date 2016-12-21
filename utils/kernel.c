@@ -850,6 +850,9 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		if (task == NULL)
 			continue;
 
+		if (!check_time_range(&handle->time_range, curr->time))
+			continue;
+
 		if (prev_tid == -1)
 			prev_tid = tid;
 

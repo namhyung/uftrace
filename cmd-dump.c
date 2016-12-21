@@ -877,6 +877,9 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct sym *sym = NULL;
 			char *name;
 
+			if (!check_time_range(&handle->time_range, frs->time))
+				continue;
+
 			/* consume the rstack as it didn't call read_rstack() */
 			fstack_consume(handle, task);
 
@@ -919,6 +922,9 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				ops->lost(ops, frs->time, tid, losts);
 				kernel->missed_events[i] = 0;
 			}
+
+			if (!check_time_range(&handle->time_range, frs->time))
+				continue;
 
 			sym = find_symtabs(NULL, frs->addr);
 			name = symbol_getname(sym, frs->addr);
