@@ -32,9 +32,16 @@ class TestBase:
         self.ldflags = ldflags
         self.lang = lang
 
+    def set_debug(self, dbg):
+        self.debug = dbg
+
+    def pr_debug(self, msg):
+        if self.debug:
+            print(msg)
+
     def build(self, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
-#            print("%s: unsupported language: %s" % (self.name, self.lang))
+            pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
             return TestBase.TEST_UNSUPP_LANG
 
         lang = TestBase.supported_lang[self.lang]
@@ -49,7 +56,7 @@ class TestBase:
         build_cmd = '%s -o %s %s %s %s' % \
                     (lang['cc'], prog, build_cflags, src, build_ldflags)
 
-#        print("build command:", build_cmd)
+        self.pr_debug("build command: %s" % build_cmd)
         try:
             return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
         except:
@@ -119,7 +126,7 @@ class TestBase:
         ret = TestBase.TEST_SUCCESS
 
         test_cmd = self.runcmd()
-#        print("test command: %s" % test_cmd)
+        self.pr_debug("test command: %s" % test_cmd)
 
         p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
@@ -145,8 +152,8 @@ class TestBase:
         if ret > 0:
             return TestBase.TEST_NONZERO_RETURN
 
-#        print(result_expect)
-#        print(result_tested)
+        self.pr_debug("=========== %s =============\n%s" % ("expect", result_expect))
+        self.pr_debug("=========== %s =============\n%s" % ("result", result_tested))
 
         if result_expect.strip() == '':
             return TestBase.TEST_DIFF_RESULT
@@ -214,13 +221,14 @@ result_string = {
     TestBase.TEST_SUCCESS_FIXED:  'OK: Test almost succeeded',
 }
 
-def run_single_case(case, flags, opts, diff):
+def run_single_case(case, flags, opts, diff, dbg):
     result = []
 
     # for python3
     _locals = locals()
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
+    tc.set_debug(dbg)
 
     for flag in flags:
         for opt in opts:
@@ -263,6 +271,8 @@ def parse_argument():
                         help="profiling with -finstrument-functions option")
     parser.add_argument("-d", "--diff", dest='diff', action='store_true',
                         help="show diff result if not matched")
+    parser.add_argument("-v", "--verbose", dest='debug', action='store_true',
+                        help="show internal command and result for debugging")
 
     return parser.parse_args()
 
@@ -294,7 +304,7 @@ if __name__ == "__main__":
         testcases = sorted(glob.glob('t???_*.py'))
         for tc in testcases:
             name = tc[:-3]  # remove '.py'
-            result = run_single_case(name, flags, opts.split(), arg.diff)
+            result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
             print_test_result(name, result)
     else:
         try:
@@ -302,6 +312,7 @@ if __name__ == "__main__":
         except:
             print("cannot find testcase for : %s" % arg.case)
             sys.exit(1)
-        for testcase in sorted(testcases):
-            result = run_single_case(testcase[:-3], flags, opts.split(), arg.diff)
-            print_test_result(testcase[:-3], result)
+        for tc in sorted(testcases):
+            name = tc[:-3]  # remove '.py'
+            result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
+            print_test_result(name, result)
