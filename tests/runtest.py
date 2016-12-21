@@ -25,12 +25,13 @@ class TestBase:
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-omit-frame-pointer']
 
-    def __init__(self, name, result, lang='C', cflags='', ldflags=''):
+    def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task'):
         self.name = name
         self.result = result
         self.cflags = cflags
         self.ldflags = ldflags
         self.lang = lang
+        self.sort_method = sort
 
     def set_debug(self, dbg):
         self.debug = dbg
@@ -67,7 +68,7 @@ class TestBase:
             A test case can extend this to setup a complex configuration.  """
         return '%s %s' % (TestBase.ftrace, 't-' + self.name)
 
-    def sort(self, output, ignore_children=False):
+    def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
         pids = {}
@@ -105,8 +106,18 @@ class TestBase:
                 for p in pid_list:
                     result += '\n'.join(pids[p]['result'])
         except:
-            pass  # this leads to failuire with 'NG'
+            pass  # this leads to a failure with 'NG'
         return result
+
+    def sort(self, output, ignore_children=False):
+        if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
+            print('cannot find the sort function: %s' % self.sort_method)
+            return ''  # this leads to a failure with 'NG'
+        func = TestBase.__dict__[self.sort_method + '_sort']
+        if callable(func):
+            return func(self, output, ignore_children)
+        else:
+            return ''  # this leads to a failure with 'NG'
 
     def pre(self):
         """This function is called before running a testcase"""
