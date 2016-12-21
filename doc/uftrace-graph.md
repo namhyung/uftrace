@@ -37,6 +37,9 @@ OPTIONS
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
 
+-r *RANGE*, \--time-range=*RANGE*
+:   Only show functions executed within the time RANGE.  The RANGE can be "<start>~<stop>" (separated by "~") and one of start and stop can be omitted.  The start and stop are timestamp which can be shown with `uftrace replay -f time`.
+
 --max-stack=*DEPTH*
 :   Allocate internal graph structure up to *DEPTH*.
 

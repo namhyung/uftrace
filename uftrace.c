@@ -140,6 +140,7 @@ static struct argp_option ftrace_options[] = {
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampliing time" },
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
+	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME range only" },
 	{ 0 }
 };
 
@@ -308,6 +309,58 @@ static uint64_t parse_time(char *arg)
 	return val;
 }
 
+static uint64_t parse_timestamp(char *str)
+{
+	uint64_t sec, nsec = 0;
+	char *pos = NULL;
+
+	if (*str == '\0')
+		return 0;
+
+	sec = strtoull(str, &pos, 10);
+	if (*pos != '.' && *pos != '\0') {
+		pr_use("invalid timestamp string\n");
+		return -1;
+	}
+
+	if (*pos == '.')
+		pos++;
+
+	if (strlen(pos)) {
+		int i, n = strlen(pos);
+
+		if (n > 9) {
+			pr_use("invalid timestamp string\n");
+			return -2;
+		}
+
+		nsec = strtoul(pos, NULL, 10);
+		for (i = n; i < 9; i++)
+			nsec *= 10;
+	}
+
+	return sec * NSEC_PER_SEC + nsec;
+}
+
+static bool parse_time_range(struct uftrace_time_range *range, char *arg)
+{
+	char *str, *pos;
+
+	str = xstrdup(arg);
+
+	pos = strchr(str, '~');
+	if (pos == NULL)
+		return false;
+
+	*pos++ = '\0';
+
+	range->start = parse_timestamp(str);
+	range->stop  = parse_timestamp(pos);
+
+	free(str);
+	return true;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -376,6 +429,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 't':
 		opts->threshold = parse_time(arg);
+		if (opts->range.start || opts->range.stop) {
+			pr_use("--time-range cannot be used with --time-filter\n");
+			opts->range.start = opts->range.stop = 0;
+		}
 		break;
 
 	case 'A':
@@ -388,6 +445,15 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'f':
 		opts->fields = arg;
+		break;
+
+	case 'r':
+		if (!parse_time_range(&opts->range, arg))
+			pr_use("invalid time range: %s (ignoring...)\n", arg);
+		if (opts->threshold) {
+			pr_use("--time-filter cannot be used with --time-range\n");
+			opts->threshold = 0;
+		}
 		break;
 
 	case OPT_flat:

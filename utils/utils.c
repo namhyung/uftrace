@@ -227,3 +227,13 @@ char *read_exename(void)
 
 	return exename;
 }
+
+bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp)
+{
+	if (range->start && range->start > timestamp)
+		return false;
+	if (range->stop && range->stop < timestamp)
+		return false;
+
+	return true;
+}
