@@ -16,7 +16,7 @@ class TestCase(TestBase):
     74469.340767195 |     } /* b */
     74469.340767372 |   } /* a */
     74469.340767541 | } /* main */
-""")
+""", sort='simple')
 
     def pre(self):
         global START
@@ -39,15 +39,3 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output, ignore_children=False):
-        result = []
-        for ln in output.split('\n'):
-            # ignore result of remaining functions which follows a blank line
-            if ln.strip() == '' or ln.startswith('#'):
-                continue;
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-
-        return '\n'.join(result)
-

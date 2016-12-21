@@ -109,6 +109,19 @@ class TestBase:
             pass  # this leads to a failure with 'NG'
         return result
 
+    def simple_sort(self, output, ignored):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        result = []
+        for ln in output.split('\n'):
+            # ignore blank lines and comments
+            if ln.strip() == '' or ln.startswith('#'):
+                continue
+            func = ln.split('|', 1)[-1]
+            result.append(func)
+
+        return '\n'.join(result)
+
     def sort(self, output, ignore_children=False):
         if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)

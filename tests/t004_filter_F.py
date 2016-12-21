@@ -13,20 +13,7 @@ class TestCase(TestBase):
    1.430 us [28141] |     } /* c */
    1.915 us [28141] |   } /* b */
    2.405 us [28141] | } /* a */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s -F a %s' % (TestBase.ftrace, 't-abc')
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        result = []
-        for ln in output.split('\n'):
-            # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
-                continue
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-
-        return '\n'.join(result)

@@ -12,7 +12,7 @@ class TestCase(TestBase):
             [17459] | lib_b() {
    6.911 us [17459] |   lib_c();
    8.279 us [17459] | } /* lib_b */
-""")
+""", sort='simple')
 
     def build(self, cflags='', ldflags=''):
         import os
@@ -49,18 +49,6 @@ class TestCase(TestBase):
         if sp.call(build_cmd.split(), stdout=sp.PIPE) < 0:
             return TestBase.TEST_BUILD_FAIL
         return 0
-
-    def sort(self, output, ignore_children=False):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        result = []
-        for ln in output.split('\n'):
-            # ignore blank lines and header
-            if ln.strip() == '' or ln.startswith('#'):
-                continue
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-        return '\n'.join(result)
 
     def pre(self):
         record_cmd = '%s record --force -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
