@@ -148,6 +148,9 @@ class TestBase:
 #        print(result_expect)
 #        print(result_tested)
 
+        if result_expect.strip() == '':
+            return TestBase.TEST_DIFF_RESULT
+
         if result_expect != result_tested:
             result_expect = self.sort(self.fixup(cflags, self.result))
             ret = TestBase.TEST_SUCCESS_FIXED
