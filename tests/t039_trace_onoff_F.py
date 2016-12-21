@@ -14,7 +14,7 @@ class TestCase(TestBase):
             [27770] |   } /* ns::ns1::foo::bar1 */
    1.791 us [27770] |   free();
             [27770] | } /* ns::ns1::foo::bar */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s --disable -F "ns::ns1::foo::bar" -T ".*foo::bar3@trace_on" %s' % (TestBase.ftrace, 't-namespace')

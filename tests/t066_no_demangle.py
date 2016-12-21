@@ -16,7 +16,7 @@ class TestCase(TestBase):
    4.128 us [17005] |   } /* _ZN2ns3ns13foo4bar1Ev */
    1.463 us [17005] |   free();
    6.702 us [17005] | } /* _ZN2ns3ns13foo3barEv */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s --demangle=no -F "_ZN2ns3ns13foo3barEv" %s' % \

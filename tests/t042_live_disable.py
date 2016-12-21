@@ -18,7 +18,7 @@ class TestCase(TestBase):
    0.365 us [ 6624] |     malloc();
    0.834 us [ 6624] |   } /* ns::ns2::foo::bar3 */
    1.200 us [ 6624] | } /* ns::ns2::foo::bar2 */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s --disable -F ".*foo::foo@traceon" -F ".*::bar2" %s' % (TestBase.ftrace, 't-namespace')

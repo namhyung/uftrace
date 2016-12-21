@@ -21,7 +21,7 @@ class TestCase(TestBase):
             [29826] |           ns::ns2::foo::bar1() {
             [29826] |             ns::ns2::foo::bar2() {
             [29826] |               ns::ns2::foo::bar3() {
-""")
+""", sort='simple')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')

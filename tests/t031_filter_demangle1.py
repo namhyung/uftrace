@@ -16,7 +16,7 @@ class TestCase(TestBase):
    6.858 us [14470] |   } /* ns::ns1::foo::bar1 */
    2.207 us [14470] |   free();
  100.290 us [14470] | } /* ns::ns1::foo::bar */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s -F "ns::ns1::foo::bar" %s' % (TestBase.ftrace, 't-namespace')

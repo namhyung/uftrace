@@ -20,7 +20,7 @@ class TestCase(TestBase):
    0.597 us [29826] |   operator new();
    0.410 us [29826] |   operator delete();
  143.705 us [29826] | } /* main */
-""")
+""", sort='simple')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
