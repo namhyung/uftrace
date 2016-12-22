@@ -192,6 +192,21 @@ class TestBase:
 
         return '\n'.join(result)
 
+    def chrome_sort(self, output, ignored):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        import json
+
+        # A chrome dump results consists of following JSON object:
+        # {"ts": <timestamp>, "ph": <type>, "pid": <number>, "name": <func>}
+        result = []
+        o = json.loads(output)
+        for ln in o['traceEvents']:
+            if ln['name'].startswith('__'):
+                continue
+            result.append("%s %s" % (ln['ph'], ln['name']))
+        return '\n'.join(result)
+
     def sort(self, output, ignore_children=False):
         if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)
