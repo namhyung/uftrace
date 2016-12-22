@@ -32,7 +32,7 @@ reading 5186.dat
 58071.918048760   5186: [exit ] a(400774) depth: 1
 58071.918049117   5186: [exit ] main(400590) depth: 0
 reading 5188.dat
-""")
+""", sort='dump')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
@@ -59,25 +59,3 @@ reading 5188.dat
 
     def fixup(self, cflags, result):
         return result.replace("2 (64 bit)", "1 (32 bit)")
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        import re
-
-        mode = 1
-        patt = re.compile(r'[^[]*(?P<type>\[(entry|exit )\]) (?P<func>[_a-z0-9]*)\([0-9a-f]+\) (?P<depth>.*)')
-        result = []
-        for ln in output.split('\n'):
-            if ln.startswith('uftrace'):
-                result.append(ln)
-            else:
-                m = patt.match(ln)
-                if m is None:
-                    continue
-                # ignore __monstartup and __cxa_atexit
-                if m.group('func').startswith('__'):
-                    continue
-                result.append(patt.sub(r'\g<type> \g<depth> \g<func>', ln))
-
-        return '\n'.join(result)

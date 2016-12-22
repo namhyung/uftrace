@@ -18,7 +18,7 @@ class TestCase(TestBase):
  105.025 us [12683] |   } /* ns::ns2::foo::bar */
    0.602 us [12683] |   operator delete();
             [12683] | } /* main */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s --disable -T "ns::ns2::foo::bar@traceon" %s' % (TestBase.ftrace, 't-namespace')

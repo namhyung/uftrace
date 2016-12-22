@@ -19,7 +19,7 @@ class TestCase(TestBase):
    1.563 us [ 4629] |     } /* free5 */
    2.323 us [ 4629] |   } /* free2 */
    2.580 us [ 4629] | } /* free1 */
-""")
+""", sort='simple')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-allocfree')
@@ -32,16 +32,3 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        result = []
-        for ln in output.split('\n'):
-            # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
-                continue
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-
-        return '\n'.join(result)

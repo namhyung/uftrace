@@ -11,7 +11,7 @@ class TestCase(TestBase):
   61.911 us [17455] |     lib_c();
  217.279 us [17455] |   } /* lib_b */
  566.261 us [17455] | } /* lib_a */
-""")
+""", sort='simple')
 
     def build(self, cflags='', ldflags=''):
         import os
@@ -48,18 +48,6 @@ class TestCase(TestBase):
         if sp.call(build_cmd.split(), stdout=sp.PIPE) < 0:
             return TestBase.TEST_BUILD_FAIL
         return 0
-
-    def sort(self, output, ignore_children=False):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        result = []
-        for ln in output.split('\n'):
-            # ignore blank lines and header
-            if ln.strip() == '' or ln.startswith('#'):
-                continue
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-        return '\n'.join(result)
 
     def runcmd(self):
         return '%s --force --no-libcall %s' % (TestBase.ftrace, 't-' + self.name)

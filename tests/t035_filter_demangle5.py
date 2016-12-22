@@ -22,7 +22,7 @@ class TestCase(TestBase):
    0.450 us [ 1845] |     malloc();
    0.930 us [ 1845] |   } /* ns::ns2::foo::bar3 */
    1.393 us [ 1845] | } /* ns::ns2::foo::bar2 */
-""")
+""", sort='simple')
 
     # test whether filter option preserves the ordering
     def runcmd(self):

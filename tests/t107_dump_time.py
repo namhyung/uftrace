@@ -21,7 +21,7 @@ class TestCase(TestBase):
 "command_line":"uftrace record -d xxx t-sleep ",
 "recorded_time":"Mon Oct  3 22:45:57 2016"
 } }
-""")
+""", sort='chrome')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
@@ -34,14 +34,3 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        import json
-
-        result = []
-        o = json.loads(output)
-        for ln in o['traceEvents']:
-            result.append("%s %s" % (ln['ph'], ln['name']))
-        return '\n'.join(result)

@@ -16,7 +16,7 @@ class TestCase(TestBase):
    2.084 ms [32537] |     } /* bar */
    2.102 ms [32537] |   } /* foo */
    2.103 ms [32537] | } /* main */
-""")
+""", sort='simple')
 
     def build(self, cflags='', ldflags=''):
         if cflags.find('-finstrument-functions') >= 0:
@@ -36,16 +36,3 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output):
-        """ This function post-process output of the test to be compare.
-            It ignores blank and comment (#) lines and remaining functions. """
-        result = []
-        for ln in output.split('\n'):
-            # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
-                continue
-            func = ln.split('|', 1)[-1]
-            result.append(func)
-
-        return '\n'.join(result)

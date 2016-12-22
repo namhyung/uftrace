@@ -26,7 +26,7 @@ calling functions
             :  | 
   10.138 ms :  +-(1) bar
   10.100 ms :    (1) usleep
-""")
+""", sort='graph')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
@@ -39,27 +39,3 @@ calling functions
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared.
-            It ignores blank and comment (#) lines and header lines.  """
-        result = []
-        mode = 0
-        for ln in output.split('\n'):
-            if ln.strip() == '' or ln.startswith('#') or ln.startswith('='):
-                continue
-            if ln.startswith('backtrace'):
-                mode = 1
-                continue
-            if ln.startswith('calling'):
-                mode = 2
-                continue
-            if mode == 1:
-                if ln.startswith(' backtrace #'):
-                    result.append(ln.split(',')[0])  # remove time part
-                if ln.startswith('   ['):
-                    result.append(ln.split('(')[0])  # remove '(addr)' part
-            if mode == 2:
-                result.append(ln.split(':')[1])      # remove time part
-
-        return '\n'.join(result)

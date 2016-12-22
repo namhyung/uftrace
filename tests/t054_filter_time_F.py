@@ -9,7 +9,7 @@ class TestCase(TestBase):
             [18229] | bar() {
    2.078 ms [18229] |   usleep();
    2.080 ms [18229] | } /* bar */
-""")
+""", sort='simple')
 
     def runcmd(self):
         return '%s -t 1ms -F bar %s' % (TestBase.ftrace, 't-' + self.name)
