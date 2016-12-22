@@ -14,7 +14,7 @@ class TestCase(TestBase):
     2.102 ms   18.787 us           1  foo
     2.084 ms    4.107 us           1  bar
     2.080 ms    2.080 ms           1  usleep
-""")
+""", sort='report')
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
@@ -27,24 +27,3 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
-
-    def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
-        result = []
-        for ln in output.split('\n'):
-            if ln.strip() == '':
-                continue
-            line = ln.split()
-            if line[0] == 'Total':
-                continue
-            if line[0].startswith('='):
-                continue
-            # A report line consists of following data
-            # [0]         [1]   [2]        [3]   [4]     [5]
-            # total_time  unit  self_time  unit  called  function
-            if line[5].startswith('__'):
-                continue
-            result.append('%s %s' % (line[4], line[5]))
-
-        return '\n'.join(result)

@@ -122,6 +122,27 @@ class TestBase:
 
         return '\n'.join(result)
 
+    def report_sort(self, output, ignored):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        result = []
+        for ln in output.split('\n'):
+            if ln.strip() == '':
+                continue
+            line = ln.split()
+            if line[0] == 'Total':
+                continue
+            if line[0].startswith('='):
+                continue
+            # A report line consists of following data
+            # [0]         [1]   [2]        [3]   [4]     [5]
+            # total_time  unit  self_time  unit  called  function
+            if line[5].startswith('__'):
+                continue
+            result.append('%s %s' % (line[4], line[5]))
+
+        return '\n'.join(result)
+
     def sort(self, output, ignore_children=False):
         if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)
