@@ -168,6 +168,30 @@ class TestBase:
 
         return '\n'.join(result)
 
+    def dump_sort(self, output, ignored):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        import re
+
+        # A (raw) dump result consists of following data
+        # <timestamp> <tid>: [<type>] <func>(<addr>) depth: <N>
+        mode = 1
+        patt = re.compile(r'[^[]*(?P<type>\[(entry|exit )\]) (?P<func>[_a-z0-9]*)\([0-9a-f]+\) (?P<depth>.*)')
+        result = []
+        for ln in output.split('\n'):
+            if ln.startswith('uftrace'):
+                result.append(ln)
+            else:
+                m = patt.match(ln)
+                if m is None:
+                    continue
+                # ignore __monstartup and __cxa_atexit
+                if m.group('func').startswith('__'):
+                    continue
+                result.append(patt.sub(r'\g<type> \g<depth> \g<func>', ln))
+
+        return '\n'.join(result)
+
     def sort(self, output, ignore_children=False):
         if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)
