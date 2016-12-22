@@ -140,7 +140,8 @@ class TestBase:
 
         result_expect = self.sort(self.result)
         signal.alarm(5)
-        result_tested = self.sort(p.communicate()[0].decode())  # for python3
+        result_origin = p.communicate()[0].decode()
+        result_tested = self.sort(result_origin)  # for python3
         signal.alarm(0)
 
         ret = p.wait()
@@ -152,7 +153,8 @@ class TestBase:
         if ret > 0:
             return TestBase.TEST_NONZERO_RETURN
 
-        self.pr_debug("=========== %s =============\n%s" % ("expect", result_expect))
+        self.pr_debug("=========== %s =============\n%s" % ("expected", result_expect))
+        self.pr_debug("=========== %s =============\n%s" % ("original", result_origin))
         self.pr_debug("=========== %s =============\n%s" % ("result", result_tested))
 
         if result_expect.strip() == '':
