@@ -130,6 +130,7 @@ struct mcount_thread_data {
 	bool				recursion_guard;
 	bool				plthook_guard;
 	unsigned long			plthook_addr;
+	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
 	struct filter_control		filter;

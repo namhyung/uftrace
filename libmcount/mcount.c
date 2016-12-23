@@ -568,6 +568,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
+	rstack->parent_loc = &mtdp->cygprof_dummy;
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
