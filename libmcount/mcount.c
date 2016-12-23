@@ -40,7 +40,7 @@ int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
 bool mcount_finished;
 
-pthread_key_t mtd_key;
+pthread_key_t mtd_key = (pthread_key_t)-1;
 TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
@@ -568,6 +568,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	rstack->depth      = mtdp->record_idx;
 	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
+	rstack->parent_loc = &mtdp->cygprof_dummy;
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
@@ -684,6 +685,16 @@ static void build_debug_domain(char *dbg_domain_str)
 	}
 }
 
+static void (*old_segfault_handler)(int);
+
+static void segfault_handler(int sig)
+{
+	mcount_restore();
+
+	signal(sig, old_segfault_handler);
+	raise(sig);
+}
+
 /*
  * external interfaces
  */
@@ -727,6 +738,8 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 			setvbuf(logfp, NULL, _IOLBF, 1024);
 		}
 	}
+
+	old_segfault_handler = signal(SIGSEGV, segfault_handler);
 
 	if (debug_str) {
 		debug = strtol(debug_str, NULL, 0);
@@ -863,13 +876,20 @@ void __visible_default mcount_reset(void)
 {
 	int idx;
 	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = (unsigned long)mcount_return;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		rstack = &mtdp->rstack[idx];
+
+		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
+			*rstack->parent_loc = (unsigned long)mcount_return;
+		else
+			*rstack->parent_loc = (unsigned long)plthook_return;
+	}
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

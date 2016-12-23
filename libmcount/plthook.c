@@ -461,7 +461,7 @@ unsigned long plthook_exit(long *retval)
 	mtdp->recursion_guard = true;
 
 again:
-	rstack = &mtdp->rstack[--mtdp->idx];
+	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
@@ -490,8 +490,6 @@ again:
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
 
-	mtdp->plthook_guard = false;
-
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -511,7 +509,12 @@ again:
 #endif
 	}
 
+	compiler_barrier();
+
+	mtdp->idx--;
 	mtdp->recursion_guard = false;
+	mtdp->plthook_guard = false;
+
 	return rstack->parent_ip;
 }
 
