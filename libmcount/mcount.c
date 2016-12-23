@@ -40,7 +40,7 @@ int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
 bool mcount_finished;
 
-pthread_key_t mtd_key;
+pthread_key_t mtd_key = (pthread_key_t)-1;
 TLS struct mcount_thread_data mtd;
 
 static int pfd = -1;
