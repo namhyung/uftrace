@@ -685,6 +685,16 @@ static void build_debug_domain(char *dbg_domain_str)
 	}
 }
 
+static void (*old_segfault_handler)(int);
+
+static void segfault_handler(int sig)
+{
+	mcount_restore();
+
+	signal(sig, old_segfault_handler);
+	raise(sig);
+}
+
 /*
  * external interfaces
  */
@@ -728,6 +738,8 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 			setvbuf(logfp, NULL, _IOLBF, 1024);
 		}
 	}
+
+	old_segfault_handler = signal(SIGSEGV, segfault_handler);
 
 	if (debug_str) {
 		debug = strtol(debug_str, NULL, 0);
