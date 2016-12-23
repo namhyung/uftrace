@@ -864,13 +864,20 @@ void __visible_default mcount_reset(void)
 {
 	int idx;
 	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = (unsigned long)mcount_return;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		rstack = &mtdp->rstack[idx];
+
+		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
+			*rstack->parent_loc = (unsigned long)mcount_return;
+		else
+			*rstack->parent_loc = (unsigned long)plthook_return;
+	}
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

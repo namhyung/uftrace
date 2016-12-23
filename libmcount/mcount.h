@@ -175,6 +175,7 @@ extern void shmem_finish(struct mcount_thread_data *mtdp);
 
 extern int hook_pltgot(char *exename, unsigned long offset);
 extern void plthook_setup(struct symtabs *symtabs);
+extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct symtabs *symtabs);
 extern void destroy_dynsym_indexes(void);
 
