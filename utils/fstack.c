@@ -151,6 +151,7 @@ setup:
 	for (i = 0; i < handle->nr_tasks; i++) {
 		bool found = !tid_filter;
 		int tid = handle->info.tids[i];
+		struct ftrace_task_handle *task = &handle->tasks[i];
 
 		for (k = 0; k < nr_filters; k++) {
 			if (tid == filter_tids[k]) {
@@ -160,17 +161,17 @@ setup:
 		}
 
 		if (!found) {
-			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
-			setup_rstack_list(&handle->tasks[i].rstack_list);
-			handle->tasks[i].done = true;
-			handle->tasks[i].fp = NULL;
-			handle->tasks[i].tid = tid;
-			handle->tasks[i].h = handle;
+			memset(task, 0, sizeof(*task));
+			setup_rstack_list(&task->rstack_list);
+			task->done = true;
+			task->fp   = NULL;
+			task->tid  = tid;
+			task->h    = handle;
 			continue;
 		}
 
-		handle->tasks[i].tid = tid;
-		setup_task_handle(handle, &handle->tasks[i], tid);
+		task->tid = tid;
+		setup_task_handle(handle, task, tid);
 	}
 
 	free(filter_tids);
