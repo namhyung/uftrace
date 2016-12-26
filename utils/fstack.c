@@ -23,6 +23,8 @@ bool fstack_enabled = true;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
+static int __read_task_ustack(struct ftrace_task_handle *task);
+
 struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
 					   int tid)
 {
@@ -161,12 +163,26 @@ setup:
 		}
 
 		if (!found) {
+			char *filename = NULL;
+
 			memset(task, 0, sizeof(*task));
 			setup_rstack_list(&task->rstack_list);
 			task->done = true;
-			task->fp   = NULL;
 			task->tid  = tid;
 			task->h    = handle;
+
+			/* need to read the data to check elapsed time */
+			xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+			task->fp = fopen(filename, "rb");
+			if (task->fp) {
+				if (!__read_task_ustack(task)) {
+					update_first_timestamp(handle,
+							       &task->ustack);
+				}
+				fclose(task->fp);
+				task->fp = NULL;
+			}
+			free(filename);
 			continue;
 		}
 
