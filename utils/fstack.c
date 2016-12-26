@@ -955,7 +955,7 @@ int read_task_ustack(struct ftrace_file_handle *handle,
  * This function returns current ftrace record of @idx-th task from
  * data file in @handle.
  */
-struct ftrace_ret_stack *
+static struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
