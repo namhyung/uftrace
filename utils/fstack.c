@@ -104,6 +104,15 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 	handle->nr_tasks = 0;
 }
 
+static void update_first_timestamp(struct ftrace_file_handle *handle,
+				   struct ftrace_ret_stack *rstack)
+{
+	uint64_t first = handle->time_range.first;
+
+	if (first == 0 || first > rstack->time)
+		handle->time_range.first = rstack->time;
+}
+
 /**
  * setup_task_filter - setup task filters using tid
  * @tid_filter - CSV of tid (or possibly separated by  ':')
@@ -1236,6 +1245,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 			     struct ftrace_kernel *kernel, int cpu)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
+	struct ftrace_file_handle *handle = task->h;
 
 	if (rstack == &task->ustack) {
 		task->valid = false;
@@ -1265,6 +1275,8 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
+
+	update_first_timestamp(handle, rstack);
 
 	fstack_account_time(task);
 	fstack_update_stack_count(task);

@@ -191,6 +191,7 @@ extern void setup_signal(void);
 #define ntohq(x)  be64toh(x)
 
 struct uftrace_time_range {
+	uint64_t first;
 	uint64_t start;
 	uint64_t stop;
 };
