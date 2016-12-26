@@ -1405,12 +1405,17 @@ static int dd_encoding(struct demangle_data *dd)
 	if (ret < 0)
 		return ret;
 
-	while (!dd_eof(dd) && dd_curr(dd) != 'E') {
+	while (!dd_eof(dd) && dd_curr(dd) != 'E' && dd_curr(dd) != '.') {
 		__dd_add_debug(dd, "dd_type");
 
 		if (dd_type(dd) < 0)
 			break;
 	}
+
+	/* ignore compiler generated suffix: XXX.part.0 */
+	if (dd_curr(dd) == '.')
+		dd->len = dd->pos;
+
 	return 0;
 }
 
@@ -1420,18 +1425,12 @@ static char *demangle_simple(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
-	char *dot;
 
 	if (str[0] != '_' || str[1] != 'Z')
 		return xstrdup(str);
 
 	dd.pos = 2;
 	dd.new = xzalloc(0);
-
-	/* ignore compiler generated suffix: XXX.part.0 */
-	dot = strchr(dd.old, '.');
-	if (dot)
-		dd.len = dot - dd.old;
 
 	if (dd_encoding(&dd) < 0 || !dd_eof(&dd) || dd.level != 0) {
 		dd_debug_print(&dd);
@@ -1602,6 +1601,11 @@ TEST_CASE(demangle_simple5)
 
 	TEST_STREQ("std::tuple::tuple",
 		   demangle_simple("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev"));
+
+	TEST_STREQ("storageIndexFromLayoutItem",
+		   demangle_simple("_Z26storageIndexFromLayoutItemRK"
+				   "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
+				   "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_"));
 
 	return TEST_OK;
 }
