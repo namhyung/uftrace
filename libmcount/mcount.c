@@ -147,9 +147,15 @@ static void mtd_dtor(void *arg)
 {
 	struct mcount_thread_data *mtdp = arg;
 
+	/* this thread is done, do not enter anymore */
+	mtdp->recursion_guard = true;
+
 	free(mtdp->rstack);
+	mtdp->rstack = NULL;
+
 #ifndef DISABLE_MCOUNT_FILTER
 	free(mtdp->argbuf);
+	mtdp->argbuf = NULL;
 #endif
 	shmem_finish(mtdp);
 }
