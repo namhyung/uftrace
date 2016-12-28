@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
+
 #define MALLOC_BUFSIZE  (1024 * 1024 * 1024)
 
 int malloc_count;
@@ -11,6 +13,7 @@ void *malloc(size_t size)
 	static unsigned alloc_size;
 	void *ptr;
 
+	size = ALIGN(size, 8);
 	if (alloc_size + size > sizeof(buf))
 		return NULL;
 
