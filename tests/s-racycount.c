@@ -34,5 +34,5 @@ int main(void)
   pthread_join(id[0], NULL);
   pthread_join(id[1], NULL);
 
-  return count;
+  return !(count > 0);
 }
