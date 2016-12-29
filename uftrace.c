@@ -736,6 +736,7 @@ int main(int argc, char *argv[])
 		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
+	int ret = -1;
 
 	/* this must be done before argp_parse() */
 	logfp = stderr;
@@ -779,30 +780,31 @@ int main(int argc, char *argv[])
 
 	switch (opts.mode) {
 	case UFTRACE_MODE_RECORD:
-		command_record(argc, argv, &opts);
+		ret = command_record(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_REPLAY:
-		command_replay(argc, argv, &opts);
+		ret = command_replay(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_LIVE:
-		command_live(argc, argv, &opts);
+		ret = command_live(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_REPORT:
-		command_report(argc, argv, &opts);
+		ret = command_report(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_INFO:
-		command_info(argc, argv, &opts);
+		ret = command_info(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_RECV:
-		command_recv(argc, argv, &opts);
+		ret = command_recv(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_DUMP:
-		command_dump(argc, argv, &opts);
+		ret = command_dump(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_GRAPH:
-		command_graph(argc, argv, &opts);
+		ret = command_graph(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_INVALID:
+		ret = 1;
 		break;
 	}
 
@@ -811,6 +813,6 @@ int main(int argc, char *argv[])
 	if (opts.logfile)
 		fclose(logfp);
 
-	return 0;
+	return ret;
 }
 #endif /* UNIT_TEST */
