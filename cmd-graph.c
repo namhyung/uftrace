@@ -445,6 +445,10 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (tg->enabled)
 			add_graph(tg);
 
+		/* cannot find a session for the frs */
+		if (tg->graph == NULL)
+			continue;
+
 		sym = find_symtabs(&tg->graph->sess->symtabs, frs->addr);
 		name = symbol_getname(sym, frs->addr);
 
