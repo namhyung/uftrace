@@ -104,8 +104,6 @@ int peek_rstack(struct ftrace_file_handle *handle,
 void fstack_consume(struct ftrace_file_handle *handle,
 		    struct ftrace_task_handle *task);
 
-struct ftrace_ret_stack *
-get_task_ustack(struct ftrace_file_handle *handle, int idx);
 int read_task_ustack(struct ftrace_file_handle *handle,
 		     struct ftrace_task_handle *task);
 int read_task_args(struct ftrace_task_handle *task,

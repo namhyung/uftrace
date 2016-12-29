@@ -309,13 +309,18 @@ static uint64_t parse_time(char *arg)
 	return val;
 }
 
-static uint64_t parse_timestamp(char *str)
+static uint64_t parse_timestamp(char *str, bool *elapsed)
 {
 	uint64_t sec, nsec = 0;
 	char *pos = NULL;
 
 	if (*str == '\0')
 		return 0;
+
+	if (*str == '+') {
+		*elapsed = true;
+		return parse_time(str + 1);
+	}
 
 	sec = strtoull(str, &pos, 10);
 	if (*pos != '.' && *pos != '\0') {
@@ -354,8 +359,8 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 
 	*pos++ = '\0';
 
-	range->start = parse_timestamp(str);
-	range->stop  = parse_timestamp(pos);
+	range->start = parse_timestamp(str, &range->start_elapsed);
+	range->stop  = parse_timestamp(pos, &range->stop_elapsed);
 
 	free(str);
 	return true;

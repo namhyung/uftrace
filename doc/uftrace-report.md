@@ -65,7 +65,7 @@ OPTIONS
 :   Set trace limit in nesting level.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be "<start>~<stop>" (separated by "~") and one of start and stop can be omitted.  The start and stop are timestamp which can be shown with `uftrace replay -f time`.
+:   Only show functions executed within the time RANGE.  The RANGE can be "<start>~<stop>" (separated by "~") and one of start and stop can be omitted.  The start and stop are timestamp or elapsed time which can be shown by `uftrace replay`(1) with `-f time` or `-f elapsed` option.
 
 
 EXAMPLE

@@ -230,10 +230,29 @@ char *read_exename(void)
 
 bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp)
 {
-	if (range->start && range->start > timestamp)
-		return false;
-	if (range->stop && range->stop < timestamp)
-		return false;
+	/* maybe it's called before first timestamp set */
+	if (!range->first)
+		range->first = timestamp;
+
+	if (range->start) {
+		uint64_t start = range->start;
+
+		if (range->start_elapsed)
+			start += range->first;
+
+		if (start > timestamp)
+			return false;
+	}
+
+	if (range->stop) {
+		uint64_t stop = range->stop;
+
+		if (range->stop_elapsed)
+			stop += range->first;
+
+		if (stop < timestamp)
+			return false;
+	}
 
 	return true;
 }

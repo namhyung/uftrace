@@ -23,6 +23,8 @@ bool fstack_enabled = true;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
+static int __read_task_ustack(struct ftrace_task_handle *task);
+
 struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
 					   int tid)
 {
@@ -104,6 +106,15 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 	handle->nr_tasks = 0;
 }
 
+static void update_first_timestamp(struct ftrace_file_handle *handle,
+				   struct ftrace_ret_stack *rstack)
+{
+	uint64_t first = handle->time_range.first;
+
+	if (first == 0 || first > rstack->time)
+		handle->time_range.first = rstack->time;
+}
+
 /**
  * setup_task_filter - setup task filters using tid
  * @tid_filter - CSV of tid (or possibly separated by  ':')
@@ -142,6 +153,7 @@ setup:
 	for (i = 0; i < handle->nr_tasks; i++) {
 		bool found = !tid_filter;
 		int tid = handle->info.tids[i];
+		struct ftrace_task_handle *task = &handle->tasks[i];
 
 		for (k = 0; k < nr_filters; k++) {
 			if (tid == filter_tids[k]) {
@@ -151,17 +163,31 @@ setup:
 		}
 
 		if (!found) {
-			memset(&handle->tasks[i], 0, sizeof(handle->tasks[i]));
-			setup_rstack_list(&handle->tasks[i].rstack_list);
-			handle->tasks[i].done = true;
-			handle->tasks[i].fp = NULL;
-			handle->tasks[i].tid = tid;
-			handle->tasks[i].h = handle;
+			char *filename = NULL;
+
+			memset(task, 0, sizeof(*task));
+			setup_rstack_list(&task->rstack_list);
+			task->done = true;
+			task->tid  = tid;
+			task->h    = handle;
+
+			/* need to read the data to check elapsed time */
+			xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+			task->fp = fopen(filename, "rb");
+			if (task->fp) {
+				if (!__read_task_ustack(task)) {
+					update_first_timestamp(handle,
+							       &task->ustack);
+				}
+				fclose(task->fp);
+				task->fp = NULL;
+			}
+			free(filename);
 			continue;
 		}
 
-		handle->tasks[i].tid = tid;
-		setup_task_handle(handle, &handle->tasks[i], tid);
+		task->tid = tid;
+		setup_task_handle(handle, task, tid);
 	}
 
 	free(filter_tids);
@@ -955,7 +981,7 @@ int read_task_ustack(struct ftrace_file_handle *handle,
  * This function returns current ftrace record of @idx-th task from
  * data file in @handle.
  */
-struct ftrace_ret_stack *
+static struct ftrace_ret_stack *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
@@ -1236,6 +1262,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 			     struct ftrace_kernel *kernel, int cpu)
 {
 	struct ftrace_ret_stack *rstack = task->rstack;
+	struct ftrace_file_handle *handle = task->h;
 
 	if (rstack == &task->ustack) {
 		task->valid = false;
@@ -1265,6 +1292,8 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
+
+	update_first_timestamp(handle, rstack);
 
 	fstack_account_time(task);
 	fstack_update_stack_count(task);
