@@ -11,7 +11,7 @@ class TestCase(TestBase):
    8.279 us [17456] | } /* lib_b */
 """, sort='simple')
 
-    def build(self, cflags='', ldflags=''):
+    def build(self, name, cflags='', ldflags=''):
         import os
         import subprocess as sp
 

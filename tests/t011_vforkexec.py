@@ -28,7 +28,7 @@ class TestCase(TestBase):
   75.511 us [ 3124] | } /* main */
 """)
 
-    def build(self, cflags='', ldflags=''):
+    def build(self, name, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
 #            print("%s: unsupported language: %s" % (self.name, self.lang))
             return TestBase.TEST_UNSUPP_LANG

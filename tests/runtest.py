@@ -40,14 +40,14 @@ class TestBase:
         if self.debug:
             print(msg)
 
-    def build(self, cflags='', ldflags=''):
+    def build(self, name, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
-            pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
+            pr_debug("%s: unsupported language: %s" % (name, self.lang))
             return TestBase.TEST_UNSUPP_LANG
 
         lang = TestBase.supported_lang[self.lang]
-        prog = 't-' + self.name
-        src  = 's-' + self.name + lang['ext']
+        prog = 't-' + name
+        src  = 's-' + name + lang['ext']
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
@@ -59,7 +59,9 @@ class TestBase:
 
         self.pr_debug("build command: %s" % build_cmd)
         try:
-            return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+            if sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE) != 0:
+                return TestBase.TEST_BUILD_FAIL
+            return TestBase.TEST_SUCCESS
         except:
             return TestBase.TEST_BUILD_FAIL
 
@@ -346,7 +348,7 @@ def run_single_case(case, flags, opts, diff, dbg):
     for flag in flags:
         for opt in opts:
             cflags = ' '.join(["-" + flag, "-" + opt])
-            ret = tc.build(cflags)
+            ret = tc.build(tc.name, cflags)
             if ret == TestBase.TEST_SUCCESS:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:
