@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -14,6 +13,13 @@ class TestCase(TestBase):
    0.923 ms [18278] |   int_div(4, 0xfe);
    3.281 ms [18278] | } /* main */
 """)
+
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
         argopt = '-A "int_add@arg1/i32,arg2/u" -A "int_div@arg1/i16,arg2/x8"'

@@ -16,6 +16,13 @@ class TestCase(TestBase):
    8.568 us [ 3338] | } /* main */
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support return value now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
+
     def runcmd(self):
         argopt = '-A "^int_@arg1,arg2" -R "^int_@retval/i32"'
 

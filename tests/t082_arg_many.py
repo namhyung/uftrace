@@ -25,6 +25,13 @@ class TestCase(TestBase):
   18.161 us [13476] | } /* main */
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
+
     def runcmd(self):
         argopt = '-A "many@arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13"'
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
