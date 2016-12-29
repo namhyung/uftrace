@@ -243,7 +243,7 @@ class TestBase:
         return '\n'.join(result)
 
     def sort(self, output, ignore_children=False):
-        if not TestBase.__dict__.has_key(self.sort_method + '_sort'):
+        if not hasattr(TestBase, self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)
             return ''  # this leads to a failure with 'NG'
         func = TestBase.__dict__[self.sort_method + '_sort']
