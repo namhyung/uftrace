@@ -660,12 +660,17 @@ static void atfork_child_handler(void)
 		assert(mtdp);
 	}
 
-	mtd.tid = 0;
+	/* flush tid cache */
+	mtdp->tid = 0;
 
-	clear_shmem_buffer(&mtd);
-	prepare_shmem_buffer(&mtd);
+	mtdp->recursion_guard = true;
+
+	clear_shmem_buffer(mtdp);
+	prepare_shmem_buffer(mtdp);
 
 	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+
+	mtdp->recursion_guard = false;
 }
 
 static void build_debug_domain(char *dbg_domain_str)
