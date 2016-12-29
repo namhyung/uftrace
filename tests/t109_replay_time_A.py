@@ -18,10 +18,10 @@ class TestCase(TestBase):
    2.103 ms [32537] | } /* main */
 """, sort='simple')
 
-    def build(self, cflags='', ldflags=''):
+    def build(self, name, cflags='', ldflags=''):
         if cflags.find('-finstrument-functions') >= 0:
             return TestBase.TEST_SKIP
-        return TestBase.build(self, cflags, ldflags)
+        return TestBase.build(self, name, cflags, ldflags)
 
     def pre(self):
         record_cmd = "%s record -A %s -A %s -R %s -d %s %s" % \

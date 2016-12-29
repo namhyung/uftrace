@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -14,6 +13,13 @@ class TestCase(TestBase):
    0.923 ms [18276] |   float_div(40000000000.000000, -0.020000) = -2000000000000.000000;
    3.281 ms [18276] | } /* main */
 """)
+
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
         argopt  = '-A "float_add@fparg1/32,fparg2/32" -R "float_add@retval/f32" '

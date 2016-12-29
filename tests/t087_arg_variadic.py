@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -15,6 +14,13 @@ class TestCase(TestBase):
   12.642 us [ 9624] |   } /* variadic */
   13.250 us [ 9624] | } /* main */
 """)
+
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
         argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg1" '

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -15,6 +14,13 @@ class TestCase(TestBase):
    0.303 ms [18141] |   str_cat("goodbye", " world");
    3.134 ms [18141] | } /* main */
 """)
+
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
         return '%s -A "^str_@arg1/s,arg2/s" %s' % (TestBase.ftrace, 't-' + self.name)

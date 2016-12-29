@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -15,6 +14,13 @@ class TestCase(TestBase):
    1.257 ms [18276] |   mixed_str("argument", 0.000000) = "return";
    4.891 ms [18276] | } /* main */
 """)
+
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
         argopt  = '-A "mixed_add@arg1/i32,fparg1/32"         -R "mixed_add@retval/f64" '

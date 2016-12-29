@@ -21,5 +21,5 @@ int main(int argc, char *argv[])
 		ret = foo();
 	else
 		ret = bar();
-	return ret;
+	return !(ret == -1);
 }

@@ -40,14 +40,14 @@ class TestBase:
         if self.debug:
             print(msg)
 
-    def build(self, cflags='', ldflags=''):
+    def build(self, name, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
-            pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
+            pr_debug("%s: unsupported language: %s" % (name, self.lang))
             return TestBase.TEST_UNSUPP_LANG
 
         lang = TestBase.supported_lang[self.lang]
-        prog = 't-' + self.name
-        src  = 's-' + self.name + lang['ext']
+        prog = 't-' + name
+        src  = 's-' + name + lang['ext']
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
@@ -59,9 +59,44 @@ class TestBase:
 
         self.pr_debug("build command: %s" % build_cmd)
         try:
-            return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+            if sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE) != 0:
+                return TestBase.TEST_BUILD_FAIL
+            return TestBase.TEST_SUCCESS
         except:
             return TestBase.TEST_BUILD_FAIL
+
+    def build_libabc(self, name, cflags='', ldflags=''):
+        if self.lang not in TestBase.supported_lang:
+            self.pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
+            return TestBase.TEST_UNSUPP_LANG
+
+        lang = TestBase.supported_lang[self.lang]
+        prog = 't-' + name
+
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
+                                  os.getenv(lang['flags'], '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, \
+                                  os.getenv('LDFLAGS', '')])
+
+        lib_cflags = build_cflags + ' -shared -fPIC'
+
+        # build libabc_test_lib.so library
+        build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % \
+                    (lang['cc'], lib_cflags, build_ldflags)
+
+        self.pr_debug("build command for library: %s" % build_cmd)
+        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
+            return TestBase.TEST_BUILD_FAIL
+
+        exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. -labc_test_lib'
+
+        build_cmd = '%s -o %s s-libmain.c %s' % \
+                    (lang['cc'], prog, exe_ldflags)
+
+        self.pr_debug("build command for executable: %s" % build_cmd)
+        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
+            return TestBase.TEST_BUILD_FAIL
+        return 0
 
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
@@ -260,6 +295,8 @@ class TestBase:
             else:
                 return TestBase.TEST_ABNORMAL_EXIT
         if ret > 0:
+            if ret == 2:
+                return TestBase.TEST_ABNORMAL_EXIT
             return TestBase.TEST_NONZERO_RETURN
 
         self.pr_debug("=========== %s =============\n%s" % ("expected", result_expect))
@@ -344,7 +381,7 @@ def run_single_case(case, flags, opts, diff, dbg):
     for flag in flags:
         for opt in opts:
             cflags = ' '.join(["-" + flag, "-" + opt])
-            ret = tc.build(cflags)
+            ret = tc.build(tc.name, cflags)
             if ret == TestBase.TEST_SUCCESS:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:

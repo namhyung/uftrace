@@ -1334,6 +1334,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	int sock = -1;
 	int nr_cpu;
 	int i, k;
+	int ret = UFTRACE_EXIT_SUCCESS;
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
@@ -1506,15 +1507,25 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (child_exited) {
 		wait4(pid, &status, WNOHANG, &usage);
-		if (WIFEXITED(status))
+		if (WIFEXITED(status)) {
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
-		else
+
+			if (!WEXITSTATUS(status))
+				ret = UFTRACE_EXIT_SUCCESS;
+			else
+				ret = UFTRACE_EXIT_FAILURE;
+		}
+		else {
 			pr_yellow("child terminated by signal: %d: %s\n",
 				  WTERMSIG(status), strsignal(WTERMSIG(status)));
-	} else {
+			ret = UFTRACE_EXIT_SIGNALED;
+		}
+	}
+	else {
 		status = -1;
 		getrusage(RUSAGE_CHILDREN, &usage);
+		ret = UFTRACE_EXIT_UNKNOWN;
 	}
 
 	stop_all_writers();
@@ -1561,5 +1572,5 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		chown_directory(opts->dirname);
 
 	unload_symtabs(&symtabs);
-	return 0;
+	return ret;
 }

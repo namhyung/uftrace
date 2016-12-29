@@ -103,6 +103,13 @@ struct ftrace_info {
 	float load15;
 };
 
+enum {
+	UFTRACE_EXIT_SUCCESS	= 0,
+	UFTRACE_EXIT_FAILURE,
+	UFTRACE_EXIT_SIGNALED,
+	UFTRACE_EXIT_UNKNOWN,
+};
+
 struct ftrace_kernel;
 
 struct ftrace_file_handle {

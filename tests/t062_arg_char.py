@@ -12,6 +12,13 @@ class TestCase(TestBase):
    3.281 ms [18279] | } /* main */
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        # cygprof doesn't support arguments now
+        if cflags.find('-finstrument-functions') >= 0:
+            return TestBase.TEST_SKIP
+
+        return TestBase.build(self, name, cflags, ldflags)
+
     def runcmd(self):
         argopt = '-A "foo@arg1/c,arg2/c,arg3/c" -A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
