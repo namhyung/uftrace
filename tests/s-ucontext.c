@@ -37,5 +37,5 @@ int main(int argc, char *argv[])
 	foo(&curr, &new);
 	n = baz(n);
 
-	return n + 1;
+	return !(n < 2);
 }

@@ -6,11 +6,11 @@
 int main(int argc, char *argv[])
 {
 	int i;
-	int n = 10;
+	char *n = "10";
 	int pid;
 
 	if (argc > 1)
-		n = atoi(argv[1]);
+		n = argv[1];
 
 	pid = vfork();
 	if (pid < 0)
@@ -25,10 +25,10 @@ int main(int argc, char *argv[])
 
 		pos = strrchr(buf, '/');
 		strcpy(pos, "/t-abc");
-		execl(buf, "t-abc", NULL);
+		execl(buf, "t-abc", n, NULL);
 		return -1;
 	}
 
 	wait(NULL);
-	return n;
+	return 0;
 }
