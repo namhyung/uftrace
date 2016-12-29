@@ -32,29 +32,9 @@ class TestCase(TestBase):
 """)
 
     def build(self, name, cflags='', ldflags=''):
-        if self.lang not in TestBase.supported_lang:
-#            print("%s: unsupported language: %s" % (self.name, self.lang))
-            return TestBase.TEST_UNSUPP_LANG
-
-        lang = TestBase.supported_lang[self.lang]
-        prog = 't-' + self.name
-        src  = 's-' + self.name + lang['ext']
-
-        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
-                                  os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
-
-        # build t-abc (to be exec-ed) first
-        build_cmd = 'gcc -o t-abc %s s-abc.c %s' % (build_cflags, build_ldflags)
-        if sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE) != 0:
-            return TestBase.TEST_BUILD_FAIL
-
-        build_cmd = '%s -o %s %s %s %s' % \
-                    (lang['cc'], prog, build_cflags, src, build_ldflags)
-
-#        print("build command:", build_cmd)
-        return sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+        ret  = TestBase.build(self, 'abc', cflags, ldflags)
+        ret += TestBase.build(self, self.name, cflags, ldflags)
+        return ret
 
     def runcmd(self):
         return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
