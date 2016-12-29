@@ -67,6 +67,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	struct sigaction sa = {
 		.sa_flags = SA_RESETHAND,
 	};
+	int ret;
 
 	if (fd < 0)
 		pr_err("cannot create temp name");
@@ -83,7 +84,8 @@ int command_live(int argc, char *argv[], struct opts *opts)
 
 	opts->dirname = template;
 
-	if (command_record(argc, argv, opts) == 0 && !opts->nop) {
+	ret = command_record(argc, argv, opts);
+	if (ret == UFTRACE_EXIT_SUCCESS && !opts->nop) {
 		pr_dbg("live-record finished.. \n");
 		if (opts->report) {
 			pr_out("#\n# uftrace report\n#\n");
@@ -93,10 +95,10 @@ int command_live(int argc, char *argv[], struct opts *opts)
 
 		pr_dbg("start live-replaying...\n");
 		reset_live_opts(opts);
-		command_replay(argc, argv, opts);
+		ret = command_replay(argc, argv, opts);
 	}
 
 	cleanup_tempdir();
 
-	return 0;
+	return ret;
 }
