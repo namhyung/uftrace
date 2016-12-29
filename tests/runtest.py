@@ -260,6 +260,8 @@ class TestBase:
             else:
                 return TestBase.TEST_ABNORMAL_EXIT
         if ret > 0:
+            if ret == 2:
+                return TestBase.TEST_ABNORMAL_EXIT
             return TestBase.TEST_NONZERO_RETURN
 
         self.pr_debug("=========== %s =============\n%s" % ("expected", result_expect))
