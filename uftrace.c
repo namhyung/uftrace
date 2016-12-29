@@ -771,6 +771,9 @@ int main(int argc, char *argv[])
 	setup_color(opts.color);
 	setup_signal();
 
+	if (opts.mode == UFTRACE_MODE_RECORD)
+		opts.use_pager = false;
+
 	if (opts.use_pager)
 		start_pager();
 
