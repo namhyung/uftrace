@@ -59,7 +59,7 @@ OPTIONS
 :   Do not account functions which run under the time threshold.  If some functions explicitly have the 'trace' trigger applied, those are always accounted regardless of execution time.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.
+:   Only print functions called by the given threads.  To see the list of threads in the data file, you can use `uftrace report --threads` or `uftrace info`.  This option can also be used more than once.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.
