@@ -36,6 +36,7 @@ struct ftrace_task_handle {
 	bool valid;
 	bool done;
 	bool lost_seen;
+	bool fstack_set;
 	bool display_depth_set;
 	FILE *fp;
 	struct sym *func;

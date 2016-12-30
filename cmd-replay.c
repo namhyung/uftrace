@@ -573,7 +573,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct ftrace_task_handle *next = NULL;
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
-		int depth = task->display_depth;
+		int depth;
 		struct ftrace_trigger tr = {
 			.flags = 0,
 		};
@@ -582,6 +582,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
 			goto out;
+
+		/* display depth is set in fstack_entry() */
+		depth = task->display_depth;
 
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
