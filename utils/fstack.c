@@ -136,7 +136,7 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 	do {
 		int id;
 
-		if (*p == ',' || *p == ':')
+		if (*p == ',' || *p == ';')
 			p++;
 
 		id = strtol(p, &p, 10);
