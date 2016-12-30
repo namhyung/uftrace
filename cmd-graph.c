@@ -386,13 +386,13 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 
 	if (!list_empty(&graph->bt_list)) {
 		pr_out("backtrace\n");
-		pr_out("================================\n");
+		pr_out("=====================================\n");
 		print_backtrace(graph);
 	}
 
 	if (graph->root.time || graph->root.nr_edges) {
 		pr_out("calling functions\n");
-		pr_out("================================\n");
+		pr_out("=====================================\n");
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
 				 graph->root.nr_edges > 1);
@@ -437,6 +437,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task;
 	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
+	int i;
 
 	setup_graph_list(opts, func);
 
@@ -467,6 +468,42 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 			continue;
 
 		build_graph_node(task, frs->time, frs->addr, frs->type, func);
+	}
+
+	/* add duration of remaining functions */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
+		struct fstack *fstack;
+
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		last_time = task->rstack->time;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			build_graph_node(task, last_time, fstack->addr,
+					 FTRACE_EXIT, func);
+		}
 	}
 
 	graph = graph_list;
