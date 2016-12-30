@@ -736,26 +736,45 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 static void print_remaining_stack(struct opts *opts,
 				  struct ftrace_file_handle *handle)
 {
-	int i;
+	int i, k;
 	int total = 0;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		if (skip_sys_exit(opts, &handle->tasks[i]))
+		struct ftrace_task_handle *task = &handle->tasks[i];
+		int zero_count = 0;
+
+		if (skip_sys_exit(opts, task))
 			continue;
 
-		total += handle->tasks[i].stack_count;
+		for (k = 0; k < task->stack_count; k++) {
+			if (task->func_stack[k].addr)
+				break;
+			zero_count++;
+		}
+
+		total += task->stack_count - zero_count;
 	}
 
 	if (total == 0)
 		return;
 
 	pr_out("\nuftrace stopped tracing with remaining functions");
-	pr_out("\n===============================================\n");
+	pr_out("\n================================================\n");
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		struct ftrace_task_handle *task = &handle->tasks[i];
+		int zero_count = 0;
 
 		if (task->stack_count == 0)
+			continue;
+
+		for (k = 0; k < task->stack_count; k++) {
+			if (task->func_stack[k].addr)
+				break;
+			zero_count++;
+		}
+
+		if (zero_count == task->stack_count)
 			continue;
 
 		if (skip_sys_exit(opts, task))
@@ -780,9 +799,12 @@ static void print_remaining_stack(struct opts *opts,
 
 			symname = symbol_getname(sym, ip);
 
-			pr_out("[%d] %s\n", task->stack_count, symname);
+			pr_out("[%d] %s\n", task->stack_count - zero_count, symname);
 
 			symbol_putname(sym, symname);
+
+			if (task->stack_count == zero_count)
+				break;
 		}
 		pr_out("\n");
 	}
