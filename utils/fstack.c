@@ -452,8 +452,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		fstack_enabled = true;
 
-	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+	if (tr->flags & TRIGGER_FL_TRACE_OFF) {
 		fstack_enabled = false;
+		task->display_depth_set = false;
+	}
 
 	if (!fstack_enabled) {
 		/*
