@@ -1160,6 +1160,8 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	bool is_kernel_func = (rstack == &task->kstack);
 
 	if (!task->fstack_set) {
+		int i;
+
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
 		if (rstack->type == FTRACE_EXIT) {
@@ -1172,6 +1174,15 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 
 		if (is_kernel_func)
 			task->stack_count += task->user_stack_count;
+
+		/* calculate duration from now on */
+		for (i = 0; i < task->stack_count; i++) {
+			fstack = &task->func_stack[i];
+
+			fstack->total_time = rstack->time;
+			fstack->child_time = 0;
+			fstack->valid = true;
+		}
 
 		task->filter.depth = task->h->depth;
 	}
