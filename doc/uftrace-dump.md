@@ -54,7 +54,7 @@ OPTIONS
 :   Apply sampling time when generating output for the flamegraph.  By default it uses the number of calls for each function.  When this option is used it simulates sampling by counting execution time at the given unit.  So functions which ran less than the sampling time will be removed from the output but functions longer than the time will be shown as larger.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be "<start>~<stop>" (separated by "~") and one of start and stop can be omitted.  The start and stop are timestamp or elapsed time which can be shown by `uftrace replay`(1) with `-f time` or `-f elapsed` option.
+:   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp by default and those can also be elapsed time if they have "+" prefix and \<time_unit\> postfix, for example '+100ms'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively in `uftrace replay`(1).
 
 
 EXAMPLE
