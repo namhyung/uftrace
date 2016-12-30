@@ -984,6 +984,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 {
 	uint64_t prev_time = 0;
 	struct ftrace_task_handle *task;
+	int i;
 
 	ops->header(ops, handle, opts);
 
@@ -998,6 +999,48 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 		prev_time = frs->time;
 
 		dump_replay_task(ops, task);
+	}
+
+	/* add duration of remaining functions */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
+
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		last_time = task->rstack->time;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			struct fstack *fstack;
+
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			task->rstack = &task->ustack;
+			task->rstack->time = last_time;
+			task->rstack->type = FTRACE_EXIT;
+			task->rstack->addr = fstack->addr;
+
+			if (check_task_rstack(task, opts))
+				dump_replay_task(ops, task);
+		}
 	}
 
 	ops->footer(ops, handle, opts);
