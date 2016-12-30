@@ -304,15 +304,14 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_ret_stack *rstack = task->rstack;
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs;
-	struct sym *sym;
+	struct sym *sym = NULL;
 	char *name;
 	struct fstack *fstack;
 
-	if (sess == NULL)
-		return 0;
-
-	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr);
+	if (sess || is_kernel_address(rstack->addr)) {
+		symtabs = &sess->symtabs;
+		sym = find_symtabs(symtabs, rstack->addr);
+	}
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
@@ -550,11 +549,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		goto lost;
 
 	sess = find_task_session(task->tid, rstack->time);
-	if (sess == NULL && !is_kernel_address(rstack->addr))
-		return 0;
-
-	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rstack->addr);
+	if (sess || is_kernel_address(rstack->addr)) {
+		symtabs = &sess->symtabs;
+		sym = find_symtabs(symtabs, rstack->addr);
+	}
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
