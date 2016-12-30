@@ -160,6 +160,8 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
 	struct ftrace_task_handle *task;
+	struct fstack *fstack;
+	int i;
 
 	while (read_rstack(handle, &task) >= 0) {
 		rstack = task->rstack;
@@ -172,6 +174,41 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 		if (fill_entry(&te, task, rstack->time, rstack->addr, opts))
 			insert_entry(root, &te, false);
+	}
+
+	/* add duration of remaining functions */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
+
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		last_time = task->rstack->time;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			if (fill_entry(&te, task, last_time, fstack->addr, opts))
+				insert_entry(root, &te, false);
+		}
 	}
 }
 
