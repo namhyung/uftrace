@@ -83,12 +83,13 @@ static void setup_graph_list(struct opts *opts, char *func)
 	}
 }
 
-static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
+static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
+					uint64_t time)
 {
 	struct uftrace_graph *graph;
 	struct ftrace_session *sess;
 
-	sess = find_task_session(task->tid, task->ustack.time);
+	sess = find_task_session(task->tid, time);
 	if (sess == NULL)
 		return NULL;
 
@@ -102,7 +103,8 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
 	return NULL;
 }
 
-static struct task_graph * get_task_graph(struct ftrace_task_handle *task)
+static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
+					  uint64_t time)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
@@ -130,7 +132,7 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task)
 	rb_insert_color(&tg->link, &tasks);
 
 out:
-	tg->graph = get_graph(task);
+	tg->graph = get_graph(task, time);
 	return tg;
 }
 
@@ -441,7 +443,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (task->stack_count >= opts->max_stack)
 			continue;
 
-		tg = get_task_graph(task);
+		tg = get_task_graph(task, frs->time);
 		if (tg->enabled)
 			add_graph(tg);
 
