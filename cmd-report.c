@@ -105,16 +105,61 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	rb_insert_color(&entry->link, root);
 }
 
+static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
+		       uint64_t time, uint64_t addr, struct opts *opts)
+{
+	struct ftrace_session *sess;
+	struct sym *sym;
+	struct fstack *fstack;
+	int i;
+
+	/* skip user functions if --kernel-only is set */
+	if (opts->kernel_only && !is_kernel_address(addr))
+		return false;
+
+	if (opts->kernel_skip_out) {
+		/* skip kernel functions outside user functions */
+		if (is_kernel_address(task->func_stack[0].addr) &&
+		    is_kernel_address(addr))
+			return false;
+	}
+
+	sess = find_task_session(task->tid, time);
+	if (sess == NULL && !is_kernel_address(addr))
+		return false;
+
+	sym = find_symtabs(&sess->symtabs, addr);
+
+	fstack = &task->func_stack[task->stack_count];
+
+	te->pid  = task->tid;
+	te->sym  = sym;
+	te->addr = addr;
+	te->time_total = fstack->total_time;
+	te->time_self  = te->time_total - fstack->child_time;
+	te->nr_called  = 1;
+
+	/* some LOST entries make invalid self tiem */
+	if (te->time_self > te->time_total)
+		te->time_self = te->time_total;
+
+	te->time_recursive = 0;
+	for (i = 0; i < task->stack_count; i++) {
+		if (addr == task->func_stack[i].addr) {
+			te->time_recursive = te->time_total;
+			break;
+		}
+	}
+
+	return true;
+}
+
 static void build_function_tree(struct ftrace_file_handle *handle,
 				struct rb_root *root, struct opts *opts)
 {
-	struct sym *sym;
 	struct trace_entry te;
 	struct ftrace_ret_stack *rstack;
 	struct ftrace_task_handle *task;
-	struct ftrace_session *sess;
-	struct fstack *fstack;
-	int i;
 
 	while (read_rstack(handle, &task) >= 0) {
 		rstack = task->rstack;
@@ -125,49 +170,8 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (rstack->type != FTRACE_EXIT)
 			continue;
 
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(rstack->addr))
-			continue;
-
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (is_kernel_address(task->func_stack[0].addr) &&
-			    is_kernel_address(rstack->addr))
-				continue;
-		}
-
-		if (rstack == &task->kstack)
-			sess = first_session;
-		else
-			sess = find_task_session(task->tid, rstack->time);
-
-		if (sess == NULL)
-			continue;
-
-		sym = find_symtabs(&sess->symtabs, rstack->addr);
-
-		fstack = &task->func_stack[task->stack_count];
-
-		te.pid = task->tid;
-		te.sym = sym;
-		te.addr = rstack->addr;
-		te.time_total = fstack->total_time;
-		te.time_self = te.time_total - fstack->child_time;
-		te.nr_called = 1;
-
-		/* some LOST entries make invalid self tiem */
-		if (te.time_self > te.time_total)
-			te.time_self = te.time_total;
-
-		te.time_recursive = 0;
-		for (i = 0; i < task->stack_count; i++) {
-			if (rstack->addr == task->func_stack[i].addr) {
-				te.time_recursive = te.time_total;
-				break;
-			}
-		}
-
-		insert_entry(root, &te, false);
+		if (fill_entry(&te, task, rstack->time, rstack->addr, opts))
+			insert_entry(root, &te, false);
 	}
 }
 
