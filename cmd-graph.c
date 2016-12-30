@@ -402,6 +402,34 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	return 1;
 }
 
+static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
+			      unsigned long addr, int type, char *func)
+{
+	struct task_graph *tg;
+	struct sym *sym = NULL;
+	char *name;
+
+	tg = get_task_graph(task, time);
+	if (tg->enabled)
+		add_graph(tg, type);
+
+	/* cannot find a session for this record */
+	if (tg->graph == NULL)
+		return;
+
+	sym = find_symtabs(&tg->graph->sess->symtabs, addr);
+	name = symbol_getname(sym, addr);
+
+	if (!strcmp(name, func)) {
+		if (type == FTRACE_ENTRY)
+			start_graph(tg);
+		else if (type == FTRACE_EXIT)
+			end_graph(tg);
+	}
+
+	symbol_putname(sym, name);
+}
+
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		       char *func)
 {
@@ -414,9 +442,6 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 	while (!read_rstack(handle, &task) && !ftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
-		struct task_graph *tg;
-		struct sym *sym = NULL;
-		char *name;
 
 		/* skip user functions if --kernel-only is set */
 		if (opts->kernel_only && !is_kernel_address(frs->addr))
@@ -441,25 +466,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (task->stack_count >= opts->max_stack)
 			continue;
 
-		tg = get_task_graph(task, frs->time);
-		if (tg->enabled)
-			add_graph(tg, frs->type);
-
-		/* cannot find a session for the frs */
-		if (tg->graph == NULL)
-			continue;
-
-		sym = find_symtabs(&tg->graph->sess->symtabs, frs->addr);
-		name = symbol_getname(sym, frs->addr);
-
-		if (!strcmp(name, func)) {
-			if (frs->type == FTRACE_ENTRY)
-				start_graph(tg);
-			else if (frs->type == FTRACE_EXIT)
-				end_graph(tg);
-		}
-
-		symbol_putname(sym, name);
+		build_graph_node(task, frs->time, frs->addr, frs->type, func);
 	}
 
 	graph = graph_list;
