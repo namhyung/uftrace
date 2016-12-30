@@ -17,8 +17,6 @@
 #include "libmcount/mcount.h"
 
 
-#define FILTER_COUNT_NOTRACE  10000
-
 bool fstack_enabled = true;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
