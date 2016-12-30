@@ -287,13 +287,11 @@ static int add_graph_exit(struct task_graph *tg)
 	return 0;
 }
 
-static int add_graph(struct task_graph *tg)
+static int add_graph(struct task_graph *tg, int type)
 {
-	struct ftrace_ret_stack *rstack = tg->task->rstack;
-
-	if (rstack->type == FTRACE_ENTRY)
+	if (type == FTRACE_ENTRY)
 		return add_graph_entry(tg);
-	else if (rstack->type == FTRACE_EXIT)
+	else if (type == FTRACE_EXIT)
 		return add_graph_exit(tg);
 	else
 		return 0;
@@ -445,7 +443,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 		tg = get_task_graph(task, frs->time);
 		if (tg->enabled)
-			add_graph(tg);
+			add_graph(tg, frs->type);
 
 		/* cannot find a session for the frs */
 		if (tg->graph == NULL)
