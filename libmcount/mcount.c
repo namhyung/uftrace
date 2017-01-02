@@ -342,7 +342,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		}
 
 		if (tr->flags & TRIGGER_FL_RECOVER) {
-			mcount_restore();
+			mcount_rstack_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
@@ -367,7 +367,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			mtdp->filter.out_count--;
 
 		if (rstack->flags & MCOUNT_FL_RECOVER)
-			mcount_reset();
+			mcount_rstack_reset();
 	}
 
 #undef FLAGS_TO_CHECK
@@ -700,7 +700,7 @@ static void (*old_segfault_handler)(int);
 
 static void segfault_handler(int sig)
 {
-	mcount_restore();
+	mcount_rstack_restore();
 
 	signal(sig, old_segfault_handler);
 	raise(sig);
