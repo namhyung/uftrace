@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <gelf.h>
+#include <dlfcn.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -342,7 +343,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		}
 
 		if (tr->flags & TRIGGER_FL_RECOVER) {
-			mcount_restore();
+			mcount_rstack_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
 			rstack->flags |= MCOUNT_FL_RECOVER;
 		}
@@ -367,7 +368,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			mtdp->filter.out_count--;
 
 		if (rstack->flags & MCOUNT_FL_RECOVER)
-			mcount_reset();
+			mcount_rstack_reset();
 	}
 
 #undef FLAGS_TO_CHECK
@@ -700,10 +701,134 @@ static void (*old_segfault_handler)(int);
 
 static void segfault_handler(int sig)
 {
-	mcount_restore();
+	mcount_rstack_restore();
 
 	signal(sig, old_segfault_handler);
 	raise(sig);
+}
+
+void mcount_rstack_restore(void)
+{
+	int idx;
+	struct mcount_thread_data *mtdp;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return;
+
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
+}
+
+void mcount_rstack_reset(void)
+{
+	int idx;
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return;
+
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		rstack = &mtdp->rstack[idx];
+
+		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
+			*rstack->parent_loc = (unsigned long)mcount_return;
+		else
+			*rstack->parent_loc = (unsigned long)plthook_return;
+	}
+}
+
+/*
+ * hooking functions
+ */
+static int (*real_backtrace)(void **buffer, int sz);
+static void (*real_cxa_throw)(void *exc, void *type, void *dest);
+static void (*real_cxa_end_catch)(void);
+
+static void mcount_hook_functions(void)
+{
+	real_backtrace		= dlsym(RTLD_NEXT, "backtrace");
+	real_cxa_throw		= dlsym(RTLD_NEXT, "__cxa_throw");
+	real_cxa_end_catch	= dlsym(RTLD_NEXT, "__cxa_end_catch");
+}
+
+__visible_default int backtrace(void **buffer, int sz)
+{
+	int ret;
+
+	if (real_backtrace == NULL)
+		return 0;
+
+	mcount_rstack_restore();
+	ret = real_backtrace(buffer, sz);
+	mcount_rstack_reset();
+
+	return ret;
+}
+
+__visible_default void __cxa_throw(void *exception, void *type, void *dest)
+{
+	struct mcount_thread_data *mtdp;
+
+	/*
+	 * restore return addresses so that it can unwind stack frames
+	 * safely during the exception handling.
+	 * It pairs to __cxa_end_catch().
+	 */
+	mcount_rstack_restore();
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp))
+		pr_dbg("exception thrown from [%d]\n", mtdp->idx);
+
+	real_cxa_throw(exception, type, dest);
+}
+
+__visible_default void __cxa_end_catch(void)
+{
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+	unsigned long retaddr;
+
+	/* get frame address where exception handler returns */
+	retaddr = (unsigned long)__builtin_frame_address(0);
+
+	real_cxa_end_catch();
+
+	pr_dbg("exception returned at frame: %#lx\n", retaddr);
+
+	mcount_rstack_restore();
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp)) {
+		int idx;
+
+		/* it needs to find how much stack frame was unwinded */
+		for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+			rstack = &mtdp->rstack[idx];
+
+			pr_dbg2("[%d] parent at %p\n", idx, rstack->parent_loc);
+			if (rstack->parent_loc == &mtdp->cygprof_dummy)
+				break;
+
+			if ((unsigned long)rstack->parent_loc > retaddr)
+				break;
+
+			/* record unwinded functions */
+			if (!(rstack->flags & MCOUNT_FL_NORECORD))
+				rstack->end_time = mcount_gettime();
+
+			mcount_exit_filter_record(mtdp, rstack, NULL);
+		}
+
+		/* we're in ENTER state, so add 1 to the index */
+		mtdp->idx = idx + 1;
+		pr_dbg("[%d] exception returned\n", mtdp->idx);
+
+		mcount_rstack_reset();
+	}
 }
 
 /*
@@ -850,6 +975,8 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
+	mcount_hook_functions();
+
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter_module(&modules);
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -872,35 +999,12 @@ void __visible_default _mcleanup(void)
 
 void __visible_default mcount_restore(void)
 {
-	int idx;
-	struct mcount_thread_data *mtdp;
-
-	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp)))
-		return;
-
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
+	mcount_rstack_restore();
 }
 
 void __visible_default mcount_reset(void)
 {
-	int idx;
-	struct mcount_thread_data *mtdp;
-	struct mcount_ret_stack *rstack;
-
-	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp)))
-		return;
-
-	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
-		rstack = &mtdp->rstack[idx];
-
-		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
-			*rstack->parent_loc = (unsigned long)mcount_return;
-		else
-			*rstack->parent_loc = (unsigned long)plthook_return;
-	}
+	mcount_rstack_reset();
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

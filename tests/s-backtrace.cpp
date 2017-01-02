@@ -1,0 +1,35 @@
+#include <stdlib.h>
+#include <execinfo.h>
+
+int foo(int count)
+{
+  void *buf[count];
+
+  backtrace(buf, count);
+}
+
+int c(int n)
+{
+  foo(n);
+}
+
+int b(int n)
+{
+  c(n);
+}
+
+int a(int n)
+{
+  b(n);
+}
+
+int main(int argc, char *argv[])
+{
+  int n = 5;
+
+  if (argc > 1)
+    n = atoi(argv[1]);
+
+  a(n);
+  return 0;
+}
