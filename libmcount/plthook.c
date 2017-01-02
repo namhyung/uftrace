@@ -171,6 +171,10 @@ static const char *skip_syms[] = {
 	"__cyg_profile_func_exit",
 	"_mcleanup",
 	"__libc_start_main",
+	"__cxa_throw",
+	"__cxa_begin_catch",
+	"__cxa_end_catch",
+	"_Unwind_Resume",
 };
 
 static struct dynsym_idxlist skip_idxlist;
