@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <gelf.h>
+#include <dlfcn.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -740,6 +741,30 @@ void mcount_rstack_reset(void)
 }
 
 /*
+ * hooking functions
+ */
+static int (*real_backtrace)(void **buffer, int sz);
+
+static void mcount_hook_functions(void)
+{
+	real_backtrace = dlsym(RTLD_NEXT, "backtrace");
+}
+
+__visible_default int backtrace(void **buffer, int sz)
+{
+	int ret;
+
+	if (real_backtrace == NULL)
+		return 0;
+
+	mcount_rstack_restore();
+	ret = real_backtrace(buffer, sz);
+	mcount_rstack_reset();
+
+	return ret;
+}
+
+/*
  * external interfaces
  */
 void __visible_default __monstartup(unsigned long low, unsigned long high)
@@ -882,6 +907,8 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
+
+	mcount_hook_functions();
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter_module(&modules);
