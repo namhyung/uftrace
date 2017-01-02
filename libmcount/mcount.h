@@ -167,6 +167,9 @@ extern void ftrace_send_message(int type, void *data, size_t len);
 extern const char *session_name(void);
 extern int gettid(struct mcount_thread_data *mtdp);
 
+extern void mcount_rstack_restore(void);
+extern void mcount_rstack_reset(void);
+
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void get_new_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx);
