@@ -712,6 +712,94 @@ out:
 	mtdp->recursion_guard = false;
 }
 
+void xray_entry(unsigned long parent, unsigned long child,
+		struct mcount_regs *regs)
+{
+	enum filter_result filtered;
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+	struct ftrace_trigger tr = {
+		.flags = 0,
+	};
+
+	if (unlikely(mcount_should_stop()))
+		return;
+
+	/* Access the mtd through TSD pointer to reduce TLS overhead */
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
+		mcount_prepare();
+
+		mtdp = get_thread_data();
+		assert(mtdp);
+	}
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			return;
+
+		mtdp->recursion_guard = true;
+	}
+
+	filtered = mcount_entry_filter_check(mtdp, child, &tr);
+
+	/* 'recover' trigger is only for -pg entry */
+	tr.flags &= ~TRIGGER_FL_RECOVER;
+
+	rstack = &mtdp->rstack[mtdp->idx++];
+
+	rstack->depth      = mtdp->record_idx;
+	rstack->dyn_idx    = MCOUNT_INVALID_DYNIDX;
+	rstack->parent_loc = &mtdp->cygprof_dummy;
+	rstack->parent_ip  = parent;
+	rstack->child_ip   = child;
+	rstack->end_time   = 0;
+
+	if (filtered == FILTER_IN) {
+		rstack->start_time = mcount_gettime();
+		rstack->flags      = 0;
+	}
+	else {
+		rstack->start_time = 0;
+		rstack->flags      = MCOUNT_FL_NORECORD;
+	}
+
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
+	mtdp->recursion_guard = false;
+}
+
+void xray_exit(long *retval)
+{
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp) || mtdp->recursion_guard))
+		return;
+
+	mtdp->recursion_guard = true;
+
+	/*
+	 * cygprof_exit() can be called beyond rstack max.
+	 * it cannot use mcount_check_rstack() here
+	 * since we didn't decrease the idx yet.
+	 */
+	if (mtdp->idx > mcount_rstack_max)
+		goto out;
+
+	rstack = &mtdp->rstack[mtdp->idx - 1];
+
+	if (!(rstack->flags & MCOUNT_FL_NORECORD))
+		rstack->end_time = mcount_gettime();
+
+	mcount_exit_filter_record(mtdp, rstack, retval);
+
+	compiler_barrier();
+
+out:
+	mtdp->idx--;
+	mtdp->recursion_guard = false;
+}
+
 static void atfork_prepare_handler(void)
 {
 	struct ftrace_msg_task tmsg = {
