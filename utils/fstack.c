@@ -18,6 +18,7 @@
 
 
 bool fstack_enabled = true;
+bool live_disabled = false;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 

@@ -90,6 +90,7 @@ enum argspec_string_bits {
 };
 
 extern bool fstack_enabled;
+extern bool live_disabled;
 
 void setup_task_handle(struct ftrace_file_handle *handle,
 		       struct ftrace_task_handle *task, int tid);
