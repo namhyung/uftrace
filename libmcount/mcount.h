@@ -242,6 +242,7 @@ struct mcount_dynamic_info {
 	unsigned long addr;
 	unsigned long size;
 	unsigned long trampoline;
+	void *arch;
 };
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs);
