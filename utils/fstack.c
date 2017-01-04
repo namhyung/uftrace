@@ -62,8 +62,16 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	task->stack_count = 0;
+	task->display_depth = 0;
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
+
+	/*
+	 * set display depth to non-zero only when trace-on trigger (with --disabled
+	 * option) or time range is set.
+	 */
+	task->display_depth_set = (fstack_enabled && !live_disabled &&
+				   !handle->time_range.start);
 
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
@@ -1152,15 +1160,18 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	if (!task->fstack_set) {
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
-		if (rstack->type == FTRACE_EXIT)
+		if (rstack->type == FTRACE_EXIT) {
 			task->stack_count++;
+			/* [v]fork() usually starts with EXIT in child */
+			task->display_depth_set = false;
+		}
 		task->fstack_set = true;
 
 
 		if (is_kernel_func)
 			task->stack_count += task->user_stack_count;
 
-		task->filter.depth = task->h->depth - task->stack_count;
+		task->filter.depth = task->h->depth;
 	}
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
