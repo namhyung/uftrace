@@ -840,7 +840,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	if (!opts->flat)
 		print_header();
 
-	while (read_rstack(&handle, &task) == 0 && !ftrace_done) {
+	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct ftrace_ret_stack *rstack = task->rstack;
 		uint64_t curr_time = rstack->time;
 

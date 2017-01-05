@@ -10,11 +10,11 @@
 #include "utils/utils.h"
 
 
-volatile bool ftrace_done;
+volatile bool uftrace_done;
 
 void sighandler(int sig)
 {
-	ftrace_done = true;
+	uftrace_done = true;
 }
 
 void setup_signal(void)

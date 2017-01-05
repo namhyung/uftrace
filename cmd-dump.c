@@ -870,7 +870,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		ops->task_start(ops, task);
 
-		while (!read_task_ustack(handle, task) && !ftrace_done) {
+		while (!read_task_ustack(handle, task) && !uftrace_done) {
 			struct ftrace_ret_stack *frs = &task->ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
@@ -901,7 +901,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (!opts->kernel || handle->kern == NULL || ftrace_done)
+	if (!opts->kernel || handle->kern == NULL || uftrace_done)
 		goto footer;
 
 	ops->kernel_start(ops, handle->kern);
@@ -914,7 +914,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		ops->cpu_start(ops, kernel, i);
 
-		while (!read_kernel_cpu_data(kernel, i) && !ftrace_done) {
+		while (!read_kernel_cpu_data(kernel, i) && !uftrace_done) {
 			int tid = kernel->tids[i];
 			int losts = kernel->missed_events[i];
 
@@ -988,7 +988,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 
 	ops->header(ops, handle, opts);
 
-	while (!read_rstack(handle, &task) && !ftrace_done) {
+	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
 
 		if (!check_task_rstack(task, opts))

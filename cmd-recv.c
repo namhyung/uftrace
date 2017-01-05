@@ -660,7 +660,7 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 	epoll_add(efd, sock,  EPOLLIN);
 	epoll_add(efd, sigfd, EPOLLIN);
 
-	while (!ftrace_done) {
+	while (!uftrace_done) {
 		struct epoll_event ev[10];
 		int i, len;
 
@@ -670,7 +670,7 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 
 		for (i = 0; i < len; i++) {
 			if (ev[i].data.fd == sigfd)
-				ftrace_done = true;
+				uftrace_done = true;
 			else if (ev[i].data.fd == sock)
 				handle_server_sock(&ev[i], efd);
 			else

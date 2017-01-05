@@ -441,7 +441,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 	setup_graph_list(opts, func);
 
-	while (!read_rstack(handle, &task) && !ftrace_done) {
+	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
 
 		/* skip user functions if --kernel-only is set */
@@ -510,7 +510,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	}
 
 	graph = graph_list;
-	while (graph && !ftrace_done) {
+	while (graph && !uftrace_done) {
 		ret += print_graph(graph, opts);
 		graph = graph->next;
 	}

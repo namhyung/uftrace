@@ -209,7 +209,7 @@ int command_recv(int argc, char *argv[], struct opts *opts);
 int command_dump(int argc, char *argv[], struct opts *opts);
 int command_graph(int argc, char *argv[], struct opts *opts);
 
-extern volatile bool ftrace_done;
+extern volatile bool uftrace_done;
 extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
