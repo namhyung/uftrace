@@ -163,7 +163,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 	struct fstack *fstack;
 	int i;
 
-	while (read_rstack(handle, &task) >= 0) {
+	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
 
 		if (!fstack_check_filter(task))
@@ -175,6 +175,9 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (fill_entry(&te, task, rstack->time, rstack->addr, opts))
 			insert_entry(root, &te, false);
 	}
+
+	if (uftrace_done)
+		return;
 
 	/* add duration of remaining functions */
 	for (i = 0; i < handle->nr_tasks; i++) {
@@ -528,7 +531,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 
 	build_function_tree(handle, &name_tree, opts);
 
-	while (!RB_EMPTY_ROOT(&name_tree)) {
+	while (!RB_EMPTY_ROOT(&name_tree) && !uftrace_done) {
 		struct rb_node *node;
 		struct trace_entry *entry;
 
@@ -543,6 +546,9 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 
 		sort_entries(&sort_tree, entry);
 	}
+
+	if (uftrace_done)
+		return;
 
 	if (avg_mode == AVG_NONE)
 		pr_out(f_format, "Total time", "Self time", "Calls", "Function");
@@ -611,7 +617,7 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
 	const char line[] = "====================================";
 
-	while (read_rstack(handle, &task) >= 0) {
+	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
 		if (rstack->type == FTRACE_ENTRY && task->func)
 			continue;
@@ -647,6 +653,9 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 
 		insert_entry(&name_tree, &te, true);
 	}
+
+	if (uftrace_done)
+		return;
 
 	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");
 	pr_out(t_format, line, line, line, line);
@@ -736,7 +745,7 @@ static void sort_function_name(struct rb_root *root_in,
 {
 	struct rb_root no_name = RB_ROOT;
 
-	while (!RB_EMPTY_ROOT(root_in)) {
+	while (!RB_EMPTY_ROOT(root_in) && !uftrace_done) {
 		struct rb_node *node;
 		struct trace_entry *entry;
 
@@ -764,7 +773,7 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 {
 	struct rb_root tmp = RB_ROOT;
 
-	while (!RB_EMPTY_ROOT(base)) {
+	while (!RB_EMPTY_ROOT(base) && !uftrace_done) {
 		struct rb_node *node;
 		struct trace_entry *e, *p;
 
@@ -788,7 +797,7 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 	}
 
 	/* sort remaining pair entries by time */
-	while (!RB_EMPTY_ROOT(pair)) {
+	while (!RB_EMPTY_ROOT(pair) && !uftrace_done) {
 		struct rb_node *node;
 		struct trace_entry *entry;
 
@@ -949,6 +958,9 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 
 	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, opts->sort_column);
 
+	if (uftrace_done)
+		goto out;
+
 	pr_out("#\n");
 	pr_out("# uftrace diff\n");
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
@@ -971,6 +983,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	print_and_delete(&data.root, print_remaining_pair);
 	print_and_delete(&diff_tree, print_diff);
 
+out:
 	close_data_file(&dummy_opts, &data.handle);
 }
 

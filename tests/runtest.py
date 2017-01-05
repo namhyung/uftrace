@@ -139,7 +139,8 @@ class TestBase:
                 result += '\n'.join(pids[pid_list[0]]['result'])
             else:
                 for p in pid_list:
-                    result += '\n'.join(pids[p]['result'])
+                    result += '\n'.join(pids[p]['result']) + '\n'
+                result = result.strip()
         except:
             pass  # this leads to a failure with 'NG'
         return result

@@ -1461,7 +1461,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	close(efd);
 
-	while (!ftrace_done) {
+	while (!uftrace_done) {
 		struct pollfd pollfd = {
 			.fd = pfd[0],
 			.events = POLLIN,
@@ -1483,7 +1483,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts2);
 
-	while (!ftrace_done) {
+	while (!uftrace_done) {
 		if (ioctl(pfd[0], FIONREAD, &remaining) < 0)
 			break;
 
