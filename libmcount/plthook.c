@@ -287,12 +287,22 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 
 /* it's crazy to call vfork() concurrently */
 static int vfork_parent;
+static int vfork_rstack_idx;
+static int vfork_record_idx;
+static struct mcount_ret_stack vfork_rstack;
 static struct mcount_shmem vfork_shmem;
 
-static void prepare_vfork(void)
+static void prepare_vfork(struct mcount_thread_data *mtdp,
+			  struct mcount_ret_stack *rstack)
 {
-	/* save original parent pid */
+	/* save original parent info */
 	vfork_parent = getpid();
+	vfork_rstack_idx = mtdp->idx;
+	vfork_record_idx = mtdp->record_idx;
+
+	memcpy(&vfork_rstack, rstack, sizeof(*rstack));
+	/* it will be force flushed */
+	vfork_rstack.flags |= MCOUNT_FL_WRITTEN;
 }
 
 /* this function will be called in child */
@@ -304,6 +314,7 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 		.time = mcount_gettime(),
 	};
 
+	/* flush tid cache */
 	mtdp->tid = 0;
 
 	memcpy(&vfork_shmem, &mtdp->shmem, sizeof(vfork_shmem));
@@ -316,26 +327,29 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 }
 
 /* this function detects whether child finished */
-static void restore_vfork(struct mcount_thread_data *mtdp,
-			  struct mcount_ret_stack *rstack)
+static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
+					       struct mcount_ret_stack *rstack)
 {
 	/*
 	 * On vfork, parent sleeps until child exec'ed or exited.
 	 * So if it sees parent pid, that means child was done.
 	 */
 	if (getpid() == vfork_parent) {
-		struct sym *sym;
+		/* flush tid cache */
+		mtdp->tid = 0;
+
+		mtdp->idx = vfork_rstack_idx;
+		mtdp->record_idx = vfork_record_idx;
+		rstack = &mtdp->rstack[mtdp->idx - 1];
+
+		vfork_parent = 0;
 
 		memcpy(&mtdp->shmem, &vfork_shmem, sizeof(vfork_shmem));
 
-		mtdp->tid = 0;
-		vfork_parent = 0;
-
-		/* make parent returning from vfork() */
-		sym = find_dynsym(&symtabs, vfork_idxlist.idx[0]);
-		if (sym)
-			rstack->child_ip = sym->addr;
+		memcpy(rstack, &vfork_rstack, sizeof(*rstack));
 	}
+
+	return rstack;
 }
 
 extern unsigned long plthook_return(void);
@@ -424,7 +438,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		rstack->flags |= MCOUNT_FL_LONGJMP;
 	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
 		rstack->flags |= MCOUNT_FL_VFORK;
-		prepare_vfork();
+		prepare_vfork(mtdp, rstack);
 	}
 
 	/* force flush rstack on some special functions */
@@ -477,7 +491,7 @@ again:
 	}
 
 	if (unlikely(vfork_parent))
-		restore_vfork(mtdp, rstack);
+		rstack = restore_vfork(mtdp, rstack);
 
 	dyn_idx = rstack->dyn_idx;
 	if (dyn_idx == MCOUNT_INVALID_DYNIDX)

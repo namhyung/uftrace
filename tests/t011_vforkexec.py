@@ -15,9 +15,10 @@ class TestCase(TestBase):
    2.799 us [ 3124] |   strrchr();
    1.192 us [ 3124] |   strcpy();
             [ 3124] |   execl() {
-            [ 3122] |   } /* vfork */
- 549.064 us [ 3122] | } /* main */
+   1.248 ms [ 3122] |   } /* vfork */
+            [ 3122] |   wait() {
             [ 3124] | main() {
+   1.013 us [ 3124] |   atoi();
             [ 3124] |   a() {
             [ 3124] |     b() {
             [ 3124] |       c() {
@@ -25,7 +26,9 @@ class TestCase(TestBase):
    3.861 us [ 3124] |       } /* c */
    4.393 us [ 3124] |     } /* b */
    4.901 us [ 3124] |   } /* a */
-  75.511 us [ 3124] | } /* main */
+   7.511 us [ 3124] | } /* main */
+   2.706 ms [ 3122] |   } /* wait */
+   3.959 ms [ 3122] | } /* main */
 """)
 
     def build(self, name, cflags='', ldflags=''):
