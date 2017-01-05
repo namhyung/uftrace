@@ -458,6 +458,9 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
+		if (frs->type == FTRACE_LOST)
+			continue;
+
 		if (prev_time > frs->time) {
 			pr_log("inverted time: broken data?\n");
 			return -1;
