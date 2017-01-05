@@ -939,49 +939,108 @@ footer:
 	ops->footer(ops, handle, opts);
 }
 
+static bool check_task_rstack(struct ftrace_task_handle *task,
+			      struct opts *opts)
+{
+	struct ftrace_ret_stack *frs = task->rstack;
+
+	if (opts->kernel) {
+		if (opts->kernel_skip_out) {
+			if (!task->user_stack_count &&
+			    is_kernel_address(frs->addr))
+				return false;
+		}
+
+		if (opts->kernel_only &&
+		    !is_kernel_address(frs->addr))
+			return false;
+	}
+
+	if (!fstack_check_filter(task))
+		return false;
+
+	return true;
+}
+
+static void dump_replay_task(struct uftrace_dump_ops *ops,
+			     struct ftrace_task_handle *task)
+{
+	struct ftrace_ret_stack *frs = task->rstack;
+	struct ftrace_session *sess;
+	struct sym *sym = NULL;
+	char *name;
+
+	sess = find_task_session(task->tid, frs->time);
+	if (sess || is_kernel_address(frs->addr))
+		sym = find_symtabs(&sess->symtabs, frs->addr);
+
+	name = symbol_getname(sym, frs->addr);
+	ops->task_rstack(ops, task, name);
+	symbol_putname(sym, name);
+}
+
 static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			   struct ftrace_file_handle *handle)
 {
 	uint64_t prev_time = 0;
 	struct ftrace_task_handle *task;
+	int i;
 
 	ops->header(ops, handle, opts);
 
 	while (!read_rstack(handle, &task) && !ftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
-		struct ftrace_session *sess;
-		struct symtabs *symtabs;
-		struct sym *sym = NULL;
-		char *name;
 
-		if (opts->kernel) {
-			if (opts->kernel_skip_out) {
-				if (!task->user_stack_count &&
-				    is_kernel_address(frs->addr))
-					continue;
-			}
-
-			if (opts->kernel_only &&
-			    !is_kernel_address(frs->addr))
-				continue;
-		}
-
-		sess = find_task_session(task->tid, frs->time);
-		if (sess || is_kernel_address(frs->addr)) {
-			symtabs = &sess->symtabs;
-			sym = find_symtabs(symtabs, frs->addr);
-		}
+		if (!check_task_rstack(task, opts))
+			continue;
 
 		if (prev_time > frs->time)
 			ops->inverted_time(ops, task);
 		prev_time = frs->time;
 
-		if (!fstack_check_filter(task))
+		dump_replay_task(ops, task);
+	}
+
+	/* add duration of remaining functions */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
+
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
 			continue;
 
-		name = symbol_getname(sym, frs->addr);
-		ops->task_rstack(ops, task, name);
-		symbol_putname(sym, name);
+		last_time = task->rstack->time;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			struct fstack *fstack;
+
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			task->rstack = &task->ustack;
+			task->rstack->time = last_time;
+			task->rstack->type = FTRACE_EXIT;
+			task->rstack->addr = fstack->addr;
+
+			if (check_task_rstack(task, opts))
+				dump_replay_task(ops, task);
+		}
 	}
 
 	ops->footer(ops, handle, opts);

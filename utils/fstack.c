@@ -17,9 +17,8 @@
 #include "libmcount/mcount.h"
 
 
-#define FILTER_COUNT_NOTRACE  10000
-
 bool fstack_enabled = true;
+bool live_disabled = false;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
@@ -63,8 +62,16 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	task->stack_count = 0;
+	task->display_depth = 0;
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
+
+	/*
+	 * set display depth to non-zero only when trace-on trigger (with --disabled
+	 * option) or time range is set.
+	 */
+	task->display_depth_set = (fstack_enabled && !live_disabled &&
+				   !handle->time_range.start);
 
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
@@ -378,10 +385,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 	/* stack_count was increased in __read_rstack */
 	fstack = &task->func_stack[task->stack_count - 1];
 
-	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
-		task->tid, task->stack_count-1, rstack->depth, task->filter.in_count,
-		task->filter.out_count, task->filter.depth, fstack->flags,
-		rstack->more ? "more" : "");
+	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
+		task->tid, task->stack_count-1, rstack->depth, task->display_depth,
+		task->filter.in_count, task->filter.out_count, task->filter.depth,
+		fstack->flags, rstack->more ? "more" : "");
 
 	fstack->orig_depth = task->filter.depth;
 	fstack->flags = 0;
@@ -445,8 +452,10 @@ int fstack_entry(struct ftrace_task_handle *task,
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		fstack_enabled = true;
 
-	if (tr->flags & TRIGGER_FL_TRACE_OFF)
+	if (tr->flags & TRIGGER_FL_TRACE_OFF) {
 		fstack_enabled = false;
+		task->display_depth_set = false;
+	}
 
 	if (!fstack_enabled) {
 		/*
@@ -463,6 +472,14 @@ int fstack_entry(struct ftrace_task_handle *task,
 
 	task->filter.depth--;
 
+	if (!task->display_depth_set) {
+		task->display_depth = task->stack_count - 1;
+		task->display_depth_set = true;
+
+		if (unlikely(task->display_depth < 0))
+			task->display_depth = 0;
+	}
+
 	return 0;
 }
 
@@ -478,9 +495,10 @@ void fstack_exit(struct ftrace_task_handle *task)
 
 	fstack = &task->func_stack[task->stack_count];
 
-	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, I: %d, O: %d, D: %d, flags = %lx\n",
-		task->tid, task->stack_count, fstack->orig_depth, task->filter.in_count,
-		task->filter.out_count, task->filter.depth, fstack->flags);
+	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+		task->tid, task->stack_count, fstack->orig_depth, task->display_depth,
+		task->filter.in_count, task->filter.out_count, task->filter.depth,
+		fstack->flags);
 
 	if (fstack->flags & FSTACK_FL_FILTERED)
 		task->filter.in_count--;
@@ -528,6 +546,12 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
 	}
 	else if (type == FTRACE_EXIT) {
+		/* fork'ed child starts with an exit record */
+		if (!task->display_depth_set) {
+			task->display_depth = task->stack_count + 1;
+			task->display_depth_set = true;
+		}
+
 		if (task->display_depth > 0)
 			task->display_depth--;
 		else
@@ -1135,26 +1159,36 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	struct ftrace_ret_stack *rstack = task->rstack;
 	bool is_kernel_func = (rstack == &task->kstack);
 
-	if (!task->display_depth_set) {
-		/* inherit display_depth after [v]fork() or recover from lost */
-		task->display_depth = rstack->depth;
-		if (rstack->type == FTRACE_EXIT)
-			task->display_depth++;
-		task->display_depth_set = true;
+	if (!task->fstack_set) {
+		int i;
 
+		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
+		if (rstack->type == FTRACE_EXIT) {
+			task->stack_count++;
+			/* [v]fork() usually starts with EXIT in child */
+			task->display_depth_set = false;
+		}
+		task->fstack_set = true;
 
-		if (is_kernel_func) {
-			task->display_depth += task->user_display_depth;
+
+		if (is_kernel_func)
 			task->stack_count += task->user_stack_count;
+
+		/* calculate duration from now on */
+		for (i = 0; i < task->stack_count; i++) {
+			fstack = &task->func_stack[i];
+
+			fstack->total_time = rstack->time;
+			fstack->child_time = 0;
+			fstack->valid = true;
 		}
 
-		task->filter.depth = task->h->depth - task->stack_count;
+		task->filter.depth = task->h->depth;
 	}
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		task->display_depth = task->user_display_depth;
 		task->stack_count = task->user_stack_count;
 		task->filter.depth = task->h->depth - task->stack_count;
 	}
@@ -1200,7 +1234,6 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		int i;
 
 		task->lost_seen = true;
-		task->display_depth_set = false;
 
 		/* for user functions, these two have same value */
 		for (i = task->user_stack_count; i <= task->stack_count; i++) {

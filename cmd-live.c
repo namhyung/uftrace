@@ -6,6 +6,7 @@
 
 #include "uftrace.h"
 #include "utils/utils.h"
+#include "utils/fstack.h"
 #include "libmcount/mcount.h"
 
 
@@ -44,6 +45,9 @@ static void cleanup_tempdir(void)
 
 static void reset_live_opts(struct opts *opts)
 {
+	/* this is needed to set display_depth at replay */
+	live_disabled = opts->disabled;
+
 	/*
 	 * These options are handled in record and no need to do it in
 	 * replay again.

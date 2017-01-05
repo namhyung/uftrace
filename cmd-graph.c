@@ -83,12 +83,13 @@ static void setup_graph_list(struct opts *opts, char *func)
 	}
 }
 
-static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
+static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
+					uint64_t time)
 {
 	struct uftrace_graph *graph;
 	struct ftrace_session *sess;
 
-	sess = find_task_session(task->tid, task->ustack.time);
+	sess = find_task_session(task->tid, time);
 	if (sess == NULL)
 		return NULL;
 
@@ -102,7 +103,8 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task)
 	return NULL;
 }
 
-static struct task_graph * get_task_graph(struct ftrace_task_handle *task)
+static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
+					  uint64_t time)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
@@ -130,7 +132,7 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task)
 	rb_insert_color(&tg->link, &tasks);
 
 out:
-	tg->graph = get_graph(task);
+	tg->graph = get_graph(task, time);
 	return tg;
 }
 
@@ -285,13 +287,11 @@ static int add_graph_exit(struct task_graph *tg)
 	return 0;
 }
 
-static int add_graph(struct task_graph *tg)
+static int add_graph(struct task_graph *tg, int type)
 {
-	struct ftrace_ret_stack *rstack = tg->task->rstack;
-
-	if (rstack->type == FTRACE_ENTRY)
+	if (type == FTRACE_ENTRY)
 		return add_graph_entry(tg);
-	else if (rstack->type == FTRACE_EXIT)
+	else if (type == FTRACE_EXIT)
 		return add_graph_exit(tg);
 	else
 		return 0;
@@ -386,13 +386,13 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 
 	if (!list_empty(&graph->bt_list)) {
 		pr_out("backtrace\n");
-		pr_out("================================\n");
+		pr_out("=====================================\n");
 		print_backtrace(graph);
 	}
 
 	if (graph->root.time || graph->root.nr_edges) {
 		pr_out("calling functions\n");
-		pr_out("================================\n");
+		pr_out("=====================================\n");
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
 				 graph->root.nr_edges > 1);
@@ -402,6 +402,34 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	return 1;
 }
 
+static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
+			      unsigned long addr, int type, char *func)
+{
+	struct task_graph *tg;
+	struct sym *sym = NULL;
+	char *name;
+
+	tg = get_task_graph(task, time);
+	if (tg->enabled)
+		add_graph(tg, type);
+
+	/* cannot find a session for this record */
+	if (tg->graph == NULL)
+		return;
+
+	sym = find_symtabs(&tg->graph->sess->symtabs, addr);
+	name = symbol_getname(sym, addr);
+
+	if (!strcmp(name, func)) {
+		if (type == FTRACE_ENTRY)
+			start_graph(tg);
+		else if (type == FTRACE_EXIT)
+			end_graph(tg);
+	}
+
+	symbol_putname(sym, name);
+}
+
 static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		       char *func)
 {
@@ -409,14 +437,12 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task;
 	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
+	int i;
 
 	setup_graph_list(opts, func);
 
 	while (!read_rstack(handle, &task) && !ftrace_done) {
 		struct ftrace_ret_stack *frs = task->rstack;
-		struct task_graph *tg;
-		struct sym *sym = NULL;
-		char *name;
 
 		/* skip user functions if --kernel-only is set */
 		if (opts->kernel_only && !is_kernel_address(frs->addr))
@@ -441,25 +467,43 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (task->stack_count >= opts->max_stack)
 			continue;
 
-		tg = get_task_graph(task);
-		if (tg->enabled)
-			add_graph(tg);
+		build_graph_node(task, frs->time, frs->addr, frs->type, func);
+	}
 
-		/* cannot find a session for the frs */
-		if (tg->graph == NULL)
+	/* add duration of remaining functions */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
+		struct fstack *fstack;
+
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
 			continue;
 
-		sym = find_symtabs(&tg->graph->sess->symtabs, frs->addr);
-		name = symbol_getname(sym, frs->addr);
+		last_time = task->rstack->time;
 
-		if (!strcmp(name, func)) {
-			if (frs->type == FTRACE_ENTRY)
-				start_graph(tg);
-			else if (frs->type == FTRACE_EXIT)
-				end_graph(tg);
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			build_graph_node(task, last_time, fstack->addr,
+					 FTRACE_EXIT, func);
 		}
-
-		symbol_putname(sym, name);
 	}
 
 	graph = graph_list;
