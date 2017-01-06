@@ -971,19 +971,6 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 		return -1;
 	}
 
-	if (task->lost_seen) {
-		int i;
-
-		for (i = 0; i <= task->ustack.depth; i++)
-			task->func_stack[i].valid = false;
-
-		pr_dbg("lost seen: invalidating existing stack..\n");
-		task->lost_seen = false;
-
-		/* reset display depth after lost */
-		task->display_depth_set = false;
-	}
-
 	if (task->ustack.more) {
 		if (!(handle->hdr.feat_mask & (ARGUMENT | RETVAL)) ||
 		    handle->info.argspec == NULL)
@@ -1189,6 +1176,32 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		}
 
 		task->filter.depth = task->h->depth;
+	}
+
+	if (task->lost_seen) {
+		uint64_t timestamp_after_lost;
+
+		if (rstack->type == FTRACE_LOST)
+			return;
+
+		task->stack_count = rstack->depth;
+		if (rstack->type == FTRACE_EXIT)
+			task->stack_count++;
+
+		if (is_kernel_func)
+			task->stack_count += task->user_stack_count;
+
+		timestamp_after_lost = rstack->time - 1;
+		task->lost_seen = false;
+
+		/* XXX: currently LOST can occur in kernel */
+		for (i = 0; i <= rstack->depth; i++) {
+			fstack = &task->func_stack[i + task->user_stack_count];
+
+			/* reset timestamp after seeing LOST */
+			fstack->total_time = timestamp_after_lost;
+			fstack->child_time = 0;
+		}
 	}
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
