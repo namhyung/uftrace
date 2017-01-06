@@ -166,12 +166,34 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
 
+		if (rstack->type != FTRACE_LOST)
+			task->timestamp_last = rstack->time;
+
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (rstack->type != FTRACE_EXIT)
+		if (rstack->type == FTRACE_ENTRY)
 			continue;
 
+		if (rstack->type == FTRACE_LOST) {
+			/* add partial duration of functions before LOST */
+			while (task->stack_count >= task->user_stack_count) {
+				fstack = &task->func_stack[task->stack_count];
+
+				if (fstack_enabled && fstack->valid &&
+				    !(fstack->flags & FSTACK_FL_NORECORD) &&
+				    fill_entry(&te, task, task->timestamp_last,
+					       fstack->addr, opts)) {
+					insert_entry(root, &te, false);
+				}
+
+				fstack_exit(task);
+				task->stack_count--;
+			}
+			continue;
+		}
+
+		/* rstack->type == FTRACE_EXIT */
 		if (fill_entry(&te, task, rstack->time, rstack->addr, opts))
 			insert_entry(root, &te, false);
 	}
