@@ -1162,9 +1162,9 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	struct fstack *fstack;
 	struct ftrace_ret_stack *rstack = task->rstack;
 	bool is_kernel_func = (rstack == &task->kstack);
+	int i;
 
 	if (!task->fstack_set) {
-		int i;
 
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
@@ -1183,7 +1183,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		for (i = 0; i < task->stack_count; i++) {
 			fstack = &task->func_stack[i];
 
-			fstack->total_time = rstack->time;
+			fstack->total_time = rstack->time;  /* start time */
 			fstack->child_time = 0;
 			fstack->valid = true;
 		}
@@ -1205,7 +1205,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		fstack = &task->func_stack[task->stack_count];
 
 		fstack->addr = rstack->addr;
-		fstack->total_time = rstack->time;
+		fstack->total_time = rstack->time;  /* start time */
 		fstack->child_time = 0;
 		fstack->valid = true;
 	}
@@ -1235,15 +1235,30 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 			fstack[-1].child_time += delta;
 	}
 	else if (rstack->type == FTRACE_LOST) {
-		int i;
+		uint64_t delta;
+		uint64_t lost_time = 0;
 
 		task->lost_seen = true;
+		task->display_depth_set = false;
 
-		/* for user functions, these two have same value */
-		for (i = task->user_stack_count; i <= task->stack_count; i++) {
+		/* XXX: currently LOST can occur in kernel */
+		for (i = task->stack_count; i >= task->user_stack_count; i--) {
 			fstack = &task->func_stack[i];
-			fstack->total_time = 0;
-			fstack->valid = false;
+
+			if (!fstack->valid)
+				continue;
+
+			if (lost_time == 0)
+				lost_time = fstack->total_time + 1;
+
+			/* account time of remaining functions at LOST */
+			delta = lost_time - fstack->total_time;
+			fstack->total_time = delta;
+			if (fstack->child_time > fstack->total_time)
+				fstack->child_time = fstack->total_time;
+
+			if (i > 0)
+				fstack[-1].child_time += delta;
 		}
 	}
 }
@@ -1325,7 +1340,6 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		kernel->missed_events[cpu] = 0;
 	else {
 		kernel->rstack_valid[cpu] = false;
-		task->lost_seen = false;
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
