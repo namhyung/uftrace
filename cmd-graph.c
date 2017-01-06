@@ -462,8 +462,28 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (frs->type == FTRACE_LOST)
+		if (frs->type == FTRACE_LOST) {
+			if (opts->kernel_skip_out && !task->user_stack_count)
+				continue;
+
+			/* add partial duration of kernel functions before LOST */
+			while (task->stack_count >= task->user_stack_count) {
+				struct fstack *fstack;
+
+				fstack = &task->func_stack[task->stack_count];
+
+				if (fstack_enabled && fstack->valid &&
+				    !(fstack->flags & FSTACK_FL_NORECORD)) {
+					build_graph_node(task, prev_time,
+							 fstack->addr,
+							 FTRACE_EXIT, func);
+				}
+
+				fstack_exit(task);
+				task->stack_count--;
+			}
 			continue;
+		}
 
 		if (prev_time > frs->time) {
 			pr_log("inverted time: broken data?\n");
