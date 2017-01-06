@@ -1206,8 +1206,10 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		task->stack_count = task->user_stack_count;
-		task->filter.depth = task->h->depth - task->stack_count;
+		if (rstack->type != FTRACE_LOST) {
+			task->stack_count = task->user_stack_count;
+			task->filter.depth = task->h->depth - task->stack_count;
+		}
 	}
 
 	/* if task filter was set, it doesn't have func_stack */
