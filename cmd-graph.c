@@ -84,14 +84,18 @@ static void setup_graph_list(struct opts *opts, char *func)
 }
 
 static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
-					uint64_t time)
+					uint64_t time, unsigned long addr)
 {
 	struct uftrace_graph *graph;
 	struct ftrace_session *sess;
 
 	sess = find_task_session(task->tid, time);
-	if (sess == NULL)
-		return NULL;
+	if (sess == NULL) {
+		if (is_kernel_address(addr))
+			sess = first_session;
+		else
+			return NULL;
+	}
 
 	graph = graph_list;
 	while (graph) {
@@ -104,7 +108,7 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 }
 
 static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
-					  uint64_t time)
+					  uint64_t time, unsigned long addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
@@ -132,7 +136,7 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 	rb_insert_color(&tg->link, &tasks);
 
 out:
-	tg->graph = get_graph(task, time);
+	tg->graph = get_graph(task, time, addr);
 	return tg;
 }
 
@@ -409,7 +413,7 @@ static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
 	struct sym *sym = NULL;
 	char *name;
 
-	tg = get_task_graph(task, time);
+	tg = get_task_graph(task, time, addr);
 	if (tg->enabled)
 		add_graph(tg, type);
 
