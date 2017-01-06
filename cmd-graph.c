@@ -524,14 +524,38 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	return 0;
 }
 
+struct find_func_data {
+	char *name;
+	bool found;
+};
+
+static int find_func(struct ftrace_session *s, void *arg)
+{
+	struct find_func_data *data = arg;
+	struct symtabs *symtabs = &s->symtabs;
+
+	if (find_symname(&symtabs->symtab, data->name))
+		data->found = true;
+	else if (find_symname(&symtabs->dsymtab, data->name))
+		data->found = true;
+
+	return data->found;
+}
+
 static void synthesize_depth_trigger(struct opts *opts, char *func)
 {
 	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
-	size_t new_len = strlen(func) + 16;
+	size_t new_len = strlen(func) + 32;
+	struct find_func_data ffd = {
+		.name = func,
+	};
+
+	walk_sessions(find_func, &ffd);
 
 	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
 	snprintf(opts->trigger + old_len, new_len,
-		 "%s%s@depth=%d", old_len ? ";" : "", func, opts->depth);
+		 "%s%s@%sdepth=%d", old_len ? ";" : "",
+		 func, ffd.found ? "" : "kernel,", opts->depth);
 }
 
 int command_graph(int argc, char *argv[], struct opts *opts)
