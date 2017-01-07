@@ -90,6 +90,8 @@ int command_live(int argc, char *argv[], struct opts *opts)
 
 	ret = command_record(argc, argv, opts);
 	if (ret == UFTRACE_EXIT_SUCCESS && !opts->nop) {
+		reset_live_opts(opts);
+
 		pr_dbg("live-record finished.. \n");
 		if (opts->report) {
 			pr_out("#\n# uftrace report\n#\n");
@@ -98,7 +100,6 @@ int command_live(int argc, char *argv[], struct opts *opts)
 		}
 
 		pr_dbg("start live-replaying...\n");
-		reset_live_opts(opts);
 		ret = command_replay(argc, argv, opts);
 	}
 
