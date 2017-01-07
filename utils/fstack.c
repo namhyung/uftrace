@@ -398,12 +398,16 @@ int fstack_entry(struct ftrace_task_handle *task,
 		return -1;
 	}
 
-	if (is_kernel_address(addr))
-		addr = get_real_address(addr);
-
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
 		sess = find_task_session(task->t->pid, rstack->time);
+
+	if (is_kernel_address(addr)) {
+		addr = get_real_address(addr);
+
+		if (sess == NULL)
+			sess = first_session;
+	}
 
 	if (sess) {
 		struct ftrace_filter *fixup;
@@ -967,19 +971,6 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 		return -1;
 	}
 
-	if (task->lost_seen) {
-		int i;
-
-		for (i = 0; i <= task->ustack.depth; i++)
-			task->func_stack[i].valid = false;
-
-		pr_dbg("lost seen: invalidating existing stack..\n");
-		task->lost_seen = false;
-
-		/* reset display depth after lost */
-		task->display_depth_set = false;
-	}
-
 	if (task->ustack.more) {
 		if (!(handle->hdr.feat_mask & (ARGUMENT | RETVAL)) ||
 		    handle->info.argspec == NULL)
@@ -1158,9 +1149,9 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	struct fstack *fstack;
 	struct ftrace_ret_stack *rstack = task->rstack;
 	bool is_kernel_func = (rstack == &task->kstack);
+	int i;
 
 	if (!task->fstack_set) {
-		int i;
 
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
@@ -1179,7 +1170,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		for (i = 0; i < task->stack_count; i++) {
 			fstack = &task->func_stack[i];
 
-			fstack->total_time = rstack->time;
+			fstack->total_time = rstack->time;  /* start time */
 			fstack->child_time = 0;
 			fstack->valid = true;
 		}
@@ -1187,10 +1178,38 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		task->filter.depth = task->h->depth;
 	}
 
+	if (task->lost_seen) {
+		uint64_t timestamp_after_lost;
+
+		if (rstack->type == FTRACE_LOST)
+			return;
+
+		task->stack_count = rstack->depth;
+		if (rstack->type == FTRACE_EXIT)
+			task->stack_count++;
+
+		if (is_kernel_func)
+			task->stack_count += task->user_stack_count;
+
+		timestamp_after_lost = rstack->time - 1;
+		task->lost_seen = false;
+
+		/* XXX: currently LOST can occur in kernel */
+		for (i = 0; i <= rstack->depth; i++) {
+			fstack = &task->func_stack[i + task->user_stack_count];
+
+			/* reset timestamp after seeing LOST */
+			fstack->total_time = timestamp_after_lost;
+			fstack->child_time = 0;
+		}
+	}
+
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		task->stack_count = task->user_stack_count;
-		task->filter.depth = task->h->depth - task->stack_count;
+		if (rstack->type != FTRACE_LOST) {
+			task->stack_count = task->user_stack_count;
+			task->filter.depth = task->h->depth - task->stack_count;
+		}
 	}
 
 	/* if task filter was set, it doesn't have func_stack */
@@ -1201,7 +1220,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		fstack = &task->func_stack[task->stack_count];
 
 		fstack->addr = rstack->addr;
-		fstack->total_time = rstack->time;
+		fstack->total_time = rstack->time;  /* start time */
 		fstack->child_time = 0;
 		fstack->valid = true;
 	}
@@ -1231,15 +1250,30 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 			fstack[-1].child_time += delta;
 	}
 	else if (rstack->type == FTRACE_LOST) {
-		int i;
+		uint64_t delta;
+		uint64_t lost_time = 0;
 
 		task->lost_seen = true;
+		task->display_depth_set = false;
 
-		/* for user functions, these two have same value */
-		for (i = task->user_stack_count; i <= task->stack_count; i++) {
+		/* XXX: currently LOST can occur in kernel */
+		for (i = task->stack_count; i >= task->user_stack_count; i--) {
 			fstack = &task->func_stack[i];
-			fstack->total_time = 0;
-			fstack->valid = false;
+
+			if (!fstack->valid)
+				continue;
+
+			if (lost_time == 0)
+				lost_time = fstack->total_time + 1;
+
+			/* account time of remaining functions at LOST */
+			delta = lost_time - fstack->total_time;
+			fstack->total_time = delta;
+			if (fstack->child_time > fstack->total_time)
+				fstack->child_time = fstack->total_time;
+
+			if (i > 0)
+				fstack[-1].child_time += delta;
 		}
 	}
 }
@@ -1321,7 +1355,6 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		kernel->missed_events[cpu] = 0;
 	else {
 		kernel->rstack_valid[cpu] = false;
-		task->lost_seen = false;
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}

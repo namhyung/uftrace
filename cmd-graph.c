@@ -33,15 +33,6 @@ struct graph_node {
 	struct graph_node *parent;
 };
 
-struct task_graph {
-	int enabled;
-	struct ftrace_task_handle *task;
-	struct uftrace_graph *graph;
-	struct graph_node *node;
-	struct graph_backtrace *bt_curr;
-	struct rb_node link;
-};
-
 struct uftrace_graph {
 	char *func;
 	bool kernel_only;
@@ -50,6 +41,16 @@ struct uftrace_graph {
 	struct graph_backtrace *bt_curr;
 	struct list_head bt_list;
 	struct graph_node root;
+};
+
+struct task_graph {
+	int enabled;
+	bool lost;
+	struct ftrace_task_handle *task;
+	struct uftrace_graph *graph;
+	struct graph_node *node;
+	struct graph_backtrace *bt_curr;
+	struct rb_node link;
 };
 
 static struct rb_root tasks = RB_ROOT;
@@ -84,14 +85,18 @@ static void setup_graph_list(struct opts *opts, char *func)
 }
 
 static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
-					uint64_t time)
+					uint64_t time, unsigned long addr)
 {
 	struct uftrace_graph *graph;
 	struct ftrace_session *sess;
 
 	sess = find_task_session(task->tid, time);
-	if (sess == NULL)
-		return NULL;
+	if (sess == NULL) {
+		if (is_kernel_address(addr))
+			sess = first_session;
+		else
+			return NULL;
+	}
 
 	graph = graph_list;
 	while (graph) {
@@ -104,7 +109,7 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 }
 
 static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
-					  uint64_t time)
+					  uint64_t time, unsigned long addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
@@ -126,13 +131,14 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 	tg = xmalloc(sizeof(*tg));
 	tg->task = task;
 	tg->enabled = 0;
+	tg->lost = false;
 	tg->bt_curr = NULL;
 
 	rb_link_node(&tg->link, parent, p);
 	rb_insert_color(&tg->link, &tasks);
 
 out:
-	tg->graph = get_graph(task, time);
+	tg->graph = get_graph(task, time, addr);
 	return tg;
 }
 
@@ -221,6 +227,8 @@ static int start_graph(struct task_graph *tg)
 	if (!tg->enabled++) {
 		save_backtrace_addr(tg);
 
+		pr_dbg("start graph\n");
+
 		tg->node = &tg->graph->root;
 		tg->node->addr = tg->task->rstack->addr;
 		tg->node->nr_calls++;
@@ -234,8 +242,12 @@ static int end_graph(struct task_graph *tg)
 	if (!tg->enabled)
 		return 0;
 
-	if (!--tg->enabled)
+	if (!--tg->enabled) {
 		save_backtrace_time(tg);
+		tg->lost = false;
+
+		pr_dbg("end graph\n");
+	}
 
 	return 0;
 }
@@ -248,6 +260,9 @@ static int add_graph_entry(struct task_graph *tg)
 
 	if (curr == NULL)
 		return -1;
+
+	if (tg->lost)
+		return 1;  /* ignore kernel functions after LOST */
 
 	list_for_each_entry(node, &curr->head, list) {
 		if (node->addr == rstack->addr)
@@ -279,6 +294,20 @@ static int add_graph_exit(struct task_graph *tg)
 	if (node == NULL)
 		return -1;
 
+	if (tg->lost) {
+		if (is_kernel_address(fstack->addr))
+			return 1;
+
+		/*
+		 * LOST only occures in kernel, so clear tg->lost
+		 * when return to userspace
+		 */
+		tg->lost = false;
+	}
+
+	if (node->addr != fstack->addr)
+		pr_dbg("broken graph - addresses not match\n");
+
 	node->time       += fstack->total_time;
 	node->child_time += fstack->child_time;
 
@@ -289,6 +318,9 @@ static int add_graph_exit(struct task_graph *tg)
 
 static int add_graph(struct task_graph *tg, int type)
 {
+	pr_dbg2("add graph (enabled: %d) %s\n", tg->enabled,
+		type == FTRACE_ENTRY ? "ENTRY" : "EXIT");
+
 	if (type == FTRACE_ENTRY)
 		return add_graph_entry(tg);
 	else if (type == FTRACE_EXIT)
@@ -409,7 +441,7 @@ static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
 	struct sym *sym = NULL;
 	char *name;
 
-	tg = get_task_graph(task, time);
+	tg = get_task_graph(task, time, addr);
 	if (tg->enabled)
 		add_graph(tg, type);
 
@@ -458,8 +490,41 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (frs->type == FTRACE_LOST)
+		if (frs->type == FTRACE_LOST) {
+			struct task_graph *tg;
+
+			if (opts->kernel_skip_out && !task->user_stack_count)
+				continue;
+
+			pr_dbg("*** LOST ***\n");
+
+			/* add partial duration of kernel functions before LOST */
+			while (task->stack_count >= task->user_stack_count) {
+				struct fstack *fstack;
+
+				fstack = &task->func_stack[task->stack_count];
+
+				if (fstack_enabled && fstack->valid &&
+				    !(fstack->flags & FSTACK_FL_NORECORD)) {
+					build_graph_node(task, prev_time,
+							 fstack->addr,
+							 FTRACE_EXIT, func);
+				}
+
+				fstack_exit(task);
+				task->stack_count--;
+			}
+
+			/* force to find a session for kernel function */
+			tg = get_task_graph(task, prev_time,
+					    (1UL << KADDR_SHIFT));
+			tg->lost = true;
+
+			if (tg->enabled && is_kernel_address(tg->node->addr))
+				pr_dbg("not returning to user after LOST\n");
+
 			continue;
+		}
 
 		if (prev_time > frs->time) {
 			pr_log("inverted time: broken data?\n");
@@ -524,14 +589,38 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	return 0;
 }
 
+struct find_func_data {
+	char *name;
+	bool found;
+};
+
+static int find_func(struct ftrace_session *s, void *arg)
+{
+	struct find_func_data *data = arg;
+	struct symtabs *symtabs = &s->symtabs;
+
+	if (find_symname(&symtabs->symtab, data->name))
+		data->found = true;
+	else if (find_symname(&symtabs->dsymtab, data->name))
+		data->found = true;
+
+	return data->found;
+}
+
 static void synthesize_depth_trigger(struct opts *opts, char *func)
 {
 	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
-	size_t new_len = strlen(func) + 16;
+	size_t new_len = strlen(func) + 32;
+	struct find_func_data ffd = {
+		.name = func,
+	};
+
+	walk_sessions(find_func, &ffd);
 
 	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
 	snprintf(opts->trigger + old_len, new_len,
-		 "%s%s@depth=%d", old_len ? ";" : "", func, opts->depth);
+		 "%s%s@%sdepth=%d", old_len ? ";" : "",
+		 func, ffd.found ? "" : "kernel,", opts->depth);
 }
 
 int command_graph(int argc, char *argv[], struct opts *opts)

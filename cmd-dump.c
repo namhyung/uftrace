@@ -877,11 +877,11 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct sym *sym = NULL;
 			char *name;
 
-			if (!check_time_range(&handle->time_range, frs->time))
-				continue;
-
 			/* consume the rstack as it didn't call read_rstack() */
 			fstack_consume(handle, task);
+
+			if (!check_time_range(&handle->time_range, frs->time))
+				continue;
 
 			if (prev_time > frs->time)
 				ops->inverted_time(ops, task);

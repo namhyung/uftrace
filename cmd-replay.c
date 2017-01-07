@@ -65,7 +65,12 @@ static void print_addr(struct ftrace_task_handle *task,
 		       struct fstack *fstack, void *arg)
 {
 	/* uftrace records (truncated) 48-bit addresses */
-	pr_out("%*lx", sizeof(long) == 4 ? 8 : 12, fstack->addr);
+	int width = sizeof(long) == 4 ? 8 : 12;
+
+	if (fstack == NULL)  /* LOST */
+		pr_out("%*s", width, "");
+	else
+		pr_out("%*lx", width, fstack->addr);
 }
 
 static void print_timestamp(struct ftrace_task_handle *task,
