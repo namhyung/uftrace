@@ -398,12 +398,16 @@ int fstack_entry(struct ftrace_task_handle *task,
 		return -1;
 	}
 
-	if (is_kernel_address(addr))
-		addr = get_real_address(addr);
-
 	sess = find_task_session(task->tid, rstack->time);
 	if (sess == NULL)
 		sess = find_task_session(task->t->pid, rstack->time);
+
+	if (is_kernel_address(addr)) {
+		addr = get_real_address(addr);
+
+		if (sess == NULL)
+			sess = first_session;
+	}
 
 	if (sess) {
 		struct ftrace_filter *fixup;
