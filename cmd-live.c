@@ -89,17 +89,25 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	opts->dirname = template;
 
 	ret = command_record(argc, argv, opts);
-	if (ret == UFTRACE_EXIT_SUCCESS && !opts->nop) {
+	if (!opts->nop) {
+		int ret2;
+
+		reset_live_opts(opts);
+
 		pr_dbg("live-record finished.. \n");
 		if (opts->report) {
 			pr_out("#\n# uftrace report\n#\n");
-			command_report(argc, argv, opts);
+			ret2 = command_report(argc, argv, opts);
+			if (ret == UFTRACE_EXIT_SUCCESS)
+				ret = ret2;
+
 			pr_out("\n#\n# uftrace replay\n#\n");
 		}
 
 		pr_dbg("start live-replaying...\n");
-		reset_live_opts(opts);
-		ret = command_replay(argc, argv, opts);
+		ret2 = command_replay(argc, argv, opts);
+		if (ret == UFTRACE_EXIT_SUCCESS)
+			ret = ret2;
 	}
 
 	cleanup_tempdir();
