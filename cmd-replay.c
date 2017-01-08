@@ -279,7 +279,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 		fstack = &task->func_stack[i];
 		sess = find_task_session(task->tid, fstack->total_time);
 
-		if (sess)
+		if (sess || is_kernel_address(fstack->addr))
 			sym = find_symtabs(&sess->symtabs, fstack->addr);
 		else
 			sym = NULL;
