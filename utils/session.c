@@ -195,7 +195,10 @@ static void add_session_ref(struct ftrace_task *task, struct ftrace_session *ses
 {
 	struct ftrace_sess_ref *ref;
 
-	assert(sess);
+	if (sess == NULL) {
+		pr_dbg("task %d/%d has no session\n", task->tid, task->pid);
+		return;
+	}
 
 	if (task->sess_last) {
 		task->sess_last->next = ref = xmalloc(sizeof(*ref));
