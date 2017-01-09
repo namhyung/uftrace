@@ -8,11 +8,18 @@
 - dynamic instrumentation
 - gcc5 -mrecord-mcount support
 - gcc5 -mnop-mcount support
+- clang xray support
 - documentation
 - perf-like callgraph view
-- flamegraph support
 - timechart support?
 - report w/ multi-thread
 - config file support
 - dlopen() support
 - LD_BIND_NOW support?
+- filter by argument value
+- SDT support
+- symbol file compression
+- reading external data (global variable, system stat, perf counter, ...)
+- show kernel function argument and return value
+- show scheduler info (using perf?)
+- different clock support (TSC on x86, ...)
