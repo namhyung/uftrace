@@ -740,15 +740,29 @@ static void sort_by_name(struct rb_root *root, struct trace_entry *te)
 	rb_insert_color(&te->link, root);
 }
 
-static struct trace_entry * find_by_name(struct rb_root *root, char *name)
+static struct trace_entry * find_by_name(struct rb_root *root,
+					 struct trace_entry *base)
 {
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
+	char *name;
 
+	if (base->sym == NULL)
+		return NULL;
+
+	name = base->sym->name;
 	while (*p) {
 		parent = *p;
 		entry = rb_entry(parent, struct trace_entry, link);
+
+		if (entry->sym == NULL) {
+			if (entry->addr < base->addr)
+				p = &parent->rb_left;
+			else
+				p = &parent->rb_right;
+			continue;
+		}
 
 		if (strcmp(entry->sym->name, name) == 0)
 			return entry;
@@ -803,7 +817,7 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 		rb_erase(node, base);
 
 		e = rb_entry(node, struct trace_entry, link);
-		p = find_by_name(pair, e->sym->name);
+		p = find_by_name(pair, e);
 		if (p == NULL) {
 			sort_entries(remaining, e);
 			continue;

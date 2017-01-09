@@ -207,14 +207,9 @@ static int print_backtrace(struct uftrace_graph *graph)
 
 		for (k = 0; k < bt->len; k++) {
 			sym = find_symtabs(&graph->sess->symtabs, bt->addr[k]);
-			if (sym)
-				symname = xstrdup(sym->name);
-			else
-				symname = symbol_getname(NULL, bt->addr[k]);
-
+			symname = symbol_getname(sym, bt->addr[k]);
 			pr_out("   [%d] %s (%#lx)\n", k, symname, bt->addr[k]);
-
-			free(symname);
+			symbol_putname(sym, symname);
 		}
 		pr_out("\n");
 	}
