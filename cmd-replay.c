@@ -212,18 +212,34 @@ static void print_empty_field(void)
 	pr_out("|");
 }
 
+static void add_field(struct replay_field *field)
+{
+	if (field->used)
+		return;
+
+	field->used = true;
+	list_add_tail(&field->list, &output_fields);
+}
+
 static void setup_field(struct opts *opts)
 {
 	struct replay_field *field;
 	unsigned i;
-	char *str, *p;
+	char *str, *p, *s;
 
 	if (!strcmp(opts->fields, "none"))
 		return;
 
-	str = xstrdup(opts->fields);
+	s = str = xstrdup(opts->fields);
 
-	p = strtok(str, ",");
+	if (*str == '+') {
+		/* prepend default fields */
+		add_field(field_table[0]);  /* duration */
+		add_field(field_table[1]);  /* tid */
+		s++;
+	}
+
+	p = strtok(s, ",");
 	while (p) {
 		for (i = 0; i < ARRAY_SIZE(field_table); i++) {
 			field = field_table[i];
@@ -231,11 +247,7 @@ static void setup_field(struct opts *opts)
 			if (strcmp(field->name, p))
 				continue;
 
-			if (field->used)
-				continue;
-
-			field->used = true;
-			list_add_tail(&field->list, &output_fields);
+			add_field(field);
 			break;
 		}
 
