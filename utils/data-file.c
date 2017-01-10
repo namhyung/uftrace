@@ -104,6 +104,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 	struct ftrace_msg_task task;
 	struct ftrace_msg_sess sess;
 	char *exename, *pos;
+	char dummy[2];
 
 	xasprintf(&fname, "%s/%s", dirname, "task.txt");
 
@@ -133,32 +134,8 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu",
-				   &sec, &nsec);
-
-			// Get the session ID
-			pos = strstr(line, "sid=");
-			if (pos == NULL)
-				pr_err_ns("invalid task.txt format");
-			sscanf(pos, "sid=%s",
-				   (char *)&sess.sid);
-
-			// Get the pid or tid
-			pos = strstr(line, "pid=");
-			if (pos != NULL) {
-				sscanf(pos, "pid=%d",
-					   &sess.task.pid);
-				sess.task.tid = sess.task.pid;
-			}
-			else {
-				// Fallback if the pid is not present, it might be the tid
-				pos = strstr(line, "tid=");
-				if (pos == NULL)
-					pr_err_ns("invalid pid or tid format");
-				sscanf(pos, "tid=%d",
-					   &sess.task.tid);
-				sess.task.pid = sess.task.tid;
-			}
+			sscanf(line + 5, "timestamp=%lu.%lu %[^i]id=%d sid=%s",
+				   &sec, &nsec, (char *)&dummy, &sess.task.pid, (char *)&sess.sid);
 
 			// Get the execname
 			pos = strstr(line, "exename=");
@@ -169,6 +146,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (pos)
 				*pos = '\0';
 
+			sess.task.tid = sess.task.pid;
 			sess.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			sess.namelen = strlen(exename);
 
@@ -242,7 +220,7 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 
 	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
 	fprintf(fp, "SESS timestamp=%s pid=%d sid=%s exename=\"%s\"\n",
-		ts, smsg->task.pid, smsg->sid, exename);
+			ts, smsg->task.pid, smsg->sid, exename);
 
 	fclose(fp);
 	free(fname);
