@@ -16,19 +16,15 @@ class TestCase(TestBase):
 backtrace
 ================================
  backtrace #0: hit 1, time   7.865 us
-   [0] __gmon_start__ (0)
-   [1] c (0x400680)
-   [2] main (0x400510)
+   [0] main (0x400510)
 
 calling functions
 ================================
    7.865 us : (1) main
-   1.506 us :  +-(1) atoi
-            :  | 
-   2.988 us :  +-(1) a
-   2.705 us :    (1) b
-   2.271 us :    (1) c
-   0.657 us :    (1) getpid
+   2.988 us : (1) a
+   2.705 us : (1) b
+   2.271 us : (1) c
+   0.657 us : (1) getpid
 
 #
 # function graph for 'main' (session: 1dc307633af856ad)
@@ -42,12 +38,6 @@ backtrace
 calling functions
 ================================
    3.433 ms : (1) main
-   9.814 us :  +-(1) readlink
-            :  | 
-   0.922 us :  +-(1) strrchr
-            :  | 
-   1.737 us :  +-(1) strcpy
-            :  | 
  114.506 us :  +-(1) fork
             :  | 
    3.289 ms :  +-(1) waitpid
