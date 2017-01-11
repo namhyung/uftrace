@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import re, os
-import subprocess as sp
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -9,15 +7,11 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'forkexec', """
 # DURATION    TID     FUNCTION
             [ 9874] | main() {
-  19.427 us [ 9874] |   readlink();
-   1.841 us [ 9874] |   strrchr();
-   0.911 us [ 9874] |   strcpy();
  142.145 us [ 9874] |   fork();
             [ 9874] |   waitpid() {
  473.298 us [ 9875] |   } /* fork */
             [ 9875] |   execl() {
             [ 9875] | main() {
-   1.828 us [ 9875] |   atoi();
             [ 9875] |   a() {
             [ 9875] |     b() {
             [ 9875] |       c() {
@@ -38,13 +32,3 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
-
-    def fixup(self, cflags, result):
-        r = result
-
-        import platform
-        if platform.machine().startswith('arm'):
-            r = r.replace('readlink', """memset();
-                                [ 9874] |   readlink""")
-
-        return r
