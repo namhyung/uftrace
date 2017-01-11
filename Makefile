@@ -101,7 +101,7 @@ UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
 UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
-UFTRACE_HDRS := $(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h)
+UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h))
 UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
