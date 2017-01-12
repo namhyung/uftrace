@@ -559,8 +559,11 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
-	/* 'recover' trigger is only for -pg entry */
-	tr.flags &= ~TRIGGER_FL_RECOVER;
+	/* 
+	 * recording arguments and return value is not supported.
+	 * also 'recover' trigger is only work for -pg entry.
+	 */
+	tr.flags &= ~(TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL | TRIGGER_FL_RECOVER);
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
