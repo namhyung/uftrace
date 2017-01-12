@@ -1148,10 +1148,10 @@ static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 	char sid[20] = { 0, };
 	int i, maps;
 
-	ftrace_setup_filter_module(opts->filter, &modules);
-	ftrace_setup_filter_module(opts->trigger, &modules);
-	ftrace_setup_filter_module(opts->args, &modules);
-	ftrace_setup_filter_module(opts->retval, &modules);
+	ftrace_setup_filter_module(opts->filter, &modules, symtabs->filename);
+	ftrace_setup_filter_module(opts->trigger, &modules, symtabs->filename);
+	ftrace_setup_filter_module(opts->args, &modules, symtabs->filename);
+	ftrace_setup_filter_module(opts->retval, &modules, symtabs->filename);
 
 	if (list_empty(&modules))
 		return;

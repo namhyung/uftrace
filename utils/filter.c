@@ -599,6 +599,8 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 				*psymtab = &symtabs->dsymtab;
 			else if (!strcasecmp(pos, "kernel"))
 				*psymtab = NULL;
+			else if (!strcmp(pos, basename(symtabs->filename)))
+				*psymtab = &symtabs->symtab;
 			else {
 				struct ftrace_proc_maps *map;
 
@@ -740,7 +742,8 @@ void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 	setup_trigger(retval_str, symtabs, root, 0, NULL);
 }
 
-void ftrace_setup_filter_module(char *trigger_str, struct list_head *head)
+void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
+				const char *modname)
 {
 	char *str, *tmp;
 	char *pos, *name, *action;
@@ -785,6 +788,9 @@ void ftrace_setup_filter_module(char *trigger_str, struct list_head *head)
 				    !strcasecmp(&pos[n], "off"))
 					continue;
 			}
+
+			if (!strcmp(pos, basename(modname)))
+				goto next;
 
 			list_for_each_entry(fm, head, list) {
 				if (!strcasecmp(fm->name, pos))

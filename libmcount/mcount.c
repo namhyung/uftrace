@@ -915,10 +915,14 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_setup_filter_module(getenv("UFTRACE_FILTER"), &modules);
-	ftrace_setup_filter_module(getenv("UFTRACE_TRIGGER"), &modules);
-	ftrace_setup_filter_module(getenv("UFTRACE_ARGUMENT"), &modules);
-	ftrace_setup_filter_module(getenv("UFTRACE_RETVAL"), &modules);
+	ftrace_setup_filter_module(getenv("UFTRACE_FILTER"), &modules,
+				   mcount_exename);
+	ftrace_setup_filter_module(getenv("UFTRACE_TRIGGER"), &modules,
+				   mcount_exename);
+	ftrace_setup_filter_module(getenv("UFTRACE_ARGUMENT"), &modules,
+				   mcount_exename);
+	ftrace_setup_filter_module(getenv("UFTRACE_RETVAL"), &modules,
+				   mcount_exename);
 
 	load_module_symtabs(&symtabs, &modules);
 

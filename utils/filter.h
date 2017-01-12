@@ -107,7 +107,8 @@ void ftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 void ftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
 			 struct rb_root *root);
 
-void ftrace_setup_filter_module(char *trigger_str, struct list_head *head);
+void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
+				const char *modname);
 void ftrace_cleanup_filter_module(struct list_head *head);
 
 struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip,
