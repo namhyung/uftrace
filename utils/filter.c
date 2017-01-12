@@ -655,9 +655,10 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			.flags = flags,
 			.pargs = &args,
 		};
-		int ret;
+		int ret = 0;
 		char *mod = module;
 		struct ftrace_arg_spec *arg;
+		bool is_regex = strpbrk(name, REGEX_CHARS);
 
 		if (setup_module_and_trigger(name, mod, symtabs, &symtab,
 					     &tr) < 0)
@@ -674,12 +675,12 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			tr.fmode = FILTER_MODE_IN;
 
 again:
-		if (strpbrk(name, REGEX_CHARS))
-			ret = add_regex_filter(root, symtab, mod, name, &tr);
+		if (is_regex)
+			ret += add_regex_filter(root, symtab, mod, name, &tr);
 		else
-			ret = add_exact_filter(root, symtab, mod, name, &tr);
+			ret += add_exact_filter(root, symtab, mod, name, &tr);
 
-		if (ret == 0 && mod == NULL) {
+		if (mod == NULL && (ret == 0 || is_regex)) {
 			mod = "plt";
 			symtab = &symtabs->dsymtab;
 			goto again;
