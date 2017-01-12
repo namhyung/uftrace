@@ -922,16 +922,16 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 
 	load_module_symtabs(&symtabs, &modules);
 
-	ftrace_setup_filter(getenv("UFTRACE_FILTER"), &symtabs, NULL,
+	ftrace_setup_filter(getenv("UFTRACE_FILTER"), &symtabs,
 			    &mcount_triggers, &mcount_filter_mode);
 
-	ftrace_setup_trigger(getenv("UFTRACE_TRIGGER"), &symtabs, NULL,
+	ftrace_setup_trigger(getenv("UFTRACE_TRIGGER"), &symtabs,
 			     &mcount_triggers);
 
-	ftrace_setup_argument(getenv("UFTRACE_ARGUMENT"), &symtabs, NULL,
+	ftrace_setup_argument(getenv("UFTRACE_ARGUMENT"), &symtabs,
 			      &mcount_triggers);
 
-	ftrace_setup_retval(getenv("UFTRACE_RETVAL"), &symtabs, NULL,
+	ftrace_setup_retval(getenv("UFTRACE_RETVAL"), &symtabs,
 			      &mcount_triggers);
 
 	if (getenv("UFTRACE_DEPTH"))
@@ -954,20 +954,6 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 		}
 
 		setup_dynsym_indexes(&symtabs);
-
-#ifndef DISABLE_MCOUNT_FILTER
-		ftrace_setup_filter(getenv("UFTRACE_FILTER"), &symtabs, "PLT",
-				    &mcount_triggers, &mcount_filter_mode);
-
-		ftrace_setup_trigger(getenv("UFTRACE_TRIGGER"), &symtabs, "PLT",
-				    &mcount_triggers);
-
-		ftrace_setup_argument(getenv("UFTRACE_ARGUMENT"), &symtabs, "PLT",
-				      &mcount_triggers);
-
-		ftrace_setup_retval(getenv("UFTRACE_RETVAL"), &symtabs, "PLT",
-				      &mcount_triggers);
-#endif /* DISABLE_MCOUNT_FILTER */
 
 		if (hook_pltgot(mcount_exename, symtabs.maps->start) < 0)
 			pr_dbg("error when hooking plt: skipping...\n");

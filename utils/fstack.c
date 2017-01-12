@@ -208,11 +208,7 @@ static int setup_filters(struct ftrace_session *s, void *arg)
 	ftrace_setup_filter_module(filter_str, &modules);
 	load_module_symtabs(&s->symtabs, &modules);
 
-	ftrace_setup_filter(filter_str, &s->symtabs, NULL, &s->filters,
-			    &fstack_filter_mode);
-	ftrace_setup_filter(filter_str, &s->symtabs, "PLT", &s->filters,
-			    &fstack_filter_mode);
-	ftrace_setup_filter(filter_str, &s->symtabs, "kernel", &s->filters,
+	ftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
 			    &fstack_filter_mode);
 
 	ftrace_cleanup_filter_module(&modules);
@@ -227,9 +223,7 @@ static int setup_trigger(struct ftrace_session *s, void *arg)
 	ftrace_setup_filter_module(trigger_str, &modules);
 	load_module_symtabs(&s->symtabs, &modules);
 
-	ftrace_setup_trigger(trigger_str, &s->symtabs, NULL, &s->filters);
-	ftrace_setup_trigger(trigger_str, &s->symtabs, "PLT", &s->filters);
-	ftrace_setup_trigger(trigger_str, &s->symtabs, "kernel", &s->filters);
+	ftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters);
 
 	ftrace_cleanup_filter_module(&modules);
 	return 0;
@@ -297,7 +291,7 @@ static int build_fixup_filter(struct ftrace_session *s, void *arg)
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
-		ftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs, NULL,
+		ftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
 				     &s->fixups);
 	}
 	return 0;
@@ -322,9 +316,7 @@ static int build_arg_spec(struct ftrace_session *s, void *arg)
 	ftrace_setup_filter_module(argspec, &modules);
 	load_module_symtabs(&s->symtabs, &modules);
 
-	ftrace_setup_argument(argspec, &s->symtabs, NULL, &s->filters);
-	ftrace_setup_argument(argspec, &s->symtabs, "PLT", &s->filters);
-	ftrace_setup_argument(argspec, &s->symtabs, "kernel", &s->filters);
+	ftrace_setup_argument(argspec, &s->symtabs, &s->filters);
 
 	ftrace_cleanup_filter_module(&modules);
 	return 0;

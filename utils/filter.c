@@ -695,13 +695,11 @@ next:
  * ftrace_setup_filter - construct rbtree of filters
  * @filter_str - CSV of filter string
  * @symtabs    - symbol tables to find symbol address
- * @module     - optional module (binary/dso) name
  * @root       - root of resulting rbtree
  * @mode       - filter mode: opt-in (-F) or opt-out (-N)
  */
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root,
-			 enum filter_mode *mode)
+			 struct rb_root *root, enum filter_mode *mode)
 {
 	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_FILTER, mode);
 }
@@ -710,11 +708,10 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
  * ftrace_setup_trigger - construct rbtree of triggers
  * @trigger_str - CSV of trigger string (FUNC @ act)
  * @symtabs    - symbol tables to find symbol address
- * @module     - optional module (binary/dso) name
  * @root       - root of resulting rbtree
  */
 void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			  char *module, struct rb_root *root)
+			  struct rb_root *root)
 {
 	setup_trigger(trigger_str, symtabs, root, 0, NULL);
 }
@@ -723,11 +720,10 @@ void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
  * ftrace_setup_argument - construct rbtree of argument
  * @args_str   - CSV of argument string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
- * @module     - optional module (binary/dso) name
  * @root       - root of resulting rbtree
  */
 void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
-			  char *module, struct rb_root *root)
+			   struct rb_root *root)
 {
 	setup_trigger(args_str, symtabs, root, 0, NULL);
 }
@@ -736,11 +732,10 @@ void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
  * ftrace_setup_retval - construct rbtree of retval
  * @retval_str   - CSV of argument string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
- * @module     - optional module (binary/dso) name
  * @root       - root of resulting rbtree
  */
 void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
-			  char *module, struct rb_root *root)
+			 struct rb_root *root)
 {
 	setup_trigger(retval_str, symtabs, root, 0, NULL);
 }
@@ -898,7 +893,7 @@ TEST_CASE(filter_setup_exact)
 	filter_test_load_symtabs(&stabs);
 
 	/* test1: simple method */
-	ftrace_setup_filter("foo::bar", &stabs, NULL, &root, NULL);
+	ftrace_setup_filter("foo::bar", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -911,7 +906,7 @@ TEST_CASE(filter_setup_exact)
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	/* test2: destructor */
-	ftrace_setup_filter("foo::~foo", &stabs, NULL, &root, NULL);
+	ftrace_setup_filter("foo::~foo", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -924,7 +919,7 @@ TEST_CASE(filter_setup_exact)
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	/* test3: unknown symbol */
-	ftrace_setup_filter("invalid_name", &stabs, NULL, &root, NULL);
+	ftrace_setup_filter("invalid_name", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	return TEST_OK;
@@ -941,7 +936,7 @@ TEST_CASE(filter_setup_regex)
 
 	filter_test_load_symtabs(&stabs);
 
-	ftrace_setup_filter("foo::b.*", &stabs, NULL, &root, NULL);
+	ftrace_setup_filter("foo::b.*", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -986,11 +981,11 @@ TEST_CASE(filter_setup_notrace)
 
 	filter_test_load_symtabs(&stabs);
 
-	ftrace_setup_filter("foo::.*", &stabs, NULL, &root, &fmode);
+	ftrace_setup_filter("foo::.*", &stabs, &root, &fmode);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
-	ftrace_setup_filter("!foo::foo", &stabs, NULL, &root, &fmode);
+	ftrace_setup_filter("!foo::foo", &stabs, &root, &fmode);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);  /* overall filter mode doesn't change */
 
@@ -1025,7 +1020,7 @@ TEST_CASE(filter_match)
 
 	filter_test_load_symtabs(&stabs);
 
-	ftrace_setup_filter("foo::foo", &stabs, NULL, &root, &fmode);
+	ftrace_setup_filter("foo::foo", &stabs, &root, &fmode);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
@@ -1065,7 +1060,7 @@ TEST_CASE(trigger_setup)
 
 	filter_test_load_symtabs(&stabs);
 
-	ftrace_setup_trigger("foo::bar@depth=2", &stabs, NULL, &root);
+	ftrace_setup_trigger("foo::bar@depth=2", &stabs, &root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1073,17 +1068,17 @@ TEST_CASE(trigger_setup)
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 2);
 
-	ftrace_setup_trigger("foo::bar@backtrace", &stabs, NULL, &root);
+	ftrace_setup_trigger("foo::bar@backtrace", &stabs, &root);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(ftrace_match_filter(&root, 0x2500, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
-	ftrace_setup_trigger("foo::baz1@traceon", &stabs, NULL, &root);
+	ftrace_setup_trigger("foo::baz1@traceon", &stabs, &root);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(ftrace_match_filter(&root, 0x3000, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
-	ftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, NULL, &root);
+	ftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(ftrace_match_filter(&root, 0x5000, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
