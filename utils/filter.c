@@ -225,8 +225,7 @@ static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
 }
 
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
-			    char *module, char *filter_str,
-			    struct ftrace_trigger *tr)
+			    char *filter_str, struct ftrace_trigger *tr)
 {
 	struct ftrace_filter filter;
 	struct sym *sym;
@@ -244,8 +243,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 }
 
 static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
-			    char *module, char *filter_str,
-			    struct ftrace_trigger *tr)
+			    char *filter_str, struct ftrace_trigger *tr)
 {
 	struct ftrace_filter filter;
 	struct sym *sym;
@@ -488,18 +486,15 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 	return 0;
 }
 
-static int setup_module_and_trigger(char *str, char *module,
-				    struct symtabs *symtabs,
+static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 				    struct symtab **psymtab,
-				    struct ftrace_trigger *tr)
+				    struct ftrace_trigger *tr,
+				    bool *found_mod)
 {
 	char *pos = strchr(str, '@');
 
-	*psymtab = &symtabs->symtab;
-
 	if (pos) {
 		char *tr_str;
-		bool found_mod = false;
 
 		*pos++ = '\0';
 		tr_str = xstrdup(pos);
@@ -600,13 +595,10 @@ static int setup_module_and_trigger(char *str, char *module,
 				continue;
 			}
 
-			if (module && strcasecmp(pos, module))
-				return -1;
-
 			if (!strcasecmp(pos, "plt"))
 				*psymtab = &symtabs->dsymtab;
 			else if (!strcasecmp(pos, "kernel"))
-				*psymtab = get_kernel_symtab();
+				*psymtab = NULL;
 			else {
 				struct ftrace_proc_maps *map;
 
@@ -619,22 +611,15 @@ static int setup_module_and_trigger(char *str, char *module,
 				*psymtab = &map->symtab;
 			}
 
-			found_mod = true;
+			*found_mod = true;
 		}
-
-		if (module && !found_mod)
-			return -1;
-	}
-	else {
-		if (module)
-			return -1;
 	}
 
 	return 0;
 }
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
-			  char *module, struct rb_root *root,
+			  struct rb_root *root,
 			  unsigned long flags, enum filter_mode *fmode)
 {
 	char *str;
@@ -656,12 +641,12 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			.pargs = &args,
 		};
 		int ret = 0;
-		char *mod = module;
+		bool mod_found = false;
 		struct ftrace_arg_spec *arg;
 		bool is_regex = strpbrk(name, REGEX_CHARS);
 
-		if (setup_module_and_trigger(name, mod, symtabs, &symtab,
-					     &tr) < 0)
+		if (setup_module_and_trigger(name, symtabs, &symtab,
+					     &tr, &mod_found) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
@@ -676,19 +661,17 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 again:
 		if (is_regex)
-			ret += add_regex_filter(root, symtab, mod, name, &tr);
+			ret += add_regex_filter(root, symtab, name, &tr);
 		else
-			ret += add_exact_filter(root, symtab, mod, name, &tr);
+			ret += add_exact_filter(root, symtab, name, &tr);
 
-		if (mod == NULL && (ret == 0 || is_regex)) {
-			mod = "plt";
+		if (!mod_found && (ret == 0 || is_regex)) {
 			symtab = &symtabs->dsymtab;
+			mod_found = true;
 			goto again;
 		}
 
-		/* kernel filter should not affect user functions */
-		if (ret > 0 && fmode != NULL &&
-		    (module == NULL || strcmp(module, "kernel"))) {
+		if (ret > 0 && fmode != NULL) {
 			if (tr.fmode == FILTER_MODE_IN)
 				*fmode = FILTER_MODE_IN;
 			else if (*fmode == FILTER_MODE_NONE)
@@ -720,7 +703,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 char *module, struct rb_root *root,
 			 enum filter_mode *mode)
 {
-	setup_trigger(filter_str, symtabs, module, root, TRIGGER_FL_FILTER, mode);
+	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_FILTER, mode);
 }
 
 /**
@@ -733,7 +716,7 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
-	setup_trigger(trigger_str, symtabs, module, root, 0, NULL);
+	setup_trigger(trigger_str, symtabs, root, 0, NULL);
 }
 
 /**
@@ -746,7 +729,7 @@ void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
-	setup_trigger(args_str, symtabs, module, root, 0, NULL);
+	setup_trigger(args_str, symtabs, root, 0, NULL);
 }
 
 /**
@@ -759,7 +742,7 @@ void ftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 void ftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 			  char *module, struct rb_root *root)
 {
-	setup_trigger(retval_str, symtabs, module, root, 0, NULL);
+	setup_trigger(retval_str, symtabs, root, 0, NULL);
 }
 
 void ftrace_setup_filter_module(char *trigger_str, struct list_head *head)
