@@ -99,16 +99,16 @@ struct filter_module {
 typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root,
-			 enum filter_mode *mode);
+			 struct rb_root *root, enum filter_mode *mode);
 void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			  char *module, struct rb_root *root);
+			  struct rb_root *root);
 void ftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			   char *module, struct rb_root *root);
+			   struct rb_root *root);
 void ftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			 char *module, struct rb_root *root);
+			 struct rb_root *root);
 
-void ftrace_setup_filter_module(char *trigger_str, struct list_head *head);
+void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
+				const char *modname);
 void ftrace_cleanup_filter_module(struct list_head *head);
 
 struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip,

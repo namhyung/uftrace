@@ -697,6 +697,7 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		return;
 
 	symtabs->dirname = dirname;
+	symtabs->filename = filename;
 
 	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
 		offset = find_map_offset(symtabs, filename);
@@ -758,6 +759,7 @@ void load_module_symtabs(struct symtabs *symtabs, struct list_head *head)
 				continue;
 		}
 
+		pr_dbg("load module symbol: %s\n", maps->libname);
 		load_symtab(&maps->symtab, maps->libname,
 			    maps->start, symtabs->flags);
 	}
