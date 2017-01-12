@@ -16,13 +16,6 @@ class TestCase(TestBase):
   12.233 us [ 3479] | } /* main */
 """)
 
-    def build(self, name, cflags='', ldflags=''):
-        # cygprof doesn't support arguments now
-        if cflags.find('-finstrument-functions') >= 0:
-            return TestBase.TEST_SKIP
-
-        return TestBase.build(self, name, cflags, ldflags)
-
     def runcmd(self):
         return '%s -A "getenv|atoi@arg1/s" -A malloc@arg1 %s 100' % \
             (TestBase.ftrace, 't-' + self.name)

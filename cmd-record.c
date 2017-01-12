@@ -1244,9 +1244,8 @@ static void print_child_usage(struct rusage *ru)
 "\tThis machine type (%u) is not supported currently.\n"		\
 "\tSorry about that!\n"
 
-#define ARGUMENT_MSG  "-A and/or -R option can be used only for binaries\n" \
-"\tbuilt with -pg flag.  Use --force option if you want to proceed\n"   \
-"\twith no argument and/or return value info.\n"
+#define ARGUMENT_MSG  "uftrace: -A or -R might not work for binaries"	\
+" with -finstrument-functions\n"
 
 static void check_binary(struct opts *opts)
 {
@@ -1303,7 +1302,7 @@ static void check_binary(struct opts *opts)
 		}
 		else if (chk == 2 && (opts->args || opts->retval)) {
 			/* arg/retval doesn't support -finstrument-functions */
-			pr_err_ns(ARGUMENT_MSG);
+			pr_out(ARGUMENT_MSG);
 		}
 		else if (chk < 0) {
 			pr_err_ns("Cannot check '%s'\n", opts->exename);
