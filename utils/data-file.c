@@ -133,9 +133,10 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s",
-			       &sec, &nsec, &sess.task.tid, (char *)&sess.sid);
+			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
+			       &sec, &nsec, &sess.task.pid, (char *)&sess.sid);
 
+			// Get the execname
 			pos = strstr(line, "exename=");
 			if (pos == NULL)
 				pr_err_ns("invalid task.txt format");
@@ -144,7 +145,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (pos)
 				*pos = '\0';
 
-			sess.task.pid = sess.task.tid;
+			sess.task.tid = sess.task.pid;
 			sess.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			sess.namelen = strlen(exename);
 
@@ -217,8 +218,8 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
-	fprintf(fp, "SESS timestamp=%s tid=%d sid=%s exename=\"%s\"\n",
-		ts, smsg->task.tid, smsg->sid, exename);
+	fprintf(fp, "SESS timestamp=%s pid=%d sid=%s exename=\"%s\"\n",
+	        ts, smsg->task.pid, smsg->sid, exename);
 
 	fclose(fp);
 	free(fname);
