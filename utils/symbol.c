@@ -713,9 +713,16 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		free(symfile);
 	}
 
-	if (symtabs->symtab.nr_sym == 0)
+	/*
+	 * skip loading unnecessary symbols (when no filter is used in
+	 * the libmcount).  but it still needs to load dynamic symbols
+	 * for plthook anyway.
+	 */
+	if (symtabs->symtab.nr_sym == 0 &&
+	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
 		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-	if (symtabs->dsymtab.nr_sym == 0)
+	if (symtabs->dsymtab.nr_sym == 0 &&
+	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
 		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
 
 	symtabs->loaded = true;
@@ -727,9 +734,9 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 	if (symtabs->loaded)
 		return;
 
-	if (symtabs->symtab.nr_sym == 0)
+	if (!(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
 		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-	if (symtabs->dsymtab.nr_sym == 0)
+	if (!(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
 		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
 
 	symtabs->loaded = true;

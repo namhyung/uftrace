@@ -36,7 +36,8 @@
 
 uint64_t mcount_threshold;  /* nsec */
 struct symtabs symtabs = {
-	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
+	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET |
+		 SYMTAB_FL_SKIP_NORMAL | SYMTAB_FL_SKIP_DYNAMIC,
 };
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 bool mcount_setup_done;
@@ -1014,6 +1015,11 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	dirname = getenv("UFTRACE_DIR");
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
+
+	if (filter_str || trigger_str || argument_str || retval_str)
+		symtabs.flags &= ~SYMTAB_FL_SKIP_NORMAL;
+	if (plthook_str)
+		symtabs.flags &= ~SYMTAB_FL_SKIP_DYNAMIC;
 
 	mcount_exename = read_exename();
 	record_proc_maps(dirname, session_name(), &symtabs);

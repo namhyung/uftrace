@@ -54,6 +54,8 @@ enum symtab_flag {
 	SYMTAB_FL_DEMANGLE	= (1U << 0),
 	SYMTAB_FL_USE_SYMFILE	= (1U << 1),
 	SYMTAB_FL_ADJ_OFFSET	= (1U << 2),
+	SYMTAB_FL_SKIP_NORMAL	= (1U << 3),
+	SYMTAB_FL_SKIP_DYNAMIC	= (1U << 4),
 };
 
 struct symtabs {
