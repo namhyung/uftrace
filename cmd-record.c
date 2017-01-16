@@ -794,6 +794,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess sess;
+	struct ftrace_msg_dlopen dmsg;
 	char *exename;
 	int lost;
 
@@ -943,6 +944,23 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			pr_err("reading pipe failed");
 
 		shmem_lost_count += lost;
+		break;
+
+	case FTRACE_MSG_DLOPEN:
+		if (msg.len < sizeof(dmsg))
+			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &dmsg, sizeof(dmsg)) < 0)
+			pr_err("reading pipe failed");
+
+		exename = xmalloc(dmsg.namelen + 1);
+		if (read_all(pfd, exename, dmsg.namelen) < 0)
+			pr_err("reading pipe failed");
+		exename[dmsg.namelen] = '\0';
+
+		pr_dbg2("MSG DLOPEN: %d: %#lx %s\n", dmsg.task.tid, dmsg.base_addr, exename);
+
+		write_dlopen_info(dirname, &dmsg, exename);
 		break;
 
 	default:

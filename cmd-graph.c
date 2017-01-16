@@ -207,6 +207,10 @@ static int print_backtrace(struct uftrace_graph *graph)
 
 		for (k = 0; k < bt->len; k++) {
 			sym = find_symtabs(&graph->sess->symtabs, bt->addr[k]);
+			if (sym == NULL)
+				sym = session_find_dlsym(graph->sess,
+							 bt->time, bt->addr[k]);
+
 			symname = symbol_getname(sym, bt->addr[k]);
 			pr_out("   [%d] %s (%#lx)\n", k, symname, bt->addr[k]);
 			symbol_putname(sym, symname);

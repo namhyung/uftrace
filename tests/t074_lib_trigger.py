@@ -12,7 +12,10 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def build(self, name, cflags='', ldflags=''):
-        return TestBase.build_libabc(self, name, cflags, ldflags)
+        if TestBase.build_libabc(self, cflags, ldflags) != 0:
+            return TestBase.TEST_BUILD_FAIL
+        return TestBase.build_libmain(self, name, 's-libmain.c',
+                                      ['libabc_test_lib.so'])
 
     def runcmd(self):
         return '%s --force --no-libcall -T lib_b@libabc_test,depth=1 %s' % (TestBase.ftrace, 't-' + self.name)

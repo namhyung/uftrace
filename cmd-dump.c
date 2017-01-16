@@ -893,6 +893,11 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (sess) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, frs->addr);
+
+				if (sym == NULL)
+					sym = session_find_dlsym(sess,
+								 frs->time,
+								 frs->addr);
 			}
 
 			name = symbol_getname(sym, frs->addr);
@@ -971,8 +976,12 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 	char *name;
 
 	sess = find_task_session(task->tid, frs->time);
-	if (sess || is_kernel_address(frs->addr))
+	if (sess || is_kernel_address(frs->addr)) {
 		sym = find_symtabs(&sess->symtabs, frs->addr);
+		if (sym == NULL && sess)
+			sym = session_find_dlsym(sess, frs->time,
+						 frs->addr);
+	}
 
 	name = symbol_getname(sym, frs->addr);
 	ops->task_rstack(ops, task, name);

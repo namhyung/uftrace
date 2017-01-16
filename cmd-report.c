@@ -129,6 +129,8 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 		return false;
 
 	sym = find_symtabs(&sess->symtabs, addr);
+	if (sym == NULL)
+		sym = session_find_dlsym(sess, time, addr);
 
 	fstack = &task->func_stack[task->stack_count];
 

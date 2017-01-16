@@ -65,13 +65,8 @@ class TestBase:
         except:
             return TestBase.TEST_BUILD_FAIL
 
-    def build_libabc(self, name, cflags='', ldflags=''):
-        if self.lang not in TestBase.supported_lang:
-            self.pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
-            return TestBase.TEST_UNSUPP_LANG
-
-        lang = TestBase.supported_lang[self.lang]
-        prog = 't-' + name
+    def build_libabc(self, cflags='', ldflags=''):
+        lang = TestBase.supported_lang['C']
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
@@ -87,11 +82,43 @@ class TestBase:
         self.pr_debug("build command for library: %s" % build_cmd)
         if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
             return TestBase.TEST_BUILD_FAIL
+        return 0
 
-        exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. -labc_test_lib'
+    def build_libfoo(self, name, cflags='', ldflags=''):
+        prog = 't-' + name
+        lang = TestBase.supported_lang['C++']
 
-        build_cmd = '%s -o %s s-libmain.c %s' % \
-                    (lang['cc'], prog, exe_ldflags)
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
+                                  os.getenv(lang['flags'], '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, \
+                                  os.getenv('LDFLAGS', '')])
+
+        lib_cflags = build_cflags + ' -shared -fPIC'
+
+        # build lib{foo}.so library
+        build_cmd = '%s -o lib%s.so %s s-lib%s%s %s' % \
+                    (lang['cc'], name, lib_cflags, name, lang['ext'], build_ldflags)
+
+        self.pr_debug("build command for library: %s" % build_cmd)
+        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
+            return TestBase.TEST_BUILD_FAIL
+        return 0
+
+    def build_libmain(self, exename, srcname, libs, cflags='', ldflags=''):
+        if self.lang not in TestBase.supported_lang:
+            self.pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
+            return TestBase.TEST_UNSUPP_LANG
+
+        lang = TestBase.supported_lang[self.lang]
+        prog = 't-' + exename
+        build_cflags  = ' '.join(TestBase.default_cflags +
+                                 [self.cflags, cflags, os.getenv(lang['flags'], '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
+        exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. '
+        for lib in libs:
+            exe_ldflags += ' -l' + lib[3:-3]
+
+        build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, srcname, exe_ldflags)
 
         self.pr_debug("build command for executable: %s" % build_cmd)
         if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:

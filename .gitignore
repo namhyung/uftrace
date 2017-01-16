@@ -17,7 +17,7 @@ libcygprof-nop.so
 gmon.out
 tests/t-*
 tests/arch/*/t-*
-tests/libabc_test_lib.so
+tests/*.so
 check-deps/*
 !check-deps/*.c
 !check-deps/Makefile*
