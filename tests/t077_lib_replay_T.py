@@ -15,7 +15,10 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def build(self, name, cflags='', ldflags=''):
-        return TestBase.build_libabc(self, name, cflags, ldflags)
+        if TestBase.build_libabc(self, cflags, ldflags) != 0:
+            return TestBase.TEST_BUILD_FAIL
+        return TestBase.build_libmain(self, name, 's-libmain.c',
+                                      ['libabc_test_lib.so'])
 
     def pre(self):
         record_cmd = '%s record --force --no-libcall -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
