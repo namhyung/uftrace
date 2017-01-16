@@ -84,9 +84,25 @@ class TestBase:
             return TestBase.TEST_BUILD_FAIL
         return 0
 
+    def build_libfoo(self, name, cflags='', ldflags=''):
+        prog = 't-' + name
+        lang = TestBase.supported_lang['C++']
+
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
+                                  os.getenv(lang['flags'], '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, \
+                                  os.getenv('LDFLAGS', '')])
+
+        lib_cflags = build_cflags + ' -shared -fPIC'
+
+        # build lib{foo}.so library
+        build_cmd = '%s -o lib%s.so %s s-lib%s%s %s' % \
+                    (lang['cc'], name, lib_cflags, name, lang['ext'], build_ldflags)
+
         self.pr_debug("build command for library: %s" % build_cmd)
         if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
             return TestBase.TEST_BUILD_FAIL
+        return 0
 
     def build_libmain(self, exename, srcname, libs, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
