@@ -939,6 +939,11 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	char *threshold_str;
 	char *color_str;
 	char *demangle_str;
+	char *filter_str;
+	char *trigger_str;
+	char *argument_str;
+	char *retval_str;
+	char *plthook_str;
 	char *dirname;
 	struct stat statbuf;
 	LIST_HEAD(modules);
@@ -962,6 +967,11 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	color_str = getenv("UFTRACE_COLOR");
 	threshold_str = getenv("UFTRACE_THRESHOLD");
 	demangle_str = getenv("UFTRACE_DEMANGLE");
+	filter_str = getenv("UFTRACE_FILTER");
+	trigger_str = getenv("UFTRACE_TRIGGER");
+	argument_str = getenv("UFTRACE_ARGUMENT");
+	retval_str = getenv("UFTRACE_RETVAL");
+	plthook_str = getenv("UFTRACE_PLTHOOK");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1010,28 +1020,18 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_setup_filter_module(getenv("UFTRACE_FILTER"), &modules,
-				   mcount_exename);
-	ftrace_setup_filter_module(getenv("UFTRACE_TRIGGER"), &modules,
-				   mcount_exename);
-	ftrace_setup_filter_module(getenv("UFTRACE_ARGUMENT"), &modules,
-				   mcount_exename);
-	ftrace_setup_filter_module(getenv("UFTRACE_RETVAL"), &modules,
-				   mcount_exename);
+	ftrace_setup_filter_module(filter_str, &modules, mcount_exename);
+	ftrace_setup_filter_module(trigger_str, &modules, mcount_exename);
+	ftrace_setup_filter_module(argument_str, &modules, mcount_exename);
+	ftrace_setup_filter_module(retval_str, &modules, mcount_exename);
 
 	load_module_symtabs(&symtabs, &modules);
 
-	ftrace_setup_filter(getenv("UFTRACE_FILTER"), &symtabs,
-			    &mcount_triggers, &mcount_filter_mode);
-
-	ftrace_setup_trigger(getenv("UFTRACE_TRIGGER"), &symtabs,
-			     &mcount_triggers);
-
-	ftrace_setup_argument(getenv("UFTRACE_ARGUMENT"), &symtabs,
-			      &mcount_triggers);
-
-	ftrace_setup_retval(getenv("UFTRACE_RETVAL"), &symtabs,
-			      &mcount_triggers);
+	ftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
+			    &mcount_filter_mode);
+	ftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
+	ftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
+	ftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
 
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
@@ -1046,8 +1046,8 @@ void __visible_default __monstartup(unsigned long low, unsigned long high)
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
-	if (getenv("UFTRACE_PLTHOOK")) {
-		if (symtabs.loaded && symtabs.dsymtab.nr_sym == 0) {
+	if (plthook_str) {
+		if (symtabs.dsymtab.nr_sym == 0) {
 			pr_dbg("skip PLT hooking due to no dynamic symbols\n");
 			goto out;
 		}
