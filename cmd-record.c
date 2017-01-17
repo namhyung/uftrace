@@ -24,7 +24,7 @@
 #include "utils/list.h"
 #include "utils/filter.h"
 
-#define SHMEM_NAME_SIZE (64 - (int)sizeof(void*))
+#define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
 struct shmem_list {
 	struct list_head list;
