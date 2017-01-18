@@ -755,7 +755,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 	if (is_kernel_address(ip)) {
 		struct sym *sym = find_symtabs(NULL, ip);
 
-		if (!strncmp(sym->name, "sys_exit", 8))
+		if (sym && !strncmp(sym->name, "sys_exit", 8))
 			return true;
 	}
 	return false;
