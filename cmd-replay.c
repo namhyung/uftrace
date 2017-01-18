@@ -755,7 +755,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 	if (is_kernel_address(ip)) {
 		struct sym *sym = find_symtabs(NULL, ip);
 
-		if (!strncmp(sym->name, "sys_exit", 8))
+		if (sym && !strncmp(sym->name, "sys_exit", 8))
 			return true;
 	}
 	return false;
@@ -860,7 +860,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		kern.skip_out = opts->kernel_skip_out;
 		if (setup_kernel_data(&kern) == 0) {
 			handle.kern = &kern;
-			load_kernel_symbol();
+			load_kernel_symbol(opts->dirname);
 		}
 	}
 

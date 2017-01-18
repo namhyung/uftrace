@@ -598,7 +598,7 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			if (!strcasecmp(pos, "plt"))
 				*psymtab = &symtabs->dsymtab;
 			else if (!strcasecmp(pos, "kernel"))
-				*psymtab = NULL;
+				*psymtab = get_kernel_symtab();
 			else if (!strcmp(pos, basename(symtabs->filename)))
 				*psymtab = &symtabs->symtab;
 			else {

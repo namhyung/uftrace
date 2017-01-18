@@ -1153,19 +1153,51 @@ void save_module_symtabs(struct symtabs *symtabs, struct list_head *modules)
 	}
 }
 
-int load_kernel_symbol(void)
+int save_kernel_symbol(char *dirname)
+{
+	char *symfile = NULL;
+	char buf[4096];
+	FILE *ifp, *ofp;
+	ssize_t len;
+	int ret = 0;
+
+	xasprintf(&symfile, "%s/kallsyms", dirname);
+	ifp = fopen("/proc/kallsyms", "r");
+	ofp = fopen(symfile, "w");
+
+	if (ifp == NULL || ofp == NULL)
+		pr_err("cannot open kernel symbol file");
+
+	while ((len = fread(buf, 1, sizeof(buf), ifp)) > 0)
+		fwrite(buf, 1, len, ofp);
+
+	if (len < 0)
+		ret = len;
+
+	fclose(ifp);
+	fclose(ofp);
+	free(symfile);
+	return ret;
+}
+
+int load_kernel_symbol(char *dirname)
 {
 	unsigned i;
+	char *symfile = NULL;
 
 	if (ksymtabs.loaded)
 		return 0;
 
-	if (load_symbol_file(&ksymtabs, "/proc/kallsyms", 0) < 0)
+	xasprintf(&symfile, "%s/kallsyms", dirname);
+	if (load_symbol_file(&ksymtabs, symfile, 0) < 0) {
+		free(symfile);
 		return -1;
+	}
 
 	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)
 		ksymtabs.symtab.sym[i].type = ST_KERNEL;
 
+	free(symfile);
 	ksymtabs.loaded = true;
 	return 0;
 }

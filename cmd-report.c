@@ -1048,7 +1048,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		kern.skip_out = opts->kernel_skip_out;
 		if (setup_kernel_data(&kern) == 0) {
 			handle.kern = &kern;
-			load_kernel_symbol();
+			load_kernel_symbol(opts->dirname);
 		}
 	}
 
