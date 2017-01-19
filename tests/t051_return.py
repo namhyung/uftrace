@@ -17,5 +17,11 @@ class TestCase(TestBase):
 """)
 
     def fixup(self, cflags, result):
-        return result.replace('memset', """memset();
+        import platform
+        if platform.machine().startswith('arm'):
+            return result.replace('memset', """memset();
    1.440 us [12703] |     memcpy""");
+
+        return result.replace("""return_large() {
+   1.440 us [12703] |     memset();
+   2.533 us [12703] |   } /* return_large */""", 'return_large();')

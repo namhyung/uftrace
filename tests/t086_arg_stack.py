@@ -33,7 +33,8 @@ class TestCase(TestBase):
         return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
-        argopt  = '-A "many@arg1%stack+1,arg2%stack+2,arg3%stack+3,arg4%stack+4" '
-        argopt += '-A "many@arg5%stack5,arg6%stack6,arg7%stack7"'
+        argopt  = '-A "many@arg1/i32%stack+1,arg2/i32%stack+2" '
+        argopt += '-A "many@arg3/i32%stack+3,arg4/i32%stack+4" '
+        argopt += '-A "many@arg5/i32%stack5,arg6/i32%stack6,arg7/i32%stack7"'
 
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
