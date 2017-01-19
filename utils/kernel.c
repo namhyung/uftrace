@@ -630,6 +630,7 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 	FILE *fp;
 	char buf[4096];
 	struct pevent *pevent = kernel->pevent;
+	int ret = 0;
 
 	xasprintf(&path, "%s/kernel_header", kernel->output_dir);
 
@@ -640,7 +641,6 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		char name[128];
 		size_t len;
-		int ret;
 
 		if (strncmp(buf, "TRACEFS:", 8) != 0) {
 			char val[32];
@@ -667,7 +667,10 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 
 		sscanf(buf, "TRACEFS: %[^:]: %zd\n", name, &len);
 
-		fread(buf, len, 1, fp);
+		if (fread(buf, 1, len, fp) != len) {
+			ret = -1;
+			break;
+		}
 
 		if (!strcmp(name, "events/header_page")) {
 			pevent_parse_header_page(pevent, buf, len,
@@ -685,7 +688,7 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 
 	fclose(fp);
 	free(path);
-	return 0;
+	return ret;
 }
 
 static size_t trace_pagesize;
