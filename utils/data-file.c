@@ -159,8 +159,9 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%lx",
-			       &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid, &dlop.base_addr);
+			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
+			       &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
+			       &dlop.base_addr);
 
 			pos = strstr(line, "libname=");
 			if (pos == NULL)
@@ -176,7 +177,8 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 
 			s = get_session_from_sid(dlop.sid);
 			assert(s);
-			session_add_dlopen(s, dirname, dlop.task.time, dlop.base_addr, exename);
+			session_add_dlopen(s, dirname, dlop.task.time,
+					   dlop.base_addr, exename);
 		}
 	}
 
@@ -266,7 +268,7 @@ void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), dmsg->task.time);
-	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%s base=%lx libname=\"%s\"\n",
+	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%s base=%"PRIx64" libname=\"%s\"\n",
 		ts, dmsg->task.tid, dmsg->sid, dmsg->base_addr, libname);
 
 	fclose(fp);
