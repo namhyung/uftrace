@@ -533,8 +533,8 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 
 	if (frs->type == FTRACE_ENTRY) {
 		ph = 'B';
-		pr_out("{\"ts\":%"PRIu64",\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, ph, task->tid, name);
+		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -546,8 +546,8 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	}
 	else if (frs->type == FTRACE_EXIT) {
 		ph = 'E';
-		pr_out("{\"ts\":%"PRIu64",\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, ph, task->tid, name);
+		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -598,7 +598,7 @@ static void print_chrome_footer(struct uftrace_dump_ops *ops,
 	ctime_r(&statbuf.st_mtime, buf);
 	buf[strlen(buf) - 1] = '\0';
 
-	pr_out("\n], \"metadata\": {\n");
+	pr_out("\n], \"displayTimeUnit\": \"ns\", \"metadata\": {\n");
 	if (handle->hdr.info_mask & (1UL << CMDLINE))
 		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
 	pr_out("\"recorded_time\":\"%s\"\n", buf);
