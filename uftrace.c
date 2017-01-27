@@ -211,24 +211,24 @@ static const char * false_str[] = {
 	"false", "no", "off", "n", "0",
 };
 
-static int parse_color(char *arg)
+static enum color_setting parse_color(char *arg)
 {
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(true_str); i++) {
 		if (!strcmp(arg, true_str[i]))
-			return 1;
+			return COLOR_ON;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
 		if (!strcmp(arg, false_str[i]))
-			return 0;
+			return COLOR_OFF;
 	}
 
 	if (!strcmp(arg, "auto"))
-		return -1;
+		return COLOR_AUTO;
 
-	return -2;
+	return COLOR_UNKNOWN;
 }
 
 static int parse_demangle(char *arg)
@@ -532,9 +532,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_color:
 		opts->color = parse_color(arg);
-		if (opts->color == -2) {
+		if (opts->color == COLOR_UNKNOWN) {
 			pr_use("unknown color setting: %s (ignoring..)\n", arg);
-			opts->color = -1;
+			opts->color = COLOR_AUTO;
 		}
 		break;
 
@@ -729,7 +729,7 @@ int main(int argc, char *argv[])
 		.max_stack	= OPT_RSTACK_DEFAULT,
 		.port		= UFTRACE_RECV_PORT,
 		.use_pager	= true,
-		.color		= -1,  /* default to 'auto' (turn on if terminal) */
+		.color		= COLOR_AUTO,  /* default to 'auto' (turn on if terminal) */
 		.column_offset	= 8,
 		.comment	= true,
 		.kernel_skip_out= true,

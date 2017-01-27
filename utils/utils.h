@@ -55,6 +55,13 @@ enum debug_domain {
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];
 
+enum color_setting {
+	COLOR_UNKNOWN,
+	COLOR_AUTO,
+	COLOR_OFF,
+	COLOR_ON,
+};
+
 #define COLOR_CODE_RED      'R'
 #define COLOR_CODE_GREEN    'G'
 #define COLOR_CODE_BLUE     'B'
@@ -72,9 +79,9 @@ extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_warn(const char *fmt, ...);
 extern void __pr_color(char code, const char *fmt, ...);
 
-extern int log_color;
-extern int out_color;
-extern void setup_color(int color);
+extern enum color_setting log_color;
+extern enum color_setting out_color;
+extern void setup_color(enum color_setting color);
 extern void setup_signal(void);
 
 #ifndef PR_FMT
