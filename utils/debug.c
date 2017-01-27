@@ -71,21 +71,14 @@ static void color(const char *code, FILE *fp)
 
 void setup_color(enum color_setting color)
 {
-	log_color = color;
-	out_color = color;
-
-	if (color == COLOR_ON || color == COLOR_OFF)
-		return;
-
-	if (isatty(fileno(logfp)))
-		log_color = COLOR_ON;
-	else
-		log_color = COLOR_OFF;
-
-	if (isatty(fileno(outfp)))
-		out_color = COLOR_ON;
-	else
-		out_color = COLOR_OFF;
+	if (likely(color == COLOR_AUTO)) {
+		log_color = isatty(fileno(logfp)) ? COLOR_ON : COLOR_OFF;
+		out_color = isatty(fileno(outfp)) ? COLOR_ON : COLOR_OFF;
+	}
+	else {
+		log_color = color;
+		out_color = color;
+	}
 }
 
 void __pr_dbg(const char *fmt, ...)
