@@ -31,8 +31,8 @@
 int debug;
 FILE *logfp;
 FILE *outfp;
-int log_color;
-int out_color;
+enum color_setting log_color;
+enum color_setting out_color;
 int dbg_domain[DBG_DOMAIN_MAX];
 
 static const struct color_code {
@@ -53,39 +53,32 @@ static void color(const char *code, FILE *fp)
 {
 	size_t len = strlen(code);
 
-	if ((fp == logfp && !log_color) ||
-	    (fp == outfp && !out_color))
+	if ((fp == logfp && log_color == COLOR_OFF) ||
+	    (fp == outfp && out_color == COLOR_OFF))
 		return;
 
 	if (fwrite(code, 1, len, fp) == len)
 		return;  /* ok */
 
 	/* disable color */
-	log_color = 0;
-	out_color = 0;
+	log_color = COLOR_OFF;
+	out_color = COLOR_OFF;
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
 	if (fwrite(TERM_COLOR_RESET, 1, len, fp) != len)
 		pr_err("resetting terminal color failed");
 }
 
-void setup_color(int color)
+void setup_color(enum color_setting color)
 {
-	log_color = color;
-	out_color = color;
-
-	if (log_color >= 0)
-		return;
-
-	if (isatty(fileno(logfp)))
-		log_color = 1;
-	else
-		log_color = 0;
-
-	if (isatty(fileno(outfp)))
-		out_color = 1;
-	else
-		out_color = 0;
+	if (likely(color == COLOR_AUTO)) {
+		log_color = isatty(fileno(logfp)) ? COLOR_ON : COLOR_OFF;
+		out_color = isatty(fileno(outfp)) ? COLOR_ON : COLOR_OFF;
+	}
+	else {
+		log_color = color;
+		out_color = color;
+	}
 }
 
 void __pr_dbg(const char *fmt, ...)
@@ -225,7 +218,7 @@ void print_time_unit(uint64_t delta_nsec)
 	if (delta > 999)
 		delta = delta_small = 999;
 
-	if (out_color)
+	if (out_color == COLOR_ON)
 		unit = color_units[idx];
 	else
 		unit = units[idx];
@@ -250,7 +243,7 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 	if (percent > 999.99)
 		percent = 999.99;
 
-	if (out_color)
+	if (out_color == COLOR_ON)
 		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
 	else
 		pr_out(" %+7.2f%%", percent);

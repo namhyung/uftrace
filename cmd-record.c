@@ -194,7 +194,7 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if(opts->disabled)
 		setenv("UFTRACE_DISABLED", "1", 1);
 
-	if (log_color) {
+	if (log_color == COLOR_ON) {
 		snprintf(buf, sizeof(buf), "%d", log_color);
 		setenv("UFTRACE_COLOR", buf, 1);
 	}
