@@ -145,7 +145,7 @@ void __pr_warn(const char *fmt, ...)
 {
 	va_list ap;
 
-	color(TERM_COLOR_RED, logfp);
+	color(TERM_COLOR_YELLOW, logfp);
 
 	va_start(ap, fmt);
 	vfprintf(logfp, fmt, ap);
