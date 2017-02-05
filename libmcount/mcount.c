@@ -199,10 +199,6 @@ static void mtd_dtor(void *arg)
 
 static void mcount_init_file(void)
 {
-	/* This is for the case of library-only tracing */
-	if (!mcount_setup_done)
-		__monstartup(0, ~0);
-
 	send_session_msg(&mtd, session_name());
 }
 
