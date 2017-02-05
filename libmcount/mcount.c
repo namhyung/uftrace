@@ -478,23 +478,33 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		.flags = 0,
 	};
 
-	/*
-	 * If an executable has its own malloc(), following recursion could occur
-	 *
-	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
-	 */
 	if (unlikely(mcount_should_stop()))
 		return -1;
-
-	mtd.recursion_guard = true;
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
+		/*
+		 * If an executable implements its own malloc(),
+		 * following recursion could occur
+		 *
+		 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
+		 */
+		if (mtd.recursion_guard)
+			return -1;
+
+		mtd.recursion_guard = true;
+
 		mcount_prepare();
 
 		mtdp = get_thread_data();
 		assert(mtdp);
+	}
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			return -1;
+
+		mtdp->recursion_guard = true;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
@@ -579,15 +589,30 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
-	mtd.recursion_guard = true;
-
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
+		/*
+		 * If an executable implements its own malloc(),
+		 * following recursion could occur
+		 *
+		 * cygprof_entry -> mcount_prepare -> xmalloc -> cygprof_entry
+		 */
+		if (mtd.recursion_guard)
+			return -1;
+
+		mtd.recursion_guard = true;
+
 		mcount_prepare();
 
 		mtdp = get_thread_data();
 		assert(mtdp);
+	}
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			return -1;
+
+		mtdp->recursion_guard = true;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
@@ -638,14 +663,23 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	if (unlikely(mcount_should_stop()))
 		return;
 
-	mtd.recursion_guard = true;
-
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
+		if (mtd.recursion_guard)
+			return;
+
+		mtd.recursion_guard = true;
+
 		mcount_prepare();
 
 		mtdp = get_thread_data();
 		assert(mtdp);
+	}
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			return;
+
+		mtdp->recursion_guard = true;
 	}
 
 	/*
@@ -908,10 +942,21 @@ __visible_default void * dlopen(const char *filename, int flags)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
+		if (mtd.recursion_guard)
+			return ret;
+
+		mtd.recursion_guard = true;
+
 		mcount_prepare();
 
 		mtdp = get_thread_data();
 		assert(mtdp);
+	}
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			return ret;
+
+		mtdp->recursion_guard = true;
 	}
 
 	dl_iterate_phdr(dlopen_base_callback, &data);
@@ -924,6 +969,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 	send_dlopen_msg(mtdp, session_name(), timestamp,
 			data.base_addr, data.libname);
 
+	mtdp->recursion_guard = false;
 	return ret;
 }
 
