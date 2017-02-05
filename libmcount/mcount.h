@@ -160,7 +160,7 @@ extern unsigned long plthook_resolver_addr;
 
 extern void __monstartup(unsigned long low, unsigned long high);
 extern void mcount_return(void);
-extern void mcount_prepare(void);
+extern struct mcount_thread_data * mcount_prepare(void);
 extern uint64_t mcount_gettime(void);
 extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
 extern void ftrace_send_message(int type, void *data, size_t len);
@@ -184,7 +184,7 @@ extern void destroy_dynsym_indexes(void);
 
 static inline bool mcount_should_stop(void)
 {
-	return !mcount_setup_done || mcount_finished || mtd.recursion_guard;
+	return !mcount_setup_done || mcount_finished;
 }
 
 struct ftrace_trigger;
