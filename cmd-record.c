@@ -1417,16 +1417,18 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		kern.bufsize = opts->kernel_bufsize;
 
 		if (!opts->nr_thread) {
-			if (opts->kernel_depth >= 16)
+			if (opts->kernel_depth >= 4)
 				opts->nr_thread = nr_cpu;
-			else if (opts->kernel_depth >= 8)
+			else if (opts->kernel_depth >= 2)
 				opts->nr_thread = nr_cpu / 2;
 		}
 
 		if (!opts->kernel_bufsize) {
-			if (opts->kernel_depth >= 16)
+			if (opts->kernel_depth >= 8)
 				kern.bufsize = 4096 * 1024;
-			else if (opts->kernel_depth >= 8)
+			else if (opts->kernel_depth >= 4)
+				kern.bufsize = 3072 * 1024;
+			else if (opts->kernel_depth >= 2)
 				kern.bufsize = 2048 * 1024;
 		}
 
