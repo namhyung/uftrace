@@ -177,8 +177,6 @@ static const char *skip_syms[] = {
 	"_Unwind_Resume",
 };
 
-static struct dynsym_idxlist skip_idxlist;
-
 static const char *setjmp_syms[] = {
 	"setjmp",
 	"_setjmp",
@@ -186,21 +184,15 @@ static const char *setjmp_syms[] = {
 	"__sigsetjmp",
 };
 
-static struct dynsym_idxlist setjmp_idxlist;
-
 static const char *longjmp_syms[] = {
 	"longjmp",
 	"siglongjmp",
 	"__longjmp_chk",
 };
 
-static struct dynsym_idxlist longjmp_idxlist;
-
 static const char *vfork_syms[] = {
 	"vfork",
 };
-
-static struct dynsym_idxlist vfork_idxlist;
 
 static const char *flush_syms[] = {
 	"fork", "vfork", "daemon", "exit",
@@ -208,29 +200,103 @@ static const char *flush_syms[] = {
 	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
 };
 
-static struct dynsym_idxlist flush_idxlist;
+enum plthook_action {
+	PLT_FL_SKIP		= 1U << 0,
+	PLT_FL_LONGJMP		= 1U << 1,
+	PLT_FL_SETJMP		= 1U << 2,
+	PLT_FL_VFORK		= 1U << 3,
+	PLT_FL_FLUSH		= 1U << 4,
+};
+
+struct plthook_special_func {
+	unsigned idx;
+	unsigned flags;  /* enum plthook_action */
+};
+
+static struct plthook_special_func *special_funcs;
+static int nr_special;
+
+void add_special_func(unsigned idx, unsigned flags)
+{
+	int i;
+	struct plthook_special_func *func;
+
+	for (i = 0; i < nr_special; i++) {
+		func = &special_funcs[i];
+
+		if (func->idx == idx) {
+			func->flags |= flags;
+			return;
+		}
+	}
+
+	special_funcs = xrealloc(special_funcs,
+				 (nr_special + 1) * sizeof(*func));
+
+	func = &special_funcs[nr_special++];
+
+	func->idx     = idx;
+	func->flags   = flags;
+}
+
+static void build_special_funcs(struct symtabs *symtabs, const char *syms[],
+				unsigned nr_sym, unsigned flag)
+{
+	unsigned i;
+	struct dynsym_idxlist idxlist;
+
+	build_dynsym_idxlist(symtabs, &idxlist, syms, nr_sym);
+	for (i = 0; i < idxlist.count; i++)
+		add_special_func(idxlist.idx[i], flag);
+	destroy_dynsym_idxlist(&idxlist);
+}
+
+static int idxsort(const void *a, const void *b)
+{
+	const struct plthook_special_func *func_a = a;
+	const struct plthook_special_func *func_b = b;
+
+	if (func_a->idx > func_b->idx)
+		return 1;
+	if (func_a->idx < func_b->idx)
+		return -1;
+	return 0;
+}
+
+static int idxfind(const void *a, const void *b)
+{
+	unsigned idx = (unsigned long) a;
+	const struct plthook_special_func *func = b;
+
+	if (func->idx == idx)
+		return 0;
+
+	return (idx > func->idx) ? 1 : -1;
+}
 
 void setup_dynsym_indexes(struct symtabs *symtabs)
 {
-	build_dynsym_idxlist(symtabs, &skip_idxlist,
-			     skip_syms, ARRAY_SIZE(skip_syms));
-	build_dynsym_idxlist(symtabs, &setjmp_idxlist,
-			     setjmp_syms, ARRAY_SIZE(setjmp_syms));
-	build_dynsym_idxlist(symtabs, &longjmp_idxlist,
-			     longjmp_syms, ARRAY_SIZE(longjmp_syms));
-	build_dynsym_idxlist(symtabs, &vfork_idxlist,
-			     vfork_syms, ARRAY_SIZE(vfork_syms));
-	build_dynsym_idxlist(symtabs, &flush_idxlist,
-			     flush_syms, ARRAY_SIZE(flush_syms));
+	build_special_funcs(symtabs, skip_syms, ARRAY_SIZE(skip_syms),
+			    PLT_FL_SKIP);
+	build_special_funcs(symtabs, longjmp_syms, ARRAY_SIZE(longjmp_syms),
+			    PLT_FL_LONGJMP);
+	build_special_funcs(symtabs, setjmp_syms, ARRAY_SIZE(setjmp_syms),
+			    PLT_FL_SETJMP);
+	build_special_funcs(symtabs, vfork_syms, ARRAY_SIZE(vfork_syms),
+			    PLT_FL_VFORK);
+	build_special_funcs(symtabs, flush_syms, ARRAY_SIZE(flush_syms),
+			    PLT_FL_FLUSH);
+
+	/* built all table, now sorting */
+	qsort(special_funcs, nr_special, sizeof(*special_funcs), idxsort);
 }
 
 void destroy_dynsym_indexes(void)
 {
-	destroy_dynsym_idxlist(&skip_idxlist);
-	destroy_dynsym_idxlist(&setjmp_idxlist);
-	destroy_dynsym_idxlist(&longjmp_idxlist);
-	destroy_dynsym_idxlist(&vfork_idxlist);
-	destroy_dynsym_idxlist(&flush_idxlist);
+	free(special_funcs);
+	special_funcs = NULL;
+
+	nr_special = 0;
 }
 
 struct mcount_jmpbuf_rstack {
@@ -366,6 +432,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	};
 	bool skip = false;
 	enum filter_result filtered;
+	struct plthook_special_func *func;
+	unsigned long special_flag = 0;
 
 	if (unlikely(mcount_should_stop()))
 		return 0;
@@ -383,7 +451,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (mtdp->plthook_guard)
 		goto out;
 
-	if (check_dynsym_idxlist(&skip_idxlist, child_idx))
+	func = bsearch((void *)child_idx, special_funcs, nr_special,
+		       sizeof(*func), idxfind);
+	if (func)
+		special_flag |= func->flags;
+
+	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
 	sym = find_dynsym(&symtabs, child_idx);
@@ -426,22 +499,28 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	*ret_addr = (unsigned long)plthook_return;
 
-	if (check_dynsym_idxlist(&setjmp_idxlist, child_idx))
-		setup_jmpbuf_rstack(mtdp, mtdp->idx - 1);
-	else if (check_dynsym_idxlist(&longjmp_idxlist, child_idx))
-		rstack->flags |= MCOUNT_FL_LONGJMP;
-	else if (check_dynsym_idxlist(&vfork_idxlist, child_idx)) {
-		rstack->flags |= MCOUNT_FL_VFORK;
-		prepare_vfork(mtdp, rstack);
-	}
+	if (unlikely(special_flag)) {
+		if (special_flag & PLT_FL_SETJMP) {
+			setup_jmpbuf_rstack(mtdp, mtdp->idx - 1);
+		}
+		else if (special_flag & PLT_FL_LONGJMP) {
+			rstack->flags |= MCOUNT_FL_LONGJMP;
+		}
+		else if (special_flag & PLT_FL_VFORK) {
+			rstack->flags |= MCOUNT_FL_VFORK;
+			prepare_vfork(mtdp, rstack);
+		}
 
-	/* force flush rstack on some special functions */
-	if (check_dynsym_idxlist(&flush_idxlist, child_idx)) {
-		record_trace_data(mtdp, rstack, NULL);
+		/* force flush rstack on some special functions */
+		if (special_flag & PLT_FL_FLUSH) {
+			record_trace_data(mtdp, rstack, NULL);
+		}
 	}
 
 	if (plthook_dynsym_resolved[child_idx]) {
-		volatile unsigned long *resolved_addr = plthook_dynsym_addr + child_idx;
+		volatile unsigned long *resolved_addr;
+
+		resolved_addr = plthook_dynsym_addr + child_idx;
 
 		/* ensure resolved address was set */
 		while (!*resolved_addr)
