@@ -21,6 +21,7 @@ $(CHECK_LIST): %: __%.c
 
 check-tstamp: PHONY
 	@touch $@
+	@if [ `id -u` -eq 0 ]; then chmod 666 $@; fi
 
 check-clean:
 	@$(RM) $(CHECK_LIST) check-tstamp *.o

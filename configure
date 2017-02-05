@@ -99,6 +99,9 @@ echo override LDFLAGS = $LDFLAGS >> $output
 echo                             >> $output
 echo override srcdir := $srcdir  >> $output
 echo override objdir := $objdir  >> $output
+if [ $(id -u) -eq 0 ]; then
+    chmod 666 $output
+fi
 
 if [ "$srcdir" != "$objdir" ]; then
     cat > $objdir/Makefile <<EOF
@@ -129,4 +132,7 @@ test: all
 
 .PHONY: all clean prepare test install
 EOF
+    if [ $(id -u) -eq 0 ]; then
+        chmod 666 $objdir/Makefile
+    fi
 fi
