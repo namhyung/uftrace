@@ -372,17 +372,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		/*
-		 * There was a recursion like below:
-		 *
-		 * plthook_entry -> mcount_prepare -> xmalloc -> plthook_entry
-		 */
-		mtd.recursion_guard = true;
-
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
+			return 0;
 	}
 	else
 		mtdp->recursion_guard = true;

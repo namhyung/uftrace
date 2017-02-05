@@ -206,31 +206,45 @@ static void mcount_init_file(void)
 	send_session_msg(&mtd, session_name());
 }
 
-void mcount_prepare(void)
+struct mcount_thread_data * mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
-	struct ftrace_msg_task tmsg = {
-		.pid = getpid(),
-		.tid = gettid(&mtd),
-	};
+	struct mcount_thread_data *mtdp = &mtd;
+	struct ftrace_msg_task tmsg;
+
+	/*
+	 * If an executable implements its own malloc(),
+	 * following recursion could occur
+	 *
+	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
+	 */
+	if (mtdp->recursion_guard)
+		return NULL;
+
+	mtdp->recursion_guard = true;
+	compiler_barrier();
 
 #ifndef DISABLE_MCOUNT_FILTER
-	mtd.filter.depth  = mcount_depth;
-	mtd.filter.time   = mcount_threshold;
-	mtd.enable_cached = mcount_enabled;
-	mtd.argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
+	mtdp->filter.depth  = mcount_depth;
+	mtdp->filter.time   = mcount_threshold;
+	mtdp->enable_cached = mcount_enabled;
+	mtdp->argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 #endif
-	mtd.rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
+	mtdp->rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
-	prepare_shmem_buffer(&mtd);
+	prepare_shmem_buffer(mtdp);
 
-	pthread_setspecific(mtd_key, &mtd);
+	pthread_setspecific(mtd_key, mtdp);
 
 	/* time should be get after session message sent */
+	tmsg.pid = getpid(),
+	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+
+	return mtdp;
 }
 
 bool mcount_check_rstack(struct mcount_thread_data *mtdp)
@@ -484,21 +498,9 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		/*
-		 * If an executable implements its own malloc(),
-		 * following recursion could occur
-		 *
-		 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
-		 */
-		if (mtd.recursion_guard)
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
 			return -1;
-
-		mtd.recursion_guard = true;
-
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
 	}
 	else {
 		if (unlikely(mtdp->recursion_guard))
@@ -592,21 +594,9 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		/*
-		 * If an executable implements its own malloc(),
-		 * following recursion could occur
-		 *
-		 * cygprof_entry -> mcount_prepare -> xmalloc -> cygprof_entry
-		 */
-		if (mtd.recursion_guard)
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
 			return -1;
-
-		mtd.recursion_guard = true;
-
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
 	}
 	else {
 		if (unlikely(mtdp->recursion_guard))
@@ -665,15 +655,9 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		if (mtd.recursion_guard)
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
 			return;
-
-		mtd.recursion_guard = true;
-
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
 	}
 	else {
 		if (unlikely(mtdp->recursion_guard))
@@ -725,10 +709,10 @@ static void atfork_child_handler(void)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		mcount_prepare();
+		/* we need it even if in a recursion */
+		mtd.recursion_guard = false;
 
-		mtdp = get_thread_data();
-		assert(mtdp);
+		mtdp = mcount_prepare();
 	}
 
 	/* flush tid cache */
@@ -942,15 +926,9 @@ __visible_default void * dlopen(const char *filename, int flags)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		if (mtd.recursion_guard)
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
 			return ret;
-
-		mtd.recursion_guard = true;
-
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
 	}
 	else {
 		if (unlikely(mtdp->recursion_guard))
