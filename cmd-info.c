@@ -764,9 +764,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 	const char *fmt = "# %-20s: %s\n";
 
-	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		return -1;
+	open_data_file(opts, &handle);
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 

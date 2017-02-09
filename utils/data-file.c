@@ -356,7 +356,7 @@ retry:
 		// read task.txt first and then try old task file
 		if (read_task_txt_file(opts->dirname, true, sym_rel) < 0 &&
 		    read_task_file(opts->dirname, true, sym_rel) < 0)
-			pr_err("invalid task file");
+			pr_warn("invalid task file\n");
 	}
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
