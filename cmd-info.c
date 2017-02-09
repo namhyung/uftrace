@@ -23,6 +23,8 @@
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 
+#define BUILD_ID_SIZE 20
+#define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
 
 struct fill_handler_arg {
 	int fd;
@@ -75,8 +77,8 @@ static int read_exe_name(void *arg)
 static int fill_exe_build_id(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	unsigned char build_id[20];
-	char build_id_str[41];
+	unsigned char build_id[BUILD_ID_SIZE];
+	char build_id_str[BUILD_ID_STR_SIZE];
 	int fd;
 	Elf *elf;
 	Elf_Scn *sec = NULL;
@@ -122,7 +124,7 @@ static int fill_exe_build_id(void *arg)
 				      &name_offset, &desc_offset)) != 0) {
 		if (nhdr.n_type == NT_GNU_BUILD_ID &&
 		    !strcmp((char *)data->d_buf + name_offset, "GNU")) {
-			memcpy(build_id, (void *)data->d_buf + desc_offset, 20);
+			memcpy(build_id, (void *)data->d_buf + desc_offset, BUILD_ID_SIZE);
 			break;
 		}
 	}
@@ -140,11 +142,11 @@ close_fd:
 		return -1;
 	}
 
-	for (offset = 0; offset < 20; offset++) {
+	for (offset = 0; offset < BUILD_ID_SIZE; offset++) {
 		unsigned char c = build_id[offset];
 		sprintf(&build_id_str[offset*2], "%02x", c);
 	}
-	build_id_str[40] = '\0';
+	build_id_str[BUILD_ID_STR_SIZE - 1] = '\0';
 
 	return dprintf(fha->fd, "build_id:%s\n", build_id_str);
 }
@@ -168,7 +170,7 @@ static int read_exe_build_id(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct ftrace_info *info = &handle->info;
-	unsigned char build_id_str[41];
+	char build_id_str[BUILD_ID_STR_SIZE];
 	char buf[4096];
 	int i;
 
@@ -178,10 +180,10 @@ static int read_exe_build_id(void *arg)
 	if (strncmp(buf, "build_id:", 9))
 		return -1;
 
-	memcpy(build_id_str, &buf[9], 40);
-	build_id_str[40] = '\0';
+	memcpy(build_id_str, &buf[9], BUILD_ID_STR_SIZE - 1);
+	build_id_str[BUILD_ID_STR_SIZE - 1] = '\0';
 
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < BUILD_ID_SIZE; i++) {
 		int c1 = convert_to_int(build_id_str[i*2]);
 		int c2 = convert_to_int(build_id_str[i*2 + 1]);
 
@@ -835,7 +837,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (handle.hdr.info_mask & (1UL << EXE_BUILD_ID)) {
 		int i;
 		pr_out("# %-20s: ", "build id");
-		for (i = 0; i < 20; i++)
+		for (i = 0; i < BUILD_ID_SIZE; i++)
 			pr_out("%02x", handle.info.build_id[i]);
 		pr_out("\n");
 	}
