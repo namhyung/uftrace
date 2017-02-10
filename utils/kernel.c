@@ -694,7 +694,7 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 static size_t trace_pagesize;
 static struct trace_seq trace_seq;
 static struct ftrace_ret_stack trace_rstack = {
-	.unused = FTRACE_UNUSED,
+	.magic = RECORD_MAGIC,
 };
 
 static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu);

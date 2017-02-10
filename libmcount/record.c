@@ -158,7 +158,7 @@ reuse:
 
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
-		frstack->unused = FTRACE_UNUSED;
+		frstack->magic  = RECORD_MAGIC;
 		frstack->more   = 0;
 		frstack->addr   = shmem->losts;
 
@@ -389,7 +389,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
-	frstack->unused = FTRACE_UNUSED;
+	frstack->unused = RECORD_MAGIC;
 	frstack->more   = !!argbuf;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
@@ -398,7 +398,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	 * instead of set bitfields, do the bit operations manually.
 	 * this would be good both for performance and portability.
 	 */
-	rec  = type | FTRACE_UNUSED << 3;
+	rec  = type | RECORD_MAGIC << 3;
 	rec += argbuf ? 4 : 0;
 	rec += mrstack->depth << 6;
 	rec += mrstack->child_ip << 16;

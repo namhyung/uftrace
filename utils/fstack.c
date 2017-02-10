@@ -836,7 +836,7 @@ static int __read_task_ustack(struct ftrace_task_handle *task)
 		return -1;
 	}
 
-	if (task->ustack.unused != FTRACE_UNUSED) {
+	if (task->ustack.magic != RECORD_MAGIC) {
 		pr_dbg("invalid rstack read\n");
 		return -1;
 	}
@@ -1434,7 +1434,7 @@ kernel:
 			lost_rstack.type = FTRACE_LOST;
 			lost_rstack.addr = kernel->missed_events[k];
 			lost_rstack.depth = task->kstack.depth;
-			lost_rstack.unused = FTRACE_UNUSED;
+			lost_rstack.magic = RECORD_MAGIC;
 			lost_rstack.more = 0;
 
 			/*
@@ -1506,16 +1506,16 @@ static int test_tids[NUM_TASK] = { 1234, 5678 };
 static struct ftrace_task test_tasks[NUM_TASK];
 static struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
 	{
-		{ 100, FTRACE_ENTRY, false, FTRACE_UNUSED, 0, 0x40000 },
-		{ 200, FTRACE_ENTRY, false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 300, FTRACE_EXIT,  false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 400, FTRACE_EXIT,  false, FTRACE_UNUSED, 0, 0x40000 },
+		{ 100, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 200, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 300, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 400, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	},
 	{
-		{ 150, FTRACE_ENTRY, false, FTRACE_UNUSED, 0, 0x40000 },
-		{ 250, FTRACE_ENTRY, false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 350, FTRACE_EXIT,  false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 450, FTRACE_EXIT,  false, FTRACE_UNUSED, 0, 0x40000 },
+		{ 150, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 250, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 350, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 450, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	}
 };
 
