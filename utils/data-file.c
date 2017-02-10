@@ -275,6 +275,25 @@ void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 	free(fname);
 }
 
+static void check_data_order(struct ftrace_file_handle *handle)
+{
+	union {
+		struct ftrace_ret_stack s;
+		uint64_t d[2];
+	} data;
+
+	handle->needs_byte_swap = (get_elf_endian() != handle->hdr.endian);
+	if (handle->needs_bit_swap)
+		pr_dbg("byte order is different!\n");
+
+	/* the s.magic should be in bit[3:5] in the second word */
+	data.d[1] = RECORD_MAGIC << 3;
+
+	handle->needs_bit_swap = (data.s.magic != RECORD_MAGIC);
+	if (handle->needs_bit_swap)
+		pr_dbg("bitfield order is different!\n");
+}
+
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
 "\t-finstrument-functions flag and ran with ftrace record?\n"
 
@@ -338,6 +357,8 @@ retry:
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err("unsupported file version: %u", handle->hdr.version);
+
+	check_data_order(handle);
 
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("cannot read ftrace header info!");

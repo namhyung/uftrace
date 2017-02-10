@@ -122,6 +122,8 @@ struct ftrace_file_handle {
 	struct ftrace_task_handle *tasks;
 	int nr_tasks;
 	int depth;
+	bool needs_byte_swap;
+	bool needs_bit_swap;
 	uint64_t time_filter;
 	struct uftrace_time_range time_range;
 };
