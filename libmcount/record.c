@@ -158,7 +158,7 @@ reuse:
 
 		frstack->time   = 0;
 		frstack->type   = FTRACE_LOST;
-		frstack->unused = FTRACE_UNUSED;
+		frstack->magic  = RECORD_MAGIC;
 		frstack->more   = 0;
 		frstack->addr   = shmem->losts;
 
@@ -356,6 +356,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t size = sizeof(*frstack);
 	void *argbuf = NULL;
+	uint64_t *buf;
+	uint64_t rec;
 
 	if ((type == FTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
 	    (type == FTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
@@ -382,14 +384,29 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	if (type == FTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
+#if 0
 	frstack = (void *)(curr_buf->data + curr_buf->size);
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
-	frstack->unused = FTRACE_UNUSED;
+	frstack->unused = RECORD_MAGIC;
 	frstack->more   = !!argbuf;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
+#else
+	/*
+	 * instead of set bitfields, do the bit operations manually.
+	 * this would be good both for performance and portability.
+	 */
+	rec  = type | RECORD_MAGIC << 3;
+	rec += argbuf ? 4 : 0;
+	rec += mrstack->depth << 6;
+	rec += mrstack->child_ip << 16;
+
+	buf = (void *)(curr_buf->data + curr_buf->size);
+	buf[0] = timestamp;
+	buf[1] = rec;
+#endif
 
 	curr_buf->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;

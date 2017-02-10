@@ -122,6 +122,8 @@ struct ftrace_file_handle {
 	struct ftrace_task_handle *tasks;
 	int nr_tasks;
 	int depth;
+	bool needs_byte_swap;
+	bool needs_bit_swap;
 	uint64_t time_filter;
 	struct uftrace_time_range time_range;
 };
@@ -349,24 +351,24 @@ enum ftrace_ret_stack_type {
 	FTRACE_LOST,
 };
 
-#define FTRACE_UNUSED_V3  0xa
-#define FTRACE_UNUSED_V4  0x5
-#define FTRACE_UNUSED     FTRACE_UNUSED_V4
+#define RECORD_MAGIC_V3  0xa
+#define RECORD_MAGIC_V4  0x5
+#define RECORD_MAGIC     RECORD_MAGIC_V4
 
 /* reduced version of mcount_ret_stack */
 struct ftrace_ret_stack {
 	uint64_t time;
 	uint64_t type:   2;
 	uint64_t more:   1;
-	uint64_t unused: 3;
+	uint64_t magic:  3;
 	uint64_t depth:  10;
 	uint64_t addr:   48;
 };
 
 static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
 {
-	/* (FTRACE_UNUSED_V4 << 1 | more) == FTRACE_UNUSED_V3 */
-	return stack->unused == FTRACE_UNUSED && stack->more == 0;
+	/* (RECORD_MAGIC_V4 << 1 | more) == RECORD_MAGIC_V3 */
+	return stack->magic == RECORD_MAGIC && stack->more == 0;
 }
 
 struct fstack_arguments {

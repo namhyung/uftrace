@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
+#include <byteswap.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "fstack"
@@ -824,6 +825,26 @@ void reset_rstack_list(struct uftrace_rstack_list *list)
 	}
 }
 
+static void swap_byte_order(struct ftrace_ret_stack *rstack)
+{
+	uint64_t *ptr = (void *)rstack;
+
+	ptr[0] = bswap_64(ptr[0]);
+	ptr[1] = bswap_64(ptr[1]);
+}
+
+static void swap_bitfields(struct ftrace_ret_stack *rstack)
+{
+	uint64_t *ptr = (void *)rstack;
+	uint64_t data = ptr[1];
+
+	rstack->type  = (data >>  0) & 0x3;
+	rstack->more  = (data >>  2) & 0x1;
+	rstack->magic = (data >>  3) & 0x7;
+	rstack->depth = (data >>  6) & 0x3ff;
+	rstack->addr  = (data >> 16) & 0xffffffffffffULL;
+}
+
 static int __read_task_ustack(struct ftrace_task_handle *task)
 {
 	FILE *fp = task->fp;
@@ -836,7 +857,12 @@ static int __read_task_ustack(struct ftrace_task_handle *task)
 		return -1;
 	}
 
-	if (task->ustack.unused != FTRACE_UNUSED) {
+	if (task->h->needs_byte_swap)
+		swap_byte_order(&task->ustack);
+	if (task->h->needs_bit_swap)
+		swap_bitfields(&task->ustack);
+
+	if (task->ustack.magic != RECORD_MAGIC) {
 		pr_dbg("invalid rstack read\n");
 		return -1;
 	}
@@ -1434,7 +1460,7 @@ kernel:
 			lost_rstack.type = FTRACE_LOST;
 			lost_rstack.addr = kernel->missed_events[k];
 			lost_rstack.depth = task->kstack.depth;
-			lost_rstack.unused = FTRACE_UNUSED;
+			lost_rstack.magic = RECORD_MAGIC;
 			lost_rstack.more = 0;
 
 			/*
@@ -1506,16 +1532,16 @@ static int test_tids[NUM_TASK] = { 1234, 5678 };
 static struct ftrace_task test_tasks[NUM_TASK];
 static struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
 	{
-		{ 100, FTRACE_ENTRY, false, FTRACE_UNUSED, 0, 0x40000 },
-		{ 200, FTRACE_ENTRY, false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 300, FTRACE_EXIT,  false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 400, FTRACE_EXIT,  false, FTRACE_UNUSED, 0, 0x40000 },
+		{ 100, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 200, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 300, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 400, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	},
 	{
-		{ 150, FTRACE_ENTRY, false, FTRACE_UNUSED, 0, 0x40000 },
-		{ 250, FTRACE_ENTRY, false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 350, FTRACE_EXIT,  false, FTRACE_UNUSED, 1, 0x41000 },
-		{ 450, FTRACE_EXIT,  false, FTRACE_UNUSED, 0, 0x40000 },
+		{ 150, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 250, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 350, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 450, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	}
 };
 
