@@ -197,6 +197,21 @@ extern void setup_signal(void);
 #define htonq(x)  htobe64(x)
 #define ntohq(x)  be64toh(x)
 
+/* this comes from /usr/include/elf.h */
+#ifndef ELFDATA2LSB
+# define ELFDATA2LSB	1		/* 2's complement, little endian */
+# define ELFDATA2MSB	2		/* 2's complement, big endian */
+#endif
+
+static inline int get_elf_endian(void)
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	return ELFDATA2LSB;
+#else
+	return ELFDATA2MSB;
+#endif
+}
+
 struct uftrace_time_range {
 	uint64_t first;
 	uint64_t start;

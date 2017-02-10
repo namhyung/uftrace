@@ -516,13 +516,12 @@ int finish_kernel_tracing(struct ftrace_kernel *kernel)
 	return 0;
 }
 
-static const char *get_endian(void)
+static const char *get_endian_str(void)
 {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	return "LE";
-#else
-	return "BE";
-#endif
+	if (get_elf_endian() == ELFDATA2LSB)
+		return "LE";
+	else
+		return "BE";
 }
 
 static int save_kernel_file(FILE *fp, const char *name)
@@ -564,7 +563,7 @@ static int save_kernel_files(struct ftrace_kernel *kernel)
 
 	fprintf(fp, "PAGE_SIZE: %d\n", getpagesize());
 	fprintf(fp, "LONG_SIZE: %zd\n", sizeof(long));
-	fprintf(fp, "ENDIAN: %s\n", get_endian());
+	fprintf(fp, "ENDIAN: %s\n", get_endian_str());
 
 	if (save_kernel_file(fp, "events/header_page") < 0)
 		goto out;
@@ -589,7 +588,7 @@ static int load_current_kernel(struct ftrace_kernel *kernel)
 	int fd;
 	size_t len;
 	char buf[4096];
-	bool is_big_endian = !strcmp(get_endian(), "BE");
+	bool is_big_endian = !strcmp(get_endian_str(), "BE");
 	struct pevent *pevent = kernel->pevent;
 
 	pevent_set_long_size(pevent, sizeof(long));
@@ -659,7 +658,7 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 				ret = (strcmp(val, "BE") == 0);
 				pevent_set_file_bigendian(pevent, ret);
 
-				ret = (strcmp(get_endian(), "BE") == 0);
+				ret = (strcmp(get_endian_str(), "BE") == 0);
 				pevent_set_host_bigendian(pevent, ret);
 			}
 			continue;
