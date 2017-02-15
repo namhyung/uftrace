@@ -21,7 +21,7 @@ class TestCase(TestBase):
                                       ['libabc_test_lib.so'])
 
     def pre(self):
-        record_cmd = '%s record --force -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s --no-pager record --force -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

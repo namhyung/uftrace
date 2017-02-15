@@ -25,7 +25,7 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -K3 -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s --no-pager record -K3 -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

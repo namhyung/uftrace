@@ -24,7 +24,7 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
+        record_cmd = '%s --no-pager record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

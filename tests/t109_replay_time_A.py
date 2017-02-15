@@ -24,7 +24,7 @@ class TestCase(TestBase):
         return TestBase.build(self, name, cflags, ldflags)
 
     def pre(self):
-        record_cmd = "%s record -A %s -A %s -R %s -d %s %s" % \
+        record_cmd = "%s --no-pager record -A %s -A %s -R %s -d %s %s" % \
                      (TestBase.ftrace, 'main@arg1', '(malloc|free|usleep)@plt,arg1', \
                       'malloc@retval', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
