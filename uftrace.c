@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <ctype.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "uftrace"
@@ -309,6 +310,14 @@ static uint64_t parse_time(char *arg)
 	return val;
 }
 
+static bool has_time_unit(const char *str)
+{
+	if (isalpha(str[strlen(str) - 1]))
+		return true;
+	else
+		return false;
+}
+
 static uint64_t parse_timestamp(char *str, bool *elapsed)
 {
 	uint64_t sec, nsec = 0;
@@ -317,9 +326,9 @@ static uint64_t parse_timestamp(char *str, bool *elapsed)
 	if (*str == '\0')
 		return 0;
 
-	if (*str == '+') {
+	if (has_time_unit(str)) {
 		*elapsed = true;
-		return parse_time(str + 1);
+		return parse_time(str);
 	}
 
 	sec = strtoull(str, &pos, 10);
