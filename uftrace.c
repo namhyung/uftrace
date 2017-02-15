@@ -140,7 +140,7 @@ static struct argp_option ftrace_options[] = {
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampliing time" },
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
-	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME range only" },
+	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ 0 }
 };
 
