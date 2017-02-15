@@ -309,6 +309,15 @@ static uint64_t parse_time(char *arg)
 	return val;
 }
 
+static bool is_time_unit(const char *str)
+{
+	/* <time_unit>  :=  "ns" | "us" | "ms" | "s" */
+	if (str[strlen(str) - 1] == 's')
+		return true;
+	else
+		return false;
+}
+
 static uint64_t parse_timestamp(char *str, bool *elapsed)
 {
 	uint64_t sec, nsec = 0;
@@ -317,9 +326,9 @@ static uint64_t parse_timestamp(char *str, bool *elapsed)
 	if (*str == '\0')
 		return 0;
 
-	if (*str == '+') {
+	if (is_time_unit(str)) {
 		*elapsed = true;
-		return parse_time(str + 1);
+		return parse_time(str);
 	}
 
 	sec = strtoull(str, &pos, 10);

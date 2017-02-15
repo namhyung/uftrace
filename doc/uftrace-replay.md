@@ -44,7 +44,7 @@ OPTIONS
 :   Customize field in the output.  Possible values are: duration, tid, time, delta, elapsed and addr.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp by default and those can also be elapsed time if they have "+" prefix and \<time_unit\> postfix, for example '+100ms'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
+:   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
 
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with a `trace_on` trigger.
