@@ -263,7 +263,10 @@ class TestBase:
         # A chrome dump results consists of following JSON object:
         # {"ts": <timestamp>, "ph": <type>, "pid": <number>, "name": <func>}
         result = []
-        o = json.loads(output)
+        try:
+            o = json.loads(output)
+        except:
+            return ''
         for ln in o['traceEvents']:
             if ln['name'].startswith('__'):
                 continue
