@@ -14,17 +14,8 @@ class TestCase(TestBase):
             [ 1661] |   fork() {
    5.135 us [ 1661] |     sys_writev();
   32.391 us [ 1661] |     do_syscall_64();
-  12.192 us [ 1661] |     __do_page_fault();
-  10.982 us [ 1661] |     __do_page_fault();
-   9.183 us [ 1661] |     __do_page_fault();
  130.930 us [ 1661] |   } /* fork */
-  17.134 us [ 1661] |   __do_page_fault();
-  12.813 us [ 1661] |   __do_page_fault();
-   9.465 us [ 1661] |   __do_page_fault();
-   3.187 us [ 1661] |   __do_page_fault();
-   6.873 us [ 1661] |   __do_page_fault();
             [ 1661] |   wait() {
-   6.508 us [ 1661] |     __do_page_fault();
    7.074 us [ 1661] |     sys_wait4();
  691.873 us [ 1661] |   } /* wait */
             [ 1661] |   a() {
@@ -43,7 +34,8 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record -k -N %s@kernel -N %s@kernel -d %s %s' % \
+                     (TestBase.ftrace, '*page_fault', 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

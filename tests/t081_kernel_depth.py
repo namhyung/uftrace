@@ -32,5 +32,5 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s -k --kernel-depth=2 -N %s@kernel %s' % \
-            (TestBase.ftrace, 'exit_to_usermode_loop', 't-' + self.name)
+        return '%s -k --kernel-depth=2 -N %s@kernel -N %s@kernel %s' % \
+            (TestBase.ftrace, 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
