@@ -552,7 +552,8 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 
 		/* no writer is dealing with the tid */
 		list_add_tail(&buf->list, &buf_write_list);
-		write(thread_ctl[1], &kick, sizeof(kick));
+		if (write(thread_ctl[1], &kick, sizeof(kick)) != (int)sizeof(kick))
+			pr_err("copying to buffer failed");
 	}
 	pthread_mutex_unlock(&write_list_lock);
 }
