@@ -304,6 +304,32 @@ static int get_digits(uint64_t num)
 	return digits;
 }
 
+static uint64_t parse_min(uint64_t min, uint64_t decimal, int decimal_places)
+{
+	uint64_t nsec = min * 60 * NSEC_PER_SEC;
+
+	if (decimal) {
+		decimal_places += get_digits(decimal);
+		decimal *= 6;
+
+		/* decide a unit from the number of decimal places */
+		switch (decimal_places) {
+		case 1:
+			nsec += decimal * NSEC_PER_SEC;
+			break;
+		case 2:
+			decimal *= 10;
+		case 3:
+			decimal *= 10;
+			nsec += decimal * NSEC_PER_MSEC;
+			break;
+		default:
+			break;
+		}
+	}
+	return nsec;
+}
+
 static uint64_t parse_time(char *arg, int limited_digits)
 {
 	char *unit, *pos;
@@ -343,6 +369,8 @@ static uint64_t parse_time(char *arg, int limited_digits)
 		exp = 6; /* 10^6 */
 	else if (!strcasecmp(unit, "s") || !strcasecmp(unit, "sec"))
 		exp = 9; /* 10^9 */
+	else if (!strcasecmp(unit, "m") || !strcasecmp(unit, "min"))
+		return parse_min(val, decimal, decimal_places);
 	else
 		pr_warn("The unit '%s' isn't supported\n", unit);
 

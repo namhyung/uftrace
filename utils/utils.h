@@ -37,6 +37,7 @@
 #define unlikely(x)  __builtin_expect(!!(x), 0)
 
 #define NSEC_PER_SEC  1000000000
+#define NSEC_PER_MSEC 1000000
 
 extern int debug;
 extern FILE *logfp;
