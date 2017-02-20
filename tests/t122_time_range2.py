@@ -9,13 +9,13 @@ START=0
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc', """
-#     TIMESTAMP       FUNCTION
-    74469.340765344 |       c() {
-    74469.340765524 |         getpid();
-    74469.340766935 |       } /* c */
-    74469.340767195 |     } /* b */
-    74469.340767372 |   } /* a */
-    74469.340767541 | } /* main */
+#  ELAPSED    FUNCTION
+   4.343 us |       c() {
+   4.447 us |         getpid();
+   5.137 us |       } /* c */
+   5.436 us |     } /* b */
+   5.544 us |   } /* a */
+   5.626 us | } /* main */
 """, sort='simple')
 
     def pre(self):
@@ -28,14 +28,14 @@ class TestCase(TestBase):
         replay_cmd = '%s replay -d %s -f elapsed -F main' % (TestBase.ftrace, TDIR)
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode()
-        START = r.split('\n')[4].split()[0] # skip header, main, a and b (= 4)
-        START = int(float(START) * 1000)
+        START, unit = r.split('\n')[4].split()[0:2] # skip header, main, a and b (= 4)
+        START += unit
         p.wait()
 
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -f elapsed -r +%s~ -d %s' % (TestBase.ftrace, START, TDIR)
+        return '%s replay -f elapsed -r %s~ -d %s' % (TestBase.ftrace, START, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
