@@ -397,8 +397,8 @@ static bool has_time_unit(const char *str)
 
 static uint64_t parse_timestamp(char *str, bool *elapsed)
 {
-	uint64_t sec, nsec = 0;
-	char *pos = NULL;
+	char *time;
+	uint64_t nsec;
 
 	if (*str == '\0')
 		return 0;
@@ -408,29 +408,11 @@ static uint64_t parse_timestamp(char *str, bool *elapsed)
 		return parse_time(str, 3);
 	}
 
-	sec = strtoull(str, &pos, 10);
-	if (*pos != '.' && *pos != '\0') {
-		pr_use("invalid timestamp string\n");
+	if (asprintf(&time, "%ssec", str) < 0)
 		return -1;
-	}
-
-	if (*pos == '.')
-		pos++;
-
-	if (strlen(pos)) {
-		int i, n = strlen(pos);
-
-		if (n > 9) {
-			pr_use("invalid timestamp string\n");
-			return -2;
-		}
-
-		nsec = strtoul(pos, NULL, 10);
-		for (i = n; i < 9; i++)
-			nsec *= 10;
-	}
-
-	return sec * NSEC_PER_SEC + nsec;
+	nsec = parse_time(time, 9);
+	free(time);
+	return nsec;
 }
 
 static bool parse_time_range(struct uftrace_time_range *range, char *arg)
