@@ -292,21 +292,98 @@ static void parse_debug_domain(char *arg)
 	free(saved_str);
 }
 
-static uint64_t parse_time(char *arg)
+static int get_digits(uint64_t num)
 {
-	char *unit;
+	int digits = 0;
+
+	do {
+		num /= 10;
+		digits++;
+	} while (num != 0);
+
+	return digits;
+}
+
+static uint64_t parse_min(uint64_t min, uint64_t decimal, int decimal_places)
+{
+	uint64_t nsec = min * 60 * NSEC_PER_SEC;
+
+	if (decimal) {
+		decimal_places += get_digits(decimal);
+		decimal *= 6;
+
+		/* decide a unit from the number of decimal places */
+		switch (decimal_places) {
+		case 1:
+			nsec += decimal * NSEC_PER_SEC;
+			break;
+		case 2:
+			decimal *= 10;
+		case 3:
+			decimal *= 10;
+			nsec += decimal * NSEC_PER_MSEC;
+			break;
+		default:
+			break;
+		}
+	}
+	return nsec;
+}
+
+static uint64_t parse_time(char *arg, int limited_digits)
+{
+	char *unit, *pos;
+	int i, decimal_places = 0, exp = 0;
+	uint64_t limited, decimal = 0;
 	uint64_t val = strtoull(arg, &unit, 0);
 
+	pos = strchr(arg, '.');
+	if (pos != NULL) {
+		while (*(++pos) == '0')
+			decimal_places++;
+		decimal = strtoull(pos, &unit, 0);
+	}
+
+	limited = 10;
+	for (i = 1; i < limited_digits; i++)
+		limited *= 10;
+	if (val >= limited)
+		pr_err_ns("Limited %d digits (before and after decimal point)\n",
+			  limited_digits);
+	/* ignore more digits than limited digits before decimal point */
+	while (decimal >= limited)
+		decimal /=10;
+
+	/*
+	 * if the unit is omitted, it is regarded as default unit 'ns'.
+	 * so ignore it before decimal point.
+	 */
 	if (unit == NULL || *unit == '\0')
 		return val;
 
-	if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
-		val *= 1000;
+	if (!strcasecmp(unit, "ns") || !strcasecmp(unit, "nsec"))
+		return val;
+	else if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
+		exp = 3; /* 10^3*/
 	else if (!strcasecmp(unit, "ms") || !strcasecmp(unit, "msec"))
-		val *= 1000 * 1000;
+		exp = 6; /* 10^6 */
 	else if (!strcasecmp(unit, "s") || !strcasecmp(unit, "sec"))
-		val *= 1000 * 1000 * 1000;
+		exp = 9; /* 10^9 */
+	else if (!strcasecmp(unit, "m") || !strcasecmp(unit, "min"))
+		return parse_min(val, decimal, decimal_places);
+	else
+		pr_warn("The unit '%s' isn't supported\n", unit);
 
+	for (i = 0; i < exp; i++)
+		val *= 10;
+
+	if (decimal) {
+		decimal_places += get_digits(decimal);
+
+		for (i = decimal_places; i < exp; i++)
+			decimal *= 10;
+		val += decimal;
+	}
 	return val;
 }
 
@@ -320,40 +397,22 @@ static bool has_time_unit(const char *str)
 
 static uint64_t parse_timestamp(char *str, bool *elapsed)
 {
-	uint64_t sec, nsec = 0;
-	char *pos = NULL;
+	char *time;
+	uint64_t nsec;
 
 	if (*str == '\0')
 		return 0;
 
 	if (has_time_unit(str)) {
 		*elapsed = true;
-		return parse_time(str);
+		return parse_time(str, 3);
 	}
 
-	sec = strtoull(str, &pos, 10);
-	if (*pos != '.' && *pos != '\0') {
-		pr_use("invalid timestamp string\n");
+	if (asprintf(&time, "%ssec", str) < 0)
 		return -1;
-	}
-
-	if (*pos == '.')
-		pos++;
-
-	if (strlen(pos)) {
-		int i, n = strlen(pos);
-
-		if (n > 9) {
-			pr_use("invalid timestamp string\n");
-			return -2;
-		}
-
-		nsec = strtoul(pos, NULL, 10);
-		for (i = n; i < 9; i++)
-			nsec *= 10;
-	}
-
-	return sec * NSEC_PER_SEC + nsec;
+	nsec = parse_time(time, 9);
+	free(time);
+	return nsec;
 }
 
 static bool parse_time_range(struct uftrace_time_range *range, char *arg)
@@ -442,7 +501,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 't':
-		opts->threshold = parse_time(arg);
+		opts->threshold = parse_time(arg, 3);
 		if (opts->range.start || opts->range.stop) {
 			pr_use("--time-range cannot be used with --time-filter\n");
 			opts->range.start = opts->range.stop = 0;
@@ -659,7 +718,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_sample_time:
-		opts->sample_time = parse_time(arg);
+		opts->sample_time = parse_time(arg, 9);
 		break;
 
 	case ARGP_KEY_ARG:
