@@ -292,21 +292,70 @@ static void parse_debug_domain(char *arg)
 	free(saved_str);
 }
 
-static uint64_t parse_time(char *arg)
+static int get_digits(uint64_t num)
 {
-	char *unit;
+	int digits = 0;
+
+	do {
+		num /= 10;
+		digits++;
+	} while (num != 0);
+
+	return digits;
+}
+
+static uint64_t parse_time(char *arg, int limited_digits)
+{
+	char *unit, *pos;
+	int i, decimal_places = 0, exp = 0;
+	uint64_t limited, decimal = 0;
 	uint64_t val = strtoull(arg, &unit, 0);
 
+	pos = strchr(arg, '.');
+	if (pos != NULL) {
+		while (*(++pos) == '0')
+			decimal_places++;
+		decimal = strtoull(pos, &unit, 0);
+	}
+
+	limited = 10;
+	for (i = 1; i < limited_digits; i++)
+		limited *= 10;
+	if (val >= limited)
+		pr_err_ns("Limited %d digits (before and after decimal point)\n",
+			  limited_digits);
+	/* ignore more digits than limited digits before decimal point */
+	while (decimal >= limited)
+		decimal /=10;
+
+	/*
+	 * if the unit is omitted, it is regarded as default unit 'ns'.
+	 * so ignore it before decimal point.
+	 */
 	if (unit == NULL || *unit == '\0')
 		return val;
 
-	if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
-		val *= 1000;
+	if (!strcasecmp(unit, "ns") || !strcasecmp(unit, "nsec"))
+		return val;
+	else if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
+		exp = 3; /* 10^3*/
 	else if (!strcasecmp(unit, "ms") || !strcasecmp(unit, "msec"))
-		val *= 1000 * 1000;
+		exp = 6; /* 10^6 */
 	else if (!strcasecmp(unit, "s") || !strcasecmp(unit, "sec"))
-		val *= 1000 * 1000 * 1000;
+		exp = 9; /* 10^9 */
+	else
+		pr_warn("The unit '%s' isn't supported\n", unit);
 
+	for (i = 0; i < exp; i++)
+		val *= 10;
+
+	if (decimal) {
+		decimal_places += get_digits(decimal);
+
+		for (i = decimal_places; i < exp; i++)
+			decimal *= 10;
+		val += decimal;
+	}
 	return val;
 }
 
@@ -328,7 +377,7 @@ static uint64_t parse_timestamp(char *str, bool *elapsed)
 
 	if (has_time_unit(str)) {
 		*elapsed = true;
-		return parse_time(str);
+		return parse_time(str, 3);
 	}
 
 	sec = strtoull(str, &pos, 10);
@@ -442,7 +491,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 't':
-		opts->threshold = parse_time(arg);
+		opts->threshold = parse_time(arg, 3);
 		if (opts->range.start || opts->range.stop) {
 			pr_use("--time-range cannot be used with --time-filter\n");
 			opts->range.start = opts->range.stop = 0;
@@ -659,7 +708,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_sample_time:
-		opts->sample_time = parse_time(arg);
+		opts->sample_time = parse_time(arg, 9);
 		break;
 
 	case ARGP_KEY_ARG:
