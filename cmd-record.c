@@ -110,10 +110,15 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
-		strcat(buf, ":");
-		strcat(buf, old_preload);
+		size_t len = strlen(buf) + strlen(old_preload) + 2;
+		char *preload = xmalloc(len);
+
+		snprintf(preload, len, "%s:%s", buf, old_preload);
+		setenv("LD_PRELOAD", preload, 1);
+		free(preload);
 	}
-	setenv("LD_PRELOAD", buf, 1);
+	else
+		setenv("LD_PRELOAD", buf, 1);
 
 	if (opts->lib_path) {
 		strcpy(buf, opts->lib_path);
@@ -129,10 +134,15 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 	old_libpath = getenv("LD_LIBRARY_PATH");
 	if (old_libpath) {
-		strcat(buf, ":");
-		strcat(buf, old_libpath);
+		size_t len = strlen(buf) + strlen(old_libpath) + 2;
+		char *libpath = xmalloc(len);
+
+		snprintf(libpath, len, "%s:%s", buf, old_libpath);
+		setenv("LD_LIBRARY_PATH", libpath, 1);
+		free(libpath);
 	}
-	setenv("LD_LIBRARY_PATH", buf, 1);
+	else
+		setenv("LD_LIBRARY_PATH", buf, 1);
 
 	if (opts->filter)
 		setenv("UFTRACE_FILTER", opts->filter, 1);
