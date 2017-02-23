@@ -81,8 +81,7 @@ static char *build_debug_domain_string(void)
 static void setup_child_environ(struct opts *opts, int pfd)
 {
 	char buf[4096];
-	const char *old_preload = getenv("LD_PRELOAD");
-	const char *old_libpath = getenv("LD_LIBRARY_PATH");
+	char *old_preload, *old_libpath;
 	bool must_use_multi_thread = check_libpthread(opts->exename);
 
 	if (opts->lib_path)
@@ -109,6 +108,7 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	}
 	pr_dbg("using %s library for tracing\n", buf);
 
+	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
 		strcat(buf, ":");
 		strcat(buf, old_preload);
@@ -127,6 +127,7 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	strcat(buf, INSTALL_LIB_PATH);
 #endif
 
+	old_libpath = getenv("LD_LIBRARY_PATH");
 	if (old_libpath) {
 		strcat(buf, ":");
 		strcat(buf, old_libpath);
