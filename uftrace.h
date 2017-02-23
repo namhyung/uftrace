@@ -10,6 +10,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/symbol.h"
+#include "utils/perf.h"
 
 
 #define UFTRACE_MAGIC_LEN  8

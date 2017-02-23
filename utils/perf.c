@@ -4,6 +4,7 @@
 #include <glob.h>
 #include <errno.h>
 #include <unistd.h>
+#include <byteswap.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
@@ -194,7 +195,6 @@ out:
 }
 #endif /* HAVE_PERF_CLOCKID */
 
-
 int setup_perf_data(struct ftrace_file_handle *handle)
 {
 	struct uftrace_perf_reader *perf;
@@ -240,4 +240,76 @@ void finish_perf_data(struct ftrace_file_handle *handle)
 
 	free(handle->perf);
 	handle->perf = NULL;
+}
+
+static int read_perf_event(struct ftrace_file_handle *handle,
+			   struct uftrace_perf_reader *perf)
+{
+	struct perf_context_switch_event ev;
+
+	if (perf->done || perf->fp == NULL)
+		return -1;
+
+	if (fread(&ev, sizeof(ev), 1, perf->fp) != 1) {
+		perf->done = true;
+		return -1;
+	}
+
+	if (ev.header.type != PERF_RECORD_SWITCH)
+		return -1;
+
+	perf->ctxsw.time = ev.sample_id.time;
+	perf->ctxsw.tid  = ev.sample_id.tid;
+	perf->ctxsw.out  = ev.header.misc & PERF_RECORD_MISC_SWITCH_OUT;
+
+	if (handle->needs_byte_swap) {
+		perf->ctxsw.time = bswap_64(perf->ctxsw.time);
+		perf->ctxsw.tid  = bswap_32(perf->ctxsw.tid);
+	}
+
+	perf->valid = true;
+	return 0;
+}
+
+int read_perf_data(struct ftrace_file_handle *handle)
+{
+	struct uftrace_perf_reader *perf;
+	uint64_t min_time = ~0ULL;
+	int best = -1;
+	int i;
+
+	for (i = 0; i < handle->nr_perf; i++) {
+		perf = &handle->perf[i];
+
+		if (perf->done)
+			continue;
+		if (!perf->valid) {
+			if (read_perf_event(handle, perf) < 0)
+				continue;
+		}
+
+		if (perf->ctxsw.time < min_time) {
+			min_time = perf->ctxsw.time;
+			best = i;
+		}
+	}
+
+	handle->last_perf_idx = best;
+	return best;
+}
+
+struct uftrace_record * get_perf_record(struct uftrace_perf_reader *perf)
+{
+	static struct uftrace_record rec;
+
+	rec.type  = UFTRACE_EVENT;
+	rec.time  = perf->ctxsw.time;
+	rec.magic = RECORD_MAGIC;
+
+	if (perf->ctxsw.out)
+		rec.addr = EVENT_ID_PERF_SCHED_OUT;
+	else
+		rec.addr = EVENT_ID_PERF_SCHED_IN;
+
+	return &rec;
 }
