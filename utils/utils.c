@@ -165,6 +165,8 @@ int create_directory(char *dirname)
 	}
 
 	ret = mkdir(dirname, 0755);
+	if (ret < 0)
+		pr_log("creating directory failed: %m\n");
 
 out:
 	free(oldname);

@@ -33,13 +33,13 @@ static void cleanup_tempdir(void)
 
 		snprintf(path, sizeof(path), "%s/%s", tmp_dirname, ent->d_name);
 		if (unlink(path) < 0)
-			pr_err("unlink failed: %s: %m\n", path);
+			pr_err("unlink failed: %s", path);
 	}
 
 	closedir(dp);
 
 	if (rmdir(tmp_dirname) < 0)
-		pr_err("rmdir failed: %s: %m\n", tmp_dirname);
+		pr_err("rmdir failed: %s", tmp_dirname);
 	tmp_dirname = NULL;
 }
 
