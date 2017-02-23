@@ -413,8 +413,9 @@ static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
 	bool first = true;
 	const char *feat_str[] = { "PLTHOOK", "TASK_SESSION", "KERNEL",
 				   "ARGUMENT", "RETVAL", "SYM_REL_ADDR",
-				   "MAX_STACK", "EVENT" };
+				   "MAX_STACK", "EVENT", "PERF_EVENT" };
 
+	/* feat_str should match to enum uftrace_feat_bits */
 	for (i = 0; i < FEAT_BIT_MAX; i++) {
 		if (!((1U << i) & feature_mask))
 			continue;

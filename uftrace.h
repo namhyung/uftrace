@@ -52,6 +52,7 @@ enum uftrace_feat_bits {
 	SYM_REL_ADDR_BIT,
 	MAX_STACK_BIT,
 	EVENT_BIT,
+	PERF_EVENT_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -64,6 +65,7 @@ enum uftrace_feat_bits {
 	SYM_REL_ADDR		= (1U << SYM_REL_ADDR_BIT),
 	MAX_STACK		= (1U << MAX_STACK_BIT),
 	EVENT			= (1U << EVENT_BIT),
+	PERF_EVENT		= (1U << PERF_EVENT_BIT),
 };
 
 enum uftrace_info_bits {
