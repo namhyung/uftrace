@@ -1,6 +1,13 @@
 #ifndef MCOUNT_ARCH_H
 #define MCOUNT_ARCH_H
 
+#include <stdbool.h>
+
+struct lr_offset {
+	int           offset;  // 4-byte unit
+	bool          pushed;
+};
+
 #define mcount_regs  mcount_regs
 
 struct mcount_regs {
@@ -31,5 +38,7 @@ unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
 
 #define ARCH_PLT0_SIZE  20
 #define ARCH_PLTHOOK_ADDR_OFFSET  0
+
+int analyze_mcount_prolog(unsigned short *insn, struct lr_offset *lr);
 
 #endif /* MCOUNT_ARCH_H */
