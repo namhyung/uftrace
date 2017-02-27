@@ -108,7 +108,7 @@ LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
 LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
 LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
 
@@ -118,38 +118,43 @@ LIBMCOUNT_NOP_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_NOP_SR
 LIBMCOUNT_FAST_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/rbtree.c
-LIBMCOUNT_FAST_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_FAST_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
 LIBMCOUNT_FAST_OBJS := $(objdir)/libmcount/mcount-fast.op
 LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/record-fast.op
 LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/plthook-fast.op
+LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/dynamic-fast.op
 LIBMCOUNT_FAST_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SRCS))
 
 LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
 LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
 LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/record-single.op
 LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/plthook-single.op
+LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/dynamic-single.op
 LIBMCOUNT_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SINGLE_SRCS))
 
 LIBMCOUNT_FAST_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/rbtree.c
-LIBMCOUNT_FAST_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-support.c)
+LIBMCOUNT_FAST_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
 LIBMCOUNT_FAST_SINGLE_OBJS := $(objdir)/libmcount/mcount-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/record-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/plthook-fast-single.op
+LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/dynamic-fast-single.op
 LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SINGLE_SRCS))
 
 LIBMCOUNT_MCOUNT_OBJS := $(patsubst libmcount/lib%.so,$(objdir)/libmcount/%.op,$(LIBMCOUNT_TARGETS))
 LIBMCOUNT_RECORD_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/record%.op,$(LIBMCOUNT_TARGETS))
 LIBMCOUNT_PLTHOOK_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/plthook%.op,$(LIBMCOUNT_TARGETS))
+LIBMCOUNT_DYNAMIC_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/dynamic%.op,$(LIBMCOUNT_TARGETS))
 
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_OBJS))
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/record.op,$(LIBMCOUNT_COMMON_OBJS))
 LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
+LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/dynamic.op,$(LIBMCOUNT_COMMON_OBJS))
 
 COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 
@@ -195,6 +200,9 @@ $(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(COMMON_
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+
+$(LIBMCOUNT_DYNAMIC_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/dynamic.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(COMMON_DEPS)
