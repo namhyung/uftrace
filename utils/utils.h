@@ -206,7 +206,7 @@ extern void setup_signal(void);
 
 static inline int get_elf_endian(void)
 {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	return ELFDATA2LSB;
 #else
 	return ELFDATA2MSB;

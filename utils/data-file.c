@@ -283,7 +283,7 @@ static void check_data_order(struct ftrace_file_handle *handle)
 	} data;
 
 	handle->needs_byte_swap = (get_elf_endian() != handle->hdr.endian);
-	if (handle->needs_bit_swap)
+	if (handle->needs_byte_swap)
 		pr_dbg("byte order is different!\n");
 
 	/* the s.magic should be in bit[3:5] in the second word */
