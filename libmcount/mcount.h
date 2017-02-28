@@ -236,4 +236,19 @@ void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
+struct mcount_dynamic_info {
+	struct mcount_dynamic_info *next;
+	char *mod_name;
+	unsigned long addr;
+	unsigned long size;
+	unsigned long trampoline;
+};
+
+int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs);
+
+/* these should be implemented for each architecture */
+int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
+void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
+
 #endif /* FTRACE_MCOUNT_H */
