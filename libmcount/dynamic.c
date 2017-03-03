@@ -227,6 +227,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
+		"__gmon_start__",
 	};
 
 	if (patch_funcs == NULL)
