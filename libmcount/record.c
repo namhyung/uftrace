@@ -389,7 +389,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	frstack->time   = timestamp;
 	frstack->type   = type;
-	frstack->unused = RECORD_MAGIC;
+	frstack->magic  = RECORD_MAGIC;
 	frstack->more   = !!argbuf;
 	frstack->depth  = mrstack->depth;
 	frstack->addr   = mrstack->child_ip;
@@ -401,7 +401,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	rec  = type | RECORD_MAGIC << 3;
 	rec += argbuf ? 4 : 0;
 	rec += mrstack->depth << 6;
-	rec += mrstack->child_ip << 16;
+	rec += (uint64_t)mrstack->child_ip << 16;
 
 	buf = (void *)(curr_buf->data + curr_buf->size);
 	buf[0] = timestamp;
