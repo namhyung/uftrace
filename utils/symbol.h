@@ -74,11 +74,9 @@ struct symtabs {
 # define KADDR_SHIFT  31
 #endif
 
-static inline bool is_kernel_address(unsigned long addr)
-{
-	return !!(addr & (1UL << KADDR_SHIFT));
-}
+bool is_kernel_address(unsigned long addr);
 unsigned long get_real_address(unsigned long addr);
+void set_kernel_base(char *dirname, const char *session_id);
 
 struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);

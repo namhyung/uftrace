@@ -15,6 +15,7 @@
 #include <gelf.h>
 #include <unistd.h>
 #include <assert.h>
+#include <limits.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
@@ -1276,13 +1277,6 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
-unsigned long get_real_address(unsigned long addr)
-{
-	if (is_kernel_address(addr))
-		return addr | (-1UL << KADDR_SHIFT);
-	return addr;
-}
-
 struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 {
 	struct symtab *stab = &symtabs->symtab;
@@ -1429,4 +1423,55 @@ void print_symtabs(struct symtabs *symtabs)
 		       i, sym->addr, name, sym->size);
 		symbol_putname(sym, name);
 	}
+}
+
+static unsigned long kernel_base_addr;
+
+static unsigned long get_kernel_base(char *str)
+{
+	unsigned long addr = strtoul(str, NULL, 16);
+
+	if (addr < 0x40000000UL) {
+		return 0x40000000UL;
+	} else if (addr < 0x80000000UL) {
+		return 0x80000000UL;
+	} else if (addr < 0xB0000000UL) {
+		return 0xB0000000UL;
+	} else if (addr < 0xC0000000UL) {
+		return 0xC0000000UL;
+	} else {
+		return 0x800000000000ULL;
+	}
+}
+
+void set_kernel_base(char *dirname, const char *session_id)
+{
+	FILE *fp;
+	char buf[4096];
+	char line[200];
+
+	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, session_id);
+
+	fp = fopen(buf, "r");
+	if (fp == NULL)
+		pr_err("open %s file failed", buf);
+
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		if (strstr(line, "[stack") != NULL) {
+			kernel_base_addr = get_kernel_base(line);
+		}
+	}
+	fclose(fp);
+}
+
+bool is_kernel_address(unsigned long addr)
+{
+	return addr >= kernel_base_addr;
+}
+
+unsigned long get_real_address(unsigned long addr)
+{
+	if (is_kernel_address(addr) && kernel_base_addr > UINT_MAX)
+		return addr | (-1ULL << KADDR_SHIFT);
+	return addr;
 }
