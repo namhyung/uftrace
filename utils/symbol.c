@@ -20,6 +20,7 @@
 #define PR_FMT     "symbol"
 #define PR_DOMAIN  DBG_SYMBOL
 
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -1447,7 +1448,8 @@ void set_kernel_base(char *dirname, const char *session_id)
 	char buf[4096];
 	char line[200];
 
-	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, session_id);
+	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map",
+		 dirname, SESSION_ID_LEN, session_id);
 
 	fp = fopen(buf, "r");
 	if (fp == NULL)

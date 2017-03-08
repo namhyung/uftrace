@@ -75,7 +75,7 @@ int gettid(struct mcount_thread_data *mtdp)
 
 const char *session_name(void)
 {
-	static char session[16 + 1];
+	static char session[SESSION_ID_LEN + 1];
 	static uint64_t session_id;
 	int fd;
 
@@ -89,7 +89,8 @@ const char *session_name(void)
 
 		close(fd);
 
-		snprintf(session, sizeof(session), "%016"PRIx64, session_id);
+		snprintf(session, sizeof(session), "%0*"PRIx64,
+			 SESSION_ID_LEN, session_id);
 	}
 	return session;
 }
