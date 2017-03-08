@@ -1558,6 +1558,9 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 	handle->info.nr_tid = nr_tid;
 	handle->hdr.max_stack = 16;
 
+	/* it doesn't have kernel functions */
+	kernel_base_addr = -1UL;
+
 	if (mkdir(handle->dirname, 0755) < 0) {
 		if (errno != EEXIST) {
 			pr_dbg("cannot create temp dir: %m\n");
