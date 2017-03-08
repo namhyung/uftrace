@@ -15,7 +15,6 @@
 #include <gelf.h>
 #include <unistd.h>
 #include <assert.h>
-#include <limits.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
@@ -1425,8 +1424,6 @@ void print_symtabs(struct symtabs *symtabs)
 	}
 }
 
-static unsigned long kernel_base_addr;
-
 static unsigned long get_kernel_base(char *str)
 {
 	unsigned long addr = strtoul(str, NULL, 16);
@@ -1462,16 +1459,4 @@ void set_kernel_base(char *dirname, const char *session_id)
 		}
 	}
 	fclose(fp);
-}
-
-bool is_kernel_address(unsigned long addr)
-{
-	return addr >= kernel_base_addr;
-}
-
-unsigned long get_real_address(unsigned long addr)
-{
-	if (is_kernel_address(addr) && kernel_base_addr > UINT_MAX)
-		return addr | (-1ULL << KADDR_SHIFT);
-	return addr;
 }
