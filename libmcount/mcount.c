@@ -910,6 +910,7 @@ static void mcount_startup(void)
 
 	mcount_exename = read_exename();
 	record_proc_maps(dirname, session_name(), &symtabs);
+	set_kernel_base(dirname, session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER

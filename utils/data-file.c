@@ -11,6 +11,7 @@
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
+#include "utils/symbol.h"
 #include "libmcount/mcount.h"
 
 
@@ -137,6 +138,8 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 
 			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
 			       &sec, &nsec, &sess.task.pid, (char *)&sess.sid);
+
+			set_kernel_base(dirname, (char *)&sess.sid);
 
 			// Get the execname
 			pos = strstr(line, "exename=");
