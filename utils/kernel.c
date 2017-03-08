@@ -1127,8 +1127,10 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	int first_tid = -1;
 	uint64_t first_timestamp = 0;
 	struct ftrace_kernel *kernel = handle->kern;
-	struct ftrace_ret_stack *first_rstack = NULL;
+	struct ftrace_ret_stack *first_rstack;
 
+retry:
+	first_rstack = NULL;
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		uint64_t timestamp;
 
@@ -1154,6 +1156,12 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 		return -1;
 
 	*taskp = get_task_handle(handle, first_tid);
+	if (*taskp == NULL) {
+		/* force re-read on that cpu */
+		kernel->rstack_valid[first_cpu] = false;
+		goto retry;
+	}
+
 	memcpy(&(*taskp)->kstack, first_rstack, sizeof(*first_rstack));
 
 	return first_cpu;

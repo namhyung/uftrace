@@ -15,12 +15,12 @@
 #include <gelf.h>
 #include <unistd.h>
 #include <assert.h>
-#include <limits.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
 #define PR_DOMAIN  DBG_SYMBOL
 
+#include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -1425,8 +1425,6 @@ void print_symtabs(struct symtabs *symtabs)
 	}
 }
 
-static unsigned long kernel_base_addr;
-
 static unsigned long get_kernel_base(char *str)
 {
 	unsigned long addr = strtoul(str, NULL, 16);
@@ -1450,7 +1448,8 @@ void set_kernel_base(char *dirname, const char *session_id)
 	char buf[4096];
 	char line[200];
 
-	snprintf(buf, sizeof(buf), "%s/sid-%s.map", dirname, session_id);
+	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map",
+		 dirname, SESSION_ID_LEN, session_id);
 
 	fp = fopen(buf, "r");
 	if (fp == NULL)
@@ -1462,16 +1461,4 @@ void set_kernel_base(char *dirname, const char *session_id)
 		}
 	}
 	fclose(fp);
-}
-
-bool is_kernel_address(unsigned long addr)
-{
-	return addr >= kernel_base_addr;
-}
-
-unsigned long get_real_address(unsigned long addr)
-{
-	if (is_kernel_address(addr) && kernel_base_addr > UINT_MAX)
-		return addr | (-1ULL << KADDR_SHIFT);
-	return addr;
 }

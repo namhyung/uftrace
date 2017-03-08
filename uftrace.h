@@ -219,9 +219,11 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr);
 int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr);
 
+#define SESSION_ID_LEN  16
+
 struct ftrace_session {
 	struct rb_node		 node;
-	char			 sid[16];
+	char			 sid[SESSION_ID_LEN];
 	uint64_t		 start_time;
 	int			 pid, tid;
 	struct symtabs		 symtabs;
