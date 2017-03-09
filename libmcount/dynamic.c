@@ -13,6 +13,11 @@
 #include "utils/compiler.h"
 
 static struct mcount_dynamic_info *mdinfo;
+static struct mcount_dynamic_stats {
+	int total;
+	int failed;
+	int skipped;
+} stats;
 
 /* dummy functions (will be overridden by arch-specific code) */
 __weak int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -114,8 +119,18 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 			    (!is_regex && strcmp(name, sym->name)))
 				continue;
 
-			if (mcount_patch_func(mdinfo, sym) < 0)
-				return -1;
+			switch (mcount_patch_func(mdinfo, sym)) {
+			case -1:
+				stats.failed++;
+				break;
+			case -2:
+				stats.skipped++;
+				break;
+			case 0:
+			default:
+				break;
+			}
+			stats.total++;
 		}
 
 		name = strtok(NULL, ";");
@@ -141,14 +156,35 @@ static void finish_dynamic_update(void)
 	}
 }
 
+static float calc_percent(int n, int total)
+{
+	if (total == 0)
+		return 0;
+
+	return 100.0 * n / total;
+}
+
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 {
-	if (prepare_dynamic_update() < 0)
-		return -1;
+	int ret = 0;
+	int success;
 
-	if (do_dynamic_update(symtabs, patch_funcs) < 0)
+	if (prepare_dynamic_update() < 0) {
+		pr_dbg("cannot setup dynamic tracing\n");
 		return -1;
+	}
 
+	ret = do_dynamic_update(symtabs, patch_funcs);
+
+	success = stats.total - stats.failed - stats.skipped;
+	pr_dbg("dynamic update stats:\n");
+	pr_dbg("   total: %8d\n", stats.total);
+	pr_dbg(" patched: %8d (%.2f%%)\n", success,
+	       calc_percent(success, stats.total));
+	pr_dbg("  failed: %8d (%.2f%%)\n", stats.failed,
+	       calc_percent(stats.failed, stats.total));
+	pr_dbg(" skipped: %8d (%.2f%%)\n", stats.skipped,
+	       calc_percent(stats.skipped, stats.total));
 	finish_dynamic_update();
-	return 0;
+	return ret;
 }
