@@ -289,9 +289,127 @@ out:
 
 #else /* HAVE_LIBCAPSTONE */
 
+#define FAIL_A32(type) \
+	({ pr_dbg2("fail: %s insn: %08lx\n", type, insn); return -1; })
+
+static int check_prolog_insn_arm(uint32_t insn)
+{
+	/*  unconditional special instructions */
+	if ((insn & 0xf0000000) == 0xf0000000) {
+		/* TODO: advanced SIMD insns */
+
+		FAIL_A32("unconditional");
+	}
+
+	/* data processing and memory insns */
+	if ((insn & 0x0c000000) == 0) {
+		/* check register: Rn, Rd, Rm(   nd  m) */
+		unsigned long regs = insn & 0x000ff00f;
+
+		/* notation: s = cond, r = reg, i = imm, a-f = constant */
+
+		/* misc ops */
+		if ((insn & 0x0f900080) == 0x01000000) {
+			/* allow CLZ and QADD/QSUB insns only */
+			if ((insn & 0x0ff000f0) == 0x01600010 ||
+			    (insn & 0x0f9000f0) == 0x01000050)
+				return 0;
+
+			FAIL_A32("misc");
+		}
+
+		/* synchronization ops - ignore Rm */
+		/* LDREX:    (s19rrf9f) Rm = 15 */
+		/* LDREXD:   (s1brrf9f) Rm = 15 */
+		/* LDREXB:   (s1drrf9f) Rm = 15 */
+		/* LDREXH:   (s1frrf9f) Rm = 15 */
+		if ((insn & 0x0f800fff) == 0x01800f9f)
+			regs &= ~0xf;
+
+		/* extra memory ops - ignore Rm */
+		/* STRH:     (sxxrribi) Rm = imm */
+		/* LDRH:     (sxxrribi) Rm = imm */
+		/* LDRD:     (sxxrridi) Rm = imm */
+		/* LDRSB:    (sxxrridi) Rm = imm */
+		if ((insn & 0x0e0000f0) == 0x000000b0 ||
+		    (insn & 0x0e0000f0) == 0x000000d0) {
+			regs &= ~0xf;
+		}
+
+		/* immediate ops - ignore Rm */
+		if ((insn & 0x0e000000) == 0x02000000) {
+			regs &= ~0xf;
+
+			/* MOV.A2:   (s30iriii) Rn = imm */
+			/* MOVT:     (s34iriii) Rn = imm */
+			if ((insn & 0x0fb00000) == 0x03000000)
+				regs &= ~0xf0000;
+		}
+
+		if (((regs & 0xf)     == 0xf)     || ((regs & 0xf)     == 0xc)    || /* Rm */
+		    ((regs & 0xf000)  == 0xf000)  || ((regs & 0xf000)  == 0xc000) || /* Rd */
+		    ((regs & 0xf0000) == 0xf0000) || ((regs & 0xf0000) == 0xc0000))  /* Rn */
+			FAIL_A32("data processing");
+
+		return 0;
+	}
+
+	/* memory insns: check Rn and Rd only */
+	if ((insn & 0x0c000000) == 0x04000000) {
+		unsigned long regs = insn & 0x000ff000;
+
+		/* media insns: assumes OK */
+		if ((insn & 0x0e000010) == 0x06000010) {
+			/* XXX: BFI might have Rm = 15 ? */
+			return 0;
+		}
+
+		if (((regs & 0xf000)  == 0xf000)  || ((regs & 0xf000)  == 0xc000) ||  /* Rd */
+		    ((regs & 0xf0000) == 0xf0000) || ((regs & 0xf0000) == 0xc0000))   /* Rn */
+			FAIL_A32("memory");
+
+		return 0;
+	}
+
+	/* branch insns: unsupported */
+	if ((insn & 0x0e000000) == 0x0a000000)
+		FAIL_A32("branch");
+
+	/* block data transfer insns */
+	if ((insn & 0x0e000000) == 0x08000000) {
+		unsigned long regmask = insn & 0xffff;
+
+		/*
+		 * note that PUSH and POP can handle a single reg in Rd,
+		 * but using PC (15) will set the bit anyway.
+		 */
+		if (regmask & 0x8000)
+			FAIL_A32("block transer");
+
+		return 0;
+	}
+
+	/* coprocessor insns */
+	if ((insn & 0x0c000000) == 0x0c000000) {
+		/* advandced SIMD insns */
+		if ((insn & 0x0c000e00) == 0x0c000a00)
+			return 0;
+
+		FAIL_A32("coprocessor");
+	}
+
+	FAIL_A32("unknown");
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       uintptr_t addr, uint32_t size)
 {
+	uint32_t *insn = (void *)addr;
+
+	if (check_prolog_insn_arm(insn[0]) == 0 &&
+	    check_prolog_insn_arm(insn[1]) == 0)
+		return size;
+
 	return INSTRUMENT_FAILED;
 }
 
