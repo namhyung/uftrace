@@ -62,7 +62,7 @@ struct ftrace_task_handle {
 		struct time_filter_stack *time;
 	} filter;
 	struct fstack {
-		unsigned long addr;
+		uint64_t addr;
 		bool valid;
 		int orig_depth;
 		unsigned long flags;

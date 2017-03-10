@@ -271,7 +271,7 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 		return parent_loc + cache->offset;
 
 	pr_dbg2("copying instructions of %s\n", sym->name);
-	memcpy(buf, (void *)(sym->addr & ~1), sizeof(buf));
+	memcpy(buf, (void *)(long)(sym->addr & ~1), sizeof(buf));
 
 	analyze_mcount_instructions(buf, &lr);
 

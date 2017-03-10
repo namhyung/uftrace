@@ -277,7 +277,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
-	ftrace_match_filter(&mcount_triggers, child, tr);
+	uftrace_match_filter(child, &mcount_triggers, tr);
 
 	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
 		tr->flags, mcount_filter_mode, mtdp->filter.in_count,

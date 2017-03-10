@@ -742,7 +742,7 @@ static void print_warning(struct ftrace_task_handle *task)
 
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
-	unsigned long ip;
+	uint64_t ip;
 
 	if (task->func_stack == NULL)
 		return true;
@@ -814,7 +814,7 @@ static void print_remaining_stack(struct opts *opts,
 			struct fstack *fstack = &task->func_stack[task->stack_count];
 			uint64_t time = fstack->total_time;
 			struct ftrace_session *sess = find_task_session(task->tid, time);
-			unsigned long ip = fstack->addr;
+			uint64_t ip = fstack->addr;
 			struct symtabs *symtabs;
 			struct sym *sym;
 			char *symname;

@@ -19,11 +19,11 @@ struct graph_backtrace {
 	int len;
 	int hit;
 	uint64_t time;
-	unsigned long addr[];
+	uint64_t addr[];
 };
 
 struct graph_node {
-	unsigned long addr;
+	uint64_t addr;
 	int nr_edges;
 	int nr_calls;
 	uint64_t time;
@@ -85,7 +85,7 @@ static void setup_graph_list(struct opts *opts, char *func)
 }
 
 static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
-					uint64_t time, unsigned long addr)
+					uint64_t time, uint64_t addr)
 {
 	struct uftrace_graph *graph;
 	struct ftrace_session *sess;
@@ -109,7 +109,7 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 }
 
 static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
-					  uint64_t time, unsigned long addr)
+					  uint64_t time, uint64_t addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
@@ -147,7 +147,7 @@ static int save_backtrace_addr(struct task_graph *tg)
 	int i;
 	int skip = 0;
 	int len = tg->task->stack_count;
-	unsigned long addrs[len];
+	uint64_t addrs[len];
 	struct graph_backtrace *bt;
 
 	if (tg->graph->kernel_only) {
@@ -434,7 +434,7 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 }
 
 static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
-			      unsigned long addr, int type, char *func)
+			      uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
 	struct sym *sym = NULL;

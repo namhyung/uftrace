@@ -25,7 +25,7 @@ enum symtype {
 };
 
 struct sym {
-	unsigned long addr;
+	uint64_t addr;
 	unsigned size;
 	enum symtype type;
 	char *name;
@@ -75,14 +75,14 @@ struct symtabs {
 # define KADDR_SHIFT  31
 #endif
 
-unsigned long kernel_base_addr;
+uint64_t kernel_base_addr;
 
-static inline bool is_kernel_address(unsigned long addr)
+static inline bool is_kernel_address(uint64_t addr)
 {
 	return addr >= kernel_base_addr;
 }
 
-static inline unsigned long get_real_address(unsigned long addr)
+static inline uint64_t get_real_address(uint64_t addr)
 {
 	if (is_kernel_address(addr) && kernel_base_addr > UINT_MAX)
 		return addr | (-1ULL << KADDR_SHIFT);
@@ -91,7 +91,7 @@ static inline unsigned long get_real_address(unsigned long addr)
 
 void set_kernel_base(char *dirname, const char *session_id);
 
-struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr);
+struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename);
@@ -121,7 +121,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);
 
-char *symbol_getname(struct sym *sym, unsigned long addr);
+char *symbol_getname(struct sym *sym, uint64_t addr);
 void symbol_putname(struct sym *sym, char *name);
 
 struct dynsym_idxlist {

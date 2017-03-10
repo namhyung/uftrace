@@ -412,10 +412,10 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
+	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
 	       task->tid, frs->type == FTRACE_EXIT ? "exit " :
 	       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
-	       name, (unsigned long)frs->addr, frs->depth);
+	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
 	if (frs->more) {
@@ -463,10 +463,10 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%lx) depth: %u\n",
+	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
 	       tid, frs->type == FTRACE_EXIT ? "exit " :
 	       frs->type == FTRACE_ENTRY ? "entry" : "lost",
-	       name, (unsigned long)frs->addr, frs->depth);
+	       name, frs->addr, frs->depth);
 
 	if (debug) {
 		/* this is only needed for hex dump */
