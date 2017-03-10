@@ -1,3 +1,21 @@
+uftrace v0.6.2
+--------------
+* dlopen() support:
+  can show functions from dynamic loaded library using dlopen()
+
+* kernel tracing update:
+  save kernel metadata so that it can be viewed from a different machine
+  adjust tracer settings to reduce lost kernel data
+
+* filter change:
+  remove '+' sign in elapsed time for --time-range option
+  allow to use 'm' or 'min' to specify elapsed time
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Abder Benbachir, Geneviève Bastien, Honggyu Kim, Taeung Song,
+  Wonseok Ko
+
+
 uftrace v0.6.1
 --------------
 * kernel option change:
