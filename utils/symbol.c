@@ -15,6 +15,7 @@
 #include <gelf.h>
 #include <unistd.h>
 #include <assert.h>
+#include <inttypes.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
@@ -41,7 +42,7 @@ static int addrsort(const void *a, const void *b)
 
 static int addrfind(const void *a, const void *b)
 {
-	unsigned long addr = (unsigned long) a;
+	uint64_t addr = *(uint64_t *) a;
 	const struct sym *sym = b;
 
 	if (sym->addr <= addr && addr < sym->addr + sym->size)
@@ -373,7 +374,7 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 
 	/* save current address for each symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++)
-		dsymtab->sym_names[i] = (void *)dsymtab->sym[i].addr;
+		dsymtab->sym_names[i] = (void *)(long)dsymtab->sym[i].addr;
 
 	/* sort ->sym by address now */
 	qsort(dsymtab->sym, dsymtab->nr_sym, sizeof(*dsymtab->sym), addrsort);
@@ -381,7 +382,7 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	/* find position of sorted symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < dsymtab->nr_sym; k++) {
-			if (dsymtab->sym_names[i] == (void *)dsymtab->sym[k].addr) {
+			if (dsymtab->sym_names[i] == (void *)(long)dsymtab->sym[k].addr) {
 				dsymtab->sym_names[i] = &dsymtab->sym[k];
 				break;
 			}
@@ -654,7 +655,7 @@ elf_error:
 	goto out;
 }
 
-static unsigned long find_map_offset(struct symtabs *symtabs,
+static uint64_t find_map_offset(struct symtabs *symtabs,
 				     const char *filename)
 {
 	struct ftrace_proc_maps *maps = symtabs->maps;
@@ -797,7 +798,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 	unsigned int grow = SYMTAB_GROW;
 	struct symtab *stab = &symtabs->symtab;
 	char allowed_types[] = "TtwPK";
-	unsigned long prev_addr = -1;
+	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
 	fp = fopen(symfile, "r");
@@ -972,20 +973,20 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 do_it:
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", dtab->sym_names[i]->addr - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym_names[i]->addr - offset,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
 	/* this last entry should come from ->sym[] to know the real end */
 	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size - offset,
 			(char) dtab->sym[i-1].type, "__dynsym_end");
 	}
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n", stab->sym[i].addr - offset,
 		       (char) stab->sym[i].type, stab->sym[i].name);
 	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n",
+		fprintf(fp, "%016"PRIx64" %c %s\n",
 			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
 			(char) stab->sym[i-1].type, "__sym_end");
 	}
@@ -1005,7 +1006,7 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 	unsigned int i;
 	unsigned int grow = SYMTAB_GROW;
 	char allowed_types[] = "TtwPK";
-	unsigned long prev_addr = -1;
+	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
 	fp = fopen(symfile, "r");
@@ -1127,10 +1128,10 @@ static void save_module_symbol(struct symtab *stab, const char *symfile,
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
-		fprintf(fp, "%016lx %c %s\n", stab->sym[i].addr - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n", stab->sym[i].addr - offset,
 		       (char) stab->sym[i].type, stab->sym[i].name);
 	if (i > 0) {
-		fprintf(fp, "%016lx %c %s\n",
+		fprintf(fp, "%016"PRIx64" %c %s\n",
 			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
 			(char) stab->sym[i-1].type, "__sym_end");
 	}
@@ -1277,7 +1278,7 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
-struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
+struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
@@ -1286,23 +1287,23 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 
 	if (is_kernel_address(addr)) {
 		struct symtab *ktab = get_kernel_symtab();
-		const void *kaddr = (const void *)get_real_address(addr);
+		uint64_t kaddr = get_real_address(addr);
 
 		if (!ktab)
 			return NULL;
 
-		sym = bsearch(kaddr, ktab->sym, ktab->nr_sym,
+		sym = bsearch(&kaddr, ktab->sym, ktab->nr_sym,
 			      sizeof(*ktab->sym), addrfind);
 		return sym;
 	}
 
-	sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
+	sym = bsearch(&addr, stab->sym, stab->nr_sym,
 		      sizeof(*sym), addrfind);
 	if (sym)
 		return sym;
 
 	/* try dynamic symbols if failed */
-	sym = bsearch((const void *)addr, dtab->sym, dtab->nr_sym,
+	sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
 		      sizeof(*sym), addrfind);
 	if (sym)
 		return sym;
@@ -1342,7 +1343,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, unsigned long addr)
 		}
 
 		stab = &maps->symtab;
-		sym = bsearch((const void *)addr, stab->sym, stab->nr_sym,
+		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 	}
 
@@ -1374,12 +1375,12 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 	return NULL;
 }
 
-char *symbol_getname(struct sym *sym, unsigned long addr)
+char *symbol_getname(struct sym *sym, uint64_t addr)
 {
 	char *name;
 
 	if (sym == NULL) {
-		xasprintf(&name, "<%lx>", addr);
+		xasprintf(&name, "<%"PRIx64">", addr);
 		return name;
 	}
 
@@ -1407,7 +1408,7 @@ void print_symtabs(struct symtabs *symtabs)
 		struct sym *sym = &stab->sym[i];
 
 		name = symbol_getname(sym, sym->addr);
-		pr_out("[%2zd] %#lx: %s (size: %u)\n",
+		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
 		       i, sym->addr, name, sym->size);
 		symbol_putname(sym, name);
 	}
@@ -1419,15 +1420,15 @@ void print_symtabs(struct symtabs *symtabs)
 		struct sym *sym = &dtab->sym[i];
 
 		name = symbol_getname(sym, sym->addr);
-		printf("[%2zd] %#lx: %s (size: %u)\n",
+		printf("[%2zd] %#"PRIx64": %s (size: %u)\n",
 		       i, sym->addr, name, sym->size);
 		symbol_putname(sym, name);
 	}
 }
 
-static unsigned long get_kernel_base(char *str)
+static uint64_t get_kernel_base(char *str)
 {
-	unsigned long addr = strtoul(str, NULL, 16);
+	uint64_t addr = strtoull(str, NULL, 16);
 
 	if (addr < 0x40000000UL) {
 		return 0x40000000UL;
