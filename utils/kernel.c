@@ -992,7 +992,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		struct ftrace_session *sess = first_session;
 		struct ftrace_task_handle *task;
 		struct ftrace_trigger tr = {};
-		unsigned long real_addr;
+		uint64_t real_addr;
 		uint64_t time_filter = handle->time_filter;
 
 		curr = &kernel->rstacks[cpu];

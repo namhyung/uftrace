@@ -373,7 +373,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 {
 	struct fstack *fstack;
 	struct ftrace_session *sess;
-	unsigned long addr = rstack->addr;
+	uint64_t addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
 	fstack = &task->func_stack[task->stack_count - 1];
@@ -572,7 +572,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 			     struct ftrace_ret_stack *rstack)
 {
 	struct ftrace_session *sess;
-	unsigned long addr = get_real_address(rstack->addr);
+	uint64_t addr = get_real_address(rstack->addr);
 	struct ftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
 	struct fstack *fstack;
