@@ -405,7 +405,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 	if (sess) {
 		struct ftrace_filter *fixup;
 
-		fixup = ftrace_match_filter(&sess->fixups, addr, tr);
+		fixup = uftrace_match_filter(addr, &sess->fixups, tr);
 		if (unlikely(fixup)) {
 			if (!strncmp(fixup->name, "exec", 4))
 				fstack->flags |= FSTACK_FL_EXEC;
@@ -417,7 +417,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 				fstack->flags |= FSTACK_FL_LONGJMP;
 		}
 
-		ftrace_match_filter(&sess->filters, addr, tr);
+		uftrace_match_filter(addr, &sess->filters, tr);
 	}
 
 
@@ -601,7 +601,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 			return -1;
 	}
 
-	ftrace_match_filter(&sess->filters, addr, &tr);
+	uftrace_match_filter(addr, &sess->filters, &tr);
 
 	if (tr.flags & TRIGGER_FL_FILTER) {
 		if (tr.fmode == FILTER_MODE_OUT)
@@ -933,7 +933,7 @@ int read_task_args(struct ftrace_task_handle *task,
 		return -1;
 	}
 
-	fl = ftrace_match_filter(&sess->filters, rstack->addr, &tr);
+	fl = uftrace_match_filter(rstack->addr, &sess->filters, &tr);
 	if (fl == NULL) {
 		pr_dbg("cannot find filter: %lx\n", rstack->addr);
 		return -1;
@@ -1050,8 +1050,8 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 						 curr->time);
 
 		if (sess)
-			ftrace_match_filter(&sess->filters,
-					    curr->addr, &tr);
+			uftrace_match_filter(curr->addr, &sess->filters,
+					     &tr);
 
 		if (task->filter.time)
 			time_filter = task->filter.time->threshold;

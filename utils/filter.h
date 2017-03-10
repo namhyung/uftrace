@@ -1,6 +1,8 @@
 #ifndef __FTRACE_FILTER_H__
 #define __FTRACE_FILTER_H__
 
+#include <stdint.h>
+
 #include "rbtree.h"
 #include "list.h"
 
@@ -111,8 +113,8 @@ void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
 				const char *modname);
 void ftrace_cleanup_filter_module(struct list_head *head);
 
-struct ftrace_filter *ftrace_match_filter(struct rb_root *root, unsigned long ip,
-			struct ftrace_trigger *tr);
+struct ftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
+					   struct ftrace_trigger *tr);
 void ftrace_cleanup_filter(struct rb_root *root);
 void ftrace_print_filter(struct rb_root *root);
 

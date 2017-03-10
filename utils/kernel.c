@@ -1020,7 +1020,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.
 		 */
-		ftrace_match_filter(&sess->filters, real_addr, &tr);
+		uftrace_match_filter(real_addr, &sess->filters, &tr);
 
 		if (curr->type == FTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
