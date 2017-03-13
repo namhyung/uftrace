@@ -401,14 +401,40 @@ static int check_prolog_insn_arm(uint32_t insn)
 	FAIL_A32("unknown");
 }
 
+static int check_prolog_insn_thumb(uint16_t *insn)
+{
+	return -1;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       uintptr_t addr, uint32_t size)
 {
-	uint32_t *insn = (void *)addr;
+	if (addr & 1) {
+		uint16_t *insn = (void *)addr - 1;
+		unsigned code_size = 0;
 
-	if (check_prolog_insn_arm(insn[0]) == 0 &&
-	    check_prolog_insn_arm(insn[1]) == 0)
-		return size;
+		while (code_size < size) {
+			if (check_prolog_insn_thumb(insn) < 0)
+				return INSTRUMENT_FAILED;
+
+			if (*insn >= 0xe800) {
+				insn += 2;
+				code_size += 4;
+			}
+			else {
+				insn++;
+				code_size += 2;
+			}
+		}
+		return code_size;
+	}
+	else {
+		uint32_t *insn = (void *)addr;
+
+		if (check_prolog_insn_arm(insn[0]) == 0 &&
+		    check_prolog_insn_arm(insn[1]) == 0)
+			return size;
+	}
 
 	return INSTRUMENT_FAILED;
 }

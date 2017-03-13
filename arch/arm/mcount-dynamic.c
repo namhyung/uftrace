@@ -18,19 +18,36 @@
 /* target instrumentation function it needs to call */
 extern void __dentry__(void);
 
-static void save_orig_code(unsigned long addr)
+static void save_orig_code_arm(unsigned long addr)
 {
 	struct mcount_orig_insn *orig;
 	uint32_t jmp_insn[] = {
 		0xe59fc000,  /* LDR  ip, <addr> */
 		0xe12fff1c,  /* BX   ip */
-		addr + 8,
+		addr + CODE_SIZE,
 	};
 
 	orig = mcount_save_code(addr, CODE_SIZE, jmp_insn, sizeof(jmp_insn));
 
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CODE_SIZE;
+}
+
+static void save_orig_code_thumb(unsigned long addr, unsigned size)
+{
+	struct mcount_orig_insn *orig;
+	unsigned long jmp_insn[] = {
+		0xc004f8df,  /* LDR  ip, <addr> */
+		0xbf004760,  /* BX   ip; NOP */
+		addr + size,
+	};
+
+	/* actual instruction address is even */
+	orig = mcount_save_code(addr - 1, size, jmp_insn, sizeof(jmp_insn));
+
+	/* make sure orig->addr same as when called from __dentry__ */
+	orig->addr += size + 1;
+	orig->insn += 1;  /* mark it as THUMB */
 }
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -77,9 +94,15 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_err("cannot restore trampoline due to protection");
 }
 
-static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
+static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
+					 unsigned long addr)
 {
-	return (mdi->trampoline - addr - 12) >> 2;
+	unsigned long jmp_offset = 12;
+
+	if (addr & 1)
+		jmp_offset = 9;
+
+	return (mdi->trampoline - addr - jmp_offset) >> 2;
 }
 
 /* see mcount-insn.c */
@@ -99,7 +122,7 @@ static int mcount_patch_func_arm(struct mcount_dynamic_info *mdi, struct sym *sy
 	if (disasm_check_insns(disasm, sym->addr, CODE_SIZE) < 0)
 		return INSTRUMENT_FAILED;
 
-	save_orig_code(sym->addr);
+	save_orig_code_arm(sym->addr);
 
 	target_addr = get_target_addr(mdi, sym->addr);
 
@@ -116,17 +139,64 @@ static int mcount_patch_func_arm(struct mcount_dynamic_info *mdi, struct sym *sy
 	return INSTRUMENT_SUCCESS;
 }
 
+static int mcount_patch_func_thumb(struct mcount_dynamic_info *mdi, struct sym *sym,
+				   struct mcount_disasm_engine *disasm)
+{
+	uint16_t *insn = (void *)(long)sym->addr - 1;
+	uint16_t pushH = 0xe92d;  /* PUSH {r0-r3,lr} */
+	uint16_t pushL = 0x400f;
+	uint16_t blxH = 0xf000;
+	uint16_t blxL = 0xc000;
+	unsigned long target_addr;
+	unsigned imm10H, imm10L, j1,j2;
+	int code_size;
+
+	if (sym->size < CODE_SIZE)
+		return INSTRUMENT_SKIPPED;
+
+	code_size = disasm_check_insns(disasm, sym->addr, CODE_SIZE);
+	if (code_size < 0)
+		return INSTRUMENT_FAILED;
+
+	save_orig_code_thumb(sym->addr, code_size);
+
+	target_addr = get_target_addr(mdi, sym->addr);
+	if (target_addr == 0)
+		return INSTRUMENT_FAILED;
+
+	if (target_addr >= 0x400000) {
+		pr_dbg("too big code, cannot add BLX <imm> insn: %lx\n", target_addr);
+		return INSTRUMENT_FAILED;
+	}
+
+	imm10L = target_addr & 0x3ff;
+	imm10H = (target_addr >> 10) & 0x3ff;
+	j1 = (target_addr >> 21) ^ 0x1;
+	j2 = (target_addr >> 20) ^ 0x1;
+
+	/* make a "BLX" insn with 22-bit offset */
+	blxH |= imm10H;
+	blxL |= (j1 << 13) | (j2 << 11) | (imm10L << 1);
+
+	insn[0] = pushH;
+	insn[1] = pushL;
+	insn[2] = blxH;
+	insn[3] = blxL;
+
+	return INSTRUMENT_SUCCESS;
+}
+
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm)
 {
 	int ret;
 
-	/* TODO: support THUMB instructions */
 	if (sym->addr & 1)
-		return INSTRUMENT_SKIPPED;
+		ret = mcount_patch_func_thumb(mdi, sym, disasm);
+	else
+		ret = mcount_patch_func_arm(mdi, sym, disasm);
 
-	ret = mcount_patch_func_arm(mdi, sym, disasm);
-	if (ret < 0)
+	if (ret != INSTRUMENT_SUCCESS)
 		return ret;
 
 	pr_dbg3("update function '%s' dynamically to call libmcount.\n",

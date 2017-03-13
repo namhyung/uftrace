@@ -109,6 +109,10 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	if ((sym->addr & 1) == 0)
 		return parent_loc;
 
+	/* if dynamic tracing is enabled */
+	if (mcount_find_code(child_ip) != NULL)
+		return parent_loc;
+
 	cache = lookup_cache(&offset_cache, sym->addr, false);
 	if (cache)
 		return parent_loc + cache->offset;
