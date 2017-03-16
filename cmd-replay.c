@@ -372,7 +372,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		        enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
-	char str[64];
+	char *str = NULL;
 
 	const int null_str = -1;
 	void *data = task->args.data;
@@ -469,10 +469,24 @@ void get_argspec_string(struct ftrace_task_handle *task,
 
 		if (spec->fmt == ARG_FMT_STR) {
 			unsigned short slen;
+			unsigned short newline = 0;
+			char last_ch;
+
 			memcpy(&slen, data, 2);
 
+			last_ch = *((char *)data + slen + 1);
+			if (last_ch == '\n')
+				newline = 1;
+
+			str = xmalloc(slen + newline + 1);
 			memcpy(str, data + 2, slen);
 			str[slen] = '\0';
+
+			if (newline) {
+				str[slen - 1] = '\\';
+				str[slen]     = 'n';
+				str[slen + 1] = '\0';
+			}
 
 			if (!memcmp(str, &null_str, sizeof(null_str)))
 				n += snprintf(args + n, len, "NULL");
@@ -480,11 +494,12 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				/* quotation mark has to be escaped by backslash
 				   in chrome trace json format */
 				n += snprintf(args + n, len, "\\\"%.*s\\\"",
-					      slen, str);
+					      slen + newline, str);
 			else
 				n += snprintf(args + n, len, "\"%.*s\"",
-					      slen, str);
+					      slen + newline, str);
 
+			free(str);
 			size = slen + 2;
 		}
 		else if (spec->fmt == ARG_FMT_CHAR) {
