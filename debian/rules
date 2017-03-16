@@ -25,8 +25,7 @@ override_dh_auto_install:
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	@# strip out ansi codes that are apparently not opt-outable in tests/unittest.c
-	MAKEFLAGS= make test $(MAKEVARS) | sed -e "$$(printf 's/\033\\[[0-9;]*m//g')"
+	MAKEFLAGS= make test $(MAKEVARS) CFLAGS_unittest=-DUFTRACE_TEST_SUPPRESS_COLORS
 endif
 
 override_dh_auto_clean:
