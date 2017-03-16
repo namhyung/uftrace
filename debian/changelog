@@ -1,8 +1,10 @@
-uftrace (0.6.0.20161123-1) unstable; urgency=medium
+uftrace (0.6.2-1) UNRELEASED; urgency=low
 
-  * New upstream snapshot at commit c8f17dffd0
+  * New upstream release
+  * Release strategy has been established; define debian/watch
+  * Use pristine-tar
 
- -- paul cannon <pik@debian.org>  Wed, 23 Nov 2016 18:49:24 -0600
+ -- paul cannon <pik@debian.org>  Thu, 16 Mar 2017 12:41:12 -0500
 
 uftrace (0.6.0.20161014-1) unstable; urgency=low
 
