@@ -18,6 +18,17 @@
 #include "utils/utils.h"
 
 #define TERM_COLOR_NORMAL	""
+#ifdef UFTRACE_TEST_SUPPRESS_COLORS
+#define TERM_COLOR_RESET	""
+#define TERM_COLOR_BOLD		""
+#define TERM_COLOR_RED		""
+#define TERM_COLOR_GREEN	""
+#define TERM_COLOR_YELLOW	""
+#define TERM_COLOR_BLUE		""
+#define TERM_COLOR_MAGENTA	""
+#define TERM_COLOR_CYAN		""
+#define TERM_COLOR_GRAY		""
+#else
 #define TERM_COLOR_RESET	"\033[0m"
 #define TERM_COLOR_BOLD		"\033[1m"
 #define TERM_COLOR_RED		"\033[31m"
@@ -27,6 +38,7 @@
 #define TERM_COLOR_MAGENTA	"\033[35m"
 #define TERM_COLOR_CYAN		"\033[36m"
 #define TERM_COLOR_GRAY		"\033[37m"
+#endif
 
 int debug;
 FILE *logfp;

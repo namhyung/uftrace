@@ -78,12 +78,19 @@ struct ftrace_unit_test test_ ## t = {		\
 						\
 int func_ ## t(void)
 
-
 #define TERM_COLOR_NORMAL	""
-#define TERM_COLOR_RESET	"\033[0m"
-#define TERM_COLOR_BOLD		"\033[1m"
-#define TERM_COLOR_RED		"\033[31m"
-#define TERM_COLOR_GREEN	"\033[32m"
-#define TERM_COLOR_YELLOW	"\033[33m"
+#ifdef UFTRACE_TEST_SUPPRESS_COLORS
+# define TERM_COLOR_RESET	""
+# define TERM_COLOR_BOLD	""
+# define TERM_COLOR_RED		""
+# define TERM_COLOR_GREEN	""
+# define TERM_COLOR_YELLOW	""
+#else
+# define TERM_COLOR_RESET	"\033[0m"
+# define TERM_COLOR_BOLD	"\033[1m"
+# define TERM_COLOR_RED		"\033[31m"
+# define TERM_COLOR_GREEN	"\033[32m"
+# define TERM_COLOR_YELLOW	"\033[33m"
+#endif
 
 #endif /* __FTRACE_UNIT_TEST_H__ */
