@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+BUILDDIR="${BUILDDIR:-/tmp/buildd}"
+
+install_packages() {
+    apt-get -y "${APTGETOPT[@]}" install "$@"
+}
+
+install_packages lintian
+
+echo "+++ lintian output +++"
+
+su -c "lintian -i -I --profile debian '$BUILDDIR'/*.changes" - pbuilder
+
+echo "+++ end of lintian output +++"
+
