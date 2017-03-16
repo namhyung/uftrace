@@ -1,1 +1,2 @@
 0001-suppress-unittest-colored-output-with-define.patch
+0002-build-unittests-with-no-pie.patch

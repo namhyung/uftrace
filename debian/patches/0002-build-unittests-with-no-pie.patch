@@ -1,0 +1,31 @@
+From: paul cannon <pcannon@epochlabs.com>
+Date: Thu, 16 Mar 2017 15:27:47 -0500
+Subject: build unittests with -no-pie
+
+Newer releases of Debian and Ubuntu have begun making GCC build with
+PIE by default. This is good for security, but breaks special uses
+like the lookup of test cases through libelf in "unittests". To be more
+specific, without this change, the unittests executable will quickly
+segfault on Debian 9 (stretch) or Ubuntu 16.10 (yakkety) or newer
+releases.
+
+Add the -no-pie option to the GCC command line when building unittests.
+
+This might break on systems where GCC does not yet understand that
+option. I'm not sure yet how best to detect that situation.
+---
+ tests/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/Makefile b/tests/Makefile
+index b8d4a61..29c70e5 100644
+--- a/tests/Makefile
++++ b/tests/Makefile
+@@ -1,6 +1,6 @@
+ TEST_CFLAGS  := -D_GNU_SOURCE -DUNIT_TEST -I$(srcdir) -I$(objdir) -g
+ TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h $(CFLAGS_unittest)
+-TEST_LDFLAGS := -L$(objdir)/libtraceevent -ltraceevent -lelf -pthread -lrt -ldl
++TEST_LDFLAGS := -L$(objdir)/libtraceevent -ltraceevent -lelf -pthread -lrt -ldl -no-pie
+ 
+ UNIT_TEST_SRC := $(wildcard $(srcdir)/*.c $(srcdir)/utils/*.c)
+ UNIT_TEST_SRC += $(wildcard $(srcdir)/arch/$(ARCH)/*.c)
