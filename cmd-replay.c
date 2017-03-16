@@ -372,7 +372,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		        enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
-	char str[64];
+	char *str = NULL;
 
 	const int null_str = -1;
 	void *data = task->args.data;
@@ -471,6 +471,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			unsigned short slen;
 			memcpy(&slen, data, 2);
 
+			str = xmalloc(slen + 1);
 			memcpy(str, data + 2, slen);
 			str[slen] = '\0';
 
@@ -485,6 +486,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				n += snprintf(args + n, len, "\"%.*s\"",
 					      slen, str);
 
+			free(str);
 			size = slen + 2;
 		}
 		else if (spec->fmt == ARG_FMT_CHAR) {
