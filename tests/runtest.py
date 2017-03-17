@@ -422,8 +422,8 @@ def run_single_case(case, flags, opts, diff, dbg):
 
     return result
 
-def print_test_result(case, result):
-    if sys.stdout.isatty():
+def print_test_result(case, result, color):
+    if sys.stdout.isatty() and color:
         result_list = [colored_result[r] for r in result]
     else:
         result_list = [text_result[r] for r in result]
@@ -452,6 +452,8 @@ def parse_argument():
                         help="show diff result if not matched")
     parser.add_argument("-v", "--verbose", dest='debug', action='store_true',
                         help="show internal command and result for debugging")
+    parser.add_argument("-n", "--no-color", dest='color', action='store_false',
+                        help="suppress color in the output")
 
     return parser.parse_args()
 
@@ -484,7 +486,7 @@ if __name__ == "__main__":
         for tc in testcases:
             name = tc[:-3]  # remove '.py'
             result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
-            print_test_result(name, result)
+            print_test_result(name, result, arg.color)
     else:
         try:
             testcases = glob.glob('t*' + arg.case + '*.py')
@@ -494,4 +496,4 @@ if __name__ == "__main__":
         for tc in sorted(testcases):
             name = tc[:-3]  # remove '.py'
             result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
-            print_test_result(name, result)
+            print_test_result(name, result, arg.color)
