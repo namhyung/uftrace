@@ -46,7 +46,7 @@ static const char *messages[] = {
 	"unknown result",
 };
 
-static void run_unit_test(struct ftrace_unit_test *test, int *test_stats)
+static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 {
 	static int count;
 	int status;
@@ -74,7 +74,7 @@ static void run_unit_test(struct ftrace_unit_test *test, int *test_stats)
 	fflush(stdout);
 }
 
-static Elf *setup_unit_test(struct ftrace_unit_test **test_cases, size_t *test_num)
+static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
 	int fd, len;
@@ -108,7 +108,7 @@ static Elf *setup_unit_test(struct ftrace_unit_test **test_cases, size_t *test_n
 
 		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
 
-		if (strcmp(shstr, "ftrace.unit_test") == 0) {
+		if (strcmp(shstr, "uftrace.unit_test") == 0) {
 			test_sec = sec;
 			sec_size = shdr.sh_size;
 			break;
@@ -154,7 +154,7 @@ int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
 #undef main
 int main(int argc, char *argv[])
 {
-	struct ftrace_unit_test *test_cases;
+	struct uftrace_unit_test *test_cases;
 	int test_stats[TEST_MAX] = { };
 	size_t i, test_num;
 	Elf *elf;
