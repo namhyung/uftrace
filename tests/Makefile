@@ -14,7 +14,7 @@ test_run:
 	./runtest.py $(TESTARG)
 
 test_unit: unittest
-	./unittest $(filter -d,$(TESTARG))
+	./unittest $(TESTARG)
 
 unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)

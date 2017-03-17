@@ -13,6 +13,8 @@
 #include "tests/unittest.h"
 
 
+static bool color = true;
+
 /* example test case */
 TEST_CASE(unittest_framework)
 {
@@ -37,6 +39,14 @@ static const char *retcodes[] = {
 	TERM_COLOR_YELLOW "SKIP" TERM_COLOR_RESET,
 	TERM_COLOR_RED    "SIG " TERM_COLOR_RESET,
 	TERM_COLOR_RED    "BAD " TERM_COLOR_RESET,
+};
+
+static const char *retcodes_nocolor[] = {
+	"PASS",
+	"FAIL",
+	"SKIP",
+	"SIG ",
+	"BAD ",
 };
 
 static const char *messages[] = {
@@ -71,7 +81,8 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 		ret = TEST_BAD;
 
 	test_stats[ret]++;
-	printf("[%03d] %-30s: %s\n", ++count, test->name, retcodes[ret]);
+	printf("[%03d] %-30s: %s\n", ++count, test->name,
+	       color ? retcodes[ret] : retcodes_nocolor[ret]);
 	fflush(stdout);
 }
 
@@ -220,11 +231,14 @@ int main(int argc, char *argv[])
 
 	printf("Running %zd test cases\n======================\n", test_num);
 
-	while ((c = getopt(argc, argv, "dv")) != -1) {
+	while ((c = getopt(argc, argv, "dvnpiO:f:")) != -1) {
 		switch (c) {
 		case 'd':
 		case 'v':
 			debug = 1;
+			break;
+		case 'n':
+			color = false;
 			break;
 		default:
 			break;
