@@ -100,7 +100,7 @@ static int find_load_base(struct dl_phdr_info *info,
 	return 1;
 }
 
-static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
+static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
 	int fd, len;
@@ -110,12 +110,13 @@ static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_
 	Elf_Data *data;
 	struct uftrace_unit_test *tcases;
 	unsigned i, num;
+	int ret = -1;
 
 	exename = read_exename();
 	fd = open(exename, O_RDONLY);
 	if (fd < 0) {
 		printf("error during load ELF header: %s: %m\n", exename);
-		return NULL;
+		return -1;
 	}
 
 	elf_version(EV_CURRENT);
@@ -144,8 +145,10 @@ static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_
 		}
 	}
 
-	if (test_sec == NULL)
+	if (test_sec == NULL) {
+		printf("cannot find unit test data\n");
 		goto out;
+	}
 
 	dl_iterate_phdr(find_load_base, NULL);
 
@@ -170,19 +173,21 @@ static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_
 	*test_cases = tcases;
 	*test_num   = num;
 
-	return elf;
+	ret = 0;
 
 elf_error:
-	printf("ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
+	if (ret < 0) {
+		printf("ELF error during symbol loading: %s\n",
+		       elf_errmsg(elf_errno()));
+	}
 out:
 	elf_end(elf);
 	close(fd);
 
-	return NULL;
+	return ret;
 }
 
-static void finish_unit_test(Elf *elf, int *test_stats)
+static void finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
 {
 	int i;
 
@@ -191,8 +196,8 @@ static void finish_unit_test(Elf *elf, int *test_stats)
 	for (i = 0; i < TEST_MAX; i++)
 		printf("%3d %s\n", test_stats[i], messages[i]);
 
-	elf_end(elf);
 	printf("\n");
+	free(test_cases);
 }
 
 int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
@@ -206,10 +211,8 @@ int main(int argc, char *argv[])
 	struct uftrace_unit_test *test_cases;
 	int test_stats[TEST_MAX] = { };
 	size_t i, test_num;
-	Elf *elf;
 
-	elf = setup_unit_test(&test_cases, &test_num);
-	if (elf == NULL) {
+	if (setup_unit_test(&test_cases, &test_num) < 0) {
 		printf("Cannot run unit tests - failed to load test cases\n");
 		return -1;
 	}
@@ -223,6 +226,6 @@ int main(int argc, char *argv[])
 	for (i = 0; i < test_num; i++)
 		run_unit_test(&test_cases[i], test_stats);
 
-	finish_unit_test(elf, test_stats);
+	finish_unit_test(test_cases, test_stats);
 	return 0;
 }
