@@ -3,6 +3,10 @@
 
 prefix=/usr/local
 
+srcdir=$(readlink -f $(dirname $0))
+objdir=$(readlink -f ${objdir:-${PWD}})
+output=${output:-${objdir}/.config}
+
 usage() {
     echo "Usage: $0 [<options>]
 
@@ -12,11 +16,29 @@ usage() {
   --libdir=<DIR>     set library install dir as <DIR>     (default: \${prefix}/lib)
   --mandir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
   --objdir=<DIR>     set build dir as <DIR>               (default: \${PWD})
+
+  -p                 preserve old setting
 "
     exit 1
 }
 
-while getopts ":ho:-:" opt; do
+# preserve old settings
+preserve() {
+    if [ -f ${output} ]; then
+	while read pre opt op val; do
+	    # do not change directory settings (to prevent confusion)
+	    if [ "${opt:3}" = "dir" ]; then
+		continue
+	    fi
+
+	    if [ "$op" = ":=" -o "$op" = "=" ]; then
+		eval "$opt=\"$val\""
+	    fi
+	done < ${output}
+    fi
+}
+
+while getopts ":ho:-:p" opt; do
     case "$opt" in
         -)
 	    # process --long-options
@@ -29,6 +51,7 @@ while getopts ":ho:-:" opt; do
             esac
 	    ;;
         o)       output=$OPTARG ;;
+        p)       preserve ;;
         *)       usage ;;
     esac
 done
@@ -63,8 +86,8 @@ fi
 CC=${CC:-${CROSS_COMPILE}gcc}
 LD=${LD:-${CROSS_COMPILE}ld}
 
-srcdir=$(readlink -f $(dirname $0))
-objdir=$(readlink -f ${objdir:-${PWD}})
+# objdir can be changed, reset output
+objdir=$(readlink -f ${objdir})
 output=${output:-${objdir}/.config}
 
 #
