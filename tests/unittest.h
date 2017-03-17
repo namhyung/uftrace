@@ -1,5 +1,5 @@
-#ifndef __FTRACE_UNIT_TEST_H__
-#define __FTRACE_UNIT_TEST_H__
+#ifndef __UFTRACE_UNIT_TEST_H__
+#define __UFTRACE_UNIT_TEST_H__
 
 #include <stdio.h>
 #include <string.h>
@@ -60,9 +60,9 @@ extern int debug;
 })
 
 
-#define TEST_SECTION  "ftrace.unit_test"
+#define TEST_SECTION  "uftrace.unit_test"
 
-struct ftrace_unit_test {
+struct uftrace_unit_test {
 	const char *name;
 	int (*func)(void);
 };
@@ -71,7 +71,7 @@ struct ftrace_unit_test {
 extern int func_ ## t(void);			\
 						\
 __attribute__((section(TEST_SECTION),used))	\
-struct ftrace_unit_test test_ ## t = {		\
+const struct uftrace_unit_test test_ ## t = {	\
 	.name = stringify(t),			\
 	.func = func_ ## t,			\
 };						\
@@ -86,4 +86,4 @@ int func_ ## t(void)
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
 
-#endif /* __FTRACE_UNIT_TEST_H__ */
+#endif /* __UFTRACE_UNIT_TEST_H__ */
