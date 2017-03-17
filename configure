@@ -22,7 +22,7 @@ while getopts ":ho:-:" opt; do
 	    # process --long-options
 	    case "$OPTARG" in
                 help)  usage ;;
-                *=*)   opt=${OPTARG%=*}; val=${OPTARG#*=}
+                *=*)   opt=${OPTARG%%=*}; val=${OPTARG#*=}
                        eval "$opt=$val" ;;
                 *)     val="${!OPTIND}"; OPTIND=$((OPTIND + 1));
                        eval "$OPTARG=$val" ;;
@@ -35,7 +35,7 @@ done
 shift $((OPTIND - 1))
 
 for arg in "$@"; do
-    opt=${arg%=*}
+    opt=${arg%%=*}
     val=${arg#*=}
     eval "$opt='$val'"
 done
