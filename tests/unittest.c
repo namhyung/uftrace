@@ -211,6 +211,7 @@ int main(int argc, char *argv[])
 	struct uftrace_unit_test *test_cases;
 	int test_stats[TEST_MAX] = { };
 	size_t i, test_num;
+	int c;
 
 	if (setup_unit_test(&test_cases, &test_num) < 0) {
 		printf("Cannot run unit tests - failed to load test cases\n");
@@ -219,8 +220,17 @@ int main(int argc, char *argv[])
 
 	printf("Running %zd test cases\n======================\n", test_num);
 
-	if (argc > 1 && (!strcmp(argv[1], "-d") || !strcmp(argv[1], "-v")))
-		debug = 1;
+	while ((c = getopt(argc, argv, "dv")) != -1) {
+		switch (c) {
+		case 'd':
+		case 'v':
+			debug = 1;
+			break;
+		default:
+			break;
+		}
+	}
+
 	outfp = logfp = stdout;
 
 	for (i = 0; i < test_num; i++)
