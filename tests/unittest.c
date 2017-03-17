@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <gelf.h>
 #include <libelf.h>
+#include <link.h>
 
 #include "utils/utils.h"
 #include "tests/unittest.h"
@@ -74,6 +75,31 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 	fflush(stdout);
 }
 
+static unsigned long load_base;
+
+static int find_load_base(struct dl_phdr_info *info,
+			  size_t size, void *arg)
+{
+	unsigned i;
+
+	if (info->dlpi_name[0] != '\0')
+		return 0;
+
+	/* not a PIE binary */
+	if (info->dlpi_addr == 0)
+		return 1;
+
+	for (i = 0; i < info->dlpi_phnum; i++) {
+		const ElfW(Phdr) *phdr = info->dlpi_phdr + i;
+
+		if (phdr->p_type == PT_LOAD) {
+			load_base = info->dlpi_addr - phdr->p_vaddr;
+			break;
+		}
+	}
+	return 1;
+}
+
 static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
@@ -81,6 +107,9 @@ static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_
 	Elf *elf;
 	size_t shstr_idx, sec_size;
 	Elf_Scn *sec, *test_sec;
+	Elf_Data *data;
+	struct uftrace_unit_test *tcases;
+	unsigned i, num;
 
 	exename = read_exename();
 	fd = open(exename, O_RDONLY);
@@ -118,8 +147,28 @@ static Elf *setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_
 	if (test_sec == NULL)
 		goto out;
 
-	*test_cases = elf_getdata(test_sec, NULL)->d_buf;
-	*test_num   = sec_size / sizeof(**test_cases);
+	dl_iterate_phdr(find_load_base, NULL);
+
+	data   = elf_getdata(test_sec, NULL);
+	tcases = xmalloc(sec_size);
+	num    = sec_size / sizeof(*tcases);
+	memcpy(tcases, data->d_buf, sec_size);
+
+	/* relocate section symbols in case of PIE */
+	for (i = 0; i < num; i++) {
+		struct uftrace_unit_test *tc = &tcases[i];
+		unsigned long faddr = (unsigned long)tc->func;
+		unsigned long naddr = (unsigned long)tc->name;
+
+	       faddr += load_base;
+	       naddr += load_base;
+
+	       tc->func = (void *)faddr;
+	       tc->name = (void *)naddr;
+	}
+
+	*test_cases = tcases;
+	*test_num   = num;
 
 	return elf;
 
