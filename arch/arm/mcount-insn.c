@@ -430,9 +430,77 @@ static int check_prolog_insn_thumb_16(uint16_t insn)
 	return 0;
 }
 
-static int check_prolog_insn_thumb_32(uint16_t insn1, uint16_t insn2)
+#define FAIL_T32(type) \
+	({ pr_dbg2("fail: %s insn: %04hx %04hx\n", type, insn1, insn2); return -1; })
+
+static int check_prolog_insn_thumb_32(unsigned short insn1, unsigned short insn2)
 {
-	return -1;
+	if ((insn1 & 0xf800) == 0xe800) {
+		/* load/store multiple */
+		if ((insn1 & 0xff80) == 0xe880 || (insn1 & 0xff80) == 0xe900) {
+			if (insn2 >= 0x8000)  /* contains PC ? */
+				FAIL_T32("block transfer");
+
+			return 0;
+		}
+
+		/* data processing (shifted-register) insns */
+		if ((insn1 & 0xfe00) == 0xea00) {
+			/* using PC is undefined */
+			return 0;
+		}
+
+		/* coprocessor, advandced SIMD, floating-point insns */
+		if ((insn1 & 0xec00) == 0xec00) {
+			/* advanced SIMD */
+			if ((insn1 & 0xef00) == 0xef00)
+				return 0;
+			/* advanced SIMD + floating-point */
+			if ((insn2 & 0x0e00) == 0x0a00)
+				return 0;
+
+			FAIL_T32("coprocessor");
+		}
+
+		FAIL_T32("unsupported load/store");
+	}
+
+	if ((insn1 & 0xf800) == 0xf000) {
+		/* branch and misc control insns */
+		if (insn2 >= 0x8000)
+			FAIL_T32("branch and misc");
+
+		/* ADR insn */
+		if (((insn1 & 0xfbff) == 0xf2af) ||
+		    ((insn1 & 0xfbaf) == 0xf20f))
+			FAIL_T32("ADR");
+
+		/* data processing insns */
+		return 0;
+	}
+
+	/* load word */
+	if ((insn1 & 0xff70) == 0xf850) {
+		unsigned long rn = insn1 & 0x000f;
+		unsigned long rt = insn2 & 0xf000;
+
+		if (rn == 0x000f || rt == 0xf000)
+			FAIL_T32("memory");
+
+		return 0;
+	}
+
+	/* Advanced SIMD load/store insns */
+	if ((insn1 & 0xff10) == 0xf900) {
+		unsigned long rm = insn2 & 0x000f;
+
+		if (rm == 0x000f)
+			FAIL_T32("SIMD load");
+
+		return 0;
+	}
+
+	return 0;
 }
 
 static int check_prolog_insn_thumb(uint16_t *insn)
