@@ -401,9 +401,46 @@ static int check_prolog_insn_arm(uint32_t insn)
 	FAIL_A32("unknown");
 }
 
-static int check_prolog_insn_thumb(uint16_t *insn)
+#define FAIL_T16(type) \
+	({ pr_dbg2("fail: %s insn: %04hx\n", type, insn); return -1; })
+
+static int check_prolog_insn_thumb_16(uint16_t insn)
+{
+	/* BX / BLX */
+	if ((insn & 0xff00) == 0x4700)
+		FAIL_T16("branch");
+
+	/* LDR (literal) */
+	if ((insn & 0xf800) == 0x4800 ||
+	    (insn & 0xf800) == 0xa000)
+		FAIL_T16("ADR/LDR");
+
+	/* CBZ / CBNZ */
+	if ((insn & 0xf500) == 0xb100)
+		FAIL_T16("CBZ/CBNZ");
+
+	/* POP (to PC), BKPT, If-Then and hint */
+	if ((insn & 0xff00) >= 0xbd00)
+		FAIL_T16("misc");
+
+	/* B, UDF and SVC */
+	if ((insn & 0xf000) >= 0xd000)
+		FAIL_T16("branch");
+
+	return 0;
+}
+
+static int check_prolog_insn_thumb_32(uint16_t insn1, uint16_t insn2)
 {
 	return -1;
+}
+
+static int check_prolog_insn_thumb(uint16_t *insn)
+{
+	if (*insn < 0xe800)
+		return check_prolog_insn_thumb_16(*insn);
+	else
+		return check_prolog_insn_thumb_32(insn[0], insn[1]);
 }
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
