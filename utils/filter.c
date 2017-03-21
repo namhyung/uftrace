@@ -580,18 +580,8 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			}
 
 			if (!strncasecmp(pos, "time=", 5)) {
-				char *unit = NULL;
-
 				tr->flags |= TRIGGER_FL_TIME_FILTER;
-				tr->time = strtoull(pos+5, &unit, 10);
-
-				if (!strcmp(unit, "s"))
-					tr->time *= 1000 * 1000 * 1000;
-				else if (!strcmp(unit, "ms"))
-					tr->time *= 1000 * 1000;
-				else if (!strcmp(unit, "us"))
-					tr->time *= 1000;
-
+				tr->time = parse_time(pos+5, 3);
 				continue;
 			}
 
