@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include "mcount-arch.h"
 #include "utils/utils.h"
 

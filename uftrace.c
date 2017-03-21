@@ -19,13 +19,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <argp.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <ctype.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "uftrace"

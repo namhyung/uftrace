@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <regex.h>
-#include <ctype.h>
 #include <sys/utsname.h>
 
 /* This should be defined before #include "utils.h" */
