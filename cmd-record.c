@@ -1283,7 +1283,7 @@ static void print_child_usage(struct rusage *ru)
 
 static void check_binary(struct opts *opts)
 {
-	int fd;
+	int fd, chk;
 	size_t i;
 	char elf_ident[EI_NIDENT];
 	uint16_t e_type;
@@ -1327,9 +1327,14 @@ static void check_binary(struct opts *opts)
 	if (i == ARRAY_SIZE(supported_machines))
 		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
 
-	if (!opts->force) {
-		int chk = check_trace_functions(opts->exename);
+	chk = check_trace_functions(opts->exename);
 
+	if (opts->force) {
+		if (chk == 0)
+			pr_warn("Please compile '%s' with -pg "
+				"or -finstrument-functions flag\n", opts->exename);
+	}
+	else {
 		if (chk == 0) {
 			/* there's no function to trace */
 			pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
