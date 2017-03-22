@@ -186,7 +186,7 @@ static int set_tracing_bufsize(struct ftrace_kernel *kernel)
 
 static int reset_tracing_files(void)
 {
-	if (write_tracing_file("tracing_on", "0") < 0)
+	if (write_tracing_file("tracing_on", "1") < 0)
 		return -1;
 
 	if (write_tracing_file("current_tracer", "nop") < 0)
@@ -228,6 +228,10 @@ static int __setup_kernel_tracing(struct ftrace_kernel *kernel)
 	}
 
 	pr_dbg("setting up kernel tracing\n");
+
+	/* disable tracing */
+	if (write_tracing_file("tracing_on", "0") < 0)
+		return -1;
 
 	/* reset ftrace buffer */
 	if (write_tracing_file("trace", "0") < 0)
@@ -1094,8 +1098,15 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 		prev_tid = tid;
 	}
-	if (kernel->rstack_done[cpu] && rstack_list->count == 0)
+
+	if (rstack_list->count == 0) {
+		if (!kernel->rstack_done[cpu]) {
+			/* TODO: unknown type of event (tracepoint) */
+			kernel->rstack_done[cpu] = true;
+		}
+
 		return -1;
+	}
 
 out:
 	kernel->rstack_valid[cpu] = true;
