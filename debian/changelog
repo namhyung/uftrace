@@ -1,4 +1,4 @@
-uftrace (0.6.2-1) UNRELEASED; urgency=low
+uftrace (0.6.2-1) unstable; urgency=low
 
   * New upstream release
   * Release strategy has been established; define debian/watch
