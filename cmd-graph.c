@@ -641,7 +641,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
+	if (handle.hdr.feat_mask & KERNEL) {
 		kern.output_dir = opts->dirname;
 		kern.skip_out = opts->kernel_skip_out;
 		if (setup_kernel_data(&kern) == 0) {

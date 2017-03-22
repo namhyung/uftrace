@@ -906,7 +906,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (!opts->kernel || handle->kern == NULL || uftrace_done)
+	if (handle->kern == NULL || uftrace_done)
 		goto footer;
 
 	ops->kernel_start(ops, handle->kern);
@@ -1065,7 +1065,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		pr_err("cannot open data: %s", opts->dirname);
 
-	if (opts->kernel && (handle.hdr.feat_mask & KERNEL)) {
+	if (handle.hdr.feat_mask & KERNEL) {
 		kern.output_dir = opts->dirname;
 		kern.skip_out = opts->kernel_skip_out;
 		if (setup_kernel_data(&kern) == 0) {
