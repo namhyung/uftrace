@@ -1094,8 +1094,15 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 		prev_tid = tid;
 	}
-	if (kernel->rstack_done[cpu] && rstack_list->count == 0)
+
+	if (rstack_list->count == 0) {
+		if (!kernel->rstack_done[cpu]) {
+			/* TODO: unknown type of event (tracepoint) */
+			kernel->rstack_done[cpu] = true;
+		}
+
 		return -1;
+	}
 
 out:
 	kernel->rstack_valid[cpu] = true;
