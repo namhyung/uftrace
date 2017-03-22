@@ -819,7 +819,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		if (pos)
 			*pos = '\0';
 
-		addr = strtoul(line, &pos, 16);
+		addr = strtoull(line, &pos, 16);
 
 		if (*pos++ != ' ') {
 			pr_dbg2("invalid symbol file format before type\n");
@@ -1027,7 +1027,7 @@ static int load_module_symbol(struct symtab *symtab, const char *symfile,
 		if (pos)
 			*pos = '\0';
 
-		addr = strtoul(line, &pos, 16);
+		addr = strtoull(line, &pos, 16);
 
 		if (*pos++ != ' ') {
 			pr_dbg2("invalid symbol file format before type\n");
