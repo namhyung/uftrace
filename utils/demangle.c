@@ -9,8 +9,6 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include <assert.h>
 
 /* This should be defined before #include "utils.h" */

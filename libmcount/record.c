@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <string.h>
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

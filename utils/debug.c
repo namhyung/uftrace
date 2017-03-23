@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <string.h>
 #include <errno.h>
 #include <assert.h>
 #include <limits.h>
