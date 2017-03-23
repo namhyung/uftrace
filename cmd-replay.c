@@ -225,6 +225,19 @@ static void setup_field(struct opts *opts)
 	unsigned i;
 	char *str, *p, *s;
 
+	/* default fields */
+	if (opts->fields == NULL) {
+		if (opts->range.start > 0 || opts->range.stop > 0) {
+			if (opts->range.start_elapsed || opts->range.stop_elapsed)
+				add_field(field_table[5]);
+			else
+				add_field(field_table[3]);
+		}
+		add_field(field_table[0]);
+		add_field(field_table[1]);
+		return;
+	}
+
 	if (!strcmp(opts->fields, "none"))
 		return;
 
