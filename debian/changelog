@@ -1,3 +1,11 @@
+uftrace (0.6.2-2) unstable; urgency=low
+
+  * Don't claim to build on armel; the vstr instructions used in the
+    ARM port for this software are not available under armel
+    (closes: #858554). Thanks to Adrian Bunk.
+
+ -- paul cannon <pik@debian.org>  Thu, 23 Mar 2017 10:18:14 -0500
+
 uftrace (0.6.2-1) unstable; urgency=low
 
   * New upstream release
