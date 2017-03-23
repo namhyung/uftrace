@@ -1,5 +1,10 @@
+#include <string.h>
 #include <link.h>
 #include <regex.h>
+
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "dynamic"
+#define PR_DOMAIN  DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
 #include "utils/utils.h"

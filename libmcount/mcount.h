@@ -79,7 +79,7 @@ struct mcount_shmem_buffer {
 };
 
 /* must be in sync with enum debug_domain (bits) */
-#define DBG_DOMAIN_STR  "TSDFfsKM"
+#define DBG_DOMAIN_STR  "TSDFfsKMP"
 
 enum filter_result {
 	FILTER_RSTACK = -1,

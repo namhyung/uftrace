@@ -46,7 +46,7 @@ extern FILE *logfp;
 extern FILE *outfp;
 
 enum debug_domain {
-	DBG_FTRACE	= 0,
+	DBG_UFTRACE	= 0,
 	DBG_SYMBOL,
 	DBG_DEMANGLE,
 	DBG_FILTER,
@@ -54,6 +54,7 @@ enum debug_domain {
 	DBG_SESSION,
 	DBG_KERNEL,
 	DBG_MCOUNT,
+	DBG_DYNAMIC,
 	DBG_DOMAIN_MAX,
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];
@@ -92,7 +93,7 @@ extern void setup_signal(void);
 #endif
 
 #ifndef PR_DOMAIN
-# define PR_DOMAIN  DBG_FTRACE
+# define PR_DOMAIN  DBG_UFTRACE
 #endif
 
 #define pr_dbg(fmt, ...) 					\

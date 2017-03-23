@@ -266,8 +266,10 @@ static void parse_debug_domain(char *arg)
 			level = strtol(tmp, NULL, 0);
 		}
 
-		if (!strcmp(tok, "ftrace"))
-			dbg_domain[DBG_FTRACE] = level;
+		if (!strcmp(tok, "ftrace"))  /* for backward compatibility */
+			dbg_domain[DBG_UFTRACE] = level;
+		else if (!strcmp(tok, "uftrace"))
+			dbg_domain[DBG_UFTRACE] = level;
 		else if (!strcmp(tok, "symbol"))
 			dbg_domain[DBG_SYMBOL] = level;
 		else if (!strcmp(tok, "demangle"))
@@ -282,6 +284,8 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_KERNEL] = level;
 		else if (!strcmp(tok, "mcount"))
 			dbg_domain[DBG_MCOUNT] = level;
+		else if (!strcmp(tok, "dynamic"))
+			dbg_domain[DBG_DYNAMIC] = level;
 
 		str = NULL;
 	}
