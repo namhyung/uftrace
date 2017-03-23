@@ -17,7 +17,7 @@ static int column_index;
 static int prev_tid = -1;
 
 enum replay_field_id {
-	REPLAY_F_NONE           = 0,
+	REPLAY_F_NONE           = -1,
 	REPLAY_F_DURATION,
 	REPLAY_F_TID,
 	REPLAY_F_ADDR,
@@ -172,6 +172,7 @@ static void print_header(void)
 	pr_out(" FUNCTION\n");
 }
 
+/* index of this table should be matched to replay_field_id */
 struct replay_field *field_table[] = {
 	&field_duration,
 	&field_tid,
@@ -225,6 +226,19 @@ static void setup_field(struct opts *opts)
 	unsigned i;
 	char *str, *p, *s;
 
+	/* default fields */
+	if (opts->fields == NULL) {
+		if (opts->range.start > 0 || opts->range.stop > 0) {
+			if (opts->range.start_elapsed || opts->range.stop_elapsed)
+				add_field(field_table[REPLAY_F_ELAPSED]);
+			else
+				add_field(field_table[REPLAY_F_TIMESTAMP]);
+		}
+		add_field(field_table[REPLAY_F_DURATION]);
+		add_field(field_table[REPLAY_F_TID]);
+		return;
+	}
+
 	if (!strcmp(opts->fields, "none"))
 		return;
 
@@ -232,8 +246,8 @@ static void setup_field(struct opts *opts)
 
 	if (*str == '+') {
 		/* prepend default fields */
-		add_field(field_table[0]);  /* duration */
-		add_field(field_table[1]);  /* tid */
+		add_field(field_table[REPLAY_F_DURATION]);
+		add_field(field_table[REPLAY_F_TID]);
 		s++;
 	}
 

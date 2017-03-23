@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
 		.column_offset	= 8,
 		.comment	= true,
 		.kernel_skip_out= true,
-		.fields         = OPT_FIELD_DEFAULT,
+		.fields         = NULL,
 	};
 	struct argp argp = {
 		.options = ftrace_options,
