@@ -140,6 +140,7 @@ static struct argp_option ftrace_options[] = {
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampliing time" },
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
+	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
 	{ 0 }
 };
 
@@ -266,8 +267,10 @@ static void parse_debug_domain(char *arg)
 			level = strtol(tmp, NULL, 0);
 		}
 
-		if (!strcmp(tok, "ftrace"))
-			dbg_domain[DBG_FTRACE] = level;
+		if (!strcmp(tok, "ftrace"))  /* for backward compatibility */
+			dbg_domain[DBG_UFTRACE] = level;
+		else if (!strcmp(tok, "uftrace"))
+			dbg_domain[DBG_UFTRACE] = level;
 		else if (!strcmp(tok, "symbol"))
 			dbg_domain[DBG_SYMBOL] = level;
 		else if (!strcmp(tok, "demangle"))
@@ -282,6 +285,8 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_KERNEL] = level;
 		else if (!strcmp(tok, "mcount"))
 			dbg_domain[DBG_MCOUNT] = level;
+		else if (!strcmp(tok, "dynamic"))
+			dbg_domain[DBG_DYNAMIC] = level;
 
 		str = NULL;
 	}
@@ -430,6 +435,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("--time-filter cannot be used with --time-range\n");
 			opts->threshold = 0;
 		}
+		break;
+
+	case 'P':
+		opts->patch = opt_add_string(opts->patch, arg);
 		break;
 
 	case OPT_flat:

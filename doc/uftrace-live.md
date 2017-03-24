@@ -115,6 +115,9 @@ OPTIONS
 \--kernel-only
 :   Show kernel functions only without user functions.  Implies `--kernel`.
 
+-P *FUNC*, \--patch=*FUNC*
+:   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.
+
 
 FILTERS
 =======
