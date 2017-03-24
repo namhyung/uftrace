@@ -7,6 +7,6 @@ sudo: required
 
 install:
 - sudo apt-get -qq update
-- sudo apt-get -y  install libelf-dev libstdc++-4.8-dev pandoc
+- sudo apt-get -y  install libelf-dev libstdc++-4.8-dev pandoc libbabeltrace-ctf-dev
 
 script: ./configure && make

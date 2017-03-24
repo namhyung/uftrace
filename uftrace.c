@@ -71,6 +71,7 @@ enum options {
 	OPT_bind_not,
 	OPT_task_newline,
 	OPT_chrome_trace,
+	OPT_ctf_trace,
 	OPT_flame_graph,
 	OPT_sample_time,
 	OPT_diff,
@@ -127,6 +128,7 @@ static struct argp_option ftrace_options[] = {
 	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
 	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recorded data in chrome trace format" },
+    { "ctf", OPT_ctf_trace, 0, 0, "Dump recorded data to the Common Trace Format (CTF), is a binary trace format"},
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
@@ -648,6 +650,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_chrome_trace:
 		opts->chrome_trace = true;
+		break;
+
+	case OPT_ctf_trace:
+		opts->ctf_trace = true;
 		break;
 
 	case OPT_flame_graph:

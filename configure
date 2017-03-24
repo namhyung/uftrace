@@ -107,6 +107,11 @@ if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
     exit 1
 fi
 
+if [ ! -e ${srcdir}/check-deps/have_libbabeltrace_ctf ]; then
+    echo "Error: cannot find 'libbabeltrace-ctf-dev' library: Please install it first."
+    exit 1
+fi
+
 echo "# this file is generated automatically" > $output
 echo override prefix := $prefix  >> $output
 echo override bindir := $bindir  >> $output

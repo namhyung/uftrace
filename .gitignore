@@ -10,6 +10,8 @@ ftrace.data
 ftrace.data.old
 uftrace.data
 uftrace.data.old
+uftrace.ctf
+uftrace.ctf.old
 libmcount.so
 libmcount-*.so
 libcygprof.so

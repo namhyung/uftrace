@@ -13,8 +13,8 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
+#include "utils/ctf-writer.h"
 #include "libtraceevent/kbuffer.h"
-
 
 struct uftrace_dump_ops {
 	/* this is called at the beginning */
@@ -57,6 +57,11 @@ struct uftrace_chrome_dump {
 	struct uftrace_dump_ops ops;
 	unsigned lost_event_cnt;
 	bool last_comma;
+};
+
+struct uftrace_ctf_dump {
+        struct uftrace_dump_ops ops;
+        unsigned lost_event_cnt;
 };
 
 struct uftrace_flame_dump {
@@ -623,6 +628,85 @@ static void print_chrome_footer(struct uftrace_dump_ops *ops,
 	}
 }
 
+/* Common Trace Format (CTF) support */
+static void print_ctf_header(struct uftrace_dump_ops *ops,
+				struct ftrace_file_handle *handle,
+				struct opts *opts)
+{
+    // Initializations
+    ctf_init(opts->host, opts->exename);
+}
+
+static void print_ctf_task_start(struct uftrace_dump_ops *ops,
+				    struct ftrace_task_handle *task)
+{
+}
+
+static void print_ctf_inverted_time(struct uftrace_dump_ops *ops,
+				       struct ftrace_task_handle *task)
+{
+}
+
+static void print_ctf_task_rstack(struct uftrace_dump_ops *ops,
+                     struct ftrace_task_handle *task, char *name)
+{
+    struct ftrace_ret_stack *frs = task->rstack;
+    struct uftrace_ctf_dump *ctf = container_of(ops, typeof(*ctf), ops);
+
+
+    if(frs->type != FTRACE_ENTRY && frs->type != FTRACE_EXIT)
+    {
+        ctf->lost_event_cnt++;
+        return;
+    }
+    ctf_append_event(task->tid, task->t->pid, frs->time, frs->addr,
+                     name, frs->type == FTRACE_ENTRY);
+}
+
+static void print_ctf_kernel_start(struct uftrace_dump_ops *ops,
+				      struct ftrace_kernel *kernel)
+{
+}
+
+static void print_ctf_cpu_start(struct uftrace_dump_ops *ops,
+				   struct ftrace_kernel *kernel, int cpu)
+{
+    ctf_set_cpu(cpu);
+}
+
+static void print_ctf_kernel_rstack(struct uftrace_dump_ops *ops,
+                       struct ftrace_kernel *kernel, int cpu,
+                       struct ftrace_ret_stack *frs, char *name)
+{
+    int tid = kernel->tids[cpu];
+    pr_warn("cpu = %d",cpu);
+    ctf_set_cpu(cpu);
+    ctf_append_event(tid, kernel->pid, frs->time, frs->addr,
+                     name, frs->type == FTRACE_ENTRY);
+}
+
+static void print_ctf_kernel_lost(struct uftrace_dump_ops *ops,
+				     uint64_t time, int tid, int losts)
+{
+    pr_time(time);
+    pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
+}
+
+static void print_ctf_footer(struct uftrace_dump_ops *ops,
+				struct ftrace_file_handle *handle,
+				struct opts *opts)
+{
+	struct uftrace_ctf_dump *ctf = container_of(ops, typeof(*ctf), ops);
+    if (ctf->lost_event_cnt) {
+		pr_warn("Some of function trace records are lost. "
+			"(%d times shown)\n",ctf->lost_event_cnt);
+		pr_warn("The output ctf format may not show the correct view "
+			"in TraceCompass.\n");
+	}
+    // save traces
+    ctf_flush();
+}
+
 /* flamegraph support */
 struct fg_node {
 	int calls;
@@ -1093,6 +1177,23 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 
 		do_dump_replay(&dump.ops, opts, &handle);
 	}
+    if (opts->ctf_trace) {
+        struct uftrace_ctf_dump dump = {
+            .ops = {
+                .header         = print_ctf_header,
+                .task_start     = print_ctf_task_start,
+                .inverted_time  = print_ctf_inverted_time,
+                .task_rstack    = print_ctf_task_rstack,
+                .kernel_start   = print_ctf_kernel_start,
+                .cpu_start      = print_ctf_cpu_start,
+                .kernel         = print_ctf_kernel_rstack,
+                .lost           = print_ctf_kernel_lost,
+                .footer         = print_ctf_footer,
+            },
+        };
+
+        do_dump_replay(&dump.ops, opts, &handle);
+    }
 	else if (opts->flame_graph) {
 		struct uftrace_flame_dump dump = {
 			.ops = {
