@@ -486,7 +486,8 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			break;
 		}
 
-		if (spec->fmt == ARG_FMT_STR) {
+		if (spec->fmt == ARG_FMT_STR ||
+		    spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short slen;
 			unsigned short newline = 0;
 			char last_ch;

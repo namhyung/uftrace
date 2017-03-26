@@ -899,7 +899,7 @@ static int read_task_arg(struct ftrace_task_handle *task,
 	unsigned size = spec->size;
 	int rem;
 
-	if (spec->fmt == ARG_FMT_STR) {
+	if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 		args->data = xrealloc(args->data, args->len + 2);
 
 		if (fread(args->data + args->len, 2, 1, fp) != 1) {
