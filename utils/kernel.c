@@ -1025,7 +1025,7 @@ funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	trace_rstack.type  = FTRACE_ENTRY;
+	trace_rstack.type  = UFTRACE_ENTRY;
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
@@ -1046,7 +1046,7 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	trace_rstack.type  = FTRACE_EXIT;
+	trace_rstack.type  = UFTRACE_EXIT;
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
@@ -1156,7 +1156,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		 */
 		uftrace_match_filter(real_addr, &sess->filters, &tr);
 
-		if (curr->type == FTRACE_ENTRY) {
+		if (curr->type == UFTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, NULL);
 
@@ -1176,7 +1176,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			if (tid != prev_tid)
 				break;
 		}
-		else if (curr->type == FTRACE_EXIT) {
+		else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 

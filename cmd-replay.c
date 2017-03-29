@@ -352,15 +352,15 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
-	if (rstack->type == FTRACE_ENTRY) {
+	if (rstack->type == UFTRACE_ENTRY) {
 		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time);
-	} else if (rstack->type == FTRACE_EXIT) {
+	} else if (rstack->type == UFTRACE_EXIT) {
 		pr_out("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
-	} else if (rstack->type == FTRACE_LOST) {
+	} else if (rstack->type == UFTRACE_LOST) {
 		pr_out("[%d] XXX %d: lost %d records\n",
 		       count++, task->tid, (int)rstack->addr);
 	}
@@ -597,7 +597,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (task == NULL)
 		return 0;
 
-	if (rstack->type == FTRACE_LOST)
+	if (rstack->type == UFTRACE_LOST)
 		goto lost;
 
 	sess = find_task_session(task->tid, rstack->time);
@@ -610,7 +610,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	}
 	symname = symbol_getname(sym, rstack->addr);
 
-	if (rstack->type == FTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
+	if (rstack->type == UFTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
 		str_mode |= NEEDS_PAREN;
 
 	if (opts->kernel_skip_out) {
@@ -622,7 +622,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 
-	if (rstack->type == FTRACE_ENTRY) {
+	if (rstack->type == UFTRACE_ENTRY) {
 		struct ftrace_task_handle *next = NULL;
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
@@ -659,7 +659,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
-		    next->rstack->type == FTRACE_EXIT) {
+		    next->rstack->type == UFTRACE_EXIT) {
 			char retval[1024];
 
 			/* leaf function - also consume return record */
@@ -696,17 +696,17 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			else
 				pr_out("%s%s {\n", symname, args);
 
-			fstack_update(FTRACE_ENTRY, task, fstack);
+			fstack_update(UFTRACE_ENTRY, task, fstack);
 		}
 	}
-	else if (rstack->type == FTRACE_EXIT) {
+	else if (rstack->type == UFTRACE_EXIT) {
 		struct fstack *fstack;
 
 		/* function exit */
 		fstack = &task->func_stack[task->stack_count];
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
-			int depth = fstack_update(FTRACE_EXIT, task, fstack);
+			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 			char *retval = args;
 
 			depth += task_column_depth(task, opts);
@@ -732,7 +732,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		fstack_exit(task);
 	}
-	else if (rstack->type == FTRACE_LOST) {
+	else if (rstack->type == UFTRACE_LOST) {
 		int depth, losts;
 lost:
 		depth = task->display_depth + 1;

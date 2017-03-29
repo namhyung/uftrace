@@ -412,19 +412,19 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       task->tid, frs->type == FTRACE_EXIT ? "exit " :
-	       frs->type == FTRACE_ENTRY ? "entry" : "lost ",
+	       task->tid, frs->type == UFTRACE_EXIT ? "exit " :
+	       frs->type == UFTRACE_ENTRY ? "entry" : "lost ",
 	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
 	if (frs->more) {
-		if (frs->type == FTRACE_ENTRY) {
+		if (frs->type == UFTRACE_ENTRY) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
 			       task->args.len);
 			pr_args(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, task->args.len);
-		} else if (frs->type == FTRACE_EXIT) {
+		} else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
@@ -463,8 +463,8 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       tid, frs->type == FTRACE_EXIT ? "exit " :
-	       frs->type == FTRACE_ENTRY ? "entry" : "lost",
+	       tid, frs->type == UFTRACE_EXIT ? "exit " :
+	       frs->type == UFTRACE_ENTRY ? "entry" : "lost",
 	       name, frs->addr, frs->depth);
 
 	if (debug) {
@@ -530,7 +530,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		pr_out(",\n");
 	chrome->last_comma = true;
 
-	if (frs->type == FTRACE_ENTRY) {
+	if (frs->type == UFTRACE_ENTRY) {
 		ph = 'B';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
@@ -543,7 +543,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		else
 			pr_out("}");
 	}
-	else if (frs->type == FTRACE_EXIT) {
+	else if (frs->type == UFTRACE_EXIT) {
 		ph = 'E';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
@@ -805,9 +805,9 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 	struct fg_task *t = find_fg_task(&flame->tasks, task->tid);
 	struct fg_node *node = t->node;
 
-	if (frs->type == FTRACE_ENTRY)
+	if (frs->type == UFTRACE_ENTRY)
 		node = add_fg_node(node, name);
-	else if (frs->type == FTRACE_EXIT)
+	else if (frs->type == UFTRACE_EXIT)
 		node = add_fg_time(node, task, flame->sample_time);
 	else
 		node = &fg_root;
@@ -1043,7 +1043,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 
 			task->rstack = &task->ustack;
 			task->rstack->time = last_time;
-			task->rstack->type = FTRACE_EXIT;
+			task->rstack->type = UFTRACE_EXIT;
 			task->rstack->addr = fstack->addr;
 
 			if (check_task_rstack(task, opts))

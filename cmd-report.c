@@ -167,16 +167,16 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
 
-		if (rstack->type != FTRACE_LOST)
+		if (rstack->type != UFTRACE_LOST)
 			task->timestamp_last = rstack->time;
 
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (rstack->type == FTRACE_ENTRY)
+		if (rstack->type == UFTRACE_ENTRY)
 			continue;
 
-		if (rstack->type == FTRACE_LOST) {
+		if (rstack->type == UFTRACE_LOST) {
 			/* add partial duration of functions before LOST */
 			while (task->stack_count >= task->user_stack_count) {
 				fstack = &task->func_stack[task->stack_count];
@@ -194,7 +194,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 			continue;
 		}
 
-		/* rstack->type == FTRACE_EXIT */
+		/* rstack->type == UFTRACE_EXIT */
 		if (fill_entry(&te, task, rstack->time, rstack->addr, opts))
 			insert_entry(root, &te, false);
 	}
@@ -642,9 +642,9 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
-		if (rstack->type == FTRACE_ENTRY && task->func)
+		if (rstack->type == UFTRACE_ENTRY && task->func)
 			continue;
-		if (rstack->type == FTRACE_LOST)
+		if (rstack->type == UFTRACE_LOST)
 			continue;
 
 		/* skip user functions if --kernel-only is set */
@@ -664,7 +664,7 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 		te.sym = find_task_sym(handle, task, rstack);
 		te.addr = rstack->addr;
 
-		if (rstack->type == FTRACE_ENTRY) {
+		if (rstack->type == UFTRACE_ENTRY) {
 			te.time_total = te.time_self = 0;
 			te.nr_called = 0;
 		}

@@ -156,7 +156,7 @@ reuse:
 		struct ftrace_ret_stack *frstack = (void *)curr_buf->data;
 
 		frstack->time   = 0;
-		frstack->type   = FTRACE_LOST;
+		frstack->type   = UFTRACE_LOST;
 		frstack->magic  = RECORD_MAGIC;
 		frstack->more   = 0;
 		frstack->addr   = shmem->losts;
@@ -345,7 +345,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 #endif
 
 static int record_ret_stack(struct mcount_thread_data *mtdp,
-			    enum ftrace_ret_stack_type type,
+			    enum uftrace_ret_stack_type type,
 			    struct mcount_ret_stack *mrstack)
 {
 	struct ftrace_ret_stack *frstack;
@@ -358,8 +358,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	uint64_t *buf;
 	uint64_t rec;
 
-	if ((type == FTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
-	    (type == FTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
+	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
+	    (type == UFTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
 		argbuf = get_argbuf(mtdp, mrstack);
 		if (argbuf)
 			size += *(unsigned *)argbuf;
@@ -380,7 +380,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 		curr_buf = shmem->buffer[shmem->curr];
 	}
 
-	if (type == FTRACE_EXIT)
+	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
 #if 0
@@ -428,7 +428,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	}
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
-	       type == FTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+	       type == UFTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
 	return 0;
 }
 
@@ -484,7 +484,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
-			if (record_ret_stack(mtdp, FTRACE_ENTRY,
+			if (record_ret_stack(mtdp, UFTRACE_ENTRY,
 					     non_written_mrstack)) {
 				mtdp->shmem.losts += count - 1;
 				return 0;
@@ -496,7 +496,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	}
 
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
-		if (record_ret_stack(mtdp, FTRACE_ENTRY, non_written_mrstack))
+		if (record_ret_stack(mtdp, UFTRACE_ENTRY, non_written_mrstack))
 			return 0;
 
 		count--;
@@ -506,7 +506,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 		if (retval)
 			save_retval(mtdp, mrstack, retval);
 
-		if (record_ret_stack(mtdp, FTRACE_EXIT, mrstack))
+		if (record_ret_stack(mtdp, UFTRACE_EXIT, mrstack))
 			return 0;
 
 		count--;
