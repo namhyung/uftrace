@@ -787,13 +787,35 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 			pevent_parse_header_page(pevent, buf, len,
 						 pevent_get_long_size(pevent));
 		}
-		else if (!strcmp(name, "events/ftrace/funcgraph_entry/format") ||
-			 !strcmp(name, "events/ftrace/funcgraph_exit/format")) {
+		else if (!strncmp(name, "events/ftrace/", 14)) {
 			ret = pevent_parse_event(pevent, buf, len, "ftrace");
 			if (ret != 0) {
 				pevent_strerror(pevent, ret, buf, len);
 				pr_err_ns("%s: %s\n", name, buf);
 			}
+		}
+		else if (!strncmp(name, "events/", 7) &&
+			 !strncmp(name + strlen(name) - 7, "/format", 7)) {
+			/* extrace subsystem name */
+			char *pos = strchr(name + 8, '/');
+
+			if (pos == NULL)
+				continue;
+
+			*pos = '\0';
+
+			/* add event so that we can skip the record */
+			ret = pevent_parse_event(pevent, buf, len, name + 7);
+			if (ret != 0) {
+				*pos = '/';
+				pevent_strerror(pevent, ret, buf, len);
+				pr_err_ns("%s: %s\n", name, buf);
+			}
+		}
+		else {
+			pr_dbg("unknown data: %s\n", name);
+			ret = -1;
+			break;
 		}
 	}
 
