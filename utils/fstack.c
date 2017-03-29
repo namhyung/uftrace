@@ -507,7 +507,7 @@ void fstack_exit(struct ftrace_task_handle *task)
 
 /**
  * fstack_update - Update fstack related info
- * @type   - FTRACE_ENTRY or FTRACE_EXIT
+ * @type   - UFTRACE_ENTRY or UFTRACE_EXIT
  * @task   - tracee task
  * @fstack - function tracing stack
  *
@@ -517,7 +517,7 @@ void fstack_exit(struct ftrace_task_handle *task)
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack)
 {
-	if (type == FTRACE_ENTRY) {
+	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
 			task->stack_count = 0;
@@ -541,7 +541,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
 	}
-	else if (type == FTRACE_EXIT) {
+	else if (type == UFTRACE_EXIT) {
 		/* fork'ed child starts with an exit record */
 		if (!task->display_depth_set) {
 			task->display_depth = task->stack_count + 1;
@@ -579,7 +579,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 	if (task->filter.out_count > 0)
 		return -1;
 
-	if (rstack->type == FTRACE_EXIT) {
+	if (rstack->type == UFTRACE_EXIT) {
 		/* fstack_consume() is not called yet */
 		fstack = &task->func_stack[task->stack_count - 1];
 
@@ -664,7 +664,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				goto next;
 		}
 
-		if (next_stack->type == FTRACE_LOST)
+		if (next_stack->type == UFTRACE_LOST)
 			return NULL;
 
 		/* return if it's not filtered */
@@ -679,7 +679,7 @@ next:
 		 * call fstack_entry/exit() after read_rstack() so
 		 * that it can changes stack_count properly.
 		 */
-		if (next_stack->type == FTRACE_ENTRY)
+		if (next_stack->type == UFTRACE_ENTRY)
 			fstack_entry(next, next_stack, &tr);
 		else
 			fstack_exit(next);
@@ -708,15 +708,15 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 	struct fstack *fstack;
 	struct ftrace_trigger tr = {};
 
-	if (task->rstack->type == FTRACE_ENTRY) {
+	if (task->rstack->type == UFTRACE_ENTRY) {
 		fstack = &task->func_stack[task->stack_count - 1];
 
 		if (fstack_entry(task, task->rstack, &tr) < 0)
 			return false;
 
-		fstack_update(FTRACE_ENTRY, task, fstack);
+		fstack_update(UFTRACE_ENTRY, task, fstack);
 	}
-	else if (task->rstack->type == FTRACE_EXIT) {
+	else if (task->rstack->type == UFTRACE_EXIT) {
 		fstack = &task->func_stack[task->stack_count];
 
 		if ((fstack->flags & FSTACK_FL_NORECORD) || !fstack_enabled) {
@@ -724,7 +724,7 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 			return false;
 		}
 
-		fstack_update(FTRACE_EXIT, task, fstack);
+		fstack_update(UFTRACE_EXIT, task, fstack);
 		fstack_exit(task);
 	}
 
@@ -993,9 +993,9 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 		    handle->info.argspec == NULL)
 			pr_err_ns("invalid data (more bit set w/o args)");
 
-		if (task->ustack.type == FTRACE_ENTRY)
+		if (task->ustack.type == UFTRACE_ENTRY)
 			read_task_args(task, &task->ustack, false);
-		else if (task->ustack.type == FTRACE_EXIT)
+		else if (task->ustack.type == UFTRACE_EXIT)
 			read_task_args(task, &task->ustack, true);
 		else
 			abort();
@@ -1055,7 +1055,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		if (task->filter.time)
 			time_filter = task->filter.time->threshold;
 
-		if (curr->type == FTRACE_ENTRY) {
+		if (curr->type == UFTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, &task->args);
 
@@ -1071,7 +1071,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				task->filter.time = tfs;
 			}
 		}
-		else if (curr->type == FTRACE_EXIT) {
+		else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 
@@ -1172,7 +1172,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
-		if (rstack->type == FTRACE_EXIT) {
+		if (rstack->type == UFTRACE_EXIT) {
 			task->stack_count++;
 			/* [v]fork() usually starts with EXIT in child */
 			task->display_depth_set = false;
@@ -1198,11 +1198,11 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	if (task->lost_seen) {
 		uint64_t timestamp_after_lost;
 
-		if (rstack->type == FTRACE_LOST)
+		if (rstack->type == UFTRACE_LOST)
 			return;
 
 		task->stack_count = rstack->depth;
-		if (rstack->type == FTRACE_EXIT)
+		if (rstack->type == UFTRACE_EXIT)
 			task->stack_count++;
 
 		if (is_kernel_func)
@@ -1223,7 +1223,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		if (rstack->type != FTRACE_LOST) {
+		if (rstack->type != UFTRACE_LOST) {
 			task->stack_count = task->user_stack_count;
 			task->filter.depth = task->h->depth - task->stack_count;
 		}
@@ -1233,7 +1233,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	if (task->func_stack == NULL)
 		return;
 
-	if (rstack->type == FTRACE_ENTRY) {
+	if (rstack->type == UFTRACE_ENTRY) {
 		fstack = &task->func_stack[task->stack_count];
 
 		fstack->addr = rstack->addr;
@@ -1241,7 +1241,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		fstack->child_time = 0;
 		fstack->valid = true;
 	}
-	else if (rstack->type == FTRACE_EXIT) {
+	else if (rstack->type == UFTRACE_EXIT) {
 		uint64_t delta;
 		int idx = task->stack_count - 1;
 
@@ -1266,7 +1266,7 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		if (task->stack_count > 1)
 			fstack[-1].child_time += delta;
 	}
-	else if (rstack->type == FTRACE_LOST) {
+	else if (rstack->type == UFTRACE_LOST) {
 		uint64_t delta;
 		uint64_t lost_time = 0;
 
@@ -1302,16 +1302,16 @@ static void fstack_update_stack_count(struct ftrace_task_handle *task)
 	else
 		task->ctx = FSTACK_CTX_KERNEL;
 
-	if (task->rstack->type == FTRACE_ENTRY)
+	if (task->rstack->type == UFTRACE_ENTRY)
 		task->stack_count++;
-	else if (task->rstack->type == FTRACE_EXIT &&
+	else if (task->rstack->type == UFTRACE_EXIT &&
 		 task->stack_count > 0)
 		task->stack_count--;
 
 	if (task->ctx == FSTACK_CTX_USER) {
-		if (task->rstack->type == FTRACE_ENTRY)
+		if (task->rstack->type == UFTRACE_ENTRY)
 			task->user_stack_count++;
-		else if (task->rstack->type == FTRACE_EXIT &&
+		else if (task->rstack->type == UFTRACE_EXIT &&
 			 task->user_stack_count > 0)
 			task->user_stack_count--;
 	}
@@ -1322,7 +1322,7 @@ static int find_rstack_cpu(struct ftrace_kernel *kernel,
 {
 	int cpu = -1;
 
-	if (rstack->type == FTRACE_LOST) {
+	if (rstack->type == UFTRACE_LOST) {
 		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
 			if (rstack->addr == (unsigned)kernel->missed_events[cpu] &&
 			    rstack->depth == kernel->rstacks[cpu].depth)
@@ -1368,7 +1368,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 			consume_first_rstack_list(&task->rstack_list);
 		}
 	}
-	else if (rstack->type == FTRACE_LOST)
+	else if (rstack->type == UFTRACE_LOST)
 		kernel->missed_events[cpu] = 0;
 	else {
 		kernel->rstack_valid[cpu] = false;
@@ -1456,7 +1456,7 @@ kernel:
 
 			/* convert to ftrace_rstack */
 			lost_rstack.time = 0;
-			lost_rstack.type = FTRACE_LOST;
+			lost_rstack.type = UFTRACE_LOST;
 			lost_rstack.addr = kernel->missed_events[k];
 			lost_rstack.depth = task->kstack.depth;
 			lost_rstack.magic = RECORD_MAGIC;
@@ -1531,16 +1531,16 @@ static int test_tids[NUM_TASK] = { 1234, 5678 };
 static struct ftrace_task test_tasks[NUM_TASK];
 static struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
 	{
-		{ 100, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
-		{ 200, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
-		{ 300, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
-		{ 400, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
+		{ 100, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 200, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 300, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 400, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	},
 	{
-		{ 150, FTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
-		{ 250, FTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
-		{ 350, FTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
-		{ 450, FTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
+		{ 150, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
+		{ 250, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 350, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
+		{ 450, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
 	}
 };
 

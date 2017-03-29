@@ -316,11 +316,11 @@ static int add_graph_exit(struct task_graph *tg)
 static int add_graph(struct task_graph *tg, int type)
 {
 	pr_dbg2("add graph (enabled: %d) %s\n", tg->enabled,
-		type == FTRACE_ENTRY ? "ENTRY" : "EXIT");
+		type == UFTRACE_ENTRY ? "ENTRY" : "EXIT");
 
-	if (type == FTRACE_ENTRY)
+	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg);
-	else if (type == FTRACE_EXIT)
+	else if (type == UFTRACE_EXIT)
 		return add_graph_exit(tg);
 	else
 		return 0;
@@ -450,9 +450,9 @@ static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
 	name = symbol_getname(sym, addr);
 
 	if (!strcmp(name, func)) {
-		if (type == FTRACE_ENTRY)
+		if (type == UFTRACE_ENTRY)
 			start_graph(tg);
-		else if (type == FTRACE_EXIT)
+		else if (type == UFTRACE_EXIT)
 			end_graph(tg);
 	}
 
@@ -487,7 +487,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (frs->type == FTRACE_LOST) {
+		if (frs->type == UFTRACE_LOST) {
 			struct task_graph *tg;
 
 			if (opts->kernel_skip_out && !task->user_stack_count)
@@ -505,7 +505,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 				    !(fstack->flags & FSTACK_FL_NORECORD)) {
 					build_graph_node(task, prev_time,
 							 fstack->addr,
-							 FTRACE_EXIT, func);
+							 UFTRACE_EXIT, func);
 				}
 
 				fstack_exit(task);
@@ -567,7 +567,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 				fstack[-1].child_time += fstack->total_time;
 
 			build_graph_node(task, last_time, fstack->addr,
-					 FTRACE_EXIT, func);
+					 UFTRACE_EXIT, func);
 		}
 	}
 

@@ -347,10 +347,10 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 		       const char *libname);
 
-enum ftrace_ret_stack_type {
-	FTRACE_ENTRY,
-	FTRACE_EXIT,
-	FTRACE_LOST,
+enum uftrace_ret_stack_type {
+	UFTRACE_ENTRY,
+	UFTRACE_EXIT,
+	UFTRACE_LOST,
 };
 
 #define RECORD_MAGIC_V3  0xa

@@ -552,6 +552,112 @@ static int save_kernel_file(FILE *fp, const char *name)
 	return 0;
 }
 
+static int save_event_files(struct ftrace_kernel *kernel, FILE *fp)
+{
+	int fd;
+	int ret = -1;
+	ssize_t len;
+	char buf[4096];
+	DIR *subsys, *event;
+	struct dirent *sys, *name;
+
+	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
+
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, sizeof(buf));
+	if (len < 0)
+		goto out;
+
+	/* no events enabled: exit */
+	if (buf[0] == '0') {
+		ret = 0;
+		goto out;
+	}
+
+	snprintf(buf, sizeof(buf), "%s/events", TRACING_DIR);
+
+	subsys = opendir(buf);
+	if (subsys == NULL)
+		goto out;
+
+	while ((sys = readdir(subsys)) != NULL) {
+		int sfd;
+
+		if (sys->d_name[0] == '.' || sys->d_type != DT_DIR)
+			continue;
+
+		/* ftrace events are special - skip it */
+		if (!strcmp(sys->d_name, "ftrace"))
+			continue;
+
+		snprintf(buf, sizeof(buf), "%s/events/%s/enable",
+			 TRACING_DIR, sys->d_name);
+
+		sfd = open(buf, O_RDONLY);
+		if (sfd < 0)
+			goto out;
+
+		len = read(sfd, buf, sizeof(buf));
+		if (len < 0)
+			goto out;
+
+		/* this subsystem has no events enabled */
+		if (buf[0] == '0')
+			goto next;
+
+		snprintf(buf, sizeof(buf), "%s/events/%s",
+			 TRACING_DIR, sys->d_name);
+
+		event = opendir(buf);
+		if (event == NULL)
+			goto out;
+
+		while ((name = readdir(event)) != NULL) {
+			int efd;
+
+			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
+				continue;
+
+			snprintf(buf, sizeof(buf), "%s/events/%s/%s/enable",
+				 TRACING_DIR, sys->d_name, name->d_name);
+
+			efd = open(buf, O_RDONLY);
+			if (efd < 0)
+				goto out;
+
+			len = read(efd, buf, sizeof(buf));
+			if (len < 0)
+				goto out;
+
+			/* this event is not enabled */
+			if (buf[0] == '0')
+				continue;
+
+			snprintf(buf, sizeof(buf), "events/%s/%s/format",
+				 sys->d_name, name->d_name);
+
+			if (save_kernel_file(fp, buf) < 0)
+				goto out;
+
+			close(efd);
+		}
+		closedir(event);
+
+	next:
+		close(sfd);
+	}
+	closedir(subsys);
+
+	ret = 0;
+
+out:
+	close(fd);
+	return ret;
+}
+
 static int save_kernel_files(struct ftrace_kernel *kernel)
 {
 	char *path = NULL;
@@ -575,6 +681,9 @@ static int save_kernel_files(struct ftrace_kernel *kernel)
 		goto out;
 
 	if (save_kernel_file(fp, "events/ftrace/funcgraph_exit/format") < 0)
+		goto out;
+
+	if (save_event_files(kernel, fp) < 0)
 		goto out;
 
 	ret = 0;
@@ -678,13 +787,35 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 			pevent_parse_header_page(pevent, buf, len,
 						 pevent_get_long_size(pevent));
 		}
-		else if (!strcmp(name, "events/ftrace/funcgraph_entry/format") ||
-			 !strcmp(name, "events/ftrace/funcgraph_exit/format")) {
+		else if (!strncmp(name, "events/ftrace/", 14)) {
 			ret = pevent_parse_event(pevent, buf, len, "ftrace");
 			if (ret != 0) {
 				pevent_strerror(pevent, ret, buf, len);
 				pr_err_ns("%s: %s\n", name, buf);
 			}
+		}
+		else if (!strncmp(name, "events/", 7) &&
+			 !strncmp(name + strlen(name) - 7, "/format", 7)) {
+			/* extrace subsystem name */
+			char *pos = strchr(name + 8, '/');
+
+			if (pos == NULL)
+				continue;
+
+			*pos = '\0';
+
+			/* add event so that we can skip the record */
+			ret = pevent_parse_event(pevent, buf, len, name + 7);
+			if (ret != 0) {
+				*pos = '/';
+				pevent_strerror(pevent, ret, buf, len);
+				pr_err_ns("%s: %s\n", name, buf);
+			}
+		}
+		else {
+			pr_dbg("unknown data: %s\n", name);
+			ret = -1;
+			break;
 		}
 	}
 
@@ -894,7 +1025,7 @@ funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	trace_rstack.type  = FTRACE_ENTRY;
+	trace_rstack.type  = UFTRACE_ENTRY;
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
@@ -915,7 +1046,7 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	trace_rstack.type  = FTRACE_EXIT;
+	trace_rstack.type  = UFTRACE_EXIT;
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
@@ -1025,7 +1156,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		 */
 		uftrace_match_filter(real_addr, &sess->filters, &tr);
 
-		if (curr->type == FTRACE_ENTRY) {
+		if (curr->type == UFTRACE_ENTRY) {
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, NULL);
 
@@ -1045,7 +1176,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			if (tid != prev_tid)
 				break;
 		}
-		else if (curr->type == FTRACE_EXIT) {
+		else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 
