@@ -552,6 +552,112 @@ static int save_kernel_file(FILE *fp, const char *name)
 	return 0;
 }
 
+static int save_event_files(struct ftrace_kernel *kernel, FILE *fp)
+{
+	int fd;
+	int ret = -1;
+	ssize_t len;
+	char buf[4096];
+	DIR *subsys, *event;
+	struct dirent *sys, *name;
+
+	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
+
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	len = read(fd, buf, sizeof(buf));
+	if (len < 0)
+		goto out;
+
+	/* no events enabled: exit */
+	if (buf[0] == '0') {
+		ret = 0;
+		goto out;
+	}
+
+	snprintf(buf, sizeof(buf), "%s/events", TRACING_DIR);
+
+	subsys = opendir(buf);
+	if (subsys == NULL)
+		goto out;
+
+	while ((sys = readdir(subsys)) != NULL) {
+		int sfd;
+
+		if (sys->d_name[0] == '.' || sys->d_type != DT_DIR)
+			continue;
+
+		/* ftrace events are special - skip it */
+		if (!strcmp(sys->d_name, "ftrace"))
+			continue;
+
+		snprintf(buf, sizeof(buf), "%s/events/%s/enable",
+			 TRACING_DIR, sys->d_name);
+
+		sfd = open(buf, O_RDONLY);
+		if (sfd < 0)
+			goto out;
+
+		len = read(sfd, buf, sizeof(buf));
+		if (len < 0)
+			goto out;
+
+		/* this subsystem has no events enabled */
+		if (buf[0] == '0')
+			goto next;
+
+		snprintf(buf, sizeof(buf), "%s/events/%s",
+			 TRACING_DIR, sys->d_name);
+
+		event = opendir(buf);
+		if (event == NULL)
+			goto out;
+
+		while ((name = readdir(event)) != NULL) {
+			int efd;
+
+			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
+				continue;
+
+			snprintf(buf, sizeof(buf), "%s/events/%s/%s/enable",
+				 TRACING_DIR, sys->d_name, name->d_name);
+
+			efd = open(buf, O_RDONLY);
+			if (efd < 0)
+				goto out;
+
+			len = read(efd, buf, sizeof(buf));
+			if (len < 0)
+				goto out;
+
+			/* this event is not enabled */
+			if (buf[0] == '0')
+				continue;
+
+			snprintf(buf, sizeof(buf), "events/%s/%s/format",
+				 sys->d_name, name->d_name);
+
+			if (save_kernel_file(fp, buf) < 0)
+				goto out;
+
+			close(efd);
+		}
+		closedir(event);
+
+	next:
+		close(sfd);
+	}
+	closedir(subsys);
+
+	ret = 0;
+
+out:
+	close(fd);
+	return ret;
+}
+
 static int save_kernel_files(struct ftrace_kernel *kernel)
 {
 	char *path = NULL;
@@ -575,6 +681,9 @@ static int save_kernel_files(struct ftrace_kernel *kernel)
 		goto out;
 
 	if (save_kernel_file(fp, "events/ftrace/funcgraph_exit/format") < 0)
+		goto out;
+
+	if (save_event_files(kernel, fp) < 0)
 		goto out;
 
 	ret = 0;
