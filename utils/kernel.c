@@ -1421,3 +1421,453 @@ retry:
 
 	return first_cpu;
 }
+
+#ifdef UNIT_TEST
+
+#include <sys/stat.h>
+
+#define NUM_CPU     2
+#define NUM_TASK    2
+#define NUM_RECORD  4
+#define NUM_EVENT   2
+
+/* event id */
+#define FUNCGRAPH_ENTRY  11
+#define FUNCGRAPH_EXIT   10
+#define TEST_EXAMPLE     100
+
+static struct ftrace_kernel test_kernel;
+static struct ftrace_file_handle test_handle;
+static void kernel_test_finish_file(void);
+static void kernel_test_finish_handle(void);
+
+/* NOTE: assume 64-bit little-endian systems */
+static const char test_kernel_header[] =
+"PAGE_SIZE: 4096\n"
+"LONG_SIZE: 8\n"
+"ENDIAN: LE\n"
+"TRACEFS: events/header_page: 205\n"
+"\tfield: u64 timestamp;\toffset:0;\tsize:8;\tsigned:0;\n"
+"\tfield: local_t commit;\toffset:8;\tsize:8;\tsigned:1;\n"
+"\tfield: int overwrite;\toffset:8;\tsize:1;\tsigned:1;\n"
+"\tfield: char data;\toffset:16;\tsize:4080;\tsigned:1;\n"
+"TRACEFS: events/ftrace/funcgraph_entry/format: 438\n"
+"name: funcgraph_entry\n"
+"ID: 11\n"
+"format:\n"
+"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+"\n"
+"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
+"\tfield:int depth;\toffset:16;\tsize:4;\tsigned:1;\n"
+"\n"
+"print fmt: \"--> %lx (%d)\", REC->func, REC->depth\n"
+"TRACEFS: events/ftrace/funcgraph_exit/format: 700\n"
+"name: funcgraph_exit\n"
+"ID: 10\n"
+"format:\n"
+"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+"\n"
+"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
+"\tfield:unsigned long long calltime;\toffset:24;\tsize:8;\tsigned:0;\n"
+"\tfield:unsigned long long rettime;\toffset:32;\tsize:8;\tsigned:0;\n"
+"\tfield:unsigned long overrun;	offset:16;\tsize:8;\tsigned:0;\n"
+"\tfield:int depth;\toffset:40;\tsize:4;\tsigned:1;\n"
+"\n"
+"print fmt: \"<-- %lx (%d) (start: %llx  end: %llx) over: %d\", "
+"REC->func, REC->depth, REC->calltime, REC->rettime, REC->depth\n";
+
+static const char test_kernel_event[] =
+"TRACEFS: events/test/example/format: 419\n"
+"name: example\n"
+"ID: 100\n"
+"format:\n"
+"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+"\n"
+"\tfield:int foo;\toffset:8;\tsize:4;\tsigned:0;\n"
+"\tfield:int bar;\toffset:12;\tsize:4;\tsigned:1;\n"
+"\n"
+"print fmt: \"foo=%d, bar=0x%x\", REC->foo, REC->bar\n";
+
+struct header_page {
+	uint64_t timestamp;
+	uint64_t commit;
+};
+
+struct type_len_ts {
+	uint32_t type_len: 5;
+	uint32_t ts: 27;
+};
+
+struct funcgraph_entry {
+	unsigned short common_type;
+	unsigned char  common_flags;
+	unsigned char  common_preempt_count;
+	int            common_pid;
+
+	uint64_t       func;
+	int            depth;
+};
+
+struct funcgraph_exit {
+	unsigned short common_type;
+	unsigned char  common_flags;
+	unsigned char  common_preempt_count;
+	int            common_pid;
+
+	uint64_t       func;
+	uint64_t       calltime;
+	uint64_t       rettime;
+	uint64_t       overrun;
+	int            depth;
+};
+
+struct test_example {
+	unsigned short common_type;
+	unsigned char  common_flags;
+	unsigned char  common_preempt_count;
+	int            common_pid;
+
+	int            foo;
+	int            bar;
+};
+
+static int test_tids[NUM_TASK] = { 1234, 5678 };
+
+static struct header_page header = { 0, 4096 };
+static struct type_len_ts padding = { KBUFFER_TYPE_PADDING, 0 };
+
+static struct type_len_ts test_len_ts[NUM_CPU][NUM_RECORD] = {
+	{
+		{ sizeof(struct funcgraph_entry) / 4, 100 },
+		{ sizeof(struct funcgraph_entry) / 4, 100 },
+		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+	},
+	{
+		{ sizeof(struct funcgraph_entry) / 4, 150 },
+		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+		{ sizeof(struct funcgraph_entry) / 4, 100 },
+		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+	}
+};
+
+/* NOTE: it's actually a mix of funcgraph_entry and funcgraph_exit */
+static struct funcgraph_exit test_record[NUM_CPU][NUM_RECORD] = {
+	{
+		/* NOTE: entry->depth might not set on big-endian? */
+		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff1000, 0 },
+		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff2000, 1 },
+		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff2000, 200, 300, 0, 1 },
+		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff1000, 100, 400, 0, 0 },
+	},
+	{
+		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff3000, 0 },
+		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff3000, 150, 250, 0, 0 },
+		{ FUNCGRAPH_ENTRY, 0, 0, 5678, 0xffff4000, 1 },
+		{ FUNCGRAPH_EXIT,  0, 0, 5678, 0xffff4000, 350, 450, 0, 1 },
+	}
+};
+
+static struct type_len_ts test_event_len_ts[NUM_CPU][NUM_EVENT] = {
+	{
+		{ sizeof(struct test_example) / 4, 1000 },
+		{ sizeof(struct test_example) / 4, 1000 },
+	},
+	{
+		{ sizeof(struct test_example) / 4, 1500 },
+		{ sizeof(struct test_example) / 4, 1000 },
+	}
+};
+
+static struct test_example test_event[NUM_CPU][NUM_EVENT] = {
+	{
+		{ TEST_EXAMPLE, 0, 0, 1234, 1024, 1024 },
+		{ TEST_EXAMPLE, 0, 0, 1234, 2048, 2048 },
+	},
+	{
+		{ TEST_EXAMPLE, 0, 0, 5678, 100, 256 },
+		{ TEST_EXAMPLE, 0, 0, 5678, 200, 512 },
+	}
+};
+
+/* NOTE: we used struct funcgraph_exit even for UFTRACE_ENTRY */
+static int record_size(struct funcgraph_exit *rec)
+{
+	return rec->common_type == FUNCGRAPH_ENTRY ?
+		sizeof(struct funcgraph_entry) : sizeof(struct funcgraph_exit);
+}
+
+static int record_type(struct funcgraph_exit *rec)
+{
+	return rec->common_type == FUNCGRAPH_ENTRY ? UFTRACE_ENTRY : UFTRACE_EXIT;
+}
+
+static int record_depth(struct funcgraph_exit *rec)
+{
+	return rec->common_type == FUNCGRAPH_ENTRY ? rec->calltime : rec->depth;
+}
+
+static int kernel_test_setup_file(struct ftrace_kernel *kernel, bool event)
+{
+	int cpu, i;
+	FILE *fp;
+	char *filename;
+	unsigned long pad;
+
+	kernel->output_dir = "kernel.dir";
+	kernel->nr_cpus    = NUM_CPU;
+
+	kernel_base_addr = 0xffff0000UL;
+
+	if (mkdir(kernel->output_dir, 0755) < 0) {
+		if (errno != EEXIST) {
+			pr_dbg("cannot create temp dir: %m\n");
+			return -1;
+		}
+	}
+
+	if (asprintf(&filename, "%s/kernel_header", kernel->output_dir) < 0) {
+		pr_dbg("cannot alloc filename: %s/kernel_header",
+		       kernel->output_dir);
+		return -1;
+	}
+
+	fp = fopen(filename, "w");
+	if (fp == NULL) {
+		pr_dbg("file open failed: %m\n");
+		free(filename);
+		return -1;
+	}
+
+	fwrite(test_kernel_header, 1, strlen(test_kernel_header), fp);
+	if (event)
+		fwrite(test_kernel_event, 1, strlen(test_kernel_event), fp);
+
+	free(filename);
+	fclose(fp);
+
+	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
+			     kernel->output_dir, cpu) < 0) {
+			pr_dbg("cannot alloc filename: %s/%d.dat",
+			       kernel->output_dir, cpu);
+			return -1;
+		}
+
+		fp = fopen(filename, "w");
+		if (fp == NULL) {
+			pr_dbg("file open failed: %m\n");
+			free(filename);
+			return -1;
+		}
+
+		fwrite(&header, 1, sizeof(header), fp);
+
+		if (event) {
+			for (i = 0; i < NUM_EVENT; i++) {
+				fwrite(&test_event_len_ts[cpu][i], 1,
+				       sizeof(test_event_len_ts[cpu][i]), fp);
+				fwrite(&test_event[cpu][i], 1,
+				       sizeof(test_event[cpu][i]), fp);
+			}
+		}
+		else {
+			for (i = 0; i < NUM_RECORD; i++) {
+				fwrite(&test_len_ts[cpu][i], 1,
+				       sizeof(test_len_ts[cpu][i]), fp);
+				fwrite(&test_record[cpu][i], 1,
+				       record_size(&test_record[cpu][i]), fp);
+			}
+		}
+
+		/* pad to page size */
+		fwrite(&padding, 1, sizeof(padding), fp);
+
+		pad = 4096 - ftell(fp);
+		fwrite(&pad, 1, sizeof(pad), fp);
+
+		fallocate(fileno(fp), 0, 0, 4096);
+
+		free(filename);
+		fclose(fp);
+	}
+
+	atexit(kernel_test_finish_file);
+
+	setup_kernel_data(kernel);
+	return 0;
+}
+
+static int kernel_test_setup_handle(struct ftrace_kernel *kernel,
+				    struct ftrace_file_handle *handle)
+{
+	int i;
+
+	handle->kern = kernel;
+
+	handle->nr_tasks = NUM_TASK;
+	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
+
+	handle->time_range.start = handle->time_range.stop = 0;
+	handle->time_filter = 0;
+
+	for (i = 0; i < NUM_TASK; i++) {
+		handle->tasks[i].tid = test_tids[i];
+	}
+
+	first_session = xzalloc(sizeof(*first_session));
+
+	atexit(kernel_test_finish_handle);
+
+	return 0;
+}
+
+static void kernel_test_finish_file(void)
+{
+	int cpu;
+	char *filename;
+	struct ftrace_kernel *kernel = &test_kernel;
+
+	if (kernel->output_dir == NULL)
+		return;
+
+	finish_kernel_data(kernel);
+
+	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
+		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
+			     kernel->output_dir, cpu) < 0)
+			return;
+
+		remove(filename);
+		free(filename);
+	}
+
+	if (asprintf(&filename, "%s/kernel_header", kernel->output_dir) < 0)
+		return;
+
+	remove(filename);
+	free(filename);
+
+	remove(kernel->output_dir);
+	kernel->output_dir = NULL;
+}
+
+static void kernel_test_finish_handle(void)
+{
+	struct ftrace_file_handle *handle = &test_handle;
+
+	free(handle->tasks);
+	free(first_session);
+
+	handle->tasks = NULL;
+	first_session = NULL;
+}
+
+TEST_CASE(kernel_read)
+{
+	int cpu, i;
+	int timestamp[NUM_CPU] = { };
+	struct ftrace_kernel *kernel = &test_kernel;
+	struct ftrace_file_handle *handle = &test_handle;
+	struct ftrace_task_handle *task;
+
+	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
+	TEST_EQ(kernel_test_setup_handle(kernel, handle), 0);
+
+	i = 0;
+	while ((cpu = read_kernel_stack(handle, &task)) != -1) {
+		struct funcgraph_exit *rec = &test_record[cpu][i / 2];
+		struct ftrace_ret_stack *rstack = &task->kstack;
+
+		timestamp[cpu] += test_len_ts[cpu][i / 2].ts;
+
+		TEST_EQ((int)rstack->type, record_type(rec));
+		TEST_EQ((int)rstack->time, timestamp[cpu]);
+		TEST_EQ((uint64_t)rstack->addr, rec->func);
+		TEST_EQ((int)rstack->depth, record_depth(rec));
+
+		TEST_EQ(kernel->tids[cpu], rec->common_pid);
+
+		consume_first_rstack_list(&kernel->rstack_list[cpu]);
+		kernel->rstack_valid[cpu] = false;
+		i++;
+	}
+	TEST_EQ(i, NUM_CPU * NUM_RECORD);
+
+	return TEST_OK;
+}
+
+TEST_CASE(kernel_cpu_read)
+{
+	int cpu, i;
+	int timestamp[NUM_CPU] = { };
+	struct ftrace_kernel *kernel = &test_kernel;
+
+	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
+
+	for (cpu = 0; cpu < NUM_CPU; cpu++) {
+		for (i = 0; i < NUM_RECORD; i++) {
+			struct funcgraph_exit *rec = &test_record[cpu][i];
+			struct ftrace_ret_stack *rstack = &trace_rstack;
+
+			TEST_EQ(read_kernel_cpu_data(kernel, cpu), 0);
+
+			timestamp[cpu] += test_len_ts[cpu][i].ts;
+
+			TEST_EQ((int)rstack->type, record_type(rec));
+			TEST_EQ((int)rstack->time, timestamp[cpu]);
+			TEST_EQ((uint64_t)rstack->addr, rec->func);
+			TEST_EQ((int)rstack->depth, record_depth(rec));
+
+			TEST_EQ(kernel->tids[cpu], rec->common_pid);
+		}
+	}
+	return TEST_OK;
+}
+
+TEST_CASE(kernel_event_read)
+{
+	int cpu, i;
+	int timestamp[NUM_CPU] = { };
+	struct ftrace_kernel *kernel = &test_kernel;
+
+	TEST_EQ(kernel_test_setup_file(kernel, true), 0);
+
+	for (cpu = 0; cpu < NUM_CPU; cpu++) {
+		for (i = 0; i < NUM_EVENT; i++) {
+			struct test_example *rec = &test_event[cpu][i];
+			struct ftrace_ret_stack *rstack = &trace_rstack;
+			char *data;
+			int size;
+			int foo, bar;
+
+			TEST_EQ(read_kernel_cpu_data(kernel, cpu), 0);
+			TEST_NE(data = read_kernel_event(kernel, cpu, &size), NULL);
+
+			timestamp[cpu] += test_event_len_ts[cpu][i].ts;
+
+			TEST_EQ((int)rstack->type, UFTRACE_EVENT);
+			TEST_EQ((int)rstack->time, timestamp[cpu]);
+			TEST_EQ((int)rstack->addr, TEST_EXAMPLE);
+			TEST_EQ((int)rstack->depth, 0);
+
+			TEST_EQ(kernel->tids[cpu], rec->common_pid);
+
+			TEST_EQ(sscanf(data, "foo=%d, bar=%x", &foo, &bar), 2);
+			TEST_EQ(foo, test_event[cpu][i].foo);
+			TEST_EQ(bar, test_event[cpu][i].bar);
+		}
+	}
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
