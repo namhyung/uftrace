@@ -12,6 +12,8 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
+#include "libtraceevent/event-parse.h"
+
 
 static int column_index;
 static int prev_tid = -1;
@@ -329,6 +331,16 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	}
 }
 
+static void print_event(struct ftrace_task_handle *task,
+			struct ftrace_ret_stack *rstack)
+{
+	struct event_format *event;
+
+	event = pevent_find_event(task->h->kern->pevent, rstack->addr);
+	pr_out("[%s:%s] %.*s", event->system, event->name,
+	       task->args.len, task->args.data);
+}
+
 static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct ftrace_task_handle *task,
 			     struct opts *opts)
@@ -371,7 +383,9 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		break;
 
 	case UFTRACE_EVENT:
-		pr_out("[%d] EVENT %d\n", count++);
+		pr_out("[%d] ", count++);
+		print_event(task, rstack);
+		pr_out("\n");
 		break;
 	}
 
@@ -766,11 +780,10 @@ lost:
 			       depth * 2, "");
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
-		int depth, type;
+		int depth;
 		bool is_kernel_event = (rstack == &task->kstack);
 
 		depth = task->display_depth;
-		type = (int)rstack->addr;
 
 		/* skip kernel event messages outside of user functions */
 		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
@@ -783,8 +796,9 @@ lost:
 
 		print_field(task, NULL, NO_TIME);
 
-		pr_out(" %*s/* EVENT %d */\n",
-		       depth * 2, "", type);
+		pr_out(" %*s/* ", depth * 2, "");
+		print_event(task, rstack);
+		pr_out(" */\n");
 	}
 out:
 	symbol_putname(sym, symname);
