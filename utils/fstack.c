@@ -1168,6 +1168,9 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	bool is_kernel_func = (rstack == &task->kstack);
 	int i;
 
+	if (rstack->type == UFTRACE_EVENT)
+		return;
+
 	if (!task->fstack_set) {
 
 		/* inherit stack count after [v]fork() or recover from lost */

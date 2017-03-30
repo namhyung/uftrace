@@ -1113,7 +1113,11 @@ static int
 generic_event_handler(struct trace_seq *s, struct pevent_record *record,
 		      struct event_format *event, void *context)
 {
-	pr_dbg("event found\n");
+	trace_rstack.type  = UFTRACE_EVENT;
+	trace_rstack.time  = record->ts;
+	trace_rstack.addr  = event->id;
+	trace_rstack.depth = 0;
+
 	return 0;
 }
 
@@ -1242,6 +1246,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 		else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
+			int count;
 
 			if (task->filter.time) {
 				struct time_filter_stack *tfs;
@@ -1255,33 +1260,48 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 				}
 			}
 
-			if (rstack_list->count == 0) {
-				/* it's already exceeded time filter, just return */
+			if (rstack_list->count == 0 || tr.flags & TRIGGER_FL_TRACE) {
+				/*
+				 * it's already exceeded time filter or
+				 * it might set TRACE trigger, just return.
+				 */
 				add_to_rstack_list(rstack_list, curr, NULL);
 				break;
 			}
 
 			last = list_last_entry(&rstack_list->read,
 					       typeof(*last), list);
+			count = 1;
+
+			/* skip EVENT records, if any*/
+			while (last->rstack.type == UFTRACE_EVENT) {
+				last = list_prev_entry(last, list);
+				count++;
+			}
+
 			delta = curr->time - last->rstack.time;
 
 			if (delta < time_filter) {
-				if (tr.flags & TRIGGER_FL_TRACE) {
-					add_to_rstack_list(rstack_list, curr, NULL);
-					break;
-				}
-
 				/* also delete matching entry (at the last) */
-				delete_last_rstack_list(rstack_list);
+				while (count--)
+					delete_last_rstack_list(rstack_list);
 
 				/* XXX: handle scheduled task properly */
 				if (tid != prev_tid)
 					break;
-			} else {
+			}
+			else {
 				/* found! process all existing rstacks in the list */
 				add_to_rstack_list(rstack_list, curr, NULL);
 				break;
 			}
+		}
+		else if (curr->type == UFTRACE_EVENT) {
+			add_to_rstack_list(rstack_list, curr, NULL);
+
+			/* XXX: handle scheduled task properly */
+			if (tid != prev_tid)
+				break;
 		}
 		else {
 			/* TODO: handle LOST properly */
@@ -1294,7 +1314,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 
 	if (rstack_list->count == 0) {
 		if (!kernel->rstack_done[cpu]) {
-			/* TODO: unknown type of event (tracepoint) */
+			pr_dbg("XXX: still has unknown tracepoint?\n");
 			kernel->rstack_done[cpu] = true;
 		}
 

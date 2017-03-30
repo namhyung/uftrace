@@ -351,6 +351,7 @@ enum uftrace_ret_stack_type {
 	UFTRACE_ENTRY,
 	UFTRACE_EXIT,
 	UFTRACE_LOST,
+	UFTRACE_EVENT,
 };
 
 #define RECORD_MAGIC_V3  0xa
