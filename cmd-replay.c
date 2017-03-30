@@ -352,17 +352,27 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
-	if (rstack->type == UFTRACE_ENTRY) {
+	switch (rstack->type) {
+	case UFTRACE_ENTRY:
 		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time);
-	} else if (rstack->type == UFTRACE_EXIT) {
+		break;
+
+	case UFTRACE_EXIT:
 		pr_out("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
-	} else if (rstack->type == UFTRACE_LOST) {
+		break;
+
+	case UFTRACE_LOST:
 		pr_out("[%d] XXX %d: lost %d records\n",
 		       count++, task->tid, (int)rstack->addr);
+		break;
+
+	case UFTRACE_EVENT:
+		pr_out("[%d] EVENT %d\n", count++);
+		break;
 	}
 
 	symbol_putname(sym, name);
@@ -754,6 +764,27 @@ lost:
 		else /* kernel sometimes have unknown count */
 			pr_red(" %*s/* LOST some records!! */\n",
 			       depth * 2, "");
+	}
+	else if (rstack->type == UFTRACE_EVENT) {
+		int depth, type;
+		bool is_kernel_event = (rstack == &task->kstack);
+
+		depth = task->display_depth;
+		type = (int)rstack->addr;
+
+		/* skip kernel event messages outside of user functions */
+		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
+		    is_kernel_event)
+			return 0;
+
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
+		print_field(task, NULL, NO_TIME);
+
+		pr_out(" %*s/* EVENT %d */\n",
+		       depth * 2, "", type);
 	}
 out:
 	symbol_putname(sym, symname);
