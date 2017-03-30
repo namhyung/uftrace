@@ -1084,6 +1084,7 @@ funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
+	trace_rstack.more  = 0;
 
 	return 0;
 }
@@ -1105,6 +1106,7 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
+	trace_rstack.more  = 0;
 
 	return 0;
 }
@@ -1117,8 +1119,10 @@ generic_event_handler(struct trace_seq *s, struct pevent_record *record,
 	trace_rstack.time  = record->ts;
 	trace_rstack.addr  = event->id;
 	trace_rstack.depth = 0;
+	trace_rstack.more  = 1;
 
-	return 0;
+	/* for trace_seq to be filled according to its print_fmt */
+	return 1;
 }
 
 /**
@@ -1297,7 +1301,12 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			}
 		}
 		else if (curr->type == UFTRACE_EVENT) {
-			add_to_rstack_list(rstack_list, curr, NULL);
+			struct fstack_arguments arg = {
+				.data = trace_seq.buffer,
+				.len  = trace_seq.len,
+			};
+
+			add_to_rstack_list(rstack_list, curr, &arg);
 
 			/* XXX: handle scheduled task properly */
 			if (tid != prev_tid)
