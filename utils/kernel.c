@@ -31,9 +31,26 @@
 
 static bool kernel_tracing_enabled;
 
+static size_t trace_pagesize;
+static struct trace_seq trace_seq;
+static struct ftrace_ret_stack trace_rstack = {
+	.magic = RECORD_MAGIC,
+};
+
+static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu);
+
+static int
+funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
+			struct event_format *event, void *context);
+static int
+funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
+		       struct event_format *event, void *context);
+static int
+generic_event_handler(struct trace_seq *s, struct pevent_record *record,
+		      struct event_format *event, void *context);
+
 static int save_kernel_files(struct ftrace_kernel *kernel);
 static int load_kernel_files(struct ftrace_kernel *kernel);
-
 
 static char *get_tracing_file(const char *name)
 {
@@ -842,21 +859,28 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 		}
 		else if (!strncmp(name, "events/", 7) &&
 			 !strncmp(name + strlen(name) - 7, "/format", 7)) {
-			/* extrace subsystem name */
-			char *pos = strchr(name + 8, '/');
+			/* extract subsystem and event names */
+			char *pos1 = strchr(name + 8, '/');
+			char *pos2 = strrchr(name, '/');
 
-			if (pos == NULL)
+			if (pos1 == NULL || pos2 == NULL)
 				continue;
 
-			*pos = '\0';
+			*pos1 = '\0';
 
 			/* add event so that we can skip the record */
 			ret = pevent_parse_event(pevent, buf, len, name + 7);
 			if (ret != 0) {
-				*pos = '/';
+				*pos1 = '/';
 				pevent_strerror(pevent, ret, buf, len);
 				pr_err_ns("%s: %s\n", name, buf);
 			}
+
+			*pos2 = '\0';
+
+			pevent_register_event_handler(kernel->pevent, -1,
+						      name + 7, pos1 + 1,
+						      generic_event_handler, NULL);
 		}
 		else {
 			pr_dbg("unknown data: %s\n", name);
@@ -869,21 +893,6 @@ static int load_kernel_files(struct ftrace_kernel *kernel)
 	free(path);
 	return ret;
 }
-
-static size_t trace_pagesize;
-static struct trace_seq trace_seq;
-static struct ftrace_ret_stack trace_rstack = {
-	.magic = RECORD_MAGIC,
-};
-
-static int prepare_kbuffer(struct ftrace_kernel *kernel, int cpu);
-
-static int
-funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
-			struct event_format *event, void *context);
-static int
-funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
-		       struct event_format *event, void *context);
 
 static int scandir_filter(const struct dirent *d)
 {
@@ -1097,6 +1106,14 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	trace_rstack.addr  = addr;
 	trace_rstack.depth = depth;
 
+	return 0;
+}
+
+static int
+generic_event_handler(struct trace_seq *s, struct pevent_record *record,
+		      struct event_format *event, void *context)
+{
+	pr_dbg("event found\n");
 	return 0;
 }
 
