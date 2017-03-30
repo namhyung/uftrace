@@ -1338,6 +1338,28 @@ out:
 }
 
 /**
+ * read_kernel_event - read current kernel event of specific cpu
+ * @handle - uftrace file handle
+ * @cpu    - cpu number
+ * @psize  - pointer to size
+ *
+ * This function returns current tracepoint event data in trace_seq.
+ * The size of the event data will be saved in @size.  It returns a
+ * pointer to event data if succeeded, NULL if current record is not a
+ * tracepoint.
+ */
+void * read_kernel_event(struct ftrace_kernel *kernel, int cpu, int *psize)
+{
+	struct ftrace_ret_stack *rstack = &kernel->rstacks[cpu];
+
+	if (!rstack->more)
+		return NULL;
+
+	*psize = trace_seq.len;
+	return trace_seq.buffer;
+}
+
+/**
  * read_kernel_stack - peek next kernel ftrace data
  * @handle - ftrace file handle
  * @taskp  - pointer to the oldest task

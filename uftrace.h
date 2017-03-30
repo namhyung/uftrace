@@ -447,6 +447,7 @@ int setup_kernel_data(struct ftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_file_handle *handle,
 		      struct ftrace_task_handle **taskp);
 int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);
+void * read_kernel_event(struct ftrace_kernel *kernel, int cpu, int *psize);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
 bool check_kernel_pid_filter(void);
