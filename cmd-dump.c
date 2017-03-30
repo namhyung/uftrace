@@ -65,6 +65,13 @@ struct uftrace_flame_dump {
 	uint64_t sample_time;
 };
 
+static const char * rstack_type(struct ftrace_ret_stack *frs)
+{
+	return frs->type == UFTRACE_EXIT ? "exit " :
+		frs->type == UFTRACE_ENTRY ? "entry" :
+		frs->type == UFTRACE_EVENT ? "event" : "lost ";
+}
+
 static void pr_time(uint64_t timestamp)
 {
 	unsigned sec   = timestamp / 1000000000;
@@ -412,8 +419,7 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       task->tid, frs->type == UFTRACE_EXIT ? "exit " :
-	       frs->type == UFTRACE_ENTRY ? "entry" : "lost ",
+	       task->tid, rstack_type(frs),
 	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
@@ -424,13 +430,15 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 			       task->args.len);
 			pr_args(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, task->args.len);
-		} else if (frs->type == UFTRACE_EXIT) {
+		}
+		else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, task->args.len);
-		} else
+		}
+		else
 			abort();
 	}
 }
@@ -463,8 +471,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       tid, frs->type == UFTRACE_EXIT ? "exit " :
-	       frs->type == UFTRACE_ENTRY ? "entry" : "lost",
+	       tid, rstack_type(frs),
 	       name, frs->addr, frs->depth);
 
 	if (debug) {
@@ -556,7 +563,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		else
 			pr_out("}");
 	}
-	else
+	else if (frs->type == UFTRACE_LOST)
 		chrome->lost_event_cnt++;
 }
 
@@ -889,7 +896,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (!fstack_check_filter(task))
 				continue;
 
-			if (sess) {
+			if (sess && frs->type != UFTRACE_EVENT) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, frs->addr);
 
@@ -913,14 +920,14 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
 		struct ftrace_ret_stack *frs = &kernel->rstacks[i];
-		struct sym *sym;
-		char *name;
 
 		ops->cpu_start(ops, kernel, i);
 
 		while (!read_kernel_cpu_data(kernel, i) && !uftrace_done) {
 			int tid = kernel->tids[i];
 			int losts = kernel->missed_events[i];
+			struct sym *sym = NULL;
+			char *name;
 
 			if (losts) {
 				ops->lost(ops, frs->time, tid, losts);
@@ -930,7 +937,9 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (!check_time_range(&handle->time_range, frs->time))
 				continue;
 
-			sym = find_symtabs(NULL, frs->addr);
+			if (frs->type != UFTRACE_EVENT)
+				sym = find_symtabs(NULL, frs->addr);
+
 			name = symbol_getname(sym, frs->addr);
 
 			ops->kernel(ops, kernel, i, frs, name);
@@ -974,6 +983,9 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 	struct sym *sym = NULL;
 	char *name;
 
+	if (frs->type == UFTRACE_EVENT)
+		goto dump;
+
 	sess = find_task_session(task->tid, frs->time);
 	if (sess || is_kernel_address(frs->addr)) {
 		sym = find_symtabs(&sess->symtabs, frs->addr);
@@ -982,6 +994,7 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 						 frs->addr);
 	}
 
+dump:
 	name = symbol_getname(sym, frs->addr);
 	ops->task_rstack(ops, task, name);
 	symbol_putname(sym, name);
