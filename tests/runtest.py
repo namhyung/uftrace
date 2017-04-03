@@ -429,7 +429,7 @@ def print_test_result(case, result, color):
         result_list = [text_result[r] for r in result]
 
     output = case[1:4]
-    output += ' %-16s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
+    output += ' %-20s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
     sys.stdout.write(output)
 
 
@@ -463,8 +463,8 @@ if __name__ == "__main__":
     opts = ' '.join(sorted(['O'+o for o in arg.opts]))
     optslen = len(opts);
 
-    header1 = '%-20s ' % 'Test case'
-    header2 = '-' * 20 + ':'
+    header1 = '%-24s ' % 'Test case'
+    header2 = '-' * 24 + ':'
     empty = '                      '
 
     if arg.pg_flag:
