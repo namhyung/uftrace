@@ -429,10 +429,12 @@ struct ftrace_kernel {
 	char *output_dir;
 	struct list_head filters;
 	struct list_head notrace;
+	struct list_head patches;
+	struct list_head nopatch;
 };
 
 /* these functions will be used at record time */
-int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters);
+int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts);
 int start_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_tracing(struct ftrace_kernel *kernel);
 int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu);

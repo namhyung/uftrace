@@ -1449,7 +1449,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 				kern.bufsize = 2048 * 1024;
 		}
 
-		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
+		if (setup_kernel_tracing(&kern, opts) < 0) {
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}

@@ -157,6 +157,26 @@ static int set_tracing_filter(struct ftrace_kernel *kernel)
 		free(pos);
 	}
 
+	filter_file = "set_ftrace_filter";
+	list_for_each_entry_safe(pos, tmp, &kernel->patches, list) {
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
+	filter_file = "set_ftrace_notrace";
+	list_for_each_entry_safe(pos, tmp, &kernel->nopatch, list) {
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
 	return 0;
 }
 
@@ -262,6 +282,12 @@ static int reset_tracing_files(void)
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
 
+	if (write_tracing_file("set_ftrace_filter", " ") < 0)
+		return -1;
+
+	if (write_tracing_file("set_ftrace_notrace", " ") < 0)
+		return -1;
+
 	if (write_tracing_file("max_graph_depth", "0") < 0)
 		return -1;
 
@@ -324,20 +350,24 @@ out:
 /**
  * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
  * @kernel : kernel ftrace handle
- * @filters: CSV of functions to filter
+ * @opts: option related to kernel tracing
  *
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
+int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts)
 {
 	int i, n;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
+	INIT_LIST_HEAD(&kernel->patches);
+	INIT_LIST_HEAD(&kernel->nopatch);
 
-	build_kernel_filter(kernel, filters,
+	build_kernel_filter(kernel, opts->filter,
 			    &kernel->filters, &kernel->notrace);
+	build_kernel_filter(kernel, opts->patch,
+			    &kernel->patches, &kernel->nopatch);
 
 	if (__setup_kernel_tracing(kernel) < 0)
 		return -1;
