@@ -988,6 +988,9 @@ static void mcount_startup(void)
 	}
 
 out:
+	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
+		kernel_pid_update = true;
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
