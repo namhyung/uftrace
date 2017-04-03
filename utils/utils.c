@@ -353,3 +353,23 @@ uint64_t parse_time(char *arg, int limited_digits)
 	}
 	return val;
 }
+
+char * strjoin(char *left, char *right, char *delim)
+{
+	size_t llen = left ? strlen(left) : 0;
+	size_t rlen = strlen(right);
+	size_t dlen = strlen(delim);
+	size_t len = llen + rlen + 1;
+	char *new;
+
+	if (left)
+		len += dlen;
+
+	new = xrealloc(left, len);
+
+	if (left)
+		strcpy(new + llen, delim);
+
+	strcpy(new + len - rlen - 1, right);
+	return new;
+}
