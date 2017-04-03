@@ -118,4 +118,6 @@ struct ftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 void ftrace_cleanup_filter(struct rb_root *root);
 void ftrace_print_filter(struct rb_root *root);
 
+char * uftrace_clear_kernel(char *filter_str);
+
 #endif /* __FTRACE_FILTER_H__ */

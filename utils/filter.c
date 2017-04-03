@@ -851,6 +851,32 @@ void ftrace_print_filter(struct rb_root *root)
 	}
 }
 
+char * uftrace_clear_kernel(char *filter_str)
+{
+	char *str, *pos, *ret, *tmp;
+
+	/* check filter string contains a kernel filter */
+	if (filter_str == NULL)
+		return NULL;
+
+	if (strstr(filter_str, "@kernel") == NULL)
+		return xstrdup(filter_str);
+
+	str = pos = xstrdup(filter_str);
+	ret = NULL;
+
+	pos = strtok_r(pos, ";", &tmp);
+	while (pos) {
+		if (strstr(pos, "@kernel") == NULL)
+			ret = strjoin(ret, pos, ";");
+
+		pos = strtok_r(NULL, ";", &tmp);
+	}
+	free(str);
+
+	return ret;
+}
+
 #ifdef UNIT_TEST
 
 static void filter_test_load_symtabs(struct symtabs *stabs)
