@@ -48,6 +48,7 @@ TLS struct mcount_thread_data mtd;
 static int pfd = -1;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 static char *mcount_exename;
+static bool kernel_pid_update;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
@@ -70,6 +71,30 @@ int gettid(struct mcount_thread_data *mtdp)
 		mtdp->tid = syscall(SYS_gettid);
 
 	return mtdp->tid;
+}
+
+/* kernel never updates pid filter for a forked child */
+static void update_kernel_tid(int tid)
+{
+	static const char *TRACING_DIR = "/sys/kernel/debug/tracing";
+	char *filename = NULL;
+	char buf[8];
+	int fd;
+	ssize_t len;
+
+	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
+	fd = open(filename, O_WRONLY | O_APPEND);
+	if (fd < 0)
+		return;
+
+	snprintf(buf, sizeof(buf), "%d", tid);
+	len = strlen(buf);
+	if (write(fd, buf, len) != len)
+		pr_dbg("update kernel ftrace tid filter failed\n");
+
+	close(fd);
+
+	free(filename);
 }
 
 const char *session_name(void)
@@ -239,6 +264,9 @@ struct mcount_thread_data * mcount_prepare(void)
 	tmsg.time = mcount_gettime();
 
 	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+
+	if (kernel_pid_update)
+		update_kernel_tid(gettid(mtdp));
 
 	return mtdp;
 }
@@ -960,6 +988,9 @@ static void mcount_startup(void)
 	}
 
 out:
+	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
+		kernel_pid_update = true;
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();

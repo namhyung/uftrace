@@ -446,6 +446,8 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);
 int finish_kernel_data(struct ftrace_kernel *kernel);
 
+bool check_kernel_pid_filter(void);
+
 struct rusage;
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,

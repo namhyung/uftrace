@@ -215,6 +215,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 	snprintf(buf, sizeof(buf), "%d", demangler);
 	setenv("UFTRACE_DEMANGLE", buf, 1);
+
+	if (opts->kernel && check_kernel_pid_filter())
+		setenv("UFTRACE_KERNEL_PID_UPDATE", "1", 1);
 }
 
 static uint64_t calc_feat_mask(struct opts *opts)

@@ -56,3 +56,13 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
+
+    def fixup(self, cflags, result):
+        result = result.replace("            [ 1661] |   fork() {",
+"""            [ 1661] |   fork() {
+   5.135 us [ 1661] |     sys_getpid();""")
+
+        return result.replace("   4.234 us [ 1661] |         getpid();",
+"""            [ 1661] |         getpid() {
+   3.328 us [ 1661] |           sys_getpid();
+   4.234 us [ 1661] |         } /* getpid */""")

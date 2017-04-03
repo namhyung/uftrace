@@ -183,6 +183,13 @@ static int set_tracing_bufsize(struct ftrace_kernel *kernel)
 	return ret;
 }
 
+/* check whether the kernel supports pid filter inheritance */
+bool check_kernel_pid_filter(void)
+{
+	/* it's not implemented yet */
+	return true;
+}
+
 static int reset_tracing_files(void)
 {
 	if (write_tracing_file("tracing_on", "1") < 0)
