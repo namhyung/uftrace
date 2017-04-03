@@ -65,3 +65,11 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
+
+    def fixup(self, cflags, result):
+        return result.replace("""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""",
+"""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+{"ts":14510734172,"ph":"B","pid":32687,"name":"sys_getpid"},
+{"ts":14510734172,"ph":"E","pid":32687,"name":"sys_getpid"},
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""")

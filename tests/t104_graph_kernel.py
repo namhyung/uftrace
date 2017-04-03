@@ -63,3 +63,8 @@ calling functions
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
+
+    def fixup(self, cflags, result):
+        return result.replace("   1.123 us :  +-(1) getpid",
+"""   1.123 us :  +-(1) getpid
+0.738 us :  | (1) sys_getpid""")
