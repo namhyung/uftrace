@@ -157,6 +157,26 @@ static int set_tracing_filter(struct ftrace_kernel *kernel)
 		free(pos);
 	}
 
+	filter_file = "set_ftrace_filter";
+	list_for_each_entry_safe(pos, tmp, &kernel->patches, list) {
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
+	filter_file = "set_ftrace_notrace";
+	list_for_each_entry_safe(pos, tmp, &kernel->nopatch, list) {
+		if (__write_tracing_file(filter_file, pos->name,
+					 true, true) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
 	return 0;
 }
 
@@ -190,6 +210,58 @@ bool check_kernel_pid_filter(void)
 	return true;
 }
 
+static void build_kernel_filter(struct ftrace_kernel *kernel, char *filter_str,
+				struct list_head *filters,
+				struct list_head *notrace)
+{
+	struct list_head *head;
+	struct kfilter *kfilter;
+	char *pos, *str, *name;
+
+	if (filter_str == NULL)
+		return;
+
+	pos = str = xstrdup(filter_str);
+
+	name = strtok(pos, ";");
+	while (name) {
+		pos = strchr(name, '@');
+		if (!pos || strncasecmp(pos+1, "kernel", 6))
+			goto next;
+		*pos = '\0';
+
+		if (name[0] == '!') {
+			head = notrace;
+			name++;
+		}
+		else
+			head = filters;
+
+		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+		strcpy(kfilter->name, name);
+		list_add(&kfilter->list, head);
+
+		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
+		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[0] = 'S';
+			kfilter->name[2] = 'S';
+			list_add(&kfilter->list, head);
+		}
+		else if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[7] = 'S';
+			kfilter->name[9] = 'S';
+			list_add(&kfilter->list, head);
+		}
+next:
+		name = strtok(NULL, ";");
+	}
+	free(str);
+}
+
 static int reset_tracing_files(void)
 {
 	if (write_tracing_file("tracing_on", "1") < 0)
@@ -209,6 +281,12 @@ static int reset_tracing_files(void)
 
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
+
+	if (write_tracing_file("set_ftrace_filter", " ") < 0)
+		return -1;
+
+	if (write_tracing_file("set_ftrace_notrace", " ") < 0)
+		return -1;
 
 	if (write_tracing_file("max_graph_depth", "0") < 0)
 		return -1;
@@ -272,63 +350,25 @@ out:
 /**
  * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
  * @kernel : kernel ftrace handle
- * @filters: CSV of functions to filter
+ * @opts: option related to kernel tracing
  *
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
+int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts)
 {
-	char *pos, *str, *name;
-	struct kfilter *kfilter;
-	struct list_head *head;
 	int i, n;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
+	INIT_LIST_HEAD(&kernel->patches);
+	INIT_LIST_HEAD(&kernel->nopatch);
 
-	if (filters == NULL)
-		goto setup;
+	build_kernel_filter(kernel, opts->filter,
+			    &kernel->filters, &kernel->notrace);
+	build_kernel_filter(kernel, opts->patch,
+			    &kernel->patches, &kernel->nopatch);
 
-	pos = str = xstrdup(filters);
-
-	name = strtok(pos, ";");
-	while (name) {
-		pos = strchr(name, '@');
-		if (!pos || strncasecmp(pos+1, "kernel", 6))
-			goto next;
-		*pos = '\0';
-
-		if (name[0] == '!') {
-			head = &kernel->notrace;
-			name++;
-		} else
-			head = &kernel->filters;
-
-		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-		strcpy(kfilter->name, name);
-		list_add(&kfilter->list, head);
-
-		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
-		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[0] = 'S';
-			kfilter->name[2] = 'S';
-			list_add(&kfilter->list, head);
-		}
-		if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[7] = 'S';
-			kfilter->name[9] = 'S';
-			list_add(&kfilter->list, head);
-		}
-next:
-		name = strtok(NULL, ";");
-	}
-
-setup:
 	if (__setup_kernel_tracing(kernel) < 0)
 		return -1;
 

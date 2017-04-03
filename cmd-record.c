@@ -54,9 +54,13 @@ static int thread_ctl[2];
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
-	if (opts->filter || opts->trigger || opts->args || opts->retval || debug)
+	if (debug)
 		return false;
 	if (opts->depth != MCOUNT_DEFAULT_DEPTH)
+		return false;
+	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
+	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
+	    getenv("UFTRACE_PATCH"))
 		return false;
 	return true;
 }
@@ -83,42 +87,6 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	char *old_preload, *old_libpath;
 	bool must_use_multi_thread = check_libpthread(opts->exename);
 
-	if (opts->lib_path)
-		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
-	else
-		buf[0] = '\0';  /* to make strcat() work */
-
-	if (opts->nop) {
-		strcat(buf, "libmcount-nop.so");
-	}
-	else if (opts->libmcount_single && !must_use_multi_thread) {
-		if (can_use_fast_libmcount(opts))
-			strcat(buf, "libmcount-fast-single.so");
-		else
-			strcat(buf, "libmcount-single.so");
-	}
-	else {
-		if (must_use_multi_thread && opts->libmcount_single)
-			pr_dbg("--libmcount-single is off because it calls pthread_create()\n");
-		if (can_use_fast_libmcount(opts))
-			strcat(buf, "libmcount-fast.so");
-		else
-			strcat(buf, "libmcount.so");
-	}
-	pr_dbg("using %s library for tracing\n", buf);
-
-	old_preload = getenv("LD_PRELOAD");
-	if (old_preload) {
-		size_t len = strlen(buf) + strlen(old_preload) + 2;
-		char *preload = xmalloc(len);
-
-		snprintf(preload, len, "%s:%s", buf, old_preload);
-		setenv("LD_PRELOAD", preload, 1);
-		free(preload);
-	}
-	else
-		setenv("LD_PRELOAD", buf, 1);
-
 	if (opts->lib_path) {
 		strcpy(buf, opts->lib_path);
 		strcat(buf, "/libmcount:");
@@ -143,20 +111,50 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	else
 		setenv("LD_LIBRARY_PATH", buf, 1);
 
-	if (opts->filter)
-		setenv("UFTRACE_FILTER", opts->filter, 1);
+	if (opts->filter) {
+		char *filter_str = uftrace_clear_kernel(opts->filter);
 
-	if (opts->trigger)
-		setenv("UFTRACE_TRIGGER", opts->trigger, 1);
+		if (filter_str) {
+			setenv("UFTRACE_FILTER", filter_str, 1);
+			free(filter_str);
+		}
+	}
 
-	if (opts->args)
-		setenv("UFTRACE_ARGUMENT", opts->args, 1);
+	if (opts->trigger) {
+		char *trigger_str = uftrace_clear_kernel(opts->trigger);
 
-	if (opts->retval)
-		setenv("UFTRACE_RETVAL", opts->retval, 1);
+		if (trigger_str) {
+			setenv("UFTRACE_TRIGGER", trigger_str, 1);
+			free(trigger_str);
+		}
+	}
 
-	if (opts->patch)
-		setenv("UFTRACE_PATCH", opts->patch, 1);
+	if (opts->args) {
+		char *arg_str = uftrace_clear_kernel(opts->args);
+
+		if (arg_str) {
+			setenv("UFTRACE_ARGUMENT", arg_str, 1);
+			free(arg_str);
+		}
+	}
+
+	if (opts->retval) {
+		char *retval_str = uftrace_clear_kernel(opts->retval);
+
+		if (retval_str) {
+			setenv("UFTRACE_RETVAL", retval_str, 1);
+			free(retval_str);
+		}
+	}
+
+	if (opts->patch) {
+		char *patch_str = uftrace_clear_kernel(opts->patch);
+
+		if (patch_str) {
+			setenv("UFTRACE_PATCH", patch_str, 1);
+			free(patch_str);
+		}
+	}
 
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
@@ -218,6 +216,42 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 	if (opts->kernel && check_kernel_pid_filter())
 		setenv("UFTRACE_KERNEL_PID_UPDATE", "1", 1);
+
+	if (opts->lib_path)
+		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
+	else
+		buf[0] = '\0';  /* to make strcat() work */
+
+	if (opts->nop) {
+		strcat(buf, "libmcount-nop.so");
+	}
+	else if (opts->libmcount_single && !must_use_multi_thread) {
+		if (can_use_fast_libmcount(opts))
+			strcat(buf, "libmcount-fast-single.so");
+		else
+			strcat(buf, "libmcount-single.so");
+	}
+	else {
+		if (must_use_multi_thread && opts->libmcount_single)
+			pr_dbg("--libmcount-single is off because it calls pthread_create()\n");
+		if (can_use_fast_libmcount(opts))
+			strcat(buf, "libmcount-fast.so");
+		else
+			strcat(buf, "libmcount.so");
+	}
+	pr_dbg("using %s library for tracing\n", buf);
+
+	old_preload = getenv("LD_PRELOAD");
+	if (old_preload) {
+		size_t len = strlen(buf) + strlen(old_preload) + 2;
+		char *preload = xmalloc(len);
+
+		snprintf(preload, len, "%s:%s", buf, old_preload);
+		setenv("LD_PRELOAD", preload, 1);
+		free(preload);
+	}
+	else
+		setenv("LD_PRELOAD", buf, 1);
 }
 
 static uint64_t calc_feat_mask(struct opts *opts)
@@ -1449,7 +1483,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 				kern.bufsize = 2048 * 1024;
 		}
 
-		if (setup_kernel_tracing(&kern, opts->filter) < 0) {
+		if (setup_kernel_tracing(&kern, opts) < 0) {
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}

@@ -175,32 +175,22 @@ static unsigned long parse_size(char *str)
 	return size;
 }
 
-static char * opt_add_string(char *old, char *new)
+static char * opt_add_string(char *old_opt, char *new_opt)
 {
-	size_t oldlen = old ? strlen(old) : 0;
-	size_t newlen = strlen(new);
-	char *opt;
-
-	opt = xrealloc(old, oldlen + newlen + 2);
-	if (old)
-		opt[oldlen++] = ';';
-	strcpy(opt + oldlen, new);
-	return opt;
+	return strjoin(old_opt, new_opt, ";");
 }
 
-static char * opt_add_prefix_string(char *old, char *prefix, char *new)
+static char * opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
 {
-	size_t oldlen = old ? strlen(old) : 0;
-	size_t prelen = strlen(prefix);
-	size_t newlen = strlen(new);
-	char *opt;
+	new_opt = strjoin(xstrdup(prefix), new_opt, "");
 
-	opt = xrealloc(old, oldlen + prelen + newlen + 2);
-	if (old)
-		opt[oldlen++] = ';';
-	strcpy(opt + oldlen, prefix);
-	strcpy(opt + oldlen + prelen, new);
-	return opt;
+	if (old_opt) {
+		old_opt = strjoin(old_opt, new_opt, ";");
+		free(new_opt);
+		new_opt = old_opt;
+	}
+
+	return new_opt;
 }
 
 static const char * true_str[] = {
