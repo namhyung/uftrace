@@ -190,6 +190,58 @@ bool check_kernel_pid_filter(void)
 	return true;
 }
 
+static void build_kernel_filter(struct ftrace_kernel *kernel, char *filter_str,
+				struct list_head *filters,
+				struct list_head *notrace)
+{
+	struct list_head *head;
+	struct kfilter *kfilter;
+	char *pos, *str, *name;
+
+	if (filter_str == NULL)
+		return;
+
+	pos = str = xstrdup(filter_str);
+
+	name = strtok(pos, ";");
+	while (name) {
+		pos = strchr(name, '@');
+		if (!pos || strncasecmp(pos+1, "kernel", 6))
+			goto next;
+		*pos = '\0';
+
+		if (name[0] == '!') {
+			head = notrace;
+			name++;
+		}
+		else
+			head = filters;
+
+		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+		strcpy(kfilter->name, name);
+		list_add(&kfilter->list, head);
+
+		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
+		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[0] = 'S';
+			kfilter->name[2] = 'S';
+			list_add(&kfilter->list, head);
+		}
+		else if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			kfilter->name[7] = 'S';
+			kfilter->name[9] = 'S';
+			list_add(&kfilter->list, head);
+		}
+next:
+		name = strtok(NULL, ";");
+	}
+	free(str);
+}
+
 static int reset_tracing_files(void)
 {
 	if (write_tracing_file("tracing_on", "1") < 0)
@@ -279,56 +331,14 @@ out:
  */
 int setup_kernel_tracing(struct ftrace_kernel *kernel, char *filters)
 {
-	char *pos, *str, *name;
-	struct kfilter *kfilter;
-	struct list_head *head;
 	int i, n;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
 
-	if (filters == NULL)
-		goto setup;
+	build_kernel_filter(kernel, filters,
+			    &kernel->filters, &kernel->notrace);
 
-	pos = str = xstrdup(filters);
-
-	name = strtok(pos, ";");
-	while (name) {
-		pos = strchr(name, '@');
-		if (!pos || strncasecmp(pos+1, "kernel", 6))
-			goto next;
-		*pos = '\0';
-
-		if (name[0] == '!') {
-			head = &kernel->notrace;
-			name++;
-		} else
-			head = &kernel->filters;
-
-		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-		strcpy(kfilter->name, name);
-		list_add(&kfilter->list, head);
-
-		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
-		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[0] = 'S';
-			kfilter->name[2] = 'S';
-			list_add(&kfilter->list, head);
-		}
-		if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[7] = 'S';
-			kfilter->name[9] = 'S';
-			list_add(&kfilter->list, head);
-		}
-next:
-		name = strtok(NULL, ";");
-	}
-
-setup:
 	if (__setup_kernel_tracing(kernel) < 0)
 		return -1;
 
