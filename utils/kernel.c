@@ -73,30 +73,44 @@ static int __write_tracing_file(const char *name, const char *val, bool append,
 		goto out;
 	}
 
+	if (correct_sys_prefix) {
+		char *newval = (char *)val;
+
+		if (!strncmp(val, "sys_", 4))
+			newval[0] = newval[2] = 'S';
+		else if (!strncmp(val, "compat_sys_", 11))
+			newval[7] = newval[9] = 'S';
+		else
+			correct_sys_prefix = false;
+	}
+
 	pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
 	       val, name);
 
 	if (write(fd, val, size) == size)
 		ret = 0;
-	else {
-		if (errno == EINVAL && correct_sys_prefix) {
-			char *newval = (char *)val;
 
-			if (!strncmp(val, "sys_", 4))
-				newval[0] = newval[2] = 'S';
-			else if (!strncmp(val, "compat_sys_", 11))
-				newval[7] = newval[9] = 'S';
+	if (correct_sys_prefix) {
+		char *newval = (char *)val;
 
-			if (write(fd, newval, size) == size)
-				ret = 0;
-			else if (!strncmp(newval, "SyS_", 4) ||
-				 !strncmp(newval, "compat_SyS_", 11))
-				ret = 0;
-		}
-		if (ret < 0)
-			pr_dbg("write '%s' to tracing/%s failed: %m\n",
-			       val, name);
+		if (!strncmp(val, "SyS_", 4))
+			newval[0] = newval[2] = 's';
+		else if (!strncmp(val, "compat_SyS_", 11))
+			newval[7] = newval[9] = 's';
+
+		/* write a whitespace to distinguish the previous pattern */
+		if (write(fd, " ", 1) < 0)
+			ret = -1;
+
+		pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
+			val, name);
+
+		if (write(fd, val, size) == size)
+			ret = 0;
 	}
+
+	if (ret < 0)
+		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
 
 	close(fd);
 out:
@@ -241,21 +255,6 @@ static void build_kernel_filter(struct ftrace_kernel *kernel, char *filter_str,
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
 
-		/* add SyS_ (or compat_SyS_) aliases for syscall pattern */
-		if (!strncmp(name, "sys_", 4) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[0] = 'S';
-			kfilter->name[2] = 'S';
-			list_add(&kfilter->list, head);
-		}
-		else if (!strncmp(name, "compat_sys_", 11) && strchr(name, '*')) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			kfilter->name[7] = 'S';
-			kfilter->name[9] = 'S';
-			list_add(&kfilter->list, head);
-		}
 next:
 		name = strtok(NULL, ";");
 	}
