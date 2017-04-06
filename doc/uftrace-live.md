@@ -116,7 +116,7 @@ OPTIONS
 :   Show kernel functions only without user functions.  Implies `--kernel`.
 
 -P *FUNC*, \--patch=*FUNC*
-:   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.
+:   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.
 
 
 FILTERS
@@ -320,6 +320,40 @@ Each field has following meaning:
  * addr: address of the function
 
 The default value is 'duration,tid'.  If given field name starts with "+", then it'll be appended to the default fields.  So "-f +time" is as same as "-f duration,tid,time".  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
+
+
+DYNAMIC TRACING
+===============
+The uftrace tool supports dynamic function tracing which can be enabled at runtime (load-time, to be precise) on x86_64.  Before recording functions, normally you need to build the target program with `-pg` (or `-finstrument-functions`), then it has some performance impact because all funtions call `mcount()`.
+
+With dynamic tracing, you can trace specific functions only given by the `-P`/`--patch` option.  However you need to add some more compiler (gcc) options when building the target program.  The gcc 5.1 or more recent versions provide `-mfentry` and `-mnop-mcount` options which add instrumentation code (i.e. calling `mcount()` function) at the very beginning of a function and convert the instruction to a NOP.  Then it has almost zero performance overhead when running in a normal condition.  The uftrace can convert it back to call `mcount()` if users want to (using `-P` option).
+
+The following example shows a error message when normally running uftrace with the excutable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't call any instrumentation code (i.e. 'mcount').
+
+    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+    $ uftrace abc
+    uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
+      ERROR: Can't find 'mcount' symbol in the 'abc'.
+             It seems not to be compiled with -pg or -finstrument-functions flag
+             which generates traceable code.  Please check your binary file.
+
+But when the `-P a` patch option is used, and then only it can dynamically trace `a()`.
+
+    $ uftrace --no-libcall -P a abc
+    # DURATION    TID     FUNCTION
+       0.923 us [19379] | a();
+
+In addition, you can enable all functions at load time using '.' that matches to any character in a regex pattern with `P` option.
+
+    $ uftrace --no-libcall -P . abc
+    # DURATION    TID     FUNCTION
+                [19387] | main() {
+                [19387] |   a() {
+                [19387] |     b() {
+       0.940 us [19387] |       c();
+       2.030 us [19387] |     } /* b */
+       2.451 us [19387] |   } /* a */
+       3.289 us [19387] | } /* main */
 
 
 SEE ALSO
