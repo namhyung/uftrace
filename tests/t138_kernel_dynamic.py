@@ -7,15 +7,15 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', """
 # DURATION    TID     FUNCTION
-            [ 9875] | main() {
-            [ 9875] |   open() {
-  14.416 us [ 9875] |     sys_open();
-  19.099 us [ 9875] |   } /* open */
-            [ 9875] |   close() {
-   3.380 us [ 9875] |     sys_close();
-   9.720 us [ 9875] |   } /* close */
-  37.051 us [ 9875] | } /* main */
-""")
+   0.636 us [  403] | __monstartup();
+   0.623 us [  403] | __cxa_atexit();
+            [  403] | open() {
+   4.433 us [  403] |   sys_open();
+   6.000 us [  403] | } /* open */
+            [  403] | close() {
+   0.282 us [  403] |   sys_close();
+   1.731 us [  403] | } /* close */
+""", sort='simple')
 
     def pre(self):
         if os.geteuid() != 0:
@@ -24,6 +24,9 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
 
         return TestBase.TEST_SUCCESS
+
+    def build(self, name, cflags='', ldflags=''):
+        return TestBase.build(self, name, '-pg -mfentry -mnop-mcount', ldflags)
 
     def runcmd(self):
         return '%s -k -P %s %s openclose' % \
