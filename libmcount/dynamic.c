@@ -17,6 +17,7 @@ static struct mcount_dynamic_stats {
 	int total;
 	int failed;
 	int skipped;
+	int nomatch;
 } stats;
 
 /* dummy functions (will be overridden by arch-specific code) */
@@ -87,7 +88,7 @@ static int prepare_dynamic_update(void)
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 {
 	char *str;
-	char *pos, *name;
+	char *pos, *name, *nopatched_name = NULL;
 	struct symtab *symtab = &symtabs->symtab;
 
 	if (patch_funcs == NULL)
@@ -100,6 +101,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 	name = strtok(pos, ";");
 	while (name) {
 		bool is_regex;
+		bool found = false;
 		regex_t re;
 		unsigned i;
 		struct sym *sym;
@@ -119,6 +121,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 			    (!is_regex && strcmp(name, sym->name)))
 				continue;
 
+			found = true;
 			switch (mcount_patch_func(mdinfo, sym)) {
 			case -1:
 				stats.failed++;
@@ -133,8 +136,18 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 			stats.total++;
 		}
 
+		if (!found || stats.failed || stats.skipped)
+			nopatched_name = name;
+		if (!found)
+			stats.nomatch++;
+
 		name = strtok(NULL, ";");
 	}
+
+	if (stats.failed || stats.skipped || stats.nomatch)
+		pr_out("%s cannot be patched dynamically\n",
+		       (stats.failed + stats.skipped + stats.nomatch) > 1 ?
+		       "some functions" : nopatched_name);
 
 	free(str);
 	return 0;
@@ -185,6 +198,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 	       calc_percent(stats.failed, stats.total));
 	pr_dbg(" skipped: %8d (%.2f%%)\n", stats.skipped,
 	       calc_percent(stats.skipped, stats.total));
+	pr_dbg("no match: %8d\n", stats.nomatch);
 	finish_dynamic_update();
 	return ret;
 }
