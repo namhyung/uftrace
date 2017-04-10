@@ -252,4 +252,21 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
 
+struct mcount_event_info {
+	char *module;
+	char *provider;
+	char *event;
+	char *arguments;
+
+	unsigned id;
+	unsigned long addr;
+	struct list_head list;
+};
+
+int mcount_setup_events(char *dirname, char *event_str);
+struct mcount_event_info * mcount_lookup_event(unsigned long addr);
+void mcount_finish_events(void);
+
+int mcount_arch_enable_event(struct mcount_event_info *mei);
+
 #endif /* FTRACE_MCOUNT_H */
