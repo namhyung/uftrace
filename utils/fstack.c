@@ -1168,6 +1168,9 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 	bool is_kernel_func = (rstack == &task->kstack);
 	int i;
 
+	if (rstack->type == UFTRACE_EVENT)
+		return;
+
 	if (!task->fstack_set) {
 
 		/* inherit stack count after [v]fork() or recover from lost */
@@ -1348,25 +1351,29 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 	struct ftrace_ret_stack *rstack = task->rstack;
 	struct ftrace_file_handle *handle = task->h;
 
+	if (rstack->more) {
+		struct uftrace_rstack_list_node *node;
+
+		if (rstack == &task->ustack)
+			node = list_first_entry(&task->rstack_list.read,
+						typeof(*node), list);
+		else
+			node = list_first_entry(&kernel->rstack_list[cpu].read,
+						typeof(*node), list);
+		assert(node->args.data);
+
+		/* restore args/retval to task */
+		free(task->args.data);
+		task->args.args = node->args.args;
+		task->args.data = node->args.data;
+		task->args.len  = node->args.len;
+		node->args.data = NULL;
+	}
+
 	if (rstack == &task->ustack) {
 		task->valid = false;
-		if (task->rstack_list.count) {
-			if (rstack->more) {
-				struct uftrace_rstack_list_node *node;
-
-				node = list_first_entry(&task->rstack_list.read,
-							typeof(*node), list);
-				assert(node->args.data);
-
-				/* restore args/retval to task */
-				free(task->args.data);
-				task->args.args = node->args.args;
-				task->args.data = node->args.data;
-				task->args.len  = node->args.len;
-				node->args.data = NULL;
-			}
+		if (task->rstack_list.count)
 			consume_first_rstack_list(&task->rstack_list);
-		}
 	}
 	else if (rstack->type == UFTRACE_LOST)
 		kernel->missed_events[cpu] = 0;

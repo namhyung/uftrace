@@ -173,7 +173,8 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (rstack->type == UFTRACE_ENTRY)
+		if (rstack->type == UFTRACE_ENTRY ||
+		    rstack->type == UFTRACE_EVENT)
 			continue;
 
 		if (rstack->type == UFTRACE_LOST) {

@@ -13,6 +13,7 @@
 #include "utils/fstack.h"
 #include "utils/filter.h"
 #include "libtraceevent/kbuffer.h"
+#include "libtraceevent/event-parse.h"
 
 
 struct uftrace_dump_ops {
@@ -35,9 +36,13 @@ struct uftrace_dump_ops {
 	void (*cpu_start)(struct uftrace_dump_ops *ops,
 			  struct ftrace_kernel *kernel, int cpu);
 	/* this is called for each kernel-level function entry/exit */
-	void (*kernel)(struct uftrace_dump_ops *ops,
-		       struct ftrace_kernel *kernel, int cpu,
-		       struct ftrace_ret_stack *frs, char *name);
+	void (*kernel_func)(struct uftrace_dump_ops *ops,
+			    struct ftrace_kernel *kernel, int cpu,
+			    struct ftrace_ret_stack *frs, char *name);
+	/* this is called for each kernel event (tracepoint) */
+	void (*kernel_event)(struct uftrace_dump_ops *ops,
+			     struct ftrace_kernel *kernel, int cpu,
+			     struct ftrace_ret_stack *frs);
 	/* thius is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
 		     uint64_t time, int tid, int losts);
@@ -64,6 +69,13 @@ struct uftrace_flame_dump {
 	struct fg_node *node;
 	uint64_t sample_time;
 };
+
+static const char * rstack_type(struct ftrace_ret_stack *frs)
+{
+	return frs->type == UFTRACE_EXIT ? "exit " :
+		frs->type == UFTRACE_ENTRY ? "entry" :
+		frs->type == UFTRACE_EVENT ? "event" : "lost ";
+}
 
 static void pr_time(uint64_t timestamp)
 {
@@ -412,8 +424,7 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       task->tid, frs->type == UFTRACE_EXIT ? "exit " :
-	       frs->type == UFTRACE_ENTRY ? "entry" : "lost ",
+	       task->tid, rstack_type(frs),
 	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
@@ -424,13 +435,15 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 			       task->args.len);
 			pr_args(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, task->args.len);
-		} else if (frs->type == UFTRACE_EXIT) {
+		}
+		else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, task->args.len);
-		} else
+		}
+		else
 			abort();
 	}
 }
@@ -463,8 +476,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       tid, frs->type == UFTRACE_EXIT ? "exit " :
-	       frs->type == UFTRACE_ENTRY ? "entry" : "lost",
+	       tid, rstack_type(frs),
 	       name, frs->addr, frs->depth);
 
 	if (debug) {
@@ -483,6 +495,41 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	}
 }
 
+
+static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
+				   struct ftrace_kernel *kernel, int cpu,
+				   struct ftrace_ret_stack *frs)
+{
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+	struct event_format *event;
+	int tid = kernel->tids[cpu];
+	char *event_data;
+	int size = 0;
+
+	event = pevent_find_event(kernel->pevent, frs->addr);
+	event_data = read_kernel_event(kernel, cpu, &size);
+
+	pr_time(frs->time);
+	pr_out("%5d: [%s] %s:%s(%d) %.*s\n",
+	       tid, rstack_type(frs), event->system, event->name,
+	       frs->addr, size, event_data);
+
+	if (debug) {
+		/* this is only needed for hex dump */
+		struct kbuffer *kbuf = kernel->kbufs[cpu];
+		void *data = kbuffer_read_at_offset(kbuf, raw->kbuf_offset, NULL);
+		int size;
+
+		size = kbuffer_event_size(kbuf);
+		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
+		pr_hex(&raw->file_offset, data, size);
+
+		if (kbuffer_next_event(kbuf, NULL))
+			raw->kbuf_offset += size + 4;  // 4 = event header size
+		else
+			raw->kbuf_offset = 0;
+	}
+}
 static void print_raw_kernel_lost(struct uftrace_dump_ops *ops,
 				  uint64_t time, int tid, int losts)
 {
@@ -556,7 +603,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		else
 			pr_out("}");
 	}
-	else
+	else if (frs->type == UFTRACE_LOST)
 		chrome->lost_event_cnt++;
 }
 
@@ -573,6 +620,12 @@ static void print_chrome_cpu_start(struct uftrace_dump_ops *ops,
 static void print_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
 				       struct ftrace_kernel *kernel, int cpu,
 				       struct ftrace_ret_stack *frs, char *name)
+{
+}
+
+static void print_chrome_kernel_event(struct uftrace_dump_ops *ops,
+				      struct ftrace_kernel *kernel, int cpu,
+				      struct ftrace_ret_stack *frs)
 {
 }
 
@@ -834,6 +887,12 @@ static void print_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 {
 }
 
+static void print_flame_kernel_event(struct uftrace_dump_ops *ops,
+				     struct ftrace_kernel *kernel, int cpu,
+				     struct ftrace_ret_stack *frs)
+{
+}
+
 static void print_flame_kernel_lost(struct uftrace_dump_ops *ops,
 				    uint64_t time, int tid, int losts)
 {
@@ -889,7 +948,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (!fstack_check_filter(task))
 				continue;
 
-			if (sess) {
+			if (sess && frs->type != UFTRACE_EVENT) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, frs->addr);
 
@@ -913,14 +972,14 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
 		struct ftrace_ret_stack *frs = &kernel->rstacks[i];
-		struct sym *sym;
-		char *name;
 
 		ops->cpu_start(ops, kernel, i);
 
 		while (!read_kernel_cpu_data(kernel, i) && !uftrace_done) {
 			int tid = kernel->tids[i];
 			int losts = kernel->missed_events[i];
+			struct sym *sym = NULL;
+			char *name;
 
 			if (losts) {
 				ops->lost(ops, frs->time, tid, losts);
@@ -930,10 +989,15 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (!check_time_range(&handle->time_range, frs->time))
 				continue;
 
+			if (frs->type == UFTRACE_EVENT) {
+				ops->kernel_event(ops, kernel, i, frs);
+				continue;
+			}
+
 			sym = find_symtabs(NULL, frs->addr);
 			name = symbol_getname(sym, frs->addr);
 
-			ops->kernel(ops, kernel, i, frs, name);
+			ops->kernel_func(ops, kernel, i, frs, name);
 
 			symbol_putname(sym, name);
 		}
@@ -974,6 +1038,9 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 	struct sym *sym = NULL;
 	char *name;
 
+	if (frs->type == UFTRACE_EVENT)
+		goto dump;
+
 	sess = find_task_session(task->tid, frs->time);
 	if (sess || is_kernel_address(frs->addr)) {
 		sym = find_symtabs(&sess->symtabs, frs->addr);
@@ -982,6 +1049,7 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 						 frs->addr);
 	}
 
+dump:
 	name = symbol_getname(sym, frs->addr);
 	ops->task_rstack(ops, task, name);
 	symbol_putname(sym, name);
@@ -1084,7 +1152,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_chrome_task_rstack,
 				.kernel_start   = print_chrome_kernel_start,
 				.cpu_start      = print_chrome_cpu_start,
-				.kernel         = print_chrome_kernel_rstack,
+				.kernel_func    = print_chrome_kernel_rstack,
+				.kernel_event   = print_chrome_kernel_event,
 				.lost           = print_chrome_kernel_lost,
 				.footer         = print_chrome_footer,
 			},
@@ -1101,7 +1170,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_flame_task_rstack,
 				.kernel_start   = print_flame_kernel_start,
 				.cpu_start      = print_flame_cpu_start,
-				.kernel         = print_flame_kernel_rstack,
+				.kernel_func    = print_flame_kernel_rstack,
+				.kernel_event   = print_flame_kernel_event,
 				.lost           = print_flame_kernel_lost,
 				.footer         = print_flame_footer,
 			},
@@ -1120,7 +1190,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.task_rstack    = print_raw_task_rstack,
 				.kernel_start   = print_raw_kernel_start,
 				.cpu_start      = print_raw_cpu_start,
-				.kernel         = print_raw_kernel_rstack,
+				.kernel_func    = print_raw_kernel_rstack,
+				.kernel_event   = print_raw_kernel_event,
 				.lost           = print_raw_kernel_lost,
 				.footer         = print_raw_footer,
 			},

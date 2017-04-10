@@ -12,6 +12,8 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
+#include "libtraceevent/event-parse.h"
+
 
 static int column_index;
 static int prev_tid = -1;
@@ -329,6 +331,16 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	}
 }
 
+static void print_event(struct ftrace_task_handle *task,
+			struct ftrace_ret_stack *rstack)
+{
+	struct event_format *event;
+
+	event = pevent_find_event(task->h->kern->pevent, rstack->addr);
+	pr_out("[%s:%s] %.*s", event->system, event->name,
+	       task->args.len, task->args.data);
+}
+
 static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct ftrace_task_handle *task,
 			     struct opts *opts)
@@ -352,17 +364,29 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
-	if (rstack->type == UFTRACE_ENTRY) {
+	switch (rstack->type) {
+	case UFTRACE_ENTRY:
 		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time);
-	} else if (rstack->type == UFTRACE_EXIT) {
+		break;
+
+	case UFTRACE_EXIT:
 		pr_out("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
 		       count++, task->tid, rstack->depth,
 		       name, rstack->time, fstack->total_time);
-	} else if (rstack->type == UFTRACE_LOST) {
+		break;
+
+	case UFTRACE_LOST:
 		pr_out("[%d] XXX %d: lost %d records\n",
 		       count++, task->tid, (int)rstack->addr);
+		break;
+
+	case UFTRACE_EVENT:
+		pr_out("[%d] ", count++);
+		print_event(task, rstack);
+		pr_out("\n");
+		break;
 	}
 
 	symbol_putname(sym, name);
@@ -754,6 +778,27 @@ lost:
 		else /* kernel sometimes have unknown count */
 			pr_red(" %*s/* LOST some records!! */\n",
 			       depth * 2, "");
+	}
+	else if (rstack->type == UFTRACE_EVENT) {
+		int depth;
+		bool is_kernel_event = (rstack == &task->kstack);
+
+		depth = task->display_depth;
+
+		/* skip kernel event messages outside of user functions */
+		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
+		    is_kernel_event)
+			return 0;
+
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
+		print_field(task, NULL, NO_TIME);
+
+		pr_out(" %*s/* ", depth * 2, "");
+		print_event(task, rstack);
+		pr_out(" */\n");
 	}
 out:
 	symbol_putname(sym, symname);
