@@ -97,64 +97,28 @@ _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
-UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/cpuinfo.c)
-UFTRACE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
+
+UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
 UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h))
 UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
-LIBMCOUNT_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
-LIBMCOUNT_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
-LIBMCOUNT_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
+LIBMCOUNT_FAST_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast.op,$(LIBMCOUNT_OBJS))
+LIBMCOUNT_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-single.op,$(LIBMCOUNT_OBJS))
+LIBMCOUNT_FAST_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast-single.op,$(LIBMCOUNT_OBJS))
+
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
+LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/%.op,$(LIBMCOUNT_UTILS_SRCS))
 
 LIBMCOUNT_NOP_SRCS := $(srcdir)/libmcount/mcount-nop.c
 LIBMCOUNT_NOP_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_NOP_SRCS))
 
-LIBMCOUNT_FAST_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_FAST_SRCS += $(srcdir)/utils/rbtree.c
-LIBMCOUNT_FAST_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
-LIBMCOUNT_FAST_OBJS := $(objdir)/libmcount/mcount-fast.op
-LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/record-fast.op
-LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/plthook-fast.op
-LIBMCOUNT_FAST_OBJS += $(objdir)/libmcount/dynamic-fast.op
-LIBMCOUNT_FAST_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SRCS))
-
-LIBMCOUNT_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
-LIBMCOUNT_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
-LIBMCOUNT_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/regs.c)
-LIBMCOUNT_SINGLE_OBJS := $(objdir)/libmcount/mcount-single.op
-LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/record-single.op
-LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/plthook-single.op
-LIBMCOUNT_SINGLE_OBJS += $(objdir)/libmcount/dynamic-single.op
-LIBMCOUNT_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SINGLE_SRCS))
-
-LIBMCOUNT_FAST_SINGLE_SRCS := $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
-LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_FAST_SINGLE_SRCS += $(srcdir)/utils/rbtree.c
-LIBMCOUNT_FAST_SINGLE_SRCS += $(wildcard $(srcdir)/arch/$(ARCH)/mcount-*.c)
-LIBMCOUNT_FAST_SINGLE_OBJS := $(objdir)/libmcount/mcount-fast-single.op
-LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/record-fast-single.op
-LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/plthook-fast-single.op
-LIBMCOUNT_FAST_SINGLE_OBJS += $(objdir)/libmcount/dynamic-fast-single.op
-LIBMCOUNT_FAST_SINGLE_OBJS += $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_FAST_SINGLE_SRCS))
-
-LIBMCOUNT_MCOUNT_OBJS := $(patsubst libmcount/lib%.so,$(objdir)/libmcount/%.op,$(LIBMCOUNT_TARGETS))
-LIBMCOUNT_RECORD_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/record%.op,$(LIBMCOUNT_TARGETS))
-LIBMCOUNT_PLTHOOK_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/plthook%.op,$(LIBMCOUNT_TARGETS))
-LIBMCOUNT_DYNAMIC_OBJS := $(patsubst libmcount/libmcount%.so,$(objdir)/libmcount/dynamic%.op,$(LIBMCOUNT_TARGETS))
-
-LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/mcount.op,$(LIBMCOUNT_OBJS))
-LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/record.op,$(LIBMCOUNT_COMMON_OBJS))
-LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/plthook.op,$(LIBMCOUNT_COMMON_OBJS))
-LIBMCOUNT_COMMON_OBJS := $(filter-out $(objdir)/libmcount/dynamic.op,$(LIBMCOUNT_COMMON_OBJS))
+LIBMCOUNT_ARCH_OBJS := $(objdir)/arch/$(ARCH)/mcount-entry.op
 
 COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 
@@ -162,15 +126,9 @@ CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmd-record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
-CFLAGS_$(objdir)/libmcount/mcount-fast.op = -DDISABLE_MCOUNT_FILTER
-CFLAGS_$(objdir)/libmcount/record-fast.op = -DDISABLE_MCOUNT_FILTER
-CFLAGS_$(objdir)/libmcount/plthook-fast.op = -DDISABLE_MCOUNT_FILTER
-CFLAGS_$(objdir)/libmcount/mcount-single.op = -DSINGLE_THREAD
-CFLAGS_$(objdir)/libmcount/record-single.op = -DSINGLE_THREAD
-CFLAGS_$(objdir)/libmcount/plthook-single.op = -DSINGLE_THREAD
-CFLAGS_$(objdir)/libmcount/mcount-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
-CFLAGS_$(objdir)/libmcount/record-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
-CFLAGS_$(objdir)/libmcount/plthook-fast-single.op = -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
+LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
+LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD
+LIBMCOUNT_FAST_SINGLE_CFLAGS := -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 
 CFLAGS_$(objdir)/utils/demangle.o  = -Wno-unused-value
 CFLAGS_$(objdir)/utils/demangle.op = -Wno-unused-value
@@ -190,41 +148,44 @@ $(objdir)/.config: $(srcdir)/configure
 config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
-$(LIBMCOUNT_COMMON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
+$(LIBMCOUNT_UTILS_OBJS): $(objdir)/%.op: $(srcdir)/utils/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_MCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/mcount.c $(COMMON_DEPS)
+$(LIBMCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_RECORD_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/record.c $(COMMON_DEPS)
+$(LIBMCOUNT_FAST_OBJS): $(objdir)/%-fast.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DDISABLE_MCOUNT_FILTER -c -o $@ $<
+
+$(LIBMCOUNT_SINGLE_OBJS): $(objdir)/%-single.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DSINGLE_THREAD -c -o $@ $<
+
+$(LIBMCOUNT_FAST_SINGLE_OBJS): $(objdir)/%-fast-single.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD -c -o $@ $<
+
+$(LIBMCOUNT_NOP_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_PLTHOOK_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/plthook.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+$(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(LIBMCOUNT_DYNAMIC_OBJS): $(objdir)/%.op: $(srcdir)/libmcount/dynamic.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+$(objdir)/libmcount/libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/mcount-nop.op: $(srcdir)/libmcount/mcount-nop.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+$(objdir)/libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/arch/$(ARCH)/entry.op: $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
-	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
-
-$(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(objdir)/arch/$(ARCH)/entry.op
+$(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 $(objdir)/libmcount/libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) $(objdir)/arch/$(ARCH)/entry.op
-	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+$(LIBMCOUNT_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
+	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
-$(objdir)/libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) $(objdir)/arch/$(ARCH)/entry.op
-	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
-
-$(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(objdir)/arch/$(ARCH)/entry.op
-	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
+$(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
+	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
 $(objdir)/libtraceevent/libtraceevent.a: $(wildcard $(srcdir)/libtraceevent/*.[ch]) $(objdir)/.config
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
@@ -238,8 +199,8 @@ $(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c 
 $(objdir)/version.h: PHONY
 	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT)
 
-$(objdir)/uftrace: $(UFTRACE_OBJS) $(objdir)/libtraceevent/libtraceevent.a
-	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_LDFLAGS)
+$(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/libtraceevent.a
+	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(UFTRACE_LDFLAGS)
 
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
