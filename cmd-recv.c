@@ -265,6 +265,23 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		pr_err("send info failed");
 }
 
+void send_trace_task_txt(int sock, void *buf, int len)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_TASK2),
+		.len   = htonl(len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = buf,      .iov_len = len, },
+	};
+
+	pr_dbg2("send FTRACE_MSG_SEND_TASK2\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send map failed");
+}
+
 void send_trace_end(int sock)
 {
 	struct ftrace_msg msg = {
@@ -537,6 +554,25 @@ static void recv_trace_info(int sock, int len)
 	free(info);
 }
 
+static void recv_trace_task_txt(int sock, int len)
+{
+	struct client_data *client;
+	void *data;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	data = xmalloc(len);
+
+	if (read_all(sock, data, len) < 0)
+		pr_err("recv task message failed");
+
+	write_client_file(client, "task.txt", 1, data, len);
+
+	free(data);
+}
+
 static void recv_trace_end(int sock, int efd)
 {
 	struct client_data *client;
@@ -544,6 +580,8 @@ static void recv_trace_end(int sock, int efd)
 	client = find_client(sock);
 	if (client) {
 		list_del(&client->list);
+
+		pr_dbg("wrote client data to %s\n", client->dirname);
 
 		free(client->dirname);
 		free(client);
@@ -574,13 +612,17 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	int sock = ev->data.fd;
 	struct sockaddr_in addr;
 	socklen_t len = sizeof(addr);
+	char hbuf[NI_MAXHOST];
 
 	client = accept(sock, &addr, &len);
 	if (client < 0)
 		pr_err("socket accept failed");
 
+	getnameinfo((struct sockaddr *)&addr, len, hbuf, sizeof(hbuf),
+		    NULL, 0, NI_NUMERICHOST);
+
 	epoll_add(efd, client, EPOLLIN);
-	pr_log("new connection added\n");
+	pr_dbg("new connection added from %s\n", hbuf);
 }
 
 static void handle_client_sock(struct epoll_event *ev, int efd)
@@ -589,7 +631,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	struct ftrace_msg msg;
 
 	if (ev->events & (EPOLLERR | EPOLLHUP)) {
-		pr_log("client socket closed\n");
+		pr_dbg("client socket closed\n");
 		recv_trace_end(sock, efd);
 		return;
 	}
@@ -616,6 +658,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_TASK:
 		pr_dbg2("receive FTRACE_MSG_SEND_TASK\n");
 		recv_trace_task(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_TASK2:
+		pr_dbg2("receive FTRACE_MSG_SEND_TASK\n");
+		recv_trace_task_txt(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_SESSION:
 		pr_dbg2("receive FTRACE_MSG_SEND_SESSION\n");
