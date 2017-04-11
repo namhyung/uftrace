@@ -1024,20 +1024,48 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
+static void send_task_txt_file(int sock, FILE *fp)
+{
+	struct stat stbuf;
+	void *buf;
+
+	if (fstat(fileno(fp), &stbuf) < 0)
+		pr_err("cannot stat task.txt file");
+
+	buf = xmalloc(stbuf.st_size);
+	if (fread_all(buf, stbuf.st_size, fp) < 0)
+		pr_err("cannot read task.txt file");
+
+	send_trace_task_txt(sock, buf, stbuf.st_size);
+	free(buf);
+}
+
 static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
 {
 	FILE *fp;
 	char *filename = NULL;
+	char *p;
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess smsg;
 	int namelen;
 	char *exename;
 
-	xasprintf(&filename, "%s/task", dirname);
+	xasprintf(&filename, "%s/task.txt", dirname);
 
 	fp = fopen(filename, "r");
-	if (fp == NULL)
+	if (fp) {
+		send_task_txt_file(sock, fp);
+		goto out;
+	}
+
+	/* try to open (old) task file */
+	p = strrchr(filename, '.');
+	if (p) {
+		*p = '\0';
+		fp = fopen(filename, "r");
+	}
+	if (p == NULL || fp == NULL)
 		pr_err("open task file failed");
 
 	while (fread_all(&msg, sizeof(msg), fp) == 0) {
@@ -1078,6 +1106,7 @@ static void send_task_file(int sock, const char *dirname, struct symtabs *symtab
 	if (!feof(fp))
 		pr_err_ns("read task file failed\n");
 
+out:
 	fclose(fp);
 	free(filename);
 }

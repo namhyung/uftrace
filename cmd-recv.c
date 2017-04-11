@@ -265,6 +265,23 @@ void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		pr_err("send info failed");
 }
 
+void send_trace_task_txt(int sock, void *buf, int len)
+{
+	struct ftrace_msg msg = {
+		.magic = htons(FTRACE_MSG_MAGIC),
+		.type  = htons(FTRACE_MSG_SEND_TASK2),
+		.len   = htonl(len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = buf,      .iov_len = len, },
+	};
+
+	pr_dbg2("send FTRACE_MSG_SEND_TASK2\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send map failed");
+}
+
 void send_trace_end(int sock)
 {
 	struct ftrace_msg msg = {
@@ -537,6 +554,25 @@ static void recv_trace_info(int sock, int len)
 	free(info);
 }
 
+static void recv_trace_task_txt(int sock, int len)
+{
+	struct client_data *client;
+	void *data;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	data = xmalloc(len);
+
+	if (read_all(sock, data, len) < 0)
+		pr_err("recv task message failed");
+
+	write_client_file(client, "task.txt", 1, data, len);
+
+	free(data);
+}
+
 static void recv_trace_end(int sock, int efd)
 {
 	struct client_data *client;
@@ -616,6 +652,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case FTRACE_MSG_SEND_TASK:
 		pr_dbg2("receive FTRACE_MSG_SEND_TASK\n");
 		recv_trace_task(sock, msg.len);
+		break;
+	case FTRACE_MSG_SEND_TASK2:
+		pr_dbg2("receive FTRACE_MSG_SEND_TASK\n");
+		recv_trace_task_txt(sock, msg.len);
 		break;
 	case FTRACE_MSG_SEND_SESSION:
 		pr_dbg2("receive FTRACE_MSG_SEND_SESSION\n");

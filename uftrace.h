@@ -273,6 +273,7 @@ struct ftrace_task {
 #define FTRACE_MSG_SEND_INFO     14U
 #define FTRACE_MSG_SEND_END      15U
 #define FTRACE_MSG_DLOPEN        16U
+#define FTRACE_MSG_SEND_TASK2    17U
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
@@ -338,6 +339,7 @@ void send_trace_map(int sock, uint64_t sid, void *map, int len);
 void send_trace_sym(int sock, char *symfile, void *map, int len);
 void send_trace_info(int sock, struct ftrace_file_header *hdr,
 		     void *info, int len);
+void send_trace_task_txt(int sock, void *buf, int len);
 void send_trace_end(int sock);
 
 void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg);
