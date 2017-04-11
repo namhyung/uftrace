@@ -196,6 +196,7 @@ struct opts {
 	char *diff;
 	char *fields;
 	char *patch;
+	char *event;
 	int mode;
 	int idx;
 	int depth;

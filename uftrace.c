@@ -141,6 +141,7 @@ static struct argp_option ftrace_options[] = {
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
+	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
 	{ 0 }
 };
 
@@ -431,6 +432,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'P':
 		opts->patch = opt_add_string(opts->patch, arg);
+		break;
+
+	case 'E':
+		opts->event = opt_add_string(opts->event, arg);
 		break;
 
 	case OPT_flat:

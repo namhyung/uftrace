@@ -96,6 +96,9 @@ OPTIONS
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.
 
+-E *EVENT*, \--event=*EVENT*
+:   Enable event tracing.  The event should be available on the system.
+
 
 FILTERS
 =======
