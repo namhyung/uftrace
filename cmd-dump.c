@@ -79,8 +79,8 @@ static const char * rstack_type(struct ftrace_ret_stack *frs)
 
 static void pr_time(uint64_t timestamp)
 {
-	unsigned sec   = timestamp / 1000000000;
-	unsigned nsec  = timestamp % 1000000000;
+	unsigned sec   = timestamp / NSEC_PER_SEC;
+	unsigned nsec  = timestamp % NSEC_PER_SEC;
 
 	pr_out("%u.%09u  ", sec, nsec);
 }
