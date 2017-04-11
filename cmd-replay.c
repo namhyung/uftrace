@@ -327,8 +327,22 @@ static void print_event(struct ftrace_task_handle *task,
 			struct uftrace_record *urec)
 {
 	struct event_format *event;
+	unsigned evt_id = urec->addr;
 
-	event = pevent_find_event(task->h->kernel.pevent, urec->addr);
+	if (evt_id >= EVENT_ID_USER) {
+		struct uftrace_event *ev;
+
+		list_for_each_entry(ev, &task->h->events, list) {
+			if (ev->id == evt_id) {
+				pr_out("%s:%s", ev->provider, ev->event);
+				return;
+			}
+		}
+		pr_out("user event: %u", evt_id);
+		return;
+	}
+
+	event = pevent_find_event(task->h->kernel.pevent, evt_id);
 	pr_out("[%s:%s] %.*s", event->system, event->name,
 	       task->args.len, task->args.data);
 }
