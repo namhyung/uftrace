@@ -5,6 +5,7 @@
 #include <link.h>
 #include <libelf.h>
 #include <gelf.h>
+#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -18,6 +19,12 @@
 #define SDT_SECT  ".note.stapsdt"
 #define SDT_NAME  "stapsdt"
 #define SDT_TYPE  3
+
+struct event_spec {
+	struct list_head list;
+	char *provider;
+	char *event;
+};
 
 struct stapsdt {
 	unsigned long probe_addr;
@@ -38,8 +45,7 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	const char *name = info->dlpi_name;
 	struct mcount_event_info *mei;
-	char *event_str = data;
-	char *ev_vendor, *ev_sep, *ev_name;
+	struct list_head *spec_list = data;
 	Elf *elf;
 	int fd, ret = -1;
 	size_t shstr_idx;
@@ -93,16 +99,10 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 
 	pr_dbg2("loading sdt notes from %s\n", name);
 
-	/* separate ev_vendor */
-	ev_sep = strchr(event_str, ':');
-	*ev_sep = '\0';
-
-	ev_vendor = event_str;
-	ev_name = ev_sep + 1;
-
 	off = 0;
 	while ((next = gelf_getnote(note_data, off, &nhdr, &name_off, &desc_off))) {
 		struct stapsdt *sdt;
+		struct event_spec *spec;
 		char *vendor, *event, *args;
 
 		off = next;
@@ -119,10 +119,14 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		event  = vendor + strlen(vendor) + 1;
 		args   = event + strlen(event) + 1;
 
-		/* TODO: support pattern matching */
-		if (*ev_vendor != '*' && strcmp(vendor, ev_vendor))
-			continue;
-		if (*ev_name != '*' && strcmp(event, ev_name))
+		list_for_each_entry(spec, spec_list, list) {
+			if (fnmatch(spec->provider, vendor, 0) != 0)
+				continue;
+			if (fnmatch(spec->event, event, 0) != 0)
+				continue;
+			break;
+		}
+		if (list_no_entry(spec, spec_list, list))
 			continue;
 
 		mei = xmalloc(sizeof(*mei));
@@ -133,14 +137,11 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		mei->event     = xstrdup(event);
 		mei->arguments = xstrdup(args);
 
-		pr_dbg("adding SDT event (%s:%s) at %#lx\n",
-		       mei->provider, mei->event, mei->addr);
+		pr_dbg("adding SDT event (%s:%s) from %s at %#lx\n",
+		       mei->provider, mei->event, mei->module, mei->addr);
 
 		list_add_tail(&mei->list, &events);
 	}
-
-	/* restore ev_vendor for next module */
-	*ev_sep = ':';
 
 	ret = 0;
 out:
@@ -161,14 +162,37 @@ int mcount_setup_events(char *dirname, char *event_str)
 	FILE *fp;
 	char *filename = NULL;
 	struct mcount_event_info *mei;
-
-	if (strchr(event_str, ':') == NULL) {
-		pr_dbg("ignoring invalid event string: %s\n", event_str);
-		return -1;
-	}
+	LIST_HEAD(specs);
+	struct event_spec *es, *tmp;
+	char *spec, *pos;
 
 	str = xstrdup(event_str);
-	dl_iterate_phdr(search_sdt_event, str);
+
+	spec = strtok_r(str, ";", &pos);
+	while (spec != NULL) {
+		char *sep = strchr(spec, ':');
+
+		if (sep) {
+			*sep = '\0';
+
+			es = xmalloc(sizeof(*es));
+			es->provider = spec;
+			es->event = sep + 1;
+			list_add_tail(&es->list, &specs);
+		}
+		else {
+			pr_dbg("ignore invalid event spec: %s\n", spec);
+		}
+
+		spec = strtok_r(NULL, ";", &pos);
+	}
+
+	dl_iterate_phdr(search_sdt_event, &specs);
+
+	list_for_each_entry_safe(es, tmp, &specs, list) {
+		list_del(&es->list);
+		free(es);
+	}
 	free(str);
 
 	if (list_empty(&events))
