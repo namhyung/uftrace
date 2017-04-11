@@ -213,8 +213,8 @@ int mcount_setup_events(char *dirname, char *event_str)
 	free(filename);
 
 	list_for_each_entry(mei, &events, list) {
-		if (mcount_arch_enable_event(mei) < 0)
-			return -1;
+		/* ignore failures */
+		mcount_arch_enable_event(mei);
 	}
 out:
 	return ret;

@@ -113,6 +113,11 @@ struct mcount_shmem {
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
 
+struct mcount_event {
+	unsigned	id;
+	uint64_t	time;
+};
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -136,6 +141,7 @@ struct mcount_thread_data {
 	struct filter_control		filter;
 	bool				enable_cached;
 	struct mcount_shmem		shmem;
+	struct mcount_event		event;
 };
 
 #ifdef SINGLE_THREAD
@@ -226,7 +232,6 @@ extern int record_trace_data(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *mrstack, long *retval);
 extern void record_proc_maps(char *dirname, const char *sess_id,
 			     struct symtabs *symtabs);
-extern int record_trace_event(struct mcount_thread_data *mtdp, unsigned id);
 
 #ifndef DISABLE_MCOUNT_FILTER
 extern void save_argument(struct mcount_thread_data *mtdp,
@@ -266,7 +271,7 @@ struct mcount_event_info {
 
 int mcount_setup_events(char *dirname, char *event_str);
 struct mcount_event_info * mcount_lookup_event(unsigned long addr);
-int mcount_write_event(struct mcount_event_info *mei);
+int mcount_save_event(struct mcount_event_info *mei);
 void mcount_finish_events(void);
 
 int mcount_arch_enable_event(struct mcount_event_info *mei);

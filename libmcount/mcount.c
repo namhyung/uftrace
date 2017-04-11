@@ -794,39 +794,22 @@ out:
 	mtdp->recursion_guard = false;
 }
 
-int mcount_write_event(struct mcount_event_info *mei)
+int mcount_save_event(struct mcount_event_info *mei)
 {
 	struct mcount_thread_data *mtdp;
-	struct mcount_ret_stack *rstack;
-	int ret;
 
 	if (unlikely(mcount_should_stop()))
 		return -1;
 
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp))) {
-		mtdp = mcount_prepare();
-		if (mtdp == NULL)
-			return -1;
-	}
-	else {
-		if (unlikely(mtdp->recursion_guard))
-			return -1;
+	if (unlikely(check_thread_data(mtdp)))
+		return -1;
 
-		mtdp->recursion_guard = true;
-	}
+	/* overwrite existing event if any */
+	mtdp->event.id   = mei->id;
+	mtdp->event.time = mcount_gettime();
 
-	rstack = &mtdp->rstack[mtdp->idx - 1];
-
-	/* force flush existing data */
-	if (record_trace_data(mtdp, rstack, NULL) < 0)
-		pr_err("error during record");
-
-	ret = record_trace_event(mtdp, mei->id);
-
-	mtdp->recursion_guard = false;
-
-	return ret;
+	return 0;
 }
 
 static void atfork_prepare_handler(void)

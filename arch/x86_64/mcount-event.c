@@ -24,7 +24,7 @@ static void sdt_handler(int sig, siginfo_t *info, void *arg)
 	assert(mei != NULL);
 
 	/* TODO: collect and write arguments */
-	mcount_write_event(mei);
+	mcount_save_event(mei);
 
 	/* skip the invalid insn and continue */
 	ctx->uc_mcontext.gregs[REG_RIP] = addr + 1;
