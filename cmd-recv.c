@@ -581,6 +581,8 @@ static void recv_trace_end(int sock, int efd)
 	if (client) {
 		list_del(&client->list);
 
+		pr_dbg("wrote client data to %s\n", client->dirname);
+
 		free(client->dirname);
 		free(client);
 	}
@@ -610,13 +612,17 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	int sock = ev->data.fd;
 	struct sockaddr_in addr;
 	socklen_t len = sizeof(addr);
+	char hbuf[NI_MAXHOST];
 
 	client = accept(sock, &addr, &len);
 	if (client < 0)
 		pr_err("socket accept failed");
 
+	getnameinfo((struct sockaddr *)&addr, len, hbuf, sizeof(hbuf),
+		    NULL, 0, NI_NUMERICHOST);
+
 	epoll_add(efd, client, EPOLLIN);
-	pr_log("new connection added\n");
+	pr_dbg("new connection added from %s\n", hbuf);
 }
 
 static void handle_client_sock(struct epoll_event *ev, int efd)
@@ -625,7 +631,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	struct ftrace_msg msg;
 
 	if (ev->events & (EPOLLERR | EPOLLHUP)) {
-		pr_log("client socket closed\n");
+		pr_dbg("client socket closed\n");
 		recv_trace_end(sock, efd);
 		return;
 	}
