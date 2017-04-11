@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -592,4 +593,15 @@ next:
 
 	fclose(ifp);
 	fclose(ofp);
+}
+
+int record_trace_event(struct mcount_thread_data *mtdp, unsigned id)
+{
+	struct mcount_ret_stack event = {
+		.start_time = mcount_gettime(),
+		.child_ip   = id,
+		.depth      = 0,
+	};
+
+	return record_ret_stack(mtdp, UFTRACE_EVENT, &event);
 }

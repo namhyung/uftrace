@@ -226,6 +226,7 @@ extern int record_trace_data(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *mrstack, long *retval);
 extern void record_proc_maps(char *dirname, const char *sess_id,
 			     struct symtabs *symtabs);
+extern int record_trace_event(struct mcount_thread_data *mtdp, unsigned id);
 
 #ifndef DISABLE_MCOUNT_FILTER
 extern void save_argument(struct mcount_thread_data *mtdp,
@@ -265,6 +266,7 @@ struct mcount_event_info {
 
 int mcount_setup_events(char *dirname, char *event_str);
 struct mcount_event_info * mcount_lookup_event(unsigned long addr);
+int mcount_write_event(struct mcount_event_info *mei);
 void mcount_finish_events(void);
 
 int mcount_arch_enable_event(struct mcount_event_info *mei);
