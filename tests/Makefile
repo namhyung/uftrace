@@ -1,5 +1,5 @@
 TEST_CFLAGS  := -D_GNU_SOURCE -DUNIT_TEST -I$(srcdir) -I$(objdir) -g
-TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h
+TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h $(CFLAGS_unittest)
 TEST_LDFLAGS := -L$(objdir)/libtraceevent -ltraceevent -lelf -pthread -lrt -ldl
 
 UNIT_TEST_SRC := $(wildcard $(srcdir)/*.c $(srcdir)/utils/*.c)
