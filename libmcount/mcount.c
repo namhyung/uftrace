@@ -1181,6 +1181,7 @@ void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 	cygprof_exit((unsigned long)parent, (unsigned long)child);
 }
 
+#ifndef UNIT_TEST
 /*
  * Initializer and Finalizer
  */
@@ -1196,3 +1197,4 @@ mcount_fini(void)
 {
 	mcount_cleanup();
 }
+#endif /* UNIT_TEST */
