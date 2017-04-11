@@ -805,9 +805,12 @@ int mcount_save_event(struct mcount_event_info *mei)
 	if (unlikely(check_thread_data(mtdp)))
 		return -1;
 
-	/* overwrite existing event if any */
-	mtdp->event.id   = mei->id;
-	mtdp->event.time = mcount_gettime();
+	if (mtdp->nr_events < MAX_EVENT) {
+		int i = mtdp->nr_events++;
+
+		mtdp->event[i].id   = mei->id;
+		mtdp->event[i].time = mcount_gettime();
+	}
 
 	return 0;
 }

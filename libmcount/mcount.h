@@ -118,6 +118,8 @@ struct mcount_event {
 	uint64_t	time;
 };
 
+#define MAX_EVENT  4
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -141,7 +143,8 @@ struct mcount_thread_data {
 	struct filter_control		filter;
 	bool				enable_cached;
 	struct mcount_shmem		shmem;
-	struct mcount_event		event;
+	struct mcount_event		event[MAX_EVENT];
+	int				nr_events;
 };
 
 #ifdef SINGLE_THREAD

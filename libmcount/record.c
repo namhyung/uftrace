@@ -391,13 +391,13 @@ static int record_event(struct mcount_thread_data *mtdp)
 	 * this would be good both for performance and portability.
 	 */
 	rec->data  = UFTRACE_EVENT | RECORD_MAGIC << 3;
-	rec->data += (uint64_t)mtdp->event.id << 16;
-	rec->time  = mtdp->event.time;
+	rec->data += (uint64_t)mtdp->event[0].id << 16;
+	rec->time  = mtdp->event[0].time;
 
 	curr_buf->size += size;
 
 	/* clear event info */
-	mtdp->event.id = 0;
+	mtdp->nr_events--;
 
 	return 0;
 }
@@ -419,8 +419,14 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	if (unlikely(mtdp->event.id && mtdp->event.time < timestamp))
-		record_event(mtdp);
+	if (unlikely(mtdp->nr_events)) {
+		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
+			record_event(mtdp);
+
+			memmove(&mtdp->event[0], &mtdp->event[1],
+				sizeof(*mtdp->event) * mtdp->nr_events);
+		}
+	}
 
 	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
 	    (type == UFTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
