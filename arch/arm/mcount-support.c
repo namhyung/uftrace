@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <link.h>
+#include <elf.h>
 
 #ifndef EF_ARM_ABI_FLOAT_HARD
 # define EF_ARM_ABI_FLOAT_HARD  EF_ARM_VFP_FLOAT

@@ -369,9 +369,9 @@ colored_result = {
     TestBase.TEST_UNSUPP_LANG:    YELLOW + 'LA' + NORMAL,
     TestBase.TEST_BUILD_FAIL:     YELLOW + 'BI' + NORMAL,
     TestBase.TEST_ABNORMAL_EXIT:  RED    + 'SG' + NORMAL,
-    TestBase.TEST_TIME_OUT:       YELLOW + 'TM' + NORMAL,
+    TestBase.TEST_TIME_OUT:       RED    + 'TM' + NORMAL,
     TestBase.TEST_DIFF_RESULT:    RED    + 'NG' + NORMAL,
-    TestBase.TEST_NONZERO_RETURN: YELLOW + 'NZ' + NORMAL,
+    TestBase.TEST_NONZERO_RETURN: RED    + 'NZ' + NORMAL,
     TestBase.TEST_SKIP:           YELLOW + 'SK' + NORMAL,
     TestBase.TEST_SUCCESS_FIXED:  YELLOW + 'OK' + NORMAL,
 }
@@ -389,15 +389,15 @@ text_result = {
 }
 
 result_string = {
-    TestBase.TEST_SUCCESS:        'OK: Test succeeded',
-    TestBase.TEST_UNSUPP_LANG:    'LA: Unsupported Language',
-    TestBase.TEST_BUILD_FAIL:     'BI: Build failed',
-    TestBase.TEST_ABNORMAL_EXIT:  'SG: Abnormal exit by signal',
-    TestBase.TEST_TIME_OUT:       'TM: Test ran too long',
-    TestBase.TEST_DIFF_RESULT:    'NG: Different test result',
-    TestBase.TEST_NONZERO_RETURN: 'NZ: Non-zero return value',
-    TestBase.TEST_SKIP:           'SK: Skipped',
-    TestBase.TEST_SUCCESS_FIXED:  'OK: Test almost succeeded',
+    TestBase.TEST_SUCCESS:        'Test succeeded',
+    TestBase.TEST_UNSUPP_LANG:    'Unsupported Language',
+    TestBase.TEST_BUILD_FAIL:     'Build failed',
+    TestBase.TEST_ABNORMAL_EXIT:  'Abnormal exit by signal',
+    TestBase.TEST_TIME_OUT:       'Test ran too long',
+    TestBase.TEST_DIFF_RESULT:    'Different test result',
+    TestBase.TEST_NONZERO_RETURN: 'Non-zero return value',
+    TestBase.TEST_SKIP:           'Skipped',
+    TestBase.TEST_SUCCESS_FIXED:  'Test succeeded (with some fixup)',
 }
 
 def run_single_case(case, flags, opts, diff, dbg):
@@ -460,6 +460,16 @@ def parse_argument():
 if __name__ == "__main__":
     arg = parse_argument()
 
+    if arg.case == 'all':
+        testcases = glob.glob('t???_*.py')
+    else:
+        try:
+            testcases = glob.glob('t*' + arg.case + '*.py')
+        finally:
+            if len(testcases) == 0:
+                print("cannot find testcase for : %s" % arg.case)
+                sys.exit(0)
+
     opts = ' '.join(sorted(['O'+o for o in arg.opts]))
     optslen = len(opts);
 
@@ -481,19 +491,38 @@ if __name__ == "__main__":
     print(header1)
     print(header2)
 
-    if arg.case == 'all':
-        testcases = sorted(glob.glob('t???_*.py'))
-        for tc in testcases:
-            name = tc[:-3]  # remove '.py'
-            result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
-            print_test_result(name, result, arg.color)
-    else:
-        try:
-            testcases = glob.glob('t*' + arg.case + '*.py')
-        except:
-            print("cannot find testcase for : %s" % arg.case)
-            sys.exit(1)
-        for tc in sorted(testcases):
-            name = tc[:-3]  # remove '.py'
-            result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
-            print_test_result(name, result, arg.color)
+    total = 0
+    res = []
+    res.append(TestBase.TEST_SUCCESS)
+    res.append(TestBase.TEST_SUCCESS_FIXED)
+    res.append(TestBase.TEST_DIFF_RESULT)
+    res.append(TestBase.TEST_NONZERO_RETURN)
+    res.append(TestBase.TEST_ABNORMAL_EXIT)
+    res.append(TestBase.TEST_TIME_OUT)
+    res.append(TestBase.TEST_BUILD_FAIL)
+    res.append(TestBase.TEST_UNSUPP_LANG)
+    res.append(TestBase.TEST_SKIP)
+
+    stats = dict.fromkeys(res, 0)
+
+    for tc in sorted(testcases):
+        name = tc[:-3]  # remove '.py'
+        result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
+        print_test_result(name, result, arg.color)
+        for r in result:
+            stats[r] += 1
+            total += 1
+
+    success = stats[TestBase.TEST_SUCCESS] + stats[TestBase.TEST_SUCCESS_FIXED]
+    percent = 100.0 * success / total
+
+    print("")
+    print("runtime test stats")
+    print("====================")
+    print("total %5d  Tests executed (success: %.2f%%)" % (total, percent))
+    for r in res:
+        if sys.stdout.isatty() and arg.color:
+            result = colored_result[r]
+        else:
+            result = text_result[r]
+        print("  %s: %5d  %s" % (result, stats[r], result_string[r]))

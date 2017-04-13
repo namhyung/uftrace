@@ -2,11 +2,11 @@
 
 static void foo(int status)
 {
-  exit(status);
+	exit(status);
 }
 
 int main(int argc, char *argv[])
 {
-  foo(argc - 1);
-  return 0;
+	foo(argc - 1);
+	return 0;
 }
