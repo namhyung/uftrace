@@ -1197,4 +1197,36 @@ mcount_fini(void)
 {
 	mcount_cleanup();
 }
+#else  /* UNIT_TEST */
+
+static void setup_mcount_test(void)
+{
+	mcount_exename = read_exename();
+
+	pthread_key_create(&mtd_key, mtd_dtor);
+}
+
+static void finish_mcount_test(void)
+{
+	pthread_key_delete(mtd_key);
+}
+
+TEST_CASE(mcount_thread_data)
+{
+	struct mcount_thread_data *mtdp;
+
+	setup_mcount_test();
+
+	mtdp = get_thread_data();
+	TEST_EQ(check_thread_data(mtdp), true);
+
+	mtdp = mcount_prepare();
+	TEST_EQ(check_thread_data(mtdp), false);
+
+	TEST_EQ(get_thread_data(), mtdp);
+
+	TEST_EQ(check_thread_data(mtdp), false);
+
+	return TEST_OK;
+}
 #endif /* UNIT_TEST */
