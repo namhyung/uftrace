@@ -18,28 +18,28 @@ enum {
 
 extern int debug;
 
-#define __TEST_OP(a, op, b)  ({					\
+#define __TEST_OP(a, op, b, file, line)  ({			\
 	__typeof__(a) __a = (a);				\
 	__typeof__(b) __b = (b);				\
 								\
 	if (!(__a op __b)) {					\
 		if (debug)					\
-			printf("test failed: %s\n",		\
-			       stringify(a op b));		\
+			printf("test failed at %s:%d: %s\n",	\
+			       file, line, stringify(a op b));	\
 		/* return only if result is different */	\
 		return TEST_NG;					\
 	}							\
 	TEST_OK;						\
 })
 
-#define TEST_EQ(a, b)  __TEST_OP(a, ==, b)
-#define TEST_NE(a, b)  __TEST_OP(a, !=, b)
-#define TEST_GT(a, b)  __TEST_OP(a, >,  b)
-#define TEST_GE(a, b)  __TEST_OP(a, >=, b)
-#define TEST_LT(a, b)  __TEST_OP(a, <,  b)
-#define TEST_LE(a, b)  __TEST_OP(a, <=, b)
+#define TEST_EQ(a, b)  __TEST_OP(a, ==, b, __FILE__, __LINE__)
+#define TEST_NE(a, b)  __TEST_OP(a, !=, b, __FILE__, __LINE__)
+#define TEST_GT(a, b)  __TEST_OP(a, >,  b, __FILE__, __LINE__)
+#define TEST_GE(a, b)  __TEST_OP(a, >=, b, __FILE__, __LINE__)
+#define TEST_LT(a, b)  __TEST_OP(a, <,  b, __FILE__, __LINE__)
+#define TEST_LE(a, b)  __TEST_OP(a, <=, b, __FILE__, __LINE__)
 
-#define TEST_STREQ(a, b)      ({				\
+#define __TEST_STREQ(a, b, file, line)      ({			\
 	if (strcmp((a), (b))) {					\
 		if (debug)					\
 			printf("test failed: %s\n",		\
@@ -48,8 +48,9 @@ extern int debug;
 	}							\
 	TEST_OK;						\
 })
+#define TEST_STREQ(a, b)  __TEST_STREQ((a), (b), __FILE, __LINE__)
 
-#define TEST_MEMEQ(a, b, sz)      ({				\
+#define __TEST_MEMEQ(a, b, sz, file, line)      ({		\
 	if (memcmp((a), (b), (sz))) {				\
 		if (debug)					\
 			printf("test failed: %s\n",		\
@@ -58,6 +59,7 @@ extern int debug;
 	}							\
 	TEST_OK;						\
 })
+#define TEST_MEMEQ(a, b, sz)  __TEST_MEMEQ((a), (b), (sz), __FILE__, __LINE__)
 
 
 #define TEST_SECTION  "uftrace.unit_test"
