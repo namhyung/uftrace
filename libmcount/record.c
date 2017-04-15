@@ -153,7 +153,7 @@ reuse:
 	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
 
 	if (shmem->losts) {
-		struct ftrace_ret_stack *frstack = (void *)curr_buf->data;
+		struct uftrace_record *frstack = (void *)curr_buf->data;
 
 		frstack->time   = 0;
 		frstack->type   = UFTRACE_LOST;
@@ -345,10 +345,10 @@ void save_retval(struct mcount_thread_data *mtdp,
 #endif
 
 static int record_ret_stack(struct mcount_thread_data *mtdp,
-			    enum uftrace_ret_stack_type type,
+			    enum uftrace_record_type type,
 			    struct mcount_ret_stack *mrstack)
 {
-	struct ftrace_ret_stack *frstack;
+	struct uftrace_record *frstack;
 	uint64_t timestamp = mrstack->start_time;
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
@@ -437,7 +437,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 		      long *retval)
 {
 	struct mcount_ret_stack *non_written_mrstack = NULL;
-	struct ftrace_ret_stack *frstack;
+	struct uftrace_record *frstack;
 	size_t size = 0;
 	int count = 0;
 

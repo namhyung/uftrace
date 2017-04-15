@@ -332,11 +332,11 @@ static void print_backtrace(struct ftrace_task_handle *task)
 }
 
 static void print_event(struct ftrace_task_handle *task,
-			struct ftrace_ret_stack *rstack)
+			struct uftrace_record *urec)
 {
 	struct event_format *event;
 
-	event = pevent_find_event(task->h->kern->pevent, rstack->addr);
+	event = pevent_find_event(task->h->kern->pevent, urec->addr);
 	pr_out("[%s:%s] %.*s", event->system, event->name,
 	       task->args.len, task->args.data);
 }
@@ -346,7 +346,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 			     struct opts *opts)
 {
 	static int count;
-	struct ftrace_ret_stack *rstack = task->rstack;
+	struct uftrace_record *rstack = task->rstack;
 	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
@@ -610,7 +610,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct ftrace_task_handle *task,
 			      struct opts *opts)
 {
-	struct ftrace_ret_stack *rstack = task->rstack;
+	struct uftrace_record *rstack = task->rstack;
 	struct ftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
@@ -943,7 +943,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		print_header();
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
-		struct ftrace_ret_stack *rstack = task->rstack;
+		struct uftrace_record *rstack = task->rstack;
 		uint64_t curr_time = rstack->time;
 
 		/* skip user functions if --kernel-only is set */

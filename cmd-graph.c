@@ -253,7 +253,7 @@ static int add_graph_entry(struct task_graph *tg)
 {
 	struct graph_node *node = NULL;
 	struct graph_node *curr = tg->node;
-	struct ftrace_ret_stack *rstack = tg->task->rstack;
+	struct uftrace_record *rstack = tg->task->rstack;
 
 	if (curr == NULL)
 		return -1;
@@ -471,7 +471,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	setup_graph_list(opts, func);
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
-		struct ftrace_ret_stack *frs = task->rstack;
+		struct uftrace_record *frs = task->rstack;
 
 		/* skip user functions if --kernel-only is set */
 		if (opts->kernel_only && !is_kernel_address(frs->addr))

@@ -287,7 +287,7 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	int fd, efd;
 	int ret = -1;
 	char *filename = NULL;
-	struct ftrace_file_header hdr;
+	struct uftrace_file_header hdr;
 	char elf_ident[EI_NIDENT];
 
 	xasprintf(&filename, "%s/info", opts->dirname);
@@ -1214,7 +1214,7 @@ static void send_info_file(int sock, const char *dirname)
 {
 	int fd;
 	char *filename = NULL;
-	struct ftrace_file_header hdr;
+	struct uftrace_file_header hdr;
 	struct stat stbuf;
 	void *info;
 	int len;

@@ -159,7 +159,7 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 				struct rb_root *root, struct opts *opts)
 {
 	struct trace_entry te;
-	struct ftrace_ret_stack *rstack;
+	struct uftrace_record *rstack;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;
 	int i;
@@ -588,7 +588,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 
 static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 				  struct ftrace_task_handle *task,
-				  struct ftrace_ret_stack *rstack)
+				  struct uftrace_record *rstack)
 {
 	struct sym *sym;
 	struct ftrace_task_handle *main_task = &handle->tasks[0];
@@ -634,7 +634,7 @@ static void print_thread(struct trace_entry *entry)
 static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	struct trace_entry te;
-	struct ftrace_ret_stack *rstack;
+	struct uftrace_record *rstack;
 	struct rb_root name_tree = RB_ROOT;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;

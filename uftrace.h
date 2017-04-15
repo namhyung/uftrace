@@ -26,7 +26,7 @@
 #define OPT_DEPTH_MAX       OPT_RSTACK_MAX
 #define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
 
-struct ftrace_file_header {
+struct uftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];
 	uint32_t version;
 	uint16_t header_size;
@@ -39,7 +39,7 @@ struct ftrace_file_header {
 	uint32_t unused2;
 };
 
-enum ftrace_feat_bits {
+enum uftrace_feat_bits {
 	/* bit index */
 	PLTHOOK_BIT,
 	TASK_SESSION_BIT,
@@ -59,7 +59,7 @@ enum ftrace_feat_bits {
 	MAX_STACK		= (1U << MAX_STACK_BIT),
 };
 
-enum ftrace_info_bits {
+enum uftrace_info_bits {
 	EXE_NAME,
 	EXE_BUILD_ID,
 	EXIT_STATUS,
@@ -73,7 +73,7 @@ enum ftrace_info_bits {
 	ARG_SPEC,
 };
 
-struct ftrace_info {
+struct uftrace_info {
 	char *exename;
 	unsigned char build_id[20];
 	int exit_status;
@@ -115,8 +115,8 @@ struct ftrace_file_handle {
 	FILE *fp;
 	int sock;
 	const char *dirname;
-	struct ftrace_file_header hdr;
-	struct ftrace_info info;
+	struct uftrace_file_header hdr;
+	struct uftrace_info info;
 	struct ftrace_kernel *kern;
 	struct ftrace_task_handle *tasks;
 	int nr_tasks;
@@ -337,7 +337,7 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 			char *exename, int namelen);
 void send_trace_map(int sock, uint64_t sid, void *map, int len);
 void send_trace_sym(int sock, char *symfile, void *map, int len);
-void send_trace_info(int sock, struct ftrace_file_header *hdr,
+void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len);
 void send_trace_task_txt(int sock, void *buf, int len);
 void send_trace_end(int sock);
@@ -349,7 +349,7 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 		       const char *libname);
 
-enum uftrace_ret_stack_type {
+enum uftrace_record_type {
 	UFTRACE_ENTRY,
 	UFTRACE_EXIT,
 	UFTRACE_LOST,
@@ -361,7 +361,7 @@ enum uftrace_ret_stack_type {
 #define RECORD_MAGIC     RECORD_MAGIC_V4
 
 /* reduced version of mcount_ret_stack */
-struct ftrace_ret_stack {
+struct uftrace_record {
 	uint64_t time;
 	uint64_t type:   2;
 	uint64_t more:   1;
@@ -370,10 +370,10 @@ struct ftrace_ret_stack {
 	uint64_t addr:   48;
 };
 
-static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
+static inline bool is_v3_compat(struct uftrace_record *urec)
 {
 	/* (RECORD_MAGIC_V4 << 1 | more) == RECORD_MAGIC_V3 */
-	return stack->magic == RECORD_MAGIC && stack->more == 0;
+	return urec->magic == RECORD_MAGIC && urec->more == 0;
 }
 
 struct fstack_arguments {
@@ -390,15 +390,15 @@ struct uftrace_rstack_list {
 
 struct uftrace_rstack_list_node {
 	struct list_head list;
-	struct ftrace_ret_stack rstack;
+	struct uftrace_record rstack;
 	struct fstack_arguments args;
 };
 
 void setup_rstack_list(struct uftrace_rstack_list *list);
 void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct ftrace_ret_stack *rstack,
+			struct uftrace_record *rstack,
 			struct fstack_arguments *args);
-struct ftrace_ret_stack * get_first_rstack_list(struct uftrace_rstack_list *);
+struct uftrace_record * get_first_rstack_list(struct uftrace_rstack_list *);
 void consume_first_rstack_list(struct uftrace_rstack_list *list);
 void delete_last_rstack_list(struct uftrace_rstack_list *list);
 void reset_rstack_list(struct uftrace_rstack_list *list);
@@ -423,7 +423,7 @@ struct ftrace_kernel {
 	void **mmaps;
 	struct kbuffer **kbufs;
 	struct pevent *pevent;
-	struct ftrace_ret_stack *rstacks;
+	struct uftrace_record *rstacks;
 	struct uftrace_rstack_list *rstack_list;
 	bool *rstack_valid;
 	bool *rstack_done;
@@ -459,7 +459,7 @@ struct rusage;
 void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage);
 int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
-void clear_ftrace_info(struct ftrace_info *info);
+void clear_ftrace_info(struct uftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);
