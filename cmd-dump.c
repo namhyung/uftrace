@@ -38,11 +38,11 @@ struct uftrace_dump_ops {
 	/* this is called for each kernel-level function entry/exit */
 	void (*kernel_func)(struct uftrace_dump_ops *ops,
 			    struct ftrace_kernel *kernel, int cpu,
-			    struct ftrace_ret_stack *frs, char *name);
+			    struct uftrace_record *frs, char *name);
 	/* this is called for each kernel event (tracepoint) */
 	void (*kernel_event)(struct uftrace_dump_ops *ops,
 			     struct ftrace_kernel *kernel, int cpu,
-			     struct ftrace_ret_stack *frs);
+			     struct uftrace_record *frs);
 	/* thius is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
 		     uint64_t time, int tid, int losts);
@@ -70,7 +70,7 @@ struct uftrace_flame_dump {
 	uint64_t sample_time;
 };
 
-static const char * rstack_type(struct ftrace_ret_stack *frs)
+static const char * rstack_type(struct uftrace_record *frs)
 {
 	return frs->type == UFTRACE_EXIT ? "exit " :
 		frs->type == UFTRACE_ENTRY ? "entry" :
@@ -419,7 +419,7 @@ static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
 static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 				  struct ftrace_task_handle *task, char *name)
 {
-	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_record *frs = task->rstack;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_time(frs->time);
@@ -468,7 +468,7 @@ static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
 
 static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 				    struct ftrace_kernel *kernel, int cpu,
-				    struct ftrace_ret_stack *frs, char *name)
+				    struct uftrace_record *frs, char *name)
 {
 	int tid = kernel->tids[cpu];
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
@@ -498,7 +498,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
 				   struct ftrace_kernel *kernel, int cpu,
-				   struct ftrace_ret_stack *frs)
+				   struct uftrace_record *frs)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 	struct event_format *event;
@@ -569,7 +569,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 {
 	char ph;
 	char spec_buf[1024];
-	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_record *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
@@ -619,13 +619,13 @@ static void print_chrome_cpu_start(struct uftrace_dump_ops *ops,
 
 static void print_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
 				       struct ftrace_kernel *kernel, int cpu,
-				       struct ftrace_ret_stack *frs, char *name)
+				       struct uftrace_record *frs, char *name)
 {
 }
 
 static void print_chrome_kernel_event(struct uftrace_dump_ops *ops,
 				      struct ftrace_kernel *kernel, int cpu,
-				      struct ftrace_ret_stack *frs)
+				      struct uftrace_record *frs)
 {
 }
 
@@ -853,7 +853,7 @@ static void print_flame_inverted_time(struct uftrace_dump_ops *ops,
 static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 				    struct ftrace_task_handle *task, char *name)
 {
-	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_record *frs = task->rstack;
 	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
 	struct fg_task *t = find_fg_task(&flame->tasks, task->tid);
 	struct fg_node *node = t->node;
@@ -883,13 +883,13 @@ static void print_flame_cpu_start(struct uftrace_dump_ops *ops,
 
 static void print_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 				      struct ftrace_kernel *kernel, int cpu,
-				      struct ftrace_ret_stack *frs, char *name)
+				      struct uftrace_record *frs, char *name)
 {
 }
 
 static void print_flame_kernel_event(struct uftrace_dump_ops *ops,
 				     struct ftrace_kernel *kernel, int cpu,
-				     struct ftrace_ret_stack *frs)
+				     struct uftrace_record *frs)
 {
 }
 
@@ -929,7 +929,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		ops->task_start(ops, task);
 
 		while (!read_task_ustack(handle, task) && !uftrace_done) {
-			struct ftrace_ret_stack *frs = &task->ustack;
+			struct uftrace_record *frs = &task->ustack;
 			struct ftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
 			struct sym *sym = NULL;
@@ -971,7 +971,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 	for (i = 0; i < handle->kern->nr_cpus; i++) {
 		struct ftrace_kernel *kernel = handle->kern;
-		struct ftrace_ret_stack *frs = &kernel->rstacks[i];
+		struct uftrace_record *frs = &kernel->rstacks[i];
 
 		ops->cpu_start(ops, kernel, i);
 
@@ -1010,7 +1010,7 @@ footer:
 static bool check_task_rstack(struct ftrace_task_handle *task,
 			      struct opts *opts)
 {
-	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_record *frs = task->rstack;
 
 	if (opts->kernel) {
 		if (opts->kernel_skip_out) {
@@ -1033,7 +1033,7 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 static void dump_replay_task(struct uftrace_dump_ops *ops,
 			     struct ftrace_task_handle *task)
 {
-	struct ftrace_ret_stack *frs = task->rstack;
+	struct uftrace_record *frs = task->rstack;
 	struct ftrace_session *sess;
 	struct sym *sym = NULL;
 	char *name;
@@ -1065,7 +1065,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 	ops->header(ops, handle, opts);
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
-		struct ftrace_ret_stack *frs = task->rstack;
+		struct uftrace_record *frs = task->rstack;
 
 		if (!check_task_rstack(task, opts))
 			continue;

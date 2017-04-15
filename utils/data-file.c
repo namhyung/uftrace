@@ -285,7 +285,7 @@ void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 static void check_data_order(struct ftrace_file_handle *handle)
 {
 	union {
-		struct ftrace_ret_stack s;
+		struct uftrace_record s;
 		uint64_t d[2];
 	} data;
 

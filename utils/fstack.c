@@ -114,7 +114,7 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 }
 
 static void update_first_timestamp(struct ftrace_file_handle *handle,
-				   struct ftrace_ret_stack *rstack)
+				   struct uftrace_record *rstack)
 {
 	uint64_t first = handle->time_range.first;
 
@@ -367,7 +367,7 @@ int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle)
  * This function returns -1 if it should be skipped, 0 otherwise.
  */
 int fstack_entry(struct ftrace_task_handle *task,
-		 struct ftrace_ret_stack *rstack,
+		 struct uftrace_record *rstack,
 		 struct ftrace_trigger *tr)
 {
 	struct fstack *fstack;
@@ -568,7 +568,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 
 /* returns -1 if it can skip the rstack */
 static int fstack_check_skip(struct ftrace_task_handle *task,
-			     struct ftrace_ret_stack *rstack)
+			     struct uftrace_record *rstack)
 {
 	struct ftrace_session *sess;
 	uint64_t addr = get_real_address(rstack->addr);
@@ -639,7 +639,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 {
 	struct ftrace_task_handle *next = NULL;
 	struct fstack *fstack;
-	struct ftrace_ret_stack *curr_stack = task->rstack;
+	struct uftrace_record *curr_stack = task->rstack;
 
 	fstack = &task->func_stack[task->stack_count - 1];
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
@@ -649,7 +649,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		return NULL;
 
 	while (true) {
-		struct ftrace_ret_stack *next_stack = next->rstack;
+		struct uftrace_record *next_stack = next->rstack;
 		struct ftrace_trigger tr = { 0 };
 
 		/* skip filtered entries until current matching EXIT records */
@@ -739,7 +739,7 @@ void setup_rstack_list(struct uftrace_rstack_list *list)
 }
 
 void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct ftrace_ret_stack *rstack,
+			struct uftrace_record *rstack,
 			struct fstack_arguments *args)
 {
 	struct uftrace_rstack_list_node *node;
@@ -764,7 +764,7 @@ void add_to_rstack_list(struct uftrace_rstack_list *list,
 	list->count++;
 }
 
-struct ftrace_ret_stack *get_first_rstack_list(struct uftrace_rstack_list *list)
+struct uftrace_record *get_first_rstack_list(struct uftrace_rstack_list *list)
 {
 	struct uftrace_rstack_list_node *node;
 
@@ -824,7 +824,7 @@ void reset_rstack_list(struct uftrace_rstack_list *list)
 	}
 }
 
-static void swap_byte_order(struct ftrace_ret_stack *rstack)
+static void swap_byte_order(struct uftrace_record *rstack)
 {
 	uint64_t *ptr = (void *)rstack;
 
@@ -832,7 +832,7 @@ static void swap_byte_order(struct ftrace_ret_stack *rstack)
 	ptr[1] = bswap_64(ptr[1]);
 }
 
-static void swap_bitfields(struct ftrace_ret_stack *rstack)
+static void swap_bitfields(struct uftrace_record *rstack)
 {
 	uint64_t *ptr = (void *)rstack;
 	uint64_t data = ptr[1];
@@ -910,14 +910,14 @@ static int read_task_arg(struct ftrace_task_handle *task,
 /**
  * read_task_args - read arguments of current function of the task
  * @task: tracee task
- * @rstack: ftrace_ret_stack
+ * @rstack: uftrace_record
  * @is_retval: 0 reads argument, 1 reads return value
  *
  * This function reads argument records of @task's current function
  * according to the @spec.
  */
 int read_task_args(struct ftrace_task_handle *task,
-		   struct ftrace_ret_stack *rstack,
+		   struct uftrace_record *rstack,
 		   bool is_retval)
 {
 	struct ftrace_session *sess;
@@ -1013,11 +1013,11 @@ int read_task_ustack(struct ftrace_file_handle *handle,
  * This function returns current ftrace record of @idx-th task from
  * data file in @handle.
  */
-static struct ftrace_ret_stack *
+static struct uftrace_record *
 get_task_ustack(struct ftrace_file_handle *handle, int idx)
 {
 	struct ftrace_task_handle *task;
-	struct ftrace_ret_stack *curr;
+	struct uftrace_record *curr;
 	struct uftrace_rstack_list *rstack_list;
 
 	task = &handle->tasks[idx];
@@ -1140,7 +1140,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 {
 	int i, next_i = -1;
 	uint64_t next_time = 0;
-	struct ftrace_ret_stack *tmp;
+	struct uftrace_record *tmp;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		tmp = get_task_ustack(handle, i);
@@ -1164,7 +1164,7 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 static void fstack_account_time(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
-	struct ftrace_ret_stack *rstack = task->rstack;
+	struct uftrace_record *rstack = task->rstack;
 	bool is_kernel_func = (rstack == &task->kstack);
 	int i;
 
@@ -1321,7 +1321,7 @@ static void fstack_update_stack_count(struct ftrace_task_handle *task)
 }
 
 static int find_rstack_cpu(struct ftrace_kernel *kernel,
-			   struct ftrace_ret_stack *rstack)
+			   struct uftrace_record *rstack)
 {
 	int cpu = -1;
 
@@ -1348,7 +1348,7 @@ static int find_rstack_cpu(struct ftrace_kernel *kernel,
 static void __fstack_consume(struct ftrace_task_handle *task,
 			     struct ftrace_kernel *kernel, int cpu)
 {
-	struct ftrace_ret_stack *rstack = task->rstack;
+	struct uftrace_record *rstack = task->rstack;
 	struct ftrace_file_handle *handle = task->h;
 
 	if (rstack->more) {
@@ -1400,7 +1400,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 void fstack_consume(struct ftrace_file_handle *handle,
 		    struct ftrace_task_handle *task)
 {
-	struct ftrace_ret_stack *rstack = task->rstack;
+	struct uftrace_record *rstack = task->rstack;
 	struct ftrace_kernel *kernel = handle->kern;
 	int cpu = 0;
 
@@ -1459,7 +1459,7 @@ kernel:
 		task = ktask;
 
 		if (kernel->missed_events[k]) {
-			static struct ftrace_ret_stack lost_rstack;
+			static struct uftrace_record lost_rstack;
 
 			/* convert to ftrace_rstack */
 			lost_rstack.time = 0;
@@ -1536,7 +1536,7 @@ int peek_rstack(struct ftrace_file_handle *handle,
 
 static int test_tids[NUM_TASK] = { 1234, 5678 };
 static struct ftrace_task test_tasks[NUM_TASK];
-static struct ftrace_ret_stack test_record[NUM_TASK][NUM_RECORD] = {
+static struct uftrace_record test_record[NUM_TASK][NUM_RECORD] = {
 	{
 		{ 100, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
 		{ 200, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },

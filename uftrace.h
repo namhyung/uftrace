@@ -349,7 +349,7 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
 		       const char *libname);
 
-enum uftrace_ret_stack_type {
+enum uftrace_record_type {
 	UFTRACE_ENTRY,
 	UFTRACE_EXIT,
 	UFTRACE_LOST,
@@ -361,7 +361,7 @@ enum uftrace_ret_stack_type {
 #define RECORD_MAGIC     RECORD_MAGIC_V4
 
 /* reduced version of mcount_ret_stack */
-struct ftrace_ret_stack {
+struct uftrace_record {
 	uint64_t time;
 	uint64_t type:   2;
 	uint64_t more:   1;
@@ -370,10 +370,10 @@ struct ftrace_ret_stack {
 	uint64_t addr:   48;
 };
 
-static inline bool is_v3_compat(struct ftrace_ret_stack *stack)
+static inline bool is_v3_compat(struct uftrace_record *urec)
 {
 	/* (RECORD_MAGIC_V4 << 1 | more) == RECORD_MAGIC_V3 */
-	return stack->magic == RECORD_MAGIC && stack->more == 0;
+	return urec->magic == RECORD_MAGIC && urec->more == 0;
 }
 
 struct fstack_arguments {
@@ -390,15 +390,15 @@ struct uftrace_rstack_list {
 
 struct uftrace_rstack_list_node {
 	struct list_head list;
-	struct ftrace_ret_stack rstack;
+	struct uftrace_record rstack;
 	struct fstack_arguments args;
 };
 
 void setup_rstack_list(struct uftrace_rstack_list *list);
 void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct ftrace_ret_stack *rstack,
+			struct uftrace_record *rstack,
 			struct fstack_arguments *args);
-struct ftrace_ret_stack * get_first_rstack_list(struct uftrace_rstack_list *);
+struct uftrace_record * get_first_rstack_list(struct uftrace_rstack_list *);
 void consume_first_rstack_list(struct uftrace_rstack_list *list);
 void delete_last_rstack_list(struct uftrace_rstack_list *list);
 void reset_rstack_list(struct uftrace_rstack_list *list);
@@ -423,7 +423,7 @@ struct ftrace_kernel {
 	void **mmaps;
 	struct kbuffer **kbufs;
 	struct pevent *pevent;
-	struct ftrace_ret_stack *rstacks;
+	struct uftrace_record *rstacks;
 	struct uftrace_rstack_list *rstack_list;
 	bool *rstack_valid;
 	bool *rstack_done;

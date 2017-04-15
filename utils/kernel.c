@@ -33,7 +33,7 @@ static bool kernel_tracing_enabled;
 
 static size_t trace_pagesize;
 static struct trace_seq trace_seq;
-static struct ftrace_ret_stack trace_rstack = {
+static struct uftrace_record trace_rstack = {
 	.magic = RECORD_MAGIC,
 };
 
@@ -1183,7 +1183,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 {
 	struct ftrace_kernel *kernel = handle->kern;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
-	struct ftrace_ret_stack *curr;
+	struct uftrace_record *curr;
 	int tid, prev_tid = -1;
 
 	if (rstack_list->count)
@@ -1350,7 +1350,7 @@ out:
  */
 void * read_kernel_event(struct ftrace_kernel *kernel, int cpu, int *psize)
 {
-	struct ftrace_ret_stack *rstack = &kernel->rstacks[cpu];
+	struct uftrace_record *rstack = &kernel->rstacks[cpu];
 
 	if (!rstack->more)
 		return NULL;
@@ -1382,7 +1382,7 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	int first_tid = -1;
 	uint64_t first_timestamp = 0;
 	struct ftrace_kernel *kernel = handle->kern;
-	struct ftrace_ret_stack *first_rstack;
+	struct uftrace_record *first_rstack;
 
 retry:
 	first_rstack = NULL;
@@ -1786,7 +1786,7 @@ TEST_CASE(kernel_read)
 	i = 0;
 	while ((cpu = read_kernel_stack(handle, &task)) != -1) {
 		struct funcgraph_exit *rec = &test_record[cpu][i / 2];
-		struct ftrace_ret_stack *rstack = &task->kstack;
+		struct uftrace_record *rstack = &task->kstack;
 
 		timestamp[cpu] += test_len_ts[cpu][i / 2].ts;
 
@@ -1817,7 +1817,7 @@ TEST_CASE(kernel_cpu_read)
 	for (cpu = 0; cpu < NUM_CPU; cpu++) {
 		for (i = 0; i < NUM_RECORD; i++) {
 			struct funcgraph_exit *rec = &test_record[cpu][i];
-			struct ftrace_ret_stack *rstack = &trace_rstack;
+			struct uftrace_record *rstack = &trace_rstack;
 
 			TEST_EQ(read_kernel_cpu_data(kernel, cpu), 0);
 
@@ -1845,7 +1845,7 @@ TEST_CASE(kernel_event_read)
 	for (cpu = 0; cpu < NUM_CPU; cpu++) {
 		for (i = 0; i < NUM_EVENT; i++) {
 			struct test_example *rec = &test_event[cpu][i];
-			struct ftrace_ret_stack *rstack = &trace_rstack;
+			struct uftrace_record *rstack = &trace_rstack;
 			char *data;
 			int size;
 			int foo, bar;
