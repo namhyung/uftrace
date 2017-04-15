@@ -241,7 +241,7 @@ void send_trace_sym(int sock, char *symfile, void *sym, int len)
 		pr_err("send symfile failed");
 }
 
-void send_trace_info(int sock, struct ftrace_file_header *hdr,
+void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len)
 {
 	struct ftrace_msg msg = {
@@ -528,7 +528,7 @@ static void recv_trace_sym(int sock, int len)
 static void recv_trace_info(int sock, int len)
 {
 	struct client_data *client;
-	struct ftrace_file_header hdr;
+	struct uftrace_file_header hdr;
 	void *info;
 
 	client = find_client(sock);
