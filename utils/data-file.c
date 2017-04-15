@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <assert.h>
+#include <byteswap.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -360,11 +361,18 @@ retry:
 	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))
 		pr_err("invalid magic string found!");
 
+	check_data_order(handle);
+
+	if (handle->needs_byte_swap) {
+		handle->hdr.version   = bswap_32(handle->hdr.version);
+		handle->hdr.feat_mask = bswap_64(handle->hdr.feat_mask);
+		handle->hdr.info_mask = bswap_64(handle->hdr.info_mask);
+		handle->hdr.max_stack = bswap_16(handle->hdr.max_stack);
+	}
+
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err("unsupported file version: %u", handle->hdr.version);
-
-	check_data_order(handle);
 
 	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("cannot read ftrace header info!");
