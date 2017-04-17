@@ -92,7 +92,7 @@ static int pr_task(struct opts *opts)
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess smsg;
-	char *exename;
+	char *exename = NULL;
 
 	snprintf(buf, sizeof(buf), "%s/task", opts->dirname);
 	fp = fopen(buf, "r");
@@ -138,7 +138,6 @@ static int pr_task(struct opts *opts)
 			pr_time(smsg.task.time);
 			pr_out("session of task %d: %.*s (%s)\n",
 			       smsg.task.tid, sizeof(smsg.sid), smsg.sid, exename);
-			free(exename);
 			break;
 		default:
 			pr_out("unknown message type: %u\n", msg.type);
@@ -147,6 +146,7 @@ static int pr_task(struct opts *opts)
 	}
 
 out:
+	free(exename);
 	fclose(fp);
 	return 0;
 }
