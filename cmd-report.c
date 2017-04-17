@@ -118,7 +118,7 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 
 	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
-		if (is_kernel_address(task->func_stack[0].addr) &&
+		if (task->user_stack_count == 0 &&
 		    is_kernel_address(addr))
 			return false;
 	}
@@ -649,13 +649,13 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 			continue;
 
 		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(rstack->addr))
+		if (opts->kernel_only && !is_kernel_record(task, rstack))
 			continue;
 
 		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
-			if (is_kernel_address(task->func_stack[0].addr) &&
-			    is_kernel_address(rstack->addr))
+			if (task->user_stack_count == 0 &&
+			    is_kernel_record(task, rstack))
 				continue;
 		}
 
