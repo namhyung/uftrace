@@ -311,8 +311,10 @@ static int read_cpuinfo(void *arg)
 static int fill_meminfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	long mem_total, mem_total_small;
-	long mem_free, mem_free_small;
+	long mem_total = 0;
+	long mem_total_small;
+	long mem_free = 0;
+	long mem_free_small;
 	char *units[] = { "KB", "MB", "GB", "TB" };
 	char *unit;
 	char buf[1024];
@@ -758,7 +760,6 @@ void clear_ftrace_info(struct uftrace_info *info)
 
 int command_info(int argc, char *argv[], struct opts *opts)
 {
-	int ret;
 	char buf[PATH_MAX];
 	struct stat statbuf;
 	struct ftrace_file_handle handle;
@@ -876,5 +877,5 @@ int command_info(int argc, char *argv[], struct opts *opts)
 out:
 	close_data_file(opts, &handle);
 
-	return ret;
+	return 0;
 }

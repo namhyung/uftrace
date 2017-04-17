@@ -522,7 +522,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	FILE *ifp, *ofp;
 	char buf[4096];
 	struct ftrace_proc_maps *prev_map = NULL;
-	char *last_module = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -548,9 +547,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 
 		/* skip non-executable mappings */
 		if (prot[2] != 'x')
-			goto next;
-
-		if (last_module && !strcmp(path, last_module))
 			goto next;
 
 		/* save map for the executable */

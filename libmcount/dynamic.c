@@ -110,6 +110,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		if (is_regex) {
 			if (regcomp(&re, name, REG_NOSUB | REG_EXTENDED)) {
 				pr_dbg("regex pattern failed: %s\n", name);
+				free(str);
 				return -1;
 			}
 		}

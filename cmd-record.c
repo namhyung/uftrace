@@ -346,6 +346,9 @@ close_fd:
 	return ret;
 }
 
+/* size including NUL at the end */
+#define MSG_ID_SIZE  36
+
 static void parse_msg_id(char *id, uint64_t *sid, int *tid, int *seq)
 {
 	uint64_t _sid;
@@ -728,7 +731,7 @@ static void unlink_shmem_list(void)
 		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
 		for (i = 0; i < num; i++) {
 			sid[0] = '/';
-			strcpy(&sid[1], shmem_bufs[i]->d_name);
+			strncpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
 			pr_dbg3("unlink %s\n", sid);
 			shm_unlink(sid);
 			free(shmem_bufs[i]);
@@ -861,7 +864,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 	switch (msg.type) {
 	case FTRACE_MSG_REC_START:
-		if (msg.len > SHMEM_NAME_SIZE)
+		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
 		sl = xmalloc(sizeof(*sl));
@@ -877,7 +880,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		break;
 
 	case FTRACE_MSG_REC_END:
-		if (msg.len > SHMEM_NAME_SIZE)
+		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
 		if (read_all(pfd, buf, msg.len) < 0)
@@ -888,7 +891,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		/* remove from shmem_list */
 		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
-			if (!strncmp(sl->id, buf, SHMEM_NAME_SIZE)) {
+			if (!memcmp(sl->id, buf, SHMEM_NAME_SIZE)) {
 				list_del(&sl->list);
 				free(sl);
 				break;
