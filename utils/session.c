@@ -9,6 +9,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/utils.h"
+#include "utils/fstack.h"
 #include "libmcount/mcount.h"
 
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
@@ -448,6 +449,42 @@ void walk_tasks(struct uftrace_session_link *sessions,
 
 		n = rb_next(n);
 	}
+}
+
+/**
+ * task_find_sym - find a symbol that matches to @rec
+ * @sessions: session link to manage sessions and tasks
+ * @task: handle for functions in a task
+ * @rec: uftrace data record
+ *
+ * This function looks up symbol table in current session.
+ */
+struct sym * task_find_sym(struct uftrace_session_link *sessions,
+			   struct ftrace_task_handle *task,
+			   struct uftrace_record *rec)
+{
+	struct uftrace_session *sess;
+	struct symtabs *symtabs;
+	struct sym *sym = NULL;
+
+	sess = find_task_session(sessions, task->tid, rec->time);
+
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, rec->time);
+
+	if (sess == NULL && is_kernel_record(task, rec))
+		sess = sessions->first;
+
+	if (sess == NULL)
+		return NULL;
+
+	symtabs = &sess->symtabs;
+	sym = find_symtabs(symtabs, rec->addr);
+
+	if (sym == NULL)
+		sym = session_find_dlsym(sess, rec->time, rec->addr);
+
+	return sym;
 }
 
 #ifdef UNIT_TEST

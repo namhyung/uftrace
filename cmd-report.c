@@ -125,7 +125,12 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 	}
 
 	sess = find_task_session(sessions, task->tid, time);
-	if (sess == NULL && !is_kernel_address(addr))
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, time);
+	if (sess == NULL && is_kernel_address(addr))
+		sess = task->h->sessions.first;
+
+	if (sess == NULL)
 		return false;
 
 	sym = find_symtabs(&sess->symtabs, addr);

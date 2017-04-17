@@ -349,21 +349,11 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct uftrace_session *sess;
-	struct symtabs *symtabs;
 	struct sym *sym = NULL;
 	char *name;
 	struct fstack *fstack;
 
-	sess = find_task_session(sessions, task->tid, rstack->time);
-	if (sess || is_kernel_record(task, rstack)) {
-		symtabs = &sess->symtabs;
-		sym = find_symtabs(symtabs, rstack->addr);
-		if (sym == NULL && sess)
-			sym = session_find_dlsym(sess, rstack->time,
-						 rstack->addr);
-	}
-
+	sym = task_find_sym(sessions, task, rstack);
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
@@ -615,8 +605,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct uftrace_session *sess;
-	struct symtabs *symtabs;
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
@@ -628,14 +616,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == UFTRACE_LOST)
 		goto lost;
 
-	sess = find_task_session(sessions, task->tid, rstack->time);
-	if (sess || is_kernel_record(task, rstack)) {
-		symtabs = &sess->symtabs;
-		sym = find_symtabs(symtabs, rstack->addr);
-		if (sym == NULL && sess)
-			sym = session_find_dlsym(sess, rstack->time,
-						 rstack->addr);
-	}
+	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == UFTRACE_ENTRY && symname[strlen(symname) - 1] != ')')

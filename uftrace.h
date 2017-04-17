@@ -335,6 +335,10 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr);
 
+struct uftrace_record;
+struct sym * task_find_sym(struct uftrace_session_link *sess,
+			   struct ftrace_task_handle *task,
+			   struct uftrace_record *rec);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(struct uftrace_session_link *sess,

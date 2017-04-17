@@ -91,12 +91,13 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	struct uftrace_session *sess;
 
 	sess = find_task_session(sessions, task->tid, time);
-	if (sess == NULL) {
-		if (is_kernel_address(addr))
-			sess = sessions->first;
-		else
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, time);
+	if (sess == NULL && is_kernel_address(addr))
+		sess = sessions->first;
+
+	if (sess == NULL)
 			return NULL;
-	}
 
 	graph = graph_list;
 	while (graph) {
