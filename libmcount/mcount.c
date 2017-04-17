@@ -933,6 +933,8 @@ static void mcount_startup(void)
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
 
+	symtabs.dirname = dirname;
+
 	if (filter_str || trigger_str || argument_str || retval_str || patch_str)
 		symtabs.flags &= ~SYMTAB_FL_SKIP_NORMAL;
 	if (plthook_str)
@@ -940,7 +942,7 @@ static void mcount_startup(void)
 
 	mcount_exename = read_exename();
 	record_proc_maps(dirname, session_name(), &symtabs);
-	set_kernel_base(dirname, session_name());
+	set_kernel_base(&symtabs, session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER

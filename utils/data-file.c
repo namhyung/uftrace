@@ -81,9 +81,6 @@ int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
 		}
 	}
 
-	if (needs_session)
-		set_kernel_base(dirname, first_session->sid);
-
 	close(fd);
 	return 0;
 }
@@ -185,9 +182,6 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 					   dlop.base_addr, exename);
 		}
 	}
-
-	if (needs_session)
-		set_kernel_base(dirname, first_session->sid);
 
 	fclose(fp);
 	free(fname);

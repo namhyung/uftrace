@@ -66,6 +66,7 @@ struct symtabs {
 	enum symtab_flag flags;
 	struct symtab symtab;
 	struct symtab dsymtab;
+	uint64_t kernel_base;
 	struct ftrace_proc_maps *maps;
 };
 
@@ -89,7 +90,7 @@ static inline uint64_t get_real_address(uint64_t addr)
 	return addr;
 }
 
-void set_kernel_base(char *dirname, const char *session_id);
+void set_kernel_base(struct symtabs *symtabs, const char *session_id);
 
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);

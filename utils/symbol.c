@@ -1442,14 +1442,14 @@ static uint64_t get_kernel_base(char *str)
 	}
 }
 
-void set_kernel_base(char *dirname, const char *session_id)
+void set_kernel_base(struct symtabs *symtabs, const char *session_id)
 {
 	FILE *fp;
 	char buf[4096];
 	char line[200];
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map",
-		 dirname, SESSION_ID_LEN, session_id);
+		 symtabs->dirname, SESSION_ID_LEN, session_id);
 
 	fp = fopen(buf, "r");
 	if (fp == NULL)
@@ -1461,4 +1461,6 @@ void set_kernel_base(char *dirname, const char *session_id)
 		}
 	}
 	fclose(fp);
+
+	symtabs->kernel_base = kernel_base_addr;
 }

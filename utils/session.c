@@ -121,6 +121,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 
 	read_session_map(dirname, &s->symtabs, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
+	set_kernel_base(&s->symtabs, s->sid);
 
 	if (first_session == NULL)
 		first_session = s;
@@ -217,6 +218,7 @@ void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 
 	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
 	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_SKIP_DYNAMIC;
+	udl->symtabs.kernel_base = sess->symtabs.kernel_base;
 
 	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
 
