@@ -112,6 +112,12 @@ int read_task_args(struct ftrace_task_handle *task,
 		   struct uftrace_record *rstack,
 		   bool is_retval);
 
+static inline bool is_kernel_record(struct ftrace_task_handle *task,
+				    struct uftrace_record *rec)
+{
+	return rec == &task->kstack;
+}
+
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 int setup_fstack_filters(char *filter_str, char *trigger_str);
 void setup_fstack_args(char *argspec);

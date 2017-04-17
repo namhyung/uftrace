@@ -394,7 +394,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 	if (sess == NULL)
 		sess = find_task_session(task->t->pid, rstack->time);
 
-	if (is_kernel_address(addr)) {
+	if (is_kernel_record(task, rstack)) {
 		addr = get_real_address(addr);
 
 		if (sess == NULL)

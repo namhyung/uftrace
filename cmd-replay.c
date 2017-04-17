@@ -353,7 +353,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 	char *name;
 	struct fstack *fstack;
 
-	if (sess || is_kernel_address(rstack->addr)) {
+	if (sess || is_kernel_record(task, rstack)) {
 		symtabs = &sess->symtabs;
 		sym = find_symtabs(symtabs, rstack->addr);
 		if (sym == NULL && sess)
@@ -625,7 +625,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		goto lost;
 
 	sess = find_task_session(task->tid, rstack->time);
-	if (sess || is_kernel_address(rstack->addr)) {
+	if (sess || is_kernel_record(task, rstack)) {
 		symtabs = &sess->symtabs;
 		sym = find_symtabs(symtabs, rstack->addr);
 		if (sym == NULL && sess)
@@ -639,7 +639,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
-		if (!task->user_stack_count && is_kernel_address(rstack->addr))
+		if (!task->user_stack_count && is_kernel_record(task, rstack))
 			goto out;
 	}
 
@@ -781,13 +781,12 @@ lost:
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
-		bool is_kernel_event = (rstack == &task->kstack);
 
 		depth = task->display_depth;
 
 		/* skip kernel event messages outside of user functions */
 		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
-		    is_kernel_event)
+		    is_kernel_record(task, rstack))
 			return 0;
 
 		/* give a new line when tid is changed */
@@ -947,7 +946,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		uint64_t curr_time = rstack->time;
 
 		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(rstack->addr))
+		if (opts->kernel_only && !is_kernel_record(task, rstack))
 			continue;
 
 		/*

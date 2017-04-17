@@ -474,7 +474,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		struct uftrace_record *frs = task->rstack;
 
 		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(frs->addr))
+		if (opts->kernel_only && !is_kernel_record(task, frs))
 			continue;
 
 		if (frs->type == UFTRACE_EVENT)
@@ -483,7 +483,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (!task->user_stack_count &&
-			    is_kernel_address(frs->addr))
+			    is_kernel_record(task, frs))
 				continue;
 		}
 

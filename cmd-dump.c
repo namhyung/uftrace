@@ -1015,12 +1015,12 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 	if (opts->kernel) {
 		if (opts->kernel_skip_out) {
 			if (!task->user_stack_count &&
-			    is_kernel_address(frs->addr))
+			    is_kernel_record(task, frs))
 				return false;
 		}
 
 		if (opts->kernel_only &&
-		    !is_kernel_address(frs->addr))
+		    !is_kernel_record(task, frs))
 			return false;
 	}
 
@@ -1042,7 +1042,7 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 		goto dump;
 
 	sess = find_task_session(task->tid, frs->time);
-	if (sess || is_kernel_address(frs->addr)) {
+	if (sess || is_kernel_record(task, frs)) {
 		sym = find_symtabs(&sess->symtabs, frs->addr);
 		if (sym == NULL && sess)
 			sym = session_find_dlsym(sess, frs->time,
