@@ -911,6 +911,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	int i;
 	uint64_t prev_time;
 	struct ftrace_task_handle *task;
+	struct uftrace_session_link *sessions = &handle->sessions;
 
 	ops->header(ops, handle, opts);
 
@@ -930,7 +931,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		while (!read_task_ustack(handle, task) && !uftrace_done) {
 			struct uftrace_record *frs = &task->ustack;
-			struct uftrace_session *sess = find_task_session(tid, frs->time);
+			struct uftrace_session *sess;
 			struct symtabs *symtabs;
 			struct sym *sym = NULL;
 			char *name;
@@ -948,6 +949,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (!fstack_check_filter(task))
 				continue;
 
+			sess = find_task_session(sessions, tid, frs->time);
 			if (sess && frs->type != UFTRACE_EVENT) {
 				symtabs = &sess->symtabs;
 				sym = find_symtabs(symtabs, frs->addr);
@@ -1034,6 +1036,7 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 			     struct ftrace_task_handle *task)
 {
 	struct uftrace_record *frs = task->rstack;
+	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
 	struct sym *sym = NULL;
 	char *name;
@@ -1041,8 +1044,8 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 	if (frs->type == UFTRACE_EVENT)
 		goto dump;
 
-	sess = find_task_session(task->tid, frs->time);
-	if (sess || is_kernel_record(task, frs)) {
+	sess = find_task_session(sessions, task->tid, frs->time);
+	if (sess || is_kernel_address(frs->addr)) {
 		sym = find_symtabs(&sess->symtabs, frs->addr);
 		if (sym == NULL && sess)
 			sym = session_find_dlsym(sess, frs->time,

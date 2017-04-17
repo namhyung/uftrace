@@ -17,6 +17,7 @@
 
 /**
  * read_task_file - read 'task' file from data directory
+ * @sess: session link to manage sessions and tasks
  * @dirname: name of the data directory
  * @needs_session: read session info too
  * @sym_rel_addr: whether symbol address is relative
@@ -28,14 +29,15 @@
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
+int read_task_file(struct uftrace_session_link *sess, char *dirname,
+		   bool needs_session, bool sym_rel_addr)
 {
 	int fd;
 	char pad[8];
 	char buf[1024];
 	struct ftrace_msg msg;
-	struct ftrace_msg_task task;
-	struct ftrace_msg_sess sess;
+	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess smsg;
 
 	snprintf(buf, sizeof(buf), "%s/task", dirname);
 	fd = open(buf, O_RDONLY);
@@ -49,30 +51,30 @@ int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
 
 		switch (msg.type) {
 		case FTRACE_MSG_SESSION:
-			if (read_all(fd, &sess, sizeof(sess)) < 0)
+			if (read_all(fd, &smsg, sizeof(smsg)) < 0)
 				return -1;
-			if (read_all(fd, buf, sess.namelen) < 0)
+			if (read_all(fd, buf, smsg.namelen) < 0)
 				return -1;
-			if (sess.namelen % 8 &&
-			    read_all(fd, pad, 8 - (sess.namelen % 8)) < 0)
+			if (smsg.namelen % 8 &&
+			    read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
 				return -1;
 
 			if (needs_session)
-				create_session(&sess, dirname, buf, sym_rel_addr);
+				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
 			break;
 
 		case FTRACE_MSG_TID:
-			if (read_all(fd, &task, sizeof(task)) < 0)
+			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				return -1;
 
-			create_task(&task, false, needs_session);
+			create_task(sess, &tmsg, false, needs_session);
 			break;
 
 		case FTRACE_MSG_FORK_END:
-			if (read_all(fd, &task, sizeof(task)) < 0)
+			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				return -1;
 
-			create_task(&task, true, needs_session);
+			create_task(sess, &tmsg, true, needs_session);
 			break;
 
 		default:
@@ -87,6 +89,7 @@ int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
 
 /**
  * read_task_txt_file - read 'task.txt' file from data directory
+ * @sess: session link to manage sessions and tasks
  * @dirname: name of the data directory
  * @needs_session: read session info too
  * @sym_rel_addr: whethere symbol address is relative
@@ -96,15 +99,16 @@ int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr)
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
+int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
+		       bool needs_session, bool sym_rel_addr)
 {
 	FILE *fp;
 	char *fname = NULL;
 	char *line = NULL;
 	size_t sz = 0;
 	long sec, nsec;
-	struct ftrace_msg_task task;
-	struct ftrace_msg_sess sess;
+	struct ftrace_msg_task tmsg;
+	struct ftrace_msg_sess smsg;
 	struct ftrace_msg_dlopen dlop;
 	char *exename, *pos;
 
@@ -120,24 +124,24 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 	while (getline(&line, &sz, fp) >= 0) {
 		if (!strncmp(line, "TASK", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
-			       &sec, &nsec, &task.tid, &task.pid);
+			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
 
-			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(&task, false, needs_session);
+			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			create_task(sess, &tmsg, false, needs_session);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
-			       &sec, &nsec, &task.tid, &task.pid);
+			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
 
-			task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(&task, true, needs_session);
+			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			create_task(sess, &tmsg, true, needs_session);
 		}
 		else if (!strncmp(line, "SESS", 4)) {
 			if (!needs_session)
 				continue;
 
 			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
-			       &sec, &nsec, &sess.task.pid, (char *)&sess.sid);
+			       &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
 
 			// Get the execname
 			pos = strstr(line, "exename=");
@@ -148,11 +152,11 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			if (pos)
 				*pos = '\0';
 
-			sess.task.tid = sess.task.pid;
-			sess.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			sess.namelen = strlen(exename);
+			smsg.task.tid = smsg.task.pid;
+			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
+			smsg.namelen = strlen(exename);
 
-			create_session(&sess, dirname, exename, sym_rel_addr);
+			create_session(sess, &smsg, dirname, exename, sym_rel_addr);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
@@ -176,7 +180,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			dlop.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			dlop.namelen = strlen(exename);
 
-			s = get_session_from_sid(dlop.sid);
+			s = get_session_from_sid(sess, dlop.sid);
 			assert(s);
 			session_add_dlopen(s, dlop.task.time,
 					   dlop.base_addr, exename);
@@ -348,6 +352,9 @@ retry:
 	handle->tasks = NULL;
 	handle->time_filter = opts->threshold;
 	handle->time_range = opts->range;
+	handle->sessions.root  = RB_ROOT;
+	handle->sessions.tasks = RB_ROOT;
+	handle->sessions.first = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -378,18 +385,19 @@ retry:
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		bool sym_rel = false;
+		struct uftrace_session_link *sessions = &handle->sessions;
 
 		if (handle->hdr.feat_mask & SYM_REL_ADDR)
 			sym_rel = true;
 
-		// read task.txt first and then try old task file
-		if (read_task_txt_file(opts->dirname, true, sym_rel) < 0 &&
-		    read_task_file(opts->dirname, true, sym_rel) < 0)
+		/* read task.txt first and then try old task file */
+		if (read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0 &&
+		    read_task_file(sessions, opts->dirname, true, sym_rel) < 0)
 			pr_warn("invalid task file\n");
 	}
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
-		setup_fstack_args(handle->info.argspec);
+		setup_fstack_args(handle->info.argspec, handle);
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;

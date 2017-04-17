@@ -1194,7 +1194,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	 * the given time filter (-t option).
 	 */
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
-		struct uftrace_session *sess = first_session;
+		struct uftrace_session *sess = handle->sessions.first;
 		struct ftrace_task_handle *task;
 		struct ftrace_trigger tr = {};
 		uint64_t real_addr;
@@ -1724,7 +1724,7 @@ static int kernel_test_setup_handle(struct ftrace_kernel *kernel,
 		handle->tasks[i].tid = test_tids[i];
 	}
 
-	first_session = xzalloc(sizeof(*first_session));
+	handle->sessions.first = xzalloc(sizeof(struct uftrace_session));
 
 	atexit(kernel_test_finish_handle);
 
@@ -1766,10 +1766,9 @@ static void kernel_test_finish_handle(void)
 	struct ftrace_file_handle *handle = &test_handle;
 
 	free(handle->tasks);
-	free(first_session);
+	free(handle->sessions.first);
 
 	handle->tasks = NULL;
-	first_session = NULL;
 }
 
 TEST_CASE(kernel_read)
