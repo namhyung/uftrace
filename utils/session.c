@@ -784,4 +784,95 @@ TEST_CASE(task_search)
 	return TEST_OK;
 }
 
+TEST_CASE(task_symbol)
+{
+	struct sym *sym;
+	struct ftrace_msg_sess msg = {
+		.task = {
+			.pid = 1,
+			.tid = 1,
+			.time = 100,
+		},
+		.sid = "test",
+		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct ftrace_task_handle task = {
+		.tid = 1,
+	};
+	FILE *fp;
+
+	fp = fopen("sid-test.map", "w");
+	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fclose(fp);
+
+	fp = fopen("unittest.sym", "w");
+	fprintf(fp, "00400100 P printf\n");
+	fprintf(fp, "00400200 P __dynsym_end\n");
+	fprintf(fp, "00400300 T _start\n");
+	fprintf(fp, "00400400 T main\n");
+	fprintf(fp, "00400500 T __sym_end\n");
+	fclose(fp);
+
+	create_session(&test_sessions, &msg, ".", "unittest", false);
+	remove("sid-test.map");
+	remove("unittest.sym");
+
+	TEST_NE(test_sessions.first, NULL);
+	TEST_EQ(test_sessions.first->pid, 1);
+
+	sym = task_find_sym_addr(&test_sessions, &task, 100, 0x400410);
+
+	TEST_NE(sym, NULL);
+	TEST_STREQ(sym->name, "main");
+
+	return TEST_OK;
+}
+
+TEST_CASE(task_symbol_dlopen)
+{
+	struct sym *sym;
+	struct ftrace_msg_sess msg = {
+		.task = {
+			.pid = 1,
+			.tid = 1,
+			.time = 100,
+		},
+		.sid = "test",
+		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct ftrace_task_handle task = {
+		.tid = 1,
+	};
+	FILE *fp;
+	struct uftrace_dlopen_list *udl;
+
+	creat("sid-test.map", 0400);
+
+	fp = fopen("libuftrace-test.so.0.sym", "w");
+	fprintf(fp, "0100 P __tls_get_addr\n");
+	fprintf(fp, "0200 P __dynsym_end\n");
+	fprintf(fp, "0300 T _start\n");
+	fprintf(fp, "0400 T foo\n");
+	fprintf(fp, "0500 T __sym_end\n");
+	fclose(fp);
+
+	create_session(&test_sessions, &msg, ".", "unittest", false);
+	remove("sid-test.map");
+
+	TEST_NE(test_sessions.first, NULL);
+	TEST_EQ(test_sessions.first->pid, 1);
+
+	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0");
+	remove("libuftrace-test.so.0.sym");
+
+	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
+
+	sym = session_find_dlsym(test_sessions.first, 250, 0x7003410);
+
+	TEST_NE(sym, NULL);
+	TEST_STREQ(sym->name, "foo");
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
