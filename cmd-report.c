@@ -662,6 +662,7 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 		te.pid = task->tid;
 		te.sym = find_task_sym(handle, task, rstack);
 		te.addr = rstack->addr;
+		te.time_recursive = 0;
 
 		if (rstack->type == UFTRACE_ENTRY) {
 			te.time_total = te.time_self = 0;
