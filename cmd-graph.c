@@ -34,7 +34,7 @@ struct graph_node {
 struct uftrace_graph {
 	char *func;
 	bool kernel_only;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
 	struct list_head bt_list;
@@ -54,7 +54,7 @@ struct task_graph {
 static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
 
-static int create_graph(struct ftrace_session *sess, void *func)
+static int create_graph(struct uftrace_session *sess, void *func)
 {
 	struct uftrace_graph *graph = xcalloc(1, sizeof(*graph));
 
@@ -69,11 +69,12 @@ static int create_graph(struct ftrace_session *sess, void *func)
 	return 0;
 }
 
-static void setup_graph_list(struct opts *opts, char *func)
+static void setup_graph_list(struct ftrace_file_handle *handle, struct opts *opts,
+			     char *func)
 {
 	struct uftrace_graph *graph;
 
-	walk_sessions(create_graph, func);
+	walk_sessions(&handle->sessions, create_graph, func);
 
 	graph = graph_list;
 	while (graph) {
@@ -86,12 +87,18 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 					uint64_t time, uint64_t addr)
 {
 	struct uftrace_graph *graph;
-	struct ftrace_session *sess;
+	struct uftrace_session_link *sessions = &task->h->sessions;
+	struct uftrace_session *sess;
 
-	sess = find_task_session(task->tid, time);
+	sess = find_task_session(sessions, task->tid, time);
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, time);
+
 	if (sess == NULL) {
-		if (is_kernel_address(addr))
-			sess = first_session;
+		struct uftrace_session *fsess = sessions->first;
+
+		if (is_kernel_address(&fsess->symtabs, addr))
+			sess = fsess;
 		else
 			return NULL;
 	}
@@ -292,7 +299,8 @@ static int add_graph_exit(struct task_graph *tg)
 		return -1;
 
 	if (tg->lost) {
-		if (is_kernel_address(fstack->addr))
+		if (is_kernel_address(&tg->task->h->sessions.first->symtabs,
+				      fstack->addr))
 			return 1;
 
 		/*
@@ -468,13 +476,13 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	uint64_t prev_time = 0;
 	int i;
 
-	setup_graph_list(opts, func);
+	setup_graph_list(handle, opts, func);
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 
 		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(frs->addr))
+		if (opts->kernel_only && !is_kernel_record(task, frs))
 			continue;
 
 		if (frs->type == UFTRACE_EVENT)
@@ -483,7 +491,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (!task->user_stack_count &&
-			    is_kernel_address(frs->addr))
+			    is_kernel_record(task, frs))
 				continue;
 		}
 
@@ -520,7 +528,8 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 					    (1UL << KADDR_SHIFT));
 			tg->lost = true;
 
-			if (tg->enabled && is_kernel_address(tg->node->addr))
+			if (tg->enabled && is_kernel_address(&tg->graph->sess->symtabs,
+							     tg->node->addr))
 				pr_dbg("not returning to user after LOST\n");
 
 			continue;
@@ -594,7 +603,7 @@ struct find_func_data {
 	bool found;
 };
 
-static int find_func(struct ftrace_session *s, void *arg)
+static int find_func(struct uftrace_session *s, void *arg)
 {
 	struct find_func_data *data = arg;
 	struct symtabs *symtabs = &s->symtabs;
@@ -607,7 +616,9 @@ static int find_func(struct ftrace_session *s, void *arg)
 	return data->found;
 }
 
-static void synthesize_depth_trigger(struct opts *opts, char *func)
+static void synthesize_depth_trigger(struct opts *opts,
+				     struct ftrace_file_handle *handle,
+				     char *func)
 {
 	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
 	size_t new_len = strlen(func) + 32;
@@ -615,7 +626,7 @@ static void synthesize_depth_trigger(struct opts *opts, char *func)
 		.name = func,
 	};
 
-	walk_sessions(find_func, &ffd);
+	walk_sessions(&handle->sessions, find_func, &ffd);
 
 	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
 	snprintf(opts->trigger + old_len, new_len,
@@ -657,7 +668,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		 * lead to undesired result.  Set a synthetic depth
 		 * trigger to prevent the function from filtering out.
 		 */
-		synthesize_depth_trigger(opts, func);
+		synthesize_depth_trigger(opts, &handle, func);
 	}
 
 	fstack_setup_filters(opts, &handle);

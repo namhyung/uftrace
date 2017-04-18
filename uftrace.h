@@ -110,6 +110,13 @@ enum {
 };
 
 struct ftrace_kernel;
+struct uftrace_session;
+
+struct uftrace_session_link {
+	struct rb_root		root;
+	struct rb_root		tasks;
+	struct uftrace_session *first;
+};
 
 struct ftrace_file_handle {
 	FILE *fp;
@@ -119,6 +126,7 @@ struct ftrace_file_handle {
 	struct uftrace_info info;
 	struct ftrace_kernel *kern;
 	struct ftrace_task_handle *tasks;
+	struct uftrace_session_link sessions;
 	int nr_tasks;
 	int depth;
 	bool needs_byte_swap;
@@ -216,12 +224,14 @@ extern struct ftrace_proc_maps *proc_maps;
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
 void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-int read_task_file(char *dirname, bool needs_session, bool sym_rel_addr);
-int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr);
+int read_task_file(struct uftrace_session_link *sess, char *dirname,
+		   bool needs_session, bool sym_rel_addr);
+int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
+		       bool needs_session, bool sym_rel_addr);
 
 #define SESSION_ID_LEN  16
 
-struct ftrace_session {
+struct uftrace_session {
 	struct rb_node		 node;
 	char			 sid[SESSION_ID_LEN];
 	uint64_t		 start_time;
@@ -234,9 +244,9 @@ struct ftrace_session {
 	char 			 exename[];
 };
 
-struct ftrace_sess_ref {
-	struct ftrace_sess_ref	*next;
-	struct ftrace_session	*sess;
+struct uftrace_sess_ref {
+	struct uftrace_sess_ref	*next;
+	struct uftrace_session	*sess;
 	uint64_t		 start, end;
 };
 
@@ -248,11 +258,11 @@ struct uftrace_dlopen_list {
 	char			name[];
 };
 
-struct ftrace_task {
+struct uftrace_task {
 	int			 pid, tid;
 	struct rb_node		 node;
-	struct ftrace_sess_ref	 sess;
-	struct ftrace_sess_ref	*sess_last;
+	struct uftrace_sess_ref	 sref;
+	struct uftrace_sess_ref	*sref_last;
 };
 
 #define FTRACE_MSG_MAGIC 0xface
@@ -306,26 +316,39 @@ struct ftrace_msg_dlopen {
 	char exename[];
 };
 
-extern struct ftrace_session *first_session;
+extern struct uftrace_session *first_session;
 
-void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
-		    bool sym_rel_addr);
-struct ftrace_session *find_session(int pid, uint64_t timestamp);
-struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
-void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
-struct ftrace_task *find_task(int tid);
+void create_session(struct uftrace_session_link *sess, struct ftrace_msg_sess *msg,
+		    char *dirname, char *exename, bool sym_rel_addr);
+struct uftrace_session *find_session(struct uftrace_session_link *sess,
+				     int pid, uint64_t timestamp);
+struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
+					  int pid, uint64_t timestamp);
+void create_task(struct uftrace_session_link *sess, struct ftrace_msg_task *msg,
+		 bool fork, bool needs_session);
+struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
-struct ftrace_session * get_session_from_sid(char sid[]);
-void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
-			uint64_t timestamp, unsigned long base_addr,
-			const char *libname);
-struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
+					      char sid[]);
+void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+			unsigned long base_addr, const char *libname);
+struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr);
 
-typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
-void walk_sessions(walk_sessions_cb_t callback, void *arg);
-typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
-void walk_tasks(walk_tasks_cb_t callback, void *arg);
+struct uftrace_record;
+struct sym * task_find_sym(struct uftrace_session_link *sess,
+			   struct ftrace_task_handle *task,
+			   struct uftrace_record *rec);
+struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
+				struct ftrace_task_handle *task,
+				uint64_t time, uint64_t addr);
+
+typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
+void walk_sessions(struct uftrace_session_link *sess,
+		   walk_sessions_cb_t callback, void *arg);
+typedef int (*walk_tasks_cb_t)(struct uftrace_task *task, void *arg);
+void walk_tasks(struct uftrace_session_link *sess,
+		walk_tasks_cb_t callback, void *arg);
 
 int setup_client_socket(struct opts *opts);
 void send_trace_header(int sock, char *name);

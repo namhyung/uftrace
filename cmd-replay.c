@@ -293,26 +293,18 @@ static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 
 static void print_backtrace(struct ftrace_task_handle *task)
 {
+	struct uftrace_session_link *sessions = &task->h->sessions;
 	int i;
-	struct ftrace_session *sess;
-	struct fstack *fstack;
-	struct sym *sym;
-	char *name;
 
 	for (i = 0; i < task->stack_count - 1; i++) {
 		struct replay_field *field;
+		struct fstack *fstack;
+		struct sym *sym;
+		char *name;
 
 		fstack = &task->func_stack[i];
-		sess = find_task_session(task->tid, fstack->total_time);
-
-		if (sess || is_kernel_address(fstack->addr)) {
-			sym = find_symtabs(&sess->symtabs, fstack->addr);
-			if (sym == NULL && sess)
-				sym = session_find_dlsym(sess, fstack->total_time,
-							 fstack->addr);
-		}
-		else
-			sym = NULL;
+		sym = task_find_sym_addr(sessions, task,
+					 fstack->total_time, fstack->addr);
 
 		pr_out(" ");
 		list_for_each_entry(field, &output_fields, list) {
@@ -347,20 +339,12 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 {
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
-	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
-	struct symtabs *symtabs;
+	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct sym *sym = NULL;
 	char *name;
 	struct fstack *fstack;
 
-	if (sess || is_kernel_address(rstack->addr)) {
-		symtabs = &sess->symtabs;
-		sym = find_symtabs(symtabs, rstack->addr);
-		if (sym == NULL && sess)
-			sym = session_find_dlsym(sess, rstack->time,
-						 rstack->addr);
-	}
-
+	sym = task_find_sym(sessions, task, rstack);
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
@@ -611,8 +595,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
-	struct ftrace_session *sess;
-	struct symtabs *symtabs;
+	struct uftrace_session_link *sessions = &handle->sessions;
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
@@ -624,14 +607,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == UFTRACE_LOST)
 		goto lost;
 
-	sess = find_task_session(task->tid, rstack->time);
-	if (sess || is_kernel_address(rstack->addr)) {
-		symtabs = &sess->symtabs;
-		sym = find_symtabs(symtabs, rstack->addr);
-		if (sym == NULL && sess)
-			sym = session_find_dlsym(sess, rstack->time,
-						 rstack->addr);
-	}
+	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == UFTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
@@ -639,7 +615,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
-		if (!task->user_stack_count && is_kernel_address(rstack->addr))
+		if (!task->user_stack_count && is_kernel_record(task, rstack))
 			goto out;
 	}
 
@@ -781,13 +757,12 @@ lost:
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
-		bool is_kernel_event = (rstack == &task->kstack);
 
 		depth = task->display_depth;
 
 		/* skip kernel event messages outside of user functions */
 		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
-		    is_kernel_event)
+		    is_kernel_record(task, rstack))
 			return 0;
 
 		/* give a new line when tid is changed */
@@ -815,6 +790,7 @@ static void print_warning(struct ftrace_task_handle *task)
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
 	uint64_t ip;
+	struct sym *sym;
 
 	if (task->func_stack == NULL)
 		return true;
@@ -824,12 +800,11 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 		return false;
 
 	ip = task->func_stack[0].addr;
-	if (is_kernel_address(ip)) {
-		struct sym *sym = find_symtabs(NULL, ip);
+	sym = find_symtabs(&task->h->sessions.first->symtabs, ip);
 
-		if (sym && !strncmp(sym->name, "sys_exit", 8))
-			return true;
-	}
+	if (sym && !strncmp(sym->name, "sys_exit", 8))
+		return true;
+
 	return false;
 }
 
@@ -838,6 +813,7 @@ static void print_remaining_stack(struct opts *opts,
 {
 	int i, k;
 	int total = 0;
+	struct uftrace_session_link *sessions = &handle->sessions;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		struct ftrace_task_handle *task = &handle->tasks[i];
@@ -885,20 +861,11 @@ static void print_remaining_stack(struct opts *opts,
 		while (task->stack_count-- > 0) {
 			struct fstack *fstack = &task->func_stack[task->stack_count];
 			uint64_t time = fstack->total_time;
-			struct ftrace_session *sess = find_task_session(task->tid, time);
 			uint64_t ip = fstack->addr;
-			struct symtabs *symtabs;
 			struct sym *sym;
 			char *symname;
 
-			if (sess || is_kernel_address(ip)) {
-				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, ip);
-			} else
-				sym = NULL;
-
-			if (sym == NULL && sess)
-				sym = session_find_dlsym(sess, time, ip);
+			sym = task_find_sym_addr(sessions, task, time, ip);
 			symname = symbol_getname(sym, ip);
 
 			pr_out("[%d] %s\n", task->stack_count - zero_count, symname);
@@ -947,7 +914,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		uint64_t curr_time = rstack->time;
 
 		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_address(rstack->addr))
+		if (opts->kernel_only && !is_kernel_record(task, rstack))
 			continue;
 
 		/*

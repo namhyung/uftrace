@@ -844,6 +844,13 @@ static bool check_tid_list(void)
 	return true;
 }
 
+struct dlopen_list {
+	struct list_head list;
+	char *libname;
+};
+
+static LIST_HEAD(dlopen_libs);
+
 static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 {
 	char buf[128];
@@ -853,6 +860,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess sess;
 	struct ftrace_msg_dlopen dmsg;
+	struct dlopen_list *dlib;
 	char *exename;
 	int lost;
 
@@ -1017,6 +1025,10 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		exename[dmsg.namelen] = '\0';
 
 		pr_dbg2("MSG DLOPEN: %d: %#lx %s\n", dmsg.task.tid, dmsg.base_addr, exename);
+
+		dlib = xmalloc(sizeof(*dlib));
+		dlib->libname = exename;
+		list_add_tail(&dlib->list, &dlopen_libs);
 
 		write_dlopen_info(dirname, &dmsg, exename);
 		break;
@@ -1433,6 +1445,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	struct rusage usage;
 	pthread_t *writers;
 	struct ftrace_kernel kern;
+	struct dlopen_list *dlib, *tmp;
 	int efd;
 	uint64_t go = 1;
 	int sock = -1;
@@ -1666,6 +1679,20 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	load_symtabs(&symtabs, opts->dirname, opts->exename);
 	save_symbol_file(&symtabs, opts->dirname, opts->exename);
 	save_module_symbols(opts, &symtabs);
+
+	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
+		struct symtabs dlib_symtabs = {
+			.loaded = false,
+		};
+
+		load_symtabs(&dlib_symtabs, opts->dirname, dlib->libname);
+		save_symbol_file(&dlib_symtabs, opts->dirname, dlib->libname);
+
+		list_del(&dlib->list);
+
+		free(dlib->libname);
+		free(dlib);
+	}
 
 	if (opts->kernel)
 		finish_kernel_tracing(&kern);

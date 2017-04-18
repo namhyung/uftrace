@@ -66,30 +66,26 @@ struct symtabs {
 	enum symtab_flag flags;
 	struct symtab symtab;
 	struct symtab dsymtab;
+	uint64_t kernel_base;
 	struct ftrace_proc_maps *maps;
 };
 
-#if __SIZEOF_LONG__ == 8
-# define KADDR_SHIFT  47
-#else
-# define KADDR_SHIFT  31
-#endif
+/* only meaningful for 64-bit systems */
+#define KADDR_SHIFT  47
 
-uint64_t kernel_base_addr;
-
-static inline bool is_kernel_address(uint64_t addr)
+static inline bool is_kernel_address(struct symtabs *symtabs, uint64_t addr)
 {
-	return addr >= kernel_base_addr;
+	return addr >= symtabs->kernel_base;
 }
 
 static inline uint64_t get_real_address(uint64_t addr)
 {
-	if (is_kernel_address(addr) && kernel_base_addr > UINT_MAX)
+	if (addr & (1ULL << KADDR_SHIFT))
 		return addr | (-1ULL << KADDR_SHIFT);
 	return addr;
 }
 
-void set_kernel_base(char *dirname, const char *session_id);
+void set_kernel_base(struct symtabs *symtabs, const char *session_id);
 
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);

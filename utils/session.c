@@ -9,12 +9,8 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/utils.h"
+#include "utils/fstack.h"
 #include "libmcount/mcount.h"
-
-
-static struct rb_root sessions = RB_ROOT;
-
-struct ftrace_session *first_session;
 
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
@@ -72,6 +68,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 /**
  * create_session - create a new task session from session message
+ * @sessions: session link to manage sessions and tasks
  * @msg: ftrace session message read from task file
  * @dirname: ftrace data directory name
  * @exename: executable name started this session
@@ -79,16 +76,17 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
  * This function allocates a new session started by a task.  The new
  * session will be added to sessions tree sorted by pid and timestamp.
  */
-void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
+void create_session(struct uftrace_session_link *sessions,
+		    struct ftrace_msg_sess *msg, char *dirname, char *exename,
 		    bool sym_rel_addr)
 {
-	struct ftrace_session *s;
+	struct uftrace_session *s;
 	struct rb_node *parent = NULL;
-	struct rb_node **p = &sessions.rb_node;
+	struct rb_node **p = &sessions->root.rb_node;
 
 	while (*p) {
 		parent = *p;
-		s = rb_entry(parent, struct ftrace_session, node);
+		s = rb_entry(parent, struct uftrace_session, node);
 
 		if (s->pid > msg->task.pid)
 			p = &parent->rb_left;
@@ -121,16 +119,18 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 
 	read_session_map(dirname, &s->symtabs, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
+	set_kernel_base(&s->symtabs, s->sid);
 
-	if (first_session == NULL)
-		first_session = s;
+	if (sessions->first == NULL)
+		sessions->first = s;
 
 	rb_link_node(&s->node, parent, p);
-	rb_insert_color(&s->node, &sessions);
+	rb_insert_color(&s->node, &sessions->root);
 }
 
 /**
  * find_session - find a matching session using @pid and @timestamp
+ * @sessions: session link to manage sessions and tasks
  * @pid: task pid to search
  * @timestamp: timestamp of task
  *
@@ -138,16 +138,17 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
  * The most recent session that has a smaller than the @timestamp will
  * be returned.
  */
-struct ftrace_session *find_session(int pid, uint64_t timestamp)
+struct uftrace_session *find_session(struct uftrace_session_link *sessions,
+				     int pid, uint64_t timestamp)
 {
-	struct ftrace_session *iter;
-	struct ftrace_session *s = NULL;
+	struct uftrace_session *iter;
+	struct uftrace_session *s = NULL;
 	struct rb_node *parent = NULL;
-	struct rb_node **p = &sessions.rb_node;
+	struct rb_node **p = &sessions->root.rb_node;
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, struct ftrace_session, node);
+		iter = rb_entry(parent, struct uftrace_session, node);
 
 		if (iter->pid > pid)
 			p = &parent->rb_left;
@@ -166,6 +167,7 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp)
 
 /**
  * walk_sessions - iterates all session and invokes @callback
+ * @sessions: session link to manage sessions and tasks
  * @callback: function to be called for each task
  * @arg: argument passed to the @callback
  *
@@ -173,13 +175,14 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp)
  * @arg.  As the @callback returns a non-zero value, it'll stop and
  * return in the middle.
  */
-void walk_sessions(walk_sessions_cb_t callback, void *arg)
+void walk_sessions(struct uftrace_session_link *sessions,
+		   walk_sessions_cb_t callback, void *arg)
 {
-	struct rb_node *n = rb_first(&sessions);
-	struct ftrace_session *s;
+	struct rb_node *n = rb_first(&sessions->root);
+	struct uftrace_session *s;
 
 	while (n) {
-		s = rb_entry(n, struct ftrace_session, node);
+		s = rb_entry(n, struct uftrace_session, node);
 
 		if (callback(s, arg) != 0)
 			break;
@@ -188,13 +191,21 @@ void walk_sessions(walk_sessions_cb_t callback, void *arg)
 	}
 }
 
-struct ftrace_session * get_session_from_sid(char sid[])
+/**
+ * get_session_from_sid - find a session using @sid
+ * @sessions: session link to manage sessions and tasks
+ * @sid: session ID
+ *
+ * This function returns a matching session or %NULL.
+ */
+struct uftrace_session *
+get_session_from_sid(struct uftrace_session_link *sessions, char sid[])
 {
-	struct rb_node *n = rb_first(&sessions);
-	struct ftrace_session *s;
+	struct rb_node *n = rb_first(&sessions->root);
+	struct uftrace_session *s;
 
 	while (n) {
-		s = rb_entry(n, struct ftrace_session, node);
+		s = rb_entry(n, struct uftrace_session, node);
 
 		if (!memcmp(s->sid, sid, sizeof(s->sid)) != 0)
 			return s;
@@ -204,9 +215,19 @@ struct ftrace_session * get_session_from_sid(char sid[])
 	return NULL;
 }
 
-void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
-			uint64_t timestamp, unsigned long base_addr,
-			const char *libname)
+/**
+ * session_add_dlopen - add dlopen'ed library to the mapping table
+ * @sess: pointer to a current session
+ * @timestamp: timestamp at the dlopen call
+ * @base_addr: load address of text segment of the library
+ * @libname: name of the librarry
+ *
+ * This functions adds the info of a library which was loaded by dlopen.
+ * Instead of creating a new session, it just adds the library information
+ * to the @sess.
+ */
+void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+			unsigned long base_addr, const char *libname)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 
@@ -216,7 +237,9 @@ void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 	strcpy(udl->name, libname);
 
 	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
-	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_SKIP_DYNAMIC;
+	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_USE_SYMFILE;
+	udl->symtabs.kernel_base = sess->symtabs.kernel_base;
+	udl->symtabs.dirname = sess->symtabs.dirname;
 
 	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
 
@@ -227,7 +250,17 @@ void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 	list_add_tail(&udl->list, &pos->list);
 }
 
-struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+/**
+ * session_find_dlsym - find symbol from dlopen'ed library
+ * @sess: pointer to a current session
+ * @timestamp: timestamp of the address
+ * @addr: instruction address
+ *
+ * This functions find a matching symbol from a dlopen'ed library in
+ * @sess using @addr.  The @timestamp is needed to determine which
+ * library should be searched.
+ */
+struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr)
 {
 	struct uftrace_dlopen_list *pos, *udl = NULL;
@@ -245,36 +278,35 @@ struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
 	return sym;
 }
 
-static struct rb_root task_tree = RB_ROOT;
-
-static void add_session_ref(struct ftrace_task *task, struct ftrace_session *sess,
+static void add_session_ref(struct uftrace_task *task, struct uftrace_session *sess,
 			    uint64_t timestamp)
 {
-	struct ftrace_sess_ref *ref;
+	struct uftrace_sess_ref *sref;
 
 	if (sess == NULL) {
 		pr_dbg("task %d/%d has no session\n", task->tid, task->pid);
 		return;
 	}
 
-	if (task->sess_last) {
-		task->sess_last->next = ref = xmalloc(sizeof(*ref));
-		task->sess_last->end = timestamp;
+	if (task->sref_last) {
+		task->sref_last->next = sref = xmalloc(sizeof(*sref));
+		task->sref_last->end = timestamp;
 	} else
-		ref = &task->sess;
+		sref = &task->sref;
 
-	ref->next = NULL;
-	ref->sess = sess;
-	ref->start = timestamp;
-	ref->end = -1ULL;
+	sref->next = NULL;
+	sref->sess = sess;
+	sref->start = timestamp;
+	sref->end = -1ULL;
 
 	pr_dbg2("task session: tid = %d, session = %.16s\n",
 		task->tid, sess->sid);
-	task->sess_last = ref;
+	task->sref_last = sref;
 }
 
 /**
  * find_task_session - find a matching session using @pid and @timestamp
+ * @sessions: session link to manage sessions and tasks
  * @pid - task pid to search
  * @timestamp - timestamp of task
  *
@@ -283,21 +315,22 @@ static void add_session_ref(struct ftrace_task *task, struct ftrace_session *ses
  * be returned.  If it didn't find a session tries to search sesssion
  * list of parent or thread-leader.
  */
-struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
+struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
+					  int pid, uint64_t timestamp)
 {
-	struct ftrace_task *t;
-	struct ftrace_sess_ref *r;
-	struct ftrace_session *s = find_session(pid, timestamp);
+	struct uftrace_task *t;
+	struct uftrace_sess_ref *r;
+	struct uftrace_session *s = find_session(sessions, pid, timestamp);
 
 	if (s)
 		return s;
 
 	/* if it cannot find its own session, inherit from parent or leader */
-	t = find_task(pid);
+	t = find_task(sessions, pid);
 	if (t == NULL)
 		return NULL;
 
-	r = &t->sess;
+	r = &t->sref;
 	while (r) {
 		if (r->start <= timestamp && timestamp < r->end)
 			return r->sess;
@@ -309,25 +342,26 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
 
 /**
  * create_task - create a new task from task message
+ * @sessions: session link to manage sessions and tasks
  * @msg: ftrace task message read from task file
  * @fork: whether it's forked or not (i.e. thread)
- * @needs_session: add reference to session of the task
  *
  * This function creates a new task from @msg and add it to task tree.
  * The newly created task will have a reference to a session if
  * @needs_session is %true.
  */
-void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
+void create_task(struct uftrace_session_link *sessions,
+		 struct ftrace_msg_task *msg, bool fork, bool needs_session)
 {
-	struct ftrace_task *t;
-	struct ftrace_session *s;
-	struct ftrace_sess_ref *r;
+	struct uftrace_task *t;
+	struct uftrace_session *s;
+	struct uftrace_sess_ref *r;
 	struct rb_node *parent = NULL;
-	struct rb_node **p = &task_tree.rb_node;
+	struct rb_node **p = &sessions->tasks.rb_node;
 
 	while (*p) {
 		parent = *p;
-		t = rb_entry(parent, struct ftrace_task, node);
+		t = rb_entry(parent, struct uftrace_task, node);
 
 		if (t->tid > msg->tid)
 			p = &parent->rb_left;
@@ -338,7 +372,7 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 				/* add new session */
 				r = xmalloc(sizeof(*r));
 
-				s = find_task_session(msg->pid, msg->time);
+				s = find_task_session(sessions, msg->pid, msg->time);
 				add_session_ref(t, s, msg->time);
 			}
 			return;
@@ -350,10 +384,10 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 	/* msg->pid is a parent pid if forked */
 	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
-	t->sess_last = NULL;
+	t->sref_last = NULL;
 
 	if (needs_session) {
-		s = find_task_session(msg->pid, msg->time);
+		s = find_task_session(sessions, msg->pid, msg->time);
 		add_session_ref(t, s, msg->time);
 
 		pr_dbg2("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
@@ -362,22 +396,23 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 		pr_dbg2("new task: tid = %d\n", t->tid);
 
 	rb_link_node(&t->node, parent, p);
-	rb_insert_color(&t->node, &task_tree);
+	rb_insert_color(&t->node, &sessions->tasks);
 }
 
 /**
  * find_task - find a matching task by @tid
+ * @sessions: session link to manage sessions and tasks
  * @tid: task id
  */
-struct ftrace_task *find_task(int tid)
+struct uftrace_task *find_task(struct uftrace_session_link *sessions, int tid)
 {
-	struct ftrace_task *t;
+	struct uftrace_task *t;
 	struct rb_node *parent = NULL;
-	struct rb_node **p = &task_tree.rb_node;
+	struct rb_node **p = &sessions->tasks.rb_node;
 
 	while (*p) {
 		parent = *p;
-		t = rb_entry(parent, struct ftrace_task, node);
+		t = rb_entry(parent, struct uftrace_task, node);
 
 		if (t->tid > tid)
 			p = &parent->rb_left;
@@ -392,6 +427,7 @@ struct ftrace_task *find_task(int tid)
 
 /**
  * walk_tasks - iterates all tasks and invokes @callback
+ * @sess: session link to manage sessions and tasks
  * @callback: function to be called for each task
  * @arg: argument passed to the @callback
  *
@@ -399,13 +435,14 @@ struct ftrace_task *find_task(int tid)
  * @arg.  As the @callback returns a non-zero value, it'll stop and
  * return in the middle.
  */
-void walk_tasks(walk_tasks_cb_t callback, void *arg)
+void walk_tasks(struct uftrace_session_link *sessions,
+		walk_tasks_cb_t callback, void *arg)
 {
-	struct rb_node *n = rb_first(&task_tree);
-	struct ftrace_task *t;
+	struct rb_node *n = rb_first(&sessions->tasks);
+	struct uftrace_task *t;
 
 	while (n) {
-		t = rb_entry(n, struct ftrace_task, node);
+		t = rb_entry(n, struct uftrace_task, node);
 
 		if (callback(t, arg) != 0)
 			break;
@@ -414,13 +451,88 @@ void walk_tasks(walk_tasks_cb_t callback, void *arg)
 	}
 }
 
+/**
+ * task_find_sym - find a symbol that matches to @rec
+ * @sessions: session link to manage sessions and tasks
+ * @task: handle for functions in a task
+ * @rec: uftrace data record
+ *
+ * This function looks up symbol table in current session.
+ */
+struct sym * task_find_sym(struct uftrace_session_link *sessions,
+			   struct ftrace_task_handle *task,
+			   struct uftrace_record *rec)
+{
+	struct uftrace_session *sess;
+	struct symtabs *symtabs;
+	struct sym *sym = NULL;
+
+	sess = find_task_session(sessions, task->tid, rec->time);
+
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, rec->time);
+
+	if (sess == NULL && is_kernel_record(task, rec))
+		sess = sessions->first;
+
+	if (sess == NULL)
+		return NULL;
+
+	symtabs = &sess->symtabs;
+	sym = find_symtabs(symtabs, rec->addr);
+
+	if (sym == NULL)
+		sym = session_find_dlsym(sess, rec->time, rec->addr);
+
+	return sym;
+}
+
+/**
+ * task_find_sym - find a symbol that matches to @addr
+ * @sessions: session link to manage sessions and tasks
+ * @task: handle for functions in a task
+ * @time: timestamp of the @addr
+ * @addr: instruction address
+ *
+ * This function looks up symbol table in current session.
+ */
+struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
+				struct ftrace_task_handle *task,
+				uint64_t time, uint64_t addr)
+{
+	struct uftrace_session *sess;
+	struct sym *sym = NULL;
+
+	sess = find_task_session(sessions, task->tid, time);
+
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->pid, time);
+
+	if (sess == NULL) {
+		struct uftrace_session *fsess = sessions->first;
+
+		if (is_kernel_address(&fsess->symtabs, addr))
+			sess = fsess;
+		else
+			return NULL;
+	}
+
+	sym = find_symtabs(&sess->symtabs, addr);
+	if (sym == NULL)
+		sym = session_find_dlsym(sess, time, addr);
+
+	return sym;
+}
+
 #ifdef UNIT_TEST
+
+static struct uftrace_session_link test_sessions;
 
 TEST_CASE(session_search)
 {
 	int i;
 
-	TEST_EQ(first_session, NULL);
+	TEST_EQ(test_sessions.first, NULL);
 
 	for (i = 0; i < 1000; i++) {
 		struct ftrace_msg_sess msg = {
@@ -434,20 +546,20 @@ TEST_CASE(session_search)
 		};
 
 		creat("sid-test.map", 0400);
-		create_session(&msg, ".", "unittest", false);
+		create_session(&test_sessions, &msg, ".", "unittest", false);
 		remove("sid-test.map");
 	}
 
-	TEST_NE(first_session, NULL);
-	TEST_EQ(first_session->pid, 1);
-	TEST_EQ(first_session->start_time, 0);
+	TEST_NE(test_sessions.first, NULL);
+	TEST_EQ(test_sessions.first->pid, 1);
+	TEST_EQ(test_sessions.first->start_time, 0);
 
 	for (i = 0; i < 1000; i++) {
 		int t;
-		struct ftrace_session *s;
+		struct uftrace_session *s;
 
 		t = random() % (1000 * 100);
-		s = find_session(1, t);
+		s = find_session(&test_sessions, 1, t);
 
 		TEST_NE(s, NULL);
 		TEST_EQ(s->pid, 1);
@@ -460,8 +572,8 @@ TEST_CASE(session_search)
 
 TEST_CASE(task_search)
 {
-	struct ftrace_task *task;
-	struct ftrace_session *sess;
+	struct uftrace_task *task;
+	struct uftrace_session *sess;
 
 	/* 1. create initial task */
 	{
@@ -481,18 +593,18 @@ TEST_CASE(task_search)
 		};
 
 		creat("sid-initial.map", 0400);
-		create_session(&smsg, ".", "unittest", false);
-		create_task(&tmsg, false, true);
+		create_session(&test_sessions, &smsg, ".", "unittest", false);
+		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-initial.map");
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
-		TEST_NE(first_session, NULL);
+		TEST_EQ(task->sref.sess, test_sessions.first);
+		TEST_NE(test_sessions.first, NULL);
 
-		sess = find_session(tmsg.pid, tmsg.time);
+		sess = find_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, task->pid);
 		TEST_EQ(sess->tid, task->tid);
@@ -506,15 +618,15 @@ TEST_CASE(task_search)
 			.time = 200,
 		};
 
-		create_task(&tmsg, true, true);
+		create_task(&test_sessions, &tmsg, true, true);
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -528,15 +640,15 @@ TEST_CASE(task_search)
 			.time = 300,
 		};
 
-		create_task(&tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false, true);
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -550,15 +662,15 @@ TEST_CASE(task_search)
 			.time = 400,
 		};
 
-		create_task(&tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false, true);
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		/* it returned a session from parent so pid is not same */
 		TEST_NE(sess->pid, tmsg.pid);
@@ -583,16 +695,16 @@ TEST_CASE(task_search)
 		};
 
 		creat("sid-after_exec.map", 0400);
-		create_session(&smsg, ".", "unittest", false);
-		create_task(&tmsg, false, true);
+		create_session(&test_sessions, &smsg, ".", "unittest", false);
+		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-after_exec.map");
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, task->pid);
 		TEST_EQ(sess->tid, task->tid);
@@ -607,14 +719,14 @@ TEST_CASE(task_search)
 			.time = 600,
 		};
 
-		create_task(&tmsg, true, true);
+		create_task(&test_sessions, &tmsg, true, true);
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->tid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -628,46 +740,137 @@ TEST_CASE(task_search)
 			.time = 700,
 		};
 
-		create_task(&tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false, true);
 
-		task = find_task(tmsg.tid);
+		task = find_task(&test_sessions, tmsg.tid);
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
 		/* it returned a session from parent so pid is not same */
 		TEST_NE(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	sess = find_task_session(1, 100);
+	sess = find_task_session(&test_sessions, 1, 100);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(2, 200);
+	sess = find_task_session(&test_sessions, 2, 200);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(4, 400);
+	sess = find_task_session(&test_sessions, 4, 400);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(4, 500);
+	sess = find_task_session(&test_sessions, 4, 500);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
 
-	sess = find_task_session(5, 600);
+	sess = find_task_session(&test_sessions, 5, 600);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
 
-	sess = find_task_session(6, 700);
+	sess = find_task_session(&test_sessions, 6, 700);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
 
-	sess = find_task_session(6, 100);
+	sess = find_task_session(&test_sessions, 6, 100);
 	TEST_EQ(sess, NULL);
+
+	return TEST_OK;
+}
+
+TEST_CASE(task_symbol)
+{
+	struct sym *sym;
+	struct ftrace_msg_sess msg = {
+		.task = {
+			.pid = 1,
+			.tid = 1,
+			.time = 100,
+		},
+		.sid = "test",
+		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct ftrace_task_handle task = {
+		.tid = 1,
+	};
+	FILE *fp;
+
+	fp = fopen("sid-test.map", "w");
+	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fclose(fp);
+
+	fp = fopen("unittest.sym", "w");
+	fprintf(fp, "00400100 P printf\n");
+	fprintf(fp, "00400200 P __dynsym_end\n");
+	fprintf(fp, "00400300 T _start\n");
+	fprintf(fp, "00400400 T main\n");
+	fprintf(fp, "00400500 T __sym_end\n");
+	fclose(fp);
+
+	create_session(&test_sessions, &msg, ".", "unittest", false);
+	remove("sid-test.map");
+	remove("unittest.sym");
+
+	TEST_NE(test_sessions.first, NULL);
+	TEST_EQ(test_sessions.first->pid, 1);
+
+	sym = task_find_sym_addr(&test_sessions, &task, 100, 0x400410);
+
+	TEST_NE(sym, NULL);
+	TEST_STREQ(sym->name, "main");
+
+	return TEST_OK;
+}
+
+TEST_CASE(task_symbol_dlopen)
+{
+	struct sym *sym;
+	struct ftrace_msg_sess msg = {
+		.task = {
+			.pid = 1,
+			.tid = 1,
+			.time = 100,
+		},
+		.sid = "test",
+		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct ftrace_task_handle task = {
+		.tid = 1,
+	};
+	FILE *fp;
+	struct uftrace_dlopen_list *udl;
+
+	creat("sid-test.map", 0400);
+
+	fp = fopen("libuftrace-test.so.0.sym", "w");
+	fprintf(fp, "0100 P __tls_get_addr\n");
+	fprintf(fp, "0200 P __dynsym_end\n");
+	fprintf(fp, "0300 T _start\n");
+	fprintf(fp, "0400 T foo\n");
+	fprintf(fp, "0500 T __sym_end\n");
+	fclose(fp);
+
+	create_session(&test_sessions, &msg, ".", "unittest", false);
+	remove("sid-test.map");
+
+	TEST_NE(test_sessions.first, NULL);
+	TEST_EQ(test_sessions.first->pid, 1);
+
+	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0");
+	remove("libuftrace-test.so.0.sym");
+
+	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
+
+	sym = session_find_dlsym(test_sessions.first, 250, 0x7003410);
+
+	TEST_NE(sym, NULL);
+	TEST_STREQ(sym->name, "foo");
 
 	return TEST_OK;
 }

@@ -1194,7 +1194,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	 * the given time filter (-t option).
 	 */
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
-		struct ftrace_session *sess = first_session;
+		struct uftrace_session *sess = handle->sessions.first;
 		struct ftrace_task_handle *task;
 		struct ftrace_trigger tr = {};
 		uint64_t real_addr;
@@ -1438,6 +1438,7 @@ retry:
 
 static struct ftrace_kernel test_kernel;
 static struct ftrace_file_handle test_handle;
+static struct uftrace_session test_sess;
 static void kernel_test_finish_file(void);
 static void kernel_test_finish_handle(void);
 
@@ -1626,8 +1627,6 @@ static int kernel_test_setup_file(struct ftrace_kernel *kernel, bool event)
 	kernel->output_dir = "kernel.dir";
 	kernel->nr_cpus    = NUM_CPU;
 
-	kernel_base_addr = 0xffff0000UL;
-
 	if (mkdir(kernel->output_dir, 0755) < 0) {
 		if (errno != EEXIST) {
 			pr_dbg("cannot create temp dir: %m\n");
@@ -1724,7 +1723,8 @@ static int kernel_test_setup_handle(struct ftrace_kernel *kernel,
 		handle->tasks[i].tid = test_tids[i];
 	}
 
-	first_session = xzalloc(sizeof(*first_session));
+	test_sess.symtabs.kernel_base = 0xffff0000UL;
+	handle->sessions.first = &test_sess;
 
 	atexit(kernel_test_finish_handle);
 
@@ -1766,10 +1766,7 @@ static void kernel_test_finish_handle(void)
 	struct ftrace_file_handle *handle = &test_handle;
 
 	free(handle->tasks);
-	free(first_session);
-
 	handle->tasks = NULL;
-	first_session = NULL;
 }
 
 TEST_CASE(kernel_read)

@@ -456,7 +456,7 @@ struct tid_list {
 	int *tid;
 };
 
-static int build_tid_list(struct ftrace_task *t, void *arg)
+static int build_tid_list(struct uftrace_task *t, void *arg)
 {
 	struct tid_list *list = arg;
 
@@ -474,13 +474,17 @@ static int fill_taskinfo(void *arg)
 	struct tid_list tlist = {
 		.nr = 0,
 	};
+	struct uftrace_session_link link = {
+		.root  = RB_ROOT,
+		.tasks = RB_ROOT,
+	};
 	int i;
 
-	if (read_task_txt_file(fha->opts->dirname, false, false) < 0 &&
-	    read_task_file(fha->opts->dirname, false, false) < 0)
+	if (read_task_txt_file(&link, fha->opts->dirname, false, false) < 0 &&
+	    read_task_file(&link, fha->opts->dirname, false, false) < 0)
 		return -1;
 
-	walk_tasks(build_tid_list, &tlist);
+	walk_tasks(&link, build_tid_list, &tlist);
 
 	dprintf(fha->fd, "taskinfo:lines=2\n");
 	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", tlist.nr);
