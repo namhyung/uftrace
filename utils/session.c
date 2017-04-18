@@ -14,7 +14,7 @@
 
 static struct rb_root sessions = RB_ROOT;
 
-struct ftrace_session *first_session;
+struct uftrace_session *first_session;
 
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
@@ -82,13 +82,13 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 		    bool sym_rel_addr)
 {
-	struct ftrace_session *s;
+	struct uftrace_session *s;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &sessions.rb_node;
 
 	while (*p) {
 		parent = *p;
-		s = rb_entry(parent, struct ftrace_session, node);
+		s = rb_entry(parent, struct uftrace_session, node);
 
 		if (s->pid > msg->task.pid)
 			p = &parent->rb_left;
@@ -139,16 +139,16 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
  * The most recent session that has a smaller than the @timestamp will
  * be returned.
  */
-struct ftrace_session *find_session(int pid, uint64_t timestamp)
+struct uftrace_session *find_session(int pid, uint64_t timestamp)
 {
-	struct ftrace_session *iter;
-	struct ftrace_session *s = NULL;
+	struct uftrace_session *iter;
+	struct uftrace_session *s = NULL;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &sessions.rb_node;
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, struct ftrace_session, node);
+		iter = rb_entry(parent, struct uftrace_session, node);
 
 		if (iter->pid > pid)
 			p = &parent->rb_left;
@@ -177,10 +177,10 @@ struct ftrace_session *find_session(int pid, uint64_t timestamp)
 void walk_sessions(walk_sessions_cb_t callback, void *arg)
 {
 	struct rb_node *n = rb_first(&sessions);
-	struct ftrace_session *s;
+	struct uftrace_session *s;
 
 	while (n) {
-		s = rb_entry(n, struct ftrace_session, node);
+		s = rb_entry(n, struct uftrace_session, node);
 
 		if (callback(s, arg) != 0)
 			break;
@@ -189,13 +189,13 @@ void walk_sessions(walk_sessions_cb_t callback, void *arg)
 	}
 }
 
-struct ftrace_session * get_session_from_sid(char sid[])
+struct uftrace_session * get_session_from_sid(char sid[])
 {
 	struct rb_node *n = rb_first(&sessions);
-	struct ftrace_session *s;
+	struct uftrace_session *s;
 
 	while (n) {
-		s = rb_entry(n, struct ftrace_session, node);
+		s = rb_entry(n, struct uftrace_session, node);
 
 		if (!memcmp(s->sid, sid, sizeof(s->sid)) != 0)
 			return s;
@@ -205,7 +205,7 @@ struct ftrace_session * get_session_from_sid(char sid[])
 	return NULL;
 }
 
-void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
+void session_add_dlopen(struct uftrace_session *sess, const char *dirname,
 			uint64_t timestamp, unsigned long base_addr,
 			const char *libname)
 {
@@ -229,7 +229,7 @@ void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
 	list_add_tail(&udl->list, &pos->list);
 }
 
-struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr)
 {
 	struct uftrace_dlopen_list *pos, *udl = NULL;
@@ -249,7 +249,7 @@ struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
 
 static struct rb_root task_tree = RB_ROOT;
 
-static void add_session_ref(struct ftrace_task *task, struct ftrace_session *sess,
+static void add_session_ref(struct ftrace_task *task, struct uftrace_session *sess,
 			    uint64_t timestamp)
 {
 	struct ftrace_sess_ref *ref;
@@ -285,11 +285,11 @@ static void add_session_ref(struct ftrace_task *task, struct ftrace_session *ses
  * be returned.  If it didn't find a session tries to search sesssion
  * list of parent or thread-leader.
  */
-struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
+struct uftrace_session *find_task_session(int pid, uint64_t timestamp)
 {
 	struct ftrace_task *t;
 	struct ftrace_sess_ref *r;
-	struct ftrace_session *s = find_session(pid, timestamp);
+	struct uftrace_session *s = find_session(pid, timestamp);
 
 	if (s)
 		return s;
@@ -322,7 +322,7 @@ struct ftrace_session *find_task_session(int pid, uint64_t timestamp)
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 {
 	struct ftrace_task *t;
-	struct ftrace_session *s;
+	struct uftrace_session *s;
 	struct ftrace_sess_ref *r;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &task_tree.rb_node;
@@ -446,7 +446,7 @@ TEST_CASE(session_search)
 
 	for (i = 0; i < 1000; i++) {
 		int t;
-		struct ftrace_session *s;
+		struct uftrace_session *s;
 
 		t = random() % (1000 * 100);
 		s = find_session(1, t);
@@ -463,7 +463,7 @@ TEST_CASE(session_search)
 TEST_CASE(task_search)
 {
 	struct ftrace_task *task;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 
 	/* 1. create initial task */
 	{

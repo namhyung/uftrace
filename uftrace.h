@@ -221,7 +221,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr);
 
 #define SESSION_ID_LEN  16
 
-struct ftrace_session {
+struct uftrace_session {
 	struct rb_node		 node;
 	char			 sid[SESSION_ID_LEN];
 	uint64_t		 start_time;
@@ -236,7 +236,7 @@ struct ftrace_session {
 
 struct ftrace_sess_ref {
 	struct ftrace_sess_ref	*next;
-	struct ftrace_session	*sess;
+	struct uftrace_session	*sess;
 	uint64_t		 start, end;
 };
 
@@ -306,23 +306,23 @@ struct ftrace_msg_dlopen {
 	char exename[];
 };
 
-extern struct ftrace_session *first_session;
+extern struct uftrace_session *first_session;
 
 void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 		    bool sym_rel_addr);
-struct ftrace_session *find_session(int pid, uint64_t timestamp);
-struct ftrace_session *find_task_session(int pid, uint64_t timestamp);
+struct uftrace_session *find_session(int pid, uint64_t timestamp);
+struct uftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
 struct ftrace_task *find_task(int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
-struct ftrace_session * get_session_from_sid(char sid[]);
-void session_add_dlopen(struct ftrace_session *sess, const char *dirname,
+struct uftrace_session * get_session_from_sid(char sid[]);
+void session_add_dlopen(struct uftrace_session *sess, const char *dirname,
 			uint64_t timestamp, unsigned long base_addr,
 			const char *libname);
-struct sym * session_find_dlsym(struct ftrace_session *sess, uint64_t timestamp,
+struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr);
 
-typedef int (*walk_sessions_cb_t)(struct ftrace_session *session, void *arg);
+typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(walk_sessions_cb_t callback, void *arg);
 typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
 void walk_tasks(walk_tasks_cb_t callback, void *arg);

@@ -107,7 +107,7 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 		       uint64_t time, uint64_t addr, struct opts *opts)
 {
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct sym *sym;
 	struct fstack *fstack;
 	int i;
@@ -592,7 +592,7 @@ static struct sym * find_task_sym(struct ftrace_file_handle *handle,
 {
 	struct sym *sym;
 	struct ftrace_task_handle *main_task = &handle->tasks[0];
-	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
+	struct uftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
 
 	if (task->func)

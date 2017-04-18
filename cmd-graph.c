@@ -34,7 +34,7 @@ struct graph_node {
 struct uftrace_graph {
 	char *func;
 	bool kernel_only;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
 	struct list_head bt_list;
@@ -54,7 +54,7 @@ struct task_graph {
 static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
 
-static int create_graph(struct ftrace_session *sess, void *func)
+static int create_graph(struct uftrace_session *sess, void *func)
 {
 	struct uftrace_graph *graph = xcalloc(1, sizeof(*graph));
 
@@ -86,7 +86,7 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 					uint64_t time, uint64_t addr)
 {
 	struct uftrace_graph *graph;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 
 	sess = find_task_session(task->tid, time);
 	if (sess == NULL) {
@@ -594,7 +594,7 @@ struct find_func_data {
 	bool found;
 };
 
-static int find_func(struct ftrace_session *s, void *arg)
+static int find_func(struct uftrace_session *s, void *arg)
 {
 	struct find_func_data *data = arg;
 	struct symtabs *symtabs = &s->symtabs;

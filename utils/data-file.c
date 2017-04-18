@@ -155,7 +155,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 			create_session(&sess, dirname, exename, sym_rel_addr);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
-			struct ftrace_session *s;
+			struct uftrace_session *s;
 
 			if (!needs_session)
 				continue;

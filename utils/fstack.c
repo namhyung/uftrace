@@ -200,7 +200,7 @@ setup:
 	free(filter_tids);
 }
 
-static int setup_filters(struct ftrace_session *s, void *arg)
+static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	char *filter_str = arg;
 	LIST_HEAD(modules);
@@ -215,7 +215,7 @@ static int setup_filters(struct ftrace_session *s, void *arg)
 	return 0;
 }
 
-static int setup_trigger(struct ftrace_session *s, void *arg)
+static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	char *trigger_str = arg;
 	LIST_HEAD(modules);
@@ -229,7 +229,7 @@ static int setup_trigger(struct ftrace_session *s, void *arg)
 	return 0;
 }
 
-static int count_filters(struct ftrace_session *s, void *arg)
+static int count_filters(struct uftrace_session *s, void *arg)
 {
 	int *count = arg;
 	struct rb_node *node = rb_first(&s->filters);
@@ -286,7 +286,7 @@ static const char *fixup_syms[] = {
 static int setjmp_depth;
 static int setjmp_count;
 
-static int build_fixup_filter(struct ftrace_session *s, void *arg)
+static int build_fixup_filter(struct uftrace_session *s, void *arg)
 {
 	size_t i;
 
@@ -308,7 +308,7 @@ void fstack_prepare_fixup(void)
 	walk_sessions(build_fixup_filter, NULL);
 }
 
-static int build_arg_spec(struct ftrace_session *s, void *arg)
+static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	char *argspec = arg;
 	LIST_HEAD(modules);
@@ -371,7 +371,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 		 struct ftrace_trigger *tr)
 {
 	struct fstack *fstack;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	uint64_t addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
@@ -570,7 +570,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 static int fstack_check_skip(struct ftrace_task_handle *task,
 			     struct uftrace_record *rstack)
 {
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	uint64_t addr = get_real_address(rstack->addr);
 	struct ftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
@@ -920,7 +920,7 @@ int read_task_args(struct ftrace_task_handle *task,
 		   struct uftrace_record *rstack,
 		   bool is_retval)
 {
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct ftrace_trigger tr = {};
 	struct ftrace_filter *fl;
 	struct ftrace_arg_spec *arg;
@@ -1031,7 +1031,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 	 * the given time filter (-t option).
 	 */
 	while (read_task_ustack(handle, task) == 0) {
-		struct ftrace_session *sess;
+		struct uftrace_session *sess;
 		struct ftrace_trigger tr = {};
 		uint64_t time_filter = handle->time_filter;
 

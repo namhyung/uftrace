@@ -294,7 +294,7 @@ static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 static void print_backtrace(struct ftrace_task_handle *task)
 {
 	int i;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct fstack *fstack;
 	struct sym *sym;
 	char *name;
@@ -347,7 +347,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 {
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
-	struct ftrace_session *sess = find_task_session(task->tid, rstack->time);
+	struct uftrace_session *sess = find_task_session(task->tid, rstack->time);
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
 	char *name;
@@ -611,7 +611,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			      struct opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
@@ -884,7 +884,7 @@ static void print_remaining_stack(struct opts *opts,
 		while (task->stack_count-- > 0) {
 			struct fstack *fstack = &task->func_stack[task->stack_count];
 			uint64_t time = fstack->total_time;
-			struct ftrace_session *sess = find_task_session(task->tid, time);
+			struct uftrace_session *sess = find_task_session(task->tid, time);
 			uint64_t ip = fstack->addr;
 			struct symtabs *symtabs;
 			struct sym *sym;

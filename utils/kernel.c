@@ -1194,7 +1194,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	 * the given time filter (-t option).
 	 */
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
-		struct ftrace_session *sess = first_session;
+		struct uftrace_session *sess = first_session;
 		struct ftrace_task_handle *task;
 		struct ftrace_trigger tr = {};
 		uint64_t real_addr;

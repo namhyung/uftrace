@@ -930,7 +930,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		while (!read_task_ustack(handle, task) && !uftrace_done) {
 			struct uftrace_record *frs = &task->ustack;
-			struct ftrace_session *sess = find_task_session(tid, frs->time);
+			struct uftrace_session *sess = find_task_session(tid, frs->time);
 			struct symtabs *symtabs;
 			struct sym *sym = NULL;
 			char *name;
@@ -1034,7 +1034,7 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 			     struct ftrace_task_handle *task)
 {
 	struct uftrace_record *frs = task->rstack;
-	struct ftrace_session *sess;
+	struct uftrace_session *sess;
 	struct sym *sym = NULL;
 	char *name;
 
