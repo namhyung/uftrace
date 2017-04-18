@@ -178,7 +178,7 @@ int read_task_txt_file(char *dirname, bool needs_session, bool sym_rel_addr)
 
 			s = get_session_from_sid(dlop.sid);
 			assert(s);
-			session_add_dlopen(s, dirname, dlop.task.time,
+			session_add_dlopen(s, dlop.task.time,
 					   dlop.base_addr, exename);
 		}
 	}

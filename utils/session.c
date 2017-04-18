@@ -205,9 +205,19 @@ struct uftrace_session * get_session_from_sid(char sid[])
 	return NULL;
 }
 
-void session_add_dlopen(struct uftrace_session *sess, const char *dirname,
-			uint64_t timestamp, unsigned long base_addr,
-			const char *libname)
+/**
+ * session_add_dlopen - add dlopen'ed library to the mapping table
+ * @sess: pointer to a current session
+ * @timestamp: timestamp at the dlopen call
+ * @base_addr: load address of text segment of the library
+ * @libname: name of the librarry
+ *
+ * This functions adds the info of a library which was loaded by dlopen.
+ * Instead of creating a new session, it just adds the library information
+ * to the @sess.
+ */
+void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+			unsigned long base_addr, const char *libname)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 

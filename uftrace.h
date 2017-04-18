@@ -316,9 +316,8 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
 struct uftrace_task *find_task(int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
 struct uftrace_session * get_session_from_sid(char sid[]);
-void session_add_dlopen(struct uftrace_session *sess, const char *dirname,
-			uint64_t timestamp, unsigned long base_addr,
-			const char *libname);
+void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+			unsigned long base_addr, const char *libname);
 struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr);
 
