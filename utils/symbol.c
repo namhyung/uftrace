@@ -732,12 +732,26 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 			 const char *filename)
 {
+	const char *dirname = symtabs->dirname;
+
 	if (symtabs->loaded)
 		return;
 
-	if (!(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
+	/* try .sym files first */
+	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
+		char *symfile = NULL;
+
+		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
+		if (access(symfile, F_OK) == 0)
+			load_symbol_file(symtabs, symfile, offset);
+
+		free(symfile);
+	}
+	if (symtabs->symtab.nr_sym == 0 &&
+	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
 		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-	if (!(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
+	if (symtabs->dsymtab.nr_sym == 0 &&
+	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
 		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
 
 	symtabs->loaded = true;

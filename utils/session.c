@@ -227,8 +227,9 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 	strcpy(udl->name, libname);
 
 	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
-	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_SKIP_DYNAMIC;
+	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_USE_SYMFILE;
 	udl->symtabs.kernel_base = sess->symtabs.kernel_base;
+	udl->symtabs.dirname = sess->symtabs.dirname;
 
 	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
 
