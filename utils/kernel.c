@@ -1438,6 +1438,7 @@ retry:
 
 static struct ftrace_kernel test_kernel;
 static struct ftrace_file_handle test_handle;
+static struct uftrace_session test_sess;
 static void kernel_test_finish_file(void);
 static void kernel_test_finish_handle(void);
 
@@ -1626,8 +1627,6 @@ static int kernel_test_setup_file(struct ftrace_kernel *kernel, bool event)
 	kernel->output_dir = "kernel.dir";
 	kernel->nr_cpus    = NUM_CPU;
 
-	kernel_base_addr = 0xffff0000UL;
-
 	if (mkdir(kernel->output_dir, 0755) < 0) {
 		if (errno != EEXIST) {
 			pr_dbg("cannot create temp dir: %m\n");
@@ -1724,7 +1723,8 @@ static int kernel_test_setup_handle(struct ftrace_kernel *kernel,
 		handle->tasks[i].tid = test_tids[i];
 	}
 
-	handle->sessions.first = xzalloc(sizeof(struct uftrace_session));
+	test_sess.symtabs.kernel_base = 0xffff0000UL;
+	handle->sessions.first = &test_sess;
 
 	atexit(kernel_test_finish_handle);
 
@@ -1766,8 +1766,6 @@ static void kernel_test_finish_handle(void)
 	struct ftrace_file_handle *handle = &test_handle;
 
 	free(handle->tasks);
-	free(handle->sessions.first);
-
 	handle->tasks = NULL;
 }
 

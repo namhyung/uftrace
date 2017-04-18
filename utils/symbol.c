@@ -1298,7 +1298,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	struct ftrace_proc_maps *maps;
 	struct sym *sym;
 
-	if (is_kernel_address(addr)) {
+	if (is_kernel_address(symtabs, addr)) {
 		struct symtab *ktab = get_kernel_symtab();
 		uint64_t kaddr = get_real_address(addr);
 
@@ -1461,6 +1461,7 @@ void set_kernel_base(struct symtabs *symtabs, const char *session_id)
 	FILE *fp;
 	char buf[4096];
 	char line[200];
+	uint64_t kernel_base_addr = -1ULL;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map",
 		 symtabs->dirname, SESSION_ID_LEN, session_id);

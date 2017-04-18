@@ -93,11 +93,15 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	sess = find_task_session(sessions, task->tid, time);
 	if (sess == NULL)
 		sess = find_task_session(sessions, task->t->pid, time);
-	if (sess == NULL && is_kernel_address(addr))
-		sess = sessions->first;
 
-	if (sess == NULL)
+	if (sess == NULL) {
+		struct uftrace_session *fsess = sessions->first;
+
+		if (is_kernel_address(&fsess->symtabs, addr))
+			sess = fsess;
+		else
 			return NULL;
+	}
 
 	graph = graph_list;
 	while (graph) {
@@ -295,7 +299,8 @@ static int add_graph_exit(struct task_graph *tg)
 		return -1;
 
 	if (tg->lost) {
-		if (is_kernel_address(fstack->addr))
+		if (is_kernel_address(&tg->task->h->sessions.first->symtabs,
+				      fstack->addr))
 			return 1;
 
 		/*
@@ -523,7 +528,8 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 					    (1UL << KADDR_SHIFT));
 			tg->lost = true;
 
-			if (tg->enabled && is_kernel_address(tg->node->addr))
+			if (tg->enabled && is_kernel_address(&tg->graph->sess->symtabs,
+							     tg->node->addr))
 				pr_dbg("not returning to user after LOST\n");
 
 			continue;

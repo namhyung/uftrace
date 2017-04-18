@@ -532,6 +532,8 @@ void fstack_exit(struct ftrace_task_handle *task)
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack)
 {
+	struct uftrace_session *sess = task->h->sessions.first;
+
 	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
@@ -549,7 +551,8 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		}
 		else {
 			task->display_depth++;
-			if (!is_kernel_address(fstack->addr)) {
+			if (!is_kernel_address(&sess->symtabs,
+					       fstack->addr)) {
 				task->user_display_depth++;
 			}
 		}
@@ -568,7 +571,8 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		else
 			task->display_depth = 0;
 
-		if (!is_kernel_address(fstack->addr)) {
+		if (!is_kernel_address(&sess->symtabs,
+				       fstack->addr)) {
 			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
@@ -610,8 +614,9 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
 		sess = find_task_session(sessions, task->t->pid, rstack->time);
 
 	if (sess == NULL) {
-		if (is_kernel_address(addr))
-			sess = sessions->first;
+		struct uftrace_session *fsess = sessions->first;
+		if (is_kernel_address(&fsess->symtabs, addr))
+			sess = fsess;
 		else
 			return -1;
 	}
@@ -656,6 +661,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *next = NULL;
 	struct fstack *fstack;
 	struct uftrace_record *curr_stack = task->rstack;
+	struct uftrace_session *fsess = task->h->sessions.first;
 
 	fstack = &task->func_stack[task->stack_count - 1];
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
@@ -674,7 +680,7 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 			break;
 
 		/* skip kernel functions outside user functions */
-		if (is_kernel_address(next_stack->addr)) {
+		if (is_kernel_address(&fsess->symtabs, next_stack->addr)) {
 			if (!next->user_stack_count &&
 			    handle->kern && handle->kern->skip_out)
 				goto next;
@@ -1583,7 +1589,7 @@ static int fstack_test_setup_file(struct ftrace_file_handle *handle, int nr_tid)
 	handle->hdr.max_stack = 16;
 
 	/* it doesn't have kernel functions */
-	kernel_base_addr = -1UL;
+	test_sess.symtabs.kernel_base = -1ULL;
 
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;

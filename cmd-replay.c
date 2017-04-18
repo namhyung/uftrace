@@ -297,23 +297,14 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	int i;
 
 	for (i = 0; i < task->stack_count - 1; i++) {
-		struct uftrace_session *sess;
 		struct replay_field *field;
 		struct fstack *fstack;
 		struct sym *sym;
 		char *name;
 
 		fstack = &task->func_stack[i];
-		sess = find_task_session(sessions, task->tid, fstack->total_time);
-
-		if (sess || is_kernel_address(fstack->addr)) {
-			sym = find_symtabs(&sess->symtabs, fstack->addr);
-			if (sym == NULL && sess)
-				sym = session_find_dlsym(sess, fstack->total_time,
-							 fstack->addr);
-		}
-		else
-			sym = NULL;
+		sym = task_find_sym_addr(sessions, task,
+					 fstack->total_time, fstack->addr);
 
 		pr_out(" ");
 		list_for_each_entry(field, &output_fields, list) {
@@ -799,6 +790,7 @@ static void print_warning(struct ftrace_task_handle *task)
 static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 {
 	uint64_t ip;
+	struct sym *sym;
 
 	if (task->func_stack == NULL)
 		return true;
@@ -808,12 +800,11 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 		return false;
 
 	ip = task->func_stack[0].addr;
-	if (is_kernel_address(ip)) {
-		struct sym *sym = find_symtabs(NULL, ip);
+	sym = find_symtabs(&task->h->sessions.first->symtabs, ip);
 
-		if (sym && !strncmp(sym->name, "sys_exit", 8))
-			return true;
-	}
+	if (sym && !strncmp(sym->name, "sys_exit", 8))
+		return true;
+
 	return false;
 }
 
@@ -870,21 +861,11 @@ static void print_remaining_stack(struct opts *opts,
 		while (task->stack_count-- > 0) {
 			struct fstack *fstack = &task->func_stack[task->stack_count];
 			uint64_t time = fstack->total_time;
-			struct uftrace_session *sess;
 			uint64_t ip = fstack->addr;
-			struct symtabs *symtabs;
 			struct sym *sym;
 			char *symname;
 
-			sess = find_task_session(sessions, task->tid, time);
-			if (sess || is_kernel_address(ip)) {
-				symtabs = &sess->symtabs;
-				sym = find_symtabs(symtabs, ip);
-			} else
-				sym = NULL;
-
-			if (sym == NULL && sess)
-				sym = session_find_dlsym(sess, time, ip);
+			sym = task_find_sym_addr(sessions, task, time, ip);
 			symname = symbol_getname(sym, ip);
 
 			pr_out("[%d] %s\n", task->stack_count - zero_count, symname);

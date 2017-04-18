@@ -113,29 +113,20 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 	struct fstack *fstack;
 	int i;
 
+	sess = sessions->first;
+
 	/* skip user functions if --kernel-only is set */
-	if (opts->kernel_only && !is_kernel_address(addr))
+	if (opts->kernel_only && !is_kernel_address(&sess->symtabs, addr))
 		return false;
 
 	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
 		if (task->user_stack_count == 0 &&
-		    is_kernel_address(addr))
+		    is_kernel_address(&sess->symtabs, addr))
 			return false;
 	}
 
-	sess = find_task_session(sessions, task->tid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, time);
-	if (sess == NULL && is_kernel_address(addr))
-		sess = task->h->sessions.first;
-
-	if (sess == NULL)
-		return false;
-
-	sym = find_symtabs(&sess->symtabs, addr);
-	if (sym == NULL)
-		sym = session_find_dlsym(sess, time, addr);
+	sym = task_find_sym_addr(sessions, task, time, addr);
 
 	fstack = &task->func_stack[task->stack_count];
 
