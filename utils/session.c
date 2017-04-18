@@ -249,30 +249,30 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 
 static struct rb_root task_tree = RB_ROOT;
 
-static void add_session_ref(struct ftrace_task *task, struct uftrace_session *sess,
+static void add_session_ref(struct uftrace_task *task, struct uftrace_session *sess,
 			    uint64_t timestamp)
 {
-	struct ftrace_sess_ref *ref;
+	struct uftrace_sess_ref *sref;
 
 	if (sess == NULL) {
 		pr_dbg("task %d/%d has no session\n", task->tid, task->pid);
 		return;
 	}
 
-	if (task->sess_last) {
-		task->sess_last->next = ref = xmalloc(sizeof(*ref));
-		task->sess_last->end = timestamp;
+	if (task->sref_last) {
+		task->sref_last->next = sref = xmalloc(sizeof(*sref));
+		task->sref_last->end = timestamp;
 	} else
-		ref = &task->sess;
+		sref = &task->sref;
 
-	ref->next = NULL;
-	ref->sess = sess;
-	ref->start = timestamp;
-	ref->end = -1ULL;
+	sref->next = NULL;
+	sref->sess = sess;
+	sref->start = timestamp;
+	sref->end = -1ULL;
 
 	pr_dbg2("task session: tid = %d, session = %.16s\n",
 		task->tid, sess->sid);
-	task->sess_last = ref;
+	task->sref_last = sref;
 }
 
 /**
@@ -287,8 +287,8 @@ static void add_session_ref(struct ftrace_task *task, struct uftrace_session *se
  */
 struct uftrace_session *find_task_session(int pid, uint64_t timestamp)
 {
-	struct ftrace_task *t;
-	struct ftrace_sess_ref *r;
+	struct uftrace_task *t;
+	struct uftrace_sess_ref *r;
 	struct uftrace_session *s = find_session(pid, timestamp);
 
 	if (s)
@@ -299,7 +299,7 @@ struct uftrace_session *find_task_session(int pid, uint64_t timestamp)
 	if (t == NULL)
 		return NULL;
 
-	r = &t->sess;
+	r = &t->sref;
 	while (r) {
 		if (r->start <= timestamp && timestamp < r->end)
 			return r->sess;
@@ -321,15 +321,15 @@ struct uftrace_session *find_task_session(int pid, uint64_t timestamp)
  */
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 {
-	struct ftrace_task *t;
+	struct uftrace_task *t;
 	struct uftrace_session *s;
-	struct ftrace_sess_ref *r;
+	struct uftrace_sess_ref *r;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &task_tree.rb_node;
 
 	while (*p) {
 		parent = *p;
-		t = rb_entry(parent, struct ftrace_task, node);
+		t = rb_entry(parent, struct uftrace_task, node);
 
 		if (t->tid > msg->tid)
 			p = &parent->rb_left;
@@ -352,7 +352,7 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
 	/* msg->pid is a parent pid if forked */
 	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
-	t->sess_last = NULL;
+	t->sref_last = NULL;
 
 	if (needs_session) {
 		s = find_task_session(msg->pid, msg->time);
@@ -371,15 +371,15 @@ void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session)
  * find_task - find a matching task by @tid
  * @tid: task id
  */
-struct ftrace_task *find_task(int tid)
+struct uftrace_task *find_task(int tid)
 {
-	struct ftrace_task *t;
+	struct uftrace_task *t;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &task_tree.rb_node;
 
 	while (*p) {
 		parent = *p;
-		t = rb_entry(parent, struct ftrace_task, node);
+		t = rb_entry(parent, struct uftrace_task, node);
 
 		if (t->tid > tid)
 			p = &parent->rb_left;
@@ -404,10 +404,10 @@ struct ftrace_task *find_task(int tid)
 void walk_tasks(walk_tasks_cb_t callback, void *arg)
 {
 	struct rb_node *n = rb_first(&task_tree);
-	struct ftrace_task *t;
+	struct uftrace_task *t;
 
 	while (n) {
-		t = rb_entry(n, struct ftrace_task, node);
+		t = rb_entry(n, struct uftrace_task, node);
 
 		if (callback(t, arg) != 0)
 			break;
@@ -462,7 +462,7 @@ TEST_CASE(session_search)
 
 TEST_CASE(task_search)
 {
-	struct ftrace_task *task;
+	struct uftrace_task *task;
 	struct uftrace_session *sess;
 
 	/* 1. create initial task */
@@ -491,7 +491,7 @@ TEST_CASE(task_search)
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, first_session);
 		TEST_NE(first_session, NULL);
 
 		sess = find_session(tmsg.pid, tmsg.time);
@@ -514,7 +514,7 @@ TEST_CASE(task_search)
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, first_session);
 
 		sess = find_task_session(tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
@@ -536,7 +536,7 @@ TEST_CASE(task_search)
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, first_session);
 
 		sess = find_task_session(tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);
@@ -558,7 +558,7 @@ TEST_CASE(task_search)
 
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
-		TEST_EQ(task->sess.sess, first_session);
+		TEST_EQ(task->sref.sess, first_session);
 
 		sess = find_task_session(tmsg.pid, tmsg.time);
 		TEST_NE(sess, NULL);

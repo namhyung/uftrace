@@ -1535,7 +1535,7 @@ int peek_rstack(struct ftrace_file_handle *handle,
 #define NUM_RECORD  4
 
 static int test_tids[NUM_TASK] = { 1234, 5678 };
-static struct ftrace_task test_tasks[NUM_TASK];
+static struct uftrace_task test_tasks[NUM_TASK];
 static struct uftrace_record test_record[NUM_TASK][NUM_RECORD] = {
 	{
 		{ 100, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },

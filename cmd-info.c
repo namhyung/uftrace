@@ -456,7 +456,7 @@ struct tid_list {
 	int *tid;
 };
 
-static int build_tid_list(struct ftrace_task *t, void *arg)
+static int build_tid_list(struct uftrace_task *t, void *arg)
 {
 	struct tid_list *list = arg;
 

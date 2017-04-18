@@ -234,8 +234,8 @@ struct uftrace_session {
 	char 			 exename[];
 };
 
-struct ftrace_sess_ref {
-	struct ftrace_sess_ref	*next;
+struct uftrace_sess_ref {
+	struct uftrace_sess_ref	*next;
 	struct uftrace_session	*sess;
 	uint64_t		 start, end;
 };
@@ -248,11 +248,11 @@ struct uftrace_dlopen_list {
 	char			name[];
 };
 
-struct ftrace_task {
+struct uftrace_task {
 	int			 pid, tid;
 	struct rb_node		 node;
-	struct ftrace_sess_ref	 sess;
-	struct ftrace_sess_ref	*sess_last;
+	struct uftrace_sess_ref	 sref;
+	struct uftrace_sess_ref	*sref_last;
 };
 
 #define FTRACE_MSG_MAGIC 0xface
@@ -313,7 +313,7 @@ void create_session(struct ftrace_msg_sess *msg, char *dirname, char *exename,
 struct uftrace_session *find_session(int pid, uint64_t timestamp);
 struct uftrace_session *find_task_session(int pid, uint64_t timestamp);
 void create_task(struct ftrace_msg_task *msg, bool fork, bool needs_session);
-struct ftrace_task *find_task(int tid);
+struct uftrace_task *find_task(int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
 struct uftrace_session * get_session_from_sid(char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, const char *dirname,
@@ -324,7 +324,7 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(walk_sessions_cb_t callback, void *arg);
-typedef int (*walk_tasks_cb_t)(struct ftrace_task *task, void *arg);
+typedef int (*walk_tasks_cb_t)(struct uftrace_task *task, void *arg);
 void walk_tasks(walk_tasks_cb_t callback, void *arg);
 
 int setup_client_socket(struct opts *opts);
