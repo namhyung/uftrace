@@ -203,7 +203,7 @@ void print_time_unit(uint64_t delta_nsec)
 		return;
 	}
 
-	for (idx = 0; idx < ARRAY_SIZE(unit); idx++) {
+	for (idx = 0; idx < ARRAY_SIZE(units); idx++) {
 		delta_small = delta % limit[idx];
 		delta = delta / limit[idx];
 
