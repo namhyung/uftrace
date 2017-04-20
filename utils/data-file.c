@@ -38,6 +38,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 	struct ftrace_msg msg;
 	struct ftrace_msg_task tmsg;
 	struct ftrace_msg_sess smsg;
+	int ret = -1;
 
 	snprintf(buf, sizeof(buf), "%s/task", dirname);
 	fd = open(buf, O_RDONLY);
@@ -47,17 +48,17 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 	pr_dbg("reading task file\n");
 	while (read_all(fd, &msg, sizeof(msg)) == 0) {
 		if (msg.magic != FTRACE_MSG_MAGIC)
-			return -1;
+			goto out;
 
 		switch (msg.type) {
 		case FTRACE_MSG_SESSION:
 			if (read_all(fd, &smsg, sizeof(smsg)) < 0)
-				return -1;
+				goto out;
 			if (read_all(fd, buf, smsg.namelen) < 0)
-				return -1;
+				goto out;
 			if (smsg.namelen % 8 &&
 			    read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
-				return -1;
+				goto out;
 
 			if (needs_session)
 				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
@@ -65,26 +66,28 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 
 		case FTRACE_MSG_TID:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
-				return -1;
+				goto out;
 
 			create_task(sess, &tmsg, false, needs_session);
 			break;
 
 		case FTRACE_MSG_FORK_END:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
-				return -1;
+				goto out;
 
 			create_task(sess, &tmsg, true, needs_session);
 			break;
 
 		default:
 			pr_log("invalid contents in task file\n");
-			return -1;
+			goto out;
 		}
 	}
+	ret = 0;
 
+out:
 	close(fd);
-	return 0;
+	return ret;
 }
 
 /**
