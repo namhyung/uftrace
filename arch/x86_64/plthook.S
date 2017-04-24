@@ -3,40 +3,40 @@ plt_hooker:
 	.cfi_startproc
 	/* PLT code already pushed symbol and module indices */
 	.cfi_adjust_cfa_offset 16
-	sub $48, %rsp
-	.cfi_adjust_cfa_offset 48
-	movq %rdi, 40(%rsp)
-	.cfi_offset rdi, -32
-	movq %rsi, 32(%rsp)
-	.cfi_offset rsi, -40
-	movq %rdx, 24(%rsp)
-	.cfi_offset rdx, -48
-	movq %rcx, 16(%rsp)
-	.cfi_offset rcx, -56
-	movq %r8, 8(%rsp)
-	.cfi_offset r8, -64
-	movq %r9, 0(%rsp)
-	.cfi_offset r9, -72
+	sub $56, %rsp
+	.cfi_adjust_cfa_offset 56
+	movq %rdi, 48(%rsp)
+	.cfi_offset rdi, -24
+	movq %rsi, 40(%rsp)
+	.cfi_offset rsi, -32
+	movq %rdx, 32(%rsp)
+	.cfi_offset rdx, -40
+	movq %rcx, 24(%rsp)
+	.cfi_offset rcx, -48
+	movq %r8, 16(%rsp)
+	.cfi_offset r8, -56
+	movq %r9, 8(%rsp)
+	.cfi_offset r9, -64
 
 	/* child idx */
-	movq 56(%rsp), %rsi
+	movq 64(%rsp), %rsi
 	/* address of parent ip */
-	lea 64(%rsp), %rdi
+	lea 72(%rsp), %rdi
 	/* module id */
-	movq 48(%rsp), %rdx
+	movq 56(%rsp), %rdx
 	/* mcount_args */
-	movq %rsp, %rcx
+	lea 8(%rsp), %rcx
 
 	call plthook_entry
 
-	movq 0(%rsp), %r9
-	movq 8(%rsp), %r8
-	movq 16(%rsp), %rcx
-	movq 24(%rsp), %rdx
-	movq 32(%rsp), %rsi
-	movq 40(%rsp), %rdi
-	add $48, %rsp
-	.cfi_adjust_cfa_offset -48
+	movq 8(%rsp), %r9
+	movq 16(%rsp), %r8
+	movq 24(%rsp), %rcx
+	movq 32(%rsp), %rdx
+	movq 40(%rsp), %rsi
+	movq 48(%rsp), %rdi
+	add $56, %rsp
+	.cfi_adjust_cfa_offset -56
 
 	cmpq $0, %rax
 	cmovz plthook_resolver_addr(%rip), %rax
