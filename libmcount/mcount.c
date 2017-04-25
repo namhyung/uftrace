@@ -678,17 +678,10 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 		return;
 
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp))) {
-		mtdp = mcount_prepare();
-		if (mtdp == NULL)
-			return;
-	}
-	else {
-		if (unlikely(mtdp->recursion_guard))
-			return;
+	if (unlikely(check_thread_data(mtdp) || mtdp->recursion_guard))
+		return;
 
-		mtdp->recursion_guard = true;
-	}
+	mtdp->recursion_guard = true;
 
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
