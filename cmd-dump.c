@@ -221,7 +221,8 @@ static int pr_task_txt(struct opts *opts)
 			}
 			*end++ = '\0';
 
-			sscanf(end, "tid=%d sid=%s", &tid, sid);
+			if (sscanf(end, "pid=%d sid=%s", &tid, sid) != 2)
+				sscanf(end, "tid=%d sid=%s", &tid, sid);
 
 			ptr = strstr(end, "exename=");
 			if (ptr == NULL) {
