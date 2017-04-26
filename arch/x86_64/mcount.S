@@ -56,23 +56,23 @@ mcount:
 .globl mcount_return
 mcount_return:
 	.cfi_startproc
-	sub $24, %rsp
-	.cfi_def_cfa_offset 24
+	sub $32, %rsp
+	.cfi_def_cfa_offset 32
 	movq %rdx, 8(%rsp)
-	.cfi_offset rdx, -16
+	.cfi_offset rdx, -24
 	movq %rax, 0(%rsp)
-	.cfi_offset rax, -24
+	.cfi_offset rax, -32
 
 	/* set the first argument of mcount_exit as pointer to return values */
 	movq %rsp, %rdi
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 16(%rsp)
+	movq %rax, 24(%rsp)
 
 	movq 0(%rsp), %rax
 	movq 8(%rsp), %rdx
-	add $16, %rsp
+	add $24, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
