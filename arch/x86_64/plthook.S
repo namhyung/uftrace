@@ -1,4 +1,5 @@
 .globl plt_hooker
+.type plt_hooker, @function
 plt_hooker:
 	.cfi_startproc
 	/* PLT code already pushed symbol and module indices */
@@ -48,33 +49,32 @@ plt_hooker:
 	jmp *%rax
 	.cfi_endproc
 	
-.type plt_hooker, @function
 .size plt_hooker, .-plt_hooker
 .hidden plthook_resolver_addr
 
 
 .globl plthook_return
+.type plthook_return, @function
 plthook_return:
 	.cfi_startproc
-	sub $24, %rsp
-	.cfi_def_cfa_offset 24
+	sub $32, %rsp
+	.cfi_def_cfa_offset 32
 	movq %rdx, 8(%rsp)
-	.cfi_offset rdx, -16
+	.cfi_offset rdx, -24
 	movq %rax, 0(%rsp)
-	.cfi_offset rax, -24
+	.cfi_offset rax, -32
 
 	/* set the first argument of plthook_exit as pointer to return values */
 	movq %rsp, %rdi
 
 	call plthook_exit
-	movq %rax, 16(%rsp)
+	movq %rax, 24(%rsp)
 
 	movq 0(%rsp), %rax
 	movq 8(%rsp), %rdx
-	add $16, %rsp
+	add $24, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
 
-.type plthook_return, @function
 .size plthook_return, .-plthook_return
