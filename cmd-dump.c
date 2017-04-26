@@ -403,7 +403,10 @@ static void print_raw_header(struct uftrace_dump_ops *ops,
 static void print_raw_task_start(struct uftrace_dump_ops *ops,
 				 struct ftrace_task_handle *task)
 {
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+
 	pr_out("reading %d.dat\n", task->tid);
+	raw->file_offset = 0;
 }
 
 static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
