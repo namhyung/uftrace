@@ -35,6 +35,11 @@ __weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return -1;
 }
 
+__weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi)
+{
+	mdi->arch = NULL;
+}
+
 /* callback for dl_iterate_phdr() */
 static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
@@ -60,6 +65,8 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		}
 		mdi->next = mdinfo;
 		mdinfo = mdi;
+
+		mcount_arch_find_module(mdi);
 
 		return 1;
 	}

@@ -41,6 +41,24 @@ int read_all(int fd, void *buf, size_t size)
 	return 0;
 }
 
+int pread_all(int fd, void *buf, size_t size, off_t off)
+{
+	int ret;
+
+	while (size) {
+		ret = pread(fd, buf, size, off);
+		if (ret < 0 && errno == EINTR)
+			continue;
+		if (ret <= 0)
+			return -1;
+
+		buf  += ret;
+		size -= ret;
+		off  += ret;
+	}
+	return 0;
+}
+
 int fread_all(void *buf, size_t size, FILE *fp)
 {
 	size_t ret;

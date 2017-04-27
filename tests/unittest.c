@@ -223,6 +223,14 @@ void plthook_return(void)
 {
 }
 
+void __xray_entry(void)
+{
+}
+
+void __xray_exit(void)
+{
+}
+
 #undef main
 int main(int argc, char *argv[])
 {
