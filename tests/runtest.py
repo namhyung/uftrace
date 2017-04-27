@@ -40,6 +40,19 @@ class TestBase:
         if self.debug:
             print(msg)
 
+    def build_it(self, build_cmd):
+        try:
+            p = sp.Popen(build_cmd.split(), stderr=sp.PIPE)
+            if p.wait() != 0:
+                self.pr_debug(p.communicate()[1].decode())
+                return TestBase.TEST_BUILD_FAIL
+            return TestBase.TEST_SUCCESS
+        except OSError as e:
+            self.pr_debug(e.strerror)
+            return TestBase.TEST_BUILD_FAIL
+        except:
+            return TestBase.TEST_BUILD_FAIL
+
     def build(self, name, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
             pr_debug("%s: unsupported language: %s" % (name, self.lang))
@@ -58,12 +71,7 @@ class TestBase:
                     (lang['cc'], prog, build_cflags, src, build_ldflags)
 
         self.pr_debug("build command: %s" % build_cmd)
-        try:
-            if sp.call(build_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE) != 0:
-                return TestBase.TEST_BUILD_FAIL
-            return TestBase.TEST_SUCCESS
-        except:
-            return TestBase.TEST_BUILD_FAIL
+        return self.build_it(build_cmd)
 
     def build_libabc(self, cflags='', ldflags=''):
         lang = TestBase.supported_lang['C']
@@ -80,9 +88,7 @@ class TestBase:
                     (lang['cc'], lib_cflags, build_ldflags)
 
         self.pr_debug("build command for library: %s" % build_cmd)
-        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
-            return TestBase.TEST_BUILD_FAIL
-        return 0
+        return self.build_it(build_cmd)
 
     def build_libfoo(self, name, cflags='', ldflags=''):
         prog = 't-' + name
@@ -100,9 +106,7 @@ class TestBase:
                     (lang['cc'], name, lib_cflags, name, lang['ext'], build_ldflags)
 
         self.pr_debug("build command for library: %s" % build_cmd)
-        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
-            return TestBase.TEST_BUILD_FAIL
-        return 0
+        return self.build_it(build_cmd)
 
     def build_libmain(self, exename, srcname, libs, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
@@ -121,9 +125,7 @@ class TestBase:
         build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, srcname, exe_ldflags)
 
         self.pr_debug("build command for executable: %s" % build_cmd)
-        if sp.call(build_cmd.split(), stdout=sp.PIPE) != 0:
-            return TestBase.TEST_BUILD_FAIL
-        return 0
+        return self.build_it(build_cmd)
 
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
