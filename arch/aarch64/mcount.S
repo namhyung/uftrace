@@ -60,18 +60,3 @@ mcount_return:
 .type mcount_return,%function
 .size mcount_return,.-mcount_return
 
-
-.globl plt_hooker
-plt_hooker:
-	nop
-
-.type plt_hooker,%function
-.size plt_hooker,.-plt_hooker
-
-
-.globl plthook_return
-plthook_return:
-	nop
-
-.type plthook_return,%function
-.size plthook_return,.-plthook_return
