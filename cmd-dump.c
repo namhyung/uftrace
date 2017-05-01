@@ -368,11 +368,33 @@ static void pr_retval(struct fstack_arguments *args)
 	}
 }
 
+static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
+{
+	int i;
+	size_t len;
+	bool first = true;
+	const char *feat_str[] = { "PLTHOOK", "TASK_SESSION", "KERNEL",
+				   "ARGUMENT", "RETVAL", "SYM_REL_ADDR",
+				   "MAX_STACK" };
+
+	for (i = 0; i < FEAT_BIT_MAX; i++) {
+		if (!((1U << i) & feature_mask))
+			continue;
+
+		len = snprintf(buf, sz, "%s%s", first ? "" : " | ", feat_str[i]);
+		buf += len;
+		sz  -= len;
+
+		first = false;
+	}
+}
+
 static void print_raw_header(struct uftrace_dump_ops *ops,
 			     struct ftrace_file_handle *handle,
 			     struct opts *opts)
 {
 	int i;
+	char buf[1024];
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	pr_out("uftrace file header: magic         = ");
@@ -385,7 +407,9 @@ static void print_raw_header(struct uftrace_dump_ops *ops,
 	       handle->hdr.endian, handle->hdr.endian == 1 ? "little" : "big");
 	pr_out("uftrace file header: class         = %u (%s bit)\n",
 	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
-	pr_out("uftrace file header: features      = %#"PRIx64"\n", handle->hdr.feat_mask);
+	get_feature_string(buf, sizeof(buf), handle->hdr.feat_mask);
+	pr_out("uftrace file header: features      = %#"PRIx64" (%s)\n",
+	       handle->hdr.feat_mask, buf);
 	pr_out("uftrace file header: info          = %#"PRIx64"\n", handle->hdr.info_mask);
 	pr_hex(&raw->file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");

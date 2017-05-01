@@ -49,6 +49,8 @@ enum uftrace_feat_bits {
 	SYM_REL_ADDR_BIT,
 	MAX_STACK_BIT,
 
+	FEAT_BIT_MAX,
+
 	/* bit mask */
 	PLTHOOK			= (1U << PLTHOOK_BIT),
 	TASK_SESSION		= (1U << TASK_SESSION_BIT),
