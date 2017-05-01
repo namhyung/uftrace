@@ -58,4 +58,8 @@ reading 5188.dat
         return ret
 
     def fixup(self, cflags, result):
-        return result.replace("2 (64 bit)", "1 (32 bit)")
+        import platform
+
+        if platform.architecture()[0] == '32bit':
+            result = result.replace("2 (64 bit)", "1 (32 bit)")
+        return result
