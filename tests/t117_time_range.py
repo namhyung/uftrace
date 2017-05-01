@@ -27,7 +27,7 @@ class TestCase(TestBase):
         # find timestamp of function 'c'
         replay_cmd = '%s replay -d %s -f time -F main' % (TestBase.ftrace, TDIR)
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        r = p.communicate()[0].decode()
+        r = p.communicate()[0].decode(errors='ignore')
         START = r.split('\n')[4].split()[0] # skip header, main, a and b (= 4)
         p.wait()
 

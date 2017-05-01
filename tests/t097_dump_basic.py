@@ -51,6 +51,6 @@ reading 5231.dat
         if platform.architecture()[0] == '32bit':
             result = result.replace("2 (64 bit)", "1 (32 bit)")
         p = sp.Popen(['file', 't-' + self.name], stdout=sp.PIPE)
-        if 'BuildID' not in p.communicate()[0].decode():
+        if 'BuildID' not in p.communicate()[0].decode(errors='ignore'):
             result = result.replace("0x3ff", "0x3fd")
         return result
