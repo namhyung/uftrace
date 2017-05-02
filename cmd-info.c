@@ -536,8 +536,10 @@ static int read_taskinfo(void *arg)
 				int tid = strtol(tids_str, &endp, 10);
 				tids[nr_tid++] = tid;
 
-				if (*endp != ',' && *endp != '\n')
+				if (*endp != ',' && *endp != '\n') {
+					free(tids);
 					return -1;
+				}
 
 				tids_str = endp + 1;
 			}
