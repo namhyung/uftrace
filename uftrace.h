@@ -201,7 +201,7 @@ struct opts {
 	bool flame_graph;
 	bool libmcount_single;
 	bool kernel;
-	bool kernel_skip_out;
+	bool kernel_skip_out;  /* also affects VDSO filter */
 	bool kernel_only;
 	struct uftrace_time_range range;
 };
