@@ -500,6 +500,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 		if (frs->type == UFTRACE_LOST) {
 			struct task_graph *tg;
+			struct uftrace_session *fsess;
 
 			if (opts->kernel_skip_out && !task->user_stack_count)
 				continue;
@@ -524,11 +525,12 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 			}
 
 			/* force to find a session for kernel function */
+			fsess = task->h->sessions.first;
 			tg = get_task_graph(task, prev_time,
-					    (1UL << KADDR_SHIFT));
+					    fsess->symtabs.kernel_base + 1);
 			tg->lost = true;
 
-			if (tg->enabled && is_kernel_address(&tg->graph->sess->symtabs,
+			if (tg->enabled && is_kernel_address(&fsess->symtabs,
 							     tg->node->addr))
 				pr_dbg("not returning to user after LOST\n");
 
