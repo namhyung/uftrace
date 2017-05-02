@@ -304,6 +304,7 @@ static uint64_t parse_min(uint64_t min, uint64_t decimal, int decimal_places)
 			break;
 		case 2:
 			decimal *= 10;
+			/* fall through */
 		case 3:
 			decimal *= 10;
 			nsec += decimal * NSEC_PER_MSEC;
