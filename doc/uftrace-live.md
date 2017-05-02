@@ -369,14 +369,15 @@ For example, you can build the target program by clang with the below option and
     $ uftrace -P . abc-xray
     # DURATION    TID     FUNCTION
                 [11098] | main() {
-		[11098] |   a() {
-		[11098] |     b() {
-		[11098] |       c() {
+                [11098] |   a() {
+                [11098] |     b() {
+                [11098] |       c() {
        0.753 us [11098] |         getpid();
        1.430 us [11098] |       } /* c */
        1.915 us [11098] |     } /* b */
        2.405 us [11098] |   } /* a */
        3.005 us [11098] | } /* main */
+
 
 SEE ALSO
 ========
