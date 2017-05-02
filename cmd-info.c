@@ -333,6 +333,7 @@ static int fill_meminfo(void *arg)
 		else
 			break;
 	}
+	fclose(fp);
 
 	mem_total_small = (mem_total % 1024) / 103; /* 103 ~= 1024 / 10 */
 	mem_free_small = (mem_free % 1024) / 103;
