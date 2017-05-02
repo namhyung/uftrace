@@ -660,6 +660,9 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 			copy_to_buffer(shmem_buf, sess_id);
 		}
 	}
+	else {
+		munmap(shmem_buf, bufsize);
+	}
 
 	return 0;
 }
