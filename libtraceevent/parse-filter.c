@@ -1624,9 +1624,11 @@ int pevent_filter_clear_trivial(struct event_filter *filter,
 		case FILTER_TRIVIAL_FALSE:
 			if (filter_type->filter->boolean.value)
 				continue;
+			break;
 		case FILTER_TRIVIAL_TRUE:
 			if (!filter_type->filter->boolean.value)
 				continue;
+			break;
 		default:
 			break;
 		}
