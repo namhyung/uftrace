@@ -660,6 +660,9 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 			copy_to_buffer(shmem_buf, sess_id);
 		}
 	}
+	else {
+		munmap(shmem_buf, bufsize);
+	}
 
 	return 0;
 }
@@ -1002,6 +1005,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		pr_dbg2("MSG SESSION: %d: %s (%s)\n", sess.task.tid, exename, buf);
 
 		write_session_info(dirname, &sess, exename);
+		free(exename);
 		break;
 
 	case FTRACE_MSG_LOST:
@@ -1033,6 +1037,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		list_add_tail(&dlib->list, &dlopen_libs);
 
 		write_dlopen_info(dirname, &dmsg, exename);
+		/* exename will be freed with the dlib */
 		break;
 
 	default:
@@ -1544,7 +1549,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
 	writers = xmalloc(opts->nr_thread * sizeof(*writers));
 
-//	thread_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	if (pipe(thread_ctl) < 0)
 		pr_err("cannot create an eventfd for writer thread");
 
@@ -1671,6 +1675,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	for (i = 0; i < opts->nr_thread; i++)
 		pthread_join(writers[i], NULL);
+	free(writers);
 	close(thread_ctl[0]);
 
 	flush_shmem_list(opts->dirname, opts->bufsize);

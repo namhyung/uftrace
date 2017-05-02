@@ -333,6 +333,7 @@ static int fill_meminfo(void *arg)
 		else
 			break;
 	}
+	fclose(fp);
 
 	mem_total_small = (mem_total % 1024) / 103; /* 103 ~= 1024 / 10 */
 	mem_free_small = (mem_free % 1024) / 103;
@@ -535,8 +536,10 @@ static int read_taskinfo(void *arg)
 				int tid = strtol(tids_str, &endp, 10);
 				tids[nr_tid++] = tid;
 
-				if (*endp != ',' && *endp != '\n')
+				if (*endp != ',' && *endp != '\n') {
+					free(tids);
 					return -1;
+				}
 
 				tids_str = endp + 1;
 			}
