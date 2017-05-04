@@ -403,9 +403,11 @@ static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
 	if (!opts->host)
-		return write_buffer_file(opts->dirname, buf);
+		write_buffer_file(opts->dirname, buf);
+	else
+		send_trace_data(sock, buf->tid, shmbuf->data, shmbuf->size);
 
-	send_trace_data(sock, buf->tid, shmbuf->data, shmbuf->size);
+	shmbuf->size = 0;
 }
 
 struct writer_arg {

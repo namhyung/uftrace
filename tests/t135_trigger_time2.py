@@ -33,7 +33,7 @@ class TestCase(TestBase):
         # find timestamp of function 'malloc'
         replay_cmd = '%s replay -d %s -F malloc' % (TestBase.ftrace, TDIR)
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        r = p.communicate()[0].decode()
+        r = p.communicate()[0].decode(errors='ignore')
         TIME, UNIT = r.split('\n')[1].split()[0:2] # skip header
         TIME = float(TIME) + 0.001 # for time filtering
         p.wait()

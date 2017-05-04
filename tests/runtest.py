@@ -44,7 +44,7 @@ class TestBase:
         try:
             p = sp.Popen(build_cmd.split(), stderr=sp.PIPE)
             if p.wait() != 0:
-                self.pr_debug(p.communicate()[1].decode())
+                self.pr_debug(p.communicate()[1].decode(errors='ignore'))
                 return TestBase.TEST_BUILD_FAIL
             return TestBase.TEST_SUCCESS
         except OSError as e:
@@ -317,7 +317,7 @@ class TestBase:
 
         result_expect = self.sort(self.result)
         signal.alarm(5)
-        result_origin = p.communicate()[0].decode()
+        result_origin = p.communicate()[0].decode(errors='ignore')
         result_tested = self.sort(result_origin)  # for python3
         signal.alarm(0)
 
@@ -353,7 +353,7 @@ class TestBase:
                 f.close()
                 p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 print("%s: diff result of %s" % (name, cflags))
-                print(p.communicate()[0].decode())
+                print(p.communicate()[0].decode(errors='ignore'))
                 os.remove('expect')
                 os.remove('result')
             return TestBase.TEST_DIFF_RESULT

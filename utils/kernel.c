@@ -385,6 +385,20 @@ int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts)
 	build_kernel_filter(kernel, opts->patch,
 			    &kernel->patches, &kernel->nopatch);
 
+	if (opts->kernel_skip_out) {
+		/*
+		 * Some (old) kernel and architecture doesn't support VDSO
+		 * so there will be many sys_clock_gettime() in the output
+		 * due to internal call in libmcount.  It'd be better
+		 * ignoring them not to confuse users.  I think it does NOT
+		 * affect to the output when VDSO is enabled.
+		 *
+		 * If an user wants to see them, give --kernel-full option.
+		 */
+		build_kernel_filter(kernel, "!sys_clock_gettime@kernel",
+				    &kernel->filters, &kernel->notrace);
+	}
+
 	if (__setup_kernel_tracing(kernel) < 0)
 		return -1;
 

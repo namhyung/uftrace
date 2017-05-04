@@ -604,7 +604,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		}
 		break;
 
-	case OPT_kernel_skip_out:
+	case OPT_kernel_skip_out:  /* deprecated */
 		opts->kernel = true;
 		opts->kernel_skip_out = true;
 		break;
@@ -612,6 +612,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	case OPT_kernel_full:
 		opts->kernel = true;
 		opts->kernel_skip_out = false;
+		/* see setup_kernel_tracing() also */
 		break;
 
 	case OPT_kernel_only:
