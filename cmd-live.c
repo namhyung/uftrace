@@ -65,6 +65,17 @@ static void sigsegv_handler(int sig)
 	raise(sig);
 }
 
+static bool can_skip_replay(struct opts *opts, int record_result)
+{
+	if (opts->nop)
+		return true;
+
+	if (opts->event && !strcmp(opts->event, "list"))
+		return true;
+
+	return false;
+}
+
 int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/uftrace-live-XXXXXX";
@@ -90,7 +101,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	opts->dirname = template;
 
 	ret = command_record(argc, argv, opts);
-	if (!opts->nop) {
+	if (!can_skip_replay(opts, ret)) {
 		int ret2;
 
 		reset_live_opts(opts);

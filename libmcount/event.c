@@ -119,6 +119,12 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		event  = vendor + strlen(vendor) + 1;
 		args   = event + strlen(event) + 1;
 
+		if (list_empty(spec_list)) {
+			/* just listing available events */
+			pr_out("[SDT event] %s:%s %s\n", vendor, event, args);
+			continue;
+		}
+
 		list_for_each_entry(spec, spec_list, list) {
 			if (fnmatch(spec->provider, vendor, 0) != 0)
 				continue;
@@ -181,7 +187,10 @@ int mcount_setup_events(char *dirname, char *event_str)
 			list_add_tail(&es->list, &specs);
 		}
 		else {
-			pr_dbg("ignore invalid event spec: %s\n", spec);
+			if (!strcmp(spec, "list") && list_empty(&specs))
+				break;
+			else
+				pr_dbg("ignore invalid event spec: %s\n", spec);
 		}
 
 		spec = strtok_r(NULL, ";", &pos);
@@ -195,8 +204,13 @@ int mcount_setup_events(char *dirname, char *event_str)
 	}
 	free(str);
 
-	if (list_empty(&events))
+	if (list_empty(&events)) {
+		if (!strcmp(event_str, "list"))
+			exit(0);
+
+		pr_dbg("cannot find any event for %s\n", event_str);
 		goto out;
+	}
 
 	xasprintf(&filename, "%s/events.txt", dirname);
 
