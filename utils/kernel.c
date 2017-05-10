@@ -1195,7 +1195,7 @@ int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu)
 
 static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 {
-	struct ftrace_kernel *kernel = handle->kern;
+	struct ftrace_kernel *kernel = &handle->kernel;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
 	struct uftrace_record *curr;
 	int tid, prev_tid = -1;
@@ -1395,7 +1395,7 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	int first_cpu = -1;
 	int first_tid = -1;
 	uint64_t first_timestamp = 0;
-	struct ftrace_kernel *kernel = handle->kern;
+	struct ftrace_kernel *kernel = &handle->kernel;
 	struct uftrace_record *first_rstack;
 
 retry:
@@ -1450,7 +1450,6 @@ retry:
 #define FUNCGRAPH_EXIT   10
 #define TEST_EXAMPLE     100
 
-static struct ftrace_kernel test_kernel;
 static struct ftrace_file_handle test_handle;
 static struct uftrace_session test_sess;
 static void kernel_test_finish_file(void);
@@ -1725,8 +1724,6 @@ static int kernel_test_setup_handle(struct ftrace_kernel *kernel,
 {
 	int i;
 
-	handle->kern = kernel;
-
 	handle->nr_tasks = NUM_TASK;
 	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
 
@@ -1749,7 +1746,7 @@ static void kernel_test_finish_file(void)
 {
 	int cpu;
 	char *filename;
-	struct ftrace_kernel *kernel = &test_kernel;
+	struct ftrace_kernel *kernel = &test_handle.kernel;
 
 	if (kernel->output_dir == NULL)
 		return;
@@ -1787,8 +1784,8 @@ TEST_CASE(kernel_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct ftrace_kernel *kernel = &test_kernel;
 	struct ftrace_file_handle *handle = &test_handle;
+	struct ftrace_kernel *kernel = &handle->kernel;
 	struct ftrace_task_handle *task;
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
@@ -1821,7 +1818,7 @@ TEST_CASE(kernel_cpu_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct ftrace_kernel *kernel = &test_kernel;
+	struct ftrace_kernel *kernel = &test_handle.kernel;
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
 
@@ -1849,7 +1846,7 @@ TEST_CASE(kernel_event_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct ftrace_kernel *kernel = &test_kernel;
+	struct ftrace_kernel *kernel = &test_handle.kernel;
 
 	TEST_EQ(kernel_test_setup_file(kernel, true), 0);
 

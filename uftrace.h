@@ -111,7 +111,10 @@ enum {
 	UFTRACE_EXIT_UNKNOWN,
 };
 
-struct ftrace_kernel;
+struct kbuffer;
+struct pevent;
+struct uftrace_record;
+struct uftrace_rstack_list;
 struct uftrace_session;
 
 struct uftrace_session_link {
@@ -120,13 +123,39 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
+struct ftrace_kernel {
+	int pid;
+	int nr_cpus;
+	int depth;
+	bool skip_out;
+	unsigned long bufsize;
+	int *traces;
+	int *fds;
+	int64_t *offsets;
+	int64_t *sizes;
+	void **mmaps;
+	struct kbuffer **kbufs;
+	struct pevent *pevent;
+	struct uftrace_record *rstacks;
+	struct uftrace_rstack_list *rstack_list;
+	bool *rstack_valid;
+	bool *rstack_done;
+	int *missed_events;
+	int *tids;
+	char *output_dir;
+	struct list_head filters;
+	struct list_head notrace;
+	struct list_head patches;
+	struct list_head nopatch;
+};
+
 struct ftrace_file_handle {
 	FILE *fp;
 	int sock;
 	const char *dirname;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
-	struct ftrace_kernel *kern;
+	struct ftrace_kernel kernel;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
@@ -430,35 +459,6 @@ void reset_rstack_list(struct uftrace_rstack_list *list);
 
 enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
-};
-
-struct kbuffer;
-struct pevent;
-
-struct ftrace_kernel {
-	int pid;
-	int nr_cpus;
-	int depth;
-	bool skip_out;
-	unsigned long bufsize;
-	int *traces;
-	int *fds;
-	int64_t *offsets;
-	int64_t *sizes;
-	void **mmaps;
-	struct kbuffer **kbufs;
-	struct pevent *pevent;
-	struct uftrace_record *rstacks;
-	struct uftrace_rstack_list *rstack_list;
-	bool *rstack_valid;
-	bool *rstack_done;
-	int *missed_events;
-	int *tids;
-	char *output_dir;
-	struct list_head filters;
-	struct list_head notrace;
-	struct list_head patches;
-	struct list_head nopatch;
 };
 
 /* these functions will be used at record time */

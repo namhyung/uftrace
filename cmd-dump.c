@@ -980,13 +980,13 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (handle->kern == NULL || uftrace_done)
+	if (handle->kernel.pevent == NULL || uftrace_done)
 		goto footer;
 
-	ops->kernel_start(ops, handle->kern);
+	ops->kernel_start(ops, &handle->kernel);
 
-	for (i = 0; i < handle->kern->nr_cpus; i++) {
-		struct ftrace_kernel *kernel = handle->kern;
+	for (i = 0; i < handle->kernel.nr_cpus; i++) {
+		struct ftrace_kernel *kernel = &handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
 
 		ops->cpu_start(ops, kernel, i);
@@ -1133,20 +1133,10 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
-	struct ftrace_kernel kern;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		pr_err("cannot open data: %s", opts->dirname);
-
-	if (handle.hdr.feat_mask & KERNEL) {
-		kern.output_dir = opts->dirname;
-		kern.skip_out = opts->kernel_skip_out;
-		if (setup_kernel_data(&kern) == 0) {
-			handle.kern = &kern;
-			load_kernel_symbol(opts->dirname);
-		}
-	}
 
 	fstack_setup_filters(opts, &handle);
 
@@ -1206,9 +1196,6 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 
 		do_dump_file(&dump.ops, opts, &handle);
 	}
-
-	if (handle.kern)
-		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 
