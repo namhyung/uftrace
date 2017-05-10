@@ -350,7 +350,6 @@ retry:
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
-	handle->kern = NULL;
 	handle->nr_tasks = 0;
 	handle->tasks = NULL;
 	handle->time_filter = opts->threshold;
@@ -358,6 +357,7 @@ retry:
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
 	handle->sessions.first = NULL;
+	handle->kernel.pevent = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -405,6 +405,14 @@ retry:
 	if (!(handle->hdr.feat_mask & MAX_STACK))
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;
 
+	if (handle->hdr.feat_mask & KERNEL) {
+		handle->kernel.output_dir = opts->dirname;
+		handle->kernel.skip_out = opts->kernel_skip_out;
+
+		if (setup_kernel_data(&handle->kernel) == 0)
+			load_kernel_symbol(opts->dirname);
+	}
+
 	ret = 0;
 
 out:
@@ -415,6 +423,9 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
+
+	if (has_kernel_data(&handle->kernel))
+		finish_kernel_data(&handle->kernel);
 
 	clear_ftrace_info(&handle->info);
 	reset_task_handle(handle);

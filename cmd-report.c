@@ -1028,7 +1028,6 @@ int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
-	struct ftrace_kernel kern;
 
 	if (opts->avg_total && opts->avg_self) {
 		pr_out("--avg-total and --avg-self options should not be used together.\n");
@@ -1041,15 +1040,6 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
-
-	if (handle.hdr.feat_mask & KERNEL) {
-		kern.output_dir = opts->dirname;
-		kern.skip_out = opts->kernel_skip_out;
-		if (setup_kernel_data(&kern) == 0) {
-			handle.kern = &kern;
-			load_kernel_symbol(opts->dirname);
-		}
-	}
 
 	fstack_setup_filters(opts, &handle);
 
@@ -1074,9 +1064,6 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		report_diff(&handle, opts);
 	else
 		report_functions(&handle, opts);
-
-	if (handle.kern)
-		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 

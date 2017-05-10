@@ -328,7 +328,7 @@ static void print_event(struct ftrace_task_handle *task,
 {
 	struct event_format *event;
 
-	event = pevent_find_event(task->h->kern->pevent, urec->addr);
+	event = pevent_find_event(task->h->kernel.pevent, urec->addr);
 	pr_out("[%s:%s] %.*s", event->system, event->name,
 	       task->args.len, task->args.data);
 }
@@ -796,7 +796,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 		return true;
 
 	/* skip 'sys_exit[_group] at last for kernel tracing */
-	if (!opts->kernel || task->user_stack_count != 0)
+	if (!has_kernel_data(&task->h->kernel) || task->user_stack_count != 0)
 		return false;
 
 	ip = task->func_stack[0].addr;
@@ -885,7 +885,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	uint64_t prev_time = 0;
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle *task;
-	struct ftrace_kernel kern;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
@@ -893,15 +892,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		return -1;
-
-	if (handle.hdr.feat_mask & KERNEL) {
-		kern.output_dir = opts->dirname;
-		kern.skip_out = opts->kernel_skip_out;
-		if (setup_kernel_data(&kern) == 0) {
-			handle.kern = &kern;
-			load_kernel_symbol(opts->dirname);
-		}
-	}
 
 	fstack_setup_filters(opts, &handle);
 	setup_field(opts);
@@ -938,9 +928,6 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	print_remaining_stack(opts, &handle);
-
-	if (handle.kern)
-		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 

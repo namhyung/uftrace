@@ -111,7 +111,10 @@ enum {
 	UFTRACE_EXIT_UNKNOWN,
 };
 
-struct ftrace_kernel;
+struct kbuffer;
+struct pevent;
+struct uftrace_record;
+struct uftrace_rstack_list;
 struct uftrace_session;
 
 struct uftrace_session_link {
@@ -120,13 +123,39 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
+struct uftrace_kernel {
+	int pid;
+	int nr_cpus;
+	int depth;
+	bool skip_out;
+	unsigned long bufsize;
+	int *traces;
+	int *fds;
+	int64_t *offsets;
+	int64_t *sizes;
+	void **mmaps;
+	struct kbuffer **kbufs;
+	struct pevent *pevent;
+	struct uftrace_record *rstacks;
+	struct uftrace_rstack_list *rstack_list;
+	bool *rstack_valid;
+	bool *rstack_done;
+	int *missed_events;
+	int *tids;
+	char *output_dir;
+	struct list_head filters;
+	struct list_head notrace;
+	struct list_head patches;
+	struct list_head nopatch;
+};
+
 struct ftrace_file_handle {
 	FILE *fp;
 	int sock;
 	const char *dirname;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
-	struct ftrace_kernel *kern;
+	struct uftrace_kernel kernel;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
@@ -432,50 +461,26 @@ enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
-struct kbuffer;
-struct pevent;
-
-struct ftrace_kernel {
-	int pid;
-	int nr_cpus;
-	int depth;
-	bool skip_out;
-	unsigned long bufsize;
-	int *traces;
-	int *fds;
-	int64_t *offsets;
-	int64_t *sizes;
-	void **mmaps;
-	struct kbuffer **kbufs;
-	struct pevent *pevent;
-	struct uftrace_record *rstacks;
-	struct uftrace_rstack_list *rstack_list;
-	bool *rstack_valid;
-	bool *rstack_done;
-	int *missed_events;
-	int *tids;
-	char *output_dir;
-	struct list_head filters;
-	struct list_head notrace;
-	struct list_head patches;
-	struct list_head nopatch;
-};
-
 /* these functions will be used at record time */
-int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts);
-int start_kernel_tracing(struct ftrace_kernel *kernel);
-int record_kernel_tracing(struct ftrace_kernel *kernel);
-int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu);
-int stop_kernel_tracing(struct ftrace_kernel *kernel);
-int finish_kernel_tracing(struct ftrace_kernel *kernel);
+int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts);
+int start_kernel_tracing(struct uftrace_kernel *kernel);
+int record_kernel_tracing(struct uftrace_kernel *kernel);
+int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu);
+int stop_kernel_tracing(struct uftrace_kernel *kernel);
+int finish_kernel_tracing(struct uftrace_kernel *kernel);
 
 /* these functions will be used at replay time */
-int setup_kernel_data(struct ftrace_kernel *kernel);
+int setup_kernel_data(struct uftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_file_handle *handle,
 		      struct ftrace_task_handle **taskp);
-int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);
-void * read_kernel_event(struct ftrace_kernel *kernel, int cpu, int *psize);
-int finish_kernel_data(struct ftrace_kernel *kernel);
+int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu);
+void * read_kernel_event(struct uftrace_kernel *kernel, int cpu, int *psize);
+int finish_kernel_data(struct uftrace_kernel *kernel);
+
+static inline bool has_kernel_data(struct uftrace_kernel *kernel)
+{
+	return kernel->pevent != NULL;
+}
 
 bool check_kernel_pid_filter(void);
 

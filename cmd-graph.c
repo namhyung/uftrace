@@ -640,7 +640,6 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
-	struct ftrace_kernel kern;
 	char *func;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
@@ -655,15 +654,6 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	if (ret < 0)
 		return -1;
 
-	if (handle.hdr.feat_mask & KERNEL) {
-		kern.output_dir = opts->dirname;
-		kern.skip_out = opts->kernel_skip_out;
-		if (setup_kernel_data(&kern) == 0) {
-			handle.kern = &kern;
-			load_kernel_symbol(opts->dirname);
-		}
-	}
-
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		/*
 		 * Applying depth filter before the function might
@@ -676,9 +666,6 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	fstack_setup_filters(opts, &handle);
 
 	ret = build_graph(opts, &handle, func);
-
-	if (handle.kern)
-		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 

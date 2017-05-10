@@ -31,17 +31,17 @@ struct uftrace_dump_ops {
 			    struct ftrace_task_handle *task, char *name);
 	/* this is called when kernel data starts */
 	void (*kernel_start)(struct uftrace_dump_ops *ops,
-			     struct ftrace_kernel *kernel);
+			     struct uftrace_kernel *kernel);
 	/* this is called when a cpu data start */
 	void (*cpu_start)(struct uftrace_dump_ops *ops,
-			  struct ftrace_kernel *kernel, int cpu);
+			  struct uftrace_kernel *kernel, int cpu);
 	/* this is called for each kernel-level function entry/exit */
 	void (*kernel_func)(struct uftrace_dump_ops *ops,
-			    struct ftrace_kernel *kernel, int cpu,
+			    struct uftrace_kernel *kernel, int cpu,
 			    struct uftrace_record *frs, char *name);
 	/* this is called for each kernel event (tracepoint) */
 	void (*kernel_event)(struct uftrace_dump_ops *ops,
-			     struct ftrace_kernel *kernel, int cpu,
+			     struct uftrace_kernel *kernel, int cpu,
 			     struct uftrace_record *frs);
 	/* thius is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
@@ -477,13 +477,13 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 }
 
 static void print_raw_kernel_start(struct uftrace_dump_ops *ops,
-				   struct ftrace_kernel *kernel)
+				   struct uftrace_kernel *kernel)
 {
 	pr_out("\n");
 }
 
 static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
-				struct ftrace_kernel *kernel, int cpu)
+				struct uftrace_kernel *kernel, int cpu)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
@@ -495,7 +495,7 @@ static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
 }
 
 static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
-				    struct ftrace_kernel *kernel, int cpu,
+				    struct uftrace_kernel *kernel, int cpu,
 				    struct uftrace_record *frs, char *name)
 {
 	int tid = kernel->tids[cpu];
@@ -525,7 +525,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 
 static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
-				   struct ftrace_kernel *kernel, int cpu,
+				   struct uftrace_kernel *kernel, int cpu,
 				   struct uftrace_record *frs)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -636,23 +636,23 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 }
 
 static void print_chrome_kernel_start(struct uftrace_dump_ops *ops,
-				      struct ftrace_kernel *kernel)
+				      struct uftrace_kernel *kernel)
 {
 }
 
 static void print_chrome_cpu_start(struct uftrace_dump_ops *ops,
-				   struct ftrace_kernel *kernel, int cpu)
+				   struct uftrace_kernel *kernel, int cpu)
 {
 }
 
 static void print_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
-				       struct ftrace_kernel *kernel, int cpu,
+				       struct uftrace_kernel *kernel, int cpu,
 				       struct uftrace_record *frs, char *name)
 {
 }
 
 static void print_chrome_kernel_event(struct uftrace_dump_ops *ops,
-				      struct ftrace_kernel *kernel, int cpu,
+				      struct uftrace_kernel *kernel, int cpu,
 				      struct uftrace_record *frs)
 {
 }
@@ -900,23 +900,23 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 }
 
 static void print_flame_kernel_start(struct uftrace_dump_ops *ops,
-				     struct ftrace_kernel *kernel)
+				     struct uftrace_kernel *kernel)
 {
 }
 
 static void print_flame_cpu_start(struct uftrace_dump_ops *ops,
-				  struct ftrace_kernel *kernel, int cpu)
+				  struct uftrace_kernel *kernel, int cpu)
 {
 }
 
 static void print_flame_kernel_rstack(struct uftrace_dump_ops *ops,
-				      struct ftrace_kernel *kernel, int cpu,
+				      struct uftrace_kernel *kernel, int cpu,
 				      struct uftrace_record *frs, char *name)
 {
 }
 
 static void print_flame_kernel_event(struct uftrace_dump_ops *ops,
-				     struct ftrace_kernel *kernel, int cpu,
+				     struct uftrace_kernel *kernel, int cpu,
 				     struct uftrace_record *frs)
 {
 }
@@ -980,14 +980,15 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (handle->kern == NULL || uftrace_done)
+	if (!has_kernel_data(&handle->kernel) || uftrace_done)
 		goto footer;
 
-	ops->kernel_start(ops, handle->kern);
+	ops->kernel_start(ops, &handle->kernel);
 
-	for (i = 0; i < handle->kern->nr_cpus; i++) {
-		struct ftrace_kernel *kernel = handle->kern;
+	for (i = 0; i < handle->kernel.nr_cpus; i++) {
+		struct uftrace_kernel *kernel = &handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
+		struct uftrace_session *fsess = handle->sessions.first;
 
 		ops->cpu_start(ops, kernel, i);
 
@@ -1010,7 +1011,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 			}
 
-			sym = find_symtabs(NULL, frs->addr);
+			sym = find_symtabs(&fsess->symtabs, frs->addr);
 			name = symbol_getname(sym, frs->addr);
 
 			ops->kernel_func(ops, kernel, i, frs, name);
@@ -1028,7 +1029,7 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 {
 	struct uftrace_record *frs = task->rstack;
 
-	if (opts->kernel) {
+	if (has_kernel_data(&task->h->kernel)) {
 		if (opts->kernel_skip_out) {
 			if (!task->user_stack_count &&
 			    is_kernel_record(task, frs))
@@ -1100,6 +1101,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		while (--task->stack_count >= 0) {
 			struct fstack *fstack;
+			struct uftrace_session *fsess = handle->sessions.first;
 
 			fstack = &task->func_stack[task->stack_count];
 
@@ -1116,7 +1118,12 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			task->rstack = &task->ustack;
+			/* make sure is_kernel_record() working correctly */
+			if (is_kernel_address(&fsess->symtabs, fstack->addr))
+				task->rstack = &task->kstack;
+			else
+				task->rstack = &task->ustack;
+
 			task->rstack->time = last_time;
 			task->rstack->type = UFTRACE_EXIT;
 			task->rstack->addr = fstack->addr;
@@ -1133,20 +1140,10 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
-	struct ftrace_kernel kern;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
 		pr_err("cannot open data: %s", opts->dirname);
-
-	if (handle.hdr.feat_mask & KERNEL) {
-		kern.output_dir = opts->dirname;
-		kern.skip_out = opts->kernel_skip_out;
-		if (setup_kernel_data(&kern) == 0) {
-			handle.kern = &kern;
-			load_kernel_symbol(opts->dirname);
-		}
-	}
 
 	fstack_setup_filters(opts, &handle);
 
@@ -1206,9 +1203,6 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 
 		do_dump_file(&dump.ops, opts, &handle);
 	}
-
-	if (handle.kern)
-		finish_kernel_data(handle.kern);
 
 	close_data_file(opts, &handle);
 
