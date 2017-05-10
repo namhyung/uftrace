@@ -980,7 +980,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (handle->kernel.pevent == NULL || uftrace_done)
+	if (!has_kernel_data(&handle->kernel) || uftrace_done)
 		goto footer;
 
 	ops->kernel_start(ops, &handle->kernel);
@@ -1028,7 +1028,7 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 {
 	struct uftrace_record *frs = task->rstack;
 
-	if (opts->kernel) {
+	if (has_kernel_data(&task->h->kernel)) {
 		if (opts->kernel_skip_out) {
 			if (!task->user_stack_count &&
 			    is_kernel_record(task, frs))

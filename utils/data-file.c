@@ -357,6 +357,7 @@ retry:
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
 	handle->sessions.first = NULL;
+	handle->kernel.pevent = NULL;
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
@@ -423,7 +424,7 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
-	if (handle->kernel.pevent)
+	if (has_kernel_data(&handle->kernel))
 		finish_kernel_data(&handle->kernel);
 
 	clear_ftrace_info(&handle->info);

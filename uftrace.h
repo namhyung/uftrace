@@ -477,6 +477,11 @@ int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu);
 void * read_kernel_event(struct uftrace_kernel *kernel, int cpu, int *psize);
 int finish_kernel_data(struct uftrace_kernel *kernel);
 
+static inline bool has_kernel_data(struct uftrace_kernel *kernel)
+{
+	return kernel->pevent != NULL;
+}
+
 bool check_kernel_pid_filter(void);
 
 struct rusage;
