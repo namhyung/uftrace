@@ -988,6 +988,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	for (i = 0; i < handle->kernel.nr_cpus; i++) {
 		struct uftrace_kernel *kernel = &handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
+		struct uftrace_session *fsess = handle->sessions.first;
 
 		ops->cpu_start(ops, kernel, i);
 
@@ -1010,7 +1011,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 			}
 
-			sym = find_symtabs(NULL, frs->addr);
+			sym = find_symtabs(&fsess->symtabs, frs->addr);
 			name = symbol_getname(sym, frs->addr);
 
 			ops->kernel_func(ops, kernel, i, frs, name);
