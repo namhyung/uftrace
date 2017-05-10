@@ -414,7 +414,7 @@ struct writer_arg {
 	struct list_head	list;
 	struct list_head	bufs;
 	struct opts		*opts;
-	struct ftrace_kernel	*kern;
+	struct uftrace_kernel	*kern;
 	int			sock;
 	int			idx;
 	int			tid;
@@ -1453,7 +1453,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	struct timespec ts1, ts2;
 	struct rusage usage;
 	pthread_t *writers;
-	struct ftrace_kernel kern;
+	struct uftrace_kernel kernel;
 	struct dlopen_list *dlib, *tmp;
 	int efd;
 	uint64_t go = 1;
@@ -1516,10 +1516,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
 
 	if (opts->kernel) {
-		kern.pid = pid;
-		kern.output_dir = opts->dirname;
-		kern.depth = opts->kernel_depth ?: 1;
-		kern.bufsize = opts->kernel_bufsize;
+		kernel.pid = pid;
+		kernel.output_dir = opts->dirname;
+		kernel.depth = opts->kernel_depth ?: 1;
+		kernel.bufsize = opts->kernel_bufsize;
 
 		if (!opts->nr_thread) {
 			if (opts->kernel_depth >= 4)
@@ -1530,14 +1530,14 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (!opts->kernel_bufsize) {
 			if (opts->kernel_depth >= 8)
-				kern.bufsize = 4096 * 1024;
+				kernel.bufsize = 4096 * 1024;
 			else if (opts->kernel_depth >= 4)
-				kern.bufsize = 3072 * 1024;
+				kernel.bufsize = 3072 * 1024;
 			else if (opts->kernel_depth >= 2)
-				kern.bufsize = 2048 * 1024;
+				kernel.bufsize = 2048 * 1024;
 		}
 
-		if (setup_kernel_tracing(&kern, opts) < 0) {
+		if (setup_kernel_tracing(&kernel, opts) < 0) {
 			opts->kernel = false;
 			pr_log("kernel tracing disabled due to an error\n");
 		}
@@ -1554,7 +1554,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(thread_ctl) < 0)
 		pr_err("cannot create an eventfd for writer thread");
 
-	if (opts->kernel && start_kernel_tracing(&kern) < 0) {
+	if (opts->kernel && start_kernel_tracing(&kernel) < 0) {
 		opts->kernel = false;
 		pr_log("kernel tracing disabled due to an error\n");
 	}
@@ -1568,7 +1568,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		warg->opts = opts;
 		warg->idx  = i;
 		warg->sock = sock;
-		warg->kern = &kern;
+		warg->kern = &kernel;
 		warg->nr_cpu = 0;
 		INIT_LIST_HEAD(&warg->list);
 		INIT_LIST_HEAD(&warg->bufs);
@@ -1662,7 +1662,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	stop_all_writers();
 	if (opts->kernel)
-		stop_kernel_tracing(&kern);
+		stop_kernel_tracing(&kernel);
 
 	if (fill_file_header(opts, status, &usage) < 0)
 		pr_err("cannot generate data file");
@@ -1704,7 +1704,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->kernel)
-		finish_kernel_tracing(&kern);
+		finish_kernel_tracing(&kernel);
 
 	if (opts->host) {
 		send_task_file(sock, opts->dirname, &symtabs);

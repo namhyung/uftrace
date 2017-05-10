@@ -123,7 +123,7 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
-struct ftrace_kernel {
+struct uftrace_kernel {
 	int pid;
 	int nr_cpus;
 	int depth;
@@ -155,7 +155,7 @@ struct ftrace_file_handle {
 	const char *dirname;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
-	struct ftrace_kernel kernel;
+	struct uftrace_kernel kernel;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
@@ -462,20 +462,20 @@ enum ftrace_ext_type {
 };
 
 /* these functions will be used at record time */
-int setup_kernel_tracing(struct ftrace_kernel *kernel, struct opts *opts);
-int start_kernel_tracing(struct ftrace_kernel *kernel);
-int record_kernel_tracing(struct ftrace_kernel *kernel);
-int record_kernel_trace_pipe(struct ftrace_kernel *kernel, int cpu);
-int stop_kernel_tracing(struct ftrace_kernel *kernel);
-int finish_kernel_tracing(struct ftrace_kernel *kernel);
+int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts);
+int start_kernel_tracing(struct uftrace_kernel *kernel);
+int record_kernel_tracing(struct uftrace_kernel *kernel);
+int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu);
+int stop_kernel_tracing(struct uftrace_kernel *kernel);
+int finish_kernel_tracing(struct uftrace_kernel *kernel);
 
 /* these functions will be used at replay time */
-int setup_kernel_data(struct ftrace_kernel *kernel);
+int setup_kernel_data(struct uftrace_kernel *kernel);
 int read_kernel_stack(struct ftrace_file_handle *handle,
 		      struct ftrace_task_handle **taskp);
-int read_kernel_cpu_data(struct ftrace_kernel *kernel, int cpu);
-void * read_kernel_event(struct ftrace_kernel *kernel, int cpu, int *psize);
-int finish_kernel_data(struct ftrace_kernel *kernel);
+int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu);
+void * read_kernel_event(struct uftrace_kernel *kernel, int cpu, int *psize);
+int finish_kernel_data(struct uftrace_kernel *kernel);
 
 bool check_kernel_pid_filter(void);
 

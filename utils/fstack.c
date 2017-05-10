@@ -1343,7 +1343,7 @@ static void fstack_update_stack_count(struct ftrace_task_handle *task)
 	}
 }
 
-static int find_rstack_cpu(struct ftrace_kernel *kernel,
+static int find_rstack_cpu(struct uftrace_kernel *kernel,
 			   struct uftrace_record *rstack)
 {
 	int cpu = -1;
@@ -1369,7 +1369,7 @@ static int find_rstack_cpu(struct ftrace_kernel *kernel,
 }
 
 static void __fstack_consume(struct ftrace_task_handle *task,
-			     struct ftrace_kernel *kernel, int cpu)
+			     struct uftrace_kernel *kernel, int cpu)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct ftrace_file_handle *handle = task->h;
@@ -1424,7 +1424,7 @@ void fstack_consume(struct ftrace_file_handle *handle,
 		    struct ftrace_task_handle *task)
 {
 	struct uftrace_record *rstack = task->rstack;
-	struct ftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = &handle->kernel;
 	int cpu = 0;
 
 	if (rstack != &task->ustack)
@@ -1441,7 +1441,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_task_handle *utask = NULL;
 	struct ftrace_task_handle *ktask = NULL;
-	struct ftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = &handle->kernel;
 
 	u = read_user_stack(handle, &utask);
 	if (kernel) {
