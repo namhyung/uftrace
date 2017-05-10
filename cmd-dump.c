@@ -1101,6 +1101,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		while (--task->stack_count >= 0) {
 			struct fstack *fstack;
+			struct uftrace_session *fsess = handle->sessions.first;
 
 			fstack = &task->func_stack[task->stack_count];
 
@@ -1117,7 +1118,12 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			task->rstack = &task->ustack;
+			/* make sure is_kernel_record() working correctly */
+			if (is_kernel_address(&fsess->symtabs, fstack->addr))
+				task->rstack = &task->kstack;
+			else
+				task->rstack = &task->ustack;
+
 			task->rstack->time = last_time;
 			task->rstack->type = UFTRACE_EXIT;
 			task->rstack->addr = fstack->addr;
