@@ -600,7 +600,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	char ph;
 	char spec_buf[1024];
 	struct uftrace_record *frs = task->rstack;
-	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
 	if (chrome->last_comma)

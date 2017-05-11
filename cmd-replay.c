@@ -423,12 +423,11 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			args[n] = '\0';
 		}
 		return;
-	} else if (!needs_escape)
-		needs_semi_colon = true;
+	}
 
 	assert(arg_list && !list_empty(arg_list));
 
-	if (!is_retval)
+	if (needs_paren)
 		args[n++] = '(';
 	else if (needs_assignment) {
 		args[n++] = ' ';
@@ -580,7 +579,8 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		if (is_retval)
 			break;
 	}
-	if (!is_retval) {
+
+	if (needs_paren) {
 		args[n] = ')';
 		args[n+1] = '\0';
 	} else {
@@ -610,8 +610,10 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
-	if (rstack->type == UFTRACE_ENTRY && symname[strlen(symname) - 1] != ')')
-		str_mode |= NEEDS_PAREN;
+	if (rstack->type == UFTRACE_ENTRY) {
+		if(symname[strlen(symname) - 1] != ')' || rstack->more)
+			str_mode |= NEEDS_PAREN;
+	}
 
 	if (opts->kernel_skip_out) {
 		/* skip kernel functions outside user functions */
@@ -715,6 +717,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			if (rstack->more) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
+				str_mode |= NEEDS_SEMI_COLON;
 			}
 			get_argspec_string(task, retval, sizeof(args), str_mode);
 
