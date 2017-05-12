@@ -432,6 +432,8 @@ static void print_raw_task_start(struct uftrace_dump_ops *ops,
 
 	pr_out("reading %d.dat\n", task->tid);
 	raw->file_offset = 0;
+
+	setup_rstack_list(&task->rstack_list);
 }
 
 static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
@@ -958,6 +960,11 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct uftrace_record *frs = &task->ustack;
 			struct sym *sym;
 			char *name;
+
+			if (frs->more) {
+				add_to_rstack_list(&task->rstack_list,
+						   frs, &task->args);
+			}
 
 			/* consume the rstack as it didn't call read_rstack() */
 			fstack_consume(handle, task);
