@@ -432,6 +432,8 @@ static void print_raw_task_start(struct uftrace_dump_ops *ops,
 
 	pr_out("reading %d.dat\n", task->tid);
 	raw->file_offset = 0;
+
+	setup_rstack_list(&task->rstack_list);
 }
 
 static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
@@ -598,7 +600,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	char ph;
 	char spec_buf[1024];
 	struct uftrace_record *frs = task->rstack;
-	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
 	if (chrome->last_comma)
@@ -958,6 +960,11 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct uftrace_record *frs = &task->ustack;
 			struct sym *sym;
 			char *name;
+
+			if (frs->more) {
+				add_to_rstack_list(&task->rstack_list,
+						   frs, &task->args);
+			}
 
 			/* consume the rstack as it didn't call read_rstack() */
 			fstack_consume(handle, task);
