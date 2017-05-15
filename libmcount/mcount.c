@@ -121,7 +121,7 @@ const char *session_name(void)
 
 void ftrace_send_message(int type, void *data, size_t len)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = UFTRACE_MSG_MAGIC,
 		.type = type,
 		.len = len,
@@ -141,7 +141,7 @@ void ftrace_send_message(int type, void *data, size_t len)
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
-	struct ftrace_msg_sess sess = {
+	struct uftrace_msg_sess sess = {
 		.task = {
 			.time = mcount_gettime(),
 			.pid = getpid(),
@@ -149,7 +149,7 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		},
 		.namelen = strlen(mcount_exename),
 	};
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = UFTRACE_MSG_MAGIC,
 		.type = UFTRACE_MSG_SESSION,
 		.len = sizeof(sess) + sess.namelen,
@@ -174,7 +174,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 			    uint64_t timestamp,  uint64_t base_addr,
 			    const char *libname)
 {
-	struct ftrace_msg_dlopen dlop = {
+	struct uftrace_msg_dlopen dlop = {
 		.task = {
 			.time = timestamp,
 			.pid = getpid(),
@@ -183,7 +183,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		.base_addr = base_addr,
 		.namelen = strlen(libname),
 	};
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = UFTRACE_MSG_MAGIC,
 		.type = UFTRACE_MSG_DLOPEN,
 		.len = sizeof(dlop) + dlop.namelen,
@@ -231,7 +231,7 @@ struct mcount_thread_data * mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 	struct mcount_thread_data *mtdp = &mtd;
-	struct ftrace_msg_task tmsg;
+	struct uftrace_msg_task tmsg;
 
 	/*
 	 * If an executable implements its own malloc(),
@@ -795,7 +795,7 @@ out:
 
 static void atfork_prepare_handler(void)
 {
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getpid(),
 	};
@@ -806,7 +806,7 @@ static void atfork_prepare_handler(void)
 static void atfork_child_handler(void)
 {
 	struct mcount_thread_data *mtdp;
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getppid(),
 		.tid = getpid(),

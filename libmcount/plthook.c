@@ -429,7 +429,7 @@ static void prepare_vfork(struct mcount_thread_data *mtdp,
 /* this function will be called in child */
 static void setup_vfork(struct mcount_thread_data *mtdp)
 {
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.pid = getppid(),
 		.tid = getpid(),
 		.time = mcount_gettime(),

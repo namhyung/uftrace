@@ -102,7 +102,7 @@ int setup_client_socket(struct opts *opts)
 void send_trace_header(int sock, char *name)
 {
 	ssize_t len = strlen(name);
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_HDR),
 		.len   = htonl(len),
@@ -120,7 +120,7 @@ void send_trace_header(int sock, char *name)
 void send_trace_data(int sock, int tid, void *data, size_t len)
 {
 	int32_t msg_tid = htonl(tid);
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_DATA),
 		.len   = htonl(sizeof(msg_tid) + len),
@@ -136,10 +136,10 @@ void send_trace_data(int sock, int tid, void *data, size_t len)
 		pr_err("send data failed");
 }
 
-void send_trace_task(int sock, struct ftrace_msg *hmsg,
-		     struct ftrace_msg_task *tmsg)
+void send_trace_task(int sock, struct uftrace_msg *hmsg,
+		     struct uftrace_msg_task *tmsg)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_TASK),
 		.len   = htonl(sizeof(*hmsg) + sizeof(*tmsg)),
@@ -164,11 +164,11 @@ void send_trace_task(int sock, struct ftrace_msg *hmsg,
 }
 
 /* namelen is 8-byte aligned length of smsg->namelen */
-void send_trace_session(int sock, struct ftrace_msg *hmsg,
-			struct ftrace_msg_sess *smsg,
+void send_trace_session(int sock, struct uftrace_msg *hmsg,
+			struct uftrace_msg_sess *smsg,
 			char *exename, int namelen)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_SESSION),
 		.len   = htonl(sizeof(*hmsg) + sizeof(*smsg)),
@@ -202,7 +202,7 @@ void send_trace_session(int sock, struct ftrace_msg *hmsg,
 
 void send_trace_map(int sock, uint64_t sid, void *map, int len)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_MAP),
 		.len   = htonl(sizeof(sid) + len),
@@ -222,7 +222,7 @@ void send_trace_map(int sock, uint64_t sid, void *map, int len)
 void send_trace_sym(int sock, char *symfile, void *sym, int len)
 {
 	int32_t namelen = strlen(symfile);
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_SYM),
 		.len   = htonl(sizeof(namelen) + namelen + len),
@@ -244,7 +244,7 @@ void send_trace_sym(int sock, char *symfile, void *sym, int len)
 void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_INFO),
 		.len   = htonl(sizeof(*hdr) + len),
@@ -267,7 +267,7 @@ void send_trace_info(int sock, struct uftrace_file_header *hdr,
 
 void send_trace_task_txt(int sock, void *buf, int len)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_TASK),
 		.len   = htonl(len),
@@ -284,7 +284,7 @@ void send_trace_task_txt(int sock, void *buf, int len)
 
 void send_trace_end(int sock)
 {
-	struct ftrace_msg msg = {
+	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_END),
 	};
@@ -387,8 +387,8 @@ static void recv_trace_data(int sock, int len)
 static void recv_trace_session(int sock, int len)
 {
 	struct client_data *client;
-	struct ftrace_msg msg;
-	struct ftrace_msg_sess smsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_sess smsg;
 	uint64_t sid;
 	char sidbuf[sizeof(smsg.sid) + 1];
 	char *exename;
@@ -597,7 +597,7 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 static void handle_client_sock(struct epoll_event *ev, int efd)
 {
 	int sock = ev->data.fd;
-	struct ftrace_msg msg;
+	struct uftrace_msg msg;
 
 	if (ev->events & (EPOLLERR | EPOLLHUP)) {
 		pr_dbg("client socket closed\n");

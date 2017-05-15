@@ -89,9 +89,9 @@ static int pr_task(struct opts *opts)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess smsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess smsg;
 	char *exename = NULL;
 
 	snprintf(buf, sizeof(buf), "%s/task", opts->dirname);

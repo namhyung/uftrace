@@ -863,10 +863,10 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	char buf[128];
 	struct shmem_list *sl, *tmp;
 	struct tid_list *tl, *pos;
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess sess;
-	struct ftrace_msg_dlopen dmsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess sess;
+	struct uftrace_msg_dlopen dmsg;
 	struct dlopen_list *dlib;
 	char *exename;
 	int lost;
@@ -1069,9 +1069,9 @@ static void send_task_file(int sock, const char *dirname, struct symtabs *symtab
 	FILE *fp;
 	char *filename = NULL;
 	char *p;
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess smsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess smsg;
 	int namelen;
 	char *exename;
 
