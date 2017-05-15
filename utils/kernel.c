@@ -493,10 +493,11 @@ out:
  * record_kernel_trace_pipe - read and save kernel ftrace data for specific cpu
  * @kernel - kernel ftrace handle
  * @cpu - cpu to read
+ * @sock - socket descriptor (for network transfer)
  *
  * This function read trace data for @cpu and save it to file.
  */
-int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu)
+int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu, int sock)
 {
 	char buf[4096];
 	ssize_t n;
@@ -515,8 +516,13 @@ retry:
 			return -errno;
 	}
 
-	if (n && write(kernel->fds[cpu], buf, n) != n)
-		return -1;
+	if (n == 0)
+		return 0;
+
+	if (sock > 0)
+		send_trace_kernel_data(sock, cpu, buf, n);
+	else
+		write_all(kernel->fds[cpu], buf, n);
 
 	return n;
 }
@@ -538,7 +544,7 @@ int record_kernel_tracing(struct uftrace_kernel *kernel)
 		return -1;
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
-		n = record_kernel_trace_pipe(kernel, i);
+		n = record_kernel_trace_pipe(kernel, i, -1);
 		if (n < 0) {
 			pr_log("record kernel data (cpu %d) failed: %m\n", i);
 			return n;

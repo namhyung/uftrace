@@ -312,6 +312,7 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_HDR,
 	UFTRACE_MSG_SEND_DATA,
 	UFTRACE_MSG_SEND_TASK,
+	UFTRACE_MSG_SEND_KERNEL_DATA,
 	UFTRACE_MSG_SEND_SESSION,
 	UFTRACE_MSG_SEND_MAP,
 	UFTRACE_MSG_SEND_SYM,
@@ -387,6 +388,7 @@ void walk_tasks(struct uftrace_session_link *sess,
 int setup_client_socket(struct opts *opts);
 void send_trace_header(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
+void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
 void send_trace_task(int sock, struct uftrace_msg *hmsg,
 		     struct uftrace_msg_task *tmsg);
 void send_trace_session(int sock, struct uftrace_msg *hmsg,
@@ -468,7 +470,7 @@ enum ftrace_ext_type {
 int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts);
 int start_kernel_tracing(struct uftrace_kernel *kernel);
 int record_kernel_tracing(struct uftrace_kernel *kernel);
-int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu);
+int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu, int sock);
 int stop_kernel_tracing(struct uftrace_kernel *kernel);
 int finish_kernel_tracing(struct uftrace_kernel *kernel);
 

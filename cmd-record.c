@@ -491,7 +491,8 @@ void *writer_thread(void *arg)
 					check_list = true;
 				else
 					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i-1]);
+								 warg->cpus[i-1],
+								 warg->sock);
 			}
 		}
 
@@ -547,7 +548,8 @@ void *writer_thread(void *arg)
 			for (i = 0; i < warg->nr_cpu; i++) {
 				if (pollfd[i+1].revents & POLLIN) {
 					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i]);
+								 warg->cpus[i],
+								 warg->sock);
 				}
 			}
 		}
