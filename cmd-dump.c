@@ -100,13 +100,13 @@ static int pr_task(struct opts *opts)
 		return -1;
 
 	while (fread(&msg, sizeof(msg), 1, fp) == 1) {
-		if (msg.magic != FTRACE_MSG_MAGIC) {
+		if (msg.magic != UFTRACE_MSG_MAGIC) {
 			pr_red("invalid message magic: %hx\n", msg.magic);
 			goto out;
 		}
 
 		switch (msg.type) {
-		case FTRACE_MSG_TID:
+		case UFTRACE_MSG_TASK:
 			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
 				pr_red("cannot read task message: %m\n");
 				goto out;
@@ -115,7 +115,7 @@ static int pr_task(struct opts *opts)
 			pr_time(tmsg.time);
 			pr_out("task tid %d (pid %d)\n", tmsg.tid, tmsg.pid);
 			break;
-		case FTRACE_MSG_FORK_END:
+		case UFTRACE_MSG_FORK_END:
 			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
 				pr_red("cannot read task message: %m\n");
 				goto out;
@@ -124,7 +124,7 @@ static int pr_task(struct opts *opts)
 			pr_time(tmsg.time);
 			pr_out("fork pid %d (ppid %d)\n", tmsg.tid, tmsg.pid);
 			break;
-		case FTRACE_MSG_SESSION:
+		case UFTRACE_MSG_SESSION:
 			if (fread(&smsg, sizeof(smsg), 1, fp) != 1) {
 				pr_red("cannot read session message: %m\n");
 				goto out;

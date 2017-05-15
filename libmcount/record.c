@@ -71,7 +71,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	/* set idx 0 as current buffer */
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, session_name(), tid, 0);
-	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
+	ftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
 
 	shmem->done = false;
 	shmem->curr = 0;
@@ -150,7 +150,7 @@ reuse:
 		 session_name(), gettid(mtdp), idx);
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
-	ftrace_send_message(FTRACE_MSG_REC_START, buf, strlen(buf));
+	ftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
 
 	if (shmem->losts) {
 		struct uftrace_record *frstack = (void *)curr_buf->data;
@@ -161,7 +161,7 @@ reuse:
 		frstack->more   = 0;
 		frstack->addr   = shmem->losts;
 
-		ftrace_send_message(FTRACE_MSG_LOST, &shmem->losts,
+		ftrace_send_message(UFTRACE_MSG_LOST, &shmem->losts,
 				    sizeof(shmem->losts));
 
 		curr_buf->size = sizeof(*frstack);
@@ -176,7 +176,7 @@ void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
 		 session_name(), gettid(mtdp), idx);
 
-	ftrace_send_message(FTRACE_MSG_REC_END, buf, strlen(buf));
+	ftrace_send_message(UFTRACE_MSG_REC_END, buf, strlen(buf));
 }
 
 void clear_shmem_buffer(struct mcount_thread_data *mtdp)

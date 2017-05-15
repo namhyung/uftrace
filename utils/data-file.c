@@ -47,11 +47,11 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 
 	pr_dbg("reading task file\n");
 	while (read_all(fd, &msg, sizeof(msg)) == 0) {
-		if (msg.magic != FTRACE_MSG_MAGIC)
+		if (msg.magic != UFTRACE_MSG_MAGIC)
 			goto out;
 
 		switch (msg.type) {
-		case FTRACE_MSG_SESSION:
+		case UFTRACE_MSG_SESSION:
 			if (read_all(fd, &smsg, sizeof(smsg)) < 0)
 				goto out;
 			if (read_all(fd, buf, smsg.namelen) < 0)
@@ -64,14 +64,14 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
 			break;
 
-		case FTRACE_MSG_TID:
+		case UFTRACE_MSG_TASK:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 
 			create_task(sess, &tmsg, false, needs_session);
 			break;
 
-		case FTRACE_MSG_FORK_END:
+		case UFTRACE_MSG_FORK_END:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 

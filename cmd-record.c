@@ -874,11 +874,11 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
 
-	if (msg.magic != FTRACE_MSG_MAGIC)
+	if (msg.magic != UFTRACE_MSG_MAGIC)
 		pr_err_ns("invalid message received: %x\n", msg.magic);
 
 	switch (msg.type) {
-	case FTRACE_MSG_REC_START:
+	case UFTRACE_MSG_REC_START:
 		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
@@ -894,7 +894,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		list_add_tail(&sl->list, &shmem_list_head);
 		break;
 
-	case FTRACE_MSG_REC_END:
+	case UFTRACE_MSG_REC_END:
 		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
@@ -916,14 +916,14 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		record_mmap_file(dirname, buf, bufsize);
 		break;
 
-	case FTRACE_MSG_TID:
+	case UFTRACE_MSG_TASK:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg2("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
+		pr_dbg2("MSG TASK : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
 		list_for_each_entry(pos, &tid_list_head, list) {
@@ -939,7 +939,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		write_task_info(dirname, &tmsg);
 		break;
 
-	case FTRACE_MSG_FORK_START:
+	case UFTRACE_MSG_FORK_START:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -951,7 +951,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		add_tid_list(tmsg.pid, -1);
 		break;
 
-	case FTRACE_MSG_FORK_END:
+	case UFTRACE_MSG_FORK_END:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -989,7 +989,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		write_fork_info(dirname, &tmsg);
 		break;
 
-	case FTRACE_MSG_SESSION:
+	case UFTRACE_MSG_SESSION:
 		if (msg.len < sizeof(sess))
 			pr_err_ns("invalid message length\n");
 
@@ -1010,7 +1010,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		free(exename);
 		break;
 
-	case FTRACE_MSG_LOST:
+	case UFTRACE_MSG_LOST:
 		if (msg.len < sizeof(lost))
 			pr_err_ns("invalid message length\n");
 
@@ -1020,7 +1020,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		shmem_lost_count += lost;
 		break;
 
-	case FTRACE_MSG_DLOPEN:
+	case UFTRACE_MSG_DLOPEN:
 		if (msg.len < sizeof(dmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -1093,21 +1093,21 @@ static void send_task_file(int sock, const char *dirname, struct symtabs *symtab
 		pr_err("open task file failed");
 
 	while (fread_all(&msg, sizeof(msg), fp) == 0) {
-		if (msg.magic  != FTRACE_MSG_MAGIC) {
+		if (msg.magic != UFTRACE_MSG_MAGIC) {
 			pr_err_ns("invalid message in task file: %x\n",
 				  msg.magic);
 		}
 
 		switch (msg.type) {
-		case FTRACE_MSG_TID:
-		case FTRACE_MSG_FORK_END:
+		case UFTRACE_MSG_TASK:
+		case UFTRACE_MSG_FORK_END:
 			if (fread_all(&tmsg, sizeof(tmsg), fp) < 0)
 				pr_err("read task message failed");
 
 			send_trace_task(sock, &msg, &tmsg);
 			break;
 
-		case FTRACE_MSG_SESSION:
+		case UFTRACE_MSG_SESSION:
 			if (fread_all(&smsg, sizeof(smsg), fp) < 0)
 				pr_err("read session message failed");
 

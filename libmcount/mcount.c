@@ -122,7 +122,7 @@ const char *session_name(void)
 void ftrace_send_message(int type, void *data, size_t len)
 {
 	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
+		.magic = UFTRACE_MSG_MAGIC,
 		.type = type,
 		.len = len,
 	};
@@ -150,8 +150,8 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		.namelen = strlen(mcount_exename),
 	};
 	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_SESSION,
+		.magic = UFTRACE_MSG_MAGIC,
+		.type = UFTRACE_MSG_SESSION,
 		.len = sizeof(sess) + sess.namelen,
 	};
 	struct iovec iov[3] = {
@@ -184,8 +184,8 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		.namelen = strlen(libname),
 	};
 	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_DLOPEN,
+		.magic = UFTRACE_MSG_MAGIC,
+		.type = UFTRACE_MSG_DLOPEN,
 		.len = sizeof(dlop) + dlop.namelen,
 	};
 	struct iovec iov[3] = {
@@ -263,7 +263,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
-	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 
 	if (kernel_pid_update)
 		update_kernel_tid(gettid(mtdp));
@@ -800,7 +800,7 @@ static void atfork_prepare_handler(void)
 		.pid = getpid(),
 	};
 
-	ftrace_send_message(FTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
 }
 
 static void atfork_child_handler(void)
@@ -828,7 +828,7 @@ static void atfork_child_handler(void)
 	clear_shmem_buffer(mtdp);
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 
 	mtdp->recursion_guard = false;
 }

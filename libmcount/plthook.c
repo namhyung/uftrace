@@ -444,7 +444,7 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	memset(&mtdp->shmem, 0, sizeof(mtdp->shmem));
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 }
 
 /* this function detects whether child finished */

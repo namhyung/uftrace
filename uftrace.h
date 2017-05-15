@@ -296,30 +296,33 @@ struct uftrace_task {
 	struct uftrace_sess_ref	*sref_last;
 };
 
-#define FTRACE_MSG_MAGIC 0xface
+#define UFTRACE_MSG_MAGIC 0xface
 
-#define FTRACE_MSG_REC_START      1U
-#define FTRACE_MSG_REC_END        2U
-#define FTRACE_MSG_TID            3U
-#define FTRACE_MSG_FORK_START     4U
-#define FTRACE_MSG_FORK_END       5U
-#define FTRACE_MSG_SESSION        6U
-#define FTRACE_MSG_LOST           7U
-#define FTRACE_MSG_SEND_HDR       8U
-#define FTRACE_MSG_SEND_DATA      9U
-#define FTRACE_MSG_SEND_TASK     10U
-#define FTRACE_MSG_SEND_SESSION  11U
-#define FTRACE_MSG_SEND_MAP      12U
-#define FTRACE_MSG_SEND_SYM      13U
-#define FTRACE_MSG_SEND_INFO     14U
-#define FTRACE_MSG_SEND_END      15U
-#define FTRACE_MSG_DLOPEN        16U
-#define FTRACE_MSG_SEND_TASK2    17U
+enum uftrace_msg_type {
+	UFTRACE_MSG_REC_START		= 1,
+	UFTRACE_MSG_REC_END,
+	UFTRACE_MSG_TASK,
+	UFTRACE_MSG_FORK_START,
+	UFTRACE_MSG_FORK_END,
+	UFTRACE_MSG_SESSION,
+	UFTRACE_MSG_LOST,
+	UFTRACE_MSG_DLOPEN,
+
+	UFTRACE_MSG_SEND_START		= 100,
+	UFTRACE_MSG_SEND_HDR,
+	UFTRACE_MSG_SEND_DATA,
+	UFTRACE_MSG_SEND_TASK,
+	UFTRACE_MSG_SEND_SESSION,
+	UFTRACE_MSG_SEND_MAP,
+	UFTRACE_MSG_SEND_SYM,
+	UFTRACE_MSG_SEND_INFO,
+	UFTRACE_MSG_SEND_END,
+};
 
 /* msg format for communicating by pipe */
 struct ftrace_msg {
-	unsigned short magic; /* FTRACE_MSG_MAGIC */
-	unsigned short type;  /* FTRACE_MSG_REC_* */
+	unsigned short magic; /* UFTRACE_MSG_MAGIC */
+	unsigned short type;  /* UFTRACE_MSG_REC_* */
 	unsigned int len;
 	unsigned char data[];
 };
