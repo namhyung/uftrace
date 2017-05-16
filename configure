@@ -46,8 +46,7 @@ while getopts ":ho:-:p" opt; do
                 help)  usage ;;
                 *=*)   opt=${OPTARG%%=*}; val=${OPTARG#*=}
                        eval "${opt/-/_}='$val'" ;;
-                *)     val="${!OPTIND}"; OPTIND=$((OPTIND + 1));
-                       eval "$OPTARG=$val" ;;
+                *)     ;;
             esac
 	    ;;
         o)       output=$OPTARG ;;
