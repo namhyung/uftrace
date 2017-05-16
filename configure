@@ -16,6 +16,7 @@ usage() {
   --libdir=<DIR>     set library install dir as <DIR>     (default: \${prefix}/lib)
   --mandir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
   --objdir=<DIR>     set build dir as <DIR>               (default: \${PWD})
+  --sysconfdir=<DIR> override the etc dir as <DIR>
 
   -p                 preserve old setting
 "
@@ -80,6 +81,9 @@ if echo ${etcdir} | grep -qs /usr/local; then
 fi
 if echo ${etcdir} | grep -qs /usr; then
     etcdir=$(echo ${etcdir} | sed -e "s^/usr^^")
+fi
+if [ -n "$sysconfdir" ]; then
+    etcdir=$sysconfdir
 fi
 
 CC=${CC:-${CROSS_COMPILE}gcc}
