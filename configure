@@ -45,7 +45,7 @@ while getopts ":ho:-:p" opt; do
 	    case "$OPTARG" in
                 help)  usage ;;
                 *=*)   opt=${OPTARG%%=*}; val=${OPTARG#*=}
-                       eval "$opt=$val" ;;
+                       eval "${opt/-/_}='$val'" ;;
                 *)     val="${!OPTIND}"; OPTIND=$((OPTIND + 1));
                        eval "$OPTARG=$val" ;;
             esac
