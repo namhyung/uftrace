@@ -107,21 +107,24 @@ if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
     exit 1
 fi
 
-echo "# this file is generated automatically" > $output
-echo override prefix := $prefix  >> $output
-echo override bindir := $bindir  >> $output
-echo override libdir := $libdir  >> $output
-echo override mandir := $mandir  >> $output
-echo override etcdir := $etcdir  >> $output
-echo                             >> $output
-echo override ARCH   := $ARCH    >> $output
-echo override CC     := $CC      >> $output
-echo override LD     := $LD      >> $output
-echo override CFLAGS  = $CFLAGS  >> $output
-echo override LDFLAGS = $LDFLAGS >> $output
-echo                             >> $output
-echo override srcdir := $srcdir  >> $output
-echo override objdir := $objdir  >> $output
+cat >$output <<EOF
+# this file is generated automatically
+override prefix := $prefix
+override bindir := $bindir
+override libdir := $libdir
+override mandir := $mandir
+override etcdir := $etcdir
+
+override ARCH   := $ARCH
+override CC     := $CC
+override LD     := $LD
+override CFLAGS  = $CFLAGS
+override LDFLAGS = $LDFLAGS
+
+override srcdir := $srcdir
+override objdir := $objdir
+EOF
+
 if [ $(id -u) -eq 0 ]; then
     chmod 666 $output
 fi
