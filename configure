@@ -56,7 +56,7 @@ while getopts ":ho:-:p" opt; do
 done
 shift $((OPTIND - 1))
 
-for arg in "$@"; do
+for arg; do
     opt=${arg%%=*}
     val=${arg#*=}
     eval "$opt='$val'"
