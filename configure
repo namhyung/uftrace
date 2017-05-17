@@ -76,11 +76,8 @@ libdir=${libdir:-${prefix}/lib}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
 
-if echo ${etcdir} | grep -qs /usr/local; then
-    etcdir=$(echo ${etcdir} | sed -e "s^/usr/local^^")
-fi
-if echo ${etcdir} | grep -qs /usr; then
-    etcdir=$(echo ${etcdir} | sed -e "s^/usr^^")
+if [ "$etcdir" = /usr/etc ]; then
+    etcdir=/etc
 fi
 if [ -n "$sysconfdir" ]; then
     etcdir=$sysconfdir
