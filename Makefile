@@ -31,16 +31,6 @@ libdir = $(prefix)/lib
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 
-# XXX: use /etc if it's installed in the system directory (i.e. /usr{,/local})
-ifneq ($(findstring /usr/local,$(prefix)),)
-  etcdir_in_usr := $(etcdir)
-  etcdir = $(subst /usr/local/,/,$(etcdir_in_usr))
-endif
-ifneq ($(findstring /usr,$(prefix)),)
-  etcdir_in_usr := $(etcdir)
-  etcdir = $(subst /usr/,/,$(etcdir_in_usr))
-endif
-
 srcdir = $(CURDIR)
 # set objdir to $(O) by default (if any)
 ifeq ($(objdir),)
