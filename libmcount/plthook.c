@@ -356,19 +356,33 @@ void destroy_dynsym_indexes(void)
 }
 
 struct mcount_jmpbuf_rstack {
+	struct list_head list;
+	unsigned long addr;
 	int count;
 	int record_idx;
 	struct mcount_ret_stack rstack[MCOUNT_RSTACK_MAX];
 };
 
-static struct mcount_jmpbuf_rstack setjmp_rstack;
+static LIST_HEAD(jmpbuf_list);
 
-static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp)
+static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp,
+				unsigned long addr)
 {
 	int i;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+	struct mcount_jmpbuf_rstack *jbstack;
 
-	pr_dbg2("setup jmpbuf rstack: %d\n", mtdp->idx);
+	list_for_each_entry(jbstack, &jmpbuf_list, list) {
+		if (jbstack->addr == addr)
+			break;
+	}
+	if (list_no_entry(jbstack, &jmpbuf_list, list)) {
+		jbstack = xmalloc(sizeof(*jbstack));
+		jbstack->addr = addr;
+
+		list_add(&jbstack->list, &jmpbuf_list);
+	}
+
+	pr_dbg2("setup jmpbuf rstack at %lx (%d entries)\n", addr, mtdp->idx);
 
 	/* currently, only saves a single jmpbuf */
 	jbstack->count      = mtdp->idx;
@@ -378,12 +392,19 @@ static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp)
 		jbstack->rstack[i] = mtdp->rstack[i];
 }
 
-static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp)
+static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp,
+				  unsigned long addr)
 {
 	int i;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+	struct mcount_jmpbuf_rstack *jbstack;
 
-	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
+	list_for_each_entry(jbstack, &jmpbuf_list, list) {
+		if (jbstack->addr == addr)
+			break;
+	}
+	assert(!list_no_entry(jbstack, &jmpbuf_list, list));
+
+	pr_dbg2("restore jmpbuf rstack at %lx (%d entries)\n", addr, jbstack->count);
 
 	/* restoring current rstack caused an error - skip it */
 	mtdp->idx--;
@@ -573,20 +594,22 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	*ret_addr = (unsigned long)plthook_return;
 
 	if (unlikely(special_flag)) {
+		/* force flush rstack on some special functions */
+		if (special_flag & PLT_FL_FLUSH) {
+			record_trace_data(mtdp, rstack, NULL);
+		}
+
 		if (special_flag & PLT_FL_SETJMP) {
-			setup_jmpbuf_rstack(mtdp);
+			setup_jmpbuf_rstack(mtdp, ARG1(regs));
 		}
 		else if (special_flag & PLT_FL_LONGJMP) {
 			rstack->flags |= MCOUNT_FL_LONGJMP;
+			/* abuse end-time for the jmpbuf addr */
+			rstack->end_time = ARG1(regs);
 		}
 		else if (special_flag & PLT_FL_VFORK) {
 			rstack->flags |= MCOUNT_FL_VFORK;
 			prepare_vfork(mtdp, rstack);
-		}
-
-		/* force flush rstack on some special functions */
-		if (special_flag & PLT_FL_FLUSH) {
-			record_trace_data(mtdp, rstack, NULL);
 		}
 	}
 
@@ -628,7 +651,7 @@ again:
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
 			update_pltgot(mtdp, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
-			restore_jmpbuf_rstack(mtdp);
+			restore_jmpbuf_rstack(mtdp, rstack->end_time);
 			goto again;
 		}
 
