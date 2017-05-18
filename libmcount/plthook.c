@@ -358,8 +358,7 @@ void destroy_dynsym_indexes(void)
 struct mcount_jmpbuf_rstack {
 	int count;
 	int record_idx;
-	unsigned long parent[MCOUNT_RSTACK_MAX];
-	unsigned long child[MCOUNT_RSTACK_MAX];
+	struct mcount_ret_stack rstack[MCOUNT_RSTACK_MAX];
 };
 
 static struct mcount_jmpbuf_rstack setjmp_rstack;
@@ -375,36 +374,34 @@ static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 	jbstack->count = idx;
 	jbstack->record_idx = mtdp->record_idx;
 
-	for (i = 0; i <= idx; i++) {
-		jbstack->parent[i] = mtdp->rstack[i].parent_ip;
-		jbstack->child[i]  = mtdp->rstack[i].child_ip;
-	}
+	for (i = 0; i <= idx; i++)
+		jbstack->rstack[i] = mtdp->rstack[i];
 
 	mtdp->rstack[idx].flags |= MCOUNT_FL_SETJMP;
 }
 
 static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 {
-	int i, dyn_idx;
+	int i;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
-
-	dyn_idx = mtdp->rstack[idx].dyn_idx;
 
 	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
 
-	mtd.idx = jbstack->count + 1;
-	mtd.record_idx = jbstack->record_idx;
+	/* restoring current rstack caused an error - skip it */
+	mtdp->idx--;
+	mcount_rstack_restore();
 
 	mtdp->idx = jbstack->count + 1;
 	mtdp->record_idx = jbstack->record_idx;
 
 	for (i = 0; i < jbstack->count + 1; i++) {
-		mtdp->rstack[i].parent_ip = jbstack->parent[i];
-		mtdp->rstack[i].child_ip  = jbstack->child[i];
+		mtdp->rstack[i] = jbstack->rstack[i];
+
+		/* setjmp() already wrote rstacks */
+		mtdp->rstack[i].flags |= MCOUNT_FL_WRITTEN;
 	}
 
-	/* to avoid check in plthook_exit() */
-	mtdp->rstack[jbstack->count].dyn_idx = dyn_idx;
+	mcount_rstack_reset();
 }
 
 /* it's crazy to call vfork() concurrently */
