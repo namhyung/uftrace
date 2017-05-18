@@ -363,24 +363,22 @@ struct mcount_jmpbuf_rstack {
 
 static struct mcount_jmpbuf_rstack setjmp_rstack;
 
-static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
+static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp)
 {
 	int i;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
 
-	pr_dbg2("setup jmpbuf rstack: %d\n", idx);
+	pr_dbg2("setup jmpbuf rstack: %d\n", mtdp->idx);
 
 	/* currently, only saves a single jmpbuf */
-	jbstack->count = idx;
+	jbstack->count      = mtdp->idx;
 	jbstack->record_idx = mtdp->record_idx;
 
-	for (i = 0; i <= idx; i++)
+	for (i = 0; i < jbstack->count; i++)
 		jbstack->rstack[i] = mtdp->rstack[i];
-
-	mtdp->rstack[idx].flags |= MCOUNT_FL_SETJMP;
 }
 
-static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
+static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp)
 {
 	int i;
 	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
@@ -391,10 +389,10 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
 	mtdp->idx--;
 	mcount_rstack_restore();
 
-	mtdp->idx = jbstack->count + 1;
+	mtdp->idx        = jbstack->count;
 	mtdp->record_idx = jbstack->record_idx;
 
-	for (i = 0; i < jbstack->count + 1; i++) {
+	for (i = 0; i < jbstack->count; i++) {
 		mtdp->rstack[i] = jbstack->rstack[i];
 
 		/* setjmp() already wrote rstacks */
@@ -576,7 +574,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (unlikely(special_flag)) {
 		if (special_flag & PLT_FL_SETJMP) {
-			setup_jmpbuf_rstack(mtdp, mtdp->idx - 1);
+			setup_jmpbuf_rstack(mtdp);
 		}
 		else if (special_flag & PLT_FL_LONGJMP) {
 			rstack->flags |= MCOUNT_FL_LONGJMP;
@@ -630,7 +628,7 @@ again:
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
 			update_pltgot(mtdp, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
-			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
+			restore_jmpbuf_rstack(mtdp);
 			goto again;
 		}
 
