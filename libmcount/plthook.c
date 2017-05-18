@@ -96,6 +96,7 @@ static void skip_plt_functions(void)
 }
 
 extern void __weak plt_hooker(void);
+extern unsigned long plthook_return(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
@@ -473,7 +474,29 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
-extern unsigned long plthook_return(void);
+static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
+{
+	unsigned long new_addr;
+
+	if (!plthook_dynsym_resolved[dyn_idx]) {
+#ifndef SINGLE_THREAD
+		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+		pthread_mutex_lock(&resolver_mutex);
+#endif
+		if (!plthook_dynsym_resolved[dyn_idx]) {
+			new_addr = plthook_got_ptr[3 + dyn_idx];
+			/* restore GOT so plt_hooker keep called */
+			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
+
+			plthook_dynsym_addr[dyn_idx] = new_addr;
+			plthook_dynsym_resolved[dyn_idx] = true;
+		}
+#ifndef SINGLE_THREAD
+		pthread_mutex_unlock(&resolver_mutex);
+#endif
+	}
+}
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id, struct mcount_regs *regs)
@@ -595,7 +618,6 @@ out:
 unsigned long plthook_exit(long *retval)
 {
 	int dyn_idx;
-	unsigned long new_addr;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
@@ -609,8 +631,9 @@ again:
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
+			update_pltgot(mtdp, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
+			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
 			goto again;
 		}
 
@@ -633,25 +656,7 @@ again:
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
-
-	if (!plthook_dynsym_resolved[dyn_idx]) {
-#ifndef SINGLE_THREAD
-		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-		pthread_mutex_lock(&resolver_mutex);
-#endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			new_addr = plthook_got_ptr[3 + dyn_idx];
-			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
-
-			plthook_dynsym_addr[dyn_idx] = new_addr;
-			plthook_dynsym_resolved[dyn_idx] = true;
-		}
-#ifndef SINGLE_THREAD
-		pthread_mutex_unlock(&resolver_mutex);
-#endif
-	}
+	update_pltgot(mtdp, dyn_idx);
 
 	compiler_barrier();
 
