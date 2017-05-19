@@ -19,6 +19,11 @@ plt_hooker:
 	movq %r9, 8(%rsp)
 	.cfi_offset r9, -64
 
+	/* check stack alignment before calling plthook_entry() */
+	lea (%rsp), %rdi
+	callq is_aligned
+	cmpq $0, %rax
+
 	/* child idx */
 	movq 64(%rsp), %rsi
 	/* address of parent ip */
@@ -27,9 +32,15 @@ plt_hooker:
 	movq 56(%rsp), %rdx
 	/* mcount_args */
 	lea 8(%rsp), %rcx
-
+	jne .L1
 	call plthook_entry
-
+	jmp .L2
+.L1:
+	/* For the 16-byte stack alignment */
+	sub $8, %rsp
+	call plthook_entry
+	add $8, %rsp
+.L2:
 	movq 8(%rsp), %r9
 	movq 16(%rsp), %r8
 	movq 24(%rsp), %rcx
