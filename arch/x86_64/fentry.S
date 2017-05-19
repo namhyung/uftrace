@@ -1,13 +1,37 @@
 /* argument passing: %rdi, %rsi, %rdx, %rcx, %r8, %r9 */
 /* return value: %rax */
 /* callee saved: %rbx, %rbp, %rsp, %r12-r15 */
-/* stack frame (with -pg): return addr = 8(%rbp), prev fp = 0(%rbp) */
-/* stack frame (with -fentry): return addr = (%rsp), prev fp = 8(%rsp) */
+/* stack frame (with -pg -mfentry): parent addr = 8(%rsp), child addr = (%rsp) */
+/*
+ * For example:
+
+   Parent(caller): main()
+   Child(callee): hello()
+
+   Dump of assembler code for function main:
+                   0x00000000004006bc <+0>:	callq  0x400550 <__fentry__@plt>
+                   0x00000000004006c1 <+5>:	push   %rbp
+                   0x00000000004006c2 <+6>:	mov    %rsp,%rbp
+                   0x00000000004006c5 <+9>:	mov    $0x0,%eax
+                   0x00000000004006ca <+14>:	callq  0x4006a6 <hello>
+    parent addr => 0x00000000004006cf <+19>:	nop
+                   0x00000000004006d0 <+20>:	pop    %rbp
+                   0x00000000004006d1 <+21>:	retq
+
+   Dump of assembler code for function hello:
+                   0x00000000004006a6 <+0>:	callq  0x400550 <__fentry__@plt>
+     child addr => 0x00000000004006ab <+5>:	push   %rbp
+                   0x00000000004006ac <+6>:	mov    %rsp,%rbp
+ */
 
 .global __fentry__
 .type __fentry__, @function
 __fentry__:
 	.cfi_startproc
+	/*
+	 * 48 is needed because of the 16-byte
+	 * stack alignment required from GCC7
+	 */
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
 
@@ -24,9 +48,9 @@ __fentry__:
 	movq %r9, 0(%rsp)
 	.cfi_offset r9, -64
 
-	/* child ip */
+	/* child addr */
 	movq 48(%rsp), %rsi
-	/* parent ip */
+	/* parent location */
 	lea 56(%rsp), %rdi
 
 	/* mcount_args */
