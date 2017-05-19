@@ -26,6 +26,12 @@ static bool *plthook_dynsym_resolved;
 static unsigned long got_addr;
 static bool segv_handled;
 
+int is_aligned(unsigned long sp)
+{
+	/* check the 16-byte stack alignment */
+	return sp % 16;
+}
+
 void segv_handler(int sig, siginfo_t *si, void *ctx)
 {
 	if (si->si_code == SEGV_ACCERR) {
