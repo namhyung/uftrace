@@ -24,17 +24,33 @@ static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
 
 static unsigned long got_addr;
-static bool segv_handled;
+static volatile bool segv_handled;
 
-void segv_handler(int sig, siginfo_t *si, void *ctx)
+#define PAGE_SIZE  4096
+#define PAGE_ADDR(addr)  ((addr) & (PAGE_SIZE - 1))
+
+static void segv_handler(int sig, siginfo_t *si, void *ctx)
 {
 	if (si->si_code == SEGV_ACCERR) {
-		mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
-			 PROT_WRITE);
+		mprotect((void *)PAGE_ADDR(got_addr), PAGE_SIZE, PROT_WRITE);
 		segv_handled = true;
 	} else {
 		pr_err_ns("mcount: invalid memory access.. exiting.\n");
 	}
+}
+
+static void overwrite_pltgot(int idx, void *data)
+{
+	/* save got_addr for segv_handler */
+	got_addr = (unsigned long)(&plthook_got_ptr[idx]);
+
+	segv_handled = false;
+
+	/* overwrite it - might be read-protected */
+	plthook_got_ptr[idx] = (unsigned long)data;
+
+	if (segv_handled)
+		mprotect((void *)PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
 extern void __weak plt_hooker(void);
@@ -43,6 +59,20 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
 	struct sigaction sa, old_sa;
+
+	/*
+	 * The GOT region is write-protected on some systems.
+	 * In that case, we need to use mprotect() to overwrite
+	 * the address of resolver function.  So install signal
+	 * handler to catch such cases.
+	 */
+	sa.sa_sigaction = segv_handler;
+	sa.sa_flags = SA_SIGINFO;
+	sigfillset(&sa.sa_mask);
+	if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
+		pr_dbg("error during install sig handler\n");
+		return -1;
+	}
 
 	for (i = 0; i < nr_dyn; i++) {
 		GElf_Dyn dyn;
@@ -57,38 +87,20 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 		plthook_got_ptr = (void *)got_addr;
 		plthook_resolver_addr = plthook_got_ptr[2];
 
-		/*
-		 * The GOT region is write-protected on some systems.
-		 * In that case, we need to use mprotect() to overwrite
-		 * the address of resolver function.  So install signal
-		 * handler to catch such cases.
-		 */
-		sa.sa_sigaction = segv_handler;
-		sa.sa_flags = SA_SIGINFO;
-		sigfillset(&sa.sa_mask);
-		if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-			pr_dbg("error during install sig handler\n");
-			return -1;
-		}
-
-		plthook_got_ptr[2] = (unsigned long)plt_hooker;
-
-		if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-			pr_dbg("error during recover sig handler\n");
-			return -1;
-		}
-
-		if (segv_handled) {
-			mprotect((void *)(got_addr & ~0xFFF), sizeof(long)*3,
-				 PROT_READ);
-			segv_handled = false;
-		}
+		overwrite_pltgot(2, plt_hooker);
 
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			plthook_got_ptr, plthook_resolver_addr);
 
 		break;
 	}
+
+	/* restore the original signal handler */
+	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
+		pr_dbg("error during recover sig handler\n");
+		return -1;
+	}
+
 	return 0;
 }
 
