@@ -222,9 +222,6 @@ elf_error:
 
 /* functions should skip PLT hooking */
 static const char *skip_syms[] = {
-	"mcount",
-	"__fentry__",
-	"__gnu_mcount_nc",
 	"__cyg_profile_func_enter",
 	"__cyg_profile_func_exit",
 	"_mcleanup",
