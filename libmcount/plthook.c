@@ -53,11 +53,54 @@ static void overwrite_pltgot(int idx, void *data)
 		mprotect((void *)PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
+/* use weak reference for non-defined (arch-dependent) symbols */
+extern __weak void (*mcount)(void);
+extern __weak void (*__fentry__)(void);
+extern __weak void (*__gnu_mcount_nc)(void);
+
+/*
+ * The `mcount` (and its friends) are part of uftrace itself,
+ * so no need to use PLT hook for them.
+ */
+static void skip_plt_functions(void)
+{
+	unsigned i, k;
+
+#define SKIP_FUNC(func)  { #func, &func }
+
+	struct {
+		const char *name;
+		void *addr;
+	} skip_list[] = {
+		SKIP_FUNC(mcount),
+		SKIP_FUNC(__fentry__),
+		SKIP_FUNC(__gnu_mcount_nc),
+	};
+
+#undef SKIP_FUNC
+
+	struct symtab *dsymtab = &symtabs.dsymtab;
+
+	for (i = 0; i < dsymtab->nr_sym; i++) {
+		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
+			struct sym *sym = dsymtab->sym_names[i];
+
+			if (strcmp(sym->name, skip_list[k].name))
+				continue;
+
+			overwrite_pltgot(3 + i, skip_list[k].addr);
+			pr_dbg2("overwrite [%u] %s: %p\n",
+				i, skip_list[k].name, skip_list[k].addr);
+		}
+	}
+}
+
 extern void __weak plt_hooker(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
+	bool found = false;
 	struct sigaction sa, old_sa;
 
 	/*
@@ -92,8 +135,12 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			plthook_got_ptr, plthook_resolver_addr);
 
+		found = true;
 		break;
 	}
+
+	if (found)
+		skip_plt_functions();
 
 	/* restore the original signal handler */
 	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
