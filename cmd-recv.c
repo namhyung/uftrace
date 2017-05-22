@@ -155,70 +155,6 @@ void send_trace_kernel_data(int sock, int cpu, void *data, size_t len)
 		pr_err("send kernel data failed");
 }
 
-void send_trace_task(int sock, struct uftrace_msg *hmsg,
-		     struct uftrace_msg_task *tmsg)
-{
-	struct uftrace_msg msg = {
-		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_TASK),
-		.len   = htonl(sizeof(*hmsg) + sizeof(*tmsg)),
-	};
-	struct iovec iov[] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = hmsg, .iov_len = sizeof(*hmsg), },
-		{ .iov_base = tmsg, .iov_len = sizeof(*tmsg), },
-	};
-
-	hmsg->magic = htons(hmsg->magic);
-	hmsg->type  = htons(hmsg->type);
-	hmsg->len   = htonl(hmsg->len);
-
-	tmsg->time = htonq(tmsg->time);
-	tmsg->pid  = htonl(tmsg->pid);
-	tmsg->tid  = htonl(tmsg->tid);
-
-	pr_dbg2("send UFTRACE_MSG_SEND_TASK\n");
-	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send task data failed");
-}
-
-/* namelen is 8-byte aligned length of smsg->namelen */
-void send_trace_session(int sock, struct uftrace_msg *hmsg,
-			struct uftrace_msg_sess *smsg,
-			char *exename, int namelen)
-{
-	struct uftrace_msg msg = {
-		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_SESSION),
-		.len   = htonl(sizeof(*hmsg) + sizeof(*smsg)),
-	};
-	struct iovec iov[] = {
-		{ .iov_base = &msg,    .iov_len = sizeof(msg), },
-		{ .iov_base = hmsg,    .iov_len = sizeof(*hmsg), },
-		{ .iov_base = smsg,    .iov_len = sizeof(*smsg), },
-		{ .iov_base = exename, .iov_len = namelen, },
-	};
-	uint64_t sid;
-	char sidbuf[sizeof(smsg->sid) + 1];
-
-	hmsg->magic = htons(hmsg->magic);
-	hmsg->type  = htons(hmsg->type);
-	hmsg->len   = htonl(hmsg->len);
-
-	smsg->task.time = htonq(smsg->task.time);
-	smsg->task.pid  = htonl(smsg->task.pid);
-	smsg->task.tid  = htonl(smsg->task.tid);
-	smsg->namelen   = htonl(smsg->namelen);
-
-	sscanf(smsg->sid, "%016"SCNx64, &sid);
-	snprintf(sidbuf, sizeof(sidbuf), "%016"PRIx64, htonq(sid));
-	memcpy(smsg->sid, sidbuf, sizeof(smsg->sid));
-
-	pr_dbg2("send UFTRACE_MSG_SEND_SESSION\n");
-	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send session data failed");
-}
-
 void send_trace_map(int sock, uint64_t sid, void *map, int len)
 {
 	struct uftrace_msg msg = {
@@ -284,7 +220,7 @@ void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		pr_err("send info failed");
 }
 
-void send_trace_task_txt(int sock, void *buf, int len)
+void send_trace_task(int sock, void *buf, int len)
 {
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
@@ -430,54 +366,6 @@ static void recv_trace_kernel_data(int sock, int len)
 
 	free(buffer);
 	free(filename);
-}
-
-static void recv_trace_session(int sock, int len)
-{
-	struct client_data *client;
-	struct uftrace_msg msg;
-	struct uftrace_msg_sess smsg;
-	uint64_t sid;
-	char sidbuf[sizeof(smsg.sid) + 1];
-	char *exename;
-	int namelen;
-
-	client = find_client(sock);
-	if (client == NULL)
-		pr_err("no client on this socket\n");
-
-	if (read_all(sock, &msg, sizeof(msg)) < 0)
-		pr_err("recv session message failed");
-
-	msg.magic = htons(msg.magic);
-	msg.type  = htons(msg.type);
-	msg.len   = htonl(msg.len);
-
-	if (msg.type != UFTRACE_MSG_SESSION)
-		pr_err("invalid session message type: %u\n", msg.type);
-
-	if (read_all(sock, &smsg, sizeof(smsg)) < 0)
-		pr_err("recv session message failed");
-
-	smsg.task.time = htonq(smsg.task.time);
-	smsg.task.pid  = htonl(smsg.task.pid);
-	smsg.task.tid  = htonl(smsg.task.tid);
-	smsg.namelen   = htonl(smsg.namelen);
-
-	sscanf(smsg.sid, "%016"SCNx64, &sid);
-	snprintf(sidbuf, sizeof(sidbuf), "%016"PRIx64, htonq(sid));
-	memcpy(smsg.sid, sidbuf, sizeof(smsg.sid));
-
-	namelen = ALIGN(smsg.namelen, 8);
-	exename = xmalloc(namelen);
-
-	if (read_all(sock, exename, namelen) < 0)
-		pr_err("recv exename failed");
-
-	write_client_file(client, "task", 3, &msg, sizeof(msg),
-			  &smsg, sizeof(smsg), exename, namelen);
-
-	free(exename);
 }
 
 static void recv_trace_map(int sock, int len)
@@ -679,10 +567,6 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case UFTRACE_MSG_SEND_TASK:
 		pr_dbg2("receive UFTRACE_MSG_SEND_TASK\n");
 		recv_trace_task_txt(sock, msg.len);
-		break;
-	case UFTRACE_MSG_SEND_SESSION:
-		pr_dbg2("receive UFTRACE_MSG_SEND_SESSION\n");
-		recv_trace_session(sock, msg.len);
 		break;
 	case UFTRACE_MSG_SEND_MAP:
 		pr_dbg2("receive UFTRACE_MSG_SEND_MAP\n");

@@ -313,7 +313,6 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_DATA,
 	UFTRACE_MSG_SEND_TASK,
 	UFTRACE_MSG_SEND_KERNEL_DATA,
-	UFTRACE_MSG_SEND_SESSION,
 	UFTRACE_MSG_SEND_MAP,
 	UFTRACE_MSG_SEND_SYM,
 	UFTRACE_MSG_SEND_INFO,
@@ -389,16 +388,11 @@ int setup_client_socket(struct opts *opts);
 void send_trace_header(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
 void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
-void send_trace_task(int sock, struct uftrace_msg *hmsg,
-		     struct uftrace_msg_task *tmsg);
-void send_trace_session(int sock, struct uftrace_msg *hmsg,
-			struct uftrace_msg_sess *smsg,
-			char *exename, int namelen);
+void send_trace_task(int sock, void *buf, int len);
 void send_trace_map(int sock, uint64_t sid, void *map, int len);
 void send_trace_sym(int sock, char *symfile, void *map, int len);
 void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len);
-void send_trace_task_txt(int sock, void *buf, int len);
 void send_trace_end(int sock);
 
 void write_task_info(const char *dirname, struct uftrace_msg_task *tmsg);

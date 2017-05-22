@@ -1050,10 +1050,18 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
-static void send_task_txt_file(int sock, FILE *fp)
+static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
 {
+	FILE *fp;
+	char *filename = NULL;
 	struct stat stbuf;
 	void *buf;
+
+	xasprintf(&filename, "%s/task.txt", dirname);
+
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		return;
 
 	if (fstat(fileno(fp), &stbuf) < 0)
 		pr_err("cannot stat task.txt file");
@@ -1062,77 +1070,9 @@ static void send_task_txt_file(int sock, FILE *fp)
 	if (fread_all(buf, stbuf.st_size, fp) < 0)
 		pr_err("cannot read task.txt file");
 
-	send_trace_task_txt(sock, buf, stbuf.st_size);
+	send_trace_task(sock, buf, stbuf.st_size);
+
 	free(buf);
-}
-
-static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
-{
-	FILE *fp;
-	char *filename = NULL;
-	char *p;
-	struct uftrace_msg msg;
-	struct uftrace_msg_task tmsg;
-	struct uftrace_msg_sess smsg;
-	int namelen;
-	char *exename;
-
-	xasprintf(&filename, "%s/task.txt", dirname);
-
-	fp = fopen(filename, "r");
-	if (fp) {
-		send_task_txt_file(sock, fp);
-		goto out;
-	}
-
-	/* try to open (old) task file */
-	p = strrchr(filename, '.');
-	if (p) {
-		*p = '\0';
-		fp = fopen(filename, "r");
-	}
-	if (p == NULL || fp == NULL)
-		pr_err("open task file failed");
-
-	while (fread_all(&msg, sizeof(msg), fp) == 0) {
-		if (msg.magic != UFTRACE_MSG_MAGIC) {
-			pr_err_ns("invalid message in task file: %x\n",
-				  msg.magic);
-		}
-
-		switch (msg.type) {
-		case UFTRACE_MSG_TASK:
-		case UFTRACE_MSG_FORK_END:
-			if (fread_all(&tmsg, sizeof(tmsg), fp) < 0)
-				pr_err("read task message failed");
-
-			send_trace_task(sock, &msg, &tmsg);
-			break;
-
-		case UFTRACE_MSG_SESSION:
-			if (fread_all(&smsg, sizeof(smsg), fp) < 0)
-				pr_err("read session message failed");
-
-			namelen = ALIGN(smsg.namelen, 8);
-			exename = xmalloc(namelen);
-			if (fread_all(exename, namelen, fp) < 0)
-				pr_err("read exename failed");
-
-			send_trace_session(sock, &msg, &smsg, exename, namelen);
-			save_symbol_file(symtabs, dirname, exename);
-			free(exename);
-			break;
-
-		default:
-			pr_err_ns("unknown task file message: %d\n", msg.type);
-			break;
-		}
-	}
-
-	if (!feof(fp))
-		pr_err_ns("read task file failed\n");
-
-out:
 	fclose(fp);
 	free(filename);
 }
