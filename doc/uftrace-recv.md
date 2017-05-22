@@ -13,6 +13,10 @@ uftrace recv [*options*]
 DESCRIPTION
 ===========
 This command receives tracing data from the network and saves it to files.
+Data will be sent using `uftrace-record` with -H/\--host option.
+
+-d *DATA*, \--data=*DATA*
+:   Specify directory name to save received data.
 
 \--port=*PORT*
 :   Use given port instead of the default (8090).

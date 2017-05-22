@@ -35,9 +35,9 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 	int fd;
 	char pad[8];
 	char buf[1024];
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess smsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess smsg;
 	int ret = -1;
 
 	snprintf(buf, sizeof(buf), "%s/task", dirname);
@@ -47,11 +47,11 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 
 	pr_dbg("reading task file\n");
 	while (read_all(fd, &msg, sizeof(msg)) == 0) {
-		if (msg.magic != FTRACE_MSG_MAGIC)
+		if (msg.magic != UFTRACE_MSG_MAGIC)
 			goto out;
 
 		switch (msg.type) {
-		case FTRACE_MSG_SESSION:
+		case UFTRACE_MSG_SESSION:
 			if (read_all(fd, &smsg, sizeof(smsg)) < 0)
 				goto out;
 			if (read_all(fd, buf, smsg.namelen) < 0)
@@ -64,14 +64,14 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
 			break;
 
-		case FTRACE_MSG_TID:
+		case UFTRACE_MSG_TASK:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 
 			create_task(sess, &tmsg, false, needs_session);
 			break;
 
-		case FTRACE_MSG_FORK_END:
+		case UFTRACE_MSG_FORK_END:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 
@@ -110,9 +110,9 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 	char *line = NULL;
 	size_t sz = 0;
 	long sec, nsec;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess smsg;
-	struct ftrace_msg_dlopen dlop;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess smsg;
+	struct uftrace_msg_dlopen dlop;
 	char *exename, *pos;
 
 	xasprintf(&fname, "%s/%s", dirname, "task.txt");
@@ -201,7 +201,7 @@ static void snprint_timestamp(char *buf, size_t sz, uint64_t timestamp)
 		 timestamp / NSEC_PER_SEC, timestamp % NSEC_PER_SEC);
 }
 
-void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg)
+void write_task_info(const char *dirname, struct uftrace_msg_task *tmsg)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -221,7 +221,7 @@ void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg)
 	free(fname);
 }
 
-void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg)
+void write_fork_info(const char *dirname, struct uftrace_msg_task *tmsg)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -241,7 +241,7 @@ void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg)
 	free(fname);
 }
 
-void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
+void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
 			const char *exename)
 {
 	FILE *fp;
@@ -262,7 +262,7 @@ void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
 	free(fname);
 }
 
-void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
+void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
 		       const char *libname)
 {
 	FILE *fp;

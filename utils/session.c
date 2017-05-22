@@ -77,7 +77,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
  * session will be added to sessions tree sorted by pid and timestamp.
  */
 void create_session(struct uftrace_session_link *sessions,
-		    struct ftrace_msg_sess *msg, char *dirname, char *exename,
+		    struct uftrace_msg_sess *msg, char *dirname, char *exename,
 		    bool sym_rel_addr)
 {
 	struct uftrace_session *s;
@@ -351,7 +351,7 @@ struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
  * @needs_session is %true.
  */
 void create_task(struct uftrace_session_link *sessions,
-		 struct ftrace_msg_task *msg, bool fork, bool needs_session)
+		 struct uftrace_msg_task *msg, bool fork, bool needs_session)
 {
 	struct uftrace_task *t;
 	struct uftrace_session *s;
@@ -535,7 +535,7 @@ TEST_CASE(session_search)
 	TEST_EQ(test_sessions.first, NULL);
 
 	for (i = 0; i < 1000; i++) {
-		struct ftrace_msg_sess msg = {
+		struct uftrace_msg_sess msg = {
 			.task = {
 				.pid = 1,
 				.tid = 1,
@@ -577,7 +577,7 @@ TEST_CASE(task_search)
 
 	/* 1. create initial task */
 	{
-		struct ftrace_msg_sess smsg = {
+		struct uftrace_msg_sess smsg = {
 			.task = {
 				.pid = 1,
 				.tid = 1,
@@ -586,7 +586,7 @@ TEST_CASE(task_search)
 			.sid = "initial",
 			.namelen = 8,  /* = strlen("unittest") */
 		};
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 1,
 			.tid = 1,
 			.time = 100,
@@ -612,7 +612,7 @@ TEST_CASE(task_search)
 
 	/* 2. fork child task */
 	{
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 1,  /* ppid */
 			.tid = 2,  /* pid */
 			.time = 200,
@@ -634,7 +634,7 @@ TEST_CASE(task_search)
 
 	/* 3. create parent thread */
 	{
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 1,
 			.tid = 3,
 			.time = 300,
@@ -656,7 +656,7 @@ TEST_CASE(task_search)
 
 	/* 4. create child thread */
 	{
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 2,
 			.tid = 4,
 			.time = 400,
@@ -679,7 +679,7 @@ TEST_CASE(task_search)
 
 	/* 5. exec from child */
 	{
-		struct ftrace_msg_sess smsg = {
+		struct uftrace_msg_sess smsg = {
 			.task = {
 				.pid = 2,
 				.tid = 4,
@@ -688,7 +688,7 @@ TEST_CASE(task_search)
 			.sid = "after_exec",
 			.namelen = 8,  /* = strlen("unittest") */
 		};
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 2,
 			.tid = 4,
 			.time = 500,
@@ -713,7 +713,7 @@ TEST_CASE(task_search)
 
 	/* 6. fork grand-child task */
 	{
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 4,  /* ppid */
 			.tid = 5,  /* pid */
 			.time = 600,
@@ -734,7 +734,7 @@ TEST_CASE(task_search)
 
 	/* 7. create grand-child thread */
 	{
-		struct ftrace_msg_task tmsg = {
+		struct uftrace_msg_task tmsg = {
 			.pid = 5,
 			.tid = 6,
 			.time = 700,
@@ -787,7 +787,7 @@ TEST_CASE(task_search)
 TEST_CASE(task_symbol)
 {
 	struct sym *sym;
-	struct ftrace_msg_sess msg = {
+	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,
 			.tid = 1,
@@ -831,7 +831,7 @@ TEST_CASE(task_symbol)
 TEST_CASE(task_symbol_dlopen)
 {
 	struct sym *sym;
-	struct ftrace_msg_sess msg = {
+	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,
 			.tid = 1,

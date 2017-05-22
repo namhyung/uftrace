@@ -429,7 +429,7 @@ static void prepare_vfork(struct mcount_thread_data *mtdp,
 /* this function will be called in child */
 static void setup_vfork(struct mcount_thread_data *mtdp)
 {
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.pid = getppid(),
 		.tid = getpid(),
 		.time = mcount_gettime(),
@@ -444,7 +444,7 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	memset(&mtdp->shmem, 0, sizeof(mtdp->shmem));
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 }
 
 /* this function detects whether child finished */

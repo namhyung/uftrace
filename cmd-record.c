@@ -491,7 +491,8 @@ void *writer_thread(void *arg)
 					check_list = true;
 				else
 					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i-1]);
+								 warg->cpus[i-1],
+								 warg->sock);
 			}
 		}
 
@@ -547,7 +548,8 @@ void *writer_thread(void *arg)
 			for (i = 0; i < warg->nr_cpu; i++) {
 				if (pollfd[i+1].revents & POLLIN) {
 					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i]);
+								 warg->cpus[i],
+								 warg->sock);
 				}
 			}
 		}
@@ -863,10 +865,10 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	char buf[128];
 	struct shmem_list *sl, *tmp;
 	struct tid_list *tl, *pos;
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess sess;
-	struct ftrace_msg_dlopen dmsg;
+	struct uftrace_msg msg;
+	struct uftrace_msg_task tmsg;
+	struct uftrace_msg_sess sess;
+	struct uftrace_msg_dlopen dmsg;
 	struct dlopen_list *dlib;
 	char *exename;
 	int lost;
@@ -874,11 +876,11 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
 
-	if (msg.magic != FTRACE_MSG_MAGIC)
+	if (msg.magic != UFTRACE_MSG_MAGIC)
 		pr_err_ns("invalid message received: %x\n", msg.magic);
 
 	switch (msg.type) {
-	case FTRACE_MSG_REC_START:
+	case UFTRACE_MSG_REC_START:
 		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
@@ -894,7 +896,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		list_add_tail(&sl->list, &shmem_list_head);
 		break;
 
-	case FTRACE_MSG_REC_END:
+	case UFTRACE_MSG_REC_END:
 		if (msg.len >= SHMEM_NAME_SIZE)
 			pr_err_ns("invalid message length\n");
 
@@ -916,14 +918,14 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		record_mmap_file(dirname, buf, bufsize);
 		break;
 
-	case FTRACE_MSG_TID:
+	case UFTRACE_MSG_TASK:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg2("MSG  TID : %d/%d\n", tmsg.pid, tmsg.tid);
+		pr_dbg2("MSG TASK : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
 		list_for_each_entry(pos, &tid_list_head, list) {
@@ -939,7 +941,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		write_task_info(dirname, &tmsg);
 		break;
 
-	case FTRACE_MSG_FORK_START:
+	case UFTRACE_MSG_FORK_START:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -951,7 +953,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		add_tid_list(tmsg.pid, -1);
 		break;
 
-	case FTRACE_MSG_FORK_END:
+	case UFTRACE_MSG_FORK_END:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -989,7 +991,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		write_fork_info(dirname, &tmsg);
 		break;
 
-	case FTRACE_MSG_SESSION:
+	case UFTRACE_MSG_SESSION:
 		if (msg.len < sizeof(sess))
 			pr_err_ns("invalid message length\n");
 
@@ -1010,7 +1012,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		free(exename);
 		break;
 
-	case FTRACE_MSG_LOST:
+	case UFTRACE_MSG_LOST:
 		if (msg.len < sizeof(lost))
 			pr_err_ns("invalid message length\n");
 
@@ -1020,7 +1022,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		shmem_lost_count += lost;
 		break;
 
-	case FTRACE_MSG_DLOPEN:
+	case UFTRACE_MSG_DLOPEN:
 		if (msg.len < sizeof(dmsg))
 			pr_err_ns("invalid message length\n");
 
@@ -1048,91 +1050,9 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
-static void send_task_txt_file(int sock, FILE *fp)
+static void send_task_file(int sock, const char *dirname)
 {
-	struct stat stbuf;
-	void *buf;
-
-	if (fstat(fileno(fp), &stbuf) < 0)
-		pr_err("cannot stat task.txt file");
-
-	buf = xmalloc(stbuf.st_size);
-	if (fread_all(buf, stbuf.st_size, fp) < 0)
-		pr_err("cannot read task.txt file");
-
-	send_trace_task_txt(sock, buf, stbuf.st_size);
-	free(buf);
-}
-
-static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
-{
-	FILE *fp;
-	char *filename = NULL;
-	char *p;
-	struct ftrace_msg msg;
-	struct ftrace_msg_task tmsg;
-	struct ftrace_msg_sess smsg;
-	int namelen;
-	char *exename;
-
-	xasprintf(&filename, "%s/task.txt", dirname);
-
-	fp = fopen(filename, "r");
-	if (fp) {
-		send_task_txt_file(sock, fp);
-		goto out;
-	}
-
-	/* try to open (old) task file */
-	p = strrchr(filename, '.');
-	if (p) {
-		*p = '\0';
-		fp = fopen(filename, "r");
-	}
-	if (p == NULL || fp == NULL)
-		pr_err("open task file failed");
-
-	while (fread_all(&msg, sizeof(msg), fp) == 0) {
-		if (msg.magic  != FTRACE_MSG_MAGIC) {
-			pr_err_ns("invalid message in task file: %x\n",
-				  msg.magic);
-		}
-
-		switch (msg.type) {
-		case FTRACE_MSG_TID:
-		case FTRACE_MSG_FORK_END:
-			if (fread_all(&tmsg, sizeof(tmsg), fp) < 0)
-				pr_err("read task message failed");
-
-			send_trace_task(sock, &msg, &tmsg);
-			break;
-
-		case FTRACE_MSG_SESSION:
-			if (fread_all(&smsg, sizeof(smsg), fp) < 0)
-				pr_err("read session message failed");
-
-			namelen = ALIGN(smsg.namelen, 8);
-			exename = xmalloc(namelen);
-			if (fread_all(exename, namelen, fp) < 0)
-				pr_err("read exename failed");
-
-			send_trace_session(sock, &msg, &smsg, exename, namelen);
-			save_symbol_file(symtabs, dirname, exename);
-			free(exename);
-			break;
-
-		default:
-			pr_err_ns("unknown task file message: %d\n", msg.type);
-			break;
-		}
-	}
-
-	if (!feof(fp))
-		pr_err_ns("read task file failed\n");
-
-out:
-	fclose(fp);
-	free(filename);
+	send_trace_metadata(sock, dirname, "task.txt");
 }
 
 /* find "sid-XXX.map" file */
@@ -1147,42 +1067,15 @@ static int filter_map(const struct dirent *de)
 static void send_map_files(int sock, const char *dirname)
 {
 	int i, maps;
-	int map_fd;
-	uint64_t sid;
 	struct dirent **map_list;
-	struct stat stbuf;
-	void *map;
-	int len;
-	char buf[PATH_MAX];
 
 	maps = scandir(dirname, &map_list, filter_map, alphasort);
 	if (maps < 0)
 		pr_err("cannot scan map files");
 
 	for (i = 0; i < maps; i++) {
-		snprintf(buf, sizeof(buf), "%s/%s",
-			 dirname, map_list[i]->d_name);
-		map_fd = open(buf, O_RDONLY);
-		if (map_fd < 0)
-			pr_err("map open failed");
-
-		if (sscanf(map_list[i]->d_name, "sid-%"PRIx64".map", &sid) < 0)
-			pr_err("map sid parse failed");
-
-		if (fstat(map_fd, &stbuf) < 0)
-			pr_err("map stat failed");
-
-		len = stbuf.st_size;
-		map = xmalloc(len);
-
-		if (read_all(map_fd, map, len) < 0)
-			pr_err("map read failed");
-
-		send_trace_map(sock, sid, map, len);
-
-		free(map);
+		send_trace_metadata(sock, dirname, map_list[i]->d_name);
 		free(map_list[i]);
-		close(map_fd);
 	}
 	free(map_list);
 }
@@ -1198,38 +1091,15 @@ static int filter_sym(const struct dirent *de)
 static void send_sym_files(int sock, const char *dirname)
 {
 	int i, syms;
-	int sym_fd;
 	struct dirent **sym_list;
-	struct stat stbuf;
-	void *sym;
-	int len;
-	char buf[PATH_MAX];
 
 	syms = scandir(dirname, &sym_list, filter_sym, alphasort);
 	if (syms < 0)
 		pr_err("cannot scan sym files");
 
 	for (i = 0; i < syms; i++) {
-		snprintf(buf, sizeof(buf), "%s/%s",
-			 dirname, sym_list[i]->d_name);
-		sym_fd = open(buf, O_RDONLY);
-		if (sym_fd < 0)
-			pr_err("open symfile failed");
-
-		if (fstat(sym_fd, &stbuf) < 0)
-			pr_err("stat symfile failed");
-
-		len = stbuf.st_size;
-		sym = xmalloc(len);
-
-		if (read_all(sym_fd, sym, len) < 0)
-			pr_err("read symfile failed");
-
-		send_trace_sym(sock, sym_list[i]->d_name, sym, len);
-
-		free(sym);
+		send_trace_metadata(sock, dirname, sym_list[i]->d_name);
 		free(sym_list[i]);
-		close(sym_fd);
 	}
 	free(sym_list);
 }
@@ -1263,7 +1133,14 @@ static void send_info_file(int sock, const char *dirname)
 	send_trace_info(sock, &hdr, info, len);
 
 	close(fd);
+	free(info);
 	free(filename);
+}
+
+static void send_kernel_metadata(int sock, const char *dirname)
+{
+	send_trace_metadata(sock, dirname, "kernel_header");
+	send_trace_metadata(sock, dirname, "kallsyms");
 }
 
 static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
@@ -1510,7 +1387,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->host) {
 		sock = setup_client_socket(opts);
-		send_trace_header(sock, opts->dirname);
+		send_trace_dir_name(sock, opts->dirname);
 	}
 
 	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1707,10 +1584,14 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		finish_kernel_tracing(&kernel);
 
 	if (opts->host) {
-		send_task_file(sock, opts->dirname, &symtabs);
+		send_task_file(sock, opts->dirname);
 		send_map_files(sock, opts->dirname);
 		send_sym_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
+
+		if (opts->kernel)
+			send_kernel_metadata(sock, opts->dirname);
+
 		send_trace_end(sock);
 		close(sock);
 

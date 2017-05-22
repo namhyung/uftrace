@@ -296,50 +296,51 @@ struct uftrace_task {
 	struct uftrace_sess_ref	*sref_last;
 };
 
-#define FTRACE_MSG_MAGIC 0xface
+#define UFTRACE_MSG_MAGIC 0xface
 
-#define FTRACE_MSG_REC_START      1U
-#define FTRACE_MSG_REC_END        2U
-#define FTRACE_MSG_TID            3U
-#define FTRACE_MSG_FORK_START     4U
-#define FTRACE_MSG_FORK_END       5U
-#define FTRACE_MSG_SESSION        6U
-#define FTRACE_MSG_LOST           7U
-#define FTRACE_MSG_SEND_HDR       8U
-#define FTRACE_MSG_SEND_DATA      9U
-#define FTRACE_MSG_SEND_TASK     10U
-#define FTRACE_MSG_SEND_SESSION  11U
-#define FTRACE_MSG_SEND_MAP      12U
-#define FTRACE_MSG_SEND_SYM      13U
-#define FTRACE_MSG_SEND_INFO     14U
-#define FTRACE_MSG_SEND_END      15U
-#define FTRACE_MSG_DLOPEN        16U
-#define FTRACE_MSG_SEND_TASK2    17U
+enum uftrace_msg_type {
+	UFTRACE_MSG_REC_START		= 1,
+	UFTRACE_MSG_REC_END,
+	UFTRACE_MSG_TASK,
+	UFTRACE_MSG_FORK_START,
+	UFTRACE_MSG_FORK_END,
+	UFTRACE_MSG_SESSION,
+	UFTRACE_MSG_LOST,
+	UFTRACE_MSG_DLOPEN,
+
+	UFTRACE_MSG_SEND_START		= 100,
+	UFTRACE_MSG_SEND_DIR_NAME,
+	UFTRACE_MSG_SEND_DATA,
+	UFTRACE_MSG_SEND_KERNEL_DATA,
+	UFTRACE_MSG_SEND_INFO,
+	UFTRACE_MSG_SEND_META_DATA,
+	UFTRACE_MSG_SEND_END,
+};
 
 /* msg format for communicating by pipe */
-struct ftrace_msg {
-	unsigned short magic; /* FTRACE_MSG_MAGIC */
-	unsigned short type;  /* FTRACE_MSG_REC_* */
+struct uftrace_msg {
+	unsigned short magic; /* UFTRACE_MSG_MAGIC */
+	unsigned short type;  /* UFTRACE_MSG_REC_* */
 	unsigned int len;
 	unsigned char data[];
 };
 
-struct ftrace_msg_task {
+struct uftrace_msg_task {
 	uint64_t time;
 	int32_t  pid;
 	int32_t  tid;
 };
 
-struct ftrace_msg_sess {
-	struct ftrace_msg_task task;
+struct uftrace_msg_sess {
+	struct uftrace_msg_task task;
 	char sid[16];
 	int  unused;
 	int  namelen;
 	char exename[];
 };
 
-struct ftrace_msg_dlopen {
-	struct ftrace_msg_task task;
+struct uftrace_msg_dlopen {
+	struct uftrace_msg_task task;
 	uint64_t base_addr;
 	char sid[16];
 	int  unused;
@@ -349,13 +350,13 @@ struct ftrace_msg_dlopen {
 
 extern struct uftrace_session *first_session;
 
-void create_session(struct uftrace_session_link *sess, struct ftrace_msg_sess *msg,
+void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg,
 		    char *dirname, char *exename, bool sym_rel_addr);
 struct uftrace_session *find_session(struct uftrace_session_link *sess,
 				     int pid, uint64_t timestamp);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  int pid, uint64_t timestamp);
-void create_task(struct uftrace_session_link *sess, struct ftrace_msg_task *msg,
+void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
 		 bool fork, bool needs_session);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
@@ -382,25 +383,19 @@ void walk_tasks(struct uftrace_session_link *sess,
 		walk_tasks_cb_t callback, void *arg);
 
 int setup_client_socket(struct opts *opts);
-void send_trace_header(int sock, char *name);
+void send_trace_dir_name(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
-void send_trace_task(int sock, struct ftrace_msg *hmsg,
-		     struct ftrace_msg_task *tmsg);
-void send_trace_session(int sock, struct ftrace_msg *hmsg,
-			struct ftrace_msg_sess *smsg,
-			char *exename, int namelen);
-void send_trace_map(int sock, uint64_t sid, void *map, int len);
-void send_trace_sym(int sock, char *symfile, void *map, int len);
+void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
+void send_trace_metadata(int sock, const char *dirname, char *filename);
 void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len);
-void send_trace_task_txt(int sock, void *buf, int len);
 void send_trace_end(int sock);
 
-void write_task_info(const char *dirname, struct ftrace_msg_task *tmsg);
-void write_fork_info(const char *dirname, struct ftrace_msg_task *tmsg);
-void write_session_info(const char *dirname, struct ftrace_msg_sess *smsg,
+void write_task_info(const char *dirname, struct uftrace_msg_task *tmsg);
+void write_fork_info(const char *dirname, struct uftrace_msg_task *tmsg);
+void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
 			const char *exename);
-void write_dlopen_info(const char *dirname, struct ftrace_msg_dlopen *dmsg,
+void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
 		       const char *libname);
 
 enum uftrace_record_type {
@@ -465,7 +460,7 @@ enum ftrace_ext_type {
 int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts);
 int start_kernel_tracing(struct uftrace_kernel *kernel);
 int record_kernel_tracing(struct uftrace_kernel *kernel);
-int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu);
+int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu, int sock);
 int stop_kernel_tracing(struct uftrace_kernel *kernel);
 int finish_kernel_tracing(struct uftrace_kernel *kernel);
 

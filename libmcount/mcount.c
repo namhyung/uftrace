@@ -121,8 +121,8 @@ const char *session_name(void)
 
 void ftrace_send_message(int type, void *data, size_t len)
 {
-	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
+	struct uftrace_msg msg = {
+		.magic = UFTRACE_MSG_MAGIC,
 		.type = type,
 		.len = len,
 	};
@@ -141,7 +141,7 @@ void ftrace_send_message(int type, void *data, size_t len)
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
-	struct ftrace_msg_sess sess = {
+	struct uftrace_msg_sess sess = {
 		.task = {
 			.time = mcount_gettime(),
 			.pid = getpid(),
@@ -149,9 +149,9 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		},
 		.namelen = strlen(mcount_exename),
 	};
-	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_SESSION,
+	struct uftrace_msg msg = {
+		.magic = UFTRACE_MSG_MAGIC,
+		.type = UFTRACE_MSG_SESSION,
 		.len = sizeof(sess) + sess.namelen,
 	};
 	struct iovec iov[3] = {
@@ -174,7 +174,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 			    uint64_t timestamp,  uint64_t base_addr,
 			    const char *libname)
 {
-	struct ftrace_msg_dlopen dlop = {
+	struct uftrace_msg_dlopen dlop = {
 		.task = {
 			.time = timestamp,
 			.pid = getpid(),
@@ -183,9 +183,9 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		.base_addr = base_addr,
 		.namelen = strlen(libname),
 	};
-	struct ftrace_msg msg = {
-		.magic = FTRACE_MSG_MAGIC,
-		.type = FTRACE_MSG_DLOPEN,
+	struct uftrace_msg msg = {
+		.magic = UFTRACE_MSG_MAGIC,
+		.type = UFTRACE_MSG_DLOPEN,
 		.len = sizeof(dlop) + dlop.namelen,
 	};
 	struct iovec iov[3] = {
@@ -231,7 +231,7 @@ struct mcount_thread_data * mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 	struct mcount_thread_data *mtdp = &mtd;
-	struct ftrace_msg_task tmsg;
+	struct uftrace_msg_task tmsg;
 
 	/*
 	 * If an executable implements its own malloc(),
@@ -263,7 +263,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
-	ftrace_send_message(FTRACE_MSG_TID, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 
 	if (kernel_pid_update)
 		update_kernel_tid(gettid(mtdp));
@@ -795,18 +795,18 @@ out:
 
 static void atfork_prepare_handler(void)
 {
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getpid(),
 	};
 
-	ftrace_send_message(FTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
 }
 
 static void atfork_child_handler(void)
 {
 	struct mcount_thread_data *mtdp;
-	struct ftrace_msg_task tmsg = {
+	struct uftrace_msg_task tmsg = {
 		.time = mcount_gettime(),
 		.pid = getppid(),
 		.tid = getpid(),
@@ -828,7 +828,7 @@ static void atfork_child_handler(void)
 	clear_shmem_buffer(mtdp);
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(FTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+	ftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 
 	mtdp->recursion_guard = false;
 }
