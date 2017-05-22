@@ -537,6 +537,16 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 	int sigfd;
 	int efd;
 
+	if (strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+		char *dirname = "current";
+
+		if ((mkdir(opts->dirname, 0755) == 0 || errno == EEXIST) &&
+		    chdir(opts->dirname) == 0)
+			dirname = opts->dirname;
+
+		pr_dbg("saving to %s directory\n", dirname);
+	}
+
 	sock = server_socket(opts);
 	sigfd = signal_fd(opts);
 
