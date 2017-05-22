@@ -900,6 +900,7 @@ void mcount_rstack_restore(void)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
+	/* restore return addresses - reverse order due to tail calls */
 	for (idx = mtdp->idx - 1; idx >= 0; idx--)
 		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
 }

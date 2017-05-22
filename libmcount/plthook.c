@@ -96,6 +96,7 @@ static void skip_plt_functions(void)
 }
 
 extern void __weak plt_hooker(void);
+extern unsigned long plthook_return(void);
 
 static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
@@ -355,55 +356,71 @@ void destroy_dynsym_indexes(void)
 }
 
 struct mcount_jmpbuf_rstack {
+	struct list_head list;
+	unsigned long addr;
 	int count;
 	int record_idx;
-	unsigned long parent[MCOUNT_RSTACK_MAX];
-	unsigned long child[MCOUNT_RSTACK_MAX];
+	struct mcount_ret_stack rstack[MCOUNT_RSTACK_MAX];
 };
 
-static struct mcount_jmpbuf_rstack setjmp_rstack;
+static LIST_HEAD(jmpbuf_list);
 
-static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
+static void setup_jmpbuf_rstack(struct mcount_thread_data *mtdp,
+				unsigned long addr)
 {
 	int i;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+	struct mcount_jmpbuf_rstack *jbstack;
 
-	pr_dbg2("setup jmpbuf rstack: %d\n", idx);
+	list_for_each_entry(jbstack, &jmpbuf_list, list) {
+		if (jbstack->addr == addr)
+			break;
+	}
+	if (list_no_entry(jbstack, &jmpbuf_list, list)) {
+		jbstack = xmalloc(sizeof(*jbstack));
+		jbstack->addr = addr;
+
+		list_add(&jbstack->list, &jmpbuf_list);
+	}
+
+	pr_dbg2("setup jmpbuf rstack at %lx (%d entries)\n", addr, mtdp->idx);
 
 	/* currently, only saves a single jmpbuf */
-	jbstack->count = idx;
+	jbstack->count      = mtdp->idx;
 	jbstack->record_idx = mtdp->record_idx;
 
-	for (i = 0; i <= idx; i++) {
-		jbstack->parent[i] = mtdp->rstack[i].parent_ip;
-		jbstack->child[i]  = mtdp->rstack[i].child_ip;
-	}
-
-	mtdp->rstack[idx].flags |= MCOUNT_FL_SETJMP;
+	for (i = 0; i < jbstack->count; i++)
+		jbstack->rstack[i] = mtdp->rstack[i];
 }
 
-static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp, int idx)
+static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp,
+				  unsigned long addr)
 {
-	int i, dyn_idx;
-	struct mcount_jmpbuf_rstack *jbstack = &setjmp_rstack;
+	int i;
+	struct mcount_jmpbuf_rstack *jbstack;
 
-	dyn_idx = mtdp->rstack[idx].dyn_idx;
+	list_for_each_entry(jbstack, &jmpbuf_list, list) {
+		if (jbstack->addr == addr)
+			break;
+	}
+	assert(!list_no_entry(jbstack, &jmpbuf_list, list));
 
-	pr_dbg2("restore jmpbuf: %d\n", jbstack->count);
+	pr_dbg2("restore jmpbuf rstack at %lx (%d entries)\n", addr, jbstack->count);
 
-	mtd.idx = jbstack->count + 1;
-	mtd.record_idx = jbstack->record_idx;
+	/* restoring current rstack caused an error - skip it */
+	mtdp->idx--;
+	mcount_rstack_restore();
 
-	mtdp->idx = jbstack->count + 1;
+	mtdp->idx        = jbstack->count;
 	mtdp->record_idx = jbstack->record_idx;
 
-	for (i = 0; i < jbstack->count + 1; i++) {
-		mtdp->rstack[i].parent_ip = jbstack->parent[i];
-		mtdp->rstack[i].child_ip  = jbstack->child[i];
+	for (i = 0; i < jbstack->count; i++) {
+		mtdp->rstack[i] = jbstack->rstack[i];
+
+		/* setjmp() already wrote rstacks */
+		mtdp->rstack[i].flags |= MCOUNT_FL_WRITTEN;
 	}
 
-	/* to avoid check in plthook_exit() */
-	mtdp->rstack[jbstack->count].dyn_idx = dyn_idx;
+	mcount_rstack_reset();
 }
 
 /* it's crazy to call vfork() concurrently */
@@ -473,7 +490,29 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
-extern unsigned long plthook_return(void);
+static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
+{
+	unsigned long new_addr;
+
+	if (!plthook_dynsym_resolved[dyn_idx]) {
+#ifndef SINGLE_THREAD
+		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+		pthread_mutex_lock(&resolver_mutex);
+#endif
+		if (!plthook_dynsym_resolved[dyn_idx]) {
+			new_addr = plthook_got_ptr[3 + dyn_idx];
+			/* restore GOT so plt_hooker keep called */
+			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
+
+			plthook_dynsym_addr[dyn_idx] = new_addr;
+			plthook_dynsym_resolved[dyn_idx] = true;
+		}
+#ifndef SINGLE_THREAD
+		pthread_mutex_unlock(&resolver_mutex);
+#endif
+	}
+}
 
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id, struct mcount_regs *regs)
@@ -555,20 +594,22 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	*ret_addr = (unsigned long)plthook_return;
 
 	if (unlikely(special_flag)) {
+		/* force flush rstack on some special functions */
+		if (special_flag & PLT_FL_FLUSH) {
+			record_trace_data(mtdp, rstack, NULL);
+		}
+
 		if (special_flag & PLT_FL_SETJMP) {
-			setup_jmpbuf_rstack(mtdp, mtdp->idx - 1);
+			setup_jmpbuf_rstack(mtdp, ARG1(regs));
 		}
 		else if (special_flag & PLT_FL_LONGJMP) {
 			rstack->flags |= MCOUNT_FL_LONGJMP;
+			/* abuse end-time for the jmpbuf addr */
+			rstack->end_time = ARG1(regs);
 		}
 		else if (special_flag & PLT_FL_VFORK) {
 			rstack->flags |= MCOUNT_FL_VFORK;
 			prepare_vfork(mtdp, rstack);
-		}
-
-		/* force flush rstack on some special functions */
-		if (special_flag & PLT_FL_FLUSH) {
-			record_trace_data(mtdp, rstack, NULL);
 		}
 	}
 
@@ -595,7 +636,6 @@ out:
 unsigned long plthook_exit(long *retval)
 {
 	int dyn_idx;
-	unsigned long new_addr;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
@@ -609,8 +649,9 @@ again:
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			restore_jmpbuf_rstack(mtdp, mtdp->idx + 1);
+			update_pltgot(mtdp, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
+			restore_jmpbuf_rstack(mtdp, rstack->end_time);
 			goto again;
 		}
 
@@ -633,25 +674,7 @@ again:
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
-
-	if (!plthook_dynsym_resolved[dyn_idx]) {
-#ifndef SINGLE_THREAD
-		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-		pthread_mutex_lock(&resolver_mutex);
-#endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			new_addr = plthook_got_ptr[3 + dyn_idx];
-			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
-
-			plthook_dynsym_addr[dyn_idx] = new_addr;
-			plthook_dynsym_resolved[dyn_idx] = true;
-		}
-#ifndef SINGLE_THREAD
-		pthread_mutex_unlock(&resolver_mutex);
-#endif
-	}
+	update_pltgot(mtdp, dyn_idx);
 
 	compiler_barrier();
 
