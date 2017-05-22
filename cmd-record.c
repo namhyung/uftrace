@@ -1050,31 +1050,9 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	}
 }
 
-static void send_task_file(int sock, const char *dirname, struct symtabs *symtabs)
+static void send_task_file(int sock, const char *dirname)
 {
-	FILE *fp;
-	char *filename = NULL;
-	struct stat stbuf;
-	void *buf;
-
-	xasprintf(&filename, "%s/task.txt", dirname);
-
-	fp = fopen(filename, "r");
-	if (fp == NULL)
-		return;
-
-	if (fstat(fileno(fp), &stbuf) < 0)
-		pr_err("cannot stat task.txt file");
-
-	buf = xmalloc(stbuf.st_size);
-	if (fread_all(buf, stbuf.st_size, fp) < 0)
-		pr_err("cannot read task.txt file");
-
-	send_trace_task(sock, buf, stbuf.st_size);
-
-	free(buf);
-	fclose(fp);
-	free(filename);
+	send_trace_metadata(sock, dirname, "task.txt");
 }
 
 /* find "sid-XXX.map" file */
@@ -1089,42 +1067,15 @@ static int filter_map(const struct dirent *de)
 static void send_map_files(int sock, const char *dirname)
 {
 	int i, maps;
-	int map_fd;
-	uint64_t sid;
 	struct dirent **map_list;
-	struct stat stbuf;
-	void *map;
-	int len;
-	char buf[PATH_MAX];
 
 	maps = scandir(dirname, &map_list, filter_map, alphasort);
 	if (maps < 0)
 		pr_err("cannot scan map files");
 
 	for (i = 0; i < maps; i++) {
-		snprintf(buf, sizeof(buf), "%s/%s",
-			 dirname, map_list[i]->d_name);
-		map_fd = open(buf, O_RDONLY);
-		if (map_fd < 0)
-			pr_err("map open failed");
-
-		if (sscanf(map_list[i]->d_name, "sid-%"PRIx64".map", &sid) < 0)
-			pr_err("map sid parse failed");
-
-		if (fstat(map_fd, &stbuf) < 0)
-			pr_err("map stat failed");
-
-		len = stbuf.st_size;
-		map = xmalloc(len);
-
-		if (read_all(map_fd, map, len) < 0)
-			pr_err("map read failed");
-
-		send_trace_map(sock, sid, map, len);
-
-		free(map);
+		send_trace_metadata(sock, dirname, map_list[i]->d_name);
 		free(map_list[i]);
-		close(map_fd);
 	}
 	free(map_list);
 }
@@ -1140,38 +1091,15 @@ static int filter_sym(const struct dirent *de)
 static void send_sym_files(int sock, const char *dirname)
 {
 	int i, syms;
-	int sym_fd;
 	struct dirent **sym_list;
-	struct stat stbuf;
-	void *sym;
-	int len;
-	char buf[PATH_MAX];
 
 	syms = scandir(dirname, &sym_list, filter_sym, alphasort);
 	if (syms < 0)
 		pr_err("cannot scan sym files");
 
 	for (i = 0; i < syms; i++) {
-		snprintf(buf, sizeof(buf), "%s/%s",
-			 dirname, sym_list[i]->d_name);
-		sym_fd = open(buf, O_RDONLY);
-		if (sym_fd < 0)
-			pr_err("open symfile failed");
-
-		if (fstat(sym_fd, &stbuf) < 0)
-			pr_err("stat symfile failed");
-
-		len = stbuf.st_size;
-		sym = xmalloc(len);
-
-		if (read_all(sym_fd, sym, len) < 0)
-			pr_err("read symfile failed");
-
-		send_trace_sym(sock, sym_list[i]->d_name, sym, len);
-
-		free(sym);
+		send_trace_metadata(sock, dirname, sym_list[i]->d_name);
 		free(sym_list[i]);
-		close(sym_fd);
 	}
 	free(sym_list);
 }
@@ -1205,6 +1133,7 @@ static void send_info_file(int sock, const char *dirname)
 	send_trace_info(sock, &hdr, info, len);
 
 	close(fd);
+	free(info);
 	free(filename);
 }
 
@@ -1649,7 +1578,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		finish_kernel_tracing(&kernel);
 
 	if (opts->host) {
-		send_task_file(sock, opts->dirname, &symtabs);
+		send_task_file(sock, opts->dirname);
 		send_map_files(sock, opts->dirname);
 		send_sym_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);

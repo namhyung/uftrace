@@ -11,6 +11,8 @@
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
 #include <linux/limits.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -155,45 +157,54 @@ void send_trace_kernel_data(int sock, int cpu, void *data, size_t len)
 		pr_err("send kernel data failed");
 }
 
-void send_trace_map(int sock, uint64_t sid, void *map, int len)
+void send_trace_metadata(int sock, const char *dirname, char *filename)
 {
+	int fd;
+	void *buf;
+	size_t len;
+	char *pathname = NULL;
+	struct stat stbuf;
+	int32_t namelen = strlen(filename);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_MAP),
-		.len   = htonl(sizeof(sid) + len),
+		.type  = htons(UFTRACE_MSG_SEND_META_DATA),
+		.len   = htonl(sizeof(namelen) + namelen),
 	};
-	uint64_t msg_sid = htonq(sid);
-	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = &msg_sid, .iov_len = sizeof(msg_sid), },
-		{ .iov_base = map,      .iov_len = len, },
-	};
-
-	pr_dbg2("send UFTRACE_MSG_SEND_MAP\n");
-	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send map failed");
-}
-
-void send_trace_sym(int sock, char *symfile, void *sym, int len)
-{
-	int32_t namelen = strlen(symfile);
-	struct uftrace_msg msg = {
-		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_SYM),
-		.len   = htonl(sizeof(namelen) + namelen + len),
-	};
-	struct iovec iov[] = {
+	struct iovec iov[4] = {
 		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
 		{ .iov_base = &namelen, .iov_len = sizeof(namelen), },
-		{ .iov_base = symfile,  .iov_len = namelen, },
-		{ .iov_base = sym,      .iov_len = len, },
+		{ .iov_base = filename, .iov_len = namelen, },
+		{ /* to be filled */ },
 	};
+
+	xasprintf(&pathname, "%s/%s", dirname, filename);
+
+	fd = open(pathname, O_RDONLY);
+	if (fd < 0)
+		pr_err("open %s failed", pathname);
+
+	if (fstat(fd, &stbuf) < 0)
+		pr_err("stat %s failed", pathname);
+
+	len = stbuf.st_size;
+	buf = xmalloc(len);
+
+	msg.len += htonl(len);
+	iov[3].iov_base = buf;
+	iov[3].iov_len  = len;
+
+	if (read_all(fd, buf, len) < 0)
+		pr_err("map read failed");
 
 	namelen = htonl(namelen);
 
-	pr_dbg2("send UFTRACE_MSG_SEND_SYM\n");
+	pr_dbg2("send UFTRACE_MSG_SEND_META_DATA: %s\n", filename);
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send symfile failed");
+		pr_err("send metadata failed");
+
+	free(pathname);
+	free(buf);
+	close(fd);
 }
 
 void send_trace_info(int sock, struct uftrace_file_header *hdr,
@@ -205,36 +216,20 @@ void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		.len   = htonl(sizeof(*hdr) + len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = hdr,  .iov_len = sizeof(*hdr), },
-		{ .iov_base = info, .iov_len = len, },
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = hdr,      .iov_len = sizeof(*hdr), },
+		{ .iov_base = info,     .iov_len = len, },
 	};
 
 	hdr->version     = htonl(hdr->version);
 	hdr->header_size = htons(hdr->header_size);
 	hdr->feat_mask   = htonq(hdr->feat_mask);
 	hdr->info_mask   = htonq(hdr->info_mask);
+	hdr->max_stack   = htons(hdr->max_stack);
 
 	pr_dbg2("send UFTRACE_MSG_SEND_INFO\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send info failed");
-}
-
-void send_trace_task(int sock, void *buf, int len)
-{
-	struct uftrace_msg msg = {
-		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_TASK),
-		.len   = htonl(len),
-	};
-	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = buf,      .iov_len = len, },
-	};
-
-	pr_dbg2("send UFTRACE_MSG_SEND_TASK\n");
-	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
-		pr_err("send map failed");
+		pr_err("send metadata failed");
 }
 
 void send_trace_end(int sock)
@@ -368,41 +363,12 @@ static void recv_trace_kernel_data(int sock, int len)
 	free(filename);
 }
 
-static void recv_trace_map(int sock, int len)
-{
-	struct client_data *client;
-	uint64_t sid;
-	char *mapname = NULL;
-	void *mapdata;
-
-	client = find_client(sock);
-	if (client == NULL)
-		pr_err("no client on this socket\n");
-
-	if (read_all(sock, &sid, sizeof(sid)) < 0)
-		pr_err("recv map session id failed");
-
-	sid = ntohq(sid);
-	xasprintf(&mapname, "sid-%016"PRIx64".map", sid);
-
-	len -= sizeof(sid);
-	mapdata = xmalloc(len);
-
-	if (read_all(sock, mapdata, len) < 0)
-		pr_err("recv map file failed");
-
-	write_client_file(client, mapname, 1, mapdata, len);
-
-	free(mapdata);
-	free(mapname);
-}
-
-static void recv_trace_sym(int sock, int len)
+static void recv_trace_metadata(int sock, int len)
 {
 	struct client_data *client;
 	int32_t namelen;
-	char *symname = NULL;
-	void *symdata;
+	char *filename = NULL;
+	void *filedata;
 
 	client = find_client(sock);
 	if (client == NULL)
@@ -412,22 +378,23 @@ static void recv_trace_sym(int sock, int len)
 		pr_err("recv symfile name length failed");
 
 	namelen = ntohl(namelen);
-	symname = xmalloc(namelen + 1);
+	filename = xmalloc(namelen + 1);
 
-	if (read_all(sock, symname, namelen) < 0)
-		pr_err("recv symfile name failed");
-	symname[namelen] = '\0';
+	if (read_all(sock, filename, namelen) < 0)
+		pr_err("recv file name failed");
+	filename[namelen] = '\0';
 
 	len -= sizeof(namelen) + namelen;
-	symdata = xmalloc(len);
+	filedata = xmalloc(len);
 
-	if (read_all(sock, symdata, len) < 0)
+	pr_dbg2("reading %s (%d bytes)\n", filename, len);
+	if (read_all(sock, filedata, len) < 0)
 		pr_err("recv symfile failed");
 
-	write_client_file(client, symname, 1, symdata, len);
+	write_client_file(client, filename, 1, filedata, len);
 
-	free(symdata);
-	free(symname);
+	free(filedata);
+	free(filename);
 }
 
 static void recv_trace_info(int sock, int len)
@@ -447,35 +414,17 @@ static void recv_trace_info(int sock, int len)
 	hdr.header_size = ntohs(hdr.header_size);
 	hdr.feat_mask   = ntohq(hdr.feat_mask);
 	hdr.info_mask   = ntohq(hdr.info_mask);
+	hdr.max_stack   = ntohs(hdr.max_stack);
 
 	len -= sizeof(hdr);
 	info = xmalloc(len);
 
 	if (read_all(sock, info, len) < 0)
-		pr_err("recv info file failed");
+		pr_err("recv info failed");
 
 	write_client_file(client, "info", 2, &hdr, sizeof(hdr), info, len);
 
 	free(info);
-}
-
-static void recv_trace_task_txt(int sock, int len)
-{
-	struct client_data *client;
-	void *data;
-
-	client = find_client(sock);
-	if (client == NULL)
-		pr_err("no client on this socket\n");
-
-	data = xmalloc(len);
-
-	if (read_all(sock, data, len) < 0)
-		pr_err("recv task message failed");
-
-	write_client_file(client, "task.txt", 1, data, len);
-
-	free(data);
 }
 
 static void recv_trace_end(int sock, int efd)
@@ -564,21 +513,13 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 		pr_dbg2("receive UFTRACE_MSG_SEND_KERNEL_DATA\n");
 		recv_trace_kernel_data(sock, msg.len);
 		break;
-	case UFTRACE_MSG_SEND_TASK:
-		pr_dbg2("receive UFTRACE_MSG_SEND_TASK\n");
-		recv_trace_task_txt(sock, msg.len);
-		break;
-	case UFTRACE_MSG_SEND_MAP:
-		pr_dbg2("receive UFTRACE_MSG_SEND_MAP\n");
-		recv_trace_map(sock, msg.len);
-		break;
-	case UFTRACE_MSG_SEND_SYM:
-		pr_dbg2("receive UFTRACE_MSG_SEND_SYM\n");
-		recv_trace_sym(sock, msg.len);
-		break;
 	case UFTRACE_MSG_SEND_INFO:
 		pr_dbg2("receive UFTRACE_MSG_SEND_INFO\n");
 		recv_trace_info(sock, msg.len);
+		break;
+	case UFTRACE_MSG_SEND_META_DATA:
+		pr_dbg2("receive UFTRACE_MSG_SEND_META_DATA\n");
+		recv_trace_metadata(sock, msg.len);
 		break;
 	case UFTRACE_MSG_SEND_END:
 		pr_dbg2("receive UFTRACE_MSG_SEND_END\n");
