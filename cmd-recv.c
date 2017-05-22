@@ -99,12 +99,12 @@ int setup_client_socket(struct opts *opts)
 	return sock;
 }
 
-void send_trace_header(int sock, char *name)
+void send_trace_dir_name(int sock, char *name)
 {
 	ssize_t len = strlen(name);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_HDR),
+		.type  = htons(UFTRACE_MSG_SEND_DIR_NAME),
 		.len   = htonl(len),
 	};
 	struct iovec iov[] = {
@@ -289,7 +289,7 @@ static void write_client_file(struct client_data *c, char *filename, int nr, ...
 	close(fd);
 }
 
-static void recv_trace_header(int sock, int len)
+static void recv_trace_dir_name(int sock, int len)
 {
 	char dirname[len + 1];
 	struct client_data *client;
@@ -552,9 +552,9 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 		pr_err_ns("invalid message\n");
 
 	switch (msg.type) {
-	case UFTRACE_MSG_SEND_HDR:
-		pr_dbg2("receive UFTRACE_MSG_SEND_HDR\n");
-		recv_trace_header(sock, msg.len);
+	case UFTRACE_MSG_SEND_DIR_NAME:
+		pr_dbg2("receive UFTRACE_MSG_SEND_DIR_NAME\n");
+		recv_trace_dir_name(sock, msg.len);
 		break;
 	case UFTRACE_MSG_SEND_DATA:
 		pr_dbg2("receive UFTRACE_MSG_SEND_DATA\n");

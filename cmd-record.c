@@ -1452,7 +1452,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (opts->host) {
 		sock = setup_client_socket(opts);
-		send_trace_header(sock, opts->dirname);
+		send_trace_dir_name(sock, opts->dirname);
 	}
 
 	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);

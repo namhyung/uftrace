@@ -309,7 +309,7 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_DLOPEN,
 
 	UFTRACE_MSG_SEND_START		= 100,
-	UFTRACE_MSG_SEND_HDR,
+	UFTRACE_MSG_SEND_DIR_NAME,
 	UFTRACE_MSG_SEND_DATA,
 	UFTRACE_MSG_SEND_TASK,
 	UFTRACE_MSG_SEND_KERNEL_DATA,
@@ -385,7 +385,7 @@ void walk_tasks(struct uftrace_session_link *sess,
 		walk_tasks_cb_t callback, void *arg);
 
 int setup_client_socket(struct opts *opts);
-void send_trace_header(int sock, char *name);
+void send_trace_dir_name(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
 void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
 void send_trace_task(int sock, void *buf, int len);
