@@ -1236,12 +1236,10 @@ __visible_default void * dlopen(const char *filename, int flags)
  */
 void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
-	mcount_startup();
 }
 
 void __visible_default _mcleanup(void)
 {
-	mcount_cleanup();
 }
 
 void __visible_default mcount_restore(void)
@@ -1271,8 +1269,7 @@ void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 static void __attribute__((constructor))
 mcount_init(void)
 {
-	if (!mcount_setup_done)
-		mcount_startup();
+	mcount_startup();
 }
 
 static void __attribute__((destructor))
