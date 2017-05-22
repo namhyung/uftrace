@@ -1137,6 +1137,12 @@ static void send_info_file(int sock, const char *dirname)
 	free(filename);
 }
 
+static void send_kernel_metadata(int sock, const char *dirname)
+{
+	send_trace_metadata(sock, dirname, "kernel_header");
+	send_trace_metadata(sock, dirname, "kallsyms");
+}
+
 static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 {
 	struct ftrace_proc_maps *map, *tmp;
@@ -1582,6 +1588,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		send_map_files(sock, opts->dirname);
 		send_sym_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
+
+		if (opts->kernel)
+			send_kernel_metadata(sock, opts->dirname);
+
 		send_trace_end(sock);
 		close(sock);
 
