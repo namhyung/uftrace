@@ -147,13 +147,13 @@ $(LIBMCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_FAST_OBJS): $(objdir)/%-fast.op: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DDISABLE_MCOUNT_FILTER -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_SINGLE_OBJS): $(objdir)/%-single.op: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DSINGLE_THREAD -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_SINGLE_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_FAST_SINGLE_OBJS): $(objdir)/%-fast-single.op: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_SINGLE_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_NOP_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<

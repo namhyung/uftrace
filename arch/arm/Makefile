@@ -9,12 +9,16 @@ ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 ARCH_MCOUNT_SRC = $(wildcard $(sdir)/mcount-*.c) $(sdir)/regs.c
 ARCH_UFTRACE_SRC = $(sdir)/cpuinfo.c $(sdir)/regs.c
 
+ARCH_MCOUNT_OBJS  = $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
+ARCH_MCOUNT_OBJS += $(patsubst $(sdir)/%.c,$(odir)/%.op,$(ARCH_MCOUNT_SRC))
+ARCH_UFTRACE_OBJS = $(patsubst $(sdir)/%.c,$(odir)/%.o,$(ARCH_UFTRACE_SRC))
+
 all: $(odir)/entry.op
 
-$(odir)/mcount-entry.op: $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC)) $(patsubst $(sdir)/%.c,$(odir)/%.op,$(ARCH_MCOUNT_SRC))
+$(odir)/mcount-entry.op: $(ARCH_MCOUNT_OBJS)
 	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
 
-$(odir)/uftrace.o: $(patsubst $(sdir)/%.c,$(odir)/%.o,$(ARCH_UFTRACE_SRC))
+$(odir)/uftrace.o: $(ARCH_UFTRACE_OBJS)
 	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
 
 $(odir)/%.op: $(sdir)/%.S
