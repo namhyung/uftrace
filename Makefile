@@ -68,6 +68,8 @@ LIB_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib) -fPIC -fvisibility=hidd
 UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib)
 
+export UFTRACE_CFLAGS LIB_CFLAGS
+
 VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
 all:
