@@ -499,12 +499,14 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 #endif /* DISABLE_MCOUNT_FILTER */
 
-__weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
-						  unsigned long *parent_loc,
-						  unsigned long child_ip)
+#ifndef FIX_PARENT_LOC
+static inline unsigned long *
+mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
+			    unsigned long child_ip)
 {
 	return parent_loc;
 }
+#endif
 
 int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		 struct mcount_regs *regs)
@@ -512,9 +514,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
+	struct ftrace_trigger tr;
 
 	if (unlikely(mcount_should_stop()))
 		return -1;
@@ -533,6 +533,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		mtdp->recursion_guard = true;
 	}
 
+	tr.flags = 0;
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered != FILTER_IN) {
 		mtdp->recursion_guard = false;
