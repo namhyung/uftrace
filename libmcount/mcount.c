@@ -514,9 +514,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
-		.flags = 0,
-	};
+	struct ftrace_trigger tr;
 
 	if (unlikely(mcount_should_stop()))
 		return -1;
@@ -535,6 +533,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		mtdp->recursion_guard = true;
 	}
 
+	tr.flags = 0;
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered != FILTER_IN) {
 		mtdp->recursion_guard = false;
