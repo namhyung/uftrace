@@ -499,12 +499,14 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 #endif /* DISABLE_MCOUNT_FILTER */
 
-__weak unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
-						  unsigned long *parent_loc,
-						  unsigned long child_ip)
+#ifndef FIX_PARENT_LOC
+static inline unsigned long *
+mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
+			    unsigned long child_ip)
 {
 	return parent_loc;
 }
+#endif
 
 int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		 struct mcount_regs *regs)
