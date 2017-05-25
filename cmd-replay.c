@@ -262,18 +262,16 @@ static void setup_field(struct opts *opts)
 				continue;
 
 			add_field(field);
-			break;
+			goto next;
 		}
 
-		if (i == ARRAY_SIZE(field_table)) {
-			pr_out("uftrace: Unknown field name '%s'\n", p);
-			pr_out("uftrace:   Possible fields are:");
-			for (i = 0; i < ARRAY_SIZE(field_table); i++)
-				pr_out(" %s", field_table[i]->name);
-			pr_out("\n");
-			exit(1);
-		}
-
+		pr_out("uftrace: Unknown field name '%s'\n", p);
+		pr_out("uftrace:   Possible fields are:");
+		for (i = 0; i < ARRAY_SIZE(field_table); i++)
+			pr_out(" %s", field_table[i]->name);
+		pr_out("\n");
+		exit(1);
+next:
 		p = strtok(NULL, ",");
 	}
 

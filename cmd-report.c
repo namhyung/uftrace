@@ -485,17 +485,16 @@ static void setup_sort(char *sort_keys)
 
 			list_add_tail(&all_sort_items[i]->list, &sort_list);
 			list_add_tail(&diff_sort_items[i]->list, &diff_sort_list);
-			break;
+			goto next;
 		}
 
-		if (i == ARRAY_SIZE(all_sort_items)) {
-			pr_out("uftrace: Unknown sort key '%s'\n", k);
-			pr_out("uftrace:   Possible keys:");
-			for (i = 0; i < ARRAY_SIZE(all_sort_items); i++)
-				pr_out(" %s", all_sort_items[i]->name);
-			pr_out("\n");
-			exit(1);
-		}
+		pr_out("uftrace: Unknown sort key '%s'\n", k);
+		pr_out("uftrace:   Possible keys:");
+		for (i = 0; i < ARRAY_SIZE(all_sort_items); i++)
+			pr_out(" %s", all_sort_items[i]->name);
+		pr_out("\n");
+		exit(1);
+next:
 		p = NULL;
 	}
 	free(keys);
