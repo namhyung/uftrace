@@ -27,7 +27,7 @@ static unsigned long got_addr;
 static volatile bool segv_handled;
 
 #define PAGE_SIZE  4096
-#define PAGE_ADDR(addr)  ((void *)((addr) & (PAGE_SIZE - 1)))
+#define PAGE_ADDR(addr)  ((void *)((addr) & ~(PAGE_SIZE - 1)))
 
 static void segv_handler(int sig, siginfo_t *si, void *ctx)
 {
