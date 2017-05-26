@@ -516,7 +516,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 		size = kbuffer_event_size(kbuf);
 		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
-		pr_hex(&raw->file_offset, data, size);
+		pr_hex(&raw->file_offset, data - 4, size + 4);
 
 		if (kbuffer_next_event(kbuf, NULL))
 			raw->kbuf_offset += size + 4;  // 4 = event header size
@@ -552,7 +552,7 @@ static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
 
 		size = kbuffer_event_size(kbuf);
 		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
-		pr_hex(&raw->file_offset, data, size);
+		pr_hex(&raw->file_offset, data - 4, size + 4);
 
 		if (kbuffer_next_event(kbuf, NULL))
 			raw->kbuf_offset += size + 4;  // 4 = event header size
