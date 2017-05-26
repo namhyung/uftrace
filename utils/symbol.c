@@ -580,6 +580,7 @@ int check_trace_functions(const char *filename)
 	size_t shstr_idx, dynstr_idx = 0;
 	const char *trace_funcs[] = {
 		"mcount",
+		"_mcount",
 		"__fentry__",
 		"__gnu_mcount_nc",
 		"__cyg_profile_func_enter",

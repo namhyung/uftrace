@@ -55,6 +55,7 @@ static void overwrite_pltgot(int idx, void *data)
 
 /* use weak reference for non-defined (arch-dependent) symbols */
 extern __weak void (*mcount)(void);
+extern __weak void (*_mcount)(void);
 extern __weak void (*__fentry__)(void);
 extern __weak void (*__gnu_mcount_nc)(void);
 
@@ -73,6 +74,7 @@ static void skip_plt_functions(void)
 		void *addr;
 	} skip_list[] = {
 		SKIP_FUNC(mcount),
+		SKIP_FUNC(_mcount),
 		SKIP_FUNC(__fentry__),
 		SKIP_FUNC(__gnu_mcount_nc),
 	};
@@ -230,6 +232,7 @@ static const char *skip_syms[] = {
 	"__cxa_throw",
 	"__cxa_begin_catch",
 	"__cxa_end_catch",
+	"__cxa_finalize",
 	"_Unwind_Resume",
 };
 

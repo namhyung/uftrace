@@ -7,7 +7,11 @@
 # define cpu_relax()	asm volatile("rep; nop" ::: "memory")
 #endif
 
-#if defined(__arm__)
+#if defined(__aarch64__)
+# define cpu_relax()	asm volatile("yield" ::: "memory")
+#endif
+
+#ifndef cpu_relax
 # define cpu_relax()	compiler_barrier()
 #endif
 

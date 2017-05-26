@@ -1258,7 +1258,7 @@ static void check_binary(struct opts *opts)
 	uint16_t e_type;
 	uint16_t e_machine;
 	uint16_t supported_machines[] = {
-		EM_X86_64, EM_ARM,
+		EM_X86_64, EM_ARM, EM_AARCH64,
 	};
 
 	pr_dbg3("checking binary %s\n", opts->exename);
