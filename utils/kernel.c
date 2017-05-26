@@ -1434,6 +1434,7 @@ retry:
 	if (*taskp == NULL) {
 		/* force re-read on that cpu */
 		kernel->rstack_valid[first_cpu] = false;
+		consume_first_rstack_list(&kernel->rstack_list[first_cpu]);
 		goto retry;
 	}
 
