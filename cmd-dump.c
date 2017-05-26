@@ -319,8 +319,9 @@ static void pr_args(struct fstack_arguments *args)
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  args[%d] %c%d: %#llx\n", i,
-			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			pr_out("  args[%d] %c%d: 0x%0*llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
+			       spec->size * 2, val);
 			size = spec->size;
 		}
 
@@ -358,8 +359,9 @@ static void pr_retval(struct fstack_arguments *args)
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  retval[%d] %c%d: %#llx\n", i,
-			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			pr_out("  retval[%d] %c%d: 0x%0*llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
+			       spec->size * 2, val);
 			size = spec->size;
 		}
 
@@ -464,14 +466,16 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
 			       task->args.len);
 			pr_args(&task->args);
-			pr_hex(&raw->file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data,
+			       ALIGN(task->args.len, 8));
 		}
 		else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
-			pr_hex(&raw->file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data,
+			       ALIGN(task->args.len, 8));
 		}
 		else
 			abort();
