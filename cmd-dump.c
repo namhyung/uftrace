@@ -504,6 +504,29 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
+	/* check dummy 'time extend' record at the beginning */
+	if (raw->kbuf_offset == 0x18) {
+		uint64_t offset = 0x10;
+		unsigned long long timestamp = 0;
+		void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
+		unsigned char *tmp = data - 12;  /* data still returns next record */
+
+		if ((*tmp & 0x1f) == KBUFFER_TYPE_TIME_EXTEND) {
+			uint32_t upper, lower;
+
+			memcpy(&lower, tmp, 4);
+			memcpy(&upper, tmp + 4, 4);
+			timestamp = (upper << 27) + (lower >> 5);
+
+			pr_time(frs->time - timestamp);
+			pr_out("%5d: [%s] %s (+%"PRIu64" nsec)\n",
+			       tid, "time ", "extend", timestamp);
+
+			if (debug)
+				pr_hex(&offset, tmp, 8);
+		}
+	}
+
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
 	       tid, rstack_type(frs),
