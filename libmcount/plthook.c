@@ -27,15 +27,19 @@ static unsigned long got_addr;
 static volatile bool segv_handled;
 
 #define PAGE_SIZE  4096
-#define PAGE_ADDR(addr)  ((addr) & (PAGE_SIZE - 1))
+#define PAGE_ADDR(addr)  ((void *)((addr) & ~(PAGE_SIZE - 1)))
 
 static void segv_handler(int sig, siginfo_t *si, void *ctx)
 {
+	if (segv_handled)
+		pr_err_ns("stuck in a loop at segfault handler\n");
+
 	if (si->si_code == SEGV_ACCERR) {
-		mprotect((void *)PAGE_ADDR(got_addr), PAGE_SIZE, PROT_WRITE);
+		if (mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_WRITE) < 0)
+			pr_err("mprotect failed");
 		segv_handled = true;
 	} else {
-		pr_err_ns("mcount: invalid memory access.. exiting.\n");
+		pr_err_ns("invalid memory access.. exiting.\n");
 	}
 }
 
@@ -46,11 +50,13 @@ static void overwrite_pltgot(int idx, void *data)
 
 	segv_handled = false;
 
+	compiler_barrier();
+
 	/* overwrite it - might be read-protected */
 	plthook_got_ptr[idx] = (unsigned long)data;
 
 	if (segv_handled)
-		mprotect((void *)PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
+		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
 /* use weak reference for non-defined (arch-dependent) symbols */
