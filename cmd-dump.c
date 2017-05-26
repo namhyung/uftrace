@@ -319,8 +319,9 @@ static void pr_args(struct fstack_arguments *args)
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  args[%d] %c%d: %#llx\n", i,
-			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			pr_out("  args[%d] %c%d: 0x%0*llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
+			       spec->size * 2, val);
 			size = spec->size;
 		}
 
@@ -358,8 +359,9 @@ static void pr_retval(struct fstack_arguments *args)
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  retval[%d] %c%d: %#llx\n", i,
-			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8, val);
+			pr_out("  retval[%d] %c%d: 0x%0*llx\n", i,
+			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
+			       spec->size * 2, val);
 			size = spec->size;
 		}
 
@@ -464,14 +466,16 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
 			       task->args.len);
 			pr_args(&task->args);
-			pr_hex(&raw->file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data,
+			       ALIGN(task->args.len, 8));
 		}
 		else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
-			pr_hex(&raw->file_offset, task->args.data, task->args.len);
+			pr_hex(&raw->file_offset, task->args.data,
+			       ALIGN(task->args.len, 8));
 		}
 		else
 			abort();
@@ -504,6 +508,29 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	struct kbuffer *kbuf = kernel->kbufs[cpu];
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
+	/* check dummy 'time extend' record at the beginning */
+	if (raw->kbuf_offset == 0x18) {
+		uint64_t offset = 0x10;
+		unsigned long long timestamp = 0;
+		void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
+		unsigned char *tmp = data - 12;  /* data still returns next record */
+
+		if ((*tmp & 0x1f) == KBUFFER_TYPE_TIME_EXTEND) {
+			uint32_t upper, lower;
+
+			memcpy(&lower, tmp, 4);
+			memcpy(&upper, tmp + 4, 4);
+			timestamp = (upper << 27) + (lower >> 5);
+
+			pr_time(frs->time - timestamp);
+			pr_out("%5d: [%s] %s (+%"PRIu64" nsec)\n",
+			       tid, "time ", "extend", timestamp);
+
+			if (debug)
+				pr_hex(&offset, tmp, 8);
+		}
+	}
+
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
 	       tid, rstack_type(frs),
@@ -516,7 +543,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 		size = kbuffer_event_size(kbuf);
 		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
-		pr_hex(&raw->file_offset, data, size);
+		pr_hex(&raw->file_offset, data - 4, size + 4);
 
 		if (kbuffer_next_event(kbuf, NULL))
 			raw->kbuf_offset += size + 4;  // 4 = event header size
@@ -552,7 +579,7 @@ static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
 
 		size = kbuffer_event_size(kbuf);
 		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
-		pr_hex(&raw->file_offset, data, size);
+		pr_hex(&raw->file_offset, data - 4, size + 4);
 
 		if (kbuffer_next_event(kbuf, NULL))
 			raw->kbuf_offset += size + 4;  // 4 = event header size
