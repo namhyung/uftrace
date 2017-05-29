@@ -1,6 +1,7 @@
+#include "utils/asm.h"
+
 .text
-.global _mcount
-_mcount:
+ENTRY(_mcount)
 	/* setup frame pointer */
 	stp	x29, x30, [sp, #-16]!
 	mov	x29, sp
@@ -26,13 +27,10 @@ _mcount:
 	/* restore frame pointer */
 	ldp	x29, x30, [sp], #16
 	ret
-
-.type _mcount,%function
-.size _mcount,.-_mcount
+END(_mcount)
 
 
-.global mcount_return
-mcount_return:
+ENTRY(mcount_return)
 	/* setup frame pointer */
 	stp	x29, x30, [sp, #-16]!
 
@@ -56,7 +54,5 @@ mcount_return:
 	ldp	x29, x30, [sp], #16
 
 	br	x16
-
-.type mcount_return,%function
-.size mcount_return,.-mcount_return
+END(mcount_return)
 

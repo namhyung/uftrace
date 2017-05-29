@@ -1,6 +1,8 @@
-.globl plt_hooker
-.type plt_hooker, @function
-plt_hooker:
+#include "utils/asm.h"
+
+.hidden plthook_resolver_addr
+
+ENTRY(plt_hooker)
 	.cfi_startproc
 	/* PLT code already pushed symbol and module indices */
 	.cfi_adjust_cfa_offset 16
@@ -48,14 +50,10 @@ plt_hooker:
 1:
 	jmp *%rax
 	.cfi_endproc
-	
-.size plt_hooker, .-plt_hooker
-.hidden plthook_resolver_addr
+END(plt_hooker)
 
 
-.globl plthook_return
-.type plthook_return, @function
-plthook_return:
+ENTRY(plthook_return)
 	.cfi_startproc
 	sub $32, %rsp
 	.cfi_def_cfa_offset 32
@@ -76,5 +74,4 @@ plthook_return:
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
-
-.size plthook_return, .-plthook_return
+END(plthook_return)

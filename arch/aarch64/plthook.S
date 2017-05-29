@@ -1,6 +1,9 @@
 /*
  * Based on glibc/ports/sysdeps/aarch64/dl-trampoline.S
  */
+
+#include "utils/asm.h"
+
 .text
 .align 2
 
@@ -18,9 +21,7 @@
 	ldp	x6, x7, [sp], #16
 .endm
 
-.global plt_hooker
-.type plt_hooker,#function
-plt_hooker:
+ENTRY(plt_hooker)
 	/*
 	 * it gets called with:
 	 *  [sp, #8] :   lr
@@ -68,13 +69,10 @@ plt_hooker:
 	ldr	x30, [sp, #8]
 
 	br	x17
+END(plt_hooker)
 
-.size plt_hooker,.-plt_hooker
 
-
-.global plthook_return
-.type plthook_return,#function
-plthook_return:
+ENTRY(plthook_return)
 	stp	x8, x18, [sp, #-16]!
 	save_args
 
@@ -87,5 +85,4 @@ plthook_return:
 	ldp	x8, x18, [sp], #16
 
 	br	x16
-
-.size plthook_return,.-plthook_return
+END(plthook_return)

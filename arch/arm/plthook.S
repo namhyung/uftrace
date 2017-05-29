@@ -1,11 +1,13 @@
 /*
  * Based on glibc/ports/sysdeps/arm/dl-trampoline.S
  */
+
+#include "utils/asm.h"
+
 	.text
-	.globl plt_hooker
-	.type plt_hooker, #function
 	.align 2
-plt_hooker:
+
+ENTRY(plt_hooker)
 	@ we get called with
 	@	stack[0] contains the return address from this call
 	@	ip contains &GOT[n+3] (pointer to function)
@@ -48,13 +50,10 @@ plt_hooker:
 .L2:
 	.word _GLOBAL_OFFSET_TABLE_-(.LPIC0+8)
 	.word plthook_resolver_addr(GOT)
+END(plt_hooker)
 
-	.size plt_hooker, .-plt_hooker
 
-
-	.globl plthook_return
-	.type plthook_return, #function
-plthook_return:
+ENTRY(plthook_return)
 	push {r0-r3,lr,pc}
 
 	/* set the first argument of plthook_exit as a pointer return values */
@@ -63,5 +62,4 @@ plthook_return:
 	bl plthook_exit
 	str r0, [sp, #20]
 	pop {r0-r3,lr,pc}
-
-	.size plthook_return, .-plthook_return
+END(plthook_return)

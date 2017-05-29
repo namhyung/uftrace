@@ -24,9 +24,9 @@
                    0x00000000004006ac <+6>:	mov    %rsp,%rbp
  */
 
-.global __fentry__
-.type __fentry__, @function
-__fentry__:
+#include "utils/asm.h"
+
+ENTRY(__fentry__)
 	.cfi_startproc
 	/*
 	 * 48 is needed because of the 16-byte
@@ -78,13 +78,10 @@ __fentry__:
 
 	retq
 	.cfi_endproc
+END(__fentry__)
 
-.size __fentry__, .-__fentry__
 
-
-.global fentry_return
-.type fentry_return, @function
-fentry_return:
+ENTRY(fentry_return)
 	.cfi_startproc
 	sub  $32, %rsp
 	.cfi_def_cfa_offset 32
@@ -109,5 +106,4 @@ fentry_return:
 
 	retq
 	.cfi_endproc
-
-.size fentry_return, .-fentry_return
+END(fentry_return)
