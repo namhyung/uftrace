@@ -1250,6 +1250,10 @@ static void print_child_usage(struct rusage *ru)
 #define ARGUMENT_MSG  "uftrace: -A or -R might not work for binaries"	\
 " with -finstrument-functions\n"
 
+#ifndef  EM_AARCH64
+# define EM_AARCH64  183
+#endif
+
 static void check_binary(struct opts *opts)
 {
 	int fd;

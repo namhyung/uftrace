@@ -1,4 +1,4 @@
-file ftrace
+file uftrace
 set breakpoint pending on
 
 b command_record
@@ -8,5 +8,5 @@ commands
   continue
 end
 
-r record -L. tests/t-malloc
+r record -L. -d xxx tests/t-abc
  

@@ -60,10 +60,12 @@ static void overwrite_pltgot(int idx, void *data)
 }
 
 /* use weak reference for non-defined (arch-dependent) symbols */
-extern __weak void (*mcount)(void);
-extern __weak void (*_mcount)(void);
-extern __weak void (*__fentry__)(void);
-extern __weak void (*__gnu_mcount_nc)(void);
+#define ALIAS_DECL(_sym)  extern __weak void (*uftrace_##_sym)(void);
+
+ALIAS_DECL(mcount);
+ALIAS_DECL(_mcount);
+ALIAS_DECL(__fentry__);
+ALIAS_DECL(__gnu_mcount_nc);
 
 /*
  * The `mcount` (and its friends) are part of uftrace itself,
@@ -73,7 +75,7 @@ static void skip_plt_functions(void)
 {
 	unsigned i, k;
 
-#define SKIP_FUNC(func)  { #func, &func }
+#define SKIP_FUNC(func)  { #func, &uftrace_ ## func }
 
 	struct {
 		const char *name;

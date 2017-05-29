@@ -26,8 +26,9 @@
      child addr => 0x0000000000400693 <+13>:	movl   $0x1,-0x4(%rbp)
  */
 
-.globl mcount
-mcount:
+#include "utils/asm.h"
+
+GLOBAL(mcount)
 	.cfi_startproc
 	/*
 	 * 56 is needed because of the 16-byte
@@ -74,13 +75,10 @@ mcount:
 	.cfi_adjust_cfa_offset -56
 	retq
 	.cfi_endproc
-
-.type mcount, @function
-.size mcount, .-mcount
+END(mcount)
 
 
-.globl mcount_return
-mcount_return:
+ENTRY(mcount_return)
 	.cfi_startproc
 	sub $32, %rsp
 	.cfi_def_cfa_offset 32
@@ -102,6 +100,4 @@ mcount_return:
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
-
-.type mcount_return, @function
-.size mcount_return, .-mcount_return
+END(mcount_return)

@@ -36,10 +36,12 @@
  * parameters.)
  */
 
+#include "utils/asm.h"
+
 	.text
-	.globl __gnu_mcount_nc
 	.align 2
-__gnu_mcount_nc:
+
+GLOBAL(__gnu_mcount_nc)
 	push 	{r0-r3, lr}
 	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
 	add	r0, sp, #20 /* r0 points to pushed LR  */
@@ -56,14 +58,10 @@ __gnu_mcount_nc:
 
 	pop 	{r0-r3, ip, lr}
 	bx	ip
-
-.type __gnu_mcount_nc, %function
-.size __gnu_mcount_nc, .-__gnu_mcount_nc
+END(__gnu_mcount_nc)
 
 
-	.globl mcount_return
-	.align 2
-mcount_return:
+ENTRY(mcount_return)
 	push 	{r0-r3, lr}
 
 	/* set the first argument of mcount_exit as pointer to return values */
@@ -73,6 +71,4 @@ mcount_return:
 	mov 	ip, r0
 	pop 	{r0-r3, lr}
 	bx	ip
-
-.type mcount_return, %function
-.size mcount_return, .-mcount_return
+END(mcount_return)

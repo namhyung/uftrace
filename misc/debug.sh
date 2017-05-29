@@ -1,4 +1,4 @@
 #!/bin/sh
 
-gdb -x debug-mcount.cmd
+gdb -x misc/debug-mcount.cmd
 
