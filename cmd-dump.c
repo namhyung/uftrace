@@ -520,7 +520,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 			memcpy(&lower, tmp, 4);
 			memcpy(&upper, tmp + 4, 4);
-			timestamp = (upper << 27) + (lower >> 5);
+			timestamp = ((uint64_t)upper << 27) + (lower >> 5);
 
 			pr_time(frs->time - timestamp);
 			pr_out("%5d: [%s] %s (+%"PRIu64" nsec)\n",
