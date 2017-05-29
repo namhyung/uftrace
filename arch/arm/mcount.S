@@ -40,7 +40,8 @@
 
 	.text
 	.align 2
-ENTRY(__gnu_mcount_nc)
+
+GLOBAL(__gnu_mcount_nc)
 	push 	{r0-r3, lr}
 	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
 	add	r0, sp, #20 /* r0 points to pushed LR  */

@@ -28,7 +28,7 @@
 
 #include "utils/asm.h"
 
-ENTRY(mcount)
+GLOBAL(mcount)
 	.cfi_startproc
 	/*
 	 * 56 is needed because of the 16-byte

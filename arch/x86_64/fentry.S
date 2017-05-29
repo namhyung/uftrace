@@ -26,7 +26,7 @@
 
 #include "utils/asm.h"
 
-ENTRY(__fentry__)
+GLOBAL(__fentry__)
 	.cfi_startproc
 	/*
 	 * 48 is needed because of the 16-byte
