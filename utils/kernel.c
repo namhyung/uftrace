@@ -610,48 +610,48 @@ static const char *get_endian_str(void)
 		return "BE";
 }
 
+static int read_file(char *filename, char *buf, size_t len)
+{
+	int fd, ret;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		return -errno;
+
+	ret = read(fd, buf, len);
+	close(fd);
+
+	return ret;
+}
+
 static int save_kernel_file(FILE *fp, const char *name)
 {
-	int fd;
 	ssize_t len;
 	char buf[4096];
 
 	snprintf(buf, sizeof(buf), "%s/%s", TRACING_DIR, name);
 
-	fd = open(buf, O_RDONLY);
-	if (fd < 0)
+	len = read_file(buf, buf, sizeof(buf));
+	if (len < 0)
 		return -1;
-
-	len = read(fd, buf, sizeof(buf));
-	if (len < 0) {
-		close(fd);
-		return -1;
-	}
 
 	fprintf(fp, "TRACEFS: %s: %zd\n", name, len);
 	fwrite(buf, len, 1, fp);
 
-	close(fd);
 	return 0;
 }
 
 static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 {
-	int fd;
 	int ret = -1;
-	ssize_t len;
 	char buf[4096];
-	DIR *subsys, *event;
+	DIR *subsys = NULL;
+	DIR *event = NULL;
 	struct dirent *sys, *name;
 
 	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
 
-	fd = open(buf, O_RDONLY);
-	if (fd < 0)
-		return -1;
-
-	len = read(fd, buf, sizeof(buf));
-	if (len < 0)
+	if (read_file(buf, buf, sizeof(buf)) < 0)
 		goto out;
 
 	/* no events enabled: exit */
@@ -667,8 +667,6 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 		goto out;
 
 	while ((sys = readdir(subsys)) != NULL) {
-		int sfd;
-
 		if (sys->d_name[0] == '.' || sys->d_type != DT_DIR)
 			continue;
 
@@ -679,17 +677,12 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 		snprintf(buf, sizeof(buf), "%s/events/%s/enable",
 			 TRACING_DIR, sys->d_name);
 
-		sfd = open(buf, O_RDONLY);
-		if (sfd < 0)
-			goto out;
-
-		len = read(sfd, buf, sizeof(buf));
-		if (len < 0)
+		if (read_file(buf, buf, sizeof(buf)) < 0)
 			goto out;
 
 		/* this subsystem has no events enabled */
 		if (buf[0] == '0')
-			goto next;
+			continue;
 
 		snprintf(buf, sizeof(buf), "%s/events/%s",
 			 TRACING_DIR, sys->d_name);
@@ -699,20 +692,13 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 			goto out;
 
 		while ((name = readdir(event)) != NULL) {
-			int efd;
-
 			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
 				continue;
 
 			snprintf(buf, sizeof(buf), "%s/events/%s/%s/enable",
 				 TRACING_DIR, sys->d_name, name->d_name);
 
-			efd = open(buf, O_RDONLY);
-			if (efd < 0)
-				goto out;
-
-			len = read(efd, buf, sizeof(buf));
-			if (len < 0)
+			if (read_file(buf, buf, sizeof(buf)) < 0)
 				goto out;
 
 			/* this event is not enabled */
@@ -724,20 +710,18 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 
 			if (save_kernel_file(fp, buf) < 0)
 				goto out;
-
-			close(efd);
 		}
 		closedir(event);
-
-	next:
-		close(sfd);
+		event = NULL;
 	}
-	closedir(subsys);
 
 	ret = 0;
 
 out:
-	close(fd);
+	if (event)
+		closedir(event);
+	if (subsys)
+		closedir(subsys);
 	return ret;
 }
 

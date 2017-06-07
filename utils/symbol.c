@@ -106,7 +106,7 @@ bool check_libpthread(const char *filename)
 	}
 
 	if (dyn_sec == NULL)
-		return false;
+		goto out;
 
 	dyn_data = elf_getdata(dyn_sec, NULL);
 	if (dyn_data == NULL)

@@ -398,8 +398,10 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	arg->idx = strtol(str+3, &suffix, 0);
 	arg->type = ARG_TYPE_INDEX;
 
-	if (parse_spec(str, arg, suffix) == -1)
+	if (parse_spec(str, arg, suffix) == -1) {
+		free(arg);
 		return -1;
+	}
 
 	tr->flags |= TRIGGER_FL_ARGUMENT;
 	list_add_tail(&arg->list, tr->pargs);
@@ -420,8 +422,10 @@ static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 	/* set suffix after string "retval" */
 	suffix = str + 6;
 
-	if (parse_spec(str, arg, suffix) == -1)
+	if (parse_spec(str, arg, suffix) == -1) {
+		free(arg);
 		return -1;
+	}
 
 	tr->flags |= TRIGGER_FL_RETVAL;
 	list_add_tail(&arg->list, tr->pargs);
@@ -452,6 +456,7 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 
 		if (size != 32 && size != 64 && size != 80) {
 			pr_use("invalid argument size: %s\n", str);
+			free(arg);
 			return -1;
 		}
 		if (size == 80 && is_arm_machine())
@@ -473,6 +478,7 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 
 			if (arg->reg_idx < 0) {
 				pr_use("unknown register name: %s\n", str);
+				free(arg);
 				return -1;
 			}
 		}
@@ -489,123 +495,127 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 				    struct ftrace_trigger *tr,
 				    bool *found_mod)
 {
+	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
+	int ret = -1;
 
-	if (pos) {
-		char *tr_str;
+	if (pos == NULL)
+		return 0;
 
-		*pos++ = '\0';
-		tr_str = xstrdup(pos);
+	*pos++ = '\0';
+	tmp = tr_str = xstrdup(pos);
 
-		while ((pos = strsep(&tr_str, ",")) != NULL) {
-			if (!strncasecmp(pos, "depth=", 6)) {
-				tr->flags |= TRIGGER_FL_DEPTH;
-				tr->depth = strtoul(pos+6, NULL, 10);
+	while ((pos = strsep(&tmp, ",")) != NULL) {
+		if (!strncasecmp(pos, "depth=", 6)) {
+			tr->flags |= TRIGGER_FL_DEPTH;
+			tr->depth = strtoul(pos+6, NULL, 10);
 
-				if (tr->depth < 0 ||
-				    tr->depth > MCOUNT_RSTACK_MAX) {
-					pr_use("skipping invalid trigger depth: %d\n",
-					       tr->depth);
-					return -1;
-				}
-				continue;
+			if (tr->depth < 0 ||
+			    tr->depth > MCOUNT_RSTACK_MAX) {
+				pr_use("skipping invalid trigger depth: %d\n",
+				       tr->depth);
+				goto out;
 			}
-
-			if (!strcasecmp(pos, "backtrace")) {
-				tr->flags |= TRIGGER_FL_BACKTRACE;
-				continue;
-			}
-
-			if (!strncasecmp(pos, "trace", 5)) {
-				pos += 5;
-				if (*pos == '_' || *pos == '-')
-					pos++;
-
-				if (*pos == '\0')
-					tr->flags |= TRIGGER_FL_TRACE;
-				else if (!strcasecmp(pos, "on"))
-					tr->flags |= TRIGGER_FL_TRACE_ON;
-				else if (!strcasecmp(pos, "off"))
-					tr->flags |= TRIGGER_FL_TRACE_OFF;
-
-				continue;
-			}
-			else if (!strncasecmp(pos, "arg", 3)) {
-				if (parse_argument_spec(pos, tr) < 0)
-					return -1;
-				continue;
-			}
-			else if (!strncasecmp(pos, "fparg", 5)) {
-				if (parse_float_argument_spec(pos, tr) < 0)
-					return -1;
-				continue;
-			}
-			else if (!strncasecmp(pos, "retval", 6)) {
-				if (parse_retval_spec(pos, tr) < 0)
-					return -1;
-				continue;
-			}
-
-			if (!strcasecmp(pos, "recover")) {
-				tr->flags |= TRIGGER_FL_RECOVER;
-				continue;
-			}
-
-			if (!strncasecmp(pos, "color=", 6)) {
-				const char *color = pos + 6;
-				tr->flags |= TRIGGER_FL_COLOR;
-
-				if (!strcmp(color, "red"))
-					tr->color = COLOR_CODE_RED;
-				else if (!strcmp(color, "green"))
-					tr->color = COLOR_CODE_GREEN;
-				else if (!strcmp(color, "blue"))
-					tr->color = COLOR_CODE_BLUE;
-				else if (!strcmp(color, "yellow"))
-					tr->color = COLOR_CODE_YELLOW;
-				else if (!strcmp(color, "magenta"))
-					tr->color = COLOR_CODE_MAGENTA;
-				else if (!strcmp(color, "cyan"))
-					tr->color = COLOR_CODE_CYAN;
-				else if (!strcmp(color, "bold"))
-					tr->color = COLOR_CODE_BOLD;
-				else if (!strcmp(color, "gray"))
-					tr->color = COLOR_CODE_GRAY;
-				else {
-					/* invalid color is ignored */
-				}
-				continue;
-			}
-
-			if (!strncasecmp(pos, "time=", 5)) {
-				tr->flags |= TRIGGER_FL_TIME_FILTER;
-				tr->time = parse_time(pos+5, 3);
-				continue;
-			}
-
-			if (!strcasecmp(pos, "plt"))
-				*psymtab = &symtabs->dsymtab;
-			else if (!strcasecmp(pos, "kernel"))
-				*psymtab = get_kernel_symtab();
-			else if (!strcmp(pos, basename(symtabs->filename)))
-				*psymtab = &symtabs->symtab;
-			else {
-				struct ftrace_proc_maps *map;
-
-				map = find_map_by_name(symtabs, pos);
-				if (map == NULL) {
-					pr_dbg("cannot find module %s\n", pos);
-					return -1;
-				}
-
-				*psymtab = &map->symtab;
-			}
-
-			*found_mod = true;
+			continue;
 		}
-	}
 
-	return 0;
+		if (!strcasecmp(pos, "backtrace")) {
+			tr->flags |= TRIGGER_FL_BACKTRACE;
+			continue;
+		}
+
+		if (!strncasecmp(pos, "trace", 5)) {
+			pos += 5;
+			if (*pos == '_' || *pos == '-')
+				pos++;
+
+			if (*pos == '\0')
+				tr->flags |= TRIGGER_FL_TRACE;
+			else if (!strcasecmp(pos, "on"))
+				tr->flags |= TRIGGER_FL_TRACE_ON;
+			else if (!strcasecmp(pos, "off"))
+				tr->flags |= TRIGGER_FL_TRACE_OFF;
+
+			continue;
+		}
+		else if (!strncasecmp(pos, "arg", 3)) {
+			if (parse_argument_spec(pos, tr) < 0)
+				goto out;
+			continue;
+		}
+		else if (!strncasecmp(pos, "fparg", 5)) {
+			if (parse_float_argument_spec(pos, tr) < 0)
+				goto out;
+			continue;
+		}
+		else if (!strncasecmp(pos, "retval", 6)) {
+			if (parse_retval_spec(pos, tr) < 0)
+				goto out;
+			continue;
+		}
+
+		if (!strcasecmp(pos, "recover")) {
+			tr->flags |= TRIGGER_FL_RECOVER;
+			continue;
+		}
+
+		if (!strncasecmp(pos, "color=", 6)) {
+			const char *color = pos + 6;
+			tr->flags |= TRIGGER_FL_COLOR;
+
+			if (!strcmp(color, "red"))
+				tr->color = COLOR_CODE_RED;
+			else if (!strcmp(color, "green"))
+				tr->color = COLOR_CODE_GREEN;
+			else if (!strcmp(color, "blue"))
+				tr->color = COLOR_CODE_BLUE;
+			else if (!strcmp(color, "yellow"))
+				tr->color = COLOR_CODE_YELLOW;
+			else if (!strcmp(color, "magenta"))
+				tr->color = COLOR_CODE_MAGENTA;
+			else if (!strcmp(color, "cyan"))
+				tr->color = COLOR_CODE_CYAN;
+			else if (!strcmp(color, "bold"))
+				tr->color = COLOR_CODE_BOLD;
+			else if (!strcmp(color, "gray"))
+				tr->color = COLOR_CODE_GRAY;
+			else {
+				/* invalid color is ignored */
+			}
+			continue;
+		}
+
+		if (!strncasecmp(pos, "time=", 5)) {
+			tr->flags |= TRIGGER_FL_TIME_FILTER;
+			tr->time = parse_time(pos+5, 3);
+			continue;
+		}
+
+		if (!strcasecmp(pos, "plt"))
+			*psymtab = &symtabs->dsymtab;
+		else if (!strcasecmp(pos, "kernel"))
+			*psymtab = get_kernel_symtab();
+		else if (!strcmp(pos, basename(symtabs->filename)))
+			*psymtab = &symtabs->symtab;
+		else {
+			struct ftrace_proc_maps *map;
+
+			map = find_map_by_name(symtabs, pos);
+			if (map == NULL) {
+				pr_dbg("cannot find module %s\n", pos);
+				goto out;
+			}
+
+			*psymtab = &map->symtab;
+		}
+
+		*found_mod = true;
+	}
+	ret = 0;
+
+out:
+	free(tr_str);
+	return ret;
 }
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
