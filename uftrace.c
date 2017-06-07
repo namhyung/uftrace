@@ -320,8 +320,10 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 	str = xstrdup(arg);
 
 	pos = strchr(str, '~');
-	if (pos == NULL)
+	if (pos == NULL) {
+		free(str);
 		return false;
+	}
 
 	*pos++ = '\0';
 
