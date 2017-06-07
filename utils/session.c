@@ -355,7 +355,6 @@ void create_task(struct uftrace_session_link *sessions,
 {
 	struct uftrace_task *t;
 	struct uftrace_session *s;
-	struct uftrace_sess_ref *r;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &sessions->tasks.rb_node;
 
@@ -370,8 +369,6 @@ void create_task(struct uftrace_session_link *sessions,
 		else {
 			if (needs_session) {
 				/* add new session */
-				r = xmalloc(sizeof(*r));
-
 				s = find_task_session(sessions, msg->pid, msg->time);
 				add_session_ref(t, s, msg->time);
 			}
@@ -390,7 +387,8 @@ void create_task(struct uftrace_session_link *sessions,
 		s = find_task_session(sessions, msg->pid, msg->time);
 		add_session_ref(t, s, msg->time);
 
-		pr_dbg2("new task: tid = %d, session = %.16s\n", t->tid, s->sid);
+		pr_dbg2("new task: tid = %d, session = %-.16s\n",
+			t->tid, s ? s->sid : "unknown");
 	}
 	else
 		pr_dbg2("new task: tid = %d\n", t->tid);
