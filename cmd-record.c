@@ -617,7 +617,7 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 	pthread_mutex_unlock(&write_list_lock);
 }
 
-static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
+static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 {
 	int fd;
 	struct shmem_list *sl;
@@ -627,7 +627,7 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	fd = shm_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
 		pr_dbg("open shmem buffer failed: %s: %m\n", sess_id);
-		return 0;
+		return;
 	}
 
 	shmem_buf = mmap(NULL, bufsize, PROT_READ | PROT_WRITE,
@@ -662,13 +662,11 @@ static int record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 		if (shmem_buf->size) {
 			/* shmem_buf will be unmapped */
 			copy_to_buffer(shmem_buf, sess_id);
+			return;
 		}
 	}
-	else {
-		munmap(shmem_buf, bufsize);
-	}
 
-	return 0;
+	munmap(shmem_buf, bufsize);
 }
 
 static void stop_all_writers(void)
