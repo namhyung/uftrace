@@ -129,6 +129,8 @@ static int pr_task(struct opts *opts)
 				pr_red("cannot read session message: %m\n");
 				goto out;
 			}
+
+			free(exename);
 			exename = xmalloc(ALIGN(smsg.namelen, 8));
 			if (fread(exename, ALIGN(smsg.namelen, 8), 1,fp) != 1 ) {
 				pr_red("cannot read executable name: %m\n");
