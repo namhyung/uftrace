@@ -1226,8 +1226,8 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
-#define FTRACE_MSG  "Cannot trace '%s': No such file\n"			\
-"\tNote that ftrace doesn't search $PATH for you.\n"			\
+#define UFTRACE_MSG  "Cannot trace '%s': No such file\n"			\
+"\tNote that uftrace doesn't search $PATH for you.\n"			\
 "\tIf you really want to trace executables in the $PATH,\n"		\
 "\tplease give it the absolute pathname (like /usr/bin/%s).\n"
 
@@ -1235,13 +1235,9 @@ static void print_child_usage(struct rusage *ru)
 "\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
 "\twhich generates traceable code.  Please check your binary file.\n"
 
-#define FTRACE_ELF_MSG  "Cannot trace '%s': Invalid file\n"		\
+#define UFTRACE_ELF_MSG  "Cannot trace '%s': Invalid file\n"		\
 "\tThis file doesn't look like an executable ELF file.\n"		\
 "\tPlease check whether it's a kind of script or shell functions.\n"
-
-#define OBJTYPE_MSG  "Cannot trace '%s': Invalid ELF object type\n"	\
-"\tNote that ftrace only trace ELF executables by default,\n"		\
-"\tIf you want to trace shared libraries, please use --force option.\n"
 
 #define MACHINE_MSG  "Cannot trace '%s': Unsupported machine\n"		\
 "\tThis machine type (%u) is not supported currently.\n"		\
@@ -1269,7 +1265,7 @@ static void check_binary(struct opts *opts)
 
 	if (access(opts->exename, X_OK) < 0) {
 		if (errno == ENOENT && opts->exename[0] != '/') {
-			pr_err_ns(FTRACE_MSG, opts->exename, opts->exename);
+			pr_err_ns(UFTRACE_MSG, opts->exename, opts->exename);
 		}
 		pr_err("Cannot trace '%s'", opts->exename);
 	}
@@ -1282,13 +1278,13 @@ static void check_binary(struct opts *opts)
 		pr_err("Cannot read '%s'", opts->exename);
 
 	if (memcmp(elf_ident, ELFMAG, SELFMAG))
-		pr_err_ns(FTRACE_ELF_MSG, opts->exename);
+		pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
 	if (read(fd, &e_type, sizeof(e_type)) < 0)
 		pr_err("Cannot read '%s'", opts->exename);
 
-	if (e_type != ET_EXEC && e_type != ET_DYN && !opts->force)
-		pr_err_ns(OBJTYPE_MSG, opts->exename);
+	if (e_type != ET_EXEC && e_type != ET_DYN)
+		pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
 	if (read(fd, &e_machine, sizeof(e_machine)) < 0)
 		pr_err("Cannot read '%s'", opts->exename);

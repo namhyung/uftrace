@@ -1,7 +1,7 @@
 /*
  * uftrace - Function (Graph) Tracer for Userspace
  *
- * Copyright (C) 2014-2016  LG Electornics, Namhyung Kim <namhyung.kim@lge.com>
+ * Copyright (C) 2014-2017  LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

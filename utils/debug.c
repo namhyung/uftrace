@@ -1,7 +1,7 @@
 /*
- * debug routines for ftrace
+ * debug routines for uftrace
  *
- * Copyright (C) 2014, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+ * Copyright (C) 2014-2017, LG Electronics, Namhyung Kim <namhyung@gmail.com>
  *
  * Released under the GPL v2.
  */

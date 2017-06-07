@@ -1,7 +1,7 @@
 /*
  * Linux kernel ftrace support code.
  *
- * Copyright (c) 2015-2016  LG Electronics,  Namhyung Kim <namhyung@gmail.com>
+ * Copyright (c) 2015-2017  LG Electronics,  Namhyung Kim <namhyung@gmail.com>
  *
  * Released under the GPL v2.
  */
