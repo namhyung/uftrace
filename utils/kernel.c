@@ -641,7 +641,8 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 	int ret = -1;
 	ssize_t len;
 	char buf[4096];
-	DIR *subsys, *event;
+	DIR *subsys = NULL;
+	DIR *event = NULL;
 	struct dirent *sys, *name;
 
 	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
@@ -651,6 +652,8 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 		return -1;
 
 	len = read(fd, buf, sizeof(buf));
+	close(fd);
+
 	if (len < 0)
 		goto out;
 
@@ -684,12 +687,14 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 			goto out;
 
 		len = read(sfd, buf, sizeof(buf));
+		close(sfd);
+
 		if (len < 0)
 			goto out;
 
 		/* this subsystem has no events enabled */
 		if (buf[0] == '0')
-			goto next;
+			continue;
 
 		snprintf(buf, sizeof(buf), "%s/events/%s",
 			 TRACING_DIR, sys->d_name);
@@ -712,6 +717,8 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 				goto out;
 
 			len = read(efd, buf, sizeof(buf));
+			close(efd);
+
 			if (len < 0)
 				goto out;
 
@@ -724,20 +731,18 @@ static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
 
 			if (save_kernel_file(fp, buf) < 0)
 				goto out;
-
-			close(efd);
 		}
 		closedir(event);
-
-	next:
-		close(sfd);
+		event = NULL;
 	}
-	closedir(subsys);
 
 	ret = 0;
 
 out:
-	close(fd);
+	if (event)
+		closedir(event);
+	if (subsys)
+		closedir(subsys);
 	return ret;
 }
 
