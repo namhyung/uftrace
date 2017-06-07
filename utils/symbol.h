@@ -1,7 +1,7 @@
 /*
- * symbol management data structures for ftrace
+ * symbol management data structures for uftrace
  *
- * Copyright (C) 2014-2016, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+ * Copyright (C) 2014-2017, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * Released under the GPL v2.
  */

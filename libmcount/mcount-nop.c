@@ -1,7 +1,7 @@
 /*
- * dummy mcount() routine for ftrace
+ * dummy mcount() routine for uftrace
  *
- * Copyright (C) 2015, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+ * Copyright (C) 2015-2017, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
  * Released under the GPL v2.
  */
@@ -10,6 +10,10 @@
 
 
 void __visible_default mcount(void)
+{
+}
+
+void __visible_default _mcount(void)
 {
 }
 
