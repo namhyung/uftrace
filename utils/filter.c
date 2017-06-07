@@ -398,8 +398,10 @@ static int parse_argument_spec(char *str, struct ftrace_trigger *tr)
 	arg->idx = strtol(str+3, &suffix, 0);
 	arg->type = ARG_TYPE_INDEX;
 
-	if (parse_spec(str, arg, suffix) == -1)
+	if (parse_spec(str, arg, suffix) == -1) {
+		free(arg);
 		return -1;
+	}
 
 	tr->flags |= TRIGGER_FL_ARGUMENT;
 	list_add_tail(&arg->list, tr->pargs);
@@ -420,8 +422,10 @@ static int parse_retval_spec(char *str, struct ftrace_trigger *tr)
 	/* set suffix after string "retval" */
 	suffix = str + 6;
 
-	if (parse_spec(str, arg, suffix) == -1)
+	if (parse_spec(str, arg, suffix) == -1) {
+		free(arg);
 		return -1;
+	}
 
 	tr->flags |= TRIGGER_FL_RETVAL;
 	list_add_tail(&arg->list, tr->pargs);
@@ -452,6 +456,7 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 
 		if (size != 32 && size != 64 && size != 80) {
 			pr_use("invalid argument size: %s\n", str);
+			free(arg);
 			return -1;
 		}
 		if (size == 80 && is_arm_machine())
@@ -473,6 +478,7 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 
 			if (arg->reg_idx < 0) {
 				pr_use("unknown register name: %s\n", str);
+				free(arg);
 				return -1;
 			}
 		}
