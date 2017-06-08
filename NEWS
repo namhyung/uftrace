@@ -1,3 +1,34 @@
+uftrace v0.7
+============
+* dynamic tracing support (x86_64 only)
+  enable tracing for selected functions with -P option
+  it needs some compiler support though
+  - gcc with -mnop-mcount option
+  - clang (X-ray) with -fxray-instrument option
+
+* AArch64 support
+  add preliminary support for ARM v8 (64-bit)
+  first integer argument is missing
+
+* kernel tracing change
+  show recorded kernel functions by default
+  partial support for event tracing
+  fix to send/receive kernel data via network
+  filter out sys_clock_gettime() for non-VDSO systems
+
+* dump change:
+  show arguments and return values properly
+  show more kernel tracing info
+  fix file offset printing
+
+* build change:
+  fix various problems on GCC 7
+  update configure script for better distro packaging
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Dridi Boukelmoune, Honggyu Kim, Taeung Song, Wonseok Ko
+
+
 uftrace v0.6.2
 --------------
 * dlopen() support:
