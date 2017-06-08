@@ -10,3 +10,7 @@ ifneq ($(wildcard $(srcdir)/check-deps/cxa_demangle),)
   COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
   COMMON_LDFLAGS += -lstdc++
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
+  LIB_CFLAGS += -mno-sse2
+endif
