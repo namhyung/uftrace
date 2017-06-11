@@ -304,8 +304,9 @@ static void pr_args(struct fstack_arguments *args)
 		if (spec->idx == RETVAL_IDX)
 			continue;
 
-		if (spec->fmt == ARG_FMT_STR) {
-			char buf[64];
+		if (spec->fmt == ARG_FMT_STR ||
+		    spec->fmt == ARG_FMT_STD_STRING) {
+			char buf[64] = {0};
 			const int null_str = -1;
 
 			size = *(unsigned short *)ptr;
@@ -314,7 +315,10 @@ static void pr_args(struct fstack_arguments *args)
 			if (!memcmp(buf, &null_str, 4))
 				strcpy(buf, "NULL");
 
-			pr_out("  args[%d] str: %s\n", i , buf);
+			if (spec->fmt == ARG_FMT_STD_STRING)
+				pr_out("  args[%d] std::string: %s\n", i , buf);
+			else
+				pr_out("  args[%d] str: %s\n", i , buf);
 			size += 2;
 		}
 		else {
@@ -344,8 +348,9 @@ static void pr_retval(struct fstack_arguments *args)
 		if (spec->idx != RETVAL_IDX)
 			continue;
 
-		if (spec->fmt == ARG_FMT_STR) {
-			char buf[64];
+		if (spec->fmt == ARG_FMT_STR ||
+		    spec->fmt == ARG_FMT_STD_STRING) {
+			char buf[64] = {0};
 			const int null_str = -1;
 
 			size = *(unsigned short *)ptr;
@@ -354,7 +359,10 @@ static void pr_retval(struct fstack_arguments *args)
 			if (!memcmp(buf, &null_str, 4))
 				strcpy(buf, "NULL");
 
-			pr_out("  retval[%d] str: %s\n", i , buf);
+			if (spec->fmt == ARG_FMT_STD_STRING)
+				pr_out("  retval[%d] std::string: %s\n", i , buf);
+			else
+				pr_out("  retval[%d] str: %s\n", i , buf);
 			size += 2;
 		}
 		else {
