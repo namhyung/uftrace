@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <regex.h>
 #include <sys/utsname.h>
+#include <link.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "filter"
@@ -285,6 +286,30 @@ static bool is_arm_machine(void)
 	return mach[0] == 'a' && mach[1] == 'r' && mach[2] == 'm';
 }
 
+static int check_so_cb(struct dl_phdr_info *info, size_t size, void *data)
+{
+	const char *soname = data;
+	int so_used = 0;
+
+	if (!strncmp(basename(info->dlpi_name), soname, strlen(soname)))
+		so_used = 1;
+
+	return so_used;
+}
+
+/* check whether the given library name is in shared object list */
+static int has_shared_object(const char *soname)
+{
+	static int so_used = -1;
+
+	if (so_used != -1)
+		return so_used;
+
+	so_used = dl_iterate_phdr(check_so_cb, (void*)soname);
+
+	return so_used;
+}
+
 /* argument_spec = arg1/i32,arg2/x64,... */
 static int parse_spec(char *str, struct ftrace_arg_spec *arg, char *suffix)
 {
@@ -322,6 +347,15 @@ static int parse_spec(char *str, struct ftrace_arg_spec *arg, char *suffix)
 		size = sizeof(double);
 		break;
 	case 'S':
+		if (has_shared_object("libc++.so")) {
+			static bool warned = false;
+			if (!warned) {
+				pr_warn("std::string display for libc++.so is "
+					"not supported.\n");
+				warned = true;
+			}
+			return -1;
+		}
 		fmt = ARG_FMT_STD_STRING;
 		break;
 	default:
