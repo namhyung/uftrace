@@ -1017,6 +1017,7 @@ static void mcount_startup(void)
 	plthook_str = getenv("UFTRACE_PLTHOOK");
 	patch_str = getenv("UFTRACE_PATCH");
 	event_str = getenv("UFTRACE_EVENT");
+	script_str = getenv("UFTRACE_SCRIPT");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
