@@ -150,6 +150,7 @@ static struct argp_option uftrace_options[] = {
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
+	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
 	{ 0 }
 };
 
@@ -409,6 +410,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 's':
 		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
+		break;
+
+	case 'S':
+		opts->script_file = arg;
 		break;
 
 	case 't':

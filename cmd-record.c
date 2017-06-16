@@ -62,7 +62,7 @@ static bool can_use_fast_libmcount(struct opts *opts)
 		return false;
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
 	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
-	    getenv("UFTRACE_PATCH"))
+	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT"))
 		return false;
 	return true;
 }
@@ -228,6 +228,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if ((opts->kernel || has_kernel_event(opts->event)) &&
 	    check_kernel_pid_filter())
 		setenv("UFTRACE_KERNEL_PID_UPDATE", "1", 1);
+
+	if (opts->script_file)
+		setenv("UFTRACE_SCRIPT", opts->script_file, 1);
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
