@@ -7,6 +7,7 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <libgen.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -567,6 +568,32 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 
 out:
 	return evt_name;
+}
+
+/**
+ * absolute_dirname - return the canonicalized absolute dirname
+ *
+ * @path: pathname string that can be either absolute or relative path
+ * @resolved_path: input buffer that will store absolute dirname
+ *
+ * This function parses the @path and sets absolute dirname to @resolved_path.
+ *
+ * Given @path sets @resolved_path as follows:
+ *
+ *    @path                   | @resolved_path
+ *   -------------------------+----------------
+ *    mcount.py               | $PWD
+ *    tests/mcount.py         | $PWD/tests
+ *    ./tests/mcount.py       | $PWD/./tests
+ *    /root/uftrace/mcount.py | /root/uftrace
+ */
+char *absolute_dirname(const char *path, char *resolved_path)
+{
+	if (realpath(path, resolved_path) == NULL)
+		return NULL;
+	dirname(resolved_path);
+
+	return resolved_path;
 }
 
 #ifdef UNIT_TEST

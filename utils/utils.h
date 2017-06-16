@@ -253,4 +253,6 @@ struct ftrace_file_handle;
 
 char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
 
+char *absolute_dirname(const char *path, char *resolved_path);
+
 #endif /* __FTRACE_UTILS_H__ */
