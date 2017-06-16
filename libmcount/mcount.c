@@ -27,6 +27,8 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "libmcount/script.h"
+#include "libmcount/pyhook.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
@@ -58,6 +60,12 @@ static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
+
+/* script type */
+enum script_type_t {
+	SCRIPT_UNKNOWN = 0,
+	SCRIPT_PYTHON
+};
 
 uint64_t mcount_gettime(void)
 {
@@ -432,6 +440,12 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			mtdp->enable_cached = mcount_enabled;
 		}
 
+		/* script hooking for function entry */
+		if (script_str) {
+			rstack->tid = gettid(mtdp);
+			script_uftrace_entry(rstack);
+		}
+
 		if (tr->flags & TRIGGER_FL_RECOVER) {
 			mcount_rstack_restore();
 			*rstack->parent_loc = (unsigned long) mcount_return;
@@ -481,6 +495,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}
+		/* script hooking for function exit */
+		if (script_str)
+			script_uftrace_exit(rstack, retval);
 	}
 }
 
@@ -501,6 +518,12 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct mcount_regs *regs)
 {
 	mtdp->record_idx++;
+
+	/* script hooking for function entry */
+	if (script_str) {
+		rstack->tid = gettid(mtdp);
+		script_uftrace_entry(rstack);
+	}
 }
 
 void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
@@ -514,6 +537,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (record_trace_data(mtdp, rstack, NULL) < 0)
 			pr_err("error during record");
 	}
+
+	/* script hooking for function exit */
+	if (script_str)
+		script_uftrace_exit(rstack, retval);
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -970,6 +997,20 @@ void mcount_rstack_reset(void)
 
 static void mcount_hook_functions(void);
 
+static enum script_type_t get_script_type(const char *str)
+{
+	char *ext = strrchr(str, '.');
+
+	/*
+	 * The given script will be detected by the file suffix.
+	 * As of now, it only handles ".py" suffix for python.
+	 */
+	if (!strcmp(ext, ".py"))
+		return SCRIPT_PYTHON;
+
+	return SCRIPT_UNKNOWN;
+}
+
 static void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1132,6 +1173,17 @@ out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
+
+	if (script_str) {
+		switch (get_script_type(script_str)) {
+		case SCRIPT_PYTHON:
+			if (python_init(script_str) < 0)
+				script_str = NULL;
+			break;
+		default:
+			script_str = NULL;
+		}
+	}
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter_module(&modules);
