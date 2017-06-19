@@ -245,9 +245,22 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 		else
 			mcount_arch_get_arg(ctx, spec);
 
-		if (spec->fmt == ARG_FMT_STR) {
+		if (spec->fmt == ARG_FMT_STR ||
+		    spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short len;
 			char *str = ctx->val.p;
+
+			if (spec->fmt == ARG_FMT_STD_STRING) {
+				/*
+				 * This is libstdc++ implementation dependent.
+				 * So doesn't work on others such as libc++.
+				 */
+				long *base = ctx->val.p;
+				long *_M_string_length = base + 1;
+				char *_M_dataplus = (char*)(*base);
+				len = *_M_string_length;
+				str = _M_dataplus;
+			}
 
 			if (str) {
 				unsigned i;
