@@ -1256,6 +1256,9 @@ static void print_child_usage(struct rusage *ru)
 #define ARGUMENT_MSG  "uftrace: -A or -R might not work for binaries"	\
 " with -finstrument-functions\n"
 
+#define STATIC_MSG  "Cannot trace static binary: %s\n"			\
+"\tIt seems to be compiled with -static, rebuild the binary without it.\n"
+
 #ifndef  EM_AARCH64
 # define EM_AARCH64  183
 #endif
@@ -1263,6 +1266,7 @@ static void print_child_usage(struct rusage *ru)
 static void check_binary(struct opts *opts)
 {
 	int fd;
+	int chk;
 	size_t i;
 	char elf_ident[EI_NIDENT];
 	uint16_t e_type;
@@ -1306,8 +1310,16 @@ static void check_binary(struct opts *opts)
 	if (i == ARRAY_SIZE(supported_machines))
 		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
 
+	chk = check_static_binary(opts->exename);
+	if (chk) {
+		if (chk < 0)
+			pr_err_ns("Cannot check '%s'\n", opts->exename);
+		else
+			pr_err_ns(STATIC_MSG, opts->exename);
+	}
+
 	if (!opts->force) {
-		int chk = check_trace_functions(opts->exename);
+		chk = check_trace_functions(opts->exename);
 
 		if (chk == 0 && !opts->patch) {
 			/* there's no function to trace */

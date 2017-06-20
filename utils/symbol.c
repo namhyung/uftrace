@@ -138,6 +138,54 @@ elf_error:
 	goto out;
 }
 
+int check_static_binary(const char *filename)
+{
+	int fd;
+	Elf *elf;
+	int ret = -1;
+	size_t i, nr_phdr;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		pr_dbg("error during file open: %s: %m\n", filename);
+		return -1;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL)
+		goto elf_error;
+
+	if (elf_getphdrnum(elf, &nr_phdr) < 0)
+		goto elf_error;
+
+	for (i = 0; i < nr_phdr; i++) {
+		GElf_Phdr phdr;
+
+		if (gelf_getphdr(elf, i, &phdr) == NULL)
+			goto elf_error;
+
+		if (phdr.p_type == PT_DYNAMIC) {
+			ret = 0;
+			break;
+		}
+	}
+
+	if (ret == -1)
+		ret = 1;  /* static binary */
+
+out:
+	elf_end(elf);
+	close(fd);
+	return ret;
+
+elf_error:
+	pr_dbg("ELF error when reading program headers: %s\n",
+	       elf_errmsg(elf_errno()));
+	goto out;
+}
+
 static void __unload_symtab(struct symtab *symtab)
 {
 	size_t i;

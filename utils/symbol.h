@@ -101,6 +101,7 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 
 bool check_libpthread(const char *filename);
 int check_trace_functions(const char *filename);
+int check_static_binary(const char *filename);
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
