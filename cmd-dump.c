@@ -527,6 +527,9 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 		if ((*tmp & 0x1f) == KBUFFER_TYPE_TIME_EXTEND) {
 			uint32_t upper, lower;
+			int size;
+
+			size = kbuffer_event_size(kbuf);
 
 			memcpy(&lower, tmp, 4);
 			memcpy(&upper, tmp + 4, 4);
@@ -538,6 +541,10 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 			if (debug)
 				pr_hex(&offset, tmp, 8);
+			else if (kbuffer_next_event(kbuf, NULL))
+				raw->kbuf_offset += size + 4;  // 4 = event header size
+			else
+				raw->kbuf_offset = 0;
 		}
 	}
 
