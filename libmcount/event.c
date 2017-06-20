@@ -177,13 +177,18 @@ int mcount_setup_events(char *dirname, char *event_str)
 	spec = strtok_r(str, ";", &pos);
 	while (spec != NULL) {
 		char *sep = strchr(spec, ':');
+		char *kernel;
 
 		if (sep) {
-			*sep = '\0';
+			*sep++ = '\0';
+
+			kernel = strstr(sep, "@kernel");
+			if (kernel)
+				goto next;
 
 			es = xmalloc(sizeof(*es));
 			es->provider = spec;
-			es->event = sep + 1;
+			es->event = sep;
 			list_add_tail(&es->list, &specs);
 		}
 		else {
@@ -193,6 +198,7 @@ int mcount_setup_events(char *dirname, char *event_str)
 				pr_dbg("ignore invalid event spec: %s\n", spec);
 		}
 
+next:
 		spec = strtok_r(NULL, ";", &pos);
 	}
 
