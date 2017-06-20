@@ -278,6 +278,8 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_MCOUNT] = level;
 		else if (!strcmp(tok, "dynamic"))
 			dbg_domain[DBG_DYNAMIC] = level;
+		else if (!strcmp(tok, "event"))
+			dbg_domain[DBG_EVENT] = level;
 
 		str = NULL;
 	}

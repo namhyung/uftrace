@@ -5,8 +5,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT     "event"
+#define PR_DOMAIN  DBG_EVENT
 
 #include "libmcount/mcount.h"
 
