@@ -149,6 +149,7 @@ struct uftrace_kernel {
 	struct list_head notrace;
 	struct list_head patches;
 	struct list_head nopatch;
+	struct list_head events;
 };
 
 struct ftrace_file_handle {

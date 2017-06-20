@@ -343,7 +343,7 @@ static void print_event(struct ftrace_task_handle *task,
 	}
 
 	event = pevent_find_event(task->h->kernel.pevent, evt_id);
-	pr_out("[%s:%s] %.*s", event->system, event->name,
+	pr_out("%s:%s (%.*s)", event->system, event->name,
 	       task->args.len, task->args.data);
 }
 

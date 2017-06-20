@@ -150,7 +150,10 @@ static int set_tracing_pid(int pid)
 	char buf[16];
 
 	snprintf(buf, sizeof(buf), "%d", pid);
-	return append_tracing_file("set_ftrace_pid", buf);
+	if (append_tracing_file("set_ftrace_pid", buf) < 0)
+		return -1;
+
+	return append_tracing_file("set_event_pid", buf);
 }
 
 static int set_tracing_clock(void)
@@ -256,8 +259,8 @@ static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
 
 	name = strtok(pos, ";");
 	while (name) {
-		pos = strchr(name, '@');
-		if (!pos || strncasecmp(pos+1, "kernel", 6))
+		pos = strstr(name, "@kernel");
+		if (pos == NULL)
 			goto next;
 		*pos = '\0';
 
@@ -271,6 +274,54 @@ static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
 		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
+
+next:
+		name = strtok(NULL, ";");
+	}
+	free(str);
+}
+
+struct kevent {
+	struct list_head list;
+	char name[];
+};
+
+static int set_tracing_event(struct uftrace_kernel *kernel)
+{
+	struct kevent *pos, *tmp;
+
+	list_for_each_entry_safe(pos, tmp, &kernel->events, list) {
+		if (append_tracing_file("set_event", pos->name) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
+	return 0;
+}
+
+static void build_kernel_event(struct uftrace_kernel *kernel, char *event_str,
+			       struct list_head *events)
+{
+	struct kevent *kevent;
+	char *pos, *str, *name;
+
+	if (event_str == NULL)
+		return;
+
+	pos = str = xstrdup(event_str);
+
+	name = strtok(pos, ";");
+	while (name) {
+		pos = strstr(name, "@kernel");
+		if (pos == NULL)
+			goto next;
+		*pos = '\0';
+
+		kevent = xmalloc(sizeof(*kevent) + strlen(name) + 1);
+		strcpy(kevent->name, name);
+		list_add_tail(&kevent->list, events);
 
 next:
 		name = strtok(NULL, ";");
@@ -292,6 +343,9 @@ static int reset_tracing_files(void)
 	if (write_tracing_file("set_ftrace_pid", " ") < 0)
 		return -1;
 
+	if (write_tracing_file("set_event_pid", " ") < 0)
+		return -1;
+
 	if (write_tracing_file("set_graph_function", " ") < 0)
 		return -1;
 
@@ -305,6 +359,9 @@ static int reset_tracing_files(void)
 		return -1;
 
 	if (write_tracing_file("max_graph_depth", "0") < 0)
+		return -1;
+
+	if (write_tracing_file("set_event", " ") < 0)
 		return -1;
 
 	/* default kernel buffer size: 16384 * 88 / 1024 = 1408 */
@@ -347,6 +404,9 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 	if (set_tracing_depth(kernel) < 0)
 		goto out;
 
+	if (set_tracing_event(kernel) < 0)
+		goto out;
+
 	if (set_tracing_bufsize(kernel) < 0)
 		goto out;
 
@@ -378,11 +438,13 @@ int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 	INIT_LIST_HEAD(&kernel->notrace);
 	INIT_LIST_HEAD(&kernel->patches);
 	INIT_LIST_HEAD(&kernel->nopatch);
+	INIT_LIST_HEAD(&kernel->events);
 
 	build_kernel_filter(kernel, opts->filter,
 			    &kernel->filters, &kernel->notrace);
 	build_kernel_filter(kernel, opts->patch,
 			    &kernel->patches, &kernel->nopatch);
+	build_kernel_event(kernel, opts->event, &kernel->events);
 
 	if (opts->kernel_skip_out) {
 		/*
