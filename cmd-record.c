@@ -156,6 +156,15 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		}
 	}
 
+	if (opts->event) {
+		char *event_str = uftrace_clear_kernel(opts->event);
+
+		if (event_str) {
+			setenv("UFTRACE_EVENT", event_str, 1);
+			free(event_str);
+		}
+	}
+
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
 		setenv("UFTRACE_DEPTH", buf, 1);
@@ -280,6 +289,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->retval)
 		features |= RETVAL;
+
+	if (opts->event)
+		features |= EVENT;
 
 	return features;
 }

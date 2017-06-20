@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -357,26 +358,16 @@ void save_retval(struct mcount_thread_data *mtdp,
 }
 #endif
 
-static int record_ret_stack(struct mcount_thread_data *mtdp,
-			    enum uftrace_record_type type,
-			    struct mcount_ret_stack *mrstack)
+static int record_event(struct mcount_thread_data *mtdp)
 {
-	struct uftrace_record *frstack;
-	uint64_t timestamp = mrstack->start_time;
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	const size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
-	size_t size = sizeof(*frstack);
-	void *argbuf = NULL;
-	uint64_t *buf;
-	uint64_t rec;
-
-	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
-	    (type == UFTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
-		argbuf = get_argbuf(mtdp, mrstack);
-		if (argbuf)
-			size += *(unsigned *)argbuf;
-	}
+	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
+	struct {
+		uint64_t time;
+		uint64_t data;
+	} *rec;
+	size_t size = sizeof(*rec);
 
 	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
 		if (shmem->done)
@@ -393,8 +384,74 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 		curr_buf = shmem->buffer[shmem->curr];
 	}
 
+	rec = (void *)(curr_buf->data + curr_buf->size);
+
+	/*
+	 * instead of set bitfields, do the bit operations manually.
+	 * this would be good both for performance and portability.
+	 */
+	rec->data  = UFTRACE_EVENT | RECORD_MAGIC << 3;
+	rec->data += (uint64_t)mtdp->event[0].id << 16;
+	rec->time  = mtdp->event[0].time;
+
+	curr_buf->size += size;
+
+	/* clear event info */
+	mtdp->nr_events--;
+
+	return 0;
+}
+
+static int record_ret_stack(struct mcount_thread_data *mtdp,
+			    enum uftrace_record_type type,
+			    struct mcount_ret_stack *mrstack)
+{
+	struct uftrace_record *frstack;
+	uint64_t timestamp = mrstack->start_time;
+	struct mcount_shmem *shmem = &mtdp->shmem;
+	struct mcount_shmem_buffer *curr_buf;
+	size_t maxsize;
+	size_t size = sizeof(*frstack);
+	void *argbuf = NULL;
+	uint64_t *buf;
+	uint64_t rec;
+
 	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
+
+	if (unlikely(mtdp->nr_events)) {
+		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
+			record_event(mtdp);
+
+			memmove(&mtdp->event[0], &mtdp->event[1],
+				sizeof(*mtdp->event) * mtdp->nr_events);
+		}
+	}
+
+	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
+	    (type == UFTRACE_EXIT  && mrstack->flags & MCOUNT_FL_RETVAL)) {
+		argbuf = get_argbuf(mtdp, mrstack);
+		if (argbuf)
+			size += *(unsigned *)argbuf;
+	}
+
+	maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
+	curr_buf = shmem->buffer[shmem->curr];
+
+	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
+		if (shmem->done)
+			return 0;
+		if (shmem->curr > -1)
+			finish_shmem_buffer(mtdp, shmem->curr);
+		get_new_shmem_buffer(mtdp);
+
+		if (shmem->curr == -1) {
+			shmem->losts++;
+			return -1;
+		}
+
+		curr_buf = shmem->buffer[shmem->curr];
+	}
 
 #if 0
 	frstack = (void *)(curr_buf->data + curr_buf->size);

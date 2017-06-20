@@ -794,6 +794,27 @@ out:
 	mtdp->recursion_guard = false;
 }
 
+int mcount_save_event(struct mcount_event_info *mei)
+{
+	struct mcount_thread_data *mtdp;
+
+	if (unlikely(mcount_should_stop()))
+		return -1;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return -1;
+
+	if (mtdp->nr_events < MAX_EVENT) {
+		int i = mtdp->nr_events++;
+
+		mtdp->event[i].id   = mei->id;
+		mtdp->event[i].time = mcount_gettime();
+	}
+
+	return 0;
+}
+
 static void atfork_prepare_handler(void)
 {
 	struct uftrace_msg_task tmsg = {
@@ -944,6 +965,7 @@ static void mcount_startup(void)
 	char *retval_str;
 	char *plthook_str;
 	char *patch_str;
+	char *event_str;
 	char *dirname;
 	struct stat statbuf;
 	LIST_HEAD(modules);
@@ -973,6 +995,7 @@ static void mcount_startup(void)
 	retval_str = getenv("UFTRACE_RETVAL");
 	plthook_str = getenv("UFTRACE_PLTHOOK");
 	patch_str = getenv("UFTRACE_PATCH");
+	event_str = getenv("UFTRACE_EVENT");
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
@@ -1057,6 +1080,9 @@ static void mcount_startup(void)
 
 	if (patch_str)
 		mcount_dynamic_update(&symtabs, patch_str);
+
+	if (event_str)
+		mcount_setup_events(dirname, event_str);
 
 	if (plthook_str) {
 		if (symtabs.dsymtab.nr_sym == 0) {

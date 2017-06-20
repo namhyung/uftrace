@@ -79,7 +79,7 @@ struct mcount_shmem_buffer {
 };
 
 /* must be in sync with enum debug_domain (bits) */
-#define DBG_DOMAIN_STR  "TSDFfsKMP"
+#define DBG_DOMAIN_STR  "TSDFfsKMPE"
 
 enum filter_result {
 	FILTER_RSTACK = -1,
@@ -113,6 +113,13 @@ struct mcount_shmem {
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
 
+struct mcount_event {
+	unsigned	id;
+	uint64_t	time;
+};
+
+#define MAX_EVENT  4
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -136,6 +143,8 @@ struct mcount_thread_data {
 	struct filter_control		filter;
 	bool				enable_cached;
 	struct mcount_shmem		shmem;
+	struct mcount_event		event[MAX_EVENT];
+	int				nr_events;
 };
 
 #ifdef SINGLE_THREAD
@@ -251,5 +260,23 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs);
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
+
+struct mcount_event_info {
+	char *module;
+	char *provider;
+	char *event;
+	char *arguments;
+
+	unsigned id;
+	unsigned long addr;
+	struct list_head list;
+};
+
+int mcount_setup_events(char *dirname, char *event_str);
+struct mcount_event_info * mcount_lookup_event(unsigned long addr);
+int mcount_save_event(struct mcount_event_info *mei);
+void mcount_finish_events(void);
+
+int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 #endif /* FTRACE_MCOUNT_H */

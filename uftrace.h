@@ -48,6 +48,7 @@ enum uftrace_feat_bits {
 	RETVAL_BIT,
 	SYM_REL_ADDR_BIT,
 	MAX_STACK_BIT,
+	EVENT_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -59,6 +60,7 @@ enum uftrace_feat_bits {
 	RETVAL			= (1U << RETVAL_BIT),
 	SYM_REL_ADDR		= (1U << SYM_REL_ADDR_BIT),
 	MAX_STACK		= (1U << MAX_STACK_BIT),
+	EVENT			= (1U << EVENT_BIT),
 };
 
 enum uftrace_info_bits {
@@ -164,6 +166,7 @@ struct ftrace_file_handle {
 	bool needs_bit_swap;
 	uint64_t time_filter;
 	struct uftrace_time_range time_range;
+	struct list_head events;
 };
 
 #define UFTRACE_MODE_INVALID 0
@@ -193,6 +196,7 @@ struct opts {
 	char *diff;
 	char *fields;
 	char *patch;
+	char *event;
 	int mode;
 	int idx;
 	int depth;
@@ -488,5 +492,14 @@ void clear_ftrace_info(struct uftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);
+
+#define EVENT_ID_USER  1000000U
+
+struct uftrace_event {
+	struct list_head list;
+	unsigned id;
+	char *provider;
+	char *event;
+};
 
 #endif /* __UFTRACE_H__ */
