@@ -332,9 +332,9 @@ class TestBase:
                 return TestBase.TEST_ABNORMAL_EXIT
             return TestBase.TEST_NONZERO_RETURN
 
-        self.pr_debug("=========== %s =============\n%s" % ("expected", result_expect))
-        self.pr_debug("=========== %s =============\n%s" % ("original", result_origin))
-        self.pr_debug("=========== %s =============\n%s" % ("result", result_tested))
+        self.pr_debug("=========== %s ===========\n%s" % ("original", result_origin))
+        self.pr_debug("=========== %s ===========\n%s" % (" result ", result_tested))
+        self.pr_debug("=========== %s ===========\n%s" % ("expected", result_expect))
 
         if result_expect.strip() == '':
             return TestBase.TEST_DIFF_RESULT
