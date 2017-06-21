@@ -927,13 +927,13 @@ int setup_kernel_data(struct uftrace_kernel *kernel)
 
 	kernel->nr_cpus = scandir(kernel->output_dir, &list, scandir_filter, versionsort);
 	if (kernel->nr_cpus <= 0) {
-		pr_log("cannot find kernel trace data\n");
-		return -1;
+		pr_out("cannot find kernel trace data\n");
+		goto out;
 	}
 
 	if (load_kernel_files(kernel) < 0) {
 		pr_out("cannot read kernel header: %m\n");
-		return -1;
+		goto out;
 	}
 
 	pr_dbg("found kernel ftrace data for %d cpus\n", kernel->nr_cpus);
@@ -989,6 +989,7 @@ int setup_kernel_data(struct uftrace_kernel *kernel)
 	free(list);
 	if (i != kernel->nr_cpus) {
 		pr_dbg("failed to access to kernel trace data: %s: %m\n", buf);
+		finish_kernel_data(kernel);
 		return -1;
 	}
 
@@ -997,6 +998,11 @@ int setup_kernel_data(struct uftrace_kernel *kernel)
 	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_exit",
 				      funcgraph_exit_handler, NULL);
 	return 0;
+
+out:
+	pevent_free(kernel->pevent);
+	kernel->pevent = NULL;
+	return -1;
 }
 
 /**
@@ -1036,6 +1042,7 @@ int finish_kernel_data(struct uftrace_kernel *kernel)
 
 	trace_seq_destroy(&trace_seq);
 	pevent_free(kernel->pevent);
+	kernel->pevent = NULL;
 
 	return 0;
 }
