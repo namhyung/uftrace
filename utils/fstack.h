@@ -115,6 +115,12 @@ int read_task_args(struct ftrace_task_handle *task,
 		   struct uftrace_record *rstack,
 		   bool is_retval);
 
+static inline bool is_user_record(struct ftrace_task_handle *task,
+				  struct uftrace_record *rec)
+{
+	return rec == &task->ustack;
+}
+
 static inline bool is_kernel_record(struct ftrace_task_handle *task,
 				    struct uftrace_record *rec)
 {
