@@ -237,10 +237,10 @@ For more advanced setup, please refer
 
 Limitations
 ===========
-- It can only trace a native C/C++ application compiled with -pg option.
+- It can trace a native C/C++ application on Linux.
 - It *cannot* trace already running process.
 - It *cannot* be used for system-wide tracing.
-- It only supports x86_64 and ARM (v6,7) for now.
+- It supports x86_64 and ARM (v6 or later) and AArch64 for now.
 
 
 License
