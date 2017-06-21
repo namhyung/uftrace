@@ -1614,27 +1614,8 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		task = utask;
 		break;
 	case KERNEL:
-		ktask->rstack = &ktask->kstack;
+		ktask->rstack = get_kernel_record(kernel, ktask, k);
 		task = ktask;
-
-		if (kernel->missed_events[k]) {
-			static struct uftrace_record lost_rstack;
-
-			/* convert to ftrace_rstack */
-			lost_rstack.time = 0;
-			lost_rstack.type = UFTRACE_LOST;
-			lost_rstack.addr = kernel->missed_events[k];
-			lost_rstack.depth = task->kstack.depth;
-			lost_rstack.magic = RECORD_MAGIC;
-			lost_rstack.more = 0;
-
-			/*
-			 * NOTE: do not consume the kstack since we didn't
-			 * read the first record yet.  Next read_kernel_stack()
-			 * will return the first record.
-			 */
-			task->rstack = &lost_rstack;
-		}
 		break;
 
 	case PERF:

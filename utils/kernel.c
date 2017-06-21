@@ -1610,6 +1610,31 @@ retry:
 	return first_cpu;
 }
 
+struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
+					  struct ftrace_task_handle *task,
+					  int cpu)
+{
+	static struct uftrace_record lost_record;
+
+	if (!kernel->missed_events[cpu])
+		return &task->kstack;
+
+	/* convert to ftrace_rstack */
+	lost_record.time = 0;
+	lost_record.type = UFTRACE_LOST;
+	lost_record.addr = kernel->missed_events[cpu];
+	lost_record.depth = task->kstack.depth;
+	lost_record.magic = RECORD_MAGIC;
+	lost_record.more = 0;
+
+	/*
+	 * NOTE: do not consume the kstack since we didn't
+	 * read the first record yet.  Next read_kernel_stack()
+	 * will return the first record.
+	 */
+	return &lost_record;
+}
+
 #ifdef UNIT_TEST
 
 #include <sys/stat.h>
