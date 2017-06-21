@@ -335,6 +335,9 @@ static void print_event(struct ftrace_task_handle *task,
 		/* TODO: some events might have arguments */
 		pr_color(color, "%s", evt_name);
 	}
+	else if (evt_id >= EVENT_ID_PERF) {
+		pr_color(color, "%s", evt_name);
+	}
 	else if (evt_id >= EVENT_ID_BUILTIN) {
 		struct uftrace_proc_statm *statm;
 		struct uftrace_page_fault *page_fault;
@@ -354,6 +357,7 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, "%s", evt_name);
 			break;
 		}
+		pr_color(color, "user_event:%u", evt_id);
 		return;
 	}
 	else {
