@@ -124,6 +124,7 @@ struct uftrace_record;
 struct uftrace_rstack_list;
 struct uftrace_session;
 struct uftrace_kernel_reader;
+struct uftrace_perf_reader;
 
 struct uftrace_session_link {
 	struct rb_root		root;
@@ -138,9 +139,12 @@ struct ftrace_file_handle {
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
+	struct uftrace_perf_reader *perf;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
+	int nr_perf;
+	int last_perf_idx;
 	int depth;
 	bool needs_byte_swap;
 	bool needs_bit_swap;
@@ -453,6 +457,11 @@ enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
+static inline bool has_perf_data(struct ftrace_file_handle *handle)
+{
+	return handle->perf != NULL;
+}
+
 struct rusage;
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
@@ -463,7 +472,7 @@ void clear_ftrace_info(struct uftrace_info *info);
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);
 
-enum ufrace_event_id {
+enum uftrace_event_id {
 	EVENT_ID_KERNEL	= 0U,
 	/* kernel IDs are read from tracefs */
 
@@ -471,14 +480,19 @@ enum ufrace_event_id {
 	EVENT_ID_PROC_STATM,
 	EVENT_ID_PAGE_FAULT,
 
+	/* supported perf events */
+	EVENT_ID_PERF		= 200000U,
+	EVENT_ID_PERF_SCHED_IN,
+	EVENT_ID_PERF_SCHED_OUT,
+
 	EVENT_ID_USER	= 1000000U,
 };
 
 struct uftrace_event {
-	struct list_head list;
-	unsigned id;
-	char *provider;
-	char *event;
+	struct list_head	list;
+	enum uftrace_event_id	id;
+	char			*provider;
+	char			*event;
 };
 
 #endif /* __UFTRACE_H__ */

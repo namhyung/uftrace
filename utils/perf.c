@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <glob.h>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -192,3 +193,51 @@ out:
 	perf->data_pos[cpu] = pos;
 }
 #endif /* HAVE_PERF_CLOCKID */
+
+
+int setup_perf_data(struct ftrace_file_handle *handle)
+{
+	struct uftrace_perf_reader *perf;
+	glob_t globbuf;
+	char *pattern;
+	size_t i;
+	int ret = -1;
+
+	xasprintf(&pattern, "%s/perf-cpu*.dat", handle->dirname);
+	if (glob(pattern, GLOB_ERR, NULL, &globbuf)) {
+		pr_dbg("failed to search perf data file\n");
+		handle->hdr.feat_mask &= ~PERF_EVENT;
+		goto out;
+	}
+
+	perf = xcalloc(globbuf.gl_pathc, sizeof(*perf));
+
+	for (i = 0; i < globbuf.gl_pathc; i++) {
+		perf[i].fp = fopen(globbuf.gl_pathv[i], "r");
+		if (perf[i].fp == NULL)
+			pr_err("open failed: %s", globbuf.gl_pathv[i]);
+	}
+
+	handle->nr_perf = globbuf.gl_pathc;
+	handle->perf = perf;
+	ret = 0;
+
+out:
+	globfree(&globbuf);
+	free(pattern);
+	return ret;
+}
+
+void finish_perf_data(struct ftrace_file_handle *handle)
+{
+	int i;
+
+	if (handle->perf == NULL)
+		return;
+
+	for (i = 0; i < handle->nr_perf; i++)
+		fclose(handle->perf[i].fp);
+
+	free(handle->perf);
+	handle->perf = NULL;
+}

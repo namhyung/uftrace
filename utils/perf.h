@@ -45,4 +45,15 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 
 #endif /* HAVE_PERF_CTXSW */
 
+struct uftrace_perf_reader {
+	FILE			*fp;
+	bool			valid;
+	bool			done;
+};
+
+struct ftrace_file_handle;
+
+int setup_perf_data(struct ftrace_file_handle *handle);
+void finish_perf_data(struct ftrace_file_handle *handle);
+
 #endif /* UFTRACE_PERF_H */
