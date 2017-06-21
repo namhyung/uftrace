@@ -1274,15 +1274,51 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
+/* convert perf sched events to a virtual schedule function */
+static bool convert_perf_event(struct ftrace_task_handle *task,
+			       struct uftrace_record *orig,
+			       struct uftrace_record *dummy)
+{
+	switch (orig->addr) {
+	case EVENT_ID_PERF_SCHED_IN:
+		/* ignore first sched in for non-main threads */
+		if (!task->fstack_set)
+			return false;
+
+		/* fall-through */
+	case EVENT_ID_PERF_SCHED_OUT:
+		if (orig->addr == EVENT_ID_PERF_SCHED_OUT)
+			dummy->type = UFTRACE_ENTRY;
+		else
+			dummy->type = UFTRACE_EXIT;
+
+		dummy->time  = orig->time;
+		dummy->magic = RECORD_MAGIC;
+		dummy->depth = 0;
+		dummy->addr  = 0;
+		dummy->more  = 0;
+
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 static void fstack_account_time(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 	struct uftrace_record *rstack = task->rstack;
-	bool is_kernel_func = (rstack == &task->kstack);
+	struct uftrace_record dummy_rec;
+	bool is_kernel_func = is_kernel_record(task, rstack);
 	int i;
 
-	if (rstack->type == UFTRACE_EVENT)
-		return;
+	if (rstack->type == UFTRACE_EVENT) {
+		if (!convert_perf_event(task, rstack, &dummy_rec))
+			return;
+
+		rstack = &dummy_rec;
+	}
 
 	if (!task->fstack_set) {
 		/* inherit stack count after [v]fork() or recover from lost */
@@ -1434,11 +1470,21 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 static void fstack_update_stack_count(struct ftrace_task_handle *task)
 {
 	struct uftrace_record *rstack = task->rstack;
+	struct uftrace_record dummy_rec;
+
+	if (rstack->type == UFTRACE_EVENT) {
+		if (!convert_perf_event(task, rstack, &dummy_rec))
+			return;
+
+		rstack = &dummy_rec;
+	}
 
 	if (is_user_record(task, rstack))
 		task->ctx = FSTACK_CTX_USER;
-	else
+	else if (is_kernel_record(task, rstack))
 		task->ctx = FSTACK_CTX_KERNEL;
+	else
+		task->ctx = FSTACK_CTX_UNKNOWN;
 
 	if (rstack->type == UFTRACE_ENTRY)
 		task->stack_count++;
