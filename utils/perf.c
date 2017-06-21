@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -32,9 +33,16 @@ static int open_perf_event(int pid, int cpu)
 		.wakeup_watermark	= PERF_WATERMARK,
 		.use_clockid		= 1,
 		.clockid		= CLOCK_MONOTONIC,
+		INIT_CTXSW_ATTR
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
 	int fd;
+
+	if (!PERF_CTXSW_AVAILABLE) {
+		/* Operation not supported */
+		errno = ENOTSUP;
+		return -1;
+	}
 
 	fd = syscall(SYS_perf_event_open, &attr, pid, cpu, -1, flag);
 	if (fd < 0)

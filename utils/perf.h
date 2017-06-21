@@ -34,4 +34,14 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf, int cpu) {
 
 #endif /* HAVE_PERF_CLOCKID */
 
+#ifdef HAVE_PERF_CTXSW
+# define PERF_CTXSW_AVAILABLE  1
+# define INIT_CTXSW_ATTR	.context_switch = 1,
+
+#else  /* !HAVE_PERF_CTXSW */
+# define PERF_CTXSW_AVAILABLE  0
+# define INIT_CTXSW_ATTR
+
+#endif /* HAVE_PERF_CTXSW */
+
 #endif /* UFTRACE_PERF_H */

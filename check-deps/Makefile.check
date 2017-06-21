@@ -22,3 +22,7 @@ endif
 ifneq ($(wildcard $(srcdir)/check-deps/perf_clockid),)
   COMMON_CFLAGS += -DHAVE_PERF_CLOCKID
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/perf_context_switch),)
+  COMMON_CFLAGS += -DHAVE_PERF_CTXSW
+endif
