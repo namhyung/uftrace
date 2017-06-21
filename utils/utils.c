@@ -557,6 +557,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 		case EVENT_ID_PERF_SCHED_OUT:
 			event_name = "sched-out";
 			break;
+		case EVENT_ID_PERF_SCHED_BOTH:
+			event_name = "schedule";
+			break;
 		default:
 			event_name = "unknown";
 			break;
