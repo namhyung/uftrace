@@ -1572,7 +1572,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	}
 
 	if (has_kernel_data(kernel)) {
-retry:
 		k = read_kernel_stack(handle, &ktask);
 		if (k < 0) {
 			static bool warn = false;
@@ -1581,12 +1580,6 @@ retry:
 				pr_dbg("no more kernel data\n");
 				warn = true;
 			}
-		}
-		else if (ktask->fp == NULL) {
-			/* task might be filtered */
-			ktask->rstack = &ktask->kstack;
-			__fstack_consume(ktask, kernel, k);
-			goto retry;
 		}
 		else if (ktask->kstack.time < min_timestamp) {
 			min_timestamp = ktask->kstack.time;
