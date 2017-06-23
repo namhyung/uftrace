@@ -172,6 +172,7 @@ struct opts {
 	char *fields;
 	char *patch;
 	char *event;
+	char **run_cmd;
 	int mode;
 	int idx;
 	int depth;
