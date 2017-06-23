@@ -244,4 +244,7 @@ uint64_t parse_time(char *arg, int limited_digits);
 
 char * strjoin(char *left, char *right, char *delim);
 
+char **parse_cmdline(char *cmd, int *argc);
+void free_parsed_cmdline(char **argv);
+
 #endif /* __FTRACE_UTILS_H__ */
