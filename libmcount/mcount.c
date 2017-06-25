@@ -1224,8 +1224,13 @@ __visible_default void * dlopen(const char *filename, int flags)
 {
 	struct mcount_thread_data *mtdp;
 	uint64_t timestamp = mcount_gettime();
-	void *ret = real_dlopen(filename, flags);
 	struct dlopen_base_data data;
+	void *ret;
+
+	if (unlikely(real_dlopen == NULL))
+		mcount_hook_functions();
+
+	ret = real_dlopen(filename, flags);
 
 	if (unlikely(mcount_should_stop() || filename == NULL))
 		return ret;
