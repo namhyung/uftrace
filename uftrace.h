@@ -118,7 +118,7 @@ struct pevent;
 struct uftrace_record;
 struct uftrace_rstack_list;
 struct uftrace_session;
-struct uftrace_kernel;
+struct uftrace_kernel_reader;
 
 struct uftrace_session_link {
 	struct rb_root		root;
@@ -132,7 +132,7 @@ struct ftrace_file_handle {
 	const char *dirname;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
-	struct uftrace_kernel *kernel;
+	struct uftrace_kernel_reader *kernel;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;

@@ -463,7 +463,7 @@ retry:
 	if (handle->hdr.feat_mask & KERNEL) {
 		handle->kernel = xzalloc(sizeof(*handle->kernel));
 
-		handle->kernel->output_dir = opts->dirname;
+		handle->kernel->dirname  = opts->dirname;
 		handle->kernel->skip_out = opts->kernel_skip_out;
 
 		if (setup_kernel_data(handle->kernel) == 0)
