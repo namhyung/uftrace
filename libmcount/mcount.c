@@ -1341,4 +1341,19 @@ TEST_CASE(mcount_thread_data)
 
 	return TEST_OK;
 }
+
+TEST_CASE(mcount_wrap_dlopen)
+{
+	void *handle;
+
+	TEST_EQ(real_dlopen, NULL);
+
+	handle= dlopen(NULL, RTLD_LAZY);
+
+	TEST_NE(handle, NULL);
+	TEST_NE(real_dlopen, NULL);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
