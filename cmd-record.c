@@ -23,6 +23,7 @@
 #include "utils/symbol.h"
 #include "utils/list.h"
 #include "utils/filter.h"
+#include "utils/kernel.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 

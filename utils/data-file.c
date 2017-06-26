@@ -12,6 +12,7 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/symbol.h"
+#include "utils/kernel.h"
 #include "libmcount/mcount.h"
 
 

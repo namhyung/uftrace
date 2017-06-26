@@ -14,6 +14,7 @@
 #include "utils/filter.h"
 #include "utils/fstack.h"
 #include "utils/rbtree.h"
+#include "utils/kernel.h"
 #include "libmcount/mcount.h"
 
 

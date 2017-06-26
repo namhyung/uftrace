@@ -11,6 +11,7 @@
 #include "utils/filter.h"
 #include "utils/fstack.h"
 #include "utils/list.h"
+#include "utils/kernel.h"
 
 #include "libtraceevent/event-parse.h"
 
