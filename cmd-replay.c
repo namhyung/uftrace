@@ -342,7 +342,7 @@ static void print_event(struct ftrace_task_handle *task,
 		return;
 	}
 
-	event = pevent_find_event(task->h->kernel.pevent, evt_id);
+	event = pevent_find_event(task->h->kernel->pevent, evt_id);
 	pr_out("%s:%s (%.*s)", event->system, event->name,
 	       task->args.len, task->args.data);
 }
@@ -814,7 +814,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 		return true;
 
 	/* skip 'sys_exit[_group] at last for kernel tracing */
-	if (!has_kernel_data(&task->h->kernel) || task->user_stack_count != 0)
+	if (!has_kernel_data(task->h->kernel) || task->user_stack_count != 0)
 		return false;
 
 	ip = task->func_stack[0].addr;

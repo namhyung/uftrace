@@ -162,7 +162,7 @@ struct ftrace_file_handle {
 	const char *dirname;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
-	struct uftrace_kernel kernel;
+	struct uftrace_kernel *kernel;
 	struct ftrace_task_handle *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
@@ -485,7 +485,7 @@ int finish_kernel_data(struct uftrace_kernel *kernel);
 
 static inline bool has_kernel_data(struct uftrace_kernel *kernel)
 {
-	return kernel->pevent != NULL;
+	return kernel && kernel->pevent != NULL;
 }
 
 static inline bool has_kernel_event(char *events)

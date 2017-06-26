@@ -1031,13 +1031,13 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		}
 	}
 
-	if (!has_kernel_data(&handle->kernel) || uftrace_done)
+	if (!has_kernel_data(handle->kernel) || uftrace_done)
 		goto footer;
 
-	ops->kernel_start(ops, &handle->kernel);
+	ops->kernel_start(ops, handle->kernel);
 
-	for (i = 0; i < handle->kernel.nr_cpus; i++) {
-		struct uftrace_kernel *kernel = &handle->kernel;
+	for (i = 0; i < handle->kernel->nr_cpus; i++) {
+		struct uftrace_kernel *kernel = handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
 		struct uftrace_session *fsess = handle->sessions.first;
 
@@ -1080,7 +1080,7 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 {
 	struct uftrace_record *frs = task->rstack;
 
-	if (has_kernel_data(&task->h->kernel)) {
+	if (has_kernel_data(task->h->kernel)) {
 		if (opts->kernel_skip_out) {
 			if (!task->user_stack_count &&
 			    is_kernel_record(task, frs))

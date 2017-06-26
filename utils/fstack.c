@@ -687,8 +687,8 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 
 		/* skip kernel functions outside user functions */
 		if (is_kernel_address(&fsess->symtabs, next_stack->addr)) {
-			if (has_kernel_data(&handle->kernel) &&
-			    !next->user_stack_count && handle->kernel.skip_out)
+			if (has_kernel_data(handle->kernel) &&
+			    !next->user_stack_count && handle->kernel->skip_out)
 				goto next;
 		}
 
@@ -1450,7 +1450,7 @@ void fstack_consume(struct ftrace_file_handle *handle,
 		    struct ftrace_task_handle *task)
 {
 	struct uftrace_record *rstack = task->rstack;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = handle->kernel;
 	int cpu = 0;
 
 	if (rstack != &task->ustack)
@@ -1467,7 +1467,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_task_handle *utask = NULL;
 	struct ftrace_task_handle *ktask = NULL;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = handle->kernel;
 
 	u = read_user_stack(handle, &utask);
 	if (has_kernel_data(kernel)) {

@@ -1156,6 +1156,9 @@ int finish_kernel_data(struct uftrace_kernel *kernel)
 {
 	int i;
 
+	if (kernel == NULL)
+		return 0;
+
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		close(kernel->fds[i]);
 
@@ -1332,7 +1335,7 @@ int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu)
 
 static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 {
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = handle->kernel;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
 	struct uftrace_record *curr;
 	int tid, prev_tid = -1;
@@ -1532,7 +1535,7 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	int first_cpu = -1;
 	int first_tid = -1;
 	uint64_t first_timestamp = 0;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = handle->kernel;
 	struct uftrace_record *first_rstack;
 
 retry:
@@ -1851,6 +1854,7 @@ static int kernel_test_setup_file(struct uftrace_kernel *kernel, bool event)
 		fclose(fp);
 	}
 
+	test_handle.kernel = kernel;
 	atexit(kernel_test_finish_file);
 
 	setup_kernel_data(kernel);
@@ -1861,6 +1865,8 @@ static int kernel_test_setup_handle(struct uftrace_kernel *kernel,
 				    struct ftrace_file_handle *handle)
 {
 	int i;
+
+	handle->kernel = kernel;
 
 	handle->nr_tasks = NUM_TASK;
 	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
@@ -1884,9 +1890,9 @@ static void kernel_test_finish_file(void)
 {
 	int cpu;
 	char *filename;
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel *kernel = test_handle.kernel;
 
-	if (kernel->output_dir == NULL)
+	if (kernel == NULL)
 		return;
 
 	finish_kernel_data(kernel);
@@ -1916,6 +1922,8 @@ static void kernel_test_finish_handle(void)
 
 	free(handle->tasks);
 	handle->tasks = NULL;
+	free(handle->kernel);
+	handle->kernel = NULL;
 }
 
 TEST_CASE(kernel_read)
@@ -1923,7 +1931,7 @@ TEST_CASE(kernel_read)
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
 	struct ftrace_file_handle *handle = &test_handle;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel *kernel = xzalloc(sizeof(*kernel));
 	struct ftrace_task_handle *task;
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
@@ -1956,7 +1964,7 @@ TEST_CASE(kernel_cpu_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel *kernel = xzalloc(sizeof(*kernel));
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
 
@@ -1977,6 +1985,7 @@ TEST_CASE(kernel_cpu_read)
 			TEST_EQ(kernel->tids[cpu], rec->common_pid);
 		}
 	}
+	free(kernel);
 	return TEST_OK;
 }
 
@@ -1984,7 +1993,7 @@ TEST_CASE(kernel_event_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel *kernel = xzalloc(sizeof(*kernel));
 
 	TEST_EQ(kernel_test_setup_file(kernel, true), 0);
 
