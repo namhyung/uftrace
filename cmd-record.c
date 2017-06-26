@@ -223,7 +223,8 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	snprintf(buf, sizeof(buf), "%d", demangler);
 	setenv("UFTRACE_DEMANGLE", buf, 1);
 
-	if (opts->kernel && check_kernel_pid_filter())
+	if ((opts->kernel || has_kernel_event(opts->event)) &&
+	    check_kernel_pid_filter())
 		setenv("UFTRACE_KERNEL_PID_UPDATE", "1", 1);
 
 	if (opts->lib_path)
@@ -1414,7 +1415,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
 
-	if (opts->kernel) {
+	if (opts->kernel || has_kernel_event(opts->event)) {
 		int err;
 
 		kernel.pid = pid;

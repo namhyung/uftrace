@@ -27,7 +27,6 @@
 #include "libtraceevent/event-parse.h"
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
-#define FTRACE_TRACER  "function_graph"
 
 static bool kernel_tracing_enabled;
 
@@ -410,7 +409,7 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 	if (set_tracing_bufsize(kernel) < 0)
 		goto out;
 
-	if (write_tracing_file("current_tracer", FTRACE_TRACER) < 0)
+	if (write_tracing_file("current_tracer", kernel->tracer) < 0)
 		goto out;
 
 	kernel_tracing_enabled = true;
@@ -445,6 +444,14 @@ int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 	build_kernel_filter(kernel, opts->patch,
 			    &kernel->patches, &kernel->nopatch);
 	build_kernel_event(kernel, opts->event, &kernel->events);
+
+	if (opts->kernel)
+		kernel->tracer = KERNEL_GRAPH_TRACER;
+	else
+		kernel->tracer = KERNEL_NOP_TRACER;
+
+	/* mark kernel tracing is enabled (for event tracing) */
+	opts->kernel = true;
 
 	if (opts->kernel_skip_out) {
 		/*

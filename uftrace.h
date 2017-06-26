@@ -125,12 +125,16 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
+#define KERNEL_NOP_TRACER    "nop"
+#define KERNEL_GRAPH_TRACER  "function_graph"
+
 struct uftrace_kernel {
 	int pid;
 	int nr_cpus;
 	int depth;
 	bool skip_out;
 	unsigned long bufsize;
+	char *tracer;
 	int *traces;
 	int *fds;
 	int64_t *offsets;
@@ -480,6 +484,11 @@ int finish_kernel_data(struct uftrace_kernel *kernel);
 static inline bool has_kernel_data(struct uftrace_kernel *kernel)
 {
 	return kernel->pevent != NULL;
+}
+
+static inline bool has_kernel_event(char *events)
+{
+	return events && strstr(events, "@kernel");
 }
 
 bool check_kernel_pid_filter(void);
