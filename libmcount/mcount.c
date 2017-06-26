@@ -1225,11 +1225,9 @@ __visible_default void * dlopen(const char *filename, int flags)
 	struct mcount_thread_data *mtdp;
 	uint64_t timestamp = mcount_gettime();
 	void *ret = real_dlopen(filename, flags);
-	struct dlopen_base_data data = {
-		.libname = simple_basename(filename),
-	};
+	struct dlopen_base_data data;
 
-	if (unlikely(mcount_should_stop()))
+	if (unlikely(mcount_should_stop() || filename == NULL))
 		return ret;
 
 	mtdp = get_thread_data();
@@ -1245,6 +1243,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 		mtdp->recursion_guard = true;
 	}
 
+	data.libname = simple_basename(filename);
 	dl_iterate_phdr(dlopen_base_callback, &data);
 
 	/*
