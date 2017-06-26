@@ -239,8 +239,23 @@ static int set_tracing_bufsize(struct uftrace_kernel *kernel)
 /* check whether the kernel supports pid filter inheritance */
 bool check_kernel_pid_filter(void)
 {
-	/* it's not implemented yet */
-	return true;
+	bool ret = true;
+	char *filename = get_tracing_file("options/function-fork");
+
+	if (!access(filename, F_OK))
+		ret = false;
+
+	put_tracing_file(filename);
+	return ret;
+}
+
+static int set_tracing_options(struct uftrace_kernel *kernel)
+{
+	/* old kernels don't have the options, ignore errors */
+	if (!write_tracing_file("options/function-fork", "1"))
+		write_tracing_file("options/event-fork", "1");
+
+	return 0;
 }
 
 static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
@@ -350,6 +365,8 @@ static int reset_tracing_files(void)
 
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
+	write_tracing_file("options/event-fork", "0");
+	write_tracing_file("options/funciton-fork", "0");
 
 	if (write_tracing_file("set_ftrace_filter", " ") < 0)
 		return -1;
@@ -404,6 +421,9 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 		goto out;
 
 	if (set_tracing_event(kernel) < 0)
+		goto out;
+
+	if (set_tracing_options(kernel) < 0)
 		goto out;
 
 	if (set_tracing_bufsize(kernel) < 0)

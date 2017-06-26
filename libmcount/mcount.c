@@ -73,7 +73,7 @@ int gettid(struct mcount_thread_data *mtdp)
 	return mtdp->tid;
 }
 
-/* kernel never updates pid filter for a forked child */
+/* old kernel never updates pid filter for a forked child */
 static void update_kernel_tid(int tid)
 {
 	static const char *TRACING_DIR = "/sys/kernel/debug/tracing";
