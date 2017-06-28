@@ -317,21 +317,19 @@ static int reset_tracing_files(void)
 
 static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 {
-	if (geteuid() != 0) {
-		pr_log("kernel tracing requires root privilege\n");
-		return -1;
-	}
+	if (geteuid() != 0)
+		return -EPERM;
 
 	if (reset_tracing_files() < 0) {
 		pr_dbg("failed to reset tracing files\n");
-		return -1;
+		return -ENOSYS;
 	}
 
 	pr_dbg("setting up kernel tracing\n");
 
 	/* disable tracing */
 	if (write_tracing_file("tracing_on", "0") < 0)
-		return -1;
+		return -ENOSYS;
 
 	/* reset ftrace buffer */
 	if (write_tracing_file("trace", "0") < 0)
@@ -360,7 +358,7 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 
 out:
 	reset_tracing_files();
-	return -1;
+	return -EINVAL;
 }
 
 /**
@@ -374,6 +372,7 @@ out:
 int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 {
 	int i, n;
+	int ret;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
@@ -399,8 +398,9 @@ int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 				    &kernel->filters, &kernel->notrace);
 	}
 
-	if (__setup_kernel_tracing(kernel) < 0)
-		return -1;
+	ret = __setup_kernel_tracing(kernel);
+	if (ret < 0)
+		return ret;
 
 	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -594,8 +594,10 @@ int finish_kernel_tracing(struct uftrace_kernel *kernel)
 	free(kernel->traces);
 	free(kernel->fds);
 
-	save_kernel_files(kernel);
-	save_kernel_symbol(kernel->output_dir);
+	if (kernel_tracing_enabled) {
+		save_kernel_files(kernel);
+		save_kernel_symbol(kernel->output_dir);
+	}
 
 	reset_tracing_files();
 

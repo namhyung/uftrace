@@ -1415,6 +1415,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
 
 	if (opts->kernel) {
+		int err;
+
 		kernel.pid = pid;
 		kernel.output_dir = opts->dirname;
 		kernel.depth = opts->kernel_depth ?: 1;
@@ -1436,9 +1438,14 @@ int command_record(int argc, char *argv[], struct opts *opts)
 				kernel.bufsize = 2048 * 1024;
 		}
 
-		if (setup_kernel_tracing(&kernel, opts) < 0) {
+		err = setup_kernel_tracing(&kernel, opts);
+		if (err) {
+			if (err == -EPERM)
+				pr_warn("kernel tracing requires root privilege\n");
+			else
+				pr_warn("kernel tracing disabled due to an error\n");
+
 			opts->kernel = false;
-			pr_log("kernel tracing disabled due to an error\n");
 		}
 	}
 
@@ -1454,8 +1461,9 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		pr_err("cannot create an eventfd for writer thread");
 
 	if (opts->kernel && start_kernel_tracing(&kernel) < 0) {
+		finish_kernel_tracing(&kernel);
 		opts->kernel = false;
-		pr_log("kernel tracing disabled due to an error\n");
+		pr_warn("kernel tracing disabled due to an error\n");
 	}
 
 	for (i = 0; i < opts->nr_thread; i++) {
