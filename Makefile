@@ -116,6 +116,7 @@ COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmd-record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmd-live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER

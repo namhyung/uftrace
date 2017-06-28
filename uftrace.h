@@ -241,6 +241,7 @@ struct opts {
 	bool kernel;
 	bool kernel_skip_out;  /* also affects VDSO filter */
 	bool kernel_only;
+	bool list_event;
 	struct uftrace_time_range range;
 };
 
@@ -472,6 +473,7 @@ int record_kernel_tracing(struct uftrace_kernel *kernel);
 int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu, int sock);
 int stop_kernel_tracing(struct uftrace_kernel *kernel);
 int finish_kernel_tracing(struct uftrace_kernel *kernel);
+void list_kernel_events(void);
 
 /* these functions will be used at replay time */
 int setup_kernel_data(struct uftrace_kernel *kernel);

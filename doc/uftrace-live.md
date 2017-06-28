@@ -121,6 +121,9 @@ OPTIONS
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
 
+\--list-event
+:   Show available events in the process.
+
 
 FILTERS
 =======
