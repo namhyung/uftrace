@@ -1053,6 +1053,11 @@ static void mcount_startup(void)
 		}
 	}
 
+	if (event_str && !strcmp(event_str, "list")) {
+		mcount_list_events();
+		exit(0);
+	}
+
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 

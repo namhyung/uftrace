@@ -278,6 +278,7 @@ int mcount_setup_events(char *dirname, char *event_str);
 struct mcount_event_info * mcount_lookup_event(unsigned long addr);
 int mcount_save_event(struct mcount_event_info *mei);
 void mcount_finish_events(void);
+void mcount_list_events(void);
 
 int mcount_arch_enable_event(struct mcount_event_info *mei);
 
