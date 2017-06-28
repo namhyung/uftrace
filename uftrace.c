@@ -439,7 +439,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'E':
-		opts->event = opt_add_string(opts->event, arg);
+		if (!strcmp(arg, "list")) {
+			pr_use("'-E list' is deprecated, use --list-event instead.\n");
+			opts->list_event = true;
+		}
+		else
+			opts->event = opt_add_string(opts->event, arg);
 		break;
 
 	case OPT_flat:

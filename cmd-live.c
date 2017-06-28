@@ -70,9 +70,6 @@ static bool can_skip_replay(struct opts *opts, int record_result)
 	if (opts->nop)
 		return true;
 
-	if (opts->event && !strcmp(opts->event, "list"))
-		return true;
-
 	return false;
 }
 
@@ -153,7 +150,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 
 		if (fork() == 0) {
 			setup_child_environ(opts);
-			setenv("UFTRACE_EVENT", "list", 1);
+			setenv("UFTRACE_LIST_EVENT", "1", 1);
 
 			execv(opts->exename, &argv[opts->idx]);
 			abort();

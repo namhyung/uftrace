@@ -1053,7 +1053,7 @@ static void mcount_startup(void)
 		}
 	}
 
-	if (event_str && !strcmp(event_str, "list")) {
+	if (getenv("UFTRACE_LIST_EVENT")) {
 		mcount_list_events();
 		exit(0);
 	}
