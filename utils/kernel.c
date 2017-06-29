@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
+#include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -315,10 +316,39 @@ static int set_tracing_event(struct uftrace_kernel *kernel)
 	return 0;
 }
 
+static void add_single_event(struct list_head *events, char *name)
+{
+	struct kevent *kevent;
+
+	kevent = xmalloc(sizeof(*kevent) + strlen(name) + 1);
+	strcpy(kevent->name, name);
+	list_add_tail(&kevent->list, events);
+}
+
+static void add_glob_event(struct list_head *events, char *name)
+{
+	char *filename;
+	FILE *fp;
+	char buf[1024];
+
+	filename = get_tracing_file("available_events");
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("failed to open 'tracing/available_event' file");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		/* it's ok to have a trailing '\n' */
+		if (fnmatch(name, buf, 0) == 0)
+			add_single_event(events, buf);
+	}
+
+	fclose(fp);
+	put_tracing_file(filename);
+}
+
 static void build_kernel_event(struct uftrace_kernel *kernel, char *event_str,
 			       struct list_head *events)
 {
-	struct kevent *kevent;
 	char *pos, *str, *name;
 
 	if (event_str == NULL)
@@ -333,9 +363,10 @@ static void build_kernel_event(struct uftrace_kernel *kernel, char *event_str,
 			goto next;
 		*pos = '\0';
 
-		kevent = xmalloc(sizeof(*kevent) + strlen(name) + 1);
-		strcpy(kevent->name, name);
-		list_add_tail(&kevent->list, events);
+		if (strpbrk(name, "*?[]{}"))
+			add_glob_event(events, name);
+		else
+			add_single_event(events, name);
 
 next:
 		name = strtok(NULL, ";");
