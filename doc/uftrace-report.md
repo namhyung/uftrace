@@ -38,13 +38,13 @@ OPTIONS
 :   When `--diff` is used, 3 columns will be shown: total time, self time and call count.  This option selects the index of the column to be used as a sort key.  Index 0 is for original data given by the `--data` option, index 1 is for data given by the `--diff` option, and index 2 is for (percentage) differences between the two data.
 
 -k, \--kernel
-:   Show kernel functions as well as user functions.  Only kernel functions called inside user functions will be shown.
+:   Show kernel functions as well as user functions.  Only kernel functions called inside user functions will be shown.  Note that this option is set by default and always shows kernel functions if exist.
 
 --kernel-full
 :   Show all kernel functions, including those called outside of user functions.
 
 \--kernel-only
-:   Show kernel functions only without user functions.  Implies `--kernel`.
+:   Show kernel functions only (without user functions).
 
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.

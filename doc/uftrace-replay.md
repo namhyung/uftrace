@@ -62,16 +62,16 @@ OPTIONS
 :   Do not show comments of returned functions.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.
+:   Trace kernel functions (and events) as well as user functions (and events).  This options has no meaning and so is deprecated now.  It will always show kernel functions and events if exists.  If you want to hide kernel functions, please use `-N .@kernel` to filter out all kernel functions.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
+:   Show all kernel functions and events occurred outside of user functions.  This option is the inverse of `--kernel-skip-out`.
 
 \--kernel-skip-out
 :   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
 \--kernel-only
-:   Show kernel functions only without user functions.  Implies `--kernel`.
+:   Show kernel functions only without user functions.
 
 
 FILTERS

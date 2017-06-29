@@ -604,7 +604,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_kernel_bufsize:
-		opts->kernel = true;
 		opts->kernel_bufsize = parse_size(arg);
 		if (opts->kernel_bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
@@ -614,18 +613,15 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_kernel_skip_out:  /* deprecated */
-		opts->kernel = true;
 		opts->kernel_skip_out = true;
 		break;
 
 	case OPT_kernel_full:
-		opts->kernel = true;
 		opts->kernel_skip_out = false;
 		/* see setup_kernel_tracing() also */
 		break;
 
 	case OPT_kernel_only:
-		opts->kernel = true;
 		opts->kernel_only = true;
 		break;
 
