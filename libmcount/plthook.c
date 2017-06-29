@@ -463,8 +463,8 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 		.time = mcount_gettime(),
 	};
 
-	/* flush tid cache */
-	mtdp->tid = 0;
+	/* update tid cache */
+	mtdp->tid = tmsg.tid;
 
 	memcpy(&vfork_shmem, &mtdp->shmem, sizeof(vfork_shmem));
 
@@ -473,6 +473,8 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	prepare_shmem_buffer(mtdp);
 
 	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
+
+	update_kernel_tid(tmsg.tid);
 }
 
 /* this function detects whether child finished */

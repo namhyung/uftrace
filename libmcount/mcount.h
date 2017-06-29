@@ -261,6 +261,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
 
+void update_kernel_tid(int tid);
+
 struct mcount_event_info {
 	char *module;
 	char *provider;

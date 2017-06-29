@@ -48,6 +48,7 @@ TLS struct mcount_thread_data mtd;
 static int pfd = -1;
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 static char *mcount_exename;
+/* whether it should update pid filter manually */
 static bool kernel_pid_update;
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -74,13 +75,16 @@ int gettid(struct mcount_thread_data *mtdp)
 }
 
 /* old kernel never updates pid filter for a forked child */
-static void update_kernel_tid(int tid)
+void update_kernel_tid(int tid)
 {
-	static const char *TRACING_DIR = "/sys/kernel/debug/tracing";
+	static const char TRACING_DIR[] = "/sys/kernel/debug/tracing";
 	char *filename = NULL;
 	char buf[8];
 	int fd;
 	ssize_t len;
+
+	if (!kernel_pid_update)
+		return;
 
 	/* update pid filter for function tracing */
 	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
@@ -281,8 +285,7 @@ struct mcount_thread_data * mcount_prepare(void)
 
 	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 
-	if (kernel_pid_update)
-		update_kernel_tid(gettid(mtdp));
+	update_kernel_tid(tmsg.tid);
 
 	return mtdp;
 }
@@ -858,8 +861,8 @@ static void atfork_child_handler(void)
 		mtdp = mcount_prepare();
 	}
 
-	/* flush tid cache */
-	mtdp->tid = 0;
+	/* update tid cache */
+	mtdp->tid = tmsg.tid;
 
 	mtdp->recursion_guard = true;
 
@@ -867,6 +870,8 @@ static void atfork_child_handler(void)
 	prepare_shmem_buffer(mtdp);
 
 	ftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+
+	update_kernel_tid(tmsg.tid);
 
 	mtdp->recursion_guard = false;
 }
