@@ -192,10 +192,7 @@ int mcount_setup_events(char *dirname, char *event_str)
 			list_add_tail(&es->list, &specs);
 		}
 		else {
-			if (!strcmp(spec, "list") && list_empty(&specs))
-				break;
-			else
-				pr_dbg("ignore invalid event spec: %s\n", spec);
+			pr_dbg("ignore invalid event spec: %s\n", spec);
 		}
 
 next:
@@ -211,9 +208,6 @@ next:
 	free(str);
 
 	if (list_empty(&events)) {
-		if (!strcmp(event_str, "list"))
-			exit(0);
-
 		pr_dbg("cannot find any event for %s\n", event_str);
 		goto out;
 	}
@@ -249,6 +243,13 @@ struct mcount_event_info * mcount_lookup_event(unsigned long addr)
 			return mei;
 	}
 	return NULL;
+}
+
+void mcount_list_events(void)
+{
+	LIST_HEAD(list);
+
+	dl_iterate_phdr(search_sdt_event, &list);
 }
 
 void mcount_finish_events(void)

@@ -724,6 +724,24 @@ int finish_kernel_tracing(struct uftrace_kernel *kernel)
 	return 0;
 }
 
+void list_kernel_events(void)
+{
+	char *filename;
+	FILE *fp;
+	char buf[BUFSIZ];
+
+	filename = get_tracing_file("available_events");
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("failed to open 'tracing/avaiable_events");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL)
+		pr_out("[kernel event] %s", buf);
+
+	fclose(fp);
+	put_tracing_file(filename);
+}
+
 static const char *get_endian_str(void)
 {
 	if (get_elf_endian() == ELFDATA2LSB)

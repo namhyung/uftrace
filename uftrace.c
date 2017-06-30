@@ -82,6 +82,7 @@ enum options {
 	OPT_kernel_skip_out,
 	OPT_kernel_full,
 	OPT_kernel_only,
+	OPT_list_event,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -142,6 +143,7 @@ static struct argp_option ftrace_options[] = {
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
+	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
 	{ 0 }
 };
 
@@ -437,7 +439,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'E':
-		opts->event = opt_add_string(opts->event, arg);
+		if (!strcmp(arg, "list")) {
+			pr_use("'-E list' is deprecated, use --list-event instead.\n");
+			opts->list_event = true;
+		}
+		else
+			opts->event = opt_add_string(opts->event, arg);
 		break;
 
 	case OPT_flat:
@@ -627,6 +634,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_sample_time:
 		opts->sample_time = parse_time(arg, 9);
+		break;
+
+	case OPT_list_event:
+		opts->list_event = true;
 		break;
 
 	case ARGP_KEY_ARG:
