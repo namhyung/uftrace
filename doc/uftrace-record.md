@@ -91,7 +91,7 @@ OPTIONS
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
 \--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.  Implies `--kernel`.
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.

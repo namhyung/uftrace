@@ -27,10 +27,10 @@ OPTIONS
 :   Show FlameGraph style output (svg) viewable by modern web browsers.
 
 -k, \--kernel
-:   Dump kernel functions as well as user functions.
+:   Dump kernel functions as well as user functions.  Note that this option is set by default and always shows kernel functions if exist.
 
 \--kernel-only
-:   Dump kernel functions only without user functions.  Implies `--kernel`.
+:   Dump kernel functions only (without user functions).
 
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.

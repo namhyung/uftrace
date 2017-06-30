@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
+#include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -27,7 +28,6 @@
 #include "libtraceevent/event-parse.h"
 
 #define TRACING_DIR  "/sys/kernel/debug/tracing"
-#define FTRACE_TRACER  "function_graph"
 
 static bool kernel_tracing_enabled;
 
@@ -150,7 +150,10 @@ static int set_tracing_pid(int pid)
 	char buf[16];
 
 	snprintf(buf, sizeof(buf), "%d", pid);
-	return append_tracing_file("set_ftrace_pid", buf);
+	if (append_tracing_file("set_ftrace_pid", buf) < 0)
+		return -1;
+
+	return append_tracing_file("set_event_pid", buf);
 }
 
 static int set_tracing_clock(void)
@@ -237,8 +240,23 @@ static int set_tracing_bufsize(struct uftrace_kernel *kernel)
 /* check whether the kernel supports pid filter inheritance */
 bool check_kernel_pid_filter(void)
 {
-	/* it's not implemented yet */
-	return true;
+	bool ret = true;
+	char *filename = get_tracing_file("options/function-fork");
+
+	if (!access(filename, F_OK))
+		ret = false;
+
+	put_tracing_file(filename);
+	return ret;
+}
+
+static int set_tracing_options(struct uftrace_kernel *kernel)
+{
+	/* old kernels don't have the options, ignore errors */
+	if (!write_tracing_file("options/function-fork", "1"))
+		write_tracing_file("options/event-fork", "1");
+
+	return 0;
 }
 
 static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
@@ -256,8 +274,8 @@ static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
 
 	name = strtok(pos, ";");
 	while (name) {
-		pos = strchr(name, '@');
-		if (!pos || strncasecmp(pos+1, "kernel", 6))
+		pos = strstr(name, "@kernel");
+		if (pos == NULL)
 			goto next;
 		*pos = '\0';
 
@@ -271,6 +289,84 @@ static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
 		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
+
+next:
+		name = strtok(NULL, ";");
+	}
+	free(str);
+}
+
+struct kevent {
+	struct list_head list;
+	char name[];
+};
+
+static int set_tracing_event(struct uftrace_kernel *kernel)
+{
+	struct kevent *pos, *tmp;
+
+	list_for_each_entry_safe(pos, tmp, &kernel->events, list) {
+		if (append_tracing_file("set_event", pos->name) < 0)
+			return -1;
+
+		list_del(&pos->list);
+		free(pos);
+	}
+
+	return 0;
+}
+
+static void add_single_event(struct list_head *events, char *name)
+{
+	struct kevent *kevent;
+
+	kevent = xmalloc(sizeof(*kevent) + strlen(name) + 1);
+	strcpy(kevent->name, name);
+	list_add_tail(&kevent->list, events);
+}
+
+static void add_glob_event(struct list_head *events, char *name)
+{
+	char *filename;
+	FILE *fp;
+	char buf[1024];
+
+	filename = get_tracing_file("available_events");
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("failed to open 'tracing/available_event' file");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		/* it's ok to have a trailing '\n' */
+		if (fnmatch(name, buf, 0) == 0)
+			add_single_event(events, buf);
+	}
+
+	fclose(fp);
+	put_tracing_file(filename);
+}
+
+static void build_kernel_event(struct uftrace_kernel *kernel, char *event_str,
+			       struct list_head *events)
+{
+	char *pos, *str, *name;
+
+	if (event_str == NULL)
+		return;
+
+	pos = str = xstrdup(event_str);
+
+	name = strtok(pos, ";");
+	while (name) {
+		pos = strstr(name, "@kernel");
+		if (pos == NULL)
+			goto next;
+		*pos = '\0';
+
+		if (strpbrk(name, "*?[]{}"))
+			add_glob_event(events, name);
+		else
+			add_single_event(events, name);
 
 next:
 		name = strtok(NULL, ";");
@@ -292,11 +388,16 @@ static int reset_tracing_files(void)
 	if (write_tracing_file("set_ftrace_pid", " ") < 0)
 		return -1;
 
+	if (write_tracing_file("set_event_pid", " ") < 0)
+		return -1;
+
 	if (write_tracing_file("set_graph_function", " ") < 0)
 		return -1;
 
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
+	write_tracing_file("options/event-fork", "0");
+	write_tracing_file("options/funciton-fork", "0");
 
 	if (write_tracing_file("set_ftrace_filter", " ") < 0)
 		return -1;
@@ -305,6 +406,9 @@ static int reset_tracing_files(void)
 		return -1;
 
 	if (write_tracing_file("max_graph_depth", "0") < 0)
+		return -1;
+
+	if (write_tracing_file("set_event", " ") < 0)
 		return -1;
 
 	/* default kernel buffer size: 16384 * 88 / 1024 = 1408 */
@@ -317,21 +421,19 @@ static int reset_tracing_files(void)
 
 static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 {
-	if (geteuid() != 0) {
-		pr_log("kernel tracing requires root privilege\n");
-		return -1;
-	}
+	if (geteuid() != 0)
+		return -EPERM;
 
 	if (reset_tracing_files() < 0) {
 		pr_dbg("failed to reset tracing files\n");
-		return -1;
+		return -ENOSYS;
 	}
 
 	pr_dbg("setting up kernel tracing\n");
 
 	/* disable tracing */
 	if (write_tracing_file("tracing_on", "0") < 0)
-		return -1;
+		return -ENOSYS;
 
 	/* reset ftrace buffer */
 	if (write_tracing_file("trace", "0") < 0)
@@ -349,10 +451,16 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 	if (set_tracing_depth(kernel) < 0)
 		goto out;
 
+	if (set_tracing_event(kernel) < 0)
+		goto out;
+
+	if (set_tracing_options(kernel) < 0)
+		goto out;
+
 	if (set_tracing_bufsize(kernel) < 0)
 		goto out;
 
-	if (write_tracing_file("current_tracer", FTRACE_TRACER) < 0)
+	if (write_tracing_file("current_tracer", kernel->tracer) < 0)
 		goto out;
 
 	kernel_tracing_enabled = true;
@@ -360,7 +468,7 @@ static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
 
 out:
 	reset_tracing_files();
-	return -1;
+	return -EINVAL;
 }
 
 /**
@@ -374,16 +482,27 @@ out:
 int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 {
 	int i, n;
+	int ret;
 
 	INIT_LIST_HEAD(&kernel->filters);
 	INIT_LIST_HEAD(&kernel->notrace);
 	INIT_LIST_HEAD(&kernel->patches);
 	INIT_LIST_HEAD(&kernel->nopatch);
+	INIT_LIST_HEAD(&kernel->events);
 
 	build_kernel_filter(kernel, opts->filter,
 			    &kernel->filters, &kernel->notrace);
 	build_kernel_filter(kernel, opts->patch,
 			    &kernel->patches, &kernel->nopatch);
+	build_kernel_event(kernel, opts->event, &kernel->events);
+
+	if (opts->kernel)
+		kernel->tracer = KERNEL_GRAPH_TRACER;
+	else
+		kernel->tracer = KERNEL_NOP_TRACER;
+
+	/* mark kernel tracing is enabled (for event tracing) */
+	opts->kernel = true;
 
 	if (opts->kernel_skip_out) {
 		/*
@@ -399,8 +518,9 @@ int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
 				    &kernel->filters, &kernel->notrace);
 	}
 
-	if (__setup_kernel_tracing(kernel) < 0)
-		return -1;
+	ret = __setup_kernel_tracing(kernel);
+	if (ret < 0)
+		return ret;
 
 	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -594,8 +714,10 @@ int finish_kernel_tracing(struct uftrace_kernel *kernel)
 	free(kernel->traces);
 	free(kernel->fds);
 
-	save_kernel_files(kernel);
-	save_kernel_symbol(kernel->output_dir);
+	if (kernel_tracing_enabled) {
+		save_kernel_files(kernel);
+		save_kernel_symbol(kernel->output_dir);
+	}
 
 	reset_tracing_files();
 

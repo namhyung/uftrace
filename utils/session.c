@@ -381,6 +381,7 @@ void create_task(struct uftrace_session_link *sessions,
 	/* msg->pid is a parent pid if forked */
 	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
+	t->ppid = fork ? msg->pid : 0;
 	t->sref_last = NULL;
 
 	if (needs_session) {

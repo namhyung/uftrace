@@ -44,16 +44,16 @@ OPTIONS
 :   Allocate internal graph structure up to *DEPTH*.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.
+:   Trace kernel functions as well as user functions.  Note that this option is set by default and always shows kernel functions if exist.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.
 
 \--kernel-skip-out
 :   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
 \--kernel-only
-:   Show kernel functions only without user functions.  Implies `--kernel`.
+:   Show kernel functions only without user functions.
 
 
 EXAMPLES
