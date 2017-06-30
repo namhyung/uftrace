@@ -36,6 +36,7 @@ struct ftrace_task_handle {
 	bool valid;
 	bool done;
 	bool lost_seen;
+	bool fork_handled;
 	bool fstack_set;
 	bool display_depth_set;
 	FILE *fp;
@@ -51,6 +52,7 @@ struct ftrace_task_handle {
 	int user_stack_count;
 	int display_depth;
 	int user_display_depth;
+	int fork_display_depth;
 	int column_index;
 	enum context ctx;
 	uint64_t timestamp;

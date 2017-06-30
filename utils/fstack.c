@@ -284,6 +284,7 @@ static const char *fixup_syms[] = {
 	"execl", "execlp", "execle", "execv", "execvp", "execvpe",
 	"setjmp", "_setjmp", "sigsetjmp", "__sigsetjmp",
 	"longjmp", "siglongjmp", "__longjmp_chk",
+	"fork", "vfork", "daemon",
 };
 
 static int setjmp_depth;
@@ -427,8 +428,13 @@ int fstack_entry(struct ftrace_task_handle *task,
 				setjmp_depth = task->display_depth + 1;
 				setjmp_count = task->stack_count;
 			}
-			else if (strstr(fixup->name, "longjmp"))
+			else if (strstr(fixup->name, "longjmp")) {
 				fstack->flags |= FSTACK_FL_LONGJMP;
+			}
+			else if (strstr(fixup->name, "fork") ||
+				 !strcmp(fixup->name, "daemon")) {
+				task->fork_display_depth = task->display_depth + 1;
+			}
 		}
 
 		uftrace_match_filter(addr, &sess->filters, tr);
@@ -1195,16 +1201,36 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 		return;
 
 	if (!task->fstack_set) {
-
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
-		if (rstack->type == UFTRACE_EXIT) {
+		if (rstack->type == UFTRACE_EXIT)
 			task->stack_count++;
-			/* [v]fork() usually starts with EXIT in child */
-			task->display_depth_set = false;
-		}
+
 		task->fstack_set = true;
 
+		if (!task->fork_handled) {
+			struct ftrace_task_handle *parent = NULL;
+
+			/* inherit display depth from parent (if possible) */
+			if (task->t)
+				parent = get_task_handle(task->h, task->t->ppid);
+
+			if (parent && parent->fork_display_depth) {
+				task->display_depth = parent->fork_display_depth;
+				task->display_depth_set = true;
+
+				/*
+				 * cannot update user_stack_count due to the
+				 * kernel_skip_out setting.  unfortunately,
+				 * it'll show 'negative stack count' debug
+				 * message when return to user.
+				 */
+				if (is_kernel_func)
+					task->stack_count += task->display_depth;
+			}
+
+			task->fork_handled = true;
+		}
 
 		if (is_kernel_func)
 			task->stack_count += task->user_stack_count;
