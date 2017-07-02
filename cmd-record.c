@@ -23,6 +23,7 @@
 #include "utils/symbol.h"
 #include "utils/list.h"
 #include "utils/filter.h"
+#include "utils/kernel.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
@@ -427,7 +428,7 @@ struct writer_arg {
 	struct list_head	list;
 	struct list_head	bufs;
 	struct opts		*opts;
-	struct uftrace_kernel	*kern;
+	struct uftrace_kernel_writer	*kern;
 	int			sock;
 	int			idx;
 	int			tid;
@@ -1353,7 +1354,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	struct timespec ts1, ts2;
 	struct rusage usage;
 	pthread_t *writers;
-	struct uftrace_kernel kernel;
+	struct uftrace_kernel_writer kernel;
 	struct dlopen_list *dlib, *tmp;
 	int efd;
 	uint64_t go = 1;

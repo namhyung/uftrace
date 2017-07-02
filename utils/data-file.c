@@ -12,6 +12,7 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/symbol.h"
+#include "utils/kernel.h"
 #include "libmcount/mcount.h"
 
 
@@ -410,7 +411,7 @@ retry:
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
 	handle->sessions.first = NULL;
-	handle->kernel.pevent = NULL;
+	handle->kernel = NULL;
 	INIT_LIST_HEAD(&handle->events);
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
@@ -460,11 +461,17 @@ retry:
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;
 
 	if (handle->hdr.feat_mask & KERNEL) {
-		handle->kernel.output_dir = opts->dirname;
-		handle->kernel.skip_out = opts->kernel_skip_out;
+		handle->kernel = xzalloc(sizeof(*handle->kernel));
 
-		if (setup_kernel_data(&handle->kernel) == 0)
+		handle->kernel->dirname  = opts->dirname;
+		handle->kernel->skip_out = opts->kernel_skip_out;
+
+		if (setup_kernel_data(handle->kernel) == 0)
 			load_kernel_symbol(opts->dirname);
+		else {
+			free(handle->kernel);
+			handle->kernel = NULL;
+		}
 	}
 
 	if (handle->hdr.feat_mask & EVENT)
@@ -481,8 +488,10 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
-	if (has_kernel_data(&handle->kernel))
-		finish_kernel_data(&handle->kernel);
+	if (has_kernel_data(handle->kernel)) {
+		finish_kernel_data(handle->kernel);
+		free(handle->kernel);
+	}
 
 	clear_ftrace_info(&handle->info);
 	reset_task_handle(handle);

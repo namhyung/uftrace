@@ -24,6 +24,7 @@
 #include "utils/fstack.h"
 #include "utils/filter.h"
 #include "utils/rbtree.h"
+#include "utils/kernel.h"
 #include "libtraceevent/kbuffer.h"
 #include "libtraceevent/event-parse.h"
 
@@ -37,7 +38,7 @@ static struct uftrace_record trace_rstack = {
 	.magic = RECORD_MAGIC,
 };
 
-static int prepare_kbuffer(struct uftrace_kernel *kernel, int cpu);
+static int prepare_kbuffer(struct uftrace_kernel_reader *kernel, int cpu);
 
 static int
 funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
@@ -49,8 +50,8 @@ static int
 generic_event_handler(struct trace_seq *s, struct pevent_record *record,
 		      struct event_format *event, void *context);
 
-static int save_kernel_files(struct uftrace_kernel *kernel);
-static int load_kernel_files(struct uftrace_kernel *kernel);
+static int save_kernel_files(struct uftrace_kernel_writer *kernel);
+static int load_kernel_files(struct uftrace_kernel_reader *kernel);
 
 static char *get_tracing_file(const char *name)
 {
@@ -166,7 +167,7 @@ struct kfilter {
 	char name[];
 };
 
-static int set_tracing_filter(struct uftrace_kernel *kernel)
+static int set_tracing_filter(struct uftrace_kernel_writer *kernel)
 {
 	const char *filter_file;
 	struct kfilter *pos, *tmp;
@@ -214,7 +215,7 @@ static int set_tracing_filter(struct uftrace_kernel *kernel)
 	return 0;
 }
 
-static int set_tracing_depth(struct uftrace_kernel *kernel)
+static int set_tracing_depth(struct uftrace_kernel_writer *kernel)
 {
 	int ret = 0;
 	char buf[32];
@@ -225,7 +226,7 @@ static int set_tracing_depth(struct uftrace_kernel *kernel)
 	return ret;
 }
 
-static int set_tracing_bufsize(struct uftrace_kernel *kernel)
+static int set_tracing_bufsize(struct uftrace_kernel_writer *kernel)
 {
 	int ret = 0;
 	char buf[32];
@@ -250,7 +251,7 @@ bool check_kernel_pid_filter(void)
 	return ret;
 }
 
-static int set_tracing_options(struct uftrace_kernel *kernel)
+static int set_tracing_options(struct uftrace_kernel_writer *kernel)
 {
 	/* old kernels don't have the options, ignore errors */
 	if (!write_tracing_file("options/function-fork", "1"))
@@ -259,7 +260,8 @@ static int set_tracing_options(struct uftrace_kernel *kernel)
 	return 0;
 }
 
-static void build_kernel_filter(struct uftrace_kernel *kernel, char *filter_str,
+static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
+				char *filter_str,
 				struct list_head *filters,
 				struct list_head *notrace)
 {
@@ -301,7 +303,7 @@ struct kevent {
 	char name[];
 };
 
-static int set_tracing_event(struct uftrace_kernel *kernel)
+static int set_tracing_event(struct uftrace_kernel_writer *kernel)
 {
 	struct kevent *pos, *tmp;
 
@@ -346,8 +348,8 @@ static void add_glob_event(struct list_head *events, char *name)
 	put_tracing_file(filename);
 }
 
-static void build_kernel_event(struct uftrace_kernel *kernel, char *event_str,
-			       struct list_head *events)
+static void build_kernel_event(struct uftrace_kernel_writer *kernel,
+			       char *event_str, struct list_head *events)
 {
 	char *pos, *str, *name;
 
@@ -419,7 +421,7 @@ static int reset_tracing_files(void)
 	return 0;
 }
 
-static int __setup_kernel_tracing(struct uftrace_kernel *kernel)
+static int __setup_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	if (geteuid() != 0)
 		return -EPERM;
@@ -479,7 +481,7 @@ out:
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
+int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts)
 {
 	int i, n;
 	int ret;
@@ -548,7 +550,7 @@ int setup_kernel_tracing(struct uftrace_kernel *kernel, struct opts *opts)
  * as binary form and saved to kernel-cpuXX.dat file in the ftrace
  * data directory.
  */
-int start_kernel_tracing(struct uftrace_kernel *kernel)
+int start_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	char *trace_file;
 	char buf[4096];
@@ -617,7 +619,8 @@ out:
  *
  * This function read trace data for @cpu and save it to file.
  */
-int record_kernel_trace_pipe(struct uftrace_kernel *kernel, int cpu, int sock)
+int record_kernel_trace_pipe(struct uftrace_kernel_writer *kernel,
+			     int cpu, int sock)
 {
 	char buf[4096];
 	ssize_t n;
@@ -654,7 +657,7 @@ retry:
  * This function read every (online) per-cpu trace data in a
  * round-robin fashion and save them to files.
  */
-int record_kernel_tracing(struct uftrace_kernel *kernel)
+int record_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	ssize_t bytes = 0;
 	ssize_t n;
@@ -682,7 +685,7 @@ int record_kernel_tracing(struct uftrace_kernel *kernel)
  *
  * This function signals kernel to stop generating trace data.
  */
-int stop_kernel_tracing(struct uftrace_kernel *kernel)
+int stop_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	if (!kernel_tracing_enabled)
 		return 0;
@@ -697,7 +700,7 @@ int stop_kernel_tracing(struct uftrace_kernel *kernel)
  * This function reads out remaining ftrace data and restores kernel
  * ftrace configuration.
  */
-int finish_kernel_tracing(struct uftrace_kernel *kernel)
+int finish_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	int i;
 
@@ -781,7 +784,7 @@ static int save_kernel_file(FILE *fp, const char *name)
 	return 0;
 }
 
-static int save_event_files(struct uftrace_kernel *kernel, FILE *fp)
+static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 {
 	int ret = -1;
 	char buf[4096];
@@ -865,7 +868,7 @@ out:
 	return ret;
 }
 
-static int save_kernel_files(struct uftrace_kernel *kernel)
+static int save_kernel_files(struct uftrace_kernel_writer *kernel)
 {
 	char *path = NULL;
 	FILE *fp;
@@ -902,7 +905,7 @@ out:
 }
 
 /* provided for backward compatibility */
-static int load_current_kernel(struct uftrace_kernel *kernel)
+static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 {
 	int fd;
 	size_t len;
@@ -942,7 +945,7 @@ static int load_current_kernel(struct uftrace_kernel *kernel)
 	return 0;
 }
 
-static int load_kernel_files(struct uftrace_kernel *kernel)
+static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 {
 	char *path = NULL;
 	FILE *fp;
@@ -950,7 +953,7 @@ static int load_kernel_files(struct uftrace_kernel *kernel)
 	struct pevent *pevent = kernel->pevent;
 	int ret = 0;
 
-	xasprintf(&path, "%s/kernel_header", kernel->output_dir);
+	xasprintf(&path, "%s/kernel_header", kernel->dirname);
 
 	fp = fopen(path, "r");
 	if (fp == NULL)  /* old data doesn't have the kernel header */
@@ -1051,7 +1054,7 @@ static int scandir_filter(const struct dirent *d)
  * kernel ftrace data files.  It should be called in pair with
  * finish_kernel_data().
  */
-int setup_kernel_data(struct uftrace_kernel *kernel)
+int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 {
 	int i;
 	char buf[4096];
@@ -1065,7 +1068,7 @@ int setup_kernel_data(struct uftrace_kernel *kernel)
 
 	trace_seq_init(&trace_seq);
 
-	kernel->nr_cpus = scandir(kernel->output_dir, &list, scandir_filter, versionsort);
+	kernel->nr_cpus = scandir(kernel->dirname, &list, scandir_filter, versionsort);
 	if (kernel->nr_cpus <= 0) {
 		pr_out("cannot find kernel trace data\n");
 		goto out;
@@ -1101,7 +1104,7 @@ int setup_kernel_data(struct uftrace_kernel *kernel)
 		struct stat stbuf;
 
 		snprintf(buf, sizeof(buf), "%s/%s",
-			 kernel->output_dir, list[i]->d_name);
+			 kernel->dirname, list[i]->d_name);
 
 		kernel->fds[i] = open(buf, O_RDONLY);
 		if (kernel->fds[i] < 0)
@@ -1152,9 +1155,12 @@ out:
  * This function destroys all data structures created by
  * setup_kernel_data().
  */
-int finish_kernel_data(struct uftrace_kernel *kernel)
+int finish_kernel_data(struct uftrace_kernel_reader *kernel)
 {
 	int i;
+
+	if (kernel == NULL)
+		return 0;
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		close(kernel->fds[i]);
@@ -1187,7 +1193,7 @@ int finish_kernel_data(struct uftrace_kernel *kernel)
 	return 0;
 }
 
-static int prepare_kbuffer(struct uftrace_kernel *kernel, int cpu)
+static int prepare_kbuffer(struct uftrace_kernel_reader *kernel, int cpu)
 {
 	kernel->mmaps[cpu] = mmap(NULL, trace_pagesize, PROT_READ, MAP_PRIVATE,
 				  kernel->fds[cpu], kernel->offsets[cpu]);
@@ -1203,7 +1209,7 @@ static int prepare_kbuffer(struct uftrace_kernel *kernel, int cpu)
 	return 0;
 }
 
-static int next_kbuffer_page(struct uftrace_kernel *kernel, int cpu)
+static int next_kbuffer_page(struct uftrace_kernel_reader *kernel, int cpu)
 {
 	munmap(kernel->mmaps[cpu], trace_pagesize);
 	kernel->mmaps[cpu] = NULL;
@@ -1285,7 +1291,7 @@ generic_event_handler(struct trace_seq *s, struct pevent_record *record,
  * @kernel->rstacks[@cpu].  It returns 0 if succeeded, -1 if there's
  * no more data.
  */
-int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu)
+int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 {
 	unsigned long long timestamp;
 	void *data;
@@ -1332,7 +1338,7 @@ int read_kernel_cpu_data(struct uftrace_kernel *kernel, int cpu)
 
 static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 {
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
 	struct uftrace_record *curr;
 	int tid, prev_tid = -1;
@@ -1499,7 +1505,7 @@ out:
  * pointer to event data if succeeded, NULL if current record is not a
  * tracepoint.
  */
-void * read_kernel_event(struct uftrace_kernel *kernel, int cpu, int *psize)
+void * read_kernel_event(struct uftrace_kernel_reader *kernel, int cpu, int *psize)
 {
 	struct uftrace_record *rstack = &kernel->rstacks[cpu];
 
@@ -1532,7 +1538,7 @@ int read_kernel_stack(struct ftrace_file_handle *handle,
 	int first_cpu = -1;
 	int first_tid = -1;
 	uint64_t first_timestamp = 0;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_record *first_rstack;
 
 retry:
@@ -1768,26 +1774,26 @@ static int record_depth(struct funcgraph_exit *rec)
 	return rec->common_type == FUNCGRAPH_ENTRY ? rec->calltime : rec->depth;
 }
 
-static int kernel_test_setup_file(struct uftrace_kernel *kernel, bool event)
+static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool event)
 {
 	int cpu, i;
 	FILE *fp;
 	char *filename;
 	unsigned long pad;
 
-	kernel->output_dir = "kernel.dir";
-	kernel->nr_cpus    = NUM_CPU;
+	kernel->dirname = "kernel.dir";
+	kernel->nr_cpus = NUM_CPU;
 
-	if (mkdir(kernel->output_dir, 0755) < 0) {
+	if (mkdir(kernel->dirname, 0755) < 0) {
 		if (errno != EEXIST) {
 			pr_dbg("cannot create temp dir: %m\n");
 			return -1;
 		}
 	}
 
-	if (asprintf(&filename, "%s/kernel_header", kernel->output_dir) < 0) {
+	if (asprintf(&filename, "%s/kernel_header", kernel->dirname) < 0) {
 		pr_dbg("cannot alloc filename: %s/kernel_header",
-		       kernel->output_dir);
+		       kernel->dirname);
 		return -1;
 	}
 
@@ -1807,9 +1813,9 @@ static int kernel_test_setup_file(struct uftrace_kernel *kernel, bool event)
 
 	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
 		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
-			     kernel->output_dir, cpu) < 0) {
+			     kernel->dirname, cpu) < 0) {
 			pr_dbg("cannot alloc filename: %s/%d.dat",
-			       kernel->output_dir, cpu);
+			       kernel->dirname, cpu);
 			return -1;
 		}
 
@@ -1851,16 +1857,19 @@ static int kernel_test_setup_file(struct uftrace_kernel *kernel, bool event)
 		fclose(fp);
 	}
 
+	test_handle.kernel = kernel;
 	atexit(kernel_test_finish_file);
 
 	setup_kernel_data(kernel);
 	return 0;
 }
 
-static int kernel_test_setup_handle(struct uftrace_kernel *kernel,
+static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 				    struct ftrace_file_handle *handle)
 {
 	int i;
+
+	handle->kernel = kernel;
 
 	handle->nr_tasks = NUM_TASK;
 	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
@@ -1884,30 +1893,30 @@ static void kernel_test_finish_file(void)
 {
 	int cpu;
 	char *filename;
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel_reader *kernel = test_handle.kernel;
 
-	if (kernel->output_dir == NULL)
+	if (kernel == NULL)
 		return;
 
 	finish_kernel_data(kernel);
 
 	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
 		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
-			     kernel->output_dir, cpu) < 0)
+			     kernel->dirname, cpu) < 0)
 			return;
 
 		remove(filename);
 		free(filename);
 	}
 
-	if (asprintf(&filename, "%s/kernel_header", kernel->output_dir) < 0)
+	if (asprintf(&filename, "%s/kernel_header", kernel->dirname) < 0)
 		return;
 
 	remove(filename);
 	free(filename);
 
-	remove(kernel->output_dir);
-	kernel->output_dir = NULL;
+	remove(kernel->dirname);
+	kernel->dirname = NULL;
 }
 
 static void kernel_test_finish_handle(void)
@@ -1916,6 +1925,8 @@ static void kernel_test_finish_handle(void)
 
 	free(handle->tasks);
 	handle->tasks = NULL;
+	free(handle->kernel);
+	handle->kernel = NULL;
 }
 
 TEST_CASE(kernel_read)
@@ -1923,7 +1934,7 @@ TEST_CASE(kernel_read)
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
 	struct ftrace_file_handle *handle = &test_handle;
-	struct uftrace_kernel *kernel = &handle->kernel;
+	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 	struct ftrace_task_handle *task;
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
@@ -1956,7 +1967,7 @@ TEST_CASE(kernel_cpu_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
 
@@ -1977,6 +1988,7 @@ TEST_CASE(kernel_cpu_read)
 			TEST_EQ(kernel->tids[cpu], rec->common_pid);
 		}
 	}
+	free(kernel);
 	return TEST_OK;
 }
 
@@ -1984,7 +1996,7 @@ TEST_CASE(kernel_event_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct uftrace_kernel *kernel = &test_handle.kernel;
+	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 
 	TEST_EQ(kernel_test_setup_file(kernel, true), 0);
 
