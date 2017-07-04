@@ -61,7 +61,7 @@ static void reset_live_opts(struct opts *opts)
 
 static void sigsegv_handler(int sig)
 {
-	pr_log("Segmentation fault\n");
+	pr_warn("Segmentation fault\n");
 	cleanup_tempdir();
 	raise(sig);
 }

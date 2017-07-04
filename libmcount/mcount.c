@@ -296,7 +296,7 @@ bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 		static bool warned = false;
 
 		if (!warned) {
-			pr_log("too deeply nested calls: %d\n", mtdp->idx);
+			pr_warn("too deeply nested calls: %d\n", mtdp->idx);
 			warned = true;
 		}
 		return true;

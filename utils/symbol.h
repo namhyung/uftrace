@@ -164,7 +164,7 @@ static inline bool support_full_demangle(void)
 
 static inline char *demangle_full(char *str)
 {
-	pr_log("full demangle is not supported\n");
+	pr_warn("full demangle is not supported\n");
 	return str;
 }
 #endif /* HAVE_CXA_DEMANGLE */

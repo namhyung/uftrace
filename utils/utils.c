@@ -172,19 +172,19 @@ int create_directory(char *dirname)
 
 	if (!access(oldname, F_OK)) {
 		if (remove_directory(oldname) < 0) {
-			pr_log("removing old directory failed: %m\n");
+			pr_warn("removing old directory failed: %m\n");
 			goto out;
 		}
 	}
 
 	if (!access(dirname, F_OK) && rename(dirname, oldname) < 0) {
-		pr_log("rename %s -> %s failed: %m\n", dirname, oldname);
+		pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
 		goto out;
 	}
 
 	ret = mkdir(dirname, 0755);
 	if (ret < 0)
-		pr_log("creating directory failed: %m\n");
+		pr_warn("creating directory failed: %m\n");
 
 out:
 	free(oldname);

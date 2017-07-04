@@ -881,7 +881,7 @@ static int __read_task_ustack(struct ftrace_task_handle *task)
 		if (feof(fp))
 			return -1;
 
-		pr_log("error reading rstack: %s\n", strerror(errno));
+		pr_warn("error reading rstack: %s\n", strerror(errno));
 		return -1;
 	}
 

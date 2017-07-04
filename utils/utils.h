@@ -77,7 +77,6 @@ enum color_setting {
 #define COLOR_CODE_BOLD     'b'
 
 extern void __pr_dbg(const char *fmt, ...);
-extern void __pr_log(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);
 extern void __pr_err(const char *fmt, ...) __attribute__((noreturn));
 extern void __pr_err_s(const char *fmt, ...) __attribute__((noreturn));
@@ -115,10 +114,6 @@ extern void setup_signal(void);
 		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
-#define pr_log(fmt, ...)					\
-	__pr_log(PR_FMT ": %s:%d:%s\n" fmt,			\
-		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
-
 #define pr_err(fmt, ...)					\
 	__pr_err_s(PR_FMT ": %s:%d:%s\n ERROR: " fmt,		\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
@@ -129,8 +124,8 @@ extern void setup_signal(void);
 
 #define pr_warn(fmt, ...)	__pr_warn("WARN: " fmt, ## __VA_ARGS__)
 
-#define pr_cont(fmt, ...)	__pr_log(fmt, ## __VA_ARGS__)
 #define pr_out(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
+#define pr_cont(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
 #define pr_use(fmt, ...)	__pr_out("Usage: " fmt, ## __VA_ARGS__)
 
 #define pr_red(fmt, ...)	__pr_color(COLOR_CODE_RED,     fmt, ## __VA_ARGS__)

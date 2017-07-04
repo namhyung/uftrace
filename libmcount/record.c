@@ -318,7 +318,7 @@ void save_argument(struct mcount_thread_data *mtdp,
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
-		pr_log("argument data is too big\n");
+		pr_warn("argument data is too big\n");
 		return;
 	}
 
@@ -338,7 +338,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
-		pr_log("retval data is too big\n");
+		pr_warn("retval data is too big\n");
 		rstack->flags &= ~MCOUNT_FL_RETVAL;
 		return;
 	}

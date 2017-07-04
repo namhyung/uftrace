@@ -80,7 +80,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 			break;
 
 		default:
-			pr_log("invalid contents in task file\n");
+			pr_dbg("invalid contents in task file\n");
 			goto out;
 		}
 	}
@@ -386,7 +386,7 @@ retry:
 				goto retry;
 			}
 
-			pr_log("cannot find %s file!\n", buf);
+			pr_dbg("cannot find %s file!\n", buf);
 
 			if (opts->exename)
 				pr_err(RECORD_MSG, opts->exename);
