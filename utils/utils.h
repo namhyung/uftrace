@@ -131,7 +131,7 @@ extern void setup_signal(void);
 
 #define pr_cont(fmt, ...)	__pr_log(fmt, ## __VA_ARGS__)
 #define pr_out(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
-#define pr_use(fmt, ...)	__pr_out(fmt, ## __VA_ARGS__)
+#define pr_use(fmt, ...)	__pr_out("Usage: " fmt, ## __VA_ARGS__)
 
 #define pr_red(fmt, ...)	__pr_color(COLOR_CODE_RED,     fmt, ## __VA_ARGS__)
 #define pr_green(fmt, ...)	__pr_color(COLOR_CODE_GREEN,   fmt, ## __VA_ARGS__)

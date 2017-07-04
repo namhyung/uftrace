@@ -1030,7 +1030,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 
 	if (opts->avg_total && opts->avg_self) {
-		pr_out("--avg-total and --avg-self options should not be used together.\n");
+		pr_use("--avg-total and --avg-self options should not be used together.\n");
 		exit(1);
 	} else if (opts->avg_total)
 		avg_mode = AVG_TOTAL;
