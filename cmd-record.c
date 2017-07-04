@@ -310,11 +310,8 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	pr_dbg3("fill header (metadata) info in %s\n", filename);
 
 	fd = open(filename, O_WRONLY | O_CREAT| O_TRUNC, 0644);
-	if (fd < 0) {
-		pr_log("cannot open info file: %s\n", strerror(errno));
-		free(filename);
-		return -1;
-	}
+	if (fd < 0)
+		pr_err("cannot open info file");
 
 	efd = open(opts->exename, O_RDONLY);
 	if (efd < 0)
@@ -480,7 +477,7 @@ void *writer_thread(void *arg)
 		};
 
 		if (sched_setscheduler(0, SCHED_FIFO, &param) < 0)
-			pr_log("set scheduling param failed\n");
+			pr_warn("set scheduling param failed\n");
 	}
 
 	pollfd[0].fd = thread_ctl[0];
@@ -1057,7 +1054,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		break;
 
 	default:
-		pr_log("Unknown message type: %u\n", msg.type);
+		pr_warn("Unknown message type: %u\n", msg.type);
 		break;
 	}
 }
@@ -1153,6 +1150,18 @@ static void send_kernel_metadata(int sock, const char *dirname)
 {
 	send_trace_metadata(sock, dirname, "kernel_header");
 	send_trace_metadata(sock, dirname, "kallsyms");
+}
+
+static void send_event_file(int sock, const char *dirname)
+{
+	char buf[PATH_MAX];
+
+	/* kernel events doesn't create the events file */
+	snprintf(buf, sizeof(buf), "%s/events.txt", dirname);
+	if (access(buf, F_OK) != 0)
+		return;
+
+	send_trace_metadata(sock, dirname, "events.txt");
 }
 
 static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
@@ -1582,7 +1591,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (shmem_lost_count)
-		pr_log("LOST %d records\n", shmem_lost_count);
+		pr_warn("LOST %d records\n", shmem_lost_count);
 
 	for (i = 0; i < opts->nr_thread; i++)
 		pthread_join(writers[i], NULL);
@@ -1623,6 +1632,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (opts->kernel)
 			send_kernel_metadata(sock, opts->dirname);
+		if (opts->event)
+			send_event_file(sock, opts->dirname);
 
 		send_trace_end(sock);
 		close(sock);

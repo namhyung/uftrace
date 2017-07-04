@@ -80,7 +80,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 			break;
 
 		default:
-			pr_log("invalid contents in task file\n");
+			pr_dbg("invalid contents in task file\n");
 			goto out;
 		}
 	}
@@ -386,7 +386,7 @@ retry:
 				goto retry;
 			}
 
-			pr_log("cannot find %s file!\n", buf);
+			pr_dbg("cannot find %s file!\n", buf);
 
 			if (opts->exename)
 				pr_err(RECORD_MSG, opts->exename);
@@ -448,10 +448,14 @@ retry:
 		if (handle->hdr.feat_mask & SYM_REL_ADDR)
 			sym_rel = true;
 
-		/* read task.txt first and then try old task file */
-		if (read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0 &&
-		    read_task_file(sessions, opts->dirname, true, sym_rel) < 0)
-			pr_warn("invalid task file\n");
+		/* read old task file first and then try task.txt file */
+		if (read_task_file(sessions, opts->dirname, true, sym_rel) < 0 &&
+		    read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0) {
+			if (errno == ENOENT)
+				pr_warn("no task data found\n");
+			else
+				pr_warn("invalid task file\n");
+		}
 	}
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))

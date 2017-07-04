@@ -669,7 +669,7 @@ int record_kernel_tracing(struct uftrace_kernel_writer *kernel)
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		n = record_kernel_trace_pipe(kernel, i, -1);
 		if (n < 0) {
-			pr_log("record kernel data (cpu %d) failed: %m\n", i);
+			pr_warn("record kernel data (cpu %d) failed: %m\n", i);
 			return n;
 		}
 		bytes += n;

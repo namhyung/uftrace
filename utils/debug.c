@@ -93,19 +93,6 @@ void __pr_dbg(const char *fmt, ...)
 	color(TERM_COLOR_RESET, logfp);
 }
 
-void __pr_log(const char *fmt, ...)
-{
-	va_list ap;
-
-	color(TERM_COLOR_BOLD, logfp);
-
-	va_start(ap, fmt);
-	vfprintf(logfp, fmt, ap);
-	va_end(ap);
-
-	color(TERM_COLOR_RESET, logfp);
-}
-
 void __pr_err(const char *fmt, ...)
 {
 	va_list ap;

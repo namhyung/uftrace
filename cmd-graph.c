@@ -538,7 +538,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		}
 
 		if (prev_time > frs->time) {
-			pr_log("inverted time: broken data?\n");
+			pr_warn("inverted time: broken data?\n");
 			return -1;
 		}
 		prev_time = frs->time;
@@ -652,7 +652,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
-		return -1;
+		pr_err("cannot open data: %s", opts->dirname);
 
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		/*
