@@ -1155,6 +1155,18 @@ static void send_kernel_metadata(int sock, const char *dirname)
 	send_trace_metadata(sock, dirname, "kallsyms");
 }
 
+static void send_event_file(int sock, const char *dirname)
+{
+	char buf[PATH_MAX];
+
+	/* kernel events doesn't create the events file */
+	snprintf(buf, sizeof(buf), "%s/events.txt", dirname);
+	if (access(buf, F_OK) != 0)
+		return;
+
+	send_trace_metadata(sock, dirname, "events.txt");
+}
+
 static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 {
 	struct ftrace_proc_maps *map, *tmp;
@@ -1623,6 +1635,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 		if (opts->kernel)
 			send_kernel_metadata(sock, opts->dirname);
+		if (opts->event)
+			send_event_file(sock, opts->dirname);
 
 		send_trace_end(sock);
 		close(sock);
