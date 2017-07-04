@@ -14,3 +14,7 @@ endif
 ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
   LIB_CFLAGS += -mno-sse2
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_libpython2.7),)
+  COMMON_CFLAGS += -DHAVE_LIBPYTHON2
+endif
