@@ -652,7 +652,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
-		return -1;
+		pr_err("cannot open data: %s", opts->dirname);
 
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		/*

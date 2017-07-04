@@ -910,7 +910,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0)
-		return -1;
+		pr_err("cannot open data: %s", opts->dirname);
 
 	fstack_setup_filters(opts, &handle);
 	setup_field(opts);
