@@ -448,10 +448,14 @@ retry:
 		if (handle->hdr.feat_mask & SYM_REL_ADDR)
 			sym_rel = true;
 
-		/* read task.txt first and then try old task file */
-		if (read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0 &&
-		    read_task_file(sessions, opts->dirname, true, sym_rel) < 0)
-			pr_warn("invalid task file\n");
+		/* read old task file first and then try task.txt file */
+		if (read_task_file(sessions, opts->dirname, true, sym_rel) < 0 &&
+		    read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0) {
+			if (errno == ENOENT)
+				pr_warn("no task data found\n");
+			else
+				pr_warn("invalid task file\n");
+		}
 	}
 
 	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
