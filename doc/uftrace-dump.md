@@ -69,7 +69,7 @@ This command dumps data like below:
     uftrace file header: header size   = 40
     uftrace file header: endian        = 1 (little)
     uftrace file header: class         = 2 (64 bit)
-    uftrace file header: features      = 0x3
+    uftrace file header: features      = 0x63 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK)
     uftrace file header: info          = 0x3ff
 
     reading 23043.dat
