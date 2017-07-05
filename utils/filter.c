@@ -64,6 +64,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: color '%c'\n", tr->color);
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
+	if (tr->flags & TRIGGER_FL_READ)
+		pr_dbg("\ttrigger: read (%s)\n", "none");
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -183,6 +185,8 @@ static void add_trigger(struct ftrace_filter *filter, struct ftrace_trigger *tr,
 		filter->trigger.color = tr->color;
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		filter->trigger.time = tr->time;
+	if (tr->flags & TRIGGER_FL_READ)
+		filter->trigger.read = tr->read;
 }
 
 static void add_filter(struct rb_root *root, struct ftrace_filter *filter,
@@ -527,6 +531,11 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 	return 0;
 }
 
+static enum trigger_read_type parse_read_type(char *str)
+{
+	return TRIGGER_READ_NONE;
+}
+
 static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 				    struct symtab **psymtab,
 				    struct ftrace_trigger *tr,
@@ -628,6 +637,15 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			continue;
 		}
 
+		if (!strncmp(pos, "read=", 5)) {
+			tr->read |= parse_read_type(pos+5);
+			/* set READ flag only if valid type set */
+			if (tr->read)
+				tr->flags |= TRIGGER_FL_READ;
+			continue;
+		}
+
+		/* module name */
 		if (!strcasecmp(pos, "plt"))
 			*psymtab = &symtabs->dsymtab;
 		else if (!strcasecmp(pos, "kernel"))
@@ -814,6 +832,8 @@ void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
 			if (!strncasecmp(pos, "fparg", 5) && isdigit(pos[5]))
 				continue;
 			if (!strncasecmp(pos, "retval", 6))
+				continue;
+			if (!strncasecmp(pos, "read=", 5))
 				continue;
 			if (!strncasecmp(pos, "trace", 5)) {
 				int n = 5;

@@ -26,6 +26,7 @@ enum trigger_flag {
 	TRIGGER_FL_RETVAL	= (1U << 8),
 	TRIGGER_FL_COLOR	= (1U << 9),
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
+	TRIGGER_FL_READ		= (1U << 11),
 };
 
 enum filter_mode {
@@ -43,6 +44,10 @@ enum ftrace_arg_format {
 	ARG_FMT_CHAR,
 	ARG_FMT_FLOAT,
 	ARG_FMT_STD_STRING,
+};
+
+enum trigger_read_type {
+	TRIGGER_READ_NONE,
 };
 
 #define ARG_TYPE_INDEX  0
@@ -82,6 +87,7 @@ struct ftrace_trigger {
 	char			color;
 	uint64_t		time;
 	enum filter_mode	fmode;
+	enum trigger_read_type	read;
 	struct list_head	*pargs;
 };
 
