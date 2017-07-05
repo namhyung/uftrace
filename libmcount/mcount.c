@@ -415,8 +415,11 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
-		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			save_argument(mtdp, rstack, tr->pargs, regs);
+		else {
+			if (tr->flags & TRIGGER_FL_ARGUMENT)
+				save_argument(mtdp, rstack, tr->pargs, regs);
+			if (tr->flags & TRIGGER_FL_READ)
+				save_trigger_read(mtdp, rstack, tr->read);
 		}
 
 		if (mtdp->enable_cached != mcount_enabled) {

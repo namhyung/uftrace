@@ -345,6 +345,13 @@ void save_retval(struct mcount_thread_data *mtdp,
 
 	*(unsigned *)argbuf = size;
 }
+
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type)
+{
+}
+
 #else
 void *get_argbuf(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack)
@@ -354,6 +361,12 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 
 void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval)
+{
+}
+
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type)
 {
 }
 #endif

@@ -17,6 +17,7 @@
 #include "uftrace.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
 
 #define FTRACE_DIR_NAME   "uftrace.data"
 
@@ -247,6 +248,9 @@ extern void save_argument(struct mcount_thread_data *mtdp,
 			  struct mcount_regs *regs);
 void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval);
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
 struct mcount_dynamic_info {
