@@ -339,10 +339,33 @@ static void print_event(struct ftrace_task_handle *task,
 				return;
 			}
 		}
-		pr_out("user event: %u", evt_id);
+		pr_out("user_event:%u", evt_id);
 		return;
 	}
 
+	if (evt_id >= EVENT_ID_BUILTIN) {
+		struct uftrace_proc_statm *statm;
+		struct uftrace_page_fault *page_fault;
+
+		switch (evt_id) {
+		case EVENT_ID_PROC_STATM:
+			statm = task->args.data;
+			pr_out("read:proc.statm (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
+			       statm->vmsize, statm->vmrss, statm->shared);
+			return;
+		case EVENT_ID_PAGE_FAULT:
+			page_fault = task->args.data;
+			pr_out("read:page-fault (major=%"PRIu64", minor=%"PRIu64")",
+			       page_fault->major, page_fault->minor);
+			return;
+		default:
+			break;
+		}
+		pr_out("builtin_event:%u", evt_id);
+		return;
+	}
+
+	/* kernel events */
 	event = pevent_find_event(task->h->kernel->pevent, evt_id);
 	pr_out("%s:%s (%.*s)", event->system, event->name,
 	       task->args.len, task->args.data);
