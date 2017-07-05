@@ -361,6 +361,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 static int record_event(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
+	struct mcount_event *event = &mtdp->event[0];
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct {
@@ -368,6 +369,10 @@ static int record_event(struct mcount_thread_data *mtdp)
 		uint64_t data;
 	} *rec;
 	size_t size = sizeof(*rec);
+	uint16_t data_size = event->dsize;
+
+	if (data_size)
+		size += ALIGN(data_size + 2, 8);
 
 	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
 		if (shmem->done)
@@ -391,8 +396,17 @@ static int record_event(struct mcount_thread_data *mtdp)
 	 * this would be good both for performance and portability.
 	 */
 	rec->data  = UFTRACE_EVENT | RECORD_MAGIC << 3;
-	rec->data += (uint64_t)mtdp->event[0].id << 16;
-	rec->time  = mtdp->event[0].time;
+	rec->data += (uint64_t)event->id << 16;
+	rec->time  = event->time;
+
+	if (data_size) {
+		void *ptr = rec + 1;
+
+		rec->data += 4;  /* set 'more' bit in uftrace_record */
+
+		*(uint16_t *)ptr = data_size;
+		memcpy(ptr + 2, event->data, data_size);
+	}
 
 	curr_buf->size += size;
 

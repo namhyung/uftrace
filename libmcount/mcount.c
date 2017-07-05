@@ -829,6 +829,7 @@ int mcount_save_event(struct mcount_event_info *mei)
 
 		mtdp->event[i].id   = mei->id;
 		mtdp->event[i].time = mcount_gettime();
+		mtdp->event[i].dsize = 0;
 	}
 
 	return 0;

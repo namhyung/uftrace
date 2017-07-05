@@ -112,10 +112,14 @@ struct mcount_shmem {
 
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
+#define EVTBUF_SIZE  (ARGBUF_SIZE - 16)
 
 struct mcount_event {
-	unsigned	id;
 	uint64_t	time;
+	uint32_t	id;
+	uint16_t	dsize;
+	uint16_t	pad;
+	uint8_t		data[EVTBUF_SIZE];
 };
 
 #define MAX_EVENT  4
