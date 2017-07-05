@@ -434,6 +434,13 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 			mtdp->enable_cached = mcount_enabled;
 		}
+		else if (mtdp->nr_events) {
+			/*
+			 * Flush rstacks if event was recorded as it only has
+			 * limited space for the events.
+			 */
+			record_trace_data(mtdp, rstack, NULL);
+		}
 
 		if (tr->flags & TRIGGER_FL_RECOVER) {
 			mcount_rstack_restore();

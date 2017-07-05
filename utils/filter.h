@@ -107,6 +107,13 @@ struct filter_module {
 	char			name[];
 };
 
+/* please see man proc(5) for /proc/[pid]/statm */
+struct uftrace_proc_statm {
+	uint64_t		vmsize;  /* total program size */
+	uint64_t		vmrss;   /* resident set size */
+	uint64_t		shared;  /* shared rss (Rssfile + RssShmem) */
+};
+
 typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,

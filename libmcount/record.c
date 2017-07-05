@@ -346,10 +346,37 @@ void save_retval(struct mcount_thread_data *mtdp,
 	*(unsigned *)argbuf = size;
 }
 
+static void save_proc_statm(void *buf)
+{
+	FILE *fp;
+	struct uftrace_proc_statm *statm = buf;
+
+	fp = fopen("/proc/self/statm", "r");
+	if (fp == NULL)
+		pr_err("failed to open /proc/self/statm");
+
+	fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
+	       &statm->vmsize, &statm->vmrss, &statm->shared);
+
+	fclose(fp);
+}
+
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type)
 {
+	if (type & TRIGGER_READ_PROC_STATM) {
+		struct mcount_event *event;
+
+		if (mtdp->nr_events < MAX_EVENT) {
+			event = &mtdp->event[mtdp->nr_events++];
+
+			event->id    = EVENT_ID_PROC_STATM;
+			event->time  = rstack->start_time;
+			event->dsize = sizeof(struct uftrace_proc_statm);
+			save_proc_statm(event->data);
+		}
+	}
 }
 
 #else
