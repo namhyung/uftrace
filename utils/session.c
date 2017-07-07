@@ -12,6 +12,8 @@
 #include "utils/fstack.h"
 #include "libmcount/mcount.h"
 
+static void delete_tasks(struct uftrace_session_link *sessions);
+
 /**
  * read_session_map - read memory mappings in a session map file
  * @dirname: directory name of the session
@@ -327,6 +329,8 @@ void delete_sessions(struct uftrace_session_link *sessions)
 	struct uftrace_session *sess;
 	struct rb_node *n;
 
+	delete_tasks(sessions);
+
 	while (!RB_EMPTY_ROOT(&sessions->root)) {
 		n = rb_first(&sessions->root);
 		rb_erase(n, &sessions->root);
@@ -454,6 +458,33 @@ void create_task(struct uftrace_session_link *sessions,
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
+}
+
+static void delete_task(struct uftrace_task *t)
+{
+	struct uftrace_sess_ref *sref, *tmp;
+
+	sref = t->sref.next;
+	while (sref) {
+		tmp = sref->next;
+		free(sref);
+		sref = tmp;
+	}
+	free(t);
+}
+
+static void delete_tasks(struct uftrace_session_link *sessions)
+{
+	struct uftrace_task *t;
+	struct rb_node *n;
+
+	while (!RB_EMPTY_ROOT(&sessions->tasks)) {
+		n = rb_first(&sessions->tasks);
+		rb_erase(n, &sessions->tasks);
+
+		t = rb_entry(n, struct uftrace_task, node);
+		delete_task(t);
+	}
 }
 
 /**
