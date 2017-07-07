@@ -12,6 +12,18 @@
 #include "utils/fstack.h"
 #include "libmcount/mcount.h"
 
+static void delete_tasks(struct uftrace_session_link *sessions);
+
+/**
+ * read_session_map - read memory mappings in a session map file
+ * @dirname: directory name of the session
+ * @symtabs: symbol table to keep the memory mapping
+ * @sid: session id
+ *
+ * This function reads mapping data from a session map file and
+ * construct the address space for a session to resolve symbols
+ * in libraries.
+ */
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
@@ -64,6 +76,18 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		*maps = map;
 	}
 	fclose(fp);
+}
+
+static void delete_session_map(struct symtabs *symtabs)
+{
+	struct ftrace_proc_maps *map, *tmp;
+
+	map = symtabs->maps;
+	while (map) {
+		tmp = map->next;
+		free(map);
+		map = tmp;
+	}
 }
 
 /**
@@ -278,6 +302,44 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 	return sym;
 }
 
+void delete_session(struct uftrace_session *sess)
+{
+	struct uftrace_dlopen_list *udl, *tmp;
+
+	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
+		list_del(&udl->list);
+		unload_symtabs(&udl->symtabs);
+		free(udl);
+	}
+
+	unload_symtabs(&sess->symtabs);
+	delete_session_map(&sess->symtabs);
+	free(sess);
+}
+
+/**
+ * delete_sessions - free all resouces in the @sessions
+ * @sessions: session link to manage sessions and tasks
+ *
+ * This function removes all session-related data structure in
+ * @sessions.
+ */
+void delete_sessions(struct uftrace_session_link *sessions)
+{
+	struct uftrace_session *sess;
+	struct rb_node *n;
+
+	delete_tasks(sessions);
+
+	while (!RB_EMPTY_ROOT(&sessions->root)) {
+		n = rb_first(&sessions->root);
+		rb_erase(n, &sessions->root);
+
+		sess = rb_entry(n, struct uftrace_session, node);
+		delete_session(sess);
+	}
+}
+
 static void add_session_ref(struct uftrace_task *task, struct uftrace_session *sess,
 			    uint64_t timestamp)
 {
@@ -396,6 +458,33 @@ void create_task(struct uftrace_session_link *sessions,
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
+}
+
+static void delete_task(struct uftrace_task *t)
+{
+	struct uftrace_sess_ref *sref, *tmp;
+
+	sref = t->sref.next;
+	while (sref) {
+		tmp = sref->next;
+		free(sref);
+		sref = tmp;
+	}
+	free(t);
+}
+
+static void delete_tasks(struct uftrace_session_link *sessions)
+{
+	struct uftrace_task *t;
+	struct rb_node *n;
+
+	while (!RB_EMPTY_ROOT(&sessions->tasks)) {
+		n = rb_first(&sessions->tasks);
+		rb_erase(n, &sessions->tasks);
+
+		t = rb_entry(n, struct uftrace_task, node);
+		delete_task(t);
+	}
 }
 
 /**
@@ -565,6 +654,9 @@ TEST_CASE(session_search)
 		TEST_GE(t, s->start_time);
 		TEST_LT(t, s->start_time + 100);
 	}
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
 
 	return TEST_OK;
 }
@@ -780,6 +872,10 @@ TEST_CASE(task_search)
 	sess = find_task_session(&test_sessions, 6, 100);
 	TEST_EQ(sess, NULL);
 
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.tasks), true);
+
 	return TEST_OK;
 }
 
@@ -823,6 +919,9 @@ TEST_CASE(task_symbol)
 
 	TEST_NE(sym, NULL);
 	TEST_STREQ(sym->name, "main");
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
 
 	return TEST_OK;
 }
@@ -870,6 +969,9 @@ TEST_CASE(task_symbol_dlopen)
 
 	TEST_NE(sym, NULL);
 	TEST_STREQ(sym->name, "foo");
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
 
 	return TEST_OK;
 }

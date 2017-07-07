@@ -497,6 +497,7 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		free(handle->kernel);
 	}
 
+	delete_sessions(&handle->sessions);
 	clear_ftrace_info(&handle->info);
 	reset_task_handle(handle);
 }

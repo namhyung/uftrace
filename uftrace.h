@@ -346,6 +346,7 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 			unsigned long base_addr, const char *libname);
 struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr);
+void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
 struct sym * task_find_sym(struct uftrace_session_link *sess,
