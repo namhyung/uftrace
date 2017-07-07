@@ -12,6 +12,16 @@
 #include "utils/fstack.h"
 #include "libmcount/mcount.h"
 
+/**
+ * read_session_map - read memory mappings in a session map file
+ * @dirname: directory name of the session
+ * @symtabs: symbol table to keep the memory mapping
+ * @sid: session id
+ *
+ * This function reads mapping data from a session map file and
+ * construct the address space for a session to resolve symbols
+ * in libraries.
+ */
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
@@ -64,6 +74,18 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		*maps = map;
 	}
 	fclose(fp);
+}
+
+static void delete_session_map(struct symtabs *symtabs)
+{
+	struct ftrace_proc_maps *map, *tmp;
+
+	map = symtabs->maps;
+	while (map) {
+		tmp = map->next;
+		free(map);
+		map = tmp;
+	}
 }
 
 /**
@@ -276,6 +298,42 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 		sym = find_symtabs(&udl->symtabs, addr);
 
 	return sym;
+}
+
+void delete_session(struct uftrace_session *sess)
+{
+	struct uftrace_dlopen_list *udl, *tmp;
+
+	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
+		list_del(&udl->list);
+		unload_symtabs(&udl->symtabs);
+		free(udl);
+	}
+
+	unload_symtabs(&sess->symtabs);
+	delete_session_map(&sess->symtabs);
+	free(sess);
+}
+
+/**
+ * delete_sessions - free all resouces in the @sessions
+ * @sessions: session link to manage sessions and tasks
+ *
+ * This function removes all session-related data structure in
+ * @sessions.
+ */
+void delete_sessions(struct uftrace_session_link *sessions)
+{
+	struct uftrace_session *sess;
+	struct rb_node *n;
+
+	while (!RB_EMPTY_ROOT(&sessions->root)) {
+		n = rb_first(&sessions->root);
+		rb_erase(n, &sessions->root);
+
+		sess = rb_entry(n, struct uftrace_session, node);
+		delete_session(sess);
+	}
 }
 
 static void add_session_ref(struct uftrace_task *task, struct uftrace_session *sess,
