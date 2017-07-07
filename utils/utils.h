@@ -244,4 +244,6 @@ uint64_t parse_time(char *arg, int limited_digits);
 
 char * strjoin(char *left, char *right, char *delim);
 
+char *absolute_dirname(const char *path, char *resolved_path);
+
 #endif /* __FTRACE_UTILS_H__ */
