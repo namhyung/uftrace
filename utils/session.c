@@ -655,6 +655,9 @@ TEST_CASE(session_search)
 		TEST_LT(t, s->start_time + 100);
 	}
 
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
+
 	return TEST_OK;
 }
 
@@ -869,6 +872,10 @@ TEST_CASE(task_search)
 	sess = find_task_session(&test_sessions, 6, 100);
 	TEST_EQ(sess, NULL);
 
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.tasks), true);
+
 	return TEST_OK;
 }
 
@@ -912,6 +919,9 @@ TEST_CASE(task_symbol)
 
 	TEST_NE(sym, NULL);
 	TEST_STREQ(sym->name, "main");
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
 
 	return TEST_OK;
 }
@@ -959,6 +969,9 @@ TEST_CASE(task_symbol_dlopen)
 
 	TEST_NE(sym, NULL);
 	TEST_STREQ(sym->name, "foo");
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
 
 	return TEST_OK;
 }
