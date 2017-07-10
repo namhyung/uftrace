@@ -507,3 +507,25 @@ void free_parsed_cmdline(char **argv)
 		free(argv - 1);
 	}
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(parse_cmdline)
+{
+	char **cmdv;
+	int argc = -1;
+
+	cmdv = parse_cmdline(NULL, NULL);
+	TEST_EQ(cmdv, NULL);
+
+	cmdv = parse_cmdline("uftrace recv --run-cmd 'uftrace replay'", &argc);
+	TEST_NE(cmdv, NULL);
+	TEST_EQ(argc, 4);
+	TEST_STREQ(cmdv[0], "uftrace");
+	TEST_STREQ(cmdv[1], "recv");
+	TEST_STREQ(cmdv[2], "--run-cmd");
+	TEST_STREQ(cmdv[3], "uftrace replay");
+	free_parsed_cmdline(cmdv);
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
