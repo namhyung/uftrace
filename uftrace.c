@@ -83,6 +83,7 @@ enum options {
 	OPT_kernel_full,
 	OPT_kernel_only,
 	OPT_list_event,
+	OPT_run_cmd,
 };
 
 static struct argp_option ftrace_options[] = {
@@ -144,6 +145,7 @@ static struct argp_option ftrace_options[] = {
 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
 	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
+	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ 0 }
 };
 
@@ -638,6 +640,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_list_event:
 		opts->list_event = true;
+		break;
+
+	case OPT_run_cmd:
+		if (opts->run_cmd) {
+			pr_warn("intermediate --run-cmd argument is ignored.\n");
+			free_parsed_cmdline(opts->run_cmd);
+		}
+		opts->run_cmd = parse_cmdline(arg, NULL);
 		break;
 
 	case ARGP_KEY_ARG:

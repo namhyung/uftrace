@@ -13,6 +13,7 @@
 #include <linux/limits.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -61,6 +62,7 @@ static int signal_fd(struct opts *opts)
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGINT);
 	sigaddset(&mask, SIGTERM);
+	sigaddset(&mask, SIGCHLD);
 
 	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
 		pr_err("signal block failed");
@@ -447,6 +449,20 @@ static void recv_trace_end(int sock, int efd)
 	close(sock);
 }
 
+static void execute_run_cmd(char **argv) {
+	if (!argv)
+		return;
+
+	int pid = fork();
+	if (pid < 0)
+		pr_err("cannot start child process");
+
+	if (pid == 0) {
+		execvp(argv[0], argv);
+		pr_err("Failed to execute '%s'", argv[0]);
+	}
+}
+
 static void epoll_add(int efd, int fd, unsigned event)
 {
 	struct epoll_event ev = {
@@ -479,7 +495,7 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	pr_dbg("new connection added from %s\n", hbuf);
 }
 
-static void handle_client_sock(struct epoll_event *ev, int efd)
+static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opts)
 {
 	int sock = ev->data.fd;
 	struct uftrace_msg msg;
@@ -524,6 +540,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 	case UFTRACE_MSG_SEND_END:
 		pr_dbg2("receive UFTRACE_MSG_SEND_END\n");
 		recv_trace_end(sock, efd);
+		execute_run_cmd(opts->run_cmd);
 		break;
 	default:
 		pr_dbg("unknown message: %d\n", msg.type);
@@ -533,6 +550,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd)
 
 int command_recv(int argc, char *argv[], struct opts *opts)
 {
+	struct signalfd_siginfo si;
 	int sock;
 	int sigfd;
 	int efd;
@@ -566,12 +584,17 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 			pr_err("epoll wait failed");
 
 		for (i = 0; i < len; i++) {
-			if (ev[i].data.fd == sigfd)
-				uftrace_done = true;
+			if (ev[i].data.fd == sigfd) {
+				int nr = read(sigfd, &si, sizeof si);
+				if (nr > 0 && si.ssi_signo == SIGCHLD)
+					waitpid(-1, NULL, WNOHANG);
+				else
+					uftrace_done = true;
+			}
 			else if (ev[i].data.fd == sock)
 				handle_server_sock(&ev[i], efd);
 			else
-				handle_client_sock(&ev[i], efd);
+				handle_client_sock(&ev[i], efd, opts);
 		}
 	}
 

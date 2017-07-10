@@ -392,3 +392,118 @@ char * strjoin(char *left, char *right, char *delim)
 	strcpy(new + len - rlen - 1, right);
 	return new;
 }
+
+#define QUOTE '\''
+#define DQUOTE '"'
+
+static int setargs(char *args, char **argv)
+{
+	int count = 0;
+
+	/* ignore start spaces */
+	while (isspace(*args))
+		++args;
+
+	while (*args) {
+		/* consider quotes and update argv */
+		if (*args == QUOTE) {
+			if (argv)
+				argv[count] = ++args;
+			while (*args != QUOTE)
+				++args;
+			if (argv)
+				*args = ' ';
+		}
+		else if (*args == DQUOTE) {
+			if (argv)
+				argv[count] = ++args;
+			while (*args != DQUOTE)
+				++args;
+			if (argv)
+				*args = ' ';
+		}
+		else if (argv) {
+			argv[count] = args;
+		}
+		/* read characters until '\0' or space */
+		while (*args && !isspace(*args))
+			++args;
+		/* set '\0' rather than space */
+		if (argv && *args)
+			*args++ = '\0';
+		/* ignore margin spaces */
+		while (isspace(*args))
+			++args;
+		/* count up argument */
+		count++;
+	}
+
+	return count;
+}
+
+#undef QUOTE
+#undef DQUOTE
+
+/**
+ * parse_cmdline - parse given string to be executed via execvp(3)
+ * @cmd:  full command line
+ * @argc: pointer to number of arguments
+ *
+ * This function parses @cmd and split it into an array of string
+ * to be executed by exec(3) like argv[] in main().  The @argc
+ * will be set to number of argument parsed if it's non-NULL.
+ * The resulting array contains a copy of input string (@cmd) in
+ * the first element which other elements point to.  It returns a
+ * pointer to the second element so that it can be used directly
+ * in other functions like exec(3).
+ *
+ * The returned array should be freed by free_parsed_cmdline().
+ */
+char **parse_cmdline(char *cmd, int *argc)
+{
+	char **argv = NULL;
+	char *cmd_dup = NULL;
+	int argn = 0;
+
+	if (!cmd || !*cmd)
+		return NULL;
+
+	/* duplicate cmdline to map to argv with modification */
+	cmd_dup = strdup(cmd);
+	/* get count of arguments */
+	argn = setargs(cmd_dup, NULL);
+	/* create argv array. +1 for cmd_dup, +1 for the last NULL */
+	argv = malloc((argn + 2) * sizeof(char *));
+
+	/* remember cmd_dup to free later */
+	*argv = cmd_dup;
+	/* actual assigning of arguments to argv + 1 */
+	argn = setargs(cmd_dup, &argv[1]);
+	/* set last one as null for execv */
+	argv[argn + 1] = NULL;
+
+	/* pass count of arguments */
+	if (argc)
+		*argc = argn;
+
+	/* returns +1 addr to hide cmd_dup address */
+	return &argv[1];
+}
+
+
+/**
+ * free_parsed_cmdline - free memory that was allocated by parse_cmdline
+ * @argv: result of parse_cmdline
+ *
+ * The parse_cmdline uses internal allocation logic so,
+ * the pointer should be freed by this function rather than free.
+ */
+void free_parsed_cmdline(char **argv)
+{
+	if (argv) {
+		/* free cmd_dup */
+		free(argv[-1]);
+		/* free original argv */
+		free(argv - 1);
+	}
+}
