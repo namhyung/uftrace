@@ -469,14 +469,14 @@ char **parse_cmdline(char *cmd, int *argc)
 		return NULL;
 
 	/* duplicate cmdline to map to argv with modification */
-	cmd_dup = strdup(cmd);
+	cmd_dup = xstrdup(cmd);
 	/* get count of arguments */
 	argn = setargs(cmd_dup, NULL);
 	/* create argv array. +1 for cmd_dup, +1 for the last NULL */
-	argv = malloc((argn + 2) * sizeof(char *));
+	argv = xcalloc(argn + 2, sizeof(char *));
 
 	/* remember cmd_dup to free later */
-	*argv = cmd_dup;
+	argv[0] = cmd_dup;
 	/* actual assigning of arguments to argv + 1 */
 	argn = setargs(cmd_dup, &argv[1]);
 	/* set last one as null for execv */
@@ -501,9 +501,34 @@ char **parse_cmdline(char *cmd, int *argc)
 void free_parsed_cmdline(char **argv)
 {
 	if (argv) {
+		/* parse_cmdline() passes &argv[1] */
+		argv--;
+
 		/* free cmd_dup */
-		free(argv[-1]);
+		free(argv[0]);
 		/* free original argv */
-		free(argv - 1);
+		free(argv);
 	}
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(parse_cmdline)
+{
+	char **cmdv;
+	int argc = -1;
+
+	cmdv = parse_cmdline(NULL, NULL);
+	TEST_EQ(cmdv, NULL);
+
+	cmdv = parse_cmdline("uftrace recv --run-cmd 'uftrace replay'", &argc);
+	TEST_NE(cmdv, NULL);
+	TEST_EQ(argc, 4);
+	TEST_STREQ(cmdv[0], "uftrace");
+	TEST_STREQ(cmdv[1], "recv");
+	TEST_STREQ(cmdv[2], "--run-cmd");
+	TEST_STREQ(cmdv[3], "uftrace replay");
+	free_parsed_cmdline(cmdv);
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

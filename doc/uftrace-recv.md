@@ -6,9 +6,11 @@ NAME
 ====
 uftrace-recv - Receive tracing data from socket and save it to files
 
+
 SYNOPSIS
 ========
 uftrace recv [*options*]
+
 
 DESCRIPTION
 ===========
@@ -20,6 +22,10 @@ Data will be sent using `uftrace-record` with -H/\--host option.
 
 \--port=*PORT*
 :   Use given port instead of the default (8090).
+
+--run-cmd=*COMMAND*
+:   Run given (shell) command as soon as receive data.  For example, one can run "uftrace replay" for received data.
+
 
 SEE ALSO
 ========
