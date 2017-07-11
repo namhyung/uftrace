@@ -66,7 +66,7 @@ OPTIONS
 :   Print debug messages.  This option is same as `-v`/`--verbose` and is provided only for backward compatibility.
 
 \--debug-domain=*DOMAIN*[,*DOMAIN*, ...]
-:   Limit the printing of debug messages to those belonging to one of the DOMAINs specified.  Available domains are: ftrace, symbol, demangle, filter, fstack, session, kernel, and mcount.  The domains can have an their own debug level optionally (preceded by a colon).  For example, `-v --debug-domain=filter:2` will apply debug level of 2 to the "filter" domain and apply debug level of 1 to others.
+:   Limit the printing of debug messages to those belonging to one of the DOMAINs specified.  Available domains are: uftrace, symbol, demangle, filter, fstack, session, kernel, mcount, dynamic and event.  The domains can have an their own debug level optionally (preceded by a colon).  For example, `-v --debug-domain=filter:2` will apply debug level of 2 to the "filter" domain and apply debug level of 1 to others.
 
 -d *DATA*, \--data=*DATA*
 :   Specify name of trace data (directory).  Default is `uftrace.data`.
