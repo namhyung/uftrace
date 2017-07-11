@@ -84,9 +84,10 @@ enum options {
 	OPT_kernel_only,
 	OPT_list_event,
 	OPT_run_cmd,
+	OPT_opt_file,
 };
 
-static struct argp_option ftrace_options[] = {
+static struct argp_option uftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
@@ -146,6 +147,7 @@ static struct argp_option ftrace_options[] = {
 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
 	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
+	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ 0 }
 };
 
@@ -650,6 +652,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->run_cmd = parse_cmdline(arg, NULL);
 		break;
 
+	case OPT_opt_file:
+		opts->opt_file = arg;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -692,6 +698,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case ARGP_KEY_NO_ARGS:
 	case ARGP_KEY_END:
+		if (opts->opt_file)
+			break;
+
 		if (state->arg_num < 1)
 			argp_usage(state);
 
@@ -714,6 +723,49 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
+static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts *opts)
+{
+	int file_argc;
+	char **file_argv;
+	char *buf;
+	struct stat stbuf;
+	FILE *fp;
+	struct argp file_argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
+		.doc = "uftrace -- function (graph) tracer for userspace",
+	};
+
+	if (stat(filename, &stbuf) < 0) {
+		pr_use("Cannot use opt-file: %s: %m\n", filename);
+		exit(0);
+	}
+
+	buf = xmalloc(stbuf.st_size + 1);
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("Open failed: %s", filename);
+	fread_all(buf, stbuf.st_size, fp);
+	fclose(fp);
+	buf[stbuf.st_size] = '\0';
+
+	file_argv = parse_cmdline(buf, &file_argc);
+
+	/* clear opt_file for error reporting */
+	opts->opt_file = NULL;
+
+	argp_parse(&file_argp, file_argc, file_argv,
+		   ARGP_IN_ORDER | ARGP_PARSE_ARGV0 | ARGP_NO_ERRS,
+		   NULL, opts);
+
+	*argc = file_argc;
+	*argv = file_argv;
+
+	opts->opt_file = filename;
+	free(buf);
+}
+
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
@@ -733,7 +785,7 @@ int main(int argc, char *argv[])
 		.fields         = NULL,
 	};
 	struct argp argp = {
-		.options = ftrace_options,
+		.options = uftrace_options,
 		.parser = parse_option,
 		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
@@ -745,6 +797,9 @@ int main(int argc, char *argv[])
 	outfp = stdout;
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+
+	if (opts.opt_file)
+		parse_opt_file(&argc, &argv, opts.opt_file, &opts);
 
 	if (dbg_domain_set && !debug)
 		debug = 1;
@@ -815,6 +870,146 @@ int main(int argc, char *argv[])
 	if (opts.logfile)
 		fclose(logfp);
 
+	if (opts.opt_file)
+		free_parsed_cmdline(argv);
+
 	return ret;
+}
+#else
+TEST_CASE(option_parsing1)
+{
+	char *stropt = NULL;
+	int i;
+	bool elapsed_time;
+
+	TEST_EQ(parse_size("1234"), 1234);
+	TEST_EQ(parse_size("10k"),  10240);
+	TEST_EQ(parse_size("100M"), 100 * 1024 * 1024);
+
+	stropt = opt_add_string(stropt, "abc");
+	TEST_STREQ(stropt, "abc");
+	stropt = opt_add_string(stropt, "def");
+	TEST_STREQ(stropt, "abc;def");
+
+	free(stropt);
+	stropt = NULL;
+
+	stropt = opt_add_prefix_string(stropt, "!", "abc");
+	TEST_STREQ(stropt, "!abc");
+	stropt = opt_add_prefix_string(stropt, "?", "def");
+	TEST_STREQ(stropt, "!abc;?def");
+
+	free(stropt);
+	stropt = NULL;
+
+	TEST_EQ(parse_color("1"),    COLOR_ON);
+	TEST_EQ(parse_color("true"), COLOR_ON);
+	TEST_EQ(parse_color("off"),  COLOR_OFF);
+	TEST_EQ(parse_color("n"),    COLOR_OFF);
+	TEST_EQ(parse_color("auto"), COLOR_AUTO);
+	TEST_EQ(parse_color("ok"),   COLOR_UNKNOWN);
+
+	TEST_EQ(parse_demangle("simple"), DEMANGLE_SIMPLE);
+	TEST_EQ(parse_demangle("no"),     DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("0"),      DEMANGLE_NONE);
+	/* full demangling might not supported */
+	TEST_NE(parse_demangle("full"),   DEMANGLE_SIMPLE);
+
+	for (i = 0; i < DBG_DOMAIN_MAX; i++)
+		dbg_domain[i] = 0;
+
+	parse_debug_domain("mcount:1,uftrace:2,symbol:3");
+	TEST_EQ(dbg_domain[DBG_UFTRACE], 2);
+	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
+	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
+
+	TEST_EQ(parse_timestamp("1ns", &elapsed_time), (uint64_t)1);
+	TEST_EQ(parse_timestamp("2us", &elapsed_time), (uint64_t)2000);
+	TEST_EQ(parse_timestamp("3ms", &elapsed_time), (uint64_t)3000000);
+	TEST_EQ(parse_timestamp("4s",  &elapsed_time), (uint64_t)4000000000);
+	TEST_EQ(parse_timestamp("5m",  &elapsed_time), (uint64_t)300000000000);
+
+	return TEST_OK;
+}
+
+TEST_CASE(option_parsing2)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = {
+		"uftrace",
+		"replay",
+		"-v",
+		"--data=abc.data",
+		"--kernel",
+		"-t", "1us",
+		"-F", "foo",
+		"-N", "bar",
+		"-Abaz@kernel",
+	};
+	int argc = ARRAY_SIZE(argv);
+	
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
+	TEST_EQ(debug, 1);
+	TEST_EQ(opts.kernel, 1);
+	TEST_EQ(opts.threshold, (uint64_t)1000);
+	TEST_STREQ(opts.dirname, "abc.data");
+	TEST_STREQ(opts.filter, "foo;!bar");
+	TEST_STREQ(opts.args, "baz@kernel");
+
+	return TEST_OK;
+}
+
+TEST_CASE(option_parsing3)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", };
+	int argc = ARRAY_SIZE(argv);
+	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
+	int file_argc;
+	char **file_argv;
+	FILE *fp;
+
+	/* create opt-file */
+	fp = fopen("xxx", "w");
+	TEST_NE(fp, NULL);
+	fwrite(opt_file, strlen(opt_file), 1, fp);
+	fclose(fp);
+
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+	TEST_STREQ(opts.opt_file, "xxx");
+
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	TEST_EQ(file_argc, 6);
+
+	unlink("xxx");
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
+	TEST_EQ(debug, 1);
+	TEST_EQ(opts.kernel, 1);
+	TEST_EQ(opts.kernel_depth, 2);
+	TEST_EQ(opts.depth, 3);
+	TEST_EQ(opts.bufsize, 4 * 1024 * 1024);
+	TEST_EQ(opts.column_view, 1);
+	TEST_STREQ(opts.exename, "t-abc");
+
+	return TEST_OK;
 }
 #endif /* UNIT_TEST */
