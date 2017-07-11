@@ -80,6 +80,9 @@ OPTIONS
 \--no-pager
 :   Do not use a pager.
 
+\--opt-file=*FILE*
+:   Read command-line options from the FILE.
+
 
 SEE ALSO
 ========

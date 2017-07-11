@@ -84,9 +84,10 @@ enum options {
 	OPT_kernel_only,
 	OPT_list_event,
 	OPT_run_cmd,
+	OPT_opt_file,
 };
 
-static struct argp_option ftrace_options[] = {
+static struct argp_option uftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
@@ -146,6 +147,7 @@ static struct argp_option ftrace_options[] = {
 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
 	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
+	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ 0 }
 };
 
@@ -650,6 +652,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->run_cmd = parse_cmdline(arg, NULL);
 		break;
 
+	case OPT_opt_file:
+		opts->opt_file = arg;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -692,6 +698,9 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case ARGP_KEY_NO_ARGS:
 	case ARGP_KEY_END:
+		if (opts->opt_file)
+			break;
+
 		if (state->arg_num < 1)
 			argp_usage(state);
 
@@ -714,6 +723,49 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
+static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts *opts)
+{
+	int file_argc;
+	char **file_argv;
+	char *buf;
+	struct stat stbuf;
+	FILE *fp;
+	struct argp file_argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
+		.doc = "uftrace -- function (graph) tracer for userspace",
+	};
+
+	if (stat(filename, &stbuf) < 0) {
+		pr_use("Cannot use opt-file: %s: %m\n", filename);
+		exit(0);
+	}
+
+	buf = xmalloc(stbuf.st_size + 1);
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("Open failed: %s", filename);
+	fread_all(buf, stbuf.st_size, fp);
+	fclose(fp);
+	buf[stbuf.st_size] = '\0';
+
+	file_argv = parse_cmdline(buf, &file_argc);
+
+	/* clear opt_file for error reporting */
+	opts->opt_file = NULL;
+
+	argp_parse(&file_argp, file_argc, file_argv,
+		   ARGP_IN_ORDER | ARGP_PARSE_ARGV0 | ARGP_NO_ERRS,
+		   NULL, opts);
+
+	*argc = file_argc;
+	*argv = file_argv;
+
+	opts->opt_file = filename;
+	free(buf);
+}
+
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
@@ -733,7 +785,7 @@ int main(int argc, char *argv[])
 		.fields         = NULL,
 	};
 	struct argp argp = {
-		.options = ftrace_options,
+		.options = uftrace_options,
 		.parser = parse_option,
 		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
@@ -745,6 +797,9 @@ int main(int argc, char *argv[])
 	outfp = stdout;
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+
+	if (opts.opt_file)
+		parse_opt_file(&argc, &argv, opts.opt_file, &opts);
 
 	if (dbg_domain_set && !debug)
 		debug = 1;
@@ -814,6 +869,9 @@ int main(int argc, char *argv[])
 
 	if (opts.logfile)
 		fclose(logfp);
+
+	if (opts.opt_file)
+		free_parsed_cmdline(argv);
 
 	return ret;
 }
