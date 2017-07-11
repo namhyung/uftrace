@@ -875,4 +875,141 @@ int main(int argc, char *argv[])
 
 	return ret;
 }
+#else
+TEST_CASE(option_parsing1)
+{
+	char *stropt = NULL;
+	int i;
+	bool elapsed_time;
+
+	TEST_EQ(parse_size("1234"), 1234);
+	TEST_EQ(parse_size("10k"),  10240);
+	TEST_EQ(parse_size("100M"), 100 * 1024 * 1024);
+
+	stropt = opt_add_string(stropt, "abc");
+	TEST_STREQ(stropt, "abc");
+	stropt = opt_add_string(stropt, "def");
+	TEST_STREQ(stropt, "abc;def");
+
+	free(stropt);
+	stropt = NULL;
+
+	stropt = opt_add_prefix_string(stropt, "!", "abc");
+	TEST_STREQ(stropt, "!abc");
+	stropt = opt_add_prefix_string(stropt, "?", "def");
+	TEST_STREQ(stropt, "!abc;?def");
+
+	free(stropt);
+	stropt = NULL;
+
+	TEST_EQ(parse_color("1"),    COLOR_ON);
+	TEST_EQ(parse_color("true"), COLOR_ON);
+	TEST_EQ(parse_color("off"),  COLOR_OFF);
+	TEST_EQ(parse_color("n"),    COLOR_OFF);
+	TEST_EQ(parse_color("auto"), COLOR_AUTO);
+	TEST_EQ(parse_color("ok"),   COLOR_UNKNOWN);
+
+	TEST_EQ(parse_demangle("simple"), DEMANGLE_SIMPLE);
+	TEST_EQ(parse_demangle("no"),     DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("0"),      DEMANGLE_NONE);
+	/* full demangling might not supported */
+	TEST_NE(parse_demangle("full"),   DEMANGLE_SIMPLE);
+
+	for (i = 0; i < DBG_DOMAIN_MAX; i++)
+		dbg_domain[i] = 0;
+
+	parse_debug_domain("mcount:1,uftrace:2,symbol:3");
+	TEST_EQ(dbg_domain[DBG_UFTRACE], 2);
+	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
+	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
+
+	TEST_EQ(parse_timestamp("1ns", &elapsed_time), (uint64_t)1);
+	TEST_EQ(parse_timestamp("2us", &elapsed_time), (uint64_t)2000);
+	TEST_EQ(parse_timestamp("3ms", &elapsed_time), (uint64_t)3000000);
+	TEST_EQ(parse_timestamp("4s",  &elapsed_time), (uint64_t)4000000000);
+	TEST_EQ(parse_timestamp("5m",  &elapsed_time), (uint64_t)300000000000);
+
+	return TEST_OK;
+}
+
+TEST_CASE(option_parsing2)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = {
+		"uftrace",
+		"replay",
+		"-v",
+		"--data=abc.data",
+		"--kernel",
+		"-t", "1us",
+		"-F", "foo",
+		"-N", "bar",
+		"-Abaz@kernel",
+	};
+	int argc = ARRAY_SIZE(argv);
+	
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
+	TEST_EQ(debug, 1);
+	TEST_EQ(opts.kernel, 1);
+	TEST_EQ(opts.threshold, (uint64_t)1000);
+	TEST_STREQ(opts.dirname, "abc.data");
+	TEST_STREQ(opts.filter, "foo;!bar");
+	TEST_STREQ(opts.args, "baz@kernel");
+
+	return TEST_OK;
+}
+
+TEST_CASE(option_parsing3)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", };
+	int argc = ARRAY_SIZE(argv);
+	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
+	int file_argc;
+	char **file_argv;
+	FILE *fp;
+
+	/* create opt-file */
+	fp = fopen("xxx", "w");
+	TEST_NE(fp, NULL);
+	fwrite(opt_file, strlen(opt_file), 1, fp);
+	fclose(fp);
+
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+	TEST_STREQ(opts.opt_file, "xxx");
+
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	TEST_EQ(file_argc, 6);
+
+	unlink("xxx");
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
+	TEST_EQ(debug, 1);
+	TEST_EQ(opts.kernel, 1);
+	TEST_EQ(opts.kernel_depth, 2);
+	TEST_EQ(opts.depth, 3);
+	TEST_EQ(opts.bufsize, 4 * 1024 * 1024);
+	TEST_EQ(opts.column_view, 1);
+	TEST_STREQ(opts.exename, "t-abc");
+
+	return TEST_OK;
+}
 #endif /* UNIT_TEST */
