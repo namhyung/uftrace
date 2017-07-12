@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <pthread.h>
 
@@ -361,6 +362,18 @@ static void save_proc_statm(void *buf)
 	fclose(fp);
 }
 
+static void save_proc_page_fault(void *buf)
+{
+	struct rusage ru;
+	struct uftrace_page_fault *page_fault = buf;
+
+	/* getrusage provides faults info in a single syscall */
+	getrusage(RUSAGE_SELF, &ru);
+
+	page_fault->major = ru.ru_majflt;
+	page_fault->minor = ru.ru_minflt;
+}
+
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type)
@@ -375,6 +388,18 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event->time  = rstack->start_time;
 			event->dsize = sizeof(struct uftrace_proc_statm);
 			save_proc_statm(event->data);
+		}
+	}
+	if (type & TRIGGER_READ_PAGE_FAULT) {
+		struct mcount_event *event;
+
+		if (mtdp->nr_events < MAX_EVENT) {
+			event = &mtdp->event[mtdp->nr_events++];
+
+			event->id    = EVENT_ID_PAGE_FAULT;
+			event->time  = rstack->start_time;
+			event->dsize = sizeof(struct uftrace_page_fault);
+			save_proc_page_fault(event->data);
 		}
 	}
 }

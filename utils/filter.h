@@ -114,6 +114,11 @@ struct uftrace_proc_statm {
 	uint64_t		shared;  /* shared rss (Rssfile + RssShmem) */
 };
 
+struct uftrace_page_fault {
+	uint64_t		major;
+	uint64_t		minor;
+};
+
 typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
