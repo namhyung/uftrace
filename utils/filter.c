@@ -680,7 +680,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		int ret = 0;
 		bool mod_found = false;
 		struct ftrace_arg_spec *arg;
-		bool is_regex = strpbrk(name, REGEX_CHARS);
+		bool is_regex;
 
 		if (setup_module_and_trigger(name, symtabs, &symtab,
 					     &tr, &mod_found) < 0)
@@ -695,6 +695,8 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			name++;
 		} else if (fmode != NULL)
 			tr.fmode = FILTER_MODE_IN;
+
+		is_regex = strpbrk(name, REGEX_CHARS);
 
 again:
 		if (is_regex)
