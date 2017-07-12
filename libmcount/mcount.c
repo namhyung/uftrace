@@ -874,6 +874,8 @@ static void atfork_child_handler(void)
 
 	/* update tid cache */
 	mtdp->tid = tmsg.tid;
+	/* flush event data */
+	mtdp->nr_events = 0;
 
 	mtdp->recursion_guard = true;
 
