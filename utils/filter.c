@@ -64,8 +64,11 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: color '%c'\n", tr->color);
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
-	if (tr->flags & TRIGGER_FL_READ)
-		pr_dbg("\ttrigger: read (%s)\n", "none");
+
+	if (tr->flags & TRIGGER_FL_READ) {
+		pr_dbg("\ttrigger: read (%s)\n",
+		       tr->read & TRIGGER_READ_PROC_STATM ? "proc/statm" : "none");
+	}
 }
 
 static bool match_ip(struct ftrace_filter *filter, unsigned long ip)
@@ -533,6 +536,9 @@ static int parse_float_argument_spec(char *str, struct ftrace_trigger *tr)
 
 static enum trigger_read_type parse_read_type(char *str)
 {
+	if (!strcmp(str, "proc/statm"))
+		return TRIGGER_READ_PROC_STATM;
+
 	return TRIGGER_READ_NONE;
 }
 
