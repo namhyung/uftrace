@@ -49,6 +49,7 @@ enum ftrace_arg_format {
 enum trigger_read_type {
 	TRIGGER_READ_NONE,
 	TRIGGER_READ_PROC_STATM,
+	TRIGGER_READ_PAGE_FAULT,
 };
 
 #define ARG_TYPE_INDEX  0

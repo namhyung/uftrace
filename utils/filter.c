@@ -16,6 +16,20 @@
 #include "utils/list.h"
 
 
+static void snprintf_trigger_read(char *buf, size_t len,
+				  enum trigger_read_type type)
+{
+	buf[0] = '\0';
+
+	if (type == TRIGGER_READ_NONE)
+		snprintf(buf, len, "none");
+
+	if (type & TRIGGER_READ_PROC_STATM)
+		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "proc/statm");
+	if (type & TRIGGER_READ_PAGE_FAULT)
+		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "page-fault");
+}
+
 static void print_trigger(struct ftrace_trigger *tr)
 {
 	if (tr->flags & TRIGGER_FL_DEPTH)
@@ -66,8 +80,10 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
 
 	if (tr->flags & TRIGGER_FL_READ) {
-		pr_dbg("\ttrigger: read (%s)\n",
-		       tr->read & TRIGGER_READ_PROC_STATM ? "proc/statm" : "none");
+		char buf[1024];
+
+		snprintf_trigger_read(buf, sizeof(buf), tr->read);
+		pr_dbg("\ttrigger: read (%s)\n", buf);
 	}
 }
 
@@ -538,6 +554,8 @@ static enum trigger_read_type parse_read_type(char *str)
 {
 	if (!strcmp(str, "proc/statm"))
 		return TRIGGER_READ_PROC_STATM;
+	if (!strcmp(str, "page-fault"))
+		return TRIGGER_READ_PAGE_FAULT;
 
 	return TRIGGER_READ_NONE;
 }
