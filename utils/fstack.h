@@ -54,6 +54,7 @@ struct ftrace_task_handle {
 	int user_display_depth;
 	int fork_display_depth;
 	int column_index;
+	int event_color;
 	enum context ctx;
 	uint64_t timestamp;
 	uint64_t timestamp_last;

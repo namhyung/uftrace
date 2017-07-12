@@ -325,7 +325,8 @@ static void print_backtrace(struct ftrace_task_handle *task)
 }
 
 static void print_event(struct ftrace_task_handle *task,
-			struct uftrace_record *urec)
+			struct uftrace_record *urec,
+			int color)
 {
 	struct event_format *event;
 	unsigned evt_id = urec->addr;
@@ -335,11 +336,11 @@ static void print_event(struct ftrace_task_handle *task,
 
 		list_for_each_entry(ev, &task->h->events, list) {
 			if (ev->id == evt_id) {
-				pr_out("%s:%s", ev->provider, ev->event);
+				pr_color(color, "%s:%s", ev->provider, ev->event);
 				return;
 			}
 		}
-		pr_out("user_event:%u", evt_id);
+		pr_color(color, "user_event:%u", evt_id);
 		return;
 	}
 
@@ -350,25 +351,25 @@ static void print_event(struct ftrace_task_handle *task,
 		switch (evt_id) {
 		case EVENT_ID_PROC_STATM:
 			statm = task->args.data;
-			pr_out("read:proc.statm (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
-			       statm->vmsize, statm->vmrss, statm->shared);
+			pr_color(color, "read:proc/statm (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
+				 statm->vmsize, statm->vmrss, statm->shared);
 			return;
 		case EVENT_ID_PAGE_FAULT:
 			page_fault = task->args.data;
-			pr_out("read:page-fault (major=%"PRIu64", minor=%"PRIu64")",
-			       page_fault->major, page_fault->minor);
+			pr_color(color, "read:page-fault (major=%"PRIu64", minor=%"PRIu64")",
+				 page_fault->major, page_fault->minor);
 			return;
 		default:
 			break;
 		}
-		pr_out("builtin_event:%u", evt_id);
+		pr_color(color, "builtin_event:%u", evt_id);
 		return;
 	}
 
 	/* kernel events */
 	event = pevent_find_event(task->h->kernel->pevent, evt_id);
-	pr_out("%s:%s (%.*s)", event->system, event->name,
-	       task->args.len, task->args.data);
+	pr_color(color, "%s:%s (%.*s)", event->system, event->name,
+		 task->args.len, task->args.data);
 }
 
 static int print_flat_rstack(struct ftrace_file_handle *handle,
@@ -406,7 +407,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 
 	case UFTRACE_EVENT:
 		pr_out("[%d] ", count++);
-		print_event(task, rstack);
+		print_event(task, rstack, task->event_color);
 		pr_out("\n");
 		break;
 	}
@@ -687,6 +688,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
 			print_backtrace(task);
 
+		if (tr.flags & TRIGGER_FL_COLOR)
+			task->event_color = tr.color;
+		else
+			task->event_color = DEFAULT_EVENT_COLOR;
+
 		depth += task_column_depth(task, opts);
 
 		if (rstack->more)
@@ -813,9 +819,9 @@ lost:
 
 		print_field(task, NULL, NO_TIME);
 
-		pr_out(" %*s/* ", depth * 2, "");
-		print_event(task, rstack);
-		pr_out(" */\n");
+		pr_color(task->event_color, " %*s/* ", depth * 2, "");
+		print_event(task, rstack, task->event_color);
+		pr_color(task->event_color, " */\n");
 	}
 out:
 	symbol_putname(sym, symname);
