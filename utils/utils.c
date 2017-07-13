@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#include <limits.h>
 
 #include "utils/utils.h"
 
