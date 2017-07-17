@@ -148,11 +148,13 @@ out:
 	free(names);
 }
 
+#define CALL_INSN_SIZE 5
+
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
 	while (mdi) {
 		if (mdi->addr <= addr && addr < mdi->addr + mdi->size)
-			return mdi->trampoline - (addr + 5);
+			return mdi->trampoline - (addr + CALL_INSN_SIZE);
 
 		mdi = mdi->next;
 	}
