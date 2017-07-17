@@ -148,11 +148,13 @@ out:
 	free(names);
 }
 
+#define CALL_INSN_SIZE 5
+
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
 	while (mdi) {
 		if (mdi->addr <= addr && addr < mdi->addr + mdi->size)
-			return mdi->trampoline - (addr + 5);
+			return mdi->trampoline - (addr + CALL_INSN_SIZE);
 
 		mdi = mdi->next;
 	}
@@ -165,16 +167,16 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	unsigned char *insn = (void *)sym->addr;
 	unsigned int target_addr;
 
-	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, sym->addr);
-	if (target_addr == 0)
-		return -2;
-
 	/* only support calls to __fentry__ at the beginning */
 	if (memcmp(insn, nop, sizeof(nop))) {
 		pr_dbg2("skip non-applicable functions: %s\n", sym->name);
 		return -2;
 	}
+
+	/* get the jump offset to the trampoline */
+	target_addr = get_target_addr(mdi, sym->addr);
+	if (target_addr == 0)
+		return -2;
 
 	/* make a "call" insn with 4-byte offset */
 	insn[0] = 0xe8;
