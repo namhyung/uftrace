@@ -415,8 +415,11 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
 		}
-		else if (tr->flags & TRIGGER_FL_ARGUMENT) {
-			save_argument(mtdp, rstack, tr->pargs, regs);
+		else {
+			if (tr->flags & TRIGGER_FL_ARGUMENT)
+				save_argument(mtdp, rstack, tr->pargs, regs);
+			if (tr->flags & TRIGGER_FL_READ)
+				save_trigger_read(mtdp, rstack, tr->read);
 		}
 
 		if (mtdp->enable_cached != mcount_enabled) {
@@ -430,6 +433,13 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				record_trace_data(mtdp, rstack, NULL);
 
 			mtdp->enable_cached = mcount_enabled;
+		}
+		else if (mtdp->nr_events) {
+			/*
+			 * Flush rstacks if event was recorded as it only has
+			 * limited space for the events.
+			 */
+			record_trace_data(mtdp, rstack, NULL);
 		}
 
 		if (tr->flags & TRIGGER_FL_RECOVER) {
@@ -829,6 +839,7 @@ int mcount_save_event(struct mcount_event_info *mei)
 
 		mtdp->event[i].id   = mei->id;
 		mtdp->event[i].time = mcount_gettime();
+		mtdp->event[i].dsize = 0;
 	}
 
 	return 0;
@@ -863,6 +874,8 @@ static void atfork_child_handler(void)
 
 	/* update tid cache */
 	mtdp->tid = tmsg.tid;
+	/* flush event data */
+	mtdp->nr_events = 0;
 
 	mtdp->recursion_guard = true;
 

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <pthread.h>
 
@@ -345,6 +346,64 @@ void save_retval(struct mcount_thread_data *mtdp,
 
 	*(unsigned *)argbuf = size;
 }
+
+static void save_proc_statm(void *buf)
+{
+	FILE *fp;
+	struct uftrace_proc_statm *statm = buf;
+
+	fp = fopen("/proc/self/statm", "r");
+	if (fp == NULL)
+		pr_err("failed to open /proc/self/statm");
+
+	fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
+	       &statm->vmsize, &statm->vmrss, &statm->shared);
+
+	fclose(fp);
+}
+
+static void save_proc_page_fault(void *buf)
+{
+	struct rusage ru;
+	struct uftrace_page_fault *page_fault = buf;
+
+	/* getrusage provides faults info in a single syscall */
+	getrusage(RUSAGE_SELF, &ru);
+
+	page_fault->major = ru.ru_majflt;
+	page_fault->minor = ru.ru_minflt;
+}
+
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type)
+{
+	if (type & TRIGGER_READ_PROC_STATM) {
+		struct mcount_event *event;
+
+		if (mtdp->nr_events < MAX_EVENT) {
+			event = &mtdp->event[mtdp->nr_events++];
+
+			event->id    = EVENT_ID_PROC_STATM;
+			event->time  = rstack->start_time;
+			event->dsize = sizeof(struct uftrace_proc_statm);
+			save_proc_statm(event->data);
+		}
+	}
+	if (type & TRIGGER_READ_PAGE_FAULT) {
+		struct mcount_event *event;
+
+		if (mtdp->nr_events < MAX_EVENT) {
+			event = &mtdp->event[mtdp->nr_events++];
+
+			event->id    = EVENT_ID_PAGE_FAULT;
+			event->time  = rstack->start_time;
+			event->dsize = sizeof(struct uftrace_page_fault);
+			save_proc_page_fault(event->data);
+		}
+	}
+}
+
 #else
 void *get_argbuf(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack)
@@ -356,11 +415,18 @@ void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval)
 {
 }
+
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type)
+{
+}
 #endif
 
 static int record_event(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
+	struct mcount_event *event = &mtdp->event[0];
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct {
@@ -368,6 +434,10 @@ static int record_event(struct mcount_thread_data *mtdp)
 		uint64_t data;
 	} *rec;
 	size_t size = sizeof(*rec);
+	uint16_t data_size = event->dsize;
+
+	if (data_size)
+		size += ALIGN(data_size + 2, 8);
 
 	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
 		if (shmem->done)
@@ -391,8 +461,17 @@ static int record_event(struct mcount_thread_data *mtdp)
 	 * this would be good both for performance and portability.
 	 */
 	rec->data  = UFTRACE_EVENT | RECORD_MAGIC << 3;
-	rec->data += (uint64_t)mtdp->event[0].id << 16;
-	rec->time  = mtdp->event[0].time;
+	rec->data += (uint64_t)event->id << 16;
+	rec->time  = event->time;
+
+	if (data_size) {
+		void *ptr = rec + 1;
+
+		rec->data += 4;  /* set 'more' bit in uftrace_record */
+
+		*(uint16_t *)ptr = data_size;
+		memcpy(ptr + 2, event->data, data_size);
+	}
 
 	curr_buf->size += size;
 

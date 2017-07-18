@@ -990,6 +990,75 @@ int read_task_args(struct ftrace_task_handle *task,
 	return 0;
 }
 
+static int read_task_event_size(struct ftrace_task_handle *task,
+				void *buf, size_t buflen)
+{
+	uint16_t len;
+
+	if (fread(&len, sizeof(len), 1, task->fp) != 1)
+		return -1;
+
+	assert(len == buflen);
+
+	if (fread(buf, len, 1, task->fp) != 1)
+		return -1;
+
+	return 0;
+}
+
+static void save_task_event(struct ftrace_task_handle *task,
+			    void *buf, size_t buflen)
+{
+	int rem;
+
+	/* abuse task->args */
+	task->args.len  = buflen;
+	task->args.data = xrealloc(task->args.data, buflen);
+
+	memcpy(task->args.data, buf, buflen);
+
+	/* ensure 8-byte alignment */
+	rem = (buflen + 2) % 8;
+	if (rem)
+		fseek(task->fp, 8 - rem, SEEK_CUR);
+}
+
+int read_task_event(struct ftrace_task_handle *task,
+		    struct uftrace_record *rec)
+{
+	if (rec->addr == EVENT_ID_PROC_STATM) {
+		struct uftrace_proc_statm statm;
+
+		if (read_task_event_size(task, &statm, sizeof(statm)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			statm.vmsize = bswap_64(statm.vmsize);
+			statm.vmrss  = bswap_64(statm.vmrss);
+			statm.shared = bswap_64(statm.shared);
+		}
+
+		save_task_event(task, &statm, sizeof(statm));
+	}
+	else if (rec->addr == EVENT_ID_PAGE_FAULT) {
+		struct uftrace_page_fault pgfault;
+
+		if (read_task_event_size(task, &pgfault, sizeof(pgfault)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			pgfault.major = bswap_64(pgfault.major);
+			pgfault.minor = bswap_64(pgfault.minor);
+		}
+
+		save_task_event(task, &pgfault, sizeof(pgfault));
+	}
+	else
+		pr_err_ns("unknown event has data: %u\n", rec->addr);
+
+	return 0;
+}
+
 /**
  * read_task_ustack - read user function record for @task
  * @handle: file handle
@@ -1018,14 +1087,12 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 	}
 
 	if (task->ustack.more) {
-		if (!(handle->hdr.feat_mask & (ARGUMENT | RETVAL)) ||
-		    handle->info.argspec == NULL)
-			pr_err_ns("invalid data (more bit set w/o args)");
-
 		if (task->ustack.type == UFTRACE_ENTRY)
 			read_task_args(task, &task->ustack, false);
 		else if (task->ustack.type == UFTRACE_EXIT)
 			read_task_args(task, &task->ustack, true);
+		else if (task->ustack.type == UFTRACE_EVENT)
+			read_task_event(task, &task->ustack);
 		else
 			abort();
 	}

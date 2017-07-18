@@ -449,7 +449,16 @@ void clear_ftrace_info(struct uftrace_info *info);
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);
 
-#define EVENT_ID_USER  1000000U
+enum ufrace_event_id {
+	EVENT_ID_KERNEL	= 0U,
+	/* kernel IDs are read from tracefs */
+
+	EVENT_ID_BUILTIN = 100000U,
+	EVENT_ID_PROC_STATM,
+	EVENT_ID_PAGE_FAULT,
+
+	EVENT_ID_USER	= 1000000U,
+};
 
 struct uftrace_event {
 	struct list_head list;

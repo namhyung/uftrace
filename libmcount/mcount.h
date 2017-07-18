@@ -17,6 +17,7 @@
 #include "uftrace.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
 
 #define FTRACE_DIR_NAME   "uftrace.data"
 
@@ -112,10 +113,14 @@ struct mcount_shmem {
 
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
+#define EVTBUF_SIZE  (ARGBUF_SIZE - 16)
 
 struct mcount_event {
-	unsigned	id;
 	uint64_t	time;
+	uint32_t	id;
+	uint16_t	dsize;
+	uint16_t	pad;
+	uint8_t		data[EVTBUF_SIZE];
 };
 
 #define MAX_EVENT  4
@@ -243,6 +248,9 @@ extern void save_argument(struct mcount_thread_data *mtdp,
 			  struct mcount_regs *regs);
 void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval);
+void save_trigger_read(struct mcount_thread_data *mtdp,
+		       struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
 struct mcount_dynamic_info {
