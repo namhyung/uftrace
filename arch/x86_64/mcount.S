@@ -53,7 +53,6 @@ GLOBAL(mcount)
 
 	/* child addr */
 	movq 56(%rsp), %rsi
-	sub $9, %rsi
 
 	/* parent location */
 	lea 8(%rbp), %rdi
