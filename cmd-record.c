@@ -1579,8 +1579,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	}
 
 	stop_all_writers();
-	if (opts->kernel)
-		stop_kernel_tracing(&kernel);
+	if (opts->kernel) {
+		if (stop_kernel_tracing(&kernel) == 0)
+			pr_dbg("kernel tracing stopped\n");
+	}
 
 	if (fill_file_header(opts, status, &usage) < 0)
 		pr_err("cannot generate data file");

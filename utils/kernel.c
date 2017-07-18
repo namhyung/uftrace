@@ -378,9 +378,6 @@ next:
 
 static int reset_tracing_files(void)
 {
-	if (write_tracing_file("tracing_on", "1") < 0)
-		return -1;
-
 	if (write_tracing_file("current_tracer", "nop") < 0)
 		return -1;
 
