@@ -243,4 +243,8 @@ clean:
 	@$(MAKE) -sC $(srcdir)/doc clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent clean
 
-.PHONY: all config clean test dist doc PHONY
+ctags:
+	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
+		| xargs ctags --regex-asm='/^(GLOBAL|ENTRY|END)\(([^)]*)\).*/\2/'
+
+.PHONY: all config clean test dist doc ctags PHONY
