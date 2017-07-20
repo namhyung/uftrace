@@ -39,8 +39,7 @@ struct symtabs symtabs = {
 		 SYMTAB_FL_SKIP_NORMAL | SYMTAB_FL_SKIP_DYNAMIC,
 };
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
-bool mcount_setup_done;
-bool mcount_finished;
+unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 
 pthread_key_t mtd_key = (pthread_key_t)-1;
 TLS struct mcount_thread_data mtd;
@@ -619,7 +618,7 @@ unsigned long mcount_exit(long *retval)
 
 static void mcount_finish(void)
 {
-	if (mcount_finished)
+	if (mcount_global_flags & MCOUNT_GFL_FINISH)
 		return;
 
 	mtd_dtor(&mtd);
@@ -630,7 +629,7 @@ static void mcount_finish(void)
 		pfd = -1;
 	}
 
-	mcount_finished = true;
+	mcount_global_flags |= MCOUNT_GFL_FINISH;
 }
 
 static int cygprof_entry(unsigned long parent, unsigned long child)
@@ -1004,7 +1003,7 @@ static void mcount_startup(void)
 	struct stat statbuf;
 	LIST_HEAD(modules);
 
-	if (mcount_setup_done || mtd.recursion_guard)
+	if (!(mcount_global_flags & MCOUNT_GFL_SETUP) || mtd.recursion_guard)
 		return;
 
 	mtd.recursion_guard = true;
@@ -1152,7 +1151,7 @@ out:
 	compiler_barrier();
 	pr_dbg("mcount setup done\n");
 
-	mcount_setup_done = true;
+	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
 	mtd.recursion_guard = false;
 }
 
