@@ -370,9 +370,6 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 #undef FLAGS_TO_CHECK
 
-	if (!mcount_enabled)
-		return FILTER_IN;
-
 	if (mtdp->filter.depth <= 0)
 		return FILTER_OUT;
 
@@ -420,40 +417,45 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (!mcount_enabled) {
 			rstack->flags |= MCOUNT_FL_DISABLED;
-		}
-		else {
-			if (tr->flags & TRIGGER_FL_ARGUMENT)
-				save_argument(mtdp, rstack, tr->pargs, regs);
-			if (tr->flags & TRIGGER_FL_READ)
-				save_trigger_read(mtdp, rstack, tr->read);
-		}
-
-		if (mtdp->enable_cached != mcount_enabled) {
 			/*
 			 * Flush existing rstack when mcount_enabled is off
 			 * (i.e. disabled).  Note that changing to enabled is
 			 * already handled in record_trace_data() on exit path
 			 * using the MCOUNT_FL_DISALBED flag.
 			 */
-			if (!mcount_enabled)
+			if (unlikely(mtdp->enable_cached))
 				record_trace_data(mtdp, rstack, NULL);
-
-			mtdp->enable_cached = mcount_enabled;
 		}
-		else if (mtdp->nr_events) {
-			/*
-			 * Flush rstacks if event was recorded as it only has
-			 * limited space for the events.
-			 */
-			record_trace_data(mtdp, rstack, NULL);
+		else {
+			if (tr->flags & TRIGGER_FL_ARGUMENT)
+				save_argument(mtdp, rstack, tr->pargs, regs);
+			if (tr->flags & TRIGGER_FL_READ)
+				save_trigger_read(mtdp, rstack, tr->read);
+
+			if (mtdp->nr_events) {
+				/*
+				 * Flush rstacks if event was recorded as it only has
+				 * limited space for the events.
+				 */
+				record_trace_data(mtdp, rstack, NULL);
+			}
 		}
 
-		if (tr->flags & TRIGGER_FL_RECOVER) {
-			mcount_rstack_restore();
-			*rstack->parent_loc = (unsigned long) mcount_return;
-			rstack->flags |= MCOUNT_FL_RECOVER;
+#define FLAGS_TO_CHECK  (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
+
+		if (tr->flags & FLAGS_TO_CHECK) {
+			if (tr->flags & TRIGGER_FL_RECOVER) {
+				mcount_rstack_restore();
+				*rstack->parent_loc = (unsigned long) mcount_return;
+				rstack->flags |= MCOUNT_FL_RECOVER;
+			}
+			if (tr->flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
+				mtdp->enable_cached = mcount_enabled;
 		}
 	}
+
+#undef FLAGS_TO_CHECK
+
 }
 
 /* restore filter state from rstack */
