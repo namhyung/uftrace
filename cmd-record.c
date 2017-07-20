@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -470,6 +471,7 @@ void *writer_thread(void *arg)
 	struct opts *opts = warg->opts;
 	struct pollfd pollfd[warg->nr_cpu + 1];
 	int i, dummy;
+	sigset_t sigset;
 
 	if (opts->rt_prio) {
 		struct sched_param param = {
@@ -479,6 +481,9 @@ void *writer_thread(void *arg)
 		if (sched_setscheduler(0, SCHED_FIFO, &param) < 0)
 			pr_warn("set scheduling param failed\n");
 	}
+
+	sigfillset(&sigset);
+	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 
 	pollfd[0].fd = thread_ctl[0];
 	pollfd[0].events = POLLIN;
@@ -1492,6 +1497,9 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			continue;
 		}
 
+		/* wait for SIGCHLD or FORK_END */
+		usleep(1000);
+
 		/*
 		 * It's possible to receive a remaining FORK_START message.
 		 * In this case, we need to wait FORK_END message also in
@@ -1502,7 +1510,6 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			break;
 
 		pr_dbg2("waiting for FORK2\n");
-		usleep(1000);
 	}
 
 	if (child_exited) {
