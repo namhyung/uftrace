@@ -154,8 +154,10 @@ void uftrace_send_message(int type, void *data, size_t len)
 		return;
 
 	len += sizeof(msg);
-	if (writev(pfd, iov, 2) != (ssize_t)len)
-		pr_err("writing shmem name to pipe");
+	if (writev(pfd, iov, 2) != (ssize_t)len) {
+		if (!mcount_should_stop())
+			pr_err("writing shmem name to pipe");
+	}
 }
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
@@ -185,8 +187,10 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 
 	memcpy(sess.sid, sess_id, sizeof(sess.sid));
 
-	if (writev(pfd, iov, 3) != len)
-		pr_err("write tid info failed");
+	if (writev(pfd, iov, 3) != len) {
+		if (!mcount_should_stop())
+			pr_err("write tid info failed");
+	}
 }
 
 static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id,
@@ -219,8 +223,10 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 
 	memcpy(dlop.sid, sess_id, sizeof(dlop.sid));
 
-	if (writev(pfd, iov, 3) != len)
-		pr_err("write tid info failed");
+	if (writev(pfd, iov, 3) != len) {
+		if (!mcount_should_stop())
+			pr_err("write tid info failed");
+	}
 }
 
 /* to be used by pthread_create_key() */
@@ -294,6 +300,23 @@ struct mcount_thread_data * mcount_prepare(void)
 	update_kernel_tid(tmsg.tid);
 
 	return mtdp;
+}
+
+static void mcount_finish(void)
+{
+	if (mcount_global_flags & MCOUNT_GFL_FINISH)
+		return;
+
+	mcount_global_flags |= MCOUNT_GFL_FINISH;
+	mtd_dtor(&mtd);
+
+	__sync_synchronize();
+
+	pthread_key_delete(mtd_key);
+	if (pfd != -1) {
+		close(pfd);
+		pfd = -1;
+	}
 }
 
 bool mcount_check_rstack(struct mcount_thread_data *mtdp)
@@ -606,7 +629,13 @@ unsigned long mcount_exit(long *retval)
 	unsigned long retaddr;
 
 	mtdp = get_thread_data();
-	assert(mtdp);
+	if (unlikely(check_thread_data(mtdp))) {
+		/* mcount_finish() called in the middle */
+		if (mcount_should_stop())
+			return mtd.rstack[--mtd.idx].parent_ip;
+
+		assert(mtdp);
+	}
 
 	mtdp->recursion_guard = true;
 
@@ -623,22 +652,6 @@ unsigned long mcount_exit(long *retval)
 	mtdp->recursion_guard = false;
 
 	return retaddr;
-}
-
-static void mcount_finish(void)
-{
-	if (mcount_global_flags & MCOUNT_GFL_FINISH)
-		return;
-
-	mtd_dtor(&mtd);
-	pthread_key_delete(mtd_key);
-
-	if (pfd != -1) {
-		close(pfd);
-		pfd = -1;
-	}
-
-	mcount_global_flags |= MCOUNT_GFL_FINISH;
 }
 
 static int cygprof_entry(unsigned long parent, unsigned long child)
@@ -802,6 +815,9 @@ void xray_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
+
+	if (unlikely(mcount_should_stop()))
+		return;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp) || mtdp->recursion_guard))
