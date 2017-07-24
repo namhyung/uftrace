@@ -1642,58 +1642,18 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 	unload_symtabs(&symtabs);
 }
 
-int command_record(int argc, char *argv[], struct opts *opts)
+int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 {
-	int pid;
-	int pfd[2];
-	int efd;
 	int ret;
 	struct writer_data wd;
-
-	if (pipe(pfd) < 0)
-		pr_err("cannot setup internal pipe");
-
-	if (create_directory(opts->dirname) < 0)
-		return -1;
-
-	check_binary(opts);
-
-	fflush(stdout);
-
-	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
-	if (efd < 0)
-		pr_dbg("creating eventfd failed: %d\n", efd);
-
-	pid = fork();
-	if (pid < 0)
-		pr_err("cannot start child process");
-
-	if (pid == 0) {
-		uint64_t dummy;
-
-		close(pfd[0]);
-
-		setup_child_environ(opts, pfd[1]);
-
-		/* wait for parent ready */
-		if (read(efd, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
-			pr_err("waiting for parent failed");
-
-		/*
-		 * I don't think the traced binary is in PATH.
-		 * So use plain 'execv' rather than 'execvp'.
-		 */
-		execv(opts->exename, &argv[opts->idx]);
-		abort();
-	}
 
 	wd.pid = pid;
 	wd.pipefd = pfd[0];
 	close(pfd[1]);
 
 	setup_writers(&wd, opts);
-	start_tracing(&wd, opts, efd);
-	close(efd);
+	start_tracing(&wd, opts, ready);
+	close(ready);
 
 	while (!uftrace_done) {
 		struct pollfd pollfd = {
@@ -1718,6 +1678,57 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	finish_writers(&wd, opts);
 
 	write_symbol_files(&wd, opts);
+	return ret;
+}
 
+int do_child_exec(int pfd[2], int ready, struct opts *opts, char *argv[])
+{
+	uint64_t dummy;
+
+	close(pfd[0]);
+
+	setup_child_environ(opts, pfd[1]);
+
+	/* wait for parent ready */
+	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
+		pr_err("waiting for parent failed");
+
+	/*
+	 * I don't think the traced binary is in PATH.
+	 * So use plain 'execv' rather than 'execvp'.
+	 */
+	execv(opts->exename, &argv[opts->idx]);
+	abort();
+}
+
+int command_record(int argc, char *argv[], struct opts *opts)
+{
+	int pid;
+	int pfd[2];
+	int efd;
+	int ret;
+
+	if (pipe(pfd) < 0)
+		pr_err("cannot setup internal pipe");
+
+	if (create_directory(opts->dirname) < 0)
+		return -1;
+
+	check_binary(opts);
+
+	fflush(stdout);
+
+	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
+	if (efd < 0)
+		pr_dbg("creating eventfd failed: %d\n", efd);
+
+	pid = fork();
+	if (pid < 0)
+		pr_err("cannot start child process");
+
+	if (pid == 0)
+		do_child_exec(pfd, efd, opts, argv);
+
+	ret = do_main_loop(pfd, efd, opts, pid);
 	return ret;
 }
