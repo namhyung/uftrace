@@ -1018,4 +1018,62 @@ TEST_CASE(option_parsing3)
 
 	return TEST_OK;
 }
+
+TEST_CASE(option_parsing4)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", };
+	int argc = ARRAY_SIZE(argv);
+	char opt_file[] = "-K 2\n"
+		"# buffer size: 4 MB\n"
+		"-b4m\n"
+		"\n"
+		"## show different thread with different indentation\n"
+		"--column-view\n"
+		"\n"
+		"# limit maximum function call depth to 3\n"
+		"--depth=3 # same as -D3 \n"
+		"\n"
+		"\n"
+		"#test program\n"
+		"t-abc\n"
+		"\n";
+	int file_argc;
+	char **file_argv;
+	FILE *fp;
+
+	/* create opt-file */
+	fp = fopen("xxx", "w");
+	TEST_NE(fp, NULL);
+	fwrite(opt_file, strlen(opt_file), 1, fp);
+	fclose(fp);
+
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+	TEST_STREQ(opts.opt_file, "xxx");
+
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	TEST_EQ(file_argc, 6);
+
+	unlink("xxx");
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
+	TEST_EQ(debug, 1);
+	TEST_EQ(opts.kernel, 1);
+	TEST_EQ(opts.kernel_depth, 2);
+	TEST_EQ(opts.depth, 3);
+	TEST_EQ(opts.bufsize, 4 * 1024 * 1024);
+	TEST_EQ(opts.column_view, 1);
+	TEST_STREQ(opts.exename, "t-abc");
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */

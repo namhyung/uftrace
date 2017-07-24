@@ -401,11 +401,13 @@ static int setargs(char *args, char **argv)
 {
 	int count = 0;
 
-	/* ignore start spaces */
-	while (isspace(*args))
-		++args;
-
 	while (*args) {
+		/* ignore spaces */
+		if (isspace(*args)) {
+			++args;
+			continue;
+		}
+
 		/* consider quotes and update argv */
 		if (*args == QUOTE) {
 			if (argv)
@@ -423,6 +425,12 @@ static int setargs(char *args, char **argv)
 			if (argv)
 				*args = ' ';
 		}
+		else if (*args == '#') {
+			/* ignore comment line */
+			while (*args != '\n' || *args == '\0')
+				++args;
+			continue;
+		}
 		else if (argv) {
 			argv[count] = args;
 		}
@@ -432,9 +440,6 @@ static int setargs(char *args, char **argv)
 		/* set '\0' rather than space */
 		if (argv && *args)
 			*args++ = '\0';
-		/* ignore margin spaces */
-		while (isspace(*args))
-			++args;
 		/* count up argument */
 		count++;
 	}
