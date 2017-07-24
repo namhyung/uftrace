@@ -413,7 +413,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 	rstack->filter_depth = mtdp->filter.saved_depth;
 	rstack->filter_time  = mtdp->filter.saved_time;
 
-#define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE)
+#define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL |	\
+			 TRIGGER_FL_TRACE | TRIGGER_FL_FINISH)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
 		if (tr->flags & TRIGGER_FL_FILTER) {
@@ -431,6 +432,13 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_TRACE)
 			rstack->flags |= MCOUNT_FL_TRACE;
+
+		if (tr->flags & TRIGGER_FL_FINISH) {
+			record_trace_data(mtdp, rstack, NULL);
+			uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
+			mcount_finish();
+			return;
+		}
 	}
 
 #undef FLAGS_TO_CHECK

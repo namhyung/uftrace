@@ -50,6 +50,8 @@ static void print_trigger(struct ftrace_trigger *tr)
 		pr_dbg("\ttrigger: trace_off\n");
 	if (tr->flags & TRIGGER_FL_RECOVER)
 		pr_dbg("\ttrigger: recover\n");
+	if (tr->flags & TRIGGER_FL_FINISH)
+		pr_dbg("\ttrigger: finish\n");
 
 	if (tr->flags & TRIGGER_FL_ARGUMENT) {
 		struct ftrace_arg_spec *arg;
@@ -588,12 +590,10 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			}
 			continue;
 		}
-
 		if (!strcasecmp(pos, "backtrace")) {
 			tr->flags |= TRIGGER_FL_BACKTRACE;
 			continue;
 		}
-
 		if (!strncasecmp(pos, "trace", 5)) {
 			pos += 5;
 			if (*pos == '_' || *pos == '-')
@@ -608,27 +608,29 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 
 			continue;
 		}
-		else if (!strncasecmp(pos, "arg", 3)) {
+		if (!strncasecmp(pos, "arg", 3)) {
 			if (parse_argument_spec(pos, tr) < 0)
 				goto out;
 			continue;
 		}
-		else if (!strncasecmp(pos, "fparg", 5)) {
+		if (!strncasecmp(pos, "fparg", 5)) {
 			if (parse_float_argument_spec(pos, tr) < 0)
 				goto out;
 			continue;
 		}
-		else if (!strncasecmp(pos, "retval", 6)) {
+		if (!strncasecmp(pos, "retval", 6)) {
 			if (parse_retval_spec(pos, tr) < 0)
 				goto out;
 			continue;
 		}
-
 		if (!strcasecmp(pos, "recover")) {
 			tr->flags |= TRIGGER_FL_RECOVER;
 			continue;
 		}
-
+		if (!strcasecmp(pos, "finish")) {
+			tr->flags |= TRIGGER_FL_FINISH;
+			continue;
+		}
 		if (!strncasecmp(pos, "color=", 6)) {
 			const char *color = pos + 6;
 			tr->flags |= TRIGGER_FL_COLOR;
@@ -654,13 +656,11 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			}
 			continue;
 		}
-
 		if (!strncasecmp(pos, "time=", 5)) {
 			tr->flags |= TRIGGER_FL_TIME_FILTER;
 			tr->time = parse_time(pos+5, 3);
 			continue;
 		}
-
 		if (!strncmp(pos, "read=", 5)) {
 			tr->read |= parse_read_type(pos+5);
 			/* set READ flag only if valid type set */
@@ -850,6 +850,8 @@ void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
 			if (!strcasecmp(pos, "backtrace"))
 				continue;
 			if (!strcasecmp(pos, "recover"))
+				continue;
+			if (!strcasecmp(pos, "finish"))
 				continue;
 			if (!strncasecmp(pos, "arg", 3) && isdigit(pos[3]))
 				continue;

@@ -219,7 +219,8 @@ The uftrace tool supports triggering actions on selected function calls with or 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
-                     "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec>
+                     "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
+                     "finish"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "us" | "ms" | "s"
     <read_spec>  :=  "proc/statm" | "page-fault"
@@ -261,6 +262,8 @@ The `read` trigger is to read some information at runtime.  As of now, reading p
       11.250 us [ 1234] |     } /* b */
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
+
+The 'finish' trigger is to end recording.  The process still can run and this can be useful to trace unterminated processes like daemon.
 
 Triggers only work for user-level functions for now.
 

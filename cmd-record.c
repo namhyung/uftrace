@@ -1076,6 +1076,10 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		/* exename will be freed with the dlib */
 		break;
 
+	case UFTRACE_MSG_FINISH:
+		pr_dbg2("MSG FINISH\n");
+		break;
+
 	default:
 		pr_warn("Unknown message type: %u\n", msg.type);
 		break;
