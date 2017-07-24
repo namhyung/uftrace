@@ -99,6 +99,9 @@ OPTIONS
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
 
+\--keep-pid
+:   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.
+
 
 FILTERS
 =======

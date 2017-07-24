@@ -85,6 +85,7 @@ enum options {
 	OPT_list_event,
 	OPT_run_cmd,
 	OPT_opt_file,
+	OPT_keep_pid,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -148,6 +149,7 @@ static struct argp_option uftrace_options[] = {
 	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
+	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
 	{ 0 }
 };
 
@@ -654,6 +656,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_opt_file:
 		opts->opt_file = arg;
+		break;
+
+	case OPT_keep_pid:
+		opts->keep_pid = true;
 		break;
 
 	case ARGP_KEY_ARG:

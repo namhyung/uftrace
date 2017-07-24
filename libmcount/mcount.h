@@ -181,7 +181,7 @@ extern void mcount_return(void);
 extern struct mcount_thread_data * mcount_prepare(void);
 extern uint64_t mcount_gettime(void);
 extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
-extern void ftrace_send_message(int type, void *data, size_t len);
+extern void uftrace_send_message(int type, void *data, size_t len);
 extern const char *session_name(void);
 extern int gettid(struct mcount_thread_data *mtdp);
 

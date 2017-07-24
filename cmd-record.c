@@ -932,14 +932,14 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		record_mmap_file(dirname, buf, bufsize);
 		break;
 
-	case UFTRACE_MSG_TASK:
+	case UFTRACE_MSG_TASK_START:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
 
 		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
 			pr_err("reading pipe failed");
 
-		pr_dbg2("MSG TASK : %d/%d\n", tmsg.pid, tmsg.tid);
+		pr_dbg2("MSG TASK_START : %d/%d\n", tmsg.pid, tmsg.tid);
 
 		/* check existing tid (due to exec) */
 		list_for_each_entry(pos, &tid_list_head, list) {
@@ -953,6 +953,24 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 			add_tid_list(tmsg.pid, tmsg.tid);
 
 		write_task_info(dirname, &tmsg);
+		break;
+
+	case UFTRACE_MSG_TASK_END:
+		if (msg.len != sizeof(tmsg))
+			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
+			pr_err("reading pipe failed");
+
+		pr_dbg2("MSG TASK_END : %d/%d\n", tmsg.pid, tmsg.tid);
+
+		/* mark test exited */
+		list_for_each_entry(pos, &tid_list_head, list) {
+			if (pos->tid == tmsg.tid) {
+				pos->exited = true;
+				break;
+			}
+		}
 		break;
 
 	case UFTRACE_MSG_FORK_START:
@@ -1483,7 +1501,7 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 static int stop_tracing(struct writer_data *wd, struct opts *opts)
 {
 	int status = -1;
-	int ret = UFTRACE_EXIT_SUCCESS;
+	int ret = UFTRACE_EXIT_UNKNOWN;
 
 	/* child finished, read remaining data in the pipe */
 	while (!uftrace_done) {
@@ -1506,7 +1524,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 		 * order to get proper pid.  Otherwise replay will fail with
 		 * pid of -1.
 		 */
-		if (child_exited && check_tid_list())
+		if (check_tid_list())
 			break;
 
 		pr_dbg2("waiting for FORK2\n");
@@ -1520,6 +1538,8 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 
 			if (WEXITSTATUS(status))
 				ret = UFTRACE_EXIT_FAILURE;
+			else
+				ret = UFTRACE_EXIT_SUCCESS;
 		}
 		else {
 			pr_yellow("child terminated by signal: %d: %s\n",
@@ -1527,10 +1547,10 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			ret = UFTRACE_EXIT_SIGNALED;
 		}
 	}
-	else {
+	else if (opts->keep_pid)
+		memset(&wd->usage, 0, sizeof(wd->usage));
+	else
 		getrusage(RUSAGE_CHILDREN, &wd->usage);
-		ret = UFTRACE_EXIT_UNKNOWN;
-	}
 
 	stop_all_writers();
 	if (opts->kernel)
@@ -1624,58 +1644,18 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 	unload_symtabs(&symtabs);
 }
 
-int command_record(int argc, char *argv[], struct opts *opts)
+int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 {
-	int pid;
-	int pfd[2];
-	int efd;
 	int ret;
 	struct writer_data wd;
-
-	if (pipe(pfd) < 0)
-		pr_err("cannot setup internal pipe");
-
-	if (create_directory(opts->dirname) < 0)
-		return -1;
-
-	check_binary(opts);
-
-	fflush(stdout);
-
-	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
-	if (efd < 0)
-		pr_dbg("creating eventfd failed: %d\n", efd);
-
-	pid = fork();
-	if (pid < 0)
-		pr_err("cannot start child process");
-
-	if (pid == 0) {
-		uint64_t dummy;
-
-		close(pfd[0]);
-
-		setup_child_environ(opts, pfd[1]);
-
-		/* wait for parent ready */
-		if (read(efd, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
-			pr_err("waiting for parent failed");
-
-		/*
-		 * I don't think the traced binary is in PATH.
-		 * So use plain 'execv' rather than 'execvp'.
-		 */
-		execv(opts->exename, &argv[opts->idx]);
-		abort();
-	}
 
 	wd.pid = pid;
 	wd.pipefd = pfd[0];
 	close(pfd[1]);
 
 	setup_writers(&wd, opts);
-	start_tracing(&wd, opts, efd);
-	close(efd);
+	start_tracing(&wd, opts, ready);
+	close(ready);
 
 	while (!uftrace_done) {
 		struct pollfd pollfd = {
@@ -1700,6 +1680,65 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	finish_writers(&wd, opts);
 
 	write_symbol_files(&wd, opts);
+	return ret;
+}
 
+int do_child_exec(int pfd[2], int ready, struct opts *opts, char *argv[])
+{
+	uint64_t dummy;
+
+	close(pfd[0]);
+
+	setup_child_environ(opts, pfd[1]);
+
+	/* wait for parent ready */
+	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
+		pr_err("waiting for parent failed");
+
+	/*
+	 * I don't think the traced binary is in PATH.
+	 * So use plain 'execv' rather than 'execvp'.
+	 */
+	execv(opts->exename, &argv[opts->idx]);
+	abort();
+}
+
+int command_record(int argc, char *argv[], struct opts *opts)
+{
+	int pid;
+	int pfd[2];
+	int efd;
+	int ret = -1;
+
+	if (pipe(pfd) < 0)
+		pr_err("cannot setup internal pipe");
+
+	if (create_directory(opts->dirname) < 0)
+		return -1;
+
+	check_binary(opts);
+
+	fflush(stdout);
+
+	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
+	if (efd < 0)
+		pr_dbg("creating eventfd failed: %d\n", efd);
+
+	pid = fork();
+	if (pid < 0)
+		pr_err("cannot start child process");
+
+	if (pid == 0) {
+		if (opts->keep_pid)
+			ret = do_main_loop(pfd, efd, opts, getppid());
+		else
+			do_child_exec(pfd, efd, opts, argv);
+		return ret;
+	}
+
+	if (opts->keep_pid)
+		do_child_exec(pfd, efd, opts, argv);
+	else
+		ret = do_main_loop(pfd, efd, opts, pid);
 	return ret;
 }

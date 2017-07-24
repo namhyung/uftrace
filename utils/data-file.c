@@ -65,7 +65,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
 			break;
 
-		case UFTRACE_MSG_TASK:
+		case UFTRACE_MSG_TASK_START:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 

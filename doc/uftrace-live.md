@@ -22,9 +22,6 @@ OPTIONS
 -b *SIZE*, \--buffer=*SIZE*
 :   Size of internal buffer in which trace data will be saved.  Default size is 128k.
 
-\--daemon
-:   (XXX: rename to `dont-wait` or `keep`) Trace a daemon process which calls `fork`(2) and then `exit`(2).  Usually uftrace stops recording when its child has exited, but a daemon processes calls `exit`(2) before doing its real job (in the forked child process).  This option is used to keep tracing such daemon processes.
-
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See *FILTERS*.
 
@@ -123,6 +120,9 @@ OPTIONS
 
 \--list-event
 :   Show available events in the process.
+
+\--keep-pid
+:   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.  Note that it might corrupt terminal setting so it'd be better using it with `--no-pager` option.
 
 
 FILTERS

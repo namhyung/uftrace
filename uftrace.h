@@ -214,6 +214,7 @@ struct opts {
 	bool kernel_skip_out;  /* also affects VDSO filter */
 	bool kernel_only;
 	bool list_event;
+	bool keep_pid;
 	struct uftrace_time_range range;
 };
 
@@ -283,7 +284,8 @@ struct uftrace_task {
 enum uftrace_msg_type {
 	UFTRACE_MSG_REC_START		= 1,
 	UFTRACE_MSG_REC_END,
-	UFTRACE_MSG_TASK,
+	UFTRACE_MSG_TASK_START,
+	UFTRACE_MSG_TASK_END,
 	UFTRACE_MSG_FORK_START,
 	UFTRACE_MSG_FORK_END,
 	UFTRACE_MSG_SESSION,
