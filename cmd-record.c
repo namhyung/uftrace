@@ -1501,7 +1501,7 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 static int stop_tracing(struct writer_data *wd, struct opts *opts)
 {
 	int status = -1;
-	int ret = UFTRACE_EXIT_SUCCESS;
+	int ret = UFTRACE_EXIT_UNKNOWN;
 
 	/* child finished, read remaining data in the pipe */
 	while (!uftrace_done) {
@@ -1538,6 +1538,8 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 
 			if (WEXITSTATUS(status))
 				ret = UFTRACE_EXIT_FAILURE;
+			else
+				ret = UFTRACE_EXIT_SUCCESS;
 		}
 		else {
 			pr_yellow("child terminated by signal: %d: %s\n",
@@ -1545,10 +1547,10 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			ret = UFTRACE_EXIT_SIGNALED;
 		}
 	}
-	else {
+	else if (opts->keep_pid)
+		memset(&wd->usage, 0, sizeof(wd->usage));
+	else
 		getrusage(RUSAGE_CHILDREN, &wd->usage);
-		ret = UFTRACE_EXIT_UNKNOWN;
-	}
 
 	stop_all_writers();
 	if (opts->kernel)
@@ -1706,7 +1708,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	int pid;
 	int pfd[2];
 	int efd;
-	int ret;
+	int ret = -1;
 
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
@@ -1726,9 +1728,17 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pid < 0)
 		pr_err("cannot start child process");
 
-	if (pid == 0)
-		do_child_exec(pfd, efd, opts, argv);
+	if (pid == 0) {
+		if (opts->keep_pid)
+			ret = do_main_loop(pfd, efd, opts, getppid());
+		else
+			do_child_exec(pfd, efd, opts, argv);
+		return ret;
+	}
 
-	ret = do_main_loop(pfd, efd, opts, pid);
+	if (opts->keep_pid)
+		do_child_exec(pfd, efd, opts, argv);
+	else
+		ret = do_main_loop(pfd, efd, opts, pid);
 	return ret;
 }
