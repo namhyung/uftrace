@@ -227,6 +227,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 static void mtd_dtor(void *arg)
 {
 	struct mcount_thread_data *mtdp = arg;
+	struct uftrace_msg_task tmsg;
 
 	/* this thread is done, do not enter anymore */
 	mtdp->recursion_guard = true;
@@ -239,6 +240,12 @@ static void mtd_dtor(void *arg)
 	mtdp->argbuf = NULL;
 #endif
 	shmem_finish(mtdp);
+
+	tmsg.pid = getpid(),
+	tmsg.tid = gettid(mtdp),
+	tmsg.time = mcount_gettime();
+
+	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
 static void mcount_init_file(void)

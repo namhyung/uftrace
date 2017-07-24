@@ -955,6 +955,24 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		write_task_info(dirname, &tmsg);
 		break;
 
+	case UFTRACE_MSG_TASK_END:
+		if (msg.len != sizeof(tmsg))
+			pr_err_ns("invalid message length\n");
+
+		if (read_all(pfd, &tmsg, sizeof(tmsg)) < 0)
+			pr_err("reading pipe failed");
+
+		pr_dbg2("MSG TASK_END : %d/%d\n", tmsg.pid, tmsg.tid);
+
+		/* mark test exited */
+		list_for_each_entry(pos, &tid_list_head, list) {
+			if (pos->tid == tmsg.tid) {
+				pos->exited = true;
+				break;
+			}
+		}
+		break;
+
 	case UFTRACE_MSG_FORK_START:
 		if (msg.len != sizeof(tmsg))
 			pr_err_ns("invalid message length\n");
@@ -1506,7 +1524,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 		 * order to get proper pid.  Otherwise replay will fail with
 		 * pid of -1.
 		 */
-		if (child_exited && check_tid_list())
+		if (check_tid_list())
 			break;
 
 		pr_dbg2("waiting for FORK2\n");
