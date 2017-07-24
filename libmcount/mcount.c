@@ -138,7 +138,7 @@ const char *session_name(void)
 	return session;
 }
 
-void ftrace_send_message(int type, void *data, size_t len)
+void uftrace_send_message(int type, void *data, size_t len)
 {
 	struct uftrace_msg msg = {
 		.magic = UFTRACE_MSG_MAGIC,
@@ -282,7 +282,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
-	ftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
 
 	update_kernel_tid(tmsg.tid);
 
@@ -851,7 +851,7 @@ static void atfork_prepare_handler(void)
 		.pid = getpid(),
 	};
 
-	ftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
 }
 
 static void atfork_child_handler(void)
@@ -881,7 +881,7 @@ static void atfork_child_handler(void)
 	clear_shmem_buffer(mtdp);
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 
 	update_kernel_tid(tmsg.tid);
 

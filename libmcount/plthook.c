@@ -472,8 +472,8 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	memset(&mtdp->shmem, 0, sizeof(mtdp->shmem));
 	prepare_shmem_buffer(mtdp);
 
-	ftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
-	ftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 
 	update_kernel_tid(tmsg.tid);
 }
