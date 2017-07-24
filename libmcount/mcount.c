@@ -282,7 +282,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
-	uftrace_send_message(UFTRACE_MSG_TASK, &tmsg, sizeof(tmsg));
+	uftrace_send_message(UFTRACE_MSG_TASK_START, &tmsg, sizeof(tmsg));
 
 	update_kernel_tid(tmsg.tid);
 

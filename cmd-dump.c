@@ -107,7 +107,7 @@ static int pr_task(struct opts *opts)
 		}
 
 		switch (msg.type) {
-		case UFTRACE_MSG_TASK:
+		case UFTRACE_MSG_TASK_START:
 			if (fread(&tmsg, sizeof(tmsg), 1, fp) != 1) {
 				pr_red("cannot read task message: %m\n");
 				goto out;
