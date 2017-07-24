@@ -27,6 +27,7 @@ enum trigger_flag {
 	TRIGGER_FL_COLOR	= (1U << 9),
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
 	TRIGGER_FL_READ		= (1U << 11),
+	TRIGGER_FL_FINISH	= (1U << 12),
 };
 
 enum filter_mode {

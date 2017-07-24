@@ -1076,6 +1076,10 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		/* exename will be freed with the dlib */
 		break;
 
+	case UFTRACE_MSG_FINISH:
+		pr_dbg2("MSG FINISH\n");
+		break;
+
 	default:
 		pr_warn("Unknown message type: %u\n", msg.type);
 		break;
@@ -1501,7 +1505,7 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 static int stop_tracing(struct writer_data *wd, struct opts *opts)
 {
 	int status = -1;
-	int ret = UFTRACE_EXIT_UNKNOWN;
+	int ret = UFTRACE_EXIT_SUCCESS;
 
 	/* child finished, read remaining data in the pipe */
 	while (!uftrace_done) {

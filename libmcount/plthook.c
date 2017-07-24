@@ -654,7 +654,13 @@ unsigned long plthook_exit(long *retval)
 	struct mcount_ret_stack *rstack;
 
 	mtdp = get_thread_data();
-	assert(mtdp);
+	if (unlikely(check_thread_data(mtdp))) {
+		/* mcount_finish() called in the middle */
+		if (mcount_should_stop())
+			return mtd.rstack[--mtd.idx].parent_ip;
+
+		assert(mtdp);
+	}
 
 	mtdp->recursion_guard = true;
 
