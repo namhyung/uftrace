@@ -356,8 +356,9 @@ static void save_proc_statm(void *buf)
 	if (fp == NULL)
 		pr_err("failed to open /proc/self/statm");
 
-	fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
-	       &statm->vmsize, &statm->vmrss, &statm->shared);
+	if (fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
+		   &statm->vmsize, &statm->vmrss, &statm->shared) != 3)
+		pr_err("failed to scan /proc/self/statm");
 
 	fclose(fp);
 }

@@ -1464,7 +1464,6 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 	clock_gettime(CLOCK_MONOTONIC, &wd->ts1);
 
 	if (opts->kernel && start_kernel_tracing(&wd->kernel) < 0) {
-		finish_kernel_tracing(&wd->kernel);
 		opts->kernel = false;
 		pr_warn("kernel tracing disabled due to an error\n");
 	}
