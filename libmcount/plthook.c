@@ -67,6 +67,8 @@ ALIAS_DECL(mcount);
 ALIAS_DECL(_mcount);
 ALIAS_DECL(__fentry__);
 ALIAS_DECL(__gnu_mcount_nc);
+ALIAS_DECL(__cyg_profile_func_enter);
+ALIAS_DECL(__cyg_profile_func_exit);
 
 /*
  * The `mcount` (and its friends) are part of uftrace itself,
@@ -86,6 +88,8 @@ static void skip_plt_functions(void)
 		SKIP_FUNC(_mcount),
 		SKIP_FUNC(__fentry__),
 		SKIP_FUNC(__gnu_mcount_nc),
+		SKIP_FUNC(__cyg_profile_func_enter),
+		SKIP_FUNC(__cyg_profile_func_exit),
 	};
 
 #undef SKIP_FUNC
