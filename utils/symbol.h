@@ -94,6 +94,10 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
+typedef struct Elf Elf;
+int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
+				unsigned long offset, unsigned long flags);
+
 void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
