@@ -741,6 +741,9 @@ again:
 
 void plthook_setup(struct symtabs *symtabs)
 {
+	if (plthook_dynsym_resolved)
+		return;
+
 	plthook_dynsym_resolved = xcalloc(sizeof(bool),
 					  count_dynsym(symtabs));
 	plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
