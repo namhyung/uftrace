@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 
 #include "uftrace.h"
-#include "utils/compiler.h"
 #include "utils/list.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"

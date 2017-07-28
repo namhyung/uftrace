@@ -10,7 +10,6 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
-#include "utils/compiler.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
