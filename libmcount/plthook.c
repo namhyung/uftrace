@@ -124,10 +124,17 @@ static void skip_plt_functions(void)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
+__weak int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
+				    unsigned long offset, unsigned long pltgot_addr)
+{
+	return -1;
+}
+
+static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
-	bool found = false;
+	bool plt_found = false;
+	bool bind_now = false;
 	struct sigaction sa, old_sa;
 
 	/*
@@ -150,24 +157,37 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
 			return -1;
 
-		if (dyn.d_tag != DT_PLTGOT)
-			continue;
+		if (dyn.d_tag == DT_PLTGOT)
+			got_addr = (unsigned long)dyn.d_un.d_val + offset;
+		else if (dyn.d_tag == DT_JMPREL)
+			plt_found = true;
+		else if (dyn.d_tag == DT_BIND_NOW)
+			bind_now = true;
+		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
+			bind_now = true;
+	}
 
-		got_addr = (unsigned long)dyn.d_un.d_val + offset;
-		plthook_got_ptr = (void *)got_addr;
+	if (!plt_found && !bind_now) {
+		pr_dbg("no PLT nor BIND-NOW.. ignoring...\n");
+		return 0;
+	}
+
+	plthook_got_ptr = (void *)got_addr;
+
+	if (plt_found) {
 		plthook_resolver_addr = plthook_got_ptr[2];
-
-		overwrite_pltgot(2, plt_hooker);
-
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			plthook_got_ptr, plthook_resolver_addr);
 
-		found = true;
-		break;
+		skip_plt_functions();
 	}
 
-	if (found)
-		skip_plt_functions();
+	overwrite_pltgot(2, plt_hooker);
+
+	if (bind_now) {
+		mcount_arch_undo_bindnow(elf, &symtabs, offset,
+					 (unsigned long)plthook_got_ptr);
+	}
 
 	/* restore the original signal handler */
 	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
@@ -230,7 +250,7 @@ int hook_pltgot(char *exename, unsigned long offset)
 		if (data == NULL)
 			goto elf_error;
 
-		if (find_got(data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
+		if (find_got(elf, data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
 			goto elf_error;
 	}
 	ret = 0;
