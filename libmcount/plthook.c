@@ -60,6 +60,17 @@ static void overwrite_pltgot(int idx, void *data)
 		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
+unsigned long setup_pltgot(int got_idx, int sym_idx, void *data)
+{
+	unsigned long real_addr = plthook_got_ptr[got_idx];
+
+	plthook_dynsym_addr[sym_idx] = real_addr;
+	plthook_dynsym_resolved[sym_idx] = true;
+
+	overwrite_pltgot(got_idx, data);
+	return real_addr;
+}
+
 /* use weak reference for non-defined (arch-dependent) symbols */
 #define ALIAS_DECL(_sym)  extern __weak void (*uftrace_##_sym)(void);
 
@@ -511,22 +522,15 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 
 static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
 {
-	unsigned long new_addr;
-
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			new_addr = plthook_got_ptr[3 + dyn_idx];
-			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
+		if (!plthook_dynsym_resolved[dyn_idx])
+			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)mtdp->plthook_addr);
 
-			plthook_dynsym_addr[dyn_idx] = new_addr;
-			plthook_dynsym_resolved[dyn_idx] = true;
-		}
 #ifndef SINGLE_THREAD
 		pthread_mutex_unlock(&resolver_mutex);
 #endif
