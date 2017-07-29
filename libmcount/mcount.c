@@ -473,6 +473,22 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			}
 		}
 
+		/* script hooking for function entry */
+		if (SCRIPT_ENABLED && script_str) {
+			unsigned long entry_addr = rstack->child_ip;
+			struct sym *sym = find_symtabs(&symtabs, entry_addr);
+			char *symname = symbol_getname(sym, entry_addr);
+			struct script_args sc_args = {
+				.tid = gettid(mtdp),
+				.depth = rstack->depth,
+				.timestamp = rstack->start_time,
+				.address = entry_addr,
+				.symname = symname,
+			};
+			script_uftrace_entry(&sc_args);
+			symbol_putname(sym, symname);
+		}
+
 #define FLAGS_TO_CHECK  (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
 
 		if (tr->flags & FLAGS_TO_CHECK) {
@@ -530,6 +546,24 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
+		}
+
+		/* script hooking for function exit */
+		if (SCRIPT_ENABLED && script_str) {
+			uint64_t duration = rstack->end_time - rstack->start_time;
+			unsigned long entry_addr = rstack->child_ip;
+			struct sym *sym = find_symtabs(&symtabs, entry_addr);
+			char *symname = symbol_getname(sym, entry_addr);
+			struct script_args sc_args = {
+				.tid = gettid(mtdp),
+				.depth = rstack->depth,
+				.timestamp = rstack->end_time,
+				.duration = duration,
+				.address = entry_addr,
+				.symname = symname,
+			};
+			script_uftrace_exit(&sc_args);
+			symbol_putname(sym, symname);
 		}
 	}
 }
@@ -1178,6 +1212,11 @@ out:
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
+
+	/* initialize script binding */
+	if (SCRIPT_ENABLED && script_str)
+		if (script_init(script_str) < 0)
+            script_str = NULL;
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter_module(&modules);
