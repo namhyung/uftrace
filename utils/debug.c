@@ -256,25 +256,28 @@ void print_time_unit(uint64_t delta_nsec)
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
-	double percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
-	char *color = percent > 20 ? TERM_COLOR_RED :
-		percent > 3 ? TERM_COLOR_MAGENTA :
-		percent < -20 ? TERM_COLOR_BLUE :
-		percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+	double percent = 999.99;
+	const char *sc = TERM_COLOR_NORMAL;
+	const char *ec = TERM_COLOR_NORMAL;
 
-	if (percent == 0) {
-		pr_out(" %7s ", "");
-		return;
-	}
+	if (base_nsec)
+		percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
 
 	/* for some error cases */
 	if (percent > 999.99)
 		percent = 999.99;
+	else if (percent < -999.99)
+		percent = -999.99;
 
-	if (out_color == COLOR_ON)
-		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
-	else
-		pr_out(" %+7.2f%%", percent);
+	if (out_color == COLOR_ON) {
+		sc = percent > 30 ? TERM_COLOR_RED :
+			percent > 3 ? TERM_COLOR_MAGENTA :
+			percent < -30 ? TERM_COLOR_BLUE :
+			percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+		ec = TERM_COLOR_RESET;
+	}
+
+	pr_out("%s%+7.2f%s%%", sc, percent, ec);
 }
 
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
