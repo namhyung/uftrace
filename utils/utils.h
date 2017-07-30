@@ -237,6 +237,7 @@ char *read_exename(void);
 
 void print_time_unit(uint64_t delta_nsec);
 void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
+void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec);
 
 void start_pager(void);
 void wait_for_pager(void);

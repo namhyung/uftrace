@@ -31,6 +31,9 @@ struct trace_entry {
 	struct rb_node link;
 };
 
+/* show percentage rather than value of diff */
+static bool diff_percent = true;
+
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
@@ -264,11 +267,21 @@ static int cmp_diff_##_field(struct trace_entry *a,			\
 			     int sort_column)				\
 {									\
 	double pcnt_a, pcnt_b;						\
+	int64_t diff_a, diff_b;						\
 									\
 	if (sort_column != 2) {						\
 		if (a->_field == b->_field)				\
 			return 0;					\
 		return a->_field > b->_field ? 1 : -1;			\
+	}								\
+									\
+	if (!diff_percent) {						\
+		diff_a = a->pair->_field - a->_field;			\
+		diff_b = b->pair->_field - b->_field;			\
+									\
+		if (diff_a == diff_b)					\
+			return 0;					\
+		return diff_a > diff_b ? 1: -1;				\
 	}								\
 									\
 	pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;		\
@@ -294,18 +307,30 @@ static int cmp_diff_nr_called(struct trace_entry *a,
 			      struct trace_entry *b,
 			      int sort_column)
 {
-	long call_diff_a = a->pair->nr_called - a->nr_called;
-	long call_diff_b = b->pair->nr_called - b->nr_called;
+	long call_diff_a, call_diff_b;
+	double pcnt_a, pcnt_b;
 
-	if (call_diff_a == call_diff_b) {
-		/* call count used to same, compare original count then */
+	if (sort_column != 2) {
 		if (a->nr_called == b->nr_called)
 			return 0;
-
 		return a->nr_called > b->nr_called ? 1 : -1;
 	}
 
-	return call_diff_a > call_diff_b ? 1 : -1;
+	if (!diff_percent) {
+		call_diff_a = a->pair->nr_called - a->nr_called;
+		call_diff_b = b->pair->nr_called - b->nr_called;
+
+		if (call_diff_a == call_diff_b)
+			return 0;
+		return a->nr_called > b->nr_called ? 1 : -1;
+	}
+
+	pcnt_a = 100.0 * a->pair->nr_called / a->nr_called;
+	pcnt_b = 100.0 * b->pair->nr_called / b->nr_called;
+
+	if (pcnt_a == pcnt_b)
+		return 0;
+	return pcnt_a > pcnt_b ? 1 : -1;
 }
 
 static struct sort_item sort_diff_nr_called = {
@@ -341,14 +366,26 @@ static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
 	uint64_t b_time = b->time_total - b->time_recursive;
 	uint64_t a_pair_time = a->pair->time_total - a->pair->time_recursive;
 	uint64_t b_pair_time = b->pair->time_total - b->pair->time_recursive;
-	double a_pcnt = 100.0 * a_pair_time / a_time;
-	double b_pcnt = 100.0 * b_pair_time / b_time;
+	int64_t a_diff, b_diff;
+	double a_pcnt, b_pcnt;
 
 	if (sort_column != 2) {
 		if (a_time == b_time)
 			return 0;
 		return a_time > b_time ? 1 : -1;
 	}
+
+	if (!diff_percent) {
+		a_diff = a_pair_time - a_time;
+		b_diff = b_pair_time - b_time;
+
+		if (a_diff == b_diff)
+			return 0;
+		return a_diff > b_diff ? 1 : -1;
+	}
+
+	a_pcnt = 100.0 * a_pair_time / a_time;
+	b_pcnt = 100.0 * b_pair_time / b_time;
 
 	if (a_pcnt == b_pcnt)
 		return 0;
@@ -878,15 +915,24 @@ static void print_diff(struct trace_entry *entry)
 		pr_out("  ");
 		print_time_unit(pair->time_total - pair->time_recursive);
 		pr_out(" ");
-		print_diff_percent(entry->time_total - entry->time_recursive,
-				   pair->time_total - pair->time_recursive);
+
+		if (diff_percent)
+			print_diff_percent(entry->time_total - entry->time_recursive,
+					   pair->time_total - pair->time_recursive);
+		else
+			print_diff_time_unit(entry->time_total - entry->time_recursive,
+					     pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
 		print_time_unit(entry->time_self);
 		pr_out("  ");
 		print_time_unit(pair->time_self);
 		pr_out(" ");
-		print_diff_percent(entry->time_self, pair->time_self);
+
+		if (diff_percent)
+			print_diff_percent(entry->time_self, pair->time_self);
+		else
+			print_diff_time_unit(entry->time_self, pair->time_self);
 
 		pr_out("    %9lu  %9lu  %+9ld   %-s\n",
 		       entry->nr_called, pair->nr_called,

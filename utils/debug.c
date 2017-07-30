@@ -169,9 +169,9 @@ void __pr_color(char code, const char *fmt, ...)
 	color(TERM_COLOR_RESET, outfp);
 }
 
-void print_time_unit(uint64_t delta_nsec)
+static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
-	uint64_t delta = delta_nsec;
+	uint64_t delta = abs(delta_nsec);
 	uint64_t delta_small = 0;
 	char *units[] = { "us", "ms", " s", " m", " h", };
 	char *color_units[] = {
@@ -209,7 +209,49 @@ void print_time_unit(uint64_t delta_nsec)
 	else
 		unit = units[idx];
 
-	pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+	if (needs_sign) {
+		const char *signs[] = { "+", "-" };
+		const char *color_signs[] = {
+			TERM_COLOR_RED     "+",
+			TERM_COLOR_MAGENTA "+",
+			TERM_COLOR_NORMAL  "+",
+			TERM_COLOR_BLUE    "-",
+			TERM_COLOR_CYAN    "-",
+			TERM_COLOR_NORMAL  "-",
+		};
+		int sign_idx = (delta_nsec > 0);
+		int indent = (delta >= 100) ? 0 : (delta >= 10) ? 1 : 2;
+		const char *sign = signs[sign_idx];
+		const char *ends = TERM_COLOR_NORMAL;
+
+		if (out_color == COLOR_ON) {
+			if (delta_nsec >= 100000)
+				sign_idx = 0;
+			else if (delta_nsec >= 5000)
+				sign_idx = 1;
+			else if (delta_nsec > 0)
+				sign_idx = 2;
+			else if (delta_nsec <= -100000)
+				sign_idx = 3;
+			else if (delta_nsec <= -5000)
+				sign_idx = 4;
+			else
+				sign_idx = 5;
+
+			sign = color_signs[sign_idx];
+			ends = TERM_COLOR_RESET;
+		}
+
+		pr_out("%*s%s%"PRId64".%03"PRIu64"%s %s", indent, "",
+		       sign, delta, delta_small, ends, unit);
+	}
+	else
+		pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+}
+
+void print_time_unit(uint64_t delta_nsec)
+{
+	__print_time_unit(delta_nsec, false);
 }
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
@@ -233,4 +275,9 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
 	else
 		pr_out(" %+7.2f%%", percent);
+}
+
+void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
+{
+	__print_time_unit(pair_nsec - base_nsec, true);
 }
