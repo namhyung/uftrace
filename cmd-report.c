@@ -37,6 +37,9 @@ static struct trace_entry dummy_entry;
 /* show percentage rather than value of diff */
 static bool diff_percent = true;
 
+/* calculate diff using absolute values */
+static bool diff_absolute = false;
+
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
@@ -284,6 +287,11 @@ static int cmp_diff_##_field(struct trace_entry *a,			\
 	if (!diff_percent) {						\
 		if (diff_a == diff_b)					\
 			return 0;					\
+									\
+		if (diff_absolute) {					\
+			diff_a = abs(diff_a);				\
+			diff_b = abs(diff_b);				\
+		}							\
 		return diff_a > diff_b ? 1: -1;				\
 	}								\
 									\
@@ -292,6 +300,11 @@ static int cmp_diff_##_field(struct trace_entry *a,			\
 									\
 	if (pcnt_a == pcnt_b)						\
 		return 0;						\
+									\
+	if (diff_absolute) {						\
+		pcnt_a = (pcnt_a > 0) ? pcnt_a : -pcnt_a;		\
+		pcnt_b = (pcnt_b > 0) ? pcnt_b : -pcnt_b;		\
+	}								\
 	return pcnt_a > pcnt_b ? 1: -1;					\
 }									\
 static struct sort_item sort_diff_##_field = {				\
@@ -325,6 +338,11 @@ static int cmp_diff_nr_called(struct trace_entry *a,
 	if (!diff_percent) {
 		if (call_diff_a == call_diff_b)
 			return 0;
+
+		if (diff_absolute) {
+			call_diff_a = abs(call_diff_a);
+			call_diff_b = abs(call_diff_b);
+		}
 		return call_diff_a > call_diff_b ? 1 : -1;
 	}
 
@@ -333,6 +351,11 @@ static int cmp_diff_nr_called(struct trace_entry *a,
 
 	if (pcnt_a == pcnt_b)
 		return 0;
+
+	if (diff_absolute) {
+		pcnt_a = (pcnt_a > 0) ? pcnt_a : -pcnt_a;
+		pcnt_b = (pcnt_b > 0) ? pcnt_b : -pcnt_b;
+	}
 	return pcnt_a > pcnt_b ? 1 : -1;
 }
 
@@ -384,6 +407,11 @@ static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
 	if (!diff_percent) {
 		if (a_diff == b_diff)
 			return 0;
+
+		if (diff_absolute) {
+			a_diff = abs(a_diff);
+			b_diff = abs(b_diff);
+		}
 		return a_diff > b_diff ? 1 : -1;
 	}
 
@@ -392,6 +420,11 @@ static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
 
 	if (a_pcnt == b_pcnt)
 		return 0;
+
+	if (diff_absolute) {
+		a_pcnt = (a_pcnt > 0) ? a_pcnt : -a_pcnt;
+		b_pcnt = (b_pcnt > 0) ? b_pcnt : -b_pcnt;
+	}
 	return a_pcnt > b_pcnt ? 1 : -1;
 }
 
