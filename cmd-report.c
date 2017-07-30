@@ -908,19 +908,27 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 	}
 }
 
+#define NODATA "-"
+
+static void print_time_or_dash(uint64_t time_nsec)
+{
+	if (time_nsec)
+		print_time_unit(time_nsec);
+	else
+		pr_out("%10s", NODATA);
 }
 
-static void print_diff(struct trace_entry *entry)
+static void print_function_diff(struct trace_entry *entry)
 {
 	char *symname = symbol_getname(entry->sym, entry->addr);
 	struct trace_entry *pair = entry->pair;
 
 	if (avg_mode == AVG_NONE) {
 		pr_out("  ");
-		print_time_unit(entry->time_total - entry->time_recursive);
+		print_time_or_dash(entry->time_total - entry->time_recursive);
 		pr_out("  ");
-		print_time_unit(pair->time_total - pair->time_recursive);
-		pr_out(" ");
+		print_time_or_dash(pair->time_total - pair->time_recursive);
+		pr_out("  ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_total - entry->time_recursive,
@@ -930,10 +938,10 @@ static void print_diff(struct trace_entry *entry)
 					     pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
-		print_time_unit(entry->time_self);
+		print_time_or_dash(entry->time_self);
 		pr_out("  ");
-		print_time_unit(pair->time_self);
-		pr_out(" ");
+		print_time_or_dash(pair->time_self);
+		pr_out("  ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_self, pair->time_self);
@@ -948,14 +956,14 @@ static void print_diff(struct trace_entry *entry)
 		print_time_unit(entry->time_avg);
 		pr_out("  ");
 		print_time_unit(pair->time_avg);
-		pr_out(" ");
+		pr_out("  ");
 		print_diff_percent(entry->time_avg, pair->time_avg);
 
 		pr_out("   ");
 		print_time_unit(entry->time_min);
 		pr_out("  ");
 		print_time_unit(pair->time_min);
-		pr_out(" ");
+		pr_out("  ");
 		print_diff_percent(entry->time_min, pair->time_min);
 
 		pr_out("   ");
@@ -985,8 +993,18 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root tmp = RB_ROOT;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
-	const char format[] = "  %32.32s   %32.32s   %32.32s   %-s\n";
-	const char line[] = "====================================";
+	const char *formats[] = {
+		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
+		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
+	};
+	const char line[] = "================================================";
+	const char *headers[][3] = {
+		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
+		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
+		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
+	};
+	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
+	int f_idx = diff_percent ? 1 : 0;
 
 	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
@@ -1008,20 +1026,10 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
 	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
+	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2], "Function");
+	pr_out(formats[f_idx], line, line, line, line);
 
-	if (avg_mode == AVG_NONE)
-		pr_out(format, "Total time (diff)", "Self time (diff)",
-		       "Nr. called (diff)", "Function");
-	else if (avg_mode == AVG_TOTAL)
-		pr_out(format, "Avg total (diff)", "Min total (diff)",
-		       "Max total (diff)", "Function");
-	else if (avg_mode == AVG_SELF)
-		pr_out(format, "Avg self (diff)", "Min self (diff)",
-		       "Max self (diff)", "Function");
-
-	pr_out(format, line, line, line, line);
-
-	print_and_delete(&diff_tree, print_diff);
+	print_and_delete(&diff_tree, print_function_diff);
 
 out:
 	close_data_file(&dummy_opts, &data.handle);

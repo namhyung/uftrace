@@ -186,6 +186,8 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 	unsigned idx;
 
 	if (delta_nsec == 0UL) {
+		if (needs_sign)
+			pr_out(" ");
 		pr_out("%7s %2s", "", "");
 		return;
 	}
@@ -282,5 +284,8 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
 {
-	__print_time_unit(pair_nsec - base_nsec, true);
+	if (base_nsec == pair_nsec)
+		pr_out("%11s", "0 us");
+	else
+		__print_time_unit(pair_nsec - base_nsec, true);
 }
