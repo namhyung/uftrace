@@ -802,6 +802,7 @@ int main(int argc, char *argv[])
 		.comment	= true,
 		.kernel_skip_out= true,
 		.fields         = NULL,
+		.sort_column	= 2,
 	};
 	struct argp argp = {
 		.options = uftrace_options,
