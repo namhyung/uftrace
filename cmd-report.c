@@ -855,11 +855,12 @@ static void print_diff(struct trace_entry *entry)
 
 	if (avg_mode == AVG_NONE) {
 		pr_out("  ");
-		print_time_unit(entry->time_total);
+		print_time_unit(entry->time_total - entry->time_recursive);
 		pr_out("  ");
-		print_time_unit(pair->time_total);
+		print_time_unit(pair->time_total - pair->time_recursive);
 		pr_out(" ");
-		print_diff_percent(entry->time_total, pair->time_total);
+		print_diff_percent(entry->time_total - entry->time_recursive,
+				   pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
 		print_time_unit(entry->time_self);
