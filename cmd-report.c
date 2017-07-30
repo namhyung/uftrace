@@ -35,10 +35,10 @@ struct trace_entry {
 static struct trace_entry dummy_entry;
 
 /* show percentage rather than value of diff */
-static bool diff_percent = true;
+static bool diff_percent = false;
 
 /* calculate diff using absolute values */
-static bool diff_absolute = false;
+static bool diff_absolute = true;
 
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
@@ -1068,6 +1068,29 @@ out:
 	close_data_file(&dummy_opts, &data.handle);
 }
 
+static void apply_diff_policy(char *policy)
+{
+	char *str = xstrdup(policy);
+	char *p, *tmp = policy;
+
+	while ((p = strtok(tmp, ",")) != NULL) {
+		bool on = true;
+
+		if (!strncmp(p, "no-", 3)) {
+			on = false;
+			p += 3;
+		}
+
+		if (!strncmp(p, "abs", 3))
+			diff_absolute = on;
+		else if (!strncmp(p, "percent", 7))
+			diff_percent = on;
+
+		tmp = NULL;
+	}
+	free(str);
+}
+
 int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -1101,6 +1124,9 @@ int command_report(int argc, char *argv[], struct opts *opts)
 			list_add(&sort_diff_time_avg.list, &diff_sort_list);
 		}
 	}
+
+	if (opts->diff_policy)
+		apply_diff_policy(opts->diff_policy);
 
 	if (opts->report_thread)
 		report_threads(&handle, opts);

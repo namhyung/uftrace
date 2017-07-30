@@ -67,6 +67,9 @@ OPTIONS
 -r *RANGE*, \--time-range=*RANGE*
 :   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively in `uftrace replay`(1).
 
+\--diff-policy=*POLICY*
+:   Apply custom diff policy.  Available values are: "abs", "no-abs", "percent", "no-percent".  The "abs" is to sort diff result using absolute value so positvie and negative entries can be shown together while "no-abs" will show positive entries first and then negative ones.  The "percent" is to show diff in percentage while "no-percent" is to show the values.  The default is "abs" and "no-percent".
+
 
 EXAMPLE
 =======
