@@ -263,8 +263,16 @@ static int cmp_diff_##_field(struct trace_entry *a,			\
 			     struct trace_entry *b,			\
 			     int sort_column)				\
 {									\
-	double pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;	\
-	double pcnt_b = 100.0 * (int64_t) b->pair->_field / b->_field;	\
+	double pcnt_a, pcnt_b;						\
+									\
+	if (sort_column != 2) {						\
+		if (a->_field == b->_field)				\
+			return 0;					\
+		return a->_field > b->_field ? 1 : -1;			\
+	}								\
+									\
+	pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;		\
+	pcnt_b = 100.0 * (int64_t) b->pair->_field / b->_field;		\
 									\
 	if (pcnt_a == pcnt_b)						\
 		return 0;						\
@@ -335,6 +343,12 @@ static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
 	uint64_t b_pair_time = b->pair->time_total - b->pair->time_recursive;
 	double a_pcnt = 100.0 * a_pair_time / a_time;
 	double b_pcnt = 100.0 * b_pair_time / b_time;
+
+	if (sort_column != 2) {
+		if (a_time == b_time)
+			return 0;
+		return a_time > b_time ? 1 : -1;
+	}
 
 	if (a_pcnt == b_pcnt)
 		return 0;
