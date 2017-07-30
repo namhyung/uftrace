@@ -238,13 +238,14 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 struct sort_item {
 	const char *name;
-	int (*cmp)(struct trace_entry *a, struct trace_entry *b);
+	int (*cmp)(struct trace_entry *a, struct trace_entry *b, int column);
 	int avg_mode;
 	struct list_head list;
 };
 
 #define SORT_ITEM_BASE(_name, _field, _mode)				\
-static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
+static int cmp_##_field(struct trace_entry *a, struct trace_entry *b,	\
+		int sort_column)					\
 {									\
 	if (a->_field == b->_field)					\
 		return 0;						\
@@ -259,7 +260,8 @@ static struct sort_item sort_##_field = {				\
 
 #define SORT_ITEM_DIFF(_name, _field, _mode)				\
 static int cmp_diff_##_field(struct trace_entry *a,			\
-			     struct trace_entry *b)			\
+			     struct trace_entry *b,			\
+			     int sort_column)				\
 {									\
 	double pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;	\
 	double pcnt_b = 100.0 * (int64_t) b->pair->_field / b->_field;	\
@@ -281,7 +283,8 @@ static struct sort_item sort_diff_##_field = {				\
 
 /* call count is not shown as percentage */
 static int cmp_diff_nr_called(struct trace_entry *a,
-			      struct trace_entry *b)
+			      struct trace_entry *b,
+			      int sort_column)
 {
 	long call_diff_a = a->pair->nr_called - a->nr_called;
 	long call_diff_b = b->pair->nr_called - b->nr_called;
@@ -305,7 +308,8 @@ static struct sort_item sort_diff_nr_called = {
 };
 
 /* exclude recursive time from total time */
-static int cmp_time_total(struct trace_entry *a, struct trace_entry *b)
+static int cmp_time_total(struct trace_entry *a, struct trace_entry *b,
+			  int sort_column)
 {
 	uint64_t a_time = a->time_total - a->time_recursive;
 	uint64_t b_time = b->time_total - b->time_recursive;
@@ -322,7 +326,8 @@ static struct sort_item sort_time_total = {
 	LIST_HEAD_INIT(sort_time_total.list)
 };
 
-static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b)
+static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
+			       int sort_column)
 {
 	uint64_t a_time = a->time_total - a->time_recursive;
 	uint64_t b_time = b->time_total - b->time_recursive;
@@ -377,7 +382,7 @@ static int cmp_entry(struct trace_entry *a, struct trace_entry *b)
 	struct sort_item *item;
 
 	list_for_each_entry(item, &sort_list, list) {
-		ret = item->cmp(a, b);
+		ret = item->cmp(a, b, 0);
 		if (ret)
 			return ret;
 	}
@@ -416,7 +421,7 @@ static int cmp_diff_entry(struct trace_entry *a, struct trace_entry *b,
 	}
 
 	list_for_each_entry(item, sort_list_head, list) {
-		ret = item->cmp(entry_a, entry_b);
+		ret = item->cmp(entry_a, entry_b, sort_column);
 		if (ret)
 			return ret;
 	}
