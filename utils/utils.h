@@ -249,4 +249,8 @@ char * strjoin(char *left, char *right, char *delim);
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
 
+struct ftrace_file_handle;
+
+char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
+
 #endif /* __FTRACE_UTILS_H__ */

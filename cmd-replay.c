@@ -328,48 +328,40 @@ static void print_event(struct ftrace_task_handle *task,
 			struct uftrace_record *urec,
 			int color)
 {
-	struct event_format *event;
 	unsigned evt_id = urec->addr;
+	char *evt_name = get_event_name(task->h, evt_id);
 
 	if (evt_id >= EVENT_ID_USER) {
-		struct uftrace_event *ev;
-
-		list_for_each_entry(ev, &task->h->events, list) {
-			if (ev->id == evt_id) {
-				pr_color(color, "%s:%s", ev->provider, ev->event);
-				return;
-			}
-		}
-		pr_color(color, "user_event:%u", evt_id);
-		return;
+		/* TODO: some events might have arguments */
+		pr_color(color, "%s", evt_name);
 	}
-
-	if (evt_id >= EVENT_ID_BUILTIN) {
+	else if (evt_id >= EVENT_ID_BUILTIN) {
 		struct uftrace_proc_statm *statm;
 		struct uftrace_page_fault *page_fault;
 
 		switch (evt_id) {
 		case EVENT_ID_PROC_STATM:
 			statm = task->args.data;
-			pr_color(color, "read:proc/statm (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
-				 statm->vmsize, statm->vmrss, statm->shared);
+			pr_color(color, "%s (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
+				 evt_name, statm->vmsize, statm->vmrss, statm->shared);
 			return;
 		case EVENT_ID_PAGE_FAULT:
 			page_fault = task->args.data;
-			pr_color(color, "read:page-fault (major=%"PRIu64", minor=%"PRIu64")",
-				 page_fault->major, page_fault->minor);
+			pr_color(color, "%s (major=%"PRIu64", minor=%"PRIu64")",
+				 evt_name, page_fault->major, page_fault->minor);
 			return;
 		default:
+			pr_color(color, "%s", evt_name);
 			break;
 		}
-		pr_color(color, "builtin_event:%u", evt_id);
 		return;
 	}
-
-	/* kernel events */
-	event = pevent_find_event(task->h->kernel->pevent, evt_id);
-	pr_color(color, "%s:%s (%.*s)", event->system, event->name,
-		 task->args.len, task->args.data);
+	else {
+		/* kernel events */
+		pr_color(color, "%s (%.*s)", evt_name,
+			 task->args.len, task->args.data);
+	}
+	free(evt_name);
 }
 
 static int print_flat_rstack(struct ftrace_file_handle *handle,

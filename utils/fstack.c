@@ -282,7 +282,7 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 }
 
 static const char *fixup_syms[] = {
-	"execl", "execlp", "execle", "execv", "execvp", "execvpe",
+	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
 	"setjmp", "_setjmp", "sigsetjmp", "__sigsetjmp",
 	"longjmp", "siglongjmp", "__longjmp_chk",
 	"fork", "vfork", "daemon",
