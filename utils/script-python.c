@@ -47,7 +47,7 @@ static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
 static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
-static PyObject *pName, *pModule, *pFuncEntry, *pFuncExit;
+static PyObject *pName, *pModule, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
 extern struct symtabs symtabs;
 
@@ -198,6 +198,17 @@ int python_uftrace_exit(struct script_args *sc_args)
 	return 0;
 }
 
+int python_uftrace_end(void)
+{
+	if (unlikely(!pFuncEnd))
+		return -1;
+
+	/* Call python function "uftrace_end". */
+	__PyObject_CallObject(pFuncEnd, NULL);
+
+	return 0;
+}
+
 int script_init_for_python(char *py_pathname)
 {
 	pr_dbg("initialize python\n");
@@ -205,6 +216,7 @@ int script_init_for_python(char *py_pathname)
 	/* Bind script_uftrace functions to python's. */
 	script_uftrace_entry = python_uftrace_entry;
 	script_uftrace_exit = python_uftrace_exit;
+	script_uftrace_end = python_uftrace_end;
 
 	python_handle = dlopen(libpython, RTLD_LAZY);
 	if (!python_handle) {
@@ -245,6 +257,12 @@ int script_init_for_python(char *py_pathname)
 	if (import_python_module(py_pathname) < 0)
 		return -1;
 
+
+	/* Call python function "uftrace_begin" immediately if possible. */
+	PyObject *pFuncBegin = __PyObject_GetAttrString(pModule, "uftrace_begin");
+	if (pFuncBegin && __PyCallable_Check(pFuncBegin))
+		__PyObject_CallObject(pFuncBegin, NULL);
+
 	pFuncEntry = __PyObject_GetAttrString(pModule, "uftrace_entry");
 	if (!pFuncEntry || !__PyCallable_Check(pFuncEntry)) {
 		if (__PyErr_Occurred())
@@ -258,6 +276,11 @@ int script_init_for_python(char *py_pathname)
 			__PyErr_Print();
 		pr_dbg("uftrace_exit is not callable!\n");
 		pFuncExit = NULL;
+	}
+	pFuncEnd = __PyObject_GetAttrString(pModule, "uftrace_end");
+	if (!pFuncEnd || !__PyCallable_Check(pFuncEnd)) {
+		pr_dbg("uftrace_end is not callable!\n");
+		pFuncEnd = NULL;
 	}
 
 	pr_dbg("script_init_for_python for \"%s.py\" is done!\n", py_pathname);

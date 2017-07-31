@@ -16,6 +16,7 @@ char *script_str;
 /* The below functions are used both in record time and script command. */
 script_uftrace_entry_t script_uftrace_entry;
 script_uftrace_exit_t script_uftrace_exit;
+script_uftrace_end_t script_uftrace_end;
 
 static enum script_type_t get_script_type(const char *str)
 {

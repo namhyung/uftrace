@@ -156,6 +156,9 @@ int command_script(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
+	/* dtor for script support */
+	script_uftrace_end();
+
 	close_data_file(opts, &handle);
 
 	return ret;

@@ -252,6 +252,10 @@ static void mtd_dtor(void *arg)
 	tmsg.tid = gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
+	/* dtor for script support */
+	if (SCRIPT_ENABLED && script_str)
+		script_uftrace_end();
+
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
