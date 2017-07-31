@@ -381,6 +381,32 @@ static void pr_retval(struct fstack_arguments *args)
 	}
 }
 
+static void pr_event(int eid, void *ptr, int len)
+{
+	union {
+		struct uftrace_proc_statm *statm;
+		struct uftrace_page_fault *pgfault;
+	} d;
+
+	/* built-in events */
+	switch (eid) {
+	case EVENT_ID_PROC_STATM:
+		d.statm = ptr;
+		pr_out("  proc/statm: vmsize=%"PRIu64"K vmrss=%"PRIu64"K shared=%"PRIu64"K\n",
+		       d.statm->vmsize, d.statm->vmrss, d.statm->shared);
+		break;
+	case EVENT_ID_PAGE_FAULT:
+		d.pgfault = ptr;
+		pr_out("  page-fault: major=%"PRIu64" minor=%"PRIu64"\n",
+		       d.pgfault->major, d.pgfault->minor);
+		break;
+	default:
+		break;
+	}
+
+	/* user events */
+}
+
 static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
 {
 	int i;
@@ -485,6 +511,14 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 			pr_out("%5d: [%s] length = %d\n", task->tid, "retval",
 			       task->args.len);
 			pr_retval(&task->args);
+			pr_hex(&raw->file_offset, task->args.data,
+			       ALIGN(task->args.len, 8));
+		}
+		else if (frs->type == UFTRACE_EVENT) {
+			pr_time(frs->time);
+			pr_out("%5d: [%s] length = %d\n", task->tid, "data ",
+			       task->args.len);
+			pr_event(frs->addr, task->args.data, task->args.len);
 			pr_hex(&raw->file_offset, task->args.data,
 			       ALIGN(task->args.len, 8));
 		}
@@ -647,6 +681,9 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_record *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+
+	if (frs->type == UFTRACE_EVENT)
+		return;
 
 	if (chrome->last_comma)
 		pr_out(",\n");
@@ -937,6 +974,8 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 		node = add_fg_node(node, name);
 	else if (frs->type == UFTRACE_EXIT)
 		node = add_fg_time(node, task, flame->sample_time);
+	else if (frs->type == UFTRACE_EVENT)
+		node = t->node;  /* skip event records */
 	else
 		node = &fg_root;
 
