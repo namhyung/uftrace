@@ -112,7 +112,25 @@ This command shows information like the following:
       21959  178.118 us           6  main
 
     $ uftrace record abc
-    $ uftrace report --diff uftrace.data.old
+
+    $ uftrace report --diff uftrace.data.old -s self
+    #
+    # uftrace diff
+    #  [0] base: uftrace.data       (from uftrace record abc )
+    #  [1] diff: uftrace.data.old   (from uftrace record abc )
+    #
+                        Total time (diff)                      Self time (diff)                  Nr. called (diff)   Function
+      ===================================   ===================================   ================================   ====================================
+        0.920 us    0.789 us    -0.131 us     0.920 us    0.789 us    -0.131 us            1          1         +0   __cxa_atexit
+        1.657 us    1.506 us    -0.151 us     0.890 us    0.800 us    -0.090 us            1          1         +0   c
+        2.409 us    2.146 us    -0.263 us     0.342 us    0.272 us    -0.070 us            1          1         +0   a
+        0.767 us    0.706 us    -0.061 us     0.767 us    0.706 us    -0.061 us            1          1         +0   getpid
+        2.067 us    1.874 us    -0.193 us     0.410 us    0.368 us    -0.042 us            1          1         +0   b
+        2.812 us    2.511 us    -0.301 us     0.403 us    0.365 us    -0.038 us            1          1         +0   main
+
+In the above example, the result was sorted by absolute value of differences of self time.
+
+    $ uftrace report --diff uftrace.data.old --sort-column 0 --diff-policy percent
     #
     # uftrace diff
     #  [0] base: uftrace.data       (from uftrace record abc )
@@ -127,22 +145,7 @@ This command shows information like the following:
         0.920 us    0.789 us   -14.24%     0.920 us    0.789 us   -14.24%            1          1         +0   __cxa_atexit
         0.767 us    0.706 us    -7.95%     0.767 us    0.706 us    -7.95%            1          1         +0   getpid
 
-    $ uftrace report --diff uftrace.data.old -s self --sort-column 2
-    #
-    # uftrace diff
-    #  [0] base: uftrace.data       (from uftrace record abc )
-    #  [1] diff: uftrace.data.old   (from uftrace record abc )
-    #
-                     Total time (diff)                   Self time (diff)                  Nr. called (diff)   Function
-      ================================   ================================   ================================   ====================================
-        0.767 us    0.706 us    -7.95%     0.767 us    0.706 us    -7.95%            1          1         +0   getpid
-        2.812 us    2.511 us   -10.70%     0.403 us    0.365 us    -9.43%            1          1         +0   main
-        1.657 us    1.506 us    -9.11%     0.890 us    0.800 us   -10.11%            1          1         +0   c
-        2.067 us    1.874 us    -9.34%     0.410 us    0.368 us   -10.24%            1          1         +0   b
-        0.920 us    0.789 us   -14.24%     0.920 us    0.789 us   -14.24%            1          1         +0   __cxa_atexit
-        2.409 us    2.146 us   -10.92%     0.342 us    0.272 us   -20.47%            1          1         +0   a
-
-In the above example, the result was sorted by percentage of difference of self times.
+In the above example, the result was sorted by total time of the base data.
 
 
 SEE ALSO
