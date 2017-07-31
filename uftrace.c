@@ -961,11 +961,12 @@ TEST_CASE(option_parsing2)
 		"-Abaz@kernel",
 	};
 	int argc = ARRAY_SIZE(argv);
+	int saved_debug = debug;
 	
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
-	TEST_EQ(debug, 1);
+	TEST_EQ(debug, saved_debug + 1);
 	TEST_EQ(opts.kernel, 1);
 	TEST_EQ(opts.threshold, (uint64_t)1000);
 	TEST_STREQ(opts.dirname, "abc.data");
@@ -992,6 +993,7 @@ TEST_CASE(option_parsing3)
 	int file_argc;
 	char **file_argv;
 	FILE *fp;
+	int saved_debug = debug;
 
 	/* create opt-file */
 	fp = fopen("xxx", "w");
@@ -1008,7 +1010,7 @@ TEST_CASE(option_parsing3)
 	unlink("xxx");
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
-	TEST_EQ(debug, 1);
+	TEST_EQ(debug, saved_debug + 1);
 	TEST_EQ(opts.kernel, 1);
 	TEST_EQ(opts.kernel_depth, 2);
 	TEST_EQ(opts.depth, 3);
@@ -1049,6 +1051,7 @@ TEST_CASE(option_parsing4)
 	int file_argc;
 	char **file_argv;
 	FILE *fp;
+	int saved_debug = debug;
 
 	/* create opt-file */
 	fp = fopen("xxx", "w");
@@ -1065,7 +1068,7 @@ TEST_CASE(option_parsing4)
 	unlink("xxx");
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
-	TEST_EQ(debug, 1);
+	TEST_EQ(debug, saved_debug + 1);
 	TEST_EQ(opts.kernel, 1);
 	TEST_EQ(opts.kernel_depth, 2);
 	TEST_EQ(opts.depth, 3);
