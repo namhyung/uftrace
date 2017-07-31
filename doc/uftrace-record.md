@@ -102,6 +102,9 @@ OPTIONS
 \--keep-pid
 :   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.
 
+-S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+
 
 FILTERS
 =======
@@ -310,7 +313,7 @@ Examples are below:
 
     $ uftrace record -A puts@arg1/s -R puts@retval ./hello
     Hello world
-    
+
     $ uftrace replay
     # DURATION    TID     FUNCTION
        1.457 us [21534] | __monstartup();
@@ -383,6 +386,58 @@ For example, you can build the target program by clang with the below option and
        3.005 us [11098] | } /* main */
 
 
+SCRIPT EXECUTION
+================
+The uftrace tool supports script execution for each function entry and exit.  The supported script is only Python 2.7 as of now.
+
+The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are executed whenever each function is executed at the entry and exit.  However 'uftrace_begin' and 'uftrace_end' are only executed once when the target program begins and ends.
+
+    $ cat scripts/simple.py
+    def uftrace_begin():
+        print("program begins...")
+
+    def uftrace_entry(args):
+        _symname = args["symname"]
+        print("entry : " + _symname + "()")
+
+    def uftrace_exit(args):
+        _symname = args["symname"]
+        print("exit  : " + _symname + "()")
+
+    def uftrace_end():
+        print("program is finished")
+
+The above script can be executed in record time as follows:
+
+    $ uftrace record -S scripts/simple.py -F main tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    exit  : getpid()
+    exit  : c()
+    exit  : b()
+    exit  : a()
+    exit  : main()
+    program is finished
+
+The 'args' variable is a dictionary type that contains the below information.
+
+    /* argument information passed to script */
+    struct script_args {
+        int        tid;
+        int        depth;
+        uint64_t   timestamp;
+        uint64_t   duration;    /* exit only */
+        unsigned   long address;
+        char       *symname;
+    };
+
+Each field in 'struct script_args' can be read inside the script.
+
+
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1)
+`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-script`(1)
