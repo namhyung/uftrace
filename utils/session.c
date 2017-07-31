@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <unistd.h>
 
 #define PR_FMT     "session"
 #define PR_DOMAIN  DBG_SESSION
@@ -633,7 +634,7 @@ TEST_CASE(session_search)
 			.namelen = 8,  /* = strlen("unittest") */
 		};
 
-		creat("sid-test.map", 0400);
+		close(creat("sid-test.map", 0400));
 		create_session(&test_sessions, &msg, ".", "unittest", false);
 		remove("sid-test.map");
 	}
@@ -683,7 +684,7 @@ TEST_CASE(task_search)
 			.time = 100,
 		};
 
-		creat("sid-initial.map", 0400);
+		close(creat("sid-initial.map", 0400));
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-initial.map");
@@ -785,7 +786,7 @@ TEST_CASE(task_search)
 			.time = 500,
 		};
 
-		creat("sid-after_exec.map", 0400);
+		close(creat("sid-after_exec.map", 0400));
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-after_exec.map");
@@ -944,7 +945,7 @@ TEST_CASE(task_symbol_dlopen)
 	FILE *fp;
 	struct uftrace_dlopen_list *udl;
 
-	creat("sid-test.map", 0400);
+	close(creat("sid-test.map", 0400));
 
 	fp = fopen("libuftrace-test.so.0.sym", "w");
 	fprintf(fp, "0100 P __tls_get_addr\n");
