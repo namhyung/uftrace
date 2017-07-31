@@ -363,7 +363,7 @@ static void save_proc_statm(void *buf)
 	fclose(fp);
 }
 
-static void save_proc_page_fault(void *buf)
+static void save_page_fault(void *buf)
 {
 	struct rusage ru;
 	struct uftrace_page_fault *page_fault = buf;
@@ -400,7 +400,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event->id    = EVENT_ID_PAGE_FAULT;
 			event->time  = rstack->start_time;
 			event->dsize = sizeof(struct uftrace_page_fault);
-			save_proc_page_fault(event->data);
+			save_page_fault(event->data);
 		}
 	}
 }
