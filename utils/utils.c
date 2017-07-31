@@ -8,7 +8,10 @@
 #include <sys/stat.h>
 #include <limits.h>
 
+#include "uftrace.h"
 #include "utils/utils.h"
+#include "utils/kernel.h"
+#include "libtraceevent/event-parse.h"
 
 
 volatile bool uftrace_done;
@@ -515,6 +518,55 @@ void free_parsed_cmdline(char **argv)
 		/* free original argv */
 		free(argv);
 	}
+}
+
+/**
+ * get_event_name - find event name from event id
+ * @handle - handle to uftrace data
+ * @evt_id - event id
+ *
+ * This function returns a string of event name matching to @evt_id.
+ * Callers must free the returned string.
+ */
+char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
+{
+	char *evt_name = NULL;
+	struct event_format *event;
+
+	if (evt_id >= EVENT_ID_USER) {
+		struct uftrace_event *ev;
+
+		list_for_each_entry(ev, &handle->events, list) {
+			if (ev->id == evt_id) {
+				xasprintf(&evt_name, "%s:%s", ev->provider, ev->event);
+				goto out;
+			}
+		}
+		xasprintf(&evt_name, "user_event:%u", evt_id);
+		goto out;
+	}
+
+	if (evt_id >= EVENT_ID_BUILTIN) {
+		switch (evt_id) {
+		case EVENT_ID_PROC_STATM:
+			xasprintf(&evt_name, "read:proc/statm");
+			break;
+		case EVENT_ID_PAGE_FAULT:
+			xasprintf(&evt_name, "read:page-fault");
+			break;
+		default:
+			xasprintf(&evt_name, "builtin_event:%u", evt_id);
+			break;
+		}
+		goto out;
+	}
+
+	/* kernel events */
+	event = pevent_find_event(handle->kernel->pevent, evt_id);
+	xasprintf(&evt_name, "%s:%s", event->system, event->name);
+
+out:
+	return evt_name;
 }
 
 #ifdef UNIT_TEST
