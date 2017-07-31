@@ -1569,8 +1569,18 @@ retry:
 
 	*taskp = get_task_handle(handle, first_tid);
 	if (*taskp == NULL) {
+		struct uftrace_rstack_list_node *node;
+
 		/* force re-read on that cpu */
 		kernel->rstack_valid[first_cpu] = false;
+
+		if (first_rstack->more) {
+			node = list_first_entry(&kernel->rstack_list[first_cpu].read,
+						typeof(*node), list);
+			free(node->args.data);
+			node->args.data = NULL;
+		}
+
 		consume_first_rstack_list(&kernel->rstack_list[first_cpu]);
 		goto retry;
 	}
