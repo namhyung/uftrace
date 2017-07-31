@@ -491,11 +491,17 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
+	if (frs->type == UFTRACE_EVENT)
+		name = get_event_name(task->h, frs->addr);
+
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
 	       task->tid, rstack_type(frs),
 	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
+
+	if (frs->type == UFTRACE_EVENT)
+		free(name);
 
 	if (frs->more) {
 		if (frs->type == UFTRACE_ENTRY) {
