@@ -1,4 +1,5 @@
-print("# DURATION    TID     FUNCTION")
+def uftrace_begin():
+    print("# DURATION    TID     FUNCTION")
 
 def uftrace_entry(args):
     # read arguments
@@ -26,6 +27,10 @@ def uftrace_exit(args):
     buf = " %7.3f %s [%5d] | %s}" % (time, unit, _tid, space)
     buf = "%s /* %s */" % (buf, _symname)
     print(buf)
+
+def uftrace_end():
+    # print an empty line
+    print("")
 
 def get_time_and_unit(duration):
     duration = float(duration)
