@@ -544,21 +544,24 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		.flags = 0,
 	};
 	bool skip = false;
+	bool recursion = true;
 	enum filter_result filtered;
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
 
 	if (unlikely(mcount_should_stop()))
-		return 0;
+		goto out;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
 		mtdp = mcount_prepare();
 		if (mtdp == NULL)
-			return 0;
+			goto out;
 	}
 	else
 		mtdp->recursion_guard = true;
+
+	recursion = false;
 
 	/* protect mtdp->plthook_addr until plthook_exit() */
 	if (mtdp->plthook_guard)
@@ -632,6 +635,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		}
 	}
 
+	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
+
+out:
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr;
 
@@ -641,14 +647,13 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		while (!*resolved_addr)
 			cpu_relax();
 
-		mtdp->recursion_guard = false;
+		if (!recursion)
+			mtdp->recursion_guard = false;
 		return *resolved_addr;
 	}
 
-	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
-
-out:
-	mtdp->recursion_guard = false;
+	if (!recursion)
+		mtdp->recursion_guard = false;
 	return 0;
 }
 
