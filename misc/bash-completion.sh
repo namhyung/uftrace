@@ -6,7 +6,7 @@ _uftrace () {
 
     COMPREPLY=()
 
-    subcmds='record replay report live dump graph info recv'
+    subcmds='record replay report live dump graph info recv script'
     options=$(uftrace -? | awk '$1 ~ /--[a-z]/ { split($1, r, "="); print r[1] } \
                                 $2 ~ /--[a-z]/ { split($2, r, "="); print r[1] }')
     demangle='full simple no'

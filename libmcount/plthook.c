@@ -14,6 +14,7 @@
 #include "mcount-arch.h"
 #include "utils/filter.h"
 #include "utils/compiler.h"
+#include "utils/script.h"
 
 extern struct symtabs symtabs;
 

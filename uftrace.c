@@ -150,6 +150,7 @@ static struct argp_option uftrace_options[] = {
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
+	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
 	{ 0 }
 };
 
@@ -409,6 +410,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 's':
 		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
+		break;
+
+	case 'S':
+		opts->script_file = arg;
 		break;
 
 	case 't':
@@ -687,6 +692,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			opts->mode = UFTRACE_MODE_DUMP;
 		else if (!strcmp("graph", arg))
 			opts->mode = UFTRACE_MODE_GRAPH;
+		else if (!strcmp("script", arg))
+			opts->mode = UFTRACE_MODE_SCRIPT;
 		else
 			return ARGP_ERR_UNKNOWN; /* almost same as fall through */
 		break;
@@ -739,7 +746,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	struct argp file_argp = {
 		.options = uftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph|script] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 
@@ -793,7 +800,7 @@ int main(int argc, char *argv[])
 	struct argp argp = {
 		.options = uftrace_options,
 		.parser = parse_option,
-		.args_doc = "[record|replay|live|report|info|dump|recv|graph] [<program>]",
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph|script] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 	int ret = -1;
@@ -865,6 +872,9 @@ int main(int argc, char *argv[])
 		break;
 	case UFTRACE_MODE_GRAPH:
 		ret = command_graph(argc, argv, &opts);
+		break;
+	case UFTRACE_MODE_SCRIPT:
+		ret = command_script(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_INVALID:
 		ret = 1;

@@ -105,6 +105,7 @@ LIBMCOUNT_FAST_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast-single.
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c
 LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/%.op,$(LIBMCOUNT_UTILS_SRCS))
 
 LIBMCOUNT_NOP_SRCS := $(srcdir)/libmcount/mcount-nop.c
@@ -138,7 +139,7 @@ $(objdir)/.config: $(srcdir)/configure
 # updated dependency.  So just abort the current build.
 	$(error)
 
-config: $(srcdir)/configure
+config: $(srcdir)/configure $(srcdir)/check-deps/Makefile
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/%.op: $(srcdir)/utils/%.c $(COMMON_DEPS)
