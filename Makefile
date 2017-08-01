@@ -139,7 +139,7 @@ $(objdir)/.config: $(srcdir)/configure
 # updated dependency.  So just abort the current build.
 	$(error)
 
-config: $(srcdir)/configure
+config: $(srcdir)/configure $(srcdir)/check-deps/Makefile
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/%.op: $(srcdir)/utils/%.c $(COMMON_DEPS)
