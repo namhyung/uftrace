@@ -43,17 +43,18 @@ The uftrace command has following subcommands:
  * `record` : runs a program and saves the trace data
  * `replay` : shows program execution in the trace data
  * `report` : shows performance statistics in the trace data
- * `live` : does record and replay in a row (default)
- * `info` : shows system and program info in the trace data
- * `dump` : shows low-level trace data
- * `recv` : saves the trace data from network
- * `graph` : shows function call graph in the trace data
+ * `live`   : does record and replay in a row (default)
+ * `info`   : shows system and program info in the trace data
+ * `dump`   : shows low-level trace data
+ * `recv`   : saves the trace data from network
+ * `graph`  : shows function call graph in the trace data
+ * `script` : runs a script for recorded trace data
 
 You can use `-?` or `--help` option to see available commands and options.
 
     $ uftrace
     Usage: uftrace [OPTION...]
-                [record|replay|live|report|info|dump|recv|graph] [<program>]
+                [record|replay|live|report|info|dump|recv|graph|script] [<program>]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running

@@ -1220,7 +1220,7 @@ out:
 	/* initialize script binding */
 	if (SCRIPT_ENABLED && script_str)
 		if (script_init(script_str) < 0)
-            script_str = NULL;
+			script_str = NULL;
 
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter_module(&modules);

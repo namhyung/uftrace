@@ -30,3 +30,4 @@ GTAGS
 TAGS
 tags
 cscope.*
+*.pyc

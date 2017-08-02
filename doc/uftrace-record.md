@@ -427,12 +427,12 @@ The 'args' variable is a dictionary type that contains the below information.
 
     /* argument information passed to script */
     struct script_args {
-        int        tid;
-        int        depth;
-        uint64_t   timestamp;
-        uint64_t   duration;    /* exit only */
-        unsigned   long address;
-        char       *symname;
+        int           tid;
+        int           depth;
+        uint64_t      timestamp;
+        uint64_t      duration;    /* exit only */
+        unsigned long address;
+        char          *symname;
     };
 
 Each field in 'struct script_args' can be read inside the script.
