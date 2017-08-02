@@ -29,9 +29,6 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 	struct sym *sym = NULL;
 	char *symname = NULL;
 
-	if (task == NULL)
-		return 0;
-
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
