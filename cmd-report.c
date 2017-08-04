@@ -14,6 +14,7 @@ enum {
 	AVG_NONE,
 	AVG_TOTAL,
 	AVG_SELF,
+	AVG_ANY,
 } avg_mode = AVG_NONE;
 
 struct trace_entry {
@@ -435,6 +436,26 @@ static struct sort_item sort_diff_time_total = {
 	LIST_HEAD_INIT(sort_diff_time_total.list)
 };
 
+static int cmp_func_name(struct trace_entry *a, struct trace_entry *b,
+			       int sort_column)
+{
+	return strcmp(b->sym->name, a->sym->name);
+}
+
+static struct sort_item sort_func = {
+	.name = "func",
+	.cmp = cmp_func_name,
+	.avg_mode = AVG_ANY,
+	LIST_HEAD_INIT(sort_func.list),
+};
+
+static struct sort_item sort_diff_func = {
+	.name = "func",
+	.cmp = cmp_func_name,
+	.avg_mode = AVG_ANY,
+	LIST_HEAD_INIT(sort_diff_func.list),
+};
+
 //SORT_ITEM("total", time_total, AVG_NONE);
 SORT_ITEM("self", time_self, AVG_NONE);
 SORT_ITEM_BASE("call", nr_called, AVG_NONE);
@@ -449,6 +470,7 @@ struct sort_item *all_sort_items[] = {
 	&sort_time_avg,
 	&sort_time_min,
 	&sort_time_max,
+	&sort_func,
 };
 
 struct sort_item *diff_sort_items[] = {
@@ -458,6 +480,7 @@ struct sort_item *diff_sort_items[] = {
 	&sort_diff_time_avg,
 	&sort_diff_time_min,
 	&sort_diff_time_max,
+	&sort_diff_func,
 };
 
 static LIST_HEAD(sort_list);
@@ -567,7 +590,8 @@ static void setup_sort(char *sort_keys)
 			if (strcmp(k, all_sort_items[i]->name))
 				continue;
 
-			if (all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) {
+			if ((all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) &&
+			    (all_sort_items[i]->avg_mode != AVG_ANY)) {
 				pr_out("uftrace: '%s' sort key %s be used with %s or %s.\n",
 				       all_sort_items[i]->name,
 				       avg_mode == AVG_NONE ? "should" : "cannot",
