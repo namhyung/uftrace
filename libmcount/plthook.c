@@ -23,6 +23,7 @@ unsigned long plthook_resolver_addr;
 static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
+static bool plthook_no_pltbind;
 
 static unsigned long got_addr;
 static volatile bool segv_handled;
@@ -188,6 +189,9 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 		mcount_arch_undo_bindnow(elf, &symtabs, offset,
 					 (unsigned long)plthook_got_ptr);
 	}
+
+	if (getenv("LD_BIND_NOT"))
+		plthook_no_pltbind = true;
 
 	/* restore the original signal handler */
 	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
@@ -542,6 +546,9 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 
 static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
 {
+	if (unlikely(plthook_no_pltbind))
+		return;
+
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
