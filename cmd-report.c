@@ -948,9 +948,9 @@ static void print_function_diff(struct trace_entry *entry)
 		else
 			print_diff_time_unit(entry->time_self, pair->time_self);
 
-		pr_out("    %9lu  %9lu  %+9ld   %-s\n",
-		       entry->nr_called, pair->nr_called,
-		       (long)(pair->nr_called - entry->nr_called), symname);
+		pr_out("    %9lu  %9lu  ", entry->nr_called, pair->nr_called);
+		print_diff_count(entry->nr_called, pair->nr_called);
+		pr_out("   %-s\n", symname);
 	} else {
 		pr_out("  ");
 		print_time_unit(entry->time_avg);
