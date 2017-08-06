@@ -14,6 +14,7 @@ enum {
 	AVG_NONE,
 	AVG_TOTAL,
 	AVG_SELF,
+	AVG_ANY,
 } avg_mode = AVG_NONE;
 
 struct trace_entry {
@@ -30,6 +31,15 @@ struct trace_entry {
 	struct trace_entry *pair;
 	struct rb_node link;
 };
+
+/* this will be used when pair entry wasn't found for diff */
+static struct trace_entry dummy_entry;
+
+/* show percentage rather than value of diff */
+static bool diff_percent = false;
+
+/* calculate diff using absolute values */
+static bool diff_absolute = true;
 
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
@@ -238,13 +248,14 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 
 struct sort_item {
 	const char *name;
-	int (*cmp)(struct trace_entry *a, struct trace_entry *b);
+	int (*cmp)(struct trace_entry *a, struct trace_entry *b, int column);
 	int avg_mode;
 	struct list_head list;
 };
 
 #define SORT_ITEM_BASE(_name, _field, _mode)				\
-static int cmp_##_field(struct trace_entry *a, struct trace_entry *b) 	\
+static int cmp_##_field(struct trace_entry *a, struct trace_entry *b,	\
+		int sort_column)					\
 {									\
 	if (a->_field == b->_field)					\
 		return 0;						\
@@ -259,13 +270,42 @@ static struct sort_item sort_##_field = {				\
 
 #define SORT_ITEM_DIFF(_name, _field, _mode)				\
 static int cmp_diff_##_field(struct trace_entry *a,			\
-			     struct trace_entry *b)			\
+			     struct trace_entry *b,			\
+			     int sort_column)				\
 {									\
-	double pcnt_a = 100.0 * (int64_t) a->pair->_field / a->_field;	\
-	double pcnt_b = 100.0 * (int64_t) b->pair->_field / b->_field;	\
+	double pcnt_a, pcnt_b;						\
+	int64_t diff_a, diff_b;						\
+									\
+	if (sort_column != 2) {						\
+		if (a->_field == b->_field)				\
+			return 0;					\
+		return a->_field > b->_field ? 1 : -1;			\
+	}								\
+									\
+	diff_a = a->pair->_field - a->_field;				\
+	diff_b = b->pair->_field - b->_field;				\
+									\
+	if (!diff_percent) {						\
+		if (diff_a == diff_b)					\
+			return 0;					\
+									\
+		if (diff_absolute) {					\
+			diff_a = abs(diff_a);				\
+			diff_b = abs(diff_b);				\
+		}							\
+		return diff_a > diff_b ? 1: -1;				\
+	}								\
+									\
+	pcnt_a = 100.0 * (int64_t) diff_a / a->_field;			\
+	pcnt_b = 100.0 * (int64_t) diff_b / b->_field;			\
 									\
 	if (pcnt_a == pcnt_b)						\
 		return 0;						\
+									\
+	if (diff_absolute) {						\
+		pcnt_a = (pcnt_a > 0) ? pcnt_a : -pcnt_a;		\
+		pcnt_b = (pcnt_b > 0) ? pcnt_b : -pcnt_b;		\
+	}								\
 	return pcnt_a > pcnt_b ? 1: -1;					\
 }									\
 static struct sort_item sort_diff_##_field = {				\
@@ -281,20 +321,43 @@ static struct sort_item sort_diff_##_field = {				\
 
 /* call count is not shown as percentage */
 static int cmp_diff_nr_called(struct trace_entry *a,
-			      struct trace_entry *b)
+			      struct trace_entry *b,
+			      int sort_column)
 {
-	long call_diff_a = a->pair->nr_called - a->nr_called;
-	long call_diff_b = b->pair->nr_called - b->nr_called;
+	long call_diff_a, call_diff_b;
+	double pcnt_a, pcnt_b;
 
-	if (call_diff_a == call_diff_b) {
-		/* call count used to same, compare original count then */
+	if (sort_column != 2) {
 		if (a->nr_called == b->nr_called)
 			return 0;
-
 		return a->nr_called > b->nr_called ? 1 : -1;
 	}
 
-	return call_diff_a > call_diff_b ? 1 : -1;
+	call_diff_a = a->pair->nr_called - a->nr_called;
+	call_diff_b = b->pair->nr_called - b->nr_called;
+
+	if (!diff_percent) {
+		if (call_diff_a == call_diff_b)
+			return 0;
+
+		if (diff_absolute) {
+			call_diff_a = abs(call_diff_a);
+			call_diff_b = abs(call_diff_b);
+		}
+		return call_diff_a > call_diff_b ? 1 : -1;
+	}
+
+	pcnt_a = 100.0 * call_diff_a / a->nr_called;
+	pcnt_b = 100.0 * call_diff_b / b->nr_called;
+
+	if (pcnt_a == pcnt_b)
+		return 0;
+
+	if (diff_absolute) {
+		pcnt_a = (pcnt_a > 0) ? pcnt_a : -pcnt_a;
+		pcnt_b = (pcnt_b > 0) ? pcnt_b : -pcnt_b;
+	}
+	return pcnt_a > pcnt_b ? 1 : -1;
 }
 
 static struct sort_item sort_diff_nr_called = {
@@ -305,7 +368,8 @@ static struct sort_item sort_diff_nr_called = {
 };
 
 /* exclude recursive time from total time */
-static int cmp_time_total(struct trace_entry *a, struct trace_entry *b)
+static int cmp_time_total(struct trace_entry *a, struct trace_entry *b,
+			  int sort_column)
 {
 	uint64_t a_time = a->time_total - a->time_recursive;
 	uint64_t b_time = b->time_total - b->time_recursive;
@@ -322,17 +386,46 @@ static struct sort_item sort_time_total = {
 	LIST_HEAD_INIT(sort_time_total.list)
 };
 
-static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b)
+static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
+			       int sort_column)
 {
 	uint64_t a_time = a->time_total - a->time_recursive;
 	uint64_t b_time = b->time_total - b->time_recursive;
 	uint64_t a_pair_time = a->pair->time_total - a->pair->time_recursive;
 	uint64_t b_pair_time = b->pair->time_total - b->pair->time_recursive;
-	double a_pcnt = 100.0 * a_pair_time / a_time;
-	double b_pcnt = 100.0 * b_pair_time / b_time;
+	int64_t a_diff, b_diff;
+	double a_pcnt, b_pcnt;
+
+	if (sort_column != 2) {
+		if (a_time == b_time)
+			return 0;
+		return a_time > b_time ? 1 : -1;
+	}
+
+	a_diff = a_pair_time - a_time;
+	b_diff = b_pair_time - b_time;
+
+	if (!diff_percent) {
+		if (a_diff == b_diff)
+			return 0;
+
+		if (diff_absolute) {
+			a_diff = abs(a_diff);
+			b_diff = abs(b_diff);
+		}
+		return a_diff > b_diff ? 1 : -1;
+	}
+
+	a_pcnt = 100.0 * a_diff / a_time;
+	b_pcnt = 100.0 * b_diff / b_time;
 
 	if (a_pcnt == b_pcnt)
 		return 0;
+
+	if (diff_absolute) {
+		a_pcnt = (a_pcnt > 0) ? a_pcnt : -a_pcnt;
+		b_pcnt = (b_pcnt > 0) ? b_pcnt : -b_pcnt;
+	}
 	return a_pcnt > b_pcnt ? 1 : -1;
 }
 
@@ -341,6 +434,26 @@ static struct sort_item sort_diff_time_total = {
 	.cmp = cmp_diff_time_total,
 	.avg_mode = AVG_NONE,
 	LIST_HEAD_INIT(sort_diff_time_total.list)
+};
+
+static int cmp_func_name(struct trace_entry *a, struct trace_entry *b,
+			       int sort_column)
+{
+	return strcmp(b->sym->name, a->sym->name);
+}
+
+static struct sort_item sort_func = {
+	.name = "func",
+	.cmp = cmp_func_name,
+	.avg_mode = AVG_ANY,
+	LIST_HEAD_INIT(sort_func.list),
+};
+
+static struct sort_item sort_diff_func = {
+	.name = "func",
+	.cmp = cmp_func_name,
+	.avg_mode = AVG_ANY,
+	LIST_HEAD_INIT(sort_diff_func.list),
 };
 
 //SORT_ITEM("total", time_total, AVG_NONE);
@@ -357,6 +470,7 @@ struct sort_item *all_sort_items[] = {
 	&sort_time_avg,
 	&sort_time_min,
 	&sort_time_max,
+	&sort_func,
 };
 
 struct sort_item *diff_sort_items[] = {
@@ -366,6 +480,7 @@ struct sort_item *diff_sort_items[] = {
 	&sort_diff_time_avg,
 	&sort_diff_time_min,
 	&sort_diff_time_max,
+	&sort_diff_func,
 };
 
 static LIST_HEAD(sort_list);
@@ -377,7 +492,7 @@ static int cmp_entry(struct trace_entry *a, struct trace_entry *b)
 	struct sort_item *item;
 
 	list_for_each_entry(item, &sort_list, list) {
-		ret = item->cmp(a, b);
+		ret = item->cmp(a, b, 0);
 		if (ret)
 			return ret;
 	}
@@ -416,7 +531,7 @@ static int cmp_diff_entry(struct trace_entry *a, struct trace_entry *b,
 	}
 
 	list_for_each_entry(item, sort_list_head, list) {
-		ret = item->cmp(entry_a, entry_b);
+		ret = item->cmp(entry_a, entry_b, sort_column);
 		if (ret)
 			return ret;
 	}
@@ -475,7 +590,8 @@ static void setup_sort(char *sort_keys)
 			if (strcmp(k, all_sort_items[i]->name))
 				continue;
 
-			if (all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) {
+			if ((all_sort_items[i]->avg_mode != (avg_mode != AVG_NONE)) &&
+			    (all_sort_items[i]->avg_mode != AVG_ANY)) {
 				pr_out("uftrace: '%s' sort key %s be used with %s or %s.\n",
 				       all_sort_items[i]->name,
 				       avg_mode == AVG_NONE ? "should" : "cannot",
@@ -514,7 +630,7 @@ static void print_and_delete(struct rb_root *root,
 		entry = rb_entry(node, struct trace_entry, link);
 		print_func(entry);
 
-		if (entry->pair)
+		if (entry->pair && entry->pair != &dummy_entry)
 			free(entry->pair);
 		free(entry);
 	}
@@ -805,11 +921,8 @@ static void sort_function_name(struct rb_root *root_in,
 }
 
 static void calculate_diff(struct rb_root *base, struct rb_root *pair,
-			   struct rb_root *diff, struct rb_root *remaining,
-			   int sort_column)
+			   struct rb_root *diff, int sort_column)
 {
-	struct rb_root tmp = RB_ROOT;
-
 	while (!RB_EMPTY_ROOT(base) && !uftrace_done) {
 		struct rb_node *node;
 		struct trace_entry *e, *p;
@@ -819,13 +932,12 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 
 		e = rb_entry(node, struct trace_entry, link);
 		p = find_by_name(pair, e);
-		if (p == NULL) {
-			sort_entries(remaining, e);
-			continue;
+		if (p != NULL) {
+			rb_erase(&p->link, pair);
+			RB_CLEAR_NODE(&p->link);
 		}
-
-		rb_erase(&p->link, pair);
-		RB_CLEAR_NODE(&p->link);
+		else
+			p = &dummy_entry;
 
 		e->pair = p;
 		p->pair = e;
@@ -833,57 +945,82 @@ static void calculate_diff(struct rb_root *base, struct rb_root *pair,
 		sort_diff_entries(diff, e, sort_column);
 	}
 
-	/* sort remaining pair entries by time */
+	/* sort remaining pair entries with zero entry */
 	while (!RB_EMPTY_ROOT(pair) && !uftrace_done) {
 		struct rb_node *node;
-		struct trace_entry *entry;
+		struct trace_entry *entry, *zero;
 
 		node = rb_first(pair);
 		rb_erase(node, pair);
 
 		entry = rb_entry(node, struct trace_entry, link);
-		sort_entries(&tmp, entry);
-	}
 
-	*pair = tmp;
+		zero = xzalloc(sizeof(*zero));
+		zero->sym = entry->sym;
+		zero->addr = entry->addr;
+		zero->pair = entry;
+		entry->pair = zero;
+
+		sort_diff_entries(diff, zero, sort_column);
+	}
 }
 
-static void print_diff(struct trace_entry *entry)
+#define NODATA "-"
+
+static void print_time_or_dash(uint64_t time_nsec)
+{
+	if (time_nsec)
+		print_time_unit(time_nsec);
+	else
+		pr_out("%10s", NODATA);
+}
+
+static void print_function_diff(struct trace_entry *entry)
 {
 	char *symname = symbol_getname(entry->sym, entry->addr);
 	struct trace_entry *pair = entry->pair;
 
 	if (avg_mode == AVG_NONE) {
 		pr_out("  ");
-		print_time_unit(entry->time_total);
+		print_time_or_dash(entry->time_total - entry->time_recursive);
 		pr_out("  ");
-		print_time_unit(pair->time_total);
-		pr_out(" ");
-		print_diff_percent(entry->time_total, pair->time_total);
+		print_time_or_dash(pair->time_total - pair->time_recursive);
+		pr_out("  ");
+
+		if (diff_percent)
+			print_diff_percent(entry->time_total - entry->time_recursive,
+					   pair->time_total - pair->time_recursive);
+		else
+			print_diff_time_unit(entry->time_total - entry->time_recursive,
+					     pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
-		print_time_unit(entry->time_self);
+		print_time_or_dash(entry->time_self);
 		pr_out("  ");
-		print_time_unit(pair->time_self);
-		pr_out(" ");
-		print_diff_percent(entry->time_self, pair->time_self);
+		print_time_or_dash(pair->time_self);
+		pr_out("  ");
 
-		pr_out("    %9lu  %9lu  %+9ld   %-s\n",
-		       entry->nr_called, pair->nr_called,
-		       (long)(pair->nr_called - entry->nr_called), symname);
+		if (diff_percent)
+			print_diff_percent(entry->time_self, pair->time_self);
+		else
+			print_diff_time_unit(entry->time_self, pair->time_self);
+
+		pr_out("    %9lu  %9lu  ", entry->nr_called, pair->nr_called);
+		print_diff_count(entry->nr_called, pair->nr_called);
+		pr_out("   %-s\n", symname);
 	} else {
 		pr_out("  ");
 		print_time_unit(entry->time_avg);
 		pr_out("  ");
 		print_time_unit(pair->time_avg);
-		pr_out(" ");
+		pr_out("  ");
 		print_diff_percent(entry->time_avg, pair->time_avg);
 
 		pr_out("   ");
 		print_time_unit(entry->time_min);
 		pr_out("  ");
 		print_time_unit(pair->time_min);
-		pr_out(" ");
+		pr_out("  ");
 		print_diff_percent(entry->time_min, pair->time_min);
 
 		pr_out("   ");
@@ -894,71 +1031,6 @@ static void print_diff(struct trace_entry *entry)
 		print_diff_percent(entry->time_max, pair->time_max);
 
 		pr_out("   %-s\n", symname);
-	}
-
-	symbol_putname(entry->sym, symname);
-}
-
-#define NODATA  "-"
-static void print_remaining(struct trace_entry *entry)
-{
-	char *symname = symbol_getname(entry->sym, entry->addr);
-
-	if (avg_mode == AVG_NONE) {
-		pr_out("  ");
-		print_time_unit(entry->time_total);
-		pr_out("  %10s  %8s   ", NODATA, NODATA);
-
-		print_time_unit(entry->time_self);
-		pr_out("  %10s  %8s ",  NODATA, NODATA);
-
-		pr_out("  %10lu  %9s  %9s   %-s\n",
-		       entry->nr_called, NODATA, NODATA, symname);
-	} else {
-		pr_out("  ");
-		print_time_unit(entry->time_avg);
-		pr_out("  %10s  %8s   ", NODATA, NODATA);
-
-		print_time_unit(entry->time_min);
-		pr_out("  %10s  %8s   ", NODATA, NODATA);
-
-		print_time_unit(entry->time_max);
-		pr_out("  %10s  %8s   %-s\n",  NODATA, NODATA, symname);
-	}
-
-	symbol_putname(entry->sym, symname);
-}
-
-static void print_remaining_pair(struct trace_entry *entry)
-{
-	char *symname = symbol_getname(entry->sym, entry->addr);
-
-	if (avg_mode == AVG_NONE) {
-		pr_out("  %10s  ", NODATA);
-		print_time_unit(entry->time_total);
-		pr_out("  %8s ", NODATA);
-
-		pr_out("  %10s  ", NODATA);
-		print_time_unit(entry->time_self);
-		pr_out("  %8s ", NODATA);
-
-		pr_out("  %10s %10lu %10s   %-s\n",
-		       NODATA, entry->nr_called, NODATA, symname);
-	} else {
-
-		pr_out("  %10s  ", NODATA);
-		print_time_unit(entry->time_avg);
-		pr_out("  %8s ", NODATA);
-
-		pr_out("  %10s  ", NODATA);
-		print_time_unit(entry->time_min);
-		pr_out("  %8s ", NODATA);
-
-		pr_out("  %10s  ",  NODATA);
-		print_time_unit(entry->time_max);
-		pr_out("  %8s ", NODATA);
-
-		pr_out("  %-s\n", symname);
 	}
 
 	symbol_putname(entry->sym, symname);
@@ -978,14 +1050,22 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root tmp = RB_ROOT;
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
-	struct rb_root remaining = RB_ROOT;
-	const char format[] = "  %32.32s   %32.32s   %32.32s   %-s\n";
-	const char line[] = "====================================";
+	const char *formats[] = {
+		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
+		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
+	};
+	const char line[] = "================================================";
+	const char *headers[][3] = {
+		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
+		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
+		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
+	};
+	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
+	int f_idx = diff_percent ? 1 : 0;
 
 	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
 
-	remaining = tmp;
 	tmp = RB_ROOT;
 
 	open_data_file(&dummy_opts, &data.handle);
@@ -993,7 +1073,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	build_function_tree(&data.handle, &tmp, &dummy_opts);
 	sort_function_name(&tmp, &data.root);
 
-	calculate_diff(&name_tree, &data.root, &diff_tree, &remaining, opts->sort_column);
+	calculate_diff(&name_tree, &data.root, &diff_tree, opts->sort_column);
 
 	if (uftrace_done)
 		goto out;
@@ -1003,25 +1083,36 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
 	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
+	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2], "Function");
+	pr_out(formats[f_idx], line, line, line, line);
 
-	if (avg_mode == AVG_NONE)
-		pr_out(format, "Total time (diff)", "Self time (diff)",
-		       "Nr. called (diff)", "Function");
-	else if (avg_mode == AVG_TOTAL)
-		pr_out(format, "Avg total (diff)", "Min total (diff)",
-		       "Max total (diff)", "Function");
-	else if (avg_mode == AVG_SELF)
-		pr_out(format, "Avg self (diff)", "Min self (diff)",
-		       "Max self (diff)", "Function");
-
-	pr_out(format, line, line, line, line);
-
-	print_and_delete(&remaining, print_remaining);
-	print_and_delete(&data.root, print_remaining_pair);
-	print_and_delete(&diff_tree, print_diff);
+	print_and_delete(&diff_tree, print_function_diff);
 
 out:
 	close_data_file(&dummy_opts, &data.handle);
+}
+
+static void apply_diff_policy(char *policy)
+{
+	char *str = xstrdup(policy);
+	char *p, *tmp = policy;
+
+	while ((p = strtok(tmp, ",")) != NULL) {
+		bool on = true;
+
+		if (!strncmp(p, "no-", 3)) {
+			on = false;
+			p += 3;
+		}
+
+		if (!strncmp(p, "abs", 3))
+			diff_absolute = on;
+		else if (!strncmp(p, "percent", 7))
+			diff_percent = on;
+
+		tmp = NULL;
+	}
+	free(str);
 }
 
 int command_report(int argc, char *argv[], struct opts *opts)
@@ -1057,6 +1148,9 @@ int command_report(int argc, char *argv[], struct opts *opts)
 			list_add(&sort_diff_time_avg.list, &diff_sort_list);
 		}
 	}
+
+	if (opts->diff_policy)
+		apply_diff_policy(opts->diff_policy);
 
 	if (opts->report_thread)
 		report_threads(&handle, opts);

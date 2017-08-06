@@ -19,10 +19,10 @@
 #define TERM_COLOR_NORMAL	""
 #define TERM_COLOR_RESET	"\033[0m"
 #define TERM_COLOR_BOLD		"\033[1m"
-#define TERM_COLOR_RED		"\033[31m"
+#define TERM_COLOR_RED		"\033[1;31m"  /* bright red */
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
-#define TERM_COLOR_BLUE		"\033[34m"
+#define TERM_COLOR_BLUE		"\033[1;34m"  /* bright blue */
 #define TERM_COLOR_MAGENTA	"\033[35m"
 #define TERM_COLOR_CYAN		"\033[36m"
 #define TERM_COLOR_GRAY		"\033[37m"
@@ -169,9 +169,9 @@ void __pr_color(char code, const char *fmt, ...)
 	color(TERM_COLOR_RESET, outfp);
 }
 
-void print_time_unit(uint64_t delta_nsec)
+static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
-	uint64_t delta = delta_nsec;
+	uint64_t delta = abs(delta_nsec);
 	uint64_t delta_small = 0;
 	char *units[] = { "us", "ms", " s", " m", " h", };
 	char *color_units[] = {
@@ -186,6 +186,8 @@ void print_time_unit(uint64_t delta_nsec)
 	unsigned idx;
 
 	if (delta_nsec == 0UL) {
+		if (needs_sign)
+			pr_out(" ");
 		pr_out("%7s %2s", "", "");
 		return;
 	}
@@ -209,28 +211,105 @@ void print_time_unit(uint64_t delta_nsec)
 	else
 		unit = units[idx];
 
-	pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+	if (needs_sign) {
+		const char *signs[] = { "+", "-" };
+		const char *color_signs[] = {
+			TERM_COLOR_RED     "+",
+			TERM_COLOR_MAGENTA "+",
+			TERM_COLOR_NORMAL  "+",
+			TERM_COLOR_BLUE    "-",
+			TERM_COLOR_CYAN    "-",
+			TERM_COLOR_NORMAL  "-",
+		};
+		int sign_idx = (delta_nsec > 0);
+		int indent = (delta >= 100) ? 0 : (delta >= 10) ? 1 : 2;
+		const char *sign = signs[sign_idx];
+		const char *ends = TERM_COLOR_NORMAL;
+
+		if (out_color == COLOR_ON) {
+			if (delta_nsec >= 100000)
+				sign_idx = 0;
+			else if (delta_nsec >= 5000)
+				sign_idx = 1;
+			else if (delta_nsec > 0)
+				sign_idx = 2;
+			else if (delta_nsec <= -100000)
+				sign_idx = 3;
+			else if (delta_nsec <= -5000)
+				sign_idx = 4;
+			else
+				sign_idx = 5;
+
+			sign = color_signs[sign_idx];
+			ends = TERM_COLOR_RESET;
+		}
+
+		pr_out("%*s%s%"PRId64".%03"PRIu64"%s %s", indent, "",
+		       sign, delta, delta_small, ends, unit);
+	}
+	else
+		pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+}
+
+void print_time_unit(uint64_t delta_nsec)
+{
+	__print_time_unit(delta_nsec, false);
 }
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
-	double percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
-	char *color = percent > 20 ? TERM_COLOR_RED :
-		percent > 3 ? TERM_COLOR_MAGENTA :
-		percent < -20 ? TERM_COLOR_BLUE :
-		percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+	double percent = 999.99;
+	const char *sc = TERM_COLOR_NORMAL;
+	const char *ec = TERM_COLOR_NORMAL;
 
-	if (percent == 0) {
-		pr_out(" %7s ", "");
-		return;
-	}
+	if (base_nsec)
+		percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
 
 	/* for some error cases */
 	if (percent > 999.99)
 		percent = 999.99;
+	else if (percent < -999.99)
+		percent = -999.99;
 
-	if (out_color == COLOR_ON)
-		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
+	if (out_color == COLOR_ON) {
+		sc = percent > 30 ? TERM_COLOR_RED :
+			percent > 3 ? TERM_COLOR_MAGENTA :
+			percent < -30 ? TERM_COLOR_BLUE :
+			percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+		ec = TERM_COLOR_RESET;
+	}
+
+	pr_out("%s%+7.2f%s%%", sc, percent, ec);
+}
+
+void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
+{
+	if (base_nsec == pair_nsec)
+		pr_out("%11s", "0 us");
 	else
-		pr_out(" %+7.2f%%", percent);
+		__print_time_unit(pair_nsec - base_nsec, true);
+}
+
+void print_diff_count(unsigned long base, unsigned long pair)
+{
+	const char *diff_colors[] = {
+		TERM_COLOR_RED,
+		TERM_COLOR_BLUE,
+	};
+	const char *sc = TERM_COLOR_NORMAL;
+	const char *ec = TERM_COLOR_NORMAL;
+	int sign_idx = (pair < base);
+	long diff = pair - base;
+
+	if (diff == 0) {
+		pr_out("%9s", "0");
+		return;
+	}
+
+	if (out_color == COLOR_ON) {
+		sc = diff_colors[sign_idx];
+ 		ec = TERM_COLOR_RESET;
+	}
+
+	pr_out("%s%+9ld%s", sc, diff, ec);
 }

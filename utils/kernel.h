@@ -1,6 +1,8 @@
 #ifndef __UFTRACE_KERNEL_H__
 #define __UFTRACE_KERNEL_H__
 
+#include "libtraceevent/event-parse.h"
+
 #define KERNEL_NOP_TRACER    "nop"
 #define KERNEL_GRAPH_TRACER  "function_graph"
 
@@ -27,11 +29,14 @@ struct uftrace_kernel_reader {
 	int				*fds;
 	int64_t				*offsets;
 	int64_t 			*sizes;
+	size_t				pagesize;
 	void				**mmaps;
 	struct kbuffer			**kbufs;
 	struct pevent			*pevent;
 	struct uftrace_record		*rstacks;
 	struct uftrace_rstack_list	*rstack_list;
+	struct trace_seq		trace_buf;
+	struct uftrace_record		trace_rec;
 	bool				*rstack_valid;
 	bool				*rstack_done;
 	int				*missed_events;

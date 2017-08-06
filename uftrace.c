@@ -86,6 +86,7 @@ enum options {
 	OPT_run_cmd,
 	OPT_opt_file,
 	OPT_keep_pid,
+	OPT_diff_policy,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -151,6 +152,7 @@ static struct argp_option uftrace_options[] = {
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
 	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
+	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy" },
 	{ 0 }
 };
 
@@ -587,6 +589,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->diff = arg;
 		break;
 
+	case OPT_diff_policy:
+		opts->diff_policy = arg;
+		break;
+
 	case OPT_sort_column:
 		opts->sort_column = strtol(arg, NULL, 0);
 		if (opts->sort_column < 0 || opts->sort_column > 2) {
@@ -796,6 +802,7 @@ int main(int argc, char *argv[])
 		.comment	= true,
 		.kernel_skip_out= true,
 		.fields         = NULL,
+		.sort_column	= 2,
 	};
 	struct argp argp = {
 		.options = uftrace_options,
