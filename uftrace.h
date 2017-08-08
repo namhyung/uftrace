@@ -26,6 +26,9 @@
 #define OPT_DEPTH_MAX       OPT_RSTACK_MAX
 #define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
 
+#define KB 1024
+#define MB (KB * 1024)
+
 struct uftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];
 	uint32_t version;

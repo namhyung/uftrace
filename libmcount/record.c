@@ -360,6 +360,12 @@ static void save_proc_statm(void *buf)
 		   &statm->vmsize, &statm->vmrss, &statm->shared) != 3)
 		pr_err("failed to scan /proc/self/statm");
 
+	/* Since /proc/[pid]/statm prints the number of pages for each field,
+	 * it'd be better to keep the memory size in KB. */
+	statm->vmsize *= page_size_in_kb;
+	statm->vmrss  *= page_size_in_kb;
+	statm->shared *= page_size_in_kb;
+
 	fclose(fp);
 }
 
