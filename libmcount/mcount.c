@@ -59,6 +59,8 @@ static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
 
+int page_size_in_kb;
+
 uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
@@ -1102,6 +1104,8 @@ static void mcount_startup(void)
 	patch_str = getenv("UFTRACE_PATCH");
 	event_str = getenv("UFTRACE_EVENT");
 	script_str = getenv("UFTRACE_SCRIPT");
+
+	page_size_in_kb = getpagesize() / KB;
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);

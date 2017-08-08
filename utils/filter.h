@@ -110,9 +110,9 @@ struct filter_module {
 
 /* please see man proc(5) for /proc/[pid]/statm */
 struct uftrace_proc_statm {
-	uint64_t		vmsize;  /* total program size */
-	uint64_t		vmrss;   /* resident set size */
-	uint64_t		shared;  /* shared rss (Rssfile + RssShmem) */
+	uint64_t		vmsize;  /* total program size in KB */
+	uint64_t		vmrss;   /* resident set size in KB */
+	uint64_t		shared;  /* shared rss in KB (Rssfile + RssShmem) */
 };
 
 struct uftrace_page_fault {

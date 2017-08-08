@@ -169,6 +169,8 @@ extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
 extern unsigned long mcount_global_flags;
 
+extern int page_size_in_kb;
+
 enum mcount_global_flag {
 	MCOUNT_GFL_SETUP	= (1U << 0),
 	MCOUNT_GFL_FINISH	= (1U << 1),
