@@ -1,6 +1,7 @@
 uftrace (0.7.0-1) unstable; urgency=low
 
-  * New upstream release (closes: #1234567).
+  * New upstream release (closes: #871596).
+  * Add patch to fix calculation of message sizes under send_trace_metadata
 
  -- paul cannon <pik@debian.org>  Wed, 09 Aug 2017 12:08:47 -0500
 
