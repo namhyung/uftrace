@@ -1,33 +1,33 @@
 #!/usr/bin/make -f
-#
-# don't use $(MAKE) for the sub-makes here; having MAKEFLAGS=w active for
-# config/Makefile makes its subshell `make` invocation produce output, which
-# causes Make to try and parse that output as Makefile contents, which breaks.
+
+# verbose build output
+export V=1
+
+# build with PIE explicitly where appropriate
+export CFLAGS_uftrace=-fPIE
+export CFLAGS_traceevent=-fPIE
+export LDFLAGS_uftrace=-pie
+
+# no colors in test executable
+export TESTARG=-n
 
 %:
 	dh $@
 
-MAKEVARS := \
-	V=1 \
-	DESTDIR=$(CURDIR)/debian/tmp/ \
-	CFLAGS_uftrace=-fPIE \
-	CFLAGS_traceevent=-fPIE \
-	LDFLAGS_uftrace=-pie
-
 override_dh_auto_configure:
 	LDFLAGS=-Wl,-z,now,-z,relro ./configure --prefix=/usr --libdir=/usr/lib/uftrace
 
-override_dh_auto_build:
-	MAKEFLAGS= make $(MAKEVARS)
-
 override_dh_auto_install:
-	MAKEFLAGS= make install $(MAKEVARS)
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp/
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	MAKEFLAGS= make test $(MAKEVARS) CFLAGS_unittest=-DUFTRACE_TEST_SUPPRESS_COLORS
+	@# having the wrong LDFLAGS (in particular, the one set by debian
+	@# machinery or an empty one) breaks the tests.
+	env -u LDFLAGS $(MAKE) -j1 test
 endif
 
 override_dh_auto_clean:
-	MAKEFLAGS= make clean
+	dh_auto_clean
 	$(RM) .config
+	$(MAKE) -C check-deps check-clean
