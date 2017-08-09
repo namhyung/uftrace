@@ -1,0 +1,63 @@
+From: paul cannon <pcannon@epochlabs.com>
+Date: Wed, 9 Aug 2017 18:19:33 -0500
+Subject: Fix some minor spelling errors in manpages
+
+---
+ doc/uftrace-live.md   | 6 +++---
+ doc/uftrace-record.md | 6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/doc/uftrace-live.md b/doc/uftrace-live.md
+index b220ed3..37f6d70 100644
+--- a/doc/uftrace-live.md
++++ b/doc/uftrace-live.md
+@@ -324,11 +324,11 @@ The default value is 'duration,tid'.  If given field name starts with "+", then
+ 
+ DYNAMIC TRACING
+ ===============
+-The uftrace tool supports dynamic function tracing which can be enabled at runtime (load-time, to be precise) on x86_64.  Before recording functions, normally you need to build the target program with `-pg` (or `-finstrument-functions`), then it has some performance impact because all funtions call `mcount()`.
++The uftrace tool supports dynamic function tracing which can be enabled at runtime (load-time, to be precise) on x86_64.  Before recording functions, normally you need to build the target program with `-pg` (or `-finstrument-functions`), then it has some performance impact because all functions call `mcount()`.
+ 
+ With dynamic tracing, you can trace specific functions only given by the `-P`/`--patch` option.  However you need to add some more compiler (gcc) options when building the target program.  The gcc 5.1 or more recent versions provide `-mfentry` and `-mnop-mcount` options which add instrumentation code (i.e. calling `mcount()` function) at the very beginning of a function and convert the instruction to a NOP.  Then it has almost zero performance overhead when running in a normal condition.  The uftrace can convert it back to call `mcount()` if users want to (using `-P` option).
+ 
+-The following example shows a error message when normally running uftrace with the excutable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't call any instrumentation code (i.e. 'mcount').
++The following example shows a error message when normally running uftrace with the executable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't call any instrumentation code (i.e. 'mcount').
+ 
+     $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+     $ uftrace abc
+@@ -355,7 +355,7 @@ In addition, you can enable all functions at load time using '.' that matches to
+        2.451 us [19387] |   } /* a */
+        3.289 us [19387] | } /* main */
+ 
+-Clang/LLVM 4.0 provides a dynamic instrumentation technique called [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also supports dynamic tracing on the excutables built with the `X-ray`.
++Clang/LLVM 4.0 provides a dynamic instrumentation technique called [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also supports dynamic tracing on the executables built with the `X-ray`.
+ 
+ For example, you can build the target program by clang with the below option and equally use `-P` option for dynamic tracing like below:
+ 
+diff --git a/doc/uftrace-record.md b/doc/uftrace-record.md
+index 6f5bda7..fbf903b 100644
+--- a/doc/uftrace-record.md
++++ b/doc/uftrace-record.md
+@@ -298,11 +298,11 @@ Note that these arguments and return value are recorded only if the executable w
+ 
+ DYNAMIC TRACING
+ ===============
+-The uftrace tool supports dynamic function tracing which can be enabled at runtime (load-time, to be precise) on x86_64.  Before recording functions, normally you need to build the target program with `-pg` (or `-finstrument-functions`), then it has some performance impact because all funtions call `mcount()`.
++The uftrace tool supports dynamic function tracing which can be enabled at runtime (load-time, to be precise) on x86_64.  Before recording functions, normally you need to build the target program with `-pg` (or `-finstrument-functions`), then it has some performance impact because all functions call `mcount()`.
+ 
+ With dynamic tracing, you can trace specific functions only given by the `-P`/`--patch` option.  However you need to add some more compiler (gcc) options when building the target program.  The gcc 5.1 or more recent versions provide `-mfentry` and `-mnop-mcount` options which add instrumentation code (i.e. calling `mcount()` function) at the very beginning of a function and convert the instruction to a NOP.  Then it has almost zero performance overhead when running in a normal condition.  The uftrace can convert it back to call `mcount()` if users want to (using `-P` option).
+ 
+-The following example shows a error message when normally running uftrace with the excutable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't call any instrumentation code (i.e. 'mcount').
++The following example shows a error message when normally running uftrace with the executable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't call any instrumentation code (i.e. 'mcount').
+ 
+     $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+     $ uftrace abc
+@@ -331,7 +331,7 @@ In addition, you can enable all functions at load time using '.' that matches to
+        2.451 us [19387] |   } /* a */
+        3.289 us [19387] | } /* main */
+ 
+-Clang/LLVM 4.0 provides a dynamic instrumentation technique called [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also supports dynamic tracing on the excutables built with the `X-ray`.
++Clang/LLVM 4.0 provides a dynamic instrumentation technique called [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also supports dynamic tracing on the executables built with the `X-ray`.
+ 
+ For example, you can build the target program by clang with the below option and equally use `-P` option for dynamic tracing like below:
+ 
