@@ -170,7 +170,7 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
 		.type  = htons(UFTRACE_MSG_SEND_META_DATA),
-		.len   = htonl(sizeof(namelen) + namelen),
+		.len   = sizeof(namelen) + namelen,
 	};
 	struct iovec iov[4] = {
 		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
@@ -191,7 +191,7 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 	len = stbuf.st_size;
 	buf = xmalloc(len);
 
-	msg.len += htonl(len);
+	msg.len = htonl(msg.len + len);
 	iov[3].iov_base = buf;
 	iov[3].iov_len  = len;
 
