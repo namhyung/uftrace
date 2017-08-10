@@ -48,7 +48,7 @@ extern int debug;
 	}							\
 	TEST_OK;						\
 })
-#define TEST_STREQ(a, b)  __TEST_STREQ((a), (b), __FILE, __LINE__)
+#define TEST_STREQ(a, b)  __TEST_STREQ((a), (b), __FILE__, __LINE__)
 
 #define __TEST_MEMEQ(a, b, sz, file, line)      ({		\
 	if (memcmp((a), (b), (sz))) {				\
