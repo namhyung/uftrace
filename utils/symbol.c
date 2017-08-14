@@ -25,6 +25,10 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 
+#ifndef  EM_AARCH64
+# define EM_AARCH64  183
+#endif
+
 static struct symtabs ksymtabs;
 
 static int addrsort(const void *a, const void *b)
@@ -594,6 +598,9 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	if (ehdr.e_machine == EM_ARM) {
 		plt_addr += 8;     /* ARM PLT0 size is 20 */
 		plt_entsize = 12;  /* size of R_ARM_JUMP_SLOT */
+	}
+	else if (ehdr.e_machine == EM_AARCH64) {
+		plt_addr += 16;    /* AARCH64 PLT0 size is 32 */
 	}
 
 	prev_addr = plt_addr;
