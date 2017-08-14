@@ -360,7 +360,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		else
 			sym->name = xstrdup(name);
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
+		pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 	}
 	pr_dbg2("loaded %zd symbols\n", symtab->nr_sym);
@@ -443,7 +443,7 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 __weak int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 				       unsigned long offset, unsigned long flags)
 {
-	return -1;
+	return 0;
 }
 
 static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
@@ -591,8 +591,10 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	if (dynsym_data == NULL)
 		goto elf_error;
 
-	if (ehdr.e_machine == EM_ARM)
+	if (ehdr.e_machine == EM_ARM) {
+		plt_addr += 8;     /* ARM PLT0 size is 20 */
 		plt_entsize = 12;  /* size of R_ARM_JUMP_SLOT */
+	}
 
 	prev_addr = plt_addr;
 
@@ -647,7 +649,7 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		else
 			sym->name = xstrdup(name);
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym,
+		pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 	}
 	pr_dbg2("loaded %zd symbols\n", dsymtab->nr_sym);
@@ -1001,7 +1003,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		sym->name = demangle(name);
 		sym->size = 0;
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", stab->nr_sym,
+		pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", stab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 
 		if (stab->nr_sym > 1)
