@@ -620,10 +620,11 @@ static struct uftrace_session_link test_sessions;
 TEST_CASE(session_search)
 {
 	int i;
+	const int NUM_TEST = 100;
 
 	TEST_EQ(test_sessions.first, NULL);
 
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < NUM_TEST; i++) {
 		struct uftrace_msg_sess msg = {
 			.task = {
 				.pid = 1,
@@ -643,11 +644,11 @@ TEST_CASE(session_search)
 	TEST_EQ(test_sessions.first->pid, 1);
 	TEST_EQ(test_sessions.first->start_time, 0);
 
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < NUM_TEST; i++) {
 		int t;
 		struct uftrace_session *s;
 
-		t = random() % (1000 * 100);
+		t = random() % (NUM_TEST * 100);
 		s = find_session(&test_sessions, 1, t);
 
 		TEST_NE(s, NULL);
