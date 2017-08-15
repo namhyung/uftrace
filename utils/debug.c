@@ -171,7 +171,7 @@ void __pr_color(char code, const char *fmt, ...)
 
 static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
-	uint64_t delta = abs(delta_nsec);
+	uint64_t delta = llabs(delta_nsec);
 	uint64_t delta_small = 0;
 	char *units[] = { "us", "ms", " s", " m", " h", };
 	char *color_units[] = {
