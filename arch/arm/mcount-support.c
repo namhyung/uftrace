@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <link.h>
-#include <elf.h>
+#include <gelf.h>
 
 #ifndef EF_ARM_ABI_FLOAT_HARD
 # define EF_ARM_ABI_FLOAT_HARD  EF_ARM_VFP_FLOAT
@@ -498,4 +498,107 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	}
 	else
 		memcpy(ctx->val.v, ctx->retval, spec->size);
+}
+
+int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
+			     unsigned long offset, unsigned long pltgot_addr)
+{
+	size_t shstr_idx, dynstr_idx = 0;
+	Elf_Scn *sec, *dynsym_sec, *relplt_sec;
+	Elf_Data *dynsym_data, *relplt_data;
+	unsigned long plt_addr = 0;
+	unsigned idx, nr_rels = 0;
+	int count = 0;
+	const char *skip_syms[] = {
+		"mcount", "__gnu_mcount_nc",
+		"__cyg_profile_func_enter", "__cyg_profile_func_exit",
+		"__cxa_finalize",  /* XXX: it caused segfault */
+	};
+
+	pr_dbg2("restore PLTGOT for bind-now\n");
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		return -1;
+
+	sec = dynsym_sec = relplt_sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *shstr;
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			return -1;
+
+		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+
+		if (strcmp(shstr, ".dynsym") == 0) {
+			dynsym_sec = sec;
+			dynstr_idx = shdr.sh_link;
+		}
+		else if (strcmp(shstr, ".rel.plt") == 0) {
+			relplt_sec = sec;
+			nr_rels = shdr.sh_size / shdr.sh_entsize;
+		}
+		else if (strcmp(shstr, ".plt") == 0) {
+			plt_addr = shdr.sh_addr + offset;
+		}
+	}
+
+	if (plt_addr == 0) {
+		pr_dbg("cannot find PLT section\n");
+		return -1;
+	}
+
+	relplt_data = elf_getdata(relplt_sec, NULL);
+	dynsym_data = elf_getdata(dynsym_sec, NULL);
+	if (relplt_data == NULL || dynsym_data == NULL)
+		return -1;
+
+	plthook_setup(symtabs);
+
+	for (idx = 0; idx < nr_rels; idx++) {
+		struct sym *sym;
+		GElf_Sym esym;
+		unsigned sym_idx;
+		int got_idx;
+		char *name;
+		GElf_Rel rel;
+
+		if (gelf_getrel(relplt_data, idx, &rel) == NULL)
+			return -1;
+
+		if (GELF_R_TYPE(rel.r_info) != R_ARM_JUMP_SLOT) {
+			pr_dbg("invalid reloc type: %u\n",
+			       GELF_R_TYPE(rel.r_info));
+			return -1;
+		}
+
+		sym_idx = GELF_R_SYM(rel.r_info);
+
+		gelf_getsym(dynsym_data, sym_idx, &esym);
+		name = elf_strptr(elf, dynstr_idx, esym.st_name);
+
+		sym = &symtabs->dsymtab.sym[idx];
+		if (strcmp(name, sym->name)) {
+			pr_dbg("symbol name mismatch (%s vs %s)\n",
+			       name, sym->name);
+			return -1;
+		}
+
+		for (sym_idx = 0; sym_idx < ARRAY_SIZE(skip_syms); sym_idx++) {
+			if (!strcmp(sym->name, skip_syms[sym_idx]))
+				break;
+		}
+		if (sym_idx != ARRAY_SIZE(skip_syms))
+			continue;
+
+		got_idx = (rel.r_offset + offset - pltgot_addr) >> 2;
+		setup_pltgot(got_idx, idx, (void *)plt_addr);
+		count++;
+
+		pr_dbg3("restore GOT[%u] (%s) r_offset = %lx\n",
+			got_idx, name, (unsigned long)rel.r_offset);
+	}
+	pr_dbg2("restored %d entries\n", count);
+
+	return 0;
 }

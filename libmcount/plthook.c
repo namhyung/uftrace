@@ -12,8 +12,8 @@
 
 #include "libmcount/mcount.h"
 #include "mcount-arch.h"
+#include "utils/utils.h"
 #include "utils/filter.h"
-#include "utils/compiler.h"
 #include "utils/script.h"
 
 extern struct symtabs symtabs;
@@ -23,6 +23,7 @@ unsigned long plthook_resolver_addr;
 static unsigned long *plthook_got_ptr;
 static unsigned long *plthook_dynsym_addr;
 static bool *plthook_dynsym_resolved;
+static bool plthook_no_pltbind;
 
 static unsigned long got_addr;
 static volatile bool segv_handled;
@@ -60,6 +61,17 @@ static void overwrite_pltgot(int idx, void *data)
 		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
+unsigned long setup_pltgot(int got_idx, int sym_idx, void *data)
+{
+	unsigned long real_addr = plthook_got_ptr[got_idx];
+
+	plthook_dynsym_addr[sym_idx] = real_addr;
+	plthook_dynsym_resolved[sym_idx] = true;
+
+	overwrite_pltgot(got_idx, data);
+	return real_addr;
+}
+
 /* use weak reference for non-defined (arch-dependent) symbols */
 #define ALIAS_DECL(_sym)  extern __weak void (*uftrace_##_sym)(void);
 
@@ -67,6 +79,8 @@ ALIAS_DECL(mcount);
 ALIAS_DECL(_mcount);
 ALIAS_DECL(__fentry__);
 ALIAS_DECL(__gnu_mcount_nc);
+ALIAS_DECL(__cyg_profile_func_enter);
+ALIAS_DECL(__cyg_profile_func_exit);
 
 /*
  * The `mcount` (and its friends) are part of uftrace itself,
@@ -86,6 +100,8 @@ static void skip_plt_functions(void)
 		SKIP_FUNC(_mcount),
 		SKIP_FUNC(__fentry__),
 		SKIP_FUNC(__gnu_mcount_nc),
+		SKIP_FUNC(__cyg_profile_func_enter),
+		SKIP_FUNC(__cyg_profile_func_exit),
 	};
 
 #undef SKIP_FUNC
@@ -109,10 +125,17 @@ static void skip_plt_functions(void)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
+__weak int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
+				    unsigned long offset, unsigned long pltgot_addr)
+{
+	return -1;
+}
+
+static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
-	bool found = false;
+	bool plt_found = false;
+	bool bind_now = false;
 	struct sigaction sa, old_sa;
 
 	/*
@@ -135,24 +158,40 @@ static int find_got(Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
 			return -1;
 
-		if (dyn.d_tag != DT_PLTGOT)
-			continue;
+		if (dyn.d_tag == DT_PLTGOT)
+			got_addr = (unsigned long)dyn.d_un.d_val + offset;
+		else if (dyn.d_tag == DT_JMPREL)
+			plt_found = true;
+		else if (dyn.d_tag == DT_BIND_NOW)
+			bind_now = true;
+		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
+			bind_now = true;
+	}
 
-		got_addr = (unsigned long)dyn.d_un.d_val + offset;
-		plthook_got_ptr = (void *)got_addr;
+	if (!plt_found && !bind_now) {
+		pr_dbg("no PLT nor BIND-NOW.. ignoring...\n");
+		return 0;
+	}
+
+	plthook_got_ptr = (void *)got_addr;
+
+	if (plt_found) {
 		plthook_resolver_addr = plthook_got_ptr[2];
-
-		overwrite_pltgot(2, plt_hooker);
-
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			plthook_got_ptr, plthook_resolver_addr);
 
-		found = true;
-		break;
+		skip_plt_functions();
 	}
 
-	if (found)
-		skip_plt_functions();
+	overwrite_pltgot(2, plt_hooker);
+
+	if (bind_now) {
+		mcount_arch_undo_bindnow(elf, &symtabs, offset,
+					 (unsigned long)plthook_got_ptr);
+	}
+
+	if (getenv("LD_BIND_NOT"))
+		plthook_no_pltbind = true;
 
 	/* restore the original signal handler */
 	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
@@ -215,7 +254,7 @@ int hook_pltgot(char *exename, unsigned long offset)
 		if (data == NULL)
 			goto elf_error;
 
-		if (find_got(data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
+		if (find_got(elf, data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
 			goto elf_error;
 	}
 	ret = 0;
@@ -507,7 +546,8 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 
 static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
 {
-	unsigned long new_addr;
+	if (unlikely(plthook_no_pltbind))
+		return;
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
 #ifndef SINGLE_THREAD
@@ -515,14 +555,9 @@ static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			new_addr = plthook_got_ptr[3 + dyn_idx];
-			/* restore GOT so plt_hooker keep called */
-			plthook_got_ptr[3 + dyn_idx] = mtdp->plthook_addr;
+		if (!plthook_dynsym_resolved[dyn_idx])
+			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)mtdp->plthook_addr);
 
-			plthook_dynsym_addr[dyn_idx] = new_addr;
-			plthook_dynsym_resolved[dyn_idx] = true;
-		}
 #ifndef SINGLE_THREAD
 		pthread_mutex_unlock(&resolver_mutex);
 #endif
@@ -540,21 +575,24 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		.flags = 0,
 	};
 	bool skip = false;
+	bool recursion = true;
 	enum filter_result filtered;
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
 
 	if (unlikely(mcount_should_stop()))
-		return 0;
+		goto out;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
 		mtdp = mcount_prepare();
 		if (mtdp == NULL)
-			return 0;
+			goto out;
 	}
 	else
 		mtdp->recursion_guard = true;
+
+	recursion = false;
 
 	/* protect mtdp->plthook_addr until plthook_exit() */
 	if (mtdp->plthook_guard)
@@ -628,6 +666,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		}
 	}
 
+	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
+
+out:
 	if (plthook_dynsym_resolved[child_idx]) {
 		volatile unsigned long *resolved_addr;
 
@@ -637,14 +678,13 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		while (!*resolved_addr)
 			cpu_relax();
 
-		mtdp->recursion_guard = false;
+		if (!recursion)
+			mtdp->recursion_guard = false;
 		return *resolved_addr;
 	}
 
-	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
-
-out:
-	mtdp->recursion_guard = false;
+	if (!recursion)
+		mtdp->recursion_guard = false;
 	return 0;
 }
 
@@ -708,6 +748,9 @@ again:
 
 void plthook_setup(struct symtabs *symtabs)
 {
+	if (plthook_dynsym_resolved)
+		return;
+
 	plthook_dynsym_resolved = xcalloc(sizeof(bool),
 					  count_dynsym(symtabs));
 	plthook_dynsym_addr = xcalloc(sizeof(unsigned long),

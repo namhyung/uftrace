@@ -17,6 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "compiler.h"
 
 #ifndef container_of
 # define container_of(ptr, type, member) ({			\

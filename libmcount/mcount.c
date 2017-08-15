@@ -31,7 +31,6 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
-#include "utils/compiler.h"
 #include "utils/script.h"
 
 uint64_t mcount_threshold;  /* nsec */
@@ -1386,6 +1385,8 @@ __visible_default void * dlopen(const char *filename, int flags)
 /*
  * external interfaces
  */
+#define UFTRACE_ALIAS(_func) void uftrace_##_func(void) __alias(_func)
+
 void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
 }
@@ -1408,11 +1409,13 @@ void __visible_default __cyg_profile_func_enter(void *child, void *parent)
 {
 	cygprof_entry((unsigned long)parent, (unsigned long)child);
 }
+UFTRACE_ALIAS(__cyg_profile_func_enter);
 
 void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 {
 	cygprof_exit((unsigned long)parent, (unsigned long)child);
 }
+UFTRACE_ALIAS(__cyg_profile_func_exit);
 
 #ifndef UNIT_TEST
 /*

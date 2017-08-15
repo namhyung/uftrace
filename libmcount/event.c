@@ -14,7 +14,6 @@
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/list.h"
-#include "utils/compiler.h"
 
 #define SDT_SECT  ".note.stapsdt"
 #define SDT_NAME  "stapsdt"
