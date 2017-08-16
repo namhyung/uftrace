@@ -1869,8 +1869,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 	test_handle.kernel = kernel;
 	atexit(kernel_test_finish_file);
 
-	setup_kernel_data(kernel);
-	return 0;
+	return setup_kernel_data(kernel);
 }
 
 static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
@@ -1926,6 +1925,9 @@ static void kernel_test_finish_file(void)
 
 	remove(kernel->dirname);
 	kernel->dirname = NULL;
+
+	free(kernel);
+	test_handle.kernel = NULL;
 }
 
 static void kernel_test_finish_handle(void)
@@ -1934,8 +1936,6 @@ static void kernel_test_finish_handle(void)
 
 	free(handle->tasks);
 	handle->tasks = NULL;
-	free(handle->kernel);
-	handle->kernel = NULL;
 }
 
 TEST_CASE(kernel_read)
@@ -1997,7 +1997,6 @@ TEST_CASE(kernel_cpu_read)
 			TEST_EQ(kernel->tids[cpu], rec->common_pid);
 		}
 	}
-	free(kernel);
 	return TEST_OK;
 }
 
