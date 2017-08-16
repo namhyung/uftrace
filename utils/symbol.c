@@ -387,9 +387,17 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		}
 
 		if (count) {
+			struct sym *tmp = curr;
+
+			while (tmp < next - 1) {
+				free(tmp->name);
+				tmp++;
+			}
+
 			memmove(curr, next - 1,
 				(symtab->nr_sym - i - count) * sizeof(*next));
 
+			pr_dbg2("removed %d duplicates\n", count);
 			symtab->nr_sym -= count;
 		}
 	}
