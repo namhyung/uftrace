@@ -1244,6 +1244,8 @@ static void mcount_cleanup(void)
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter(&mcount_triggers);
 #endif
+
+	unload_symtabs(&symtabs);
 }
 
 /*

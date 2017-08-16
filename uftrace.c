@@ -785,6 +785,17 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	free(buf);
 }
 
+static void free_opts(struct opts *opts)
+{
+	free(opts->filter);
+	free(opts->trigger);
+	free(opts->sort_keys);
+	free(opts->args);
+	free(opts->retval);
+	free(opts->tid);
+	free(opts->event);
+}
+
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
@@ -896,6 +907,7 @@ int main(int argc, char *argv[])
 	if (opts.opt_file)
 		free_parsed_cmdline(argv);
 
+	free_opts(&opts);
 	return ret;
 }
 #else
@@ -990,6 +1002,7 @@ TEST_CASE(option_parsing2)
 	TEST_STREQ(opts.filter, "foo;!bar");
 	TEST_STREQ(opts.args, "baz@kernel");
 
+	free_opts(&opts);
 	return TEST_OK;
 }
 
@@ -1035,6 +1048,8 @@ TEST_CASE(option_parsing3)
 	TEST_EQ(opts.column_view, 1);
 	TEST_STREQ(opts.exename, "t-abc");
 
+	free_parsed_cmdline(file_argv);
+	free_opts(&opts);
 	return TEST_OK;
 }
 
@@ -1093,6 +1108,8 @@ TEST_CASE(option_parsing4)
 	TEST_EQ(opts.column_view, 1);
 	TEST_STREQ(opts.exename, "t-abc");
 
+	free_parsed_cmdline(file_argv);
+	free_opts(&opts);
 	return TEST_OK;
 }
 

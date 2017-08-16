@@ -1487,113 +1487,160 @@ char *demangle(char *str)
 #ifdef UNIT_TEST
 TEST_CASE(demangle_simple1)
 {
+	char *name;
+
 	dbg_domain[DBG_DEMANGLE] = 2;
 
-	TEST_STREQ("normal", demangle_simple("normal"));
-	TEST_STREQ("ABC::foo", demangle_simple("_ZN3ABC3fooEv"));
-	TEST_STREQ("ABC::ABC", demangle_simple("_ZN3ABCC1Ei"));
-	TEST_STREQ("operator new", demangle_simple("_Znwm"));
-	TEST_STREQ("ns::ns1::foo::bar1", demangle_simple("_ZN2ns3ns13foo4bar1Ev"));
+	name = demangle_simple("normal");
+	TEST_STREQ("normal", name);
+	free(name);
+
+	name = demangle_simple("_ZN3ABC3fooEv");
+	TEST_STREQ("ABC::foo", name);
+	free(name);
+
+	name = demangle_simple("_ZN3ABCC1Ei");
+	TEST_STREQ("ABC::ABC", name);
+	free(name);
+
+	name = demangle_simple("_Znwm");
+	TEST_STREQ("operator new", name);
+	free(name);
+
+	name = demangle_simple("_ZN2ns3ns13foo4bar1Ev");
+	TEST_STREQ("ns::ns1::foo::bar1", name);
+	free(name);
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple2)
 {
+	char *name;
+
 	dbg_domain[DBG_DEMANGLE] = 2;
 
-	TEST_STREQ("FtraceService::~FtraceService",
-		   demangle_simple("_ZThn8_N13FtraceServiceD0Ev"));
-	TEST_STREQ("v8::internal::ScopedVector::ScopedVector",
-		   demangle_simple("_ZN2v88internal12ScopedVectorIcEC1Ei"));
-	TEST_STREQ("std::allocator_traits::construct",
-		   demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
-				   "ISt4pairIKSsN7pbnjson7JSchemaEEEEE9construct"
-				   "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
-				   "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_"));
+	name = demangle_simple("_ZThn8_N13FtraceServiceD0Ev");
+	TEST_STREQ("FtraceService::~FtraceService", name);
+	free(name);
+
+	name = demangle_simple("_ZN2v88internal12ScopedVectorIcEC1Ei");
+	TEST_STREQ("v8::internal::ScopedVector::ScopedVector", name);
+	free(name);
+
+	name = demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
+			       "ISt4pairIKSsN7pbnjson7JSchemaEEEEE9construct"
+			       "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
+			       "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_");
+	TEST_STREQ("std::allocator_traits::construct", name);
+	free(name);
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple3)
 {
+	char *name;
+
 	dbg_domain[DBG_DEMANGLE] = 2;
 
-	TEST_STREQ("node::Watchdog::Destroy",
-		   demangle_simple("_ZN4node8Watchdog7DestroyEv.part.0"));
-	TEST_STREQ("v8::internal::CodeStub::GetKey",
-		   demangle_simple("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17"));
-	TEST_STREQ("std::operator ==",
-		   demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
-				   "bRKSt15_Deque_iteratorIT_T0_T1_ESE_"));
-	TEST_STREQ("v8::base::internal::operator *",
-		   demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
-				   "INS1_19ArithmeticPromotionIT_T0_XqugtsrNS1_"
-				   "11MaxExponentIS5_EE5valuesrNS7_IS6_EE5value"
-				   "qugtsrS8_5valueL_ZNS7_IiE5valueEELNS1_"
-				   "27ArithmeticPromotionCategoryE0ELSB_2E"
-				   "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
-				   "4typeEEERKNS3_IS5_EES6_"));
-	TEST_STREQ("std::pow",
-		   demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
-				   "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
-				   "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
-				   "6__typeES2_S3_"));
+	name = demangle_simple("_ZN4node8Watchdog7DestroyEv.part.0");
+	TEST_STREQ("node::Watchdog::Destroy", name);
+	free(name);
+
+	name = demangle_simple("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17");
+	TEST_STREQ("v8::internal::CodeStub::GetKey", name);
+	free(name);
+
+	name = demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
+			       "bRKSt15_Deque_iteratorIT_T0_T1_ESE_");
+	TEST_STREQ("std::operator ==", name);
+	free(name);
+
+	name = demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
+			       "INS1_19ArithmeticPromotionIT_T0_XqugtsrNS1_"
+			       "11MaxExponentIS5_EE5valuesrNS7_IS6_EE5value"
+			       "qugtsrS8_5valueL_ZNS7_IiE5valueEELNS1_"
+			       "27ArithmeticPromotionCategoryE0ELSB_2E"
+			       "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
+			       "4typeEEERKNS3_IS5_EES6_");
+	TEST_STREQ("v8::base::internal::operator *", name);
+	free(name);
+
+	name = demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
+			       "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
+			       "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
+			       "6__typeES2_S3_");
+	TEST_STREQ("std::pow", name);
+	free(name);
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple4)
 {
+	char *name;
+
 	dbg_domain[DBG_DEMANGLE] = 2;
 
-	TEST_STREQ("std::__find_if",
-		   demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
-				   "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
-				   "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
-				   "St18input_iterator_tag"));
+	name = demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
+			       "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
+			       "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
+			       "St18input_iterator_tag");
+	TEST_STREQ("std::__find_if", name);
+	free(name);
 
-	TEST_STREQ("convertToWindowType::~convertToWindowType",
-		   demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev"));
+	name = demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev");
+	TEST_STREQ("convertToWindowType::~convertToWindowType", name);
+	free(name);
 
-	TEST_STREQ("std::set::erase::cxx11",
-		   demangle_simple("_ZNSt3setISsSt4lessISsESaISsEE5eraseB5cxx11E"
-				   "St23_Rb_tree_const_iteratorISsE"));
+	name = demangle_simple("_ZNSt3setISsSt4lessISsESaISsEE5eraseB5cxx11E"
+			       "St23_Rb_tree_const_iteratorISsE");
+	TEST_STREQ("std::set::erase::cxx11", name);
+	free(name);
 
-	TEST_STREQ("std::allocator_traits::_S_select",
-		   demangle_simple("_ZNSt16allocator_traitsISaISsEE9_S_select"
-				   "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
-				   "IT_EE5valueES6_E4typeERS6_"));
+	name = demangle_simple("_ZNSt16allocator_traitsISaISsEE9_S_select"
+			       "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
+			       "IT_EE5valueES6_E4typeERS6_");
+	TEST_STREQ("std::allocator_traits::_S_select", name);
+	free(name);
 
-	TEST_STREQ("icu_54::umtx_loadAcquire",
-		   demangle_simple("_ZN6icu_5416umtx_loadAcquireERU7_Atomici"));
+	name = demangle_simple("_ZN6icu_5416umtx_loadAcquireERU7_Atomici");
+	TEST_STREQ("icu_54::umtx_loadAcquire", name);
+	free(name);
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple5)
 {
+	char *name;
+
 	dbg_domain[DBG_DEMANGLE] = 2;
 
-	TEST_STREQ("v8::internal::RememberedSet::Iterate",
-		   demangle_simple("_ZN2v88internal13RememberedSetILNS0_"
-				   "16PointerDirectionE1EE7IterateIZNS3_"
-				   "18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
-				   "S7_EEEvPNS0_4HeapET_EUlPhE_EEvSC_SD_"));
+	name = demangle_simple("_ZN2v88internal13RememberedSetILNS0_"
+			       "16PointerDirectionE1EE7IterateIZNS3_"
+			       "18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+			       "S7_EEEvPNS0_4HeapET_EUlPhE_EEvSC_SD_");
+	TEST_STREQ("v8::internal::RememberedSet::Iterate", name);
+	free(name);
 
-	TEST_STREQ("v8::internal::SlotSet::Iterate",
-		   demangle_simple("_ZN2v88internal7SlotSet7Iterate"
-				   "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
-				   "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
-				   "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_"));
+	name = demangle_simple("_ZN2v88internal7SlotSet7Iterate"
+			       "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
+			       "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+			       "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_");
+	TEST_STREQ("v8::internal::SlotSet::Iterate", name);
+	free(name);
 
-	TEST_STREQ("std::tuple::tuple",
-		   demangle_simple("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev"));
+	name = demangle_simple("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev");
+	TEST_STREQ("std::tuple::tuple", name);
+	free(name);
 
-	TEST_STREQ("storageIndexFromLayoutItem",
-		   demangle_simple("_Z26storageIndexFromLayoutItemRK"
-				   "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
-				   "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_"));
+	name = demangle_simple("_Z26storageIndexFromLayoutItemRK"
+			       "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
+			       "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_");
+	TEST_STREQ("storageIndexFromLayoutItem", name);
+	free(name);
 
 	return TEST_OK;
 }

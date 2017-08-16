@@ -148,6 +148,9 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		if (!found)
 			stats.nomatch++;
 
+		if (is_regex)
+			regfree(&re);
+
 		name = strtok(NULL, ";");
 	}
 

@@ -387,9 +387,17 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		}
 
 		if (count) {
+			struct sym *tmp = curr;
+
+			while (tmp < next - 1) {
+				free(tmp->name);
+				tmp++;
+			}
+
 			memmove(curr, next - 1,
 				(symtab->nr_sym - i - count) * sizeof(*next));
 
+			pr_dbg2("removed %d duplicates\n", count);
 			symtab->nr_sym -= count;
 		}
 	}
@@ -551,7 +559,7 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		GElf_Dyn dyn;
 
 		if (gelf_getdyn(dynamic_data, idx, &dyn) == NULL)
-			return -1;
+			goto elf_error;
 
 		if (dyn.d_tag == DT_JMPREL)
 			plt_found = true;
@@ -565,12 +573,13 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		if (arch_load_dynsymtab_bindnow(elf, dsymtab, offset, flags) < 0) {
 			pr_dbg("cannot load dynamic symbols for bind-now\n");
 			__unload_symtab(dsymtab);
-			return -1;
+			goto out;
 		}
 
 		if (dsymtab->nr_sym) {
 			sort_dynsymtab(dsymtab);
-			return 0;
+			ret = 0;
+			goto out;
 		}
 	}
 

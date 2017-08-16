@@ -294,6 +294,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		ret++;
 	}
 
+	regfree(&re);
 	return ret;
 }
 
