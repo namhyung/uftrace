@@ -1100,6 +1100,7 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 
 		snprintf(buf, sizeof(buf), "%s/%s",
 			 kernel->dirname, list[i]->d_name);
+		free(list[i]);
 
 		kernel->fds[i] = open(buf, O_RDONLY);
 		if (kernel->fds[i] < 0)
