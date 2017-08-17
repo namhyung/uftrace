@@ -544,19 +544,30 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
+__weak unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+{
+	struct sym *sym;
+
+	sym = find_dynsym(symtabs, idx);
+	return sym->addr;
+}
+
 static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
 {
 	if (unlikely(plthook_no_pltbind))
 		return;
 
 	if (!plthook_dynsym_resolved[dyn_idx]) {
+		unsigned long plthook_addr;
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!plthook_dynsym_resolved[dyn_idx])
-			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)mtdp->plthook_addr);
+		if (!plthook_dynsym_resolved[dyn_idx]) {
+			plthook_addr = mcount_arch_plthook_addr(&symtabs, dyn_idx);
+			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)plthook_addr);
+		}
 
 #ifndef SINGLE_THREAD
 		pthread_mutex_unlock(&resolver_mutex);
@@ -665,8 +676,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			prepare_vfork(mtdp, rstack);
 		}
 	}
-
-	mtdp->plthook_addr = plthook_got_ptr[3 + child_idx];
 
 out:
 	if (plthook_dynsym_resolved[child_idx]) {
