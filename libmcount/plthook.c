@@ -457,10 +457,6 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp,
 
 	pr_dbg2("restore jmpbuf rstack at %lx (%d entries)\n", addr, jbstack->count);
 
-	/* restoring current rstack caused an error - skip it */
-	mtdp->idx--;
-	mcount_rstack_restore();
-
 	mtdp->idx        = jbstack->count;
 	mtdp->record_idx = jbstack->record_idx;
 
@@ -470,8 +466,6 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp,
 		/* setjmp() already wrote rstacks */
 		mtdp->rstack[i].flags |= MCOUNT_FL_WRITTEN;
 	}
-
-	mcount_rstack_reset();
 }
 
 /* it's crazy to call vfork() concurrently */
