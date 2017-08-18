@@ -605,10 +605,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	recursion = false;
 
-	/* protect mtdp->plthook_addr until plthook_exit() */
-	if (mtdp->plthook_guard)
-		goto out;
-
 	func = bsearch((void *)child_idx, special_funcs, nr_special,
 		       sizeof(*func), idxfind);
 	if (func)
@@ -639,8 +635,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		if (filtered == FILTER_RSTACK)
 			goto out;
 	}
-
-	mtdp->plthook_guard = true;
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -750,7 +744,6 @@ again:
 
 	mtdp->idx--;
 	mtdp->recursion_guard = false;
-	mtdp->plthook_guard = false;
 
 	return rstack->parent_ip;
 }
