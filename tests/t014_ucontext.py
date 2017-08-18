@@ -12,7 +12,9 @@ class TestCase(TestBase):
    1.584 us [28383] |   makecontext();
             [28383] |   foo() {
             [28383] |     swapcontext() {
-   5.700 us [28383] |       bar();
+            [28383] |       bar() {
+   2.384 us [28383] |         getpid();
+   5.700 us [28383] |       } /* bar */
    8.716 us [28383] |     } /* swapcontext */
    9.489 us [28383] |   } /* foo */
    0.130 us [28383] |   baz();
