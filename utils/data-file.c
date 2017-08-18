@@ -357,7 +357,7 @@ static void check_data_order(struct ftrace_file_handle *handle)
 }
 
 #define RECORD_MSG  "Was '%s' compiled with -pg or\n"		\
-"\t-finstrument-functions flag and ran with ftrace record?\n"
+"\t-finstrument-functions flag and ran with uftrace record?\n"
 
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
@@ -389,7 +389,7 @@ retry:
 			pr_dbg("cannot find %s file!\n", buf);
 
 			if (opts->exename)
-				pr_err(RECORD_MSG, opts->exename);
+				pr_warn(RECORD_MSG, opts->exename);
 		} else {
 			pr_err("cannot open %s file", buf);
 		}
