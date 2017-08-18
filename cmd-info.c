@@ -769,12 +769,17 @@ void clear_ftrace_info(struct uftrace_info *info)
 
 int command_info(int argc, char *argv[], struct opts *opts)
 {
+	int ret;
 	char buf[PATH_MAX];
 	struct stat statbuf;
 	struct ftrace_file_handle handle;
 	const char *fmt = "# %-20s: %s\n";
 
-	open_data_file(opts, &handle);
+	ret = open_data_file(opts, &handle);
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
