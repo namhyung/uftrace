@@ -310,7 +310,10 @@ class TestBase:
         timed_out = False
         def timeout(sig, frame):
             timed_out = True
-            p.kill()
+            try:
+                p.kill()
+            except:
+                pass
 
         import signal
         signal.signal(signal.SIGALRM, timeout)
