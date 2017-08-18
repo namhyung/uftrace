@@ -1238,8 +1238,10 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 
 	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		pr_err("cannot open data: %s", opts->dirname);
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
 
 	fstack_setup_filters(opts, &handle);
 

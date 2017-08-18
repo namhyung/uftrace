@@ -651,8 +651,10 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		func = "main";
 
 	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		pr_err("cannot open data: %s", opts->dirname);
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
 
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		/*
