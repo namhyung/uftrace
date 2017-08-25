@@ -53,6 +53,19 @@ static int open_perf_event(int pid, int cpu)
 	return fd;
 }
 
+/**
+ * setup_perf_record - prepare recording perf events
+ * @upw: data structure for perf record
+ * @nr_cpu: total number of cpus to record
+ * @pid: process id to record
+ * @dirname: directory name to save perf record data
+ *
+ * This function prepares recording linux perf events.  The perf_event
+ * fd should be opened and mmaped for each cpu.
+ *
+ * It returns 0 for success, -1 if failed.  Callers should call
+ * finish_perf_record() after recording.
+ */
 int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 		      const char *dirname)
 {
@@ -103,6 +116,12 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 	return 0;
 }
 
+/**
+ * finish_perf_record - destroy data structure for perf recording
+ * @perf: data structure for perf record
+ *
+ * This function releases all resources in the @upw.
+ */
 void finish_perf_record(struct uftrace_perf_writer *perf)
 {
 	int cpu;
@@ -127,6 +146,15 @@ void finish_perf_record(struct uftrace_perf_writer *perf)
 	perf->nr_event = 0;
 }
 
+/**
+ * record_perf_data - record perf event data to file or socket
+ * @perf: data structure for perf record
+ * @cpu: cpu number for perf event
+ * @sock: socket fd to send perf data
+ *
+ * This function copies contents in the perf ring buffer to a file
+ * or a network socket.
+ */
 void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 {
 	struct perf_event_mmap_page *pc = perf->page[cpu];
@@ -195,6 +223,14 @@ out:
 }
 #endif /* HAVE_PERF_CLOCKID */
 
+/**
+ * setup_perf_data - preapre reading perf event data
+ * @handle - uftrace data file handle
+ *
+ * This function prepares to read perf event data from perf-cpu*.dat
+ * files.  It returns 0 on success, -1 on failure.  Callers should
+ * call finish_perf_data() after reading all perf event data.
+ */
 int setup_perf_data(struct ftrace_file_handle *handle)
 {
 	struct uftrace_perf_reader *perf;
@@ -228,6 +264,12 @@ out:
 	return ret;
 }
 
+/**
+ * finish_perf_data - destroy resources for perf event data
+ * @handle - uftrace data file handle
+ *
+ * This function releases all resources regarding perf event.
+ */
 void finish_perf_data(struct ftrace_file_handle *handle)
 {
 	int i;
@@ -271,6 +313,17 @@ static int read_perf_event(struct ftrace_file_handle *handle,
 	return 0;
 }
 
+/**
+ * read_perf_data - read perf event data
+ * @handle: uftrace data file handle
+ *
+ * This function reads perf events for each cpu data file and returns
+ * the (cpu) index of earliest event.  The event info can be found in
+ * @handle->perf[idx].
+ *
+ * It's important that callers should reset the valid bit after using
+ * the event so that it can read next event for the cpu data file.
+ */
 int read_perf_data(struct ftrace_file_handle *handle)
 {
 	struct uftrace_perf_reader *perf;
@@ -298,9 +351,28 @@ int read_perf_data(struct ftrace_file_handle *handle)
 	return best;
 }
 
-struct uftrace_record * get_perf_record(struct uftrace_perf_reader *perf)
+/**
+ * get_perf_record - convert perf event into uftrace record format
+ * @handle: uftrace data file handle
+ * @perf: data structure for perf event
+ *
+ * This function converts the last perf event into an uftrace record
+ * so that it can be handled in the fstack code like normal function
+ * record.  This is useful for schedule event treated as a function.
+ *
+ * Normally this is called after read_perf_data() so it knows current
+ * event.  But do_dump_file() calls it directly without the above
+ * function in order to access to the raw file contents.
+ */
+struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
+					struct uftrace_perf_reader *perf)
 {
 	static struct uftrace_record rec;
+
+	if (handle->last_perf_idx == -1) {
+		if (read_perf_event(handle, perf) < 0)
+			return NULL;
+	}
 
 	rec.type  = UFTRACE_EVENT;
 	rec.time  = perf->ctxsw.time;

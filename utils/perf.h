@@ -84,6 +84,7 @@ struct uftrace_record;
 int setup_perf_data(struct ftrace_file_handle *handle);
 void finish_perf_data(struct ftrace_file_handle *handle);
 int read_perf_data(struct ftrace_file_handle *handle);
-struct uftrace_record * get_perf_record(struct uftrace_perf_reader *perf);
+struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
+					struct uftrace_perf_reader *perf);
 
 #endif /* UFTRACE_PERF_H */

@@ -1666,7 +1666,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 
 	case PERF:
 		task = get_task_handle(handle, perf->ctxsw.tid);
-		task->rstack = get_perf_record(perf);
+		task->rstack = get_perf_record(handle, perf);
 		break;
 
 	case NONE:
