@@ -114,29 +114,12 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	rb_insert_color(&entry->link, root);
 }
 
-static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
-		       uint64_t time, uint64_t addr, struct opts *opts)
+static void fill_entry_sym(struct trace_entry *te,
+			   struct ftrace_task_handle *task,
+			   struct sym *sym, uint64_t addr)
 {
-	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct uftrace_session *sess;
-	struct sym *sym;
-	struct fstack *fstack;
 	int i;
-
-	sess = sessions->first;
-
-	/* skip user functions if --kernel-only is set */
-	if (opts->kernel_only && !is_kernel_address(&sess->symtabs, addr))
-		return false;
-
-	if (opts->kernel_skip_out) {
-		/* skip kernel functions outside user functions */
-		if (task->user_stack_count == 0 &&
-		    is_kernel_address(&sess->symtabs, addr))
-			return false;
-	}
-
-	sym = task_find_sym_addr(sessions, task, time, addr);
+	struct fstack *fstack;
 
 	fstack = &task->func_stack[task->stack_count];
 
@@ -158,7 +141,31 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 			break;
 		}
 	}
+}
 
+static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
+		       uint64_t time, uint64_t addr, struct opts *opts)
+{
+	struct uftrace_session_link *sessions = &task->h->sessions;
+	struct uftrace_session *sess;
+	struct sym *sym;
+
+	sess = sessions->first;
+
+	/* skip user functions if --kernel-only is set */
+	if (opts->kernel_only && !is_kernel_address(&sess->symtabs, addr))
+		return false;
+
+	if (opts->kernel_skip_out) {
+		/* skip kernel functions outside user functions */
+		if (task->user_stack_count == 0 &&
+		    is_kernel_address(&sess->symtabs, addr))
+			return false;
+	}
+
+	sym = task_find_sym_addr(sessions, task, time, addr);
+
+	fill_entry_sym(te, task, sym, addr);
 	return true;
 }
 
@@ -180,9 +187,24 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (rstack->type == UFTRACE_ENTRY ||
-		    rstack->type == UFTRACE_EVENT)
+		if (rstack->type == UFTRACE_ENTRY)
 			continue;
+
+		if (rstack->type == UFTRACE_EVENT) {
+			if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				static struct sym sched_sym = {
+					.addr = EVENT_ID_PERF_SCHED_IN,
+					.size = 1,
+					.type = ST_LOCAL,
+					.name = "linux:schedule",
+				};
+
+				fill_entry_sym(&te, task, &sched_sym,
+					       sched_sym.addr);
+				insert_entry(root, &te, false);
+			}
+			continue;
+		}
 
 		if (rstack->type == UFTRACE_LOST) {
 			/* add partial duration of functions before LOST */
