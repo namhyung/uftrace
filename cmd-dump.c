@@ -46,6 +46,13 @@ struct uftrace_dump_ops {
 	/* thius is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
 		     uint64_t time, int tid, int losts);
+	/* this is called when a perf data (for each cpu) starts */
+	void (*perf_start)(struct uftrace_dump_ops *ops,
+			   struct uftrace_perf_reader *perf, int cpu);
+	/* this is called for each perf event (e.g. schedule) */
+	void (*perf_event)(struct uftrace_dump_ops *ops,
+			   struct uftrace_perf_reader *perf,
+			   struct uftrace_record *frs);
 	/* this is called at the end */
 	void (*footer)(struct uftrace_dump_ops *ops,
 		       struct ftrace_file_handle *handle, struct opts *opts);
@@ -645,11 +652,42 @@ static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
 			raw->kbuf_offset = 0;
 	}
 }
+
 static void print_raw_kernel_lost(struct uftrace_dump_ops *ops,
 				  uint64_t time, int tid, int losts)
 {
 	pr_time(time);
 	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
+}
+
+static void print_raw_perf_start(struct uftrace_dump_ops *ops,
+				 struct uftrace_perf_reader *perf, int cpu)
+{
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+
+	if (cpu == 0)
+		pr_out("\n");
+
+	pr_out("reading perf-cpu%d.dat\n", cpu);
+
+	raw->file_offset = 0;
+}
+
+static void print_raw_perf_event(struct uftrace_dump_ops *ops,
+				 struct uftrace_perf_reader *perf,
+				 struct uftrace_record *frs)
+{
+	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+	char *evt_name = get_event_name(NULL, frs->addr);
+
+	pr_time(frs->time);
+	pr_out("%5d: [%s] %s(%d)\n",
+	       perf->ctxsw.tid, rstack_type(frs), evt_name, frs->addr);
+
+	if (debug)
+		pr_hex(&raw->file_offset, &perf->ctxsw, sizeof(perf->ctxsw));
+
+	free(evt_name);
 }
 
 static void print_raw_footer(struct uftrace_dump_ops *ops,
@@ -749,6 +787,17 @@ static void print_chrome_kernel_event(struct uftrace_dump_ops *ops,
 
 static void print_chrome_kernel_lost(struct uftrace_dump_ops *ops,
 				     uint64_t time, int tid, int losts)
+{
+}
+
+static void print_chrome_perf_start(struct uftrace_dump_ops *ops,
+				    struct uftrace_perf_reader *perf, int cpu)
+{
+}
+
+static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
+				    struct uftrace_perf_reader *perf,
+				    struct uftrace_record *frs)
 {
 }
 
@@ -1018,6 +1067,17 @@ static void print_flame_kernel_lost(struct uftrace_dump_ops *ops,
 {
 }
 
+static void print_flame_perf_start(struct uftrace_dump_ops *ops,
+				   struct uftrace_perf_reader *perf, int cpu)
+{
+}
+
+static void print_flame_perf_event(struct uftrace_dump_ops *ops,
+				   struct uftrace_perf_reader *perf,
+				   struct uftrace_record *frs)
+{
+}
+
 static void print_flame_footer(struct uftrace_dump_ops *ops,
 			       struct ftrace_file_handle *handle,
 			       struct opts *opts)
@@ -1078,7 +1138,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	}
 
 	if (!has_kernel_data(handle->kernel) || uftrace_done)
-		goto footer;
+		goto perf;
 
 	ops->kernel_start(ops, handle->kernel);
 
@@ -1114,6 +1174,29 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			ops->kernel_func(ops, kernel, i, frs, name);
 
 			symbol_putname(sym, name);
+		}
+	}
+
+perf:
+	if (!has_perf_data(handle) || uftrace_done)
+		goto footer;
+
+	/* force get_perf_record() to read from file */
+	handle->last_perf_idx = -1;
+
+	for (i = 0; i < handle->nr_perf; i++) {
+		struct uftrace_perf_reader *perf = &handle->perf[i];
+
+		ops->perf_start(ops, perf, i);
+
+		while (!uftrace_done) {
+			struct uftrace_record *rec;
+
+			rec = get_perf_record(handle, perf);
+			if (rec == NULL)
+				break;
+
+			ops->perf_event(ops, perf, rec);
 		}
 	}
 
@@ -1258,6 +1341,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.kernel_func    = print_chrome_kernel_rstack,
 				.kernel_event   = print_chrome_kernel_event,
 				.lost           = print_chrome_kernel_lost,
+				.perf_start     = print_chrome_perf_start,
+				.perf_event     = print_chrome_perf_event,
 				.footer         = print_chrome_footer,
 			},
 		};
@@ -1276,6 +1361,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.kernel_func    = print_flame_kernel_rstack,
 				.kernel_event   = print_flame_kernel_event,
 				.lost           = print_flame_kernel_lost,
+				.perf_start     = print_flame_perf_start,
+				.perf_event     = print_flame_perf_event,
 				.footer         = print_flame_footer,
 			},
 			.tasks = RB_ROOT,
@@ -1296,6 +1383,8 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 				.kernel_func    = print_raw_kernel_rstack,
 				.kernel_event   = print_raw_kernel_event,
 				.lost           = print_raw_kernel_lost,
+				.perf_start     = print_raw_perf_start,
+				.perf_event     = print_raw_perf_event,
 				.footer         = print_raw_footer,
 			},
 		};
