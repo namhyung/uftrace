@@ -726,14 +726,22 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
-	if (frs->type == UFTRACE_EVENT)
-		return;
+	if (frs->type == UFTRACE_EVENT) {
+		if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
+		    frs->addr != EVENT_ID_PERF_SCHED_OUT)
+			return;
+
+		/* new thread starts with sched-in event which should be ignored */
+		if (frs->addr == EVENT_ID_PERF_SCHED_IN && task->timestamp_last == 0)
+			return;
+	}
 
 	if (chrome->last_comma)
 		pr_out(",\n");
 	chrome->last_comma = true;
 
-	if (frs->type == UFTRACE_ENTRY) {
+	if ((frs->type == UFTRACE_ENTRY) ||
+	    (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_OUT)) {
 		ph = 'B';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
@@ -746,7 +754,8 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		else
 			pr_out("}");
 	}
-	else if (frs->type == UFTRACE_EXIT) {
+	else if ((frs->type == UFTRACE_EXIT) ||
+		 (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_IN)) {
 		ph = 'E';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
@@ -1029,8 +1038,15 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 		node = add_fg_node(node, name);
 	else if (frs->type == UFTRACE_EXIT)
 		node = add_fg_time(node, task, flame->sample_time);
-	else if (frs->type == UFTRACE_EVENT)
-		node = t->node;  /* skip event records */
+	else if (frs->type == UFTRACE_EVENT) {
+		if (frs->addr == EVENT_ID_PERF_SCHED_OUT)
+			node = add_fg_node(node, name);
+		else if (frs->addr == EVENT_ID_PERF_SCHED_IN &&
+			 task->timestamp_last) /* ignore first sched-in for thread */
+			node = add_fg_time(node, task, flame->sample_time);
+		else
+			node = t->node;  /* skip other event records */
+	}
 	else
 		node = &fg_root;
 
@@ -1224,6 +1240,9 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 	if (!fstack_check_filter(task))
 		return false;
 
+	if (!check_time_range(&task->h->time_range, frs->time))
+		return false;
+
 	return true;
 }
 
@@ -1234,9 +1253,15 @@ static void dump_replay_task(struct uftrace_dump_ops *ops,
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct sym *sym = NULL;
 	char *name;
+	struct sym sched_sym = {
+		.name = "linux:schedule",
+	};
 
 	if (frs->type != UFTRACE_EVENT)
 		sym = task_find_sym(sessions, task, frs);
+	else if (frs->addr == EVENT_ID_PERF_SCHED_IN ||
+		 frs->addr == EVENT_ID_PERF_SCHED_OUT)
+		sym = &sched_sym;
 
 	name = symbol_getname(sym, frs->addr);
 	ops->task_rstack(ops, task, name);
@@ -1263,6 +1288,8 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 		prev_time = frs->time;
 
 		dump_replay_task(ops, task);
+
+		task->timestamp_last = frs->time;
 	}
 
 	/* add duration of remaining functions */
@@ -1276,7 +1303,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		last_time = task->rstack->time;
 
-		if (handle->time_range.stop)
+		if (handle->time_range.stop && handle->time_range.stop < last_time)
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
