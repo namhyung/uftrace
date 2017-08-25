@@ -139,6 +139,18 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi)
 			goto out;
 		}
 
+		/* handle position independent code */
+		if (ehdr.e_type == ET_DYN) {
+			struct xray_instr_map *xrmap;
+
+			for (i = 0; i < adi->xrmap_count; i++) {
+				xrmap = &adi->xrmap[i];
+
+				xrmap->addr  += mdi->addr;
+				xrmap->entry += mdi->addr;
+			}
+		}
+
 		mdi->arch = adi;
 		break;
 	}
