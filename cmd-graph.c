@@ -321,15 +321,34 @@ static int add_graph_exit(struct task_graph *tg)
 	return 0;
 }
 
+static int add_graph_event(struct task_graph *tg)
+{
+	struct uftrace_record *rec = tg->task->rstack;
+
+	if (rec->addr == EVENT_ID_PERF_SCHED_OUT) {
+		/* to match addr with sched-in */
+		rec->addr = EVENT_ID_PERF_SCHED_IN;
+		return add_graph_entry(tg);
+	}
+	else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
+		return add_graph_exit(tg);
+	}
+
+	return -1;
+}
+
 static int add_graph(struct task_graph *tg, int type)
 {
 	pr_dbg2("add graph (enabled: %d) %s\n", tg->enabled,
-		type == UFTRACE_ENTRY ? "ENTRY" : "EXIT");
+		type == UFTRACE_ENTRY ? "ENTRY" :
+		type == UFTRACE_EXIT  ? "EXIT"  : "EVENT");
 
 	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg);
 	else if (type == UFTRACE_EXIT)
 		return add_graph_exit(tg);
+	else if (type == UFTRACE_EVENT)
+		return add_graph_event(tg);
 	else
 		return 0;
 }
@@ -369,8 +388,16 @@ static void print_graph_node(struct uftrace_graph *graph,
 	struct graph_node *parent = node->parent;
 	struct graph_node *child;
 	int orig_indent = indent;
+	static struct sym sched_sym = {
+		.name = "linux:schedule",
+	};
 
-	sym = find_symtabs(&graph->sess->symtabs, node->addr);
+	/* XXX: what if it clashes with existing function address */
+	if (node->addr == EVENT_ID_PERF_SCHED_IN)
+		sym = &sched_sym;
+	else
+		sym = find_symtabs(&graph->sess->symtabs, node->addr);
+
 	symname = symbol_getname(sym, node->addr);
 
 	pr_out(" ");
@@ -439,8 +466,8 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	return 1;
 }
 
-static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
-			      uint64_t addr, int type, char *func)
+static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
+			     uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
 	struct sym *sym = NULL;
@@ -452,6 +479,8 @@ static void build_graph_node (struct ftrace_task_handle *task, uint64_t time,
 
 	/* cannot find a session for this record */
 	if (tg->graph == NULL)
+		return;
+	if (type == UFTRACE_EVENT)
 		return;
 
 	sym = find_symtabs(&tg->graph->sess->symtabs, addr);
@@ -485,9 +514,6 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		if (opts->kernel_only && !is_kernel_record(task, frs))
 			continue;
 
-		if (frs->type == UFTRACE_EVENT)
-			continue;
-
 		if (opts->kernel_skip_out) {
 			/* skip kernel functions outside user functions */
 			if (!task->user_stack_count &&
@@ -497,6 +523,12 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 		if (!fstack_check_filter(task))
 			continue;
+
+		if (frs->type == UFTRACE_EVENT) {
+			if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
+			    frs->addr != EVENT_ID_PERF_SCHED_OUT)
+				continue;
+		}
 
 		if (frs->type == UFTRACE_LOST) {
 			struct task_graph *tg;
