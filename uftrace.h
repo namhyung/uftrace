@@ -306,6 +306,7 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_DIR_NAME,
 	UFTRACE_MSG_SEND_DATA,
 	UFTRACE_MSG_SEND_KERNEL_DATA,
+	UFTRACE_MSG_SEND_PERF_DATA,
 	UFTRACE_MSG_SEND_INFO,
 	UFTRACE_MSG_SEND_META_DATA,
 	UFTRACE_MSG_SEND_END,
@@ -381,6 +382,7 @@ int setup_client_socket(struct opts *opts);
 void send_trace_dir_name(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
 void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
+void send_trace_perf_data(int sock, int cpu, void *data, size_t len);
 void send_trace_metadata(int sock, const char *dirname, char *filename);
 void send_trace_info(int sock, struct uftrace_file_header *hdr,
 		     void *info, int len);

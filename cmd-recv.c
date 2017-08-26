@@ -159,6 +159,25 @@ void send_trace_kernel_data(int sock, int cpu, void *data, size_t len)
 		pr_err("send kernel data failed");
 }
 
+void send_trace_perf_data(int sock, int cpu, void *data, size_t len)
+{
+	int32_t msg_cpu = htonl(cpu);
+	struct uftrace_msg msg = {
+		.magic = htons(UFTRACE_MSG_MAGIC),
+		.type  = htons(UFTRACE_MSG_SEND_PERF_DATA),
+		.len   = htonl(sizeof(msg_cpu) + len),
+	};
+	struct iovec iov[] = {
+		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
+		{ .iov_base = &msg_cpu, .iov_len = sizeof(msg_cpu), },
+		{ .iov_base = data,     .iov_len = len, },
+	};
+
+	pr_dbg2("send UFTRACE_MSG_SEND_PERF_DATA\n");
+	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
+		pr_err("send kernel data failed");
+}
+
 void send_trace_metadata(int sock, const char *dirname, char *filename)
 {
 	int fd;
@@ -365,6 +384,35 @@ static void recv_trace_kernel_data(int sock, int len)
 	free(filename);
 }
 
+static void recv_trace_perf_data(int sock, int len)
+{
+	struct client_data *client;
+	int32_t cpu;
+	char *filename = NULL;
+	void *buffer;
+
+	client = find_client(sock);
+	if (client == NULL)
+		pr_err("no client on this socket\n");
+
+	if (read_all(sock, &cpu, sizeof(cpu)) < 0)
+		pr_err("recv cpu failed");
+	cpu = ntohl(cpu);
+
+	xasprintf(&filename, "perf-cpu%d.dat", cpu);
+
+	len -= sizeof(cpu);
+	buffer = xmalloc(len);
+
+	if (read_all(sock, buffer, len) < 0)
+		pr_err("recv buffer failed");
+
+	write_client_file(client, filename, 1, buffer, len);
+
+	free(buffer);
+	free(filename);
+}
+
 static void recv_trace_metadata(int sock, int len)
 {
 	struct client_data *client;
@@ -528,6 +576,10 @@ static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opt
 	case UFTRACE_MSG_SEND_KERNEL_DATA:
 		pr_dbg2("receive UFTRACE_MSG_SEND_KERNEL_DATA\n");
 		recv_trace_kernel_data(sock, msg.len);
+		break;
+	case UFTRACE_MSG_SEND_PERF_DATA:
+		pr_dbg2("receive UFTRACE_MSG_SEND_PERF_DATA\n");
+		recv_trace_perf_data(sock, msg.len);
 		break;
 	case UFTRACE_MSG_SEND_INFO:
 		pr_dbg2("receive UFTRACE_MSG_SEND_INFO\n");

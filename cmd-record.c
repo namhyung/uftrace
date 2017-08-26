@@ -536,8 +536,10 @@ static bool handle_pollfd(struct pollfd *pollfd, struct writer_arg *warg,
 
 		if (i == 0)
 			check_task = true;
-		else if (trace_perf && i < (warg->nr_cpu + 1))
-			record_perf_data(warg->perf, warg->cpus[i - 1]);
+		else if (trace_perf && i < (warg->nr_cpu + 1)) {
+			record_perf_data(warg->perf, warg->cpus[i - 1],
+					 warg->sock);
+		}
 		else if (trace_kernel) {
 			int idx = i - (nr_poll - warg->nr_cpu);
 
@@ -640,7 +642,7 @@ void *writer_thread(void *arg)
 
 	if (has_perf_event) {
 		for (i = 0; i < warg->nr_cpu; i++)
-			record_perf_data(warg->perf, warg->cpus[i]);
+			record_perf_data(warg->perf, warg->cpus[i], warg->sock);
 	}
 
 	finish_pollfd(pollfd);

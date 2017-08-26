@@ -19,7 +19,7 @@ struct uftrace_perf_writer {
 int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 		      const char *dirname);
 void finish_perf_record(struct uftrace_perf_writer *perf);
-void record_perf_data(struct uftrace_perf_writer *perf, int cpu);
+void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock);
 
 #else  /* !HAVE_PERF_CLOCKID */
 
@@ -30,7 +30,8 @@ static inline int setup_perf_record(struct uftrace_perf_writer *perf,
 }
 
 static inline void finish_perf_record(struct uftrace_perf_writer *perf) {}
-static inline void record_perf_data(struct uftrace_perf_writer *perf, int cpu) {}
+static inline void record_perf_data(struct uftrace_perf_writer *perf,
+				    int cpu, int sock) {}
 
 #endif /* HAVE_PERF_CLOCKID */
 

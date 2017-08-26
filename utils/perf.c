@@ -125,7 +125,7 @@ void finish_perf_record(struct uftrace_perf_writer *perf)
 	perf->nr_event = 0;
 }
 
-void record_perf_data(struct uftrace_perf_writer *perf, int cpu)
+void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 {
 	struct perf_event_mmap_page *pc = perf->page[cpu];
 	unsigned char *data = perf->page[cpu] + pc->data_offset;
@@ -167,7 +167,9 @@ void record_perf_data(struct uftrace_perf_writer *perf, int cpu)
 		size = mask + 1 - (start & mask);
 		start += size;
 
-		if (fwrite(buf, 1, size, perf->fp[cpu]) != size) {
+		if (sock > 0)
+			send_trace_perf_data(sock, cpu, buf, size);
+		else if (fwrite(buf, 1, size, perf->fp[cpu]) != size) {
 			pr_dbg("failed to write perf data: %m\n");
 			goto out;
 		}
@@ -177,7 +179,9 @@ void record_perf_data(struct uftrace_perf_writer *perf, int cpu)
 	size = end - start;
 	start += size;
 
-	if (fwrite(buf, 1, size, perf->fp[cpu]) != size)
+	if (sock > 0)
+		send_trace_perf_data(sock, cpu, buf, size);
+	else if (fwrite(buf, 1, size, perf->fp[cpu]) != size)
 		pr_dbg("failed to write perf data: %m\n");
 
 out:
