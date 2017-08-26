@@ -231,3 +231,11 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 	mprotect(trampoline_buf, trampoline_size, PROT_READ | PROT_EXEC);
 	return 0;
 }
+
+unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+{
+	struct sym *sym;
+
+	sym = find_dynsym(symtabs, idx);
+	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
+}

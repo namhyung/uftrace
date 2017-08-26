@@ -44,4 +44,7 @@ enum x86_reg_index {
 	X86_REG_XMM7,
 };
 
+#define ARCH_PLT0_SIZE  16
+#define ARCH_PLTHOOK_ADDR_OFFSET  6
+
 #endif /* __MCOUNT_ARCH_H__ */

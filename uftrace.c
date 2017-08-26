@@ -958,11 +958,11 @@ TEST_CASE(option_parsing1)
 	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
 	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
 
-	TEST_EQ(parse_timestamp("1ns", &elapsed_time), (uint64_t)1);
-	TEST_EQ(parse_timestamp("2us", &elapsed_time), (uint64_t)2000);
-	TEST_EQ(parse_timestamp("3ms", &elapsed_time), (uint64_t)3000000);
-	TEST_EQ(parse_timestamp("4s",  &elapsed_time), (uint64_t)4000000000);
-	TEST_EQ(parse_timestamp("5m",  &elapsed_time), (uint64_t)300000000000);
+	TEST_EQ(parse_timestamp("1ns", &elapsed_time), 1ULL);
+	TEST_EQ(parse_timestamp("2us", &elapsed_time), 2000ULL);
+	TEST_EQ(parse_timestamp("3ms", &elapsed_time), 3000000ULL);
+	TEST_EQ(parse_timestamp("4s",  &elapsed_time), 4000000000ULL);
+	TEST_EQ(parse_timestamp("5m",  &elapsed_time), 300000000000ULL);
 
 	return TEST_OK;
 }

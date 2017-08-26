@@ -140,8 +140,6 @@ struct mcount_thread_data {
 	int				idx;
 	int				record_idx;
 	bool				recursion_guard;
-	bool				plthook_guard;
-	unsigned long			plthook_addr;
 	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
@@ -202,6 +200,8 @@ extern void plthook_setup(struct symtabs *symtabs);
 extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct symtabs *symtabs);
 extern void destroy_dynsym_indexes(void);
+
+extern unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx);
 
 static inline bool mcount_should_stop(void)
 {

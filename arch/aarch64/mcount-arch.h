@@ -61,4 +61,6 @@ enum arm_reg_index {
 	AARCH64_REG_D7,
 };
 
+#define ARCH_PLT0_SIZE  32
+
 #endif /* __MCOUNT_ARCH_H__ */
