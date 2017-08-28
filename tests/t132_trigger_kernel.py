@@ -11,12 +11,12 @@ class TestCase(TestBase):
    0.714 us [ 4435] | __monstartup();
    0.349 us [ 4435] | __cxa_atexit();
             [ 4435] | main() {
-            [ 4435] |   open() {
+            [ 4435] |   fopen() {
    6.413 us [ 4435] |     sys_open();
-   7.037 us [ 4435] |   } /* open */
-            [ 4435] |   close() {
+   7.037 us [ 4435] |   } /* fopen */
+            [ 4435] |   fclose() {
    8.389 us [ 4435] |     sys_close();
-   9.949 us [ 4435] |   } /* close */
+   9.949 us [ 4435] |   } /* fclose */
   17.632 us [ 4435] | } /* main */
 """)
 

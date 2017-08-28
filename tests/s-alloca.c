@@ -5,7 +5,7 @@
 int foo(int c)
 {
 	char *ptr = alloca(c);
-	snprintf(ptr, c, "%s", "hello world\n");
+	strncpy(ptr, "hello world\n", c);
 	return c;
 }
 

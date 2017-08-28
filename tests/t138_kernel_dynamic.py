@@ -8,12 +8,12 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'openclose', """
 # DURATION    TID     FUNCTION
             [ 9875] | main() {
-            [ 9875] |   open() {
+            [ 9875] |   fopen() {
   14.416 us [ 9875] |     sys_open();
-  19.099 us [ 9875] |   } /* open */
-            [ 9875] |   close() {
+  19.099 us [ 9875] |   } /* fopen */
+            [ 9875] |   fclose() {
    3.380 us [ 9875] |     sys_close();
-   9.720 us [ 9875] |   } /* close */
+   9.720 us [ 9875] |   } /* fclose */
   37.051 us [ 9875] | } /* main */
 """)
 

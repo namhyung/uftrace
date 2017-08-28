@@ -14,8 +14,8 @@ class TestCase(TestBase):
    1.088 us [18343] | __monstartup();
    0.640 us [18343] | __cxa_atexit();
             [18343] | main() {
-  89.018 us [18343] |   open();
-  37.325 us [18343] |   close();
+  89.018 us [18343] |   fopen();
+  37.325 us [18343] |   fclose();
  128.387 us [18343] | } /* main */
 """)
 
