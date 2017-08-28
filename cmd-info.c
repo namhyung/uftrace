@@ -769,17 +769,13 @@ void clear_ftrace_info(struct uftrace_info *info)
 
 int command_info(int argc, char *argv[], struct opts *opts)
 {
+	int ret;
 	char buf[PATH_MAX];
 	struct stat statbuf;
 	struct ftrace_file_handle handle;
 	const char *fmt = "# %-20s: %s\n";
 
-	open_data_file(opts, &handle);
-
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-
-	if (stat(buf, &statbuf) < 0)
-		return -1;
+	ret = open_data_file(opts, &handle);
 
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
@@ -787,11 +783,26 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			.flags = SYMTAB_FL_DEMANGLE,
 		};
 
+		if (!opts->exename) {
+			pr_use("Usage: uftrace info --symbols [COMMAND]\n");
+			return -1;
+		}
+
 		load_symtabs(&symtabs, opts->dirname, opts->exename);
 		print_symtabs(&symtabs);
 		unload_symtabs(&symtabs);
 		goto out;
 	}
+
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
+
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+
+	if (stat(buf, &statbuf) < 0)
+		return -1;
 
 	pr_out("# system information\n");
 	pr_out("# ==================\n");

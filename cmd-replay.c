@@ -930,8 +930,10 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
 	ret = open_data_file(opts, &handle);
-	if (ret < 0)
-		pr_err("cannot open data: %s", opts->dirname);
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
 
 	fstack_setup_filters(opts, &handle);
 	setup_field(opts);
