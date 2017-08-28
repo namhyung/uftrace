@@ -776,15 +776,6 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	const char *fmt = "# %-20s: %s\n";
 
 	ret = open_data_file(opts, &handle);
-	if (ret < 0) {
-		pr_warn("cannot open data: %s: %m\n", opts->dirname);
-		return -1;
-	}
-
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-
-	if (stat(buf, &statbuf) < 0)
-		return -1;
 
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
@@ -797,6 +788,16 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		unload_symtabs(&symtabs);
 		goto out;
 	}
+
+	if (ret < 0) {
+		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		return -1;
+	}
+
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+
+	if (stat(buf, &statbuf) < 0)
+		return -1;
 
 	pr_out("# system information\n");
 	pr_out("# ==================\n");
