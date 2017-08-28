@@ -156,6 +156,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		"mcount", "__fentry__",
 		"__cyg_profile_func_enter", "__cyg_profile_func_exit",
 		"__cxa_finalize",  /* XXX: it caused segfault */
+		"__gmon_start__",  /* XXX: it makes process stuck */
 	};
 
 	plthook_setup(symtabs);
