@@ -783,6 +783,11 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			.flags = SYMTAB_FL_DEMANGLE,
 		};
 
+		if (!opts->exename) {
+			pr_use("Usage: uftrace info --symbols [COMMAND]\n");
+			return -1;
+		}
+
 		load_symtabs(&symtabs, opts->dirname, opts->exename);
 		print_symtabs(&symtabs);
 		unload_symtabs(&symtabs);
