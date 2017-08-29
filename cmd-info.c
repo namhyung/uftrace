@@ -680,6 +680,32 @@ static int read_arg_spec(void *arg)
 	return 0;
 }
 
+static int fill_record_date(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	time_t current_time;
+
+	time(&current_time);
+
+	return dprintf(fha->fd, "record_date:%s", ctime(&current_time));
+}
+
+static int read_record_date(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct uftrace_info *info = &handle->info;
+	char buf[4096];
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "record_date:", 12))
+		return -1;
+
+	info->record_date = copy_info_str(&buf[12]);
+	return 0;
+}
+
 struct ftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -708,6 +734,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 		{ USAGEINFO,	fill_usageinfo },
 		{ LOADINFO,	fill_loadinfo },
 		{ ARG_SPEC,	fill_arg_spec },
+		{ RECORD_DATE,	fill_record_date },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -737,6 +764,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ USAGEINFO,	read_usageinfo },
 		{ LOADINFO,	read_loadinfo },
 		{ ARG_SPEC,	read_arg_spec },
+		{ RECORD_DATE,	read_record_date },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -765,6 +793,7 @@ void clear_ftrace_info(struct uftrace_info *info)
 	free(info->distro);
 	free(info->tids);
 	free(info->argspec);
+	free(info->record_date);
 }
 
 int command_info(int argc, char *argv[], struct opts *opts)
@@ -807,7 +836,11 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	pr_out("# system information\n");
 	pr_out("# ==================\n");
 	pr_out(fmt, "program version", argp_program_version);
-	pr_out("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
+
+	if (handle.hdr.info_mask & (1UL << RECORD_DATE))
+		pr_out(fmt, "recorded on", handle.info.record_date);
+	else
+		pr_out("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
 
 	if (handle.hdr.info_mask & (1UL << CMDLINE))
 		pr_out(fmt, "cmdline", handle.info.cmdline);

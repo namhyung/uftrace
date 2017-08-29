@@ -81,6 +81,7 @@ enum uftrace_info_bits {
 	USAGEINFO,
 	LOADINFO,
 	ARG_SPEC,
+	RECORD_DATE,
 };
 
 struct uftrace_info {
@@ -100,6 +101,7 @@ struct uftrace_info {
 	int *tids;
 	double stime;
 	double utime;
+	char *record_date;
 	long vctxsw;
 	long ictxsw;
 	long maxrss;
