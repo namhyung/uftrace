@@ -465,15 +465,20 @@ retry:
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;
 
 	if (handle->hdr.feat_mask & KERNEL) {
-		handle->kernel = xzalloc(sizeof(*handle->kernel));
+		struct uftrace_kernel_reader *kernel;
 
-		handle->kernel->dirname  = opts->dirname;
-		handle->kernel->skip_out = opts->kernel_skip_out;
+		kernel = xzalloc(sizeof(*kernel));
 
-		if (setup_kernel_data(handle->kernel) == 0)
+		kernel->handle   = handle;
+		kernel->dirname  = opts->dirname;
+		kernel->skip_out = opts->kernel_skip_out;
+
+		if (setup_kernel_data(kernel) == 0) {
+			handle->kernel = kernel;
 			load_kernel_symbol(opts->dirname);
+		}
 		else {
-			free(handle->kernel);
+			free(kernel);
 			handle->kernel = NULL;
 		}
 	}
