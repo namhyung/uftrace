@@ -1887,6 +1887,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 		fclose(fp);
 	}
 
+	kernel->handle = &test_handle;
 	test_handle.kernel = kernel;
 	atexit(kernel_test_finish_file);
 
@@ -1897,8 +1898,6 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 				    struct ftrace_file_handle *handle)
 {
 	int i;
-
-	handle->kernel = kernel;
 
 	handle->nr_tasks = NUM_TASK;
 	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
