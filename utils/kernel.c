@@ -1331,6 +1331,26 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 	memcpy(&kernel->rstacks[cpu], &kernel->trace_rec, sizeof(kernel->trace_rec));
 	kernel->rstack_valid[cpu] = true;
 
+	/*
+	 * some event might be saved for unrelated task.  In this case
+	 * pid for our child would be in a different field (not common_pid).
+	 */
+	if (kernel->trace_rec.type == UFTRACE_EVENT &&
+	    get_task_handle(kernel->handle, kernel->tids[cpu]) == NULL) {
+		unsigned long long tid;
+
+		/* for sched_switch event */
+		if (pevent_get_field_val(NULL, event, "next_pid",
+					 &record, &tid, 0) == 0 &&
+		    get_task_handle(kernel->handle, tid) != NULL)
+			kernel->tids[cpu] = tid;
+		/* for sched_wakeup event (or others) */
+		else if (pevent_get_field_val(NULL, event, "pid",
+					 &record, &tid, 0) == 0 &&
+		    get_task_handle(kernel->handle, tid) != NULL)
+			kernel->tids[cpu] = tid;
+	}
+
 	kbuffer_next_event(kernel->kbufs[cpu], NULL);
 
 	return 0;
@@ -1867,6 +1887,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 		fclose(fp);
 	}
 
+	kernel->handle = &test_handle;
 	test_handle.kernel = kernel;
 	atexit(kernel_test_finish_file);
 
@@ -1877,8 +1898,6 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 				    struct ftrace_file_handle *handle)
 {
 	int i;
-
-	handle->kernel = kernel;
 
 	handle->nr_tasks = NUM_TASK;
 	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);

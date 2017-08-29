@@ -15,6 +15,7 @@ class TestCase(TestBase):
             [24464] |     bar() {
             [24464] |       usleep() {
             [24464] |         /* sched:sched_switch (prev_comm=t-sleep ...) */
+            [24464] |         /* sched:sched_switch (prev_comm=swapper/0 ...) */
    2.176 ms [24464] |       } /* usleep */
    2.183 ms [24464] |     } /* bar */
             [24464] |     mem_free() {

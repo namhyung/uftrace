@@ -33,6 +33,7 @@ struct uftrace_kernel_reader {
 	void				**mmaps;
 	struct kbuffer			**kbufs;
 	struct pevent			*pevent;
+	struct ftrace_file_handle	*handle;
 	struct uftrace_record		*rstacks;
 	struct uftrace_rstack_list	*rstack_list;
 	struct trace_seq		trace_buf;
