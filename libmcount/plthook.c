@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <gelf.h>
+#include <link.h>
 #include <sys/mman.h>
 #include <pthread.h>
 #include <assert.h>
@@ -40,7 +41,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 			pr_err("mprotect failed");
 		segv_handled = true;
 	} else {
-		pr_err_ns("invalid memory access.. exiting.\n");
+		pr_err_ns("invalid memory access: %lx: exiting.\n", got_addr);
 	}
 }
 
@@ -129,7 +130,8 @@ __weak int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 	return -1;
 }
 
-static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
+static int find_got(Elf *elf, const char *modname,
+		    Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
 	bool plt_found = false;
@@ -174,17 +176,20 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 	}
 
 	pd = xmalloc(sizeof(*pd));
+	pd->mod_name   = xstrdup(modname);
 	pd->pltgot_ptr = (void *)pltgot_addr;
 	pd->module_id  = pd->pltgot_ptr[1];
 	pd->base_addr  = offset;
 
-	pd->dsymtab = symtabs.dsymtab;
+	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
+		pd->mod_name, pd->module_id, pd->base_addr ,pd->pltgot_ptr);
+
+	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
+	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
+
 	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
 
 	list_add_tail(&pd->list, &plthook_modules);
-
-	pr_dbg2("module (id: %lx), addr = %lx, PLTGOT = %p\n",
-		pd->module_id, pd->base_addr ,pd->pltgot_ptr);
 
 	if (plt_found) {
 		plthook_resolver_addr = pd->pltgot_ptr[2];
@@ -218,7 +223,7 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 	return 0;
 }
 
-int hook_pltgot(char *exename, unsigned long offset)
+static int hook_pltgot(const char *modname, unsigned long offset)
 {
 	int fd;
 	int ret = -1;
@@ -230,9 +235,9 @@ int hook_pltgot(char *exename, unsigned long offset)
 	size_t shstr_idx;
 	size_t i;
 
-	pr_dbg2("opening executable image: %s\n", exename);
+	pr_dbg2("opening executable image: %s\n", modname);
 
-	fd = open(exename, O_RDONLY);
+	fd = open(modname, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -264,7 +269,8 @@ int hook_pltgot(char *exename, unsigned long offset)
 		if (data == NULL)
 			goto elf_error;
 
-		if (find_got(elf, data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
+		if (find_got(elf, modname, data, shdr.sh_size / shdr.sh_entsize,
+			     offset) < 0)
 			goto elf_error;
 	}
 	ret = 0;
@@ -419,8 +425,64 @@ void destroy_dynsym_indexes(void)
 {
 	free(special_funcs);
 	special_funcs = NULL;
+}
 
-	nr_special = 0;
+static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *arg)
+{
+	const char *exename = info->dlpi_name;
+	unsigned long offset = info->dlpi_addr;
+	static const char * const skip_libs[] = {
+		/* uftrace internal libraries */
+		"libmcount.so",
+		"libmcount-fast.so",
+		"libmcount-single.so",
+		"libmcount-fast-single.so",
+		/* system base libraries */
+		"libc.so.6",
+		"libgcc_s.so.1",
+		"libpthread.so.0",
+		"linux-vdso.so.1",
+		"linux-gate.so.1",
+		"ld-linux-x86-64.so.2",
+	};
+	size_t k;
+
+	if (exename[0] == '\0')
+		exename = arg;
+
+	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
+		if (!strcmp(basename(exename), skip_libs[k]))
+			return 0;
+	}
+
+	pr_dbg2("setup plthook data for %s (offset: %lx)\n", exename, offset);
+
+	if (hook_pltgot(exename, offset) < 0)
+		pr_dbg("error when hooking plt: skipping...\n");
+
+	return 0;
+}
+
+static int setup_exe_plthook_data(struct dl_phdr_info *info, size_t sz, void *arg)
+{
+	const char *exename = arg;
+	unsigned long offset = info->dlpi_addr;
+
+	pr_dbg2("setup plthook data for %s (offset: %lx)\n", exename, offset);
+
+	hook_pltgot(exename, offset);
+	return 1;
+}
+
+void mcount_setup_plthook(char *exename, bool nest_libcall)
+{
+	/* TODO: setup special index for each pd */
+	setup_dynsym_indexes(&symtabs.dsymtab);
+
+	if (!nest_libcall)
+		dl_iterate_phdr(setup_exe_plthook_data, exename);
+	else
+		dl_iterate_phdr(setup_mod_plthook_data, exename);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -644,8 +706,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
-		pr_err_ns("invalid function idx found! (idx: %d, %#lx)\n",
-			  (int) child_idx, child_idx);
+		pr_err_ns("invalid function idx found! (module: %s, idx: %d, %#lx)\n",
+			  pd->mod_name, (int) child_idx, child_idx);
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);

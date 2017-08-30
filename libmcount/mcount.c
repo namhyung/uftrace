@@ -1198,19 +1198,9 @@ static void mcount_startup(void)
 	if (event_str)
 		mcount_setup_events(dirname, event_str);
 
-	if (plthook_str) {
-		if (symtabs.dsymtab.nr_sym == 0) {
-			pr_dbg("skip PLT hooking due to no dynamic symbols\n");
-			goto out;
-		}
+	if (plthook_str)
+		mcount_setup_plthook(mcount_exename, false);
 
-		setup_dynsym_indexes(&symtabs.dsymtab);
-
-		if (hook_pltgot(mcount_exename, symtabs.maps->start) < 0)
-			pr_dbg("error when hooking plt: skipping...\n");
-	}
-
-out:
 	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
 		kernel_pid_update = true;
 

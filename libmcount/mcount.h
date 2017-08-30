@@ -197,6 +197,7 @@ extern void shmem_finish(struct mcount_thread_data *mtdp);
 
 struct plthook_data {
 	struct list_head	list;
+	const char		*mod_name;
 	unsigned long		module_id;
 	unsigned long		base_addr;
 	struct symtab		dsymtab;
@@ -204,9 +205,9 @@ struct plthook_data {
 	unsigned long		*resolved_addr;
 };
 
-extern int hook_pltgot(char *exename, unsigned long offset);
 unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
 			   void *data);
+extern void mcount_setup_plthook(char *exename, bool nest_libcall);
 
 extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct symtab *dsymtab);
