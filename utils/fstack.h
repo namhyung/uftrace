@@ -115,6 +115,12 @@ int read_task_args(struct ftrace_task_handle *task,
 		   struct uftrace_record *rstack,
 		   bool is_retval);
 
+static inline bool is_user_record(struct ftrace_task_handle *task,
+				  struct uftrace_record *rec)
+{
+	return rec == &task->ustack;
+}
+
 static inline bool is_kernel_record(struct ftrace_task_handle *task,
 				    struct uftrace_record *rec)
 {
@@ -133,7 +139,7 @@ int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
-				       int curr_depth);
+				       int curr_depth, bool event_skip_out);
 bool fstack_check_filter(struct ftrace_task_handle *task);
 void get_argspec_string(struct ftrace_task_handle *task,
 		        char *args, size_t len,

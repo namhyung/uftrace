@@ -132,14 +132,14 @@ MAKEFLAGS = --no-print-directory
 
 all: $(objdir)/.config $(TARGETS)
 
-$(objdir)/.config: $(srcdir)/configure
+$(objdir)/.config: $(srcdir)/configure $(srcdir)/check-deps/Makefile
 	$(QUIET_GEN)$(srcdir)/configure -p -o $@ $(MAKEOVERRIDES)
 	@$(MAKE) -C $(objdir)
 # The above recursive make will handle all build procedure with
 # updated dependency.  So just abort the current build.
 	$(error)
 
-config: $(srcdir)/configure $(srcdir)/check-deps/Makefile
+config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
 
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/%.op: $(srcdir)/utils/%.c $(COMMON_DEPS)

@@ -547,6 +547,27 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 		goto out;
 	}
 
+	if (evt_id >= EVENT_ID_PERF) {
+		const char *event_name;
+
+		switch (evt_id) {
+		case EVENT_ID_PERF_SCHED_IN:
+			event_name = "sched-in";
+			break;
+		case EVENT_ID_PERF_SCHED_OUT:
+			event_name = "sched-out";
+			break;
+		case EVENT_ID_PERF_SCHED_BOTH:
+			event_name = "schedule";
+			break;
+		default:
+			event_name = "unknown";
+			break;
+		}
+		xasprintf(&evt_name, "linux:%s", event_name);
+		goto out;
+	}
+
 	if (evt_id >= EVENT_ID_BUILTIN) {
 		switch (evt_id) {
 		case EVENT_ID_PROC_STATM:

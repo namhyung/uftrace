@@ -32,6 +32,9 @@ OPTIONS
 \--kernel-only
 :   Dump kernel functions only (without user functions).
 
+\--kernel-full
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  This option is only meaningful when used with \--chrome or \--flame-graph options.
+
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more than once.  See `uftrace-replay`(1) for an explanation of filters.
 
@@ -55,6 +58,9 @@ OPTIONS
 
 -r *RANGE*, \--time-range=*RANGE*
 :   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively in `uftrace replay`(1).
+
+\--event-full
+:   Show all (user) events outside of user functions.  This option is only meaningful when used with \--chrome or \--flame-graph options.
 
 
 EXAMPLE

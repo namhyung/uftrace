@@ -17,6 +17,7 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
+#include <fnmatch.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -25,6 +26,7 @@
 #include "utils/list.h"
 #include "utils/filter.h"
 #include "utils/kernel.h"
+#include "utils/perf.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
@@ -52,6 +54,8 @@ static pthread_mutex_t free_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t write_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static bool buf_done;
 static int thread_ctl[2];
+
+static bool has_perf_event;
 
 
 static bool can_use_fast_libmcount(struct opts *opts)
@@ -299,6 +303,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->event)
 		features |= EVENT;
 
+	if (has_perf_event)
+		features |= PERF_EVENT;
+
 	return features;
 }
 
@@ -426,15 +433,16 @@ static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
 }
 
 struct writer_arg {
-	struct list_head	list;
-	struct list_head	bufs;
-	struct opts		*opts;
+	struct list_head		list;
+	struct list_head		bufs;
+	struct opts			*opts;
 	struct uftrace_kernel_writer	*kern;
-	int			sock;
-	int			idx;
-	int			tid;
-	int			nr_cpu;
-	int			cpus[];
+	struct uftrace_perf_writer	*perf;
+	int				sock;
+	int				idx;
+	int				tid;
+	int				nr_cpu;
+	int				cpus[];
 };
 
 static void write_buf_list(struct list_head *buf_head, struct opts *opts,
@@ -467,12 +475,94 @@ static void write_buf_list(struct list_head *buf_head, struct opts *opts,
 	pthread_mutex_unlock(&free_list_lock);
 }
 
+static int setup_pollfd(struct pollfd **pollfd, struct writer_arg *warg,
+			bool setup_perf, bool setup_kernel)
+{
+	int nr_poll = 1;
+	struct pollfd *p;
+	int i;
+
+	if (setup_perf)
+		nr_poll += warg->nr_cpu;
+	if (setup_kernel)
+		nr_poll += warg->nr_cpu;
+
+	p = xcalloc(nr_poll, sizeof(*p));
+
+	p[0].fd = thread_ctl[0];
+	p[0].events = POLLIN;
+	nr_poll = 1;
+
+	if (setup_perf) {
+		for (i = 0; i < warg->nr_cpu; i++) {
+			p[i + nr_poll].fd = warg->perf->event_fd[warg->cpus[i]];
+			p[i + nr_poll].events = POLLIN;
+		}
+		nr_poll += warg->nr_cpu;
+	}
+
+	if (setup_kernel) {
+		for (i = 0; i < warg->nr_cpu; i++) {
+			p[i + nr_poll].fd = warg->kern->traces[warg->cpus[i]];
+			p[i + nr_poll].events = POLLIN;
+		}
+		nr_poll += warg->nr_cpu;
+	}
+
+	*pollfd = p;
+	return nr_poll;
+}
+
+static bool handle_pollfd(struct pollfd *pollfd, struct writer_arg *warg,
+			  bool trace_task, bool trace_perf, bool trace_kernel,
+			  int timeout)
+{
+	int start = trace_task ? 0 : 1;
+	int nr_poll = trace_task ? 1 : 0;
+	bool check_task = false;
+	int i;
+
+	if (trace_perf)
+		nr_poll += warg->nr_cpu;
+	if (trace_kernel)
+		nr_poll += warg->nr_cpu;
+
+	if (poll(&pollfd[start], nr_poll, timeout) < 0)
+		return false;
+
+	for (i = start; i < nr_poll; i++) {
+		if (!(pollfd[i].revents & POLLIN))
+			continue;
+
+		if (i == 0)
+			check_task = true;
+		else if (trace_perf && i < (warg->nr_cpu + 1)) {
+			record_perf_data(warg->perf, warg->cpus[i - 1],
+					 warg->sock);
+		}
+		else if (trace_kernel) {
+			int idx = i - (nr_poll - warg->nr_cpu);
+
+			record_kernel_trace_pipe(warg->kern,
+						 warg->cpus[idx],
+						 warg->sock);
+		}
+	}
+
+	return check_task;
+}
+
+static void finish_pollfd(struct pollfd *pollfd)
+{
+	free(pollfd);
+}
+
 void *writer_thread(void *arg)
 {
 	struct buf_list *buf, *pos;
 	struct writer_arg *warg = arg;
 	struct opts *opts = warg->opts;
-	struct pollfd pollfd[warg->nr_cpu + 1];
+	struct pollfd *pollfd;
 	int i, dummy;
 	sigset_t sigset;
 
@@ -488,33 +578,15 @@ void *writer_thread(void *arg)
 	sigfillset(&sigset);
 	pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 
-	pollfd[0].fd = thread_ctl[0];
-	pollfd[0].events = POLLIN;
-
-	for (i = 0; i < warg->nr_cpu; i++) {
-		pollfd[i + 1].fd = warg->kern->traces[warg->cpus[i]];
-		pollfd[i + 1].events = POLLIN;
-	}
+	setup_pollfd(&pollfd, warg, has_perf_event, opts->kernel);
 
 	pr_dbg2("start writer thread %d\n", warg->idx);
 	while (!buf_done) {
 		LIST_HEAD(head);
 		bool check_list = false;
 
-		if (poll(pollfd, warg->nr_cpu + 1, 1000) < 0)
-			goto out;
-
-		for (i = 0; i < warg->nr_cpu + 1; i++) {
-			if (pollfd[i].revents & POLLIN) {
-				if (i == 0)
-					check_list = true;
-				else
-					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i-1],
-								 warg->sock);
-			}
-		}
-
+		check_list = handle_pollfd(pollfd, warg, true, has_perf_event,
+					   opts->kernel, 1000);
 		if (!check_list)
 			continue;
 
@@ -559,23 +631,21 @@ void *writer_thread(void *arg)
 			}
 			pthread_mutex_unlock(&write_list_lock);
 
-			if (!opts->kernel)
+			if (!has_perf_event && !opts->kernel)
 				continue;
 
-			poll(&pollfd[1], warg->nr_cpu, 0);
-
-			for (i = 0; i < warg->nr_cpu; i++) {
-				if (pollfd[i+1].revents & POLLIN) {
-					record_kernel_trace_pipe(warg->kern,
-								 warg->cpus[i],
-								 warg->sock);
-				}
-			}
+			handle_pollfd(pollfd, warg, false, has_perf_event,
+				      opts->kernel, 0);
 		}
 	}
 	pr_dbg2("stop writer thread %d\n", warg->idx);
 
-out:
+	if (has_perf_event) {
+		for (i = 0; i < warg->nr_cpu; i++)
+			record_perf_data(warg->perf, warg->cpus[i], warg->sock);
+	}
+
+	finish_pollfd(pollfd);
 	free(warg);
 	return NULL;
 }
@@ -1378,6 +1448,29 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
+static bool check_linux_perf_event(char *events)
+{
+	char *str, *tmp, *evt;
+	bool found = false;
+
+	if (events == NULL)
+		return false;
+
+	str = tmp = xstrdup(events);
+
+	evt = strtok(tmp, ";");
+	while (evt) {
+		if (fnmatch(evt, "linux:schedule", 0) == 0) {
+			found = true;
+			break;
+		}
+		evt = strtok(NULL, ";");
+	}
+
+	free(str);
+	return found;
+}
+
 struct writer_data {
 	int				pid;
 	int				pipefd;
@@ -1388,11 +1481,13 @@ struct writer_data {
 	struct timespec			ts1, ts2;
 	struct rusage			usage;
 	struct uftrace_kernel_writer	kernel;
+	struct uftrace_perf_writer	perf;
 };
 
 static void setup_writers(struct writer_data *wd, struct opts *opts)
 {
 	struct uftrace_kernel_writer *kernel = &wd->kernel;
+	struct uftrace_perf_writer *perf = &wd->perf;
 	struct sigaction sa = {
 		.sa_flags = 0,
 	};
@@ -1452,6 +1547,12 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else if (opts->nr_thread > wd->nr_cpu)
 		opts->nr_thread = wd->nr_cpu;
 
+	if (has_perf_event) {
+		if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
+				      opts->dirname) < 0)
+			has_perf_event = false;
+	}
+
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
 	wd->writers = xmalloc(opts->nr_thread * sizeof(*wd->writers));
 
@@ -1476,16 +1577,17 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 		int cpu_per_thread = DIV_ROUND_UP(wd->nr_cpu, opts->nr_thread);
 		size_t sizeof_warg = sizeof(*warg) + sizeof(int) * cpu_per_thread;
 
-		warg = xmalloc(sizeof_warg);
+		warg = xzalloc(sizeof_warg);
 		warg->opts = opts;
 		warg->idx  = i;
 		warg->sock = wd->sock;
 		warg->kern = &wd->kernel;
+		warg->perf = &wd->perf;
 		warg->nr_cpu = 0;
 		INIT_LIST_HEAD(&warg->list);
 		INIT_LIST_HEAD(&warg->bufs);
 
-		if (opts->kernel) {
+		if (opts->kernel || has_perf_event) {
 			warg->nr_cpu = cpu_per_thread;
 
 			for (k = 0; k < cpu_per_thread; k++) {
@@ -1595,6 +1697,8 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 
 	if (opts->kernel)
 		finish_kernel_tracing(&wd->kernel);
+	if (has_perf_event)
+		finish_perf_record(&wd->perf);
 }
 
 static void write_symbol_files(struct writer_data *wd, struct opts *opts)
@@ -1723,6 +1827,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	check_binary(opts);
+
+	has_perf_event = check_linux_perf_event(opts->event);
 
 	fflush(stdout);
 

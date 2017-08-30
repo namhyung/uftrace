@@ -655,6 +655,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
  * @handle     - file handle
  * @task       - tracee task
  * @curr_depth - current rstack depth
+ * @event_skip_out - skip events outside of function
  *
  * This function checks next rstack and skip if it's filtered out.
  * The intention is to merge EXIT record after skipped ones.  It
@@ -663,7 +664,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
  */
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
-				       int curr_depth)
+				       int curr_depth, bool event_skip_out)
 {
 	struct ftrace_task_handle *next = NULL;
 	struct fstack *fstack;
@@ -690,6 +691,11 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		if (is_kernel_address(&fsess->symtabs, next_stack->addr)) {
 			if (has_kernel_data(handle->kernel) &&
 			    !next->user_stack_count && handle->kernel->skip_out)
+				goto next;
+		}
+
+		if (next_stack->type == UFTRACE_EVENT) {
+			if (!next->user_stack_count && event_skip_out)
 				goto next;
 		}
 
@@ -755,6 +761,22 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 
 		fstack_update(UFTRACE_EXIT, task, fstack);
 		fstack_exit(task);
+	}
+	else if (task->rstack->type == UFTRACE_EVENT) {
+		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+			fstack = &task->func_stack[task->stack_count];
+
+			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, IN\n",
+				task->tid, task->stack_count, fstack->orig_depth, task->display_depth,
+				task->filter.in_count, task->filter.out_count, task->filter.depth);
+		}
+		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+			fstack = &task->func_stack[task->stack_count - 1];
+
+			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, OUT\n",
+				task->tid, task->stack_count - 1, fstack->orig_depth, task->display_depth,
+				task->filter.in_count, task->filter.out_count, task->filter.depth);
+		}
 	}
 
 	return true;
@@ -1258,15 +1280,51 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
+/* convert perf sched events to a virtual schedule function */
+static bool convert_perf_event(struct ftrace_task_handle *task,
+			       struct uftrace_record *orig,
+			       struct uftrace_record *dummy)
+{
+	switch (orig->addr) {
+	case EVENT_ID_PERF_SCHED_IN:
+		/* ignore first sched in for non-main threads */
+		if (!task->fstack_set)
+			return false;
+
+		/* fall-through */
+	case EVENT_ID_PERF_SCHED_OUT:
+		if (orig->addr == EVENT_ID_PERF_SCHED_OUT)
+			dummy->type = UFTRACE_ENTRY;
+		else
+			dummy->type = UFTRACE_EXIT;
+
+		dummy->time  = orig->time;
+		dummy->magic = RECORD_MAGIC;
+		dummy->depth = 0;
+		dummy->addr  = 0;
+		dummy->more  = 0;
+
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 static void fstack_account_time(struct ftrace_task_handle *task)
 {
 	struct fstack *fstack;
 	struct uftrace_record *rstack = task->rstack;
-	bool is_kernel_func = (rstack == &task->kstack);
+	struct uftrace_record dummy_rec;
+	bool is_kernel_func = is_kernel_record(task, rstack);
 	int i;
 
-	if (rstack->type == UFTRACE_EVENT)
-		return;
+	if (rstack->type == UFTRACE_EVENT) {
+		if (!convert_perf_event(task, rstack, &dummy_rec))
+			return;
+
+		rstack = &dummy_rec;
+	}
 
 	if (!task->fstack_set) {
 		/* inherit stack count after [v]fork() or recover from lost */
@@ -1417,21 +1475,33 @@ static void fstack_account_time(struct ftrace_task_handle *task)
 
 static void fstack_update_stack_count(struct ftrace_task_handle *task)
 {
-	if (task->rstack == &task->ustack)
-		task->ctx = FSTACK_CTX_USER;
-	else
-		task->ctx = FSTACK_CTX_KERNEL;
+	struct uftrace_record *rstack = task->rstack;
+	struct uftrace_record dummy_rec;
 
-	if (task->rstack->type == UFTRACE_ENTRY)
+	if (rstack->type == UFTRACE_EVENT) {
+		if (!convert_perf_event(task, rstack, &dummy_rec))
+			return;
+
+		rstack = &dummy_rec;
+	}
+
+	if (is_user_record(task, rstack))
+		task->ctx = FSTACK_CTX_USER;
+	else if (is_kernel_record(task, rstack))
+		task->ctx = FSTACK_CTX_KERNEL;
+	else
+		task->ctx = FSTACK_CTX_UNKNOWN;
+
+	if (rstack->type == UFTRACE_ENTRY)
 		task->stack_count++;
-	else if (task->rstack->type == UFTRACE_EXIT &&
+	else if (rstack->type == UFTRACE_EXIT &&
 		 task->stack_count > 0)
 		task->stack_count--;
 
 	if (task->ctx == FSTACK_CTX_USER) {
-		if (task->rstack->type == UFTRACE_ENTRY)
+		if (rstack->type == UFTRACE_ENTRY)
 			task->user_stack_count++;
-		else if (task->rstack->type == UFTRACE_EXIT &&
+		else if (rstack->type == UFTRACE_EXIT &&
 			 task->user_stack_count > 0)
 			task->user_stack_count--;
 	}
@@ -1471,7 +1541,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 	if (rstack->more) {
 		struct uftrace_rstack_list_node *node;
 
-		if (rstack == &task->ustack)
+		if (is_user_record(task, rstack))
 			node = list_first_entry(&task->rstack_list.read,
 						typeof(*node), list);
 		else
@@ -1487,17 +1557,24 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		node->args.data = NULL;
 	}
 
-	if (rstack == &task->ustack) {
+	if (is_user_record(task, rstack)) {
 		task->valid = false;
 		if (task->rstack_list.count)
 			consume_first_rstack_list(&task->rstack_list);
 	}
-	else if (rstack->type == UFTRACE_LOST)
-		kernel->missed_events[cpu] = 0;
-	else {
+	else if (is_kernel_record(task, rstack)) {
 		kernel->rstack_valid[cpu] = false;
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
+	}
+	else if (rstack->type == UFTRACE_LOST) {
+		kernel->missed_events[cpu] = 0;
+	}
+	else {  /* must be perf event */
+		assert(handle->last_perf_idx >= 0);
+
+		handle->perf[handle->last_perf_idx].valid= false;
+		handle->last_perf_idx = -1;
 	}
 
 	update_first_timestamp(handle, rstack);
@@ -1521,7 +1598,7 @@ void fstack_consume(struct ftrace_file_handle *handle,
 	struct uftrace_kernel_reader *kernel = handle->kernel;
 	int cpu = 0;
 
-	if (rstack != &task->ustack)
+	if (is_kernel_record(task, rstack))
 		cpu = find_rstack_cpu(kernel, rstack);
 
 	__fstack_consume(task, kernel, cpu);
@@ -1531,15 +1608,22 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct ftrace_task_handle **taskp,
 			 bool consume)
 {
-	int u, k = -1;
+	int u, k = -1, p = -1;
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_task_handle *utask = NULL;
 	struct ftrace_task_handle *ktask = NULL;
 	struct uftrace_kernel_reader *kernel = handle->kernel;
+	struct uftrace_perf_reader *perf;
+	uint64_t min_timestamp = ~0ULL;
+	enum { NONE, USER, KERNEL, PERF } source = NONE;
 
 	u = read_user_stack(handle, &utask);
+	if (u >= 0) {
+		min_timestamp = utask->ustack.time;
+		source = USER;
+	}
+
 	if (has_kernel_data(kernel)) {
-retry:
 		k = read_kernel_stack(handle, &ktask);
 		if (k < 0) {
 			static bool warn = false;
@@ -1549,50 +1633,51 @@ retry:
 				warn = true;
 			}
 		}
-		else if (ktask->fp == NULL) {
-			/* task might be filtered */
-			ktask->rstack = &ktask->kstack;
-			__fstack_consume(ktask, kernel, k);
-			goto retry;
+		else if (ktask->kstack.time < min_timestamp) {
+			min_timestamp = ktask->kstack.time;
+			source = KERNEL;
 		}
 	}
 
-	if (u < 0 && k < 0)
+	if (has_perf_data(handle)) {
+		p = read_perf_data(handle);
+		perf = &handle->perf[p];
+
+		if (p < 0) {
+			static bool warn = false;
+
+			if (!warn && consume) {
+				pr_dbg("no more perf data\n");
+				warn = true;
+			}
+		}
+		else if (perf->ctxsw.time < min_timestamp) {
+			min_timestamp = perf->ctxsw.time;
+			source = PERF;
+		}
+	}
+
+	if (source == NONE)
 		return -1;
 
-	if (k < 0)
-		goto user;
-	if (u < 0)
-		goto kernel;
-
-	if (utask->ustack.time < ktask->kstack.time) {
-user:
+	switch (source) {
+	case USER:
 		utask->rstack = &utask->ustack;
 		task = utask;
-	}
-	else {
-kernel:
-		ktask->rstack = &ktask->kstack;
+		break;
+	case KERNEL:
+		ktask->rstack = get_kernel_record(kernel, ktask, k);
 		task = ktask;
+		break;
 
-		if (kernel->missed_events[k]) {
-			static struct uftrace_record lost_rstack;
+	case PERF:
+		task = get_task_handle(handle, perf->ctxsw.tid);
+		task->rstack = get_perf_record(handle, perf);
+		break;
 
-			/* convert to ftrace_rstack */
-			lost_rstack.time = 0;
-			lost_rstack.type = UFTRACE_LOST;
-			lost_rstack.addr = kernel->missed_events[k];
-			lost_rstack.depth = task->kstack.depth;
-			lost_rstack.magic = RECORD_MAGIC;
-			lost_rstack.more = 0;
-
-			/*
-			 * NOTE: do not consume the kstack since we didn't
-			 * read the first record yet.  Next read_kernel_stack()
-			 * will return the first record.
-			 */
-			task->rstack = &lost_rstack;
-		}
+	case NONE:
+	default:
+		return -1;
 	}
 
 	/* update stack count when the rstack is actually used */
@@ -1808,7 +1893,7 @@ TEST_CASE(fstack_skip)
 	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
 
 	/* skip filtered records (due to depth) */
-	TEST_EQ(fstack_skip(handle, task, task->rstack->depth), task);
+	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, true), task);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);

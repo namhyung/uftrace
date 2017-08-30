@@ -73,6 +73,9 @@ OPTIONS
 \--kernel-only
 :   Show kernel functions only without user functions.
 
+\--event-full
+:   Show all (user) events outside of user functions.
+
 
 FILTERS
 =======

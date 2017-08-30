@@ -335,6 +335,9 @@ static void print_event(struct ftrace_task_handle *task,
 		/* TODO: some events might have arguments */
 		pr_color(color, "%s", evt_name);
 	}
+	else if (evt_id >= EVENT_ID_PERF) {
+		pr_color(color, "%s", evt_name);
+	}
 	else if (evt_id >= EVENT_ID_BUILTIN) {
 		struct uftrace_proc_statm *statm;
 		struct uftrace_page_fault *page_fault;
@@ -354,6 +357,7 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, "%s", evt_name);
 			break;
 		}
+		pr_color(color, "user_event:%u", evt_id);
 		return;
 	}
 	else {
@@ -398,9 +402,9 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 		break;
 
 	case UFTRACE_EVENT:
-		pr_out("[%d] ", count++);
+		pr_out("[%d] !!! %d: ", count++, task->tid);
 		print_event(task, rstack, task->event_color);
-		pr_out("\n");
+		pr_out(" time (%"PRIu64")\n", rstack->time);
 		break;
 	}
 
@@ -647,12 +651,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			str_mode |= NEEDS_PAREN;
 	}
 
-	if (opts->kernel_skip_out) {
-		/* skip kernel functions outside user functions */
-		if (!task->user_stack_count && is_kernel_record(task, rstack))
-			goto out;
-	}
-
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 
@@ -694,7 +692,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack = &task->func_stack[task->stack_count - 1];
 
 		if (!opts->no_merge)
-			next = fstack_skip(handle, task, rstack_depth);
+			next = fstack_skip(handle, task, rstack_depth,
+					   opts->event_skip_out);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -797,6 +796,10 @@ lost:
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
+		struct fstack *fstack;
+		struct ftrace_task_handle *next = NULL;
+		struct uftrace_record rec = *rstack;
+		uint64_t evt_id = rstack->addr;
 
 		depth = task->display_depth;
 
@@ -809,10 +812,35 @@ lost:
 		if (opts->task_newline)
 			print_task_newline(task->tid);
 
-		print_field(task, NULL, NO_TIME);
+		depth += task_column_depth(task, opts);
+
+		/*
+		 * try to merge a subsequent sched-in event:
+		 * it might overwrite rstack - use (saved) rec for printing.
+		 */
+		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts->no_merge)
+			next = fstack_skip(handle, task, 0, opts->event_skip_out);
+
+		if (task == next &&
+		    next->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+			/* consume the matching sched-in record */
+			fstack_consume(handle, next);
+
+			rec.addr = EVENT_ID_PERF_SCHED_BOTH;
+			evt_id = EVENT_ID_PERF_SCHED_IN;
+		}
+
+		/* for sched-in to show schedule duration */
+		fstack = &task->func_stack[task->stack_count];
+
+		if (evt_id == EVENT_ID_PERF_SCHED_IN &&
+		    fstack->total_time)
+			print_field(task, fstack, NULL);
+		else
+			print_field(task, NULL, NO_TIME);
 
 		pr_color(task->event_color, " %*s/* ", depth * 2, "");
-		print_event(task, rstack, task->event_color);
+		print_event(task, &rec, task->event_color);
 		pr_color(task->event_color, " */\n");
 	}
 out:
@@ -948,6 +976,18 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		/* skip user functions if --kernel-only is set */
 		if (opts->kernel_only && !is_kernel_record(task, rstack))
 			continue;
+
+		if (opts->kernel_skip_out) {
+			/* skip kernel functions outside user functions */
+			if (!task->user_stack_count && is_kernel_record(task, rstack))
+				continue;
+		}
+
+		if (opts->event_skip_out) {
+			/* skip event outside of user functions */
+			if (!task->user_stack_count && rstack->type == UFTRACE_EVENT)
+				continue;
+		}
 
 		/*
 		 * data sanity check: timestamp should be ordered.

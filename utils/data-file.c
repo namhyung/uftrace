@@ -13,6 +13,7 @@
 #include "utils/fstack.h"
 #include "utils/symbol.h"
 #include "utils/kernel.h"
+#include "utils/perf.h"
 #include "libmcount/mcount.h"
 
 
@@ -412,6 +413,8 @@ retry:
 	handle->sessions.tasks = RB_ROOT;
 	handle->sessions.first = NULL;
 	handle->kernel = NULL;
+	handle->nr_perf = 0;
+	handle->perf = NULL;
 	INIT_LIST_HEAD(&handle->events);
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
@@ -486,6 +489,9 @@ retry:
 	if (handle->hdr.feat_mask & EVENT)
 		read_events_file(handle);
 
+	if (handle->hdr.feat_mask & PERF_EVENT)
+		setup_perf_data(handle);
+
 	ret = 0;
 
 out:
@@ -502,7 +508,11 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 		free(handle->kernel);
 	}
 
+	if (has_perf_data(handle))
+		finish_perf_data(handle);
+
 	delete_sessions(&handle->sessions);
+
 	clear_ftrace_info(&handle->info);
 	reset_task_handle(handle);
 }

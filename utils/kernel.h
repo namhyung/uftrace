@@ -63,6 +63,9 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel,
 			 int cpu);
 void * read_kernel_event(struct uftrace_kernel_reader *kernel,
 			 int cpu, int *psize);
+struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
+					  struct ftrace_task_handle *task,
+					  int cpu);
 int finish_kernel_data(struct uftrace_kernel_reader *kernel);
 
 static inline bool has_kernel_data(struct uftrace_kernel_reader *kernel)

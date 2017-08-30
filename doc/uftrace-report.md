@@ -70,6 +70,9 @@ OPTIONS
 \--diff-policy=*POLICY*
 :   Apply custom diff policy.  Available values are: "abs", "no-abs", "percent", "no-percent".  The "abs" is to sort diff result using absolute value so positvie and negative entries can be shown together while "no-abs" will show positive entries first and then negative ones.  The "percent" is to show diff in percentage while "no-percent" is to show the values.  The default is "abs" and "no-percent".
 
+\--event-full
+:   Show all (user) events outside of user functions.
+
 
 EXAMPLE
 =======
