@@ -692,7 +692,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		fstack = &task->func_stack[task->stack_count - 1];
 
 		if (!opts->no_merge)
-			next = fstack_skip(handle, task, rstack_depth);
+			next = fstack_skip(handle, task, rstack_depth,
+					   opts->event_skip_out);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -818,7 +819,7 @@ lost:
 		 * it might overwrite rstack - use (saved) rec for printing.
 		 */
 		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts->no_merge)
-			peek_rstack(handle, &next);
+			next = fstack_skip(handle, task, 0, opts->event_skip_out);
 
 		if (task == next &&
 		    next->rstack->addr == EVENT_ID_PERF_SCHED_IN) {

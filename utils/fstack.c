@@ -655,6 +655,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
  * @handle     - file handle
  * @task       - tracee task
  * @curr_depth - current rstack depth
+ * @event_skip_out - skip events outside of function
  *
  * This function checks next rstack and skip if it's filtered out.
  * The intention is to merge EXIT record after skipped ones.  It
@@ -663,7 +664,7 @@ static int fstack_check_skip(struct ftrace_task_handle *task,
  */
 struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
-				       int curr_depth)
+				       int curr_depth, bool event_skip_out)
 {
 	struct ftrace_task_handle *next = NULL;
 	struct fstack *fstack;
@@ -690,6 +691,11 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 		if (is_kernel_address(&fsess->symtabs, next_stack->addr)) {
 			if (has_kernel_data(handle->kernel) &&
 			    !next->user_stack_count && handle->kernel->skip_out)
+				goto next;
+		}
+
+		if (next_stack->type == UFTRACE_EVENT) {
+			if (!next->user_stack_count && event_skip_out)
 				goto next;
 		}
 
@@ -1887,7 +1893,7 @@ TEST_CASE(fstack_skip)
 	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
 
 	/* skip filtered records (due to depth) */
-	TEST_EQ(fstack_skip(handle, task, task->rstack->depth), task);
+	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, true), task);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
