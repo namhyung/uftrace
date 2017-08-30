@@ -228,6 +228,7 @@ struct opts {
 	bool kernel_only;
 	bool list_event;
 	bool keep_pid;
+	bool event_skip_out;
 	struct uftrace_time_range range;
 };
 

@@ -651,12 +651,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			str_mode |= NEEDS_PAREN;
 	}
 
-	if (opts->kernel_skip_out) {
-		/* skip kernel functions outside user functions */
-		if (!task->user_stack_count && is_kernel_record(task, rstack))
-			goto out;
-	}
-
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 
@@ -981,6 +975,18 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		/* skip user functions if --kernel-only is set */
 		if (opts->kernel_only && !is_kernel_record(task, rstack))
 			continue;
+
+		if (opts->kernel_skip_out) {
+			/* skip kernel functions outside user functions */
+			if (!task->user_stack_count && is_kernel_record(task, rstack))
+				continue;
+		}
+
+		if (opts->event_skip_out) {
+			/* skip event outside of user functions */
+			if (!task->user_stack_count && rstack->type == UFTRACE_EVENT)
+				continue;
+		}
 
 		/*
 		 * data sanity check: timestamp should be ordered.

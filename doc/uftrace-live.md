@@ -127,6 +127,9 @@ OPTIONS
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
 :   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
+\--event-full
+:   Show all (user) events outside of user functions.
+
 
 FILTERS
 =======

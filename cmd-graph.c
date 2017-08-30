@@ -525,6 +525,9 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 			continue;
 
 		if (frs->type == UFTRACE_EVENT) {
+			if (!task->user_stack_count && opts->event_skip_out)
+				continue;
+
 			if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
 			    frs->addr != EVENT_ID_PERF_SCHED_OUT)
 				continue;

@@ -87,6 +87,7 @@ enum options {
 	OPT_opt_file,
 	OPT_keep_pid,
 	OPT_diff_policy,
+	OPT_event_full,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -153,6 +154,7 @@ static struct argp_option uftrace_options[] = {
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
 	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
 	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy" },
+	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
 	{ 0 }
 };
 
@@ -673,6 +675,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->keep_pid = true;
 		break;
 
+	case OPT_event_full:
+		opts->event_skip_out = false;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -814,6 +820,7 @@ int main(int argc, char *argv[])
 		.kernel_skip_out= true,
 		.fields         = NULL,
 		.sort_column	= 2,
+		.event_skip_out = true,
 	};
 	struct argp argp = {
 		.options = uftrace_options,

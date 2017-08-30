@@ -191,6 +191,9 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 			continue;
 
 		if (rstack->type == UFTRACE_EVENT) {
+			if (!task->user_stack_count && opts->event_skip_out)
+				continue;
+
 			if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				static struct sym sched_sym = {
 					.addr = EVENT_ID_PERF_SCHED_IN,

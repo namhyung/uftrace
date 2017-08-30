@@ -1237,6 +1237,11 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 			return false;
 	}
 
+	if (frs->type == UFTRACE_EVENT) {
+		if (!task->user_stack_count && opts->event_skip_out)
+			return false;
+	}
+
 	if (!fstack_check_filter(task))
 		return false;
 
