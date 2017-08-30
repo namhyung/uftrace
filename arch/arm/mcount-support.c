@@ -500,12 +500,12 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		memcpy(ctx->val.v, ctx->retval, spec->size);
 }
 
-int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
-			     unsigned long offset, unsigned long pltgot_addr)
+int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 {
 	size_t shstr_idx, dynstr_idx = 0;
 	Elf_Scn *sec, *dynsym_sec, *relplt_sec;
 	Elf_Data *dynsym_data, *relplt_data;
+	unsigned long pltgot_addr = (unsigned long)pd->pltgot_ptr;
 	unsigned long plt_addr = 0;
 	unsigned idx, nr_rels = 0;
 	int count = 0;
@@ -539,7 +539,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 			nr_rels = shdr.sh_size / shdr.sh_entsize;
 		}
 		else if (strcmp(shstr, ".plt") == 0) {
-			plt_addr = shdr.sh_addr + offset;
+			plt_addr = shdr.sh_addr + pd->base_addr;
 		}
 	}
 
@@ -552,8 +552,6 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 	dynsym_data = elf_getdata(dynsym_sec, NULL);
 	if (relplt_data == NULL || dynsym_data == NULL)
 		return -1;
-
-	plthook_setup(symtabs);
 
 	for (idx = 0; idx < nr_rels; idx++) {
 		struct sym *sym;
@@ -577,7 +575,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		gelf_getsym(dynsym_data, sym_idx, &esym);
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
-		sym = &symtabs->dsymtab.sym[idx];
+		sym = &pd->dsymtab.sym[idx];
 		if (strcmp(name, sym->name)) {
 			pr_dbg("symbol name mismatch (%s vs %s)\n",
 			       name, sym->name);
@@ -591,8 +589,8 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		if (sym_idx != ARRAY_SIZE(skip_syms))
 			continue;
 
-		got_idx = (rel.r_offset + offset - pltgot_addr) >> 2;
-		setup_pltgot(got_idx, idx, (void *)plt_addr);
+		got_idx = (rel.r_offset + pd->base_addr - pltgot_addr) >> 2;
+		setup_pltgot(pd, got_idx, idx, (void *)plt_addr);
 		count++;
 
 		pr_dbg3("restore GOT[%u] (%s) r_offset = %lx\n",

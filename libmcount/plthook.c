@@ -20,9 +20,8 @@ extern struct symtabs symtabs;
 
 unsigned long plthook_resolver_addr;
 
-static unsigned long *plthook_got_ptr;
-static unsigned long *plthook_dynsym_addr;
-static bool *plthook_dynsym_resolved;
+static LIST_HEAD(plthook_modules);
+
 static bool plthook_no_pltbind;
 
 static unsigned long got_addr;
@@ -45,30 +44,30 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	}
 }
 
-static void overwrite_pltgot(int idx, void *data)
+static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)
 {
 	/* save got_addr for segv_handler */
-	got_addr = (unsigned long)(&plthook_got_ptr[idx]);
+	got_addr = (unsigned long)(&pd->pltgot_ptr[idx]);
 
 	segv_handled = false;
 
 	compiler_barrier();
 
-	/* overwrite it - might be read-protected */
-	plthook_got_ptr[idx] = (unsigned long)data;
+	/* overwrite it - might be write-protected */
+	pd->pltgot_ptr[idx] = (unsigned long)data;
 
 	if (segv_handled)
 		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
-unsigned long setup_pltgot(int got_idx, int sym_idx, void *data)
+unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
+			   void *data)
 {
-	unsigned long real_addr = plthook_got_ptr[got_idx];
+	unsigned long real_addr = pd->pltgot_ptr[got_idx];
 
-	plthook_dynsym_addr[sym_idx] = real_addr;
-	plthook_dynsym_resolved[sym_idx] = true;
+	pd->resolved_addr[sym_idx] = real_addr;
 
-	overwrite_pltgot(got_idx, data);
+	overwrite_pltgot(pd, got_idx, data);
 	return real_addr;
 }
 
@@ -86,7 +85,7 @@ ALIAS_DECL(__cyg_profile_func_exit);
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
  */
-static void skip_plt_functions(void)
+static void skip_plt_functions(struct plthook_data *pd)
 {
 	unsigned i, k;
 
@@ -106,7 +105,7 @@ static void skip_plt_functions(void)
 
 #undef SKIP_FUNC
 
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
@@ -115,7 +114,7 @@ static void skip_plt_functions(void)
 			if (strcmp(sym->name, skip_list[k].name))
 				continue;
 
-			overwrite_pltgot(3 + i, skip_list[k].addr);
+			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
 				i, skip_list[k].name, skip_list[k].addr);
 		}
@@ -125,8 +124,7 @@ static void skip_plt_functions(void)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-__weak int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
-				    unsigned long offset, unsigned long pltgot_addr)
+__weak int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 {
 	return -1;
 }
@@ -136,7 +134,9 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 	size_t i;
 	bool plt_found = false;
 	bool bind_now = false;
+	unsigned long pltgot_addr = 0;
 	struct sigaction sa, old_sa;
+	struct plthook_data *pd;
 
 	/*
 	 * The GOT region is write-protected on some systems.
@@ -159,7 +159,7 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 			return -1;
 
 		if (dyn.d_tag == DT_PLTGOT)
-			got_addr = (unsigned long)dyn.d_un.d_val + offset;
+			pltgot_addr = (unsigned long)dyn.d_un.d_val + offset;
 		else if (dyn.d_tag == DT_JMPREL)
 			plt_found = true;
 		else if (dyn.d_tag == DT_BIND_NOW)
@@ -173,22 +173,30 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 		return 0;
 	}
 
-	plthook_got_ptr = (void *)got_addr;
+	pd = xmalloc(sizeof(*pd));
+	pd->pltgot_ptr = (void *)pltgot_addr;
+	pd->module_id  = pd->pltgot_ptr[1];
+	pd->base_addr  = offset;
+
+	pd->dsymtab = symtabs.dsymtab;
+	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
+
+	list_add_tail(&pd->list, &plthook_modules);
+
+	pr_dbg2("module: %lx, PLTGOT = %p\n", pd->module_id, pd->pltgot_ptr);
 
 	if (plt_found) {
-		plthook_resolver_addr = plthook_got_ptr[2];
+		plthook_resolver_addr = pd->pltgot_ptr[2];
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
-			plthook_got_ptr, plthook_resolver_addr);
+			pd->pltgot_ptr, plthook_resolver_addr);
 
-		skip_plt_functions();
+		skip_plt_functions(pd);
 	}
 
-	overwrite_pltgot(2, plt_hooker);
+	overwrite_pltgot(pd, 2, plt_hooker);
 
-	if (bind_now) {
-		mcount_arch_undo_bindnow(elf, &symtabs, offset,
-					 (unsigned long)plthook_got_ptr);
-	}
+	if (bind_now)
+		mcount_arch_undo_bindnow(elf, pd);
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
@@ -547,21 +555,24 @@ __weak unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
 	return sym->addr;
 }
 
-static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
+static void update_pltgot(struct mcount_thread_data *mtdp,
+			  struct plthook_data *pd, int dyn_idx)
 {
 	if (unlikely(plthook_no_pltbind))
 		return;
 
-	if (!plthook_dynsym_resolved[dyn_idx]) {
+	if (!pd->resolved_addr[dyn_idx]) {
 		unsigned long plthook_addr;
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			plthook_addr = mcount_arch_plthook_addr(&symtabs, dyn_idx);
-			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)plthook_addr);
+		if (!pd->resolved_addr[dyn_idx]) {
+			plthook_addr = mcount_arch_plthook_addr(&symtabs,
+								dyn_idx);
+			setup_pltgot(pd, 3 + dyn_idx, dyn_idx,
+				     (void *)plthook_addr);
 		}
 
 #ifndef SINGLE_THREAD
@@ -583,8 +594,21 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	bool skip = false;
 	bool recursion = true;
 	enum filter_result filtered;
+	struct plthook_data *pd;
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
+	unsigned long real_addr = 0;
+
+	list_for_each_entry(pd, &plthook_modules, list) {
+		if (module_id == pd->module_id)
+			break;
+	}
+
+	if (list_no_entry(pd, &plthook_modules, list)) {
+		pr_dbg("cannot find pd for module id: %lx\n", module_id);
+		pd = NULL;
+		goto out;
+	}
 
 	if (unlikely(mcount_should_stop()))
 		goto out;
@@ -608,7 +632,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
-	sym = find_dynsym(&symtabs, child_idx);
+	sym = &pd->dsymtab.sym[child_idx];
 	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
@@ -634,6 +658,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack = &mtdp->rstack[mtdp->idx++];
 
 	rstack->depth      = mtdp->record_idx;
+	rstack->pd         = pd;
 	rstack->dyn_idx    = child_idx;
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
@@ -671,23 +696,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 out:
-	if (plthook_dynsym_resolved[child_idx]) {
-		volatile unsigned long *resolved_addr;
-
-		resolved_addr = plthook_dynsym_addr + child_idx;
-
-		/* ensure resolved address was set */
-		while (!*resolved_addr)
-			cpu_relax();
-
-		if (!recursion)
-			mtdp->recursion_guard = false;
-		return *resolved_addr;
-	}
+	if (pd && pd->resolved_addr[child_idx])
+		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
 		mtdp->recursion_guard = false;
-	return 0;
+	return real_addr;
 }
 
 unsigned long plthook_exit(long *retval)
@@ -712,7 +726,7 @@ again:
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			update_pltgot(mtdp, rstack->dyn_idx);
+			update_pltgot(mtdp, rstack->pd, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
 			restore_jmpbuf_rstack(mtdp, rstack->end_time);
 			goto again;
@@ -730,14 +744,14 @@ again:
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
-		plthook_dynsym_addr[dyn_idx],
-		find_dynsym(&symtabs, dyn_idx)->name);
+		rstack->pd->resolved_addr[dyn_idx],
+		rstack->pd->dsymtab.sym[dyn_idx].name);
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
-	update_pltgot(mtdp, dyn_idx);
+	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
 	compiler_barrier();
 
@@ -745,15 +759,4 @@ again:
 	mtdp->recursion_guard = false;
 
 	return rstack->parent_ip;
-}
-
-void plthook_setup(struct symtabs *symtabs)
-{
-	if (plthook_dynsym_resolved)
-		return;
-
-	plthook_dynsym_resolved = xcalloc(sizeof(bool),
-					  count_dynsym(symtabs));
-	plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
-				      count_dynsym(symtabs));
 }

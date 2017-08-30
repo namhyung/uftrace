@@ -31,7 +31,7 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 	int i, ret = -1;
 	size_t idx, nr_rels = 0;
 
-	pr_dbg("load dynamic symbols for bind-now\n");
+	pr_dbg2("load dynamic symbols for bind-now\n");
 
 	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
 		goto elf_error;

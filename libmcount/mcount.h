@@ -55,6 +55,7 @@ struct mcount_ret_stack {
 	uint64_t filter_time;
 	unsigned short depth;
 	unsigned short dyn_idx;
+	struct plthook_data *pd;
 	/* set arg_spec at function entry and use it at exit */
 	struct list_head *pargs;
 };
@@ -194,9 +195,19 @@ extern void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx);
 extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void shmem_finish(struct mcount_thread_data *mtdp);
 
+struct plthook_data {
+	struct list_head	list;
+	unsigned long		module_id;
+	unsigned long		base_addr;
+	struct symtab		dsymtab;
+	unsigned long		*pltgot_ptr;
+	unsigned long		*resolved_addr;
+};
+
 extern int hook_pltgot(char *exename, unsigned long offset);
-unsigned long setup_pltgot(int got_idx, int sym_idx, void *data);
-extern void plthook_setup(struct symtabs *symtabs);
+unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
+			   void *data);
+
 extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct symtab *dsymtab);
 extern void destroy_dynsym_indexes(void);

@@ -1208,8 +1208,6 @@ static void mcount_startup(void)
 
 		if (hook_pltgot(mcount_exename, symtabs.maps->start) < 0)
 			pr_dbg("error when hooking plt: skipping...\n");
-		else
-			plthook_setup(&symtabs);
 	}
 
 out:
