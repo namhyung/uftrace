@@ -498,14 +498,12 @@ static int try_load_dynsymtab_bindnow(Elf *elf, struct Elf_Scn *dynsec,
 	return 1;
 }
 
-static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
-			  unsigned long offset, unsigned long flags)
+int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
+		       unsigned long offset, unsigned long flags)
 {
-	int fd;
 	int ret = -1;
 	int idx, nr_rels = 0, nr_dyns = 0;
 	unsigned grow = SYMTAB_GROW;
-	Elf *elf;
 	Elf_Scn *dynsym_sec, *relplt_sec, *dynamic_sec, *sec;
 	Elf_Data *dynsym_data, *relplt_data;
 	size_t shstr_idx, dynstr_idx = 0;
@@ -514,18 +512,6 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	GElf_Addr prev_addr;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
-
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return -1;
-	}
-
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
 
 	if (flags & SYMTAB_FL_ADJ_OFFSET) {
 		GElf_Phdr phdr;
@@ -618,8 +604,6 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 
 	prev_addr = plt_addr;
 
-	pr_dbg2("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
-
 	for (idx = 0; idx < nr_rels; idx++) {
 		GElf_Sym esym;
 		struct sym *sym;
@@ -681,8 +665,6 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	ret = 0;
 
 out:
-	elf_end(elf);
-	close(fd);
 	return ret;
 
 elf_error:
@@ -690,6 +672,37 @@ elf_error:
 	       elf_errmsg(elf_errno()));
 	__unload_symtab(dsymtab);
 	goto out;
+}
+
+static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
+			  unsigned long offset, unsigned long flags)
+{
+	int fd, ret;
+	Elf *elf;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return -1;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL) {
+		int err = elf_errno();
+
+		pr_dbg("ELF error during load dynsymtab: %s\n", elf_errmsg(err));
+		close(fd);
+		return -1;
+	}
+
+	pr_dbg2("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
+	ret = load_elf_dynsymtab(dsymtab, elf, offset, flags);
+
+	elf_end(elf);
+	close(fd);
+	return ret;
 }
 
 int check_trace_functions(const char *filename)
