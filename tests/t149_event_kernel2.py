@@ -66,6 +66,6 @@ class TestCase(TestBase):
         return '\n'.join(result)
 
     def runcmd(self):
-        arg  = '-E sched:sched_process_*@kernel --kernel-full'
+        arg  = '-E sched:sched_process_*@kernel --kernel-full --event-full'
         name = 't-' + self.name
         return '%s %s %s' % (TestBase.ftrace, arg, name)
