@@ -862,6 +862,8 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_RECORD || opts.mode == UFTRACE_MODE_RECV)
 		opts.use_pager = false;
+	if (opts.nop)
+		opts.use_pager = false;
 
 	if (opts.use_pager)
 		start_pager();
