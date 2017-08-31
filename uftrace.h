@@ -469,10 +469,10 @@ static inline bool has_perf_data(struct ftrace_file_handle *handle)
 
 struct rusage;
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time);
-int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
-void clear_ftrace_info(struct uftrace_info *info);
+int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
+void clear_uftrace_info(struct uftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);
 int arch_register_index(char *reg_name);

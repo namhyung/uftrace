@@ -346,8 +346,8 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts, status,
-			 rusage, elapsed_time);
+	fill_uftrace_info(&hdr.info_mask, fd, opts, status,
+			  rusage, elapsed_time);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -1356,7 +1356,7 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
-#define UFTRACE_MSG  "Cannot trace '%s': No such file\n"			\
+#define UFTRACE_MSG  "Cannot trace '%s': No such executable file\n"	\
 "\tNote that uftrace doesn't search $PATH for you.\n"			\
 "\tIf you really want to trace executables in the $PATH,\n"		\
 "\tplease give it the absolute pathname (like /usr/bin/%s).\n"

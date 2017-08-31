@@ -436,7 +436,7 @@ retry:
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err("unsupported file version: %u", handle->hdr.version);
 
-	if (read_ftrace_info(handle->hdr.info_mask, handle) < 0)
+	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err("cannot read ftrace header info!");
 
 	fclose(fp);
@@ -513,6 +513,6 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	delete_sessions(&handle->sessions);
 
-	clear_ftrace_info(&handle->info);
+	clear_uftrace_info(&handle->info);
 	reset_task_handle(handle);
 }

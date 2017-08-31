@@ -718,12 +718,12 @@ static int read_record_date(void *arg)
 	return 0;
 }
 
-struct ftrace_info_handler {
+struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
 };
 
-void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time)
 {
 	size_t i;
@@ -735,7 +735,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 		.rusage = rusage,
 		.elapsed_time = elapsed_time,
 	};
-	struct ftrace_info_handler fill_handlers[] = {
+	struct uftrace_info_handler fill_handlers[] = {
 		{ EXE_NAME,	fill_exe_name },
 		{ EXE_BUILD_ID,	fill_exe_build_id },
 		{ EXIT_STATUS,	fill_exit_status },
@@ -762,10 +762,10 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 	}
 }
 
-int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
+int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 {
 	size_t i;
-	struct ftrace_info_handler read_handlers[] = {
+	struct uftrace_info_handler read_handlers[] = {
 		{ EXE_NAME,	read_exe_name },
 		{ EXE_BUILD_ID,	read_exe_build_id },
 		{ EXIT_STATUS,	read_exit_status },
@@ -795,7 +795,7 @@ int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 	return 0;
 }
 
-void clear_ftrace_info(struct uftrace_info *info)
+void clear_uftrace_info(struct uftrace_info *info)
 {
 	free(info->exename);
 	free(info->cmdline);
