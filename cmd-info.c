@@ -29,6 +29,7 @@ struct fill_handler_arg {
 	int exit_status;
 	struct opts *opts;
 	struct rusage *rusage;
+	char *elapsed_time;
 };
 
 static char *copy_info_str(char *src)
@@ -687,7 +688,9 @@ static int fill_record_date(void *arg)
 
 	time(&current_time);
 
-	return dprintf(fha->fd, "record_date:%s", ctime(&current_time));
+	dprintf(fha->fd, "record_date:%s", ctime(&current_time));
+	dprintf(fha->fd, "elapsed_time:%s\n", fha->elapsed_time);
+	return 0;
 }
 
 static int read_record_date(void *arg)
@@ -703,6 +706,15 @@ static int read_record_date(void *arg)
 		return -1;
 
 	info->record_date = copy_info_str(&buf[12]);
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "elapsed_time:", 13))
+		return -1;
+
+	info->elapsed_time = copy_info_str(&buf[13]);
+
 	return 0;
 }
 
@@ -712,7 +724,7 @@ struct ftrace_info_handler {
 };
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
-		      struct rusage *rusage)
+		      struct rusage *rusage, char *elapsed_time)
 {
 	size_t i;
 	off_t offset;
@@ -721,6 +733,7 @@ void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status
 		.opts = opts,
 		.exit_status = status,
 		.rusage = rusage,
+		.elapsed_time = elapsed_time,
 	};
 	struct ftrace_info_handler fill_handlers[] = {
 		{ EXE_NAME,	fill_exe_name },
@@ -794,6 +807,7 @@ void clear_ftrace_info(struct uftrace_info *info)
 	free(info->tids);
 	free(info->argspec);
 	free(info->record_date);
+	free(info->elapsed_time);
 }
 
 int command_info(int argc, char *argv[], struct opts *opts)
@@ -912,6 +926,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		}
 		pr_out(fmt, "exit status", buf);
 	}
+
+	if (handle.hdr.info_mask & (1UL << RECORD_DATE))
+		pr_out(fmt, "elapsed time", handle.info.elapsed_time);
 
 	if (handle.hdr.info_mask & (1UL << USAGEINFO)) {
 		pr_out("# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",

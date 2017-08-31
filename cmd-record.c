@@ -309,7 +309,8 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status, struct rusage *rusage)
+static int fill_file_header(struct opts *opts, int status, struct rusage *rusage,
+			    char *elapsed_time)
 {
 	int fd, efd;
 	int ret = -1;
@@ -345,7 +346,8 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts, status, rusage);
+	fill_ftrace_info(&hdr.info_mask, fd, opts, status,
+			 rusage, elapsed_time);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -1682,7 +1684,7 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 	int i;
 	char *elapsed_time = get_child_time(&wd->ts1, &wd->ts2);
 
-	if (fill_file_header(opts, wd->status, &wd->usage) < 0)
+	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {

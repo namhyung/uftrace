@@ -102,6 +102,7 @@ struct uftrace_info {
 	double stime;
 	double utime;
 	char *record_date;
+	char *elapsed_time;
 	long vctxsw;
 	long ictxsw;
 	long maxrss;
@@ -469,7 +470,7 @@ static inline bool has_perf_data(struct ftrace_file_handle *handle)
 struct rusage;
 
 void fill_ftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
-		      struct rusage *rusage);
+		      struct rusage *rusage, char *elapsed_time);
 int read_ftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
 void clear_ftrace_info(struct uftrace_info *info);
 
