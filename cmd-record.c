@@ -309,7 +309,8 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status, struct rusage *rusage)
+static int fill_file_header(struct opts *opts, int status, struct rusage *rusage,
+			    char *elapsed_time)
 {
 	int fd, efd;
 	int ret = -1;
@@ -345,7 +346,8 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
 
-	fill_ftrace_info(&hdr.info_mask, fd, opts, status, rusage);
+	fill_ftrace_info(&hdr.info_mask, fd, opts, status,
+			 rusage, elapsed_time);
 
 try_write:
 	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
@@ -1324,10 +1326,11 @@ static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
 	child_exited = true;
 }
 
-static void print_child_time(struct timespec *ts1, struct timespec *ts2)
+static char *get_child_time(struct timespec *ts1, struct timespec *ts2)
 {
 #define SEC_TO_NSEC  (1000000000ULL)
 
+	char *elapsed_time = NULL;
 	uint64_t  sec = ts2->tv_sec  - ts1->tv_sec;
 	uint64_t nsec = ts2->tv_nsec - ts1->tv_nsec;
 
@@ -1336,7 +1339,13 @@ static void print_child_time(struct timespec *ts1, struct timespec *ts2)
 		sec--;
 	}
 
-	pr_out("elapsed time: %"PRIu64".%09"PRIu64" sec\n", sec, nsec);
+	xasprintf(&elapsed_time, "%"PRIu64".%09"PRIu64" sec", sec, nsec);
+	return elapsed_time;
+}
+
+static void print_child_time(char *elapsed_time)
+{
+	pr_out("elapsed time: %s\n", elapsed_time);
 }
 
 static void print_child_usage(struct rusage *ru)
@@ -1673,14 +1682,17 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 static void finish_writers(struct writer_data *wd, struct opts *opts)
 {
 	int i;
+	char *elapsed_time = get_child_time(&wd->ts1, &wd->ts2);
 
-	if (fill_file_header(opts, wd->status, &wd->usage) < 0)
+	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
 		pr_err("cannot generate data file");
 
 	if (opts->time) {
-		print_child_time(&wd->ts1, &wd->ts2);
+		print_child_time(elapsed_time);
 		print_child_usage(&wd->usage);
 	}
+
+	free(elapsed_time);
 
 	if (shmem_lost_count)
 		pr_warn("LOST %d records\n", shmem_lost_count);
