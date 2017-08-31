@@ -1356,7 +1356,7 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
-#define UFTRACE_MSG  "Cannot trace '%s': No such file\n"			\
+#define UFTRACE_MSG  "Cannot trace '%s': No such executable file\n"	\
 "\tNote that uftrace doesn't search $PATH for you.\n"			\
 "\tIf you really want to trace executables in the $PATH,\n"		\
 "\tplease give it the absolute pathname (like /usr/bin/%s).\n"
