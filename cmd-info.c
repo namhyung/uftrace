@@ -662,6 +662,9 @@ static int fill_arg_spec(void *arg)
 	if (fha->opts->retval)
 		dprintf(fha->fd, "%s;", fha->opts->retval);
 
+	if (write_all(fha->fd, "\n", 1))
+		return -1;
+
 	return 0;
 }
 
@@ -751,11 +754,19 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
+		errno = 0;
 		offset = lseek(fd, 0, SEEK_CUR);
+		if (offset == -1 && errno) {
+			pr_dbg("skip info due to failed lseek: %m\n");
+			continue;
+		}
 
 		if (fill_handlers[i].handler(&arg) < 0) {
 			/* ignore failed info */
-			lseek(fd, offset, SEEK_SET);
+			errno = 0;
+			if (lseek(fd, offset, SEEK_SET) == -1 && errno)
+				pr_warn("fail to reset uftrace info: %m\n");
+
 			continue;
 		}
 		*info_mask |= (1UL << fill_handlers[i].bit);
