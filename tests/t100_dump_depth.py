@@ -14,7 +14,7 @@ uftrace file header: header size   = 40
 uftrace file header: endian        = 1 (little)
 uftrace file header: class         = 2 (64 bit)
 uftrace file header: features      = 0x63 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK)
-uftrace file header: info          = 0x3ff
+uftrace file header: info          = 0xbff
 
 reading 5231.dat
 58348.873444506   5231: [entry] main(400512) depth: 0
