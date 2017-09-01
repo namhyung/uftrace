@@ -458,6 +458,46 @@ __weak int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 	return 0;
 }
 
+static int try_load_dynsymtab_bindnow(Elf *elf, struct Elf_Scn *dynsec,
+				      int nr_dyns, struct symtab *dsymtab,
+				      unsigned long offset, unsigned long flags)
+{
+	int idx;
+	bool bind_now = false;
+	Elf_Data *dynamic_data;
+
+	dynamic_data = elf_getdata(dynsec, NULL);
+	if (dynamic_data == NULL)
+		return 0;
+
+	for (idx = 0; idx < nr_dyns; idx++) {
+		GElf_Dyn dyn;
+
+		if (gelf_getdyn(dynamic_data, idx, &dyn) == NULL)
+			return 0;
+
+		if (dyn.d_tag != DT_BIND_NOW)
+			bind_now = true;
+		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
+			bind_now = true;
+	}
+
+	if (!bind_now)
+		return 0;
+
+	if (arch_load_dynsymtab_bindnow(elf, dsymtab, offset, flags) < 0) {
+		pr_dbg("cannot load dynamic symbols for bind-now\n");
+		__unload_symtab(dsymtab);
+		return -1;
+	}
+
+	if (!dsymtab->nr_sym)
+		return 0;
+
+	sort_dynsymtab(dsymtab);
+	return 1;
+}
+
 static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
@@ -467,15 +507,13 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	unsigned grow = SYMTAB_GROW;
 	Elf *elf;
 	Elf_Scn *dynsym_sec, *relplt_sec, *dynamic_sec, *sec;
-	Elf_Data *dynsym_data, *relplt_data, *dynamic_data;
+	Elf_Data *dynsym_data, *relplt_data;
 	size_t shstr_idx, dynstr_idx = 0;
 	GElf_Ehdr ehdr;
 	GElf_Addr plt_addr = 0;
 	GElf_Addr prev_addr;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
-	bool plt_found = false;
-	bool bind_now = false;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -551,45 +589,11 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		goto out;
 	}
 
-	dynamic_data = elf_getdata(dynamic_sec, NULL);
-	if (dynamic_data == NULL)
-		goto elf_error;
-
-	for (idx = 0; idx < nr_dyns; idx++) {
-		GElf_Dyn dyn;
-
-		if (gelf_getdyn(dynamic_data, idx, &dyn) == NULL)
-			goto elf_error;
-
-		if (dyn.d_tag == DT_JMPREL)
-			plt_found = true;
-		else if (dyn.d_tag == DT_BIND_NOW)
-			bind_now = true;
-		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
-			bind_now = true;
-	}
-
-	if (bind_now) {
-		if (arch_load_dynsymtab_bindnow(elf, dsymtab, offset, flags) < 0) {
-			pr_dbg("cannot load dynamic symbols for bind-now\n");
-			__unload_symtab(dsymtab);
-			goto out;
-		}
-
-		if (dsymtab->nr_sym) {
-			sort_dynsymtab(dsymtab);
-			ret = 0;
-			goto out;
-		}
-	}
-
-	if (!plt_found) {
-		pr_dbg("cannot determine dynamic symbols\n");
-		goto out;
-	}
-
 	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
-		pr_dbg("cannot find relocation info for PLT\n");
+		ret = try_load_dynsymtab_bindnow(elf, dynamic_sec, nr_dyns,
+						 dsymtab, offset, flags);
+		if (ret <= 0)
+			pr_dbg("cannot find relocation info for PLT\n");
 		goto out;
 	}
 

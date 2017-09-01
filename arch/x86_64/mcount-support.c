@@ -3,6 +3,10 @@
 #include <gelf.h>
 #include <sys/mman.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "mcount"
+#define PR_DOMAIN  DBG_MCOUNT
+
 #include "mcount-arch.h"
 #include "libmcount/mcount.h"
 #include "utils/filter.h"
@@ -142,6 +146,8 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 	unsigned r_offset;
 	unsigned long r_addr;
 	unsigned long real_addr;
+	unsigned long plt_addr = 0;
+	bool has_rela_plt = false;
 	void *target_addr;
 	unsigned jump_offset;
 	void *trampoline_buf;
@@ -156,10 +162,56 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		"mcount", "__fentry__",
 		"__cyg_profile_func_enter", "__cyg_profile_func_exit",
 		"__cxa_finalize",  /* XXX: it caused segfault */
+		"__gmon_start__",  /* XXX: it makes process stuck */
 	};
 
 	plthook_setup(symtabs);
 	dsymtab = &symtabs->dsymtab;
+
+	sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		size_t shstr_idx;
+		GElf_Shdr shdr;
+		char *shname;
+
+		if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+			return -1;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			return -1;
+
+		shname = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		if (!strcmp(shname, ".plt"))
+			plt_addr = shdr.sh_addr + offset;
+		if (!strcmp(shname, ".rela.plt"))
+			has_rela_plt = true;
+	}
+
+	if (plt_addr == 0) {
+		pr_dbg("cannot find PLT address\n");
+		return -1;
+	}
+
+	if (has_rela_plt) {
+		/*
+		 * it seems old linker keeps PLT for BIND_NOW.
+		 * assume that PLTGOT sets properly with offset of 3
+		 */
+		for (idx = 0; idx < dsymtab->nr_sym; idx++) {
+			struct sym *sym = &dsymtab->sym[idx];
+
+			for (i = 0; i < ARRAY_SIZE(skip_syms); i++) {
+				if (!strcmp(sym->name, skip_syms[i]))
+					break;
+			}
+			if (i != ARRAY_SIZE(skip_syms))
+				continue;
+
+			setup_pltgot(idx + 3, idx,
+				     (void *)(sym->addr + JMP_INSN_SIZE));
+		}
+		return 0;
+	}
 
 	trampoline_size = (dsymtab->nr_sym + 1) * sizeof(trampoline);
 	trampoline_buf = mmap(0, trampoline_size, PROT_READ | PROT_WRITE,
@@ -201,32 +253,9 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		memcpy(target_addr, trampoline, sizeof(trampoline));
 	}
 
-	sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		size_t shstr_idx;
-		GElf_Shdr shdr;
-		char *shname;
-
-		if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-			return -1;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			return -1;
-
-		shname = elf_strptr(elf, shstr_idx, shdr.sh_name);
-		if (strcmp(shname, ".plt"))
-			continue;
-
-		real_addr = shdr.sh_addr + offset;
-		break;
-	}
-
-	if (sec == NULL)
-		return -1;
-
-	pr_dbg2("real address to jump: %#lx\n", real_addr);
+	pr_dbg2("real address to jump: %#lx\n", plt_addr);
 	memcpy(trampoline_buf + (idx * sizeof(trampoline)),
-	       &real_addr, sizeof(real_addr));
+	       &plt_addr, sizeof(plt_addr));
 
 	mprotect(trampoline_buf, trampoline_size, PROT_READ | PROT_EXEC);
 	return 0;

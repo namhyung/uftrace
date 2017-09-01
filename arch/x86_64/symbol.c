@@ -29,7 +29,7 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 	unsigned char *pltend;
 	unsigned long got_addr;
 	int i, ret = -1;
-	size_t idx, nr_rels;
+	size_t idx, nr_rels = 0;
 
 	pr_dbg("load dynamic symbols for bind-now\n");
 
