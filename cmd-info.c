@@ -662,6 +662,9 @@ static int fill_arg_spec(void *arg)
 	if (fha->opts->retval)
 		dprintf(fha->fd, "%s;", fha->opts->retval);
 
+	if (write_all(fha->fd, "\n", 1))
+		return -1;
+
 	return 0;
 }
 
