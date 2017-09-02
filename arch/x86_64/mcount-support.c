@@ -260,10 +260,10 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 	return 0;
 }
 
-unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct sym *sym;
 
-	sym = find_dynsym(symtabs, idx);
+	sym = &pd->dsymtab.sym[idx];
 	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
 }

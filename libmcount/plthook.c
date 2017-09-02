@@ -555,11 +555,11 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
-__weak unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+__weak unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct sym *sym;
 
-	sym = find_dynsym(symtabs, idx);
+	sym = &pd->dsymtab.sym[idx];
 	return sym->addr;
 }
 
@@ -577,8 +577,7 @@ static void update_pltgot(struct mcount_thread_data *mtdp,
 		pthread_mutex_lock(&resolver_mutex);
 #endif
 		if (!pd->resolved_addr[dyn_idx]) {
-			plthook_addr = mcount_arch_plthook_addr(&symtabs,
-								dyn_idx);
+			plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
 			setup_pltgot(pd, 3 + dyn_idx, dyn_idx,
 				     (void *)plthook_addr);
 		}

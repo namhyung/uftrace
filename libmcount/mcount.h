@@ -212,7 +212,7 @@ extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct symtab *dsymtab);
 extern void destroy_dynsym_indexes(void);
 
-extern unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx);
+extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 
 static inline bool mcount_should_stop(void)
 {
