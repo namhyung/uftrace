@@ -183,7 +183,8 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 
 	list_add_tail(&pd->list, &plthook_modules);
 
-	pr_dbg2("module: %lx, PLTGOT = %p\n", pd->module_id, pd->pltgot_ptr);
+	pr_dbg2("module (id: %lx), addr = %lx, PLTGOT = %p\n",
+		pd->module_id, pd->base_addr ,pd->pltgot_ptr);
 
 	if (plt_found) {
 		plthook_resolver_addr = pd->pltgot_ptr[2];
@@ -195,8 +196,15 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 
 	overwrite_pltgot(pd, 2, plt_hooker);
 
-	if (bind_now)
+	if (bind_now) {
 		mcount_arch_undo_bindnow(elf, pd);
+
+		if (pd->module_id == 0) {
+			pr_dbg2("update module id to %p\n", pd);
+			overwrite_pltgot(pd, 1, pd);
+			pd->module_id = (unsigned long)pd;
+		}
+	}
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
@@ -633,7 +641,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		goto out;
 
 	sym = &pd->dsymtab.sym[child_idx];
-	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
+	pr_dbg3("[mod: %lx, idx: %d] enter %lx: %s\n", module_id, child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
