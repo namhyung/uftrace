@@ -1074,6 +1074,7 @@ static void mcount_startup(void)
 	char *event_str;
 	char *dirname;
 	struct stat statbuf;
+	bool nest_libcall;
 	LIST_HEAD(modules);
 
 	if (!(mcount_global_flags & MCOUNT_GFL_SETUP) || mtd.recursion_guard)
@@ -1103,6 +1104,7 @@ static void mcount_startup(void)
 	patch_str = getenv("UFTRACE_PATCH");
 	event_str = getenv("UFTRACE_EVENT");
 	script_str = getenv("UFTRACE_SCRIPT");
+	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -1171,7 +1173,7 @@ static void mcount_startup(void)
 	ftrace_setup_filter_module(argument_str, &modules, mcount_exename);
 	ftrace_setup_filter_module(retval_str, &modules, mcount_exename);
 
-	load_module_symtabs(&symtabs, &modules, false);
+	load_module_symtabs(&symtabs, &modules, nest_libcall);
 
 	ftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			    &mcount_filter_mode);
@@ -1199,7 +1201,7 @@ static void mcount_startup(void)
 		mcount_setup_events(dirname, event_str);
 
 	if (plthook_str)
-		mcount_setup_plthook(mcount_exename, false);
+		mcount_setup_plthook(mcount_exename, nest_libcall);
 
 	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
 		kernel_pid_update = true;

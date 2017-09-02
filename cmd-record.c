@@ -193,6 +193,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			/* do not update GOTPLT after resolving symbols */
 			setenv("LD_BIND_NOT", "1", 1);
 		}
+
+		if (opts->nest_libcall)
+			setenv("UFTRACE_NEST_LIBCALL", "1", 1);
 	}
 
 	if (strcmp(opts->dirname, UFTRACE_DIR_NAME))
@@ -1279,7 +1282,7 @@ static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 	ftrace_setup_filter_module(opts->args, &modules, symtabs->filename);
 	ftrace_setup_filter_module(opts->retval, &modules, symtabs->filename);
 
-	if (list_empty(&modules))
+	if (list_empty(&modules) && !opts->nest_libcall)
 		return;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
@@ -1294,8 +1297,8 @@ static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 	free(map_list);
 
 	read_session_map(opts->dirname, symtabs, sid);
-	load_module_symtabs(symtabs, &modules, false);
-	save_module_symtabs(symtabs, &modules, false);
+	load_module_symtabs(symtabs, &modules, opts->nest_libcall);
+	save_module_symtabs(symtabs, &modules, opts->nest_libcall);
 
 	map = symtabs->maps;
 	while (map) {
