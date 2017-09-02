@@ -188,6 +188,8 @@ static int find_got(Elf *elf, const char *modname,
 	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
 
 	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
+	pd->special_funcs = NULL;
+	pd->nr_special    = 0;
 
 	list_add_tail(&pd->list, &plthook_modules);
 
@@ -327,30 +329,13 @@ static const char *except_syms[] = {
 	"_Unwind_RaiseException",
 };
 
-enum plthook_action {
-	PLT_FL_SKIP		= 1U << 0,
-	PLT_FL_LONGJMP		= 1U << 1,
-	PLT_FL_SETJMP		= 1U << 2,
-	PLT_FL_VFORK		= 1U << 3,
-	PLT_FL_FLUSH		= 1U << 4,
-	PLT_FL_EXCEPT		= 1U << 5,
-};
-
-struct plthook_special_func {
-	unsigned idx;
-	unsigned flags;  /* enum plthook_action */
-};
-
-static struct plthook_special_func *special_funcs;
-static int nr_special;
-
-void add_special_func(unsigned idx, unsigned flags)
+static void add_special_func(struct plthook_data *pd, unsigned idx, unsigned flags)
 {
 	int i;
 	struct plthook_special_func *func;
 
-	for (i = 0; i < nr_special; i++) {
-		func = &special_funcs[i];
+	for (i = 0; i < pd->nr_special; i++) {
+		func = &pd->special_funcs[i];
 
 		if (func->idx == idx) {
 			func->flags |= flags;
@@ -358,24 +343,24 @@ void add_special_func(unsigned idx, unsigned flags)
 		}
 	}
 
-	special_funcs = xrealloc(special_funcs,
-				 (nr_special + 1) * sizeof(*func));
+	pd->special_funcs = xrealloc(pd->special_funcs,
+				     (pd->nr_special + 1) * sizeof(*func));
 
-	func = &special_funcs[nr_special++];
+	func = &pd->special_funcs[pd->nr_special++];
 
 	func->idx     = idx;
 	func->flags   = flags;
 }
 
-static void build_special_funcs(struct symtab *dsymtab, const char *syms[],
+static void build_special_funcs(struct plthook_data *pd, const char *syms[],
 				unsigned nr_sym, unsigned flag)
 {
 	unsigned i;
 	struct dynsym_idxlist idxlist;
 
-	build_dynsym_idxlist(dsymtab, &idxlist, syms, nr_sym);
+	build_dynsym_idxlist(&pd->dsymtab, &idxlist, syms, nr_sym);
 	for (i = 0; i < idxlist.count; i++)
-		add_special_func(idxlist.idx[i], flag);
+		add_special_func(pd, idxlist.idx[i], flag);
 	destroy_dynsym_idxlist(&idxlist);
 }
 
@@ -402,29 +387,36 @@ static int idxfind(const void *a, const void *b)
 	return (idx > func->idx) ? 1 : -1;
 }
 
-void setup_dynsym_indexes(struct symtab *dsymtab)
+void setup_dynsym_indexes(struct plthook_data *pd)
 {
-	build_special_funcs(dsymtab, skip_syms, ARRAY_SIZE(skip_syms),
+	build_special_funcs(pd, skip_syms, ARRAY_SIZE(skip_syms),
 			    PLT_FL_SKIP);
-	build_special_funcs(dsymtab, longjmp_syms, ARRAY_SIZE(longjmp_syms),
+	build_special_funcs(pd, longjmp_syms, ARRAY_SIZE(longjmp_syms),
 			    PLT_FL_LONGJMP);
-	build_special_funcs(dsymtab, setjmp_syms, ARRAY_SIZE(setjmp_syms),
+	build_special_funcs(pd, setjmp_syms, ARRAY_SIZE(setjmp_syms),
 			    PLT_FL_SETJMP);
-	build_special_funcs(dsymtab, vfork_syms, ARRAY_SIZE(vfork_syms),
+	build_special_funcs(pd, vfork_syms, ARRAY_SIZE(vfork_syms),
 			    PLT_FL_VFORK);
-	build_special_funcs(dsymtab, flush_syms, ARRAY_SIZE(flush_syms),
+	build_special_funcs(pd, flush_syms, ARRAY_SIZE(flush_syms),
 			    PLT_FL_FLUSH);
-	build_special_funcs(symtabs, except_syms, ARRAY_SIZE(except_syms),
+	build_special_funcs(pd, except_syms, ARRAY_SIZE(except_syms),
 			    PLT_FL_EXCEPT);
 
 	/* built all table, now sorting */
-	qsort(special_funcs, nr_special, sizeof(*special_funcs), idxsort);
+	qsort(pd->special_funcs, pd->nr_special, sizeof(*pd->special_funcs), idxsort);
 }
 
 void destroy_dynsym_indexes(void)
 {
-	free(special_funcs);
-	special_funcs = NULL;
+	struct plthook_data *pd;
+
+	pr_dbg("destroy plthook special function index\n");
+
+	list_for_each_entry(pd, &plthook_modules, list) {
+		free(pd->special_funcs);
+		pd->special_funcs = NULL;
+		pd->nr_special = 0;
+	}
 }
 
 static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *arg)
@@ -476,13 +468,15 @@ static int setup_exe_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 
 void mcount_setup_plthook(char *exename, bool nest_libcall)
 {
-	/* TODO: setup special index for each pd */
-	setup_dynsym_indexes(&symtabs.dsymtab);
+	struct plthook_data *pd;
 
 	if (!nest_libcall)
 		dl_iterate_phdr(setup_exe_plthook_data, exename);
 	else
 		dl_iterate_phdr(setup_mod_plthook_data, exename);
+
+	list_for_each_entry(pd, &plthook_modules, list)
+		setup_dynsym_indexes(pd);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -693,7 +687,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	recursion = false;
 
-	func = bsearch((void *)child_idx, special_funcs, nr_special,
+	func = bsearch((void *)child_idx, pd->special_funcs, pd->nr_special,
 		       sizeof(*func), idxfind);
 	if (func)
 		special_flag |= func->flags;
