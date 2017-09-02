@@ -1294,8 +1294,8 @@ static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
 	free(map_list);
 
 	read_session_map(opts->dirname, symtabs, sid);
-	load_module_symtabs(symtabs, &modules);
-	save_module_symtabs(symtabs, &modules);
+	load_module_symtabs(symtabs, &modules, false);
+	save_module_symtabs(symtabs, &modules, false);
 
 	map = symtabs->maps;
 	while (map) {

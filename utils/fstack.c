@@ -207,7 +207,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 	LIST_HEAD(modules);
 
 	ftrace_setup_filter_module(filter_str, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules);
+	load_module_symtabs(&s->symtabs, &modules, false);
 
 	ftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
 			    &fstack_filter_mode);
@@ -222,7 +222,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 	LIST_HEAD(modules);
 
 	ftrace_setup_filter_module(trigger_str, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules);
+	load_module_symtabs(&s->symtabs, &modules, false);
 
 	ftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters);
 
@@ -320,7 +320,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 	LIST_HEAD(modules);
 
 	ftrace_setup_filter_module(argspec, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules);
+	load_module_symtabs(&s->symtabs, &modules, false);
 
 	ftrace_setup_argument(argspec, &s->symtabs, &s->filters);
 

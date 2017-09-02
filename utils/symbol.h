@@ -100,8 +100,10 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 		       unsigned long offset, unsigned long flags);
 
-void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
-void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+void load_module_symtabs(struct symtabs *symtabs, struct list_head *head,
+			 bool load_all_dynsyms);
+void save_module_symtabs(struct symtabs *symtabs, struct list_head *head,
+			 bool save_all_dynsyms);
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 			 const char *filename);
 

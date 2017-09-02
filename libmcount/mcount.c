@@ -1171,7 +1171,7 @@ static void mcount_startup(void)
 	ftrace_setup_filter_module(argument_str, &modules, mcount_exename);
 	ftrace_setup_filter_module(retval_str, &modules, mcount_exename);
 
-	load_module_symtabs(&symtabs, &modules);
+	load_module_symtabs(&symtabs, &modules, false);
 
 	ftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			    &mcount_filter_mode);
