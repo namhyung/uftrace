@@ -168,7 +168,7 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 			bind_now = true;
 	}
 
-	if (!plt_found && !bind_now) {
+	if (!pltgot_addr || (!plt_found && !bind_now)) {
 		pr_dbg("no PLT nor BIND-NOW.. ignoring...\n");
 		return 0;
 	}
