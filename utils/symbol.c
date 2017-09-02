@@ -560,7 +560,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 			rel_type = SHT_REL;
 		}
 		else if (strcmp(shstr, ".plt") == 0) {
-			plt_addr = shdr.sh_addr;
+			plt_addr = shdr.sh_addr + offset;
 			plt_entsize = shdr.sh_entsize;
 		}
 		else if (strcmp(shstr, ".dynamic") == 0) {
@@ -645,9 +645,6 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 		sym->type = ST_PLT;
 
 		prev_addr = sym->addr;
-
-		if (flags & SYMTAB_FL_ADJ_OFFSET)
-			sym->addr += offset;
 
 		if (flags & SYMTAB_FL_DEMANGLE)
 			sym->name = demangle(name);

@@ -65,7 +65,7 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 			rel_type = SHT_REL;
 		}
 		else if (strcmp(shstr, ".plt.got") == 0) {
-			plt_addr = shdr.sh_addr;
+			plt_addr = shdr.sh_addr + offset;
 			pltgot_sec = sec;
 		}
 	}
@@ -101,36 +101,22 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 		memcpy(&got_offset, &pltgot[R_OFFSET_POS], sizeof(got_offset));
 		got_addr = plt_addr + (i * PLTGOT_SIZE) + JMP_INSN_SIZE + got_offset;
 
-		pr_dbg3("find rel for PLT%d with r_offset: %#lx\n", i, got_addr);
+		pr_dbg3("find rel for PLT%d with r_offset: %#lx\n", i+1, got_addr);
 
 		for (idx = 0; idx < nr_rels; idx++) {
 			GElf_Sym esym;
 			struct sym *sym;
 			int symidx;
 			char *name;
+			GElf_Rela rela;
 
-			if (rel_type == SHT_RELA) {
-				GElf_Rela rela;
+			if (gelf_getrela(relplt_data, idx, &rela) == NULL)
+				goto elf_error;
 
-				if (gelf_getrela(relplt_data, idx, &rela) == NULL)
-					goto elf_error;
+			if (rela.r_offset + offset != got_addr)
+				continue;
 
-				if (rela.r_offset != got_addr)
-					continue;
-
-				symidx = GELF_R_SYM(rela.r_info);
-			}
-			else {
-				GElf_Rel rel;
-
-				if (gelf_getrel(relplt_data, idx, &rel) == NULL)
-					goto elf_error;
-
-				if (rel.r_offset != got_addr)
-					continue;
-
-				symidx = GELF_R_SYM(rel.r_info);
-			}
+			symidx = GELF_R_SYM(rela.r_info);
 
 			gelf_getsym(dynsym_data, symidx, &esym);
 			name = elf_strptr(elf, dynstr_idx, esym.st_name);
@@ -148,9 +134,6 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 			sym->addr = plt_addr + (i * PLTGOT_SIZE);
 			sym->size = PLTGOT_SIZE;
 			sym->type = ST_PLT;
-
-			if (flags & SYMTAB_FL_ADJ_OFFSET)
-				sym->addr += offset;
 
 			if (flags & SYMTAB_FL_DEMANGLE)
 				sym->name = demangle(name);

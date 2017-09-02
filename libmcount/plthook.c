@@ -213,7 +213,6 @@ int hook_pltgot(char *exename, unsigned long offset)
 	Elf_Data *data;
 	size_t shstr_idx;
 	size_t i;
-	bool found = false;
 
 	pr_dbg2("opening executable image: %s\n", exename);
 
@@ -236,11 +235,6 @@ int hook_pltgot(char *exename, unsigned long offset)
 
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
 			goto elf_error;
-
-		if (phdr.p_type == PT_LOAD && !found) {
-			offset -= phdr.p_vaddr;
-			found = true;
-		}
 
 		if (phdr.p_type != PT_DYNAMIC)
 			continue;
