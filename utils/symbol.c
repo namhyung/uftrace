@@ -639,7 +639,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
 
-		sym->addr = esym.st_value ?: prev_addr + plt_entsize;
+//		sym->addr = esym.st_value ?: prev_addr + plt_entsize;
+		sym->addr = prev_addr + plt_entsize;
 		sym->size = plt_entsize;
 		sym->type = ST_PLT;
 
