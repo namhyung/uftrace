@@ -130,7 +130,7 @@ struct dynsym_idxlist {
 	unsigned count;
 };
 
-void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount);
 void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist);
 bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx);

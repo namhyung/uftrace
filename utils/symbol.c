@@ -1359,13 +1359,12 @@ struct symtab * get_kernel_symtab(void)
 	return NULL;
 }
 
-void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
 	unsigned i, k;
 	unsigned *idx = NULL;
 	unsigned count = 0;
-	struct symtab *dsymtab = &symtabs->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		for (k = 0; k < symcount; k++) {

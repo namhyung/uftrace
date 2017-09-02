@@ -351,13 +351,13 @@ void add_special_func(unsigned idx, unsigned flags)
 	func->flags   = flags;
 }
 
-static void build_special_funcs(struct symtabs *symtabs, const char *syms[],
+static void build_special_funcs(struct symtab *dsymtab, const char *syms[],
 				unsigned nr_sym, unsigned flag)
 {
 	unsigned i;
 	struct dynsym_idxlist idxlist;
 
-	build_dynsym_idxlist(symtabs, &idxlist, syms, nr_sym);
+	build_dynsym_idxlist(dsymtab, &idxlist, syms, nr_sym);
 	for (i = 0; i < idxlist.count; i++)
 		add_special_func(idxlist.idx[i], flag);
 	destroy_dynsym_idxlist(&idxlist);
@@ -386,17 +386,17 @@ static int idxfind(const void *a, const void *b)
 	return (idx > func->idx) ? 1 : -1;
 }
 
-void setup_dynsym_indexes(struct symtabs *symtabs)
+void setup_dynsym_indexes(struct symtab *dsymtab)
 {
-	build_special_funcs(symtabs, skip_syms, ARRAY_SIZE(skip_syms),
+	build_special_funcs(dsymtab, skip_syms, ARRAY_SIZE(skip_syms),
 			    PLT_FL_SKIP);
-	build_special_funcs(symtabs, longjmp_syms, ARRAY_SIZE(longjmp_syms),
+	build_special_funcs(dsymtab, longjmp_syms, ARRAY_SIZE(longjmp_syms),
 			    PLT_FL_LONGJMP);
-	build_special_funcs(symtabs, setjmp_syms, ARRAY_SIZE(setjmp_syms),
+	build_special_funcs(dsymtab, setjmp_syms, ARRAY_SIZE(setjmp_syms),
 			    PLT_FL_SETJMP);
-	build_special_funcs(symtabs, vfork_syms, ARRAY_SIZE(vfork_syms),
+	build_special_funcs(dsymtab, vfork_syms, ARRAY_SIZE(vfork_syms),
 			    PLT_FL_VFORK);
-	build_special_funcs(symtabs, flush_syms, ARRAY_SIZE(flush_syms),
+	build_special_funcs(dsymtab, flush_syms, ARRAY_SIZE(flush_syms),
 			    PLT_FL_FLUSH);
 	build_special_funcs(symtabs, except_syms, ARRAY_SIZE(except_syms),
 			    PLT_FL_EXCEPT);
