@@ -966,7 +966,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	fstack_setup_filters(opts, &handle);
 	setup_field(opts);
 
-	if (!opts->flat)
+	if (!opts->flat && peek_rstack(&handle, &task) == 0)
 		print_header();
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {

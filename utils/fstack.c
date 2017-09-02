@@ -1657,9 +1657,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		}
 	}
 
-	if (source == NONE)
-		return -1;
-
 	switch (source) {
 	case USER:
 		utask->rstack = &utask->ustack;
