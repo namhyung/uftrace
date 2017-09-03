@@ -438,9 +438,15 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"ld-linux-x86-64.so.2",
 	};
 	size_t k;
+	static bool exe_once = true;
 
-	if (exename[0] == '\0')
+	if (exename[0] == '\0') {
+		if (!exe_once)
+			return 0;
+
 		exename = arg;
+		exe_once = false;
+	}
 
 	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
 		if (!strcmp(basename(exename), skip_libs[k]))
