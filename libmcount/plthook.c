@@ -86,7 +86,7 @@ ALIAS_DECL(__cyg_profile_func_exit);
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
  */
-static void skip_plt_functions(struct plthook_data *pd)
+static void restore_plt_functions(struct plthook_data *pd)
 {
 	unsigned i, k;
 
@@ -109,6 +109,10 @@ static void skip_plt_functions(struct plthook_data *pd)
 	struct symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
+		bool skipped = false;
+		unsigned long plthook_addr;
+		unsigned long resolved_addr;
+
 		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
 			struct sym *sym = dsymtab->sym_names[i];
 
@@ -118,6 +122,21 @@ static void skip_plt_functions(struct plthook_data *pd)
 			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
 				i, skip_list[k].name, skip_list[k].addr);
+
+			skipped = true;
+		}
+
+		if (skipped)
+			continue;
+
+		resolved_addr = pd->pltgot_ptr[3 + i];
+		plthook_addr = mcount_arch_plthook_addr(pd, i);
+		if (resolved_addr != plthook_addr) {
+			/* save already resolved address and hook it */
+			pd->resolved_addr[i] = resolved_addr;
+			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
+			pr_dbg2("restore [%u] %s: %p\n",
+				i, dsymtab->sym[i].name, resolved_addr);
 		}
 	}
 }
@@ -198,7 +217,7 @@ static int find_got(Elf *elf, const char *modname,
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			pd->pltgot_ptr, plthook_resolver_addr);
 
-		skip_plt_functions(pd);
+		restore_plt_functions(pd);
 	}
 
 	overwrite_pltgot(pd, 2, plt_hooker);
