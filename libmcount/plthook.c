@@ -307,12 +307,17 @@ static const char *flush_syms[] = {
 	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
 };
 
+static const char *except_syms[] = {
+	"_Unwind_RaiseException",
+};
+
 enum plthook_action {
 	PLT_FL_SKIP		= 1U << 0,
 	PLT_FL_LONGJMP		= 1U << 1,
 	PLT_FL_SETJMP		= 1U << 2,
 	PLT_FL_VFORK		= 1U << 3,
 	PLT_FL_FLUSH		= 1U << 4,
+	PLT_FL_EXCEPT		= 1U << 5,
 };
 
 struct plthook_special_func {
@@ -393,6 +398,8 @@ void setup_dynsym_indexes(struct symtabs *symtabs)
 			    PLT_FL_VFORK);
 	build_special_funcs(symtabs, flush_syms, ARRAY_SIZE(flush_syms),
 			    PLT_FL_FLUSH);
+	build_special_funcs(symtabs, except_syms, ARRAY_SIZE(except_syms),
+			    PLT_FL_EXCEPT);
 
 	/* built all table, now sorting */
 	qsort(special_funcs, nr_special, sizeof(*special_funcs), idxsort);
@@ -662,6 +669,10 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		else if (special_flag & PLT_FL_VFORK) {
 			rstack->flags |= MCOUNT_FL_VFORK;
 			prepare_vfork(mtdp, rstack);
+		}
+		else if (special_flag & PLT_FL_EXCEPT) {
+			/* exception handling requires stack unwind */
+			mcount_rstack_restore();
 		}
 	}
 

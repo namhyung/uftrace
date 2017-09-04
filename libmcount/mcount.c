@@ -1309,8 +1309,6 @@ __visible_default void __cxa_end_catch(void)
 
 	pr_dbg("exception returned at frame: %#lx\n", retaddr);
 
-	mcount_rstack_restore();
-
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
 		int idx;
@@ -1323,8 +1321,11 @@ __visible_default void __cxa_end_catch(void)
 			if (rstack->parent_loc == &mtdp->cygprof_dummy)
 				break;
 
-			if ((unsigned long)rstack->parent_loc > retaddr)
+			if ((unsigned long)rstack->parent_loc > retaddr) {
+				/* do not overwrite current return address */
+				rstack->parent_ip = *rstack->parent_loc;
 				break;
+			}
 
 			/* record unwinded functions */
 			if (!(rstack->flags & MCOUNT_FL_NORECORD))

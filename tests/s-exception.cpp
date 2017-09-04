@@ -2,12 +2,16 @@
 
 using namespace std;
 
+static volatile int n;
+
 void foo()
 {
+  n++;
 }
 
 void bar()
 {
+  n--;
 }
 
 void oops()
