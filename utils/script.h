@@ -19,12 +19,16 @@ enum script_type_t {
 
 /* context information passed to script */
 struct script_context {
-	int           tid;
-	int           depth;
-	uint64_t      timestamp;
-	uint64_t      duration;	/* exit only */
-	unsigned long address;
-	char          *symname;
+	int			tid;
+	int			depth;
+	uint64_t		timestamp;
+	uint64_t		duration;	/* exit only */
+	unsigned long		address;
+	char			*symname;
+	/* for arguments and return value */
+	int			arglen;
+	void			*argbuf;
+	struct list_head	*argspec;
 };
 
 extern char *script_str;

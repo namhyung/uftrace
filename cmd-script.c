@@ -62,6 +62,12 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 			.symname   = symname,
 		};
 
+		if (tr.flags & TRIGGER_FL_ARGUMENT) {
+			sc_ctx.argbuf  = task->args.data;
+			sc_ctx.arglen  = task->args.len;
+			sc_ctx.argspec = task->args.args;
+		}
+
 		/* script hooking for function entry */
 		script_uftrace_entry(&sc_ctx);
 	}
@@ -86,6 +92,12 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 				.address   = rstack->addr,
 				.symname   = symname,
 			};
+
+			if (rstack->more) {
+				sc_ctx.argbuf  = task->args.data;
+				sc_ctx.arglen  = task->args.len;
+				sc_ctx.argspec = task->args.args;
+			}
 
 			/* script hooking for function exit */
 			script_uftrace_exit(&sc_ctx);
