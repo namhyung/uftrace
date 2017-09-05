@@ -543,14 +543,14 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			unsigned long entry_addr = rstack->child_ip;
 			struct sym *sym = find_symtabs(&symtabs, entry_addr);
 			char *symname = symbol_getname(sym, entry_addr);
-			struct script_args sc_args = {
+			struct script_context sc_ctx = {
 				.tid = gettid(mtdp),
 				.depth = rstack->depth,
 				.timestamp = rstack->start_time,
 				.address = entry_addr,
 				.symname = symname,
 			};
-			script_uftrace_entry(&sc_args);
+			script_uftrace_entry(&sc_ctx);
 			symbol_putname(sym, symname);
 		}
 
@@ -619,7 +619,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			unsigned long entry_addr = rstack->child_ip;
 			struct sym *sym = find_symtabs(&symtabs, entry_addr);
 			char *symname = symbol_getname(sym, entry_addr);
-			struct script_args sc_args = {
+			struct script_context sc_ctx = {
 				.tid = gettid(mtdp),
 				.depth = rstack->depth,
 				.timestamp = rstack->end_time,
@@ -627,7 +627,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				.address = entry_addr,
 				.symname = symname,
 			};
-			script_uftrace_exit(&sc_args);
+			script_uftrace_exit(&sc_ctx);
 			symbol_putname(sym, symname);
 		}
 	}

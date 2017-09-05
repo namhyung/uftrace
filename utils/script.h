@@ -17,8 +17,8 @@ enum script_type_t {
 	SCRIPT_PYTHON
 };
 
-/* argument information passed to script */
-struct script_args {
+/* context information passed to script */
+struct script_context {
 	int           tid;
 	int           depth;
 	uint64_t      timestamp;
@@ -29,8 +29,8 @@ struct script_args {
 
 extern char *script_str;
 
-typedef int (*script_uftrace_entry_t)(struct script_args *sc_args);
-typedef int (*script_uftrace_exit_t)(struct script_args *sc_args);
+typedef int (*script_uftrace_entry_t)(struct script_context *sc_ctx);
+typedef int (*script_uftrace_exit_t)(struct script_context *sc_ctx);
 typedef int (*script_uftrace_end_t)(void);
 
 /* The below functions are used both in record time and script command. */
