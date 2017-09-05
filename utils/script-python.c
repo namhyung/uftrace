@@ -36,6 +36,7 @@ static PyAPI_FUNC(PyObject *) (*__PyString_FromString)(const char *);
 static PyAPI_FUNC(PyObject *) (*__PyInt_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromUnsignedLongLong)(unsigned PY_LONG_LONG);
+static PyAPI_FUNC(PyObject *) (*__PyFloat_FromDouble)(double);
 
 static PyAPI_FUNC(char *) (*__PyString_AsString)(PyObject *);
 static PyAPI_FUNC(long) (*__PyLong_AsLong)(PyObject *);
@@ -137,6 +138,7 @@ union python_val {
 	long			l;
 	unsigned long long	ull;
 	char			*s;
+	double			f;
 };
 
 static void python_insert_tuple(PyObject *tuple, char type, int idx,
@@ -153,6 +155,9 @@ static void python_insert_tuple(PyObject *tuple, char type, int idx,
 		break;
 	case 's':
 		obj = __PyString_FromString(val.s);
+		break;
+	case 'f':
+		obj = __PyFloat_FromDouble(val.f);
 		break;
 	default:
 		pr_warn("unsupported data type was added to tuple\n");
@@ -204,6 +209,12 @@ static void insert_tuple_string(PyObject *tuple, int idx, char *v)
 {
 	union python_val val = { .s = v, };
 	python_insert_tuple(tuple, 's', idx, val);
+}
+
+static void insert_tuple_double(PyObject *tuple, int idx, double v)
+{
+	union python_val val = { .f = v, };
+	python_insert_tuple(tuple, 'f', idx, val);
 }
 
 static void insert_dict_long(PyObject *dict, const char *key, long v)
@@ -275,6 +286,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 		unsigned short slen;
 		char ch_str[2];
 		char *str;
+		double dval;
 
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
@@ -306,6 +318,28 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 				pr_warn("invalid integer size: %d\n", spec->size);
 				break;
 			}
+			data += ALIGN(spec->size, 4);
+			break;
+
+		case ARG_FMT_FLOAT:
+			memcpy(val.v, data, spec->size);
+			switch (spec->size) {
+			case 4:
+				dval = val.f;
+				break;
+			case 8:
+				dval = val.d;
+				break;
+			case 10:
+				dval = (double)val.D;
+				break;
+			default:
+				pr_dbg("invalid floating-point type size %d\n",
+				       spec->size);
+				dval = 0;
+				break;
+			}
+			insert_tuple_double(args, count++, dval);
 			data += ALIGN(spec->size, 4);
 			break;
 
@@ -455,6 +489,7 @@ int script_init_for_python(char *py_pathname)
 	INIT_PY_API_FUNC(PyInt_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
+	INIT_PY_API_FUNC(PyFloat_FromDouble);
 
 	INIT_PY_API_FUNC(PyString_AsString);
 	INIT_PY_API_FUNC(PyLong_AsLong);
