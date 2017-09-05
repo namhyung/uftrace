@@ -127,32 +127,106 @@ static int import_python_module(char *py_pathname)
 	return 0;
 }
 
+union python_val {
+	long			l;
+	unsigned long long	ull;
+	char			*s;
+};
+
+static void python_insert_tuple(PyObject *tuple, char type, int idx,
+				union python_val val)
+{
+	PyObject *obj;
+
+	switch (type) {
+	case 'l':
+		obj = __PyInt_FromLong(val.l);
+		break;
+	case 'U':
+		obj = __PyLong_FromUnsignedLongLong(val.ull);
+		break;
+	case 's':
+		obj = __PyString_FromString(val.s);
+		break;
+	default:
+		pr_warn("unsupported data type was added to tuple\n");
+		obj = NULL;
+		break;
+	}
+
+	__PyTuple_SetItem(tuple, idx, obj);
+}
+
+static void python_insert_dict(PyObject *dict, char type, const char *key,
+			       union python_val val)
+{
+	PyObject *obj;
+
+	switch (type) {
+	case 'l':
+		obj = __PyInt_FromLong(val.l);
+		break;
+	case 'U':
+		obj = __PyLong_FromUnsignedLongLong(val.ull);
+		break;
+	case 's':
+		obj = __PyString_FromString(val.s);
+		break;
+	default:
+		pr_warn("unsupported data type was added to dict\n");
+		obj = NULL;
+		break;
+	}
+
+	__PyDict_SetItemString(dict, key, obj);
+	Py_XDECREF(obj);
+}
+
+static void insert_tuple_long(PyObject *tuple, int idx, long v)
+{
+	union python_val val = { .l = v, };
+	python_insert_tuple(tuple, 'l', idx, val);
+}
+
+static void insert_tuple_ull(PyObject *tuple, int idx, unsigned long long v)
+{
+	union python_val val = { .ull = v, };
+	python_insert_tuple(tuple, 'U', idx, val);
+}
+
+static void insert_tuple_string(PyObject *tuple, int idx, char *v)
+{
+	union python_val val = { .s = v, };
+	python_insert_tuple(tuple, 's', idx, val);
+}
+
+static void insert_dict_long(PyObject *dict, const char *key, long v)
+{
+	union python_val val = { .l = v, };
+	python_insert_dict(dict, 'l', key, val);
+}
+
+static void insert_dict_ull(PyObject *dict, const char *key, unsigned long long v)
+{
+	union python_val val = { .ull = v, };
+	python_insert_dict(dict, 'U', key, val);
+}
+
+static void insert_dict_string(PyObject *dict, const char *key, char *v)
+{
+	union python_val val = { .s = v, };
+	python_insert_dict(dict, 's', key, val);
+}
+
+#define PYCTX(_item)  py_context_table[PY_CTX_##_item]
+
 static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx)
 {
-	int tid = sc_ctx->tid;
-	int depth = sc_ctx->depth;
-	uint64_t timestamp = sc_ctx->timestamp;
-	unsigned long address = sc_ctx->address;
-	char *symname = sc_ctx->symname;
-
-	PyObject *pTid = __PyInt_FromLong(tid);
-	PyObject *pDepth = __PyInt_FromLong(depth);
-	PyObject *pTimeStamp = __PyLong_FromUnsignedLongLong(timestamp);
-	PyObject *pAddress = __PyInt_FromLong(address);
-	PyObject *pSym  = __PyString_FromString(symname);
-
-	__PyDict_SetItemString(*pDict, py_context_table[PY_CTX_TID], pTid);
-	__PyDict_SetItemString(*pDict, py_context_table[PY_CTX_DEPTH], pDepth);
-	__PyDict_SetItemString(*pDict, py_context_table[PY_CTX_TIMESTAMP], pTimeStamp);
-	__PyDict_SetItemString(*pDict, py_context_table[PY_CTX_ADDRESS], pAddress);
-	__PyDict_SetItemString(*pDict, py_context_table[PY_CTX_SYMNAME], pSym);
-
-	/* Py_XDECREF() frees the object when the count reaches zero. */
-	Py_XDECREF(pTid);
-	Py_XDECREF(pDepth);
-	Py_XDECREF(pTimeStamp);
-	Py_XDECREF(pAddress);
-	Py_XDECREF(pSym);
+	insert_dict_long(*pDict, PYCTX(TID), sc_ctx->tid);
+	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->depth);
+	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->timestamp);
+	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->address);
+	insert_dict_string(*pDict, PYCTX(SYMNAME), sc_ctx->symname);
 }
 
 int python_uftrace_entry(struct script_context *sc_ctx)
@@ -191,10 +265,7 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 	setup_common_context(&pDict, sc_ctx);
 
 	/* Add time duration info */
-	uint64_t duration = sc_ctx->duration;
-	PyObject *pDuration = __PyLong_FromUnsignedLongLong(duration);
-	__PyDict_SetItemString(pDict, py_context_table[PY_CTX_DURATION], pDuration);
-	Py_XDECREF(pDuration);
+	insert_dict_ull(pDict, PYCTX(DURATION), sc_ctx->duration);
 
 	/* Python function arguments must be passed in a tuple. */
 	PyObject *pythonContext = __PyTuple_New(1);
