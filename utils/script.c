@@ -41,12 +41,18 @@ int script_init(char *script_pathname)
 
 	switch (get_script_type(script_pathname)) {
 	case SCRIPT_PYTHON:
-		if (script_init_for_python(script_pathname) < 0)
+		if (script_init_for_python(script_pathname) < 0) {
+			pr_dbg("failed to init python scripting\n");
 			script_pathname = NULL;
+		}
 		break;
 	default:
+		pr_warn("unsupported script type: %s\n", script_pathname);
 		script_pathname = NULL;
 	}
+
+	if (script_pathname == NULL)
+		return -1;
 
 	return 0;
 }
