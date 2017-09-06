@@ -561,7 +561,11 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				sc_ctx.argspec = tr->pargs;
 			}
 
+			/* accessing argument in script might change arch-context */
+			mcount_save_arch_context(&mtdp->arch);
 			script_uftrace_entry(&sc_ctx);
+			mcount_restore_arch_context(&mtdp->arch);
+
 			symbol_putname(sym, symname);
 		}
 
@@ -647,7 +651,11 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				sc_ctx.argspec = rstack->pargs;
 			}
 
+			/* accessing argument in script might change arch-context */
+			mcount_save_arch_context(&mtdp->arch);
 			script_uftrace_exit(&sc_ctx);
+			mcount_restore_arch_context(&mtdp->arch);
+
 			symbol_putname(sym, symname);
 		}
 	}
