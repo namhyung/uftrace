@@ -43,5 +43,10 @@ extern script_uftrace_exit_t script_uftrace_exit;
 extern script_uftrace_end_t script_uftrace_end;
 
 int script_init(char *script_pathname);
+void script_finish(void);
+
+void script_add_filter(char *func);
+int script_match_filter(char *func);
+void script_finish_filter(void);
 
 #endif /* __UFTRACE_SCRIPT_H__ */

@@ -112,6 +112,18 @@ The below is another example that shows the different output compared to previou
 
 The python script above can be modified to do more output customization.
 
+The python script can have an optional "UFTRACE_FUNCS" list which can have name (or regex pattern) of functions to run the script.  If it exists, only matched functions will run the script.  For example, if you add following lines to the script, it will run only for functions with a single letter name.
+
+    $ echo 'UFTRACE_FUNCS = [ "^.$" ]' >> replay.py
+    $ uftrace script -S replay.py
+    # DURATION    TID     FUNCTION
+                [25794] |   a() {
+                [25794] |     b() {
+                [25794] |       c() {
+      44.752 us [25794] |       } /* c */
+      70.924 us [25794] |     } /* b */
+      98.191 us [25794] |   } /* a */
+
 
 SEE ALSO
 ========

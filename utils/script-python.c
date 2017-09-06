@@ -45,6 +45,9 @@ static PyAPI_FUNC(PyObject *) (*__PyTuple_New)(Py_ssize_t size);
 static PyAPI_FUNC(int) (*__PyTuple_SetItem)(PyObject *, Py_ssize_t, PyObject *);
 static PyAPI_FUNC(PyObject *) (*__PyTuple_GetItem)(PyObject *, Py_ssize_t);
 
+static PyAPI_FUNC(Py_ssize_t) (*__PyList_Size)(PyObject *);
+static PyAPI_FUNC(PyObject *) (*__PyList_GetItem)(PyObject *, Py_ssize_t);
+
 static PyAPI_FUNC(PyObject *) (*__PyDict_New)(void);
 static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject *item);
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
@@ -498,6 +501,9 @@ int script_init_for_python(char *py_pathname)
 	INIT_PY_API_FUNC(PyTuple_SetItem);
 	INIT_PY_API_FUNC(PyTuple_GetItem);
 
+	INIT_PY_API_FUNC(PyList_Size);
+	INIT_PY_API_FUNC(PyList_GetItem);
+
 	INIT_PY_API_FUNC(PyDict_New);
 	INIT_PY_API_FUNC(PyDict_SetItem);
 	INIT_PY_API_FUNC(PyDict_SetItemString);
@@ -511,6 +517,20 @@ int script_init_for_python(char *py_pathname)
 	if (import_python_module(py_pathname) < 0)
 		return -1;
 
+	/* check if script has its only list of functions to run */
+	PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
+	if (filter_list) {
+		int i, len;
+
+		/* XXX: type checking is hard */
+		len = __PyList_Size(filter_list);
+
+		for (i = 0; i < len; i++) {
+			PyObject *func = __PyList_GetItem(filter_list, i);
+
+			script_add_filter(__PyString_AsString(func));
+		}
+	}
 
 	/* Call python function "uftrace_begin" immediately if possible. */
 	PyObject *pFuncBegin = __PyObject_GetAttrString(pModule, "uftrace_begin");

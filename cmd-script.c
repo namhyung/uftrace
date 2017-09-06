@@ -53,6 +53,9 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 		fstack = &task->func_stack[task->stack_count - 1];
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 
+		if (!script_match_filter(symname))
+			goto out;
+
 		/* setup context for script execution */
 		struct script_context sc_ctx = {
 			.tid       = task->tid,
@@ -79,6 +82,11 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
+
+			if (!script_match_filter(symname)) {
+				fstack_exit(task);
+				goto out;
+			}
 
 			/* display depth is set before passing rstack */
 			rstack->depth = depth;
@@ -169,6 +177,8 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	/* dtor for script support */
 	script_uftrace_end();
+
+	script_finish();
 
 	close_data_file(opts, &handle);
 

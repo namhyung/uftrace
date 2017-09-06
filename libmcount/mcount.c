@@ -545,13 +545,16 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			unsigned long entry_addr = rstack->child_ip;
 			struct sym *sym = find_symtabs(&symtabs, entry_addr);
 			char *symname = symbol_getname(sym, entry_addr);
-			struct script_context sc_ctx = {
-				.tid = gettid(mtdp),
-				.depth = rstack->depth,
-				.timestamp = rstack->start_time,
-				.address = entry_addr,
-				.symname = symname,
-			};
+			struct script_context sc_ctx;
+
+			if (!script_match_filter(symname))
+				goto skip;
+
+			sc_ctx.tid       = gettid(mtdp);
+			sc_ctx.depth     = rstack->depth;
+			sc_ctx.timestamp = rstack->start_time;
+			sc_ctx.address   = entry_addr;
+			sc_ctx.symname   = symname;
 
 			if (tr->flags & TRIGGER_FL_ARGUMENT) {
 				unsigned *argbuf = get_argbuf(mtdp, rstack);
@@ -560,12 +563,17 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				sc_ctx.argbuf  = &argbuf[1];
 				sc_ctx.argspec = tr->pargs;
 			}
+			else {
+				/* prevent access to arguments */
+				sc_ctx.arglen  = 0;
+			}
 
 			/* accessing argument in script might change arch-context */
 			mcount_save_arch_context(&mtdp->arch);
 			script_uftrace_entry(&sc_ctx);
 			mcount_restore_arch_context(&mtdp->arch);
 
+skip:
 			symbol_putname(sym, symname);
 		}
 
@@ -630,18 +638,20 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 		/* script hooking for function exit */
 		if (SCRIPT_ENABLED && script_str) {
-			uint64_t duration = rstack->end_time - rstack->start_time;
 			unsigned long entry_addr = rstack->child_ip;
 			struct sym *sym = find_symtabs(&symtabs, entry_addr);
 			char *symname = symbol_getname(sym, entry_addr);
-			struct script_context sc_ctx = {
-				.tid = gettid(mtdp),
-				.depth = rstack->depth,
-				.timestamp = rstack->end_time,
-				.duration = duration,
-				.address = entry_addr,
-				.symname = symname,
-			};
+			struct script_context sc_ctx;
+
+			if (!script_match_filter(symname))
+				goto skip;
+
+			sc_ctx.tid       = gettid(mtdp);
+			sc_ctx.depth     = rstack->depth;
+			sc_ctx.timestamp = rstack->start_time;
+			sc_ctx.duration  = rstack->end_time - rstack->start_time;
+			sc_ctx.address   = entry_addr;
+			sc_ctx.symname   = symname;
 
 			if (rstack->flags & MCOUNT_FL_RETVAL) {
 				unsigned *argbuf = get_argbuf(mtdp, rstack);
@@ -650,12 +660,17 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				sc_ctx.argbuf  = &argbuf[1];
 				sc_ctx.argspec = rstack->pargs;
 			}
+			else {
+				/* prevent access to retval*/
+				sc_ctx.arglen  = 0;
+			}
 
 			/* accessing argument in script might change arch-context */
 			mcount_save_arch_context(&mtdp->arch);
 			script_uftrace_exit(&sc_ctx);
 			mcount_restore_arch_context(&mtdp->arch);
 
+skip:
 			symbol_putname(sym, symname);
 		}
 	}
@@ -1322,6 +1337,8 @@ static void mcount_cleanup(void)
 #ifndef DISABLE_MCOUNT_FILTER
 	ftrace_cleanup_filter(&mcount_triggers);
 #endif
+	if (SCRIPT_ENABLED && script_str)
+		script_finish();
 
 	unload_symtabs(&symtabs);
 }
