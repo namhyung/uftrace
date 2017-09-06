@@ -55,11 +55,11 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 
 		/* setup arguments for script execution */
 		struct script_args sc_args = {
-			.tid = task->tid,
-			.depth = depth,  /* display depth */
+			.tid       = task->tid,
+			.depth     = depth,  /* display depth */
 			.timestamp = rstack->time,
-			.address = rstack->addr,
-			.symname = symname,
+			.address   = rstack->addr,
+			.symname   = symname,
 		};
 
 		/* script hooking for function entry */
@@ -76,22 +76,22 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 
 			/* display depth is set before passing rstack */
 			rstack->depth = depth;
+
+			/* setup arguments for script execution */
+			struct script_context sc_ctx = {
+				.tid       = task->tid,
+				.depth     = rstack->depth,
+				.timestamp = rstack->time,
+				.duration  = fstack->total_time,
+				.address   = rstack->addr,
+				.symname   = symname,
+			};
+
+			/* script hooking for function exit */
+			script_uftrace_exit(&sc_ctx);
 		}
 
 		fstack_exit(task);
-
-		/* setup arguments for script execution */
-		struct script_args sc_args = {
-			.tid = task->tid,
-			.depth = rstack->depth,
-			.timestamp = rstack->time,
-			.duration = fstack->total_time,
-			.address = rstack->addr,
-			.symname = symname,
-		};
-
-		/* script hooking for function exit */
-		script_uftrace_exit(&sc_args);
 	}
 	else if (rstack->type == UFTRACE_LOST) {
 		/* Do nothing as of now */
