@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <gelf.h>
+#include <link.h>
 #include <sys/mman.h>
 #include <pthread.h>
 #include <assert.h>
@@ -20,9 +21,8 @@ extern struct symtabs symtabs;
 
 unsigned long plthook_resolver_addr;
 
-static unsigned long *plthook_got_ptr;
-static unsigned long *plthook_dynsym_addr;
-static bool *plthook_dynsym_resolved;
+static LIST_HEAD(plthook_modules);
+
 static bool plthook_no_pltbind;
 
 static unsigned long got_addr;
@@ -41,34 +41,34 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 			pr_err("mprotect failed");
 		segv_handled = true;
 	} else {
-		pr_err_ns("invalid memory access.. exiting.\n");
+		pr_err_ns("invalid memory access: %lx: exiting.\n", got_addr);
 	}
 }
 
-static void overwrite_pltgot(int idx, void *data)
+static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)
 {
 	/* save got_addr for segv_handler */
-	got_addr = (unsigned long)(&plthook_got_ptr[idx]);
+	got_addr = (unsigned long)(&pd->pltgot_ptr[idx]);
 
 	segv_handled = false;
 
 	compiler_barrier();
 
-	/* overwrite it - might be read-protected */
-	plthook_got_ptr[idx] = (unsigned long)data;
+	/* overwrite it - might be write-protected */
+	pd->pltgot_ptr[idx] = (unsigned long)data;
 
 	if (segv_handled)
 		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
-unsigned long setup_pltgot(int got_idx, int sym_idx, void *data)
+unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
+			   void *data)
 {
-	unsigned long real_addr = plthook_got_ptr[got_idx];
+	unsigned long real_addr = pd->pltgot_ptr[got_idx];
 
-	plthook_dynsym_addr[sym_idx] = real_addr;
-	plthook_dynsym_resolved[sym_idx] = true;
+	pd->resolved_addr[sym_idx] = real_addr;
 
-	overwrite_pltgot(got_idx, data);
+	overwrite_pltgot(pd, got_idx, data);
 	return real_addr;
 }
 
@@ -86,7 +86,7 @@ ALIAS_DECL(__cyg_profile_func_exit);
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
  */
-static void skip_plt_functions(void)
+static void restore_plt_functions(struct plthook_data *pd)
 {
 	unsigned i, k;
 
@@ -106,18 +106,37 @@ static void skip_plt_functions(void)
 
 #undef SKIP_FUNC
 
-	struct symtab *dsymtab = &symtabs.dsymtab;
+	struct symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
+		bool skipped = false;
+		unsigned long plthook_addr;
+		unsigned long resolved_addr;
+
 		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
 			struct sym *sym = dsymtab->sym_names[i];
 
 			if (strcmp(sym->name, skip_list[k].name))
 				continue;
 
-			overwrite_pltgot(3 + i, skip_list[k].addr);
+			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
 				i, skip_list[k].name, skip_list[k].addr);
+
+			skipped = true;
+		}
+
+		if (skipped)
+			continue;
+
+		resolved_addr = pd->pltgot_ptr[3 + i];
+		plthook_addr = mcount_arch_plthook_addr(pd, i);
+		if (resolved_addr != plthook_addr) {
+			/* save already resolved address and hook it */
+			pd->resolved_addr[i] = resolved_addr;
+			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
+			pr_dbg2("restore [%u] %s: %p\n",
+				i, dsymtab->sym[i].name, resolved_addr);
 		}
 	}
 }
@@ -125,18 +144,20 @@ static void skip_plt_functions(void)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-__weak int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
-				    unsigned long offset, unsigned long pltgot_addr)
+__weak int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 {
 	return -1;
 }
 
-static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
+static int find_got(Elf *elf, const char *modname,
+		    Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
 {
 	size_t i;
 	bool plt_found = false;
 	bool bind_now = false;
+	unsigned long pltgot_addr = 0;
 	struct sigaction sa, old_sa;
+	struct plthook_data *pd;
 
 	/*
 	 * The GOT region is write-protected on some systems.
@@ -159,7 +180,7 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 			return -1;
 
 		if (dyn.d_tag == DT_PLTGOT)
-			got_addr = (unsigned long)dyn.d_un.d_val + offset;
+			pltgot_addr = (unsigned long)dyn.d_un.d_val + offset;
 		else if (dyn.d_tag == DT_JMPREL)
 			plt_found = true;
 		else if (dyn.d_tag == DT_BIND_NOW)
@@ -168,26 +189,47 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 			bind_now = true;
 	}
 
-	if (!plt_found && !bind_now) {
+	if (!pltgot_addr || (!plt_found && !bind_now)) {
 		pr_dbg("no PLT nor BIND-NOW.. ignoring...\n");
 		return 0;
 	}
 
-	plthook_got_ptr = (void *)got_addr;
+	pd = xmalloc(sizeof(*pd));
+	pd->mod_name   = xstrdup(modname);
+	pd->pltgot_ptr = (void *)pltgot_addr;
+	pd->module_id  = pd->pltgot_ptr[1];
+	pd->base_addr  = offset;
+
+	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
+		pd->mod_name, pd->module_id, pd->base_addr ,pd->pltgot_ptr);
+
+	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
+	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
+
+	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
+	pd->special_funcs = NULL;
+	pd->nr_special    = 0;
+
+	list_add_tail(&pd->list, &plthook_modules);
 
 	if (plt_found) {
-		plthook_resolver_addr = plthook_got_ptr[2];
+		plthook_resolver_addr = pd->pltgot_ptr[2];
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
-			plthook_got_ptr, plthook_resolver_addr);
+			pd->pltgot_ptr, plthook_resolver_addr);
 
-		skip_plt_functions();
+		restore_plt_functions(pd);
 	}
 
-	overwrite_pltgot(2, plt_hooker);
+	overwrite_pltgot(pd, 2, plt_hooker);
 
 	if (bind_now) {
-		mcount_arch_undo_bindnow(elf, &symtabs, offset,
-					 (unsigned long)plthook_got_ptr);
+		mcount_arch_undo_bindnow(elf, pd);
+
+		if (pd->module_id == 0) {
+			pr_dbg2("update module id to %p\n", pd);
+			overwrite_pltgot(pd, 1, pd);
+			pd->module_id = (unsigned long)pd;
+		}
 	}
 
 	if (getenv("LD_BIND_NOT"))
@@ -202,7 +244,7 @@ static int find_got(Elf *elf, Elf_Data *dyn_data, size_t nr_dyn, unsigned long o
 	return 0;
 }
 
-int hook_pltgot(char *exename, unsigned long offset)
+static int hook_pltgot(const char *modname, unsigned long offset)
 {
 	int fd;
 	int ret = -1;
@@ -213,11 +255,10 @@ int hook_pltgot(char *exename, unsigned long offset)
 	Elf_Data *data;
 	size_t shstr_idx;
 	size_t i;
-	bool found = false;
 
-	pr_dbg2("opening executable image: %s\n", exename);
+	pr_dbg2("opening executable image: %s\n", modname);
 
-	fd = open(exename, O_RDONLY);
+	fd = open(modname, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -237,11 +278,6 @@ int hook_pltgot(char *exename, unsigned long offset)
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
 			goto elf_error;
 
-		if (phdr.p_type == PT_LOAD && !found) {
-			offset -= phdr.p_vaddr;
-			found = true;
-		}
-
 		if (phdr.p_type != PT_DYNAMIC)
 			continue;
 
@@ -254,7 +290,8 @@ int hook_pltgot(char *exename, unsigned long offset)
 		if (data == NULL)
 			goto elf_error;
 
-		if (find_got(elf, data, shdr.sh_size / shdr.sh_entsize, offset) < 0)
+		if (find_got(elf, modname, data, shdr.sh_size / shdr.sh_entsize,
+			     offset) < 0)
 			goto elf_error;
 	}
 	ret = 0;
@@ -311,30 +348,13 @@ static const char *except_syms[] = {
 	"_Unwind_RaiseException",
 };
 
-enum plthook_action {
-	PLT_FL_SKIP		= 1U << 0,
-	PLT_FL_LONGJMP		= 1U << 1,
-	PLT_FL_SETJMP		= 1U << 2,
-	PLT_FL_VFORK		= 1U << 3,
-	PLT_FL_FLUSH		= 1U << 4,
-	PLT_FL_EXCEPT		= 1U << 5,
-};
-
-struct plthook_special_func {
-	unsigned idx;
-	unsigned flags;  /* enum plthook_action */
-};
-
-static struct plthook_special_func *special_funcs;
-static int nr_special;
-
-void add_special_func(unsigned idx, unsigned flags)
+static void add_special_func(struct plthook_data *pd, unsigned idx, unsigned flags)
 {
 	int i;
 	struct plthook_special_func *func;
 
-	for (i = 0; i < nr_special; i++) {
-		func = &special_funcs[i];
+	for (i = 0; i < pd->nr_special; i++) {
+		func = &pd->special_funcs[i];
 
 		if (func->idx == idx) {
 			func->flags |= flags;
@@ -342,24 +362,24 @@ void add_special_func(unsigned idx, unsigned flags)
 		}
 	}
 
-	special_funcs = xrealloc(special_funcs,
-				 (nr_special + 1) * sizeof(*func));
+	pd->special_funcs = xrealloc(pd->special_funcs,
+				     (pd->nr_special + 1) * sizeof(*func));
 
-	func = &special_funcs[nr_special++];
+	func = &pd->special_funcs[pd->nr_special++];
 
 	func->idx     = idx;
 	func->flags   = flags;
 }
 
-static void build_special_funcs(struct symtabs *symtabs, const char *syms[],
+static void build_special_funcs(struct plthook_data *pd, const char *syms[],
 				unsigned nr_sym, unsigned flag)
 {
 	unsigned i;
 	struct dynsym_idxlist idxlist;
 
-	build_dynsym_idxlist(symtabs, &idxlist, syms, nr_sym);
+	build_dynsym_idxlist(&pd->dsymtab, &idxlist, syms, nr_sym);
 	for (i = 0; i < idxlist.count; i++)
-		add_special_func(idxlist.idx[i], flag);
+		add_special_func(pd, idxlist.idx[i], flag);
 	destroy_dynsym_idxlist(&idxlist);
 }
 
@@ -386,31 +406,102 @@ static int idxfind(const void *a, const void *b)
 	return (idx > func->idx) ? 1 : -1;
 }
 
-void setup_dynsym_indexes(struct symtabs *symtabs)
+void setup_dynsym_indexes(struct plthook_data *pd)
 {
-	build_special_funcs(symtabs, skip_syms, ARRAY_SIZE(skip_syms),
+	build_special_funcs(pd, skip_syms, ARRAY_SIZE(skip_syms),
 			    PLT_FL_SKIP);
-	build_special_funcs(symtabs, longjmp_syms, ARRAY_SIZE(longjmp_syms),
+	build_special_funcs(pd, longjmp_syms, ARRAY_SIZE(longjmp_syms),
 			    PLT_FL_LONGJMP);
-	build_special_funcs(symtabs, setjmp_syms, ARRAY_SIZE(setjmp_syms),
+	build_special_funcs(pd, setjmp_syms, ARRAY_SIZE(setjmp_syms),
 			    PLT_FL_SETJMP);
-	build_special_funcs(symtabs, vfork_syms, ARRAY_SIZE(vfork_syms),
+	build_special_funcs(pd, vfork_syms, ARRAY_SIZE(vfork_syms),
 			    PLT_FL_VFORK);
-	build_special_funcs(symtabs, flush_syms, ARRAY_SIZE(flush_syms),
+	build_special_funcs(pd, flush_syms, ARRAY_SIZE(flush_syms),
 			    PLT_FL_FLUSH);
-	build_special_funcs(symtabs, except_syms, ARRAY_SIZE(except_syms),
+	build_special_funcs(pd, except_syms, ARRAY_SIZE(except_syms),
 			    PLT_FL_EXCEPT);
 
 	/* built all table, now sorting */
-	qsort(special_funcs, nr_special, sizeof(*special_funcs), idxsort);
+	qsort(pd->special_funcs, pd->nr_special, sizeof(*pd->special_funcs), idxsort);
 }
 
 void destroy_dynsym_indexes(void)
 {
-	free(special_funcs);
-	special_funcs = NULL;
+	struct plthook_data *pd;
 
-	nr_special = 0;
+	pr_dbg("destroy plthook special function index\n");
+
+	list_for_each_entry(pd, &plthook_modules, list) {
+		free(pd->special_funcs);
+		pd->special_funcs = NULL;
+		pd->nr_special = 0;
+	}
+}
+
+static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *arg)
+{
+	const char *exename = info->dlpi_name;
+	unsigned long offset = info->dlpi_addr;
+	static const char * const skip_libs[] = {
+		/* uftrace internal libraries */
+		"libmcount.so",
+		"libmcount-fast.so",
+		"libmcount-single.so",
+		"libmcount-fast-single.so",
+		/* system base libraries */
+		"libc.so.6",
+		"libgcc_s.so.1",
+		"libpthread.so.0",
+		"linux-vdso.so.1",
+		"linux-gate.so.1",
+		"ld-linux-x86-64.so.2",
+	};
+	size_t k;
+	static bool exe_once = true;
+
+	if (exename[0] == '\0') {
+		if (!exe_once)
+			return 0;
+
+		exename = arg;
+		exe_once = false;
+	}
+
+	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
+		if (!strcmp(basename(exename), skip_libs[k]))
+			return 0;
+	}
+
+	pr_dbg2("setup plthook data for %s (offset: %lx)\n", exename, offset);
+
+	if (hook_pltgot(exename, offset) < 0)
+		pr_dbg("error when hooking plt: skipping...\n");
+
+	return 0;
+}
+
+static int setup_exe_plthook_data(struct dl_phdr_info *info, size_t sz, void *arg)
+{
+	const char *exename = arg;
+	unsigned long offset = info->dlpi_addr;
+
+	pr_dbg2("setup plthook data for %s (offset: %lx)\n", exename, offset);
+
+	hook_pltgot(exename, offset);
+	return 1;
+}
+
+void mcount_setup_plthook(char *exename, bool nest_libcall)
+{
+	struct plthook_data *pd;
+
+	if (!nest_libcall)
+		dl_iterate_phdr(setup_exe_plthook_data, exename);
+	else
+		dl_iterate_phdr(setup_mod_plthook_data, exename);
+
+	list_for_each_entry(pd, &plthook_modules, list)
+		setup_dynsym_indexes(pd);
 }
 
 struct mcount_jmpbuf_rstack {
@@ -545,29 +636,31 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
-__weak unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+__weak unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct sym *sym;
 
-	sym = find_dynsym(symtabs, idx);
+	sym = &pd->dsymtab.sym[idx];
 	return sym->addr;
 }
 
-static void update_pltgot(struct mcount_thread_data *mtdp, int dyn_idx)
+static void update_pltgot(struct mcount_thread_data *mtdp,
+			  struct plthook_data *pd, int dyn_idx)
 {
 	if (unlikely(plthook_no_pltbind))
 		return;
 
-	if (!plthook_dynsym_resolved[dyn_idx]) {
+	if (!pd->resolved_addr[dyn_idx]) {
 		unsigned long plthook_addr;
 #ifndef SINGLE_THREAD
 		static pthread_mutex_t resolver_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!plthook_dynsym_resolved[dyn_idx]) {
-			plthook_addr = mcount_arch_plthook_addr(&symtabs, dyn_idx);
-			setup_pltgot(3 + dyn_idx, dyn_idx, (void *)plthook_addr);
+		if (!pd->resolved_addr[dyn_idx]) {
+			plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
+			setup_pltgot(pd, 3 + dyn_idx, dyn_idx,
+				     (void *)plthook_addr);
 		}
 
 #ifndef SINGLE_THREAD
@@ -589,8 +682,21 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	bool skip = false;
 	bool recursion = true;
 	enum filter_result filtered;
+	struct plthook_data *pd;
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
+	unsigned long real_addr = 0;
+
+	list_for_each_entry(pd, &plthook_modules, list) {
+		if (module_id == pd->module_id)
+			break;
+	}
+
+	if (list_no_entry(pd, &plthook_modules, list)) {
+		pr_dbg("cannot find pd for module id: %lx\n", module_id);
+		pd = NULL;
+		goto out;
+	}
 
 	if (unlikely(mcount_should_stop()))
 		goto out;
@@ -606,7 +712,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	recursion = false;
 
-	func = bsearch((void *)child_idx, special_funcs, nr_special,
+	func = bsearch((void *)child_idx, pd->special_funcs, pd->nr_special,
 		       sizeof(*func), idxfind);
 	if (func)
 		special_flag |= func->flags;
@@ -614,13 +720,13 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
-	sym = find_dynsym(&symtabs, child_idx);
-	pr_dbg3("[%d] enter %lx: %s\n", child_idx, sym->addr, sym->name);
+	sym = &pd->dsymtab.sym[child_idx];
+	pr_dbg3("[mod: %lx, idx: %d] enter %lx: %s\n", module_id, child_idx, sym->addr, sym->name);
 
 	child_ip = sym ? sym->addr : 0;
 	if (child_ip == 0) {
-		pr_err_ns("invalid function idx found! (idx: %d, %#lx)\n",
-			  (int) child_idx, child_idx);
+		pr_err_ns("invalid function idx found! (module: %s, idx: %d, %#lx)\n",
+			  pd->mod_name, (int) child_idx, child_idx);
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);
@@ -640,6 +746,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack = &mtdp->rstack[mtdp->idx++];
 
 	rstack->depth      = mtdp->record_idx;
+	rstack->pd         = pd;
 	rstack->dyn_idx    = child_idx;
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
@@ -677,23 +784,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 out:
-	if (plthook_dynsym_resolved[child_idx]) {
-		volatile unsigned long *resolved_addr;
-
-		resolved_addr = plthook_dynsym_addr + child_idx;
-
-		/* ensure resolved address was set */
-		while (!*resolved_addr)
-			cpu_relax();
-
-		if (!recursion)
-			mtdp->recursion_guard = false;
-		return *resolved_addr;
-	}
+	if (pd && pd->resolved_addr[child_idx])
+		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
 		mtdp->recursion_guard = false;
-	return 0;
+	return real_addr;
 }
 
 unsigned long plthook_exit(long *retval)
@@ -718,7 +814,7 @@ again:
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
-			update_pltgot(mtdp, rstack->dyn_idx);
+			update_pltgot(mtdp, rstack->pd, rstack->dyn_idx);
 			rstack->flags &= ~MCOUNT_FL_LONGJMP;
 			restore_jmpbuf_rstack(mtdp, rstack->end_time);
 			goto again;
@@ -736,14 +832,14 @@ again:
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
-		plthook_dynsym_addr[dyn_idx],
-		find_dynsym(&symtabs, dyn_idx)->name);
+		rstack->pd->resolved_addr[dyn_idx],
+		rstack->pd->dsymtab.sym[dyn_idx].name);
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
-	update_pltgot(mtdp, dyn_idx);
+	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
 	compiler_barrier();
 
@@ -751,15 +847,4 @@ again:
 	mtdp->recursion_guard = false;
 
 	return rstack->parent_ip;
-}
-
-void plthook_setup(struct symtabs *symtabs)
-{
-	if (plthook_dynsym_resolved)
-		return;
-
-	plthook_dynsym_resolved = xcalloc(sizeof(bool),
-					  count_dynsym(symtabs));
-	plthook_dynsym_addr = xcalloc(sizeof(unsigned long),
-				      count_dynsym(symtabs));
 }

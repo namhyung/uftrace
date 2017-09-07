@@ -97,9 +97,13 @@ void print_symtabs(struct symtabs *symtabs);
 typedef struct Elf Elf;
 int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 				unsigned long offset, unsigned long flags);
+int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
+		       unsigned long offset, unsigned long flags);
 
-void load_module_symtabs(struct symtabs *symtabs, struct list_head *head);
-void save_module_symtabs(struct symtabs *symtabs, struct list_head *head);
+void load_module_symtabs(struct symtabs *symtabs, struct list_head *head,
+			 bool load_all_dynsyms);
+void save_module_symtabs(struct symtabs *symtabs, struct list_head *head,
+			 bool save_all_dynsyms);
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 			 const char *filename);
 
@@ -130,7 +134,7 @@ struct dynsym_idxlist {
 	unsigned count;
 };
 
-void build_dynsym_idxlist(struct symtabs *symtabs, struct dynsym_idxlist *idxlist,
+void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount);
 void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist);
 bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx);

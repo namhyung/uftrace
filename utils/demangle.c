@@ -1075,7 +1075,7 @@ static int dd_special_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
-	char T_type[] = "VTIS";
+	char T_type[] = "VTISFJ";
 
 	if (dd_eof(dd))
 		return -1;
@@ -1102,10 +1102,12 @@ static int dd_special_name(struct demangle_data *dd)
 	}
 	if (c0 == 'G') {
 		if (c1 == 'V') {
+			/* guard */
 			dd_consume_n(dd, 2);
 			return dd_name(dd);
 		}
 		if (c1 == 'R') {
+			/* reftemp */
 			dd_consume_n(dd, 2);
 			if (dd_name(dd) < 0)
 				return -1;
@@ -1114,6 +1116,23 @@ static int dd_special_name(struct demangle_data *dd)
 				dd_seq_id(dd);
 			__DD_DEBUG_CONSUME(dd, '_');
 			return 0;
+		}
+		if (c1 == 'A') {
+			/* hidden alias */
+			dd_consume_n(dd, 2);
+			return dd_encoding(dd);
+		}
+		if (c1 == 'T') {
+			dd_consume_n(dd, 2);
+
+			c0 = dd_curr(dd);
+			/* (non-)transaction clone */
+			if (c0 == 't' || c0 == 'n') {
+				dd_consume(dd);
+				return dd_encoding(dd);
+			}
+
+			return -1;
 		}
 	}
 
@@ -1390,6 +1409,7 @@ static int dd_encoding(struct demangle_data *dd)
 {
 	int ret;
 	char c = dd_curr(dd);
+	char end[] = "E.@";
 
 	if (dd_eof(dd))
 		return -1;
@@ -1403,7 +1423,7 @@ static int dd_encoding(struct demangle_data *dd)
 	if (ret < 0)
 		return ret;
 
-	while (!dd_eof(dd) && dd_curr(dd) != 'E' && dd_curr(dd) != '.') {
+	while (!dd_eof(dd) && !strchr(end, dd_curr(dd))) {
 		__dd_add_debug(dd, "dd_type");
 
 		if (dd_type(dd) < 0)
@@ -1412,6 +1432,9 @@ static int dd_encoding(struct demangle_data *dd)
 
 	/* ignore compiler generated suffix: XXX.part.0 */
 	if (dd_curr(dd) == '.')
+		dd->len = dd->pos;
+	/* ignore version info in PLT symbols: malloc@GLIBC2.1 */
+	if (dd_curr(dd) == '@')
 		dd->len = dd->pos;
 
 	return 0;
@@ -1640,6 +1663,14 @@ TEST_CASE(demangle_simple5)
 			       "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
 			       "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_");
 	TEST_STREQ("storageIndexFromLayoutItem", name);
+	free(name);
+
+	name = demangle_simple("_ZGTtNSt11range_errorD1Ev");
+	TEST_STREQ("std::range_error::~range_error", name);
+	free(name);
+
+	name = demangle_simple("_ZNSi6ignoreEl@@GLIBCXX_3.4.5");
+	TEST_STREQ("std::basic_istream::ignore", name);
 	free(name);
 
 	return TEST_OK;

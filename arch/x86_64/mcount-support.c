@@ -136,8 +136,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 #define PLTGOT_SIZE   8
 #define PAD_SIZE      5
 
-int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
-			     unsigned long offset, unsigned long pltgot_addr)
+int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 {
 	unsigned idx;
 	int got_idx;
@@ -148,6 +147,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 	unsigned long real_addr;
 	unsigned long plt_addr = 0;
 	bool has_rela_plt = false;
+	unsigned long pltgot_addr = (unsigned long)pd->pltgot_ptr;
 	void *target_addr;
 	unsigned jump_offset;
 	void *trampoline_buf;
@@ -165,8 +165,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		"__gmon_start__",  /* XXX: it makes process stuck */
 	};
 
-	plthook_setup(symtabs);
-	dsymtab = &symtabs->dsymtab;
+	dsymtab = &pd->dsymtab;
 
 	sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
@@ -182,7 +181,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 
 		shname = elf_strptr(elf, shstr_idx, shdr.sh_name);
 		if (!strcmp(shname, ".plt"))
-			plt_addr = shdr.sh_addr + offset;
+			plt_addr = shdr.sh_addr + pd->base_addr;
 		if (!strcmp(shname, ".rela.plt"))
 			has_rela_plt = true;
 	}
@@ -207,7 +206,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 			if (i != ARRAY_SIZE(skip_syms))
 				continue;
 
-			setup_pltgot(idx + 3, idx,
+			setup_pltgot(pd, idx + 3, idx,
 				     (void *)(sym->addr + JMP_INSN_SIZE));
 		}
 		return 0;
@@ -238,13 +237,13 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 		got_idx = (r_addr - pltgot_addr) / sizeof(long);
 
 		target_addr = trampoline_buf + (idx * sizeof(trampoline));
-		real_addr = setup_pltgot(got_idx, idx, target_addr);
+		real_addr = setup_pltgot(pd, got_idx, idx, target_addr);
 
 		jump_offset = (dsymtab->nr_sym - idx - 1) * sizeof(trampoline) + PAD_SIZE;
 
 		pr_dbg3("[%d] %s got idx %d, r_offset %lx, real address = %#lx, "
 			"target addr = %p, jump offset = %#lx\n",
-			idx, sym->name, got_idx, r_offset + sym->addr - offset + JMP_INSN_SIZE,
+			idx, sym->name, got_idx, r_offset + sym->addr - pd->base_addr + JMP_INSN_SIZE,
 			real_addr, target_addr, jump_offset);
 
 		/* make up the instruction and copy to the trampoline buffer */
@@ -261,10 +260,10 @@ int mcount_arch_undo_bindnow(Elf *elf, struct symtabs *symtabs,
 	return 0;
 }
 
-unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx)
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct sym *sym;
 
-	sym = find_dynsym(symtabs, idx);
+	sym = &pd->dsymtab.sym[idx];
 	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
 }

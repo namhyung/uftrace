@@ -88,6 +88,7 @@ enum options {
 	OPT_keep_pid,
 	OPT_diff_policy,
 	OPT_event_full,
+	OPT_nest_libcall,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -155,6 +156,7 @@ static struct argp_option uftrace_options[] = {
 	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
 	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy" },
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
+	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
 	{ 0 }
 };
 
@@ -677,6 +679,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_event_full:
 		opts->event_skip_out = false;
+		break;
+
+	case OPT_nest_libcall:
+		opts->nest_libcall = true;
 		break;
 
 	case ARGP_KEY_ARG:

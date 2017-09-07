@@ -455,9 +455,9 @@ retry:
 		if (read_task_file(sessions, opts->dirname, true, sym_rel) < 0 &&
 		    read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0) {
 			if (errno == ENOENT)
-				pr_warn("no task data found\n");
+				pr_warn("no trace data found\n");
 			else
-				pr_warn("invalid task file\n");
+				pr_warn("invalid trace data\n");
 		}
 	}
 

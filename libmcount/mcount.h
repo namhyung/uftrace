@@ -55,6 +55,7 @@ struct mcount_ret_stack {
 	uint64_t filter_time;
 	unsigned short depth;
 	unsigned short dyn_idx;
+	struct plthook_data *pd;
 	/* set arg_spec at function entry and use it at exit */
 	struct list_head *pargs;
 };
@@ -194,14 +195,41 @@ extern void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx);
 extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void shmem_finish(struct mcount_thread_data *mtdp);
 
-extern int hook_pltgot(char *exename, unsigned long offset);
-unsigned long setup_pltgot(int got_idx, int sym_idx, void *data);
-extern void plthook_setup(struct symtabs *symtabs);
+enum plthook_special_action {
+	PLT_FL_SKIP		= 1U << 0,
+	PLT_FL_LONGJMP		= 1U << 1,
+	PLT_FL_SETJMP		= 1U << 2,
+	PLT_FL_VFORK		= 1U << 3,
+	PLT_FL_FLUSH		= 1U << 4,
+	PLT_FL_EXCEPT		= 1U << 5,
+};
+
+struct plthook_special_func {
+	unsigned idx;
+	unsigned flags;  /* enum plthook_special_action */
+};
+
+struct plthook_data {
+	struct list_head		list;
+	const char			*mod_name;
+	unsigned long			module_id;
+	unsigned long			base_addr;
+	struct symtab			dsymtab;
+	unsigned long			*pltgot_ptr;
+	unsigned long			*resolved_addr;
+	struct plthook_special_func	*special_funcs;
+	int				nr_special;
+};
+
+unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
+			   void *data);
+extern void mcount_setup_plthook(char *exename, bool nest_libcall);
+
 extern unsigned long plthook_return(void);
-extern void setup_dynsym_indexes(struct symtabs *symtabs);
+extern void setup_dynsym_indexes(struct plthook_data *pd);
 extern void destroy_dynsym_indexes(void);
 
-extern unsigned long mcount_arch_plthook_addr(struct symtabs *symtabs, int idx);
+extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 
 static inline bool mcount_should_stop(void)
 {
