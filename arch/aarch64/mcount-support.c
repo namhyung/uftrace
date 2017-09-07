@@ -258,7 +258,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 			continue;
 
 		got_idx = (rel.r_offset + pd->base_addr - pltgot_addr) >> 3;
-		setup_pltgot(got_idx, idx, (void *)plt_addr);
+		setup_pltgot(pd, got_idx, idx, (void *)plt_addr);
 		count++;
 
 		pr_dbg3("restore GOT[%u] (%s) r_offset = %lx\n",
