@@ -90,17 +90,29 @@ static char *remove_py_suffix(char *py_name)
 	return py_name;
 }
 
-/* Import python module that is given by -p option. */
-static int import_python_module(char *py_pathname)
+static int set_python_path(char *py_pathname)
 {
 	char py_sysdir[PATH_MAX];
+	char *old_sysdir = getenv("PYTHONPATH");
+	char *new_sysdir = NULL;
+
 	if (absolute_dirname(py_pathname, py_sysdir) == NULL)
 		return -1;
 
-	/* Set path to import a python module. */
-	__PySys_SetPath(py_sysdir);
-	pr_dbg("PySys_SetPath(\"%s\") is done!\n", py_sysdir);
+	if (old_sysdir)
+		xasprintf(&new_sysdir, "%s:%s", old_sysdir, py_sysdir);
+	else
+		new_sysdir = xstrdup(py_sysdir);
 
+	setenv("PYTHONPATH", new_sysdir, 1);
+	free(new_sysdir);
+
+	return 0;
+}
+
+/* Import python module that is given by -p option. */
+static int import_python_module(char *py_pathname)
+{
 	char *py_basename = basename(py_pathname);
 	remove_py_suffix(py_basename);
 
@@ -218,7 +230,7 @@ int script_init_for_python(char *py_pathname)
 	script_uftrace_exit = python_uftrace_exit;
 	script_uftrace_end = python_uftrace_end;
 
-	python_handle = dlopen(libpython, RTLD_LAZY);
+	python_handle = dlopen(libpython, RTLD_LAZY | RTLD_GLOBAL);
 	if (!python_handle) {
 		pr_warn("%s cannot be loaded!\n", libpython);
 		return -1;
@@ -250,6 +262,8 @@ int script_init_for_python(char *py_pathname)
 	INIT_PY_API_FUNC(PyDict_SetItem);
 	INIT_PY_API_FUNC(PyDict_SetItemString);
 	INIT_PY_API_FUNC(PyDict_GetItem);
+
+	set_python_path(py_pathname);
 
 	__Py_Initialize();
 
