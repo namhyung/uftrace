@@ -30,6 +30,6 @@ check-tstamp: PHONY
 	@if [ `id -u` -eq 0 ]; then chmod 666 $@; fi
 
 check-clean:
-	@$(RM) $(CHECK_LIST) check-tstamp *.o
+	@$(RM) $(shell find -type f -executable) check-tstamp *.o
 
 .PHONY: PHONY;
