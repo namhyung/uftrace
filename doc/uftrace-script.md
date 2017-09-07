@@ -43,6 +43,9 @@ OPTIONS
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
 :   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
+\--record COMMAND [*command-options*]
+:   Record a new trace before running a given script.
+
 
 EXAMPLES
 ========

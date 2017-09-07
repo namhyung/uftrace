@@ -233,6 +233,7 @@ struct opts {
 	bool keep_pid;
 	bool event_skip_out;
 	bool nest_libcall;
+	bool record;
 	struct uftrace_time_range range;
 };
 

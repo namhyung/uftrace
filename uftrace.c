@@ -89,6 +89,7 @@ enum options {
 	OPT_diff_policy,
 	OPT_event_full,
 	OPT_nest_libcall,
+	OPT_record,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -157,6 +158,7 @@ static struct argp_option uftrace_options[] = {
 	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy" },
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
 	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
+	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
 	{ 0 }
 };
 
@@ -683,6 +685,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_nest_libcall:
 		opts->nest_libcall = true;
+		break;
+
+	case OPT_record:
+		opts->record = true;
 		break;
 
 	case ARGP_KEY_ARG:
