@@ -38,6 +38,7 @@ ENTRY(plt_hooker)
 	sub	x1, x1, x16
 	lsr	x1, x1, #3
 	sub	x1, x1, #1
+	ldr	x2, [x16, #-8]
 	mov	x3, sp
 	bl	plthook_entry
 
