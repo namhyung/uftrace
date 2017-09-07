@@ -100,6 +100,8 @@ output=${output:-${objdir}/.config}
 MAKEFLAGS=
 MAKEOVERRIDES=
 
+export CC CFLAGS LD LDFLAGS
+
 make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
