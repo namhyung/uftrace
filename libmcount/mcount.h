@@ -214,6 +214,7 @@ struct plthook_data {
 	const char			*mod_name;
 	unsigned long			module_id;
 	unsigned long			base_addr;
+	unsigned long			plt_addr;
 	struct symtab			dsymtab;
 	unsigned long			*pltgot_ptr;
 	unsigned long			*resolved_addr;

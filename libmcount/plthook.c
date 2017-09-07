@@ -158,6 +158,9 @@ static int find_got(Elf *elf, const char *modname,
 	unsigned long pltgot_addr = 0;
 	struct sigaction sa, old_sa;
 	struct plthook_data *pd;
+	Elf_Scn *sec = NULL;
+	size_t shstr_idx;
+	unsigned long plt_addr = 0;
 
 	/*
 	 * The GOT region is write-protected on some systems.
@@ -190,7 +193,32 @@ static int find_got(Elf *elf, const char *modname,
 	}
 
 	if (!pltgot_addr || (!plt_found && !bind_now)) {
-		pr_dbg("no PLT nor BIND-NOW.. ignoring...\n");
+		pr_dbg("no PLTGOT nor BIND-NOW.. ignoring...\n");
+		return 0;
+	}
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0) {
+		pr_dbg("failed to get section header string index\n");
+		return 0;
+	}
+
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *shstr;
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			break;
+
+		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+
+		if (strcmp(shstr, ".plt") == 0) {
+			plt_addr = shdr.sh_addr + offset;
+			break;
+		}
+	}
+
+	if (plt_addr == 0) {
+		pr_dbg("cannot find PLT address\n");
 		return 0;
 	}
 
@@ -199,6 +227,7 @@ static int find_got(Elf *elf, const char *modname,
 	pd->pltgot_ptr = (void *)pltgot_addr;
 	pd->module_id  = pd->pltgot_ptr[1];
 	pd->base_addr  = offset;
+	pd->plt_addr   = plt_addr;
 
 	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
 		pd->mod_name, pd->module_id, pd->base_addr ,pd->pltgot_ptr);

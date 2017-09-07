@@ -603,8 +603,5 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 
 unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
-	struct sym *sym;
-
-	sym = &pd->dsymtab.sym[0];
-	return sym->addr - ARCH_PLT0_SIZE;
+	return pd->plt_addr;
 }
