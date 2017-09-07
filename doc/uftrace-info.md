@@ -47,6 +47,7 @@ This command shows information like below:
     # exe image           : /home/namhyung/tmp/abc
     # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434
     # exit status         : exited with code: 0
+    # elapsed time        : 0.003219479 sec
     # cpu time            : 0.003 / 0.000 sec (sys / user)
     # context switch      : 1 / 1 (voluntary / involuntary)
     # max rss             : 3104 KB
