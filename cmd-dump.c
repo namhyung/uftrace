@@ -744,7 +744,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	    (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_OUT)) {
 		ph = 'B';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
+		       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -758,7 +758,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		 (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_IN)) {
 		ph = 'E';
 		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			frs->time / 1000, frs->time % 1000, ph, task->tid, name);
+		       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
