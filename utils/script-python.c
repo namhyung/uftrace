@@ -218,7 +218,7 @@ int script_init_for_python(char *py_pathname)
 	script_uftrace_exit = python_uftrace_exit;
 	script_uftrace_end = python_uftrace_end;
 
-	python_handle = dlopen(libpython, RTLD_LAZY);
+	python_handle = dlopen(libpython, RTLD_LAZY | RTLD_GLOBAL);
 	if (!python_handle) {
 		pr_warn("%s cannot be loaded!\n", libpython);
 		return -1;
