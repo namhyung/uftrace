@@ -1145,4 +1145,52 @@ TEST_CASE(option_parsing4)
 	return TEST_OK;
 }
 
+TEST_CASE(option_parsing5)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", "hello" };
+	int argc = ARRAY_SIZE(argv);
+	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
+	int file_argc = argc;
+	char **file_argv = argv;
+	FILE *fp;
+	int saved_debug = debug;
+
+	/* create opt-file */
+	fp = fopen("xxx", "w");
+	TEST_NE(fp, NULL);
+	fwrite(opt_file, strlen(opt_file), 1, fp);
+	fclose(fp);
+
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+	TEST_STREQ(opts.opt_file, "xxx");
+
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+
+	unlink("xxx");
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_RECORD);
+	TEST_EQ(debug, saved_debug + 1);
+	/* preserve original arg[cv] if command line is given */
+	TEST_EQ(file_argc, argc);
+	TEST_EQ(file_argv, (char **)argv);
+	TEST_EQ(opts.threshold, (uint64_t)1000);
+	TEST_EQ(opts.depth, 3);
+	TEST_EQ(opts.idx, 4);
+	TEST_STREQ(opts.filter, "main");
+	/* it should not update exename to "t-abc" */
+	TEST_STREQ(opts.exename, "hello");
+
+	free_opts(&opts);
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
