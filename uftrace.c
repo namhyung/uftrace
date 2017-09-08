@@ -767,6 +767,8 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 		.args_doc = "[record|replay|live|report|info|dump|recv|graph|script] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
+	char *orig_exename = NULL;
+	int orig_idx = 0;
 
 	if (stat(filename, &stbuf) < 0) {
 		pr_use("Cannot use opt-file: %s: %m\n", filename);
@@ -786,14 +788,29 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	/* clear opt_file for error reporting */
 	opts->opt_file = NULL;
 
+	if (opts->idx) {
+		orig_idx = opts->idx;
+		orig_exename = opts->exename;
+		opts->idx = 0;
+	}
+
 	argp_parse(&file_argp, file_argc, file_argv,
 		   ARGP_IN_ORDER | ARGP_PARSE_ARGV0 | ARGP_NO_ERRS,
 		   NULL, opts);
 
-	*argc = file_argc;
-	*argv = file_argv;
+	/* overwrite argv only if it's not given on command line */
+	if (orig_idx == 0 && opts->idx) {
+		*argc = file_argc;
+		*argv = file_argv;
+		/* mark it to free at the end */
+		opts->opt_file = filename;
+	}
+	else {
+		opts->idx = orig_idx;
+		opts->exename = orig_exename;
+		free_parsed_cmdline(file_argv);
+	}
 
-	opts->opt_file = filename;
 	free(buf);
 }
 
