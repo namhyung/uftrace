@@ -1,11 +1,11 @@
 def uftrace_begin():
     print("# DURATION    TID     FUNCTION")
 
-def uftrace_entry(args):
+def uftrace_entry(ctx):
     # read arguments
-    _tid = args["tid"]
-    _depth = args["depth"]
-    _symname = args["symname"]
+    _tid = ctx["tid"]
+    _depth = ctx["depth"]
+    _symname = ctx["name"]
 
     indent = _depth * 2
     space = " " * indent
@@ -13,12 +13,12 @@ def uftrace_entry(args):
     buf = " %10s [%5d] | %s%s() {" % ("", _tid, space, _symname)
     print(buf)
 
-def uftrace_exit(args):
+def uftrace_exit(ctx):
     # read arguments
-    _tid = args["tid"]
-    _depth = args["depth"]
-    _symname = args["symname"]
-    _duration = args["duration"]
+    _tid = ctx["tid"]
+    _depth = ctx["depth"]
+    _symname = ctx["symname"]
+    _duration = ctx["duration"]
 
     indent = _depth * 2
     space = " " * indent

@@ -54,27 +54,29 @@ The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are execut
     def uftrace_begin():
         print("program begins...")
 
-    def uftrace_entry(args):
-        _symname = args["symname"]
-        print("entry : " + _symname + "()")
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
 
-    def uftrace_exit(args):
-        _symname = args["symname"]
-        print("exit  : " + _symname + "()")
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
 
     def uftrace_end():
         print("program is finished")
 
-The 'args' variable is a dictionary type that contains the below information.
+The 'ctx' variable is a dictionary type that contains the below information.
 
-    /* argument information passed to script */
-    struct script_args {
-        int           tid;
-        int           depth;
-        uint64_t      timestamp;
-        uint64_t      duration;    /* exit only */
-        unsigned long address;
-        char          *symname;
+    /* context information passed to script */
+    script_context = {
+        int       tid;
+        int       depth;
+        long      timestamp;
+        long      duration;    # exit only
+        long      address;
+        string    name;
+        list      args;        # entry only (if available)
+        value     retval;      # exit  only (if available)
     };
 
 The above script can be executed while reading the recorded data.  The usage is as follows:

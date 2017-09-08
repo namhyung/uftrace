@@ -62,7 +62,7 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 			.depth     = depth,  /* display depth */
 			.timestamp = rstack->time,
 			.address   = rstack->addr,
-			.symname   = symname,
+			.name      = symname,
 		};
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT) {
@@ -98,7 +98,7 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 				.timestamp = rstack->time,
 				.duration  = fstack->total_time,
 				.address   = rstack->addr,
-				.symname   = symname,
+				.name      = symname,
 			};
 
 			if (rstack->more) {

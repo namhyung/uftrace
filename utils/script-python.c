@@ -63,7 +63,7 @@ enum py_context_idx {
 	PY_CTX_TIMESTAMP,
 	PY_CTX_DURATION,
 	PY_CTX_ADDRESS,
-	PY_CTX_SYMNAME,
+	PY_CTX_NAME,
 	PY_CTX_ARGS,
 	PY_CTX_RETVAL,
 };
@@ -75,7 +75,7 @@ static const char *py_context_table[] = {
 	"timestamp",
 	"duration",
 	"address",
-	"symname",
+	"name",
 	"args",
 	"retval",
 };
@@ -246,7 +246,7 @@ static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx
 	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->depth);
 	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->timestamp);
 	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->address);
-	insert_dict_string(*pDict, PYCTX(SYMNAME), sc_ctx->symname);
+	insert_dict_string(*pDict, PYCTX(NAME), sc_ctx->name);
 }
 
 static void setup_argument_context(PyObject **pDict, bool is_retval,

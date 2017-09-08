@@ -24,7 +24,7 @@ struct script_context {
 	uint64_t		timestamp;
 	uint64_t		duration;	/* exit only */
 	unsigned long		address;
-	char			*symname;
+	char			*name;
 	/* for arguments and return value */
 	int			arglen;
 	void			*argbuf;

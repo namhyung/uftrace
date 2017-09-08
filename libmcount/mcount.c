@@ -554,7 +554,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			sc_ctx.depth     = rstack->depth;
 			sc_ctx.timestamp = rstack->start_time;
 			sc_ctx.address   = entry_addr;
-			sc_ctx.symname   = symname;
+			sc_ctx.name      = symname;
 
 			if (tr->flags & TRIGGER_FL_ARGUMENT) {
 				unsigned *argbuf = get_argbuf(mtdp, rstack);
@@ -651,7 +651,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			sc_ctx.timestamp = rstack->start_time;
 			sc_ctx.duration  = rstack->end_time - rstack->start_time;
 			sc_ctx.address   = entry_addr;
-			sc_ctx.symname   = symname;
+			sc_ctx.name      = symname;
 
 			if (rstack->flags & MCOUNT_FL_RETVAL) {
 				unsigned *argbuf = get_argbuf(mtdp, rstack);
