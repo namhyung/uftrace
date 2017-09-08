@@ -126,6 +126,26 @@ The python script can have an optional "UFTRACE_FUNCS" list which can have name 
       70.924 us [25794] |     } /* b */
       98.191 us [25794] |   } /* a */
 
+Also script can have options for record if it requires some form of data (i.e. function argument or return value).  A comment line started with "uftrace-option:" will provide (a part of) such options when recording.
+
+    $ cat arg.py
+    #
+    # uftrace-option: -A a@arg1 -R b@retval
+    #
+    def uftrace_entry(ctx):
+        if "args" in ctx:
+	    print(ctx["name"] + " has args")
+    def uftrace_exit(ctx):
+        if "retval" in ctx:
+	    print(ctx["name"] + " has retval")
+
+    $ uftrace record -S arg.py abc
+    a has args
+    b has retval
+    $ uftrace script -S arg.py
+    a has args
+    b has retval
+
 
 SEE ALSO
 ========

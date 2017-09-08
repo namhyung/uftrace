@@ -814,6 +814,76 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	free(buf);
 }
 
+/*
+ * Parse options in a script file header.  For example,
+ *
+ *   # uftrace-option: -F main -A malloc@arg1
+ *   def uftrace_entry():
+ *     pass
+ *   ...
+ *
+ * Note that it only handles some options like filter, trigger,
+ * argument, return values and maybe some more.
+ */
+void parse_script_opt(struct opts *opts)
+{
+	FILE *fp;
+	int orig_idx;
+	int opt_argc;
+	char **opt_argv;
+	char *line = NULL;
+	size_t len = 0;
+	static const char optname[] = "uftrace-option";
+	struct argp opt_argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "[record|replay|live|report|info|dump|recv|graph|script] [<program>]",
+		.doc = "uftrace -- function (graph) tracer for userspace",
+	};
+
+	if (opts->script_file == NULL)
+		return;
+
+	fp = fopen(opts->script_file, "r");
+	if (fp == NULL)
+		pr_err("cannot open script file: %s", opts->script_file);
+
+	while (getline(&line, &len, fp) > 0) {
+		char *pos;
+
+		if (line[0] != '#')
+			continue;
+
+		pos = line + 1;
+		while (isspace(*pos))
+			pos++;
+
+		if (strncmp(pos, optname, strlen(optname)))
+			continue;
+
+		/* extract option value */
+		pos = strchr(line, ':');
+		if (pos == NULL)
+			break;
+
+		pr_dbg("adding record option from script: %s", pos + 1);
+
+		opt_argv = parse_cmdline(pos + 1, &opt_argc);
+
+		orig_idx = opts->idx;
+		argp_parse(&opt_argp, opt_argc, opt_argv,
+			   ARGP_IN_ORDER | ARGP_PARSE_ARGV0 | ARGP_NO_ERRS,
+			   NULL, opts);
+		opts->idx = orig_idx;
+
+		free_parsed_cmdline(opt_argv);
+		break;
+	}
+
+	free(line);
+	fclose(fp);
+}
+
 static void free_opts(struct opts *opts)
 {
 	free(opts->filter);
