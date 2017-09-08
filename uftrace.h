@@ -423,7 +423,7 @@ struct uftrace_record {
 	uint64_t more:   1;
 	uint64_t magic:  3;
 	uint64_t depth:  10;
-	uint64_t addr:   48;
+	uint64_t addr:   48; /* child ip or uftrace_event_id */
 };
 
 static inline bool is_v3_compat(struct uftrace_record *urec)
