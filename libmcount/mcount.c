@@ -260,9 +260,69 @@ static void mtd_dtor(void *arg)
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
+static struct sigaction old_sigact[2];
+
+static void segv_handler(int sig, siginfo_t *si, void *ctx)
+{
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+	int idx;
+
+	/* set line buffer mode not to discard crash message */
+	setlinebuf(outfp);
+
+	pr_red("process crashed by signal %d: %s (si_code: %d)\n",
+	       sig, strsignal(sig), si->si_code);
+
+	mtdp = get_thread_data();
+	if (check_thread_data(mtdp))
+		goto out;
+
+	idx = mtdp->idx - 1;
+	/* flush current rstack on crash */
+	rstack = &mtdp->rstack[idx];
+	record_trace_data(mtdp, rstack, NULL);
+
+	if (dbg_domain[PR_DOMAIN]) {
+		pr_red("Backtrace from uftrace:\n");
+		pr_red("=====================================\n");
+
+		while (rstack >= mtdp->rstack) {
+			struct sym *parent, *child;
+			char *pname, *cname;
+
+			parent = find_symtabs(&symtabs, rstack->parent_ip);
+			pname = symbol_getname(parent, rstack->parent_ip);
+			child  = find_symtabs(&symtabs, rstack->child_ip);
+			cname = symbol_getname(child, rstack->child_ip);
+
+			pr_red("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
+			       cname, rstack->child_ip, pname, rstack->parent_ip);
+
+			symbol_putname(parent, pname);
+			symbol_putname(child, cname);
+
+			rstack--;
+		}
+	}
+
+out:
+	sigaction(sig, &old_sigact[(sig == SIGSEGV)], NULL);
+	raise(sig);
+}
+
 static void mcount_init_file(void)
 {
+	struct sigaction sa = {
+		.sa_sigaction = segv_handler,
+		.sa_flags = SA_SIGINFO,
+	};
+
 	send_session_msg(&mtd, session_name());
+
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGABRT, &sa, &old_sigact[0]);
+	sigaction(SIGSEGV, &sa, &old_sigact[1]);
 }
 
 struct mcount_thread_data * mcount_prepare(void)
