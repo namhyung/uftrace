@@ -767,6 +767,8 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 		.args_doc = "[record|replay|live|report|info|dump|recv|graph|script] [<program>]",
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
+	char *orig_exename = NULL;
+	int orig_idx = 0;
 
 	if (stat(filename, &stbuf) < 0) {
 		pr_use("Cannot use opt-file: %s: %m\n", filename);
@@ -786,14 +788,29 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	/* clear opt_file for error reporting */
 	opts->opt_file = NULL;
 
+	if (opts->idx) {
+		orig_idx = opts->idx;
+		orig_exename = opts->exename;
+		opts->idx = 0;
+	}
+
 	argp_parse(&file_argp, file_argc, file_argv,
 		   ARGP_IN_ORDER | ARGP_PARSE_ARGV0 | ARGP_NO_ERRS,
 		   NULL, opts);
 
-	*argc = file_argc;
-	*argv = file_argv;
+	/* overwrite argv only if it's not given on command line */
+	if (orig_idx == 0 && opts->idx) {
+		*argc = file_argc;
+		*argv = file_argv;
+		/* mark it to free at the end */
+		opts->opt_file = filename;
+	}
+	else {
+		opts->idx = orig_idx;
+		opts->exename = orig_exename;
+		free_parsed_cmdline(file_argv);
+	}
 
-	opts->opt_file = filename;
 	free(buf);
 }
 
@@ -1124,6 +1141,54 @@ TEST_CASE(option_parsing4)
 	TEST_STREQ(opts.exename, "t-abc");
 
 	free_parsed_cmdline(file_argv);
+	free_opts(&opts);
+	return TEST_OK;
+}
+
+TEST_CASE(option_parsing5)
+{
+	struct opts opts = {
+		.mode = UFTRACE_MODE_INVALID,
+	};
+	struct argp argp = {
+		.options = uftrace_options,
+		.parser = parse_option,
+		.args_doc = "argument description",
+		.doc = "uftrace option parsing test",
+	};
+	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", "hello" };
+	int argc = ARRAY_SIZE(argv);
+	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
+	int file_argc = argc;
+	char **file_argv = argv;
+	FILE *fp;
+	int saved_debug = debug;
+
+	/* create opt-file */
+	fp = fopen("xxx", "w");
+	TEST_NE(fp, NULL);
+	fwrite(opt_file, strlen(opt_file), 1, fp);
+	fclose(fp);
+
+	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
+	TEST_STREQ(opts.opt_file, "xxx");
+
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+
+	unlink("xxx");
+
+	TEST_EQ(opts.mode, UFTRACE_MODE_RECORD);
+	TEST_EQ(debug, saved_debug + 1);
+	/* preserve original arg[cv] if command line is given */
+	TEST_EQ(file_argc, argc);
+	TEST_EQ(file_argv, (char **)argv);
+	TEST_EQ(opts.threshold, (uint64_t)1000);
+	TEST_EQ(opts.depth, 3);
+	TEST_EQ(opts.idx, 4);
+	TEST_STREQ(opts.filter, "main");
+	/* it should not update exename to "t-abc" */
+	TEST_STREQ(opts.exename, "hello");
+
 	free_opts(&opts);
 	return TEST_OK;
 }
