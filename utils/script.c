@@ -6,6 +6,10 @@
  * Released under the GPL v2.
  */
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "script"
+#define PR_DOMAIN  DBG_SCRIPT
+
 #include <unistd.h>
 #include <regex.h>
 #include "utils/script.h"

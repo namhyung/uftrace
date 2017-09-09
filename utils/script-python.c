@@ -8,7 +8,12 @@
 
 #ifdef HAVE_LIBPYTHON2
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "script"
+#define PR_DOMAIN  DBG_SCRIPT
+
 #include <dlfcn.h>
+#include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
