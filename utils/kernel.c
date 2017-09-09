@@ -729,8 +729,10 @@ void list_kernel_events(void)
 
 	filename = get_tracing_file("available_events");
 	fp = fopen(filename, "r");
-	if (fp == NULL)
-		pr_err("failed to open 'tracing/avaiable_events");
+	if (fp == NULL) {
+		pr_dbg("failed to open 'tracing/avaiable_events");
+		return;
+	}
 
 	while (fgets(buf, sizeof(buf), fp) != NULL)
 		pr_out("[kernel event] %s", buf);
