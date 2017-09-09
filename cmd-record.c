@@ -1269,47 +1269,58 @@ static void send_event_file(int sock, const char *dirname)
 	send_trace_metadata(sock, dirname, "events.txt");
 }
 
-static void save_module_symbols(struct opts *opts, struct symtabs *symtabs)
+static void save_session_symbols(struct opts *opts)
 {
-	struct ftrace_proc_maps *map, *tmp;
-	LIST_HEAD(modules);
 	struct dirent **map_list;
-	char sid[20] = { 0, };
 	int i, maps;
-
-	ftrace_setup_filter_module(opts->filter, &modules, symtabs->filename);
-	ftrace_setup_filter_module(opts->trigger, &modules, symtabs->filename);
-	ftrace_setup_filter_module(opts->args, &modules, symtabs->filename);
-	ftrace_setup_filter_module(opts->retval, &modules, symtabs->filename);
-
-	if (list_empty(&modules) && !opts->nest_libcall)
-		return;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
 	if (maps <= 0)
 		pr_err("cannot find map files");
 
 	for (i = 0; i < maps; i++) {
+		struct symtabs symtabs = {
+			.loaded = false,
+		};
+		struct ftrace_proc_maps *map, *tmp;
+		char sid[20] = { 0, };
+		LIST_HEAD(modules);
+
 		if (sid[0] == '\0')
 			sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
 		free(map_list[i]);
+
+		pr_dbg("reading symbols for session %s\n", sid);
+		read_session_map(opts->dirname, &symtabs, sid);
+
+		/* main executable */
+		pr_dbg("try to load main: %s\n", symtabs.maps->libname);
+		load_symtabs(&symtabs, opts->dirname, symtabs.maps->libname);
+		save_symbol_file(&symtabs, opts->dirname, symtabs.filename);
+
+		ftrace_setup_filter_module(opts->filter, &modules, symtabs.filename);
+		ftrace_setup_filter_module(opts->trigger, &modules, symtabs.filename);
+		ftrace_setup_filter_module(opts->args, &modules, symtabs.filename);
+		ftrace_setup_filter_module(opts->retval, &modules, symtabs.filename);
+
+		/* shared libraries */
+		pr_dbg("try to load modules\n");
+		load_module_symtabs(&symtabs, &modules, opts->nest_libcall);
+		save_module_symtabs(&symtabs, &modules, opts->nest_libcall);
+
+		map = symtabs.maps;
+		while (map) {
+			tmp = map;
+			map = map->next;
+
+			free(tmp);
+		}
+		symtabs.maps = NULL;
+
+		ftrace_cleanup_filter_module(&modules);
+		unload_symtabs(&symtabs);
 	}
 	free(map_list);
-
-	read_session_map(opts->dirname, symtabs, sid);
-	load_module_symtabs(symtabs, &modules, opts->nest_libcall);
-	save_module_symtabs(symtabs, &modules, opts->nest_libcall);
-
-	map = symtabs->maps;
-	while (map) {
-		tmp = map;
-		map = map->next;
-
-		free(tmp);
-	}
-	symtabs->maps = NULL;
-
-	ftrace_cleanup_filter_module(&modules);
 }
 
 static bool child_exited;
@@ -1719,16 +1730,9 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 {
 	struct dlopen_list *dlib, *tmp;
-	struct symtabs symtabs = {
-		.loaded = false,
-	};
 
-	/* main executable */
-	load_symtabs(&symtabs, opts->dirname, opts->exename);
-	save_symbol_file(&symtabs, opts->dirname, opts->exename);
-
-	/* shared libraries */
-	save_module_symbols(opts, &symtabs);
+	/* main executable and shared libraries */
+	save_session_symbols(opts);
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
@@ -1765,8 +1769,6 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 	}
 	else if (geteuid() == 0)
 		chown_directory(opts->dirname);
-
-	unload_symtabs(&symtabs);
 }
 
 int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
