@@ -129,6 +129,30 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
 }
 
+void mcount_save_arch_context(struct mcount_arch_context *ctx)
+{
+	asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->xmm[0]));
+	asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->xmm[1]));
+	asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->xmm[2]));
+	asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->xmm[3]));
+	asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->xmm[4]));
+	asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->xmm[5]));
+	asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->xmm[6]));
+	asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->xmm[7]));
+}
+
+void mcount_restore_arch_context(struct mcount_arch_context *ctx)
+{
+	asm volatile ("movsd %0, %%xmm0\n" :: "m" (ctx->xmm[0]));
+	asm volatile ("movsd %0, %%xmm1\n" :: "m" (ctx->xmm[1]));
+	asm volatile ("movsd %0, %%xmm2\n" :: "m" (ctx->xmm[2]));
+	asm volatile ("movsd %0, %%xmm3\n" :: "m" (ctx->xmm[3]));
+	asm volatile ("movsd %0, %%xmm4\n" :: "m" (ctx->xmm[4]));
+	asm volatile ("movsd %0, %%xmm5\n" :: "m" (ctx->xmm[5]));
+	asm volatile ("movsd %0, %%xmm6\n" :: "m" (ctx->xmm[6]));
+	asm volatile ("movsd %0, %%xmm7\n" :: "m" (ctx->xmm[7]));
+}
+
 #define R_OFFSET_POS  2
 #define PUSH_IDX_POS  1
 #define JMP_OFS_POS   7

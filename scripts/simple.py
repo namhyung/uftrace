@@ -1,13 +1,13 @@
 def uftrace_begin():
     print("program begins...")
 
-def uftrace_entry(args):
-    _symname = args["symname"]
-    print("entry : " + _symname + "()")
+def uftrace_entry(ctx):
+    func = ctx["name"]
+    print("entry : " + func + "()")
 
-def uftrace_exit(args):
-    _symname = args["symname"]
-    print("exit  : " + _symname + "()")
+def uftrace_exit(ctx):
+    func = ctx["name"]
+    print("exit  : " + func + "()")
 
 def uftrace_end():
     print("program is finished")

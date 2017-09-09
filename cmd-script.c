@@ -53,17 +53,26 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 		fstack = &task->func_stack[task->stack_count - 1];
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 
-		/* setup arguments for script execution */
-		struct script_args sc_args = {
-			.tid = task->tid,
-			.depth = depth,  /* display depth */
+		if (!script_match_filter(symname))
+			goto out;
+
+		/* setup context for script execution */
+		struct script_context sc_ctx = {
+			.tid       = task->tid,
+			.depth     = depth,  /* display depth */
 			.timestamp = rstack->time,
-			.address = rstack->addr,
-			.symname = symname,
+			.address   = rstack->addr,
+			.name      = symname,
 		};
 
+		if (tr.flags & TRIGGER_FL_ARGUMENT) {
+			sc_ctx.argbuf  = task->args.data;
+			sc_ctx.arglen  = task->args.len;
+			sc_ctx.argspec = task->args.args;
+		}
+
 		/* script hooking for function entry */
-		script_uftrace_entry(&sc_args);
+		script_uftrace_entry(&sc_ctx);
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
 		struct fstack *fstack;
@@ -74,24 +83,35 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 
+			if (!script_match_filter(symname)) {
+				fstack_exit(task);
+				goto out;
+			}
+
 			/* display depth is set before passing rstack */
 			rstack->depth = depth;
+
+			/* setup context for script execution */
+			struct script_context sc_ctx = {
+				.tid       = task->tid,
+				.depth     = rstack->depth,
+				.timestamp = rstack->time,
+				.duration  = fstack->total_time,
+				.address   = rstack->addr,
+				.name      = symname,
+			};
+
+			if (rstack->more) {
+				sc_ctx.argbuf  = task->args.data;
+				sc_ctx.arglen  = task->args.len;
+				sc_ctx.argspec = task->args.args;
+			}
+
+			/* script hooking for function exit */
+			script_uftrace_exit(&sc_ctx);
 		}
 
 		fstack_exit(task);
-
-		/* setup arguments for script execution */
-		struct script_args sc_args = {
-			.tid = task->tid,
-			.depth = rstack->depth,
-			.timestamp = rstack->time,
-			.duration = fstack->total_time,
-			.address = rstack->addr,
-			.symname = symname,
-		};
-
-		/* script hooking for function exit */
-		script_uftrace_exit(&sc_args);
 	}
 	else if (rstack->type == UFTRACE_LOST) {
 		/* Do nothing as of now */
@@ -157,6 +177,8 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	/* dtor for script support */
 	script_uftrace_end();
+
+	script_finish();
 
 	close_data_file(opts, &handle);
 

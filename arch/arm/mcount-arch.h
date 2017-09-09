@@ -57,6 +57,9 @@ enum arm_reg_index {
 	ARM_REG_D7,
 };
 
+struct mcount_arch_context {
+};
+
 struct symtabs;
 
 #define FIX_PARENT_LOC

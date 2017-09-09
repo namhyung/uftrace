@@ -46,6 +46,7 @@ extern int debug;
 extern FILE *logfp;
 extern FILE *outfp;
 
+/* must change DBG_DOMAIN_STR (in mcount.h) as well */
 enum debug_domain {
 	DBG_UFTRACE	= 0,
 	DBG_SYMBOL,
@@ -57,6 +58,7 @@ enum debug_domain {
 	DBG_MCOUNT,
 	DBG_DYNAMIC,
 	DBG_EVENT,
+	DBG_SCRIPT,
 	DBG_DOMAIN_MAX,
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];

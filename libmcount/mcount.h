@@ -15,6 +15,7 @@
 #include <limits.h>
 
 #include "uftrace.h"
+#include "mcount-arch.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -81,7 +82,7 @@ struct mcount_shmem_buffer {
 };
 
 /* must be in sync with enum debug_domain (bits) */
-#define DBG_DOMAIN_STR  "TSDFfsKMPE"
+#define DBG_DOMAIN_STR  "TSDFfsKMPER"
 
 enum filter_result {
 	FILTER_RSTACK = -1,
@@ -149,7 +150,16 @@ struct mcount_thread_data {
 	struct mcount_shmem		shmem;
 	struct mcount_event		event[MAX_EVENT];
 	int				nr_events;
+	struct mcount_arch_context	arch;
 };
+
+#ifdef HAVE_MCOUNT_ARCH_CONTEXT
+extern void mcount_save_arch_context(struct mcount_arch_context *ctx);
+extern void mcount_restore_arch_context(struct mcount_arch_context *ctx);
+#else
+static inline void mcount_save_arch_context(struct mcount_arch_context *ctx) {}
+static inline  void mcount_restore_arch_context(struct mcount_arch_context *ctx) {}
+#endif
 
 #ifdef SINGLE_THREAD
 # define TLS

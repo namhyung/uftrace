@@ -17,20 +17,24 @@ enum script_type_t {
 	SCRIPT_PYTHON
 };
 
-/* argument information passed to script */
-struct script_args {
-	int           tid;
-	int           depth;
-	uint64_t      timestamp;
-	uint64_t      duration;	/* exit only */
-	unsigned long address;
-	char          *symname;
+/* context information passed to script */
+struct script_context {
+	int			tid;
+	int			depth;
+	uint64_t		timestamp;
+	uint64_t		duration;	/* exit only */
+	unsigned long		address;
+	char			*name;
+	/* for arguments and return value */
+	int			arglen;
+	void			*argbuf;
+	struct list_head	*argspec;
 };
 
 extern char *script_str;
 
-typedef int (*script_uftrace_entry_t)(struct script_args *sc_args);
-typedef int (*script_uftrace_exit_t)(struct script_args *sc_args);
+typedef int (*script_uftrace_entry_t)(struct script_context *sc_ctx);
+typedef int (*script_uftrace_exit_t)(struct script_context *sc_ctx);
 typedef int (*script_uftrace_end_t)(void);
 
 /* The below functions are used both in record time and script command. */
@@ -39,5 +43,10 @@ extern script_uftrace_exit_t script_uftrace_exit;
 extern script_uftrace_end_t script_uftrace_end;
 
 int script_init(char *script_pathname);
+void script_finish(void);
+
+void script_add_filter(char *func);
+int script_match_filter(char *func);
+void script_finish_filter(void);
 
 #endif /* __UFTRACE_SCRIPT_H__ */

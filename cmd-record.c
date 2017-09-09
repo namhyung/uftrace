@@ -1845,6 +1845,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	check_binary(opts);
 
+	/* apply script-provided options */
+	if (opts->script_file)
+		parse_script_opt(opts);
+
 	has_perf_event = check_linux_perf_event(opts->event);
 
 	fflush(stdout);

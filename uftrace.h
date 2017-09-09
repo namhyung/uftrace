@@ -242,6 +242,8 @@ static inline bool opts_has_filter(struct opts *opts)
 		opts->depth != OPT_DEPTH_DEFAULT;
 }
 
+void parse_script_opt(struct opts *opts);
+
 int command_record(int argc, char *argv[], struct opts *opts);
 int command_replay(int argc, char *argv[], struct opts *opts);
 int command_live(int argc, char *argv[], struct opts *opts);

@@ -8,9 +8,15 @@
 
 #ifdef HAVE_LIBPYTHON2
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "script"
+#define PR_DOMAIN  DBG_SCRIPT
+
 #include <dlfcn.h>
+#include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/fstack.h"
+#include "utils/filter.h"
 #include "utils/script.h"
 #include "utils/script-python.h"
 
@@ -20,12 +26,16 @@ static const char *libpython = "libpython2.7.so";
 /* python library handle returned by dlopen() */
 static void *python_handle;
 
+/* whether error in script was reported to user */
+static bool python_error_reported = false;
+
 static PyAPI_FUNC(void) (*__Py_Initialize)(void);
 static PyAPI_FUNC(void) (*__PySys_SetPath)(char *);
 static PyAPI_FUNC(PyObject *) (*__PyImport_Import)(PyObject *name);
 
 static PyAPI_FUNC(PyObject *) (*__PyErr_Occurred)(void);
 static PyAPI_FUNC(void) (*__PyErr_Print)(void);
+static PyAPI_FUNC(void) (*__PyErr_Clear)(void);
 
 static PyAPI_FUNC(PyObject *) (*__PyObject_GetAttrString)(PyObject *, const char *);
 static PyAPI_FUNC(int) (*__PyCallable_Check)(PyObject *);
@@ -35,12 +45,17 @@ static PyAPI_FUNC(PyObject *) (*__PyString_FromString)(const char *);
 static PyAPI_FUNC(PyObject *) (*__PyInt_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromUnsignedLongLong)(unsigned PY_LONG_LONG);
+static PyAPI_FUNC(PyObject *) (*__PyFloat_FromDouble)(double);
 
 static PyAPI_FUNC(char *) (*__PyString_AsString)(PyObject *);
 static PyAPI_FUNC(long) (*__PyLong_AsLong)(PyObject *);
 
 static PyAPI_FUNC(PyObject *) (*__PyTuple_New)(Py_ssize_t size);
 static PyAPI_FUNC(int) (*__PyTuple_SetItem)(PyObject *, Py_ssize_t, PyObject *);
+static PyAPI_FUNC(PyObject *) (*__PyTuple_GetItem)(PyObject *, Py_ssize_t);
+
+static PyAPI_FUNC(Py_ssize_t) (*__PyList_Size)(PyObject *);
+static PyAPI_FUNC(PyObject *) (*__PyList_GetItem)(PyObject *, Py_ssize_t);
 
 static PyAPI_FUNC(PyObject *) (*__PyDict_New)(void);
 static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject *item);
@@ -49,25 +64,27 @@ static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
 static PyObject *pName, *pModule, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
-extern struct symtabs symtabs;
-
-enum py_args {
-	PY_ARG_TID = 0,
-	PY_ARG_DEPTH,
-	PY_ARG_TIMESTAMP,
-	PY_ARG_DURATION,
-	PY_ARG_ADDRESS,
-	PY_ARG_SYMNAME,
+enum py_context_idx {
+	PY_CTX_TID = 0,
+	PY_CTX_DEPTH,
+	PY_CTX_TIMESTAMP,
+	PY_CTX_DURATION,
+	PY_CTX_ADDRESS,
+	PY_CTX_NAME,
+	PY_CTX_ARGS,
+	PY_CTX_RETVAL,
 };
 
 /* The order has to be aligned with enum py_args above. */
-static const char *py_args_table[] = {
+static const char *py_context_table[] = {
 	"tid",
 	"depth",
 	"timestamp",
 	"duration",
 	"address",
-	"symname",
+	"name",
+	"args",
+	"retval",
 };
 
 #define INIT_PY_API_FUNC(func) \
@@ -124,39 +141,268 @@ static int import_python_module(char *py_pathname)
 		return -1;
 	}
 
+	Py_XDECREF(pName);
 	return 0;
 }
 
-static void setup_common_args_in_dict(PyObject **pDict,
-				      struct script_args *sc_args)
+union python_val {
+	long			l;
+	unsigned long long	ull;
+	char			*s;
+	double			f;
+};
+
+static void python_insert_tuple(PyObject *tuple, char type, int idx,
+				union python_val val)
 {
-	int tid = sc_args->tid;
-	int depth = sc_args->depth;
-	uint64_t timestamp = sc_args->timestamp;
-	unsigned long address = sc_args->address;
-	char *symname = sc_args->symname;
+	PyObject *obj;
 
-	PyObject *pTid = __PyInt_FromLong(tid);
-	PyObject *pDepth = __PyInt_FromLong(depth);
-	PyObject *pTimeStamp = __PyLong_FromUnsignedLongLong(timestamp);
-	PyObject *pAddress = __PyInt_FromLong(address);
-	PyObject *pSym  = __PyString_FromString(symname);
+	switch (type) {
+	case 'l':
+		obj = __PyInt_FromLong(val.l);
+		break;
+	case 'U':
+		obj = __PyLong_FromUnsignedLongLong(val.ull);
+		break;
+	case 's':
+		obj = __PyString_FromString(val.s);
+		break;
+	case 'f':
+		obj = __PyFloat_FromDouble(val.f);
+		break;
+	default:
+		pr_warn("unsupported data type was added to tuple\n");
+		obj = NULL;
+		break;
+	}
 
-	__PyDict_SetItemString(*pDict, py_args_table[PY_ARG_TID], pTid);
-	__PyDict_SetItemString(*pDict, py_args_table[PY_ARG_DEPTH], pDepth);
-	__PyDict_SetItemString(*pDict, py_args_table[PY_ARG_TIMESTAMP], pTimeStamp);
-	__PyDict_SetItemString(*pDict, py_args_table[PY_ARG_ADDRESS], pAddress);
-	__PyDict_SetItemString(*pDict, py_args_table[PY_ARG_SYMNAME], pSym);
-
-	/* Py_XDECREF() frees the object when the count reaches zero. */
-	Py_XDECREF(pTid);
-	Py_XDECREF(pDepth);
-	Py_XDECREF(pTimeStamp);
-	Py_XDECREF(pAddress);
-	Py_XDECREF(pSym);
+	__PyTuple_SetItem(tuple, idx, obj);
 }
 
-int python_uftrace_entry(struct script_args *sc_args)
+static void python_insert_dict(PyObject *dict, char type, const char *key,
+			       union python_val val)
+{
+	PyObject *obj;
+
+	switch (type) {
+	case 'l':
+		obj = __PyInt_FromLong(val.l);
+		break;
+	case 'U':
+		obj = __PyLong_FromUnsignedLongLong(val.ull);
+		break;
+	case 's':
+		obj = __PyString_FromString(val.s);
+		break;
+	default:
+		pr_warn("unsupported data type was added to dict\n");
+		obj = NULL;
+		break;
+	}
+
+	__PyDict_SetItemString(dict, key, obj);
+	Py_XDECREF(obj);
+}
+
+static void insert_tuple_long(PyObject *tuple, int idx, long v)
+{
+	union python_val val = { .l = v, };
+	python_insert_tuple(tuple, 'l', idx, val);
+}
+
+static void insert_tuple_ull(PyObject *tuple, int idx, unsigned long long v)
+{
+	union python_val val = { .ull = v, };
+	python_insert_tuple(tuple, 'U', idx, val);
+}
+
+static void insert_tuple_string(PyObject *tuple, int idx, char *v)
+{
+	union python_val val = { .s = v, };
+	python_insert_tuple(tuple, 's', idx, val);
+}
+
+static void insert_tuple_double(PyObject *tuple, int idx, double v)
+{
+	union python_val val = { .f = v, };
+	python_insert_tuple(tuple, 'f', idx, val);
+}
+
+static void insert_dict_long(PyObject *dict, const char *key, long v)
+{
+	union python_val val = { .l = v, };
+	python_insert_dict(dict, 'l', key, val);
+}
+
+static void insert_dict_ull(PyObject *dict, const char *key, unsigned long long v)
+{
+	union python_val val = { .ull = v, };
+	python_insert_dict(dict, 'U', key, val);
+}
+
+static void insert_dict_string(PyObject *dict, const char *key, char *v)
+{
+	union python_val val = { .s = v, };
+	python_insert_dict(dict, 's', key, val);
+}
+
+#define PYCTX(_item)  py_context_table[PY_CTX_##_item]
+
+static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx)
+{
+	insert_dict_long(*pDict, PYCTX(TID), sc_ctx->tid);
+	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->depth);
+	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->timestamp);
+	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->address);
+	insert_dict_string(*pDict, PYCTX(NAME), sc_ctx->name);
+}
+
+static void setup_argument_context(PyObject **pDict, bool is_retval,
+				   struct script_context *sc_ctx)
+{
+	struct ftrace_arg_spec *spec;
+	void *data = sc_ctx->argbuf;
+	PyObject *args;
+	union {
+		char          c;
+		short         s;
+		int           i;
+		long          l;
+		long long     L;
+		float         f;
+		double        d;
+		long double   D;
+		unsigned char v[16];
+	} val;
+	int count = 0;
+
+	list_for_each_entry(spec, sc_ctx->argspec, list) {
+		/* skip unwanted arguments or retval */
+		if (is_retval != (spec->idx == RETVAL_IDX))
+			continue;
+
+		count++;
+	}
+
+	if (count == 0)
+		return;
+
+	args = __PyTuple_New(count);
+	if (args == NULL)
+		pr_err("failed to allocate python tuple for argument");
+
+	count = 0;
+	list_for_each_entry(spec, sc_ctx->argspec, list) {
+		const int null_str = -1;
+		unsigned short slen;
+		char ch_str[2];
+		char *str;
+		double dval;
+
+		/* skip unwanted arguments or retval */
+		if (is_retval != (spec->idx == RETVAL_IDX))
+			continue;
+
+		/* reset the value */
+		memset(val.v, 0, sizeof(val));
+
+		switch (spec->fmt) {
+		case ARG_FMT_AUTO:
+		case ARG_FMT_SINT:
+		case ARG_FMT_UINT:
+		case ARG_FMT_HEX:
+			memcpy(val.v, data, spec->size);
+			switch (spec->size) {
+			case 1:
+				insert_tuple_long(args, count++, val.c);
+				break;
+			case 2:
+				insert_tuple_long(args, count++, val.s);
+				break;
+			case 4:
+				insert_tuple_long(args, count++, val.i);
+				break;
+			case 8:
+				insert_tuple_ull(args, count++, val.L);
+				break;
+			default:
+				pr_warn("invalid integer size: %d\n", spec->size);
+				break;
+			}
+			data += ALIGN(spec->size, 4);
+			break;
+
+		case ARG_FMT_FLOAT:
+			memcpy(val.v, data, spec->size);
+			switch (spec->size) {
+			case 4:
+				dval = val.f;
+				break;
+			case 8:
+				dval = val.d;
+				break;
+			case 10:
+				dval = (double)val.D;
+				break;
+			default:
+				pr_dbg("invalid floating-point type size %d\n",
+				       spec->size);
+				dval = 0;
+				break;
+			}
+			insert_tuple_double(args, count++, dval);
+			data += ALIGN(spec->size, 4);
+			break;
+
+		case ARG_FMT_STR:
+		case ARG_FMT_STD_STRING:
+			/* get string length (2 bytes in the beginning) */
+			memcpy(&slen, data, 2);
+
+			str = xmalloc(slen + 1);
+
+			/* copy real string contents */
+			memcpy(str, data + 2, slen);
+			str[slen] = '\0';
+
+			/* NULL string is encoded as '0xffffffff' */
+			if (!memcmp(str, &null_str, sizeof(null_str)))
+				strcpy(str, "NULL");
+
+			insert_tuple_string(args, count++, str);
+			free(str);
+			data += ALIGN(slen + 2, 4);
+			break;
+
+		case ARG_FMT_CHAR:
+			/* make it a string */
+			memcpy(ch_str, data, 1);
+			ch_str[1] = '\0';
+
+			insert_tuple_string(args, count++, ch_str);
+			data += 4;
+			break;
+
+		default:
+			pr_warn("invalid argument format: %d\n", spec->fmt);
+			break;
+		}
+	}
+
+	if (is_retval) {
+		PyObject *retval = __PyTuple_GetItem(args, 0);
+
+		/* single return value doesn't need a tuple */
+		__PyDict_SetItemString(*pDict, PYCTX(RETVAL), retval);
+	}
+	else {
+		/* arguments will be returned in a tuple */
+		__PyDict_SetItemString(*pDict, PYCTX(ARGS), args);
+	}
+	Py_XDECREF(args);
+}
+
+int python_uftrace_entry(struct script_context *sc_ctx)
 {
 	if (unlikely(!pFuncEntry))
 		return -1;
@@ -164,23 +410,34 @@ int python_uftrace_entry(struct script_args *sc_args)
 	/* Entire arguments are passed into a single dictionary. */
 	PyObject *pDict = __PyDict_New();
 
-	/* Setup common arguments in both entry and exit into a dictionary */
-	setup_common_args_in_dict(&pDict, sc_args);
+	/* Setup common info in both entry and exit into a dictionary */
+	setup_common_context(&pDict, sc_ctx);
 
-	/* Argument list must be passed in a tuple. */
-	PyObject *pythonArgument = __PyTuple_New(1);
-	__PyTuple_SetItem(pythonArgument, 0, pDict);
+	if (sc_ctx->arglen)
+		setup_argument_context(&pDict, false, sc_ctx);
+
+	/* Python function arguments must be passed in a tuple. */
+	PyObject *pythonContext = __PyTuple_New(1);
+	__PyTuple_SetItem(pythonContext, 0, pDict);
 
 	/* Call python function "uftrace_entry". */
-	__PyObject_CallObject(pFuncEntry, pythonArgument);
+	__PyObject_CallObject(pFuncEntry, pythonContext);
+	if (debug) {
+		if (__PyErr_Occurred() && !python_error_reported) {
+			pr_dbg("uftrace_entry failed:\n");
+			__PyErr_Print();
+
+			python_error_reported = true;
+		}
+	}
 
 	/* Free PyTuple. */
-	Py_XDECREF(pythonArgument);
+	Py_XDECREF(pythonContext);
 
 	return 0;
 }
 
-int python_uftrace_exit(struct script_args *sc_args)
+int python_uftrace_exit(struct script_context *sc_ctx)
 {
 	if (unlikely(!pFuncExit))
 		return -1;
@@ -188,24 +445,32 @@ int python_uftrace_exit(struct script_args *sc_args)
 	/* Entire arguments are passed into a single dictionary. */
 	PyObject *pDict = __PyDict_New();
 
-	/* Setup common arguments in both entry and exit into a dictionary */
-	setup_common_args_in_dict(&pDict, sc_args);
+	/* Setup common info in both entry and exit into a dictionary */
+	setup_common_context(&pDict, sc_ctx);
 
 	/* Add time duration info */
-	uint64_t duration = sc_args->duration;
-	PyObject *pDuration = __PyLong_FromUnsignedLongLong(duration);
-	__PyDict_SetItemString(pDict, py_args_table[PY_ARG_DURATION], pDuration);
-	Py_XDECREF(pDuration);
+	insert_dict_ull(pDict, PYCTX(DURATION), sc_ctx->duration);
 
-	/* Argument list must be passed in a tuple. */
-	PyObject *pythonArgument = __PyTuple_New(1);
-	__PyTuple_SetItem(pythonArgument, 0, pDict);
+	if (sc_ctx->arglen)
+		setup_argument_context(&pDict, true, sc_ctx);
+
+	/* Python function arguments must be passed in a tuple. */
+	PyObject *pythonContext = __PyTuple_New(1);
+	__PyTuple_SetItem(pythonContext, 0, pDict);
 
 	/* Call python function "uftrace_exit". */
-	__PyObject_CallObject(pFuncExit, pythonArgument);
+	__PyObject_CallObject(pFuncExit, pythonContext);
+	if (debug) {
+		if (__PyErr_Occurred() && !python_error_reported) {
+			pr_dbg("uftrace_exit failed:\n");
+			__PyErr_Print();
+
+			python_error_reported = true;
+		}
+	}
 
 	/* Free PyTuple. */
-	Py_XDECREF(pythonArgument);
+	Py_XDECREF(pythonContext);
 
 	return 0;
 }
@@ -223,7 +488,7 @@ int python_uftrace_end(void)
 
 int script_init_for_python(char *py_pathname)
 {
-	pr_dbg("initialize python\n");
+	pr_dbg("initialize python scripting engine for %s\n", py_pathname);
 
 	/* Bind script_uftrace functions to python's. */
 	script_uftrace_entry = python_uftrace_entry;
@@ -242,6 +507,7 @@ int script_init_for_python(char *py_pathname)
 
 	INIT_PY_API_FUNC(PyErr_Occurred);
 	INIT_PY_API_FUNC(PyErr_Print);
+	INIT_PY_API_FUNC(PyErr_Clear);
 
 	INIT_PY_API_FUNC(PyObject_GetAttrString);
 	INIT_PY_API_FUNC(PyCallable_Check);
@@ -251,12 +517,17 @@ int script_init_for_python(char *py_pathname)
 	INIT_PY_API_FUNC(PyInt_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
+	INIT_PY_API_FUNC(PyFloat_FromDouble);
 
 	INIT_PY_API_FUNC(PyString_AsString);
 	INIT_PY_API_FUNC(PyLong_AsLong);
 
 	INIT_PY_API_FUNC(PyTuple_New);
 	INIT_PY_API_FUNC(PyTuple_SetItem);
+	INIT_PY_API_FUNC(PyTuple_GetItem);
+
+	INIT_PY_API_FUNC(PyList_Size);
+	INIT_PY_API_FUNC(PyList_GetItem);
 
 	INIT_PY_API_FUNC(PyDict_New);
 	INIT_PY_API_FUNC(PyDict_SetItem);
@@ -271,6 +542,20 @@ int script_init_for_python(char *py_pathname)
 	if (import_python_module(py_pathname) < 0)
 		return -1;
 
+	/* check if script has its only list of functions to run */
+	PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
+	if (filter_list) {
+		int i, len;
+
+		/* XXX: type checking is hard */
+		len = __PyList_Size(filter_list);
+
+		for (i = 0; i < len; i++) {
+			PyObject *func = __PyList_GetItem(filter_list, i);
+
+			script_add_filter(__PyString_AsString(func));
+		}
+	}
 
 	/* Call python function "uftrace_begin" immediately if possible. */
 	PyObject *pFuncBegin = __PyObject_GetAttrString(pModule, "uftrace_begin");
@@ -297,7 +582,8 @@ int script_init_for_python(char *py_pathname)
 		pFuncEnd = NULL;
 	}
 
-	pr_dbg("script_init_for_python for \"%s.py\" is done!\n", py_pathname);
+	__PyErr_Clear();
+	pr_dbg("python initialization finished\n");
 
 	return 0;
 }

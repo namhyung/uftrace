@@ -44,6 +44,11 @@ enum x86_reg_index {
 	X86_REG_XMM7,
 };
 
+#define HAVE_MCOUNT_ARCH_CONTEXT
+struct mcount_arch_context {
+	double xmm[ARCH_MAX_FLOAT_REGS];
+};
+
 #define ARCH_PLT0_SIZE  16
 #define ARCH_PLTHOOK_ADDR_OFFSET  6
 

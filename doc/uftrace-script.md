@@ -54,27 +54,29 @@ The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are execut
     def uftrace_begin():
         print("program begins...")
 
-    def uftrace_entry(args):
-        _symname = args["symname"]
-        print("entry : " + _symname + "()")
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
 
-    def uftrace_exit(args):
-        _symname = args["symname"]
-        print("exit  : " + _symname + "()")
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
 
     def uftrace_end():
         print("program is finished")
 
-The 'args' variable is a dictionary type that contains the below information.
+The 'ctx' variable is a dictionary type that contains the below information.
 
-    /* argument information passed to script */
-    struct script_args {
-        int           tid;
-        int           depth;
-        uint64_t      timestamp;
-        uint64_t      duration;    /* exit only */
-        unsigned long address;
-        char          *symname;
+    /* context information passed to script */
+    script_context = {
+        int       tid;
+        int       depth;
+        long      timestamp;
+        long      duration;    # exit only
+        long      address;
+        string    name;
+        list      args;        # entry only (if available)
+        value     retval;      # exit  only (if available)
     };
 
 The above script can be executed while reading the recorded data.  The usage is as follows:
@@ -111,6 +113,38 @@ The below is another example that shows the different output compared to previou
      124.329 us [25794] | } /* main */
 
 The python script above can be modified to do more output customization.
+
+The python script can have an optional "UFTRACE_FUNCS" list which can have name (or regex pattern) of functions to run the script.  If it exists, only matched functions will run the script.  For example, if you add following lines to the script, it will run only for functions with a single letter name.
+
+    $ echo 'UFTRACE_FUNCS = [ "^.$" ]' >> replay.py
+    $ uftrace script -S replay.py
+    # DURATION    TID     FUNCTION
+                [25794] |   a() {
+                [25794] |     b() {
+                [25794] |       c() {
+      44.752 us [25794] |       } /* c */
+      70.924 us [25794] |     } /* b */
+      98.191 us [25794] |   } /* a */
+
+Also script can have options for record if it requires some form of data (i.e. function argument or return value).  A comment line started with "uftrace-option:" will provide (a part of) such options when recording.
+
+    $ cat arg.py
+    #
+    # uftrace-option: -A a@arg1 -R b@retval
+    #
+    def uftrace_entry(ctx):
+        if "args" in ctx:
+	    print(ctx["name"] + " has args")
+    def uftrace_exit(ctx):
+        if "retval" in ctx:
+	    print(ctx["name"] + " has retval")
+
+    $ uftrace record -S arg.py abc
+    a has args
+    b has retval
+    $ uftrace script -S arg.py
+    a has args
+    b has retval
 
 
 SEE ALSO
