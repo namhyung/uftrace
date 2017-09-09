@@ -60,6 +60,8 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 
 		if (thread)
 			cmp = te->pid - entry->pid;
+		else if (te->sym && entry->sym)
+			cmp = strcmp(te->sym->name, entry->sym->name);
 		else
 			cmp = te->addr - entry->addr;
 
