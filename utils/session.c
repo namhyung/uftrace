@@ -64,6 +64,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		map->start = start;
 		map->end = end;
 		map->len = namelen;
+		map->next = NULL;
 		memcpy(map->prot, prot, 4);
 		map->symtab.sym = NULL;
 		map->symtab.sym_names = NULL;
@@ -73,8 +74,8 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
 
-		map->next = *maps;
 		*maps = map;
+		maps = &map->next;
 	}
 	fclose(fp);
 }
