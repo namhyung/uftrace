@@ -1,3 +1,44 @@
+uftrace v0.8
+============
+* event tracing support:
+  enable tracing events as well as functions.  following events are
+  supported using -E/--event option
+    - SystemTap SDT (x86_64 only)
+    - kernel tracepoint
+    - scheduler (using perf syscall)
+  list available events using --list-event option
+  new read trigger also creates 'proc/statm' and 'page-fault' events
+
+* libcall tracing update:
+  fix to trace already resolved functions too
+  trace nested calls from other libraries using --nest-libcall option
+  handle BIND-NOW + PIE properly
+
+* python scripting support:
+  add new 'script' command with -S/--script option
+  also support record-time scripting
+  support additional filter for script execution
+  allow to specify options for recording
+
+* report diff change:
+  sort by (absolute) diff
+  add --diff-policy option to control behavior
+  add 'func' sort key
+  change color setting
+
+* other changes:
+  std::string argument display
+  add elapsed time info
+  "uftrace recv --run-cmd" can execute user-given command
+  add "finish" trigger action to tracing
+  add --opt-file option to allow reading options from file
+  add --keep-pid option to preserve pid when running program
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Changhyeok Bae, Honggyu Kim, JeongBong Seo, SeongJae Park,
+  Taeung Song, Paul Cannon
+
+
 uftrace v0.7
 ============
 * dynamic tracing support (x86_64 only)
