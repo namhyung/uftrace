@@ -36,7 +36,7 @@ enum filter_mode {
 	FILTER_MODE_OUT,
 };
 
-enum ftrace_arg_format {
+enum uftrace_arg_format {
 	ARG_FMT_AUTO,
 	ARG_FMT_SINT,
 	ARG_FMT_UINT,
@@ -71,10 +71,10 @@ enum trigger_read_type {
  */
 #define RETVAL_IDX 0
 
-struct ftrace_arg_spec {
+struct uftrace_arg_spec {
 	struct list_head	list;
 	int			idx;
-	enum ftrace_arg_format	fmt;
+	enum uftrace_arg_format	fmt;
 	int			size;
 	bool			exact;
 	unsigned char		type;
@@ -84,7 +84,7 @@ struct ftrace_arg_spec {
 	};
 };
 
-struct ftrace_trigger {
+struct uftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
 	char			color;
@@ -94,13 +94,13 @@ struct ftrace_trigger {
 	struct list_head	*pargs;
 };
 
-struct ftrace_filter {
+struct uftrace_filter {
 	struct rb_node		node;
 	char 			*name;
 	unsigned long		start;
 	unsigned long		end;
 	struct list_head	args;
-	struct ftrace_trigger	trigger;
+	struct uftrace_trigger	trigger;
 };
 
 struct filter_module {
@@ -120,25 +120,25 @@ struct uftrace_page_fault {
 	uint64_t		minor;
 };
 
-typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
+typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
-void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 struct rb_root *root, enum filter_mode *mode);
-void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			  struct rb_root *root);
-void ftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root);
-void ftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
 			 struct rb_root *root);
 
-void ftrace_setup_filter_module(char *trigger_str, struct list_head *head,
+void uftrace_setup_filter_module(char *trigger_str, struct list_head *head,
 				const char *modname);
-void ftrace_cleanup_filter_module(struct list_head *head);
+void uftrace_cleanup_filter_module(struct list_head *head);
 
-struct ftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
-					   struct ftrace_trigger *tr);
-void ftrace_cleanup_filter(struct rb_root *root);
-void ftrace_print_filter(struct rb_root *root);
+struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
+					    struct uftrace_trigger *tr);
+void uftrace_cleanup_filter(struct rb_root *root);
+void uftrace_print_filter(struct rb_root *root);
 
 char * uftrace_clear_kernel(char *filter_str);
 

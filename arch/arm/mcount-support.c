@@ -305,7 +305,7 @@ void check_float_abi(void)
 }
 
 int mcount_get_register_arg(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -430,7 +430,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-			  struct ftrace_arg_spec *spec)
+			  struct uftrace_arg_spec *spec)
 {
 	int offset = 1;
 
@@ -466,7 +466,7 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-			 struct ftrace_arg_spec *spec)
+			 struct uftrace_arg_spec *spec)
 {
 	if (!float_abi_checked)
 		check_float_abi();
@@ -480,7 +480,7 @@ void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	if (!float_abi_checked)
 		check_float_abi();
