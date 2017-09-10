@@ -563,10 +563,8 @@ static enum trigger_read_type parse_read_type(char *str)
 	return TRIGGER_READ_NONE;
 }
 
-static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
-				    struct symtab **psymtab,
-				    struct uftrace_trigger *tr,
-				    bool *found_mod)
+static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
+				 char **module)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
@@ -670,32 +668,23 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			continue;
 		}
 
-		/* module name */
-		if (!strcasecmp(pos, "plt"))
-			*psymtab = &symtabs->dsymtab;
-		else if (!strcasecmp(pos, "kernel"))
-			*psymtab = get_kernel_symtab();
-		else if (!strcmp(pos, basename(symtabs->filename)))
-			*psymtab = &symtabs->symtab;
-		else {
-			struct ftrace_proc_maps *map;
-
-			map = find_map_by_name(symtabs, pos);
-			if (map == NULL) {
-				pr_dbg("cannot find module %s\n", pos);
-				goto out;
-			}
-
-			*psymtab = &map->symtab;
-		}
-
-		*found_mod = true;
+		*module = xstrdup(pos);
 	}
 	ret = 0;
 
 out:
 	free(tr_str);
 	return ret;
+}
+
+static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
+			     char *name, bool is_regex,
+			     struct uftrace_trigger *tr)
+{
+	if (is_regex)
+		return add_regex_filter(root, symtab, name, tr);
+	else
+		return add_exact_filter(root, symtab, name, tr);
 }
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
@@ -714,23 +703,22 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 	name = strtok(pos, ";");
 	while (name) {
-		struct symtab *symtab = &symtabs->symtab;
 		LIST_HEAD(args);
 		struct uftrace_trigger tr = {
 			.flags = flags,
 			.pargs = &args,
 		};
 		int ret = 0;
-		bool mod_found = false;
+		char *module = NULL;
 		struct uftrace_arg_spec *arg;
+		struct ftrace_proc_maps *map;
 		bool is_regex;
 
-		if (setup_module_and_trigger(name, symtabs, &symtab,
-					     &tr, &mod_found) < 0)
+		if (setup_trigger_action(name, &tr, &module) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
-		if (symtab == NULL)
+		if (module && !strcasecmp(module, "kernel"))
 			goto next;
 
 		if (name[0] == '!') {
@@ -741,16 +729,46 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 		is_regex = strpbrk(name, REGEX_CHARS);
 
-again:
-		if (is_regex)
-			ret += add_regex_filter(root, symtab, name, &tr);
-		else
-			ret += add_exact_filter(root, symtab, name, &tr);
+		if (module) {
+			map = find_map_by_name(symtabs, module);
+			if (map == NULL && strcasecmp(module, "PLT")) {
+				free(module);
+				goto next;
+			}
 
-		if (!mod_found && (ret == 0 || is_regex)) {
-			symtab = &symtabs->dsymtab;
-			mod_found = true;
-			goto again;
+			/* is it the main executable? */
+			if (!strncmp(module, basename(symtabs->filename),
+				     strlen(module))) {
+				ret += add_trigger_entry(root, &symtabs->symtab,
+							 name, is_regex, &tr);
+				ret += add_trigger_entry(root, &symtabs->dsymtab,
+							 name, is_regex, &tr);
+			}
+			else if (!strcasecmp(module, "PLT")) {
+				ret = add_trigger_entry(root, &symtabs->dsymtab,
+							name, is_regex, &tr);
+			}
+			else {
+				ret = add_trigger_entry(root, &map->symtab,
+							name, is_regex, &tr);
+			}
+
+			free(module);
+		}
+		else {
+			/* check main executable's symtab first */
+			ret += add_trigger_entry(root, &symtabs->symtab, name,
+						 is_regex, &tr);
+			ret += add_trigger_entry(root, &symtabs->dsymtab, name,
+						 is_regex, &tr);
+
+			/* and then find all module's symtabs */
+			map = symtabs->maps;
+			while (map) {
+				ret += add_trigger_entry(root, &map->symtab,
+							 name, is_regex, &tr);
+				map = map->next;
+			}
 		}
 
 		if (ret > 0 && fmode != NULL) {
