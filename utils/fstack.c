@@ -204,29 +204,17 @@ setup:
 static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	char *filter_str = arg;
-	LIST_HEAD(modules);
-
-	uftrace_setup_filter_module(filter_str, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules, false);
 
 	uftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
 			    &fstack_filter_mode);
-
-	uftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 
 static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	char *trigger_str = arg;
-	LIST_HEAD(modules);
-
-	uftrace_setup_filter_module(trigger_str, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules, false);
 
 	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters);
-
-	uftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 
@@ -317,14 +305,8 @@ static void fstack_prepare_fixup(struct ftrace_file_handle *handle)
 static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	char *argspec = arg;
-	LIST_HEAD(modules);
-
-	uftrace_setup_filter_module(argspec, &modules, s->exename);
-	load_module_symtabs(&s->symtabs, &modules, false);
 
 	uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
-
-	uftrace_cleanup_filter_module(&modules);
 	return 0;
 }
 

@@ -147,6 +147,8 @@ void create_session(struct uftrace_session_link *sessions,
 	load_symtabs(&s->symtabs, dirname, s->exename);
 	set_kernel_base(&s->symtabs, s->sid);
 
+	load_module_symtabs(&s->symtabs);
+
 	if (sessions->first == NULL)
 		sessions->first = s;
 
