@@ -278,6 +278,8 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	if (check_thread_data(mtdp))
 		goto out;
 
+	mcount_rstack_restore();
+
 	idx = mtdp->idx - 1;
 	/* flush current rstack on crash */
 	rstack = &mtdp->rstack[idx];
@@ -1112,16 +1114,6 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	return 0;
 }
 
-static void (*old_segfault_handler)(int);
-
-static void segfault_handler(int sig)
-{
-	mcount_rstack_restore();
-
-	signal(sig, old_segfault_handler);
-	raise(sig);
-}
-
 void mcount_rstack_restore(void)
 {
 	int idx;
@@ -1220,8 +1212,6 @@ static void mcount_startup(void)
 			setvbuf(logfp, NULL, _IOLBF, 1024);
 		}
 	}
-
-	old_segfault_handler = signal(SIGSEGV, segfault_handler);
 
 	if (debug_str) {
 		debug = strtol(debug_str, NULL, 0);
