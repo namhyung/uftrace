@@ -301,7 +301,7 @@ static void pr_hex(uint64_t *offset, void *data, size_t len)
 
 static void pr_args(struct fstack_arguments *args)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	void *ptr = args->data;
 	size_t size;
 	int i = 0;
@@ -348,7 +348,7 @@ static void pr_args(struct fstack_arguments *args)
 
 static void pr_retval(struct fstack_arguments *args)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	void *ptr = args->data;
 	size_t size;
 	int i = 0;

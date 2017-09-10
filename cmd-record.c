@@ -1298,10 +1298,10 @@ static void save_session_symbols(struct opts *opts)
 		load_symtabs(&symtabs, opts->dirname, symtabs.maps->libname);
 		save_symbol_file(&symtabs, opts->dirname, symtabs.filename);
 
-		ftrace_setup_filter_module(opts->filter, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->trigger, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->args, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->retval, &modules, symtabs.filename);
+		uftrace_setup_filter_module(opts->filter, &modules, symtabs.filename);
+		uftrace_setup_filter_module(opts->trigger, &modules, symtabs.filename);
+		uftrace_setup_filter_module(opts->args, &modules, symtabs.filename);
+		uftrace_setup_filter_module(opts->retval, &modules, symtabs.filename);
 
 		/* shared libraries */
 		pr_dbg("try to load modules\n");
@@ -1317,7 +1317,7 @@ static void save_session_symbols(struct opts *opts)
 		}
 		symtabs.maps = NULL;
 
-		ftrace_cleanup_filter_module(&modules);
+		uftrace_cleanup_filter_module(&modules);
 		unload_symtabs(&symtabs);
 	}
 	free(map_list);

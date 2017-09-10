@@ -38,7 +38,7 @@ static int run_script_for_rstack(struct ftrace_file_handle *handle,
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct fstack *fstack;
 		int depth;
-		struct ftrace_trigger tr = {
+		struct uftrace_trigger tr = {
 			.flags = 0,
 		};
 		int ret;

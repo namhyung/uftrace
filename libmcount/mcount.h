@@ -247,8 +247,8 @@ static inline bool mcount_should_stop(void)
 	return mcount_global_flags != 0UL;
 }
 
-struct ftrace_trigger;
-struct ftrace_arg_spec;
+struct uftrace_trigger;
+struct uftrace_arg_spec;
 struct mcount_regs;
 
 struct mcount_arg_context {
@@ -268,16 +268,16 @@ struct mcount_arg_context {
 };
 
 extern void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-				struct ftrace_arg_spec *spec);
+				struct uftrace_arg_spec *spec);
 extern void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-				   struct ftrace_arg_spec *spec);
+				   struct uftrace_arg_spec *spec);
 
 extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 						    unsigned long child,
-						    struct ftrace_trigger *tr);
+						    struct uftrace_trigger *tr);
 extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				       struct mcount_ret_stack *rstack,
-				       struct ftrace_trigger *tr,
+				       struct uftrace_trigger *tr,
 				       struct mcount_regs *regs);
 extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				      struct mcount_ret_stack *rstack,

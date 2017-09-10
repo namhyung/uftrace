@@ -432,7 +432,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	const int null_str = -1;
 	void *data = task->args.data;
 	struct list_head *arg_list = task->args.args;
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	union {
 		long i;
 		float f;
@@ -659,7 +659,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
 		int depth;
-		struct ftrace_trigger tr = {
+		struct uftrace_trigger tr = {
 			.flags = 0,
 		};
 		int ret;

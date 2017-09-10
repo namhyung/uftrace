@@ -231,7 +231,7 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
 	bool is_retval = !!ctx->retval;
