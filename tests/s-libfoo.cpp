@@ -1,13 +1,17 @@
-#include <iostream>
+volatile int a = 0;
 
-static void print_int(int n)
+class AAA
 {
-	std::cout << n << std::endl;
-}
+public:
+	static void bar(int n)
+	{
+		a = n;
+	}
+};
 
 extern "C" {
 	void foo(int n)
 	{
-		print_int(n);
+		AAA::bar(n);
 	}
 }

@@ -16,14 +16,10 @@ class TestCase(TestBase):
    1.301 us [22207] |     } /* lib_b */
    2.104 us [22207] |   } /* lib_a */
   14.446 us [22207] |   dlclose();
-            [22207] |   dlopen() {
-            [22207] |     _GLOBAL__sub_I_s_libfoo.cpp() {
-  88.318 us [22207] |       __static_initialization_and_destruction_0();
-  88.719 us [22207] |     } /* _GLOBAL__sub_I_s_libfoo.cpp */
- 148.243 us [22207] |   } /* dlopen */
+            [22207] |   dlopen();
    0.844 us [22207] |   dlsym();
             [22207] |   foo() {
-  19.601 us [22207] |     print_int();
+  19.601 us [22207] |     AAA::bar();
   19.869 us [22207] |   } /* foo */
   13.391 us [22207] |   dlclose();
  274.723 us [22207] | } /* main */
