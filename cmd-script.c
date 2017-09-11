@@ -158,7 +158,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
-		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;
 	}
 
