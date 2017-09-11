@@ -365,43 +365,39 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	int ret = -1;
 	FILE *fp;
 	char buf[PATH_MAX];
-	bool again = false;
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
-retry:
 	fp = fopen(buf, "rb");
-	if (fp == NULL) {
-		if (again) {
-			/* restore original file name for error reporting */
-			snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	if (fp != NULL)
+		goto ok;
+
+	/* if default dirname is failed */
+	if (!strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+		/* try again inside the current directory */
+		fp = fopen("./info", "rb");
+		if (fp != NULL) {
+			opts->dirname = "./";
+			goto ok;
 		}
 
-		if (errno == ENOENT) {
-			if (!again && !strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
-				/* retry with old default dirname */
-				snprintf(buf, sizeof(buf), "%s/info",
-					UFTRACE_DIR_OLD_NAME);
-
-				again = true;
-				goto retry;
-			}
-
-			pr_dbg("cannot find %s file!\n", buf);
-
-			if (opts->exename)
-				pr_warn(RECORD_MSG, opts->exename);
-		} else {
-			pr_err("cannot open %s file", buf);
+		/* retry with old default dirname */
+		snprintf(buf, sizeof(buf), "%s/info", UFTRACE_DIR_OLD_NAME);
+		fp = fopen(buf, "rb");
+		if (fp != NULL) {
+			opts->dirname = UFTRACE_DIR_OLD_NAME;
+			goto ok;
 		}
-		goto out;
+
+		/* restore original file name for error reporting */
+		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 	}
 
-	if (again) {
-		/* found data in old dirname, rename it */
-		opts->dirname = UFTRACE_DIR_OLD_NAME;
-	}
+	/* data file loading is failed */
+	pr_err("cannot open %s file", buf);
+	goto out;
 
+ok:
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
