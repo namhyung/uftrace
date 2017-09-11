@@ -9,7 +9,7 @@ uftrace - Function graph tracer for userspace
 
 SYNOPSIS
 ========
-uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*] [*options*] COMMAND [*command-options*]
 
 
 DESCRIPTION
@@ -46,6 +46,9 @@ recv
 
 graph
 :   Print function call graph
+
+script
+:   Run a script for recorded function trace
 
 
 OPTIONS
@@ -86,4 +89,4 @@ OPTIONS
 
 SEE ALSO
 ========
-`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1)
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1)
