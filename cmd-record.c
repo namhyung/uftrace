@@ -1843,11 +1843,11 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (create_directory(opts->dirname) < 0)
 		return -1;
 
-	check_binary(opts);
-
 	/* apply script-provided options */
 	if (opts->script_file)
 		parse_script_opt(opts);
+
+	check_binary(opts);
 
 	has_perf_event = check_linux_perf_event(opts->event);
 

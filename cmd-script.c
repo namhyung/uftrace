@@ -140,6 +140,19 @@ int command_script(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
+	if (opts->record) {
+		/* parse in-script record option - "uftrace_options" */
+		parse_script_opt(opts);
+
+		char *script_file = opts->script_file;
+		opts->script_file = NULL;
+
+		pr_dbg("start recording before running a script\n");
+		ret = command_record(argc, argv, opts);
+
+		opts->script_file = script_file;
+	}
+
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
