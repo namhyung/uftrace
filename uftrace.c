@@ -90,6 +90,7 @@ enum options {
 	OPT_event_full,
 	OPT_nest_libcall,
 	OPT_record,
+	OPT_auto_args,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -159,6 +160,7 @@ static struct argp_option uftrace_options[] = {
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
 	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
+	{ "auto-args", OPT_auto_args, 0, 0, "Show function arguments/return values for useful libc functions" },
 	{ 0 }
 };
 
@@ -691,6 +693,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_record:
 		opts->record = true;
+		break;
+
+	case OPT_auto_args:
+		opts->auto_args = true;
 		break;
 
 	case ARGP_KEY_ARG:

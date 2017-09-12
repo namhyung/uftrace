@@ -81,6 +81,9 @@ OPTIONS
 -R *SPEC*, \--retval=*SPEC*
 :   Record function return values.  This option can be used more than once.  See *ARGUMENTS*.
 
+\--auto-args
+:   Automatically record arguments and return values of well-known library functions.  Recommend to use it with `--nest-libcall`.
+
 \--num-thread=*NUM*
 :   Use NUM threads to record trace data.  Default is 1/4 of online CPUs (but when full kernel tracing is enabled, it will use the full number of CPUs).
 

@@ -153,6 +153,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		}
 	}
 
+	if (opts->auto_args)
+		setenv("UFTRACE_AUTO_ARGS", "1", 1);
+
 	if (opts->patch) {
 		char *patch_str = uftrace_clear_kernel(opts->patch);
 
