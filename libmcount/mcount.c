@@ -28,6 +28,9 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#ifndef DISABLE_MCOUNT_FILTER
+#include "autoargs.h"
+#endif
 
 /* time filter in nsec */
 uint64_t mcount_threshold;
@@ -83,6 +86,15 @@ static void mcount_filter_init(void)
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
 	char *argument_str  = getenv("UFTRACE_ARGUMENT");
 	char *retval_str    = getenv("UFTRACE_RETVAL");
+	bool auto_args      = !!getenv("UFTRACE_AUTO_ARGS");
+
+	if (auto_args) {
+		/* add auto-args to read args/retvals of well-known functions */
+		pr_dbg2("extending args/retval using builtin auto-args list\n");
+
+		argument_str = make_args_list(auto_args_list, argument_str);
+		retval_str = make_args_list(auto_retvals_list, retval_str);
+	}
 
 	load_module_symtabs(&symtabs);
 
