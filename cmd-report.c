@@ -317,8 +317,8 @@ static int cmp_diff_##_field(struct trace_entry *a,			\
 			return 0;					\
 									\
 		if (diff_absolute) {					\
-			diff_a = abs(diff_a);				\
-			diff_b = abs(diff_b);				\
+			diff_a = llabs(diff_a);				\
+			diff_b = llabs(diff_b);				\
 		}							\
 		return diff_a > diff_b ? 1: -1;				\
 	}								\
@@ -368,8 +368,8 @@ static int cmp_diff_nr_called(struct trace_entry *a,
 			return 0;
 
 		if (diff_absolute) {
-			call_diff_a = abs(call_diff_a);
-			call_diff_b = abs(call_diff_b);
+			call_diff_a = llabs(call_diff_a);
+			call_diff_b = llabs(call_diff_b);
 		}
 		return call_diff_a > call_diff_b ? 1 : -1;
 	}
@@ -437,8 +437,8 @@ static int cmp_diff_time_total(struct trace_entry *a, struct trace_entry *b,
 			return 0;
 
 		if (diff_absolute) {
-			a_diff = abs(a_diff);
-			b_diff = abs(b_diff);
+			a_diff = llabs(a_diff);
+			b_diff = llabs(b_diff);
 		}
 		return a_diff > b_diff ? 1 : -1;
 	}
