@@ -149,7 +149,8 @@ int remove_directory(char *dirname)
 	pr_dbg("removing %s directory\n", dirname);
 
 	while ((ent = readdir(dp)) != NULL) {
-		if (ent->d_name[0] == '.')
+		if (!strcmp(ent->d_name, ".") ||
+		    !strcmp(ent->d_name, ".."))
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
