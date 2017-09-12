@@ -32,6 +32,9 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#ifndef DISABLE_MCOUNT_FILTER
+#include "autoargs.h"
+#endif
 
 uint64_t mcount_threshold;  /* nsec */
 struct symtabs symtabs = {
@@ -1165,6 +1168,7 @@ static void mcount_startup(void)
 	char *dirname;
 	struct stat statbuf;
 	bool nest_libcall;
+	LIST_HEAD(modules);
 
 	if (!(mcount_global_flags & MCOUNT_GFL_SETUP) || mtd.recursion_guard)
 		return;
@@ -1190,7 +1194,6 @@ static void mcount_startup(void)
 	event_str = getenv("UFTRACE_EVENT");
 	script_str = getenv("UFTRACE_SCRIPT");
 	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
-
 	page_size_in_kb = getpagesize() / KB;
 
 	if (logfd_str) {
@@ -1250,6 +1253,15 @@ static void mcount_startup(void)
 	char *trigger_str = getenv("UFTRACE_TRIGGER");
 	char *argument_str = getenv("UFTRACE_ARGUMENT");
 	char *retval_str = getenv("UFTRACE_RETVAL");
+	bool auto_args = !!getenv("UFTRACE_AUTO_ARGS");
+
+	if (auto_args) {
+		/* add auto-args to read args/retvals of well-known functions */
+		pr_dbg2("extending args/retval using builtin auto-args list\n");
+
+		argument_str = make_args_list(auto_args_list, argument_str);
+		retval_str = make_args_list(auto_retvals_list, retval_str);
+	}
 
 	load_module_symtabs(&symtabs);
 
@@ -1258,6 +1270,11 @@ static void mcount_startup(void)
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
+
+	if (auto_args) {
+		free(argument_str);
+		free(retval_str);
+	}
 
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
