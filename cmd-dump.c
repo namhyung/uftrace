@@ -313,10 +313,11 @@ static void pr_args(struct fstack_arguments *args)
 
 		if (spec->fmt == ARG_FMT_STR ||
 		    spec->fmt == ARG_FMT_STD_STRING) {
-			char buf[64] = {0};
+			char *buf;
 			const int null_str = -1;
 
 			size = *(unsigned short *)ptr;
+			buf = xmalloc(size + 1);
 			strncpy(buf, ptr + 2, size);
 
 			if (!memcmp(buf, &null_str, 4))
@@ -326,6 +327,8 @@ static void pr_args(struct fstack_arguments *args)
 				pr_out("  args[%d] std::string: %s\n", i , buf);
 			else
 				pr_out("  args[%d] str: %s\n", i , buf);
+
+			free(buf);
 			size += 2;
 		}
 		else {
