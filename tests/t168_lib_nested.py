@@ -11,8 +11,7 @@ class TestCase(TestBase):
    0.538 us [ 5363] |     getpid();
    2.793 us [ 5363] |   } /* lib_a */
             [ 5363] |   foo() {
-   9.405 us [ 5363] |     std::basic_ostream::operator <<();
-   7.013 us [ 5363] |     std::basic_ostream::operator <<();
+   9.405 us [ 5363] |     AAA::bar();
   17.133 us [ 5363] |   } /* foo */
   21.093 us [ 5363] | } /* main */
 """)

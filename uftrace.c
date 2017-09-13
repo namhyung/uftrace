@@ -684,6 +684,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_nest_libcall:
+		/* --nest-libcall implies --force option */
+		opts->force = true;
 		opts->nest_libcall = true;
 		break;
 

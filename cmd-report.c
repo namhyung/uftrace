@@ -1096,7 +1096,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	tmp = RB_ROOT;
 
 	if (open_data_file(&dummy_opts, &data.handle) < 0) {
-		pr_warn("cannot open data: %s: %m\n", opts->diff);
+		pr_warn("cannot open record data: %s: %m\n", opts->diff);
 		goto out;
 	}
 
@@ -1161,7 +1161,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
-		pr_warn("cannot open data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;
 	}
 
