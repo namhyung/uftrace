@@ -149,6 +149,10 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 		pr_dbg("start recording before running a script\n");
 		ret = command_record(argc, argv, opts);
+		if (ret < 0) {
+			pr_warn("cannot record data: %m\n");
+			return -1;
+		}
 
 		opts->script_file = script_file;
 	}
