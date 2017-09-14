@@ -678,6 +678,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	FILE *ifp, *ofp;
 	char buf[4096];
 	struct ftrace_proc_maps *prev_map = NULL;
+	char *last_libname = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -705,6 +706,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		if (prot[2] != 'x')
 			goto next;
 
+		/* use first mapping only */
+		if (last_libname && !strcmp(last_libname, path))
+			continue;
+
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
 
@@ -720,6 +725,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
+		last_libname = map->libname;
 
 		if (prev_map)
 			prev_map->next = map;
