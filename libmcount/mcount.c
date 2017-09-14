@@ -528,8 +528,15 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		else {
 			if (tr->flags & TRIGGER_FL_ARGUMENT)
 				save_argument(mtdp, rstack, tr->pargs, regs);
-			if (tr->flags & TRIGGER_FL_READ_IN)
+			if (tr->flags & TRIGGER_FL_READ_IN) {
+				rstack->flags |= MCOUNT_FL_READ_IN;
 				save_trigger_read(mtdp, rstack, tr->read_in, false);
+			}
+			if (tr->flags & TRIGGER_FL_READ_OUT) {
+				rstack->flags |= MCOUNT_FL_READ_OUT;
+				rstack->read_out = tr->read_out;
+				/* save_trigger_read() will be called at exit */
+			}
 
 			if (mtdp->nr_events) {
 				/*
@@ -631,6 +638,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
 			if (!mcount_enabled)
 				return;
+
+			/* save read trigger at return time */
+			if (rstack->flags & MCOUNT_FL_READ_OUT)
+				save_trigger_read(mtdp, rstack, rstack->read_out, true);
 
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");

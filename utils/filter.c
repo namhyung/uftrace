@@ -671,6 +671,31 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 				tr->flags |= TRIGGER_FL_READ_IN;
 			continue;
 		}
+		if (!strncmp(pos, "read-in=", 8)) {
+			tr->read_in |= parse_read_type(pos+8);
+			/* set READ flag only if valid type set */
+			if (tr->read_in)
+				tr->flags |= TRIGGER_FL_READ_IN;
+			continue;
+		}
+		if (!strncmp(pos, "read-out=", 9)) {
+			tr->read_out |= parse_read_type(pos+9);
+			/* set READ flag only if valid type set */
+			if (tr->read_out)
+				tr->flags |= TRIGGER_FL_READ_OUT;
+			continue;
+		}
+		if (!strncmp(pos, "read-inout=", 11)) {
+			enum trigger_read_type rt = parse_read_type(pos+11);
+			tr->read_in  |= rt;
+			tr->read_out |= rt;
+			/* set READ flag only if valid type set */
+			if (rt) {
+				tr->flags |= TRIGGER_FL_READ_IN;
+				tr->flags |= TRIGGER_FL_READ_OUT;
+			}
+			continue;
+		}
 
 		/* module name */
 		if (!strcasecmp(pos, "plt"))
