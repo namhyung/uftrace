@@ -81,11 +81,11 @@ static void print_trigger(struct uftrace_trigger *tr)
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
 
-	if (tr->flags & TRIGGER_FL_READ) {
+	if (tr->flags & TRIGGER_FL_READ_IN) {
 		char buf[1024];
 
-		snprintf_trigger_read(buf, sizeof(buf), tr->read);
-		pr_dbg("\ttrigger: read (%s)\n", buf);
+		snprintf_trigger_read(buf, sizeof(buf), tr->read_in);
+		pr_dbg("\ttrigger: read-in (%s)\n", buf);
 	}
 }
 
@@ -206,8 +206,10 @@ static void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *t
 		filter->trigger.color = tr->color;
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		filter->trigger.time = tr->time;
-	if (tr->flags & TRIGGER_FL_READ)
-		filter->trigger.read = tr->read;
+	if (tr->flags & TRIGGER_FL_READ_IN)
+		filter->trigger.read_in = tr->read_in;
+	if (tr->flags & TRIGGER_FL_READ_OUT)
+		filter->trigger.read_out = tr->read_out;
 }
 
 static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
@@ -663,10 +665,10 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 			continue;
 		}
 		if (!strncmp(pos, "read=", 5)) {
-			tr->read |= parse_read_type(pos+5);
+			tr->read_in |= parse_read_type(pos+5);
 			/* set READ flag only if valid type set */
-			if (tr->read)
-				tr->flags |= TRIGGER_FL_READ;
+			if (tr->read_in)
+				tr->flags |= TRIGGER_FL_READ_IN;
 			continue;
 		}
 
