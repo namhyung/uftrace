@@ -529,7 +529,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			if (tr->flags & TRIGGER_FL_ARGUMENT)
 				save_argument(mtdp, rstack, tr->pargs, regs);
 			if (tr->flags & TRIGGER_FL_READ_IN)
-				save_trigger_read(mtdp, rstack, tr->read_in);
+				save_trigger_read(mtdp, rstack, tr->read_in, false);
 
 			if (mtdp->nr_events) {
 				/*

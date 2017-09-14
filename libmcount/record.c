@@ -383,7 +383,8 @@ static void save_page_fault(void *buf)
 
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type,
+		       bool is_return_trigger)
 {
 	if (type & TRIGGER_READ_PROC_STATM) {
 		struct mcount_event *event;
@@ -425,7 +426,8 @@ void save_retval(struct mcount_thread_data *mtdp,
 
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type,
+		       bool is_return_trigger)
 {
 }
 #endif
