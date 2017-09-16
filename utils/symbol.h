@@ -122,7 +122,7 @@ struct symtab * get_kernel_symtab(void);
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     unsigned long offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
-		      const char *exename);
+		      const char *exename, unsigned long addr);
 
 char *symbol_getname(struct sym *sym, uint64_t addr);
 void symbol_putname(struct sym *sym, char *name);

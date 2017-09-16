@@ -1131,18 +1131,13 @@ out:
 }
 
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
-		      const char *exename)
+		      const char *exename, unsigned long base_addr)
 {
 	FILE *fp;
 	unsigned i;
 	char *symfile = NULL;
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	unsigned long offset = 0;
-	int fd;
-	Elf *elf = NULL;
-	GElf_Phdr phdr;
-	size_t nr = 0;
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
@@ -1155,56 +1150,29 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	fd = open(exename, O_RDONLY);
-	if (fd < 0) {
-		pr_dbg("error during open elf file: %s: %m\n", exename);
-		goto do_it;
-	}
-
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto do_it;
-
-	if (elf_getphdrnum(elf, &nr) < 0)
-		goto do_it;
-
-	for (i = 0; i < nr; i++) {
-		if (!gelf_getphdr(elf, i, &phdr))
-			break;
-		if (phdr.p_type == PT_LOAD) {
-			offset = phdr.p_vaddr;
-			break;
-		}
-	}
-
-	/* save relative offset of symbol address */
-	symtabs->flags |= SYMTAB_FL_ADJ_OFFSET;
-
-do_it:
 	/* dynamic symbols */
-	for (i = 0; i < dtab->nr_sym; i++)
-		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym_names[i]->addr - offset,
+	for (i = 0; i < dtab->nr_sym; i++) {
+		fprintf(fp, "%016"PRIx64" %c %s\n",
+			dtab->sym_names[i]->addr - base_addr,
 		       (char) dtab->sym_names[i]->type, dtab->sym_names[i]->name);
+	}
 	/* this last entry should come from ->sym[] to know the real end */
 	if (i > 0) {
-		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym[i-1].addr + dtab->sym[i-1].size - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n",
+			dtab->sym[i-1].addr + dtab->sym[i-1].size - base_addr,
 			(char) dtab->sym[i-1].type, "__dynsym_end");
 	}
 
 	/* normal symbols */
 	for (i = 0; i < stab->nr_sym; i++)
-		fprintf(fp, "%016"PRIx64" %c %s\n", stab->sym[i].addr - offset,
+		fprintf(fp, "%016"PRIx64" %c %s\n", stab->sym[i].addr - base_addr,
 		       (char) stab->sym[i].type, stab->sym[i].name);
 	if (i > 0) {
 		fprintf(fp, "%016"PRIx64" %c %s\n",
-			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
+			stab->sym[i-1].addr + stab->sym[i-1].size - base_addr,
 			(char) stab->sym[i-1].type, "__sym_end");
 	}
 
-	elf_end(elf);
-	close(fd);
 	free(symfile);
 	fclose(fp);
 }
