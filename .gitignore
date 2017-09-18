@@ -31,3 +31,6 @@ TAGS
 tags
 cscope.*
 *.pyc
+*.sw[opn]
+*.patch
+*.orig
