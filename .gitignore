@@ -23,6 +23,7 @@ check-deps/*
 !check-deps/Makefile*
 FLAGS
 version.h
+autoargs.h
 .config
 GPATH
 GRTAGS
