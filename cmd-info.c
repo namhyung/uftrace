@@ -668,11 +668,12 @@ static int fill_arg_spec(void *arg)
 	return 0;
 }
 
+static char buf[32768];	/* 4096 * 8 */
+
 static int read_arg_spec(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
