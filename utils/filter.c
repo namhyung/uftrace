@@ -753,11 +753,13 @@ again:
 			goto again;
 		}
 
-		if (ret > 0 && fmode != NULL) {
-			if (tr.fmode == FILTER_MODE_IN)
-				*fmode = FILTER_MODE_IN;
-			else if (*fmode == FILTER_MODE_NONE)
-				*fmode = FILTER_MODE_OUT;
+		if (!(tr.flags & TRIGGER_FL_TRACE)) {
+			if (ret > 0 && fmode != NULL) {
+				if (tr.fmode == FILTER_MODE_IN)
+					*fmode = FILTER_MODE_IN;
+				else if (*fmode == FILTER_MODE_NONE)
+					*fmode = FILTER_MODE_OUT;
+			}
 		}
 next:
 		name = strtok(NULL, ";");
@@ -784,6 +786,20 @@ void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 struct rb_root *root, enum filter_mode *mode)
 {
 	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_FILTER, mode);
+}
+
+/**
+ * ftrace_setup_caller_filter - construct rbtree of filters
+ * @caller_filter_str - CSV of filter string
+ * @symtabs           - symbol tables to find symbol address
+ * @root              - root of resulting rbtree
+ * @mode              - filter mode: opt-in (-F) or opt-out (-N)
+ */
+void ftrace_setup_caller_filter(char *caller_filter_str,
+				struct symtabs *symtabs, struct rb_root *root,
+				enum filter_mode *mode)
+{
+	setup_trigger(caller_filter_str, symtabs, root, TRIGGER_FL_TRACE, mode);
 }
 
 /**

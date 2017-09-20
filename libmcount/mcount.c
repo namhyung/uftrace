@@ -1169,6 +1169,7 @@ static void mcount_startup(void)
 	char *color_str;
 	char *demangle_str;
 	char *filter_str;
+	char *caller_filter_str;
 	char *trigger_str;
 	char *argument_str;
 	char *retval_str;
@@ -1200,6 +1201,7 @@ static void mcount_startup(void)
 	threshold_str = getenv("UFTRACE_THRESHOLD");
 	demangle_str = getenv("UFTRACE_DEMANGLE");
 	filter_str = getenv("UFTRACE_FILTER");
+	caller_filter_str = getenv("UFTRACE_CALLER_FILTER");
 	trigger_str = getenv("UFTRACE_TRIGGER");
 	argument_str = getenv("UFTRACE_ARGUMENT");
 	retval_str = getenv("UFTRACE_RETVAL");
@@ -1260,7 +1262,8 @@ static void mcount_startup(void)
 
 	symtabs.dirname = dirname;
 
-	if (filter_str || trigger_str || argument_str || retval_str || patch_str)
+	if (filter_str || caller_filter_str || trigger_str || argument_str ||
+	    retval_str || patch_str)
 		symtabs.flags &= ~SYMTAB_FL_SKIP_NORMAL;
 	if (plthook_str)
 		symtabs.flags &= ~SYMTAB_FL_SKIP_DYNAMIC;
@@ -1280,6 +1283,8 @@ static void mcount_startup(void)
 
 	ftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			    &mcount_filter_mode);
+	ftrace_setup_caller_filter(caller_filter_str, &symtabs,
+				   &mcount_triggers, &mcount_filter_mode);
 	ftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
 	ftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
 	ftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);

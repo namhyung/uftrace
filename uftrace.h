@@ -173,6 +173,7 @@ struct ftrace_file_handle {
 struct opts {
 	char *lib_path;
 	char *filter;
+	char *caller_filter;
 	char *trigger;
 	char *tid;
 	char *exename;
@@ -239,8 +240,8 @@ struct opts {
 
 static inline bool opts_has_filter(struct opts *opts)
 {
-	return opts->filter || opts->trigger || opts->threshold ||
-		opts->depth != OPT_DEPTH_DEFAULT;
+	return opts->filter || opts->caller_filter || opts->trigger ||
+		opts->threshold || opts->depth != OPT_DEPTH_DEFAULT;
 }
 
 void parse_script_opt(struct opts *opts);
