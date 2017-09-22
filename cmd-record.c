@@ -1732,15 +1732,24 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
+		struct ftrace_proc_maps *dlib_map;
 		struct symtabs dlib_symtabs = {
-			.loaded = false,
+			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
+
+		dlib_map = xzalloc(sizeof(*dlib_map) + strlen(dlib->libname) + 1);
+		dlib_map->start = dlib->addr;
+		memcpy(dlib_map->libname, dlib->libname, strlen(dlib->libname) + 1);
+		dlib_symtabs.maps = dlib_map;
 
 		load_symtabs(&dlib_symtabs, opts->dirname, dlib->libname);
 		save_symbol_file(&dlib_symtabs, opts->dirname, dlib->libname,
 				 dlib->addr);
 
 		list_del(&dlib->list);
+
+		unload_symtabs(&dlib_symtabs);
+		free(dlib_map);
 
 		free(dlib->libname);
 		free(dlib);
