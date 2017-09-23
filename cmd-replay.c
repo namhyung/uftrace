@@ -554,6 +554,10 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				n += snprintf(args + n, len, "\"%.*s\"",
 					      slen + newline, str);
 
+			/* std::string can be represented as "TEXT"s from C++14 */
+			if (spec->fmt == ARG_FMT_STD_STRING)
+				args[n++] = 's';
+
 			free(str);
 			size = slen + 2;
 		}
