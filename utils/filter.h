@@ -124,6 +124,9 @@ typedef void (*trigger_fn_t)(struct ftrace_trigger *tr, void *arg);
 
 void ftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 struct rb_root *root, enum filter_mode *mode);
+void ftrace_setup_caller_filter(char *caller_filter_str,
+				struct symtabs *symtabs, struct rb_root *root,
+				enum filter_mode *mode);
 void ftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			  struct rb_root *root);
 void ftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,

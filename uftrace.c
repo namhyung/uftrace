@@ -96,6 +96,7 @@ static struct argp_option uftrace_options[] = {
 	{ "library-path", 'L', "PATH", 0, "Load libraries from this PATH" },
 	{ "filter", 'F', "FUNC", 0, "Only trace those FUNCs" },
 	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
+	{ "caller-filter", 'C', "FUNC", 0, "Only trace callers of those FUNCs" },
 	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
 	{ "debug", 'v', 0, 0, "Print debug messages" },
@@ -369,6 +370,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'N':
 		opts->filter = opt_add_prefix_string(opts->filter, "!", arg);
+		break;
+
+	case 'C':
+		opts->caller_filter = opt_add_string(opts->caller_filter, arg);
+		opts->threshold = ULONG_MAX;
 		break;
 
 	case 'T':
