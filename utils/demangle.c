@@ -1361,7 +1361,7 @@ static int dd_local_name(struct demangle_data *dd)
 	c = dd_curr(dd);
 	if (c == 'd') {
 		__dd_consume(dd, NULL);
-		if (dd_number(dd) < 0)
+		if (dd_curr(dd) != '_' && dd_number(dd) < 0)
 			return -1;
 		__DD_DEBUG_CONSUME(dd, '_');
 		if (dd_name(dd) < 0)
@@ -1671,6 +1671,13 @@ TEST_CASE(demangle_simple5)
 
 	name = demangle_simple("_ZNSi6ignoreEl@@GLIBCXX_3.4.5");
 	TEST_STREQ("std::basic_istream::ignore", name);
+	free(name);
+
+	name = demangle_simple("_ZN4llvm12function_refIFN5clang12ActionResult"
+			       "IPNS1_4ExprELb1EEES4_EE11callback_fnIZNS1_4Sema"
+			       "25CorrectDelayedTyposInExprES4_PNS1_7VarDeclE"
+			       "S7_Ed_NUlS4_E_EEES5_lS4_");
+	TEST_STREQ("llvm::function_ref::callback_fn", name);
 	free(name);
 
 	return TEST_OK;
