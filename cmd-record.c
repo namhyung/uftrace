@@ -27,6 +27,7 @@
 #include "utils/filter.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
+#include "autoargs.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
@@ -66,7 +67,8 @@ static bool can_use_fast_libmcount(struct opts *opts)
 		return false;
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
 	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
-	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT"))
+	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT") ||
+	    getenv("UFTRACE_AUTO_ARGS"))
 		return false;
 	return true;
 }
@@ -152,6 +154,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			free(retval_str);
 		}
 	}
+
+	if (opts->auto_args)
+		setenv("UFTRACE_AUTO_ARGS", "1", 1);
 
 	if (opts->patch) {
 		char *patch_str = uftrace_clear_kernel(opts->patch);
@@ -297,10 +302,10 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->kernel)
 		features |= KERNEL;
 
-	if (opts->args)
+	if (opts->args || opts->auto_args)
 		features |= ARGUMENT;
 
-	if (opts->retval)
+	if (opts->retval || opts->auto_args)
 		features |= RETVAL;
 
 	if (opts->event)
@@ -348,6 +353,18 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
+
+	if (opts->auto_args) {
+		/* add auto-args info to write into info file */
+		pr_dbg2("extending args/retval using builtin auto-arg list\n");
+
+		char *orig_args = opts->args;
+		char *orig_retval = opts->retval;
+		opts->args = make_args_list(auto_args_list, orig_args);
+		opts->retval = make_args_list(auto_retvals_list, orig_retval);
+		free(orig_args);
+		free(orig_retval);
+	}
 
 	fill_uftrace_info(&hdr.info_mask, fd, opts, status,
 			  rusage, elapsed_time);
@@ -948,6 +965,7 @@ static bool check_tid_list(void)
 struct dlopen_list {
 	struct list_head list;
 	char *libname;
+	uint64_t addr;
 };
 
 static LIST_HEAD(dlopen_libs);
@@ -1148,6 +1166,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		dlib = xmalloc(sizeof(*dlib));
 		dlib->libname = exename;
+		dlib->addr = dmsg.base_addr;
 		list_add_tail(&dlib->list, &dlopen_libs);
 
 		write_dlopen_info(dirname, &dmsg, exename);
@@ -1281,32 +1300,27 @@ static void save_session_symbols(struct opts *opts)
 	for (i = 0; i < maps; i++) {
 		struct symtabs symtabs = {
 			.loaded = false,
+			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 		struct ftrace_proc_maps *map, *tmp;
 		char sid[20] = { 0, };
-		LIST_HEAD(modules);
 
 		if (sid[0] == '\0')
 			sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
 		free(map_list[i]);
 
-		pr_dbg("reading symbols for session %s\n", sid);
+		pr_dbg2("reading symbols for session %s\n", sid);
 		read_session_map(opts->dirname, &symtabs, sid);
 
 		/* main executable */
-		pr_dbg("try to load main: %s\n", symtabs.maps->libname);
+		pr_dbg2("try to load main: %s\n", symtabs.maps->libname);
 		load_symtabs(&symtabs, opts->dirname, symtabs.maps->libname);
-		save_symbol_file(&symtabs, opts->dirname, symtabs.filename);
-
-		ftrace_setup_filter_module(opts->filter, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->trigger, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->args, &modules, symtabs.filename);
-		ftrace_setup_filter_module(opts->retval, &modules, symtabs.filename);
+		save_symbol_file(&symtabs, opts->dirname, symtabs.filename,
+			symtabs.maps->start);
 
 		/* shared libraries */
-		pr_dbg("try to load modules\n");
-		load_module_symtabs(&symtabs, &modules, opts->nest_libcall);
-		save_module_symtabs(&symtabs, &modules, opts->nest_libcall);
+		load_module_symtabs(&symtabs);
+		save_module_symtabs(&symtabs);
 
 		map = symtabs.maps;
 		while (map) {
@@ -1317,7 +1331,6 @@ static void save_session_symbols(struct opts *opts)
 		}
 		symtabs.maps = NULL;
 
-		ftrace_cleanup_filter_module(&modules);
 		unload_symtabs(&symtabs);
 	}
 	free(map_list);
@@ -1736,14 +1749,24 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
+		struct ftrace_proc_maps *dlib_map;
 		struct symtabs dlib_symtabs = {
-			.loaded = false,
+			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 
+		dlib_map = xzalloc(sizeof(*dlib_map) + strlen(dlib->libname) + 1);
+		dlib_map->start = dlib->addr;
+		memcpy(dlib_map->libname, dlib->libname, strlen(dlib->libname) + 1);
+		dlib_symtabs.maps = dlib_map;
+
 		load_symtabs(&dlib_symtabs, opts->dirname, dlib->libname);
-		save_symbol_file(&dlib_symtabs, opts->dirname, dlib->libname);
+		save_symbol_file(&dlib_symtabs, opts->dirname, dlib->libname,
+				 dlib->addr);
 
 		list_del(&dlib->list);
+
+		unload_symtabs(&dlib_symtabs);
+		free(dlib_map);
 
 		free(dlib->libname);
 		free(dlib);

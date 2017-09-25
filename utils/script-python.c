@@ -260,7 +260,7 @@ static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx
 static void setup_argument_context(PyObject **pDict, bool is_retval,
 				   struct script_context *sc_ctx)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	void *data = sc_ctx->argbuf;
 	PyObject *args;
 	union {

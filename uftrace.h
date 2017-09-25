@@ -234,6 +234,7 @@ struct opts {
 	bool event_skip_out;
 	bool nest_libcall;
 	bool record;
+	bool auto_args;
 	struct uftrace_time_range range;
 };
 

@@ -618,6 +618,27 @@ char *absolute_dirname(const char *path, char *resolved_path)
 	return resolved_path;
 }
 
+/**
+ * make_args_list - make a concatenated string if args_env is not NULL
+ *
+ * @auto_args_list: given original args_list
+ * @args_env: args info given by user in environmental variable
+ *            this can be NULL if environmental variable is not set.
+ *
+ * This returns a concatenated string that has to be free(3)-ed after using.
+ */
+char *make_args_list(const char *auto_args_list, const char *args_env)
+{
+	char *dst_args;
+
+	if (args_env)
+		xasprintf(&dst_args, "%s;%s", auto_args_list, args_env);
+	else
+		dst_args = xstrdup(auto_args_list);
+
+	return dst_args;
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(parse_cmdline)
 {

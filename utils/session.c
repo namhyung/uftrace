@@ -147,6 +147,8 @@ void create_session(struct uftrace_session_link *sessions,
 	load_symtabs(&s->symtabs, dirname, s->exename);
 	set_kernel_base(&s->symtabs, s->sid);
 
+	load_module_symtabs(&s->symtabs);
+
 	if (sessions->first == NULL)
 		sessions->first = s;
 
@@ -617,6 +619,7 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 #ifdef UNIT_TEST
 
 static struct uftrace_session_link test_sessions;
+static const char session_map[] = "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n";
 
 TEST_CASE(session_search)
 {
@@ -635,8 +638,11 @@ TEST_CASE(session_search)
 			.sid = "test",
 			.namelen = 8,  /* = strlen("unittest") */
 		};
+		int fd;
 
-		close(creat("sid-test.map", 0400));
+		fd = creat("sid-test.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &msg, ".", "unittest", false);
 		remove("sid-test.map");
 	}
@@ -668,6 +674,7 @@ TEST_CASE(task_search)
 {
 	struct uftrace_task *task;
 	struct uftrace_session *sess;
+	int fd;
 
 	/* 1. create initial task */
 	{
@@ -686,7 +693,9 @@ TEST_CASE(task_search)
 			.time = 100,
 		};
 
-		close(creat("sid-initial.map", 0400));
+		fd = creat("sid-initial.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-initial.map");
@@ -788,7 +797,9 @@ TEST_CASE(task_search)
 			.time = 500,
 		};
 
-		close(creat("sid-after_exec.map", 0400));
+		fd = creat("sid-after_exec.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-after_exec.map");
@@ -947,7 +958,9 @@ TEST_CASE(task_symbol_dlopen)
 	FILE *fp;
 	struct uftrace_dlopen_list *udl;
 
-	close(creat("sid-test.map", 0400));
+	fp = fopen("sid-test.map", "w");
+	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fclose(fp);
 
 	fp = fopen("libuftrace-test.so.0.sym", "w");
 	fprintf(fp, "0100 P __tls_get_addr\n");

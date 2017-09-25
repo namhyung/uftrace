@@ -95,6 +95,7 @@ UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
 UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h))
 UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
+UFTRACE_HDRS += $(srcdir)/autoargs.h
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
 LIBMCOUNT_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(LIBMCOUNT_SRCS))
@@ -192,6 +193,9 @@ $(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c 
 
 $(objdir)/version.h: PHONY
 	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT)
+
+$(objdir)/autoargs.h: $(srcdir)/misc/gen-autoargs.py $(srcdir)/misc/prototypes.h
+	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $(srcdir)/misc/prototypes.h
 
 $(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/libtraceevent.a
 	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(UFTRACE_LDFLAGS)

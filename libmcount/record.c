@@ -18,6 +18,8 @@
 
 #define SHMEM_SESSION_FMT  "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
+#define ARGS_STR_LIMIT	48
+
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 							 int tid, int idx)
 {
@@ -231,7 +233,7 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
 	bool is_retval = !!ctx->retval;
@@ -276,7 +278,14 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				len = 0;
 				for (i = 0; i < max_size - total_size; i++) {
 					dst[i] = str[i];
-					if (!str[i])
+					/* maximum length is 48 characters */
+					if (i > ARGS_STR_LIMIT) {
+						dst[i-3] = '.';
+						dst[i-2] = '.';
+						dst[i-1] = '.';
+						dst[i] = '\0';
+					}
+					if (!dst[i])
 						break;
 					len++;
 				}
@@ -678,6 +687,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	FILE *ifp, *ofp;
 	char buf[4096];
 	struct ftrace_proc_maps *prev_map = NULL;
+	char *last_libname = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -705,6 +715,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		if (prot[2] != 'x')
 			goto next;
 
+		/* use first mapping only */
+		if (last_libname && !strcmp(last_libname, path))
+			continue;
+
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
 
@@ -720,6 +734,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
+		last_libname = map->libname;
 
 		if (prev_map)
 			prev_map->next = map;
