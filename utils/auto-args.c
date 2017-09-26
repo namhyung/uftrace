@@ -11,6 +11,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/auto-args.h"
 
 /* RB-tree maintaining automatic arguments and return value */
 static struct rb_root auto_argspec = RB_ROOT;
@@ -151,8 +152,8 @@ struct uftrace_filter * find_auto_retspec(char *name)
 
 void setup_auto_args(void)
 {
-	build_auto_args(NULL, &auto_argspec, TRIGGER_FL_ARGUMENT);
-	build_auto_args(NULL, &auto_retspec, TRIGGER_FL_RETVAL);
+	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT);
+	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL);
 }
 
 static void release_auto_args(struct rb_root *root)
