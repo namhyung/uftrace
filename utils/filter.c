@@ -16,7 +16,6 @@
 #include "utils/utils.h"
 #include "utils/list.h"
 
-
 static void snprintf_trigger_read(char *buf, size_t len,
 				  enum trigger_read_type type)
 {
@@ -181,8 +180,8 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	}
 }
 
-static void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
-			bool exact_match)
+void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+		 bool exact_match)
 {
 	filter->trigger.flags |= tr->flags;
 
@@ -694,8 +693,8 @@ static const struct trigger_action_parser actions[] = {
 	{ "finish",    parse_finish_action, },
 };
 
-static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				char **module, unsigned long orig_flags)
+int setup_trigger_action(char *str, struct uftrace_trigger *tr,
+			 char **module, unsigned long orig_flags)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');

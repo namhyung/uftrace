@@ -138,4 +138,7 @@ void uftrace_print_filter(struct rb_root *root);
 
 char * uftrace_clear_kernel(char *filter_str);
 
+void setup_auto_args(void);
+void finish_auto_args(void);
+
 #endif /* __FTRACE_FILTER_H__ */
