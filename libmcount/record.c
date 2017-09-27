@@ -677,7 +677,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 {
 	FILE *ifp, *ofp;
 	char buf[4096];
-	struct ftrace_proc_maps *prev_map = NULL;
+	struct uftrace_mmap *prev_map = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -694,7 +694,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		char prot[5];
 		char path[PATH_MAX];
 		size_t namelen;
-		struct ftrace_proc_maps *map;
+		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
 		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",

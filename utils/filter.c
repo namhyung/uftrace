@@ -678,7 +678,7 @@ static int setup_module_and_trigger(char *str, struct symtabs *symtabs,
 		else if (!strcmp(pos, basename(symtabs->filename)))
 			*psymtab = &symtabs->symtab;
 		else {
-			struct ftrace_proc_maps *map;
+			struct uftrace_mmap *map;
 
 			map = find_map_by_name(symtabs, pos);
 			if (map == NULL) {

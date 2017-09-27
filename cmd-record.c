@@ -1282,7 +1282,7 @@ static void save_session_symbols(struct opts *opts)
 		struct symtabs symtabs = {
 			.loaded = false,
 		};
-		struct ftrace_proc_maps *map, *tmp;
+		struct uftrace_mmap *map, *tmp;
 		char sid[20] = { 0, };
 		LIST_HEAD(modules);
 

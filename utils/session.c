@@ -30,7 +30,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	FILE *fp;
 	char buf[PATH_MAX];
 	char *last_libname = NULL;
-	struct ftrace_proc_maps **maps = &symtabs->maps;
+	struct uftrace_mmap **maps = &symtabs->maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
 	fp = fopen(buf, "rb");
@@ -42,7 +42,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		char prot[5];
 		char path[PATH_MAX];
 		size_t namelen;
-		struct ftrace_proc_maps *map;
+		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
 		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
@@ -82,7 +82,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 static void delete_session_map(struct symtabs *symtabs)
 {
-	struct ftrace_proc_maps *map, *tmp;
+	struct uftrace_mmap *map, *tmp;
 
 	map = symtabs->maps;
 	while (map) {
