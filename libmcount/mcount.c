@@ -278,6 +278,8 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	if (check_thread_data(mtdp))
 		goto out;
 
+	mcount_rstack_restore();
+
 	idx = mtdp->idx - 1;
 	/* flush current rstack on crash */
 	rstack = &mtdp->rstack[idx];
@@ -405,7 +407,7 @@ extern void * get_argbuf(struct mcount_thread_data *, struct mcount_ret_stack *)
 /* update filter state from trigger result */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 					     unsigned long child,
-					     struct ftrace_trigger *tr)
+					     struct uftrace_trigger *tr)
 {
 	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 
@@ -471,7 +473,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 /* save current filter state to rstack */
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct mcount_ret_stack *rstack,
-				struct ftrace_trigger *tr,
+				struct uftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
 	if (mtdp->filter.out_count > 0 ||
@@ -679,7 +681,7 @@ skip:
 #else /* DISABLE_MCOUNT_FILTER */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 					     unsigned long child,
-					     struct ftrace_trigger *tr)
+					     struct uftrace_trigger *tr)
 {
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
@@ -689,7 +691,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct mcount_ret_stack *rstack,
-				struct ftrace_trigger *tr,
+				struct uftrace_trigger *tr,
 				struct mcount_regs *regs)
 {
 	mtdp->record_idx++;
@@ -725,7 +727,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr;
+	struct uftrace_trigger tr;
 
 	if (unlikely(mcount_should_stop()))
 		return -1;
@@ -810,7 +812,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
+	struct uftrace_trigger tr = {
 		.flags = 0,
 	};
 
@@ -913,7 +915,7 @@ void xray_entry(unsigned long parent, unsigned long child,
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
+	struct uftrace_trigger tr = {
 		.flags = 0,
 	};
 
@@ -1112,16 +1114,6 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	return 0;
 }
 
-static void (*old_segfault_handler)(int);
-
-static void segfault_handler(int sig)
-{
-	mcount_rstack_restore();
-
-	signal(sig, old_segfault_handler);
-	raise(sig);
-}
-
 void mcount_rstack_restore(void)
 {
 	int idx;
@@ -1221,8 +1213,6 @@ static void mcount_startup(void)
 		}
 	}
 
-	old_segfault_handler = signal(SIGSEGV, segfault_handler);
-
 	if (debug_str) {
 		debug = strtol(debug_str, NULL, 0);
 		build_debug_domain(getenv("UFTRACE_DEBUG_DOMAIN"));
@@ -1271,18 +1261,18 @@ static void mcount_startup(void)
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_setup_filter_module(filter_str, &modules, mcount_exename);
-	ftrace_setup_filter_module(trigger_str, &modules, mcount_exename);
-	ftrace_setup_filter_module(argument_str, &modules, mcount_exename);
-	ftrace_setup_filter_module(retval_str, &modules, mcount_exename);
+	uftrace_setup_filter_module(filter_str, &modules, mcount_exename);
+	uftrace_setup_filter_module(trigger_str, &modules, mcount_exename);
+	uftrace_setup_filter_module(argument_str, &modules, mcount_exename);
+	uftrace_setup_filter_module(retval_str, &modules, mcount_exename);
 
 	load_module_symtabs(&symtabs, &modules, nest_libcall);
 
-	ftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
+	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			    &mcount_filter_mode);
-	ftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
-	ftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
-	ftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
+	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
+	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
+	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
 
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
@@ -1319,7 +1309,7 @@ static void mcount_startup(void)
 			script_str = NULL;
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_cleanup_filter_module(&modules);
+	uftrace_cleanup_filter_module(&modules);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 	compiler_barrier();
@@ -1335,7 +1325,7 @@ static void mcount_cleanup(void)
 	destroy_dynsym_indexes();
 
 #ifndef DISABLE_MCOUNT_FILTER
-	ftrace_cleanup_filter(&mcount_triggers);
+	uftrace_cleanup_filter(&mcount_triggers);
 #endif
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();

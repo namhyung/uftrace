@@ -30,7 +30,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	FILE *fp;
 	char buf[PATH_MAX];
 	char *last_libname = NULL;
-	struct ftrace_proc_maps **maps = &symtabs->maps;
+	struct uftrace_mmap **maps = &symtabs->maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
 	fp = fopen(buf, "rb");
@@ -42,7 +42,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		char prot[5];
 		char path[PATH_MAX];
 		size_t namelen;
-		struct ftrace_proc_maps *map;
+		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
 		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
@@ -82,7 +82,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 static void delete_session_map(struct symtabs *symtabs)
 {
-	struct ftrace_proc_maps *map, *tmp;
+	struct uftrace_mmap *map, *tmp;
 
 	map = symtabs->maps;
 	while (map) {
@@ -617,6 +617,7 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 #ifdef UNIT_TEST
 
 static struct uftrace_session_link test_sessions;
+static const char session_map[] = "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n";
 
 TEST_CASE(session_search)
 {
@@ -635,8 +636,11 @@ TEST_CASE(session_search)
 			.sid = "test",
 			.namelen = 8,  /* = strlen("unittest") */
 		};
+		int fd;
 
-		close(creat("sid-test.map", 0400));
+		fd = creat("sid-test.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &msg, ".", "unittest", false);
 		remove("sid-test.map");
 	}
@@ -668,6 +672,7 @@ TEST_CASE(task_search)
 {
 	struct uftrace_task *task;
 	struct uftrace_session *sess;
+	int fd;
 
 	/* 1. create initial task */
 	{
@@ -686,7 +691,9 @@ TEST_CASE(task_search)
 			.time = 100,
 		};
 
-		close(creat("sid-initial.map", 0400));
+		fd = creat("sid-initial.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-initial.map");
@@ -788,7 +795,9 @@ TEST_CASE(task_search)
 			.time = 500,
 		};
 
-		close(creat("sid-after_exec.map", 0400));
+		fd = creat("sid-after_exec.map", 0400);
+		write(fd, session_map, sizeof(session_map)-1);
+		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
 		remove("sid-after_exec.map");
@@ -947,7 +956,9 @@ TEST_CASE(task_symbol_dlopen)
 	FILE *fp;
 	struct uftrace_dlopen_list *udl;
 
-	close(creat("sid-test.map", 0400));
+	fp = fopen("sid-test.map", "w");
+	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fclose(fp);
 
 	fp = fopen("libuftrace-test.so.0.sym", "w");
 	fprintf(fp, "0100 P __tls_get_addr\n");

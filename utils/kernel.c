@@ -1375,7 +1375,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
 		struct uftrace_session *sess = handle->sessions.first;
 		struct ftrace_task_handle *task;
-		struct ftrace_trigger tr = {};
+		struct uftrace_trigger tr = {};
 		uint64_t real_addr;
 		uint64_t time_filter = handle->time_filter;
 

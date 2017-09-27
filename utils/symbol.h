@@ -41,8 +41,8 @@ struct symtab {
 	bool name_sorted;
 };
 
-struct ftrace_proc_maps {
-	struct ftrace_proc_maps *next;
+struct uftrace_mmap {
+	struct uftrace_mmap *next;
 	uint64_t start;
 	uint64_t end;
 	char prot[4];
@@ -67,7 +67,7 @@ struct symtabs {
 	struct symtab symtab;
 	struct symtab dsymtab;
 	uint64_t kernel_base;
-	struct ftrace_proc_maps *maps;
+	struct uftrace_mmap *maps;
 };
 
 /* only meaningful for 64-bit systems */
@@ -114,8 +114,8 @@ int check_static_binary(const char *filename);
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
 
-struct ftrace_proc_maps *find_map_by_name(struct symtabs *symtabs,
-					  const char *prefix);
+struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
+				      const char *prefix);
 
 int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);

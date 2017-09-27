@@ -8,7 +8,7 @@
 #include "../uftrace.h"
 
 struct sym;
-struct ftrace_trigger;
+struct uftrace_trigger;
 
 enum fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
@@ -133,7 +133,7 @@ int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle);
 
 int fstack_entry(struct ftrace_task_handle *task,
 		 struct uftrace_record *rstack,
-		 struct ftrace_trigger *tr);
+		 struct uftrace_trigger *tr);
 void fstack_exit(struct ftrace_task_handle *task);
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);

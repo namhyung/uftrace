@@ -12,7 +12,7 @@
 #include "utils/filter.h"
 
 int mcount_get_register_arg(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -83,7 +83,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-			  struct ftrace_arg_spec *spec)
+			  struct uftrace_arg_spec *spec)
 {
 	int offset;
 
@@ -111,14 +111,14 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-			 struct ftrace_arg_spec *spec)
+			 struct uftrace_arg_spec *spec)
 {
 	if (mcount_get_register_arg(ctx, spec) < 0)
 		mcount_get_stack_arg(ctx, spec);
 }
 
 void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt != ARG_FMT_FLOAT)

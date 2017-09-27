@@ -848,7 +848,7 @@ elf_error:
 static uint64_t find_map_offset(struct symtabs *symtabs,
 				     const char *filename)
 {
-	struct ftrace_proc_maps *maps = symtabs->maps;
+	struct uftrace_mmap *maps = symtabs->maps;
 
 	while (maps) {
 		if (!strcmp(maps->libname, filename))
@@ -859,10 +859,10 @@ static uint64_t find_map_offset(struct symtabs *symtabs,
 	return 0;
 }
 
-struct ftrace_proc_maps *find_map_by_name(struct symtabs *symtabs,
-					  const char *prefix)
+struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
+				      const char *prefix)
 {
-	struct ftrace_proc_maps *maps = symtabs->maps;
+	struct uftrace_mmap *maps = symtabs->maps;
 	char *mod_name;
 
 	while (maps) {
@@ -955,7 +955,7 @@ void load_module_symtabs(struct symtabs *symtabs, struct list_head *head,
 			 bool load_all_dynsyms)
 {
 	struct filter_module *fm;
-	struct ftrace_proc_maps *maps;
+	struct uftrace_mmap *maps;
 
 	assert(symtabs->maps);
 
@@ -1402,7 +1402,7 @@ void save_module_symtabs(struct symtabs *symtabs, struct list_head *modules,
 {
 	char *symfile = NULL;
 	struct filter_module *fm;
-	struct ftrace_proc_maps *map;
+	struct uftrace_mmap *map;
 
 	list_for_each_entry(fm, modules, list) {
 		map = find_map_by_name(symtabs, fm->name);
@@ -1562,7 +1562,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct ftrace_proc_maps *maps;
+	struct uftrace_mmap *maps;
 	struct sym *sym;
 
 	if (is_kernel_address(symtabs, addr)) {

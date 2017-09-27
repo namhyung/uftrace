@@ -231,7 +231,7 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
-	struct ftrace_arg_spec *spec;
+	struct uftrace_arg_spec *spec;
 	unsigned size, total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
 	bool is_retval = !!ctx->retval;
@@ -677,7 +677,8 @@ void record_proc_maps(char *dirname, const char *sess_id,
 {
 	FILE *ifp, *ofp;
 	char buf[4096];
-	struct ftrace_proc_maps *prev_map = NULL;
+	struct uftrace_mmap *prev_map = NULL;
+	char *last_libname = NULL;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -694,7 +695,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		char prot[5];
 		char path[PATH_MAX];
 		size_t namelen;
-		struct ftrace_proc_maps *map;
+		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
 		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
@@ -704,6 +705,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		/* skip non-executable mappings */
 		if (prot[2] != 'x')
 			goto next;
+
+		/* use first mapping only */
+		if (last_libname && !strcmp(last_libname, path))
+			continue;
 
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
@@ -720,6 +725,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
+		last_libname = map->libname;
 
 		if (prev_map)
 			prev_map->next = map;

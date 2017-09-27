@@ -705,7 +705,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	unsigned long child_ip;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	struct ftrace_trigger tr = {
+	struct uftrace_trigger tr = {
 		.flags = 0,
 	};
 	bool skip = false;
