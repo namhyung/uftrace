@@ -306,21 +306,40 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	char *argspec = arg;
 
-	uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
+	if (argspec)
+		uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
+
+	return 0;
+}
+
+static int build_ret_spec(struct uftrace_session *s, void *arg)
+{
+	char *retspec = arg;
+
+	if (retspec)
+		uftrace_setup_retval(retspec, &s->symtabs, &s->filters);
+
 	return 0;
 }
 
 /**
- * setup_fstack_args - setup argument spec
- * @argspec: spec string describes function arguments and return values
+ * setup_fstack_args - setup argument and return value spec
+ * @argspec: spec string describes function arguments
+ * @retspec: spec string describes function return values
  * @handle: handle for uftrace data
  *
- * This functions sets up argument information provided by user at the
- * time of recording.
+ * This functions sets up argument and return value information
+ * provided by user at the time of recording.
  */
-void setup_fstack_args(char *argspec, struct ftrace_file_handle *handle)
+void setup_fstack_args(char *argspec, char *retspec,
+		       struct ftrace_file_handle *handle)
 {
 	walk_sessions(&handle->sessions, build_arg_spec, argspec);
+	walk_sessions(&handle->sessions, build_ret_spec, retspec);
+
+	/* old data does not have separated retspec */
+	if (argspec && strstr(argspec, "retval"))
+		walk_sessions(&handle->sessions, build_ret_spec, argspec);
 }
 
 /**
