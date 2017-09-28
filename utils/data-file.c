@@ -430,7 +430,7 @@ ok:
 		pr_err("unsupported file version: %u", handle->hdr.version);
 
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
-		pr_err("cannot read ftrace header info!");
+		pr_err("cannot read uftrace header info!");
 
 	fclose(fp);
 

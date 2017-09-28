@@ -97,6 +97,7 @@ struct uftrace_info {
 	char *hostname;
 	char *distro;
 	char *argspec;
+	char *retspec;
 	int nr_tid;
 	int *tids;
 	double stime;
