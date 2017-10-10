@@ -185,8 +185,15 @@ char * uftrace_clear_kernel(char *filter_str);
 void setup_auto_args(void);
 void setup_auto_args_str(char *args, char *rets, char *enums);
 void finish_auto_args(void);
-struct uftrace_filter * find_auto_argspec(char *name);
-struct uftrace_filter * find_auto_retspec(char *name);
+
+struct debug_info;
+
+struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo);
+struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);

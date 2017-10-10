@@ -1,7 +1,11 @@
 #ifndef UFTRACE_DWARF_H
 #define UFTRACE_DWARF_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #include "utils/filter.h"
+#include "utils/rbtree.h"
 
 struct symtabs;
 
@@ -12,6 +16,8 @@ struct symtabs;
 struct debug_info {
 	Dwarf		*dw;
 	unsigned long	offset;
+	struct rb_root	args;
+	struct rb_root	rets;
 };
 
 extern void prepare_debug_info(struct symtabs *symtabs,
@@ -22,7 +28,8 @@ extern void finish_debug_info(struct symtabs *symtabs);
 #else /* !HAVE_LIBDW */
 
 struct debug_info {
-	/* nothing */
+	struct rb_root	args;
+	struct rb_root	rets;
 };
 
 static inline void prepare_debug_info(struct symtabs *symtabs,
@@ -31,5 +38,11 @@ static inline void prepare_debug_info(struct symtabs *symtabs,
 static inline void finish_debug_info(struct symtabs *symtabs) {}
 
 #endif /* HAVE_LIBDW */
+
+extern bool debug_info_available(struct debug_info *dinfo);
+extern char * get_dwarf_argspec(struct debug_info *dinfo, char *name,
+				unsigned long addr);
+extern char * get_dwarf_retspec(struct debug_info *dinfo, char *name,
+				unsigned long addr);
 
 #endif /* UFTRACE_DWARF_H */

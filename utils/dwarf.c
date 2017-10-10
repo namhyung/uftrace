@@ -17,6 +17,110 @@
 #include "utils/dwarf.h"
 #include "utils/symbol.h"
 
+bool debug_info_available(struct debug_info *dinfo)
+{
+	if (dinfo == NULL)
+		return false;
+
+	/* dinfo has some debug entries? */
+	return !RB_EMPTY_ROOT(&dinfo->args) || !RB_EMPTY_ROOT(&dinfo->rets);
+}
+
+struct debug_entry {
+	struct rb_node	node;
+	uint64_t	offset;
+	char		*name;
+	char		*spec;
+};
+
+static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
+			   char *argspec)
+{
+	struct debug_entry *entry, *iter;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	entry = xmalloc(sizeof(*entry));
+	entry->name = xstrdup(func);
+
+	entry->spec = xstrdup(argspec);
+	entry->offset = offset;
+
+	pr_dbg3("debug entry: %x %s%s\n", entry->offset, entry->name, entry->spec);
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct debug_entry, node);
+
+		if (iter->offset > entry->offset)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&entry->node, parent, p);
+	rb_insert_color(&entry->node, root);
+
+	return 0;
+}
+
+static struct debug_entry * find_debug_entry(struct rb_root *root, uint64_t offset)
+{
+	struct debug_entry *iter;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	int ret;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct debug_entry, node);
+
+		ret = iter->offset - offset;
+		if (ret == 0) {
+			pr_dbg3("found debug entry at %x (%s%s)\n",
+				offset, iter->name, iter->spec);
+			return iter;
+		}
+
+		if (ret > 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	return NULL;
+}
+
+static void free_debug_entry(struct rb_root *root)
+{
+	struct debug_entry *entry;
+	struct rb_node *node;
+
+	while (!RB_EMPTY_ROOT(root)) {
+		node = rb_first(root);
+		entry = rb_entry(node, typeof(*entry), node);
+
+		rb_erase(node, root);
+		free(entry->name);
+		free(entry->spec);
+		free(entry);
+	}
+}
+
+char * get_dwarf_argspec(struct debug_info *dinfo, char *name, unsigned long addr)
+{
+	struct debug_entry *entry = find_debug_entry(&dinfo->args,
+						     addr - dinfo->offset);
+	return entry ? entry->spec : NULL;
+}
+
+char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long addr)
+{
+	struct debug_entry *entry = find_debug_entry(&dinfo->rets,
+						     addr - dinfo->offset);
+	return entry ? entry->spec : NULL;
+}
+
 /* setup debug info from filename, return 0 for success */
 static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset)
@@ -61,6 +165,9 @@ static void release_debug_info(struct debug_info *dinfo)
 
 	dwarf_end(dinfo->dw);
 	dinfo->dw = NULL;
+
+	free_debug_entry(&dinfo->args);
+	free_debug_entry(&dinfo->rets);
 }
 
 struct arg_data {
@@ -186,8 +293,10 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		if (!match_filter_pattern(&bd->args[i], name))
 			continue;
 
-		get_argspec(die, &ad);
-		/* TODO: do something */
+		if (get_argspec(die, &ad)) {
+			add_debug_entry(&bd->dinfo->args, name, offset,
+					ad.argspec);
+		}
 
 		free(ad.argspec);
 		ad.argspec = NULL;
@@ -199,8 +308,10 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		if (!match_filter_pattern(&bd->rets[i], name))
 			continue;
 
-		get_retspec(die, &ad);
-		/* TODO: do something */
+		if (get_retspec(die, &ad)) {
+			add_debug_entry(&bd->dinfo->rets, name, offset,
+					ad.argspec);
+		}
 
 		free(ad.argspec);
 		ad.argspec = NULL;
