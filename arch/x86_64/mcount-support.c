@@ -188,17 +188,17 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 		"__cxa_finalize",  /* XXX: it caused segfault */
 		"__gmon_start__",  /* XXX: it makes process stuck */
 	};
+	size_t shstr_idx;
 
 	dsymtab = &pd->dsymtab;
 
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		return -1;
+
 	sec = NULL;
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		size_t shstr_idx;
 		GElf_Shdr shdr;
 		char *shname;
-
-		if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-			return -1;
 
 		if (gelf_getshdr(sec, &shdr) == NULL)
 			return -1;
@@ -216,23 +216,7 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 	}
 
 	if (has_rela_plt) {
-		/*
-		 * it seems old linker keeps PLT for BIND_NOW.
-		 * assume that PLTGOT sets properly with offset of 3
-		 */
-		for (idx = 0; idx < dsymtab->nr_sym; idx++) {
-			struct sym *sym = &dsymtab->sym[idx];
-
-			for (i = 0; i < ARRAY_SIZE(skip_syms); i++) {
-				if (!strcmp(sym->name, skip_syms[i]))
-					break;
-			}
-			if (i != ARRAY_SIZE(skip_syms))
-				continue;
-
-			setup_pltgot(pd, idx + 3, idx,
-				     (void *)(sym->addr + JMP_INSN_SIZE));
-		}
+		/* it's already handled by restore_plt_functions() in find_got() */
 		return 0;
 	}
 

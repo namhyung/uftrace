@@ -242,7 +242,9 @@ static int find_got(Elf *elf, const char *modname,
 	list_add_tail(&pd->list, &plthook_modules);
 
 	if (plt_found) {
-		plthook_resolver_addr = pd->pltgot_ptr[2];
+		if (plthook_resolver_addr == 0)
+			plthook_resolver_addr = pd->pltgot_ptr[2];
+
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			pd->pltgot_ptr, plthook_resolver_addr);
 
