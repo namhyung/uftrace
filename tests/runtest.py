@@ -409,7 +409,7 @@ def run_single_case(case, flags, opts, diff, dbg):
     result = []
 
     # for python3
-    _locals = locals()
+    _locals = {}
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
     tc.set_debug(dbg)
