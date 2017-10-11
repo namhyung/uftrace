@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -12,6 +13,7 @@
 #include "utils/utils.h"
 #include "utils/dwarf.h"
 #include "utils/symbol.h"
+#include "utils/filter.h"
 
 bool debug_info_available(struct debug_info *dinfo)
 {
@@ -166,12 +168,169 @@ static void release_dwarf_info(struct debug_info *dinfo)
 	dinfo->dw = NULL;
 }
 
+struct type_data {
+	enum uftrace_arg_format		fmt;
+	int				size;
+	int				pointer;
+};
+
+static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
+{
+	Dwarf_Die ref;
+	Dwarf_Attribute type;
+	unsigned aform;
+	const char *tname;
+
+	/*
+	 * type refers to another type in a chain like:
+	 *   (pointer) -> (const) -> (char)
+	 */
+	while (dwarf_hasattr(die, DW_AT_type)) {
+		dwarf_attr(die, DW_AT_type, &type);
+		aform = dwarf_whatform(&type);
+
+		switch (aform) {
+		case DW_FORM_ref1:
+		case DW_FORM_ref2:
+		case DW_FORM_ref4:
+		case DW_FORM_ref8:
+		case DW_FORM_ref_udata:
+		case DW_FORM_ref_addr:
+		case DW_FORM_ref_sig8:
+		case DW_FORM_GNU_ref_alt:
+			dwarf_formref_die(&type, &ref);
+			die = &ref;
+			break;
+		default:
+			pr_dbg2("unhandled type form: %u\n", aform);
+			return false;
+		}
+
+		switch (dwarf_tag(die)) {
+		case DW_TAG_pointer_type:
+		case DW_TAG_ptr_to_member_type:
+		case DW_TAG_reference_type:
+		case DW_TAG_rvalue_reference_type:
+			td->pointer++;
+			pr_dbg3("type: pointer/reference\n");
+			break;
+		case DW_TAG_array_type:
+			pr_dbg3("type: array\n");
+			break;
+		case DW_TAG_const_type:
+			pr_dbg3("type: const\n");
+			break;
+		case DW_TAG_subroutine_type:
+			if (td->pointer == 1) {
+				td->fmt = ARG_FMT_FUNC_PTR;
+				pr_dbg3("type: function pointer\n");
+				/* prevent to look up (return) type more */
+				return true;
+			}
+			break;
+		default:
+			pr_dbg3("type: %s (tag %d)\n",
+				dwarf_diename(die), dwarf_tag(die));
+			break;
+		}
+	}
+
+	if (dwarf_tag(die) != DW_TAG_base_type)
+		return false;
+
+	tname = dwarf_diename(die);
+
+	if (td->pointer) {
+		/* treat 'char *' as string */
+		if (td->pointer == 1 &&
+		    (!strcmp(tname, "char") ||
+		     !strcmp(tname, "signed char"))) {
+			td->fmt = ARG_FMT_STR;
+			return true;
+		}
+		return false;
+	}
+
+	if (!strcmp(tname, "char") ||
+	    !strcmp(tname, "signed char")) {
+		td->fmt = ARG_FMT_CHAR;
+	}
+	else if (!strcmp(tname, "short")) {
+		td->size = 16;
+	}
+	else if (!strcmp(tname, "int")) {
+		td->size = 32;
+	}
+	else if (!strcmp(tname, "float")) {
+		td->fmt = ARG_FMT_FLOAT;
+		td->size = 32;
+	}
+	else if (!strcmp(tname, "double")) {
+		td->fmt = ARG_FMT_FLOAT;
+		td->size = 64;
+	}
+	return true;
+}
+
 struct arg_data {
 	const char	*name;
 	unsigned long	addr;
 	char		*argspec;
 	int		idx;
+	int		fpidx;
 };
+
+static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
+			  struct arg_data *ad)
+{
+	struct type_data data = {
+		.fmt = ARG_FMT_AUTO,
+	};
+	Dwarf_Die origin;
+
+	if (!dwarf_hasattr(die, DW_AT_type)) {
+		Dwarf_Attribute attr;
+
+		if (!dwarf_hasattr(die, DW_AT_abstract_origin))
+			return;
+
+		dwarf_attr(die, DW_AT_abstract_origin, &attr);
+		dwarf_formref_die(&attr, &origin);
+		die = &origin;
+	}
+
+	if (!resolve_type_info(die, &data))
+		return;
+
+	switch (data.fmt) {
+	case ARG_FMT_CHAR:
+		strcat(spec, "/c");
+		break;
+	case ARG_FMT_STR:
+		strcat(spec, "/s");
+		break;
+	case ARG_FMT_FLOAT:
+		if (ad->idx) {  /* for arguments */
+			snprintf(spec, len, "fparg%d/%d",
+				 ++ad->fpidx, data.size);
+			/* do not increase index of integer arguments */
+			--ad->idx;
+		}
+		else {  /* for return values */
+			char sz[4];
+
+			snprintf(sz, sizeof(sz), "%d", data.size);
+			strcat(spec, "/f");
+			strcat(spec, sz);
+		}
+		break;
+	case ARG_FMT_FUNC_PTR:
+		strcat(spec, "/p");
+		break;
+	default:
+		break;
+	}
+}
 
 static int get_argspec(Dwarf_Die *die, void *data)
 {
@@ -195,6 +354,7 @@ static int get_argspec(Dwarf_Die *die, void *data)
 			continue;
 
 		snprintf(buf, sizeof(buf), "arg%d", ++ad->idx);
+		add_type_info(buf, sizeof(buf), &arg, ad);
 
 		if (ad->argspec == NULL)
 			xasprintf(&ad->argspec, "@%s", buf);
@@ -232,6 +392,7 @@ static int get_retspec(Dwarf_Die *die, void *data)
 	}
 
 	snprintf(buf, sizeof(buf), "@retval");
+	add_type_info(buf, sizeof(buf), die, ad);
 	ad->argspec = xstrdup(buf);
 
 	return 1;
