@@ -834,7 +834,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
 			.loaded = false,
-			.flags = SYMTAB_FL_DEMANGLE,
+			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
 		};
 
 		if (!opts->exename) {
