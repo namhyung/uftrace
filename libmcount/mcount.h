@@ -41,6 +41,8 @@ enum mcount_rstack_flag {
 	MCOUNT_FL_RETVAL	= (1U << 9),
 	MCOUNT_FL_TRACE		= (1U << 10),
 	MCOUNT_FL_ARGUMENT	= (1U << 11),
+	MCOUNT_FL_READ_IN	= (1U << 12),
+	MCOUNT_FL_READ_OUT	= (1U << 13),
 };
 
 struct mcount_ret_stack {
@@ -57,6 +59,7 @@ struct mcount_ret_stack {
 	unsigned short depth;
 	unsigned short dyn_idx;
 	struct plthook_data *pd;
+	enum trigger_read_type read_out;  /* read_in is not needed */
 	/* set arg_spec at function entry and use it at exit */
 	struct list_head *pargs;
 };
@@ -296,7 +299,8 @@ void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type);
+		       enum trigger_read_type type,
+		       bool is_return_trigger);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
 struct mcount_dynamic_info {

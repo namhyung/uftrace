@@ -383,7 +383,8 @@ static void save_page_fault(void *buf)
 
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type,
+		       bool is_return_trigger)
 {
 	if (type & TRIGGER_READ_PROC_STATM) {
 		struct mcount_event *event;
@@ -392,7 +393,9 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event = &mtdp->event[mtdp->nr_events++];
 
 			event->id    = EVENT_ID_PROC_STATM;
-			event->time  = rstack->start_time;
+			event->time  = is_return_trigger ?
+					rstack->end_time :
+					rstack->start_time;
 			event->dsize = sizeof(struct uftrace_proc_statm);
 			save_proc_statm(event->data);
 		}
@@ -404,7 +407,9 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event = &mtdp->event[mtdp->nr_events++];
 
 			event->id    = EVENT_ID_PAGE_FAULT;
-			event->time  = rstack->start_time;
+			event->time  = is_return_trigger ?
+					rstack->end_time :
+					rstack->start_time;
 			event->dsize = sizeof(struct uftrace_page_fault);
 			save_page_fault(event->data);
 		}
@@ -425,7 +430,8 @@ void save_retval(struct mcount_thread_data *mtdp,
 
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type,
+		       bool is_return_trigger)
 {
 }
 #endif
@@ -488,6 +494,7 @@ static int record_event(struct mcount_thread_data *mtdp)
 	return 0;
 }
 
+/* This will only be invoked at return time for time-filter support. */
 static int record_ret_stack(struct mcount_thread_data *mtdp,
 			    enum uftrace_record_type type,
 			    struct mcount_ret_stack *mrstack)
@@ -505,8 +512,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	if (unlikely(mtdp->nr_events)) {
-		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
+	if (unlikely(mtdp->nr_events) && type == UFTRACE_EXIT) {
+		while (mtdp->nr_events && mtdp->event[0].time == timestamp) {
 			record_event(mtdp);
 
 			memmove(&mtdp->event[0], &mtdp->event[1],
@@ -553,6 +560,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	 * instead of set bitfields, do the bit operations manually.
 	 * this would be good both for performance and portability.
 	 */
+	pr_dbg2("record trace data");
 	rec  = type | RECORD_MAGIC << 3;
 	rec += argbuf ? 4 : 0;
 	rec += mrstack->depth << 6;
@@ -581,6 +589,15 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 			*ptr = *(unsigned int *)(argbuf + sizeof(unsigned) + i);
 
 		curr_buf->size += ALIGN(size, 8);
+	}
+
+	if (unlikely(mtdp->nr_events) && type == UFTRACE_ENTRY) {
+		while (mtdp->nr_events && mtdp->event[0].time == timestamp) {
+			record_event(mtdp);
+
+			memmove(&mtdp->event[0], &mtdp->event[1],
+				sizeof(*mtdp->event) * mtdp->nr_events);
+		}
 	}
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
