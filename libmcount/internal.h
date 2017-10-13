@@ -140,7 +140,7 @@ static inline uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
 }
 
-static inline int gettid(struct mcount_thread_data *mtdp)
+static inline int mcount_gettid(struct mcount_thread_data *mtdp)
 {
 	if (!mtdp->tid)
 		mtdp->tid = syscall(SYS_gettid);

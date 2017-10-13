@@ -46,7 +46,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		.task = {
 			.time = timestamp,
 			.pid = getpid(),
-			.tid = gettid(mtdp),
+			.tid = mcount_gettid(mtdp),
 		},
 		.base_addr = base_addr,
 		.namelen = strlen(libname),

@@ -78,7 +78,7 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		.task = {
 			.time = mcount_gettime(),
 			.pid = getpid(),
-			.tid = gettid(mtdp),
+			.tid = mcount_gettid(mtdp),
 		},
 		.namelen = strlen(mcount_exename),
 	};
@@ -124,7 +124,7 @@ static void mtd_dtor(void *arg)
 	shmem_finish(mtdp);
 
 	tmsg.pid = getpid(),
-	tmsg.tid = gettid(mtdp),
+	tmsg.tid = mcount_gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
 	/* dtor for script support */
@@ -234,7 +234,7 @@ struct mcount_thread_data * mcount_prepare(void)
 
 	/* time should be get after session message sent */
 	tmsg.pid = getpid(),
-	tmsg.tid = gettid(mtdp),
+	tmsg.tid = mcount_gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
 	uftrace_send_message(UFTRACE_MSG_TASK_START, &tmsg, sizeof(tmsg));
@@ -426,7 +426,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			if (!script_match_filter(symname))
 				goto skip;
 
-			sc_ctx.tid       = gettid(mtdp);
+			sc_ctx.tid       = mcount_gettid(mtdp);
 			sc_ctx.depth     = rstack->depth;
 			sc_ctx.timestamp = rstack->start_time;
 			sc_ctx.address   = entry_addr;
@@ -522,7 +522,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			if (!script_match_filter(symname))
 				goto skip;
 
-			sc_ctx.tid       = gettid(mtdp);
+			sc_ctx.tid       = mcount_gettid(mtdp);
 			sc_ctx.depth     = rstack->depth;
 			sc_ctx.timestamp = rstack->start_time;
 			sc_ctx.duration  = rstack->end_time - rstack->start_time;
