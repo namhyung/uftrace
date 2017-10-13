@@ -6,7 +6,6 @@
  * Released under the GPL v2.
  */
 
-#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -15,7 +14,6 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <signal.h>
-#include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <gelf.h>
@@ -27,27 +25,47 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
 
-uint64_t mcount_threshold;  /* nsec */
+/* time filter in nsec */
+uint64_t mcount_threshold;
+
+/* symbol table of main executable */
 struct symtabs symtabs = {
 	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
 };
+
+/* size of shmem buffer to save uftrace_record */
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
+
+/* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 
+/* TSD key to save mtd below */
 pthread_key_t mtd_key = (pthread_key_t)-1;
+
+/* thread local data to trace function execution */
 TLS struct mcount_thread_data mtd;
 
-static int pfd = -1;
+/* pipe file descriptor to communite to uftrace */
+int pfd = -1;
+
+/* maximum depth of mcount rstack */
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
-static char *mcount_exename;
+
+/* name of main executable */
+char *mcount_exename;
+
 /* whether it should update pid filter manually */
-static bool kernel_pid_update;
+bool kernel_pid_update;
+
+/* system page size */
+int page_size_in_kb;
 
 #ifndef DISABLE_MCOUNT_FILTER
 static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
@@ -56,8 +74,6 @@ static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
-
-int page_size_in_kb;
 
 uint64_t mcount_gettime(void)
 {

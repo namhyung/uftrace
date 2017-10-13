@@ -2,8 +2,7 @@
 #include <assert.h>
 #include <gelf.h>
 
-#include "mcount-arch.h"
-#include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
 

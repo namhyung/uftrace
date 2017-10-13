@@ -12,6 +12,7 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/filter.h"

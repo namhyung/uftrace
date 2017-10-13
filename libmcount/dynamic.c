@@ -7,6 +7,7 @@
 #define PR_DOMAIN  DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"

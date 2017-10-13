@@ -7,8 +7,7 @@
 #define PR_FMT     "mcount"
 #define PR_DOMAIN  DBG_MCOUNT
 
-#include "mcount-arch.h"
-#include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "utils/filter.h"
 
 int mcount_get_register_arg(struct mcount_arg_context *ctx,

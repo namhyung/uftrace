@@ -15,6 +15,7 @@
 #include "utils/script.h"
 #include "utils/filter.h"
 #include "utils/list.h"
+#include "utils/utils.h"
 
 
 /* This will be set by getenv("UFTRACE_SCRIPT"). */
