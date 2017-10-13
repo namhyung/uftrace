@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <string.h>
 #include <sys/uio.h>
 
 /* This should be defined before #include "utils.h" */
@@ -144,3 +145,38 @@ void mcount_rstack_reset(struct mcount_thread_data *mtdp)
 			*rstack->parent_loc = (unsigned long)plthook_return;
 	}
 }
+
+#ifdef UNIT_TEST
+
+TEST_CASE(mcount_debug_domain)
+{
+	int i;
+	char dbg_str[DBG_DOMAIN_MAX * 2 + 1];
+
+	/* ensure domain string matches to current domain bit */
+	TEST_EQ(DBG_DOMAIN_MAX, (int)strlen(DBG_DOMAIN_STR));
+
+	for (i = 0; i < DBG_DOMAIN_MAX; i++)
+		TEST_EQ(dbg_domain[i], 0);
+
+	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
+		dbg_str[i * 2]     = DBG_DOMAIN_STR[i];
+		dbg_str[i * 2 + 1] = '1';
+	}
+	dbg_str[i * 2] = '\0';
+
+	build_debug_domain(dbg_str);
+
+	for (i = 0; i < DBG_DOMAIN_MAX; i++)
+		TEST_EQ(dbg_domain[i], 1);
+
+	/* increase mcount debug domain to 2 */
+	strcpy(dbg_str, "M2");
+	build_debug_domain(dbg_str);
+
+	TEST_EQ(dbg_domain[PR_DOMAIN], 2);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
