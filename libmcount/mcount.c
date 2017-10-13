@@ -75,108 +75,6 @@ static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
 static struct rb_root mcount_triggers = RB_ROOT;
 #endif /* DISABLE_MCOUNT_FILTER */
 
-uint64_t mcount_gettime(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
-}
-
-int gettid(struct mcount_thread_data *mtdp)
-{
-	if (!mtdp->tid)
-		mtdp->tid = syscall(SYS_gettid);
-
-	return mtdp->tid;
-}
-
-/* old kernel never updates pid filter for a forked child */
-void update_kernel_tid(int tid)
-{
-	static const char TRACING_DIR[] = "/sys/kernel/debug/tracing";
-	char *filename = NULL;
-	char buf[8];
-	int fd;
-	ssize_t len;
-
-	if (!kernel_pid_update)
-		return;
-
-	/* update pid filter for function tracing */
-	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
-	fd = open(filename, O_WRONLY | O_APPEND);
-	if (fd < 0)
-		return;
-
-	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace tid filter failed\n");
-
-	close(fd);
-
-	free(filename);
-
-	/* update pid filter for event tracing */
-	xasprintf(&filename, "%s/set_event_pid", TRACING_DIR);
-	fd = open(filename, O_WRONLY | O_APPEND);
-	if (fd < 0)
-		return;
-
-	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace tid filter failed\n");
-
-	close(fd);
-
-	free(filename);
-}
-
-const char *session_name(void)
-{
-	static char session[SESSION_ID_LEN + 1];
-	static uint64_t session_id;
-	int fd;
-
-	if (!session_id) {
-		fd = open("/dev/urandom", O_RDONLY);
-		if (fd < 0)
-			pr_err("cannot open urandom file");
-
-		if (read(fd, &session_id, sizeof(session_id)) != 8)
-			pr_err("reading from urandom");
-
-		close(fd);
-
-		snprintf(session, sizeof(session), "%0*"PRIx64,
-			 SESSION_ID_LEN, session_id);
-	}
-	return session;
-}
-
-void uftrace_send_message(int type, void *data, size_t len)
-{
-	struct uftrace_msg msg = {
-		.magic = UFTRACE_MSG_MAGIC,
-		.type = type,
-		.len = len,
-	};
-	struct iovec iov[2] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = data, .iov_len = len, },
-	};
-
-	if (pfd < 0)
-		return;
-
-	len += sizeof(msg);
-	if (writev(pfd, iov, 2) != (ssize_t)len) {
-		if (!mcount_should_stop())
-			pr_err("writing shmem name to pipe");
-	}
-}
-
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
 	struct uftrace_msg_sess sess = {
@@ -1079,29 +977,6 @@ static void atfork_child_handler(void)
 	update_kernel_tid(tmsg.tid);
 
 	mtdp->recursion_guard = false;
-}
-
-static void build_debug_domain(char *dbg_domain_str)
-{
-	int i, len;
-
-	if (dbg_domain_str == NULL)
-		return;
-
-	len = strlen(dbg_domain_str);
-	for (i = 0; i < len; i += 2) {
-		const char *pos;
-		char domain = dbg_domain_str[i];
-		int level = dbg_domain_str[i+1] - '0';
-		int d;
-
-		pos = strchr(DBG_DOMAIN_STR, domain);
-		if (pos == NULL)
-			continue;
-
-		d = pos - DBG_DOMAIN_STR;
-		dbg_domain[d] = level;
-	}
 }
 
 struct dlopen_base_data {

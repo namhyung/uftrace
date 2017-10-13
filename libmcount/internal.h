@@ -13,6 +13,10 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 
 #include "uftrace.h"
 #include "mcount-arch.h"
@@ -129,12 +133,32 @@ static inline bool mcount_should_stop(void)
 	return mcount_global_flags != 0UL;
 }
 
+static inline uint64_t mcount_gettime(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
+}
+
+static inline int gettid(struct mcount_thread_data *mtdp)
+{
+	if (!mtdp->tid)
+		mtdp->tid = syscall(SYS_gettid);
+
+	return mtdp->tid;
+}
+
 extern void mcount_return(void);
+extern unsigned long plthook_return(void);
+
 extern struct mcount_thread_data * mcount_prepare(void);
-extern uint64_t mcount_gettime(void);
+
 extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
+
+extern void update_kernel_tid(int tid);
+extern const char *session_name(void);
 extern void uftrace_send_message(int type, void *data, size_t len);
-extern int gettid(struct mcount_thread_data *mtdp);
+extern void build_debug_domain(char *dbg_domain_str);
 
 extern void mcount_rstack_restore(void);
 extern void mcount_rstack_reset(void);
@@ -176,7 +200,6 @@ unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
 			   void *data);
 extern void mcount_setup_plthook(char *exename, bool nest_libcall);
 
-extern unsigned long plthook_return(void);
 extern void setup_dynsym_indexes(struct plthook_data *pd);
 extern void destroy_dynsym_indexes(void);
 
@@ -251,8 +274,6 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs);
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
-
-void update_kernel_tid(int tid);
 
 struct mcount_event_info {
 	char *module;
