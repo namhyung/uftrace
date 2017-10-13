@@ -295,7 +295,7 @@ static void mcount_finish(void)
 	}
 }
 
-bool mcount_check_rstack(struct mcount_thread_data *mtdp)
+static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 {
 	if (mtdp->idx >= mcount_rstack_max) {
 		static bool warned = false;

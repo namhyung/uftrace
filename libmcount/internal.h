@@ -159,8 +159,6 @@ extern unsigned long plthook_return(void);
 
 extern struct mcount_thread_data * mcount_prepare(void);
 
-extern bool mcount_check_rstack(struct mcount_thread_data *mtdp);
-
 extern void update_kernel_tid(int tid);
 extern const char *mcount_session_name(void);
 extern void uftrace_send_message(int type, void *data, size_t len);
