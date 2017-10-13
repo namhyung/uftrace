@@ -166,8 +166,8 @@ extern const char *mcount_session_name(void);
 extern void uftrace_send_message(int type, void *data, size_t len);
 extern void build_debug_domain(char *dbg_domain_str);
 
-extern void mcount_rstack_restore(void);
-extern void mcount_rstack_reset(void);
+extern void mcount_rstack_restore(struct mcount_thread_data *mtdp);
+extern void mcount_rstack_reset(struct mcount_thread_data *mtdp);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void get_new_shmem_buffer(struct mcount_thread_data *mtdp);

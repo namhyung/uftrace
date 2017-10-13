@@ -93,13 +93,19 @@ void mcount_hook_functions(void)
 __visible_default int backtrace(void **buffer, int sz)
 {
 	int ret;
+	struct mcount_thread_data *mtdp;
 
 	if (real_backtrace == NULL)
 		return 0;
 
-	mcount_rstack_restore();
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp))
+		mcount_rstack_restore(mtdp);
+
 	ret = real_backtrace(buffer, sz);
-	mcount_rstack_reset();
+
+	if (!check_thread_data(mtdp))
+		mcount_rstack_reset(mtdp);
 
 	return ret;
 }
@@ -108,16 +114,17 @@ __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 {
 	struct mcount_thread_data *mtdp;
 
-	/*
-	 * restore return addresses so that it can unwind stack frames
-	 * safely during the exception handling.
-	 * It pairs to __cxa_end_catch().
-	 */
-	mcount_rstack_restore();
-
 	mtdp = get_thread_data();
-	if (!check_thread_data(mtdp))
+	if (!check_thread_data(mtdp)) {
 		pr_dbg("exception thrown from [%d]\n", mtdp->idx);
+
+		/*
+		 * restore return addresses so that it can unwind stack
+		 * frames safely during the exception handling.
+		 * It pairs to __cxa_end_catch().
+		 */
+		mcount_rstack_restore(mtdp);
+	}
 
 	real_cxa_throw(exception, type, dest);
 }
@@ -164,7 +171,7 @@ __visible_default void __cxa_end_catch(void)
 		mtdp->idx = idx + 1;
 		pr_dbg("[%d] exception returned\n", mtdp->idx);
 
-		mcount_rstack_reset();
+		mcount_rstack_reset(mtdp);
 	}
 }
 

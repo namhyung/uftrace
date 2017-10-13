@@ -191,7 +191,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	if (check_thread_data(mtdp))
 		goto out;
 
-	mcount_rstack_restore();
+	mcount_rstack_restore(mtdp);
 
 	idx = mtdp->idx - 1;
 	/* flush current rstack on crash */
@@ -491,7 +491,7 @@ skip:
 
 		if (tr->flags & FLAGS_TO_CHECK) {
 			if (tr->flags & TRIGGER_FL_RECOVER) {
-				mcount_rstack_restore();
+				mcount_rstack_restore(mtdp);
 				*rstack->parent_loc = (unsigned long) mcount_return;
 				rstack->flags |= MCOUNT_FL_RECOVER;
 			}
@@ -522,7 +522,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			mtdp->filter.out_count--;
 
 		if (rstack->flags & MCOUNT_FL_RECOVER)
-			mcount_rstack_reset();
+			mcount_rstack_reset(mtdp);
 	}
 
 #undef FLAGS_TO_CHECK
@@ -974,40 +974,6 @@ static void atfork_child_handler(void)
 	mtdp->recursion_guard = false;
 }
 
-void mcount_rstack_restore(void)
-{
-	int idx;
-	struct mcount_thread_data *mtdp;
-
-	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp)))
-		return;
-
-	/* restore return addresses - reverse order due to tail calls */
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
-}
-
-void mcount_rstack_reset(void)
-{
-	int idx;
-	struct mcount_thread_data *mtdp;
-	struct mcount_ret_stack *rstack;
-
-	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp)))
-		return;
-
-	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
-		rstack = &mtdp->rstack[idx];
-
-		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
-			*rstack->parent_loc = (unsigned long)mcount_return;
-		else
-			*rstack->parent_loc = (unsigned long)plthook_return;
-	}
-}
-
 static void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1169,12 +1135,24 @@ void __visible_default _mcleanup(void)
 
 void __visible_default mcount_restore(void)
 {
-	mcount_rstack_restore();
+	struct mcount_thread_data *mtdp;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return;
+
+	mcount_rstack_restore(mtdp);
 }
 
 void __visible_default mcount_reset(void)
 {
-	mcount_rstack_reset();
+	struct mcount_thread_data *mtdp;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return;
+
+	mcount_rstack_reset(mtdp);
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)

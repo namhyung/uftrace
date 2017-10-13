@@ -811,7 +811,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		}
 		else if (special_flag & PLT_FL_EXCEPT) {
 			/* exception handling requires stack unwind */
-			mcount_rstack_restore();
+			mcount_rstack_restore(mtdp);
 		}
 	}
 

@@ -118,3 +118,29 @@ void build_debug_domain(char *dbg_domain_str)
 		dbg_domain[d] = level;
 	}
 }
+
+/* restore saved original return address */
+void mcount_rstack_restore(struct mcount_thread_data *mtdp)
+{
+	int idx;
+
+	/* reverse order due to tail calls */
+	for (idx = mtdp->idx - 1; idx >= 0; idx--)
+		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
+}
+
+/* hook return address again (used after mcount_rstack_restore) */
+void mcount_rstack_reset(struct mcount_thread_data *mtdp)
+{
+	int idx;
+	struct mcount_ret_stack *rstack;
+
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		rstack = &mtdp->rstack[idx];
+
+		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
+			*rstack->parent_loc = (unsigned long)mcount_return;
+		else
+			*rstack->parent_loc = (unsigned long)plthook_return;
+	}
+}
