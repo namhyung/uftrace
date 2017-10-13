@@ -8,7 +8,7 @@
 #define PR_FMT     "event"
 #define PR_DOMAIN  DBG_EVENT
 
-#include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 
 #define INVALID_OPCODE  0xce
 #define PAGE_SIZE       4096

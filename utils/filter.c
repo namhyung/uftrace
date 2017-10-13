@@ -8,6 +8,7 @@
 #define PR_FMT     "filter"
 #define PR_DOMAIN  DBG_FILTER
 
+#include "uftrace.h"
 #include "libmcount/mcount.h"
 #include "utils/filter.h"
 #include "utils/symbol.h"

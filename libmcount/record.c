@@ -12,6 +12,7 @@
 #define PR_DOMAIN  DBG_MCOUNT
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
@@ -24,7 +25,7 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 	int fd;
 	struct mcount_shmem_buffer *buffer = NULL;
 
-	snprintf(buf, size, SHMEM_SESSION_FMT, session_name(), tid, idx);
+	snprintf(buf, size, SHMEM_SESSION_FMT, mcount_session_name(), tid, idx);
 
 	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
@@ -55,7 +56,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	int idx;
-	int tid = gettid(mtdp);
+	int tid = mcount_gettid(mtdp);
 	struct mcount_shmem *shmem = &mtdp->shmem;
 
 	pr_dbg2("preparing shmem buffers\n");
@@ -72,7 +73,8 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	}
 
 	/* set idx 0 as current buffer */
-	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, session_name(), tid, 0);
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 mcount_session_name(), tid, 0);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
 
 	shmem->done = false;
@@ -104,7 +106,7 @@ void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 		shmem->buffer = new_buffer;
 
 		curr_buf = allocate_shmem_buffer(buf, sizeof(buf),
-						 gettid(mtdp), idx);
+						 mcount_gettid(mtdp), idx);
 	}
 
 	if (new_buffer == NULL || curr_buf == NULL) {
@@ -149,7 +151,7 @@ reuse:
 	}
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(mtdp), idx);
+		 mcount_session_name(), mcount_gettid(mtdp), idx);
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
@@ -176,7 +178,7 @@ void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 	char buf[64];
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), gettid(mtdp), idx);
+		 mcount_session_name(), mcount_gettid(mtdp), idx);
 
 	uftrace_send_message(UFTRACE_MSG_REC_END, buf, strlen(buf));
 }
@@ -186,7 +188,7 @@ void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	int i;
 
-	pr_dbg2("releasing all shmem buffers for task %d\n", gettid(mtdp));
+	pr_dbg2("releasing all shmem buffers for task %d\n", mcount_gettid(mtdp));
 
 	for (i = 0; i < shmem->nr_buf; i++)
 		munmap(shmem->buffer[i], shmem_bufsize);
@@ -213,7 +215,7 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 	shmem->curr = -1;
 
 	pr_dbg("%s: tid: %d seqnum = %u curr = %d, nr_buf = %d max_buf = %d\n",
-	       __func__, gettid(mtdp), shmem->seqnum, curr,
+	       __func__, mcount_gettid(mtdp), shmem->seqnum, curr,
 	       shmem->nr_buf, shmem->max_buf);
 
 	clear_shmem_buffer(mtdp);
@@ -636,7 +638,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	size += count * sizeof(*frstack);
 
 	pr_dbg3("task %d recorded %zd bytes (record count = %d)\n",
-		gettid(mtdp), size, count);
+		mcount_gettid(mtdp), size, count);
 
 	while (non_written_mrstack && non_written_mrstack < mrstack) {
 		if (!(non_written_mrstack->flags & SKIP_FLAGS)) {
