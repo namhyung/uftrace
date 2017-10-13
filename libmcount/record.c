@@ -25,7 +25,7 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 	int fd;
 	struct mcount_shmem_buffer *buffer = NULL;
 
-	snprintf(buf, size, SHMEM_SESSION_FMT, session_name(), tid, idx);
+	snprintf(buf, size, SHMEM_SESSION_FMT, mcount_session_name(), tid, idx);
 
 	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
@@ -73,7 +73,8 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	}
 
 	/* set idx 0 as current buffer */
-	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, session_name(), tid, 0);
+	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
+		 mcount_session_name(), tid, 0);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
 
 	shmem->done = false;
@@ -150,7 +151,7 @@ reuse:
 	}
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), mcount_gettid(mtdp), idx);
+		 mcount_session_name(), mcount_gettid(mtdp), idx);
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
@@ -177,7 +178,7 @@ void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 	char buf[64];
 
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT,
-		 session_name(), mcount_gettid(mtdp), idx);
+		 mcount_session_name(), mcount_gettid(mtdp), idx);
 
 	uftrace_send_message(UFTRACE_MSG_REC_END, buf, strlen(buf));
 }

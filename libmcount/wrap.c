@@ -204,7 +204,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 	 * it can have symbols in static initializers which
 	 * called during the dlopen.
 	 */
-	send_dlopen_msg(mtdp, session_name(), timestamp,
+	send_dlopen_msg(mtdp, mcount_session_name(), timestamp,
 			data.base_addr, data.libname);
 
 	mtdp->recursion_guard = false;

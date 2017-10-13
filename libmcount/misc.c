@@ -52,7 +52,7 @@ void update_kernel_tid(int tid)
 	free(filename);
 }
 
-const char *session_name(void)
+const char *mcount_session_name(void)
 {
 	static char session[SESSION_ID_LEN + 1];
 	static uint64_t session_id;

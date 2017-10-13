@@ -194,7 +194,7 @@ static void mcount_init_file(void)
 		.sa_flags = SA_SIGINFO,
 	};
 
-	send_session_msg(&mtd, session_name());
+	send_session_msg(&mtd, mcount_session_name());
 
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGABRT, &sa, &old_sigact[0]);
@@ -1066,8 +1066,8 @@ static void mcount_startup(void)
 	symtabs.dirname = dirname;
 
 	mcount_exename = read_exename();
-	record_proc_maps(dirname, session_name(), &symtabs);
-	set_kernel_base(&symtabs, session_name());
+	record_proc_maps(dirname, mcount_session_name(), &symtabs);
+	set_kernel_base(&symtabs, mcount_session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
 #ifndef DISABLE_MCOUNT_FILTER
