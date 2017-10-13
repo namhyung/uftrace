@@ -133,6 +133,12 @@ static inline bool mcount_should_stop(void)
 	return mcount_global_flags != 0UL;
 }
 
+#ifdef DISABLE_MCOUNT_FILTER
+static inline void mcount_filter_init(void) {}
+static inline void mcount_filter_setup(struct mcount_thread_data *mtdp) {}
+static inline void mcount_filter_release(struct mcount_thread_data *mtdp) {}
+#endif /* DISABLE_MCOUNT_FILTER */
+
 static inline uint64_t mcount_gettime(void)
 {
 	struct timespec ts;

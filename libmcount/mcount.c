@@ -64,12 +64,54 @@ bool kernel_pid_update;
 /* system page size */
 int page_size_in_kb;
 
-#ifndef DISABLE_MCOUNT_FILTER
-static int mcount_depth = MCOUNT_DEFAULT_DEPTH;
-static bool mcount_enabled = true;
-static enum filter_mode mcount_filter_mode = FILTER_MODE_NONE;
+/* call depth to filter */
+static int __maybe_unused mcount_depth = MCOUNT_DEFAULT_DEPTH;
 
-static struct rb_root mcount_triggers = RB_ROOT;
+/* boolean flag to turn on/off recording */
+static bool __maybe_unused mcount_enabled = true;
+
+/* function filtering mode - inclusive or exclusive */
+static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
+
+/* tree of trigger actions */
+static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
+
+#ifndef DISABLE_MCOUNT_FILTER
+static void mcount_filter_init(void)
+{
+	char *filter_str    = getenv("UFTRACE_FILTER");
+	char *trigger_str   = getenv("UFTRACE_TRIGGER");
+	char *argument_str  = getenv("UFTRACE_ARGUMENT");
+	char *retval_str    = getenv("UFTRACE_RETVAL");
+
+	load_module_symtabs(&symtabs);
+
+	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
+			     &mcount_filter_mode);
+	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
+	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
+	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
+
+	if (getenv("UFTRACE_DEPTH"))
+		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
+
+	if (getenv("UFTRACE_DISABLED"))
+		mcount_enabled = false;
+}
+
+static void mcount_filter_setup(struct mcount_thread_data *mtdp)
+{
+	mtdp->filter.depth  = mcount_depth;
+	mtdp->filter.time   = mcount_threshold;
+	mtdp->enable_cached = mcount_enabled;
+	mtdp->argbuf        = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
+}
+
+static void mcount_filter_release(struct mcount_thread_data *mtdp)
+{
+	free(mtdp->argbuf);
+	mtdp->argbuf = NULL;
+}
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
@@ -117,10 +159,7 @@ static void mtd_dtor(void *arg)
 	free(mtdp->rstack);
 	mtdp->rstack = NULL;
 
-#ifndef DISABLE_MCOUNT_FILTER
-	free(mtdp->argbuf);
-	mtdp->argbuf = NULL;
-#endif
+	mcount_filter_release(mtdp);
 	shmem_finish(mtdp);
 
 	tmsg.pid = getpid(),
@@ -219,12 +258,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	mtdp->recursion_guard = true;
 	compiler_barrier();
 
-#ifndef DISABLE_MCOUNT_FILTER
-	mtdp->filter.depth  = mcount_depth;
-	mtdp->filter.time   = mcount_threshold;
-	mtdp->enable_cached = mcount_enabled;
-	mtdp->argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
-#endif
+	mcount_filter_setup(mtdp);
 	mtdp->rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
@@ -1070,26 +1104,7 @@ static void mcount_startup(void)
 	set_kernel_base(&symtabs, mcount_session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
-#ifndef DISABLE_MCOUNT_FILTER
-	char *filter_str = getenv("UFTRACE_FILTER");
-	char *trigger_str = getenv("UFTRACE_TRIGGER");
-	char *argument_str = getenv("UFTRACE_ARGUMENT");
-	char *retval_str = getenv("UFTRACE_RETVAL");
-
-	load_module_symtabs(&symtabs);
-
-	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
-			    &mcount_filter_mode);
-	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
-	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
-	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
-
-	if (getenv("UFTRACE_DEPTH"))
-		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
-
-	if (getenv("UFTRACE_DISABLED"))
-		mcount_enabled = false;
-#endif /* DISABLE_MCOUNT_FILTER */
+	mcount_filter_init();
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
