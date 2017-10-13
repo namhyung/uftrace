@@ -1284,29 +1284,21 @@ static void save_session_symbols(struct opts *opts)
 		};
 		struct uftrace_mmap *map, *tmp;
 		char sid[20] = { 0, };
-		LIST_HEAD(modules);
 
 		if (sid[0] == '\0')
 			sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
 		free(map_list[i]);
 
-		pr_dbg("reading symbols for session %s\n", sid);
+		pr_dbg2("reading symbols for session %s\n", sid);
 		read_session_map(opts->dirname, &symtabs, sid);
 
 		/* main executable */
-		pr_dbg("try to load main: %s\n", symtabs.maps->libname);
 		load_symtabs(&symtabs, opts->dirname, symtabs.maps->libname);
 		save_symbol_file(&symtabs, opts->dirname, symtabs.filename);
 
-		uftrace_setup_filter_module(opts->filter, &modules, symtabs.filename);
-		uftrace_setup_filter_module(opts->trigger, &modules, symtabs.filename);
-		uftrace_setup_filter_module(opts->args, &modules, symtabs.filename);
-		uftrace_setup_filter_module(opts->retval, &modules, symtabs.filename);
-
 		/* shared libraries */
-		pr_dbg("try to load modules\n");
-		load_module_symtabs(&symtabs, &modules, opts->nest_libcall);
-		save_module_symtabs(&symtabs, &modules, opts->nest_libcall);
+		load_module_symtabs(&symtabs);
+		save_module_symtabs(&symtabs);
 
 		map = symtabs.maps;
 		while (map) {
@@ -1317,7 +1309,6 @@ static void save_session_symbols(struct opts *opts)
 		}
 		symtabs.maps = NULL;
 
-		uftrace_cleanup_filter_module(&modules);
 		unload_symtabs(&symtabs);
 	}
 	free(map_list);

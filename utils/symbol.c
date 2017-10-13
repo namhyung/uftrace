@@ -951,93 +951,50 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 static int load_module_symbol(struct symtab *symtab, const char *symfile,
 			      unsigned long offset);
 
-void load_module_symtabs(struct symtabs *symtabs, struct list_head *head,
-			 bool load_all_dynsyms)
+void load_module_symtabs(struct symtabs *symtabs)
 {
-	struct filter_module *fm;
 	struct uftrace_mmap *maps;
+	static const char * const skip_libs[] = {
+		/* uftrace internal libraries */
+		"libmcount.so",
+		"libmcount-fast.so",
+		"libmcount-single.so",
+		"libmcount-fast-single.so",
+		/* system base libraries */
+		"libc.so.6",
+		"libgcc_s.so.1",
+		"libpthread.so.0",
+		"linux-vdso.so.1",
+		"linux-gate.so.1",
+		"ld-linux-x86-64.so.2",
+	};
+	size_t k;
+	unsigned long flags = symtabs->flags;
 
 	assert(symtabs->maps);
 
-	list_for_each_entry(fm, head, list) {
-		if (!strcasecmp(fm->name, "main") ||
-		    !strcasecmp(fm->name, "PLT") ||
-		    !strcasecmp(fm->name, "kernel"))
-			continue;
+	maps = symtabs->maps;
+	while (maps) {
+		struct symtab dsymtab = {};
 
-		maps = find_map_by_name(symtabs, fm->name);
-		if (maps == NULL || maps->symtab.nr_sym)
-			continue;
+		if (!strcmp(maps->libname, symtabs->filename))
+			goto next;
+		if (maps->libname[0] == '[')
+			goto next;
 
-		if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
-			char *symfile = NULL;
-			bool ok = false;
-			unsigned long offset = 0;
-
-			if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-				offset = maps->start;
-
-			xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-				  basename(maps->libname));
-			if (!load_module_symbol(&maps->symtab, symfile, offset))
-				ok = true;
-			free(symfile);
-
-			if (ok)
-				continue;
+		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
+			if (!strcmp(basename(maps->libname), skip_libs[k]))
+				goto next;
 		}
 
-		pr_dbg2("load module symbol: %s\n", maps->libname);
-		load_symtab(&maps->symtab, maps->libname,
-			    maps->start, symtabs->flags);
-	}
+		pr_dbg2("load module symbol table: %s\n", maps->libname);
 
-	if (load_all_dynsyms) {
-		static const char * const skip_libs[] = {
-			/* uftrace internal libraries */
-			"libmcount.so",
-			"libmcount-fast.so",
-			"libmcount-single.so",
-			"libmcount-fast-single.so",
-			/* system base libraries */
-			"libc.so.6",
-			"libgcc_s.so.1",
-			"libpthread.so.0",
-			"linux-vdso.so.1",
-			"linux-gate.so.1",
-			"ld-linux-x86-64.so.2",
-		};
-		size_t k;
-
-		maps = symtabs->maps;
-		while (maps) {
-			if (!strcmp(maps->libname, symtabs->filename))
-				goto next;
-			if (maps->libname[0] == '[')
-				goto next;
-
-			for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-				if (!strcmp(basename(maps->libname), skip_libs[k]))
-					goto next;
-			}
-
-			pr_dbg2("load module dynamic symbol: %s\n", maps->libname);
-
-			if (maps->symtab.nr_sym) {
-				struct symtab dsymtab = {};
-
-				load_dynsymtab(&dsymtab, maps->libname,
-					       maps->start, symtabs->flags);
-				merge_symtabs(&maps->symtab, &dsymtab);
-			}
-			else {
-				load_dynsymtab(&maps->symtab, maps->libname,
-					       maps->start, symtabs->flags);
-			}
+		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
+		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
+		merge_symtabs(&maps->symtab, &dsymtab);
 
 next:
-			maps = maps->next;
-		}
+		maps = maps->next;
 	}
 }
 
@@ -1397,39 +1354,13 @@ static void save_module_symbol(struct symtab *stab, const char *symfile,
 	fclose(fp);
 }
 
-void save_module_symtabs(struct symtabs *symtabs, struct list_head *modules,
-			 bool save_all_dynsyms)
+void save_module_symtabs(struct symtabs *symtabs)
 {
 	char *symfile = NULL;
-	struct filter_module *fm;
 	struct uftrace_mmap *map;
-
-	list_for_each_entry(fm, modules, list) {
-		map = find_map_by_name(symtabs, fm->name);
-		if (map == NULL) {
-			pr_dbg("cannot find module: %s\n", fm->name);
-			continue;
-		}
-
-		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-			  basename(map->libname));
-
-		save_module_symbol(&map->symtab, symfile, map->start);
-
-		free(symfile);
-		symfile = NULL;
-	}
-
-	if (!save_all_dynsyms)
-		return;
 
 	map = symtabs->maps;
 	while (map) {
-		list_for_each_entry(fm, modules, list) {
-			if (!strcmp(fm->name, map->libname))
-				goto next;
-		}
-
 		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 			  basename(map->libname));
 
@@ -1438,7 +1369,6 @@ void save_module_symtabs(struct symtabs *symtabs, struct list_head *modules,
 		free(symfile);
 		symfile = NULL;
 
-next:
 		map = map->next;
 	}
 }

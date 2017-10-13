@@ -103,11 +103,6 @@ struct uftrace_filter {
 	struct uftrace_trigger	trigger;
 };
 
-struct filter_module {
-	struct list_head	list;
-	char			name[];
-};
-
 /* please see man proc(5) for /proc/[pid]/statm */
 struct uftrace_proc_statm {
 	uint64_t		vmsize;  /* total program size in KB */
@@ -130,10 +125,6 @@ void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
 			 struct rb_root *root);
-
-void uftrace_setup_filter_module(char *trigger_str, struct list_head *head,
-				const char *modname);
-void uftrace_cleanup_filter_module(struct list_head *head);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
