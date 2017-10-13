@@ -294,4 +294,6 @@ void mcount_list_events(void);
 
 int mcount_arch_enable_event(struct mcount_event_info *mei);
 
+void mcount_hook_functions(void);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
