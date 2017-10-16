@@ -27,6 +27,7 @@
 #include "utils/filter.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
+#include "autoargs.h"
 
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
@@ -66,7 +67,8 @@ static bool can_use_fast_libmcount(struct opts *opts)
 		return false;
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
 	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
-	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT"))
+	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT") ||
+	    getenv("UFTRACE_AUTO_ARGS"))
 		return false;
 	return true;
 }
@@ -152,6 +154,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			free(retval_str);
 		}
 	}
+
+	if (opts->auto_args)
+		setenv("UFTRACE_AUTO_ARGS", "1", 1);
 
 	if (opts->patch) {
 		char *patch_str = uftrace_clear_kernel(opts->patch);
@@ -297,10 +302,10 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->kernel)
 		features |= KERNEL;
 
-	if (opts->args)
+	if (opts->args || opts->auto_args)
 		features |= ARGUMENT;
 
-	if (opts->retval)
+	if (opts->retval || opts->auto_args)
 		features |= RETVAL;
 
 	if (opts->event)
@@ -348,6 +353,18 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 
 	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
 		pr_err("writing header info failed");
+
+	if (opts->auto_args) {
+		/* add auto-args info to write into info file */
+		pr_dbg2("extending args/retval using builtin auto-arg list\n");
+
+		char *orig_args = opts->args;
+		char *orig_retval = opts->retval;
+		opts->args = make_args_list(auto_args_list, orig_args);
+		opts->retval = make_args_list(auto_retvals_list, orig_retval);
+		free(orig_args);
+		free(orig_retval);
+	}
 
 	fill_uftrace_info(&hdr.info_mask, fd, opts, status,
 			  rusage, elapsed_time);

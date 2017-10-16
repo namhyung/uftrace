@@ -260,4 +260,6 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
 
 char *absolute_dirname(const char *path, char *resolved_path);
 
+char *make_args_list(const char *auto_args_list, const char *args_env);
+
 #endif /* __FTRACE_UTILS_H__ */
