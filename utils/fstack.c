@@ -206,7 +206,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 	char *filter_str = arg;
 
 	uftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
-			    &fstack_filter_mode);
+			     &fstack_filter_mode);
 	return 0;
 }
 
@@ -214,7 +214,8 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	char *trigger_str = arg;
 
-	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters);
+	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters,
+			      &fstack_filter_mode);
 	return 0;
 }
 
@@ -254,6 +255,8 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 
 		if (count == 0)
 			return -1;
+
+		pr_dbg("setup filters for %d function(s)\n", count);
 	}
 
 	if (trigger_str) {
@@ -264,6 +267,8 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 
 		if (prev == count)
 			return -1;
+
+		pr_dbg("setup triggers for %d function(s)\n", count - prev);
 	}
 
 	return 0;
@@ -283,9 +288,11 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 {
 	size_t i;
 
+	pr_dbg("fixup for some special functions\n");
+
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
 		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
-				      &s->fixups);
+				      &s->fixups, NULL);
 	}
 	return 0;
 }
@@ -334,6 +341,8 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 void setup_fstack_args(char *argspec, char *retspec,
 		       struct ftrace_file_handle *handle)
 {
+	pr_dbg("setup argspec and/or retspec\n");
+
 	walk_sessions(&handle->sessions, build_arg_spec, argspec);
 	walk_sessions(&handle->sessions, build_ret_spec, retspec);
 

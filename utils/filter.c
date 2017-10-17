@@ -654,6 +654,20 @@ static int parse_finish_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
+static int parse_filter_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FILTER;
+	tr->fmode  = FILTER_MODE_IN;
+	return 0;
+}
+
+static int parse_notrace_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FILTER;
+	tr->fmode  = FILTER_MODE_OUT;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr);
@@ -664,6 +678,8 @@ static const struct trigger_action_parser actions[] = {
 	{ "arg",       parse_argument_spec,       TRIGGER_FL_ARGUMENT, },
 	{ "fparg",     parse_float_argument_spec, TRIGGER_FL_ARGUMENT, },
 	{ "retval",    parse_retval_spec,         TRIGGER_FL_RETVAL, },
+	{ "filter",    parse_filter_action,       TRIGGER_FL_FILTER, },
+	{ "notrace",   parse_notrace_action,      TRIGGER_FL_FILTER, },
 	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
 	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
 	{ "read=",     parse_read_action, },
@@ -763,11 +779,14 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		if (module && !strcasecmp(module, "kernel"))
 			goto next;
 
-		if (name[0] == '!') {
-			tr.fmode = FILTER_MODE_OUT;
-			name++;
-		} else if (fmode != NULL)
-			tr.fmode = FILTER_MODE_IN;
+		if (flags & TRIGGER_FL_FILTER) {
+			if (name[0] == '!') {
+				tr.fmode = FILTER_MODE_OUT;
+				name++;
+			}
+			else
+				tr.fmode = FILTER_MODE_IN;
+		}
 
 		is_regex = strpbrk(name, REGEX_CHARS);
 
@@ -813,7 +832,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			}
 		}
 
-		if (ret > 0 && fmode != NULL) {
+		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER) && fmode) {
 			if (tr.fmode == FILTER_MODE_IN)
 				*fmode = FILTER_MODE_IN;
 			else if (*fmode == FILTER_MODE_NONE)
@@ -853,9 +872,9 @@ void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
  * @root       - root of resulting rbtree
  */
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			   struct rb_root *root)
+			   struct rb_root *root, enum filter_mode *mode)
 {
-	setup_trigger(trigger_str, symtabs, root, 0, NULL);
+	setup_trigger(trigger_str, symtabs, root, 0, mode);
 }
 
 /**
@@ -1154,7 +1173,7 @@ TEST_CASE(trigger_setup)
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root);
+	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1162,17 +1181,17 @@ TEST_CASE(trigger_setup)
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 2);
 
-	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root);
+	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
-	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root);
+	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
-	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root);
+	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);

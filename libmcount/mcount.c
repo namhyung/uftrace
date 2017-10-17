@@ -88,7 +88,8 @@ static void mcount_filter_init(void)
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode);
-	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers);
+	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
+			      &mcount_filter_mode);
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
 

@@ -122,7 +122,7 @@ struct symtabs;
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			 struct rb_root *root, enum filter_mode *mode);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			  struct rb_root *root);
+			   struct rb_root *root, enum filter_mode *mode);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
