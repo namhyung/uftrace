@@ -554,22 +554,132 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static enum trigger_read_type parse_read_type(char *str)
+static int parse_depth_action(char *action, struct uftrace_trigger *tr)
 {
-	if (!strcmp(str, "proc/statm"))
-		return TRIGGER_READ_PROC_STATM;
-	if (!strcmp(str, "page-fault"))
-		return TRIGGER_READ_PAGE_FAULT;
+	tr->flags |= TRIGGER_FL_DEPTH;
+	tr->depth = strtoul(action + 6, NULL, 10);
 
-	return TRIGGER_READ_NONE;
+	if (tr->depth < 0 || tr->depth > MCOUNT_RSTACK_MAX) {
+		pr_use("skipping invalid trigger depth: %d\n", tr->depth);
+		return -1;
+	}
+	return 0;
 }
 
+static int parse_time_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_TIME_FILTER;
+	tr->time = parse_time(action + 5, 3);
+	return 0;
+}
+
+static int parse_read_action(char *action, struct uftrace_trigger *tr)
+{
+	const char *target = action + 5;
+
+	if (!strcmp(target, "proc/statm"))
+		tr->read |= TRIGGER_READ_PROC_STATM;
+	if (!strcmp(target, "page-fault"))
+		tr->read |= TRIGGER_READ_PAGE_FAULT;
+
+	/* set READ flag only if valid type set */
+	if (tr->read)
+		tr->flags |= TRIGGER_FL_READ;
+
+	return 0;
+}
+
+static int parse_color_action(char *action, struct uftrace_trigger *tr)
+{
+	const char *color = action + 6;
+
+	if (!strcmp(color, "red"))
+		tr->color = COLOR_CODE_RED;
+	else if (!strcmp(color, "green"))
+		tr->color = COLOR_CODE_GREEN;
+	else if (!strcmp(color, "blue"))
+		tr->color = COLOR_CODE_BLUE;
+	else if (!strcmp(color, "yellow"))
+		tr->color = COLOR_CODE_YELLOW;
+	else if (!strcmp(color, "magenta"))
+		tr->color = COLOR_CODE_MAGENTA;
+	else if (!strcmp(color, "cyan"))
+		tr->color = COLOR_CODE_CYAN;
+	else if (!strcmp(color, "bold"))
+		tr->color = COLOR_CODE_BOLD;
+	else if (!strcmp(color, "gray"))
+		tr->color = COLOR_CODE_GRAY;
+	else {
+		pr_use("ignoring invalid color: %s\n", color);
+		return 0;
+	}
+
+	tr->flags |= TRIGGER_FL_COLOR;
+	return 0;
+}
+
+static int parse_trace_action(char *action, struct uftrace_trigger *tr)
+{
+	action += 5;
+	if (*action == '_' || *action == '-')
+		action++;
+
+	if (*action == '\0')
+		tr->flags |= TRIGGER_FL_TRACE;
+	else if (!strcasecmp(action, "on"))
+		tr->flags |= TRIGGER_FL_TRACE_ON;
+	else if (!strcasecmp(action, "off"))
+		tr->flags |= TRIGGER_FL_TRACE_OFF;
+	else
+		pr_use("skipping invalid trace action: %s\n", action);
+
+	return 0;
+}
+
+static int parse_backtrace_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_BACKTRACE;
+	return 0;
+}
+
+static int parse_recover_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_RECOVER;
+	return 0;
+}
+
+static int parse_finish_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FINISH;
+	return 0;
+}
+
+struct trigger_action_parser {
+	const char *name;
+	int (*parse)(char *action, struct uftrace_trigger *tr);
+};
+
+static const struct trigger_action_parser actions[] = {
+	{ "arg",       parse_argument_spec, },
+	{ "fparg",     parse_float_argument_spec, },
+	{ "retval",    parse_retval_spec, },
+	{ "depth=",    parse_depth_action, },
+	{ "time=",     parse_time_action, },
+	{ "read=",     parse_read_action, },
+	{ "color=",    parse_color_action, },
+	{ "trace",     parse_trace_action, },
+	{ "backtrace", parse_backtrace_action, },
+	{ "recover",   parse_recover_action, },
+	{ "finish",    parse_finish_action, },
+};
+
 static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				 char **module)
+				char **module)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
 	int ret = -1;
+	size_t i;
 
 	if (pos == NULL)
 		return 0;
@@ -578,98 +688,25 @@ static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	tmp = tr_str = xstrdup(pos);
 
 	while ((pos = strsep(&tmp, ",")) != NULL) {
-		if (!strncasecmp(pos, "depth=", 6)) {
-			tr->flags |= TRIGGER_FL_DEPTH;
-			tr->depth = strtoul(pos+6, NULL, 10);
+		for (i = 0; i < ARRAY_SIZE(actions); i++) {
+			const struct trigger_action_parser *action = &actions[i];
 
-			if (tr->depth < 0 ||
-			    tr->depth > MCOUNT_RSTACK_MAX) {
-				pr_use("skipping invalid trigger depth: %d\n",
-				       tr->depth);
+			if (strncasecmp(pos, action->name, strlen(action->name)))
+				continue;
+
+			if (action->parse(pos, tr) < 0)
 				goto out;
-			}
-			continue;
-		}
-		if (!strcasecmp(pos, "backtrace")) {
-			tr->flags |= TRIGGER_FL_BACKTRACE;
-			continue;
-		}
-		if (!strncasecmp(pos, "trace", 5)) {
-			pos += 5;
-			if (*pos == '_' || *pos == '-')
-				pos++;
 
-			if (*pos == '\0')
-				tr->flags |= TRIGGER_FL_TRACE;
-			else if (!strcasecmp(pos, "on"))
-				tr->flags |= TRIGGER_FL_TRACE_ON;
-			else if (!strcasecmp(pos, "off"))
-				tr->flags |= TRIGGER_FL_TRACE_OFF;
-
-			continue;
-		}
-		if (!strncasecmp(pos, "arg", 3)) {
-			if (parse_argument_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strncasecmp(pos, "fparg", 5)) {
-			if (parse_float_argument_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strncasecmp(pos, "retval", 6)) {
-			if (parse_retval_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strcasecmp(pos, "recover")) {
-			tr->flags |= TRIGGER_FL_RECOVER;
-			continue;
-		}
-		if (!strcasecmp(pos, "finish")) {
-			tr->flags |= TRIGGER_FL_FINISH;
-			continue;
-		}
-		if (!strncasecmp(pos, "color=", 6)) {
-			const char *color = pos + 6;
-			tr->flags |= TRIGGER_FL_COLOR;
-
-			if (!strcmp(color, "red"))
-				tr->color = COLOR_CODE_RED;
-			else if (!strcmp(color, "green"))
-				tr->color = COLOR_CODE_GREEN;
-			else if (!strcmp(color, "blue"))
-				tr->color = COLOR_CODE_BLUE;
-			else if (!strcmp(color, "yellow"))
-				tr->color = COLOR_CODE_YELLOW;
-			else if (!strcmp(color, "magenta"))
-				tr->color = COLOR_CODE_MAGENTA;
-			else if (!strcmp(color, "cyan"))
-				tr->color = COLOR_CODE_CYAN;
-			else if (!strcmp(color, "bold"))
-				tr->color = COLOR_CODE_BOLD;
-			else if (!strcmp(color, "gray"))
-				tr->color = COLOR_CODE_GRAY;
-			else {
-				/* invalid color is ignored */
-			}
-			continue;
-		}
-		if (!strncasecmp(pos, "time=", 5)) {
-			tr->flags |= TRIGGER_FL_TIME_FILTER;
-			tr->time = parse_time(pos+5, 3);
-			continue;
-		}
-		if (!strncmp(pos, "read=", 5)) {
-			tr->read |= parse_read_type(pos+5);
-			/* set READ flag only if valid type set */
-			if (tr->read)
-				tr->flags |= TRIGGER_FL_READ;
-			continue;
+			break;
 		}
 
-		*module = xstrdup(pos);
+		/* if it's not an action, treat it as a module name */
+		if (i == ARRAY_SIZE(actions)) {
+			if (*module)
+				pr_use("ignoring extra module: %s\n", pos);
+			else
+				*module = xstrdup(pos);
+		}
 	}
 	ret = 0;
 
