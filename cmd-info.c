@@ -652,16 +652,68 @@ static int read_loadinfo(void *arg)
 static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	int n = !!(fha->opts->args) + !!(fha->opts->retval);
+	char *argspec = NULL;
+	char *retspec = NULL;
+	int n = 0;
 
+	/* extract argspec (and retspec) in trigger action */
+	if (fha->opts->trigger) {
+		char *pos, *tmp, *str, *act;
+
+		str = tmp = xstrdup(fha->opts->trigger);
+
+		while ((pos = strsep(&tmp, ";")) != NULL) {
+			char *name = pos;
+			char *args = NULL;
+			char *rval = NULL;
+
+			act = strchr(name, '@');
+			if (act == NULL)
+				continue;
+
+			*act++ = '\0';
+
+			while ((pos = strsep(&act, ",")) != NULL) {
+				if (!strncasecmp(pos, "arg", 3) ||
+				    !strncasecmp(pos, "fparg", 5))
+					args = strjoin(args, pos, ",");
+				if (!strncasecmp(pos, "retval", 6))
+					rval = "retval";
+			}
+
+			if (args) {
+				xasprintf(&act, "%s@%s", name, args);
+				argspec = strjoin(argspec, act, ";");
+				free(act);
+			}
+			if (rval) {
+				xasprintf(&act, "%s@retval", name);
+				retspec = strjoin(retspec, act, ";");
+				free(act);
+			}
+		}
+
+		free(str);
+	}
+
+	if (fha->opts->args)
+		argspec = strjoin(argspec, fha->opts->args, ";");
+	if (fha->opts->retval)
+		retspec = strjoin(retspec, fha->opts->retval, ";");
+
+	n = !!argspec + !!retspec;
 	if (n == 0)
 		return -1;
 
 	dprintf(fha->fd, "argspec:lines=%d\n", n);
-	if (fha->opts->args)
-		dprintf(fha->fd, "argspec:%s\n", fha->opts->args);
-	if (fha->opts->retval)
-		dprintf(fha->fd, "retspec:%s\n", fha->opts->retval);
+	if (argspec) {
+		dprintf(fha->fd, "argspec:%s\n", argspec);
+		free(argspec);
+	}
+	if (retspec) {
+		dprintf(fha->fd, "retspec:%s\n", retspec);
+		free(retspec);
+	}
 
 	return 0;
 }

@@ -454,7 +454,7 @@ ok:
 		}
 	}
 
-	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
+	if (handle->hdr.info_mask & ARG_SPEC)
 		setup_fstack_args(handle->info.argspec, handle->info.retspec, handle);
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))
