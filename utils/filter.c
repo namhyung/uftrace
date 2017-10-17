@@ -1162,7 +1162,7 @@ TEST_CASE(filter_match)
 	return TEST_OK;
 }
 
-TEST_CASE(trigger_setup)
+TEST_CASE(trigger_setup_actions)
 {
 	struct symtabs stabs = {
 		.loaded = false,
@@ -1197,6 +1197,185 @@ TEST_CASE(trigger_setup)
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(trigger_setup_filters)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_trigger tr;
+	enum filter_mode fmode;
+
+	filter_test_load_symtabs(&stabs);
+
+	uftrace_setup_trigger("foo::bar@depth=2,notrace", &stabs, &root, &fmode);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_OUT);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_FILTER);
+	TEST_EQ(tr.depth, 2);
+	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+
+	uftrace_setup_filter("foo::baz1", &stabs, &root, &fmode);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	uftrace_setup_trigger("foo::baz2@notrace", &stabs, &root, &fmode);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x4100, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(trigger_setup_args)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_trigger tr;
+	struct uftrace_arg_spec *spec;
+	int count;
+
+	filter_test_load_symtabs(&stabs);
+
+	uftrace_setup_argument("foo::bar@arg1", &stabs, &root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(tr.pargs, NULL);
+
+	uftrace_setup_trigger("foo::bar@arg2/s", &stabs, &root, NULL);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(tr.pargs, NULL);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		count++;
+		if (count == 1) {
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_AUTO);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+		}
+		else if (count == 2) {
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_STR);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+		}
+	}
+	TEST_EQ(count, 2);
+
+	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2", &stabs, &root);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x3999, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		switch (++count) {
+		case 1:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_SINT);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 4);
+			break;
+		case 2:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_HEX);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 8);
+			break;
+		case 3:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 4);
+			break;
+		case 4:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 8);
+			break;
+		default:
+			/* should not reach here */
+			TEST_EQ(spec->idx, -1);
+			break;
+		}
+	}
+	TEST_EQ(count, 4);
+
+	/* FIXME: this test will fail on non-x86 architecture */
+	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64", &stabs, &root, NULL);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x4000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		switch (++count) {
+		case 1:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_CHAR);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 1);
+			break;
+		case 2:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_HEX);
+			TEST_EQ(spec->type, ARG_TYPE_REG);
+			TEST_EQ(spec->size, 4);
+			/* XXX: x86-specific */
+			TEST_EQ(spec->reg_idx, arch_register_index("rdi"));
+			break;
+		case 3:
+			TEST_EQ(spec->idx, 3);
+			TEST_EQ(spec->fmt, ARG_FMT_AUTO);
+			TEST_EQ(spec->type, ARG_TYPE_STACK);
+			TEST_EQ(spec->size, (int)sizeof(long));
+			TEST_EQ(spec->stack_ofs, 4);
+			break;
+		case 4:
+			TEST_EQ(spec->idx, 0);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 8);
+			break;
+		default:
+			/* should not reach here */
+			TEST_EQ(spec->idx, -1);
+			break;
+		}
+	}
+	TEST_EQ(count, 4);
 
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
