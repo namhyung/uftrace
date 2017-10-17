@@ -657,14 +657,15 @@ static int parse_finish_action(char *action, struct uftrace_trigger *tr)
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr);
+	unsigned long flags;
 };
 
 static const struct trigger_action_parser actions[] = {
-	{ "arg",       parse_argument_spec, },
-	{ "fparg",     parse_float_argument_spec, },
-	{ "retval",    parse_retval_spec, },
-	{ "depth=",    parse_depth_action, },
-	{ "time=",     parse_time_action, },
+	{ "arg",       parse_argument_spec,       TRIGGER_FL_ARGUMENT, },
+	{ "fparg",     parse_float_argument_spec, TRIGGER_FL_ARGUMENT, },
+	{ "retval",    parse_retval_spec,         TRIGGER_FL_RETVAL, },
+	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
+	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
 	{ "read=",     parse_read_action, },
 	{ "color=",    parse_color_action, },
 	{ "trace",     parse_trace_action, },
@@ -674,7 +675,7 @@ static const struct trigger_action_parser actions[] = {
 };
 
 static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				char **module)
+				char **module, unsigned long orig_flags)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
@@ -693,6 +694,9 @@ static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 
 			if (strncasecmp(pos, action->name, strlen(action->name)))
 				continue;
+
+			if (orig_flags && !(orig_flags & action->flags))
+				break;  /* ignore incompatible actions */
 
 			if (action->parse(pos, tr) < 0)
 				goto out;
@@ -752,7 +756,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		struct uftrace_mmap *map;
 		bool is_regex;
 
-		if (setup_trigger_action(name, &tr, &module) < 0)
+		if (setup_trigger_action(name, &tr, &module, flags) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
@@ -863,7 +867,7 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 			    struct rb_root *root)
 {
-	setup_trigger(args_str, symtabs, root, 0, NULL);
+	setup_trigger(args_str, symtabs, root, TRIGGER_FL_ARGUMENT, NULL);
 }
 
 /**
@@ -875,7 +879,7 @@ void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 			  struct rb_root *root)
 {
-	setup_trigger(retval_str, symtabs, root, 0, NULL);
+	setup_trigger(retval_str, symtabs, root, TRIGGER_FL_RETVAL, NULL);
 }
 
 /**
