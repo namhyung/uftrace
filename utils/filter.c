@@ -371,6 +371,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 		break;
 	case 'f':
 		fmt = ARG_FMT_FLOAT;
+		type = ARG_TYPE_FLOAT;
 		size = sizeof(double);
 		break;
 	case 'S':
