@@ -291,6 +291,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* save mcount_max_stack */
 	features |= MAX_STACK;
 
+	/* provide automatic argument/return value spec */
+	features |= AUTO_ARGS;
+
 	if (opts->libcall)
 		features |= PLTHOOK;
 
