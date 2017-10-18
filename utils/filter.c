@@ -371,6 +371,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 		break;
 	case 'f':
 		fmt = ARG_FMT_FLOAT;
+		type = ARG_TYPE_FLOAT;
 		size = sizeof(double);
 		break;
 	case 'S':
@@ -554,22 +555,149 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static enum trigger_read_type parse_read_type(char *str)
+static int parse_depth_action(char *action, struct uftrace_trigger *tr)
 {
-	if (!strcmp(str, "proc/statm"))
-		return TRIGGER_READ_PROC_STATM;
-	if (!strcmp(str, "page-fault"))
-		return TRIGGER_READ_PAGE_FAULT;
+	tr->flags |= TRIGGER_FL_DEPTH;
+	tr->depth = strtoul(action + 6, NULL, 10);
 
-	return TRIGGER_READ_NONE;
+	if (tr->depth < 0 || tr->depth > MCOUNT_RSTACK_MAX) {
+		pr_use("skipping invalid trigger depth: %d\n", tr->depth);
+		return -1;
+	}
+	return 0;
 }
 
+static int parse_time_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_TIME_FILTER;
+	tr->time = parse_time(action + 5, 3);
+	return 0;
+}
+
+static int parse_read_action(char *action, struct uftrace_trigger *tr)
+{
+	const char *target = action + 5;
+
+	if (!strcmp(target, "proc/statm"))
+		tr->read |= TRIGGER_READ_PROC_STATM;
+	if (!strcmp(target, "page-fault"))
+		tr->read |= TRIGGER_READ_PAGE_FAULT;
+
+	/* set READ flag only if valid type set */
+	if (tr->read)
+		tr->flags |= TRIGGER_FL_READ;
+
+	return 0;
+}
+
+static int parse_color_action(char *action, struct uftrace_trigger *tr)
+{
+	const char *color = action + 6;
+
+	if (!strcmp(color, "red"))
+		tr->color = COLOR_CODE_RED;
+	else if (!strcmp(color, "green"))
+		tr->color = COLOR_CODE_GREEN;
+	else if (!strcmp(color, "blue"))
+		tr->color = COLOR_CODE_BLUE;
+	else if (!strcmp(color, "yellow"))
+		tr->color = COLOR_CODE_YELLOW;
+	else if (!strcmp(color, "magenta"))
+		tr->color = COLOR_CODE_MAGENTA;
+	else if (!strcmp(color, "cyan"))
+		tr->color = COLOR_CODE_CYAN;
+	else if (!strcmp(color, "bold"))
+		tr->color = COLOR_CODE_BOLD;
+	else if (!strcmp(color, "gray"))
+		tr->color = COLOR_CODE_GRAY;
+	else {
+		pr_use("ignoring invalid color: %s\n", color);
+		return 0;
+	}
+
+	tr->flags |= TRIGGER_FL_COLOR;
+	return 0;
+}
+
+static int parse_trace_action(char *action, struct uftrace_trigger *tr)
+{
+	action += 5;
+	if (*action == '_' || *action == '-')
+		action++;
+
+	if (*action == '\0')
+		tr->flags |= TRIGGER_FL_TRACE;
+	else if (!strcasecmp(action, "on"))
+		tr->flags |= TRIGGER_FL_TRACE_ON;
+	else if (!strcasecmp(action, "off"))
+		tr->flags |= TRIGGER_FL_TRACE_OFF;
+	else
+		pr_use("skipping invalid trace action: %s\n", action);
+
+	return 0;
+}
+
+static int parse_backtrace_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_BACKTRACE;
+	return 0;
+}
+
+static int parse_recover_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_RECOVER;
+	return 0;
+}
+
+static int parse_finish_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FINISH;
+	return 0;
+}
+
+static int parse_filter_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FILTER;
+	tr->fmode  = FILTER_MODE_IN;
+	return 0;
+}
+
+static int parse_notrace_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_FILTER;
+	tr->fmode  = FILTER_MODE_OUT;
+	return 0;
+}
+
+struct trigger_action_parser {
+	const char *name;
+	int (*parse)(char *action, struct uftrace_trigger *tr);
+	unsigned long flags;
+};
+
+static const struct trigger_action_parser actions[] = {
+	{ "arg",       parse_argument_spec,       TRIGGER_FL_ARGUMENT, },
+	{ "fparg",     parse_float_argument_spec, TRIGGER_FL_ARGUMENT, },
+	{ "retval",    parse_retval_spec,         TRIGGER_FL_RETVAL, },
+	{ "filter",    parse_filter_action,       TRIGGER_FL_FILTER, },
+	{ "notrace",   parse_notrace_action,      TRIGGER_FL_FILTER, },
+	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
+	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
+	{ "read=",     parse_read_action, },
+	{ "color=",    parse_color_action, },
+	{ "trace",     parse_trace_action, },
+	{ "backtrace", parse_backtrace_action, },
+	{ "recover",   parse_recover_action, },
+	{ "finish",    parse_finish_action, },
+};
+
 static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				 char **module)
+				char **module, unsigned long orig_flags)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
 	int ret = -1;
+	size_t i;
 
 	if (pos == NULL)
 		return 0;
@@ -578,98 +706,28 @@ static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	tmp = tr_str = xstrdup(pos);
 
 	while ((pos = strsep(&tmp, ",")) != NULL) {
-		if (!strncasecmp(pos, "depth=", 6)) {
-			tr->flags |= TRIGGER_FL_DEPTH;
-			tr->depth = strtoul(pos+6, NULL, 10);
+		for (i = 0; i < ARRAY_SIZE(actions); i++) {
+			const struct trigger_action_parser *action = &actions[i];
 
-			if (tr->depth < 0 ||
-			    tr->depth > MCOUNT_RSTACK_MAX) {
-				pr_use("skipping invalid trigger depth: %d\n",
-				       tr->depth);
+			if (strncasecmp(pos, action->name, strlen(action->name)))
+				continue;
+
+			if (orig_flags && !(orig_flags & action->flags))
+				break;  /* ignore incompatible actions */
+
+			if (action->parse(pos, tr) < 0)
 				goto out;
-			}
-			continue;
-		}
-		if (!strcasecmp(pos, "backtrace")) {
-			tr->flags |= TRIGGER_FL_BACKTRACE;
-			continue;
-		}
-		if (!strncasecmp(pos, "trace", 5)) {
-			pos += 5;
-			if (*pos == '_' || *pos == '-')
-				pos++;
 
-			if (*pos == '\0')
-				tr->flags |= TRIGGER_FL_TRACE;
-			else if (!strcasecmp(pos, "on"))
-				tr->flags |= TRIGGER_FL_TRACE_ON;
-			else if (!strcasecmp(pos, "off"))
-				tr->flags |= TRIGGER_FL_TRACE_OFF;
-
-			continue;
-		}
-		if (!strncasecmp(pos, "arg", 3)) {
-			if (parse_argument_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strncasecmp(pos, "fparg", 5)) {
-			if (parse_float_argument_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strncasecmp(pos, "retval", 6)) {
-			if (parse_retval_spec(pos, tr) < 0)
-				goto out;
-			continue;
-		}
-		if (!strcasecmp(pos, "recover")) {
-			tr->flags |= TRIGGER_FL_RECOVER;
-			continue;
-		}
-		if (!strcasecmp(pos, "finish")) {
-			tr->flags |= TRIGGER_FL_FINISH;
-			continue;
-		}
-		if (!strncasecmp(pos, "color=", 6)) {
-			const char *color = pos + 6;
-			tr->flags |= TRIGGER_FL_COLOR;
-
-			if (!strcmp(color, "red"))
-				tr->color = COLOR_CODE_RED;
-			else if (!strcmp(color, "green"))
-				tr->color = COLOR_CODE_GREEN;
-			else if (!strcmp(color, "blue"))
-				tr->color = COLOR_CODE_BLUE;
-			else if (!strcmp(color, "yellow"))
-				tr->color = COLOR_CODE_YELLOW;
-			else if (!strcmp(color, "magenta"))
-				tr->color = COLOR_CODE_MAGENTA;
-			else if (!strcmp(color, "cyan"))
-				tr->color = COLOR_CODE_CYAN;
-			else if (!strcmp(color, "bold"))
-				tr->color = COLOR_CODE_BOLD;
-			else if (!strcmp(color, "gray"))
-				tr->color = COLOR_CODE_GRAY;
-			else {
-				/* invalid color is ignored */
-			}
-			continue;
-		}
-		if (!strncasecmp(pos, "time=", 5)) {
-			tr->flags |= TRIGGER_FL_TIME_FILTER;
-			tr->time = parse_time(pos+5, 3);
-			continue;
-		}
-		if (!strncmp(pos, "read=", 5)) {
-			tr->read |= parse_read_type(pos+5);
-			/* set READ flag only if valid type set */
-			if (tr->read)
-				tr->flags |= TRIGGER_FL_READ;
-			continue;
+			break;
 		}
 
-		*module = xstrdup(pos);
+		/* if it's not an action, treat it as a module name */
+		if (i == ARRAY_SIZE(actions)) {
+			if (*module)
+				pr_use("ignoring extra module: %s\n", pos);
+			else
+				*module = xstrdup(pos);
+		}
 	}
 	ret = 0;
 
@@ -715,18 +773,21 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		struct uftrace_mmap *map;
 		bool is_regex;
 
-		if (setup_trigger_action(name, &tr, &module) < 0)
+		if (setup_trigger_action(name, &tr, &module, flags) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
 		if (module && !strcasecmp(module, "kernel"))
 			goto next;
 
-		if (name[0] == '!') {
-			tr.fmode = FILTER_MODE_OUT;
-			name++;
-		} else if (fmode != NULL)
-			tr.fmode = FILTER_MODE_IN;
+		if (flags & TRIGGER_FL_FILTER) {
+			if (name[0] == '!') {
+				tr.fmode = FILTER_MODE_OUT;
+				name++;
+			}
+			else
+				tr.fmode = FILTER_MODE_IN;
+		}
 
 		is_regex = strpbrk(name, REGEX_CHARS);
 
@@ -772,7 +833,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			}
 		}
 
-		if (ret > 0 && fmode != NULL) {
+		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER) && fmode) {
 			if (tr.fmode == FILTER_MODE_IN)
 				*fmode = FILTER_MODE_IN;
 			else if (*fmode == FILTER_MODE_NONE)
@@ -812,9 +873,9 @@ void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
  * @root       - root of resulting rbtree
  */
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			   struct rb_root *root)
+			   struct rb_root *root, enum filter_mode *mode)
 {
-	setup_trigger(trigger_str, symtabs, root, 0, NULL);
+	setup_trigger(trigger_str, symtabs, root, 0, mode);
 }
 
 /**
@@ -826,7 +887,7 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 			    struct rb_root *root)
 {
-	setup_trigger(args_str, symtabs, root, 0, NULL);
+	setup_trigger(args_str, symtabs, root, TRIGGER_FL_ARGUMENT, NULL);
 }
 
 /**
@@ -838,7 +899,7 @@ void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
 void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 			  struct rb_root *root)
 {
-	setup_trigger(retval_str, symtabs, root, 0, NULL);
+	setup_trigger(retval_str, symtabs, root, TRIGGER_FL_RETVAL, NULL);
 }
 
 /**
@@ -1101,7 +1162,7 @@ TEST_CASE(filter_match)
 	return TEST_OK;
 }
 
-TEST_CASE(trigger_setup)
+TEST_CASE(trigger_setup_actions)
 {
 	struct symtabs stabs = {
 		.loaded = false,
@@ -1113,7 +1174,7 @@ TEST_CASE(trigger_setup)
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root);
+	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root, NULL);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1121,21 +1182,200 @@ TEST_CASE(trigger_setup)
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 2);
 
-	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root);
+	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
-	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root);
+	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
-	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root);
+	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root, NULL);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(trigger_setup_filters)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_trigger tr;
+	enum filter_mode fmode;
+
+	filter_test_load_symtabs(&stabs);
+
+	uftrace_setup_trigger("foo::bar@depth=2,notrace", &stabs, &root, &fmode);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_OUT);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_FILTER);
+	TEST_EQ(tr.depth, 2);
+	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+
+	uftrace_setup_filter("foo::baz1", &stabs, &root, &fmode);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	uftrace_setup_trigger("foo::baz2@notrace", &stabs, &root, &fmode);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x4100, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(trigger_setup_args)
+{
+	struct symtabs stabs = {
+		.loaded = false,
+	};;
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_trigger tr;
+	struct uftrace_arg_spec *spec;
+	int count;
+
+	filter_test_load_symtabs(&stabs);
+
+	uftrace_setup_argument("foo::bar@arg1", &stabs, &root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(tr.pargs, NULL);
+
+	uftrace_setup_trigger("foo::bar@arg2/s", &stabs, &root, NULL);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(tr.pargs, NULL);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		count++;
+		if (count == 1) {
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_AUTO);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+		}
+		else if (count == 2) {
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_STR);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+		}
+	}
+	TEST_EQ(count, 2);
+
+	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2", &stabs, &root);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x3999, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		switch (++count) {
+		case 1:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_SINT);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 4);
+			break;
+		case 2:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_HEX);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 8);
+			break;
+		case 3:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 4);
+			break;
+		case 4:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 8);
+			break;
+		default:
+			/* should not reach here */
+			TEST_EQ(spec->idx, -1);
+			break;
+		}
+	}
+	TEST_EQ(count, 4);
+
+	/* FIXME: this test will fail on non-x86 architecture */
+	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64", &stabs, &root, NULL);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x4000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
+
+	count = 0;
+	list_for_each_entry(spec, tr.pargs, list) {
+		switch (++count) {
+		case 1:
+			TEST_EQ(spec->idx, 1);
+			TEST_EQ(spec->fmt, ARG_FMT_CHAR);
+			TEST_EQ(spec->type, ARG_TYPE_INDEX);
+			TEST_EQ(spec->size, 1);
+			break;
+		case 2:
+			TEST_EQ(spec->idx, 2);
+			TEST_EQ(spec->fmt, ARG_FMT_HEX);
+			TEST_EQ(spec->type, ARG_TYPE_REG);
+			TEST_EQ(spec->size, 4);
+			/* XXX: x86-specific */
+			TEST_EQ(spec->reg_idx, arch_register_index("rdi"));
+			break;
+		case 3:
+			TEST_EQ(spec->idx, 3);
+			TEST_EQ(spec->fmt, ARG_FMT_AUTO);
+			TEST_EQ(spec->type, ARG_TYPE_STACK);
+			TEST_EQ(spec->size, (int)sizeof(long));
+			TEST_EQ(spec->stack_ofs, 4);
+			break;
+		case 4:
+			TEST_EQ(spec->idx, 0);
+			TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+			TEST_EQ(spec->type, ARG_TYPE_FLOAT);
+			TEST_EQ(spec->size, 8);
+			break;
+		default:
+			/* should not reach here */
+			TEST_EQ(spec->idx, -1);
+			break;
+		}
+	}
+	TEST_EQ(count, 4);
 
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);

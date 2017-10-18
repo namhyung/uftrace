@@ -206,7 +206,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 	char *filter_str = arg;
 
 	uftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
-			    &fstack_filter_mode);
+			     &fstack_filter_mode);
 	return 0;
 }
 
@@ -214,7 +214,8 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	char *trigger_str = arg;
 
-	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters);
+	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters,
+			      &fstack_filter_mode);
 	return 0;
 }
 
@@ -254,6 +255,8 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 
 		if (count == 0)
 			return -1;
+
+		pr_dbg("setup filters for %d function(s)\n", count);
 	}
 
 	if (trigger_str) {
@@ -264,6 +267,8 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 
 		if (prev == count)
 			return -1;
+
+		pr_dbg("setup triggers for %d function(s)\n", count - prev);
 	}
 
 	return 0;
@@ -283,9 +288,11 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 {
 	size_t i;
 
+	pr_dbg("fixup for some special functions\n");
+
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
 		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
-				      &s->fixups);
+				      &s->fixups, NULL);
 	}
 	return 0;
 }
@@ -306,21 +313,42 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	char *argspec = arg;
 
-	uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
+	if (argspec)
+		uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
+
+	return 0;
+}
+
+static int build_ret_spec(struct uftrace_session *s, void *arg)
+{
+	char *retspec = arg;
+
+	if (retspec)
+		uftrace_setup_retval(retspec, &s->symtabs, &s->filters);
+
 	return 0;
 }
 
 /**
- * setup_fstack_args - setup argument spec
- * @argspec: spec string describes function arguments and return values
+ * setup_fstack_args - setup argument and return value spec
+ * @argspec: spec string describes function arguments
+ * @retspec: spec string describes function return values
  * @handle: handle for uftrace data
  *
- * This functions sets up argument information provided by user at the
- * time of recording.
+ * This functions sets up argument and return value information
+ * provided by user at the time of recording.
  */
-void setup_fstack_args(char *argspec, struct ftrace_file_handle *handle)
+void setup_fstack_args(char *argspec, char *retspec,
+		       struct ftrace_file_handle *handle)
 {
+	pr_dbg("setup argspec and/or retspec\n");
+
 	walk_sessions(&handle->sessions, build_arg_spec, argspec);
+	walk_sessions(&handle->sessions, build_ret_spec, retspec);
+
+	/* old data does not have separated retspec */
+	if (argspec && strstr(argspec, "retval"))
+		walk_sessions(&handle->sessions, build_ret_spec, argspec);
 }
 
 /**

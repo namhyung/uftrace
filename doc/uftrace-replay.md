@@ -183,7 +183,8 @@ The uftrace tool supports triggering actions on selected function calls with or 
 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
-    <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" | "color="<color> | "time="<time_spec>
+    <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
+                     "color="<color> | "time="<time_spec> | "filter" | "notrace"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "us" | "ms" | "s"
 
@@ -205,6 +206,8 @@ The following example shows how triggers work.  We set a filter on function `b()
 The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace shows functions or not.  The trigger runs at replay time, not run time, so it can handle kernel functions as well. Contrast this with triggers used under `uftrace record`.
 
 The 'time' trigger is to change time filter setting during execution of the function.  It can be used to apply different time filter for different functions.
+
+The 'filter' and 'notrace' triggers have same effect as -F/--filter and -N/--notrace options respectively.
 
 
 FIELDS

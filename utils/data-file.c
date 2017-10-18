@@ -430,7 +430,7 @@ ok:
 		pr_err("unsupported file version: %u", handle->hdr.version);
 
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
-		pr_err("cannot read ftrace header info!");
+		pr_err("cannot read uftrace header info!");
 
 	fclose(fp);
 
@@ -454,8 +454,8 @@ ok:
 		}
 	}
 
-	if (handle->hdr.feat_mask & (ARGUMENT | RETVAL))
-		setup_fstack_args(handle->info.argspec, handle);
+	if (handle->hdr.info_mask & ARG_SPEC)
+		setup_fstack_args(handle->info.argspec, handle->info.retspec, handle);
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;

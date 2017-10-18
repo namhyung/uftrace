@@ -652,18 +652,68 @@ static int read_loadinfo(void *arg)
 static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
+	char *argspec = NULL;
+	char *retspec = NULL;
+	int n = 0;
 
-	if (!(fha->opts->args || fha->opts->retval))
-		return -1;
+	/* extract argspec (and retspec) in trigger action */
+	if (fha->opts->trigger) {
+		char *pos, *tmp, *str, *act;
 
-	dprintf(fha->fd, "argspec:");
+		str = tmp = xstrdup(fha->opts->trigger);
+
+		while ((pos = strsep(&tmp, ";")) != NULL) {
+			char *name = pos;
+			char *args = NULL;
+			char *rval = NULL;
+
+			act = strchr(name, '@');
+			if (act == NULL)
+				continue;
+
+			*act++ = '\0';
+
+			while ((pos = strsep(&act, ",")) != NULL) {
+				if (!strncasecmp(pos, "arg", 3) ||
+				    !strncasecmp(pos, "fparg", 5))
+					args = strjoin(args, pos, ",");
+				if (!strncasecmp(pos, "retval", 6))
+					rval = "retval";
+			}
+
+			if (args) {
+				xasprintf(&act, "%s@%s", name, args);
+				argspec = strjoin(argspec, act, ";");
+				free(act);
+			}
+			if (rval) {
+				xasprintf(&act, "%s@retval", name);
+				retspec = strjoin(retspec, act, ";");
+				free(act);
+			}
+		}
+
+		free(str);
+	}
+
 	if (fha->opts->args)
-		dprintf(fha->fd, "%s;", fha->opts->args);
+		argspec = strjoin(argspec, fha->opts->args, ";");
 	if (fha->opts->retval)
-		dprintf(fha->fd, "%s;", fha->opts->retval);
+		retspec = strjoin(retspec, fha->opts->retval, ";");
 
-	if (write_all(fha->fd, "\n", 1))
+	n = !!argspec + !!retspec;
+	if (n == 0)
 		return -1;
+
+	dprintf(fha->fd, "argspec:lines=%d\n", n);
+	if (argspec) {
+		dprintf(fha->fd, "argspec:%s\n", argspec);
+		free(argspec);
+	}
+	if (retspec) {
+		dprintf(fha->fd, "retspec:%s\n", retspec);
+		free(retspec);
+	}
 
 	return 0;
 }
@@ -673,6 +723,7 @@ static int read_arg_spec(void *arg)
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
 	char buf[4096];
+	int i, lines;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -680,7 +731,29 @@ static int read_arg_spec(void *arg)
 	if (strncmp(buf, "argspec:", 8))
 		return -1;
 
-	info->argspec = copy_info_str(&buf[8]);
+	/* old format only has argspec */
+	if (strncmp(&buf[8], "lines", 5)) {
+		info->argspec = copy_info_str(&buf[8]);
+		return 0;
+	}
+
+	if (sscanf(&buf[8], "lines=%d\n", &lines) == EOF)
+		return -1;
+
+	for (i = 0; i < lines; i++) {
+		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+			return -1;
+
+		if (strncmp(&buf[3], "spec:", 5))
+			return -1;
+
+		if (!strncmp(buf, "arg", 3))
+			info->argspec = copy_info_str(&buf[8]);
+		else if (!strncmp(buf, "ret", 3))
+			info->retspec = copy_info_str(&buf[8]);
+		else
+			return -1;
+	}
 	return 0;
 }
 
