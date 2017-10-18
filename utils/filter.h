@@ -140,5 +140,7 @@ char * uftrace_clear_kernel(char *filter_str);
 
 void setup_auto_args(void);
 void finish_auto_args(void);
+struct uftrace_filter * find_auto_argspec(char *name);
+struct uftrace_filter * find_auto_retspec(char *name);
 
 #endif /* __FTRACE_FILTER_H__ */

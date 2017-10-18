@@ -114,6 +114,41 @@ next:
 	free(str);
 }
 
+static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct uftrace_filter *iter;
+	int cmp;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_filter, node);
+
+		cmp = strcmp(iter->name, name);
+		if (cmp == 0)
+			return iter;
+
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	return NULL;
+}
+
+struct uftrace_filter * find_auto_argspec(char *name)
+{
+	return find_auto_args(&auto_argspec, name);
+}
+
+struct uftrace_filter * find_auto_retspec(char *name)
+{
+	return find_auto_args(&auto_retspec, name);
+}
+
+
 void setup_auto_args(void)
 {
 	build_auto_args(NULL, &auto_argspec, TRIGGER_FL_ARGUMENT);
@@ -148,3 +183,45 @@ void finish_auto_args(void)
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
 }
+
+#ifdef UNIT_TEST
+
+TEST_CASE(argspec_auto_args)
+{
+	char test_auto_args[] = "foo@arg1,arg2/s;bar@fparg1";
+	struct uftrace_filter *entry;
+	struct uftrace_arg_spec *spec;
+	int idx = 1;
+
+	build_auto_args(test_auto_args, &auto_argspec, TRIGGER_FL_ARGUMENT);
+
+	entry = find_auto_argspec("foo");
+	TEST_NE(entry, NULL);
+	TEST_EQ(entry->trigger.flags, TRIGGER_FL_ARGUMENT);
+
+	list_for_each_entry(spec, &entry->args, list) {
+		TEST_EQ(spec->idx, idx);
+		TEST_EQ(spec->fmt, idx == 1 ? ARG_FMT_AUTO : ARG_FMT_STR);
+		idx++;
+	}
+
+	entry = find_auto_argspec("bar");
+	TEST_NE(entry, NULL);
+	TEST_EQ(entry->trigger.flags, TRIGGER_FL_ARGUMENT);
+
+	spec = list_first_entry(&entry->args, struct uftrace_arg_spec, list);
+	TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
+	TEST_EQ(spec->idx, 1);
+
+	entry = find_auto_argspec("xxx");
+	TEST_EQ(entry, NULL);
+
+	release_auto_args(&auto_argspec);
+
+	entry = find_auto_argspec("foo");
+	TEST_EQ(entry, NULL);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */

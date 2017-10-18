@@ -210,12 +210,32 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 		filter->trigger.read = tr->read;
 }
 
-static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
+static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		       struct uftrace_trigger *tr, bool exact_match)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *auto_arg = NULL;
+	struct uftrace_filter *auto_ret = NULL;
+	unsigned long orig_flags = tr->flags;
+
+	if ((tr->flags & TRIGGER_FL_ARGUMENT) && list_empty(tr->pargs)) {
+		auto_arg = find_auto_argspec(filter->name);
+		if (auto_arg == NULL)
+			tr->flags &= ~TRIGGER_FL_ARGUMENT;
+	}
+	if ((tr->flags & TRIGGER_FL_RETVAL) && list_empty(tr->pargs)) {
+		auto_ret = find_auto_retspec(filter->name);
+		if (auto_ret == NULL)
+			tr->flags &= ~TRIGGER_FL_RETVAL;
+	}
+
+	if (tr->flags == 0 && orig_flags) {
+		/* restored for regex filter */
+		tr->flags = orig_flags;
+		return 0;
+	}
 
 	pr_dbg("add filter for %s\n", filter->name);
 	if (dbg_domain[DBG_FILTER] >= 3)
@@ -227,7 +247,12 @@ static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
 
 		if (iter->start == filter->start) {
 			add_trigger(iter, tr, exact_match);
-			return;
+			if (auto_arg)
+				add_trigger(iter, &auto_arg->trigger, exact_match);
+			if (auto_ret)
+				add_trigger(iter, &auto_ret->trigger, exact_match);
+			tr->flags = orig_flags;
+			return 1;
 		}
 
 		if (iter->start > filter->start)
@@ -243,9 +268,15 @@ static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	new->trigger.pargs = &new->args;
 
 	add_trigger(new, tr, exact_match);
+	if (auto_arg)
+		add_trigger(new, &auto_arg->trigger, exact_match);
+	if (auto_ret)
+		add_trigger(new, &auto_ret->trigger, exact_match);
+	tr->flags = orig_flags;
 
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);
+	return 1;
 }
 
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
@@ -262,8 +293,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
-	add_filter(root, &filter, tr, true);
-	return 1;
+	return add_filter(root, &filter, tr, true);
 }
 
 static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
@@ -290,8 +320,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
-		add_filter(root, &filter, tr, false);
-		ret++;
+		ret += add_filter(root, &filter, tr, false);
 	}
 
 	regfree(&re);
