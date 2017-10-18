@@ -13,6 +13,7 @@ to help analysis of the program execution and performance.
  * Homepage: https://github.com/namhyung/uftrace
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
  * Chat: https://gitter.im/uftrace/uftrace
+ * Mailing list: [uftrace@googlegroups.com](https://groups.google.com/forum/#!forum/uftrace)
 
 
 Features
