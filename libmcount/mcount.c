@@ -95,6 +95,13 @@ static void mcount_filter_init(void)
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
 
+	if (getenv("UFTRACE_AUTO_ARGS")) {
+		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
+				       &mcount_triggers, true);
+		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
+				     &mcount_triggers, true);
+	}
+
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
 

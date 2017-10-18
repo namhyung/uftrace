@@ -463,6 +463,11 @@ ok:
 
 		setup_fstack_args(handle->info.argspec, handle->info.retspec,
 				  handle, false);
+		if (handle->info.auto_args_enabled) {
+			setup_fstack_args(handle->info.autoarg,
+					  handle->info.autoret,
+					  handle, true);
+		}
 	}
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))

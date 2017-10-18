@@ -102,6 +102,7 @@ struct uftrace_info {
 	char *retspec;
 	char *autoarg;
 	char *autoret;
+	bool auto_args_enabled;
 	int nr_tid;
 	int *tids;
 	double stime;
@@ -239,6 +240,7 @@ struct opts {
 	bool event_skip_out;
 	bool nest_libcall;
 	bool record;
+	bool auto_args;
 	struct uftrace_time_range range;
 };
 

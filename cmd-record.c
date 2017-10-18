@@ -66,7 +66,8 @@ static bool can_use_fast_libmcount(struct opts *opts)
 		return false;
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
 	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
-	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT"))
+	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT") ||
+	    getenv("UFTRACE_AUTO_ARGS"))
 		return false;
 	return true;
 }
@@ -152,6 +153,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 			free(retval_str);
 		}
 	}
+
+	if (opts->auto_args)
+		setenv("UFTRACE_AUTO_ARGS", "1", 1);
 
 	if (opts->patch) {
 		char *patch_str = uftrace_clear_kernel(opts->patch);
@@ -300,10 +304,10 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	if (opts->kernel)
 		features |= KERNEL;
 
-	if (opts->args)
+	if (opts->args || opts->auto_args)
 		features |= ARGUMENT;
 
-	if (opts->retval)
+	if (opts->retval || opts->auto_args)
 		features |= RETVAL;
 
 	if (opts->event)
