@@ -154,6 +154,47 @@ static inline int mcount_gettid(struct mcount_thread_data *mtdp)
 	return mtdp->tid;
 }
 
+/*
+ * calling memcpy or memset in libmcount might clobber some registers.
+ */
+static inline void mcount_memset1(void *dst, unsigned char d, int len)
+{
+	unsigned char *p = dst;
+
+	while (len-- > 0)
+		*p++ = d;
+}
+
+static inline void mcount_memcpy1(void * restrict dst,
+				  const void * restrict src, int len)
+{
+	unsigned char * restrict p = dst;
+	const unsigned char * restrict q = src;
+
+	while (len-- > 0)
+		*p++ = *q++;
+}
+
+static inline void mcount_memset4(void *dst, unsigned int d, int len)
+{
+	unsigned int *p = dst;
+	int len4 = len / 4;
+
+	while (len4-- > 0)
+		*p++ = d;
+}
+
+static inline void mcount_memcpy4(void * restrict dst,
+				  const void * restrict src, int len)
+{
+	unsigned int * restrict p = dst;
+	const unsigned int * restrict q = src;
+	int len4 = len / 4;
+
+	while (len4-- > 0)
+		*p++ = *q++;
+}
+
 extern void mcount_return(void);
 extern unsigned long plthook_return(void);
 
