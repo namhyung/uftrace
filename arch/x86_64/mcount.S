@@ -61,7 +61,6 @@ GLOBAL(mcount)
 	lea 8(%rsp), %rdx
 
 	call mcount_entry
-	cmpq $0, %rax
 
 	movq 0(%rsp), %rax
 	movq 8(%rsp), %r9
