@@ -288,14 +288,14 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			else {
 				/* mark NULL pointer with -1 */
 				len = 4;
-				memcpy(ptr, &len, sizeof(len));
-				memset(ptr + 2, 0xff, 4);
+				mcount_memcpy1(ptr, &len, sizeof(len));
+				mcount_memset1(ptr + 2, 0xff, 4);
 			}
 			size = ALIGN(len + 2, 4);
 		}
 		else {
-			memcpy(ptr, ctx->val.v, spec->size);
 			size = ALIGN(spec->size, 4);
+			mcount_memcpy4(ptr, ctx->val.v, size);
 		}
 		ptr += size;
 		total_size += size;
@@ -511,8 +511,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
 			record_event(mtdp);
 
-			memmove(&mtdp->event[0], &mtdp->event[1],
-				sizeof(*mtdp->event) * mtdp->nr_events);
+			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
+				       sizeof(*mtdp->event) * mtdp->nr_events);
 		}
 	}
 
@@ -570,17 +570,10 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	if (argbuf) {
 		unsigned int *ptr = (void *)curr_buf->data + curr_buf->size;
-		unsigned i;
 
 		size -= sizeof(*frstack);
 
-		/*
-		 * Calling memcpy() here (esp. with a large size) can
-		 * clobber floating-point registers (SSE registers on x86).
-		 * As the argbuf was aligned to 4-bytes, copy the words.
-		 */
-		for (i = 0; i < size; i += 4, ptr++)
-			*ptr = *(unsigned int *)(argbuf + sizeof(unsigned) + i);
+		mcount_memcpy4(ptr, argbuf + 4, size);
 
 		curr_buf->size += ALIGN(size, 8);
 	}
@@ -720,12 +713,12 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->start = start;
 		map->end = end;
 		map->len = namelen;
-		memcpy(map->prot, prot, 4);
+		mcount_memcpy1(map->prot, prot, 4);
 		map->symtab.sym = NULL;
 		map->symtab.sym_names = NULL;
 		map->symtab.nr_sym = 0;
 		map->symtab.nr_alloc = 0;
-		memcpy(map->libname, path, namelen);
+		mcount_memcpy1(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
 
