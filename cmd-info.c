@@ -224,23 +224,34 @@ static int fill_cmdline(void *arg)
 	struct fill_handler_arg *fha = arg;
 	char buf[4096];
 	FILE *fp;
-	int ret;
+	int ret, i;
 	char *p;
 
 	fp = fopen("/proc/self/cmdline", "r");
 	if (fp == NULL)
 		return -1;
 
-	strcpy(buf, "cmdline:");
-	ret = fread(&buf[8], 1, sizeof(buf)-8, fp);
-	buf[8+ret] = '\n';
+	ret = fread(buf, 1, sizeof(buf), fp);
 	fclose(fp);
 
-	for (p = buf; *p != '\n'; p++) {
+	if (ret < 0)
+		return ret;
+
+	/* cmdline separated by NUL character - convert to space */
+	for (i = 0, p = buf; i < ret; i++, p++) {
 		if (*p == '\0')
 			*p = ' ';
 	}
-	return write(fha->fd, buf, 8+ret+1);
+
+	p = strquote(buf, &ret);
+	p[ret - 1] = '\n';
+
+	if ((write(fha->fd, "cmdline:", 8) < 8) ||
+	    (write(fha->fd, p, ret) < ret))
+		return -1;
+
+	free(p);
+	return ret;
 }
 
 static int read_cmdline(void *arg)
