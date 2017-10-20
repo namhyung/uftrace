@@ -362,11 +362,10 @@ int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	if (opts->filter || opts->trigger) {
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger) < 0) {
-			pr_err_ns("failed to set filter or trigger: %s%s%s\n",
-				  opts->filter ?: "",
-				  (opts->filter && opts->trigger) ? " or " : "",
-				  opts->trigger ?: "");
-			return -1;
+			pr_use("failed to set filter or trigger: %s%s%s\n",
+			       opts->filter ?: "",
+			       (opts->filter && opts->trigger) ? " or " : "",
+			       opts->trigger ?: "");
 		}
 	}
 
