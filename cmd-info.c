@@ -506,11 +506,12 @@ static int read_taskinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
 	int i, lines;
 	int ret = -1;
+	char *buf = NULL;
+	size_t len = 0;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (getline(&buf, &len, handle->fp) < 0)
 		goto out;
 
 	if (strncmp(buf, "taskinfo:", 9))
@@ -520,7 +521,7 @@ static int read_taskinfo(void *arg)
 		goto out;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		if (getline(&buf, &len, handle->fp) < 0)
 			goto out;
 
 		if (strncmp(buf, "taskinfo:", 9))
@@ -552,6 +553,7 @@ static int read_taskinfo(void *arg)
 	}
 	ret = 0;
 out:
+	free(buf);
 	return ret;
 }
 
@@ -725,11 +727,12 @@ static int read_arg_spec(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
 	int i, lines;
 	int ret = -1;
+	char *buf = NULL;
+	size_t len = 0;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (getline(&buf, &len, handle->fp) < 0)
 		goto out;
 
 	if (strncmp(buf, "argspec:", 8))
@@ -746,7 +749,7 @@ static int read_arg_spec(void *arg)
 		goto out;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		if (getline(&buf, &len, handle->fp) < 0)
 			goto out;
 
 		if (strncmp(&buf[3], "spec:", 5))
@@ -761,6 +764,7 @@ static int read_arg_spec(void *arg)
 	}
 	ret = 0;
 out:
+	free(buf);
 	return ret;
 }
 
