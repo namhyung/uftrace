@@ -120,9 +120,11 @@ typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 struct symtabs;
 
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
-			 struct rb_root *root, enum filter_mode *mode);
+			  struct rb_root *root, enum filter_mode *mode,
+			  bool allow_kernel);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
-			   struct rb_root *root, enum filter_mode *mode);
+			   struct rb_root *root, enum filter_mode *mode,
+			   bool allow_kernel);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,

@@ -206,7 +206,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 	char *filter_str = arg;
 
 	uftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
-			     &fstack_filter_mode);
+			     &fstack_filter_mode, true);
 	return 0;
 }
 
@@ -215,7 +215,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 	char *trigger_str = arg;
 
 	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters,
-			      &fstack_filter_mode);
+			      &fstack_filter_mode, true);
 	return 0;
 }
 
@@ -292,7 +292,7 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
 		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
-				      &s->fixups, NULL);
+				      &s->fixups, NULL, false);
 	}
 	return 0;
 }
