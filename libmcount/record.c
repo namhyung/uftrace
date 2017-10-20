@@ -286,10 +286,11 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				*(unsigned short *)ptr = len;
 			}
 			else {
-				/* mark NULL pointer with -1 */
-				len = 4;
+				const char null_str[4] = { 'N', 'U', 'L', 'L' };
+
+				len = sizeof(null_str);
 				mcount_memcpy1(ptr, &len, sizeof(len));
-				mcount_memset1(ptr + 2, 0xff, 4);
+				mcount_memcpy1(ptr + 2, null_str, len);
 			}
 			size = ALIGN(len + 2, 4);
 		}
