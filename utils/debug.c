@@ -262,8 +262,16 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 	const char *sc = TERM_COLOR_NORMAL;
 	const char *ec = TERM_COLOR_NORMAL;
 
-	if (base_nsec)
-		percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
+	if (base_nsec == 0) {
+		pr_out("%s%7s%s ", TERM_COLOR_RED, "N/A", ec);
+		return;
+	}
+	if (pair_nsec == 0) {
+		pr_out("%s%7s%s ", TERM_COLOR_BLUE, "N/A", ec);
+		return;
+	}
+
+	percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
 
 	/* for some error cases */
 	if (percent > 999.99)
