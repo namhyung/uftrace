@@ -40,3 +40,6 @@ class TestCase(TestBase):
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
         return ret
+
+    def fixup(self, cflags, result):
+        return result.replace('sys_open', 'sys_openat')

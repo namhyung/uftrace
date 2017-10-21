@@ -34,3 +34,6 @@ class TestCase(TestBase):
     def runcmd(self):
         return '%s -k --kernel-depth=2 -N %s@kernel -N %s@kernel %s' % \
             (TestBase.ftrace, 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
+
+    def fixup(self, cflags, result):
+        return result.replace('sys_open', 'sys_openat')

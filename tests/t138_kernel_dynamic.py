@@ -28,3 +28,6 @@ class TestCase(TestBase):
     def runcmd(self):
         return '%s -k -P %s %s openclose' % \
             (TestBase.ftrace, 'sys_*@kernel', 't-' + self.name)
+
+    def fixup(self, cflags, result):
+        return result.replace('sys_open', 'sys_openat')
