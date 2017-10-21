@@ -10,16 +10,11 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', """
 # DURATION    TID     FUNCTION
-   1.088 us [18343] | __monstartup();
-   0.640 us [18343] | __cxa_atexit();
             [18343] | main() {
             [18343] |   fopen() {
   86.790 us [18343] |     sys_open();
   89.018 us [18343] |   } /* fopen */
-            [18343] |   fclose() {
-  10.781 us [18343] |     sys_close();
-  21.980 us [18343] |     exit_to_usermode_loop();
-  37.325 us [18343] |   } /* fclose */
+  37.325 us [18343] |   fclose();
  128.387 us [18343] | } /* main */
 """)
 
@@ -29,13 +24,13 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -K3 -N %s@kernel -d %s %s' % \
+        record_cmd = '%s record -k -N %s@kernel -d %s %s' % \
                      (TestBase.ftrace, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -k -D3 -d %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -F main -D2 -F ^sys_open@kernel -d %s' % (TestBase.ftrace, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
