@@ -506,24 +506,26 @@ static int read_taskinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
 	int i, lines;
+	int ret = -1;
+	char *buf = NULL;
+	size_t len = 0;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
-		return -1;
+	if (getline(&buf, &len, handle->fp) < 0)
+		goto out;
 
 	if (strncmp(buf, "taskinfo:", 9))
-		return -1;
+		goto out;
 
 	if (sscanf(&buf[9], "lines=%d\n", &lines) == EOF)
-		return -1;
+		goto out;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
-			return -1;
+		if (getline(&buf, &len, handle->fp) < 0)
+			goto out;
 
 		if (strncmp(buf, "taskinfo:", 9))
-			return -1;
+			goto out;
 
 		if (!strncmp(&buf[9], "nr_tid=", 7)) {
 			info->nr_tid = strtol(&buf[16], NULL, 10);
@@ -539,7 +541,7 @@ static int read_taskinfo(void *arg)
 
 				if (*endp != ',' && *endp != '\n') {
 					free(tids);
-					return -1;
+					goto out;
 				}
 
 				tids_str = endp + 1;
@@ -549,7 +551,10 @@ static int read_taskinfo(void *arg)
 			assert(nr_tid == info->nr_tid);
 		}
 	}
-	return 0;
+	ret = 0;
+out:
+	free(buf);
+	return ret;
 }
 
 static int fill_usageinfo(void *arg)
@@ -722,39 +727,45 @@ static int read_arg_spec(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
 	int i, lines;
+	int ret = -1;
+	char *buf = NULL;
+	size_t len = 0;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
-		return -1;
+	if (getline(&buf, &len, handle->fp) < 0)
+		goto out;
 
 	if (strncmp(buf, "argspec:", 8))
-		return -1;
+		goto out;
 
 	/* old format only has argspec */
 	if (strncmp(&buf[8], "lines", 5)) {
 		info->argspec = copy_info_str(&buf[8]);
-		return 0;
+		ret = 0;
+		goto out;
 	}
 
 	if (sscanf(&buf[8], "lines=%d\n", &lines) == EOF)
-		return -1;
+		goto out;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
-			return -1;
+		if (getline(&buf, &len, handle->fp) < 0)
+			goto out;
 
 		if (strncmp(&buf[3], "spec:", 5))
-			return -1;
+			goto out;
 
 		if (!strncmp(buf, "arg", 3))
 			info->argspec = copy_info_str(&buf[8]);
 		else if (!strncmp(buf, "ret", 3))
 			info->retspec = copy_info_str(&buf[8]);
 		else
-			return -1;
+			goto out;
 	}
-	return 0;
+	ret = 0;
+out:
+	free(buf);
+	return ret;
 }
 
 static int fill_record_date(void *arg)
