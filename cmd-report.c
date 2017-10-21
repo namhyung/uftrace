@@ -1127,15 +1127,24 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
 		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
 		"  %35.35s   %35.35s   %35.35s   %-s\n",  /* diff avg numbers */
+		"  %11.11s   %11.11s   %11.11s   %-s\n",  /* diff compact */
 	};
 	const char line[] = "================================================";
 	const char *headers[][3] = {
 		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
 		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
 		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
+		{ "Total time", "Self time", "Calls" },
+		{ "Avg total", "Min total", "Max total" },
+		{ "Avg self", "Min self", "Max self" },
 	};
 	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
 	int f_idx = diff_percent ? 1 : (avg_mode == AVG_NONE) ? 0 : 2;
+
+	if (!diff_full) {
+		h_idx += 3;
+		f_idx = 3;
+	}
 
 	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
@@ -1187,6 +1196,10 @@ static void apply_diff_policy(char *policy)
 			diff_absolute = on;
 		else if (!strncmp(p, "percent", 7))
 			diff_percent = on;
+		else if (!strncmp(p, "full", 4))
+			diff_full = true;
+		else if (!strncmp(p, "compact", 7))
+			diff_full = false;
 
 		tmp = NULL;
 	}
