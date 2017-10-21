@@ -1066,7 +1066,10 @@ static void print_function_diff(struct trace_entry *entry)
 		else if (diff_percent)
 			pr_out("   ");
 
-		print_diff_percent(entry->time_avg, pair->time_avg);
+		if (diff_percent)
+			print_diff_percent(entry->time_avg, pair->time_avg);
+		else
+			print_diff_time_unit(entry->time_avg, pair->time_avg);
 
 		pr_out("   ");
 
@@ -1079,7 +1082,10 @@ static void print_function_diff(struct trace_entry *entry)
 		else if (diff_percent)
 			pr_out("   ");
 
-		print_diff_percent(entry->time_min, pair->time_min);
+		if (diff_percent)
+			print_diff_percent(entry->time_min, pair->time_min);
+		else
+			print_diff_time_unit(entry->time_min, pair->time_min);
 
 		pr_out("   ");
 
@@ -1092,7 +1098,10 @@ static void print_function_diff(struct trace_entry *entry)
 		else if (diff_percent)
 			pr_out("   ");
 
-		print_diff_percent(entry->time_max, pair->time_max);
+		if (diff_percent)
+			print_diff_percent(entry->time_max, pair->time_max);
+		else
+			print_diff_time_unit(entry->time_max, pair->time_max);
 
 		pr_out("   %-s\n", symname);
 	}
@@ -1117,6 +1126,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	const char *formats[] = {
 		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
 		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
+		"  %35.35s   %35.35s   %35.35s   %-s\n",  /* diff avg numbers */
 	};
 	const char line[] = "================================================";
 	const char *headers[][3] = {
@@ -1125,7 +1135,7 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
 	};
 	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
-	int f_idx = diff_percent ? 1 : 0;
+	int f_idx = diff_percent ? 1 : (avg_mode == AVG_NONE) ? 0 : 2;
 
 	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
