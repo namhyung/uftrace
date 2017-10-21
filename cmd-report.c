@@ -41,6 +41,9 @@ static bool diff_percent = false;
 /* calculate diff using absolute values */
 static bool diff_absolute = true;
 
+/* show original data as well as difference */
+static bool diff_full = true;
+
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
@@ -1009,10 +1012,15 @@ static void print_function_diff(struct trace_entry *entry)
 
 	if (avg_mode == AVG_NONE) {
 		pr_out("  ");
-		print_time_or_dash(entry->time_total - entry->time_recursive);
-		pr_out("  ");
-		print_time_or_dash(pair->time_total - pair->time_recursive);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_or_dash(entry->time_total - entry->time_recursive);
+			pr_out("  ");
+			print_time_or_dash(pair->time_total - pair->time_recursive);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_total - entry->time_recursive,
@@ -1022,39 +1030,68 @@ static void print_function_diff(struct trace_entry *entry)
 					     pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
-		print_time_or_dash(entry->time_self);
-		pr_out("  ");
-		print_time_or_dash(pair->time_self);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_or_dash(entry->time_self);
+			pr_out("  ");
+			print_time_or_dash(pair->time_self);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_self, pair->time_self);
 		else
 			print_diff_time_unit(entry->time_self, pair->time_self);
 
-		pr_out("    %9lu  %9lu  ", entry->nr_called, pair->nr_called);
+		pr_out("   ");
+
+		if (diff_full)
+			pr_out(" %9lu  %9lu", entry->nr_called, pair->nr_called);
+
+		pr_out("  ");
+
 		print_diff_count(entry->nr_called, pair->nr_called);
 		pr_out("   %-s\n", symname);
 	} else {
 		pr_out("  ");
-		print_time_unit(entry->time_avg);
-		pr_out("  ");
-		print_time_unit(pair->time_avg);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_unit(entry->time_avg);
+			pr_out("  ");
+			print_time_unit(pair->time_avg);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
 		print_diff_percent(entry->time_avg, pair->time_avg);
 
 		pr_out("   ");
-		print_time_unit(entry->time_min);
-		pr_out("  ");
-		print_time_unit(pair->time_min);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_unit(entry->time_min);
+			pr_out("  ");
+			print_time_unit(pair->time_min);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
 		print_diff_percent(entry->time_min, pair->time_min);
 
 		pr_out("   ");
-		print_time_unit(entry->time_max);
-		pr_out("  ");
-		print_time_unit(pair->time_max);
-		pr_out(" ");
+
+		if (diff_full) {
+			print_time_unit(entry->time_max);
+			pr_out("  ");
+			print_time_unit(pair->time_max);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
 		print_diff_percent(entry->time_max, pair->time_max);
 
 		pr_out("   %-s\n", symname);
