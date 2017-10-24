@@ -1,3 +1,20 @@
+uftrace v0.8.1
+--------------
+* trigger update
+  apply filter/trigger to all libraries by default
+  save symbol tables of all libraries
+  -T/--trigger option supports filtering and argument/return value
+
+* other changes
+  make --nest-libcall option imply --force option
+  add --record option to script command
+  replay show 's' suffix for std::string arguments
+  allow reading data in current directory
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Honggyu Kim, Taeung Song
+
+
 uftrace v0.8
 ============
 * event tracing support:
