@@ -909,6 +909,7 @@ out:
 	mtdp->recursion_guard = false;
 }
 
+/* save an asynchronous event */
 int mcount_save_event(struct mcount_event_info *mei)
 {
 	struct mcount_thread_data *mtdp;
@@ -926,6 +927,7 @@ int mcount_save_event(struct mcount_event_info *mei)
 		mtdp->event[i].id   = mei->id;
 		mtdp->event[i].time = mcount_gettime();
 		mtdp->event[i].dsize = 0;
+		mtdp->event[i].idx   = ASYNC_IDX;
 	}
 
 	return 0;
