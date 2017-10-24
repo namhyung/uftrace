@@ -310,7 +310,7 @@ void print_diff_count(unsigned long base, unsigned long pair)
 	long diff = pair - base;
 
 	if (diff == 0) {
-		pr_out("%9s", "0");
+		pr_out("%9s", "+0");
 		return;
 	}
 
