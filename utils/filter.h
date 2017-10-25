@@ -45,6 +45,7 @@ enum uftrace_arg_format {
 	ARG_FMT_CHAR,
 	ARG_FMT_FLOAT,
 	ARG_FMT_STD_STRING,
+	ARG_FMT_FUNC_PTR,
 };
 
 enum trigger_read_type {
@@ -59,7 +60,7 @@ enum trigger_read_type {
 #define ARG_TYPE_STACK  3
 
 /* should match with ftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxscf"
+#define ARG_SPEC_CHARS  "diuxscfSp"
 
 /**
  * ftrace_arg_spec contains arguments and return value info.

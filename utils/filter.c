@@ -386,6 +386,9 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 		}
 		fmt = ARG_FMT_STD_STRING;
 		break;
+	case 'p':
+		fmt = ARG_FMT_FUNC_PTR;
+		break;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;
