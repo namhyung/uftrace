@@ -441,14 +441,6 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				save_argument(mtdp, rstack, tr->pargs, regs);
 			if (tr->flags & TRIGGER_FL_READ)
 				save_trigger_read(mtdp, rstack, tr->read);
-
-			if (mtdp->nr_events) {
-				/*
-				 * Flush rstacks if event was recorded as it only has
-				 * limited space for the events.
-				 */
-				record_trace_data(mtdp, rstack, NULL);
-			}
 		}
 
 		/* script hooking for function entry */
@@ -545,6 +537,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
+		} else {
+			/* invalidate events if filtered-out by time filter */
+			mtdp->nr_events = 0;
 		}
 
 		/* script hooking for function exit */
