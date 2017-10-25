@@ -6,6 +6,7 @@ CHECK_LIST += cc_has_mno_sse2
 CHECK_LIST += have_libpython2.7
 CHECK_LIST += perf_clockid
 CHECK_LIST += perf_context_switch
+CHECK_LIST += arm_has_hardfp
 
 #
 # This is needed for checking build dependency
