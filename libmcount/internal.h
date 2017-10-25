@@ -23,6 +23,7 @@
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/compiler.h"
 
 enum filter_result {
 	FILTER_RSTACK = -1,

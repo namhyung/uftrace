@@ -24,6 +24,11 @@
 # define write_memory_barrier()	asm volatile("dmb ishst" ::: "memory")
 #endif
 
+/* ignore 'restrict' keyword if not supported (before C99) */
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
+# define restrict
+#endif
+
 #define __weak  __attribute__((weak))
 #define __visible_default  __attribute__((visibility("default")))
 #define __alias(func)  __attribute__((alias(#func)))
