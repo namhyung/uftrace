@@ -66,7 +66,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 	if (pfd < 0)
 		return;
 
-	memcpy(dlop.sid, sess_id, sizeof(dlop.sid));
+	mcount_memcpy4(dlop.sid, sess_id, sizeof(dlop.sid));
 
 	if (writev(pfd, iov, 3) != len) {
 		if (!mcount_should_stop())

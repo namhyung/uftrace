@@ -319,6 +319,7 @@ static void pr_args(struct fstack_arguments *args)
 			size = *(unsigned short *)ptr;
 			buf = xmalloc(size + 1);
 			strncpy(buf, ptr + 2, size);
+			buf[size] = '\0';
 
 			if (!memcmp(buf, &null_str, 4))
 				strcpy(buf, "NULL");

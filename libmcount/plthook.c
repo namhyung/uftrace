@@ -613,7 +613,7 @@ static void prepare_vfork(struct mcount_thread_data *mtdp,
 	vfork_rstack_idx = mtdp->idx;
 	vfork_record_idx = mtdp->record_idx;
 
-	memcpy(&vfork_rstack, rstack, sizeof(*rstack));
+	mcount_memcpy4(&vfork_rstack, rstack, sizeof(*rstack));
 	/* it will be force flushed */
 	vfork_rstack.flags |= MCOUNT_FL_WRITTEN;
 }
@@ -630,10 +630,10 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	/* update tid cache */
 	mtdp->tid = tmsg.tid;
 
-	memcpy(&vfork_shmem, &mtdp->shmem, sizeof(vfork_shmem));
+	mcount_memcpy4(&vfork_shmem, &mtdp->shmem, sizeof(vfork_shmem));
 
 	/* setup new shmem buffer for child */
-	memset(&mtdp->shmem, 0, sizeof(mtdp->shmem));
+	mcount_memset4(&mtdp->shmem, 0, sizeof(mtdp->shmem));
 	prepare_shmem_buffer(mtdp);
 
 	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
@@ -660,9 +660,9 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 
 		vfork_parent = 0;
 
-		memcpy(&mtdp->shmem, &vfork_shmem, sizeof(vfork_shmem));
+		mcount_memcpy4(&mtdp->shmem, &vfork_shmem, sizeof(vfork_shmem));
 
-		memcpy(rstack, &vfork_rstack, sizeof(*rstack));
+		mcount_memcpy4(rstack, &vfork_rstack, sizeof(*rstack));
 	}
 
 	return rstack;

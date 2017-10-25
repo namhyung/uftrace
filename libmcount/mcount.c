@@ -140,7 +140,7 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 	if (pfd < 0)
 		return;
 
-	memcpy(sess.sid, sess_id, sizeof(sess.sid));
+	mcount_memcpy4(sess.sid, sess_id, sizeof(sess.sid));
 
 	if (writev(pfd, iov, 3) != len) {
 		if (!mcount_should_stop())
