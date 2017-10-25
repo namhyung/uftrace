@@ -163,6 +163,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	if (!can_skip_replay(opts, ret)) {
 		int ret2;
 
+		pr_out("\n");
 		reset_live_opts(opts);
 
 		pr_dbg("live-record finished.. \n");
