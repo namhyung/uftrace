@@ -332,6 +332,27 @@ static void pr_args(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
+		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+			struct ftrace_task_handle *task;
+			struct uftrace_session_link *sessions;
+			struct sym *sym;
+			unsigned long val = 0;
+
+			task = container_of(args, struct ftrace_task_handle, args);
+			sessions = &task->h->sessions;
+
+			memcpy(&val, ptr, spec->size);
+			size = spec->size;
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			if (sym)
+				pr_out("  args[%d] p: &%s\n", i, sym->name);
+			else
+				pr_out("  args[%d] p: %p\n", i, (void *)val);
+		}
 		else {
 			long long val = 0;
 
@@ -375,6 +396,27 @@ static void pr_retval(struct fstack_arguments *args)
 			else
 				pr_out("  retval[%d] str: %s\n", i , buf);
 			size += 2;
+		}
+		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+			struct ftrace_task_handle *task;
+			struct uftrace_session_link *sessions;
+			struct sym *sym;
+			unsigned long val = 0;
+
+			task = container_of(args, struct ftrace_task_handle, args);
+			sessions = &task->h->sessions;
+
+			memcpy(&val, ptr, spec->size);
+			size = spec->size;
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			if (sym)
+				pr_out("  retval[%d] &%s\n", i, sym->name);
+			else
+				pr_out("  retval[%d] %p\n", i, (void *)val);
 		}
 		else {
 			long long val = 0;
