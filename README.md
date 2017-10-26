@@ -10,6 +10,8 @@ of the Linux kernel (especially function graph tracer) and supports
 userspace programs.  It supports various kind of commands and filters
 to help analysis of the program execution and performance.
 
+![uftrace-live-demo](doc/uftrace-live-demo.gif)
+
  * Homepage: https://github.com/namhyung/uftrace
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
  * Chat: https://gitter.im/uftrace/uftrace
