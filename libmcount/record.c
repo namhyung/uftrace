@@ -397,6 +397,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event->id    = EVENT_ID_PROC_STATM;
 			event->time  = rstack->start_time;
 			event->dsize = sizeof(struct uftrace_proc_statm);
+			event->idx   = mtdp->idx;
 			save_proc_statm(event->data);
 		}
 	}
@@ -409,6 +410,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			event->id    = EVENT_ID_PAGE_FAULT;
 			event->time  = rstack->start_time;
 			event->dsize = sizeof(struct uftrace_page_fault);
+			event->idx   = mtdp->idx;
 			save_page_fault(event->data);
 		}
 	}

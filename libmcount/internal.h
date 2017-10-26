@@ -62,9 +62,11 @@ struct mcount_event {
 	uint64_t	time;
 	uint32_t	id;
 	uint16_t	dsize;
-	uint16_t	pad;
+	uint16_t	idx;
 	uint8_t		data[EVTBUF_SIZE];
 };
+
+#define ASYNC_IDX 0xffff
 
 #define MAX_EVENT  4
 
