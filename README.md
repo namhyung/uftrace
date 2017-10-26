@@ -164,17 +164,12 @@ The `graph` command shows function call graph of given function.  In the above
 example, function graph of function 'main' looks like below:
 
     $ uftrace graph  main
-    #
-    # function graph for 'main' (session: 8823ea321c31e531)
-    #
-    
-    backtrace
-    ================================
+    # Function Call Graph for 'main' (session: 073f1e84aa8b09d3)
+    =============== BACKTRACE ===============
      backtrace #0: hit 1, time  25.024 us
        [0] main (0x40066b)
     
-    calling functions
-    ================================
+    ========== FUNCTION CALL GRAPH ==========
       25.024 us : (1) main
        2.706 us :  +-(1) atoi
                 :  | 
