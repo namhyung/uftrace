@@ -214,13 +214,13 @@ class TestBase:
         result = []
         mode = 0
         for ln in output.split('\n'):
-            if ln.strip() == '' or ln.startswith('#') or ln.startswith('='):
+            if ln.strip() == '' or ln.startswith('#'):
                 continue
             # A graph result consists of backtrace and calling functions
-            if ln.startswith('backtrace'):
+            if ln.startswith('=============== BACKTRACE ==============='):
                 mode = 1
                 continue
-            if ln.startswith('calling'):
+            if ln.startswith('========== FUNCTION CALL GRAPH =========='):
                 mode = 2
                 continue
             if mode == 1:

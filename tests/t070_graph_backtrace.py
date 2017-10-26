@@ -9,22 +9,17 @@ FUNC='getpid'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc', result="""
-#
-# function graph for 'getpid'
-#
+# Function Call Graph for 'getpid' (session: adff9f265b25c0d8)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time   2.010 us
+   [0] main (0x400530)
+   [1] a (0x4006f1)
+   [2] b (0x4006c1)
+   [3] c (0x400686)
+   [4] getpid (0x4004d0)
 
-backtrace
-================================
- backtrace #0: hit 1, time   1.622 us
-   [0] main (0x4004f0)
-   [1] a (0x40069f)
-   [2] b (0x400674)
-   [3] c (0x400636)
-   [4] getpid (0x400490)
-
-calling functions
-================================
-   1.622 us : (1) getpid
+========== FUNCTION CALL GRAPH ==========
+   2.010 us : (1) getpid
 """, sort='graph')
 
     def pre(self):
