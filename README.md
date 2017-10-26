@@ -190,7 +190,7 @@ The `info` command shows system and program information when recorded.
     $ uftrace info
     # system information
     # ==================
-    # program version     : uftrace v0.6
+    # program version     : uftrace v0.8.1
     # recorded on         : Tue May 24 11:21:59 2016
     # cmdline             : uftrace record tests/t-abc 
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
