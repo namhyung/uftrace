@@ -9,21 +9,15 @@ FUNC='a'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'fork', result="""
-#
-# function graph for 'a' (session: de8436a173b22b1c)
-#
+# Function Call Graph for 'a' (session: 93175b4bdd9d0ddf)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time   4.217 us
+   [0] main (0x4005c0)
+   [1] a (0x4007a1)
 
-backtrace
-================================
- backtrace #0: hit 1, time   6.602 us
-   [0] main (0x4005c5)
-   [1] a (0x400782)
-
-calling functions
-================================
-   6.602 us : (1) a
-   6.094 us : (1) b
-
+========== FUNCTION CALL GRAPH ==========
+   4.217 us : (1) a
+   3.876 us : (1) b
 """, sort='graph')
 
     def pre(self):

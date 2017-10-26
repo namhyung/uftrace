@@ -164,17 +164,12 @@ The `graph` command shows function call graph of given function.  In the above
 example, function graph of function 'main' looks like below:
 
     $ uftrace graph  main
-    #
-    # function graph for 'main' (session: 8823ea321c31e531)
-    #
-    
-    backtrace
-    ================================
+    # Function Call Graph for 'main' (session: 073f1e84aa8b09d3)
+    =============== BACKTRACE ===============
      backtrace #0: hit 1, time  25.024 us
        [0] main (0x40066b)
     
-    calling functions
-    ================================
+    ========== FUNCTION CALL GRAPH ==========
       25.024 us : (1) main
        2.706 us :  +-(1) atoi
                 :  | 
@@ -195,7 +190,7 @@ The `info` command shows system and program information when recorded.
     $ uftrace info
     # system information
     # ==================
-    # program version     : uftrace v0.6
+    # program version     : uftrace v0.8.1
     # recorded on         : Tue May 24 11:21:59 2016
     # cmdline             : uftrace record tests/t-abc 
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz

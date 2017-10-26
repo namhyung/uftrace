@@ -9,38 +9,28 @@ FUNC='main'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'forkexec', result="""
-#
-# function graph for 'main' (session: ee242b9985a2975d)
-#
+# Function Call Graph for 'main' (session: 327202376e209585)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time   5.824 us
+   [0] main (0x400530)
 
-backtrace
-================================
- backtrace #0: hit 1, time   7.865 us
-   [0] main (0x400510)
+========== FUNCTION CALL GRAPH ==========
+   5.824 us : (1) main
+   5.411 us : (1) a
+   5.141 us : (1) b
+   4.670 us : (1) c
+   0.967 us : (1) getpid
 
-calling functions
-================================
-   7.865 us : (1) main
-   2.988 us : (1) a
-   2.705 us : (1) b
-   2.271 us : (1) c
-   0.657 us : (1) getpid
+# Function Call Graph for 'main' (session: f34056bd485963b3)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time   3.679 ms
+   [0] main (0x4005b0)
 
-#
-# function graph for 'main' (session: 1dc307633af856ad)
-#
-
-backtrace
-================================
- backtrace #0: hit 1, time   3.433 ms
-   [0] main (0x4007ed)
-
-calling functions
-================================
-   3.433 ms : (1) main
- 114.506 us :  +-(1) fork
+========== FUNCTION CALL GRAPH ==========
+   3.679 ms : (1) main
+ 127.172 us :  +-(1) fork
             :  | 
-   3.289 ms :  +-(1) waitpid
+   3.527 ms :  +-(1) waitpid
 """)
 
     def pre(self):
@@ -66,12 +56,12 @@ calling functions
         result = []
         mode = 0
         for ln in output.split('\n'):
-            if ln.strip() == '' or ln.startswith('#') or ln.startswith('='):
+            if ln.strip() == '' or ln.startswith('#'):
                 continue
-            if ln.startswith('backtrace'):
+            if ln.startswith('=============== BACKTRACE ==============='):
                 mode = 1  # it seems to be broken in this case
                 continue
-            if ln.startswith('calling'):
+            if ln.startswith('========== FUNCTION CALL GRAPH =========='):
                 mode = 2
                 continue
             if mode == 1:

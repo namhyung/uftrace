@@ -9,24 +9,19 @@ FUNC='main'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', result="""
-#
-# function graph for 'main'
-#
+# Function Call Graph for 'main' (session: 54047ea45c46ad91)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time  10.329 ms
+   [0] main (0x4004e0)
 
-backtrace
-================================
- backtrace #0: hit 1, time  10.293 ms
-   [0] main (0x4004f0)
-
-calling functions
-================================
-  10.293 ms : (1) main
-  46.626 us :  +-(2) foo
-  44.360 us :  | (6) loop
+========== FUNCTION CALL GRAPH ==========
+  10.329 ms : (1) main
+  53.100 us :  +-(2) foo
+  50.745 us :  | (6) loop
             :  | 
-  10.138 ms :  +-(1) bar
-  10.100 ms :    (1) usleep
-  10.098 ms :    (1) linux:schedule
+  10.150 ms :  +-(1) bar
+  10.102 ms :    (1) usleep
+  10.088 ms :    (1) linux:schedule
 """, sort='graph')
 
     def pre(self):

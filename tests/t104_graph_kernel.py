@@ -10,40 +10,35 @@ FUNC='main'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'getids', result="""
-#
-# function graph for 'main' (session: 771f183fd824f3a3)
-#
+# Function Call Graph for 'main' (session: 59268c360e3c1bd6)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time  24.837 us
+   [0] main (0x400893)
 
-backtrace
-================================
- backtrace #0: hit 1, time  17.436 us
-   [0] main (0x4006c0)
-
-calling functions
-================================
-  17.436 us : (1) main
-   1.123 us :  +-(1) getpid
+========== FUNCTION CALL GRAPH ==========
+  24.837 us : (1) main
+   0.860 us :  +-(1) getpid
             :  | 
-   1.838 us :  +-(1) getppid
-   0.738 us :  | (1) sys_getppid
+   3.130 us :  +-(1) getppid
+   1.080 us :  | (1) sys_getppid
             :  | 
-   1.919 us :  +-(1) getpgid
-   0.629 us :  | (1) sys_getpgid
+   2.926 us :  +-(1) getpgid
+   0.834 us :  | (1) sys_getpgid
             :  | 
-   1.711 us :  +-(1) getsid
-   0.496 us :  | (1) sys_getsid
+   2.393 us :  +-(1) getsid
+   0.750 us :  | (1) sys_getsid
             :  | 
-   1.353 us :  +-(1) getuid
-   0.361 us :  | (1) sys_getuid
+   2.030 us :  +-(1) getuid
+   0.660 us :  | (1) sys_getuid
             :  | 
-   1.451 us :  +-(1) geteuid
-   0.470 us :  | (1) sys_geteuid
+   2.074 us :  +-(1) geteuid
+   0.510 us :  | (1) sys_geteuid
             :  | 
-   1.456 us :  +-(1) getgid
-   0.401 us :  | (1) sys_getgid
+   4.391 us :  +-(1) getgid
+   0.696 us :  | (1) sys_getgid
             :  | 
-   1.360 us :  +-(1) getegid
-   0.346 us :    (1) sys_getegid
+   4.223 us :  +-(1) getegid
+   1.710 us :    (1) sys_getegid
 """, sort='graph')
 
     def pre(self):
