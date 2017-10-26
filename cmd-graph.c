@@ -443,20 +443,16 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	    graph->root.nr_edges == 0)
 		return 0;
 
-	pr_out("#\n");
-	pr_out("# function graph for '%s' (session: %.16s)\n",
+	pr_out("# Function Call Graph for '%s' (session: %.16s)\n",
 	       graph->func, graph->sess->sid);
-	pr_out("#\n\n");
 
 	if (!list_empty(&graph->bt_list)) {
-		pr_out("backtrace\n");
-		pr_out("=====================================\n");
+		pr_out("=============== BACKTRACE ===============\n");
 		print_backtrace(graph);
 	}
 
 	if (graph->root.time || graph->root.nr_edges) {
-		pr_out("calling functions\n");
-		pr_out("=====================================\n");
+		pr_out("========== FUNCTION CALL GRAPH ==========\n");
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
 				 graph->root.nr_edges > 1);
