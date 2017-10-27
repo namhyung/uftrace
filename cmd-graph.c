@@ -51,6 +51,7 @@ struct task_graph {
 	struct rb_node link;
 };
 
+static bool full_graph = false;
 static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
 
@@ -59,7 +60,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	struct uftrace_graph *graph = xcalloc(1, sizeof(*graph));
 
 	graph->sess = sess;
-	graph->func = xstrdup(func);
+	graph->func = xstrdup(full_graph ? basename(sess->exename) : func);
 	INIT_LIST_HEAD(&graph->root.head);
 	INIT_LIST_HEAD(&graph->bt_list);
 
@@ -113,12 +114,15 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	return NULL;
 }
 
+static int start_graph(struct task_graph *tg);
+
 static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 					  uint64_t time, uint64_t addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
 	struct task_graph *tg;
+	bool new_graph = false;
 
 	while (*p) {
 		parent = *p;
@@ -139,11 +143,17 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 	tg->lost = false;
 	tg->bt_curr = NULL;
 
+	new_graph = true;
+
 	rb_link_node(&tg->link, parent, p);
 	rb_insert_color(&tg->link, &tasks);
 
 out:
 	tg->graph = get_graph(task, time, addr);
+
+	if (full_graph && new_graph)
+		start_graph(tg);
+
 	return tg;
 }
 
@@ -404,7 +414,11 @@ static void print_graph_node(struct uftrace_graph *graph,
 	print_time_unit(node->time);
 	pr_out(" : ");
 	pr_indent(indent_mask, indent, needs_line);
-	pr_out("(%d) %s\n", node->nr_calls, symname);
+
+	if (full_graph && node == &graph->root)
+		pr_out("(%d) %s\n", 1, graph->func);
+	else
+		pr_out("(%d) %s\n", node->nr_calls, symname);
 
 	if (node->nr_edges > 1) {
 		pr_dbg2("add mask (%d) for %s\n", indent, symname);
@@ -446,7 +460,7 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	pr_out("# Function Call Graph for '%s' (session: %.16s)\n",
 	       graph->func, graph->sess->sid);
 
-	if (!list_empty(&graph->bt_list)) {
+	if (!full_graph && !list_empty(&graph->bt_list)) {
 		pr_out("=============== BACKTRACE ===============\n");
 		print_backtrace(graph);
 	}
@@ -477,6 +491,8 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	if (tg->graph == NULL)
 		return;
 	if (type == UFTRACE_EVENT)
+		return;
+	if (full_graph)
 		return;
 
 	sym = find_symtabs(&tg->graph->sess->symtabs, addr);
@@ -678,8 +694,10 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	if (opts->idx)
 		func = argv[opts->idx];
-	else
-		func = "main";
+	else {
+		func = "_start";
+		full_graph = true;
+	}
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
