@@ -30,6 +30,7 @@ static void *python_handle;
 static bool python_error_reported = false;
 
 static PyAPI_FUNC(void) (*__Py_Initialize)(void);
+static PyAPI_FUNC(void) (*__Py_Finalize)(void);
 static PyAPI_FUNC(void) (*__PySys_SetPath)(char *);
 static PyAPI_FUNC(PyObject *) (*__PyImport_Import)(PyObject *name);
 
@@ -505,6 +506,7 @@ int script_init_for_python(char *py_pathname)
 	}
 
 	INIT_PY_API_FUNC(Py_Initialize);
+	INIT_PY_API_FUNC(Py_Finalize);
 	INIT_PY_API_FUNC(PySys_SetPath);
 	INIT_PY_API_FUNC(PyImport_Import);
 
@@ -589,6 +591,11 @@ int script_init_for_python(char *py_pathname)
 	pr_dbg("python initialization finished\n");
 
 	return 0;
+}
+
+void script_finish_for_python(void)
+{
+	__Py_Finalize();
 }
 
 #endif /* !HAVE_LIBPYTHON2 */

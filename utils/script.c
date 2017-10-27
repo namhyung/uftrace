@@ -16,10 +16,13 @@
 #include "utils/filter.h"
 #include "utils/list.h"
 #include "utils/utils.h"
+#include "utils/script-python.h"
 
 
 /* This will be set by getenv("UFTRACE_SCRIPT"). */
 char *script_str;
+
+static enum script_type_t script_lang;
 
 /* The below functions are used both in record time and script command. */
 script_uftrace_entry_t script_uftrace_entry;
@@ -108,7 +111,8 @@ int script_init(char *script_pathname)
 		return -1;
 	}
 
-	switch (get_script_type(script_pathname)) {
+	script_lang = get_script_type(script_pathname);
+	switch (script_lang) {
 	case SCRIPT_PYTHON:
 		if (script_init_for_python(script_pathname) < 0) {
 			pr_dbg("failed to init python scripting\n");
@@ -128,5 +132,13 @@ int script_init(char *script_pathname)
 
 void script_finish(void)
 {
+	switch (script_lang) {
+	case SCRIPT_PYTHON:
+		script_finish_for_python();
+		break;
+	default:
+		break;
+	}
+
 	script_finish_filter();
 }
