@@ -311,6 +311,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 		case ARG_FMT_SINT:
 		case ARG_FMT_UINT:
 		case ARG_FMT_HEX:
+		case ARG_FMT_FUNC_PTR:
 			memcpy(val.v, data, spec->size);
 			switch (spec->size) {
 			case 1:

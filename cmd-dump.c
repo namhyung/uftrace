@@ -332,6 +332,27 @@ static void pr_args(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
+		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+			struct ftrace_task_handle *task;
+			struct uftrace_session_link *sessions;
+			struct sym *sym;
+			unsigned long val = 0;
+
+			task = container_of(args, struct ftrace_task_handle, args);
+			sessions = &task->h->sessions;
+
+			memcpy(&val, ptr, spec->size);
+			size = spec->size;
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			if (sym)
+				pr_out("  args[%d] p: &%s\n", i, sym->name);
+			else
+				pr_out("  args[%d] p: %p\n", i, (void *)val);
+		}
 		else {
 			long long val = 0;
 
@@ -352,7 +373,6 @@ static void pr_retval(struct fstack_arguments *args)
 	struct uftrace_arg_spec *spec;
 	void *ptr = args->data;
 	size_t size;
-	int i = 0;
 
 	list_for_each_entry(spec, args->args, list) {
 		/* skip argument info */
@@ -371,23 +391,43 @@ static void pr_retval(struct fstack_arguments *args)
 				strcpy(buf, "NULL");
 
 			if (spec->fmt == ARG_FMT_STD_STRING)
-				pr_out("  retval[%d] std::string: %s\n", i , buf);
+				pr_out("  retval std::string: %s\n", buf);
 			else
-				pr_out("  retval[%d] str: %s\n", i , buf);
+				pr_out("  retval str: %s\n", buf);
 			size += 2;
+		}
+		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+			struct ftrace_task_handle *task;
+			struct uftrace_session_link *sessions;
+			struct sym *sym;
+			unsigned long val = 0;
+
+			task = container_of(args, struct ftrace_task_handle, args);
+			sessions = &task->h->sessions;
+
+			memcpy(&val, ptr, spec->size);
+			size = spec->size;
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			if (sym)
+				pr_out("  retval p: &%s\n", sym->name);
+			else
+				pr_out("  retval p: %p\n", (void *)val);
 		}
 		else {
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  retval[%d] %c%d: 0x%0*llx\n", i,
+			pr_out("  retval %c%d: 0x%0*llx\n",
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
 			size = spec->size;
 		}
 
 		ptr += ALIGN(size, 4);
-		i++;
 	}
 }
 

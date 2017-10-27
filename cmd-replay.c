@@ -435,6 +435,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	struct uftrace_arg_spec *spec;
 	union {
 		long i;
+		void *p;
 		float f;
 		double d;
 		long long ll;
@@ -595,6 +596,20 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				       spec->size);
 				break;
 			}
+		}
+		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+			struct uftrace_session_link *sessions = &task->h->sessions;
+			struct sym *sym;
+
+			memcpy(val.v, data, spec->size);
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val.i);
+
+			if (sym)
+				n += snprintf(args + n, len, "&%s", sym->name);
+			else
+				n += snprintf(args + n, len, "%p", val.p);
 		}
 		else {
 			assert(idx < ARRAY_SIZE(len_mod));
