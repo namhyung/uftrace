@@ -463,6 +463,9 @@ def parse_argument():
     return parser.parse_args()
 
 if __name__ == "__main__":
+    # prevent to create .pyc files (it makes some tests failed)
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+
     arg = parse_argument()
 
     if arg.case == 'all':
