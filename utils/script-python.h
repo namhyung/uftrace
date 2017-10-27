@@ -14,6 +14,7 @@
 
 #define SCRIPT_ENABLED 1
 int script_init_for_python(char *py_pathname);
+void script_finish_for_python(void);
 
 
 #else /* HAVE_LIBPYTHON2 */
@@ -25,6 +26,8 @@ static inline int script_init_for_python(char *py_pathname)
 {
 	return -1;
 }
+
+static inline void script_finish_for_python(void) {}
 
 #endif /* HAVE_LIBPYTHON2 */
 

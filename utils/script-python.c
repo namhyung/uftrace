@@ -30,6 +30,7 @@ static void *python_handle;
 static bool python_error_reported = false;
 
 static PyAPI_FUNC(void) (*__Py_Initialize)(void);
+static PyAPI_FUNC(void) (*__Py_Finalize)(void);
 static PyAPI_FUNC(void) (*__PySys_SetPath)(char *);
 static PyAPI_FUNC(PyObject *) (*__PyImport_Import)(PyObject *name);
 
@@ -62,7 +63,7 @@ static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
 static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
-static PyObject *pName, *pModule, *pFuncEntry, *pFuncExit, *pFuncEnd;
+static PyObject *pModule, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
 enum py_context_idx {
 	PY_CTX_TID = 0,
@@ -130,7 +131,9 @@ static int set_python_path(char *py_pathname)
 /* Import python module that is given by -p option. */
 static int import_python_module(char *py_pathname)
 {
+	PyObject *pName;
 	char *py_basename = basename(py_pathname);
+
 	remove_py_suffix(py_basename);
 
 	pName = __PyString_FromString(py_basename);
@@ -503,6 +506,7 @@ int script_init_for_python(char *py_pathname)
 	}
 
 	INIT_PY_API_FUNC(Py_Initialize);
+	INIT_PY_API_FUNC(Py_Finalize);
 	INIT_PY_API_FUNC(PySys_SetPath);
 	INIT_PY_API_FUNC(PyImport_Import);
 
@@ -543,7 +547,7 @@ int script_init_for_python(char *py_pathname)
 	if (import_python_module(py_pathname) < 0)
 		return -1;
 
-	/* check if script has its only list of functions to run */
+	/* check if script has its own list of functions to run */
 	PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
 	if (filter_list) {
 		int i, len;
@@ -587,6 +591,11 @@ int script_init_for_python(char *py_pathname)
 	pr_dbg("python initialization finished\n");
 
 	return 0;
+}
+
+void script_finish_for_python(void)
+{
+	__Py_Finalize();
 }
 
 #endif /* !HAVE_LIBPYTHON2 */
