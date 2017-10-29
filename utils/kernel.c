@@ -393,7 +393,7 @@ static int reset_tracing_files(void)
 	/* ignore error on old kernel */
 	write_tracing_file("set_graph_notrace", " ");
 	write_tracing_file("options/event-fork", "0");
-	write_tracing_file("options/funciton-fork", "0");
+	write_tracing_file("options/function-fork", "0");
 
 	if (write_tracing_file("set_ftrace_filter", " ") < 0)
 		return -1;
