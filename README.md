@@ -107,7 +107,7 @@ With the classic hello world program, the output would look like below (Note,
 I changed it to use fprintf() with stderr rather than the plain printf() to make
 it invoke system call directly):
 
-    $ sudo uftrace -k hello
+    $ sudo uftrace -k tests/t-hello
     Hello world
     # DURATION    TID     FUNCTION
        1.365 us [21901] | __monstartup();
@@ -126,7 +126,7 @@ Also it can record and show function arguments and return value with `-A` and
 `-R` options respectively.  The following example records first argument and
 return value of 'fib' (fibonacci number) function.
 
-    $ uftrace record -A fib@arg1 -R fib@retval fibonacci 5
+    $ uftrace record -A fib@arg1 -R fib@retval tests/t-fibonacci 5
 
     $ uftrace replay
     # DURATION    TID     FUNCTION
