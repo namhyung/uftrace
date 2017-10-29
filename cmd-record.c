@@ -1550,7 +1550,9 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 			if (err == -EPERM)
 				pr_warn("kernel tracing requires root privilege\n");
 			else
-				pr_warn("kernel tracing disabled due to an error\n");
+				pr_warn("kernel tracing disabled due to an error\n"
+				        "does CONFIG_FTRACE enable in kernel?\n");
+
 
 			opts->kernel = false;
 		}
