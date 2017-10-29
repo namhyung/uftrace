@@ -1054,6 +1054,78 @@ static void save_task_event(struct ftrace_task_handle *task,
 		fseek(task->fp, 8 - rem, SEEK_CUR);
 }
 
+/**
+ * get_event_name - find event name from event id
+ * @handle - handle to uftrace data
+ * @evt_id - event id
+ *
+ * This function returns a string of event name matching to @evt_id.
+ * Callers must free the returned string.  This is moved from utils.c
+ * since it needs to call libtraceevent function for kernel events
+ * which is not linked into libmcount.
+ */
+char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
+{
+	char *evt_name = NULL;
+	struct event_format *event;
+
+	if (evt_id >= EVENT_ID_USER) {
+		struct uftrace_event *ev;
+
+		list_for_each_entry(ev, &handle->events, list) {
+			if (ev->id == evt_id) {
+				xasprintf(&evt_name, "%s:%s", ev->provider, ev->event);
+				goto out;
+			}
+		}
+		xasprintf(&evt_name, "user_event:%u", evt_id);
+		goto out;
+	}
+
+	if (evt_id >= EVENT_ID_PERF) {
+		const char *event_name;
+
+		switch (evt_id) {
+		case EVENT_ID_PERF_SCHED_IN:
+			event_name = "sched-in";
+			break;
+		case EVENT_ID_PERF_SCHED_OUT:
+			event_name = "sched-out";
+			break;
+		case EVENT_ID_PERF_SCHED_BOTH:
+			event_name = "schedule";
+			break;
+		default:
+			event_name = "unknown";
+			break;
+		}
+		xasprintf(&evt_name, "linux:%s", event_name);
+		goto out;
+	}
+
+	if (evt_id >= EVENT_ID_BUILTIN) {
+		switch (evt_id) {
+		case EVENT_ID_PROC_STATM:
+			xasprintf(&evt_name, "read:proc/statm");
+			break;
+		case EVENT_ID_PAGE_FAULT:
+			xasprintf(&evt_name, "read:page-fault");
+			break;
+		default:
+			xasprintf(&evt_name, "builtin_event:%u", evt_id);
+			break;
+		}
+		goto out;
+	}
+
+	/* kernel events */
+	event = pevent_find_event(handle->kernel->pevent, evt_id);
+	xasprintf(&evt_name, "%s:%s", event->system, event->name);
+
+out:
+	return evt_name;
+}
+
 int read_task_event(struct ftrace_task_handle *task,
 		    struct uftrace_record *rec)
 {
