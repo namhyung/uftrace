@@ -86,7 +86,7 @@ The above script can be executed while reading the recorded data.  The usage is 
 
     $ uftrace record -F main tests/t-abc
 
-    $ uftrace scripts -S scripts/simple.py
+    $ uftrace script -S scripts/simple.py
     program begins...
     entry : main()
     entry : a()
