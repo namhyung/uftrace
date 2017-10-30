@@ -44,12 +44,16 @@ static bool diff_absolute = true;
 /* show original data as well as difference */
 static bool diff_full = false;
 
+/* maximum length of symbol */
+static int maxlen = 20;
+
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	uint64_t entry_time = 0;
+	int len = 0;
 
 	pr_dbg3("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
 		__func__, te->pid, te->time_total, te->time_self, te->nr_called,
@@ -85,8 +89,14 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 
 			entry->time_recursive += te->time_recursive;
 
-			if (entry->sym == NULL && te->sym)
+			if (entry->sym == NULL && te->sym) {
 				entry->sym = te->sym;
+
+				if (entry->sym)
+					len = strlen(entry->sym->name);
+				if (maxlen < len)
+					maxlen = len;
+			}
 
 			return;
 		}
@@ -114,6 +124,11 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	entry->time_min = entry_time;
 	entry->time_max = entry_time;
 	entry->time_recursive = te->time_recursive;
+
+	if (entry->sym)
+		len = strlen(entry->sym->name);
+	if (maxlen < len)
+		maxlen = len;
 
 	rb_link_node(&entry->link, parent, p);
 	rb_insert_color(&entry->link, root);
@@ -693,8 +708,8 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 {
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
-	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
-	const char line[] = "====================================";
+	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
+	const char line[] = "=================================================";
 
 	build_function_tree(handle, &name_tree, opts);
 
@@ -718,13 +733,13 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 		return;
 
 	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Calls", "Function");
+		pr_out(f_format, "Total time", "Self time", "Calls", maxlen, "Function");
 	else if (avg_mode == AVG_TOTAL)
-		pr_out(f_format, "Avg total", "Min total", "Max total", "Function");
+		pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
 	else if (avg_mode == AVG_SELF)
-		pr_out(f_format, "Avg self", "Min self", "Max self", "Function");
+		pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
 
-	pr_out(f_format, line, line, line, line);
+	pr_out(f_format, line, line, line, maxlen, line);
 
 	print_and_delete(&sort_tree, print_function);
 }
@@ -782,8 +797,8 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root name_tree = RB_ROOT;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;
-	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
-	const char line[] = "====================================";
+	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-.*s\n";
+	const char line[] = "=================================================";
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
@@ -826,8 +841,8 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");
-	pr_out(t_format, line, line, line, line);
+	pr_out(t_format, "TID", "Run time", "Num funcs", maxlen, "Start function");
+	pr_out(t_format, line, line, line, maxlen, line);
 
 	print_and_delete(&name_tree, print_thread);
 }
@@ -1124,12 +1139,12 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
 	const char *formats[] = {
-		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
-		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
-		"  %35.35s   %35.35s   %35.35s   %-s\n",  /* diff avg numbers */
-		"  %11.11s   %11.11s   %11.11s   %-s\n",  /* diff compact */
+		"  %35.35s   %35.35s   %32.32s   %-.*s\n",  /* diff numbers */
+		"  %32.32s   %32.32s   %32.32s   %-.*s\n",  /* diff percent */
+		"  %35.35s   %35.35s   %35.35s   %-.*s\n",  /* diff avg numbers */
+		"  %11.11s   %11.11s   %11.11s   %-.*s\n",  /* diff compact */
 	};
-	const char line[] = "================================================";
+	const char line[] = "=================================================";
 	const char *headers[][3] = {
 		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
 		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
@@ -1170,8 +1185,9 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
 	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
-	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2], "Function");
-	pr_out(formats[f_idx], line, line, line, line);
+	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2],
+	       maxlen, "Function");
+	pr_out(formats[f_idx], line, line, line, maxlen, line);
 
 	print_and_delete(&diff_tree, print_function_diff);
 
