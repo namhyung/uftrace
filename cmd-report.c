@@ -42,7 +42,7 @@ static bool diff_percent = false;
 static bool diff_absolute = true;
 
 /* show original data as well as difference */
-static bool diff_full = true;
+static bool diff_full = false;
 
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {

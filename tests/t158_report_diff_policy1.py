@@ -14,13 +14,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #  [1] diff: yyy   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #
-                    Total time (diff)                      Self time (diff)                       Calls (diff)   Function
-  ===================================   ===================================   ================================   ================================================
-    4.874 us    1.301 ms    +1.296 ms     2.979 us    3.291 us    +0.312 us            1          1         +0   main
-           -    1.292 ms    +1.292 ms            -    1.292 ms    +1.292 ms            0          3         +3   usleep
-    0.672 us    1.226 ms    +1.225 ms     0.523 us    3.132 us    +2.609 us            1          1         +0   foo
-    0.149 us  158.599 us  +158.450 us     0.149 us    1.454 us    +1.305 us            1          1         +0   bar
-    1.223 us    1.157 us    -0.066 us     1.223 us    1.157 us    -0.066 us            1          1         +0   atoi
+    Total time    Self time        Calls   Function
+  ============   ==========   ==========   ====================
+     +1.296 ms    +0.312 us           +0   main
+     +1.292 ms    +1.292 ms           +3   usleep
+     +1.225 ms    +2.609 us           +0   foo
+   +158.450 us    +1.305 us           +0   bar
+     -0.066 us    -0.066 us           +0   atoi
 """)
 
     def pre(self):
@@ -32,7 +32,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        options = '--diff-policy no-percent,abs'  # new default
+        options = '--diff-policy compact,no-percent,abs'  # new default
         return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
 
     def post(self, ret):
@@ -52,10 +52,10 @@ class TestCase(TestBase):
             if line[0].startswith('='):
                 continue
             # A report line consists of following data
-            # [0]  [1]  [2]  [3]  [4]  [5]   [6]  [7]  [8]  [9]  [10] [11]   [12]   [13]   [14]    [15]
-            # tT/0 unit tT/1 unit tT/d unit  tS/0 unit tS/1 unit tS/d unit   call/0 call/1 call/d  function
+            # [0]  [1]    [2]  [3]   [4]   [5]
+            # total unit  self unit  call  function
             if line[-1].startswith('__'):
                 continue
-            result.append('%s %s %s %s' % (line[-4], line[-3], line[-2], line[-1]))
+            result.append('%s %s' % (line[-2], line[-1]))
 
         return '\n'.join(result)

@@ -32,7 +32,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        options = '--diff-policy no-abs -s call,total'
+        options = '--diff-policy full,no-abs -s call,total'
         return '%s report -d %s --diff %s %s' % (uftrace, YDIR, XDIR, options)
 
     def post(self, ret):

@@ -32,7 +32,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        options = '--sort-column 0 --diff-policy percent'  # old behavior
+        options = '--sort-column 0 --diff-policy full,percent'  # old behavior
         return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
 
     def post(self, ret):
