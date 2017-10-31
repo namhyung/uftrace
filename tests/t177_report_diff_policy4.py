@@ -14,13 +14,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #  [1] diff: yyy   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #
-    Total time    Self time        Calls   Function
-  ============   ==========   ==========   ====================
-     +1.296 ms    +0.312 us           +0   main
-     +1.292 ms    +1.292 ms           +3   usleep
-     +1.225 ms    +2.609 us           +0   foo
-   +158.450 us    +1.305 us           +0   bar
-     -0.066 us    -0.066 us           +0   atoi
+   Total time     Self time         Calls   Function
+  ===========   ===========   ===========   ====================
+    +0.027 us     +0.027 us            +0   atoi
+  +158.853 us     +1.319 us            +0   bar
+    +1.235 ms     +2.749 us            +0   foo
+    +1.305 ms     +0.319 us            +0   main
+    +1.300 ms     +1.300 ms            +3   usleep
 """)
 
     def pre(self):
@@ -32,7 +32,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        options = '--diff-policy compact,no-percent,abs'  # new default
+        options = '--diff-policy compact -s func'
         return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
 
     def post(self, ret):
@@ -52,8 +52,8 @@ class TestCase(TestBase):
             if line[0].startswith('='):
                 continue
             # A report line consists of following data
-            # [0]  [1]    [2]  [3]   [4]   [5]
-            # total unit  self unit  call  function
+            # [0]  [1]  [2]  [3]  [4]    [5]
+            # tT   unit tS   unit call   function
             if line[-1].startswith('__'):
                 continue
             result.append('%s %s' % (line[-2], line[-1]))

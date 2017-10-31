@@ -14,13 +14,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #  [1] diff: yyy   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #
-                 Total time (diff)                   Self time (diff)                       Calls (diff)   Function
-  ================================   ================================   ================================   ================================================
-    1.223 us    1.157 us    -5.40%     1.223 us    1.157 us    -5.40%            1          1          0   atoi
-    0.149 us  158.599 us  +999.99%     0.149 us    1.454 us  +875.84%            1          1          0   bar
-    0.672 us    1.226 ms  +999.99%     0.523 us    3.132 us  +498.85%            1          1          0   foo
-    4.874 us    1.301 ms  +999.99%     2.979 us    3.291 us   +10.47%            1          1          0   main
-           -    1.292 ms  +999.99%            -    1.292 ms  +999.99%            0          3         +3   usleep
+  Total time    Self time        Calls   Function
+  ==========   ==========   ==========   ====================
+      -5.40%       -5.40%           +0   atoi
+    +999.99%     +875.84%           +0   bar
+    +999.99%     +498.85%           +0   foo
+    +999.99%      +10.47%           +0   main
+    +999.99%     +999.99%           +3   usleep
 """)
 
     def pre(self):
@@ -52,10 +52,10 @@ class TestCase(TestBase):
             if line[0].startswith('='):
                 continue
             # A report line consists of following data
-            # [0]  [1]  [2]  [3]  [4]      [5]  [6]  [7]  [8]  [9]       [10]   [11]   [12]    [13]
-            # tT/0 unit tT/1 unit percent  tS/0 unit tS/1 unit percent   call/0 call/1 call/d  function
+            # [0]   [1]      [2]  [3]      [4]   [5]
+            # total percent  self percent  call  function
             if line[-1].startswith('__'):
                 continue
-            result.append('%s %s %s %s' % (line[-4], line[-3], line[-2], line[-1]))
+            result.append('%s %s' % (line[-2], line[-1]))
 
         return '\n'.join(result)

@@ -41,12 +41,19 @@ static bool diff_percent = false;
 /* calculate diff using absolute values */
 static bool diff_absolute = true;
 
+/* show original data as well as difference */
+static bool diff_full = false;
+
+/* maximum length of symbol */
+static int maxlen = 20;
+
 static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thread)
 {
 	struct trace_entry *entry;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	uint64_t entry_time = 0;
+	int len = 0;
 
 	pr_dbg3("%s: [%5d] %"PRIu64"/%"PRIu64" (%lu) %-s\n",
 		__func__, te->pid, te->time_total, te->time_self, te->nr_called,
@@ -82,8 +89,14 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 
 			entry->time_recursive += te->time_recursive;
 
-			if (entry->sym == NULL && te->sym)
+			if (entry->sym == NULL && te->sym) {
 				entry->sym = te->sym;
+
+				if (entry->sym)
+					len = strlen(entry->sym->name);
+				if (maxlen < len)
+					maxlen = len;
+			}
 
 			return;
 		}
@@ -111,6 +124,11 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 	entry->time_min = entry_time;
 	entry->time_max = entry_time;
 	entry->time_recursive = te->time_recursive;
+
+	if (entry->sym)
+		len = strlen(entry->sym->name);
+	if (maxlen < len)
+		maxlen = len;
 
 	rb_link_node(&entry->link, parent, p);
 	rb_insert_color(&entry->link, root);
@@ -690,8 +708,8 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 {
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
-	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-s\n";
-	const char line[] = "====================================";
+	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
+	const char line[] = "=================================================";
 
 	build_function_tree(handle, &name_tree, opts);
 
@@ -715,13 +733,13 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 		return;
 
 	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Calls", "Function");
+		pr_out(f_format, "Total time", "Self time", "Calls", maxlen, "Function");
 	else if (avg_mode == AVG_TOTAL)
-		pr_out(f_format, "Avg total", "Min total", "Max total", "Function");
+		pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
 	else if (avg_mode == AVG_SELF)
-		pr_out(f_format, "Avg self", "Min self", "Max self", "Function");
+		pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
 
-	pr_out(f_format, line, line, line, line);
+	pr_out(f_format, line, line, line, maxlen, line);
 
 	print_and_delete(&sort_tree, print_function);
 }
@@ -779,8 +797,8 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root name_tree = RB_ROOT;
 	struct ftrace_task_handle *task;
 	struct fstack *fstack;
-	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-s\n";
-	const char line[] = "====================================";
+	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-.*s\n";
+	const char line[] = "=================================================";
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
@@ -823,8 +841,8 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	pr_out(t_format, "TID", "Run time", "Num funcs", "Start function");
-	pr_out(t_format, line, line, line, line);
+	pr_out(t_format, "TID", "Run time", "Num funcs", maxlen, "Start function");
+	pr_out(t_format, line, line, line, maxlen, line);
 
 	print_and_delete(&name_tree, print_thread);
 }
@@ -1009,10 +1027,15 @@ static void print_function_diff(struct trace_entry *entry)
 
 	if (avg_mode == AVG_NONE) {
 		pr_out("  ");
-		print_time_or_dash(entry->time_total - entry->time_recursive);
-		pr_out("  ");
-		print_time_or_dash(pair->time_total - pair->time_recursive);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_or_dash(entry->time_total - entry->time_recursive);
+			pr_out("  ");
+			print_time_or_dash(pair->time_total - pair->time_recursive);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_total - entry->time_recursive,
@@ -1022,40 +1045,78 @@ static void print_function_diff(struct trace_entry *entry)
 					     pair->time_total - pair->time_recursive);
 
 		pr_out("   ");
-		print_time_or_dash(entry->time_self);
-		pr_out("  ");
-		print_time_or_dash(pair->time_self);
-		pr_out("  ");
+
+		if (diff_full) {
+			print_time_or_dash(entry->time_self);
+			pr_out("  ");
+			print_time_or_dash(pair->time_self);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
 
 		if (diff_percent)
 			print_diff_percent(entry->time_self, pair->time_self);
 		else
 			print_diff_time_unit(entry->time_self, pair->time_self);
 
-		pr_out("    %9lu  %9lu  ", entry->nr_called, pair->nr_called);
+		pr_out("   ");
+
+		if (diff_full)
+			pr_out(" %9lu  %9lu", entry->nr_called, pair->nr_called);
+
+		pr_out("  ");
+
 		print_diff_count(entry->nr_called, pair->nr_called);
 		pr_out("   %-s\n", symname);
 	} else {
 		pr_out("  ");
-		print_time_unit(entry->time_avg);
-		pr_out("  ");
-		print_time_unit(pair->time_avg);
-		pr_out("  ");
-		print_diff_percent(entry->time_avg, pair->time_avg);
+
+		if (diff_full) {
+			print_time_unit(entry->time_avg);
+			pr_out("  ");
+			print_time_unit(pair->time_avg);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
+		if (diff_percent)
+			print_diff_percent(entry->time_avg, pair->time_avg);
+		else
+			print_diff_time_unit(entry->time_avg, pair->time_avg);
 
 		pr_out("   ");
-		print_time_unit(entry->time_min);
-		pr_out("  ");
-		print_time_unit(pair->time_min);
-		pr_out("  ");
-		print_diff_percent(entry->time_min, pair->time_min);
+
+		if (diff_full) {
+			print_time_unit(entry->time_min);
+			pr_out("  ");
+			print_time_unit(pair->time_min);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
+		if (diff_percent)
+			print_diff_percent(entry->time_min, pair->time_min);
+		else
+			print_diff_time_unit(entry->time_min, pair->time_min);
 
 		pr_out("   ");
-		print_time_unit(entry->time_max);
-		pr_out("  ");
-		print_time_unit(pair->time_max);
-		pr_out(" ");
-		print_diff_percent(entry->time_max, pair->time_max);
+
+		if (diff_full) {
+			print_time_unit(entry->time_max);
+			pr_out("  ");
+			print_time_unit(pair->time_max);
+			pr_out("  ");
+		}
+		else if (diff_percent)
+			pr_out("   ");
+
+		if (diff_percent)
+			print_diff_percent(entry->time_max, pair->time_max);
+		else
+			print_diff_time_unit(entry->time_max, pair->time_max);
 
 		pr_out("   %-s\n", symname);
 	}
@@ -1078,17 +1139,27 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	struct rb_root name_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
 	const char *formats[] = {
-		"  %35.35s   %35.35s   %32.32s   %-s\n",  /* diff numbers */
-		"  %32.32s   %32.32s   %32.32s   %-s\n",  /* diff percent */
+		"  %35.35s   %35.35s   %32.32s   %-.*s\n",  /* diff numbers */
+		"  %32.32s   %32.32s   %32.32s   %-.*s\n",  /* diff percent */
+		"  %35.35s   %35.35s   %35.35s   %-.*s\n",  /* diff avg numbers */
+		"  %11.11s   %11.11s   %11.11s   %-.*s\n",  /* diff compact */
 	};
-	const char line[] = "================================================";
+	const char line[] = "=================================================";
 	const char *headers[][3] = {
 		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
 		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
 		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
+		{ "Total time", "Self time", "Calls" },
+		{ "Avg total", "Min total", "Max total" },
+		{ "Avg self", "Min self", "Max self" },
 	};
 	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
-	int f_idx = diff_percent ? 1 : 0;
+	int f_idx = diff_percent ? 1 : (avg_mode == AVG_NONE) ? 0 : 2;
+
+	if (!diff_full) {
+		h_idx += 3;
+		f_idx = 3;
+	}
 
 	build_function_tree(handle, &tmp, opts);
 	sort_function_name(&tmp, &name_tree);
@@ -1114,8 +1185,9 @@ static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
 	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
-	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2], "Function");
-	pr_out(formats[f_idx], line, line, line, line);
+	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2],
+	       maxlen, "Function");
+	pr_out(formats[f_idx], line, line, line, maxlen, line);
 
 	print_and_delete(&diff_tree, print_function_diff);
 
@@ -1140,6 +1212,10 @@ static void apply_diff_policy(char *policy)
 			diff_absolute = on;
 		else if (!strncmp(p, "percent", 7))
 			diff_percent = on;
+		else if (!strncmp(p, "full", 4))
+			diff_full = true;
+		else if (!strncmp(p, "compact", 7))
+			diff_full = false;
 
 		tmp = NULL;
 	}
