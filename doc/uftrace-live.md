@@ -160,7 +160,7 @@ For example, consider a simple program which calls `a()`, `b()` and `c()` in tur
         return 0;
     }
 
-    $ gcc -o abc abc.c
+    $ gcc -pg -o abc abc.c
 
 Normally uftrace will trace all the functions from `main()` to `c()`.
 
