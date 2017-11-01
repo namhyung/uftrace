@@ -427,13 +427,13 @@ The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are execut
     def uftrace_begin():
         print("program begins...")
 
-    def uftrace_entry(args):
-        _symname = args["symname"]
-        print("entry : " + _symname + "()")
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
 
-    def uftrace_exit(args):
-        _symname = args["symname"]
-        print("exit  : " + _symname + "()")
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
 
     def uftrace_end():
         print("program is finished")
@@ -454,30 +454,31 @@ The above script can be executed in record time as follows:
     exit  : main()
     program is finished
     # DURATION    TID     FUNCTION
-                [25794] | main() {
-                [25794] |   a() {
-                [25794] |     b() {
-                [25794] |       c() {
-                [25794] |         getpid() {
-      11.037 us [25794] |         } /* getpid */
-      44.752 us [25794] |       } /* c */
-      70.924 us [25794] |     } /* b */
-      98.191 us [25794] |   } /* a */
-     124.329 us [25794] | } /* main */
+                [10929] | main() {
+                [10929] |   a() {
+                [10929] |     b() {
+                [10929] |       c() {
+       4.293 us [10929] |         getpid();
+      19.017 us [10929] |       } /* c */
+      27.710 us [10929] |     } /* b */
+      37.007 us [10929] |   } /* a */
+      55.260 us [10929] | } /* main */
 
-The 'args' variable is a dictionary type that contains the below information.
+The 'ctx' variable is a dictionary type that contains the below information.
 
-    /* argument information passed to script */
-    struct script_args {
-        int           tid;
-        int           depth;
-        uint64_t      timestamp;
-        uint64_t      duration;    /* exit only */
-        unsigned long address;
-        char          *symname;
+    /* context information passed to script */
+    script_context = {
+        int       tid;
+        int       depth;
+        long      timestamp;
+        long      duration;    # exit only
+        long      address;
+        string    name;
+        list      args;        # entry only (if available)
+        value     retval;      # exit  only (if available)
     };
 
-Each field in 'struct script_args' can be read inside the script.
+Each field in 'script_context' can be read inside the script.  Please see `uftrace-script`(1) for details about scripting.
 
 
 SEE ALSO
