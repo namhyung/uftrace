@@ -706,7 +706,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 {
 	struct sym *sym;
 	unsigned long child_ip;
-	struct mcount_thread_data *mtdp;
+	struct mcount_thread_data *mtdp = NULL;
 	struct mcount_ret_stack *rstack;
 	struct uftrace_trigger tr = {
 		.flags = 0,
