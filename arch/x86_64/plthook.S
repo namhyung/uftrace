@@ -20,6 +20,8 @@ ENTRY(plt_hooker)
 	.cfi_offset r8, -56
 	movq %r9, 8(%rsp)
 	.cfi_offset r9, -64
+	movq %rax, 0(%rsp)
+	.cfi_offset rax, -72
 
 	/* child idx */
 	movq 64(%rsp), %rsi
@@ -31,7 +33,9 @@ ENTRY(plt_hooker)
 	lea 8(%rsp), %rcx
 
 	call plthook_entry
+	movq %rax, %r11
 
+	movq 0(%rsp), %rax
 	movq 8(%rsp), %r9
 	movq 16(%rsp), %r8
 	movq 24(%rsp), %rcx
@@ -41,14 +45,14 @@ ENTRY(plt_hooker)
 	add $56, %rsp
 	.cfi_adjust_cfa_offset -56
 
-	cmpq $0, %rax
-	cmovz plthook_resolver_addr(%rip), %rax
+	cmpq $0, %r11
+	cmovz plthook_resolver_addr(%rip), %r11
 	jz 1f
 
 	add $16, %rsp /* resolver function needs 2 entries on stack */
 	.cfi_adjust_cfa_offset -16
 1:
-	jmp *%rax
+	jmp *%r11
 	.cfi_endproc
 END(plt_hooker)
 
