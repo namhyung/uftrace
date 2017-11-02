@@ -54,6 +54,10 @@ COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -ldl -pthread $(LDFLAGS)
+ifneq ($(elfdir),)
+  COMMON_CFLAGS +=  -I$(elfdir)/include
+  COMMON_LDFLAGS += -L$(elfdir)/lib
+endif
 
 COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
@@ -205,6 +209,13 @@ install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(etcdir)/bash_completion.d
+ifneq ($(wildcard $(elfdir)/lib/libelf.so),)
+ifeq ($(wildcard $(prefix)/lib/libelf.so),)
+	# install libelf only when it's not in the install directory.
+	$(call QUIET_INSTALL, libelf)
+	$(Q)$(INSTALL) $(elfdir)/lib/libelf.so   $(DESTDIR)$(libdir)/libelf.so
+endif
+endif
 	$(call QUIET_INSTALL, uftrace)
 	$(Q)$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_INSTALL, libmcount)
