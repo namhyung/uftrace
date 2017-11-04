@@ -2,6 +2,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 void * (*real_malloc)(size_t sz);
 void (*real_free)(void *ptr);
