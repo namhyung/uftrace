@@ -46,7 +46,7 @@ OPTIONS
 :   Do not bind dynamic symbol address.  This option uses the `LD_BIND_NOT` environment variable to trace library function calls which might be missing due to concurrent (first) accesses.  It is not meaningful to use this option with the `--no-libcall` option.
 
 \--nest-libcall
-:   Trace function calls between libraries.  By default, uftrace only record library call from the main executable.
+:   Trace function calls between libraries.  By default, uftrace only record library call from the main executable.  Implies `--force`.
 
 -D *DEPTH*, \--depth=*DEPTH*
 :   Set global trace limit in nesting level.
