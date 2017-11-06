@@ -68,5 +68,6 @@ unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
 					    unsigned long child_ip);
 
 #define ARCH_PLT0_SIZE  20
+#define ARCH_PLTHOOK_ADDR_OFFSET  0
 
 #endif /* __MCOUNT_ARCH_H__ */

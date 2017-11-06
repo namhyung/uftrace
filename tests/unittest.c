@@ -223,6 +223,10 @@ void plthook_return(void)
 {
 }
 
+void __fentry__(void)
+{
+}
+
 void __xray_entry(void)
 {
 }

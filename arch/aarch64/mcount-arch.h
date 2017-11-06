@@ -65,5 +65,6 @@ struct mcount_arch_context {
 };
 
 #define ARCH_PLT0_SIZE  32
+#define ARCH_PLTHOOK_ADDR_OFFSET  0
 
 #endif /* __MCOUNT_ARCH_H__ */

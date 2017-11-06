@@ -673,7 +673,7 @@ __weak unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 	struct sym *sym;
 
 	sym = &pd->dsymtab.sym[idx];
-	return sym->addr;
+	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
 }
 
 static void update_pltgot(struct mcount_thread_data *mtdp,
@@ -706,7 +706,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 {
 	struct sym *sym;
 	unsigned long child_ip;
-	struct mcount_thread_data *mtdp;
+	struct mcount_thread_data *mtdp = NULL;
 	struct mcount_ret_stack *rstack;
 	struct uftrace_trigger tr = {
 		.flags = 0,

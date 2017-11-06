@@ -146,8 +146,9 @@ int check_static_binary(const char *filename)
 {
 	int fd;
 	Elf *elf;
+	GElf_Ehdr ehdr;
 	int ret = -1;
-	size_t i, nr_phdr;
+	size_t i;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -161,10 +162,10 @@ int check_static_binary(const char *filename)
 	if (elf == NULL)
 		goto elf_error;
 
-	if (elf_getphdrnum(elf, &nr_phdr) < 0)
+	if (gelf_getehdr(elf, &ehdr) == NULL)
 		goto elf_error;
 
-	for (i = 0; i < nr_phdr; i++) {
+	for (i = 0; i < ehdr.e_phnum; i++) {
 		GElf_Phdr phdr;
 
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
@@ -242,13 +243,13 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		goto elf_error;
 
 	if (flags & SYMTAB_FL_ADJ_OFFSET) {
+		GElf_Ehdr ehdr;
 		GElf_Phdr phdr;
-		size_t nr_phdr;
 
-		if (elf_getphdrnum(elf, &nr_phdr) < 0)
+		if (gelf_getehdr(elf, &ehdr) == NULL)
 			goto elf_error;
 
-		for (i = 0; i < nr_phdr; i++) {
+		for (i = 0; i < ehdr.e_phnum; i++) {
 			if (!gelf_getphdr(elf, i, &phdr))
 				goto elf_error;
 
@@ -513,15 +514,14 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
 
+	if (gelf_getehdr(elf, &ehdr) == NULL)
+		goto elf_error;
+
 	if (flags & SYMTAB_FL_ADJ_OFFSET) {
 		GElf_Phdr phdr;
-		size_t nr_phdr;
 		unsigned i;
 
-		if (elf_getphdrnum(elf, &nr_phdr) < 0)
-			goto elf_error;
-
-		for (i = 0; i < nr_phdr; i++) {
+		for (i = 0; i < ehdr.e_phnum; i++) {
 			if (!gelf_getphdr(elf, i, &phdr))
 				goto elf_error;
 
@@ -582,9 +582,6 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 			pr_dbg("cannot find relocation info for PLT\n");
 		goto out;
 	}
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
 
 	relplt_data = elf_getdata(relplt_sec, NULL);
 	if (relplt_data == NULL)
@@ -1141,8 +1138,8 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	unsigned long offset = 0;
 	int fd;
 	Elf *elf = NULL;
+	GElf_Ehdr ehdr;
 	GElf_Phdr phdr;
-	size_t nr = 0;
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
@@ -1167,10 +1164,10 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	if (elf == NULL)
 		goto do_it;
 
-	if (elf_getphdrnum(elf, &nr) < 0)
+	if (gelf_getehdr(elf, &ehdr) == NULL)
 		goto do_it;
 
-	for (i = 0; i < nr; i++) {
+	for (i = 0; i < ehdr.e_phnum; i++) {
 		if (!gelf_getphdr(elf, i, &phdr))
 			break;
 		if (phdr.p_type == PT_LOAD) {
