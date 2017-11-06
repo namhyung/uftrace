@@ -104,16 +104,16 @@ OPTIONS
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
 \--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.  Implies `--kernel`.
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
 \--kernel-skip-out
 :   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.
 
 \--kernel-only
-:   Show kernel functions only without user functions.  Implies `--kernel`.
+:   Show kernel functions only without user functions.
 
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.
