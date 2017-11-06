@@ -68,7 +68,7 @@ OPTIONS
 :   Do not bind dynamic symbol address.  This option uses the `LD_BIND_NOT` environment variable to trace library function calls which might be missing due to concurrent (first) accesses.  It is not meaningful to use this option with the `--no-libcall` option.
 
 \--nest-libcall
-:   Trace function calls between libraries.  By default, uftrace only record library call from the main executable.
+:   Trace function calls between libraries.  By default, uftrace only record library call from the main executable.  Implies `--force`.
 
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with a `trace_on` trigger.
@@ -104,16 +104,16 @@ OPTIONS
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
 \--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.  Implies `--kernel`.
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
 \--kernel-skip-out
 :   Do not show kernel functions called outside of user functions.  This option is deprecated and set to true by default.
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.  Implies `--kernel`.
+:   Show all kernel functions called outside of user functions.  This option is the inverse of `--kernel-skip-out`.
 
 \--kernel-only
-:   Show kernel functions only without user functions.  Implies `--kernel`.
+:   Show kernel functions only without user functions.
 
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.
