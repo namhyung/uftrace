@@ -911,10 +911,12 @@ TEST_CASE(task_symbol)
 	FILE *fp;
 
 	fp = fopen("sid-test.map", "w");
+	TEST_NE(fp, NULL);
 	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
 	fclose(fp);
 
 	fp = fopen("unittest.sym", "w");
+	TEST_NE(fp, NULL);
 	fprintf(fp, "00400100 P printf\n");
 	fprintf(fp, "00400200 P __dynsym_end\n");
 	fprintf(fp, "00400300 T _start\n");
@@ -959,10 +961,12 @@ TEST_CASE(task_symbol_dlopen)
 	struct uftrace_dlopen_list *udl;
 
 	fp = fopen("sid-test.map", "w");
+	TEST_NE(fp, NULL);
 	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
 	fclose(fp);
 
 	fp = fopen("libuftrace-test.so.0.sym", "w");
+	TEST_NE(fp, NULL);
 	fprintf(fp, "0100 P __tls_get_addr\n");
 	fprintf(fp, "0200 P __dynsym_end\n");
 	fprintf(fp, "0300 T _start\n");
