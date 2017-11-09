@@ -92,8 +92,8 @@ static void mcount_filter_init(void)
 			     &mcount_filter_mode, false);
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
 			      &mcount_filter_mode, false);
-	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
-	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
+	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
+	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
 
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);

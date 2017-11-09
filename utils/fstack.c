@@ -309,22 +309,29 @@ static void fstack_prepare_fixup(struct ftrace_file_handle *handle)
 	walk_sessions(&handle->sessions, build_fixup_filter, NULL);
 }
 
+struct spec_data {
+	char *str;
+	bool auto_args;
+};
+
 static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
-	char *argspec = arg;
+	struct spec_data *spec = arg;
 
-	if (argspec)
-		uftrace_setup_argument(argspec, &s->symtabs, &s->filters);
+	if (spec->str)
+		uftrace_setup_argument(spec->str, &s->symtabs, &s->filters,
+				       spec->auto_args);
 
 	return 0;
 }
 
 static int build_ret_spec(struct uftrace_session *s, void *arg)
 {
-	char *retspec = arg;
+	struct spec_data *spec = arg;
 
-	if (retspec)
-		uftrace_setup_retval(retspec, &s->symtabs, &s->filters);
+	if (spec->str)
+		uftrace_setup_retval(spec->str, &s->symtabs, &s->filters,
+				     spec->auto_args);
 
 	return 0;
 }
@@ -334,21 +341,31 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
  * @argspec: spec string describes function arguments
  * @retspec: spec string describes function return values
  * @handle: handle for uftrace data
+ * @auto_args  - whether current spec is auto-spec
  *
  * This functions sets up argument and return value information
  * provided by user at the time of recording.
  */
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct ftrace_file_handle *handle)
+		       struct ftrace_file_handle *handle, bool auto_args)
 {
+	struct spec_data spec = {
+		.auto_args = auto_args,
+	};
+
 	pr_dbg("setup argspec and/or retspec\n");
 
-	walk_sessions(&handle->sessions, build_arg_spec, argspec);
-	walk_sessions(&handle->sessions, build_ret_spec, retspec);
+	spec.str = argspec;
+	walk_sessions(&handle->sessions, build_arg_spec, &spec);
+
+	spec.str = retspec;
+	walk_sessions(&handle->sessions, build_ret_spec, &spec);
 
 	/* old data does not have separated retspec */
-	if (argspec && strstr(argspec, "retval"))
-		walk_sessions(&handle->sessions, build_ret_spec, argspec);
+	if (argspec && strstr(argspec, "retval")) {
+		spec.str = argspec;
+		walk_sessions(&handle->sessions, build_ret_spec, &spec);
+	}
 }
 
 /**

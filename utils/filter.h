@@ -28,6 +28,7 @@ enum trigger_flag {
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
 	TRIGGER_FL_READ		= (1U << 11),
 	TRIGGER_FL_FINISH	= (1U << 12),
+	TRIGGER_FL_AUTO_ARGS	= (1U << 13),
 };
 
 enum filter_mode {
@@ -127,9 +128,9 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
 			   bool allow_kernel);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			   struct rb_root *root);
+			    struct rb_root *root, bool auto_args);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			 struct rb_root *root);
+			  struct rb_root *root, bool auto_args);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);

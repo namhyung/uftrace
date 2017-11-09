@@ -246,6 +246,17 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
 		if (iter->start == filter->start) {
+			unsigned long args_flags = tr->flags;
+
+			args_flags &= ~TRIGGER_FL_AUTO_ARGS;
+
+			/* ignore auto-args if it already has argspec */
+			if ((tr->flags & TRIGGER_FL_AUTO_ARGS) &&
+			    (iter->trigger.flags & args_flags)) {
+				tr->flags = orig_flags;
+				return 0;
+			}
+
 			add_trigger(iter, tr, exact_match);
 			if (auto_arg)
 				add_trigger(iter, &auto_arg->trigger, exact_match);
@@ -927,23 +938,35 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
  * @args_str   - CSV of argument string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
+ * @auto_args  - whether current arguments are auto-spec
  */
 void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
-			    struct rb_root *root)
+			    struct rb_root *root, bool auto_args)
 {
-	setup_trigger(args_str, symtabs, root, TRIGGER_FL_ARGUMENT, NULL, false);
+	unsigned long flags = TRIGGER_FL_ARGUMENT;
+
+	if (auto_args)
+		flags |= TRIGGER_FL_AUTO_ARGS;
+
+	setup_trigger(args_str, symtabs, root, flags, NULL, false);
 }
 
 /**
  * uftrace_setup_retval - construct rbtree of retval
- * @retval_str   - CSV of argument string (FUNC @ arg)
+ * @retval_str - CSV of return value string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
+ * @auto_args  - whether current retvals are auto-spec
  */
 void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
-			  struct rb_root *root)
+			  struct rb_root *root, bool auto_args)
 {
-	setup_trigger(retval_str, symtabs, root, TRIGGER_FL_RETVAL, NULL, false);
+	unsigned long flags = TRIGGER_FL_RETVAL;
+
+	if (auto_args)
+		flags |= TRIGGER_FL_AUTO_ARGS;
+
+	setup_trigger(retval_str, symtabs, root, flags, NULL, false);
 }
 
 /**
@@ -1307,7 +1330,7 @@ TEST_CASE(trigger_setup_args)
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_argument("foo::bar@arg1", &stabs, &root);
+	uftrace_setup_argument("foo::bar@arg1", &stabs, &root, false);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1337,7 +1360,8 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 2);
 
-	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2", &stabs, &root);
+	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2",
+			       &stabs, &root, false);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3999, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
