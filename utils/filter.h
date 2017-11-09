@@ -142,5 +142,8 @@ void setup_auto_args(void);
 void finish_auto_args(void);
 struct uftrace_filter * find_auto_argspec(char *name);
 struct uftrace_filter * find_auto_retspec(char *name);
+char *get_auto_argspec_str(void);
+char *get_auto_retspec_str(void);
+int extract_trigger_args(char **pargs, char **prets, char *trigger);
 
 #endif /* __FTRACE_FILTER_H__ */

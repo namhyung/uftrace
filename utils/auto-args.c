@@ -149,6 +149,15 @@ struct uftrace_filter * find_auto_retspec(char *name)
 	return find_auto_args(&auto_retspec, name);
 }
 
+char *get_auto_argspec_str(void)
+{
+	return auto_args_list;
+}
+
+char *get_auto_retspec_str(void)
+{
+	return auto_retvals_list;
+}
 
 void setup_auto_args(void)
 {
@@ -183,6 +192,74 @@ void finish_auto_args(void)
 {
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
+}
+
+/**
+ * extract_trigger_args - extract argspec from trigger actions
+ * @pargs: pointer to existing argspec
+ * @prets: pointer to existing retspec
+ * @trigger: trigger string
+ *
+ * This function extracts arg/ret spec from the trigger string (if any)
+ * and append them to pargs or prets respectively so that they can be
+ * saved into the info section.
+ *
+ * It returns 0 if none of arguments or return values are specified,
+ * 1 if only one of them is specified, and 2 if both are given.
+ */
+int extract_trigger_args(char **pargs, char **prets, char *trigger)
+{
+	char *argspec = NULL;
+	char *retspec = NULL;
+
+	/* extract argspec (and retspec) in trigger action */
+	if (trigger) {
+		char *pos, *tmp, *str, *act;
+
+		str = tmp = xstrdup(trigger);
+
+		while ((pos = strsep(&tmp, ";")) != NULL) {
+			char *name = pos;
+			char *args = NULL;
+			char *rval = NULL;
+
+			act = strchr(name, '@');
+			if (act == NULL)
+				continue;
+
+			*act++ = '\0';
+
+			while ((pos = strsep(&act, ",")) != NULL) {
+				if (!strncasecmp(pos, "arg", 3) ||
+				    !strncasecmp(pos, "fparg", 5))
+					args = strjoin(args, pos, ",");
+				if (!strncasecmp(pos, "retval", 6))
+					rval = "retval";
+			}
+
+			if (args) {
+				xasprintf(&act, "%s@%s", name, args);
+				argspec = strjoin(argspec, act, ";");
+				free(act);
+			}
+			if (rval) {
+				xasprintf(&act, "%s@retval", name);
+				retspec = strjoin(retspec, act, ";");
+				free(act);
+			}
+		}
+		free(str);
+	}
+
+	if (*pargs)
+		argspec = strjoin(argspec, *pargs, ";");
+	if (*prets)
+		retspec = strjoin(retspec, *prets, ";");
+
+	*pargs = argspec;
+	*prets = retspec;
+
+	return !!argspec + !!retspec;
 }
 
 #ifdef UNIT_TEST
@@ -221,6 +298,43 @@ TEST_CASE(argspec_auto_args)
 
 	entry = find_auto_argspec("foo");
 	TEST_EQ(entry, NULL);
+
+	return TEST_OK;
+}
+
+TEST_CASE(argspec_extract)
+{
+	char test_trigger_str1[] = "foo@arg1,retval";
+	char test_trigger_str2[] = "foo@trace-on;bar@depth=2,arg1/s,trace-off,arg2/x64";
+	char test_trigger_str3[] = "foo@libabc,arg3/i32%rax,backtrace";
+	char *args, *rets;
+
+	args = rets = NULL;
+	extract_trigger_args(&args, &rets, test_trigger_str1);
+
+	TEST_STREQ(args, "foo@arg1");
+	TEST_STREQ(rets, "foo@retval");
+
+	free(args);
+	free(rets);
+
+	args = rets = NULL;
+	extract_trigger_args(&args, &rets, test_trigger_str2);
+
+	TEST_STREQ("bar@arg1/s,arg2/x64", args);
+	TEST_EQ(rets, NULL);
+
+	free(args);
+	free(rets);
+
+	args = rets = NULL;
+	extract_trigger_args(&args, &rets, test_trigger_str3);
+
+	TEST_STREQ("foo@arg3/i32%rax", args);
+	TEST_EQ(rets, NULL);
+
+	free(args);
+	free(rets);
 
 	return TEST_OK;
 }

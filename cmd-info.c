@@ -20,6 +20,7 @@
 #include "uftrace.h"
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
+#include "utils/filter.h"
 
 #define BUILD_ID_SIZE 20
 #define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
@@ -657,60 +658,15 @@ static int read_loadinfo(void *arg)
 static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char *argspec = NULL;
-	char *retspec = NULL;
-	int n = 0;
+	char *argspec = fha->opts->args;
+	char *retspec = fha->opts->retval;
+	int n;
 
-	/* extract argspec (and retspec) in trigger action */
-	if (fha->opts->trigger) {
-		char *pos, *tmp, *str, *act;
-
-		str = tmp = xstrdup(fha->opts->trigger);
-
-		while ((pos = strsep(&tmp, ";")) != NULL) {
-			char *name = pos;
-			char *args = NULL;
-			char *rval = NULL;
-
-			act = strchr(name, '@');
-			if (act == NULL)
-				continue;
-
-			*act++ = '\0';
-
-			while ((pos = strsep(&act, ",")) != NULL) {
-				if (!strncasecmp(pos, "arg", 3) ||
-				    !strncasecmp(pos, "fparg", 5))
-					args = strjoin(args, pos, ",");
-				if (!strncasecmp(pos, "retval", 6))
-					rval = "retval";
-			}
-
-			if (args) {
-				xasprintf(&act, "%s@%s", name, args);
-				argspec = strjoin(argspec, act, ";");
-				free(act);
-			}
-			if (rval) {
-				xasprintf(&act, "%s@retval", name);
-				retspec = strjoin(retspec, act, ";");
-				free(act);
-			}
-		}
-
-		free(str);
-	}
-
-	if (fha->opts->args)
-		argspec = strjoin(argspec, fha->opts->args, ";");
-	if (fha->opts->retval)
-		retspec = strjoin(retspec, fha->opts->retval, ";");
-
-	n = !!argspec + !!retspec;
+	n = extract_trigger_args(&argspec, &retspec, fha->opts->trigger);
 	if (n == 0)
 		return -1;
 
-	dprintf(fha->fd, "argspec:lines=%d\n", n);
+	dprintf(fha->fd, "argspec:lines=%d\n", n + 2);
 	if (argspec) {
 		dprintf(fha->fd, "argspec:%s\n", argspec);
 		free(argspec);
@@ -719,6 +675,9 @@ static int fill_arg_spec(void *arg)
 		dprintf(fha->fd, "retspec:%s\n", retspec);
 		free(retspec);
 	}
+
+	dprintf(fha->fd, "argauto:%s\n", get_auto_argspec_str());
+	dprintf(fha->fd, "retauto:%s\n", get_auto_retspec_str());
 
 	return 0;
 }
@@ -752,13 +711,14 @@ static int read_arg_spec(void *arg)
 		if (getline(&buf, &len, handle->fp) < 0)
 			goto out;
 
-		if (strncmp(&buf[3], "spec:", 5))
-			goto out;
-
-		if (!strncmp(buf, "arg", 3))
+		if (!strncmp(buf, "argspec:", 8))
 			info->argspec = copy_info_str(&buf[8]);
-		else if (!strncmp(buf, "ret", 3))
+		else if (!strncmp(buf, "retspec:", 8))
 			info->retspec = copy_info_str(&buf[8]);
+		else if (!strncmp(buf, "argauto:", 8))
+			info->autoarg = copy_info_str(&buf[8]);
+		else if (!strncmp(buf, "retauto:", 8))
+			info->autoret = copy_info_str(&buf[8]);
 		else
 			goto out;
 	}
@@ -882,7 +842,7 @@ int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 			continue;
 
 		if (read_handlers[i].handler(handle) < 0) {
-			pr_dbg("error during read ftrace info (%x)\n",
+			pr_dbg("error during read uftrace info (%x)\n",
 			       (1U << read_handlers[i].bit));
 			return -1;
 		}
@@ -1003,8 +963,10 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		pr_out("\n");
 	}
 
-	if (handle.hdr.info_mask & (1UL << ARG_SPEC))
-		pr_out(fmt, "arguments/retval", handle.info.argspec);
+	if (handle.hdr.info_mask & (1UL << ARG_SPEC)) {
+		pr_out(fmt, "arguments", handle.info.argspec);
+		pr_out(fmt, "return values", handle.info.retspec);
+	}
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
 		int status = handle.info.exit_status;

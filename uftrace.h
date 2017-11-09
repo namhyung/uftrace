@@ -98,6 +98,8 @@ struct uftrace_info {
 	char *distro;
 	char *argspec;
 	char *retspec;
+	char *autoarg;
+	char *autoret;
 	int nr_tid;
 	int *tids;
 	double stime;
