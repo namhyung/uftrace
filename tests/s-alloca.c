@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <alloca.h>
+#include <string.h>
 
 int foo(int c)
 {
