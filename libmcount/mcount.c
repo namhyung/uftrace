@@ -86,6 +86,8 @@ static void mcount_filter_init(void)
 
 	load_module_symtabs(&symtabs);
 
+	setup_auto_args();
+
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false);
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
@@ -294,6 +296,8 @@ static void mcount_finish(void)
 		close(pfd);
 		pfd = -1;
 	}
+
+	finish_auto_args();
 }
 
 static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
