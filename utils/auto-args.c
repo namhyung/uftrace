@@ -165,6 +165,12 @@ void setup_auto_args(void)
 	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL);
 }
 
+void setup_auto_args_str(char *args, char *rets)
+{
+	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT);
+	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL);
+}
+
 static void release_auto_args(struct rb_root *root)
 {
 	struct rb_node *p;

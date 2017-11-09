@@ -11,6 +11,7 @@
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
+#include "utils/filter.h"
 #include "utils/symbol.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
@@ -454,8 +455,14 @@ ok:
 		}
 	}
 
-	if (handle->hdr.info_mask & ARG_SPEC)
+	if (handle->hdr.info_mask & ARG_SPEC) {
+		if (handle->hdr.feat_mask & AUTO_ARGS) {
+			setup_auto_args_str(handle->info.autoarg,
+					    handle->info.autoret);
+		}
+
 		setup_fstack_args(handle->info.argspec, handle->info.retspec, handle);
+	}
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;
