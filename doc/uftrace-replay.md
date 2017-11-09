@@ -195,7 +195,7 @@ The color trigger is to change the color of the function in replay output.  The 
 The following example shows how triggers work.  We set a filter on function `b()` with the `backtrace` action and change the maximum filter depth under `b()` to 2.
 
     $ uftrace record ./abc
-    $ uftrace replay -F 'b@backtrace,depth=2'
+    $ uftrace replay -T 'b@filter,backtrace,depth=2'
     # DURATION    TID     FUNCTION
       backtrace [ 1234] | /* [ 0] main */
       backtrace [ 1234] | /* [ 1] a */
