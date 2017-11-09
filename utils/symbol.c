@@ -1622,12 +1622,12 @@ void print_symtabs(struct symtabs *symtabs)
 
 	pr_out("\n\n");
 	pr_out("Dynamic symbols\n");
-	printf("===============\n");
+	pr_out("===============\n");
 	for (i = 0; i < dtab->nr_sym; i++) {
 		struct sym *sym = &dtab->sym[i];
 
 		name = symbol_getname(sym, sym->addr);
-		printf("[%2zd] %#"PRIx64": %s (size: %u)\n",
+		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
 		       i, sym->addr, name, sym->size);
 		symbol_putname(sym, name);
 	}
