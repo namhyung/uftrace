@@ -508,12 +508,10 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	symbol_putname(sym, name);
 }
 
-static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
+static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		       char *func)
 {
-	int ret = 0;
 	struct ftrace_task_handle *task;
-	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
 	int i;
 
@@ -586,7 +584,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 		if (prev_time > frs->time) {
 			pr_warn("inverted time: broken data?\n");
-			return -1;
+			return;
 		}
 		prev_time = frs->time;
 
@@ -631,20 +629,6 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 					 UFTRACE_EXIT, func);
 		}
 	}
-
-	graph = graph_list;
-	while (graph && !uftrace_done) {
-		ret += print_graph(graph, opts);
-		graph = graph->next;
-	}
-
-	if (!ret) {
-		pr_out("uftrace: cannot find graph for '%s'\n", func);
-		if (opts_has_filter(opts))
-			pr_out("\t please check your filter settings.\n");
-	}
-
-	return 0;
 }
 
 struct find_func_data {
@@ -687,6 +671,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
+	struct uftrace_graph *graph;
 	char *func;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
@@ -716,9 +701,21 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	ret = build_graph(opts, &handle, func);
+	build_graph(opts, &handle, func);
+
+	graph = graph_list;
+	while (graph && !uftrace_done) {
+		ret += print_graph(graph, opts);
+		graph = graph->next;
+	}
+
+	if (!ret && !uftrace_done) {
+		pr_out("uftrace: cannot find graph for '%s'\n", func);
+		if (opts_has_filter(opts))
+			pr_out("\t please check your filter settings.\n");
+	}
 
 	close_data_file(opts, &handle);
 
-	return ret;
+	return 0;
 }
