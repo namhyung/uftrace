@@ -58,7 +58,9 @@ struct uftrace_graph {
 struct task_graph {
 	int enabled;
 	bool lost;
+	bool new_sess;
 	struct ftrace_task_handle *task;
+	struct uftrace_graph *graph_last;
 	struct uftrace_graph *graph;
 	struct graph_node *node;
 	struct graph_backtrace *bt_curr;
@@ -155,11 +157,8 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 			p = &parent->rb_right;
 	}
 
-	tg = xmalloc(sizeof(*tg));
+	tg = xzalloc(sizeof(*tg));
 	tg->task = task;
-	tg->enabled = 0;
-	tg->lost = false;
-	tg->bt_curr = NULL;
 
 	new_graph = true;
 
@@ -168,6 +167,13 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 
 out:
 	tg->graph = get_graph(task, time, addr);
+
+	if (tg->graph_last && tg->graph != tg->graph_last) {
+		pr_dbg("detect new session: %.*s\n",
+		       SESSION_ID_LEN, tg->graph->sess->sid);
+		tg->new_sess = true;
+	}
+	tg->graph_last = tg->graph;
 
 	if (full_graph && new_graph)
 		start_graph(tg);
@@ -290,11 +296,16 @@ static int add_graph_entry(struct task_graph *tg)
 	struct graph_node *curr = tg->node;
 	struct uftrace_record *rstack = tg->task->rstack;
 
-	if (curr == NULL)
-		return -1;
-
 	if (tg->lost)
 		return 1;  /* ignore kernel functions after LOST */
+
+	if (tg->new_sess) {
+		curr = &tg->graph->root;
+		tg->new_sess = false;
+	}
+
+	if (curr == NULL)
+		return -1;
 
 	list_for_each_entry(node, &curr->head, list) {
 		if (node->addr == rstack->addr)
