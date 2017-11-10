@@ -31,6 +31,19 @@ struct graph_node {
 	struct graph_node *parent;
 };
 
+enum node_type {
+	NODE_T_NORMAL,
+	NODE_T_FORK,
+	NODE_T_EXEC,
+};
+
+struct special_node {
+	struct list_head list;
+	struct graph_node *node;
+	enum node_type type;
+	int pid;
+};
+
 struct uftrace_graph {
 	char *func;
 	bool kernel_only;
@@ -38,6 +51,7 @@ struct uftrace_graph {
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
 	struct list_head bt_list;
+	struct list_head special_nodes;
 	struct graph_node root;
 };
 
@@ -66,6 +80,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	graph->func = xstrdup(full_graph ? basename(sess->exename) : func);
 	INIT_LIST_HEAD(&graph->root.head);
 	INIT_LIST_HEAD(&graph->bt_list);
+	INIT_LIST_HEAD(&graph->special_nodes);
 
 	graph->next = graph_list;
 	graph_list = graph;
@@ -287,6 +302,9 @@ static int add_graph_entry(struct task_graph *tg)
 	}
 
 	if (list_no_entry(node, &curr->head, list)) {
+		struct uftrace_trigger tr;
+		struct uftrace_session *sess = tg->graph->sess;
+
 		node = xcalloc(1, sizeof(*node));
 
 		node->addr = rstack->addr;
@@ -295,8 +313,36 @@ static int add_graph_entry(struct task_graph *tg)
 		node->parent = curr;
 		list_add_tail(&node->list, &node->parent->head);
 		node->parent->nr_edges++;
+
+		if (uftrace_match_filter(node->addr, &sess->fixups, &tr)) {
+			struct sym *sym;
+			struct special_node *snode;
+			enum node_type type = NODE_T_NORMAL;
+
+			sym = find_symtabs(&sess->symtabs, node->addr);
+			if (sym == NULL)
+				goto out;
+
+			if (!strcmp(sym->name, "fork") ||
+			    !strcmp(sym->name, "vfork") ||
+			    !strcmp(sym->name, "daemon"))
+				type = NODE_T_FORK;
+			else if (!strncmp(sym->name, "exec", 4))
+				type = NODE_T_EXEC;
+			else
+				goto out;
+
+			snode = xmalloc(sizeof(*snode));
+			snode->node = node;
+			snode->type = type;
+			snode->pid  = tg->task->t->pid;
+
+			/* find recent one first */
+			list_add(&snode->list, &tg->graph->special_nodes);
+		}
 	}
 
+out:
 	node->nr_calls++;
 	tg->node = node;
 
@@ -323,9 +369,23 @@ static int add_graph_exit(struct task_graph *tg)
 		tg->lost = false;
 	}
 
-	if (node->addr != fstack->addr)
-		pr_dbg("broken graph - addresses not match\n");
+	if (node->addr != fstack->addr) {
+		struct special_node *snode, *tmp;
 
+		list_for_each_entry_safe(snode, tmp, &tg->graph->special_nodes, list) {
+			if (snode->node->addr == tg->task->rstack->addr &&
+			    snode->type == NODE_T_FORK &&
+			    snode->pid == tg->task->t->ppid) {
+				node = snode->node;
+				list_del(&snode->list);
+				pr_dbg("recover from fork\n");
+				goto out;
+			}
+		}
+		pr_dbg("broken graph - addresses not match\n");
+	}
+
+out:
 	node->time       += fstack->total_time;
 	node->child_time += fstack->child_time;
 
