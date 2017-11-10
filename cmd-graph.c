@@ -59,6 +59,9 @@ static int create_graph(struct uftrace_session *sess, void *func)
 {
 	struct uftrace_graph *graph = xcalloc(1, sizeof(*graph));
 
+	pr_dbg("create graph for session %.*s (%s)\n",
+	       SESSION_ID_LEN, sess->sid, sess->exename);
+
 	graph->sess = sess;
 	graph->func = xstrdup(full_graph ? basename(sess->exename) : func);
 	INIT_LIST_HEAD(&graph->root.head);
@@ -241,7 +244,7 @@ static int start_graph(struct task_graph *tg)
 	if (!tg->enabled++) {
 		save_backtrace_addr(tg);
 
-		pr_dbg("start graph\n");
+		pr_dbg("start graph for task %d\n", tg->task->tid);
 
 		tg->node = &tg->graph->root;
 		tg->node->addr = tg->task->rstack->addr;
@@ -260,7 +263,7 @@ static int end_graph(struct task_graph *tg)
 		save_backtrace_time(tg);
 		tg->lost = false;
 
-		pr_dbg("end graph\n");
+		pr_dbg("end graph for task %d\n", tg->task->tid);
 	}
 
 	return 0;
