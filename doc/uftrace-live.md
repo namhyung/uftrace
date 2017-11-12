@@ -43,6 +43,9 @@ OPTIONS
 -R *SPEC*, \--retval=*SPEC*
 :   Record function return value.  This option can be used more than once.  See *ARGUMENTS*.
 
+\--auto-args
+:   Automatically record arguments and return values of well-known library functions.  Recommend to use it with `--nest-libcall`.
+
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: duration, tid, time, delta, elapsed and addr.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
 

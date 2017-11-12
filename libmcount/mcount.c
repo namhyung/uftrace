@@ -86,12 +86,21 @@ static void mcount_filter_init(void)
 
 	load_module_symtabs(&symtabs);
 
+	setup_auto_args();
+
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false);
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
 			      &mcount_filter_mode, false);
-	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers);
-	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers);
+	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
+	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
+
+	if (getenv("UFTRACE_AUTO_ARGS")) {
+		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
+				       &mcount_triggers, true);
+		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
+				     &mcount_triggers, true);
+	}
 
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
@@ -294,6 +303,8 @@ static void mcount_finish(void)
 		close(pfd);
 		pfd = -1;
 	}
+
+	finish_auto_args();
 }
 
 static bool mcount_check_rstack(struct mcount_thread_data *mtdp)

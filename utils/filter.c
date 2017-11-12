@@ -16,7 +16,6 @@
 #include "utils/utils.h"
 #include "utils/list.h"
 
-
 static void snprintf_trigger_read(char *buf, size_t len,
 				  enum trigger_read_type type)
 {
@@ -181,8 +180,8 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	}
 }
 
-static void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
-			bool exact_match)
+void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+		 bool exact_match)
 {
 	filter->trigger.flags |= tr->flags;
 
@@ -211,12 +210,32 @@ static void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *t
 		filter->trigger.read = tr->read;
 }
 
-static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
+static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		       struct uftrace_trigger *tr, bool exact_match)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *auto_arg = NULL;
+	struct uftrace_filter *auto_ret = NULL;
+	unsigned long orig_flags = tr->flags;
+
+	if ((tr->flags & TRIGGER_FL_ARGUMENT) && list_empty(tr->pargs)) {
+		auto_arg = find_auto_argspec(filter->name);
+		if (auto_arg == NULL)
+			tr->flags &= ~TRIGGER_FL_ARGUMENT;
+	}
+	if ((tr->flags & TRIGGER_FL_RETVAL) && list_empty(tr->pargs)) {
+		auto_ret = find_auto_retspec(filter->name);
+		if (auto_ret == NULL)
+			tr->flags &= ~TRIGGER_FL_RETVAL;
+	}
+
+	if (tr->flags == 0 && orig_flags) {
+		/* restored for regex filter */
+		tr->flags = orig_flags;
+		return 0;
+	}
 
 	pr_dbg("add filter for %s\n", filter->name);
 	if (dbg_domain[DBG_FILTER] >= 3)
@@ -227,8 +246,24 @@ static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
 		if (iter->start == filter->start) {
+			unsigned long args_flags = tr->flags;
+
+			args_flags &= ~TRIGGER_FL_AUTO_ARGS;
+
+			/* ignore auto-args if it already has argspec */
+			if ((tr->flags & TRIGGER_FL_AUTO_ARGS) &&
+			    (iter->trigger.flags & args_flags)) {
+				tr->flags = orig_flags;
+				return 0;
+			}
+
 			add_trigger(iter, tr, exact_match);
-			return;
+			if (auto_arg)
+				add_trigger(iter, &auto_arg->trigger, exact_match);
+			if (auto_ret)
+				add_trigger(iter, &auto_ret->trigger, exact_match);
+			tr->flags = orig_flags;
+			return 1;
 		}
 
 		if (iter->start > filter->start)
@@ -244,9 +279,15 @@ static void add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	new->trigger.pargs = &new->args;
 
 	add_trigger(new, tr, exact_match);
+	if (auto_arg)
+		add_trigger(new, &auto_arg->trigger, exact_match);
+	if (auto_ret)
+		add_trigger(new, &auto_ret->trigger, exact_match);
+	tr->flags = orig_flags;
 
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);
+	return 1;
 }
 
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
@@ -263,8 +304,7 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	filter.start = sym->addr;
 	filter.end = sym->addr + sym->size;
 
-	add_filter(root, &filter, tr, true);
-	return 1;
+	return add_filter(root, &filter, tr, true);
 }
 
 static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
@@ -291,8 +331,7 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
-		add_filter(root, &filter, tr, false);
-		ret++;
+		ret += add_filter(root, &filter, tr, false);
 	}
 
 	regfree(&re);
@@ -694,8 +733,8 @@ static const struct trigger_action_parser actions[] = {
 	{ "finish",    parse_finish_action, },
 };
 
-static int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				char **module, unsigned long orig_flags)
+int setup_trigger_action(char *str, struct uftrace_trigger *tr,
+			 char **module, unsigned long orig_flags)
 {
 	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
@@ -899,23 +938,35 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
  * @args_str   - CSV of argument string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
+ * @auto_args  - whether current arguments are auto-spec
  */
 void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
-			    struct rb_root *root)
+			    struct rb_root *root, bool auto_args)
 {
-	setup_trigger(args_str, symtabs, root, TRIGGER_FL_ARGUMENT, NULL, false);
+	unsigned long flags = TRIGGER_FL_ARGUMENT;
+
+	if (auto_args)
+		flags |= TRIGGER_FL_AUTO_ARGS;
+
+	setup_trigger(args_str, symtabs, root, flags, NULL, false);
 }
 
 /**
  * uftrace_setup_retval - construct rbtree of retval
- * @retval_str   - CSV of argument string (FUNC @ arg)
+ * @retval_str - CSV of return value string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
+ * @auto_args  - whether current retvals are auto-spec
  */
 void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
-			  struct rb_root *root)
+			  struct rb_root *root, bool auto_args)
 {
-	setup_trigger(retval_str, symtabs, root, TRIGGER_FL_RETVAL, NULL, false);
+	unsigned long flags = TRIGGER_FL_RETVAL;
+
+	if (auto_args)
+		flags |= TRIGGER_FL_AUTO_ARGS;
+
+	setup_trigger(retval_str, symtabs, root, flags, NULL, false);
 }
 
 /**
@@ -1279,7 +1330,7 @@ TEST_CASE(trigger_setup_args)
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_argument("foo::bar@arg1", &stabs, &root);
+	uftrace_setup_argument("foo::bar@arg1", &stabs, &root, false);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1309,7 +1360,8 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 2);
 
-	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2", &stabs, &root);
+	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2",
+			       &stabs, &root, false);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3999, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);

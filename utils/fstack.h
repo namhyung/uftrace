@@ -129,7 +129,7 @@ static inline bool is_kernel_record(struct ftrace_task_handle *task,
 
 void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle);
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct ftrace_file_handle *handle);
+		       struct ftrace_file_handle *handle, bool auto_args);
 int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle);
 
 int fstack_entry(struct ftrace_task_handle *task,

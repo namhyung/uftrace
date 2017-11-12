@@ -11,6 +11,7 @@
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
+#include "utils/filter.h"
 #include "utils/symbol.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
@@ -414,7 +415,7 @@ ok:
 		pr_err("cannot read header data");
 
 	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))
-		pr_err("invalid magic string found!");
+		pr_err_ns("invalid magic string found!");
 
 	check_data_order(handle);
 
@@ -427,10 +428,10 @@ ok:
 
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
-		pr_err("unsupported file version: %u", handle->hdr.version);
+		pr_err_ns("unsupported file version: %u", handle->hdr.version);
 
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
-		pr_err("cannot read uftrace header info!");
+		pr_err_ns("cannot read uftrace header info!");
 
 	fclose(fp);
 
@@ -454,8 +455,20 @@ ok:
 		}
 	}
 
-	if (handle->hdr.info_mask & ARG_SPEC)
-		setup_fstack_args(handle->info.argspec, handle->info.retspec, handle);
+	if (handle->hdr.info_mask & ARG_SPEC) {
+		if (handle->hdr.feat_mask & AUTO_ARGS) {
+			setup_auto_args_str(handle->info.autoarg,
+					    handle->info.autoret);
+		}
+
+		setup_fstack_args(handle->info.argspec, handle->info.retspec,
+				  handle, false);
+		if (handle->info.auto_args_enabled) {
+			setup_fstack_args(handle->info.autoarg,
+					  handle->info.autoret,
+					  handle, true);
+		}
+	}
 
 	if (!(handle->hdr.feat_mask & MAX_STACK))
 		handle->hdr.max_stack = MCOUNT_RSTACK_MAX;

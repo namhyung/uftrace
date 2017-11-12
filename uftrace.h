@@ -54,6 +54,7 @@ enum uftrace_feat_bits {
 	MAX_STACK_BIT,
 	EVENT_BIT,
 	PERF_EVENT_BIT,
+	AUTO_ARGS_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -67,6 +68,7 @@ enum uftrace_feat_bits {
 	MAX_STACK		= (1U << MAX_STACK_BIT),
 	EVENT			= (1U << EVENT_BIT),
 	PERF_EVENT		= (1U << PERF_EVENT_BIT),
+	AUTO_ARGS		= (1U << AUTO_ARGS_BIT),
 };
 
 enum uftrace_info_bits {
@@ -98,6 +100,9 @@ struct uftrace_info {
 	char *distro;
 	char *argspec;
 	char *retspec;
+	char *autoarg;
+	char *autoret;
+	bool auto_args_enabled;
 	int nr_tid;
 	int *tids;
 	double stime;
@@ -235,6 +240,7 @@ struct opts {
 	bool event_skip_out;
 	bool nest_libcall;
 	bool record;
+	bool auto_args;
 	struct uftrace_time_range range;
 };
 

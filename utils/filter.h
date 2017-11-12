@@ -28,6 +28,7 @@ enum trigger_flag {
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
 	TRIGGER_FL_READ		= (1U << 11),
 	TRIGGER_FL_FINISH	= (1U << 12),
+	TRIGGER_FL_AUTO_ARGS	= (1U << 13),
 };
 
 enum filter_mode {
@@ -127,9 +128,9 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
 			   bool allow_kernel);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			   struct rb_root *root);
+			    struct rb_root *root, bool auto_args);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			 struct rb_root *root);
+			  struct rb_root *root, bool auto_args);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
@@ -137,5 +138,14 @@ void uftrace_cleanup_filter(struct rb_root *root);
 void uftrace_print_filter(struct rb_root *root);
 
 char * uftrace_clear_kernel(char *filter_str);
+
+void setup_auto_args(void);
+void setup_auto_args_str(char *args, char *rets);
+void finish_auto_args(void);
+struct uftrace_filter * find_auto_argspec(char *name);
+struct uftrace_filter * find_auto_retspec(char *name);
+char *get_auto_argspec_str(void);
+char *get_auto_retspec_str(void);
+int extract_trigger_args(char **pargs, char **prets, char *trigger);
 
 #endif /* __FTRACE_FILTER_H__ */
