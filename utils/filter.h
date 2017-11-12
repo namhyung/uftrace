@@ -147,5 +147,6 @@ struct uftrace_filter * find_auto_retspec(char *name);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
+int parse_enum_string(char *enum_str);
 
 #endif /* UFTRACE_FILTER_H */

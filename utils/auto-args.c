@@ -16,6 +16,7 @@
 /* RB-tree maintaining automatic arguments and return value */
 static struct rb_root auto_argspec = RB_ROOT;
 static struct rb_root auto_retspec = RB_ROOT;
+static struct rb_root enum_root = RB_ROOT;
 
 extern void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 			bool exact_match);
@@ -268,6 +269,239 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 	return !!argspec + !!retspec;
 }
 
+enum enum_token_ret {
+	TOKEN_INVALID = -1,
+	TOKEN_NULL,
+	TOKEN_STR,
+	TOKEN_SIGN,
+	TOKEN_NUM,
+};
+
+static char enum_token[256];
+
+static enum enum_token_ret enum_next_token(char **str)
+{
+	char *pos, *tok;
+	enum enum_token_ret ret;
+
+	tok = *str;
+	if (tok == NULL)
+		return TOKEN_NULL;
+
+	while (isspace(*tok))
+		tok++;
+
+	if (*tok == '\0')
+		return TOKEN_NULL;
+
+	if (ispunct(*tok)) {
+		enum_token[0] = *tok;
+		enum_token[1] = '\0';
+		*str = tok + 1;
+		return TOKEN_SIGN;
+	}
+
+	if (isalpha(*tok))
+		ret = TOKEN_STR;
+	else if (isdigit(*tok))
+		ret = TOKEN_NUM;
+	else
+		return TOKEN_INVALID;
+
+	pos = strpbrk(tok, " \n\t=,{}");
+	if (pos == NULL) {
+		strcpy(enum_token, tok);
+		*str = NULL;
+		return ret;
+	}
+
+	strncpy(enum_token, tok, pos - tok);
+	enum_token[pos - tok] = '\0';
+	*str = pos;
+
+	return ret;
+}
+
+struct enum_def {
+	char *name;
+	struct list_head vals;
+	struct rb_node node;
+};
+
+struct enum_val {
+	struct list_head list;
+	char *str;
+	long val;
+};
+
+static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct enum_def *iter;
+	int cmp;
+
+	pr_dbg2("add enum definition for %s\n", e_def->name);
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct enum_def, node);
+
+		cmp = strcmp(iter->name, e_def->name);
+		if (cmp == 0) {
+			pr_err_ns("added enum of same name: %s\n", e_def->name);
+			return;
+		}
+
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&e_def->node, parent, p);
+	rb_insert_color(&e_def->node, root);
+}
+
+/**
+ * parse_enum_string - parse enum and add it to a tree
+ * @enum_str: string presentation of enum
+ *
+ * This function parses @enum_str and add it to @root so that it can be
+ * used for argument/return later.  The syntax of enum is same as C
+ * (except for the 'enum' keyword) but it only accepts a simple integer
+ * contant or other enum constant in RHS.
+ *
+ * For example, following string should be accepted:
+ *
+ *   number {
+ *     ZERO = 0,
+ *     ONE,
+ *     TWO,
+ *     HUNDRED = 100,
+ *   };
+ */
+int parse_enum_string(char *enum_str)
+{
+	char *pos, *tmp, *str;
+	struct enum_def *e_def;
+	struct enum_val *e_val, *e;
+	enum enum_token_ret ret;
+	int err = -1;
+
+	str = tmp = xstrdup(enum_str);
+
+	while ((pos = strsep(&tmp, ";")) != NULL) {
+		char *name;
+		long val = 0;
+
+		ret = enum_next_token(&pos);
+
+		/* ignore empty string */
+		if (ret == TOKEN_NULL)
+			continue;
+
+		if (ret != TOKEN_STR || strcmp(enum_token, "enum")) {
+			pr_dbg("don't have 'enum' prefix\n");
+			return -1;
+		}
+
+		/* name is mandatory */
+		ret = enum_next_token(&pos);
+		if (ret != TOKEN_STR) {
+			pr_dbg("enum name is missing\n");
+			goto out;
+		}
+
+		e_def = xmalloc(sizeof(*e_def));
+		e_def->name = xstrdup(enum_token);
+		INIT_LIST_HEAD(&e_def->vals);
+
+		ret = enum_next_token(&pos);
+		if (ret != TOKEN_SIGN || strcmp(enum_token, "{")) {
+			pr_dbg("enum start brace is missing\n");
+			goto out;
+		}
+
+		pr_dbg2("parse enum %s\n", e_def->name);
+
+		ret = enum_next_token(&pos);
+		while (ret != TOKEN_NULL && strcmp(enum_token, "}")) {
+			name = xstrdup(enum_token);
+
+			ret = enum_next_token(&pos);
+			if (ret != TOKEN_SIGN) {
+				pr_dbg("invalid enum syntax - sign required\n");
+				goto out;
+			}
+
+			if (!strcmp(enum_token, "=")) {
+				while (isspace(*pos))
+					pos++;
+				val = strtol(pos, &pos, 0);
+
+				/* consume ',' after the number */
+				enum_next_token(&pos);
+			}
+
+			e_val = xmalloc(sizeof(*e_val));
+			e_val->str = name;
+			e_val->val = val;
+
+			pr_dbg3("  %s = %ld\n", name, val);
+
+			/* sort by value, just in case */
+			list_for_each_entry(e, &e_def->vals, list) {
+				if (e->val <= val)
+					break;
+			}
+			list_add_tail(&e_val->list, &e->list);
+
+			val++;
+
+			if (!strcmp(enum_token, ","))
+				ret = enum_next_token(&pos);
+		}
+
+		if (!strcmp(enum_token, "}"))
+			add_enum_tree(&enum_root, e_def);
+		else {
+			pr_dbg("invalid enum def: %s\n", enum_token);
+			goto out;
+		}
+	}
+	err = 0;
+
+out:
+	free(str);
+	return err;
+}
+
+void release_enum_def(struct rb_root *root)
+{
+	struct rb_node *node;
+	struct enum_def *e_def;
+	struct enum_val *e_val;
+
+	node = rb_first(root);
+	while (node) {
+		e_def = rb_entry(node, struct enum_def, node);
+		node = rb_next(node);
+
+		rb_erase(&e_def->node, root);
+
+		while (!list_empty(&e_def->vals)) {
+			e_val = list_first_entry(&e_def->vals,
+						 struct enum_val, list);
+
+			list_del(&e_val->list);
+			free(e_val->str);
+			free(e_val);
+		}
+		free(e_def);
+	}
+}
+
 #ifdef UNIT_TEST
 
 TEST_CASE(argspec_auto_args)
@@ -342,6 +576,38 @@ TEST_CASE(argspec_extract)
 	free(args);
 	free(rets);
 
+	return TEST_OK;
+}
+
+TEST_CASE(argspec_parse_enum)
+{
+	char test_enum_str1[] = "enum xxx { ZERO, ONE = 111, TWO };";
+	char test_enum_str2[] = "enum a { AAA, BBB = 1, CCC }";
+	char test_enum_str3[] = ";enum uftrace{record=100,replay=-23,report}";
+	struct rb_node *node;
+	struct enum_def *e_def;
+	struct enum_val *e_val, *e_next;
+
+	TEST_EQ(parse_enum_string(test_enum_str1), 0);
+	TEST_EQ(parse_enum_string(test_enum_str2), 0);
+	TEST_EQ(parse_enum_string(test_enum_str3), 0);
+
+	node = rb_first(&enum_root);
+	while (node) {
+		e_def = rb_entry(node, struct enum_def, node);
+
+		e_val  = list_first_entry(&e_def->vals, struct enum_val, list);
+		e_next = list_next_entry(e_val, list);
+		TEST_GE(e_val->val, e_next->val);
+
+		e_val  = list_next_entry(e_val, list);
+		e_next = list_next_entry(e_next, list);
+		TEST_GE(e_val->val, e_next->val);
+
+		node = rb_next(node);
+	}
+
+	release_enum_def(&enum_root);
 	return TEST_OK;
 }
 
