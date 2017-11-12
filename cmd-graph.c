@@ -512,6 +512,7 @@ static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		       char *func)
 {
 	struct ftrace_task_handle *task;
+	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
 	int i;
 
@@ -628,6 +629,22 @@ static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 			build_graph_node(task, last_time, fstack->addr,
 					 UFTRACE_EXIT, func);
 		}
+	}
+
+	if (!full_graph || uftrace_done)
+		return;
+
+	/* account execution time of each graph */
+	graph = graph_list;
+	while (graph) {
+		struct graph_node *node;
+
+		list_for_each_entry(node, &graph->root.head, list) {
+			graph->root.time += node->time;
+			graph->root.child_time += node->time;
+		}
+
+		graph = graph->next;
 	}
 }
 
