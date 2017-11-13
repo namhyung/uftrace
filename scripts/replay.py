@@ -17,7 +17,7 @@ def uftrace_exit(ctx):
     # read arguments
     _tid = ctx["tid"]
     _depth = ctx["depth"]
-    _symname = ctx["symname"]
+    _symname = ctx["name"]
     _duration = ctx["duration"]
 
     indent = _depth * 2
