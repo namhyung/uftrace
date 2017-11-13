@@ -41,7 +41,7 @@ pointer = "*"
 reference = "&"
 
 type_specifier.extend(struct_or_union_specifier)
-type_specifier.extend(enum_specifier)
+#type_specifier.extend(enum_specifier)
 type_specifier.extend(typedef_name)
 type_specifier.extend(["std::string"])
 type_specifier.extend(artifitial_type)
