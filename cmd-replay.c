@@ -611,6 +611,14 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			else
 				n += snprintf(args + n, len, "%p", val.p);
 		}
+		else if (spec->fmt == ARG_FMT_ENUM) {
+			char *estr;
+
+			memcpy(val.v, data, spec->size);
+			estr = get_enum_string(spec->enum_str, val.i);
+			n += snprintf(args + n, len, "%s", estr);
+			free(estr);
+		}
 		else {
 			assert(idx < ARRAY_SIZE(len_mod));
 			lm = len_mod[idx];
