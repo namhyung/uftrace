@@ -146,6 +146,10 @@ static int import_python_module(char *py_pathname)
 	}
 
 	Py_XDECREF(pName);
+
+	/* import sys by default */
+	__PyRun_SimpleStringFlags("import sys", NULL);
+
 	return 0;
 }
 
