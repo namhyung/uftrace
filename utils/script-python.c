@@ -41,6 +41,7 @@ static PyAPI_FUNC(void) (*__PyErr_Clear)(void);
 static PyAPI_FUNC(PyObject *) (*__PyObject_GetAttrString)(PyObject *, const char *);
 static PyAPI_FUNC(int) (*__PyCallable_Check)(PyObject *);
 static PyAPI_FUNC(PyObject *) (*__PyObject_CallObject)(PyObject *callable_object, PyObject *args);
+static PyAPI_FUNC(int) (*__PyRun_SimpleStringFlags)(const char *, PyCompilerFlags *);
 
 static PyAPI_FUNC(PyObject *) (*__PyString_FromString)(const char *);
 static PyAPI_FUNC(PyObject *) (*__PyInt_FromLong)(long);
@@ -517,6 +518,7 @@ int script_init_for_python(char *py_pathname)
 	INIT_PY_API_FUNC(PyObject_GetAttrString);
 	INIT_PY_API_FUNC(PyCallable_Check);
 	INIT_PY_API_FUNC(PyObject_CallObject);
+	INIT_PY_API_FUNC(PyRun_SimpleStringFlags);
 
 	INIT_PY_API_FUNC(PyString_FromString);
 	INIT_PY_API_FUNC(PyInt_FromLong);
