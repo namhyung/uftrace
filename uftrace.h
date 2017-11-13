@@ -102,6 +102,7 @@ struct uftrace_info {
 	char *retspec;
 	char *autoarg;
 	char *autoret;
+	char *autoenum;
 	bool auto_args_enabled;
 	int nr_tid;
 	int *tids;

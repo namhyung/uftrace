@@ -142,12 +142,13 @@ void uftrace_print_filter(struct rb_root *root);
 char * uftrace_clear_kernel(char *filter_str);
 
 void setup_auto_args(void);
-void setup_auto_args_str(char *args, char *rets);
+void setup_auto_args_str(char *args, char *rets, char *enums);
 void finish_auto_args(void);
 struct uftrace_filter * find_auto_argspec(char *name);
 struct uftrace_filter * find_auto_retspec(char *name);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
+char *get_auto_enum_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
 int parse_enum_string(char *enum_str);
 char *get_enum_string(char *name, long val);

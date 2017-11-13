@@ -162,12 +162,14 @@ char *get_auto_retspec_str(void)
 
 void setup_auto_args(void)
 {
+	parse_enum_string(auto_enum_list);
 	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT);
 	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL);
 }
 
-void setup_auto_args_str(char *args, char *rets)
+void setup_auto_args_str(char *args, char *rets, char *enums)
 {
+	parse_enum_string(enums);
 	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT);
 	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL);
 }
@@ -461,6 +463,9 @@ int parse_enum_string(char *enum_str)
 	enum enum_token_ret ret;
 	int err = -1;
 
+	if (enum_str == NULL)
+		return 0;
+
 	str = tmp = xstrdup(enum_str);
 
 	while ((pos = strsep(&tmp, ";")) != NULL) {
@@ -572,6 +577,11 @@ void release_enum_def(struct rb_root *root)
 		}
 		free(e_def);
 	}
+}
+
+char *get_auto_enum_str(void)
+{
+	return auto_enum_list;
 }
 
 #ifdef UNIT_TEST
