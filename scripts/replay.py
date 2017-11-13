@@ -29,8 +29,7 @@ def uftrace_exit(ctx):
     print(buf)
 
 def uftrace_end():
-    # print an empty line
-    print("")
+    pass
 
 def get_time_and_unit(duration):
     duration = float(duration)
