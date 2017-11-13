@@ -495,6 +495,14 @@ int python_uftrace_end(void)
 	return 0;
 }
 
+int python_atfork_prepare(void)
+{
+	pr_dbg("flush python buffer");
+	__PyRun_SimpleStringFlags("sys.stdout.flush()", NULL);
+
+	return 0;
+}
+
 int script_init_for_python(char *py_pathname)
 {
 	pr_dbg("initialize python scripting engine for %s\n", py_pathname);
@@ -503,6 +511,7 @@ int script_init_for_python(char *py_pathname)
 	script_uftrace_entry = python_uftrace_entry;
 	script_uftrace_exit = python_uftrace_exit;
 	script_uftrace_end = python_uftrace_end;
+	script_atfork_prepare = python_atfork_prepare;
 
 	python_handle = dlopen(libpython, RTLD_LAZY | RTLD_GLOBAL);
 	if (!python_handle) {
