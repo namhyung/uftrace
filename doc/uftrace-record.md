@@ -72,9 +72,6 @@ OPTIONS
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with a `trace_on` trigger.
 
-\--demangle=*TYPE*
-:   Use demangled C++ symbol names for filters, triggers, arguments and/or return values.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
-
 -A *SPEC*, \--argument=*SPEC*
 :   Record function arguments.  This option can be used more than once.  See *ARGUMENTS*.
 
