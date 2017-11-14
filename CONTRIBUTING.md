@@ -24,7 +24,7 @@ readability.  For example:
 
 Please note that the position of the "else if" line.
 
-[1] https://www.kernel.org/doc/Documentation/CodingStyle
+[1] https://www.kernel.org/doc/Documentation/process/coding-style.rst 
 
 
 Include subject word in message header
