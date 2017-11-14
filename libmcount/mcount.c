@@ -980,6 +980,10 @@ static void atfork_prepare_handler(void)
 		.pid = getpid(),
 	};
 
+	/* call script atfork preparation routine */
+	if (SCRIPT_ENABLED && script_str)
+		script_atfork_prepare();
+
 	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
 }
 

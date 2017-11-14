@@ -28,6 +28,7 @@ static enum script_type_t script_lang;
 script_uftrace_entry_t script_uftrace_entry;
 script_uftrace_exit_t script_uftrace_exit;
 script_uftrace_end_t script_uftrace_end;
+script_atfork_prepare_t script_atfork_prepare;
 
 struct script_filter_item {
 	struct list_head	list;
