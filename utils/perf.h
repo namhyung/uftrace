@@ -1,5 +1,5 @@
-#ifndef __UFTRACE_PERF_H__
-#define __UFTRACE_PERF_H__
+#ifndef UFTRACE_PERF_H
+#define UFTRACE_PERF_H
 
 #include <stdint.h>
 #include <stdbool.h>

@@ -1,5 +1,5 @@
-#ifndef __FTRACE_COMPILER_H__
-#define __FTRACE_COMPILER_H__
+#ifndef UFTRACE_COMPILER_H
+#define UFTRACE_COMPILER_H
 
 #define compiler_barrier()	asm volatile("" :::"memory")
 
@@ -34,4 +34,4 @@
 #define __alias(func)  __attribute__((alias(#func)))
 #define __maybe_unused  __attribute__((unused))
 
-#endif /* __FTRACE_COMPILER_H__ */
+#endif /* UFTRACE_COMPILER_H */

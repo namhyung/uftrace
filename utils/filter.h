@@ -1,5 +1,5 @@
-#ifndef __FTRACE_FILTER_H__
-#define __FTRACE_FILTER_H__
+#ifndef UFTRACE_FILTER_H
+#define UFTRACE_FILTER_H
 
 #include <stdint.h>
 
@@ -148,4 +148,4 @@ char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
 
-#endif /* __FTRACE_FILTER_H__ */
+#endif /* UFTRACE_FILTER_H */

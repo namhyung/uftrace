@@ -1,5 +1,5 @@
-#ifndef __UFTRACE_KERNEL_H__
-#define __UFTRACE_KERNEL_H__
+#ifndef UFTRACE_KERNEL_H
+#define UFTRACE_KERNEL_H
 
 #include "libtraceevent/event-parse.h"
 
@@ -80,4 +80,4 @@ static inline bool has_kernel_event(char *events)
 
 bool check_kernel_pid_filter(void);
 
-#endif /* __UFTRACE_KERNEL_H__ */
+#endif /* UFTRACE_KERNEL_H */

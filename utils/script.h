@@ -5,8 +5,8 @@
  *
  * Released under the GPL v2.
  */
-#ifndef __UFTRACE_SCRIPT_H__
-#define __UFTRACE_SCRIPT_H__
+#ifndef UFTRACE_SCRIPT_H
+#define UFTRACE_SCRIPT_H
 
 #include "libmcount/mcount.h"
 #include "utils/script-python.h"
@@ -51,4 +51,4 @@ void script_add_filter(char *func);
 int script_match_filter(char *func);
 void script_finish_filter(void);
 
-#endif /* __UFTRACE_SCRIPT_H__ */
+#endif /* UFTRACE_SCRIPT_H */

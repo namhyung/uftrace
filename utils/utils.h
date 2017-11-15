@@ -6,8 +6,8 @@
  * Released under the GPL v2.
  */
 
-#ifndef __FTRACE_UTILS_H__
-#define __FTRACE_UTILS_H__
+#ifndef UFTRACE_UTILS_H
+#define UFTRACE_UTILS_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -260,4 +260,4 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
 
 char *absolute_dirname(const char *path, char *resolved_path);
 
-#endif /* __FTRACE_UTILS_H__ */
+#endif /* UFTRACE_UTILS_H */

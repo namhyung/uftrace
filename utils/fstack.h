@@ -1,5 +1,5 @@
-#ifndef __FTRACE_FSTACK_H__
-#define __FTRACE_FSTACK_H__
+#ifndef UFTRACE_FSTACK_H
+#define UFTRACE_FSTACK_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -146,4 +146,4 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode);
 
-#endif /* __FTRACE_FSTACK_H__ */
+#endif /* UFTRACE_FSTACK_H */

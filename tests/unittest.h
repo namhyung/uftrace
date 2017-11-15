@@ -1,5 +1,5 @@
-#ifndef __UFTRACE_UNIT_TEST_H__
-#define __UFTRACE_UNIT_TEST_H__
+#ifndef UFTRACE_UNIT_TEST_H
+#define UFTRACE_UNIT_TEST_H
 
 #include <stdio.h>
 #include <string.h>
@@ -82,4 +82,4 @@ int func_ ## t(void)
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
 
-#endif /* __UFTRACE_UNIT_TEST_H__ */
+#endif /* UFTRACE_UNIT_TEST_H */
