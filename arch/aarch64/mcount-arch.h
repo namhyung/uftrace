@@ -1,5 +1,5 @@
-#ifndef __MCOUNT_ARCH_H__
-#define __MCOUNT_ARCH_H__
+#ifndef MCOUNT_ARCH_H
+#define MCOUNT_ARCH_H
 
 #define mcount_regs  mcount_regs
 
@@ -67,4 +67,4 @@ struct mcount_arch_context {
 #define ARCH_PLT0_SIZE  32
 #define ARCH_PLTHOOK_ADDR_OFFSET  0
 
-#endif /* __MCOUNT_ARCH_H__ */
+#endif /* MCOUNT_ARCH_H */

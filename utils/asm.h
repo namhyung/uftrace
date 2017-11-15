@@ -1,5 +1,5 @@
-#ifndef __UFTRACE_ASM_H__
-#define __UFTRACE_ASM_H__
+#ifndef UFTRACE_ASM_H
+#define UFTRACE_ASM_H
 
 #define GLOBAL(sym)				\
 	.global sym;				\
@@ -19,4 +19,4 @@ sym:
 #define END(sym)				\
 	.size sym, .-sym;
 
-#endif /* __UFTRACE_ASM_H__ */
+#endif /* UFTRACE_ASM_H */

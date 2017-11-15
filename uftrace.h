@@ -1,5 +1,5 @@
-#ifndef __UFTRACE_H__
-#define __UFTRACE_H__
+#ifndef UFTRACE_H
+#define UFTRACE_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -511,4 +511,4 @@ struct uftrace_event {
 	char			*event;
 };
 
-#endif /* __UFTRACE_H__ */
+#endif /* UFTRACE_H */

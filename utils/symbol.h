@@ -6,8 +6,8 @@
  * Released under the GPL v2.
  */
 
-#ifndef FTRACE_SYMBOL_H
-#define FTRACE_SYMBOL_H
+#ifndef UFTRACE_SYMBOL_H
+#define UFTRACE_SYMBOL_H
 
 #include <stdint.h>
 #include <limits.h>
@@ -175,4 +175,4 @@ static inline char *demangle_full(char *str)
 }
 #endif /* HAVE_CXA_DEMANGLE */
 
-#endif /* FTRACE_SYMBOL_H */
+#endif /* UFTRACE_SYMBOL_H */

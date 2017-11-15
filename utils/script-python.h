@@ -5,8 +5,8 @@
  *
  * Released under the GPL v2.
  */
-#ifndef __UFTRACE_SCRIPT_PYTHON_H__
-#define __UFTRACE_SCRIPT_PYTHON_H__
+#ifndef UFTRACE_SCRIPT_PYTHON_H
+#define UFTRACE_SCRIPT_PYTHON_H
 
 #ifdef HAVE_LIBPYTHON2
 
@@ -31,4 +31,4 @@ static inline void script_finish_for_python(void) {}
 
 #endif /* HAVE_LIBPYTHON2 */
 
-#endif /* __UFTRACE_SCRIPT_PYTHON_H__ */
+#endif /* UFTRACE_SCRIPT_PYTHON_H */
