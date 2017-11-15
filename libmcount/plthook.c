@@ -73,6 +73,20 @@ unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
 	return real_addr;
 }
 
+static void resolve_pltgot(struct plthook_data *pd, int idx)
+{
+	if (pd->resolved_addr[idx] == 0) {
+		char *name;
+		void *addr;
+
+		name = pd->dsymtab.sym[idx].name;
+		addr = dlsym(RTLD_DEFAULT, name);
+
+		pr_dbg2("resolved addr of %s = %p\n", name, addr);
+		pd->resolved_addr[idx] = (unsigned long)addr;
+	}
+}
+
 /* use weak reference for non-defined (arch-dependent) symbols */
 #define ALIAS_DECL(_sym)  extern __weak void (*uftrace_##_sym)(void);
 
@@ -380,6 +394,10 @@ static const char *except_syms[] = {
 	"_Unwind_RaiseException",
 };
 
+static const char *resolve_syms[] = {
+	"pthread_exit",
+};
+
 static void add_special_func(struct plthook_data *pd, unsigned idx, unsigned flags)
 {
 	int i;
@@ -452,6 +470,8 @@ void setup_dynsym_indexes(struct plthook_data *pd)
 			    PLT_FL_FLUSH);
 	build_special_funcs(pd, except_syms, ARRAY_SIZE(except_syms),
 			    PLT_FL_EXCEPT);
+	build_special_funcs(pd, resolve_syms, ARRAY_SIZE(resolve_syms),
+			    PLT_FL_RESOLVE);
 
 	/* built all table, now sorting */
 	qsort(pd->special_funcs, pd->nr_special, sizeof(*pd->special_funcs), idxsort);
@@ -812,6 +832,11 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		else if (special_flag & PLT_FL_EXCEPT) {
 			/* exception handling requires stack unwind */
 			mcount_rstack_restore(mtdp);
+		}
+
+		if (special_flag & PLT_FL_RESOLVE) {
+			/* pthread_exit() doesn't have a change to resolve */
+			resolve_pltgot(pd, child_idx);
 		}
 	}
 
