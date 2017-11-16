@@ -13,7 +13,7 @@ int int_mul(long long a, int b)
 	return a * b;
 }
 
-int int_div(unsigned a, long b)
+int int_div(int a, long b)
 {
 	return a / b;
 }

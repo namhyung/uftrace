@@ -29,9 +29,9 @@ class TestCase(TestBase):
         return '%s --demangle=full -N "ns2.*" %s' % (TestBase.ftrace, 't-namespace')
 
     def fixup(self, cflags, result):
-       import platform
-       if platform.machine().startswith('arm'):
-               return result.replace('unsigned long', 'unsigned int')
+        import platform
+        if platform.architecture()[0].startswith('32bit'):
+            return result.replace('unsigned long', 'unsigned int')
 
-       return result.replace('delete(void*);',
-                             'delete(void*, unsigned long);')
+        return result.replace('delete(void*);',
+                              'delete(void*, unsigned long);')
