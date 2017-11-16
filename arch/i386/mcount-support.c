@@ -234,3 +234,14 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	return parent_loc;
 }
 
+// in i386, the idx value is set to a multiple of 8 unlike other.
+unsigned long mcount_arch_child_idx(unsigned long child_idx)
+{
+	if (child_idx > 0) {
+                if (child_idx % 8) {
+                        pr_err_ns("the malformed child idx : %lx\n", child_idx);
+                }
+                child_idx = child_idx / 8;
+        }
+        return child_idx;
+}
