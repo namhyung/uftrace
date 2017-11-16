@@ -33,4 +33,11 @@ class TestCase(TestBase):
             argopt = argopt.replace('float_mul@fparg1/64,fparg2/32',
                                     'float_mul@fparg1/64,fparg3/32')
 
+        elif platform.machine().startswith('i686'):
+            # argument count follows the size of type
+            argopt  = '-A "float_add@fparg1/32,fparg2/32" -R "float_add@retval/f32" '
+            argopt += '-A "float_sub@fparg1/32,fparg2"    -R "float_sub@retval/f32" '
+            argopt += '-A "float_mul@fparg1/64,fparg3/32" -R "float_mul@retval/f64" '
+            argopt += '-A "float_div@fparg1/64,fparg3/64" -R "float_div@retval/f64"'
+
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
