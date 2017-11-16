@@ -26,3 +26,7 @@ endif
 ifneq ($(wildcard $(srcdir)/check-deps/perf_context_switch),)
   COMMON_CFLAGS += -DHAVE_PERF_CTXSW
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/arm_has_hardfp),)
+  COMMON_CFLAGS += -DHAVE_ARM_HARDFP
+endif

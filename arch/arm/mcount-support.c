@@ -21,8 +21,17 @@ struct lr_offset {
 #define REG_SP  13
 
 static struct rb_root offset_cache = RB_ROOT;
+
+/* whether current machine supports hardfp */
 static bool use_hard_float = false;
+
+#ifdef HAVE_ARM_HARDFP
+/* need to check hardfp at runtime */
 static bool float_abi_checked = false;
+#else
+/* disable hardfp as it's not supported */
+static bool float_abi_checked = true;
+#endif
 
 struct offset_entry {
 	struct rb_node node;
@@ -349,6 +358,8 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	case ARM_REG_R3:
 		ctx->val.i = ARG4(regs);
 		break;
+
+#ifdef HAVE_ARM_HARDFP
 	case ARM_REG_S0:
 		asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
 		break;
@@ -421,6 +432,8 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	case ARM_REG_D7:
 		asm volatile ("vstr %%d7, %0\n" : "=m" (ctx->val.v));
 		break;
+#endif /* HAVE_ARM_HARDFP */
+
 	default:
 		return -1;
 	}
@@ -489,6 +502,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		spec->size = 8;
 
 	/* type of return value cannot be FLOAT, so check format instead */
+#ifdef HAVE_ARM_HARDFP
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
 		if (spec->size <= 4)
 			asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
@@ -496,6 +510,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 			asm volatile ("vstr %%d0, %0\n" : "=m" (ctx->val.v));
 	}
 	else
+#endif /* HAVE_ARM_HARDFP */
 		memcpy(ctx->val.v, ctx->retval, spec->size);
 }
 

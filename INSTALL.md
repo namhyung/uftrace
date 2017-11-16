@@ -81,12 +81,23 @@ directories or build directory with this script.
     $ ./configure --help
     Usage: ./configure [<options>]
 
-      --help             print this message
-      --prefix=<DIR>     set install root dir as <DIR>        (default: /usr/local)
-      --bindir=<DIR>     set executable install dir as <DIR>  (default: ${prefix}/bin)
-      --libdir=<DIR>     set library install dir as <DIR>     (default: ${prefix}/lib)
-      --mandir=<DIR>     set manual doc install dir as <DIR>  (default: ${prefix}/share/man)
-      --objdir=<DIR>     set build dir as <DIR>               (default: ${PWD})
+      --help                print this message
+      --prefix=<DIR>        set install root dir as <DIR>        (default: /usr/local)
+      --bindir=<DIR>        set executable install dir as <DIR>  (default: ${prefix}/bin)
+      --libdir=<DIR>        set library install dir as <DIR>     (default: ${prefix}/lib)
+      --mandir=<DIR>        set manual doc install dir as <DIR>  (default: ${prefix}/share/man)
+      --objdir=<DIR>        set build dir as <DIR>               (default: ${PWD})
+      --sysconfdir=<DIR>    override the etc dir as <DIR>
+      --with-elfutils=<DIR> search for elfutils in <DIR>/include and <DIR>/lib
+
+      -p                    preserve old setting
+
+      Some influential environment variables:
+        ARCH           Target architecture    e.g. arm, aarch64, or x86_64
+        CROSS_COMPILE  Specify the compiler prefix during compilation
+                       e.g. CC is overridden by $(CROSS_COMPILE)gcc
+        CFLAGS         C compiler flags
+        LDFLAGS        linker flags
 
 Also you can set the target architecture and compiler options like CC, CFLAGS.
 
@@ -96,4 +107,27 @@ For cross compile, you may want to setup the toolchain something like below:
     $ ./configure ARCH=arm CFLAGS='--sysroot /path/to/sysroot'
 
 This assumes you already installed the cross-built `libelf` on the sysroot
-directory.
+directory.  Otherwise, you can also build it from source (please see below) or
+use it on a different path using `--with-elfutils=<PATH>`.
+
+BUILD WITH ELFUTILS (libelf)
+============================
+
+It may be useful to manually compile libelf for uftrace build if the target
+system doesn't have libelf installed.  `misc/install-elfutils.sh` provides a way
+to download and build libelf, which is one of the libraries in elfutils.
+
+The below is the way to compile uftrace together with libelf.
+
+    $ export CROSS_COMPILE=arm-linux-gnueabi-
+    $ export ARCH=arm
+    $ export CFLAGS="-march=armv7-a"
+    $ ./misc/install-elfutils.sh --prefix=/path/to/install
+    $ ./configure --prefix=/path/to/install --with-elfutils=/path/to/install
+
+    $ make
+    $ make install
+
+`misc/install-elfutils.sh` downloads and builds elfutils and install libelf to
+prefix directory.  The installed libelf can be found using `--with-elfutils` in
+`configure` script.

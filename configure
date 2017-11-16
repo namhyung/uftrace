@@ -10,15 +10,23 @@ output=${output:-${objdir}/.config}
 usage() {
     echo "Usage: $0 [<options>]
 
-  --help             print this message
-  --prefix=<DIR>     set install root dir as <DIR>        (default: /usr/local)
-  --bindir=<DIR>     set executable install dir as <DIR>  (default: \${prefix}/bin)
-  --libdir=<DIR>     set library install dir as <DIR>     (default: \${prefix}/lib)
-  --mandir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
-  --objdir=<DIR>     set build dir as <DIR>               (default: \${PWD})
-  --sysconfdir=<DIR> override the etc dir as <DIR>
+  --help                print this message
+  --prefix=<DIR>        set install root dir as <DIR>        (default: /usr/local)
+  --bindir=<DIR>        set executable install dir as <DIR>  (default: \${prefix}/bin)
+  --libdir=<DIR>        set library install dir as <DIR>     (default: \${prefix}/lib)
+  --mandir=<DIR>        set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
+  --objdir=<DIR>        set build dir as <DIR>               (default: \${PWD})
+  --sysconfdir=<DIR>    override the etc dir as <DIR>
+  --with-elfutils=<DIR> search for elfutils in <DIR>/include and <DIR>/lib
 
-  -p                 preserve old setting
+  -p                    preserve old setting
+
+  Some influential environment variables:
+    ARCH           Target architecture    e.g. arm, aarch64, or x86_64
+    CROSS_COMPILE  Specify the compiler prefix during compilation
+                   e.g. CC is overridden by \$(CROSS_COMPILE)gcc
+    CFLAGS         C compiler flags
+    LDFLAGS        linker flags
 "
     exit 1
 }
@@ -105,8 +113,9 @@ export CC CFLAGS LD LDFLAGS
 make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
-if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
+if [ ! -e ${srcdir}/check-deps/have_libelf ] && [ ! -f ${with_elfutils}/lib/libelf.so ]; then
     echo "Error: cannot find 'libelf' (from elfutils): Please install it first."
+    echo "Otherwise, please install it using \"misc/install-elfutils.sh\" script."
     exit 1
 fi
 
@@ -117,6 +126,13 @@ override bindir := $bindir
 override libdir := $libdir
 override mandir := $mandir
 override etcdir := $etcdir
+EOF
+
+if [ ! -z $with_elfutils ]; then
+    echo "override elfdir := $with_elfutils" >> $output
+fi
+
+cat >>$output <<EOF
 
 override ARCH   := $ARCH
 override CC     := $CC
