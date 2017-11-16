@@ -25,7 +25,7 @@ class TestCase(TestBase):
         argopt = '-A "^int_@arg1,arg2"'
 
         import platform
-        if platform.machine().startswith('arm'):
+        if platform.architecture()[0].startswith('32bit'):
             # int_mul@arg1 is a 'long long', so we should skip arg2
             argopt = '-A "int_(add|sub|div)@arg1,arg2" -A "int_mul@arg1/i64,arg3"'
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
