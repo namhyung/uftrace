@@ -701,6 +701,11 @@ static void update_pltgot(struct mcount_thread_data *mtdp,
 	}
 }
 
+__weak unsigned long mcount_arch_child_idx(unsigned long child_idx)
+{
+	return child_idx;
+}
+
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id, struct mcount_regs *regs)
 {
@@ -744,6 +749,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	recursion = false;
 
+	// for i386 architecture.
+	child_idx = mcount_arch_child_idx(child_idx);
 	func = bsearch((void *)child_idx, pd->special_funcs, pd->nr_special,
 		       sizeof(*func), idxfind);
 	if (func)
