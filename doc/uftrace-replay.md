@@ -189,7 +189,7 @@ The uftrace tool supports triggering actions on selected function calls with or 
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
                      "color="<color> | "time="<time_spec> | "filter" | "notrace"
     <time_spec>  :=  <num> [ <time_unit> ]
-    <time_unit>  :=  "ns" | "us" | "ms" | "s"
+    <time_unit>  :=  "ns"(= "nsec" ) | "us"(= "usec" ) | "ms"(= "msec" ) | "s"(= "sec" ) | "m"(= "min" )
 
 The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.  And the `backtrace` trigger is used to print a stack backtrace at replay time.
 
@@ -242,6 +242,19 @@ Each field has following meaning:
 
 The default value is 'duration,tid'.  If given field name starts with "+", then it'll be appended to the default fields.  So "-f +time" is as same as "-f duration,tid,time".  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
 
+    $ uftrace replay -f none
+    # FUNCTION
+     __monstartup();
+     __cxa_atexit();
+     main() {
+       a() {
+         b() {
+           c() {
+             getpid();
+           } /* c */
+         } /* b */
+       } /* a */
+     } /* main */
 
 SEE ALSO
 ========

@@ -234,7 +234,7 @@ The uftrace tool supports triggering actions on selected function calls with or 
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
                      "finish" | "filter" | "notrace"
     <time_spec>  :=  <num> [ <time_unit> ]
-    <time_unit>  :=  "ns" | "us" | "ms" | "s"
+    <time_unit>  :=  "ns"(= "nsec" ) | "us"(= "usec" ) | "ms"(= "msec" ) | "s"(= "sec") | "m"(= "min" )
     <read_spec>  :=  "proc/statm" | "page-fault"
 
 The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.  And the `backtrace` trigger is used to print a stack backtrace at replay time.
