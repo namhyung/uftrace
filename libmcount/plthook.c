@@ -701,6 +701,11 @@ static void update_pltgot(struct mcount_thread_data *mtdp,
 	}
 }
 
+__weak unsigned long mcount_arch_child_idx(unsigned long child_idx)
+{
+	return child_idx;
+}
+
 unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id, struct mcount_regs *regs)
 {
@@ -719,6 +724,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	unsigned long special_flag = 0;
 	unsigned long real_addr = 0;
 
+	// if neccesary, implement it by architecture.
+	child_idx = mcount_arch_child_idx(child_idx);
 	list_for_each_entry(pd, &plthook_modules, list) {
 		if (module_id == pd->module_id)
 			break;
