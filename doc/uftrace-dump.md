@@ -21,7 +21,7 @@ OPTIONS
 :   Show hex dump of data as well
 
 \--chrome
-:   Show JSON style output as used by the Google Chrome tracing facility.
+:   Show JSON style output as used by the Google Chrome tracing facility. Open chrome tracing tools (chrome://tracing) and load JSON file.
 
 \--flame-graph
 :   Show FlameGraph style output (svg) viewable by modern web browsers.
