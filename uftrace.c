@@ -150,7 +150,7 @@ static struct argp_option uftrace_options[] = {
 	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampling time" },
-	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output" },
+	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay output (default: 'duration,tid')" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
