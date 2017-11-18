@@ -159,7 +159,7 @@ static struct argp_option uftrace_options[] = {
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
 	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
-	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy" },
+	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy (default: 'abs,compact,no-percent')" },
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
 	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
