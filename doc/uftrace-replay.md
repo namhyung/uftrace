@@ -243,6 +243,45 @@ Each field has following meaning:
 The default value is 'duration,tid'.  If given field name starts with "+", then it'll be appended to the default fields.  So "-f +time" is as same as "-f duration,tid,time".  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
 
 
+EXAMPLES
+========
+If this command is run without -f option, the result shows default fields (DURATION and TID). Possible values are: duration, tid, time, delta, elapsed and addr.
+
+$ uftrace replay
+# DURATION    TID     FUNCTION
+   0.538 us [25414] | __monstartup();
+   0.471 us [25414] | __cxa_atexit();
+            [25414] | main() {
+            [25414] |   foo() {
+            [25414] |     /* uftrace:event */
+   6.261 us [25414] |   } /* foo */
+   6.708 us [25414] | } /* main */
+
+If the `-f addr`option is used, it will show only addr field.
+
+$ uftrace replay -f addr
+#   ADDRESS     FUNCTION
+       400500 | __monstartup();
+       400520 | __cxa_atexit();
+       4006a7 | main() {
+       400693 |   foo() {
+              |     /* uftrace:event */
+       400693 |   } /* foo */
+       4006a7 | } /* main */
+
+And if the `-f +addr` option is used, it will add an addr field and show it with default fields.
+
+$ uftrace replay -f +addr
+# DURATION    TID      ADDRESS     FUNCTION
+   0.538 us [25414]       400500 | __monstartup();
+   0.471 us [25414]       400520 | __cxa_atexit();
+            [25414]       4006a7 | main() {
+            [25414]       400693 |   foo() {
+            [25414]              |     /* uftrace:event */
+   6.261 us [25414]       400693 |   } /* foo */
+   6.708 us [25414]       4006a7 | } /* main */
+
+
 SEE ALSO
 ========
 `uftrace`(1), `uftrace-record`(1), `uftrace-report`(1), `uftrace-info`(1)
