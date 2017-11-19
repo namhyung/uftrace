@@ -78,7 +78,7 @@ OPTIONS
 :   Save warning and debug messages into this file instead of stderr.
 
 \--color=*VAL*
-:   Enable or disable color on the output.  Possible values are "yes", "no" and "auto".  The "auto" value is default and turns on coloring if stdout is a terminal.
+:   Enable or disable color on the output.  Possible values are "yes"(= "true" | "1" | "on" ), "no"(= "false" | "0" | "off" ) and "auto".  The "auto" value is default and turns on coloring if stdout is a terminal.
 
 \--no-pager
 :   Do not use a pager.
