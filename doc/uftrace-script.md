@@ -137,10 +137,10 @@ Also script can have options for record if it requires some form of data (i.e. f
     #
     def uftrace_entry(ctx):
         if "args" in ctx:
-	    print(ctx["name"] + " has args")
+            print(ctx["name"] + " has args")
     def uftrace_exit(ctx):
         if "retval" in ctx:
-	    print(ctx["name"] + " has retval")
+            print(ctx["name"] + " has retval")
 
     $ uftrace record -S arg.py abc
     a has args
