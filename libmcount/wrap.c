@@ -81,6 +81,7 @@ static int (*real_backtrace)(void **buffer, int sz);
 static void (*real_cxa_throw)(void *exc, void *type, void *dest);
 static void (*real_cxa_end_catch)(void);
 static void * (*real_dlopen)(const char *filename, int flags);
+static __noreturn void (*real_pthread_exit)(void *retval);
 
 void mcount_hook_functions(void)
 {
@@ -88,6 +89,7 @@ void mcount_hook_functions(void)
 	real_cxa_throw		= dlsym(RTLD_NEXT, "__cxa_throw");
 	real_cxa_end_catch	= dlsym(RTLD_NEXT, "__cxa_end_catch");
 	real_dlopen		= dlsym(RTLD_NEXT, "dlopen");
+	real_pthread_exit	= dlsym(RTLD_NEXT, "pthread_exit");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -216,6 +218,21 @@ __visible_default void * dlopen(const char *filename, int flags)
 
 	mtdp->recursion_guard = false;
 	return ret;
+}
+
+__visible_default __noreturn void pthread_exit(void *retval)
+{
+	struct mcount_thread_data *mtdp;
+	struct mcount_ret_stack *rstack;
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp)) {
+		rstack = &mtdp->rstack[mtdp->idx - 1];
+		mcount_exit_filter_record(mtdp, rstack, NULL);
+		mcount_rstack_restore(mtdp);
+	}
+
+	real_pthread_exit(retval);
 }
 
 #ifdef UNIT_TEST
