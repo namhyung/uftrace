@@ -177,6 +177,32 @@ You can also see replay output with different time threshold for the same record
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+In addition, The `-r` option can show functions executed within the given time range.
+When using this option by default, you can see TIMESTAMP or ELAPSED fields as well as DURATION and TID.
+```
+$ uftrace replay -r 502716.387320101~502716.387322389
+#     TIMESTAMP      DURATION    TID     FUNCTION
+    502716.387320101   0.289 us [ 6126] |   fgets();
+    502716.387320584            [ 6126] |   get_values_from() {
+    502716.387320709   0.245 us [ 6126] |     strdup();
+    502716.387321172   0.144 us [ 6126] |     strsep();
+    502716.387321542   0.223 us [ 6126] |     atoi();
+    502716.387321983   0.239 us [ 6126] |     atoi();
+    502716.387322389   1.805 us [ 6126] |   } /* get_values_from */
+
+$ uftrace replay -r 40us~ | head -10
+#  ELAPSED   DURATION    TID     FUNCTION
+  40.141 us            [ 6126] |   get_values_from() {
+  40.269 us   0.249 us [ 6126] |     strdup();
+  40.756 us   0.149 us [ 6126] |     strsep();
+  41.119 us   0.235 us [ 6126] |     atoi();
+  41.578 us   0.211 us [ 6126] |     atoi();
+  41.957 us   1.816 us [ 6126] |   } /* get_values_from */
+  42.124 us   0.220 us [ 6126] |   fgets();
+  42.529 us            [ 6126] |   get_values_from() {
+  42.645 us   0.236 us [ 6126] |     strdup();
+  ```
+
 You can also set triggers on filtered functions.  See *TRIGGERS* section below for details.
 
 
@@ -242,34 +268,6 @@ Each field has following meaning:
 
 The default value is 'duration,tid'.  If given field name starts with "+", then it'll be appended to the default fields.  So "-f +time" is as same as "-f duration,tid,time".  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
 
-EXAMPLE
-========
-This command's default fields are DURATION and TID.
-
-When using time-range ```-r``` option by default, you can see TIMESTAMP or ELAPSED fields also.
-```
-$ uftrace replay -r 502716.387320101~502716.387322389
-#     TIMESTAMP      DURATION    TID     FUNCTION
-    502716.387320101   0.289 us [ 6126] |   fgets();
-    502716.387320584            [ 6126] |   get_values_from() {
-    502716.387320709   0.245 us [ 6126] |     strdup();
-    502716.387321172   0.144 us [ 6126] |     strsep();
-    502716.387321542   0.223 us [ 6126] |     atoi();
-    502716.387321983   0.239 us [ 6126] |     atoi();
-    502716.387322389   1.805 us [ 6126] |   } /* get_values_from */
-
-$ uftrace replay -r 40us~ | head -10
-#  ELAPSED   DURATION    TID     FUNCTION
-  40.141 us            [ 6126] |   get_values_from() {
-  40.269 us   0.249 us [ 6126] |     strdup();
-  40.756 us   0.149 us [ 6126] |     strsep();
-  41.119 us   0.235 us [ 6126] |     atoi();
-  41.578 us   0.211 us [ 6126] |     atoi();
-  41.957 us   1.816 us [ 6126] |   } /* get_values_from */
-  42.124 us   0.220 us [ 6126] |   fgets();
-  42.529 us            [ 6126] |   get_values_from() {
-  42.645 us   0.236 us [ 6126] |     strdup();
-```
 
 SEE ALSO
 ========
