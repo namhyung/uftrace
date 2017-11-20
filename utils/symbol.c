@@ -229,6 +229,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
 	unsigned long prev_sym_value = -1;
+	int dup_syms = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -398,10 +399,14 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			memmove(curr, next - 1,
 				(symtab->nr_sym - i - count) * sizeof(*next));
 
-			pr_dbg2("removed %d duplicates\n", count);
 			symtab->nr_sym -= count;
+			dup_syms += count;
 		}
 	}
+
+	if (dup_syms)
+		pr_dbg2("removed %d duplicates\n", dup_syms);
+
 	symtab->nr_alloc = symtab->nr_sym;
 	symtab->sym = xrealloc(symtab->sym, symtab->nr_sym * sizeof(*symtab->sym));
 
