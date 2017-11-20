@@ -296,7 +296,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		sym_sec = dynsym_sec;
 		nr_sym = nr_dynsym;
 		symstr_idx = dynsymstr_idx;
-		pr_dbg2("using dynsym instead\n");
+		pr_dbg2("no symtab, using dynsyms instead\n");
 	}
 
 	if (sym_sec == NULL) {
@@ -575,7 +575,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 	}
 
 	if (dynsym_sec == NULL || dynamic_sec == NULL || plt_addr == 0) {
-		pr_dbg("cannot find dynamic symbols.. skipping\n");
+		pr_dbg2("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
