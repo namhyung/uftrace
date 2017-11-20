@@ -229,6 +229,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	Elf_Data *sym_data;
 	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
 	unsigned long prev_sym_value = -1;
+	int dup_syms = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -295,7 +296,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		sym_sec = dynsym_sec;
 		nr_sym = nr_dynsym;
 		symstr_idx = dynsymstr_idx;
-		pr_dbg2("using dynsym instead\n");
+		pr_dbg2("no symtab, using dynsyms instead\n");
 	}
 
 	if (sym_sec == NULL) {
@@ -398,10 +399,14 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			memmove(curr, next - 1,
 				(symtab->nr_sym - i - count) * sizeof(*next));
 
-			pr_dbg2("removed %d duplicates\n", count);
 			symtab->nr_sym -= count;
+			dup_syms += count;
 		}
 	}
+
+	if (dup_syms)
+		pr_dbg2("removed %d duplicates\n", dup_syms);
+
 	symtab->nr_alloc = symtab->nr_sym;
 	symtab->sym = xrealloc(symtab->sym, symtab->nr_sym * sizeof(*symtab->sym));
 
@@ -570,7 +575,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 	}
 
 	if (dynsym_sec == NULL || dynamic_sec == NULL || plt_addr == 0) {
-		pr_dbg("cannot find dynamic symbols.. skipping\n");
+		pr_dbg2("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
@@ -957,13 +962,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 		"libmcount-fast.so",
 		"libmcount-single.so",
 		"libmcount-fast-single.so",
-		/* system base libraries */
-		"libc.so.6",
-		"libgcc_s.so.1",
-		"libpthread.so.0",
-		"linux-vdso.so.1",
-		"linux-gate.so.1",
-		"ld-linux-x86-64.so.2",
 	};
 	size_t k;
 	unsigned long flags = symtabs->flags;
@@ -986,6 +984,25 @@ void load_module_symtabs(struct symtabs *symtabs)
 
 		pr_dbg2("load module symbol table: %s\n", maps->libname);
 
+		if (flags & SYMTAB_FL_USE_SYMFILE) {
+			char *symfile = NULL;
+
+			xasprintf(&symfile, "%s/%s.sym",
+				  symtabs->dirname, basename(maps->libname));
+			if (access(symfile, F_OK) == 0)
+				load_module_symbol(&maps->symtab, symfile, maps->start);
+
+			free(symfile);
+
+			if (maps->symtab.nr_sym)
+				goto next;
+		}
+
+		/*
+		 * Currently it uses a single symtab for both normal symbols
+		 * and dynamic symbols.  Maybe it can be changed later to
+		 * support more sophisticated symbol handling.
+		 */
 		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
 		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
 		merge_symtabs(&maps->symtab, &dsymtab);
