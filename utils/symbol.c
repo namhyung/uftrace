@@ -962,13 +962,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 		"libmcount-fast.so",
 		"libmcount-single.so",
 		"libmcount-fast-single.so",
-		/* system base libraries */
-		"libc.so.6",
-		"libgcc_s.so.1",
-		"libpthread.so.0",
-		"linux-vdso.so.1",
-		"linux-gate.so.1",
-		"ld-linux-x86-64.so.2",
 	};
 	size_t k;
 	unsigned long flags = symtabs->flags;
