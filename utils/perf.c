@@ -15,6 +15,8 @@
 /* It needs to synchronize records using monotonic clock */
 #ifdef HAVE_PERF_CLOCKID
 
+#define PERF_PARANOID_CHECK  "/proc/sys/kernel/perf_event_paranoid"
+
 static bool use_perf = true;
 
 static int open_perf_event(int pid, int cpu)
@@ -38,7 +40,6 @@ static int open_perf_event(int pid, int cpu)
 		INIT_CTXSW_ATTR
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
-	int fd;
 
 	if (!PERF_CTXSW_AVAILABLE) {
 		/* Operation not supported */
@@ -46,11 +47,7 @@ static int open_perf_event(int pid, int cpu)
 		return -1;
 	}
 
-	fd = syscall(SYS_perf_event_open, &attr, pid, cpu, -1, flag);
-	if (fd < 0)
-		pr_dbg("perf event open failed: %m\n");
-
-	return fd;
+	return syscall(SYS_perf_event_open, &attr, pid, cpu, -1, flag);
 }
 
 /**
@@ -83,7 +80,12 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 	for (cpu = 0; cpu < nr_cpu; cpu++) {
 		fd = open_perf_event(pid, cpu);
 		if (fd < 0) {
-			pr_dbg("failed to open perf event: %m\n");
+			int saved_errno = errno;
+
+			pr_warn("skipping perf event due to error: %m\n");
+			if (saved_errno == EACCES)
+				pr_dbg("please check %s\n", PERF_PARANOID_CHECK);
+
 			use_perf = false;
 			break;
 		}
@@ -92,7 +94,7 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 		perf->page[cpu] = mmap(NULL, PERF_MMAP_SIZE, PROT_READ|PROT_WRITE,
 				       MAP_SHARED, fd, 0);
 		if (perf->page[cpu] == MAP_FAILED) {
-			pr_dbg("failed to mmap perf event: %m\n");
+			pr_warn("failed to mmap perf event: %m\n");
 			use_perf = false;
 			break;
 		}
@@ -102,7 +104,7 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 
 		perf->fp[cpu] = fopen(filename, "w");
 		if (perf->fp[cpu] == NULL) {
-			pr_dbg("failed to create perf data file: %m\n");
+			pr_warn("failed to create perf data file: %m\n");
 			use_perf = false;
 			break;
 		}
