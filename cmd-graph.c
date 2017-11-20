@@ -31,6 +31,19 @@ struct graph_node {
 	struct graph_node *parent;
 };
 
+enum node_type {
+	NODE_T_NORMAL,
+	NODE_T_FORK,
+	NODE_T_EXEC,
+};
+
+struct special_node {
+	struct list_head list;
+	struct graph_node *node;
+	enum node_type type;
+	int pid;
+};
+
 struct uftrace_graph {
 	char *func;
 	bool kernel_only;
@@ -38,19 +51,23 @@ struct uftrace_graph {
 	struct uftrace_graph *next;
 	struct graph_backtrace *bt_curr;
 	struct list_head bt_list;
+	struct list_head special_nodes;
 	struct graph_node root;
 };
 
 struct task_graph {
 	int enabled;
 	bool lost;
+	bool new_sess;
 	struct ftrace_task_handle *task;
+	struct uftrace_graph *graph_last;
 	struct uftrace_graph *graph;
 	struct graph_node *node;
 	struct graph_backtrace *bt_curr;
 	struct rb_node link;
 };
 
+static bool full_graph = false;
 static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
 
@@ -58,10 +75,14 @@ static int create_graph(struct uftrace_session *sess, void *func)
 {
 	struct uftrace_graph *graph = xcalloc(1, sizeof(*graph));
 
+	pr_dbg("create graph for session %.*s (%s)\n",
+	       SESSION_ID_LEN, sess->sid, sess->exename);
+
 	graph->sess = sess;
-	graph->func = xstrdup(func);
+	graph->func = xstrdup(full_graph ? basename(sess->exename) : func);
 	INIT_LIST_HEAD(&graph->root.head);
 	INIT_LIST_HEAD(&graph->bt_list);
+	INIT_LIST_HEAD(&graph->special_nodes);
 
 	graph->next = graph_list;
 	graph_list = graph;
@@ -113,12 +134,15 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	return NULL;
 }
 
+static int start_graph(struct task_graph *tg);
+
 static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 					  uint64_t time, uint64_t addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &tasks.rb_node;
 	struct task_graph *tg;
+	bool new_graph = false;
 
 	while (*p) {
 		parent = *p;
@@ -133,17 +157,27 @@ static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
 			p = &parent->rb_right;
 	}
 
-	tg = xmalloc(sizeof(*tg));
+	tg = xzalloc(sizeof(*tg));
 	tg->task = task;
-	tg->enabled = 0;
-	tg->lost = false;
-	tg->bt_curr = NULL;
+
+	new_graph = true;
 
 	rb_link_node(&tg->link, parent, p);
 	rb_insert_color(&tg->link, &tasks);
 
 out:
 	tg->graph = get_graph(task, time, addr);
+
+	if (tg->graph_last && tg->graph != tg->graph_last) {
+		pr_dbg("detect new session: %.*s\n",
+		       SESSION_ID_LEN, tg->graph->sess->sid);
+		tg->new_sess = true;
+	}
+	tg->graph_last = tg->graph;
+
+	if (full_graph && new_graph)
+		start_graph(tg);
+
 	return tg;
 }
 
@@ -231,7 +265,7 @@ static int start_graph(struct task_graph *tg)
 	if (!tg->enabled++) {
 		save_backtrace_addr(tg);
 
-		pr_dbg("start graph\n");
+		pr_dbg("start graph for task %d\n", tg->task->tid);
 
 		tg->node = &tg->graph->root;
 		tg->node->addr = tg->task->rstack->addr;
@@ -250,7 +284,7 @@ static int end_graph(struct task_graph *tg)
 		save_backtrace_time(tg);
 		tg->lost = false;
 
-		pr_dbg("end graph\n");
+		pr_dbg("end graph for task %d\n", tg->task->tid);
 	}
 
 	return 0;
@@ -262,11 +296,16 @@ static int add_graph_entry(struct task_graph *tg)
 	struct graph_node *curr = tg->node;
 	struct uftrace_record *rstack = tg->task->rstack;
 
-	if (curr == NULL)
-		return -1;
-
 	if (tg->lost)
 		return 1;  /* ignore kernel functions after LOST */
+
+	if (tg->new_sess) {
+		curr = &tg->graph->root;
+		tg->new_sess = false;
+	}
+
+	if (curr == NULL)
+		return -1;
 
 	list_for_each_entry(node, &curr->head, list) {
 		if (node->addr == rstack->addr)
@@ -274,6 +313,9 @@ static int add_graph_entry(struct task_graph *tg)
 	}
 
 	if (list_no_entry(node, &curr->head, list)) {
+		struct uftrace_trigger tr;
+		struct uftrace_session *sess = tg->graph->sess;
+
 		node = xcalloc(1, sizeof(*node));
 
 		node->addr = rstack->addr;
@@ -282,8 +324,36 @@ static int add_graph_entry(struct task_graph *tg)
 		node->parent = curr;
 		list_add_tail(&node->list, &node->parent->head);
 		node->parent->nr_edges++;
+
+		if (uftrace_match_filter(node->addr, &sess->fixups, &tr)) {
+			struct sym *sym;
+			struct special_node *snode;
+			enum node_type type = NODE_T_NORMAL;
+
+			sym = find_symtabs(&sess->symtabs, node->addr);
+			if (sym == NULL)
+				goto out;
+
+			if (!strcmp(sym->name, "fork") ||
+			    !strcmp(sym->name, "vfork") ||
+			    !strcmp(sym->name, "daemon"))
+				type = NODE_T_FORK;
+			else if (!strncmp(sym->name, "exec", 4))
+				type = NODE_T_EXEC;
+			else
+				goto out;
+
+			snode = xmalloc(sizeof(*snode));
+			snode->node = node;
+			snode->type = type;
+			snode->pid  = tg->task->t->pid;
+
+			/* find recent one first */
+			list_add(&snode->list, &tg->graph->special_nodes);
+		}
 	}
 
+out:
 	node->nr_calls++;
 	tg->node = node;
 
@@ -310,9 +380,23 @@ static int add_graph_exit(struct task_graph *tg)
 		tg->lost = false;
 	}
 
-	if (node->addr != fstack->addr)
-		pr_dbg("broken graph - addresses not match\n");
+	if (node->addr != fstack->addr) {
+		struct special_node *snode, *tmp;
 
+		list_for_each_entry_safe(snode, tmp, &tg->graph->special_nodes, list) {
+			if (snode->node->addr == tg->task->rstack->addr &&
+			    snode->type == NODE_T_FORK &&
+			    snode->pid == tg->task->t->ppid) {
+				node = snode->node;
+				list_del(&snode->list);
+				pr_dbg("recover from fork\n");
+				goto out;
+			}
+		}
+		pr_dbg("broken graph - addresses not match\n");
+	}
+
+out:
 	node->time       += fstack->total_time;
 	node->child_time += fstack->child_time;
 
@@ -404,7 +488,11 @@ static void print_graph_node(struct uftrace_graph *graph,
 	print_time_unit(node->time);
 	pr_out(" : ");
 	pr_indent(indent_mask, indent, needs_line);
-	pr_out("(%d) %s\n", node->nr_calls, symname);
+
+	if (full_graph && node == &graph->root)
+		pr_out("(%d) %s\n", 1, graph->func);
+	else
+		pr_out("(%d) %s\n", node->nr_calls, symname);
 
 	if (node->nr_edges > 1) {
 		pr_dbg2("add mask (%d) for %s\n", indent, symname);
@@ -446,7 +534,7 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	pr_out("# Function Call Graph for '%s' (session: %.16s)\n",
 	       graph->func, graph->sess->sid);
 
-	if (!list_empty(&graph->bt_list)) {
+	if (!full_graph && !list_empty(&graph->bt_list)) {
 		pr_out("=============== BACKTRACE ===============\n");
 		print_backtrace(graph);
 	}
@@ -478,6 +566,8 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 		return;
 	if (type == UFTRACE_EVENT)
 		return;
+	if (full_graph)
+		return;
 
 	sym = find_symtabs(&tg->graph->sess->symtabs, addr);
 	name = symbol_getname(sym, addr);
@@ -492,10 +582,9 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	symbol_putname(sym, name);
 }
 
-static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
+static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		       char *func)
 {
-	int ret = 0;
 	struct ftrace_task_handle *task;
 	struct uftrace_graph *graph;
 	uint64_t prev_time = 0;
@@ -570,7 +659,7 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 
 		if (prev_time > frs->time) {
 			pr_warn("inverted time: broken data?\n");
-			return -1;
+			return;
 		}
 		prev_time = frs->time;
 
@@ -616,19 +705,21 @@ static int build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 		}
 	}
 
+	if (!full_graph || uftrace_done)
+		return;
+
+	/* account execution time of each graph */
 	graph = graph_list;
-	while (graph && !uftrace_done) {
-		ret += print_graph(graph, opts);
+	while (graph) {
+		struct graph_node *node;
+
+		list_for_each_entry(node, &graph->root.head, list) {
+			graph->root.time += node->time;
+			graph->root.child_time += node->time;
+		}
+
 		graph = graph->next;
 	}
-
-	if (!ret) {
-		pr_out("uftrace: cannot find graph for '%s'\n", func);
-		if (opts_has_filter(opts))
-			pr_out("\t please check your filter settings.\n");
-	}
-
-	return 0;
 }
 
 struct find_func_data {
@@ -671,6 +762,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct ftrace_file_handle handle;
+	struct uftrace_graph *graph;
 	char *func;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
@@ -678,8 +770,10 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	if (opts->idx)
 		func = argv[opts->idx];
-	else
-		func = "main";
+	else {
+		func = "_start";
+		full_graph = true;
+	}
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
@@ -698,9 +792,21 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	ret = build_graph(opts, &handle, func);
+	build_graph(opts, &handle, func);
+
+	graph = graph_list;
+	while (graph && !uftrace_done) {
+		ret += print_graph(graph, opts);
+		graph = graph->next;
+	}
+
+	if (!ret && !uftrace_done) {
+		pr_out("uftrace: cannot find graph for '%s'\n", func);
+		if (opts_has_filter(opts))
+			pr_out("\t please check your filter settings.\n");
+	}
 
 	close_data_file(opts, &handle);
 
-	return ret;
+	return 0;
 }
