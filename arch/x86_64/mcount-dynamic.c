@@ -263,16 +263,22 @@ static int update_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
 
-	/* xray always provides a pair of entry and exit */
-	for (i = 0; i < adi->xrmap_count; i += 2) {
+	/* xray provides a pair of entry and exit (or more) */
+	for (i = 0; i < adi->xrmap_count; i++) {
 		xrmap = &adi->xrmap[i];
 
 		if (xrmap->addr < sym->addr || xrmap->addr >= sym->addr + sym->size)
 			continue;
 
-		ret = patch_xray_func(mdi, sym, xrmap);
-		if (ret == 0)
-			ret = patch_xray_func(mdi, sym, xrmap + 1);
+		while ((ret = patch_xray_func(mdi, sym, xrmap)) == 0) {
+			if (i == adi->xrmap_count - 1)
+				break;
+			i++;
+
+			if (xrmap->entry != xrmap[1].entry)
+				break;
+			xrmap++;
+		}
 
 		break;
 	}
