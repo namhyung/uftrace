@@ -4,7 +4,9 @@ QUICK GUIDE
 On Ubuntu machines, following commands will build and install uftrace from
 source.
 
-    $ sudo apt-get install libelf-dev
+    $ sudo apt-get install libelf-dev           # mandatory
+    $ sudo apt-get install pandoc               # for man pages (optional)
+    $ sudo apt-get install libpython2.7-dev     # for python scripting (optional)
     $ make
     $ sudo make install
 
