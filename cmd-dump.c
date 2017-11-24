@@ -14,6 +14,7 @@
 #include "utils/fstack.h"
 #include "utils/filter.h"
 #include "utils/kernel.h"
+#include "utils/graph.h"
 #include "libtraceevent/kbuffer.h"
 #include "libtraceevent/event-parse.h"
 
@@ -1009,141 +1010,72 @@ static void print_chrome_footer(struct uftrace_dump_ops *ops,
 }
 
 /* flamegraph support */
-struct fg_node {
-	int calls;
-	char *name;
-	uint64_t total_time;
-	uint64_t child_time;
-	struct fg_node *parent;
-	struct list_head siblings;
-	struct list_head children;
+static struct uftrace_graph flame_graph = {
+	.root.head     = LIST_HEAD_INIT(flame_graph.root.head),
+	.special_nodes = LIST_HEAD_INIT(flame_graph.special_nodes),
 };
 
-static struct fg_node fg_root = {
-	.siblings = LIST_HEAD_INIT(fg_root.siblings),
-	.children = LIST_HEAD_INIT(fg_root.children),
-};
-
-struct fg_task {
-	int tid;
-	struct fg_node *node;
-	struct rb_node link;
-};
-
-static struct fg_task * find_fg_task(struct rb_root *root, int tid)
+static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 {
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct fg_task *iter, *new;
+	struct uftrace_dump_ops *ops = arg;
+	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
+	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count];
+	struct uftrace_graph_node *node = tg->node;
+	uint64_t curr_time = fstack->total_time;
+	uint64_t sample_time = flame->sample_time;
+	uint64_t accounted_time;
 
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct fg_task, link);
+	if (flame->sample_time == 0)
+		return;
 
-		if (iter->tid == tid)
-			return iter;
+	if (tg->node->parent == NULL)
+		return;
 
-		if (iter->tid > tid)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
+	fstack = &tg->task->func_stack[tg->task->stack_count];
 
-	new = xmalloc(sizeof(*new));
-	new->tid = tid;
-	new->node = &fg_root;
+	/*
+	 * it needs to track the child time separately
+	 * since child time not accounted due to sample time
+	 * should be accounted to parent.
+	 *
+	 * For example, with 1us sample time:
+	 *
+	 * # DURATION    TID     FUNCTION
+	 *             [12345] | main() {
+	 *    4.789 us [12345] |   foo();
+	 *    4.987 us [12345] |   bar();
+	 *   10.567 us [12345] | } // main
+	 *
+	 * In this case, main's total time is more than 10us
+	 * so 10 samples should be shown, but after accounting
+	 * foo and bar (4 samples each), its time would be
+	 * 10.567 - 4.789 - 4.987 = 0.791 so no samples for main.
+	 * But it acctually needs to get 2 samples.
+	 *
+	 * So add the accounted child time only, not real time.
+	 */
+	accounted_time = (curr_time / sample_time) * sample_time;
 
-	rb_link_node(&new->link, parent, p);
-	rb_insert_color(&new->link, root);
-
-	return new;
+	node->parent->child_time -= curr_time;
+	node->parent->child_time += accounted_time;
 }
 
-static struct fg_node * add_fg_node(struct fg_node *parent, char *name)
+static void print_flame_graph(struct uftrace_graph_node *node, struct opts *opts)
 {
-	struct fg_node *child;
+	struct uftrace_graph_node *child;
+	unsigned long sample = node->nr_calls;
 
-	list_for_each_entry(child, &parent->children, siblings) {
-		if (!strcmp(name, child->name))
-			break;
-	}
-
-	if (list_no_entry(child, &parent->children, siblings)) {
-		child = xmalloc(sizeof(*child));
-
-		child->name = xstrdup(name);
-		child->calls = 0;
-		child->parent = parent;
-		child->total_time = 0;
-		child->child_time = 0;
-
-		INIT_LIST_HEAD(&child->children);
-		list_add(&child->siblings, &parent->children);
-	}
-
-	child->calls++;
-	return child;
-}
-
-static struct fg_node * add_fg_time(struct fg_node *node,
-				    struct ftrace_task_handle *task,
-				    uint64_t sample_time)
-{
-	struct fstack *fstack = &task->func_stack[task->stack_count];
-
-	if (sample_time) {
-		uint64_t curr_time = fstack->total_time;
-
-		node->total_time += curr_time;
-
-		if (node->parent != &fg_root) {
-			/*
-			 * it needs to track the child time separately
-			 * since child time not accounted due to sample time
-			 * should be accounted to parent.
-			 *
-			 * For example, with 1us sample time:
-			 *
-			 * # DURATION    TID     FUNCTION
-			 *             [12345] | main() {
-			 *    4.789 us [12345] |   foo();
-			 *    4.987 us [12345] |   bar();
-			 *   10.567 us [12345] | } // main
-			 *
-			 * In this case, main's total time is more than 10us
-			 * so 10 samples should be shown, but after accounting
-			 * foo and bar (4 samples each), its time would be
-			 * 10.567 - 4.789 - 4.987 = 0.791 so no samples for main.
-			 * But it acctually needs to get 2 samples.
-			 *
-			 * So add the accounted child time only, not real time.
-			 */
-			uint64_t accounted_time;
-
-			accounted_time = (curr_time / sample_time) * sample_time;
-			node->parent->child_time += accounted_time;
-		}
-	}
-
-	return node->parent;
-}
-
-static void print_flame_graph(struct fg_node *node, struct opts *opts)
-{
-	struct fg_node *child;
-	unsigned long sample = node->calls;
-
-	if (opts->sample_time)
-		sample = (node->total_time - node->child_time) / opts->sample_time;
+	if (sample && opts->sample_time)
+		sample = (node->time - node->child_time) / opts->sample_time;
 
 	if (sample) {
-		struct fg_node *parent = node;
+		struct uftrace_graph_node *parent = node;
 		char *names[opts->max_stack];
 		char *buf, *ptr;
 		int i = 0;
 		size_t len = 0;
 
-		while (parent != &fg_root) {
+		while (parent != NULL && parent->name != NULL) {
 			names[i++] = parent->name;
 			len += strlen(parent->name) + 1;
 			parent = parent->parent;
@@ -1159,18 +1091,15 @@ static void print_flame_graph(struct fg_node *node, struct opts *opts)
 		free(buf);
 	}
 
-	list_for_each_entry(child, &node->children, siblings)
+	list_for_each_entry(child, &node->head, list)
 		print_flame_graph(child, opts);
-
-	free(node->name);
-	if (node != &fg_root)
-		free(node);
 }
 
 static void print_flame_header(struct uftrace_dump_ops *ops,
 			       struct ftrace_file_handle *handle,
 			       struct opts *opts)
 {
+	graph_init_callbacks(NULL, adjust_fg_time, NULL, ops);
 }
 
 static void print_flame_task_start(struct uftrace_dump_ops *ops,
@@ -1188,29 +1117,18 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 {
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
-	struct fg_task *t = find_fg_task(&flame->tasks, task->tid);
-	struct fg_node *node = t->node;
+	struct uftrace_task_graph *graph;
 
-	if (frs->type == UFTRACE_ENTRY)
-		node = add_fg_node(node, name);
-	else if (frs->type == UFTRACE_EXIT)
-		node = add_fg_time(node, task, flame->sample_time);
-	else if (frs->type == UFTRACE_EVENT) {
-		if (frs->addr == EVENT_ID_PERF_SCHED_OUT)
-			node = add_fg_node(node, name);
-		else if (frs->addr == EVENT_ID_PERF_SCHED_IN &&
-			 task->timestamp_last) /* ignore first sched-in for thread */
-			node = add_fg_time(node, task, flame->sample_time);
-		else
-			node = t->node;  /* skip other event records */
-	}
-	else
-		node = &fg_root;
+	graph = graph_get_task(task, sizeof(*graph));
 
-	if (unlikely(node == NULL))
-		node = &fg_root;
+	graph->graph = &flame_graph;
+	flame_graph.sess = find_task_session(&task->h->sessions,
+					     task->tid, frs->time);
 
-	t->node = node;
+	if (graph->node == NULL)
+		graph->node = &flame_graph.root;
+
+	graph_add_node(graph, frs->type, name);
 }
 
 static void print_flame_task_event(struct uftrace_dump_ops *ops,
@@ -1260,7 +1178,7 @@ static void print_flame_footer(struct uftrace_dump_ops *ops,
 			       struct ftrace_file_handle *handle,
 			       struct opts *opts)
 {
-	print_flame_graph(&fg_root, opts);
+	print_flame_graph(&flame_graph.root, opts);
 }
 
 static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
