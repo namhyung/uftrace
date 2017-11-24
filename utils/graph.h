@@ -11,6 +11,7 @@
 
 struct uftrace_graph_node {
 	uint64_t			addr;
+	char				*name;
 	int				nr_edges;
 	int				nr_calls;
 	uint64_t			time;
@@ -56,6 +57,6 @@ void graph_init_callbacks(graph_fn entry, graph_fn exit, graph_fn event,
 			  void *arg);
 struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
 					   size_t tg_size);
-int graph_add_node(struct uftrace_task_graph *tg, int type);
+int graph_add_node(struct uftrace_task_graph *tg, int type, char *name);
 
 #endif /* UFTRACE_GRAPH_H */

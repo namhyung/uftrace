@@ -450,19 +450,20 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	char *name;
 
 	tg = get_task_graph(task, time, addr);
-	if (tg->enabled)
-		graph_add_node(&tg->utg, type);
-
-	/* cannot find a session for this record */
-	if (tg->utg.graph == NULL)
-		return;
-	if (type == UFTRACE_EVENT)
-		return;
-	if (full_graph)
-		return;
 
 	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
 	name = symbol_getname(sym, addr);
+
+	if (tg->enabled)
+		graph_add_node(&tg->utg, type, name);
+
+	/* cannot find a session for this record */
+	if (tg->utg.graph == NULL)
+		goto out;
+	if (type == UFTRACE_EVENT)
+		goto out;
+	if (full_graph)
+		goto out;
 
 	if (!strcmp(name, func)) {
 		if (type == UFTRACE_ENTRY)
@@ -471,6 +472,7 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 			end_graph(tg);
 	}
 
+out:
 	symbol_putname(sym, name);
 }
 
