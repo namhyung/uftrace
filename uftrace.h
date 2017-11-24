@@ -176,6 +176,7 @@ struct ftrace_file_handle {
 #define UFTRACE_MODE_DUMP    7
 #define UFTRACE_MODE_GRAPH   8
 #define UFTRACE_MODE_SCRIPT  9
+#define UFTRACE_MODE_TUI     10
 
 #define UFTRACE_MODE_DEFAULT  UFTRACE_MODE_LIVE
 
@@ -266,6 +267,7 @@ int command_recv(int argc, char *argv[], struct opts *opts);
 int command_dump(int argc, char *argv[], struct opts *opts);
 int command_graph(int argc, char *argv[], struct opts *opts);
 int command_script(int argc, char *argv[], struct opts *opts);
+int command_tui(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool uftrace_done;
 

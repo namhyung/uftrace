@@ -52,12 +52,13 @@ The uftrace command has following subcommands:
  * `recv`   : saves the trace data from network
  * `graph`  : shows function call graph in the trace data
  * `script` : runs a script for recorded trace data
+ * `tui`    : show text user interface for graph and report
 
 You can use `-?` or `--help` option to see available commands and options.
 
     $ uftrace
     Usage: uftrace [OPTION...]
-                [record|replay|live|report|info|dump|recv|graph|script] [<program>]
+                [record|replay|live|report|info|dump|recv|graph|script|tui] [<program>]
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running
