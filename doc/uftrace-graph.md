@@ -14,7 +14,7 @@ uftrace graph [*options*] [*FUNCTION*]
 
 DESCRIPTION
 ===========
-This command shows a function call graph for the given function in a uftrace record datafile.  If the function name is omitted, `main` is used by default.  The function call graph contains backtrace and calling functions.  Each function in the output is annotated with a hit count and the total time spent running that function.
+This command shows a function call graph for the binary or the given function in a uftrace record datafile.  If the function name is omitted, whole function call graph will be shonw.  If user gives a function name it will show backtrace and calling functions.  Each function in the output is annotated with a hit count and the total time spent running that function.
 
 
 OPTIONS
@@ -89,7 +89,25 @@ This command show data like below:
       10.138 ms [24447] |   } /* bar */
       10.293 ms [24447] | } /* main */
 
-Running the `graph` command on the `main` function shows called functions like below:
+Running the `graph` command shows function call graph like below:
+
+    $ uftrace graph
+    # Function Call Graph for 'loop' (session: 073f1e84aa8b09d3)
+    ========== FUNCTION CALL GRAPH ==========
+      10.293 ms : (1) loop
+      10.293 ms : (1) main
+      46.626 us :  +-(2) foo
+      44.360 us :  | (6) loop
+                :  | 
+      10.138 ms :  +-(1) bar
+      10.100 ms :    (1) usleep
+
+The topmost node is not for function but for the executable.
+The left side shows total time running the function on the right side.  The number in parentheses before the function name is the invocation count.  As you can see, `main` was called once and ran around 10 msec.  It called `foo` twice and then `foo` called `loop` 6 times in total.  The time is the sum of all execution time of the function.
+
+It can also be seen that `main` called `bar` once and that `bar` then called `usleep` once.  To avoid too deep nesting level, it shows calls that have only a single call path at the same level.  So `usleep` is not called from `main` directly.
+
+Running the `graph` command on the `main` function shows called functions and backtrace like below:
 
     $ uftrace graph main
     # Function Call Graph for 'main' (session: 073f1e84aa8b09d3)
@@ -106,10 +124,7 @@ Running the `graph` command on the `main` function shows called functions like b
        10.138 ms :  +-(1) bar
        10.100 ms :    (1) usleep
 
-The left side shows total time running the function on the right side.  The number in parentheses before the function name is the invocation count.  As you can see, `main` was called once and ran around 10 msec.  It called `foo` twice and then `foo` called `loop` 6 times in total.  The time is the sum of all execution time of the function.
-
-It can also be seen that `main` called `bar` once and that `bar` then called `usleep` once.  To avoid too deep nesting level, it shows calls that have only a single call path at the same level.  So `usleep` is not called from `main` directly.
-
+Note that the 'main' is the top-level function so it has no backtrace above itself.
 Running graph command on a leaf function looks like below.
 
     $ uftrace graph loop
