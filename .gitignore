@@ -24,6 +24,7 @@ check-deps/*
 FLAGS
 version.h
 .config
+.build/
 GPATH
 GRTAGS
 GTAGS
