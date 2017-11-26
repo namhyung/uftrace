@@ -176,16 +176,16 @@ int create_directory(char *dirname)
 
 	xasprintf(&oldname, "%s.old", dirname);
 
-	if (!access(oldname, F_OK)) {
-		if (remove_directory(oldname) < 0) {
+	if (!access(dirname, F_OK)) {
+		if (!access(oldname, F_OK) && remove_directory(oldname) < 0) {
 			pr_warn("removing old directory failed: %m\n");
 			goto out;
 		}
-	}
 
-	if (!access(dirname, F_OK) && rename(dirname, oldname) < 0) {
-		pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
-		goto out;
+		if (rename(dirname, oldname) < 0) {
+			pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
+			goto out;
+		}
 	}
 
 	ret = mkdir(dirname, 0755);
