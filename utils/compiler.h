@@ -19,9 +19,15 @@
 
 #if defined(__arm__)
 # define cpu_relax()		compiler_barrier()
-# define full_memory_barrier()	asm volatile("dmb ish" ::: "memory")
-# define read_memory_barrier()  asm volatile("dmb ish" ::: "memory")
-# define write_memory_barrier()	asm volatile("dmb ishst" ::: "memory")
+# if __ARM_ARCH == 7
+#  define full_memory_barrier()  asm volatile("dmb ish" ::: "memory")
+#  define read_memory_barrier()  asm volatile("dmb ish" ::: "memory")
+#  define write_memory_barrier() asm volatile("dmb ishst" ::: "memory")
+# else
+#  define full_memory_barrier()  asm volatile ("mcr p15, 0, %0, c7, c10, 5" :: "r" (0) : "memory")
+#  define read_memory_barrier()  full_memory_barrier()
+#  define write_memory_barrier() full_memory_barrier()
+# endif
 #endif
 
 /* ignore 'restrict' keyword if not supported (before C99) */
