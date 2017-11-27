@@ -285,6 +285,7 @@ static enum enum_token_ret enum_next_token(char **str)
 {
 	char *pos, *tok;
 	enum enum_token_ret ret;
+	ptrdiff_t len;
 
 	tok = *str;
 	if (tok == NULL)
@@ -311,14 +312,16 @@ static enum enum_token_ret enum_next_token(char **str)
 		return TOKEN_INVALID;
 
 	pos = strpbrk(tok, " \n\t=,{}");
-	if (pos == NULL) {
-		strcpy(enum_token, tok);
-		*str = NULL;
-		return ret;
-	}
+	if (pos != NULL)
+		len = pos - tok;
+	else
+		len = strlen(tok);
 
-	strncpy(enum_token, tok, pos - tok);
-	enum_token[pos - tok] = '\0';
+	if ((size_t)len >= sizeof(enum_token))
+		len = sizeof(enum_token) - 1;
+
+	strncpy(enum_token, tok, len);
+	enum_token[len] = '\0';
 	*str = pos;
 
 	return ret;
