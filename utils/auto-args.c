@@ -197,8 +197,11 @@ static void release_auto_args(struct rb_root *root)
 	}
 }
 
+static void release_enum_def(struct rb_root *root);
+
 void finish_auto_args(void)
 {
+	release_enum_def(&enum_root);
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
 }
@@ -576,7 +579,7 @@ out:
 	return err;
 }
 
-void release_enum_def(struct rb_root *root)
+static void release_enum_def(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct enum_def *e_def;
