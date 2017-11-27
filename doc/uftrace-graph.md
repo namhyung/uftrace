@@ -9,7 +9,7 @@ uftrace-graph - Show function call graph
 
 SYNOPSIS
 ========
-uftrace graph [*options*] [<function>]
+uftrace graph [*options*] [*FUNCTION*]
 
 
 DESCRIPTION
