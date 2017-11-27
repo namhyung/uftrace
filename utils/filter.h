@@ -47,6 +47,7 @@ enum uftrace_arg_format {
 	ARG_FMT_FLOAT,
 	ARG_FMT_STD_STRING,
 	ARG_FMT_FUNC_PTR,
+	ARG_FMT_ENUM,
 };
 
 enum trigger_read_type {
@@ -61,7 +62,7 @@ enum trigger_read_type {
 #define ARG_TYPE_STACK  3
 
 /* should match with ftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxscfSp"
+#define ARG_SPEC_CHARS  "diuxscfSpe"
 
 /**
  * ftrace_arg_spec contains arguments and return value info.
@@ -83,6 +84,7 @@ struct uftrace_arg_spec {
 	union {
 		short		reg_idx;
 		short		stack_ofs;
+		char		*enum_str;
 	};
 };
 
@@ -140,12 +142,15 @@ void uftrace_print_filter(struct rb_root *root);
 char * uftrace_clear_kernel(char *filter_str);
 
 void setup_auto_args(void);
-void setup_auto_args_str(char *args, char *rets);
+void setup_auto_args_str(char *args, char *rets, char *enums);
 void finish_auto_args(void);
 struct uftrace_filter * find_auto_argspec(char *name);
 struct uftrace_filter * find_auto_retspec(char *name);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
+char *get_auto_enum_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
+int parse_enum_string(char *enum_str);
+char *get_enum_string(char *name, long val);
 
 #endif /* UFTRACE_FILTER_H */

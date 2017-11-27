@@ -163,12 +163,17 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 			oarg->exact = exact_match;
 			oarg->type  = arg->type;
 			oarg->reg_idx = arg->reg_idx;
+			if (arg->fmt == ARG_FMT_ENUM)
+				oarg->enum_str = xstrdup(arg->enum_str);
 		}
 	}
 	else {
 		narg = xmalloc(sizeof(*narg));
 		memcpy(narg, arg, sizeof(*narg));
 		narg->exact = exact_match;
+
+		if (arg->fmt == ARG_FMT_ENUM)
+			narg->enum_str = xstrdup(arg->enum_str);
 
 		/* sort args by index */
 		list_for_each_entry(oarg, arg_list, list) {
@@ -428,6 +433,15 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 	case 'p':
 		fmt = ARG_FMT_FUNC_PTR;
 		break;
+	case 'e':
+		fmt = ARG_FMT_ENUM;
+		if (suffix[1] != ':' || !isalpha(suffix[2])) {
+			pr_use("invalid enum spec");
+			return -1;
+		}
+		arg->enum_str = xstrdup(&suffix[2]);
+		pr_dbg("parsing argspec for enum: %s\n", arg->enum_str);
+		goto out;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
 		return -1;
@@ -894,6 +908,8 @@ next:
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, struct uftrace_arg_spec, list);
 			list_del(&arg->list);
+			if (arg->fmt == ARG_FMT_ENUM)
+				free(arg->enum_str);
 			free(arg);
 		}
 

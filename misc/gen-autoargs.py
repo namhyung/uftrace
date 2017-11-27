@@ -41,7 +41,7 @@ pointer = "*"
 reference = "&"
 
 type_specifier.extend(struct_or_union_specifier)
-type_specifier.extend(enum_specifier)
+#type_specifier.extend(enum_specifier)
 type_specifier.extend(typedef_name)
 type_specifier.extend(["std::string"])
 type_specifier.extend(artifitial_type)
@@ -109,6 +109,7 @@ def parse_args(words):
         return []   # fail
 
     arg_type = []
+    enum_flag = False
     struct_or_union_flag = False
     for word in words[1:-1]:
         if word in type_qualifier:
@@ -119,6 +120,8 @@ def parse_args(words):
             struct_or_union_flag = True
         elif word in type_specifier:
             arg_type.append(word)
+        elif word in enum_specifier:
+            enum_flag = True
         elif word == pointer:
             arg_type[-1] += pointer
         elif word == reference:
@@ -127,10 +130,14 @@ def parse_args(words):
         elif struct_or_union_flag:
             struct_or_union_flag = False
             arg_type[-1] += " " + word
+        elif enum_flag:
+            enum_flag = False
+            arg_type.append("enum " + word)
         elif word == ",":
             pass
         else:
             struct_or_union_flag = False
+            enum_flag = False
     return arg_type
 
 
@@ -142,6 +149,20 @@ def parse_func_decl(func):
     args = parse_args(words)
     return (return_type, funcname, args)
 
+
+DECL_TYPE_NONE = 0
+DECL_TYPE_FUNC = 1
+DECL_TYPE_ENUM = 2
+
+def get_decl_type(line):
+    # function should have parenthesis
+    if line.find('(') >= 0:
+        return DECL_TYPE_FUNC
+    # or it should be enum
+    if line.startswith('enum'):
+        return DECL_TYPE_ENUM
+    # error
+    return DECL_TYPE_NONE
 
 def make_uftrace_retval_format(ctype, funcname):
     retval_format = funcname + "@"
@@ -159,6 +180,8 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/x"
     elif "unsigned" in ctype or ctype == "size_t" or ctype == "pid_t":
         retval_format += "retval/u"
+    elif ctype == "funcptr_t":
+        retval_format += "retval/p"
     else:
         retval_format += "retval"
 
@@ -188,10 +211,21 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/u" % i
         elif arg == "funcptr_t":
             args_format += "arg%d/p" % i
+        elif arg.startswith('enum'):
+            args_format += "arg%d/e:%s" % (i, arg[5:])
         else:
             args_format += "arg%d" % i
 
     return args_format
+
+
+def parse_enum(line):
+    # is this the final line (including semi-colon)
+    if line.find(';') >= 0:
+        return (DECL_TYPE_NONE, ' '.join(line.split()))
+
+    # continue to parse next line
+    return (DECL_TYPE_ENUM, ' '.join(line.split()))
 
 
 def parse_argument():
@@ -217,9 +251,11 @@ if __name__ == "__main__":
     prototype_file = arg.infile
     verbose = arg.verbose
 
+    enum_list = ""
     args_list = ""
     retvals_list = ""
 
+    t = DECL_TYPE_NONE
     with open(prototype_file) as fin:
         for line in fin:
             if len(line) <= 1 or line[0] == '#' or line[0:2] == "//" \
@@ -228,6 +264,22 @@ if __name__ == "__main__":
 
             if verbose:
                 print(line, end='')
+
+            if t == DECL_TYPE_ENUM:
+                (t, curr) = parse_enum(line)
+                enum_format += curr
+                if t == DECL_TYPE_NONE:
+                    enum_list += '\t"' + enum_format + '"\n'
+                continue
+
+            t = get_decl_type(line)
+            if t == DECL_TYPE_NONE:
+                continue
+            if t == DECL_TYPE_ENUM:
+                (t, enum_format) = parse_enum(line)
+                if t == DECL_TYPE_NONE:
+                    enum_list += '\t"' + enum_format + '"\n'
+                continue
 
             (return_type, funcname, args) = parse_func_decl(line)
             if verbose:
@@ -247,6 +299,7 @@ if __name__ == "__main__":
                 args_list += '\t"' + args_format + ';"\n'
 
     if verbose:
+        print(enum_list)
         print(args_list)
         print(retvals_list)
 
@@ -256,6 +309,13 @@ if __name__ == "__main__":
         fout = open(argspec_file, "w")
 
     fout.write(header)
+
+    if len(enum_list) == 0:
+        enum_list="\"\""
+
+    fout.write("static char *auto_enum_list =\n")
+    fout.write(enum_list)
+    fout.write(";\n\n")
 
     fout.write("static char *auto_args_list =\n")
     fout.write(args_list)

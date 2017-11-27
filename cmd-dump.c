@@ -353,6 +353,14 @@ static void pr_args(struct fstack_arguments *args)
 			else
 				pr_out("  args[%d] p: %p\n", i, (void *)val);
 		}
+		else if (spec->fmt == ARG_FMT_ENUM) {
+			long long val = 0;
+
+			memcpy(&val, ptr, spec->size);
+			pr_out("  args[%d] enum %s: %s (%lld)\n", i,
+			       spec->enum_str, get_enum_string(spec->enum_str, val), val);
+			size = spec->size;
+		}
 		else {
 			long long val = 0;
 

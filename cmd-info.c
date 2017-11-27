@@ -677,7 +677,7 @@ static int fill_arg_spec(void *arg)
 	if (n == 0 && !fha->opts->auto_args)
 		return -1;
 
-	dprintf(fha->fd, "argspec:lines=%d\n", n + 2 + !!fha->opts->auto_args);
+	dprintf(fha->fd, "argspec:lines=%d\n", n + 3 + !!fha->opts->auto_args);
 	if (argspec) {
 		dprintf(fha->fd, "argspec:%s\n", argspec);
 		free(argspec);
@@ -689,6 +689,7 @@ static int fill_arg_spec(void *arg)
 
 	dprintf(fha->fd, "argauto:%s\n", get_auto_argspec_str());
 	dprintf(fha->fd, "retauto:%s\n", get_auto_retspec_str());
+	dprintf(fha->fd, "enumauto:%s\n", get_auto_enum_str());
 
 	if (fha->opts->auto_args)
 		dprintf(fha->fd, "auto-args:1\n");
@@ -733,6 +734,8 @@ static int read_arg_spec(void *arg)
 			info->autoarg = copy_info_str(&buf[8]);
 		else if (!strncmp(buf, "retauto:", 8))
 			info->autoret = copy_info_str(&buf[8]);
+		else if (!strncmp(buf, "enumauto:", 9))
+			info->autoenum = copy_info_str(&buf[9]);
 		else if (!strncmp(buf, "auto-args:1", 11))
 			info->auto_args_enabled = 1;
 		else
