@@ -401,6 +401,42 @@ char * strjoin(char *left, char *right, char *delim)
 
 #define QUOTE '\''
 #define DQUOTE '"'
+#define QUOTES "\'\""
+
+/* escape quotes with backslash - caller should free the returned string */
+char * strquote(char *str, int *len)
+{
+	char *p = str;
+	int quote = 0;
+	int i, k;
+	int orig_len = *len;
+
+	/* find number of necessary escape */
+	while ((p = strpbrk(p, QUOTES)) != NULL) {
+		quote++;
+		p++;
+	}
+
+	p = xmalloc(orig_len + quote + 1);
+
+	/* escape single- and double-quotes */
+	for (i = k = 0; i < orig_len; i++, k++) {
+		if (str[i] == QUOTE) {
+			p[k++] = '\\';
+			p[k] = QUOTE;
+		}
+		else if (str[i] == DQUOTE) {
+			p[k++] = '\\';
+			p[k] = DQUOTE;
+		}
+		else
+			p[k] = str[i];
+	}
+	p[k] = '\0';
+	*len = k;
+
+	return p;
+}
 
 static int setargs(char *args, char **argv)
 {
