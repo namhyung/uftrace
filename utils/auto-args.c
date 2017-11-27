@@ -197,8 +197,11 @@ static void release_auto_args(struct rb_root *root)
 	}
 }
 
+static void release_enum_def(struct rb_root *root);
+
 void finish_auto_args(void)
 {
+	release_enum_def(&enum_root);
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
 }
@@ -285,6 +288,7 @@ static enum enum_token_ret enum_next_token(char **str)
 {
 	char *pos, *tok;
 	enum enum_token_ret ret;
+	ptrdiff_t len;
 
 	tok = *str;
 	if (tok == NULL)
@@ -311,14 +315,16 @@ static enum enum_token_ret enum_next_token(char **str)
 		return TOKEN_INVALID;
 
 	pos = strpbrk(tok, " \n\t=,{}");
-	if (pos == NULL) {
-		strcpy(enum_token, tok);
-		*str = NULL;
-		return ret;
-	}
+	if (pos != NULL)
+		len = pos - tok;
+	else
+		len = strlen(tok);
 
-	strncpy(enum_token, tok, pos - tok);
-	enum_token[pos - tok] = '\0';
+	if ((size_t)len >= sizeof(enum_token))
+		len = sizeof(enum_token) - 1;
+
+	strncpy(enum_token, tok, len);
+	enum_token[len] = '\0';
 	*str = pos;
 
 	return ret;
@@ -437,6 +443,23 @@ char *get_enum_string(char *name, long val)
 	return ret;
 }
 
+static void free_enum_def(struct enum_def *e_def)
+{
+	struct enum_val *e_val;
+
+	if (e_def == NULL)
+		return;
+
+	while (!list_empty(&e_def->vals)) {
+		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
+
+		list_del(&e_val->list);
+		free(e_val->str);
+		free(e_val);
+	}
+	free(e_def);
+}
+
 /**
  * parse_enum_string - parse enum and add it to a tree
  * @enum_str: string presentation of enum
@@ -480,7 +503,7 @@ int parse_enum_string(char *enum_str)
 
 		if (ret != TOKEN_STR || strcmp(enum_token, "enum")) {
 			pr_dbg("don't have 'enum' prefix\n");
-			return -1;
+			goto out;
 		}
 
 		/* name is mandatory */
@@ -509,6 +532,7 @@ int parse_enum_string(char *enum_str)
 			ret = enum_next_token(&pos);
 			if (ret != TOKEN_SIGN) {
 				pr_dbg("invalid enum syntax - sign required\n");
+				free(name);
 				goto out;
 			}
 
@@ -544,6 +568,7 @@ int parse_enum_string(char *enum_str)
 			add_enum_tree(&enum_root, e_def);
 		else {
 			pr_dbg("invalid enum def: %s\n", enum_token);
+			free_enum_def(e_def);
 			goto out;
 		}
 	}
@@ -554,11 +579,10 @@ out:
 	return err;
 }
 
-void release_enum_def(struct rb_root *root)
+static void release_enum_def(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct enum_def *e_def;
-	struct enum_val *e_val;
 
 	node = rb_first(root);
 	while (node) {
@@ -566,16 +590,7 @@ void release_enum_def(struct rb_root *root)
 		node = rb_next(node);
 
 		rb_erase(&e_def->node, root);
-
-		while (!list_empty(&e_def->vals)) {
-			e_val = list_first_entry(&e_def->vals,
-						 struct enum_val, list);
-
-			list_del(&e_val->list);
-			free(e_val->str);
-			free(e_val);
-		}
-		free(e_def);
+		free_enum_def(e_def);
 	}
 }
 

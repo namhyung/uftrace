@@ -520,6 +520,9 @@ void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 
 	delete_sessions(&handle->sessions);
 
+	if (handle->hdr.feat_mask & AUTO_ARGS)
+		finish_auto_args();
+
 	clear_uftrace_info(&handle->info);
 	reset_task_handle(handle);
 }
