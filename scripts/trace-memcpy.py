@@ -25,6 +25,7 @@ def uftrace_exit(ctx):
     pass
 
 def uftrace_end():
+    global count
     global total_bytes
     print("%d times memcpy called" % count)
     print("%d bytes copied" % total_bytes)
