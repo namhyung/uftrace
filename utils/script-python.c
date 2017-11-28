@@ -13,6 +13,7 @@
 #define PR_DOMAIN  DBG_SCRIPT
 
 #include <dlfcn.h>
+#include <pthread.h>
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/fstack.h"
@@ -25,6 +26,9 @@ static const char *libpython = "libpython2.7.so";
 
 /* python library handle returned by dlopen() */
 static void *python_handle;
+
+/* global mutex for python interpreter */
+static pthread_mutex_t python_interpreter_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* whether error in script was reported to user */
 static bool python_error_reported = false;
@@ -420,6 +424,8 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 	if (unlikely(!pFuncEntry))
 		return -1;
 
+	pthread_mutex_lock(&python_interpreter_lock);
+
 	/* Entire arguments are passed into a single dictionary. */
 	PyObject *pDict = __PyDict_New();
 
@@ -447,6 +453,8 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 	/* Free PyTuple. */
 	Py_XDECREF(pythonContext);
 
+	pthread_mutex_unlock(&python_interpreter_lock);
+
 	return 0;
 }
 
@@ -454,6 +462,8 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 {
 	if (unlikely(!pFuncExit))
 		return -1;
+
+	pthread_mutex_lock(&python_interpreter_lock);
 
 	/* Entire arguments are passed into a single dictionary. */
 	PyObject *pDict = __PyDict_New();
@@ -485,6 +495,8 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 	/* Free PyTuple. */
 	Py_XDECREF(pythonContext);
 
+	pthread_mutex_unlock(&python_interpreter_lock);
+
 	return 0;
 }
 
@@ -495,8 +507,12 @@ int python_uftrace_end(void)
 
 	pr_dbg("%s()\n", __func__);
 
+	pthread_mutex_lock(&python_interpreter_lock);
+
 	/* Call python function "uftrace_end". */
 	__PyObject_CallObject(pFuncEnd, NULL);
+
+	pthread_mutex_unlock(&python_interpreter_lock);
 
 	return 0;
 }
@@ -505,7 +521,11 @@ int python_atfork_prepare(void)
 {
 	pr_dbg("flush python buffer in %s()\n", __func__);
 
+	pthread_mutex_lock(&python_interpreter_lock);
+
 	__PyRun_SimpleStringFlags("sys.stdout.flush()", NULL);
+
+	pthread_mutex_unlock(&python_interpreter_lock);
 
 	return 0;
 }
@@ -563,6 +583,8 @@ int script_init_for_python(char *py_pathname)
 
 	set_python_path(py_pathname);
 
+	pthread_mutex_lock(&python_interpreter_lock);
+
 	__Py_Initialize();
 
 	/* Import python module that is passed by -p option. */
@@ -610,6 +632,9 @@ int script_init_for_python(char *py_pathname)
 	}
 
 	__PyErr_Clear();
+
+	pthread_mutex_unlock(&python_interpreter_lock);
+
 	pr_dbg("python initialization finished\n");
 
 	return 0;
@@ -619,7 +644,11 @@ void script_finish_for_python(void)
 {
 	pr_dbg("%s()\n", __func__);
 
+	pthread_mutex_lock(&python_interpreter_lock);
+
 	__Py_Finalize();
+
+	pthread_mutex_unlock(&python_interpreter_lock);
 }
 
 #endif /* !HAVE_LIBPYTHON2 */
