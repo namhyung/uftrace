@@ -59,7 +59,7 @@ static void print_duration(struct ftrace_task_handle *task,
 static void print_tid(struct ftrace_task_handle *task,
 		      struct fstack *fstack, void *arg)
 {
-	pr_out("[%5d]", task->tid);
+	pr_out("[%6d]", task->tid);
 }
 
 static void print_addr(struct ftrace_task_handle *task,
@@ -114,8 +114,8 @@ static struct replay_field field_duration = {
 static struct replay_field field_tid = {
 	.id      = REPLAY_F_TID,
 	.name    = "tid",
-	.header  = "  TID  ",
-	.length  = 7,
+	.header  = "   TID  ",
+	.length  = 8,
 	.print   = print_tid,
 	.list    = LIST_HEAD_INIT(field_tid.list),
 };
