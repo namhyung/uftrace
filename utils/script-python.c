@@ -115,6 +115,8 @@ static int set_python_path(char *py_pathname)
 	char *old_sysdir = getenv("PYTHONPATH");
 	char *new_sysdir = NULL;
 
+	pr_dbg2("%s(\"%s\")\n", __func__, py_pathname);
+
 	if (absolute_dirname(py_pathname, py_sysdir) == NULL)
 		return -1;
 
@@ -129,7 +131,7 @@ static int set_python_path(char *py_pathname)
 	return 0;
 }
 
-/* Import python module that is given by -p option. */
+/* Import python module that is given by -S option. */
 static int import_python_module(char *py_pathname)
 {
 	PyObject *pName;
@@ -141,7 +143,7 @@ static int import_python_module(char *py_pathname)
 	pModule = __PyImport_Import(pName);
 	if (pModule == NULL) {
 		__PyErr_Print();
-		pr_warn("%s.py cannot be imported!\n", py_pathname);
+		pr_warn("\"%s\" cannot be imported!\n", py_pathname);
 		return -1;
 	}
 
@@ -149,6 +151,8 @@ static int import_python_module(char *py_pathname)
 
 	/* import sys by default */
 	__PyRun_SimpleStringFlags("import sys", NULL);
+
+	pr_dbg("python module \"%s\" is imported.\n", py_pathname);
 
 	return 0;
 }
@@ -489,6 +493,8 @@ int python_uftrace_end(void)
 	if (unlikely(!pFuncEnd))
 		return -1;
 
+	pr_dbg("%s()\n", __func__);
+
 	/* Call python function "uftrace_end". */
 	__PyObject_CallObject(pFuncEnd, NULL);
 
@@ -497,7 +503,8 @@ int python_uftrace_end(void)
 
 int python_atfork_prepare(void)
 {
-	pr_dbg("flush python buffer");
+	pr_dbg("flush python buffer in %s()\n", __func__);
+
 	__PyRun_SimpleStringFlags("sys.stdout.flush()", NULL);
 
 	return 0;
@@ -505,7 +512,7 @@ int python_atfork_prepare(void)
 
 int script_init_for_python(char *py_pathname)
 {
-	pr_dbg("initialize python scripting engine for %s\n", py_pathname);
+	pr_dbg("%s(\"%s\")\n", __func__, py_pathname);
 
 	/* Bind script_uftrace functions to python's. */
 	script_uftrace_entry = python_uftrace_entry;
@@ -610,6 +617,8 @@ int script_init_for_python(char *py_pathname)
 
 void script_finish_for_python(void)
 {
+	pr_dbg("%s()\n", __func__);
+
 	__Py_Finalize();
 }
 
