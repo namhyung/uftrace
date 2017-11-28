@@ -542,7 +542,11 @@ int parse_enum_string(char *enum_str)
 				val = strtol(pos, &pos, 0);
 
 				/* consume ',' after the number */
-				enum_next_token(&pos);
+				ret = enum_next_token(&pos);
+				if (ret != TOKEN_SIGN) {
+					pr_dbg("invalid enum syntax - comma needed\n");
+					goto out;
+				}
 			}
 
 			e_val = xmalloc(sizeof(*e_val));
