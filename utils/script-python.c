@@ -139,11 +139,13 @@ static int set_python_path(char *py_pathname)
 static int import_python_module(char *py_pathname)
 {
 	PyObject *pName;
-	char *py_basename = basename(py_pathname);
+	char *py_basename = xstrdup(basename(py_pathname));
 
 	remove_py_suffix(py_basename);
 
 	pName = __PyString_FromString(py_basename);
+	free(py_basename);
+
 	pModule = __PyImport_Import(pName);
 	if (pModule == NULL) {
 		__PyErr_Print();
