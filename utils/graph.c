@@ -57,7 +57,8 @@ struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
 	return tg;
 }
 
-static int add_graph_entry(struct uftrace_task_graph *tg, char *name)
+static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
+			   size_t node_size)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
@@ -84,7 +85,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name)
 		struct uftrace_trigger tr;
 		struct uftrace_session *sess = tg->graph->sess;
 
-		node = xcalloc(1, sizeof(*node));
+		node = xzalloc(node_size);
 
 		node->addr = rstack->addr;
 		node->name = xstrdup(name ?: "none");
@@ -180,7 +181,7 @@ out:
 	return 0;
 }
 
-static int add_graph_event(struct uftrace_task_graph *tg)
+static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 {
 	struct uftrace_record *rec = tg->task->rstack;
 
@@ -190,7 +191,7 @@ static int add_graph_event(struct uftrace_task_graph *tg)
 	if (rec->addr == EVENT_ID_PERF_SCHED_OUT) {
 		/* to match addr with sched-in */
 		rec->addr = EVENT_ID_PERF_SCHED_IN;
-		return add_graph_entry(tg, "sched-in");
+		return add_graph_entry(tg, "sched-in", node_size);
 	}
 	else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
 		return add_graph_exit(tg);
@@ -199,14 +200,15 @@ static int add_graph_event(struct uftrace_task_graph *tg)
 	return -1;
 }
 
-int graph_add_node(struct uftrace_task_graph *tg, int type, char *name)
+int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
+		   size_t node_size)
 {
 	if (type == UFTRACE_ENTRY)
-		return add_graph_entry(tg, name);
+		return add_graph_entry(tg, name, node_size);
 	else if (type == UFTRACE_EXIT)
 		return add_graph_exit(tg);
 	else if (type == UFTRACE_EVENT)
-		return add_graph_event(tg);
+		return add_graph_event(tg, node_size);
 	else
 		return 0;
 }

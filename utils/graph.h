@@ -61,6 +61,7 @@ struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
 					   size_t tg_size);
 void graph_remove_task(void);
 
-int graph_add_node(struct uftrace_task_graph *tg, int type, char *name);
+int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
+		   size_t node_size);
 
 #endif /* UFTRACE_GRAPH_H */

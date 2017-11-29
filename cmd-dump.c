@@ -1127,7 +1127,7 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 	if (graph->node == NULL)
 		graph->node = &flame_graph.root;
 
-	graph_add_node(graph, frs->type, name);
+	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
 }
 
 static void print_flame_task_event(struct uftrace_dump_ops *ops,
