@@ -481,7 +481,7 @@ void destroy_dynsym_indexes(void)
 {
 	struct plthook_data *pd;
 
-	pr_dbg("destroy plthook special function index\n");
+	pr_dbg2("destroy plthook special function index\n");
 
 	list_for_each_entry(pd, &plthook_modules, list) {
 		free(pd->special_funcs);
@@ -546,6 +546,8 @@ static int setup_exe_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 void mcount_setup_plthook(char *exename, bool nest_libcall)
 {
 	struct plthook_data *pd;
+
+	pr_dbg("setup PLT hooking %s\n", nest_libcall ? "(nest-libcall)" : "");
 
 	if (!nest_libcall)
 		dl_iterate_phdr(setup_exe_plthook_data, exename);

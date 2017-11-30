@@ -275,6 +275,8 @@ static void mcount_init_file(void)
 	};
 
 	send_session_msg(&mtd, mcount_session_name());
+	pr_dbg("new session started: %.*s: %s\n",
+	       SESSION_ID_LEN, mcount_session_name(), basename(mcount_exename));
 
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGABRT, &sa, &old_sigact[0]);
@@ -1196,6 +1198,8 @@ static void mcount_cleanup(void)
 		script_finish();
 
 	unload_symtabs(&symtabs);
+
+	pr_dbg("exit from libmcount\n");
 }
 
 /*
