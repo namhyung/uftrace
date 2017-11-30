@@ -353,6 +353,9 @@ void setup_fstack_args(char *argspec, char *retspec,
 		.auto_args = auto_args,
 	};
 
+	if (argspec == NULL && retspec == NULL && !auto_args)
+		return;
+
 	pr_dbg("setup argspec and/or retspec\n");
 
 	spec.str = argspec;

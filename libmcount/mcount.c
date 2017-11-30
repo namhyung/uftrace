@@ -83,10 +83,15 @@ static void mcount_filter_init(void)
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
 	char *argument_str  = getenv("UFTRACE_ARGUMENT");
 	char *retval_str    = getenv("UFTRACE_RETVAL");
+	char *autoargs_str  = getenv("UFTRACE_AUTO_ARGS");
 
 	load_module_symtabs(&symtabs);
 
-	setup_auto_args();
+	/* setup auto-args only if argument/return value is used */
+	if (argument_str || retval_str || autoargs_str ||
+	    (trigger_str && (strstr(trigger_str, "arg") ||
+			     strstr(trigger_str, "retval"))))
+		setup_auto_args();
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false);
@@ -95,7 +100,7 @@ static void mcount_filter_init(void)
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
 
-	if (getenv("UFTRACE_AUTO_ARGS")) {
+	if (autoargs_str) {
 		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
 				       &mcount_triggers, true);
 		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
