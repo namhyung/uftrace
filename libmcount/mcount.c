@@ -83,10 +83,15 @@ static void mcount_filter_init(void)
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
 	char *argument_str  = getenv("UFTRACE_ARGUMENT");
 	char *retval_str    = getenv("UFTRACE_RETVAL");
+	char *autoargs_str  = getenv("UFTRACE_AUTO_ARGS");
 
 	load_module_symtabs(&symtabs);
 
-	setup_auto_args();
+	/* setup auto-args only if argument/return value is used */
+	if (argument_str || retval_str || autoargs_str ||
+	    (trigger_str && (strstr(trigger_str, "arg") ||
+			     strstr(trigger_str, "retval"))))
+		setup_auto_args();
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false);
@@ -95,7 +100,7 @@ static void mcount_filter_init(void)
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
 
-	if (getenv("UFTRACE_AUTO_ARGS")) {
+	if (autoargs_str) {
 		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
 				       &mcount_triggers, true);
 		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
@@ -185,6 +190,20 @@ static void mtd_dtor(void *arg)
 
 static struct sigaction old_sigact[2];
 
+static const struct {
+	int code;
+	char *msg;
+} sigsegv_codes[] = {
+	{ SEGV_MAPERR, "address not mapped" },
+	{ SEGV_ACCERR, "invalid permission" },
+#ifdef SEGV_BNDERR
+	{ SEGV_BNDERR, "bound check failed" },
+#endif
+#ifdef SEGV_PKUERR
+	{ SEGV_PKUERR, "protection key check failed" },
+#endif
+};
+
 static void segv_handler(int sig, siginfo_t *si, void *ctx)
 {
 	struct mcount_thread_data *mtdp;
@@ -194,8 +213,20 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	/* set line buffer mode not to discard crash message */
 	setlinebuf(outfp);
 
-	pr_red("process crashed by signal %d: %s (si_code: %d)\n",
-	       sig, strsignal(sig), si->si_code);
+	for (idx = 0; idx < (int)ARRAY_SIZE(sigsegv_codes); idx++) {
+		if (sig != SIGSEGV)
+			break;
+
+		if (si->si_code == sigsegv_codes[idx].code) {
+			pr_red("Segmentation fault: %s (addr: %p)\n",
+			       sigsegv_codes[idx].msg, si->si_addr);
+			break;
+		}
+	}
+	if (sig != SIGSEGV || idx == (int)ARRAY_SIZE(sigsegv_codes)) {
+		pr_red("process crashed by signal %d: %s (si_code: %d)\n",
+		       sig, strsignal(sig), si->si_code);
+	}
 
 	mtdp = get_thread_data();
 	if (check_thread_data(mtdp))
@@ -244,6 +275,8 @@ static void mcount_init_file(void)
 	};
 
 	send_session_msg(&mtd, mcount_session_name());
+	pr_dbg("new session started: %.*s: %s\n",
+	       SESSION_ID_LEN, mcount_session_name(), basename(mcount_exename));
 
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGABRT, &sa, &old_sigact[0]);
@@ -1165,6 +1198,8 @@ static void mcount_cleanup(void)
 		script_finish();
 
 	unload_symtabs(&symtabs);
+
+	pr_dbg("exit from libmcount\n");
 }
 
 /*

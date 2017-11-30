@@ -242,7 +242,7 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		return 0;
 	}
 
-	pr_dbg("add filter for %s\n", filter->name);
+	pr_dbg2("add filter for %s\n", filter->name);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
 
@@ -440,7 +440,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 			return -1;
 		}
 		arg->enum_str = xstrdup(&suffix[2]);
-		pr_dbg("parsing argspec for enum: %s\n", arg->enum_str);
+		pr_dbg2("parsing argspec for enum: %s\n", arg->enum_str);
 		goto out;
 	default:
 		pr_use("unsupported argument type: %s\n", str);
