@@ -208,7 +208,7 @@ static int find_got(Elf *elf, const char *modname,
 	}
 
 	if (!pltgot_addr || (!plt_found && !bind_now)) {
-		pr_dbg("no PLTGOT nor BIND-NOW.. ignoring...\n");
+		pr_dbg2("no PLTGOT nor BIND-NOW.. ignoring...\n");
 		return 0;
 	}
 
