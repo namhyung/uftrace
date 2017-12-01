@@ -1,3 +1,28 @@
+uftrace v0.8.2
+--------------
+* trigger update
+  add 'p' format for function pointer
+  add --auto-args option for automatic argument/return value
+  support enum type for auto-args
+
+* diff change
+  add 'compact' policy and make it default
+  old behavior is supported on 'full' policy
+
+* graph change
+  show full graph when no function given
+  support fork+exec properly
+
+* script change
+  flush stdout buffer before fork
+  serialize execution using a mutex
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Andrew Slough, Hansuk Hong, Hanbum Park, Honggyu Kim, JangSoJin,
+  Myungjin Ko, MyungSik Ji, Sangwon Hong, Taeung Song,
+  Vincent LE GARREC, Yujeong Kim
+
+
 uftrace v0.8.1
 --------------
 * trigger update
