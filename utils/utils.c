@@ -138,6 +138,7 @@ int remove_directory(char *dirname)
 {
 	DIR *dp;
 	struct dirent *ent;
+	struct stat statbuf;
 	char buf[PATH_MAX];
 	int saved_errno = 0;
 	int ret = 0;
@@ -154,9 +155,18 @@ int remove_directory(char *dirname)
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
-		if (unlink(buf) < 0) {
+		ret = stat(buf, &statbuf);
+		if (ret < 0)
+			goto failed;
+
+		if (S_ISDIR(statbuf.st_mode))
+			ret = remove_directory(buf);
+		else
+			ret = unlink(buf);
+
+		if (ret < 0) {
+failed:
 			saved_errno = errno;
-			ret = -1;
 			break;
 		}
 	}
