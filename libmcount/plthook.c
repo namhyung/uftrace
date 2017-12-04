@@ -761,8 +761,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		if (mtdp == NULL)
 			goto out;
 	}
-	else
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			goto out;
+
 		mtdp->recursion_guard = true;
+	}
 
 	recursion = false;
 
@@ -869,7 +873,10 @@ unsigned long plthook_exit(long *retval)
 	mtdp->recursion_guard = true;
 
 again:
-	rstack = &mtdp->rstack[mtdp->idx - 1];
+	if (likely(mtdp->idx > 0))
+		rstack = &mtdp->rstack[mtdp->idx - 1];
+	else
+		rstack = restore_vfork(mtdp, NULL);  /* FIXME! */
 
 	if (unlikely(rstack->flags & (MCOUNT_FL_LONGJMP | MCOUNT_FL_VFORK))) {
 		if (rstack->flags & MCOUNT_FL_LONGJMP) {
