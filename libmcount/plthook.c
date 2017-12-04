@@ -761,8 +761,12 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		if (mtdp == NULL)
 			goto out;
 	}
-	else
+	else {
+		if (unlikely(mtdp->recursion_guard))
+			goto out;
+
 		mtdp->recursion_guard = true;
+	}
 
 	recursion = false;
 
