@@ -591,8 +591,10 @@ int script_init_for_python(char *py_pathname)
 	__Py_Initialize();
 
 	/* Import python module that is passed by -p option. */
-	if (import_python_module(py_pathname) < 0)
+	if (import_python_module(py_pathname) < 0) {
+		pthread_mutex_unlock(&python_interpreter_lock);
 		return -1;
+	}
 
 	/* check if script has its own list of functions to run */
 	PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
