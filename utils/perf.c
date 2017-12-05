@@ -290,17 +290,37 @@ static int read_perf_event(struct ftrace_file_handle *handle,
 			   struct uftrace_perf_reader *perf)
 {
 	struct perf_context_switch_event ev;
+	size_t len;
 
 	if (perf->done || perf->fp == NULL)
 		return -1;
 
-	if (fread(&ev, sizeof(ev), 1, perf->fp) != 1) {
+again:
+	if (fread(&ev.header, sizeof(ev.header), 1, perf->fp) != 1) {
 		perf->done = true;
 		return -1;
 	}
 
-	if (ev.header.type != PERF_RECORD_SWITCH)
+	len = ev.header.size - sizeof(ev.header);
+
+	/* ignore unknown events */
+	if (ev.header.type != PERF_RECORD_SWITCH) {
+		pr_dbg3("skip unknown event: %u\n", ev.header.type);
+
+		if (fseek(perf->fp, len, SEEK_CUR) < 0) {
+			pr_warn("skipping perf data failed: %m\n");
+			perf->done = true;
+			return -1;
+		}
+
+		goto again;
+	}
+
+	if (fread(&ev.sample_id, len, 1, perf->fp) != 1) {
+		pr_warn("reading perf data failed: %m\n");
+		perf->done = true;
 		return -1;
+	}
 
 	perf->ctxsw.time = ev.sample_id.time;
 	perf->ctxsw.tid  = ev.sample_id.tid;

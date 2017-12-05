@@ -65,7 +65,7 @@ static void color(const char *code, FILE *fp)
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
 	if (fwrite(TERM_COLOR_RESET, 1, len, fp) != len)
-		pr_err("resetting terminal color failed");
+		pr_dbg("resetting terminal color failed");
 }
 
 void setup_color(enum color_setting color)
