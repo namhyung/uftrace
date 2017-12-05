@@ -481,7 +481,7 @@ static void free_enum_def(struct enum_def *e_def)
 int parse_enum_string(char *enum_str)
 {
 	char *pos, *tmp, *str;
-	struct enum_def *e_def;
+	struct enum_def *e_def = NULL;
 	struct enum_val *e_val, *e;
 	enum enum_token_ret ret;
 	int err = -1;
@@ -492,7 +492,6 @@ int parse_enum_string(char *enum_str)
 	str = tmp = xstrdup(enum_str);
 
 	while ((pos = strsep(&tmp, ";")) != NULL) {
-		char *name;
 		long val = 0;
 
 		ret = enum_next_token(&pos);
@@ -527,7 +526,7 @@ int parse_enum_string(char *enum_str)
 
 		ret = enum_next_token(&pos);
 		while (ret != TOKEN_NULL && strcmp(enum_token, "}")) {
-			name = xstrdup(enum_token);
+			char *name = xstrdup(enum_token);
 
 			ret = enum_next_token(&pos);
 			if (ret != TOKEN_SIGN) {
@@ -545,6 +544,7 @@ int parse_enum_string(char *enum_str)
 				ret = enum_next_token(&pos);
 				if (ret != TOKEN_SIGN) {
 					pr_dbg("invalid enum syntax - comma needed\n");
+					free(name);
 					goto out;
 				}
 			}
@@ -568,17 +568,19 @@ int parse_enum_string(char *enum_str)
 				ret = enum_next_token(&pos);
 		}
 
-		if (!strcmp(enum_token, "}"))
+		if (!strcmp(enum_token, "}")) {
 			add_enum_tree(&enum_root, e_def);
+			e_def = NULL;
+		}
 		else {
 			pr_dbg("invalid enum def: %s\n", enum_token);
-			free_enum_def(e_def);
 			goto out;
 		}
 	}
 	err = 0;
 
 out:
+	free_enum_def(e_def);
 	free(str);
 	return err;
 }
