@@ -154,6 +154,8 @@ void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 
 	} while (*p);
 
+	pr_dbg("setup filters for %d task(s)\n", nr_filters);
+
 setup:
 	handle->nr_tasks = handle->info.nr_tid;
 	handle->tasks = xmalloc(sizeof(*handle->tasks) * handle->nr_tasks);
@@ -942,7 +944,7 @@ static int __read_task_ustack(struct ftrace_task_handle *task)
 		swap_bitfields(&task->ustack);
 
 	if (task->ustack.magic != RECORD_MAGIC) {
-		pr_dbg("invalid rstack read\n");
+		pr_warn("invalid rstack read\n");
 		return -1;
 	}
 
@@ -1730,7 +1732,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 			static bool warn = false;
 
 			if (!warn && consume) {
-				pr_dbg("no more kernel data\n");
+				pr_dbg2("no more kernel data\n");
 				warn = true;
 			}
 		}
@@ -1748,7 +1750,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 			static bool warn = false;
 
 			if (!warn && consume) {
-				pr_dbg("no more perf data\n");
+				pr_dbg2("no more perf data\n");
 				warn = true;
 			}
 		}
