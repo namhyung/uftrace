@@ -191,7 +191,7 @@ char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
-int parse_enum_string(char *enum_str);
+int parse_enum_string(char *enum_str, struct rb_root *root);
 char *get_enum_string(char *name, long val);
 
 #endif /* UFTRACE_FILTER_H */
