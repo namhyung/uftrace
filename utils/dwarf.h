@@ -21,6 +21,7 @@ struct debug_info {
 	uint64_t	offset;
 	struct rb_root	args;
 	struct rb_root	rets;
+	struct rb_root	enums;
 };
 
 extern void prepare_debug_info(struct symtabs *symtabs,

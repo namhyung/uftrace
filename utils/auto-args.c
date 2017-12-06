@@ -255,8 +255,6 @@ static void release_auto_args(struct rb_root *root)
 	}
 }
 
-static void release_enum_def(struct rb_root *root);
-
 void finish_auto_args(void)
 {
 	struct uftrace_filter *tmp;
@@ -531,12 +529,15 @@ char * convert_enum_val(struct enum_def *e_def, long val)
 }
 
 /* caller should free the return value */
-char *get_enum_string(char *name, long val)
+char *get_enum_string(struct rb_root *root, char *name, long val)
 {
 	struct enum_def *e_def;
 	char *ret;
 
-	e_def = find_enum_def(&auto_enum, name);
+	e_def = find_enum_def(root, name);
+	if (e_def == NULL)
+		e_def = find_enum_def(&auto_enum, name);
+
 	if (e_def == NULL)
 		xasprintf(&ret, "%ld", val);
 	else
@@ -556,7 +557,7 @@ char *get_enum_string(char *name, long val)
  *
  * For example, following string should be accepted:
  *
- *   number {
+ *   enum number {
  *     ZERO = 0,
  *     ONE,
  *     TWO,
@@ -672,7 +673,7 @@ out:
 	return err;
 }
 
-static void release_enum_def(struct rb_root *root)
+void release_enum_def(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct enum_def *e_def;

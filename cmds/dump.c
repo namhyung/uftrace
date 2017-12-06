@@ -343,7 +343,7 @@ static void pr_args(struct fstack_arguments *args)
 			struct sym *sym;
 			unsigned long val = 0;
 
-			task = container_of(args, struct ftrace_task_handle, args);
+			task = container_of(args, typeof(*task), args);
 			sessions = &task->h->sessions;
 
 			memcpy(&val, ptr, spec->size);
@@ -360,10 +360,32 @@ static void pr_args(struct fstack_arguments *args)
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			long long val = 0;
+			struct uftrace_mmap *map;
+			struct ftrace_task_handle *task;
+			struct uftrace_session_link *sessions;
+			struct uftrace_session *s;
+			struct debug_info *dinfo;
+			char *enum_def;
+
+			task = container_of(args, typeof(*task), args);
+			sessions = &task->h->sessions;
+			s = find_task_session(sessions, task->tid,
+					      task->rstack->time);
+
+			map = find_map(&s->symtabs, task->rstack->addr);
+			if (map == MAP_MAIN)
+				dinfo = &s->symtabs.dinfo;
+			else
+				dinfo = &map->dinfo;
 
 			memcpy(&val, ptr, spec->size);
+			enum_def = get_enum_string(&dinfo->enums,
+						   spec->enum_str, val);
+
 			pr_out("  args[%d] enum %s: %s (%lld)\n", i,
-			       spec->enum_str, get_enum_string(spec->enum_str, val), val);
+			       spec->enum_str, enum_def, val);
+
+			free(enum_def);
 			size = spec->size;
 		}
 		else {
