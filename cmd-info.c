@@ -965,6 +965,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 		pr_out("# %-20s: %d\n", "number of tasks", nr);
 
+		if (handle.hdr.feat_mask & PERF_EVENT)
+			update_perf_task_comm(&handle);
+
 		pr_out("# %-20s: ", "task list");
 		for (i = 0; i < nr; i++) {
 			int tid = handle.info.tids[i];

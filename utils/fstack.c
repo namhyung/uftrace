@@ -1683,9 +1683,17 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		kernel->missed_events[cpu] = 0;
 	}
 	else {  /* must be perf event */
-		assert(handle->last_perf_idx >= 0);
+		struct uftrace_perf_reader *perf;
 
-		handle->perf[handle->last_perf_idx].valid = false;
+		assert(handle->last_perf_idx >= 0);
+		perf = &handle->perf[handle->last_perf_idx];
+
+		if (rstack->addr == EVENT_ID_PERF_COMM) {
+			memcpy(task->t->comm, perf->u.comm.comm,
+			       sizeof(task->t->comm));
+		}
+
+		perf->valid = false;
 		handle->last_perf_idx = -1;
 	}
 

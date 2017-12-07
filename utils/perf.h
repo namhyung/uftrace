@@ -120,5 +120,6 @@ void finish_perf_data(struct ftrace_file_handle *handle);
 int read_perf_data(struct ftrace_file_handle *handle);
 struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 					struct uftrace_perf_reader *perf);
+void update_perf_task_comm(struct ftrace_file_handle *handle);
 
 #endif /* UFTRACE_PERF_H */

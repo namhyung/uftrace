@@ -480,3 +480,35 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 
 	return &rec;
 }
+
+/**
+ * update_perf_task_comm - read perf event data and update task's comm
+ * @handle: uftrace data file handle
+ *
+ * This function reads perf events for each cpu data file and updates
+ * task->comm for each PERF_RECORD_COMM.
+ */
+void update_perf_task_comm(struct ftrace_file_handle *handle)
+{
+	struct uftrace_perf_reader *perf;
+	struct uftrace_task *task;
+	int i;
+
+	for (i = 0; i < handle->nr_perf; i++) {
+		perf = &handle->perf[i];
+
+		while (!perf->done) {
+			if (read_perf_event(handle, perf) < 0)
+				continue;
+
+			if (perf->type != PERF_RECORD_COMM)
+				continue;
+
+			task = find_task(&handle->sessions, perf->tid);
+			if (task == NULL)
+				continue;
+
+			memcpy(task->comm, perf->u.comm.comm, sizeof(task->comm));
+		}
+	}
+}
