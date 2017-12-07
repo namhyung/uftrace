@@ -1754,8 +1754,8 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 				warn = true;
 			}
 		}
-		else if (perf->ctxsw.time < min_timestamp) {
-			min_timestamp = perf->ctxsw.time;
+		else if (perf->time < min_timestamp) {
+			min_timestamp = perf->time;
 			source = PERF;
 		}
 	}
@@ -1771,7 +1771,7 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 		break;
 
 	case PERF:
-		task = get_task_handle(handle, perf->ctxsw.tid);
+		task = get_task_handle(handle, perf->tid);
 		task->rstack = get_perf_record(handle, perf);
 		break;
 

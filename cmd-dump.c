@@ -735,7 +735,7 @@ static void print_raw_perf_event(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%d)\n",
-	       perf->ctxsw.tid, rstack_type(frs), evt_name, frs->addr);
+	       perf->tid, rstack_type(frs), evt_name, frs->addr);
 
 	if (debug)
 		pr_hex(&raw->file_offset, &perf->ctxsw, sizeof(perf->ctxsw));

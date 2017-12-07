@@ -30,8 +30,6 @@ struct perf_context_switch_event {
 };
 
 struct uftrace_ctxsw {
-	uint64_t	time;
-	int		tid;
 	bool		out;
 };
 
@@ -73,6 +71,8 @@ struct uftrace_perf_reader {
 	FILE			*fp;
 	bool			valid;
 	bool			done;
+	int			tid;
+	uint64_t		time;
 	struct uftrace_ctxsw	ctxsw;
 };
 

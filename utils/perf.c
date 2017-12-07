@@ -329,15 +329,14 @@ again:
 		return -1;
 	}
 
-	perf->ctxsw.time = ev.sample_id.time;
-	perf->ctxsw.tid  = ev.sample_id.tid;
+	if (handle->needs_byte_swap) {
+		ev.sample_id.time = bswap_64(ev.sample_id.time);
+		ev.sample_id.tid  = bswap_32(ev.sample_id.tid);
+	}
 	perf->ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
-	if (handle->needs_byte_swap) {
-		perf->ctxsw.time = bswap_64(perf->ctxsw.time);
-		perf->ctxsw.tid  = bswap_32(perf->ctxsw.tid);
-	}
-
+	perf->tid   = ev.sample_id.tid;
+	perf->time  = ev.sample_id.time;
 	perf->valid = true;
 	return 0;
 }
@@ -370,8 +369,8 @@ int read_perf_data(struct ftrace_file_handle *handle)
 				continue;
 		}
 
-		if (perf->ctxsw.time < min_time) {
-			min_time = perf->ctxsw.time;
+		if (perf->time < min_time) {
+			min_time = perf->time;
 			best = i;
 		}
 	}
@@ -404,7 +403,7 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 	}
 
 	rec.type  = UFTRACE_EVENT;
-	rec.time  = perf->ctxsw.time;
+	rec.time  = perf->time;
 	rec.magic = RECORD_MAGIC;
 
 	if (perf->ctxsw.out)
