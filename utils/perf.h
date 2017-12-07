@@ -20,10 +20,8 @@ struct perf_context_switch_event {
 	/*
 	 * type: PERF_RECORD_SWITCH (14)
 	 * misc: PERF_RECORD_MISC_SWITCH_OUT (0x2000)
-	 * size: 24
+	 * size: 24 (including header)
 	 */
-	struct perf_event_header header;
-
 	struct sample_id {
 		uint32_t   pid;
 		uint32_t   tid;

@@ -289,6 +289,7 @@ void finish_perf_data(struct ftrace_file_handle *handle)
 static int read_perf_event(struct ftrace_file_handle *handle,
 			   struct uftrace_perf_reader *perf)
 {
+	struct perf_event_header h;
 	struct perf_context_switch_event ev;
 	size_t len;
 
@@ -296,16 +297,16 @@ static int read_perf_event(struct ftrace_file_handle *handle,
 		return -1;
 
 again:
-	if (fread(&ev.header, sizeof(ev.header), 1, perf->fp) != 1) {
+	if (fread(&h, sizeof(h), 1, perf->fp) != 1) {
 		perf->done = true;
 		return -1;
 	}
 
-	len = ev.header.size - sizeof(ev.header);
+	len = h.size - sizeof(h);
 
 	/* ignore unknown events */
-	if (ev.header.type != PERF_RECORD_SWITCH) {
-		pr_dbg3("skip unknown event: %u\n", ev.header.type);
+	if (h.type != PERF_RECORD_SWITCH) {
+		pr_dbg3("skip unknown event: %u\n", h.type);
 
 		if (fseek(perf->fp, len, SEEK_CUR) < 0) {
 			pr_warn("skipping perf data failed: %m\n");
@@ -316,7 +317,7 @@ again:
 		goto again;
 	}
 
-	if (fread(&ev.sample_id, len, 1, perf->fp) != 1) {
+	if (fread(&ev, len, 1, perf->fp) != 1) {
 		pr_warn("reading perf data failed: %m\n");
 		perf->done = true;
 		return -1;
@@ -324,7 +325,7 @@ again:
 
 	perf->ctxsw.time = ev.sample_id.time;
 	perf->ctxsw.tid  = ev.sample_id.tid;
-	perf->ctxsw.out  = ev.header.misc & PERF_RECORD_MISC_SWITCH_OUT;
+	perf->ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
 	if (handle->needs_byte_swap) {
 		perf->ctxsw.time = bswap_64(perf->ctxsw.time);
