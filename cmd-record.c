@@ -298,6 +298,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* provide automatic argument/return value spec */
 	features |= AUTO_ARGS;
 
+	/* task/comm events are always enabled */
+	features |= PERF_EVENT;
+
 	if (opts->libcall)
 		features |= PLTHOOK;
 
@@ -312,9 +315,6 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->event)
 		features |= EVENT;
-
-	if (has_perf_event)
-		features |= PERF_EVENT;
 
 	return features;
 }
@@ -1570,11 +1570,11 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else if (opts->nr_thread > wd->nr_cpu)
 		opts->nr_thread = wd->nr_cpu;
 
-	if (has_perf_event) {
-		if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
-				      opts->dirname) < 0)
-			has_perf_event = false;
-	}
+	if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
+			      opts->dirname, has_perf_event) < 0)
+		has_perf_event = false;
+	else
+		has_perf_event = true;  /* for task/comm events */
 
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
 	wd->writers = xmalloc(opts->nr_thread * sizeof(*wd->writers));

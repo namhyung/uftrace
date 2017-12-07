@@ -19,7 +19,7 @@
 
 static bool use_perf = true;
 
-static int open_perf_event(int pid, int cpu)
+static int open_perf_event(int pid, int cpu, int use_ctxsw)
 {
 	/* use dummy events to get scheduling info (Linux v4.3 or later) */
 	struct perf_event_attr attr = {
@@ -35,17 +35,13 @@ static int open_perf_event(int pid, int cpu)
 		.inherit		= 1,
 		.watermark		= 1,
 		.wakeup_watermark	= PERF_WATERMARK,
+		.task			= 1,
+		.comm			= 1,
 		.use_clockid		= 1,
 		.clockid		= CLOCK_MONOTONIC,
-		INIT_CTXSW_ATTR
+		INIT_CTXSW_ATTR(use_ctxsw)
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
-
-	if (!PERF_CTXSW_AVAILABLE) {
-		/* Operation not supported */
-		errno = ENOTSUP;
-		return -1;
-	}
 
 	return syscall(SYS_perf_event_open, &attr, pid, cpu, -1, flag);
 }
@@ -56,6 +52,7 @@ static int open_perf_event(int pid, int cpu)
  * @nr_cpu: total number of cpus to record
  * @pid: process id to record
  * @dirname: directory name to save perf record data
+ * @use_ctxsw: whether to use context_switch attribute
  *
  * This function prepares recording linux perf events.  The perf_event
  * fd should be opened and mmaped for each cpu.
@@ -64,7 +61,7 @@ static int open_perf_event(int pid, int cpu)
  * finish_perf_record() after recording.
  */
 int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
-		      const char *dirname)
+		      const char *dirname, int use_ctxsw)
 {
 	char filename[PATH_MAX];
 	int fd, cpu;
@@ -77,12 +74,23 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 
 	memset(perf->event_fd, -1, nr_cpu * sizeof(fd));
 
+	if (!PERF_CTXSW_AVAILABLE && use_ctxsw) {
+		/* Operation not supported */
+		pr_warn("linux:schedule event is not supported for this kernel\n");
+		use_ctxsw = 0;
+	}
+
 	for (cpu = 0; cpu < nr_cpu; cpu++) {
-		fd = open_perf_event(pid, cpu);
+		fd = open_perf_event(pid, cpu, use_ctxsw);
 		if (fd < 0) {
 			int saved_errno = errno;
 
-			pr_warn("skipping perf event due to error: %m\n");
+
+			if (use_ctxsw)
+				pr_warn("skipping perf event due to error: %m\n");
+			else
+				pr_dbg("skipping perf event due to error: %m\n");
+
 			if (saved_errno == EACCES)
 				pr_dbg("please check %s\n", PERF_PARANOID_CHECK);
 
