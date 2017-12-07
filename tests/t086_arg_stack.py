@@ -37,4 +37,11 @@ class TestCase(TestBase):
         argopt += '-A "many@arg3/i32%stack+3,arg4/i32%stack+4" '
         argopt += '-A "many@arg5/i32%stack5,arg6/i32%stack6,arg7/i32%stack7"'
 
+        import platform
+        if platform.machine().startswith('i686'):
+            # i386 use stack for passing argument. so, change order.
+            argopt  = '-A "many@arg1/i32%stack+7,arg2/i32%stack+8" '
+            argopt += '-A "many@arg3/i32%stack+9,arg4/i32%stack+10" '
+            argopt += '-A "many@arg5/i32%stack11,arg6/i32%stack12,arg7/i32%stack13"'
+
         return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
