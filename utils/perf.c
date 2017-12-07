@@ -302,6 +302,12 @@ again:
 		return -1;
 	}
 
+	if (handle->needs_byte_swap) {
+		h.type = bswap_32(h.type);
+		h.misc = bswap_16(h.misc);
+		h.size = bswap_16(h.size);
+	}
+
 	len = h.size - sizeof(h);
 
 	/* ignore unknown events */
