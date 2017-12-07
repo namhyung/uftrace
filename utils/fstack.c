@@ -115,9 +115,18 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 }
 
 static void update_first_timestamp(struct ftrace_file_handle *handle,
+				   struct ftrace_task_handle *task,
 				   struct uftrace_record *rstack)
 {
 	uint64_t first = handle->time_range.first;
+
+	if (task->stack_count == 0 && rstack->type == UFTRACE_EVENT &&
+	    handle->time_range.event_skip_out)
+		return;
+
+	if (task->stack_count == 0 && is_kernel_record(task, rstack) &&
+	    handle->time_range.kernel_skip_out)
+		return;
 
 	if (first == 0 || first > rstack->time)
 		handle->time_range.first = rstack->time;
@@ -186,7 +195,7 @@ setup:
 			task->fp = fopen(filename, "rb");
 			if (task->fp) {
 				if (!__read_task_ustack(task)) {
-					update_first_timestamp(handle,
+					update_first_timestamp(handle, task,
 							       &task->ustack);
 				}
 				fclose(task->fp);
@@ -1697,7 +1706,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		handle->last_perf_idx = -1;
 	}
 
-	update_first_timestamp(handle, rstack);
+	update_first_timestamp(handle, task, rstack);
 
 	fstack_account_time(task);
 	fstack_update_stack_count(task);

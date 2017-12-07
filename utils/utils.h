@@ -223,6 +223,8 @@ struct uftrace_time_range {
 	uint64_t stop;
 	bool start_elapsed;
 	bool stop_elapsed;
+	bool kernel_skip_out;
+	bool event_skip_out;
 };
 
 struct iovec;
