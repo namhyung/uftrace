@@ -756,7 +756,7 @@ next:
 		 */
 		if (next_stack->type == UFTRACE_ENTRY)
 			fstack_entry(next, next_stack, &tr);
-		else
+		else if (next_stack->type == UFTRACE_EXIT)
 			fstack_exit(next);
 
 		if (!fstack_enabled)
