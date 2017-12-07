@@ -303,6 +303,7 @@ struct uftrace_dlopen_list {
 
 struct uftrace_task {
 	int			 pid, tid, ppid;
+	char			 comm[16];
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;

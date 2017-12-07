@@ -958,14 +958,19 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	pr_out("# ===================\n");
 
 	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
+		int i;
 		int nr = handle.info.nr_tid;
 		bool first = true;
+		struct uftrace_task *task;
 
 		pr_out("# %-20s: %d\n", "number of tasks", nr);
 
 		pr_out("# %-20s: ", "task list");
-		while (nr--) {
-			pr_out("%s%d", first ? "" : ", ", handle.info.tids[nr]);
+		for (i = 0; i < nr; i++) {
+			int tid = handle.info.tids[i];
+			task = find_task(&handle.sessions, tid);
+
+			pr_out("%s%d(%s)", first ? "" : ", ", tid, task->comm);
 			first = false;
 		}
 		pr_out("\n");
