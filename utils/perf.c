@@ -290,8 +290,13 @@ static int read_perf_event(struct ftrace_file_handle *handle,
 			   struct uftrace_perf_reader *perf)
 {
 	struct perf_event_header h;
-	struct perf_context_switch_event ev;
+	union {
+		struct perf_context_switch_event cs;
+		struct perf_task_event t;
+		struct perf_comm_event c;
+	} u;
 	size_t len;
+	int comm_len;
 
 	if (perf->done || perf->fp == NULL)
 		return -1;
@@ -310,8 +315,62 @@ again:
 
 	len = h.size - sizeof(h);
 
-	/* ignore unknown events */
-	if (h.type != PERF_RECORD_SWITCH) {
+	switch (h.type) {
+	case PERF_RECORD_SWITCH:
+		if (fread(&u.cs, len, 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.cs.sample_id.time = bswap_64(u.cs.sample_id.time);
+			u.cs.sample_id.tid  = bswap_32(u.cs.sample_id.tid);
+		}
+
+		perf->u.ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
+
+		perf->time = u.cs.sample_id.time;
+		perf->tid  = u.cs.sample_id.tid;
+		break;
+
+	case PERF_RECORD_FORK:
+	case PERF_RECORD_EXIT:
+		if (fread(&u.t, len, 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.t.tid  = bswap_32(u.t.tid);
+			u.t.pid  = bswap_32(u.t.pid);
+			u.t.ppid = bswap_32(u.t.ppid);
+			u.t.time = bswap_64(u.t.time);
+		}
+
+		perf->u.task.pid  = u.t.pid;
+		perf->u.task.ppid = u.t.ppid;
+
+		perf->time = u.t.time;
+		perf->tid  = u.t.tid;
+		break;
+
+	case PERF_RECORD_COMM:
+		/* length of comm event is variable */
+		comm_len = ALIGN(len - sizeof(u.c.sample_id), 8);
+		if (fread(&u.c, comm_len, 1, perf->fp) != 1)
+			return -1;
+
+		if (fread(&u.c.sample_id, sizeof(u.c.sample_id), 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.c.tid            = bswap_32(u.c.tid);
+			u.c.sample_id.time = bswap_64(u.c.sample_id.time);
+		}
+
+		strncpy(perf->u.comm.comm, u.c.comm, sizeof(u.c.comm));
+
+		perf->time = u.c.sample_id.time;
+		perf->tid  = u.c.tid;
+		break;
+
+	default:
 		pr_dbg3("skip unknown event: %u\n", h.type);
 
 		if (fseek(perf->fp, len, SEEK_CUR) < 0) {
@@ -323,20 +382,7 @@ again:
 		goto again;
 	}
 
-	if (fread(&ev, len, 1, perf->fp) != 1) {
-		pr_warn("reading perf data failed: %m\n");
-		perf->done = true;
-		return -1;
-	}
-
-	if (handle->needs_byte_swap) {
-		ev.sample_id.time = bswap_64(ev.sample_id.time);
-		ev.sample_id.tid  = bswap_32(ev.sample_id.tid);
-	}
-	perf->ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
-
-	perf->tid   = ev.sample_id.tid;
-	perf->time  = ev.sample_id.time;
+	perf->type = h.type;
 	perf->valid = true;
 	return 0;
 }
@@ -406,10 +452,23 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 	rec.time  = perf->time;
 	rec.magic = RECORD_MAGIC;
 
-	if (perf->ctxsw.out)
-		rec.addr = EVENT_ID_PERF_SCHED_OUT;
-	else
-		rec.addr = EVENT_ID_PERF_SCHED_IN;
+	switch (perf->type) {
+	case PERF_RECORD_FORK:
+		rec.addr = EVENT_ID_PERF_TASK;
+		break;
+	case PERF_RECORD_EXIT:
+		rec.addr = EVENT_ID_PERF_EXIT;
+		break;
+	case PERF_RECORD_COMM:
+		rec.addr = EVENT_ID_PERF_COMM;
+		break;
+	case PERF_RECORD_SWITCH:
+		if (perf->u.ctxsw.out)
+			rec.addr = EVENT_ID_PERF_SCHED_OUT;
+		else
+			rec.addr = EVENT_ID_PERF_SCHED_IN;
+		break;
+	}
 
 	return &rec;
 }

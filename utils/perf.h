@@ -16,21 +16,51 @@ struct uftrace_perf_writer {
 	int			nr_event;
 };
 
+struct sample_id {
+	uint32_t   pid;
+	uint32_t   tid;
+	uint64_t   time;
+};
+
+struct perf_task_event {
+	/*
+	 * type: PERF_RECORD_FORK (7) or PERF_RECORD_EXIT (4)
+	 */
+	uint32_t		 pid, ppid;
+	uint32_t		 tid, ptid;
+	uint64_t		 time;
+	struct sample_id	 sample_id;
+};
+
+struct perf_comm_event {
+	/*
+	 * type: PERF_RECORD_COMM (3)
+	 */
+	uint32_t		 pid, tid;
+	char			 comm[16];   /* variable length (aligned to 8) */
+	struct sample_id	 sample_id;  /* needs to be read separately */
+};
+
 struct perf_context_switch_event {
 	/*
 	 * type: PERF_RECORD_SWITCH (14)
 	 * misc: PERF_RECORD_MISC_SWITCH_OUT (0x2000)
-	 * size: 24 (including header)
+	 * size: 24
 	 */
-	struct sample_id {
-		uint32_t   pid;
-		uint32_t   tid;
-		uint64_t   time;
-	} sample_id;
+	struct sample_id	 sample_id;
 };
 
-struct uftrace_ctxsw {
+struct uftrace_ctxsw_event {
 	bool		out;
+};
+
+struct uftrace_task_event {
+	int		pid;
+	int		ppid;
+};
+
+struct uftrace_comm_event {
+	char		comm[16];
 };
 
 #ifdef HAVE_PERF_CLOCKID
@@ -71,9 +101,14 @@ struct uftrace_perf_reader {
 	FILE			*fp;
 	bool			valid;
 	bool			done;
+	int			type;
 	int			tid;
 	uint64_t		time;
-	struct uftrace_ctxsw	ctxsw;
+	union {
+		struct uftrace_ctxsw_event	ctxsw;
+		struct uftrace_task_event	task;
+		struct uftrace_comm_event	comm;
+	} u;
 };
 
 struct ftrace_file_handle;
