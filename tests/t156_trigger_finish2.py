@@ -29,3 +29,8 @@ task: 6565
         options = '-F main -T ns::ns1::foo::bar3@finish'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)
+
+    def fixup(self, cflags, result):
+        return result.replace("ns::ns1::foo::bar3() {",
+                              """ns::ns1::foo::bar3() {
+            [ 6565] |           /* linux:task-exit */""")

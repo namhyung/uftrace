@@ -13,7 +13,7 @@ uftrace file header: version       = 4
 uftrace file header: header size   = 40
 uftrace file header: endian        = 1 (little)
 uftrace file header: class         = 2 (64 bit)
-uftrace file header: features      = 0x263 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK | AUTO_ARGS)
+uftrace file header: features      = 0x363 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK | PERF_EVENT | AUTO_ARGS)
 uftrace file header: info          = 0xbff
 
 reading 5231.dat
