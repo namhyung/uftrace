@@ -349,6 +349,23 @@ struct enum_val {
 	long val;
 };
 
+static void free_enum_def(struct enum_def *e_def)
+{
+	struct enum_val *e_val;
+
+	if (e_def == NULL)
+		return;
+
+	while (!list_empty(&e_def->vals)) {
+		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
+
+		list_del(&e_val->list);
+		free(e_val->str);
+		free(e_val);
+	}
+	free(e_def);
+}
+
 static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 {
 	struct rb_node *parent = NULL;
@@ -364,7 +381,8 @@ static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 
 		cmp = strcmp(iter->name, e_def->name);
 		if (cmp == 0) {
-			pr_err_ns("added enum of same name: %s\n", e_def->name);
+			pr_dbg2("ignore same enum name: %s\n", e_def->name);
+			free_enum_def(e_def);
 			return;
 		}
 
@@ -448,23 +466,6 @@ char *get_enum_string(char *name, long val)
 		ret = convert_enum_val(e_def, val);
 
 	return ret;
-}
-
-static void free_enum_def(struct enum_def *e_def)
-{
-	struct enum_val *e_val;
-
-	if (e_def == NULL)
-		return;
-
-	while (!list_empty(&e_def->vals)) {
-		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
-
-		list_del(&e_val->list);
-		free(e_val->str);
-		free(e_val);
-	}
-	free(e_def);
 }
 
 /**
