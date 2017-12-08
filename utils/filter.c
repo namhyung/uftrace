@@ -512,8 +512,8 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 		break;
 	case 'e':
 		fmt = ARG_FMT_ENUM;
-		if (suffix[1] != ':' || !isalpha(suffix[2])) {
-			pr_use("invalid enum spec");
+		if (suffix[1] != ':' || (!isalpha(suffix[2]) && suffix[2] != '_')) {
+			pr_use("invalid enum spec: %s\n", suffix);
 			return -1;
 		}
 		arg->enum_str = xstrdup(&suffix[2]);

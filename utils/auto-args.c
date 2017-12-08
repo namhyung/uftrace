@@ -307,14 +307,14 @@ static enum enum_token_ret enum_next_token(char **str)
 	if (*tok == '\0')
 		return TOKEN_NULL;
 
-	if (ispunct(*tok)) {
+	if (ispunct(*tok) && *tok != '_') {
 		enum_token[0] = *tok;
 		enum_token[1] = '\0';
 		*str = tok + 1;
 		return TOKEN_SIGN;
 	}
 
-	if (isalpha(*tok))
+	if (isalpha(*tok) || *tok == '_')
 		ret = TOKEN_STR;
 	else if (isdigit(*tok))
 		ret = TOKEN_NUM;
