@@ -204,6 +204,32 @@ static char * fill_enum_str(Dwarf_Die *die)
 	return str;
 }
 
+static char * make_enum_name(Dwarf_Die *die)
+{
+	Dwarf_Die cudie;
+	const char *cu_name = NULL;
+	unsigned long off;
+	char *enum_name;
+	char *tmp;
+
+	if (dwarf_diecu (die, &cudie, NULL, NULL))
+		cu_name = dwarf_diename(&cudie);
+
+	if (cu_name == NULL)
+		cu_name = "unnamed";
+
+	off = dwarf_cuoffset(die);
+
+	xasprintf(&enum_name, "%s_%lx", basename(cu_name), off);
+
+	/* replace forbidden characters */
+	tmp = enum_name;
+	while ((tmp = strpbrk(tmp, "+-.() ")) != NULL)
+		*tmp++ = '_';
+
+	return enum_name;
+}
+
 static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 {
 	Dwarf_Die ref;
@@ -245,7 +271,11 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 				return false;  /* use default format */
 
 			td->fmt = ARG_FMT_ENUM;
-			td->enum_name = xstrdup(dwarf_diename(die));
+			tname = dwarf_diename(die);
+			if (tname)
+				td->enum_name = xstrdup(tname);
+			else
+				td->enum_name = make_enum_name(die);
 
 			xasprintf(&enum_def, "enum %s { %s }",
 				  td->enum_name, enum_str);
