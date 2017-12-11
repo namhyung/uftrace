@@ -513,8 +513,13 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			}
 			/* fall through */
 		case ARG_FMT_SINT:
-		case ARG_FMT_UINT:
 		case ARG_FMT_HEX:
+			idx = ffs(spec->size) - 1;
+			break;
+		case ARG_FMT_UINT:
+			memcpy(val.v, data, spec->size);
+			if ((unsigned long)val.i > 100000UL)
+				fmt = 'x';
 			idx = ffs(spec->size) - 1;
 			break;
 		default:

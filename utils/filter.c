@@ -397,6 +397,9 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 
 	suffix++;
 	switch (*suffix) {
+	case 'd':
+		fmt = ARG_FMT_AUTO;
+		break;
 	case 'i':
 		fmt = ARG_FMT_SINT;
 		break;
