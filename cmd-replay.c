@@ -85,6 +85,13 @@ static void print_elapsed(struct field_data *fd)
 	print_time_unit(elapsed);
 }
 
+static void print_task(struct field_data *fd)
+{
+	struct ftrace_task_handle *task = fd->task;
+
+	pr_out("%*s", 15, task->t->comm);
+}
+
 static struct display_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
@@ -144,6 +151,15 @@ static struct display_field field_elapsed = {
 	.list    = LIST_HEAD_INIT(field_elapsed.list),
 };
 
+static struct display_field field_task = {
+	.id      = REPLAY_F_TASK,
+	.name    = "task",
+	.header  = "      TASK NAME",
+	.length  = 15,
+	.print   = print_task,
+	.list    = LIST_HEAD_INIT(field_task.list),
+};
+
 /* index of this table should be matched to replay_field_id */
 static struct display_field *field_table[] = {
 	&field_duration,
@@ -152,6 +168,7 @@ static struct display_field *field_table[] = {
 	&field_time,
 	&field_delta,
 	&field_elapsed,
+	&field_task,
 };
 
 static void print_field(struct ftrace_task_handle *task,
