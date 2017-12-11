@@ -172,6 +172,11 @@ ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+
+enum uft_access_flag {
+	F_OK = 0, X_OK = 1, W_OK = 2, R_OK = 4,
+};
+int access(const char *pathname, enum uft_access_flag mode);
 ////////////////////////////////////////////////////////////////////////////////
 
 
