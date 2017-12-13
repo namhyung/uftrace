@@ -735,6 +735,15 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 		return -1;
 	}
 
+	if (unlikely(mtdp->in_exception)) {
+		unsigned long frame_addr;
+
+		frame_addr = (unsigned long)__builtin_frame_address(0);
+
+		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mtdp->in_exception = false;
+	}
+
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
 	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
@@ -816,6 +825,15 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
+
+	if (unlikely(mtdp->in_exception)) {
+		unsigned long frame_addr;
+
+		frame_addr = (unsigned long)__builtin_frame_address(0);
+
+		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mtdp->in_exception = false;
+	}
 
 	/* 
 	 * recording arguments and return value is not supported.
@@ -920,6 +938,15 @@ void xray_entry(unsigned long parent, unsigned long child,
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
+
+	if (unlikely(mtdp->in_exception)) {
+		unsigned long frame_addr;
+
+		frame_addr = (unsigned long)__builtin_frame_address(0);
+
+		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mtdp->in_exception = false;
+	}
 
 	/* 'recover' trigger is only for -pg entry */
 	tr.flags &= ~TRIGGER_FL_RECOVER;

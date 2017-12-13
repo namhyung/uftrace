@@ -85,6 +85,7 @@ struct mcount_thread_data {
 	int				idx;
 	int				record_idx;
 	bool				recursion_guard;
+	bool				in_exception;
 	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
@@ -210,6 +211,8 @@ extern void build_debug_domain(char *dbg_domain_str);
 
 extern void mcount_rstack_restore(struct mcount_thread_data *mtdp);
 extern void mcount_rstack_reset(struct mcount_thread_data *mtdp);
+extern void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
+					  unsigned long frame_addr);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void get_new_shmem_buffer(struct mcount_thread_data *mtdp);
