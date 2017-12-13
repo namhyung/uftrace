@@ -79,17 +79,21 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
  */
 static int (*real_backtrace)(void **buffer, int sz);
 static void (*real_cxa_throw)(void *exc, void *type, void *dest);
+static void (*real_cxa_rethrow)(void);
 static void (*real_cxa_end_catch)(void);
 static void * (*real_dlopen)(const char *filename, int flags);
 static __noreturn void (*real_pthread_exit)(void *retval);
+static void (*real_unwind_resume)(void *exc);
 
 void mcount_hook_functions(void)
 {
 	real_backtrace		= dlsym(RTLD_NEXT, "backtrace");
 	real_cxa_throw		= dlsym(RTLD_NEXT, "__cxa_throw");
+	real_cxa_rethrow	= dlsym(RTLD_NEXT, "__cxa_rethrow");
 	real_cxa_end_catch	= dlsym(RTLD_NEXT, "__cxa_end_catch");
 	real_dlopen		= dlsym(RTLD_NEXT, "dlopen");
 	real_pthread_exit	= dlsym(RTLD_NEXT, "pthread_exit");
+	real_unwind_resume	= dlsym(RTLD_NEXT, "_Unwind_Resume");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -129,6 +133,44 @@ __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 	}
 
 	real_cxa_throw(exception, type, dest);
+}
+
+__visible_default void __cxa_rethrow(void)
+{
+	struct mcount_thread_data *mtdp;
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp)) {
+		pr_dbg("exception rethrown from [%d]\n", mtdp->idx);
+
+		/*
+		 * restore return addresses so that it can unwind stack
+		 * frames safely during the exception handling.
+		 * It pairs to __cxa_end_catch().
+		 */
+		mcount_rstack_restore(mtdp);
+	}
+
+	real_cxa_rethrow();
+}
+
+__visible_default void _Unwind_Resume(void *exception)
+{
+	struct mcount_thread_data *mtdp;
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp)) {
+		pr_dbg("exception resumed on [%d]\n", mtdp->idx);
+
+		/*
+		 * restore return addresses so that it can unwind stack
+		 * frames safely during the exception handling.
+		 * It pairs to __cxa_end_catch().
+		 */
+		mcount_rstack_restore(mtdp);
+	}
+
+	real_unwind_resume(exception);
 }
 
 __visible_default void __cxa_end_catch(void)

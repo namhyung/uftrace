@@ -361,6 +361,7 @@ static const char *skip_syms[] = {
 	"_mcleanup",
 	"__libc_start_main",
 	"__cxa_throw",
+	"__cxa_rethrow",
 	"__cxa_begin_catch",
 	"__cxa_end_catch",
 	"__cxa_finalize",
