@@ -229,7 +229,10 @@ class TestBase:
                 if ln.startswith('   ['):
                     result.append(ln.split('(')[0])  # remove '(addr)' part
             if mode == 2:
-                result.append(ln.split(':')[1])      # remove time part
+                if " : " in ln:
+                    result.append(ln.split(':')[1])  # remove time part
+                else:
+                    result.append(ln)
 
         return '\n'.join(result)
 
