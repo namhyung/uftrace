@@ -12,13 +12,18 @@ struct field_data {
 };
 
 enum display_field_id {
-	REPLAY_F_NONE           = -1,
-	REPLAY_F_DURATION,
+	DISPLAY_F_NONE          = -1,
+
+	REPLAY_F_DURATION       = 0,
 	REPLAY_F_TID,
 	REPLAY_F_ADDR,
 	REPLAY_F_TIMESTAMP,
 	REPLAY_F_TIMEDELTA,
 	REPLAY_F_ELAPSED,
+
+	GRAPH_F_TOTAL_TIME      = 0,
+	GRAPH_F_SELF_TIME,
+	GRAPH_F_ADDR,
 };
 
 struct display_field {
