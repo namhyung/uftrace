@@ -29,6 +29,12 @@ enum replay_field_id {
 	REPLAY_F_ELAPSED,
 };
 
+struct field_data {
+	struct ftrace_task_handle *task;
+	struct fstack *fstack;
+	void *arg;
+};
+
 struct replay_field {
 	struct list_head list;
 	enum replay_field_id id;
@@ -36,17 +42,17 @@ struct replay_field {
 	const char *header;
 	int length;
 	bool used;
-	void (*print)(struct ftrace_task_handle *task,
-		      struct fstack *fstack, void *arg);
+	void (*print)(struct field_data *fd);
 };
 
 static LIST_HEAD(output_fields);
 
 #define NO_TIME  (void *)1  /* to suppress duration */
 
-static void print_duration(struct ftrace_task_handle *task,
-			   struct fstack *fstack, void *arg)
+static void print_duration(struct field_data *fd)
 {
+	struct fstack *fstack = fd->fstack;
+	void *arg = fd->arg;
 	uint64_t d = 0;
 
 	/* any non-NULL argument suppresses the output */
@@ -56,15 +62,16 @@ static void print_duration(struct ftrace_task_handle *task,
 	print_time_unit(d);
 }
 
-static void print_tid(struct ftrace_task_handle *task,
-		      struct fstack *fstack, void *arg)
+static void print_tid(struct field_data *fd)
 {
+	struct ftrace_task_handle *task = fd->task;
 	pr_out("[%6d]", task->tid);
 }
 
-static void print_addr(struct ftrace_task_handle *task,
-		       struct fstack *fstack, void *arg)
+static void print_addr(struct field_data *fd)
 {
+	struct fstack *fstack = fd->fstack;
+
 	/* uftrace records (truncated) 48-bit addresses */
 	int width = sizeof(long) == 4 ? 8 : 12;
 
@@ -74,18 +81,19 @@ static void print_addr(struct ftrace_task_handle *task,
 		pr_out("%*lx", width, fstack->addr);
 }
 
-static void print_timestamp(struct ftrace_task_handle *task,
-			    struct fstack *fstack, void *arg)
+static void print_timestamp(struct field_data *fd)
 {
+	struct ftrace_task_handle *task = fd->task;
+
 	uint64_t  sec = task->timestamp / NSEC_PER_SEC;
 	uint64_t nsec = task->timestamp % NSEC_PER_SEC;
 
 	pr_out("%8"PRIu64".%09"PRIu64, sec, nsec);
 }
 
-static void print_timedelta(struct ftrace_task_handle *task,
-			    struct fstack *fstack, void *arg)
+static void print_timedelta(struct field_data *fd)
 {
+	struct ftrace_task_handle *task = fd->task;
 	uint64_t delta = 0;
 
 	if (task->timestamp_last)
@@ -94,9 +102,9 @@ static void print_timedelta(struct ftrace_task_handle *task,
 	print_time_unit(delta);
 }
 
-static void print_elapsed(struct ftrace_task_handle *task,
-			  struct fstack *fstack, void *arg)
+static void print_elapsed(struct field_data *fd)
 {
+	struct ftrace_task_handle *task = fd->task;
 	uint64_t elapsed = task->timestamp - task->h->time_range.first;
 
 	print_time_unit(elapsed);
@@ -189,13 +197,18 @@ static void print_field(struct ftrace_task_handle *task,
 			struct fstack *fstack, void *arg)
 {
 	struct replay_field *field;
+	struct field_data fd = {
+		.task = task,
+		.fstack = fstack,
+		.arg = arg,
+	};
 
 	if (list_empty(&output_fields))
 		return;
 
 	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list) {
-		field->print(task, fstack, arg);
+		field->print(&fd);
 		pr_out(" ");
 	}
 	pr_out("|");
@@ -299,11 +312,14 @@ static void print_backtrace(struct ftrace_task_handle *task)
 
 	for (i = 0; i < task->stack_count - 1; i++) {
 		struct replay_field *field;
-		struct fstack *fstack;
 		struct sym *sym;
 		char *name;
+		struct fstack *fstack = &task->func_stack[i];
+		struct field_data fd = {
+			.task = task,
+			.fstack = fstack,
+		};
 
-		fstack = &task->func_stack[i];
 		sym = task_find_sym_addr(sessions, task,
 					 fstack->total_time, fstack->addr);
 
@@ -312,7 +328,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 			if (field->id == REPLAY_F_DURATION)
 				pr_out("%*s", field->length, "backtrace");
 			else
-				field->print(task, fstack, NULL);
+				field->print(&fd);
 			pr_out(" ");
 		}
 		if (!list_empty(&output_fields))
