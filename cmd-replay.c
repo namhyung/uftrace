@@ -193,38 +193,44 @@ struct replay_field *field_table[] = {
 	&field_elapsed,
 };
 
+static int print_field_data(struct field_data *fd)
+{
+	struct replay_field *field;
+
+	if (list_empty(&output_fields))
+		return 0;
+
+	pr_out(" ");
+	list_for_each_entry(field, &output_fields, list) {
+		field->print(fd);
+		pr_out(" ");
+	}
+	return 1;
+}
+
 static void print_field(struct ftrace_task_handle *task,
 			struct fstack *fstack, void *arg)
 {
-	struct replay_field *field;
 	struct field_data fd = {
 		.task = task,
 		.fstack = fstack,
 		.arg = arg,
 	};
-
-	if (list_empty(&output_fields))
-		return;
-
-	pr_out(" ");
-	list_for_each_entry(field, &output_fields, list) {
-		field->print(&fd);
-		pr_out(" ");
-	}
-	pr_out("|");
+	if (print_field_data(&fd))
+		pr_out("|");
 }
 
-static void print_empty_field(void)
+static int print_empty_field(void)
 {
 	struct replay_field *field;
 
 	if (list_empty(&output_fields))
-		return;
+		return 0;
 
 	pr_out(" ");
 	list_for_each_entry(field, &output_fields, list)
 		pr_out("%*s ", field->length, "");
-	pr_out("|");
+	return 1;
 }
 
 static void add_field(struct replay_field *field)
@@ -431,7 +437,8 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 static void print_task_newline(int current_tid)
 {
 	if (prev_tid != -1 && current_tid != prev_tid) {
-		print_empty_field();
+		if (print_empty_field())
+			pr_out("|");
 		pr_out("\n");
 	}
 
@@ -898,7 +905,8 @@ out:
 
 static void print_warning(struct ftrace_task_handle *task)
 {
-	print_empty_field();
+	if (print_empty_field())
+		pr_out("|");
 	pr_red(" %*s/* inverted time: broken data? */\n",
 	       (task->display_depth + 1) * 2, "");
 }
