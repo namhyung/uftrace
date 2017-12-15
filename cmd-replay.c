@@ -166,64 +166,16 @@ static void print_field(struct ftrace_task_handle *task,
 		pr_out("| ");
 }
 
-static void setup_field(struct opts *opts)
+static void setup_default_field(struct list_head *fields, struct opts *opts)
 {
-	struct display_field *field;
-	unsigned i;
-	char *str, *p, *s;
-
-	/* default fields */
-	if (opts->fields == NULL) {
-		if (opts->range.start > 0 || opts->range.stop > 0) {
-			if (opts->range.start_elapsed || opts->range.stop_elapsed)
-				add_field(&output_fields,
-					  field_table[REPLAY_F_ELAPSED]);
-			else
-				add_field(&output_fields,
-					  field_table[REPLAY_F_TIMESTAMP]);
-		}
-		add_field(&output_fields, field_table[REPLAY_F_DURATION]);
-		add_field(&output_fields, field_table[REPLAY_F_TID]);
-		return;
+	if (opts->range.start > 0 || opts->range.stop > 0) {
+		if (opts->range.start_elapsed || opts->range.stop_elapsed)
+			add_field(fields, field_table[REPLAY_F_ELAPSED]);
+		else
+			add_field(fields, field_table[REPLAY_F_TIMESTAMP]);
 	}
-
-	if (!strcmp(opts->fields, "none"))
-		return;
-
-	s = str = xstrdup(opts->fields);
-
-	if (*str == '+') {
-		/* prepend default fields */
-		add_field(&output_fields, field_table[REPLAY_F_DURATION]);
-		add_field(&output_fields, field_table[REPLAY_F_TID]);
-		s++;
-	}
-
-	p = strtok(s, ",");
-	while (p) {
-		for (i = 0; i < ARRAY_SIZE(field_table); i++) {
-			field = field_table[i];
-
-			if (strcmp(field->name, p))
-				continue;
-
-			add_field(&output_fields, field);
-			break;
-		}
-
-		if (i == ARRAY_SIZE(field_table)) {
-			pr_out("uftrace: Unknown field name '%s'\n", p);
-			pr_out("uftrace:   Possible fields are:");
-			for (i = 0; i < ARRAY_SIZE(field_table); i++)
-				pr_out(" %s", field_table[i]->name);
-			pr_out("\n");
-			exit(1);
-		}
-
-		p = strtok(NULL, ",");
-	}
-
-	free(str);
+	add_field(fields, field_table[REPLAY_F_DURATION]);
+	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
 static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
@@ -946,7 +898,8 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	fstack_setup_filters(opts, &handle);
-	setup_field(opts);
+	setup_field(&output_fields, opts, &setup_default_field,
+		    field_table, ARRAY_SIZE(field_table));
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
 		print_header(&output_fields);
