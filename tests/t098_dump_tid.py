@@ -64,5 +64,5 @@ reading 5188.dat
             result = result.replace("2 (64 bit)", "1 (32 bit)")
         p = sp.Popen(['file', 't-' + self.name], stdout=sp.PIPE)
         if 'BuildID' not in p.communicate()[0].decode(errors='ignore'):
-            result = result.replace("0x3ff", "0x3fd")
+            result = result.replace("0xbff", "0xbfd")
         return result
