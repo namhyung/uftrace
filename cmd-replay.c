@@ -85,7 +85,7 @@ static void print_elapsed(struct field_data *fd)
 	print_time_unit(elapsed);
 }
 
-static struct replay_field field_duration = {
+static struct display_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
 	.header  = " DURATION ",
@@ -94,7 +94,7 @@ static struct replay_field field_duration = {
 	.list    = LIST_HEAD_INIT(field_duration.list),
 };
 
-static struct replay_field field_tid = {
+static struct display_field field_tid = {
 	.id      = REPLAY_F_TID,
 	.name    = "tid",
 	.header  = "   TID  ",
@@ -103,7 +103,7 @@ static struct replay_field field_tid = {
 	.list    = LIST_HEAD_INIT(field_tid.list),
 };
 
-static struct replay_field field_addr = {
+static struct display_field field_addr = {
 	.id      = REPLAY_F_ADDR,
 	.name    = "addr",
 #if __SIZEOF_LONG == 4
@@ -117,7 +117,7 @@ static struct replay_field field_addr = {
 	.list    = LIST_HEAD_INIT(field_addr.list),
 };
 
-static struct replay_field field_time = {
+static struct display_field field_time = {
 	.id      = REPLAY_F_TIMESTAMP,
 	.name    = "time",
 	.header  = "     TIMESTAMP    ",
@@ -126,7 +126,7 @@ static struct replay_field field_time = {
 	.list    = LIST_HEAD_INIT(field_time.list),
 };
 
-static struct replay_field field_delta = {
+static struct display_field field_delta = {
 	.id      = REPLAY_F_TIMEDELTA,
 	.name    = "delta",
 	.header  = " TIMEDELTA",
@@ -135,7 +135,7 @@ static struct replay_field field_delta = {
 	.list    = LIST_HEAD_INIT(field_delta.list),
 };
 
-static struct replay_field field_elapsed = {
+static struct display_field field_elapsed = {
 	.id      = REPLAY_F_ELAPSED,
 	.name    = "elapsed",
 	.header  = "  ELAPSED ",
@@ -145,7 +145,7 @@ static struct replay_field field_elapsed = {
 };
 
 /* index of this table should be matched to replay_field_id */
-static struct replay_field *field_table[] = {
+static struct display_field *field_table[] = {
 	&field_duration,
 	&field_tid,
 	&field_addr,
@@ -168,7 +168,7 @@ static void print_field(struct ftrace_task_handle *task,
 
 static void setup_field(struct opts *opts)
 {
-	struct replay_field *field;
+	struct display_field *field;
 	unsigned i;
 	char *str, *p, *s;
 
@@ -243,7 +243,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	int i;
 
 	for (i = 0; i < task->stack_count - 1; i++) {
-		struct replay_field *field;
+		struct display_field *field;
 		struct sym *sym;
 		char *name;
 		struct fstack *fstack = &task->func_stack[i];

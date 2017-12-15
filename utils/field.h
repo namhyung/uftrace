@@ -11,7 +11,7 @@ struct field_data {
 	void *arg;
 };
 
-enum replay_field_id {
+enum display_field_id {
 	REPLAY_F_NONE           = -1,
 	REPLAY_F_DURATION,
 	REPLAY_F_TID,
@@ -21,9 +21,9 @@ enum replay_field_id {
 	REPLAY_F_ELAPSED,
 };
 
-struct replay_field {
+struct display_field {
 	struct list_head list;
-	enum replay_field_id id;
+	enum display_field_id id;
 	const char *name;
 	const char *header;
 	int length;
@@ -34,6 +34,6 @@ struct replay_field {
 void print_header(struct list_head *output_fields);
 int print_field_data(struct list_head *output_fields, struct field_data *fd);
 int print_empty_field(struct list_head *output_fields);
-void add_field(struct list_head *output_fields, struct replay_field *field);
+void add_field(struct list_head *output_fields, struct display_field *field);
 
 #endif /* UFTRACE_DISPLAY_FIELD_H */

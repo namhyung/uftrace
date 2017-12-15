@@ -4,7 +4,7 @@
 
 void print_header(struct list_head *output_fields)
 {
-	struct replay_field *field;
+	struct display_field *field;
 
 	/* do not print anything if not needed */
 	if (list_empty(output_fields))
@@ -19,7 +19,7 @@ void print_header(struct list_head *output_fields)
 
 int print_field_data(struct list_head *output_fields, struct field_data *fd)
 {
-	struct replay_field *field;
+	struct display_field *field;
 
 	if (list_empty(output_fields))
 		return 0;
@@ -34,7 +34,7 @@ int print_field_data(struct list_head *output_fields, struct field_data *fd)
 
 int print_empty_field(struct list_head *output_fields)
 {
-	struct replay_field *field;
+	struct display_field *field;
 
 	if (list_empty(output_fields))
 		return 0;
@@ -45,7 +45,7 @@ int print_empty_field(struct list_head *output_fields)
 	return 1;
 }
 
-void add_field(struct list_head *output_fields, struct replay_field *field)
+void add_field(struct list_head *output_fields, struct display_field *field)
 {
 	if (field->used)
 		return;
