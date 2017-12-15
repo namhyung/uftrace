@@ -12,38 +12,13 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 #include "utils/kernel.h"
+#include "utils/field.h"
 
 #include "libtraceevent/event-parse.h"
 
 
 static int column_index;
 static int prev_tid = -1;
-
-enum replay_field_id {
-	REPLAY_F_NONE           = -1,
-	REPLAY_F_DURATION,
-	REPLAY_F_TID,
-	REPLAY_F_ADDR,
-	REPLAY_F_TIMESTAMP,
-	REPLAY_F_TIMEDELTA,
-	REPLAY_F_ELAPSED,
-};
-
-struct field_data {
-	struct ftrace_task_handle *task;
-	struct fstack *fstack;
-	void *arg;
-};
-
-struct replay_field {
-	struct list_head list;
-	enum replay_field_id id;
-	const char *name;
-	const char *header;
-	int length;
-	bool used;
-	void (*print)(struct field_data *fd);
-};
 
 static LIST_HEAD(output_fields);
 
@@ -169,23 +144,8 @@ static struct replay_field field_elapsed = {
 	.list    = LIST_HEAD_INIT(field_elapsed.list),
 };
 
-static void print_header(void)
-{
-	struct replay_field *field;
-
-	/* do not print anything if not needed */
-	if (list_empty(&output_fields))
-		return;
-
-	pr_out("#");
-	list_for_each_entry(field, &output_fields, list)
-		pr_out("%s ", field->header);
-
-	pr_out("  FUNCTION\n");
-}
-
 /* index of this table should be matched to replay_field_id */
-struct replay_field *field_table[] = {
+static struct replay_field *field_table[] = {
 	&field_duration,
 	&field_tid,
 	&field_addr,
@@ -193,21 +153,6 @@ struct replay_field *field_table[] = {
 	&field_delta,
 	&field_elapsed,
 };
-
-static int print_field_data(struct field_data *fd)
-{
-	struct replay_field *field;
-
-	if (list_empty(&output_fields))
-		return 0;
-
-	pr_out(" ");
-	list_for_each_entry(field, &output_fields, list) {
-		field->print(fd);
-		pr_out(" ");
-	}
-	return 1;
-}
 
 static void print_field(struct ftrace_task_handle *task,
 			struct fstack *fstack, void *arg)
@@ -217,30 +162,8 @@ static void print_field(struct ftrace_task_handle *task,
 		.fstack = fstack,
 		.arg = arg,
 	};
-	if (print_field_data(&fd))
+	if (print_field_data(&output_fields, &fd))
 		pr_out("|");
-}
-
-static int print_empty_field(void)
-{
-	struct replay_field *field;
-
-	if (list_empty(&output_fields))
-		return 0;
-
-	pr_out(" ");
-	list_for_each_entry(field, &output_fields, list)
-		pr_out("%*s ", field->length, "");
-	return 1;
-}
-
-static void add_field(struct replay_field *field)
-{
-	if (field->used)
-		return;
-
-	field->used = true;
-	list_add_tail(&field->list, &output_fields);
 }
 
 static void setup_field(struct opts *opts)
@@ -253,12 +176,14 @@ static void setup_field(struct opts *opts)
 	if (opts->fields == NULL) {
 		if (opts->range.start > 0 || opts->range.stop > 0) {
 			if (opts->range.start_elapsed || opts->range.stop_elapsed)
-				add_field(field_table[REPLAY_F_ELAPSED]);
+				add_field(&output_fields,
+					  field_table[REPLAY_F_ELAPSED]);
 			else
-				add_field(field_table[REPLAY_F_TIMESTAMP]);
+				add_field(&output_fields,
+					  field_table[REPLAY_F_TIMESTAMP]);
 		}
-		add_field(field_table[REPLAY_F_DURATION]);
-		add_field(field_table[REPLAY_F_TID]);
+		add_field(&output_fields, field_table[REPLAY_F_DURATION]);
+		add_field(&output_fields, field_table[REPLAY_F_TID]);
 		return;
 	}
 
@@ -269,8 +194,8 @@ static void setup_field(struct opts *opts)
 
 	if (*str == '+') {
 		/* prepend default fields */
-		add_field(field_table[REPLAY_F_DURATION]);
-		add_field(field_table[REPLAY_F_TID]);
+		add_field(&output_fields, field_table[REPLAY_F_DURATION]);
+		add_field(&output_fields, field_table[REPLAY_F_TID]);
 		s++;
 	}
 
@@ -282,7 +207,7 @@ static void setup_field(struct opts *opts)
 			if (strcmp(field->name, p))
 				continue;
 
-			add_field(field);
+			add_field(&output_fields, field);
 			break;
 		}
 
@@ -438,7 +363,7 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 static void print_task_newline(int current_tid)
 {
 	if (prev_tid != -1 && current_tid != prev_tid) {
-		if (print_empty_field())
+		if (print_empty_field(&output_fields))
 			pr_out("|");
 		pr_out("\n");
 	}
@@ -906,7 +831,7 @@ out:
 
 static void print_warning(struct ftrace_task_handle *task)
 {
-	if (print_empty_field())
+	if (print_empty_field(&output_fields))
 		pr_out("|");
 	pr_red(" %*s/* inverted time: broken data? */\n",
 	       (task->display_depth + 1) * 2, "");
@@ -1024,7 +949,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	setup_field(opts);
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
-		print_header();
+		print_header(&output_fields);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rstack = task->rstack;
