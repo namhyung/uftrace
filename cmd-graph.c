@@ -465,7 +465,7 @@ static void pr_indent(bool *indent_mask, int indent, bool line)
 
 static void print_graph_node(struct uftrace_graph *graph,
 			     struct graph_node *node, bool *indent_mask,
-			     int indent, bool needs_line)
+			     int indent, bool needs_line, bool graph_only)
 {
 	struct sym *sym;
 	char *symname;
@@ -484,9 +484,11 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	symname = symbol_getname(sym, node->addr);
 
-	pr_out(" ");
-	print_time_unit(node->time);
-	pr_out(" : ");
+	if (!graph_only) {
+		pr_out(" ");
+		print_time_unit(node->time);
+		pr_out(" : ");
+	}
 	pr_indent(indent_mask, indent, needs_line);
 
 	if (full_graph && node == &graph->root)
@@ -506,11 +508,13 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	needs_line = (node->nr_edges > 1);
 	list_for_each_entry(child, &node->head, list) {
-		print_graph_node(graph, child, indent_mask, indent, needs_line);
+		print_graph_node(graph, child, indent_mask, indent, needs_line,
+				 graph_only);
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
-			pr_out("%*s: ", 12, "");
+			if (!graph_only)
+				pr_out("%*s: ", 12, "");
 			pr_indent(indent_mask, indent, false);
 			pr_out("\n");
 		}
@@ -534,7 +538,8 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 	pr_out("# Function Call Graph for '%s' (session: %.16s)\n",
 	       graph->func, graph->sess->sid);
 
-	if (!full_graph && !list_empty(&graph->bt_list)) {
+	if (!opts->graph_only && !full_graph &&
+	    !list_empty(&graph->bt_list)) {
 		pr_out("=============== BACKTRACE ===============\n");
 		print_backtrace(graph);
 	}
@@ -543,7 +548,7 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
-				 graph->root.nr_edges > 1);
+				 graph->root.nr_edges > 1, opts->graph_only);
 		free(indent_mask);
 		pr_out("\n");
 	}
