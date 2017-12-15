@@ -4,6 +4,7 @@ from runtest import TestBase
 import subprocess as sp
 
 TDIR='xxx'
+NOFILTERS='-N __monstartup -N __cxa_atexit'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -29,7 +30,7 @@ class TestCase(TestBase):
 """, sort='graph')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record %s -d %s %s' % (TestBase.ftrace, NOFILTERS, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
