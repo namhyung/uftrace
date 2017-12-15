@@ -5,15 +5,15 @@ from runtest import TestBase
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc',
-""" main() {
-   a() {
-     b() {
-       c() {
-         getpid();
-       } /* c */
-     } /* b */
-   } /* a */
- } /* main */
+"""main() {
+  a() {
+    b() {
+      c() {
+        getpid();
+      } /* c */
+    } /* b */
+  } /* a */
+} /* main */
 """)
 
     def runcmd(self):

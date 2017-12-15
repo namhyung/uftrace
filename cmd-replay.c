@@ -163,7 +163,7 @@ static void print_field(struct ftrace_task_handle *task,
 		.arg = arg,
 	};
 	if (print_field_data(&output_fields, &fd))
-		pr_out("|");
+		pr_out("| ");
 }
 
 static void setup_field(struct opts *opts)
@@ -264,10 +264,10 @@ static void print_backtrace(struct ftrace_task_handle *task)
 			pr_out(" ");
 		}
 		if (!list_empty(&output_fields))
-			pr_out("|");
+			pr_out("| ");
 
 		name = symbol_getname(sym, fstack->addr);
-		pr_gray(" /* [%2d] %s */\n", i, name);
+		pr_gray("/* [%2d] %s */\n", i, name);
 		symbol_putname(sym, name);
 	}
 }
@@ -364,7 +364,7 @@ static void print_task_newline(int current_tid)
 {
 	if (prev_tid != -1 && current_tid != prev_tid) {
 		if (print_empty_field(&output_fields))
-			pr_out("|");
+			pr_out("| ");
 		pr_out("\n");
 	}
 
@@ -692,7 +692,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			print_field(task, fstack, NULL);
-			pr_out(" %*s", depth * 2, "");
+			pr_out("%*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
 				pr_out("%s%s\n", args, retval);
@@ -707,7 +707,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 		else {
 			/* function entry */
 			print_field(task, fstack, NO_TIME);
-			pr_out(" %*s", depth * 2, "");
+			pr_out("%*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
 				pr_out("%s {\n", args);
@@ -743,7 +743,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				print_task_newline(task->tid);
 
 			print_field(task, fstack, NULL);
-			pr_out(" %*s}%s", depth * 2, "", retval);
+			pr_out("%*s}%s", depth * 2, "", retval);
 			if (opts->comment)
 				pr_gray(" /* %s */\n", symname);
 			else
@@ -769,10 +769,10 @@ lost:
 		print_field(task, NULL, NO_TIME);
 
 		if (losts > 0)
-			pr_red(" %*s/* LOST %d records!! */\n",
+			pr_red("%*s/* LOST %d records!! */\n",
 			       depth * 2, "", losts);
 		else /* kernel sometimes have unknown count */
-			pr_red(" %*s/* LOST some records!! */\n",
+			pr_red("%*s/* LOST some records!! */\n",
 			       depth * 2, "");
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
@@ -820,7 +820,7 @@ lost:
 		else
 			print_field(task, NULL, NO_TIME);
 
-		pr_color(task->event_color, " %*s/* ", depth * 2, "");
+		pr_color(task->event_color, "%*s/* ", depth * 2, "");
 		print_event(task, &rec, task->event_color);
 		pr_color(task->event_color, " */\n");
 	}
@@ -832,7 +832,7 @@ out:
 static void print_warning(struct ftrace_task_handle *task)
 {
 	if (print_empty_field(&output_fields))
-		pr_out("|");
+		pr_out("| ");
 	pr_red(" %*s/* inverted time: broken data? */\n",
 	       (task->display_depth + 1) * 2, "");
 }
