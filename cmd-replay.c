@@ -173,14 +173,15 @@ static void print_header(void)
 {
 	struct replay_field *field;
 
+	/* do not print anything if not needed */
+	if (list_empty(&output_fields))
+		return;
+
 	pr_out("#");
 	list_for_each_entry(field, &output_fields, list)
 		pr_out("%s ", field->header);
 
-	if (!list_empty(&output_fields))
-		pr_out(" ");
-
-	pr_out(" FUNCTION\n");
+	pr_out("  FUNCTION\n");
 }
 
 /* index of this table should be matched to replay_field_id */

@@ -5,8 +5,7 @@ from runtest import TestBase
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc',
-"""# FUNCTION
- main() {
+""" main() {
    a() {
      b() {
        c() {
