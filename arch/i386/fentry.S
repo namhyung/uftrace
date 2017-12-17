@@ -20,7 +20,7 @@ GLOBAL(__fentry__)
 	jne 1f
 
 	/* hijack return address */
-	call __x86.get_pc_thunk.ax
+	call get_pc_thunk
 	addl $_GLOBAL_OFFSET_TABLE_, %eax
 	addl $fentry_return@GOTOFF, %eax
 	movl %eax, 36(%esp)
