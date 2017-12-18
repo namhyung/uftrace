@@ -90,6 +90,28 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 			break;
 
 		if ((unsigned long)rstack->parent_loc > frame_addr) {
+			/*
+			 * there might be tail call optimizations in the
+			 * middle of the exception handling path.
+			 * in that case, we need to keep the original
+			 * mtdp->idx but update parent address of the
+			 * first rstack of the tail call chain.
+			 */
+			int orig_idx = idx;
+
+			while (idx > 0) {
+				struct mcount_ret_stack *tail_call;
+				tail_call = &mtdp->rstack[idx - 1];
+
+				if (rstack->parent_loc != tail_call->parent_loc)
+					break;
+
+				idx--;
+				rstack = tail_call;
+				pr_dbg2("exception in tail call at [%d]\n", idx + 1);
+			}
+			idx = orig_idx;
+
 			/* do not overwrite current return address */
 			rstack->parent_ip = *rstack->parent_loc;
 			break;
@@ -219,6 +241,7 @@ __visible_default void _Unwind_Resume(void *exception)
 __visible_default void * __cxa_begin_catch(void *exception)
 {
 	struct mcount_thread_data *mtdp;
+	void *obj = real_cxa_begin_catch(exception);
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
@@ -236,7 +259,7 @@ __visible_default void * __cxa_begin_catch(void *exception)
 		mtdp->in_exception = false;
 	}
 
-	return real_cxa_begin_catch(exception);
+	return obj;
 }
 
 __visible_default void __cxa_end_catch(void)
