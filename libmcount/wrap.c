@@ -222,9 +222,16 @@ __visible_default void * __cxa_begin_catch(void *exception)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
+		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
-		frame_addr = (unsigned long)__builtin_frame_address(0);
+		frame_ptr = __builtin_frame_address(0);
+		frame_addr = *frame_ptr;  /* XXX: probably dangerous */
+
+		/* basic sanity check */
+		if (frame_addr < (unsigned long)frame_ptr)
+			frame_addr = (unsigned long)frame_ptr;
+
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}

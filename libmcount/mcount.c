@@ -738,7 +738,12 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long frame_addr;
 
-		frame_addr = (unsigned long)__builtin_frame_address(0);
+		/* same as __builtin_frame_addr(2) but avoid warning */
+		frame_addr = parent_loc[-1];
+
+		/* basic sanity check */
+		if (frame_addr < (unsigned long)parent_loc)
+			frame_addr = (unsigned long)(parent_loc - 1);
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
@@ -827,9 +832,15 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
 	if (unlikely(mtdp->in_exception)) {
+		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
-		frame_addr = (unsigned long)__builtin_frame_address(0);
+		frame_ptr = __builtin_frame_address(0);
+		frame_addr = *frame_ptr;  /* XXX: probably dangerous */
+
+		/* basic sanity check */
+		if (frame_addr < (unsigned long)frame_ptr)
+			frame_addr = (unsigned long)frame_ptr;
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
@@ -940,9 +951,15 @@ void xray_entry(unsigned long parent, unsigned long child,
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
 	if (unlikely(mtdp->in_exception)) {
+		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
-		frame_addr = (unsigned long)__builtin_frame_address(0);
+		frame_ptr = __builtin_frame_address(0);
+		frame_addr = *frame_ptr;  /* XXX: probably dangerous */
+
+		/* basic sanity check */
+		if (frame_addr < (unsigned long)frame_ptr)
+			frame_addr = (unsigned long)frame_ptr;
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
