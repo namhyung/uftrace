@@ -37,7 +37,7 @@ ENTRY(plt_hooker)
 	cmpl $0, %eax
 	jnz 1f
 	/* get address of plthook_resolver_addr */
-	call __x86.get_pc_thunk.ax
+	call get_pc_thunk
 	addl $_GLOBAL_OFFSET_TABLE_, %eax
 	leal plthook_resolver_addr@GOTOFF(%eax), %eax
 	movl (%eax), %eax

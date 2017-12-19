@@ -208,13 +208,15 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 
 		// Assuming that this happens only in main..			
 		bool found_main_ret = false;
+		int stack_index = 0;
+
 		if (!(strcmp(find_main[0], parent_name) || 
 		      strcmp(find_main[1], child_name))) {
 			ret_addr = *parent_loc;
-			for (int i = 1; i < MAX_SEARCH_STACK; i++ ) {
-				search_ret_addr = *(unsigned long *)(parent_loc + i);
+			for (stack_index = 1; stack_index < MAX_SEARCH_STACK; stack_index++) {
+				search_ret_addr = *(unsigned long *)(parent_loc + stack_index);
 				if (search_ret_addr == ret_addr) {
-					parent_loc = parent_loc+i;
+					parent_loc = parent_loc + stack_index;
 					found_main_ret = true;
 				}
 			}
