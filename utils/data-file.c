@@ -415,7 +415,7 @@ ok:
 		pr_err("cannot read header data");
 
 	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))
-		pr_err_ns("invalid magic string found!");
+		pr_err_ns("invalid magic string found!\n");
 
 	check_data_order(handle);
 
@@ -428,10 +428,10 @@ ok:
 
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
-		pr_err_ns("unsupported file version: %u", handle->hdr.version);
+		pr_err_ns("unsupported file version: %u\n", handle->hdr.version);
 
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
-		pr_err_ns("cannot read uftrace header info!");
+		pr_err_ns("cannot read uftrace header info!\n");
 
 	fclose(fp);
 
