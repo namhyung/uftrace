@@ -31,7 +31,7 @@ struct display_field {
 	void (*print)(struct field_data *fd);
 };
 
-void print_header(struct list_head *output_fields);
+void print_header(struct list_head *output_fields, const char *prefix);
 int print_field_data(struct list_head *output_fields, struct field_data *fd);
 int print_empty_field(struct list_head *output_fields);
 void add_field(struct list_head *output_fields, struct display_field *field);

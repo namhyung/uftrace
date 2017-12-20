@@ -2,7 +2,7 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
-void print_header(struct list_head *output_fields)
+void print_header(struct list_head *output_fields, const char *prefix)
 {
 	struct display_field *field;
 
@@ -10,7 +10,7 @@ void print_header(struct list_head *output_fields)
 	if (list_empty(output_fields))
 		return;
 
-	pr_out("#");
+	pr_out("%s", prefix);
 	list_for_each_entry(field, output_fields, list)
 		pr_out("%s ", field->header);
 
