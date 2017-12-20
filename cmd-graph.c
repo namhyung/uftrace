@@ -107,6 +107,7 @@ static void print_addr(struct field_data *fd)
 static struct display_field field_total_time= {
 	.id      = GRAPH_F_TOTAL_TIME,
 	.name    = "total-time",
+	.alias   = "total",
 	.header  = "TOTAL TIME",
 	.length  = 10,
 	.print   = print_total_time,
@@ -116,6 +117,7 @@ static struct display_field field_total_time= {
 static struct display_field field_self_time= {
 	.id      = GRAPH_F_SELF_TIME,
 	.name    = "self-time",
+	.alias   = "self",
 	.header  = " SELF TIME",
 	.length  = 10,
 	.print   = print_self_time,
@@ -124,7 +126,8 @@ static struct display_field field_self_time= {
 
 static struct display_field field_addr = {
 	.id      = GRAPH_F_ADDR,
-	.name    = "addr",
+	.name    = "address",
+	.alias   = "addr",
 #if __SIZEOF_LONG == 4
 	.header  = "  ADDR  ",
 	.length  = 8,

@@ -34,6 +34,7 @@ struct display_field {
 	int length;
 	bool used;
 	void (*print)(struct field_data *fd);
+	const char *alias;
 };
 
 void print_header(struct list_head *output_fields, const char *prefix,

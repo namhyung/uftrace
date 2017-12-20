@@ -58,6 +58,17 @@ void add_field(struct list_head *output_fields, struct display_field *field)
 	list_add_tail(&field->list, output_fields);
 }
 
+static bool check_field_name(struct display_field *field, const char *name)
+{
+	if (!strcmp(field->name, name))
+		return true;
+
+	if (field->alias && !strcmp(field->alias, name))
+		return true;
+
+	return false;
+}
+
 void setup_field(struct list_head *output_fields, struct opts *opts,
 		 void (*setup_default_field)(struct list_head *fields, struct opts*),
 		 struct display_field *field_table[], size_t field_table_size)
@@ -89,7 +100,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 			field = field_table[i];
 
 			pr_dbg("check field \"%s\"\n", field->name);
-			if (strcmp(field->name, p))
+			if (!check_field_name(field, p))
 				continue;
 
 			pr_dbg("add field \"%s\"\n", field->name);
