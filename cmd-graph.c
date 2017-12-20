@@ -154,11 +154,8 @@ static void print_field(struct graph_node *node)
 		.arg = (struct graph_node*)node,
 	};
 
-	if (!list_empty(&output_fields))
-		pr_out("  ");
-
-	if (print_field_data(&output_fields, &fd))
-		pr_out(": ");
+	if (print_field_data(&output_fields, &fd, 2))
+		pr_out(" : ");
 }
 
 static int create_graph(struct uftrace_session *sess, void *func)
@@ -598,8 +595,8 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
-			if (print_empty_field(&output_fields))
-				pr_out(": ");
+			if (print_empty_field(&output_fields, 2))
+				pr_out(" : ");
 			pr_indent(indent_mask, indent, false);
 			pr_out("\n");
 		}
@@ -632,7 +629,7 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 
 	if (graph->root.time || graph->root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
-		print_header(&output_fields, "# ");
+		print_header(&output_fields, "# ", 2);
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
 				 graph->root.nr_edges > 1);

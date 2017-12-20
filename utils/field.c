@@ -2,46 +2,50 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
-void print_header(struct list_head *output_fields, const char *prefix)
+void print_header(struct list_head *output_fields, const char *prefix,
+		  int space)
 {
 	struct display_field *field;
+	bool first = true;
 
 	/* do not print anything if not needed */
 	if (list_empty(output_fields))
 		return;
 
-	pr_out("%s", prefix);
-	list_for_each_entry(field, output_fields, list)
-		pr_out("%s ", field->header);
+	list_for_each_entry(field, output_fields, list) {
+		pr_out("%*s", space, first ? prefix : "");
+		pr_out("%s", field->header);
+		first = false;
+	}
 
-	pr_out("  FUNCTION\n");
+	pr_out("   FUNCTION\n");
 }
 
-int print_field_data(struct list_head *output_fields, struct field_data *fd)
+int print_field_data(struct list_head *output_fields, struct field_data *fd,
+		     int space)
 {
 	struct display_field *field;
 
 	if (list_empty(output_fields))
 		return 0;
 
-	pr_out(" ");
 	list_for_each_entry(field, output_fields, list) {
+		pr_out("%*s", space, "");
 		field->print(fd);
-		pr_out(" ");
 	}
 	return 1;
 }
 
-int print_empty_field(struct list_head *output_fields)
+int print_empty_field(struct list_head *output_fields, int space)
 {
 	struct display_field *field;
 
 	if (list_empty(output_fields))
 		return 0;
 
-	pr_out(" ");
 	list_for_each_entry(field, output_fields, list)
-		pr_out("%*s ", field->length, "");
+		pr_out("%*s", field->length + space, "");
+
 	return 1;
 }
 

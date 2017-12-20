@@ -162,8 +162,9 @@ static void print_field(struct ftrace_task_handle *task,
 		.fstack = fstack,
 		.arg = arg,
 	};
-	if (print_field_data(&output_fields, &fd))
-		pr_out("| ");
+
+	if (print_field_data(&output_fields, &fd, 1))
+		pr_out(" | ");
 }
 
 static void setup_default_field(struct list_head *fields, struct opts *opts)
@@ -315,8 +316,8 @@ static int print_flat_rstack(struct ftrace_file_handle *handle,
 static void print_task_newline(int current_tid)
 {
 	if (prev_tid != -1 && current_tid != prev_tid) {
-		if (print_empty_field(&output_fields))
-			pr_out("| ");
+		if (print_empty_field(&output_fields, 1))
+			pr_out(" | ");
 		pr_out("\n");
 	}
 
@@ -783,8 +784,8 @@ out:
 
 static void print_warning(struct ftrace_task_handle *task)
 {
-	if (print_empty_field(&output_fields))
-		pr_out("| ");
+	if (print_empty_field(&output_fields, 1))
+		pr_out(" | ");
 	pr_red(" %*s/* inverted time: broken data? */\n",
 	       (task->display_depth + 1) * 2, "");
 }
@@ -902,7 +903,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		    field_table, ARRAY_SIZE(field_table));
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
-		print_header(&output_fields, "#");
+		print_header(&output_fields, "#", 1);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rstack = task->rstack;
