@@ -335,7 +335,7 @@ static void recv_trace_data(int sock, int len)
 
 	client = find_client(sock);
 	if (client == NULL)
-		pr_err("no client on this socket\n");
+		pr_err_ns("no client on this socket\n");
 
 	if (read_all(sock, &tid, sizeof(tid)) < 0)
 		pr_err("recv tid failed");
@@ -364,7 +364,7 @@ static void recv_trace_kernel_data(int sock, int len)
 
 	client = find_client(sock);
 	if (client == NULL)
-		pr_err("no client on this socket\n");
+		pr_err_ns("no client on this socket\n");
 
 	if (read_all(sock, &cpu, sizeof(cpu)) < 0)
 		pr_err("recv cpu failed");
@@ -393,7 +393,7 @@ static void recv_trace_perf_data(int sock, int len)
 
 	client = find_client(sock);
 	if (client == NULL)
-		pr_err("no client on this socket\n");
+		pr_err_ns("no client on this socket\n");
 
 	if (read_all(sock, &cpu, sizeof(cpu)) < 0)
 		pr_err("recv cpu failed");
@@ -422,7 +422,7 @@ static void recv_trace_metadata(int sock, int len)
 
 	client = find_client(sock);
 	if (client == NULL)
-		pr_err("no client on this socket\n");
+		pr_err_ns("no client on this socket\n");
 
 	if (read_all(sock, &namelen, sizeof(namelen)) < 0)
 		pr_err("recv symfile name length failed");
@@ -455,7 +455,7 @@ static void recv_trace_info(int sock, int len)
 
 	client = find_client(sock);
 	if (client == NULL)
-		pr_err("no client on this socket\n");
+		pr_err_ns("no client on this socket\n");
 
 	if (read_all(sock, &hdr, sizeof(hdr)) < 0)
 		pr_err("recv file header failed");
