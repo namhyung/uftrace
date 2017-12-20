@@ -216,7 +216,7 @@ next:
 
 	fp = fopen(filename, "w");
 	if (fp == NULL)
-		pr_err("cannot open file: %s\n", filename);
+		pr_err("cannot open file: %s", filename);
 
 	list_for_each_entry(mei, &events, list) {
 		fprintf(fp, "EVENT: %u %s:%s\n",
