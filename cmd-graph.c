@@ -10,7 +10,10 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
+#include "utils/field.h"
 
+
+static LIST_HEAD(output_fields);
 
 struct graph_backtrace {
 	struct list_head list;
@@ -70,6 +73,93 @@ struct task_graph {
 static bool full_graph = false;
 static struct rb_root tasks = RB_ROOT;
 static struct uftrace_graph *graph_list = NULL;
+
+static void print_total_time(struct field_data *fd)
+{
+	struct graph_node *node = (struct graph_node*)fd->arg;
+	uint64_t d;
+
+	d = node->time;
+
+	print_time_unit(d);
+}
+
+static void print_self_time(struct field_data *fd)
+{
+	struct graph_node *node = (struct graph_node*)fd->arg;
+	uint64_t d;
+
+	d = node->time - node->child_time;
+
+	print_time_unit(d);
+}
+
+static void print_addr(struct field_data *fd)
+{
+	struct graph_node *node = (struct graph_node*)fd->arg;
+
+	/* uftrace records (truncated) 48-bit addresses */
+	int width = sizeof(long) == 4 ? 8 : 12;
+
+	pr_out("%*lx", width, node->addr);
+}
+
+static struct display_field field_total_time= {
+	.id      = GRAPH_F_TOTAL_TIME,
+	.name    = "total-time",
+	.alias   = "total",
+	.header  = "TOTAL TIME",
+	.length  = 10,
+	.print   = print_total_time,
+	.list    = LIST_HEAD_INIT(field_total_time.list),
+};
+
+static struct display_field field_self_time= {
+	.id      = GRAPH_F_SELF_TIME,
+	.name    = "self-time",
+	.alias   = "self",
+	.header  = " SELF TIME",
+	.length  = 10,
+	.print   = print_self_time,
+	.list    = LIST_HEAD_INIT(field_self_time.list),
+};
+
+static struct display_field field_addr = {
+	.id      = GRAPH_F_ADDR,
+	.name    = "address",
+	.alias   = "addr",
+#if __SIZEOF_LONG == 4
+	.header  = "  ADDR  ",
+	.length  = 8,
+#else
+	.header  = "   ADDRESS  ",
+	.length  = 12,
+#endif
+	.print   = print_addr,
+	.list    = LIST_HEAD_INIT(field_addr.list),
+};
+
+/* index of this table should be matched to display_field_id */
+static struct display_field *field_table[] = {
+	&field_total_time,
+	&field_self_time,
+	&field_addr,
+};
+
+static void setup_default_field(struct list_head *fields, struct opts *opts)
+{
+	add_field(fields, field_table[GRAPH_F_TOTAL_TIME]);
+}
+
+static void print_field(struct graph_node *node)
+{
+	struct field_data fd = {
+		.arg = (struct graph_node*)node,
+	};
+
+	if (print_field_data(&output_fields, &fd, 2))
+		pr_out(" : ");
+}
 
 static int create_graph(struct uftrace_session *sess, void *func)
 {
@@ -484,9 +574,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	symname = symbol_getname(sym, node->addr);
 
-	pr_out(" ");
-	print_time_unit(node->time);
-	pr_out(" : ");
+	print_field(node);
 	pr_indent(indent_mask, indent, needs_line);
 
 	if (full_graph && node == &graph->root)
@@ -510,7 +598,8 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 		if (&child->list != node->head.prev) {
 			/* print blank line between siblings */
-			pr_out("%*s: ", 12, "");
+			if (print_empty_field(&output_fields, 2))
+				pr_out(" : ");
 			pr_indent(indent_mask, indent, false);
 			pr_out("\n");
 		}
@@ -539,8 +628,11 @@ static int print_graph(struct uftrace_graph *graph, struct opts *opts)
 		print_backtrace(graph);
 	}
 
+	setup_field(&output_fields, opts, &setup_default_field, field_table, ARRAY_SIZE(field_table));
+
 	if (graph->root.time || graph->root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
+		print_header(&output_fields, "# ", 2);
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(graph, &graph->root, indent_mask, 0,
 				 graph->root.nr_edges > 1);
