@@ -495,8 +495,10 @@ enum uftrace_event_id {
 	/* kernel IDs are read from tracefs */
 
 	EVENT_ID_BUILTIN = 100000U,
-	EVENT_ID_PROC_STATM,
-	EVENT_ID_PAGE_FAULT,
+	EVENT_ID_READ_PROC_STATM,
+	EVENT_ID_READ_PAGE_FAULT,
+	EVENT_ID_DIFF_PROC_STATM,
+	EVENT_ID_DIFF_PAGE_FAULT,
 
 	/* supported perf events */
 	EVENT_ID_PERF		= 200000U,

@@ -483,8 +483,10 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		else {
 			if (tr->flags & TRIGGER_FL_ARGUMENT)
 				save_argument(mtdp, rstack, tr->pargs, regs);
-			if (tr->flags & TRIGGER_FL_READ)
-				save_trigger_read(mtdp, rstack, tr->read);
+			if (tr->flags & TRIGGER_FL_READ) {
+				save_trigger_read(mtdp, rstack, tr->read, false);
+				rstack->flags |= MCOUNT_FL_READ;
+			}
 
 			if (mtdp->nr_events) {
 				bool flush = false;
@@ -592,6 +594,14 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 		if (!(rstack->flags & MCOUNT_FL_RETVAL))
 			retval = NULL;
+
+		if (rstack->flags & MCOUNT_FL_READ) {
+			struct uftrace_trigger tr;
+
+			/* there's a possibility of overwriting by return value */
+			uftrace_match_filter(rstack->child_ip, &mcount_triggers, &tr);
+			save_trigger_read(mtdp, rstack, tr.read, true);
+		}
 
 		if (rstack->end_time - rstack->start_time > time_filter ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {

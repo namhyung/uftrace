@@ -1146,11 +1146,17 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 
 	if (evt_id >= EVENT_ID_BUILTIN) {
 		switch (evt_id) {
-		case EVENT_ID_PROC_STATM:
+		case EVENT_ID_READ_PROC_STATM:
 			xasprintf(&evt_name, "read:proc/statm");
 			break;
-		case EVENT_ID_PAGE_FAULT:
+		case EVENT_ID_READ_PAGE_FAULT:
 			xasprintf(&evt_name, "read:page-fault");
+			break;
+		case EVENT_ID_DIFF_PROC_STATM:
+			xasprintf(&evt_name, "diff:proc/statm");
+			break;
+		case EVENT_ID_DIFF_PAGE_FAULT:
+			xasprintf(&evt_name, "diff:page-fault");
 			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
@@ -1170,7 +1176,7 @@ out:
 int read_task_event(struct ftrace_task_handle *task,
 		    struct uftrace_record *rec)
 {
-	if (rec->addr == EVENT_ID_PROC_STATM) {
+	if (rec->addr == EVENT_ID_READ_PROC_STATM) {
 		struct uftrace_proc_statm statm;
 
 		if (read_task_event_size(task, &statm, sizeof(statm)) < 0)
@@ -1184,7 +1190,34 @@ int read_task_event(struct ftrace_task_handle *task,
 
 		save_task_event(task, &statm, sizeof(statm));
 	}
-	else if (rec->addr == EVENT_ID_PAGE_FAULT) {
+	else if (rec->addr == EVENT_ID_READ_PAGE_FAULT) {
+		struct uftrace_page_fault pgfault;
+
+		if (read_task_event_size(task, &pgfault, sizeof(pgfault)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			pgfault.major = bswap_64(pgfault.major);
+			pgfault.minor = bswap_64(pgfault.minor);
+		}
+
+		save_task_event(task, &pgfault, sizeof(pgfault));
+	}
+	else if (rec->addr == EVENT_ID_DIFF_PROC_STATM) {
+		struct uftrace_proc_statm statm;
+
+		if (read_task_event_size(task, &statm, sizeof(statm)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			statm.vmsize = bswap_64(statm.vmsize);
+			statm.vmrss  = bswap_64(statm.vmrss);
+			statm.shared = bswap_64(statm.shared);
+		}
+
+		save_task_event(task, &statm, sizeof(statm));
+	}
+	else if (rec->addr == EVENT_ID_DIFF_PAGE_FAULT) {
 		struct uftrace_page_fault pgfault;
 
 		if (read_task_event_size(task, &pgfault, sizeof(pgfault)) < 0)

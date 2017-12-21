@@ -395,6 +395,16 @@ static void save_proc_statm(void *buf)
 	fclose(fp);
 }
 
+static void diff_proc_statm(void *dst, void *src)
+{
+	struct uftrace_proc_statm *dst_statm = dst;
+	struct uftrace_proc_statm *src_statm = src;
+
+	dst_statm->vmsize -= src_statm->vmsize;
+	dst_statm->vmrss  -= src_statm->vmrss;
+	dst_statm->shared -= src_statm->shared;
+}
+
 static void save_page_fault(void *buf)
 {
 	struct rusage ru;
@@ -407,14 +417,23 @@ static void save_page_fault(void *buf)
 	page_fault->minor = ru.ru_minflt;
 }
 
+static void diff_page_fault(void *dst, void *src)
+{
+	struct uftrace_page_fault *dst_pgflt = dst;
+	struct uftrace_page_fault *src_pgflt = src;
+
+	dst_pgflt->major -= src_pgflt->major;
+	dst_pgflt->minor -= src_pgflt->minor;
+}
+
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type, bool diff)
 {
 	void *ptr = get_argbuf(mtdp, rstack) + rstack->event_idx;
 	struct mcount_event *event;
 	unsigned short evsize;
-	void *arg_data = ptr;
+	void *arg_data = get_argbuf(mtdp, rstack);
 
 	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
 		arg_data += *(uint32_t *)ptr;
@@ -427,11 +446,27 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		if ((void *)event < arg_data)
 			return;
 
-		event->id    = EVENT_ID_PROC_STATM;
-		event->time  = rstack->start_time;
+		event->id    = EVENT_ID_READ_PROC_STATM;
+		event->time  = rstack->end_time ?: rstack->start_time;
 		event->dsize = sizeof(struct uftrace_proc_statm);
 		event->idx   = mtdp->idx;
 		save_proc_statm(event->data);
+
+		if (diff) {
+			struct mcount_event *old_event = NULL;
+			unsigned idx;
+
+			for (idx = 0; idx < rstack->nr_events; idx++) {
+				old_event = get_event_pointer(ptr, idx);
+				if (old_event->id == event->id)
+					break;
+			}
+
+			if (old_event) {
+				event->id = EVENT_ID_DIFF_PROC_STATM;
+				diff_proc_statm(event->data, old_event->data);
+			}
+		}
 
 		ptr = event;
 
@@ -446,11 +481,27 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		if ((void *)event < arg_data)
 			return;
 
-		event->id    = EVENT_ID_PAGE_FAULT;
-		event->time  = rstack->start_time;
+		event->id    = EVENT_ID_READ_PAGE_FAULT;
+		event->time  = rstack->end_time ?: rstack->start_time;
 		event->dsize = sizeof(struct uftrace_page_fault);
 		event->idx   = mtdp->idx;
 		save_page_fault(event->data);
+
+		if (diff) {
+			struct mcount_event *old_event = NULL;
+			unsigned idx;
+
+			for (idx = 0; idx < rstack->nr_events; idx++) {
+				old_event = get_event_pointer(ptr, idx);
+				if (old_event->id == event->id)
+					break;
+			}
+
+			if (old_event) {
+				event->id = EVENT_ID_DIFF_PAGE_FAULT;
+				diff_page_fault(event->data, old_event->data);
+			}
+		}
 
 		ptr = event;
 
@@ -551,6 +602,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 		timestamp = mrstack->end_time;
 
 	if (unlikely(mtdp->nr_events)) {
+		/* save async events first (if any) */
 		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
 			record_event(mtdp, &mtdp->event[0]);
 			mtdp->nr_events--;
@@ -558,6 +610,28 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
 				       sizeof(*mtdp->event) * mtdp->nr_events);
 		}
+	}
+
+	if (type == UFTRACE_EXIT && unlikely(mrstack->nr_events)) {
+		int i;
+		unsigned evidx;
+		struct mcount_event *event;
+
+		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
+
+		for (i = 0; i < mrstack->nr_events; i++) {
+			evidx = mrstack->nr_events - i - 1;
+			event = get_event_pointer(argbuf, evidx);
+
+			if (event->time != timestamp)
+				continue;
+
+			/* save read2 trigger before exit record */
+			record_event(mtdp, event);
+		}
+
+		mrstack->nr_events = 0;
+		argbuf = NULL;
 	}
 
 	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
@@ -625,19 +699,23 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == UFTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
 
-	if (unlikely(mrstack->nr_events)) {
+	if (unlikely(mrstack->nr_events) && type == UFTRACE_ENTRY) {
 		int i;
 		unsigned evidx;
+		struct mcount_event *event;
 
 		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
 
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
-			record_event(mtdp, get_event_pointer(argbuf, evidx));
-		}
+			event = get_event_pointer(argbuf, evidx);
 
-		mrstack->nr_events  = 0;
-		mrstack->event_idx  = ARGBUF_SIZE;
+			if (event->time != timestamp)
+				break;
+
+			/* save read trigger after entry record */
+			record_event(mtdp, event);
+		}
 	}
 
 	return 0;
@@ -707,7 +785,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	}
 
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
-		if (record_ret_stack(mtdp, UFTRACE_ENTRY, non_written_mrstack))
+		if (record_ret_stack(mtdp, UFTRACE_ENTRY, mrstack))
 			return 0;
 
 		count--;

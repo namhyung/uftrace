@@ -308,14 +308,24 @@ static void print_event(struct ftrace_task_handle *task,
 		struct uftrace_page_fault *page_fault;
 
 		switch (evt_id) {
-		case EVENT_ID_PROC_STATM:
+		case EVENT_ID_READ_PROC_STATM:
 			statm = task->args.data;
 			pr_color(color, "%s (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
 				 evt_name, statm->vmsize, statm->vmrss, statm->shared);
 			return;
-		case EVENT_ID_PAGE_FAULT:
+		case EVENT_ID_READ_PAGE_FAULT:
 			page_fault = task->args.data;
 			pr_color(color, "%s (major=%"PRIu64", minor=%"PRIu64")",
+				 evt_name, page_fault->major, page_fault->minor);
+			return;
+		case EVENT_ID_DIFF_PROC_STATM:
+			statm = task->args.data;
+			pr_color(color, "%s (size=%+"PRId64"KB, rss=%+"PRId64"KB, shared=%+"PRId64"KB)",
+				 evt_name, statm->vmsize, statm->vmrss, statm->shared);
+			return;
+		case EVENT_ID_DIFF_PAGE_FAULT:
+			page_fault = task->args.data;
+			pr_color(color, "%s (major=%+"PRId64", minor=%+"PRId64")",
 				 evt_name, page_fault->major, page_fault->minor);
 			return;
 		default:
