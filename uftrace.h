@@ -303,6 +303,7 @@ struct uftrace_dlopen_list {
 
 struct uftrace_task {
 	int			 pid, tid, ppid;
+	char			 comm[16];
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;
@@ -501,6 +502,9 @@ enum uftrace_event_id {
 	EVENT_ID_PERF_SCHED_IN,
 	EVENT_ID_PERF_SCHED_OUT,
 	EVENT_ID_PERF_SCHED_BOTH,
+	EVENT_ID_PERF_TASK,
+	EVENT_ID_PERF_EXIT,
+	EVENT_ID_PERF_COMM,
 
 	EVENT_ID_USER	= 1000000U,
 };

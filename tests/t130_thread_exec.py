@@ -10,6 +10,8 @@ class TestCase(TestBase):
   29.452 us [23290] |   pthread_create();
             [23292] | thread_func() {
             [23292] |   execl() {
+            [23290] |   /* linux:task-exit */
+            [23290] |   /* linux:task-name (name=t-abc) */
             [23290] |   main() {
             [23290] |     a() {
             [23290] |       b() {
@@ -19,6 +21,7 @@ class TestCase(TestBase):
    1.159 us [23290] |       } /* b */
    1.289 us [23290] |     } /* a */
    1.461 us [23290] |   } /* main */
+            [23290] |   /* linux:task-exit */
 
 uftrace stopped tracing with remaining functions
 ================================================

@@ -16,38 +16,65 @@ struct uftrace_perf_writer {
 	int			nr_event;
 };
 
+struct sample_id {
+	uint32_t   pid;
+	uint32_t   tid;
+	uint64_t   time;
+};
+
+struct perf_task_event {
+	/*
+	 * type: PERF_RECORD_FORK (7) or PERF_RECORD_EXIT (4)
+	 */
+	uint32_t		 pid, ppid;
+	uint32_t		 tid, ptid;
+	uint64_t		 time;
+	struct sample_id	 sample_id;
+};
+
+struct perf_comm_event {
+	/*
+	 * type: PERF_RECORD_COMM (3)
+	 */
+	uint32_t		 pid, tid;
+	char			 comm[16];   /* variable length (aligned to 8) */
+	struct sample_id	 sample_id;  /* needs to be read separately */
+};
+
 struct perf_context_switch_event {
 	/*
 	 * type: PERF_RECORD_SWITCH (14)
 	 * misc: PERF_RECORD_MISC_SWITCH_OUT (0x2000)
 	 * size: 24
 	 */
-	struct perf_event_header header;
-
-	struct sample_id {
-		uint32_t   pid;
-		uint32_t   tid;
-		uint64_t   time;
-	} sample_id;
+	struct sample_id	 sample_id;
 };
 
-struct uftrace_ctxsw {
-	uint64_t	time;
-	int		tid;
+struct uftrace_ctxsw_event {
 	bool		out;
+};
+
+struct uftrace_task_event {
+	int		pid;
+	int		ppid;
+};
+
+struct uftrace_comm_event {
+	char		comm[16];
 };
 
 #ifdef HAVE_PERF_CLOCKID
 
 int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
-		      const char *dirname);
+		      const char *dirname, int use_ctxsw);
 void finish_perf_record(struct uftrace_perf_writer *perf);
 void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock);
 
 #else  /* !HAVE_PERF_CLOCKID */
 
 static inline int setup_perf_record(struct uftrace_perf_writer *perf,
-				    int nr_cpu, int pid, const char *dirname)
+				    int nr_cpu, int pid, const char *dirname,
+				    int use_ctxsw)
 {
 	return -1;
 }
@@ -60,11 +87,11 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 
 #ifdef HAVE_PERF_CTXSW
 # define PERF_CTXSW_AVAILABLE  1
-# define INIT_CTXSW_ATTR	.context_switch = 1,
+# define INIT_CTXSW_ATTR(enable)	.context_switch = enable,
 
 #else  /* !HAVE_PERF_CTXSW */
 # define PERF_CTXSW_AVAILABLE  0
-# define INIT_CTXSW_ATTR
+# define INIT_CTXSW_ATTR(enable)
 
 # define PERF_RECORD_SWITCH           14
 # define PERF_RECORD_MISC_SWITCH_OUT  (1 << 13)
@@ -75,7 +102,14 @@ struct uftrace_perf_reader {
 	FILE			*fp;
 	bool			valid;
 	bool			done;
-	struct uftrace_ctxsw	ctxsw;
+	int			type;
+	int			tid;
+	uint64_t		time;
+	union {
+		struct uftrace_ctxsw_event	ctxsw;
+		struct uftrace_task_event	task;
+		struct uftrace_comm_event	comm;
+	} u;
 };
 
 struct ftrace_file_handle;
@@ -86,5 +120,6 @@ void finish_perf_data(struct ftrace_file_handle *handle);
 int read_perf_data(struct ftrace_file_handle *handle);
 struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 					struct uftrace_perf_reader *perf);
+void update_perf_task_comm(struct ftrace_file_handle *handle);
 
 #endif /* UFTRACE_PERF_H */

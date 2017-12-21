@@ -302,6 +302,19 @@ class TestBase:
            apply it and re-test with the modified result."""
         return result
 
+    def check_perf_paranoid():
+        try:
+            f = open('/proc/sys/kernel/perf_event_paranoid')
+            v = int(f.readline())
+            f.close()
+
+            if v == 3:
+                return False
+        except:
+            pass
+
+        return True
+
     def run(self, name, cflags, diff):
         ret = TestBase.TEST_SUCCESS
 

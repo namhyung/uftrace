@@ -30,6 +30,9 @@ class TestCase(TestBase):
     recv_p = None
 
     def pre(self):
+        if not TestBase.check_perf_paranoid():
+            return TestBase.TEST_SKIP
+
         recv_cmd = '%s recv -d %s' % (TestBase.ftrace, TDIR)
         self.recv_p = sp.Popen(recv_cmd.split())
 

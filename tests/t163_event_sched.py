@@ -17,6 +17,11 @@ class TestCase(TestBase):
    2.121 ms [  395] | } /* main */
 """)
 
+    def pre(self):
+        if not TestBase.check_perf_paranoid():
+            return TestBase.TEST_SKIP
+        return TestCase.TEST_SUCCESS
+
     def runcmd(self):
         uftrace = TestBase.ftrace
         options = '-D 2 -F main -F bar -E linux:schedule'

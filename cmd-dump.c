@@ -735,10 +735,29 @@ static void print_raw_perf_event(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%d)\n",
-	       perf->ctxsw.tid, rstack_type(frs), evt_name, frs->addr);
+	       perf->tid, rstack_type(frs), evt_name, frs->addr);
 
-	if (debug)
-		pr_hex(&raw->file_offset, &perf->ctxsw, sizeof(perf->ctxsw));
+	if (debug) {
+		/* XXX: this is different from file contents */
+		switch (frs->addr) {
+		case EVENT_ID_PERF_SCHED_IN:
+		case EVENT_ID_PERF_SCHED_OUT:
+			pr_hex(&raw->file_offset, &perf->u.ctxsw,
+			       sizeof(perf->u.ctxsw));
+			break;
+		case EVENT_ID_PERF_TASK:
+		case EVENT_ID_PERF_EXIT:
+			pr_hex(&raw->file_offset, &perf->u.task,
+			       sizeof(perf->u.task));
+			break;
+		case EVENT_ID_PERF_COMM:
+			pr_hex(&raw->file_offset, &perf->u.comm,
+			       sizeof(perf->u.comm));
+			break;
+		default:
+			break;
+		}
+	}
 
 	free(evt_name);
 }

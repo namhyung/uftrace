@@ -38,6 +38,9 @@ class TestCase(TestBase):
 """, sort='chrome')
 
     def pre(self):
+        if not TestBase.check_perf_paranoid():
+            return TestBase.TEST_SKIP
+
         options = '-d %s -E %s' % (TDIR, 'linux:schedule')
         record_cmd = '%s record %s %s' % (TestBase.ftrace, options, 't-' + self.name)
         sp.call(record_cmd.split())

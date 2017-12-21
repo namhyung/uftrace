@@ -974,6 +974,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	opts.range.kernel_skip_out = opts.kernel_skip_out;
+	opts.range.event_skip_out  = opts.event_skip_out;
+
 	setup_color(opts.color);
 	setup_signal();
 

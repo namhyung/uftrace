@@ -19,7 +19,7 @@
 
 static bool use_perf = true;
 
-static int open_perf_event(int pid, int cpu)
+static int open_perf_event(int pid, int cpu, int use_ctxsw)
 {
 	/* use dummy events to get scheduling info (Linux v4.3 or later) */
 	struct perf_event_attr attr = {
@@ -35,17 +35,13 @@ static int open_perf_event(int pid, int cpu)
 		.inherit		= 1,
 		.watermark		= 1,
 		.wakeup_watermark	= PERF_WATERMARK,
+		.task			= 1,
+		.comm			= 1,
 		.use_clockid		= 1,
 		.clockid		= CLOCK_MONOTONIC,
-		INIT_CTXSW_ATTR
+		INIT_CTXSW_ATTR(use_ctxsw)
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
-
-	if (!PERF_CTXSW_AVAILABLE) {
-		/* Operation not supported */
-		errno = ENOTSUP;
-		return -1;
-	}
 
 	return syscall(SYS_perf_event_open, &attr, pid, cpu, -1, flag);
 }
@@ -56,6 +52,7 @@ static int open_perf_event(int pid, int cpu)
  * @nr_cpu: total number of cpus to record
  * @pid: process id to record
  * @dirname: directory name to save perf record data
+ * @use_ctxsw: whether to use context_switch attribute
  *
  * This function prepares recording linux perf events.  The perf_event
  * fd should be opened and mmaped for each cpu.
@@ -64,7 +61,7 @@ static int open_perf_event(int pid, int cpu)
  * finish_perf_record() after recording.
  */
 int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
-		      const char *dirname)
+		      const char *dirname, int use_ctxsw)
 {
 	char filename[PATH_MAX];
 	int fd, cpu;
@@ -77,12 +74,23 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 
 	memset(perf->event_fd, -1, nr_cpu * sizeof(fd));
 
+	if (!PERF_CTXSW_AVAILABLE && use_ctxsw) {
+		/* Operation not supported */
+		pr_warn("linux:schedule event is not supported for this kernel\n");
+		use_ctxsw = 0;
+	}
+
 	for (cpu = 0; cpu < nr_cpu; cpu++) {
-		fd = open_perf_event(pid, cpu);
+		fd = open_perf_event(pid, cpu, use_ctxsw);
 		if (fd < 0) {
 			int saved_errno = errno;
 
-			pr_warn("skipping perf event due to error: %m\n");
+
+			if (use_ctxsw)
+				pr_warn("skipping perf event due to error: %m\n");
+			else
+				pr_dbg("skipping perf event due to error: %m\n");
+
 			if (saved_errno == EACCES)
 				pr_dbg("please check %s\n", PERF_PARANOID_CHECK);
 
@@ -289,23 +297,89 @@ void finish_perf_data(struct ftrace_file_handle *handle)
 static int read_perf_event(struct ftrace_file_handle *handle,
 			   struct uftrace_perf_reader *perf)
 {
-	struct perf_context_switch_event ev;
+	struct perf_event_header h;
+	union {
+		struct perf_context_switch_event cs;
+		struct perf_task_event t;
+		struct perf_comm_event c;
+	} u;
 	size_t len;
+	int comm_len;
 
 	if (perf->done || perf->fp == NULL)
 		return -1;
 
 again:
-	if (fread(&ev.header, sizeof(ev.header), 1, perf->fp) != 1) {
+	if (fread(&h, sizeof(h), 1, perf->fp) != 1) {
 		perf->done = true;
 		return -1;
 	}
 
-	len = ev.header.size - sizeof(ev.header);
+	if (handle->needs_byte_swap) {
+		h.type = bswap_32(h.type);
+		h.misc = bswap_16(h.misc);
+		h.size = bswap_16(h.size);
+	}
 
-	/* ignore unknown events */
-	if (ev.header.type != PERF_RECORD_SWITCH) {
-		pr_dbg3("skip unknown event: %u\n", ev.header.type);
+	len = h.size - sizeof(h);
+
+	switch (h.type) {
+	case PERF_RECORD_SWITCH:
+		if (fread(&u.cs, len, 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.cs.sample_id.time = bswap_64(u.cs.sample_id.time);
+			u.cs.sample_id.tid  = bswap_32(u.cs.sample_id.tid);
+		}
+
+		perf->u.ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
+
+		perf->time = u.cs.sample_id.time;
+		perf->tid  = u.cs.sample_id.tid;
+		break;
+
+	case PERF_RECORD_FORK:
+	case PERF_RECORD_EXIT:
+		if (fread(&u.t, len, 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.t.tid  = bswap_32(u.t.tid);
+			u.t.pid  = bswap_32(u.t.pid);
+			u.t.ppid = bswap_32(u.t.ppid);
+			u.t.time = bswap_64(u.t.time);
+		}
+
+		perf->u.task.pid  = u.t.pid;
+		perf->u.task.ppid = u.t.ppid;
+
+		perf->time = u.t.time;
+		perf->tid  = u.t.tid;
+		break;
+
+	case PERF_RECORD_COMM:
+		/* length of comm event is variable */
+		comm_len = ALIGN(len - sizeof(u.c.sample_id), 8);
+		if (fread(&u.c, comm_len, 1, perf->fp) != 1)
+			return -1;
+
+		if (fread(&u.c.sample_id, sizeof(u.c.sample_id), 1, perf->fp) != 1)
+			return -1;
+
+		if (handle->needs_byte_swap) {
+			u.c.tid            = bswap_32(u.c.tid);
+			u.c.sample_id.time = bswap_64(u.c.sample_id.time);
+		}
+
+		strncpy(perf->u.comm.comm, u.c.comm, sizeof(u.c.comm));
+
+		perf->time = u.c.sample_id.time;
+		perf->tid  = u.c.tid;
+		break;
+
+	default:
+		pr_dbg3("skip unknown event: %u\n", h.type);
 
 		if (fseek(perf->fp, len, SEEK_CUR) < 0) {
 			pr_warn("skipping perf data failed: %m\n");
@@ -316,21 +390,7 @@ again:
 		goto again;
 	}
 
-	if (fread(&ev.sample_id, len, 1, perf->fp) != 1) {
-		pr_warn("reading perf data failed: %m\n");
-		perf->done = true;
-		return -1;
-	}
-
-	perf->ctxsw.time = ev.sample_id.time;
-	perf->ctxsw.tid  = ev.sample_id.tid;
-	perf->ctxsw.out  = ev.header.misc & PERF_RECORD_MISC_SWITCH_OUT;
-
-	if (handle->needs_byte_swap) {
-		perf->ctxsw.time = bswap_64(perf->ctxsw.time);
-		perf->ctxsw.tid  = bswap_32(perf->ctxsw.tid);
-	}
-
+	perf->type = h.type;
 	perf->valid = true;
 	return 0;
 }
@@ -363,8 +423,8 @@ int read_perf_data(struct ftrace_file_handle *handle)
 				continue;
 		}
 
-		if (perf->ctxsw.time < min_time) {
-			min_time = perf->ctxsw.time;
+		if (perf->time < min_time) {
+			min_time = perf->time;
 			best = i;
 		}
 	}
@@ -397,13 +457,58 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 	}
 
 	rec.type  = UFTRACE_EVENT;
-	rec.time  = perf->ctxsw.time;
+	rec.time  = perf->time;
 	rec.magic = RECORD_MAGIC;
 
-	if (perf->ctxsw.out)
-		rec.addr = EVENT_ID_PERF_SCHED_OUT;
-	else
-		rec.addr = EVENT_ID_PERF_SCHED_IN;
+	switch (perf->type) {
+	case PERF_RECORD_FORK:
+		rec.addr = EVENT_ID_PERF_TASK;
+		break;
+	case PERF_RECORD_EXIT:
+		rec.addr = EVENT_ID_PERF_EXIT;
+		break;
+	case PERF_RECORD_COMM:
+		rec.addr = EVENT_ID_PERF_COMM;
+		break;
+	case PERF_RECORD_SWITCH:
+		if (perf->u.ctxsw.out)
+			rec.addr = EVENT_ID_PERF_SCHED_OUT;
+		else
+			rec.addr = EVENT_ID_PERF_SCHED_IN;
+		break;
+	}
 
 	return &rec;
+}
+
+/**
+ * update_perf_task_comm - read perf event data and update task's comm
+ * @handle: uftrace data file handle
+ *
+ * This function reads perf events for each cpu data file and updates
+ * task->comm for each PERF_RECORD_COMM.
+ */
+void update_perf_task_comm(struct ftrace_file_handle *handle)
+{
+	struct uftrace_perf_reader *perf;
+	struct uftrace_task *task;
+	int i;
+
+	for (i = 0; i < handle->nr_perf; i++) {
+		perf = &handle->perf[i];
+
+		while (!perf->done) {
+			if (read_perf_event(handle, perf) < 0)
+				continue;
+
+			if (perf->type != PERF_RECORD_COMM)
+				continue;
+
+			task = find_task(&handle->sessions, perf->tid);
+			if (task == NULL)
+				continue;
+
+			memcpy(task->comm, perf->u.comm.comm, sizeof(task->comm));
+		}
+	}
 }
