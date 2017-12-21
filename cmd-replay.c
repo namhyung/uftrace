@@ -160,7 +160,7 @@ static struct display_field field_task = {
 	.list    = LIST_HEAD_INIT(field_task.list),
 };
 
-/* index of this table should be matched to replay_field_id */
+/* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
 	&field_duration,
 	&field_tid,

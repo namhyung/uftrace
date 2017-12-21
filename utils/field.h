@@ -48,4 +48,4 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		 void (*setup_default_field)(struct list_head *fields, struct opts*),
 		 struct display_field *field_table[], size_t field_table_size);
 
-#endif /* UFTRACE_DISPLAY_FIELD_H */
+#endif /* UFTRACE_FIELD_H */
