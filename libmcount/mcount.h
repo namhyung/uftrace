@@ -53,6 +53,8 @@ struct mcount_ret_stack {
 	uint64_t filter_time;
 	unsigned short depth;
 	unsigned short dyn_idx;
+	unsigned short nr_events;
+	unsigned short event_idx;
 	struct plthook_data *pd;
 	/* set arg_spec at function entry and use it at exit */
 	struct list_head *pargs;

@@ -57,6 +57,7 @@ struct mcount_shmem {
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
 #define EVTBUF_SIZE  (ARGBUF_SIZE - 16)
+#define EVTBUF_HDR   (offsetof(struct mcount_event, data))
 
 struct mcount_event {
 	uint64_t	time;

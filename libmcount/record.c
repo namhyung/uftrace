@@ -223,6 +223,19 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
+static struct mcount_event * get_event_pointer(void *base, unsigned idx)
+{
+	size_t len = 0;
+	struct mcount_event *event = base;
+
+	while (idx--) {
+		len += EVTBUF_HDR + event->dsize;
+		event = base + len;
+	}
+
+	return event;
+}
+
 #ifndef DISABLE_MCOUNT_FILTER
 void *get_argbuf(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack)
@@ -357,7 +370,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 		return;
 	}
 
-	*(unsigned *)argbuf = size;
+	*(uint32_t *)argbuf = size;
 }
 
 static void save_proc_statm(void *buf)
@@ -398,31 +411,51 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type)
 {
+	void *ptr = get_argbuf(mtdp, rstack) + rstack->event_idx;
+	struct mcount_event *event;
+	unsigned short evsize;
+	void *arg_data = ptr;
+
+	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
+		arg_data += *(uint32_t *)ptr;
+
 	if (type & TRIGGER_READ_PROC_STATM) {
-		struct mcount_event *event;
+		evsize = EVTBUF_HDR + sizeof(struct uftrace_proc_statm);
+		event = ptr - evsize;
 
-		if (mtdp->nr_events < MAX_EVENT) {
-			event = &mtdp->event[mtdp->nr_events++];
+		/* do not overwrite argument data */
+		if ((void *)event < arg_data)
+			return;
 
-			event->id    = EVENT_ID_PROC_STATM;
-			event->time  = rstack->start_time;
-			event->dsize = sizeof(struct uftrace_proc_statm);
-			event->idx   = mtdp->idx;
-			save_proc_statm(event->data);
-		}
+		event->id    = EVENT_ID_PROC_STATM;
+		event->time  = rstack->start_time;
+		event->dsize = sizeof(struct uftrace_proc_statm);
+		event->idx   = mtdp->idx;
+		save_proc_statm(event->data);
+
+		ptr = event;
+
+		rstack->nr_events++;
+		rstack->event_idx -= evsize;
 	}
 	if (type & TRIGGER_READ_PAGE_FAULT) {
-		struct mcount_event *event;
+		evsize = EVTBUF_HDR + sizeof(struct uftrace_page_fault);
+		event = ptr - evsize;
 
-		if (mtdp->nr_events < MAX_EVENT) {
-			event = &mtdp->event[mtdp->nr_events++];
+		/* do not overwrite argument data */
+		if ((void *)event < arg_data)
+			return;
 
-			event->id    = EVENT_ID_PAGE_FAULT;
-			event->time  = rstack->start_time;
-			event->dsize = sizeof(struct uftrace_page_fault);
-			event->idx   = mtdp->idx;
-			save_page_fault(event->data);
-		}
+		event->id    = EVENT_ID_PAGE_FAULT;
+		event->time  = rstack->start_time;
+		event->dsize = sizeof(struct uftrace_page_fault);
+		event->idx   = mtdp->idx;
+		save_page_fault(event->data);
+
+		ptr = event;
+
+		rstack->nr_events++;
+		rstack->event_idx -= evsize;
 	}
 }
 
@@ -445,10 +478,10 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 }
 #endif
 
-static int record_event(struct mcount_thread_data *mtdp)
+static int record_event(struct mcount_thread_data *mtdp,
+			struct mcount_event *event)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	struct mcount_event *event = &mtdp->event[0];
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct {
@@ -497,9 +530,6 @@ static int record_event(struct mcount_thread_data *mtdp)
 
 	curr_buf->size += size;
 
-	/* clear event info */
-	mtdp->nr_events--;
-
 	return 0;
 }
 
@@ -522,7 +552,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	if (unlikely(mtdp->nr_events)) {
 		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
-			record_event(mtdp);
+			record_event(mtdp, &mtdp->event[0]);
+			mtdp->nr_events--;
 
 			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
 				       sizeof(*mtdp->event) * mtdp->nr_events);
@@ -593,6 +624,22 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == UFTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+
+	if (unlikely(mrstack->nr_events)) {
+		int i;
+		unsigned evidx;
+
+		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
+
+		for (i = 0; i < mrstack->nr_events; i++) {
+			evidx = mrstack->nr_events - i - 1;
+			record_event(mtdp, get_event_pointer(argbuf, evidx));
+		}
+
+		mrstack->nr_events  = 0;
+		mrstack->event_idx  = ARGBUF_SIZE;
+	}
+
 	return 0;
 }
 

@@ -762,6 +762,8 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->start_time = mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	/* hijack the return address */
 	*parent_loc = (unsigned long)mcount_return;
@@ -869,6 +871,8 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	if (filtered == FILTER_IN) {
 		rstack->start_time = mcount_gettime();
@@ -976,6 +980,8 @@ void xray_entry(unsigned long parent, unsigned long child,
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	if (filtered == FILTER_IN) {
 		rstack->start_time = mcount_gettime();
