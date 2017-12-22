@@ -53,6 +53,8 @@ int prepare_pmu_event(enum uftrace_event_id id)
 			return 0;
 	}
 
+	pr_dbg("setup PMU event (%d) using perf syscall\n", id);
+
 	switch (id) {
 	case EVENT_ID_READ_PMU_CYCLE:
 		pd = xmalloc(sizeof(*pd) + 2 * sizeof(int));

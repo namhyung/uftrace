@@ -426,6 +426,20 @@ static void diff_page_fault(void *dst, void *src)
 	dst_pgflt->minor -= src_pgflt->minor;
 }
 
+static void save_pmu_cycle(void *buf)
+{
+	read_pmu_event(EVENT_ID_READ_PMU_CYCLE, buf);
+}
+
+static void diff_pmu_cycle(void *dst, void *src)
+{
+	struct uftrace_pmu_cycle *dst_cycle = dst;
+	struct uftrace_pmu_cycle *src_cycle = src;
+
+	dst_cycle->cycles -= src_cycle->cycles;
+	dst_cycle->instrs -= src_cycle->instrs;
+}
+
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff)
@@ -500,6 +514,37 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 			if (old_event) {
 				event->id = EVENT_ID_DIFF_PAGE_FAULT;
 				diff_page_fault(event->data, old_event->data);
+			}
+		}
+
+		ptr = event;
+
+		rstack->nr_events++;
+		rstack->event_idx -= evsize;
+	}
+	if (type & TRIGGER_READ_PMU_CYCLE) {
+		evsize = EVTBUF_HDR + sizeof(struct uftrace_pmu_cycle);
+		event = ptr - evsize;
+
+		event->id    = EVENT_ID_READ_PMU_CYCLE;
+		event->time  = rstack->end_time ?: rstack->start_time;
+		event->dsize = sizeof(struct uftrace_pmu_cycle);
+		event->idx   = mtdp->idx;
+		save_pmu_cycle(event->data);
+
+		if (diff) {
+			struct mcount_event *old_event = NULL;
+			unsigned idx;
+
+			for (idx = 0; idx < rstack->nr_events; idx++) {
+				old_event = get_event_pointer(ptr, idx);
+				if (old_event->id == event->id)
+					break;
+			}
+
+			if (old_event) {
+				event->id = EVENT_ID_DIFF_PMU_CYCLE;
+				diff_pmu_cycle(event->data, old_event->data);
 			}
 		}
 

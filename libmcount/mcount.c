@@ -77,6 +77,24 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
 #ifndef DISABLE_MCOUNT_FILTER
+static void prepare_pmu_trigger(struct rb_root *root)
+{
+	struct rb_node *node = rb_first(root);
+	struct uftrace_filter *entry;
+
+	while (node) {
+		entry = rb_entry(node, typeof(*entry), node);
+
+		if (entry->trigger.flags & TRIGGER_FL_READ) {
+			if (entry->trigger.read & TRIGGER_READ_PMU_CYCLE)
+				if (prepare_pmu_event(EVENT_ID_READ_PMU_CYCLE) < 0)
+					break;
+		}
+
+		node = rb_next(node);
+	}
+}
+
 static void mcount_filter_init(void)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
@@ -112,6 +130,8 @@ static void mcount_filter_init(void)
 
 	if (getenv("UFTRACE_DISABLED"))
 		mcount_enabled = false;
+
+	prepare_pmu_trigger(&mcount_triggers);
 }
 
 static void mcount_filter_setup(struct mcount_thread_data *mtdp)
@@ -1258,6 +1278,7 @@ static void mcount_cleanup(void)
 		script_finish();
 
 	unload_symtabs(&symtabs);
+	finish_pmu_event();
 
 	pr_dbg("exit from libmcount\n");
 }
