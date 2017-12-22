@@ -306,6 +306,7 @@ static void print_event(struct ftrace_task_handle *task,
 	else if (evt_id >= EVENT_ID_BUILTIN) {
 		struct uftrace_proc_statm *statm;
 		struct uftrace_page_fault *page_fault;
+		struct uftrace_pmu_cycle *cycle;
 
 		switch (evt_id) {
 		case EVENT_ID_READ_PROC_STATM:
@@ -318,6 +319,11 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, "%s (major=%"PRIu64", minor=%"PRIu64")",
 				 evt_name, page_fault->major, page_fault->minor);
 			return;
+		case EVENT_ID_READ_PMU_CYCLE:
+			cycle = task->args.data;
+			pr_color(color, "%s (cycles=%"PRIu64", instructions=%"PRIu64")",
+				 evt_name, cycle->cycles, cycle->instrs);
+			return;
 		case EVENT_ID_DIFF_PROC_STATM:
 			statm = task->args.data;
 			pr_color(color, "%s (size=%+"PRId64"KB, rss=%+"PRId64"KB, shared=%+"PRId64"KB)",
@@ -327,6 +333,12 @@ static void print_event(struct ftrace_task_handle *task,
 			page_fault = task->args.data;
 			pr_color(color, "%s (major=%+"PRId64", minor=%+"PRId64")",
 				 evt_name, page_fault->major, page_fault->minor);
+			return;
+		case EVENT_ID_DIFF_PMU_CYCLE:
+			cycle = task->args.data;
+			pr_color(color, "%s (cycles=%+"PRId64", instructions=%+"PRId64", IPC=%.2f)",
+				 evt_name, cycle->cycles, cycle->instrs,
+				 (float)cycle->instrs / cycle->cycles);
 			return;
 		default:
 			pr_color(color, "%s", evt_name);
