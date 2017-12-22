@@ -119,6 +119,11 @@ struct uftrace_page_fault {
 	uint64_t		minor;
 };
 
+struct uftrace_pmu_cycle {
+	uint64_t		cycles;  /* cpu cycles */
+	uint64_t		instrs;  /* cpu instructions */
+};
+
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct symtabs;

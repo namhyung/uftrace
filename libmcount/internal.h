@@ -349,4 +349,8 @@ int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 void mcount_hook_functions(void);
 
+int prepare_pmu_event(enum uftrace_event_id id);
+int read_pmu_event(enum uftrace_event_id id, void *buf);
+void finish_pmu_event(void);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
