@@ -911,7 +911,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	if (ret < 0) {
+	if (ret < 0 && errno != ENODATA) {
 		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;
 	}
