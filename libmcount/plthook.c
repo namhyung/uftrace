@@ -18,6 +18,10 @@
 #include "utils/filter.h"
 #include "utils/script.h"
 
+#ifndef  PT_GNU_RELRO
+# define PT_GNU_RELRO  0x6474e552  /* Read-only after relocation */
+#endif
+
 extern struct symtabs symtabs;
 
 unsigned long plthook_resolver_addr;
@@ -26,40 +30,10 @@ static LIST_HEAD(plthook_modules);
 
 static bool plthook_no_pltbind;
 
-static unsigned long got_addr;
-static volatile bool segv_handled;
-
-#define PAGE_SIZE  4096
-#define PAGE_ADDR(addr)  ((void *)((addr) & ~(PAGE_SIZE - 1)))
-
-static void segv_handler(int sig, siginfo_t *si, void *ctx)
-{
-	if (segv_handled)
-		pr_err_ns("stuck in a loop at segfault handler\n");
-
-	if (si->si_code == SEGV_ACCERR) {
-		if (mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_WRITE) < 0)
-			pr_err("mprotect failed");
-		segv_handled = true;
-	} else {
-		pr_err_ns("invalid memory access: %lx: exiting.\n", got_addr);
-	}
-}
-
 static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)
 {
-	/* save got_addr for segv_handler */
-	got_addr = (unsigned long)(&pd->pltgot_ptr[idx]);
-
-	segv_handled = false;
-
-	compiler_barrier();
-
 	/* overwrite it - might be write-protected */
 	pd->pltgot_ptr[idx] = (unsigned long)data;
-
-	if (segv_handled)
-		mprotect(PAGE_ADDR(got_addr), PAGE_SIZE, PROT_READ);
 }
 
 unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
@@ -171,25 +145,10 @@ static int find_got(Elf *elf, const char *modname,
 	bool plt_found = false;
 	bool bind_now = false;
 	unsigned long pltgot_addr = 0;
-	struct sigaction sa, old_sa;
 	struct plthook_data *pd;
 	Elf_Scn *sec = NULL;
 	size_t shstr_idx;
 	unsigned long plt_addr = 0;
-
-	/*
-	 * The GOT region is write-protected on some systems.
-	 * In that case, we need to use mprotect() to overwrite
-	 * the address of resolver function.  So install signal
-	 * handler to catch such cases.
-	 */
-	sa.sa_sigaction = segv_handler;
-	sa.sa_flags = SA_SIGINFO;
-	sigfillset(&sa.sa_mask);
-	if (sigaction(SIGSEGV, &sa, &old_sa) < 0) {
-		pr_dbg("error during install sig handler\n");
-		return -1;
-	}
 
 	for (i = 0; i < nr_dyn; i++) {
 		GElf_Dyn dyn;
@@ -281,12 +240,6 @@ static int find_got(Elf *elf, const char *modname,
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
 
-	/* restore the original signal handler */
-	if (sigaction(SIGSEGV, &old_sa, NULL) < 0) {
-		pr_dbg("error during recover sig handler\n");
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -298,9 +251,13 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 	GElf_Ehdr ehdr;
 	Elf_Scn *sec;
 	GElf_Shdr shdr;
-	Elf_Data *data;
+	Elf_Data *dyn_data = NULL;
 	size_t shstr_idx;
-	size_t i;
+	size_t nr_dyn, i;
+	bool relro = false;
+	unsigned long relro_start = 0;
+	unsigned long relro_size = 0;
+	unsigned long page_size;
 
 	pr_dbg2("opening executable image: %s\n", modname);
 
@@ -324,22 +281,46 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 		if (gelf_getphdr(elf, i, &phdr) == NULL)
 			goto elf_error;
 
-		if (phdr.p_type != PT_DYNAMIC)
-			continue;
+		if (phdr.p_type == PT_DYNAMIC) {
+			sec = gelf_offscn(elf, phdr.p_offset);
 
-		sec = gelf_offscn(elf, phdr.p_offset);
+			if (!sec || gelf_getshdr(sec, &shdr) == NULL)
+				continue;
 
-		if (!sec || gelf_getshdr(sec, &shdr) == NULL)
-			continue;
+			dyn_data = elf_getdata(sec, NULL);
+			if (dyn_data == NULL)
+				goto elf_error;
 
-		data = elf_getdata(sec, NULL);
-		if (data == NULL)
-			goto elf_error;
+			nr_dyn = shdr.sh_size / shdr.sh_entsize;
+		}
 
-		if (find_got(elf, modname, data, shdr.sh_size / shdr.sh_entsize,
-			     offset) < 0)
+		if (phdr.p_type == PT_GNU_RELRO) {
+			relro = true;
+			relro_start = phdr.p_vaddr + offset;
+			relro_size  = phdr.p_memsz;
+
+			page_size = getpagesize();
+
+			relro_start &= ~(page_size - 1);
+			relro_size   = ALIGN(relro_size, page_size);
+		}
+	}
+
+	if (dyn_data) {
+		if (relro) {
+			mprotect((void *)relro_start, relro_size,
+				 PROT_READ | PROT_WRITE);
+		}
+
+		ret = find_got(elf, modname, dyn_data, nr_dyn, offset);
+
+		if (relro)
+			mprotect((void *)relro_start, relro_size, PROT_READ);
+
+		if (ret < 0)
 			goto elf_error;
 	}
+
 	ret = 0;
 
 out:
