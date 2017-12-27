@@ -234,6 +234,7 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 			char *name = pos;
 			char *args = NULL;
 			char *rval = NULL;
+			bool auto_args = false;
 
 			act = strchr(name, '@');
 			if (act == NULL)
@@ -247,6 +248,8 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 					args = strjoin(args, pos, ",");
 				if (!strncasecmp(pos, "retval", 6))
 					rval = "retval";
+				if (!strncasecmp(pos, "auto-args", 9))
+					auto_args = true;
 			}
 
 			if (args) {
@@ -258,6 +261,10 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 				xasprintf(&act, "%s@retval", name);
 				retspec = strjoin(retspec, act, ";");
 				free(act);
+			}
+			if (auto_args) {
+				argspec = strjoin(argspec, name, ";");
+				retspec = strjoin(retspec, name, ";");
 			}
 		}
 		free(str);

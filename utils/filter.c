@@ -728,6 +728,12 @@ static int parse_notrace_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
+static int parse_auto_args_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr);
@@ -748,6 +754,7 @@ static const struct trigger_action_parser actions[] = {
 	{ "backtrace", parse_backtrace_action, },
 	{ "recover",   parse_recover_action, },
 	{ "finish",    parse_finish_action, },
+	{ "auto-args", parse_auto_args_action, },
 };
 
 int setup_trigger_action(char *str, struct uftrace_trigger *tr,
