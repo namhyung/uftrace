@@ -911,7 +911,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	if (ret < 0) {
+	if (ret < 0 && errno != ENODATA) {
 		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;
 	}
@@ -991,8 +991,12 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (handle.hdr.info_mask & (1UL << ARG_SPEC)) {
-		pr_out(fmt, "arguments", handle.info.argspec);
-		pr_out(fmt, "return values", handle.info.retspec);
+		if (handle.info.argspec)
+			pr_out(fmt, "arguments", handle.info.argspec);
+		if (handle.info.retspec)
+			pr_out(fmt, "return values", handle.info.retspec);
+		if (handle.info.auto_args_enabled)
+			pr_out(fmt, "auto-args", "true");
 	}
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {

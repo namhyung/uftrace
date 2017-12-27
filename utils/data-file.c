@@ -363,6 +363,7 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	int ret = -1;
 	FILE *fp;
 	char buf[PATH_MAX];
+	int saved_errno = 0;
 
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
@@ -386,6 +387,8 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 			opts->dirname = UFTRACE_DIR_OLD_NAME;
 			goto ok;
 		}
+
+		saved_errno = errno;
 
 		/* restore original file name for error reporting */
 		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
@@ -449,9 +452,9 @@ ok:
 		if (read_task_file(sessions, opts->dirname, true, sym_rel) < 0 &&
 		    read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0) {
 			if (errno == ENOENT)
-				pr_warn("no trace data found\n");
+				saved_errno = ENODATA;
 			else
-				pr_warn("invalid trace data\n");
+				saved_errno = errno;
 		}
 	}
 
@@ -499,7 +502,10 @@ ok:
 	if (handle->hdr.feat_mask & PERF_EVENT)
 		setup_perf_data(handle);
 
-	ret = 0;
+	if (saved_errno)
+		errno = saved_errno;
+	else
+		ret = 0;
 
 out:
 	return ret;
