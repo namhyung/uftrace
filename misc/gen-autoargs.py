@@ -184,6 +184,8 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/p"
     elif ctype == "off64_t":
         retval_format += "retval/d64"
+    elif ctype.startswith('enum'):
+        retval_format += "retval/e:%s" % ctype[5:]
     else:
         retval_format += "retval"
 
