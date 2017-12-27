@@ -644,6 +644,8 @@ static int parse_read_action(char *action, struct uftrace_trigger *tr)
 		tr->read |= TRIGGER_READ_PAGE_FAULT;
 	if (!strcmp(target, "pmu-cycle"))
 		tr->read |= TRIGGER_READ_PMU_CYCLE;
+	if (!strcmp(target, "pmu-cache"))
+		tr->read |= TRIGGER_READ_PMU_CACHE;
 
 	/* set READ flag only if valid type set */
 	if (tr->read)

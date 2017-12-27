@@ -307,6 +307,7 @@ static void print_event(struct ftrace_task_handle *task,
 		struct uftrace_proc_statm *statm;
 		struct uftrace_page_fault *page_fault;
 		struct uftrace_pmu_cycle *cycle;
+		struct uftrace_pmu_cache *cache;
 
 		switch (evt_id) {
 		case EVENT_ID_READ_PROC_STATM:
@@ -324,6 +325,11 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, "%s (cycles=%"PRIu64", instructions=%"PRIu64")",
 				 evt_name, cycle->cycles, cycle->instrs);
 			return;
+		case EVENT_ID_READ_PMU_CACHE:
+			cache = task->args.data;
+			pr_color(color, "%s (refers=%"PRIu64", misses=%"PRIu64")",
+				 evt_name, cache->refers, cache->misses);
+			return;
 		case EVENT_ID_DIFF_PROC_STATM:
 			statm = task->args.data;
 			pr_color(color, "%s (size=%+"PRId64"KB, rss=%+"PRId64"KB, shared=%+"PRId64"KB)",
@@ -339,6 +345,12 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, "%s (cycles=%+"PRId64", instructions=%+"PRId64", IPC=%.2f)",
 				 evt_name, cycle->cycles, cycle->instrs,
 				 (float)cycle->instrs / cycle->cycles);
+			return;
+		case EVENT_ID_DIFF_PMU_CACHE:
+			cache = task->args.data;
+			pr_color(color, "%s (refers=%+"PRId64", misses=%+"PRId64", hit=%d%%)",
+				 evt_name, cache->refers, cache->misses,
+				 (cache->refers - cache->misses) * 100 / cache->refers);
 			return;
 		default:
 			pr_color(color, "%s", evt_name);
