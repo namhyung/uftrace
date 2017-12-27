@@ -125,6 +125,11 @@ struct uftrace_pmu_cycle {
 	uint64_t		instrs;  /* cpu instructions */
 };
 
+struct uftrace_pmu_cache {
+	uint64_t		refers;  /* cache references */
+	uint64_t		misses;  /* cache misses */
+};
+
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct symtabs;

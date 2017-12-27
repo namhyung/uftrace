@@ -1155,6 +1155,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 		case EVENT_ID_READ_PMU_CYCLE:
 			xasprintf(&evt_name, "read:pmu-cycle");
 			break;
+		case EVENT_ID_READ_PMU_CACHE:
+			xasprintf(&evt_name, "read:pmu-cache");
+			break;
 		case EVENT_ID_DIFF_PROC_STATM:
 			xasprintf(&evt_name, "diff:proc/statm");
 			break;
@@ -1163,6 +1166,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 			break;
 		case EVENT_ID_DIFF_PMU_CYCLE:
 			xasprintf(&evt_name, "diff:pmu-cycle");
+			break;
+		case EVENT_ID_DIFF_PMU_CACHE:
+			xasprintf(&evt_name, "diff:pmu-cache");
 			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
@@ -1186,6 +1192,7 @@ int read_task_event(struct ftrace_task_handle *task,
 		struct uftrace_proc_statm statm;
 		struct uftrace_page_fault pgfault;
 		struct uftrace_pmu_cycle cycle;
+		struct uftrace_pmu_cache cache;
 	} u;
 
 	switch (rec->addr) {
@@ -1227,6 +1234,19 @@ int read_task_event(struct ftrace_task_handle *task,
 		}
 
 		save_task_event(task, &u.cycle, sizeof(u.cycle));
+		break;
+
+	case EVENT_ID_READ_PMU_CACHE:
+	case EVENT_ID_DIFF_PMU_CACHE:
+		if (read_task_event_size(task, &u.cache, sizeof(u.cache)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.cache.refers = bswap_64(u.cache.refers);
+			u.cache.misses = bswap_64(u.cache.misses);
+		}
+
+		save_task_event(task, &u.cache, sizeof(u.cache));
 		break;
 
 	default:
