@@ -117,8 +117,16 @@ int check_static_binary(const char *filename);
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
 size_t count_dynsym(struct symtabs *symtabs);
 
-struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
-				      const char *prefix);
+/* map for main executable */
+#define MAP_MAIN (struct uftrace_mmap *)1
+
+/* pseudo-map for kernel image */
+#define MAP_KERNEL (struct uftrace_mmap *)2
+
+struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr);
+struct uftrace_mmap * find_map_by_name(struct symtabs *symtabs,
+				       const char *prefix);
+struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name);
 
 int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);

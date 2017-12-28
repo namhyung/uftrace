@@ -1643,14 +1643,73 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
+struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
+{
+	struct uftrace_mmap *maps;
+
+	if (is_kernel_address(symtabs, addr))
+		return MAP_KERNEL;
+
+	if (symtabs->symtab.nr_sym) {
+		struct symtab *stab = &symtabs->symtab;
+		uint64_t start = stab->sym[0].addr;
+		uint64_t end = stab->sym[stab->nr_sym - 1].addr;
+
+		end += stab->sym[stab->nr_sym - 1].size;
+
+		if (start <= addr && addr < end)
+			return MAP_MAIN;
+	}
+
+	if (symtabs->dsymtab.nr_sym) {
+		struct symtab *stab = &symtabs->dsymtab;
+		uint64_t start = stab->sym[0].addr;
+		uint64_t end = stab->sym[stab->nr_sym - 1].addr;
+
+		end += stab->sym[stab->nr_sym - 1].size;
+
+		if (start <= addr && addr < end)
+			return MAP_MAIN;
+	}
+
+	maps = symtabs->maps;
+	while (maps) {
+		if (maps->start <= addr && addr < maps->end)
+			return maps;
+
+		maps = maps->next;
+	}
+	return NULL;
+}
+
+struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
+{
+	struct uftrace_mmap *maps;
+
+	if (find_symname(&symtabs->symtab, name))
+		return MAP_MAIN;
+
+	maps = symtabs->maps;
+	while (maps) {
+		struct sym *sym;
+		sym = find_symname(&maps->symtab, name);
+		if (sym && sym->type != ST_PLT)
+			return maps;
+
+		maps = maps->next;
+	}
+	return NULL;
+}
+
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
 	struct uftrace_mmap *maps;
-	struct sym *sym;
+	struct sym *sym = NULL;
 
-	if (is_kernel_address(symtabs, addr)) {
+	maps = find_map(symtabs, addr);
+	if (maps == MAP_KERNEL) {
 		struct symtab *ktab = get_kernel_symtab();
 		uint64_t kaddr = get_real_address(addr);
 
@@ -1662,23 +1721,16 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		return sym;
 	}
 
-	sym = bsearch(&addr, stab->sym, stab->nr_sym,
-		      sizeof(*sym), addrfind);
-	if (sym)
+	if (maps == MAP_MAIN) {
+		sym = bsearch(&addr, stab->sym, stab->nr_sym,
+			      sizeof(*sym), addrfind);
+		if (sym)
+			return sym;
+
+		/* try dynamic symbols if failed */
+		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
+			      sizeof(*sym), addrfind);
 		return sym;
-
-	/* try dynamic symbols if failed */
-	sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
-		      sizeof(*sym), addrfind);
-	if (sym)
-		return sym;
-
-	maps = symtabs->maps;
-	while (maps) {
-		if (maps->start <= addr && addr < maps->end)
-			break;
-
-		maps = maps->next;
 	}
 
 	if (maps) {
