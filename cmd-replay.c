@@ -590,6 +590,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
 	char args[1024];
+	char *libname = "";
+	struct uftrace_mmap *map = NULL;
 
 	if (task == NULL)
 		return 0;
@@ -607,6 +609,17 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
+
+	if (opts->libname && sym && sym->type == ST_PLT) {
+		struct uftrace_session *s;
+
+		s = find_task_session(sessions, task->tid, rstack->time);
+		if (s) {
+			map = find_symbol_map(&s->symtabs, symname);
+			if (map && map != MAP_MAIN)
+				libname = basename(map->libname);
+		}
+	}
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct ftrace_task_handle *next = NULL;
@@ -668,10 +681,15 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			pr_out("%*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
+				if (*libname)
+					pr_color(tr.color, "@%s", libname);
 				pr_out("%s%s\n", args, retval);
 			}
-			else
-				pr_out("%s%s%s\n", symname, args, retval);
+			else {
+				pr_out("%s%s%s%s%s\n", symname,
+				       *libname ? "@" : "",
+				       libname, args, retval);
+			}
 
 			/* fstack_update() is not needed here */
 
@@ -683,10 +701,14 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			pr_out("%*s", depth * 2, "");
 			if (tr.flags & TRIGGER_FL_COLOR) {
 				pr_color(tr.color, "%s", symname);
+				if (*libname)
+					pr_color(tr.color, "@%s", libname);
 				pr_out("%s {\n", args);
 			}
-			else
-				pr_out("%s%s {\n", symname, args);
+			else {
+				pr_out("%s%s%s%s {\n", symname,
+				       *libname ? "@" : "", libname, args);
+			}
 
 			fstack_update(UFTRACE_ENTRY, task, fstack);
 		}
@@ -718,7 +740,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			print_field(task, fstack, NULL);
 			pr_out("%*s}%s", depth * 2, "", retval);
 			if (opts->comment)
-				pr_gray(" /* %s */\n", symname);
+				pr_gray(" /* %s%s%s */\n", symname,
+					*libname ? "@" : "", libname);
 			else
 				pr_gray("\n");
 		}

@@ -79,6 +79,9 @@ OPTIONS
 \--event-full
 :   Show all (user) events outside of user functions.
 
+\--libname
+:   Show libname name along with function name.
+
 
 FILTERS
 =======

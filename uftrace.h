@@ -242,6 +242,7 @@ struct opts {
 	bool nest_libcall;
 	bool record;
 	bool auto_args;
+	bool libname;
 	struct uftrace_time_range range;
 };
 
