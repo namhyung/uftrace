@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <sys/uio.h>
+#include <spawn.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -131,6 +132,72 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 	mcount_rstack_reset(mtdp);
 }
 
+static char ** collect_uftrace_envp(void)
+{
+	size_t n = 0;
+	size_t i, k;
+	char **envp;
+
+#define ENV(_name)  "UFTRACE_" #_name
+
+	const char *const uftrace_env[] = {
+		ENV(FILTER), ENV(TRIGGER), ENV(ARGUMENT), ENV(RETVAL),
+		ENV(AUTO_ARGS), ENV(DEPTH), ENV(DISABLED), ENV(PIPE),
+		ENV(LOGFD), ENV(DEBUG), ENV(BUFFER), ENV(MAX_STACK),
+		ENV(COLOR), ENV(THRESHOLD), ENV(DEMANGLE), ENV(PLTHOOK),
+		ENV(PATCH), ENV(EVENT), ENV(SCRIPT), ENV(NEST_LIBCALL),
+		ENV(DEBUG_DOMAIN), ENV(LIST_EVENT), ENV(DIR),
+		ENV(KERNEL_PID_UPDATE),
+		/* not uftrace-specific, but necessary to run */
+		"LD_PRELOAD", "LD_LIBRARY_PATH",
+	};
+
+#undef ENV
+
+	for (i = 0; i < ARRAY_SIZE(uftrace_env); i++) {
+		if (getenv(uftrace_env[i]))
+			n++;
+	}
+
+	envp = xcalloc(sizeof(*envp), n + 2);
+
+	for (i = k = 0; i < ARRAY_SIZE(uftrace_env); i++) {
+		char *env_str;
+		char *env_val;
+
+		env_val = getenv(uftrace_env[i]);
+		if (env_val == NULL)
+			continue;
+
+		xasprintf(&env_str, "%s=%s", uftrace_env[i], env_val);
+		envp[k++] = env_str;
+	}
+
+	return envp;
+}
+
+static char ** merge_envp(char *const *dst, char **src)
+{
+	int i, n = 0;
+	char **envp;
+
+	for (i = 0; dst[i]; i++)
+		n++;
+	for (i = 0; src[i]; i++)
+		n++;
+
+
+	envp = xcalloc(sizeof(*envp), n + 1);
+
+	n = 0;
+	for (i = 0; dst[i]; i++)
+		envp[n++] = dst[i];
+	for (i = 0; src[i]; i++)
+		envp[n++] = src[i];
+
+	return envp;
+}
+
 /*
  * hooking functions
  */
@@ -142,6 +209,14 @@ static void (*real_cxa_end_catch)(void);
 static void * (*real_dlopen)(const char *filename, int flags);
 static __noreturn void (*real_pthread_exit)(void *retval);
 static void (*real_unwind_resume)(void *exc);
+static int (*real_posix_spawn)(pid_t *pid, const char *path,
+			       const posix_spawn_file_actions_t *actions,
+			       const posix_spawnattr_t *attr,
+			       char *const argv[], char *const envp[]);
+static int (*real_posix_spawnp)(pid_t *pid, const char *file,
+				const posix_spawn_file_actions_t *actions,
+				const posix_spawnattr_t *attr,
+				char *const argv[], char *const envp[]);
 
 void mcount_hook_functions(void)
 {
@@ -153,6 +228,8 @@ void mcount_hook_functions(void)
 	real_dlopen		= dlsym(RTLD_NEXT, "dlopen");
 	real_pthread_exit	= dlsym(RTLD_NEXT, "pthread_exit");
 	real_unwind_resume	= dlsym(RTLD_NEXT, "_Unwind_Resume");
+	real_posix_spawn	= dlsym(RTLD_NEXT, "posix_spawn");
+	real_posix_spawnp	= dlsym(RTLD_NEXT, "posix_spawnp");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -323,6 +400,34 @@ __visible_default __noreturn void pthread_exit(void *retval)
 	}
 
 	real_pthread_exit(retval);
+}
+
+__visible_default int posix_spawn(pid_t *pid, const char *path,
+				  const posix_spawn_file_actions_t *actions,
+				  const posix_spawnattr_t *attr,
+				  char *const argv[], char *const envp[])
+{
+	char **uftrace_envp;
+	char **new_envp;
+
+	uftrace_envp = collect_uftrace_envp();
+	new_envp = merge_envp(envp, uftrace_envp);
+
+	return real_posix_spawn(pid, path, actions, attr, argv, new_envp);
+}
+
+__visible_default int posix_spawnp(pid_t *pid, const char *file,
+				   const posix_spawn_file_actions_t *actions,
+				   const posix_spawnattr_t *attr,
+				   char *const argv[], char *const envp[])
+{
+	char **uftrace_envp;
+	char **new_envp;
+
+	uftrace_envp = collect_uftrace_envp();
+	new_envp = merge_envp(envp, uftrace_envp);
+
+	return real_posix_spawnp(pid, file, actions, attr, argv, new_envp);
 }
 
 #ifdef UNIT_TEST
