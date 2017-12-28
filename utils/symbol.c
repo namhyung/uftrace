@@ -774,6 +774,120 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 	left->name_sorted = true;
 }
 
+static int update_symtab_using_dynsym(struct symtab *symtab, const char *filename,
+				      unsigned long offset, unsigned long flags)
+{
+	int ret = -1;
+	int idx, nr_sym = 0;
+	Elf_Scn *dynsym_sec, *sec;
+	Elf_Data *dynsym_data;
+	size_t shstr_idx, dynstr_idx = 0;
+	Elf *elf;
+	GElf_Ehdr ehdr;
+	int fd;
+	int count = 0;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		return -1;
+	}
+
+	elf_version(EV_CURRENT);
+
+	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
+	if (elf == NULL) {
+		close(fd);
+		return -1;
+	}
+
+	if (gelf_getehdr(elf, &ehdr) == NULL)
+		goto elf_error;
+
+	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
+		goto elf_error;
+
+	sec = dynsym_sec = NULL;
+	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+		char *shstr;
+		GElf_Shdr shdr;
+
+		if (gelf_getshdr(sec, &shdr) == NULL)
+			goto elf_error;
+
+		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+
+		if (strcmp(shstr, ".dynsym") == 0) {
+			dynsym_sec = sec;
+			dynstr_idx = shdr.sh_link;
+			nr_sym = shdr.sh_size / shdr.sh_entsize;
+			break;
+		}
+	}
+
+	if (dynsym_sec == NULL) {
+		pr_dbg2("cannot find dynamic symbols.. skipping\n");
+		ret = 0;
+		goto out;
+	}
+
+	dynsym_data = elf_getdata(dynsym_sec, NULL);
+	if (dynsym_data == NULL)
+		goto elf_error;
+
+	pr_dbg("updating symbol name using dynamic symbols\n");
+
+	for (idx = 0; idx < nr_sym; idx++) {
+		GElf_Sym esym;
+		struct sym *sym;
+		char *name;
+		uint64_t addr;
+
+		gelf_getsym(dynsym_data, idx, &esym);
+		name = elf_strptr(elf, dynstr_idx, esym.st_name);
+
+		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC)
+			continue;
+		if (esym.st_shndx == SHN_UNDEF)
+			continue;
+
+		addr = esym.st_value + offset;
+		sym = bsearch(&addr, symtab->sym, symtab->nr_sym,
+			      sizeof(*sym), addrfind);
+		if (sym == NULL)
+			continue;
+
+		if (sym->name[0] != '_' && name[0] == '_')
+			continue;
+
+		pr_dbg3("update symbol name to %s\n", name);
+		free(sym->name);
+		count++;
+
+		if (flags & SYMTAB_FL_DEMANGLE)
+			sym->name = demangle(name);
+		else
+			sym->name = xstrdup(name);
+	}
+	ret = 0;
+
+	if (count)
+		pr_dbg2("updated %d symbols\n", count);
+
+	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
+	symtab->name_sorted = true;
+
+out:
+	elf_end(elf);
+	close(fd);
+
+	return ret;
+
+elf_error:
+	pr_dbg("ELF error during load dynsymtab: %s\n",
+	       elf_errmsg(elf_errno()));
+	goto out;
+}
+
 int check_trace_functions(const char *filename)
 {
 	int fd;
@@ -896,6 +1010,9 @@ struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 	return NULL;
 }
 
+static int update_symtab_using_dynsym(struct symtab *symtab, const char *filename,
+				      unsigned long offset, unsigned long flags);
+
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
 {
@@ -927,8 +1044,11 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	 * for plthook anyway.
 	 */
 	if (symtabs->symtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
+	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL)) {
 		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
+		update_symtab_using_dynsym(&symtabs->symtab, filename, offset,
+					   symtabs->flags);
+	}
 	if (symtabs->dsymtab.nr_sym == 0 &&
 	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
 		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
@@ -1020,6 +1140,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
 		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
 		merge_symtabs(&maps->symtab, &dsymtab);
+		update_symtab_using_dynsym(&maps->symtab, maps->libname, maps->start, flags);
 
 next:
 		maps = maps->next;
