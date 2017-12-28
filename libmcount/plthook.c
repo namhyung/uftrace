@@ -95,6 +95,10 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 #undef SKIP_FUNC
 
+	const char *const resolve_list[] = {
+		"execl", "execle", "execlp", "posix_spawn",
+		"execv", "execve", "execvp", "execvpe", "fexecve",
+	};
 	struct symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
@@ -111,6 +115,23 @@ static void restore_plt_functions(struct plthook_data *pd)
 			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
 				i, skip_list[k].name, skip_list[k].addr);
+
+			skipped = true;
+		}
+
+		for (k = 0; !skipped && k < ARRAY_SIZE(resolve_list); k++) {
+			struct sym *sym = dsymtab->sym_names[i];
+
+			if (strcmp(sym->name, resolve_list[k]))
+				continue;
+
+			resolved_addr = (unsigned long)dlsym(RTLD_DEFAULT, sym->name);
+			plthook_addr = mcount_arch_plthook_addr(pd, i);
+
+			pd->resolved_addr[i] = resolved_addr;
+			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
+			pr_dbg2("resolve [%u] %s: %p\n",
+				i, resolve_list[k], resolved_addr);
 
 			skipped = true;
 		}
