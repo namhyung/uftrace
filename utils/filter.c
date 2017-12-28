@@ -212,7 +212,7 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		filter->trigger.time = tr->time;
 	if (tr->flags & TRIGGER_FL_READ)
-		filter->trigger.read = tr->read;
+		filter->trigger.read |= tr->read;
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
@@ -280,6 +280,7 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	new = xmalloc(sizeof(*new));
 	memcpy(new, filter, sizeof(*new));
 	new->trigger.flags = 0;
+	new->trigger.read  = 0;
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
 
