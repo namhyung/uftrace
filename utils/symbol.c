@@ -381,15 +381,23 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		struct sym *curr = &symtab->sym[i];
 		struct sym *next = &symtab->sym[i + 1];
 		int count = 0;
+		char *bestname = curr->name;
 
 		while (curr->addr == next->addr &&
 		       next < &symtab->sym[symtab->nr_sym]) {
+
+			/* prefer names not started by '_' */
+			if (bestname[0] == '_' && next->name[0] != '_')
+				bestname = next->name;
+
 			count++;
 			next++;
 		}
 
 		if (count) {
 			struct sym *tmp = curr;
+
+			bestname = xstrdup(bestname);
 
 			while (tmp < next - 1) {
 				free(tmp->name);
@@ -398,6 +406,9 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 
 			memmove(curr, next - 1,
 				(symtab->nr_sym - i - count) * sizeof(*next));
+
+			free(curr->name);
+			curr->name = bestname;
 
 			symtab->nr_sym -= count;
 			dup_syms += count;
