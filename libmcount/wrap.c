@@ -217,6 +217,12 @@ static int (*real_posix_spawnp)(pid_t *pid, const char *file,
 				const posix_spawn_file_actions_t *actions,
 				const posix_spawnattr_t *attr,
 				char *const argv[], char *const envp[]);
+/* TODO: support execle() */
+static int (*real_execve)(const char *path, char *const argv[],
+			  char *const envp[]);
+static int (*real_execvpe)(const char *file, char *const argv[],
+			   char *const envp[]);
+static int (*real_fexecve)(int fd, char *const argv[], char *const envp[]);
 
 void mcount_hook_functions(void)
 {
@@ -230,6 +236,9 @@ void mcount_hook_functions(void)
 	real_unwind_resume	= dlsym(RTLD_NEXT, "_Unwind_Resume");
 	real_posix_spawn	= dlsym(RTLD_NEXT, "posix_spawn");
 	real_posix_spawnp	= dlsym(RTLD_NEXT, "posix_spawnp");
+	real_execve		= dlsym(RTLD_NEXT, "execve");
+	real_execvpe		= dlsym(RTLD_NEXT, "execvpe");
+	real_fexecve		= dlsym(RTLD_NEXT, "fexecve");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -428,6 +437,41 @@ __visible_default int posix_spawnp(pid_t *pid, const char *file,
 	new_envp = merge_envp(envp, uftrace_envp);
 
 	return real_posix_spawnp(pid, file, actions, attr, argv, new_envp);
+}
+
+__visible_default int execve(const char *path, char *const argv[],
+			     char *const envp[])
+{
+	char **uftrace_envp;
+	char **new_envp;
+
+	uftrace_envp = collect_uftrace_envp();
+	new_envp = merge_envp(envp, uftrace_envp);
+
+	return real_execve(path, argv, new_envp);
+}
+
+__visible_default int execvpe(const char *file, char *const argv[],
+			      char *const envp[])
+{
+	char **uftrace_envp;
+	char **new_envp;
+
+	uftrace_envp = collect_uftrace_envp();
+	new_envp = merge_envp(envp, uftrace_envp);
+
+	return real_execvpe(file, argv, new_envp);
+}
+
+__visible_default int fexecve(int fd, char *const argv[], char *const envp[])
+{
+	char **uftrace_envp;
+	char **new_envp;
+
+	uftrace_envp = collect_uftrace_envp();
+	new_envp = merge_envp(envp, uftrace_envp);
+
+	return real_fexecve(fd, argv, new_envp);
 }
 
 #ifdef UNIT_TEST
