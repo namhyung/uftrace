@@ -29,7 +29,7 @@ struct_or_union_specifier = ["struct", "union"]
 enum_specifier = ["enum"]
 
 typedef_name = [
-        "size_t", "ssize_t", "pid_t", "off_t", "FILE",
+        "size_t", "ssize_t", "pid_t", "off_t", "off64_t", "FILE",
         "sigset_t", "socklen_t", "intptr_t", "nfds_t",
         "pthread_t", "pthread_once_t", "pthread_attr_t",
         "pthread_mutex_t", "pthread_mutexattr_t",
@@ -182,6 +182,10 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/u"
     elif ctype == "funcptr_t":
         retval_format += "retval/p"
+    elif ctype == "off64_t":
+        retval_format += "retval/d64"
+    elif ctype.startswith('enum'):
+        retval_format += "retval/e:%s" % ctype[5:]
     else:
         retval_format += "retval"
 
@@ -211,6 +215,8 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/u" % i
         elif arg == "funcptr_t":
             args_format += "arg%d/p" % i
+        elif arg == "off64_t":
+            args_format += "arg%d/d64" % i
         elif arg.startswith('enum'):
             args_format += "arg%d/e:%s" % (i, arg[5:])
         else:

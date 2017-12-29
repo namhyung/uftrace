@@ -40,6 +40,7 @@ enum uft_mmap_flag {
 	MAP_HUGETLB     = 0x40000,
 };
 void *mmap(void *addr, size_t length, enum uft_mmap_prot prot, enum uft_mmap_flag flags, int fd, off_t offset);
+void *mmap64(void *addr, size_t length, enum uft_mmap_prot prot, enum uft_mmap_flag flags, int fd, off64_t offset);
 int munmap(void *addr, size_t length);
 int mprotect(void *addr, size_t len, enum uft_mmap_prot prot);
 

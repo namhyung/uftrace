@@ -292,14 +292,14 @@ The uftrace tool supports recording function arguments and/or return values usin
     <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
     <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
     <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
-    <format>      :=  "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
     <size>        :=  "8" | "16" | "32" | "64"
     <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
     <stack>       :=  "stack" [ "+" ] <offset>
 
 The `-A`/`--argument` option takes argN where N is an index of the arguments.  The index starts from 1 and corresponds to the argument passing order of the calling convention on the system.  Note that the indexes of arguments are separately counted for integer (or pointer) and floating-point type, and they can interfere depending on the calling convention.  The argN is for integer arguments and fpargN is for floating-point arguments.
 
-Users can optionally specify a format and size for the arguments and/or return values.  Without this, uftrace treats them as 'long int' type for integers and 'double' for floating-point numbers.  The "i" format makes it signed integer type and "u" format is for unsigned type.  Both are printed as decimal while "x" format makes it printed as hexadecimal.  The "s" format is for null-terminated string type and "c" format is for character type.  The "f" format is for floating-point type and is meaningful only for return value (generally).  Note that fpargN doesn't take the format field since it's always floating-point.  The "S" format is for std::string, but it only supports libstdc++ library as of yet.  Finally, the "p" format is for function pointer. Once the target address is recorded, it will be displayed as function name.
+Users can optionally specify a format and size for the arguments and/or return values.  The "d" format or without format field, uftrace treats them as 'long int' type for integers and 'double' for floating-point numbers.  The "i" format makes it signed integer type and "u" format is for unsigned type.  Both are printed as decimal while "x" format makes it printed as hexadecimal.  The "s" format is for null-terminated string type and "c" format is for character type.  The "f" format is for floating-point type and is meaningful only for return value (generally).  Note that fpargN doesn't take the format field since it's always floating-point.  The "S" format is for std::string, but it only supports libstdc++ library as of yet.  Finally, the "p" format is for function pointer. Once the target address is recorded, it will be displayed as function name.
 
 Please beware when using string type arguments since it can crash the program if the (pointer) value is invalid.
 
