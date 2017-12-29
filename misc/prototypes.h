@@ -156,6 +156,7 @@ enum uft_open_flag {
 	O_PATH      = 010000000,
 };
 int open(const char* pathname, enum uft_open_flag flags);
+int open64(const char* pathname, enum uft_open_flag flags);
 int close(int fd);
 
 enum uft_seek_whence { SEEK_SET, SEEK_CUR, SEEK_END, SEEK_DATA, SEEK_HOLE, };
