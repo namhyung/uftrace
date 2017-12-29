@@ -256,7 +256,7 @@ The 'time' trigger is to change time filter setting during execution of the func
 
 The `read` trigger is to read some information at runtime.  As of now, reading process memory stat ("proc/statm") from /proc filesystem and number of page faults ("page-fault") using getrusage(2) are supported only.  The results are printed in comments like below.
 
-    $ uftrace record -T b@read=proc/statm ./abc
+    $ uftrace record -T a@read=proc/statm ./abc
     $ uftrace replay
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
