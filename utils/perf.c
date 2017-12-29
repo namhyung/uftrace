@@ -10,6 +10,7 @@
 
 #include "uftrace.h"
 #include "utils/perf.h"
+#include "utils/fstack.h"
 #include "utils/compiler.h"
 
 /* It needs to synchronize records using monotonic clock */
@@ -389,6 +390,9 @@ again:
 
 		goto again;
 	}
+
+	if (unlikely(get_task_handle(handle, perf->tid) == NULL))
+		goto again;
 
 	perf->type = h.type;
 	perf->valid = true;
