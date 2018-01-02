@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <dlfcn.h>
+#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -464,12 +465,15 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"libmcount-fast-single.so",
 		/* system base libraries */
 		"libc.so.6",
+		"libc-2.*.so"
 		"libgcc_s.so.1",
 		"libpthread.so.0",
+		"libpthread-2.*.so"
 		"linux-vdso.so.1",
 		"linux-gate.so.1",
-		"ld-linux-x86-64.so.2",
+		"ld-linux-*.so.*",
 		"libdl.so.2",
+		"libdl-2.*.so"
 	};
 	size_t k;
 	static bool exe_once = true;
@@ -483,7 +487,7 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 	}
 
 	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-		if (!strcmp(basename(exename), skip_libs[k]))
+		if (!fnmatch(skip_libs[k], basename(exename), 0))
 			return 0;
 	}
 
