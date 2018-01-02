@@ -189,6 +189,7 @@ setup:
 			task->done = true;
 			task->tid  = tid;
 			task->h    = handle;
+			task->t = find_task(&handle->sessions, tid);
 
 			/* need to read the data to check elapsed time */
 			xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
