@@ -150,6 +150,9 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 		}
 	}
 
+	if (reloc_start == 0)
+		return 0;
+
 	elf_for_each_rela(elf, &rel_iter) {
 		struct sym *sym;
 		int symidx;
