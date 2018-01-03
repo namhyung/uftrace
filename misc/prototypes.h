@@ -44,6 +44,45 @@ void *mmap64(void *addr, size_t length, enum uft_mmap_prot prot, enum uft_mmap_f
 int munmap(void *addr, size_t length);
 int mprotect(void *addr, size_t len, enum uft_mmap_prot prot);
 
+enum uft_madvise {
+    MADV_NORMAL      = 0,
+    MADV_RANDOM      = 1,
+    MADV_SEQUENTIAL  = 2,
+    MADV_WILLNEED    = 3,
+    MADV_DONTNEED    = 4,
+    MADV_FREE        = 8,
+    MADV_REMOVE      = 9,
+    MADV_DONTFORK    = 10,
+    MADV_DOFORK      = 11,
+    MADV_MERGEABLE   = 12,
+    MADV_UNMERGEABLE = 13,
+    MADV_HUGEPAGE    = 14,
+    MADV_NOHUGEPAGE  = 15,
+    MADV_DONTDUMP    = 16,
+    MADV_DODUMP      = 17,
+    MADV_HWPOISON    = 100,
+};
+int madvise(void *addr, size_t length, enum uft_madvise advice);
+
+enum uft_posix_madvise {
+    POSIX_MADV_NORMAL     = 0,
+    POSIX_MADV_RANDOM     = 1,
+    POSIX_MADV_SEQUENTIAL = 2,
+    POSIX_MADV_WILLNEED   = 3,
+    POSIX_MADV_DONTNEED   = 4,
+};
+int posix_madvise(void *addr, size_t len, enum uft_posix_madvise advice);
+
+enum uft_posix_fadvise {
+    POSIX_FADV_NORMAL     = 0,
+    POSIX_FADV_RANDOM     = 1,
+    POSIX_FADV_SEQUENTIAL = 2,
+    POSIX_FADV_WILLNEED   = 3,
+    POSIX_FADV_DONTNEED   = 4,
+    POSIX_FADV_NOREUSE    = 5,
+};
+int posix_fadvise(int fd, off_t offset, off_t len, enum uft_posix_fadvise advice);
+
 int brk(void *addr);
 void *sbrk(intptr_t increment);
 
