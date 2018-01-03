@@ -11,9 +11,14 @@
 
 #include <stdint.h>
 #include <limits.h>
+#include <elf.h>
 
 #include "utils.h"
 #include "list.h"
+
+#ifndef  STT_GNU_IFUNC
+# define STT_GNU_IFUNC  10
+#endif
 
 enum symtype {
 	ST_UNKNOWN,

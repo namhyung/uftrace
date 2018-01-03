@@ -323,7 +323,8 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		if (elf_sym.st_size == 0)
 			continue;
 
-		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC)
+		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC &&
+		    GELF_ST_TYPE(elf_sym.st_info) != STT_GNU_IFUNC)
 			continue;
 
 		/* skip aliases */
@@ -645,6 +646,10 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 		gelf_getsym(dynsym_data, symidx, &esym);
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
+		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC &&
+		    GELF_ST_TYPE(esym.st_info) != STT_GNU_IFUNC)
+			continue;
+
 		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
 			if (dsymtab->nr_alloc >= grow * 4)
 				grow *= 2;
@@ -845,7 +850,8 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 		gelf_getsym(dynsym_data, idx, &esym);
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
-		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC)
+		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC &&
+		    GELF_ST_TYPE(esym.st_info) != STT_GNU_IFUNC)
 			continue;
 		if (esym.st_shndx == SHN_UNDEF)
 			continue;
