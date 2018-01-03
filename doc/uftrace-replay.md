@@ -268,6 +268,7 @@ Each field has following meaning:
  * elapsed: elapsed time from the first timestamp
  * addr: address of the function
  * task: task name (comm)
+ * module: library or executable name of the function
 
 The default value is 'duration,tid'.  If given field name starts with "+", then it'll be appended to the default fields.  So "-f +time" is as same as "-f duration,tid,time".  And it also accepts a special field name of 'none' which disables the field display and shows function output only.
 

@@ -92,6 +92,40 @@ static void print_task(struct field_data *fd)
 	pr_out("%*s", 15, task->t->comm);
 }
 
+static void print_module(struct field_data *fd)
+{
+	struct ftrace_task_handle *task = fd->task;
+	struct fstack *fstack = fd->fstack;
+	uint64_t timestamp = task->timestamp;
+	struct uftrace_session *s;
+	struct uftrace_mmap *map;
+	char *modname = "[unknown]";
+
+	/* for EVENT or LOST record */
+	if (fstack == NULL) {
+		pr_out("%*s", 16, "");
+		return;
+	}
+
+	s = find_session(&task->h->sessions, task->tid, timestamp);
+	if (s == NULL)
+		s = find_session(&task->h->sessions, task->t->pid, timestamp);
+	if (s == NULL)  /* for fork/vfork() */
+		s = find_session(&task->h->sessions, task->t->ppid, timestamp);
+
+	if (s) {
+		map = find_map(&s->symtabs, fstack->addr);
+		if (map == MAP_MAIN)
+			modname = basename(s->exename);
+		else if (map == MAP_KERNEL)
+			modname = "[kernel]";
+		else if (map)
+			modname = basename(map->libname);
+	}
+
+	pr_out("%*.*s", 16, 16, modname);
+}
+
 static struct display_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
@@ -160,6 +194,15 @@ static struct display_field field_task = {
 	.list    = LIST_HEAD_INIT(field_task.list),
 };
 
+static struct display_field field_module = {
+	.id      = REPLAY_F_MODULE,
+	.name    = "module",
+	.header  = "     MODULE NAME",
+	.length  = 16,
+	.print   = print_module,
+	.list    = LIST_HEAD_INIT(field_module.list),
+};
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
 	&field_duration,
@@ -169,6 +212,7 @@ static struct display_field *field_table[] = {
 	&field_delta,
 	&field_elapsed,
 	&field_task,
+	&field_module,
 };
 
 static void print_field(struct ftrace_task_handle *task,
