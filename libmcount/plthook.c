@@ -735,7 +735,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			    unsigned long module_id, struct mcount_regs *regs)
 {
 	struct sym *sym;
-	unsigned long child_ip;
 	struct mcount_thread_data *mtdp = NULL;
 	struct mcount_ret_stack *rstack;
 	struct uftrace_trigger tr = {
@@ -788,13 +787,15 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
-	sym = &pd->dsymtab.sym[child_idx];
-	pr_dbg3("[mod: %lx, idx: %d] enter %lx: %s\n", module_id, child_idx, sym->addr, sym->name);
-
-	child_ip = sym ? sym->addr : 0;
-	if (child_ip == 0) {
-		pr_err_ns("invalid function idx found! (module: %s, idx: %d, %#lx)\n",
-			  pd->mod_name, (int) child_idx, child_idx);
+	if (pd->dsymtab.nr_sym && child_idx < pd->dsymtab.nr_sym) {
+		sym = &pd->dsymtab.sym[child_idx];
+		pr_dbg2("[mod: %lx, idx: %d] enter %lx: %s\n",
+			module_id, child_idx, sym->addr, sym->name);
+	}
+	else {
+		sym = NULL;
+		pr_err_ns("invalid function idx found! (idx: %lu/%zu, module: %s)\n",
+			  child_idx, pd->dsymtab.nr_sym, pd->mod_name);
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);
@@ -818,7 +819,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->dyn_idx    = child_idx;
 	rstack->parent_loc = ret_addr;
 	rstack->parent_ip  = *ret_addr;
-	rstack->child_ip   = child_ip;
+	rstack->child_ip   = sym->addr;
 	rstack->start_time = skip ? 0 : mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
