@@ -1289,9 +1289,9 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 			sess = find_task_session(sessions, task->t->pid,
 						 curr->time);
 
-		if (sess)
-			uftrace_match_filter(curr->addr, &sess->filters,
-					     &tr);
+		if (sess &&
+		    (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))
+			uftrace_match_filter(curr->addr, &sess->filters, &tr);
 
 		if (task->filter.time)
 			time_filter = task->filter.time->threshold;
@@ -1315,6 +1315,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 		else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
+			int last_type;
 
 			if (task->filter.time) {
 				struct time_filter_stack *tfs;
@@ -1351,12 +1352,27 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				}
 
 				/* also delete matching entry (at the last) */
-				delete_last_rstack_list(rstack_list);
-			} else {
+				do {
+					last = list_last_entry(&rstack_list->read,
+							       typeof(*last), list);
+
+					last_type = last->rstack.type;
+					delete_last_rstack_list(rstack_list);
+				}
+				while (last_type != UFTRACE_ENTRY);
+			}
+			else {
 				/* found! process all existing rstacks in the list */
 				add_to_rstack_list(rstack_list, curr, &task->args);
 				break;
 			}
+		}
+		else if (curr->type == UFTRACE_EVENT) {
+			add_to_rstack_list(rstack_list, curr, &task->args);
+
+			/* show user event regardless of time filter */
+			if (curr->addr >= EVENT_ID_USER)
+				break;
 		}
 		else {
 			/* TODO: handle LOST properly */
