@@ -218,6 +218,11 @@ enum uft_dlopen_flag {
 	RTLD_NODELETE = 0x1000,
 };
 void *dlopen(const char *filename, enum uft_dlopen_flag flags);
+void *dlmopen (Lmid_t lmid, const char *filename, int flags);
+void *dlsym(void *handle, const char *symbol);
+void *dlvsym(void *handle, char *symbol, char *version);
+int dlclose(void *handle);
+char *dlerror(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 
