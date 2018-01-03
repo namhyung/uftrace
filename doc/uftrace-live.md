@@ -238,7 +238,7 @@ The uftrace tool supports triggering actions on selected function calls with or 
                      "finish" | "filter" | "notrace"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
-    <read_spec>  :=  "proc/statm" | "page-fault"
+    <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
 
 The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.  And the `backtrace` trigger is used to print a stack backtrace at replay time.
 
@@ -263,18 +263,29 @@ The 'recover' trigger is for some corner cases in which the process accesses the
 
 The 'time' trigger is to change time filter setting during execution of the function.  It can be used to apply different time filter for different functions.
 
-The `read` trigger is to read some information at runtime.  As of now, reading process memory stat ("proc/statm") from the /proc filesystem and number of page faults ("page-fault") using getrusage(2) are supported only.  The results are printed in comments like below.
+The `read` trigger is to read some information at runtime.  The result will be
+recorded as (builtin) events at the beginning and the end of a given function.
+As of now, following events are supported:
+
+ * "proc/statm": process memory stat from /proc filesystem
+ * "page-fault": number of page faults using getrusage(2)
+ * "pmu-cycle":  cpu cycles and instructions using Linux perf-event syscall
+ * "pmu-cache":  (cpu) cache-references and misses using Linux perf-event syscall
+ * "pmu-branch": branch instructions and misses using Linux perf-event syscall
+
+The results are printed in comments like below.
 
     $ uftrace -T a@read=proc/statm ./abc
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
                 [ 1234] |   a() {
-                [ 1234] |     /* read:proc/statm (size=6808KB, rss=777KB, shared=713KB) */
+                [ 1234] |     /* read:proc/statm (size=6808KB, rss=776KB, shared=712KB) */
                 [ 1234] |     b() {
                 [ 1234] |       c() {
        1.448 us [ 1234] |         getpid();
       10.270 us [ 1234] |       } /* c */
       11.250 us [ 1234] |     } /* b */
+                [ 1234] |     /* diff:proc/statm (size=+4KB, rss=+0KB, shared=+0KB) */
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 

@@ -221,20 +221,26 @@ When kernel function tracing is enabled, you can also set the filters on kernel 
 
 TRIGGERS
 ========
-The uftrace tool supports triggering actions on selected function calls with or without filters.  Currently supported triggers are listed below.  The BNF for trigger specification is:
+The uftrace tool supports triggering actions on selected function calls with or
+without filters.  Currently supported triggers are listed below.
+The BNF for trigger specification is:
 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
-    <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" | "recover" |
+    <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
                      "time="<time_spec> | "read="<read_spec> | "finish" |
-                     "filter" | "notrace"
+                     "filter" | "notrace" | "recover"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "us" | "ms" | "s"
-    <read_spec>  :=  "proc/statm" | "page-fault"
+    <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" |
+                     "pmu-branch"
 
-The `depth` trigger is to change filter depth during execution of the function.  It can be used to apply different filter depths for different functions.
+The `depth` trigger is to change filter depth during execution of the function.
+It can be used to apply different filter depths for different functions.
 
-The following example shows how triggers work.  The global filter maximum depth is 5, but when function `b()` is called, it is changed to 1, so functions below `b()` will not shown.
+The following example shows how triggers work.  The global filter maximum depth
+is 5, but when function `b()` is called, it is changed to 1, so functions below
+`b()` will not shown.
 
     $ uftrace record -D 5 -T 'b@depth=1' ./abc
     $ uftrace replay
@@ -248,31 +254,53 @@ The following example shows how triggers work.  The global filter maximum depth 
 
 The `backtrace` trigger is only meaningful in the replay command.
 
-The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and `trace_off`) control whether uftrace records the specified functions or not.
+The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on`
+and `trace_off`) control whether uftrace records the specified functions or not.
 
-The 'recover' trigger is for some corner cases in which the process accesses the callstack directly.  During tracing of the v8 javascript engine, for example, it kept getting segfaults in the garbage collection stage.  It was because v8 incorporates the return address into compiled code objects(?).  The `recover` trigger restores the original return address at the function entry point and resets to the uftrace return hook address again at function exit.  I was managed to work around the segfault by setting the `recover` trigger on the related function (specifically `ExitFrame::Iterate`).
+The 'recover' trigger is for some corner cases in which the process accesses the
+callstack directly.  During tracing of the v8 javascript engine, for example, it
+kept getting segfaults in the garbage collection stage.  It was because v8
+incorporates the return address into compiled code objects(?).  The `recover`
+trigger restores the original return address at the function entry point and
+resets to the uftrace return hook address again at function exit.  I was managed
+to work around the segfault by setting the `recover` trigger on the related
+function (specifically `ExitFrame::Iterate`).
 
-The 'time' trigger is to change time filter setting during execution of the function.  It can be used to apply differernt time filter for different functions.
+The 'time' trigger is to change time filter setting during execution of the
+function.  It can be used to apply differernt time filter for different functions.
 
-The `read` trigger is to read some information at runtime.  As of now, reading process memory stat ("proc/statm") from /proc filesystem and number of page faults ("page-fault") using getrusage(2) are supported only.  The results are printed in comments like below.
+The `read` trigger is to read some information at runtime.  The result will be
+recorded as (builtin) events at the beginning and the end of a given function.
+As of now, following events are supported:
+
+ * "proc/statm": process memory stat from /proc filesystem
+ * "page-fault": number of page faults using getrusage(2)
+ * "pmu-cycle":  cpu cycles and instructions using Linux perf-event syscall
+ * "pmu-cache":  (cpu) cache-references and misses using Linux perf-event syscall
+ * "pmu-branch": branch instructions and misses using Linux perf-event syscall
+
+The results are printed in comments like below.
 
     $ uftrace record -T a@read=proc/statm ./abc
     $ uftrace replay
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
                 [ 1234] |   a() {
-                [ 1234] |     /* read:proc/statm (size=6808KB, rss=777KB, shared=713KB) */
+                [ 1234] |     /* read:proc/statm (size=6808KB, rss=776KB, shared=712KB) */
                 [ 1234] |     b() {
                 [ 1234] |       c() {
        1.448 us [ 1234] |         getpid();
       10.270 us [ 1234] |       } /* c */
       11.250 us [ 1234] |     } /* b */
+                [ 1234] |     /* read2:proc/statm (size=+4KB, rss=+0KB, shared=+0KB) */
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 
-The 'finish' trigger is to end recording.  The process still can run and this can be useful to trace unterminated processes like daemon.
+The 'finish' trigger is to end recording.  The process still can run and this
+can be useful to trace unterminated processes like daemon.
 
-The 'filter' and 'notrace' triggers have same effect as -F/--filter and -N/--notrace options respectively.
+The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
+`-N`/`--notrace` options respectively.
 
 Triggers only work for user-level functions for now.
 
