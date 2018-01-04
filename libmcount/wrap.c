@@ -246,8 +246,8 @@ __visible_default int backtrace(void **buffer, int sz)
 	int ret;
 	struct mcount_thread_data *mtdp;
 
-	if (real_backtrace == NULL)
-		return 0;
+	if (unlikely(real_backtrace == NULL))
+		mcount_hook_functions();
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp))
@@ -264,6 +264,9 @@ __visible_default int backtrace(void **buffer, int sz)
 __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 {
 	struct mcount_thread_data *mtdp;
+
+	if (unlikely(real_cxa_throw == NULL))
+		mcount_hook_functions();
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
@@ -286,6 +289,9 @@ __visible_default void __cxa_rethrow(void)
 {
 	struct mcount_thread_data *mtdp;
 
+	if (unlikely(real_cxa_rethrow == NULL))
+		mcount_hook_functions();
+
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
 		pr_dbg("exception rethrown from [%d]\n", mtdp->idx);
@@ -307,6 +313,9 @@ __visible_default void _Unwind_Resume(void *exception)
 {
 	struct mcount_thread_data *mtdp;
 
+	if (unlikely(real_unwind_resume == NULL))
+		mcount_hook_functions();
+
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
 		pr_dbg2("exception resumed on [%d]\n", mtdp->idx);
@@ -327,7 +336,12 @@ __visible_default void _Unwind_Resume(void *exception)
 __visible_default void * __cxa_begin_catch(void *exception)
 {
 	struct mcount_thread_data *mtdp;
-	void *obj = real_cxa_begin_catch(exception);
+	void *obj;
+
+	if (unlikely(real_cxa_begin_catch == NULL))
+		mcount_hook_functions();
+
+	obj = real_cxa_begin_catch(exception);
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
@@ -350,6 +364,9 @@ __visible_default void * __cxa_begin_catch(void *exception)
 
 __visible_default void __cxa_end_catch(void)
 {
+	if (unlikely(real_cxa_end_catch == NULL))
+		mcount_hook_functions();
+
 	real_cxa_end_catch();
 }
 
@@ -401,6 +418,9 @@ __visible_default __noreturn void pthread_exit(void *retval)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
+	if (unlikely(real_pthread_exit == NULL))
+		mcount_hook_functions();
+
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
 		rstack = &mtdp->rstack[mtdp->idx - 1];
@@ -419,6 +439,9 @@ __visible_default int posix_spawn(pid_t *pid, const char *path,
 	char **uftrace_envp;
 	char **new_envp;
 
+	if (unlikely(real_posix_spawn == NULL))
+		mcount_hook_functions();
+
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
@@ -433,6 +456,9 @@ __visible_default int posix_spawnp(pid_t *pid, const char *file,
 	char **uftrace_envp;
 	char **new_envp;
 
+	if (unlikely(real_posix_spawnp == NULL))
+		mcount_hook_functions();
+
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
@@ -444,6 +470,9 @@ __visible_default int execve(const char *path, char *const argv[],
 {
 	char **uftrace_envp;
 	char **new_envp;
+
+	if (unlikely(real_execve == NULL))
+		mcount_hook_functions();
 
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
@@ -457,6 +486,9 @@ __visible_default int execvpe(const char *file, char *const argv[],
 	char **uftrace_envp;
 	char **new_envp;
 
+	if (unlikely(real_execvpe == NULL))
+		mcount_hook_functions();
+
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
@@ -467,6 +499,9 @@ __visible_default int fexecve(int fd, char *const argv[], char *const envp[])
 {
 	char **uftrace_envp;
 	char **new_envp;
+
+	if (unlikely(real_fexecve == NULL))
+		mcount_hook_functions();
 
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
