@@ -1,2 +1,3 @@
 usr/bin/uftrace
 usr/lib/uftrace/*
+etc/bash_completion.d/uftrace
