@@ -1,3 +1,9 @@
+uftrace (0.8.2-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- paul cannon <pik@debian.org>  Fri, 05 Jan 2018 13:23:39 -0600
+
 uftrace (0.7.0-1) unstable; urgency=low
 
   * New upstream release (closes: #871596).
