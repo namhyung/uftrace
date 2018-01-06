@@ -1,0 +1,77 @@
+From: paul cannon <pcannon@epochlabs.com>
+Date: Fri, 5 Jan 2018 18:26:43 -0600
+Subject: fix more spelling issues found by lintian
+
+---
+ doc/uftrace-live.md   | 2 +-
+ doc/uftrace-record.md | 2 +-
+ doc/uftrace-script.md | 2 +-
+ uftrace.c             | 2 +-
+ utils/kernel.c        | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/doc/uftrace-live.md b/doc/uftrace-live.md
+index 94b202b..9218948 100644
+--- a/doc/uftrace-live.md
++++ b/doc/uftrace-live.md
+@@ -131,7 +131,7 @@ OPTIONS
+ :   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.  Note that it might corrupt terminal setting so it'd be better using it with `--no-pager` option.
+ 
+ -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
++:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+ 
+ \--event-full
+ :   Show all (user) events outside of user functions.
+diff --git a/doc/uftrace-record.md b/doc/uftrace-record.md
+index e78b96d..534d4d3 100644
+--- a/doc/uftrace-record.md
++++ b/doc/uftrace-record.md
+@@ -106,7 +106,7 @@ OPTIONS
+ :   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.
+ 
+ -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
++:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+ 
+ 
+ FILTERS
+diff --git a/doc/uftrace-script.md b/doc/uftrace-script.md
+index e4dcdd0..75d5f50 100644
+--- a/doc/uftrace-script.md
++++ b/doc/uftrace-script.md
+@@ -41,7 +41,7 @@ OPTIONS
+ :   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
+ 
+ -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
++:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+ 
+ \--record COMMAND [*command-options*]
+ :   Record a new trace before running a given script.
+diff --git a/uftrace.c b/uftrace.c
+index 8d6a37a..79f6656 100644
+--- a/uftrace.c
++++ b/uftrace.c
+@@ -154,7 +154,7 @@ static struct argp_option uftrace_options[] = {
+ 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
+ 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
+ 	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
+-	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
++	{ "list-event", OPT_list_event, 0, 0, "List available events" },
+ 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
+ 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
+ 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
+diff --git a/utils/kernel.c b/utils/kernel.c
+index 87ebc4a..e3e09ec 100644
+--- a/utils/kernel.c
++++ b/utils/kernel.c
+@@ -730,7 +730,7 @@ void list_kernel_events(void)
+ 	filename = get_tracing_file("available_events");
+ 	fp = fopen(filename, "r");
+ 	if (fp == NULL) {
+-		pr_dbg("failed to open 'tracing/avaiable_events");
++		pr_dbg("failed to open 'tracing/available_events");
+ 		return;
+ 	}
+ 
