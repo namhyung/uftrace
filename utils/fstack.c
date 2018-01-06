@@ -37,30 +37,11 @@ struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
 	return NULL;
 }
 
-void setup_task_handle(struct ftrace_file_handle *handle,
+static void setup_task_handle(struct ftrace_file_handle *handle,
 		       struct ftrace_task_handle *task, int tid)
 {
 	int i;
-	char *filename;
 	int max_stack;
-
-	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
-
-	memset(task, 0, sizeof(*task));
-
-	task->h = handle;
-	task->t = find_task(&handle->sessions, tid);
-
-	task->tid = tid;
-	task->fp = fopen(filename, "rb");
-	if (task->fp == NULL) {
-		pr_dbg("cannot open task data file: %s: %m\n", filename);
-		task->done = true;
-	}
-	else
-		pr_dbg2("opening %s\n", filename);
-
-	free(filename);
 
 	task->stack_count = 0;
 	task->display_depth = 0;
@@ -76,8 +57,6 @@ void setup_task_handle(struct ftrace_file_handle *handle,
 
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
-
-	setup_rstack_list(&task->rstack_list);
 
 	/* FIXME: save filter depth at fork() and restore */
 	for (i = 0; i < max_stack; i++)
@@ -114,6 +93,30 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 	handle->nr_tasks = 0;
 }
 
+static void prepare_task_handle(struct ftrace_file_handle *handle,
+		       struct ftrace_task_handle *task, int tid)
+{
+	char *filename;
+
+	memset(task, 0, sizeof(*task));
+	task->tid = tid;
+	task->h = handle;
+	task->t = find_task(&handle->sessions, tid);
+
+	xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
+	task->fp = fopen(filename, "rb");
+	if (task->fp == NULL) {
+		pr_dbg("cannot open task data file: %s: %m\n", filename);
+		task->done = true;
+	}
+	else
+		pr_dbg2("opening %s\n", filename);
+
+	free(filename);
+
+	setup_rstack_list(&task->rstack_list);
+}
+
 static void update_first_timestamp(struct ftrace_file_handle *handle,
 				   struct ftrace_task_handle *task,
 				   struct uftrace_record *rstack)
@@ -140,7 +143,7 @@ static void update_first_timestamp(struct ftrace_file_handle *handle,
  * This function sets up task filters using @tid_filter.
  * Tasks not listed will be ignored.
  */
-void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
+static void setup_task_filter(char *tid_filter, struct ftrace_file_handle *handle)
 {
 	int i, k;
 	int nr_filters = 0;
@@ -174,6 +177,8 @@ setup:
 		int tid = handle->info.tids[i];
 		struct ftrace_task_handle *task = &handle->tasks[i];
 
+		prepare_task_handle(handle, task, tid);
+
 		for (k = 0; k < nr_filters; k++) {
 			if (tid == filter_tids[k]) {
 				found = true;
@@ -182,18 +187,9 @@ setup:
 		}
 
 		if (!found) {
-			char *filename = NULL;
-
-			memset(task, 0, sizeof(*task));
-			setup_rstack_list(&task->rstack_list);
 			task->done = true;
-			task->tid  = tid;
-			task->h    = handle;
-			task->t = find_task(&handle->sessions, tid);
 
 			/* need to read the data to check elapsed time */
-			xasprintf(&filename, "%s/%d.dat", handle->dirname, tid);
-			task->fp = fopen(filename, "rb");
 			if (task->fp) {
 				if (!__read_task_ustack(task)) {
 					update_first_timestamp(handle, task,
@@ -202,11 +198,9 @@ setup:
 				fclose(task->fp);
 				task->fp = NULL;
 			}
-			free(filename);
 			continue;
 		}
 
-		task->tid = tid;
 		setup_task_handle(handle, task, tid);
 	}
 
