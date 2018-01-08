@@ -52,6 +52,10 @@ static const struct pmu_info {
 	{ EVENT_ID_READ_PMU_BRANCH, ARRAY_SIZE(branch), branch },
 };
 
+#ifndef  PERF_FLAG_FD_CLOEXEC
+# define PERF_FLAG_FD_CLOEXEC  0
+#endif
+
 static int open_perf_event(uint32_t type, uint64_t config, int group_fd)
 {
 	struct perf_event_attr attr = {
@@ -62,8 +66,14 @@ static int open_perf_event(uint32_t type, uint64_t config, int group_fd)
 		.read_format		= PERF_FORMAT_GROUP,
 	};
 	unsigned long flag = PERF_FLAG_FD_CLOEXEC;
+	int fd;
 
-	return syscall(SYS_perf_event_open, &attr, 0, -1, group_fd, flag);
+	fd = syscall(SYS_perf_event_open, &attr, 0, -1, group_fd, flag);
+
+	if (fd >= 0 && flag == 0)
+		fcntl(fd, F_SETFD, FD_CLOEXEC);
+
+	return fd;
 }
 
 static void read_perf_event(int fd, void *buf, ssize_t len)
