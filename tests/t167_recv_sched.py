@@ -30,7 +30,7 @@ class TestCase(TestBase):
     recv_p = None
 
     def pre(self):
-        if not TestBase.check_perf_paranoid():
+        if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
         recv_cmd = '%s recv -d %s' % (TestBase.ftrace, TDIR)
