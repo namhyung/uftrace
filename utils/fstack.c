@@ -1158,6 +1158,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 		case EVENT_ID_READ_PMU_CACHE:
 			xasprintf(&evt_name, "read:pmu-cache");
 			break;
+		case EVENT_ID_READ_PMU_BRANCH:
+			xasprintf(&evt_name, "read:pmu-branch");
+			break;
 		case EVENT_ID_DIFF_PROC_STATM:
 			xasprintf(&evt_name, "diff:proc/statm");
 			break;
@@ -1169,6 +1172,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 			break;
 		case EVENT_ID_DIFF_PMU_CACHE:
 			xasprintf(&evt_name, "diff:pmu-cache");
+			break;
+		case EVENT_ID_DIFF_PMU_BRANCH:
+			xasprintf(&evt_name, "diff:pmu-branch");
 			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
@@ -1191,8 +1197,9 @@ int read_task_event(struct ftrace_task_handle *task,
 	union {
 		struct uftrace_proc_statm statm;
 		struct uftrace_page_fault pgfault;
-		struct uftrace_pmu_cycle cycle;
-		struct uftrace_pmu_cache cache;
+		struct uftrace_pmu_cycle  cycle;
+		struct uftrace_pmu_cache  cache;
+		struct uftrace_pmu_branch branch;
 	} u;
 
 	switch (rec->addr) {
@@ -1247,6 +1254,19 @@ int read_task_event(struct ftrace_task_handle *task,
 		}
 
 		save_task_event(task, &u.cache, sizeof(u.cache));
+		break;
+
+	case EVENT_ID_READ_PMU_BRANCH:
+	case EVENT_ID_DIFF_PMU_BRANCH:
+		if (read_task_event_size(task, &u.branch, sizeof(u.branch)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.branch.branch = bswap_64(u.branch.branch);
+			u.branch.misses = bswap_64(u.branch.misses);
+		}
+
+		save_task_event(task, &u.branch, sizeof(u.branch));
 		break;
 
 	default:

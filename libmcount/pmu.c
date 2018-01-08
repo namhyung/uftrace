@@ -15,10 +15,42 @@
 struct pmu_data {
 	struct list_head list;
 	enum uftrace_event_id evt_id;
+	int n_members;
 	int fd[];
 };
 
 static LIST_HEAD(pmu_fds);
+
+struct pmu_config {
+	uint32_t	type;
+	uint64_t	config;
+	char		*name;
+};
+
+static const struct pmu_config cycle[] = {
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, "cycles", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, "instructions", },
+};
+
+static const struct pmu_config cache[] = {
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES, "cache-references", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES, "cache-misses", },
+};
+
+static const struct pmu_config branch[] = {
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS, "branches", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch-misses", },
+};
+
+static const struct pmu_info {
+	enum uftrace_event_id		event_id;
+	unsigned			n_members;
+	const struct pmu_config *const	setting;
+} pmu_configs[] = {
+	{ EVENT_ID_READ_PMU_CYCLE,  ARRAY_SIZE(cycle),  cycle },
+	{ EVENT_ID_READ_PMU_CACHE,  ARRAY_SIZE(cache),  cache },
+	{ EVENT_ID_READ_PMU_BRANCH, ARRAY_SIZE(branch), branch },
+};
 
 static int open_perf_event(uint32_t type, uint64_t config, int group_fd)
 {
@@ -43,6 +75,9 @@ static void read_perf_event(int fd, void *buf, ssize_t len)
 int prepare_pmu_event(enum uftrace_event_id id)
 {
 	struct pmu_data *pd;
+	const struct pmu_info *info;
+	unsigned i, k;
+	int group_fd;
 
 	list_for_each_entry(pd, &pmu_fds, list) {
 		if (pd->evt_id == id)
@@ -51,69 +86,52 @@ int prepare_pmu_event(enum uftrace_event_id id)
 
 	pr_dbg("setup PMU event (%d) using perf syscall\n", id);
 
-	switch (id) {
-	case EVENT_ID_READ_PMU_CYCLE:
-		pd = xmalloc(sizeof(*pd) + 2 * sizeof(int));
+	for (i = 0; i < ARRAY_SIZE(pmu_configs); i++) {
+		info = &pmu_configs[i];
+		if (id != info->event_id)
+			continue;
+
+		pd = xmalloc(sizeof(*pd) + info->n_members * sizeof(int));
 		pd->evt_id = id;
 
-		pd->fd[0] = open_perf_event(PERF_TYPE_HARDWARE,
-					    PERF_COUNT_HW_CPU_CYCLES,
-					    -1);
-		if (pd->fd[0] < 0) {
-			pr_warn("failed to open 'cpu-cycles' perf event: %m\n");
+		group_fd = open_perf_event(info->setting[0].type,
+					   info->setting[0].config,
+					   -1);
+		if (group_fd < 0) {
+			pr_warn("failed to open '%s' perf event: %m\n",
+				info->setting[0].name);
 			free(pd);
 			return -1;
 		}
 
-		pd->fd[1] = open_perf_event(PERF_TYPE_HARDWARE,
-					    PERF_COUNT_HW_INSTRUCTIONS,
-					    pd->fd[0]);
-		if (pd->fd[1] < 0) {
-			pr_warn("failed to open 'instructions' perf event: %m\n");
-			close(pd->fd[0]);
-			free(pd);
-			return -1;
+		pd->fd[0] = group_fd;
+		for (k = 1; k < info->n_members; k++) {
+			pd->fd[k] = open_perf_event(info->setting[k].type,
+						    info->setting[k].config,
+						    group_fd);
+			if (pd->fd[k] < 0) {
+				pr_warn("failed to open '%s' perf event: %m\n",
+					info->setting[k].name);
+				free(pd);
+				return -1;
+			}
 		}
+
+		pd->n_members = info->n_members;
 		break;
-
-	case EVENT_ID_READ_PMU_CACHE:
-		pd = xmalloc(sizeof(*pd) + 2 * sizeof(int));
-		pd->evt_id = id;
-
-		pd->fd[0] = open_perf_event(PERF_TYPE_HARDWARE,
-					    PERF_COUNT_HW_CACHE_REFERENCES,
-					    -1);
-		if (pd->fd[0] < 0) {
-			pr_warn("failed to open 'cache-references' perf event: %m\n");
-			free(pd);
-			return -1;
-		}
-
-		pd->fd[1] = open_perf_event(PERF_TYPE_HARDWARE,
-					    PERF_COUNT_HW_CACHE_MISSES,
-					    pd->fd[0]);
-		if (pd->fd[1] < 0) {
-			pr_warn("failed to open 'cache-misses' perf event: %m\n");
-			close(pd->fd[0]);
-			free(pd);
-			return -1;
-		}
-		break;
-
-	default:
-		pr_dbg("unknown pmu event: %d - ignoring\n", id);
-		return 0;
 	}
 
-	list_add_tail(&pd->list, &pmu_fds);
+	if (i == ARRAY_SIZE(pmu_configs))
+		pr_dbg("unknown pmu event: %d - ignoring\n", id);
+	else
+		list_add_tail(&pd->list, &pmu_fds);
+
 	return 0;
 }
 
 int read_pmu_event(enum uftrace_event_id id, void *buf)
 {
 	struct pmu_data *pd;
-	struct uftrace_pmu_cycle *cycle;
-	struct uftrace_pmu_cache *cache;
 	struct {
 		uint64_t	nr_members;
 		uint64_t	data[2];
@@ -129,26 +147,10 @@ int read_pmu_event(enum uftrace_event_id id, void *buf)
 		return -1;
 	}
 
-	switch (id) {
-	case EVENT_ID_READ_PMU_CYCLE:
-		/* read group events at once */
-		read_perf_event(pd->fd[0], &read_buf, sizeof(read_buf));
-
-		cycle = buf;
-		cycle->cycles = read_buf.data[0];
-		cycle->instrs = read_buf.data[1];
-		break;
-	case EVENT_ID_READ_PMU_CACHE:
-		/* read group events at once */
-		read_perf_event(pd->fd[0], &read_buf, sizeof(read_buf));
-
-		cache = buf;
-		cache->refers = read_buf.data[0];
-		cache->misses = read_buf.data[1];
-		break;
-	default:
-		break;
-	}
+	/* read group events at once */
+	read_perf_event(pd->fd[0], &read_buf, sizeof(read_buf));
+	mcount_memcpy4(buf, read_buf.data,
+		       sizeof(*read_buf.data) * read_buf.nr_members);
 
 	return 0;
 }
@@ -163,6 +165,7 @@ void finish_pmu_event(void)
 		switch (pd->evt_id) {
 		case EVENT_ID_READ_PMU_CYCLE:
 		case EVENT_ID_READ_PMU_CACHE:
+		case EVENT_ID_READ_PMU_BRANCH:
 			close(pd->fd[0]);
 			close(pd->fd[1]);
 			break;

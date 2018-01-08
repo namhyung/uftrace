@@ -131,6 +131,11 @@ struct uftrace_pmu_cache {
 	uint64_t		misses;  /* cache misses */
 };
 
+struct uftrace_pmu_branch {
+	uint64_t		branch;  /* branch instructions */
+	uint64_t		misses;  /* branch misses */
+};
+
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct symtabs;
