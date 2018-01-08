@@ -646,10 +646,6 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 		gelf_getsym(dynsym_data, symidx, &esym);
 		name = elf_strptr(elf, dynstr_idx, esym.st_name);
 
-		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC &&
-		    GELF_ST_TYPE(esym.st_info) != STT_GNU_IFUNC)
-			continue;
-
 		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
 			if (dsymtab->nr_alloc >= grow * 4)
 				grow *= 2;
