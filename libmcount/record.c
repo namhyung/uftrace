@@ -223,6 +223,19 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
+static struct mcount_event * get_event_pointer(void *base, unsigned idx)
+{
+	size_t len = 0;
+	struct mcount_event *event = base;
+
+	while (idx--) {
+		len += EVTBUF_HDR + event->dsize;
+		event = base + len;
+	}
+
+	return event;
+}
+
 #ifndef DISABLE_MCOUNT_FILTER
 void *get_argbuf(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack)
@@ -357,10 +370,10 @@ void save_retval(struct mcount_thread_data *mtdp,
 		return;
 	}
 
-	*(unsigned *)argbuf = size;
+	*(uint32_t *)argbuf = size;
 }
 
-static void save_proc_statm(void *buf)
+static int save_proc_statm(void *buf)
 {
 	FILE *fp;
 	struct uftrace_proc_statm *statm = buf;
@@ -380,49 +393,163 @@ static void save_proc_statm(void *buf)
 	statm->shared *= page_size_in_kb;
 
 	fclose(fp);
+	return 0;
 }
 
-static void save_page_fault(void *buf)
+static void diff_proc_statm(void *dst, void *src)
+{
+	struct uftrace_proc_statm *dst_statm = dst;
+	struct uftrace_proc_statm *src_statm = src;
+
+	dst_statm->vmsize -= src_statm->vmsize;
+	dst_statm->vmrss  -= src_statm->vmrss;
+	dst_statm->shared -= src_statm->shared;
+}
+
+static int save_page_fault(void *buf)
 {
 	struct rusage ru;
 	struct uftrace_page_fault *page_fault = buf;
 
 	/* getrusage provides faults info in a single syscall */
-	getrusage(RUSAGE_SELF, &ru);
+	if (getrusage(RUSAGE_SELF, &ru) < 0)
+		return -1;
 
 	page_fault->major = ru.ru_majflt;
 	page_fault->minor = ru.ru_minflt;
+	return 0;
 }
+
+static void diff_page_fault(void *dst, void *src)
+{
+	struct uftrace_page_fault *dst_pgflt = dst;
+	struct uftrace_page_fault *src_pgflt = src;
+
+	dst_pgflt->major -= src_pgflt->major;
+	dst_pgflt->minor -= src_pgflt->minor;
+}
+
+static int save_pmu_cycle(void *buf)
+{
+	return read_pmu_event(EVENT_ID_READ_PMU_CYCLE, buf);
+}
+
+static void diff_pmu_cycle(void *dst, void *src)
+{
+	struct uftrace_pmu_cycle *dst_cycle = dst;
+	struct uftrace_pmu_cycle *src_cycle = src;
+
+	dst_cycle->cycles -= src_cycle->cycles;
+	dst_cycle->instrs -= src_cycle->instrs;
+}
+
+static int save_pmu_cache(void *buf)
+{
+	return read_pmu_event(EVENT_ID_READ_PMU_CACHE, buf);
+}
+
+static void diff_pmu_cache(void *dst, void *src)
+{
+	struct uftrace_pmu_cache *dst_cache = dst;
+	struct uftrace_pmu_cache *src_cache = src;
+
+	dst_cache->refers -= src_cache->refers;
+	dst_cache->misses -= src_cache->misses;
+}
+
+static int save_pmu_branch(void *buf)
+{
+	return read_pmu_event(EVENT_ID_READ_PMU_BRANCH, buf);
+}
+
+static void diff_pmu_branch(void *dst, void *src)
+{
+	struct uftrace_pmu_branch *dst_branch = dst;
+	struct uftrace_pmu_branch *src_branch = src;
+
+	dst_branch->branch -= src_branch->branch;
+	dst_branch->misses -= src_branch->misses;
+}
+
+/* above functions should follow the name convention to use below macro */
+#define TR_ID(_evt)  TRIGGER_READ_##_evt, EVENT_ID_READ_##_evt, EVENT_ID_DIFF_##_evt
+#define TR_DS(_evt)  sizeof(struct uftrace_##_evt)
+#define TR_FN(_evt)  save_##_evt, diff_##_evt
+
+static struct read_event_data {
+	enum trigger_read_type	type;
+	enum uftrace_event_id	id_read;
+	enum uftrace_event_id	id_diff;
+	size_t			size;
+	int (*save)(void *buf);
+	void (*diff)(void *dst, void *src);
+} read_events[] = {
+	{ TR_ID(PROC_STATM), TR_DS(proc_statm), TR_FN(proc_statm) },
+	{ TR_ID(PAGE_FAULT), TR_DS(page_fault), TR_FN(page_fault) },
+	{ TR_ID(PMU_CYCLE),  TR_DS(pmu_cycle),  TR_FN(pmu_cycle)  },
+	{ TR_ID(PMU_CACHE),  TR_DS(pmu_cache),  TR_FN(pmu_cache)  },
+	{ TR_ID(PMU_BRANCH), TR_DS(pmu_branch), TR_FN(pmu_branch) },
+};
+
+#undef TR_ID
+#undef TR_DS
+#undef TR_FN
 
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
+		       enum trigger_read_type type, bool diff)
 {
-	if (type & TRIGGER_READ_PROC_STATM) {
-		struct mcount_event *event;
+	void *ptr = get_argbuf(mtdp, rstack) + rstack->event_idx;
+	struct mcount_event *event;
+	unsigned short evsize;
+	void *arg_data = get_argbuf(mtdp, rstack);
+	size_t i;
 
-		if (mtdp->nr_events < MAX_EVENT) {
-			event = &mtdp->event[mtdp->nr_events++];
+	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
+		arg_data += *(uint32_t *)ptr;
 
-			event->id    = EVENT_ID_PROC_STATM;
-			event->time  = rstack->start_time;
-			event->dsize = sizeof(struct uftrace_proc_statm);
-			event->idx   = mtdp->idx;
-			save_proc_statm(event->data);
+
+	for (i = 0; i < ARRAY_SIZE(read_events); i++) {
+		struct read_event_data *red = &read_events[i];
+
+		if (!(type & red->type))
+			continue;
+
+		evsize = EVTBUF_HDR + red->size;
+		event = ptr - evsize;
+
+		/* do not overwrite argument data */
+		if ((void *)event < arg_data)
+			continue;
+
+		event->id    = red->id_read;
+		event->time  = rstack->end_time ?: rstack->start_time;
+		event->dsize = red->size;
+		event->idx   = mtdp->idx;
+
+		if (red->save(event->data) < 0)
+			continue;
+
+		if (diff) {
+			struct mcount_event *old_event = NULL;
+			unsigned idx;
+
+			for (idx = 0; idx < rstack->nr_events; idx++) {
+				old_event = get_event_pointer(ptr, idx);
+				if (old_event->id == event->id)
+					break;
+			}
+
+			if (old_event) {
+				event->id = red->id_diff;
+				red->diff(event->data, old_event->data);
+			}
 		}
-	}
-	if (type & TRIGGER_READ_PAGE_FAULT) {
-		struct mcount_event *event;
 
-		if (mtdp->nr_events < MAX_EVENT) {
-			event = &mtdp->event[mtdp->nr_events++];
+		ptr = event;
 
-			event->id    = EVENT_ID_PAGE_FAULT;
-			event->time  = rstack->start_time;
-			event->dsize = sizeof(struct uftrace_page_fault);
-			event->idx   = mtdp->idx;
-			save_page_fault(event->data);
-		}
+		rstack->nr_events++;
+		rstack->event_idx -= evsize;
 	}
 }
 
@@ -445,10 +572,10 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 }
 #endif
 
-static int record_event(struct mcount_thread_data *mtdp)
+static int record_event(struct mcount_thread_data *mtdp,
+			struct mcount_event *event)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	struct mcount_event *event = &mtdp->event[0];
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 	struct {
@@ -497,9 +624,6 @@ static int record_event(struct mcount_thread_data *mtdp)
 
 	curr_buf->size += size;
 
-	/* clear event info */
-	mtdp->nr_events--;
-
 	return 0;
 }
 
@@ -521,12 +645,36 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 		timestamp = mrstack->end_time;
 
 	if (unlikely(mtdp->nr_events)) {
+		/* save async events first (if any) */
 		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
-			record_event(mtdp);
+			record_event(mtdp, &mtdp->event[0]);
+			mtdp->nr_events--;
 
 			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
 				       sizeof(*mtdp->event) * mtdp->nr_events);
 		}
+	}
+
+	if (type == UFTRACE_EXIT && unlikely(mrstack->nr_events)) {
+		int i;
+		unsigned evidx;
+		struct mcount_event *event;
+
+		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
+
+		for (i = 0; i < mrstack->nr_events; i++) {
+			evidx = mrstack->nr_events - i - 1;
+			event = get_event_pointer(argbuf, evidx);
+
+			if (event->time != timestamp)
+				continue;
+
+			/* save read2 trigger before exit record */
+			record_event(mtdp, event);
+		}
+
+		mrstack->nr_events = 0;
+		argbuf = NULL;
 	}
 
 	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
@@ -593,6 +741,26 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth,
 	       type == UFTRACE_ENTRY? "ENTRY" : "EXIT ", mrstack->child_ip);
+
+	if (unlikely(mrstack->nr_events) && type == UFTRACE_ENTRY) {
+		int i;
+		unsigned evidx;
+		struct mcount_event *event;
+
+		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
+
+		for (i = 0; i < mrstack->nr_events; i++) {
+			evidx = mrstack->nr_events - i - 1;
+			event = get_event_pointer(argbuf, evidx);
+
+			if (event->time != timestamp)
+				break;
+
+			/* save read trigger after entry record */
+			record_event(mtdp, event);
+		}
+	}
+
 	return 0;
 }
 
@@ -660,7 +828,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	}
 
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
-		if (record_ret_stack(mtdp, UFTRACE_ENTRY, non_written_mrstack))
+		if (record_ret_stack(mtdp, UFTRACE_ENTRY, mrstack))
 			return 0;
 
 		count--;

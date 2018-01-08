@@ -1146,11 +1146,35 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 
 	if (evt_id >= EVENT_ID_BUILTIN) {
 		switch (evt_id) {
-		case EVENT_ID_PROC_STATM:
+		case EVENT_ID_READ_PROC_STATM:
 			xasprintf(&evt_name, "read:proc/statm");
 			break;
-		case EVENT_ID_PAGE_FAULT:
+		case EVENT_ID_READ_PAGE_FAULT:
 			xasprintf(&evt_name, "read:page-fault");
+			break;
+		case EVENT_ID_READ_PMU_CYCLE:
+			xasprintf(&evt_name, "read:pmu-cycle");
+			break;
+		case EVENT_ID_READ_PMU_CACHE:
+			xasprintf(&evt_name, "read:pmu-cache");
+			break;
+		case EVENT_ID_READ_PMU_BRANCH:
+			xasprintf(&evt_name, "read:pmu-branch");
+			break;
+		case EVENT_ID_DIFF_PROC_STATM:
+			xasprintf(&evt_name, "diff:proc/statm");
+			break;
+		case EVENT_ID_DIFF_PAGE_FAULT:
+			xasprintf(&evt_name, "diff:page-fault");
+			break;
+		case EVENT_ID_DIFF_PMU_CYCLE:
+			xasprintf(&evt_name, "diff:pmu-cycle");
+			break;
+		case EVENT_ID_DIFF_PMU_CACHE:
+			xasprintf(&evt_name, "diff:pmu-cache");
+			break;
+		case EVENT_ID_DIFF_PMU_BRANCH:
+			xasprintf(&evt_name, "diff:pmu-branch");
 			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
@@ -1170,35 +1194,85 @@ out:
 int read_task_event(struct ftrace_task_handle *task,
 		    struct uftrace_record *rec)
 {
-	if (rec->addr == EVENT_ID_PROC_STATM) {
+	union {
 		struct uftrace_proc_statm statm;
-
-		if (read_task_event_size(task, &statm, sizeof(statm)) < 0)
-			return -1;
-
-		if (task->h->needs_byte_swap) {
-			statm.vmsize = bswap_64(statm.vmsize);
-			statm.vmrss  = bswap_64(statm.vmrss);
-			statm.shared = bswap_64(statm.shared);
-		}
-
-		save_task_event(task, &statm, sizeof(statm));
-	}
-	else if (rec->addr == EVENT_ID_PAGE_FAULT) {
 		struct uftrace_page_fault pgfault;
+		struct uftrace_pmu_cycle  cycle;
+		struct uftrace_pmu_cache  cache;
+		struct uftrace_pmu_branch branch;
+	} u;
 
-		if (read_task_event_size(task, &pgfault, sizeof(pgfault)) < 0)
+	switch (rec->addr) {
+	case EVENT_ID_READ_PROC_STATM:
+	case EVENT_ID_DIFF_PROC_STATM:
+		if (read_task_event_size(task, &u.statm, sizeof(u.statm)) < 0)
 			return -1;
 
 		if (task->h->needs_byte_swap) {
-			pgfault.major = bswap_64(pgfault.major);
-			pgfault.minor = bswap_64(pgfault.minor);
+			u.statm.vmsize = bswap_64(u.statm.vmsize);
+			u.statm.vmrss  = bswap_64(u.statm.vmrss);
+			u.statm.shared = bswap_64(u.statm.shared);
 		}
 
-		save_task_event(task, &pgfault, sizeof(pgfault));
-	}
-	else
+		save_task_event(task, &u.statm, sizeof(u.statm));
+		break;
+
+	case EVENT_ID_READ_PAGE_FAULT:
+	case EVENT_ID_DIFF_PAGE_FAULT:
+		if (read_task_event_size(task, &u.pgfault, sizeof(u.pgfault)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.pgfault.major = bswap_64(u.pgfault.major);
+			u.pgfault.minor = bswap_64(u.pgfault.minor);
+		}
+
+		save_task_event(task, &u.pgfault, sizeof(u.pgfault));
+		break;
+
+	case EVENT_ID_READ_PMU_CYCLE:
+	case EVENT_ID_DIFF_PMU_CYCLE:
+		if (read_task_event_size(task, &u.cycle, sizeof(u.cycle)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.cycle.cycles = bswap_64(u.cycle.cycles);
+			u.cycle.instrs = bswap_64(u.cycle.instrs);
+		}
+
+		save_task_event(task, &u.cycle, sizeof(u.cycle));
+		break;
+
+	case EVENT_ID_READ_PMU_CACHE:
+	case EVENT_ID_DIFF_PMU_CACHE:
+		if (read_task_event_size(task, &u.cache, sizeof(u.cache)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.cache.refers = bswap_64(u.cache.refers);
+			u.cache.misses = bswap_64(u.cache.misses);
+		}
+
+		save_task_event(task, &u.cache, sizeof(u.cache));
+		break;
+
+	case EVENT_ID_READ_PMU_BRANCH:
+	case EVENT_ID_DIFF_PMU_BRANCH:
+		if (read_task_event_size(task, &u.branch, sizeof(u.branch)) < 0)
+			return -1;
+
+		if (task->h->needs_byte_swap) {
+			u.branch.branch = bswap_64(u.branch.branch);
+			u.branch.misses = bswap_64(u.branch.misses);
+		}
+
+		save_task_event(task, &u.branch, sizeof(u.branch));
+		break;
+
+	default:
 		pr_err_ns("unknown event has data: %u\n", rec->addr);
+		break;
+	}
 
 	return 0;
 }

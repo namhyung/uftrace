@@ -77,6 +77,30 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
 #ifndef DISABLE_MCOUNT_FILTER
+static void prepare_pmu_trigger(struct rb_root *root)
+{
+	struct rb_node *node = rb_first(root);
+	struct uftrace_filter *entry;
+
+	while (node) {
+		entry = rb_entry(node, typeof(*entry), node);
+
+		if (entry->trigger.flags & TRIGGER_FL_READ) {
+			if (entry->trigger.read & TRIGGER_READ_PMU_CYCLE)
+				if (prepare_pmu_event(EVENT_ID_READ_PMU_CYCLE) < 0)
+					break;
+			if (entry->trigger.read & TRIGGER_READ_PMU_CACHE)
+				if (prepare_pmu_event(EVENT_ID_READ_PMU_CACHE) < 0)
+					break;
+			if (entry->trigger.read & TRIGGER_READ_PMU_BRANCH)
+				if (prepare_pmu_event(EVENT_ID_READ_PMU_BRANCH) < 0)
+					break;
+		}
+
+		node = rb_next(node);
+	}
+}
+
 static void mcount_filter_init(void)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
@@ -112,6 +136,8 @@ static void mcount_filter_init(void)
 
 	if (getenv("UFTRACE_DISABLED"))
 		mcount_enabled = false;
+
+	prepare_pmu_trigger(&mcount_triggers);
 }
 
 static void mcount_filter_setup(struct mcount_thread_data *mtdp)
@@ -483,8 +509,10 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		else {
 			if (tr->flags & TRIGGER_FL_ARGUMENT)
 				save_argument(mtdp, rstack, tr->pargs, regs);
-			if (tr->flags & TRIGGER_FL_READ)
-				save_trigger_read(mtdp, rstack, tr->read);
+			if (tr->flags & TRIGGER_FL_READ) {
+				save_trigger_read(mtdp, rstack, tr->read, false);
+				rstack->flags |= MCOUNT_FL_READ;
+			}
 
 			if (mtdp->nr_events) {
 				bool flush = false;
@@ -592,6 +620,14 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 		if (!(rstack->flags & MCOUNT_FL_RETVAL))
 			retval = NULL;
+
+		if (rstack->flags & MCOUNT_FL_READ) {
+			struct uftrace_trigger tr;
+
+			/* there's a possibility of overwriting by return value */
+			uftrace_match_filter(rstack->child_ip, &mcount_triggers, &tr);
+			save_trigger_read(mtdp, rstack, tr.read, true);
+		}
 
 		if (rstack->end_time - rstack->start_time > time_filter ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
@@ -762,6 +798,8 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->start_time = mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	/* hijack the return address */
 	*parent_loc = (unsigned long)mcount_return;
@@ -869,6 +907,8 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	if (filtered == FILTER_IN) {
 		rstack->start_time = mcount_gettime();
@@ -976,6 +1016,8 @@ void xray_entry(unsigned long parent, unsigned long child,
 	rstack->parent_ip  = parent;
 	rstack->child_ip   = child;
 	rstack->end_time   = 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	if (filtered == FILTER_IN) {
 		rstack->start_time = mcount_gettime();
@@ -1242,6 +1284,7 @@ static void mcount_cleanup(void)
 		script_finish();
 
 	unload_symtabs(&symtabs);
+	finish_pmu_event();
 
 	pr_dbg("exit from libmcount\n");
 }

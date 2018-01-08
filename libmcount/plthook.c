@@ -823,6 +823,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->start_time = skip ? 0 : mcount_gettime();
 	rstack->end_time   = 0;
 	rstack->flags      = skip ? MCOUNT_FL_NORECORD : 0;
+	rstack->nr_events  = 0;
+	rstack->event_idx  = ARGBUF_SIZE;
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 

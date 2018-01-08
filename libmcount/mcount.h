@@ -35,6 +35,7 @@ enum mcount_rstack_flag {
 	MCOUNT_FL_RETVAL	= (1U << 9),
 	MCOUNT_FL_TRACE		= (1U << 10),
 	MCOUNT_FL_ARGUMENT	= (1U << 11),
+	MCOUNT_FL_READ		= (1U << 12),
 };
 
 struct plthook_data;
@@ -53,6 +54,8 @@ struct mcount_ret_stack {
 	uint64_t filter_time;
 	unsigned short depth;
 	unsigned short dyn_idx;
+	unsigned short nr_events;
+	unsigned short event_idx;
 	struct plthook_data *pd;
 	/* set arg_spec at function entry and use it at exit */
 	struct list_head *pargs;

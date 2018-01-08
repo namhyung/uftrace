@@ -9,11 +9,11 @@ class TestCase(TestBase):
             [32417] | main() {
             [32417] |   a() {
             [32417] |     b() {
-            [32417] |       /* read:proc/statm (size=6812KB, rss=780KB, shared=716KB) */
+            [32417] |       /* read:pmu-branch (branch=15482, misses=1192) */
             [32417] |       c() {
    0.479 us [32417] |         getpid();
    3.014 us [32417] |       } /* c */
-            [32417] |       /* diff:proc/statm (size=+0KB, rss=+0KB, shared=+0KB) */
+            [32417] |       /* diff:pmu-branch (branch=+785, misses=+71, predict=90%) */
   16.914 us [32417] |     } /* b */
   17.083 us [32417] |   } /* a */
   17.873 us [32417] | } /* main */
@@ -21,7 +21,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        args    = '-F main -T b@read=proc/statm'
+        args    = '-F main -T b@read=pmu-branch'
         prog    = 't-' + self.name
         return '%s %s %s' % (uftrace, args, prog)
 
@@ -32,11 +32,11 @@ class TestCase(TestBase):
             if ln.strip() == '' or ln.startswith('#'):
                 continue
             func = ln.split('|', 1)[-1]
-            # remove actual numbers in proc.statm
-            if func.find('read:proc/statm') > 0:
-                func = '       /* read:proc/statm */'
-            if func.find('diff:proc/statm') > 0:
-                func = '       /* diff:proc/statm */'
+            # remove actual numbers in pmu-branch
+            if func.find('read:pmu-branch') > 0:
+                func = '       /* read:pmu-branch */'
+            if func.find('diff:pmu-branch') > 0:
+                func = '       /* diff:pmu-branch */'
             result.append(func)
 
         return '\n'.join(result)

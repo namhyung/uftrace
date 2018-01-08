@@ -27,8 +27,8 @@ enum trigger_flag {
 	TRIGGER_FL_COLOR	= (1U << 9),
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
 	TRIGGER_FL_READ		= (1U << 11),
-	TRIGGER_FL_FINISH	= (1U << 12),
-	TRIGGER_FL_AUTO_ARGS	= (1U << 13),
+	TRIGGER_FL_FINISH	= (1U << 13),
+	TRIGGER_FL_AUTO_ARGS	= (1U << 14),
 };
 
 enum filter_mode {
@@ -51,9 +51,12 @@ enum uftrace_arg_format {
 };
 
 enum trigger_read_type {
-	TRIGGER_READ_NONE,
-	TRIGGER_READ_PROC_STATM,
-	TRIGGER_READ_PAGE_FAULT,
+	TRIGGER_READ_NONE         = 0,
+	TRIGGER_READ_PROC_STATM   = 1,
+	TRIGGER_READ_PAGE_FAULT   = 2,
+	TRIGGER_READ_PMU_CYCLE    = 4,
+	TRIGGER_READ_PMU_CACHE    = 8,
+	TRIGGER_READ_PMU_BRANCH   = 16,
 };
 
 #define ARG_TYPE_INDEX  0
@@ -117,6 +120,21 @@ struct uftrace_proc_statm {
 struct uftrace_page_fault {
 	uint64_t		major;
 	uint64_t		minor;
+};
+
+struct uftrace_pmu_cycle {
+	uint64_t		cycles;  /* cpu cycles */
+	uint64_t		instrs;  /* cpu instructions */
+};
+
+struct uftrace_pmu_cache {
+	uint64_t		refers;  /* cache references */
+	uint64_t		misses;  /* cache misses */
+};
+
+struct uftrace_pmu_branch {
+	uint64_t		branch;  /* branch instructions */
+	uint64_t		misses;  /* branch misses */
 };
 
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);

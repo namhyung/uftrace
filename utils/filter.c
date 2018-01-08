@@ -212,7 +212,7 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		filter->trigger.time = tr->time;
 	if (tr->flags & TRIGGER_FL_READ)
-		filter->trigger.read = tr->read;
+		filter->trigger.read |= tr->read;
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
@@ -280,6 +280,7 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	new = xmalloc(sizeof(*new));
 	memcpy(new, filter, sizeof(*new));
 	new->trigger.flags = 0;
+	new->trigger.read  = 0;
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
 
@@ -641,6 +642,12 @@ static int parse_read_action(char *action, struct uftrace_trigger *tr)
 		tr->read |= TRIGGER_READ_PROC_STATM;
 	if (!strcmp(target, "page-fault"))
 		tr->read |= TRIGGER_READ_PAGE_FAULT;
+	if (!strcmp(target, "pmu-cycle"))
+		tr->read |= TRIGGER_READ_PMU_CYCLE;
+	if (!strcmp(target, "pmu-cache"))
+		tr->read |= TRIGGER_READ_PMU_CACHE;
+	if (!strcmp(target, "pmu-branch"))
+		tr->read |= TRIGGER_READ_PMU_BRANCH;
 
 	/* set READ flag only if valid type set */
 	if (tr->read)

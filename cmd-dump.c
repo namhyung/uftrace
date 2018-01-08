@@ -448,14 +448,24 @@ static void pr_event(int eid, void *ptr, int len)
 
 	/* built-in events */
 	switch (eid) {
-	case EVENT_ID_PROC_STATM:
+	case EVENT_ID_READ_PROC_STATM:
 		d.statm = ptr;
 		pr_out("  proc/statm: vmsize=%"PRIu64"K vmrss=%"PRIu64"K shared=%"PRIu64"K\n",
 		       d.statm->vmsize, d.statm->vmrss, d.statm->shared);
 		break;
-	case EVENT_ID_PAGE_FAULT:
+	case EVENT_ID_READ_PAGE_FAULT:
 		d.pgfault = ptr;
 		pr_out("  page-fault: major=%"PRIu64" minor=%"PRIu64"\n",
+		       d.pgfault->major, d.pgfault->minor);
+		break;
+	case EVENT_ID_DIFF_PROC_STATM:
+		d.statm = ptr;
+		pr_out("  proc/statm: vmsize=%+"PRId64"K vmrss=%+"PRId64"K shared=%+"PRId64"K\n",
+		       d.statm->vmsize, d.statm->vmrss, d.statm->shared);
+		break;
+	case EVENT_ID_DIFF_PAGE_FAULT:
+		d.pgfault = ptr;
+		pr_out("  page-fault: major=%+"PRId64" minor=%+"PRId64"\n",
 		       d.pgfault->major, d.pgfault->minor);
 		break;
 	default:

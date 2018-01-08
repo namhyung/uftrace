@@ -57,6 +57,7 @@ struct mcount_shmem {
 /* first 4 byte saves the actual size of the argbuf */
 #define ARGBUF_SIZE  1024
 #define EVTBUF_SIZE  (ARGBUF_SIZE - 16)
+#define EVTBUF_HDR   (offsetof(struct mcount_event, data))
 
 struct mcount_event {
 	uint64_t	time;
@@ -308,7 +309,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 		 struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type);
+		       enum trigger_read_type type, bool diff);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
 struct mcount_dynamic_info {
@@ -347,5 +348,9 @@ void mcount_list_events(void);
 int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 void mcount_hook_functions(void);
+
+int prepare_pmu_event(enum uftrace_event_id id);
+int read_pmu_event(enum uftrace_event_id id, void *buf);
+void finish_pmu_event(void);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
