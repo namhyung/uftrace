@@ -12,14 +12,16 @@ class TestCase(TestBase):
             [18219] |     bar() {
             [18219] |       /* read:proc/statm (size=6812KB, rss=784KB, shared=716KB) */
    2.093 ms [18219] |       usleep();
+            [18219] |       /* diff:proc/statm (size=+0KB, rss=+0KB, shared=+0KB) */
    2.095 ms [18219] |     } /* bar */
+            [18219] |     /* diff:proc/statm (size=+0KB, rss=+0KB, shared=+0KB) */
    2.106 ms [18219] |   } /* foo */
    2.107 ms [18219] | } /* main */
 """)
 
     def runcmd(self):
         uftrace = TestBase.ftrace
-        args    = "-F main -t 1ms -T '(foo|bar|^mem)@read=proc/statm'"
+        args    = "-F main -t 1ms -T '(foo|bar)@read=proc/statm'"
         prog    = 't-' + self.name
         return '%s %s %s' % (uftrace, args, prog)
 
@@ -33,6 +35,8 @@ class TestCase(TestBase):
             # remove actual numbers in proc.statm
             if func.find('read:proc/statm') > 0:
                 func = '       /* read:proc/statm */'
+            if func.find('diff:proc/statm') > 0:
+                func = '       /* diff:proc/statm */'
             result.append(func)
 
         return '\n'.join(result)

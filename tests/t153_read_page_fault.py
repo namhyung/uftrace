@@ -13,6 +13,7 @@ class TestCase(TestBase):
             [32766] |       c() {
    0.609 us [32766] |         getpid();
   13.722 us [32766] |       } /* c */
+            [32766] |       /* diff:page-fault (major=+0, minor=+1) */
   24.950 us [32766] |     } /* b */
   25.564 us [32766] |   } /* a */
   26.963 us [32766] | } /* main */
@@ -34,6 +35,8 @@ class TestCase(TestBase):
             # remove actual numbers in page-fault
             if func.find('read:page-fault') > 0:
                 func = '       /* read:page-fault */'
+            if func.find('diff:page-fault') > 0:
+                func = '       /* diff:page-fault */'
             result.append(func)
 
         return '\n'.join(result)
