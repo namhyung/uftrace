@@ -56,6 +56,7 @@ enum trigger_read_type {
 	TRIGGER_READ_PAGE_FAULT   = 2,
 	TRIGGER_READ_PMU_CYCLE    = 4,
 	TRIGGER_READ_PMU_CACHE    = 8,
+	TRIGGER_READ_PMU_BRANCH   = 16,
 };
 
 #define ARG_TYPE_INDEX  0

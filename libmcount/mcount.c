@@ -92,6 +92,9 @@ static void prepare_pmu_trigger(struct rb_root *root)
 			if (entry->trigger.read & TRIGGER_READ_PMU_CACHE)
 				if (prepare_pmu_event(EVENT_ID_READ_PMU_CACHE) < 0)
 					break;
+			if (entry->trigger.read & TRIGGER_READ_PMU_BRANCH)
+				if (prepare_pmu_event(EVENT_ID_READ_PMU_BRANCH) < 0)
+					break;
 		}
 
 		node = rb_next(node);

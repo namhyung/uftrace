@@ -304,53 +304,67 @@ static void print_event(struct ftrace_task_handle *task,
 			pr_color(color, " (name=%s)", task->args.data);
 	}
 	else if (evt_id >= EVENT_ID_BUILTIN) {
-		struct uftrace_proc_statm *statm;
-		struct uftrace_page_fault *page_fault;
-		struct uftrace_pmu_cycle *cycle;
-		struct uftrace_pmu_cache *cache;
+		union {
+			struct uftrace_proc_statm *statm;
+			struct uftrace_page_fault *page_fault;
+			struct uftrace_pmu_cycle  *cycle;
+			struct uftrace_pmu_cache  *cache;
+			struct uftrace_pmu_branch *branch;
+		} u;
 
 		switch (evt_id) {
 		case EVENT_ID_READ_PROC_STATM:
-			statm = task->args.data;
+			u.statm = task->args.data;
 			pr_color(color, "%s (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
-				 evt_name, statm->vmsize, statm->vmrss, statm->shared);
+				 evt_name, u.statm->vmsize, u.statm->vmrss, u.statm->shared);
 			return;
 		case EVENT_ID_READ_PAGE_FAULT:
-			page_fault = task->args.data;
+			u.page_fault = task->args.data;
 			pr_color(color, "%s (major=%"PRIu64", minor=%"PRIu64")",
-				 evt_name, page_fault->major, page_fault->minor);
+				 evt_name, u.page_fault->major, u.page_fault->minor);
 			return;
 		case EVENT_ID_READ_PMU_CYCLE:
-			cycle = task->args.data;
-			pr_color(color, "%s (cycles=%"PRIu64", instructions=%"PRIu64")",
-				 evt_name, cycle->cycles, cycle->instrs);
+			u.cycle = task->args.data;
+			pr_color(color, "%s (cycle=%"PRIu64", instructions=%"PRIu64")",
+				 evt_name, u.cycle->cycles, u.cycle->instrs);
 			return;
 		case EVENT_ID_READ_PMU_CACHE:
-			cache = task->args.data;
+			u.cache = task->args.data;
 			pr_color(color, "%s (refers=%"PRIu64", misses=%"PRIu64")",
-				 evt_name, cache->refers, cache->misses);
+				 evt_name, u.cache->refers, u.cache->misses);
+			return;
+		case EVENT_ID_READ_PMU_BRANCH:
+			u.branch = task->args.data;
+			pr_color(color, "%s (branch=%"PRIu64", misses=%"PRIu64")",
+				 evt_name, u.branch->branch, u.branch->misses);
 			return;
 		case EVENT_ID_DIFF_PROC_STATM:
-			statm = task->args.data;
+			u.statm = task->args.data;
 			pr_color(color, "%s (size=%+"PRId64"KB, rss=%+"PRId64"KB, shared=%+"PRId64"KB)",
-				 evt_name, statm->vmsize, statm->vmrss, statm->shared);
+				 evt_name, u.statm->vmsize, u.statm->vmrss, u.statm->shared);
 			return;
 		case EVENT_ID_DIFF_PAGE_FAULT:
-			page_fault = task->args.data;
+			u.page_fault = task->args.data;
 			pr_color(color, "%s (major=%+"PRId64", minor=%+"PRId64")",
-				 evt_name, page_fault->major, page_fault->minor);
+				 evt_name, u.page_fault->major, u.page_fault->minor);
 			return;
 		case EVENT_ID_DIFF_PMU_CYCLE:
-			cycle = task->args.data;
-			pr_color(color, "%s (cycles=%+"PRId64", instructions=%+"PRId64", IPC=%.2f)",
-				 evt_name, cycle->cycles, cycle->instrs,
-				 (float)cycle->instrs / cycle->cycles);
+			u.cycle = task->args.data;
+			pr_color(color, "%s (cycle=%+"PRId64", instructions=%+"PRId64", IPC=%.2f)",
+				 evt_name, u.cycle->cycles, u.cycle->instrs,
+				 (float)u.cycle->instrs / u.cycle->cycles);
 			return;
 		case EVENT_ID_DIFF_PMU_CACHE:
-			cache = task->args.data;
+			u.cache = task->args.data;
 			pr_color(color, "%s (refers=%+"PRId64", misses=%+"PRId64", hit=%d%%)",
-				 evt_name, cache->refers, cache->misses,
-				 (cache->refers - cache->misses) * 100 / cache->refers);
+				 evt_name, u.cache->refers, u.cache->misses,
+				 (u.cache->refers - u.cache->misses) * 100 / u.cache->refers);
+			return;
+		case EVENT_ID_DIFF_PMU_BRANCH:
+			u.branch = task->args.data;
+			pr_color(color, "%s (branch=%+"PRId64", misses=%+"PRId64", predict=%d%%)",
+				 evt_name, u.branch->branch, u.branch->misses,
+				 (u.branch->branch - u.branch->misses) * 100 / u.branch->branch);
 			return;
 		default:
 			pr_color(color, "%s", evt_name);

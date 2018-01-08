@@ -457,6 +457,20 @@ static void diff_pmu_cache(void *dst, void *src)
 	dst_cache->misses -= src_cache->misses;
 }
 
+static int save_pmu_branch(void *buf)
+{
+	return read_pmu_event(EVENT_ID_READ_PMU_BRANCH, buf);
+}
+
+static void diff_pmu_branch(void *dst, void *src)
+{
+	struct uftrace_pmu_branch *dst_branch = dst;
+	struct uftrace_pmu_branch *src_branch = src;
+
+	dst_branch->branch -= src_branch->branch;
+	dst_branch->misses -= src_branch->misses;
+}
+
 /* above functions should follow the name convention to use below macro */
 #define TR_ID(_evt)  TRIGGER_READ_##_evt, EVENT_ID_READ_##_evt, EVENT_ID_DIFF_##_evt
 #define TR_DS(_evt)  sizeof(struct uftrace_##_evt)
@@ -474,6 +488,7 @@ static struct read_event_data {
 	{ TR_ID(PAGE_FAULT), TR_DS(page_fault), TR_FN(page_fault) },
 	{ TR_ID(PMU_CYCLE),  TR_DS(pmu_cycle),  TR_FN(pmu_cycle)  },
 	{ TR_ID(PMU_CACHE),  TR_DS(pmu_cache),  TR_FN(pmu_cache)  },
+	{ TR_ID(PMU_BRANCH), TR_DS(pmu_branch), TR_FN(pmu_branch) },
 };
 
 #undef TR_ID
