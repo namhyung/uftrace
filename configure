@@ -167,7 +167,7 @@ clean:
 	@rm -f uftrace version.h *.o *.op
 
 prepare:
-	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
+	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils misc
 
 install:
 	@\$(MAKE) -C \$(srcdir) install
