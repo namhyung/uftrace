@@ -33,6 +33,7 @@ typedef_name = [
         "sigset_t", "socklen_t", "intptr_t", "nfds_t",
         "pthread_t", "pthread_once_t", "pthread_attr_t",
         "pthread_mutex_t", "pthread_mutexattr_t",
+        "Lmid_t",
     ]
 
 artifitial_type = [ "funcptr_t" ]
