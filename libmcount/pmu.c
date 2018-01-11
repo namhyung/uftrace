@@ -70,9 +70,10 @@ static int open_perf_event(uint32_t type, uint64_t config, int group_fd)
 
 	fd = syscall(SYS_perf_event_open, &attr, 0, -1, group_fd, flag);
 
-	if (fd >= 0 && flag == 0)
-		fcntl(fd, F_SETFD, FD_CLOEXEC);
-
+	if (fd >= 0 && flag == 0) {
+		if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
+			pr_dbg("setting FD_CLOEXEC failed: %m\n");
+	}
 	return fd;
 }
 

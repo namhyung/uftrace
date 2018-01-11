@@ -959,7 +959,7 @@ int main(int argc, char *argv[])
 		debug = 1;
 
 	if (opts.logfile) {
-		logfp = fopen(opts.logfile, "w");
+		logfp = fopen(opts.logfile, "a");
 		if (logfp == NULL)
 			pr_err("cannot open log file");
 

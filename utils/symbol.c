@@ -835,7 +835,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	if (dynsym_data == NULL)
 		goto elf_error;
 
-	pr_dbg("updating symbol name using dynamic symbols\n");
+	pr_dbg2("updating symbol name using dynamic symbols\n");
 
 	for (idx = 0; idx < nr_sym; idx++) {
 		GElf_Sym esym;
