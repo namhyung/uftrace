@@ -1190,6 +1190,9 @@ static void mcount_startup(void)
 		/* minimal sanity check */
 		if (!fstat(fd, &statbuf)) {
 			logfp = fdopen(fd, "a");
+			if (logfp == NULL)
+				pr_err("opening log file failed");
+
 			setvbuf(logfp, NULL, _IOLBF, 1024);
 		}
 	}
