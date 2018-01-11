@@ -1202,10 +1202,12 @@ static void mcount_startup(void)
 	if (demangle_str)
 		demangler = strtol(demangle_str, NULL, 0);
 
-	pr_dbg("initializing mcount library\n");
-
 	if (color_str)
 		setup_color(strtol(color_str, NULL, 0));
+	else
+		setup_color(COLOR_AUTO);
+
+	pr_dbg("initializing mcount library\n");
 
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);
