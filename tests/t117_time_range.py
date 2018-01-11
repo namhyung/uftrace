@@ -21,11 +21,11 @@ class TestCase(TestBase):
     def pre(self):
         global START
 
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
 
         # find timestamp of function 'c'
-        replay_cmd = '%s replay -d %s -f time -F main' % (TestBase.ftrace, TDIR)
+        replay_cmd = '%s replay -d %s -f time -F main' % (TestBase.uftrace_cmd, TDIR)
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
         START = r.split('\n')[4].split()[0] # skip header, main, a and b (= 4)
@@ -34,7 +34,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -f time -r %s~ -d %s' % (TestBase.ftrace, START, TDIR)
+        return '%s replay -f time -r %s~ -d %s' % (TestBase.uftrace_cmd, START, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

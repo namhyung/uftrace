@@ -37,4 +37,4 @@ class TestCase(TestBase):
             argopt = argopt.replace('%xmm0', '%d0')
             argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

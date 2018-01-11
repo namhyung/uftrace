@@ -28,7 +28,7 @@ class TestCase(TestBase):
         return ret
         
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-abc')
         sp.call(record_cmd.split())
         # Replace pid by tid on the SESS line to test backward-compatibility
         sed_cmd = 'sed -i "/SESS/s/pid/tid/g" %s/task.txt' % (TDIR)
@@ -36,7 +36,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

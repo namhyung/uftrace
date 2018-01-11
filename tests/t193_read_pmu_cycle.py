@@ -20,7 +20,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         args    = '-F main -T b@read=pmu-cycle'
         prog    = 't-' + self.name
         return '%s %s %s' % (uftrace, args, prog)

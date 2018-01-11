@@ -25,4 +25,4 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -T "ns::ns1::foo::bar2@trace_off" -T "ns::ns2::foo::bar2@trace-on" %s' % \
-            (TestBase.ftrace, 't-namespace')
+            (TestBase.uftrace_cmd, 't-namespace')

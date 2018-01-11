@@ -26,4 +26,4 @@ class TestCase(TestBase):
                                       cflags, ldflags)
 
     def runcmd(self):
-        return "%s %s %s" % (TestBase.ftrace, "-D3 --nest-libcall", 't-' + self.name)
+        return "%s %s %s" % (TestBase.uftrace_cmd, "-D3 --nest-libcall", 't-' + self.name)

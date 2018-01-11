@@ -20,7 +20,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         args    = "-F main -t 1ms -T '(foo|bar)@read=proc/statm'"
         prog    = 't-' + self.name
         return '%s %s %s' % (uftrace, args, prog)

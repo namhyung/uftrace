@@ -24,7 +24,7 @@ class TestCase(TestBase):
         f.write(script)
         f.close()
 
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-A fopen@arg1/s'
         program = 't-' + self.name
         record_cmd = '%s record -d %s %s %s' % (uftrace, TDIR, options, program)
@@ -34,7 +34,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-S ' + FILE
         return '%s script -d %s %s' % (uftrace, TDIR, options)
 

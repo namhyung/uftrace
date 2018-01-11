@@ -35,7 +35,7 @@ reading 5188.dat
 """, sort='dump')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
@@ -51,7 +51,7 @@ reading 5188.dat
                 pass
         if t == 0:
             return 'FAILED TO FIND TID'
-        return '%s dump -d %s --tid %d' % (TestBase.ftrace, TDIR, t)
+        return '%s dump -d %s --tid %d' % (TestBase.uftrace_cmd, TDIR, t)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

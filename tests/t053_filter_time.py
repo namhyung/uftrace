@@ -17,4 +17,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -t 1ms %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -t 1ms %s' % (TestBase.uftrace_cmd, 't-' + self.name)

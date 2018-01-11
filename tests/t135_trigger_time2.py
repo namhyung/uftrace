@@ -27,11 +27,11 @@ class TestCase(TestBase):
     def pre(self):
         global TIME, UNIT
 
-        record_cmd = '%s record -F main -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        record_cmd = '%s record -F main -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
 
         # find timestamp of function 'malloc'
-        replay_cmd = '%s replay -d %s -F malloc' % (TestBase.ftrace, TDIR)
+        replay_cmd = '%s replay -d %s -F malloc' % (TestBase.uftrace_cmd, TDIR)
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
         TIME, UNIT = r.split('\n')[1].split()[0:2] # skip header
@@ -41,7 +41,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -T main@time=%.3f%s -d %s' % (TestBase.ftrace, TIME, UNIT, TDIR)
+        return '%s replay -T main@time=%.3f%s -d %s' % (TestBase.uftrace_cmd, TIME, UNIT, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

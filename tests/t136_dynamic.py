@@ -24,4 +24,4 @@ class TestCase(TestBase):
         return TestBase.build(self, name, '-pg -mfentry -mnop-mcount', ldflags)
 
     def runcmd(self):
-        return '%s -P %s %s' % (TestBase.ftrace, 'a.?', 't-' + self.name)
+        return '%s -P %s %s' % (TestBase.uftrace_cmd, 'a.?', 't-' + self.name)

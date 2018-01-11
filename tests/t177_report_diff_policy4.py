@@ -24,14 +24,14 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -d %s -F main %s 0' % (TestBase.ftrace, XDIR, 't-' + self.name)
+        record_cmd = '%s record -d %s -F main %s 0' % (TestBase.uftrace_cmd, XDIR, 't-' + self.name)
         sp.call(record_cmd.split())
-        record_cmd = '%s record -d %s -F main %s 1' % (TestBase.ftrace, YDIR, 't-' + self.name)
+        record_cmd = '%s record -d %s -F main %s 1' % (TestBase.uftrace_cmd, YDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '--diff-policy compact -s func'
         return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
 

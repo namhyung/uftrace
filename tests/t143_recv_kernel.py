@@ -32,16 +32,16 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        recv_cmd = '%s recv -d %s' % (TestBase.ftrace, TDIR)
+        recv_cmd = '%s recv -d %s' % (TestBase.uftrace_cmd, TDIR)
         self.recv_p = sp.Popen(recv_cmd.split())
 
         record_cmd = '%s record -H %s -k -N %s@kernel -d %s %s' % \
-                     (TestBase.ftrace, 'localhost', 'smp_irq_work_interrupt', TDIR2, 't-' + self.name)
+                     (TestBase.uftrace_cmd, 'localhost', 'smp_irq_work_interrupt', TDIR2, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s' % (TestBase.ftrace, os.path.join(TDIR, TDIR2))
+        return '%s replay -d %s' % (TestBase.uftrace_cmd, os.path.join(TDIR, TDIR2))
 
     def post(self, ret):
         self.recv_p.terminate()

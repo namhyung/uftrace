@@ -32,4 +32,4 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s -k -F "sys_gete*@kernel" %s' % (TestBase.ftrace, 't-getids')
+        return '%s -k -F "sys_gete*@kernel" %s' % (TestBase.uftrace_cmd, 't-getids')

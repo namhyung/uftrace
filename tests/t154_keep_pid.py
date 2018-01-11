@@ -25,7 +25,7 @@ task: 22067
 """)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '--keep-pid --no-pager'
         program ='t-' + self.name
         return '%s %s %s' % (uftrace, options, program)

@@ -21,7 +21,7 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '--disable -F ".*foo::foo" -T .foo::foo@traceon -F .bar2'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

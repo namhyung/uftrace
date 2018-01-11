@@ -30,12 +30,12 @@ class TestCase(TestBase):
 """, sort='graph')
 
     def pre(self):
-        record_cmd = '%s record %s -d %s %s' % (TestBase.ftrace, NOFILTERS, TDIR, 't-' + self.name)
+        record_cmd = '%s record %s -d %s %s' % (TestBase.uftrace_cmd, NOFILTERS, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s graph -d %s' % (TestBase.ftrace, TDIR)
+        return '%s graph -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

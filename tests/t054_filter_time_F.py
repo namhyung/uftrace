@@ -12,4 +12,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -t 1ms -F bar %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -t 1ms -F bar %s' % (TestBase.uftrace_cmd, 't-' + self.name)

@@ -27,4 +27,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s --no-merge %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --no-merge %s' % (TestBase.uftrace_cmd, 't-' + self.name)

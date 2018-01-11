@@ -20,4 +20,4 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s --demangle=no -F "_ZN2ns3ns13foo3barEv" %s' % \
-            (TestBase.ftrace, 't-namespace')
+            (TestBase.uftrace_cmd, 't-namespace')

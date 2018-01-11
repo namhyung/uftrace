@@ -15,4 +15,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -N c %s' % (TestBase.ftrace, 't-abc')
+        return '%s -N c %s' % (TestBase.uftrace_cmd, 't-abc')

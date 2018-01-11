@@ -21,4 +21,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s --disable -T "ns::ns2::foo::bar@traceon" %s' % (TestBase.ftrace, 't-namespace')
+        return '%s --disable -T "ns::ns2::foo::bar@traceon" %s' % (TestBase.uftrace_cmd, 't-namespace')

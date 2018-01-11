@@ -31,4 +31,4 @@ class TestCase(TestBase):
             argopt += '-A "int_(add|sub|div)@arg2" -A "int_mul@arg3/x" '
             argopt += '-A "int_add@arg1/i32"'
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

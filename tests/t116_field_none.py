@@ -17,7 +17,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -F main -f none %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -F main -f none %s' % (TestBase.uftrace_cmd, 't-' + self.name)
 
     def sort(self, output, ignore_children=False):
         return output

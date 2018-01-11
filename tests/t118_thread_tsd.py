@@ -26,7 +26,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s %s' % (TestBase.uftrace_cmd, 't-' + self.name)
 
     def fixup(self, cflags, result):
         return result.replace('tsd_dtor();', """tsd_dtor() {

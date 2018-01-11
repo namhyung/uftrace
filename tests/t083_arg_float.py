@@ -40,4 +40,4 @@ class TestCase(TestBase):
             argopt += '-A "float_mul@fparg1/64,fparg3/32" -R "float_mul@retval/f64" '
             argopt += '-A "float_div@fparg1/64,fparg3/64" -R "float_div@retval/f64"'
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

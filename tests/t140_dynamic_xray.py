@@ -28,4 +28,4 @@ class TestCase(TestBase):
         return r
 
     def runcmd(self):
-        return '%s -P %s %s' % (TestBase.ftrace, 'a.?', 't-' + self.name)
+        return '%s -P %s %s' % (TestBase.uftrace_cmd, 'a.?', 't-' + self.name)

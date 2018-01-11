@@ -13,4 +13,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -F "get.?id@plt" %s' % (TestBase.ftrace, 't-getids')
+        return '%s -F "get.?id@plt" %s' % (TestBase.uftrace_cmd, 't-getids')

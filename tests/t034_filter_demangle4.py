@@ -14,4 +14,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -F "ns1::.*" -N "bar2$" %s' % (TestBase.ftrace, 't-namespace')
+        return '%s -F "ns1::.*" -N "bar2$" %s' % (TestBase.uftrace_cmd, 't-namespace')

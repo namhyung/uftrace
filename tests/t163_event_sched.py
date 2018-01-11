@@ -23,7 +23,7 @@ class TestCase(TestBase):
         return TestCase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-D 2 -F main -F bar -E linux:schedule'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)
