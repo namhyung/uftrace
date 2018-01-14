@@ -64,11 +64,11 @@ enum trigger_read_type {
 #define ARG_TYPE_REG    2
 #define ARG_TYPE_STACK  3
 
-/* should match with ftrace_arg_format above */
+/* should match with uftrace_arg_format above */
 #define ARG_SPEC_CHARS  "diuxscfSpe"
 
 /**
- * ftrace_arg_spec contains arguments and return value info.
+ * uftrace_arg_spec contains arguments and return value info.
  *
  * If idx is zero, it means the recorded data is return value.
  *

@@ -1,5 +1,5 @@
 /*
- * This is a basic test to verify whether ftrace works on the system.
+ * This is a basic test to verify whether uftrace works on the system.
  */
 #include <stdlib.h>
 #include <unistd.h>
