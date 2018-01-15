@@ -30,7 +30,7 @@ a exit
         f.write(script)
         f.close()
 
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         program = 't-' + self.name
         record_cmd = '%s record -d %s %s' % (uftrace, TDIR, program)
 
@@ -39,7 +39,7 @@ a exit
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-S ' + FILE
         return '%s script -d %s %s' % (uftrace, TDIR, options)
 

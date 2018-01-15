@@ -95,8 +95,8 @@ static void delete_session_map(struct symtabs *symtabs)
 /**
  * create_session - create a new task session from session message
  * @sessions: session link to manage sessions and tasks
- * @msg: ftrace session message read from task file
- * @dirname: ftrace data directory name
+ * @msg: uftrace session message read from task file
+ * @dirname: uftrace data directory name
  * @exename: executable name started this session
  *
  * This function allocates a new session started by a task.  The new

@@ -32,7 +32,7 @@ class TestCase(TestBase):
         # the -T option works on replay time and accept a regex
         # while -N option works on record time and accept a glob
         return '%s -K3 -T %s@kernel,depth=1 -N %s@kernel -N %s@kernel %s' % \
-            (TestBase.ftrace, '^sys_', 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
+            (TestBase.uftrace_cmd, '^sys_', 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
 
     def fixup(self, cflags, result):
         return result.replace('sys_open', 'sys_openat')

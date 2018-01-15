@@ -27,7 +27,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-S ' + FILE
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

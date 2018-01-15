@@ -1,5 +1,5 @@
 /*
- * This is a basic test that checks ftrace can trace functions
+ * This is a basic test that checks uftrace can trace functions
  * properly within a multi-thread environment.
  */
 #include <stdlib.h>

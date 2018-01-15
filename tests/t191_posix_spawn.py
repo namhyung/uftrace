@@ -37,4 +37,4 @@ class TestCase(TestBase):
         return ret
 
     def runcmd(self):
-        return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -F main %s' % (TestBase.uftrace_cmd, 't-' + self.name)

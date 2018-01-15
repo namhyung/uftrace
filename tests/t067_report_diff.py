@@ -24,14 +24,14 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, XDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, XDIR, 't-abc')
         sp.call(record_cmd.split())
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, YDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, YDIR, 't-abc')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '--sort-column 0 --diff-policy full,percent'  # old behavior
         return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
 

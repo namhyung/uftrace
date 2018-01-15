@@ -60,7 +60,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '--no-merge -T pthread_create@arg3/p'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

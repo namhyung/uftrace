@@ -16,4 +16,4 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -F main -T calloc@trace-off -T strcmp@trace-on,auto-args %s hello' % \
-            (TestBase.ftrace, 't-' + self.name)
+            (TestBase.uftrace_cmd, 't-' + self.name)

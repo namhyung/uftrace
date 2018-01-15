@@ -25,12 +25,12 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
 
         record_cmd = '%s record -k -N %s@kernel -d %s %s' % \
-                     (TestBase.ftrace, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+                     (TestBase.uftrace_cmd, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -F main -D2 -F ^sys_open@kernel -d %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -F main -D2 -F ^sys_open@kernel -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

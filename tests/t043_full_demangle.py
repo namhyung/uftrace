@@ -26,7 +26,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s --demangle=full -N "ns2.*" %s' % (TestBase.ftrace, 't-namespace')
+        return '%s --demangle=full -N "ns2.*" %s' % (TestBase.uftrace_cmd, 't-namespace')
 
     def fixup(self, cflags, result):
         import platform

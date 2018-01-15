@@ -26,7 +26,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s %s %s' % (TestBase.ftrace, '-N personality_v.', 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, '-N personality_v.', 't-' + self.name)
 
     def fixup(self, cflags, result):
         r = result.replace("} /* oops */", """} /* oops */

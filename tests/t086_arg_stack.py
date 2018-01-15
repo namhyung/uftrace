@@ -44,4 +44,4 @@ class TestCase(TestBase):
             argopt += '-A "many@arg3/i32%stack+9,arg4/i32%stack+10" '
             argopt += '-A "many@arg5/i32%stack11,arg6/i32%stack12,arg7/i32%stack13"'
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

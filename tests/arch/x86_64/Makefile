@@ -1,6 +1,6 @@
 CC = gcc
 RM = rm -f
-FTRACE = ../../../ftrace -L ../../.. --flat
+UFTRACE = ../../../uftrace -L ../../.. --flat
 
 CFLAGS = -g -finstrument-functions
 
@@ -17,7 +17,7 @@ TARGETS_Os = $(patsubst %,%_Os,$(TARGETS))
 
 ALL_TARGETS = $(TARGETS) $(TARGETS_O1) $(TARGETS_O2) $(TARGETS_O3) $(TARGETS_Os)
 
-test_run = $(FTRACE) $(1) 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | sed -e 's/<[0-9a-f]\+>/<unknown>/'
+test_run = $(UFTRACE) $(1) 1 2 3 | sort -k2 | cut -d/ -f2 | cut -d, -f1 | sed -e 's/<[0-9a-f]\+>/<unknown>/'
 test_and_diff = printf "%20s: " $(1); $(test_run) | diff -U0 $(2) - > $(1)-diff && \
 		printf [${GREEN}OK${RESET}]"\n" || printf [${RED}NG${RESET}]"\n"
 
@@ -42,6 +42,6 @@ test: all
 	@for t in $(TARGETS_Os); do $(call test_and_diff, $${t}, $${t%_Os}_result); done
 
 clean:
-	$(RM) $(ALL_TARGETS) *.o ftrace.data* gmon.out *-diff
+	$(RM) $(ALL_TARGETS) *.o uftrace.data* gmon.out *-diff
 
 .PHONY: clean test arch

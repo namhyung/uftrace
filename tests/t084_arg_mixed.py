@@ -40,4 +40,4 @@ class TestCase(TestBase):
             argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+3" -R "mixed_div@retval/f80" '
             argopt += '-A "mixed_str@arg1/s,fparg1"              -R "mixed_str@retval/s"'
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

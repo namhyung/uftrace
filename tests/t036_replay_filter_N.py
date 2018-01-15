@@ -27,12 +27,12 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-namespace')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s -N "bar3$" -Tns::ns2::foo::bar@depth=1' % (TestBase.ftrace, TDIR)
+        return '%s replay -d %s -N "bar3$" -Tns::ns2::foo::bar@depth=1' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

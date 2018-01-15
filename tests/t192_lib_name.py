@@ -26,7 +26,7 @@ class TestCase(TestBase):
                                       cflags, ldflags)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = "--nest-libcall --libname -f +module"
         program = 't-' + self.name
         return "%s %s %s" % (uftrace, options, program)

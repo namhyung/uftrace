@@ -58,4 +58,4 @@ class TestCase(TestBase):
     def runcmd(self):
         arg  = '-E sched_switch@kernel'
         name = 't-' + self.name
-        return '%s %s %s' % (TestBase.ftrace, arg, name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, arg, name)

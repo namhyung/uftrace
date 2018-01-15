@@ -20,4 +20,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s --no-comment %s' % (TestBase.ftrace, 't-abc')
+        return '%s --no-comment %s' % (TestBase.uftrace_cmd, 't-abc')

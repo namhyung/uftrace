@@ -26,4 +26,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -N ".*ns1::.*" %s' % (TestBase.ftrace, 't-namespace')
+        return '%s -N ".*ns1::.*" %s' % (TestBase.uftrace_cmd, 't-namespace')

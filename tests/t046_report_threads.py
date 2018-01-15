@@ -18,12 +18,12 @@ class TestCase(TestBase):
 """, ldflags='-pthread')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-thread-name')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-thread-name')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report --threads -d %s' % (TestBase.ftrace, TDIR)
+        return '%s report --threads -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

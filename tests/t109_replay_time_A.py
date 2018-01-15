@@ -25,13 +25,13 @@ class TestCase(TestBase):
 
     def pre(self):
         record_cmd = "%s record -A %s -A %s -R %s -d %s %s" % \
-                     (TestBase.ftrace, 'main@arg1', '(malloc|free|usleep)@plt,arg1', \
+                     (TestBase.uftrace_cmd, 'main@arg1', '(malloc|free|usleep)@plt,arg1', \
                       'malloc@retval', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -t 1ms -d %s' % (TestBase.ftrace, TDIR)
+        return '%s replay -t 1ms -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

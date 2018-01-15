@@ -37,6 +37,6 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         filters = '-F main -F sys_open@kernel -F sys_close@kernel'
         return '%s -k %s %s' % (uftrace, filters, 't-' + self.name)

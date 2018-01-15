@@ -18,7 +18,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -A "getenv|atoi@arg1/s" -A malloc@arg1 %s 100' % \
-            (TestBase.ftrace, 't-' + self.name)
+            (TestBase.uftrace_cmd, 't-' + self.name)
 
     def fixup(self, cflags, result):
         # for some reason, ARM eats up atoi()

@@ -42,12 +42,12 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
 
         options = '-d %s -E %s' % (TDIR, 'linux:schedule')
-        record_cmd = '%s record %s %s' % (TestBase.ftrace, options, 't-' + self.name)
+        record_cmd = '%s record %s %s' % (TestBase.uftrace_cmd, options, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s dump -d %s -F main --chrome' % (TestBase.ftrace, TDIR)
+        return '%s dump -d %s -F main --chrome' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

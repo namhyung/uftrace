@@ -17,4 +17,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -D3 %s' % (TestBase.ftrace, 't-allocfree')
+        return '%s -D3 %s' % (TestBase.uftrace_cmd, 't-allocfree')

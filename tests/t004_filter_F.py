@@ -16,4 +16,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -F a %s' % (TestBase.ftrace, 't-abc')
+        return '%s -F a %s' % (TestBase.uftrace_cmd, 't-abc')

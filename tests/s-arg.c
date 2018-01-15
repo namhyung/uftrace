@@ -1,5 +1,5 @@
 /*
- * This is to test ftrace can work well with passing various arguments
+ * This is to test uftrace can work well with passing various arguments
  * to the functions.
  */
 #include <stdio.h>

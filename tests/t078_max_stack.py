@@ -16,4 +16,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s --max-stack=3 %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --max-stack=3 %s' % (TestBase.uftrace_cmd, 't-' + self.name)

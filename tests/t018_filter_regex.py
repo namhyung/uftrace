@@ -20,4 +20,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -F "^alloc.*$" %s' % (TestBase.ftrace, 't-allocfree')
+        return '%s -F "^alloc.*$" %s' % (TestBase.uftrace_cmd, 't-allocfree')

@@ -26,4 +26,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -F main -F thread %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -F main -F thread %s' % (TestBase.uftrace_cmd, 't-' + self.name)

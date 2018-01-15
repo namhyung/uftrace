@@ -20,12 +20,12 @@ class TestCase(TestBase):
 """, sort='report')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-sort')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-sort')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report -d %s -s call,self' % (TestBase.ftrace, TDIR)
+        return '%s report -d %s -s call,self' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

@@ -24,4 +24,4 @@ class TestCase(TestBase):
 
     def runcmd(self):
         return '%s -t 1ms -R mem_alloc@retval -A mem_free@arg1 -A usleep@plt,arg1 %s' % \
-            (TestBase.ftrace, 't-' + self.name)
+            (TestBase.uftrace_cmd, 't-' + self.name)

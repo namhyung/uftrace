@@ -13,4 +13,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def runcmd(self):
-        return '%s -F "^operator" %s' % (TestBase.ftrace, 't-namespace')
+        return '%s -F "^operator" %s' % (TestBase.uftrace_cmd, 't-namespace')

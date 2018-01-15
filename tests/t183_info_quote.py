@@ -38,14 +38,14 @@ class TestCase(TestBase):
 
     def pre(self):
         record_cmd = '%s record -d %s %s %s' % \
-                     (TestBase.ftrace, TDIR, 't-' + self.name, '"uftrace"')
+                     (TestBase.uftrace_cmd, TDIR, 't-' + self.name, '"uftrace"')
         f = open('/dev/null')
         sp.call(record_cmd.split(), stdout=f, stderr=f)
         f.close()
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s info -d %s' % (TestBase.ftrace, TDIR)
+        return '%s info -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

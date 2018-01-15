@@ -16,4 +16,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s --no-libcall %s' % (TestBase.ftrace, 't-abc')
+        return '%s --no-libcall %s' % (TestBase.uftrace_cmd, 't-abc')

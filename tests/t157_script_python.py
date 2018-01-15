@@ -10,12 +10,12 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'abc', '5')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-abc')
+        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-abc')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-F main -S ../scripts/count.py'
         return '%s script -d %s %s' % (uftrace, TDIR, options)
 

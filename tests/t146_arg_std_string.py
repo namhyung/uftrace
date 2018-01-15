@@ -32,4 +32,4 @@ class TestCase(TestBase):
         retval = '-R ^std_string_ret@retval/S'
         opts = '-F main -F ^std_string_ -D 1'
         name = 't-' + self.name
-        return '%s %s %s %s %s' % (TestBase.ftrace, arg, retval, opts, name)
+        return '%s %s %s %s %s' % (TestBase.uftrace_cmd, arg, retval, opts, name)

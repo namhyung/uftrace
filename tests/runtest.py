@@ -21,7 +21,7 @@ class TestBase:
     TEST_SUCCESS_FIXED = -8
 
     objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
-    ftrace = objdir + '/uftrace --no-pager -L' + objdir
+    uftrace_cmd = objdir + '/uftrace --no-pager -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-omit-frame-pointer']
 
@@ -130,7 +130,7 @@ class TestBase:
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
             A test case can extend this to setup a complex configuration.  """
-        return '%s %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s %s' % (TestBase.uftrace_cmd, 't-' + self.name)
 
     def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .

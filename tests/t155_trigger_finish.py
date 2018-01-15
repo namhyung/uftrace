@@ -23,7 +23,7 @@ task: 4131
 """)
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-F main -T getpid@finish'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

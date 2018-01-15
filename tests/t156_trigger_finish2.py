@@ -25,7 +25,7 @@ task: 6565
 """, lang='C++')
 
     def runcmd(self):
-        uftrace = TestBase.ftrace
+        uftrace = TestBase.uftrace_cmd
         options = '-F main -T ns::ns1::foo::bar3@finish'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

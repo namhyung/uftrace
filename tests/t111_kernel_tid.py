@@ -35,7 +35,7 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
 
         record_cmd = '%s record -k -N %s@kernel -N %s@kernel -d %s %s' % \
-                     (TestBase.ftrace, '*page_fault', 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+                     (TestBase.uftrace_cmd, '*page_fault', 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
@@ -51,7 +51,7 @@ class TestCase(TestBase):
                 pass
         if t == 0:
             return 'FAILED TO FIND TID'
-        return '%s replay -k -d %s --tid %d' % (TestBase.ftrace, TDIR, t)
+        return '%s replay -k -d %s --tid %d' % (TestBase.uftrace_cmd, TDIR, t)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

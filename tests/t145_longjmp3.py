@@ -36,7 +36,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         args = '-A .?longjmp@arg2 -R .?setjmp@retval'
-        return '%s %s %s' % (TestBase.ftrace, args, 't-' + self.name)
+        return '%s %s %s' % (TestBase.uftrace_cmd, args, 't-' + self.name)
 
     def fixup(self, cflags, result):
         return result.replace('__longjmp_chk', "longjmp")

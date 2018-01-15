@@ -19,7 +19,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -F main --auto-args %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -F main --auto-args %s' % (TestBase.uftrace_cmd, 't-' + self.name)
 
     def sort(self, output):
         result = []

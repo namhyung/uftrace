@@ -19,4 +19,4 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        return '%s -t 1ms -T mem_alloc@time=0 %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -t 1ms -T mem_alloc@time=0 %s' % (TestBase.uftrace_cmd, 't-' + self.name)

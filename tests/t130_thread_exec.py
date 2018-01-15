@@ -35,4 +35,4 @@ task: 23290
         return ret
 
     def runcmd(self):
-        return '%s -N ^__ %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s -N ^__ %s' % (TestBase.uftrace_cmd, 't-' + self.name)

@@ -25,15 +25,15 @@ class TestCase(TestBase):
     recv_p = None
 
     def pre(self):
-        recv_cmd = '%s recv -d %s' % (TestBase.ftrace, TDIR)
+        recv_cmd = '%s recv -d %s' % (TestBase.uftrace_cmd, TDIR)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        record_cmd = '%s record -H %s %s' % (TestBase.ftrace, 'localhost', 't-abc')
+        record_cmd = '%s record -H %s %s' % (TestBase.uftrace_cmd, 'localhost', 't-abc')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s' % (TestBase.ftrace, TDIR2)
+        return '%s replay -d %s' % (TestBase.uftrace_cmd, TDIR2)
 
     def post(self, ret):
         self.recv_p.terminate()

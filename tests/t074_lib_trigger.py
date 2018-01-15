@@ -18,4 +18,4 @@ class TestCase(TestBase):
                                       ['libabc_test_lib.so'])
 
     def runcmd(self):
-        return '%s --force --no-libcall -T lib_b@libabc_test,depth=1 %s' % (TestBase.ftrace, 't-' + self.name)
+        return '%s --force --no-libcall -T lib_b@libabc_test,depth=1 %s' % (TestBase.uftrace_cmd, 't-' + self.name)
