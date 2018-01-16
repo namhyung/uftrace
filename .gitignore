@@ -35,3 +35,4 @@ cscope.*
 *.sw[opn]
 *.patch
 *.orig
+misc/demangler
