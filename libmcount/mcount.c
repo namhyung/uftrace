@@ -449,6 +449,83 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	return FILTER_IN;
 }
 
+static int script_save_context(struct script_context *sc_ctx,
+			       struct mcount_thread_data *mtdp,
+			       struct mcount_ret_stack *rstack,
+			       char *symname, bool has_arg_retval,
+			       struct list_head *pargs)
+{
+	if (!script_match_filter(symname))
+		return -1;
+
+	sc_ctx->tid       = mcount_gettid(mtdp);
+	sc_ctx->depth     = rstack->depth;
+	sc_ctx->address   = rstack->child_ip;
+	sc_ctx->name      = symname;
+	sc_ctx->timestamp = rstack->start_time;
+	if (rstack->end_time)
+		sc_ctx->duration = rstack->end_time - rstack->start_time;
+
+	if (has_arg_retval) {
+		unsigned *argbuf = get_argbuf(mtdp, rstack);
+
+		sc_ctx->arglen  = argbuf[0];
+		sc_ctx->argbuf  = &argbuf[1];
+		sc_ctx->argspec = pargs;
+	}
+	else {
+		/* prevent access to arguments */
+		sc_ctx->arglen  = 0;
+	}
+
+	return 0;
+}
+
+static void script_hook_entry(struct mcount_thread_data *mtdp,
+			      struct mcount_ret_stack *rstack,
+			      struct uftrace_trigger *tr)
+{
+	struct script_context sc_ctx;
+	unsigned long entry_addr = rstack->child_ip;
+	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	char *symname = symbol_getname(sym, entry_addr);
+
+	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
+				tr->flags & TRIGGER_FL_ARGUMENT,
+				tr->pargs) < 0)
+		goto skip;
+
+	/* accessing argument in script might change arch-context */
+	mcount_save_arch_context(&mtdp->arch);
+	script_uftrace_entry(&sc_ctx);
+	mcount_restore_arch_context(&mtdp->arch);
+
+skip:
+	symbol_putname(sym, symname);
+}
+
+static void script_hook_exit(struct mcount_thread_data *mtdp,
+			     struct mcount_ret_stack *rstack)
+{
+	struct script_context sc_ctx;
+	unsigned long entry_addr = rstack->child_ip;
+	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	char *symname = symbol_getname(sym, entry_addr);
+
+	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
+				rstack->flags & MCOUNT_FL_RETVAL,
+				rstack->pargs) < 0)
+		goto skip;
+
+	/* accessing argument in script might change arch-context */
+	mcount_save_arch_context(&mtdp->arch);
+	script_uftrace_exit(&sc_ctx);
+	mcount_restore_arch_context(&mtdp->arch);
+
+skip:
+	symbol_putname(sym, symname);
+}
+
 /* save current filter state to rstack */
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct mcount_ret_stack *rstack,
@@ -532,41 +609,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		}
 
 		/* script hooking for function entry */
-		if (SCRIPT_ENABLED && script_str) {
-			unsigned long entry_addr = rstack->child_ip;
-			struct sym *sym = find_symtabs(&symtabs, entry_addr);
-			char *symname = symbol_getname(sym, entry_addr);
-			struct script_context sc_ctx;
-
-			if (!script_match_filter(symname))
-				goto skip;
-
-			sc_ctx.tid       = mcount_gettid(mtdp);
-			sc_ctx.depth     = rstack->depth;
-			sc_ctx.timestamp = rstack->start_time;
-			sc_ctx.address   = entry_addr;
-			sc_ctx.name      = symname;
-
-			if (tr->flags & TRIGGER_FL_ARGUMENT) {
-				unsigned *argbuf = get_argbuf(mtdp, rstack);
-
-				sc_ctx.arglen  = argbuf[0];
-				sc_ctx.argbuf  = &argbuf[1];
-				sc_ctx.argspec = tr->pargs;
-			}
-			else {
-				/* prevent access to arguments */
-				sc_ctx.arglen  = 0;
-			}
-
-			/* accessing argument in script might change arch-context */
-			mcount_save_arch_context(&mtdp->arch);
-			script_uftrace_entry(&sc_ctx);
-			mcount_restore_arch_context(&mtdp->arch);
-
-skip:
-			symbol_putname(sym, symname);
-		}
+		if (SCRIPT_ENABLED && script_str)
+			script_hook_entry(mtdp, rstack, tr);
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
 
@@ -657,42 +701,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		}
 
 		/* script hooking for function exit */
-		if (SCRIPT_ENABLED && script_str) {
-			unsigned long entry_addr = rstack->child_ip;
-			struct sym *sym = find_symtabs(&symtabs, entry_addr);
-			char *symname = symbol_getname(sym, entry_addr);
-			struct script_context sc_ctx;
-
-			if (!script_match_filter(symname))
-				goto skip;
-
-			sc_ctx.tid       = mcount_gettid(mtdp);
-			sc_ctx.depth     = rstack->depth;
-			sc_ctx.timestamp = rstack->start_time;
-			sc_ctx.duration  = rstack->end_time - rstack->start_time;
-			sc_ctx.address   = entry_addr;
-			sc_ctx.name      = symname;
-
-			if (rstack->flags & MCOUNT_FL_RETVAL) {
-				unsigned *argbuf = get_argbuf(mtdp, rstack);
-
-				sc_ctx.arglen  = argbuf[0];
-				sc_ctx.argbuf  = &argbuf[1];
-				sc_ctx.argspec = rstack->pargs;
-			}
-			else {
-				/* prevent access to retval*/
-				sc_ctx.arglen  = 0;
-			}
-
-			/* accessing argument in script might change arch-context */
-			mcount_save_arch_context(&mtdp->arch);
-			script_uftrace_exit(&sc_ctx);
-			mcount_restore_arch_context(&mtdp->arch);
-
-skip:
-			symbol_putname(sym, symname);
-		}
+		if (SCRIPT_ENABLED && script_str)
+			script_hook_exit(mtdp, rstack);
 	}
 }
 
