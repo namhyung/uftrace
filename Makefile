@@ -50,7 +50,7 @@ INSTALL = install
 
 export ARCH CC AR LD RM srcdir objdir LDFLAGS
 
-COMMON_CFLAGS := -O2 -g -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
+COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -ldl -pthread $(LDFLAGS)
@@ -74,6 +74,19 @@ LIB_CFLAGS += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
+
+ifeq ($(DEBUG), 1)
+  COMMON_CFLAGS += -O0 -g
+else
+  COMMON_CFLAGS += -O2 -g
+endif
+
+ifeq ($(TRACE), 1)
+  UFTRACE_CFLAGS += -pg -fno-omit-frame-pointer
+  DEMANGLER_CFLAGS += -pg -fno-omit-frame-pointer
+  TRACEEVENT_CFLAGS += -pg -fno-omit-frame-pointer
+  # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
+endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS
 
