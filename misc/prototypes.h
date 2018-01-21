@@ -22,6 +22,10 @@ void free(void* ptr);
 void* calloc(size_t nmemb, size_t size);
 void* realloc(void* ptr, size_t size);
 
+void qsort(void *base, size_t nmemb, size_t size, funcptr_t compar);
+void qsort_r(void *base, size_t nmemb, size_t size, funcptr_t compar, void *arg);
+void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, funcptr_t compar);
+
 #include <sys/mman.h>
 enum uft_mmap_prot { PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC = 4, };
 enum uft_mmap_flag {
