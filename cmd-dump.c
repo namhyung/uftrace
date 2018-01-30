@@ -804,8 +804,13 @@ static void print_chrome_header(struct uftrace_dump_ops *ops,
 				struct opts *opts)
 {
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+	struct uftrace_info *info = &handle->info;
 
 	pr_out("{\"traceEvents\":[\n");
+	pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+	       "\"name\":\"process_name\","
+	       "\"args\":{\"name\":\"%s\"}},\n",
+	       info->tids[0], basename(info->exename));
 
 	chrome->last_comma = false;
 }
@@ -916,6 +921,18 @@ static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
 				    struct uftrace_perf_reader *perf,
 				    struct uftrace_record *frs)
 {
+	uint64_t evt_id = frs->addr;
+
+	switch (evt_id) {
+	case EVENT_ID_PERF_COMM:
+		pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+		       "\"name\":\"process_name\","
+		       "\"args\":{\"name\":\"%s\"}}",
+		       perf->tid, perf->u.comm.comm);
+		break;
+	default:
+		break;
+	};
 }
 
 static void print_chrome_footer(struct uftrace_dump_ops *ops,
