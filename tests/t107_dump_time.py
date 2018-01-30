@@ -9,6 +9,8 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sleep', """
 {"traceEvents":[
+{"ts":0,"ph":"M","pid":32537,"name":"process_name","args":{"name":"t-sleep"}},
+{"ts":0,"ph":"M","pid":32537,"name":"thread_name","args":{"name":"t-sleep"}},
 {"ts":56466448731,"ph":"B","pid":32537,"name":"main"},
 {"ts":56466448731,"ph":"B","pid":32537,"name":"foo"},
 {"ts":56466448742,"ph":"B","pid":32537,"name":"bar"},
