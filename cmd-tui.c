@@ -21,7 +21,35 @@ static bool tui_debug;
 
 struct tui_graph_node {
 	struct uftrace_graph_node n;
+	struct list_head link; // for tui_report_node.head
 	bool folded;
+};
+
+struct tui_report_node {
+	struct rb_node name_link;
+	struct rb_node sort_link;
+	struct list_head head; // links tui_graph_node.link
+	char *name;
+	uint64_t time;
+	uint64_t min_time;
+	uint64_t max_time;
+	uint64_t self_time;
+	uint64_t min_self_time;
+	uint64_t max_self_time;
+	uint64_t recursive_time;
+	unsigned calls;
+};
+
+struct tui_report {
+	struct list_head list;
+	struct rb_root name_tree;
+	struct rb_root sort_tree;
+	struct tui_report_node *top;
+	struct tui_report_node *curr;
+	int top_index;
+	int curr_index;
+	int nr_sess;
+	int nr_func;
 };
 
 struct tui_graph {
@@ -40,6 +68,7 @@ struct tui_graph {
 
 static LIST_HEAD(tui_graph_list);
 static LIST_HEAD(graph_output_fields);
+static struct tui_report tui_report;
 
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
@@ -171,12 +200,17 @@ static int create_data(struct uftrace_session *sess, void *arg)
 
 	list_add_tail(&graph->list, &tui_graph_list);
 
+	tui_report.nr_sess++;
+
 	return 0;
 }
 
 static void tui_setup(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
+
+	tui_report.name_tree = RB_ROOT;
+	tui_report.sort_tree = RB_ROOT;
 
 	setup_field(&graph_output_fields, opts, setup_default_graph_field,
 		    graph_field_table, ARRAY_SIZE(graph_field_table));
@@ -196,6 +230,7 @@ static void tui_cleanup(void)
 		list_del(&graph->list);
 		free(graph);
 	}
+	graph_remove_task();
 }
 
 static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
@@ -225,6 +260,106 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	return NULL;
 }
 
+static struct tui_report_node * find_report_node(struct tui_report *report,
+						 char *symname)
+{
+	struct tui_report_node *node;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &report->name_tree.rb_node;
+
+	while (*p) {
+		int cmp;
+
+		parent = *p;
+		node = rb_entry(parent, struct tui_report_node, name_link);
+
+		cmp = strcmp(node->name, symname);
+		if (cmp == 0)
+			return node;
+
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	node = xzalloc(sizeof(*node));
+	node->name = xstrdup(symname);
+	INIT_LIST_HEAD(&node->head);
+
+	rb_link_node(&node->name_link, parent, p);
+	rb_insert_color(&node->name_link, &report->name_tree);
+	report->nr_func++;
+
+	return node;
+}
+
+static void prepare_report_node(struct tui_report_node *node)
+{
+	struct tui_graph_node *gn;
+
+	list_for_each_entry(gn, &node->head, link) {
+		node->time      += gn->n.time;
+		node->self_time += gn->n.time - gn->n.child_time;
+		node->calls     += gn->n.nr_calls;
+	}
+
+	node->time -= node->recursive_time;
+}
+
+static int cmp_report_node(struct tui_report_node *a, struct tui_report_node *b)
+{
+	/* TODO: apply sort key */
+	if (a->time != b->time)
+		return a->time > b->time ? 1 : -1;
+
+	return 0;
+}
+
+static void sort_report_node(struct tui_report *report,
+			     struct tui_report_node *node)
+{
+	struct tui_report_node *iter;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &report->sort_tree.rb_node;
+
+	prepare_report_node(node);
+
+	while (*p) {
+		int cmp;
+
+		parent = *p;
+		iter = rb_entry(parent, struct tui_report_node, sort_link);
+
+		cmp = cmp_report_node(iter, node);
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, &report->sort_tree);
+}
+
+static void sort_tui_report(struct tui_report *report)
+{
+	struct rb_node *node = rb_first(&report->name_tree);
+	struct tui_report_node *tui_node;
+
+	while (node) {
+		tui_node = rb_entry(node, struct tui_report_node, name_link);
+		sort_report_node(report, tui_node);
+
+		node = rb_next(node);
+	}
+}
+
+static bool list_is_none(struct list_head *list)
+{
+	return list->next == NULL && list->prev == NULL;
+}
+
 static int build_tui_node(struct ftrace_task_handle *task,
 			  struct uftrace_record *rec)
 {
@@ -244,6 +379,37 @@ static int build_tui_node(struct ftrace_task_handle *task,
 	sym = task_find_sym_addr(&task->h->sessions,
 				 task, rec->time, rec->addr);
 	name = symbol_getname(sym, rec->addr);
+
+	if (rec->type == UFTRACE_EXIT) {
+		struct fstack *fstack = &task->func_stack[task->stack_count];
+		uint64_t total_time = fstack->total_time;
+		uint64_t self_time = fstack->total_time - fstack->child_time;
+		struct tui_graph_node *graph_node;
+		struct tui_report_node *node;
+		int i;
+
+		node = find_report_node(&tui_report, name);
+
+		graph_node = (struct tui_graph_node *)tg->node;
+		if (list_is_none(&graph_node->link))
+			list_add_tail(&graph_node->link, &node->head);
+
+		if (node->max_time < total_time)
+			node->max_time = total_time;
+		if (node->min_time == 0 || node->min_time > total_time)
+			node->min_time = total_time;
+		if (node->max_self_time < self_time)
+			node->max_self_time = self_time;
+		if (node->min_self_time == 0 || node->min_self_time > self_time)
+			node->min_self_time = self_time;
+
+		for (i = 0; i < task->stack_count; i++) {
+			if (task->func_stack[i].addr == fstack->addr) {
+				node->recursive_time += total_time;
+				break;
+			}
+		}
+	}
 
 	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
 
@@ -476,7 +642,7 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 
 		if (node == graph->curr) {
 			/* 4 = fold_sign(1) + parenthesis(2) + space(1) */
-			int width = d * 3 + strlen(node->n.name) + 4;
+			int width = d * 3 + strlen(node->n.name) + 4 + w;
 			char buf[32];
 
 			width += snprintf(buf, sizeof(buf), "%d", node->n.nr_calls);
@@ -748,39 +914,289 @@ static void tui_graph_enter(struct tui_graph *graph)
 		graph->curr->folded = !graph->curr->folded;
 }
 
+static void tui_report_init(struct opts *opts)
+{
+	struct rb_node *node;
+
+	sort_tui_report(&tui_report);
+
+	node = rb_first(&tui_report.sort_tree);
+
+	tui_report.top = rb_entry(node, struct tui_report_node, sort_link);
+	tui_report.curr = tui_report.top;
+
+	tui_report.top_index = tui_report.curr_index = 0;
+}
+
+static void tui_report_finish(void)
+{
+}
+
+static void tui_report_move_up(struct tui_report *report)
+{
+	struct rb_node *prev = rb_prev(&report->curr->sort_link);
+
+	if (prev == NULL)
+		return;
+
+	report->curr = rb_entry(prev, struct tui_report_node, sort_link);
+	report->curr_index--;
+
+	if (report->curr_index < report->top_index) {
+		report->top = report->curr;
+		report->top_index = report->curr_index;
+	}
+}
+
+static void tui_report_move_down(struct tui_report *report)
+{
+	struct rb_node *next = rb_next(&report->curr->sort_link);
+
+	if (next == NULL)
+		return;
+
+	report->curr = rb_entry(next, struct tui_report_node, sort_link);
+	report->curr_index++;
+
+	if (report->curr_index - report->top_index >= LINES - 2) {
+		next = rb_next(&report->top->sort_link);
+		report->top = rb_entry(next, struct tui_report_node, sort_link);
+		report->top_index++;
+	}
+}
+
+static void tui_report_page_up(struct tui_report *report)
+{
+	if (report->curr != report->top) {
+		report->curr = report->top;
+		report->curr_index = report->top_index;
+		return;
+	}
+
+	while (report->top_index - report->curr_index < LINES - 2) {
+		struct rb_node *prev = rb_prev(&report->curr->sort_link);
+		if (prev == NULL)
+			break;
+
+		report->curr = rb_entry(prev, struct tui_report_node, sort_link);
+		report->curr_index--;
+	}
+
+	report->top = report->curr;
+	report->top_index = report->curr_index;
+}
+
+static void tui_report_page_down(struct tui_report *report)
+{
+	struct rb_node *next;
+	int orig_index = report->top_index;
+	int next_index = report->curr_index;
+
+	next = rb_next(&report->curr->sort_link);
+	if (next == NULL)
+		return;
+	next_index++;
+
+	/* we're already at the end of page - move to next page */
+	if (next_index - report->top_index >= LINES - 2)
+		orig_index = next_index;
+
+	do {
+		/* move curr to the bottom from orig_index */
+		report->curr = rb_entry(next, struct tui_report_node, sort_link);
+		report->curr_index = next_index;
+
+		next = rb_next(next);
+		if (next == NULL)
+			break;
+		next_index++;
+	}
+	while (next_index - orig_index < LINES - 2);
+
+	/* move top if page was moved */
+	while (report->curr_index - report->top_index >= LINES - 2) {
+		next = rb_next(&report->top->sort_link);
+		report->top = rb_entry(next, struct tui_report_node, sort_link);
+		report->top_index++;
+	}
+}
+
+static void tui_report_move_home(struct tui_report *report)
+{
+	struct rb_node *node = rb_first(&report->sort_tree);
+
+	report->top = rb_entry(node, struct tui_report_node, sort_link);
+	report->curr = report->top;
+
+	report->top_index = report->curr_index = 0;
+}
+
+static void tui_report_move_end(struct tui_report *report)
+{
+	struct rb_node *node = rb_last(&report->sort_tree);
+	int next_index;
+
+	report->curr = rb_entry(node, struct tui_report_node, sort_link);
+
+	report->curr_index = next_index = report->nr_func - 1;
+
+	while (report->curr_index - next_index < LINES - 2) {
+		report->top = rb_entry(node, struct tui_report_node, sort_link);
+		report->top_index = next_index;
+
+		node = rb_prev(&report->top->sort_link);
+		if (node == NULL)
+			break;
+
+		next_index--;
+	}
+}
+
+static void print_report_header(struct ftrace_file_handle *handle,
+				struct tui_report *report)
+{
+	attron(A_REVERSE | A_BOLD);
+	printw("%-*s", COLS, "uftrace report TUI");
+	attroff(A_REVERSE | A_BOLD);
+}
+
+static void print_report_footer(struct ftrace_file_handle *handle,
+				struct tui_report *report)
+{
+	char buf[COLS + 1];
+
+	if (tui_debug) {
+		snprintf(buf, COLS, "top: %d, curr: %d",
+			 report->top_index, report->curr_index);
+	}
+	else {
+		snprintf(buf, COLS, "%s (%d sessions, %d functions)",
+			 handle->dirname, report->nr_sess, report->nr_func);
+	}
+	buf[COLS] = '\0';
+
+	move(LINES - 1, 0);
+	attron(A_REVERSE | A_BOLD);
+	printw("%-*s", COLS, buf);
+	attroff(A_REVERSE | A_BOLD);
+}
+
+static void print_report_field(struct tui_report *report,
+			       struct tui_report_node *node)
+{
+	printw("  ");
+	print_time(node->time);
+	printw("  ");
+	print_time(node->self_time);
+	printw("  ");
+	printw("%10u", node->calls);
+}
+
+static void tui_report_display(struct ftrace_file_handle *handle,
+			       struct tui_report *report)
+{
+	int count = 0;
+	struct tui_report_node *node = report->top;
+
+	if (LINES <= 2)
+		return;
+
+	print_report_header(handle, report);
+
+	while (count < LINES - 2) {
+		struct rb_node *next;
+
+		move(count + 1, 0);
+
+		if (node == report->curr)
+			attron(A_REVERSE);
+
+		print_report_field(report, node);
+		printw("  ");
+		printw("%-s", node->name);
+
+		if (node == report->curr) {
+			int width = 38 + strlen(node->name);
+
+			if (width < COLS)
+				printw("%*s", COLS - width, "");
+
+			attroff(A_REVERSE);
+		}
+
+		next = rb_next(&node->sort_link);
+		if (unlikely(next == NULL))
+			break;
+
+		node = rb_entry(next, struct tui_report_node, sort_link);
+		count++;
+	}
+
+	print_report_footer(handle, report);
+}
+
 static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int key = 0;
+	bool graph_mode = true;
 	struct tui_graph *graph;
+	struct tui_report *report;
 
 	tui_graph_init(opts);
+	tui_report_init(opts);
 	graph = list_first_entry(&tui_graph_list, typeof(*graph), list);
+	report = &tui_report;
 
 	while (true) {
 		switch (key) {
 		case KEY_UP:
 		case 'k':
-			tui_graph_move_up(graph);
+			if (graph_mode)
+				tui_graph_move_up(graph);
+			else
+				tui_report_move_up(report);
 			break;
 		case KEY_DOWN:
 		case 'j':
-			tui_graph_move_down(graph);
+			if (graph_mode)
+				tui_graph_move_down(graph);
+			else
+				tui_report_move_down(report);
 			break;
 		case KEY_PPAGE:
-			tui_graph_page_up(graph);
+			if (graph_mode)
+				tui_graph_page_up(graph);
+			else
+				tui_report_page_up(report);
 			break;
 		case KEY_NPAGE:
-			tui_graph_page_down(graph);
+			if (graph_mode)
+				tui_graph_page_down(graph);
+			else
+				tui_report_page_down(report);
 			break;
 		case KEY_HOME:
-			tui_graph_move_home(graph);
+			if (graph_mode)
+				tui_graph_move_home(graph);
+			else
+				tui_report_move_home(report);
 			break;
 		case KEY_END:
-			tui_graph_move_end(graph);
+			if (graph_mode)
+				tui_graph_move_end(graph);
+			else
+				tui_report_move_end(report);
 			break;
 		case KEY_ENTER:
 		case '\n':
-			tui_graph_enter(graph);
+			if (graph_mode)
+				tui_graph_enter(graph);
+			break;
+		case 'g':
+			graph_mode = true;
+			break;
+		case 'r':
+			graph_mode = false;  /* report mode */
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
@@ -792,7 +1208,10 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 		}
 
 		clear();
-		tui_graph_display(handle, graph);
+		if (graph_mode)
+			tui_graph_display(handle, graph);
+		else
+			tui_report_display(handle, report);
 		refresh();
 
 		move(LINES-1, COLS-1);
@@ -800,6 +1219,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 	}
 
 	tui_graph_finish();
+	tui_report_finish();
 }
 
 int command_tui(int argc, char *argv[], struct opts *opts)
