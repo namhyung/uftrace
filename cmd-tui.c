@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <ncurses.h>
 #include <locale.h>
+#include <inttypes.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -13,6 +14,7 @@
 #include "utils/graph.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
+#include "utils/field.h"
 
 static bool tui_finished;
 static bool tui_debug;
@@ -37,6 +39,114 @@ struct tui_graph {
 };
 
 static LIST_HEAD(tui_graph_list);
+static LIST_HEAD(graph_output_fields);
+
+#define FIELD_SPACE  2
+#define FIELD_SEP  " :"
+
+static void print_time(uint64_t ntime)
+{
+	char *units[] = { "us", "ms", " s", " m", " h", };
+	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
+	uint64_t fract;
+	unsigned idx;
+
+	if (ntime == 0UL) {
+		printw("%7s %2s", "", "");
+		return;
+	}
+
+	for (idx = 0; idx < ARRAY_SIZE(units); idx++) {
+		fract = ntime % limit[idx];
+		ntime = ntime / limit[idx];
+
+		if (ntime < limit[idx+1])
+			break;
+	}
+
+	/* for some error cases */
+	if (ntime > 999)
+		ntime = fract = 999;
+
+	printw("%3"PRIu64".%03"PRIu64" %s", ntime, fract, units[idx]);
+}
+
+static void print_graph_total(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->time;
+
+	print_time(d);
+}
+
+static void print_graph_self(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->time - node->child_time;
+
+	print_time(d);
+}
+
+static void print_graph_addr(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+
+	/* uftrace records (truncated) 48-bit addresses */
+	int width = sizeof(long) == 4 ? 8 : 12;
+
+	printw("%*lx", width, node->addr);
+}
+
+static struct display_field field_total_time= {
+	.id      = GRAPH_F_TOTAL_TIME,
+	.name    = "total-time",
+	.alias   = "total",
+	.header  = "TOTAL TIME",
+	.length  = 10,
+	.print   = print_graph_total,
+	.list    = LIST_HEAD_INIT(field_total_time.list),
+};
+
+static struct display_field field_self_time= {
+	.id      = GRAPH_F_SELF_TIME,
+	.name    = "self-time",
+	.alias   = "self",
+	.header  = " SELF TIME",
+	.length  = 10,
+	.print   = print_graph_self,
+	.list    = LIST_HEAD_INIT(field_self_time.list),
+};
+
+static struct display_field field_addr = {
+	.id      = GRAPH_F_ADDR,
+	.name    = "address",
+	.alias   = "addr",
+#if __SIZEOF_LONG == 4
+	.header  = "  ADDR  ",
+	.length  = 8,
+#else
+	.header  = "   ADDRESS  ",
+	.length  = 12,
+#endif
+	.print   = print_graph_addr,
+	.list    = LIST_HEAD_INIT(field_addr.list),
+};
+
+/* index of this table should be matched to display_field_id */
+static struct display_field *graph_field_table[] = {
+	&field_total_time,
+	&field_self_time,
+	&field_addr,
+};
+
+static void setup_default_graph_field(struct list_head *fields, struct opts *opts)
+{
+	add_field(fields, graph_field_table[GRAPH_F_TOTAL_TIME]);
+}
 
 static inline bool is_first_child(struct tui_graph_node *prev,
 				  struct tui_graph_node *next)
@@ -64,9 +174,12 @@ static int create_data(struct uftrace_session *sess, void *arg)
 	return 0;
 }
 
-static void tui_setup(struct ftrace_file_handle *handle)
+static void tui_setup(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
+
+	setup_field(&graph_output_fields, opts, setup_default_graph_field,
+		    graph_field_table, ARRAY_SIZE(graph_field_table));
 }
 
 static void tui_cleanup(void)
@@ -261,6 +374,36 @@ static void print_graph_footer(struct ftrace_file_handle *handle,
 	attroff(A_REVERSE | A_BOLD);
 }
 
+static void print_graph_field(struct uftrace_graph_node *node)
+{
+	struct display_field *field;
+	struct field_data fd = {
+		.arg = node,
+	};
+
+	if (list_empty(&graph_output_fields))
+		return;
+
+	list_for_each_entry(field, &graph_output_fields, list) {
+		printw("%*s", FIELD_SPACE, "");
+		field->print(&fd);
+	}
+	printw(FIELD_SEP);
+}
+
+static void print_graph_empty(void)
+{
+	struct display_field *field;
+
+	if (list_empty(&graph_output_fields))
+		return;
+
+	list_for_each_entry(field, &graph_output_fields, list)
+		printw("%*s", field->length + FIELD_SPACE, "");
+
+	printw(FIELD_SEP);
+}
+
 static void print_graph_indent(struct tui_graph *graph,
 			       struct tui_graph_node *node,
 			       int depth, bool single_child)
@@ -288,7 +431,9 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 {
 	int count = 0;
 	struct tui_graph_node *node = graph->top;
+	struct display_field *field;
 	int d = graph->top_depth;
+	int w = 0;
 
 	if (LINES <= 2)
 		return;
@@ -296,6 +441,13 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 	memcpy(graph->curr_mask, graph->top_mask, graph->mask_size);
 
 	print_graph_header(handle, graph);
+
+	/* calculate width for fields */
+	list_for_each_entry(field, &graph_output_fields, list) {
+		w += field->length + FIELD_SPACE;
+	}
+	if (!list_empty(&graph_output_fields))
+		w += strlen(FIELD_SEP);
 
 	while (count < LINES - 2) {
 		const char *fold_sign = node->folded ? "▶" : "─";
@@ -316,6 +468,8 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 		if (node == graph->curr)
 			attron(A_REVERSE);
 
+		move(count + 1, 0);
+		print_graph_field(&node->n);
 		print_graph_indent(graph, node, d, single_child);
 
 		printw("%s(%d) %s", fold_sign, node->n.nr_calls, node->n.name);
@@ -340,10 +494,11 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 
 		count++;
 
-		move(count + 1, 0);
-
 		if (!is_first_child(node, next)) {
+			move(count + 1, 0);
+			print_graph_empty();
 			print_graph_indent(graph, next, d, true);
+
 			count++;
 		}
 
@@ -667,7 +822,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 
 	atexit(tui_cleanup);
 
-	tui_setup(&handle);
+	tui_setup(&handle, opts);
 	fstack_setup_filters(opts, &handle);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
