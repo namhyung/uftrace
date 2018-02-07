@@ -1,3 +1,29 @@
+uftrace v0.8.3
+--------------
+* i386 arch support (by Hanbum Park):
+  support arguments and dynamic tracing
+
+* graph update (by Honggyu Kim):
+  add -f/--output-fields option to control output
+  share common code/behavior with replay command
+
+* event update:
+  add task events (fork/comm/exit) using Linux perf subsystem
+  enable task events always if supported
+
+* trigger change:
+  change 'read' trigger action to read events twice (at entry and exit)
+  support some pmu-related events using read trigger (with perf syscall)
+  allow 'd' format specifier for default behavior with different size
+
+* other changes:
+  add misc/demangler to test demangling easily
+  add --libname option to show library names for PLT functions
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Hanbum Park, Honggyu Kim, Taeung Song
+
+
 uftrace v0.8.2
 --------------
 * trigger update
