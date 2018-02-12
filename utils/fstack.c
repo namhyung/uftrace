@@ -1788,7 +1788,6 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		}
 
 		perf->valid = false;
-		handle->last_perf_idx = -1;
 	}
 
 	update_first_timestamp(handle, task, rstack);

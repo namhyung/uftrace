@@ -1279,9 +1279,6 @@ perf:
 	if (!has_perf_data(handle) || uftrace_done)
 		goto footer;
 
-	/* force get_perf_record() to read from file */
-	handle->last_perf_idx = -1;
-
 	for (i = 0; i < handle->nr_perf; i++) {
 		struct uftrace_perf_reader *perf = &handle->perf[i];
 
@@ -1295,6 +1292,9 @@ perf:
 				break;
 
 			ops->perf_event(ops, perf, rec);
+
+			/* for re-read perf data from file */
+			perf->valid = false;
 		}
 	}
 

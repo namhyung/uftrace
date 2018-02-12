@@ -455,7 +455,7 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 {
 	static struct uftrace_record rec;
 
-	if (handle->last_perf_idx == -1) {
+	if (!perf->valid) {
 		if (read_perf_event(handle, perf) < 0)
 			return NULL;
 	}
