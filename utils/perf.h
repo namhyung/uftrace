@@ -60,6 +60,8 @@ struct uftrace_task_event {
 };
 
 struct uftrace_comm_event {
+	int		pid;
+	bool		exec;
 	char		comm[16];
 };
 
@@ -84,6 +86,10 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 				    int cpu, int sock) {}
 
 #endif /* HAVE_PERF_CLOCKID */
+
+#ifndef  PERF_RECORD_MISC_COMM_EXEC
+# define PERF_RECORD_MISC_COMM_EXEC  (1 << 13)
+#endif
 
 #ifdef HAVE_PERF_CTXSW
 # define PERF_CTXSW_AVAILABLE  1
