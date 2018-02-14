@@ -210,3 +210,43 @@ int graph_add_node(struct uftrace_task_graph *tg, int type, char *name)
 	else
 		return 0;
 }
+
+static void graph_destroy_node(struct uftrace_graph_node *node)
+{
+	struct uftrace_graph_node *child;
+
+	list_for_each_entry(child, &node->head, list)
+		graph_destroy_node(child);
+
+	list_del(&node->list);
+	free(node->name);
+	free(node);
+}
+
+void graph_destroy(struct uftrace_graph *graph)
+{
+	struct uftrace_graph_node *node, *tmp;
+	struct uftrace_special_node *snode, *stmp;
+
+	list_for_each_entry_safe(node, tmp, &graph->root.head, list)
+		graph_destroy_node(node);
+
+	list_for_each_entry_safe(snode, stmp, &graph->special_nodes, list) {
+		list_del(&snode->list);
+		free(node);
+	}
+}
+
+void graph_remove_task(void)
+{
+	struct rb_node *node;
+	struct uftrace_task_graph *tg;
+
+	while (!RB_EMPTY_ROOT(&task_graph_root)) {
+		node = rb_first(&task_graph_root);
+		tg = rb_entry(node, struct uftrace_task_graph, link);
+
+		rb_erase(node, &task_graph_root);
+		free(tg);
+	}
+}

@@ -55,8 +55,12 @@ typedef void(*graph_fn)(struct uftrace_task_graph *tg, void *arg);
 void graph_init(struct uftrace_graph *graph, struct uftrace_session *s);
 void graph_init_callbacks(graph_fn entry, graph_fn exit, graph_fn event,
 			  void *arg);
+void graph_destroy(struct uftrace_graph *graph);
+
 struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
 					   size_t tg_size);
+void graph_remove_task(void);
+
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name);
 
 #endif /* UFTRACE_GRAPH_H */
