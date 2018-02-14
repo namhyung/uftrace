@@ -22,6 +22,7 @@ static bool tui_debug;
 struct tui_graph_node {
 	struct uftrace_graph_node n;
 	struct list_head link; // for tui_report_node.head
+	struct tui_graph *graph;
 	bool folded;
 };
 
@@ -69,6 +70,7 @@ struct tui_graph {
 static LIST_HEAD(tui_graph_list);
 static LIST_HEAD(graph_output_fields);
 static struct tui_report tui_report;
+static struct tui_graph partial_graph;
 
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
@@ -365,6 +367,7 @@ static int build_tui_node(struct ftrace_task_handle *task,
 {
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
+	struct tui_graph_node *graph_node;
 	struct sym *sym;
 	char *name;
 
@@ -384,7 +387,6 @@ static int build_tui_node(struct ftrace_task_handle *task,
 		struct fstack *fstack = &task->func_stack[task->stack_count];
 		uint64_t total_time = fstack->total_time;
 		uint64_t self_time = fstack->total_time - fstack->child_time;
-		struct tui_graph_node *graph_node;
 		struct tui_report_node *node;
 		int i;
 
@@ -412,9 +414,127 @@ static int build_tui_node(struct ftrace_task_handle *task,
 	}
 
 	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
+	if (tg->node && tg->node != &graph->root) {
+		graph_node = (struct tui_graph_node *)tg->node;
+		graph_node->graph = (struct tui_graph *)graph;
+	}
 
 	symbol_putname(sym, name);
 	return 0;
+}
+
+static struct tui_graph_node * append_graph_node(struct uftrace_graph_node *dst,
+						 char *name)
+{
+	struct tui_graph_node *node;
+
+	node = xzalloc(sizeof(*node));
+
+	node->n.name = xstrdup(name);
+	INIT_LIST_HEAD(&node->n.head);
+
+	node->n.parent = dst;
+	list_add_tail(&node->n.list, &dst->head);
+	dst->nr_edges++;
+
+	return node;
+}
+
+static void copy_graph_node(struct uftrace_graph_node *dst,
+			    struct uftrace_graph_node *src)
+{
+	struct uftrace_graph_node *child;
+	struct tui_graph_node *node;
+
+	list_for_each_entry(child, &src->head, list) {
+		list_for_each_entry(node, &dst->head, n.list) {
+			if (!strcmp(child->name, node->n.name))
+				break;
+		}
+
+		if (list_no_entry(node, &dst->head, n.list))
+			node = append_graph_node(dst, child->name);
+
+		node->n.time       += child->time;
+		node->n.child_time += child->child_time;
+		node->n.nr_calls   += child->nr_calls;
+
+		copy_graph_node(&node->n, child);
+	}
+}
+
+static void build_partial_graph(struct tui_report_node *root_node,
+				struct tui_graph *target)
+{
+	struct tui_graph *graph = &partial_graph;
+	struct tui_graph_node *root, *node;
+	char *str;
+
+	graph_destroy(&graph->ug);
+
+	graph->ug.sess = target->ug.sess;
+
+	xasprintf(&str, "=== Function Call Graph for '%s' ===", root_node->name);
+
+	graph->top = (struct tui_graph_node*) &graph->ug.root;
+	graph->top->n.name = str;
+	graph->top->n.parent = NULL;
+
+	graph->top->n.time       = 0;
+	graph->top->n.child_time = 0;
+	graph->top->n.nr_calls   = 0;
+
+	/* special node */
+	root = append_graph_node(&graph->ug.root,
+				 "========== Back-trace ==========");
+
+	list_for_each_entry(node, &root_node->head, link) {
+		struct tui_graph_node *tmp, *parent;
+
+		if (node->graph != target)
+			continue;
+
+		tmp = root;
+		parent = node;
+
+		while (parent->n.parent) {
+			tmp = append_graph_node(&tmp->n, parent->n.name);
+
+			tmp->n.time       = node->n.time;
+			tmp->n.child_time = node->n.child_time;
+			tmp->n.nr_calls   = node->n.nr_calls;
+
+			parent = (void *)parent->n.parent;
+		}
+	}
+
+	/* special node */
+	root = append_graph_node(&graph->ug.root,
+				 "========== Call Graph ==========");
+
+	root = append_graph_node(&root->n, root_node->name);
+
+	list_for_each_entry(node, &root_node->head, link) {
+		if (node->graph != target)
+			continue;
+
+		root->n.time       += node->n.time;
+		root->n.child_time += node->n.child_time;
+		root->n.nr_calls   += node->n.nr_calls;
+
+		copy_graph_node(&root->n, &node->n);
+	}
+
+	graph->curr = graph->top;
+	graph->curr_index = graph->top_index = 0;
+	graph->top_depth = 0;
+
+	memset(graph->top_mask, 0, graph->mask_size);
+}
+
+static inline bool is_special_node(struct uftrace_graph_node *node)
+{
+	return node->name[0] == '=';
 }
 
 static struct tui_graph_node * graph_prev_node(struct tui_graph_node *node,
@@ -472,7 +592,7 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 	struct tui_graph_node *parent = (void *)n->parent;
 
 	if (parent && !list_is_singular(&n->parent->head) &&
-	    is_last_child(parent, node) && indent_mask)
+	    is_last_child(parent, node) && indent_mask && *depth > 0)
 		indent_mask[*depth - 1] = false;
 
 	/* simple case: if it has children, move to it */
@@ -484,6 +604,9 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 		}
 
 		n = list_first_entry(&n->head, typeof(*n), list);
+
+		if (is_special_node(n))
+			*depth = 0;
 		return (struct tui_graph_node *)n;
 	}
 
@@ -494,6 +617,9 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 		/* move to sibling if possible */
 		if (!is_last_child(parent, (void *)n)) {
 			n = list_next_entry(n, list);
+
+			if (is_special_node(n))
+				*depth = 0;
 			return (struct tui_graph_node *)n;
 		}
 
@@ -638,14 +764,21 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 		print_graph_field(&node->n);
 		print_graph_indent(graph, node, d, single_child);
 
-		printw("%s(%d) %s", fold_sign, node->n.nr_calls, node->n.name);
+		if (is_special_node(&node->n))
+			printw("%s", node->n.name);
+		else
+			printw("%s(%d) %s", fold_sign, node->n.nr_calls,
+			       node->n.name);
 
 		if (node == graph->curr) {
-			/* 4 = fold_sign(1) + parenthesis(2) + space(1) */
-			int width = d * 3 + strlen(node->n.name) + 4 + w;
+			int width = d * 3 + strlen(node->n.name) + w;
 			char buf[32];
 
-			width += snprintf(buf, sizeof(buf), "%d", node->n.nr_calls);
+			/* 4 = fold_sign(1) + parenthesis(2) + space(1) */
+			if (!is_special_node(&node->n)) {
+				width += snprintf(buf, sizeof(buf),
+						  "%d", node->n.nr_calls) + 4;
+			}
 
 			if (width < COLS)
 				printw("%*s", COLS - width, "");
@@ -698,6 +831,15 @@ static void tui_graph_init(struct opts *opts)
 		graph->top_mask  = xzalloc(graph->mask_size);
 		graph->curr_mask = xmalloc(graph->mask_size);
 	}
+
+	graph = list_first_entry(&tui_graph_list, typeof(*graph), list);
+
+	partial_graph.mask_size = graph->mask_size;
+	partial_graph.top_mask  = xzalloc(graph->mask_size);
+	partial_graph.curr_mask = xmalloc(graph->mask_size);
+
+	INIT_LIST_HEAD(&partial_graph.ug.root.head);
+	INIT_LIST_HEAD(&partial_graph.ug.special_nodes);
 }
 
 static void tui_graph_finish(void)
@@ -705,9 +847,14 @@ static void tui_graph_finish(void)
 	struct tui_graph *graph;
 
 	list_for_each_entry(graph, &tui_graph_list, list) {
+		graph_destroy(&graph->ug);
 		free(graph->top_mask);
 		free(graph->curr_mask);
 	}
+
+	graph_destroy(&partial_graph.ug);
+	free(partial_graph.top_mask);
+	free(partial_graph.curr_mask);
 }
 
 static void tui_graph_move_up(struct tui_graph *graph)
@@ -1052,6 +1199,14 @@ static void tui_report_move_end(struct tui_report *report)
 	}
 }
 
+static void tui_report_enter(struct tui_report *report)
+{
+	struct tui_graph_node *node;
+
+	node = list_first_entry(&report->curr->head, typeof(*node), link);
+	build_partial_graph(report->curr, node->graph);
+}
+
 static void print_report_header(struct ftrace_file_handle *handle,
 				struct tui_report *report)
 {
@@ -1191,9 +1346,16 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 		case '\n':
 			if (graph_mode)
 				tui_graph_enter(graph);
+			else {
+				tui_report_enter(report);
+				graph = &partial_graph;
+				graph_mode = true;  /* partial graph mode */
+			}
 			break;
 		case 'g':
-			graph_mode = true;
+			graph_mode = true;  /* full graph mode */
+			graph = list_first_entry(&tui_graph_list,
+						 typeof(*graph), list);
 			break;
 		case 'r':
 			graph_mode = false;  /* report mode */
