@@ -934,9 +934,9 @@ static void print_chrome_footer(struct uftrace_dump_ops *ops,
 	buf[strlen(buf) - 1] = '\0';
 
 	pr_out("\n], \"displayTimeUnit\": \"ns\", \"metadata\": {\n");
+	pr_out("\"recorded_time\":\"%s\",\n", buf);
 	if (handle->hdr.info_mask & (1UL << CMDLINE))
-		pr_out("\"command_line\":\"%s\",\n", handle->info.cmdline);
-	pr_out("\"recorded_time\":\"%s\"\n", buf);
+		pr_out("\"command_line\":\"%s\"\n", handle->info.cmdline);
 	pr_out("} }\n");
 
 	/*
