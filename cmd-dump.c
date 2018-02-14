@@ -811,6 +811,10 @@ static void print_chrome_header(struct uftrace_dump_ops *ops,
 	       "\"name\":\"process_name\","
 	       "\"args\":{\"name\":\"%s\"}},\n",
 	       info->tids[0], basename(info->exename));
+	pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+	       "\"name\":\"thread_name\","
+	       "\"args\":{\"name\":\"%s\"}},\n",
+	       info->tids[0], basename(info->exename));
 
 	chrome->last_comma = false;
 }
@@ -833,6 +837,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_record *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
+	bool is_process = task->t->pid == task->tid;
 
 	if (frs->type == UFTRACE_EVENT) {
 		if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
@@ -851,8 +856,14 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	if ((frs->type == UFTRACE_ENTRY) ||
 	    (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_OUT)) {
 		ph = 'B';
-		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-		       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+		if (is_process) {
+			/* no need to add "tid" field */
+			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+		} else {
+			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
+		}
 		if (frs->more) {
 			str_mode |= HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -865,8 +876,14 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	else if ((frs->type == UFTRACE_EXIT) ||
 		 (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_IN)) {
 		ph = 'E';
-		pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-		       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+		if (is_process) {
+			/* no need to add "tid" field */
+			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+		} else {
+			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
+		}
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -922,13 +939,27 @@ static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
 				    struct uftrace_record *frs)
 {
 	uint64_t evt_id = frs->addr;
+	bool is_process = perf->u.comm.pid == perf->tid;
 
 	switch (evt_id) {
 	case EVENT_ID_PERF_COMM:
-		pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
-		       "\"name\":\"process_name\","
-		       "\"args\":{\"name\":\"%s\"}}",
-		       perf->tid, perf->u.comm.comm);
+		if (is_process) {
+			pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+			       "\"name\":\"process_name\","
+			       "\"args\":{\"name\":\"%s\"}}",
+			       perf->tid, perf->u.comm.comm);
+			pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+			       "\"name\":\"thread_name\","
+			       "\"args\":{\"name\":\"%s\"}}",
+			       perf->tid, perf->u.comm.comm);
+		} else {
+			char buf[32];
+			sprintf(buf, "%s (%d)", perf->u.comm.comm, perf->tid);
+			pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,\"tid\":%d,"
+			       "\"name\":\"thread_name\","
+			       "\"args\":{\"name\":\"%s\"}}",
+			       perf->u.comm.pid, perf->tid, buf);
+		}
 		break;
 	default:
 		break;
