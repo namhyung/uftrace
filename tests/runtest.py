@@ -275,7 +275,10 @@ class TestBase:
         for ln in o['traceEvents']:
             if ln['name'].startswith('__'):
                 continue
-            result.append("%s %s" % (ln['ph'], ln['name']))
+            if ln['ph'] == "M" and ln['name'] == "process_name":
+                result.append("%s %s %s" % (ln['ph'], ln['name'], ln['args']))
+            else:
+                result.append("%s %s" % (ln['ph'], ln['name']))
         return '\n'.join(result)
 
     def sort(self, output, ignore_children=False):

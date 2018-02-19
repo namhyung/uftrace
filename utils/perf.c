@@ -370,9 +370,12 @@ again:
 
 		if (handle->needs_byte_swap) {
 			u.c.tid            = bswap_32(u.c.tid);
+			u.c.pid            = bswap_32(u.c.pid);
 			u.c.sample_id.time = bswap_64(u.c.sample_id.time);
 		}
 
+		perf->u.comm.pid  = u.c.pid;
+		perf->u.comm.exec = h.misc & PERF_RECORD_MISC_COMM_EXEC;
 		strncpy(perf->u.comm.comm, u.c.comm, sizeof(u.c.comm));
 
 		perf->time = u.c.sample_id.time;
@@ -455,7 +458,7 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 {
 	static struct uftrace_record rec;
 
-	if (handle->last_perf_idx == -1) {
+	if (!perf->valid) {
 		if (read_perf_event(handle, perf) < 0)
 			return NULL;
 	}

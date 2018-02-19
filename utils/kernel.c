@@ -1608,6 +1608,7 @@ retry:
 	}
 
 	memcpy(&(*taskp)->kstack, first_rstack, sizeof(*first_rstack));
+	kernel->last_read_cpu = first_cpu;
 
 	return first_cpu;
 }
