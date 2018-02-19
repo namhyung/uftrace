@@ -1048,21 +1048,8 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		struct uftrace_record *rstack = task->rstack;
 		uint64_t curr_time = rstack->time;
 
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_record(task, rstack))
+		if (!fstack_check_opts(task, opts))
 			continue;
-
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (!task->user_stack_count && is_kernel_record(task, rstack))
-				continue;
-		}
-
-		if (opts->event_skip_out) {
-			/* skip event outside of user functions */
-			if (!task->user_stack_count && rstack->type == UFTRACE_EVENT)
-				continue;
-		}
 
 		/*
 		 * data sanity check: timestamp should be ordered.

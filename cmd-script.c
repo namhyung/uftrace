@@ -173,18 +173,8 @@ int command_script(int argc, char *argv[], struct opts *opts)
 		return -1;
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
-		struct uftrace_record *rstack = task->rstack;
-
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_record(task, rstack))
+		if (!fstack_check_opts(task, opts))
 			continue;
-
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (!task->user_stack_count &&
-			    is_kernel_record(task, rstack))
-				continue;
-		}
 
 		ret = run_script_for_rstack(&handle, task, opts);
 

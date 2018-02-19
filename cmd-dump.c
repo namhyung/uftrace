@@ -1312,22 +1312,8 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 {
 	struct uftrace_record *frs = task->rstack;
 
-	if (has_kernel_data(task->h->kernel)) {
-		if (opts->kernel_skip_out) {
-			if (!task->user_stack_count &&
-			    is_kernel_record(task, frs))
-				return false;
-		}
-
-		if (opts->kernel_only &&
-		    !is_kernel_record(task, frs))
-			return false;
-	}
-
-	if (frs->type == UFTRACE_EVENT) {
-		if (!task->user_stack_count && opts->event_skip_out)
-			return false;
-	}
+	if (!fstack_check_opts(task, opts))
+		return false;
 
 	if (!fstack_check_filter(task))
 		return false;

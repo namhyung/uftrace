@@ -834,6 +834,40 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 	return true;
 }
 
+/**
+ * fstack_check_opt - Check filter options for current function
+ * @task       - tracee task
+ * @opts       - options given by user
+ *
+ * This function checks @task->func_stack with @opts and returns
+ * whether it should be filtered out or not.  True means it's ok to
+ * process this function and false means it should be skipped.
+ */
+bool fstack_check_opts(struct ftrace_task_handle *task, struct opts *opts)
+{
+	struct uftrace_record *rec = task->rstack;
+
+	/* skip user functions if --kernel-only is set */
+	if (opts->kernel_only) {
+		if (!is_kernel_record(task, rec) && rec->type != UFTRACE_LOST)
+			return false;
+	}
+
+	if (opts->kernel_skip_out) {
+		/* skip kernel functions outside user functions */
+		if (!task->user_stack_count && is_kernel_record(task, rec))
+			return false;
+	}
+
+	if (opts->event_skip_out) {
+		/* skip event outside of user functions */
+		if (!task->user_stack_count && rec->type == UFTRACE_EVENT)
+			return false;
+	}
+
+	return true;
+}
+
 void setup_rstack_list(struct uftrace_rstack_list *list)
 {
 	INIT_LIST_HEAD(&list->read);

@@ -167,21 +167,7 @@ static bool fill_entry(struct trace_entry *te, struct ftrace_task_handle *task,
 		       uint64_t time, uint64_t addr, struct opts *opts)
 {
 	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct uftrace_session *sess;
 	struct sym *sym;
-
-	sess = sessions->first;
-
-	/* skip user functions if --kernel-only is set */
-	if (opts->kernel_only && !is_kernel_address(&sess->symtabs, addr))
-		return false;
-
-	if (opts->kernel_skip_out) {
-		/* skip kernel functions outside user functions */
-		if (task->user_stack_count == 0 &&
-		    is_kernel_address(&sess->symtabs, addr))
-			return false;
-	}
 
 	sym = task_find_sym_addr(sessions, task, time, addr);
 
@@ -204,6 +190,9 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 		if (rstack->type != UFTRACE_LOST)
 			task->timestamp_last = rstack->time;
 
+		if (!fstack_check_opts(task, opts))
+			continue;
+
 		if (!fstack_check_filter(task))
 			continue;
 
@@ -211,9 +200,6 @@ static void build_function_tree(struct ftrace_file_handle *handle,
 			continue;
 
 		if (rstack->type == UFTRACE_EVENT) {
-			if (!task->user_stack_count && opts->event_skip_out)
-				continue;
-
 			if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				static struct sym sched_sym = {
 					.addr = EVENT_ID_PERF_SCHED_IN,
