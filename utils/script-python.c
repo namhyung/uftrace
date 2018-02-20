@@ -52,6 +52,7 @@ static PyAPI_FUNC(PyObject *) (*__PyInt_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromLong)(long);
 static PyAPI_FUNC(PyObject *) (*__PyLong_FromUnsignedLongLong)(unsigned PY_LONG_LONG);
 static PyAPI_FUNC(PyObject *) (*__PyFloat_FromDouble)(double);
+static PyAPI_FUNC(PyObject *) (*__PyBool_FromLong)(long);
 
 static PyAPI_FUNC(char *) (*__PyString_AsString)(PyObject *);
 static PyAPI_FUNC(long) (*__PyLong_AsLong)(PyObject *);
@@ -212,6 +213,9 @@ static void python_insert_dict(PyObject *dict, char type, const char *key,
 	case 's':
 		obj = __PyString_FromString(val.s);
 		break;
+	case 'b':
+		obj = __PyBool_FromLong(val.l);
+		break;
 	default:
 		pr_warn("unsupported data type was added to dict\n");
 		obj = NULL;
@@ -262,6 +266,12 @@ static void insert_dict_string(PyObject *dict, const char *key, char *v)
 {
 	union python_val val = { .s = v, };
 	python_insert_dict(dict, 's', key, val);
+}
+
+static void insert_dict_bool(PyObject *dict, const char *key, bool v)
+{
+	union python_val val = { .l = v, };
+	python_insert_dict(dict, 'b', key, val);
 }
 
 #define PYCTX(_item)  py_context_table[PY_CTX_##_item]
@@ -571,6 +581,7 @@ int script_init_for_python(struct script_info *info,
 	INIT_PY_API_FUNC(PyLong_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
 	INIT_PY_API_FUNC(PyFloat_FromDouble);
+	INIT_PY_API_FUNC(PyBool_FromLong);
 
 	INIT_PY_API_FUNC(PyString_AsString);
 	INIT_PY_API_FUNC(PyLong_AsLong);
@@ -616,8 +627,18 @@ int script_init_for_python(struct script_info *info,
 
 	/* Call python function "uftrace_begin" immediately if possible. */
 	PyObject *pFuncBegin = __PyObject_GetAttrString(pModule, "uftrace_begin");
-	if (pFuncBegin && __PyCallable_Check(pFuncBegin))
-		__PyObject_CallObject(pFuncBegin, NULL);
+	if (pFuncBegin && __PyCallable_Check(pFuncBegin)) {
+		PyObject *ctx = __PyTuple_New(1);
+		PyObject *dict = __PyDict_New();
+
+		insert_dict_bool(dict, "recording", info->recording);
+		insert_dict_string(dict, "version", info->version);
+
+		__PyTuple_SetItem(ctx, 0, dict);
+		__PyObject_CallObject(pFuncBegin, ctx);
+
+		Py_XDECREF(ctx);
+	}
 
 	pFuncEntry = __PyObject_GetAttrString(pModule, "uftrace_entry");
 	if (!pFuncEntry || !__PyCallable_Check(pFuncEntry)) {

@@ -20,6 +20,8 @@ enum script_type_t {
 /* informantion passed during initialization */
 struct script_info {
 	char			*name;
+	char			*version;
+	bool			recording;
 };
 
 /* context information passed to script */

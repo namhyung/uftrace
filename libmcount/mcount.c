@@ -24,6 +24,7 @@
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "version.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -1321,6 +1322,8 @@ static void mcount_startup(void)
 	if (SCRIPT_ENABLED && script_str) {
 		struct script_info info = {
 			.name           = script_str,
+			.version        = UFTRACE_VERSION,
+			.recording      = true,
 		};
 
 		if (script_init(&info, patt_type) < 0)

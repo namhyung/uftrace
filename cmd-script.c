@@ -11,6 +11,7 @@
 #include <stdio_ext.h>
 
 #include "uftrace.h"
+#include "version.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -131,6 +132,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	struct ftrace_task_handle *task;
 	struct script_info info = {
 		.name           = opts->script_file,
+		.version        = UFTRACE_VERSION,
 	};
 
 	if (!SCRIPT_ENABLED) {
