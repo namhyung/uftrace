@@ -251,8 +251,24 @@ void wait_for_pager(void);
 bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp);
 uint64_t parse_time(char *arg, int limited_digits);
 
-char * strjoin(char *left, char *right, char *delim);
+char * strjoin(char *left, char *right, const char *delim);
 char * strquote(char *str, int *len);
+
+/* strv - string vector */
+struct strv {
+	int nr;    /* actual allocation is (nr + 1) */
+	char **p;  /* terminated by NULL (like argv[]) */
+};
+
+#define STRV_INIT  (struct strv){ .nr = 0, .p = NULL, }
+#define strv_for_each(strv, s, i)	\
+	for (i = 0; i < (strv)->nr && ((s) = (strv)->p[i]); i++)
+
+void strv_split(struct strv *strv, const char *str, const char *delim);
+void strv_copy(struct strv *strv, int argc, char *argv[]);
+void strv_append(struct strv *strv, const char *str);
+char * strv_join(struct strv *strv, const char *delim);
+void strv_free(struct strv *strv);
 
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
