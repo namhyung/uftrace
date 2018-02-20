@@ -651,8 +651,8 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	if (opts->idx)
-		func = argv[opts->idx];
+	if (argc > 0)
+		func = argv[0];
 	else {
 		func = "_start";
 		full_graph = true;

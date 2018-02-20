@@ -1869,7 +1869,7 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts, char *argv[])
 	 * I don't think the traced binary is in PATH.
 	 * So use plain 'execv' rather than 'execvp'.
 	 */
-	execv(opts->exename, &argv[opts->idx]);
+	execv(opts->exename, argv);
 	abort();
 }
 
