@@ -166,6 +166,7 @@ static struct argp_option uftrace_options[] = {
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
 	{ "auto-args", OPT_auto_args, 0, 0, "Show arguments and return value of known functions" },
 	{ "libname", OPT_libname, 0, 0, "Show libname name with symbol name" },
+	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
 
@@ -471,6 +472,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		}
 		else
 			opts->event = opt_add_string(opts->event, arg);
+		break;
+
+	case 'h':
+		argp_state_help (state, state->out_stream, ARGP_HELP_STD_HELP);
 		break;
 
 	case OPT_flat:

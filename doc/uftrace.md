@@ -56,6 +56,9 @@ OPTIONS
 -?, \--help
 :   Print help message and list of options with description
 
+-h, \--help
+:   Print help message and list of options with description
+
 \--usage
 :   Print usage string
 
