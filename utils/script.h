@@ -10,6 +10,7 @@
 
 #include "libmcount/mcount.h"
 #include "utils/script-python.h"
+#include "utils/utils.h"
 
 /* script type */
 enum script_type_t {
@@ -22,6 +23,7 @@ struct script_info {
 	char			*name;
 	char			*version;
 	bool			recording;
+	struct strv		args;
 };
 
 /* context information passed to script */

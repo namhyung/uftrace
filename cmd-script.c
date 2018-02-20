@@ -173,6 +173,8 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
+	strv_copy(&info.args, argc, argv);
+
 	/* initialize script */
 	if (script_init(&info, opts->patt_type) < 0)
 		return -1;
