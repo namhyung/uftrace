@@ -93,8 +93,10 @@ void script_finish_filter(void)
 	}
 }
 
-int script_init(char *script_pathname, enum uftrace_pattern_type ptype)
+int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 {
+	char *script_pathname = info->name;
+
 	pr_dbg2("%s(\"%s\")\n", __func__, script_pathname);
 	if (access(script_pathname, F_OK) < 0) {
 		perror(script_pathname);
@@ -104,7 +106,7 @@ int script_init(char *script_pathname, enum uftrace_pattern_type ptype)
 	script_lang = get_script_type(script_pathname);
 	switch (script_lang) {
 	case SCRIPT_PYTHON:
-		if (script_init_for_python(script_pathname, ptype) < 0) {
+		if (script_init_for_python(info, ptype) < 0) {
 			pr_dbg("failed to init python scripting\n");
 			script_pathname = NULL;
 		}

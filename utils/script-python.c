@@ -533,9 +533,11 @@ int python_atfork_prepare(void)
 	return 0;
 }
 
-int script_init_for_python(char *py_pathname,
+int script_init_for_python(struct script_info *info,
 			   enum uftrace_pattern_type ptype)
 {
+	char *py_pathname = info->name;
+
 	pr_dbg("%s(\"%s\")\n", __func__, py_pathname);
 
 	/* Bind script_uftrace functions to python's. */
