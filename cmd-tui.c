@@ -46,6 +46,7 @@ struct tui_report {
 	struct rb_root name_tree;
 	struct rb_root sort_tree;
 	struct tui_report_node *top;
+	struct tui_report_node *old;
 	struct tui_report_node *curr;
 	int top_index;
 	int curr_index;
@@ -57,6 +58,7 @@ struct tui_graph {
 	struct uftrace_graph ug;
 	struct list_head list;
 	struct tui_graph_node *top;
+	struct tui_graph_node *old;
 	struct tui_graph_node *curr;
 	int top_depth;
 	int top_index;
@@ -719,7 +721,7 @@ static void print_graph_indent(struct tui_graph *graph,
 }
 
 static void tui_graph_display(struct ftrace_file_handle *handle,
-			      struct tui_graph *graph)
+			      struct tui_graph *graph, bool full_redraw)
 {
 	int count = 0;
 	struct tui_graph_node *node = graph->top;
@@ -746,6 +748,10 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 		struct tui_graph_node *parent = (void *)node->n.parent;
 		struct tui_graph_node *next;
 		bool single_child = false;
+		int width;
+
+		if (!full_redraw && node != graph->curr && node != graph->old)
+			goto next;
 
 		if (parent && list_is_singular(&parent->n.head)) {
 			single_child = true;
@@ -764,29 +770,33 @@ static void tui_graph_display(struct ftrace_file_handle *handle,
 		print_graph_field(&node->n);
 		print_graph_indent(graph, node, d, single_child);
 
-		if (is_special_node(&node->n))
+		width = d * 3 + strlen(node->n.name) + w;
+
+		if (is_special_node(&node->n)) {
 			printw("%s", node->n.name);
-		else
+		}
+		else {
+			char buf[32];
+
 			printw("%s(%d) %s", fold_sign, node->n.nr_calls,
 			       node->n.name);
 
-		if (node == graph->curr) {
-			int width = d * 3 + strlen(node->n.name) + w;
-			char buf[32];
-
-			/* 4 = fold_sign(1) + parenthesis(2) + space(1) */
+			/* 4 = fold_sign(1) + parenthesis92) + space(1) */
 			if (!is_special_node(&node->n)) {
 				width += snprintf(buf, sizeof(buf),
 						  "%d", node->n.nr_calls) + 4;
 			}
+		}
 
-			if (width < COLS)
-				printw("%*s", COLS - width, "");
+		if (width < COLS)
+			printw("%*s", COLS - width, "");
 
+		if (node == graph->curr) {
 			graph->curr_depth = d;
 			attroff(A_REVERSE);
 		}
 
+next:
 		next = graph_next_node(node, &d, graph->curr_mask);
 		if (unlikely(next == NULL))
 			break;
@@ -1248,7 +1258,7 @@ static void print_report_field(struct tui_report *report,
 }
 
 static void tui_report_display(struct ftrace_file_handle *handle,
-			       struct tui_report *report)
+			       struct tui_report *report, bool full_redraw)
 {
 	int count = 0;
 	struct tui_report_node *node = report->top;
@@ -1260,6 +1270,10 @@ static void tui_report_display(struct ftrace_file_handle *handle,
 
 	while (count < LINES - 2) {
 		struct rb_node *next;
+		int width = 38;  /* 3 output fields and spaces */
+
+		if (!full_redraw && node != report->curr && node != report->old)
+			goto next;
 
 		move(count + 1, 0);
 
@@ -1270,15 +1284,14 @@ static void tui_report_display(struct ftrace_file_handle *handle,
 		printw("  ");
 		printw("%-s", node->name);
 
-		if (node == report->curr) {
-			int width = 38 + strlen(node->name);
+		width += strlen(node->name);
+		if (width < COLS)
+			printw("%*s", COLS - width, "");
 
-			if (width < COLS)
-				printw("%*s", COLS - width, "");
-
+		if (node == report->curr)
 			attroff(A_REVERSE);
-		}
 
+next:
 		next = rb_next(&node->sort_link);
 		if (unlikely(next == NULL))
 			break;
@@ -1294,8 +1307,11 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int key = 0;
 	bool graph_mode = true;
+	bool full_redraw = true;
 	struct tui_graph *graph;
 	struct tui_report *report;
+	struct tui_graph_node *old_graph_top = NULL;
+	struct tui_report_node *old_report_top = NULL;
 
 	tui_graph_init(opts);
 	tui_report_init(opts);
@@ -1304,6 +1320,9 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 
 	while (true) {
 		switch (key) {
+		case KEY_RESIZE:
+			full_redraw = true;
+			break;
 		case KEY_UP:
 		case 'k':
 			if (graph_mode)
@@ -1351,14 +1370,17 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				graph = &partial_graph;
 				graph_mode = true;  /* partial graph mode */
 			}
+			full_redraw = true;
 			break;
 		case 'g':
 			graph_mode = true;  /* full graph mode */
 			graph = list_first_entry(&tui_graph_list,
 						 typeof(*graph), list);
+			full_redraw = true;
 			break;
 		case 'r':
 			graph_mode = false;  /* report mode */
+			full_redraw = true;
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
@@ -1369,12 +1391,26 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		}
 
-		clear();
+		if (graph_mode && graph->top != old_graph_top)
+			full_redraw = true;
+		if (!graph_mode && report->top != old_report_top)
+			full_redraw = true;
+
+		if (full_redraw)
+			clear();
+
 		if (graph_mode)
-			tui_graph_display(handle, graph);
+			tui_graph_display(handle, graph, full_redraw);
 		else
-			tui_report_display(handle, report);
+			tui_report_display(handle, report, full_redraw);
 		refresh();
+
+		full_redraw = false;
+
+		graph->old = graph->curr;
+		report->old = report->curr;
+		old_graph_top = graph->top;
+		old_report_top = report->top;
 
 		move(LINES-1, COLS-1);
 		key = getch();
