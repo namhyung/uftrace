@@ -518,12 +518,17 @@ int python_uftrace_end(void)
 	if (unlikely(!pFuncEnd))
 		return -1;
 
-	pr_dbg("%s()\n", __func__);
-
 	pthread_mutex_lock(&python_interpreter_lock);
 
 	/* Call python function "uftrace_end". */
 	__PyObject_CallObject(pFuncEnd, NULL);
+
+	if (debug) {
+		if (__PyErr_Occurred()) {
+			pr_dbg("uftrace_end failed:\n");
+			__PyErr_Print();
+		}
+	}
 
 	pthread_mutex_unlock(&python_interpreter_lock);
 
@@ -645,6 +650,13 @@ int script_init_for_python(struct script_info *info,
 
 		__PyTuple_SetItem(ctx, 0, dict);
 		__PyObject_CallObject(pFuncBegin, ctx);
+
+		if (debug) {
+			if (__PyErr_Occurred()) {
+				pr_dbg("uftrace_begin failed:\n");
+				__PyErr_Print();
+			}
+		}
 
 		Py_XDECREF(ctx);
 	}
