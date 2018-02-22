@@ -69,7 +69,7 @@ static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
 static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
-static PyObject *pModule, *pFuncEntry, *pFuncExit, *pFuncEnd;
+static PyObject *pModule, *pFuncBegin, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
 enum py_context_idx {
 	PY_CTX_TID = 0,
@@ -102,6 +102,53 @@ static const char *py_context_table[] = {
 			return -1; \
 		} \
 	} while (0)
+
+static int load_python_api_funcs(void)
+{
+	python_handle = dlopen(libpython, RTLD_LAZY | RTLD_GLOBAL);
+	if (!python_handle) {
+		pr_warn("%s cannot be loaded!\n", libpython);
+		return -1;
+	}
+
+	INIT_PY_API_FUNC(Py_Initialize);
+	INIT_PY_API_FUNC(Py_Finalize);
+	INIT_PY_API_FUNC(PySys_SetPath);
+	INIT_PY_API_FUNC(PyImport_Import);
+
+	INIT_PY_API_FUNC(PyErr_Occurred);
+	INIT_PY_API_FUNC(PyErr_Print);
+	INIT_PY_API_FUNC(PyErr_Clear);
+
+	INIT_PY_API_FUNC(PyObject_GetAttrString);
+	INIT_PY_API_FUNC(PyCallable_Check);
+	INIT_PY_API_FUNC(PyObject_CallObject);
+	INIT_PY_API_FUNC(PyRun_SimpleStringFlags);
+
+	INIT_PY_API_FUNC(PyString_FromString);
+	INIT_PY_API_FUNC(PyInt_FromLong);
+	INIT_PY_API_FUNC(PyLong_FromLong);
+	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
+	INIT_PY_API_FUNC(PyFloat_FromDouble);
+	INIT_PY_API_FUNC(PyBool_FromLong);
+
+	INIT_PY_API_FUNC(PyString_AsString);
+	INIT_PY_API_FUNC(PyLong_AsLong);
+
+	INIT_PY_API_FUNC(PyTuple_New);
+	INIT_PY_API_FUNC(PyTuple_SetItem);
+	INIT_PY_API_FUNC(PyTuple_GetItem);
+
+	INIT_PY_API_FUNC(PyList_Size);
+	INIT_PY_API_FUNC(PyList_GetItem);
+
+	INIT_PY_API_FUNC(PyDict_New);
+	INIT_PY_API_FUNC(PyDict_SetItem);
+	INIT_PY_API_FUNC(PyDict_SetItemString);
+	INIT_PY_API_FUNC(PyDict_GetItem);
+
+	return 0;
+}
 
 static char *remove_py_suffix(char *py_name)
 {
@@ -432,6 +479,43 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 	Py_XDECREF(args);
 }
 
+int python_uftrace_begin(struct script_info *info)
+{
+	if (unlikely(!pFuncBegin))
+		return -1;
+
+	/* python_interpreter_lock is already held */
+	PyObject *dict = __PyDict_New();
+
+	insert_dict_bool(dict, "recording", info->recording);
+	insert_dict_string(dict, "version", info->version);
+
+	int i;
+	char *s;
+	PyObject *args = __PyTuple_New(info->args.nr);
+
+	strv_for_each(&info->args, s, i)
+		insert_tuple_string(args, i, s);
+
+	__PyDict_SetItemString(dict, "args", args);
+	Py_XDECREF(args);
+
+	PyObject *ctx = __PyTuple_New(1);
+
+	__PyTuple_SetItem(ctx, 0, dict);
+	__PyObject_CallObject(pFuncBegin, ctx);
+
+	if (debug) {
+		if (__PyErr_Occurred()) {
+			pr_dbg("uftrace_begin failed:\n");
+			__PyErr_Print();
+		}
+	}
+
+	Py_XDECREF(ctx);
+	return 0;
+}
+
 int python_uftrace_entry(struct script_context *sc_ctx)
 {
 	if (unlikely(!pFuncEntry))
@@ -548,6 +632,21 @@ int python_atfork_prepare(void)
 	return 0;
 }
 
+static PyObject * get_python_callback(char *name)
+{
+	PyObject *func = __PyObject_GetAttrString(pModule, name);
+
+	if (func && !__PyCallable_Check(func)) {
+		if (__PyErr_Occurred())
+			__PyErr_Print();
+
+		pr_dbg("%s is not callable!\n", name);
+		func = NULL;
+	}
+
+	return func;
+}
+
 int script_init_for_python(struct script_info *info,
 			   enum uftrace_pattern_type ptype)
 {
@@ -561,48 +660,7 @@ int script_init_for_python(struct script_info *info,
 	script_uftrace_end = python_uftrace_end;
 	script_atfork_prepare = python_atfork_prepare;
 
-	python_handle = dlopen(libpython, RTLD_LAZY | RTLD_GLOBAL);
-	if (!python_handle) {
-		pr_warn("%s cannot be loaded!\n", libpython);
-		return -1;
-	}
-
-	INIT_PY_API_FUNC(Py_Initialize);
-	INIT_PY_API_FUNC(Py_Finalize);
-	INIT_PY_API_FUNC(PySys_SetPath);
-	INIT_PY_API_FUNC(PyImport_Import);
-
-	INIT_PY_API_FUNC(PyErr_Occurred);
-	INIT_PY_API_FUNC(PyErr_Print);
-	INIT_PY_API_FUNC(PyErr_Clear);
-
-	INIT_PY_API_FUNC(PyObject_GetAttrString);
-	INIT_PY_API_FUNC(PyCallable_Check);
-	INIT_PY_API_FUNC(PyObject_CallObject);
-	INIT_PY_API_FUNC(PyRun_SimpleStringFlags);
-
-	INIT_PY_API_FUNC(PyString_FromString);
-	INIT_PY_API_FUNC(PyInt_FromLong);
-	INIT_PY_API_FUNC(PyLong_FromLong);
-	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
-	INIT_PY_API_FUNC(PyFloat_FromDouble);
-	INIT_PY_API_FUNC(PyBool_FromLong);
-
-	INIT_PY_API_FUNC(PyString_AsString);
-	INIT_PY_API_FUNC(PyLong_AsLong);
-
-	INIT_PY_API_FUNC(PyTuple_New);
-	INIT_PY_API_FUNC(PyTuple_SetItem);
-	INIT_PY_API_FUNC(PyTuple_GetItem);
-
-	INIT_PY_API_FUNC(PyList_Size);
-	INIT_PY_API_FUNC(PyList_GetItem);
-
-	INIT_PY_API_FUNC(PyDict_New);
-	INIT_PY_API_FUNC(PyDict_SetItem);
-	INIT_PY_API_FUNC(PyDict_SetItemString);
-	INIT_PY_API_FUNC(PyDict_GetItem);
-
+	load_python_api_funcs();
 	set_python_path(py_pathname);
 
 	pthread_mutex_lock(&python_interpreter_lock);
@@ -630,56 +688,15 @@ int script_init_for_python(struct script_info *info,
 		}
 	}
 
+	pFuncBegin = get_python_callback("uftrace_begin");
+	pFuncEntry = get_python_callback("uftrace_entry");
+	pFuncExit  = get_python_callback("uftrace_exit");
+	pFuncEnd   = get_python_callback("uftrace_end");
+
+	__PyErr_Clear();
+
 	/* Call python function "uftrace_begin" immediately if possible. */
-	PyObject *pFuncBegin = __PyObject_GetAttrString(pModule, "uftrace_begin");
-	if (pFuncBegin && __PyCallable_Check(pFuncBegin)) {
-		PyObject *ctx = __PyTuple_New(1);
-		PyObject *dict = __PyDict_New();
-		PyObject *args = __PyTuple_New(info->args.nr);
-		char *s;
-		int i;
-
-		insert_dict_bool(dict, "recording", info->recording);
-		insert_dict_string(dict, "version", info->version);
-
-		strv_for_each(&info->args, s, i)
-			insert_tuple_string(args, i, s);
-
-		__PyDict_SetItemString(dict, "args", args);
-		Py_XDECREF(args);
-
-		__PyTuple_SetItem(ctx, 0, dict);
-		__PyObject_CallObject(pFuncBegin, ctx);
-
-		if (debug) {
-			if (__PyErr_Occurred()) {
-				pr_dbg("uftrace_begin failed:\n");
-				__PyErr_Print();
-			}
-		}
-
-		Py_XDECREF(ctx);
-	}
-
-	pFuncEntry = __PyObject_GetAttrString(pModule, "uftrace_entry");
-	if (!pFuncEntry || !__PyCallable_Check(pFuncEntry)) {
-		if (__PyErr_Occurred())
-			__PyErr_Print();
-		pr_dbg("uftrace_entry is not callable!\n");
-		pFuncEntry = NULL;
-	}
-	pFuncExit = __PyObject_GetAttrString(pModule, "uftrace_exit");
-	if (!pFuncExit || !__PyCallable_Check(pFuncExit)) {
-		if (__PyErr_Occurred())
-			__PyErr_Print();
-		pr_dbg("uftrace_exit is not callable!\n");
-		pFuncExit = NULL;
-	}
-	pFuncEnd = __PyObject_GetAttrString(pModule, "uftrace_end");
-	if (!pFuncEnd || !__PyCallable_Check(pFuncEnd)) {
-		pr_dbg("uftrace_end is not callable!\n");
-		pFuncEnd = NULL;
-	}
+	python_uftrace_begin(info);
 
 	__PyErr_Clear();
 
@@ -699,6 +716,9 @@ void script_finish_for_python(void)
 	__Py_Finalize();
 
 	pthread_mutex_unlock(&python_interpreter_lock);
+
+	dlclose(python_handle);
+	python_handle = NULL;
 }
 
 #endif /* !HAVE_LIBPYTHON2 */
