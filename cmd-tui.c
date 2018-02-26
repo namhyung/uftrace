@@ -77,9 +77,30 @@ static struct tui_graph partial_graph;
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
 
+#define C_NORMAL  0
+#define C_HEADER  1
+#define C_GREEN   2
+#define C_YELLOW  3
+#define C_RED     4
+
+static void init_colors(void)
+{
+	if (!has_colors())
+		return;
+
+	start_color();
+
+	/* C_NORMAL uses the default color pair */
+	init_pair(C_HEADER, COLOR_WHITE,  COLOR_BLUE);
+	init_pair(C_GREEN,  COLOR_GREEN,  COLOR_BLACK);
+	init_pair(C_YELLOW, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(C_RED,    COLOR_RED,    COLOR_BLACK);
+}
+
 static void print_time(uint64_t ntime)
 {
 	char *units[] = { "us", "ms", " s", " m", " h", };
+	int pairs[] = { C_NORMAL, C_GREEN, C_YELLOW, C_RED, C_RED };
 	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
 	uint64_t fract;
 	unsigned idx;
@@ -101,7 +122,10 @@ static void print_time(uint64_t ntime)
 	if (ntime > 999)
 		ntime = fract = 999;
 
-	printw("%3"PRIu64".%03"PRIu64" %s", ntime, fract, units[idx]);
+	printw("%3"PRIu64".%03"PRIu64" ", ntime, fract);
+	attron(COLOR_PAIR(pairs[idx]));
+	printw("%2s", units[idx]);
+	attroff(COLOR_PAIR(pairs[idx]));
 }
 
 static void print_graph_total(struct field_data *fd)
@@ -640,9 +664,9 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 static void print_graph_header(struct ftrace_file_handle *handle,
 			       struct tui_graph *graph)
 {
-	attron(A_REVERSE | A_BOLD);
+	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
 	printw("%-*s", COLS, "uftrace graph TUI");
-	attroff(A_REVERSE | A_BOLD);
+	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
 static void print_graph_footer(struct ftrace_file_handle *handle,
@@ -663,9 +687,9 @@ static void print_graph_footer(struct ftrace_file_handle *handle,
 	buf[COLS] = '\0';
 
 	move(LINES - 1, 0);
-	attron(A_REVERSE | A_BOLD);
+	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
 	printw("%-*s", COLS, buf);
-	attroff(A_REVERSE | A_BOLD);
+	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
 static void print_graph_field(struct uftrace_graph_node *node)
@@ -1220,9 +1244,9 @@ static void tui_report_enter(struct tui_report *report)
 static void print_report_header(struct ftrace_file_handle *handle,
 				struct tui_report *report)
 {
-	attron(A_REVERSE | A_BOLD);
+	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
 	printw("%-*s", COLS, "uftrace report TUI");
-	attroff(A_REVERSE | A_BOLD);
+	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
 static void print_report_footer(struct ftrace_file_handle *handle,
@@ -1241,9 +1265,9 @@ static void print_report_footer(struct ftrace_file_handle *handle,
 	buf[COLS] = '\0';
 
 	move(LINES - 1, 0);
-	attron(A_REVERSE | A_BOLD);
+	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
 	printw("%-*s", COLS, buf);
-	attroff(A_REVERSE | A_BOLD);
+	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
 static void print_report_field(struct tui_report *report,
@@ -1435,7 +1459,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	setlocale(LC_ALL, "");
 
 	initscr();
-	start_color();
+	init_colors();
 	keypad(stdscr, true);
 
 	atexit(tui_cleanup);
