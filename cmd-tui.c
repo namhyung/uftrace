@@ -1085,6 +1085,53 @@ static void tui_graph_move_end(struct tui_graph *graph)
 	while (graph->curr_index - next_index < LINES - 2);
 }
 
+/* move to the previous sibling */
+static void tui_graph_move_prev(struct tui_graph *graph)
+{
+	struct uftrace_graph_node *parent = graph->curr->n.parent;
+	struct tui_graph_node *prev;
+
+	if (parent == NULL)
+		return;
+
+	if (list_first_entry(&parent->head, typeof(*prev), n.list) == graph->curr)
+		return;
+
+	prev = list_prev_entry(graph->curr, n.list);
+
+	while (graph->curr != prev)
+		tui_graph_move_up(graph);
+}
+
+/* move to the next sibling */
+static void tui_graph_move_next(struct tui_graph *graph)
+{
+	struct uftrace_graph_node *parent = graph->curr->n.parent;
+	struct tui_graph_node *next;
+
+	if (parent == NULL)
+		return;
+
+	if (list_last_entry(&parent->head, typeof(*next), n.list) == graph->curr)
+		return;
+
+	next = list_next_entry(graph->curr, n.list);
+
+	while (graph->curr != next)
+		tui_graph_move_down(graph);
+}
+
+static void tui_graph_move_parent(struct tui_graph *graph)
+{
+	struct tui_graph_node *parent = (void *)graph->curr->n.parent;
+
+	if (parent == NULL)
+		return;
+
+	while (graph->curr != parent)
+		tui_graph_move_up(graph);
+}
+
 static void tui_graph_enter(struct tui_graph *graph)
 {
 	/* root node is not foldable */
@@ -1447,6 +1494,22 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				tui_graph_expand(graph);
 				full_redraw = true;
 			}
+			break;
+		case 'p':
+			if (graph_mode)
+				tui_graph_move_prev(graph);
+			else
+				tui_report_move_up(report);
+			break;
+		case 'n':
+			if (graph_mode)
+				tui_graph_move_next(graph);
+			else
+				tui_report_move_down(report);
+			break;
+		case 'u':
+			if (graph_mode)
+				tui_graph_move_parent(graph);
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
