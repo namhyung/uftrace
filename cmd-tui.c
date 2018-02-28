@@ -54,6 +54,7 @@ struct tui_report {
 	int curr_index;
 	int nr_sess;
 	int nr_func;
+	int nr_search;
 };
 
 struct tui_graph {
@@ -69,6 +70,7 @@ struct tui_graph {
 	bool *top_mask;
 	bool *curr_mask;
 	size_t mask_size;
+	int nr_search;
 };
 
 static LIST_HEAD(tui_graph_list);
@@ -709,8 +711,8 @@ static void print_graph_footer(struct ftrace_file_handle *handle,
 			 graph->curr_index, graph->curr_depth);
 	}
 	else if (tui_search) {
-		snprintf(buf, COLS, "uftrace graph: searching \"%s\"  (%s)",
-			 tui_search, "use '<' and '>' keys to navigate");
+		snprintf(buf, COLS, "uftrace graph: searching \"%s\"  (%d match, %s)",
+			 tui_search, graph->nr_search, "use '<' and '>' keys to navigate");
 	}
 	else {
 		snprintf(buf, COLS, "uftrace graph: session %.*s (%s)",
@@ -1372,8 +1374,8 @@ static void print_report_footer(struct ftrace_file_handle *handle,
 			 report->top_index, report->curr_index);
 	}
 	else if (tui_search) {
-		snprintf(buf, COLS, "uftrace report: searching \"%s\"  (%s)",
-			 tui_search, "use '<' and '>' keys to navigate");
+		snprintf(buf, COLS, "uftrace report: searching \"%s\"  (%d match, %s)",
+			 tui_search, report->nr_search, "use '<' and '>' keys to navigate");
 	}
 	else {
 		snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
@@ -1452,6 +1454,7 @@ static char * tui_search_start(void)
 	char buf[512];
 	int n = 0;
 	char *str = NULL;
+	struct tui_graph *graph;
 
 	win = newwin(h, w, (LINES - h) / 2, (COLS - w) / 2);
 	box(win, 0, 0);
@@ -1495,8 +1498,62 @@ static char * tui_search_start(void)
 	}
 
 out:
+	list_for_each_entry(graph, &tui_graph_list, list)
+		graph->nr_search = -1;
+	partial_graph.nr_search = -1;
+	tui_report.nr_search = -1;
+
 	delwin(win);
 	return str;
+}
+
+static int count_graph_node(struct uftrace_graph_node *node)
+{
+	int n = 0;
+	struct uftrace_graph_node *child;
+
+	if (strstr(node->name, tui_search))
+		n = 1;
+
+	list_for_each_entry(child, &node->head, list)
+		n += count_graph_node(child);
+
+	return n;
+}
+
+static void tui_search_graph_count(struct tui_graph *graph)
+{
+	if (tui_search == NULL)
+		return;
+
+	if (graph->nr_search != -1)
+		return;
+
+	graph->nr_search = count_graph_node(&graph->ug.root);
+}
+
+static void tui_search_report_count(struct tui_report *report)
+{
+	struct rb_node *rb;
+	struct tui_report_node *node;
+
+	if (tui_search == NULL)
+		return;
+
+	if (report->nr_search != -1)
+		return;
+
+	report->nr_search = 0;
+
+	rb = rb_first(&report->sort_tree);
+	while (rb) {
+		node = rb_entry(rb, typeof(*node), sort_link);
+
+		if (strstr(node->name, tui_search))
+			report->nr_search++;
+
+		rb = rb_next(rb);
+	}
 }
 
 static void tui_search_graph_prev(struct tui_graph *graph)
@@ -1653,6 +1710,8 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				tui_report_enter(report);
 				graph = &partial_graph;
 				graph_mode = true;  /* partial graph mode */
+				graph->nr_search = -1;
+				tui_search_graph_count(graph);
 			}
 			full_redraw = true;
 			break;
@@ -1664,11 +1723,13 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			graph_mode = true;  /* full graph mode */
 			graph = list_first_entry(&tui_graph_list,
 						 typeof(*graph), list);
+			tui_search_graph_count(graph);
 			full_redraw = true;
 			break;
 		case 'r':
 			graph_mode = false;  /* report mode */
 			full_redraw = true;
+			tui_search_report_count(report);
 			break;
 		case 'c':
 			if (graph_mode) {
@@ -1701,6 +1762,10 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 		case '/':
 			free(tui_search);
 			tui_search = tui_search_start();
+			if (graph_mode)
+				tui_search_graph_count(graph);
+			else
+				tui_search_report_count(report);
 			full_redraw = true;
 			break;
 		case '<':
