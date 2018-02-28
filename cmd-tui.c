@@ -1095,6 +1095,36 @@ static void tui_graph_enter(struct tui_graph *graph)
 		graph->curr->folded = !graph->curr->folded;
 }
 
+static void fold_graph_node(struct tui_graph_node *node, bool fold)
+{
+	struct tui_graph_node *child;
+
+	/* do not fold leaf nodes - it's meaningless but confusing */
+	if (list_empty(&node->n.head))
+		return;
+
+	node->folded = fold;
+
+	list_for_each_entry(child, &node->n.head, n.list)
+		fold_graph_node(child, fold);
+}
+
+static void tui_graph_collapse(struct tui_graph *graph)
+{
+	struct tui_graph_node *node;
+
+	list_for_each_entry(node, &graph->curr->n.head, n.list)
+		fold_graph_node(node, true);
+}
+
+static void tui_graph_expand(struct tui_graph *graph)
+{
+	struct tui_graph_node *node;
+
+	list_for_each_entry(node, &graph->curr->n.head, n.list)
+		fold_graph_node(node, false);
+}
+
 static void tui_report_init(struct opts *opts)
 {
 	struct rb_node *node;
@@ -1405,6 +1435,18 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 		case 'r':
 			graph_mode = false;  /* report mode */
 			full_redraw = true;
+			break;
+		case 'c':
+			if (graph_mode) {
+				tui_graph_collapse(graph);
+				full_redraw = true;
+			}
+			break;
+		case 'e':
+			if (graph_mode) {
+				tui_graph_expand(graph);
+				full_redraw = true;
+			}
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
