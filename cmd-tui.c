@@ -664,8 +664,33 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 static void print_graph_header(struct ftrace_file_handle *handle,
 			       struct tui_graph *graph)
 {
+	int w = 0;
+	struct display_field *field;
+
+	/* calculate width for fields */
+	list_for_each_entry(field, &graph_output_fields, list) {
+		w += field->length + FIELD_SPACE;
+	}
+	if (!list_empty(&graph_output_fields))
+		w += strlen(FIELD_SEP);
+	w += strlen(" FUNCTION");
+
 	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
-	printw("%-*s", COLS, "uftrace graph TUI");
+
+	if (list_empty(&graph_output_fields)) {
+		printw("%-*s", COLS, "uftrace graph TUI");
+		return;
+	}
+
+	list_for_each_entry(field, &graph_output_fields, list) {
+		printw("%*s", FIELD_SPACE, "");
+		printw("%s", field->header);
+	}
+	printw("%s %s", FIELD_SEP, "FUNCTION");
+
+	if (w < COLS)
+		printw("%*s", COLS - w, "");
+
 	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
@@ -676,12 +701,12 @@ static void print_graph_footer(struct ftrace_file_handle *handle,
 	struct uftrace_session *sess = graph->ug.sess;
 
 	if (tui_debug) {
-		snprintf(buf, COLS, "top: %d depth: %d, curr: %d depth: %d",
+		snprintf(buf, COLS, "uftrace graph: top: %d depth: %d, curr: %d depth: %d",
 			 graph->top_index, graph->top_depth,
 			 graph->curr_index, graph->curr_depth);
 	}
 	else {
-		snprintf(buf, COLS, "session %.*s (%s)",
+		snprintf(buf, COLS, "uftrace graph: session %.*s (%s)",
 			 SESSION_ID_LEN, sess->sid, sess->exename);
 	}
 	buf[COLS] = '\0';
@@ -1321,8 +1346,12 @@ static void tui_report_enter(struct tui_report *report)
 static void print_report_header(struct ftrace_file_handle *handle,
 				struct tui_report *report)
 {
+	int w = 40;
+
 	attron(COLOR_PAIR(C_HEADER) | A_BOLD);
-	printw("%-*s", COLS, "uftrace report TUI");
+	printw("  %10s  %10s  %10s  %s", "Total Time", "Self Time", "Calls", "Function");
+	if (COLS > w)
+		printw("%*s", COLS - w, "");
 	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
@@ -1332,11 +1361,11 @@ static void print_report_footer(struct ftrace_file_handle *handle,
 	char buf[COLS + 1];
 
 	if (tui_debug) {
-		snprintf(buf, COLS, "top: %d, curr: %d",
+		snprintf(buf, COLS, "uftrace report: top: %d, curr: %d",
 			 report->top_index, report->curr_index);
 	}
 	else {
-		snprintf(buf, COLS, "%s (%d sessions, %d functions)",
+		snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
 			 handle->dirname, report->nr_sess, report->nr_func);
 	}
 	buf[COLS] = '\0';
