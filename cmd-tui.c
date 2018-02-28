@@ -16,6 +16,8 @@
 #include "utils/rbtree.h"
 #include "utils/field.h"
 
+#define KEY_ESCAPE  27
+
 static bool tui_finished;
 static bool tui_debug;
 
@@ -73,6 +75,7 @@ static LIST_HEAD(tui_graph_list);
 static LIST_HEAD(graph_output_fields);
 static struct tui_report tui_report;
 static struct tui_graph partial_graph;
+static char *tui_search;
 
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
@@ -704,6 +707,10 @@ static void print_graph_footer(struct ftrace_file_handle *handle,
 		snprintf(buf, COLS, "uftrace graph: top: %d depth: %d, curr: %d depth: %d",
 			 graph->top_index, graph->top_depth,
 			 graph->curr_index, graph->curr_depth);
+	}
+	else if (tui_search) {
+		snprintf(buf, COLS, "uftrace graph: searching \"%s\"  (%s)",
+			 tui_search, "use '<' and '>' keys to navigate");
 	}
 	else {
 		snprintf(buf, COLS, "uftrace graph: session %.*s (%s)",
@@ -1364,6 +1371,10 @@ static void print_report_footer(struct ftrace_file_handle *handle,
 		snprintf(buf, COLS, "uftrace report: top: %d, curr: %d",
 			 report->top_index, report->curr_index);
 	}
+	else if (tui_search) {
+		snprintf(buf, COLS, "uftrace report: searching \"%s\"  (%s)",
+			 tui_search, "use '<' and '>' keys to navigate");
+	}
 	else {
 		snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
 			 handle->dirname, report->nr_sess, report->nr_func);
@@ -1431,6 +1442,149 @@ next:
 	}
 
 	print_report_footer(handle, report);
+}
+
+static char * tui_search_start(void)
+{
+	WINDOW *win;
+	int w = COLS / 2;
+	int h = 8;
+	char buf[512];
+	int n = 0;
+	char *str = NULL;
+
+	win = newwin(h, w, (LINES - h) / 2, (COLS - w) / 2);
+	box(win, 0, 0);
+
+	mvwprintw(win, 1, 1, "Search function:");
+	mvwprintw(win, 2, 2, "(press ESC to exit)");
+	wrefresh(win);
+
+	wmove(win, 5, 3);
+	wrefresh(win);
+	buf[0] = '\0';
+
+	while (true) {
+		int k = wgetch(win);
+
+		switch (k) {
+		case KEY_ESCAPE:
+			goto out;
+		case KEY_BACKSPACE:
+		case KEY_DC:
+		case 127:
+		case '\b':
+			if (n > 0) {
+				mvwprintw(win, 5, 3, "%*s", n, "");
+				buf[--n] = '\0';
+			}
+			break;
+		case KEY_ENTER:
+		case '\n':
+			str = xstrdup(buf);
+			goto out;
+		default:
+			if (isprint(k))
+				buf[n++] = k;
+			buf[n] = '\0';
+			break;
+		}
+		mvwprintw(win, 5, 3, "%-.*s", w - 5, buf);
+		wmove(win, 5, 3 + n);
+		wrefresh(win);
+	}
+
+out:
+	delwin(win);
+	return str;
+}
+
+static void tui_search_graph_prev(struct tui_graph *graph)
+{
+	struct tui_graph_node *node = graph->curr;
+	int depth;
+
+	if (tui_search == NULL)
+		return;
+
+	while (true) {
+		node = graph_prev_node(node, &depth, NULL);
+		if (node == NULL)
+			return;
+
+		if (strstr(node->n.name, tui_search))
+			break;
+	}
+
+	while (graph->curr != node)
+		tui_graph_move_up(graph);
+}
+
+static void tui_search_graph_next(struct tui_graph *graph)
+{
+	struct tui_graph_node *node = graph->curr;
+	int depth;
+
+	if (tui_search == NULL)
+		return;
+
+	while (true) {
+		node = graph_next_node(node, &depth, NULL);
+		if (node == NULL)
+			return;
+
+		if (strstr(node->n.name, tui_search))
+			break;
+	}
+
+	while (graph->curr != node)
+		tui_graph_move_down(graph);
+}
+
+static void tui_search_report_prev(struct tui_report *report)
+{
+	struct tui_report_node *node = report->curr;
+
+	if (tui_search == NULL)
+		return;
+
+	while (true) {
+		struct rb_node *n = rb_prev(&node->sort_link);
+
+		if (n == NULL)
+			return;
+
+		node = rb_entry(n, typeof(*node), sort_link);
+
+		if (strstr(node->name, tui_search))
+			break;
+	}
+
+	while (report->curr != node)
+		tui_report_move_up(report);
+}
+
+static void tui_search_report_next(struct tui_report *report)
+{
+	struct tui_report_node *node = report->curr;
+
+	if (tui_search == NULL)
+		return;
+
+	while (true) {
+		struct rb_node *n = rb_next(&node->sort_link);
+
+		if (n == NULL)
+			return;
+
+		node = rb_entry(n, typeof(*node), sort_link);
+
+		if (strstr(node->name, tui_search))
+			break;
+	}
+
+	while (report->curr != node)
+		tui_report_move_down(report);
 }
 
 static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
@@ -1502,6 +1656,10 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			}
 			full_redraw = true;
 			break;
+		case KEY_ESCAPE:
+			free(tui_search);  /* cancel search */
+			tui_search = NULL;
+			break;
 		case 'g':
 			graph_mode = true;  /* full graph mode */
 			graph = list_first_entry(&tui_graph_list,
@@ -1539,6 +1697,25 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 		case 'u':
 			if (graph_mode)
 				tui_graph_move_parent(graph);
+			break;
+		case '/':
+			free(tui_search);
+			tui_search = tui_search_start();
+			full_redraw = true;
+			break;
+		case '<':
+		case 'P':
+			if (graph_mode)
+				tui_search_graph_prev(graph);
+			else
+				tui_search_report_prev(report);
+			break;
+		case '>':
+		case 'N':
+			if (graph_mode)
+				tui_search_graph_next(graph);
+			else
+				tui_search_report_next(report);
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
@@ -1595,6 +1772,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	initscr();
 	init_colors();
 	keypad(stdscr, true);
+	noecho();
 
 	atexit(tui_cleanup);
 
