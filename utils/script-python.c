@@ -42,6 +42,7 @@ static PyAPI_FUNC(PyObject *) (*__PyErr_Occurred)(void);
 static PyAPI_FUNC(void) (*__PyErr_Print)(void);
 static PyAPI_FUNC(void) (*__PyErr_Clear)(void);
 
+static PyAPI_FUNC(int) (*__PyObject_HasAttrString)(PyObject *, const char *);
 static PyAPI_FUNC(PyObject *) (*__PyObject_GetAttrString)(PyObject *, const char *);
 static PyAPI_FUNC(int) (*__PyCallable_Check)(PyObject *);
 static PyAPI_FUNC(PyObject *) (*__PyObject_CallObject)(PyObject *callable_object, PyObject *args);
@@ -120,6 +121,7 @@ static int load_python_api_funcs(void)
 	INIT_PY_API_FUNC(PyErr_Print);
 	INIT_PY_API_FUNC(PyErr_Clear);
 
+	INIT_PY_API_FUNC(PyObject_HasAttrString);
 	INIT_PY_API_FUNC(PyObject_GetAttrString);
 	INIT_PY_API_FUNC(PyCallable_Check);
 	INIT_PY_API_FUNC(PyObject_CallObject);
@@ -634,9 +636,13 @@ int python_atfork_prepare(void)
 
 static PyObject * get_python_callback(char *name)
 {
-	PyObject *func = __PyObject_GetAttrString(pModule, name);
+	PyObject *func;
 
-	if (func && !__PyCallable_Check(func)) {
+	if (!__PyObject_HasAttrString(pModule, name))
+		return NULL;
+
+	func = __PyObject_GetAttrString(pModule, name);
+	if (!func || !__PyCallable_Check(func)) {
 		if (__PyErr_Occurred())
 			__PyErr_Print();
 
@@ -674,10 +680,10 @@ int script_init_for_python(struct script_info *info,
 	}
 
 	/* check if script has its own list of functions to run */
-	PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
-	if (filter_list) {
+	if (__PyObject_HasAttrString(pModule, "UFTRACE_FUNCS")) {
 		int i, len;
-
+		PyObject *filter_list = __PyObject_GetAttrString(pModule,
+								 "UFTRACE_FUNCS");
 		/* XXX: type checking is hard */
 		len = __PyList_Size(filter_list);
 
@@ -692,8 +698,6 @@ int script_init_for_python(struct script_info *info,
 	pFuncEntry = get_python_callback("uftrace_entry");
 	pFuncExit  = get_python_callback("uftrace_exit");
 	pFuncEnd   = get_python_callback("uftrace_end");
-
-	__PyErr_Clear();
 
 	/* Call python function "uftrace_begin" immediately if possible. */
 	python_uftrace_begin(info);
