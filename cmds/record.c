@@ -1352,7 +1352,6 @@ static void save_session_symbols(struct opts *opts)
 			.dirname  = opts->dirname,
 			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
-		struct uftrace_mmap *map, *tmp;
 		char sid[20] = { 0, };
 
 		if (sid[0] == '\0')
@@ -1362,21 +1361,13 @@ static void save_session_symbols(struct opts *opts)
 		pr_dbg2("reading symbols for session %s\n", sid);
 		read_session_map(opts->dirname, &symtabs, sid);
 
-		/* shared libraries */
 		load_module_symtabs(&symtabs);
 		save_module_symtabs(&symtabs);
 
-		map = symtabs.maps;
-		while (map) {
-			tmp = map;
-			map = map->next;
-
-			free(tmp);
-		}
-		symtabs.maps = NULL;
-
+		delete_session_map(&symtabs);
 		unload_symtabs(&symtabs);
 	}
+
 	free(map_list);
 }
 

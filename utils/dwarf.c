@@ -121,19 +121,28 @@ char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long add
 	return entry ? entry->spec : NULL;
 }
 
+static int elf_file_type(struct debug_info *dinfo)
+{
+	GElf_Ehdr ehdr;
+
+	if (dinfo->dw && gelf_getehdr(dwarf_getelf(dinfo->dw), &ehdr))
+		return ehdr.e_type;
+
+	return ET_NONE;
+}
+
 /* setup debug info from filename, return 0 for success */
 static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset)
 {
 	int fd;
-	GElf_Ehdr ehdr;
 
 	if (!check_trace_functions(filename))
 		return 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		pr_dbg("cannot open debug info for %s: %m", filename);
+		pr_dbg2("cannot open debug info for %s: %m\n", filename);
 		return -1;
 	}
 
@@ -141,8 +150,8 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	close(fd);
 
 	if (dinfo->dw == NULL) {
-		pr_dbg("failed to setup debug info: %s\n",
-		       dwarf_errmsg(dwarf_errno()));
+		pr_dbg2("failed to setup debug info: %s\n",
+			dwarf_errmsg(dwarf_errno()));
 		return -1;
 	}
 
@@ -150,7 +159,7 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	 * symbol address was adjusted to add offset already
 	 * but it needs to use address in file (for shared libraries).
 	 */
-	if (gelf_getehdr(dwarf_getelf(dinfo->dw), &ehdr) && ehdr.e_type == ET_DYN)
+	if (elf_file_type(dinfo) == ET_DYN)
 		dinfo->offset = offset;
 	else
 		dinfo->offset = 0;
@@ -276,6 +285,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		return DWARF_CB_OK;
 
 	dwarf_lowpc(die, &offset);
+	offset += bd->dinfo->offset;
 
 	if (dwarf_attr_integrate(die, DW_AT_linkage_name, &attr)) {
 		name = demangle((char *)dwarf_formstring(&attr));
@@ -471,6 +481,124 @@ void finish_debug_info(struct symtabs *symtabs)
 	}
 
 	symtabs->loaded_debug = false;
+}
+
+static FILE * create_debug_file(char *dirname, const char *filename)
+{
+	FILE *fp;
+	char *tmp;
+
+	xasprintf(&tmp, "%s/%s.dbg", dirname, filename);
+
+	fp = fopen(tmp, "ax");
+
+	free(tmp);
+	return fp;
+}
+
+static void close_debug_file(FILE *fp, char *dirname, const char *filename)
+{
+	bool delete = !ftell(fp);
+	char *tmp;
+
+	fclose(fp);
+
+	if (!delete)
+		return;
+
+	pr_dbg2("delete debug file for %s\n", filename);
+
+	xasprintf(&tmp, "%s/%s.dbg", dirname, filename);
+	unlink(tmp);
+	free(tmp);
+}
+
+static void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
+{
+	fprintf(fp, "%c: ", code);
+
+	switch (code) {
+	case 'F':
+		fprintf(fp, "%lx %s\n", val, str);
+		break;
+	case 'A':
+	case 'R':
+		fprintf(fp, "%s\n", str);
+		break;
+	default:
+		fprintf(fp, "unknown debug info\n");
+		break;
+	}
+}
+
+static void save_debug_entries(struct debug_info *dinfo,
+			       char *dirname, const char *filename)
+{
+	FILE *fp;
+	struct rb_node *anode = rb_first(&dinfo->args);
+	struct rb_node *rnode = rb_first(&dinfo->rets);
+
+	fp = create_debug_file(dirname, basename(filename));
+	if (fp == NULL)
+		return;  /* somebody already did that! */
+
+	/*
+	 * save spec of debug entry which has smaller offset first. 
+	 * unify argument and return value only if they have same offset.
+	 */
+	while (anode || rnode) {
+		struct debug_entry *arg = NULL;
+		struct debug_entry *ret = NULL;
+
+		if (anode)
+			arg = rb_entry(anode, typeof(*arg), node);
+		if (rnode)
+			ret = rb_entry(rnode, typeof(*ret), node);
+
+		if (arg == NULL || (ret && ret->offset < arg->offset)) {
+			save_debug_file(fp, 'F', ret->name,
+					ret->offset - dinfo->offset);
+			save_debug_file(fp, 'R', ret->spec, 0);
+			rnode = rb_next(rnode);
+		}
+		else {
+			save_debug_file(fp, 'F', arg->name,
+					arg->offset - dinfo->offset);
+			save_debug_file(fp, 'A', arg->spec, 0);
+			anode = rb_next(anode);
+
+			if (ret && (arg->offset == ret->offset)) {
+				save_debug_file(fp, 'R', ret->spec, 0);
+				rnode = rb_next(rnode);
+			}
+		}
+	}
+
+	close_debug_file(fp, dirname, basename(filename));
+}
+
+void save_debug_info(struct symtabs *symtabs, char *dirname)
+{
+	struct uftrace_mmap *map;
+
+	if (!symtabs->loaded_debug)
+		return;
+
+	/* use file-offset for main executable */
+	if (elf_file_type(&symtabs->dinfo) == ET_EXEC)
+		symtabs->dinfo.offset = symtabs->exec_base;
+
+	/* XXX: libmcount doesn't set symtabs->dirname */
+	save_debug_entries(&symtabs->dinfo, dirname, symtabs->filename);
+
+	map = symtabs->maps;
+	while (map) {
+		if (strcmp(map->libname, symtabs->filename) &&
+		    strncmp(basename(map->libname), "libmcount", 9))
+			save_debug_entries(&map->dinfo, dirname, map->libname);
+
+		map = map->next;
+	}
 }
 
 #endif /* HAVE_LIBDW */

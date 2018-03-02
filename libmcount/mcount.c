@@ -105,7 +105,7 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
@@ -121,6 +121,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype)
 			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
 		prepare_debug_info(&symtabs, ptype, argument_str, retval_str);
+		save_debug_info(&symtabs, dirname);
 	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
@@ -1315,7 +1316,7 @@ static void mcount_startup(void)
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
 
-	mcount_filter_init(patt_type);
+	mcount_filter_init(patt_type, dirname);
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);

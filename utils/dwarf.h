@@ -44,5 +44,6 @@ extern char * get_dwarf_argspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
 extern char * get_dwarf_retspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
+void save_debug_info(struct symtabs *symtabs, char *dirname);
 
 #endif /* UFTRACE_DWARF_H */
