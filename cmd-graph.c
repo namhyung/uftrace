@@ -700,6 +700,15 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 			pr_out("\t please check your filter settings.\n");
 	}
 
+	while (graph_list) {
+		graph = graph_list;
+		graph_list = graph->next;
+
+		graph_destroy(&graph->ug);
+		free(graph);
+	}
+	graph_remove_task();
+
 	close_data_file(opts, &handle);
 
 	return 0;

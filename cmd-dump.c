@@ -1179,6 +1179,9 @@ static void print_flame_footer(struct uftrace_dump_ops *ops,
 			       struct opts *opts)
 {
 	print_flame_graph(&flame_graph.root, opts);
+
+	graph_destroy(&flame_graph);
+	graph_remove_task();
 }
 
 static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
