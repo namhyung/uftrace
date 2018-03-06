@@ -233,7 +233,7 @@ void graph_destroy(struct uftrace_graph *graph)
 
 	list_for_each_entry_safe(snode, stmp, &graph->special_nodes, list) {
 		list_del(&snode->list);
-		free(node);
+		free(snode);
 	}
 }
 
