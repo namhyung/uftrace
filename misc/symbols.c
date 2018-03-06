@@ -42,6 +42,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
+void load_debug_info(struct symtabs *symtabs)
+{
+	/* just to avoid link failure */
+}
+
 static int print_session_symbol(struct uftrace_session *s, void *arg)
 {
 	uint64_t addr = *(uint64_t *)arg;

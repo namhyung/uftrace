@@ -1,12 +1,8 @@
-#ifdef HAVE_LIBDW
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <libelf.h>
-#include <gelf.h>
-#include <dwarf.h>
+#include <errno.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dwarf"
@@ -107,19 +103,11 @@ static void free_debug_entry(struct rb_root *root)
 	}
 }
 
-char * get_dwarf_argspec(struct debug_info *dinfo, char *name, unsigned long addr)
-{
-	struct debug_entry *entry = find_debug_entry(&dinfo->args,
-						     addr - dinfo->offset);
-	return entry ? entry->spec : NULL;
-}
+#ifdef HAVE_LIBDW
 
-char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long addr)
-{
-	struct debug_entry *entry = find_debug_entry(&dinfo->rets,
-						     addr - dinfo->offset);
-	return entry ? entry->spec : NULL;
-}
+#include <libelf.h>
+#include <gelf.h>
+#include <dwarf.h>
 
 static int elf_file_type(struct debug_info *dinfo)
 {
@@ -131,14 +119,16 @@ static int elf_file_type(struct debug_info *dinfo)
 	return ET_NONE;
 }
 
-/* setup debug info from filename, return 0 for success */
-static int setup_debug_info(const char *filename, struct debug_info *dinfo,
+/* setup dwarf info from filename, return 0 for success */
+static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset)
 {
 	int fd;
 
 	if (!check_trace_functions(filename))
 		return 0;
+
+	pr_dbg2("setup dwarf debug info for %s\n", filename);
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -167,16 +157,13 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	return 0;
 }
 
-static void release_debug_info(struct debug_info *dinfo)
+static void release_dwarf_info(struct debug_info *dinfo)
 {
 	if (dinfo->dw == NULL)
 		return;
 
 	dwarf_end(dinfo->dw);
 	dinfo->dw = NULL;
-
-	free_debug_entry(&dinfo->args);
-	free_debug_entry(&dinfo->rets);
 }
 
 struct arg_data {
@@ -333,7 +320,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	return DWARF_CB_OK;
 }
 
-static void build_debug_info(struct debug_info *dinfo,
+static void build_dwarf_info(struct debug_info *dinfo,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -388,6 +375,49 @@ static void build_debug_info(struct debug_info *dinfo,
 	for (i = 0; i < rets->nr; i++)
 		free_filter_pattern(&ret_patt[i]);
 	free(ret_patt);
+}
+
+#else  /* !HAVE_LIBDW */
+
+static int elf_file_type(struct debug_info *dinfo)
+{
+	return ET_NONE;
+}
+
+static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
+			    unsigned long offset)
+{
+	dinfo->dw = NULL;
+	return 0;
+}
+
+static void build_dwarf_info(struct debug_info *dinfo,
+			     enum uftrace_pattern_type ptype,
+			     struct strv *args, struct strv *rets)
+{
+}
+
+static void release_dwarf_info(struct debug_info *dinfo)
+{
+}
+
+#endif  /* !HAVE_LIBDW */
+
+static int setup_debug_info(const char *filename, struct debug_info *dinfo,
+			    unsigned long offset)
+{
+	dinfo->args = RB_ROOT;
+	dinfo->rets = RB_ROOT;
+
+	return setup_dwarf_info(filename, dinfo, offset);
+}
+
+static void release_debug_info(struct debug_info *dinfo)
+{
+	free_debug_entry(&dinfo->args);
+	free_debug_entry(&dinfo->rets);
+
+	release_dwarf_info(dinfo);
 }
 
 /* find argspecs only have function name (pattern) */
@@ -445,7 +475,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 	pr_dbg("prepare debug info\n");
 
 	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
-	build_debug_info(&symtabs->dinfo, ptype, &dwarf_args, &dwarf_rets);
+	build_dwarf_info(&symtabs->dinfo, ptype, &dwarf_args, &dwarf_rets);
 
 	map = symtabs->maps;
 	while (map) {
@@ -453,7 +483,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
 			setup_debug_info(map->libname, &map->dinfo, map->start);
-			build_debug_info(&map->dinfo, ptype,
+			build_dwarf_info(&map->dinfo, ptype,
 					 &dwarf_args, &dwarf_rets);
 		}
 		map = map->next;
@@ -601,4 +631,114 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 	}
 }
 
-#endif /* HAVE_LIBDW */
+static int load_debug_file(struct debug_info *dinfo,
+			   const char *dirname, const char *filename)
+{
+	char *pathname;
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	int ret = -1;
+	char *func = NULL;
+	uint64_t offset = 0;
+
+	dinfo->args = RB_ROOT;
+	dinfo->rets = RB_ROOT;
+
+	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
+
+	fp = fopen(pathname, "r");
+	if (fp == NULL) {
+		if (errno == ENOENT) {
+			free(pathname);
+			return -1;
+		}
+
+		pr_err("failed to open: %s", pathname);
+	}
+
+	pr_dbg2("load debug info from %s\n", pathname);
+
+	while (getline(&line, &len, fp) >= 0) {
+		char *pos;
+		struct rb_root *root = &dinfo->args;
+
+		if (line[1] != ':' || line[2] != ' ')
+			goto out;
+
+		/* remove trailing newline */
+		line[strlen(line) - 1] = '\0';
+
+		switch (line[0]) {
+		case 'F':
+			offset = strtoul(&line[3], &pos, 16);
+			offset += dinfo->offset;
+
+			if (*pos == ' ')
+				pos++;
+
+			free(func);
+			func = xstrdup(pos);
+			break;
+		case 'A':
+		case 'R':
+			if (line[0] == 'R')
+				root = &dinfo->rets;
+
+			if (add_debug_entry(root, func, offset, &line[3]) < 0)
+				goto out;
+			break;
+		default:
+			goto out;
+		}
+	}
+	ret = 0;
+
+out:
+	if (ret < 0) {
+		pr_dbg("invalid dbg file: %s: %s\n", pathname, line);
+
+		free_debug_entry(&dinfo->args);
+		free_debug_entry(&dinfo->rets);
+	}
+
+	fclose(fp);
+	free(pathname);
+	free(func);
+	return ret;
+}
+
+void load_debug_info(struct symtabs *symtabs)
+{
+	struct uftrace_mmap *map;
+
+	symtabs->dinfo.offset = symtabs->exec_base;
+	load_debug_file(&symtabs->dinfo, symtabs->dirname, symtabs->filename);
+
+	map = symtabs->maps;
+	while (map) {
+		if (strcmp(map->libname, symtabs->filename) &&
+		    strncmp(basename(map->libname), "libmcount", 9)) {
+			map->dinfo.offset = map->start;
+			load_debug_file(&map->dinfo, symtabs->dirname,
+					map->libname);
+		}
+		map = map->next;
+	}
+
+	symtabs->loaded_debug = true;
+}
+
+char * get_dwarf_argspec(struct debug_info *dinfo, char *name, unsigned long addr)
+{
+	struct debug_entry *entry = find_debug_entry(&dinfo->args, addr);
+
+	return entry ? entry->spec : NULL;
+}
+
+char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long addr)
+{
+	struct debug_entry *entry = find_debug_entry(&dinfo->rets, addr);
+
+	return entry ? entry->spec : NULL;
+}
