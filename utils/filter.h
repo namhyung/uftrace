@@ -2,6 +2,7 @@
 #define UFTRACE_FILTER_H
 
 #include <stdint.h>
+#include <regex.h>
 
 #include "rbtree.h"
 #include "list.h"
@@ -110,6 +111,19 @@ struct uftrace_filter {
 	struct uftrace_trigger	trigger;
 };
 
+enum uftrace_pattern_type {
+	PATT_NONE,
+	PATT_SIMPLE,
+	PATT_REGEX,
+	PATT_GLOB,
+};
+
+struct uftrace_pattern {
+	enum uftrace_pattern_type	type;
+	char				*patt;
+	regex_t				re;
+};
+
 /* please see man proc(5) for /proc/[pid]/statm */
 struct uftrace_proc_statm {
 	uint64_t		vmsize;  /* total program size in KB */
@@ -156,6 +170,13 @@ struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct rb_root *root);
 void uftrace_print_filter(struct rb_root *root);
+
+void init_filter_pattern(enum uftrace_pattern_type type,
+			 struct uftrace_pattern *p, char *str);
+bool match_filter_pattern(struct uftrace_pattern *p, char *name);
+void free_filter_pattern(struct uftrace_pattern *p);
+enum uftrace_pattern_type parse_filter_pattern(const char *str);
+const char * get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char * uftrace_clear_kernel(char *filter_str);
 

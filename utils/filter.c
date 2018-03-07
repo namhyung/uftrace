@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <regex.h>
+#include <fnmatch.h>
 #include <sys/utsname.h>
 #include <link.h>
 
@@ -296,13 +297,88 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	return 1;
 }
 
+struct {
+	enum uftrace_pattern_type type;
+	const char *name;
+} filter_patterns[] = {
+	{ PATT_SIMPLE,	"simple" },
+	{ PATT_REGEX,	"regex" },
+	{ PATT_GLOB,	"glob" },
+};
+
+void init_filter_pattern(enum uftrace_pattern_type type,
+			 struct uftrace_pattern *p, char *str)
+{
+	if (strpbrk(str, REGEX_CHARS) == NULL)
+		type = PATT_SIMPLE;
+
+	p->type = type;
+	p->patt = xstrdup(str);
+
+	if (type == PATT_REGEX) {
+		if (regcomp(&p->re, str, REG_NOSUB | REG_EXTENDED)) {
+			pr_dbg("regex pattern failed: %s\n", str);
+			p->type = PATT_SIMPLE;
+		}
+	}
+}
+
+bool match_filter_pattern(struct uftrace_pattern *p, char *name)
+{
+	switch (p->type) {
+	case PATT_SIMPLE:
+		return !strcmp(p->patt, name);
+	case PATT_REGEX:
+		return !regexec(&p->re, name, 0, NULL, 0);
+	case PATT_GLOB:
+		return !fnmatch(p->patt, name, 0);
+	default:
+		return false;
+	}
+}
+
+void free_filter_pattern(struct uftrace_pattern *p)
+{
+	free(p->patt);
+	p->patt = NULL;
+
+	if (p->type == PATT_REGEX)
+		regfree(&p->re);
+
+	p->type = PATT_NONE;
+}
+
+enum uftrace_pattern_type parse_filter_pattern(const char *str)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(filter_patterns); i++) {
+		if (!strcmp(str, filter_patterns[i].name))
+			return filter_patterns[i].type;
+	}
+
+	return PATT_NONE;
+}
+
+const char * get_filter_pattern(enum uftrace_pattern_type ptype)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(filter_patterns); i++) {
+		if (filter_patterns[i].type == ptype)
+			return filter_patterns[i].name;
+	}
+
+	return "none";
+}
+
 static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
-			    char *filter_str, struct uftrace_trigger *tr)
+			    struct uftrace_pattern *p, struct uftrace_trigger *tr)
 {
 	struct uftrace_filter filter;
 	struct sym *sym;
 
-	sym = find_symname(symtab, filter_str);
+	sym = find_symname(symtab, p->patt);
 	if (sym == NULL)
 		return 0;
 
@@ -313,24 +389,19 @@ static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
 	return add_filter(root, &filter, tr, true);
 }
 
-static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
-			    char *filter_str, struct uftrace_trigger *tr)
+static int add_pattern_filter(struct rb_root *root, struct symtab *symtab,
+			      struct uftrace_pattern *patt,
+			      struct uftrace_trigger *tr)
 {
 	struct uftrace_filter filter;
 	struct sym *sym;
-	regex_t re;
 	unsigned i;
 	int ret = 0;
-
-	if (regcomp(&re, filter_str, REG_NOSUB | REG_EXTENDED)) {
-		pr_dbg("regex pattern failed: %s\n", filter_str);
-		return 0;
-	}
 
 	for (i = 0; i < symtab->nr_sym; i++) {
 		sym = &symtab->sym[i];
 
-		if (regexec(&re, sym->name, 0, NULL, 0))
+		if (!match_filter_pattern(patt, sym->name))
 			continue;
 
 		filter.name = sym->name;
@@ -340,7 +411,6 @@ static int add_regex_filter(struct rb_root *root, struct symtab *symtab,
 		ret += add_filter(root, &filter, tr, false);
 	}
 
-	regfree(&re);
 	return ret;
 }
 
@@ -811,13 +881,13 @@ out:
 }
 
 static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
-			     char *name, bool is_regex,
+			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr)
 {
-	if (is_regex)
-		return add_regex_filter(root, symtab, name, tr);
+	if (patt->type == PATT_SIMPLE)
+		return add_exact_filter(root, symtab, patt, tr);
 	else
-		return add_exact_filter(root, symtab, name, tr);
+		return add_pattern_filter(root, symtab, patt, tr);
 }
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
@@ -843,7 +913,9 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		char *module = NULL;
 		struct uftrace_arg_spec *arg;
 		struct uftrace_mmap *map;
-		bool is_regex;
+		struct uftrace_pattern patt = {
+			.type = PATT_NONE,
+		};
 
 		if (setup_trigger_action(name, &tr, &module, flags) < 0)
 			goto next;
@@ -861,7 +933,8 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				tr.fmode = FILTER_MODE_IN;
 		}
 
-		is_regex = strpbrk(name, REGEX_CHARS);
+		/* TODO: make type configurable */
+		init_filter_pattern(PATT_REGEX, &patt, name);
 
 		if (module) {
 			map = find_map_by_name(symtabs, module);
@@ -877,37 +950,37 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			if (!strncmp(module, basename(symtabs->filename),
 				     strlen(module))) {
 				ret += add_trigger_entry(root, &symtabs->symtab,
-							 name, is_regex, &tr);
+							 &patt, &tr);
 				ret += add_trigger_entry(root, &symtabs->dsymtab,
-							 name, is_regex, &tr);
+							 &patt, &tr);
 			}
 			else if (!strcasecmp(module, "PLT")) {
 				ret = add_trigger_entry(root, &symtabs->dsymtab,
-							name, is_regex, &tr);
+							&patt, &tr);
 			}
 			else if (!strcasecmp(module, "kernel")) {
 				ret = add_trigger_entry(root, get_kernel_symtab(),
-							name, is_regex, &tr);
+							&patt, &tr);
 			}
 			else {
 				ret = add_trigger_entry(root, &map->symtab,
-							name, is_regex, &tr);
+							&patt, &tr);
 			}
 
 			free(module);
 		}
 		else {
 			/* check main executable's symtab first */
-			ret += add_trigger_entry(root, &symtabs->symtab, name,
-						 is_regex, &tr);
-			ret += add_trigger_entry(root, &symtabs->dsymtab, name,
-						 is_regex, &tr);
+			ret += add_trigger_entry(root, &symtabs->symtab,
+						 &patt, &tr);
+			ret += add_trigger_entry(root, &symtabs->dsymtab,
+						 &patt, &tr);
 
 			/* and then find all module's symtabs */
 			map = symtabs->maps;
 			while (map) {
 				ret += add_trigger_entry(root, &map->symtab,
-							 name, is_regex, &tr);
+							 &patt, &tr);
 				map = map->next;
 			}
 		}
@@ -919,6 +992,8 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				*fmode = FILTER_MODE_OUT;
 		}
 next:
+		free_filter_pattern(&patt);
+
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, typeof(*arg), list);
 			list_del(&arg->list);
