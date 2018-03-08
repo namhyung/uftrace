@@ -270,11 +270,13 @@ static int parse_demangle(char *arg)
 
 static void parse_debug_domain(char *arg)
 {
-	char *str, *saved_str;
-	char *tok, *pos, *tmp;
+	struct strv strv = STRV_INIT;
+	char *tok, *tmp;
+	int i;
 
-	saved_str = str = xstrdup(arg);
-	while ((tok = strtok_r(str, ",", &pos)) != NULL) {
+	strv_split(&strv, arg, ",");
+
+	strv_for_each(&strv, tok, i) {
 		int level = -1;
 
 		tmp = strchr(tok, ':');
@@ -305,12 +307,10 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_DYNAMIC] = level;
 		else if (!strcmp(tok, "event"))
 			dbg_domain[DBG_EVENT] = level;
-
-		str = NULL;
 	}
 
 	dbg_domain_set = true;
-	free(saved_str);
+	strv_free(&strv);
 }
 
 static bool has_time_unit(const char *str)
