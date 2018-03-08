@@ -767,18 +767,19 @@ static const struct trigger_action_parser actions[] = {
 int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 			 char **module, unsigned long orig_flags)
 {
-	char *tr_str, *tmp;
 	char *pos = strchr(str, '@');
+	struct strv acts = STRV_INIT;
 	int ret = -1;
 	size_t i;
+	int j;
 
 	if (pos == NULL)
 		return 0;
 
 	*pos++ = '\0';
-	tmp = tr_str = xstrdup(pos);
+	strv_split(&acts, pos, ",");
 
-	while ((pos = strsep(&tmp, ",")) != NULL) {
+	strv_for_each(&acts, pos, j) {
 		for (i = 0; i < ARRAY_SIZE(actions); i++) {
 			const struct trigger_action_parser *action = &actions[i];
 
@@ -805,7 +806,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	ret = 0;
 
 out:
-	free(tr_str);
+	strv_free(&acts);
 	return ret;
 }
 
@@ -823,18 +824,16 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, unsigned long flags,
 			  enum filter_mode *fmode, bool allow_kernel)
 {
-	char *str;
-	char *pos, *name;
+	struct strv filters = STRV_INIT;
+	char *name;
+	int j;
 
 	if (filter_str == NULL)
 		return;
 
-	pos = str = strdup(filter_str);
-	if (str == NULL)
-		return;
+	strv_split(&filters, filter_str, ";");
 
-	name = strtok(pos, ";");
-	while (name) {
+	strv_for_each(&filters, name, j) {
 		LIST_HEAD(args);
 		struct uftrace_trigger tr = {
 			.flags = flags,
@@ -920,11 +919,10 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				*fmode = FILTER_MODE_OUT;
 		}
 next:
-		name = strtok(NULL, ";");
-
 		while (!list_empty(&args)) {
-			arg = list_first_entry(&args, struct uftrace_arg_spec, list);
+			arg = list_first_entry(&args, typeof(*arg), list);
 			list_del(&arg->list);
+
 			if (arg->fmt == ARG_FMT_ENUM)
 				free(arg->enum_str);
 			free(arg);
@@ -932,7 +930,7 @@ next:
 
 	}
 
-	free(str);
+	strv_free(&filters);
 }
 
 /**
@@ -1047,7 +1045,9 @@ void uftrace_print_filter(struct rb_root *root)
 
 char * uftrace_clear_kernel(char *filter_str)
 {
-	char *str, *pos, *ret, *tmp;
+	struct strv filters = STRV_INIT;
+	char *pos, *ret = NULL;
+	int j;
 
 	/* check filter string contains a kernel filter */
 	if (filter_str == NULL)
@@ -1056,17 +1056,13 @@ char * uftrace_clear_kernel(char *filter_str)
 	if (strstr(filter_str, "@kernel") == NULL)
 		return xstrdup(filter_str);
 
-	str = pos = xstrdup(filter_str);
-	ret = NULL;
+	strv_split(&filters, filter_str, ";");
 
-	pos = strtok_r(pos, ";", &tmp);
-	while (pos) {
+	strv_for_each(&filters, pos, j) {
 		if (strstr(pos, "@kernel") == NULL)
 			ret = strjoin(ret, pos, ";");
-
-		pos = strtok_r(NULL, ";", &tmp);
 	}
-	free(str);
+	strv_free(&filters);
 
 	return ret;
 }
