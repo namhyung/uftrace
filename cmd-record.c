@@ -242,6 +242,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (opts->script_file)
 		setenv("UFTRACE_SCRIPT", opts->script_file, 1);
 
+	if (opts->patt_type != PATT_REGEX)
+		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
+
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
 	else

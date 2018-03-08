@@ -1166,6 +1166,7 @@ static void mcount_startup(void)
 	char *patch_str;
 	char *event_str;
 	char *dirname;
+	char *pattern_str;
 	struct stat statbuf;
 	bool nest_libcall;
 	enum uftrace_pattern_type patt_type = PATT_REGEX;
@@ -1194,6 +1195,7 @@ static void mcount_startup(void)
 	event_str = getenv("UFTRACE_EVENT");
 	script_str = getenv("UFTRACE_SCRIPT");
 	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
+	pattern_str = getenv("UFTRACE_PATTERN");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -1253,6 +1255,9 @@ static void mcount_startup(void)
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);
 	set_kernel_base(&symtabs, mcount_session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
+
+	if (pattern_str)
+		patt_type = parse_filter_pattern(pattern_str);
 
 	mcount_filter_init(patt_type);
 

@@ -46,6 +46,9 @@ OPTIONS
 \--record COMMAND [*command-options*]
 :   Record a new trace before running a given script.
 
+--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
+
 
 EXAMPLES
 ========
@@ -117,7 +120,7 @@ The below is another example that shows the different output compared to previou
 
 The python script above can be modified to do more output customization.
 
-The python script can have an optional "UFTRACE_FUNCS" list which can have name (or regex pattern) of functions to run the script.  If it exists, only matched functions will run the script.  For example, if you add following lines to the script, it will run only for functions with a single letter name.
+The python script can have an optional "UFTRACE_FUNCS" list which can have name (or pattern depending on the --match option) of functions to run the script.  If it exists, only matched functions will run the script.  For example, if you add following lines to the script, it will run only for functions with a single letter name.
 
     $ echo 'UFTRACE_FUNCS = [ "^.$" ]' >> replay.py
     $ uftrace script -S replay.py

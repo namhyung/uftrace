@@ -147,7 +147,7 @@ static char ** collect_uftrace_envp(void)
 		ENV(COLOR), ENV(THRESHOLD), ENV(DEMANGLE), ENV(PLTHOOK),
 		ENV(PATCH), ENV(EVENT), ENV(SCRIPT), ENV(NEST_LIBCALL),
 		ENV(DEBUG_DOMAIN), ENV(LIST_EVENT), ENV(DIR),
-		ENV(KERNEL_PID_UPDATE),
+		ENV(KERNEL_PID_UPDATE), ENV(PATTERN),
 		/* not uftrace-specific, but necessary to run */
 		"LD_PRELOAD", "LD_LIBRARY_PATH",
 	};

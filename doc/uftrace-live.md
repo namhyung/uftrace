@@ -139,6 +139,9 @@ OPTIONS
 \--libname
 :   Show library name along with function name.
 
+--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
+
 
 FILTERS
 =======

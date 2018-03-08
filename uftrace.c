@@ -95,6 +95,7 @@ enum options {
 	OPT_record,
 	OPT_auto_args,
 	OPT_libname,
+	OPT_match_type,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -166,6 +167,7 @@ static struct argp_option uftrace_options[] = {
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
 	{ "auto-args", OPT_auto_args, 0, 0, "Show arguments and return value of known functions" },
 	{ "libname", OPT_libname, 0, 0, "Show libname name with symbol name" },
+	{ "match", OPT_match_type, "TYPE", 0, "Support pattern match: regex, glob (default: regex)" },
 	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
@@ -711,6 +713,14 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_libname:
 		opts->libname = true;
+		break;
+
+	case OPT_match_type:
+		opts->patt_type = parse_filter_pattern(arg);
+		if (opts->patt_type == PATT_NONE) {
+			pr_use("invalid match pattern: %s (ignoring...)\n", arg);
+			opts->patt_type = PATT_REGEX;
+		}
 		break;
 
 	case ARGP_KEY_ARG:

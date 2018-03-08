@@ -65,6 +65,9 @@ OPTIONS
 \--demangle=*TYPE*
 :   Use demangled C++ symbol names for filters, triggers, arguments and/or return values.  Possible values are "full", "simple" and "no".  Default is "simple" which ignores function arguments and template parameters.
 
+--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
+
 
 EXAMPLE
 =======

@@ -108,6 +108,9 @@ OPTIONS
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
 :   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
+--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
+
 
 FILTERS
 =======
@@ -203,7 +206,7 @@ You can also set triggers on filtered functions.  See *TRIGGERS* section below f
 
 When kernel function tracing is enabled, you can also set the filters on kernel functions by marking the symbol with the `@kernel` modifier.  The following example will show all user functions and the (kernel) page fault handler.
 
-    $ sudo uftrace -k -F '*page_fault@kernel' ./abc
+    $ sudo uftrace -k -F '.*page_fault@kernel' ./abc
     # DURATION    TID     FUNCTION
                [14721] | main() {
       7.713 us [14721] |   __do_page_fault();
