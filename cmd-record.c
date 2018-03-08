@@ -1469,7 +1469,7 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_perf_event(char *events)
+static bool check_linux_schedule_event(char *events)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
@@ -1863,7 +1863,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	check_binary(opts);
 
-	has_perf_event = check_linux_perf_event(opts->event);
+	has_perf_event = check_linux_schedule_event(opts->event);
 
 	fflush(stdout);
 
