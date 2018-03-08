@@ -18,3 +18,6 @@ class TestCase(TestBase):
    0.087 us [ 25279] |   bar();
   23.092 us [ 25279] | } /* main */
 """)
+
+    def runcmd(self):
+        return '%s %s %s' % (TestBase.uftrace_cmd, '-N personality_v.', 't-' + self.name)
