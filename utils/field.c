@@ -74,8 +74,10 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		 struct display_field *field_table[], size_t field_table_size)
 {
 	struct display_field *field;
+	struct strv strv = STRV_INIT;
+	char *str, *p;
 	unsigned i;
-	char *str, *p, *s;
+	int j;
 
 	/* default fields */
 	if (opts->fields == NULL) {
@@ -86,16 +88,17 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	if (!strcmp(opts->fields, "none"))
 		return;
 
-	s = str = xstrdup(opts->fields);
+	str = xstrdup(opts->fields);
 
 	if (*str == '+') {
 		/* prepend default fields */
 		setup_default_field(output_fields, opts);
-		s++;
+		str++;
 	}
 
-	p = strtok(s, ",");
-	while (p) {
+	strv_split(&strv, str, ",");
+
+	strv_for_each(&strv, p, j) {
 		for (i = 0; i < field_table_size; i++) {
 			field = field_table[i];
 
@@ -116,9 +119,6 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 			pr_out("\n");
 			exit(1);
 		}
-
-		p = strtok(NULL, ",");
 	}
-
-	free(str);
+	strv_free(&strv);
 }

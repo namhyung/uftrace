@@ -163,19 +163,19 @@ elf_error:
 
 int mcount_setup_events(char *dirname, char *event_str)
 {
-	char *str;
 	int ret = 0;
 	FILE *fp;
 	char *filename = NULL;
 	struct mcount_event_info *mei;
+	struct strv strv = STRV_INIT;
 	LIST_HEAD(specs);
 	struct event_spec *es, *tmp;
-	char *spec, *pos;
+	char *spec;
+	int i;
 
-	str = xstrdup(event_str);
+	strv_split(&strv, event_str, ";");
 
-	spec = strtok_r(str, ";", &pos);
-	while (spec != NULL) {
+	strv_for_each(&strv, spec, i) {
 		char *sep = strchr(spec, ':');
 		char *kernel;
 
@@ -184,7 +184,7 @@ int mcount_setup_events(char *dirname, char *event_str)
 
 			kernel = strstr(sep, "@kernel");
 			if (kernel)
-				goto next;
+				continue;
 
 			es = xmalloc(sizeof(*es));
 			es->provider = spec;
@@ -194,9 +194,6 @@ int mcount_setup_events(char *dirname, char *event_str)
 		else {
 			pr_dbg("ignore invalid event spec: %s\n", spec);
 		}
-
-next:
-		spec = strtok_r(NULL, ";", &pos);
 	}
 
 	dl_iterate_phdr(search_sdt_event, &specs);
@@ -205,7 +202,7 @@ next:
 		list_del(&es->list);
 		free(es);
 	}
-	free(str);
+	strv_free(&strv);
 
 	if (list_empty(&events)) {
 		pr_dbg("cannot find any event for %s\n", event_str);
