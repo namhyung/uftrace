@@ -11,7 +11,6 @@
 #define PR_DOMAIN  DBG_SCRIPT
 
 #include <unistd.h>
-#include <regex.h>
 #include "utils/script.h"
 #include "utils/filter.h"
 #include "utils/list.h"
@@ -32,9 +31,7 @@ script_atfork_prepare_t script_atfork_prepare;
 
 struct script_filter_item {
 	struct list_head	list;
-	char			*name;
-	bool			is_regex;
-	regex_t			re;
+	struct uftrace_pattern	patt;
 };
 
 static LIST_HEAD(filters);
@@ -62,13 +59,11 @@ void script_add_filter(char *func)
 
 	item = xmalloc(sizeof(*item));
 
-	item->name = xstrdup(func);
-	item->is_regex = strpbrk(func, REGEX_CHARS);
-	if (item->is_regex)
-		regcomp(&item->re, item->name, REG_EXTENDED);
+	/* TODO: make type configurable */
+	init_filter_pattern(PATT_REGEX, &item->patt, func);
 
-	pr_dbg2("add script filter: %s (%s)\n", item->name,
-		item->is_regex ? "regex" : "simple");
+	pr_dbg2("add script filter: %s (%s)\n", func,
+		get_filter_pattern(item->patt.type));
 
 	list_add_tail(&item->list, &filters);
 }
@@ -83,11 +78,7 @@ int script_match_filter(char *func)
 		return 1;
 
 	list_for_each_entry(item, &filters, list) {
-		if (item->is_regex) {
-			if (!regexec(&item->re, func, 0, NULL, 0))
-				return 1;
-		}
-		else if (!strcmp(item->name, func))
+		if (match_filter_pattern(&item->patt, func))
 			return 1;
 	}
 	return 0;
@@ -98,9 +89,7 @@ void script_finish_filter(void)
 	struct script_filter_item *item, *tmp;
 
 	list_for_each_entry_safe(item, tmp, &filters, list) {
-		if (item->is_regex)
-			regfree(&item->re);
-		free(item->name);
+		free_filter_pattern(&item->patt);
 		free(item);
 	}
 }
