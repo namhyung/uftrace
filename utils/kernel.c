@@ -261,18 +261,19 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 {
 	struct list_head *head;
 	struct kfilter *kfilter;
-	char *pos, *str, *name;
+	struct strv strv = STRV_INIT;
+	char *pos, *name;
+	int j;
 
 	if (filter_str == NULL)
 		return;
 
-	pos = str = xstrdup(filter_str);
+	strv_split(&strv, filter_str, ";");
 
-	name = strtok(pos, ";");
-	while (name) {
+	strv_for_each(&strv, name, j) {
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
-			goto next;
+			continue;
 		*pos = '\0';
 
 		if (name[0] == '!') {
@@ -285,11 +286,8 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 		strcpy(kfilter->name, name);
 		list_add(&kfilter->list, head);
-
-next:
-		name = strtok(NULL, ";");
 	}
-	free(str);
+	strv_free(&strv);
 }
 
 struct kevent {
@@ -345,29 +343,27 @@ static void add_glob_event(struct list_head *events, char *name)
 static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 			       char *event_str, struct list_head *events)
 {
-	char *pos, *str, *name;
+	struct strv strv = STRV_INIT;
+	char *pos, *name;
+	int j;
 
 	if (event_str == NULL)
 		return;
 
-	pos = str = xstrdup(event_str);
+	strv_split(&strv, event_str, ";");
 
-	name = strtok(pos, ";");
-	while (name) {
+	strv_for_each(&strv, name, j) {
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
-			goto next;
+			continue;
 		*pos = '\0';
 
 		if (strpbrk(name, "*?[]{}"))
 			add_glob_event(events, name);
 		else
 			add_single_event(events, name);
-
-next:
-		name = strtok(NULL, ";");
 	}
-	free(str);
+	strv_free(&strv);
 }
 
 static int reset_tracing_files(void)
