@@ -11,7 +11,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
-#include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -320,7 +319,8 @@ static void add_single_event(struct list_head *events, char *name)
 	list_add_tail(&kevent->list, events);
 }
 
-static void add_glob_event(struct list_head *events, char *name)
+static void add_pattern_event(struct list_head *events,
+			      struct uftrace_pattern *patt)
 {
 	char *filename;
 	FILE *fp;
@@ -333,7 +333,7 @@ static void add_glob_event(struct list_head *events, char *name)
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		/* it's ok to have a trailing '\n' */
-		if (fnmatch(name, buf, 0) == 0)
+		if (match_filter_pattern(patt, buf))
 			add_single_event(events, buf);
 	}
 
@@ -354,15 +354,22 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 	strv_split(&strv, event_str, ";");
 
 	strv_for_each(&strv, name, j) {
+		struct uftrace_pattern patt;
+
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
 			continue;
 		*pos = '\0';
 
-		if (strpbrk(name, "*?[]{}"))
-			add_glob_event(events, name);
-		else
+		/* TODO: make type configurable */
+		init_filter_pattern(PATT_GLOB, &patt, name);
+
+		if (patt.type == PATT_SIMPLE)
 			add_single_event(events, name);
+		else
+			add_pattern_event(events, &patt);
+
+		free_filter_pattern(&patt);
 	}
 	strv_free(&strv);
 }
