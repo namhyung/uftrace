@@ -939,8 +939,12 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 
 	ip = task->func_stack[0].addr;
 	sym = find_symtabs(&task->h->sessions.first->symtabs, ip);
+	if (sym == NULL)
+		return false;
 
-	if (sym && !strncmp(sym->name, "sys_exit", 8))
+	if (!strncmp(sym->name, "sys_exit", 8))
+		return true;
+	if (!strcmp(sym->name, "do_syscall_64"))
 		return true;
 
 	return false;
