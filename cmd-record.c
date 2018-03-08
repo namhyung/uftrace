@@ -1469,7 +1469,8 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_schedule_event(char *events)
+static bool check_linux_schedule_event(char *events,
+				       enum uftrace_pattern_type ptype)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
@@ -1484,8 +1485,7 @@ static bool check_linux_schedule_event(char *events)
 	strv_for_each(&strv, evt, i) {
 		struct uftrace_pattern patt;
 
-		/* TODO: make type configurable */
-		init_filter_pattern(PATT_GLOB, &patt, evt);
+		init_filter_pattern(ptype, &patt, evt);
 
 		if (match_filter_pattern(&patt, "linux:schedule"))
 			found = true;
@@ -1863,7 +1863,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	check_binary(opts);
 
-	has_perf_event = check_linux_schedule_event(opts->event);
+	has_perf_event = check_linux_schedule_event(opts->event,
+						    opts->patt_type);
 
 	fflush(stdout);
 

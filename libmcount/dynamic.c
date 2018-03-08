@@ -91,7 +91,8 @@ static int prepare_dynamic_update(void)
 	return ret;
 }
 
-static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
+static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			     enum uftrace_pattern_type ptype)
 {
 	char *name, *nopatched_name = NULL;
 	struct symtab *symtab = &symtabs->symtab;
@@ -109,8 +110,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		struct sym *sym;
 		struct uftrace_pattern patt;
 
-		/* TODO: make type configurable */
-		init_filter_pattern(PATT_REGEX, &patt, name);
+		init_filter_pattern(ptype, &patt, name);
 
 		for (i = 0; i < symtab->nr_sym; i++) {
 			sym = &symtab->sym[i];
@@ -175,7 +175,8 @@ static float calc_percent(int n, int total)
 	return 100.0 * n / total;
 }
 
-int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
+int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
 	int success;
@@ -185,7 +186,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		return -1;
 	}
 
-	ret = do_dynamic_update(symtabs, patch_funcs);
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
 
 	success = stats.total - stats.failed - stats.skipped;
 	pr_dbg("dynamic update stats:\n");

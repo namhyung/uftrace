@@ -157,14 +157,16 @@ struct symtabs;
 
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, enum filter_mode *mode,
-			  bool allow_kernel);
+			  bool allow_kernel, enum uftrace_pattern_type ptype);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
-			   bool allow_kernel);
+			   bool allow_kernel, enum uftrace_pattern_type ptype);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			    struct rb_root *root, bool auto_args);
+			    struct rb_root *root, bool auto_args,
+			    enum uftrace_pattern_type ptype);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			  struct rb_root *root, bool auto_args);
+			  struct rb_root *root, bool auto_args,
+			  enum uftrace_pattern_type ptype);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);

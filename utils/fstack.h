@@ -5,10 +5,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../uftrace.h"
+#include "uftrace.h"
+#include "utils/filter.h"
 
 struct sym;
-struct uftrace_trigger;
 
 enum fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
@@ -126,7 +126,8 @@ static inline bool is_kernel_record(struct ftrace_task_handle *task,
 }
 
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct ftrace_file_handle *handle, bool auto_args);
+		       struct ftrace_file_handle *handle, bool auto_args,
+		       enum uftrace_pattern_type patt_type);
 int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle);
 
 int fstack_entry(struct ftrace_task_handle *task,

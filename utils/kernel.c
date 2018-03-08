@@ -287,6 +287,7 @@ static void add_pattern_filter(struct list_head *head,
 
 static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 				char *filter_str,
+				enum uftrace_pattern_type ptype,
 				struct list_head *filters,
 				struct list_head *notrace)
 {
@@ -315,8 +316,7 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 		else
 			head = filters;
 
-		/* TODO: make type configurable */
-		init_filter_pattern(PATT_GLOB, &patt, name);
+		init_filter_pattern(ptype, &patt, name);
 
 		if (patt.type == PATT_SIMPLE)
 			add_single_filter(head, name);
@@ -380,7 +380,8 @@ static void add_pattern_event(struct list_head *events,
 }
 
 static void build_kernel_event(struct uftrace_kernel_writer *kernel,
-			       char *event_str, struct list_head *events)
+			       char *event_str, enum uftrace_pattern_type ptype,
+			       struct list_head *events)
 {
 	struct strv strv = STRV_INIT;
 	char *pos, *name;
@@ -399,8 +400,7 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 			continue;
 		*pos = '\0';
 
-		/* TODO: make type configurable */
-		init_filter_pattern(PATT_GLOB, &patt, name);
+		init_filter_pattern(ptype, &patt, name);
 
 		if (patt.type == PATT_SIMPLE)
 			add_single_event(events, name);
@@ -526,11 +526,12 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	INIT_LIST_HEAD(&kernel->nopatch);
 	INIT_LIST_HEAD(&kernel->events);
 
-	build_kernel_filter(kernel, opts->filter,
+	build_kernel_filter(kernel, opts->filter, opts->patt_type,
 			    &kernel->filters, &kernel->notrace);
-	build_kernel_filter(kernel, opts->patch,
+	build_kernel_filter(kernel, opts->patch, opts->patt_type,
 			    &kernel->patches, &kernel->nopatch);
-	build_kernel_event(kernel, opts->event, &kernel->events);
+	build_kernel_event(kernel, opts->event, opts->patt_type,
+			   &kernel->events);
 
 	if (opts->kernel)
 		kernel->tracer = KERNEL_GRAPH_TRACER;
@@ -551,6 +552,7 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 		 * If an user wants to see them, give --kernel-full option.
 		 */
 		build_kernel_filter(kernel, "!sys_clock_gettime@kernel",
+				    opts->patt_type,
 				    &kernel->filters, &kernel->notrace);
 	}
 

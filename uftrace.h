@@ -11,7 +11,7 @@
 #include "utils/list.h"
 #include "utils/symbol.h"
 #include "utils/perf.h"
-
+#include "utils/filter.h"
 
 #define UFTRACE_MAGIC_LEN  8
 #define UFTRACE_MAGIC_STR  "Ftrace!"
@@ -244,6 +244,7 @@ struct opts {
 	bool auto_args;
 	bool libname;
 	struct uftrace_time_range range;
+	enum uftrace_pattern_type patt_type;
 };
 
 static inline bool opts_has_filter(struct opts *opts)

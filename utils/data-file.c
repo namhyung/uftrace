@@ -467,11 +467,11 @@ ok:
 		}
 
 		setup_fstack_args(handle->info.argspec, handle->info.retspec,
-				  handle, false);
+				  handle, false, opts->patt_type);
 		if (handle->info.auto_args_enabled) {
 			setup_fstack_args(handle->info.autoarg,
 					  handle->info.autoret,
-					  handle, true);
+					  handle, true, opts->patt_type);
 		}
 	}
 

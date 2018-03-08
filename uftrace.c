@@ -942,6 +942,7 @@ int main(int argc, char *argv[])
 		.fields         = NULL,
 		.sort_column	= 2,
 		.event_skip_out = true,
+		.patt_type      = PATT_REGEX,
 	};
 	struct argp argp = {
 		.options = uftrace_options,

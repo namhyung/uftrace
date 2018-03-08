@@ -44,10 +44,10 @@ extern script_uftrace_exit_t script_uftrace_exit;
 extern script_uftrace_end_t script_uftrace_end;
 extern script_atfork_prepare_t script_atfork_prepare;
 
-int script_init(char *script_pathname);
+int script_init(char *script_pathname, enum uftrace_pattern_type ptype);
 void script_finish(void);
 
-void script_add_filter(char *func);
+void script_add_filter(char *func, enum uftrace_pattern_type ptype);
 int script_match_filter(char *func);
 void script_finish_filter(void);
 

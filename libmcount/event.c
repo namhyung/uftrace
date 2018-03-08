@@ -161,7 +161,8 @@ elf_error:
 	goto out;
 }
 
-int mcount_setup_events(char *dirname, char *event_str)
+int mcount_setup_events(char *dirname, char *event_str,
+			enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
 	FILE *fp;
@@ -187,9 +188,9 @@ int mcount_setup_events(char *dirname, char *event_str)
 				continue;
 
 			es = xmalloc(sizeof(*es));
-			/* TODO: make type configurable */
-			init_filter_pattern(PATT_GLOB, &es->provider, spec);
-			init_filter_pattern(PATT_GLOB, &es->event, sep);
+
+			init_filter_pattern(ptype, &es->provider, spec);
+			init_filter_pattern(ptype, &es->event, sep);
 			list_add_tail(&es->list, &specs);
 		}
 		else {
