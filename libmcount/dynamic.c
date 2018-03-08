@@ -1,6 +1,5 @@
 #include <string.h>
 #include <link.h>
-#include <regex.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dynamic"
@@ -105,26 +104,18 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 	strv_split(&funcs, patch_funcs, ";");
 
 	strv_for_each(&funcs, name, j) {
-		bool is_regex;
 		bool found = false;
-		regex_t re;
 		unsigned i;
 		struct sym *sym;
+		struct uftrace_pattern patt;
 
-		is_regex = strpbrk(name, REGEX_CHARS);
-		if (is_regex) {
-			if (regcomp(&re, name, REG_NOSUB | REG_EXTENDED)) {
-				pr_dbg("regex pattern failed: %s\n", name);
-				strv_free(&funcs);
-				return -1;
-			}
-		}
+		/* TODO: make type configurable */
+		init_filter_pattern(PATT_REGEX, &patt, name);
 
 		for (i = 0; i < symtab->nr_sym; i++) {
 			sym = &symtab->sym[i];
 
-			if ((is_regex && regexec(&re, sym->name, 0, NULL, 0)) ||
-			    (!is_regex && strcmp(name, sym->name)))
+			if (!match_filter_pattern(&patt, sym->name))
 				continue;
 
 			found = true;
@@ -147,14 +138,14 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		if (!found)
 			stats.nomatch++;
 
-		if (is_regex)
-			regfree(&re);
+		free_filter_pattern(&patt);
 	}
 
-	if (stats.failed || stats.skipped || stats.nomatch)
+	if (stats.failed || stats.skipped || stats.nomatch) {
 		pr_out("%s cannot be patched dynamically\n",
 		       (stats.failed + stats.skipped + stats.nomatch) > 1 ?
 		       "some functions" : nopatched_name);
+	}
 
 	strv_free(&funcs);
 	return 0;

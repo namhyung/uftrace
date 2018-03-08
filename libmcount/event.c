@@ -5,7 +5,6 @@
 #include <link.h>
 #include <libelf.h>
 #include <gelf.h>
-#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
@@ -15,6 +14,7 @@
 #include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/list.h"
+#include "utils/filter.h"
 
 #define SDT_SECT  ".note.stapsdt"
 #define SDT_NAME  "stapsdt"
@@ -22,8 +22,8 @@
 
 struct event_spec {
 	struct list_head list;
-	char *provider;
-	char *event;
+	struct uftrace_pattern provider;
+	struct uftrace_pattern event;
 };
 
 struct stapsdt {
@@ -126,9 +126,9 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		}
 
 		list_for_each_entry(spec, spec_list, list) {
-			if (fnmatch(spec->provider, vendor, 0) != 0)
+			if (!match_filter_pattern(&spec->provider, vendor))
 				continue;
-			if (fnmatch(spec->event, event, 0) != 0)
+			if (!match_filter_pattern(&spec->event, event))
 				continue;
 			break;
 		}
@@ -187,8 +187,9 @@ int mcount_setup_events(char *dirname, char *event_str)
 				continue;
 
 			es = xmalloc(sizeof(*es));
-			es->provider = spec;
-			es->event = sep;
+			/* TODO: make type configurable */
+			init_filter_pattern(PATT_GLOB, &es->provider, spec);
+			init_filter_pattern(PATT_GLOB, &es->event, sep);
 			list_add_tail(&es->list, &specs);
 		}
 		else {
@@ -200,6 +201,9 @@ int mcount_setup_events(char *dirname, char *event_str)
 
 	list_for_each_entry_safe(es, tmp, &specs, list) {
 		list_del(&es->list);
+
+		free_filter_pattern(&es->provider);
+		free_filter_pattern(&es->event);
 		free(es);
 	}
 	strv_free(&strv);
