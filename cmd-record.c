@@ -1471,24 +1471,24 @@ static void check_binary(struct opts *opts)
 
 static bool check_linux_perf_event(char *events)
 {
-	char *str, *tmp, *evt;
+	struct strv strv = STRV_INIT;
+	char *evt;
 	bool found = false;
+	int i;
 
 	if (events == NULL)
 		return false;
 
-	str = tmp = xstrdup(events);
+	strv_split(&strv, events, ";");
 
-	evt = strtok(tmp, ";");
-	while (evt) {
+	strv_for_each(&strv, evt, i) {
 		if (fnmatch(evt, "linux:schedule", 0) == 0) {
 			found = true;
 			break;
 		}
-		evt = strtok(NULL, ";");
 	}
 
-	free(str);
+	strv_free(&strv);
 	return found;
 }
 
