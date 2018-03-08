@@ -254,13 +254,43 @@ static int set_tracing_options(struct uftrace_kernel_writer *kernel)
 	return 0;
 }
 
+static void add_single_filter(struct list_head *head, char *name)
+{
+	struct kfilter *kfilter;
+
+	kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+	strcpy(kfilter->name, name);
+	list_add(&kfilter->list, head);
+}
+
+static void add_pattern_filter(struct list_head *head,
+			       struct uftrace_pattern *patt)
+{
+	char *filename;
+	FILE *fp;
+	char buf[1024];
+
+	filename = get_tracing_file("available_filter_functions");
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("failed to open 'tracing/available_filter_functions' file");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		/* it's ok to have a trailing '\n' */
+		if (match_filter_pattern(patt, buf))
+			add_single_filter(head, buf);
+	}
+
+	fclose(fp);
+	put_tracing_file(filename);
+}
+
 static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 				char *filter_str,
 				struct list_head *filters,
 				struct list_head *notrace)
 {
 	struct list_head *head;
-	struct kfilter *kfilter;
 	struct strv strv = STRV_INIT;
 	char *pos, *name;
 	int j;
@@ -271,6 +301,8 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 	strv_split(&strv, filter_str, ";");
 
 	strv_for_each(&strv, name, j) {
+		struct uftrace_pattern patt;
+
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
 			continue;
@@ -283,9 +315,15 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 		else
 			head = filters;
 
-		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-		strcpy(kfilter->name, name);
-		list_add(&kfilter->list, head);
+		/* TODO: make type configurable */
+		init_filter_pattern(PATT_GLOB, &patt, name);
+
+		if (patt.type == PATT_SIMPLE)
+			add_single_filter(head, name);
+		else
+			add_pattern_filter(head, &patt);
+
+		free_filter_pattern(&patt);
 	}
 	strv_free(&strv);
 }
