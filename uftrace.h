@@ -84,6 +84,7 @@ enum uftrace_info_bits {
 	LOADINFO,
 	ARG_SPEC,
 	RECORD_DATE,
+	PATTERN_TYPE,
 };
 
 struct uftrace_info {
@@ -120,6 +121,7 @@ struct uftrace_info {
 	float load1;
 	float load5;
 	float load15;
+	enum uftrace_pattern_type patt_type;
 };
 
 enum {

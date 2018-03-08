@@ -788,6 +788,37 @@ static int read_record_date(void *arg)
 	return 0;
 }
 
+static int fill_pattern_type(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+
+	dprintf(fha->fd, "pattern_type:%s\n",
+		get_filter_pattern(fha->opts->patt_type));
+
+	return 0;
+}
+
+static int read_pattern_type(void *arg)
+{
+	struct ftrace_file_handle *handle = arg;
+	struct uftrace_info *info = &handle->info;
+	char buf[4096];
+	size_t len;
+
+	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "pattern_type:", 13))
+		return -1;
+
+	len = strlen(&buf[13]);
+	if (buf[13 + len - 1] == '\n')
+		buf[13 + len - 1] = '\0';
+
+	info->patt_type = parse_filter_pattern(&buf[13]);
+	return 0;
+}
+
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -818,6 +849,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 		{ LOADINFO,	fill_loadinfo },
 		{ ARG_SPEC,	fill_arg_spec },
 		{ RECORD_DATE,	fill_record_date },
+		{ PATTERN_TYPE, fill_pattern_type },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -856,6 +888,7 @@ int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ LOADINFO,	read_loadinfo },
 		{ ARG_SPEC,	read_arg_spec },
 		{ RECORD_DATE,	read_record_date },
+		{ PATTERN_TYPE, read_pattern_type },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -1002,6 +1035,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		if (handle.info.auto_args_enabled)
 			pr_out(fmt, "auto-args", "true");
 	}
+
+	if (handle.hdr.info_mask & (1UL << PATTERN_TYPE))
+		pr_out(fmt, "pattern", get_filter_pattern(handle.info.patt_type));
 
 	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
 		int status = handle.info.exit_status;
