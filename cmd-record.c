@@ -17,7 +17,6 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
-#include <fnmatch.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -1483,10 +1482,18 @@ static bool check_linux_perf_event(char *events)
 	strv_split(&strv, events, ";");
 
 	strv_for_each(&strv, evt, i) {
-		if (fnmatch(evt, "linux:schedule", 0) == 0) {
+		struct uftrace_pattern patt;
+
+		/* TODO: make type configurable */
+		init_filter_pattern(PATT_GLOB, &patt, evt);
+
+		if (match_filter_pattern(&patt, "linux:schedule"))
 			found = true;
+
+		free_filter_pattern(&patt);
+
+		if (found)
 			break;
-		}
 	}
 
 	strv_free(&strv);
