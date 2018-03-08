@@ -64,17 +64,16 @@ static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 static void build_auto_args(const char *args_str, struct rb_root *root,
 			    unsigned long flag)
 {
-	char *str;
-	char *pos, *name;
+	struct strv specs = STRV_INIT;
+	char *name;
+	int j;
 
 	if (args_str == NULL)
 		return;
 
-	pos = str = strdup(args_str);
-	if (str == NULL)
-		return;
+	strv_split(&specs, args_str, ";");
 
-	while ((name = strsep(&pos, ";")) != NULL) {
+	strv_for_each(&specs, name, j) {
 		LIST_HEAD(args);
 		struct uftrace_arg_spec *arg;
 		struct uftrace_trigger tr = {
@@ -112,8 +111,7 @@ next:
 			free(arg);
 		}
 	}
-
-	free(str);
+	strv_free(&specs);
 }
 
 static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
@@ -226,11 +224,13 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 
 	/* extract argspec (and retspec) in trigger action */
 	if (trigger) {
-		char *pos, *tmp, *str, *act;
+		struct strv actions = STRV_INIT;
+		char *pos, *act;
+		int j;
 
-		str = tmp = xstrdup(trigger);
+		strv_split(&actions, trigger, ";");
 
-		while ((pos = strsep(&tmp, ";")) != NULL) {
+		strv_for_each(&actions, pos, j) {
 			char *name = pos;
 			char *args = NULL;
 			char *rval = NULL;
@@ -267,7 +267,7 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 				retspec = strjoin(retspec, name, ";");
 			}
 		}
-		free(str);
+		strv_free(&actions);
 	}
 
 	if (*pargs)
@@ -487,18 +487,20 @@ static void free_enum_def(struct enum_def *e_def)
  */
 int parse_enum_string(char *enum_str)
 {
-	char *pos, *tmp, *str;
+	char *pos;
 	struct enum_def *e_def = NULL;
 	struct enum_val *e_val, *e;
 	enum enum_token_ret ret;
+	struct strv strv = STRV_INIT;
 	int err = -1;
+	int j;
 
 	if (enum_str == NULL)
 		return 0;
 
-	str = tmp = xstrdup(enum_str);
+	strv_split(&strv, enum_str, ";");
 
-	while ((pos = strsep(&tmp, ";")) != NULL) {
+	strv_for_each(&strv, pos, j) {
 		long val = 0;
 
 		ret = enum_next_token(&pos);
@@ -588,7 +590,7 @@ int parse_enum_string(char *enum_str)
 
 out:
 	free_enum_def(e_def);
-	free(str);
+	strv_free(&strv);
 	return err;
 }
 
