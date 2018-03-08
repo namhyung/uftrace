@@ -94,19 +94,17 @@ static int prepare_dynamic_update(void)
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 {
-	char *str;
-	char *pos, *name, *nopatched_name = NULL;
+	char *name, *nopatched_name = NULL;
 	struct symtab *symtab = &symtabs->symtab;
+	struct strv funcs = STRV_INIT;
+	int j;
 
 	if (patch_funcs == NULL)
 		return 0;
 
-	pos = str = strdup(patch_funcs);
-	if (str == NULL)
-		return 0;
+	strv_split(&funcs, patch_funcs, ";");
 
-	name = strtok(pos, ";");
-	while (name) {
+	strv_for_each(&funcs, name, j) {
 		bool is_regex;
 		bool found = false;
 		regex_t re;
@@ -117,7 +115,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		if (is_regex) {
 			if (regcomp(&re, name, REG_NOSUB | REG_EXTENDED)) {
 				pr_dbg("regex pattern failed: %s\n", name);
-				free(str);
+				strv_free(&funcs);
 				return -1;
 			}
 		}
@@ -151,8 +149,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 
 		if (is_regex)
 			regfree(&re);
-
-		name = strtok(NULL, ";");
 	}
 
 	if (stats.failed || stats.skipped || stats.nomatch)
@@ -160,7 +156,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs)
 		       (stats.failed + stats.skipped + stats.nomatch) > 1 ?
 		       "some functions" : nopatched_name);
 
-	free(str);
+	strv_free(&funcs);
 	return 0;
 }
 
