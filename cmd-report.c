@@ -626,11 +626,14 @@ static void sort_diff_entries(struct rb_root *root, struct trace_entry *te,
 
 static void setup_sort(char *sort_keys)
 {
-	char *keys = xstrdup(sort_keys);
-	char *k, *p = keys;
+	struct strv keys = STRV_INIT;
+	char *k;
 	unsigned i;
+	int j;
 
-	while ((k = strtok(p, ",")) != NULL) {
+	strv_split(&keys, sort_keys, ",");
+
+	strv_for_each(&keys, k, j) {
 		for (i = 0; i < ARRAY_SIZE(all_sort_items); i++) {
 			if (strcmp(k, all_sort_items[i]->name))
 				continue;
@@ -657,9 +660,8 @@ static void setup_sort(char *sort_keys)
 			pr_out("\n");
 			exit(1);
 		}
-		p = NULL;
 	}
-	free(keys);
+	strv_free(&keys);
 }
 
 static void print_and_delete(struct rb_root *root,
@@ -1197,10 +1199,13 @@ out:
 
 static void apply_diff_policy(char *policy)
 {
-	char *str = xstrdup(policy);
-	char *p, *tmp = policy;
+	struct strv strv = STRV_INIT;
+	char *p;
+	int i;
 
-	while ((p = strtok(tmp, ",")) != NULL) {
+	strv_split(&strv, policy, ",");
+
+	strv_for_each(&strv, p, i) {
 		bool on = true;
 
 		if (!strncmp(p, "no-", 3)) {
@@ -1216,10 +1221,8 @@ static void apply_diff_policy(char *policy)
 			diff_full = true;
 		else if (!strncmp(p, "compact", 7))
 			diff_full = false;
-
-		tmp = NULL;
 	}
-	free(str);
+	strv_free(&strv);
 }
 
 int command_report(int argc, char *argv[], struct opts *opts)
