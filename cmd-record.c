@@ -1558,7 +1558,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 				pr_warn("kernel tracing requires root privilege\n");
 			else
 				pr_warn("kernel tracing disabled due to an error\n"
-				        "does CONFIG_FTRACE enable in kernel?\n");
+				        "is CONFIG_FUNCTION_GRAPH_TRACER enabled in the kernel?\n");
 
 
 			opts->kernel = false;
