@@ -392,10 +392,10 @@ __visible_default void * dlopen(const char *filename, int flags)
 			return ret;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (unlikely(mcount_recursion(mtdp)))
 			return ret;
 
-		mtdp->recursion_guard = true;
+		mcount_guard_recursion(mtdp);
 	}
 
 	data.libname = simple_basename(filename);
@@ -409,7 +409,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 	send_dlopen_msg(mtdp, mcount_session_name(), timestamp,
 			data.base_addr, data.libname);
 
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 	return ret;
 }
 

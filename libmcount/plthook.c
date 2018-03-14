@@ -775,10 +775,10 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (unlikely(mcount_recursion(mtdp)))
 			goto out;
 
-		mtdp->recursion_guard = true;
+		mcount_guard_recursion(mtdp);
 	}
 
 	recursion = false;
@@ -868,7 +868,7 @@ out:
 		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
-		mtdp->recursion_guard = false;
+		mcount_unguard_recursion(mtdp);
 	return real_addr;
 }
 
@@ -887,7 +887,7 @@ unsigned long plthook_exit(long *retval)
 		assert(mtdp);
 	}
 
-	mtdp->recursion_guard = true;
+	mcount_guard_recursion(mtdp);
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -927,7 +927,7 @@ again:
 	compiler_barrier();
 
 	mtdp->idx--;
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 
 	return rstack->parent_ip;
 }
