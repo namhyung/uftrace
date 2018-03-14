@@ -209,10 +209,6 @@ static void mtd_dtor(void *arg)
 	tmsg.tid = mcount_gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
-	/* dtor for script support */
-	if (SCRIPT_ENABLED && script_str)
-		script_uftrace_end();
-
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
@@ -373,6 +369,10 @@ static void mcount_finish(void)
 	mtd_dtor(&mtd);
 
 	__sync_synchronize();
+
+	/* dtor for script support */
+	if (SCRIPT_ENABLED && script_str)
+		script_uftrace_end();
 
 	pthread_key_delete(mtd_key);
 	if (pfd != -1) {
