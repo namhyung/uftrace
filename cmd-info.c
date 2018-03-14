@@ -573,6 +573,10 @@ static int fill_usageinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 	struct rusage *r = fha->rusage;
+	struct rusage zero = {};
+
+	if (!memcmp(r, &zero, sizeof(*r)))
+		return -1;
 
 	dprintf(fha->fd, "usageinfo:lines=6\n");
 	dprintf(fha->fd, "usageinfo:systime=%lu.%06lu\n",
