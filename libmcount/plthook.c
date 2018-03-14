@@ -22,12 +22,16 @@
 # define PT_GNU_RELRO  0x6474e552  /* Read-only after relocation */
 #endif
 
+/* global symbol tables for libmcount */
 extern struct symtabs symtabs;
 
+/* address of dynamic linker's resolver routine (copied from GOT[2]) */
 unsigned long plthook_resolver_addr;
 
+/* list of plthook_data for each library (module) */
 static LIST_HEAD(plthook_modules);
 
+/* check getenv("LD_BIND_NOT") */
 static bool plthook_no_pltbind;
 
 static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)

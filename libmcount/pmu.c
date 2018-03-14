@@ -12,6 +12,7 @@
 #include "utils/utils.h"
 #include "utils/list.h"
 
+/* PMU management data for given event */
 struct pmu_data {
 	struct list_head list;
 	enum uftrace_event_id evt_id;
@@ -19,8 +20,10 @@ struct pmu_data {
 	int fd[];
 };
 
+/* list of pmu_data */
 static LIST_HEAD(pmu_fds);
 
+/* attribute for perf_event_open(2) */
 struct pmu_config {
 	uint32_t	type;
 	uint64_t	config;
