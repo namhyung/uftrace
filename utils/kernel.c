@@ -148,7 +148,9 @@ static int set_tracing_pid(int pid)
 	if (append_tracing_file("set_ftrace_pid", buf) < 0)
 		return -1;
 
-	return append_tracing_file("set_event_pid", buf);
+	/* ignore error on old kernel */
+	append_tracing_file("set_event_pid", buf);
+	return 0;
 }
 
 static int set_tracing_clock(void)
@@ -178,9 +180,8 @@ static int set_tracing_filter(struct uftrace_kernel_writer *kernel)
 
 	filter_file = "set_graph_notrace";
 	list_for_each_entry_safe(pos, tmp, &kernel->notrace, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
+		/* ignore error on old kernel */
+		__write_tracing_file(filter_file, pos->name, true, true);
 
 		list_del(&pos->list);
 		free(pos);
@@ -380,13 +381,11 @@ static int reset_tracing_files(void)
 	if (write_tracing_file("set_ftrace_pid", " ") < 0)
 		return -1;
 
-	if (write_tracing_file("set_event_pid", " ") < 0)
-		return -1;
-
 	if (write_tracing_file("set_graph_function", " ") < 0)
 		return -1;
 
 	/* ignore error on old kernel */
+	write_tracing_file("set_event_pid", " ");
 	write_tracing_file("set_graph_notrace", " ");
 	write_tracing_file("options/event-fork", "0");
 	write_tracing_file("options/function-fork", "0");
