@@ -882,6 +882,23 @@ struct tid_list {
 
 static LIST_HEAD(tid_list_head);
 
+static bool child_exited;
+
+static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
+{
+	int tid = sainfo->si_pid;
+	struct tid_list *tl;
+
+	list_for_each_entry(tl, &tid_list_head, list) {
+		if (tl->tid == tid) {
+			tl->exited = true;
+			break;
+		}
+	}
+
+	child_exited = true;
+}
+
 static void add_tid_list(int pid, int tid)
 {
 	struct tid_list *tl;
@@ -949,6 +966,7 @@ static bool check_tid_list(void)
 	}
 
 	pr_dbg2("all process/thread exited\n");
+	child_exited = true;
 	return true;
 }
 
@@ -1319,23 +1337,6 @@ static void save_session_symbols(struct opts *opts)
 		unload_symtabs(&symtabs);
 	}
 	free(map_list);
-}
-
-static bool child_exited;
-
-static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
-{
-	int tid = sainfo->si_pid;
-	struct tid_list *tl;
-
-	list_for_each_entry(tl, &tid_list_head, list) {
-		if (tl->tid == tid) {
-			tl->exited = true;
-			break;
-		}
-	}
-
-	child_exited = true;
 }
 
 static char *get_child_time(struct timespec *ts1, struct timespec *ts2)
