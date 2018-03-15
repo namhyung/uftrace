@@ -382,7 +382,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 
 	ret = real_dlopen(filename, flags);
 
-	if (unlikely(mcount_should_stop() || filename == NULL))
+	if (filename == NULL)
 		return ret;
 
 	mtdp = get_thread_data();
@@ -392,10 +392,8 @@ __visible_default void * dlopen(const char *filename, int flags)
 			return ret;
 	}
 	else {
-		if (unlikely(mcount_recursion(mtdp)))
+		if (!mcount_guard_recursion(mtdp))
 			return ret;
-
-		mcount_guard_recursion(mtdp);
 	}
 
 	data.libname = simple_basename(filename);

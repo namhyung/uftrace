@@ -765,9 +765,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		goto out;
 	}
 
-	if (unlikely(mcount_should_stop()))
-		goto out;
-
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
 		mtdp = mcount_prepare();
@@ -775,10 +772,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (unlikely(mcount_recursion(mtdp)))
+		if (!mcount_guard_recursion(mtdp))
 			goto out;
-
-		mcount_guard_recursion(mtdp);
 	}
 
 	recursion = false;
@@ -830,9 +825,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-
 	*ret_addr = (unsigned long)plthook_return;
+
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
 	if (unlikely(special_flag)) {
 		/* force flush rstack on some special functions */
@@ -879,13 +874,7 @@ unsigned long plthook_exit(long *retval)
 	struct mcount_ret_stack *rstack;
 
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp))) {
-		/* mcount_finish() called in the middle */
-		if (mcount_should_stop())
-			return mtd.rstack[--mtd.idx].parent_ip;
-
-		assert(mtdp);
-	}
+	assert(mtdp != NULL);
 
 	mcount_guard_recursion(mtdp);
 
