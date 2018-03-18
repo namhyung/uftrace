@@ -463,6 +463,52 @@ out:
 	return -EINVAL;
 }
 
+static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+{
+	unsigned int i;
+	struct kfilter *kfilter;
+	const char *skip_funcs[] = {
+		"syscall_trace_enter_phase1",
+		"smp_irq_work_interrupt",
+		"syscall_slow_exit_work",
+		/*
+		 * Some (old) kernel and architecture doesn't support VDSO
+		 * so there will be many sys_clock_gettime() in the output
+		 * due to internal call in libmcount.  It'd be better
+		 * ignoring them not to confuse users.  I think it does NOT
+		 * affect to the output when VDSO is enabled.
+		 */
+		"sys_clock_gettime",
+	};
+
+	for (i = 0; i < ARRAY_SIZE(skip_funcs); i++) {
+		bool add = true;
+		const char *name = skip_funcs[i];
+		struct kfilter *pos;
+
+		/* Don't skip it if user particularly want to see them*/
+		list_for_each_entry(pos, &kernel->filters, list) {
+			if (strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		list_for_each_entry(pos, &kernel->patches, list) {
+			if (strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		if (add) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			list_add(&kfilter->list, &kernel->notrace);
+		}
+	}
+}
+
 /**
  * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
  * @kernel : kernel ftrace handle
@@ -496,19 +542,8 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	/* mark kernel tracing is enabled (for event tracing) */
 	opts->kernel = true;
 
-	if (opts->kernel_skip_out) {
-		/*
-		 * Some (old) kernel and architecture doesn't support VDSO
-		 * so there will be many sys_clock_gettime() in the output
-		 * due to internal call in libmcount.  It'd be better
-		 * ignoring them not to confuse users.  I think it does NOT
-		 * affect to the output when VDSO is enabled.
-		 *
-		 * If an user wants to see them, give --kernel-full option.
-		 */
-		build_kernel_filter(kernel, "!sys_clock_gettime@kernel",
-				    &kernel->filters, &kernel->notrace);
-	}
+	if (opts->kernel_skip_out)
+		skip_kernel_functions(kernel);
 
 	ret = __setup_kernel_tracing(kernel);
 	if (ret < 0)
