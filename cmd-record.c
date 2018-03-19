@@ -1663,7 +1663,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 	}
 
 	if (child_exited) {
-		wait4(wd->pid, &status, WNOHANG, &wd->usage);
+		wait4(wd->pid, &status, 0, &wd->usage);
 		if (WIFEXITED(status)) {
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
@@ -1673,10 +1673,16 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			else
 				ret = UFTRACE_EXIT_SUCCESS;
 		}
-		else {
+		else if (WIFSIGNALED(status)) {
 			pr_yellow("child terminated by signal: %d: %s\n",
 				  WTERMSIG(status), strsignal(WTERMSIG(status)));
 			ret = UFTRACE_EXIT_SIGNALED;
+		}
+		else {
+			pr_yellow("child terminated with unknown reason: %d\n",
+				  status);
+			memset(&wd->usage, 0, sizeof(wd->usage));
+			ret = UFTRACE_EXIT_UNKNOWN;
 		}
 	}
 	else if (opts->keep_pid)
