@@ -176,24 +176,24 @@ static char ** collect_uftrace_envp(void)
 	return envp;
 }
 
-static char ** merge_envp(char *const *dst, char **src)
+static char ** merge_envp(char *const *env1, char **env2)
 {
 	int i, n = 0;
 	char **envp;
 
-	for (i = 0; dst[i]; i++)
+	for (i = 0; env1 && env1[i]; i++)
 		n++;
-	for (i = 0; src[i]; i++)
+	for (i = 0; env2 && env2[i]; i++)
 		n++;
 
 
 	envp = xcalloc(sizeof(*envp), n + 1);
 
 	n = 0;
-	for (i = 0; dst[i]; i++)
-		envp[n++] = dst[i];
-	for (i = 0; src[i]; i++)
-		envp[n++] = src[i];
+	for (i = 0; env1 && env1[i]; i++)
+		envp[n++] = env1[i];
+	for (i = 0; env2 && env2[i]; i++)
+		envp[n++] = env2[i];
 
 	return envp;
 }

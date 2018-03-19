@@ -882,6 +882,23 @@ struct tid_list {
 
 static LIST_HEAD(tid_list_head);
 
+static bool child_exited;
+
+static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
+{
+	int tid = sainfo->si_pid;
+	struct tid_list *tl;
+
+	list_for_each_entry(tl, &tid_list_head, list) {
+		if (tl->tid == tid) {
+			tl->exited = true;
+			break;
+		}
+	}
+
+	child_exited = true;
+}
+
 static void add_tid_list(int pid, int tid)
 {
 	struct tid_list *tl;
@@ -949,6 +966,7 @@ static bool check_tid_list(void)
 	}
 
 	pr_dbg2("all process/thread exited\n");
+	child_exited = true;
 	return true;
 }
 
@@ -1321,23 +1339,6 @@ static void save_session_symbols(struct opts *opts)
 	free(map_list);
 }
 
-static bool child_exited;
-
-static void sigchld_handler(int sig, siginfo_t *sainfo, void *context)
-{
-	int tid = sainfo->si_pid;
-	struct tid_list *tl;
-
-	list_for_each_entry(tl, &tid_list_head, list) {
-		if (tl->tid == tid) {
-			tl->exited = true;
-			break;
-		}
-	}
-
-	child_exited = true;
-}
-
 static char *get_child_time(struct timespec *ts1, struct timespec *ts2)
 {
 #define SEC_TO_NSEC  (1000000000ULL)
@@ -1558,7 +1559,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 				pr_warn("kernel tracing requires root privilege\n");
 			else
 				pr_warn("kernel tracing disabled due to an error\n"
-				        "does CONFIG_FTRACE enable in kernel?\n");
+				        "is CONFIG_FUNCTION_GRAPH_TRACER enabled in the kernel?\n");
 
 
 			opts->kernel = false;
@@ -1662,7 +1663,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 	}
 
 	if (child_exited) {
-		wait4(wd->pid, &status, WNOHANG, &wd->usage);
+		wait4(wd->pid, &status, 0, &wd->usage);
 		if (WIFEXITED(status)) {
 			pr_dbg("child terminated with exit code: %d\n",
 			       WEXITSTATUS(status));
@@ -1672,10 +1673,16 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			else
 				ret = UFTRACE_EXIT_SUCCESS;
 		}
-		else {
+		else if (WIFSIGNALED(status)) {
 			pr_yellow("child terminated by signal: %d: %s\n",
 				  WTERMSIG(status), strsignal(WTERMSIG(status)));
 			ret = UFTRACE_EXIT_SIGNALED;
+		}
+		else {
+			pr_yellow("child terminated with unknown reason: %d\n",
+				  status);
+			memset(&wd->usage, 0, sizeof(wd->usage));
+			ret = UFTRACE_EXIT_UNKNOWN;
 		}
 	}
 	else if (opts->keep_pid)
