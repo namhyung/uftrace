@@ -54,6 +54,8 @@ void add_field(struct list_head *output_fields, struct display_field *field)
 	if (field->used)
 		return;
 
+	pr_dbg("add field \"%s\"\n", field->name);
+
 	field->used = true;
 	list_add_tail(&field->list, output_fields);
 }
@@ -88,7 +90,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	if (!strcmp(opts->fields, "none"))
 		return;
 
-	str = xstrdup(opts->fields);
+	str = opts->fields;
 
 	if (*str == '+') {
 		/* prepend default fields */
@@ -102,11 +104,10 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		for (i = 0; i < field_table_size; i++) {
 			field = field_table[i];
 
-			pr_dbg("check field \"%s\"\n", field->name);
+			pr_dbg2("check field \"%s\"\n", field->name);
 			if (!check_field_name(field, p))
 				continue;
 
-			pr_dbg("add field \"%s\"\n", field->name);
 			add_field(output_fields, field);
 			break;
 		}
