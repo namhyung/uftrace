@@ -87,7 +87,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name)
 		node = xcalloc(1, sizeof(*node));
 
 		node->addr = rstack->addr;
-		node->name = xstrdup(name);
+		node->name = xstrdup(name ?: "none");
 		INIT_LIST_HEAD(&node->head);
 
 		node->parent = curr;
