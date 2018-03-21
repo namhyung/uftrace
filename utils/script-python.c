@@ -533,7 +533,8 @@ int python_atfork_prepare(void)
 	return 0;
 }
 
-int script_init_for_python(char *py_pathname)
+int script_init_for_python(char *py_pathname,
+			   enum uftrace_pattern_type ptype)
 {
 	pr_dbg("%s(\"%s\")\n", __func__, py_pathname);
 
@@ -607,7 +608,7 @@ int script_init_for_python(char *py_pathname)
 		for (i = 0; i < len; i++) {
 			PyObject *func = __PyList_GetItem(filter_list, i);
 
-			script_add_filter(__PyString_AsString(func));
+			script_add_filter(__PyString_AsString(func), ptype);
 		}
 	}
 

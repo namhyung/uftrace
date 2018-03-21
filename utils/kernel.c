@@ -11,7 +11,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
-#include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -255,13 +254,44 @@ static int set_tracing_options(struct uftrace_kernel_writer *kernel)
 	return 0;
 }
 
+static void add_single_filter(struct list_head *head, char *name)
+{
+	struct kfilter *kfilter;
+
+	kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+	strcpy(kfilter->name, name);
+	list_add(&kfilter->list, head);
+}
+
+static void add_pattern_filter(struct list_head *head,
+			       struct uftrace_pattern *patt)
+{
+	char *filename;
+	FILE *fp;
+	char buf[1024];
+
+	filename = get_tracing_file("available_filter_functions");
+	fp = fopen(filename, "r");
+	if (fp == NULL)
+		pr_err("failed to open 'tracing/available_filter_functions' file");
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		/* it's ok to have a trailing '\n' */
+		if (match_filter_pattern(patt, buf))
+			add_single_filter(head, buf);
+	}
+
+	fclose(fp);
+	put_tracing_file(filename);
+}
+
 static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 				char *filter_str,
+				enum uftrace_pattern_type ptype,
 				struct list_head *filters,
 				struct list_head *notrace)
 {
 	struct list_head *head;
-	struct kfilter *kfilter;
 	struct strv strv = STRV_INIT;
 	char *pos, *name;
 	int j;
@@ -272,6 +302,8 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 	strv_split(&strv, filter_str, ";");
 
 	strv_for_each(&strv, name, j) {
+		struct uftrace_pattern patt;
+
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
 			continue;
@@ -284,9 +316,14 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 		else
 			head = filters;
 
-		kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-		strcpy(kfilter->name, name);
-		list_add(&kfilter->list, head);
+		init_filter_pattern(ptype, &patt, name);
+
+		if (patt.type == PATT_SIMPLE)
+			add_single_filter(head, name);
+		else
+			add_pattern_filter(head, &patt);
+
+		free_filter_pattern(&patt);
 	}
 	strv_free(&strv);
 }
@@ -320,7 +357,8 @@ static void add_single_event(struct list_head *events, char *name)
 	list_add_tail(&kevent->list, events);
 }
 
-static void add_glob_event(struct list_head *events, char *name)
+static void add_pattern_event(struct list_head *events,
+			      struct uftrace_pattern *patt)
 {
 	char *filename;
 	FILE *fp;
@@ -333,7 +371,7 @@ static void add_glob_event(struct list_head *events, char *name)
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		/* it's ok to have a trailing '\n' */
-		if (fnmatch(name, buf, 0) == 0)
+		if (match_filter_pattern(patt, buf))
 			add_single_event(events, buf);
 	}
 
@@ -342,7 +380,8 @@ static void add_glob_event(struct list_head *events, char *name)
 }
 
 static void build_kernel_event(struct uftrace_kernel_writer *kernel,
-			       char *event_str, struct list_head *events)
+			       char *event_str, enum uftrace_pattern_type ptype,
+			       struct list_head *events)
 {
 	struct strv strv = STRV_INIT;
 	char *pos, *name;
@@ -354,15 +393,21 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 	strv_split(&strv, event_str, ";");
 
 	strv_for_each(&strv, name, j) {
+		struct uftrace_pattern patt;
+
 		pos = strstr(name, "@kernel");
 		if (pos == NULL)
 			continue;
 		*pos = '\0';
 
-		if (strpbrk(name, "*?[]{}"))
-			add_glob_event(events, name);
-		else
+		init_filter_pattern(ptype, &patt, name);
+
+		if (patt.type == PATT_SIMPLE)
 			add_single_event(events, name);
+		else
+			add_pattern_event(events, &patt);
+
+		free_filter_pattern(&patt);
 	}
 	strv_free(&strv);
 }
@@ -481,11 +526,12 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	INIT_LIST_HEAD(&kernel->nopatch);
 	INIT_LIST_HEAD(&kernel->events);
 
-	build_kernel_filter(kernel, opts->filter,
+	build_kernel_filter(kernel, opts->filter, opts->patt_type,
 			    &kernel->filters, &kernel->notrace);
-	build_kernel_filter(kernel, opts->patch,
+	build_kernel_filter(kernel, opts->patch, opts->patt_type,
 			    &kernel->patches, &kernel->nopatch);
-	build_kernel_event(kernel, opts->event, &kernel->events);
+	build_kernel_event(kernel, opts->event, opts->patt_type,
+			   &kernel->events);
 
 	if (opts->kernel)
 		kernel->tracer = KERNEL_GRAPH_TRACER;
@@ -506,6 +552,7 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 		 * If an user wants to see them, give --kernel-full option.
 		 */
 		build_kernel_filter(kernel, "!sys_clock_gettime@kernel",
+				    opts->patt_type,
 				    &kernel->filters, &kernel->notrace);
 	}
 

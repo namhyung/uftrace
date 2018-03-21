@@ -169,7 +169,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	fstack_setup_filters(opts, &handle);
 
 	/* initialize script */
-	if (script_init(opts->script_file) < 0)
+	if (script_init(opts->script_file, opts->patt_type) < 0)
 		return -1;
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {

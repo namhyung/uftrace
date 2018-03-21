@@ -139,7 +139,7 @@ static inline bool mcount_should_stop(void)
 }
 
 #ifdef DISABLE_MCOUNT_FILTER
-static inline void mcount_filter_init(void) {}
+static inline void mcount_filter_init(enum uftrace_pattern_type ptype) {}
 static inline void mcount_filter_setup(struct mcount_thread_data *mtdp) {}
 static inline void mcount_filter_release(struct mcount_thread_data *mtdp) {}
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -321,7 +321,8 @@ struct mcount_dynamic_info {
 	void *arch;
 };
 
-int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs);
+int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			  enum uftrace_pattern_type ptype);
 
 /* these should be implemented for each architecture */
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
@@ -339,7 +340,8 @@ struct mcount_event_info {
 	struct list_head list;
 };
 
-int mcount_setup_events(char *dirname, char *event_str);
+int mcount_setup_events(char *dirname, char *event_str,
+			enum uftrace_pattern_type ptype);
 struct mcount_event_info * mcount_lookup_event(unsigned long addr);
 int mcount_save_event(struct mcount_event_info *mei);
 void mcount_finish_events(void);

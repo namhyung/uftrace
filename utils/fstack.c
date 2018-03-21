@@ -207,21 +207,26 @@ setup:
 	free(filter_tids);
 }
 
+struct filter_data {
+	char *str;
+	enum uftrace_pattern_type patt_type;
+};
+
 static int setup_filters(struct uftrace_session *s, void *arg)
 {
-	char *filter_str = arg;
+	struct filter_data *filter = arg;
 
-	uftrace_setup_filter(filter_str, &s->symtabs, &s->filters,
-			     &fstack_filter_mode, true);
+	uftrace_setup_filter(filter->str, &s->symtabs, &s->filters,
+			     &fstack_filter_mode, true, filter->patt_type);
 	return 0;
 }
 
 static int setup_trigger(struct uftrace_session *s, void *arg)
 {
-	char *trigger_str = arg;
+	struct filter_data *trigger = arg;
 
-	uftrace_setup_trigger(trigger_str, &s->symtabs, &s->filters,
-			      &fstack_filter_mode, true);
+	uftrace_setup_trigger(trigger->str, &s->symtabs, &s->filters,
+			      &fstack_filter_mode, true, trigger->patt_type);
 	return 0;
 }
 
@@ -242,6 +247,7 @@ static int count_filters(struct uftrace_session *s, void *arg)
  * @handle      - handle for uftrace data
  * @filter_str  - CSV of filter symbol names
  * @trigger_str - CSV of trigger definitions
+ * @patt_type   - filter match pattern (regex or glob)
  *
  * This function sets up the symbol filters and triggers using following syntax:
  *   filter_strs = filter | filter ";" filter_strs
@@ -250,13 +256,18 @@ static int count_filters(struct uftrace_session *s, void *arg)
  *   trigger_def = "depth=" NUM | "backtrace"
  */
 static int setup_fstack_filters(struct ftrace_file_handle *handle,
-				char *filter_str, char *trigger_str)
+				char *filter_str, char *trigger_str,
+				enum uftrace_pattern_type patt_type)
 {
 	int count = 0;
 	struct uftrace_session_link *sessions = &handle->sessions;
+	struct filter_data data = {
+		.patt_type = patt_type,
+	};
 
 	if (filter_str) {
-		walk_sessions(sessions, setup_filters, filter_str);
+		data.str = filter_str;
+		walk_sessions(sessions, setup_filters, &data);
 		walk_sessions(sessions, count_filters, &count);
 
 		if (count == 0)
@@ -268,7 +279,8 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 	if (trigger_str) {
 		int prev = count;
 
-		walk_sessions(sessions, setup_trigger, trigger_str);
+		data.str = trigger_str;
+		walk_sessions(sessions, setup_trigger, &data);
 		walk_sessions(sessions, count_filters, &count);
 
 		if (prev == count)
@@ -298,7 +310,7 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
 		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
-				      &s->fixups, NULL, false);
+				      &s->fixups, NULL, false, PATT_SIMPLE);
 	}
 	return 0;
 }
@@ -318,6 +330,7 @@ static void fstack_prepare_fixup(struct ftrace_file_handle *handle)
 struct spec_data {
 	char *str;
 	bool auto_args;
+	enum uftrace_pattern_type patt_type;
 };
 
 static int build_arg_spec(struct uftrace_session *s, void *arg)
@@ -326,7 +339,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 
 	if (spec->str)
 		uftrace_setup_argument(spec->str, &s->symtabs, &s->filters,
-				       spec->auto_args);
+				       spec->auto_args, spec->patt_type);
 
 	return 0;
 }
@@ -337,7 +350,7 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 
 	if (spec->str)
 		uftrace_setup_retval(spec->str, &s->symtabs, &s->filters,
-				     spec->auto_args);
+				     spec->auto_args, spec->patt_type);
 
 	return 0;
 }
@@ -347,16 +360,19 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
  * @argspec: spec string describes function arguments
  * @retspec: spec string describes function return values
  * @handle: handle for uftrace data
- * @auto_args  - whether current spec is auto-spec
+ * @auto_args: whether current spec is auto-spec
+ * @patt_type: filter match pattern (regex or glob)
  *
  * This functions sets up argument and return value information
  * provided by user at the time of recording.
  */
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct ftrace_file_handle *handle, bool auto_args)
+		       struct ftrace_file_handle *handle, bool auto_args,
+		       enum uftrace_pattern_type patt_type)
 {
 	struct spec_data spec = {
 		.auto_args = auto_args,
+		.patt_type = patt_type,
 	};
 
 	if (argspec == NULL && retspec == NULL && !auto_args)
@@ -387,7 +403,8 @@ void setup_fstack_args(char *argspec, char *retspec,
 int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	if (opts->filter || opts->trigger) {
-		if (setup_fstack_filters(handle, opts->filter, opts->trigger) < 0) {
+		if (setup_fstack_filters(handle, opts->filter, opts->trigger,
+					 opts->patt_type) < 0) {
 			pr_use("failed to set filter or trigger: %s%s%s\n",
 			       opts->filter ?: "",
 			       (opts->filter && opts->trigger) ? " or " : "",

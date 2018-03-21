@@ -11,7 +11,7 @@
 #include "utils/list.h"
 #include "utils/symbol.h"
 #include "utils/perf.h"
-
+#include "utils/filter.h"
 
 #define UFTRACE_MAGIC_LEN  8
 #define UFTRACE_MAGIC_STR  "Ftrace!"
@@ -84,6 +84,7 @@ enum uftrace_info_bits {
 	LOADINFO,
 	ARG_SPEC,
 	RECORD_DATE,
+	PATTERN_TYPE,
 };
 
 struct uftrace_info {
@@ -120,6 +121,7 @@ struct uftrace_info {
 	float load1;
 	float load5;
 	float load15;
+	enum uftrace_pattern_type patt_type;
 };
 
 enum {
@@ -244,6 +246,7 @@ struct opts {
 	bool auto_args;
 	bool libname;
 	struct uftrace_time_range range;
+	enum uftrace_pattern_type patt_type;
 };
 
 static inline bool opts_has_filter(struct opts *opts)

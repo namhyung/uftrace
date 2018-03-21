@@ -17,7 +17,6 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
-#include <fnmatch.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -242,6 +241,9 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 	if (opts->script_file)
 		setenv("UFTRACE_SCRIPT", opts->script_file, 1);
+
+	if (opts->patt_type != PATT_REGEX)
+		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
 	if (opts->lib_path)
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
@@ -1470,7 +1472,8 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_perf_event(char *events)
+static bool check_linux_schedule_event(char *events,
+				       enum uftrace_pattern_type ptype)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
@@ -1483,10 +1486,17 @@ static bool check_linux_perf_event(char *events)
 	strv_split(&strv, events, ";");
 
 	strv_for_each(&strv, evt, i) {
-		if (fnmatch(evt, "linux:schedule", 0) == 0) {
+		struct uftrace_pattern patt;
+
+		init_filter_pattern(ptype, &patt, evt);
+
+		if (match_filter_pattern(&patt, "linux:schedule"))
 			found = true;
+
+		free_filter_pattern(&patt);
+
+		if (found)
 			break;
-		}
 	}
 
 	strv_free(&strv);
@@ -1856,7 +1866,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	check_binary(opts);
 
-	has_perf_event = check_linux_perf_event(opts->event);
+	has_perf_event = check_linux_schedule_event(opts->event,
+						    opts->patt_type);
 
 	fflush(stdout);
 

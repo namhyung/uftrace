@@ -101,7 +101,7 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
-static void mcount_filter_init(void)
+static void mcount_filter_init(enum uftrace_pattern_type ptype)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
@@ -118,17 +118,19 @@ static void mcount_filter_init(void)
 		setup_auto_args();
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
-			     &mcount_filter_mode, false);
+			     &mcount_filter_mode, false, ptype);
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
-			      &mcount_filter_mode, false);
-	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers, false);
-	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers, false);
+			      &mcount_filter_mode, false, ptype);
+	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers,
+			       false, ptype);
+	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers,
+			     false, ptype);
 
 	if (autoargs_str) {
 		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
-				       &mcount_triggers, true);
+				       &mcount_triggers, true, ptype);
 		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
-				     &mcount_triggers, true);
+				     &mcount_triggers, true, ptype);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))
@@ -1164,8 +1166,10 @@ static void mcount_startup(void)
 	char *patch_str;
 	char *event_str;
 	char *dirname;
+	char *pattern_str;
 	struct stat statbuf;
 	bool nest_libcall;
+	enum uftrace_pattern_type patt_type = PATT_REGEX;
 
 	if (!(mcount_global_flags & MCOUNT_GFL_SETUP) || mtd.recursion_guard)
 		return;
@@ -1191,6 +1195,7 @@ static void mcount_startup(void)
 	event_str = getenv("UFTRACE_EVENT");
 	script_str = getenv("UFTRACE_SCRIPT");
 	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
+	pattern_str = getenv("UFTRACE_PATTERN");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -1251,7 +1256,10 @@ static void mcount_startup(void)
 	set_kernel_base(&symtabs, mcount_session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);
 
-	mcount_filter_init();
+	if (pattern_str)
+		patt_type = parse_filter_pattern(pattern_str);
+
+	mcount_filter_init(patt_type);
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
@@ -1260,10 +1268,10 @@ static void mcount_startup(void)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&symtabs, patch_str);
+		mcount_dynamic_update(&symtabs, patch_str, patt_type);
 
 	if (event_str)
-		mcount_setup_events(dirname, event_str);
+		mcount_setup_events(dirname, event_str, patt_type);
 
 	if (plthook_str)
 		mcount_setup_plthook(mcount_exename, nest_libcall);
@@ -1277,7 +1285,7 @@ static void mcount_startup(void)
 
 	/* initialize script binding */
 	if (SCRIPT_ENABLED && script_str)
-		if (script_init(script_str) < 0)
+		if (script_init(script_str, patt_type) < 0)
 			script_str = NULL;
 
 	compiler_barrier();
