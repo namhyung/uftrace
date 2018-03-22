@@ -11,6 +11,7 @@ class TestCase(TestBase):
             [ 4131] |     b() {
             [ 4131] |       c() {
             [ 4131] |         getpid() {
+            [ 4131] |           /* linux:task-exit */
 
 uftrace stopped tracing with remaining functions
 ================================================
@@ -27,3 +28,9 @@ task: 4131
         options = '-F main -T getpid@finish'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)
+
+
+    def fixup(self, cflags, result):
+        return result.replace("""         getpid() {
+            [ 4131] |           /* linux:task-exit */""",
+                                "         getpid() {")
