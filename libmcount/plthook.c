@@ -772,7 +772,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			goto out;
 	}
 
@@ -876,7 +876,11 @@ unsigned long plthook_exit(long *retval)
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
 
-	mcount_guard_recursion(mtdp);
+	/*
+	 * there's a race with mcount_finish(), but it still needs to get
+	 * the original return address so defer freeing rstack to the end.
+	 */
+	mcount_guard_recursion(mtdp, true);
 
 again:
 	if (likely(mtdp->idx > 0))

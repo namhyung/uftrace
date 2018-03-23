@@ -392,7 +392,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 			return ret;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			return ret;
 	}
 

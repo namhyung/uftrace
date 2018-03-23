@@ -239,14 +239,14 @@ static void mcount_trace_finish(void)
 	trace_finished = true;
 }
 
-bool mcount_guard_recursion(struct mcount_thread_data *mtdp)
+bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force)
 {
 	if (unlikely(mtdp->recursion_marker))
 		return false;
 
 	__sync_add_and_fetch(&mcount_active, 1);
 
-	if (unlikely(mcount_should_stop())) {
+	if (!force && unlikely(mcount_should_stop())) {
 		mtd_dtor(mtdp);
 		if (__sync_sub_and_fetch(&mcount_active, 1) == 0)
 			mcount_trace_finish();
@@ -379,7 +379,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	 *
 	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
 	 */
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion(mtdp, false))
 		return NULL;
 
 	compiler_barrier();
@@ -819,7 +819,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			return -1;
 	}
 
@@ -877,7 +877,11 @@ unsigned long mcount_exit(long *retval)
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
 
-	mcount_guard_recursion(mtdp);
+	/*
+	 * there's a race with mcount_finish(), but it still needs to get
+	 * the original return address so defer freeing rstack to the end.
+	 */
+	mcount_guard_recursion(mtdp, true);
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
@@ -911,7 +915,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			return -1;
 	}
 
@@ -981,7 +985,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion(mtdp, false))
 		return;
 
 	/*
@@ -1024,7 +1028,7 @@ void xray_entry(unsigned long parent, unsigned long child,
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			return;
 	}
 
@@ -1081,7 +1085,7 @@ void xray_exit(long *retval)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion(mtdp, false))
 		return;
 
 	/*
@@ -1163,7 +1167,7 @@ static void atfork_child_handler(void)
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion(mtdp, false))
 			return;
 	}
 
