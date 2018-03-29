@@ -22,12 +22,16 @@
 # define PT_GNU_RELRO  0x6474e552  /* Read-only after relocation */
 #endif
 
+/* global symbol tables for libmcount */
 extern struct symtabs symtabs;
 
+/* address of dynamic linker's resolver routine (copied from GOT[2]) */
 unsigned long plthook_resolver_addr;
 
+/* list of plthook_data for each library (module) */
 static LIST_HEAD(plthook_modules);
 
+/* check getenv("LD_BIND_NOT") */
 static bool plthook_no_pltbind;
 
 static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)
@@ -761,9 +765,6 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 		goto out;
 	}
 
-	if (unlikely(mcount_should_stop()))
-		goto out;
-
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
 		mtdp = mcount_prepare();
@@ -771,10 +772,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (!mcount_guard_recursion(mtdp, false))
 			goto out;
-
-		mtdp->recursion_guard = true;
 	}
 
 	recursion = false;
@@ -826,9 +825,9 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-
 	*ret_addr = (unsigned long)plthook_return;
+
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
 	if (unlikely(special_flag)) {
 		/* force flush rstack on some special functions */
@@ -864,7 +863,7 @@ out:
 		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
-		mtdp->recursion_guard = false;
+		mcount_unguard_recursion(mtdp);
 	return real_addr;
 }
 
@@ -875,15 +874,13 @@ unsigned long plthook_exit(long *retval)
 	struct mcount_ret_stack *rstack;
 
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp))) {
-		/* mcount_finish() called in the middle */
-		if (mcount_should_stop())
-			return mtd.rstack[--mtd.idx].parent_ip;
+	assert(mtdp != NULL);
 
-		assert(mtdp);
-	}
-
-	mtdp->recursion_guard = true;
+	/*
+	 * there's a race with mcount_finish(), but it still needs to get
+	 * the original return address so defer freeing rstack to the end.
+	 */
+	mcount_guard_recursion(mtdp, true);
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -923,7 +920,7 @@ again:
 	compiler_barrier();
 
 	mtdp->idx--;
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 
 	return rstack->parent_ip;
 }

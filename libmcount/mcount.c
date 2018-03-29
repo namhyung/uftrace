@@ -76,6 +76,9 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 /* tree of trigger actions */
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
+/* number of active thread running mcount code */
+static int mcount_active;
+
 #ifndef DISABLE_MCOUNT_FILTER
 static void prepare_pmu_trigger(struct rb_root *root)
 {
@@ -196,8 +199,13 @@ static void mtd_dtor(void *arg)
 	struct mcount_thread_data *mtdp = arg;
 	struct uftrace_msg_task tmsg;
 
+	if (mtdp->rstack == NULL)
+		return;
+
 	/* this thread is done, do not enter anymore */
-	mtdp->recursion_guard = true;
+	mtdp->recursion_marker = true;
+
+	mcount_rstack_restore(mtdp);
 
 	free(mtdp->rstack);
 	mtdp->rstack = NULL;
@@ -209,11 +217,59 @@ static void mtd_dtor(void *arg)
 	tmsg.tid = mcount_gettid(mtdp),
 	tmsg.time = mcount_gettime();
 
+	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
+}
+
+static void mcount_trace_finish(void)
+{
+	static volatile bool trace_finished;
+
+	if (trace_finished)
+		return;
+
 	/* dtor for script support */
 	if (SCRIPT_ENABLED && script_str)
 		script_uftrace_end();
 
-	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
+	if (pfd != -1) {
+		close(pfd);
+		pfd = -1;
+	}
+
+	trace_finished = true;
+}
+
+bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force)
+{
+	if (unlikely(mtdp->recursion_marker))
+		return false;
+
+	__sync_add_and_fetch(&mcount_active, 1);
+
+	if (!force && unlikely(mcount_should_stop())) {
+		mtd_dtor(mtdp);
+		if (__sync_sub_and_fetch(&mcount_active, 1) == 0)
+			mcount_trace_finish();
+		return false;
+	}
+
+	mtdp->recursion_marker = true;
+	return true;
+}
+
+void mcount_unguard_recursion(struct mcount_thread_data *mtdp)
+{
+	int nr_active;
+
+	mtdp->recursion_marker = false;
+
+	nr_active = __sync_sub_and_fetch(&mcount_active, 1);
+
+	if (mcount_should_stop()) {
+		mtd_dtor(mtdp);
+		if (nr_active == 0)
+			mcount_trace_finish();
+	}
 }
 
 static struct sigaction old_sigact[2];
@@ -323,10 +379,9 @@ struct mcount_thread_data * mcount_prepare(void)
 	 *
 	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
 	 */
-	if (mtdp->recursion_guard)
+	if (!mcount_guard_recursion(mtdp, false))
 		return NULL;
 
-	mtdp->recursion_guard = true;
 	compiler_barrier();
 
 	mcount_filter_setup(mtdp);
@@ -355,17 +410,15 @@ static void mcount_finish(void)
 		return;
 
 	mcount_global_flags |= MCOUNT_GFL_FINISH;
-	mtd_dtor(&mtd);
+
+	uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
 
 	__sync_synchronize();
 
-	pthread_key_delete(mtd_key);
-	if (pfd != -1) {
-		close(pfd);
-		pfd = -1;
+	if (mcount_active == 0) {
+		mtd_dtor(&mtd);
+		mcount_trace_finish();
 	}
-
-	finish_auto_args();
 }
 
 static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
@@ -563,7 +616,6 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_FINISH) {
 			record_trace_data(mtdp, rstack, NULL);
-			uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
 			mcount_finish();
 			return;
 		}
@@ -759,9 +811,6 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	struct mcount_ret_stack *rstack;
 	struct uftrace_trigger tr;
 
-	if (unlikely(mcount_should_stop()))
-		return -1;
-
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
@@ -770,16 +819,14 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 			return -1;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (!mcount_guard_recursion(mtdp, false))
 			return -1;
-
-		mtdp->recursion_guard = true;
 	}
 
 	tr.flags = 0;
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered != FILTER_IN) {
-		mtdp->recursion_guard = false;
+		mcount_unguard_recursion(mtdp);
 		return -1;
 	}
 
@@ -817,7 +864,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	*parent_loc = (unsigned long)mcount_return;
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 	return 0;
 }
 
@@ -828,15 +875,13 @@ unsigned long mcount_exit(long *retval)
 	unsigned long retaddr;
 
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp))) {
-		/* mcount_finish() called in the middle */
-		if (mcount_should_stop())
-			return mtd.rstack[--mtd.idx].parent_ip;
+	assert(mtdp != NULL);
 
-		assert(mtdp);
-	}
-
-	mtdp->recursion_guard = true;
+	/*
+	 * there's a race with mcount_finish(), but it still needs to get
+	 * the original return address so defer freeing rstack to the end.
+	 */
+	mcount_guard_recursion(mtdp, true);
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
@@ -848,7 +893,7 @@ unsigned long mcount_exit(long *retval)
 	compiler_barrier();
 
 	mtdp->idx--;
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 
 	return retaddr;
 }
@@ -862,9 +907,6 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 		.flags = 0,
 	};
 
-	if (unlikely(mcount_should_stop()))
-		return -1;
-
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
@@ -873,10 +915,8 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 			return -1;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (!mcount_guard_recursion(mtdp, false))
 			return -1;
-
-		mtdp->recursion_guard = true;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
@@ -909,7 +949,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	 * since the cygprof_exit() will be called anyway
 	 */
 	if (filtered == FILTER_RSTACK) {
-		mtdp->recursion_guard = false;
+		mcount_unguard_recursion(mtdp);
 		return 0;
 	}
 
@@ -932,7 +972,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 	return 0;
 }
 
@@ -941,14 +981,12 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
-	if (unlikely(mcount_should_stop()))
-		return;
-
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp) || mtdp->recursion_guard))
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	mtdp->recursion_guard = true;
+	if (!mcount_guard_recursion(mtdp, false))
+		return;
 
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
@@ -969,7 +1007,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 out:
 	mtdp->idx--;
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 }
 
 void xray_entry(unsigned long parent, unsigned long child,
@@ -982,22 +1020,16 @@ void xray_entry(unsigned long parent, unsigned long child,
 		.flags = 0,
 	};
 
-	if (unlikely(mcount_should_stop()))
-		return;
-
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		mcount_prepare();
-
-		mtdp = get_thread_data();
-		assert(mtdp);
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
+			return;
 	}
 	else {
-		if (unlikely(mtdp->recursion_guard))
+		if (!mcount_guard_recursion(mtdp, false))
 			return;
-
-		mtdp->recursion_guard = true;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
@@ -1041,7 +1073,7 @@ void xray_entry(unsigned long parent, unsigned long child,
 	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 }
 
 void xray_exit(long *retval)
@@ -1049,14 +1081,12 @@ void xray_exit(long *retval)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
-	if (unlikely(mcount_should_stop()))
-		return;
-
 	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp) || mtdp->recursion_guard))
+	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	mtdp->recursion_guard = true;
+	if (!mcount_guard_recursion(mtdp, false))
+		return;
 
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
@@ -1077,7 +1107,7 @@ void xray_exit(long *retval)
 
 out:
 	mtdp->idx--;
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 }
 
 /* save an asynchronous event */
@@ -1130,17 +1160,21 @@ static void atfork_child_handler(void)
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
 		/* we need it even if in a recursion */
-		mtd.recursion_guard = false;
+		mtdp->recursion_marker = false;
 
 		mtdp = mcount_prepare();
+		if (mtdp == NULL)
+			return;
+	}
+	else {
+		if (!mcount_guard_recursion(mtdp, false))
+			return;
 	}
 
 	/* update tid cache */
 	mtdp->tid = tmsg.tid;
 	/* flush event data */
 	mtdp->nr_events = 0;
-
-	mtdp->recursion_guard = true;
 
 	clear_shmem_buffer(mtdp);
 	prepare_shmem_buffer(mtdp);
@@ -1149,7 +1183,7 @@ static void atfork_child_handler(void)
 
 	update_kernel_tid(tmsg.tid);
 
-	mtdp->recursion_guard = false;
+	mcount_unguard_recursion(mtdp);
 }
 
 static void mcount_startup(void)
@@ -1171,10 +1205,10 @@ static void mcount_startup(void)
 	bool nest_libcall;
 	enum uftrace_pattern_type patt_type = PATT_REGEX;
 
-	if (!(mcount_global_flags & MCOUNT_GFL_SETUP) || mtd.recursion_guard)
+	if (!(mcount_global_flags & MCOUNT_GFL_SETUP))
 		return;
 
-	mtd.recursion_guard = true;
+	mtd.recursion_marker = true;
 
 	outfp = stdout;
 	logfp = stderr;
@@ -1292,13 +1326,16 @@ static void mcount_startup(void)
 	pr_dbg("mcount setup done\n");
 
 	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
-	mtd.recursion_guard = false;
+	mtd.recursion_marker = false;
 }
 
 static void mcount_cleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
+
+	pthread_key_delete(mtd_key);
+	mtd_key = -1;
 
 #ifndef DISABLE_MCOUNT_FILTER
 	uftrace_cleanup_filter(&mcount_triggers);
@@ -1308,6 +1345,7 @@ static void mcount_cleanup(void)
 
 	unload_symtabs(&symtabs);
 	finish_pmu_event();
+	finish_auto_args();
 
 	pr_dbg("exit from libmcount\n");
 }
@@ -1381,6 +1419,8 @@ static void setup_mcount_test(void)
 	mcount_exename = read_exename();
 
 	pthread_key_create(&mtd_key, mtd_dtor);
+
+	mcount_global_flags = 0;
 }
 
 static void finish_mcount_test(void)
