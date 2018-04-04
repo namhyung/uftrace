@@ -375,48 +375,6 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype)
 	return "none";
 }
 
-static int add_exact_filter(struct rb_root *root, struct symtab *symtab,
-			    struct uftrace_pattern *p, struct uftrace_trigger *tr)
-{
-	struct uftrace_filter filter;
-	struct sym *sym;
-
-	sym = find_symname(symtab, p->patt);
-	if (sym == NULL)
-		return 0;
-
-	filter.name = sym->name;
-	filter.start = sym->addr;
-	filter.end = sym->addr + sym->size;
-
-	return add_filter(root, &filter, tr, true);
-}
-
-static int add_pattern_filter(struct rb_root *root, struct symtab *symtab,
-			      struct uftrace_pattern *patt,
-			      struct uftrace_trigger *tr)
-{
-	struct uftrace_filter filter;
-	struct sym *sym;
-	unsigned i;
-	int ret = 0;
-
-	for (i = 0; i < symtab->nr_sym; i++) {
-		sym = &symtab->sym[i];
-
-		if (!match_filter_pattern(patt, sym->name))
-			continue;
-
-		filter.name = sym->name;
-		filter.start = sym->addr;
-		filter.end = sym->addr + sym->size;
-
-		ret += add_filter(root, &filter, tr, false);
-	}
-
-	return ret;
-}
-
 static bool is_arm_machine(void)
 {
 	static char *mach = NULL;
@@ -887,10 +845,25 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr)
 {
-	if (patt->type == PATT_SIMPLE)
-		return add_exact_filter(root, symtab, patt, tr);
-	else
-		return add_pattern_filter(root, symtab, patt, tr);
+	struct uftrace_filter filter;
+	struct sym *sym;
+	unsigned i;
+	int ret = 0;
+
+	for (i = 0; i < symtab->nr_sym; i++) {
+		sym = &symtab->sym[i];
+
+		if (!match_filter_pattern(patt, sym->name))
+			continue;
+
+		filter.name  = sym->name;
+		filter.start = sym->addr;
+		filter.end   = sym->addr + sym->size;
+
+		ret += add_filter(root, &filter, tr, false);
+	}
+
+	return ret;
 }
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
