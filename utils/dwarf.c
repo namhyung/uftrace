@@ -417,6 +417,99 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 	}
 }
 
+struct location_data {
+	int		type;
+	int		reg;    // DWARF register number
+	int		offset; // stack offset
+};
+
+static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
+{
+	Dwarf_Attribute loc;
+	Dwarf_Op *ops = NULL;
+	size_t len = 0;
+
+	if (!dwarf_hasattr(die, DW_AT_location))
+		return false;
+
+	dwarf_attr(die, DW_AT_location, &loc);
+
+	if (dwarf_getlocation(&loc, &ops, &len) == -1) {
+		Dwarf_Addr base, start, end;
+
+		/* try to get the first entry in the location list */
+		if (dwarf_getlocations(&loc, 0, &base, &start, &end,
+				       &ops, &len) == -1)
+			return false;
+	}
+
+	while (len--) {
+		switch (ops->atom) {
+		case DW_OP_fbreg:
+			/*
+			 * ignore minus offsets since it doesn't set the
+			 * frame-pointer yet (we're before the prologue).
+			 */
+			if ((int)ops->number > 0) {
+				ld->type = ARG_TYPE_STACK;
+				ld->offset = DIV_ROUND_UP(ops->number,
+							  sizeof(long)) + 1;
+				pr_dbg3("location: stack (%d)\n", ld->offset);
+			}
+			break;
+
+		case DW_OP_reg0...DW_OP_reg31:
+			ld->type = ARG_TYPE_REG;
+			ld->reg = ops->atom;
+			pr_dbg3("location: reg (%d)\n", ld->reg);
+			break;
+
+		case DW_OP_regx:
+			ld->type = ARG_TYPE_REG;
+			ld->reg = ops->number;
+			pr_dbg3("location: reg (%d)\n", ld->reg);
+			break;
+		}
+	}
+
+	return true;
+}
+
+__weak const char * arch_register_dwarf_name(int dwarf_reg)
+{
+	return "invalid register";
+}
+
+static void add_location(char *spec, size_t len, Dwarf_Die *die,
+			 struct arg_data *ad)
+{
+	struct location_data data = {
+		.type = ARG_TYPE_INDEX,
+	};
+	char buf[32];
+	const char *reg;
+
+	if (!get_arg_location(die, &data))
+		return;
+
+	switch (data.type) {
+	case ARG_TYPE_REG:
+		reg = arch_register_dwarf_name(data.reg);
+
+		if (strcmp(reg, "invalid register")) {
+			snprintf(buf, sizeof(buf), "%%%s", reg);
+			strcat(spec, buf);
+		}
+		break;
+	case ARG_TYPE_STACK:
+		snprintf(buf, sizeof(buf), "%%stack+%d", data.offset);
+		strcat(spec, buf);
+		break;
+	default:
+		break;
+	}
+}
+
 static int get_argspec(Dwarf_Die *die, void *data)
 {
 	struct arg_data *ad = data;
@@ -440,6 +533,7 @@ static int get_argspec(Dwarf_Die *die, void *data)
 
 		snprintf(buf, sizeof(buf), "arg%d", ++ad->idx);
 		add_type_info(buf, sizeof(buf), &arg, ad);
+		add_location(buf, sizeof(buf), &arg, ad);
 
 		if (ad->argspec == NULL)
 			xasprintf(&ad->argspec, "@%s", buf);
