@@ -455,6 +455,7 @@ static int build_tui_node(struct ftrace_task_handle *task,
 }
 
 static struct tui_graph_node * append_graph_node(struct uftrace_graph_node *dst,
+						 struct tui_graph *graph,
 						 char *name)
 {
 	struct tui_graph_node *node;
@@ -465,6 +466,7 @@ static struct tui_graph_node * append_graph_node(struct uftrace_graph_node *dst,
 	INIT_LIST_HEAD(&node->n.head);
 
 	node->n.parent = dst;
+	node->graph = graph;
 	list_add_tail(&node->n.list, &dst->head);
 	dst->nr_edges++;
 
@@ -483,8 +485,15 @@ static void copy_graph_node(struct uftrace_graph_node *dst,
 				break;
 		}
 
-		if (list_no_entry(node, &dst->head, n.list))
-			node = append_graph_node(dst, child->name);
+		if (list_no_entry(node, &dst->head, n.list)) {
+			struct tui_graph *graph;
+
+			node = (struct tui_graph_node *)src;
+			graph = node->graph;
+
+			node = append_graph_node(dst, graph,
+						 child->name);
+		}
 
 		node->n.time       += child->time;
 		node->n.child_time += child->child_time;
@@ -516,7 +525,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 	graph->top->n.nr_calls   = 0;
 
 	/* special node */
-	root = append_graph_node(&graph->ug.root,
+	root = append_graph_node(&graph->ug.root, target,
 				 "========== Back-trace ==========");
 
 	list_for_each_entry(node, &root_node->head, link) {
@@ -529,7 +538,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 		parent = node;
 
 		while (parent->n.parent) {
-			tmp = append_graph_node(&tmp->n, parent->n.name);
+			tmp = append_graph_node(&tmp->n, target, parent->n.name);
 
 			tmp->n.time       = node->n.time;
 			tmp->n.child_time = node->n.child_time;
@@ -540,10 +549,10 @@ static void build_partial_graph(struct tui_report_node *root_node,
 	}
 
 	/* special node */
-	root = append_graph_node(&graph->ug.root,
+	root = append_graph_node(&graph->ug.root, target,
 				 "========== Call Graph ==========");
 
-	root = append_graph_node(&root->n, root_node->name);
+	root = append_graph_node(&root->n, target, root_node->name);
 
 	list_for_each_entry(node, &root_node->head, link) {
 		if (node->graph != target)
@@ -1344,14 +1353,6 @@ static void tui_report_move_end(struct tui_report *report)
 	}
 }
 
-static void tui_report_enter(struct tui_report *report)
-{
-	struct tui_graph_node *node;
-
-	node = list_first_entry(&report->curr->head, typeof(*node), link);
-	build_partial_graph(report->curr, node->graph);
-}
-
 static void print_report_header(struct ftrace_file_handle *handle,
 				struct tui_report *report)
 {
@@ -1704,32 +1705,54 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		case KEY_ENTER:
 		case '\n':
-			if (graph_mode)
+			if (graph_mode) {
 				tui_graph_enter(graph);
-			else {
-				tui_report_enter(report);
-				graph = &partial_graph;
-				graph_mode = true;  /* partial graph mode */
-				graph->nr_search = -1;
-				tui_search_graph_count(graph);
+				full_redraw = true;
 			}
-			full_redraw = true;
 			break;
 		case KEY_ESCAPE:
 			free(tui_search);  /* cancel search */
 			tui_search = NULL;
 			break;
+		case 'G':
+			if (!graph_mode || graph == &partial_graph) {
+				graph_mode = true;  /* full graph mode */
+				graph = list_first_entry(&tui_graph_list,
+							 typeof(*graph), list);
+				tui_search_graph_count(graph);
+				full_redraw = true;
+			}
+			break;
 		case 'g':
-			graph_mode = true;  /* full graph mode */
-			graph = list_first_entry(&tui_graph_list,
-						 typeof(*graph), list);
+			if (graph_mode) {
+				struct tui_report_node *func;
+				char *name = graph->curr->n.name;
+
+				func = find_report_node(report, name);
+				build_partial_graph(func, graph->curr->graph);
+			}
+			else {
+				struct tui_graph_node *func;
+
+				func = list_first_entry(&report->curr->head,
+							typeof(*func), link);
+				build_partial_graph(report->curr, func->graph);
+			}
+
+			graph = &partial_graph;
+			graph->nr_search = -1;
 			tui_search_graph_count(graph);
+
+			graph_mode = true;
 			full_redraw = true;
 			break;
+		case 'R':
 		case 'r':
-			graph_mode = false;  /* report mode */
-			full_redraw = true;
-			tui_search_report_count(report);
+			if (graph_mode) {
+				graph_mode = false;  /* report mode */
+				full_redraw = true;
+				tui_search_report_count(report);
+			}
 			break;
 		case 'c':
 			if (graph_mode) {
