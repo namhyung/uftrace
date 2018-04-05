@@ -530,6 +530,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 
 	list_for_each_entry(node, &root_node->head, link) {
 		struct tui_graph_node *tmp, *parent;
+		int n = 0;
 
 		if (node->graph != target)
 			continue;
@@ -544,8 +545,16 @@ static void build_partial_graph(struct tui_report_node *root_node,
 			tmp->n.child_time = node->n.child_time;
 			tmp->n.nr_calls   = node->n.nr_calls;
 
+			/* fold backtrace at the first child */
+			if (n++ == 1)
+				tmp->folded = true;
+
 			parent = (void *)parent->n.parent;
 		}
+
+		/* but, unfoled it if it's the last child */
+		if (n == 2)
+			tmp->folded = false;
 	}
 
 	/* special node */
