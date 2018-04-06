@@ -259,7 +259,15 @@ uninstall:
 	$(call QUIET_UNINSTALL, uftrace)
 	$(Q)$(RM) $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_UNINSTALL, libmcount)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount{,-nop,-fast,-single,-fast-single}.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount.so
+	$(call QUIET_UNINSTALL, libmcount-nop)
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-nop.so
+	$(call QUIET_UNINSTALL, libmcount-fast)
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast.so
+	$(call QUIET_UNINSTALL, libmcount-single)
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-single.so
+	$(call QUIET_UNINSTALL, libmcount-fast-single)
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	$(call QUIET_UNINSTALL, bash-completion)
 	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(srcdir)/doc uninstall DESTDIR=$(DESTDIR)$(mandir)
