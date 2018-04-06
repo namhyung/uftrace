@@ -78,8 +78,10 @@ END(mcount)
 
 ENTRY(mcount_return)
 	.cfi_startproc
-	sub $32, %rsp
-	.cfi_def_cfa_offset 32
+	sub $48, %rsp
+	.cfi_def_cfa_offset 48
+
+	movdqu %xmm0, 16(%rsp)
 	movq %rdx, 8(%rsp)
 	.cfi_offset rdx, -24
 	movq %rax, 0(%rsp)
@@ -90,11 +92,13 @@ ENTRY(mcount_return)
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 24(%rsp)
+	movq %rax, 40(%rsp)
 
 	movq 0(%rsp), %rax
 	movq 8(%rsp), %rdx
-	add $24, %rsp
+	movdqu 16(%rsp), %xmm0
+
+	add $40, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
