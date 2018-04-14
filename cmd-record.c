@@ -245,8 +245,12 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (opts->patt_type != PATT_REGEX)
 		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
-	if (opts->lib_path)
+	if (opts->lib_path) {
 		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
+
+		if (access(buf, F_OK) != 0 && errno == ENOENT)
+			snprintf(buf, sizeof(buf), "%s/", opts->lib_path);
+	}
 	else
 		buf[0] = '\0';  /* to make strcat() work */
 
