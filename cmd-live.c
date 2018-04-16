@@ -14,33 +14,10 @@
 static char *tmp_dirname;
 static void cleanup_tempdir(void)
 {
-	DIR *dp;
-	struct dirent *ent;
-	char path[PATH_MAX];
-
 	if (!tmp_dirname)
 		return;
 
-	dp = opendir(tmp_dirname);
-	if (dp == NULL) {
-		if (errno == ENOENT)
-			return;
-		pr_err("cannot open temp dir");
-	}
-
-	while ((ent = readdir(dp)) != NULL) {
-		if (ent->d_name[0] == '.')
-			continue;
-
-		snprintf(path, sizeof(path), "%s/%s", tmp_dirname, ent->d_name);
-		if (unlink(path) < 0)
-			pr_err("unlink failed: %s", path);
-	}
-
-	closedir(dp);
-
-	if (rmdir(tmp_dirname) < 0)
-		pr_err("rmdir failed: %s", tmp_dirname);
+	remove_directory(tmp_dirname);
 	tmp_dirname = NULL;
 }
 
