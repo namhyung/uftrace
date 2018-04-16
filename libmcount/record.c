@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <pthread.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <fcntl.h>
-#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -25,17 +26,20 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 							 int tid, int idx)
 {
 	int fd;
+	int saved_errno = 0;
 	struct mcount_shmem_buffer *buffer = NULL;
 
 	snprintf(buf, size, SHMEM_SESSION_FMT, mcount_session_name(), tid, idx);
 
 	fd = shm_open(buf, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
+		saved_errno = errno;
 		pr_dbg("failed to open shmem buffer: %s\n", buf);
 		goto out;
 	}
 
 	if (ftruncate(fd, shmem_bufsize) < 0) {
+		saved_errno = errno;
 		pr_dbg("failed to resizing shmem buffer: %s\n", buf);
 		goto out;
 	}
@@ -43,6 +47,7 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 	buffer = mmap(NULL, shmem_bufsize, PROT_READ | PROT_WRITE,
 		      MAP_SHARED, fd, 0);
 	if (buffer == MAP_FAILED) {
+		saved_errno = errno;
 		pr_dbg("failed to mmap shmem buffer: %s\n", buf);
 		buffer = NULL;
 		goto out;
@@ -51,6 +56,7 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *buf, size_t size,
 	close(fd);
 
 out:
+	errno = saved_errno;
 	return buffer;
 }
 
@@ -61,7 +67,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	int tid = mcount_gettid(mtdp);
 	struct mcount_shmem *shmem = &mtdp->shmem;
 
-	pr_dbg2("preparing shmem buffers\n");
+	pr_dbg2("preparing shmem buffers: tid = %d\n", tid);
 
 	shmem->nr_buf = 2;
 	shmem->max_buf = 2;
