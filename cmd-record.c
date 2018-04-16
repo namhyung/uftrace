@@ -111,16 +111,26 @@ char * get_libmcount_path(struct opts *opts)
 	}
 
 	if (opts->lib_path) {
-		snprintf(lib, 4096, "%s/libmcount/", opts->lib_path);
+		snprintf(lib, 4096, "%s/libmcount/%s", opts->lib_path, libmcount);
 
-		if (access(lib, F_OK) != 0 && errno == ENOENT)
-			snprintf(lib, 4096, "%s/", opts->lib_path);
+		if (access(lib, F_OK) == 0) {
+			return lib;
+		}
+		else if (errno == ENOENT) {
+			snprintf(lib, 4096, "%s/%s", opts->lib_path, libmcount);
+			if (access(lib, F_OK) == 0)
+				return lib;
+		}
+		free(lib);
+		return NULL;
 	}
-	else
-		lib[0] = '\0';  /* to make strcat() work */
 
-	strcat(lib, libmcount);
-
+#ifdef INSTALL_LIB_PATH
+	snprintf(lib, 4096, "%s/%s", INSTALL_LIB_PATH, libmcount);
+	if (access(lib, F_OK) != 0 && errno == ENOENT)
+		pr_warn("Didn't you run 'make install' ?\n");
+#endif
+	strcpy(lib, libmcount);
 	return lib;
 }
 
@@ -287,6 +297,8 @@ static void setup_child_environ(struct opts *opts, int pfd)
 		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
 	libpath = get_libmcount_path(opts);
+	if (libpath == NULL)
+		pr_err_ns("cannot found libmcount.so\n");
 
 	pr_dbg("using %s library for tracing\n", buf);
 

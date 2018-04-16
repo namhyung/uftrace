@@ -104,6 +104,8 @@ static void setup_child_environ(struct opts *opts)
 		setenv("LD_LIBRARY_PATH", buf, 1);
 
 	libpath = get_libmcount_path(opts);
+	if (libpath == NULL)
+		pr_err_ns("cannot found libmcount.so\n");
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
