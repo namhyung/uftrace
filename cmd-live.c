@@ -77,7 +77,7 @@ static bool can_skip_replay(struct opts *opts, int record_result)
 static void setup_child_environ(struct opts *opts)
 {
 	char buf[4096];
-	char *old_preload, *old_libpath;
+	char *old_preload, *old_libpath, *libpath;
 
 	if (opts->lib_path) {
 		strcpy(buf, opts->lib_path);
@@ -103,22 +103,19 @@ static void setup_child_environ(struct opts *opts)
 	else
 		setenv("LD_LIBRARY_PATH", buf, 1);
 
-	if (opts->lib_path)
-		snprintf(buf, sizeof(buf), "%s/libmcount/libmcount.so", opts->lib_path);
-	else
-		strcpy(buf, "libmcount.so");
+	libpath = get_libmcount_path(opts);
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
-		size_t len = strlen(buf) + strlen(old_preload) + 2;
+		size_t len = strlen(libpath) + strlen(old_preload) + 2;
 		char *preload = xmalloc(len);
 
-		snprintf(preload, len, "%s:%s", buf, old_preload);
+		snprintf(preload, len, "%s:%s", libpath, old_preload);
 		setenv("LD_PRELOAD", preload, 1);
 		free(preload);
 	}
 	else
-		setenv("LD_PRELOAD", buf, 1);
+		setenv("LD_PRELOAD", libpath, 1);
 }
 
 int command_live(int argc, char *argv[], struct opts *opts)

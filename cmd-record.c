@@ -87,7 +87,7 @@ static char *build_debug_domain_string(void)
 	return domain;
 }
 
-static char * get_libmcount_path(struct opts *opts)
+char * get_libmcount_path(struct opts *opts)
 {
 	char *libmcount, *lib = xmalloc(4096);
 	bool must_use_multi_thread = check_libpthread(opts->exename);
@@ -124,7 +124,7 @@ static char * get_libmcount_path(struct opts *opts)
 	return lib;
 }
 
-static void put_libmcount_path(char *libpath)
+void put_libmcount_path(char *libpath)
 {
 	free(libpath);
 }
