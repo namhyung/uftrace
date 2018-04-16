@@ -76,32 +76,15 @@ static bool can_skip_replay(struct opts *opts, int record_result)
 
 static void setup_child_environ(struct opts *opts)
 {
-	char buf[4096];
-	char *old_preload, *old_libpath, *libpath;
-
-	if (opts->lib_path) {
-		strcpy(buf, opts->lib_path);
-		strcat(buf, "/libmcount:");
-	} else {
-		/* to make strcat() work */
-		buf[0] = '\0';
-	}
+	char *old_preload, *libpath;
 
 #ifdef INSTALL_LIB_PATH
-	strcat(buf, INSTALL_LIB_PATH);
-#endif
-
-	old_libpath = getenv("LD_LIBRARY_PATH");
-	if (old_libpath) {
-		size_t len = strlen(buf) + strlen(old_libpath) + 2;
-		char *libpath = xmalloc(len);
-
-		snprintf(libpath, len, "%s:%s", buf, old_libpath);
+	if (!opts->lib_path) {
+		libpath = strjoin(getenv("LD_LIBRARY_PATH"), INSTALL_LIB_PATH, ":");
 		setenv("LD_LIBRARY_PATH", libpath, 1);
 		free(libpath);
 	}
-	else
-		setenv("LD_LIBRARY_PATH", buf, 1);
+#endif
 
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
