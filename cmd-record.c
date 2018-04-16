@@ -87,11 +87,52 @@ static char *build_debug_domain_string(void)
 	return domain;
 }
 
+static char * get_libmcount_path(struct opts *opts)
+{
+	char *libmcount, *lib = xmalloc(4096);
+	bool must_use_multi_thread = check_libpthread(opts->exename);
+
+	if (opts->nop) {
+		libmcount = "libmcount-nop.so";
+	}
+	else if (opts->libmcount_single && !must_use_multi_thread) {
+		if (can_use_fast_libmcount(opts))
+			libmcount = "libmcount-fast-single.so";
+		else
+			libmcount = "libmcount-single.so";
+	}
+	else {
+		if (must_use_multi_thread && opts->libmcount_single)
+			pr_dbg("--libmcount-single is off because it uses pthread\n");
+		if (can_use_fast_libmcount(opts))
+			libmcount = "libmcount-fast.so";
+		else
+			libmcount = "libmcount.so";
+	}
+
+	if (opts->lib_path) {
+		snprintf(lib, 4096, "%s/libmcount/", opts->lib_path);
+
+		if (access(lib, F_OK) != 0 && errno == ENOENT)
+			snprintf(lib, 4096, "%s/", opts->lib_path);
+	}
+	else
+		lib[0] = '\0';  /* to make strcat() work */
+
+	strcat(lib, libmcount);
+
+	return lib;
+}
+
+static void put_libmcount_path(char *libpath)
+{
+	free(libpath);
+}
+
 static void setup_child_environ(struct opts *opts, int pfd)
 {
 	char buf[4096];
-	char *old_preload, *old_libpath;
-	bool must_use_multi_thread = check_libpthread(opts->exename);
+	char *old_preload, *old_libpath, *libpath;
 
 	if (opts->lib_path) {
 		strcpy(buf, opts->lib_path);
@@ -245,46 +286,23 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (opts->patt_type != PATT_REGEX)
 		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
-	if (opts->lib_path) {
-		snprintf(buf, sizeof(buf), "%s/libmcount/", opts->lib_path);
+	libpath = get_libmcount_path(opts);
 
-		if (access(buf, F_OK) != 0 && errno == ENOENT)
-			snprintf(buf, sizeof(buf), "%s/", opts->lib_path);
-	}
-	else
-		buf[0] = '\0';  /* to make strcat() work */
-
-	if (opts->nop) {
-		strcat(buf, "libmcount-nop.so");
-	}
-	else if (opts->libmcount_single && !must_use_multi_thread) {
-		if (can_use_fast_libmcount(opts))
-			strcat(buf, "libmcount-fast-single.so");
-		else
-			strcat(buf, "libmcount-single.so");
-	}
-	else {
-		if (must_use_multi_thread && opts->libmcount_single)
-			pr_dbg("--libmcount-single is off because it calls pthread_create()\n");
-		if (can_use_fast_libmcount(opts))
-			strcat(buf, "libmcount-fast.so");
-		else
-			strcat(buf, "libmcount.so");
-	}
 	pr_dbg("using %s library for tracing\n", buf);
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
-		size_t len = strlen(buf) + strlen(old_preload) + 2;
+		size_t len = strlen(libpath) + strlen(old_preload) + 2;
 		char *preload = xmalloc(len);
 
-		snprintf(preload, len, "%s:%s", buf, old_preload);
+		snprintf(preload, len, "%s:%s", libpath, old_preload);
 		setenv("LD_PRELOAD", preload, 1);
 		free(preload);
 	}
 	else
-		setenv("LD_PRELOAD", buf, 1);
+		setenv("LD_PRELOAD", libpath, 1);
 
+	put_libmcount_path(libpath);
 	setenv("XRAY_OPTIONS", "patch_premain=false", 1);
 }
 
