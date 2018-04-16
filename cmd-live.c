@@ -76,49 +76,31 @@ static bool can_skip_replay(struct opts *opts, int record_result)
 
 static void setup_child_environ(struct opts *opts)
 {
-	char buf[4096];
-	char *old_preload, *old_libpath;
-
-	if (opts->lib_path) {
-		strcpy(buf, opts->lib_path);
-		strcat(buf, "/libmcount:");
-	} else {
-		/* to make strcat() work */
-		buf[0] = '\0';
-	}
+	char *old_preload, *libpath;
 
 #ifdef INSTALL_LIB_PATH
-	strcat(buf, INSTALL_LIB_PATH);
-#endif
-
-	old_libpath = getenv("LD_LIBRARY_PATH");
-	if (old_libpath) {
-		size_t len = strlen(buf) + strlen(old_libpath) + 2;
-		char *libpath = xmalloc(len);
-
-		snprintf(libpath, len, "%s:%s", buf, old_libpath);
+	if (!opts->lib_path) {
+		libpath = strjoin(getenv("LD_LIBRARY_PATH"), INSTALL_LIB_PATH, ":");
 		setenv("LD_LIBRARY_PATH", libpath, 1);
 		free(libpath);
 	}
-	else
-		setenv("LD_LIBRARY_PATH", buf, 1);
+#endif
 
-	if (opts->lib_path)
-		snprintf(buf, sizeof(buf), "%s/libmcount/libmcount.so", opts->lib_path);
-	else
-		strcpy(buf, "libmcount.so");
+	libpath = get_libmcount_path(opts);
+	if (libpath == NULL)
+		pr_err_ns("cannot found libmcount.so\n");
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
-		size_t len = strlen(buf) + strlen(old_preload) + 2;
+		size_t len = strlen(libpath) + strlen(old_preload) + 2;
 		char *preload = xmalloc(len);
 
-		snprintf(preload, len, "%s:%s", buf, old_preload);
+		snprintf(preload, len, "%s:%s", libpath, old_preload);
 		setenv("LD_PRELOAD", preload, 1);
 		free(preload);
 	}
 	else
-		setenv("LD_PRELOAD", buf, 1);
+		setenv("LD_PRELOAD", libpath, 1);
 }
 
 int command_live(int argc, char *argv[], struct opts *opts)

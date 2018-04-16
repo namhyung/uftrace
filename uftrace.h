@@ -276,6 +276,9 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 		       bool needs_session, bool sym_rel_addr);
 
+char * get_libmcount_path(struct opts *opts);
+void put_libmcount_path(char *libpath);
+
 #define SESSION_ID_LEN  16
 
 struct uftrace_session {
