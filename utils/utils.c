@@ -391,13 +391,14 @@ uint64_t parse_time(char *arg, int limited_digits)
 
 /**
  * strjoin - join two strings with a delimiter
- * @left:  string to join (at left)
- * @right: string to join (at right)
+ * @left:  string buffer to join (dynamic allocated, can be NULL)
+ * @right: string to join
  * @delim: delimiter inserted between the two
  *
  * This function returns a new string that concatenates @left and @right
  * with @delim.  Note that if @left is #NULL, @delim will be omitted and
- * a copy of @right will be returned.
+ * a copy of @right will be returned.  @left must be dynamically allocated
+ * buffer so that it can be passed to realloc.
  */
 char * strjoin(char *left, char *right, const char *delim)
 {
