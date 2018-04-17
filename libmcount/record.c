@@ -84,7 +84,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	shmem->buffer[0]->flag = SHMEM_FL_RECORDING | SHMEM_FL_NEW;
 }
 
-void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
+static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	struct mcount_shmem *shmem = &mtdp->shmem;
@@ -175,7 +175,7 @@ reuse:
 	}
 }
 
-void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
+static void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 {
 	char buf[64];
 
