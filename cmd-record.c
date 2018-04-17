@@ -146,9 +146,17 @@ static void setup_child_environ(struct opts *opts, int pfd)
 
 #ifdef INSTALL_LIB_PATH
 	if (!opts->lib_path) {
-		libpath = strjoin(getenv("LD_LIBRARY_PATH"), INSTALL_LIB_PATH, ":");
-		setenv("LD_LIBRARY_PATH", libpath, 1);
-		free(libpath);
+		char *envbuf = getenv("LD_LIBRARY_PATH");
+
+		if (envbuf) {
+			envbuf = xstrdup(envbuf);
+			libpath = strjoin(envbuf, INSTALL_LIB_PATH, ":");
+			setenv("LD_LIBRARY_PATH", libpath, 1);
+			free(libpath);
+		}
+		else {
+			setenv("LD_LIBRARY_PATH", INSTALL_LIB_PATH, 1);
+		}
 	}
 #endif
 
