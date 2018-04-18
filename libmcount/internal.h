@@ -219,8 +219,6 @@ extern void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 					  unsigned long frame_addr);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
-extern void get_new_shmem_buffer(struct mcount_thread_data *mtdp);
-extern void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx);
 extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void shmem_finish(struct mcount_thread_data *mtdp);
 

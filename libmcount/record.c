@@ -84,7 +84,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	shmem->buffer[0]->flag = SHMEM_FL_RECORDING | SHMEM_FL_NEW;
 }
 
-void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
+static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	char buf[128];
 	struct mcount_shmem *shmem = &mtdp->shmem;
@@ -175,7 +175,7 @@ reuse:
 	}
 }
 
-void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
+static void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 {
 	char buf[64];
 
@@ -572,12 +572,35 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 }
 #endif
 
-static int record_event(struct mcount_thread_data *mtdp,
-			struct mcount_event *event)
+static struct mcount_shmem_buffer * get_shmem_buffer(struct mcount_thread_data *mtdp,
+						     size_t size)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
+
+	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
+		if (shmem->done)
+			return NULL;
+		if (shmem->curr > -1)
+			finish_shmem_buffer(mtdp, shmem->curr);
+		get_new_shmem_buffer(mtdp);
+
+		if (shmem->curr == -1) {
+			shmem->losts++;
+			return NULL;
+		}
+
+		curr_buf = shmem->buffer[shmem->curr];
+	}
+
+	return curr_buf;
+}
+
+static int record_event(struct mcount_thread_data *mtdp,
+			struct mcount_event *event)
+{
+	struct mcount_shmem_buffer *curr_buf;
 	struct {
 		uint64_t time;
 		uint64_t data;
@@ -588,20 +611,9 @@ static int record_event(struct mcount_thread_data *mtdp,
 	if (data_size)
 		size += ALIGN(data_size + 2, 8);
 
-	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
-		if (shmem->done)
-			return 0;
-		if (shmem->curr > -1)
-			finish_shmem_buffer(mtdp, shmem->curr);
-		get_new_shmem_buffer(mtdp);
-
-		if (shmem->curr == -1) {
-			shmem->losts++;
-			return -1;
-		}
-
-		curr_buf = shmem->buffer[shmem->curr];
-	}
+	curr_buf = get_shmem_buffer(mtdp, size);
+	if (curr_buf == NULL)
+		return mtdp->shmem.done ? 0 : -1;
 
 	rec = (void *)(curr_buf->data + curr_buf->size);
 
@@ -633,9 +645,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 {
 	struct uftrace_record *frstack;
 	uint64_t timestamp = mrstack->start_time;
-	struct mcount_shmem *shmem = &mtdp->shmem;
 	struct mcount_shmem_buffer *curr_buf;
-	size_t maxsize;
 	size_t size = sizeof(*frstack);
 	void *argbuf = NULL;
 	uint64_t *buf;
@@ -684,23 +694,9 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 			size += *(unsigned *)argbuf;
 	}
 
-	maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
-	curr_buf = shmem->buffer[shmem->curr];
-
-	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
-		if (shmem->done)
-			return 0;
-		if (shmem->curr > -1)
-			finish_shmem_buffer(mtdp, shmem->curr);
-		get_new_shmem_buffer(mtdp);
-
-		if (shmem->curr == -1) {
-			shmem->losts++;
-			return -1;
-		}
-
-		curr_buf = shmem->buffer[shmem->curr];
-	}
+	curr_buf = get_shmem_buffer(mtdp, size);
+	if (curr_buf == NULL)
+		return mtdp->shmem.done ? 0 : -1;
 
 #if 0
 	frstack = (void *)(curr_buf->data + curr_buf->size);
