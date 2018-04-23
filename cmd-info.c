@@ -21,6 +21,7 @@
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
+#include "version.h"
 
 #define BUILD_ID_SIZE 20
 #define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
@@ -837,6 +838,31 @@ static int read_pattern_type(void *arg)
 	return 0;
 }
 
+static int fill_uftrace_version(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+
+	return dprintf(fha->fd, "uftrace_version:%s\n", UFTRACE_VERSION);
+}
+
+static int read_uftrace_version(void *arg)
+{
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_info *info = &handle->info;
+	char *buf = rha->buf;
+
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "uftrace_version:", 16))
+		return -1;
+
+	info->uftrace_version = copy_info_str(&buf[16]);
+
+	return 0;
+}
+
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -868,6 +894,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 		{ ARG_SPEC,	fill_arg_spec },
 		{ RECORD_DATE,	fill_record_date },
 		{ PATTERN_TYPE, fill_pattern_type },
+		{ VERSION,	fill_uftrace_version },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -910,6 +937,7 @@ int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		{ ARG_SPEC,	read_arg_spec },
 		{ RECORD_DATE,	read_record_date },
 		{ PATTERN_TYPE, read_pattern_type },
+		{ VERSION,	read_uftrace_version },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -940,6 +968,7 @@ void clear_uftrace_info(struct uftrace_info *info)
 	free(info->argspec);
 	free(info->record_date);
 	free(info->elapsed_time);
+	free(info->uftrace_version);
 }
 
 int command_info(int argc, char *argv[], struct opts *opts)
@@ -981,7 +1010,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 	pr_out("# system information\n");
 	pr_out("# ==================\n");
-	pr_out(fmt, "program version", argp_program_version);
+
+	if (handle.hdr.info_mask & (1UL << VERSION))
+		pr_out(fmt, "program version", handle.info.uftrace_version);
 
 	if (handle.hdr.info_mask & (1UL << RECORD_DATE))
 		pr_out(fmt, "recorded on", handle.info.record_date);
