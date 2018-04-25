@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <libgen.h>
 
 #include "uftrace.h"
@@ -251,7 +250,7 @@ int chown_directory(char *dirname)
 char *read_exename(void)
 {
 	int len;
-	static char exename[4096];
+	static char exename[PATH_MAX];
 
 	if (!*exename) {
 		len = readlink("/proc/self/exe", exename, sizeof(exename)-1);

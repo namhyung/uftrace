@@ -10,7 +10,6 @@
 #define UFTRACE_SYMBOL_H
 
 #include <stdint.h>
-#include <limits.h>
 #include <elf.h>
 
 #include "utils.h"

@@ -16,6 +16,7 @@
 #include <endian.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include "compiler.h"
 

@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
-#include <limits.h>
 #include <inttypes.h>
 
 #include "utils/utils.h"

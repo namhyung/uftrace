@@ -10,7 +10,6 @@
 #include <netdb.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
-#include <linux/limits.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <sys/wait.h>

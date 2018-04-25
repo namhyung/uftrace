@@ -589,7 +589,7 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 int start_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	char *trace_file;
-	char buf[4096];
+	char buf[PATH_MAX];
 	int i;
 	int saved_errno;
 
@@ -658,7 +658,7 @@ out:
 int record_kernel_trace_pipe(struct uftrace_kernel_writer *kernel,
 			     int cpu, int sock)
 {
-	char buf[4096];
+	char buf[PATH_MAX];
 	ssize_t n;
 
 	if (cpu < 0 || cpu >= kernel->nr_cpus)
@@ -808,7 +808,7 @@ static int read_file(char *filename, char *buf, size_t len)
 static int save_kernel_file(FILE *fp, const char *name)
 {
 	ssize_t len;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	snprintf(buf, sizeof(buf), "%s/%s", TRACING_DIR, name);
 
@@ -825,7 +825,7 @@ static int save_kernel_file(FILE *fp, const char *name)
 static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 {
 	int ret = -1;
-	char buf[4096];
+	char buf[PATH_MAX];
 	DIR *subsys = NULL;
 	DIR *event = NULL;
 	struct dirent *sys, *name;
@@ -947,7 +947,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 {
 	int fd;
 	size_t len;
-	char buf[4096];
+	char buf[PATH_MAX];
 	bool is_big_endian = !strcmp(get_endian_str(), "BE");
 	struct pevent *pevent = kernel->pevent;
 
@@ -987,7 +987,7 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 {
 	char *path = NULL;
 	FILE *fp;
-	char buf[4096];
+	char buf[PATH_MAX];
 	struct pevent *pevent = kernel->pevent;
 	int ret = 0;
 
@@ -1096,7 +1096,7 @@ static int scandir_filter(const struct dirent *d)
 int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 {
 	int i;
-	char buf[4096];
+	char buf[PATH_MAX];
 	enum kbuffer_endian endian = KBUFFER_ENDIAN_LITTLE;
 	enum kbuffer_long_size longsize = KBUFFER_LSIZE_8;
 	struct dirent **list;

@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <limits.h>
 #include <assert.h>
 #include <byteswap.h>
 
