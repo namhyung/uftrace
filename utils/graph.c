@@ -213,9 +213,9 @@ int graph_add_node(struct uftrace_task_graph *tg, int type, char *name)
 
 static void graph_destroy_node(struct uftrace_graph_node *node)
 {
-	struct uftrace_graph_node *child;
+	struct uftrace_graph_node *child, *tmp;
 
-	list_for_each_entry(child, &node->head, list)
+	list_for_each_entry_safe(child, tmp, &node->head, list)
 		graph_destroy_node(child);
 
 	list_del(&node->list);
