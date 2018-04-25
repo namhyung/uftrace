@@ -16,6 +16,7 @@
 #include <gelf.h>
 #include <argp.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -47,7 +48,7 @@ static char *copy_info_str(char *src)
 static int fill_exe_name(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char buf[4096];
+	char buf[PATH_MAX];
 	char *exename;
 
 	exename = realpath(fha->opts->exename, buf);
@@ -61,7 +62,7 @@ static int read_exe_name(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -171,7 +172,7 @@ static int read_exe_build_id(void *arg)
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
 	char build_id_str[BUILD_ID_STR_SIZE];
-	char buf[4096];
+	char buf[PATH_MAX];
 	int i;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
@@ -207,7 +208,7 @@ static int read_exit_status(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -222,7 +223,7 @@ static int read_exit_status(void *arg)
 static int fill_cmdline(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char buf[4096];
+	char buf[PATH_MAX];
 	FILE *fp;
 	int ret, i;
 	char *p;
@@ -258,7 +259,7 @@ static int read_cmdline(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -291,7 +292,7 @@ static int read_cpuinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 	int i, lines;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
@@ -373,7 +374,7 @@ static int read_meminfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -434,7 +435,7 @@ static int read_osinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 	int i, lines;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
@@ -597,7 +598,7 @@ static int read_usageinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 	int i, lines;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
@@ -658,7 +659,7 @@ static int read_loadinfo(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -767,7 +768,7 @@ static int read_record_date(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
 		return -1;
@@ -802,7 +803,7 @@ static int read_pattern_type(void *arg)
 {
 	struct ftrace_file_handle *handle = arg;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char buf[PATH_MAX];
 	size_t len;
 
 	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
