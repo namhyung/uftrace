@@ -618,6 +618,9 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 	else if (ehdr.e_machine == EM_386) {
 		plt_entsize += 12;
 	}
+	else if (ehdr.e_machine == EM_X86_64) {
+		plt_entsize = 16;  /* lld (of LLVM) seems to miss setting it */
+	}
 
 	prev_addr = plt_addr;
 
