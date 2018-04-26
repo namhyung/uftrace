@@ -25,12 +25,18 @@
 #define BUILD_ID_SIZE 20
 #define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
 
+struct read_handler_arg {
+	struct ftrace_file_handle *handle;
+	char buf[PATH_MAX];
+};
+
 struct fill_handler_arg {
 	int fd;
 	int exit_status;
 	struct opts *opts;
 	struct rusage *rusage;
 	char *elapsed_time;
+	char buf[PATH_MAX];
 };
 
 static char *copy_info_str(char *src)
@@ -47,10 +53,9 @@ static char *copy_info_str(char *src)
 static int fill_exe_name(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char buf[4096];
 	char *exename;
 
-	exename = realpath(fha->opts->exename, buf);
+	exename = realpath(fha->opts->exename, fha->buf);
 	if (exename == NULL)
 		exename = fha->opts->exename;
 
@@ -59,11 +64,12 @@ static int fill_exe_name(void *arg)
 
 static int read_exe_name(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "exename:", 8))
@@ -168,13 +174,14 @@ static int convert_to_int(unsigned char hex)
 
 static int read_exe_build_id(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char build_id_str[BUILD_ID_STR_SIZE];
-	char buf[4096];
+	char *buf = rha->buf;
 	int i;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "build_id:", 9))
@@ -205,11 +212,12 @@ static int fill_exit_status(void *arg)
 
 static int read_exit_status(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "exit_status:", 12))
@@ -222,7 +230,7 @@ static int read_exit_status(void *arg)
 static int fill_cmdline(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char buf[4096];
+	char *buf = fha->buf;
 	FILE *fp;
 	int ret, i;
 	char *p;
@@ -231,7 +239,7 @@ static int fill_cmdline(void *arg)
 	if (fp == NULL)
 		return -1;
 
-	ret = fread(buf, 1, sizeof(buf), fp);
+	ret = fread(buf, 1, sizeof(fha->buf), fp);
 	fclose(fp);
 
 	if (ret < 0)
@@ -256,11 +264,12 @@ static int fill_cmdline(void *arg)
 
 static int read_cmdline(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "cmdline:", 8))
@@ -289,12 +298,13 @@ static int fill_cpuinfo(void *arg)
 
 static int read_cpuinfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 	int i, lines;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "cpuinfo:", 8))
@@ -304,7 +314,7 @@ static int read_cpuinfo(void *arg)
 		return -1;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 			return -1;
 
 		if (strncmp(buf, "cpuinfo:", 8))
@@ -330,7 +340,7 @@ static int fill_meminfo(void *arg)
 	long mem_free_small;
 	char *units[] = { "KB", "MB", "GB", "TB" };
 	char *unit;
-	char buf[1024];
+	char *buf = fha->buf;
 	size_t i;
 	FILE *fp;
 
@@ -338,7 +348,7 @@ static int fill_meminfo(void *arg)
 	if (fp == NULL)
 		return -1;
 
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
+	while (fgets(buf, sizeof(fha->buf), fp) != NULL) {
 		if (!strncmp(buf, "MemTotal:", 9))
 			sscanf(&buf[10], "%ld", &mem_total);
 		else if (!strncmp(buf, "MemFree:", 8))
@@ -371,11 +381,12 @@ static int fill_meminfo(void *arg)
 
 static int read_meminfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "meminfo:", 8))
@@ -390,7 +401,7 @@ static int fill_osinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 	struct utsname uts;
-	char buf[1024];
+	char *buf = fha->buf;
 	FILE *fp;
 	int ret = -1;
 
@@ -402,7 +413,7 @@ static int fill_osinfo(void *arg)
 
 	fp = fopen("/etc/os-release", "r");
 	if (fp != NULL) {
-		while (fgets(buf, sizeof(buf), fp) != NULL) {
+		while (fgets(buf, sizeof(fha->buf), fp) != NULL) {
 			if (!strncmp(buf, "PRETTY_NAME=", 12)) {
 				dprintf(fha->fd, "osinfo:distro=%s", &buf[12]);
 				ret = 0;
@@ -415,7 +426,7 @@ static int fill_osinfo(void *arg)
 
 	fp = fopen("/etc/lsb-release", "r");
 	if (fp != NULL) {
-		while (fgets(buf, sizeof(buf), fp) != NULL) {
+		while (fgets(buf, sizeof(fha->buf), fp) != NULL) {
 			if (!strncmp(buf, "DISTRIB_DESCRIPTION=", 20)) {
 				dprintf(fha->fd, "osinfo:distro=%s", &buf[20]);
 				ret = 0;
@@ -432,12 +443,13 @@ static int fill_osinfo(void *arg)
 
 static int read_osinfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 	int i, lines;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "osinfo:", 7))
@@ -447,7 +459,7 @@ static int read_osinfo(void *arg)
 		return -1;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 			return -1;
 
 		if (strncmp(buf, "osinfo:", 7))
@@ -516,7 +528,8 @@ static int fill_taskinfo(void *arg)
 
 static int read_taskinfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	int i, lines;
 	int ret = -1;
@@ -595,12 +608,13 @@ static int fill_usageinfo(void *arg)
 
 static int read_usageinfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 	int i, lines;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "usageinfo:", 10))
@@ -610,7 +624,7 @@ static int read_usageinfo(void *arg)
 		return -1;
 
 	for (i = 0; i < lines; i++) {
-		if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+		if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 			return -1;
 
 		if (strncmp(buf, "usageinfo:", 10))
@@ -656,11 +670,12 @@ static int fill_loadinfo(void *arg)
 
 static int read_loadinfo(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "loadinfo:", 9))
@@ -703,7 +718,8 @@ static int fill_arg_spec(void *arg)
 
 static int read_arg_spec(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	int i, lines;
 	int ret = -1;
@@ -765,11 +781,12 @@ static int fill_record_date(void *arg)
 
 static int read_record_date(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "record_date:", 12))
@@ -777,7 +794,7 @@ static int read_record_date(void *arg)
 
 	info->record_date = copy_info_str(&buf[12]);
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "elapsed_time:", 13))
@@ -800,12 +817,13 @@ static int fill_pattern_type(void *arg)
 
 static int read_pattern_type(void *arg)
 {
-	struct ftrace_file_handle *handle = arg;
+	struct read_handler_arg *rha = arg;
+	struct ftrace_file_handle *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	char buf[4096];
+	char *buf = rha->buf;
 	size_t len;
 
-	if (fgets(buf, sizeof(buf), handle->fp) == NULL)
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
 
 	if (strncmp(buf, "pattern_type:", 13))
@@ -875,6 +893,9 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 {
 	size_t i;
+	struct read_handler_arg arg = {
+		.handle = handle,
+	};
 	struct uftrace_info_handler read_handlers[] = {
 		{ EXE_NAME,	read_exe_name },
 		{ EXE_BUILD_ID,	read_exe_build_id },
@@ -897,7 +918,7 @@ int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
 		if (!(info_mask & (1UL << read_handlers[i].bit)))
 			continue;
 
-		if (read_handlers[i].handler(handle) < 0) {
+		if (read_handlers[i].handler(&arg) < 0) {
 			pr_dbg("error during read uftrace info (%x)\n",
 			       (1U << read_handlers[i].bit));
 			return -1;

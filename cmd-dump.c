@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <time.h>
 #include <assert.h>
 #include <sys/stat.h>

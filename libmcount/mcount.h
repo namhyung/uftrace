@@ -12,7 +12,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include <limits.h>
 
 #define UFTRACE_DIR_NAME   "uftrace.data"
 

@@ -89,7 +89,7 @@ static char *build_debug_domain_string(void)
 
 char * get_libmcount_path(struct opts *opts)
 {
-	char *libmcount, *lib = xmalloc(4096);
+	char *libmcount, *lib = xmalloc(PATH_MAX);
 	bool must_use_multi_thread = check_libpthread(opts->exename);
 
 	if (opts->nop) {
@@ -111,13 +111,13 @@ char * get_libmcount_path(struct opts *opts)
 	}
 
 	if (opts->lib_path) {
-		snprintf(lib, 4096, "%s/libmcount/%s", opts->lib_path, libmcount);
+		snprintf(lib, PATH_MAX, "%s/libmcount/%s", opts->lib_path, libmcount);
 
 		if (access(lib, F_OK) == 0) {
 			return lib;
 		}
 		else if (errno == ENOENT) {
-			snprintf(lib, 4096, "%s/%s", opts->lib_path, libmcount);
+			snprintf(lib, PATH_MAX, "%s/%s", opts->lib_path, libmcount);
 			if (access(lib, F_OK) == 0)
 				return lib;
 		}
@@ -126,7 +126,7 @@ char * get_libmcount_path(struct opts *opts)
 	}
 
 #ifdef INSTALL_LIB_PATH
-	snprintf(lib, 4096, "%s/%s", INSTALL_LIB_PATH, libmcount);
+	snprintf(lib, PATH_MAX, "%s/%s", INSTALL_LIB_PATH, libmcount);
 	if (access(lib, F_OK) != 0 && errno == ENOENT)
 		pr_warn("Didn't you run 'make install' ?\n");
 #endif
@@ -141,7 +141,7 @@ void put_libmcount_path(char *libpath)
 
 static void setup_child_environ(struct opts *opts, int pfd)
 {
-	char buf[4096];
+	char buf[PATH_MAX];
 	char *old_preload, *libpath;
 
 #ifdef INSTALL_LIB_PATH
@@ -959,7 +959,7 @@ static bool check_tid_list(void)
 	list_for_each_entry(tl, &tid_list_head, list) {
 		int fd, len;
 		char state;
-		char line[4096];
+		char line[PATH_MAX];
 
 		if (tl->exited || tl->tid < 0)
 			continue;
@@ -1582,7 +1582,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 
 		if (!opts->kernel_bufsize) {
 			if (opts->kernel_depth >= 8)
-				kernel->bufsize = 4096 * 1024;
+				kernel->bufsize = PATH_MAX * 1024;
 			else if (opts->kernel_depth >= 4)
 				kernel->bufsize = 3072 * 1024;
 			else if (opts->kernel_depth >= 2)

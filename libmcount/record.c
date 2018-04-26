@@ -848,7 +848,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		      struct symtabs *symtabs)
 {
 	FILE *ifp, *ofp;
-	char buf[4096];
+	char buf[PATH_MAX];
 	struct uftrace_mmap *prev_map = NULL;
 	char *last_libname = NULL;
 

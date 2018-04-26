@@ -1530,7 +1530,7 @@ void save_module_symtabs(struct symtabs *symtabs)
 int save_kernel_symbol(char *dirname)
 {
 	char *symfile = NULL;
-	char buf[4096];
+	char buf[PATH_MAX];
 	FILE *ifp, *ofp;
 	ssize_t len;
 	int ret = 0;
@@ -1862,7 +1862,7 @@ static uint64_t get_kernel_base(char *str)
 void set_kernel_base(struct symtabs *symtabs, const char *session_id)
 {
 	FILE *fp;
-	char buf[4096];
+	char buf[PATH_MAX];
 	char line[200];
 	uint64_t kernel_base_addr = -1ULL;
 
