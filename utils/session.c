@@ -49,11 +49,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			   &start, &end, prot, path) != 4)
 			continue;
 
-		/* skip non-executable mappings */
-		if (prot[2] != 'x')
-			continue;
-
-		/* use first mapping only */
+		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path))
 			continue;
 
