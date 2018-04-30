@@ -132,10 +132,19 @@ static void restore_plt_functions(struct plthook_data *pd)
 			resolved_addr = (unsigned long)dlsym(RTLD_DEFAULT, sym->name);
 			plthook_addr = mcount_arch_plthook_addr(pd, i);
 
+			/* On ARM dlsym(DEFAULT) returns the address of PLT */
+			if (unlikely(pd->base_addr <= resolved_addr &&
+				     resolved_addr < sym->addr + sym->size)) {
+				void *real_addr = dlsym(RTLD_NEXT, sym->name);
+
+				if (real_addr)
+					resolved_addr = (unsigned long)real_addr;
+			}
+
 			pd->resolved_addr[i] = resolved_addr;
 			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
-			pr_dbg2("resolve [%u] %s: %p\n",
-				i, resolve_list[k], resolved_addr);
+			pr_dbg2("resolve [%u] %s: %p (PLT: %#lx)\n",
+				i, resolve_list[k], resolved_addr, plthook_addr);
 
 			skipped = true;
 		}
@@ -149,8 +158,8 @@ static void restore_plt_functions(struct plthook_data *pd)
 			/* save already resolved address and hook it */
 			pd->resolved_addr[i] = resolved_addr;
 			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
-			pr_dbg2("restore [%u] %s: %p\n",
-				i, dsymtab->sym[i].name, resolved_addr);
+			pr_dbg2("restore [%u] %s: %p (PLT: %#lx)\n",
+				i, dsymtab->sym[i].name, resolved_addr, plthook_addr);
 		}
 	}
 }
