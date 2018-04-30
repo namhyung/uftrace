@@ -504,10 +504,8 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	/* type of return value cannot be FLOAT, so check format instead */
 #ifdef HAVE_ARM_HARDFP
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
-		if (spec->size <= 4)
-			asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
-		else
-			asm volatile ("vstr %%d0, %0\n" : "=m" (ctx->val.v));
+		/* d0 register (64 bit) was saved below the r0 */
+		memcpy(ctx->val.v, ctx->retval - 2, spec->size);
 	}
 	else
 #endif /* HAVE_ARM_HARDFP */

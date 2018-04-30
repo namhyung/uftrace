@@ -54,12 +54,18 @@ END(plt_hooker)
 
 
 ENTRY(plthook_return)
-	push {r0-r3,lr,pc}
-
-	/* set the first argument of plthook_exit as a pointer return values */
+	push {r0-r1, lr, pc}  /* ensure 8-byte alignment */
 	mov r0, sp
+#ifdef HAVE_ARM_HARDFP
+	vpush {d0}
+#endif
 
 	bl plthook_exit
-	str r0, [sp, #20]
-	pop {r0-r3,lr,pc}
+
+#ifdef HAVE_ARM_HARDFP
+	vpop {d0}
+#endif
+	/* update return address (pc) in the stack */
+	str r0, [sp, #12]
+	pop {r0-r1, lr, pc}
 END(plthook_return)

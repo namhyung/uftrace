@@ -53,24 +53,25 @@ __xray_entry:
 .type __xray_exit, @function
 __xray_exit:
 	.cfi_startproc
-	sub $24, %rsp
-	.cfi_def_cfa_offset 24
+	sub $40, %rsp  /* return address already consume 8 byte */
+	.cfi_def_cfa_offset 40
 
-	movq %rdx, 8(%rsp)
-	.cfi_offset rdx, -16
-	movq %rax, 0(%rsp)
-	.cfi_offset rax, -24
+	/* save original return values */
+	movdqu %xmm0, 16(%rsp)
+	movq   %rdx,   8(%rsp)
+	movq   %rax,   0(%rsp)
 
 	/* set the first argument of mcount_exit as pointer to return values */
 	movq %rsp, %rdi
 
 	call xray_exit
 
-	movq 0(%rsp), %rax
-	movq 8(%rsp), %rdx
+	/* restore return values */
+	movq    0(%rsp), %rax
+	movq    8(%rsp), %rdx
+	movdqu 16(%rsp), %xmm0
 
-	add $24, %rsp
-	.cfi_def_cfa_offset 24
+	add $40, %rsp
 
 	retq
 	.cfi_endproc

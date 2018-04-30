@@ -83,26 +83,26 @@ END(__fentry__)
 
 ENTRY(fentry_return)
 	.cfi_startproc
-	sub  $32, %rsp
-	.cfi_def_cfa_offset 32
+	sub  $48, %rsp  /* ensure 16-byte alignment */
+	.cfi_def_cfa_offset 48
 
-	movq %rdx, 8(%rsp)
-	.cfi_offset rdx, -24
-	movq %rax, 0(%rsp)
-	.cfi_offset rax, -32
+	movdqu %xmm0, 16(%rsp)
+	movq   %rdx, 8(%rsp)
+	movq   %rax, 0(%rsp)
 
 	/* set the first argument of mcount_exit as pointer to return values */
 	movq %rsp, %rdi
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 24(%rsp)
+	movq %rax, 40(%rsp)
 
-	movq 0(%rsp), %rax
-	movq 8(%rsp), %rdx
+	movq   0(%rsp), %rax
+	movq   8(%rsp), %rdx
+	movdqu 16(%rsp), %xmm0
 
-	add  $24, %rsp
-	.cfi_def_cfa_offset 24
+	add  $40, %rsp
+	.cfi_def_cfa_offset 40
 
 	retq
 	.cfi_endproc
