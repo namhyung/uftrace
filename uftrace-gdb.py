@@ -24,3 +24,4 @@ except:
 else:
     import uftrace.utils
     import uftrace.lists
+    import uftrace.plthook
