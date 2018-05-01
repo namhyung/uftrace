@@ -67,12 +67,14 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 #
 UFTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
 DEMANGLER_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_demangler)
+SYMBOLS_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_symbols)
 TRACEEVENT_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 
 UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
+SYMBOLS_LDFLAGS = $(COMMON_CFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 
 ifeq ($(DEBUG), 1)
@@ -106,7 +108,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler
+_TARGETS += misc/demangler misc/symbols
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -114,6 +116,11 @@ UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
 DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c $(srcdir)/utils/debug.c
 DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
+
+SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/symbol.c $(srcdir)/utils/session.c
+SYMBOLS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/rbtree.c
+SYMBOLS_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
+SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -145,6 +152,7 @@ CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
+LDFLAGS_symbols = -lstdc++ -lelf
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
 LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD
@@ -216,6 +224,9 @@ $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(DEMANGLER_CFLAGS) -c -o $@ $<
 
+$(objdir)/misc/symbols.o: $(srcdir)/misc/symbols.c $(objdir)/version.h $(COMMON_DEPS)
+	$(QUIET_CC)$(CC) $(SYMBOLS_CFLAGS) -c -o $@ $<
+
 $(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
@@ -230,6 +241,9 @@ $(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/
 
 $(objdir)/misc/demangler: $(DEMANGLER_OBJS)
 	$(QUIET_LINK)$(CC) $(DEMANGLER_CFLAGS) -o $@ $(DEMANGLER_OBJS) $(DEMANGLER_LDFLAGS)
+
+$(objdir)/misc/symbols: $(SYMBOLS_OBJS)
+	$(QUIET_LINK)$(CC) $(SYMBOLS_CFLAGS) -o $@ $(SYMBOLS_OBJS) $(SYMBOLS_LDFLAGS)
 
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)

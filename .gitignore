@@ -36,3 +36,4 @@ cscope.*
 *.patch
 *.orig
 misc/demangler
+misc/symbols
