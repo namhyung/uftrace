@@ -11,6 +11,7 @@
 #include <stdio_ext.h>
 
 #include "uftrace.h"
+#include "version.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -129,6 +130,10 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct ftrace_file_handle handle;
 	struct ftrace_task_handle *task;
+	struct script_info info = {
+		.name           = opts->script_file,
+		.version        = UFTRACE_VERSION,
+	};
 
 	if (!SCRIPT_ENABLED) {
 		pr_warn("script command is not supported due to missing libpython2.7.so\n");
@@ -168,23 +173,15 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
+	strv_copy(&info.args, argc, argv);
+
 	/* initialize script */
-	if (script_init(opts->script_file, opts->patt_type) < 0)
+	if (script_init(&info, opts->patt_type) < 0)
 		return -1;
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
-		struct uftrace_record *rstack = task->rstack;
-
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_record(task, rstack))
+		if (!fstack_check_opts(task, opts))
 			continue;
-
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (!task->user_stack_count &&
-			    is_kernel_record(task, rstack))
-				continue;
-		}
 
 		ret = run_script_for_rstack(&handle, task, opts);
 

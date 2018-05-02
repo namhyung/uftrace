@@ -143,7 +143,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 			setup_child_environ(opts);
 			setenv("UFTRACE_LIST_EVENT", "1", 1);
 
-			execv(opts->exename, &argv[opts->idx]);
+			execv(opts->exename, argv);
 			abort();
 		}
 		return 0;

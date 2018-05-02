@@ -489,24 +489,13 @@ static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_record(task, frs))
+		if (!fstack_check_opts(task, opts))
 			continue;
-
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (!task->user_stack_count &&
-			    is_kernel_record(task, frs))
-				continue;
-		}
 
 		if (!fstack_check_filter(task))
 			continue;
 
 		if (frs->type == UFTRACE_EVENT) {
-			if (!task->user_stack_count && opts->event_skip_out)
-				continue;
-
 			if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
 			    frs->addr != EVENT_ID_PERF_SCHED_OUT)
 				continue;
@@ -662,8 +651,8 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	if (opts->idx)
-		func = argv[opts->idx];
+	if (argc > 0)
+		func = argv[0];
 	else {
 		func = "_start";
 		full_graph = true;

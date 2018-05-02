@@ -1010,6 +1010,12 @@ int main(int argc, char *argv[])
 	if (opts.use_pager)
 		start_pager();
 
+	if (opts.idx == 0)
+		opts.idx = argc;
+
+	argc -= opts.idx;
+	argv += opts.idx;
+
 	switch (opts.mode) {
 	case UFTRACE_MODE_RECORD:
 		ret = command_record(argc, argv, &opts);

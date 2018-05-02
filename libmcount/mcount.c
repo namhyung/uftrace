@@ -24,6 +24,7 @@
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "version.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
@@ -1186,6 +1187,25 @@ static void atfork_child_handler(void)
 	mcount_unguard_recursion(mtdp);
 }
 
+static void mcount_script_init(enum uftrace_pattern_type patt_type)
+{
+	struct script_info info = {
+		.name           = script_str,
+		.version        = UFTRACE_VERSION,
+		.recording      = true,
+	};
+	char *args_str;
+
+	args_str = getenv("UFTRACE_ARGS");
+	if (args_str)
+		strv_split(&info.args, args_str, "\n");
+
+	if (script_init(&info, patt_type) < 0)
+		script_str = NULL;
+
+	strv_free(&info.args);
+}
+
 static void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1319,8 +1339,7 @@ static void mcount_startup(void)
 
 	/* initialize script binding */
 	if (SCRIPT_ENABLED && script_str)
-		if (script_init(script_str, patt_type) < 0)
-			script_str = NULL;
+		mcount_script_init(patt_type);
 
 	compiler_barrier();
 	pr_dbg("mcount setup done\n");

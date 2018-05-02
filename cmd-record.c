@@ -139,7 +139,8 @@ void put_libmcount_path(char *libpath)
 	free(libpath);
 }
 
-static void setup_child_environ(struct opts *opts, int pfd)
+static void setup_child_environ(struct opts *opts, int pfd,
+				int argc, char *argv[])
 {
 	char buf[PATH_MAX];
 	char *old_preload, *libpath;
@@ -288,11 +289,22 @@ static void setup_child_environ(struct opts *opts, int pfd)
 	if (opts->patt_type != PATT_REGEX)
 		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
+	if (argc > 0) {
+		char *args = NULL;
+		int i;
+
+		for (i = 0; i < argc; i++)
+			args = strjoin(args, argv[i], "\n");
+
+		setenv("UFTRACE_ARGS", args, 1);
+		free(args);
+	}
+
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
 		pr_err_ns("cannot found libmcount.so\n");
 
-	pr_dbg("using %s library for tracing\n", buf);
+	pr_dbg("using %s library for tracing\n", libpath);
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {
@@ -1853,13 +1865,14 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 	return ret;
 }
 
-int do_child_exec(int pfd[2], int ready, struct opts *opts, char *argv[])
+int do_child_exec(int pfd[2], int ready, struct opts *opts,
+		  int argc, char *argv[])
 {
 	uint64_t dummy;
 
 	close(pfd[0]);
 
-	setup_child_environ(opts, pfd[1]);
+	setup_child_environ(opts, pfd[1], argc, argv);
 
 	/* wait for parent ready */
 	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
@@ -1869,7 +1882,7 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts, char *argv[])
 	 * I don't think the traced binary is in PATH.
 	 * So use plain 'execv' rather than 'execvp'.
 	 */
-	execv(opts->exename, &argv[opts->idx]);
+	execv(opts->exename, argv);
 	abort();
 }
 
@@ -1909,12 +1922,12 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		if (opts->keep_pid)
 			ret = do_main_loop(pfd, efd, opts, getppid());
 		else
-			do_child_exec(pfd, efd, opts, argv);
+			do_child_exec(pfd, efd, opts, argc, argv);
 		return ret;
 	}
 
 	if (opts->keep_pid)
-		do_child_exec(pfd, efd, opts, argv);
+		do_child_exec(pfd, efd, opts, argc, argv);
 	else
 		ret = do_main_loop(pfd, efd, opts, pid);
 	return ret;

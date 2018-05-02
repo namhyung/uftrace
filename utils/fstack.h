@@ -140,6 +140,8 @@ struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth, bool event_skip_out);
 bool fstack_check_filter(struct ftrace_task_handle *task);
+bool fstack_check_opts(struct ftrace_task_handle *task, struct opts *opts);
+
 void get_argspec_string(struct ftrace_task_handle *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode);
