@@ -30,3 +30,8 @@ endif
 ifneq ($(wildcard $(srcdir)/check-deps/arm_has_hardfp),)
   COMMON_CFLAGS += -DHAVE_ARM_HARDFP
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_libncurses),)
+  COMMON_CFLAGS += -DHAVE_LIBNCURSES $(shell pkg-config --cflags ncursesw)
+  UFTRACE_LDFLAGS += $(shell pkg-config --libs ncursesw)
+endif

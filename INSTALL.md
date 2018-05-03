@@ -7,6 +7,7 @@ source.
     $ sudo apt-get install libelf-dev           # mandatory
     $ sudo apt-get install pandoc               # for man pages (optional)
     $ sudo apt-get install libpython2.7-dev     # for python scripting (optional)
+    $ sudo apt-get install libncursesw5-dev     # for TUI (optional)
     $ make
     $ sudo make install
 
@@ -36,7 +37,8 @@ On redhat based systems (like Fedora, RHEL), it'll be `elfutils-libelf-devel`.
     $ sudo dnf install elfutils-libelf-devel
 
 It also uses libstdc++ library to demangle C++ symbols in full detail.
-But it's not mandatory as uftrace has its own demangler for shorter symbol
+And ncursesw library to implement text user interface (TUI) on console.
+But they're not mandatory as uftrace has its own demangler for shorter symbol
 name (it omits arguments, templates and so on).
 
 Also it needs `pandoc` to build man pages from the markdown document.

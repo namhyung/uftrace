@@ -454,8 +454,10 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
 	name = symbol_getname(sym, addr);
 
-	if (tg->enabled)
-		graph_add_node(&tg->utg, type, name);
+	if (tg->enabled) {
+		graph_add_node(&tg->utg, type, name,
+			       sizeof(struct uftrace_graph_node));
+	}
 
 	/* cannot find a session for this record */
 	if (tg->utg.graph == NULL)
