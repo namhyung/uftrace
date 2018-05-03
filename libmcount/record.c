@@ -874,11 +874,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 			   &start, &end, prot, path) != 4)
 			goto next;
 
-		/* skip non-executable mappings */
-		if (prot[2] != 'x')
-			goto next;
-
-		/* use first mapping only */
+		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path))
 			continue;
 
