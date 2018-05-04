@@ -1910,9 +1910,11 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 
 #else /* !HAVE_LIBNCURSES */
 
-int comamnd_tui(int argc, char *argv[], struct opts *opts)
+#include "utils/utils.h"
+
+int command_tui(int argc, char *argv[], struct opts *opts)
 {
-	pr_warn("TUI is not implemented (libncurses.so is missing)");
+	pr_warn("TUI is not implemented (libncursesw.so is missing)");
 	return 0;
 }
 
