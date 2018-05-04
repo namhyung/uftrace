@@ -373,8 +373,11 @@ class TestBase:
                 f = open('result', 'w')
                 f.write(result_tested + '\n')
                 f.close()
-                p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 print("%s: diff result of %s" % (name, cflags))
+                try:
+                    p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
+                except:
+                    p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 print(p.communicate()[0].decode(errors='ignore'))
                 os.remove('expect')
                 os.remove('result')
