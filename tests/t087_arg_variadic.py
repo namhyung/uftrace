@@ -25,14 +25,9 @@ class TestCase(TestBase):
     def runcmd(self):
         argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg1" '
         argopt += '-A "vsnprintf@arg2,arg3/s" '
-        argopt += '-A "__vsnprintf_chk@arg2,arg5/s"'
 
         import platform
         if platform.machine().startswith('i686'):
             argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg9" '
             argopt += '-A "vsnprintf@arg2,arg3/s" '
-            argopt += '-A "__vsnprintf_chk@arg2,arg5/s"'
         return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
-
-    def fixup(self, cflags, result):
-        return result.replace('vsnprintf', "__vsnprintf_chk")

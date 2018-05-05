@@ -20,8 +20,5 @@ class TestCase(TestBase):
         return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
-        return '%s -A printf@arg1/s,arg2/s -A __printf_chk@arg2/s,arg3/s %s %s' % \
+        return '%s -A printf@arg1/s,arg2/s %s %s' % \
             (TestBase.uftrace_cmd, 't-' + self.name, "0123456789" * 10)
-
-    def fixup(self, cflags, result):
-        return result.replace('printf', '__printf_chk')
