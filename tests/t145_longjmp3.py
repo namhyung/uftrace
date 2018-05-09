@@ -13,30 +13,24 @@ class TestCase(TestBase):
    1.823 us [ 4107] |   getpid();
    0.182 us [ 4107] |   _setjmp() = 0;
             [ 4107] |   foo() {
-            [ 4107] |     __longjmp_chk(1) {
+            [ 4107] |     longjmp(1) {
    8.790 us [ 4107] |   } = 1; /* _setjmp */
    0.540 us [ 4107] |   getpid();
             [ 4107] |   bar() {
             [ 4107] |     baz() {
-            [ 4107] |       __longjmp_chk(2) {
+            [ 4107] |       longjmp(2) {
    1.282 us [ 4107] |   } = 2; /* _setjmp */
    0.540 us [ 4107] |   getpid();
             [ 4107] |   foo() {
-            [ 4107] |     __longjmp_chk(3) {
+            [ 4107] |     longjmp(3) {
    0.578 us [ 4107] |   } = 3; /* _setjmp */
             [ 4107] |   bar() {
             [ 4107] |     baz() {
-            [ 4107] |       __longjmp_chk(4) {
+            [ 4107] |       longjmp(4) {
    0.642 us [ 4107] |   } = 4; /* _setjmp */
   18.019 us [ 4107] | } /* main */
 """)
 
-    def build(self, name, cflags='', ldflags=''):
-        return TestBase.build(self, name, cflags + ' -D_FORTIFY_SOURCE=2', ldflags)
-
     def runcmd(self):
         args = '-A .?longjmp@arg2 -R .?setjmp@retval'
         return '%s %s %s' % (TestBase.uftrace_cmd, args, 't-' + self.name)
-
-    def fixup(self, cflags, result):
-        return result.replace('__longjmp_chk', "longjmp")

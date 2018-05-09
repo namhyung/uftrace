@@ -16,10 +16,12 @@ void *thread_main(void *arg)
 
 int main(void)
 {
-	for (int i = 0; i < NUM_THREAD; i++)
+	int i;
+
+	for (i = 0; i < NUM_THREAD; i++)
 		pthread_create(&threads[i], NULL, &thread_main, NULL);
 
-	for (int i = 0; i < NUM_THREAD; i++)
+	for (i = 0; i < NUM_THREAD; i++)
 		pthread_join(threads[i], NULL);
 
 	return 0;

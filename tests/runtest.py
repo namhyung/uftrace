@@ -23,7 +23,8 @@ class TestBase:
     objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
     uftrace_cmd = objdir + '/uftrace --no-pager -L' + objdir
 
-    default_cflags = ['-fno-inline', '-fno-builtin', '-fno-omit-frame-pointer']
+    default_cflags = ['-fno-inline', '-fno-builtin',
+                      '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task'):
         self.name = name
@@ -373,8 +374,11 @@ class TestBase:
                 f = open('result', 'w')
                 f.write(result_tested + '\n')
                 f.close()
-                p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 print("%s: diff result of %s" % (name, cflags))
+                try:
+                    p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
+                except:
+                    p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 print(p.communicate()[0].decode(errors='ignore'))
                 os.remove('expect')
                 os.remove('result')
