@@ -111,6 +111,9 @@ OPTIONS
 --match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
 
+--no-randomize-addr
+:   Disable ASLR (Address Space Layout Randomization).  It makes the target process fix its address space layout.
+
 
 FILTERS
 =======
