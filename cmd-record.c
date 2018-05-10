@@ -17,6 +17,7 @@
 #include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
+#include <sys/personality.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -1869,6 +1870,12 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts,
 		  int argc, char *argv[])
 {
 	uint64_t dummy;
+
+	if (opts->no_randomize_addr) {
+		/* disable ASLR (Address Space Layout Randomization) */
+		if (personality(ADDR_NO_RANDOMIZE) < 0)
+			pr_dbg("disabling ASLR failed\n");
+	}
 
 	close(pfd[0]);
 

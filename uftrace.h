@@ -246,6 +246,7 @@ struct opts {
 	bool record;
 	bool auto_args;
 	bool libname;
+	bool no_randomize_addr;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
