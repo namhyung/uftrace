@@ -1910,6 +1910,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 
 #else /* !HAVE_LIBNCURSES */
 
+#include "uftrace.h"
 #include "utils/utils.h"
 
 int command_tui(int argc, char *argv[], struct opts *opts)
