@@ -1,5 +1,7 @@
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/uio.h>
 
 /* This should be defined before #include "utils.h" */
@@ -61,13 +63,18 @@ const char *mcount_session_name(void)
 
 	if (!session_id) {
 		fd = open("/dev/urandom", O_RDONLY);
-		if (fd < 0)
-			pr_err("cannot open urandom file");
+		if (fd >= 0) {
+			if (read(fd, &session_id, sizeof(session_id)) != 8)
+				pr_err("reading from urandom");
 
-		if (read(fd, &session_id, sizeof(session_id)) != 8)
-			pr_err("reading from urandom");
-
-		close(fd);
+			close(fd);
+		}
+		else {
+			srandom(time(NULL));
+			session_id = random();
+			session_id <<= 32;
+			session_id |= random();
+		}
 
 		snprintf(session, sizeof(session), "%0*"PRIx64,
 			 SESSION_ID_LEN, session_id);
