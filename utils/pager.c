@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 
 static int pager_pid;
 static int pager_fd;
@@ -28,10 +29,24 @@ static int start_command(const char *argv[])
 	}
 
 	if (!pager_pid) {
+		fd_set in_set;
+		fd_set ex_set;
+
 		/* child process */
-		dup2(fds[0], 0);
+		dup2(fds[0], STDIN_FILENO);
 		close(fds[0]);
 		close(fds[1]);
+
+		FD_ZERO(&in_set);
+		FD_ZERO(&ex_set);
+		FD_SET(STDIN_FILENO, &in_set);
+		FD_SET(STDIN_FILENO, &ex_set);
+
+		/*
+		 * Work around bug in "less" by not starting it
+		 * until we have real input
+		 */
+		select(1, &in_set, NULL, &ex_set, NULL);
 
 		setenv("LESS", "FRSX", 0);
 
@@ -83,9 +98,9 @@ void start_pager(void)
 		return;
 
 	/* original process continues, but writes to the pipe */
-	dup2(pager_fd, 1);
-	if (isatty(2))
-		dup2(pager_fd, 2);
+	dup2(pager_fd, STDOUT_FILENO);
+	if (isatty(STDERR_FILENO))
+		dup2(pager_fd, STDERR_FILENO);
 	close(pager_fd);
 
 	atexit(wait_for_pager);
