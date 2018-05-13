@@ -1417,13 +1417,26 @@ void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 UFTRACE_ALIAS(__cyg_profile_func_exit);
 
 #ifndef UNIT_TEST
+
+__weak void pre_startup()
+{
+	// do something pre "mcount_startup" here.
+}
+
+__weak void post_startup()
+{
+	// do something post "mcount_startup" here.
+}
+
 /*
  * Initializer and Finalizer
  */
 static void __attribute__((constructor))
 mcount_init(void)
 {
+	pre_startup();
 	mcount_startup();
+	post_startup();
 }
 
 static void __attribute__((destructor))
