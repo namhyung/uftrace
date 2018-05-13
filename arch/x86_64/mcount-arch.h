@@ -1,8 +1,22 @@
 #ifndef MCOUNT_ARCH_H
 #define MCOUNT_ARCH_H
 
-#include "utils/arch.h"
+#include <sys/user.h>
+#include <stdbool.h>
 #include "utils/list.h"
+
+#define ARCH_REGS	struct user_regs_struct
+#define ARCH_PC_TYPE	typeof(((ARCH_REGS *)0)->rip)
+
+inline ARCH_PC_TYPE get_pc(ARCH_REGS regs)
+{
+	return regs.rip;
+}
+
+inline void set_pc(ARCH_REGS *regs, ARCH_PC_TYPE pc)
+{
+	regs->rip = pc;
+}
 
 #define mcount_regs  mcount_regs
 
@@ -37,7 +51,7 @@ struct mcount_arch_context {
 #define ARCH_CAN_RESTORE_PLTHOOK   1
 
 struct plthook_arch_context {
-	bool	has_plt_sec;
+	bool    has_plt_sec;
 };
 
 struct mcount_disasm_engine;

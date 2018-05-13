@@ -1,6 +1,20 @@
 #ifndef MCOUNT_ARCH_H
 #define MCOUNT_ARCH_H
 
+#include <sys/user.h>
+#define ARCH_REGS       struct user_regs
+#define ARCH_PC_TYPE    typeof(((ARCH_REGS *)0)->uregs[0])
+
+inline ARCH_PC_TYPE get_pc(ARCH_REGS regs)
+{
+	return regs.uregs[15];
+}
+
+inline void set_pc(ARCH_REGS *regs, ARCH_PC_TYPE pc)
+{
+	regs->uregs[15] = pc;
+}
+
 #define mcount_regs  mcount_regs
 
 struct mcount_regs {
