@@ -8,6 +8,7 @@ include $(srcdir)/Makefile.include
 ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 ARCH_MCOUNT_SRC = $(wildcard $(sdir)/mcount-*.c) $(sdir)/regs.c $(sdir)/symbol.c
 ARCH_UFTRACE_SRC = $(sdir)/cpuinfo.c $(sdir)/regs.c $(sdir)/symbol.c
+ARCH_UFTRACE_SRC += $(sdir)/inject.c
 
 ARCH_MCOUNT_OBJS  = $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
 ARCH_MCOUNT_OBJS += $(patsubst $(sdir)/%.c,$(odir)/%.op,$(ARCH_MCOUNT_SRC))
