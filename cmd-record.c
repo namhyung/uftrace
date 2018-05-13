@@ -71,7 +71,7 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	return true;
 }
 
-static char *build_debug_domain_string(void)
+char *build_debug_domain_string(void)
 {
 	int i, d;
 	static char domain[2*DBG_DOMAIN_MAX + 1];
@@ -1510,8 +1510,8 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_schedule_event(char *events,
-				       enum uftrace_pattern_type ptype)
+bool check_linux_schedule_event(char *events,
+		enum uftrace_pattern_type ptype)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
