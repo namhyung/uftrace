@@ -27,3 +27,4 @@ else:
     import uftrace.plthook
     import uftrace.mcount
     import uftrace.rbtree
+    import uftrace.trigger
