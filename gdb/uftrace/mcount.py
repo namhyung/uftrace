@@ -14,6 +14,11 @@
 import gdb
 import os
 from uftrace import utils
+from uftrace import rbtree
+from uftrace import trigger
+
+
+filter_type = utils.CachedType("struct uftrace_filter")
 
 
 def get_symbol_name(addr):
@@ -61,3 +66,68 @@ class UftMcountData(gdb.Command):
 
 
 UftMcountData()
+
+
+class UftMcountFilter(gdb.Command):
+    """List mcount filters."""
+
+    def __init__(self):
+        super(UftMcountFilter, self).__init__("uft-mcount-filters", gdb.COMMAND_DATA)
+
+    def invoke(self, arg, from_tty):
+        tr = utils.gdb_eval_or_none("mcount_triggers")
+        if tr is None:
+            gdb.write("no filter/trigger found\n")
+            return
+
+        filter_ptr_type = filter_type.get_type().pointer()
+
+        trigger.filter_print(None)
+        for filt in rbtree.rb_for_each_entry(tr, filter_ptr_type, "node"):
+            trigger.filter_print(filt)
+
+UftMcountFilter()
+
+
+class UftMcountTrigger(gdb.Command):
+    """List mcount triggers."""
+
+    def __init__(self):
+        super(UftMcountTrigger, self).__init__("uft-mcount-triggers", gdb.COMMAND_DATA)
+
+    def invoke(self, arg, from_tty):
+        tr = utils.gdb_eval_or_none("mcount_triggers")
+        if tr is None:
+            gdb.write("no filter/trigger found\n")
+            return
+
+        verbose = len(arg) > 0
+        filter_ptr_type = filter_type.get_type().pointer()
+
+        trigger.trigger_print(None, False)
+        for filt in rbtree.rb_for_each_entry(tr, filter_ptr_type, "node"):
+            trigger.trigger_print(filt, verbose)
+
+UftMcountTrigger()
+
+
+class UftMcountArgspec(gdb.Command):
+    """List mcount arguments and return values."""
+
+    def __init__(self):
+        super(UftMcountArgspec, self).__init__("uft-mcount-args", gdb.COMMAND_DATA)
+
+    def invoke(self, arg, from_tty):
+        tr = utils.gdb_eval_or_none("mcount_triggers")
+        if tr is None:
+            gdb.write("no filter/trigger found\n")
+            return
+
+        verbose = len(arg) > 0
+        filter_ptr_type = filter_type.get_type().pointer()
+
+        trigger.argspec_print(None, False)
+        for filt in rbtree.rb_for_each_entry(tr, filter_ptr_type, "node"):
+            trigger.argspec_print(filt, verbose)
+
+UftMcountArgspec()
