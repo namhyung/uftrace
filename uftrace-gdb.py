@@ -26,3 +26,4 @@ else:
     import uftrace.lists
     import uftrace.plthook
     import uftrace.mcount
+    import uftrace.rbtree
