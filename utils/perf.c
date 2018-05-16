@@ -376,7 +376,7 @@ again:
 
 		perf->u.comm.pid  = u.c.pid;
 		perf->u.comm.exec = h.misc & PERF_RECORD_MISC_COMM_EXEC;
-		strncpy(perf->u.comm.comm, u.c.comm, sizeof(u.c.comm));
+		strncpy(perf->u.comm.comm, u.c.comm, sizeof(perf->u.comm.comm));
 
 		perf->time = u.c.sample_id.time;
 		perf->tid  = u.c.tid;
