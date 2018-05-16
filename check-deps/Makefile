@@ -8,6 +8,7 @@ CHECK_LIST += perf_clockid
 CHECK_LIST += perf_context_switch
 CHECK_LIST += arm_has_hardfp
 CHECK_LIST += have_libncurses
+CHECK_LIST += cc_has_wstringop_truncation
 
 #
 # This is needed for checking build dependency
@@ -23,6 +24,7 @@ CFLAGS_cc_has_mno_sse2 = -mno-sse2
 LDFLAGS_have_libpython2.7 = -lpython2.7
 CFLAGS_have_libncurses = $(shell pkg-config --cflags ncursesw)
 LDFLAGS_have_libncurses = $(shell pkg-config --libs ncursesw)
+CFLAGS_cc_has_wstringop_trucnation = -Wno-stringop-truncation
 
 check-build: check-tstamp $(CHECK_LIST)
 

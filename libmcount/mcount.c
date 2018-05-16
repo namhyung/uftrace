@@ -1372,7 +1372,7 @@ static void mcount_cleanup(void)
 /*
  * external interfaces
  */
-#define UFTRACE_ALIAS(_func) void uftrace_##_func(void) __alias(_func)
+#define UFTRACE_ALIAS(_func) void uftrace_##_func(void*, void*) __alias(_func)
 
 void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
