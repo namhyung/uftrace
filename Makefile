@@ -109,7 +109,7 @@ _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 _TARGETS += misc/demangler
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
-UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmd-*.c $(srcdir)/utils/*.c)
+UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
 DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c $(srcdir)/utils/debug.c
@@ -142,8 +142,8 @@ COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/cmd-record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
-CFLAGS_$(objdir)/cmd-live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
@@ -286,7 +286,7 @@ doc:
 clean:
 	$(call QUIET_CLEAN, uftrace)
 	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
-	$(Q)$(RM) $(objdir)/utils/*.o $(objdir)/misc/*.o
+	$(Q)$(RM) $(objdir)/cmds/*.o $(objdir)/utils/*.o $(objdir)/misc/*.o
 	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
