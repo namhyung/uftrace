@@ -1855,8 +1855,15 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 		if (pollfd.revents & POLLIN)
 			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
 
-		if (pollfd.revents & (POLLERR | POLLHUP))
+		if (pollfd.revents & POLLERR) {
+			pr_dbg("POLLERR\n");
 			break;
+		}
+
+		if (pollfd.revents & POLLHUP) {
+			pr_dbg("POLLHUP\n");
+			break;
+		}
 	}
 
 	ret = stop_tracing(&wd, opts);

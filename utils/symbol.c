@@ -137,8 +137,8 @@ out:
 	return ret;
 
 elf_error:
-	pr_dbg("ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
+	pr_dbg("ELF error during symbol loading at %s :  %s\n",
+	       filename, elf_errmsg(elf_errno()));
 	goto out;
 }
 
@@ -436,8 +436,8 @@ out:
 	return ret;
 
 elf_error:
-	pr_dbg("ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
+	pr_dbg("ELF error during symbol loading at %s : %s\n",
+	       filename, elf_errmsg(elf_errno()));
 	goto out;
 }
 
