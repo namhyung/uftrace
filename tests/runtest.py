@@ -92,7 +92,6 @@ class TestBase:
         return self.build_it(build_cmd)
 
     def build_libfoo(self, name, cflags='', ldflags=''):
-        prog = 't-' + name
         lang = TestBase.supported_lang['C++']
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
