@@ -15,29 +15,19 @@
 #include "utils/utils.h"
 #include "utils/compiler.h"
 
+extern struct symtabs symtabs;
+
 struct dlopen_base_data {
-	const char *libname;
-	unsigned long base_addr;
+	struct mcount_thread_data *mtdp;
+	uint64_t timestamp;
 };
+
 
 static const char *simple_basename(const char *pathname)
 {
 	const char *p = strrchr(pathname, '/');
 
 	return p ? p + 1 : pathname;
-}
-
-static int dlopen_base_callback(struct dl_phdr_info *info,
-				size_t size, void *arg)
-{
-	struct dlopen_base_data *data = arg;
-
-	if (!strstr(simple_basename(info->dlpi_name), data->libname))
-		return 0;
-
-	data->base_addr = info->dlpi_addr;
-	data->libname = info->dlpi_name; /* update to use full path */
-	return 0;
 }
 
 static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id,
@@ -74,6 +64,31 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		if (!mcount_should_stop())
 			pr_err("write tid info failed");
 	}
+}
+
+static int dlopen_base_callback(struct dl_phdr_info *info,
+				size_t size, void *arg)
+{
+	struct dlopen_base_data *data = arg;
+	char buf[PATH_MAX];
+	char *p;
+
+	if (info->dlpi_name[0] == '\0')
+		return 0;
+	if (!strcmp("linux-vdso.so.1", info->dlpi_name))
+		return 0;
+
+	p = realpath(info->dlpi_name, buf);
+	if (p == NULL)
+		p = buf;
+
+	if (find_map_by_name(&symtabs, simple_basename(p)))
+		return 0;
+
+	/* report a library not found in the session maps */
+	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp,
+			info->dlpi_addr, info->dlpi_name);
+	return 0;
 }
 
 void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
@@ -373,9 +388,16 @@ __visible_default void __cxa_end_catch(void)
 __visible_default void * dlopen(const char *filename, int flags)
 {
 	struct mcount_thread_data *mtdp;
-	uint64_t timestamp = mcount_gettime();
-	struct dlopen_base_data data;
+	struct dlopen_base_data data = {
+		.timestamp = mcount_gettime(),
+	};
 	void *ret;
+
+	/*
+	 * get timestamp before calling dlopen() so that
+	 * it can have symbols in static initializers which
+	 * called during the dlopen.
+	 */
 
 	if (unlikely(real_dlopen == NULL))
 		mcount_hook_functions();
@@ -396,16 +418,8 @@ __visible_default void * dlopen(const char *filename, int flags)
 			return ret;
 	}
 
-	data.libname = simple_basename(filename);
+	data.mtdp = mtdp;
 	dl_iterate_phdr(dlopen_base_callback, &data);
-
-	/*
-	 * get timestamp before calling dlopen() so that
-	 * it can have symbols in static initializers which
-	 * called during the dlopen.
-	 */
-	send_dlopen_msg(mtdp, mcount_session_name(), timestamp,
-			data.base_addr, data.libname);
 
 	mcount_unguard_recursion(mtdp);
 	return ret;

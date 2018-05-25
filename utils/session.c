@@ -294,19 +294,19 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 				unsigned long addr)
 {
-	struct uftrace_dlopen_list *pos, *udl = NULL;
-	struct sym *sym = NULL;
+	struct uftrace_dlopen_list *pos;
+	struct sym *sym;
 
-	list_for_each_entry(pos, &sess->dlopen_libs, list) {
+	list_for_each_entry_reverse(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
-			break;
+			continue;
 
-		udl = pos;
+		sym = find_symtabs(&pos->symtabs, addr);
+		if (sym)
+			return sym;
 	}
-	if (udl)
-		sym = find_symtabs(&udl->symtabs, addr);
 
-	return sym;
+	return NULL;
 }
 
 void delete_session(struct uftrace_session *sess)
