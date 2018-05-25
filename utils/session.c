@@ -89,7 +89,14 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	fclose(fp);
 }
 
-static void delete_session_map(struct symtabs *symtabs)
+/**
+ * delete_session_map - free memory mappings in a symtabs
+ * @symtabs: symbol table has the memory mapping
+ *
+ * This function releases mapping data in a symbol table which
+ * was read by read_session_map().
+ */
+void delete_session_map(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *map, *tmp;
 
@@ -99,6 +106,8 @@ static void delete_session_map(struct symtabs *symtabs)
 		free(map);
 		map = tmp;
 	}
+
+	symtabs->maps = NULL;
 }
 
 /**
