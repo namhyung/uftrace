@@ -452,6 +452,9 @@ static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
 	tg = get_task_graph(task, time, addr);
 
 	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
+	if (sym == NULL)
+		sym = session_find_dlsym(tg->utg.graph->sess, time, addr);
+
 	name = symbol_getname(sym, addr);
 
 	if (tg->enabled) {
