@@ -49,6 +49,9 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 
 	sym = find_symtabs(&s->symtabs, addr);
 	if (sym == NULL)
+		sym = session_find_dlsym(s, ~0ULL, addr);
+
+	if (sym == NULL)
 		return 0;
 
 	printf("  %s", sym->name);
