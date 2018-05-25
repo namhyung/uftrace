@@ -138,6 +138,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	INIT_LIST_HEAD(&graph->bt_list);
 
 	graph_init(&graph->ug, sess);
+	graph->ug.root.name = graph->func;
 
 	graph->next = graph_list;
 	graph_list = graph;
@@ -357,28 +358,21 @@ static void print_graph_node(struct uftrace_graph *graph,
 			     bool *indent_mask,
 			     int indent, bool needs_line)
 {
-	struct sym *sym;
-	char *symname;
+	char *symname = node->name;
 	struct uftrace_graph_node *parent = node->parent;
 	struct uftrace_graph_node *child;
 	int orig_indent = indent;
-	static struct sym sched_sym = {
-		.name = "linux:schedule",
-	};
 
 	/* XXX: what if it clashes with existing function address */
 	if (node->addr == EVENT_ID_PERF_SCHED_IN)
-		sym = &sched_sym;
-	else
-		sym = find_symtabs(&graph->sess->symtabs, node->addr);
-
-	symname = symbol_getname(sym, node->addr);
+		symname = "linux:schedule";
 
 	print_field(node);
 	pr_indent(indent_mask, indent, needs_line);
 
+	/* FIXME: it should count fork+exec properly */
 	if (full_graph && node == &graph->root)
-		pr_out("(%d) %s\n", 1, ((struct session_graph *)graph)->func);
+		pr_out("(%d) %s\n", 1, symname);
 	else
 		pr_out("(%d) %s\n", node->nr_calls, symname);
 
@@ -407,8 +401,6 @@ static void print_graph_node(struct uftrace_graph *graph,
 
 	indent_mask[orig_indent] = false;
 	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
-
-	symbol_putname(sym, symname);
 }
 
 static int print_graph(struct session_graph *graph, struct opts *opts)
