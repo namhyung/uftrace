@@ -136,10 +136,13 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	struct uftrace_arg_spec *oarg, *narg;
 
 	list_for_each_entry(oarg, arg_list, list) {
+		if (arg->type != oarg->type)
+			continue;
+
 		switch (arg->type) {
 		case ARG_TYPE_INDEX:
 		case ARG_TYPE_FLOAT:
-			if (arg->type == oarg->type && arg->idx == oarg->idx)
+			if (arg->idx == oarg->idx)
 				found = true;
 			break;
 		case ARG_TYPE_REG:
