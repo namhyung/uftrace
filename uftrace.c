@@ -1074,6 +1074,9 @@ int main(int argc, char *argv[])
 	return ret;
 }
 #else
+
+#define OPT_FILE  "opt"
+
 TEST_CASE(option_parsing1)
 {
 	char *stropt = NULL;
@@ -1180,7 +1183,7 @@ TEST_CASE(option_parsing3)
 		.args_doc = "argument description",
 		.doc = "uftrace option parsing test",
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", };
+	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
 	int file_argc;
@@ -1189,18 +1192,18 @@ TEST_CASE(option_parsing3)
 	int saved_debug = debug;
 
 	/* create opt-file */
-	fp = fopen("xxx", "w");
+	fp = fopen(OPT_FILE, "w");
 	TEST_NE(fp, NULL);
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
-	TEST_STREQ(opts.opt_file, "xxx");
+	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 	TEST_EQ(file_argc, 6);
 
-	unlink("xxx");
+	unlink(OPT_FILE);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
 	TEST_EQ(debug, saved_debug + 1);
@@ -1227,7 +1230,7 @@ TEST_CASE(option_parsing4)
 		.args_doc = "argument description",
 		.doc = "uftrace option parsing test",
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", };
+	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "-K 2\n"
 		"# buffer size: 4 MB\n"
@@ -1249,18 +1252,18 @@ TEST_CASE(option_parsing4)
 	int saved_debug = debug;
 
 	/* create opt-file */
-	fp = fopen("xxx", "w");
+	fp = fopen(OPT_FILE, "w");
 	TEST_NE(fp, NULL);
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
-	TEST_STREQ(opts.opt_file, "xxx");
+	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 	TEST_EQ(file_argc, 6);
 
-	unlink("xxx");
+	unlink(OPT_FILE);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_LIVE);
 	TEST_EQ(debug, saved_debug + 1);
@@ -1287,7 +1290,7 @@ TEST_CASE(option_parsing5)
 		.args_doc = "argument description",
 		.doc = "uftrace option parsing test",
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", "xxx", "hello" };
+	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, "hello" };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
 	int file_argc = argc;
@@ -1296,17 +1299,17 @@ TEST_CASE(option_parsing5)
 	int saved_debug = debug;
 
 	/* create opt-file */
-	fp = fopen("xxx", "w");
+	fp = fopen(OPT_FILE, "w");
 	TEST_NE(fp, NULL);
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
-	TEST_STREQ(opts.opt_file, "xxx");
+	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 
-	unlink("xxx");
+	unlink(OPT_FILE);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_RECORD);
 	TEST_EQ(debug, saved_debug + 1);
