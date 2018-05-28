@@ -5,22 +5,22 @@ int foo(int count)
 {
   void *buf[count];
 
-  backtrace(buf, count);
+  return backtrace(buf, count);
 }
 
 int c(int n)
 {
-  foo(n);
+  return foo(n);
 }
 
 int b(int n)
 {
-  c(n);
+  return c(n);
 }
 
 int a(int n)
 {
-  b(n);
+  return b(n);
 }
 
 int main(int argc, char *argv[])
