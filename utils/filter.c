@@ -420,6 +420,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 	int size = sizeof(long);
 	int type = arg->type;
 	int bit;
+	char *p;
 
 	if (suffix == NULL || *suffix == '\0')
 		goto out;
@@ -475,6 +476,10 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix)
 			return -1;
 		}
 		arg->enum_str = xstrdup(&suffix[2]);
+
+		p = strchr(arg->enum_str, '%');
+		if (p)
+			*p = '\0';
 		pr_dbg2("parsing argspec for enum: %s\n", arg->enum_str);
 		goto out;
 	default:
