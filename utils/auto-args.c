@@ -673,6 +673,47 @@ out:
 	return err;
 }
 
+static char *get_enum_def_string(struct enum_def *def)
+{
+	struct enum_val *e_val;
+	int last = -1;
+	char *str = NULL;
+	char *buf = NULL;
+
+	list_for_each_entry_reverse(e_val, &def->vals, list) {
+		/* simple case */
+		if (e_val->val == ++last) {
+			str = strjoin(str, e_val->str, ",");
+			continue;
+		}
+
+		last = e_val->val;
+		xasprintf(&buf, "%s=%ld", e_val->str, e_val->val);
+		str = strjoin(str, buf, ",");
+	}
+	free(buf);
+
+	return str;
+}
+
+void save_enum_def(struct rb_root *root, FILE *fp)
+{
+	struct rb_node *node;
+	struct enum_def *e_def;
+	char *str;
+
+	node = rb_first(root);
+	while (node) {
+		e_def = rb_entry(node, struct enum_def, node);
+
+		str = get_enum_def_string(e_def);
+		save_debug_file(fp, 'E', e_def->name, (long)str);
+		free(str);
+
+		node = rb_next(node);
+	}
+}
+
 void release_enum_def(struct rb_root *root)
 {
 	struct rb_node *node;
