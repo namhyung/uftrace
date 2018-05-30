@@ -60,6 +60,7 @@ enum debug_domain {
 	DBG_DYNAMIC,
 	DBG_EVENT,
 	DBG_SCRIPT,
+	DBG_DWARF,
 	DBG_DOMAIN_MAX,
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];

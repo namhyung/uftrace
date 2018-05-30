@@ -8,6 +8,10 @@
 #include <gelf.h>
 #include <dwarf.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "dwarf"
+#define PR_DOMAIN  DBG_DWARF
+
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/dwarf.h"

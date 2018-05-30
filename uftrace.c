@@ -311,6 +311,10 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_DYNAMIC] = level;
 		else if (!strcmp(tok, "event"))
 			dbg_domain[DBG_EVENT] = level;
+		else if (!strcmp(tok, "script"))
+			dbg_domain[DBG_SCRIPT] = level;
+		else if (!strcmp(tok, "dwarf"))
+			dbg_domain[DBG_DWARF] = level;
 	}
 
 	dbg_domain_set = true;
