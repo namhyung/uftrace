@@ -1024,7 +1024,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
 {
-	unsigned long offset = 0;
+	uint64_t offset = 0;
 
 	if (symtabs->loaded)
 		return;
@@ -1131,8 +1131,10 @@ void load_module_symtabs(struct symtabs *symtabs)
 
 			xasprintf(&symfile, "%s/%s.sym",
 				  symtabs->dirname, basename(maps->libname));
-			if (access(symfile, F_OK) == 0)
-				load_module_symbol(&maps->symtab, symfile, maps->start);
+			if (access(symfile, F_OK) == 0) {
+				load_module_symbol(&maps->symtab, symfile,
+						   maps->start);
+			}
 
 			free(symfile);
 
@@ -1148,7 +1150,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
 		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
 		merge_symtabs(&maps->symtab, &dsymtab);
-		update_symtab_using_dynsym(&maps->symtab, maps->libname, maps->start, flags);
+		update_symtab_using_dynsym(&maps->symtab, maps->libname,
+					   maps->start, flags);
 
 next:
 		maps = maps->next;
@@ -1156,7 +1159,7 @@ next:
 }
 
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
-		     unsigned long offset)
+		     uint64_t offset)
 {
 	FILE *fp;
 	char *line = NULL;

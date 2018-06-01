@@ -38,14 +38,14 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		pr_err("cannot open maps file: %s", buf);
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		unsigned long start, end;
+		uint64_t start, end;
 		char prot[5];
 		char path[PATH_MAX];
 		size_t namelen;
 		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
-		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
+		if (sscanf(buf, "%"PRIx64"-%"PRIx64" %s %*x %*x:%*x %*d %s\n",
 			   &start, &end, prot, path) != 4)
 			continue;
 
