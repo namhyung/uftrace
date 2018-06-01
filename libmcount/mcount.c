@@ -1303,9 +1303,10 @@ static void mcount_startup(void)
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
 
-	symtabs.dirname = dirname;
-
 	mcount_exename = read_exename();
+	symtabs.dirname = dirname;
+	symtabs.filename = mcount_exename;
+
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);
 	set_kernel_base(&symtabs, mcount_session_name());
 	load_symtabs(&symtabs, NULL, mcount_exename);

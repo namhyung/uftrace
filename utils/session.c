@@ -29,7 +29,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	char *last_libname = NULL;
+	const char *last_libname = symtabs->filename;
 	struct uftrace_mmap **maps = &symtabs->maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
@@ -50,8 +50,11 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			continue;
 
 		/* use first mapping only (even if it's non-exec) */
-		if (last_libname && !strcmp(last_libname, path))
+		if (!strcmp(last_libname, path)) {
+			if (!strcmp(path, symtabs->filename))
+				symtabs->exec_base = start;
 			continue;
+		}
 
 		namelen = ALIGN(strlen(path) + 1, 4);
 
@@ -136,6 +139,7 @@ void create_session(struct uftrace_session_link *sessions,
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);
 
+	s->symtabs.filename = s->exename;
 	s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 	if (sym_rel_addr)
 		s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;

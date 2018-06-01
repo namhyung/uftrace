@@ -1346,7 +1346,7 @@ static void save_session_symbols(struct opts *opts)
 
 	for (i = 0; i < maps; i++) {
 		struct symtabs symtabs = {
-			.loaded = false,
+			.filename = opts->exename,
 		};
 		struct uftrace_mmap *map, *tmp;
 		char sid[20] = { 0, };

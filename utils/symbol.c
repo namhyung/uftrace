@@ -983,20 +983,6 @@ elf_error:
 	goto out;
 }
 
-static uint64_t find_map_offset(struct symtabs *symtabs,
-				     const char *filename)
-{
-	struct uftrace_mmap *maps = symtabs->maps;
-
-	while (maps) {
-		if (!strcmp(maps->libname, filename))
-			return maps->start;
-
-		maps = maps->next;
-	}
-	return 0;
-}
-
 struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 				      const char *prefix)
 {
@@ -1033,7 +1019,7 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	symtabs->filename = filename;
 
 	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-		offset = find_map_offset(symtabs, filename);
+		offset = symtabs->exec_base;
 
 	/* try .sym files first */
 	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
@@ -1108,16 +1094,9 @@ void load_module_symtabs(struct symtabs *symtabs)
 	size_t k;
 	unsigned long flags = symtabs->flags;
 
-	assert(symtabs->maps);
-
 	maps = symtabs->maps;
 	while (maps) {
 		struct symtab dsymtab = {};
-
-		if (!strcmp(maps->libname, symtabs->filename))
-			goto next;
-		if (maps->libname[0] == '[')
-			goto next;
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
 			if (!strcmp(basename(maps->libname), skip_libs[k]))
