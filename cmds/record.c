@@ -1359,8 +1359,8 @@ static void save_session_symbols(struct opts *opts)
 		read_session_map(opts->dirname, &symtabs, sid);
 
 		/* main executable */
-		load_symtabs(&symtabs, opts->dirname, symtabs.maps->libname);
-		save_symbol_file(&symtabs, opts->dirname, symtabs.filename);
+		load_symtabs(&symtabs, opts->dirname, opts->exename);
+		save_symbol_file(&symtabs, opts->dirname, opts->exename);
 
 		/* shared libraries */
 		load_module_symtabs(&symtabs);
