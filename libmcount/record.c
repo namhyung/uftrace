@@ -887,16 +887,12 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
 
-		map = xmalloc(sizeof(*map) + namelen);
+		map = xzalloc(sizeof(*map) + namelen);
 
 		map->start = start;
 		map->end = end;
 		map->len = namelen;
 		mcount_memcpy1(map->prot, prot, 4);
-		map->symtab.sym = NULL;
-		map->symtab.sym_names = NULL;
-		map->symtab.nr_sym = 0;
-		map->symtab.nr_alloc = 0;
 		mcount_memcpy1(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
