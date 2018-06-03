@@ -1093,6 +1093,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 	};
 	size_t k;
 	unsigned long flags = symtabs->flags;
+	const char *exec_path = symtabs->filename;
 
 	maps = symtabs->maps;
 	while (maps) {
@@ -1102,6 +1103,9 @@ void load_module_symtabs(struct symtabs *symtabs)
 			if (!strcmp(basename(maps->libname), skip_libs[k]))
 				goto next;
 		}
+
+		if (exec_path && !strcmp(maps->libname, exec_path))
+			goto next;
 
 		pr_dbg2("load module symbol table: %s\n", maps->libname);
 

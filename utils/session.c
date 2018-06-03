@@ -50,8 +50,8 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			continue;
 
 		/* use first mapping only (even if it's non-exec) */
-		if (!strcmp(last_libname, path)) {
-			if (!strcmp(path, symtabs->filename))
+		if (last_libname && !strcmp(last_libname, path)) {
+			if (symtabs->filename && !strcmp(path, symtabs->filename))
 				symtabs->exec_base = start;
 			continue;
 		}
