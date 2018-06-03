@@ -16,7 +16,7 @@
 /* RB-tree maintaining automatic arguments and return value */
 static struct rb_root auto_argspec = RB_ROOT;
 static struct rb_root auto_retspec = RB_ROOT;
-static struct rb_root enum_root = RB_ROOT;
+static struct rb_root auto_enum = RB_ROOT;
 
 extern void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 			bool exact_match);
@@ -160,14 +160,14 @@ char *get_auto_retspec_str(void)
 
 void setup_auto_args(void)
 {
-	parse_enum_string(auto_enum_list);
+	parse_enum_string(auto_enum_list, &auto_enum);
 	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT);
 	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL);
 }
 
 void setup_auto_args_str(char *args, char *rets, char *enums)
 {
-	parse_enum_string(enums);
+	parse_enum_string(enums, &auto_enum);
 	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT);
 	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL);
 }
@@ -199,7 +199,7 @@ static void release_enum_def(struct rb_root *root);
 
 void finish_auto_args(void)
 {
-	release_enum_def(&enum_root);
+	release_enum_def(&auto_enum);
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
 }
@@ -307,14 +307,14 @@ static enum enum_token_ret enum_next_token(char **str)
 	if (*tok == '\0')
 		return TOKEN_NULL;
 
-	if (ispunct(*tok)) {
+	if (ispunct(*tok) && *tok != '_') {
 		enum_token[0] = *tok;
 		enum_token[1] = '\0';
 		*str = tok + 1;
 		return TOKEN_SIGN;
 	}
 
-	if (isalpha(*tok))
+	if (isalpha(*tok) || *tok == '_')
 		ret = TOKEN_STR;
 	else if (isdigit(*tok))
 		ret = TOKEN_NUM;
@@ -349,6 +349,23 @@ struct enum_val {
 	long val;
 };
 
+static void free_enum_def(struct enum_def *e_def)
+{
+	struct enum_val *e_val;
+
+	if (e_def == NULL)
+		return;
+
+	while (!list_empty(&e_def->vals)) {
+		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
+
+		list_del(&e_val->list);
+		free(e_val->str);
+		free(e_val);
+	}
+	free(e_def);
+}
+
 static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 {
 	struct rb_node *parent = NULL;
@@ -364,7 +381,8 @@ static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 
 		cmp = strcmp(iter->name, e_def->name);
 		if (cmp == 0) {
-			pr_err_ns("added enum of same name: %s\n", e_def->name);
+			pr_dbg2("ignore same enum name: %s\n", e_def->name);
+			free_enum_def(e_def);
 			return;
 		}
 
@@ -378,10 +396,10 @@ static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 	rb_insert_color(&e_def->node, root);
 }
 
-struct enum_def * find_enum_def(char *name)
+struct enum_def * find_enum_def(struct rb_root *root, char *name)
 {
 	struct rb_node *parent = NULL;
-	struct rb_node **p = &enum_root.rb_node;
+	struct rb_node **p = &root->rb_node;
 	struct enum_def *iter;
 	int cmp;
 
@@ -441,30 +459,13 @@ char *get_enum_string(char *name, long val)
 	struct enum_def *e_def;
 	char *ret;
 
-	e_def = find_enum_def(name);
+	e_def = find_enum_def(&auto_enum, name);
 	if (e_def == NULL)
 		xasprintf(&ret, "%ld", val);
 	else
 		ret = convert_enum_val(e_def, val);
 
 	return ret;
-}
-
-static void free_enum_def(struct enum_def *e_def)
-{
-	struct enum_val *e_val;
-
-	if (e_def == NULL)
-		return;
-
-	while (!list_empty(&e_def->vals)) {
-		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
-
-		list_del(&e_val->list);
-		free(e_val->str);
-		free(e_val);
-	}
-	free(e_def);
 }
 
 /**
@@ -485,7 +486,7 @@ static void free_enum_def(struct enum_def *e_def)
  *     HUNDRED = 100,
  *   };
  */
-int parse_enum_string(char *enum_str)
+int parse_enum_string(char *enum_str, struct rb_root *root)
 {
 	char *pos;
 	struct enum_def *e_def = NULL;
@@ -578,7 +579,7 @@ int parse_enum_string(char *enum_str)
 		}
 
 		if (!strcmp(enum_token, "}")) {
-			add_enum_tree(&enum_root, e_def);
+			add_enum_tree(root, e_def);
 			e_def = NULL;
 		}
 		else {
@@ -696,16 +697,17 @@ TEST_CASE(argspec_parse_enum)
 	char test_enum_str1[] = "enum xxx { ZERO, ONE = 111, TWO };";
 	char test_enum_str2[] = "enum a { AAA, BBB = 1, CCC }";
 	char test_enum_str3[] = ";enum uftrace{record=100,replay=-23,report}";
+	struct rb_root enum_tree = RB_ROOT;
 	struct rb_node *node;
 	struct enum_def *e_def;
 	struct enum_val *e_val, *e_next;
 	char *str;
 
-	TEST_EQ(parse_enum_string(test_enum_str1), 0);
-	TEST_EQ(parse_enum_string(test_enum_str2), 0);
-	TEST_EQ(parse_enum_string(test_enum_str3), 0);
+	TEST_EQ(parse_enum_string(test_enum_str1, &enum_tree), 0);
+	TEST_EQ(parse_enum_string(test_enum_str2, &enum_tree), 0);
+	TEST_EQ(parse_enum_string(test_enum_str3, &enum_tree), 0);
 
-	node = rb_first(&enum_root);
+	node = rb_first(&enum_tree);
 	while (node) {
 		e_def = rb_entry(node, struct enum_def, node);
 
@@ -720,7 +722,7 @@ TEST_CASE(argspec_parse_enum)
 		node = rb_next(node);
 	}
 
-	e_def = find_enum_def("xxx");
+	e_def = find_enum_def(&enum_tree, "xxx");
 	TEST_NE(e_def, NULL);
 
 	e_val = list_last_entry(&e_def->vals, struct enum_val, list);
@@ -731,17 +733,19 @@ TEST_CASE(argspec_parse_enum)
 	TEST_STREQ(e_val->str, "TWO");
 	TEST_EQ(e_val->val, 112L);
 
-	str = get_enum_string("a", 3);
+	e_def = find_enum_def(&enum_tree, "a");
+	str = convert_enum_val(e_def, 3);
 	TEST_STREQ(str, "CCC|BBB");
 	free(str);
 
-	str = get_enum_string("uftrace", -22);
+	e_def = find_enum_def(&enum_tree, "uftrace");
+	str = convert_enum_val(e_def, -22);
 	TEST_STREQ(str, "report");
 	free(str);
 
-	release_enum_def(&enum_root);
+	release_enum_def(&enum_tree);
 
-	TEST_EQ(find_enum_def("xxx"), NULL);
+	TEST_EQ(find_enum_def(&enum_tree, "xxx"), NULL);
 
 	return TEST_OK;
 }
