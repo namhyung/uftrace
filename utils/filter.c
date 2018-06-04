@@ -865,7 +865,7 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
-		ret += add_filter(root, &filter, tr, false);
+		ret += add_filter(root, &filter, tr, patt->type == PATT_SIMPLE);
 	}
 
 	return ret;
