@@ -1887,3 +1887,130 @@ void set_kernel_base(struct symtabs *symtabs, const char *session_id)
 
 	symtabs->kernel_base = kernel_base_addr;
 }
+
+#ifdef UNIT_TEST
+
+TEST_CASE(symbol_load_symfile) {
+	struct symtabs tabs = {
+		.loaded = true,
+	};
+	struct symtabs test = {
+		.loaded = false,
+	};
+	struct sym dsym[3] = {
+		{ 0x400100, 256, ST_PLT, "plt1" },
+		{ 0x400200, 256, ST_PLT, "plt2" },
+		{ 0x400300, 256, ST_PLT, "plt3" },
+	};
+	struct sym nsym[3] = {
+		{ 0x401100, 256, ST_GLOBAL, "first" },
+		{ 0x401200, 256, ST_LOCAL, "second" },
+		{ 0x401300, 256, ST_GLOBAL, "third" },
+	};
+	struct sym *sym_names[3] = { &dsym[0], &dsym[1], &dsym[2] };
+	char symfile[] = "SYM.sym";
+	unsigned i;
+
+	tabs.symtab.nr_sym = ARRAY_SIZE(nsym);
+	tabs.symtab.sym = nsym;
+	tabs.dsymtab.nr_sym = ARRAY_SIZE(dsym);
+	tabs.dsymtab.sym = dsym;
+	tabs.dsymtab.sym_names = sym_names;
+
+	/* recover from earlier failures */
+	unlink(symfile);
+
+	symfile[3] = '\0';
+	save_symbol_file(&tabs, ".", symfile);
+
+	TEST_EQ(test.symtab.nr_sym, 0U);
+
+	symfile[3] = '.';
+	TEST_EQ(load_symbol_file(&test, symfile, 0), 0);
+
+	/* +1 for the end marker of the symbols */
+	TEST_EQ(test.dsymtab.nr_sym, ARRAY_SIZE(dsym) + 1);
+	for (i = 0; i < ARRAY_SIZE(dsym); i++) {
+		struct sym *sym = &test.dsymtab.sym[i];
+
+		TEST_EQ(sym->addr, dsym[i].addr);
+		TEST_EQ(sym->size, dsym[i].size);
+		TEST_EQ(sym->type, dsym[i].type);
+		TEST_STREQ(sym->name, dsym[i].name);
+	}
+	TEST_STREQ("__dynsym_end", test.dsymtab.sym[3].name);
+
+	/* +1 for the end marker of the symbols */
+	TEST_EQ(test.symtab.nr_sym, ARRAY_SIZE(nsym) + 1);
+	for (i = 0; i < ARRAY_SIZE(nsym); i++) {
+		struct sym *sym = &test.symtab.sym[i];
+
+		TEST_EQ(sym->addr, nsym[i].addr);
+		TEST_EQ(sym->size, nsym[i].size);
+		TEST_EQ(sym->type, nsym[i].type);
+		TEST_STREQ(sym->name, nsym[i].name);
+	}
+	TEST_STREQ("__sym_end", test.symtab.sym[3].name);
+
+	TEST_EQ(test.symtab.name_sorted, true);
+	TEST_STREQ("__sym_end", test.symtab.sym_names[0]->name);
+
+	unlink(symfile);
+	return TEST_OK;
+}
+
+TEST_CASE(symbol_load_module) {
+	struct symtab stab = {
+		.nr_alloc = 0,
+	};
+	struct sym mixed_sym[] = {
+		{ 0x100, 256, ST_PLT, "plt1" },
+		{ 0x200, 256, ST_PLT, "plt2" },
+		{ 0x300, 256, ST_PLT, "plt3" },
+		{ 0x1100, 256, ST_GLOBAL, "normal1" },
+		{ 0x1200, 256, ST_LOCAL,  "normal2" },
+		{ 0x1300, 256, ST_GLOBAL, "normal3" },
+	};
+	struct symtab test = {
+		.nr_sym = 0,
+	};
+	char symfile[] = "SYM.sym";
+	int i;
+
+	/* recover from earlier failures */
+	unlink(symfile);
+
+	stab.sym = mixed_sym;
+	stab.nr_sym = ARRAY_SIZE(mixed_sym);
+
+	save_module_symbol(&stab, symfile, 0x400000);
+
+	TEST_EQ(load_module_symbol(&test, symfile, 0x400000), 0);
+
+	/* +2 for the end markers of the symbols */
+	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym) + 2);
+	for (i = 0; i < 3; i++) {
+		struct sym *sym = &test.sym[i];
+
+		TEST_EQ(sym->addr, stab.sym[i].addr);
+		TEST_EQ(sym->size, stab.sym[i].size);
+		TEST_EQ(sym->type, stab.sym[i].type);
+		TEST_STREQ(sym->name, stab.sym[i].name);
+	}
+	TEST_STREQ("__dynsym_end", test.sym[3].name);
+
+	for (i = 4; i < 7; i++) {
+		struct sym *sym = &test.sym[i];
+
+		TEST_EQ(sym->addr, stab.sym[i-1].addr);
+		TEST_EQ(sym->size, stab.sym[i-1].size);
+		TEST_EQ(sym->type, stab.sym[i-1].type);
+		TEST_STREQ(sym->name, stab.sym[i-1].name);
+	}
+	TEST_STREQ("__sym_end", test.sym[7].name);
+
+	unlink(symfile);
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
