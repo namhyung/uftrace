@@ -865,7 +865,7 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
-		ret += add_filter(root, &filter, tr, false);
+		ret += add_filter(root, &filter, tr, patt->type == PATT_SIMPLE);
 	}
 
 	return ret;
@@ -918,15 +918,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		init_filter_pattern(ptype, &patt, name);
 
 		if (module) {
-			map = find_map_by_name(symtabs, module);
-			if (map == NULL) {
-				if (strcasecmp(module, "PLT") &&
-				    strcasecmp(module, "kernel")) {
-					free(module);
-					goto next;
-				}
-			}
-
 			/* is it the main executable? */
 			if (!strncmp(module, basename(symtabs->filename),
 				     strlen(module))) {
@@ -944,8 +935,11 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 							&patt, &tr);
 			}
 			else {
-				ret = add_trigger_entry(root, &map->symtab,
-							&patt, &tr);
+				map = find_map_by_name(symtabs, module);
+				if (map) {
+					ret = add_trigger_entry(root, &map->symtab,
+								&patt, &tr);
+				}
 			}
 
 			free(module);

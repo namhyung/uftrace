@@ -878,25 +878,29 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		/* skip anon mappings */
 		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
 			   &start, &end, prot, path) != 4)
-			goto next;
+			continue;
+
+		/* skip special mappings like [heap], [stack] */
+		if (path[0] == '[')
+			continue;
 
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path))
 			continue;
 
+		/* still need to write the map for executable */
+		if (!strcmp(path, symtabs->filename))
+			symtabs->exec_base = start;
+
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
 
-		map = xmalloc(sizeof(*map) + namelen);
+		map = xzalloc(sizeof(*map) + namelen);
 
 		map->start = start;
 		map->end = end;
 		map->len = namelen;
 		mcount_memcpy1(map->prot, prot, 4);
-		map->symtab.sym = NULL;
-		map->symtab.sym_names = NULL;
-		map->symtab.nr_sym = 0;
-		map->symtab.nr_alloc = 0;
 		mcount_memcpy1(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
@@ -909,7 +913,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->next = NULL;
 		prev_map = map;
 
-next:
 		fprintf(ofp, "%s", buf);
 	}
 
