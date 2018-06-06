@@ -507,7 +507,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case OPT_tid_filter:
-		opts->tid = opt_add_string(opts->tid, arg);
+		if (strtol(arg, NULL, 0) <= 0)
+			pr_use("invalid thread id: %s\n", arg);
+		else
+			opts->tid = opt_add_string(opts->tid, arg);
 		break;
 
 	case OPT_no_merge:
