@@ -312,10 +312,16 @@ clean:
 	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
+	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
+	$(Q)$(RM) coverage.info
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/doc clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent clean
+
+reset-coverage:
+	$(Q)find -name "*\.gcda" | xargs $(RM)
+	$(Q)$(RM) coverage.info
 
 ctags:
 	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
