@@ -86,8 +86,16 @@ endif
 ifeq ($(TRACE), 1)
   UFTRACE_CFLAGS += -pg -fno-omit-frame-pointer
   DEMANGLER_CFLAGS += -pg -fno-omit-frame-pointer
+  SYMBOLS_CFLAGS += -pg -fno-omit-frame-pointer
   TRACEEVENT_CFLAGS += -pg -fno-omit-frame-pointer
   # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
+endif
+
+ifeq ($(COVERAGE), 1)
+  UFTRACE_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  DEMANGLER_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  SYMBOLS_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  TRACEEVENT_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
 endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS
