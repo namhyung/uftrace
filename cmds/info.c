@@ -16,6 +16,7 @@
 #include <gelf.h>
 #include <argp.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -971,13 +972,151 @@ void clear_uftrace_info(struct uftrace_info *info)
 	free(info->uftrace_version);
 }
 
+static void print_info(void *unused, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(outfp, fmt, ap);
+	va_end(ap);
+}
+
+void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
+			  void (*process)(void *data, const char *fmt, ...),
+			  void *data)
+{
+	char buf[PATH_MAX];
+	struct stat statbuf;
+	const char *fmt = "# %-20s: %s\n";
+	uint64_t info_mask = handle->hdr.info_mask;
+	struct uftrace_info *info = &handle->info;
+
+	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+
+	if (stat(buf, &statbuf) < 0)
+		return;
+
+	process(data, "# system information\n");
+	process(data, "# ==================\n");
+
+	if (info_mask & (1UL << VERSION))
+		process(data, fmt, "program version", info->uftrace_version);
+
+	if (info_mask & (1UL << RECORD_DATE))
+		process(data, fmt, "recorded on", info->record_date);
+	else
+		process(data, "# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
+
+	if (info_mask & (1UL << CMDLINE))
+		process(data, fmt, "cmdline", info->cmdline);
+
+	if (info_mask & (1UL << CPUINFO)) {
+		process(data, fmt, "cpu info", info->cpudesc);
+		process(data, "# %-20s: %d / %d (online / possible)\n",
+		       "number of cpus", info->nr_cpus_online,
+		       info->nr_cpus_possible);
+	}
+
+	if (info_mask & (1UL << MEMINFO))
+		process(data, fmt, "memory info", info->meminfo);
+
+	if (info_mask & (1UL << LOADINFO))
+		process(data, "# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
+		       info->load1, info->load5, info->load15);
+
+	if (info_mask & (1UL << OSINFO)) {
+		process(data, fmt, "kernel version", info->kernel);
+		process(data, fmt, "hostname", info->hostname);
+		process(data, fmt, "distro", info->distro);
+	}
+
+	process(data, "#\n");
+	process(data, "# process information\n");
+	process(data, "# ===================\n");
+
+	if (info_mask & (1UL << TASKINFO)) {
+		int i;
+		int nr = info->nr_tid;
+		bool first = true;
+		struct uftrace_task *task;
+
+		process(data, "# %-20s: %d\n", "number of tasks", nr);
+
+		if (handle->hdr.feat_mask & PERF_EVENT)
+			update_perf_task_comm(handle);
+
+		process(data, "# %-20s: ", "task list");
+		for (i = 0; i < nr; i++) {
+			int tid = info->tids[i];
+			task = find_task(&handle->sessions, tid);
+
+			process(data, "%s%d(%s)", first ? "" : ", ", tid, task->comm);
+			first = false;
+		}
+		process(data, "\n");
+	}
+
+	if (info_mask & (1UL << EXE_NAME))
+		process(data, fmt, "exe image", info->exename);
+
+	if (info_mask & (1UL << EXE_BUILD_ID)) {
+		int i;
+		process(data, "# %-20s: ", "build id");
+		for (i = 0; i < BUILD_ID_SIZE; i++)
+			process(data, "%02x", info->build_id[i]);
+		process(data, "\n");
+	}
+
+	if (info_mask & (1UL << ARG_SPEC)) {
+		if (info->argspec)
+			process(data, fmt, "arguments", info->argspec);
+		if (info->retspec)
+			process(data, fmt, "return values", info->retspec);
+		if (info->auto_args_enabled)
+			process(data, fmt, "auto-args", "true");
+	}
+
+	if (info_mask & (1UL << PATTERN_TYPE))
+		process(data, fmt, "pattern", get_filter_pattern(info->patt_type));
+
+	if (info_mask & (1UL << EXIT_STATUS)) {
+		int status = info->exit_status;
+
+		if (WIFEXITED(status)) {
+			snprintf(buf, sizeof(buf), "exited with code: %d",
+				 WEXITSTATUS(status));
+		} else if (WIFSIGNALED(status)) {
+			snprintf(buf, sizeof(buf), "terminated by signal: %d",
+				 WTERMSIG(status));
+		} else {
+			snprintf(buf, sizeof(buf), "unknown exit status: %d",
+				 status);
+		}
+		process(data, fmt, "exit status", buf);
+	}
+
+	if (info_mask & (1UL << RECORD_DATE))
+		process(data, fmt, "elapsed time", info->elapsed_time);
+
+	if (info_mask & (1UL << USAGEINFO)) {
+		process(data, "# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
+		       info->stime, info->utime);
+		process(data, "# %-20s: %ld / %ld (voluntary / involuntary)\n",
+		       "context switch", info->vctxsw, info->ictxsw);
+		process(data, "# %-20s: %ld KB\n", "max rss",
+		       info->maxrss);
+		process(data, "# %-20s: %ld / %ld (major / minor)\n", "page fault",
+		       info->major_fault, info->minor_fault);
+		process(data, "# %-20s: %ld / %ld (read / write)\n", "disk iops",
+		       info->rblock, info->wblock);
+	}
+	process(data, "\n");
+}
+
 int command_info(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	char buf[PATH_MAX];
-	struct stat statbuf;
 	struct ftrace_file_handle handle;
-	const char *fmt = "# %-20s: %s\n";
 
 	ret = open_data_file(opts, &handle);
 
@@ -1003,126 +1142,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-
-	if (stat(buf, &statbuf) < 0)
-		return -1;
-
-	pr_out("# system information\n");
-	pr_out("# ==================\n");
-
-	if (handle.hdr.info_mask & (1UL << VERSION))
-		pr_out(fmt, "program version", handle.info.uftrace_version);
-
-	if (handle.hdr.info_mask & (1UL << RECORD_DATE))
-		pr_out(fmt, "recorded on", handle.info.record_date);
-	else
-		pr_out("# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
-
-	if (handle.hdr.info_mask & (1UL << CMDLINE))
-		pr_out(fmt, "cmdline", handle.info.cmdline);
-
-	if (handle.hdr.info_mask & (1UL << CPUINFO)) {
-		pr_out(fmt, "cpu info", handle.info.cpudesc);
-		pr_out("# %-20s: %d / %d (online / possible)\n",
-		       "number of cpus", handle.info.nr_cpus_online,
-		       handle.info.nr_cpus_possible);
-	}
-
-	if (handle.hdr.info_mask & (1UL << MEMINFO))
-		pr_out(fmt, "memory info", handle.info.meminfo);
-
-	if (handle.hdr.info_mask & (1UL << LOADINFO))
-		pr_out("# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
-		       handle.info.load1, handle.info.load5, handle.info.load15);
-
-	if (handle.hdr.info_mask & (1UL << OSINFO)) {
-		pr_out(fmt, "kernel version", handle.info.kernel);
-		pr_out(fmt, "hostname", handle.info.hostname);
-		pr_out(fmt, "distro", handle.info.distro);
-	}
-
-	pr_out("#\n");
-	pr_out("# process information\n");
-	pr_out("# ===================\n");
-
-	if (handle.hdr.info_mask & (1UL << TASKINFO)) {
-		int i;
-		int nr = handle.info.nr_tid;
-		bool first = true;
-		struct uftrace_task *task;
-
-		pr_out("# %-20s: %d\n", "number of tasks", nr);
-
-		if (handle.hdr.feat_mask & PERF_EVENT)
-			update_perf_task_comm(&handle);
-
-		pr_out("# %-20s: ", "task list");
-		for (i = 0; i < nr; i++) {
-			int tid = handle.info.tids[i];
-			task = find_task(&handle.sessions, tid);
-
-			pr_out("%s%d(%s)", first ? "" : ", ", tid, task->comm);
-			first = false;
-		}
-		pr_out("\n");
-	}
-
-	if (handle.hdr.info_mask & (1UL << EXE_NAME))
-		pr_out(fmt, "exe image", handle.info.exename);
-
-	if (handle.hdr.info_mask & (1UL << EXE_BUILD_ID)) {
-		int i;
-		pr_out("# %-20s: ", "build id");
-		for (i = 0; i < BUILD_ID_SIZE; i++)
-			pr_out("%02x", handle.info.build_id[i]);
-		pr_out("\n");
-	}
-
-	if (handle.hdr.info_mask & (1UL << ARG_SPEC)) {
-		if (handle.info.argspec)
-			pr_out(fmt, "arguments", handle.info.argspec);
-		if (handle.info.retspec)
-			pr_out(fmt, "return values", handle.info.retspec);
-		if (handle.info.auto_args_enabled)
-			pr_out(fmt, "auto-args", "true");
-	}
-
-	if (handle.hdr.info_mask & (1UL << PATTERN_TYPE))
-		pr_out(fmt, "pattern", get_filter_pattern(handle.info.patt_type));
-
-	if (handle.hdr.info_mask & (1UL << EXIT_STATUS)) {
-		int status = handle.info.exit_status;
-
-		if (WIFEXITED(status)) {
-			snprintf(buf, sizeof(buf), "exited with code: %d",
-				 WEXITSTATUS(status));
-		} else if (WIFSIGNALED(status)) {
-			snprintf(buf, sizeof(buf), "terminated by signal: %d",
-				 WTERMSIG(status));
-		} else {
-			snprintf(buf, sizeof(buf), "unknown exit status: %d",
-				 status);
-		}
-		pr_out(fmt, "exit status", buf);
-	}
-
-	if (handle.hdr.info_mask & (1UL << RECORD_DATE))
-		pr_out(fmt, "elapsed time", handle.info.elapsed_time);
-
-	if (handle.hdr.info_mask & (1UL << USAGEINFO)) {
-		pr_out("# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
-		       handle.info.stime, handle.info.utime);
-		pr_out("# %-20s: %ld / %ld (voluntary / involuntary)\n",
-		       "context switch", handle.info.vctxsw, handle.info.ictxsw);
-		pr_out("# %-20s: %ld KB\n", "max rss",
-		       handle.info.maxrss);
-		pr_out("# %-20s: %ld / %ld (major / minor)\n", "page fault",
-		       handle.info.major_fault, handle.info.minor_fault);
-		pr_out("# %-20s: %ld / %ld (read / write)\n", "disk iops",
-		       handle.info.rblock, handle.info.wblock);
-	}
-	pr_out("\n");
+	process_uftrace_info(&handle, opts, print_info, NULL);
 
 out:
 	close_data_file(opts, &handle);
