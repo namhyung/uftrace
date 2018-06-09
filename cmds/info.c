@@ -489,7 +489,7 @@ static int build_tid_list(struct uftrace_task *t, void *arg)
 	struct tid_list *list = arg;
 
 	list->nr++;
-	list->tid = xrealloc(list->tid, list->nr * sizeof(list->tid));
+	list->tid = xrealloc(list->tid, list->nr * sizeof(*list->tid));
 
 	list->tid[list->nr - 1] = t->tid;
 	return 0;
@@ -1039,21 +1039,33 @@ void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
 		int nr = info->nr_tid;
 		bool first = true;
 		struct uftrace_task *task;
+		char *task_list;
+		int sz, len;
+		char *p;
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
 		if (handle->hdr.feat_mask & PERF_EVENT)
 			update_perf_task_comm(handle);
 
-		process(data, "# %-20s: ", "task list");
+		sz = nr * 32;  /* 32 > strlen("tid (comm)") */
+		len = 0;
+		p = task_list = xmalloc(sz);
+
 		for (i = 0; i < nr; i++) {
 			int tid = info->tids[i];
+
 			task = find_task(&handle->sessions, tid);
 
-			process(data, "%s%d(%s)", first ? "" : ", ", tid, task->comm);
+			len = snprintf(p, sz, "%s%d(%s)",
+				       first ? "" : ", ", tid, task->comm);
+			p  += len;
+			sz -= len;
+
 			first = false;
 		}
-		process(data, "\n");
+		process(data, "# %-20s: %s\n", "task list", task_list);
+		free(task_list);
 	}
 
 	if (info_mask & (1UL << EXE_NAME))
@@ -1061,10 +1073,12 @@ void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
 
 	if (info_mask & (1UL << EXE_BUILD_ID)) {
 		int i;
-		process(data, "# %-20s: ", "build id");
+		char bid[BUILD_ID_SIZE * 2 + 1];
+
 		for (i = 0; i < BUILD_ID_SIZE; i++)
-			process(data, "%02x", info->build_id[i]);
-		process(data, "\n");
+			snprintf(bid + i * 2, 3, "%02x", info->build_id[i]);
+
+		process(data, "# %-20s: %s\n", "build id", bid);
 	}
 
 	if (info_mask & (1UL << ARG_SPEC)) {
