@@ -120,7 +120,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype)
 	    (trigger_str && (strstr(trigger_str, "arg") ||
 			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
-		prepare_debug_info(&symtabs);
+		prepare_debug_info(&symtabs, ptype, argument_str, retval_str);
 	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,

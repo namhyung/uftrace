@@ -131,11 +131,16 @@ static int get_retspec(Dwarf_Die *die, void *data)
 }
 
 struct build_data {
-	struct debug_info *dinfo;
+	struct debug_info	*dinfo;
+	int			nr_args;
+	int			nr_rets;
+	struct uftrace_pattern	*args;
+	struct uftrace_pattern	*rets;
 };
 
 static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 {
+	struct build_data *bd = data;
 	struct arg_data ad = {
 		.argspec = NULL,
 	};
@@ -143,6 +148,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	char *name = NULL;
 	bool needs_free = false;
 	Dwarf_Addr offset;
+	int i;
 
 	if (uftrace_done)
 		return DWARF_CB_ABORT;
@@ -172,42 +178,69 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	ad.name = name;
 	ad.addr = offset;
 
-	get_argspec(die, &ad);
+	for (i = 0; i < bd->nr_args; i++) {
+		if (!match_filter_pattern(&bd->args[i], name))
+			continue;
 
-	/* TODO: do something */
+		get_argspec(die, &ad);
+		/* TODO: do something */
 
-	free(ad.argspec);
-	ad.argspec = NULL;
+		free(ad.argspec);
+		ad.argspec = NULL;
+		break;
+	}
 
-	ad.idx = 0;
+	ad.idx = RETVAL_IDX;
+	for (i = 0; i < bd->nr_rets; i++) {
+		if (!match_filter_pattern(&bd->rets[i], name))
+			continue;
 
-	get_retspec(die, &ad);
+		get_retspec(die, &ad);
+		/* TODO: do something */
 
-	/* TODO: do something */
-
-	free(ad.argspec);
-	ad.argspec = NULL;
+		free(ad.argspec);
+		ad.argspec = NULL;
+		break;
+	}
 
 	if (needs_free)
 		free(name);
 	return DWARF_CB_OK;
 }
 
-static void build_debug_info(struct debug_info *dinfo)
+static void build_debug_info(struct debug_info *dinfo,
+			     enum uftrace_pattern_type ptype,
+			     struct strv *args, struct strv *rets)
 {
 	Dwarf_Off curr = 0;
 	Dwarf_Off next = 0;
 	size_t header_sz = 0;
+	struct uftrace_pattern *arg_patt;
+	struct uftrace_pattern *ret_patt;
+	char *s;
+	int i;
 
 	if (dinfo->dw == NULL)
 		return;
+
+	arg_patt = xcalloc(args->nr, sizeof(*arg_patt));
+	strv_for_each(args, s, i)
+		init_filter_pattern(ptype, &arg_patt[i], s);
+
+	ret_patt = xcalloc(rets->nr, sizeof(*ret_patt));
+	strv_for_each(rets, s, i)
+		init_filter_pattern(ptype, &ret_patt[i], s);
 
 	/* traverse every CU to find debug info */
 	while (dwarf_nextcu(dinfo->dw, curr, &next,
 			    &header_sz, NULL, NULL, NULL) == 0) {
 		Dwarf_Die cudie;
 		struct build_data bd = {
-			.dinfo = dinfo,
+			.dinfo   = dinfo,
+			.args    = arg_patt,
+			.rets    = ret_patt,
+			.nr_args = args->nr,
+			.nr_rets = rets->nr,
 		};
 
 		if (dwarf_offdie(dinfo->dw, curr + header_sz, &cudie) == NULL)
@@ -223,19 +256,71 @@ static void build_debug_info(struct debug_info *dinfo)
 
 		curr = next;
 	}
+
+	for (i = 0; i < args->nr; i++)
+		free_filter_pattern(&arg_patt[i]);
+	free(arg_patt);
+	for (i = 0; i < rets->nr; i++)
+		free_filter_pattern(&ret_patt[i]);
+	free(ret_patt);
 }
 
-void prepare_debug_info(struct symtabs *symtabs)
+/* find argspecs only have function name (pattern) */
+static void extract_dwarf_args(char *argspec, char *retspec,
+			       struct strv *pargs, struct strv *prets)
+{
+	if (argspec) {
+		struct strv tmp = STRV_INIT;
+		char *arg;
+		int i;
+
+		strv_split(&tmp, argspec, ";");
+		strv_for_each(&tmp, arg, i) {
+			if (strchr(arg, '@'))
+				continue;
+
+			strv_append(pargs, arg);
+		}
+		strv_free(&tmp);
+	}
+
+	if (retspec) {
+		struct strv tmp = STRV_INIT;
+		char *ret;
+		int i;
+
+		strv_split(&tmp, retspec, ";");
+		strv_for_each(&tmp, ret, i) {
+			if (strchr(ret, '@'))
+				continue;
+
+			strv_append(prets, ret);
+		}
+		strv_free(&tmp);
+	}
+}
+
+void prepare_debug_info(struct symtabs *symtabs,
+			enum uftrace_pattern_type ptype,
+			char *argspec, char *retspec)
 {
 	struct uftrace_mmap *map;
+	struct strv dwarf_args = STRV_INIT;
+	struct strv dwarf_rets = STRV_INIT;
 
 	if (symtabs->loaded_debug)
 		return;
 
+	extract_dwarf_args(argspec, retspec, &dwarf_args, &dwarf_rets);
+	if (dwarf_args.nr == 0 && dwarf_rets.nr == 0) {
+		/* nothing to do */
+		return;
+	}
+
 	pr_dbg("prepare debug info\n");
 
 	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
-	build_debug_info(&symtabs->dinfo);
+	build_debug_info(&symtabs->dinfo, ptype, &dwarf_args, &dwarf_rets);
 
 	map = symtabs->maps;
 	while (map) {
@@ -243,10 +328,14 @@ void prepare_debug_info(struct symtabs *symtabs)
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
 			setup_debug_info(map->libname, &map->dinfo, map->start);
-			build_debug_info(&map->dinfo);
+			build_debug_info(&map->dinfo, ptype,
+					 &dwarf_args, &dwarf_rets);
 		}
 		map = map->next;
 	}
+
+	strv_free(&dwarf_args);
+	strv_free(&dwarf_rets);
 
 	symtabs->loaded_debug = true;
 }
