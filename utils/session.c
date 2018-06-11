@@ -49,6 +49,10 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			   &start, &end, prot, path) != 4)
 			continue;
 
+		/* skip the [stack] mapping */
+		if (path[0] == '[')
+			continue;
+
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path)) {
 			if (symtabs->filename && !strcmp(path, symtabs->filename))
