@@ -118,8 +118,10 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype)
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
 	    (trigger_str && (strstr(trigger_str, "arg") ||
-			     strstr(trigger_str, "retval"))))
+			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
+		prepare_debug_info(&symtabs);
+	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false, ptype);
@@ -1362,6 +1364,7 @@ static void mcount_cleanup(void)
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
 
+	finish_debug_info(&symtabs);
 	unload_symtabs(&symtabs);
 	finish_pmu_event();
 	finish_auto_args();

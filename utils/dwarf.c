@@ -13,8 +13,8 @@
 #include "utils/symbol.h"
 
 /* setup debug info from filename, return 0 for success */
-int setup_debug_info(const char *filename, struct debug_info *dinfo,
-		     unsigned long offset)
+static int setup_debug_info(const char *filename, struct debug_info *dinfo,
+			    unsigned long offset)
 {
 	int fd;
 	GElf_Ehdr ehdr;
@@ -49,13 +49,55 @@ int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	return 0;
 }
 
-void release_debug_info(struct debug_info *dinfo)
+static void release_debug_info(struct debug_info *dinfo)
 {
 	if (dinfo->dw == NULL)
 		return;
 
 	dwarf_end(dinfo->dw);
 	dinfo->dw = NULL;
+}
+
+void prepare_debug_info(struct symtabs *symtabs)
+{
+	struct uftrace_mmap *map;
+
+	if (symtabs->loaded_debug)
+		return;
+
+	pr_dbg("prepare debug info\n");
+
+	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
+
+	map = symtabs->maps;
+	while (map) {
+		/* avoid loading of main executable or libmcount */
+		if (strcmp(map->libname, symtabs->filename) &&
+		    strncmp(basename(map->libname), "libmcount", 9)) {
+			setup_debug_info(map->libname, &map->dinfo, map->start);
+		}
+		map = map->next;
+	}
+
+	symtabs->loaded_debug = true;
+}
+
+void finish_debug_info(struct symtabs *symtabs)
+{
+	struct uftrace_mmap *map;
+
+	if (!symtabs->loaded_debug)
+		return;
+
+	release_debug_info(&symtabs->dinfo);
+
+	map = symtabs->maps;
+	while (map) {
+		release_debug_info(&map->dinfo);
+		map = map->next;
+	}
+
+	symtabs->loaded_debug = false;
 }
 
 #endif /* HAVE_LIBDW */
