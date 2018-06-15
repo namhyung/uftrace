@@ -11,11 +11,11 @@
 ---
 AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: false
+AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: false
 #AlignEscapedNewlines: Left # Unknown to clang-format-4.0
 AlignOperands: true
-AlignTrailingComments: false
+AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
@@ -39,7 +39,7 @@ BraceWrapping:
   AfterUnion: false
   #AfterExternBlock: false # Unknown to clang-format-5.0
   BeforeCatch: false
-  BeforeElse: false
+  BeforeElse: true
   IndentBraces: false
   #SplitEmptyFunction: true # Unknown to clang-format-4.0
   #SplitEmptyRecord: true # Unknown to clang-format-4.0
