@@ -97,6 +97,7 @@ static inline uint64_t get_real_address(uint64_t addr)
 uint64_t get_kernel_base(char *str);
 
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
+struct sym * find_sym(struct symtab *symtab, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename);

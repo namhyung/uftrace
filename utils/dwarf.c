@@ -579,6 +579,7 @@ static int get_retspec(Dwarf_Die *die, void *data)
 
 struct build_data {
 	struct debug_info	*dinfo;
+	struct symtab		*symtab;
 	int			nr_args;
 	int			nr_rets;
 	struct uftrace_pattern	*args;
@@ -596,6 +597,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	char *name = NULL;
 	bool needs_free = false;
 	Dwarf_Addr offset;
+	struct sym *sym;
 	int i;
 
 	if (uftrace_done)
@@ -623,6 +625,14 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		name = (char *)dwarf_diename(die);
 	if (unlikely(name == NULL))
 		return DWARF_CB_OK;
+
+	/* double-check symbol table has same info */
+	sym = find_sym(bd->symtab, offset);
+	if (sym == NULL || strcmp(sym->name, name)) {
+		pr_dbg2("skip unknown debug info: %s (%lx)\n",
+			sym ? sym->name : "no name", offset);
+		goto out;
+	}
 
 	ad.name = name;
 	ad.addr = offset;
@@ -656,12 +666,13 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		break;
 	}
 
+out:
 	if (needs_free)
 		free(name);
 	return DWARF_CB_OK;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo,
+static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -690,6 +701,7 @@ static void build_dwarf_info(struct debug_info *dinfo,
 		Dwarf_Die cudie;
 		struct build_data bd = {
 			.dinfo   = dinfo,
+			.symtab  = symtab,
 			.args    = arg_patt,
 			.rets    = ret_patt,
 			.nr_args = args->nr,
@@ -732,7 +744,7 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 	return 0;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo,
+static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -818,7 +830,8 @@ void prepare_debug_info(struct symtabs *symtabs,
 	pr_dbg("prepare debug info\n");
 
 	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
-	build_dwarf_info(&symtabs->dinfo, ptype, &dwarf_args, &dwarf_rets);
+	build_dwarf_info(&symtabs->dinfo, &symtabs->symtab, ptype,
+			 &dwarf_args, &dwarf_rets);
 
 	map = symtabs->maps;
 	while (map) {
@@ -826,7 +839,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
 			setup_debug_info(map->libname, &map->dinfo, map->start);
-			build_dwarf_info(&map->dinfo, ptype,
+			build_dwarf_info(&map->dinfo, &map->symtab, ptype,
 					 &dwarf_args, &dwarf_rets);
 		}
 		map = map->next;
