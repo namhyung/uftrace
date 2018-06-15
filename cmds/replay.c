@@ -436,6 +436,9 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
+#define print_args(fmt, ...)						\
+({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
+
 void get_argspec_string(struct ftrace_task_handle *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode)
@@ -478,12 +481,10 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	assert(arg_list && !list_empty(arg_list));
 
 	if (needs_paren)
-		args[n++] = '(';
-	else if (needs_assignment) {
-		args[n++] = ' ';
-		args[n++] = '=';
-		args[n++] = ' ';
-	}
+		print_args("(");
+	else if (needs_assignment)
+		print_args(" = ");
+
 	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
 		char *len_mod[] = { "hh", "h", "", "ll" };
@@ -495,10 +496,8 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
 
-		if (i > 0) {
-			n += snprintf(args + n, len, ", ");
-			len -= n;
-		}
+		if (i > 0)
+			print_args(", ");
 
 		memset(val.v, 0, sizeof(val));
 		fmt = ARG_SPEC_CHARS[spec->fmt];
@@ -564,19 +563,17 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			}
 
 			if (!memcmp(str, &null_str, sizeof(null_str)))
-				n += snprintf(args + n, len, "NULL");
+				print_args("NULL");
 			else if (needs_escape)
 				/* quotation mark has to be escaped by backslash
 				   in chrome trace json format */
-				n += snprintf(args + n, len, "\\\"%.*s\\\"",
-					      slen + newline, str);
+				print_args("\\\"%.*s\\\"", slen + newline, str);
 			else
-				n += snprintf(args + n, len, "\"%.*s\"",
-					      slen + newline, str);
+				print_args("\"%.*s\"", slen + newline, str);
 
 			/* std::string can be represented as "TEXT"s from C++14 */
 			if (spec->fmt == ARG_FMT_STD_STRING)
-				args[n++] = 's';
+				print_args("s");
 
 			free(str);
 			size = slen + 2;
@@ -586,9 +583,9 @@ void get_argspec_string(struct ftrace_task_handle *task,
 
 			memcpy(&c, data, 1);
 			if (isprint(c))
-				n += snprintf(args + n, len, "'%c'", c);
+				print_args("'%c'", c);
 			else
-				n += snprintf(args + n, len, "'\\x%02hhx'", c);
+				print_args("'\\x%02hhx'", c);
 			size = 1;
 		}
 		else if (spec->fmt == ARG_FMT_FLOAT) {
@@ -602,13 +599,13 @@ void get_argspec_string(struct ftrace_task_handle *task,
 
 			switch (spec->size) {
 			case 4:
-				n += snprintf(args + n, len, fmtstr, val.f);
+				print_args(fmtstr, val.f);
 				break;
 			case 8:
-				n += snprintf(args + n, len, fmtstr, val.d);
+				print_args(fmtstr, val.d);
 				break;
 			case 10:
-				n += snprintf(args + n, len, fmtstr, val.D);
+				print_args(fmtstr, val.D);
 				break;
 			default:
 				pr_dbg("invalid floating-point type size %d\n",
@@ -626,16 +623,19 @@ void get_argspec_string(struct ftrace_task_handle *task,
 						 (uint64_t)val.i);
 
 			if (sym)
-				n += snprintf(args + n, len, "&%s", sym->name);
+				print_args("&%s", sym->name);
 			else
-				n += snprintf(args + n, len, "%p", val.p);
+				print_args("%p", val.p);
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			char *estr;
 
 			memcpy(val.v, data, spec->size);
 			estr = get_enum_string(spec->enum_str, val.i);
-			n += snprintf(args + n, len, "%s", estr);
+			if (strlen(estr) >= len)
+				print_args("<ENUM>");
+			else
+				print_args("%s", estr);
 			free(estr);
 		}
 		else {
@@ -648,14 +648,16 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
 
 			if (spec->size > (int)sizeof(long))
-				n += snprintf(args + n, len, fmtstr, val.ll);
+				print_args(fmtstr, val.ll);
 			else
-				n += snprintf(args + n, len, fmtstr, val.i);
+				print_args(fmtstr, val.i);
 		}
 
 		i++;
-		len -= n;
 		data += ALIGN(size, 4);
+
+		if (len <= 2)
+			break;
 
 		/* read only the first match for retval */
 		if (is_retval)
