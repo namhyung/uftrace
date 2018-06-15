@@ -36,5 +36,7 @@ cscope.*
 *.sw[opn]
 *.patch
 *.orig
+*.gcda
+*.gcno
 misc/demangler
 misc/symbols

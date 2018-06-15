@@ -86,8 +86,16 @@ endif
 ifeq ($(TRACE), 1)
   UFTRACE_CFLAGS += -pg -fno-omit-frame-pointer
   DEMANGLER_CFLAGS += -pg -fno-omit-frame-pointer
+  SYMBOLS_CFLAGS += -pg -fno-omit-frame-pointer
   TRACEEVENT_CFLAGS += -pg -fno-omit-frame-pointer
   # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
+endif
+
+ifeq ($(COVERAGE), 1)
+  UFTRACE_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  DEMANGLER_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  SYMBOLS_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  TRACEEVENT_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
 endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS
@@ -304,10 +312,16 @@ clean:
 	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
+	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
+	$(Q)$(RM) coverage.info
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/doc clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent clean
+
+reset-coverage:
+	$(Q)find -name "*\.gcda" | xargs $(RM)
+	$(Q)$(RM) coverage.info
 
 ctags:
 	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
