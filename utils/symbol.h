@@ -90,7 +90,7 @@ static inline uint64_t get_real_address(uint64_t addr)
 	return addr;
 }
 
-void set_kernel_base(struct symtabs *symtabs, const char *session_id);
+uint64_t get_kernel_base(char *str);
 
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);

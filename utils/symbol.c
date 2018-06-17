@@ -1847,7 +1847,7 @@ void print_symtabs(struct symtabs *symtabs)
 	}
 }
 
-static uint64_t get_kernel_base(char *str)
+uint64_t get_kernel_base(char *str)
 {
 	uint64_t addr = strtoull(str, NULL, 16);
 
@@ -1862,30 +1862,6 @@ static uint64_t get_kernel_base(char *str)
 	} else {
 		return 0x800000000000ULL;
 	}
-}
-
-void set_kernel_base(struct symtabs *symtabs, const char *session_id)
-{
-	FILE *fp;
-	char buf[PATH_MAX];
-	char line[200];
-	uint64_t kernel_base_addr = -1ULL;
-
-	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map",
-		 symtabs->dirname, SESSION_ID_LEN, session_id);
-
-	fp = fopen(buf, "r");
-	if (fp == NULL)
-		pr_err("open %s file failed", buf);
-
-	while (fgets(line, sizeof(line), fp) != NULL) {
-		if (strstr(line, "[stack") != NULL) {
-			kernel_base_addr = get_kernel_base(line);
-		}
-	}
-	fclose(fp);
-
-	symtabs->kernel_base = kernel_base_addr;
 }
 
 #ifdef UNIT_TEST

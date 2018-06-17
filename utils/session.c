@@ -50,8 +50,11 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			continue;
 
 		/* skip the [stack] mapping */
-		if (path[0] == '[')
+		if (path[0] == '[') {
+			if (strncmp(path, "[stack", 6) == 0)
+				symtabs->kernel_base = get_kernel_base(buf);
 			continue;
+		}
 
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path)) {
@@ -150,7 +153,6 @@ void create_session(struct uftrace_session_link *sessions,
 
 	read_session_map(dirname, &s->symtabs, s->sid);
 	load_symtabs(&s->symtabs, dirname, s->exename);
-	set_kernel_base(&s->symtabs, s->sid);
 
 	load_module_symtabs(&s->symtabs);
 

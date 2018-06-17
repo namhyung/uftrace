@@ -868,6 +868,8 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	if (ofp == NULL)
 		pr_err("cannot open for writing maps file");
 
+	symtabs->kernel_base = -1ULL;
+
 	while (fgets(buf, sizeof(buf), ifp)) {
 		unsigned long start, end;
 		char prot[5];
@@ -885,8 +887,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		 * but [stack] is still needed to get kernel base address.
 		 */
 		if (path[0] == '[') {
-			if (strncmp(path, "[stack", 6) == 0)
+			if (strncmp(path, "[stack", 6) == 0) {
+				symtabs->kernel_base = get_kernel_base(buf);
 				goto next;
+			}
 			else
 				continue;
 		}
