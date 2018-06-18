@@ -128,6 +128,26 @@ static const struct tui_window_ops info_ops;
 #define C_YELLOW  3
 #define C_RED     4
 
+static const char *help[] = {
+	"ARROW         Navigation",
+	"PgUp/Dn",
+	"Home/End",
+	"Enter         Select/Fold",
+	"G             Show (full) call graph",
+	"g             Show call graph for this function",
+	"R             Show uftrace report",
+	"I             Show uftrace info",
+	"c/e           Collapse/Expand graph",
+	"n/p           Next/Prev sibling",
+	"u             Move up to parent",
+	"j/k           Move down/up",
+	"/             Search",
+	"</>/N/P       Search next/prev",
+	"v             Show debug message",
+	"h/?           Show this help",
+	"q             Quit",
+};
+
 static void init_colors(void)
 {
 	if (!has_colors())
@@ -1809,6 +1829,35 @@ static bool tui_window_expand(struct tui_window *win)
 	return win->ops->expand(win, win->curr);
 }
 
+static void tui_window_help(void)
+{
+	WINDOW *win;
+	int w = 64;
+	int h = ARRAY_SIZE(help) + 5;
+	unsigned i;
+
+	if (w > COLS)
+		w = COLS;
+	if (h > LINES)
+		h = LINES;
+
+	win = newwin(h, w, (LINES - h) / 2, (COLS - w) / 2);
+	box(win, 0, 0);
+
+	mvwprintw(win, 1, 1, "Help: (press any key to exit)");
+
+	for (i = 0; i < ARRAY_SIZE(help); i++)
+		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, help[i]);
+
+	mvwprintw(win, h-1, w-1, "");
+	wrefresh(win);
+
+	/* wait for key press */
+	wgetch(win);
+
+	delwin(win);
+}
+
 static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int key = 0;
@@ -1934,6 +1983,11 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
+			break;
+		case 'h':
+		case '?':
+			tui_window_help();
+			full_redraw = true;
 			break;
 		case 'q':
 			return;
