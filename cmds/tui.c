@@ -9,6 +9,7 @@
 #include <inttypes.h>
 
 #include "uftrace.h"
+#include "version.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/graph.h"
@@ -41,6 +42,11 @@ struct tui_report_node {
 	uint64_t max_self_time;
 	uint64_t recursive_time;
 	unsigned calls;
+};
+
+struct tui_list_node {
+	struct list_head list;
+	void *data;
 };
 
 struct tui_window;
@@ -96,14 +102,22 @@ struct tui_graph {
 	bool disp_update;
 };
 
+struct tui_list {
+	struct tui_window win;
+	struct list_head head;
+	int nr_node;
+};
+
 static LIST_HEAD(tui_graph_list);
 static LIST_HEAD(graph_output_fields);
 static struct tui_report tui_report;
 static struct tui_graph partial_graph;
+static struct tui_list tui_info;
 static char *tui_search;
 
 static const struct tui_window_ops graph_ops;
 static const struct tui_window_ops report_ops;
+static const struct tui_window_ops info_ops;
 
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
@@ -1253,6 +1267,140 @@ static const struct tui_window_ops report_ops = {
 	.search = win_search_report,
 };
 
+/* per-window operations for list window */
+static void * win_top_list(struct tui_window *win, bool update)
+{
+	struct tui_list *list = (struct tui_list *)win;
+
+	return list_first_entry(&list->head, struct tui_list_node, list);
+}
+
+static void * win_prev_list(struct tui_window *win, void *node, bool update)
+{
+	struct tui_list *list = (struct tui_list *)win;
+
+	if (list_first_entry(&list->head, struct tui_list_node, list) == node)
+		return NULL;
+
+	return list_prev_entry((struct tui_list_node *)node, list);
+}
+
+static void * win_next_list(struct tui_window *win, void *node, bool update)
+{
+	struct tui_list *list = (struct tui_list *)win;
+
+	if (list_last_entry(&list->head, struct tui_list_node, list) == node)
+		return NULL;
+
+	return list_next_entry((struct tui_list_node *)node, list);
+}
+
+/* per-window operations for info window */
+static void build_info_node(void *data, const char *fmt, ...)
+{
+	va_list ap;
+	struct tui_list *info = data;
+	struct tui_list_node *node;
+	char *str = NULL;
+
+	node = xmalloc(sizeof(*node));
+
+	va_start(ap, fmt);
+	vasprintf(&str, fmt, ap);
+	va_end(ap);
+
+	/* remove trailing newline */
+	str[strlen(str) - 1] = '\0';
+
+	node->data = str;
+	list_add_tail(&node->list, &info->head);
+}
+
+static struct tui_list * tui_info_init(struct opts *opts,
+				       struct ftrace_file_handle *handle)
+{
+	INIT_LIST_HEAD(&tui_info.head);
+	process_uftrace_info(handle, opts, build_info_node, &tui_info);
+
+	tui_window_init(&tui_info.win, &info_ops);
+			
+	return &tui_info;
+}
+
+static void tui_info_finish(void)
+{
+	struct tui_list_node *node, *tmp;
+
+	list_for_each_entry_safe(node, tmp, &tui_info.head, list) {
+		list_del(&node->list);
+		free(node->data);
+		free(node);
+	}
+}
+
+static void win_header_info(struct tui_window *win,
+			    struct ftrace_file_handle *handle)
+{
+
+	printw("%-*s", COLS, "uftrace info");
+}
+
+#define print_buf(fmt, ...)						\
+	({ int _x = snprintf(buf + len, sz - len, fmt, ## __VA_ARGS__); len += _x; })
+
+static void win_footer_info(struct tui_window *win,
+			    struct ftrace_file_handle *handle)
+{
+	char buf[256];
+	size_t sz = sizeof(buf);
+	int len = 0;
+
+	print_buf("uftrace version: %s (+", UFTRACE_VERSION);
+
+#ifdef HAVE_CXA_DEMANGLE
+	print_buf(" demangle");
+#endif
+
+#ifdef HAVE_LIBPYTHON2
+	print_buf(" python");
+#endif
+
+#ifdef HAVE_PERF_CLOCKID
+	print_buf(" perf");
+#endif
+
+#ifdef HAVE_LIBNCURSES
+	print_buf(" ncurses");
+#endif
+
+	if (unlikely(len == 0))
+		print_buf(" none");
+
+	print_buf(" )");
+
+	printw("%-*.*s", COLS, COLS, buf);
+}
+
+static void win_display_info(struct tui_window *win, void *node)
+{
+	struct tui_list_node *curr = node;
+
+	printw("%-*s", COLS, curr->data);
+}
+
+static const struct tui_window_ops info_ops = {
+	.prev = win_prev_list,
+	.next = win_next_list,
+	.top = win_top_list,
+	.parent = win_parent_no,
+	.sibling_prev = win_sibling_prev_no,
+	.sibling_next = win_sibling_next_no,
+	.needs_blank = win_needs_blank_no,
+	.header = win_header_info,
+	.footer = win_footer_info,
+	.display = win_display_info,
+};
+
 /* common window operations */
 static void tui_window_move_up(struct tui_window *win)
 {
@@ -1668,10 +1816,12 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 	struct tui_graph *graph;
 	struct tui_report *report;
 	struct tui_window *win;
+	struct tui_list *info;
 	void *old_top;
 
 	graph = tui_graph_init(opts);
 	report = tui_report_init(opts);
+	info = tui_info_init(opts, handle);
 
 	/* start with graph mode */
 	win = &graph->win;
@@ -1743,6 +1893,12 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				full_redraw = true;
 			}
 			break;
+		case 'I':
+			if (tui_window_change(win, &info->win)) {
+				win = &info->win;
+				full_redraw = true;
+			}
+			break;
 		case 'c':
 			if (tui_window_collapse(win))
 				full_redraw = true;
@@ -1805,6 +1961,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 
 	tui_graph_finish();
 	tui_report_finish();
+	tui_info_finish();
 }
 
 int command_tui(int argc, char *argv[], struct opts *opts)
