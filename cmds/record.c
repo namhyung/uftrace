@@ -1764,15 +1764,18 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 	int i;
 	char *elapsed_time = get_child_time(&wd->ts1, &wd->ts2);
 
-	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
-		pr_err("cannot generate data file");
-
 	if (opts->time) {
 		print_child_time(elapsed_time);
 		print_child_usage(&wd->usage);
 	}
 
 	free(elapsed_time);
+
+	if (opts->nop)
+		return;
+
+	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
+		pr_err("cannot generate data file");
 
 	if (shmem_lost_count)
 		pr_warn("LOST %d records\n", shmem_lost_count);
