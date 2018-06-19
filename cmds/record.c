@@ -1341,8 +1341,11 @@ static void save_session_symbols(struct opts *opts)
 	int i, maps;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
-	if (maps <= 0)
+	if (maps <= 0) {
+		if (maps == 0)
+			errno = ENOENT;
 		pr_err("cannot find map files");
+	}
 
 	for (i = 0; i < maps; i++) {
 		struct symtabs symtabs = {
