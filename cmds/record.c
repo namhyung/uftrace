@@ -1797,6 +1797,9 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 {
 	struct dlopen_list *dlib, *tmp;
 
+	if (opts->nop)
+		return;
+
 	/* main executable and shared libraries */
 	save_session_symbols(opts);
 
@@ -1913,7 +1916,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	if (create_directory(opts->dirname) < 0)
+	if (!opts->nop && create_directory(opts->dirname) < 0)
 		return -1;
 
 	/* apply script-provided options */
