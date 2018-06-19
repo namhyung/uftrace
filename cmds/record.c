@@ -1341,8 +1341,11 @@ static void save_session_symbols(struct opts *opts)
 	int i, maps;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
-	if (maps <= 0)
+	if (maps <= 0) {
+		if (maps == 0)
+			errno = ENOENT;
 		pr_err("cannot find map files");
+	}
 
 	for (i = 0; i < maps; i++) {
 		struct symtabs symtabs = {
@@ -1560,6 +1563,15 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 		.sa_flags = 0,
 	};
 
+	if (opts->nop) {
+		opts->nr_thread = 0;
+		opts->kernel = false;
+		has_perf_event = false;
+		wd->nr_cpu = 0;
+
+		goto out;
+	}
+
 	sigfillset(&sa.sa_mask);
 	sa.sa_handler = NULL;
 	sa.sa_sigaction = sigchld_handler;
@@ -1623,6 +1635,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else
 		has_perf_event = true;  /* for task/comm events */
 
+out:
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
 	wd->writers = xmalloc(opts->nr_thread * sizeof(*wd->writers));
 
@@ -1784,6 +1797,9 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 {
 	struct dlopen_list *dlib, *tmp;
 
+	if (opts->nop)
+		return;
+
 	/* main executable and shared libraries */
 	save_session_symbols(opts);
 
@@ -1900,7 +1916,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pipe(pfd) < 0)
 		pr_err("cannot setup internal pipe");
 
-	if (create_directory(opts->dirname) < 0)
+	if (!opts->nop && create_directory(opts->dirname) < 0)
 		return -1;
 
 	/* apply script-provided options */
