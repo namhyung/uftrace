@@ -1560,6 +1560,15 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 		.sa_flags = 0,
 	};
 
+	if (opts->nop) {
+		opts->nr_thread = 0;
+		opts->kernel = false;
+		has_perf_event = false;
+		wd->nr_cpu = 0;
+
+		goto out;
+	}
+
 	sigfillset(&sa.sa_mask);
 	sa.sa_handler = NULL;
 	sa.sa_sigaction = sigchld_handler;
@@ -1623,6 +1632,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else
 		has_perf_event = true;  /* for task/comm events */
 
+out:
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
 	wd->writers = xmalloc(opts->nr_thread * sizeof(*wd->writers));
 
