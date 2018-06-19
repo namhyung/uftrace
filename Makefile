@@ -92,10 +92,9 @@ ifeq ($(TRACE), 1)
 endif
 
 ifeq ($(COVERAGE), 1)
-  UFTRACE_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
-  DEMANGLER_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
-  SYMBOLS_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
-  TRACEEVENT_CFLAGS += -O0 -g -fprofile-arcs -ftest-coverage -U_FORTIFY_SOURCE
+  COMMON_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
+  LIB_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
+  LIB_LDFLAGS += --coverage
 endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS
