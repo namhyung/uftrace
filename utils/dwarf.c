@@ -173,6 +173,7 @@ struct type_data {
 	size_t				size;
 	int				pointer;
 	bool				ignore;
+	bool				broken;
 	char 				*enum_name;
 	struct debug_info		*dinfo;
 };
@@ -356,7 +357,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 			/* ignore struct with no member (when called-by-value) */
 			if (!td->pointer && is_empty_aggregate(die))
 				td->ignore = true;
-			return false;
+			break;
 
 		case DW_TAG_pointer_type:
 		case DW_TAG_ptr_to_member_type:
@@ -400,6 +401,9 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 	}
 
 	td->size = type_size(die);
+	/* TODO: handle aggregate types correctly */
+	if (td->size > sizeof(long) * 8)
+		td->broken = true;
 
 	if (dwarf_tag(die) != DW_TAG_base_type)
 		return false;
@@ -420,6 +424,7 @@ struct arg_data {
 	char			*argspec;
 	int			idx;
 	int			fpidx;
+	bool			broken;
 	struct debug_info	*dinfo;
 };
 
@@ -443,15 +448,19 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		die = &origin;
 	}
 
-	if (!resolve_type_info(die, &data))
+	if (!resolve_type_info(die, &data)) {
+		if (data.broken)
+			ad->broken = true;
 		return !data.ignore;
+	}
 
 	switch (data.fmt) {
 	case ARG_FMT_CHAR:
 		strcat(spec, "/c");
 		break;
 	case ARG_FMT_STR:
-		strcat(spec, "/s");
+		if (!ad->broken)
+			strcat(spec, "/s");
 		break;
 	case ARG_FMT_FLOAT:
 		if (ad->idx) {  /* for arguments */
@@ -706,12 +715,12 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	ad.name = name;
 	ad.addr = offset;
 
-	for (i = 0; i < bd->nr_args; i++) {
-		if (!match_filter_pattern(&bd->args[i], name))
+	for (i = 0; i < bd->nr_rets; i++) {
+		if (!match_filter_pattern(&bd->rets[i], name))
 			continue;
 
-		if (get_argspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->args, name, offset,
+		if (get_retspec(die, &ad)) {
+			add_debug_entry(&bd->dinfo->rets, name, offset,
 					ad.argspec);
 		}
 
@@ -720,13 +729,12 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		break;
 	}
 
-	ad.idx = RETVAL_IDX;
-	for (i = 0; i < bd->nr_rets; i++) {
-		if (!match_filter_pattern(&bd->rets[i], name))
+	for (i = 0; i < bd->nr_args; i++) {
+		if (!match_filter_pattern(&bd->args[i], name))
 			continue;
 
-		if (get_retspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->rets, name, offset,
+		if (get_argspec(die, &ad)) {
+			add_debug_entry(&bd->dinfo->args, name, offset,
 					ad.argspec);
 		}
 
