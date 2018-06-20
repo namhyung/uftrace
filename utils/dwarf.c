@@ -172,6 +172,7 @@ struct type_data {
 	enum uftrace_arg_format		fmt;
 	size_t				size;
 	int				pointer;
+	bool				ignore;
 	char 				*enum_name;
 	struct debug_info		*dinfo;
 };
@@ -230,6 +231,68 @@ static char * make_enum_name(Dwarf_Die *die)
 	return enum_name;
 }
 
+/* returns size in bit */
+static size_t type_size(Dwarf_Die *die)
+{
+	Dwarf_Attribute size_type;
+	Dwarf_Word size_val;
+
+	/* just guess it's word size */
+	if (!dwarf_hasattr(die, DW_AT_byte_size))
+		return sizeof(long) * 8;
+
+	dwarf_attr(die, DW_AT_byte_size, &size_type);
+	dwarf_formudata(&size_type, &size_val);
+
+	return size_val * 8;
+}
+
+static bool is_empty_aggregate(Dwarf_Die *die)
+{
+	Dwarf_Die child;
+	Dwarf_Die parent;
+	bool inherited = false;
+
+	/* C++ defines size of an empty struct as 1 byte */
+	if (type_size(die) > 8)
+		return false;
+
+retry:
+	if (dwarf_child(die, &child) != 0)
+		return true;  /* no child = no member */
+
+	do {
+		Dwarf_Attribute type;
+
+		switch (dwarf_tag(&child)) {
+		case DW_TAG_member:
+			return false;
+
+		case DW_TAG_subprogram:
+			/* probably a lambda function */
+			return false;
+
+		case DW_TAG_inheritance:
+			dwarf_attr(&child, DW_AT_type, &type);
+			dwarf_formref_die(&type, &parent);
+			inherited = true;
+			break;
+
+		default:
+			break;
+		}
+	}
+	while (dwarf_siblingof(&child, &child) == 0);
+
+	if (inherited) {
+		inherited = false;
+		die = &parent;
+		goto retry;
+	}
+
+	return true;
+}
+
 static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 {
 	Dwarf_Die ref;
@@ -286,6 +349,15 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 			free(enum_str);
 			return true;
 
+		case DW_TAG_structure_type:
+		case DW_TAG_union_type:
+		case DW_TAG_class_type:
+			pr_dbg3("type: struct/union/class\n");
+			/* ignore struct with no member (when called-by-value) */
+			if (!td->pointer && is_empty_aggregate(die))
+				td->ignore = true;
+			return false;
+
 		case DW_TAG_pointer_type:
 		case DW_TAG_ptr_to_member_type:
 		case DW_TAG_reference_type:
@@ -326,14 +398,8 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		}
 		return false;
 	}
-	else if (dwarf_hasattr(die, DW_AT_byte_size)) {
-		Dwarf_Attribute size_type;
-		Dwarf_Word size_val;
 
-		dwarf_attr(die, DW_AT_byte_size, &size_type);
-		dwarf_formudata(&size_type, &size_val);
-		td->size = size_val * 8;
-	}
+	td->size = type_size(die);
 
 	if (dwarf_tag(die) != DW_TAG_base_type)
 		return false;
@@ -357,7 +423,7 @@ struct arg_data {
 	struct debug_info	*dinfo;
 };
 
-static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
+static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 			  struct arg_data *ad)
 {
 	struct type_data data = {
@@ -370,7 +436,7 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		Dwarf_Attribute attr;
 
 		if (!dwarf_hasattr(die, DW_AT_abstract_origin))
-			return;
+			return false;
 
 		dwarf_attr(die, DW_AT_abstract_origin, &attr);
 		dwarf_formref_die(&attr, &origin);
@@ -378,7 +444,7 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 	}
 
 	if (!resolve_type_info(die, &data))
-		return;
+		return !data.ignore;
 
 	switch (data.fmt) {
 	case ARG_FMT_CHAR:
@@ -412,6 +478,8 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 	default:
 		break;
 	}
+
+	return true;
 }
 
 struct location_data {
@@ -529,7 +597,11 @@ static int get_argspec(Dwarf_Die *die, void *data)
 			continue;
 
 		snprintf(buf, sizeof(buf), "arg%d", ++ad->idx);
-		add_type_info(buf, sizeof(buf), &arg, ad);
+		if (!add_type_info(buf, sizeof(buf), &arg, ad)) {
+			/* ignore this argument */
+			ad->idx--;
+			continue;
+		}
 		add_location(buf, sizeof(buf), &arg, ad);
 
 		if (ad->argspec == NULL)
