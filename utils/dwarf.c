@@ -170,7 +170,7 @@ static void release_dwarf_info(struct debug_info *dinfo)
 
 struct type_data {
 	enum uftrace_arg_format		fmt;
-	int				size;
+	size_t				size;
 	int				pointer;
 	char 				*enum_name;
 	struct debug_info		*dinfo;
@@ -314,40 +314,37 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		}
 	}
 
-	if (dwarf_tag(die) != DW_TAG_base_type)
-		return false;
-
 	tname = dwarf_diename(die);
 
 	if (td->pointer) {
+		td->size = sizeof(long) * 8;
+
 		/* treat 'char *' as string */
-		if (td->pointer == 1 &&
-		    (!strcmp(tname, "char") ||
-		     !strcmp(tname, "signed char"))) {
+		if (td->pointer == 1 && tname && !strcmp(tname, "char")) {
 			td->fmt = ARG_FMT_STR;
 			return true;
 		}
 		return false;
 	}
+	else if (dwarf_hasattr(die, DW_AT_byte_size)) {
+		Dwarf_Attribute size_type;
+		Dwarf_Word size_val;
 
-	if (!strcmp(tname, "char") ||
-	    !strcmp(tname, "signed char")) {
+		dwarf_attr(die, DW_AT_byte_size, &size_type);
+		dwarf_formudata(&size_type, &size_val);
+		td->size = size_val * 8;
+	}
+
+	if (dwarf_tag(die) != DW_TAG_base_type)
+		return false;
+
+	if (!strcmp(tname, "char"))
 		td->fmt = ARG_FMT_CHAR;
-	}
-	else if (!strcmp(tname, "short")) {
-		td->size = 16;
-	}
-	else if (!strcmp(tname, "int")) {
-		td->size = 32;
-	}
-	else if (!strcmp(tname, "float")) {
+	else if (!strcmp(tname, "float"))
 		td->fmt = ARG_FMT_FLOAT;
-		td->size = 32;
-	}
-	else if (!strcmp(tname, "double")) {
+	else if (!strcmp(tname, "double"))
 		td->fmt = ARG_FMT_FLOAT;
-		td->size = 64;
-	}
+
 	return true;
 }
 
@@ -392,7 +389,7 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		break;
 	case ARG_FMT_FLOAT:
 		if (ad->idx) {  /* for arguments */
-			snprintf(spec, len, "fparg%d/%d",
+			snprintf(spec, len, "fparg%d/%zu",
 				 ++ad->fpidx, data.size);
 			/* do not increase index of integer arguments */
 			--ad->idx;
@@ -400,7 +397,7 @@ static void add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		else {  /* for return values */
 			char sz[4];
 
-			snprintf(sz, sizeof(sz), "%d", data.size);
+			snprintf(sz, sizeof(sz), "%zu", data.size);
 			strcat(spec, "/f");
 			strcat(spec, sz);
 		}
