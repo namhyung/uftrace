@@ -24,7 +24,7 @@
 #define TERM_COLOR_BLUE		"\033[1;34m"  /* bright blue */
 #define TERM_COLOR_MAGENTA	"\033[35m"
 #define TERM_COLOR_CYAN		"\033[36m"
-#define TERM_COLOR_GRAY		"\033[2m"
+#define TERM_COLOR_GRAY		"\033[90m"    /* bright black */
 
 int debug;
 FILE *logfp;
