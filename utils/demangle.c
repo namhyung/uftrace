@@ -151,10 +151,10 @@ static const struct {
 	char op[2];
 	char *name;
 } ops[] = {
-	{ { 'n','w' }, "new" },
-	{ { 'n','a' }, "new[]" },
-	{ { 'd','l' }, "delete" },
-	{ { 'd','a' }, "delete[]" },
+	{ { 'n','w' }, " new" },
+	{ { 'n','a' }, " new[]" },
+	{ { 'd','l' }, " delete" },
+	{ { 'd','a' }, " delete[]" },
 	{ { 'p','s' }, "+" }, /* unary */
 	{ { 'n','g' }, "-" }, /* unary */
 	{ { 'a','d' }, "&" }, /* unary */
@@ -1198,7 +1198,7 @@ static int dd_operator_name(struct demangle_data *dd)
 		if (c0 == ops[i].op[0] && c1 == ops[i].op[1]) {
 			if (dd->newpos)
 				dd_append(dd, "::");
-			dd_append(dd, "operator ");
+			dd_append(dd, "operator");
 			dd_append(dd, ops[i].name);
 
 			dd->type++;
@@ -1577,7 +1577,7 @@ TEST_CASE(demangle_simple3)
 
 	name = demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
 			       "bRKSt15_Deque_iteratorIT_T0_T1_ESE_");
-	TEST_STREQ("std::operator ==", name);
+	TEST_STREQ("std::operator==", name);
 	free(name);
 
 	name = demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
@@ -1587,7 +1587,7 @@ TEST_CASE(demangle_simple3)
 			       "27ArithmeticPromotionCategoryE0ELSB_2E"
 			       "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
 			       "4typeEEERKNS3_IS5_EES6_");
-	TEST_STREQ("v8::base::internal::operator *", name);
+	TEST_STREQ("v8::base::internal::operator*", name);
 	free(name);
 
 	name = demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
