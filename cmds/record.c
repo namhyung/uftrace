@@ -1769,13 +1769,15 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 		print_child_usage(&wd->usage);
 	}
 
-	free(elapsed_time);
-
-	if (opts->nop)
+	if (opts->nop) {
+		free(elapsed_time);
 		return;
+	}
 
 	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
 		pr_err("cannot generate data file");
+
+	free(elapsed_time);
 
 	if (shmem_lost_count)
 		pr_warn("LOST %d records\n", shmem_lost_count);
