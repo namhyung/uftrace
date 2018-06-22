@@ -1256,15 +1256,20 @@ static int dd_unqualified_name(struct demangle_data *dd)
 	if ((c0 == 'C' || c0 == 'D') && isdigit(c1))
 		ret = dd_ctor_dtor_name(dd);
 	else if (c0 == 'U') {
-		dd->type++;
-
 		if (c1 == 't') {
 			/* unnamed type name */
+			dd->type++;
+
 			dd_consume_n(dd, 2);
 			dd_number(dd);
 			DD_DEBUG_CONSUME(dd, '_');
+
+			dd->type--;
 		}
-		else if (c1 == 'I' || c1 == 'l') {
+		else if (c1 == 'l') {
+			int n = 0;
+			char buf[32];
+
 			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
 
@@ -1277,16 +1282,24 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			dd->level--;
 
 			if (dd_curr(dd) != '_') {
-				if (dd_number(dd) < 0)
+				n = dd_number(dd);
+				if (n < 0)
 					return -1;
 			}
 			DD_DEBUG_CONSUME(dd, '_');
+
+			if (dd->type)
+				return 0;
+
+			if (dd->newpos)
+				dd_append(dd, "::");
+
+			snprintf(buf, sizeof(buf), "$_%d", n);
+			dd_append(dd, buf);
 		}
 		else {
 			ret = -1;
 		}
-
-		dd->type--;
 	}
 	else if (islower(c0))
 		ret = dd_operator_name(dd);
