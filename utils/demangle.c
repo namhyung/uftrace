@@ -151,10 +151,10 @@ static const struct {
 	char op[2];
 	char *name;
 } ops[] = {
-	{ { 'n','w' }, "new" },
-	{ { 'n','a' }, "new[]" },
-	{ { 'd','l' }, "delete" },
-	{ { 'd','a' }, "delete[]" },
+	{ { 'n','w' }, " new" },
+	{ { 'n','a' }, " new[]" },
+	{ { 'd','l' }, " delete" },
+	{ { 'd','a' }, " delete[]" },
 	{ { 'p','s' }, "+" }, /* unary */
 	{ { 'n','g' }, "-" }, /* unary */
 	{ { 'a','d' }, "&" }, /* unary */
@@ -1198,7 +1198,7 @@ static int dd_operator_name(struct demangle_data *dd)
 		if (c0 == ops[i].op[0] && c1 == ops[i].op[1]) {
 			if (dd->newpos)
 				dd_append(dd, "::");
-			dd_append(dd, "operator ");
+			dd_append(dd, "operator");
 			dd_append(dd, ops[i].name);
 
 			dd->type++;
@@ -1256,15 +1256,20 @@ static int dd_unqualified_name(struct demangle_data *dd)
 	if ((c0 == 'C' || c0 == 'D') && isdigit(c1))
 		ret = dd_ctor_dtor_name(dd);
 	else if (c0 == 'U') {
-		dd->type++;
-
 		if (c1 == 't') {
 			/* unnamed type name */
+			dd->type++;
+
 			dd_consume_n(dd, 2);
 			dd_number(dd);
 			DD_DEBUG_CONSUME(dd, '_');
+
+			dd->type--;
 		}
-		else if (c1 == 'I' || c1 == 'l') {
+		else if (c1 == 'l') {
+			int n = 0;
+			char buf[32];
+
 			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
 
@@ -1277,16 +1282,24 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			dd->level--;
 
 			if (dd_curr(dd) != '_') {
-				if (dd_number(dd) < 0)
+				n = dd_number(dd);
+				if (n < 0)
 					return -1;
 			}
 			DD_DEBUG_CONSUME(dd, '_');
+
+			if (dd->type)
+				return 0;
+
+			if (dd->newpos)
+				dd_append(dd, "::");
+
+			snprintf(buf, sizeof(buf), "$_%d", n);
+			dd_append(dd, buf);
 		}
 		else {
 			ret = -1;
 		}
-
-		dd->type--;
 	}
 	else if (islower(c0))
 		ret = dd_operator_name(dd);
@@ -1446,8 +1459,15 @@ static char *demangle_simple(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
+	bool has_prefix = false;
 
-	if (str[0] != '_' || str[1] != 'Z')
+	if (!strncmp(str, "_GLOBAL__sub_I_", 15)) {
+		has_prefix = true;
+		dd.old += 15;
+		dd.len -= 15;
+	}
+
+	if (dd.old[0] != '_' || dd.old[1] != 'Z')
 		return xstrdup(str);
 
 	dd.pos = 2;
@@ -1457,6 +1477,14 @@ static char *demangle_simple(char *str)
 		dd_debug_print(&dd);
 		free(dd.new);
 		return xstrdup(str);
+	}
+
+	if (has_prefix) {
+		char *p = NULL;
+
+		xasprintf(&p, "_GLOBAL__sub_I_%s", dd.new);
+		free(dd.new);
+		dd.new = p;
 	}
 
 	/* caller should free it */
@@ -1577,7 +1605,7 @@ TEST_CASE(demangle_simple3)
 
 	name = demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
 			       "bRKSt15_Deque_iteratorIT_T0_T1_ESE_");
-	TEST_STREQ("std::operator ==", name);
+	TEST_STREQ("std::operator==", name);
 	free(name);
 
 	name = demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
@@ -1587,7 +1615,7 @@ TEST_CASE(demangle_simple3)
 			       "27ArithmeticPromotionCategoryE0ELSB_2E"
 			       "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
 			       "4typeEEERKNS3_IS5_EES6_");
-	TEST_STREQ("v8::base::internal::operator *", name);
+	TEST_STREQ("v8::base::internal::operator*", name);
 	free(name);
 
 	name = demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"

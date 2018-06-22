@@ -638,7 +638,9 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 #ifdef UNIT_TEST
 
 static struct uftrace_session_link test_sessions;
-static const char session_map[] = "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n";
+static const char session_map[] =
+	"00400000-00401000 r-xp 00000000 08:03 4096 unittest\n"
+	"bfff0000-bffff000 rw-p 00000000 08:03 4096 [stack]\n";
 
 TEST_CASE(session_search)
 {
@@ -931,7 +933,7 @@ TEST_CASE(task_symbol)
 
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);
-	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fprintf(fp, "%s", session_map);
 	fclose(fp);
 
 	fp = fopen("unittest.sym", "w");
@@ -981,7 +983,7 @@ TEST_CASE(task_symbol_dlopen)
 
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);
-	fprintf(fp, "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n");
+	fprintf(fp, "%s", session_map);
 	fclose(fp);
 
 	fp = fopen("libuftrace-test.so.0.sym", "w");
