@@ -1459,8 +1459,15 @@ static char *demangle_simple(char *str)
 		.old = str,
 		.len = strlen(str),
 	};
+	bool has_prefix = false;
 
-	if (str[0] != '_' || str[1] != 'Z')
+	if (!strncmp(str, "_GLOBAL__sub_I_", 15)) {
+		has_prefix = true;
+		dd.old += 15;
+		dd.len -= 15;
+	}
+
+	if (dd.old[0] != '_' || dd.old[1] != 'Z')
 		return xstrdup(str);
 
 	dd.pos = 2;
@@ -1470,6 +1477,14 @@ static char *demangle_simple(char *str)
 		dd_debug_print(&dd);
 		free(dd.new);
 		return xstrdup(str);
+	}
+
+	if (has_prefix) {
+		char *p = NULL;
+
+		xasprintf(&p, "_GLOBAL__sub_I_%s", dd.new);
+		free(dd.new);
+		dd.new = p;
 	}
 
 	/* caller should free it */
