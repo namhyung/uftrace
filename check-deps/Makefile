@@ -14,7 +14,7 @@ CHECK_LIST += cc_has_wstringop_truncation
 # This is needed for checking build dependency
 #
 
-CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@)
+CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -Werror
 CHECK_LDFLAGS = $(LDFLAGS) $(LDFLAGS_$@)
 
 CFLAGS_cc_has_mfentry = -mfentry
