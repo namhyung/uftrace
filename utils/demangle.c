@@ -1267,7 +1267,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			dd->type--;
 		}
 		else if (c1 == 'l') {
-			int n = 0;
+			int n = -1;
 			char buf[32];
 
 			/* closure type name (or lambda) */
@@ -1294,7 +1294,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			if (dd->newpos)
 				dd_append(dd, "::");
 
-			snprintf(buf, sizeof(buf), "$_%d", n);
+			snprintf(buf, sizeof(buf), "$_%d", n + 1);
 			dd_append(dd, buf);
 		}
 		else {
