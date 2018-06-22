@@ -248,7 +248,7 @@ get_session_from_sid(struct uftrace_session_link *sessions, char sid[])
 	while (n) {
 		s = rb_entry(n, struct uftrace_session, node);
 
-		if (!memcmp(s->sid, sid, sizeof(s->sid)) != 0)
+		if (memcmp(s->sid, sid, sizeof(s->sid)) == 0)
 			return s;
 
 		n = rb_next(n);
