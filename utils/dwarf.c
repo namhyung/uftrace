@@ -664,6 +664,57 @@ struct build_data {
 	struct uftrace_pattern	*rets;
 };
 
+/* caller should free the return value */
+static char *find_last_component(char *name)
+{
+	char *tmp, *p, *last;
+	int count = 0;
+
+	tmp = p = last = xstrdup(name);
+
+	while (*p) {
+		if (strchr("<(", *p))
+			*p = '\0', count++;
+		else if (strchr(">)", *p))
+			count--;
+
+		if (p[0] == ':' && p[1] == ':' && count == 0)
+			last = p + 2;
+
+		p++;
+	}
+
+	p = xstrdup(last);
+	free(tmp);
+
+	return p;
+}
+
+static bool match_name(struct sym *sym, char *name, bool demangled)
+{
+	char *last_sym;
+	char *last_name;
+	bool ret;
+
+	if (sym == NULL)
+		return false;
+
+	if (!strcmp(sym->name, name))
+		return true;
+
+	if (demangled || demangler != DEMANGLE_SIMPLE)
+		return false;
+
+	last_sym = find_last_component(sym->name);
+	last_name = find_last_component(name);
+
+	ret = !strcmp(last_sym, last_name);
+
+	free(last_sym);
+	free(last_name);
+	return ret;
+}
+
 static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 {
 	struct build_data *bd = data;
@@ -706,9 +757,9 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 
 	/* double-check symbol table has same info */
 	sym = find_sym(bd->symtab, offset);
-	if (sym == NULL || strcmp(sym->name, name)) {
-		pr_dbg2("skip unknown debug info: %s (%lx)\n",
-			sym ? sym->name : "no name", offset);
+	if (sym == NULL || !match_name(sym, name, needs_free)) {
+		pr_dbg2("skip unknown debug info: %s / %s (%lx)\n",
+			sym ? sym->name : "no name", name, offset);
 		goto out;
 	}
 
