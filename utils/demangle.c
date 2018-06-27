@@ -1146,15 +1146,29 @@ static int dd_ctor_dtor_name(struct demangle_data *dd)
 	char c1 = __dd_consume(dd, NULL);
 	char *pos;
 	int len;
+	int ret = 0;
+	bool needs_type = false;
 
 	if (dd_eof(dd))
 		return -1;
 
-	if ((c0 != 'C' && c0 != 'D') || !isdigit(c1))
-		DD_DEBUG(dd, "C[0-3] or D[0-3]", -2);
+	if ((c0 != 'C' && c0 != 'D'))
+		DD_DEBUG(dd, "C[0-5] or D[0-5]", -2);
+
+	/* inheriting constructor */
+	if (c1 == 'I') {
+		c1 = __dd_consume(dd, NULL);
+		needs_type = true;
+	}
+
+	if (!isdigit(c1))
+		DD_DEBUG(dd, "C[0-5] or D[0-5]", -2 - (needs_type ? 1 : 0));
+
+	if (needs_type)
+		ret = dd_type(dd);
 
 	if (dd->type)
-		return 0;
+		return ret;
 
 	/* repeat last name after '::' */
 	pos = strrchr(dd->new, ':');
@@ -1174,7 +1188,7 @@ static int dd_ctor_dtor_name(struct demangle_data *dd)
 
 	dd_append_len(dd, pos, len);
 	free(pos);
-	return 0;
+	return ret;
 }
 
 static int dd_operator_name(struct demangle_data *dd)
@@ -1253,7 +1267,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 	if (dd_eof(dd))
 		return -1;
 
-	if ((c0 == 'C' || c0 == 'D') && isdigit(c1))
+	if (c0 == 'C' || c0 == 'D')
 		ret = dd_ctor_dtor_name(dd);
 	else if (c0 == 'U') {
 		if (c1 == 't') {
@@ -1330,8 +1344,9 @@ static int dd_nested_name(struct demangle_data *dd)
 		char c0 = dd_curr(dd);
 		char c1 = dd_peek(dd, 1);
 
-		if (((c0 == 'C' || c0 == 'D') && isdigit(c1)) ||
-		    c0 == 'U' || islower(c0) || isdigit(c0))
+		if (c0 == 'C' || c0 == 'D')
+			ret = dd_ctor_dtor_name(dd);
+		else if (c0 == 'U' || islower(c0) || isdigit(c0))
 			ret = dd_unqualified_name(dd);
 		else if (c0 == 'T')
 			ret = dd_template_param(dd);
@@ -1706,6 +1721,12 @@ TEST_CASE(demangle_simple5)
 			       "25CorrectDelayedTyposInExprES4_PNS1_7VarDeclE"
 			       "S7_Ed_NUlS4_E_EEES5_lS4_");
 	TEST_STREQ("llvm::function_ref::callback_fn", name);
+	free(name);
+
+	name = demangle_simple("_ZN4base8internal15OptionalStorageImLb1ELb1EE"
+			       "CI2NS0_19OptionalStorageBaseImLb1EEEIJRKmEEE"
+			       "NS_10in_place_tEDpOT_");
+	TEST_STREQ("base::internal::OptionalStorage::OptionalStorage", name);
 	free(name);
 
 	return TEST_OK;
