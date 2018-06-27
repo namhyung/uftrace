@@ -50,6 +50,19 @@ static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
 		parent = *p;
 		iter = rb_entry(parent, struct debug_entry, node);
 
+		if (unlikely(iter->offset == entry->offset)) {
+			pr_dbg3("debug entry: conflict!\n");
+
+			/* mark it broken by using NULL spec */
+			free(iter->spec);
+			iter->spec = NULL;
+
+			free(entry->name);
+			free(entry->spec);
+			free(entry);
+			return 0;
+		}
+
 		if (iter->offset > entry->offset)
 			p = &parent->rb_left;
 		else
