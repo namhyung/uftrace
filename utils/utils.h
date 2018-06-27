@@ -32,6 +32,7 @@
 
 #define DIV_ROUND_UP(v, r)  (((v) + (r) - 1) / (r))
 #define ROUND_UP(v, r)      (DIV_ROUND_UP((v), (r)) * (r))
+#define ROUND_DOWN(v, r)    (((v) / (r)) * (r))
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))

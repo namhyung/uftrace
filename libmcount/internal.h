@@ -70,6 +70,18 @@ struct mcount_event {
 
 #define MAX_EVENT  4
 
+#ifndef DISABLE_MCOUNT_FILTER
+struct mcount_mem_regions {
+	struct rb_root root;
+	unsigned long  heap;
+	unsigned long  brk;
+};
+void finish_mem_region(struct mcount_mem_regions *regions);
+#else
+struct mcount_mem_regions {};
+static inline void finish_mem_region(struct mcount_mem_regions *regions) {}
+#endif
+
 /*
  * The idx and record_idx are to save current index of the rstack.
  * In general, both will have same value but in case of cygprof
@@ -94,6 +106,7 @@ struct mcount_thread_data {
 	struct mcount_shmem		shmem;
 	struct mcount_event		event[MAX_EVENT];
 	int				nr_events;
+	struct mcount_mem_regions	mem_regions;
 	struct mcount_arch_context	arch;
 };
 
@@ -279,6 +292,7 @@ struct mcount_arg_context {
 		} ll;
 		unsigned char	v[16];
 	} __align(16) val;
+	struct mcount_mem_regions *regions;
 };
 
 extern void mcount_arch_get_arg(struct mcount_arg_context *ctx,

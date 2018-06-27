@@ -215,6 +215,7 @@ static void mtd_dtor(void *arg)
 	mtdp->rstack = NULL;
 
 	mcount_filter_release(mtdp);
+	finish_mem_region(&mtdp->mem_regions);
 	shmem_finish(mtdp);
 
 	tmsg.pid = getpid(),
