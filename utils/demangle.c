@@ -1344,7 +1344,9 @@ static int dd_nested_name(struct demangle_data *dd)
 		char c0 = dd_curr(dd);
 		char c1 = dd_peek(dd, 1);
 
-		if (c0 == 'C' || c0 == 'D')
+		if (c0 == 'D' && (c1 == 'T' || c1 == 't'))
+			ret = dd_decltype(dd);
+		else if (c0 == 'C' || c0 == 'D')
 			ret = dd_ctor_dtor_name(dd);
 		else if (c0 == 'U' || islower(c0) || isdigit(c0))
 			ret = dd_unqualified_name(dd);
@@ -1354,8 +1356,6 @@ static int dd_nested_name(struct demangle_data *dd)
 			ret = dd_template_args(dd);
 		else if (c0 == 'S')
 			ret = dd_substitution(dd);
-		else if (c0 == 'D' && (c1 == 'T' || c1 == 't'))
-			ret = dd_decltype(dd);
 		else if (c0 == 'M')
 			dd_consume(dd);  /* assumed data-member-prefix */
 		else if (c0 == 'L')
