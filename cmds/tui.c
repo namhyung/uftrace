@@ -1332,7 +1332,7 @@ static void build_info_node(void *data, const char *fmt, ...)
 	node = xmalloc(sizeof(*node));
 
 	va_start(ap, fmt);
-	vasprintf(&str, fmt, ap);
+	xvasprintf(&str, fmt, ap);
 	va_end(ap);
 
 	/* remove trailing newline */
