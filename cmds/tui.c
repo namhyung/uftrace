@@ -1879,21 +1879,11 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rec = task->rstack;
 
-		/* skip user functions if --kernel-only is set */
-		if (opts->kernel_only && !is_kernel_record(task, rec))
+		if (!fstack_check_opts(task, opts))
 			continue;
 
-		if (opts->kernel_skip_out) {
-			/* skip kernel functions outside user functions */
-			if (!task->user_stack_count && is_kernel_record(task, rec))
-				continue;
-		}
-
-		if (opts->event_skip_out) {
-			/* skip event outside of user functions */
-			if (!task->user_stack_count && rec->type == UFTRACE_EVENT)
-				continue;
-		}
+		if (!fstack_check_filter(task))
+			continue;
 
 		ret = build_tui_node(task, rec);
 		if (ret)
