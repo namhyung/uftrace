@@ -2189,6 +2189,11 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				free(tui_search);
 				tui_search = tui_search_start();
 				tui_window_search_count(win);
+
+				/* move to the next match if found */
+				if (win->search_count > 0)
+					tui_window_search_next(win);
+
 				full_redraw = true;
 			}
 			break;
