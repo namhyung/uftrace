@@ -496,6 +496,9 @@ struct rusage;
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time);
 int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
+void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
+			  void (*process)(void *data, const char *fmt, ...),
+			  void *data);
 void clear_uftrace_info(struct uftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);

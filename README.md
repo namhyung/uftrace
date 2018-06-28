@@ -218,6 +218,13 @@ The `info` command shows system and program information when recorded.
     # page fault          : 0 / 172 (major / minor)
     # disk iops           : 0 / 24 (read / write)
 
+The `script` command allows user to run a custom script on a data recorded.
+Currently python (version 2.7) is supported only.
+
+The `tui` command is for interactive text-based user interface using ncurses.
+It provides basic functionality of `graph`, `report` and `info` commands as of
+now.
+
 
 How to install uftrace
 ======================

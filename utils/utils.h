@@ -200,6 +200,13 @@ extern void setup_signal(void);
 	}								\
 })
 
+#define xvasprintf(s, fmt, ap)						\
+({ 	int __ret = vasprintf(s, fmt, ap);				\
+	if (__ret < 0) {						\
+		pr_err("xvasprintf");					\
+	}								\
+})
+
 #define htonq(x)  htobe64(x)
 #define ntohq(x)  be64toh(x)
 
