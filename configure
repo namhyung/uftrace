@@ -163,7 +163,7 @@ all: prepare
 	@\$(MAKE) -C \$(srcdir)
 
 clean:
-	@rm -rf arch libmcount libtraceevent utils
+	@rm -rf cmds arch libmcount libtraceevent utils
 	@rm -f uftrace version.h *.o *.op
 
 prepare:
