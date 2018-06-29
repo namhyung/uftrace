@@ -70,8 +70,16 @@ static void color(const char *code, FILE *fp)
 void setup_color(enum color_setting color)
 {
 	if (likely(color == COLOR_AUTO)) {
-		log_color = isatty(fileno(logfp)) ? COLOR_ON : COLOR_OFF;
-		out_color = isatty(fileno(outfp)) ? COLOR_ON : COLOR_OFF;
+		char *term = getenv("TERM");
+		bool dumb = term && !strcmp(term, "dumb");
+
+		out_color = COLOR_ON;
+		log_color = COLOR_ON;
+
+		if (!isatty(fileno(outfp)) || dumb)
+			out_color = COLOR_OFF;
+		if (!isatty(fileno(logfp)) || dumb)
+			log_color = COLOR_OFF;
 	}
 	else {
 		log_color = color;

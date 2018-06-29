@@ -2,6 +2,7 @@
 
 .text
 
+/* universal stack constraint: (SP mod 16) == 0 */
 GLOBAL(_mcount)
 	/* setup frame pointer */
 	stp	x29, x30, [sp, #-16]!
@@ -35,16 +36,16 @@ ENTRY(mcount_return)
 	/* setup frame pointer */
 	stp	x29, x30, [sp, #-16]!
 	/* save return values */
-	str	x0, [sp, #-8]!
-	str	d0, [sp, #-8]!
+	stp	x0, x8, [sp, #-16]!
+	str	d0, [sp, #-16]!
 
 	mov	x0, sp
 	bl	mcount_exit
 	mov	x16, x0
 
 	/* restore return values */
-	ldr	d0, [sp], #8
-	ldr	x0, [sp], #8
+	ldr	d0, [sp], #16
+	ldp	x0, x8, [sp], #16
 	/* restore frame pointer */
 	ldp	x29, x30, [sp], #16
 

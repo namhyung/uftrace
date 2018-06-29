@@ -74,18 +74,16 @@ END(plt_hooker)
 
 
 ENTRY(plthook_return)
-	stp	x8, x18, [sp, #-16]!
-	str	x0, [sp, #-8]!
-	str	d0, [sp, #-8]!
+	stp	x0, x8, [sp, #-16]!
+	str	d0, [sp, #-16]!
 
 	mov	x0, sp
 	bl	plthook_exit
 
 	mov	x16, x0
 
-	ldr	d0, [sp], #8
-	ldr	x0, [sp], #8
-	ldp	x8, x18, [sp], #16
+	ldr	d0, [sp], #16
+	ldp	x0, x8, [sp], #16
 
 	br	x16
 END(plthook_return)
