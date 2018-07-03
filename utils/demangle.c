@@ -1568,6 +1568,9 @@ static char *demangle_full(char *str)
  */
 char *demangle(char *str)
 {
+	if (str == NULL)
+		return NULL;
+
 	switch (demangler) {
 	case DEMANGLE_SIMPLE:
 		return demangle_simple(str);
