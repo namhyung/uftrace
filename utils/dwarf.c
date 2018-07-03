@@ -1170,15 +1170,24 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 
 	switch (code) {
 	case 'F':
+		/* symbol address and name */
 		fprintf(fp, "%lx %s\n", val, str);
 		break;
 	case 'A':
 	case 'R':
+		/* argument and return value spec */
 		fprintf(fp, "%s\n", str);
 		break;
 	case 'E':
-		/* this format is compatible with parse_enum_string() */
+		/*
+		 * enum definition: this format is compatible with
+		 * parse_enum_string()
+		 */
 		fprintf(fp, "enum %s {%s}\n", str, (char *)val);
+		break;
+	case 'L':
+		/* line number and file name */
+		fprintf(fp, "%ld %s\n", val, str);
 		break;
 	default:
 		fprintf(fp, "unknown debug info\n");
@@ -1189,9 +1198,8 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 static void save_debug_entries(struct debug_info *dinfo,
 			       char *dirname, const char *filename)
 {
+	int i;
 	FILE *fp;
-	struct rb_node *anode = rb_first(&dinfo->args);
-	struct rb_node *rnode = rb_first(&dinfo->rets);
 
 	fp = create_debug_file(dirname, basename(filename));
 	if (fp == NULL)
@@ -1199,36 +1207,24 @@ static void save_debug_entries(struct debug_info *dinfo,
 
 	save_enum_def(&dinfo->enums, fp);
 
-	/*
-	 * save spec of debug entry which has smaller offset first.
-	 * unify argument and return value only if they have same offset.
-	 */
-	while (anode || rnode) {
-		struct debug_entry *arg = NULL;
-		struct debug_entry *ret = NULL;
+	for (i = 0; i < dinfo->nr_locs; i++) {
+		struct debug_location *loc = &dinfo->locs[i];
+		struct debug_entry *entry;
 
-		if (anode)
-			arg = rb_entry(anode, typeof(*arg), node);
-		if (rnode)
-			ret = rb_entry(rnode, typeof(*ret), node);
+		if (loc->sym == NULL)
+			continue;
 
-		if (arg == NULL || (ret && ret->offset < arg->offset)) {
-			save_debug_file(fp, 'F', ret->name,
-					ret->offset - dinfo->offset);
-			save_debug_file(fp, 'R', ret->spec, 0);
-			rnode = rb_next(rnode);
-		}
-		else {
-			save_debug_file(fp, 'F', arg->name,
-					arg->offset - dinfo->offset);
-			save_debug_file(fp, 'A', arg->spec, 0);
-			anode = rb_next(anode);
+		save_debug_file(fp, 'F', loc->sym->name,
+				loc->sym->addr - dinfo->offset);
+		save_debug_file(fp, 'L', loc->file->name, loc->line);
 
-			if (ret && (arg->offset == ret->offset)) {
-				save_debug_file(fp, 'R', ret->spec, 0);
-				rnode = rb_next(rnode);
-			}
-		}
+		entry = find_debug_entry(&dinfo->args, loc->sym->addr);
+		if (entry)
+			save_debug_file(fp, 'A', entry->spec, 0);
+
+		entry = find_debug_entry(&dinfo->rets, loc->sym->addr);
+		if (entry)
+			save_debug_file(fp, 'R', entry->spec, 0);
 	}
 
 	close_debug_file(fp, dirname, basename(filename));
@@ -1258,7 +1254,7 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 	}
 }
 
-static int load_debug_file(struct debug_info *dinfo,
+static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 			   const char *dirname, const char *filename)
 {
 	char *pathname;
@@ -1272,6 +1268,9 @@ static int load_debug_file(struct debug_info *dinfo,
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
+	INIT_LIST_HEAD(&dinfo->files);
+	dinfo->nr_locs = symtab->nr_sym;
+	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 
 	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
 
@@ -1290,6 +1289,9 @@ static int load_debug_file(struct debug_info *dinfo,
 	while (getline(&line, &len, fp) >= 0) {
 		char *pos;
 		struct rb_root *root = &dinfo->args;
+		struct sym *sym;
+		ptrdiff_t sym_idx;
+		unsigned long lineno;
 
 		if (line[1] != ':' || line[2] != ' ')
 			goto out;
@@ -1320,6 +1322,17 @@ static int load_debug_file(struct debug_info *dinfo,
 			if (parse_enum_string(&line[3], &dinfo->enums))
 				goto out;
 			break;
+		case 'L':
+			sym = find_sym(symtab, offset);
+			if (sym == NULL)
+				goto out;
+
+			lineno = strtoul(&line[3], &pos, 0);
+
+			sym_idx = sym - symtab->sym;
+			dinfo->locs[sym_idx].line = lineno;
+			dinfo->locs[sym_idx].file = get_debug_file(dinfo, pos + 1);
+			break;
 		default:
 			goto out;
 		}
@@ -1345,15 +1358,16 @@ void load_debug_info(struct symtabs *symtabs)
 	struct uftrace_mmap *map;
 
 	symtabs->dinfo.offset = symtabs->exec_base;
-	load_debug_file(&symtabs->dinfo, symtabs->dirname, symtabs->filename);
+	load_debug_file(&symtabs->dinfo, &symtabs->symtab,
+			symtabs->dirname, symtabs->filename);
 
 	map = symtabs->maps;
 	while (map) {
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
 			map->dinfo.offset = map->start;
-			load_debug_file(&map->dinfo, symtabs->dirname,
-					map->libname);
+			load_debug_file(&map->dinfo, &map->symtab,
+					symtabs->dirname, map->libname);
 		}
 		map = map->next;
 	}
