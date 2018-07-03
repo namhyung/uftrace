@@ -362,10 +362,11 @@ static bool find_mem_region(struct rb_root *root, unsigned long addr)
 	return false;
 }
 
-static bool check_mem_region(struct mcount_mem_regions *regions,
+static bool check_mem_region(struct mcount_arg_context *ctx,
 			     unsigned long addr)
 {
 	bool update = true;
+	struct mcount_mem_regions *regions = ctx->regions;
 
 retry:
 	if (regions->heap <= addr && addr < regions->brk)
@@ -375,7 +376,9 @@ retry:
 		return true;
 
 	if (update) {
+		mcount_save_arch_context(ctx->arch);
 		update_mem_regions(regions);
+		mcount_restore_arch_context(ctx->arch);
 		update = false;
 		goto retry;
 	}
@@ -439,7 +442,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				char *dst = ptr + 2;
 				char buf[32];
 
-				if (!check_mem_region(ctx->regions, ctx->val.i)) {
+				if (!check_mem_region(ctx, ctx->val.i)) {
 					len = snprintf(buf, sizeof(buf), "<%p>", str);
 					str = buf;
 				}
@@ -501,6 +504,7 @@ void save_argument(struct mcount_thread_data *mtdp,
 		.regs = regs,
 		.stack_base = rstack->parent_loc,
 		.regions = &mtdp->mem_regions,
+		.arch = &mtdp->arch,
 	};
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
@@ -522,6 +526,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 	struct mcount_arg_context ctx = {
 		.retval = retval,
 		.regions = &mtdp->mem_regions,
+		.arch = &mtdp->arch,
 	};
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);

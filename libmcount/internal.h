@@ -293,6 +293,7 @@ struct mcount_arg_context {
 		unsigned char	v[16];
 	} __align(16) val;
 	struct mcount_mem_regions *regions;
+	struct mcount_arch_context *arch;
 };
 
 extern void mcount_arch_get_arg(struct mcount_arg_context *ctx,
