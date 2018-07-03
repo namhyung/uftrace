@@ -277,7 +277,7 @@ struct mcount_arg_context {
 			long	hi;
 		} ll;
 		unsigned char	v[16];
-	} val;
+	} __align(16) val;
 };
 
 extern void mcount_arch_get_arg(struct mcount_arg_context *ctx,
