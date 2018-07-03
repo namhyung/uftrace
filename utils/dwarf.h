@@ -7,6 +7,7 @@
 
 #include "utils/filter.h"
 #include "utils/rbtree.h"
+#include "utils/list.h"
 
 struct symtabs;
 
@@ -16,12 +17,26 @@ struct symtabs;
 # define Dwarf  void
 #endif
 
+struct debug_file {
+	struct list_head	list;
+	char			*name;
+};
+
+struct debug_location {
+	struct sym		*sym;
+	struct debug_file	*file;
+	int			line;
+};
+
 struct debug_info {
-	Dwarf		*dw;
-	uint64_t	offset;
-	struct rb_root	args;
-	struct rb_root	rets;
-	struct rb_root	enums;
+	Dwarf			*dw;
+	uint64_t		offset;
+	struct rb_root		args;
+	struct rb_root		rets;
+	struct rb_root		enums;
+	struct list_head	files;
+	struct debug_location	*locs;
+	int			nr_locs;
 };
 
 extern void prepare_debug_info(struct symtabs *symtabs,

@@ -118,11 +118,36 @@ static void free_debug_entry(struct rb_root *root)
 	}
 }
 
+static struct debug_file * get_debug_file(struct debug_info *dinfo,
+					  const char *filename)
+{
+	struct debug_file *df;
+
+	if (filename == NULL)
+		return NULL;
+
+	list_for_each_entry(df, &dinfo->files, list) {
+		if (!strcmp(df->name, filename))
+			return df;
+	}
+
+	df = xmalloc(sizeof(*df));
+	df->name = xstrdup(filename);
+	list_add(&df->list, &dinfo->files);
+
+	return df;
+}
+
 #ifdef HAVE_LIBDW
 
 #include <libelf.h>
 #include <gelf.h>
 #include <dwarf.h>
+
+struct cu_files {
+	Dwarf_Files		*files;
+	size_t			num;     /* number of files */
+};
 
 static int elf_file_type(struct debug_info *dinfo)
 {
@@ -199,6 +224,8 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 		return -1;
 	}
 
+	pr_dbg2("setup dwarf debug info for %s\n", filename);
+
 	/*
 	 * symbol address was adjusted to add offset already
 	 * but it needs to use address in file (for shared libraries).
@@ -213,11 +240,22 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 
 static void release_dwarf_info(struct debug_info *dinfo)
 {
+	struct debug_file *df, *tmp;
+
 	if (dinfo->dw == NULL)
 		return;
 
 	dwarf_end(dinfo->dw);
 	dinfo->dw = NULL;
+
+	list_for_each_entry_safe(df, tmp, &dinfo->files, list) {
+		list_del(&df->list);
+		free(df->name);
+		free(df);
+	}
+
+	free(dinfo->locs);
+	dinfo->locs = NULL;
 }
 
 struct type_data {
@@ -709,6 +747,7 @@ struct build_data {
 	int			nr_rets;
 	struct uftrace_pattern	*args;
 	struct uftrace_pattern	*rets;
+	struct cu_files		files;
 };
 
 /* caller should free the return value */
@@ -762,6 +801,42 @@ static bool match_name(struct sym *sym, char *name, bool demangled)
 	return ret;
 }
 
+static void get_source_location(Dwarf_Die *die, struct build_data *bd,
+				struct sym *sym)
+{
+	ptrdiff_t sym_idx;
+	const char *filename;
+	struct debug_info *dinfo = bd->dinfo;
+	struct debug_file *dfile = NULL;
+	int dline = 0;
+
+	sym_idx = sym - bd->symtab->sym;
+
+	if (dwarf_hasattr(die, DW_AT_decl_file)) {
+		if (dwarf_decl_line(die, &dline) == 0) {
+			filename = dwarf_decl_file(die);
+			dfile = get_debug_file(dinfo, filename);
+		}
+	}
+	else {
+		Dwarf_Die cudie;
+		Dwarf_Line *line;
+
+		dwarf_diecu(die, &cudie, NULL, NULL);
+		line = dwarf_getsrc_die(&cudie, sym->addr - dinfo->offset);
+		filename = dwarf_linesrc(line, NULL, NULL);
+		dfile = get_debug_file(dinfo, filename);
+		dwarf_lineno(line, &dline);
+	}
+
+	if (dfile == NULL)
+		return;
+
+	dinfo->locs[sym_idx].sym  = sym;
+	dinfo->locs[sym_idx].file = dfile;
+	dinfo->locs[sym_idx].line = dline;
+}
+
 static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 {
 	struct build_data *bd = data;
@@ -808,6 +883,8 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 			sym ? sym->name : "no name", name, offset);
 		goto out;
 	}
+
+	get_source_location(die, bd, sym);
 
 	ad.name = name;
 	ad.addr = offset;
@@ -869,6 +946,9 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 	strv_for_each(rets, s, i)
 		init_filter_pattern(ptype, &ret_patt[i], s);
 
+	dinfo->nr_locs = symtab->nr_sym;
+	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
+
 	/* traverse every CU to find debug info */
 	while (dwarf_nextcu(dinfo->dw, curr, &next,
 			    &header_sz, NULL, NULL, NULL) == 0) {
@@ -890,6 +970,8 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 
 		if (uftrace_done)
 			break;
+
+		dwarf_getsrcfiles(&cudie, &bd.files.files, &bd.files.num);
 
 		dwarf_getfuncs(&cudie, get_dwarfspecs_cb, &bd, 0);
 
@@ -936,6 +1018,7 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
+	INIT_LIST_HEAD(&dinfo->files);
 
 	return setup_dwarf_info(filename, dinfo, offset);
 }
@@ -1008,11 +1091,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 		}
 	}
 
-	if (dwarf_args.nr == 0 && dwarf_rets.nr == 0) {
-		/* nothing to do */
-		return;
-	}
-
+	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
 	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
@@ -1121,7 +1200,7 @@ static void save_debug_entries(struct debug_info *dinfo,
 	save_enum_def(&dinfo->enums, fp);
 
 	/*
-	 * save spec of debug entry which has smaller offset first. 
+	 * save spec of debug entry which has smaller offset first.
 	 * unify argument and return value only if they have same offset.
 	 */
 	while (anode || rnode) {
