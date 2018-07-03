@@ -923,6 +923,33 @@ static int dd_decltype(struct demangle_data *dd)
 	return 0;
 }
 
+static int dd_vector_type(struct demangle_data *dd)
+{
+	char c0 = dd_consume(dd);
+	char c1 = __dd_consume(dd, NULL);
+
+	if (dd_eof(dd))
+		return -1;
+
+	if (c0 != 'D' || c1 != 'v')
+		DD_DEBUG(dd, "Dv", -2);
+
+	dd->type++;
+
+	c0 = dd_curr(dd);
+	if (c0 == '_') {
+		__dd_consume(dd, NULL);
+		dd_expression(dd);
+	}
+	else if (dd_number(dd) < 0)
+		return -1;
+
+	__DD_DEBUG_CONSUME(dd, '_');
+
+	dd->type--;
+	return 0;
+}
+
 static int dd_type(struct demangle_data *dd)
 {
 	unsigned i;
@@ -985,6 +1012,10 @@ static int dd_type(struct demangle_data *dd)
 			else if (c == 'p') {
 				/* pack expansion */
 				dd_consume_n(dd, 2);
+				continue;
+			}
+			else if (c == 'v') {
+				dd_vector_type(dd);
 				continue;
 			}
 			else if (c == 't' || c == 'T')
@@ -1537,6 +1568,9 @@ static char *demangle_full(char *str)
  */
 char *demangle(char *str)
 {
+	if (str == NULL)
+		return NULL;
+
 	switch (demangler) {
 	case DEMANGLE_SIMPLE:
 		return demangle_simple(str);
@@ -1723,10 +1757,25 @@ TEST_CASE(demangle_simple5)
 	TEST_STREQ("llvm::function_ref::callback_fn", name);
 	free(name);
 
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple6)
+{
+	char *name;
+
+	dbg_domain[DBG_DEMANGLE] = 2;
+
 	name = demangle_simple("_ZN4base8internal15OptionalStorageImLb1ELb1EE"
 			       "CI2NS0_19OptionalStorageBaseImLb1EEEIJRKmEEE"
 			       "NS_10in_place_tEDpOT_");
 	TEST_STREQ("base::internal::OptionalStorage::OptionalStorage", name);
+	free(name);
+
+	name = demangle_simple("_ZL18color_lookup_tableILi3EEv"
+			       "PK28SkJumper_ColorLookupTableCtx"
+			       "RDv4_fS4_S4_S3_Dv4_jS5_");
+	TEST_STREQ("color_lookup_table", name);
 	free(name);
 
 	return TEST_OK;
