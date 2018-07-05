@@ -186,4 +186,4 @@ This output can be useful when comparing two different call graph outputs using 
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1)
+`uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-tui`(1)

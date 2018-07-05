@@ -179,4 +179,4 @@ The example below will sort output by total time of the base data.
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1)
+`uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-tui`(1)
