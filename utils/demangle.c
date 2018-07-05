@@ -5,7 +5,7 @@
  *
  * Released under the GPL v2.
  *
- * See http://mentorembedded.github.io/cxx-abi/abi.html#mangling
+ * See https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling
  */
 
 #include <stdlib.h>

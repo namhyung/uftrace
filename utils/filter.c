@@ -167,23 +167,22 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 			oarg->exact = exact_match;
 			oarg->type  = arg->type;
 			oarg->reg_idx = arg->reg_idx;
+
 			if (arg->fmt == ARG_FMT_ENUM)
 				oarg->enum_str = xstrdup(arg->enum_str);
 		}
 	}
 	else {
 		narg = xmalloc(sizeof(*narg));
-		memcpy(narg, arg, sizeof(*narg));
+		narg->idx   = arg->idx;
+		narg->fmt   = arg->fmt;
+		narg->size  = arg->size;
 		narg->exact = exact_match;
+		narg->type  = arg->type;
+		narg->reg_idx = arg->reg_idx;
 
 		if (arg->fmt == ARG_FMT_ENUM)
 			narg->enum_str = xstrdup(arg->enum_str);
-
-		/* sort args by index */
-		list_for_each_entry(oarg, arg_list, list) {
-			if (oarg->type == arg->type && oarg->idx > arg->idx)
-				break;
-		}
 
 		list_add_tail(&narg->list, &oarg->list);
 	}

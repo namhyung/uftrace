@@ -9,7 +9,7 @@ class TestCase(TestBase):
             [18279] | main() {
    0.371 ms [18279] |   int_add(-1, 2);
    0.118 ms [18279] |   int_sub(1, 2);
-   0.711 ms [18279] |   int_mul(3, 0x4);
+   0.711 ms [18279] |   int_mul(0x4, 3);
    0.923 ms [18279] |   int_div(4, -2);
    3.281 ms [18279] | } /* main */
 """)

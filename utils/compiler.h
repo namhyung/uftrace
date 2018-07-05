@@ -47,5 +47,6 @@
 #define __alias(func)  __attribute__((alias(#func)))
 #define __maybe_unused  __attribute__((unused))
 #define __noreturn  __attribute__((noreturn))
+#define __align(n)  __attribute__((aligned(n)))
 
 #endif /* UFTRACE_COMPILER_H */
