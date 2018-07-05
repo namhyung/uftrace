@@ -350,7 +350,31 @@ Examples are below:
        7.226 us [21534] |   puts("Hello world") = 12;
        8.708 us [21534] | } /* main */
 
-Note that these arguments and return value are recorded only if the executable was built with the `-pg` option.  Executables built with `-finstrument-functions` will cause uftrace to exit with an error message.  Recording of arguments and return values only works with user-level functions for now.
+Note that these arguments and return value are recorded only if the executable
+was built with the `-pg` option.  Executables built with `-finstrument-functions`
+will ignore it except for library calls.  Recording of arguments and return
+values only works with user-level functions for now.
+
+If the target program is built with debug info like DWARF, uftrace can identify
+number of arguments and their types automatically (when built with libdw).
+Also arguments and return value of some well-known library functions are
+provided even if the debug info is not available.  In these cases user don't
+need to specify format of the arguments and return value manually - just
+function name (or pattern) is enough.  In fact, manual argspec will suppress
+the automatic argspec.
+
+For example, the above example can be written like below:
+
+    $ uftrace -A . -R main -F main ./hello
+    Hello world
+    # DURATION     TID     FUNCTION
+                [ 18948] | main(1, 0x7ffeeb7590b8) {
+       7.183 us [ 18948] |   puts("Hello world");
+       9.832 us [ 18948] | } = 0; /* main */
+
+Note that argument pattern (".") matches to any character so it recorded
+all (supported) functions.  It shows two arguments for "main" and a single
+string argument for "puts".
 
 
 FIELDS
