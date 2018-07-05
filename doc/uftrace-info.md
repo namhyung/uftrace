@@ -106,4 +106,4 @@ You can get symbol information from ELF binary directly without trace data.
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1), `uftrace-tui`(1)

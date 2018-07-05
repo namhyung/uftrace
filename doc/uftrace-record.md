@@ -482,4 +482,4 @@ Each field in 'script_context' can be read inside the script.  Please see `uftra
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-script`(1)
+`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-script`(1), `uftrace-tui`(1)
