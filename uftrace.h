@@ -55,6 +55,7 @@ enum uftrace_feat_bits {
 	EVENT_BIT,
 	PERF_EVENT_BIT,
 	AUTO_ARGS_BIT,
+	DEBUG_INFO_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -69,6 +70,7 @@ enum uftrace_feat_bits {
 	EVENT			= (1U << EVENT_BIT),
 	PERF_EVENT		= (1U << PERF_EVENT_BIT),
 	AUTO_ARGS		= (1U << AUTO_ARGS_BIT),
+	DEBUG_INFO		= (1U << DEBUG_INFO_BIT),
 };
 
 enum uftrace_info_bits {

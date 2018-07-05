@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <signal.h>
+#include <glob.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -326,6 +327,8 @@ static void setup_child_environ(struct opts *opts, int pfd,
 static uint64_t calc_feat_mask(struct opts *opts)
 {
 	uint64_t features = 0;
+	char *buf = NULL;
+	glob_t g;
 
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
@@ -356,6 +359,13 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->event)
 		features |= EVENT;
+
+	xasprintf(&buf, "%s/*.dbg", opts->dirname);
+	if (glob(buf, GLOB_NOSORT, NULL, &g) != GLOB_NOMATCH)
+		features |= DEBUG_INFO;
+
+	globfree(&g);
+	free(buf);
 
 	return features;
 }
