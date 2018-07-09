@@ -38,7 +38,7 @@ int arch_register_index(char *reg_name)
 #include <dwarf.h>
 
 #define ARM_REG_VFPv3_BASE  256
-static const struct x86_reg_table dwarf_table[] = {
+static const struct arm_reg_table dwarf_table[] = {
 	/* support registers used for arguments */
 	{ "r0", DW_OP_reg0, },
 	{ "r1", DW_OP_reg1, },

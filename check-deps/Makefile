@@ -23,11 +23,11 @@ LDFLAGS_cxa_demangle = -lstdc++
 LDFLAGS_have_libelf = -lelf
 CFLAGS_cc_has_mno_sse2 = -mno-sse2
 LDFLAGS_have_libpython2.7 = -lpython2.7
-CFLAGS_have_libncurses = $(shell pkg-config --cflags ncursesw)
-LDFLAGS_have_libncurses = $(shell pkg-config --libs ncursesw)
+CFLAGS_have_libncurses  = $(shell pkg-config --cflags ncursesw 2> /dev/null)
+LDFLAGS_have_libncurses = $(shell pkg-config --libs   ncursesw 2> /dev/null)
 CFLAGS_cc_has_wstringop_truncation = -Wno-stringop-truncation
 CFLAGS_have_libdw  = $(shell pkg-config --cflags libdw 2> /dev/null)
-LDFLAGS_have_libdw = $(shell pkg-config --libs libdw 2> /dev/null || echo "-ldw")
+LDFLAGS_have_libdw = $(shell pkg-config --libs   libdw 2> /dev/null || echo "-ldw")
 
 check-build: check-tstamp $(CHECK_LIST)
 

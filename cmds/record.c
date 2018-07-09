@@ -1494,17 +1494,19 @@ static void check_binary(struct opts *opts)
 	}
 
 	if (!opts->force) {
-		chk = check_trace_functions(opts->exename);
+		enum uftrace_trace_type chk_type;
 
-		if (chk == 0 && !opts->patch) {
+		chk_type = check_trace_functions(opts->exename);
+
+		if (chk_type == TRACE_NONE && !opts->patch) {
 			/* there's no function to trace */
 			pr_err_ns(MCOUNT_MSG, "mcount", opts->exename);
 		}
-		else if (chk == 2 && (opts->args || opts->retval)) {
+		else if (chk_type == TRACE_CYGPROF && (opts->args || opts->retval)) {
 			/* arg/retval doesn't support -finstrument-functions */
 			pr_out(ARGUMENT_MSG);
 		}
-		else if (chk < 0) {
+		else if (chk_type == TRACE_ERROR) {
 			pr_err_ns("Cannot check '%s'\n", opts->exename);
 		}
 	}

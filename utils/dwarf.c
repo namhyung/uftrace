@@ -140,7 +140,7 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 {
 	int fd;
 
-	if (!check_trace_functions(filename))
+	if (check_trace_functions(filename) != TRACE_MCOUNT)
 		return 0;
 
 	pr_dbg2("setup dwarf debug info for %s\n", filename);
