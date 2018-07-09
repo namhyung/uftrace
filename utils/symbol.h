@@ -138,7 +138,7 @@ int load_kernel_symbol(char *dirname);
 
 struct symtab * get_kernel_symtab(void);
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
-		     unsigned long offset);
+		     uint64_t offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);
 
