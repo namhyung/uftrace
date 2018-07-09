@@ -16,6 +16,7 @@
 #include "utils/rbtree.h"
 #include "utils/utils.h"
 #include "utils/list.h"
+#include "utils/dwarf.h"
 
 static void snprintf_trigger_read(char *buf, size_t len,
 				  enum trigger_read_type type)
@@ -219,7 +220,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
-		       struct uftrace_trigger *tr, bool exact_match)
+		      struct uftrace_trigger *tr, bool exact_match,
+		      struct debug_info *dinfo)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -229,12 +231,12 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	unsigned long orig_flags = tr->flags;
 
 	if ((tr->flags & TRIGGER_FL_ARGUMENT) && list_empty(tr->pargs)) {
-		auto_arg = find_auto_argspec(filter->name);
+		auto_arg = find_auto_argspec(filter, tr, dinfo);
 		if (auto_arg == NULL)
 			tr->flags &= ~TRIGGER_FL_ARGUMENT;
 	}
 	if ((tr->flags & TRIGGER_FL_RETVAL) && list_empty(tr->pargs)) {
-		auto_ret = find_auto_retspec(filter->name);
+		auto_ret = find_auto_retspec(filter, tr, dinfo);
 		if (auto_ret == NULL)
 			tr->flags &= ~TRIGGER_FL_RETVAL;
 	}
@@ -847,7 +849,8 @@ out:
 
 static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 			     struct uftrace_pattern *patt,
-			     struct uftrace_trigger *tr)
+			     struct uftrace_trigger *tr,
+			     struct debug_info *dinfo)
 {
 	struct uftrace_filter filter;
 	struct sym *sym;
@@ -864,7 +867,8 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
-		ret += add_filter(root, &filter, tr, patt->type == PATT_SIMPLE);
+		ret += add_filter(root, &filter, tr,
+				  patt->type == PATT_SIMPLE, dinfo);
 	}
 
 	return ret;
@@ -921,23 +925,28 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			if (!strncmp(module, basename(symtabs->filename),
 				     strlen(module))) {
 				ret += add_trigger_entry(root, &symtabs->symtab,
-							 &patt, &tr);
+							 &patt, &tr,
+							 &symtabs->dinfo);
 				ret += add_trigger_entry(root, &symtabs->dsymtab,
-							 &patt, &tr);
+							 &patt, &tr,
+							 &symtabs->dinfo);
 			}
 			else if (!strcasecmp(module, "PLT")) {
 				ret = add_trigger_entry(root, &symtabs->dsymtab,
-							&patt, &tr);
+							&patt, &tr,
+							&symtabs->dinfo);
 			}
 			else if (!strcasecmp(module, "kernel")) {
 				ret = add_trigger_entry(root, get_kernel_symtab(),
-							&patt, &tr);
+							&patt, &tr,
+							&symtabs->dinfo);
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
 				if (map) {
 					ret = add_trigger_entry(root, &map->symtab,
-								&patt, &tr);
+								&patt, &tr,
+								&map->dinfo);
 				}
 			}
 
@@ -946,15 +955,16 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		else {
 			/* check main executable's symtab first */
 			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr);
+						 &patt, &tr, &symtabs->dinfo);
 			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr);
+						 &patt, &tr, &symtabs->dinfo);
 
 			/* and then find all module's symtabs */
 			map = symtabs->maps;
 			while (map) {
 				ret += add_trigger_entry(root, &map->symtab,
-							 &patt, &tr);
+							 &patt, &tr,
+							 &map->dinfo);
 				map = map->next;
 			}
 		}
@@ -1147,6 +1157,7 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 	stabs->dsymtab.sym = dsyms;
 	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
 	stabs->loaded = true;
+	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }
 
 TEST_CASE(filter_setup_simple)

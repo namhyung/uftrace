@@ -68,17 +68,13 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 		namelen = ALIGN(strlen(path) + 1, 4);
 
-		map = xmalloc(sizeof(*map) + namelen);
+		map = xzalloc(sizeof(*map) + namelen);
 
 		map->start = start;
 		map->end = end;
 		map->len = namelen;
-		map->next = NULL;
+
 		memcpy(map->prot, prot, 4);
-		map->symtab.sym = NULL;
-		map->symtab.sym_names = NULL;
-		map->symtab.nr_sym = 0;
-		map->symtab.nr_alloc = 0;
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
@@ -89,7 +85,14 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	fclose(fp);
 }
 
-static void delete_session_map(struct symtabs *symtabs)
+/**
+ * delete_session_map - free memory mappings in a symtabs
+ * @symtabs: symbol table has the memory mapping
+ *
+ * This function releases mapping data in a symbol table which
+ * was read by read_session_map().
+ */
+void delete_session_map(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *map, *tmp;
 
@@ -99,6 +102,8 @@ static void delete_session_map(struct symtabs *symtabs)
 		free(map);
 		map = tmp;
 	}
+
+	symtabs->maps = NULL;
 }
 
 /**
@@ -158,6 +163,7 @@ void create_session(struct uftrace_session_link *sessions,
 	load_symtabs(&s->symtabs, dirname, s->exename);
 
 	load_module_symtabs(&s->symtabs);
+	load_debug_info(&s->symtabs);
 
 	if (sessions->first == NULL)
 		sessions->first = s;

@@ -105,7 +105,7 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
@@ -118,8 +118,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype)
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
 	    (trigger_str && (strstr(trigger_str, "arg") ||
-			     strstr(trigger_str, "retval"))))
+			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
+		prepare_debug_info(&symtabs, ptype, argument_str, retval_str);
+		save_debug_info(&symtabs, dirname);
+	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false, ptype);
@@ -212,6 +215,7 @@ static void mtd_dtor(void *arg)
 	mtdp->rstack = NULL;
 
 	mcount_filter_release(mtdp);
+	finish_mem_region(&mtdp->mem_regions);
 	shmem_finish(mtdp);
 
 	tmsg.pid = getpid(),
@@ -1313,7 +1317,7 @@ static void mcount_startup(void)
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
 
-	mcount_filter_init(patt_type);
+	mcount_filter_init(patt_type, dirname);
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
@@ -1362,6 +1366,7 @@ static void mcount_cleanup(void)
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
 
+	finish_debug_info(&symtabs);
 	unload_symtabs(&symtabs);
 	finish_pmu_event();
 	finish_auto_args();

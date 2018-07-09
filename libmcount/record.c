@@ -251,6 +251,156 @@ void *get_argbuf(struct mcount_thread_data *mtdp,
 	return mtdp->argbuf + (idx * ARGBUF_SIZE);
 }
 
+#define   HEAP_REGION_UNIT  128*MB
+#define  STACK_REGION_UNIT    8*MB
+
+struct mem_region {
+	struct rb_node		node;
+	unsigned long		start;
+	unsigned long		end;
+};
+
+static void add_mem_region(struct rb_root *root, unsigned long start,
+			   unsigned long end, bool update_end)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct mem_region *iter, *entry;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct mem_region, node);
+
+		if (update_end) {
+			if (iter->start == start) {
+				if (iter->end != end)
+					iter->end = end;
+				return;
+			}
+		}
+		else {
+			if (iter->end == end) {
+				if (iter->start != start)
+					iter->start = start;
+				return;
+			}
+		}
+
+		if (iter->start > start)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	entry = xmalloc(sizeof(*entry));
+	entry->start = start;
+	entry->end = end;
+
+	pr_dbg3("mem region: %lx - %lx\n", start, end);
+	rb_link_node(&entry->node, parent, p);
+	rb_insert_color(&entry->node, root);
+}
+
+static void update_mem_regions(struct mcount_mem_regions *regions)
+{
+	FILE *fp;
+	char buf[PATH_MAX];
+
+	fp = fopen("/proc/self/maps", "r");
+	if (fp == NULL)
+		return;
+
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		char *p = buf, *next;
+		unsigned long start, end;
+		bool is_stack = false;
+
+		/* XXX: cannot use *scanf() due to crash (SSE alignment?) */
+		start = strtoul(p, &next, 16);
+		if (*next != '-')
+			pr_warn("invalid /proc/map format\n");
+
+		p = next + 1;
+		end = strtoul(p, &next, 16);
+
+		if (strstr(next, "[heap]")) {
+			end = ROUND_UP(end, HEAP_REGION_UNIT);
+			if (end > regions->brk)
+				regions->brk = end;
+			regions->heap = start;
+		}
+		if (strstr(next, "[stack")) {
+			start = ROUND_DOWN(start, STACK_REGION_UNIT);
+			is_stack = true;
+		}
+
+		add_mem_region(&regions->root, start, end, !is_stack);
+	}
+	fclose(fp);
+}
+
+static bool find_mem_region(struct rb_root *root, unsigned long addr)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct mem_region *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct mem_region, node);
+
+		if (iter->start <= addr && addr < iter->end)
+			return true;
+
+		if (iter->start > addr)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	pr_dbg2("cannot find mem region: %lx\n");
+	return false;
+}
+
+static bool check_mem_region(struct mcount_arg_context *ctx,
+			     unsigned long addr)
+{
+	bool update = true;
+	struct mcount_mem_regions *regions = ctx->regions;
+
+retry:
+	if (regions->heap <= addr && addr < regions->brk)
+		return true;
+
+	if (find_mem_region(&regions->root, addr))
+		return true;
+
+	if (update) {
+		mcount_save_arch_context(ctx->arch);
+		update_mem_regions(regions);
+		mcount_restore_arch_context(ctx->arch);
+		update = false;
+		goto retry;
+	}
+
+	return false;
+}
+
+void finish_mem_region(struct mcount_mem_regions *regions)
+{
+	struct rb_root *root = &regions->root;
+	struct rb_node *node;
+	struct mem_region *mr;
+
+	while (!RB_EMPTY_ROOT(root)) {
+		node = rb_first(root);
+		mr = rb_entry(node, typeof(*mr), node);
+
+		rb_erase(node, root);
+		free(mr);
+	}
+}
+
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
@@ -290,6 +440,12 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			if (str) {
 				unsigned i;
 				char *dst = ptr + 2;
+				char buf[32];
+
+				if (!check_mem_region(ctx, ctx->val.i)) {
+					len = snprintf(buf, sizeof(buf), "<%p>", str);
+					str = buf;
+				}
 
 				/*
 				 * Calling strlen() might clobber floating-point
@@ -347,6 +503,8 @@ void save_argument(struct mcount_thread_data *mtdp,
 	struct mcount_arg_context ctx = {
 		.regs = regs,
 		.stack_base = rstack->parent_loc,
+		.regions = &mtdp->mem_regions,
+		.arch = &mtdp->arch,
 	};
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
@@ -367,6 +525,8 @@ void save_retval(struct mcount_thread_data *mtdp,
 	unsigned size;
 	struct mcount_arg_context ctx = {
 		.retval = retval,
+		.regions = &mtdp->mem_regions,
+		.arch = &mtdp->arch,
 	};
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);

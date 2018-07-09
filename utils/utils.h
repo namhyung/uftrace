@@ -32,6 +32,7 @@
 
 #define DIV_ROUND_UP(v, r)  (((v) + (r) - 1) / (r))
 #define ROUND_UP(v, r)      (DIV_ROUND_UP((v), (r)) * (r))
+#define ROUND_DOWN(v, r)    (((v) / (r)) * (r))
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
@@ -60,6 +61,7 @@ enum debug_domain {
 	DBG_DYNAMIC,
 	DBG_EVENT,
 	DBG_SCRIPT,
+	DBG_DWARF,
 	DBG_DOMAIN_MAX,
 };
 extern int dbg_domain[DBG_DOMAIN_MAX];
@@ -284,7 +286,7 @@ void free_parsed_cmdline(char **argv);
 struct ftrace_file_handle;
 
 char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
-
 char *absolute_dirname(const char *path, char *resolved_path);
+const char * arch_register_dwarf_name(int dwarf_reg);
 
 #endif /* UFTRACE_UTILS_H */

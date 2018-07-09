@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <signal.h>
+#include <glob.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -326,6 +327,8 @@ static void setup_child_environ(struct opts *opts, int pfd,
 static uint64_t calc_feat_mask(struct opts *opts)
 {
 	uint64_t features = 0;
+	char *buf = NULL;
+	glob_t g;
 
 	/* mcount code creates task and sid-XXX.map files */
 	features |= TASK_SESSION;
@@ -356,6 +359,13 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->event)
 		features |= EVENT;
+
+	xasprintf(&buf, "%s/*.dbg", opts->dirname);
+	if (glob(buf, GLOB_NOSORT, NULL, &g) != GLOB_NOMATCH)
+		features |= DEBUG_INFO;
+
+	globfree(&g);
+	free(buf);
 
 	return features;
 }
@@ -1352,7 +1362,6 @@ static void save_session_symbols(struct opts *opts)
 			.dirname  = opts->dirname,
 			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
-		struct uftrace_mmap *map, *tmp;
 		char sid[20] = { 0, };
 
 		if (sid[0] == '\0')
@@ -1362,21 +1371,13 @@ static void save_session_symbols(struct opts *opts)
 		pr_dbg2("reading symbols for session %s\n", sid);
 		read_session_map(opts->dirname, &symtabs, sid);
 
-		/* shared libraries */
 		load_module_symtabs(&symtabs);
 		save_module_symtabs(&symtabs);
 
-		map = symtabs.maps;
-		while (map) {
-			tmp = map;
-			map = map->next;
-
-			free(tmp);
-		}
-		symtabs.maps = NULL;
-
+		delete_session_map(&symtabs);
 		unload_symtabs(&symtabs);
 	}
+
 	free(map_list);
 }
 

@@ -55,6 +55,7 @@ enum uftrace_feat_bits {
 	EVENT_BIT,
 	PERF_EVENT_BIT,
 	AUTO_ARGS_BIT,
+	DEBUG_INFO_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -69,6 +70,7 @@ enum uftrace_feat_bits {
 	EVENT			= (1U << EVENT_BIT),
 	PERF_EVENT		= (1U << PERF_EVENT_BIT),
 	AUTO_ARGS		= (1U << AUTO_ARGS_BIT),
+	DEBUG_INFO		= (1U << DEBUG_INFO_BIT),
 };
 
 enum uftrace_info_bits {
@@ -388,6 +390,7 @@ void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg
 		 bool fork, bool needs_session);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
+void delete_session_map(struct symtabs *symtabs);
 struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
 					      char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,

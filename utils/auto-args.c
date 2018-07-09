@@ -12,6 +12,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/auto-args.h"
+#include "utils/dwarf.h"
 
 /* RB-tree maintaining automatic arguments and return value */
 static struct rb_root auto_argspec = RB_ROOT;
@@ -138,14 +139,73 @@ static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
 	return NULL;
 }
 
-struct uftrace_filter * find_auto_argspec(char *name)
+static struct uftrace_filter *dwarf_argspec_list;
+
+static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
+						  struct debug_info *dinfo,
+						  bool is_retval)
 {
-	return find_auto_args(&auto_argspec, name);
+	LIST_HEAD(dwarf_argspec);
+	struct uftrace_filter *dwarf_filter;
+	struct uftrace_trigger dwarf_tr = {
+		.pargs = &dwarf_argspec,
+	};
+	char *arg_str;
+	unsigned long flag = is_retval ? TRIGGER_FL_RETVAL : TRIGGER_FL_ARGUMENT;
+
+	if (is_retval)
+		arg_str = get_dwarf_retspec(dinfo, filter->name, filter->start);
+	else
+		arg_str = get_dwarf_argspec(dinfo, filter->name, filter->start);
+	if (arg_str == NULL)
+		return NULL;
+
+	setup_trigger_action(arg_str, &dwarf_tr, NULL, flag);
+	if (list_empty(dwarf_tr.pargs))
+		return NULL;
+
+	dwarf_filter = xzalloc(sizeof(*dwarf_filter));
+	INIT_LIST_HEAD(&dwarf_filter->args);
+
+	list_splice(dwarf_tr.pargs, &dwarf_filter->args);
+	dwarf_filter->trigger.pargs = &dwarf_filter->args;
+	dwarf_filter->trigger.flags = dwarf_tr.flags;
+
+	/* XXX: since 'name' was not used here, abuse it as a linked list */
+	dwarf_filter->name = (void *)dwarf_argspec_list;
+	dwarf_argspec_list = dwarf_filter;
+
+	return dwarf_filter;
 }
 
-struct uftrace_filter * find_auto_retspec(char *name)
+struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo)
 {
-	return find_auto_args(&auto_retspec, name);
+	struct uftrace_filter *auto_arg = NULL;
+
+	if (debug_info_available(dinfo) && !(tr->flags & TRIGGER_FL_AUTO_ARGS))
+		auto_arg = find_dwarf_argspec(filter, dinfo, false);
+
+	if (auto_arg == NULL)
+		auto_arg = find_auto_args(&auto_argspec, filter->name);
+
+	return auto_arg;
+}
+
+struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo)
+{
+	struct uftrace_filter *auto_ret = NULL;
+
+	if (debug_info_available(dinfo) && !(tr->flags & TRIGGER_FL_AUTO_ARGS))
+		auto_ret = find_dwarf_argspec(filter, dinfo, true);
+
+	if (auto_ret == NULL)
+		auto_ret = find_auto_args(&auto_retspec, filter->name);
+
+	return auto_ret;
 }
 
 char *get_auto_argspec_str(void)
@@ -195,13 +255,28 @@ static void release_auto_args(struct rb_root *root)
 	}
 }
 
-static void release_enum_def(struct rb_root *root);
-
 void finish_auto_args(void)
 {
+	struct uftrace_filter *tmp;
+	struct uftrace_arg_spec *spec;
+
 	release_enum_def(&auto_enum);
 	release_auto_args(&auto_argspec);
 	release_auto_args(&auto_retspec);
+
+	while (dwarf_argspec_list) {
+		tmp = (void *)dwarf_argspec_list->name;
+
+		while (!list_empty(dwarf_argspec_list->trigger.pargs)) {
+			spec = list_first_entry(dwarf_argspec_list->trigger.pargs,
+						typeof(*spec), list);
+			list_del(&spec->list);
+			free(spec);
+		}
+		free(dwarf_argspec_list);
+
+		dwarf_argspec_list = tmp;
+	}
 }
 
 /**
@@ -454,12 +529,15 @@ char * convert_enum_val(struct enum_def *e_def, long val)
 }
 
 /* caller should free the return value */
-char *get_enum_string(char *name, long val)
+char *get_enum_string(struct rb_root *root, char *name, long val)
 {
 	struct enum_def *e_def;
 	char *ret;
 
-	e_def = find_enum_def(&auto_enum, name);
+	e_def = find_enum_def(root, name);
+	if (e_def == NULL)
+		e_def = find_enum_def(&auto_enum, name);
+
 	if (e_def == NULL)
 		xasprintf(&ret, "%ld", val);
 	else
@@ -479,7 +557,7 @@ char *get_enum_string(char *name, long val)
  *
  * For example, following string should be accepted:
  *
- *   number {
+ *   enum number {
  *     ZERO = 0,
  *     ONE,
  *     TWO,
@@ -595,7 +673,48 @@ out:
 	return err;
 }
 
-static void release_enum_def(struct rb_root *root)
+static char *get_enum_def_string(struct enum_def *def)
+{
+	struct enum_val *e_val;
+	int last = -1;
+	char *str = NULL;
+	char *buf = NULL;
+
+	list_for_each_entry_reverse(e_val, &def->vals, list) {
+		/* simple case */
+		if (e_val->val == ++last) {
+			str = strjoin(str, e_val->str, ",");
+			continue;
+		}
+
+		last = e_val->val;
+		xasprintf(&buf, "%s=%ld", e_val->str, e_val->val);
+		str = strjoin(str, buf, ",");
+	}
+	free(buf);
+
+	return str;
+}
+
+void save_enum_def(struct rb_root *root, FILE *fp)
+{
+	struct rb_node *node;
+	struct enum_def *e_def;
+	char *str;
+
+	node = rb_first(root);
+	while (node) {
+		e_def = rb_entry(node, struct enum_def, node);
+
+		str = get_enum_def_string(e_def);
+		save_debug_file(fp, 'E', e_def->name, (long)str);
+		free(str);
+
+		node = rb_next(node);
+	}
+}
+
+void release_enum_def(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct enum_def *e_def;
@@ -621,12 +740,14 @@ TEST_CASE(argspec_auto_args)
 {
 	char test_auto_args[] = "foo@arg1,arg2/s;bar@fparg1";
 	struct uftrace_filter *entry;
+	struct uftrace_filter key;
 	struct uftrace_arg_spec *spec;
 	int idx = 1;
 
 	build_auto_args(test_auto_args, &auto_argspec, TRIGGER_FL_ARGUMENT);
 
-	entry = find_auto_argspec("foo");
+	key.name = "foo";
+	entry = find_auto_argspec(&key, NULL, NULL);
 	TEST_NE(entry, NULL);
 	TEST_EQ(entry->trigger.flags, TRIGGER_FL_ARGUMENT);
 
@@ -636,7 +757,8 @@ TEST_CASE(argspec_auto_args)
 		idx++;
 	}
 
-	entry = find_auto_argspec("bar");
+	key.name = "bar";
+	entry = find_auto_argspec(&key, NULL, NULL);
 	TEST_NE(entry, NULL);
 	TEST_EQ(entry->trigger.flags, TRIGGER_FL_ARGUMENT);
 
@@ -644,12 +766,14 @@ TEST_CASE(argspec_auto_args)
 	TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
 	TEST_EQ(spec->idx, 1);
 
-	entry = find_auto_argspec("xxx");
+	key.name = "xxx";
+	entry = find_auto_argspec(&key, NULL, NULL);
 	TEST_EQ(entry, NULL);
 
 	release_auto_args(&auto_argspec);
 
-	entry = find_auto_argspec("foo");
+	key.name = "foo";
+	entry = find_auto_argspec(&key, NULL, NULL);
 	TEST_EQ(entry, NULL);
 
 	return TEST_OK;

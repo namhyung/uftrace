@@ -1771,6 +1771,12 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	return sym;
 }
 
+struct sym * find_sym(struct symtab *symtab, uint64_t addr)
+{
+	return bsearch(&addr, symtab->sym, symtab->nr_sym,
+		       sizeof(struct sym), addrfind);
+}
+
 struct sym * find_symname(struct symtab *symtab, const char *name)
 {
 	size_t i;

@@ -1,6 +1,7 @@
 #ifndef UFTRACE_FILTER_H
 #define UFTRACE_FILTER_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <regex.h>
 
@@ -185,13 +186,24 @@ char * uftrace_clear_kernel(char *filter_str);
 void setup_auto_args(void);
 void setup_auto_args_str(char *args, char *rets, char *enums);
 void finish_auto_args(void);
-struct uftrace_filter * find_auto_argspec(char *name);
-struct uftrace_filter * find_auto_retspec(char *name);
+
+struct debug_info;
+
+struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo);
+struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
+					  struct uftrace_trigger *tr,
+					  struct debug_info *dinfo);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
 int parse_enum_string(char *enum_str, struct rb_root *root);
-char *get_enum_string(char *name, long val);
+char *get_enum_string(struct rb_root *root, char *name, long val);
+void save_enum_def(struct rb_root *root, FILE *fp);
+void release_enum_def(struct rb_root *root);
+
+extern struct rb_root dwarf_enum;
 
 #endif /* UFTRACE_FILTER_H */

@@ -628,10 +628,23 @@ void get_argspec_string(struct ftrace_task_handle *task,
 				print_args("%p", val.p);
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
+			struct uftrace_session_link *sessions = &task->h->sessions;
+			struct uftrace_session *s;
+			struct uftrace_mmap *map;
+			struct debug_info *dinfo;
 			char *estr;
 
+			s = find_task_session(sessions, task->tid,
+					      task->rstack->time);
+
+			map = find_map(&s->symtabs, task->rstack->addr);
+			if (map == MAP_MAIN)
+				dinfo = &s->symtabs.dinfo;
+			else
+				dinfo = &map->dinfo;
+
 			memcpy(val.v, data, spec->size);
-			estr = get_enum_string(spec->enum_str, val.i);
+			estr = get_enum_string(&dinfo->enums, spec->enum_str, val.i);
 			if (strlen(estr) >= len)
 				print_args("<ENUM>");
 			else
