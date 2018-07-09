@@ -896,28 +896,28 @@ elf_error:
 	goto out;
 }
 
-int check_trace_functions(const char *filename)
+enum uftrace_trace_type check_trace_functions(const char *filename)
 {
 	int fd;
-	int ret = -1;
 	int idx, nr_dynsym = 0;
 	size_t i;
 	Elf *elf;
 	Elf_Scn *dynsym_sec, *sec;
 	Elf_Data *dynsym_data;
 	size_t shstr_idx, dynstr_idx = 0;
+	enum uftrace_trace_type ret = TRACE_ERROR;
 	const char *trace_funcs[] = {
+		"__cyg_profile_func_enter",
 		"mcount",
 		"_mcount",
 		"__fentry__",
 		"__gnu_mcount_nc",
-		"__cyg_profile_func_enter",
 	};
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return -1;
+		return ret;
 	}
 
 	elf_version(EV_CURRENT);
@@ -946,7 +946,7 @@ int check_trace_functions(const char *filename)
 
 	if (dynsym_sec == NULL) {
 		pr_dbg("cannot find dynamic symbols.. skipping\n");
-		ret = 0;
+		ret = TRACE_NONE;
 		goto out;
 	}
 
@@ -964,13 +964,12 @@ int check_trace_functions(const char *filename)
 
 		for (i = 0; i < ARRAY_SIZE(trace_funcs); i++) {
 			if (!strcmp(name, trace_funcs[i])) {
-				/* 1 for mcount, 2 for cyg_prof.. */
-				ret = (i == 3) ? 2 : 1;
+				ret = (i == 0) ? TRACE_CYGPROF : TRACE_MCOUNT;
 				goto out;
 			}
 		}
 	}
-	ret = 0;
+	ret = TRACE_NONE;
 
 out:
 	elf_end(elf);

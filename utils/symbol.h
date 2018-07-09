@@ -115,8 +115,15 @@ void save_module_symtabs(struct symtabs *symtabs);
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 			 const char *filename);
 
+enum uftrace_trace_type {
+	TRACE_ERROR   = -1,
+	TRACE_NONE,
+	TRACE_MCOUNT,
+	TRACE_CYGPROF,
+};
+
 bool check_libpthread(const char *filename);
-int check_trace_functions(const char *filename);
+enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
 
 struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
