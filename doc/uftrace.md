@@ -50,6 +50,8 @@ graph
 script
 :   Run a script for recorded function trace
 
+tui
+:   Show text user interface for graph and report
 
 OPTIONS
 =======
@@ -92,4 +94,4 @@ OPTIONS
 
 SEE ALSO
 ========
-`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1)
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui(1)`
