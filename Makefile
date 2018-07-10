@@ -129,9 +129,10 @@ UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c $(srcdir)/utils/debug.c
 DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
 
-SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/symbol.c $(srcdir)/utils/session.c
+SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/session.c
 SYMBOLS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/rbtree.c
 SYMBOLS_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
+SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
@@ -145,11 +146,12 @@ LIBMCOUNT_FAST_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast.op,$(LIBMCOUNT
 LIBMCOUNT_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-single.op,$(LIBMCOUNT_OBJS))
 LIBMCOUNT_FAST_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast-single.op,$(LIBMCOUNT_OBJS))
 
-LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/symbol.c $(srcdir)/utils/debug.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/debug.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/dwarf.c
+LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/libmcount/%.op,$(LIBMCOUNT_UTILS_SRCS))
 
 LIBMCOUNT_NOP_SRCS := $(srcdir)/libmcount/mcount-nop.c
