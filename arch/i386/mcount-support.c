@@ -8,7 +8,6 @@
 
 #include <assert.h>
 #include <string.h>
-#include <gelf.h>
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */

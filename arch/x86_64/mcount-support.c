@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <string.h>
-#include <gelf.h>
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
@@ -159,7 +158,8 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 #define PLTGOT_SIZE   8
 #define PAD_SIZE      5
 
-int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
+int mcount_arch_undo_bindnow(struct uftrace_elf_data *elf,
+			     struct plthook_data *pd)
 {
 	unsigned idx;
 	int got_idx;
@@ -180,31 +180,22 @@ int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
 		0xff, 0x25, 0x00, 0x00, 0x00, 0x00,  /* jmp *(offset) */
 		0xcc, 0xcc, 0xcc, 0xcc, 0xcc,        /* padding */
 	};
-	Elf_Scn *sec;
+	struct uftrace_elf_iter iter;
 	const char *skip_syms[] = {
-		"mcount", "__fentry__",
+		"mcount", "_mcount", "__gnu_mcount_nc", "__fentry__",
 		"__cyg_profile_func_enter", "__cyg_profile_func_exit",
 		"__cxa_finalize",  /* XXX: it caused segfault */
 		"__gmon_start__",  /* XXX: it makes process stuck */
 	};
-	size_t shstr_idx;
 
 	dsymtab = &pd->dsymtab;
 
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		return -1;
-
-	sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		GElf_Shdr shdr;
+	elf_for_each_shdr(elf, &iter) {
 		char *shname;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			return -1;
-
-		shname = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		shname = elf_get_name(elf, &iter, iter.shdr.sh_name);
 		if (!strcmp(shname, ".plt"))
-			plt_addr = shdr.sh_addr + pd->base_addr;
+			plt_addr = iter.shdr.sh_addr + pd->base_addr;
 		if (!strcmp(shname, ".rela.plt"))
 			has_rela_plt = true;
 	}

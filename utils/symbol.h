@@ -16,6 +16,8 @@
 #include "utils/list.h"
 #include "utils/dwarf.h"
 
+#include "utils/symbol-libelf.h"
+
 #ifndef  STT_GNU_IFUNC
 # define STT_GNU_IFUNC  10
 #endif
@@ -104,10 +106,10 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
-typedef struct Elf Elf;
-int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
+int arch_load_dynsymtab_bindnow(struct symtab *dsymtab,
+				struct uftrace_elf_data *elf,
 				unsigned long offset, unsigned long flags);
-int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
+int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
 
 void load_module_symtabs(struct symtabs *symtabs);

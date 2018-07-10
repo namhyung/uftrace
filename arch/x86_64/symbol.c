@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "symbol"
@@ -16,110 +15,79 @@
 #define JMP_INSN_SIZE 6
 #define PLTGOT_SIZE   8
 
-int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
+int arch_load_dynsymtab_bindnow(struct symtab *dsymtab,
+				struct uftrace_elf_data *elf,
 				unsigned long offset, unsigned long flags)
 {
 	unsigned grow = SYMTAB_GROW;
-	Elf_Scn *dynsym_sec, *relplt_sec, *pltgot_sec, *sec;
-	Elf_Data *dynsym_data, *relplt_data, *pltgot_data;
-	GElf_Addr plt_addr = 0;
+	unsigned long plt_addr = 0;
+	unsigned long plt_size;
 	int rel_type = SHT_NULL;
-	size_t shstr_idx, dynstr_idx = 0;
-	unsigned char *pltgot;
-	unsigned char *pltend;
 	unsigned long got_addr;
+	unsigned long pos;
 	int i, ret = -1;
-	size_t idx, nr_rels = 0;
+	bool found_dynsym = false;
+	struct uftrace_elf_iter sec_iter;
+	struct uftrace_elf_iter dyn_iter;
+	struct uftrace_elf_iter rel_iter;
+	struct uftrace_elf_iter plt_iter;
 
 	pr_dbg2("load dynamic symbols for bind-now\n");
 
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = dynsym_sec = relplt_sec = pltgot_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+	elf_for_each_shdr(elf, &sec_iter) {
 		char *shstr;
-		GElf_Shdr shdr;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		shstr = elf_get_name(elf, &sec_iter, sec_iter.shdr.sh_name);
 
 		if (strcmp(shstr, ".dynsym") == 0) {
-			dynsym_sec = sec;
-			dynstr_idx = shdr.sh_link;
+			memcpy(&dyn_iter, &sec_iter, sizeof(dyn_iter));
+			elf_get_strtab(elf, &dyn_iter, sec_iter.shdr.sh_link);
+			elf_get_secdata(elf, &dyn_iter);
+			found_dynsym = true;
 		}
 		else if (strcmp(shstr, ".rela.dyn") == 0) {
-			if (rel_type != SHT_NULL)
-				continue;
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			memcpy(&rel_iter, &sec_iter, sizeof(rel_iter));
 			rel_type = SHT_RELA;
 		}
-		else if (strcmp(shstr, ".rel.dyn") == 0) {
-			if (rel_type != SHT_NULL)
-				continue;
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
-			rel_type = SHT_REL;
-		}
 		else if (strcmp(shstr, ".plt.got") == 0) {
-			plt_addr = shdr.sh_addr + offset;
-			pltgot_sec = sec;
+			memcpy(&plt_iter, &sec_iter, sizeof(rel_iter));
+			plt_addr = plt_iter.shdr.sh_addr + offset;
+			plt_size = plt_iter.shdr.sh_size;
+			elf_get_secdata(elf, &plt_iter);
 		}
 	}
 
-	if (dynsym_sec == NULL || plt_addr == 0) {
+	if (!found_dynsym || plt_addr == 0) {
 		pr_dbg("cannot find dynamic symbols.. skipping\n");
 		goto out;
 	}
 
-	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
+	if (rel_type != SHT_RELA) {
 		pr_dbg("cannot find relocation info for PLT\n");
 		goto out;
 	}
 
-	dynsym_data = elf_getdata(dynsym_sec, NULL);
-	if (dynsym_data == NULL)
-		goto elf_error;
-
-	relplt_data = elf_getdata(relplt_sec, NULL);
-	if (relplt_data == NULL)
-		goto elf_error;
-
-	pltgot_data = elf_getdata(pltgot_sec, NULL);
-	if (pltgot_data == NULL)
-		goto elf_error;
-
-	pltgot = pltgot_data->d_buf;
-	pltend = pltgot_data->d_buf + pltgot_data->d_size;
-
-	for (i = 0; pltgot < pltend; i++, pltgot += PLTGOT_SIZE) {
+	for (i = pos = 0; pos < plt_size; i++, pos += PLTGOT_SIZE) {
 		unsigned got_offset;
 
-		memcpy(&got_offset, &pltgot[R_OFFSET_POS], sizeof(got_offset));
-		got_addr = plt_addr + (i * PLTGOT_SIZE) + JMP_INSN_SIZE + got_offset;
+		elf_read_secdata(elf, &plt_iter, pos + R_OFFSET_POS,
+				 &got_offset, sizeof(got_offset));
+
+		got_addr = plt_addr + pos + JMP_INSN_SIZE + got_offset;
 
 		pr_dbg3("find rel for PLT%d with r_offset: %#lx\n", i+1, got_addr);
 
-		for (idx = 0; idx < nr_rels; idx++) {
-			GElf_Sym esym;
+		elf_for_each_rela(elf, &rel_iter) {
 			struct sym *sym;
 			int symidx;
 			char *name;
-			GElf_Rela rela;
 
-			if (gelf_getrela(relplt_data, idx, &rela) == NULL)
-				goto elf_error;
-
-			if (rela.r_offset + offset != got_addr)
+			if (rel_iter.rela.r_offset + offset != got_addr)
 				continue;
 
-			symidx = GELF_R_SYM(rela.r_info);
-
-			gelf_getsym(dynsym_data, symidx, &esym);
-			name = elf_strptr(elf, dynstr_idx, esym.st_name);
+			symidx = elf_rel_symbol(&rel_iter.rela);
+			elf_get_symbol(elf, &dyn_iter, symidx);
+			name = elf_get_name(elf, &dyn_iter, dyn_iter.sym.st_name);
 
 			if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
 				if (dsymtab->nr_alloc >= grow * 4)
@@ -150,9 +118,4 @@ int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
 
 out:
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during load dynsymtab: %s\n",
-	       elf_errmsg(elf_errno()));
-	return -1;
 }
