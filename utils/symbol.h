@@ -16,7 +16,11 @@
 #include "utils/list.h"
 #include "utils/dwarf.h"
 
-#include "utils/symbol-libelf.h"
+#ifdef HAVE_LIBELF
+# include "utils/symbol-libelf.h"
+#else
+# include "utils/symbol-rawelf.h"
+#endif
 
 #ifndef  STT_GNU_IFUNC
 # define STT_GNU_IFUNC  10

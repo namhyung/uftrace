@@ -1,3 +1,5 @@
+#ifdef HAVE_LIBELF
+
 #include <gelf.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -57,3 +59,4 @@ void elf_read_secdata(struct uftrace_elf_data *elf,
 	memcpy(buf, iter->data->d_buf + offset, len);
 }
 
+#endif  /* HAVE_LIBELF */
