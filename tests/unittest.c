@@ -238,9 +238,9 @@ void __xray_exit(void)
 #undef main
 int main(int argc, char *argv[])
 {
-	struct uftrace_unit_test *test_cases;
+	struct uftrace_unit_test *test_cases = NULL;
 	int test_stats[TEST_MAX] = { };
-	size_t i, test_num;
+	size_t i, test_num = 0;
 	int c;
 
 	if (setup_unit_test(&test_cases, &test_num) < 0) {

@@ -1447,16 +1447,14 @@ static void setup_mcount_test(void)
 	mcount_global_flags = 0;
 }
 
-static void finish_mcount_test(void)
-{
-	pthread_key_delete(mtd_key);
-}
-
 TEST_CASE(mcount_thread_data)
 {
 	struct mcount_thread_data *mtdp;
 
-	setup_mcount_test();
+	if (0)
+		mcount_startup();
+	else
+		setup_mcount_test();
 
 	mtdp = get_thread_data();
 	TEST_EQ(check_thread_data(mtdp), true);
@@ -1467,6 +1465,8 @@ TEST_CASE(mcount_thread_data)
 	TEST_EQ(get_thread_data(), mtdp);
 
 	TEST_EQ(check_thread_data(mtdp), false);
+
+	mcount_cleanup();
 
 	return TEST_OK;
 }

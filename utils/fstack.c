@@ -2142,7 +2142,6 @@ TEST_CASE(fstack_skip)
 	struct ftrace_file_handle *handle = &fstack_test_handle;
 	struct ftrace_task_handle *task;
 	struct uftrace_trigger tr = { 0, };
-	int i;
 
 	dbg_domain[DBG_FSTACK] = 1;
 

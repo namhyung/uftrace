@@ -984,11 +984,7 @@ TEST_CASE(task_symbol_dlopen)
 		.sid = "test",
 		.namelen = 8,  /* = strlen("unittest") */
 	};
-	struct ftrace_task_handle task = {
-		.tid = 1,
-	};
 	FILE *fp;
-	struct uftrace_dlopen_list *udl;
 
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);
