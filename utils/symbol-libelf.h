@@ -16,11 +16,15 @@ struct uftrace_elf_iter {
 	union {
 		GElf_Phdr phdr;
 		GElf_Shdr shdr;
+		GElf_Nhdr nhdr;
 		GElf_Sym  sym;
 		GElf_Dyn  dyn;
 		GElf_Rel  rel;
 		GElf_Rela rela;
 	};
+
+	void *note_name;
+	void *note_desc;
 
 	/* hidden */
 	int      type;
@@ -101,6 +105,19 @@ struct uftrace_elf_iter {
 	     (iter)->type == SHT_RELA && (iter)->i < (iter)->nr &&	\
 		     gelf_getrela((iter)->data, (iter)->i, &(iter)->rela); \
 	     (iter)->i++)
+
+/* iter->sec and iter->shdr must point NOTE section */
+#define elf_for_each_note(elf, iter)					\
+	for ((iter)->i = 0, (iter)->type = (iter)->shdr.sh_type,	\
+		     (iter)->data = elf_getdata((iter)->scn, NULL);	\
+	     (iter)->type == SHT_NOTE &&				\
+		     ((iter)->nr = gelf_getnote((iter)->data, (iter)->i, \
+					       &(iter)->nhdr,		\
+					       (size_t*)&(iter)->note_name, \
+						(size_t*)&(iter)->note_desc)) && \
+		     ((iter)->note_name = (iter)->data + (size_t)(iter)->note_name) && \
+		     ((iter)->note_desc = (iter)->data + (size_t)(iter)->note_desc); \
+	     (iter)->i = (iter)->nr)
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf);
 void elf_finish(struct uftrace_elf_data *elf);

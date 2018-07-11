@@ -3,8 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <link.h>
-#include <libelf.h>
-#include <gelf.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
@@ -51,74 +49,53 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 	const char *name = info->dlpi_name;
 	struct mcount_event_info *mei;
 	struct list_head *spec_list = data;
-	Elf *elf;
-	int fd, ret = -1;
-	size_t shstr_idx;
-	size_t off, next, name_off, desc_off;
-	Elf_Scn *note_sec, *sec;
-	Elf_Data *note_data;
-	GElf_Nhdr nhdr;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	bool found_sdt = false;
+	int ret = -1;
 
 	if (name[0] == '\0')
 		name = read_exename();
 
-	fd = open(name, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(name, &elf) < 0) {
 		pr_dbg("error during open file: %s: %m\n", name);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = note_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+	elf_for_each_shdr(&elf, &iter) {
 		char *shstr;
-		GElf_Shdr shdr;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
+		if (iter.shdr.sh_type != SHT_NOTE)
+			continue;
 
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		/* there can be more than one note sections */
+		shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
 		if (strcmp(shstr, SDT_SECT) == 0) {
-			note_sec = sec;
+			found_sdt = true;
 			break;
 		}
 	}
 
-	if (note_sec == NULL) {
+	if (!found_sdt) {
 		ret = 0;
 		goto out;
 	}
 
-	note_data = elf_getdata(note_sec, NULL);
-	if (note_data == NULL)
-		goto elf_error;
-
 	pr_dbg2("loading sdt notes from %s\n", name);
 
-	off = 0;
-	while ((next = gelf_getnote(note_data, off, &nhdr, &name_off, &desc_off))) {
+	elf_for_each_note(&elf, &iter) {
 		struct stapsdt *sdt;
 		struct event_spec *spec;
 		char *vendor, *event, *args;
 
-		off = next;
-
-		if (strncmp(note_data->d_buf + name_off, SDT_NAME, nhdr.n_namesz))
+		if (strncmp(iter.note_name, SDT_NAME, iter.nhdr.n_namesz))
 			continue;
 
-		if (nhdr.n_type != SDT_TYPE)
+		if (iter.nhdr.n_type != SDT_TYPE)
 			continue;
 
-		sdt = note_data->d_buf + desc_off;
+		sdt = iter.note_desc;
 
 		vendor = sdt->vea;
 		event  = vendor + strlen(vendor) + 1;
@@ -156,14 +133,8 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 
 	ret = 0;
 out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during checking SDT events: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
 int mcount_setup_events(char *dirname, char *event_str,

@@ -13,7 +13,6 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <time.h>
-#include <gelf.h>
 #include <argp.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -22,6 +21,7 @@
 #include "libmcount/mcount.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
+#include "utils/symbol.h"
 #include "version.h"
 
 #define BUILD_ID_SIZE 20
@@ -87,68 +87,42 @@ static int fill_exe_build_id(void *arg)
 	struct fill_handler_arg *fha = arg;
 	unsigned char build_id[BUILD_ID_SIZE];
 	char build_id_str[BUILD_ID_STR_SIZE];
-	int fd;
-	Elf *elf;
-	Elf_Scn *sec = NULL;
-	Elf_Data *data;
-	GElf_Nhdr nhdr;
-	size_t shdrstr_idx;
-	size_t offset = 0;
-	size_t name_offset, desc_offset;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	bool found_build_id = false;
+	int offset;
 
-	fd = open(fha->opts->exename, O_RDONLY);
-	if (fd < 0)
+	if (elf_init(fha->opts->exename, &elf) < 0)
 		return -1;
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto close_fd;
-
-	if (elf_getshdrstrndx(elf, &shdrstr_idx) < 0)
-		goto end_elf;
-
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		GElf_Shdr shdr;
+	elf_for_each_shdr(&elf, &iter) {
 		char *str;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto end_elf;
+		if (iter.shdr.sh_type != SHT_NOTE)
+			continue;
 
-		str = elf_strptr(elf, shdrstr_idx, shdr.sh_name);
-		if (!strcmp(str, ".note.gnu.build-id"))
-			break;
-	}
-
-	if (sec == NULL)
-		goto end_elf;
-
-	data = elf_getdata(sec, NULL);
-	if (data == NULL)
-		goto end_elf;
-
-	while ((offset = gelf_getnote(data, offset, &nhdr,
-				      &name_offset, &desc_offset)) != 0) {
-		if (nhdr.n_type == NT_GNU_BUILD_ID &&
-		    !strcmp((char *)data->d_buf + name_offset, "GNU")) {
-			memcpy(build_id, (void *)data->d_buf + desc_offset, BUILD_ID_SIZE);
+		/* there can be more than one note sections */
+		str = elf_get_name(&elf, &iter, iter.shdr.sh_name);
+		if (!strcmp(str, ".note.gnu.build-id")) {
+			found_build_id = true;
 			break;
 		}
 	}
-end_elf:
-	elf_end(elf);
-close_fd:
-	close(fd);
 
-	if (offset == 0) {
-		if (sec == NULL)
-			pr_dbg("cannot find build-id section\n");
-		else
-			pr_dbg("error during ELF processing: %s\n",
-			       elf_errmsg(elf_errno()));
+	if (!found_build_id) {
+		pr_dbg("cannot find build-id section\n");
 		return -1;
 	}
+
+	elf_for_each_note(&elf, &iter) {
+		if (iter.nhdr.n_type != NT_GNU_BUILD_ID)
+			continue;
+		if (!strcmp(iter.note_name, "GNU")) {
+			memcpy(build_id, iter.note_desc, BUILD_ID_SIZE);
+			break;
+		}
+	}
+	elf_finish(&elf);
 
 	for (offset = 0; offset < BUILD_ID_SIZE; offset++) {
 		unsigned char c = build_id[offset];
