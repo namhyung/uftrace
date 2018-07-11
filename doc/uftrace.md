@@ -9,7 +9,7 @@ uftrace - Function graph tracer for userspace
 
 SYNOPSIS
 ========
-uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*|*tui*] [*options*] COMMAND [*command-options*]
 
 
 DESCRIPTION
