@@ -4,11 +4,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <gelf.h>
-#include <libelf.h>
 #include <link.h>
 
 #include "utils/utils.h"
+#include "utils/symbol.h"
 #include "tests/unittest.h"
 
 
@@ -100,10 +99,8 @@ static int find_load_base(struct dl_phdr_info *info,
 		return 1;
 
 	for (i = 0; i < info->dlpi_phnum; i++) {
-		const ElfW(Phdr) *phdr = info->dlpi_phdr + i;
-
-		if (phdr->p_type == PT_LOAD) {
-			load_base = info->dlpi_addr - phdr->p_vaddr;
+		if (info->dlpi_phdr[i].p_type == PT_LOAD) {
+			load_base = info->dlpi_addr - info->dlpi_phdr[i].p_vaddr;
 			break;
 		}
 	}
@@ -113,62 +110,47 @@ static int find_load_base(struct dl_phdr_info *info,
 static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
-	int fd, len;
-	Elf *elf;
-	size_t shstr_idx, sec_size;
-	Elf_Scn *sec, *test_sec;
-	Elf_Data *data;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 	struct uftrace_unit_test *tcases;
+	bool found_unittest = false;
+	size_t sec_size;
 	unsigned i, num;
 	int ret = -1;
 
 	exename = read_exename();
-	fd = open(exename, O_RDONLY);
-	if (fd < 0) {
-		printf("error during load ELF header: %s: %m\n", exename);
+	if (elf_init(exename, &elf) < 0) {
+		printf("error during load ELF header: %s\n", exename);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = test_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+	elf_for_each_shdr(&elf, &iter) {
 		char *shstr;
-		GElf_Shdr shdr;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
 		if (strcmp(shstr, "uftrace.unit_test") == 0) {
-			test_sec = sec;
-			sec_size = shdr.sh_size;
+			sec_size = iter.shdr.sh_size;
+			found_unittest = true;
 			break;
 		}
 	}
 
-	if (test_sec == NULL) {
+	if (!found_unittest) {
 		printf("cannot find unit test data\n");
 		goto out;
 	}
 
 	dl_iterate_phdr(find_load_base, NULL);
 
-	data   = elf_getdata(test_sec, NULL);
 	tcases = xmalloc(sec_size);
 	num    = sec_size / sizeof(*tcases);
-	memcpy(tcases, data->d_buf, sec_size);
+
+	elf_get_secdata(&elf, &iter);
+	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
 
 	/* relocate section symbols in case of PIE */
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < num && load_base; i++) {
 		struct uftrace_unit_test *tc = &tcases[i];
 		unsigned long faddr = (unsigned long)tc->func;
 		unsigned long naddr = (unsigned long)tc->name;
@@ -185,15 +167,8 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 
 	ret = 0;
 
-elf_error:
-	if (ret < 0) {
-		printf("ELF error during symbol loading: %s\n",
-		       elf_errmsg(elf_errno()));
-	}
 out:
-	elf_end(elf);
-	close(fd);
-
+	elf_finish(&elf);
 	return ret;
 }
 
