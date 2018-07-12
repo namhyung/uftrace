@@ -230,8 +230,8 @@ How to install uftrace
 ======================
 
 The uftrace is written in C and tried to minimize external dependencies.
-Currently it requires `libelf` in elfutils package to build, and there're some
-more optional dependencies.
+Currently it does not require any of them but there're some optional
+dependencies to enable advanced features.
 
 Once you installed required software(s) on your system, it can be built and
 installed like following:

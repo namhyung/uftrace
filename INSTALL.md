@@ -4,10 +4,10 @@ QUICK GUIDE
 On Ubuntu machines, following commands will build and install uftrace from
 source.
 
-    $ sudo apt-get install libelf-dev           # mandatory
-    $ sudo apt-get install pandoc               # for man pages (optional)
+    $ sudo apt-get install libdw-dev            # for debug info       (optional)
+    $ sudo apt-get install pandoc               # for man pages        (optional)
     $ sudo apt-get install libpython2.7-dev     # for python scripting (optional)
-    $ sudo apt-get install libncursesw5-dev     # for TUI (optional)
+    $ sudo apt-get install libncursesw5-dev     # for TUI              (optional)
     $ make
     $ sudo make install
 
@@ -24,22 +24,33 @@ The latest version of uftrace is available at Github.
 DEPENDENCY
 ==========
 
-Currently uftrace depends on the `libelf` from elfutils project for ELF symbol
-manipulation.  You need to install it first in order to build uftrace.
+Now uftrace can be built without any external libraries.  But in order to use
+more advanced features, it'd be better to install them like below.
 
-On debian based systems (like Ubuntu), `libelf-dev` package will provide
+Historically uftrace depended on the `libelf` from elfutils project for ELF
+file manipulation.  While it's not mandatory anymore, we recommend you to
+install it for better handling of ELF binaries.  Also `libdw` library is
+recommended to be installed in order to process DWARF debug information.  The
+libdw itself depends on the `libelf`, so you can just install `libdw`.
+
+On debian based systems (like Ubuntu), `libdw-dev` package will provide
 required libraries/files.
 
-    $ sudo apt-get install libelf-dev
+    $ sudo apt-get install libdw-dev
 
-On redhat based systems (like Fedora, RHEL), it'll be `elfutils-libelf-devel`.
+On redhat based systems (like Fedora, RHEL), it'll be `elfutils-devel`.
 
-    $ sudo dnf install elfutils-libelf-devel
+    $ sudo dnf install elfutils-devel
 
 It also uses libstdc++ library to demangle C++ symbols in full detail.
 And ncursesw library to implement text user interface (TUI) on console.
 But they're not mandatory as uftrace has its own demangler for shorter symbol
 name (it omits arguments, templates and so on).
+
+The ncurses(w) library provides terminal handling routines so `uftrace tui`
+command is built on top of them.  As it improves user experience of trace data
+analysis, you need to consider install it if you do things like `uftrace graph`
+or `uftrace report` frequently.
 
 Also it needs `pandoc` to build man pages from the markdown document.
 
@@ -51,7 +62,7 @@ To build uftrace, you need to install basic software development tools first -
 like gcc and make.  And also you need to install dependent softwares, please
 see DEPENDENCY section for details.
 
-Once you installed required software(s), you can run `make' to build it.
+Once you installed required software(s), you can run `make` to build it.
 
     $ make
 
@@ -117,9 +128,9 @@ use it on a different path using `--with-elfutils=<PATH>`.
 BUILD WITH ELFUTILS (libelf)
 ============================
 
-It may be useful to manually compile libelf for uftrace build if the target
-system doesn't have libelf installed.  `misc/install-elfutils.sh` provides a way
-to download and build libelf, which is one of the libraries in elfutils.
+It may be useful to manually compile libelf/libdw for uftrace build if the target
+system doesn't have them installed.  `misc/install-elfutils.sh` provides a way
+to download and build libelf and libdw, which are libraries in elfutils.
 
 The below is the way to compile uftrace together with libelf.
 
