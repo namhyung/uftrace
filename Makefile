@@ -53,7 +53,7 @@ export ARCH CC AR LD RM srcdir objdir LDFLAGS
 COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lelf -lrt -ldl -pthread $(LDFLAGS)
+COMMON_LDFLAGS := -lrt -ldl -pthread $(LDFLAGS)
 ifneq ($(elfdir),)
   COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib

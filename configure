@@ -113,12 +113,6 @@ export CC CFLAGS LD LDFLAGS
 make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
-if [ ! -e ${srcdir}/check-deps/have_libelf ] && [ ! -f ${with_elfutils}/lib/libelf.so ]; then
-    echo "Error: cannot find 'libelf' (from elfutils): Please install it first."
-    echo "Otherwise, please install it using \"misc/install-elfutils.sh\" script."
-    exit 1
-fi
-
 cat >$output <<EOF
 # this file is generated automatically
 override prefix := $prefix
