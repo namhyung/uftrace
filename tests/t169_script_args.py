@@ -30,7 +30,7 @@ class TestCase(TestBase):
         record_cmd = '%s record -d %s %s %s' % (uftrace, TDIR, options, program)
 
         self.pr_debug("record command: %s" % record_cmd)
-        sp.call(record_cmd.split())
+        sp.call(record_cmd.split(), stdout=sp.PIPE)
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):

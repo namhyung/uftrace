@@ -23,7 +23,7 @@ class TestBase:
     objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
     uftrace_cmd = objdir + '/uftrace --no-pager -L' + objdir
 
-    default_cflags = ['-fno-inline', '-fno-builtin',
+    default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task'):

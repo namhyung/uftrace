@@ -1432,7 +1432,7 @@ TEST_CASE(trigger_setup_filters)
 	struct rb_node *node;
 	struct uftrace_filter *filter;
 	struct uftrace_trigger tr;
-	enum filter_mode fmode;
+	enum filter_mode fmode = FILTER_MODE_NONE;
 	enum uftrace_pattern_type ptype = PATT_REGEX;
 
 	filter_test_load_symtabs(&stabs);
