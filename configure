@@ -17,7 +17,14 @@ usage() {
   --mandir=<DIR>        set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
   --objdir=<DIR>        set build dir as <DIR>               (default: \${PWD})
   --sysconfdir=<DIR>    override the etc dir as <DIR>
+
   --with-elfutils=<DIR> search for elfutils in <DIR>/include and <DIR>/lib
+
+  --without-libelf      build without libelf (and libdw)     (even if found on the system)
+  --without-libdw       build without libdw                  (even if found on the system)
+  --without-libstdc++   build without libstdc++              (even if found on the system)
+  --without-libpython   build without libpython2.7           (even if found on the system)
+  --without-libncurses  build without libncursesw            (even if found on the system)
 
   -p                    preserve old setting
 
@@ -47,15 +54,18 @@ preserve() {
     fi
 }
 
+IGNORE=
 while getopts ":ho:-:p" opt; do
     case "$opt" in
         -)
 	    # process --long-options
 	    case "$OPTARG" in
-                help)  usage ;;
-                *=*)   opt=${OPTARG%%=*}; val=${OPTARG#*=}
-                       eval "${opt/-/_}='$val'" ;;
-                *)     ;;
+                help)            usage ;;
+                without-libelf)  IGNORE="${IGNORE} libelf libdw" ;;
+                without-*)       IGNORE="${IGNORE} ${OPTARG#*-}" ;;
+                *=*)             opt=${OPTARG%%=*}; val=${OPTARG#*=}
+                                 eval "${opt/-/_}='$val'" ;;
+                *)               ;;
             esac
 	    ;;
         o)       output=$OPTARG ;;
@@ -113,6 +123,18 @@ export CC CFLAGS LD LDFLAGS
 make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
+for dep in $IGNORE; do
+    TARGET=
+    case "$dep" in
+        libelf)      TARGET=libelf        ;;
+        libdw)       TARGET=libdw         ;;
+        libpython*)  TARGET=libpython2.7  ;;
+        libncurse*)  TARGET=libncurses    ;;
+        *)           ;;
+    esac
+    rm -f ${srcdir}/check-deps/have_$TARGET
+done
+
 cat >$output <<EOF
 # this file is generated automatically
 override prefix := $prefix
@@ -157,7 +179,7 @@ all: prepare
 	@\$(MAKE) -C \$(srcdir)
 
 clean:
-	@rm -rf cmds arch libmcount libtraceevent utils
+	@rm -rf cmds arch libmcount libtraceevent utils misc
 	@rm -f uftrace version.h *.o *.op
 
 prepare:
