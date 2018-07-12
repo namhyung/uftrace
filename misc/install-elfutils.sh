@@ -65,14 +65,14 @@ if [ ! -f configure.cmd ] || [ "$configure_cmd" != "$(cat configure.cmd)" ]; the
     $configure_cmd && echo "$configure_cmd" > configure.cmd
 fi
 
-# build and install libelf only as of now
+# build and install libelf first
 make -j${n_cpus} -C libelf install
 
-# TODO: build and install libdw later on
-#       libdw requires to build libdwfl, libdwelf, and libebl
-#make -j${n_cpus} -C libdwfl
-#make -j${n_cpus} -C libdwelf
-#make -j${n_cpus} -C libebl CFLAGS="$CFLAGS -Wno-misleading-indentation"
-#make -j${n_cpus} -C libdw install
+# build and install libdw later on
+#   libdw requires to build libdwfl, libdwelf, and libebl
+make -j${n_cpus} -C libdwfl
+make -j${n_cpus} -C libdwelf
+make -j${n_cpus} -C libebl CFLAGS="$CFLAGS -Wno-misleading-indentation"
+make -j${n_cpus} -C libdw install
 
 cd ..
