@@ -306,6 +306,10 @@ class TestBase:
            apply it and re-test with the modified result."""
         return result
 
+    def check_dependency(self, item):
+        import os.path
+        return os.path.exists('../check-deps/' + item)
+
     def check_perf_paranoid(self):
         try:
             f = open('/proc/sys/kernel/perf_event_paranoid')
