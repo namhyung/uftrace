@@ -248,7 +248,8 @@ class TestBase:
         result = []
         for ln in output.split('\n'):
             if ln.startswith('uftrace'):
-                result.append(ln)
+                #result.append(ln)
+                pass
             else:
                 m = patt.match(ln)
                 if m is None:
