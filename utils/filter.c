@@ -1340,8 +1340,6 @@ TEST_CASE(filter_match)
 		.loaded = false,
 	};;
 	struct rb_root root = RB_ROOT;
-	struct rb_node *node;
-	struct uftrace_filter *filter;
 	enum filter_mode fmode;
 	struct uftrace_trigger tr;
 	enum uftrace_pattern_type ptype = PATT_REGEX;
@@ -1382,8 +1380,6 @@ TEST_CASE(trigger_setup_actions)
 		.loaded = false,
 	};;
 	struct rb_root root = RB_ROOT;
-	struct rb_node *node;
-	struct uftrace_filter *filter;
 	struct uftrace_trigger tr;
 	enum uftrace_pattern_type ptype = PATT_REGEX;
 
@@ -1429,8 +1425,6 @@ TEST_CASE(trigger_setup_filters)
 		.loaded = false,
 	};;
 	struct rb_root root = RB_ROOT;
-	struct rb_node *node;
-	struct uftrace_filter *filter;
 	struct uftrace_trigger tr;
 	enum filter_mode fmode = FILTER_MODE_NONE;
 	enum uftrace_pattern_type ptype = PATT_REGEX;
@@ -1478,8 +1472,6 @@ TEST_CASE(trigger_setup_args)
 		.loaded = false,
 	};;
 	struct rb_root root = RB_ROOT;
-	struct rb_node *node;
-	struct uftrace_filter *filter;
 	struct uftrace_trigger tr;
 	struct uftrace_arg_spec *spec;
 	enum uftrace_pattern_type ptype = PATT_REGEX;

@@ -248,7 +248,8 @@ class TestBase:
         result = []
         for ln in output.split('\n'):
             if ln.startswith('uftrace'):
-                result.append(ln)
+                #result.append(ln)
+                pass
             else:
                 m = patt.match(ln)
                 if m is None:
@@ -304,6 +305,10 @@ class TestBase:
            But if we know some known difference on some optimization level,
            apply it and re-test with the modified result."""
         return result
+
+    def check_dependency(self, item):
+        import os.path
+        return os.path.exists('../check-deps/' + item)
 
     def check_perf_paranoid(self):
         try:

@@ -40,6 +40,8 @@ class TestCase(TestBase):
 """, sort='chrome')
 
     def pre(self):
+        if not TestBase.check_dependency(self, 'perf_context_switch'):
+            return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 

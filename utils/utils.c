@@ -81,7 +81,7 @@ int fread_all(void *buf, size_t size, FILE *fp)
 	return 0;
 }
 
-int write_all(int fd, void *buf, size_t size)
+int write_all(int fd, const void *buf, size_t size)
 {
 	int ret;
 

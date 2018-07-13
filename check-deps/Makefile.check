@@ -7,7 +7,7 @@ ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mfentry),)
 endif
 
 ifneq ($(wildcard $(srcdir)/check-deps/cxa_demangle),)
-  COMMON_CFLAGS += -DHAVE_CXA_DEMANGLE
+  COMMON_CFLAGS  += -DHAVE_CXA_DEMANGLE
   COMMON_LDFLAGS += -lstdc++
 endif
 
@@ -32,8 +32,9 @@ ifneq ($(wildcard $(srcdir)/check-deps/arm_has_hardfp),)
 endif
 
 ifneq ($(wildcard $(srcdir)/check-deps/have_libncurses),)
-  COMMON_CFLAGS += -DHAVE_LIBNCURSES $(shell pkg-config --cflags ncursesw)
+  COMMON_CFLAGS   += -DHAVE_LIBNCURSES $(shell pkg-config --cflags ncursesw)
   UFTRACE_LDFLAGS += $(shell pkg-config --libs ncursesw)
+  TEST_LDFLAGS    += $(shell pkg-config --libs ncursesw)
 endif
 
 ifneq ($(wildcard $(srcdir)/check-deps/cc_has_wstringop_truncation),)

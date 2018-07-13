@@ -51,11 +51,11 @@ INSTALL = install
 export ARCH CC AR LD RM srcdir objdir LDFLAGS
 
 COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
-COMMON_CFLAGS +=  -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
+COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
 COMMON_LDFLAGS := -lelf -lrt -ldl -pthread $(LDFLAGS)
 ifneq ($(elfdir),)
-  COMMON_CFLAGS +=  -I$(elfdir)/include
+  COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib
 endif
 
@@ -65,17 +65,19 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 # Note that the plain CFLAGS and LDFLAGS can be changed
 # by config/Makefile later but *_*FLAGS can not.
 #
-UFTRACE_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
-DEMANGLER_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_demangler)
-SYMBOLS_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_symbols)
-TRACEEVENT_CFLAGS = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
-LIB_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
-LIB_CFLAGS += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
+UFTRACE_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
+DEMANGLER_CFLAGS   = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_demangler)
+SYMBOLS_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_symbols)
+TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
+LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
+LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
+TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
 
-UFTRACE_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
-DEMANGLER_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
-SYMBOLS_LDFLAGS = $(COMMON_CFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
-LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
+UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
+DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
+SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
+LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
+TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g
@@ -84,20 +86,23 @@ else
 endif
 
 ifeq ($(TRACE), 1)
-  UFTRACE_CFLAGS += -pg -fno-omit-frame-pointer
-  DEMANGLER_CFLAGS += -pg -fno-omit-frame-pointer
-  SYMBOLS_CFLAGS += -pg -fno-omit-frame-pointer
+  UFTRACE_CFLAGS    += -pg -fno-omit-frame-pointer
+  DEMANGLER_CFLAGS  += -pg -fno-omit-frame-pointer
+  SYMBOLS_CFLAGS    += -pg -fno-omit-frame-pointer
   TRACEEVENT_CFLAGS += -pg -fno-omit-frame-pointer
+  TEST_CFLAGS       += -pg -fno-omit-frame-pointer
   # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
 endif
 
 ifeq ($(COVERAGE), 1)
   COMMON_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
-  LIB_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
-  LIB_LDFLAGS += --coverage
+  LIB_CFLAGS    += -O0 -g --coverage -U_FORTIFY_SOURCE
+  TEST_CFLAGS   += -O0 -g --coverage -U_FORTIFY_SOURCE
+
+  LIB_LDFLAGS   += --coverage
 endif
 
-export UFTRACE_CFLAGS LIB_CFLAGS
+export UFTRACE_CFLAGS LIB_CFLAGS TEST_CFLAGS TEST_LDFLAGS
 
 VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
@@ -159,7 +164,6 @@ CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
-LDFLAGS_symbols = -lstdc++ -lelf
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
 LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD
