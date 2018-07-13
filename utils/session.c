@@ -671,7 +671,7 @@ TEST_CASE(session_search)
 		int fd;
 
 		fd = creat("sid-test.map", 0400);
-		write(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &msg, ".", "unittest", false);
 		remove("sid-test.map");
@@ -724,7 +724,7 @@ TEST_CASE(task_search)
 		};
 
 		fd = creat("sid-initial.map", 0400);
-		write(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
@@ -828,7 +828,7 @@ TEST_CASE(task_search)
 		};
 
 		fd = creat("sid-after_exec.map", 0400);
-		write(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
 		create_session(&test_sessions, &smsg, ".", "unittest", false);
 		create_task(&test_sessions, &tmsg, false, true);
