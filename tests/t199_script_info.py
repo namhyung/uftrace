@@ -14,6 +14,11 @@ v0.8.3-10/gfbfac3
 """)
 
     def pre(self):
+        script_cmd = '%s script' % (TestBase.uftrace_cmd)
+        p = sp.Popen(script_cmd.split(), stderr=sp.PIPE)
+        if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
+            return TestBase.TEST_SKIP
+
         record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-abc')
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS

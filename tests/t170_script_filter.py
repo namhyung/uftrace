@@ -26,6 +26,11 @@ a exit
 """)
 
     def pre(self):
+        script_cmd = '%s script' % (TestBase.uftrace_cmd)
+        p = sp.Popen(script_cmd.split(), stderr=sp.PIPE)
+        if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
+            return TestBase.TEST_SKIP
+
         f = open(FILE, 'w')
         f.write(script)
         f.close()
