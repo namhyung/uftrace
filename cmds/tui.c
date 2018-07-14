@@ -66,6 +66,7 @@ struct tui_window_ops {
 	void (*footer)(struct tui_window *win, struct ftrace_file_handle *handle);
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
+	bool (*longest_child)(struct tui_window *win, void *node);
 };
 
 struct tui_window {
@@ -121,6 +122,8 @@ static const struct tui_window_ops report_ops;
 static const struct tui_window_ops info_ops;
 static const struct tui_window_ops session_ops;
 
+static void tui_window_move_down(struct tui_window *win);
+
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
 
@@ -143,6 +146,7 @@ static const char *help[] = {
 	"c/e           Collapse/Expand graph",
 	"n/p           Next/Prev sibling",
 	"u             Move up to parent",
+	"l             Move to the longest executed child",
 	"j/k           Move down/up",
 	"/             Search",
 	"</>/N/P       Search next/prev",
@@ -1130,6 +1134,33 @@ static bool win_search_graph(struct tui_window *win, void *node, char *str)
 	return strstr(curr->n.name, str);
 }
 
+static bool win_longest_child_graph(struct tui_window *win, void *node)
+{
+	struct tui_graph_node *curr = node;
+	struct tui_graph_node *child;
+	struct tui_graph_node *longest_child = NULL;
+	uint64_t longest_child_time = 0;
+
+	curr->folded = false;
+
+	list_for_each_entry(child, &curr->n.head, n.list) {
+		fold_graph_node(child, true, 0);
+		if (longest_child_time < child->n.time) {
+			longest_child_time = child->n.time;
+			longest_child = child;
+		}
+	}
+
+	if (longest_child == NULL)
+		return false;
+
+	longest_child->folded = false;
+	while (win->curr != longest_child)
+		tui_window_move_down(win);
+
+	return true;
+}
+
 static const struct tui_window_ops graph_ops = {
 	.prev = win_prev_graph,
 	.next = win_next_graph,
@@ -1145,6 +1176,7 @@ static const struct tui_window_ops graph_ops = {
 	.footer = win_footer_graph,
 	.display = win_display_graph,
 	.search = win_search_graph,
+	.longest_child = win_longest_child_graph,
 };
 
 /* some default (no-op) window operations */
@@ -2007,6 +2039,14 @@ static bool tui_window_expand(struct tui_window *win)
 	return win->ops->expand(win, win->curr, 1);
 }
 
+static bool tui_window_longest_child(struct tui_window *win)
+{
+	if (win->ops->longest_child == NULL)
+		return false;
+
+	return win->ops->longest_child(win, win->curr);
+}
+
 static void tui_window_help(void)
 {
 	WINDOW *win;
@@ -2174,6 +2214,9 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		case 'u':
 			tui_window_move_parent(win);
+			break;
+		case 'l':
+			full_redraw = tui_window_longest_child(win);
 			break;
 		case '/':
 			if (tui_window_can_search(win)) {
