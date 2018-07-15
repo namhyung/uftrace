@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <signal.h>
-#include <gelf.h>
 #include <link.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -17,6 +16,7 @@
 #include "utils/utils.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#include "utils/symbol.h"
 
 #ifndef  PT_GNU_RELRO
 # define PT_GNU_RELRO  0x6474e552  /* Read-only after relocation */
@@ -167,37 +167,46 @@ static void restore_plt_functions(struct plthook_data *pd)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-__weak int mcount_arch_undo_bindnow(Elf *elf, struct plthook_data *pd)
+__weak int mcount_arch_undo_bindnow(struct uftrace_elf_data *elf,
+				    struct plthook_data *pd)
 {
 	return -1;
 }
 
-static int find_got(Elf *elf, const char *modname,
-		    Elf_Data *dyn_data, size_t nr_dyn, unsigned long offset)
+static int find_got(struct uftrace_elf_data *elf,
+		    struct uftrace_elf_iter *iter,
+		    const char *modname,
+		    unsigned long offset)
 {
-	size_t i;
 	bool plt_found = false;
 	bool bind_now = false;
 	unsigned long pltgot_addr = 0;
-	struct plthook_data *pd;
-	Elf_Scn *sec = NULL;
-	size_t shstr_idx;
 	unsigned long plt_addr = 0;
+	struct plthook_data *pd;
 
-	for (i = 0; i < nr_dyn; i++) {
-		GElf_Dyn dyn;
+	elf_for_each_shdr(elf, iter) {
+		if (iter->shdr.sh_type == SHT_DYNAMIC)
+			break;
+	}
 
-		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
-			return -1;
-
-		if (dyn.d_tag == DT_PLTGOT)
-			pltgot_addr = (unsigned long)dyn.d_un.d_val + offset;
-		else if (dyn.d_tag == DT_JMPREL)
+	elf_for_each_dynamic(elf, iter) {
+		switch (iter->dyn.d_tag) {
+		case DT_PLTGOT:
+			pltgot_addr = (unsigned long)iter->dyn.d_un.d_val + offset;
+			break;
+		case DT_JMPREL:
 			plt_found = true;
-		else if (dyn.d_tag == DT_BIND_NOW)
+			break;
+		case DT_BIND_NOW:
 			bind_now = true;
-		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
-			bind_now = true;
+			break;
+		case DT_FLAGS_1:
+			if (iter->dyn.d_un.d_val & DF_1_NOW)
+				bind_now = true;
+			break;
+		default:
+			break;
+		}
 	}
 
 	if (!pltgot_addr || (!plt_found && !bind_now)) {
@@ -205,22 +214,11 @@ static int find_got(Elf *elf, const char *modname,
 		return 0;
 	}
 
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0) {
-		pr_dbg("failed to get section header string index\n");
-		return 0;
-	}
-
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *shstr;
-		GElf_Shdr shdr;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			break;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+	elf_for_each_shdr(elf, iter) {
+		char *shstr = elf_get_name(elf, iter, iter->shdr.sh_name);
 
 		if (strcmp(shstr, ".plt") == 0) {
-			plt_addr = shdr.sh_addr + offset;
+			plt_addr = iter->shdr.sh_addr + offset;
 			break;
 		}
 	}
@@ -279,94 +277,50 @@ static int find_got(Elf *elf, const char *modname,
 
 static int hook_pltgot(const char *modname, unsigned long offset)
 {
-	int fd;
 	int ret = -1;
-	Elf *elf;
-	GElf_Ehdr ehdr;
-	Elf_Scn *sec;
-	GElf_Shdr shdr;
-	Elf_Data *dyn_data = NULL;
-	size_t shstr_idx;
-	size_t nr_dyn, i;
 	bool relro = false;
 	unsigned long relro_start = 0;
 	unsigned long relro_size = 0;
 	unsigned long page_size;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	bool found_dynamic = false;
 
 	pr_dbg2("opening executable image: %s\n", modname);
 
-	fd = open(modname, O_RDONLY);
-	if (fd < 0)
+	if (elf_init(modname, &elf) < 0)
 		return -1;
 
-	elf_version(EV_CURRENT);
+	elf_for_each_phdr(&elf, &iter) {
+		if (iter.phdr.p_type == PT_DYNAMIC)
+			found_dynamic = true;
 
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	for (i = 0; i < ehdr.e_phnum; i++) {
-		GElf_Phdr phdr;
-
-		if (gelf_getphdr(elf, i, &phdr) == NULL)
-			goto elf_error;
-
-		if (phdr.p_type == PT_DYNAMIC) {
-			sec = gelf_offscn(elf, phdr.p_offset);
-
-			if (!sec || gelf_getshdr(sec, &shdr) == NULL)
-				continue;
-
-			dyn_data = elf_getdata(sec, NULL);
-			if (dyn_data == NULL)
-				goto elf_error;
-
-			nr_dyn = shdr.sh_size / shdr.sh_entsize;
-		}
-
-		if (phdr.p_type == PT_GNU_RELRO) {
-			relro = true;
-			relro_start = phdr.p_vaddr + offset;
-			relro_size  = phdr.p_memsz;
+		if (iter.phdr.p_type == PT_GNU_RELRO) {
+			relro_start = iter.phdr.p_vaddr + offset;
+			relro_size  = iter.phdr.p_memsz;
 
 			page_size = getpagesize();
 
 			relro_start &= ~(page_size - 1);
 			relro_size   = ALIGN(relro_size, page_size);
+			relro = true;
 		}
 	}
 
-	if (dyn_data) {
+	if (found_dynamic) {
 		if (relro) {
 			mprotect((void *)relro_start, relro_size,
 				 PROT_READ | PROT_WRITE);
 		}
 
-		ret = find_got(elf, modname, dyn_data, nr_dyn, offset);
+		ret = find_got(&elf, &iter, modname, offset);
 
 		if (relro)
 			mprotect((void *)relro_start, relro_size, PROT_READ);
-
-		if (ret < 0)
-			goto elf_error;
 	}
 
-	ret = 0;
-
-out:
-	elf_end(elf);
-	close(fd);
-
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("%s\n", elf_errmsg(elf_errno()));
-
-	goto out;
 }
 
 /* functions should skip PLT hooking */

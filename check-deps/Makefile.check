@@ -41,6 +41,11 @@ ifneq ($(wildcard $(srcdir)/check-deps/cc_has_wstringop_truncation),)
   COMMON_CFLAGS += -Wno-stringop-truncation
 endif
 
+ifneq ($(wildcard $(srcdir)/check-deps/have_libelf),)
+  COMMON_CFLAGS  += -DHAVE_LIBELF
+  COMMON_LDFLAGS += -lelf
+endif
+
 ifneq ($(wildcard $(srcdir)/check-deps/have_libdw),)
   COMMON_CFLAGS  += -DHAVE_LIBDW
   COMMON_CFLAGS  += $(shell pkg-config --cflags libdw 2> /dev/null)

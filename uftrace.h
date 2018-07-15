@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <libelf.h>
 #include <fcntl.h>
 
 #include "utils/rbtree.h"

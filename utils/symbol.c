@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <gelf.h>
 #include <unistd.h>
 #include <assert.h>
 #include <inttypes.h>
@@ -74,121 +73,57 @@ static int namefind(const void *a, const void *b)
 
 bool check_libpthread(const char *filename)
 {
-	int fd;
-	Elf *elf;
 	bool ret = false;
-	size_t i, nr_dyn = 0;
-	int shstr_idx;
-	Elf_Scn *dyn_sec, *sec;
-	Elf_Data *dyn_data;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_DYNAMIC)
+			break;
+	}
 
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
+	elf_for_each_dynamic(&elf, &iter) {
+		char *soname;
 
-	sec = dyn_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		GElf_Shdr shdr;
+		if (iter.dyn.d_tag != DT_NEEDED)
+			continue;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		if (shdr.sh_type == SHT_DYNAMIC) {
-			dyn_sec = sec;
-			shstr_idx = shdr.sh_link;
-			nr_dyn = shdr.sh_size / shdr.sh_entsize;
+		soname = elf_get_name(&elf, &iter, iter.dyn.d_un.d_ptr);
+		if (!strcmp(soname, "libpthread.so.0")) {
+			ret = true;
 			break;
 		}
 	}
 
-	if (dyn_sec == NULL)
-		goto out;
-
-	dyn_data = elf_getdata(dyn_sec, NULL);
-	if (dyn_data == NULL)
-		goto elf_error;
-
-	for (i = 0; i < nr_dyn; i++) {
-		GElf_Dyn dyn;
-
-		if (gelf_getdyn(dyn_data, i, &dyn) == NULL)
-			goto elf_error;
-
-		if (dyn.d_tag == DT_NEEDED) {
-			char *soname = elf_strptr(elf, shstr_idx, dyn.d_un.d_ptr);
-			if (!strcmp(soname, "libpthread.so.0")) {
-				ret = true;
-				break;
-			}
-		}
-	}
-
-out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
 int check_static_binary(const char *filename)
 {
-	int fd;
-	Elf *elf;
-	GElf_Ehdr ehdr;
-	int ret = -1;
-	size_t i;
+	int ret = 1;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		pr_dbg("error during file open: %s: %m\n", filename);
+	if (elf_init(filename, &elf) < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
-
-	for (i = 0; i < ehdr.e_phnum; i++) {
-		GElf_Phdr phdr;
-
-		if (gelf_getphdr(elf, i, &phdr) == NULL)
-			goto elf_error;
-
-		if (phdr.p_type == PT_DYNAMIC) {
+	elf_for_each_phdr(&elf, &iter) {
+		if (iter.phdr.p_type == PT_DYNAMIC) {
 			ret = 0;
 			break;
 		}
 	}
 
-	if (ret == -1)
-		ret = 1;  /* static binary */
-
-out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error when reading program headers: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
 static void __unload_symtab(struct symtab *symtab)
@@ -217,163 +152,74 @@ void unload_symtabs(struct symtabs *symtabs)
 	symtabs->loaded = false;
 }
 
-static int load_symtab(struct symtab *symtab, const char *filename,
-		       unsigned long offset, unsigned long flags)
+static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
+		       unsigned long offset, unsigned long flags,
+		       struct uftrace_elf_data *elf,
+		       struct uftrace_elf_iter *iter)
 {
-	int fd;
-	Elf *elf;
-	int ret = -1;
+	char *name;
+	struct sym *sym;
+	typeof(iter->sym) *elf_sym = &iter->sym;
 	unsigned grow = SYMTAB_GROW;
-	size_t i, nr_sym = 0, nr_dynsym = 0;
-	Elf_Scn *sym_sec, *dynsym_sec, *sec;
-	Elf_Data *sym_data;
-	size_t shstr_idx, symstr_idx = 0, dynsymstr_idx = 0;
-	unsigned long prev_sym_value = -1;
+
+	if (elf_sym->st_shndx == STN_UNDEF)
+		return 0;
+
+	if (elf_sym->st_size == 0)
+		return 0;
+
+	if (elf_symbol_type(elf_sym) != STT_FUNC &&
+	    elf_symbol_type(elf_sym) != STT_GNU_IFUNC)
+		return 0;
+
+	/* skip aliases */
+	if (prev_sym_value == elf_sym->st_value)
+		return 0;
+
+	if (symtab->nr_sym >= symtab->nr_alloc) {
+		if (symtab->nr_alloc >= grow * 4)
+			grow *= 2;
+		symtab->nr_alloc += grow;
+		symtab->sym = xrealloc(symtab->sym,
+				       symtab->nr_alloc * sizeof(*sym));
+	}
+
+	sym = &symtab->sym[symtab->nr_sym++];
+
+	sym->addr = elf_sym->st_value + offset;
+	sym->size = elf_sym->st_size;
+
+	switch (elf_symbol_bind(elf_sym)) {
+	case STB_LOCAL:
+		sym->type = ST_LOCAL;
+		break;
+	case STB_GLOBAL:
+		sym->type = ST_GLOBAL;
+		break;
+	case STB_WEAK:
+		sym->type = ST_WEAK;
+		break;
+	default:
+		sym->type = ST_UNKNOWN;
+		break;
+	}
+
+	name = elf_get_name(elf, iter, elf_sym->st_name);
+
+	if (flags & SYMTAB_FL_DEMANGLE)
+		sym->name = demangle(name);
+	else
+		sym->name = xstrdup(name);
+
+	pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
+		sym->type, sym->addr, sym->size, sym->name);
+	return 1;
+}
+
+static void sort_symtab(struct symtab *symtab)
+{
+	unsigned i;
 	int dup_syms = 0;
-
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return -1;
-	}
-
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (flags & SYMTAB_FL_ADJ_OFFSET) {
-		GElf_Ehdr ehdr;
-		GElf_Phdr phdr;
-
-		if (gelf_getehdr(elf, &ehdr) == NULL)
-			goto elf_error;
-
-		for (i = 0; i < ehdr.e_phnum; i++) {
-			if (!gelf_getphdr(elf, i, &phdr))
-				goto elf_error;
-
-			if (phdr.p_type == PT_LOAD) {
-				offset -= phdr.p_vaddr;
-				break;
-			}
-		}
-	}
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = sym_sec = dynsym_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *shstr;
-		GElf_Shdr shdr;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
-
-		if (strcmp(shstr, ".symtab") == 0) {
-			sym_sec = sec;
-			nr_sym = shdr.sh_size / shdr.sh_entsize;
-			symstr_idx = shdr.sh_link;
-			break;
-		}
-
-		if (strcmp(shstr, ".dynsym") == 0) {
-			dynsym_sec = sec;
-			nr_dynsym = shdr.sh_size / shdr.sh_entsize;
-			dynsymstr_idx = shdr.sh_link;
-		}
-	}
-
-	if (sym_sec == NULL) {
-		/*
-		 * fallback to dynamic symbol table when there's no symbol table
-		 * (e.g. stripped binary built with -rdynamic option)
-		 */
-		sym_sec = dynsym_sec;
-		nr_sym = nr_dynsym;
-		symstr_idx = dynsymstr_idx;
-		pr_dbg2("no symtab, using dynsyms instead\n");
-	}
-
-	if (sym_sec == NULL) {
-		pr_dbg("no symbol table is found\n");
-		goto out;
-	}
-
-	sym_data = elf_getdata(sym_sec, NULL);
-	if (sym_data == NULL)
-		goto elf_error;
-
-	pr_dbg2("loading symbols from %s (offset: %#lx)\n", filename, offset);
-	for (i = 0; i < nr_sym; i++) {
-		GElf_Sym elf_sym;
-		struct sym *sym;
-		char *name;
-
-		if (gelf_getsym(sym_data, i, &elf_sym) == NULL)
-			goto elf_error;
-
-		if (elf_sym.st_shndx == STN_UNDEF)
-			continue;
-
-		if (elf_sym.st_size == 0)
-			continue;
-
-		if (GELF_ST_TYPE(elf_sym.st_info) != STT_FUNC &&
-		    GELF_ST_TYPE(elf_sym.st_info) != STT_GNU_IFUNC)
-			continue;
-
-		/* skip aliases */
-		if (prev_sym_value == elf_sym.st_value)
-			continue;
-		prev_sym_value = elf_sym.st_value;
-
-		if (symtab->nr_sym >= symtab->nr_alloc) {
-			if (symtab->nr_alloc >= grow * 4)
-				grow *= 2;
-			symtab->nr_alloc += grow;
-			symtab->sym = xrealloc(symtab->sym,
-					       symtab->nr_alloc * sizeof(*sym));
-		}
-
-		sym = &symtab->sym[symtab->nr_sym++];
-
-		sym->addr = elf_sym.st_value + offset;
-		sym->size = elf_sym.st_size;
-
-		switch (GELF_ST_BIND(elf_sym.st_info)) {
-		case STB_LOCAL:
-			sym->type = ST_LOCAL;
-			break;
-		case STB_GLOBAL:
-			sym->type = ST_GLOBAL;
-			break;
-		case STB_WEAK:
-			sym->type = ST_WEAK;
-			break;
-		default:
-			sym->type = ST_UNKNOWN;
-			break;
-		}
-
-		name = elf_strptr(elf, symstr_idx, elf_sym.st_name);
-
-		if (flags & SYMTAB_FL_DEMANGLE)
-			sym->name = demangle(name);
-		else
-			sym->name = xstrdup(name);
-
-		pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
-	}
-	pr_dbg2("loaded %zd symbols\n", symtab->nr_sym);
-
-	if (symtab->nr_sym == 0)
-		goto out;
 
 	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
 
@@ -429,16 +275,121 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 
 	symtab->name_sorted = true;
+}
+
+static int load_symtab(struct symtab *symtab, const char *filename,
+		       unsigned long offset, unsigned long flags)
+{
+	int ret = -1;
+	unsigned long prev_sym_value = -1;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+
+	if (elf_init(filename, &elf) < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return -1;
+	}
+
+	if (flags & SYMTAB_FL_ADJ_OFFSET) {
+		elf_for_each_phdr(&elf, &iter) {
+			if (iter.phdr.p_type == PT_LOAD) {
+				offset -= iter.phdr.p_vaddr;
+				break;
+			}
+		}
+	}
+
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_SYMTAB)
+			break;
+	}
+
+	if (iter.shdr.sh_type != SHT_SYMTAB) {
+		/*
+		 * fallback to dynamic symbol table when there's no symbol table
+		 * (e.g. stripped binary built with -rdynamic option)
+		 */
+		elf_for_each_shdr(&elf, &iter) {
+			if (iter.shdr.sh_type == SHT_DYNSYM)
+				break;
+		}
+
+		if (iter.shdr.sh_type != SHT_DYNSYM) {
+			pr_dbg("no symbol table was found\n");
+			goto out;
+		}
+
+		pr_dbg2("no symtab, using dynsyms instead\n");
+	}
+
+	pr_dbg2("loading symbols from %s (offset: %#lx)\n", filename, offset);
+	if (iter.shdr.sh_type == SHT_SYMTAB) {
+		elf_for_each_symbol(&elf, &iter) {
+			if (load_symbol(symtab, prev_sym_value, offset, flags,
+					&elf, &iter))
+				prev_sym_value = iter.sym.st_value;
+		}
+	}
+	else {
+		elf_for_each_dynamic_symbol(&elf, &iter) {
+			if (load_symbol(symtab, prev_sym_value, offset, flags,
+					&elf, &iter))
+				prev_sym_value = iter.sym.st_value;
+		}
+	}
+	pr_dbg2("loaded %zd symbols\n", symtab->nr_sym);
+
+	if (symtab->nr_sym == 0)
+		goto out;
+
+	sort_symtab(symtab);
 	ret = 0;
 out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
+}
 
-elf_error:
-	pr_dbg("ELF error during symbol loading: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
+static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
+			   unsigned long offset, unsigned long flags,
+			   unsigned long plt_entsize, unsigned long prev_addr,
+			   struct uftrace_elf_data *elf,
+			   struct uftrace_elf_iter *iter)
+{
+	char *name;
+	struct sym *sym;
+	unsigned grow = SYMTAB_GROW;
+
+	elf_get_symbol(elf, iter, sym_idx);
+	name = elf_get_name(elf, iter, iter->sym.st_name);
+
+	if (*name == '\0')
+		return 0;
+
+	if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
+		if (dsymtab->nr_alloc >= grow * 4)
+			grow *= 2;
+		dsymtab->nr_alloc += grow;
+		dsymtab->sym = xrealloc(dsymtab->sym,
+					dsymtab->nr_alloc * sizeof(*sym));
+	}
+
+	sym = &dsymtab->sym[dsymtab->nr_sym++];
+
+	if (elf->ehdr.e_machine == EM_ARM && iter->sym.st_value)
+		sym->addr = iter->sym.st_value + offset;
+	else
+		sym->addr = prev_addr + plt_entsize;
+	sym->size = plt_entsize;
+	sym->type = ST_PLT;
+
+	if (flags & SYMTAB_FL_DEMANGLE)
+		sym->name = demangle(name);
+	else
+		sym->name = xstrdup(name);
+
+	pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
+		sym->type, sym->addr, sym->size, sym->name);
+	return 1;
 }
 
 static void sort_dynsymtab(struct symtab *dsymtab)
@@ -470,40 +421,40 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-__weak int arch_load_dynsymtab_bindnow(Elf *elf, struct symtab *dsymtab,
+__weak int arch_load_dynsymtab_bindnow(struct symtab *dsymtab,
+				       struct uftrace_elf_data *elf,
 				       unsigned long offset, unsigned long flags)
 {
 	return 0;
 }
 
-static int try_load_dynsymtab_bindnow(Elf *elf, struct Elf_Scn *dynsec,
-				      int nr_dyns, struct symtab *dsymtab,
+static int try_load_dynsymtab_bindnow(struct symtab *dsymtab,
+				      struct uftrace_elf_data *elf,
 				      unsigned long offset, unsigned long flags)
 {
-	int idx;
 	bool bind_now = false;
-	Elf_Data *dynamic_data;
+	struct uftrace_elf_iter iter;
 
-	dynamic_data = elf_getdata(dynsec, NULL);
-	if (dynamic_data == NULL)
+	elf_for_each_shdr(elf, &iter) {
+		if (iter.shdr.sh_type == SHT_DYNAMIC)
+			break;
+	}
+
+	if (iter.shdr.sh_type != SHT_DYNAMIC)
 		return 0;
 
-	for (idx = 0; idx < nr_dyns; idx++) {
-		GElf_Dyn dyn;
-
-		if (gelf_getdyn(dynamic_data, idx, &dyn) == NULL)
-			return 0;
-
-		if (dyn.d_tag != DT_BIND_NOW)
+	elf_for_each_dynamic(elf, &iter) {
+		if (iter.dyn.d_tag == DT_BIND_NOW)
 			bind_now = true;
-		else if (dyn.d_tag == DT_FLAGS_1 && (dyn.d_un.d_val & DF_1_NOW))
+		else if ((iter.dyn.d_tag == DT_FLAGS_1) &&
+			 (iter.dyn.d_un.d_val & DF_1_NOW))
 			bind_now = true;
 	}
 
 	if (!bind_now)
 		return 0;
 
-	if (arch_load_dynsymtab_bindnow(elf, dsymtab, offset, flags) < 0) {
+	if (arch_load_dynsymtab_bindnow(dsymtab, elf, offset, flags) < 0) {
 		pr_dbg("cannot load dynamic symbols for bind-now\n");
 		__unload_symtab(dsymtab);
 		return -1;
@@ -516,168 +467,113 @@ static int try_load_dynsymtab_bindnow(Elf *elf, struct Elf_Scn *dynsec,
 	return 1;
 }
 
-int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
+int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags)
 {
 	int ret = -1;
-	int idx, nr_rels = 0, nr_dyns = 0;
-	unsigned grow = SYMTAB_GROW;
-	Elf_Scn *dynsym_sec, *relplt_sec, *dynamic_sec, *sec;
-	Elf_Data *dynsym_data, *relplt_data;
-	size_t shstr_idx, dynstr_idx = 0;
-	GElf_Ehdr ehdr;
-	GElf_Addr plt_addr = 0;
-	GElf_Addr prev_addr;
+	char *shstr;
+	unsigned long plt_addr = 0;
+	unsigned long prev_addr;
 	size_t plt_entsize = 1;
 	int rel_type = SHT_NULL;
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
+	bool found_dynamic = false;
+	bool found_dynsym = false;
+	struct uftrace_elf_iter sec_iter;
+	struct uftrace_elf_iter dyn_iter;
+	struct uftrace_elf_iter rel_iter;
+	unsigned symidx;
+	struct sym *sym;
 
 	if (flags & SYMTAB_FL_ADJ_OFFSET) {
-		GElf_Phdr phdr;
-		unsigned i;
-
-		for (i = 0; i < ehdr.e_phnum; i++) {
-			if (!gelf_getphdr(elf, i, &phdr))
-				goto elf_error;
-
-			if (phdr.p_type == PT_LOAD) {
-				offset -= phdr.p_vaddr;
+		elf_for_each_phdr(elf, &sec_iter) {
+			if (sec_iter.phdr.p_type == PT_LOAD) {
+				offset -= sec_iter.phdr.p_vaddr;
 				break;
 			}
 		}
 	}
 
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = dynsym_sec = relplt_sec = dynamic_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *shstr;
-		GElf_Shdr shdr;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+	elf_for_each_shdr(elf, &sec_iter) {
+		typeof(sec_iter.shdr) *shdr = &sec_iter.shdr;
+		shstr = elf_get_name(elf, &sec_iter, shdr->sh_name);
 
 		if (strcmp(shstr, ".dynsym") == 0) {
-			dynsym_sec = sec;
-			dynstr_idx = shdr.sh_link;
+			memcpy(&dyn_iter, &sec_iter, sizeof(sec_iter));
+			elf_get_strtab(elf, &dyn_iter, shdr->sh_link);
+			elf_get_secdata(elf, &dyn_iter);
+			found_dynsym = true;
 		}
 		else if (strcmp(shstr, ".rela.plt") == 0) {
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			memcpy(&rel_iter, &sec_iter, sizeof(sec_iter));
 			rel_type = SHT_RELA;
 		}
 		else if (strcmp(shstr, ".rel.plt") == 0) {
-			relplt_sec = sec;
-			nr_rels = shdr.sh_size / shdr.sh_entsize;
+			memcpy(&rel_iter, &sec_iter, sizeof(sec_iter));
 			rel_type = SHT_REL;
 		}
 		else if (strcmp(shstr, ".plt") == 0) {
-			plt_addr = shdr.sh_addr + offset;
-			plt_entsize = shdr.sh_entsize;
+			plt_addr = shdr->sh_addr + offset;
+			plt_entsize = shdr->sh_entsize;
 		}
 		else if (strcmp(shstr, ".dynamic") == 0) {
-			dynamic_sec = sec;
-			nr_dyns = shdr.sh_size / shdr.sh_entsize;
+			found_dynamic = true;
 		}
 	}
 
-	if (dynsym_sec == NULL || dynamic_sec == NULL || plt_addr == 0) {
+	if (!found_dynsym || !found_dynamic || plt_addr == 0) {
 		pr_dbg2("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
 
-	if (rel_type != SHT_RELA && rel_type != SHT_REL) {
-		ret = try_load_dynsymtab_bindnow(elf, dynamic_sec, nr_dyns,
-						 dsymtab, offset, flags);
+	if (rel_type == SHT_NULL) {
+		ret = try_load_dynsymtab_bindnow(dsymtab, elf, offset, flags);
 		if (ret <= 0)
 			pr_dbg("cannot find relocation info for PLT\n");
 		goto out;
 	}
 
-	relplt_data = elf_getdata(relplt_sec, NULL);
-	if (relplt_data == NULL)
-		goto elf_error;
-
-	dynsym_data = elf_getdata(dynsym_sec, NULL);
-	if (dynsym_data == NULL)
-		goto elf_error;
-
-	if (ehdr.e_machine == EM_ARM) {
+	if (elf->ehdr.e_machine == EM_ARM) {
 		plt_addr += 8;     /* ARM PLT0 size is 20 */
 		plt_entsize = 12;  /* size of R_ARM_JUMP_SLOT */
 	}
-	else if (ehdr.e_machine == EM_AARCH64) {
+	else if (elf->ehdr.e_machine == EM_AARCH64) {
 		plt_addr += 16;    /* AARCH64 PLT0 size is 32 */
 	}
-	else if (ehdr.e_machine == EM_386) {
+	else if (elf->ehdr.e_machine == EM_386) {
 		plt_entsize += 12;
 	}
-	else if (ehdr.e_machine == EM_X86_64) {
+	else if (elf->ehdr.e_machine == EM_X86_64) {
 		plt_entsize = 16;  /* lld (of LLVM) seems to miss setting it */
 	}
 
 	prev_addr = plt_addr;
 
-	for (idx = 0; idx < nr_rels; idx++) {
-		GElf_Sym esym;
-		struct sym *sym;
-		int symidx;
-		char *name;
+	if (rel_type == SHT_REL) {
+		elf_for_each_rel(elf, &rel_iter) {
+			symidx = elf_rel_symbol(&rel_iter.rel);
+			elf_get_symbol(elf, &dyn_iter, symidx);
 
-		if (rel_type == SHT_RELA) {
-			GElf_Rela rela;
-
-			if (gelf_getrela(relplt_data, idx, &rela) == NULL)
-				goto elf_error;
-
-			symidx = GELF_R_SYM(rela.r_info);
-		} else {
-			GElf_Rel rel;
-
-			if (gelf_getrel(relplt_data, idx, &rel) == NULL)
-				goto elf_error;
-
-			symidx = GELF_R_SYM(rel.r_info);
+			if (load_dyn_symbol(dsymtab, symidx, offset, flags,
+					    plt_entsize, prev_addr,
+					    elf, &dyn_iter)) {
+				sym = &dsymtab->sym[dsymtab->nr_sym - 1];
+				prev_addr = sym->addr;
+			}
 		}
+	}
+	else {
+		elf_for_each_rela(elf, &rel_iter) {
+			symidx = elf_rel_symbol(&rel_iter.rela);
+			elf_get_symbol(elf, &dyn_iter, symidx);
 
-		gelf_getsym(dynsym_data, symidx, &esym);
-		name = elf_strptr(elf, dynstr_idx, esym.st_name);
-
-		if (*name == '\0')
-			continue;
-
-		if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
-			if (dsymtab->nr_alloc >= grow * 4)
-				grow *= 2;
-			dsymtab->nr_alloc += grow;
-			dsymtab->sym = xrealloc(dsymtab->sym,
-						dsymtab->nr_alloc * sizeof(*sym));
+			if (load_dyn_symbol(dsymtab, symidx, offset, flags,
+					    plt_entsize, prev_addr,
+					    elf, &dyn_iter)) {
+				sym = &dsymtab->sym[dsymtab->nr_sym - 1];
+				prev_addr = sym->addr;
+			}
 		}
-
-		sym = &dsymtab->sym[dsymtab->nr_sym++];
-
-		if (ehdr.e_machine == EM_ARM && esym.st_value)
-			sym->addr = esym.st_value + offset;
-		else
-			sym->addr = prev_addr + plt_entsize;
-		sym->size = plt_entsize;
-		sym->type = ST_PLT;
-
-		prev_addr = sym->addr;
-
-		if (flags & SYMTAB_FL_DEMANGLE)
-			sym->name = demangle(name);
-		else
-			sym->name = xstrdup(name);
-
-		pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
 	}
 	pr_dbg2("loaded %zd symbols\n", dsymtab->nr_sym);
 
@@ -689,42 +585,23 @@ int load_elf_dynsymtab(struct symtab *dsymtab, Elf *elf,
 
 out:
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during load dynsymtab: %s\n",
-	       elf_errmsg(elf_errno()));
-	__unload_symtab(dsymtab);
-	goto out;
 }
 
 static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
-	int fd, ret;
-	Elf *elf;
+	int ret;
+	struct uftrace_elf_data elf;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL) {
-		int err = elf_errno();
-
-		pr_dbg("ELF error during load dynsymtab: %s\n", elf_errmsg(err));
-		close(fd);
-		return -1;
-	}
-
 	pr_dbg2("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
-	ret = load_elf_dynsymtab(dsymtab, elf, offset, flags);
+	ret = load_elf_dynsymtab(dsymtab, &elf, offset, flags);
 
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
 }
 
@@ -785,85 +662,43 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 				      unsigned long offset, unsigned long flags)
 {
 	int ret = -1;
-	int idx, nr_sym = 0;
-	Elf_Scn *dynsym_sec, *sec;
-	Elf_Data *dynsym_data;
-	size_t shstr_idx, dynstr_idx = 0;
-	Elf *elf;
-	GElf_Ehdr ehdr;
-	int fd;
 	int count = 0;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(filename, &elf) < 0)
 		return -1;
-	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL) {
-		close(fd);
-		return -1;
-	}
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = dynsym_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		char *shstr;
-		GElf_Shdr shdr;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
-
-		if (strcmp(shstr, ".dynsym") == 0) {
-			dynsym_sec = sec;
-			dynstr_idx = shdr.sh_link;
-			nr_sym = shdr.sh_size / shdr.sh_entsize;
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_DYNSYM)
 			break;
-		}
 	}
 
-	if (dynsym_sec == NULL) {
-		pr_dbg2("cannot find dynamic symbols.. skipping\n");
+	if (iter.shdr.sh_type != SHT_DYNSYM) {
 		ret = 0;
 		goto out;
 	}
 
-	dynsym_data = elf_getdata(dynsym_sec, NULL);
-	if (dynsym_data == NULL)
-		goto elf_error;
-
 	pr_dbg2("updating symbol name using dynamic symbols\n");
 
-	for (idx = 0; idx < nr_sym; idx++) {
-		GElf_Sym esym;
+	elf_for_each_dynamic_symbol(&elf, &iter) {
 		struct sym *sym;
 		char *name;
 		uint64_t addr;
 
-		gelf_getsym(dynsym_data, idx, &esym);
-		name = elf_strptr(elf, dynstr_idx, esym.st_name);
-
-		if (GELF_ST_TYPE(esym.st_info) != STT_FUNC &&
-		    GELF_ST_TYPE(esym.st_info) != STT_GNU_IFUNC)
+		if (iter.sym.st_shndx == SHN_UNDEF)
 			continue;
-		if (esym.st_shndx == SHN_UNDEF)
+		if (elf_symbol_type(&iter.sym) != STT_FUNC &&
+		    elf_symbol_type(&iter.sym) != STT_GNU_IFUNC)
 			continue;
 
-		addr = esym.st_value + offset;
+		addr = iter.sym.st_value + offset;
 		sym = bsearch(&addr, symtab->sym, symtab->nr_sym,
 			      sizeof(*sym), addrfind);
 		if (sym == NULL)
 			continue;
 
+		name = elf_get_name(&elf, &iter, iter.sym.st_name);
 		if (sym->name[0] != '_' && name[0] == '_')
 			continue;
 
@@ -876,7 +711,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 		else
 			sym->name = xstrdup(name);
 	}
-	ret = 0;
+	ret = 1;
 
 	if (count)
 		pr_dbg2("updated %d symbols\n", count);
@@ -885,26 +720,14 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	symtab->name_sorted = true;
 
 out:
-	elf_end(elf);
-	close(fd);
-
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during load dynsymtab: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
 enum uftrace_trace_type check_trace_functions(const char *filename)
 {
-	int fd;
-	int idx, nr_dynsym = 0;
-	size_t i;
-	Elf *elf;
-	Elf_Scn *dynsym_sec, *sec;
-	Elf_Data *dynsym_data;
-	size_t shstr_idx, dynstr_idx = 0;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 	enum uftrace_trace_type ret = TRACE_ERROR;
 	const char *trace_funcs[] = {
 		"__cyg_profile_func_enter",
@@ -913,54 +736,37 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 		"__fentry__",
 		"__gnu_mcount_nc",
 	};
+	char *name;
+	unsigned i;
 
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
 		return ret;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = dynsym_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
-		GElf_Shdr shdr;
-
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		if (shdr.sh_type == SHT_DYNSYM) {
-			dynsym_sec = sec;
-			dynstr_idx = shdr.sh_link;
-			nr_dynsym = shdr.sh_size / shdr.sh_entsize;
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_DYNSYM) {
+			elf_get_secdata(&elf, &iter);
 			break;
 		}
 	}
 
-	if (dynsym_sec == NULL) {
+	if (iter.shdr.sh_type != SHT_DYNSYM) {
 		pr_dbg("cannot find dynamic symbols.. skipping\n");
 		ret = TRACE_NONE;
 		goto out;
 	}
 
-	dynsym_data = elf_getdata(dynsym_sec, NULL);
-	if (dynsym_data == NULL)
-		goto elf_error;
-
 	pr_dbg2("check trace functions in %s\n", filename);
-	for (idx = 0; idx < nr_dynsym; idx++) {
-		GElf_Sym dsym;
-		char *name;
 
-		gelf_getsym(dynsym_data, idx, &dsym);
-		name = elf_strptr(elf, dynstr_idx, dsym.st_name);
+	elf_for_each_dynamic_symbol(&elf, &iter) {
+		elf_get_symbol(&elf, &iter, iter.i);
+		name = elf_get_name(&elf, &iter, iter.sym.st_name);
+
+		/* undefined function is ok here */
+		if (elf_symbol_type(&iter.sym) != STT_FUNC &&
+		    elf_symbol_type(&iter.sym) != STT_GNU_IFUNC)
+			continue;
 
 		for (i = 0; i < ARRAY_SIZE(trace_funcs); i++) {
 			if (!strcmp(name, trace_funcs[i])) {
@@ -969,17 +775,12 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 			}
 		}
 	}
+
 	ret = TRACE_NONE;
 
 out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during load dynsymtab: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
 struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
@@ -1002,9 +803,6 @@ struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 	}
 	return NULL;
 }
-
-static int update_symtab_using_dynsym(struct symtab *symtab, const char *filename,
-				      unsigned long offset, unsigned long flags);
 
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename)
@@ -1078,7 +876,7 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 }
 
 static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      unsigned long offset);
+			      uint64_t offset);
 
 void load_module_symtabs(struct symtabs *symtabs)
 {
@@ -1281,10 +1079,8 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
 	unsigned long offset = 0;
-	int fd;
-	Elf *elf = NULL;
-	GElf_Ehdr ehdr;
-	GElf_Phdr phdr;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
@@ -1297,26 +1093,14 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	fd = open(exename, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(exename, &elf) < 0) {
 		pr_dbg("error during open elf file: %s: %m\n", exename);
 		goto do_it;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto do_it;
-
-	if (gelf_getehdr(elf, &ehdr) == NULL)
-		goto do_it;
-
-	for (i = 0; i < ehdr.e_phnum; i++) {
-		if (!gelf_getphdr(elf, i, &phdr))
-			break;
-		if (phdr.p_type == PT_LOAD) {
-			offset = phdr.p_vaddr;
+	elf_for_each_phdr(&elf, &iter) {
+		if (iter.phdr.p_type == PT_LOAD) {
+			offset = iter.phdr.p_vaddr;
 			break;
 		}
 	}
@@ -1345,14 +1129,13 @@ do_it:
 			(char) stab->sym[i-1].type, "__sym_end");
 	}
 
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	free(symfile);
 	fclose(fp);
 }
 
 static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      unsigned long offset)
+			      uint64_t offset)
 {
 	FILE *fp;
 	char *line = NULL;

@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <assert.h>
-#include <gelf.h>
 
 #include "libmcount/internal.h"
 #include "utils/utils.h"
