@@ -1808,17 +1808,6 @@ static void tui_window_move_next(struct tui_window *win)
 		tui_window_move_down(win);
 }
 
-static void tui_window_move_parent(struct tui_window *win)
-{
-	void *parent = win->ops->parent(win, win->curr);
-
-	if (parent == NULL)
-		return;
-
-	while (win->curr != parent)
-		tui_window_move_up(win);
-}
-
 static void tui_window_display(struct tui_window *win, bool full_redraw,
 			       struct ftrace_file_handle *handle)
 {
@@ -2039,6 +2028,19 @@ static bool tui_window_expand(struct tui_window *win)
 	return win->ops->expand(win, win->curr, 1);
 }
 
+static bool tui_window_move_parent(struct tui_window *win)
+{
+	void *parent = win->ops->parent(win, win->curr);
+
+	if (parent == NULL)
+		return false;
+
+	while (win->curr != parent)
+		tui_window_move_up(win);
+
+	return tui_window_collapse(win);
+}
+
 static bool tui_window_longest_child(struct tui_window *win)
 {
 	if (win->ops->longest_child == NULL)
@@ -2213,7 +2215,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			tui_window_move_next(win);
 			break;
 		case 'u':
-			tui_window_move_parent(win);
+			full_redraw = tui_window_move_parent(win);
 			break;
 		case 'l':
 			full_redraw = tui_window_longest_child(win);
