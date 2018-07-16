@@ -999,6 +999,8 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	if (mrstack->end_time) {
 		if (retval)
 			save_retval(mtdp, mrstack, retval);
+		else
+			mrstack->flags &= ~MCOUNT_FL_RETVAL;
 
 		if (record_ret_stack(mtdp, UFTRACE_EXIT, mrstack))
 			return 0;
