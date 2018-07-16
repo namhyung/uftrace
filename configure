@@ -29,11 +29,11 @@ usage() {
   -p                    preserve old setting
 
   Some influential environment variables:
-    ARCH           Target architecture    e.g. arm, aarch64, or x86_64
-    CROSS_COMPILE  Specify the compiler prefix during compilation
-                   e.g. CC is overridden by \$(CROSS_COMPILE)gcc
-    CFLAGS         C compiler flags
-    LDFLAGS        linker flags
+    ARCH                Target architecture    e.g. arm, aarch64, or x86_64
+    CROSS_COMPILE       Specify the compiler prefix during compilation
+                        e.g. CC is overridden by \$(CROSS_COMPILE)gcc
+    CFLAGS              C compiler flags
+    LDFLAGS             linker flags
 "
     exit 1
 }

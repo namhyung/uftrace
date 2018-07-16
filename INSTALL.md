@@ -103,7 +103,14 @@ directories or build directory with this script.
       --mandir=<DIR>        set manual doc install dir as <DIR>  (default: ${prefix}/share/man)
       --objdir=<DIR>        set build dir as <DIR>               (default: ${PWD})
       --sysconfdir=<DIR>    override the etc dir as <DIR>
+
       --with-elfutils=<DIR> search for elfutils in <DIR>/include and <DIR>/lib
+
+      --without-libelf      build without libelf (and libdw)     (even if found on the system)
+      --without-libdw       build without libdw                  (even if found on the system)
+      --without-libstdc++   build without libstdc++              (even if found on the system)
+      --without-libpython   build without libpython2.7           (even if found on the system)
+      --without-libncurses  build without libncursesw            (even if found on the system)
 
       -p                    preserve old setting
 
@@ -128,11 +135,11 @@ use it on a different path using `--with-elfutils=<PATH>`.
 BUILD WITH ELFUTILS (libelf)
 ============================
 
-It may be useful to manually compile libelf/libdw for uftrace build if the target
-system doesn't have them installed.  `misc/install-elfutils.sh` provides a way
-to download and build libelf and libdw, which are libraries in elfutils.
+It may be useful to manually compile libelf/libdw for uftrace build if the
+target system doesn't have them installed.  `misc/install-elfutils.sh` provides
+a way to download and build libelf and libdw, which are libraries in elfutils.
 
-The below is the way to compile uftrace together with libelf.
+The below is the way to compile uftrace together with libelf/libdw.
 
     $ export CROSS_COMPILE=arm-linux-gnueabi-
     $ export ARCH=arm
@@ -143,6 +150,6 @@ The below is the way to compile uftrace together with libelf.
     $ make
     $ make install
 
-`misc/install-elfutils.sh` downloads and builds elfutils and install libelf to
-prefix directory.  The installed libelf can be found using `--with-elfutils` in
-`configure` script.
+`misc/install-elfutils.sh` downloads and builds elfutils and install both
+libelf and libdw to prefix directory.  The installed libelf and libdw can be
+found using `--with-elfutils` in `configure` script.
