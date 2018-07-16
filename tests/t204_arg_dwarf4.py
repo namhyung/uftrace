@@ -4,18 +4,13 @@ from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'exception', """
+        TestBase.__init__(self, 'exception4', """
 # DURATION     TID     FUNCTION
-            [ 16852] | main() {
-   0.363 us [ 16852] |   foo();
-            [ 16852] |   test() {
-            [ 16852] |     oops() {
-   2.010 us [ 16852] |       __cxa_allocate_exception();
-   1.536 us [ 16852] |       std::exception::exception(0x5563ebb0c540);
-  32.955 us [ 16852] |     } /* oops */
-  35.498 us [ 16852] |   } /* test */
-   0.183 us [ 16852] |   bar();
-  39.911 us [ 16852] | } = 0; /* main */
+            [ 15296] | main() {
+            [ 15296] |   foo(1) {
+   2.490 us [ 15296] |     __cxa_allocate_exception();
+  47.390 us [ 15296] |   } /* foo */
+  51.560 us [ 15296] | } = 0; /* main */
 """, lang='C++', cflags='-g')
 
     def build(self, name, cflags='', ldflags=''):
