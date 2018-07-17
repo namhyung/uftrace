@@ -1785,27 +1785,57 @@ static void tui_window_move_end(struct tui_window *win)
 }
 
 /* move to the previous sibling */
-static void tui_window_move_prev(struct tui_window *win)
+static bool tui_window_move_prev(struct tui_window *win)
 {
 	void *prev = win->ops->sibling_prev(win, win->curr);
+	int count = 0;
 
 	if (prev == NULL)
-		return;
+		return false;
+
+	if (win->ops->collapse == NULL) {
+		while (win->curr != prev)
+			tui_window_move_up(win);
+		return false;
+	}
+
+	/* fold the current node before moving to the previous sibling */
+	count = win->ops->collapse(win, win->curr, 0);
 
 	while (win->curr != prev)
 		tui_window_move_up(win);
+
+	/* collapse the current node after moving to the previous sibling */
+	count += win->ops->collapse(win, win->curr, 1);
+
+	return count;
 }
 
 /* move to the next sibling */
-static void tui_window_move_next(struct tui_window *win)
+static bool tui_window_move_next(struct tui_window *win)
 {
 	void *next = win->ops->sibling_next(win, win->curr);
+	int count = 0;
 
 	if (next == NULL)
-		return;
+		return false;
+
+	if (win->ops->collapse == NULL) {
+		while (win->curr != next)
+			tui_window_move_down(win);
+		return false;
+	}
+
+	/* fold the current node before moving to the next sibling */
+	count = win->ops->collapse(win, win->curr, 0);
 
 	while (win->curr != next)
 		tui_window_move_down(win);
+
+	/* collapse the current node after moving to the next sibling */
+	count += win->ops->collapse(win, win->curr, 1);
+
+	return count;
 }
 
 static void tui_window_display(struct tui_window *win, bool full_redraw,
@@ -2209,10 +2239,10 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			full_redraw = tui_window_expand(win);
 			break;
 		case 'p':
-			tui_window_move_prev(win);
+			full_redraw = tui_window_move_prev(win);
 			break;
 		case 'n':
-			tui_window_move_next(win);
+			full_redraw = tui_window_move_next(win);
 			break;
 		case 'u':
 			full_redraw = tui_window_move_parent(win);
