@@ -2093,8 +2093,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		case KEY_ENTER:
 		case '\n':
-			if (tui_window_enter(win, win->curr))
-				full_redraw = true;
+			full_redraw = tui_window_enter(win, win->curr);
 
 			if (win == &session->win) {
 				struct tui_list_node *cmd = win->curr;
@@ -2168,12 +2167,10 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			}
 			break;
 		case 'c':
-			if (tui_window_collapse(win))
-				full_redraw = true;
+			full_redraw = tui_window_collapse(win);
 			break;
 		case 'e':
-			if (tui_window_expand(win))
-				full_redraw = true;
+			full_redraw = tui_window_expand(win);
 			break;
 		case 'p':
 			tui_window_move_prev(win);
@@ -2297,7 +2294,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 
 int command_tui(int argc, char *argv[], struct opts *opts)
 {
-	pr_warn("TUI is not implemented (libncursesw.so is missing)");
+	pr_warn("TUI is unsupported (libncursesw.so is missing)\n");
 	return 0;
 }
 
