@@ -126,13 +126,16 @@ make -siC ${srcdir}/check-deps check-build
 for dep in $IGNORE; do
     TARGET=
     case "$dep" in
-        libelf)      TARGET=libelf        ;;
-        libdw)       TARGET=libdw         ;;
-        libpython*)  TARGET=libpython2.7  ;;
-        libncurse*)  TARGET=libncurses    ;;
+        libelf)      TARGET=have_libelf        ;;
+        libdw)       TARGET=have_libdw         ;;
+        libpython*)  TARGET=have_libpython2.7  ;;
+        libncurse*)  TARGET=have_libncurses    ;;
+        libstdc++)   TARGET=cxa_demangle       ;;
         *)           ;;
     esac
-    rm -f ${srcdir}/check-deps/have_$TARGET
+    if [ ! -z "$TARGET" ]; then
+        rm -f ${srcdir}/check-deps/$TARGET
+    fi
 done
 
 cat >$output <<EOF
