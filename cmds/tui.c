@@ -60,8 +60,8 @@ struct tui_window_ops {
 	void * (*sibling_next)(struct tui_window *win, void *node);
 	bool (*needs_blank)(struct tui_window *win, void *prev, void *next);
 	bool (*enter)(struct tui_window *win, void *node);
-	bool (*collapse)(struct tui_window *win, void *node);
-	bool (*expand)(struct tui_window *win, void *node);
+	bool (*collapse)(struct tui_window *win, void *node, int depth);
+	bool (*expand)(struct tui_window *win, void *node, int depth);
 	void (*header)(struct tui_window *win, struct ftrace_file_handle *handle);
 	void (*footer)(struct tui_window *win, struct ftrace_file_handle *handle);
 	void (*display)(struct tui_window *win, void *node);
@@ -916,48 +916,40 @@ static bool win_enter_graph(struct tui_window *win, void *node)
 	return true;
 }
 
-static int fold_graph_node(struct tui_graph_node *node, bool fold)
+static int fold_graph_node(struct tui_graph_node *node, bool fold, int depth)
 {
 	struct tui_graph_node *child;
 	int count = 0;
+	bool curr_fold = fold;
+
+	if (depth < 0)
+		return 0;
+	else if (depth > 0)
+		curr_fold = false;
 
 	/* do not fold leaf nodes - it's meaningless but confusing */
 	if (list_empty(&node->n.head))
 		return 0;
 
-	if (node->folded != fold) {
-		node->folded = fold;
+	if (node->folded != curr_fold) {
+		node->folded = curr_fold;
 		count++;
 	}
 
 	list_for_each_entry(child, &node->n.head, n.list)
-		count += fold_graph_node(child, fold);
+		count += fold_graph_node(child, fold, depth - 1);
 
 	return count;
 }
 
-static bool win_collapse_graph(struct tui_window *win, void *node)
+static bool win_collapse_graph(struct tui_window *win, void *node, int depth)
 {
-	struct tui_graph_node *curr = node;
-	struct tui_graph_node *child;
-	int count = 0;
-
-	list_for_each_entry(child, &curr->n.head, n.list)
-		count += fold_graph_node(child, true);
-
-	return count;
+	return fold_graph_node(node, true, depth);
 }
 
-static bool win_expand_graph(struct tui_window *win, void *node)
+static bool win_expand_graph(struct tui_window *win, void *node, int depth)
 {
-	struct tui_graph_node *curr = node;
-	struct tui_graph_node *child;
-	int count = 0;
-
-	list_for_each_entry(child, &curr->n.head, n.list)
-		count += fold_graph_node(child, false);
-
-	return count;
+	return fold_graph_node(node, false, depth);
 }
 
 static void win_header_graph(struct tui_window *win,
@@ -2002,7 +1994,8 @@ static bool tui_window_collapse(struct tui_window *win)
 	if (win->ops->collapse == NULL)
 		return false;
 
-	return win->ops->collapse(win, win->curr);
+	/* fold all the directly children */
+	return win->ops->collapse(win, win->curr, 1);
 }
 
 static bool tui_window_expand(struct tui_window *win)
@@ -2010,7 +2003,8 @@ static bool tui_window_expand(struct tui_window *win)
 	if (win->ops->expand == NULL)
 		return false;
 
-	return win->ops->expand(win, win->curr);
+	/* unfold all the directly children */
+	return win->ops->expand(win, win->curr, 1);
 }
 
 static void tui_window_help(void)
