@@ -953,7 +953,7 @@ static void extract_dwarf_args(char *argspec, char *retspec,
 
 void prepare_debug_info(struct symtabs *symtabs,
 			enum uftrace_pattern_type ptype,
-			char *argspec, char *retspec)
+			char *argspec, char *retspec, bool auto_args)
 {
 	struct uftrace_mmap *map;
 	struct strv dwarf_args = STRV_INIT;
@@ -963,6 +963,18 @@ void prepare_debug_info(struct symtabs *symtabs,
 		return;
 
 	extract_dwarf_args(argspec, retspec, &dwarf_args, &dwarf_rets);
+
+	if (auto_args) {
+		if (ptype == PATT_REGEX) {
+			strv_append(&dwarf_args, ".");
+			strv_append(&dwarf_rets, ".");
+		}
+		else {  /* PATT_GLOB */
+			strv_append(&dwarf_args, "*");
+			strv_append(&dwarf_rets, "*");
+		}
+	}
+
 	if (dwarf_args.nr == 0 && dwarf_rets.nr == 0) {
 		/* nothing to do */
 		return;

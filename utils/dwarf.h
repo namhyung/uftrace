@@ -26,7 +26,7 @@ struct debug_info {
 
 extern void prepare_debug_info(struct symtabs *symtabs,
 			       enum uftrace_pattern_type ptype,
-			       char *argspec, char *retspec);
+			       char *argspec, char *retspec, bool auto_args);
 extern void finish_debug_info(struct symtabs *symtabs);
 extern bool debug_info_available(struct debug_info *dinfo);
 extern char * get_dwarf_argspec(struct debug_info *dinfo, char *name,
