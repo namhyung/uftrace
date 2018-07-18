@@ -115,8 +115,8 @@ struct uftrace_elf_iter {
 					       &(iter)->nhdr,		\
 					       (size_t*)&(iter)->note_name, \
 						(size_t*)&(iter)->note_desc)) && \
-		     ((iter)->note_name = (iter)->data + (size_t)(iter)->note_name) && \
-		     ((iter)->note_desc = (iter)->data + (size_t)(iter)->note_desc); \
+		     ((iter)->note_name = (iter)->data->d_buf + (size_t)(iter)->note_name) && \
+		     ((iter)->note_desc = (iter)->data->d_buf + (size_t)(iter)->note_desc); \
 	     (iter)->i = (iter)->nr)
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf);
