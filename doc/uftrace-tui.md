@@ -120,6 +120,7 @@ Following keys can be used in the TUI window:
  * `c`/`e`:               Collapse/Expand graph node
  * `n`/`p`:               Move to next/prev sibling (in graph mode)
  * `u`:                   Move up to parent (in graph mode)
+ * `l`:                   Move to the longest executed child (in graph mode)
  * `j`/`k`:               Move cursor up/down (like vi)
  * `/`:                   Start search
  * `<`/`P`:               Search previous match

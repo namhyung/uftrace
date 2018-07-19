@@ -60,12 +60,13 @@ struct tui_window_ops {
 	void * (*sibling_next)(struct tui_window *win, void *node);
 	bool (*needs_blank)(struct tui_window *win, void *prev, void *next);
 	bool (*enter)(struct tui_window *win, void *node);
-	bool (*collapse)(struct tui_window *win, void *node);
-	bool (*expand)(struct tui_window *win, void *node);
+	bool (*collapse)(struct tui_window *win, void *node, int depth);
+	bool (*expand)(struct tui_window *win, void *node, int depth);
 	void (*header)(struct tui_window *win, struct ftrace_file_handle *handle);
 	void (*footer)(struct tui_window *win, struct ftrace_file_handle *handle);
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
+	bool (*longest_child)(struct tui_window *win, void *node);
 };
 
 struct tui_window {
@@ -121,6 +122,8 @@ static const struct tui_window_ops report_ops;
 static const struct tui_window_ops info_ops;
 static const struct tui_window_ops session_ops;
 
+static void tui_window_move_down(struct tui_window *win);
+
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
 
@@ -143,6 +146,7 @@ static const char *help[] = {
 	"c/e           Collapse/Expand graph",
 	"n/p           Next/Prev sibling",
 	"u             Move up to parent",
+	"l             Move to the longest executed child",
 	"j/k           Move down/up",
 	"/             Search",
 	"</>/N/P       Search next/prev",
@@ -916,48 +920,40 @@ static bool win_enter_graph(struct tui_window *win, void *node)
 	return true;
 }
 
-static int fold_graph_node(struct tui_graph_node *node, bool fold)
+static int fold_graph_node(struct tui_graph_node *node, bool fold, int depth)
 {
 	struct tui_graph_node *child;
 	int count = 0;
+	bool curr_fold = fold;
+
+	if (depth < 0)
+		return 0;
+	else if (depth > 0)
+		curr_fold = false;
 
 	/* do not fold leaf nodes - it's meaningless but confusing */
 	if (list_empty(&node->n.head))
 		return 0;
 
-	if (node->folded != fold) {
-		node->folded = fold;
+	if (node->folded != curr_fold) {
+		node->folded = curr_fold;
 		count++;
 	}
 
 	list_for_each_entry(child, &node->n.head, n.list)
-		count += fold_graph_node(child, fold);
+		count += fold_graph_node(child, fold, depth - 1);
 
 	return count;
 }
 
-static bool win_collapse_graph(struct tui_window *win, void *node)
+static bool win_collapse_graph(struct tui_window *win, void *node, int depth)
 {
-	struct tui_graph_node *curr = node;
-	struct tui_graph_node *child;
-	int count = 0;
-
-	list_for_each_entry(child, &curr->n.head, n.list)
-		count += fold_graph_node(child, true);
-
-	return count;
+	return fold_graph_node(node, true, depth);
 }
 
-static bool win_expand_graph(struct tui_window *win, void *node)
+static bool win_expand_graph(struct tui_window *win, void *node, int depth)
 {
-	struct tui_graph_node *curr = node;
-	struct tui_graph_node *child;
-	int count = 0;
-
-	list_for_each_entry(child, &curr->n.head, n.list)
-		count += fold_graph_node(child, false);
-
-	return count;
+	return fold_graph_node(node, false, depth);
 }
 
 static void win_header_graph(struct tui_window *win,
@@ -1138,6 +1134,33 @@ static bool win_search_graph(struct tui_window *win, void *node, char *str)
 	return strstr(curr->n.name, str);
 }
 
+static bool win_longest_child_graph(struct tui_window *win, void *node)
+{
+	struct tui_graph_node *curr = node;
+	struct tui_graph_node *child;
+	struct tui_graph_node *longest_child = NULL;
+	uint64_t longest_child_time = 0;
+
+	curr->folded = false;
+
+	list_for_each_entry(child, &curr->n.head, n.list) {
+		fold_graph_node(child, true, 0);
+		if (longest_child_time < child->n.time) {
+			longest_child_time = child->n.time;
+			longest_child = child;
+		}
+	}
+
+	if (longest_child == NULL)
+		return false;
+
+	longest_child->folded = false;
+	while (win->curr != longest_child)
+		tui_window_move_down(win);
+
+	return true;
+}
+
 static const struct tui_window_ops graph_ops = {
 	.prev = win_prev_graph,
 	.next = win_next_graph,
@@ -1153,6 +1176,7 @@ static const struct tui_window_ops graph_ops = {
 	.footer = win_footer_graph,
 	.display = win_display_graph,
 	.search = win_search_graph,
+	.longest_child = win_longest_child_graph,
 };
 
 /* some default (no-op) window operations */
@@ -1761,38 +1785,57 @@ static void tui_window_move_end(struct tui_window *win)
 }
 
 /* move to the previous sibling */
-static void tui_window_move_prev(struct tui_window *win)
+static bool tui_window_move_prev(struct tui_window *win)
 {
 	void *prev = win->ops->sibling_prev(win, win->curr);
+	int count = 0;
 
 	if (prev == NULL)
-		return;
+		return false;
+
+	if (win->ops->collapse == NULL) {
+		while (win->curr != prev)
+			tui_window_move_up(win);
+		return false;
+	}
+
+	/* fold the current node before moving to the previous sibling */
+	count = win->ops->collapse(win, win->curr, 0);
 
 	while (win->curr != prev)
 		tui_window_move_up(win);
+
+	/* collapse the current node after moving to the previous sibling */
+	count += win->ops->collapse(win, win->curr, 1);
+
+	return count;
 }
 
 /* move to the next sibling */
-static void tui_window_move_next(struct tui_window *win)
+static bool tui_window_move_next(struct tui_window *win)
 {
 	void *next = win->ops->sibling_next(win, win->curr);
+	int count = 0;
 
 	if (next == NULL)
-		return;
+		return false;
+
+	if (win->ops->collapse == NULL) {
+		while (win->curr != next)
+			tui_window_move_down(win);
+		return false;
+	}
+
+	/* fold the current node before moving to the next sibling */
+	count = win->ops->collapse(win, win->curr, 0);
 
 	while (win->curr != next)
 		tui_window_move_down(win);
-}
 
-static void tui_window_move_parent(struct tui_window *win)
-{
-	void *parent = win->ops->parent(win, win->curr);
+	/* collapse the current node after moving to the next sibling */
+	count += win->ops->collapse(win, win->curr, 1);
 
-	if (parent == NULL)
-		return;
-
-	while (win->curr != parent)
-		tui_window_move_up(win);
+	return count;
 }
 
 static void tui_window_display(struct tui_window *win, bool full_redraw,
@@ -2002,7 +2045,8 @@ static bool tui_window_collapse(struct tui_window *win)
 	if (win->ops->collapse == NULL)
 		return false;
 
-	return win->ops->collapse(win, win->curr);
+	/* fold all the directly children */
+	return win->ops->collapse(win, win->curr, 1);
 }
 
 static bool tui_window_expand(struct tui_window *win)
@@ -2010,7 +2054,29 @@ static bool tui_window_expand(struct tui_window *win)
 	if (win->ops->expand == NULL)
 		return false;
 
-	return win->ops->expand(win, win->curr);
+	/* unfold all the directly children */
+	return win->ops->expand(win, win->curr, 1);
+}
+
+static bool tui_window_move_parent(struct tui_window *win)
+{
+	void *parent = win->ops->parent(win, win->curr);
+
+	if (parent == NULL)
+		return false;
+
+	while (win->curr != parent)
+		tui_window_move_up(win);
+
+	return tui_window_collapse(win);
+}
+
+static bool tui_window_longest_child(struct tui_window *win)
+{
+	if (win->ops->longest_child == NULL)
+		return false;
+
+	return win->ops->longest_child(win, win->curr);
 }
 
 static void tui_window_help(void)
@@ -2093,8 +2159,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			break;
 		case KEY_ENTER:
 		case '\n':
-			if (tui_window_enter(win, win->curr))
-				full_redraw = true;
+			full_redraw = tui_window_enter(win, win->curr);
 
 			if (win == &session->win) {
 				struct tui_list_node *cmd = win->curr;
@@ -2168,21 +2233,22 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			}
 			break;
 		case 'c':
-			if (tui_window_collapse(win))
-				full_redraw = true;
+			full_redraw = tui_window_collapse(win);
 			break;
 		case 'e':
-			if (tui_window_expand(win))
-				full_redraw = true;
+			full_redraw = tui_window_expand(win);
 			break;
 		case 'p':
-			tui_window_move_prev(win);
+			full_redraw = tui_window_move_prev(win);
 			break;
 		case 'n':
-			tui_window_move_next(win);
+			full_redraw = tui_window_move_next(win);
 			break;
 		case 'u':
-			tui_window_move_parent(win);
+			full_redraw = tui_window_move_parent(win);
+			break;
+		case 'l':
+			full_redraw = tui_window_longest_child(win);
 			break;
 		case '/':
 			if (tui_window_can_search(win)) {
@@ -2297,7 +2363,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 
 int command_tui(int argc, char *argv[], struct opts *opts)
 {
-	pr_warn("TUI is not implemented (libncursesw.so is missing)");
+	pr_warn("TUI is unsupported (libncursesw.so is missing)\n");
 	return 0;
 }
 
