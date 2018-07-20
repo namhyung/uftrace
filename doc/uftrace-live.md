@@ -44,7 +44,9 @@ OPTIONS
 :   Record function return value.  This option can be used more than once.  See *ARGUMENTS*.
 
 \--auto-args
-:   Automatically record arguments and return values of well-known library functions.  Recommend to use it with `--nest-libcall`.
+:   Automatically record arguments and return values of known functions.
+    These are usually functions in standard (C language or system) libraries
+    but if debug info is available it includes functions in the user program.
 
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: duration, tid, time, delta, elapsed and addr.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
@@ -374,7 +376,8 @@ For example, the above example can be written like below:
 
 Note that argument pattern (".") matches to any character so it recorded
 all (supported) functions.  It shows two arguments for "main" and a single
-string argument for "puts".
+string argument for "puts".  If you simply want to see all arguments and
+return values of every functions (if supported), use `--auto-args` option.
 
 
 FIELDS
