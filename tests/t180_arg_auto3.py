@@ -27,6 +27,9 @@ class TestCase(TestBase):
             # ignore blank lines and comments
             if ln.strip() == '' or ln.startswith('#'):
                 continue
+            # ignore uftrace message on -finstrument-functions
+            if ln.startswith('uftrace:'):
+                continue
             line = ln.split('|', 1)[-1]
             func = re.sub(r'0x[0-9a-f]+', '0xADDR', line)
             result.append(func)
