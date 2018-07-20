@@ -16,6 +16,7 @@
 #include "utils/list.h"
 #include "utils/rbtree.h"
 #include "utils/field.h"
+#include "utils/dwarf.h"
 
 #define KEY_ESCAPE  27
 
@@ -563,6 +564,7 @@ static void copy_graph_node(struct uftrace_graph_node *dst,
 						 child->name);
 		}
 
+		node->n.addr        = child->addr;
 		node->n.time       += child->time;
 		node->n.child_time += child->child_time;
 		node->n.nr_calls   += child->nr_calls;
@@ -676,6 +678,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 		while (parent->n.parent) {
 			tmp = append_graph_node(&tmp->n, target, parent->n.name);
 
+			tmp->n.addr       = parent->n.addr;
 			tmp->n.time       = node->n.time;
 			tmp->n.child_time = node->n.child_time;
 			tmp->n.nr_calls   = node->n.nr_calls;
@@ -702,6 +705,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 		if (node->graph != &target->ug)
 			continue;
 
+		root->n.addr        = node->n.addr;
 		root->n.time       += node->n.time;
 		root->n.child_time += node->n.child_time;
 		root->n.nr_calls   += node->n.nr_calls;
@@ -1000,6 +1004,7 @@ static void win_footer_graph(struct tui_window *win,
 {
 	char buf[COLS + 1];
 	struct tui_graph *graph = (struct tui_graph *)win;
+	struct tui_graph_node *node = win->curr;
 	struct uftrace_session *sess = graph->ug.sess;
 
 	if (tui_debug) {
@@ -1009,11 +1014,28 @@ static void win_footer_graph(struct tui_window *win,
 	}
 	else if (tui_search) {
 		snprintf(buf, COLS, "uftrace graph: searching \"%s\"  (%d match, %s)",
-			 tui_search, graph->win.search_count, "use '<' and '>' keys to navigate");
+			 tui_search, graph->win.search_count,
+			 "use '<' and '>' keys to navigate");
 	}
 	else {
-		snprintf(buf, COLS, "uftrace graph: session %.*s (%s)",
-			 SESSION_ID_LEN, sess->sid, sess->exename);
+		struct debug_location *dloc;
+
+		dloc = find_file_line(&sess->symtabs, node->n.addr);
+
+		if (dloc != NULL && dloc->file != NULL) {
+			snprintf(buf, COLS, "uftrace graph: %s [line:%d]",
+				 dloc->file->name, dloc->line);
+		}
+		else if (find_symtabs(&sess->symtabs, node->n.addr) != NULL) {
+			/* some symbols don't have source location */
+			snprintf(buf, COLS, "uftrace graph: %s [at %#"PRIx64"]",
+				 "source location is not available",
+				 node->n.addr);
+		}
+		else {
+			snprintf(buf, COLS, "uftrace graph: session %.*s (%s)",
+				 SESSION_ID_LEN, sess->sid, sess->exename);
+		}
 	}
 	buf[COLS] = '\0';
 

@@ -50,6 +50,7 @@ extern char * get_dwarf_argspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
 extern char * get_dwarf_retspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
+struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr);
 extern void save_debug_info(struct symtabs *symtabs, char *dirname);
 extern void load_debug_info(struct symtabs *symtabs);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);

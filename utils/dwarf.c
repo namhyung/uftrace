@@ -1398,3 +1398,36 @@ char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long add
 
 	return entry ? entry->spec : NULL;
 }
+
+struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
+{
+	struct uftrace_mmap *map;
+	struct symtab *symtab;
+	struct debug_info *dinfo;
+	struct sym *sym = NULL;
+	ptrdiff_t idx;
+
+	map = find_map(symtabs, addr);
+
+	if (map == MAP_MAIN) {
+		symtab = &symtabs->symtab;
+		dinfo = &symtabs->dinfo;
+	}
+	else if (map == MAP_KERNEL) {
+		map = NULL;
+		dinfo = NULL;
+	}
+	else if (map != NULL) {
+		symtab = &map->symtab;
+		dinfo = &map->dinfo;
+	}
+
+	if (map && debug_info_has_location(dinfo))
+		sym = find_sym(symtab, addr);
+
+	if (map == NULL || sym == NULL)
+		return NULL;
+
+	idx = sym - symtab->sym;
+	return &dinfo->locs[idx];
+}
