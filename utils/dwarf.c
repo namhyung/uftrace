@@ -134,6 +134,45 @@ static int elf_file_type(struct debug_info *dinfo)
 	return ET_NONE;
 }
 
+static bool get_attr(Dwarf_Die *die, int attr, bool follow,
+		     Dwarf_Attribute *da)
+{
+	if (follow) {
+		if (!dwarf_hasattr_integrate(die, attr))
+			return false;
+		dwarf_attr_integrate(die, attr, da);
+	}
+	else {
+		if (!dwarf_hasattr(die, attr))
+			return false;
+		dwarf_attr(die, attr, da);
+	}
+
+	return true;
+}
+
+static long int_attr(Dwarf_Die *die, int attr, bool follow)
+{
+	Dwarf_Attribute da;
+	Dwarf_Sword data;
+
+	if (!get_attr(die, attr, follow, &da))
+		return 0;
+
+	dwarf_formsdata(&da, &data);
+	return data;
+}
+
+static char * str_attr(Dwarf_Die *die, int attr, bool follow)
+{
+	Dwarf_Attribute da;
+
+	if (!get_attr(die, attr, follow, &da))
+		return NULL;
+
+	return (char *) dwarf_formstring(&da);
+}
+
 /* setup dwarf info from filename, return 0 for success */
 static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset)
@@ -203,11 +242,9 @@ static char * fill_enum_str(Dwarf_Die *die)
 
 	while (dwarf_tag(&e_val) == DW_TAG_enumerator) {
 		char buf[256];
-		Dwarf_Attribute attr_val;
 		Dwarf_Sword val;
 
-		dwarf_attr(&e_val, DW_AT_const_value, &attr_val);
-		dwarf_formsdata(&attr_val, &val);
+		val = int_attr(&e_val, DW_AT_const_value, false);
 		snprintf(buf, sizeof(buf), "%s=%ld", dwarf_diename(&e_val), (long)val);
 
 		str = strjoin(str, buf, ",");
@@ -248,17 +285,14 @@ static char * make_enum_name(Dwarf_Die *die)
 /* returns size in bit */
 static size_t type_size(Dwarf_Die *die)
 {
-	Dwarf_Attribute size_type;
-	Dwarf_Word size_val;
+	int size;
 
 	/* just guess it's word size */
-	if (!dwarf_hasattr(die, DW_AT_byte_size))
-		return sizeof(long) * 8;
+	size = dwarf_bytesize(die);
+	if (size <= 0)
+		size = sizeof(long);
 
-	dwarf_attr(die, DW_AT_byte_size, &size_type);
-	dwarf_formudata(&size_type, &size_val);
-
-	return size_val * 8;
+	return size * 8;
 }
 
 static bool is_empty_aggregate(Dwarf_Die *die)
@@ -483,7 +517,7 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 			--ad->idx;
 		}
 		else {  /* for return values */
-			char sz[4];
+			char sz[16];
 
 			snprintf(sz, sizeof(sz), "%zu", data.size);
 			strcat(spec, "/f");
@@ -735,7 +769,6 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		.argspec = NULL,
 		.dinfo = bd->dinfo,
 	};
-	Dwarf_Attribute attr;
 	char *name = NULL;
 	bool needs_free = false;
 	Dwarf_Addr offset;
@@ -759,8 +792,8 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	dwarf_lowpc(die, &offset);
 	offset += bd->dinfo->offset;
 
-	if (dwarf_attr_integrate(die, DW_AT_linkage_name, &attr)) {
-		name = demangle((char *)dwarf_formstring(&attr));
+	if (dwarf_hasattr_integrate(die, DW_AT_linkage_name)) {
+		name = demangle(str_attr(die, DW_AT_linkage_name, true));
 		needs_free = true;
 	}
 	if (name == NULL)
