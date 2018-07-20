@@ -120,7 +120,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 	    (trigger_str && (strstr(trigger_str, "arg") ||
 			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
-		prepare_debug_info(&symtabs, ptype, argument_str, retval_str);
+		prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
+				   !!autoargs_str);
 		save_debug_info(&symtabs, dirname);
 	}
 
@@ -134,9 +135,20 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 			     false, ptype);
 
 	if (autoargs_str) {
-		uftrace_setup_argument(get_auto_argspec_str(), &symtabs,
+		char *autoarg = get_auto_argspec_str();
+		char *autoret = get_auto_retspec_str();
+
+		if (debug_info_available(&symtabs.dinfo) &&
+		    check_trace_functions(mcount_exename) == TRACE_MCOUNT) {
+			if (ptype == PATT_REGEX)
+				autoarg = autoret = ".";
+			else  /* PATT_GLOB */
+				autoarg = autoret = "*";
+		}
+
+		uftrace_setup_argument(autoarg, &symtabs,
 				       &mcount_triggers, true, ptype);
-		uftrace_setup_retval(get_auto_retspec_str(), &symtabs,
+		uftrace_setup_retval(autoret, &symtabs,
 				     &mcount_triggers, true, ptype);
 	}
 

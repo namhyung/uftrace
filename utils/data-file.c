@@ -467,9 +467,19 @@ ok:
 
 		setup_fstack_args(handle->info.argspec, handle->info.retspec,
 				  handle, false, handle->info.patt_type);
+
 		if (handle->info.auto_args_enabled) {
-			setup_fstack_args(handle->info.autoarg,
-					  handle->info.autoret,
+			char *autoarg = handle->info.autoarg;
+			char *autoret = handle->info.autoret;
+
+			if (handle->hdr.feat_mask & DEBUG_INFO) {
+				if (handle->info.patt_type == PATT_REGEX)
+					autoarg = autoret = ".";
+				else  /* PATT_GLOB */
+					autoarg = autoret = "*";
+			}
+
+			setup_fstack_args(autoarg, autoret,
 					  handle, true, handle->info.patt_type);
 		}
 	}
