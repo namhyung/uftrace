@@ -2278,9 +2278,11 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				switch ((long)cmd->data) {
 				case TUI_SESS_REPORT:
 					win = &report->win;
+					tui_window_move_home(win);
 					break;
 				case TUI_SESS_INFO:
 					win = &info->win;
+					tui_window_move_home(win);
 					break;
 				case TUI_SESS_HELP:
 					tui_window_help();
@@ -2291,6 +2293,7 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 					/* change window for the current graph */
 					graph = get_current_graph(win->curr, NULL);
 					win = &graph->win;
+					tui_window_move_home(win);
 					break;
 				}
 			}
