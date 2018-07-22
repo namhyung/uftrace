@@ -2332,7 +2332,21 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 		case 'R':
 		case 'r':
 			if (tui_window_change(win, &report->win)) {
+				struct tui_report_node *func;
+				struct tui_graph_node *graph_curr = win->curr;
+
+				func = (void *)report_find_node(&report->name_tree,
+					       graph_curr->n.name);
+				if (func == NULL)
+					break;
+
+				/* change to report window */
 				win = &report->win;
+
+				/* move focus on the same function */
+				tui_window_move_home(win);
+				tui_window_set_middle_next(win, func);
+
 				full_redraw = true;
 			}
 			break;
