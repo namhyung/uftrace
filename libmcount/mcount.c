@@ -80,7 +80,17 @@ static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 /* number of active thread running mcount code */
 static int mcount_active;
 
-#ifndef DISABLE_MCOUNT_FILTER
+#ifdef DISABLE_MCOUNT_FILTER
+
+static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
+{
+	/* use debug info if available */
+	prepare_debug_info(&symtabs, ptype, NULL, NULL, false);
+	save_debug_info(&symtabs, dirname);
+}
+
+#else
+
 static void prepare_pmu_trigger(struct rb_root *root)
 {
 	struct rb_node *node = rb_first(root);
@@ -120,10 +130,12 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 	    (trigger_str && (strstr(trigger_str, "arg") ||
 			     strstr(trigger_str, "retval")))) {
 		setup_auto_args();
-		prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
-				   !!autoargs_str);
-		save_debug_info(&symtabs, dirname);
 	}
+
+	/* use debug info if available */
+	prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
+			   !!autoargs_str);
+	save_debug_info(&symtabs, dirname);
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, false, ptype);
@@ -138,7 +150,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 		char *autoarg = get_auto_argspec_str();
 		char *autoret = get_auto_retspec_str();
 
-		if (debug_info_available(&symtabs.dinfo) &&
+		if (debug_info_has_argspec(&symtabs.dinfo) &&
 		    check_trace_functions(mcount_exename) == TRACE_MCOUNT) {
 			if (ptype == PATT_REGEX)
 				autoarg = autoret = ".";
@@ -174,6 +186,7 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 	free(mtdp->argbuf);
 	mtdp->argbuf = NULL;
 }
+
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)

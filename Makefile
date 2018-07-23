@@ -132,6 +132,8 @@ DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
 SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/session.c
 SYMBOLS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/rbtree.c
 SYMBOLS_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
+SYMBOLS_SRCS += $(srcdir)/utils/filter.c $(srcdir)/utils/dwarf.c
+SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
