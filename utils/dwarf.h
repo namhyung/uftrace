@@ -42,7 +42,8 @@ struct debug_info {
 
 extern void prepare_debug_info(struct symtabs *symtabs,
 			       enum uftrace_pattern_type ptype,
-			       char *argspec, char *retspec, bool auto_args);
+			       char *argspec, char *retspec,
+			       bool auto_args, bool force);
 extern void finish_debug_info(struct symtabs *symtabs);
 extern bool debug_info_has_argspec(struct debug_info *dinfo);
 extern bool debug_info_has_location(struct debug_info *dinfo);

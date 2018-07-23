@@ -209,11 +209,11 @@ static char * str_attr(Dwarf_Die *die, int attr, bool follow)
 
 /* setup dwarf info from filename, return 0 for success */
 static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
-			    unsigned long offset)
+			    unsigned long offset, bool force)
 {
 	int fd;
 
-	if (check_trace_functions(filename) != TRACE_MCOUNT)
+	if (!force && check_trace_functions(filename) != TRACE_MCOUNT)
 		return 0;
 
 	pr_dbg2("setup dwarf debug info for %s\n", filename);
@@ -1003,7 +1003,7 @@ static int elf_file_type(struct debug_info *dinfo)
 }
 
 static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
-			    unsigned long offset)
+			    unsigned long offset, bool force)
 {
 	dinfo->dw = NULL;
 	return 0;
@@ -1022,14 +1022,14 @@ static void release_dwarf_info(struct debug_info *dinfo)
 #endif  /* !HAVE_LIBDW */
 
 static int setup_debug_info(const char *filename, struct debug_info *dinfo,
-			    unsigned long offset)
+			    unsigned long offset, bool force)
 {
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
 	INIT_LIST_HEAD(&dinfo->files);
 
-	return setup_dwarf_info(filename, dinfo, offset);
+	return setup_dwarf_info(filename, dinfo, offset, force);
 }
 
 static void release_debug_info(struct debug_info *dinfo)
@@ -1078,7 +1078,8 @@ static void extract_dwarf_args(char *argspec, char *retspec,
 
 void prepare_debug_info(struct symtabs *symtabs,
 			enum uftrace_pattern_type ptype,
-			char *argspec, char *retspec, bool auto_args)
+			char *argspec, char *retspec,
+			bool auto_args, bool force)
 {
 	struct uftrace_mmap *map;
 	struct strv dwarf_args = STRV_INIT;
@@ -1103,7 +1104,8 @@ void prepare_debug_info(struct symtabs *symtabs,
 	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
-	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base);
+	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base,
+			 force);
 	build_dwarf_info(&symtabs->dinfo, &symtabs->symtab, ptype,
 			 &dwarf_args, &dwarf_rets);
 
@@ -1112,7 +1114,8 @@ void prepare_debug_info(struct symtabs *symtabs,
 		/* avoid loading of main executable or libmcount */
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
-			setup_debug_info(map->libname, &map->dinfo, map->start);
+			setup_debug_info(map->libname, &map->dinfo, map->start,
+					 force);
 			build_dwarf_info(&map->dinfo, &map->symtab, ptype,
 					 &dwarf_args, &dwarf_rets);
 		}

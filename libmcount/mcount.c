@@ -82,10 +82,11 @@ static int mcount_active;
 
 #ifdef DISABLE_MCOUNT_FILTER
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
+			       bool force)
 {
 	/* use debug info if available */
-	prepare_debug_info(&symtabs, ptype, NULL, NULL, false);
+	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
 	save_debug_info(&symtabs, dirname);
 }
 
@@ -115,7 +116,8 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
+			       bool force)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
@@ -134,7 +136,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
-			   !!autoargs_str);
+			   !!autoargs_str, force);
 	save_debug_info(&symtabs, dirname);
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
@@ -150,8 +152,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 		char *autoarg = get_auto_argspec_str();
 		char *autoret = get_auto_retspec_str();
 
-		if (debug_info_has_argspec(&symtabs.dinfo) &&
-		    check_trace_functions(mcount_exename) == TRACE_MCOUNT) {
+		if (debug_info_has_argspec(&symtabs.dinfo)) {
 			if (ptype == PATT_REGEX)
 				autoarg = autoret = ".";
 			else  /* PATT_GLOB */
@@ -1342,7 +1343,7 @@ static void mcount_startup(void)
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
 
-	mcount_filter_init(patt_type, dirname);
+	mcount_filter_init(patt_type, dirname, !!patch_str);
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
