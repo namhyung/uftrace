@@ -184,7 +184,7 @@ struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 {
 	struct uftrace_filter *auto_arg = NULL;
 
-	if (debug_info_available(dinfo))
+	if (debug_info_has_argspec(dinfo))
 		auto_arg = find_dwarf_argspec(filter, dinfo, false);
 
 	if (auto_arg == NULL)
@@ -199,7 +199,7 @@ struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
 {
 	struct uftrace_filter *auto_ret = NULL;
 
-	if (debug_info_available(dinfo))
+	if (debug_info_has_argspec(dinfo))
 		auto_ret = find_dwarf_argspec(filter, dinfo, true);
 
 	if (auto_ret == NULL)

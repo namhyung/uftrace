@@ -15,13 +15,22 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 
-bool debug_info_available(struct debug_info *dinfo)
+bool debug_info_has_argspec(struct debug_info *dinfo)
 {
 	if (dinfo == NULL)
 		return false;
 
 	/* dinfo has some debug entries? */
 	return !RB_EMPTY_ROOT(&dinfo->args) || !RB_EMPTY_ROOT(&dinfo->rets);
+}
+
+bool debug_info_has_location(struct debug_info *dinfo)
+{
+	if (dinfo == NULL)
+		return false;
+
+	/* dinfo has some debug entries? */
+	return dinfo->nr_locs_used;
 }
 
 struct debug_entry {
@@ -1332,6 +1341,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 			sym_idx = sym - symtab->sym;
 			dinfo->locs[sym_idx].line = lineno;
 			dinfo->locs[sym_idx].file = get_debug_file(dinfo, pos + 1);
+			dinfo->nr_locs_used++;
 			break;
 		default:
 			goto out;

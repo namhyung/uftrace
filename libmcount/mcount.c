@@ -150,7 +150,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname)
 		char *autoarg = get_auto_argspec_str();
 		char *autoret = get_auto_retspec_str();
 
-		if (debug_info_available(&symtabs.dinfo) &&
+		if (debug_info_has_argspec(&symtabs.dinfo) &&
 		    check_trace_functions(mcount_exename) == TRACE_MCOUNT) {
 			if (ptype == PATT_REGEX)
 				autoarg = autoret = ".";
