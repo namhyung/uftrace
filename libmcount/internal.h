@@ -154,8 +154,6 @@ static inline bool mcount_should_stop(void)
 }
 
 #ifdef DISABLE_MCOUNT_FILTER
-static inline void mcount_filter_init(enum uftrace_pattern_type ptype,
-				      char *dirname) {}
 static inline void mcount_filter_setup(struct mcount_thread_data *mtdp) {}
 static inline void mcount_filter_release(struct mcount_thread_data *mtdp) {}
 #endif /* DISABLE_MCOUNT_FILTER */
