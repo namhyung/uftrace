@@ -6,6 +6,7 @@
 #include "version.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/dwarf.h"
 
 /* needs to print session info with symbol */
 static bool needs_session;
@@ -21,6 +22,12 @@ static struct argp_option symbols_options[] = {
 struct symbols_opts {
 	char *dirname;
 };
+
+/* just to prevent linker failure */
+int arch_register_index(char *reg)
+{
+	return -1;
+}
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
@@ -42,15 +49,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-void load_debug_info(struct symtabs *symtabs)
-{
-	/* just to avoid link failure */
-}
-
 static int print_session_symbol(struct uftrace_session *s, void *arg)
 {
 	uint64_t addr = *(uint64_t *)arg;
 	struct sym *sym;
+	struct debug_location *dloc;
 
 	sym = find_symtabs(&s->symtabs, addr);
 	if (sym == NULL)
@@ -60,8 +63,14 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 		return 0;
 
 	printf("  %s", sym->name);
+
+	dloc = find_file_line(&s->symtabs, addr);
+	if (dloc && dloc->file)
+		printf(" (at %s:%d)", dloc->file->name, dloc->line);
+
 	if (needs_session)
-		printf(" [in %.*s]\n", SESSION_ID_LEN, s->sid);
+		printf(" [in %.*s]", SESSION_ID_LEN, s->sid);
+
 	return 0;
 }
 
