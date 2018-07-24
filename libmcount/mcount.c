@@ -528,7 +528,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 #undef FLAGS_TO_CHECK
 
-	if (mtdp->filter.depth <= 0)
+	if (mtdp->filter.depth == 0)
 		return FILTER_OUT;
 
 	mtdp->filter.depth--;

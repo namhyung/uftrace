@@ -34,8 +34,8 @@ enum filter_result {
 struct filter_control {
 	int in_count;
 	int out_count;
-	int depth;
-	int saved_depth;
+	uint16_t depth;
+	uint16_t saved_depth;
 	uint64_t time;
 	uint64_t saved_time;
 };

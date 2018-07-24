@@ -832,7 +832,7 @@ out:
 
 unsigned long plthook_exit(long *retval)
 {
-	int dyn_idx;
+	unsigned dyn_idx;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 
