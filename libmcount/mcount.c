@@ -41,6 +41,9 @@ struct symtabs symtabs = {
 /* size of shmem buffer to save uftrace_record */
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
+/* recover return address of parent automatically */
+bool mcount_auto_recover = true;
+
 /* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 
@@ -528,7 +531,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 #undef FLAGS_TO_CHECK
 
-	if (mtdp->filter.depth <= 0)
+	if (mtdp->filter.depth == 0)
 		return FILTER_OUT;
 
 	mtdp->filter.depth--;
@@ -891,8 +894,12 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	/* hijack the return address */
+	/* hijack the return address of child */
 	*parent_loc = (unsigned long)mcount_return;
+
+	/* restore return address of parent */
+	if (mcount_auto_recover)
+		mcount_auto_restore(mtdp);
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
@@ -920,6 +927,10 @@ unsigned long mcount_exit(long *retval)
 	mcount_exit_filter_record(mtdp, rstack, retval);
 
 	retaddr = rstack->parent_ip;
+
+	/* re-hijack return address of parent */
+	if (mcount_auto_recover)
+		mcount_auto_reset(mtdp);
 
 	compiler_barrier();
 
