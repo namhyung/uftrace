@@ -7,6 +7,9 @@
 #include <ncurses.h>
 #include <locale.h>
 #include <inttypes.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 #include "uftrace.h"
 #include "version.h"
@@ -68,6 +71,7 @@ struct tui_window_ops {
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
 	bool (*longest_child)(struct tui_window *win, void *node);
+	struct debug_location * (*location)(struct tui_window *win, void *node);
 };
 
 struct tui_window {
@@ -144,6 +148,7 @@ static const char *help[] = {
 	"R             Show uftrace report",
 	"I             Show uftrace info",
 	"S             Change session",
+	"O             Open editor",
 	"c/e           Collapse/Expand graph",
 	"n/p           Next/Prev sibling",
 	"u             Move up to parent",
@@ -1025,7 +1030,7 @@ static void win_footer_graph(struct tui_window *win,
 	else {
 		struct debug_location *dloc;
 
-		dloc = find_file_line(&sess->symtabs, node->n.addr);
+		dloc = win->ops->location(win, win->curr);
 
 		if (dloc != NULL && dloc->file != NULL) {
 			snprintf(buf, COLS, "uftrace graph: %s [line:%d]",
@@ -1188,6 +1193,16 @@ static bool win_longest_child_graph(struct tui_window *win, void *node)
 	return true;
 }
 
+static struct debug_location *win_location_graph(struct tui_window *win,
+						 void *node)
+{
+	struct tui_graph *graph = (struct tui_graph *)win;
+	struct tui_graph_node *curr = node;
+	struct uftrace_session *sess = graph->ug.sess;
+
+	return find_file_line(&sess->symtabs, curr->n.addr);
+}
+
 static const struct tui_window_ops graph_ops = {
 	.prev = win_prev_graph,
 	.next = win_next_graph,
@@ -1204,6 +1219,7 @@ static const struct tui_window_ops graph_ops = {
 	.display = win_display_graph,
 	.search = win_search_graph,
 	.longest_child = win_longest_child_graph,
+	.location = win_location_graph,
 };
 
 /* some default (no-op) window operations */
@@ -1327,6 +1343,24 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("%-*.*s", COLS - width, COLS - width, curr->name);
 }
 
+static struct debug_location *win_location_report(struct tui_window *win,
+						  void *node)
+{
+	struct tui_report_node *curr = node;
+	struct tui_graph_node *gnode;
+	struct uftrace_session *sess;
+	struct debug_location *dloc;
+
+	list_for_each_entry(gnode, &curr->head, link) {
+		sess = gnode->graph->sess;
+		dloc = find_file_line(&sess->symtabs, gnode->n.addr);
+
+		if (dloc != NULL && dloc->file != NULL)
+			return dloc;
+	}
+	return NULL;
+}
+
 static const struct tui_window_ops report_ops = {
 	.prev = win_prev_report,
 	.next = win_next_report,
@@ -1339,6 +1373,7 @@ static const struct tui_window_ops report_ops = {
 	.footer = win_footer_report,
 	.display = win_display_report,
 	.search = win_search_report,
+	.location = win_location_report,
 };
 
 /* per-window operations for list window */
@@ -2103,6 +2138,71 @@ static bool tui_window_longest_child(struct tui_window *win)
 	return win->ops->longest_child(win, win->curr);
 }
 
+static bool tui_window_open_editor(struct tui_window *win)
+{
+	struct debug_location *dloc;
+	const char *editor = getenv("EDITOR");
+	struct strv editor_strv;
+	int pid, status;
+	int ret;
+
+	if (win->ops->location == NULL)
+		return false;
+
+	dloc = win->ops->location(win, win->curr);
+	if (dloc == NULL || dloc->file == NULL)
+		return false;
+
+	/* can read file? */
+	if (access(dloc->file->name, R_OK) < 0)
+		return false;
+
+	if (editor == NULL)
+		editor = "vi";
+
+	endwin();
+
+	strv_split(&editor_strv, editor, " ");
+	if (!strncmp(editor, "vi", 2) || !strncmp(editor, "emacs", 5)) {
+		char buf[16];
+
+		/* run 'vi +line file' */
+		snprintf(buf, sizeof(buf), "+%d", dloc->line);
+		strv_append(&editor_strv, buf);
+		strv_append(&editor_strv, dloc->file->name);
+	}
+	else {
+		/* I don't know what to do */
+		strv_append(&editor_strv, dloc->file->name);
+	}
+
+	pid = fork();
+	if (pid < 0) {
+		int saved_errno = errno;
+
+		endwin();
+
+		errno = saved_errno;
+		pr_err("forking editor failed");
+	}
+
+	if (pid == 0) {
+		execvp(editor_strv.p[0], editor_strv.p);
+		exit(1);
+	}
+
+	strv_free(&editor_strv);
+
+	do {
+		/* can return early by signal (e.g. SIGWINCH) */
+		ret = waitpid(pid, &status, 0);
+	}
+	while (ret < 0 && errno == EINTR);
+
+	refresh();
+	return true;
+}
+
 static void tui_window_help(void)
 {
 	WINDOW *win;
@@ -2255,6 +2355,9 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				win = &session->win;
 				full_redraw = true;
 			}
+			break;
+		case 'O':
+			full_redraw = tui_window_open_editor(win);
 			break;
 		case 'c':
 			full_redraw = tui_window_collapse(win);
