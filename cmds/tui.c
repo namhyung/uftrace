@@ -963,7 +963,8 @@ static bool win_expand_graph(struct tui_window *win, void *node, int depth)
 static void win_header_graph(struct tui_window *win,
 			     struct ftrace_file_handle *handle)
 {
-	int w = 0;
+	int w = 0, c;
+	char *buf, *p;
 	struct tui_graph *graph = (struct tui_graph *)win;
 	struct display_field *field;
 
@@ -979,18 +980,22 @@ static void win_header_graph(struct tui_window *win,
 	w += strlen(" FUNCTION");
 
 	if (list_empty(&graph_output_fields)) {
-		printw("%-*s", COLS, "uftrace graph TUI");
+		printw("%-*.*s", COLS, COLS, "uftrace graph TUI");
 		return;
 	}
 
-	list_for_each_entry(field, &graph_output_fields, list) {
-		printw("%*s", FIELD_SPACE, "");
-		printw("%s", field->header);
-	}
-	printw("%s %s", FIELD_SEP, "FUNCTION");
+	buf = p = xmalloc(w + 1);
 
-	if (w < COLS)
-		printw("%*s", COLS - w, "");
+	list_for_each_entry(field, &graph_output_fields, list) {
+		c = snprintf(p, w, "%*s%*s", FIELD_SPACE, "",
+			     field->length, field->header);
+		p += c;
+		w -= c;
+	}
+	snprintf(p, w+1, "%s %s", FIELD_SEP, "FUNCTION");
+
+	printw("%-*.*s", COLS, COLS, buf);
+	free(buf);
 
 	/* start with same make as top */
 	graph->disp = graph->win.top;
@@ -1127,26 +1132,26 @@ static void win_display_graph(struct tui_window *win, void *node)
 	print_graph_field(&curr->n);
 	print_graph_indent(graph, curr, d, single_child);
 
-	width = d * 3 + strlen(curr->n.name) + w;
+	width = d * 3 + w;
 
 	if (is_special_node(&curr->n)) {
-		printw("%s", curr->n.name);
+		width = COLS - width;
+		if (width > 0)
+			printw("%-*.*s", width, width, curr->n.name);
 	}
 	else {
 		char buf[32];
 
-		printw("%s(%d) %s", fold_sign, curr->n.nr_calls,
-		       curr->n.name);
-
 		/* 4 = fold_sign(1) + parenthesis92) + space(1) */
-		if (!is_special_node(&curr->n)) {
-			width += snprintf(buf, sizeof(buf),
-					  "%d", curr->n.nr_calls) + 4;
+		width += snprintf(buf, sizeof(buf),
+				  "%d", curr->n.nr_calls) + 4;
+		width = COLS - width;
+
+		if (width > 0) {
+			printw("%s(%d) %-*.*s", fold_sign, curr->n.nr_calls,
+			       width, width, curr->n.name);
 		}
 	}
-
-	if (width < COLS)
-		printw("%*s", COLS - width, "");
 }
 
 static bool win_search_graph(struct tui_window *win, void *node, char *str)
@@ -1303,7 +1308,7 @@ static void win_footer_report(struct tui_window *win, struct ftrace_file_handle 
 	}
 	buf[COLS] = '\0';
 
-	printw("%-*s", COLS, buf);
+	printw("%-*.*s", COLS, COLS, buf);
 }
 
 static void win_display_report(struct tui_window *win, void *node)
@@ -1318,11 +1323,8 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("  ");
 	printw("%10u", curr->calls);
 	printw("  ");
-	printw("%-s", curr->name);
 
-	width += strlen(curr->name);
-	if (width < COLS)
-		printw("%*s", COLS - width, "");
+	printw("%-*.*s", COLS - width, COLS - width, curr->name);
 }
 
 static const struct tui_window_ops report_ops = {
@@ -1414,7 +1416,7 @@ static void win_header_info(struct tui_window *win,
 			    struct ftrace_file_handle *handle)
 {
 
-	printw("%-*s", COLS, "uftrace info");
+	printw("%-*.*s", COLS, COLS, "uftrace info");
 }
 
 #define print_buf(fmt, ...)						\
@@ -1457,7 +1459,7 @@ static void win_display_info(struct tui_window *win, void *node)
 {
 	struct tui_list_node *curr = node;
 
-	printw("%-*s", COLS, curr->data);
+	printw("%-*.*s", COLS, COLS, curr->data);
 }
 
 static const struct tui_window_ops info_ops = {
