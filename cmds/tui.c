@@ -466,6 +466,39 @@ static bool list_is_none(struct list_head *list)
 	return list->next == NULL && list->prev == NULL;
 }
 
+static void update_report_node(struct ftrace_task_handle *task, char *symname,
+			       struct uftrace_task_graph *tg)
+{
+	struct fstack *fstack = &task->func_stack[task->stack_count];
+	uint64_t total_time = fstack->total_time;
+	uint64_t self_time = fstack->total_time - fstack->child_time;
+	struct tui_report_node *node;
+	struct tui_graph_node *graph_node;
+	int i;
+
+	node = find_report_node(&tui_report, symname);
+
+	graph_node = (struct tui_graph_node *)tg->node;
+	if (list_is_none(&graph_node->link))
+		list_add_tail(&graph_node->link, &node->head);
+
+	if (node->max_time < total_time)
+		node->max_time = total_time;
+	if (node->min_time == 0 || node->min_time > total_time)
+		node->min_time = total_time;
+	if (node->max_self_time < self_time)
+		node->max_self_time = self_time;
+	if (node->min_self_time == 0 || node->min_self_time > self_time)
+		node->min_self_time = self_time;
+
+	for (i = 0; i < task->stack_count; i++) {
+		if (task->func_stack[i].addr == fstack->addr) {
+			node->recursive_time += total_time;
+			break;
+		}
+	}
+}
+
 static int build_tui_node(struct ftrace_task_handle *task,
 			  struct uftrace_record *rec)
 {
@@ -487,36 +520,8 @@ static int build_tui_node(struct ftrace_task_handle *task,
 				 task, rec->time, rec->addr);
 	name = symbol_getname(sym, rec->addr);
 
-	if (rec->type == UFTRACE_EXIT) {
-		struct fstack *fstack = &task->func_stack[task->stack_count];
-		uint64_t total_time = fstack->total_time;
-		uint64_t self_time = fstack->total_time - fstack->child_time;
-		struct tui_report_node *node;
-		int i;
-
-		/* build report node on exit only */
-		node = find_report_node(&tui_report, name);
-
-		graph_node = (struct tui_graph_node *)tg->node;
-		if (list_is_none(&graph_node->link))
-			list_add_tail(&graph_node->link, &node->head);
-
-		if (node->max_time < total_time)
-			node->max_time = total_time;
-		if (node->min_time == 0 || node->min_time > total_time)
-			node->min_time = total_time;
-		if (node->max_self_time < self_time)
-			node->max_self_time = self_time;
-		if (node->min_self_time == 0 || node->min_self_time > self_time)
-			node->min_self_time = self_time;
-
-		for (i = 0; i < task->stack_count; i++) {
-			if (task->func_stack[i].addr == fstack->addr) {
-				node->recursive_time += total_time;
-				break;
-			}
-		}
-	}
+	if (rec->type == UFTRACE_EXIT)
+		update_report_node(task, name, tg);
 
 	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
 	if (tg->node && tg->node != &graph->root) {
@@ -526,6 +531,61 @@ static int build_tui_node(struct ftrace_task_handle *task,
 
 	symbol_putname(sym, name);
 	return 0;
+}
+
+static void add_remaining_node(struct opts *opts, struct ftrace_file_handle *handle)
+{
+	uint64_t last_time;
+	struct fstack *fstack;
+	struct ftrace_task_handle *task;
+	struct uftrace_task_graph *tg;
+	struct sym *sym;
+	char *name;
+	int i;
+
+	for (i = 0; i < handle->nr_tasks; i++) {
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		if (opts->kernel_skip_out && task->user_stack_count == 0)
+			continue;
+
+		last_time = task->rstack->time;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			tg = graph_get_task(task, sizeof(*tg));
+			sym = task_find_sym_addr(&handle->sessions,
+						 task, fstack->total_time,
+						 fstack->addr);
+			name = symbol_getname(sym, fstack->addr);
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			update_report_node(task, name, tg);
+			graph_add_node(tg, UFTRACE_EXIT, name,
+				       sizeof(struct tui_graph_node));
+
+			symbol_putname(sym, name);
+		}
+	}
 }
 
 static struct tui_graph_node * append_graph_node(struct uftrace_graph_node *dst,
@@ -2474,6 +2534,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 		if (ret)
 			break;
 	}
+	add_remaining_node(opts, &handle);
 
 	tui_main_loop(opts, &handle);
 
