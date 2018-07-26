@@ -19,7 +19,7 @@
 #define MCOUNT_DEFAULT_DEPTH   OPT_DEPTH_DEFAULT
 
 #define MCOUNT_NOTRACE_IDX     0x10000
-#define MCOUNT_INVALID_DYNIDX  0xffff
+#define MCOUNT_INVALID_DYNIDX  0xefefefef
 
 enum mcount_rstack_flag {
 	MCOUNT_FL_SETJMP	= (1U << 0),
@@ -49,10 +49,10 @@ struct mcount_ret_stack {
 	uint64_t start_time;
 	uint64_t end_time;
 	int tid;
-	int filter_depth;
+	unsigned dyn_idx;
 	uint64_t filter_time;
 	unsigned short depth;
-	unsigned short dyn_idx;
+	unsigned short filter_depth;
 	unsigned short nr_events;
 	unsigned short event_idx;
 	struct plthook_data *pd;

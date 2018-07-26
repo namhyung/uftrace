@@ -34,8 +34,8 @@ enum filter_result {
 struct filter_control {
 	int in_count;
 	int out_count;
-	int depth;
-	int saved_depth;
+	uint16_t depth;
+	uint16_t saved_depth;
 	uint64_t time;
 	uint64_t saved_time;
 };
@@ -140,6 +140,7 @@ extern int pfd;
 extern char *mcount_exename;
 extern int page_size_in_kb;
 extern bool kernel_pid_update;
+extern bool mcount_auto_recover;
 
 enum mcount_global_flag {
 	MCOUNT_GFL_SETUP	= (1U << 0),
@@ -228,6 +229,8 @@ extern void mcount_rstack_restore(struct mcount_thread_data *mtdp);
 extern void mcount_rstack_reset(struct mcount_thread_data *mtdp);
 extern void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 					  unsigned long frame_addr);
+extern void mcount_auto_restore(struct mcount_thread_data *mtdp);
+extern void mcount_auto_reset(struct mcount_thread_data *mtdp);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);

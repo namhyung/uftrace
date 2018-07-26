@@ -117,6 +117,7 @@ Following keys can be used in the TUI window:
  * `R`:                   Show uftrace report
  * `I`:                   Show uftrace info
  * `S`:                   Show session list
+ * `O`:                   Open editor for current function
  * `c`/`e`:               Collapse/Expand graph node
  * `n`/`p`:               Move to next/prev sibling (in graph mode)
  * `u`:                   Move up to parent (in graph mode)
