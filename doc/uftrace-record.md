@@ -78,7 +78,7 @@ OPTIONS
 -R *SPEC*, \--retval=*SPEC*
 :   Record function return values.  This option can be used more than once.  See *ARGUMENTS*.
 
-\--auto-args
+-a, \--auto-args
 :   Automatically record arguments and return values of known functions.
     These are usually functions in standard (C language or system) libraries
     but if debug info is available it includes functions in the user program.
@@ -391,7 +391,7 @@ For example, the above example can be written like below:
 Note that argument pattern (".") matches to any character so it recorded
 all (supported) functions.  It shows two arguments for "main" and a single
 string argument for "puts".  If you simply want to see all arguments and
-return values of every functions (if supported), use `--auto-args` option.
+return values of every functions (if supported), use `-a`/`--auto-args` option.
 
 
 DYNAMIC TRACING

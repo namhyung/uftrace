@@ -166,7 +166,7 @@ static struct argp_option uftrace_options[] = {
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
 	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
-	{ "auto-args", OPT_auto_args, 0, 0, "Show arguments and return value of known functions" },
+	{ "auto-args", 'a', 0, 0, "Show arguments and return value of known functions" },
 	{ "libname", OPT_libname, 0, 0, "Show libname name with symbol name" },
 	{ "match", OPT_match_type, "TYPE", 0, "Support pattern match: regex, glob (default: regex)" },
 	{ "no-randomize-addr", OPT_no_randomize_addr, 0, 0, "Disable ASLR (Address Space Layout Randomization)" },
@@ -456,6 +456,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->retval = opt_add_string(opts->retval, arg);
 		break;
 
+	case 'a':
+		opts->auto_args = true;
+		break;
+
 	case 'f':
 		opts->fields = arg;
 		break;
@@ -714,10 +718,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_record:
 		opts->record = true;
-		break;
-
-	case OPT_auto_args:
-		opts->auto_args = true;
 		break;
 
 	case OPT_libname:
