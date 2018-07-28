@@ -262,6 +262,16 @@ if __name__ == "__main__":
     args_list = ""
     retvals_list = ""
 
+    # operator new and delete and their variations
+    args_list     = '\t\"_Znwm@arg1/u;\"\n'   \
+                  + '\t\"_Znam@arg1/u;\"\n'   \
+                  + '\t\"_ZdlPv@arg1/x;\"\n'  \
+                  + '\t\"_ZdaPv@arg1/x;\"\n'
+
+    # operator new and its variations
+    retvals_list  = '\t\"_Znwm@retval/x;\"\n' \
+                  + '\t\"_Znam@retval/x;\"\n'
+
     t = DECL_TYPE_NONE
     with open(prototype_file) as fin:
         for line in fin:
