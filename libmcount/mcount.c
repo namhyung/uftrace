@@ -700,21 +700,9 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		if (SCRIPT_ENABLED && script_str)
 			script_hook_entry(mtdp, rstack, tr);
 
-#define FLAGS_TO_CHECK  (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
-
-		if (tr->flags & FLAGS_TO_CHECK) {
-			if (tr->flags & TRIGGER_FL_RECOVER) {
-				mcount_rstack_restore(mtdp);
-				*rstack->parent_loc = (unsigned long) mcount_return;
-				rstack->flags |= MCOUNT_FL_RECOVER;
-			}
-			if (tr->flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
-				mtdp->enable_cached = mcount_enabled;
-		}
+		if (tr->flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
+			mtdp->enable_cached = mcount_enabled;
 	}
-
-#undef FLAGS_TO_CHECK
-
 }
 
 /* restore filter state from rstack */
@@ -726,19 +714,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
-#define FLAGS_TO_CHECK  (MCOUNT_FL_FILTERED | MCOUNT_FL_NOTRACE | MCOUNT_FL_RECOVER)
-
-	if (rstack->flags & FLAGS_TO_CHECK) {
-		if (rstack->flags & MCOUNT_FL_FILTERED)
-			mtdp->filter.in_count--;
-		else if (rstack->flags & MCOUNT_FL_NOTRACE)
-			mtdp->filter.out_count--;
-
-		if (rstack->flags & MCOUNT_FL_RECOVER)
-			mcount_rstack_reset(mtdp);
-	}
-
-#undef FLAGS_TO_CHECK
+	if (rstack->flags & MCOUNT_FL_FILTERED)
+		mtdp->filter.in_count--;
+	else if (rstack->flags & MCOUNT_FL_NOTRACE)
+		mtdp->filter.out_count--;
 
 	mtdp->filter.depth = rstack->filter_depth;
 	mtdp->filter.time  = rstack->filter_time;
@@ -980,9 +959,8 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	/* 
 	 * recording arguments and return value is not supported.
-	 * also 'recover' trigger is only work for -pg entry.
 	 */
-	tr.flags &= ~(TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL | TRIGGER_FL_RECOVER);
+	tr.flags &= ~(TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -1090,9 +1068,6 @@ void xray_entry(unsigned long parent, unsigned long child,
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
-
-	/* 'recover' trigger is only for -pg entry */
-	tr.flags &= ~TRIGGER_FL_RECOVER;
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 

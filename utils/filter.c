@@ -50,8 +50,6 @@ static void print_trigger(struct uftrace_trigger *tr)
 		pr_dbg("\ttrigger: trace_on\n");
 	if (tr->flags & TRIGGER_FL_TRACE_OFF)
 		pr_dbg("\ttrigger: trace_off\n");
-	if (tr->flags & TRIGGER_FL_RECOVER)
-		pr_dbg("\ttrigger: recover\n");
 	if (tr->flags & TRIGGER_FL_FINISH)
 		pr_dbg("\ttrigger: finish\n");
 
@@ -746,12 +744,6 @@ static int parse_backtrace_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_recover_action(char *action, struct uftrace_trigger *tr)
-{
-	tr->flags |= TRIGGER_FL_RECOVER;
-	return 0;
-}
-
 static int parse_finish_action(char *action, struct uftrace_trigger *tr)
 {
 	tr->flags |= TRIGGER_FL_FINISH;
@@ -796,7 +788,6 @@ static const struct trigger_action_parser actions[] = {
 	{ "color=",    parse_color_action, },
 	{ "trace",     parse_trace_action, },
 	{ "backtrace", parse_backtrace_action, },
-	{ "recover",   parse_recover_action, },
 	{ "finish",    parse_finish_action, },
 	{ "auto-args", parse_auto_args_action, },
 };

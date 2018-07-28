@@ -24,7 +24,7 @@ enum trigger_flag {
 	TRIGGER_FL_TRACE_ON	= (1U << 4),
 	TRIGGER_FL_TRACE_OFF	= (1U << 5),
 	TRIGGER_FL_ARGUMENT	= (1U << 6),
-	TRIGGER_FL_RECOVER	= (1U << 7),
+	TRIGGER_FL_RECOVER	= (1U << 7),	/* depreciated */
 	TRIGGER_FL_RETVAL	= (1U << 8),
 	TRIGGER_FL_COLOR	= (1U << 9),
 	TRIGGER_FL_TIME_FILTER	= (1U << 10),
