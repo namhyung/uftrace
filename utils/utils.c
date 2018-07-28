@@ -178,6 +178,25 @@ failed:
 	return ret;
 }
 
+bool is_uftrace_dir(char *path)
+{
+	int fd;
+	char *info_path = NULL;
+	char sig[8] = {0,};
+
+	// <uftrace data dir>/info always be exist.
+	xasprintf(&info_path, "%s/info", path);
+	fd = open(info_path, O_RDONLY);
+	free(info_path);
+
+	if (fd == -1)
+		return false;
+
+	read(fd, sig, 8);
+	close(fd);
+	return !strncmp(sig, UFTRACE_MAGIC_STR, 8);
+}
+
 int create_directory(char *dirname)
 {
 	int ret = -1;
@@ -186,12 +205,14 @@ int create_directory(char *dirname)
 	xasprintf(&oldname, "%s.old", dirname);
 
 	if (!access(dirname, F_OK)) {
-		if (!access(oldname, F_OK) && remove_directory(oldname) < 0) {
-			pr_warn("removing old directory failed: %m\n");
-			goto out;
+		if (!access(oldname, F_OK) && is_uftrace_dir(oldname)) {
+			if (remove_directory(oldname) < 0) {
+				pr_warn("removing old directory failed: %m\n");
+				goto out;
+			}
 		}
 
-		if (rename(dirname, oldname) < 0) {
+		if (is_uftrace_dir(dirname) && rename(dirname, oldname) < 0) {
 			pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
 			goto out;
 		}
