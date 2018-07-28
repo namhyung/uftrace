@@ -22,6 +22,10 @@ static char *auto_enum_list =
 ;
 
 static char *auto_args_list =
+	"_Znwm@arg1/u;"
+	"_Znam@arg1/u;"
+	"_ZdlPv@arg1/x;"
+	"_ZdaPv@arg1/x;"
 	"malloc@arg1/u;"
 	"free@arg1/x;"
 	"calloc@arg1/u,arg2/u;"
@@ -158,6 +162,8 @@ static char *auto_args_list =
 ;
 
 static char *auto_retvals_list =
+	"_Znwm@retval/x;"
+	"_Znam@retval/x;"
 	"malloc@retval/x;"
 	"calloc@retval/x;"
 	"realloc@retval/x;"

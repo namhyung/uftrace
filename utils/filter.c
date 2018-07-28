@@ -320,7 +320,12 @@ void init_filter_pattern(enum uftrace_pattern_type type,
 	p->patt = xstrdup(str);
 
 	if (type == PATT_REGEX) {
-		if (regcomp(&p->re, str, REG_NOSUB | REG_EXTENDED)) {
+		/* to handle full demangled operator new and delete specially */
+		const char *str_operator = "operator ";
+		if (!strncmp(str, str_operator, 9)) {
+			p->type = PATT_SIMPLE;
+		}
+		else if (regcomp(&p->re, str, REG_NOSUB | REG_EXTENDED)) {
 			pr_dbg("regex pattern failed: %s\n", str);
 			p->type = PATT_SIMPLE;
 		}
@@ -917,6 +922,9 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			else
 				tr.fmode = FILTER_MODE_IN;
 		}
+
+		/* demangle the name before setting a trigger */
+		name = demangle(name);
 
 		init_filter_pattern(ptype, &patt, name);
 

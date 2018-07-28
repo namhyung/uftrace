@@ -102,7 +102,8 @@ static void build_auto_args(const char *args_str, struct rb_root *root,
 		 * it should be copied after setup_trigger_action() removed
 		 * '@' for the arg spec
 		 */
-		entry.name = xstrdup(name);
+		entry.name = demangle(name);
+
 		add_auto_args(root, &entry, &tr);
 
 next:
