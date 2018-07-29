@@ -857,7 +857,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	char ph;
 	char spec_buf[1024];
 	struct uftrace_record *frs = task->rstack;
-	enum argspec_string_bits str_mode = NEEDS_ESCAPE | NEEDS_PAREN;
+	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	bool is_process = task->t->pid == task->tid;
 
@@ -887,7 +887,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
 		}
 		if (frs->more) {
-			str_mode |= HAS_MORE;
+			str_mode |= NEEDS_PAREN | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
 				spec_buf);
