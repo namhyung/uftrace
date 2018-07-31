@@ -669,6 +669,15 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	if (elf_init(filename, &elf) < 0)
 		return -1;
 
+	if (flags & SYMTAB_FL_ADJ_OFFSET) {
+		elf_for_each_phdr(&elf, &iter) {
+			if (iter.phdr.p_type == PT_LOAD) {
+				offset -= iter.phdr.p_vaddr;
+				break;
+			}
+		}
+	}
+
 	elf_for_each_shdr(&elf, &iter) {
 		if (iter.shdr.sh_type == SHT_DYNSYM)
 			break;
