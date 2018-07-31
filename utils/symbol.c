@@ -233,8 +233,9 @@ static void sort_symtab(struct symtab *symtab)
 		while (curr->addr == next->addr &&
 		       next < &symtab->sym[symtab->nr_sym]) {
 
-			/* prefer names not started by '_' */
-			if (bestname[0] == '_' && next->name[0] != '_')
+			/* prefer names not started by '_' (if not mangled) */
+			if (bestname[0] == '_' && bestname[1] != 'Z' &&
+			    next->name[0] != '_')
 				bestname = next->name;
 
 			count++;
@@ -709,6 +710,8 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 
 		name = elf_get_name(&elf, &iter, iter.sym.st_name);
 		if (sym->name[0] != '_' && name[0] == '_')
+			continue;
+		if (sym->name[1] == 'Z')
 			continue;
 
 		pr_dbg3("update symbol name to %s\n", name);
