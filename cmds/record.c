@@ -1076,7 +1076,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 		/* remove from shmem_list */
 		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
-			if (!memcmp(sl->id, buf, SHMEM_NAME_SIZE)) {
+			if (!memcmp(sl->id, buf, msg.len)) {
 				list_del(&sl->list);
 				free(sl);
 				break;
