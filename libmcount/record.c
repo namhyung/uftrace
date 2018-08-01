@@ -457,7 +457,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 					dst[i] = str[i];
 
 					/* truncate long string */
-					if (i > ARG_STR_MAX) {
+					if (i == ARG_STR_MAX) {
 						dst[i-3] = '.';
 						dst[i-2] = '.';
 						dst[i-1] = '.';
