@@ -38,7 +38,11 @@ class TestCase(TestBase):
         return '%s %s %s' % (uftrace, options, program)
 
     def sort(self, output):
-        return output.strip().split('\n')[0]
+        i = 0
+        # skip warning for '-finstrument-functions'
+        if output.startswith('uftrace: -A or -R might not work'):
+            i = 1
+        return output.strip().split('\n')[i]
 
     def post(self, ret):
         sp.call(['rm', '-f', FILE])
