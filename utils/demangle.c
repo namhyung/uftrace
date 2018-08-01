@@ -1130,6 +1130,24 @@ static int dd_special_name(struct demangle_data *dd)
 				return -1;
 			return dd_encoding(dd);
 		}
+		if (c1 == 'C') {
+			/* construction vtable */
+			dd_consume_n(dd, 2);
+			if (dd_type(dd) < 0)
+				return -1;
+			if (dd_number(dd) < 0)
+				return -1;
+			return dd_type(dd);
+		}
+		if (c1 == 'H' || c1 == 'W') {
+			/* TLS init and wrapper */
+			dd_consume_n(dd, 2);
+			if (dd->newpos)
+				dd_append(dd, "::");
+			dd_append(dd, "TLS_");
+			dd_append(dd, c1 == 'H' ? "init" : "wrap");
+			return dd_name(dd);
+		}
 	}
 	if (c0 == 'G') {
 		if (c1 == 'V') {
@@ -1776,6 +1794,10 @@ TEST_CASE(demangle_simple6)
 			       "PK28SkJumper_ColorLookupTableCtx"
 			       "RDv4_fS4_S4_S3_Dv4_jS5_");
 	TEST_STREQ("color_lookup_table", name);
+	free(name);
+
+	name = demangle_simple("_ZTWN6__xray19__xray_fdr_internal7RunningE");
+	TEST_STREQ("TLS_wrap::__xray::__xray_fdr_internal::Running", name);
 	free(name);
 
 	return TEST_OK;
