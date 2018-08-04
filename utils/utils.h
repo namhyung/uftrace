@@ -218,6 +218,12 @@ extern void setup_signal(void);
 # define ELFDATA2MSB	2		/* 2's complement, big endian */
 #endif
 
+#ifndef ELFCLASS32
+# define ELFCLASSNONE 	0
+# define ELFCLASS32	1
+# define ELFCLASS64	2
+#endif
+
 static inline int get_elf_endian(void)
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -225,6 +231,16 @@ static inline int get_elf_endian(void)
 #else
 	return ELFDATA2MSB;
 #endif
+}
+
+static inline int get_elf_class(void)
+{
+	if (sizeof(long) == 4)
+		return ELFCLASS32;
+	else if (sizeof(long) == 8)
+		return ELFCLASS64;
+	else
+		return ELFCLASSNONE;
 }
 
 struct uftrace_time_range {
