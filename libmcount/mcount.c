@@ -30,6 +30,11 @@
 #include "utils/filter.h"
 #include "utils/script.h"
 
+/* could be defined in mcount-arch.h */
+#ifndef  ARCH_SUPPORT_AUTO_RECOVER
+# define ARCH_SUPPORT_AUTO_RECOVER  0
+#endif
+
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -42,7 +47,7 @@ struct symtabs symtabs = {
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 /* recover return address of parent automatically */
-bool mcount_auto_recover = true;
+bool mcount_auto_recover = ARCH_SUPPORT_AUTO_RECOVER;
 
 /* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
