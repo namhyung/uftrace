@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dlfcn.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dwarf"
@@ -413,7 +414,6 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		case DW_FORM_ref_udata:
 		case DW_FORM_ref_addr:
 		case DW_FORM_ref_sig8:
-		case DW_FORM_GNU_ref_alt:
 			dwarf_formref_die(&type, &ref);
 			die = &ref;
 			break;
@@ -603,10 +603,18 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 	dwarf_attr(die, DW_AT_location, &loc);
 
 	if (dwarf_getlocation(&loc, &ops, &len) == -1) {
+		int (*get_location_list)(Dwarf_Attribute *loc, Dwarf_Off offset,
+					 Dwarf_Addr *base, Dwarf_Addr *start,
+					 Dwarf_Addr *end, Dwarf_Op **ops,
+					 size_t *len);
 		Dwarf_Addr base, start, end;
 
+		get_location_list = dlsym(RTLD_DEFAULT, "dwarf_getlocations");
+		if (get_location_list == NULL)
+			return false;
+
 		/* try to get the first entry in the location list */
-		if (dwarf_getlocations(&loc, 0, &base, &start, &end,
+		if (get_location_list(&loc, 0, &base, &start, &end,
 				       &ops, &len) == -1)
 			return false;
 	}
