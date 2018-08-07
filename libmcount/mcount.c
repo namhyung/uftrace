@@ -30,6 +30,11 @@
 #include "utils/filter.h"
 #include "utils/script.h"
 
+/* could be defined in mcount-arch.h */
+#ifndef  ARCH_SUPPORT_AUTO_RECOVER
+# define ARCH_SUPPORT_AUTO_RECOVER  0
+#endif
+
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -42,7 +47,7 @@ struct symtabs symtabs = {
 int shmem_bufsize = SHMEM_BUFFER_SIZE;
 
 /* recover return address of parent automatically */
-bool mcount_auto_recover = true;
+bool mcount_auto_recover = ARCH_SUPPORT_AUTO_RECOVER;
 
 /* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
@@ -331,21 +336,6 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	/* set line buffer mode not to discard crash message */
 	setlinebuf(outfp);
 
-	for (idx = 0; idx < (int)ARRAY_SIZE(sigsegv_codes); idx++) {
-		if (sig != SIGSEGV)
-			break;
-
-		if (si->si_code == sigsegv_codes[idx].code) {
-			pr_red("Segmentation fault: %s (addr: %p)\n",
-			       sigsegv_codes[idx].msg, si->si_addr);
-			break;
-		}
-	}
-	if (sig != SIGSEGV || idx == (int)ARRAY_SIZE(sigsegv_codes)) {
-		pr_red("process crashed by signal %d: %s (si_code: %d)\n",
-		       sig, strsignal(sig), si->si_code);
-	}
-
 	mtdp = get_thread_data();
 	if (check_thread_data(mtdp))
 		goto out;
@@ -358,6 +348,21 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	record_trace_data(mtdp, rstack, NULL);
 
 	if (dbg_domain[PR_DOMAIN]) {
+		for (idx = 0; idx < (int)ARRAY_SIZE(sigsegv_codes); idx++) {
+			if (sig != SIGSEGV)
+				break;
+
+			if (si->si_code == sigsegv_codes[idx].code) {
+				pr_red("Segmentation fault: %s (addr: %p)\n",
+				       sigsegv_codes[idx].msg, si->si_addr);
+				break;
+			}
+		}
+		if (sig != SIGSEGV || idx == (int)ARRAY_SIZE(sigsegv_codes)) {
+			pr_red("process crashed by signal %d: %s (si_code: %d)\n",
+			       sig, strsignal(sig), si->si_code);
+		}
+
 		pr_red("Backtrace from uftrace:\n");
 		pr_red("=====================================\n");
 

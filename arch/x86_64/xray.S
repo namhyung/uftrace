@@ -3,36 +3,47 @@
 /* callee saved: %rbx, %rbp, %rsp, %r12-r15 */
 /* stack frame: child addr = 0(%rsp), return addr = 8(%rbp) */
 
-.global __xray_entry
-.type __xray_entry, @function
-__xray_entry:
+#include "utils/asm.h"
+
+GLOBAL(__xray_entry)
 	.cfi_startproc
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
 
 	movq %rdi, 40(%rsp)
-	.cfi_offset rdi, -24
 	movq %rsi, 32(%rsp)
-	.cfi_offset rsi, -32
 	movq %rdx, 24(%rsp)
-	.cfi_offset rdx, -40
 	movq %rcx, 16(%rsp)
-	.cfi_offset rcx, -48
-	movq %r8, 8(%rsp)
-	.cfi_offset r8, -56
-	movq %r9, 0(%rsp)
-	.cfi_offset r9, -64
+	movq %r8,   8(%rsp)
+	movq %r9,   0(%rsp)
 
 	/* child ip */
 	movq 48(%rsp), %rsi
-	/* parent ip */
+
+	/* parent location */
 	lea 56(%rsp), %rdi
 
 	/* mcount_args */
 	movq %rsp, %rdx
+	.cfi_def_cfa_register rdx
+
+	/* align stack pointer to 16-byte */
+	andq $0xfffffffffffffff0, %rsp
+	push %rdx
+
+	/* save rax (implicit argument for variadic functions) */
+	push %rax
 
 	call xray_entry
 
+	pop  %rax
+
+	/* restore original stack pointer */
+	pop  %rdx
+	movq %rdx, %rsp
+	.cfi_def_cfa_register rsp
+
+	/* restore mcount_args */
 	movq 0(%rsp), %r9
 	movq 8(%rsp), %r8
 	movq 16(%rsp), %rcx
@@ -42,16 +53,12 @@ __xray_entry:
 
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
-
 	retq
 	.cfi_endproc
+END(__xray_entry)
 
-.size __xray_entry, .-__xray_entry
 
-
-.global __xray_exit
-.type __xray_exit, @function
-__xray_exit:
+ENTRY(__xray_exit)
 	.cfi_startproc
 	sub $40, %rsp  /* return address already consume 8 byte */
 	.cfi_def_cfa_offset 40
@@ -75,5 +82,4 @@ __xray_exit:
 
 	retq
 	.cfi_endproc
-
-.size __xray_exit, .-__xray_exit
+END(__xray_exit)

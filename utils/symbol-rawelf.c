@@ -19,32 +19,36 @@ int elf_init(const char *filename, struct uftrace_elf_data *elf)
 
 	elf->fd = open(filename, O_RDONLY);
 	if (elf->fd < 0)
-		return -1;
+		goto err;
 
 	if (fstat(elf->fd, &stbuf) < 0)
-		goto err;
+		goto err_close;
 
 	elf->file_size = stbuf.st_size;
 
 	elf->file_map = mmap(NULL, elf->file_size, PROT_READ, MAP_PRIVATE,
 			     elf->fd, 0);
 	if (elf->file_map == MAP_FAILED)
-		goto err;
+		goto err_close;
 
 	memcpy(&elf->ehdr, elf->file_map, sizeof(elf->ehdr));
 
 	return 0;
 
-err:
+err_close:
 	close(elf->fd);
 	elf->fd = -1;
 
+err:
 	elf->file_map = NULL;
 	return -1;
 }
 
 void elf_finish(struct uftrace_elf_data *elf)
 {
+	if (elf->fd < 0)
+		return;
+
 	munmap(elf->file_map, elf->file_size);
 	elf->file_map = NULL;
 
