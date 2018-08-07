@@ -30,7 +30,7 @@ enum mcount_rstack_flag {
 	MCOUNT_FL_VFORK		= (1U << 5),
 	MCOUNT_FL_WRITTEN	= (1U << 6),
 	MCOUNT_FL_DISABLED	= (1U << 7),
-	MCOUNT_FL_RECOVER	= (1U << 8),
+	MCOUNT_FL_RECOVER	= (1U << 8),	/* depreciated */
 	MCOUNT_FL_RETVAL	= (1U << 9),
 	MCOUNT_FL_TRACE		= (1U << 10),
 	MCOUNT_FL_ARGUMENT	= (1U << 11),
