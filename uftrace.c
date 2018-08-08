@@ -101,6 +101,7 @@ enum options {
 	OPT_no_event,
 	OPT_signal,
 	OPT_srcline,
+	OPT_python,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -188,6 +189,7 @@ static struct argp_option uftrace_options[] = {
 	{ "watch", 'W', "POINT", 0, "Watch and report POINT if it's changed" },
 	{ "signal", OPT_signal, "SIG@act[,act,...]", 0, "Trigger action on those SIGnal" },
 	{ "srcline", OPT_srcline, 0, 0, "Enable recording source line info" },
+	{ "python", OPT_python, 0, 0, "Trace python program" },
 	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
@@ -808,6 +810,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_srcline:
 		opts->srcline = true;
+		break;
+
+	case OPT_python:
+		opts->python = true;
+		/* --python implies --force option */
+		opts->force = true;
 		break;
 
 	case ARGP_KEY_ARG:

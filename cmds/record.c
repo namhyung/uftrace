@@ -2096,6 +2096,11 @@ int do_child_exec(int ready, struct opts *opts,
 		if (p != NULL)
 			strv_append(&new_args, p);
 
+		if (opts->python) {
+			strv_append(&new_args, "-m");
+			strv_append(&new_args, "uftrace");
+		}
+
 		for (i = 0; i < argc; i++)
 			strv_append(&new_args, argv[i]);
 
@@ -2110,6 +2115,9 @@ int do_child_exec(int ready, struct opts *opts,
 	/* wait for parent ready */
 	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
 		pr_err("waiting for parent failed");
+
+	if (opts->python)
+		setenv("PYTHONPATH", PYTHON_DIR, 1);  /* FIXME */
 
 	/*
 	 * The traced binary is already resolved into absolute pathname.
