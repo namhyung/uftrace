@@ -171,7 +171,7 @@ COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"' -DPYTHON_DIR='"$(srcdir)/misc"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 

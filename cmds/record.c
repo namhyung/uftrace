@@ -386,6 +386,13 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (fd < 0)
 		pr_err("cannot open info file");
 
+	if (opts->python) {
+		elf_ident[EI_DATA]  = get_elf_endian();
+		elf_ident[EI_CLASS] = ELFCLASS32 + (sizeof(long) == 8);
+		efd = -1;
+		goto setup;
+	}
+
 	efd = open(opts->exename, O_RDONLY);
 	if (efd < 0)
 		goto close_fd;
@@ -393,6 +400,7 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	if (read(efd, elf_ident, sizeof(elf_ident)) < 0)
 		goto close_efd;
 
+setup:
 	strncpy(hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 	hdr.version = UFTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
@@ -1450,6 +1458,9 @@ static void check_binary(struct opts *opts)
 		EM_X86_64, EM_ARM, EM_AARCH64, EM_386
 	};
 
+	if (opts->python)
+		return;
+
 	pr_dbg3("checking binary %s\n", opts->exename);
 
 	if (access(opts->exename, X_OK) < 0) {
@@ -1905,6 +1916,14 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts,
 	/* wait for parent ready */
 	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
 		pr_err("waiting for parent failed");
+
+	if (opts->python) {
+		/* FIXME */
+		setenv("PYTHONPATH", PYTHON_DIR, 1);
+
+		execlp("python2", "python2", "-m", "uftrace", opts->exename, NULL);
+		abort();
+	}
 
 	/*
 	 * I don't think the traced binary is in PATH.
