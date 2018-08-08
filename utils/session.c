@@ -166,6 +166,7 @@ void create_session(struct uftrace_session_link *sessions,
 
 		load_module_symtabs(&s->symtabs);
 		load_debug_info(&s->symtabs);
+		load_python_symtab(&s->symtabs);
 	}
 
 	if (sessions->first == NULL)

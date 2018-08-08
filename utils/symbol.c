@@ -30,6 +30,9 @@
 
 static struct symtabs ksymtabs;
 
+static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
+				   uint64_t offset);
+
 struct sym sched_sym = {
 	.addr = EVENT_ID_PERF_SCHED_BOTH,
 	.size = 1,
@@ -751,6 +754,38 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 out:
 	elf_finish(&elf);
 	return ret;
+}
+
+void load_python_symtab(struct symtabs *symtabs)
+{
+	char *symfile = NULL;
+	struct uftrace_mmap *map;
+
+	/* try to load python symtab (if exists) */
+	xasprintf(&symfile, "%s/%s", symtabs->dirname, PYTHON_SYMTAB_NAME);
+	if (access(symfile, R_OK) < 0) {
+		free(symfile);
+		return;
+	}
+
+	/* add a fake map for python script */
+	map = xzalloc(sizeof(*map) + sizeof("<python>"));
+
+	map->start = 0;
+	map->end = 4096;
+	map->len = 8;
+
+	memcpy(map->prot, "rwxp", 4);
+	strcpy(map->libname, "<python>");
+
+	load_module_symbol_file(&map->symtab, symfile, 0);
+	setup_debug_info(symfile, &map->dinfo, 0, false);
+
+	/* add new map to symtabs */
+	map->next = symtabs->maps;
+	symtabs->maps = map;
+
+	free(symfile);
 }
 
 enum uftrace_trace_type check_trace_functions(const char *filename)
