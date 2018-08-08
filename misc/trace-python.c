@@ -1,9 +1,23 @@
 #include <python2.7/Python.h>
 
+#include "uftrace.h"
 #include "utils/symbol.h"
+#include "utils/rbtree.h"
 
 /* pointer to python tracing function */
 static PyObject *uftrace_func;
+
+/* RB tree of python_symbol to map function name to address */
+static struct rb_root name_tree = RB_ROOT;
+
+/* simple sequence number to be used as symbol address */
+static unsigned sym_num = 1;
+
+struct uftrace_python_symbol {
+	struct rb_node		node;
+	unsigned int		addr;
+	char			*name;
+};
 
 static void (*cygprof_enter)(unsigned long child, unsigned long parent);
 static void (*cygprof_exit) (unsigned long child, unsigned long parent);
@@ -94,6 +108,124 @@ PyMODINIT_FUNC inittrace_python(void)
 	find_libmcount_funcs();
 }
 
+static unsigned long find_function(struct rb_root *root, const char *name)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct uftrace_python_symbol *iter, *new;
+	int cmp;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_python_symbol, node);
+
+		cmp = strcmp(iter->name, name);
+		if (cmp == 0)
+			return iter->addr;
+
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	new = xmalloc(sizeof(*new));
+	new->name = xstrdup(name);
+	new->addr = sym_num++;
+
+	rb_link_node(&new->node, parent, p);
+	rb_insert_color(&new->node, root);
+
+	return new->addr;
+}
+
+/* resort symbol table by address */
+static void sort_address(struct rb_root *root, struct uftrace_python_symbol *entry)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct uftrace_python_symbol *iter;
+	int cmp;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_python_symbol, node);
+
+		cmp = iter->addr - entry->addr;
+		if (cmp > 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&entry->node, parent, p);
+	rb_insert_color(&entry->node, root);
+}
+
+static void write_symtab(const char *dirname)
+{
+	struct rb_node *node;
+	struct rb_root addr_tree = RB_ROOT;
+	struct uftrace_python_symbol *sym;
+	char *filename = NULL;
+	FILE *fp;
+
+	xasprintf(&filename, "%s/%s", dirname, PYTHON_SYMTAB_NAME);
+
+	fp = fopen(filename, "a");
+	if (fp == NULL) {
+		pr_warn("writing symbol table of python program failed: %m");
+		return;
+	}
+
+	/* symbol table assumes it's sorted by address */
+	while (!RB_EMPTY_ROOT(&name_tree)) {
+		node = rb_first(&name_tree);
+		rb_erase(node, &name_tree);
+
+		/* move it from name_tree to addr_tree */
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		sort_address(&addr_tree, sym);
+	}
+
+	while (!RB_EMPTY_ROOT(&addr_tree)) {
+		node = rb_first(&addr_tree);
+		rb_erase(node, &addr_tree);
+
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		fprintf(fp, "%x %c %s\n", sym->addr, 't', sym->name);
+
+		free(sym->name);
+		free(sym);
+	}
+
+	fprintf(fp, "%x %c %s\n", sym_num, 't', "__sym_end");
+	fclose(fp);
+}
+
+static unsigned long convert_function_addr(PyObject *frame)
+{
+	PyObject *code, *name;
+	char *str_name;
+	unsigned long addr = 0;
+
+	code = PyObject_GetAttrString(frame, "f_code");
+	if (code == NULL)
+		return 0;
+
+	name = PyObject_GetAttrString(code, "co_name");
+	if (name == NULL)
+		goto out;
+
+	str_name = PyString_AsString(name);
+	addr = find_function(&name_tree, str_name);
+
+out:
+	Py_XDECREF(code);
+	Py_XDECREF(name);
+	return addr;
+}
+
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 {
 	PyObject *frame, *args_tuple;
@@ -105,11 +237,26 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 	if (!strcmp(event, "line"))
 		Py_RETURN_NONE;
 
-	if (!strcmp(event, "call"))
-		cygprof_enter(1, 2);
+	if (!strcmp(event, "call")) {
+		unsigned long addr;
+
+		addr = convert_function_addr(frame);
+		cygprof_enter(addr, 0);
+	}
 	else if (!strcmp(event, "return"))
-		cygprof_exit(1, 2);
+		cygprof_exit(0, 0);
 
 	Py_INCREF(uftrace_func);
 	return uftrace_func;
+}
+
+static void __attribute__((destructor)) uftrace_trace_python_finish(void)
+{
+	const char *dirname;
+
+	dirname = getenv("UFTRACE_DIR");
+	if (dirname == NULL)
+		dirname = UFTRACE_DIR_NAME;
+
+	write_symtab(dirname);
 }
