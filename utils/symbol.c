@@ -30,6 +30,9 @@
 
 static struct symtabs ksymtabs;
 
+static int load_module_symbol(struct symtab *symtab, const char *symfile,
+			      uint64_t offset);
+
 static int addrsort(const void *a, const void *b)
 {
 	const struct sym *syma = a;
@@ -736,6 +739,37 @@ out:
 	return ret;
 }
 
+void load_python_symtab(struct symtabs *symtabs)
+{
+	char *symfile = NULL;
+	struct uftrace_mmap *map;
+
+	/* try to load python symtab (if exists) */
+	xasprintf(&symfile, "%s/%s", symtabs->dirname, PYTHON_SYMTAB_NAME);
+	if (access(symfile, R_OK) < 0) {
+		free(symfile);
+		return;
+	}
+
+	/* add a fake map for python script */
+	map = xzalloc(sizeof(*map) + sizeof("<python>"));
+
+	map->start = 0;
+	map->end = 4096;
+	map->len = 8;
+
+	memcpy(map->prot, "rwxp", 4);
+	strcpy(map->libname, "<python>");
+
+	load_module_symbol(&map->symtab, symfile, 0);
+
+	/* add new map to symtabs */
+	map->next = symtabs->maps;
+	symtabs->maps = map;
+
+	free(symfile);
+}
+
 enum uftrace_trace_type check_trace_functions(const char *filename)
 {
 	struct uftrace_elf_data elf;
@@ -886,9 +920,6 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 
 	symtabs->loaded = true;
 }
-
-static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      uint64_t offset);
 
 void load_module_symtabs(struct symtabs *symtabs)
 {
