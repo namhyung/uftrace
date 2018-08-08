@@ -138,6 +138,38 @@ for dep in $IGNORE; do
     fi
 done
 
+echo "uftrace detected system features:"
+
+print_feature()
+{
+    item=$1
+    file=$2
+    description=$3
+
+    if [ -t 1 ]; then
+        # use colored output only when stdout is tty
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="\033[32mon \033[0m"
+        else
+            onoff="\033[91mOFF\033[0m"
+        fi
+    else
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="on "
+        else
+            onoff="OFF"
+        fi
+    fi
+    printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
+}
+
+printf "...%15s: %s\n" "prefix" "${prefix}"
+print_feature "libelf" "have_libelf" "more flexible ELF data handling"
+print_feature "libdw" "have_libdw" "DWARF debug info support"
+print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
+print_feature "libncursesw" "have_libncurses" "TUI support"
+print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
+
 cat >$output <<EOF
 # this file is generated automatically
 override prefix := $prefix

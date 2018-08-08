@@ -246,7 +246,7 @@ $(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c 
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
-	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT)
+	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(srcdir)
 
 $(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
 	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
