@@ -128,6 +128,7 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			      unsigned long offset, unsigned long flags);
 int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
+void load_python_symtab(struct symtabs *symtabs);
 
 void load_module_symtabs(struct symtabs *symtabs);
 struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
