@@ -209,6 +209,12 @@ extern void setup_signal(void);
 	}								\
 })
 
+#define call_if_nonull(fptr, ...) 					\
+({									\
+	if (fptr != NULL)						\
+		fptr(__VA_ARGS__);					\
+})
+
 #define htonq(x)  htobe64(x)
 #define ntohq(x)  be64toh(x)
 
