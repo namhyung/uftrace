@@ -26,6 +26,8 @@
 # define STT_GNU_IFUNC  10
 #endif
 
+#define PYTHON_SYMTAB_NAME  "python-symtab.sym"
+
 enum symtype {
 	ST_UNKNOWN,
 	ST_LOCAL	= 't',
