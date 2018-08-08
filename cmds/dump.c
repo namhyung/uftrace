@@ -82,6 +82,10 @@ struct uftrace_flame_dump {
 	uint64_t sample_time;
 };
 
+struct uftrace_graphviz_dump {
+	struct uftrace_dump_ops ops;
+};
+
 static const char * rstack_type(struct uftrace_record *frs)
 {
 	return frs->type == UFTRACE_EXIT ? "exit " :
@@ -1111,6 +1115,89 @@ static void print_flame_footer(struct uftrace_dump_ops *ops,
 	graph_remove_task();
 }
 
+/* to graphviz support */
+static struct uftrace_graph graphviz_graph = {
+	.root.head     = LIST_HEAD_INIT(graphviz_graph.root.head),
+	.special_nodes = LIST_HEAD_INIT(graphviz_graph.special_nodes),
+};
+
+static void print_graphviz_header(struct uftrace_dump_ops *ops,
+				  struct ftrace_file_handle *handle,
+				  struct opts *opts)
+{
+	pr_out("# version\":\"uftrace %s\",\n", UFTRACE_VERSION);
+
+	if (handle->hdr.info_mask & (1UL << CMDLINE))
+		pr_out("# command_line \"%s\"\n", handle->info.cmdline);
+
+	pr_out("digraph \"");
+	pr_out("%s", (&handle->info)->exename);
+	pr_out("\" { \n");
+	pr_out("\n\t# Attributes \n");
+	pr_out("\tsplines=ortho;\n");
+	pr_out("\tconcentrate=true;\n");
+	pr_out("\tnode [shape=\"rect\",fontsize=\"7\",style=\"filled\"];\n");
+	pr_out("\tedge [fontsize=\"7\"];\n\n");
+
+	graph_init_callbacks(NULL, NULL, NULL, ops);
+}
+
+static void print_graphviz_task_rstack(struct uftrace_dump_ops *ops,
+				       struct ftrace_task_handle *task,
+				       char *name)
+{
+	struct uftrace_record *frs = task->rstack;
+	struct uftrace_task_graph *graph;
+
+	graph = graph_get_task(task, sizeof(*graph));
+
+	graph->graph = &graphviz_graph;
+	graphviz_graph.sess = find_task_session(&task->h->sessions,
+						task->tid, frs->time);
+
+	if (graph->node == NULL)
+		graph->node = &graphviz_graph.root;
+
+	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
+
+}
+
+static void print_graph_to_graphviz(struct uftrace_graph_node *node,
+				    struct opts *opts)
+{
+	struct uftrace_graph_node *child;
+	unsigned long n_calls = node->nr_calls;
+
+	if (n_calls) {
+		struct uftrace_graph_node *parent = node->parent;
+
+		pr_out("\t");
+		if (parent != NULL && parent->name != NULL) {
+			pr_out("%s->", parent->name);
+		}
+		pr_out("%s", node->name);
+
+		// Edge Attributes
+		pr_out("[xlabel = \"Calls : %lu\"]\n", n_calls);
+	}
+
+	list_for_each_entry(child, &node->head, list)
+		print_graph_to_graphviz(child, opts);
+}
+
+static void print_graphviz_footer(struct uftrace_dump_ops *ops,
+				  struct ftrace_file_handle *handle,
+				  struct opts *opts)
+{
+	pr_out("\t# Elements \n");
+	print_graph_to_graphviz(&graphviz_graph.root, opts);
+	pr_out("}\n");
+
+	graph_destroy(&graphviz_graph);
+	graph_remove_task();
+}
+
+
 static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			 struct ftrace_file_handle *handle)
 {
@@ -1432,6 +1519,17 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 			},
 			.tasks = RB_ROOT,
 			.sample_time = opts->sample_time,
+		};
+
+		do_dump_replay(&dump.ops, opts, &handle);
+	}
+	else if (opts->graphviz) {
+		struct uftrace_graphviz_dump dump = {
+			.ops = {
+				.header         = print_graphviz_header,
+				.task_rstack    = print_graphviz_task_rstack,
+				.footer         = print_graphviz_footer,
+			},
 		};
 
 		do_dump_replay(&dump.ops, opts, &handle);
