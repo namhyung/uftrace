@@ -19,7 +19,6 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
 	unsigned long fentry_addr = (unsigned long)__fentry__;
-	struct arch_dynamic_info *adi = mdi->arch;
 	size_t trampoline_size = 16;
 
 	/* find unused 16-byte at the end of the code segment */
@@ -72,7 +71,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	// In case of "gcc" which is not patched because of old version, 
 	// it may not create 5 byte nop.
 	unsigned char nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr;
+	unsigned char *insn = (unsigned char *)((uintptr_t)sym->addr);
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
