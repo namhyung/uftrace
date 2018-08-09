@@ -331,22 +331,29 @@ class TestBase:
 
         p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
-        timed_out = False
-        def timeout(sig, frame):
-            timed_out = True
+        class Timeout(Exception):
+            pass
+
+        def timeout_handler(sig, frame):
             try:
                 p.kill()
-            except:
-                pass
+            finally:
+                raise Timeout
 
         import signal
-        signal.signal(signal.SIGALRM, timeout)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(5)
+
+        timed_out = False
+        try:
+            result_origin = p.communicate()[0].decode(errors='ignore')
+        except Timeout:
+            result_origin = ''
+            timed_out = True
+        signal.alarm(0)
 
         result_expect = self.sort(self.result)
-        signal.alarm(5)
-        result_origin = p.communicate()[0].decode(errors='ignore')
         result_tested = self.sort(result_origin)  # for python3
-        signal.alarm(0)
 
         ret = p.wait()
         if ret < 0:
