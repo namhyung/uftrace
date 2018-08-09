@@ -175,13 +175,15 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char nop[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
+	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
+	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char *insn = (void *)sym->addr;
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop, sizeof(nop))) {
-		pr_dbg2("skip non-applicable functions: %s\n", sym->name);
+	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
+	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
+		pr_dbg("skip non-applicable functions: %s\n", sym->name);
 		return -2;
 	}
 

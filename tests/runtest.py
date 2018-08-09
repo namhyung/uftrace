@@ -323,7 +323,7 @@ class TestBase:
 
         return True
 
-    def run(self, name, cflags, diff):
+    def run(self, name, cflags, diff, timeout):
         ret = TestBase.TEST_SUCCESS
 
         test_cmd = self.runcmd()
@@ -331,22 +331,29 @@ class TestBase:
 
         p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
-        timed_out = False
-        def timeout(sig, frame):
-            timed_out = True
+        class Timeout(Exception):
+            pass
+
+        def timeout_handler(sig, frame):
             try:
                 p.kill()
-            except:
-                pass
+            finally:
+                raise Timeout
 
         import signal
-        signal.signal(signal.SIGALRM, timeout)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(5)
+
+        timed_out = False
+        try:
+            result_origin = p.communicate()[0].decode(errors='ignore')
+        except Timeout:
+            result_origin = ''
+            timed_out = True
+        signal.alarm(0)
 
         result_expect = self.sort(self.result)
-        signal.alarm(5)
-        result_origin = p.communicate()[0].decode(errors='ignore')
         result_tested = self.sort(result_origin)  # for python3
-        signal.alarm(0)
 
         ret = p.wait()
         if ret < 0:
@@ -432,14 +439,14 @@ result_string = {
     TestBase.TEST_SUCCESS_FIXED:  'Test succeeded (with some fixup)',
 }
 
-def run_single_case(case, flags, opts, diff, dbg):
+def run_single_case(case, flags, opts, arg):
     result = []
 
     # for python3
     _locals = {}
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
-    tc.set_debug(dbg)
+    tc.set_debug(arg.debug)
 
     for flag in flags:
         for opt in opts:
@@ -448,7 +455,7 @@ def run_single_case(case, flags, opts, diff, dbg):
             if ret == TestBase.TEST_SUCCESS:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:
-                    ret = tc.run(case, cflags, diff)
+                    ret = tc.run(case, cflags, arg.diff, arg.timeout)
                     ret = tc.post(ret)
             result.append(ret)
 
@@ -486,6 +493,8 @@ def parse_argument():
                         help="show internal command and result for debugging")
     parser.add_argument("-n", "--no-color", dest='color', action='store_false',
                         help="suppress color in the output")
+    parser.add_argument("-t", "--timeout", dest='timeout', default=5,
+                        help="fail test if it runs more than TIMEOUT seconds")
 
     return parser.parse_args()
 
@@ -542,7 +551,7 @@ if __name__ == "__main__":
 
     for tc in sorted(testcases):
         name = tc[:-3]  # remove '.py'
-        result = run_single_case(name, flags, opts.split(), arg.diff, arg.debug)
+        result = run_single_case(name, flags, opts.split(), arg)
         print_test_result(name, result, arg.color)
         for r in result:
             stats[r] += 1
