@@ -93,11 +93,9 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 
 #ifdef HAVE_PERF_CTXSW
 # define PERF_CTXSW_AVAILABLE  1
-# define INIT_CTXSW_ATTR(enable)	.context_switch = enable,
 
 #else  /* !HAVE_PERF_CTXSW */
 # define PERF_CTXSW_AVAILABLE  0
-# define INIT_CTXSW_ATTR(enable)
 
 # define PERF_RECORD_SWITCH           14
 # define PERF_RECORD_MISC_SWITCH_OUT  (1 << 13)

@@ -342,8 +342,8 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* provide automatic argument/return value spec */
 	features |= AUTO_ARGS;
 
-	/* task/comm events are always enabled */
-	features |= PERF_EVENT;
+	if (has_perf_event)
+		features |= PERF_EVENT;
 
 	if (opts->libcall)
 		features |= PLTHOOK;
@@ -1513,37 +1513,6 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_schedule_event(char *events,
-				       enum uftrace_pattern_type ptype)
-{
-	struct strv strv = STRV_INIT;
-	char *evt;
-	bool found = false;
-	int i;
-
-	if (events == NULL)
-		return false;
-
-	strv_split(&strv, events, ";");
-
-	strv_for_each(&strv, evt, i) {
-		struct uftrace_pattern patt;
-
-		init_filter_pattern(ptype, &patt, evt);
-
-		if (match_filter_pattern(&patt, "linux:schedule"))
-			found = true;
-
-		free_filter_pattern(&patt);
-
-		if (found)
-			break;
-	}
-
-	strv_free(&strv);
-	return found;
-}
-
 struct writer_data {
 	int				pid;
 	int				pipefd;
@@ -1631,8 +1600,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else if (opts->nr_thread > wd->nr_cpu)
 		opts->nr_thread = wd->nr_cpu;
 
-	if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
-			      opts->dirname, has_perf_event) < 0)
+	if (setup_perf_record(perf, wd->nr_cpu, wd->pid, opts->dirname, true) < 0)
 		has_perf_event = false;
 	else
 		has_perf_event = true;  /* for task/comm events */
@@ -1931,9 +1899,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		parse_script_opt(opts);
 
 	check_binary(opts);
-
-	has_perf_event = check_linux_schedule_event(opts->event,
-						    opts->patt_type);
 
 	fflush(stdout);
 

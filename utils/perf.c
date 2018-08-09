@@ -40,7 +40,9 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
 		.comm			= 1,
 		.use_clockid		= 1,
 		.clockid		= CLOCK_MONOTONIC,
-		INIT_CTXSW_ATTR(use_ctxsw)
+#ifdef HAVE_PERF_CTXSW
+		.context_switch		= 1,
+#endif
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
 
@@ -77,7 +79,7 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 
 	if (!PERF_CTXSW_AVAILABLE && use_ctxsw) {
 		/* Operation not supported */
-		pr_warn("linux:schedule event is not supported for this kernel\n");
+		pr_dbg("linux:schedule event is not supported for this kernel\n");
 		use_ctxsw = 0;
 	}
 
@@ -86,11 +88,7 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 		if (fd < 0) {
 			int saved_errno = errno;
 
-
-			if (use_ctxsw)
-				pr_warn("skipping perf event due to error: %m\n");
-			else
-				pr_dbg("skipping perf event due to error: %m\n");
+			pr_dbg("skipping perf event due to error: %m\n");
 
 			if (saved_errno == EACCES)
 				pr_dbg("please check %s\n", PERF_PARANOID_CHECK);
