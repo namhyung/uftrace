@@ -202,8 +202,11 @@ class TestBase:
             # A report line consists of following data
             # [0]         [1]   [2]        [3]   [4]     [5]
             # total_time  unit  self_time  unit  called  function
-            if line[5].startswith('__'):
-                continue
+            try:
+                if line[5].startswith('__'):
+                    continue
+            except:
+                pass
             result.append('%s %s' % (line[4], line[5]))
 
         return '\n'.join(result)
