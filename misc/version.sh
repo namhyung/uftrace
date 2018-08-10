@@ -42,7 +42,7 @@ if [ "x${DEPS}" != "x" ]; then
     DEPS=" (${DEPS} )"
 fi
 
-if test -z "${FILE_VERSION}" -o "${CURR_VERSION}" != "${FILE_VERSION}"; then
+if test -z "${FILE_VERSION}" -o "${CURR_VERSION}${DEPS}" != "${FILE_VERSION}"; then
     # update file version only if it's different
     echo "#define UFTRACE_VERSION  \"${CURR_VERSION}${DEPS}\"" > ${VERSION_FILE}
     echo "  GEN     " ${VERSION_FILE#${objdir}/}
