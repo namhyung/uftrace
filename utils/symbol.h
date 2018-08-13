@@ -102,6 +102,8 @@ static inline uint64_t get_real_address(uint64_t addr)
 
 uint64_t get_kernel_base(char *str);
 
+extern struct sym sched_sym;
+
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_sym(struct symtab *symtab, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);

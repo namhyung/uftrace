@@ -924,7 +924,7 @@ lost:
 			/* consume the matching sched-in record */
 			fstack_consume(handle, next);
 
-			rec.addr = EVENT_ID_PERF_SCHED_BOTH;
+			rec.addr = sched_sym.addr;
 			evt_id = EVENT_ID_PERF_SCHED_IN;
 		}
 

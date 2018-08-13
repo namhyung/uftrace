@@ -30,6 +30,13 @@
 
 static struct symtabs ksymtabs;
 
+struct sym sched_sym = {
+	.addr = EVENT_ID_PERF_SCHED_BOTH,
+	.size = 1,
+	.type = ST_LOCAL,
+	.name = "linux:schedule",
+};
+
 static int addrsort(const void *a, const void *b)
 {
 	const struct sym *syma = a;
