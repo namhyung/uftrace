@@ -16,7 +16,7 @@
 /*
  *  ELF File Header validation logic.
  */
-int elf_validation(struct uftrace_elf_data *elf)
+int elf_validate(struct uftrace_elf_data *elf)
 {
 	Elf_Ehdr *ehdr;
 	int eclass, data, version;
@@ -36,15 +36,13 @@ int elf_validation(struct uftrace_elf_data *elf)
 	data = (int) ehdr->e_ident[EI_DATA];
 	version = (int) ehdr->e_ident[EI_VERSION];
 
-	if (!(eclass > ELFCLASSNONE && eclass < ELFCLASSNUM)
-		|| eclass != get_elf_class()) {
-		pr_dbg2("Invalid eclass : [%d]\n", eclass);
+	if (eclass != get_elf_class()) {
+		pr_dbg2("Unsupported eclass : [%d]\n", eclass);
 		return -1;
 	}
 
-	if (!(data > ELFDATANONE && data < ELFDATANUM)
-		|| data != get_elf_endian()) {
-		pr_dbg2("Invalid endian : [%d]\n", data);
+	if (data != get_elf_endian()) {
+		pr_dbg2("Unsupported endian : [%d]\n", data);
 		return -1;
 	}
 
@@ -55,7 +53,7 @@ int elf_validation(struct uftrace_elf_data *elf)
 
 	if (ehdr->e_phnum == 0 || ehdr->e_phentsize == 0) {
 		pr_dbg2("Invalid Program header. Num:[%d] Size:[%d]\n",
-				ehdr->e_phnum, ehdr->e_phentsize);
+			ehdr->e_phnum, ehdr->e_phentsize);
 		return -1;
 	}
 
@@ -69,22 +67,15 @@ int elf_validation(struct uftrace_elf_data *elf)
 	offset = ehdr->e_phoff + ehdr->e_phnum * ehdr->e_phentsize;
 
 	if (offset > size) {
-		pr_dbg2("Invalid Program Header offset."\
-				"offset:[%lu], size:[%lu]\n"\
-				,offset, size);
+		pr_dbg2("Invalid Program Header offset:[%lu], size:[%lu]\n",
+			offset, size);
 		return -1;
 	}
 
-	// validate sectio header offset.
+	// section header is optional.
 	offset = ehdr->e_shoff + ehdr->e_shnum * ehdr->e_shentsize;
 
-	if (offset > size) {
-		pr_dbg2("Invalid Program Header offset."\
-				"offset:[%lu], size:[%lu]\n"\
-				,offset, size);
-		elf->has_shdr = false;
-	}
-	else
+	if (offset <= size)
 		elf->has_shdr = true;
 
 	return 0;
@@ -110,10 +101,13 @@ int elf_init(const char *filename, struct uftrace_elf_data *elf)
 
 	memcpy(&elf->ehdr, elf->file_map, sizeof(elf->ehdr));
 
-	if (elf_validation(elf) < 0)
-		goto err;
+	if (elf_validate(elf) < 0)
+		goto err_unmap;
 
 	return 0;
+
+err_unmap:
+	munmap(elf->file_map, elf->file_size);
 
 err_close:
 	close(elf->fd);
@@ -162,48 +156,33 @@ void elf_read_secdata(struct uftrace_elf_data *elf,
 
 #ifdef UNIT_TEST
 
-static int get_self(struct uftrace_elf_data *elf)
-{
-	char path[PATH_MAX];
-	const char *link = "/proc/self/exe";
-
-	if (readlink(link, path, PATH_MAX-1) < 0)
-		return -1;
-
-	if (elf_init(path, elf) < 0)
-		return -1;
-
-	return 0;
-}
-
-TEST_CASE(elf_test)
+TEST_CASE(rawelf_validate)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
 	Elf_Ehdr *ehdr;
 	unsigned int count;
 
-	if (get_self(&elf) < 0)
-		return TEST_BAD;
+	/* elf_init() calls elf_validate() internally */
+	if (elf_init("/proc/self/exe", &elf) < 0)
+		return TEST_NG;
 
 	ehdr = &elf.ehdr;
 
 	count = 0;
-	elf_for_each_phdr(&elf, &iter) {
+	elf_for_each_phdr(&elf, &iter)
 		count++;
-	}
-
 	TEST_EQ(ehdr->e_phnum, count);
 
 	count = 0;
-	elf_for_each_shdr(&elf, &iter) {
+	elf_for_each_shdr(&elf, &iter)
 		count++;
-	}
 	TEST_EQ(ehdr->e_shnum, count);
 
-	TEST_EQ(elf_validation(&elf), 0);
+	elf_finish(&elf);
 	return TEST_OK;
 }
 
-#endif /* UNIT_TEST */
+#endif  /* UNIT_TEST */
+
 #endif  /* HAVE_LIBELF */
