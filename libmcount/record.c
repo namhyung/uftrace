@@ -1019,6 +1019,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	char buf[PATH_MAX];
 	struct uftrace_mmap *prev_map = NULL;
 	char *last_libname = NULL;
+	bool last_prot_x = false;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -1051,15 +1052,32 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0) {
 				symtabs->kernel_base = get_kernel_base(buf);
+				last_prot_x = true;
 				goto next;
 			}
 			else
 				continue;
 		}
 
-		/* use first mapping only (even if it's non-exec) */
-		if (last_libname && !strcmp(last_libname, path))
+		/*
+		 * use first mapping only to calculate the offset correctly.
+		 * but if the first mapping is not executable, extends it
+		 * to span to the executable (probably the second) mapping.
+		 */
+		if (last_libname && !strcmp(last_libname, path)) {
+			if (!last_prot_x && (prot[2] == 'x')) {
+				prev_map->end = end;
+				last_prot_x = true;
+
+				snprintf(buf, sizeof(buf), "%lx-%lx %s",
+					 prev_map->start, prev_map->end,
+					 strchr(buf, ' ') + 1);
+				goto next;
+			}
 			continue;
+		}
+
+		last_prot_x = (prot[2] == 'x');
 
 		/* still need to write the map for executable */
 		if (!strcmp(path, symtabs->filename))
@@ -1086,7 +1104,9 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map->next = NULL;
 		prev_map = map;
 next:
-		fprintf(ofp, "%s", buf);
+		/* defer write until it finds an exec-map */
+		if (last_prot_x)
+			fprintf(ofp, "%s", buf);
 	}
 
 	fclose(ifp);

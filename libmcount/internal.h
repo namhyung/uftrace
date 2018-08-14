@@ -332,8 +332,9 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 struct mcount_dynamic_info {
 	struct mcount_dynamic_info *next;
 	char *mod_name;
-	unsigned long addr;
-	unsigned long size;
+	unsigned long base_addr;
+	unsigned long text_addr;
+	unsigned long text_size;
 	unsigned long trampoline;
 	void *arch;
 };

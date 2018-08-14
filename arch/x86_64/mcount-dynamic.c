@@ -43,11 +43,12 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		trampoline_size *= 2;
 
 	/* find unused 16-byte at the end of the code segment */
-	mdi->trampoline = ALIGN(mdi->addr + mdi->size, PAGE_SIZE) - trampoline_size;
+	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
+	mdi->trampoline -= trampoline_size;
 
-	if (unlikely(mdi->trampoline < mdi->addr + mdi->size)) {
+	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
 		mdi->trampoline += trampoline_size;
-		mdi->size += PAGE_SIZE;
+		mdi->text_size  += PAGE_SIZE;
 
 		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
 			mdi->trampoline);
@@ -56,7 +57,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	}
 
-	if (mprotect((void *)mdi->addr, mdi->size, PROT_READ | PROT_WRITE)) {
+	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
 	}
@@ -83,7 +84,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	if (mprotect((void *)mdi->addr, mdi->size, PROT_EXEC))
+	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_EXEC))
 		pr_err("cannot restore trampoline due to protection");
 }
 
@@ -146,8 +147,8 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi)
 			for (i = 0; i < adi->xrmap_count; i++) {
 				xrmap = &adi->xrmap[i];
 
-				xrmap->addr  += mdi->addr;
-				xrmap->entry += mdi->addr;
+				xrmap->addr  += mdi->base_addr;
+				xrmap->entry += mdi->base_addr;
 			}
 		}
 
@@ -165,7 +166,7 @@ out:
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
 	while (mdi) {
-		if (mdi->addr <= addr && addr < mdi->addr + mdi->size)
+		if (mdi->text_addr <= addr && addr < mdi->text_addr + mdi->text_size)
 			return mdi->trampoline - (addr + CALL_INSN_SIZE);
 
 		mdi = mdi->next;
@@ -261,7 +262,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 static int update_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	unsigned i;
-	int ret = 0;
+	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
 
