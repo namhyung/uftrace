@@ -18,7 +18,11 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		n = atoi(argv[1]);
 
-	handle = dlopen("libbaz.so", RTLD_LAZY);
+	handle = dlopen("./libbaz.so", RTLD_LAZY);
+
+	if (!handle)
+		return -1;
+
 	creat = (Parent* (*)())dlsym(handle, "creat");
 	p = creat();
 	p->bar(n);
