@@ -44,24 +44,34 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	const char *name = info->dlpi_name;
 	struct mcount_dynamic_info *mdi;
+	bool base_addr_set = false;
 	unsigned i;
 
 	if ((data == NULL && name[0] == '\0') || strstr(name, data)) {
 		mdi = xmalloc(sizeof(*mdi));
 		mdi->mod_name = xstrdup(name);
+		mdi->base_addr = 0;
 
 		for (i = 0; i < info->dlpi_phnum; i++) {
 			if (info->dlpi_phdr[i].p_type != PT_LOAD)
 				continue;
 
+			if (!base_addr_set) {
+				mdi->base_addr = info->dlpi_phdr[i].p_vaddr;
+				base_addr_set = true;
+			}
+
 			if (!(info->dlpi_phdr[i].p_flags & PF_X))
 				continue;
 
 			/* find address and size of code segment */
-			mdi->addr = info->dlpi_phdr[i].p_vaddr + info->dlpi_addr;
-			mdi->size = info->dlpi_phdr[i].p_memsz;
+			mdi->text_addr = info->dlpi_phdr[i].p_vaddr;
+			mdi->text_size = info->dlpi_phdr[i].p_memsz;
 			break;
 		}
+		mdi->base_addr += info->dlpi_addr;
+		mdi->text_addr += info->dlpi_addr;
+
 		mdi->next = mdinfo;
 		mdinfo = mdi;
 
