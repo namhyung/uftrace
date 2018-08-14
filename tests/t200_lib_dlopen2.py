@@ -28,3 +28,6 @@ class TestCase(TestBase):
             return TestBase.TEST_BUILD_FAIL
         return TestBase.build_libmain(self, name, 's-dlopen2.cpp', ['libdl.so'],
                                       cflags, ldflags)
+
+    def runcmd(self):
+        return 'LD_LIBRARY_PATH=. %s -F a %s' % (TestBase.uftrace_cmd, 't-dlopen2')
