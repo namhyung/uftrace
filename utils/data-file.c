@@ -192,6 +192,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 		}
 	}
 
+	free(line);
 	fclose(fp);
 	free(fname);
 	return 0;
@@ -245,6 +246,7 @@ int read_events_file(struct ftrace_file_handle *handle)
 		}
 	}
 
+	free(line);
 	fclose(fp);
 	free(fname);
 	return 0;

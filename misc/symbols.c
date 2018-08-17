@@ -159,6 +159,7 @@ static int read_session(struct uftrace_session_link *link, char *dirname)
 	if (count > 1)
 		needs_session = true;
 
+	free(line);
 	fclose(fp);
 	free(fname);
 	return 0;

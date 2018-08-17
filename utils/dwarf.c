@@ -1368,6 +1368,7 @@ out:
 		free_debug_entry(&dinfo->rets);
 	}
 
+	free(line);
 	fclose(fp);
 	free(pathname);
 	free(func);
