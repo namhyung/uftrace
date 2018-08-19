@@ -186,7 +186,7 @@ The `dump` command shows raw output of each trace record.  You can see the resul
 in the chrome browser, once the data is processed with `uftrace dump --chrome`.
 Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
 
-![uftrace-chrome-dump](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-chrome.png)
+![uftrace-chrome-dump](doc/uftrace-chrome.png)
 
 The `info` command shows system and program information when recorded.
 
@@ -240,7 +240,7 @@ installed like following:
     $ sudo make install
 
 For more advanced setup, please refer
-[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md) file.
+[INSTALL.md](INSTALL.md) file.
 
 
 Limitations
