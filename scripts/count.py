@@ -1,6 +1,6 @@
 count = 0
 
-def uftrace_begin():
+def uftrace_begin(args):
     pass
 
 def uftrace_entry(args):

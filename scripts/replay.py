@@ -1,4 +1,4 @@
-def uftrace_begin():
+def uftrace_begin(ctx):
     print("# DURATION     TID     FUNCTION")
 
 def uftrace_entry(ctx):

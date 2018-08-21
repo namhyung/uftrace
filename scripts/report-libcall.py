@@ -8,7 +8,7 @@ import os
 
 libcall_map = {}
 
-def uftrace_begin():
+def uftrace_begin(ctx):
     pass
 
 def uftrace_entry(ctx):
