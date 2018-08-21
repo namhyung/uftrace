@@ -121,7 +121,7 @@ MAKEOVERRIDES=
 export CC CFLAGS LD LDFLAGS
 
 make -siC ${srcdir}/check-deps check-clean
-make -siC ${srcdir}/check-deps check-build
+make -siC ${srcdir}/check-deps check-build || exit 1
 
 for dep in $IGNORE; do
     TARGET=
