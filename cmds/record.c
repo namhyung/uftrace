@@ -1362,10 +1362,9 @@ static void save_session_symbols(struct opts *opts)
 			.dirname  = opts->dirname,
 			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
-		char sid[20] = { 0, };
+		char sid[20];
 
-		if (sid[0] == '\0')
-			sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
+		sscanf(map_list[i]->d_name, "sid-%[^.].map", sid);
 		free(map_list[i]);
 
 		pr_dbg2("reading symbols for session %s\n", sid);
