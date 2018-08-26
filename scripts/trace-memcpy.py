@@ -12,7 +12,7 @@ UFTRACE_FUNC = [ "memcpy" ]
 count = 0
 total_bytes = 0
 
-def uftrace_begin():
+def uftrace_begin(ctx):
     pass
 
 def uftrace_entry(ctx):

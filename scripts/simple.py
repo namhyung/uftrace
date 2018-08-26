@@ -1,4 +1,4 @@
-def uftrace_begin():
+def uftrace_begin(ctx):
     print("program begins...")
 
 def uftrace_entry(ctx):

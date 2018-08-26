@@ -57,7 +57,7 @@ The uftrace tool supports script execution for each function entry and exit.  Th
 The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are executed whenever each function is executed at the entry and exit.  However 'uftrace_begin' and 'uftrace_end' are only executed once when the target program begins and ends.
 
     $ cat scripts/simple.py
-    def uftrace_begin():
+    def uftrace_begin(ctx):
         print("program begins...")
 
     def uftrace_entry(ctx):
