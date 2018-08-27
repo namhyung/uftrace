@@ -5706,7 +5706,7 @@ int pevent_register_print_function(struct pevent *pevent,
  *
  * This function removes existing print handler for function @name.
  *
- * Returns 0 if the handler was removed successully, -1 otherwise.
+ * Returns 0 if the handler was removed successfully, -1 otherwise.
  */
 int pevent_unregister_print_function(struct pevent *pevent,
 				     pevent_func_handler func, char *name)

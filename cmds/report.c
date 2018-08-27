@@ -556,7 +556,7 @@ static int cmp_diff_entry(struct trace_entry *a, struct trace_entry *b,
 		entry_b = b;
 		break;
 	default:
-		/* this should not happend */
+		/* this should not happen */
 		assert(0);
 		break;
 	}

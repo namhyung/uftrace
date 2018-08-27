@@ -108,7 +108,7 @@ OPTIONS
 :   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.
 
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
 --match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.  Default is `regex`.
