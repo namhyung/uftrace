@@ -133,7 +133,7 @@ OPTIONS
 :   Retain same pid for traced program.  For some daemon processes, it is important to have same pid when forked.  Running under uftrace normally changes pid as it calls fork() again internally.  Note that it might corrupt terminal setting so it'd be better using it with `--no-pager` option.
 
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
 \--event-full
 :   Show all (user) events outside of user functions.

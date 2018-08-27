@@ -41,7 +41,7 @@ OPTIONS
 :   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
 
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Add a script to do addtional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
+:   Add a script to do additional work at the entry and exit of function.  The type of script is detected by the postfix such as '.py' for python.
 
 \--record COMMAND [*command-options*]
 :   Record a new trace before running a given script.

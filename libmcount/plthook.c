@@ -715,7 +715,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	unsigned long special_flag = 0;
 	unsigned long real_addr = 0;
 
-	// if neccesary, implement it by architecture.
+	// if necessary, implement it by architecture.
 	child_idx = mcount_arch_child_idx(child_idx);
 	list_for_each_entry(pd, &plthook_modules, list) {
 		if (module_id == pd->module_id)
