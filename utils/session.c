@@ -591,6 +591,8 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
 
 	if (sess == NULL)
 		sess = find_task_session(sessions, task->t->pid, rec->time);
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->ppid, rec->time);
 
 	if (sess == NULL && is_kernel_record(task, rec))
 		sess = sessions->first;
@@ -627,6 +629,8 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 
 	if (sess == NULL)
 		sess = find_task_session(sessions, task->t->pid, time);
+	if (sess == NULL)
+		sess = find_task_session(sessions, task->t->ppid, time);
 
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
