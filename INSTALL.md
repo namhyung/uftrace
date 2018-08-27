@@ -27,6 +27,11 @@ DEPENDENCY
 Now uftrace can be built without any external libraries.  But in order to use
 more advanced features, it'd be better to install them like below.
 
+Firstly, please make sure `pkg-config` is installed in the system to properly
+detect the dependencies of uftrace.  Otherwise, some packages may not be
+detected even if they are already installed and it disables some features of
+uftrace.
+
 Historically uftrace depended on the `libelf` from elfutils project for ELF
 file manipulation.  While it's not mandatory anymore, we recommend you to
 install it for better handling of ELF binaries.  Also `libdw` library is
