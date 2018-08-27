@@ -1298,13 +1298,12 @@ static void save_module_symbol(struct symtab *stab, const char *symfile,
 		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
 			(char) sym->type, sym->name);
 	}
-	if (i > 0) {
-		struct sym *prev = &stab->sym[i - 1];
+	
+	struct sym *last = &stab->sym[stab->nr_sym - 1];
 
-		fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
-			prev->addr + prev->size - offset,
-			(char) prev->type, prev_was_plt ? "dyn" : "");
-	}
+	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
+		last->addr + last->size - offset,
+		(char) last->type, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 }
