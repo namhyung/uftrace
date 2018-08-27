@@ -29,9 +29,14 @@ CFLAGS_cc_has_wstringop_truncation = -Wno-stringop-truncation
 CFLAGS_have_libdw  = $(shell pkg-config --cflags libdw 2> /dev/null)
 LDFLAGS_have_libdw = $(shell pkg-config --libs   libdw 2> /dev/null || echo "-ldw")
 
+HAVE_pkg-config := $(shell command -v pkg-config 2> /dev/null)
+
 check-build: check-tstamp $(CHECK_LIST)
 
 $(CHECK_LIST): %: __%.c
+ifndef HAVE_pkg-config
+	$(error "pkg-config is not available. please install pkg-config")
+endif
 	@$(CC) $(CHECK_CFLAGS) -o $@ $< $(CHECK_LDFLAGS) > /dev/null 2>&1
 
 check-tstamp: PHONY
