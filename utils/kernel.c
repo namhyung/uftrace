@@ -276,7 +276,13 @@ static void add_pattern_filter(struct list_head *head,
 		pr_err("failed to open 'tracing/available_filter_functions' file");
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		/* it's ok to have a trailing '\n' */
+		/* remove module name part */
+		char *pos = strchr(buf, '[');
+
+		if (pos)
+			*pos = '\0';
+
+		/* it's ok to have a trailing '\n' or '\t' */
 		if (match_filter_pattern(patt, buf))
 			add_single_filter(head, buf);
 	}
