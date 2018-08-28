@@ -59,12 +59,10 @@ static void put_tracing_file(char *file)
 	free(file);
 }
 
-static int __write_tracing_file(const char *name, const char *val, bool append,
-				bool correct_sys_prefix)
+static int open_tracing_file(const char *name, bool append)
 {
 	char *file;
-	int fd, ret = -1;
-	ssize_t size = strlen(val);
+	int fd;
 	int flags = O_WRONLY;
 
 	file = get_tracing_file(name);
@@ -79,10 +77,18 @@ static int __write_tracing_file(const char *name, const char *val, bool append,
 		flags |= O_TRUNC;
 
 	fd = open(file, flags);
-	if (fd < 0) {
+	if (fd < 0)
 		pr_dbg("cannot open tracing file: %s: %m\n", name);
-		goto out;
-	}
+
+	put_tracing_file(file);
+	return fd;
+}
+
+static int __write_tracing_file(int fd, const char *name, const char *val,
+				bool append, bool correct_sys_prefix)
+{
+	int ret = -1;
+	ssize_t size = strlen(val);
 
 	if (correct_sys_prefix) {
 		char *newval = (char *)val;
@@ -123,20 +129,35 @@ static int __write_tracing_file(const char *name, const char *val, bool append,
 	if (ret < 0)
 		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
 
-	close(fd);
-out:
-	put_tracing_file(file);
 	return ret;
 }
 
 static int write_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, false, false);
+	int ret;
+	int fd = open_tracing_file(name, false);
+
+	if (fd < 0)
+		return -1;
+
+	ret = __write_tracing_file(fd, name, val, false, false);
+
+	close(fd);
+	return ret;
 }
 
 static int append_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, true, false);
+	int ret;
+	int fd = open_tracing_file(name, true);
+
+	if (fd < 0)
+		return -1;
+
+	ret = __write_tracing_file(fd, name, val, true, false);
+
+	close(fd);
+	return ret;
 }
 
 static int set_tracing_pid(int pid)
@@ -162,49 +183,47 @@ struct kfilter {
 	char name[];
 };
 
+static int set_filter_file(const char *filter_file, struct list_head *filters)
+{
+	struct kfilter *pos, *tmp;
+	int ret = -1;
+	int fd;
+
+	fd = open_tracing_file(filter_file, true);
+	if (fd < 0)
+		return -1;
+
+	list_for_each_entry_safe(pos, tmp, filters, list) {
+		if (__write_tracing_file(fd, filter_file, pos->name,
+					 true, true) < 0)
+			goto out;
+
+		list_del(&pos->list);
+		free(pos);
+
+		/* separate filters by space */
+		write(fd, " ", 1);
+	}
+	ret = 0;
+
+out:
+	close(fd);
+	return ret;
+}
+
 static int set_tracing_filter(struct uftrace_kernel_writer *kernel)
 {
-	const char *filter_file;
-	struct kfilter *pos, *tmp;
+	if (set_filter_file("set_graph_function", &kernel->filters) < 0)
+		return -1;
 
-	filter_file = "set_graph_function";
-	list_for_each_entry_safe(pos, tmp, &kernel->filters, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
+	/* ignore error on old kernel */
+	set_filter_file("set_graph_notrace", &kernel->notrace);
 
-		list_del(&pos->list);
-		free(pos);
-	}
+	if (set_filter_file("set_ftrace_filter", &kernel->patches) < 0)
+		return -1;
 
-	filter_file = "set_graph_notrace";
-	list_for_each_entry_safe(pos, tmp, &kernel->notrace, list) {
-		/* ignore error on old kernel */
-		__write_tracing_file(filter_file, pos->name, true, true);
-
-		list_del(&pos->list);
-		free(pos);
-	}
-
-	filter_file = "set_ftrace_filter";
-	list_for_each_entry_safe(pos, tmp, &kernel->patches, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
-
-		list_del(&pos->list);
-		free(pos);
-	}
-
-	filter_file = "set_ftrace_notrace";
-	list_for_each_entry_safe(pos, tmp, &kernel->nopatch, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
-
-		list_del(&pos->list);
-		free(pos);
-	}
+	if (set_filter_file("set_ftrace_notrace", &kernel->nopatch) < 0)
+		return -1;
 
 	return 0;
 }
@@ -278,11 +297,16 @@ static void add_pattern_filter(struct list_head *head,
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		/* remove module name part */
 		char *pos = strchr(buf, '[');
+		size_t len;
 
 		if (pos)
 			*pos = '\0';
 
-		/* it's ok to have a trailing '\n' or '\t' */
+		/* remove trailing whitespace */
+		len = strlen(buf);
+		if (isspace(buf[len - 1]))
+			buf[len - 1] = '\0';
+
 		if (match_filter_pattern(patt, buf))
 			add_single_filter(head, buf);
 	}
