@@ -2,7 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-import os
+import os, re
 
 TDIR='xxx'
 
@@ -10,6 +10,8 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'getids', """
 {"traceEvents":[
+{"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":"{'name': 't-getids'}"},
+{"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":"{'name': 't-getids'}"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"main"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},
@@ -67,9 +69,22 @@ class TestCase(TestBase):
         return ret
 
     def fixup(self, cflags, result):
-        return result.replace("""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
-{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""",
-"""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+        result = result.replace("""\
+{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
+""",
+"""\
+{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"sys_getpid"},
 {"ts":14510734172,"ph":"E","pid":32687,"name":"sys_getpid"},
-{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""")
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
+""")
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            result = re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+
+        return result

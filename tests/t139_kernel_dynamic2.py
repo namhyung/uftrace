@@ -26,4 +26,15 @@ class TestCase(TestBase):
     # check syscall name would corrected (for SyS_ prefix)
     def runcmd(self):
         return '%s -k -P %s %s openclose' % \
-            (TestBase.uftrace_cmd, 'sys_open@kernel', 't-' + self.name)
+            (TestBase.uftrace_cmd, '_*sys_open@kernel', 't-' + self.name)
+
+    def fixup(self, cflags, result):
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            return result.replace('sys_open', '__x64_sys_openat')
+        else:
+            return result.replace('sys_open', 'sys_openat')

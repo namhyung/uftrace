@@ -2,7 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-import os
+import os, re
 
 TDIR='xxx'
 
@@ -34,8 +34,13 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -N %s@kernel -N %s@kernel -d %s %s' % \
-                     (TestBase.uftrace_cmd, '*page_fault', 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+        uftrace = TestBase.uftrace_cmd
+        program = 't-' + self.name
+
+        argument  = '-k --match glob -d %s' % TDIR
+        argument += ' -N *page_fault@kernel'
+
+        record_cmd = '%s record %s %s' % (uftrace, argument, program)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
@@ -59,10 +64,22 @@ class TestCase(TestBase):
 
     def fixup(self, cflags, result):
         result = result.replace("            [ 1661] |   fork() {",
-"""            [ 1661] |   fork() {
+"""\
+            [ 1661] |   fork() {
    5.135 us [ 1661] |     sys_getpid();""")
 
-        return result.replace("   4.234 us [ 1661] |         getpid();",
-"""            [ 1661] |         getpid() {
+        result = result.replace("   4.234 us [ 1661] |         getpid();",
+"""\
+            [ 1661] |         getpid() {
    3.328 us [ 1661] |           sys_getpid();
    4.234 us [ 1661] |         } /* getpid */""")
+
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            result = re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+
+        return result

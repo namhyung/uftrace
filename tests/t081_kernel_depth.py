@@ -29,11 +29,40 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            self.result = """
+# DURATION    TID     FUNCTION
+   1.540 us [27711] | __monstartup();
+   1.089 us [27711] | __cxa_atexit();
+            [27711] | main() {
+            [27711] |   fopen() {
+            [27711] |     do_syscall_64() {
+  12.732 us [27711] |       __x64_sys_open();
+  14.039 us [27711] |     } /* do_syscall_64 */
+  17.193 us [27711] |   } /* fopen */
+            [27711] |   fclose() {
+            [27711] |     do_syscall_64() {
+   0.591 us [27711] |       __x64_sys_close();
+   1.429 us [27711] |     } /* do_syscall_64 */
+   8.028 us [27711] |   } /* fclose */
+  26.938 us [27711] | } /* main */
+"""
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s -k --kernel-depth=2 -N %s@kernel -N %s@kernel %s' % \
-            (TestBase.uftrace_cmd, 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
+        uftrace = TestBase.uftrace_cmd
+        program = 't-' + self.name
+
+        argument  = '-k --kernel-depth=2 --match glob'
+        argument += ' -N exit_to_usermode_loop@kernel'
+        argument += ' -N *do_page_fault@kernel'
+
+        return '%s %s %s' % (uftrace, argument, program)
 
     def fixup(self, cflags, result):
         return result.replace('sys_open', 'sys_openat')

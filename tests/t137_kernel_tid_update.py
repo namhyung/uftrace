@@ -38,5 +38,23 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        filters = '-F main -F sys_open@kernel -F sys_close@kernel'
-        return '%s -k %s %s' % (uftrace, filters, 't-' + self.name)
+        program = 't-' + self.name
+
+        argument  = '-k -F main'
+        argument += ' -F sys_open*@kernel'
+        argument += ' -F sys_close*@kernel'
+
+        return '%s %s %s' % (uftrace, argument, program)
+
+    def fixup(self, cflags, result):
+        uname = os.uname()
+
+        result = result.replace('sys_open', 'sys_openat')
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            result = result.replace('sys_', '__x64_sys_')
+
+        return result

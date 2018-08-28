@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import os
+import os, re
 
 # there was a problem applying depth filter if it contains kernel functions
 class TestCase(TestBase):
@@ -31,8 +31,24 @@ class TestCase(TestBase):
     def runcmd(self):
         # the -T option works on replay time and accept a regex
         # while -N option works on record time and accept a glob
-        return '%s -K3 -T %s@kernel,depth=1 -N %s@kernel -N %s@kernel %s' % \
-            (TestBase.uftrace_cmd, '^sys_', 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
+        uftrace = TestBase.uftrace_cmd
+        program = 't-' + self.name
+
+        argument  = '-K3'
+        argument += ' -T do_syscall_64@kernel,depth=1'
+        argument += ' -T ^sys_@kernel,depth=1'
+        argument += ' -N exit_to_usermode_loop@kernel'
+        argument += ' -N _*do_page_fault@kernel'
+
+        return '%s %s %s' % (uftrace, argument, program)
 
     def fixup(self, cflags, result):
-        return result.replace('sys_open', 'sys_openat')
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            return re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+        else:
+            return result.replace('sys_open', 'sys_openat')
