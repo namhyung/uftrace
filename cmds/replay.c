@@ -564,10 +564,24 @@ void get_argspec_string(struct ftrace_task_handle *task,
 
 			if (!memcmp(str, &null_str, sizeof(null_str)))
 				print_args("NULL");
-			else if (needs_escape)
-				/* quotation mark has to be escaped by backslash
-				   in chrome trace json format */
-				print_args("\\\"%.*s\\\"", slen + newline, str);
+			else if (needs_escape) {
+				char *p = str;
+				print_args("\\\"");
+				while (*p) {
+					char c = *p++;
+					if (c == '\n')
+						print_args("\\\\n");
+					else if (c == '\t')
+						print_args("\\\\t");
+					else if (c == '"')
+						print_args("\\\"");
+					else if (isprint(c))
+						print_args("%c", c);
+					else
+						print_args("\\\\x%02hhx", c);
+				}
+				print_args("\\\"");
+			}
 			else
 				print_args("\"%.*s\"", slen + newline, str);
 
