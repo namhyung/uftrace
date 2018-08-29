@@ -923,10 +923,10 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				tr.fmode = FILTER_MODE_IN;
 		}
 
-		/* demangle the name before setting a trigger */
+		/* use demangled name for triggers (some auto-args need it) */
 		name = demangle(name);
-
 		init_filter_pattern(ptype, &patt, name);
+		free(name);
 
 		if (module) {
 			/* is it the main executable? */
