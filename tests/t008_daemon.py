@@ -9,7 +9,6 @@ class TestCase(TestBase):
   71.636 us [28239] | __cxa_atexit();
             [28239] | main() {
             [28239] |   daemon() {
-            [28239] |     /* linux:task-exit */
  393.995 us [28240] |   } /* daemon */
             [28240] |   a() {
             [28240] |     b() {

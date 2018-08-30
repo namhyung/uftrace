@@ -34,7 +34,11 @@ class TestCase(TestBase):
 """, sort='chrome')
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
+        uftrace  = TestBase.uftrace_cmd
+        argument = '-d %s -E linux:task-name' % TDIR
+        program  = 't-' + self.name
+
+        record_cmd = '%s record %s %s' % (uftrace, argument, program)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

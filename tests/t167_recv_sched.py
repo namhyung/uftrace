@@ -44,7 +44,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s' % (TestBase.uftrace_cmd, TDIR2)
+        return '%s replay -d %s' % (TestBase.uftrace_cmd.split()[0], TDIR2)
 
     def post(self, ret):
         self.recv_p.terminate()

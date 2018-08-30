@@ -12,20 +12,22 @@ class TestCase(TestBase):
       t-taskname | main() {
       t-taskname |   task_name1() {
       t-taskname |     prctl() {
-             foo |       /* linux:task-name (name=foo) */
              foo |     } /* prctl */
              foo |   } /* task_name1 */
              foo |   task_name2() {
              foo |     pthread_self();
              foo |     pthread_setname_np() {
-             bar |       /* linux:task-name (name=bar) */
              bar |     } /* pthread_setname_np */
              bar |   } /* task_name2 */
              bar | } /* main */
 """)
 
     def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
+        uftrace  = TestBase.uftrace_cmd
+        argument = '-d %s -E linux:task-name' % TDIR
+        program  = 't-' + self.name
+
+        record_cmd = '%s record %s %s' % (uftrace, argument, program)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
