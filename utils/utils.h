@@ -82,7 +82,7 @@ enum color_setting {
 #define COLOR_CODE_GRAY     'g'
 #define COLOR_CODE_BOLD     'b'
 
-#define DEFAULT_EVENT_COLOR  COLOR_CODE_GRAY
+#define DEFAULT_EVENT_COLOR  COLOR_CODE_GREEN
 
 extern void __pr_dbg(const char *fmt, ...);
 extern void __pr_out(const char *fmt, ...);

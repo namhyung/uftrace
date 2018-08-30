@@ -47,6 +47,7 @@ static void setup_task_handle(struct ftrace_file_handle *handle,
 	task->display_depth = 0;
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
+	task->event_color = DEFAULT_EVENT_COLOR;
 
 	/*
 	 * set display depth to non-zero only when trace-on trigger (with --disabled
