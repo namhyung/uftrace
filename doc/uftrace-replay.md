@@ -41,7 +41,7 @@ OPTIONS
 :   Set trace limit in nesting level.
 
 -f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: duration, tid, time, delta, elapsed and addr.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
+:   Customize field in the output.  Possible values are: duration, tid, addr, time, delta, elapsed, task and module.  Multiple fields can be set by using comma.  Special field of 'none' can be used (solely) to hide all fields.  Default is 'duration,tid'.  See *FIELDS*.
 
 -r *RANGE*, \--time-range=*RANGE*
 :   Only show functions executed within the time RANGE.  The RANGE can be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if they have \<time_unit\> postfix, for example '100us'.  The timestamp or elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
