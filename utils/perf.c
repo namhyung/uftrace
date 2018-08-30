@@ -41,7 +41,7 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
 		.use_clockid		= 1,
 		.clockid		= CLOCK_MONOTONIC,
 #ifdef HAVE_PERF_CTXSW
-		.context_switch		= 1,
+		.context_switch		= use_ctxsw,
 #endif
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
