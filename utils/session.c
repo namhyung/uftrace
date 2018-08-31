@@ -339,6 +339,7 @@ void delete_session(struct uftrace_session *sess)
 		free(udl);
 	}
 
+	finish_debug_info(&sess->symtabs);
 	unload_symtabs(&sess->symtabs);
 	delete_session_map(&sess->symtabs);
 	free(sess);
