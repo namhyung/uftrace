@@ -250,22 +250,11 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 
 static void release_dwarf_info(struct debug_info *dinfo)
 {
-	struct debug_file *df, *tmp;
-
 	if (dinfo->dw == NULL)
 		return;
 
 	dwarf_end(dinfo->dw);
 	dinfo->dw = NULL;
-
-	list_for_each_entry_safe(df, tmp, &dinfo->files, list) {
-		list_del(&df->list);
-		free(df->name);
-		free(df);
-	}
-
-	free(dinfo->locs);
-	dinfo->locs = NULL;
 }
 
 struct type_data {
@@ -1042,9 +1031,20 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 
 static void release_debug_info(struct debug_info *dinfo)
 {
+	struct debug_file *df, *tmp;
+
 	free_debug_entry(&dinfo->args);
 	free_debug_entry(&dinfo->rets);
 	release_enum_def(&dinfo->enums);
+
+	free(dinfo->locs);
+	dinfo->locs = NULL;
+
+	list_for_each_entry_safe(df, tmp, &dinfo->files, list) {
+		list_del(&df->list);
+		free(df->name);
+		free(df);
+	}
 
 	release_dwarf_info(dinfo);
 }
