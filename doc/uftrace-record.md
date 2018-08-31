@@ -99,7 +99,9 @@ OPTIONS
 :   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
 -P *FUNC*, \--patch=*FUNC*
-:   Patch FUNC dynamically.  This is only applicable binaries built with `-pg -mfentry -mnop-mcount` on x86_64.  This option can be used more than once.  See *DYNAMIC TRACING*.
+:   Patch FUNC dynamically.  This is only applicable binaries built by
+    gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
+    This option can be used more than once.  See *DYNAMIC TRACING*.
 
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
