@@ -99,6 +99,7 @@ void delete_session_map(struct symtabs *symtabs)
 	map = symtabs->maps;
 	while (map) {
 		tmp = map->next;
+		unload_symtab(&map->symtab);
 		free(map);
 		map = tmp;
 	}
