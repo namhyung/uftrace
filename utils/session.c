@@ -487,8 +487,10 @@ void create_task(struct uftrace_session_link *sessions,
 			t->tid, sizeof(t->comm), s ? t->comm : "unknown",
 			s ? s->sid : "unknown");
 	}
-	else
+	else {
+		memset(&t->sref, 0, sizeof(t->sref));
 		pr_dbg2("new task: tid = %d\n", t->tid);
+	}
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
