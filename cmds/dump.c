@@ -1056,8 +1056,6 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 	if (tg->node->parent == NULL)
 		return;
 
-	fstack = &tg->task->func_stack[tg->task->stack_count];
-
 	/*
 	 * it needs to track the child time separately
 	 * since child time not accounted due to sample time
