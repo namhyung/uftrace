@@ -2,7 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-import os
+import os, re
 
 TDIR='xxx'
 
@@ -18,7 +18,6 @@ class TestCase(TestBase):
   89.018 us [18343] |   } /* fopen */
             [18343] |   fclose() {
   10.781 us [18343] |     sys_close();
-  21.980 us [18343] |     exit_to_usermode_loop();
   37.325 us [18343] |   } /* fclose */
  128.387 us [18343] | } /* main */
 """)
@@ -29,9 +28,16 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -K3 -N %s@kernel -d %s %s' % \
-                     (TestBase.uftrace_cmd, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+        uftrace = TestBase.uftrace_cmd
+        program = 't-' + self.name
+
+        argument  = '-K3 -d ' + TDIR
+        argument += ' -N %s@kernel' % 'exit_to_usermode_loop'
+        argument += ' -N %s@kernel' % '_*do_page_fault'
+
+        record_cmd = '%s record %s %s' % (uftrace, argument, program)
         sp.call(record_cmd.split())
+
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
@@ -42,4 +48,12 @@ class TestCase(TestBase):
         return ret
 
     def fixup(self, cflags, result):
-        return result.replace('sys_open', 'sys_openat')
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            return re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+        else:
+            return result.replace('sys_open', 'sys_openat')

@@ -345,7 +345,7 @@ class TestBase:
 
         import signal
         signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(5)
+        signal.alarm(timeout)
 
         timed_out = False
         try:
@@ -458,7 +458,7 @@ def run_single_case(case, flags, opts, arg):
             if ret == TestBase.TEST_SUCCESS:
                 ret = tc.pre()
                 if ret == TestBase.TEST_SUCCESS:
-                    ret = tc.run(case, cflags, arg.diff, arg.timeout)
+                    ret = tc.run(case, cflags, arg.diff, int(arg.timeout))
                     ret = tc.post(ret)
             result.append(ret)
 

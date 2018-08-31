@@ -59,12 +59,10 @@ static void put_tracing_file(char *file)
 	free(file);
 }
 
-static int __write_tracing_file(const char *name, const char *val, bool append,
-				bool correct_sys_prefix)
+static int open_tracing_file(const char *name, bool append)
 {
 	char *file;
-	int fd, ret = -1;
-	ssize_t size = strlen(val);
+	int fd;
 	int flags = O_WRONLY;
 
 	file = get_tracing_file(name);
@@ -79,10 +77,18 @@ static int __write_tracing_file(const char *name, const char *val, bool append,
 		flags |= O_TRUNC;
 
 	fd = open(file, flags);
-	if (fd < 0) {
+	if (fd < 0)
 		pr_dbg("cannot open tracing file: %s: %m\n", name);
-		goto out;
-	}
+
+	put_tracing_file(file);
+	return fd;
+}
+
+static int __write_tracing_file(int fd, const char *name, const char *val,
+				bool append, bool correct_sys_prefix)
+{
+	int ret = -1;
+	ssize_t size = strlen(val);
 
 	if (correct_sys_prefix) {
 		char *newval = (char *)val;
@@ -123,20 +129,35 @@ static int __write_tracing_file(const char *name, const char *val, bool append,
 	if (ret < 0)
 		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
 
-	close(fd);
-out:
-	put_tracing_file(file);
 	return ret;
 }
 
 static int write_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, false, false);
+	int ret;
+	int fd = open_tracing_file(name, false);
+
+	if (fd < 0)
+		return -1;
+
+	ret = __write_tracing_file(fd, name, val, false, false);
+
+	close(fd);
+	return ret;
 }
 
 static int append_tracing_file(const char *name, const char *val)
 {
-	return __write_tracing_file(name, val, true, false);
+	int ret;
+	int fd = open_tracing_file(name, true);
+
+	if (fd < 0)
+		return -1;
+
+	ret = __write_tracing_file(fd, name, val, true, false);
+
+	close(fd);
+	return ret;
 }
 
 static int set_tracing_pid(int pid)
@@ -162,49 +183,47 @@ struct kfilter {
 	char name[];
 };
 
+static int set_filter_file(const char *filter_file, struct list_head *filters)
+{
+	struct kfilter *pos, *tmp;
+	int ret = -1;
+	int fd;
+
+	fd = open_tracing_file(filter_file, true);
+	if (fd < 0)
+		return -1;
+
+	list_for_each_entry_safe(pos, tmp, filters, list) {
+		if (__write_tracing_file(fd, filter_file, pos->name,
+					 true, true) < 0)
+			goto out;
+
+		list_del(&pos->list);
+		free(pos);
+
+		/* separate filters by space */
+		write(fd, " ", 1);
+	}
+	ret = 0;
+
+out:
+	close(fd);
+	return ret;
+}
+
 static int set_tracing_filter(struct uftrace_kernel_writer *kernel)
 {
-	const char *filter_file;
-	struct kfilter *pos, *tmp;
+	if (set_filter_file("set_graph_function", &kernel->filters) < 0)
+		return -1;
 
-	filter_file = "set_graph_function";
-	list_for_each_entry_safe(pos, tmp, &kernel->filters, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
+	/* ignore error on old kernel */
+	set_filter_file("set_graph_notrace", &kernel->notrace);
 
-		list_del(&pos->list);
-		free(pos);
-	}
+	if (set_filter_file("set_ftrace_filter", &kernel->patches) < 0)
+		return -1;
 
-	filter_file = "set_graph_notrace";
-	list_for_each_entry_safe(pos, tmp, &kernel->notrace, list) {
-		/* ignore error on old kernel */
-		__write_tracing_file(filter_file, pos->name, true, true);
-
-		list_del(&pos->list);
-		free(pos);
-	}
-
-	filter_file = "set_ftrace_filter";
-	list_for_each_entry_safe(pos, tmp, &kernel->patches, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
-
-		list_del(&pos->list);
-		free(pos);
-	}
-
-	filter_file = "set_ftrace_notrace";
-	list_for_each_entry_safe(pos, tmp, &kernel->nopatch, list) {
-		if (__write_tracing_file(filter_file, pos->name,
-					 true, true) < 0)
-			return -1;
-
-		list_del(&pos->list);
-		free(pos);
-	}
+	if (set_filter_file("set_ftrace_notrace", &kernel->nopatch) < 0)
+		return -1;
 
 	return 0;
 }
@@ -276,7 +295,18 @@ static void add_pattern_filter(struct list_head *head,
 		pr_err("failed to open 'tracing/available_filter_functions' file");
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		/* it's ok to have a trailing '\n' */
+		/* remove module name part */
+		char *pos = strchr(buf, '[');
+		size_t len;
+
+		if (pos)
+			*pos = '\0';
+
+		/* remove trailing whitespace */
+		len = strlen(buf);
+		if (isspace(buf[len - 1]))
+			buf[len - 1] = '\0';
+
 		if (match_filter_pattern(patt, buf))
 			add_single_filter(head, buf);
 	}
@@ -507,6 +537,58 @@ out:
 	return -EINVAL;
 }
 
+static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+{
+	unsigned int i;
+	struct kfilter *kfilter;
+	const char *skip_funcs[] = {
+		/*
+		 * Some (old) kernel and architecture doesn't support VDSO
+		 * so there will be many sys_clock_gettime() in the output
+		 * due to internal call in libmcount.  It'd be better
+		 * ignoring them not to confuse users.  I think it does NOT
+		 * affect to the output when VDSO is enabled.
+		 */
+		"sys_clock_gettime",
+		/*
+		 * Currently kernel tracing seems to wake up uftrace writer
+		 * threads too often using the irq_work interrupt.  This
+		 * messes up the trace output so it'd be better hiding them.
+		 */
+		"smp_irq_work_interrupt",
+		/* Disable syscall tracing in the kernel */
+		"syscall_trace_enter_phase1",
+		"syscall_slow_exit_work",
+	};
+
+	for (i = 0; i < ARRAY_SIZE(skip_funcs); i++) {
+		bool add = true;
+		const char *name = skip_funcs[i];
+		struct kfilter *pos;
+
+		/* Don't skip it if user particularly want to see them*/
+		list_for_each_entry(pos, &kernel->filters, list) {
+			if (strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		list_for_each_entry(pos, &kernel->patches, list) {
+			if (strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		if (add) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			list_add(&kfilter->list, &kernel->notrace);
+		}
+	}
+}
+
 /**
  * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
  * @kernel : kernel ftrace handle
@@ -541,20 +623,8 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	/* mark kernel tracing is enabled (for event tracing) */
 	opts->kernel = true;
 
-	if (opts->kernel_skip_out) {
-		/*
-		 * Some (old) kernel and architecture doesn't support VDSO
-		 * so there will be many sys_clock_gettime() in the output
-		 * due to internal call in libmcount.  It'd be better
-		 * ignoring them not to confuse users.  I think it does NOT
-		 * affect to the output when VDSO is enabled.
-		 *
-		 * If an user wants to see them, give --kernel-full option.
-		 */
-		build_kernel_filter(kernel, "!sys_clock_gettime@kernel",
-				    opts->patt_type,
-				    &kernel->filters, &kernel->notrace);
-	}
+	if (opts->kernel_skip_out)
+		skip_kernel_functions(kernel);
 
 	ret = __setup_kernel_tracing(kernel);
 	if (ret < 0)

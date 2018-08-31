@@ -2,7 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-import os
+import os, re
 
 TDIR='xxx'
 FUNC='main'
@@ -47,8 +47,11 @@ class TestCase(TestBase):
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -N %s@kernel -d %s %s' % \
-                     (TestBase.uftrace_cmd, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+        uftrace  = TestBase.uftrace_cmd
+        argument = '-k -d %s' % TDIR
+        program  = 't-' + self.name
+
+        record_cmd = '%s record %s %s' % (uftrace, argument, program)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
@@ -60,6 +63,16 @@ class TestCase(TestBase):
         return ret
 
     def fixup(self, cflags, result):
-        return result.replace("   1.123 us :  +-(1) getpid",
-"""   1.123 us :  +-(1) getpid
-0.738 us :  | (1) sys_getpid""")
+        uname = os.uname()
+
+        result = result.replace("(1) getpid",
+"""(1) getpid
+   0.738 us :  | (1) sys_getpid""")
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 4 and int(minor) >= 17:
+            result = re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+
+        return result
