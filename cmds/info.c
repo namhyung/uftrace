@@ -498,6 +498,7 @@ static int fill_taskinfo(void *arg)
 	}
 	dprintf(fha->fd, "\n");
 
+	delete_sessions(&link);
 	free(tlist.tid);
 	return 0;
 }
