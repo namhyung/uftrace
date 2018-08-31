@@ -626,6 +626,7 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 		*left = *right;
 		right->nr_sym = 0;
 		right->sym = NULL;
+		right->sym_names = NULL;
 		return;
 	}
 
