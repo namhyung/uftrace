@@ -1519,7 +1519,7 @@ static void check_perf_event(struct opts *opts)
 	struct strv strv = STRV_INIT;
 	char *evt;
 	int i;
-	bool found;
+	bool found = false;
 	enum uftrace_pattern_type ptype = opts->patt_type;
 
 	has_perf_event = has_sched_event = !opts->no_event;
