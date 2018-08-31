@@ -518,12 +518,25 @@ static int build_tui_node(struct ftrace_task_handle *task,
 
 	tg->graph = graph;
 
-	sym = task_find_sym_addr(&task->h->sessions,
-				 task, rec->time, rec->addr);
-	name = symbol_getname(sym, rec->addr);
+	if (rec->type == UFTRACE_ENTRY || rec->type == UFTRACE_EXIT) {
+		sym = task_find_sym_addr(&task->h->sessions,
+					 task, rec->time, rec->addr);
+		name = symbol_getname(sym, rec->addr);
 
-	if (rec->type == UFTRACE_EXIT)
-		update_report_node(task, name, tg);
+		if (rec->type == UFTRACE_EXIT)
+			update_report_node(task, name, tg);
+	}
+	else if (rec->type == UFTRACE_EVENT) {
+		sym = &sched_sym;
+		name = symbol_getname(sym, rec->addr);
+
+		if (rec->addr == EVENT_ID_PERF_SCHED_IN)
+			update_report_node(task, name, tg);
+		else if (rec->addr != EVENT_ID_PERF_SCHED_OUT)
+			return 0;
+	}
+	else  /* rec->type == UFTRACE_LOST */
+		return 0;
 
 	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
 	if (tg->node && tg->node != &graph->root) {

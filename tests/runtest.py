@@ -21,7 +21,7 @@ class TestBase:
     TEST_SUCCESS_FIXED = -8
 
     objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
-    uftrace_cmd = objdir + '/uftrace --no-pager -L' + objdir
+    uftrace_cmd = objdir + '/uftrace --no-pager --no-event -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
@@ -202,8 +202,11 @@ class TestBase:
             # A report line consists of following data
             # [0]         [1]   [2]        [3]   [4]     [5]
             # total_time  unit  self_time  unit  called  function
-            if line[5].startswith('__'):
-                continue
+            try:
+                if line[5].startswith('__'):
+                    continue
+            except:
+                pass
             result.append('%s %s' % (line[4], line[5]))
 
         return '\n'.join(result)

@@ -47,6 +47,7 @@ static void setup_task_handle(struct ftrace_file_handle *handle,
 	task->display_depth = 0;
 	task->column_index = -1;
 	task->filter.depth = handle->depth;
+	task->event_color = DEFAULT_EVENT_COLOR;
 
 	/*
 	 * set display depth to non-zero only when trace-on trigger (with --disabled
@@ -1544,12 +1545,12 @@ static bool convert_perf_event(struct ftrace_task_handle *task,
 {
 	switch (orig->addr) {
 	case EVENT_ID_PERF_SCHED_IN:
-		/* ignore first sched in for non-main threads */
+	case EVENT_ID_PERF_SCHED_OUT:
+		/* ignore early schedule events before main routine */
 		if (!task->fstack_set)
 			return false;
 
 		/* fall-through */
-	case EVENT_ID_PERF_SCHED_OUT:
 		if (orig->addr == EVENT_ID_PERF_SCHED_OUT)
 			dummy->type = UFTRACE_ENTRY;
 		else

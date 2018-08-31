@@ -242,9 +242,10 @@ struct opts {
 	bool kernel;
 	bool kernel_skip_out;  /* also affects VDSO filter */
 	bool kernel_only;
-	bool list_event;
 	bool keep_pid;
+	bool list_event;
 	bool event_skip_out;
+	bool no_event;
 	bool nest_libcall;
 	bool record;
 	bool auto_args;

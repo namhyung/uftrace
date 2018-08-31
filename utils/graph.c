@@ -191,7 +191,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 	if (rec->addr == EVENT_ID_PERF_SCHED_OUT) {
 		/* to match addr with sched-in */
 		rec->addr = EVENT_ID_PERF_SCHED_IN;
-		return add_graph_entry(tg, "sched-in", node_size);
+		return add_graph_entry(tg, sched_sym.name, node_size);
 	}
 	else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
 		return add_graph_exit(tg);

@@ -6,7 +6,6 @@ class TestCase(TestBase):
 # DURATION    TID     FUNCTION
             [22067] | main() {
             [22067] |   daemon() {
-            [22067] |     /* linux:task-exit */
             [22072] |   } /* daemon */
             [22072] |   a() {
             [22072] |     b() {

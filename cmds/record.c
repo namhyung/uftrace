@@ -57,6 +57,7 @@ static bool buf_done;
 static int thread_ctl[2];
 
 static bool has_perf_event;
+static bool has_sched_event;
 
 
 static bool can_use_fast_libmcount(struct opts *opts)
@@ -342,8 +343,8 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	/* provide automatic argument/return value spec */
 	features |= AUTO_ARGS;
 
-	/* task/comm events are always enabled */
-	features |= PERF_EVENT;
+	if (has_perf_event)
+		features |= PERF_EVENT;
 
 	if (opts->libcall)
 		features |= PLTHOOK;
@@ -1513,35 +1514,46 @@ static void check_binary(struct opts *opts)
 	close(fd);
 }
 
-static bool check_linux_schedule_event(char *events,
-				       enum uftrace_pattern_type ptype)
+static void check_perf_event(struct opts *opts)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
-	bool found = false;
 	int i;
+	bool found;
+	enum uftrace_pattern_type ptype = opts->patt_type;
 
-	if (events == NULL)
-		return false;
+	has_perf_event = has_sched_event = !opts->no_event;
 
-	strv_split(&strv, events, ";");
+	if (opts->event == NULL)
+		return;
+
+	strv_split(&strv, opts->event, ";");
 
 	strv_for_each(&strv, evt, i) {
 		struct uftrace_pattern patt;
 
 		init_filter_pattern(ptype, &patt, evt);
 
-		if (match_filter_pattern(&patt, "linux:schedule"))
+		if (match_filter_pattern(&patt, "linux:task-new") ||
+		    match_filter_pattern(&patt, "linux:task-exit") ||
+		    match_filter_pattern(&patt, "linux:task-name"))
 			found = true;
+
+		if (match_filter_pattern(&patt, "linux:sched-in") ||
+		    match_filter_pattern(&patt, "linux:sched-out") ||
+		    match_filter_pattern(&patt, "linux:schedule")) {
+			has_sched_event = true;
+			found = true;
+		}
 
 		free_filter_pattern(&patt);
 
-		if (found)
+		if (found && has_sched_event)
 			break;
 	}
 
 	strv_free(&strv);
-	return found;
+	has_perf_event = found;
 }
 
 struct writer_data {
@@ -1631,11 +1643,11 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 	else if (opts->nr_thread > wd->nr_cpu)
 		opts->nr_thread = wd->nr_cpu;
 
-	if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
-			      opts->dirname, has_perf_event) < 0)
-		has_perf_event = false;
-	else
-		has_perf_event = true;  /* for task/comm events */
+	if (has_perf_event) {
+		if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
+				      opts->dirname, has_sched_event) < 0)
+			has_perf_event = false;
+	}
 
 out:
 	pr_dbg("creating %d thread(s) for recording\n", opts->nr_thread);
@@ -1931,9 +1943,7 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		parse_script_opt(opts);
 
 	check_binary(opts);
-
-	has_perf_event = check_linux_schedule_event(opts->event,
-						    opts->patt_type);
+	check_perf_event(opts);
 
 	fflush(stdout);
 

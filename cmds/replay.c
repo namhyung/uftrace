@@ -901,6 +901,9 @@ lost:
 
 		depth = task->display_depth;
 
+		if (opts->no_event)
+			return 0;
+
 		/* skip kernel event messages outside of user functions */
 		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
 		    is_kernel_record(task, rstack))
@@ -924,7 +927,7 @@ lost:
 			/* consume the matching sched-in record */
 			fstack_consume(handle, next);
 
-			rec.addr = EVENT_ID_PERF_SCHED_BOTH;
+			rec.addr = sched_sym.addr;
 			evt_id = EVENT_ID_PERF_SCHED_IN;
 		}
 
