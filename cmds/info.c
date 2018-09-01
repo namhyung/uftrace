@@ -296,7 +296,7 @@ static int read_cpuinfo(void *arg)
 		if (strncmp(buf, "cpuinfo:", 8))
 			return -1;
 
-		if (!strncmp(&buf[8], "nr_cpus=", 7)) {
+		if (!strncmp(&buf[8], "nr_cpus=", 8)) {
 			sscanf(&buf[8], "nr_cpus=%d / %d\n",
 			       &info->nr_cpus_online, &info->nr_cpus_possible);
 		} else if (!strncmp(&buf[8], "desc=", 5)) {
