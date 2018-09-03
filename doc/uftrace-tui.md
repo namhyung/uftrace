@@ -65,6 +65,9 @@ OPTIONS
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
 
+\--no-event
+:   Do not show any events.
+
 
 OUTLINE
 =======
