@@ -33,7 +33,6 @@ static void reset_live_opts(struct opts *opts)
 	opts->filter	= NULL;
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 	opts->disabled	= false;
-	opts->threshold = 0;
 	opts->no_event  = false;
 }
 
