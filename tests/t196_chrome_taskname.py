@@ -43,7 +43,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s dump --chrome -F main -d %s' % (TestBase.uftrace_cmd, TDIR)
+        return '%s dump --chrome -F main -d %s' % (TestBase.uftrace_cmd.split()[0], TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

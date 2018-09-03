@@ -20,7 +20,7 @@ class TestCase(TestBase):
 """)
 
     def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
+        uftrace = TestBase.uftrace_cmd.replace('--no-event', '')
         args    = "-F main -t 1ms -T '(foo|bar)@read=proc/statm'"
         prog    = 't-' + self.name
         return '%s %s %s' % (uftrace, args, prog)
@@ -40,3 +40,8 @@ class TestCase(TestBase):
             result.append(func)
 
         return '\n'.join(result)
+
+    def fixup(self, cflags, result):
+        return result.replace('usleep();', """usleep() {
+   2.090 ms [18219] |         /* linux:schedule */
+   2.093 ms [18219] |       } /* usleep */""")
