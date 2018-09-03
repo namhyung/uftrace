@@ -384,13 +384,10 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype)
 static bool is_arm_machine(void)
 {
 	static char *mach = NULL;
+	struct utsname utsbuf;
 
-	if (mach == NULL) {
-		struct utsname utsbuf;
-
-		uname(&utsbuf);
-		mach = xstrdup(utsbuf.machine);
-	}
+	uname(&utsbuf);
+	mach = xstrdup(utsbuf.machine);
 
 	return mach[0] == 'a' && mach[1] == 'r' && mach[2] == 'm';
 }
