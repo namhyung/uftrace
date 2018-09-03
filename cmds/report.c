@@ -91,9 +91,8 @@ static void insert_entry(struct rb_root *root, struct trace_entry *te, bool thre
 
 			if (entry->sym == NULL && te->sym) {
 				entry->sym = te->sym;
-
-				if (entry->sym)
-					len = strlen(entry->sym->name);
+				len = strlen(entry->sym->name);
+				
 				if (maxlen < len)
 					maxlen = len;
 			}
