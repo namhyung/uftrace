@@ -105,6 +105,7 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 struct uftrace_perf_reader {
 	FILE			*fp;
 	bool			valid;
+	bool			peek;
 	bool			done;
 	int			type;
 	int			tid;
@@ -117,6 +118,7 @@ struct uftrace_perf_reader {
 };
 
 struct ftrace_file_handle;
+struct ftrace_task_handle;
 struct uftrace_record;
 
 int setup_perf_data(struct ftrace_file_handle *handle);
@@ -125,5 +127,8 @@ int read_perf_data(struct ftrace_file_handle *handle);
 struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 					struct uftrace_perf_reader *perf);
 void update_perf_task_comm(struct ftrace_file_handle *handle);
+bool remove_perf_schedule_event(struct uftrace_perf_reader *perf,
+				struct ftrace_task_handle *task,
+				uint64_t time_filter);
 
 #endif /* UFTRACE_PERF_H */

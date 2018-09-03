@@ -51,7 +51,7 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
 
 /**
  * setup_perf_record - prepare recording perf events
- * @upw: data structure for perf record
+ * @perf: data structure for perf record
  * @nr_cpu: total number of cpus to record
  * @pid: process id to record
  * @dirname: directory name to save perf record data
@@ -129,7 +129,7 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
  * finish_perf_record - destroy data structure for perf recording
  * @perf: data structure for perf record
  *
- * This function releases all resources in the @upw.
+ * This function releases all resources in the @perf.
  */
 void finish_perf_record(struct uftrace_perf_writer *perf)
 {
@@ -516,4 +516,46 @@ void update_perf_task_comm(struct ftrace_file_handle *handle)
 			memcpy(task->comm, perf->u.comm.comm, sizeof(task->comm));
 		}
 	}
+}
+
+/**
+ * remove_perf_schedule_event - apply time filter for schedule event
+ * @perf: data structure for perf event
+ * @task: task has sched-out event
+ * @time_filter: time threshold to remove
+ *
+ * This function reads perf event from the current cpu and compares it
+ * to match to the current task's schedule event.  If so and the time delta
+ * is less than the time filter, it removes the event and returns #true.
+ * Otherwise returns #false.
+ *
+ * See __fstack_consume() how it deals with peeking a perf event.
+ */
+bool remove_perf_schedule_event(struct uftrace_perf_reader *perf,
+				struct ftrace_task_handle *task,
+				uint64_t time_filter)
+{
+	struct uftrace_record *rec = task->rstack;  /* sched-out */
+
+	if (read_perf_event(task->h, perf) < 0)
+		return false;
+
+	perf->peek = true;
+	perf->valid = true;
+
+	if (perf->tid != task->tid)
+		return false;
+
+	if (perf->type != PERF_RECORD_SWITCH)
+		return false;
+
+	if (perf->u.ctxsw.out)
+		return false;
+
+	if (perf->time - rec->time >= time_filter)
+		return false;
+
+	perf->peek = false;
+	perf->valid = false;
+	return true;
 }
