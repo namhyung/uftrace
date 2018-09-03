@@ -1457,6 +1457,11 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 			last = list_last_entry(&rstack_list->read,
 					       typeof(*last), list);
+
+			/* time filter is meaningful for functions */
+			while (last->rstack.type != UFTRACE_ENTRY)
+				last = list_prev_entry(last, list);
+
 			delta = curr->time - last->rstack.time;
 
 			if (delta < time_filter) {
