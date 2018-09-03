@@ -1252,7 +1252,8 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 
 			if (frs->type == UFTRACE_EVENT) {
-				ops->task_event(ops, task);
+				if (!opts->no_event)
+					ops->task_event(ops, task);
 				continue;
 			}
 
@@ -1291,7 +1292,8 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 
 			if (frs->type == UFTRACE_EVENT) {
-				ops->kernel_event(ops, kernel, i, frs);
+				if (!opts->no_event)
+					ops->kernel_event(ops, kernel, i, frs);
 				continue;
 			}
 
