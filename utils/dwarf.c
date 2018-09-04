@@ -1147,7 +1147,10 @@ void finish_debug_info(struct symtabs *symtabs)
 
 	map = symtabs->maps;
 	while (map) {
-		release_debug_info(&map->dinfo);
+		if (strcmp(map->libname, symtabs->filename) &&
+		    strncmp(basename(map->libname), "libmcount", 9))
+			release_debug_info(&map->dinfo);
+
 		map = map->next;
 	}
 
