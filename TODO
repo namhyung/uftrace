@@ -1,16 +1,29 @@
 - cleanup task management
-- ARM compatibility check
-- improve argument display (with DWARF?)
-- source file and line number display
 - more trigger action
 - trigger filtering (ignore, count, at return, ...)
-- documentation
-- perf-like callgraph view
+- improve documentation
 - report w/ multi-thread
 - config file support
 - filter by argument value
+- filter by function size
+- filter by source location
+- filter by caller(?)
 - SDT argument support
+- LTT-ng event (tracepoint) support
 - symbol file compression
-- reading external data (global variable, system stat, perf counter, ...)
-- show kernel function argument and return value
+- reading/watching external data (global variable, cpu, ...)
+- show kernel function argument and return value (with kprobes)
 - different clock support (TSC on x86, ...)
+- generic field support for report
+- field and sort support for TUI
+- filtering on TUI
+- replay on TUI
+- python 3 support
+- python function tracing
+- write useful script examples
+- dynamic tracing support
+- attach to existing process
+- signal trigger support (for daemons)
+- process and display multiple data together
+- graph diff support
+- full demangling support
