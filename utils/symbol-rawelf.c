@@ -20,7 +20,7 @@ int elf_validate(struct uftrace_elf_data *elf)
 {
 	Elf_Ehdr *ehdr;
 	int eclass, data, version;
-	long size, offset;
+	unsigned long size, offset;
 
 	ehdr = &elf->ehdr;
 	elf->has_shdr = false;

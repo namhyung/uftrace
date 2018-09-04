@@ -259,8 +259,8 @@ static int read_cmdline(void *arg)
 static int fill_cpuinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	long nr_possible;
-	long nr_online;
+	unsigned long nr_possible;
+	unsigned long nr_online;
 
 	nr_possible = sysconf(_SC_NPROCESSORS_CONF);
 	nr_online = sysconf(_SC_NPROCESSORS_ONLN);
