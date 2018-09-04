@@ -681,11 +681,9 @@ static void update_pltgot(struct mcount_thread_data *mtdp,
 
 		pthread_mutex_lock(&resolver_mutex);
 #endif
-		if (!pd->resolved_addr[dyn_idx]) {
-			plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
-			setup_pltgot(pd, 3 + dyn_idx, dyn_idx,
-				     (void *)plthook_addr);
-		}
+		plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
+		setup_pltgot(pd, 3 + dyn_idx, dyn_idx,
+			     (void *)plthook_addr);
 
 #ifndef SINGLE_THREAD
 		pthread_mutex_unlock(&resolver_mutex);
