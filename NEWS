@@ -1,3 +1,39 @@
+uftrace v0.9
+============
+* argument update
+  automatic argument using DWARF debug info
+  display enum constants properly
+  add -a short option for --auto-args
+
+* TUI implementation
+  graph, report and info commands using ncurses
+  redraw graph for a selected function
+  fold/unfold and search nodes in graph
+
+* build changes
+  configure script shows status of dependencies
+  add --without-XXX option to the configure script
+  allow build without libelf
+
+* filter changes
+  add --match option to select pattern matching method: regex or glob
+  add --no-event option to disable default events
+  apply recover trigger for every function automatically
+
+* other changes
+  pass runtime info to script
+  add -h short option for help message
+  add --no-randomize-addr option to disable ASLR
+  enable task scheduling events by default
+  use gray color for comments and green for events
+  add basic gdb (python) script to help debugging
+  add misc/symbols tool to show symbol name from address
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  GwanYeong Kim, Hanbum Park, Honggyu Kim, Taeguk Kwon, Taeung Song,
+  Khem Raj
+
+
 uftrace v0.8.3
 --------------
 * i386 arch support (by Hanbum Park):
