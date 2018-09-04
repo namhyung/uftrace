@@ -1,7 +1,7 @@
 /*
  * Python script binding for function entry and exit
  *
- * Copyright (C) 2017, LG Electronics, Honggyu Kim <hong.gyu.kim@lge.com>
+ * Copyright (C) 2017-2018, LG Electronics, Honggyu Kim <hong.gyu.kim@lge.com>
  *
  * Released under the GPL v2.
  */
