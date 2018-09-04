@@ -1906,7 +1906,6 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 
 	if (has_perf_data(handle)) {
 		p = read_perf_data(handle);
-		perf = &handle->perf[p];
 
 		if (p < 0) {
 			static bool warn = false;
@@ -1916,7 +1915,10 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 				warn = true;
 			}
 		}
-		else if (perf->time < min_timestamp) {
+
+		perf = &handle->perf[p];
+
+		if (perf->time < min_timestamp) {
 			min_timestamp = perf->time;
 			source = PERF;
 		}
