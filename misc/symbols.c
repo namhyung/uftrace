@@ -80,7 +80,7 @@ static int read_session(struct uftrace_session_link *link, char *dirname)
 	char *fname = NULL;
 	char *line = NULL;
 	size_t sz = 0;
-	long sec, nsec;
+	unsigned long sec, nsec;
 	struct uftrace_msg_task tmsg;
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
