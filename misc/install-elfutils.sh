@@ -6,7 +6,7 @@ prefix=/usr/local
 objdir=$(readlink -f ${objdir:-${PWD}})
 builddir=${objdir}/.build
 
-n_cpus=$(cat /proc/cpuinfo | grep ^processor | wc -l)
+n_cpus=$(grep -c ^processor /proc/cpuinfo)
 
 usage() {
     echo "Usage: $0 [<options>]
