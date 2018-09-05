@@ -2395,7 +2395,7 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			}
 			break;
 		case 'g':
-			if (win == &graph->win) {
+			if (win == &graph->win || win == &partial_graph.win) {
 				struct tui_report_node *func;
 				struct tui_graph_node *curr = win->curr;
 
