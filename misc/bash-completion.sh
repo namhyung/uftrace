@@ -1,5 +1,5 @@
 _uftrace () {
-    local cur prev subcmd options uftrace_comp
+    local cur prev subcmds options uftrace_comp
 
     cur=${COMP_WORDS[COMP_CWORD]}
     prev=${COMP_WORDS[COMP_CWORD - 1]}
