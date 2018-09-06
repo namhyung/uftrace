@@ -866,6 +866,9 @@ bool fstack_check_opts(struct ftrace_task_handle *task, struct opts *opts)
 			return false;
 	}
 
+	if (opts->no_event && rec->type == UFTRACE_EVENT)
+		return false;
+
 	return true;
 }
 
@@ -1457,6 +1460,11 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 
 			last = list_last_entry(&rstack_list->read,
 					       typeof(*last), list);
+
+			/* time filter is meaningful for functions */
+			while (last->rstack.type != UFTRACE_ENTRY)
+				last = list_prev_entry(last, list);
+
 			delta = curr->time - last->rstack.time;
 
 			if (delta < time_filter) {
@@ -1839,7 +1847,11 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 			       sizeof(task->t->comm));
 		}
 
-		perf->valid = false;
+		/* it might be read by remove_perf_schedule_event() */
+		if (perf->peek)
+			perf->peek = false;
+		else
+			perf->valid = false;
 	}
 
 	update_first_timestamp(handle, task, rstack);
@@ -1879,8 +1891,12 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 	struct ftrace_task_handle *ktask = NULL;
 	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_perf_reader *perf;
-	uint64_t min_timestamp = ~0ULL;
-	enum { NONE, USER, KERNEL, PERF } source = NONE;
+	uint64_t min_timestamp;
+	enum { NONE, USER, KERNEL, PERF } source;
+
+retry:
+	min_timestamp = ~0ULL;
+	source = NONE;
 
 	u = read_user_stack(handle, &utask);
 	if (u >= 0) {
@@ -1940,6 +1956,11 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 			/* abuse task->args */
 			task->args.data = xstrdup(perf->u.comm.comm);
 			task->args.len  = strlen(perf->u.comm.comm);
+		}
+		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+			if (consume && remove_perf_schedule_event(perf, task,
+							handle->time_filter))
+				goto retry;
 		}
 		break;
 

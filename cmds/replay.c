@@ -901,9 +901,6 @@ lost:
 
 		depth = task->display_depth;
 
-		if (opts->no_event)
-			return 0;
-
 		/* skip kernel event messages outside of user functions */
 		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
 		    is_kernel_record(task, rstack))
