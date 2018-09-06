@@ -109,6 +109,7 @@ struct sym * find_sym(struct symtab *symtab, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
 void load_symtabs(struct symtabs *symtabs, const char *dirname,
 		  const char *filename);
+void unload_symtab(struct symtab *symtab);
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 

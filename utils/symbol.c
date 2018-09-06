@@ -133,7 +133,7 @@ int check_static_binary(const char *filename)
 	return ret;
 }
 
-static void __unload_symtab(struct symtab *symtab)
+void unload_symtab(struct symtab *symtab)
 {
 	size_t i;
 
@@ -153,8 +153,8 @@ static void __unload_symtab(struct symtab *symtab)
 void unload_symtabs(struct symtabs *symtabs)
 {
 	pr_dbg2("unload symbol tables\n");
-	__unload_symtab(&symtabs->symtab);
-	__unload_symtab(&symtabs->dsymtab);
+	unload_symtab(&symtabs->symtab);
+	unload_symtab(&symtabs->dsymtab);
 
 	symtabs->loaded = false;
 }
@@ -464,7 +464,7 @@ static int try_load_dynsymtab_bindnow(struct symtab *dsymtab,
 
 	if (arch_load_dynsymtab_bindnow(dsymtab, elf, offset, flags) < 0) {
 		pr_dbg("cannot load dynamic symbols for bind-now\n");
-		__unload_symtab(dsymtab);
+		unload_symtab(dsymtab);
 		return -1;
 	}
 
@@ -626,6 +626,7 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 		*left = *right;
 		right->nr_sym = 0;
 		right->sym = NULL;
+		right->sym_names = NULL;
 		return;
 	}
 

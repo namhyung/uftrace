@@ -99,6 +99,7 @@ void delete_session_map(struct symtabs *symtabs)
 	map = symtabs->maps;
 	while (map) {
 		tmp = map->next;
+		unload_symtab(&map->symtab);
 		free(map);
 		map = tmp;
 	}
@@ -338,8 +339,11 @@ void delete_session(struct uftrace_session *sess)
 		free(udl);
 	}
 
+	finish_debug_info(&sess->symtabs);
 	unload_symtabs(&sess->symtabs);
 	delete_session_map(&sess->symtabs);
+	uftrace_cleanup_filter(&sess->filters);
+	uftrace_cleanup_filter(&sess->fixups);
 	free(sess);
 }
 
@@ -485,8 +489,10 @@ void create_task(struct uftrace_session_link *sessions,
 			t->tid, sizeof(t->comm), s ? t->comm : "unknown",
 			s ? s->sid : "unknown");
 	}
-	else
+	else {
+		memset(&t->sref, 0, sizeof(t->sref));
 		pr_dbg2("new task: tid = %d\n", t->tid);
+	}
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
