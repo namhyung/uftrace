@@ -12,7 +12,6 @@
 #
 
 import gdb
-import os
 from uftrace import utils
 from uftrace import rbtree
 from uftrace import trigger
