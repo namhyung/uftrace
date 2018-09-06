@@ -30,7 +30,6 @@ class TestCase(TestBase):
         argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" -R "mixed_div@retval/f80" '
         argopt += '-A "mixed_str@arg1/s,fparg1"              -R "mixed_str@retval/s"'
 
-        import platform
         if platform.machine().startswith('arm'):
             argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
         elif platform.machine().startswith('i686'):

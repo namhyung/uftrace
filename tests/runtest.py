@@ -242,7 +242,6 @@ class TestBase:
     def dump_sort(self, output, ignored):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
-        import re
 
         # A (raw) dump result consists of following data
         # <timestamp> <tid>: [<type>] <func>(<addr>) depth: <N>
