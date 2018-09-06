@@ -202,7 +202,8 @@ static int set_filter_file(const char *filter_file, struct list_head *filters)
 		free(pos);
 
 		/* separate filters by space */
-		write(fd, " ", 1);
+		if (write(fd, " ", 1) != 1)
+			goto out;
 	}
 	ret = 0;
 
