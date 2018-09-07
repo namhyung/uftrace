@@ -1385,6 +1385,20 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 
 		ops->kernel_event(ops, kernel, kernel->last_read_cpu, rec);
 	}
+	else if (is_event_record(task, rec)) {
+		struct uftrace_perf_reader perf = {
+			.tid  = task->tid,
+			.time = rec->time,
+		};
+
+		if (rec->addr == EVENT_ID_PERF_COMM) {
+			memcpy(perf.u.comm.comm, task->args.data,
+			       sizeof(perf.u.comm.comm));
+			perf.u.comm.pid  = task->t->pid;
+		}
+
+		ops->perf_event(ops, &perf, rec);
+	}
 	else {
 		struct uftrace_perf_reader *perf;
 
