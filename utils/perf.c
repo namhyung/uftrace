@@ -392,7 +392,7 @@ again:
 		goto again;
 	}
 
-	if (unlikely(get_task_handle(handle, perf->tid) == NULL))
+	if (unlikely(find_task(&handle->sessions, perf->tid) == NULL))
 		goto again;
 
 	perf->type = h.type;
@@ -464,6 +464,7 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
 	rec.type  = UFTRACE_EVENT;
 	rec.time  = perf->time;
 	rec.magic = RECORD_MAGIC;
+	rec.more  = 0;
 
 	switch (perf->type) {
 	case PERF_RECORD_FORK:

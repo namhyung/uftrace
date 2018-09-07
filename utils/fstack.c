@@ -1810,9 +1810,12 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		if (is_user_record(task, rstack))
 			node = list_first_entry(&task->rstack_list.read,
 						typeof(*node), list);
-		else
+		else if (is_kernel_record(task, rstack))
 			node = list_first_entry(&kernel->rstack_list[cpu].read,
 						typeof(*node), list);
+		else
+			goto consume_perf_event;
+
 		assert(node->args.data);
 
 		/* restore args/retval to task */
@@ -1839,6 +1842,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 	else {  /* must be perf event */
 		struct uftrace_perf_reader *perf;
 
+consume_perf_event:
 		assert(handle->last_perf_idx >= 0);
 		perf = &handle->perf[handle->last_perf_idx];
 
@@ -1942,10 +1946,14 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 
 	case PERF:
 		task = get_task_handle(handle, perf->tid);
+		if (unlikely(task == NULL))
+			pr_err_ns("cannot find task %d\n", perf->tid);
+
 		task->rstack = get_perf_record(handle, perf);
 
 		if (task->rstack->addr == EVENT_ID_PERF_COMM) {
-			/* abuse task->args */
+			task->rstack->more = 1;
+			/* abuse task->args to save comm */
 			task->args.data = xstrdup(perf->u.comm.comm);
 			task->args.len  = strlen(perf->u.comm.comm);
 		}
