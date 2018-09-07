@@ -831,16 +831,24 @@ static void print_chrome_header(struct uftrace_dump_ops *ops,
 {
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	struct uftrace_info *info = &handle->info;
+	struct ftrace_task_handle *task;
+	int tid;
+	int i;
 
 	pr_out("{\"traceEvents\":[\n");
-	pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
-	       "\"name\":\"process_name\","
-	       "\"args\":{\"name\":\"%s\"}},\n",
-	       info->tids[0], basename(info->exename));
-	pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
-	       "\"name\":\"thread_name\","
-	       "\"args\":{\"name\":\"%s\"}},\n",
-	       info->tids[0], basename(info->exename));
+	for (i = 0; i < info->nr_tid; i++) {
+		task = &handle->tasks[i];
+		tid = info->tids[i];
+
+		pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+		       "\"name\":\"process_name\","
+		       "\"args\":{\"name\":\"[%d] %s\"}},\n",
+		       tid, tid, task->t->comm);
+		pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
+		       "\"name\":\"thread_name\","
+		       "\"args\":{\"name\":\"[%d] %s\"}},\n",
+		       tid, tid, task->t->comm);
+	}
 
 	chrome->last_comma = false;
 }
@@ -979,12 +987,11 @@ static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
 			       "\"args\":{\"name\":\"%s\"}}",
 			       perf->tid, perf->u.comm.comm);
 		} else {
-			char buf[32];
-			sprintf(buf, "%s (%d)", perf->u.comm.comm, perf->tid);
 			pr_out(",\n{\"ts\":0,\"ph\":\"M\",\"pid\":%d,\"tid\":%d,"
 			       "\"name\":\"thread_name\","
-			       "\"args\":{\"name\":\"%s\"}}",
-			       perf->u.comm.pid, perf->tid, buf);
+			       "\"args\":{\"name\":\"[%d] %s\"}}",
+			       perf->u.comm.pid, perf->tid,
+			       perf->tid, perf->u.comm.comm);
 		}
 		break;
 	default:
