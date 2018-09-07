@@ -86,6 +86,7 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 		task->func_stack = NULL;
 
 		reset_rstack_list(&task->rstack_list);
+		reset_rstack_list(&task->event_list);
 	}
 
 	free(handle->tasks);
@@ -116,6 +117,7 @@ static void prepare_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	setup_rstack_list(&task->rstack_list);
+	setup_rstack_list(&task->event_list);
 }
 
 static void update_first_timestamp(struct ftrace_file_handle *handle,

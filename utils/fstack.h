@@ -47,6 +47,7 @@ struct ftrace_task_handle {
 	struct uftrace_record kstack;
 	struct uftrace_record *rstack;
 	struct uftrace_rstack_list rstack_list;
+	struct uftrace_rstack_list event_list;
 	int stack_count;
 	int lost_count;
 	int user_stack_count;

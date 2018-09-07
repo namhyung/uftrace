@@ -518,3 +518,80 @@ void update_perf_task_comm(struct ftrace_file_handle *handle)
 		}
 	}
 }
+
+static void remove_event_rstack(struct ftrace_task_handle *task)
+{
+	struct uftrace_rstack_list_node *last;
+	uint64_t last_addr;
+
+	/* also delete matching entry (at the last) */
+	do {
+		last = list_last_entry(&task->event_list.read,
+				       typeof(*last), list);
+
+		last_addr = last->rstack.addr;
+		delete_last_rstack_list(&task->event_list);
+	}
+	while (last_addr != EVENT_ID_PERF_SCHED_OUT);
+}
+
+void process_perf_event(struct ftrace_file_handle *handle)
+{
+	struct uftrace_perf_reader *perf;
+	struct ftrace_task_handle *task;
+	struct uftrace_record *rec;
+	struct fstack_arguments args;
+	int p;
+
+	if (handle->perf_event_processed)
+		return;
+
+	while (1) {
+		p = read_perf_data(handle);
+		if (p < 0)
+			break;
+
+		perf = &handle->perf[p];
+		rec = get_perf_record(handle, perf);
+		task = get_task_handle(handle, perf->tid);
+
+		if (perf->type == PERF_RECORD_COMM) {
+			rec->more = 1;
+			args.args = NULL;
+			args.data = xstrdup(perf->u.comm.comm);
+			args.len  = strlen(perf->u.comm.comm);
+		}
+		else if (perf->type == PERF_RECORD_SWITCH && !perf->u.ctxsw.out) {
+			struct uftrace_rstack_list_node *last;
+			uint64_t delta;
+
+			if (task->event_list.count == 0)
+				goto add_it;
+
+			last = list_last_entry(&task->event_list.read,
+					       typeof(*last), list);
+
+			/* time filter is meaningful only for schedule events */
+			while (last->rstack.addr != EVENT_ID_PERF_SCHED_OUT) {
+				if (last->list.prev == &task->event_list.read)
+					goto add_it;
+
+				last = list_prev_entry(last, list);
+			}
+
+			delta = perf->time - last->rstack.time;
+			if (delta < handle->time_filter) {
+				remove_event_rstack(task);
+				perf->valid = false;
+				continue;
+			}
+		}
+
+add_it:
+		add_to_rstack_list(&task->event_list, rec, &args);
+		perf->valid = false;
+	}
+
+	handle->perf_event_processed = true;
+}
+
