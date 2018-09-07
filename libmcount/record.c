@@ -1069,7 +1069,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 				prev_map->end = end;
 				last_prot_x = true;
 
-				snprintf(buf, sizeof(buf), "%lx-%lx %s",
+				snprintf(buf, sizeof(buf), "%"PRIx64"-%"PRIx64" %s",
 					 prev_map->start, prev_map->end,
 					 strchr(buf, ' ') + 1);
 				goto next;
