@@ -62,7 +62,6 @@ def parse_return_type(words):
     global type_qualifier
     global struct_or_union_specifier
     global enum_specifier
-    global typedef_specifier
     global pointer
 
     i = 0
