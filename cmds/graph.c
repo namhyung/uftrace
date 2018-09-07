@@ -646,6 +646,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	struct ftrace_file_handle handle;
 	struct session_graph *graph;
 	char *func;
+	struct graph_backtrace *bt, *btmp;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
@@ -692,6 +693,11 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		graph = graph_list;
 		graph_list = graph->next;
 
+		free(graph->func);
+		list_for_each_entry_safe(bt, btmp, &graph->bt_list, list) {
+			list_del(&bt->list);
+			free(bt);
+		}
 		graph_destroy(&graph->ug);
 		free(graph);
 	}
