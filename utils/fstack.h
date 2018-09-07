@@ -45,8 +45,10 @@ struct ftrace_task_handle {
 	struct ftrace_file_handle *h;
 	struct uftrace_record ustack;
 	struct uftrace_record kstack;
+	struct uftrace_record estack;
 	struct uftrace_record *rstack;
 	struct uftrace_rstack_list rstack_list;
+	struct uftrace_rstack_list event_list;
 	int stack_count;
 	int lost_count;
 	int user_stack_count;
@@ -123,6 +125,12 @@ static inline bool is_kernel_record(struct ftrace_task_handle *task,
 				    struct uftrace_record *rec)
 {
 	return rec == &task->kstack;
+}
+
+static inline bool is_event_record(struct ftrace_task_handle *task,
+				  struct uftrace_record *rec)
+{
+	return rec == &task->estack;
 }
 
 void setup_fstack_args(char *argspec, char *retspec,

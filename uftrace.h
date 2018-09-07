@@ -164,6 +164,7 @@ struct ftrace_file_handle {
 	int depth;
 	bool needs_byte_swap;
 	bool needs_bit_swap;
+	bool perf_event_processed;
 	uint64_t time_filter;
 	struct uftrace_time_range time_range;
 	struct list_head events;
@@ -492,6 +493,11 @@ enum ftrace_ext_type {
 static inline bool has_perf_data(struct ftrace_file_handle *handle)
 {
 	return handle->perf != NULL;
+}
+
+static inline bool has_event_data(struct ftrace_file_handle *handle)
+{
+	return handle->perf_event_processed;
 }
 
 struct rusage;

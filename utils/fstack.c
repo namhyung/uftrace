@@ -86,6 +86,7 @@ void reset_task_handle(struct ftrace_file_handle *handle)
 		task->func_stack = NULL;
 
 		reset_rstack_list(&task->rstack_list);
+		reset_rstack_list(&task->event_list);
 	}
 
 	free(handle->tasks);
@@ -116,6 +117,7 @@ static void prepare_task_handle(struct ftrace_file_handle *handle,
 	free(filename);
 
 	setup_rstack_list(&task->rstack_list);
+	setup_rstack_list(&task->event_list);
 }
 
 static void update_first_timestamp(struct ftrace_file_handle *handle,
@@ -1546,6 +1548,37 @@ static int read_user_stack(struct ftrace_file_handle *handle,
 	return next_i;
 }
 
+static int read_event_stack(struct ftrace_file_handle *handle,
+			    struct ftrace_task_handle **task)
+{
+	int i, next_i = -1;
+	uint64_t next_time = 0;
+	struct ftrace_task_handle *t;
+	struct uftrace_record *curr, *next;
+
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		t = &handle->tasks[i];
+
+		if (t->event_list.count == 0)
+			continue;
+
+		curr = get_first_rstack_list(&t->event_list);
+		if (next_i < 0 || curr->time < next_time) {
+			next_time = curr->time;
+			next_i = i;
+			next = curr;
+		}
+	}
+
+	if (next_i < 0)
+		return -1;
+
+	*task = &handle->tasks[next_i];
+	memcpy(&(*task)->estack, next, sizeof(*next));
+
+	return next_i;
+}
+
 /* convert perf sched events to a virtual schedule function */
 static bool convert_perf_event(struct ftrace_task_handle *task,
 			       struct uftrace_record *orig,
@@ -1810,9 +1843,15 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		if (is_user_record(task, rstack))
 			node = list_first_entry(&task->rstack_list.read,
 						typeof(*node), list);
-		else
+		else if (is_kernel_record(task, rstack))
 			node = list_first_entry(&kernel->rstack_list[cpu].read,
 						typeof(*node), list);
+		else if (is_event_record(task, rstack))
+			node = list_first_entry(&task->event_list.read,
+						typeof(*node), list);
+		else
+			goto consume_perf_event;
+
 		assert(node->args.data);
 
 		/* restore args/retval to task */
@@ -1833,12 +1872,17 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 		if (kernel->rstack_list[cpu].count)
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
+	else if (is_event_record(task, rstack)) {
+		if (task->event_list.count)
+			consume_first_rstack_list(&task->event_list);
+	}
 	else if (rstack->type == UFTRACE_LOST) {
 		kernel->missed_events[cpu] = 0;
 	}
 	else {  /* must be perf event */
 		struct uftrace_perf_reader *perf;
 
+consume_perf_event:
 		assert(handle->last_perf_idx >= 0);
 		perf = &handle->perf[handle->last_perf_idx];
 
@@ -1847,11 +1891,7 @@ static void __fstack_consume(struct ftrace_task_handle *task,
 			       sizeof(task->t->comm));
 		}
 
-		/* it might be read by remove_perf_schedule_event() */
-		if (perf->peek)
-			perf->peek = false;
-		else
-			perf->valid = false;
+		perf->valid = false;
 	}
 
 	update_first_timestamp(handle, task, rstack);
@@ -1885,18 +1925,18 @@ static int __read_rstack(struct ftrace_file_handle *handle,
 			 struct ftrace_task_handle **taskp,
 			 bool consume)
 {
-	int u, k = -1, p = -1;
+	int u, k = -1, p, e;
 	struct ftrace_task_handle *task = NULL;
 	struct ftrace_task_handle *utask = NULL;
 	struct ftrace_task_handle *ktask = NULL;
+	struct ftrace_task_handle *etask = NULL;
 	struct uftrace_kernel_reader *kernel = handle->kernel;
-	struct uftrace_perf_reader *perf;
-	uint64_t min_timestamp;
-	enum { NONE, USER, KERNEL, PERF } source;
+	struct uftrace_perf_reader *perf = NULL;
+	uint64_t min_timestamp = ~0ULL;
+	enum { NONE, USER, KERNEL, PERF, EVENT } source = NONE;
 
-retry:
-	min_timestamp = ~0ULL;
-	source = NONE;
+	if (handle->time_filter)
+		process_perf_event(handle);
 
 	u = read_user_stack(handle, &utask);
 	if (u >= 0) {
@@ -1938,6 +1978,15 @@ retry:
 		}
 	}
 
+	if (has_event_data(handle)) {
+		e = read_event_stack(handle, &etask);
+
+		if (e >= 0 && etask->estack.time < min_timestamp) {
+			min_timestamp = etask->estack.time;
+			source = EVENT;
+		}
+	}
+
 	switch (source) {
 	case USER:
 		utask->rstack = &utask->ustack;
@@ -1950,18 +1999,22 @@ retry:
 
 	case PERF:
 		task = get_task_handle(handle, perf->tid);
+		if (unlikely(task == NULL))
+			pr_err_ns("cannot find task %d\n", perf->tid);
+
 		task->rstack = get_perf_record(handle, perf);
 
 		if (task->rstack->addr == EVENT_ID_PERF_COMM) {
-			/* abuse task->args */
+			task->rstack->more = 1;
+			/* abuse task->args to save comm */
 			task->args.data = xstrdup(perf->u.comm.comm);
 			task->args.len  = strlen(perf->u.comm.comm);
 		}
-		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
-			if (consume && remove_perf_schedule_event(perf, task,
-							handle->time_filter))
-				goto retry;
-		}
+		break;
+
+	case EVENT:
+		etask->rstack = &etask->estack;
+		task = etask;
 		break;
 
 	case NONE:
