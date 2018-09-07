@@ -518,12 +518,18 @@ char * convert_enum_val(struct enum_def *e_def, long val)
 	}
 
 	/* print hex for unknown value */
-	if (val) {
+	if (str && val) {
 		char *tmp;
 
 		xasprintf(&tmp, "%s+%#lx", str, val);
 		free(str);
 		str = tmp;
+	}
+	else if (unlikely(str == NULL)) {
+		if (labs(val) > 100000)
+			xasprintf(&str, "%#lx", val);
+		else
+			xasprintf(&str, "%ld", val);
 	}
 
 	return str;
