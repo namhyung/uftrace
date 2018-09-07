@@ -23,7 +23,6 @@ plthook_data_type = utils.CachedType("struct plthook_data")
 
 
 def plthook_list():
-    global module_type
     plthook_modules = utils.gdb_eval_or_none("plthook_modules")
     if plthook_modules is None:
         return
