@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <assert.h>
+#include <dlfcn.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
