@@ -2116,9 +2116,6 @@ static void tui_window_search_prev(struct tui_window *win)
 	if (tui_search == NULL || win->ops->search == NULL)
 		return;
 
-	if (win->ops->search == NULL)
-		return;
-
 	while (true) {
 		node = win->ops->prev(win, node, false);
 		if (node == NULL)
@@ -2137,9 +2134,6 @@ static void tui_window_search_next(struct tui_window *win)
 	void *node = win->curr;
 
 	if (tui_search == NULL || win->ops->search == NULL)
-		return;
-
-	if (win->ops->search == NULL)
 		return;
 
 	while (true) {
