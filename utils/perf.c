@@ -516,6 +516,11 @@ void update_perf_task_comm(struct ftrace_file_handle *handle)
 
 			memcpy(task->comm, perf->u.comm.comm, sizeof(task->comm));
 		}
+
+		/* reset file position for future processing */
+		rewind(perf->fp);
+		perf->valid = false;
+		perf->done  = false;
 	}
 }
 
