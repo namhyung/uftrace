@@ -831,23 +831,26 @@ static void print_chrome_header(struct uftrace_dump_ops *ops,
 {
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	struct uftrace_info *info = &handle->info;
-	struct ftrace_task_handle *task;
+	struct uftrace_task *task;
 	int tid;
 	int i;
 
+	if (handle->hdr.feat_mask & PERF_EVENT)
+		update_perf_task_comm(handle);
+
 	pr_out("{\"traceEvents\":[\n");
 	for (i = 0; i < info->nr_tid; i++) {
-		task = &handle->tasks[i];
 		tid = info->tids[i];
+		task = find_task(&handle->sessions, tid);
 
 		pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
 		       "\"name\":\"process_name\","
 		       "\"args\":{\"name\":\"[%d] %s\"}},\n",
-		       tid, tid, task->t->comm);
+		       tid, tid, task->comm);
 		pr_out("{\"ts\":0,\"ph\":\"M\",\"pid\":%d,"
 		       "\"name\":\"thread_name\","
 		       "\"args\":{\"name\":\"[%d] %s\"}},\n",
-		       tid, tid, task->t->comm);
+		       tid, tid, task->comm);
 	}
 
 	chrome->last_comma = false;
@@ -1428,6 +1431,8 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 
+		task->timestamp_last = frs->time;
+
 		if (!check_task_rstack(task, opts))
 			continue;
 
@@ -1439,8 +1444,6 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			dump_replay_event(ops, task);
 		else
 			dump_replay_func(ops, task);
-
-		task->timestamp_last = frs->time;
 	}
 
 	/* add duration of remaining functions */
@@ -1452,7 +1455,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 		if (task->stack_count == 0)
 			continue;
 
-		last_time = task->rstack->time;
+		last_time = task->timestamp_last;
 
 		if (handle->time_range.stop && handle->time_range.stop < last_time)
 			last_time = handle->time_range.stop;
