@@ -278,8 +278,14 @@ class TestBase:
         for ln in o['traceEvents']:
             if ln['name'].startswith('__'):
                 continue
-            if ln['ph'] == "M" and ln['name'] == "process_name":
-                result.append("%s %s %s" % (ln['ph'], ln['name'], ln['args']))
+            if ln['ph'] == "M":
+                if ln['name'] == "process_name" or ln['name'] == "thread_name":
+                    args = ln['args']
+                    name = args['name']
+                    m = re.search(r'\[\d+\] (.*)', args['name'])
+                    if m:
+                        name = m.group(1)
+                    result.append("%s %s %s" % (ln['ph'], ln['name'], name))
             else:
                 result.append("%s %s" % (ln['ph'], ln['name']))
         return '\n'.join(result)
