@@ -1431,6 +1431,8 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 
+		task->timestamp_last = frs->time;
+
 		if (!check_task_rstack(task, opts))
 			continue;
 
@@ -1442,8 +1444,6 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			dump_replay_event(ops, task);
 		else
 			dump_replay_func(ops, task);
-
-		task->timestamp_last = frs->time;
 	}
 
 	/* add duration of remaining functions */
@@ -1455,7 +1455,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 		if (task->stack_count == 0)
 			continue;
 
-		last_time = task->rstack->time;
+		last_time = task->timestamp_last;
 
 		if (handle->time_range.stop && handle->time_range.stop < last_time)
 			last_time = handle->time_range.stop;
