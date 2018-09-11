@@ -1,9 +1,13 @@
-uftrace (0.9.0-1) UNRELEASED; urgency=medium
+uftrace (0.9.0-1) unstable; urgency=medium
 
   * New upstream release:
     + Fixes FTBFS on buster/sid (closes: #906512).
+    + Now reports correct version (closes: #886863).
   * Adds arm64 as a build target (closes: #898000, and thank you, Matthias
     Klose).
+  * Add new (optional) build dependencies for the sake of features:
+    pkg-config, libpython2.7-dev, libdw-dev, libncursesw5-dev
+  * Bump Standards-Version to 4.2.1.
 
  -- paul cannon <pik@debian.org>  Tue, 11 Sep 2018 16:19:19 -0500
 
