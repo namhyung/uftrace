@@ -1337,6 +1337,9 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 		case 'R':
 			if (line[0] == 'R')
 				root = &dinfo->rets;
+			
+			if (func == NULL)
+				goto out;
 
 			if (add_debug_entry(root, func, offset, &line[3]) < 0)
 				goto out;
