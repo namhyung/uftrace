@@ -2,6 +2,8 @@ uftrace (0.9.0-1) UNRELEASED; urgency=medium
 
   * New upstream release:
     + Fixes FTBFS on buster/sid (closes: #906512).
+  * Adds arm64 as a build target (closes: #898000, and thank you, Matthias
+    Klose).
 
  -- paul cannon <pik@debian.org>  Tue, 11 Sep 2018 16:19:19 -0500
 
