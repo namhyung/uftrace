@@ -8,10 +8,10 @@ Subject: Fix some minor spelling errors in manpages
  2 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/doc/uftrace-live.md b/doc/uftrace-live.md
-index 421019e..94b202b 100644
+index 9da93ff..3b1b31e 100644
 --- a/doc/uftrace-live.md
 +++ b/doc/uftrace-live.md
-@@ -365,11 +365,11 @@ The default value is 'duration,tid'.  If given field name starts with "+", then
+@@ -420,11 +420,11 @@ The default value is 'duration,tid'.  If given field name starts with "+", then
  
  DYNAMIC TRACING
  ===============
@@ -25,7 +25,7 @@ index 421019e..94b202b 100644
  
      $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
      $ uftrace abc
-@@ -396,7 +396,7 @@ In addition, you can enable all functions at load time using '.' that matches to
+@@ -451,7 +451,7 @@ In addition, you can enable all functions at load time using '.' that matches to
         2.451 us [19387] |   } /* a */
         3.289 us [19387] | } /* main */
  
@@ -35,10 +35,10 @@ index 421019e..94b202b 100644
  For example, you can build the target program by clang with the below option and equally use `-P` option for dynamic tracing like below:
  
 diff --git a/doc/uftrace-record.md b/doc/uftrace-record.md
-index 59d6d14..e78b96d 100644
+index e7593b2..23841de 100644
 --- a/doc/uftrace-record.md
 +++ b/doc/uftrace-record.md
-@@ -333,11 +333,11 @@ Note that these arguments and return value are recorded only if the executable w
+@@ -402,11 +402,11 @@ return values of every functions (if supported), use `-a`/`--auto-args` option.
  
  DYNAMIC TRACING
  ===============
@@ -52,7 +52,7 @@ index 59d6d14..e78b96d 100644
  
      $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
      $ uftrace abc
-@@ -366,7 +366,7 @@ In addition, you can enable all functions at load time using '.' that matches to
+@@ -435,7 +435,7 @@ In addition, you can enable all functions at load time using '.' that matches to
         2.451 us [19387] |   } /* a */
         3.289 us [19387] | } /* main */
  
