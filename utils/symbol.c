@@ -1450,6 +1450,19 @@ size_t count_dynsym(struct symtabs *symtabs)
 	return dsymtab->nr_sym;
 }
 
+static bool check_map_symtab(struct symtab *stab, uint64_t addr)
+{
+        uint64_t start, end;
+
+        if(stab == NULL || stab->nr_sym == 0)
+                return false;
+
+        start = stab->sym[0].addr;
+        end = stab->sym[stab->nr_sym - 1].addr + stab->sym[stab->nr_sym - 1].size;
+
+        return (start <= addr && addr < end);
+}
+
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 {
 	struct uftrace_mmap *maps;
@@ -1457,27 +1470,9 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 	if (is_kernel_address(symtabs, addr))
 		return MAP_KERNEL;
 
-	if (symtabs->symtab.nr_sym) {
-		struct symtab *stab = &symtabs->symtab;
-		uint64_t start = stab->sym[0].addr;
-		uint64_t end = stab->sym[stab->nr_sym - 1].addr;
-
-		end += stab->sym[stab->nr_sym - 1].size;
-
-		if (start <= addr && addr < end)
-			return MAP_MAIN;
-	}
-
-	if (symtabs->dsymtab.nr_sym) {
-		struct symtab *stab = &symtabs->dsymtab;
-		uint64_t start = stab->sym[0].addr;
-		uint64_t end = stab->sym[stab->nr_sym - 1].addr;
-
-		end += stab->sym[stab->nr_sym - 1].size;
-
-		if (start <= addr && addr < end)
-			return MAP_MAIN;
-	}
+        if (check_map_symtab(&symtabs->symtab, addr) ||
+            check_map_symtab(&symtabs->dsymtab, addr))
+                return MAP_MAIN;
 
 	maps = symtabs->maps;
 	while (maps) {
