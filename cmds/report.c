@@ -149,7 +149,7 @@ static void fill_entry_sym(struct trace_entry *te,
 	te->time_self  = te->time_total - fstack->child_time;
 	te->nr_called  = 1;
 
-	/* some LOST entries make invalid self tiem */
+	/* some LOST entries make invalid self time */
 	if (te->time_self > te->time_total)
 		te->time_self = te->time_total;
 
