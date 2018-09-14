@@ -116,6 +116,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
 	char *exename, *pos;
+	int ret = -1;
+	int num;
 
 	xasprintf(&fname, "%s/%s", dirname, "task.txt");
 
@@ -128,15 +130,19 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 	pr_dbg("reading %s file\n", fname);
 	while (getline(&line, &sz, fp) >= 0) {
 		if (!strncmp(line, "TASK", 4)) {
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
-			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
+				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			if (num != 4)
+				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(sess, &tmsg, false, needs_session);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
-			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
-			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
+				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			if (num != 4)
+				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(sess, &tmsg, true, needs_session);
@@ -145,13 +151,16 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
-			       &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
+				     &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
+			if (num != 4)
+				goto out;
 
 			// Get the execname
 			pos = strstr(line, "exename=");
 			if (pos == NULL)
-				pr_err_ns("invalid task.txt format");
+				goto out;
+
 			exename = pos + 8 + 1;  // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
@@ -169,13 +178,16 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
-			       &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
-			       &dlop.base_addr);
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
+				     &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
+				     &dlop.base_addr);
+			if (num != 5)
+				goto out;
 
 			pos = strstr(line, "libname=");
 			if (pos == NULL)
-				pr_err_ns("invalid task.txt format");
+				goto out;
+
 			exename = pos + 8 + 1;  // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
@@ -191,11 +203,17 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 					   dlop.base_addr, exename);
 		}
 	}
+	ret = 0;
 
+out:
 	free(line);
 	fclose(fp);
 	free(fname);
-	return 0;
+
+	if (ret != 0)
+		errno = EINVAL;
+
+	return ret;
 }
 
 /**
