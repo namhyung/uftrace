@@ -724,7 +724,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	symname = symbol_getname(sym, rstack->addr);
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		if(symname[strlen(symname) - 1] != ')' || rstack->more)
+		if (symname[strlen(symname) - 1] != ')' || rstack->more)
 			str_mode |= NEEDS_PAREN;
 	}
 
