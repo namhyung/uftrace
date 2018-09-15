@@ -1454,7 +1454,7 @@ static bool check_map_symtab(struct symtab *stab, uint64_t addr)
 {
         uint64_t start, end;
 
-        if(stab == NULL || stab->nr_sym == 0)
+        if (stab == NULL || stab->nr_sym == 0)
                 return false;
 
         start = stab->sym[0].addr;

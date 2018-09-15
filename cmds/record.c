@@ -271,7 +271,7 @@ static void setup_child_environ(struct opts *opts, int pfd,
 		setenv("UFTRACE_DEBUG_DOMAIN", build_debug_domain_string(), 1);
 	}
 
-	if(opts->disabled)
+	if (opts->disabled)
 		setenv("UFTRACE_DISABLED", "1", 1);
 
 	if (log_color == COLOR_ON) {
