@@ -38,6 +38,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	unsigned long xray_exit_addr = (unsigned long)__xray_exit;
 	struct arch_dynamic_info *adi = mdi->arch;
 	size_t trampoline_size = 16;
+	void *trampoline_check;
 
 	if (adi && adi->xrmap_count)
 		trampoline_size *= 2;
@@ -53,8 +54,13 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
 			mdi->trampoline);
 
-		mmap((void *)mdi->trampoline, PAGE_SIZE, PROT_READ | PROT_WRITE,
-		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
+					PROT_READ | PROT_WRITE,
+		     			MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
+					-1, 0);
+
+		if (trampoline_check == MAP_FAILED)
+			pr_err("failed to mmap trampoline for setup");
 	}
 
 	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE)) {

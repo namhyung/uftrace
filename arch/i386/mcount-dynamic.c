@@ -20,6 +20,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
 	unsigned long fentry_addr = (unsigned long)__fentry__;
 	size_t trampoline_size = 16;
+	void *trampoline_check;
 
 	/* find unused 16-byte at the end of the code segment */
 	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE) - trampoline_size;
@@ -31,8 +32,13 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
 			mdi->trampoline);
 
-		mmap((void *)mdi->trampoline, PAGE_SIZE, PROT_READ | PROT_WRITE,
-		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
+					PROT_READ | PROT_WRITE,
+		     			MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
+					-1, 0);
+
+		if (trampoline_check == MAP_FAILED)
+			pr_err("failed to mmap trampoline for setup");
 	}
 
 	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE)) {
