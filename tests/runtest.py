@@ -145,7 +145,7 @@ class TestBase:
                 continue
             # ignore result of remaining functions which follows a blank line
             if ln.strip() == '':
-                break;
+                break
             pid_patt = re.compile('[^[]*\[ *(\d+)\] |')
             m = pid_patt.match(ln)
             try:
@@ -523,7 +523,7 @@ if __name__ == "__main__":
                 sys.exit(0)
 
     opts = ' '.join(sorted(['O'+o for o in arg.opts]))
-    optslen = len(opts);
+    optslen = len(opts)
 
     header1 = '%-24s ' % 'Test case'
     header2 = '-' * 24 + ':'
