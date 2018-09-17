@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <assert.h>
 #include <byteswap.h>
+#include <glob.h>
+#include <sys/stat.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -377,6 +379,31 @@ static void check_data_order(struct ftrace_file_handle *handle)
 		pr_dbg("bitfield order is different!\n");
 }
 
+static bool check_data_file(struct ftrace_file_handle *handle,
+			    const char *pattern)
+{
+	glob_t g;
+	size_t i;
+	bool found = false;
+
+	if (glob(pattern, 0, NULL, &g) == GLOB_ERR) {
+		pr_dbg("glob matching failed: %s: %m\n", pattern);
+		return false;
+	}
+
+	for (i = 0; i < g.gl_pathc; i++) {
+		struct stat stbuf;
+
+		if (stat(g.gl_pathv[i], &stbuf) == 0 && stbuf.st_size) {
+			found = true;
+			break;
+		}
+	}
+
+	globfree(&g);
+	return found;
+}
+
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
@@ -476,6 +503,8 @@ ok:
 				saved_errno = ENODATA;
 			else
 				saved_errno = errno;
+
+			goto out;
 		}
 	}
 
@@ -533,12 +562,27 @@ ok:
 	if (handle->hdr.feat_mask & PERF_EVENT)
 		setup_perf_data(handle);
 
+	/* check there are data files actually */
+	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts->dirname);
+	if (!check_data_file(handle, buf)) {
+		if (handle->kernel) {
+			snprintf(buf, sizeof(buf), "%s/kernel-*.dat",
+				 opts->dirname);
+
+			if (check_data_file(handle, buf))
+				goto out;
+		}
+
+		if (saved_errno == 0)
+			saved_errno = ENODATA;
+	}
+
+out:
 	if (saved_errno)
 		errno = saved_errno;
 	else
 		ret = 0;
 
-out:
 	return ret;
 }
 
