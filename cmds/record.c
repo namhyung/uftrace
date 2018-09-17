@@ -655,7 +655,7 @@ void *writer_thread(void *arg)
 			continue;
 
 		if (read(thread_ctl[0], &dummy, sizeof(dummy)) < 0) {
-			if (errno == EAGAIN && errno == EINTR)
+			if (errno == EAGAIN || errno == EINTR)
 				continue;
 			/* other errors are problematic */
 			break;

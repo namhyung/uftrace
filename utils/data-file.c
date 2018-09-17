@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <assert.h>
 #include <byteswap.h>
+#include <glob.h>
+#include <sys/stat.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -116,6 +118,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
 	char *exename, *pos;
+	int ret = -1;
+	int num;
 
 	xasprintf(&fname, "%s/%s", dirname, "task.txt");
 
@@ -128,15 +132,19 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 	pr_dbg("reading %s file\n", fname);
 	while (getline(&line, &sz, fp) >= 0) {
 		if (!strncmp(line, "TASK", 4)) {
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
-			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
+				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			if (num != 4)
+				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(sess, &tmsg, false, needs_session);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
-			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
-			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
+				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			if (num != 4)
+				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(sess, &tmsg, true, needs_session);
@@ -145,13 +153,16 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
-			       &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
+				     &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
+			if (num != 4)
+				goto out;
 
 			// Get the execname
 			pos = strstr(line, "exename=");
 			if (pos == NULL)
-				pr_err_ns("invalid task.txt format");
+				goto out;
+
 			exename = pos + 8 + 1;  // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
@@ -169,13 +180,16 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			if (!needs_session)
 				continue;
 
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
-			       &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
-			       &dlop.base_addr);
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
+				     &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
+				     &dlop.base_addr);
+			if (num != 5)
+				goto out;
 
 			pos = strstr(line, "libname=");
 			if (pos == NULL)
-				pr_err_ns("invalid task.txt format");
+				goto out;
+
 			exename = pos + 8 + 1;  // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
@@ -191,11 +205,17 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 					   dlop.base_addr, exename);
 		}
 	}
+	ret = 0;
 
+out:
 	free(line);
 	fclose(fp);
 	free(fname);
-	return 0;
+
+	if (ret != 0)
+		errno = EINVAL;
+
+	return ret;
 }
 
 /**
@@ -359,6 +379,31 @@ static void check_data_order(struct ftrace_file_handle *handle)
 		pr_dbg("bitfield order is different!\n");
 }
 
+static bool check_data_file(struct ftrace_file_handle *handle,
+			    const char *pattern)
+{
+	glob_t g;
+	size_t i;
+	bool found = false;
+
+	if (glob(pattern, 0, NULL, &g) == GLOB_ERR) {
+		pr_dbg("glob matching failed: %s: %m\n", pattern);
+		return false;
+	}
+
+	for (i = 0; i < g.gl_pathc; i++) {
+		struct stat stbuf;
+
+		if (stat(g.gl_pathv[i], &stbuf) == 0 && stbuf.st_size) {
+			found = true;
+			break;
+		}
+	}
+
+	globfree(&g);
+	return found;
+}
+
 int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 {
 	int ret = -1;
@@ -458,6 +503,8 @@ ok:
 				saved_errno = ENODATA;
 			else
 				saved_errno = errno;
+
+			goto out;
 		}
 	}
 
@@ -515,12 +562,27 @@ ok:
 	if (handle->hdr.feat_mask & PERF_EVENT)
 		setup_perf_data(handle);
 
+	/* check there are data files actually */
+	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts->dirname);
+	if (!check_data_file(handle, buf)) {
+		if (handle->kernel) {
+			snprintf(buf, sizeof(buf), "%s/kernel-*.dat",
+				 opts->dirname);
+
+			if (check_data_file(handle, buf))
+				goto out;
+		}
+
+		if (saved_errno == 0)
+			saved_errno = ENODATA;
+	}
+
+out:
 	if (saved_errno)
 		errno = saved_errno;
 	else
 		ret = 0;
 
-out:
 	return ret;
 }
 
