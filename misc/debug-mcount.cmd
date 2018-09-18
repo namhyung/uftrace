@@ -9,5 +9,5 @@ commands
   continue
 end
 
-r record -L. -d xxx --keep-pid --force tests/t-abc
+r record -L. -d xxx --keep-pid --force argv
  

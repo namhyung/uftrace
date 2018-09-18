@@ -1,4 +1,11 @@
 #!/bin/sh
 
-gdb -x misc/debug-mcount.cmd
+TMP=$(mktemp)
+ARGV="${@:-tests/t-abc}"
+
+sed "s|argv|$ARGV|g" misc/debug-mcount.cmd > $TMP
+
+gdb -x $TMP
+
+rm -f $TMP
 
