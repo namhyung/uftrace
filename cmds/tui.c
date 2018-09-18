@@ -2399,6 +2399,9 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			else if (win == &report->win) {
 				build_partial_graph(win->curr, graph);
 			}
+			else {
+				break;
+			}
 
 			win = &partial_graph.win;
 
