@@ -1539,29 +1539,7 @@ static void win_footer_info(struct tui_window *win,
 	size_t sz = sizeof(buf);
 	int len = 0;
 
-	print_buf("uftrace version: %s (+", UFTRACE_VERSION);
-
-#ifdef HAVE_CXA_DEMANGLE
-	print_buf(" demangle");
-#endif
-
-#ifdef HAVE_LIBPYTHON2
-	print_buf(" python");
-#endif
-
-#ifdef HAVE_PERF_CLOCKID
-	print_buf(" perf");
-#endif
-
-#ifdef HAVE_LIBNCURSES
-	print_buf(" ncurses");
-#endif
-
-	if (unlikely(len == 0))
-		print_buf(" none");
-
-	print_buf(" )");
-
+	print_buf("uftrace version: %s", UFTRACE_VERSION);
 	printw("%-*.*s", COLS, COLS, buf);
 }
 
@@ -2022,6 +2000,67 @@ next:
 	attroff(COLOR_PAIR(C_HEADER) | A_BOLD);
 }
 
+static void tui_window_set_middle_prev(struct tui_window *win, void *target)
+{
+	void *prev;
+
+	while (win->curr != target)
+		tui_window_move_up(win);
+
+	while (win->curr_index - win->top_index < LINES / 2) {
+		prev = win->ops->prev(win, win->top, false);
+		if (prev == NULL)
+			break;
+
+		if (win->ops->needs_blank(win, prev, win->top))
+			win->top_index--;
+
+		win->top = win->ops->prev(win, win->top, true);
+		win->top_index--;
+	}
+}
+
+static void tui_window_set_middle_next(struct tui_window *win, void *target)
+{
+	void *old, *next;
+	int next_index;
+
+	while (win->curr != target)
+		tui_window_move_down(win);
+
+	/* move next to the end of the page */
+	old = next = win->curr;
+	next_index = win->curr_index;
+
+	while (next_index - win->top_index < LINES - 2) {
+		next = win->ops->next(win, old, false);
+		if (next == NULL)
+			return;
+
+		next_index++;
+
+		if (win->ops->needs_blank(win, old, next))
+			next_index++;
+
+		old = next;
+	}
+	next = win->ops->prev(win, old, false);
+
+	/* move the top down only if there's node at the end */
+	while (win->curr_index - win->top_index >= LINES / 2) {
+		next = win->ops->next(win, next, false);
+		if (next == NULL)
+			break;
+
+		old = win->top;
+		win->top = win->ops->next(win, old, true);
+		win->top_index++;
+
+		if (win->ops->needs_blank(win, old, win->top))
+			win->top_index++;
+	}
+}
+
 static bool tui_window_can_search(struct tui_window *win)
 {
 	return win->ops->search != NULL;
@@ -2125,8 +2164,7 @@ static void tui_window_search_prev(struct tui_window *win)
 			break;
 	}
 
-	while (win->curr != node)
-		tui_window_move_up(win);
+	tui_window_set_middle_prev(win, node);
 }
 
 static void tui_window_search_next(struct tui_window *win)
@@ -2145,8 +2183,7 @@ static void tui_window_search_next(struct tui_window *win)
 			break;
 	}
 
-	while (win->curr != node)
-		tui_window_move_down(win);
+	tui_window_set_middle_next(win, node);
 }
 
 static bool tui_window_change(struct tui_window *win,
@@ -2398,6 +2435,9 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 			}
 			else if (win == &report->win) {
 				build_partial_graph(win->curr, graph);
+			}
+			else {
+				break;
 			}
 
 			win = &partial_graph.win;
