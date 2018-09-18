@@ -1539,29 +1539,7 @@ static void win_footer_info(struct tui_window *win,
 	size_t sz = sizeof(buf);
 	int len = 0;
 
-	print_buf("uftrace version: %s (+", UFTRACE_VERSION);
-
-#ifdef HAVE_CXA_DEMANGLE
-	print_buf(" demangle");
-#endif
-
-#ifdef HAVE_LIBPYTHON2
-	print_buf(" python");
-#endif
-
-#ifdef HAVE_PERF_CLOCKID
-	print_buf(" perf");
-#endif
-
-#ifdef HAVE_LIBNCURSES
-	print_buf(" ncurses");
-#endif
-
-	if (unlikely(len == 0))
-		print_buf(" none");
-
-	print_buf(" )");
-
+	print_buf("uftrace version: %s", UFTRACE_VERSION);
 	printw("%-*.*s", COLS, COLS, buf);
 }
 
