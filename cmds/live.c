@@ -30,6 +30,7 @@ static void reset_live_opts(struct opts *opts)
 	 * These options are handled in record and no need to do it in
 	 * replay again.
 	 */
+	free(opts->filter);
 	opts->filter	= NULL;
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 	opts->disabled	= false;
