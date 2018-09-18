@@ -1033,7 +1033,8 @@ void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
 			task = find_task(&handle->sessions, tid);
 
 			len = snprintf(p, sz, "%s%d(%s)",
-				       first ? "" : ", ", tid, task->comm);
+				       first ? "" : ", ", tid,
+				       task ? task->comm : "");
 			p  += len;
 			sz -= len;
 
