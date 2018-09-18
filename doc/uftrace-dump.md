@@ -26,6 +26,9 @@ OPTIONS
 \--flame-graph
 :   Show FlameGraph style output (svg) viewable by modern web browsers.
 
+\--graphviz
+:   Show DOT style output.
+
 -k, \--kernel
 :   Dump kernel functions as well as user functions.  Note that this option is set by default and always shows kernel functions if exist.
 
@@ -124,6 +127,21 @@ This command dumps data like below:
     main 1
     main;a;b;c 1
 
+    $ uftrace dump --graphviz
+    \# command_line "uftrace record tests/t-abc"
+    digraph "/home/m/git/uftrace/tests/t-abc" {
+            \# Attributes
+            splines=ortho;
+            concentrate=true;
+            node [shape="rect",fontsize="7",style="filled"];
+            edge [fontsize="7"];
+            \# Elements
+            main[xlabel = "Calls : 1"]
+            main->a[xlabel = "Calls : 1"]
+            a->b[xlabel = "Calls : 1"]
+            b->c[xlabel = "Calls : 1"]
+            c->getpid[xlabel = "Calls : 1"]
+    }
 
 SEE ALSO
 ========

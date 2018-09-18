@@ -73,6 +73,7 @@ enum options {
 	OPT_task_newline,
 	OPT_chrome_trace,
 	OPT_flame_graph,
+	OPT_graphviz,
 	OPT_sample_time,
 	OPT_diff,
 	OPT_sort_column,
@@ -154,6 +155,7 @@ static struct argp_option uftrace_options[] = {
 	{ "kernel-only", OPT_kernel_only, 0, 0, "Dump kernel data only" },
 	{ "flame-graph", OPT_flame_graph, 0, 0, "Dump recorded data in FlameGraph format" },
 	{ "sample-time", OPT_sample_time, "TIME", 0, "Show flame graph with this sampling time" },
+	{ "graphviz", OPT_graphviz, 0, 0, "Dump recorded data in DOT format" },
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay or graph output" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
@@ -618,6 +620,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_flame_graph:
 		opts->flame_graph = true;
+		break;
+
+	case OPT_graphviz:
+		opts->graphviz = true;
 		break;
 
 	case OPT_diff:
