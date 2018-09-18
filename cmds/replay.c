@@ -578,7 +578,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 					else if (isprint(c))
 						print_args("%c", c);
 					else
-						print_args("\\\\x%02hhx", c);
+						print_args("\\\\x%02hhx", (unsigned char)c);
 				}
 				print_args("\\\"");
 			}
@@ -599,7 +599,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 			if (isprint(c))
 				print_args("'%c'", c);
 			else
-				print_args("'\\x%02hhx'", c);
+				print_args("'\\x%02hhx'", (unsigned char)c);
 			size = 1;
 		}
 		else if (spec->fmt == ARG_FMT_FLOAT) {
