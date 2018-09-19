@@ -1203,6 +1203,7 @@ static void atfork_child_handler(void)
 		.pid = getppid(),
 		.tid = getpid(),
 	};
+	int i;
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
@@ -1229,6 +1230,10 @@ static void atfork_child_handler(void)
 	uftrace_send_message(UFTRACE_MSG_FORK_END, &tmsg, sizeof(tmsg));
 
 	update_kernel_tid(tmsg.tid);
+
+	/* do not record parent's functions */
+	for (i = 0; i < mtdp->idx; i++)
+		mtdp->rstack[i].flags |= MCOUNT_FL_WRITTEN;
 
 	mcount_unguard_recursion(mtdp);
 }
