@@ -1354,7 +1354,7 @@ static void dump_replay_func(struct uftrace_dump_ops *ops,
 	sym = task_find_sym(sessions, task, rec);
 
 	name = symbol_getname(sym, rec->addr);
-	ops->task_rstack(ops, task, name);
+	call_if_nonull(ops->task_rstack, ops, task, name);
 	symbol_putname(sym, name);
 }
 
@@ -1366,17 +1366,18 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 	/* handle schedule events as if functions */
 	if (rec->addr == EVENT_ID_PERF_SCHED_IN ||
 	    rec->addr == EVENT_ID_PERF_SCHED_OUT) {
-		ops->task_rstack(ops, task, "linux:schedule");
+		call_if_nonull(ops->task_rstack, ops, task, "linux:schedule");
 		return;
 	}
 
 	if (is_user_record(task, rec)) {
-		ops->task_event(ops, task);
+		call_if_nonull(ops->task_event, ops, task);
 	}
 	else if (is_kernel_record(task, rec)) {
 		struct uftrace_kernel_reader *kernel = task->h->kernel;
 
-		ops->kernel_event(ops, kernel, kernel->last_read_cpu, rec);
+		call_if_nonull(ops->kernel_event, ops, kernel,
+			       kernel->last_read_cpu, rec);
 	}
 	else if (is_event_record(task, rec)) {
 		struct uftrace_perf_reader perf = {
@@ -1390,7 +1391,7 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 			perf.u.comm.pid  = task->t->pid;
 		}
 
-		ops->perf_event(ops, &perf, rec);
+		call_if_nonull(ops->perf_event, ops, &perf, rec);
 	}
 	else {
 		struct uftrace_perf_reader *perf;
@@ -1398,7 +1399,7 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 		assert(task->h->last_perf_idx >= 0);
 		perf = &task->h->perf[task->h->last_perf_idx];
 
-		ops->perf_event(ops, perf, rec);
+		call_if_nonull(ops->perf_event, ops, perf, rec);
 	}
 }
 
