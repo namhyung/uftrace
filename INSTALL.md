@@ -117,6 +117,8 @@ directories or build directory with this script.
       --without-libstdc++   build without libstdc++              (even if found on the system)
       --without-libpython   build without libpython2.7           (even if found on the system)
       --without-libncurses  build without libncursesw            (even if found on the system)
+      --without-perf        build without perf event             (even if available)
+      --without-schedule    build without scheduler event        (even if available)
 
       -p                    preserve old setting
 
@@ -129,6 +131,10 @@ directories or build directory with this script.
 
 Also you can set the target architecture and compiler options like CC, CFLAGS.
 
+It's also possible to disable some features depending on external libraries or
+system behaviors.  For example --without-libpython option will make scripting
+feature disabled - `uftrace script` command will still exist but won't work.
+
 For cross compile, you may want to setup the toolchain something like below:
 
     $ export CROSS_COMPILE=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
@@ -137,6 +143,7 @@ For cross compile, you may want to setup the toolchain something like below:
 This assumes you already installed the cross-built `libelf` on the sysroot
 directory.  Otherwise, you can also build it from source (please see below) or
 use it on a different path using `--with-elfutils=<PATH>`.
+
 
 BUILD WITH ELFUTILS (libelf)
 ============================
