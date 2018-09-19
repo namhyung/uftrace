@@ -8,6 +8,7 @@ source.
     $ sudo apt-get install pandoc               # for man pages        (optional)
     $ sudo apt-get install libpython2.7-dev     # for python scripting (optional)
     $ sudo apt-get install libncursesw5-dev     # for TUI              (optional)
+    $ sudo apt-get install pkg-config           # for configure        (optional)
     $ make
     $ sudo make install
 
@@ -48,10 +49,10 @@ On redhat based systems (like Fedora, RHEL), it'll be `elfutils-devel`.
     $ sudo dnf install elfutils-devel
 
 It also uses libstdc++ library to demangle C++ symbols in full detail.
-And ncursesw library to implement text user interface (TUI) on console.
-But they're not mandatory as uftrace has its own demangler for shorter symbol
+But it's not mandatory as uftrace has its own demangler for shorter symbol
 name (it omits arguments, templates and so on).
 
+And ncursesw library is to implement text user interface (TUI) on console.
 The ncurses(w) library provides terminal handling routines so `uftrace tui`
 command is built on top of them.  As it improves user experience of trace data
 analysis, you need to consider install it if you do things like `uftrace graph`
