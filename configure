@@ -25,6 +25,8 @@ usage() {
   --without-libstdc++   build without libstdc++              (even if found on the system)
   --without-libpython   build without libpython2.7           (even if found on the system)
   --without-libncurses  build without libncursesw            (even if found on the system)
+  --without-perf        build without perf event             (even if available)
+  --without-schedule    build without scheduler event        (even if available)
 
   -p                    preserve old setting
 
