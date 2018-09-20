@@ -933,6 +933,19 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		chrome->lost_event_cnt++;
 }
 
+static void dump_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
+				      struct uftrace_kernel_reader *kernel, int cpu,
+				      struct uftrace_record *rec, char *name)
+{
+	int tid;
+	struct ftrace_task_handle *task;
+
+	tid = kernel->tids[cpu];
+	task = get_task_handle(kernel->handle, tid);
+
+	dump_chrome_task_rstack(ops, task, name);
+}
+
 static void dump_chrome_perf_event(struct uftrace_dump_ops *ops,
 				    struct uftrace_perf_reader *perf,
 				    struct uftrace_record *frs)
@@ -1101,7 +1114,6 @@ static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
 				    struct ftrace_task_handle *task, char *name)
 {
 	struct uftrace_record *frs = task->rstack;
-	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
 	struct uftrace_task_graph *graph;
 
 	graph = graph_get_task(task, sizeof(*graph));
@@ -1114,6 +1126,28 @@ static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
 		graph->node = &flame_graph.root;
 
 	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
+}
+
+static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
+				     struct uftrace_kernel_reader *kernel, int cpu,
+				     struct uftrace_record *rec, char *name)
+{
+	int tid;
+	struct ftrace_task_handle *task;
+	struct uftrace_task_graph *graph;
+
+	tid = kernel->tids[cpu];
+	task = get_task_handle(kernel->handle, tid);
+
+	graph = graph_get_task(task, sizeof(*graph));
+
+	graph->graph = &flame_graph;
+	flame_graph.sess = kernel->handle->sessions.first;
+
+	if (graph->node == NULL)
+		graph->node = &flame_graph.root;
+
+	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node));
 }
 
 static void dump_flame_footer(struct uftrace_dump_ops *ops,
@@ -1165,12 +1199,32 @@ static void dump_graphviz_task_rstack(struct uftrace_dump_ops *ops,
 	graph->graph = &graphviz_graph;
 	graphviz_graph.sess = find_task_session(&task->h->sessions,
 						task->tid, frs->time);
-
 	if (graph->node == NULL)
 		graph->node = &graphviz_graph.root;
 
 	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
+}
 
+static void dump_graphviz_kernel_rstack(struct uftrace_dump_ops *ops,
+					struct uftrace_kernel_reader *kernel, int cpu,
+					struct uftrace_record *rec, char *name)
+{
+	int tid;
+	struct ftrace_task_handle *task;
+	struct uftrace_task_graph *graph;
+
+	tid = kernel->tids[cpu];
+	task = get_task_handle(kernel->handle, tid);
+
+	graph = graph_get_task(task, sizeof(*graph));
+
+	graph->graph = &graphviz_graph;
+	graphviz_graph.sess = kernel->handle->sessions.first;
+
+	if (graph->node == NULL)
+		graph->node = &graphviz_graph.root;
+
+	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node));
 }
 
 static void print_graph_to_graphviz(struct uftrace_graph_node *node,
@@ -1516,6 +1570,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 			.ops = {
 				.header         = dump_chrome_header,
 				.task_rstack    = dump_chrome_task_rstack,
+				.kernel_func    = dump_chrome_kernel_rstack,
 				.perf_event     = dump_chrome_perf_event,
 				.footer         = dump_chrome_footer,
 			},
@@ -1528,6 +1583,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 			.ops = {
 				.header         = dump_flame_header,
 				.task_rstack    = dump_flame_task_rstack,
+				.kernel_func    = dump_flame_kernel_rstack,
 				.footer         = dump_flame_footer,
 			},
 			.tasks = RB_ROOT,
@@ -1541,6 +1597,7 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 			.ops = {
 				.header         = dump_graphviz_header,
 				.task_rstack    = dump_graphviz_task_rstack,
+				.kernel_func    = dump_graphviz_kernel_rstack,
 				.footer         = dump_graphviz_footer,
 			},
 		};
