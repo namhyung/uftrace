@@ -863,52 +863,63 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	bool is_process = task->t->pid == task->tid;
+	int rec_type = frs->type;
 
-	if (frs->type == UFTRACE_EVENT) {
-		if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
-		    frs->addr != EVENT_ID_PERF_SCHED_OUT)
+	if (rec_type == UFTRACE_EVENT) {
+		switch (frs->addr) {
+		case EVENT_ID_PERF_SCHED_IN:
+			/*
+			 * new thread starts with a sched-in event
+			 * which should be ignored
+			 */
+			if (task->timestamp_last == 0)
+				return;
+			rec_type = UFTRACE_EXIT;
+			break;
+		case EVENT_ID_PERF_SCHED_OUT:
+			rec_type = UFTRACE_ENTRY;
+			break;
+		default:
 			return;
-
-		/* new thread starts with sched-in event which should be ignored */
-		if (frs->addr == EVENT_ID_PERF_SCHED_IN && task->timestamp_last == 0)
-			return;
+		}
 	}
 
 	if (chrome->last_comma)
 		pr_out(",\n");
 	chrome->last_comma = true;
 
-	if ((frs->type == UFTRACE_ENTRY) ||
-	    (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_OUT)) {
+	if (rec_type == UFTRACE_ENTRY) {
 		ph = 'B';
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
-		} else {
+		}
+		else {
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
 		}
+
 		if (frs->more) {
 			str_mode |= NEEDS_PAREN | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
-			pr_out(",\"args\":{\"arguments\":\"%s\"}}",
-				spec_buf);
+			pr_out(",\"args\":{\"arguments\":\"%s\"}}", spec_buf);
 		}
 		else
 			pr_out("}");
 	}
-	else if ((frs->type == UFTRACE_EXIT) ||
-		 (frs->type == UFTRACE_EVENT && frs->addr == EVENT_ID_PERF_SCHED_IN)) {
+	else if (rec_type == UFTRACE_EXIT) {
 		ph = 'E';
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
-		} else {
+		}
+		else {
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
 		}
+
 		if (frs->more) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
@@ -918,7 +929,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		else
 			pr_out("}");
 	}
-	else if (frs->type == UFTRACE_LOST)
+	else if (rec_type == UFTRACE_LOST)
 		chrome->lost_event_cnt++;
 }
 
