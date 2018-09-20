@@ -539,33 +539,16 @@ out:
 	return -EINVAL;
 }
 
-static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+static void check_and_add_list(struct uftrace_kernel_writer *kernel,
+			       const char *funcs[], size_t funcs_len,
+			       struct list_head *list)
 {
 	unsigned int i;
 	struct kfilter *kfilter;
-	const char *skip_funcs[] = {
-		/*
-		 * Some (old) kernel and architecture doesn't support VDSO
-		 * so there will be many sys_clock_gettime() in the output
-		 * due to internal call in libmcount.  It'd be better
-		 * ignoring them not to confuse users.  I think it does NOT
-		 * affect to the output when VDSO is enabled.
-		 */
-		"sys_clock_gettime",
-		/*
-		 * Currently kernel tracing seems to wake up uftrace writer
-		 * threads too often using the irq_work interrupt.  This
-		 * messes up the trace output so it'd be better hiding them.
-		 */
-		"smp_irq_work_interrupt",
-		/* Disable syscall tracing in the kernel */
-		"syscall_trace_enter_phase1",
-		"syscall_slow_exit_work",
-	};
 
-	for (i = 0; i < ARRAY_SIZE(skip_funcs); i++) {
+	for (i = 0; i < funcs_len; i++) {
 		bool add = true;
-		const char *name = skip_funcs[i];
+		const char *name = funcs[i];
 		struct kfilter *pos;
 
 		/* Don't skip it if user particularly want to see them*/
@@ -586,9 +569,41 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		if (add) {
 			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 			strcpy(kfilter->name, name);
-			list_add_tail(&kfilter->list, &kernel->notrace);
+			list_add_tail(&kfilter->list, list);
 		}
 	}
+}
+
+static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+{
+	const char *skip_funcs[] = {
+		/*
+		 * Some (old) kernel and architecture doesn't support VDSO
+		 * so there will be many sys_clock_gettime() in the output
+		 * due to internal call in libmcount.  It'd be better
+		 * ignoring them not to confuse users.  I think it does NOT
+		 * affect to the output when VDSO is enabled.
+		 */
+		"sys_clock_gettime",
+		/*
+		 * Currently kernel tracing seems to wake up uftrace writer
+		 * threads too often using the irq_work interrupt.  This
+		 * messes up the trace output so it'd be better hiding them.
+		 */
+		"smp_irq_work_interrupt",
+		/* Disable syscall tracing in the kernel */
+		"syscall_trace_enter_phase1",
+		"syscall_slow_exit_work",
+	};
+	const char *skip_patches[] = {
+		/* kernel 4.17 changed syscall entry on x86_64 */
+		"do_syscall_64",
+	};
+
+	check_and_add_list(kernel, skip_funcs, ARRAY_SIZE(skip_funcs),
+			   &kernel->notrace);
+	check_and_add_list(kernel, skip_patches, ARRAY_SIZE(skip_patches),
+			   &kernel->nopatch);
 }
 
 /**
