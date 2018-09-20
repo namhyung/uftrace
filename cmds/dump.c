@@ -1173,12 +1173,12 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node,
 
 		pr_out("\t");
 		if (parent != NULL && parent->name != NULL) {
-			pr_out("%s->", parent->name);
+			pr_out("\"%s\" -> ", parent->name);
 		}
-		pr_out("%s", node->name);
+		pr_out("\"%s\"", node->name);
 
 		// Edge Attributes
-		pr_out("[xlabel = \"Calls : %lu\"]\n", n_calls);
+		pr_out(" [xlabel = \"Calls : %lu\"]\n", n_calls);
 	}
 
 	list_for_each_entry(child, &node->head, list)
