@@ -1419,7 +1419,15 @@ static void dump_replay_func(struct uftrace_dump_ops *ops,
 	sym = task_find_sym(sessions, task, rec);
 
 	name = symbol_getname(sym, rec->addr);
-	call_if_nonull(ops->task_rstack, ops, task, name);
+	if (is_kernel_record(task, rec)) {
+		struct uftrace_kernel_reader *kernel = task->h->kernel;
+
+		call_if_nonull(ops->kernel_func, ops, kernel,
+			       kernel->last_read_cpu, rec, name);
+	}
+	else {
+		call_if_nonull(ops->task_rstack, ops, task, name);
+	}
 	symbol_putname(sym, name);
 }
 
