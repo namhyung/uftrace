@@ -971,7 +971,8 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 	if (sym == NULL)
 		return false;
 
-	if (!strncmp(sym->name, "sys_exit", 8))
+	/* Linux 4.17 added __x64_sys_exit, __ia32_sys_exit and so on */
+	if (strstr(sym->name, "sys_exit"))
 		return true;
 	if (!strcmp(sym->name, "do_syscall_64"))
 		return true;
