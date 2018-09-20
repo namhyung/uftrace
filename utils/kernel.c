@@ -194,20 +194,21 @@ static int set_filter_file(const char *filter_file, struct list_head *filters)
 		return -1;
 
 	list_for_each_entry_safe(pos, tmp, filters, list) {
-		if (__write_tracing_file(fd, filter_file, pos->name,
-					 true, true) < 0)
-			goto out;
+		/*
+		 * it might fail with non-existing functions added by
+		 * add_single_filter() or skip_kernel_functions().
+		 */
+		__write_tracing_file(fd, filter_file, pos->name, true, true);
 
 		list_del(&pos->list);
 		free(pos);
 
 		/* separate filters by space */
 		if (write(fd, " ", 1) != 1)
-			goto out;
+			pr_dbg2("writing filter file failed, but ignoring...\n");
 	}
 	ret = 0;
 
-out:
 	close(fd);
 	return ret;
 }
@@ -585,7 +586,7 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		if (add) {
 			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
 			strcpy(kfilter->name, name);
-			list_add(&kfilter->list, &kernel->notrace);
+			list_add_tail(&kfilter->list, &kernel->notrace);
 		}
 	}
 }
