@@ -533,7 +533,7 @@ static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
 	}
 }
 
-static void print_raw_header(struct uftrace_dump_ops *ops,
+static void dump_raw_header(struct uftrace_dump_ops *ops,
 			     struct ftrace_file_handle *handle,
 			     struct opts *opts)
 {
@@ -569,7 +569,7 @@ static void print_raw_header(struct uftrace_dump_ops *ops,
 	}
 }
 
-static void print_raw_task_start(struct uftrace_dump_ops *ops,
+static void dump_raw_task_start(struct uftrace_dump_ops *ops,
 				 struct ftrace_task_handle *task)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -580,7 +580,7 @@ static void print_raw_task_start(struct uftrace_dump_ops *ops,
 	setup_rstack_list(&task->rstack_list);
 }
 
-static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
+static void dump_raw_inverted_time(struct uftrace_dump_ops *ops,
 				    struct ftrace_task_handle *task)
 {
 	pr_red("\n");
@@ -590,7 +590,7 @@ static void print_raw_inverted_time(struct uftrace_dump_ops *ops,
 	pr_red("\n");
 }
 
-static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
+static void dump_raw_task_rstack(struct uftrace_dump_ops *ops,
 				  struct ftrace_task_handle *task, char *name)
 {
 	struct uftrace_record *frs = task->rstack;
@@ -630,7 +630,7 @@ static void print_raw_task_rstack(struct uftrace_dump_ops *ops,
 	}
 }
 
-static void print_raw_task_event(struct uftrace_dump_ops *ops,
+static void dump_raw_task_event(struct uftrace_dump_ops *ops,
 				 struct ftrace_task_handle *task)
 {
 	struct uftrace_record *frs = task->rstack;
@@ -654,13 +654,13 @@ static void print_raw_task_event(struct uftrace_dump_ops *ops,
 	free(name);
 }
 
-static void print_raw_kernel_start(struct uftrace_dump_ops *ops,
+static void dump_raw_kernel_start(struct uftrace_dump_ops *ops,
 				   struct uftrace_kernel_reader *kernel)
 {
 	pr_out("\n");
 }
 
-static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
+static void dump_raw_cpu_start(struct uftrace_dump_ops *ops,
 				struct uftrace_kernel_reader *kernel, int cpu)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -672,7 +672,7 @@ static void print_raw_cpu_start(struct uftrace_dump_ops *ops,
 	raw->kbuf_offset = kbuffer_curr_offset(kbuf);
 }
 
-static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
+static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 				    struct uftrace_kernel_reader *kernel, int cpu,
 				    struct uftrace_record *frs, char *name)
 {
@@ -732,7 +732,7 @@ static void print_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 }
 
 
-static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
+static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 				   struct uftrace_kernel_reader *kernel, int cpu,
 				   struct uftrace_record *frs)
 {
@@ -767,14 +767,14 @@ static void print_raw_kernel_event(struct uftrace_dump_ops *ops,
 	}
 }
 
-static void print_raw_kernel_lost(struct uftrace_dump_ops *ops,
+static void dump_raw_kernel_lost(struct uftrace_dump_ops *ops,
 				  uint64_t time, int tid, int losts)
 {
 	pr_time(time);
 	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
 }
 
-static void print_raw_perf_start(struct uftrace_dump_ops *ops,
+static void dump_raw_perf_start(struct uftrace_dump_ops *ops,
 				 struct uftrace_perf_reader *perf, int cpu)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -787,7 +787,7 @@ static void print_raw_perf_start(struct uftrace_dump_ops *ops,
 	raw->file_offset = 0;
 }
 
-static void print_raw_perf_event(struct uftrace_dump_ops *ops,
+static void dump_raw_perf_event(struct uftrace_dump_ops *ops,
 				 struct uftrace_perf_reader *perf,
 				 struct uftrace_record *frs)
 {
@@ -823,7 +823,7 @@ static void print_raw_perf_event(struct uftrace_dump_ops *ops,
 	free(evt_name);
 }
 
-static void print_chrome_header(struct uftrace_dump_ops *ops,
+static void dump_chrome_header(struct uftrace_dump_ops *ops,
 				struct ftrace_file_handle *handle,
 				struct opts *opts)
 {
@@ -854,7 +854,7 @@ static void print_chrome_header(struct uftrace_dump_ops *ops,
 	chrome->last_comma = false;
 }
 
-static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
+static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 				     struct ftrace_task_handle *task, char *name)
 {
 	char ph;
@@ -922,7 +922,7 @@ static void print_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		chrome->lost_event_cnt++;
 }
 
-static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
+static void dump_chrome_perf_event(struct uftrace_dump_ops *ops,
 				    struct uftrace_perf_reader *perf,
 				    struct uftrace_record *frs)
 {
@@ -953,7 +953,7 @@ static void print_chrome_perf_event(struct uftrace_dump_ops *ops,
 	};
 }
 
-static void print_chrome_footer(struct uftrace_dump_ops *ops,
+static void dump_chrome_footer(struct uftrace_dump_ops *ops,
 				struct ftrace_file_handle *handle,
 				struct opts *opts)
 {
@@ -1079,14 +1079,14 @@ static void print_flame_graph(struct uftrace_graph_node *node, struct opts *opts
 		print_flame_graph(child, opts);
 }
 
-static void print_flame_header(struct uftrace_dump_ops *ops,
+static void dump_flame_header(struct uftrace_dump_ops *ops,
 			       struct ftrace_file_handle *handle,
 			       struct opts *opts)
 {
 	graph_init_callbacks(NULL, adjust_fg_time, NULL, ops);
 }
 
-static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
+static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
 				    struct ftrace_task_handle *task, char *name)
 {
 	struct uftrace_record *frs = task->rstack;
@@ -1105,7 +1105,7 @@ static void print_flame_task_rstack(struct uftrace_dump_ops *ops,
 	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
 }
 
-static void print_flame_footer(struct uftrace_dump_ops *ops,
+static void dump_flame_footer(struct uftrace_dump_ops *ops,
 			       struct ftrace_file_handle *handle,
 			       struct opts *opts)
 {
@@ -1121,7 +1121,7 @@ static struct uftrace_graph graphviz_graph = {
 	.special_nodes = LIST_HEAD_INIT(graphviz_graph.special_nodes),
 };
 
-static void print_graphviz_header(struct uftrace_dump_ops *ops,
+static void dump_graphviz_header(struct uftrace_dump_ops *ops,
 				  struct ftrace_file_handle *handle,
 				  struct opts *opts)
 {
@@ -1142,7 +1142,7 @@ static void print_graphviz_header(struct uftrace_dump_ops *ops,
 	graph_init_callbacks(NULL, NULL, NULL, ops);
 }
 
-static void print_graphviz_task_rstack(struct uftrace_dump_ops *ops,
+static void dump_graphviz_task_rstack(struct uftrace_dump_ops *ops,
 				       struct ftrace_task_handle *task,
 				       char *name)
 {
@@ -1185,7 +1185,7 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node,
 		print_graph_to_graphviz(child, opts);
 }
 
-static void print_graphviz_footer(struct uftrace_dump_ops *ops,
+static void dump_graphviz_footer(struct uftrace_dump_ops *ops,
 				  struct ftrace_file_handle *handle,
 				  struct opts *opts)
 {
@@ -1503,10 +1503,10 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	if (opts->chrome_trace) {
 		struct uftrace_chrome_dump dump = {
 			.ops = {
-				.header         = print_chrome_header,
-				.task_rstack    = print_chrome_task_rstack,
-				.perf_event     = print_chrome_perf_event,
-				.footer         = print_chrome_footer,
+				.header         = dump_chrome_header,
+				.task_rstack    = dump_chrome_task_rstack,
+				.perf_event     = dump_chrome_perf_event,
+				.footer         = dump_chrome_footer,
 			},
 		};
 
@@ -1515,9 +1515,9 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	else if (opts->flame_graph) {
 		struct uftrace_flame_dump dump = {
 			.ops = {
-				.header         = print_flame_header,
-				.task_rstack    = print_flame_task_rstack,
-				.footer         = print_flame_footer,
+				.header         = dump_flame_header,
+				.task_rstack    = dump_flame_task_rstack,
+				.footer         = dump_flame_footer,
 			},
 			.tasks = RB_ROOT,
 			.sample_time = opts->sample_time,
@@ -1528,9 +1528,9 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	else if (opts->graphviz) {
 		struct uftrace_graphviz_dump dump = {
 			.ops = {
-				.header         = print_graphviz_header,
-				.task_rstack    = print_graphviz_task_rstack,
-				.footer         = print_graphviz_footer,
+				.header         = dump_graphviz_header,
+				.task_rstack    = dump_graphviz_task_rstack,
+				.footer         = dump_graphviz_footer,
 			},
 		};
 
@@ -1539,18 +1539,18 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	else {
 		struct uftrace_raw_dump dump = {
 			.ops = {
-				.header         = print_raw_header,
-				.task_start     = print_raw_task_start,
-				.inverted_time  = print_raw_inverted_time,
-				.task_rstack    = print_raw_task_rstack,
-				.task_event     = print_raw_task_event,
-				.kernel_start   = print_raw_kernel_start,
-				.cpu_start      = print_raw_cpu_start,
-				.kernel_func    = print_raw_kernel_rstack,
-				.kernel_event   = print_raw_kernel_event,
-				.lost           = print_raw_kernel_lost,
-				.perf_start     = print_raw_perf_start,
-				.perf_event     = print_raw_perf_event,
+				.header         = dump_raw_header,
+				.task_start     = dump_raw_task_start,
+				.inverted_time  = dump_raw_inverted_time,
+				.task_rstack    = dump_raw_task_rstack,
+				.task_event     = dump_raw_task_event,
+				.kernel_start   = dump_raw_kernel_start,
+				.cpu_start      = dump_raw_cpu_start,
+				.kernel_func    = dump_raw_kernel_rstack,
+				.kernel_event   = dump_raw_kernel_event,
+				.lost           = dump_raw_kernel_lost,
+				.perf_start     = dump_raw_perf_start,
+				.perf_event     = dump_raw_perf_event,
 			},
 		};
 
