@@ -1,14 +1,10 @@
 QUICK GUIDE
 ===========
 
-On Ubuntu machines, following commands will build and install uftrace from
+On linux distros machines, following commands will build and install uftrace from
 source.
 
-    $ sudo apt-get install libdw-dev            # for debug info       (optional)
-    $ sudo apt-get install pandoc               # for man pages        (optional)
-    $ sudo apt-get install libpython2.7-dev     # for python scripting (optional)
-    $ sudo apt-get install libncursesw5-dev     # for TUI              (optional)
-    $ sudo apt-get install pkg-config           # for configure        (optional)
+    $ sudo misc/install-deps.sh                 # optional for special features
     $ make
     $ sudo make install
 
