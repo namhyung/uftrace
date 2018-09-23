@@ -1571,6 +1571,12 @@ static char *demangle_full(char *str)
 
 	return symname;
 }
+#else
+static inline char *demangle_full(char *str)
+{
+	pr_warn("full demangle is not supported\n");
+	return str;
+}
 #endif
 
 /**

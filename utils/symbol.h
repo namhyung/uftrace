@@ -201,12 +201,6 @@ static inline bool support_full_demangle(void)
 {
 	return false;
 }
-
-static inline char *demangle_full(char *str)
-{
-	pr_warn("full demangle is not supported\n");
-	return str;
-}
 #endif /* HAVE_CXA_DEMANGLE */
 
 #endif /* UFTRACE_SYMBOL_H */
