@@ -436,7 +436,15 @@ __visible_default __noreturn void pthread_exit(void *retval)
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
 		rstack = &mtdp->rstack[mtdp->idx - 1];
+		/* record the final call */
 		mcount_exit_filter_record(mtdp, rstack, NULL);
+
+		/*
+		 * it won't return to the caller ("noreturn"),
+		 * do not try to restore the address..
+		 */
+		mtdp->idx--;
+
 		mcount_rstack_restore(mtdp);
 	}
 
