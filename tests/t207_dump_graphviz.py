@@ -21,10 +21,10 @@ class TestCase(TestBase):
         edge [fontsize="7"];
 
         # Elements
-        main[xlabel = "Calls : 1"]
-        main->a[xlabel = "Calls : 1"]
-        a->b[xlabel = "Calls : 1"]
-        b->c[xlabel = "Calls : 1"]
+        "main" [xlabel = "Calls : 1"]
+        "main" -> "a" [xlabel = "Calls : 1"]
+        "a" -> "b" [xlabel = "Calls : 1"]
+        "b" -> "c" [xlabel = "Calls : 1"]
         }
         """)
 
