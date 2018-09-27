@@ -570,14 +570,14 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 
 		/* Don't skip it if user particularly want to see them*/
 		list_for_each_entry(pos, &kernel->filters, list) {
-			if (strcmp(pos->name, name)) {
+			if (!strcmp(pos->name, name)) {
 				add = false;
 				break;
 			}
 		}
 
 		list_for_each_entry(pos, &kernel->patches, list) {
-			if (strcmp(pos->name, name)) {
+			if (!strcmp(pos->name, name)) {
 				add = false;
 				break;
 			}
