@@ -1020,6 +1020,12 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
 
+			/* prefer x64 syscall names than 32 bit ones */
+			if (!strncmp(sym->name, "__ia32", 6) &&
+			    !strncmp(name, "__x64", 5) &&
+			    !strcmp(sym->name + 6, name + 5))
+				strcpy(sym->name, name);
+
 			pr_dbg2("skip duplicated symbols: %s\n", name);
 			continue;
 		}

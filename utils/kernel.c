@@ -194,20 +194,21 @@ static int set_filter_file(const char *filter_file, struct list_head *filters)
 		return -1;
 
 	list_for_each_entry_safe(pos, tmp, filters, list) {
-		if (__write_tracing_file(fd, filter_file, pos->name,
-					 true, true) < 0)
-			goto out;
+		/*
+		 * it might fail with non-existing functions added by
+		 * add_single_filter() or skip_kernel_functions().
+		 */
+		__write_tracing_file(fd, filter_file, pos->name, true, true);
 
 		list_del(&pos->list);
 		free(pos);
 
 		/* separate filters by space */
 		if (write(fd, " ", 1) != 1)
-			goto out;
+			pr_dbg2("writing filter file failed, but ignoring...\n");
 	}
 	ret = 0;
 
-out:
 	close(fd);
 	return ret;
 }
@@ -538,10 +539,43 @@ out:
 	return -EINVAL;
 }
 
-static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+static void check_and_add_list(struct uftrace_kernel_writer *kernel,
+			       const char *funcs[], size_t funcs_len,
+			       struct list_head *list)
 {
 	unsigned int i;
 	struct kfilter *kfilter;
+
+	for (i = 0; i < funcs_len; i++) {
+		bool add = true;
+		const char *name = funcs[i];
+		struct kfilter *pos;
+
+		/* Don't skip it if user particularly want to see them*/
+		list_for_each_entry(pos, &kernel->filters, list) {
+			if (!strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		list_for_each_entry(pos, &kernel->patches, list) {
+			if (!strcmp(pos->name, name)) {
+				add = false;
+				break;
+			}
+		}
+
+		if (add) {
+			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
+			strcpy(kfilter->name, name);
+			list_add_tail(&kfilter->list, list);
+		}
+	}
+}
+
+static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
+{
 	const char *skip_funcs[] = {
 		/*
 		 * Some (old) kernel and architecture doesn't support VDSO
@@ -561,33 +595,15 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		"syscall_trace_enter_phase1",
 		"syscall_slow_exit_work",
 	};
+	const char *skip_patches[] = {
+		/* kernel 4.17 changed syscall entry on x86_64 */
+		"do_syscall_64",
+	};
 
-	for (i = 0; i < ARRAY_SIZE(skip_funcs); i++) {
-		bool add = true;
-		const char *name = skip_funcs[i];
-		struct kfilter *pos;
-
-		/* Don't skip it if user particularly want to see them*/
-		list_for_each_entry(pos, &kernel->filters, list) {
-			if (strcmp(pos->name, name)) {
-				add = false;
-				break;
-			}
-		}
-
-		list_for_each_entry(pos, &kernel->patches, list) {
-			if (strcmp(pos->name, name)) {
-				add = false;
-				break;
-			}
-		}
-
-		if (add) {
-			kfilter = xmalloc(sizeof(*kfilter) + strlen(name) + 1);
-			strcpy(kfilter->name, name);
-			list_add(&kfilter->list, &kernel->notrace);
-		}
-	}
+	check_and_add_list(kernel, skip_funcs, ARRAY_SIZE(skip_funcs),
+			   &kernel->notrace);
+	check_and_add_list(kernel, skip_patches, ARRAY_SIZE(skip_patches),
+			   &kernel->nopatch);
 }
 
 /**
