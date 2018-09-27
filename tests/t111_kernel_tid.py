@@ -2,7 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-import os, re
+import os
 
 TDIR='xxx'
 
@@ -13,7 +13,7 @@ class TestCase(TestBase):
             [ 1661] | main() {
             [ 1661] |   fork() {
    5.135 us [ 1661] |     sys_writev();
-  32.391 us [ 1661] |     do_syscall_64();
+  32.391 us [ 1661] |     sys_clone();
  130.930 us [ 1661] |   } /* fork */
             [ 1661] |   wait() {
    7.074 us [ 1661] |     sys_wait4();
@@ -80,6 +80,6 @@ class TestCase(TestBase):
         major, minor, release = uname[2].split('.')
         if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
            int(major) >= 4 and int(minor) >= 17:
-            result = re.sub('sys_[a-zA-Z0-9_]+', 'do_syscall_64', result)
+            result = result.replace('sys_', '__x64_sys_')
 
         return result
