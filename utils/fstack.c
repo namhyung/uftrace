@@ -818,6 +818,13 @@ bool fstack_check_filter(struct ftrace_task_handle *task)
 		fstack_exit(task);
 	}
 	else if (task->rstack->type == UFTRACE_EVENT) {
+		/* don't change filter state, just check it */
+		if (task->filter.out_count > 0 ||
+		    task->filter.depth <= 0 ||
+		    (fstack_filter_mode == FILTER_MODE_IN &&
+		     task->filter.in_count == 0))
+			return false;
+
 		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 			fstack = &task->func_stack[task->stack_count];
 

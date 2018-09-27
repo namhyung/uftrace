@@ -891,6 +891,7 @@ lost:
 		else /* kernel sometimes have unknown count */
 			pr_red("%*s/* LOST some records!! */\n",
 			       depth * 2, "");
+		return 0;
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
@@ -901,10 +902,8 @@ lost:
 
 		depth = task->display_depth;
 
-		/* skip kernel event messages outside of user functions */
-		if (opts->kernel_skip_out && task->user_stack_count == 0 &&
-		    is_kernel_record(task, rstack))
-			return 0;
+		if (!fstack_check_filter(task))
+			goto out;
 
 		/* give a new line when tid is changed */
 		if (opts->task_newline)
@@ -931,15 +930,18 @@ lost:
 		/* for sched-in to show schedule duration */
 		fstack = &task->func_stack[task->stack_count];
 
-		if (evt_id == EVENT_ID_PERF_SCHED_IN &&
-		    fstack->total_time)
-			print_field(task, fstack, NULL);
-		else
-			print_field(task, NULL, NO_TIME);
+		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+			if (evt_id == EVENT_ID_PERF_SCHED_IN &&
+			    fstack->total_time)
+				print_field(task, fstack, NULL);
+			else
+				print_field(task, NULL, NO_TIME);
 
-		pr_color(task->event_color, "%*s/* ", depth * 2, "");
-		print_event(task, &rec, task->event_color);
-		pr_color(task->event_color, " */\n");
+			pr_color(task->event_color, "%*s/* ", depth * 2, "");
+			print_event(task, &rec, task->event_color);
+			pr_color(task->event_color, " */\n");
+		}
+
 	}
 out:
 	symbol_putname(sym, symname);
