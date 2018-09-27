@@ -1471,6 +1471,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			task->rstack->time = last_time;
 			task->rstack->type = UFTRACE_EXIT;
 			task->rstack->addr = fstack->addr;
+			task->rstack->more = 0;
 
 			if (!check_task_rstack(task, opts))
 				continue;
