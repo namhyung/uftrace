@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <link.h>
+#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
@@ -228,6 +229,30 @@ void mcount_list_events(void)
 	LIST_HEAD(list);
 
 	dl_iterate_phdr(search_sdt_event, &list);
+}
+
+/* save an asynchronous event */
+int mcount_save_event(struct mcount_event_info *mei)
+{
+	struct mcount_thread_data *mtdp;
+
+	if (unlikely(mcount_should_stop()))
+		return -1;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return -1;
+
+	if (mtdp->nr_events < MAX_EVENT) {
+		int i = mtdp->nr_events++;
+
+		mtdp->event[i].id   = mei->id;
+		mtdp->event[i].time = mcount_gettime();
+		mtdp->event[i].dsize = 0;
+		mtdp->event[i].idx   = ASYNC_IDX;
+	}
+
+	return 0;
 }
 
 void mcount_finish_events(void)
