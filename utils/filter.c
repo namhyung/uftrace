@@ -30,6 +30,12 @@ static void snprintf_trigger_read(char *buf, size_t len,
 		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "proc/statm");
 	if (type & TRIGGER_READ_PAGE_FAULT)
 		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "page-fault");
+	if (type & TRIGGER_READ_PMU_CYCLE)
+		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "pmu-cycle");
+	if (type & TRIGGER_READ_PMU_CACHE)
+		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "pmu-cache");
+	if (type & TRIGGER_READ_PMU_BRANCH)
+		snprintf(buf, len, "%s%s", buf[0] ? "|" : "", "pmu-branch");
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
