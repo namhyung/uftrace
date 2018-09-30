@@ -200,6 +200,7 @@ struct opts {
 	char *fields;
 	char *patch;
 	char *event;
+	char *watch;
 	char **run_cmd;
 	char *opt_file;
 	char *script_file;

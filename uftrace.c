@@ -174,6 +174,7 @@ static struct argp_option uftrace_options[] = {
 	{ "match", OPT_match_type, "TYPE", 0, "Support pattern match: regex, glob (default: regex)" },
 	{ "no-randomize-addr", OPT_no_randomize_addr, 0, 0, "Disable ASLR (Address Space Layout Randomization)" },
 	{ "no-event", OPT_no_event, 0, 0, "Disable (default) events" },
+	{ "watch", 'W', "POINT", 0, "Watch and report POINT if it's changed" },
 	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
@@ -488,6 +489,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		}
 		else
 			opts->event = opt_add_string(opts->event, arg);
+		break;
+
+	case 'W':
+		opts->watch = opt_add_string(opts->watch, arg);
 		break;
 
 	case 'h':

@@ -69,7 +69,7 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") ||
 	    getenv("UFTRACE_ARGUMENT") || getenv("UFTRACE_RETVAL") ||
 	    getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT") ||
-	    getenv("UFTRACE_AUTO_ARGS"))
+	    getenv("UFTRACE_AUTO_ARGS") || getenv("UFTRACE_WATCH"))
 		return false;
 	return true;
 }
@@ -220,6 +220,9 @@ static void setup_child_environ(struct opts *opts, int pfd,
 			free(event_str);
 		}
 	}
+
+	if (opts->watch)
+		setenv("UFTRACE_WATCH", opts->watch, 1);
 
 	if (opts->depth != OPT_DEPTH_DEFAULT) {
 		snprintf(buf, sizeof(buf), "%d", opts->depth);
