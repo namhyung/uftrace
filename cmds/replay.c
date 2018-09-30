@@ -310,6 +310,7 @@ static void print_event(struct ftrace_task_handle *task,
 			struct uftrace_pmu_cycle  *cycle;
 			struct uftrace_pmu_cache  *cache;
 			struct uftrace_pmu_branch *branch;
+			int                       *cpu;
 		} u;
 
 		switch (evt_id) {
@@ -366,6 +367,11 @@ static void print_event(struct ftrace_task_handle *task,
 				 evt_name, u.branch->branch, u.branch->misses,
 				 (u.branch->branch - u.branch->misses) * 100 / u.branch->branch);
 			return;
+		case EVENT_ID_WATCH_CPU:
+			u.cpu = task->args.data;
+			pr_color(color, "%s (cpu=%d)", evt_name, *u.cpu);
+			return;
+
 		default:
 			pr_color(color, "%s", evt_name);
 			break;
