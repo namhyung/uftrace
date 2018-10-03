@@ -613,7 +613,7 @@ The above script can be executed in record time as follows:
 
 The 'ctx' variable is a dictionary type that contains the below information.
 
-    /* context information passed to script */
+    /* context information passed to uftrace_entry(ctx) and uftrace_exit(ctx) */
     script_context = {
         int       tid;
         int       depth;
@@ -623,6 +623,13 @@ The 'ctx' variable is a dictionary type that contains the below information.
         string    name;
         list      args;        # entry only (if available)
         value     retval;      # exit  only (if available)
+    };
+
+    /* context information passed to uftrace_begin(ctx) */
+    script_context = {
+        bool      recording;   # True if it runs at record time, otherwise False
+        string    version;     # uftrace version info
+        string    args;        # execution arguments info
     };
 
 Each field in 'script_context' can be read inside the script.
