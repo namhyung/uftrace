@@ -7,7 +7,7 @@
 #
 
 # Only "memcpy" calls this script and other functions never.
-UFTRACE_FUNC = [ "memcpy" ]
+UFTRACE_FUNCS = [ "memcpy" ]
 
 count = 0
 total_bytes = 0
