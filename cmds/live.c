@@ -31,7 +31,10 @@ static void reset_live_opts(struct opts *opts)
 	 * replay again.
 	 */
 	free(opts->filter);
-	opts->filter	= NULL;
+	opts->filter = NULL;
+	free(opts->caller);
+	opts->caller = NULL;
+
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 	opts->disabled	= false;
 	opts->no_event  = false;

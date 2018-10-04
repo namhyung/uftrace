@@ -99,6 +99,29 @@ static void print_trigger(struct uftrace_trigger *tr)
 	}
 }
 
+/**
+ * uftrace_count_filter - count matching filters in @root
+ * @root - root of rbtree which has filters
+ * @flag - filter flag to match
+ */
+int uftrace_count_filter(struct rb_root *root, unsigned long flag)
+{
+	struct rb_node *entry;
+	struct uftrace_filter *iter;
+	int count = 0;
+
+	entry = rb_first(root);
+	while (entry) {
+		iter = rb_entry(entry, struct uftrace_filter, node);
+
+		if (iter->trigger.flags & flag)
+			count++;
+
+		entry = rb_next(entry);
+	}
+	return count;
+}
+
 static bool match_ip(struct uftrace_filter *filter, unsigned long ip)
 {
 	return filter->start <= ip && ip < filter->end;
