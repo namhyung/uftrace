@@ -167,6 +167,9 @@ OPTIONS
 :   Disable ASLR (Address Space Layout Randomization).  It makes the target
     process fix its address space layout.
 
+-W, \--watch=*POINT*
+:   Add watch point to display POINT if the value is changed.  See *WATCH POINT*.
+
 
 FILTERS
 =======
@@ -360,7 +363,7 @@ As of now, following events are supported:
  * "pmu-cache":  (cpu) cache-references and misses using Linux perf-event syscall
  * "pmu-branch": branch instructions and misses using Linux perf-event syscall
 
-The results are printed in comments like below.
+The results are printed as events (comments) like below.
 
     $ uftrace record -T a@read=proc/statm ./abc
     $ uftrace replay
@@ -634,6 +637,32 @@ The 'ctx' variable is a dictionary type that contains the below information.
 
 Each field in 'script_context' can be read inside the script.
 Please see `uftrace-script`(1) for details about scripting.
+
+
+WATCH POINT
+===========
+The uftrace watch point is to display certain value only if it's changed.
+It's conceptually same as debugger's but only works at function entry and exit
+so it might miss some updates.
+
+As of now, following watch points are supported:
+
+ * "cpu" : cpu number current task is running on
+
+Like read triggers, the result is displayed as event (comment):
+
+    $ uftrace -W cpu tests/t-abc
+    # DURATION     TID     FUNCTION
+                [ 19060] | main() {
+                [ 19060] |   /* watch:cpu (cpu=8) */
+                [ 19060] |   a() {
+                [ 19060] |     b() {
+                [ 19060] |       c() {
+       2.365 us [ 19060] |         getpid();
+       8.002 us [ 19060] |       } /* c */
+       8.690 us [ 19060] |     } /* b */
+       9.350 us [ 19060] |   } /* a */
+      12.479 us [ 19060] | } /* main */
 
 
 SEE ALSO
