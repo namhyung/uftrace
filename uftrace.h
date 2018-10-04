@@ -165,6 +165,7 @@ struct ftrace_file_handle {
 	bool needs_byte_swap;
 	bool needs_bit_swap;
 	bool perf_event_processed;
+	bool caller_filter;
 	uint64_t time_filter;
 	struct uftrace_time_range time_range;
 	struct list_head events;

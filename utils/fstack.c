@@ -233,6 +233,15 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 	return 0;
 }
 
+static int setup_callers(struct uftrace_session *s, void *arg)
+{
+	struct filter_data *filter = arg;
+
+	uftrace_setup_caller_filter(filter->str, &s->symtabs, &s->filters,
+				    filter->patt_type);
+	return 0;
+}
+
 static int count_filters(struct uftrace_session *s, void *arg)
 {
 	int *count = arg;
@@ -248,8 +257,9 @@ static int count_filters(struct uftrace_session *s, void *arg)
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @handle      - handle for uftrace data
- * @filter_str  - CSV of filter symbol names
- * @trigger_str - CSV of trigger definitions
+ * @filter_str  - filter symbol names
+ * @trigger_str - trigger definitions
+ * @caller_str  - caller filter symbol names
  * @patt_type   - filter match pattern (regex or glob)
  *
  * This function sets up the symbol filters and triggers using following syntax:
@@ -260,6 +270,7 @@ static int count_filters(struct uftrace_session *s, void *arg)
  */
 static int setup_fstack_filters(struct ftrace_file_handle *handle,
 				char *filter_str, char *trigger_str,
+				char *caller_str,
 				enum uftrace_pattern_type patt_type)
 {
 	int count = 0;
@@ -290,6 +301,20 @@ static int setup_fstack_filters(struct ftrace_file_handle *handle,
 			return -1;
 
 		pr_dbg("setup triggers for %d function(s)\n", count - prev);
+	}
+
+	if (caller_str) {
+		int prev = count;
+
+		data.str = caller_str;
+		walk_sessions(sessions, setup_callers, &data);
+		walk_sessions(sessions, count_filters, &count);
+
+		if (prev == count)
+			return -1;
+
+		handle->caller_filter = true;
+		pr_dbg("setup caller filters for %d function(s)\n", count - prev);
 	}
 
 	return 0;
@@ -405,13 +430,15 @@ void setup_fstack_args(char *argspec, char *retspec,
  */
 int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle)
 {
-	if (opts->filter || opts->trigger) {
+	if (opts->filter || opts->trigger || opts->caller) {
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger,
-					 opts->patt_type) < 0) {
-			pr_use("failed to set filter or trigger: %s%s%s\n",
+					 opts->caller, opts->patt_type) < 0) {
+			pr_use("failed to set filter or trigger: %s%s%s%s%s\n",
 			       opts->filter ?: "",
 			       (opts->filter && opts->trigger) ? " or " : "",
-			       opts->trigger ?: "");
+			       opts->trigger ?: "",
+			       (opts->filter || opts->trigger) ? " or " : "",
+			       opts->caller ?: "");
 		}
 	}
 
@@ -1461,6 +1488,7 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 			int last_type;
+			bool filtered = false;
 
 			if (task->filter.time) {
 				struct time_filter_stack *tfs;
@@ -1488,8 +1516,13 @@ get_task_ustack(struct ftrace_file_handle *handle, int idx)
 				last = list_prev_entry(last, list);
 
 			delta = curr->time - last->rstack.time;
+			if (delta < time_filter)
+				filtered = true;
 
-			if (delta < time_filter) {
+			if (handle->caller_filter)
+				filtered = !(tr.flags & TRIGGER_FL_CALLER);
+
+			if (filtered) {
 				/*
 				 * it might set TRACE trigger, which shows
 				 * function even if it's less than the time

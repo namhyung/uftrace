@@ -460,6 +460,7 @@ ok:
 	handle->perf = NULL;
 	handle->last_perf_idx = -1;
 	handle->perf_event_processed = false;
+	handle->caller_filter = false;
 	INIT_LIST_HEAD(&handle->events);
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)

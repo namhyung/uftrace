@@ -1559,6 +1559,7 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 			int count;
+			bool filtered = false;
 
 			if (task->filter.time) {
 				struct time_filter_stack *tfs;
@@ -1592,8 +1593,13 @@ static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
 			}
 
 			delta = curr->time - last->rstack.time;
+			if (delta < time_filter)
+				filtered = true;
 
-			if (delta < time_filter) {
+			if (handle->caller_filter)
+				filtered = !(tr.flags & TRIGGER_FL_CALLER);
+
+			if (filtered) {
 				/* also delete matching entry (at the last) */
 				while (count--)
 					delete_last_rstack_list(rstack_list);
