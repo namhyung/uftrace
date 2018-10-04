@@ -23,7 +23,7 @@ struct script_info {
 	char			*name;
 	char			*version;
 	bool			record;
-	struct strv		args;
+	struct strv		cmds;
 };
 
 /* context information passed to script */

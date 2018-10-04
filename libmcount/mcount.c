@@ -1245,16 +1245,16 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 		.version        = UFTRACE_VERSION,
 		.record         = true,
 	};
-	char *args_str;
+	char *cmds_str;
 
-	args_str = getenv("UFTRACE_ARGS");
-	if (args_str)
-		strv_split(&info.args, args_str, "\n");
+	cmds_str = getenv("UFTRACE_ARGS");
+	if (cmds_str)
+		strv_split(&info.cmds, cmds_str, "\n");
 
 	if (script_init(&info, patt_type) < 0)
 		script_str = NULL;
 
-	strv_free(&info.args);
+	strv_free(&info.cmds);
 }
 
 static void mcount_startup(void)
