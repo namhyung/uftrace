@@ -36,18 +36,22 @@ OPTIONS
 :   Set trigger on selected functions.  This option can be used more than once.
     See *TRIGGERS*.
 
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See *FILTERS*.
+
+-D *DEPTH*, \--depth *DEPTH*
+:   Set trace limit in nesting level.  See *FILTERS*.
+
 -t *TIME*, \--time-filter=*TIME*
 :   Do not show functions which run under the time threshold.  If some functions
     explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.
+    regardless of execution time.  See *FILTERS*.
 
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of
     threads in the data file, you can use `uftrace report --threads` or
     `uftrace info`.  This option can also be used more than once.
-
--D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
 
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: duration, tid, addr,
@@ -61,6 +65,7 @@ OPTIONS
     be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
     they have \<time_unit\> postfix, for example '100us'.  The timestamp or
     elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
+    See *FILTERS*.
 
 \--disable
 :   Start uftrace with tracing disabled.  This is only meaningful when used with
@@ -189,6 +194,22 @@ with the `-N` option.
                 [ 1234] | main() {
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
+
+If users only care about specific functions and want to know how they are called,
+one can use the caller filter.  It makes the function as leaf and prints the
+parent functions to the function.
+
+    $ uftrace record -C b ./abc
+    $ uftrace replay
+    # DURATION    TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+In the above example, functions not in the calling path were not shown.  Also
+the function 'c' - which is a child of the function 'b' - is also hidden.
 
 In addition, you can limit the print nesting level with -D option.
 

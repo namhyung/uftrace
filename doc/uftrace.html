@@ -1096,6 +1096,56 @@ class: code-26px
 </code></pre>
 
 ---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg hello.c
+
+  $ uftrace a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161960] | main() {
+     7.267 us [161960] |   printf();
+     6.920 us [161960] |   fflush();
+    15.694 us [161960] | } /* main */
+</code></pre>
+
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg hello.c
+
+  $ uftrace -C printf a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161960] | main() {
+     7.267 us [161960] |   printf();
+//     6.920 us [161960] |   fflush();
+    15.694 us [161960] | } /* main */
+</code></pre>
+
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg hello.c
+
+  $ uftrace -C printf a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161960] | main() {
+     7.267 us [161960] |   printf();
+    15.694 us [161960] | } /* main */
+</code></pre>
+
+---
 name: args
 template: title-layout
 ## Display Function Arguments
