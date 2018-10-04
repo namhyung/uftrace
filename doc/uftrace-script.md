@@ -105,7 +105,7 @@ The 'ctx' variable is a dictionary type that contains the below information.
 
     /* context information passed to uftrace_begin(ctx) */
     script_context = {
-        bool      recording;   # True if it runs at record time, otherwise False
+        bool      record;      # True if it runs at record time, otherwise False
         string    version;     # uftrace version info
         string    args;        # execution arguments info
     };

@@ -1243,7 +1243,7 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	struct script_info info = {
 		.name           = script_str,
 		.version        = UFTRACE_VERSION,
-		.recording      = true,
+		.record         = true,
 	};
 	char *args_str;
 

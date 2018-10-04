@@ -1,5 +1,5 @@
 def uftrace_begin(ctx):
-    print(ctx["recording"])
+    print(ctx["record"])
     print(ctx["version"])
     print(ctx["args"])
 

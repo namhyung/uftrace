@@ -22,7 +22,7 @@ enum script_type_t {
 struct script_info {
 	char			*name;
 	char			*version;
-	bool			recording;
+	bool			record;
 	struct strv		args;
 };
 

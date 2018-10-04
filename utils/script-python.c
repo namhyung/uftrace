@@ -489,7 +489,7 @@ int python_uftrace_begin(struct script_info *info)
 	/* python_interpreter_lock is already held */
 	PyObject *dict = __PyDict_New();
 
-	insert_dict_bool(dict, "recording", info->recording);
+	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
 
 	int i;
