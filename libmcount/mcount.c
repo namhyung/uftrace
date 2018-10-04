@@ -91,6 +91,9 @@ static int mcount_active;
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
 
+/* whether caller filter is activated */
+static bool __maybe_unused mcount_has_caller;
+
 #ifdef DISABLE_MCOUNT_FILTER
 
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
@@ -135,6 +138,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	char *argument_str  = getenv("UFTRACE_ARGUMENT");
 	char *retval_str    = getenv("UFTRACE_RETVAL");
 	char *autoargs_str  = getenv("UFTRACE_AUTO_ARGS");
+	char *caller_str    = getenv("UFTRACE_CALLER");
 
 	load_module_symtabs(&symtabs);
 
@@ -158,6 +162,12 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       false, ptype);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers,
 			     false, ptype);
+
+	if (caller_str) {
+		uftrace_setup_caller_filter(caller_str, &symtabs,
+					    &mcount_triggers, ptype);
+		mcount_has_caller = true;
+	}
 
 	if (autoargs_str) {
 		char *autoarg = get_auto_argspec_str();
@@ -667,7 +677,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 	rstack->filter_time  = mtdp->filter.saved_time;
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL |	\
-			 TRIGGER_FL_TRACE | TRIGGER_FL_FINISH)
+			 TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |		\
+			 TRIGGER_FL_CALLER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
 		if (tr->flags & TRIGGER_FL_FILTER) {
@@ -685,6 +696,9 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_TRACE)
 			rstack->flags |= MCOUNT_FL_TRACE;
+
+		if (tr->flags & TRIGGER_FL_CALLER)
+			rstack->flags |= MCOUNT_FL_CALLER;
 
 		if (tr->flags & TRIGGER_FL_FINISH) {
 			record_trace_data(mtdp, rstack, NULL);
@@ -804,7 +818,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 		if (mcount_watchpoints)
 			save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
-		if (rstack->end_time - rstack->start_time > time_filter ||
+		if (((rstack->end_time - rstack->start_time > time_filter) &&
+		     (!mcount_has_caller || rstack->flags & MCOUNT_FL_CALLER)) ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
