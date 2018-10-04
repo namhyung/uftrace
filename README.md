@@ -1,8 +1,10 @@
 [![Build Status](https://travis-ci.org/namhyung/uftrace.svg?branch=master)](https://travis-ci.org/namhyung/uftrace)
 [![Coverity scan](https://scan.coverity.com/projects/12421/badge.svg)](https://scan.coverity.com/projects/namhyung-uftrace)
+[![Gitter](https://badges.gitter.im/uftrace/uftrace.svg)](https://gitter.im/uftrace/uftrace)
+[![HitCount](http://hits.dwyl.io/namhyung/uftrace.svg)](http://hits.dwyl.io/namhyung/uftrace)
 
-uftrace
-=======
+[uftrace](https://uftrace.github.io)
+====================================
 
 The uftrace tool is to trace and analyze execution of a program
 written in C/C++.  It was heavily inspired by the ftrace framework
@@ -14,7 +16,6 @@ to help analysis of the program execution and performance.
 
  * Homepage: https://github.com/namhyung/uftrace
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
- * Chat: https://gitter.im/uftrace/uftrace
  * Mailing list: [uftrace@googlegroups.com](https://groups.google.com/forum/#!forum/uftrace)
 
 
