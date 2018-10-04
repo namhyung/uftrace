@@ -2855,9 +2855,9 @@ class: code-20px
 
     /* context info passed to uftrace_begin(`ctx`) */
     script_context = {
-        bool      recording;   # True if it runs at record time, otherwise False
+        bool      record;      # True if it runs at record time, otherwise False
         string    version;     # uftrace version info
-        string    args;        # excution arguments info
+        list      cmds;        # execution commands
     };
 ```
 ---
@@ -2879,20 +2879,20 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     `uftrace_begin(ctx)`
-    `  recoding: True`
+    `  record  : True`
     `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
-    `  args    : tests/t-abc`
+    `  cmds    : tests/t-abc`
 ```
 ---
 class: code-20px
 ### Arguments Passing in Python Script (dump.py)
-.footnote[printed using .red[ctx["recording"]]]
+.footnote[printed using .red[ctx["record"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-    `  recoding: True`
+    `  record  : True`
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 ```
 ---
 class: code-20px
@@ -2901,20 +2901,20 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
     `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 ```
 ---
 class: code-20px
 ### Arguments Passing in Python Script (dump.py)
-.footnote[printed using .red[ctx["args"]]]
+.footnote[printed using .red[ctx["cmds"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-    `  args    : tests/t-abc`
+    `  cmds    : tests/t-abc`
 ```
 ---
 class: code-20px
@@ -2923,9 +2923,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     `18267435.348824687  87238: [entry] main(40072a) depth: 0`
     `  args[0] <type 'long'>: 1`
@@ -2942,9 +2942,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     `18267435.348824687`  87238: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1
@@ -2961,9 +2961,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  `87238`: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1
@@ -2980,9 +2980,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] `main`(40072a) depth: 0
       args[0] <type 'long'>: 1
@@ -2999,9 +2999,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(`40072a`) depth: 0
       args[0] <type 'long'>: 1
@@ -3018,9 +3018,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(40072a) `depth`: 0
       args[0] <type 'long'>: 1
@@ -3037,9 +3037,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(40072a) depth: 0
     `  args[0] <type 'long'>: 1`
@@ -3056,9 +3056,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1
@@ -3085,9 +3085,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1
@@ -3114,9 +3114,9 @@ class: code-20px
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
-      recoding: True
+      record  : True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
-      args    : tests/t-abc
+      cmds    : tests/t-abc
 
     18267435.348824687  87238: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1

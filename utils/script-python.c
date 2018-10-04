@@ -489,18 +489,18 @@ int python_uftrace_begin(struct script_info *info)
 	/* python_interpreter_lock is already held */
 	PyObject *dict = __PyDict_New();
 
-	insert_dict_bool(dict, "recording", info->recording);
+	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
 
 	int i;
 	char *s;
-	PyObject *args = __PyTuple_New(info->args.nr);
+	PyObject *cmds = __PyTuple_New(info->cmds.nr);
 
-	strv_for_each(&info->args, s, i)
-		insert_tuple_string(args, i, s);
+	strv_for_each(&info->cmds, s, i)
+		insert_tuple_string(cmds, i, s);
 
-	__PyDict_SetItemString(dict, "args", args);
-	Py_XDECREF(args);
+	__PyDict_SetItemString(dict, "cmds", cmds);
+	Py_XDECREF(cmds);
 
 	PyObject *ctx = __PyTuple_New(1);
 

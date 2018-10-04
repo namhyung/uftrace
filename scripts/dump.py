@@ -11,10 +11,10 @@
 # uftrace_begin is optional, so can be omitted.
 def uftrace_begin(ctx):
     print("uftrace_begin(ctx)")
-    print("  recoding: %s" % ctx["recording"])
+    print("  record  : %s" % ctx["record"])
     print("  version : %s" % ctx["version"])
-    if "args" in ctx:
-        print("  args    : %s" % ctx["args"])
+    if "cmds" in ctx:
+        print("  cmds    : %s" % " ".join(ctx["cmds"]))
     print("")
 
 # uftrace_entry is executed at the entry of each function.

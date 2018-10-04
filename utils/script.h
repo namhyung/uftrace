@@ -22,8 +22,8 @@ enum script_type_t {
 struct script_info {
 	char			*name;
 	char			*version;
-	bool			recording;
-	struct strv		args;
+	bool			record;
+	struct strv		cmds;
 };
 
 /* context information passed to script */
