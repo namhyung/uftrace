@@ -7,16 +7,19 @@ if [ "x$(id -u)" != x0 ]; then
     return
 fi
 
+OPT="${@}"
+
 distro=$(cat /etc/os-release | grep "^ID=" | cut -d\= -f2 | sed -e 's/"//g')
 
 case $distro in
     "ubuntu")
-        apt-get install pandoc libdw-dev libpython2.7-dev libncursesw5-dev pkg-config ;;
+        apt-get $OPT install pandoc libdw-dev libpython2.7-dev libncursesw5-dev pkg-config ;;
     "fedora")
-        dnf install pandoc elfutils-devel python2-devel ncurses-devel pkgconf-pkg-config ;;
+        dnf install $OPT pandoc elfutils-devel python2-devel ncurses-devel pkgconf-pkg-config ;;
     "rhel" | "centos")
         rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-        yum install pandoc elfutils-devel python2-devel ncurses-devel pkgconfig ;;
+        yum install $OPT pandoc elfutils-devel python2-devel ncurses-devel pkgconfig ;;
     *) # we can add more install command for each distros.
         echo "\"$distro\" is not supported distro, so please install packages manually." ;;
 esac
+
