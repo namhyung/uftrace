@@ -1234,6 +1234,9 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 		case EVENT_ID_DIFF_PMU_BRANCH:
 			xasprintf(&evt_name, "diff:pmu-branch");
 			break;
+		case EVENT_ID_WATCH_CPU:
+			xasprintf(&evt_name, "watch:cpu");
+			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
 			break;
@@ -1258,6 +1261,7 @@ int read_task_event(struct ftrace_task_handle *task,
 		struct uftrace_pmu_cycle  cycle;
 		struct uftrace_pmu_cache  cache;
 		struct uftrace_pmu_branch branch;
+		int                       cpu;
 	} u;
 
 	switch (rec->addr) {
@@ -1325,6 +1329,15 @@ int read_task_event(struct ftrace_task_handle *task,
 		}
 
 		save_task_event(task, &u.branch, sizeof(u.branch));
+		break;
+
+	case EVENT_ID_WATCH_CPU:
+		if (read_task_event_size(task, &u.cpu, sizeof(u.cpu)) < 0)
+			return -1;
+		if (task->h->needs_byte_swap)
+			u.cpu = bswap_32(u.cpu);
+
+		save_task_event(task, &u.cpu, sizeof(u.cpu));
 		break;
 
 	default:

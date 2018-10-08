@@ -70,6 +70,19 @@ struct mcount_event {
 
 #define MAX_EVENT  4
 
+enum mcount_watch_item {
+	MCOUNT_WATCH_NONE	= 0,
+	MCOUNT_WATCH_CPU	= (1 << 0),
+};
+
+struct mcount_watchpoint {
+	bool		inited;
+	/* per-thread watch points */
+	int		cpu;
+
+	/* global watch points */
+};
+
 #ifndef DISABLE_MCOUNT_FILTER
 struct mcount_mem_regions {
 	struct rb_root root;
@@ -107,6 +120,7 @@ struct mcount_thread_data {
 	struct mcount_event		event[MAX_EVENT];
 	int				nr_events;
 	struct mcount_mem_regions	mem_regions;
+	struct mcount_watchpoint	watch;
 	struct mcount_arch_context	arch;
 };
 
@@ -157,6 +171,9 @@ static inline bool mcount_should_stop(void)
 #ifdef DISABLE_MCOUNT_FILTER
 static inline void mcount_filter_setup(struct mcount_thread_data *mtdp) {}
 static inline void mcount_filter_release(struct mcount_thread_data *mtdp) {}
+static inline void mcount_watch_init(void) {}
+static inline void mcount_watch_setup(struct mcount_thread_data *mtdp) {}
+static inline void mcount_watch_release(struct mcount_thread_data *mtdp) {}
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static inline uint64_t mcount_gettime(void)
@@ -328,6 +345,10 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		       struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
 #endif  /* DISABLE_MCOUNT_FILTER */
+
+void save_watchpoint(struct mcount_thread_data *mtdp,
+		     struct mcount_ret_stack *rstack,
+		     unsigned long watchpoints);
 
 struct mcount_dynamic_info {
 	struct mcount_dynamic_info *next;

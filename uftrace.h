@@ -200,6 +200,7 @@ struct opts {
 	char *fields;
 	char *patch;
 	char *event;
+	char *watch;
 	char **run_cmd;
 	char *opt_file;
 	char *script_file;
@@ -529,6 +530,7 @@ enum uftrace_event_id {
 	EVENT_ID_DIFF_PMU_CACHE,
 	EVENT_ID_READ_PMU_BRANCH,
 	EVENT_ID_DIFF_PMU_BRANCH,
+	EVENT_ID_WATCH_CPU,
 
 	/* supported perf events */
 	EVENT_ID_PERF		= 200000U,

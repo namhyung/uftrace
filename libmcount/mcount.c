@@ -88,6 +88,9 @@ static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 /* number of active thread running mcount code */
 static int mcount_active;
 
+/* bitmask of active watch points */
+static unsigned long __maybe_unused mcount_watchpoints;
+
 #ifdef DISABLE_MCOUNT_FILTER
 
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
@@ -196,6 +199,34 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 	mtdp->argbuf = NULL;
 }
 
+static void mcount_watch_init(void)
+{
+	char *watch_str   = getenv("UFTRACE_WATCH");
+	struct strv watch = STRV_INIT;
+	char *str;
+	int i;
+
+	if (watch_str == NULL)
+		return;
+
+	strv_split(&watch, watch_str, ";");
+
+	strv_for_each(&watch, str, i) {
+		if (!strcasecmp(str, "cpu"))
+			mcount_watchpoints = MCOUNT_WATCH_CPU;
+	}
+	strv_free(&watch);
+}
+
+static void mcount_watch_setup(struct mcount_thread_data *mtdp)
+{
+	mtdp->watch.cpu = -1;
+}
+
+static void mcount_watch_release(struct mcount_thread_data *mtdp)
+{
+}
+
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
@@ -249,6 +280,7 @@ static void mtd_dtor(void *arg)
 	mtdp->rstack = NULL;
 
 	mcount_filter_release(mtdp);
+	mcount_watch_release(mtdp);
 	finish_mem_region(&mtdp->mem_regions);
 	shmem_finish(mtdp);
 
@@ -424,6 +456,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	compiler_barrier();
 
 	mcount_filter_setup(mtdp);
+	mcount_watch_setup(mtdp);
 	mtdp->rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
 
 	pthread_once(&once_control, mcount_init_file);
@@ -683,6 +716,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				save_trigger_read(mtdp, rstack, tr->read, false);
 				rstack->flags |= MCOUNT_FL_READ;
 			}
+			if (mcount_watchpoints)
+				save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
 			if (mtdp->nr_events) {
 				bool flush = false;
@@ -765,6 +800,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			uftrace_match_filter(rstack->child_ip, &mcount_triggers, &tr);
 			save_trigger_read(mtdp, rstack, tr.read, true);
 		}
+
+		if (mcount_watchpoints)
+			save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
 		if (rstack->end_time - rstack->start_time > time_filter ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
@@ -1157,30 +1195,6 @@ out:
 	mcount_unguard_recursion(mtdp);
 }
 
-/* save an asynchronous event */
-int mcount_save_event(struct mcount_event_info *mei)
-{
-	struct mcount_thread_data *mtdp;
-
-	if (unlikely(mcount_should_stop()))
-		return -1;
-
-	mtdp = get_thread_data();
-	if (unlikely(check_thread_data(mtdp)))
-		return -1;
-
-	if (mtdp->nr_events < MAX_EVENT) {
-		int i = mtdp->nr_events++;
-
-		mtdp->event[i].id   = mei->id;
-		mtdp->event[i].time = mcount_gettime();
-		mtdp->event[i].dsize = 0;
-		mtdp->event[i].idx   = ASYNC_IDX;
-	}
-
-	return 0;
-}
-
 static void atfork_prepare_handler(void)
 {
 	struct uftrace_msg_task tmsg = {
@@ -1365,6 +1379,7 @@ static void mcount_startup(void)
 		patt_type = parse_filter_pattern(pattern_str);
 
 	mcount_filter_init(patt_type, dirname, !!patch_str);
+	mcount_watch_init();
 
 	if (maxstack_str)
 		mcount_rstack_max = strtol(maxstack_str, NULL, 0);
