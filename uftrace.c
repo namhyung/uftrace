@@ -107,6 +107,11 @@ static struct argp_option uftrace_options[] = {
 	{ "notrace", 'N', "FUNC", 0, "Don't trace those FUNCs" },
 	{ "trigger", 'T', "FUNC@act[,act,...]", 0, "Trigger action on those FUNCs" },
 	{ "depth", 'D', "DEPTH", 0, "Trace functions within DEPTH" },
+	{ "time-filter", 't', "TIME", 0, "Hide small functions run less than the TIME" },
+	{ "caller-filter", 'C', "FUNC", 0, "Only trace callers of those FUNCs" },
+	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
+	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
+	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
 	{ "debug", 'v', 0, 0, "Print debug messages" },
 	{ "verbose", 'v', 0, 0, "Print verbose (debug) messages" },
 	{ "data", 'd', "DATA", 0, "Use this DATA instead of uftrace.data" },
@@ -138,9 +143,6 @@ static struct argp_option uftrace_options[] = {
 	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
-	{ "time-filter", 't', "TIME", 0, "Hide small functions run less than the TIME" },
-	{ "argument", 'A', "FUNC@arg[,arg,...]", 0, "Show function arguments" },
-	{ "retval", 'R', "FUNC@retval", 0, "Show function return value" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recorded data in chrome trace format" },
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX (default: 2)" },
@@ -158,8 +160,7 @@ static struct argp_option uftrace_options[] = {
 	{ "graphviz", OPT_graphviz, 0, 0, "Dump recorded data in DOT format" },
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay or graph output" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
-	{ "patch", 'P', "FUNC", 0, "Apply dynamic patching for FUNCs" },
-	{ "event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
+	{ "Event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
 	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
@@ -402,6 +403,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 			pr_use("invalid depth given: %s (ignoring..)\n", arg);
 			opts->depth = OPT_DEPTH_DEFAULT;
 		}
+		break;
+
+	case 'C':
+		opts->caller = opt_add_string(opts->caller, arg);
 		break;
 
 	case 'v':

@@ -35,14 +35,21 @@ OPTIONS
 :   Set filter not to trace selected functions (or the functions called
     underneath them).  This option can be used more than once.  See *FILTERS*.
 
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See *FILTERS*.
+
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.
     See *TRIGGERS*.
 
+-D *DEPTH*, \--depth=*DEPTH*
+:   Set global trace limit in nesting level.  See *FILTERS*.
+
 -t *TIME*, \--time-filter=*TIME*
 :   Do not show functions which run under the time threshold.  If some functions
     explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.
+    regardless of execution time.  See *FILTERS*.
 
 \--force
 :   Allow running uftrace even if some problems occur.  When `uftrace record`
@@ -74,9 +81,6 @@ OPTIONS
 \--nest-libcall
 :   Trace function calls between libraries.  By default, uftrace only record
     library call from the main executable.  Implies `--force`.
-
--D *DEPTH*, \--depth=*DEPTH*
-:   Set global trace limit in nesting level.
 
 \--max-stack=*DEPTH*
 :   Set the max function stack depth for tracing.  Default is 1024.
@@ -244,7 +248,23 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
-In addition, you can limit the print nesting level with the `-D` option.
+If users only care about specific functions and want to know how they are called,
+one can use the caller filter.  It makes the function as leaf and records the
+parent functions to the function.
+
+    $ uftrace record -C b ./abc
+    $ uftrace replay
+    # DURATION    TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       5.475 us [ 1234] |     b();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+In the above example, functions not in the calling path were not shown.  Also
+the function 'c' - which is a child of the function 'b' - is also hidden.
+
+In addition, you can limit the nesting level of functions with the `-D` option.
 
     $ uftrace record -D 3 ./abc
     $ uftrace replay
@@ -256,7 +276,7 @@ In addition, you can limit the print nesting level with the `-D` option.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-In the above example, uftrace only prints functions up to a depth of 3, so
+In the above example, uftrace only records functions up to a depth of 3, so
 leaf function `c()` was omitted.  Note that the `-D` option works with `-F`.
 
 Sometimes it's useful to see long-running functions only.  This is good because

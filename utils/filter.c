@@ -88,6 +88,8 @@ static void print_trigger(struct uftrace_trigger *tr)
 		pr_dbg("\ttrigger: color '%c'\n", tr->color);
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
 		pr_dbg("\ttrigger: time filter %"PRIu64"\n", tr->time);
+	if (tr->flags & TRIGGER_FL_CALLER)
+		pr_dbg("\ttrigger: caller filter\n");
 
 	if (tr->flags & TRIGGER_FL_READ) {
 		char buf[1024];
@@ -95,6 +97,29 @@ static void print_trigger(struct uftrace_trigger *tr)
 		snprintf_trigger_read(buf, sizeof(buf), tr->read);
 		pr_dbg("\ttrigger: read (%s)\n", buf);
 	}
+}
+
+/**
+ * uftrace_count_filter - count matching filters in @root
+ * @root - root of rbtree which has filters
+ * @flag - filter flag to match
+ */
+int uftrace_count_filter(struct rb_root *root, unsigned long flag)
+{
+	struct rb_node *entry;
+	struct uftrace_filter *iter;
+	int count = 0;
+
+	entry = rb_first(root);
+	while (entry) {
+		iter = rb_entry(entry, struct uftrace_filter, node);
+
+		if (iter->trigger.flags & flag)
+			count++;
+
+		entry = rb_next(entry);
+	}
+	return count;
 }
 
 static bool match_ip(struct uftrace_filter *filter, unsigned long ip)
@@ -789,6 +814,12 @@ static int parse_auto_args_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
+static int parse_caller_action(char *action, struct uftrace_trigger *tr)
+{
+	tr->flags |= TRIGGER_FL_CALLER;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr);
@@ -803,6 +834,7 @@ static const struct trigger_action_parser actions[] = {
 	{ "notrace",   parse_notrace_action,      TRIGGER_FL_FILTER, },
 	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
 	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
+	{ "caller",    parse_caller_action,       TRIGGER_FL_FILTER, },
 	{ "read=",     parse_read_action, },
 	{ "color=",    parse_color_action, },
 	{ "trace",     parse_trace_action, },
@@ -1080,6 +1112,21 @@ void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
 	setup_trigger(retval_str, symtabs, root, flags, NULL, false, patt_type);
+}
+
+/**
+ * uftrace_setup_caller_filter - add caller filters to rbtree
+ * @filter_str - CSV of filter string
+ * @symtabs    - symbol tables to find symbol address
+ * @root       - root of resulting rbtree
+ * @patt_type  - filter match pattern (regex or glob)
+ */
+void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
+				 struct rb_root *root,
+				 enum uftrace_pattern_type patt_type)
+{
+	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_CALLER, NULL,
+		      false, patt_type);
 }
 
 /**
@@ -1427,6 +1474,12 @@ TEST_CASE(trigger_setup_actions)
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
 
+	uftrace_setup_trigger("foo::baz2@caller", &stabs, &root,
+			      NULL, false, ptype);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x4200, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
+
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
@@ -1473,6 +1526,11 @@ TEST_CASE(trigger_setup_filters)
 	TEST_NE(uftrace_match_filter(0x4100, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+
+	uftrace_setup_caller_filter("foo::baz3", &stabs, &root, ptype);
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
 
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
