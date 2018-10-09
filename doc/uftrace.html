@@ -947,12 +947,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -963,12 +964,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-D 2` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-//     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+//     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -979,10 +981,11 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-D 2` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-     0.767 us [11558] |   foo();
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     1.083 us [112643] |   foo();
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -993,28 +996,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
-</code></pre>
----
-class: code-26px
-### Filters
-- -F FUNC, --filter=FUNC
-  - Set filter to trace selected functions only.
-
-<pre><code class="plain">  $ gcc -pg foobar.c
-
-  $ uftrace `-F foo` a.out
-  # DURATION    TID     FUNCTION
-//              [11558] | main() {
-              [11558] |   `foo`() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-//     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1025,10 +1013,75 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-F foo` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | `foo`() {
-     0.156 us [11558] |   bar();
-     0.767 us [11558] | } /* foo */
+  # DURATION     TID     FUNCTION
+//              [112643] | main() {
+              [112643] |   `foo`() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     0.127 us [112643] |   bar();
+//     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | `foo`() {
+     0.190 us [112643] |   bar();
+     1.083 us [112643] | } /* foo */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-C foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   `foo`() {
+//     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Only show calling path of selected functions
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-C foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     1.083 us [112643] |   `foo`();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1039,12 +1092,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1055,12 +1109,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-N foo` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-//              [11558] |   `foo`() {
-//     0.156 us [11558] |     bar();
-//     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+//              [112643] |   `foo`() {
+//     0.190 us [112643] |     bar();
+//     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1071,8 +1126,10 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-N foo` a.out
-  # DURATION    TID     FUNCTION
-     1.140 us [11558] | main();
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1083,12 +1140,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1099,12 +1157,13 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-t 200ns` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-//     `0.156 us` [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+//     `0.190 us` [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     `0.127 us` [112643] |   bar();
+     2.050 us [112643] | } /* main */
 </code></pre>
 ---
 class: code-26px
@@ -1115,60 +1174,10 @@ class: code-26px
 <pre><code class="plain">  $ gcc -pg foobar.c
 
   $ uftrace `-t 200ns` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-     0.767 us [11558] |   foo();
-     1.140 us [11558] | } /* main */
-</code></pre>
-
----
-class: code-26px
-### Filters
-- -C FUNC, --caller-filter=FUNC
-  - Only show calling path of selected functions
-
-<pre><code class="plain">  $ gcc -pg hello.c
-
-  $ uftrace a.out
-  Hello World!
   # DURATION     TID     FUNCTION
-              [161960] | main() {
-     7.267 us [161960] |   printf();
-     6.920 us [161960] |   fflush();
-    15.694 us [161960] | } /* main */
-</code></pre>
-
----
-class: code-26px
-### Filters
-- -C FUNC, --caller-filter=FUNC
-  - Only show calling path of selected functions
-
-<pre><code class="plain">  $ gcc -pg hello.c
-
-  $ uftrace -C printf a.out
-  Hello World!
-  # DURATION     TID     FUNCTION
-              [161960] | main() {
-     7.267 us [161960] |   printf();
-//     6.920 us [161960] |   fflush();
-    15.694 us [161960] | } /* main */
-</code></pre>
-
----
-class: code-26px
-### Filters
-- -C FUNC, --caller-filter=FUNC
-  - Only show calling path of selected functions
-
-<pre><code class="plain">  $ gcc -pg hello.c
-
-  $ uftrace -C printf a.out
-  Hello World!
-  # DURATION     TID     FUNCTION
-              [161960] | main() {
-     7.267 us [161960] |   printf();
-    15.694 us [161960] | } /* main */
+              [112643] | main() {
+     1.083 us [112643] |   foo();
+     2.050 us [112643] | } /* main */
 </code></pre>
 
 ---
