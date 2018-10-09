@@ -426,6 +426,28 @@ class: code-26px
 ---
 class: code-26px
 ### C/C++ (user) Function Tracing
+.footnote[[uftrace.data](https://github.com/namhyung/uftrace/wiki/Data-Format) contains recorded data]
+- uftrace record
+  - Run a command and record its trace data
+
+<pre><code>  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ ls
+  <x-green>a.out</x-green>  foobar.c  <a href="https://github.com/namhyung/uftrace/wiki/Data-Format">uftrace.data</a>
+</code></pre>
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
 - uftrace replay
   - Print recorded function trace
 
