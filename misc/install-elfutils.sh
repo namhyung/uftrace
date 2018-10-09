@@ -42,7 +42,9 @@ shift $((OPTIND - 1))
 
 mkdir -p ${builddir} && cd ${builddir}
 
-ELFUTILS_VERSION=0.164
+BASE=elfutils
+BASE_GIT=git://sourceware.org/git/elfutils.git
+ELFUTILS_VERSION=$(git ls-remote --refs --tags $BASE_GIT $BASE-* | awk -F$BASE- 'END{print $2}')
 ELFUTILS_NAME=elfutils-$ELFUTILS_VERSION
 ELFUTILS_TARBALL=$ELFUTILS_NAME.tar.bz2
 ELFUTILS_URL=https://sourceware.org/elfutils/ftp/$ELFUTILS_VERSION/$ELFUTILS_TARBALL
