@@ -295,6 +295,7 @@ void foo() {
 
 int main() {
   foo();
+  bar();
 }
 ```
 ]
@@ -323,6 +324,7 @@ void foo() {
 
 int main() {
   foo();
+  bar();
 }
 ```
 ]
@@ -340,6 +342,7 @@ int main() {
 <main>:
 
   call <foo>
+  call <bar>
   ret
 ```
 ]
@@ -364,6 +367,7 @@ void foo() {
 
 int main() {
   foo();
+  bar();
 }
 ```
 ]
@@ -381,6 +385,7 @@ int main() {
 <main>:
 * call <mcount@plt>
   call <foo>
+  call <bar>
   ret
 ```
 ]
@@ -455,12 +460,13 @@ class: code-26px
   $ gcc -pg foobar.c
   $ uftrace record a.out
   $ uftrace `replay`
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 ```
 ---
 class: code-26px
@@ -472,12 +478,13 @@ class: code-26px
   $ gcc -pg foobar.c
 
   $ uftrace `live` a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 ```
 ---
 class: code-26px
@@ -489,12 +496,13 @@ class: code-26px
   $ gcc -pg foobar.c
 
   $ uftrace a.out
-  # DURATION    TID     FUNCTION
-              [11558] | main() {
-              [11558] |   foo() {
-     0.156 us [11558] |     bar();
-     0.767 us [11558] |   } /* foo */
-     1.140 us [11558] | } /* main */
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
 ```
 
 ---
@@ -519,6 +527,7 @@ void foo() {
 
 int main() {
   foo();
+  bar();
 }
 ```
 ]
@@ -537,6 +546,7 @@ int main() {
 <main>:
   call <mcount@plt>
   call <foo>
+  call <bar>
   ret
 ```
 ]
@@ -561,6 +571,7 @@ void foo() {
 
 int main() {
   foo();
+  bar();
 }
 ```
 ]
@@ -579,6 +590,7 @@ int main() {
 <main>:
   call <mcount@plt>
   call <foo>
+  call <bar>
   ret
 ```
 ]
@@ -612,34 +624,17 @@ class: code-26px
     $ gcc -pg foobar.c
 
     $ uftrace a.out
-    # DURATION    TID     FUNCTION
-                [11558] | main() {
-                [11558] |   foo() {
-                [11558] |     bar() {
-       6.263 us [11558] |       `getpid`();
-       7.016 us [11558] |     } /* bar */
-       7.443 us [11558] |   } /* foo */
-       7.826 us [11558] | } /* main */
-```
----
-class: code-26px
-### Library Function Tracing
-- --no-libcall
-  - Do not record library function invocations.
-
-
-```
-    $ gcc -pg foobar.c
-
-    $ uftrace a.out
-    # DURATION    TID     FUNCTION
-                [11558] | main() {
-                [11558] |   foo() {
-                [11558] |     bar() {
-       6.263 us [11558] |       getpid();
-       7.016 us [11558] |     } /* bar */
-       7.443 us [11558] |   } /* foo */
-       7.826 us [11558] | } /* main */
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+                [112962] |     bar() {
+       0.863 us [112962] |       `getpid`();
+       1.774 us [112962] |     } /* bar */
+       2.334 us [112962] |   } /* foo */
+                [112962] |   bar() {
+       0.176 us [112962] |     `getpid`();
+       0.666 us [112962] |   } /* bar */
+       3.663 us [112962] | } /* main */
 ```
 ---
 class: code-26px
@@ -652,14 +647,17 @@ class: code-26px
     $ gcc -pg foobar.c
 
     $ uftrace `--no-libcall` a.out
-    # DURATION    TID     FUNCTION
-                [11558] | main() {
-                [11558] |   foo() {
-                [11558] |     bar() {
-//       6.263 us [11558] |       getpid();
-       7.016 us [11558] |     } /* bar */
-       7.443 us [11558] |   } /* foo */
-       7.826 us [11558] | } /* main */
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+                [112962] |     bar() {
+//       0.863 us [112962] |       getpid();
+       1.774 us [112962] |     } /* bar */
+       2.334 us [112962] |   } /* foo */
+                [112962] |   bar() {
+//       0.176 us [112962] |     getpid();
+       0.666 us [112962] |   } /* bar */
+       3.663 us [112962] | } /* main */
 ```
 ---
 class: code-26px
@@ -672,12 +670,13 @@ class: code-26px
     $ gcc -pg foobar.c
 
     $ uftrace `--no-libcall` a.out
-    # DURATION    TID     FUNCTION
-                [11558] | main() {
-                [11558] |   foo() {
-       7.016 us [11558] |     bar();
-       7.443 us [11558] |   } /* foo */
-       7.826 us [11558] | } /* main */
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+       1.774 us [112962] |     bar();
+       2.334 us [112962] |   } /* foo */
+       0.666 us [112962] |   bar();
+       3.663 us [112962] | } /* main */
 ```
 ---
 class: code-26px
