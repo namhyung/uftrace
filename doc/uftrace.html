@@ -501,6 +501,7 @@ class: code-26px
 name: lib-tracing
 ### Library Function Tracing
 - Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
 
 ```
     $ gcc -pg foobar.c
@@ -542,6 +543,7 @@ int main() {
 ---
 ### Library Function Tracing
 - Library Function Tracing works via .red[PLT hooking]
+  - PLT contains trampoline code for calling shared functions
 
 ```
     $ gcc -pg foobar.c
@@ -584,6 +586,7 @@ int main() {
 class: code-26px
 ### Library Function Tracing
 - Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
 
 ```
     $ gcc -pg foobar.c
@@ -592,6 +595,7 @@ class: code-26px
 class: code-26px
 ### Library Function Tracing
 - Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
 
 ```
     $ gcc -pg foobar.c
@@ -602,6 +606,7 @@ class: code-26px
 class: code-26px
 ### Library Function Tracing
 - Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
 
 ```
     $ gcc -pg foobar.c
@@ -1174,19 +1179,19 @@ template: title-layout
 .footnote[[wiki/Tutorial:-Arguments](https://github.com/namhyung/uftrace/wiki/Tutorial:-Arguments)]
 
 ---
-### 
+### Display Function Arguments
 ```
     $ gcc -pg fibonacci.c
 ```
 ---
-### 
+### Display Function Arguments
 ```
     $ gcc -pg fibonacci.c
     $ uftrace a.out 5
     fib(5) = 5
 ```
 ---
-### 
+### Display Function Arguments
 ```
     $ gcc -pg fibonacci.c
     $ uftrace a.out 5
