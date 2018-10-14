@@ -253,4 +253,4 @@ Limitations
 
 License
 =======
-The uftrace program is released under GPL v2.  See COPYING file for details.
+The uftrace program is released under GPL v2.  See [COPYING file](COPYING) for details.
