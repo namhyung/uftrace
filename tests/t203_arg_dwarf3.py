@@ -28,6 +28,9 @@ class TestCase(TestBase):
         if cflags.find('-finstrument-functions') >= 0:
             return TestBase.TEST_SKIP
 
+        if cflags.find('-O0') < 0 and cflags.find('-O1') < 0:
+            return TestBase.TEST_SKIP
+
         return TestBase.build(self, name, cflags, ldflags)
 
     def runcmd(self):
