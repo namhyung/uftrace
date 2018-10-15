@@ -417,6 +417,8 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	if (fp != NULL)
 		goto ok;
 
+	saved_errno = errno;
+
 	/* if default dirname is failed */
 	if (!strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
 		/* try again inside the current directory */
