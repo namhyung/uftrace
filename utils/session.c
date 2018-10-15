@@ -468,7 +468,7 @@ void create_task(struct uftrace_session_link *sessions,
 		}
 	}
 
-	t = xmalloc(sizeof(*t));
+	t = xzalloc(sizeof(*t));
 
 	/* msg->pid is a parent pid if forked */
 	t->pid = fork ? msg->tid : msg->pid;

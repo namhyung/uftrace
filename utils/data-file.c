@@ -509,6 +509,11 @@ ok:
 		}
 	}
 
+	if (handle->sessions.first == NULL) {
+		saved_errno = EINVAL;
+		goto out;
+	}
+
 	if (handle->hdr.info_mask & ARG_SPEC) {
 		if (handle->hdr.feat_mask & AUTO_ARGS) {
 			setup_auto_args_str(handle->info.autoarg,
