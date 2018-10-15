@@ -1103,6 +1103,10 @@ int read_task_args(struct ftrace_task_handle *task,
 	struct uftrace_arg_spec *arg;
 	int rem;
 
+	task->args.len = 0;
+	task->args.args = NULL;
+	/* keep args.data for realloc() */
+
 	sess = find_task_session(&task->h->sessions, task->tid, rstack->time);
 	if (sess == NULL) {
 		pr_dbg("cannot find session\n");
@@ -1119,7 +1123,6 @@ int read_task_args(struct ftrace_task_handle *task,
 		return -1;
 	}
 
-	task->args.len = 0;
 	task->args.args = &fl->args;
 
 	list_for_each_entry(arg, &fl->args, list) {
@@ -1409,8 +1412,8 @@ int read_task_ustack(struct ftrace_file_handle *handle,
 			read_task_args(task, &task->ustack, true);
 		else if (task->ustack.type == UFTRACE_EVENT)
 			read_task_event(task, &task->ustack);
-		else
-			abort();
+		if (unlikely(task->args.args == NULL || task->args.len == 0))
+			pr_err_ns("record missing argument info\n");
 	}
 
 	task->valid = true;
