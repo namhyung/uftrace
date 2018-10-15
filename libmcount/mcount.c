@@ -1225,6 +1225,10 @@ static void atfork_prepare_handler(void)
 		script_atfork_prepare();
 
 	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
+
+	/* flush remaining contents in the stream */
+	fflush(outfp);
+	fflush(logfp);
 }
 
 static void atfork_child_handler(void)
