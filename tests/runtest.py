@@ -511,16 +511,21 @@ if __name__ == "__main__":
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
     arg = parse_argument()
+    _path = None
 
     if arg.case == 'all':
-        testcases = glob.glob('t???_*.py')
+        _path = 't???_*.py'
+    elif arg.case.isdigit():
+        _path = 't%03d_*.py' % int(arg.case)
     else:
-        try:
-            testcases = glob.glob('t*' + arg.case + '*.py')
-        finally:
-            if len(testcases) == 0:
-                print("cannot find testcase for : %s" % arg.case)
-                sys.exit(0)
+        _path = 't*%s*.py' % arg.case
+
+    try:
+        testcases = glob.glob(_path)
+    finally:
+        if len(testcases) == 0:
+            print("cannot find testcase for : %s" % arg.case)
+            sys.exit(0)
 
     opts = ' '.join(sorted(['O'+o for o in arg.opts]))
     optslen = len(opts)
