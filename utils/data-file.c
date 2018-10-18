@@ -411,6 +411,8 @@ int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
 	char buf[PATH_MAX];
 	int saved_errno = 0;
 
+	memset(handle, 0, sizeof(*handle));
+
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
 	fp = fopen(buf, "rb");
@@ -450,19 +452,11 @@ ok:
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
-	handle->nr_tasks = 0;
-	handle->tasks = NULL;
 	handle->time_filter = opts->threshold;
 	handle->time_range = opts->range;
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
-	handle->sessions.first = NULL;
-	handle->kernel = NULL;
-	handle->nr_perf = 0;
-	handle->perf = NULL;
 	handle->last_perf_idx = -1;
-	handle->perf_event_processed = false;
-	handle->caller_filter = false;
 	INIT_LIST_HEAD(&handle->events);
 
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
