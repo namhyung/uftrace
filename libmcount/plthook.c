@@ -55,14 +55,23 @@ unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,
 static void resolve_pltgot(struct plthook_data *pd, int idx)
 {
 	if (pd->resolved_addr[idx] == 0) {
-		char *name;
-		void *addr;
+		unsigned long addr;
+		struct sym *sym;
 
-		name = pd->dsymtab.sym[idx].name;
-		addr = dlsym(RTLD_DEFAULT, name);
+		sym = &pd->dsymtab.sym[idx];
+		addr = (unsigned long) dlsym(RTLD_DEFAULT, sym->name);
 
-		pr_dbg2("resolved addr of %s = %p\n", name, addr);
-		pd->resolved_addr[idx] = (unsigned long)addr;
+		/* On ARM dlsym(DEFAULT) returns the address of PLT */
+		if (unlikely(pd->base_addr <= addr &&
+			     addr < sym->addr + sym->size)) {
+			void *real_addr = dlsym(RTLD_NEXT, sym->name);
+
+			if (real_addr)
+				addr = (unsigned long)real_addr;
+		}
+
+		pr_dbg2("resolved addr of %s = %p\n", sym->name, addr);
+		pd->resolved_addr[idx] = addr;
 	}
 }
 
@@ -83,6 +92,7 @@ ALIAS_DECL(__cyg_profile_func_exit);
 static void restore_plt_functions(struct plthook_data *pd)
 {
 	unsigned i, k;
+	struct symtab *dsymtab = &pd->dsymtab;
 
 #define SKIP_FUNC(func)  { #func, &uftrace_ ## func }
 
@@ -100,20 +110,13 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 #undef SKIP_FUNC
 
-	const char *const resolve_list[] = {
-		"execl", "execle", "execlp", "posix_spawn",
-		"execv", "execve", "execvp", "execvpe", "fexecve",
-	};
-	struct symtab *dsymtab = &pd->dsymtab;
-
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		bool skipped = false;
 		unsigned long plthook_addr;
 		unsigned long resolved_addr;
+		struct sym *sym = dsymtab->sym_names[i];
 
 		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
-			struct sym *sym = dsymtab->sym_names[i];
-
 			if (strcmp(sym->name, skip_list[k].name))
 				continue;
 
@@ -122,34 +125,8 @@ static void restore_plt_functions(struct plthook_data *pd)
 				i, skip_list[k].name, skip_list[k].addr);
 
 			skipped = true;
+			break;
 		}
-
-		for (k = 0; !skipped && k < ARRAY_SIZE(resolve_list); k++) {
-			struct sym *sym = dsymtab->sym_names[i];
-
-			if (strcmp(sym->name, resolve_list[k]))
-				continue;
-
-			resolved_addr = (unsigned long)dlsym(RTLD_DEFAULT, sym->name);
-			plthook_addr = mcount_arch_plthook_addr(pd, i);
-
-			/* On ARM dlsym(DEFAULT) returns the address of PLT */
-			if (unlikely(pd->base_addr <= resolved_addr &&
-				     resolved_addr < sym->addr + sym->size)) {
-				void *real_addr = dlsym(RTLD_NEXT, sym->name);
-
-				if (real_addr)
-					resolved_addr = (unsigned long)real_addr;
-			}
-
-			pd->resolved_addr[i] = resolved_addr;
-			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
-			pr_dbg2("resolve [%u] %s: %p (PLT: %#lx)\n",
-				i, resolve_list[k], resolved_addr, plthook_addr);
-
-			skipped = true;
-		}
-
 		if (skipped)
 			continue;
 
@@ -160,7 +137,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 			pd->resolved_addr[i] = resolved_addr;
 			overwrite_pltgot(pd, 3 + i, (void *)plthook_addr);
 			pr_dbg2("restore [%u] %s: %p (PLT: %#lx)\n",
-				i, dsymtab->sym[i].name, resolved_addr, plthook_addr);
+				i, sym->name, resolved_addr, plthook_addr);
 		}
 	}
 }
@@ -359,6 +336,7 @@ static const char *flush_syms[] = {
 	"fork", "vfork", "daemon", "exit",
 	"longjmp", "siglongjmp", "__longjmp_chk",
 	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
+	"fexecve", "posix_spawn", "posix_spawnp",
 };
 
 static const char *except_syms[] = {
@@ -366,7 +344,8 @@ static const char *except_syms[] = {
 };
 
 static const char *resolve_syms[] = {
-	"pthread_exit",
+	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
+	"fexecve", "posix_spawn", "posix_spawnp", "pthread_exit",
 };
 
 static void add_special_func(struct plthook_data *pd, unsigned idx, unsigned flags)
