@@ -150,6 +150,23 @@ return value of 'fib' (fibonacci number) function.
       19.600 us [22080] |   } = 5; /* fib */
       25.024 us [22080] | } /* main */
 
+`-a` records all arguments and return values of known functions automatically.
+It is recommended that you use it if you want to record many arguments of don’t know the argument type. But,you must use the `-g` option when compiling.
+
+    $ gcc -g -pg tests/s-autoargs.c
+    $ uftrace record -a ./a.out hello
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+       1.496 us [  4382] | __monstartup();
+       0.430 us [  4382] | __cxa_atexit();
+                [  4382] | main(2, 0x7fff98579418) {
+     304.782 us [  4382] |   strlen("autoargs test") = 13;
+       1.039 us [  4382] |   calloc(1, 14) = 0x562ff94a1b60;
+       0.385 us [  4382] |   free(0x562ff94a1b60);
+       0.654 us [  4382] |   strcmp("hello", "hello") = 0;
+     238.338 us [  4382] |   puts("hello") = 6;
+     552.403 us [  4382] | } = 0; /* main */
+
 The `report` command lets you know which function spends the longest time
 including its children (total time).
 
