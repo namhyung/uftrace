@@ -33,6 +33,11 @@ class TestCase(TestBase):
    3.527 ms :  +-(1) waitpid
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        ret  = TestBase.build(self, 'abc', cflags, ldflags)
+        ret += TestBase.build(self, self.name, cflags, ldflags)
+        return ret
+
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
