@@ -34,4 +34,7 @@ void report_update_node(struct uftrace_report_node *node,
 void report_calc_avg(struct rb_root *root);
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node);
 
+int report_setup_sort(const char *sort_keys);
+void report_sort_nodes(struct rb_root *root);
+
 #endif /* UFTRACE_REPORT_H */
