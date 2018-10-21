@@ -134,6 +134,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 		.name           = opts->script_file,
 		.version        = UFTRACE_VERSION,
 	};
+	struct uftrace_info *uftrace_info;
 
 	if (!SCRIPT_ENABLED) {
 		pr_warn("script command is not supported due to missing libpython2.7.so\n");
@@ -166,6 +167,9 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
 	ret = open_data_file(opts, &handle);
+	uftrace_info = &handle.info;
+	info.elapsed_time = xstrdup(uftrace_info->elapsed_time);
+
 	if (ret < 0) {
 		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;

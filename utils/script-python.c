@@ -491,6 +491,7 @@ int python_uftrace_begin(struct script_info *info)
 
 	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
+	insert_dict_string(dict, "elapsed_time", info->elapsed_time);
 
 	int i;
 	char *s;
