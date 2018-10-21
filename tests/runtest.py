@@ -3,6 +3,8 @@
 import os, sys
 import glob, re
 import subprocess as sp
+import multiprocessing
+import time
 
 class TestBase:
     supported_lang = {
@@ -447,6 +449,7 @@ result_string = {
     TestBase.TEST_SUCCESS_FIXED:  'Test succeeded (with some fixup)',
 }
 
+
 def run_single_case(case, flags, opts, arg):
     result = []
 
@@ -469,6 +472,15 @@ def run_single_case(case, flags, opts, arg):
 
     return result
 
+
+def save_test_result(result, case, shared):
+    shared.results[case] = result
+    shared.progress += 1
+    for r in result:
+        shared.stats[r] += 1
+        shared.total += 1
+
+
 def print_test_result(case, result, color):
     if sys.stdout.isatty() and color:
         result_list = [colored_result[r] for r in result]
@@ -478,6 +490,40 @@ def print_test_result(case, result, color):
     output = case[1:4]
     output += ' %-20s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
     sys.stdout.write(output)
+
+
+def print_test_header(opts, flags):
+    optslen = len(opts)
+
+    header1 = '%-24s ' % 'Test case'
+    header2 = '-' * 24 + ':'
+    empty = '                      '
+
+    for flag in flags:
+        # align with optimization flags
+        header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
+        header2 += ' ' + opts
+
+    print(header1)
+    print(header2)
+
+
+
+
+def print_test_report(arg, shared):
+    success = shared.stats[TestBase.TEST_SUCCESS] + shared.stats[TestBase.TEST_SUCCESS_FIXED]
+    percent = 100.0 * success / shared.total
+
+    print("")
+    print("runtime test stats")
+    print("====================")
+    print("total %5d  Tests executed (success: %.2f%%)" % (shared.total, percent))
+    for r in res:
+        if sys.stdout.isatty() and arg.color:
+            result = colored_result[r]
+        else:
+            result = text_result[r]
+        print("  %s: %5d  %s" % (result, shared.stats[r], result_string[r]))
 
 
 def parse_argument():
@@ -503,8 +549,11 @@ def parse_argument():
                         help="suppress color in the output")
     parser.add_argument("-t", "--timeout", dest='timeout', default=5,
                         help="fail test if it runs more than TIMEOUT seconds")
+    parser.add_argument("-j", "--worker", dest='worker', type=int, default=multiprocessing.cpu_count(),
+                        help="Parallel worker count; using all core for default")
 
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     # prevent to create .pyc files (it makes some tests failed)
@@ -522,12 +571,7 @@ if __name__ == "__main__":
                 print("cannot find testcase for : %s" % arg.case)
                 sys.exit(0)
 
-    opts = ' '.join(sorted(['O'+o for o in arg.opts]))
-    optslen = len(opts)
-
-    header1 = '%-24s ' % 'Test case'
-    header2 = '-' * 24 + ':'
-    empty = '                      '
+    opts = ' '.join(sorted(['O' + o for o in arg.opts]))
 
     if arg.pg_flag:
         flags = ['pg']
@@ -535,15 +579,16 @@ if __name__ == "__main__":
         flags = ['finstrument-functions']
     else:
         flags = arg.flags.split()
-    for flag in flags:
-        # align with optimization flags
-        header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
-        header2 += ' ' + opts
 
-    print(header1)
-    print(header2)
+    from functools import partial
 
-    total = 0
+    manager = multiprocessing.Manager()
+    shared = manager.dict()
+
+    shared.tests_count = len(testcases)
+    shared.progress = 0
+    shared.results = dict()
+    shared.total = 0
     res = []
     res.append(TestBase.TEST_SUCCESS)
     res.append(TestBase.TEST_SUCCESS_FIXED)
@@ -555,26 +600,30 @@ if __name__ == "__main__":
     res.append(TestBase.TEST_UNSUPP_LANG)
     res.append(TestBase.TEST_SKIP)
 
-    stats = dict.fromkeys(res, 0)
+    shared.stats = dict.fromkeys(res, 0)
+    pool = multiprocessing.Pool(arg.worker)
 
     for tc in sorted(testcases):
-        name = tc[:-3]  # remove '.py'
-        result = run_single_case(name, flags, opts.split(), arg)
-        print_test_result(name, result, arg.color)
-        for r in result:
-            stats[r] += 1
-            total += 1
+        name = tc.split('.')[0]  # remove '.py'
+        clbk = partial(save_test_result, case=name, shared=shared)
+        pool.apply_async(run_single_case, callback=clbk,
+                         args=[name, flags, opts.split(), arg])
 
-    success = stats[TestBase.TEST_SUCCESS] + stats[TestBase.TEST_SUCCESS_FIXED]
-    percent = 100.0 * success / total
+    print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
+    print_test_header(opts, flags)
 
-    print("")
-    print("runtime test stats")
-    print("====================")
-    print("total %5d  Tests executed (success: %.2f%%)" % (total, percent))
-    for r in res:
-        if sys.stdout.isatty() and arg.color:
-            result = colored_result[r]
-        else:
-            result = text_result[r]
-        print("  %s: %5d  %s" % (result, stats[r], result_string[r]))
+    for tc in sorted(testcases):
+        name = tc.split('.')[0]  # remove '.py'
+
+        while name not in shared.results:
+            time.sleep(1)
+
+        print_test_result(name, shared.results[name], arg.color)
+
+    pool.close()
+    pool.join()
+
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+    print_test_report(arg, shared)
