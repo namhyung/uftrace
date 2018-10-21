@@ -16,6 +16,7 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/graph.h"
+#include "utils/report.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
 #include "utils/field.h"
@@ -34,18 +35,10 @@ struct tui_graph_node {
 };
 
 struct tui_report_node {
+	struct uftrace_report_node n;
 	struct rb_node name_link;
 	struct rb_node sort_link;
 	struct list_head head; // links tui_graph_node.link
-	char *name;
-	uint64_t time;
-	uint64_t min_time;
-	uint64_t max_time;
-	uint64_t self_time;
-	uint64_t min_self_time;
-	uint64_t max_self_time;
-	uint64_t recursive_time;
-	unsigned calls;
 };
 
 struct tui_list_node {
@@ -87,8 +80,7 @@ struct tui_window {
 struct tui_report {
 	struct tui_window win;
 	struct list_head list;
-	struct rb_root name_tree;
-	struct rb_root sort_tree;
+	struct rb_root tree;
 	int nr_sess;
 	int nr_func;
 };
@@ -315,8 +307,7 @@ static void tui_setup(struct ftrace_file_handle *handle, struct opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
 
-	tui_report.name_tree = RB_ROOT;
-	tui_report.sort_tree = RB_ROOT;
+	tui_report.tree = RB_ROOT;
 
 	setup_field(&graph_output_fields, opts, setup_default_graph_field,
 		    graph_field_table, ARRAY_SIZE(graph_field_table));
@@ -368,101 +359,6 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 	return NULL;
 }
 
-static struct tui_report_node * find_report_node(struct tui_report *report,
-						 char *symname)
-{
-	struct tui_report_node *node;
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &report->name_tree.rb_node;
-
-	while (*p) {
-		int cmp;
-
-		parent = *p;
-		node = rb_entry(parent, struct tui_report_node, name_link);
-
-		cmp = strcmp(node->name, symname);
-		if (cmp == 0)
-			return node;
-
-		if (cmp < 0)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	node = xzalloc(sizeof(*node));
-	node->name = xstrdup(symname);
-	INIT_LIST_HEAD(&node->head);
-
-	rb_link_node(&node->name_link, parent, p);
-	rb_insert_color(&node->name_link, &report->name_tree);
-	report->nr_func++;
-
-	return node;
-}
-
-static void prepare_report_node(struct tui_report_node *node)
-{
-	struct tui_graph_node *gn;
-
-	list_for_each_entry(gn, &node->head, link) {
-		node->time      += gn->n.time;
-		node->self_time += gn->n.time - gn->n.child_time;
-		node->calls     += gn->n.nr_calls;
-	}
-
-	node->time -= node->recursive_time;
-}
-
-static int cmp_report_node(struct tui_report_node *a, struct tui_report_node *b)
-{
-	/* TODO: apply sort key */
-	if (a->time != b->time)
-		return a->time > b->time ? 1 : -1;
-
-	return 0;
-}
-
-static void sort_report_node(struct tui_report *report,
-			     struct tui_report_node *node)
-{
-	struct tui_report_node *iter;
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &report->sort_tree.rb_node;
-
-	prepare_report_node(node);
-
-	while (*p) {
-		int cmp;
-
-		parent = *p;
-		iter = rb_entry(parent, struct tui_report_node, sort_link);
-
-		cmp = cmp_report_node(iter, node);
-		if (cmp < 0)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	rb_link_node(&node->sort_link, parent, p);
-	rb_insert_color(&node->sort_link, &report->sort_tree);
-}
-
-static void sort_tui_report(struct tui_report *report)
-{
-	struct rb_node *node = rb_first(&report->name_tree);
-	struct tui_report_node *tui_node;
-
-	while (node) {
-		tui_node = rb_entry(node, struct tui_report_node, name_link);
-		sort_report_node(report, tui_node);
-
-		node = rb_next(node);
-	}
-}
-
 static bool list_is_none(struct list_head *list)
 {
 	return list->next == NULL && list->prev == NULL;
@@ -471,34 +367,23 @@ static bool list_is_none(struct list_head *list)
 static void update_report_node(struct ftrace_task_handle *task, char *symname,
 			       struct uftrace_task_graph *tg)
 {
-	struct fstack *fstack = &task->func_stack[task->stack_count];
-	uint64_t total_time = fstack->total_time;
-	uint64_t self_time = fstack->total_time - fstack->child_time;
 	struct tui_report_node *node;
 	struct tui_graph_node *graph_node;
-	int i;
 
-	node = find_report_node(&tui_report, symname);
+	node = (struct tui_report_node *)report_find_node(&tui_report.tree,
+							  symname);
+	if (node == NULL) {
+		node = xzalloc(sizeof(*node));
+		INIT_LIST_HEAD(&node->head);
+		report_add_node(&tui_report.tree, symname, (void *)node);
+		tui_report.nr_func++;
+	}
 
 	graph_node = (struct tui_graph_node *)tg->node;
 	if (list_is_none(&graph_node->link))
 		list_add_tail(&graph_node->link, &node->head);
 
-	if (node->max_time < total_time)
-		node->max_time = total_time;
-	if (node->min_time == 0 || node->min_time > total_time)
-		node->min_time = total_time;
-	if (node->max_self_time < self_time)
-		node->max_self_time = self_time;
-	if (node->min_self_time == 0 || node->min_self_time > self_time)
-		node->min_self_time = self_time;
-
-	for (i = 0; i < task->stack_count; i++) {
-		if (task->func_stack[i].addr == fstack->addr) {
-			node->recursive_time += total_time;
-			break;
-		}
-	}
+	report_update_node(&node->n, task);
 }
 
 static int build_tui_node(struct ftrace_task_handle *task,
@@ -731,7 +616,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 
 	graph->ug.sess = target->ug.sess;
 
-	xasprintf(&str, "=== Function Call Graph for '%s' ===", root_node->name);
+	xasprintf(&str, "=== Function Call Graph for '%s' ===", root_node->n.name);
 
 	root = (struct tui_graph_node*) &graph->ug.root;
 	root->n.name = str;
@@ -779,7 +664,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 	root = append_graph_node(&graph->ug.root, target,
 				 "========== Call Graph ==========");
 
-	root = append_graph_node(&root->n, target, root_node->name);
+	root = append_graph_node(&root->n, target, root_node->n.name);
 
 	list_for_each_entry(node, &root_node->head, link) {
 		if (node->graph != &target->ug)
@@ -1323,7 +1208,8 @@ static struct tui_report * tui_report_init(struct opts *opts)
 {
 	struct tui_window *win = &tui_report.win;
 
-	sort_tui_report(&tui_report);
+	report_setup_sort("total");
+	report_sort_nodes(&tui_report.tree);
 	tui_window_init(win, &report_ops);
 
 	return &tui_report;
@@ -1336,38 +1222,38 @@ static void tui_report_finish(void)
 static void * win_top_report(struct tui_window *win, bool update)
 {
 	struct tui_report *report = (struct tui_report *)win;
-	struct rb_node *node = rb_first(&report->sort_tree);
+	struct rb_node *node = rb_first(&report->tree);
 
-	return rb_entry(node, struct tui_report_node, sort_link);
+	return rb_entry(node, struct tui_report_node, n.link);
 }
 
 static void * win_prev_report(struct tui_window *win, void *node, bool update)
 {
 	struct tui_report_node *curr = node;
-	struct rb_node *rbnode = rb_prev(&curr->sort_link);
+	struct rb_node *rbnode = rb_prev(&curr->n.link);
 
 	if (rbnode == NULL)
 		return NULL;
 
-	return rb_entry(rbnode, struct tui_report_node, sort_link);
+	return rb_entry(rbnode, struct tui_report_node, n.link);
 }
 
 static void * win_next_report(struct tui_window *win, void *node, bool update)
 {
 	struct tui_report_node *curr = node;
-	struct rb_node *rbnode = rb_next(&curr->sort_link);
+	struct rb_node *rbnode = rb_next(&curr->n.link);
 
 	if (rbnode == NULL)
 		return NULL;
 
-	return rb_entry(rbnode, struct tui_report_node, sort_link);
+	return rb_entry(rbnode, struct tui_report_node, n.link);
 }
 
 static bool win_search_report(struct tui_window *win, void *node, char *str)
 {
 	struct tui_report_node *curr = node;
 
-	return strstr(curr->name, str);
+	return strstr(curr->n.name, str);
 }
 
 static void win_header_report(struct tui_window *win, struct ftrace_file_handle *handle)
@@ -1408,14 +1294,14 @@ static void win_display_report(struct tui_window *win, void *node)
 	int width = 38;  /* 3 output fields and spaces */
 
 	printw("  ");
-	print_time(curr->time);
+	print_time(curr->n.total.sum);
 	printw("  ");
-	print_time(curr->self_time);
+	print_time(curr->n.self.sum);
 	printw("  ");
-	printw("%10u", curr->calls);
+	printw("%10u", curr->n.call);
 	printw("  ");
 
-	printw("%-*.*s", COLS - width, COLS - width, curr->name);
+	printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
 }
 
 static struct debug_location *win_location_report(struct tui_window *win,
@@ -1721,7 +1607,7 @@ static bool win_enter_session(struct tui_window *win, void *node)
 	/* get first child (= actual function) */
 	ugnode = list_first_entry(&ugnode->head, typeof(*ugnode), list);
 
-	func = find_report_node(&tui_report, ugnode->name);
+	func = (void *)report_find_node(&tui_report.tree, ugnode->name);
 
 	build_partial_graph(func, get_current_graph(node, NULL));
 	return true;
@@ -2430,7 +2316,8 @@ static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
 				struct tui_report_node *func;
 				struct tui_graph_node *curr = win->curr;
 
-				func = find_report_node(report, curr->n.name);
+				func = (void *)report_find_node(&report->tree,
+								curr->n.name);
 				build_partial_graph(func, graph);
 			}
 			else if (win == &report->win) {
