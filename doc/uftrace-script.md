@@ -187,6 +187,28 @@ Also script can have options for record if it requires some form of data
     b has retval
 
 
+
+There is an difference of the timing a script is excuted.
+when running 'uftrace-record' with '-S' option, it's executed at runtime (record time).
+However, a given script is on a recorded data (uftrace.data) in 'uftrace-script',
+So see the result of ctx ['record'] on below:
+
+    $ cat info.py
+    def  uftrace_begin(ctx):
+         print(ctx["record"])
+    ...
+
+    $ uftrace record -S info.py a.out
+    True
+    v0.8.3-537-g0836 ( dwarf python tui perf sched )
+    ('a.out',)
+
+    $ uftrace script -S info.py
+    False
+    v0.8.3-537-g0836 ( dwarf python tui perf sched )
+    ()
+
+
 SEE ALSO
 ========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-live`(1)
