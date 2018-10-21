@@ -505,6 +505,8 @@ int python_uftrace_begin(struct script_info *info)
 	PyObject *ctx = __PyTuple_New(1);
 
 	__PyTuple_SetItem(ctx, 0, dict);
+
+        /* Call python function uftrace_begin */
 	__PyObject_CallObject(pFuncBegin, ctx);
 
 	if (debug) {
