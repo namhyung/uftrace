@@ -299,6 +299,7 @@ struct strv {
 void strv_split(struct strv *strv, const char *str, const char *delim);
 void strv_copy(struct strv *strv, int argc, char *argv[]);
 void strv_append(struct strv *strv, const char *str);
+void strv_replace(struct strv *strv, int idx, const char *str);
 char * strv_join(struct strv *strv, const char *delim);
 void strv_free(struct strv *strv);
 

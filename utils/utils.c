@@ -492,6 +492,21 @@ void strv_append(struct strv *strv, const char *str)
 }
 
 /**
+ * str_replace - replace a string to a new one
+ * @strv: string vector
+ * @idx:  index of the (old) string
+ * @str:  new string to be replaced
+ *
+ * This function replaces @strv[@idx] to @str.  Callers should not use the old
+ * string after this function.
+ */
+void strv_replace(struct strv *strv, int idx, const char *str)
+{
+	free(strv->p[idx]);
+	strv->p[idx] = xstrdup(str);
+}
+
+/**
  * strv_join - make a string with string vector
  * @strv:  string vector
  * @delim: delimiter inserted between strings
