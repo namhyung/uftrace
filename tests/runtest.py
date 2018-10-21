@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import random
 import os, sys
 import tempfile
 import glob, re
@@ -47,6 +48,9 @@ class TestBase:
     def pr_debug(self, msg):
         if self.debug:
             print(msg)
+
+    def gen_port(self):
+        self.port = random.randint(40000, 50000)
 
     def convert_abs_path(self, build_cmd):
         cmd = build_cmd.split()

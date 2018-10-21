@@ -26,6 +26,7 @@ class TestCase(TestBase):
    2.120 ms [  395] |   } /* foo */
    2.121 ms [  395] | } /* main */
 """)
+        self.gen_port()
 
     recv_p = None
 
@@ -35,10 +36,10 @@ class TestCase(TestBase):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        recv_cmd = '%s recv -d %s' % (TestBase.uftrace_cmd, TDIR)
+        recv_cmd = '%s recv -d %s --port %s' % (TestBase.uftrace_cmd, TDIR, self.port)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        options = '-H %s -E %s' % ('localhost', 'linux:schedule')
+        options = '-H %s --port %s -E %s' % ('localhost', self.port, 'linux:schedule')
         record_cmd = '%s record %s %s' % (TestBase.uftrace_cmd, options, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS

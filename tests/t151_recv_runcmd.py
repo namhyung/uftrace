@@ -21,16 +21,18 @@ class TestCase(TestBase):
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
 """)
+        self.gen_port()
 
     recv_p = None
     file_p = None
 
     def pre(self):
         self.file_p = open(TMPF, 'w+')
-        recv_cmd = TestBase.uftrace_cmd.split() + ['recv', '-d', TDIR, '--run-cmd', TestBase.uftrace_cmd + ' replay']
+        recv_cmd = TestBase.uftrace_cmd.split() + \
+                   ['recv', '-d', TDIR, '--port', str(self.port), '--run-cmd', TestBase.uftrace_cmd + ' replay']
         self.recv_p = sp.Popen(recv_cmd, stdout=self.file_p, stderr=self.file_p)
 
-        record_cmd = '%s record -H %s %s' % (TestBase.uftrace_cmd, 'localhost', 't-' + self.name)
+        record_cmd = '%s record -H %s --port %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
