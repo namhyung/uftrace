@@ -29,6 +29,11 @@ class TestCase(TestBase):
             :  +-(1) execl
 """, sort='graph')
 
+    def build(self, name, cflags='', ldflags=''):
+        ret  = TestBase.build(self, 'abc', cflags, ldflags)
+        ret += TestBase.build(self, self.name, cflags, ldflags)
+        return ret
+
     def pre(self):
         record_cmd = '%s record %s -d %s %s' % (TestBase.uftrace_cmd, NOFILTERS, TDIR, 't-' + self.name)
         sp.call(record_cmd.split())
