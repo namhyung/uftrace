@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys
+import tempfile
 import glob, re
 import subprocess as sp
 import multiprocessing
@@ -22,13 +23,17 @@ class TestBase:
     TEST_SKIP = -7
     TEST_SUCCESS_FIXED = -8
 
-    objdir = 'objdir' in os.environ and os.environ['objdir'] or '..'
+    basedir = os.path.dirname(os.getcwd())
+    objdir = 'objdir' in os.environ and os.environ['objdir'] or basedir
     uftrace_cmd = objdir + '/uftrace --no-pager --no-event -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task'):
+        _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
+        os.chdir(_tmp)
+        self.test_dir = _tmp
         self.name = name
         self.result = result
         self.cflags = cflags
@@ -43,7 +48,16 @@ class TestBase:
         if self.debug:
             print(msg)
 
+    def convert_abs_path(self, build_cmd):
+        cmd = build_cmd.split()
+        src_idx = [i for i, _cmd in enumerate(cmd) if _cmd.startswith('s-')][0]
+        abs_src = os.path.join(self.basedir, 'tests', cmd[src_idx])
+        cmd[src_idx] = abs_src
+        return " ".join(cmd)
+
     def build_it(self, build_cmd):
+        build_cmd = self.convert_abs_path(build_cmd)
+
         try:
             p = sp.Popen(build_cmd.split(), stderr=sp.PIPE)
             if p.wait() != 0:
@@ -318,7 +332,7 @@ class TestBase:
 
     def check_dependency(self, item):
         import os.path
-        return os.path.exists('../check-deps/' + item)
+        return os.path.exists('%s/check-deps/' % self.basedir + item)
 
     def check_perf_paranoid(self):
         try:
@@ -407,6 +421,8 @@ class TestBase:
 
         return ret
 
+    def __del__(self):
+        sp.call(['rm', '-rf', self.test_dir])
 
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'

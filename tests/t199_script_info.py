@@ -25,7 +25,7 @@ v0.8.3-10/gfbfac3
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-F main -S ../scripts/info.py foo bar'
+        options = '-F main -S %s/scripts/info.py foo bar' % self.basedir
         return '%s script -d %s %s' % (uftrace, TDIR, options)
 
     def sort(self, output):
