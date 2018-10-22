@@ -904,7 +904,7 @@ static void unlink_shmem_list(void)
 		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
 		for (i = 0; i < num; i++) {
 			sid[0] = '/';
-			strncpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
+			memcpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
 			pr_dbg3("unlink %s\n", sid);
 			shm_unlink(sid);
 			free(shmem_bufs[i]);
