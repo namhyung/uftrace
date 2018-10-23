@@ -439,6 +439,7 @@ static void free_enum_def(struct enum_def *e_def)
 		free(e_val->str);
 		free(e_val);
 	}
+	free(e_def->name);
 	free(e_def);
 }
 
