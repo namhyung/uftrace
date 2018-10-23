@@ -1275,8 +1275,10 @@ char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id)
 	}
 
 	/* kernel events */
-	event = pevent_find_event(handle->kernel->pevent, evt_id);
-	xasprintf(&evt_name, "%s:%s", event->system, event->name);
+	if (has_kernel_data(handle->kernel)) {
+		event = pevent_find_event(handle->kernel->pevent, evt_id);
+		xasprintf(&evt_name, "%s:%s", event->system, event->name);
+	}
 
 out:
 	return evt_name;
