@@ -466,12 +466,13 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	bool is_retval        = !!(str_mode & IS_RETVAL);
 	bool needs_assignment = !!(str_mode & NEEDS_ASSIGNMENT);
 	bool needs_escape     = !!(str_mode & NEEDS_ESCAPE);
+	bool is_python		  = !!(str_mode & IS_PYTHON);
 
 	if (!has_more) {
 		if (needs_paren)
 			strcpy(args, "()");
 		else {
-			if (is_retval && needs_semi_colon)
+			if (is_retval && needs_semi_colon && !is_python)
 				args[n++] = ';';
 			args[n] = '\0';
 		}
@@ -681,7 +682,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 		args[n] = ')';
 		args[n+1] = '\0';
 	} else {
-		if (needs_semi_colon)
+		if (needs_semi_colon && !is_python)
 			args[n++] = ';';
 		args[n] = '\0';
 	}
@@ -705,6 +706,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 	if (rstack->type == UFTRACE_LOST)
 		goto lost;
+
+	if (opts->python)
+		str_mode |= IS_PYTHON;
 
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
@@ -778,6 +782,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 			fstack_consume(handle, next);
 
 			str_mode = IS_RETVAL | NEEDS_SEMI_COLON;
+			if (opts->python) str_mode |= IS_PYTHON;
+
 			if (next->rstack->more) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
@@ -810,11 +816,13 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				pr_color(tr.color, "%s", symname);
 				if (*libname)
 					pr_color(tr.color, "@%s", libname);
-				pr_out("%s {\n", args);
+				pr_out("%s%s\n", args,
+					   opts->python ? ":" : " {");
 			}
 			else {
-				pr_out("%s%s%s%s {\n", symname,
-				       *libname ? "@" : "", libname, args);
+				pr_out("%s%s%s%s%s\n", symname,
+				       *libname ? "@" : "", libname, args,
+					   opts->python ? ":" : " {");
 			}
 
 			fstack_update(UFTRACE_ENTRY, task, fstack);
@@ -845,7 +853,8 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				print_task_newline(task->tid);
 
 			print_field(task, fstack, NULL);
-			pr_out("%*s}%s", depth * 2, "", retval);
+			pr_out("%*s%c%s", depth * 2, "",
+				   opts->python ? ' ' : '}', retval);
 			if (opts->comment)
 				pr_gray(" /* %s%s%s */\n", symname,
 					*libname ? "@" : "", libname);

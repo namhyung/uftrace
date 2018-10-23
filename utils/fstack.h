@@ -83,6 +83,7 @@ enum argspec_string_bits {
 	IS_RETVAL_BIT,
 	NEEDS_ASSIGNMENT_BIT,
 	NEEDS_ESCAPE_BIT,
+	IS_PYTHON_BIT,
 
 	/* bit mask */
 	NEEDS_PAREN		= (1U << NEEDS_PAREN_BIT),
@@ -91,6 +92,7 @@ enum argspec_string_bits {
 	IS_RETVAL		= (1U << IS_RETVAL_BIT),
 	NEEDS_ASSIGNMENT	= (1U << NEEDS_ASSIGNMENT_BIT),
 	NEEDS_ESCAPE		= (1U << NEEDS_ESCAPE_BIT),
+	IS_PYTHON		= (1U << IS_PYTHON_BIT),
 };
 
 extern bool fstack_enabled;
