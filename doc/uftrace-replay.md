@@ -88,8 +88,11 @@ OPTIONS
 :   Interleave a new line when task is changed.  This makes easy to distinguish
     functions in different tasks.
 
-\--no-comment
-:   Do not show comments of returned functions.
+\--comment=*VAL*
+:   Show comments when the function closed.  Possible values are
+    "yes"(= "true"|"1"|"on"), "no"(= "false"|"0"|"off") and "with-args".
+    When "with-args" value is used, show function name and arguments together.  
+    Default is 'yes'.
 
 -k, \--kernel
 :   Trace kernel functions (and events) as well as user functions (and events).

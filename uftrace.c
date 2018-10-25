@@ -79,7 +79,7 @@ enum options {
 	OPT_sort_column,
 	OPT_tid_filter,
 	OPT_num_thread,
-	OPT_no_comment,
+	OPT_comment,
 	OPT_libmcount_single,
 	OPT_rt_prio,
 	OPT_kernel_bufsize,
@@ -147,7 +147,7 @@ static struct argp_option uftrace_options[] = {
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX (default: 2)" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
-	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
+	{ "comment", OPT_comment, "SET", 0, "Show comments of returned functions: yes, no, with-args (default: yes)" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
 	{ "kernel-depth", 'K', "DEPTH", 0, "Trace kernel functions within DEPTH (default: 1)" },
@@ -255,6 +255,26 @@ static enum color_setting parse_color(char *arg)
 		return COLOR_AUTO;
 
 	return COLOR_UNKNOWN;
+}
+
+static enum comment_setting parse_comment(char *arg)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(true_str); i++) {
+		if (!strcmp(arg, true_str[i]))
+			return COMMENT_ON;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(false_str); i++) {
+		if (!strcmp(arg, false_str[i]))
+			return COMMENT_OFF;
+	}
+
+	if (!strcmp(arg, "with-args"))
+		return COMMENT_WITH_ARGS;
+
+	return COMMENT_UNKNOWN;
 }
 
 static int parse_demangle(char *arg)
@@ -661,8 +681,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		}
 		break;
 
-	case OPT_no_comment:
-		opts->comment = false;
+	case OPT_comment:
+		opts->comment = parse_comment(arg);
+		if (opts->comment == COMMENT_UNKNOWN) {
+			pr_use("unknown comment setting: %s (ignoring..)\n", arg);
+			opts->comment = COMMENT_ON;
+		}
 		break;
 
 	case OPT_libmcount_single:
