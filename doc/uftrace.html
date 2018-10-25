@@ -280,12 +280,9 @@ name: user-tracing
 ### C/C++ (user) Function Tracing
 - Compiler assists tracing with -pg or -finstrument-functions
 
-  ```
-  $ 
-  ```
-
 .left-column[
 ```
+$ cat foobar.c 
 void bar() {
 
 }
@@ -309,12 +306,9 @@ int main() {
 ### C/C++ (user) Function Tracing
 - Compiler assists tracing with -pg or -finstrument-functions
 
-  ```
-  $ gcc foobar.c
-  ```
-
 .left-column[
 ```
+$ cat foobar.c 
 void bar() {
 
 }
@@ -331,17 +325,15 @@ int main() {
 ]
 .right-column[
 ```
+$ gcc foobar.c
 <bar>:
-
   ret
 
 <foo>:
-
   call <bar>
   ret
 
 <main>:
-
   call <foo>
   call <bar>
   ret
@@ -352,12 +344,9 @@ int main() {
 ### C/C++ (user) Function Tracing
 - Compiler assists tracing with -pg or -finstrument-functions
 
-  ```
-  $ gcc `-pg` foobar.c
-  ```
-
 .left-column[
 ```
+$ cat foobar.c 
 void bar() {
 
 }
@@ -374,6 +363,7 @@ int main() {
 ]
 .right-column[
 ```
+$ gcc `-pg` foobar.c
 <bar>:
 * call <mcount@plt>
   ret
@@ -387,6 +377,49 @@ int main() {
 * call <mcount@plt>
   call <foo>
   call <bar>
+  ret
+```
+]
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+.left-column[
+```
+$ cat foobar.c 
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+$ gcc `-finstrument-functions` foobar.c
+<bar>:
+* call <__cyg_profile_func_enter@plt>
+* call <__cyg_profile_func_exit@plt>
+  ret
+
+<foo>:
+* call <__cyg_profile_func_enter@plt>
+  call <bar>
+* call <__cyg_profile_func_exit@plt>
+  ret
+
+<main>:
+* call <__cyg_profile_func_enter@plt>
+  call <foo>
+  call <bar>
+* call <__cyg_profile_func_exit@plt>
   ret
 ```
 ]
