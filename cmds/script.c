@@ -168,8 +168,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	ret = open_data_file(opts, &handle);
 	uftrace_info = &handle.info;
-	info.elapsed_time = xstrdup(uftrace_info->elapsed_time);
-
+	info.elapsed_time = atof(uftrace_info->elapsed_time);
 	if (ret < 0) {
 		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;

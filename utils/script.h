@@ -24,7 +24,7 @@ struct script_info {
 	char			*version;
 	bool			record;
 	struct strv		cmds;
-	char			*elapsed_time;
+	double			elapsed_time;
 };
 
 /* context information passed to script */
