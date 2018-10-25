@@ -1275,15 +1275,13 @@ template: title-layout
        9.456 us [31321] | } /* main */
 ```
 ---
-class: code-26px
-### Record function return values with type setting
+### Record function arguments with type setting
 ```
     $ clang -pg hello.c
     $ uftrace -A printf@`arg1` a.out 
 ```
 ---
-class: code-26px
-### Record function return values with type setting
+### Record function arguments with type setting
 ```
     $ clang -pg hello.c
     $ uftrace -A printf@`arg1` a.out 
@@ -1294,15 +1292,13 @@ class: code-26px
        7.390 us [117536] | } /* main */
 ```
 ---
-class: code-26px
-### Record function return values with type setting
+### Record function arguments with type setting
 ```
     $ clang -pg hello.c
     $ uftrace -A printf@arg1`/s` a.out 
 ```
 ---
-class: code-26px
-### Record function return values with type setting
+### Record function arguments with type setting
 ```
     $ clang -pg hello.c
     $ uftrace -A printf@arg1`/s` a.out 
