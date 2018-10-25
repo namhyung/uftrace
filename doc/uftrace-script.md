@@ -188,15 +188,19 @@ Also script can have options for record if it requires some form of data
 
 
 
-There is an difference of the timing a script is excuted.
-when running 'uftrace-record' with '-S' option, it's executed at runtime (record time).
-However, a given script is on a recorded data (uftrace.data) in 'uftrace-script',
-So see the result of ctx ['record'] on below:
+The script can be executed during or after record. If a script is given with
+`record` or `live` command, it runs with the target program, but a script is
+given with `script` command, it runs while reading the pre-recorded data.
+
+In order to detect if the script is executed during record time, ctx["record"]
+is provided in `uftrace_begin` as follows:
+
 
     $ cat info.py
     def  uftrace_begin(ctx):
          print(ctx["record"])
-    ...
+         print(ctx["version"])
+         print(stx["cmds"])
 
     $ uftrace record -S info.py a.out
     True
