@@ -716,7 +716,6 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
-	char args[1024];
 	char *libname = "";
 	struct uftrace_mmap *map = NULL;
 
@@ -781,9 +780,9 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (rstack->more)
 			str_mode |= HAS_MORE;
-		get_argspec_string(task, args, sizeof(args), str_mode);
 
 		fstack = &task->func_stack[task->stack_count - 1];
+		get_argspec_string(task, fstack->args, sizeof(fstack->args), str_mode);
 
 		if (!opts->no_merge)
 			next = fstack_skip(handle, task, rstack_depth,
@@ -810,12 +809,12 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				pr_color(tr.color, "%s", symname);
 				if (*libname)
 					pr_color(tr.color, "@%s", libname);
-				pr_out("%s%s\n", args, retval);
+				pr_out("%s%s\n", fstack->args, retval);
 			}
 			else {
 				pr_out("%s%s%s%s%s\n", symname,
 				       *libname ? "@" : "",
-				       libname, args, retval);
+				       libname, fstack->args, retval);
 			}
 
 			/* fstack_update() is not needed here */
@@ -830,11 +829,11 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				pr_color(tr.color, "%s", symname);
 				if (*libname)
 					pr_color(tr.color, "@%s", libname);
-				pr_out("%s {\n", args);
+				pr_out("%s {\n", fstack->args);
 			}
 			else {
 				pr_out("%s%s%s%s {\n", symname,
-				       *libname ? "@" : "", libname, args);
+				       *libname ? "@" : "", libname, fstack->args);
 			}
 
 			fstack_update(UFTRACE_ENTRY, task, fstack);
@@ -848,7 +847,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
-			char *retval = args;
+			char retval[1024];
 
 			depth += task_column_depth(task, opts);
 
@@ -858,7 +857,7 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 				str_mode |= NEEDS_ASSIGNMENT;
 				str_mode |= NEEDS_SEMI_COLON;
 			}
-			get_argspec_string(task, retval, sizeof(args), str_mode);
+			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
 			/* give a new line when tid is changed */
 			if (opts->task_newline)
@@ -866,9 +865,17 @@ static int print_graph_rstack(struct ftrace_file_handle *handle,
 
 			print_field(task, fstack, NULL);
 			pr_out("%*s}%s", depth * 2, "", retval);
-			if (opts->comment)
+
+			if (opts->comment == COMMENT_ON)
 				pr_gray(" /* %s%s%s */\n", symname,
 					*libname ? "@" : "", libname);
+			else if (opts->comment == COMMENT_WITH_ARGS){
+				// char *temp_str_farg;
+				// temp_str_farg = pop_str_farg_stack(str_farg_stack, &str_farg_sp);
+				pr_gray(" /* %s%s%s%s */ \n", symname,
+					*libname ? "@" : "", libname, fstack->args);
+				// free(temp_str_farg);
+			}
 			else
 				pr_gray("\n");
 		}

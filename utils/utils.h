@@ -73,6 +73,13 @@ enum color_setting {
 	COLOR_ON,
 };
 
+enum comment_setting {
+	COMMENT_UNKNOWN = -1,
+	COMMENT_OFF,
+	COMMENT_ON,
+	COMMENT_WITH_ARGS
+};
+
 #define COLOR_CODE_RED      'R'
 #define COLOR_CODE_GREEN    'G'
 #define COLOR_CODE_BLUE     'B'
