@@ -37,10 +37,6 @@ ifneq ($(wildcard $(srcdir)/check-deps/have_libncurses),)
   TEST_LDFLAGS    += $(shell pkg-config --libs ncursesw)
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/cc_has_wstringop_truncation),)
-  COMMON_CFLAGS += -Wno-stringop-truncation
-endif
-
 ifneq ($(wildcard $(srcdir)/check-deps/have_libelf),)
   COMMON_CFLAGS  += -DHAVE_LIBELF
   COMMON_LDFLAGS += -lelf
