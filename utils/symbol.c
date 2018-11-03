@@ -86,7 +86,7 @@ bool check_libpthread(const char *filename)
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return -1;
+		return false;
 	}
 
 	elf_for_each_shdr(&elf, &iter) {
