@@ -1163,6 +1163,7 @@ static void save_task_event(struct ftrace_task_handle *task,
 	int rem;
 
 	/* abuse task->args */
+	task->args.args = (void *)1;
 	task->args.len  = buflen;
 	task->args.data = xrealloc(task->args.data, buflen);
 
