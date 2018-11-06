@@ -154,6 +154,18 @@ SORT_KEY(self_min, self.min);
 SORT_KEY(self_max, self.max);
 SORT_KEY(call, call);
 
+static int cmp_func(struct uftrace_report_node *a,
+		    struct uftrace_report_node *b)
+{
+	return strcmp(b->name, a->name);
+}
+
+static struct sort_key sort_func = {
+	.name = "func",
+	.cmp  = cmp_func,
+	.list = LIST_HEAD_INIT(sort_func.list),
+};
+
 static struct sort_key * all_sort_keys[] = {
 	&sort_total,
 	&sort_total_avg,
@@ -164,6 +176,7 @@ static struct sort_key * all_sort_keys[] = {
 	&sort_self_min,
 	&sort_self_max,
 	&sort_call,
+	&sort_func,
 };
 
 /* list of used sort keys */
@@ -337,6 +350,19 @@ DIFF_KEY(self_min, self.min);
 DIFF_KEY(self_max, self.max);
 DIFF_KEY(call, call);
 
+static int cmp_diff_func(struct uftrace_report_node *a,
+			 struct uftrace_report_node *b,
+			 int column)
+{
+	return strcmp(b->name, a->name);
+}
+
+static struct diff_key sort_diff_func = {
+	.name = "func",
+	.cmp  = cmp_diff_func,
+	.list = LIST_HEAD_INIT(sort_diff_func.list),
+};
+
 static struct diff_key * all_diff_keys[] = {
 	&sort_diff_total,
 	&sort_diff_total_avg,
@@ -347,6 +373,7 @@ static struct diff_key * all_diff_keys[] = {
 	&sort_diff_self_min,
 	&sort_diff_self_max,
 	&sort_diff_call,
+	&sort_diff_func,
 };
 
 /* list of used sort keys for diff */
