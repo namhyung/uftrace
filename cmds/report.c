@@ -20,7 +20,7 @@ enum {
 /* maximum length of symbol */
 static int maxlen = 20;
 
-static void insert_node(struct rb_root *root, struct ftrace_task_handle *task,
+static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 			char *symname)
 {
 	struct uftrace_report_node *node;
@@ -33,7 +33,7 @@ static void insert_node(struct rb_root *root, struct ftrace_task_handle *task,
 	report_update_node(node, task);
 }
 
-static void find_insert_node(struct rb_root *root, struct ftrace_task_handle *task,
+static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 			     uint64_t timestamp, uint64_t addr)
 {
 	struct sym *sym;
@@ -45,7 +45,7 @@ static void find_insert_node(struct rb_root *root, struct ftrace_task_handle *ta
 	symbol_putname(sym, symname);
 }
 
-static void add_lost_fstack(struct rb_root *root, struct ftrace_task_handle *task)
+static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task)
 {
 	struct fstack *fstack;
 
@@ -66,7 +66,7 @@ static void add_lost_fstack(struct rb_root *root, struct ftrace_task_handle *tas
 static void add_remaining_fstack(struct uftrace_data *handle,
 				 struct rb_root *root)
 {
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct fstack *fstack;
 	int i;
 
@@ -108,7 +108,7 @@ static void build_function_tree(struct uftrace_data *handle,
 				struct rb_root *root, struct opts *opts)
 {
 	struct uftrace_record *rstack;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
@@ -221,11 +221,11 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 }
 
 static struct sym * find_task_sym(struct uftrace_data *handle,
-				  struct ftrace_task_handle *task,
+				  struct uftrace_task_reader *task,
 				  struct uftrace_record *rstack)
 {
 	struct sym *sym;
-	struct ftrace_task_handle *main_task = &handle->tasks[0];
+	struct uftrace_task_reader *main_task = &handle->tasks[0];
 	struct uftrace_session *sess = find_task_session(&handle->sessions,
 							 task->tid, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
@@ -259,7 +259,7 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 {
 	int pid;
 	const char *symname;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_data *handle = arg;
 
 	pid = strtol(node->name, NULL, 10);
@@ -279,7 +279,7 @@ static void report_threads(struct uftrace_data *handle, struct opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-.*s\n";
 	const char line[] = "=================================================";
 	char buf[10];

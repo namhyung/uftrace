@@ -330,7 +330,7 @@ static void tui_cleanup(void)
 	graph_remove_task();
 }
 
-static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
+static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 					uint64_t time, uint64_t addr)
 {
 	struct tui_graph *graph;
@@ -364,7 +364,7 @@ static bool list_is_none(struct list_head *list)
 	return list->next == NULL && list->prev == NULL;
 }
 
-static void update_report_node(struct ftrace_task_handle *task, char *symname,
+static void update_report_node(struct uftrace_task_reader *task, char *symname,
 			       struct uftrace_task_graph *tg)
 {
 	struct tui_report_node *node;
@@ -386,7 +386,7 @@ static void update_report_node(struct ftrace_task_handle *task, char *symname,
 	report_update_node(&node->n, task);
 }
 
-static int build_tui_node(struct ftrace_task_handle *task,
+static int build_tui_node(struct uftrace_task_reader *task,
 			  struct uftrace_record *rec)
 {
 	struct uftrace_task_graph *tg;
@@ -437,7 +437,7 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 {
 	uint64_t last_time;
 	struct fstack *fstack;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *tg;
 	struct sym *sym;
 	char *name;
@@ -2437,7 +2437,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {

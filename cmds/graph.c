@@ -160,7 +160,7 @@ static void setup_graph_list(struct uftrace_data *handle, struct opts *opts,
 	}
 }
 
-static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
+static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 					uint64_t time, uint64_t addr)
 {
 	struct session_graph *graph;
@@ -194,7 +194,7 @@ static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
 
 static int start_graph(struct task_graph *tg);
 
-static struct task_graph * get_task_graph(struct ftrace_task_handle *task,
+static struct task_graph * get_task_graph(struct uftrace_task_reader *task,
 					  uint64_t time, uint64_t addr)
 {
 	struct task_graph *tg;
@@ -222,7 +222,7 @@ static int save_backtrace_addr(struct task_graph *tg)
 	int i;
 	int skip = 0;
 	struct graph_backtrace *bt;
-	struct ftrace_task_handle *task = tg->utg.task;
+	struct uftrace_task_reader *task = tg->utg.task;
 	struct session_graph *graph = (struct session_graph *)tg->utg.graph;
 	int len = task->stack_count;
 	uint64_t addrs[len];
@@ -262,7 +262,7 @@ found:
 
 static void save_backtrace_time(struct task_graph *tg)
 {
-	struct ftrace_task_handle *task = tg->utg.task;
+	struct uftrace_task_reader *task = tg->utg.task;
 	struct fstack *fstack = &task->func_stack[task->stack_count];
 
 	if (tg->bt_curr)
@@ -436,7 +436,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 	return 1;
 }
 
-static void build_graph_node(struct ftrace_task_handle *task, uint64_t time,
+static void build_graph_node(struct uftrace_task_reader *task, uint64_t time,
 			     uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
@@ -478,7 +478,7 @@ out:
 static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		       char *func)
 {
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct session_graph *graph;
 	uint64_t prev_time = 0;
 	int i;

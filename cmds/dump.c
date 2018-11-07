@@ -24,16 +24,16 @@ struct uftrace_dump_ops {
 		       struct uftrace_data *handle, struct opts *opts);
 	/* this is called when a task starts */
 	void (*task_start)(struct uftrace_dump_ops *ops,
-			   struct ftrace_task_handle *task);
+			   struct uftrace_task_reader *task);
 	/* this is called when a record's time is before the previous */
 	void (*inverted_time)(struct uftrace_dump_ops *ops,
-			      struct ftrace_task_handle *task);
+			      struct uftrace_task_reader *task);
 	/* this is called for each user-level function entry/exit */
 	void (*task_rstack)(struct uftrace_dump_ops *ops,
-			    struct ftrace_task_handle *task, char *name);
+			    struct uftrace_task_reader *task, char *name);
 	/* this is called for each user-level event */
 	void (*task_event)(struct uftrace_dump_ops *ops,
-			   struct ftrace_task_handle *task);
+			   struct uftrace_task_reader *task);
 	/* this is called when kernel data starts */
 	void (*kernel_start)(struct uftrace_dump_ops *ops,
 			     struct uftrace_kernel_reader *kernel);
@@ -342,7 +342,7 @@ static void pr_args(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
-			struct ftrace_task_handle *task;
+			struct uftrace_task_reader *task;
 			struct uftrace_session_link *sessions;
 			struct sym *sym;
 			unsigned long val = 0;
@@ -365,7 +365,7 @@ static void pr_args(struct fstack_arguments *args)
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			long long val = 0;
 			struct uftrace_mmap *map;
-			struct ftrace_task_handle *task;
+			struct uftrace_task_reader *task;
 			struct uftrace_session_link *sessions;
 			struct uftrace_session *s;
 			struct debug_info *dinfo;
@@ -440,12 +440,12 @@ static void pr_retval(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
-			struct ftrace_task_handle *task;
+			struct uftrace_task_reader *task;
 			struct uftrace_session_link *sessions;
 			struct sym *sym;
 			unsigned long val = 0;
 
-			task = container_of(args, struct ftrace_task_handle, args);
+			task = container_of(args, struct uftrace_task_reader, args);
 			sessions = &task->h->sessions;
 
 			memcpy(&val, ptr, spec->size);
@@ -570,7 +570,7 @@ static void dump_raw_header(struct uftrace_dump_ops *ops,
 }
 
 static void dump_raw_task_start(struct uftrace_dump_ops *ops,
-				 struct ftrace_task_handle *task)
+				 struct uftrace_task_reader *task)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
@@ -581,7 +581,7 @@ static void dump_raw_task_start(struct uftrace_dump_ops *ops,
 }
 
 static void dump_raw_inverted_time(struct uftrace_dump_ops *ops,
-				    struct ftrace_task_handle *task)
+				    struct uftrace_task_reader *task)
 {
 	pr_red("\n");
 	pr_red("*************************************\n");
@@ -591,7 +591,7 @@ static void dump_raw_inverted_time(struct uftrace_dump_ops *ops,
 }
 
 static void dump_raw_task_rstack(struct uftrace_dump_ops *ops,
-				  struct ftrace_task_handle *task, char *name)
+				  struct uftrace_task_reader *task, char *name)
 {
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -631,7 +631,7 @@ static void dump_raw_task_rstack(struct uftrace_dump_ops *ops,
 }
 
 static void dump_raw_task_event(struct uftrace_dump_ops *ops,
-				 struct ftrace_task_handle *task)
+				 struct uftrace_task_reader *task)
 {
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
@@ -855,7 +855,7 @@ static void dump_chrome_header(struct uftrace_dump_ops *ops,
 }
 
 static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
-				     struct ftrace_task_handle *task, char *name)
+				     struct uftrace_task_reader *task, char *name)
 {
 	char ph;
 	char spec_buf[1024];
@@ -938,7 +938,7 @@ static void dump_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
 				      struct uftrace_record *rec, char *name)
 {
 	int tid;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 
 	tid = kernel->tids[cpu];
 	task = get_task_handle(kernel->handle, tid);
@@ -1111,7 +1111,7 @@ static void dump_flame_header(struct uftrace_dump_ops *ops,
 }
 
 static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
-				    struct ftrace_task_handle *task, char *name)
+				    struct uftrace_task_reader *task, char *name)
 {
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_task_graph *graph;
@@ -1133,7 +1133,7 @@ static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 				     struct uftrace_record *rec, char *name)
 {
 	int tid;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *graph;
 
 	tid = kernel->tids[cpu];
@@ -1188,7 +1188,7 @@ static void dump_graphviz_header(struct uftrace_dump_ops *ops,
 }
 
 static void dump_graphviz_task_rstack(struct uftrace_dump_ops *ops,
-				       struct ftrace_task_handle *task,
+				       struct uftrace_task_reader *task,
 				       char *name)
 {
 	struct uftrace_record *frs = task->rstack;
@@ -1210,7 +1210,7 @@ static void dump_graphviz_kernel_rstack(struct uftrace_dump_ops *ops,
 					struct uftrace_record *rec, char *name)
 {
 	int tid;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *graph;
 
 	tid = kernel->tids[cpu];
@@ -1268,7 +1268,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 {
 	int i;
 	uint64_t prev_time;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_session_link *sessions = &handle->sessions;
 
 	call_if_nonull(ops->header, ops, handle, opts);
@@ -1391,7 +1391,7 @@ footer:
 	call_if_nonull(ops->footer, ops, handle, opts);
 }
 
-static bool check_task_rstack(struct ftrace_task_handle *task,
+static bool check_task_rstack(struct uftrace_task_reader *task,
 			      struct opts *opts)
 {
 	struct uftrace_record *frs = task->rstack;
@@ -1409,7 +1409,7 @@ static bool check_task_rstack(struct ftrace_task_handle *task,
 }
 
 static void dump_replay_func(struct uftrace_dump_ops *ops,
-			     struct ftrace_task_handle *task)
+			     struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rec = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
@@ -1432,7 +1432,7 @@ static void dump_replay_func(struct uftrace_dump_ops *ops,
 }
 
 static void dump_replay_event(struct uftrace_dump_ops *ops,
-			      struct ftrace_task_handle *task)
+			      struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rec = task->rstack;
 
@@ -1480,7 +1480,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			   struct uftrace_data *handle)
 {
 	uint64_t prev_time = 0;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	int i;
 
 	ops->header(ops, handle, opts);

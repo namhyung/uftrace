@@ -39,7 +39,7 @@ static void print_duration(struct field_data *fd)
 
 static void print_tid(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 	pr_out("[%6d]", task->tid);
 }
 
@@ -58,7 +58,7 @@ static void print_addr(struct field_data *fd)
 
 static void print_timestamp(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 
 	uint64_t  sec = task->timestamp / NSEC_PER_SEC;
 	uint64_t nsec = task->timestamp % NSEC_PER_SEC;
@@ -68,7 +68,7 @@ static void print_timestamp(struct field_data *fd)
 
 static void print_timedelta(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 	uint64_t delta = 0;
 
 	if (task->timestamp_last)
@@ -79,7 +79,7 @@ static void print_timedelta(struct field_data *fd)
 
 static void print_elapsed(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 	uint64_t elapsed = task->timestamp - task->h->time_range.first;
 
 	print_time_unit(elapsed);
@@ -87,14 +87,14 @@ static void print_elapsed(struct field_data *fd)
 
 static void print_task(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 
 	pr_out("%*s", 15, task->t->comm);
 }
 
 static void print_module(struct field_data *fd)
 {
-	struct ftrace_task_handle *task = fd->task;
+	struct uftrace_task_reader *task = fd->task;
 	struct fstack *fstack = fd->fstack;
 	uint64_t timestamp = task->timestamp;
 	struct uftrace_session *s;
@@ -215,7 +215,7 @@ static struct display_field *field_table[] = {
 	&field_module,
 };
 
-static void print_field(struct ftrace_task_handle *task,
+static void print_field(struct uftrace_task_reader *task,
 			struct fstack *fstack, void *arg)
 {
 	struct field_data fd = {
@@ -240,7 +240,7 @@ static void setup_default_field(struct list_head *fields, struct opts *opts)
 	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
-static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
+static int task_column_depth(struct uftrace_task_reader *task, struct opts *opts)
 {
 	if (!opts->column_view)
 		return 0;
@@ -251,7 +251,7 @@ static int task_column_depth(struct ftrace_task_handle *task, struct opts *opts)
 	return task->column_index * opts->column_offset;
 }
 
-static void print_backtrace(struct ftrace_task_handle *task)
+static void print_backtrace(struct uftrace_task_reader *task)
 {
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	int i;
@@ -286,7 +286,7 @@ static void print_backtrace(struct ftrace_task_handle *task)
 	}
 }
 
-static void print_event(struct ftrace_task_handle *task,
+static void print_event(struct uftrace_task_reader *task,
 			struct uftrace_record *urec,
 			int color)
 {
@@ -388,7 +388,7 @@ static void print_event(struct ftrace_task_handle *task,
 }
 
 static int print_flat_rstack(struct uftrace_data *handle,
-			     struct ftrace_task_handle *task,
+			     struct uftrace_task_reader *task,
 			     struct opts *opts)
 {
 	static int count;
@@ -445,7 +445,7 @@ static void print_task_newline(int current_tid)
 #define print_args(fmt, ...)						\
 ({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
 
-void get_argspec_string(struct ftrace_task_handle *task,
+void get_argspec_string(struct uftrace_task_reader *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode)
 {
@@ -708,7 +708,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 }
 
 static int print_graph_rstack(struct uftrace_data *handle,
-			      struct ftrace_task_handle *task,
+			      struct uftrace_task_reader *task,
 			      struct opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
@@ -749,7 +749,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	}
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		struct ftrace_task_handle *next = NULL;
+		struct uftrace_task_reader *next = NULL;
 		struct fstack *fstack;
 		int rstack_depth = rstack->depth;
 		int depth;
@@ -902,7 +902,7 @@ lost:
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
 		struct fstack *fstack;
-		struct ftrace_task_handle *next = NULL;
+		struct uftrace_task_reader *next = NULL;
 		struct uftrace_record rec = *rstack;
 		uint64_t evt_id = rstack->addr;
 
@@ -954,7 +954,7 @@ out:
 	return 0;
 }
 
-static void print_warning(struct ftrace_task_handle *task)
+static void print_warning(struct uftrace_task_reader *task)
 {
 	if (print_empty_field(&output_fields, 1))
 		pr_out(" | ");
@@ -962,7 +962,7 @@ static void print_warning(struct ftrace_task_handle *task)
 	       (task->display_depth + 1) * 2, "");
 }
 
-static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
+static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 {
 	uint64_t ip;
 	struct sym *sym;
@@ -996,7 +996,7 @@ static void print_remaining_stack(struct opts *opts,
 	struct uftrace_session_link *sessions = &handle->sessions;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		struct ftrace_task_handle *task = &handle->tasks[i];
+		struct uftrace_task_reader *task = &handle->tasks[i];
 		int zero_count = 0;
 
 		if (skip_sys_exit(opts, task))
@@ -1018,7 +1018,7 @@ static void print_remaining_stack(struct opts *opts,
 	pr_out("\n================================================\n");
 
 	for (i = 0; i < handle->nr_tasks; i++) {
-		struct ftrace_task_handle *task = &handle->tasks[i];
+		struct uftrace_task_reader *task = &handle->tasks[i];
 		int zero_count = 0;
 
 		if (task->stack_count == 0)
@@ -1064,7 +1064,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	int ret;
 	uint64_t prev_time = 0;
 	struct uftrace_data handle;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);

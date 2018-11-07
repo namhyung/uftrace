@@ -28,7 +28,7 @@ void graph_init_callbacks(graph_fn entry_fn, graph_fn exit_fn, graph_fn event_fn
 	cb_arg   = arg;
 }
 
-struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
+struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 					   size_t tg_size)
 {
 	struct rb_node *parent = NULL;

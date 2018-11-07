@@ -44,7 +44,7 @@ struct uftrace_graph {
 struct uftrace_task_graph {
 	bool				lost;
 	bool				new_sess;
-	struct ftrace_task_handle	*task;
+	struct uftrace_task_reader	*task;
 	struct uftrace_graph		*graph;
 	struct uftrace_graph_node	*node;
 	struct rb_node			link;
@@ -57,7 +57,7 @@ void graph_init_callbacks(graph_fn entry, graph_fn exit, graph_fn event,
 			  void *arg);
 void graph_destroy(struct uftrace_graph *graph);
 
-struct uftrace_task_graph * graph_get_task(struct ftrace_task_handle *task,
+struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 					   size_t tg_size);
 void graph_remove_task(void);
 

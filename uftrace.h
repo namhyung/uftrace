@@ -156,7 +156,7 @@ struct uftrace_data {
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
 	struct uftrace_perf_reader *perf;
-	struct ftrace_task_handle *tasks;
+	struct uftrace_task_reader *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
 	int nr_perf;
@@ -406,10 +406,10 @@ void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
 struct sym * task_find_sym(struct uftrace_session_link *sess,
-			   struct ftrace_task_handle *task,
+			   struct uftrace_task_reader *task,
 			   struct uftrace_record *rec);
 struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
-				struct ftrace_task_handle *task,
+				struct uftrace_task_reader *task,
 				uint64_t time, uint64_t addr);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);

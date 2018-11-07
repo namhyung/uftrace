@@ -524,7 +524,7 @@ void update_perf_task_comm(struct uftrace_data *handle)
 	}
 }
 
-static void remove_event_rstack(struct ftrace_task_handle *task)
+static void remove_event_rstack(struct uftrace_task_reader *task)
 {
 	struct uftrace_rstack_list_node *last;
 	uint64_t last_addr;
@@ -543,7 +543,7 @@ static void remove_event_rstack(struct ftrace_task_handle *task)
 void process_perf_event(struct uftrace_data *handle)
 {
 	struct uftrace_perf_reader *perf;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_record *rec;
 	struct fstack_arguments args;
 	int p;

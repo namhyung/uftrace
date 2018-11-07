@@ -586,7 +586,7 @@ void walk_tasks(struct uftrace_session_link *sessions,
  * This function looks up symbol table in current session.
  */
 struct sym * task_find_sym(struct uftrace_session_link *sessions,
-			   struct ftrace_task_handle *task,
+			   struct uftrace_task_reader *task,
 			   struct uftrace_record *rec)
 {
 	struct uftrace_session *sess;
@@ -625,7 +625,7 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
  * This function looks up symbol table in current session.
  */
 struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
-				struct ftrace_task_handle *task,
+				struct uftrace_task_reader *task,
 				uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
@@ -945,7 +945,7 @@ TEST_CASE(task_symbol)
 		.sid = "test",
 		.namelen = 8,  /* = strlen("unittest") */
 	};
-	struct ftrace_task_handle task = {
+	struct uftrace_task_reader task = {
 		.tid = 1,
 	};
 	FILE *fp;

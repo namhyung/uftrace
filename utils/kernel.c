@@ -1503,7 +1503,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 	 */
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
 		struct uftrace_session *sess = handle->sessions.first;
-		struct ftrace_task_handle *task;
+		struct uftrace_task_reader *task;
 		struct uftrace_trigger tr = {};
 		uint64_t real_addr;
 		uint64_t time_filter = handle->time_filter;
@@ -1689,7 +1689,7 @@ void * read_kernel_event(struct uftrace_kernel_reader *kernel, int cpu, int *psi
  * -1 if it's done.
  */
 int read_kernel_stack(struct uftrace_data *handle,
-		      struct ftrace_task_handle **taskp)
+		      struct uftrace_task_reader **taskp)
 {
 	int i;
 	int first_cpu = -1;
@@ -1749,7 +1749,7 @@ retry:
 }
 
 struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
-					  struct ftrace_task_handle *task,
+					  struct uftrace_task_reader *task,
 					  int cpu)
 {
 	static struct uftrace_record lost_record;
@@ -2128,7 +2128,7 @@ TEST_CASE(kernel_read)
 	int timestamp[NUM_CPU] = { };
 	struct uftrace_data *handle = &test_handle;
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
 	TEST_EQ(kernel_test_setup_handle(kernel, handle), 0);

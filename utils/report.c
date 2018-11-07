@@ -88,7 +88,7 @@ void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 }
 
 void report_update_node(struct uftrace_report_node *node,
-			struct ftrace_task_handle *task)
+			struct uftrace_task_reader *task)
 {
 	struct fstack *fstack = &task->func_stack[task->stack_count];
 	uint64_t total_time = fstack->total_time;

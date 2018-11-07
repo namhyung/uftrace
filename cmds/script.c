@@ -22,7 +22,7 @@
 
 
 static int run_script_for_rstack(struct uftrace_data *handle,
-				 struct ftrace_task_handle *task,
+				 struct uftrace_task_reader *task,
 				 struct opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
@@ -129,7 +129,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct script_info info = {
 		.name           = opts->script_file,
 		.version        = UFTRACE_VERSION,
