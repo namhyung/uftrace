@@ -373,7 +373,7 @@ void delete_sessions(struct uftrace_session_link *sessions)
 static void add_session_ref(struct uftrace_task *task, struct uftrace_session *sess,
 			    uint64_t timestamp)
 {
-	struct uftrace_sess_ref *sref;
+	struct uftrace_sess_ref *sref = &task->sref;
 
 	if (sess == NULL) {
 		pr_dbg("task %d/%d has no session\n", task->tid, task->pid);
@@ -383,8 +383,7 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
 	if (task->sref_last) {
 		task->sref_last->next = sref = xmalloc(sizeof(*sref));
 		task->sref_last->end = timestamp;
-	} else
-		sref = &task->sref;
+	}
 
 	sref->next = NULL;
 	sref->sess = sess;
@@ -462,7 +461,8 @@ void create_task(struct uftrace_session_link *sessions,
 			if (needs_session) {
 				/* add new session */
 				s = find_task_session(sessions, msg->pid, msg->time);
-				add_session_ref(t, s, msg->time);
+				if (s != NULL)
+					add_session_ref(t, s, msg->time);
 			}
 			return;
 		}
@@ -474,13 +474,11 @@ void create_task(struct uftrace_session_link *sessions,
 	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
 	t->ppid = fork ? msg->pid : 0;
-	t->sref_last = NULL;
-	t->comm[0] = '\0';
 
 	if (needs_session) {
 		s = find_task_session(sessions, msg->pid, msg->time);
-		add_session_ref(t, s, msg->time);
 		if (s) {
+			add_session_ref(t, s, msg->time);
 			strncpy(t->comm, basename(s->exename), sizeof(t->comm));
 			t->comm[sizeof(t->comm) - 1] = '\0';
 		}
