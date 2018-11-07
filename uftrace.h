@@ -148,7 +148,7 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
-struct ftrace_file_handle {
+struct uftrace_data {
 	FILE *fp;
 	int sock;
 	const char *dirname;
@@ -281,8 +281,8 @@ int command_tui(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool uftrace_done;
 
-int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int open_data_file(struct opts *opts, struct uftrace_data *handle);
+void close_data_file(struct opts *opts, struct uftrace_data *handle);
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_session, bool sym_rel_addr);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
@@ -494,12 +494,12 @@ enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
-static inline bool has_perf_data(struct ftrace_file_handle *handle)
+static inline bool has_perf_data(struct uftrace_data *handle)
 {
 	return handle->perf != NULL;
 }
 
-static inline bool has_event_data(struct ftrace_file_handle *handle)
+static inline bool has_event_data(struct uftrace_data *handle)
 {
 	return handle->perf_event_processed;
 }
@@ -508,8 +508,8 @@ struct rusage;
 
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time);
-int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
-void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
+int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);
+void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data);
 void clear_uftrace_info(struct uftrace_info *info);

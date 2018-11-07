@@ -63,7 +63,7 @@ static void add_lost_fstack(struct rb_root *root, struct ftrace_task_handle *tas
 	}
 }
 
-static void add_remaining_fstack(struct ftrace_file_handle *handle,
+static void add_remaining_fstack(struct uftrace_data *handle,
 				 struct rb_root *root)
 {
 	struct ftrace_task_handle *task;
@@ -104,7 +104,7 @@ static void add_remaining_fstack(struct ftrace_file_handle *handle,
 	}
 }
 
-static void build_function_tree(struct ftrace_file_handle *handle,
+static void build_function_tree(struct uftrace_data *handle,
 				struct rb_root *root, struct opts *opts)
 {
 	struct uftrace_record *rstack;
@@ -195,7 +195,7 @@ static void print_function(struct uftrace_report_node *node, void *unused)
 	}
 }
 
-static void report_functions(struct ftrace_file_handle *handle, struct opts *opts)
+static void report_functions(struct uftrace_data *handle, struct opts *opts)
 {
 	struct rb_root root = RB_ROOT;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
@@ -220,7 +220,7 @@ static void report_functions(struct ftrace_file_handle *handle, struct opts *opt
 	print_and_delete(&root, NULL, print_function);
 }
 
-static struct sym * find_task_sym(struct ftrace_file_handle *handle,
+static struct sym * find_task_sym(struct uftrace_data *handle,
 				  struct ftrace_task_handle *task,
 				  struct uftrace_record *rstack)
 {
@@ -260,7 +260,7 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 	int pid;
 	const char *symname;
 	struct ftrace_task_handle *task;
-	struct ftrace_file_handle *handle = arg;
+	struct uftrace_data *handle = arg;
 
 	pid = strtol(node->name, NULL, 10);
 	task = get_task_handle(handle, pid);
@@ -275,7 +275,7 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 	pr_out("  %10lu  %-s\n", node->call, symname);
 }
 
-static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
+static void report_threads(struct uftrace_data *handle, struct opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
@@ -317,7 +317,7 @@ static void report_threads(struct ftrace_file_handle *handle, struct opts *opts)
 struct diff_data {
 	char				*dirname;
 	struct rb_root			root;
-	struct ftrace_file_handle	handle;
+	struct uftrace_data	handle;
 };
 
 #define NODATA "-"
@@ -455,7 +455,7 @@ static void print_nothing(struct uftrace_report_node *node, void *unused)
 	/* just delete */
 }
 
-static void report_diff(struct ftrace_file_handle *handle, struct opts *opts)
+static void report_diff(struct uftrace_data *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
 		.dirname = opts->diff,
@@ -569,7 +569,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	char *sort_keys;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 
 	if (opts->avg_total && opts->avg_self) {
 		pr_use("--avg-total and --avg-self options should not be used together.\n");

@@ -116,15 +116,15 @@ struct uftrace_perf_reader {
 	} u;
 };
 
-struct ftrace_file_handle;
+struct uftrace_data;
 struct uftrace_record;
 
-int setup_perf_data(struct ftrace_file_handle *handle);
-void finish_perf_data(struct ftrace_file_handle *handle);
-int read_perf_data(struct ftrace_file_handle *handle);
-struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
+int setup_perf_data(struct uftrace_data *handle);
+void finish_perf_data(struct uftrace_data *handle);
+int read_perf_data(struct uftrace_data *handle);
+struct uftrace_record * get_perf_record(struct uftrace_data *handle,
 					struct uftrace_perf_reader *perf);
-void update_perf_task_comm(struct ftrace_file_handle *handle);
-void process_perf_event(struct ftrace_file_handle *handle);
+void update_perf_task_comm(struct uftrace_data *handle);
+void process_perf_event(struct uftrace_data *handle);
 
 #endif /* UFTRACE_PERF_H */

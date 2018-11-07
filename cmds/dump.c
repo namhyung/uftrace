@@ -21,7 +21,7 @@
 struct uftrace_dump_ops {
 	/* this is called at the beginning */
 	void (*header)(struct uftrace_dump_ops *ops,
-		       struct ftrace_file_handle *handle, struct opts *opts);
+		       struct uftrace_data *handle, struct opts *opts);
 	/* this is called when a task starts */
 	void (*task_start)(struct uftrace_dump_ops *ops,
 			   struct ftrace_task_handle *task);
@@ -60,7 +60,7 @@ struct uftrace_dump_ops {
 			   struct uftrace_record *frs);
 	/* this is called at the end */
 	void (*footer)(struct uftrace_dump_ops *ops,
-		       struct ftrace_file_handle *handle, struct opts *opts);
+		       struct uftrace_data *handle, struct opts *opts);
 };
 
 struct uftrace_raw_dump {
@@ -534,7 +534,7 @@ static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
 }
 
 static void dump_raw_header(struct uftrace_dump_ops *ops,
-			     struct ftrace_file_handle *handle,
+			     struct uftrace_data *handle,
 			     struct opts *opts)
 {
 	int i;
@@ -824,7 +824,7 @@ static void dump_raw_perf_event(struct uftrace_dump_ops *ops,
 }
 
 static void dump_chrome_header(struct uftrace_dump_ops *ops,
-				struct ftrace_file_handle *handle,
+				struct uftrace_data *handle,
 				struct opts *opts)
 {
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
@@ -978,7 +978,7 @@ static void dump_chrome_perf_event(struct uftrace_dump_ops *ops,
 }
 
 static void dump_chrome_footer(struct uftrace_dump_ops *ops,
-				struct ftrace_file_handle *handle,
+				struct uftrace_data *handle,
 				struct opts *opts)
 {
 	char buf[PATH_MAX];
@@ -1104,7 +1104,7 @@ static void print_flame_graph(struct uftrace_graph_node *node, struct opts *opts
 }
 
 static void dump_flame_header(struct uftrace_dump_ops *ops,
-			       struct ftrace_file_handle *handle,
+			       struct uftrace_data *handle,
 			       struct opts *opts)
 {
 	graph_init_callbacks(NULL, adjust_fg_time, NULL, ops);
@@ -1151,7 +1151,7 @@ static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 }
 
 static void dump_flame_footer(struct uftrace_dump_ops *ops,
-			       struct ftrace_file_handle *handle,
+			       struct uftrace_data *handle,
 			       struct opts *opts)
 {
 	print_flame_graph(&flame_graph.root, opts);
@@ -1167,7 +1167,7 @@ static struct uftrace_graph graphviz_graph = {
 };
 
 static void dump_graphviz_header(struct uftrace_dump_ops *ops,
-				  struct ftrace_file_handle *handle,
+				  struct uftrace_data *handle,
 				  struct opts *opts)
 {
 	pr_out("# version\":\"uftrace %s\",\n", UFTRACE_VERSION);
@@ -1251,7 +1251,7 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node,
 }
 
 static void dump_graphviz_footer(struct uftrace_dump_ops *ops,
-				  struct ftrace_file_handle *handle,
+				  struct uftrace_data *handle,
 				  struct opts *opts)
 {
 	pr_out("\t# Elements \n");
@@ -1264,7 +1264,7 @@ static void dump_graphviz_footer(struct uftrace_dump_ops *ops,
 
 
 static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
-			 struct ftrace_file_handle *handle)
+			 struct uftrace_data *handle)
 {
 	int i;
 	uint64_t prev_time;
@@ -1477,7 +1477,7 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 }
 
 static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
-			   struct ftrace_file_handle *handle)
+			   struct uftrace_data *handle)
 {
 	uint64_t prev_time = 0;
 	struct ftrace_task_handle *task;
@@ -1563,7 +1563,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 int command_dump(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {

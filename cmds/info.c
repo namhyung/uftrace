@@ -28,7 +28,7 @@
 #define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
 
 struct read_handler_arg {
-	struct ftrace_file_handle *handle;
+	struct uftrace_data *handle;
 	char buf[PATH_MAX];
 };
 
@@ -67,7 +67,7 @@ static int fill_exe_name(void *arg)
 static int read_exe_name(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -151,7 +151,7 @@ static int convert_to_int(unsigned char hex)
 static int read_exe_build_id(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char build_id_str[BUILD_ID_STR_SIZE];
 	char *buf = rha->buf;
@@ -189,7 +189,7 @@ static int fill_exit_status(void *arg)
 static int read_exit_status(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -241,7 +241,7 @@ static int fill_cmdline(void *arg)
 static int read_cmdline(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -275,7 +275,7 @@ static int fill_cpuinfo(void *arg)
 static int read_cpuinfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 	int i, lines;
@@ -358,7 +358,7 @@ static int fill_meminfo(void *arg)
 static int read_meminfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -420,7 +420,7 @@ static int fill_osinfo(void *arg)
 static int read_osinfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 	int i, lines;
@@ -506,7 +506,7 @@ static int fill_taskinfo(void *arg)
 static int read_taskinfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	int i, lines;
 	int ret = -1;
@@ -586,7 +586,7 @@ static int fill_usageinfo(void *arg)
 static int read_usageinfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 	int i, lines;
@@ -648,7 +648,7 @@ static int fill_loadinfo(void *arg)
 static int read_loadinfo(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -696,7 +696,7 @@ static int fill_arg_spec(void *arg)
 static int read_arg_spec(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	int i, lines;
 	int ret = -1;
@@ -759,7 +759,7 @@ static int fill_record_date(void *arg)
 static int read_record_date(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -795,7 +795,7 @@ static int fill_pattern_type(void *arg)
 static int read_pattern_type(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 	size_t len;
@@ -824,7 +824,7 @@ static int fill_uftrace_version(void *arg)
 static int read_uftrace_version(void *arg)
 {
 	struct read_handler_arg *rha = arg;
-	struct ftrace_file_handle *handle = rha->handle;
+	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
 
@@ -893,7 +893,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 	}
 }
 
-int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle)
+int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 {
 	size_t i;
 	struct read_handler_arg arg = {
@@ -956,7 +956,7 @@ static void print_info(void *unused, const char *fmt, ...)
 	va_end(ap);
 }
 
-void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
+void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data)
 {
@@ -1106,7 +1106,7 @@ void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
 int command_info(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 
 	ret = open_data_file(opts, &handle);
 

@@ -387,7 +387,7 @@ static void print_event(struct ftrace_task_handle *task,
 	free(evt_name);
 }
 
-static int print_flat_rstack(struct ftrace_file_handle *handle,
+static int print_flat_rstack(struct uftrace_data *handle,
 			     struct ftrace_task_handle *task,
 			     struct opts *opts)
 {
@@ -707,7 +707,7 @@ void get_argspec_string(struct ftrace_task_handle *task,
 	}
 }
 
-static int print_graph_rstack(struct ftrace_file_handle *handle,
+static int print_graph_rstack(struct uftrace_data *handle,
 			      struct ftrace_task_handle *task,
 			      struct opts *opts)
 {
@@ -989,7 +989,7 @@ static bool skip_sys_exit(struct opts *opts, struct ftrace_task_handle *task)
 }
 
 static void print_remaining_stack(struct opts *opts,
-				  struct ftrace_file_handle *handle)
+				  struct uftrace_data *handle)
 {
 	int i, k;
 	int total = 0;
@@ -1063,7 +1063,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
 	uint64_t prev_time = 0;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 	struct ftrace_task_handle *task;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);

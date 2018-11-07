@@ -21,7 +21,7 @@
 #include "libtraceevent/event-parse.h"
 
 
-static int run_script_for_rstack(struct ftrace_file_handle *handle,
+static int run_script_for_rstack(struct uftrace_data *handle,
 				 struct ftrace_task_handle *task,
 				 struct opts *opts)
 {
@@ -128,7 +128,7 @@ out:
 int command_script(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 	struct ftrace_task_handle *task;
 	struct script_info info = {
 		.name           = opts->script_file,

@@ -240,7 +240,7 @@ out:
  * files.  It returns 0 on success, -1 on failure.  Callers should
  * call finish_perf_data() after reading all perf event data.
  */
-int setup_perf_data(struct ftrace_file_handle *handle)
+int setup_perf_data(struct uftrace_data *handle)
 {
 	struct uftrace_perf_reader *perf;
 	glob_t globbuf;
@@ -279,7 +279,7 @@ out:
  *
  * This function releases all resources regarding perf event.
  */
-void finish_perf_data(struct ftrace_file_handle *handle)
+void finish_perf_data(struct uftrace_data *handle)
 {
 	int i;
 
@@ -293,7 +293,7 @@ void finish_perf_data(struct ftrace_file_handle *handle)
 	handle->perf = NULL;
 }
 
-static int read_perf_event(struct ftrace_file_handle *handle,
+static int read_perf_event(struct uftrace_data *handle,
 			   struct uftrace_perf_reader *perf)
 {
 	struct perf_event_header h;
@@ -411,7 +411,7 @@ again:
  * It's important that callers should reset the valid bit after using
  * the event so that it can read next event for the cpu data file.
  */
-int read_perf_data(struct ftrace_file_handle *handle)
+int read_perf_data(struct uftrace_data *handle)
 {
 	struct uftrace_perf_reader *perf;
 	uint64_t min_time = ~0ULL;
@@ -451,7 +451,7 @@ int read_perf_data(struct ftrace_file_handle *handle)
  * event.  But do_dump_file() calls it directly without the above
  * function in order to access to the raw file contents.
  */
-struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
+struct uftrace_record * get_perf_record(struct uftrace_data *handle,
 					struct uftrace_perf_reader *perf)
 {
 	static struct uftrace_record rec;
@@ -494,7 +494,7 @@ struct uftrace_record * get_perf_record(struct ftrace_file_handle *handle,
  * This function reads perf events for each cpu data file and updates
  * task->comm for each PERF_RECORD_COMM.
  */
-void update_perf_task_comm(struct ftrace_file_handle *handle)
+void update_perf_task_comm(struct uftrace_data *handle)
 {
 	struct uftrace_perf_reader *perf;
 	struct uftrace_task *task;
@@ -540,7 +540,7 @@ static void remove_event_rstack(struct ftrace_task_handle *task)
 	while (last_addr != EVENT_ID_PERF_SCHED_OUT);
 }
 
-void process_perf_event(struct ftrace_file_handle *handle)
+void process_perf_event(struct uftrace_data *handle)
 {
 	struct uftrace_perf_reader *perf;
 	struct ftrace_task_handle *task;

@@ -1487,7 +1487,7 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 	return 0;
 }
 
-static int read_kernel_cpu(struct ftrace_file_handle *handle, int cpu)
+static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 {
 	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
@@ -1688,7 +1688,7 @@ void * read_kernel_event(struct uftrace_kernel_reader *kernel, int cpu, int *psi
  * This function returns the cpu number (> 0) if it reads a rstack,
  * -1 if it's done.
  */
-int read_kernel_stack(struct ftrace_file_handle *handle,
+int read_kernel_stack(struct uftrace_data *handle,
 		      struct ftrace_task_handle **taskp)
 {
 	int i;
@@ -1787,7 +1787,7 @@ struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
 #define FUNCGRAPH_EXIT   10
 #define TEST_EXAMPLE     100
 
-static struct ftrace_file_handle test_handle;
+static struct uftrace_data test_handle;
 static struct uftrace_session test_sess;
 static void kernel_test_finish_file(void);
 static void kernel_test_finish_handle(void);
@@ -2058,7 +2058,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 }
 
 static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
-				    struct ftrace_file_handle *handle)
+				    struct uftrace_data *handle)
 {
 	int i;
 
@@ -2116,7 +2116,7 @@ static void kernel_test_finish_file(void)
 
 static void kernel_test_finish_handle(void)
 {
-	struct ftrace_file_handle *handle = &test_handle;
+	struct uftrace_data *handle = &test_handle;
 
 	free(handle->tasks);
 	handle->tasks = NULL;
@@ -2126,7 +2126,7 @@ TEST_CASE(kernel_read)
 {
 	int cpu, i;
 	int timestamp[NUM_CPU] = { };
-	struct ftrace_file_handle *handle = &test_handle;
+	struct uftrace_data *handle = &test_handle;
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 	struct ftrace_task_handle *task;
 

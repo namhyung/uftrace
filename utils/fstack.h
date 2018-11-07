@@ -42,7 +42,7 @@ struct ftrace_task_handle {
 	FILE *fp;
 	struct sym *func;
 	struct uftrace_task *t;
-	struct ftrace_file_handle *h;
+	struct uftrace_data *h;
 	struct uftrace_record ustack;
 	struct uftrace_record kstack;
 	struct uftrace_record estack;
@@ -98,18 +98,18 @@ enum argspec_string_bits {
 extern bool fstack_enabled;
 extern bool live_disabled;
 
-struct ftrace_task_handle *get_task_handle(struct ftrace_file_handle *handle,
+struct ftrace_task_handle *get_task_handle(struct uftrace_data *handle,
 					   int tid);
-void reset_task_handle(struct ftrace_file_handle *handle);
+void reset_task_handle(struct uftrace_data *handle);
 
-int read_rstack(struct ftrace_file_handle *handle,
+int read_rstack(struct uftrace_data *handle,
 		struct ftrace_task_handle **task);
-int peek_rstack(struct ftrace_file_handle *handle,
+int peek_rstack(struct uftrace_data *handle,
 		struct ftrace_task_handle **task);
-void fstack_consume(struct ftrace_file_handle *handle,
+void fstack_consume(struct uftrace_data *handle,
 		    struct ftrace_task_handle *task);
 
-int read_task_ustack(struct ftrace_file_handle *handle,
+int read_task_ustack(struct uftrace_data *handle,
 		     struct ftrace_task_handle *task);
 int read_task_args(struct ftrace_task_handle *task,
 		   struct uftrace_record *rstack,
@@ -134,9 +134,9 @@ static inline bool is_event_record(struct ftrace_task_handle *task,
 }
 
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct ftrace_file_handle *handle, bool auto_args,
+		       struct uftrace_data *handle, bool auto_args,
 		       enum uftrace_pattern_type patt_type);
-int fstack_setup_filters(struct opts *opts, struct ftrace_file_handle *handle);
+int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle);
 
 int fstack_entry(struct ftrace_task_handle *task,
 		 struct uftrace_record *rstack,
@@ -144,7 +144,7 @@ int fstack_entry(struct ftrace_task_handle *task,
 void fstack_exit(struct ftrace_task_handle *task);
 int fstack_update(int type, struct ftrace_task_handle *task,
 		  struct fstack *fstack);
-struct ftrace_task_handle *fstack_skip(struct ftrace_file_handle *handle,
+struct ftrace_task_handle *fstack_skip(struct uftrace_data *handle,
 				       struct ftrace_task_handle *task,
 				       int curr_depth, bool event_skip_out);
 bool fstack_check_filter(struct ftrace_task_handle *task);

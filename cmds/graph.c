@@ -146,7 +146,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	return 0;
 }
 
-static void setup_graph_list(struct ftrace_file_handle *handle, struct opts *opts,
+static void setup_graph_list(struct uftrace_data *handle, struct opts *opts,
 			     char *func)
 {
 	struct session_graph *graph;
@@ -475,7 +475,7 @@ out:
 	symbol_putname(sym, name);
 }
 
-static void build_graph(struct opts *opts, struct ftrace_file_handle *handle,
+static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		       char *func)
 {
 	struct ftrace_task_handle *task;
@@ -623,7 +623,7 @@ static int find_func(struct uftrace_session *s, void *arg)
 }
 
 static void synthesize_depth_trigger(struct opts *opts,
-				     struct ftrace_file_handle *handle,
+				     struct uftrace_data *handle,
 				     char *func)
 {
 	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
@@ -643,7 +643,7 @@ static void synthesize_depth_trigger(struct opts *opts,
 int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	struct ftrace_file_handle handle;
+	struct uftrace_data handle;
 	struct session_graph *graph;
 	char *func;
 	struct graph_backtrace *bt, *btmp;
