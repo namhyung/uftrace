@@ -107,11 +107,11 @@ static void print_module(struct field_data *fd)
 		return;
 	}
 
-	s = find_session(&task->h->sessions, task->tid, timestamp);
+	s = find_task_session(&task->h->sessions, task->tid, timestamp);
 	if (s == NULL)
-		s = find_session(&task->h->sessions, task->t->pid, timestamp);
+		s = find_task_session(&task->h->sessions, task->t->pid, timestamp);
 	if (s == NULL)  /* for fork/vfork() */
-		s = find_session(&task->h->sessions, task->t->ppid, timestamp);
+		s = find_task_session(&task->h->sessions, task->t->ppid, timestamp);
 
 	if (s) {
 		map = find_map(&s->symtabs, fstack->addr);

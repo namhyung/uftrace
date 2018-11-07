@@ -179,18 +179,8 @@ void create_session(struct uftrace_session_link *sessions,
 	rb_insert_color(&s->node, &sessions->root);
 }
 
-/**
- * find_session - find a matching session using @pid and @timestamp
- * @sessions: session link to manage sessions and tasks
- * @pid: task pid to search
- * @timestamp: timestamp of task
- *
- * This function searches the sessions tree using @pid and @timestamp.
- * The most recent session that has a smaller than the @timestamp will
- * be returned.
- */
-struct uftrace_session *find_session(struct uftrace_session_link *sessions,
-				     int pid, uint64_t timestamp)
+static struct uftrace_session *find_session(struct uftrace_session_link *sessions,
+					    int pid, uint64_t timestamp)
 {
 	struct uftrace_session *iter;
 	struct uftrace_session *s = NULL;
