@@ -388,7 +388,8 @@ extern struct uftrace_session *first_session;
 void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg,
 		    char *dirname, char *exename, bool sym_rel_addr);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
-					  int pid, uint64_t timestamp);
+					  struct uftrace_task *task,
+					  uint64_t timestamp);
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
 		 bool fork, bool needs_session);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);

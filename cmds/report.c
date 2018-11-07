@@ -227,7 +227,7 @@ static struct sym * find_task_sym(struct uftrace_data *handle,
 	struct sym *sym;
 	struct uftrace_task_reader *main_task = &handle->tasks[0];
 	struct uftrace_session *sess = find_task_session(&handle->sessions,
-							 task->tid, rstack->time);
+							 task->t, rstack->time);
 	struct symtabs *symtabs = &sess->symtabs;
 
 	if (task->func)

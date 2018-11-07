@@ -107,12 +107,7 @@ static void print_module(struct field_data *fd)
 		return;
 	}
 
-	s = find_task_session(&task->h->sessions, task->tid, timestamp);
-	if (s == NULL)
-		s = find_task_session(&task->h->sessions, task->t->pid, timestamp);
-	if (s == NULL)  /* for fork/vfork() */
-		s = find_task_session(&task->h->sessions, task->t->ppid, timestamp);
-
+	s = find_task_session(&task->h->sessions, task->t, timestamp);
 	if (s) {
 		map = find_map(&s->symtabs, fstack->addr);
 		if (map == MAP_MAIN)
@@ -654,7 +649,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			struct debug_info *dinfo;
 			char *estr;
 
-			s = find_task_session(sessions, task->tid,
+			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
 			map = find_map(&s->symtabs, task->rstack->addr);
@@ -740,8 +735,8 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	if (opts->libname && sym && sym->type == ST_PLT) {
 		struct uftrace_session *s;
 
-		s = find_task_session(sessions, task->tid, rstack->time);
-		if (s) {
+		s = find_task_session(sessions, task->t, rstack->time);
+		if (s != NULL) {
 			map = find_symbol_map(&s->symtabs, symname);
 			if (map && map != MAP_MAIN)
 				libname = basename(map->libname);

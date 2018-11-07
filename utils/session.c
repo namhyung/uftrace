@@ -388,34 +388,38 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
 /**
  * find_task_session - find a matching session using @pid and @timestamp
  * @sessions: session link to manage sessions and tasks
- * @pid - task pid to search
- * @timestamp - timestamp of task
+ * @task: task to search a session
+ * @timestamp: timestamp of task
  *
- * This function searches the sessions tree using @pid and @timestamp.
+ * This function searches the sessions tree using @task and @timestamp.
  * The most recent session that has a smaller than the @timestamp will
  * be returned.  If it didn't find a session tries to search sesssion
  * list of parent or thread-leader.
  */
 struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
-					  int pid, uint64_t timestamp)
+					  struct uftrace_task *task,
+					  uint64_t timestamp)
 {
-	struct uftrace_task *t;
-	struct uftrace_sess_ref *r;
-	struct uftrace_session *s = find_session(sessions, pid, timestamp);
+	int parent_id;
+	struct uftrace_sess_ref *ref;
 
-	if (s)
-		return s;
+	while (task != NULL) {
+		ref = &task->sref;
+		while (ref) {
+			if (ref->start <= timestamp && timestamp < ref->end)
+				return ref->sess;
+			ref = ref->next;
+		}
 
-	/* if it cannot find its own session, inherit from parent or leader */
-	t = find_task(sessions, pid);
-	if (t == NULL)
-		return NULL;
+		/*
+		 * if it cannot find its own session,
+		 * inherit from parent or leader.
+		 */
+		parent_id = task->ppid ?: task->pid;
+		if (parent_id == 0 || parent_id == task->tid)
+			break;
 
-	r = &t->sref;
-	while (r) {
-		if (r->start <= timestamp && timestamp < r->end)
-			return r->sess;
-		r = r->next;
+		task = find_task(sessions, parent_id);
 	}
 
 	return NULL;
@@ -590,12 +594,7 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
 
-	sess = find_task_session(sessions, task->tid, rec->time);
-
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, rec->time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->ppid, rec->time);
+	sess = find_task_session(sessions, task->t, rec->time);
 
 	if (sess == NULL && is_kernel_record(task, rec))
 		sess = sessions->first;
@@ -628,12 +627,7 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 	struct uftrace_session *sess;
 	struct sym *sym = NULL;
 
-	sess = find_task_session(sessions, task->tid, time);
-
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->ppid, time);
+	sess = find_task_session(sessions, task->t, time);
 
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
@@ -766,7 +760,7 @@ TEST_CASE(task_search)
 		TEST_EQ(task->tid, tmsg.tid);
 		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -788,7 +782,7 @@ TEST_CASE(task_search)
 		TEST_EQ(task->tid, tmsg.tid);
 		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -810,7 +804,7 @@ TEST_CASE(task_search)
 		TEST_EQ(task->tid, tmsg.tid);
 		TEST_EQ(task->sref.sess, test_sessions.first);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		/* it returned a session from parent so pid is not same */
 		TEST_NE(sess->pid, tmsg.pid);
@@ -846,7 +840,7 @@ TEST_CASE(task_search)
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->pid, task->pid);
 		TEST_EQ(sess->tid, task->tid);
@@ -868,7 +862,7 @@ TEST_CASE(task_search)
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		TEST_EQ(sess->tid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
@@ -889,39 +883,41 @@ TEST_CASE(task_search)
 		TEST_NE(task, NULL);
 		TEST_EQ(task->tid, tmsg.tid);
 
-		sess = find_task_session(&test_sessions, tmsg.pid, tmsg.time);
+		sess = find_task_session(&test_sessions, task, tmsg.time);
 		TEST_NE(sess, NULL);
 		/* it returned a session from parent so pid is not same */
 		TEST_NE(sess->pid, tmsg.pid);
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	sess = find_task_session(&test_sessions, 1, 100);
+	task = find_task(&test_sessions, 1);
+	sess = find_task_session(&test_sessions, task, 100);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(&test_sessions, 2, 200);
+	task = find_task(&test_sessions, 2);
+	sess = find_task_session(&test_sessions, task, 200);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(&test_sessions, 4, 400);
+	task = find_task(&test_sessions, 4);
+	sess = find_task_session(&test_sessions, task, 400);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
-	sess = find_task_session(&test_sessions, 4, 500);
+	sess = find_task_session(&test_sessions, task, 500);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
 
-	sess = find_task_session(&test_sessions, 5, 600);
+	task = find_task(&test_sessions, 5);
+	sess = find_task_session(&test_sessions, task, 600);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
 
-	sess = find_task_session(&test_sessions, 6, 700);
+	task = find_task(&test_sessions, 6);
+	sess = find_task_session(&test_sessions, task, 700);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
-
-	sess = find_task_session(&test_sessions, 6, 100);
-	TEST_EQ(sess, NULL);
 
 	delete_sessions(&test_sessions);
 	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
@@ -941,6 +937,11 @@ TEST_CASE(task_symbol)
 		},
 		.sid = "test",
 		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct uftrace_msg_task tmsg = {
+		.pid = 1,
+		.tid = 1,
+		.time = 100,
 	};
 	struct uftrace_task_reader task = {
 		.tid = 1,
@@ -962,12 +963,14 @@ TEST_CASE(task_symbol)
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest", false);
+	create_task(&test_sessions, &tmsg, false, true);
 	remove("sid-test.map");
 	remove("unittest.sym");
 
 	TEST_NE(test_sessions.first, NULL);
 	TEST_EQ(test_sessions.first->pid, 1);
 
+	task.t = find_task(&test_sessions, 1);
 	sym = task_find_sym_addr(&test_sessions, &task, 100, 0x400410);
 
 	TEST_NE(sym, NULL);

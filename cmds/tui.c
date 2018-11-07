@@ -337,12 +337,7 @@ static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
 
-	sess = find_task_session(sessions, task->tid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->ppid, time);
-
+	sess = find_task_session(sessions, task->t, time);
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 

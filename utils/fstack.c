@@ -489,9 +489,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		return -1;
 	}
 
-	sess = find_task_session(sessions, task->tid, rstack->time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, rstack->time);
+	sess = find_task_session(sessions, task->t, rstack->time);
 
 	if (is_kernel_record(task, rstack)) {
 		addr = get_real_address(addr);
@@ -698,10 +696,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 		return 0;
 	}
 
-	sess = find_task_session(sessions, task->tid, rstack->time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, rstack->time);
-
+	sess = find_task_session(sessions, task->t, rstack->time);
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 		if (is_kernel_address(&fsess->symtabs, addr))
@@ -1107,7 +1102,7 @@ int read_task_args(struct uftrace_task_reader *task,
 	task->args.args = NULL;
 	/* keep args.data for realloc() */
 
-	sess = find_task_session(&task->h->sessions, task->tid, rstack->time);
+	sess = find_task_session(&task->h->sessions, task->t, rstack->time);
 	if (sess == NULL) {
 		pr_dbg("cannot find session\n");
 		return -1;
@@ -1462,10 +1457,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 		if (!check_time_range(&handle->time_range, curr->time))
 			continue;
 
-		sess = find_task_session(sessions, task->tid, curr->time);
-		if (sess == NULL)
-			sess = find_task_session(sessions, task->t->pid,
-						 curr->time);
+		sess = find_task_session(sessions, task->t, curr->time);
 
 		if (sess &&
 		    (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))

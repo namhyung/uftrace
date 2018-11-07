@@ -373,7 +373,7 @@ static void pr_args(struct fstack_arguments *args)
 
 			task = container_of(args, typeof(*task), args);
 			sessions = &task->h->sessions;
-			s = find_task_session(sessions, task->tid,
+			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
 			map = find_map(&s->symtabs, task->rstack->addr);
@@ -1120,7 +1120,7 @@ static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
 
 	graph->graph = &flame_graph;
 	flame_graph.sess = find_task_session(&task->h->sessions,
-					     task->tid, frs->time);
+					     task->t, frs->time);
 
 	if (graph->node == NULL)
 		graph->node = &flame_graph.root;
@@ -1198,7 +1198,7 @@ static void dump_graphviz_task_rstack(struct uftrace_dump_ops *ops,
 
 	graph->graph = &graphviz_graph;
 	graphviz_graph.sess = find_task_session(&task->h->sessions,
-						task->tid, frs->time);
+						task->t, frs->time);
 	if (graph->node == NULL)
 		graph->node = &graphviz_graph.root;
 
