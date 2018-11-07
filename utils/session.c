@@ -450,7 +450,7 @@ void create_task(struct uftrace_session_link *sessions,
 		else {
 			if (needs_session) {
 				/* add new session */
-				s = find_task_session(sessions, msg->pid, msg->time);
+				s = find_session(sessions, msg->pid, msg->time);
 				if (s != NULL)
 					add_session_ref(t, s, msg->time);
 			}
@@ -466,7 +466,16 @@ void create_task(struct uftrace_session_link *sessions,
 	t->ppid = fork ? msg->pid : 0;
 
 	if (needs_session) {
-		s = find_task_session(sessions, msg->pid, msg->time);
+		s = find_session(sessions, msg->pid, msg->time);
+		if (s == NULL) {
+			struct uftrace_task *parent;
+
+			parent = find_task(sessions, msg->pid);
+			if (parent && parent->sref_last &&
+			    parent->sref_last->start < msg->time)
+				s = parent->sref_last->sess;
+		}
+
 		if (s) {
 			add_session_ref(t, s, msg->time);
 			strncpy(t->comm, basename(s->exename), sizeof(t->comm));
