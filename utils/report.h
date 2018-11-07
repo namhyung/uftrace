@@ -46,7 +46,7 @@ struct uftrace_report_node * report_find_node(struct rb_root *root,
 void report_add_node(struct rb_root *root, const char *name,
 		     struct uftrace_report_node *node);
 void report_update_node(struct uftrace_report_node *node,
-			struct ftrace_task_handle *task);
+			struct uftrace_task_reader *task);
 void report_calc_avg(struct rb_root *root);
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node);
 

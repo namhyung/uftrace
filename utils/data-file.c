@@ -227,7 +227,7 @@ out:
  *
  * It returns 0 for success, -1 for error.
  */
-int read_events_file(struct ftrace_file_handle *handle)
+int read_events_file(struct uftrace_data *handle)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -360,7 +360,7 @@ void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
 	free(fname);
 }
 
-static void check_data_order(struct ftrace_file_handle *handle)
+static void check_data_order(struct uftrace_data *handle)
 {
 	union {
 		struct uftrace_record s;
@@ -379,7 +379,7 @@ static void check_data_order(struct ftrace_file_handle *handle)
 		pr_dbg("bitfield order is different!\n");
 }
 
-static bool check_data_file(struct ftrace_file_handle *handle,
+static bool check_data_file(struct uftrace_data *handle,
 			    const char *pattern)
 {
 	glob_t g;
@@ -404,7 +404,7 @@ static bool check_data_file(struct ftrace_file_handle *handle,
 	return found;
 }
 
-int open_data_file(struct opts *opts, struct ftrace_file_handle *handle)
+int open_data_file(struct opts *opts, struct uftrace_data *handle)
 {
 	int ret = -1;
 	FILE *fp;
@@ -588,7 +588,7 @@ out:
 	return ret;
 }
 
-void close_data_file(struct opts *opts, struct ftrace_file_handle *handle)
+void close_data_file(struct opts *opts, struct uftrace_data *handle)
 {
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;

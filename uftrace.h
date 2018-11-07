@@ -148,7 +148,7 @@ struct uftrace_session_link {
 	struct uftrace_session *first;
 };
 
-struct ftrace_file_handle {
+struct uftrace_data {
 	FILE *fp;
 	int sock;
 	const char *dirname;
@@ -156,7 +156,7 @@ struct ftrace_file_handle {
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
 	struct uftrace_perf_reader *perf;
-	struct ftrace_task_handle *tasks;
+	struct uftrace_task_reader *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
 	int nr_perf;
@@ -281,8 +281,8 @@ int command_tui(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool uftrace_done;
 
-int open_data_file(struct opts *opts, struct ftrace_file_handle *handle);
-void close_data_file(struct opts *opts, struct ftrace_file_handle *handle);
+int open_data_file(struct opts *opts, struct uftrace_data *handle);
+void close_data_file(struct opts *opts, struct uftrace_data *handle);
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_session, bool sym_rel_addr);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
@@ -387,10 +387,9 @@ extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg,
 		    char *dirname, char *exename, bool sym_rel_addr);
-struct uftrace_session *find_session(struct uftrace_session_link *sess,
-				     int pid, uint64_t timestamp);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
-					  int pid, uint64_t timestamp);
+					  struct uftrace_task *task,
+					  uint64_t timestamp);
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
 		 bool fork, bool needs_session);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
@@ -406,10 +405,10 @@ void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
 struct sym * task_find_sym(struct uftrace_session_link *sess,
-			   struct ftrace_task_handle *task,
+			   struct uftrace_task_reader *task,
 			   struct uftrace_record *rec);
 struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
-				struct ftrace_task_handle *task,
+				struct uftrace_task_reader *task,
 				uint64_t time, uint64_t addr);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
@@ -494,12 +493,12 @@ enum ftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
-static inline bool has_perf_data(struct ftrace_file_handle *handle)
+static inline bool has_perf_data(struct uftrace_data *handle)
 {
 	return handle->perf != NULL;
 }
 
-static inline bool has_event_data(struct ftrace_file_handle *handle)
+static inline bool has_event_data(struct uftrace_data *handle)
 {
 	return handle->perf_event_processed;
 }
@@ -508,8 +507,8 @@ struct rusage;
 
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time);
-int read_uftrace_info(uint64_t info_mask, struct ftrace_file_handle *handle);
-void process_uftrace_info(struct ftrace_file_handle *handle, struct opts *opts,
+int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);
+void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data);
 void clear_uftrace_info(struct uftrace_info *info);

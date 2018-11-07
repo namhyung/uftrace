@@ -306,9 +306,9 @@ void strv_free(struct strv *strv);
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
 
-struct ftrace_file_handle;
+struct uftrace_data;
 
-char *get_event_name(struct ftrace_file_handle *handle, unsigned evt_id);
+char *get_event_name(struct uftrace_data *handle, unsigned evt_id);
 char *absolute_dirname(const char *path, char *resolved_path);
 const char * arch_register_dwarf_name(int dwarf_reg);
 

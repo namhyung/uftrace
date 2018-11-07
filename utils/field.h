@@ -6,7 +6,7 @@
 
 /* data for field display */
 struct field_data {
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct fstack *fstack;
 	void *arg;
 };

@@ -59,8 +59,8 @@ struct tui_window_ops {
 	bool (*enter)(struct tui_window *win, void *node);
 	bool (*collapse)(struct tui_window *win, void *node, int depth);
 	bool (*expand)(struct tui_window *win, void *node, int depth);
-	void (*header)(struct tui_window *win, struct ftrace_file_handle *handle);
-	void (*footer)(struct tui_window *win, struct ftrace_file_handle *handle);
+	void (*header)(struct tui_window *win, struct uftrace_data *handle);
+	void (*footer)(struct tui_window *win, struct uftrace_data *handle);
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
 	bool (*longest_child)(struct tui_window *win, void *node);
@@ -303,7 +303,7 @@ static int create_data(struct uftrace_session *sess, void *arg)
 	return 0;
 }
 
-static void tui_setup(struct ftrace_file_handle *handle, struct opts *opts)
+static void tui_setup(struct uftrace_data *handle, struct opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
 
@@ -330,19 +330,14 @@ static void tui_cleanup(void)
 	graph_remove_task();
 }
 
-static struct uftrace_graph * get_graph(struct ftrace_task_handle *task,
+static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 					uint64_t time, uint64_t addr)
 {
 	struct tui_graph *graph;
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
 
-	sess = find_task_session(sessions, task->tid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->pid, time);
-	if (sess == NULL)
-		sess = find_task_session(sessions, task->t->ppid, time);
-
+	sess = find_task_session(sessions, task->t, time);
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
@@ -364,7 +359,7 @@ static bool list_is_none(struct list_head *list)
 	return list->next == NULL && list->prev == NULL;
 }
 
-static void update_report_node(struct ftrace_task_handle *task, char *symname,
+static void update_report_node(struct uftrace_task_reader *task, char *symname,
 			       struct uftrace_task_graph *tg)
 {
 	struct tui_report_node *node;
@@ -386,7 +381,7 @@ static void update_report_node(struct ftrace_task_handle *task, char *symname,
 	report_update_node(&node->n, task);
 }
 
-static int build_tui_node(struct ftrace_task_handle *task,
+static int build_tui_node(struct uftrace_task_reader *task,
 			  struct uftrace_record *rec)
 {
 	struct uftrace_task_graph *tg;
@@ -433,11 +428,11 @@ static int build_tui_node(struct ftrace_task_handle *task,
 	return 0;
 }
 
-static void add_remaining_node(struct opts *opts, struct ftrace_file_handle *handle)
+static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 {
 	uint64_t last_time;
 	struct fstack *fstack;
-	struct ftrace_task_handle *task;
+	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *tg;
 	struct sym *sym;
 	char *name;
@@ -926,7 +921,7 @@ static bool win_expand_graph(struct tui_window *win, void *node, int depth)
 }
 
 static void win_header_graph(struct tui_window *win,
-			     struct ftrace_file_handle *handle)
+			     struct uftrace_data *handle)
 {
 	int w = 0, c;
 	char *buf, *p;
@@ -970,7 +965,7 @@ static void win_header_graph(struct tui_window *win,
 }
 
 static void win_footer_graph(struct tui_window *win,
-			     struct ftrace_file_handle *handle)
+			     struct uftrace_data *handle)
 {
 	char buf[COLS + 1];
 	struct tui_graph *graph = (struct tui_graph *)win;
@@ -1256,7 +1251,7 @@ static bool win_search_report(struct tui_window *win, void *node, char *str)
 	return strstr(curr->n.name, str);
 }
 
-static void win_header_report(struct tui_window *win, struct ftrace_file_handle *handle)
+static void win_header_report(struct tui_window *win, struct uftrace_data *handle)
 {
 	int w = 46;
 
@@ -1265,7 +1260,7 @@ static void win_header_report(struct tui_window *win, struct ftrace_file_handle 
 		printw("%*s", COLS - w, "");
 }
 
-static void win_footer_report(struct tui_window *win, struct ftrace_file_handle *handle)
+static void win_footer_report(struct tui_window *win, struct uftrace_data *handle)
 {
 	char buf[COLS + 1];
 
@@ -1387,7 +1382,7 @@ static void build_info_node(void *data, const char *fmt, ...)
 }
 
 static struct tui_list * tui_info_init(struct opts *opts,
-				       struct ftrace_file_handle *handle)
+				       struct uftrace_data *handle)
 {
 	INIT_LIST_HEAD(&tui_info.head);
 	process_uftrace_info(handle, opts, build_info_node, &tui_info);
@@ -1409,7 +1404,7 @@ static void tui_info_finish(void)
 }
 
 static void win_header_info(struct tui_window *win,
-			    struct ftrace_file_handle *handle)
+			    struct uftrace_data *handle)
 {
 
 	printw("%-*.*s", COLS, COLS, "uftrace info");
@@ -1419,7 +1414,7 @@ static void win_header_info(struct tui_window *win,
 	({ int _x = snprintf(buf + len, sz - len, fmt, ## __VA_ARGS__); len += _x; })
 
 static void win_footer_info(struct tui_window *win,
-			    struct ftrace_file_handle *handle)
+			    struct uftrace_data *handle)
 {
 	char buf[256];
 	size_t sz = sizeof(buf);
@@ -1495,13 +1490,13 @@ static void tui_session_finish(void)
 }
 
 static void win_header_session(struct tui_window *win,
-			       struct ftrace_file_handle *handle)
+			       struct uftrace_data *handle)
 {
 	printw("%s %-*s", "Key", COLS - 4, "uftrace command");
 }
 
 static void win_footer_session(struct tui_window *win,
-			       struct ftrace_file_handle *handle)
+			       struct uftrace_data *handle)
 {
 	char buf[256];
 	struct tui_list *s_list = (struct tui_list *)win;
@@ -1837,7 +1832,7 @@ static bool tui_window_move_next(struct tui_window *win)
 }
 
 static void tui_window_display(struct tui_window *win, bool full_redraw,
-			       struct ftrace_file_handle *handle)
+			       struct uftrace_data *handle)
 {
 	int count;
 	void *node = win->top;
@@ -2224,7 +2219,7 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
-static void tui_main_loop(struct opts *opts, struct ftrace_file_handle *handle)
+static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 {
 	int key = 0;
 	bool full_redraw = true;
@@ -2436,8 +2431,8 @@ out:
 int command_tui(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
-	struct ftrace_file_handle handle;
-	struct ftrace_task_handle *task;
+	struct uftrace_data handle;
+	struct uftrace_task_reader *task;
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
