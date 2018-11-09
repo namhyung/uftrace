@@ -126,6 +126,9 @@ TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
 UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 
+UFTRACE_OBJS_VERSION := $(objdir)/cmds/script.o $(objdir)/cmds/tui.o
+UFTRACE_OBJS_VERSION += $(objdir)/cmds/dump.o $(objdir)/cmds/info.o
+
 DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c $(srcdir)/utils/debug.c
 DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
 
@@ -194,6 +197,8 @@ config: $(srcdir)/configure
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/libmcount/%.op: $(srcdir)/utils/%.c $(LIBMCOUNT_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
+$(objdir)/libmcount/mcount.op: $(objdir)/version.h 
+
 $(LIBMCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
@@ -242,7 +247,9 @@ $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COM
 $(objdir)/misc/symbols.o: $(srcdir)/misc/symbols.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(SYMBOLS_CFLAGS) -c -o $@ $<
 
-$(filter-out $(objdir)/uftrace.o,$(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
+$(UFTRACE_OBJS_VERSION): $(objdir)/version.h
+
+$(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
