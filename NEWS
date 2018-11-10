@@ -1,3 +1,22 @@
+uftrace v0.9.1
+--------------
+* filter update
+  add --caller-filter option
+
+* script changes
+  rename context in uftrace_begin: "args" -> "cmds"
+  rename context in uftrace_begin: "recording" -> "record"
+
+* other changes
+  add --watch option to trace cpu task is running
+  add --graphviz option to produce output in DOT format
+  filter 'do_syscall_64' kernel function by default
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Ahn Seung-rye, Claudia J. Kang, Daniel T. Lee, GwanYeong Kim,
+  Hanbum Park, Honggyu Kim, Leah Neukirchen, Rikard Falkeborn
+
+
 uftrace v0.9
 ============
 * argument update

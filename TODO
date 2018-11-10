@@ -7,7 +7,6 @@
 - filter by argument value
 - filter by function size
 - filter by source location
-- filter by caller(?)
 - SDT argument support
 - LTT-ng event (tracepoint) support
 - symbol file compression
