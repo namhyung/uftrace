@@ -88,6 +88,8 @@ static int prepare_dynamic_update(void)
 	struct mcount_dynamic_info *mdi;
 	int ret = 0;
 
+	mcount_disasm_init();
+
 	dl_iterate_phdr(find_dynamic_module, NULL);
 
 	mdi = mdinfo;
@@ -125,18 +127,22 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		for (i = 0; i < symtab->nr_sym; i++) {
 			sym = &symtab->sym[i];
 
+			if (sym->type != ST_LOCAL_FUNC &&
+			    sym->type != ST_GLOBAL_FUNC)
+				continue;
+
 			if (!match_filter_pattern(&patt, sym->name))
 				continue;
 
 			found = true;
 			switch (mcount_patch_func(mdinfo, sym)) {
-			case -1:
+			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
-			case -2:
+			case INSTRUMENT_SKIPPED:
 				stats.skipped++;
 				break;
-			case 0:
+			case INSTRUMENT_SUCCESS:
 			default:
 				break;
 			}
@@ -175,6 +181,8 @@ static void finish_dynamic_update(void)
 
 		mdi = tmp;
 	}
+
+	mcount_disasm_finish();
 }
 
 static float calc_percent(int n, int total)
