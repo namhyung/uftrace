@@ -390,6 +390,10 @@ struct mcount_dynamic_info {
 	void *arch;
 };
 
+#define INSTRUMENT_SUCCESS                       0
+#define INSTRUMENT_FAILED                       -1
+#define INSTRUMENT_SKIPPED                      -2
+
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
 
@@ -397,6 +401,14 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
+
+#ifdef HAVE_LIBCAPSTONE
+void mcount_disasm_init(void);
+void mcount_disasm_finish(void);
+#else
+static inline void mcount_disasm_init(void) {}
+static inline void mcount_disasm_finish(void) {}
+#endif
 
 struct mcount_event_info {
 	char *module;
