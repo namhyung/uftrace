@@ -367,6 +367,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
+uintptr_t mcount_find_origin_code_addr(uintptr_t addr);
 
 struct mcount_event_info {
 	char *module;
@@ -393,5 +394,7 @@ void mcount_hook_functions(void);
 int prepare_pmu_event(enum uftrace_event_id id);
 int read_pmu_event(enum uftrace_event_id id, void *buf);
 void finish_pmu_event(void);
+int disassembler_init();
+void disassembler_fini();
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

@@ -967,6 +967,35 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	return 0;
 }
 
+__weak uintptr_t mcount_find_origin_code_addr(unsigned long child)
+{
+	return 0;
+}
+
+/*
+ * call the fucntion mcount_entry to record tracing data.
+ * if function mcount_entry have worked well, find the address that
+ * original code saved to replace return address. and return it.
+ * if not, return 0.
+ *
+ */
+void dynamic_entry(unsigned long *parent_loc, unsigned long child,
+		   unsigned long *child_loc, struct mcount_regs *regs)
+{
+	int result;
+	result = mcount_entry(parent_loc, child, regs);
+	if (!result) {
+		/*
+		 * dynamic_entry returns the address
+		 * holding the patched original code.
+		 */
+		uintptr_t origin_code_addr = mcount_find_origin_code_addr(child);
+		*child_loc = (unsigned long)origin_code_addr;
+	} else {
+		// TODO : we must handle ERROR case.
+	}
+}
+
 unsigned long mcount_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;

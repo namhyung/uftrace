@@ -6,6 +6,7 @@
 #define PR_DOMAIN  DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
+#include "libmcount/dynamic.h"
 #include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
@@ -130,13 +131,13 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 			found = true;
 			switch (mcount_patch_func(mdinfo, sym)) {
-			case -1:
+			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
-			case -2:
+			case INSTRUMENT_SKIPED:
 				stats.skipped++;
 				break;
-			case 0:
+			case INSTRUMENT_SUCCESS:
 			default:
 				break;
 			}
@@ -196,8 +197,13 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		return -1;
 	}
 
+#ifdef HAVE_LIBCAPSTONE
+	disassembler_init();
 	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
-
+	disassembler_fini();
+#else
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
+#endif
 	success = stats.total - stats.failed - stats.skipped;
 	pr_dbg("dynamic update stats:\n");
 	pr_dbg("   total: %8d\n", stats.total);
