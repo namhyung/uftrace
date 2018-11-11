@@ -10,16 +10,19 @@ static int c(void);
 
 static int a(void)
 {
+	asm("movq %rax, %rax");
 	return b() - 1;
 }
 
 static int b(void)
 {
+	asm("movq %rax, %rax");
 	return c() + 1;
 }
 
 static int c(void)
 {
+	asm("movq %rax, %rax");
 	return getpid() % 100000;
 }
 

@@ -202,6 +202,10 @@ void __fentry__(void)
 {
 }
 
+void __dentry__(void)
+{
+}
+
 void __xray_entry(void)
 {
 }
