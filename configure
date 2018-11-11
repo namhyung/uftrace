@@ -130,6 +130,7 @@ for dep in $IGNORE; do
     case "$dep" in
         libelf)      TARGET=have_libelf        ;;
         libdw)       TARGET=have_libdw         ;;
+        libcapstone) TARGET=have_libcapstone   ;;
         libpython*)  TARGET=have_libpython2.7  ;;
         libncurse*)  TARGET=have_libncurses    ;;
         libstdc++)   TARGET=cxa_demangle       ;;
@@ -170,6 +171,7 @@ print_feature()
 printf "...%15s: %s\n" "prefix" "${prefix}"
 print_feature "libelf" "have_libelf" "more flexible ELF data handling"
 print_feature "libdw" "have_libdw" "DWARF debug info support"
+print_feature "libcapstone" "have_libcapstone" "full dynamic tracing support"
 print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
 print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
