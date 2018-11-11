@@ -449,6 +449,7 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 	goto out;
 
 ok:
+	saved_errno = 0;
 	handle->fp = fp;
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
