@@ -6,6 +6,7 @@
 #define PR_FMT     "mcount"
 #define PR_DOMAIN  DBG_MCOUNT
 
+#include "mcount-arch.h"
 #include "libmcount/internal.h"
 #include "utils/filter.h"
 
@@ -23,7 +24,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		reg_idx = spec->idx; /* for integer arguments */
 		break;
 	case ARG_TYPE_FLOAT:
-		reg_idx = spec->idx + X86_REG_FLOAT_BASE;
+		reg_idx = spec->idx + UFT_X86_REG_FLOAT_BASE;
 		break;
 	case ARG_TYPE_STACK:
 	default:
@@ -31,46 +32,46 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	}
 
 	switch (reg_idx) {
-	case X86_REG_RDI:
+	case UFT_X86_REG_RDI:
 		ctx->val.i = ARG1(regs);
 		break;
-	case X86_REG_RSI:
+	case UFT_X86_REG_RSI:
 		ctx->val.i = ARG2(regs);
 		break;
-	case X86_REG_RDX:
+	case UFT_X86_REG_RDX:
 		ctx->val.i = ARG3(regs);
 		break;
-	case X86_REG_RCX:
+	case UFT_X86_REG_RCX:
 		ctx->val.i = ARG4(regs);
 		break;
-	case X86_REG_R8:
+	case UFT_X86_REG_R8:
 		ctx->val.i = ARG5(regs);
 		break;
-	case X86_REG_R9:
+	case UFT_X86_REG_R9:
 		ctx->val.i = ARG6(regs);
 		break;
-	case X86_REG_XMM0:
+	case UFT_X86_REG_XMM0:
 		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM1:
+	case UFT_X86_REG_XMM1:
 		asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM2:
+	case UFT_X86_REG_XMM2:
 		asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM3:
+	case UFT_X86_REG_XMM3:
 		asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM4:
+	case UFT_X86_REG_XMM4:
 		asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM5:
+	case UFT_X86_REG_XMM5:
 		asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM6:
+	case UFT_X86_REG_XMM6:
 		asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM7:
+	case UFT_X86_REG_XMM7:
 		asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->val.v));
 		break;
 	default:

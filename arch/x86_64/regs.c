@@ -7,7 +7,7 @@ struct x86_reg_table {
 };
 
 static const struct x86_reg_table reg_table[] = {
-#define X86_REG(_r)  { #_r, X86_REG_##_r }
+#define X86_REG(_r)  { #_r, UFT_X86_REG_##_r }
 
 	/* integer registers */
 	X86_REG(RDI), X86_REG(RSI), X86_REG(RDX),
