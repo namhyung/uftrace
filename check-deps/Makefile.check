@@ -47,3 +47,9 @@ ifneq ($(wildcard $(srcdir)/check-deps/have_libdw),)
   COMMON_CFLAGS  += $(shell pkg-config --cflags libdw 2> /dev/null)
   COMMON_LDFLAGS += $(shell pkg-config --libs libdw 2> /dev/null || echo "-ldw")
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_libcapstone),)
+  COMMON_CFLAGS  += -DHAVE_LIBCAPSTONE
+  COMMON_CFLAGS  += $(shell pkg-config --cflags capstone 2> /dev/null)
+  COMMON_LDFLAGS += $(shell pkg-config --libs capstone 2> /dev/null)
+endif

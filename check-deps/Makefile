@@ -9,6 +9,7 @@ CHECK_LIST += perf_context_switch
 CHECK_LIST += arm_has_hardfp
 CHECK_LIST += have_libncurses
 CHECK_LIST += have_libdw
+CHECK_LIST += have_libcapstone
 
 #
 # This is needed for checking build dependency
@@ -26,6 +27,8 @@ CFLAGS_have_libncurses  = $(shell pkg-config --cflags ncursesw 2> /dev/null)
 LDFLAGS_have_libncurses = $(shell pkg-config --libs   ncursesw 2> /dev/null)
 CFLAGS_have_libdw  = $(shell pkg-config --cflags libdw 2> /dev/null)
 LDFLAGS_have_libdw = $(shell pkg-config --libs   libdw 2> /dev/null || echo "-ldw")
+CFLAGS_have_libcapstone  = $(shell pkg-config --cflags capstone 2> /dev/null)
+LDFLAGS_have_libcapstone = $(shell pkg-config --libs   capstone 2> /dev/null)
 
 check-build: check-tstamp $(CHECK_LIST)
 
