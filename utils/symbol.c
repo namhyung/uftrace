@@ -475,6 +475,13 @@ static int try_load_dynsymtab_bindnow(struct symtab *dsymtab,
 	return 1;
 }
 
+__weak int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
+				     struct uftrace_elf_data *elf,
+				     unsigned long offset, unsigned long flags)
+{
+	return 0;
+}
+
 int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags)
 {
@@ -528,13 +535,18 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		}
 	}
 
-	if (!found_dynsym || !found_dynamic || plt_addr == 0) {
+	if (!found_dynsym || !found_dynamic) {
 		pr_dbg2("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
 
 	if (rel_type == SHT_NULL) {
+		if (plt_addr == 0) {
+			arch_load_dynsymtab_noplt(dsymtab, elf, offset, flags);
+			goto out_sort;
+		}
+
 		ret = try_load_dynsymtab_bindnow(dsymtab, elf, offset, flags);
 		if (ret <= 0)
 			pr_dbg("cannot find relocation info for PLT\n");
@@ -583,6 +595,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 			}
 		}
 	}
+
+out_sort:
 	pr_dbg2("loaded %zd symbols\n", dsymtab->nr_sym);
 
 	if (dsymtab->nr_sym == 0)
