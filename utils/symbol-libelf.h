@@ -45,6 +45,7 @@ struct uftrace_elf_iter {
 #define elf_symbol_type(sym)  GELF_ST_TYPE((sym)->st_info)
 #define elf_symbol_bind(sym)  GELF_ST_BIND((sym)->st_info)
 #define elf_rel_symbol(rel)   GELF_R_SYM((rel)->r_info)
+#define elf_rel_type(rel)     GELF_R_TYPE((rel)->r_info)
 
 #define elf_for_each_phdr(elf, iter)					\
 	for ((iter)->i = 0, (iter)->nr = (elf)->ehdr.e_phnum;		\
