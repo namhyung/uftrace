@@ -151,6 +151,13 @@ __weak int mcount_arch_undo_bindnow(struct uftrace_elf_data *elf,
 	return -1;
 }
 
+__weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
+						    const char *modname,
+						    unsigned long offset)
+{
+	return NULL;
+}
+
 static int find_got(struct uftrace_elf_data *elf,
 		    struct uftrace_elf_iter *iter,
 		    const char *modname,
@@ -187,8 +194,13 @@ static int find_got(struct uftrace_elf_data *elf,
 		}
 	}
 
-	if (!pltgot_addr || (!plt_found && !bind_now)) {
-		pr_dbg2("no PLTGOT nor BIND-NOW.. ignoring...\n");
+	if (!pltgot_addr && !plt_found) {
+		pd = mcount_arch_hook_no_plt(elf, modname, offset);
+		if (pd == NULL)
+			pr_dbg2("no PLTGOT nor BIND-NOW.. ignoring...\n");
+		else
+			list_add_tail(&pd->list, &plthook_modules);
+
 		return 0;
 	}
 
@@ -214,7 +226,7 @@ static int find_got(struct uftrace_elf_data *elf,
 	pd->plt_addr   = plt_addr;
 
 	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
-		pd->mod_name, pd->module_id, pd->base_addr ,pd->pltgot_ptr);
+		pd->mod_name, pd->module_id, pd->base_addr, pd->pltgot_ptr);
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
 	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
