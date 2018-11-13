@@ -1518,7 +1518,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 				filtered = true;
 
 			if (handle->caller_filter)
-				filtered = !(tr.flags & TRIGGER_FL_CALLER);
+				filtered |= !(tr.flags & TRIGGER_FL_CALLER);
 
 			if (filtered) {
 				/*
