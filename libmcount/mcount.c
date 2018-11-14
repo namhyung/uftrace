@@ -1844,4 +1844,34 @@ TEST_CASE(mcount_thread_data)
 	return TEST_OK;
 }
 
+TEST_CASE(mcount_signal_setup)
+{
+	struct signal_trigger_item *item;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_NONE,
+	};
+
+	/* it signal triggers are maintained in a stack (LIFO) */
+	mcount_signal_init("SIGUSR1@traceon;USR2@traceoff;RTMIN+3@finish",
+			   &setting);
+
+	item = list_first_entry(&siglist, typeof(*item), list);
+	TEST_EQ(item->sig, SIGRTMIN + 3);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_FINISH);
+
+	item = list_next_entry(item, list);
+	TEST_EQ(item->sig, SIGUSR2);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_TRACE_OFF);
+
+	item = list_next_entry(item, list);
+	TEST_EQ(item->sig, SIGUSR1);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_TRACE_ON);
+
+	mcount_signal_finish();
+
+	TEST_EQ(list_empty(&siglist), true);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
