@@ -104,6 +104,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	save_debug_info(&symtabs, dirname);
 }
 
+static void mcount_filter_finish(void)
+{
+	finish_debug_info(&symtabs);
+}
+
 #else
 
 static void prepare_pmu_trigger(struct rb_root *root)
@@ -211,6 +216,16 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 {
 	free(mtdp->argbuf);
 	mtdp->argbuf = NULL;
+}
+
+static void mcount_filter_finish(void)
+{
+	uftrace_cleanup_filter(&mcount_triggers);
+	finish_auto_args();
+
+	finish_debug_info(&symtabs);
+
+	finish_pmu_event();
 }
 
 static void mcount_watch_init(void)
@@ -1445,16 +1460,12 @@ static void mcount_cleanup(void)
 	pthread_key_delete(mtd_key);
 	mtd_key = -1;
 
-#ifndef DISABLE_MCOUNT_FILTER
-	uftrace_cleanup_filter(&mcount_triggers);
-#endif
+	mcount_filter_finish();
+
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
 
-	finish_debug_info(&symtabs);
 	unload_symtabs(&symtabs);
-	finish_pmu_event();
-	finish_auto_args();
 
 	pr_dbg("exit from libmcount\n");
 }
