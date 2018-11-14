@@ -214,6 +214,9 @@ OPTIONS
 -W, \--watch=*POINT*
 :   Add watch point to display POINT if the value is changed.  See *WATCH POINT*.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 FILTERS
 =======

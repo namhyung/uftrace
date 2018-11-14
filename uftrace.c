@@ -95,6 +95,7 @@ enum options {
 	OPT_nest_libcall,
 	OPT_record,
 	OPT_auto_args,
+	OPT_no_args,
 	OPT_libname,
 	OPT_match_type,
 	OPT_no_randomize_addr,
@@ -171,6 +172,7 @@ static struct argp_option uftrace_options[] = {
 	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
 	{ "auto-args", 'a', 0, 0, "Show arguments and return value of known functions" },
+	{ "no-args", OPT_no_args, 0, 0, "Do not show arguments and return value" },
 	{ "libname", OPT_libname, 0, 0, "Show libname name with symbol name" },
 	{ "match", OPT_match_type, "TYPE", 0, "Support pattern match: regex, glob (default: regex)" },
 	{ "no-randomize-addr", OPT_no_randomize_addr, 0, 0, "Disable ASLR (Address Space Layout Randomization)" },
@@ -738,6 +740,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->record = true;
 		break;
 
+	case OPT_no_args:
+		opts->show_args = false;
+		break;
+
 	case OPT_libname:
 		opts->libname = true;
 		break;
@@ -990,6 +996,7 @@ int main(int argc, char *argv[])
 		.sort_column	= 2,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
+		.show_args	= true,
 	};
 	struct argp argp = {
 		.options = uftrace_options,

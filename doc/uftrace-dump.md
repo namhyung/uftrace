@@ -101,6 +101,9 @@ OPTIONS
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 EXAMPLE
 =======
