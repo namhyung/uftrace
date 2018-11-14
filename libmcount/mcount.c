@@ -1327,7 +1327,7 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
-static void mcount_startup(void)
+static __used void mcount_startup(void)
 {
 	char *pipefd_str;
 	char *logfd_str;
@@ -1565,10 +1565,7 @@ TEST_CASE(mcount_thread_data)
 {
 	struct mcount_thread_data *mtdp;
 
-	if (0)
-		mcount_startup();
-	else
-		setup_mcount_test();
+	setup_mcount_test();
 
 	mtdp = get_thread_data();
 	TEST_EQ(check_thread_data(mtdp), true);
