@@ -895,8 +895,8 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 	symtabs->loaded = true;
 }
 
-static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      uint64_t offset)
+static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
+				   uint64_t offset)
 {
 	FILE *fp;
 	char *line = NULL;
@@ -1043,8 +1043,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 			xasprintf(&symfile, "%s/%s.sym",
 				  symtabs->dirname, basename(maps->libname));
 			if (access(symfile, F_OK) == 0) {
-				load_module_symbol(&maps->symtab, symfile,
-						   maps->start);
+				load_module_symbol_file(&maps->symtab, symfile,
+							maps->start);
 			}
 
 			free(symfile);
@@ -1551,8 +1551,8 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 
 				xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 					  basename(maps->libname));
-				if (!load_module_symbol(&maps->symtab, symfile,
-							offset)) {
+				if (!load_module_symbol_file(&maps->symtab,
+							     symfile, offset)) {
 					found = true;
 				}
 				free(symfile);
@@ -1768,7 +1768,7 @@ TEST_CASE(symbol_load_module) {
 
 	save_module_symbol(&stab, symfile, 0x400000);
 
-	TEST_EQ(load_module_symbol(&test, symfile, 0x400000), 0);
+	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
 	/* +2 for the end markers of the symbols */
 	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym) + 2);
