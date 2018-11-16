@@ -78,7 +78,7 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
-bool check_libpthread(const char *filename)
+bool has_dependency(const char *filename, const char *libname)
 {
 	bool ret = false;
 	struct uftrace_elf_data elf;
@@ -101,7 +101,7 @@ bool check_libpthread(const char *filename)
 			continue;
 
 		soname = elf_get_name(&elf, &iter, iter.dyn.d_un.d_ptr);
-		if (!strcmp(soname, "libpthread.so.0")) {
+		if (!strcmp(soname, libname)) {
 			ret = true;
 			break;
 		}
