@@ -316,7 +316,7 @@ static char * make_enum_name(Dwarf_Die *die)
 
 	/* replace forbidden characters */
 	tmp = enum_name;
-	while ((tmp = strpbrk(tmp, "+-.() ")) != NULL)
+	while ((tmp = strpbrk(tmp, "+-.()<> ")) != NULL)
 		*tmp++ = '_';
 
 	return enum_name;
@@ -422,7 +422,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 
 			td->fmt = ARG_FMT_ENUM;
 			tname = dwarf_diename(die);
-			if (tname)
+			if (tname && (isalpha(*tname) || *tname == '_'))
 				td->enum_name = xstrdup(tname);
 			else
 				td->enum_name = make_enum_name(die);
