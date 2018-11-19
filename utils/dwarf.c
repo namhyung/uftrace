@@ -272,23 +272,26 @@ static char * fill_enum_str(Dwarf_Die *die)
 	char *str = NULL;
 	Dwarf_Die e_val;
 
-	if (dwarf_child(die, &e_val) != 0) {
+	if (dwarf_child(die, &e_val) != 0)
+		goto out;
+
+	do {
+		if (dwarf_tag(&e_val) == DW_TAG_enumerator) {
+			char buf[256];
+			Dwarf_Sword val;
+
+			val = int_attr(&e_val, DW_AT_const_value, false);
+			snprintf(buf, sizeof(buf), "%s=%ld",
+				 dwarf_diename(&e_val), (long)val);
+
+			str = strjoin(str, buf, ",");
+		}
+	}
+	while (dwarf_siblingof(&e_val, &e_val) == 0);
+
+out:
+	if (str == NULL)
 		pr_dbg2("no enum values\n");
-		return NULL;
-	}
-
-	while (dwarf_tag(&e_val) == DW_TAG_enumerator) {
-		char buf[256];
-		Dwarf_Sword val;
-
-		val = int_attr(&e_val, DW_AT_const_value, false);
-		snprintf(buf, sizeof(buf), "%s=%ld", dwarf_diename(&e_val), (long)val);
-
-		str = strjoin(str, buf, ",");
-
-		if (dwarf_siblingof(&e_val, &e_val) != 0)
-			break;
-	}
 
 	return str;
 }
