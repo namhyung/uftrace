@@ -24,7 +24,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-W cpu -E "linux:*"'
+        options = '-F main -W cpu -E "linux:*"'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)
 
