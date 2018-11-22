@@ -482,9 +482,9 @@ void get_argspec_string(struct uftrace_task_reader *task,
 	assert(arg_list && !list_empty(arg_list));
 
 	if (needs_paren)
-		print_args("(");
+		print_args("%s(%s", color_bold, color_reset);
 	else if (needs_assignment)
-		print_args(" = ");
+		print_args("%s = %s", color_bold, color_reset);
 
 	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
@@ -498,7 +498,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			continue;
 
 		if (i > 0)
-			print_args(", ");
+			print_args("%s, %s", color_bold, color_reset);
 
 		memset(val.v, 0, sizeof(val));
 		fmt = ARG_SPEC_CHARS[spec->fmt];
@@ -583,8 +583,11 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				}
 				print_args("\\\"");
 			}
-			else
+			else {
+				print_args("%s", color_string);
 				print_args("\"%.*s\"", slen + newline, str);
+				print_args("%s", color_reset);
+			}
 
 			/* std::string can be represented as "TEXT"s from C++14 */
 			if (spec->fmt == ARG_FMT_STD_STRING)
@@ -597,8 +600,11 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			char c;
 
 			memcpy(&c, data, 1);
-			if (isprint(c))
+			if (isprint(c)) {
+				print_args("%s", color_string);
 				print_args("'%c'", c);
+				print_args("%s", color_reset);
+			}
 			else
 				print_args("'\\x%02hhx'", c);
 			size = 1;
@@ -637,8 +643,11 @@ void get_argspec_string(struct uftrace_task_reader *task,
 						 task->rstack->time,
 						 (uint64_t)val.i);
 
-			if (sym)
+			if (sym) {
+				print_args("%s", color_fptr);
 				print_args("&%s", sym->name);
+				print_args("%s", color_reset);
+			}
 			else
 				print_args("%p", val.p);
 		}
@@ -660,10 +669,12 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			memcpy(val.v, data, spec->size);
 			estr = get_enum_string(&dinfo->enums, spec->enum_str, val.i);
+			print_args("%s", color_enum);
 			if (strlen(estr) >= len)
 				print_args("<ENUM>");
 			else
 				print_args("%s", estr);
+			print_args("%s", color_reset);
 			free(estr);
 		}
 		else {
@@ -693,8 +704,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 	}
 
 	if (needs_paren) {
-		args[n] = ')';
-		args[n+1] = '\0';
+		print_args("%s)%s", color_bold, color_reset);
 	} else {
 		if (needs_semi_colon)
 			args[n++] = ';';
