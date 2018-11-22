@@ -272,23 +272,26 @@ static char * fill_enum_str(Dwarf_Die *die)
 	char *str = NULL;
 	Dwarf_Die e_val;
 
-	if (dwarf_child(die, &e_val) != 0) {
+	if (dwarf_child(die, &e_val) != 0)
+		goto out;
+
+	do {
+		if (dwarf_tag(&e_val) == DW_TAG_enumerator) {
+			char buf[256];
+			Dwarf_Sword val;
+
+			val = int_attr(&e_val, DW_AT_const_value, false);
+			snprintf(buf, sizeof(buf), "%s=%ld",
+				 dwarf_diename(&e_val), (long)val);
+
+			str = strjoin(str, buf, ",");
+		}
+	}
+	while (dwarf_siblingof(&e_val, &e_val) == 0);
+
+out:
+	if (str == NULL)
 		pr_dbg2("no enum values\n");
-		return NULL;
-	}
-
-	while (dwarf_tag(&e_val) == DW_TAG_enumerator) {
-		char buf[256];
-		Dwarf_Sword val;
-
-		val = int_attr(&e_val, DW_AT_const_value, false);
-		snprintf(buf, sizeof(buf), "%s=%ld", dwarf_diename(&e_val), (long)val);
-
-		str = strjoin(str, buf, ",");
-
-		if (dwarf_siblingof(&e_val, &e_val) != 0)
-			break;
-	}
 
 	return str;
 }
@@ -313,7 +316,7 @@ static char * make_enum_name(Dwarf_Die *die)
 
 	/* replace forbidden characters */
 	tmp = enum_name;
-	while ((tmp = strpbrk(tmp, "+-.() ")) != NULL)
+	while ((tmp = strpbrk(tmp, "+-.()<> ")) != NULL)
 		*tmp++ = '_';
 
 	return enum_name;
@@ -419,7 +422,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 
 			td->fmt = ARG_FMT_ENUM;
 			tname = dwarf_diename(die);
-			if (tname)
+			if (tname && (isalpha(*tname) || *tname == '_'))
 				td->enum_name = xstrdup(tname);
 			else
 				td->enum_name = make_enum_name(die);
