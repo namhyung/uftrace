@@ -33,6 +33,14 @@ enum color_setting log_color;
 enum color_setting out_color;
 int dbg_domain[DBG_DOMAIN_MAX];
 
+/* colored output for argspec display */
+const char *color_reset   = TERM_COLOR_RESET;
+const char *color_bold    = TERM_COLOR_BOLD;
+const char *color_string  = TERM_COLOR_MAGENTA;
+const char *color_fptr    = TERM_COLOR_CYAN;
+const char *color_enum    = TERM_COLOR_BLUE;
+const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_BLUE;
+
 static const struct color_code {
 	char		code;
 	const char	*color;
@@ -84,6 +92,15 @@ void setup_color(enum color_setting color)
 	else {
 		log_color = color;
 		out_color = color;
+	}
+
+	if (out_color != COLOR_ON) {
+		color_reset   = "";
+		color_bold    = "";
+		color_string  = "";
+		color_fptr    = "";
+		color_enum    = "";
+		color_enum_or = "|";
 	}
 }
 

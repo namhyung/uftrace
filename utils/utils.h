@@ -48,6 +48,14 @@ extern int debug;
 extern FILE *logfp;
 extern FILE *outfp;
 
+/* colored output for argspec display */
+extern const char *color_reset;
+extern const char *color_bold;
+extern const char *color_string;
+extern const char *color_fptr;
+extern const char *color_enum;
+extern const char *color_enum_or;
+
 /* must change DBG_DOMAIN_STR (in mcount.h) as well */
 enum debug_domain {
 	DBG_UFTRACE	= 0,
