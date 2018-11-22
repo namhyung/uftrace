@@ -4,7 +4,7 @@ if [ "x$(id -u)" != x0 ]; then
     echo "You might have to run it as root user."
     echo "Please run it again with 'sudo'."
     echo
-    return
+    exit
 fi
 
 OPT="${@}"
