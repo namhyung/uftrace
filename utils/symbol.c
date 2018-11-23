@@ -1271,8 +1271,8 @@ do_it:
 	fclose(fp);
 }
 
-static void save_module_symbol(struct symtab *stab, const char *symfile,
-			       unsigned long offset)
+static void save_module_symbol_file(struct symtab *stab, const char *symfile,
+				    unsigned long offset)
 {
 	FILE *fp;
 	unsigned i;
@@ -1329,7 +1329,7 @@ void save_module_symtabs(struct symtabs *symtabs)
 		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 			  basename(map->libname));
 
-		save_module_symbol(&map->symtab, symfile, map->start);
+		save_module_symbol_file(&map->symtab, symfile, map->start);
 
 		free(symfile);
 		symfile = NULL;
@@ -1766,7 +1766,7 @@ TEST_CASE(symbol_load_module) {
 	stab.sym = mixed_sym;
 	stab.nr_sym = ARRAY_SIZE(mixed_sym);
 
-	save_module_symbol(&stab, symfile, 0x400000);
+	save_module_symbol_file(&stab, symfile, 0x400000);
 
 	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
