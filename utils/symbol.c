@@ -896,7 +896,118 @@ void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 }
 
 static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      uint64_t offset);
+			      uint64_t offset)
+{
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	unsigned int i;
+	unsigned int grow = SYMTAB_GROW;
+	char allowed_types[] = "TtwPK";
+	uint64_t prev_addr = -1;
+	char prev_type = 'X';
+
+	fp = fopen(symfile, "r");
+	if (fp == NULL) {
+		pr_dbg("reading %s failed: %m\n", symfile);
+		return -1;
+	}
+
+	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
+	while (getline(&line, &len, fp) > 0) {
+		struct sym *sym;
+		uint64_t addr;
+		char type;
+		char *name;
+		char *pos;
+
+		pos = strchr(line, '\n');
+		if (pos)
+			*pos = '\0';
+
+		addr = strtoull(line, &pos, 16);
+
+		if (*pos++ != ' ') {
+			pr_dbg2("invalid symbol file format before type\n");
+			continue;
+		}
+		type = *pos++;
+
+		if (*pos++ != ' ') {
+			pr_dbg2("invalid symbol file format after type\n");
+			continue;
+		}
+		name = pos;
+
+		/*
+		 * remove kernel module if any.
+		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
+		 */
+		pos = strchr(name, '\t');
+		if (pos)
+			*pos = '\0';
+
+		if (addr == prev_addr && type == prev_type) {
+			sym = &symtab->sym[symtab->nr_sym - 1];
+
+			/* for kernel symbols, replace SyS_xxx to sys_xxx */
+			if (!strncmp(sym->name, "SyS_", 4) &&
+			    !strncmp(name, "sys_", 4) &&
+			    !strcmp(sym->name + 4, name + 4))
+				strncpy(sym->name, name, 4);
+
+			pr_dbg2("skip duplicated symbols: %s\n", name);
+			continue;
+		}
+
+		if (strchr(allowed_types, type) == NULL)
+			continue;
+
+		/*
+		 * it should be updated after the type check
+		 * otherwise, it might access invalid sym
+		 * in the above.
+		 */
+		prev_addr = addr;
+		prev_type = type;
+
+		if (symtab->nr_sym >= symtab->nr_alloc) {
+			if (symtab->nr_alloc >= grow * 4)
+				grow *= 2;
+			symtab->nr_alloc += grow;
+			symtab->sym = xrealloc(symtab->sym,
+					       symtab->nr_alloc * sizeof(*sym));
+		}
+
+		sym = &symtab->sym[symtab->nr_sym++];
+
+		sym->addr = addr + offset;
+		sym->type = type;
+		sym->name = demangle(name);
+		sym->size = 0;
+
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
+			sym->type, sym->addr, sym->size, sym->name);
+
+		if (symtab->nr_sym > 1)
+			sym[-1].size = sym->addr - sym[-1].addr;
+	}
+	free(line);
+
+	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
+
+	symtab->sym_names = xmalloc(sizeof(*symtab->sym_names) * symtab->nr_sym);
+
+	for (i = 0; i < symtab->nr_sym; i++)
+		symtab->sym_names[i] = &symtab->sym[i];
+	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names),
+	      namesort);
+
+	symtab->name_sorted = true;
+
+	fclose(fp);
+	return 0;
+}
 
 void load_module_symtabs(struct symtabs *symtabs)
 {
@@ -1158,120 +1269,6 @@ do_it:
 	elf_finish(&elf);
 	free(symfile);
 	fclose(fp);
-}
-
-static int load_module_symbol(struct symtab *symtab, const char *symfile,
-			      uint64_t offset)
-{
-	FILE *fp;
-	char *line = NULL;
-	size_t len = 0;
-	unsigned int i;
-	unsigned int grow = SYMTAB_GROW;
-	char allowed_types[] = "TtwPK";
-	uint64_t prev_addr = -1;
-	char prev_type = 'X';
-
-	fp = fopen(symfile, "r");
-	if (fp == NULL) {
-		pr_dbg("reading %s failed: %m\n", symfile);
-		return -1;
-	}
-
-	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
-	while (getline(&line, &len, fp) > 0) {
-		struct sym *sym;
-		uint64_t addr;
-		char type;
-		char *name;
-		char *pos;
-
-		pos = strchr(line, '\n');
-		if (pos)
-			*pos = '\0';
-
-		addr = strtoull(line, &pos, 16);
-
-		if (*pos++ != ' ') {
-			pr_dbg2("invalid symbol file format before type\n");
-			continue;
-		}
-		type = *pos++;
-
-		if (*pos++ != ' ') {
-			pr_dbg2("invalid symbol file format after type\n");
-			continue;
-		}
-		name = pos;
-
-		/*
-		 * remove kernel module if any.
-		 *   ex)  btrfs_end_transaction_throttle     [btrfs]
-		 */
-		pos = strchr(name, '\t');
-		if (pos)
-			*pos = '\0';
-
-		if (addr == prev_addr && type == prev_type) {
-			sym = &symtab->sym[symtab->nr_sym - 1];
-
-			/* for kernel symbols, replace SyS_xxx to sys_xxx */
-			if (!strncmp(sym->name, "SyS_", 4) &&
-			    !strncmp(name, "sys_", 4) &&
-			    !strcmp(sym->name + 4, name + 4))
-				strncpy(sym->name, name, 4);
-
-			pr_dbg2("skip duplicated symbols: %s\n", name);
-			continue;
-		}
-
-		if (strchr(allowed_types, type) == NULL)
-			continue;
-
-		/*
-		 * it should be updated after the type check
-		 * otherwise, it might access invalid sym
-		 * in the above.
-		 */
-		prev_addr = addr;
-		prev_type = type;
-
-		if (symtab->nr_sym >= symtab->nr_alloc) {
-			if (symtab->nr_alloc >= grow * 4)
-				grow *= 2;
-			symtab->nr_alloc += grow;
-			symtab->sym = xrealloc(symtab->sym,
-					       symtab->nr_alloc * sizeof(*sym));
-		}
-
-		sym = &symtab->sym[symtab->nr_sym++];
-
-		sym->addr = addr + offset;
-		sym->type = type;
-		sym->name = demangle(name);
-		sym->size = 0;
-
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
-
-		if (symtab->nr_sym > 1)
-			sym[-1].size = sym->addr - sym[-1].addr;
-	}
-	free(line);
-
-	qsort(symtab->sym, symtab->nr_sym, sizeof(*symtab->sym), addrsort);
-
-	symtab->sym_names = xmalloc(sizeof(*symtab->sym_names) * symtab->nr_sym);
-
-	for (i = 0; i < symtab->nr_sym; i++)
-		symtab->sym_names[i] = &symtab->sym[i];
-	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names),
-	      namesort);
-
-	symtab->name_sorted = true;
-
-	fclose(fp);
-	return 0;
 }
 
 static void save_module_symbol(struct symtab *stab, const char *symfile,
