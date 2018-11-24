@@ -137,6 +137,7 @@ static const char *help[] = {
 	"G             Show (full) call graph",
 	"g             Show call graph for this function",
 	"R             Show uftrace report",
+	"r             Show uftrace report for this function",
 	"I             Show uftrace info",
 	"S             Change session",
 	"O             Open editor",
@@ -2330,6 +2331,12 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			full_redraw = true;
 			break;
 		case 'R':
+			if (tui_window_change(win, &report->win)) {
+				win = &report->win;
+				tui_window_move_home(win);
+				full_redraw = true;
+			}
+			break;
 		case 'r':
 			if (tui_window_change(win, &report->win)) {
 				struct tui_report_node *func;

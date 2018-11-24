@@ -118,6 +118,7 @@ Following keys can be used in the TUI window:
  * `G`:                   Show full graph of the current session
  * `g`:                   Show backtrace and call graph of the current function
  * `R`:                   Show uftrace report
+ * `r`:                   Show uftrace report of the current function
  * `I`:                   Show uftrace info
  * `S`:                   Show session list
  * `O`:                   Open editor for current function
