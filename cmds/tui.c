@@ -2219,6 +2219,12 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
+static inline void cancel_search()
+{
+	free(tui_search);
+	tui_search = NULL;
+}
+
 static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 {
 	int key = 0;
@@ -2250,22 +2256,28 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			break;
 		case KEY_UP:
 		case 'k':
+			cancel_search();
 			tui_window_move_up(win);
 			break;
 		case KEY_DOWN:
 		case 'j':
+			cancel_search();
 			tui_window_move_down(win);
 			break;
 		case KEY_PPAGE:
+			cancel_search();
 			tui_window_page_up(win);
 			break;
 		case KEY_NPAGE:
+			cancel_search();
 			tui_window_page_down(win);
 			break;
 		case KEY_HOME:
+			cancel_search();
 			tui_window_move_home(win);
 			break;
 		case KEY_END:
+			cancel_search();
 			tui_window_move_end(win);
 			break;
 		case KEY_ENTER:
@@ -2299,8 +2311,7 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			}
 			break;
 		case KEY_ESCAPE:
-			free(tui_search);  /* cancel search */
-			tui_search = NULL;
+			cancel_search();
 			break;
 		case 'G':
 			if (tui_window_change(win, &graph->win)) {
