@@ -33,6 +33,7 @@ static char *auto_args_list =
 	"qsort@arg1/x,arg2/u,arg3/u,arg4/p;"
 	"qsort_r@arg1/x,arg2/u,arg3/u,arg4/p,arg5/x;"
 	"bsearch@arg1/x,arg2/x,arg3/u,arg4/u,arg5/p;"
+	"exit@arg1;"
 	"mmap@arg1/x,arg2/u,arg3/e:uft_mmap_prot,arg4/e:uft_mmap_flag,arg5,arg6;"
 	"mmap64@arg1/x,arg2/u,arg3/e:uft_mmap_prot,arg4/e:uft_mmap_flag,arg5,arg6/d64;"
 	"munmap@arg1/x,arg2/u;"
@@ -113,6 +114,9 @@ static char *auto_args_list =
 	"fread@arg1/x,arg2/u,arg3/u,arg4/x;"
 	"fwrite@arg1/x,arg2/u,arg3/u,arg4/x;"
 	"access@arg1/s,arg2/e:uft_access_flag;"
+	"unlink@arg1/s;"
+	"unlinkat@arg1,arg2/s,arg3;"
+	"mkdir@arg1/s;"
 	"execl@arg1/s,arg2/s;"
 	"execlp@arg1/s,arg2/s;"
 	"execle@arg1/s,arg2/s;"
@@ -148,6 +152,7 @@ static char *auto_args_list =
 	"getaddrinfo@arg1/s,arg2/s,arg3/x,arg4/x;"
 	"freeaddrinfo@arg1/x;"
 	"kill@arg1/u,arg2/e:uft_signal;"
+	"raise@arg1/e:uft_signal;"
 	"signal@arg1/e:uft_signal,arg2/p;"
 	"sigaction@arg1/e:uft_signal,arg2/x,arg3/x;"
 	"sigemptyset@arg1/x;"
@@ -159,6 +164,9 @@ static char *auto_args_list =
 	"poll@arg1/x,arg2,arg3;"
 	"syscall@arg1;"
 	"ioctl@arg1,arg2/u,arg3;"
+	"gettext@arg1/s;"
+	"dgettext@arg1/s,arg2/s;"
+	"dcgettext@arg1/s,arg2/s,arg3;"
 ;
 
 static char *auto_retvals_list =
@@ -247,6 +255,9 @@ static char *auto_retvals_list =
 	"fread@retval/u;"
 	"fwrite@retval/u;"
 	"access@retval;"
+	"unlink@retval;"
+	"unlinkat@retval;"
+	"mkdir@retval;"
 	"fork@retval/u;"
 	"vfork@retval/u;"
 	"execl@retval;"
@@ -286,6 +297,7 @@ static char *auto_retvals_list =
 	"gethostbyaddr@retval/x;"
 	"getaddrinfo@retval;"
 	"kill@retval;"
+	"raise@retval;"
 	"signal@retval;"
 	"sigaction@retval;"
 	"sigemptyset@retval;"
@@ -297,5 +309,8 @@ static char *auto_retvals_list =
 	"poll@retval;"
 	"syscall@retval;"
 	"ioctl@retval;"
+	"gettext@retval/s;"
+	"dgettext@retval/s;"
+	"dcgettext@retval/s;"
 ;
 

@@ -26,6 +26,8 @@ void qsort(void *base, size_t nmemb, size_t size, funcptr_t compar);
 void qsort_r(void *base, size_t nmemb, size_t size, funcptr_t compar, void *arg);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, funcptr_t compar);
 
+void exit(int status);
+
 #include <sys/mman.h>
 enum uft_mmap_prot { PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC = 4, };
 enum uft_mmap_flag {
@@ -222,6 +224,10 @@ enum uft_access_flag {
 	F_OK = 0, X_OK = 1, W_OK = 2, R_OK = 4,
 };
 int access(const char *pathname, enum uft_access_flag mode);
+
+int unlink(const char *pathname);
+int unlinkat(int dirfd, const char *pathname, int flags);
+int mkdir(const char *pathname, mode_t mode);
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -337,6 +343,7 @@ enum uft_signal {
 	SIGRTMIN = 32, SIGRTMAX = 64,
 };
 int kill(pid_t pid, enum uft_signal sig);
+int raise(enum uft_signal sig);
 long signal(enum uft_signal sig, funcptr_t handler);
 int sigaction(enum uft_signal signum, const struct sigaction *act, struct sigaction *oldact);
 int sigemptyset(sigset_t *set);
@@ -377,4 +384,9 @@ long syscall(long number, ...);
 
 #include <sys/ioctl.h>
 int ioctl(int fd, unsigned long request, ...);
+
+#include <libintl.h>
+char *gettext (const char * msgid);
+char *dgettext (const char * domainname, const char * msgid);
+char *dcgettext (const char * domainname, const char * msgid, int category);
 ////////////////////////////////////////////////////////////////////////////////
