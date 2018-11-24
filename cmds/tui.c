@@ -146,6 +146,7 @@ static const char *help[] = {
 	"u             Move up to parent",
 	"l             Move to the longest executed child",
 	"j/k           Move down/up",
+	"z             Set current line to the center of screen",
 	"/             Search",
 	"</>/N/P       Search next/prev",
 	"v             Show debug message",
@@ -1942,6 +1943,17 @@ static void tui_window_set_middle_next(struct tui_window *win, void *target)
 	}
 }
 
+static void tui_window_set_middle(struct tui_window *win)
+{
+	int offset_from_top = win->curr_index - win->top_index;
+	int offset_half = LINES / 2;
+
+	if (offset_from_top < offset_half - 2)
+		tui_window_set_middle_prev(win, win->curr);
+	else if (offset_from_top > offset_half + 1)
+		tui_window_set_middle_next(win, win->curr);
+}
+
 static bool tui_window_can_search(struct tui_window *win)
 {
 	return win->ops->search != NULL;
@@ -2403,6 +2415,9 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			break;
 		case 'l':
 			full_redraw = tui_window_longest_child(win);
+			break;
+		case 'z':
+			tui_window_set_middle(win);
 			break;
 		case '/':
 			if (tui_window_can_search(win)) {

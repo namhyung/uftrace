@@ -127,6 +127,7 @@ Following keys can be used in the TUI window:
  * `u`:                   Move up to parent (in graph mode)
  * `l`:                   Move to the longest executed child (in graph mode)
  * `j`/`k`:               Move cursor up/down (like vi)
+ * `z`:                   Set current line to the center of screen
  * `/`:                   Start search
  * `<`/`P`:               Search previous match
  * `>`/`N`:               Search next match
