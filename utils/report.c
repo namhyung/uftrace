@@ -42,7 +42,7 @@ find_or_create_node(struct rb_root *root, const char *name,
 		int cmp;
 
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), name_link);
 
 		cmp = strcmp(iter->name, name);
 		if (cmp == 0)
@@ -61,8 +61,8 @@ find_or_create_node(struct rb_root *root, const char *name,
 	init_time_stat(&node->total);
 	init_time_stat(&node->self);
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->name_link, parent, p);
+	rb_insert_color(&node->name_link, root);
 
 	return node;
 }
@@ -83,7 +83,7 @@ void report_add_node(struct rb_root *root, const char *name,
 /* NOTE: this function does not free 'node' itself */
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 {
-	rb_erase(&node->link, root);
+	rb_erase(&node->name_link, root);
 	free(node->name);
 }
 
@@ -114,7 +114,7 @@ void report_calc_avg(struct rb_root *root)
 	struct rb_node *n = rb_first(root);
 
 	while (n) {
-		node = rb_entry(n, typeof(*node), link);
+		node = rb_entry(n, typeof(*node), name_link);
 
 		finish_time_stat(&node->total, node->call);
 		finish_time_stat(&node->self, node->call);
@@ -206,8 +206,10 @@ int report_setup_sort(const char *key_str)
 			break;
 		}
 
-		if (i == ARRAY_SIZE(all_sort_keys))
-			return -1;
+		if (i == ARRAY_SIZE(all_sort_keys)) {
+			count = -1;
+			break;
+		}
 	}
 	strv_free(&keys);
 
@@ -235,7 +237,7 @@ static void insert_node(struct rb_root *root, struct uftrace_report_node *node)
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), sort_link);
 
 		if (cmp_node(iter, node) < 0)
 			p = &parent->rb_left;
@@ -243,26 +245,25 @@ static void insert_node(struct rb_root *root, struct uftrace_report_node *node)
 			p = &parent->rb_right;
 	}
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, root);
 }
 
-void report_sort_nodes(struct rb_root *root)
+void report_sort_nodes(struct rb_root *name_root, struct rb_root *sort_root)
 {
-	struct rb_root tmp = RB_ROOT;
-	struct rb_node *n = rb_first(root);
+	struct rb_node *n = rb_first(name_root);
+
+	*sort_root = RB_ROOT;
 
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *node;
 
-		node = rb_entry(n, typeof(*node), link);
-		rb_erase(n, root);
+		/* keep node in the name tree */
+		node = rb_entry(n, typeof(*node), name_link);
 
-		insert_node(&tmp, node);
-		n = rb_first(root);
+		insert_node(sort_root, node);
+		n = rb_next(n);
 	}
-
-	*root = tmp;
 }
 
 /* diff support */
@@ -405,8 +406,10 @@ int report_setup_diff(const char *key_str)
 			break;
 		}
 
-		if (i == ARRAY_SIZE(all_diff_keys))
-			return -1;
+		if (i == ARRAY_SIZE(all_diff_keys)) {
+			count = -1;
+			break;
+		}
 	}
 	strv_free(&keys);
 
@@ -436,7 +439,7 @@ static void insert_diff(struct rb_root *root, struct uftrace_report_node *node,
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), sort_link);
 
 		if (cmp_diff(iter, node, diff_column) < 0)
 			p = &parent->rb_left;
@@ -444,8 +447,8 @@ static void insert_diff(struct rb_root *root, struct uftrace_report_node *node,
 			p = &parent->rb_right;
 	}
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, root);
 }
 
 void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
@@ -458,7 +461,7 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *iter, *pair, *node;
 
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), name_link);
 		pair = report_find_node(pair_root, iter->name);
 
 		if (pair == NULL)
@@ -480,7 +483,7 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *iter, *node;
 
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), name_link);
 		if (iter->pair == NULL) {
 			/* node->name is swallow-copied, do not free */
 			node = xzalloc(sizeof(*node));
@@ -503,7 +506,7 @@ void destroy_diff_nodes(struct rb_root *diff_root)
 		struct uftrace_report_node *iter;
 
 		rb_erase(n, diff_root);
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), sort_link);
 		free(iter);
 
 		n = rb_first(diff_root);
@@ -537,3 +540,213 @@ void apply_diff_policy(char *policy)
 	}
 	strv_free(&strv);
 }
+
+#ifdef UNIT_TEST
+
+#define TEST_NODES  3
+
+TEST_CASE(report_find)
+{
+	struct rb_root root = RB_ROOT;
+	struct rb_node *rbnode;
+	struct uftrace_report_node *node;
+	const char *test_name[TEST_NODES] = { "abc", "foo", "bar" };
+	const char *name_sort[TEST_NODES] = { "abc", "bar", "foo" };
+	int i;
+
+	for (i = 0; i < TEST_NODES; i++) {
+		node = xzalloc(sizeof(*node));
+		report_add_node(&root, test_name[i], node);
+	}
+
+	for (i = 0; i < TEST_NODES; i++) {
+		node = report_find_node(&root, test_name[i]);
+		TEST_NE(node, NULL);
+		TEST_STREQ(node->name, test_name[i]);
+	}
+
+	/* check the tree was sorted by name */
+	i = 0;
+	while (!RB_EMPTY_ROOT(&root)) {
+		rbnode = rb_first(&root);
+		node = rb_entry(rbnode, typeof(*node), name_link);
+		TEST_STREQ(node->name, name_sort[i++]);
+		report_delete_node(&root, node);
+	}
+	TEST_EQ(i, 3);
+
+	return TEST_OK;
+}
+
+TEST_CASE(report_sort)
+{
+	struct rb_root name_tree = RB_ROOT;
+	struct rb_root sort_tree = RB_ROOT;
+	struct rb_node *rbnode;
+	struct uftrace_report_node *node;
+	static struct fstack fstack[TEST_NODES] = { 0, };
+	struct uftrace_task_reader task = {
+		.func_stack = fstack,
+	};
+	int i;
+
+	const char *test_name[] = { "abc", "foo", "bar" };
+	uint64_t total_times[TEST_NODES] = { 1000, 600, 2300, };
+	uint64_t child_times[TEST_NODES] = {  700,   0, 2100, };
+	int total_order[TEST_NODES] = { 2, 0, 1 };
+	int  self_order[TEST_NODES] = { 1, 0, 2 };
+
+	for (i = 0; i < TEST_NODES; i++) {
+		fstack[i].addr       = i;
+		fstack[i].total_time = total_times[i];
+		fstack[i].child_time = child_times[i];
+	}
+
+	for (i = 0; i < TEST_NODES; i++) {
+		node = xzalloc(sizeof(*node));
+		report_add_node(&name_tree, test_name[i], node);
+		report_update_node(node, &task);
+		task.stack_count++;
+	}
+	report_calc_avg(&name_tree);
+
+	TEST_LT(report_setup_sort("foobar"), 0);
+	TEST_EQ(report_setup_sort("total"), 1);
+	report_sort_nodes(&name_tree, &sort_tree);
+
+	i = 0;
+	rbnode = rb_first(&sort_tree);
+	while (rbnode != NULL) {
+		node = rb_entry(rbnode, typeof(*node), sort_link);
+
+		TEST_STREQ(node->name, test_name[total_order[i]]);
+		TEST_EQ(node->total.sum, total_times[total_order[i]]);
+		TEST_EQ(node->call, 1);
+
+		rbnode = rb_next(rbnode);
+		i++;
+	}
+
+	TEST_EQ(report_setup_sort("call,self_avg"), 2);
+	report_sort_nodes(&name_tree, &sort_tree);
+
+	i = 0;
+	rbnode = rb_first(&sort_tree);
+	while (rbnode != NULL) {
+		int idx = self_order[i];
+		uint64_t self_time = total_times[idx] - child_times[idx];
+
+		node = rb_entry(rbnode, typeof(*node), sort_link);
+
+		TEST_STREQ(node->name, test_name[idx]);
+		TEST_EQ(node->self.avg, self_time);
+		TEST_EQ(node->self.min, self_time);
+		TEST_EQ(node->self.max, self_time);
+
+		rbnode = rb_next(rbnode);
+		i++;
+	}
+
+	while (!RB_EMPTY_ROOT(&name_tree)) {
+		rbnode = rb_first(&name_tree);
+		node = rb_entry(rbnode, typeof(*node), name_link);
+
+		report_delete_node(&name_tree, node);
+		rb_erase(&node->sort_link, &sort_tree);
+		free(node);
+	}
+	TEST_EQ(RB_EMPTY_ROOT(&sort_tree), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(report_diff)
+{
+	struct rb_root orig_tree = RB_ROOT;
+	struct rb_root pair_tree = RB_ROOT;
+	struct rb_root diff_tree = RB_ROOT;
+	struct rb_node *rbnode;
+	struct uftrace_report_node *node;
+	int i;
+
+	static struct fstack orig_fstack[TEST_NODES] = { 0, };
+	struct uftrace_task_reader orig_task = {
+		.func_stack = orig_fstack,
+	};
+	static struct fstack pair_fstack[TEST_NODES] = { 0, };
+	struct uftrace_task_reader pair_task = {
+		.func_stack = pair_fstack,
+	};
+
+	const char *orig_name[] = { "abc", "foo", "bar" };
+	uint64_t orig_total_times[TEST_NODES] = { 100, 1600, 2300, };
+	uint64_t orig_child_times[TEST_NODES] = {  50,  800, 2100, };
+	const char *pair_name[] = { "xyz", "foo", "bar" };
+	uint64_t pair_total_times[TEST_NODES] = { 150, 2500, 2000, };
+	uint64_t pair_child_times[TEST_NODES] = {  70, 1800,  300, };
+	int diff_order[] = { 1, -1, 0, 2 };
+	int diff_total[] = { 900, 150, -100, -300 };
+
+	TEST_EQ(diff_policy.absolute, true);
+
+	apply_diff_policy("no-abs,compact,no-percent");
+
+	TEST_EQ(diff_policy.absolute, false);
+	TEST_EQ(diff_policy.full,     false);
+	TEST_EQ(diff_policy.percent,  false);
+
+	TEST_EQ(report_setup_diff("total,self"), 2);
+
+	for (i = 0; i < TEST_NODES; i++) {
+		orig_fstack[i].addr       = i;
+		orig_fstack[i].total_time = orig_total_times[i];
+		orig_fstack[i].child_time = orig_child_times[i];
+
+		node = xzalloc(sizeof(*node));
+		report_add_node(&orig_tree, orig_name[i], node);
+		report_update_node(node, &orig_task);
+		orig_task.stack_count++;
+	}
+	report_calc_avg(&orig_tree);
+
+	for (i = 0; i < TEST_NODES; i++) {
+		pair_fstack[i].addr       = i;
+		pair_fstack[i].total_time = pair_total_times[i];
+		pair_fstack[i].child_time = pair_child_times[i];
+
+		node = xzalloc(sizeof(*node));
+		report_add_node(&pair_tree, pair_name[i], node);
+		report_update_node(node, &pair_task);
+		pair_task.stack_count++;
+	}
+	report_calc_avg(&pair_tree);
+
+	report_diff_nodes(&orig_tree, &pair_tree, &diff_tree, 2);
+	TEST_EQ(RB_EMPTY_ROOT(&diff_tree), false);
+
+	i = 0;
+	rbnode = rb_first(&diff_tree);
+	while (rbnode != NULL) {
+		int idx = diff_order[i];
+
+		node = rb_entry(rbnode, typeof(*node), sort_link);
+
+		if (idx >= 0)
+			TEST_STREQ(node->name, orig_name[idx]);
+		else
+			TEST_STREQ(node->name, pair_name[-idx - 1]);
+
+		TEST_EQ(node->pair->total.sum - node->total.sum, diff_total[i]);
+
+		rbnode = rb_next(rbnode);
+		i++;
+	}
+	TEST_EQ(i, 4);
+
+	destroy_diff_nodes(&diff_tree);
+	TEST_EQ(RB_EMPTY_ROOT(&diff_tree), true);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */

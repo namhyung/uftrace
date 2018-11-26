@@ -147,7 +147,7 @@ static void build_function_tree(struct uftrace_data *handle,
 	add_remaining_fstack(handle, root);
 }
 
-static void print_and_delete(struct rb_root *root, void *arg,
+static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 			     void (*print_func)(struct uftrace_report_node *, void *))
 {
 	while (!RB_EMPTY_ROOT(root)) {
@@ -157,7 +157,11 @@ static void print_and_delete(struct rb_root *root, void *arg,
 		n = rb_first(root);
 		rb_erase(n, root);
 
-		node = rb_entry(n, typeof(*node), link);
+		if (sorted)
+			node = rb_entry(n, typeof(*node), sort_link);
+		else
+			node = rb_entry(n, typeof(*node), name_link);
+
 		print_func(node, arg);
 		free(node);
 	}
@@ -197,13 +201,14 @@ static void print_function(struct uftrace_report_node *node, void *unused)
 
 static void report_functions(struct uftrace_data *handle, struct opts *opts)
 {
-	struct rb_root root = RB_ROOT;
+	struct rb_root name_root = RB_ROOT;
+	struct rb_root sort_root = RB_ROOT;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
 	const char line[] = "=================================================";
 
-	build_function_tree(handle, &root, opts);
-	report_calc_avg(&root);
-	report_sort_nodes(&root);
+	build_function_tree(handle, &name_root, opts);
+	report_calc_avg(&name_root);
+	report_sort_nodes(&name_root, &sort_root);
 
 	if (uftrace_done)
 		return;
@@ -217,7 +222,7 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 
 	pr_out(f_format, line, line, line, maxlen, line);
 
-	print_and_delete(&root, NULL, print_function);
+	print_and_delete(&sort_root, true, NULL, print_function);
 }
 
 static struct sym * find_task_sym(struct uftrace_data *handle,
@@ -311,13 +316,13 @@ static void report_threads(struct uftrace_data *handle, struct opts *opts)
 	pr_out(t_format, "TID", "Run time", "Num funcs", maxlen, "Start function");
 	pr_out(t_format, line, line, line, maxlen, line);
 
-	print_and_delete(&task_tree, handle, print_thread);
+	print_and_delete(&task_tree, false, handle, print_thread);
 }
 
 struct diff_data {
 	char				*dirname;
 	struct rb_root			root;
-	struct uftrace_data	handle;
+	struct uftrace_data		handle;
 };
 
 #define NODATA "-"
@@ -518,12 +523,12 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	       maxlen, "Function");
 	pr_out(formats[f_idx], line, line, line, maxlen, line);
 
-	print_and_delete(&diff_tree, NULL, print_function_diff);
+	print_and_delete(&diff_tree, true, NULL, print_function_diff);
 
 out:
 	destroy_diff_nodes(&diff_tree);
-	print_and_delete(&base_tree, NULL, print_nothing);
-	print_and_delete(&pair_tree, NULL, print_nothing);
+	print_and_delete(&base_tree, false, NULL, print_nothing);
+	print_and_delete(&pair_tree, false, NULL, print_nothing);
 	close_data_file(&dummy_opts, &data.handle);
 }
 

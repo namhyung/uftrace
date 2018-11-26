@@ -22,7 +22,8 @@ struct uftrace_report_node {
 	struct report_time_stat 	total;
 	struct report_time_stat 	self;
 	unsigned long			call;
-	struct rb_node			link;
+	struct rb_node			name_link;
+	struct rb_node			sort_link;
 
 	/* used by diff */
 	struct uftrace_report_node	*pair;
@@ -51,7 +52,7 @@ void report_calc_avg(struct rb_root *root);
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node);
 
 int report_setup_sort(const char *sort_keys);
-void report_sort_nodes(struct rb_root *root);
+void report_sort_nodes(struct rb_root *name_root, struct rb_root *sort_root);
 
 int report_setup_diff(const char *key_str);
 void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
