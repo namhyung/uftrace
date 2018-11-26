@@ -133,7 +133,7 @@ static const char *help[] = {
 	"ARROW         Navigation",
 	"PgUp/Dn",
 	"Home/End",
-	"Enter         Select/Fold",
+	"Enter         Fold/unfold graph or Select session",
 	"G             Show (full) call graph",
 	"g             Show call graph for this function",
 	"R             Show uftrace report",
