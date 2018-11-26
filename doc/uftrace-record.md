@@ -78,7 +78,7 @@ OPTIONS
     due to concurrent (first) accesses.  It is not meaningful to use this option
     with the `--no-libcall` option.
 
-\--nest-libcall
+-l, \--nest-libcall
 :   Trace function calls between libraries.  By default, uftrace only record
     library call from the main executable.  Implies `--force`.
 
