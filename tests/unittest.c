@@ -218,6 +218,8 @@ int main(int argc, char *argv[])
 	size_t i, test_num = 0;
 	int c;
 
+	setup_color(COLOR_OFF);
+
 	if (setup_unit_test(&test_cases, &test_num) < 0) {
 		printf("Cannot run unit tests - failed to load test cases\n");
 		return -1;
