@@ -206,8 +206,10 @@ int report_setup_sort(const char *key_str)
 			break;
 		}
 
-		if (i == ARRAY_SIZE(all_sort_keys))
-			return -1;
+		if (i == ARRAY_SIZE(all_sort_keys)) {
+			count = -1;
+			break;
+		}
 	}
 	strv_free(&keys);
 
@@ -404,8 +406,10 @@ int report_setup_diff(const char *key_str)
 			break;
 		}
 
-		if (i == ARRAY_SIZE(all_diff_keys))
-			return -1;
+		if (i == ARRAY_SIZE(all_diff_keys)) {
+			count = -1;
+			break;
+		}
 	}
 	strv_free(&keys);
 
