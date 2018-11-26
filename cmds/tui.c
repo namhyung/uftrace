@@ -36,8 +36,6 @@ struct tui_graph_node {
 
 struct tui_report_node {
 	struct uftrace_report_node n;
-	struct rb_node name_link;
-	struct rb_node sort_link;
 	struct list_head head; // links tui_graph_node.link
 };
 
@@ -80,7 +78,8 @@ struct tui_window {
 struct tui_report {
 	struct tui_window win;
 	struct list_head list;
-	struct rb_root tree;
+	struct rb_root name_tree;
+	struct rb_root sort_tree;
 	int nr_sess;
 	int nr_func;
 };
@@ -307,7 +306,7 @@ static void tui_setup(struct uftrace_data *handle, struct opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
 
-	tui_report.tree = RB_ROOT;
+	tui_report.name_tree = RB_ROOT;
 
 	setup_field(&graph_output_fields, opts, setup_default_graph_field,
 		    graph_field_table, ARRAY_SIZE(graph_field_table));
@@ -365,12 +364,12 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 	struct tui_report_node *node;
 	struct tui_graph_node *graph_node;
 
-	node = (struct tui_report_node *)report_find_node(&tui_report.tree,
+	node = (struct tui_report_node *)report_find_node(&tui_report.name_tree,
 							  symname);
 	if (node == NULL) {
 		node = xzalloc(sizeof(*node));
 		INIT_LIST_HEAD(&node->head);
-		report_add_node(&tui_report.tree, symname, (void *)node);
+		report_add_node(&tui_report.name_tree, symname, (void *)node);
 		tui_report.nr_func++;
 	}
 
@@ -1204,7 +1203,7 @@ static struct tui_report * tui_report_init(struct opts *opts)
 	struct tui_window *win = &tui_report.win;
 
 	report_setup_sort("total");
-	report_sort_nodes(&tui_report.tree);
+	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 	tui_window_init(win, &report_ops);
 
 	return &tui_report;
@@ -1217,31 +1216,31 @@ static void tui_report_finish(void)
 static void * win_top_report(struct tui_window *win, bool update)
 {
 	struct tui_report *report = (struct tui_report *)win;
-	struct rb_node *node = rb_first(&report->tree);
+	struct rb_node *node = rb_first(&report->sort_tree);
 
-	return rb_entry(node, struct tui_report_node, n.link);
+	return rb_entry(node, struct tui_report_node, n.sort_link);
 }
 
 static void * win_prev_report(struct tui_window *win, void *node, bool update)
 {
 	struct tui_report_node *curr = node;
-	struct rb_node *rbnode = rb_prev(&curr->n.link);
+	struct rb_node *rbnode = rb_prev(&curr->n.sort_link);
 
 	if (rbnode == NULL)
 		return NULL;
 
-	return rb_entry(rbnode, struct tui_report_node, n.link);
+	return rb_entry(rbnode, struct tui_report_node, n.sort_link);
 }
 
 static void * win_next_report(struct tui_window *win, void *node, bool update)
 {
 	struct tui_report_node *curr = node;
-	struct rb_node *rbnode = rb_next(&curr->n.link);
+	struct rb_node *rbnode = rb_next(&curr->n.sort_link);
 
 	if (rbnode == NULL)
 		return NULL;
 
-	return rb_entry(rbnode, struct tui_report_node, n.link);
+	return rb_entry(rbnode, struct tui_report_node, n.sort_link);
 }
 
 static bool win_search_report(struct tui_window *win, void *node, char *str)
@@ -1602,7 +1601,7 @@ static bool win_enter_session(struct tui_window *win, void *node)
 	/* get first child (= actual function) */
 	ugnode = list_first_entry(&ugnode->head, typeof(*ugnode), list);
 
-	func = (void *)report_find_node(&tui_report.tree, ugnode->name);
+	func = (void *)report_find_node(&tui_report.name_tree, ugnode->name);
 
 	build_partial_graph(func, get_current_graph(node, NULL));
 	return true;
@@ -2311,7 +2310,7 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				struct tui_report_node *func;
 				struct tui_graph_node *curr = win->curr;
 
-				func = (void *)report_find_node(&report->tree,
+				func = (void *)report_find_node(&report->name_tree,
 								curr->n.name);
 				build_partial_graph(func, graph);
 			}

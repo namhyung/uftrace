@@ -42,7 +42,7 @@ find_or_create_node(struct rb_root *root, const char *name,
 		int cmp;
 
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), name_link);
 
 		cmp = strcmp(iter->name, name);
 		if (cmp == 0)
@@ -61,8 +61,8 @@ find_or_create_node(struct rb_root *root, const char *name,
 	init_time_stat(&node->total);
 	init_time_stat(&node->self);
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->name_link, parent, p);
+	rb_insert_color(&node->name_link, root);
 
 	return node;
 }
@@ -83,7 +83,7 @@ void report_add_node(struct rb_root *root, const char *name,
 /* NOTE: this function does not free 'node' itself */
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 {
-	rb_erase(&node->link, root);
+	rb_erase(&node->name_link, root);
 	free(node->name);
 }
 
@@ -114,7 +114,7 @@ void report_calc_avg(struct rb_root *root)
 	struct rb_node *n = rb_first(root);
 
 	while (n) {
-		node = rb_entry(n, typeof(*node), link);
+		node = rb_entry(n, typeof(*node), name_link);
 
 		finish_time_stat(&node->total, node->call);
 		finish_time_stat(&node->self, node->call);
@@ -235,7 +235,7 @@ static void insert_node(struct rb_root *root, struct uftrace_report_node *node)
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), sort_link);
 
 		if (cmp_node(iter, node) < 0)
 			p = &parent->rb_left;
@@ -243,26 +243,25 @@ static void insert_node(struct rb_root *root, struct uftrace_report_node *node)
 			p = &parent->rb_right;
 	}
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, root);
 }
 
-void report_sort_nodes(struct rb_root *root)
+void report_sort_nodes(struct rb_root *name_root, struct rb_root *sort_root)
 {
-	struct rb_root tmp = RB_ROOT;
-	struct rb_node *n = rb_first(root);
+	struct rb_node *n = rb_first(name_root);
+
+	*sort_root = RB_ROOT;
 
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *node;
 
-		node = rb_entry(n, typeof(*node), link);
-		rb_erase(n, root);
+		/* keep node in the name tree */
+		node = rb_entry(n, typeof(*node), name_link);
 
-		insert_node(&tmp, node);
-		n = rb_first(root);
+		insert_node(sort_root, node);
+		n = rb_next(n);
 	}
-
-	*root = tmp;
 }
 
 /* diff support */
@@ -436,7 +435,7 @@ static void insert_diff(struct rb_root *root, struct uftrace_report_node *node,
 
 	while (*p) {
 		parent = *p;
-		iter = rb_entry(parent, typeof(*iter), link);
+		iter = rb_entry(parent, typeof(*iter), sort_link);
 
 		if (cmp_diff(iter, node, diff_column) < 0)
 			p = &parent->rb_left;
@@ -444,8 +443,8 @@ static void insert_diff(struct rb_root *root, struct uftrace_report_node *node,
 			p = &parent->rb_right;
 	}
 
-	rb_link_node(&node->link, parent, p);
-	rb_insert_color(&node->link, root);
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, root);
 }
 
 void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
@@ -458,7 +457,7 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *iter, *pair, *node;
 
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), name_link);
 		pair = report_find_node(pair_root, iter->name);
 
 		if (pair == NULL)
@@ -480,7 +479,7 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	while (n && !uftrace_done) {
 		struct uftrace_report_node *iter, *node;
 
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), name_link);
 		if (iter->pair == NULL) {
 			/* node->name is swallow-copied, do not free */
 			node = xzalloc(sizeof(*node));
@@ -503,7 +502,7 @@ void destroy_diff_nodes(struct rb_root *diff_root)
 		struct uftrace_report_node *iter;
 
 		rb_erase(n, diff_root);
-		iter = rb_entry(n, typeof(*iter), link);
+		iter = rb_entry(n, typeof(*iter), sort_link);
 		free(iter);
 
 		n = rb_first(diff_root);
