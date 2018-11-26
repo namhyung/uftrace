@@ -154,8 +154,8 @@ void *rawmemchr(const void *s, int c);
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int dprintf(int fd, const char *format, ...);
-int sprintf(char *str, const char *format, ...);
-int snprintf(char *str, size_t size, const char *format, ...);
+int sprintf(void *dest, const char *format, ...);
+int snprintf(void *dest, size_t size, const char *format, ...);
 
 int fputc(char c, FILE *stream);
 int fputs(const char *s, FILE *stream);
@@ -164,7 +164,7 @@ int putchar(char c);
 int puts(const char *s);
 
 char fgetc(FILE *stream);
-char *fgets(char *s, int size, FILE *stream);
+char *fgets(void *s, int size, FILE *stream);
 char getc(FILE *stream);
 char getchar(void);
 char ungetc(char c, FILE *stream);
