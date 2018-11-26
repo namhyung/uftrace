@@ -1274,10 +1274,20 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 			 tui_search, win->search_count, "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct tui_report *report = (struct tui_report *)win;
+		struct debug_location *dloc;
 
-		snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
-			 handle->dirname, report->nr_sess, report->nr_func);
+		dloc = win->ops->location(win, win->curr);
+
+		if (dloc != NULL && dloc->file != NULL) {
+			snprintf(buf, COLS, "uftrace report: %s [line:%d]",
+				 dloc->file->name, dloc->line);
+		}
+		else {
+			struct tui_report *report = (struct tui_report *)win;
+
+			snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
+				 handle->dirname, report->nr_sess, report->nr_func);
+		}
 	}
 	buf[COLS] = '\0';
 
