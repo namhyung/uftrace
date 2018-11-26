@@ -92,9 +92,7 @@ enum options {
 	OPT_keep_pid,
 	OPT_diff_policy,
 	OPT_event_full,
-	OPT_nest_libcall,
 	OPT_record,
-	OPT_auto_args,
 	OPT_libname,
 	OPT_match_type,
 	OPT_no_randomize_addr,
@@ -168,7 +166,7 @@ static struct argp_option uftrace_options[] = {
 	{ "script", 'S', "SCRIPT", 0, "Run a given SCRIPT in function entry and exit" },
 	{ "diff-policy", OPT_diff_policy, "POLICY", 0, "Control diff report policy (default: 'abs,compact,no-percent')" },
 	{ "event-full", OPT_event_full, 0, 0, "Show all events outside of function" },
-	{ "nest-libcall", OPT_nest_libcall, 0, 0, "Show nested library calls" },
+	{ "nest-libcall", 'l', 0, 0, "Show nested library calls" },
 	{ "record", OPT_record, 0, 0, "Record a new trace data before running command" },
 	{ "auto-args", 'a', 0, 0, "Show arguments and return value of known functions" },
 	{ "libname", OPT_libname, 0, 0, "Show libname name with symbol name" },
@@ -470,6 +468,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->auto_args = true;
 		break;
 
+	case 'l':
+		/* --nest-libcall implies --force option */
+		opts->force = true;
+		opts->nest_libcall = true;
+		break;
+
 	case 'f':
 		opts->fields = arg;
 		break;
@@ -726,12 +730,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_event_full:
 		opts->event_skip_out = false;
-		break;
-
-	case OPT_nest_libcall:
-		/* --nest-libcall implies --force option */
-		opts->force = true;
-		opts->nest_libcall = true;
 		break;
 
 	case OPT_record:
