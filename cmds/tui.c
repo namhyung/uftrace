@@ -2312,6 +2312,8 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 
 				func = (void *)report_find_node(&report->name_tree,
 								curr->n.name);
+				if (func == NULL)
+					break;
 				build_partial_graph(func, graph);
 			}
 			else if (win == &report->win) {
