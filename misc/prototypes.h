@@ -26,6 +26,8 @@ void qsort(void *base, size_t nmemb, size_t size, funcptr_t compar);
 void qsort_r(void *base, size_t nmemb, size_t size, funcptr_t compar, void *arg);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, funcptr_t compar);
 
+void exit(int status);
+
 #include <sys/mman.h>
 enum uft_mmap_prot { PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC = 4, };
 enum uft_mmap_flag {
@@ -134,10 +136,10 @@ size_t strspn(const char *s, const char *accept);
 size_t strcspn(const char *s, const char *reject);
 char* strsep(char **stringp, const char *delim);
 
-void *memcpy(void *dest, const void *src, size_t n);
-void *memset(void *s, int c, size_t n);
+void memcpy(void *dest, const void *src, size_t n);
+void memset(void *s, int c, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
-void *memmove(void *dest, const void *src, size_t n);
+void memmove(void *dest, const void *src, size_t n);
 
 void *memchr(const void *s, int c, size_t n);
 void *memrchr(const void *s, int c, size_t n);
@@ -152,8 +154,8 @@ void *rawmemchr(const void *s, int c);
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int dprintf(int fd, const char *format, ...);
-int sprintf(char *str, const char *format, ...);
-int snprintf(char *str, size_t size, const char *format, ...);
+int sprintf(void *dest, const char *format, ...);
+int snprintf(void *dest, size_t size, const char *format, ...);
 
 int fputc(char c, FILE *stream);
 int fputs(const char *s, FILE *stream);
@@ -162,7 +164,7 @@ int putchar(char c);
 int puts(const char *s);
 
 char fgetc(FILE *stream);
-char *fgets(char *s, int size, FILE *stream);
+char *fgets(void *s, int size, FILE *stream);
 char getc(FILE *stream);
 char getchar(void);
 char ungetc(char c, FILE *stream);
@@ -222,6 +224,10 @@ enum uft_access_flag {
 	F_OK = 0, X_OK = 1, W_OK = 2, R_OK = 4,
 };
 int access(const char *pathname, enum uft_access_flag mode);
+
+int unlink(const char *pathname);
+int unlinkat(int dirfd, const char *pathname, int flags);
+int mkdir(const char *pathname, mode_t mode);
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -337,6 +343,7 @@ enum uft_signal {
 	SIGRTMIN = 32, SIGRTMAX = 64,
 };
 int kill(pid_t pid, enum uft_signal sig);
+int raise(enum uft_signal sig);
 long signal(enum uft_signal sig, funcptr_t handler);
 int sigaction(enum uft_signal signum, const struct sigaction *act, struct sigaction *oldact);
 int sigemptyset(sigset_t *set);
@@ -377,4 +384,9 @@ long syscall(long number, ...);
 
 #include <sys/ioctl.h>
 int ioctl(int fd, unsigned long request, ...);
+
+#include <libintl.h>
+char *gettext (const char * msgid);
+char *dgettext (const char * domainname, const char * msgid);
+char *dcgettext (const char * domainname, const char * msgid, int category);
 ////////////////////////////////////////////////////////////////////////////////
