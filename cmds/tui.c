@@ -366,6 +366,10 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 	struct tui_report_node *node;
 	struct tui_graph_node *graph_node;
 
+	/* graph is not set probably due to filters (or error?) */
+	if (tg->node == NULL)
+		return;
+
 	node = (struct tui_report_node *)report_find_node(&tui_report.name_tree,
 							  symname);
 	if (node == NULL) {
