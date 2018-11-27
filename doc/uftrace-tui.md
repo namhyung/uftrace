@@ -114,10 +114,11 @@ Following keys can be used in the TUI window:
  * `Up`, `Down`:          Move cursor up/down
  * `PageUp`, `PageDown`:  Move page up/down
  * `Home`, `End`:         Move to the first/last entry
- * `Enter`:               Select.  Fold/Unfold current function (in graph mode)
+ * `Enter`:               Fold/unfold graph or Select session
  * `G`:                   Show full graph of the current session
  * `g`:                   Show backtrace and call graph of the current function
  * `R`:                   Show uftrace report
+ * `r`:                   Show uftrace report of the current function
  * `I`:                   Show uftrace info
  * `S`:                   Show session list
  * `O`:                   Open editor for current function
@@ -126,6 +127,7 @@ Following keys can be used in the TUI window:
  * `u`:                   Move up to parent (in graph mode)
  * `l`:                   Move to the longest executed child (in graph mode)
  * `j`/`k`:               Move cursor up/down (like vi)
+ * `z`:                   Set current line to the center of screen
  * `/`:                   Start search
  * `<`/`P`:               Search previous match
  * `>`/`N`:               Search next match

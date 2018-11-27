@@ -133,10 +133,11 @@ static const char *help[] = {
 	"ARROW         Navigation",
 	"PgUp/Dn",
 	"Home/End",
-	"Enter         Select/Fold",
+	"Enter         Fold/unfold graph or Select session",
 	"G             Show (full) call graph",
 	"g             Show call graph for this function",
 	"R             Show uftrace report",
+	"r             Show uftrace report for this function",
 	"I             Show uftrace info",
 	"S             Change session",
 	"O             Open editor",
@@ -145,6 +146,7 @@ static const char *help[] = {
 	"u             Move up to parent",
 	"l             Move to the longest executed child",
 	"j/k           Move down/up",
+	"z             Set current line to the center of screen",
 	"/             Search",
 	"</>/N/P       Search next/prev",
 	"v             Show debug message",
@@ -1272,10 +1274,20 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 			 tui_search, win->search_count, "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct tui_report *report = (struct tui_report *)win;
+		struct debug_location *dloc;
 
-		snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
-			 handle->dirname, report->nr_sess, report->nr_func);
+		dloc = win->ops->location(win, win->curr);
+
+		if (dloc != NULL && dloc->file != NULL) {
+			snprintf(buf, COLS, "uftrace report: %s [line:%d]",
+				 dloc->file->name, dloc->line);
+		}
+		else {
+			struct tui_report *report = (struct tui_report *)win;
+
+			snprintf(buf, COLS, "uftrace report: %s (%d sessions, %d functions)",
+				 handle->dirname, report->nr_sess, report->nr_func);
+		}
 	}
 	buf[COLS] = '\0';
 
@@ -1941,6 +1953,17 @@ static void tui_window_set_middle_next(struct tui_window *win, void *target)
 	}
 }
 
+static void tui_window_set_middle(struct tui_window *win)
+{
+	int offset_from_top = win->curr_index - win->top_index;
+	int offset_half = LINES / 2;
+
+	if (offset_from_top < offset_half - 2)
+		tui_window_set_middle_prev(win, win->curr);
+	else if (offset_from_top > offset_half + 1)
+		tui_window_set_middle_next(win, win->curr);
+}
+
 static bool tui_window_can_search(struct tui_window *win)
 {
 	return win->ops->search != NULL;
@@ -2218,6 +2241,12 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
+static inline void cancel_search()
+{
+	free(tui_search);
+	tui_search = NULL;
+}
+
 static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 {
 	int key = 0;
@@ -2249,22 +2278,28 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			break;
 		case KEY_UP:
 		case 'k':
+			cancel_search();
 			tui_window_move_up(win);
 			break;
 		case KEY_DOWN:
 		case 'j':
+			cancel_search();
 			tui_window_move_down(win);
 			break;
 		case KEY_PPAGE:
+			cancel_search();
 			tui_window_page_up(win);
 			break;
 		case KEY_NPAGE:
+			cancel_search();
 			tui_window_page_down(win);
 			break;
 		case KEY_HOME:
+			cancel_search();
 			tui_window_move_home(win);
 			break;
 		case KEY_END:
+			cancel_search();
 			tui_window_move_end(win);
 			break;
 		case KEY_ENTER:
@@ -2277,9 +2312,11 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				switch ((long)cmd->data) {
 				case TUI_SESS_REPORT:
 					win = &report->win;
+					tui_window_move_home(win);
 					break;
 				case TUI_SESS_INFO:
 					win = &info->win;
+					tui_window_move_home(win);
 					break;
 				case TUI_SESS_HELP:
 					tui_window_help();
@@ -2290,13 +2327,13 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 					/* change window for the current graph */
 					graph = get_current_graph(win->curr, NULL);
 					win = &graph->win;
+					tui_window_move_home(win);
 					break;
 				}
 			}
 			break;
 		case KEY_ESCAPE:
-			free(tui_search);  /* cancel search */
-			tui_search = NULL;
+			cancel_search();
 			break;
 		case 'G':
 			if (tui_window_change(win, &graph->win)) {
@@ -2330,9 +2367,29 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			full_redraw = true;
 			break;
 		case 'R':
-		case 'r':
 			if (tui_window_change(win, &report->win)) {
 				win = &report->win;
+				tui_window_move_home(win);
+				full_redraw = true;
+			}
+			break;
+		case 'r':
+			if (tui_window_change(win, &report->win)) {
+				struct tui_report_node *func;
+				struct tui_graph_node *graph_curr = win->curr;
+
+				func = (void *)report_find_node(&report->name_tree,
+					       graph_curr->n.name);
+				if (func == NULL)
+					break;
+
+				/* change to report window */
+				win = &report->win;
+
+				/* move focus on the same function */
+				tui_window_move_home(win);
+				tui_window_set_middle_next(win, func);
+
 				full_redraw = true;
 			}
 			break;
@@ -2368,6 +2425,9 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			break;
 		case 'l':
 			full_redraw = tui_window_longest_child(win);
+			break;
+		case 'z':
+			tui_window_set_middle(win);
 			break;
 		case '/':
 			if (tui_window_can_search(win)) {
