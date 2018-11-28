@@ -18,17 +18,19 @@ class TestCase(TestBase):
    2.896 us [28141] |   } /* foo */
    3.017 us [28141] | } /* main */
 """)
+        self.gen_port()
 
     recv_p = None
 
     def pre(self):
-        recv_cmd = '%s recv -d %s' % (TestBase.uftrace_cmd, TDIR)
+        recv_cmd = '%s recv -d %s --port %s' % (TestBase.uftrace_cmd, TDIR, self.port)
         self.recv_p = sp.Popen(recv_cmd.split())
 
         server = '-H 127.0.0.1'
+        port   = '--port %s' % self.port
         option = '-E uftrace:event'
         prog   = 't-' + self.name
-        record_cmd = '%s record %s %s %s' % (TestBase.uftrace_cmd, server, option, prog)
+        record_cmd = '%s record %s %s %s %s' % (TestBase.uftrace_cmd, server, port, option, prog)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

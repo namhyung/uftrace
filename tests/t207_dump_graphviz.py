@@ -8,11 +8,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        currentPath = os.path.dirname(os.path.abspath(__file__))
-        testPath = os.path.join(currentPath, "t-abc")
-        TestBase.__init__(self, 'abc',
-        "digraph \"" + testPath + "\" {" +
-        """
+        TestBase.__init__(self, 'abc', """digraph "%s" {
 
         # Attributes
         splines=ortho;
@@ -27,6 +23,7 @@ class TestCase(TestBase):
         "b" -> "c" [xlabel = "Calls : 1"]
         }
         """)
+        self.result = self.result % os.path.join(self.test_dir, "t-abc")
 
     def pre(self):
         record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)

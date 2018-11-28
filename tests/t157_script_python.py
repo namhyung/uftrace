@@ -21,7 +21,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-F main -S ../scripts/count.py'
+        options = '-F main -S %s/scripts/count.py' % self.basedir
         return '%s script -d %s %s' % (uftrace, TDIR, options)
 
     def sort(self, output):

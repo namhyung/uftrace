@@ -21,19 +21,20 @@ class TestCase(TestBase):
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
 """)
+        self.gen_port()
 
     recv_p = None
 
     def pre(self):
-        recv_cmd = '%s recv -d %s' % (TestBase.uftrace_cmd, TDIR)
+        recv_cmd = '%s recv -d %s --port %s' % (TestBase.uftrace_cmd, TDIR, self.port)
         self.recv_p = sp.Popen(recv_cmd.split())
 
         # recorded but not used
-        record_cmd = '%s record -H %s %s' % (TestBase.uftrace_cmd, 'localhost', 't-abc')
+        record_cmd = '%s record -H %s --port %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, 't-abc')
         sp.call(record_cmd.split())
 
         # use this
-        record_cmd = '%s record -H %s -d %s %s' % (TestBase.uftrace_cmd, 'localhost', TDIR2, 't-abc')
+        record_cmd = '%s record -H %s --port %s -d %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, TDIR2, 't-abc')
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
