@@ -143,6 +143,7 @@ struct uftrace_rstack_list;
 struct uftrace_session;
 struct uftrace_kernel_reader;
 struct uftrace_perf_reader;
+struct uftrace_extern_reader;
 
 struct uftrace_session_link {
 	struct rb_root		root;
@@ -159,6 +160,7 @@ struct uftrace_data {
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
 	struct uftrace_perf_reader *perf;
+	struct uftrace_extern_reader *extn;
 	struct uftrace_task_reader *tasks;
 	struct uftrace_session_link sessions;
 	int nr_tasks;
@@ -213,6 +215,7 @@ struct opts {
 	char *script_file;
 	char *diff_policy;
 	char *caller;
+	char *extern_data;
 	int mode;
 	int idx;
 	int depth;
@@ -549,6 +552,8 @@ enum uftrace_event_id {
 	EVENT_ID_PERF_COMM,
 
 	EVENT_ID_USER	= 1000000U,
+
+	EVENT_ID_EXTERN_DATA = 2000000U,
 };
 
 struct uftrace_event {

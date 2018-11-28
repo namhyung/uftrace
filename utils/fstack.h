@@ -156,4 +156,25 @@ void get_argspec_string(struct uftrace_task_reader *task,
 		        char *args, size_t len,
 		        enum argspec_string_bits str_mode);
 
+#define EXTERN_DATA_MAX  1024
+
+struct uftrace_extern_reader {
+	FILE			*fp;
+	bool			valid;
+	uint64_t		time;
+	char			msg[EXTERN_DATA_MAX];
+	struct uftrace_record	rec;
+};
+
+int setup_extern_data(struct uftrace_data *handle, struct opts *opts);
+int read_extern_data(struct uftrace_extern_reader *extn);
+struct uftrace_record * get_extern_record(struct uftrace_extern_reader *extn,
+					  struct uftrace_record *rec);
+int finish_extern_data(struct uftrace_data *handle);
+
+static inline bool has_extern_data(struct uftrace_data *handle)
+{
+	return handle->extn != NULL;
+}
+
 #endif /* UFTRACE_FSTACK_H */
