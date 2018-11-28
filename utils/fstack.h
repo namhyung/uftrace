@@ -47,6 +47,7 @@ struct uftrace_task_reader {
 	struct uftrace_record ustack;
 	struct uftrace_record kstack;
 	struct uftrace_record estack;
+	struct uftrace_record xstack;
 	struct uftrace_record *rstack;
 	struct uftrace_rstack_list rstack_list;
 	struct uftrace_rstack_list event_list;
@@ -133,6 +134,12 @@ static inline bool is_event_record(struct uftrace_task_reader *task,
 				  struct uftrace_record *rec)
 {
 	return rec == &task->estack;
+}
+
+static inline bool is_extern_record(struct uftrace_task_reader *task,
+				    struct uftrace_record *rec)
+{
+	return rec == &task->xstack;
 }
 
 void setup_fstack_args(char *argspec, char *retspec,
