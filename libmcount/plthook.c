@@ -86,6 +86,21 @@ ALIAS_DECL(__gnu_mcount_nc);
 ALIAS_DECL(__cyg_profile_func_enter);
 ALIAS_DECL(__cyg_profile_func_exit);
 
+#define SKIP_SYM(func)  { #func, &uftrace_ ## func }
+
+const struct plthook_skip_symbol plt_skip_syms[] = {
+	SKIP_SYM(mcount),
+	SKIP_SYM(_mcount),
+	SKIP_SYM(__fentry__),
+	SKIP_SYM(__gnu_mcount_nc),
+	SKIP_SYM(__cyg_profile_func_enter),
+	SKIP_SYM(__cyg_profile_func_exit),
+};
+size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
+
+#undef SKIP_SYM
+#undef ALIAS_DECL
+
 /*
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
@@ -95,35 +110,22 @@ static void restore_plt_functions(struct plthook_data *pd)
 	unsigned i, k;
 	struct symtab *dsymtab = &pd->dsymtab;
 
-#define SKIP_FUNC(func)  { #func, &uftrace_ ## func }
-
-	struct {
-		const char *name;
-		void *addr;
-	} skip_list[] = {
-		SKIP_FUNC(mcount),
-		SKIP_FUNC(_mcount),
-		SKIP_FUNC(__fentry__),
-		SKIP_FUNC(__gnu_mcount_nc),
-		SKIP_FUNC(__cyg_profile_func_enter),
-		SKIP_FUNC(__cyg_profile_func_exit),
-	};
-
-#undef SKIP_FUNC
-
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		bool skipped = false;
 		unsigned long plthook_addr;
 		unsigned long resolved_addr;
 		struct sym *sym = dsymtab->sym_names[i];
 
-		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
-			if (strcmp(sym->name, skip_list[k].name))
+		for (k = 0; k < plt_skip_nr; k++) {
+			const struct plthook_skip_symbol *skip_sym;
+
+			skip_sym = &plt_skip_syms[k];
+			if (strcmp(sym->name, skip_sym->name))
 				continue;
 
-			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
+			overwrite_pltgot(pd, 3 + i, skip_sym->addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
-				i, skip_list[k].name, skip_list[k].addr);
+				i, skip_sym->name, skip_sym->addr);
 
 			skipped = true;
 			break;
@@ -316,8 +318,6 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 
 /* functions should skip PLT hooking */
 static const char *skip_syms[] = {
-	"__cyg_profile_func_enter",
-	"__cyg_profile_func_exit",
 	"_mcleanup",
 	"__libc_start_main",
 	"__cxa_throw",

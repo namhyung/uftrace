@@ -83,6 +83,20 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	for (i = 0; i < pd->dsymtab.nr_sym; i++) {
 		uint32_t pcrel;
 		Elf64_Rela *rela;
+		struct sym *sym;
+		unsigned k;
+		bool skip = false;
+
+		sym = &pd->dsymtab.sym[i];
+
+		for (k = 0; k < plt_skip_nr; k++) {
+			if (!strcmp(sym->name, plt_skip_syms[k].name)) {
+				skip = true;
+				break;
+			}
+		}
+		if (skip)
+			continue;
 
 		/* copy trampoline instructions */
 		memcpy(tramp, tramp_insns, TRAMP_ENT_SIZE);
@@ -94,7 +108,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		pcrel = trampoline - (tramp + TRAMP_PCREL_JMP);
 		memcpy(tramp + TRAMP_JMP_OFFSET, &pcrel, sizeof(pcrel));
 
-		rela = (void*)pd->dsymtab.sym[i].addr;
+		rela = (void*)sym->addr;
 		/* save resolved address in GOT */
 		memcpy(&pd->resolved_addr[i], (void *)rela->r_offset + offset,
 		       sizeof(long));
