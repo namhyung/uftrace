@@ -444,6 +444,44 @@ uint64_t parse_time(char *arg, int limited_digits)
 	return val;
 }
 
+uint64_t parse_timestamp(char *arg)
+{
+	char *sep;
+	unsigned long tmp;
+	uint64_t ts;
+	int len;
+
+	tmp = strtoul(arg, &sep, 0);
+	ts = tmp * NSEC_PER_SEC;
+
+	if (*sep == '.') {
+		arg = sep + 1;
+		tmp = strtoul(arg, &sep, 0);
+
+		len = 0;
+		while (isdigit(*arg)) {
+			arg++;
+			len++;
+		}
+
+		/* if resolution is lower than nsec */
+		while (len < 9) {
+			tmp *= 10;
+			len++;
+		}
+
+		/* if resolution is higher than nsec */
+		while (len > 9) {
+			tmp /= 10;
+			len--;
+		}
+
+		ts += tmp;
+	}
+
+	return ts;
+}
+
 /**
  * strjoin - join two strings with a delimiter
  * @left:  string buffer to join (dynamic allocated, can be NULL)
