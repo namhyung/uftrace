@@ -102,6 +102,14 @@ ifeq ($(COVERAGE), 1)
   LIB_LDFLAGS   += --coverage
 endif
 
+ifeq ($(ASAN), 1)
+  UFTRACE_CFLAGS    += -O0 -g -fsanitize=address
+  DEMANGLER_CFLAGS  += -O0 -g -fsanitize=address
+  SYMBOLS_CFLAGS    += -O0 -g -fsanitize=address
+  TRACEEVENT_CFLAGS += -O0 -g -fsanitize=address
+  TEST_CFLAGS       += -O0 -g -fsanitize=address
+endif
+
 export UFTRACE_CFLAGS LIB_CFLAGS TEST_CFLAGS TEST_LDFLAGS
 
 VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
