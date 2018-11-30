@@ -881,8 +881,12 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	if (unlikely(name == NULL))
 		return DWARF_CB_OK;
 
-	/* double-check symbol table has same info */
-	sym = find_sym(bd->symtab, offset);
+	/*
+	 * double-check symbol table has same info.
+	 * we add 1 to the offset because of ARM(THUMB) symbols
+	 * but DWARF doesn't know about it.
+	 */
+	sym = find_sym(bd->symtab, offset + 1);
 	if (sym == NULL || !match_name(sym, name, needs_free)) {
 		pr_dbg2("skip unknown debug info: %s / %s (%lx)\n",
 			sym ? sym->name : "no name", name, offset);
@@ -899,7 +903,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 			continue;
 
 		if (get_retspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->rets, name, offset,
+			add_debug_entry(&bd->dinfo->rets, name, sym->addr,
 					ad.argspec);
 		}
 
@@ -913,7 +917,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 			continue;
 
 		if (get_argspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->args, name, offset,
+			add_debug_entry(&bd->dinfo->args, name, sym->addr,
 					ad.argspec);
 		}
 
