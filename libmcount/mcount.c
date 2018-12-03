@@ -85,9 +85,6 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 /* tree of trigger actions */
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
-/* number of active thread running mcount code */
-static int mcount_active;
-
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
 
@@ -291,6 +288,35 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 	}
 }
 
+static void mcount_trace_finish(bool send_msg)
+{
+	static pthread_mutex_t finish_lock = PTHREAD_MUTEX_INITIALIZER;
+	static bool trace_finished = false;
+
+	pthread_mutex_lock(&finish_lock);
+	if (trace_finished)
+		goto unlock;
+
+	/* dtor for script support */
+	if (SCRIPT_ENABLED && script_str)
+		script_uftrace_end();
+
+	/* notify to uftrace that we're finished */
+	if (send_msg)
+		uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
+
+	if (pfd != -1) {
+		close(pfd);
+		pfd = -1;
+	}
+
+	trace_finished = true;
+	pr_dbg("mcount trace finished\n");
+
+unlock:
+	pthread_mutex_unlock(&finish_lock);
+}
+
 /* to be used by pthread_create_key() */
 static void mtd_dtor(void *arg)
 {
@@ -299,6 +325,9 @@ static void mtd_dtor(void *arg)
 
 	if (mtdp->rstack == NULL)
 		return;
+
+	if (mcount_should_stop())
+		mcount_trace_finish(true);
 
 	/* this thread is done, do not enter anymore */
 	mtdp->recursion_marker = true;
@@ -320,36 +349,13 @@ static void mtd_dtor(void *arg)
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
-static void mcount_trace_finish(void)
-{
-	static volatile bool trace_finished;
-
-	if (trace_finished)
-		return;
-
-	/* dtor for script support */
-	if (SCRIPT_ENABLED && script_str)
-		script_uftrace_end();
-
-	if (pfd != -1) {
-		close(pfd);
-		pfd = -1;
-	}
-
-	trace_finished = true;
-}
-
 bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force)
 {
 	if (unlikely(mtdp->recursion_marker))
 		return false;
 
-	__sync_add_and_fetch(&mcount_active, 1);
-
-	if (!force && unlikely(mcount_should_stop())) {
+	if (unlikely(mcount_should_stop())) {
 		mtd_dtor(mtdp);
-		if (__sync_sub_and_fetch(&mcount_active, 1) == 0)
-			mcount_trace_finish();
 		return false;
 	}
 
@@ -359,17 +365,10 @@ bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force)
 
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp)
 {
-	int nr_active;
-
 	mtdp->recursion_marker = false;
 
-	nr_active = __sync_sub_and_fetch(&mcount_active, 1);
-
-	if (mcount_should_stop()) {
+	if (mcount_should_stop())
 		mtd_dtor(mtdp);
-		if (nr_active == 0)
-			mcount_trace_finish();
-	}
 }
 
 static struct sigaction old_sigact[2];
@@ -473,6 +472,9 @@ struct mcount_thread_data * mcount_prepare(void)
 	struct mcount_thread_data *mtdp = &mtd;
 	struct uftrace_msg_task tmsg;
 
+	if (unlikely(mcount_should_stop()))
+		return NULL;
+
 	/*
 	 * If an executable implements its own malloc(),
 	 * following recursion could occur
@@ -507,19 +509,10 @@ struct mcount_thread_data * mcount_prepare(void)
 
 static void mcount_finish(void)
 {
-	if (mcount_global_flags & MCOUNT_GFL_FINISH)
-		return;
+	if (!mcount_should_stop())
+		mcount_trace_finish(false);
 
 	mcount_global_flags |= MCOUNT_GFL_FINISH;
-
-	uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
-
-	__sync_synchronize();
-
-	if (mcount_active == 0) {
-		mtd_dtor(&mtd);
-		mcount_trace_finish();
-	}
 }
 
 static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
@@ -682,6 +675,16 @@ skip:
 	symbol_putname(sym, symname);
 }
 
+/* be careful: this can be called from signal handler */
+static void mcount_finish_trigger(void)
+{
+	if (mcount_global_flags & MCOUNT_GFL_FINISH)
+		return;
+
+	/* mark other threads can see the finish flag */
+	mcount_global_flags |= MCOUNT_GFL_FINISH;
+}
+
 /* save current filter state to rstack */
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 				struct mcount_ret_stack *rstack,
@@ -721,7 +724,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_FINISH) {
 			record_trace_data(mtdp, rstack, NULL);
-			mcount_finish();
+			mcount_finish_trigger();
 			return;
 		}
 	}
@@ -993,8 +996,8 @@ unsigned long mcount_exit(long *retval)
 	assert(mtdp != NULL);
 
 	/*
-	 * there's a race with mcount_finish(), but it still needs to get
-	 * the original return address so defer freeing rstack to the end.
+	 * if finish trigger was fired during the call, it already
+	 * restored the original return address for us so just return.
 	 */
 	mcount_guard_recursion(mtdp, true);
 
