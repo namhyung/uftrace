@@ -999,7 +999,8 @@ unsigned long mcount_exit(long *retval)
 	 * if finish trigger was fired during the call, it already
 	 * restored the original return address for us so just return.
 	 */
-	mcount_guard_recursion(mtdp, true);
+	if (!mcount_guard_recursion(mtdp, true))
+		return 0;
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
@@ -1013,6 +1014,9 @@ unsigned long mcount_exit(long *retval)
 		mcount_auto_reset(mtdp);
 
 	mcount_unguard_recursion(mtdp);
+
+	if (unlikely(mcount_should_stop()))
+		retaddr = 0;
 
 	compiler_barrier();
 

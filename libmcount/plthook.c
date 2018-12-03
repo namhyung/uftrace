@@ -812,6 +812,7 @@ out:
 
 	if (!recursion)
 		mcount_unguard_recursion(mtdp);
+
 	return real_addr;
 }
 
@@ -820,15 +821,17 @@ unsigned long plthook_exit(long *retval)
 	unsigned dyn_idx;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
+	unsigned long ret_addr = 0;
 
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
 
 	/*
-	 * there's a race with mcount_finish(), but it still needs to get
-	 * the original return address so defer freeing rstack to the end.
+	 * there's a race with mcount_finish(), if it wins it already
+	 * restored the original return address for us so just return.
 	 */
-	mcount_guard_recursion(mtdp, true);
+	if (!mcount_guard_recursion(mtdp, true))
+		return 0;
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -865,14 +868,19 @@ again:
 	mcount_exit_filter_record(mtdp, rstack, retval);
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
+	ret_addr = rstack->parent_ip;
+
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
 	mcount_unguard_recursion(mtdp);
 
+	if (unlikely(mcount_should_stop()))
+		ret_addr = 0;
+
 	compiler_barrier();
 
 	mtdp->idx--;
-	return rstack->parent_ip;
+	return ret_addr;
 }
