@@ -349,7 +349,7 @@ static void mtd_dtor(void *arg)
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
-bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force)
+bool mcount_guard_recursion(struct mcount_thread_data *mtdp)
 {
 	if (unlikely(mtdp->recursion_marker))
 		return false;
@@ -481,7 +481,7 @@ struct mcount_thread_data * mcount_prepare(void)
 	 *
 	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
 	 */
-	if (!mcount_guard_recursion(mtdp, false))
+	if (!mcount_guard_recursion(mtdp))
 		return NULL;
 
 	compiler_barrier();
@@ -933,7 +933,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp, false))
+		if (!mcount_guard_recursion(mtdp))
 			return -1;
 	}
 
@@ -999,7 +999,7 @@ unsigned long mcount_exit(long *retval)
 	 * if finish trigger was fired during the call, it already
 	 * restored the original return address for us so just return.
 	 */
-	if (!mcount_guard_recursion(mtdp, true))
+	if (!mcount_guard_recursion(mtdp))
 		return 0;
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
@@ -1041,7 +1041,7 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp, false))
+		if (!mcount_guard_recursion(mtdp))
 			return -1;
 	}
 
@@ -1111,7 +1111,7 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp, false))
+	if (!mcount_guard_recursion(mtdp))
 		return;
 
 	/*
@@ -1155,7 +1155,7 @@ void xray_entry(unsigned long parent, unsigned long child,
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp, false))
+		if (!mcount_guard_recursion(mtdp))
 			return;
 	}
 
@@ -1212,7 +1212,7 @@ void xray_exit(long *retval)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp, false))
+	if (!mcount_guard_recursion(mtdp))
 		return;
 
 	/*
@@ -1276,7 +1276,7 @@ static void atfork_child_handler(void)
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp, false))
+		if (!mcount_guard_recursion(mtdp))
 			return;
 	}
 

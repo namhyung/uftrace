@@ -144,7 +144,7 @@ static inline void mcount_restore_arch_context(struct mcount_arch_context *ctx) 
 
 extern TLS struct mcount_thread_data mtd;
 
-bool mcount_guard_recursion(struct mcount_thread_data *mtdp, bool force);
+bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 
 extern uint64_t mcount_threshold;  /* nsec */

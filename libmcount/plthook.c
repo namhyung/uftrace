@@ -715,7 +715,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp, false))
+		if (!mcount_guard_recursion(mtdp))
 			goto out;
 	}
 
@@ -830,7 +830,7 @@ unsigned long plthook_exit(long *retval)
 	 * there's a race with mcount_finish(), if it wins it already
 	 * restored the original return address for us so just return.
 	 */
-	if (!mcount_guard_recursion(mtdp, true))
+	if (!mcount_guard_recursion(mtdp))
 		return 0;
 
 again:
