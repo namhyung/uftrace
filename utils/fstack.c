@@ -213,6 +213,7 @@ setup:
 struct filter_data {
 	char *str;
 	enum uftrace_pattern_type patt_type;
+	bool is_lp64;
 };
 
 static int setup_filters(struct uftrace_session *s, void *arg)
@@ -229,7 +230,8 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 	struct filter_data *trigger = arg;
 
 	uftrace_setup_trigger(trigger->str, &s->symtabs, &s->filters,
-			      &fstack_filter_mode, true, trigger->patt_type);
+			      &fstack_filter_mode, true, trigger->patt_type,
+			      trigger->is_lp64);
 	return 0;
 }
 
@@ -261,6 +263,7 @@ static int count_filters(struct uftrace_session *s, void *arg)
  * @trigger_str - trigger definitions
  * @caller_str  - caller filter symbol names
  * @patt_type   - filter match pattern (regex or glob)
+ * @is_lp64     - whether default argument size is 64bit
  *
  * This function sets up the symbol filters and triggers using following syntax:
  *   filter_strs = filter | filter ";" filter_strs
@@ -271,12 +274,14 @@ static int count_filters(struct uftrace_session *s, void *arg)
 static int setup_fstack_filters(struct uftrace_data *handle,
 				char *filter_str, char *trigger_str,
 				char *caller_str,
-				enum uftrace_pattern_type patt_type)
+				enum uftrace_pattern_type patt_type,
+				bool is_lp64)
 {
 	int count = 0;
 	struct uftrace_session_link *sessions = &handle->sessions;
 	struct filter_data data = {
 		.patt_type = patt_type,
+		.is_lp64 = is_lp64,
 	};
 
 	if (filter_str) {
@@ -338,7 +343,8 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
 		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
-				      &s->fixups, NULL, false, PATT_SIMPLE);
+				      &s->fixups, NULL, false, PATT_SIMPLE,
+				      true);
 	}
 	return 0;
 }
@@ -358,6 +364,7 @@ static void fstack_prepare_fixup(struct uftrace_data *handle)
 struct spec_data {
 	char *str;
 	bool auto_args;
+	bool is_lp64;
 	enum uftrace_pattern_type patt_type;
 };
 
@@ -367,7 +374,8 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 
 	if (spec->str)
 		uftrace_setup_argument(spec->str, &s->symtabs, &s->filters,
-				       spec->auto_args, spec->patt_type);
+				       spec->auto_args, spec->patt_type,
+				       spec->is_lp64);
 
 	return 0;
 }
@@ -378,7 +386,8 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 
 	if (spec->str)
 		uftrace_setup_retval(spec->str, &s->symtabs, &s->filters,
-				     spec->auto_args, spec->patt_type);
+				     spec->auto_args, spec->patt_type,
+				     spec->is_lp64);
 
 	return 0;
 }
@@ -401,6 +410,7 @@ void setup_fstack_args(char *argspec, char *retspec,
 	struct spec_data spec = {
 		.auto_args = auto_args,
 		.patt_type = patt_type,
+		.is_lp64   = data_is_lp64(handle),
 	};
 
 	if (argspec == NULL && retspec == NULL && !auto_args)
@@ -432,7 +442,8 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 {
 	if (opts->filter || opts->trigger || opts->caller) {
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger,
-					 opts->caller, opts->patt_type) < 0) {
+					 opts->caller, opts->patt_type,
+					 data_is_lp64(handle)) < 0) {
 			pr_use("failed to set filter or trigger: %s%s%s%s%s\n",
 			       opts->filter ?: "",
 			       (opts->filter && opts->trigger) ? " or " : "",

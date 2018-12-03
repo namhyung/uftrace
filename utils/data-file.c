@@ -404,12 +404,18 @@ static bool check_data_file(struct uftrace_data *handle,
 	return found;
 }
 
+bool data_is_lp64(struct uftrace_data *handle)
+{
+	return handle->hdr.class == ELFCLASS64;
+}
+
 int open_data_file(struct opts *opts, struct uftrace_data *handle)
 {
 	int ret = -1;
 	FILE *fp;
 	char buf[PATH_MAX];
 	int saved_errno = 0;
+	bool lp64;
 
 	memset(handle, 0, sizeof(*handle));
 
@@ -475,6 +481,8 @@ ok:
 		handle->hdr.max_stack = bswap_16(handle->hdr.max_stack);
 	}
 
+	lp64 = data_is_lp64(handle);
+
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err_ns("unsupported file version: %u\n", handle->hdr.version);
@@ -515,7 +523,8 @@ ok:
 		if (handle->hdr.feat_mask & AUTO_ARGS) {
 			setup_auto_args_str(handle->info.autoarg,
 					    handle->info.autoret,
-					    handle->info.autoenum);
+					    handle->info.autoenum,
+					    lp64);
 		}
 
 		setup_fstack_args(handle->info.argspec, handle->info.retspec,
@@ -532,8 +541,8 @@ ok:
 					autoarg = autoret = "*";
 			}
 
-			setup_fstack_args(autoarg, autoret,
-					  handle, true, handle->info.patt_type);
+			setup_fstack_args(autoarg, autoret, handle, true,
+					  handle->info.patt_type);
 		}
 	}
 

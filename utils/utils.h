@@ -257,6 +257,11 @@ static inline int get_elf_class(void)
 		return ELFCLASSNONE;
 }
 
+static inline bool host_is_lp64(void)
+{
+	return get_elf_class() == ELFCLASS64;
+}
+
 struct uftrace_time_range {
 	uint64_t first;
 	uint64_t start;

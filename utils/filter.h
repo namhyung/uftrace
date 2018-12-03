@@ -98,6 +98,7 @@ struct uftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
 	char			color;
+	bool			lp64;
 	uint64_t		time;
 	enum filter_mode	fmode;
 	enum trigger_read_type	read;
@@ -162,13 +163,15 @@ void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			  bool allow_kernel, enum uftrace_pattern_type ptype);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
-			   bool allow_kernel, enum uftrace_pattern_type ptype);
+			   bool allow_kernel, enum uftrace_pattern_type ptype,
+			   bool lp64);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			    struct rb_root *root, bool auto_args,
-			    enum uftrace_pattern_type ptype);
+			    enum uftrace_pattern_type ptype,
+			    bool lp64);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
 			  struct rb_root *root, bool auto_args,
-			  enum uftrace_pattern_type ptype);
+			  enum uftrace_pattern_type ptype, bool lp64);
 void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
 				 enum uftrace_pattern_type patt_type);
@@ -188,8 +191,8 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char * uftrace_clear_kernel(char *filter_str);
 
-void setup_auto_args(void);
-void setup_auto_args_str(char *args, char *rets, char *enums);
+void setup_auto_args(bool lp64);
+void setup_auto_args_str(char *args, char *rets, char *enums, bool lp64);
 void finish_auto_args(void);
 
 struct debug_info;
