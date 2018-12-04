@@ -9,12 +9,14 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
 UNIT_TEST_OBJ := $(patsubst %.c,%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
 
+WORKER = $(filter -j%, $(MAKEFLAGS))
+
 include $(srcdir)/Makefile.include
 
 test: test_unit test_run
 
 test_run:
-	./runtest.py $(TESTARG)
+	./runtest.py $(WORKER) $(TESTARG)
 
 test_unit: unittest
 	./unittest $(TESTARG)
