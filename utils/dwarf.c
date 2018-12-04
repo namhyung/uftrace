@@ -48,36 +48,32 @@ static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 
-	entry = xmalloc(sizeof(*entry));
-	entry->name = xstrdup(func);
-
-	entry->spec = xstrdup(argspec);
-	entry->offset = offset;
-
-	pr_dbg3("debug entry: %x %s%s\n", entry->offset, entry->name, entry->spec);
+	pr_dbg3("add debug entry: %x %s%s\n", offset, func, argspec);
 
 	while (*p) {
 		parent = *p;
 		iter = rb_entry(parent, struct debug_entry, node);
 
-		if (unlikely(iter->offset == entry->offset)) {
+		if (unlikely(iter->offset == offset)) {
 			pr_dbg3("debug entry: conflict!\n");
 
 			/* mark it broken by using NULL spec */
 			free(iter->spec);
 			iter->spec = NULL;
 
-			free(entry->name);
-			free(entry->spec);
-			free(entry);
 			return 0;
 		}
 
-		if (iter->offset > entry->offset)
+		if (iter->offset > offset)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
 	}
+
+	entry = xmalloc(sizeof(*entry));
+	entry->name = xstrdup(func);
+	entry->spec = xstrdup(argspec);
+	entry->offset = offset;
 
 	rb_link_node(&entry->node, parent, p);
 	rb_insert_color(&entry->node, root);
