@@ -94,7 +94,8 @@ static char *build_debug_domain_string(void)
 char * get_libmcount_path(struct opts *opts)
 {
 	char *libmcount, *lib = xmalloc(PATH_MAX);
-	bool must_use_multi_thread = check_libpthread(opts->exename);
+	bool must_use_multi_thread = has_dependency(opts->exename,
+						    "libpthread.so.0");
 
 	if (opts->nop) {
 		libmcount = "libmcount-nop.so";
