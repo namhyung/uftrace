@@ -9,12 +9,18 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
 UNIT_TEST_OBJ := $(patsubst %.c,%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
 
+FULL_WORKER := -j $(shell getconf _NPROCESSORS_ONLN || echo 1)
+
+# these needs to be recursively expanded
+JOPT = $(filter -j%, $(MAKEFLAGS))
+WORKER = $(if $(JOPT), $(if $(patsubst -j%,%,$(JOPT)), $(JOPT), $(FULL_WORKER)), -j1)
+
 include $(srcdir)/Makefile.include
 
 test: test_unit test_run
 
 test_run:
-	./runtest.py $(TESTARG)
+	./runtest.py $(WORKER) $(TESTARG)
 
 test_unit: unittest
 	./unittest $(TESTARG)
