@@ -17,7 +17,11 @@ WORKER = $(if $(JOPT), $(if $(patsubst -j%,%,$(JOPT)), $(JOPT), $(FULL_WORKER)),
 
 include $(srcdir)/Makefile.include
 
-test: test_unit test_run
+test: test_all
+
+test_all: unittest
+	./unittest $(TESTARG)
+	./runtest.py $(WORKER) $(TESTARG)
 
 test_run:
 	./runtest.py $(WORKER) $(TESTARG)
