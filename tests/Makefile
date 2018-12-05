@@ -24,14 +24,14 @@ include $(srcdir)/Makefile.include
 test: test_all
 
 test_all: unittest
-	./unittest $(TESTARG)
-	./runtest.py $(WORKER) $(TESTARG)
+	$(QUIET_TEST)./unittest $(TESTARG)
+	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG)
 
 test_run:
-	./runtest.py $(WORKER) $(TESTARG)
+	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG)
 
 test_unit: unittest
-	./unittest $(TESTARG)
+	$(QUIET_TEST)./unittest $(TESTARG)
 
 unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
