@@ -311,6 +311,12 @@ uninstall:
 test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
 
+unittest: all
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_unit
+
+runtest: all
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_run
+
 dist:
 	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar
 	@tar rf $(objdir)/uftrace-$(VERSION).tar --transform="s|^|uftrace-$(VERSION)/|" $(objdir)/version.h
