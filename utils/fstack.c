@@ -375,7 +375,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 	if (spec->str)
 		uftrace_setup_argument(spec->str, &s->symtabs, &s->filters,
 				       spec->auto_args, spec->patt_type,
-				       spec->is_lp64);
+				       spec->is_lp64, true);
 
 	return 0;
 }
@@ -387,7 +387,7 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 	if (spec->str)
 		uftrace_setup_retval(spec->str, &s->symtabs, &s->filters,
 				     spec->auto_args, spec->patt_type,
-				     spec->is_lp64);
+				     spec->is_lp64, true);
 
 	return 0;
 }

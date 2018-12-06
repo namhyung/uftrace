@@ -160,9 +160,9 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
 			      &mcount_filter_mode, false, ptype, lp64);
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers,
-			       false, ptype, lp64);
+			       false, ptype, lp64, false);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers,
-			     false, ptype, lp64);
+			     false, ptype, lp64, false);
 
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &symtabs,
@@ -184,10 +184,10 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 				autoarg = autoret = "*";
 		}
 
-		uftrace_setup_argument(autoarg, &symtabs,
-				       &mcount_triggers, true, ptype, lp64);
-		uftrace_setup_retval(autoret, &symtabs,
-				     &mcount_triggers, true, ptype, lp64);
+		uftrace_setup_argument(autoarg, &symtabs, &mcount_triggers,
+				       true, ptype, lp64, false);
+		uftrace_setup_retval(autoret, &symtabs, &mcount_triggers,
+				     true, ptype, lp64, false);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))

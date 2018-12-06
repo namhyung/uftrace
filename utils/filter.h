@@ -99,6 +99,7 @@ struct uftrace_trigger {
 	int			depth;
 	char			color;
 	bool			lp64;
+	bool			type;
 	uint64_t		time;
 	enum filter_mode	fmode;
 	enum trigger_read_type	read;
@@ -168,10 +169,11 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
 			    struct rb_root *root, bool auto_args,
 			    enum uftrace_pattern_type ptype,
-			    bool lp64);
+			    bool lp64, bool ignore_type);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
 			  struct rb_root *root, bool auto_args,
-			  enum uftrace_pattern_type ptype, bool lp64);
+			  enum uftrace_pattern_type ptype, bool lp64,
+			  bool ignore_type);
 void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
 				 enum uftrace_pattern_type patt_type);
