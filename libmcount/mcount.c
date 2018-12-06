@@ -1009,11 +1009,11 @@ unsigned long mcount_exit(long *retval)
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
+	mcount_unguard_recursion(mtdp);
+
 	compiler_barrier();
 
 	mtdp->idx--;
-	mcount_unguard_recursion(mtdp);
-
 	return retaddr;
 }
 
@@ -1122,11 +1122,12 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 
 	mcount_exit_filter_record(mtdp, rstack, NULL);
 
+out:
+	mcount_unguard_recursion(mtdp);
+
 	compiler_barrier();
 
-out:
 	mtdp->idx--;
-	mcount_unguard_recursion(mtdp);
 }
 
 void xray_entry(unsigned long parent, unsigned long child,
@@ -1222,11 +1223,12 @@ void xray_exit(long *retval)
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
 
+out:
+	mcount_unguard_recursion(mtdp);
+
 	compiler_barrier();
 
-out:
 	mtdp->idx--;
-	mcount_unguard_recursion(mtdp);
 }
 
 static void atfork_prepare_handler(void)

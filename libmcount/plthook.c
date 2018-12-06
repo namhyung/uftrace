@@ -869,10 +869,10 @@ again:
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
+	mcount_unguard_recursion(mtdp);
+
 	compiler_barrier();
 
 	mtdp->idx--;
-	mcount_unguard_recursion(mtdp);
-
 	return rstack->parent_ip;
 }
