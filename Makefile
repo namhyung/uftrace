@@ -179,7 +179,7 @@ LIBMCOUNT_FAST_SINGLE_CFLAGS := -DDISABLE_MCOUNT_FILTER -DSINGLE_THREAD
 CFLAGS_$(objdir)/utils/demangle.o  = -Wno-unused-value
 CFLAGS_$(objdir)/utils/demangle.op = -Wno-unused-value
 
-MAKEFLAGS = --no-print-directory
+MAKEFLAGS += --no-print-directory
 
 
 all: $(objdir)/.config $(TARGETS)
@@ -310,6 +310,12 @@ uninstall:
 
 test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
+
+unittest: all
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_unit
+
+runtest: all
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_run
 
 dist:
 	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar
