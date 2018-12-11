@@ -960,7 +960,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			goto next;
 
 		/* skip unintended kernel symbols */
-		if (module && !strcasecmp(module, "kernel") &&
+		if (module && has_kernel_opt(module) &&
 		    !setting->allow_kernel)
 			goto next;
 
@@ -997,7 +997,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 							&symtabs->dinfo,
 							setting);
 			}
-			else if (!strcasecmp(module, "kernel")) {
+			else if (has_kernel_opt(module)) {
 				ret = add_trigger_entry(root, get_kernel_symtab(),
 							&patt, &tr,
 							&symtabs->dinfo,
@@ -1195,13 +1195,13 @@ char * uftrace_clear_kernel(char *filter_str)
 	if (filter_str == NULL)
 		return NULL;
 
-	if (strstr(filter_str, "@kernel") == NULL)
+	if (has_kernel_filter(filter_str) == NULL)
 		return xstrdup(filter_str);
 
 	strv_split(&filters, filter_str, ";");
 
 	strv_for_each(&filters, pos, j) {
-		if (strstr(pos, "@kernel") == NULL)
+		if (has_kernel_filter(pos) == NULL)
 			ret = strjoin(ret, pos, ";");
 	}
 	strv_free(&filters);

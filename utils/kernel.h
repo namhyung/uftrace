@@ -2,6 +2,7 @@
 #define UFTRACE_KERNEL_H
 
 #include "libtraceevent/event-parse.h"
+#include "utils/utils.h"
 
 #define KERNEL_NOP_TRACER    "nop"
 #define KERNEL_GRAPH_TRACER  "function_graph"
@@ -76,7 +77,7 @@ static inline bool has_kernel_data(struct uftrace_kernel_reader *kernel)
 
 static inline bool has_kernel_event(char *events)
 {
-	return events && strstr(events, "@kernel");
+	return events && has_kernel_filter(events);
 }
 
 bool check_kernel_pid_filter(void);
