@@ -710,7 +710,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 	sess = find_task_session(sessions, task->t, rstack->time);
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_record(task, rstack))
 			sess = fsess;
 		else
 			return -1;
@@ -757,7 +757,6 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 	struct uftrace_task_reader *next = NULL;
 	struct fstack *fstack;
 	struct uftrace_record *curr_stack = task->rstack;
-	struct uftrace_session *fsess = task->h->sessions.first;
 
 	fstack = &task->func_stack[task->stack_count - 1];
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
@@ -776,7 +775,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 			break;
 
 		/* skip kernel functions outside user functions */
-		if (is_kernel_address(&fsess->symtabs, next_stack->addr)) {
+		if (is_kernel_record(next, next_stack)) {
 			if (has_kernel_data(handle->kernel) &&
 			    !next->user_stack_count && handle->kernel->skip_out)
 				goto next;
