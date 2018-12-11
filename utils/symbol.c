@@ -1516,7 +1516,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	maps = find_map(symtabs, addr);
 	if (maps == MAP_KERNEL) {
 		struct symtab *ktab = get_kernel_symtab();
-		uint64_t kaddr = get_real_address(addr);
+		uint64_t kaddr = get_kernel_address(symtabs, addr);
 
 		if (!ktab)
 			return NULL;

@@ -503,10 +503,10 @@ int fstack_entry(struct uftrace_task_reader *task,
 	sess = find_task_session(sessions, task->t, rstack->time);
 
 	if (is_kernel_record(task, rstack)) {
-		addr = get_real_address(addr);
-
 		if (sess == NULL)
 			sess = sessions->first;
+
+		addr = get_kernel_address(&sess->symtabs, addr);
 	}
 
 	if (sess) {
@@ -689,7 +689,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 {
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
-	uint64_t addr = get_real_address(rstack->addr);
+	uint64_t addr = rstack->addr;
 	struct uftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
 	struct fstack *fstack;
@@ -714,6 +714,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 			sess = fsess;
 		else
 			return -1;
+
+		addr = get_kernel_address(&fsess->symtabs, addr);
 	}
 
 	uftrace_match_filter(addr, &sess->filters, &tr);
@@ -1778,6 +1780,13 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		fstack->total_time = rstack->time;  /* start time */
 		fstack->child_time = 0;
 		fstack->valid = true;
+
+		if (is_kernel_func) {
+			struct symtabs *symtabs;
+
+			symtabs = &task->h->sessions.first->symtabs;
+			fstack->addr = get_kernel_address(symtabs, rstack->addr);
+		}
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
 		uint64_t delta;

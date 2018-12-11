@@ -109,6 +109,7 @@ static void build_function_tree(struct uftrace_data *handle,
 {
 	struct uftrace_record *rstack;
 	struct uftrace_task_reader *task;
+	uint64_t addr;
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
@@ -138,7 +139,15 @@ static void build_function_tree(struct uftrace_data *handle,
 		}
 
 		/* rstack->type == UFTRACE_EXIT */
-		find_insert_node(root, task, rstack->time, rstack->addr);
+		addr = rstack->addr;
+		if (is_kernel_record(task, rstack)) {
+			struct uftrace_session *fsess;
+
+			fsess = handle->sessions.first;
+			addr = get_kernel_address(&fsess->symtabs, rstack->addr);
+		}
+
+		find_insert_node(root, task, rstack->time, addr);
 	}
 
 	if (uftrace_done)
@@ -242,6 +251,9 @@ static struct sym * find_task_sym(struct uftrace_data *handle,
 		pr_dbg("cannot find session for tid %d\n", task->tid);
 		return NULL;
 	}
+
+	if (is_kernel_record(task, rstack))
+		return NULL;
 
 	if (task == main_task) {
 		/* This is the main thread */

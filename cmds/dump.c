@@ -1339,6 +1339,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			int losts = kernel->missed_events[i];
 			struct sym *sym = NULL;
 			char *name;
+			uint64_t addr;
 
 			if (losts) {
 				call_if_nonull(ops->lost, ops, frs->time, tid, losts);
@@ -1355,8 +1356,9 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 			}
 
-			sym = find_symtabs(&fsess->symtabs, frs->addr);
-			name = symbol_getname(sym, frs->addr);
+			addr = get_kernel_address(&fsess->symtabs, frs->addr);
+			sym = find_symtabs(&fsess->symtabs, addr);
+			name = symbol_getname(sym, addr);
 
 			call_if_nonull(ops->kernel_func, ops, kernel, i, frs, name);
 
