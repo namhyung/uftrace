@@ -100,7 +100,7 @@ static inline uint64_t get_real_address(uint64_t addr)
 	return addr;
 }
 
-uint64_t get_kernel_base(char *str);
+uint64_t guess_kernel_base(char *str);
 
 extern struct sym sched_sym;
 

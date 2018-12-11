@@ -1104,7 +1104,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		 */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0) {
-				symtabs->kernel_base = get_kernel_base(buf);
+				symtabs->kernel_base = guess_kernel_base(buf);
 				last_prot_x = true;
 				goto next;
 			}

@@ -52,7 +52,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
-				symtabs->kernel_base = get_kernel_base(buf);
+				symtabs->kernel_base = guess_kernel_base(buf);
 			continue;
 		}
 
