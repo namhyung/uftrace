@@ -171,6 +171,8 @@ struct uftrace_data {
 	struct list_head events;
 };
 
+bool data_is_lp64(struct uftrace_data *handle);
+
 #define UFTRACE_MODE_INVALID 0
 #define UFTRACE_MODE_RECORD  1
 #define UFTRACE_MODE_REPLAY  2

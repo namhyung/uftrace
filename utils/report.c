@@ -584,7 +584,7 @@ TEST_CASE(report_sort)
 	struct rb_root sort_tree = RB_ROOT;
 	struct rb_node *rbnode;
 	struct uftrace_report_node *node;
-	static struct fstack fstack[TEST_NODES] = { 0, };
+	static struct fstack fstack[TEST_NODES];
 	struct uftrace_task_reader task = {
 		.func_stack = fstack,
 	};
@@ -669,11 +669,11 @@ TEST_CASE(report_diff)
 	struct uftrace_report_node *node;
 	int i;
 
-	static struct fstack orig_fstack[TEST_NODES] = { 0, };
+	struct fstack orig_fstack[TEST_NODES];
 	struct uftrace_task_reader orig_task = {
 		.func_stack = orig_fstack,
 	};
-	static struct fstack pair_fstack[TEST_NODES] = { 0, };
+	struct fstack pair_fstack[TEST_NODES];
 	struct uftrace_task_reader pair_task = {
 		.func_stack = pair_fstack,
 	};
