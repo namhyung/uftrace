@@ -263,6 +263,31 @@ static inline bool host_is_lp64(void)
 	return get_elf_class() == ELFCLASS64;
 }
 
+static inline char* has_kernel_opt(char *buf)
+{
+	int idx = 0;
+
+	if (!strncasecmp(buf, "kernel", 6))
+		idx = 6;
+	else if (!strncasecmp(buf, "k", 1))
+		idx = 1;
+
+	if (idx && (buf[idx] == '\0' || buf[idx] == ','))
+		return buf;
+
+	return NULL;
+}
+
+static inline char* has_kernel_filter(char *buf)
+{
+	char *opt = strchr(buf, '@');
+
+	if (opt && has_kernel_opt(opt + 1))
+		return opt;
+
+	return NULL;
+}
+
 struct uftrace_time_range {
 	uint64_t first;
 	uint64_t start;

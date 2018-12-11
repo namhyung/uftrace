@@ -160,7 +160,7 @@ int mcount_setup_events(char *dirname, char *event_str,
 		if (sep) {
 			*sep++ = '\0';
 
-			kernel = strstr(sep, "@kernel");
+			kernel = has_kernel_filter(sep);
 			if (kernel)
 				continue;
 

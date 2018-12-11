@@ -339,7 +339,7 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 	strv_for_each(&strv, name, j) {
 		struct uftrace_pattern patt;
 
-		pos = strstr(name, "@kernel");
+		pos = has_kernel_filter(name);
 		if (pos == NULL)
 			continue;
 		*pos = '\0';
@@ -430,7 +430,7 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 	strv_for_each(&strv, name, j) {
 		struct uftrace_pattern patt;
 
-		pos = strstr(name, "@kernel");
+		pos = has_kernel_filter(name);
 		if (pos == NULL)
 			continue;
 		*pos = '\0';
