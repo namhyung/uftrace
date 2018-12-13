@@ -52,7 +52,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
-				symtabs->kernel_base = get_kernel_base(buf);
+				symtabs->kernel_base = guess_kernel_base(buf);
 			continue;
 		}
 
@@ -593,20 +593,24 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
 	struct uftrace_session *sess;
 	struct symtabs *symtabs;
 	struct sym *sym = NULL;
+	uint64_t addr = rec->addr;
 
 	sess = find_task_session(sessions, task->t, rec->time);
 
-	if (sess == NULL && is_kernel_record(task, rec))
-		sess = sessions->first;
+	if (is_kernel_record(task, rec)) {
+		if (sess == NULL)
+			sess = sessions->first;
+		addr = get_kernel_address(&sess->symtabs, addr);
+	}
 
 	if (sess == NULL)
 		return NULL;
 
 	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, rec->addr);
+	sym = find_symtabs(symtabs, addr);
 
 	if (sym == NULL)
-		sym = session_find_dlsym(sess, rec->time, rec->addr);
+		sym = session_find_dlsym(sess, rec->time, addr);
 
 	return sym;
 }

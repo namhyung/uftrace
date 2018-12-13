@@ -394,6 +394,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	struct tui_graph_node *graph_node;
 	struct sym *sym;
 	char *name;
+	uint64_t addr = rec->addr;
 
 	tg = graph_get_task(task, sizeof(*tg));
 	graph = get_graph(task, rec->time, rec->addr);
@@ -403,21 +404,28 @@ static int build_tui_node(struct uftrace_task_reader *task,
 
 	tg->graph = graph;
 
+	if (is_kernel_record(task, rec)) {
+		struct uftrace_session *fsess;
+
+		fsess = task->h->sessions.first;
+		addr = get_kernel_address(&fsess->symtabs, addr);
+	}
+
 	if (rec->type == UFTRACE_ENTRY || rec->type == UFTRACE_EXIT) {
 		sym = task_find_sym_addr(&task->h->sessions,
-					 task, rec->time, rec->addr);
-		name = symbol_getname(sym, rec->addr);
+					 task, rec->time, addr);
+		name = symbol_getname(sym, addr);
 
 		if (rec->type == UFTRACE_EXIT)
 			update_report_node(task, name, tg);
 	}
 	else if (rec->type == UFTRACE_EVENT) {
 		sym = &sched_sym;
-		name = symbol_getname(sym, rec->addr);
+		name = symbol_getname(sym, addr);
 
-		if (rec->addr == EVENT_ID_PERF_SCHED_IN)
+		if (addr == EVENT_ID_PERF_SCHED_IN)
 			update_report_node(task, name, tg);
-		else if (rec->addr != EVENT_ID_PERF_SCHED_OUT)
+		else if (addr != EVENT_ID_PERF_SCHED_OUT)
 			return 0;
 	}
 	else  /* rec->type == UFTRACE_LOST */

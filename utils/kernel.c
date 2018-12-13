@@ -1528,7 +1528,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			time_filter = task->filter.time->threshold;
 
 		/* filter match needs full (64-bit) address */
-		real_addr = get_real_address(curr->addr);
+		real_addr = get_kernel_address(&sess->symtabs, curr->addr);
 		/*
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.

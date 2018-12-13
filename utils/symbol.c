@@ -1516,7 +1516,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	maps = find_map(symtabs, addr);
 	if (maps == MAP_KERNEL) {
 		struct symtab *ktab = get_kernel_symtab();
-		uint64_t kaddr = get_real_address(addr);
+		uint64_t kaddr = get_kernel_address(symtabs, addr);
 
 		if (!ktab)
 			return NULL;
@@ -1654,21 +1654,31 @@ void print_symtabs(struct symtabs *symtabs)
 	}
 }
 
-uint64_t get_kernel_base(char *str)
+uint64_t guess_kernel_base(char *str)
 {
 	uint64_t addr = strtoull(str, NULL, 16);
 
-	if (addr < 0x40000000UL) {
+	/*
+	 * AArch64 has different memory map depending on page size and
+	 * level of page table.
+	 */
+	if (addr < 0x40000000UL)       /* 1G:3G split */
 		return 0x40000000UL;
-	} else if (addr < 0x80000000UL) {
+	else if (addr < 0x80000000UL)  /* 2G:2G split */
 		return 0x80000000UL;
-	} else if (addr < 0xB0000000UL) {
+	else if (addr < 0xB0000000UL)  /* 3G:1G split (variant) */
 		return 0xB0000000UL;
-	} else if (addr < 0xC0000000UL) {
+	else if (addr < 0xC0000000UL)  /* 3G:1G split */
 		return 0xC0000000UL;
-	} else {
-		return 0x800000000000ULL;
-	}
+	/* below is for 64-bit systems */
+	else if (addr < 0x8000000000ULL)    /* 512G:512G split */
+		return 0xFFFFFF8000000000ULL;
+	else if (addr < 0x40000000000ULL)   /* 4T:4T split */
+		return 0xFFFFFC0000000000ULL;
+	else if (addr < 0x800000000000ULL)  /* 128T:128T split (x86_64) */
+		return 0xFFFF800000000000ULL;
+	else
+		return 0xFFFF000000000000ULL;
 }
 
 #ifdef UNIT_TEST

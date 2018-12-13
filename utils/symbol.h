@@ -85,22 +85,19 @@ struct symtabs {
 	struct uftrace_mmap *maps;
 };
 
-/* only meaningful for 64-bit systems */
-#define KADDR_SHIFT  47
-
+/* addr should be from fstack or something other than rstack (rec) */
 static inline bool is_kernel_address(struct symtabs *symtabs, uint64_t addr)
 {
 	return addr >= symtabs->kernel_base;
 }
 
-static inline uint64_t get_real_address(uint64_t addr)
+/* convert rstack->addr (or rec->addr) to full 64-bit address */
+static inline uint64_t get_kernel_address(struct symtabs *symtabs, uint64_t addr)
 {
-	if (addr & (1ULL << KADDR_SHIFT))
-		return addr | (-1ULL << KADDR_SHIFT);
-	return addr;
+	return addr | symtabs->kernel_base;
 }
 
-uint64_t get_kernel_base(char *str);
+uint64_t guess_kernel_base(char *str);
 
 extern struct sym sched_sym;
 

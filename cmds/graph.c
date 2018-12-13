@@ -482,6 +482,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
+		uint64_t addr = frs->addr;
 
 		if (!fstack_check_opts(task, opts))
 			continue;
@@ -493,6 +494,13 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
 			    frs->addr != EVENT_ID_PERF_SCHED_OUT)
 				continue;
+		}
+
+		if (is_kernel_record(task, frs)) {
+			struct uftrace_session *fsess;
+
+			fsess = task->h->sessions.first;
+			addr = get_kernel_address(&fsess->symtabs, addr);
 		}
 
 		if (frs->type == UFTRACE_LOST) {
@@ -543,7 +551,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		if (task->stack_count >= opts->max_stack)
 			continue;
 
-		build_graph_node(task, frs->time, frs->addr, frs->type, func);
+		build_graph_node(task, frs->time, addr, frs->type, func);
 	}
 
 	/* add duration of remaining functions */
