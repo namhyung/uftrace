@@ -946,7 +946,7 @@ static void win_header_graph(struct tui_window *win,
 
 	if (list_empty(&graph_output_fields)) {
 		printw("%-*.*s", COLS, COLS, "uftrace graph TUI");
-		return;
+		goto out;
 	}
 
 	buf = p = xmalloc(w + 1);
@@ -962,6 +962,7 @@ static void win_header_graph(struct tui_window *win,
 	printw("%-*.*s", COLS, COLS, buf);
 	free(buf);
 
+out:
 	/* start with same make as top */
 	graph->disp = graph->win.top;
 	graph->disp_depth = graph->top_depth;
