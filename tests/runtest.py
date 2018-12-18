@@ -351,6 +351,27 @@ class TestBase:
 
         return True
 
+    def prerun(self, timeout):
+        ret = TestBase.TEST_SUCCESS
+
+        class Timeout(Exception):
+            pass
+
+        def timeout_handler(sig, frame):
+            raise Timeout
+
+        import signal
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(timeout)
+
+        try:
+            ret = self.pre()
+        except Timeout:
+            ret = TestBase.TEST_TIME_OUT
+        signal.alarm(0)
+
+        return ret
+
     def run(self, name, cflags, diff, timeout):
         ret = TestBase.TEST_SUCCESS
 
@@ -478,15 +499,16 @@ def run_single_case(case, flags, opts, arg):
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
     tc.set_debug(arg.debug)
+    timeout = int(arg.timeout)
 
     for flag in flags:
         for opt in opts:
             cflags = ' '.join(["-" + flag, "-" + opt])
             ret = tc.build(tc.name, cflags)
             if ret == TestBase.TEST_SUCCESS:
-                ret = tc.pre()
+                ret = tc.prerun(timeout)
                 if ret == TestBase.TEST_SUCCESS:
-                    ret = tc.run(case, cflags, arg.diff, int(arg.timeout))
+                    ret = tc.run(case, cflags, arg.diff, timeout)
                     ret = tc.post(ret)
             result.append(ret)
 
