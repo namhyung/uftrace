@@ -58,7 +58,7 @@ static int thread_ctl[2];
 
 static bool has_perf_event;
 static bool has_sched_event;
-
+static bool finish_received;
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
@@ -1247,6 +1247,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 
 	case UFTRACE_MSG_FINISH:
 		pr_dbg2("MSG FINISH\n");
+		finish_received = true;
 		break;
 
 	default:
@@ -1745,6 +1746,11 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 		 */
 		if (check_tid_list())
 			break;
+
+		if (finish_received) {
+			ret = UFTRACE_EXIT_FINISHED;
+			break;
+		}
 
 		pr_dbg2("waiting for FORK2\n");
 	}

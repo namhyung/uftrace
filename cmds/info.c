@@ -1075,10 +1075,15 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 		if (WIFEXITED(status)) {
 			snprintf(buf, sizeof(buf), "exited with code: %d",
 				 WEXITSTATUS(status));
-		} else if (WIFSIGNALED(status)) {
+		}
+		else if (WIFSIGNALED(status)) {
 			snprintf(buf, sizeof(buf), "terminated by signal: %d",
 				 WTERMSIG(status));
-		} else {
+		}
+		else if (status == UFTRACE_EXIT_FINISHED) {
+			snprintf(buf, sizeof(buf), "terminated by finish trigger");
+		}
+		else {
 			snprintf(buf, sizeof(buf), "unknown exit status: %d",
 				 status);
 		}
