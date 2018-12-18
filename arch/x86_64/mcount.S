@@ -96,8 +96,11 @@ ENTRY(mcount_return)
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 40(%rsp)
 
+	test  %rax, %rax
+	jz    1f
+	movq  %rax, 40(%rsp)
+1:
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0

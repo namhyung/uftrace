@@ -41,9 +41,16 @@ ENTRY(mcount_return)
 
 	mov	x0, sp
 	bl	mcount_exit
-	mov	x16, x0
 
-	/* restore return values */
+	cmp	x0, 0
+	b.eq	1f
+	mov	x16, x0
+	b	2f
+
+1:	/* if finish trigger fired, use restored address */
+	ldr	x16, [sp, #48]
+
+2:	/* restore return values */
 	ldr	d0, [sp], #16
 	ldp	x0, x8, [sp], #16
 	/* restore frame pointer */
