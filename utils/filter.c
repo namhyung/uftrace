@@ -1551,6 +1551,16 @@ TEST_CASE(trigger_setup_filters)
 	return TEST_OK;
 }
 
+#if defined(__x86_64__)
+# define ARG2  "rdi"
+#elif defined(__i386__)
+# define ARG2  "edx"
+#elif defined(__arm__)
+# define ARG2  "r1"
+#elif defined(__aarch64__)
+# define ARG2  "x1"
+#endif
+
 TEST_CASE(trigger_setup_args)
 {
 	struct symtabs stabs = {
@@ -1638,8 +1648,7 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 4);
 
-	/* FIXME: this test will fail on non-x86 architecture */
-	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64",
+	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%"ARG2",arg3%stack+4,retval/f64",
 			      &stabs, &root, NULL, false, ptype, is_lp64);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x4000, &root, &tr), NULL);
@@ -1659,8 +1668,7 @@ TEST_CASE(trigger_setup_args)
 			TEST_EQ(spec->fmt, ARG_FMT_HEX);
 			TEST_EQ(spec->type, ARG_TYPE_REG);
 			TEST_EQ(spec->size, 4);
-			/* XXX: x86-specific */
-			TEST_EQ(spec->reg_idx, arch_register_index("rdi"));
+			TEST_EQ(spec->reg_idx, arch_register_index(ARG2));
 			break;
 		case 3:
 			TEST_EQ(spec->idx, 3);
