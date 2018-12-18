@@ -669,6 +669,15 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			memcpy(val.v, data, spec->size);
 			estr = get_enum_string(&dinfo->enums, spec->enum_str, val.i);
+			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
+				struct strv enum_vals = STRV_INIT;
+
+				strv_split(&enum_vals, estr, "|");
+				free(estr);
+				estr = strv_join(&enum_vals, color_enum_or);
+				strv_free(&enum_vals);
+			}
+
 			print_args("%s", color_enum);
 			if (strlen(estr) >= len)
 				print_args("<ENUM>");

@@ -520,7 +520,7 @@ char * convert_enum_val(struct enum_def *e_def, long val)
 	list_for_each_entry(e_val, &e_def->vals, list) {
 		if (e_val->val <= val) {
 			val -= e_val->val;
-			str = strjoin(str, e_val->str, color_enum_or);
+			str = strjoin(str, e_val->str, "|");
 		}
 
 		if (val == 0)

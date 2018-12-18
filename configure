@@ -230,7 +230,7 @@ install:
 	@\$(MAKE) -C \$(srcdir) install
 
 test: all
-	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
+	@\$(MAKE) -C \$(srcdir) test TESTARG="\$(TESTARG)"
 
 .PHONY: all clean prepare test install
 EOF

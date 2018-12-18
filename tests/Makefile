@@ -36,7 +36,7 @@ test_unit: unittest
 unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
 
-$(UNIT_TEST_OBJ_VERSION): $(srcdir)/version.h
+$(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
 
 $(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config
 	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $<

@@ -164,7 +164,7 @@ $(obj)/libtraceevent.so: $(PEVENT_LIB_OBJS)
 $(obj)/libtraceevent.a: $(PEVENT_LIB_OBJS)
 	$(QUIET_LINK)$(RM) $@; $(AR) rcs $@ $^
 
-$(PEVENT_LIB_OBJS): $(obj)/%.o: $(src)/%.c TRACEEVENT-CFLAGS
+$(PEVENT_LIB_OBJS): $(obj)/%.o: $(src)/%.c $(obj)/TRACEEVENT-CFLAGS
 	$(QUIET_CC_FPIC)$(CC) -c $(CFLAGS) $(EXT) $< -o $@
 
 define make_version.h
@@ -229,11 +229,11 @@ endif
 ### Detect environment changes
 TRACK_CFLAGS = $(subst ','\'',$(CFLAGS)):$(ARCH):$(CROSS_COMPILE)
 
-TRACEEVENT-CFLAGS: force
+$(obj)/TRACEEVENT-CFLAGS: force
 	@FLAGS='$(TRACK_CFLAGS)'; \
-	    if test x"$$FLAGS" != x"`cat TRACEEVENT-CFLAGS 2>/dev/null`" ; then \
+	    if test x"$$FLAGS" != x"`cat $(obj)/TRACEEVENT-CFLAGS 2>/dev/null`" ; then \
 		echo 1>&2 "  FLAGS:   * new build flags or cross compiler"; \
-		echo "$$FLAGS" >TRACEEVENT-CFLAGS; \
+		echo "$$FLAGS" > $(obj)/TRACEEVENT-CFLAGS; \
             fi
 
 tags:	force
@@ -262,7 +262,7 @@ install: install_lib
 clean:
 	$(call QUIET_CLEAN, libtraceevent) \
 		$(RM) $(obj)/*.o $(obj)/*~ $(TARGETS) $(obj)/*.a $(obj)/*.so \
-		$(VERSION_FILES) $(obj)/.*.d $(RM) TRACEEVENT-CFLAGS tags TAGS
+		$(VERSION_FILES) $(obj)/.*.d $(RM) $(obj)/TRACEEVENT-CFLAGS tags TAGS
 
 endif # skip-makefile
 
