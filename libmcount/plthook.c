@@ -148,12 +148,6 @@ static void restore_plt_functions(struct plthook_data *pd)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-__weak int mcount_arch_undo_bindnow(struct uftrace_elf_data *elf,
-				    struct plthook_data *pd)
-{
-	return -1;
-}
-
 __weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 						    const char *modname,
 						    unsigned long offset)
@@ -167,7 +161,6 @@ static int find_got(struct uftrace_elf_data *elf,
 		    unsigned long offset)
 {
 	bool plt_found = false;
-	bool bind_now = false;
 	unsigned long pltgot_addr = 0;
 	unsigned long plt_addr = 0;
 	struct plthook_data *pd;
@@ -185,22 +178,15 @@ static int find_got(struct uftrace_elf_data *elf,
 		case DT_JMPREL:
 			plt_found = true;
 			break;
-		case DT_BIND_NOW:
-			bind_now = true;
-			break;
-		case DT_FLAGS_1:
-			if (iter->dyn.d_un.d_val & DF_1_NOW)
-				bind_now = true;
-			break;
 		default:
 			break;
 		}
 	}
 
-	if (!pltgot_addr && !plt_found) {
+	if (!plt_found) {
 		pd = mcount_arch_hook_no_plt(elf, modname, offset);
 		if (pd == NULL)
-			pr_dbg2("no PLTGOT nor BIND-NOW.. ignoring...\n");
+			pr_dbg2("no PLTGOT found.. ignoring...\n");
 		else
 			list_add_tail(&pd->list, &plthook_modules);
 
@@ -244,6 +230,12 @@ static int find_got(struct uftrace_elf_data *elf,
 		if (plthook_resolver_addr == 0)
 			plthook_resolver_addr = pd->pltgot_ptr[2];
 
+		if (pd->module_id == 0) {
+			pr_dbg2("update module id to %p\n", pd);
+			overwrite_pltgot(pd, 1, pd);
+			pd->module_id = (unsigned long)pd;
+		}
+
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			pd->pltgot_ptr, plthook_resolver_addr);
 
@@ -251,16 +243,6 @@ static int find_got(struct uftrace_elf_data *elf,
 	}
 
 	overwrite_pltgot(pd, 2, plt_hooker);
-
-	if (bind_now) {
-		mcount_arch_undo_bindnow(elf, pd);
-
-		if (pd->module_id == 0) {
-			pr_dbg2("update module id to %p\n", pd);
-			overwrite_pltgot(pd, 1, pd);
-			pd->module_id = (unsigned long)pd;
-		}
-	}
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
