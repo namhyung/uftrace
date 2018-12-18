@@ -110,9 +110,6 @@ void unload_symtab(struct symtab *symtab);
 void unload_symtabs(struct symtabs *symtabs);
 void print_symtabs(struct symtabs *symtabs);
 
-int arch_load_dynsymtab_bindnow(struct symtab *dsymtab,
-				struct uftrace_elf_data *elf,
-				unsigned long offset, unsigned long flags);
 int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			      struct uftrace_elf_data *elf,
 			      unsigned long offset, unsigned long flags);
