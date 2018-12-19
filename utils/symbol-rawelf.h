@@ -32,6 +32,7 @@ typedef ElfT(Rela)  Elf_Rela;
 #define ELF_ST_BIND(v)  ELF_M(ST_BIND) (v)
 #define ELF_ST_TYPE(v)  ELF_M(ST_TYPE) (v)
 #define ELF_R_SYM(i)    ELF_M(R_SYM) (i)
+#define ELF_R_TYPE(i)   ELF_M(R_TYPE) (i)
 
 
 struct uftrace_elf_data {
@@ -78,6 +79,7 @@ struct uftrace_elf_iter {
 #define elf_symbol_type(sym)  ELF_ST_TYPE((sym)->st_info)
 #define elf_symbol_bind(sym)  ELF_ST_BIND((sym)->st_info)
 #define elf_rel_symbol(rel)   ELF_R_SYM((rel)->r_info)
+#define elf_rel_type(rel)     ELF_R_TYPE((rel)->r_info)
 
 
 #define elf_for_each_phdr(elf, iter)					\
@@ -149,7 +151,7 @@ struct uftrace_elf_iter {
 		     (iter)->i = 0,					\
 		     (iter)->nr = (iter)->shdr.sh_size / (iter)->ent_size; \
 	     (iter)->type == SHT_REL && (iter)->i < (iter)->nr &&	\
-		     memcpy(&(iter)->sym,				\
+		     memcpy(&(iter)->rel,				\
 			    &(iter)->data[(iter)->i * (iter)->ent_size], \
 			    (iter)->ent_size);				\
 	     (iter)->i++)
@@ -162,7 +164,7 @@ struct uftrace_elf_iter {
 		     (iter)->i = 0,					\
 		     (iter)->nr = (iter)->shdr.sh_size / (iter)->ent_size; \
 	     (iter)->type == SHT_RELA && (iter)->i < (iter)->nr &&	\
-		     memcpy(&(iter)->sym,				\
+		     memcpy(&(iter)->rela,				\
 			    &(iter)->data[(iter)->i * (iter)->ent_size], \
 			    (iter)->ent_size);				\
 	     (iter)->i++)

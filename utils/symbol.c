@@ -429,50 +429,11 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-__weak int arch_load_dynsymtab_bindnow(struct symtab *dsymtab,
-				       struct uftrace_elf_data *elf,
-				       unsigned long offset, unsigned long flags)
+__weak int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
+				     struct uftrace_elf_data *elf,
+				     unsigned long offset, unsigned long flags)
 {
 	return 0;
-}
-
-static int try_load_dynsymtab_bindnow(struct symtab *dsymtab,
-				      struct uftrace_elf_data *elf,
-				      unsigned long offset, unsigned long flags)
-{
-	bool bind_now = false;
-	struct uftrace_elf_iter iter;
-
-	elf_for_each_shdr(elf, &iter) {
-		if (iter.shdr.sh_type == SHT_DYNAMIC)
-			break;
-	}
-
-	if (iter.shdr.sh_type != SHT_DYNAMIC)
-		return 0;
-
-	elf_for_each_dynamic(elf, &iter) {
-		if (iter.dyn.d_tag == DT_BIND_NOW)
-			bind_now = true;
-		else if ((iter.dyn.d_tag == DT_FLAGS_1) &&
-			 (iter.dyn.d_un.d_val & DF_1_NOW))
-			bind_now = true;
-	}
-
-	if (!bind_now)
-		return 0;
-
-	if (arch_load_dynsymtab_bindnow(dsymtab, elf, offset, flags) < 0) {
-		pr_dbg("cannot load dynamic symbols for bind-now\n");
-		unload_symtab(dsymtab);
-		return -1;
-	}
-
-	if (!dsymtab->nr_sym)
-		return 0;
-
-	sort_dynsymtab(dsymtab);
-	return 1;
 }
 
 int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
@@ -528,17 +489,15 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		}
 	}
 
-	if (!found_dynsym || !found_dynamic || plt_addr == 0) {
+	if (!found_dynsym || !found_dynamic) {
 		pr_dbg2("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
 
 	if (rel_type == SHT_NULL) {
-		ret = try_load_dynsymtab_bindnow(dsymtab, elf, offset, flags);
-		if (ret <= 0)
-			pr_dbg("cannot find relocation info for PLT\n");
-		goto out;
+		arch_load_dynsymtab_noplt(dsymtab, elf, offset, flags);
+		goto out_sort;
 	}
 
 	if (elf->ehdr.e_machine == EM_ARM) {
@@ -583,6 +542,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 			}
 		}
 	}
+
+out_sort:
 	pr_dbg2("loaded %zd symbols\n", dsymtab->nr_sym);
 
 	if (dsymtab->nr_sym == 0)

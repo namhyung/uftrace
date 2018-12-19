@@ -268,6 +268,11 @@ struct plthook_special_func {
 	unsigned flags;  /* enum plthook_special_action */
 };
 
+struct plthook_skip_symbol {
+	const char *name;
+	void       *addr;
+};
+
 struct plthook_data {
 	struct list_head		list;
 	const char			*mod_name;
@@ -291,6 +296,8 @@ extern void destroy_dynsym_indexes(void);
 extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 
 extern unsigned long plthook_resolver_addr;
+extern const struct plthook_skip_symbol plt_skip_syms[];
+extern size_t plt_skip_nr;
 
 struct uftrace_trigger;
 struct uftrace_arg_spec;

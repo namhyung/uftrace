@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <dlfcn.h>
+#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -85,6 +86,21 @@ ALIAS_DECL(__gnu_mcount_nc);
 ALIAS_DECL(__cyg_profile_func_enter);
 ALIAS_DECL(__cyg_profile_func_exit);
 
+#define SKIP_SYM(func)  { #func, &uftrace_ ## func }
+
+const struct plthook_skip_symbol plt_skip_syms[] = {
+	SKIP_SYM(mcount),
+	SKIP_SYM(_mcount),
+	SKIP_SYM(__fentry__),
+	SKIP_SYM(__gnu_mcount_nc),
+	SKIP_SYM(__cyg_profile_func_enter),
+	SKIP_SYM(__cyg_profile_func_exit),
+};
+size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
+
+#undef SKIP_SYM
+#undef ALIAS_DECL
+
 /*
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
@@ -94,35 +110,22 @@ static void restore_plt_functions(struct plthook_data *pd)
 	unsigned i, k;
 	struct symtab *dsymtab = &pd->dsymtab;
 
-#define SKIP_FUNC(func)  { #func, &uftrace_ ## func }
-
-	struct {
-		const char *name;
-		void *addr;
-	} skip_list[] = {
-		SKIP_FUNC(mcount),
-		SKIP_FUNC(_mcount),
-		SKIP_FUNC(__fentry__),
-		SKIP_FUNC(__gnu_mcount_nc),
-		SKIP_FUNC(__cyg_profile_func_enter),
-		SKIP_FUNC(__cyg_profile_func_exit),
-	};
-
-#undef SKIP_FUNC
-
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		bool skipped = false;
 		unsigned long plthook_addr;
 		unsigned long resolved_addr;
 		struct sym *sym = dsymtab->sym_names[i];
 
-		for (k = 0; k < ARRAY_SIZE(skip_list); k++) {
-			if (strcmp(sym->name, skip_list[k].name))
+		for (k = 0; k < plt_skip_nr; k++) {
+			const struct plthook_skip_symbol *skip_sym;
+
+			skip_sym = &plt_skip_syms[k];
+			if (strcmp(sym->name, skip_sym->name))
 				continue;
 
-			overwrite_pltgot(pd, 3 + i, skip_list[k].addr);
+			overwrite_pltgot(pd, 3 + i, skip_sym->addr);
 			pr_dbg2("overwrite [%u] %s: %p\n",
-				i, skip_list[k].name, skip_list[k].addr);
+				i, skip_sym->name, skip_sym->addr);
 
 			skipped = true;
 			break;
@@ -145,10 +148,11 @@ static void restore_plt_functions(struct plthook_data *pd)
 extern void __weak plt_hooker(void);
 extern unsigned long plthook_return(void);
 
-__weak int mcount_arch_undo_bindnow(struct uftrace_elf_data *elf,
-				    struct plthook_data *pd)
+__weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
+						    const char *modname,
+						    unsigned long offset)
 {
-	return -1;
+	return NULL;
 }
 
 static int find_got(struct uftrace_elf_data *elf,
@@ -157,7 +161,6 @@ static int find_got(struct uftrace_elf_data *elf,
 		    unsigned long offset)
 {
 	bool plt_found = false;
-	bool bind_now = false;
 	unsigned long pltgot_addr = 0;
 	unsigned long plt_addr = 0;
 	struct plthook_data *pd;
@@ -175,20 +178,18 @@ static int find_got(struct uftrace_elf_data *elf,
 		case DT_JMPREL:
 			plt_found = true;
 			break;
-		case DT_BIND_NOW:
-			bind_now = true;
-			break;
-		case DT_FLAGS_1:
-			if (iter->dyn.d_un.d_val & DF_1_NOW)
-				bind_now = true;
-			break;
 		default:
 			break;
 		}
 	}
 
-	if (!pltgot_addr || (!plt_found && !bind_now)) {
-		pr_dbg2("no PLTGOT nor BIND-NOW.. ignoring...\n");
+	if (!plt_found) {
+		pd = mcount_arch_hook_no_plt(elf, modname, offset);
+		if (pd == NULL)
+			pr_dbg2("no PLTGOT found.. ignoring...\n");
+		else
+			list_add_tail(&pd->list, &plthook_modules);
+
 		return 0;
 	}
 
@@ -214,7 +215,7 @@ static int find_got(struct uftrace_elf_data *elf,
 	pd->plt_addr   = plt_addr;
 
 	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
-		pd->mod_name, pd->module_id, pd->base_addr ,pd->pltgot_ptr);
+		pd->mod_name, pd->module_id, pd->base_addr, pd->pltgot_ptr);
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
 	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
@@ -229,6 +230,12 @@ static int find_got(struct uftrace_elf_data *elf,
 		if (plthook_resolver_addr == 0)
 			plthook_resolver_addr = pd->pltgot_ptr[2];
 
+		if (pd->module_id == 0) {
+			pr_dbg2("update module id to %p\n", pd);
+			overwrite_pltgot(pd, 1, pd);
+			pd->module_id = (unsigned long)pd;
+		}
+
 		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
 			pd->pltgot_ptr, plthook_resolver_addr);
 
@@ -236,16 +243,6 @@ static int find_got(struct uftrace_elf_data *elf,
 	}
 
 	overwrite_pltgot(pd, 2, plt_hooker);
-
-	if (bind_now) {
-		mcount_arch_undo_bindnow(elf, pd);
-
-		if (pd->module_id == 0) {
-			pr_dbg2("update module id to %p\n", pd);
-			overwrite_pltgot(pd, 1, pd);
-			pd->module_id = (unsigned long)pd;
-		}
-	}
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
@@ -303,8 +300,6 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 
 /* functions should skip PLT hooking */
 static const char *skip_syms[] = {
-	"__cyg_profile_func_enter",
-	"__cyg_profile_func_exit",
 	"_mcleanup",
 	"__libc_start_main",
 	"__cxa_throw",
@@ -452,11 +447,15 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"libmcount-fast-single.so",
 		/* system base libraries */
 		"libc.so.6",
+		"libc-2.*.so"
 		"libgcc_s.so.1",
 		"libpthread.so.0",
+		"libpthread-2.*.so"
 		"linux-vdso.so.1",
 		"linux-gate.so.1",
-		"ld-linux-x86-64.so.2",
+		"ld-linux-*.so.*",
+		"libdl.so.2",
+		"libdl-2.*.so"
 	};
 	size_t k;
 	static bool exe_once = true;
@@ -470,7 +469,7 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 	}
 
 	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-		if (!strcmp(basename(exename), skip_libs[k]))
+		if (!fnmatch(skip_libs[k], basename(exename), 0))
 			return 0;
 	}
 
