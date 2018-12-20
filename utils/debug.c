@@ -39,7 +39,7 @@ const char *color_bold    = TERM_COLOR_BOLD;
 const char *color_string  = TERM_COLOR_MAGENTA;
 const char *color_fptr    = TERM_COLOR_CYAN;
 const char *color_enum    = TERM_COLOR_BLUE;
-const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_BLUE;
+const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_RESET TERM_COLOR_BLUE;
 
 static const struct color_code {
 	char		code;
