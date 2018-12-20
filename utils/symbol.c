@@ -980,16 +980,20 @@ void load_module_symtabs(struct symtabs *symtabs)
 		"libmcount-single.so",
 		"libmcount-fast-single.so",
 	};
+	static const char libstdcpp6[] = "libstdc++.so.6";
 	size_t k;
 	unsigned long flags = symtabs->flags;
 	const char *exec_path = symtabs->filename;
+	bool check_cpp = false;
+	bool needs_cpp = false;
 
 	maps = symtabs->maps;
 	while (maps) {
 		struct symtab dsymtab = {};
+		const char *libname = basename(maps->libname);
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-			if (!strcmp(basename(maps->libname), skip_libs[k]))
+			if (!strcmp(libname, skip_libs[k]))
 				goto next;
 		}
 
@@ -1002,7 +1006,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 			char *symfile = NULL;
 
 			xasprintf(&symfile, "%s/%s.sym",
-				  symtabs->dirname, basename(maps->libname));
+				  symtabs->dirname, libname);
 			if (access(symfile, F_OK) == 0) {
 				load_module_symbol_file(&maps->symtab, symfile,
 							maps->start);
@@ -1011,6 +1015,22 @@ void load_module_symtabs(struct symtabs *symtabs)
 			free(symfile);
 
 			if (maps->symtab.nr_sym)
+				goto next;
+		}
+
+		if (exec_path == NULL)
+			exec_path = maps->libname;
+
+		if (!check_cpp) {
+			if (has_dependency(exec_path, libstdcpp6))
+				needs_cpp = true;
+
+			check_cpp = true;
+		}
+
+		/* load symbols from libstdc++.so only if it's written in C++ */
+		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
+			if (!needs_cpp)
 				goto next;
 		}
 
