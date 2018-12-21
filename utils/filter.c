@@ -1212,16 +1212,16 @@ char * uftrace_clear_kernel(char *filter_str)
 static void filter_test_load_symtabs(struct symtabs *stabs)
 {
 	static struct sym syms[] = {
-		{ 0x1000, 0x1000, ST_GLOBAL, "foo::foo" },
-		{ 0x2000, 0x1000, ST_GLOBAL, "foo::bar" },
-		{ 0x3000, 0x1000, ST_GLOBAL, "foo::baz1" },
-		{ 0x4000, 0x1000, ST_GLOBAL, "foo::baz2" },
-		{ 0x5000, 0x1000, ST_GLOBAL, "foo::baz3" },
-		{ 0x6000, 0x1000, ST_GLOBAL, "foo::~foo" },
+		{ 0x1000, 0x1000, ST_GLOBAL_FUNC, "foo::foo" },
+		{ 0x2000, 0x1000, ST_GLOBAL_FUNC, "foo::bar" },
+		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "foo::baz1" },
+		{ 0x4000, 0x1000, ST_GLOBAL_FUNC, "foo::baz2" },
+		{ 0x5000, 0x1000, ST_GLOBAL_FUNC, "foo::baz3" },
+		{ 0x6000, 0x1000, ST_GLOBAL_FUNC, "foo::~foo" },
 	};
 	static struct sym dsyms[] = {
-		{ 0x21000, 0x1000, ST_PLT, "malloc" },
-		{ 0x22000, 0x1000, ST_PLT, "free" },
+		{ 0x21000, 0x1000, ST_PLT_FUNC, "malloc" },
+		{ 0x22000, 0x1000, ST_PLT_FUNC, "free" },
 	};
 
 	stabs->symtab.sym = syms;

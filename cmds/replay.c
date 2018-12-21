@@ -751,7 +751,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 
-	if (opts->libname && sym && sym->type == ST_PLT) {
+	if (opts->libname && sym && sym->type == ST_PLT_FUNC) {
 		struct uftrace_session *s;
 
 		s = find_task_session(sessions, task->t, rstack->time);
