@@ -32,6 +32,7 @@ enum trigger_flag {
 	TRIGGER_FL_FINISH	= (1U << 13),
 	TRIGGER_FL_AUTO_ARGS	= (1U << 14),
 	TRIGGER_FL_CALLER	= (1U << 15),
+	TRIGGER_FL_SET_NAME	= (1U << 16),
 };
 
 enum filter_mode {
@@ -94,6 +95,13 @@ struct uftrace_arg_spec {
 	};
 };
 
+struct uftrace_name_spec {
+	struct list_head	list;
+	int			arg_idx;
+	unsigned		count;
+	char			*name;
+};
+
 struct uftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
@@ -104,6 +112,7 @@ struct uftrace_trigger {
 	enum filter_mode	fmode;
 	enum trigger_read_type	read;
 	struct list_head	*pargs;
+	struct list_head	*pnames;
 };
 
 struct uftrace_filter {
@@ -112,6 +121,7 @@ struct uftrace_filter {
 	unsigned long		start;
 	unsigned long		end;
 	struct list_head	args;
+	struct list_head	names;
 	struct uftrace_trigger	trigger;
 };
 

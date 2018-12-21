@@ -84,6 +84,18 @@ static void print_trigger(struct uftrace_trigger *tr)
 		}
 	}
 
+	if (tr->flags & TRIGGER_FL_SET_NAME) {
+		struct uftrace_name_spec *name;
+
+		pr_dbg("\ttrigger: name\n");
+		list_for_each_entry(name, tr->pnames, list) {
+			if (name->arg_idx)
+				pr_dbg("\t\t %s: arg%d\n", name->name, name->arg_idx);
+			else
+				pr_dbg("\t\t %s: retval\n", name->name);
+		}
+	}
+
 	if (tr->flags & TRIGGER_FL_COLOR)
 		pr_dbg("\ttrigger: color '%c'\n", tr->color);
 	if (tr->flags & TRIGGER_FL_TIME_FILTER)
@@ -251,6 +263,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 		filter->trigger.time = tr->time;
 	if (tr->flags & TRIGGER_FL_READ)
 		filter->trigger.read |= tr->read;
+	if (tr->flags & TRIGGER_FL_SET_NAME)
+		list_splice_init(tr->pnames, &filter->names);
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
@@ -322,6 +336,8 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	new->trigger.read  = 0;
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
+	INIT_LIST_HEAD(&new->names);
+	new->trigger.pnames = &new->names;
 
 	add_trigger(new, tr, exact_match);
 	if (auto_arg)
@@ -824,6 +840,31 @@ static int parse_caller_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
+static int parse_name_action(char *action, struct uftrace_trigger *tr)
+{
+	char *name = action + 5;
+	char *argspec;
+	int idx = RETVAL_IDX;
+	struct uftrace_name_spec *uns;
+
+	argspec = strchr(name, ':');
+	if (argspec != NULL) {
+		*argspec++ = '\0';
+
+		if (!strncmp(argspec, "arg", 3))
+			idx = strtol(argspec+3, NULL, 0);
+	}
+
+	uns = xmalloc(sizeof(*uns));
+	uns->arg_idx = idx;
+	uns->count   = 0;
+	uns->name    = xstrdup(name);
+	list_add_tail(&uns->list, tr->pnames);
+
+	tr->flags |= TRIGGER_FL_SET_NAME;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr);
@@ -834,6 +875,7 @@ static const struct trigger_action_parser actions[] = {
 	{ "arg",       parse_argument_spec,       TRIGGER_FL_ARGUMENT, },
 	{ "fparg",     parse_float_argument_spec, TRIGGER_FL_ARGUMENT, },
 	{ "retval",    parse_retval_spec,         TRIGGER_FL_RETVAL, },
+	{ "name=",     parse_name_action,         TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL, },
 	{ "filter",    parse_filter_action,       TRIGGER_FL_FILTER, },
 	{ "notrace",   parse_notrace_action,      TRIGGER_FL_FILTER, },
 	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
@@ -938,11 +980,13 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 	strv_for_each(&filters, name, j) {
 		LIST_HEAD(args);
+		LIST_HEAD(names);
 		struct uftrace_trigger tr = {
 			.flags = flags,
 			.pargs = &args,
 			.lp64  = is_lp64,
 			.type  = !ignore_type,
+			.pnames= &names,
 		};
 		int ret = 0;
 		char *module = NULL;
