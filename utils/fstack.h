@@ -71,6 +71,7 @@ struct uftrace_task_reader {
 		bool valid;
 		int orig_depth;
 		unsigned long flags;
+		struct uftrace_trigger tr;
 		uint64_t total_time;
 		uint64_t child_time;
 	} *func_stack;

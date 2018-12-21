@@ -13,6 +13,7 @@
 #include "utils/list.h"
 #include "utils/kernel.h"
 #include "utils/field.h"
+#include "utils/rbtree.h"
 
 #include "libtraceevent/event-parse.h"
 
@@ -437,6 +438,132 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
+static struct rb_root name_tree = RB_ROOT;
+
+struct uftrace_name_entry {
+	struct rb_node	node;
+	uint64_t	val;
+	char		*name;
+};
+
+static void add_name(struct uftrace_name_spec *name_spec, uint64_t val)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &name_tree.rb_node;
+	struct uftrace_name_entry *iter, *entry;
+
+	/* these values are special, usually for error */
+	if (val == 0 || val == -1ULL || val == (unsigned)INT_MIN)
+		return;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_name_entry, node);
+
+		/* update existing name if found */
+		if (iter->val == val) {
+			free(iter->name);
+			iter->name = NULL;
+
+			entry = iter;
+			goto name_it;
+		}
+
+		if (iter->val > val)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	entry = xmalloc(sizeof(*entry));
+
+name_it:
+	entry->val = val;
+	if (name_spec->count) {
+		asprintf(&entry->name, "%s_%d",
+			 name_spec->name, name_spec->count);
+	}
+	else {
+		entry->name = xstrdup(name_spec->name);
+	}
+	name_spec->count++;
+	pr_dbg2("add name: %s (%#"PRIx64")\n", entry->name, val);
+
+	if (*p == NULL) {
+		rb_link_node(&entry->node, parent, p);
+		rb_insert_color(&entry->node, &name_tree);
+	}
+}
+
+static char *find_name(uint64_t val)
+{
+	struct rb_node *node = rb_first(&name_tree);
+	struct uftrace_name_entry *iter;
+
+	if (val == 0 || val == -1ULL || val == (unsigned)INT_MIN)
+		return NULL;
+
+	while (node) {
+		iter = rb_entry(node, struct uftrace_name_entry, node);
+
+		if (iter->val == val)
+			return iter->name;
+
+		if (iter->val > val)
+			node = node->rb_left;
+		else
+			node = node->rb_right;
+	}
+	return NULL;
+}
+
+void set_name_for_args(struct uftrace_task_reader *task,
+		       struct uftrace_trigger *tr, bool is_retval)
+{
+	void *data = task->args.data;
+	struct list_head *arg_list = task->args.args;
+	struct uftrace_arg_spec *spec;
+	struct uftrace_name_spec *name;
+
+	list_for_each_entry(spec, arg_list, list) {
+		size_t size = spec->size;
+		unsigned short slen;
+		bool set_name = false;
+		uint64_t val = 0;
+
+		/* skip unwanted arguments or retval */
+		if (is_retval != (spec->idx == RETVAL_IDX))
+			continue;
+
+		list_for_each_entry(name, tr->pnames, list) {
+			if (spec->idx == name->arg_idx) {
+				set_name = true;
+				break;
+			}
+		}
+
+		switch (spec->fmt) {
+		case ARG_FMT_AUTO:
+		case ARG_FMT_SINT:
+		case ARG_FMT_UINT:
+		case ARG_FMT_HEX:
+			memcpy(&val, data, spec->size);
+			if (set_name)
+				add_name(name, val);
+			break;
+		case ARG_FMT_STR:
+		case ARG_FMT_STD_STRING:
+			memcpy(&slen, data, 2);
+			size = slen + 2;
+			break;
+		default:
+			break;
+		}
+
+		data += ALIGN(size, 4);
+	}
+}
+
 #define print_args(fmt, ...)						\
 ({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
 
@@ -687,19 +814,31 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			free(estr);
 		}
 		else {
-			struct uftrace_session_link *sessions = &task->h->sessions;
-			struct uftrace_session *s;
-			struct sym *sym;
+			char *name;
+			struct sym *sym = NULL;
 
 			if (spec->fmt != ARG_FMT_AUTO)
 				memcpy(val.v, data, spec->size);
 
-			s = find_task_session(sessions, task->t,
-					      task->rstack->time);
+			/* prefer user-given name */
+			name = find_name(val.ll);
+			if (name == NULL) {
+				/* and then check program symbols */
+				struct uftrace_session_link *sessions;
+				struct uftrace_session *s;
 
-			sym = find_symtabs(&s->symtabs, val.ll);
+				sessions = &task->h->sessions;
+				s = find_task_session(sessions, task->t,
+						      task->rstack->time);
+				sym = find_symtabs(&s->symtabs, val.ll);
+			}
 
-			if (sym) {
+			if (name) {
+				print_args("%s", color_symbol);
+				print_args("%s", name);
+				print_args("%s", color_reset);
+			}
+			else if (sym) {
 				print_args("%s", color_symbol);
 				print_args("&%s", sym->name);
 				print_args("%s", color_reset);
@@ -805,8 +944,13 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 		depth += task_column_depth(task, opts);
 
-		if (rstack->more)
+		if (rstack->more) {
 			str_mode |= HAS_MORE;
+
+			if (tr.flags & TRIGGER_FL_SET_NAME)
+				set_name_for_args(task, &tr, false);
+		}
+
 		get_argspec_string(task, args, sizeof(args), str_mode);
 
 		fstack = &task->func_stack[task->stack_count - 1];
@@ -827,6 +971,9 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			if (next->rstack->more) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
+
+				if (tr.flags & TRIGGER_FL_SET_NAME)
+					set_name_for_args(task, &tr, true);
 			}
 			get_argspec_string(task, retval, sizeof(retval), str_mode);
 
@@ -883,6 +1030,9 @@ static int print_graph_rstack(struct uftrace_data *handle,
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
 				str_mode |= NEEDS_SEMI_COLON;
+
+				if (fstack->tr.flags & TRIGGER_FL_SET_NAME)
+					set_name_for_args(task, &fstack->tr, true);
 			}
 			get_argspec_string(task, retval, sizeof(args), str_mode);
 

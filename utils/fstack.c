@@ -494,6 +494,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 
 	fstack->orig_depth = task->filter.depth;
 	fstack->flags = 0;
+	fstack->tr.flags = 0;
 
 	if (task->filter.out_count > 0) {
 		fstack->flags |= FSTACK_FL_NORECORD;
@@ -530,6 +531,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		}
 
 		uftrace_match_filter(addr, &sess->filters, tr);
+		fstack->tr = *tr;
 	}
 
 
