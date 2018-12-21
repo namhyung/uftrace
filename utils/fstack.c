@@ -431,6 +431,57 @@ void setup_fstack_args(char *argspec, char *retspec,
 	}
 }
 
+static char * extract_name_spec(char *argspec)
+{
+	struct strv args_vec = STRV_INIT;
+	struct strv args_new = STRV_INIT;
+	char *str;
+	int i;
+
+	if (argspec == NULL || !strstr(argspec, "name="))
+		return NULL;
+
+	strv_split(&args_vec, argspec, ";");
+
+	strv_for_each(&args_vec, str, i) {
+		char *p = strchr(str, '@');
+		char *name, *spec = NULL;
+		struct strv specs = STRV_INIT;
+		int k;
+
+		if (p == NULL)
+			continue;
+
+		name = xstrndup(str, p - str);
+		strv_split(&specs, p+1, ",");
+
+		strv_for_each(&specs, p, k) {
+			if (!strncmp(p, "name=", 5))
+				spec = strjoin(spec, p, ",");
+		}
+		strv_free(&specs);
+
+		if (spec) {
+			char *new_spec = NULL;
+
+			asprintf(&new_spec, "%s@%s", name, spec);
+			strv_append(&args_new, new_spec);
+			free(new_spec);
+			free(spec);
+		}
+		free(name);
+	}
+	strv_free(&args_vec);
+
+	if (args_new.nr) {
+		str = strv_join(&args_new, ";");
+		strv_free(&args_new);
+		return str;
+	}
+
+	return NULL;
+}
+
 /**
  * fstack_setup_filters - setup necessary filters for processing data
  * @opts: uftrace user options
@@ -451,6 +502,14 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 			       (opts->filter || opts->trigger) ? " or " : "",
 			       opts->caller ?: "");
 		}
+	}
+
+	if (opts->args || opts->retval) {
+		/* only allow name triggers for now */
+		char *args = extract_name_spec(opts->args);
+		char *retval = extract_name_spec(opts->retval);
+
+		setup_fstack_args(args, retval, handle, false, opts->patt_type);
 	}
 
 	if (opts->disabled)
