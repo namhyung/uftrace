@@ -479,7 +479,7 @@ static void add_name(struct uftrace_name_spec *name_spec, uint64_t val)
 
 name_it:
 	entry->val = val;
-	if (name_spec->count) {
+	if (*name_spec->name && name_spec->count) {
 		asprintf(&entry->name, "%s_%d",
 			 name_spec->name, name_spec->count);
 	}
@@ -833,7 +833,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				sym = find_symtabs(&s->symtabs, val.ll);
 			}
 
-			if (name) {
+			if (name && *name) {
 				print_args("%s", color_symbol);
 				print_args("%s", name);
 				print_args("%s", color_reset);
