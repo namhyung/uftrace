@@ -1071,8 +1071,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	FILE *ifp, *ofp;
 	char buf[PATH_MAX];
 	struct uftrace_mmap *prev_map = NULL;
-	char *last_libname = NULL;
-	bool last_prot_x = false;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -1089,13 +1087,18 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	while (fgets(buf, sizeof(buf), ifp)) {
 		unsigned long start, end;
 		char prot[5];
+		unsigned char major, minor;
+		unsigned char prev_major, prev_minor;
+		uint32_t ino, prev_ino;
+		uint64_t off, prev_off;
 		char path[PATH_MAX];
 		size_t namelen;
 		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
-		if (sscanf(buf, "%lx-%lx %s %*x %*x:%*x %*d %s\n",
-			   &start, &end, prot, path) != 4)
+		if (sscanf(buf, "%lx-%lx %s %"SCNx64" %hhx:%hhx %u %s\n",
+			   &start, &end, prot, &off, &major, &minor,
+			   &ino, path) != 8)
 			continue;
 
 		/*
@@ -1105,36 +1108,26 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0) {
 				symtabs->kernel_base = guess_kernel_base(buf);
-				last_prot_x = true;
-				goto next;
-			}
-			else
-				continue;
-		}
-
-		/*
-		 * use first mapping only to calculate the offset correctly.
-		 * but if the first mapping is not executable, extends it
-		 * to span to the executable (probably the second) mapping.
-		 */
-		if (last_libname && !strcmp(last_libname, path)) {
-			if (!last_prot_x && (prot[2] == 'x')) {
-				prev_map->end = end;
-				last_prot_x = true;
-
-				snprintf(buf, sizeof(buf), "%"PRIx64"-%"PRIx64" %s",
-					 prev_map->start, prev_map->end,
-					 strchr(buf, ' ') + 1);
-				goto next;
+				fprintf(ofp, "%s", buf);
 			}
 			continue;
 		}
 
-		last_prot_x = (prot[2] == 'x');
+		if (prev_map != NULL) {
+			/* extend prev_map to have all segments */
+			if (!strcmp(path, prev_map->libname)) {
+				prev_map->end = end;
+				if (prot[2] == 'x')
+					mcount_memcpy1(prev_map->prot, prot, 4);
+				continue;
+			}
 
-		/* still need to write the map for executable */
-		if (!strcmp(path, symtabs->filename))
-			symtabs->exec_base = start;
+			/* write prev_map when it finds a new map */
+			fprintf(ofp, "%"PRIx64"-%"PRIx64" %.4s %08"PRIx64" %02x:%02x %-26u %s\n",
+				prev_map->start, prev_map->end, prev_map->prot,
+				prev_off, prev_major, prev_minor, prev_ino,
+				prev_map->libname);
+		}
 
 		/* save map for the executable */
 		namelen = ALIGN(strlen(path) + 1, 4);
@@ -1147,7 +1140,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		mcount_memcpy1(map->prot, prot, 4);
 		mcount_memcpy1(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
-		last_libname = map->libname;
+
+		/* still need to write the map for executable */
+		if (!strcmp(path, symtabs->filename))
+			symtabs->exec_base = start;
 
 		if (prev_map)
 			prev_map->next = map;
@@ -1156,10 +1152,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 
 		map->next = NULL;
 		prev_map = map;
-next:
-		/* defer write until it finds an exec-map */
-		if (last_prot_x)
-			fprintf(ofp, "%s", buf);
+		prev_off = off;
+		prev_ino = ino;
+		prev_major = major;
+		prev_minor = minor;
 	}
 
 	fclose(ifp);
