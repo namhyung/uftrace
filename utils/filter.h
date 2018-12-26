@@ -98,7 +98,6 @@ struct uftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
 	char			color;
-	bool			lp64;
 	uint64_t		time;
 	enum filter_mode	fmode;
 	enum trigger_read_type	read;
@@ -207,10 +206,12 @@ struct debug_info;
 
 struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo);
+					  struct debug_info *dinfo,
+					  struct uftrace_filter_setting *setting);
 struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo);
+					  struct debug_info *dinfo,
+					  struct uftrace_filter_setting *setting);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);

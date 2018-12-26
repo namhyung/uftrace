@@ -238,8 +238,6 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 	if (tr->flags & (TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL)) {
 		struct uftrace_arg_spec *arg;
 
-		filter->trigger.lp64 = tr->lp64;
-
 		list_for_each_entry(arg, tr->pargs, list)
 			add_arg_spec(&filter->args, arg, exact_match);
 	}
@@ -254,7 +252,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		      struct uftrace_trigger *tr, bool exact_match,
-		      struct debug_info *dinfo)
+		      struct debug_info *dinfo,
+		      struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -264,12 +263,12 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	unsigned long orig_flags = tr->flags;
 
 	if ((tr->flags & TRIGGER_FL_ARGUMENT) && list_empty(tr->pargs)) {
-		auto_arg = find_auto_argspec(filter, tr, dinfo);
+		auto_arg = find_auto_argspec(filter, tr, dinfo, setting);
 		if (auto_arg == NULL)
 			tr->flags &= ~TRIGGER_FL_ARGUMENT;
 	}
 	if ((tr->flags & TRIGGER_FL_RETVAL) && list_empty(tr->pargs)) {
-		auto_ret = find_auto_retspec(filter, tr, dinfo);
+		auto_ret = find_auto_retspec(filter, tr, dinfo, setting);
 		if (auto_ret == NULL)
 			tr->flags &= ~TRIGGER_FL_RETVAL;
 	}
@@ -454,10 +453,10 @@ static int has_shared_object(const char *soname)
 
 /* argument_spec = arg1/i32,arg2/x64,... */
 static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix,
-		      bool is_lp64)
+		      struct uftrace_filter_setting *setting)
 {
 	int fmt = ARG_FMT_AUTO;
-	int size = is_lp64 ? 8 : 4;
+	int size = setting->lp64 ? 8 : 4;
 	int type = arg->type;
 	int bit;
 	char *p;
@@ -584,7 +583,8 @@ out:
 }
 
 /* argument_spec = arg1/i32,arg2/x64%reg,arg3%stack+1,... */
-static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
+static int parse_argument_spec(char *str, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -599,7 +599,7 @@ static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
 	arg->idx = strtol(str+3, &suffix, 0);
 	arg->type = ARG_TYPE_INDEX;
 
-	if (parse_spec(str, arg, suffix, tr->lp64) == -1) {
+	if (parse_spec(str, arg, suffix, setting) == -1) {
 		free(arg);
 		return -1;
 	}
@@ -610,7 +610,8 @@ static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 /* argument_spec = retval/i32 or retval/x64 ... */
-static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
+static int parse_retval_spec(char *str, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -623,7 +624,7 @@ static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
 	/* set suffix after string "retval" */
 	suffix = str + 6;
 
-	if (parse_spec(str, arg, suffix, tr->lp64) == -1) {
+	if (parse_spec(str, arg, suffix, setting) == -1) {
 		free(arg);
 		return -1;
 	}
@@ -635,7 +636,8 @@ static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
 }
 
 /* argument_spec = fparg1/32,fparg2/64%stack+1,... */
-static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
+static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
+				     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -691,7 +693,8 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_depth_action(char *action, struct uftrace_trigger *tr)
+static int parse_depth_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_DEPTH;
 	tr->depth = strtoul(action + 6, NULL, 10);
@@ -703,14 +706,16 @@ static int parse_depth_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_time_action(char *action, struct uftrace_trigger *tr)
+static int parse_time_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_TIME_FILTER;
 	tr->time = parse_time(action + 5, 3);
 	return 0;
 }
 
-static int parse_read_action(char *action, struct uftrace_trigger *tr)
+static int parse_read_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	const char *target = action + 5;
 
@@ -732,7 +737,8 @@ static int parse_read_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_color_action(char *action, struct uftrace_trigger *tr)
+static int parse_color_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	const char *color = action + 6;
 
@@ -761,7 +767,8 @@ static int parse_color_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_trace_action(char *action, struct uftrace_trigger *tr)
+static int parse_trace_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	action += 5;
 	if (*action == '_' || *action == '-')
@@ -779,45 +786,52 @@ static int parse_trace_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_backtrace_action(char *action, struct uftrace_trigger *tr)
+static int parse_backtrace_action(char *action, struct uftrace_trigger *tr,
+				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_BACKTRACE;
 	return 0;
 }
 
-static int parse_recover_action(char *action, struct uftrace_trigger *tr)
+static int parse_recover_action(char *action, struct uftrace_trigger *tr,
+				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_RECOVER;
 	return 0;
 }
 
-static int parse_finish_action(char *action, struct uftrace_trigger *tr)
+static int parse_finish_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FINISH;
 	return 0;
 }
 
-static int parse_filter_action(char *action, struct uftrace_trigger *tr)
+static int parse_filter_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
 	tr->fmode  = FILTER_MODE_IN;
 	return 0;
 }
 
-static int parse_notrace_action(char *action, struct uftrace_trigger *tr)
+static int parse_notrace_action(char *action, struct uftrace_trigger *tr,
+				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
 	tr->fmode  = FILTER_MODE_OUT;
 	return 0;
 }
 
-static int parse_auto_args_action(char *action, struct uftrace_trigger *tr)
+static int parse_auto_args_action(char *action, struct uftrace_trigger *tr,
+				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL;
 	return 0;
 }
 
-static int parse_caller_action(char *action, struct uftrace_trigger *tr)
+static int parse_caller_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_CALLER;
 	return 0;
@@ -825,7 +839,8 @@ static int parse_caller_action(char *action, struct uftrace_trigger *tr)
 
 struct trigger_action_parser {
 	const char *name;
-	int (*parse)(char *action, struct uftrace_trigger *tr);
+	int (*parse)(char *action, struct uftrace_trigger *tr,
+		     struct uftrace_filter_setting *setting);
 	unsigned long flags;
 };
 
@@ -848,7 +863,8 @@ static const struct trigger_action_parser actions[] = {
 };
 
 int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-			 char **module, unsigned long orig_flags)
+			 char **module, unsigned long orig_flags,
+			 struct uftrace_filter_setting *setting)
 {
 	char *pos = strchr(str, '@');
 	struct strv acts = STRV_INIT;
@@ -872,7 +888,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 			if (orig_flags && !(orig_flags & action->flags))
 				break;  /* ignore incompatible actions */
 
-			if (action->parse(pos, tr) < 0)
+			if (action->parse(pos, tr, setting) < 0)
 				goto out;
 
 			break;
@@ -896,7 +912,8 @@ out:
 static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr,
-			     struct debug_info *dinfo)
+			     struct debug_info *dinfo,
+			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
 	struct sym *sym;
@@ -914,7 +931,7 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.end   = sym->addr + sym->size;
 
 		ret += add_filter(root, &filter, tr,
-				  patt->type == PATT_SIMPLE, dinfo);
+				  patt->type == PATT_SIMPLE, dinfo, setting);
 	}
 
 	return ret;
@@ -939,7 +956,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		struct uftrace_trigger tr = {
 			.flags = flags,
 			.pargs = &args,
-			.lp64  = setting->lp64,
 		};
 		int ret = 0;
 		char *module = NULL;
@@ -949,7 +965,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			.type = PATT_NONE,
 		};
 
-		if (setup_trigger_action(name, &tr, &module, flags) < 0)
+		if (setup_trigger_action(name, &tr, &module, flags, setting) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
@@ -977,27 +993,32 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				     strlen(module))) {
 				ret += add_trigger_entry(root, &symtabs->symtab,
 							 &patt, &tr,
-							 &symtabs->dinfo);
+							 &symtabs->dinfo,
+							 setting);
 				ret += add_trigger_entry(root, &symtabs->dsymtab,
 							 &patt, &tr,
-							 &symtabs->dinfo);
+							 &symtabs->dinfo,
+							 setting);
 			}
 			else if (!strcasecmp(module, "PLT")) {
 				ret = add_trigger_entry(root, &symtabs->dsymtab,
 							&patt, &tr,
-							&symtabs->dinfo);
+							&symtabs->dinfo,
+							setting);
 			}
 			else if (!strcasecmp(module, "kernel")) {
 				ret = add_trigger_entry(root, get_kernel_symtab(),
 							&patt, &tr,
-							&symtabs->dinfo);
+							&symtabs->dinfo,
+							setting);
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
 				if (map) {
 					ret = add_trigger_entry(root, &map->symtab,
 								&patt, &tr,
-								&map->dinfo);
+								&map->dinfo,
+								setting);
 				}
 			}
 
@@ -1006,16 +1027,19 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		else {
 			/* check main executable's symtab first */
 			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr, &symtabs->dinfo);
+						 &patt, &tr, &symtabs->dinfo,
+						 setting);
 			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr, &symtabs->dinfo);
+						 &patt, &tr, &symtabs->dinfo,
+						 setting);
 
 			/* and then find all module's symtabs */
 			map = symtabs->maps;
 			while (map) {
 				ret += add_trigger_entry(root, &map->symtab,
 							 &patt, &tr,
-							 &map->dinfo);
+							 &map->dinfo,
+							 setting);
 				map = map->next;
 			}
 		}
