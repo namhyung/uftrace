@@ -141,7 +141,13 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	char *retval_str    = getenv("UFTRACE_RETVAL");
 	char *autoargs_str  = getenv("UFTRACE_AUTO_ARGS");
 	char *caller_str    = getenv("UFTRACE_CALLER");
-	bool lp64           = host_is_lp64();
+
+	struct uftrace_filter_setting filter_setting = {
+		.ptype		= ptype,
+		.auto_args	= false,
+		.allow_kernel	= false,
+		.lp64		= host_is_lp64(),
+	};
 
 	load_module_symtabs(&symtabs);
 
@@ -149,7 +155,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	if (argument_str || retval_str || autoargs_str ||
 	    (trigger_str && (strstr(trigger_str, "arg") ||
 			     strstr(trigger_str, "retval")))) {
-		setup_auto_args(lp64);
+		setup_auto_args(&filter_setting);
 	}
 
 	/* use debug info if available */
@@ -158,17 +164,17 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	save_debug_info(&symtabs, dirname);
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
-			     &mcount_filter_mode, false, ptype);
+			     &mcount_filter_mode, &filter_setting);
 	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
-			      &mcount_filter_mode, false, ptype, lp64);
+			      &mcount_filter_mode, &filter_setting);
 	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers,
-			       false, ptype, lp64);
+			       &filter_setting);
 	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers,
-			     false, ptype, lp64);
+			     &filter_setting);
 
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &symtabs,
-					    &mcount_triggers, ptype);
+					    &mcount_triggers, &filter_setting);
 
 		if (uftrace_count_filter(&mcount_triggers,
 					 TRIGGER_FL_CALLER) != 0)
@@ -186,10 +192,12 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 				autoarg = autoret = "*";
 		}
 
+		filter_setting.auto_args = true;
+
 		uftrace_setup_argument(autoarg, &symtabs,
-				       &mcount_triggers, true, ptype, lp64);
+				       &mcount_triggers, &filter_setting);
 		uftrace_setup_retval(autoret, &symtabs,
-				     &mcount_triggers, true, ptype, lp64);
+				     &mcount_triggers, &filter_setting);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))

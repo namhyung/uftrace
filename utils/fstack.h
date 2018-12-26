@@ -134,8 +134,8 @@ static inline bool is_event_record(struct uftrace_task_reader *task,
 }
 
 void setup_fstack_args(char *argspec, char *retspec,
-		       struct uftrace_data *handle, bool auto_args,
-		       enum uftrace_pattern_type patt_type);
+		       struct uftrace_data *handle,
+		       struct uftrace_filter_setting *setting);
 int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle);
 
 int fstack_entry(struct uftrace_task_reader *task,

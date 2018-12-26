@@ -415,7 +415,6 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 	FILE *fp;
 	char buf[PATH_MAX];
 	int saved_errno = 0;
-	bool lp64;
 
 	memset(handle, 0, sizeof(*handle));
 
@@ -481,8 +480,6 @@ ok:
 		handle->hdr.max_stack = bswap_16(handle->hdr.max_stack);
 	}
 
-	lp64 = data_is_lp64(handle);
-
 	if (handle->hdr.version < UFTRACE_FILE_VERSION_MIN ||
 	    handle->hdr.version > UFTRACE_FILE_VERSION)
 		pr_err_ns("unsupported file version: %u\n", handle->hdr.version);
@@ -520,15 +517,22 @@ ok:
 	}
 
 	if (handle->hdr.info_mask & ARG_SPEC) {
+		struct uftrace_filter_setting setting = {
+			.ptype		= handle->info.patt_type,
+			.allow_kernel	= true,
+			.auto_args	= false,
+			.lp64		= data_is_lp64(handle),
+		};
+
 		if (handle->hdr.feat_mask & AUTO_ARGS) {
 			setup_auto_args_str(handle->info.autoarg,
 					    handle->info.autoret,
 					    handle->info.autoenum,
-					    lp64);
+					    &setting);
 		}
 
 		setup_fstack_args(handle->info.argspec, handle->info.retspec,
-				  handle, false, handle->info.patt_type);
+				  handle, &setting);
 
 		if (handle->info.auto_args_enabled) {
 			char *autoarg = handle->info.autoarg;
@@ -541,8 +545,8 @@ ok:
 					autoarg = autoret = "*";
 			}
 
-			setup_fstack_args(autoarg, autoret, handle, true,
-					  handle->info.patt_type);
+			setting.auto_args = true;
+			setup_fstack_args(autoarg, autoret, handle, &setting);
 		}
 	}
 

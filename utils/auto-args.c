@@ -221,20 +221,21 @@ char *get_auto_retspec_str(void)
 	return auto_retvals_list;
 }
 
-void setup_auto_args(bool is_lp64)
+void setup_auto_args(struct uftrace_filter_setting *setting)
 {
 	parse_enum_string(auto_enum_list, &auto_enum);
 	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT,
-			is_lp64);
+			setting->lp64);
 	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL,
-			is_lp64);
+			setting->lp64);
 }
 
-void setup_auto_args_str(char *args, char *rets, char *enums, bool is_lp64)
+void setup_auto_args_str(char *args, char *rets, char *enums,
+			 struct uftrace_filter_setting *setting)
 {
 	parse_enum_string(enums, &auto_enum);
-	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT, is_lp64);
-	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL, is_lp64);
+	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT, setting->lp64);
+	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL, setting->lp64);
 }
 
 static void release_auto_args(struct rb_root *root)

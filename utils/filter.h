@@ -127,6 +127,15 @@ struct uftrace_pattern {
 	regex_t				re;
 };
 
+struct uftrace_filter_setting {
+	enum uftrace_pattern_type	ptype;
+	bool				auto_args;
+	bool				allow_kernel;
+	bool				lp64;
+	/* caller-defined data */
+	void				*private;
+};
+
 /* please see man proc(5) for /proc/[pid]/statm */
 struct uftrace_proc_statm {
 	uint64_t		vmsize;  /* total program size in KB */
@@ -160,21 +169,19 @@ struct symtabs;
 
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, enum filter_mode *mode,
-			  bool allow_kernel, enum uftrace_pattern_type ptype);
+			  struct uftrace_filter_setting *setting);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
-			   bool allow_kernel, enum uftrace_pattern_type ptype,
-			   bool lp64);
+			   struct uftrace_filter_setting *setting);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			    struct rb_root *root, bool auto_args,
-			    enum uftrace_pattern_type ptype,
-			    bool lp64);
+			    struct rb_root *root,
+			    struct uftrace_filter_setting *setting);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			  struct rb_root *root, bool auto_args,
-			  enum uftrace_pattern_type ptype, bool lp64);
+			  struct rb_root *root,
+			  struct uftrace_filter_setting *setting);
 void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
-				 enum uftrace_pattern_type patt_type);
+				 struct uftrace_filter_setting *setting);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
@@ -191,8 +198,9 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char * uftrace_clear_kernel(char *filter_str);
 
-void setup_auto_args(bool lp64);
-void setup_auto_args_str(char *args, char *rets, char *enums, bool lp64);
+void setup_auto_args(struct uftrace_filter_setting *setting);
+void setup_auto_args_str(char *args, char *rets, char *enums,
+			 struct uftrace_filter_setting *setting);
 void finish_auto_args(void);
 
 struct debug_info;
