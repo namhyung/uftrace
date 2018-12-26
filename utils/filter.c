@@ -561,7 +561,7 @@ type:
 			type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(suffix);
+			arg->reg_idx = arch_register_index(host_cpu_arch(), suffix);
 			type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -674,7 +674,7 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 			arg->type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(suffix);
+			arg->reg_idx = arch_register_index(host_cpu_arch(), suffix);
 			arg->type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -1665,7 +1665,7 @@ TEST_CASE(trigger_setup_args)
 			TEST_EQ(spec->fmt, ARG_FMT_HEX);
 			TEST_EQ(spec->type, ARG_TYPE_REG);
 			TEST_EQ(spec->size, 4);
-			TEST_EQ(spec->reg_idx, arch_register_index(ARG2));
+			TEST_EQ(spec->reg_idx, 1);
 			break;
 		case 3:
 			TEST_EQ(spec->idx, 3);

@@ -38,34 +38,34 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	}
 
 	switch (reg_idx) {
-	case X86_REG_ECX:
+	case UFT_I386_REG_ECX:
 		ctx->val.i = ARG_REG1(regs);
 		break;
-	case X86_REG_EDX:
+	case UFT_I386_REG_EDX:
 		ctx->val.i = ARG_REG2(regs);
 		break;
-	case X86_REG_XMM0:
+	case UFT_I386_REG_XMM0:
 		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM1:
+	case UFT_I386_REG_XMM1:
 		asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM2:
+	case UFT_I386_REG_XMM2:
 		asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM3:
+	case UFT_I386_REG_XMM3:
 		asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM4:
+	case UFT_I386_REG_XMM4:
 		asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM5:
+	case UFT_I386_REG_XMM5:
 		asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM6:
+	case UFT_I386_REG_XMM6:
 		asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case X86_REG_XMM7:
+	case UFT_I386_REG_XMM7:
 		asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->val.v));
 		break;
 	default:

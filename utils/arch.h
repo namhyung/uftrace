@@ -1,0 +1,131 @@
+/*
+ * Architecture specific code and data
+ */
+#ifndef UFTRACE_ARCH_H
+#define UFTRACE_ARCH_H
+
+enum uftrace_cpu_arch {
+	UFT_CPU_NONE,
+	UFT_CPU_X86_64,
+	UFT_CPU_ARM,
+	UFT_CPU_AARCH64,
+	UFT_CPU_I386,
+};
+
+enum uftrace_x86_64_reg_index {
+	UFT_X86_64_REG_INT_BASE = 0,
+	/* integer registers */
+	UFT_X86_64_REG_RDI,
+	UFT_X86_64_REG_RSI,
+	UFT_X86_64_REG_RDX,
+	UFT_X86_64_REG_RCX,
+	UFT_X86_64_REG_R8,
+	UFT_X86_64_REG_R9,
+
+	UFT_X86_64_REG_FLOAT_BASE = 100,
+	/* floating-point registers */
+	UFT_X86_64_REG_XMM0,
+	UFT_X86_64_REG_XMM1,
+	UFT_X86_64_REG_XMM2,
+	UFT_X86_64_REG_XMM3,
+	UFT_X86_64_REG_XMM4,
+	UFT_X86_64_REG_XMM5,
+	UFT_X86_64_REG_XMM6,
+	UFT_X86_64_REG_XMM7,
+};
+
+enum uftrace_arm_reg_index {
+	UFT_ARM_REG_INT_BASE = 0,
+	/* integer registers */
+	UFT_ARM_REG_R0,
+	UFT_ARM_REG_R1,
+	UFT_ARM_REG_R2,
+	UFT_ARM_REG_R3,
+
+	UFT_ARM_REG_FLOAT_BASE = 100,
+	/* (single-precision) floating-point registers */
+	UFT_ARM_REG_S0,
+	UFT_ARM_REG_S1,
+	UFT_ARM_REG_S2,
+	UFT_ARM_REG_S3,
+	UFT_ARM_REG_S4,
+	UFT_ARM_REG_S5,
+	UFT_ARM_REG_S6,
+	UFT_ARM_REG_S7,
+	UFT_ARM_REG_S8,
+	UFT_ARM_REG_S9,
+	UFT_ARM_REG_S10,
+	UFT_ARM_REG_S11,
+	UFT_ARM_REG_S12,
+	UFT_ARM_REG_S13,
+	UFT_ARM_REG_S14,
+	UFT_ARM_REG_S15,
+	/* double-precision registers */
+	UFT_ARM_REG_DOUBLE_BASE = 200,
+	UFT_ARM_REG_D0,
+	UFT_ARM_REG_D1,
+	UFT_ARM_REG_D2,
+	UFT_ARM_REG_D3,
+	UFT_ARM_REG_D4,
+	UFT_ARM_REG_D5,
+	UFT_ARM_REG_D6,
+	UFT_ARM_REG_D7,
+};
+
+enum uftrace_aarch64_reg_index {
+	UFT_AARCH64_REG_INT_BASE = 0,
+	/* integer registers */
+	UFT_AARCH64_REG_R0,
+	UFT_AARCH64_REG_R1,
+	UFT_AARCH64_REG_R2,
+	UFT_AARCH64_REG_R3,
+	UFT_AARCH64_REG_R4,
+	UFT_AARCH64_REG_R5,
+	UFT_AARCH64_REG_R6,
+	UFT_AARCH64_REG_R7,
+
+	UFT_AARCH64_REG_FLOAT_BASE = 100,
+	/* (single-precision) floating-point registers */
+	UFT_AARCH64_REG_S0,
+	UFT_AARCH64_REG_S1,
+	UFT_AARCH64_REG_S2,
+	UFT_AARCH64_REG_S3,
+	UFT_AARCH64_REG_S4,
+	UFT_AARCH64_REG_S5,
+	UFT_AARCH64_REG_S6,
+	UFT_AARCH64_REG_S7,
+
+	UFT_AARCH64_REG_DOUBLE_BASE = 200,
+	/* (double-precision) floating-point registers */
+	UFT_AARCH64_REG_D0,
+	UFT_AARCH64_REG_D1,
+	UFT_AARCH64_REG_D2,
+	UFT_AARCH64_REG_D3,
+	UFT_AARCH64_REG_D4,
+	UFT_AARCH64_REG_D5,
+	UFT_AARCH64_REG_D6,
+	UFT_AARCH64_REG_D7,
+};
+
+enum uftrace_i386_reg_index {
+	UFT_I386_REG_INT_BASE = 0,
+	/* integer registers */
+	UFT_I386_REG_ECX,
+	UFT_I386_REG_EDX,
+
+	UFT_I386_REG_FLOAT_BASE = 100,
+	/* floating-point registers */
+	UFT_I386_REG_XMM0,
+	UFT_I386_REG_XMM1,
+	UFT_I386_REG_XMM2,
+	UFT_I386_REG_XMM3,
+	UFT_I386_REG_XMM4,
+	UFT_I386_REG_XMM5,
+	UFT_I386_REG_XMM6,
+	UFT_I386_REG_XMM7,
+};
+
+int arch_register_index(enum uftrace_cpu_arch arch, char *reg_name);
+const char * arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg);
+
+#endif /* UFTRACE_ARCH_H */
