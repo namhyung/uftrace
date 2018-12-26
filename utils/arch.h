@@ -4,6 +4,8 @@
 #ifndef UFTRACE_ARCH_H
 #define UFTRACE_ARCH_H
 
+#include <stdbool.h>
+
 enum uftrace_cpu_arch {
 	UFT_CPU_NONE,
 	UFT_CPU_X86_64,
@@ -11,6 +13,32 @@ enum uftrace_cpu_arch {
 	UFT_CPU_AARCH64,
 	UFT_CPU_I386,
 };
+
+static inline enum uftrace_cpu_arch host_cpu_arch(void)
+{
+#if defined (__x86_64__)
+	return UFT_CPU_X86_64;
+#elif defined (__arm__)
+	return UFT_CPU_ARM;
+#elif defined (__aarch64__)
+	return UFT_CPU_AARCH64;
+#elif defined (__i386__)
+	return UFT_CPU_I386;
+#else
+	return UFT_CPU_NONE;
+#endif
+}
+
+static inline bool arch_is_lp64(enum uftrace_cpu_arch arch)
+{
+	switch (arch) {
+	case UFT_CPU_X86_64:
+	case UFT_CPU_AARCH64:
+		return true;
+	default:
+		return false;
+	}
+}
 
 enum uftrace_x86_64_reg_index {
 	UFT_X86_64_REG_INT_BASE = 0,
