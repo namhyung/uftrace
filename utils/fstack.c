@@ -15,6 +15,7 @@
 #include "utils/fstack.h"
 #include "utils/rbtree.h"
 #include "utils/kernel.h"
+#include "utils/arch.h"
 #include "libmcount/mcount.h"
 
 
@@ -419,6 +420,7 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 			.ptype		= opts->patt_type,
 			.allow_kernel	= true,
 			.lp64		= data_is_lp64(handle),
+			.arch		= handle->arch,
 		};
 
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger,

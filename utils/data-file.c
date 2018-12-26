@@ -522,6 +522,7 @@ ok:
 			.allow_kernel	= true,
 			.auto_args	= false,
 			.lp64		= data_is_lp64(handle),
+			.arch		= handle->arch,
 		};
 
 		if (handle->hdr.feat_mask & AUTO_ARGS) {

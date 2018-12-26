@@ -413,18 +413,9 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype)
 	return "none";
 }
 
-static bool is_arm_machine(void)
+static bool is_arm_machine(struct uftrace_filter_setting *setting)
 {
-	static char *mach = NULL;
-
-	if (mach == NULL) {
-		struct utsname utsbuf;
-
-		uname(&utsbuf);
-		mach = xstrdup(utsbuf.machine);
-	}
-
-	return mach[0] == 'a' && mach[1] == 'r' && mach[2] == 'm';
+	return setting->arch == UFT_CPU_ARM;
 }
 
 static int check_so_cb(struct dl_phdr_info *info, size_t size, void *data)
@@ -560,7 +551,7 @@ type:
 			type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(host_cpu_arch(), suffix);
+			arg->reg_idx = arch_register_index(setting->arch, suffix);
 			type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -572,7 +563,7 @@ type:
 
 out:
 	/* it seems ARM falls back 'long double' to 'double' */
-	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine())
+	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine(setting))
 		size = 8;
 
 	arg->fmt  = fmt;
@@ -662,7 +653,7 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
 			free(arg);
 			return -1;
 		}
-		if (size == 80 && is_arm_machine())
+		if (size == 80 && is_arm_machine(setting))
 			size = 64;
 
 		arg->size = size / 8;
@@ -676,7 +667,7 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
 			arg->type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(host_cpu_arch(), suffix);
+			arg->reg_idx = arch_register_index(setting->arch, suffix);
 			arg->type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -1576,16 +1567,6 @@ TEST_CASE(trigger_setup_filters)
 	return TEST_OK;
 }
 
-#if defined(__x86_64__)
-# define ARG2  "rdi"
-#elif defined(__i386__)
-# define ARG2  "edx"
-#elif defined(__arm__)
-# define ARG2  "r1"
-#elif defined(__aarch64__)
-# define ARG2  "x1"
-#endif
-
 TEST_CASE(trigger_setup_args)
 {
 	struct symtabs stabs = {
@@ -1597,6 +1578,7 @@ TEST_CASE(trigger_setup_args)
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 		.lp64  = host_is_lp64(),
+		.arch  = UFT_CPU_X86_64,
 	};
 	int count;
 
@@ -1673,7 +1655,7 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 4);
 
-	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%"ARG2",arg3%stack+4,retval/f64",
+	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64",
 			      &stabs, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x4000, &root, &tr), NULL);

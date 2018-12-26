@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <regex.h>
 
-#include "rbtree.h"
-#include "list.h"
+#include "utils/rbtree.h"
+#include "utils/list.h"
+#include "utils/arch.h"
 
 /**
  * REGEX_CHARS: characters for regex matching.
@@ -128,6 +129,7 @@ struct uftrace_pattern {
 
 struct uftrace_filter_setting {
 	enum uftrace_pattern_type	ptype;
+	enum uftrace_cpu_arch		arch;
 	bool				auto_args;
 	bool				allow_kernel;
 	bool				lp64;

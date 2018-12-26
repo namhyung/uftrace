@@ -147,6 +147,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 		.auto_args	= false,
 		.allow_kernel	= false,
 		.lp64		= host_is_lp64(),
+		.arch		= host_cpu_arch(),
 	};
 
 	load_module_symtabs(&symtabs);
