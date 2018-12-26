@@ -154,6 +154,7 @@ struct uftrace_data {
 	FILE *fp;
 	int sock;
 	const char *dirname;
+	enum uftrace_cpu_arch arch;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
