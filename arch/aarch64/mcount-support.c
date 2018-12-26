@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 #include "utils/filter.h"
 
+/* FIXME: x0 is overwritten before calling _mcount() */
 int mcount_get_register_arg(struct mcount_arg_context *ctx,
 			    struct uftrace_arg_spec *spec)
 {
@@ -30,28 +31,28 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	}
 
 	switch (reg_idx) {
-	case UFT_AARCH64_REG_R0:
+	case UFT_AARCH64_REG_X0:
 		ctx->val.i = ARG1(regs);
 		break;
-	case UFT_AARCH64_REG_R1:
+	case UFT_AARCH64_REG_X1:
 		ctx->val.i = ARG2(regs);
 		break;
-	case UFT_AARCH64_REG_R2:
+	case UFT_AARCH64_REG_X2:
 		ctx->val.i = ARG3(regs);
 		break;
-	case UFT_AARCH64_REG_R3:
+	case UFT_AARCH64_REG_X3:
 		ctx->val.i = ARG4(regs);
 		break;
-	case UFT_AARCH64_REG_R4:
+	case UFT_AARCH64_REG_X4:
 		ctx->val.i = ARG5(regs);
 		break;
-	case UFT_AARCH64_REG_R5:
+	case UFT_AARCH64_REG_X5:
 		ctx->val.i = ARG6(regs);
 		break;
-	case UFT_AARCH64_REG_R6:
+	case UFT_AARCH64_REG_X6:
 		ctx->val.i = ARG7(regs);
 		break;
-	case UFT_AARCH64_REG_R7:
+	case UFT_AARCH64_REG_X7:
 		ctx->val.i = ARG8(regs);
 		break;
 	case UFT_AARCH64_REG_S0:
