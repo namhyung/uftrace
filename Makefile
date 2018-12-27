@@ -29,6 +29,7 @@ prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 etcdir = $(prefix)/etc
+incdir = $(prefix)/include
 mandir = $(prefix)/share/man
 
 srcdir = $(CURDIR)
@@ -294,6 +295,8 @@ endif
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(call QUIET_INSTALL, uftrace.h)
+	$(Q)$(INSTALL) -m 644 $(srcdir)/include/uftrace.h $(DESTDIR)$(incdir)/uftrace.h
 	$(call QUIET_INSTALL, bash-completion)
 	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
