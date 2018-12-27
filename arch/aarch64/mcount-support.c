@@ -158,10 +158,18 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt == ARG_FMT_FLOAT) {
-		if (spec->size <= 4)
-			asm volatile ("str s0, %0\n" : "=m" (ctx->val.v));
-		else
-			asm volatile ("str d0, %0\n" : "=m" (ctx->val.v));
+		long *float_retval = ctx->retval - 2;
+
+		if (spec->size <= 4) {
+			asm volatile ("ldr s0, %1\n"
+				      "str s0, %0\n" :
+				      "=m" (ctx->val.v) : "m" (float_retval));
+		}
+		else {
+			asm volatile ("ldr d0, %1\n"
+				      "str d0, %0\n" :
+				      "=m" (ctx->val.v) : "m" (float_retval));
+		}
 	}
 	else
 		memcpy(ctx->val.v, ctx->retval, spec->size);
