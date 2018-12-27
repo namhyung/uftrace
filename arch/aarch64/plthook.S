@@ -74,23 +74,27 @@ END(plt_hooker)
 
 
 ENTRY(plthook_return)
+	/* setup frame pointer */
+	stp	x29, x30, [sp, #-16]!
 	stp	x0, x8, [sp, #-16]!
 	str	d0, [sp, #-16]!
 
-	mov	x0, sp
+	add	x0, sp, #16
 	bl	plthook_exit
 
-	cmp	x0, 0
+	cmp	x0, #0
 	b.eq	1f
 	mov	x16, x0
 	b	2f
 
 1:	/* if finish trigger fired, use restored address */
-	ldr	x16, [sp, #48]
+	ldr	x16, [sp, #40]
 
 2:	/* restore return values */
 	ldr	d0, [sp], #16
 	ldp	x0, x8, [sp], #16
+	/* restore frame pointer */
+	ldp	x29, x30, [sp], #16
 
 	br	x16
 END(plthook_return)

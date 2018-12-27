@@ -40,6 +40,15 @@ static const struct uftrace_reg_table uft_arm_reg_table[] = {
 static const struct uftrace_reg_table uft_aarch64_reg_table[] = {
 #define ARM64_REG(_r)  { #_r, UFT_AARCH64_REG_##_r }
 
+	/* integer registers */
+	ARM64_REG(X0), ARM64_REG(X1), ARM64_REG(X2), ARM64_REG(X3),
+	ARM64_REG(X4), ARM64_REG(X5), ARM64_REG(X6), ARM64_REG(X7),
+	/* floating-point registers */
+	ARM64_REG(S0), ARM64_REG(S1), ARM64_REG(S2), ARM64_REG(S3),
+	ARM64_REG(S4), ARM64_REG(S5), ARM64_REG(S6), ARM64_REG(S7),
+	ARM64_REG(D0), ARM64_REG(D1), ARM64_REG(D2), ARM64_REG(D3),
+	ARM64_REG(D4), ARM64_REG(D5), ARM64_REG(D6), ARM64_REG(D7),
+
 #undef ARM64_REG
 };
 
@@ -126,7 +135,25 @@ static const struct uftrace_reg_table uft_arm_dwarf_table[] = {
 	{ "d7", ARM_REG_VFPv3_BASE + 7, },
 };
 
+#define AARCH64_REG_FP_BASE  64
 static const struct uftrace_reg_table uft_aarch64_dwarf_table[] = {
+	/* support registers used for arguments */
+	{ "x0", DW_OP_reg0, },
+	{ "x1", DW_OP_reg1, },
+	{ "x2", DW_OP_reg2, },
+	{ "x3", DW_OP_reg3, },
+	{ "x4", DW_OP_reg4, },
+	{ "x5", DW_OP_reg5, },
+	{ "x6", DW_OP_reg6, },
+	{ "x7", DW_OP_reg7, },
+	{ "d0", AARCH64_REG_FP_BASE + 0, },
+	{ "d1", AARCH64_REG_FP_BASE + 1, },
+	{ "d2", AARCH64_REG_FP_BASE + 2, },
+	{ "d3", AARCH64_REG_FP_BASE + 3, },
+	{ "d4", AARCH64_REG_FP_BASE + 4, },
+	{ "d5", AARCH64_REG_FP_BASE + 5, },
+	{ "d6", AARCH64_REG_FP_BASE + 6, },
+	{ "d7", AARCH64_REG_FP_BASE + 7, },
 };
 
 static const struct uftrace_reg_table uft_i386_dwarf_table[] = {
