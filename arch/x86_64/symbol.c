@@ -35,7 +35,7 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			pr_dbg2("found RELA section: %s\n",
 				elf_get_name(elf, &sec_iter, sec_iter.shdr.sh_name));
 
-			reloc_start = rel_iter.shdr.sh_offset + offset;
+			reloc_start = rel_iter.shdr.sh_addr + offset;
 			reloc_entsize = rel_iter.shdr.sh_entsize;
 		}
 		else if (sec_iter.shdr.sh_type == SHT_DYNSYM) {
