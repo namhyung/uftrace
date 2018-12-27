@@ -11,6 +11,7 @@
 #include "utils/symbol.h"
 #include "utils/perf.h"
 #include "utils/filter.h"
+#include "utils/arch.h"
 
 #define UFTRACE_MAGIC_LEN  8
 #define UFTRACE_MAGIC_STR  "Ftrace!"
@@ -153,6 +154,7 @@ struct uftrace_data {
 	FILE *fp;
 	int sock;
 	const char *dirname;
+	enum uftrace_cpu_arch arch;
 	struct uftrace_file_header hdr;
 	struct uftrace_info info;
 	struct uftrace_kernel_reader *kernel;
@@ -517,7 +519,6 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 void clear_uftrace_info(struct uftrace_info *info);
 
 int arch_fill_cpuinfo_model(int fd);
-int arch_register_index(char *reg_name);
 
 enum uftrace_event_id {
 	EVENT_ID_KERNEL	= 0U,

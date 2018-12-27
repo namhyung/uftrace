@@ -7,6 +7,7 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/dwarf.h"
+#include "utils/arch.h"
 
 /* needs to print session info with symbol */
 static bool needs_session;
@@ -22,12 +23,6 @@ static struct argp_option symbols_options[] = {
 struct symbols_opts {
 	char *dirname;
 };
-
-/* just to prevent linker failure */
-int arch_register_index(char *reg)
-{
-	return -1;
-}
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {

@@ -325,9 +325,9 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	case ARG_TYPE_FLOAT:
 		if (use_hard_float) {
 			if (spec->size <= 4)
-				reg_idx = spec->idx + ARM_REG_FLOAT_BASE;
+				reg_idx = spec->idx + UFT_ARM_REG_FLOAT_BASE;
 			else
-				reg_idx = spec->idx + ARM_REG_DOUBLE_BASE;
+				reg_idx = spec->idx + UFT_ARM_REG_DOUBLE_BASE;
 			break;
 		}
 		/* fall through */
@@ -342,94 +342,94 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	}
 
 	switch (reg_idx) {
-	case ARM_REG_R0:
+	case UFT_ARM_REG_R0:
 		ctx->val.i = ARG1(regs);
 		if (spec->size == 8)
 			ctx->val.ll.hi = ARG2(regs);
 		break;
-	case ARM_REG_R1:
+	case UFT_ARM_REG_R1:
 		ctx->val.i = ARG2(regs);
 		break;
-	case ARM_REG_R2:
+	case UFT_ARM_REG_R2:
 		ctx->val.i = ARG3(regs);
 		if (spec->size == 8)
 			ctx->val.ll.hi = ARG4(regs);
 		break;
-	case ARM_REG_R3:
+	case UFT_ARM_REG_R3:
 		ctx->val.i = ARG4(regs);
 		break;
 
-#ifdef HAVE_ARM_HARDFP
-	case ARM_REG_S0:
+#ifdef HAVE_UFT_ARM_HARDFP
+	case UFT_ARM_REG_S0:
 		asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S1:
+	case UFT_ARM_REG_S1:
 		asm volatile ("vstr %%s1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S2:
+	case UFT_ARM_REG_S2:
 		asm volatile ("vstr %%s2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S3:
+	case UFT_ARM_REG_S3:
 		asm volatile ("vstr %%s3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S4:
+	case UFT_ARM_REG_S4:
 		asm volatile ("vstr %%s4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S5:
+	case UFT_ARM_REG_S5:
 		asm volatile ("vstr %%s5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S6:
+	case UFT_ARM_REG_S6:
 		asm volatile ("vstr %%s6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S7:
+	case UFT_ARM_REG_S7:
 		asm volatile ("vstr %%s7, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S8:
+	case UFT_ARM_REG_S8:
 		asm volatile ("vstr %%s8, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S9:
+	case UFT_ARM_REG_S9:
 		asm volatile ("vstr %%s9, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S10:
+	case UFT_ARM_REG_S10:
 		asm volatile ("vstr %%s10, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S11:
+	case UFT_ARM_REG_S11:
 		asm volatile ("vstr %%s11, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S12:
+	case UFT_ARM_REG_S12:
 		asm volatile ("vstr %%s12, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S13:
+	case UFT_ARM_REG_S13:
 		asm volatile ("vstr %%s13, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S14:
+	case UFT_ARM_REG_S14:
 		asm volatile ("vstr %%s14, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S15:
+	case UFT_ARM_REG_S15:
 		asm volatile ("vstr %%s15, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D0:
+	case UFT_ARM_REG_D0:
 		asm volatile ("vstr %%d0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D1:
+	case UFT_ARM_REG_D1:
 		asm volatile ("vstr %%d1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D2:
+	case UFT_ARM_REG_D2:
 		asm volatile ("vstr %%d2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D3:
+	case UFT_ARM_REG_D3:
 		asm volatile ("vstr %%d3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D4:
+	case UFT_ARM_REG_D4:
 		asm volatile ("vstr %%d4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D5:
+	case UFT_ARM_REG_D5:
 		asm volatile ("vstr %%d5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D6:
+	case UFT_ARM_REG_D6:
 		asm volatile ("vstr %%d6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D7:
+	case UFT_ARM_REG_D7:
 		asm volatile ("vstr %%d7, %0\n" : "=m" (ctx->val.v));
 		break;
 #endif /* HAVE_ARM_HARDFP */

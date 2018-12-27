@@ -19,44 +19,6 @@ struct mcount_regs {
 #define ARCH_MAX_FLOAT_REGS  16
 #define ARCH_MAX_DOUBLE_REGS  8
 
-enum arm_reg_index {
-	ARM_REG_INT_BASE = 0,
-	/* integer registers */
-	ARM_REG_R0,
-	ARM_REG_R1,
-	ARM_REG_R2,
-	ARM_REG_R3,
-
-	ARM_REG_FLOAT_BASE = 100,
-	/* (single-precision) floating-point registers */
-	ARM_REG_S0,
-	ARM_REG_S1,
-	ARM_REG_S2,
-	ARM_REG_S3,
-	ARM_REG_S4,
-	ARM_REG_S5,
-	ARM_REG_S6,
-	ARM_REG_S7,
-	ARM_REG_S8,
-	ARM_REG_S9,
-	ARM_REG_S10,
-	ARM_REG_S11,
-	ARM_REG_S12,
-	ARM_REG_S13,
-	ARM_REG_S14,
-	ARM_REG_S15,
-	/* double-precision registers */
-	ARM_REG_DOUBLE_BASE = 200,
-	ARM_REG_D0,
-	ARM_REG_D1,
-	ARM_REG_D2,
-	ARM_REG_D3,
-	ARM_REG_D4,
-	ARM_REG_D5,
-	ARM_REG_D6,
-	ARM_REG_D7,
-};
-
 struct mcount_arch_context {
 };
 

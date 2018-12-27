@@ -238,9 +238,6 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 	if (tr->flags & (TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL)) {
 		struct uftrace_arg_spec *arg;
 
-		filter->trigger.lp64 = tr->lp64;
-		filter->trigger.type = tr->type;
-
 		list_for_each_entry(arg, tr->pargs, list)
 			add_arg_spec(&filter->args, arg, exact_match);
 	}
@@ -255,7 +252,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		      struct uftrace_trigger *tr, bool exact_match,
-		      struct debug_info *dinfo)
+		      struct debug_info *dinfo,
+		      struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -265,12 +263,12 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	unsigned long orig_flags = tr->flags;
 
 	if ((tr->flags & TRIGGER_FL_ARGUMENT) && list_empty(tr->pargs)) {
-		auto_arg = find_auto_argspec(filter, tr, dinfo);
+		auto_arg = find_auto_argspec(filter, tr, dinfo, setting);
 		if (auto_arg == NULL)
 			tr->flags &= ~TRIGGER_FL_ARGUMENT;
 	}
 	if ((tr->flags & TRIGGER_FL_RETVAL) && list_empty(tr->pargs)) {
-		auto_ret = find_auto_retspec(filter, tr, dinfo);
+		auto_ret = find_auto_retspec(filter, tr, dinfo, setting);
 		if (auto_ret == NULL)
 			tr->flags &= ~TRIGGER_FL_RETVAL;
 	}
@@ -415,18 +413,9 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype)
 	return "none";
 }
 
-static bool is_arm_machine(void)
+static bool is_arm_machine(struct uftrace_filter_setting *setting)
 {
-	static char *mach = NULL;
-
-	if (mach == NULL) {
-		struct utsname utsbuf;
-
-		uname(&utsbuf);
-		mach = xstrdup(utsbuf.machine);
-	}
-
-	return mach[0] == 'a' && mach[1] == 'r' && mach[2] == 'm';
+	return setting->arch == UFT_CPU_ARM;
 }
 
 static int check_so_cb(struct dl_phdr_info *info, size_t size, void *data)
@@ -455,10 +444,10 @@ static int has_shared_object(const char *soname)
 
 /* argument_spec = arg1/i32,arg2/x64,... */
 static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix,
-		      bool is_lp64, bool ignore_type)
+		      struct uftrace_filter_setting *setting)
 {
 	int fmt = ARG_FMT_AUTO;
-	int size = is_lp64 ? 8 : 4;
+	int size = setting->lp64 ? 8 : 4;
 	int type = arg->type;
 	int bit;
 	char *p;
@@ -554,7 +543,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix,
 	}
 
 type:
-	if (*suffix == '%' && !ignore_type) {
+	if (*suffix == '%') {
 		suffix++;
 
 		if (!strncmp(suffix, "stack", 5)) {
@@ -562,7 +551,7 @@ type:
 			type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(suffix);
+			arg->reg_idx = arch_register_index(setting->arch, suffix);
 			type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -574,7 +563,7 @@ type:
 
 out:
 	/* it seems ARM falls back 'long double' to 'double' */
-	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine())
+	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine(setting))
 		size = 8;
 
 	arg->fmt  = fmt;
@@ -585,7 +574,8 @@ out:
 }
 
 /* argument_spec = arg1/i32,arg2/x64%reg,arg3%stack+1,... */
-static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
+static int parse_argument_spec(char *str, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -600,7 +590,7 @@ static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
 	arg->idx = strtol(str+3, &suffix, 0);
 	arg->type = ARG_TYPE_INDEX;
 
-	if (parse_spec(str, arg, suffix, tr->lp64, !tr->type) == -1) {
+	if (parse_spec(str, arg, suffix, setting) == -1) {
 		free(arg);
 		return -1;
 	}
@@ -611,7 +601,8 @@ static int parse_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 /* argument_spec = retval/i32 or retval/x64 ... */
-static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
+static int parse_retval_spec(char *str, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -624,7 +615,7 @@ static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
 	/* set suffix after string "retval" */
 	suffix = str + 6;
 
-	if (parse_spec(str, arg, suffix, tr->lp64, !tr->type) == -1) {
+	if (parse_spec(str, arg, suffix, setting) == -1) {
 		free(arg);
 		return -1;
 	}
@@ -636,7 +627,8 @@ static int parse_retval_spec(char *str, struct uftrace_trigger *tr)
 }
 
 /* argument_spec = fparg1/32,fparg2/64%stack+1,... */
-static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
+static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
+				     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	char *suffix;
@@ -661,13 +653,13 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 			free(arg);
 			return -1;
 		}
-		if (size == 80 && is_arm_machine())
+		if (size == 80 && is_arm_machine(setting))
 			size = 64;
 
 		arg->size = size / 8;
 	}
 
-	if (*suffix == '%' && tr->type) {
+	if (*suffix == '%') {
 		suffix++;
 
 		if (!strncmp(suffix, "stack", 5)) {
@@ -675,7 +667,7 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 			arg->type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(suffix);
+			arg->reg_idx = arch_register_index(setting->arch, suffix);
 			arg->type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -692,7 +684,8 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_depth_action(char *action, struct uftrace_trigger *tr)
+static int parse_depth_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_DEPTH;
 	tr->depth = strtoul(action + 6, NULL, 10);
@@ -704,14 +697,16 @@ static int parse_depth_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_time_action(char *action, struct uftrace_trigger *tr)
+static int parse_time_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_TIME_FILTER;
 	tr->time = parse_time(action + 5, 3);
 	return 0;
 }
 
-static int parse_read_action(char *action, struct uftrace_trigger *tr)
+static int parse_read_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
 {
 	const char *target = action + 5;
 
@@ -733,7 +728,8 @@ static int parse_read_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_color_action(char *action, struct uftrace_trigger *tr)
+static int parse_color_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	const char *color = action + 6;
 
@@ -762,7 +758,8 @@ static int parse_color_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_trace_action(char *action, struct uftrace_trigger *tr)
+static int parse_trace_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
 {
 	action += 5;
 	if (*action == '_' || *action == '-')
@@ -780,45 +777,52 @@ static int parse_trace_action(char *action, struct uftrace_trigger *tr)
 	return 0;
 }
 
-static int parse_backtrace_action(char *action, struct uftrace_trigger *tr)
+static int parse_backtrace_action(char *action, struct uftrace_trigger *tr,
+				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_BACKTRACE;
 	return 0;
 }
 
-static int parse_recover_action(char *action, struct uftrace_trigger *tr)
+static int parse_recover_action(char *action, struct uftrace_trigger *tr,
+				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_RECOVER;
 	return 0;
 }
 
-static int parse_finish_action(char *action, struct uftrace_trigger *tr)
+static int parse_finish_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FINISH;
 	return 0;
 }
 
-static int parse_filter_action(char *action, struct uftrace_trigger *tr)
+static int parse_filter_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
 	tr->fmode  = FILTER_MODE_IN;
 	return 0;
 }
 
-static int parse_notrace_action(char *action, struct uftrace_trigger *tr)
+static int parse_notrace_action(char *action, struct uftrace_trigger *tr,
+				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
 	tr->fmode  = FILTER_MODE_OUT;
 	return 0;
 }
 
-static int parse_auto_args_action(char *action, struct uftrace_trigger *tr)
+static int parse_auto_args_action(char *action, struct uftrace_trigger *tr,
+				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL;
 	return 0;
 }
 
-static int parse_caller_action(char *action, struct uftrace_trigger *tr)
+static int parse_caller_action(char *action, struct uftrace_trigger *tr,
+			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_CALLER;
 	return 0;
@@ -826,7 +830,8 @@ static int parse_caller_action(char *action, struct uftrace_trigger *tr)
 
 struct trigger_action_parser {
 	const char *name;
-	int (*parse)(char *action, struct uftrace_trigger *tr);
+	int (*parse)(char *action, struct uftrace_trigger *tr,
+		     struct uftrace_filter_setting *setting);
 	unsigned long flags;
 };
 
@@ -849,7 +854,8 @@ static const struct trigger_action_parser actions[] = {
 };
 
 int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-			 char **module, unsigned long orig_flags)
+			 char **module, unsigned long orig_flags,
+			 struct uftrace_filter_setting *setting)
 {
 	char *pos = strchr(str, '@');
 	struct strv acts = STRV_INIT;
@@ -873,7 +879,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 			if (orig_flags && !(orig_flags & action->flags))
 				break;  /* ignore incompatible actions */
 
-			if (action->parse(pos, tr) < 0)
+			if (action->parse(pos, tr, setting) < 0)
 				goto out;
 
 			break;
@@ -897,7 +903,8 @@ out:
 static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr,
-			     struct debug_info *dinfo)
+			     struct debug_info *dinfo,
+			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
 	struct sym *sym;
@@ -915,7 +922,7 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.end   = sym->addr + sym->size;
 
 		ret += add_filter(root, &filter, tr,
-				  patt->type == PATT_SIMPLE, dinfo);
+				  patt->type == PATT_SIMPLE, dinfo, setting);
 	}
 
 	return ret;
@@ -923,9 +930,8 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 
 static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, unsigned long flags,
-			  enum filter_mode *fmode, bool allow_kernel,
-			  enum uftrace_pattern_type ptype, bool is_lp64,
-			  bool ignore_type)
+			  enum filter_mode *fmode,
+			  struct uftrace_filter_setting *setting)
 {
 	struct strv filters = STRV_INIT;
 	char *name;
@@ -941,8 +947,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		struct uftrace_trigger tr = {
 			.flags = flags,
 			.pargs = &args,
-			.lp64  = is_lp64,
-			.type  = !ignore_type,
 		};
 		int ret = 0;
 		char *module = NULL;
@@ -952,11 +956,12 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			.type = PATT_NONE,
 		};
 
-		if (setup_trigger_action(name, &tr, &module, flags) < 0)
+		if (setup_trigger_action(name, &tr, &module, flags, setting) < 0)
 			goto next;
 
 		/* skip unintended kernel symbols */
-		if (module && !strcasecmp(module, "kernel") && !allow_kernel)
+		if (module && !strcasecmp(module, "kernel") &&
+		    !setting->allow_kernel)
 			goto next;
 
 		if (flags & TRIGGER_FL_FILTER) {
@@ -970,7 +975,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 		/* use demangled name for triggers (some auto-args need it) */
 		name = demangle(name);
-		init_filter_pattern(ptype, &patt, name);
+		init_filter_pattern(setting->ptype, &patt, name);
 		free(name);
 
 		if (module) {
@@ -979,27 +984,32 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				     strlen(module))) {
 				ret += add_trigger_entry(root, &symtabs->symtab,
 							 &patt, &tr,
-							 &symtabs->dinfo);
+							 &symtabs->dinfo,
+							 setting);
 				ret += add_trigger_entry(root, &symtabs->dsymtab,
 							 &patt, &tr,
-							 &symtabs->dinfo);
+							 &symtabs->dinfo,
+							 setting);
 			}
 			else if (!strcasecmp(module, "PLT")) {
 				ret = add_trigger_entry(root, &symtabs->dsymtab,
 							&patt, &tr,
-							&symtabs->dinfo);
+							&symtabs->dinfo,
+							setting);
 			}
 			else if (!strcasecmp(module, "kernel")) {
 				ret = add_trigger_entry(root, get_kernel_symtab(),
 							&patt, &tr,
-							&symtabs->dinfo);
+							&symtabs->dinfo,
+							setting);
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
 				if (map) {
 					ret = add_trigger_entry(root, &map->symtab,
 								&patt, &tr,
-								&map->dinfo);
+								&map->dinfo,
+								setting);
 				}
 			}
 
@@ -1008,16 +1018,19 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		else {
 			/* check main executable's symtab first */
 			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr, &symtabs->dinfo);
+						 &patt, &tr, &symtabs->dinfo,
+						 setting);
 			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr, &symtabs->dinfo);
+						 &patt, &tr, &symtabs->dinfo,
+						 setting);
 
 			/* and then find all module's symtabs */
 			map = symtabs->maps;
 			while (map) {
 				ret += add_trigger_entry(root, &map->symtab,
 							 &patt, &tr,
-							 &map->dinfo);
+							 &map->dinfo,
+							 setting);
 				map = map->next;
 			}
 		}
@@ -1051,16 +1064,14 @@ next:
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
  * @mode       - filter mode: opt-in (-F) or opt-out (-N)
- * @allow_kernel - allow filtering on kernel function
- * @patt_type    - filter match pattern (regex or glob)
+ * @setting    - filter settings
  */
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, enum filter_mode *mode,
-			  bool allow_kernel,
-			  enum uftrace_pattern_type patt_type)
+			  struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_FILTER, mode,
-		      allow_kernel, patt_type, true, false);
+		      setting);
 }
 
 /**
@@ -1069,16 +1080,13 @@ void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
  * @mode       - filter mode: opt-in (-F) or opt-out (-N)
- * @allow_kernel - allow filtering on kernel function
- * @patt_type    - filter match pattern (regex or glob)
+ * @setting    - filter settings
  */
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
-			   bool allow_kernel,
-			   enum uftrace_pattern_type patt_type, bool is_lp64)
+			   struct uftrace_filter_setting *setting)
 {
-	setup_trigger(trigger_str, symtabs, root, 0, mode, allow_kernel,
-		      patt_type, is_lp64, false);
+	setup_trigger(trigger_str, symtabs, root, 0, mode, setting);
 }
 
 /**
@@ -1086,21 +1094,18 @@ void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
  * @args_str   - CSV of argument string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
- * @auto_args  - whether current arguments are auto-spec
- * @patt_type    - filter match pattern (regex or glob)
+ * @setting    - filter settings
  */
 void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
-			    struct rb_root *root, bool auto_args,
-			    enum uftrace_pattern_type patt_type,
-			    bool is_lp64, bool ignore_type)
+			    struct rb_root *root,
+			    struct uftrace_filter_setting *setting)
 {
 	unsigned long flags = TRIGGER_FL_ARGUMENT;
 
-	if (auto_args)
+	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(args_str, symtabs, root, flags, NULL, false, patt_type,
-		      is_lp64, ignore_type);
+	setup_trigger(args_str, symtabs, root, flags, NULL, setting);
 }
 
 /**
@@ -1108,21 +1113,18 @@ void uftrace_setup_argument(char *args_str, struct symtabs *symtabs,
  * @retval_str - CSV of return value string (FUNC @ arg)
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
- * @auto_args  - whether current retvals are auto-spec
- * @patt_type    - filter match pattern (regex or glob)
+ * @setting    - filter settings
  */
 void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
-			  struct rb_root *root, bool auto_args,
-			  enum uftrace_pattern_type patt_type,
-			  bool is_lp64, bool ignore_type)
+			  struct rb_root *root,
+			  struct uftrace_filter_setting *setting)
 {
 	unsigned long flags = TRIGGER_FL_RETVAL;
 
-	if (auto_args)
+	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(retval_str, symtabs, root, flags, NULL, false, patt_type,
-		      is_lp64, ignore_type);
+	setup_trigger(retval_str, symtabs, root, flags, NULL, setting);
 }
 
 /**
@@ -1130,14 +1132,14 @@ void uftrace_setup_retval(char *retval_str, struct symtabs *symtabs,
  * @filter_str - CSV of filter string
  * @symtabs    - symbol tables to find symbol address
  * @root       - root of resulting rbtree
- * @patt_type  - filter match pattern (regex or glob)
+ * @setting    - filter settings
  */
 void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
-				 enum uftrace_pattern_type patt_type)
+				 struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_CALLER, NULL,
-		      false, patt_type, true, false);
+		      setting);
 }
 
 /**
@@ -1240,12 +1242,14 @@ TEST_CASE(filter_setup_simple)
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	enum uftrace_pattern_type ptype = PATT_SIMPLE;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_SIMPLE,
+	};
 
 	filter_test_load_symtabs(&stabs);
 
 	/* test1: simple method */
-	uftrace_setup_filter("foo::bar", &stabs, &root, NULL, false, ptype);
+	uftrace_setup_filter("foo::bar", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -1258,7 +1262,7 @@ TEST_CASE(filter_setup_simple)
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	/* test2: destructor */
-	uftrace_setup_filter("foo::~foo", &stabs, &root, NULL, false, ptype);
+	uftrace_setup_filter("foo::~foo", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -1271,7 +1275,7 @@ TEST_CASE(filter_setup_simple)
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	/* test3: unknown symbol */
-	uftrace_setup_filter("invalid_name", &stabs, &root, NULL, false, ptype);
+	uftrace_setup_filter("invalid_name", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
 	return TEST_OK;
@@ -1285,11 +1289,13 @@ TEST_CASE(filter_setup_regex)
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	enum uftrace_pattern_type ptype = PATT_REGEX;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_filter("^foo::b", &stabs, &root, NULL, false, ptype);
+	uftrace_setup_filter("^foo::b", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -1330,11 +1336,13 @@ TEST_CASE(filter_setup_glob)
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	enum uftrace_pattern_type ptype = PATT_GLOB;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_GLOB,
+	};
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_filter("foo::b*", &stabs, &root, NULL, false, ptype);
+	uftrace_setup_filter("foo::b*", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	node = rb_first(&root);
@@ -1376,15 +1384,17 @@ TEST_CASE(filter_setup_notrace)
 	struct rb_node *node;
 	struct uftrace_filter *filter;
 	enum filter_mode fmode;
-	enum uftrace_pattern_type ptype = PATT_GLOB;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_GLOB,
+	};
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_filter("foo::*", &stabs, &root, &fmode, false, ptype);
+	uftrace_setup_filter("foo::*", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
-	uftrace_setup_filter("!foo::foo", &stabs, &root, &fmode, false, ptype);
+	uftrace_setup_filter("!foo::foo", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);  /* overall filter mode doesn't change */
 
@@ -1414,11 +1424,13 @@ TEST_CASE(filter_match)
 	struct rb_root root = RB_ROOT;
 	enum filter_mode fmode;
 	struct uftrace_trigger tr;
-	enum uftrace_pattern_type ptype = PATT_REGEX;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_filter("foo::foo", &stabs, &root, &fmode, false, ptype);
+	uftrace_setup_filter("foo::foo", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
@@ -1453,13 +1465,15 @@ TEST_CASE(trigger_setup_actions)
 	};;
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
-	enum uftrace_pattern_type ptype = PATT_REGEX;
-	bool is_lp64 = host_is_lp64();
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+		.lp64  = host_is_lp64(),
+	};
 
 	filter_test_load_symtabs(&stabs);
 
 	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+			      NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1468,26 +1482,26 @@ TEST_CASE(trigger_setup_actions)
 	TEST_EQ(tr.depth, 2);
 
 	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
 	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
 	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
 
 	uftrace_setup_trigger("foo::baz2@caller", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x4200, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
@@ -1506,13 +1520,15 @@ TEST_CASE(trigger_setup_filters)
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
 	enum filter_mode fmode = FILTER_MODE_NONE;
-	enum uftrace_pattern_type ptype = PATT_REGEX;
-	bool is_lp64 = host_is_lp64();
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+		.lp64  = host_is_lp64(),
+	};
 
 	filter_test_load_symtabs(&stabs);
 
 	uftrace_setup_trigger("foo::bar@depth=2,notrace", &stabs, &root,
-			      &fmode, false, ptype, is_lp64);
+			      &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_OUT);
 
@@ -1523,7 +1539,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
 	uftrace_setup_filter("foo::baz1", &stabs, &root,
-			     &fmode, false, ptype);
+			     &fmode, &setting);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1532,7 +1548,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.fmode, FILTER_MODE_IN);
 
 	uftrace_setup_trigger("foo::baz2@notrace", &stabs, &root,
-			      &fmode, false, ptype, is_lp64);
+			      &fmode, &setting);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1540,7 +1556,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
-	uftrace_setup_caller_filter("foo::baz3", &stabs, &root, ptype);
+	uftrace_setup_caller_filter("foo::baz3", &stabs, &root, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
@@ -1551,16 +1567,6 @@ TEST_CASE(trigger_setup_filters)
 	return TEST_OK;
 }
 
-#if defined(__x86_64__)
-# define ARG2  "rdi"
-#elif defined(__i386__)
-# define ARG2  "edx"
-#elif defined(__arm__)
-# define ARG2  "r1"
-#elif defined(__aarch64__)
-# define ARG2  "x1"
-#endif
-
 TEST_CASE(trigger_setup_args)
 {
 	struct symtabs stabs = {
@@ -1569,14 +1575,16 @@ TEST_CASE(trigger_setup_args)
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
 	struct uftrace_arg_spec *spec;
-	enum uftrace_pattern_type ptype = PATT_REGEX;
-	bool is_lp64 = host_is_lp64();
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+		.lp64  = host_is_lp64(),
+		.arch  = UFT_CPU_X86_64,
+	};
 	int count;
 
 	filter_test_load_symtabs(&stabs);
 
-	uftrace_setup_argument("foo::bar@arg1", &stabs, &root,
-			       false, ptype, is_lp64, false);
+	uftrace_setup_argument("foo::bar@arg1", &stabs, &root, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
 	memset(&tr, 0, sizeof(tr));
@@ -1584,8 +1592,7 @@ TEST_CASE(trigger_setup_args)
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
 	TEST_NE(tr.pargs, NULL);
 
-	uftrace_setup_trigger("foo::bar@arg2/s", &stabs, &root,
-			      NULL, false, ptype, is_lp64);
+	uftrace_setup_trigger("foo::bar@arg2/s", &stabs, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
@@ -1608,7 +1615,7 @@ TEST_CASE(trigger_setup_args)
 	TEST_EQ(count, 2);
 
 	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2",
-			       &stabs, &root, false, ptype, is_lp64, false);
+			       &stabs, &root, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3999, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
@@ -1648,8 +1655,8 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 4);
 
-	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%"ARG2",arg3%stack+4,retval/f64",
-			      &stabs, &root, NULL, false, ptype, is_lp64);
+	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64",
+			      &stabs, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x4000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
@@ -1668,7 +1675,7 @@ TEST_CASE(trigger_setup_args)
 			TEST_EQ(spec->fmt, ARG_FMT_HEX);
 			TEST_EQ(spec->type, ARG_TYPE_REG);
 			TEST_EQ(spec->size, 4);
-			TEST_EQ(spec->reg_idx, arch_register_index(ARG2));
+			TEST_EQ(spec->reg_idx, 1);
 			break;
 		case 3:
 			TEST_EQ(spec->idx, 3);

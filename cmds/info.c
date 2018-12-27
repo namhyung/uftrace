@@ -299,8 +299,24 @@ static int read_cpuinfo(void *arg)
 		if (!strncmp(&buf[8], "nr_cpus=", 8)) {
 			sscanf(&buf[8], "nr_cpus=%d / %d\n",
 			       &info->nr_cpus_online, &info->nr_cpus_possible);
-		} else if (!strncmp(&buf[8], "desc=", 5)) {
+		}
+		else if (!strncmp(&buf[8], "desc=", 5)) {
 			info->cpudesc = copy_info_str(&buf[13]);
+
+			/* guess CPU arch from the description */
+			if (!strncmp(info->cpudesc, "ARMv6", 5) ||
+			    !strncmp(info->cpudesc, "ARMv7", 5)) {
+				handle->arch = UFT_CPU_ARM;
+			}
+			else if (!strncmp(info->cpudesc, "ARM64", 5)) {
+				handle->arch = UFT_CPU_AARCH64;
+			}
+			else if (data_is_lp64(handle)) {
+				handle->arch = UFT_CPU_X86_64;
+			}
+			else {
+				handle->arch = UFT_CPU_I386;
+			}
 		}
 	}
 

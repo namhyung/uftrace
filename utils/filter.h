@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <regex.h>
 
-#include "rbtree.h"
-#include "list.h"
+#include "utils/rbtree.h"
+#include "utils/list.h"
+#include "utils/arch.h"
 
 /**
  * REGEX_CHARS: characters for regex matching.
@@ -98,8 +99,6 @@ struct uftrace_trigger {
 	enum trigger_flag	flags;
 	int			depth;
 	char			color;
-	bool			lp64;
-	bool			type;
 	uint64_t		time;
 	enum filter_mode	fmode;
 	enum trigger_read_type	read;
@@ -126,6 +125,16 @@ struct uftrace_pattern {
 	enum uftrace_pattern_type	type;
 	char				*patt;
 	regex_t				re;
+};
+
+struct uftrace_filter_setting {
+	enum uftrace_pattern_type	ptype;
+	enum uftrace_cpu_arch		arch;
+	bool				auto_args;
+	bool				allow_kernel;
+	bool				lp64;
+	/* caller-defined data */
+	void				*private;
 };
 
 /* please see man proc(5) for /proc/[pid]/statm */
@@ -161,22 +170,19 @@ struct symtabs;
 
 void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
 			  struct rb_root *root, enum filter_mode *mode,
-			  bool allow_kernel, enum uftrace_pattern_type ptype);
+			  struct uftrace_filter_setting *setting);
 void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
 			   struct rb_root *root, enum filter_mode *mode,
-			   bool allow_kernel, enum uftrace_pattern_type ptype,
-			   bool lp64);
+			   struct uftrace_filter_setting *setting);
 void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
-			    struct rb_root *root, bool auto_args,
-			    enum uftrace_pattern_type ptype,
-			    bool lp64, bool ignore_type);
+			    struct rb_root *root,
+			    struct uftrace_filter_setting *setting);
 void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
-			  struct rb_root *root, bool auto_args,
-			  enum uftrace_pattern_type ptype, bool lp64,
-			  bool ignore_type);
+			  struct rb_root *root,
+			  struct uftrace_filter_setting *setting);
 void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
-				 enum uftrace_pattern_type patt_type);
+				 struct uftrace_filter_setting *setting);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
@@ -193,18 +199,21 @@ const char * get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char * uftrace_clear_kernel(char *filter_str);
 
-void setup_auto_args(bool lp64);
-void setup_auto_args_str(char *args, char *rets, char *enums, bool lp64);
+void setup_auto_args(struct uftrace_filter_setting *setting);
+void setup_auto_args_str(char *args, char *rets, char *enums,
+			 struct uftrace_filter_setting *setting);
 void finish_auto_args(void);
 
 struct debug_info;
 
 struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo);
+					  struct debug_info *dinfo,
+					  struct uftrace_filter_setting *setting);
 struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo);
+					  struct debug_info *dinfo,
+					  struct uftrace_filter_setting *setting);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);

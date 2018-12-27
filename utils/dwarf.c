@@ -639,11 +639,6 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 	return true;
 }
 
-__weak const char * arch_register_dwarf_name(int dwarf_reg)
-{
-	return "invalid register";
-}
-
 static void add_location(char *spec, size_t len, Dwarf_Die *die,
 			 struct arg_data *ad)
 {
@@ -658,7 +653,7 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die,
 
 	switch (data.type) {
 	case ARG_TYPE_REG:
-		reg = arch_register_dwarf_name(data.reg);
+		reg = arch_register_dwarf_name(host_cpu_arch(), data.reg);
 
 		if (strcmp(reg, "invalid register")) {
 			snprintf(buf, sizeof(buf), "%%%s", reg);
