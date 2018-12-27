@@ -82,7 +82,7 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 		/* use reloc address as symbol address as it's in the map */
 		sym->addr = reloc_start + rel_iter.i * reloc_entsize;
 		sym->size = reloc_entsize;
-		sym->type = ST_PLT;
+		sym->type = ST_PLT_FUNC;
 
 		name = elf_get_name(elf, &sym_iter, sym_iter.sym.st_name);
 		if (flags & SYMTAB_FL_DEMANGLE)

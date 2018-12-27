@@ -35,6 +35,7 @@ struct demangle_data {
 	int level;
 	int type;
 	int nr_dbg;
+	int type_info;
 	const char *debug[MAX_DEBUG_DEPTH];
 };
 
@@ -221,7 +222,7 @@ static const struct {
 	{ 'x', "long long" },
 	{ 'y', "unsigned long long" },
 	{ 'n', "__int128" },
-	{ '0', "unsigned __int128" },
+	{ 'o', "unsigned __int128" },
 	{ 'f', "float" },
 	{ 'd', "double" },
 	{ 'e', "long double" },
@@ -400,7 +401,7 @@ static int dd_substitution(struct demangle_data *dd)
 	for (i = 0; i < ARRAY_SIZE(std_abbrevs); i++) {
 		if (c == std_abbrevs[i].code) {
 			__dd_consume(dd, NULL);
-			if (dd->type == 0)
+			if (dd->type == 0 || dd->type_info)
 				dd_append(dd, std_abbrevs[i].name);
 
 			if (dd_curr(dd) == 'B')
@@ -1107,13 +1108,26 @@ static int dd_special_name(struct demangle_data *dd)
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
 	char T_type[] = "VTISFJ";
+	char *T_type_name[] = { "virtual", "VTT", "typeinfo_name", "typeinfo",
+				"typeinfo_fn", "java_class" };
 
 	if (dd_eof(dd))
 		return -1;
 
 	if (c0 == 'T') {
 		if (strchr(T_type, c1)) {
+			int idx;
+			char *p;
+
 			dd_consume_n(dd, 2);
+			dd->type_info = 1;
+
+			p = strchr(T_type, c1);
+			idx = p - T_type;
+			/* special name prefix */
+			dd_append(dd, T_type_name[idx]);
+			dd_append(dd, "__");
+
 			return dd_type(dd);
 		}
 		if (c1 == 'h' || c1 == 'v') {
@@ -1153,6 +1167,7 @@ static int dd_special_name(struct demangle_data *dd)
 		if (c1 == 'V') {
 			/* guard */
 			dd_consume_n(dd, 2);
+			dd_append(dd, "guard_variable__");
 			return dd_name(dd);
 		}
 		if (c1 == 'R') {
@@ -1537,10 +1552,18 @@ static char *demangle_simple(char *str)
 	dd.pos = 2;
 	dd.new = xzalloc(0);
 
-	if (dd_encoding(&dd) < 0 || !dd_eof(&dd) || dd.level != 0) {
+	if (dd_encoding(&dd) < 0 || dd.level != 0) {
 		dd_debug_print(&dd);
 		free(dd.new);
 		return xstrdup(str);
+	}
+
+	if (!dd_eof(&dd)) {
+		if (!dd.type_info || dd_name(&dd) < 0) {
+			dd_debug_print(&dd);
+			free(dd.new);
+			return xstrdup(str);
+		}
 	}
 
 	if (has_prefix) {
@@ -1802,4 +1825,34 @@ TEST_CASE(demangle_simple6)
 
 	return TEST_OK;
 }
+
+TEST_CASE(demangle_simple7)
+{
+	char *name;
+
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	name = demangle_simple("_ZTSSt12system_error");
+	TEST_STREQ("typeinfo__std::system_error", name);
+	free(name);
+
+	name = demangle_simple("_ZNSs4nposE");
+	TEST_STREQ("std::basic_string<>::npos", name);
+	free(name);
+
+	name = demangle_simple("_ZNSt14numeric_limitsIoE5radixE");
+	TEST_STREQ("std::numeric_limits::radix", name);
+	free(name);
+
+	name = demangle_simple("_ZGVNSt7__cxx117collateIcE2idE");
+	TEST_STREQ("guard_variable__std::__cxx11::collate::id", name);
+	free(name);
+
+	name = demangle_simple("_ZNSbIwSt11char_traitsIwESaIwEE4nposE");
+	TEST_STREQ("std::basic_string::npos", name);
+	free(name);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */

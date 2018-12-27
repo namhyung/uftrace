@@ -33,7 +33,7 @@ static struct symtabs ksymtabs;
 struct sym sched_sym = {
 	.addr = EVENT_ID_PERF_SCHED_BOTH,
 	.size = 1,
-	.type = ST_LOCAL,
+	.type = ST_LOCAL_FUNC,
 	.name = "linux:schedule",
 };
 
@@ -176,7 +176,8 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 		return 0;
 
 	if (elf_symbol_type(elf_sym) != STT_FUNC &&
-	    elf_symbol_type(elf_sym) != STT_GNU_IFUNC)
+	    elf_symbol_type(elf_sym) != STT_GNU_IFUNC &&
+	    elf_symbol_type(elf_sym) != STT_OBJECT)
 		return 0;
 
 	/* skip aliases */
@@ -198,13 +199,22 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 
 	switch (elf_symbol_bind(elf_sym)) {
 	case STB_LOCAL:
-		sym->type = ST_LOCAL;
+		if (elf_symbol_type(elf_sym) == STT_OBJECT)
+			sym->type = ST_LOCAL_DATA;
+		else
+			sym->type = ST_LOCAL_FUNC;
 		break;
 	case STB_GLOBAL:
-		sym->type = ST_GLOBAL;
+		if (elf_symbol_type(elf_sym) == STT_OBJECT)
+			sym->type = ST_GLOBAL_DATA;
+		else
+			sym->type = ST_GLOBAL_FUNC;
 		break;
 	case STB_WEAK:
-		sym->type = ST_WEAK;
+		if (elf_symbol_type(elf_sym) == STT_OBJECT)
+			sym->type = ST_WEAK_DATA;
+		else
+			sym->type = ST_WEAK_FUNC;
 		break;
 	default:
 		sym->type = ST_UNKNOWN;
@@ -312,6 +322,9 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			break;
 	}
 
+	if (!strcmp(basename(filename), "libgrandfather.so"))
+		flags |= 0x800;
+
 	if (iter.shdr.sh_type != SHT_SYMTAB) {
 		/*
 		 * fallback to dynamic symbol table when there's no symbol table
@@ -388,7 +401,7 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 	else
 		sym->addr = prev_addr + plt_entsize;
 	sym->size = plt_entsize;
-	sym->type = ST_PLT;
+	sym->type = ST_PLT_FUNC;
 
 	if (flags & SYMTAB_FL_DEMANGLE)
 		sym->name = demangle(name);
@@ -668,7 +681,8 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 		if (iter.sym.st_shndx == SHN_UNDEF)
 			continue;
 		if (elf_symbol_type(&iter.sym) != STT_FUNC &&
-		    elf_symbol_type(&iter.sym) != STT_GNU_IFUNC)
+		    elf_symbol_type(&iter.sym) != STT_GNU_IFUNC &&
+		    elf_symbol_type(&iter.sym) != STT_OBJECT)
 			continue;
 
 		addr = iter.sym.st_value + offset;
@@ -864,7 +878,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 	size_t len = 0;
 	unsigned int i;
 	unsigned int grow = SYMTAB_GROW;
-	char allowed_types[] = "TtwPK";
+	char allowed_types[] = "TtwPKDdv";
 	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
@@ -980,16 +994,20 @@ void load_module_symtabs(struct symtabs *symtabs)
 		"libmcount-single.so",
 		"libmcount-fast-single.so",
 	};
+	static const char libstdcpp6[] = "libstdc++.so.6";
 	size_t k;
 	unsigned long flags = symtabs->flags;
 	const char *exec_path = symtabs->filename;
+	bool check_cpp = false;
+	bool needs_cpp = false;
 
 	maps = symtabs->maps;
 	while (maps) {
 		struct symtab dsymtab = {};
+		const char *libname = basename(maps->libname);
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-			if (!strcmp(basename(maps->libname), skip_libs[k]))
+			if (!strcmp(libname, skip_libs[k]))
 				goto next;
 		}
 
@@ -1002,7 +1020,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 			char *symfile = NULL;
 
 			xasprintf(&symfile, "%s/%s.sym",
-				  symtabs->dirname, basename(maps->libname));
+				  symtabs->dirname, libname);
 			if (access(symfile, F_OK) == 0) {
 				load_module_symbol_file(&maps->symtab, symfile,
 							maps->start);
@@ -1011,6 +1029,22 @@ void load_module_symtabs(struct symtabs *symtabs)
 			free(symfile);
 
 			if (maps->symtab.nr_sym)
+				goto next;
+		}
+
+		if (exec_path == NULL)
+			exec_path = maps->libname;
+
+		if (!check_cpp) {
+			if (has_dependency(exec_path, libstdcpp6))
+				needs_cpp = true;
+
+			check_cpp = true;
+		}
+
+		/* load symbols from libstdc++.so only if it's written in C++ */
+		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
+			if (!needs_cpp)
 				goto next;
 		}
 
@@ -1039,7 +1073,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 	unsigned int i;
 	unsigned int grow = SYMTAB_GROW;
 	struct symtab *stab = &symtabs->symtab;
-	char allowed_types[] = "TtwPK";
+	char allowed_types[] = "TtwPKDdv";
 	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
@@ -1113,7 +1147,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		prev_addr = addr;
 		prev_type = type;
 
-		if (type == ST_PLT)
+		if (type == ST_PLT_FUNC)
 			stab = &symtabs->dsymtab;
 		else
 			stab = &symtabs->symtab;
@@ -1251,21 +1285,21 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	prev_was_plt = (stab->sym[0].type == ST_PLT);
+	prev_was_plt = (stab->sym[0].type == ST_PLT_FUNC);
 
 	/* PLT + normal symbols (in any order)*/
 	for (i = 0; i < stab->nr_sym; i++) {
 		struct sym *sym = &stab->sym[i];
 
 		/* mark end of the this kind of symbols */
-		if ((sym->type == ST_PLT) != prev_was_plt) {
+		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
 			struct sym *prev = sym - 1;
 
 			fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 				prev->addr + prev->size - offset,
 				(char) prev->type, prev_was_plt ? "dyn" : "");
 		}
-		prev_was_plt = (sym->type == ST_PLT);
+		prev_was_plt = (sym->type == ST_PLT_FUNC);
 
 		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
 			(char) sym->type, sym->name);
@@ -1341,7 +1375,7 @@ int load_kernel_symbol(char *dirname)
 	}
 
 	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)
-		ksymtabs.symtab.sym[i].type = ST_KERNEL;
+		ksymtabs.symtab.sym[i].type = ST_KERNEL_FUNC;
 
 	free(symfile);
 	ksymtabs.loaded = true;
@@ -1459,7 +1493,7 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 	while (maps) {
 		struct sym *sym;
 		sym = find_symname(&maps->symtab, name);
-		if (sym && sym->type != ST_PLT)
+		if (sym && sym->type != ST_PLT_FUNC)
 			return maps;
 
 		maps = maps->next;
@@ -1652,14 +1686,14 @@ TEST_CASE(symbol_load_symfile) {
 		.loaded = false,
 	};
 	struct sym dsym[3] = {
-		{ 0x400100, 256, ST_PLT, "plt1" },
-		{ 0x400200, 256, ST_PLT, "plt2" },
-		{ 0x400300, 256, ST_PLT, "plt3" },
+		{ 0x400100, 256, ST_PLT_FUNC, "plt1" },
+		{ 0x400200, 256, ST_PLT_FUNC, "plt2" },
+		{ 0x400300, 256, ST_PLT_FUNC, "plt3" },
 	};
 	struct sym nsym[3] = {
-		{ 0x401100, 256, ST_GLOBAL, "first" },
-		{ 0x401200, 256, ST_LOCAL, "second" },
-		{ 0x401300, 256, ST_GLOBAL, "third" },
+		{ 0x401100, 256, ST_GLOBAL_FUNC, "first" },
+		{ 0x401200, 256, ST_LOCAL_FUNC, "second" },
+		{ 0x401300, 256, ST_GLOBAL_FUNC, "third" },
 	};
 	struct sym *sym_names[3] = { &dsym[0], &dsym[1], &dsym[2] };
 	char symfile[] = "SYM.sym";
@@ -1718,12 +1752,12 @@ TEST_CASE(symbol_load_module) {
 		.nr_alloc = 0,
 	};
 	struct sym mixed_sym[] = {
-		{ 0x100, 256, ST_PLT, "plt1" },
-		{ 0x200, 256, ST_PLT, "plt2" },
-		{ 0x300, 256, ST_PLT, "plt3" },
-		{ 0x1100, 256, ST_GLOBAL, "normal1" },
-		{ 0x1200, 256, ST_LOCAL,  "normal2" },
-		{ 0x1300, 256, ST_GLOBAL, "normal3" },
+		{ 0x100, 256, ST_PLT_FUNC, "plt1" },
+		{ 0x200, 256, ST_PLT_FUNC, "plt2" },
+		{ 0x300, 256, ST_PLT_FUNC, "plt3" },
+		{ 0x1100, 256, ST_GLOBAL_FUNC, "normal1" },
+		{ 0x1200, 256, ST_LOCAL_FUNC,  "normal2" },
+		{ 0x1300, 256, ST_GLOBAL_FUNC, "normal3" },
 	};
 	struct symtab test = {
 		.nr_sym = 0,

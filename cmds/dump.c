@@ -311,9 +311,14 @@ static void pr_hex(uint64_t *offset, void *data, size_t len)
 static void pr_args(struct fstack_arguments *args)
 {
 	struct uftrace_arg_spec *spec;
+	struct uftrace_task_reader *task;
+	struct uftrace_session_link *sessions;
 	void *ptr = args->data;
 	size_t size;
 	int i = 0;
+
+	task = container_of(args, typeof(*task), args);
+	sessions = &task->h->sessions;
 
 	list_for_each_entry(spec, args->args, list) {
 		/* skip return value info */
@@ -342,13 +347,8 @@ static void pr_args(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
-			struct uftrace_task_reader *task;
-			struct uftrace_session_link *sessions;
 			struct sym *sym;
 			unsigned long val = 0;
-
-			task = container_of(args, typeof(*task), args);
-			sessions = &task->h->sessions;
 
 			memcpy(&val, ptr, spec->size);
 			size = spec->size;
@@ -365,14 +365,10 @@ static void pr_args(struct fstack_arguments *args)
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			long long val = 0;
 			struct uftrace_mmap *map;
-			struct uftrace_task_reader *task;
-			struct uftrace_session_link *sessions;
 			struct uftrace_session *s;
 			struct debug_info *dinfo;
 			char *enum_def;
 
-			task = container_of(args, typeof(*task), args);
-			sessions = &task->h->sessions;
 			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
@@ -393,12 +389,22 @@ static void pr_args(struct fstack_arguments *args)
 			size = spec->size;
 		}
 		else {
+			struct sym *sym;
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  args[%d] %c%d: 0x%0*llx\n", i,
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			pr_out("  args[%d] %c%d: 0x%0*llx", i,
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
+			if (sym)
+				pr_out(" (&%s)", sym->name);
+			pr_out("\n");
+
 			size = spec->size;
 		}
 
@@ -410,8 +416,13 @@ static void pr_args(struct fstack_arguments *args)
 static void pr_retval(struct fstack_arguments *args)
 {
 	struct uftrace_arg_spec *spec;
+	struct uftrace_task_reader *task;
+	struct uftrace_session_link *sessions;
 	void *ptr = args->data;
 	size_t size;
+
+	task = container_of(args, typeof(*task), args);
+	sessions = &task->h->sessions;
 
 	list_for_each_entry(spec, args->args, list) {
 		/* skip argument info */
@@ -440,13 +451,8 @@ static void pr_retval(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
-			struct uftrace_task_reader *task;
-			struct uftrace_session_link *sessions;
 			struct sym *sym;
 			unsigned long val = 0;
-
-			task = container_of(args, struct uftrace_task_reader, args);
-			sessions = &task->h->sessions;
 
 			memcpy(&val, ptr, spec->size);
 			size = spec->size;
@@ -461,12 +467,22 @@ static void pr_retval(struct fstack_arguments *args)
 				pr_out("  retval p: %p\n", (void *)val);
 		}
 		else {
+			struct sym *sym;
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-			pr_out("  retval %c%d: 0x%0*llx\n",
+
+			sym = task_find_sym_addr(sessions, task,
+						 task->rstack->time,
+						 (uint64_t)val);
+
+			pr_out("  retval %c%d: 0x%0*llx",
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
+			if (sym)
+				pr_out(" (&%s)", sym->name);
+			pr_out("\n");
+
 			size = spec->size;
 		}
 
