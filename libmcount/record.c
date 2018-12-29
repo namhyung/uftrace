@@ -1065,6 +1065,16 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 	return 0;
 }
 
+static void write_map(FILE *out, struct uftrace_mmap *map,
+		      unsigned char major, unsigned char minor,
+		      uint32_t ino, uint64_t off)
+{
+	/* write prev_map when it finds a new map */
+	fprintf(out, "%"PRIx64"-%"PRIx64" %.4s %08"PRIx64" %02x:%02x %-26u %s\n",
+			map->start, map->end, map->prot, off, major, minor,
+			ino, map->libname);
+}
+
 void record_proc_maps(char *dirname, const char *sess_id,
 		      struct symtabs *symtabs)
 {
@@ -1088,9 +1098,9 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		unsigned long start, end;
 		char prot[5];
 		unsigned char major, minor;
-		unsigned char prev_major, prev_minor;
-		uint32_t ino, prev_ino;
-		uint64_t off, prev_off;
+		unsigned char prev_major = 0, prev_minor = 0;
+		uint32_t ino, prev_ino = 0;
+		uint64_t off, prev_off = 0;
 		char path[PATH_MAX];
 		size_t namelen;
 		struct uftrace_mmap *map;
@@ -1106,6 +1116,11 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		 * but [stack] is still needed to get kernel base address.
 		 */
 		if (path[0] == '[') {
+			if (prev_map != NULL) {
+				write_map(ofp, prev_map, prev_major,
+					  prev_minor, prev_ino, prev_off);
+				prev_map = NULL;
+			}
 			if (strncmp(path, "[stack", 6) == 0) {
 				symtabs->kernel_base = guess_kernel_base(buf);
 				fprintf(ofp, "%s", buf);
@@ -1123,10 +1138,8 @@ void record_proc_maps(char *dirname, const char *sess_id,
 			}
 
 			/* write prev_map when it finds a new map */
-			fprintf(ofp, "%"PRIx64"-%"PRIx64" %.4s %08"PRIx64" %02x:%02x %-26u %s\n",
-				prev_map->start, prev_map->end, prev_map->prot,
-				prev_off, prev_major, prev_minor, prev_ino,
-				prev_map->libname);
+			write_map(ofp, prev_map, prev_major,
+				  prev_minor, prev_ino, prev_off);
 		}
 
 		/* save map for the executable */
