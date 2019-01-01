@@ -182,7 +182,7 @@ bool is_uftrace_dir(char *path)
 {
 	int fd;
 	char *info_path = NULL;
-	char sig[8] = {0,};
+	char sig[UFTRACE_MAGIC_LEN] = {0,};
 
 	// <uftrace data dir>/info always be exist.
 	xasprintf(&info_path, "%s/info", path);
@@ -192,9 +192,15 @@ bool is_uftrace_dir(char *path)
 	if (fd == -1)
 		return false;
 
-	read(fd, sig, 8);
+	if (read(fd, sig, UFTRACE_MAGIC_LEN) != UFTRACE_MAGIC_LEN) {
+		/*
+		 * partial read() will return false anyway
+		 * since memcmp() below cannot success.
+		 */
+	}
+
 	close(fd);
-	return !strncmp(sig, UFTRACE_MAGIC_STR, 8);
+	return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 }
 
 int create_directory(char *dirname)
