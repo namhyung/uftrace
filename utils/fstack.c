@@ -611,8 +611,6 @@ void fstack_exit(struct uftrace_task_reader *task)
 int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack)
 {
-	struct uftrace_session *sess = task->h->sessions.first;
-
 	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
@@ -630,10 +628,8 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		}
 		else {
 			task->display_depth++;
-			if (!is_kernel_address(&sess->symtabs,
-					       fstack->addr)) {
+			if (task->ctx == FSTACK_CTX_USER)
 				task->user_display_depth++;
-			}
 		}
 
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
@@ -650,8 +646,7 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		else
 			task->display_depth = 0;
 
-		if (!is_kernel_address(&sess->symtabs,
-				       fstack->addr)) {
+		if (task->ctx == FSTACK_CTX_USER) {
 			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
