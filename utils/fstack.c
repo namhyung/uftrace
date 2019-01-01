@@ -586,7 +586,7 @@ void fstack_exit(struct uftrace_task_reader *task)
 	fstack = &task->func_stack[task->stack_count];
 
 	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
-		task->tid, task->stack_count, fstack->orig_depth, task->display_depth,
+		task->tid, task->stack_count, task->rstack->depth, task->display_depth,
 		task->filter.in_count, task->filter.out_count, task->filter.depth,
 		fstack->flags);
 
