@@ -1,11 +1,40 @@
 /*
  * Very simple (and incomplete by design) C++ name demangler.
  *
- * Copyright (C) 2015-2018, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+ * Copyright (C) 2015-2019, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
  *
- * Released under the GPL v2.
+ * Released under the GPL v2 license (the C++ part).
  *
  * See https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling
+ *
+ * Rust demangler refered to https://github.com/alexcrichton/rustc-demangle
+ * which was released by MIT (or Apache) license.
+ *
+ * Copyright (c) 2014 Alex Crichton
+ *
+ * Permission is hereby granted, free of charge, to any
+ * person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the
+ * Software without restriction, including without
+ * limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software
+ * is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice
+ * shall be included in all copies or substantial portions
+ * of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ * ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+ * TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+ * SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #include <stdlib.h>
@@ -241,6 +270,32 @@ static const struct {
 	{ 'i', "std::basic_istream" },
 	{ 'o', "std::basic_ostream" },
 	{ 'd', "std::basic_iostream" },
+};
+
+static const struct {
+	char *code;  /* surrounded by $..$ */
+	char *punc;
+} rust_mappings[] = {
+	{ "SP", "@" },
+	{ "BP", "*" },
+	{ "RF", "&" },
+	{ "LT", "<" },
+	{ "GT", ">" },
+	{ "LP", "(" },
+	{ "RP", ")" },
+	{ "C",  "," },
+	/* some selected unicode characters */
+	{ "u20", " " },
+	{ "u22", "\"" },
+	{ "u27", "'" },
+	{ "u2b", "+" },
+	{ "u3b", ";" },
+	{ "u3d", "=" },
+	{ "u5b", "[" },
+	{ "u5d", "]" },
+	{ "u7b", "{" },
+	{ "u7d", "}" },
+	{ "u7e", "~" },
 };
 
 static int dd_encoding(struct demangle_data *dd);
@@ -1303,6 +1358,9 @@ static int dd_operator_name(struct demangle_data *dd)
 static int dd_source_name(struct demangle_data *dd)
 {
 	int num = dd_number(dd);
+	char *dollar;
+	char *p, *end;
+	unsigned i;
 
 	if (num < 0)
 		return -1;
@@ -1315,10 +1373,48 @@ static int dd_source_name(struct demangle_data *dd)
 
 	if (dd->newpos)
 		dd_append(dd, "::");
-	dd_append_len(dd, &dd->old[dd->pos], num);
 
+	p = dd->old + dd->pos;
+	dollar = strchr(p, '$');
+	if (dollar == NULL)
+		goto out_append;
+
+	end = p + num;
+	if (dollar > end)
+		goto out_append;
+
+	while (dollar != NULL && dollar < end) {
+		bool found = false;
+
+		num = dollar - p;
+		dd_append_len(dd, p, num);
+
+		for (i = 0; i < ARRAY_SIZE(rust_mappings); i++) {
+			if (strncmp(rust_mappings[i].code, dollar+1,
+				    strlen(rust_mappings[i].code)))
+				continue;
+
+			dd_append(dd, rust_mappings[i].punc);
+			num += strlen(rust_mappings[i].code) + 2;
+			__dd_consume_n(dd, num, NULL);
+
+			p += num;
+			found = true;
+			break;
+		}
+
+		if (!found)
+			return -1;
+
+		dollar = strchr(p, '$');
+	}
+	num = end - p;
+
+out_append:
+	dd_append_len(dd, p, num);
 out:
-	dd_consume_n(dd, num);
+	__dd_consume_n(dd, num, NULL);
+	__dd_add_debug(dd, __func__);
 	return 0;
 }
 
@@ -1836,6 +1932,27 @@ TEST_CASE(demangle_simple7)
 
 	name = demangle_simple("_ZNSbIwSt11char_traitsIwESaIwEE4nposE");
 	TEST_STREQ("std::basic_string::npos", name);
+	free(name);
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_rust1)
+{
+	char *name;
+
+	dbg_domain[DBG_DEMANGLE] = 2;
+
+	name = demangle_simple("_ZN8$BP$test3fooE");
+	TEST_STREQ("*test::foo", name);
+	free(name);
+
+	name = demangle_simple("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E");
+	TEST_STREQ("Bar<[u32; 4]>", name);
+	free(name);
+
+	name = demangle_simple("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE");
+	TEST_STREQ("_<Test + 'static as foo..Bar<Test>>::bar", name);
 	free(name);
 
 	return TEST_OK;
