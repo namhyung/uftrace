@@ -38,7 +38,7 @@ unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 
 $(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
 
-$(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config
+$(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config $(srcdir)/tests/unittest.h
 	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $<
 
 clean:

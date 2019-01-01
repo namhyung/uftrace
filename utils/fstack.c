@@ -2270,8 +2270,6 @@ TEST_CASE(fstack_skip)
 	struct uftrace_task_reader *task;
 	struct uftrace_trigger tr = { 0, };
 
-	dbg_domain[DBG_FSTACK] = 1;
-
 	TEST_EQ(fstack_test_setup_file(handle, 1), 0);
 
 	/* this makes to skip depth 1 records */
@@ -2300,8 +2298,6 @@ TEST_CASE(fstack_time)
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
 	int i;
-
-	dbg_domain[DBG_FSTACK] = 1;
 
 	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
 

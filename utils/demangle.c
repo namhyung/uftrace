@@ -1630,8 +1630,6 @@ TEST_CASE(demangle_simple1)
 {
 	char *name;
 
-	dbg_domain[DBG_DEMANGLE] = 2;
-
 	name = demangle_simple("normal");
 	TEST_STREQ("normal", name);
 	free(name);
@@ -1659,8 +1657,6 @@ TEST_CASE(demangle_simple2)
 {
 	char *name;
 
-	dbg_domain[DBG_DEMANGLE] = 2;
-
 	name = demangle_simple("_ZThn8_N13FtraceServiceD0Ev");
 	TEST_STREQ("FtraceService::~FtraceService", name);
 	free(name);
@@ -1682,8 +1678,6 @@ TEST_CASE(demangle_simple2)
 TEST_CASE(demangle_simple3)
 {
 	char *name;
-
-	dbg_domain[DBG_DEMANGLE] = 2;
 
 	name = demangle_simple("_ZN4node8Watchdog7DestroyEv.part.0");
 	TEST_STREQ("node::Watchdog::Destroy", name);
@@ -1722,8 +1716,6 @@ TEST_CASE(demangle_simple4)
 {
 	char *name;
 
-	dbg_domain[DBG_DEMANGLE] = 2;
-
 	name = demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
 			       "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
 			       "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
@@ -1756,8 +1748,6 @@ TEST_CASE(demangle_simple4)
 TEST_CASE(demangle_simple5)
 {
 	char *name;
-
-	dbg_domain[DBG_DEMANGLE] = 2;
 
 	name = demangle_simple("_ZN2v88internal13RememberedSetILNS0_"
 			       "16PointerDirectionE1EE7IterateIZNS3_"
@@ -1805,8 +1795,6 @@ TEST_CASE(demangle_simple6)
 {
 	char *name;
 
-	dbg_domain[DBG_DEMANGLE] = 2;
-
 	name = demangle_simple("_ZN4base8internal15OptionalStorageImLb1ELb1EE"
 			       "CI2NS0_19OptionalStorageBaseImLb1EEEIJRKmEEE"
 			       "NS_10in_place_tEDpOT_");
@@ -1829,8 +1817,6 @@ TEST_CASE(demangle_simple6)
 TEST_CASE(demangle_simple7)
 {
 	char *name;
-
-	dbg_domain[DBG_DEMANGLE] = 2;
 
 	name = demangle_simple("_ZTSSt12system_error");
 	TEST_STREQ("typeinfo__std::system_error", name);

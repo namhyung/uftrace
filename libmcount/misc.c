@@ -222,8 +222,10 @@ TEST_CASE(mcount_debug_domain)
 	/* ensure domain string matches to current domain bit */
 	TEST_EQ(DBG_DOMAIN_MAX, (int)strlen(DBG_DOMAIN_STR));
 
-	for (i = 0; i < DBG_DOMAIN_MAX; i++)
-		TEST_EQ(dbg_domain[i], 0);
+	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
+		if (i != PR_DOMAIN)
+			TEST_EQ(dbg_domain[i], 0);
+	}
 
 	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
 		dbg_str[i * 2]     = DBG_DOMAIN_STR[i];
