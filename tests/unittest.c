@@ -55,6 +55,44 @@ static const char *messages[] = {
 	"unknown result",
 };
 
+static void set_debug_domain(struct uftrace_unit_test *test)
+{
+#define DOMAIN(x)  { #x, DBG_##x }
+
+	struct {
+		char *name;
+		int domain;
+	} domains[] = {
+		DOMAIN(SYMBOL),
+		DOMAIN(DEMANGLE),
+		DOMAIN(FILTER),
+		DOMAIN(FSTACK),
+		DOMAIN(SESSION),
+		DOMAIN(KERNEL),
+		DOMAIN(MCOUNT),
+		DOMAIN(DYNAMIC),
+		DOMAIN(EVENT),
+		DOMAIN(SCRIPT),
+		DOMAIN(DWARF),
+		/* some fixup domains */
+		{ "task",       DBG_SESSION },
+		{ "argspec",    DBG_FILTER },
+		{ "trigger",    DBG_FILTER },
+	};
+	unsigned int i;
+	int count = 0;
+
+	for (i = 0; i < ARRAY_SIZE(domains); i++) {
+		if (strcasestr(test->name, domains[i].name)) {
+			dbg_domain[domains[i].domain] = debug;
+			count++;
+		}
+	}
+
+	if (count == 0)
+		dbg_domain[DBG_UFTRACE] = debug;
+}
+
 static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 {
 	static int count;
@@ -66,8 +104,10 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 		fflush(stdout);
 	}
 
-	if (!fork())
+	if (!fork()) {
+		set_debug_domain(test);
 		exit(test->func());
+	}
 	wait(&status);
 
 	if (WIFSIGNALED(status))
@@ -81,6 +121,8 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 	test_stats[ret]++;
 	printf("[%03d] %-30s: %s\n", ++count, test->name,
 	       color ? retcodes[ret] : retcodes_nocolor[ret]);
+	if (debug)
+		printf("-------------\n");
 	fflush(stdout);
 }
 
