@@ -1894,7 +1894,6 @@ struct test_example {
 static int test_tids[NUM_TASK] = { 1234, 5678 };
 
 static struct header_page header = { 0, 4096 };
-static struct type_len_ts padding = { KBUFFER_TYPE_PADDING, 0 };
 
 static struct type_len_ts test_len_ts[NUM_CPU][NUM_RECORD] = {
 	{
@@ -1972,7 +1971,6 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 	int cpu, i;
 	FILE *fp;
 	char *filename;
-	unsigned long pad;
 
 	kernel->dirname = "kernel.dir";
 	kernel->nr_cpus = NUM_CPU;
@@ -2007,7 +2005,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
 		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
 			     kernel->dirname, cpu) < 0) {
-			pr_dbg("cannot alloc filename: %s/%d.dat",
+			pr_dbg("cannot alloc filename: %s/kernel-cpu%d.dat",
 			       kernel->dirname, cpu);
 			return -1;
 		}
@@ -2039,11 +2037,6 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 		}
 
 		/* pad to page size */
-		fwrite(&padding, 1, sizeof(padding), fp);
-
-		pad = 4096 - ftell(fp);
-		fwrite(&pad, 1, sizeof(pad), fp);
-
 		fallocate(fileno(fp), 0, 0, 4096);
 
 		free(filename);
