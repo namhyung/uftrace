@@ -2205,6 +2205,7 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid)
 	for (i = 0; i < handle->info.nr_tid; i++)
 		handle->tasks[i].t = &test_tasks[i];
 
+	setup_perf_data(handle);
 	atexit(fstack_test_finish_file);
 	return 0;
 }

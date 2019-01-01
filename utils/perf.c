@@ -252,6 +252,7 @@ int setup_perf_data(struct uftrace_data *handle)
 	if (glob(pattern, GLOB_ERR, NULL, &globbuf)) {
 		pr_dbg("failed to search perf data file\n");
 		handle->hdr.feat_mask &= ~PERF_EVENT;
+		handle->nr_perf = 0;
 		goto out;
 	}
 
