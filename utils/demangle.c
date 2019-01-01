@@ -1371,6 +1371,17 @@ static int dd_source_name(struct demangle_data *dd)
 	if (dd->type)
 		goto out;
 
+	/* ignore hash code in a rust symbol */
+	if (num == 17 && dd->old[dd->pos] == 'h') {
+		for (i = 1; i < 17; i++) {
+			if (!isxdigit(dd->old[dd->pos + i]))
+				break;
+		}
+
+		if (i == 17)
+			goto out;
+	}
+
 	if (dd->newpos)
 		dd_append(dd, "::");
 
@@ -1953,6 +1964,10 @@ TEST_CASE(demangle_rust1)
 
 	name = demangle_simple("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE");
 	TEST_STREQ("_<Test + 'static as foo..Bar<Test>>::bar", name);
+	free(name);
+
+	name = demangle_simple("_ZN3foo3bar17h05af221e174051e9E");
+	TEST_STREQ("foo::bar", name);
 	free(name);
 
 	return TEST_OK;
