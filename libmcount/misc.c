@@ -133,8 +133,15 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 	int idx;
 
 	/* reverse order due to tail calls */
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		unsigned long parent_ip = mtdp->rstack[idx].parent_ip;
+
+		if (parent_ip == (unsigned long)mcount_return ||
+		    parent_ip == (unsigned long)plthook_return)
+			continue;
+
+		*mtdp->rstack[idx].parent_loc = parent_ip;
+	}
 }
 
 /* hook return address again (used after mcount_rstack_restore) */
