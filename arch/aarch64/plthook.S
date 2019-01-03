@@ -81,16 +81,9 @@ ENTRY(plthook_return)
 
 	add	x0, sp, #16
 	bl	plthook_exit
-
-	cmp	x0, #0
-	b.eq	1f
 	mov	x16, x0
-	b	2f
 
-1:	/* if finish trigger fired, use restored address */
-	ldr	x16, [sp, #40]
-
-2:	/* restore return values */
+	/* restore return values */
 	ldr	d0, [sp], #16
 	ldp	x0, x8, [sp], #16
 	/* restore frame pointer */

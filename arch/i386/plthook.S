@@ -56,11 +56,8 @@ ENTRY(plthook_return)
 	movl %eax, 0(%esp)
 
 	call plthook_exit
-
-	test %eax, %eax
-	jz   1f
 	movl %eax, 12(%esp)
-1:
+
 	movl 4(%esp), %eax
 	movl 8(%esp), %edx
 	add $12, %esp

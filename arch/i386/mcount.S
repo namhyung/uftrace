@@ -43,11 +43,8 @@ ENTRY(mcount_return)
 
 	/* returns original parent address */
 	call mcount_exit
-
-	test %eax, %eax
-	jz   1f
 	movl %eax, 12(%esp)
-1:
+
 	movl 4(%esp), %eax
 	movl 8(%esp), %edx
 	add $12, %esp

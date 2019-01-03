@@ -73,13 +73,7 @@ ENTRY(mcount_return)
 #if HAVE_ARM_HARDFP
 	vpop	{d0}
 #endif
-
-	/* if finish trigger fired, return address already updated */
-	cmp	r0, #0
-	beq	1f
-
 	/* update return address (pc) in the stack */
 	str 	r0, [sp, #12]
-1:
 	pop 	{r0-r1, lr, pc}
 END(mcount_return)

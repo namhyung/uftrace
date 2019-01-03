@@ -83,11 +83,8 @@ ENTRY(plthook_return)
 	movq %rsp, %rdi
 
 	call plthook_exit
+	movq %rax, 40(%rsp)
 
-	test  %rax, %rax
-	jz    1f
-	movq  %rax, 40(%rsp)
-1:
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
