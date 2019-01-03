@@ -815,22 +815,26 @@ out:
 	return real_addr;
 }
 
+void mtd_dtor(void *arg);
+
 unsigned long plthook_exit(long *retval)
 {
 	unsigned dyn_idx;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
+	unsigned long *ret_loc;
 	unsigned long ret_addr = 0;
 
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
+	assert(!mtdp->dead);
 
 	/*
-	 * there's a race with mcount_finish(), if it wins it already
-	 * restored the original return address for us so just return.
+	 * it's only called when mcount_entry() was succeeded
+	 * no need to check recursion here.  But still needs to
+	 * prevent recursion during this call.
 	 */
-	if (!mcount_guard_recursion(mtdp))
-		return 0;
+	__mcount_guard_recursion(mtdp);
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -867,16 +871,25 @@ again:
 	mcount_exit_filter_record(mtdp, rstack, retval);
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
+	ret_loc  = rstack->parent_loc;
 	ret_addr = rstack->parent_ip;
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
-	mcount_unguard_recursion(mtdp);
+	__mcount_unguard_recursion(mtdp);
 
-	if (unlikely(mcount_should_stop()))
-		ret_addr = 0;
+	if (unlikely(mcount_should_stop())) {
+		mtd_dtor(mtdp);
+		/*
+		 * mtd_dtor() will free rstack but current ret_addr
+		 * might be plthook_return() when it was a tailcall.
+		 * reload the return address after mtd_dtor() restored
+		 * all the parent locations.
+		 */
+		ret_addr = *ret_loc;
+	}
 
 	compiler_barrier();
 

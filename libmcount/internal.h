@@ -111,6 +111,7 @@ struct mcount_thread_data {
 	int				record_idx;
 	bool				recursion_marker;
 	bool				in_exception;
+	bool				dead;
 	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
@@ -144,6 +145,8 @@ static inline void mcount_restore_arch_context(struct mcount_arch_context *ctx) 
 
 extern TLS struct mcount_thread_data mtd;
 
+void __mcount_guard_recursion(struct mcount_thread_data *mtdp);
+void __mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 
