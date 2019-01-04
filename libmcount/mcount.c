@@ -421,6 +421,9 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	if (check_thread_data(mtdp))
 		goto out;
 
+	if (mtdp->idx <= 0)
+		goto out;
+
 	mcount_rstack_restore(mtdp);
 
 	idx = mtdp->idx - 1;
