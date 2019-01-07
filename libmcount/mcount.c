@@ -30,11 +30,6 @@
 #include "utils/filter.h"
 #include "utils/script.h"
 
-/* could be defined in mcount-arch.h */
-#ifndef  ARCH_SUPPORT_AUTO_RECOVER
-# define ARCH_SUPPORT_AUTO_RECOVER  0
-#endif
-
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -591,9 +586,11 @@ void mtd_dtor(void *arg)
 
 	mcount_rstack_restore(mtdp);
 
-	free(mtdp->rstack);
-	mtdp->rstack = NULL;
-	mtdp->idx = 0;
+	if (ARCH_CAN_RESTORE_PLTHOOK || !mcount_rstack_has_plthook(mtdp)) {
+		free(mtdp->rstack);
+		mtdp->rstack = NULL;
+		mtdp->idx = 0;
+	}
 
 	mcount_filter_release(mtdp);
 	mcount_watch_release(mtdp);

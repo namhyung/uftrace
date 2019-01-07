@@ -728,7 +728,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
-	if (pd->dsymtab.nr_sym && child_idx < pd->dsymtab.nr_sym) {
+	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
 		pr_dbg2("[mod: %lx, idx: %d] enter %lx: %s\n",
 			module_id, child_idx, sym->addr, sym->name);
@@ -806,7 +806,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 out:
-	if (pd && pd->resolved_addr[child_idx])
+	if (likely(pd && child_idx < pd->dsymtab.nr_sym) &&
+	    pd->resolved_addr[child_idx] != 0)
 		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
@@ -826,8 +827,7 @@ unsigned long plthook_exit(long *retval)
 	unsigned long ret_addr = 0;
 
 	mtdp = get_thread_data();
-	assert(mtdp != NULL);
-	assert(!mtdp->dead);
+	assert(!check_thread_data(mtdp));
 
 	/*
 	 * it's only called when mcount_entry() was succeeded
@@ -858,8 +858,23 @@ again:
 		rstack = restore_vfork(mtdp, rstack);
 
 	dyn_idx = rstack->dyn_idx;
-	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
+	if (unlikely(dyn_idx == MCOUNT_INVALID_DYNIDX ||
+		     dyn_idx >= rstack->pd->dsymtab.nr_sym))
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
+
+	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(mtdp->dead)) {
+		ret_addr = rstack->parent_ip;
+
+		/* make sure it doesn't have plthook below */
+		mtdp->idx--;
+
+		if (!mcount_rstack_has_plthook(mtdp)) {
+			free(mtdp->rstack);
+			mtdp->rstack = NULL;
+			mtdp->idx = 0;
+		}
+		return ret_addr;
+	}
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
 		rstack->pd->resolved_addr[dyn_idx],
@@ -888,7 +903,8 @@ again:
 		 * reload the return address after mtd_dtor() restored
 		 * all the parent locations.
 		 */
-		ret_addr = *ret_loc;
+		if (ARCH_CAN_RESTORE_PLTHOOK)
+			ret_addr = *ret_loc;
 	}
 
 	compiler_barrier();
