@@ -178,7 +178,7 @@ failed:
 	return ret;
 }
 
-bool is_uftrace_dir(char *path)
+static bool is_uftrace_directory(char *path)
 {
 	int fd;
 	char *info_path = NULL;
@@ -203,6 +203,35 @@ bool is_uftrace_dir(char *path)
 	return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 }
 
+static bool is_empty_directory(char *path)
+{
+	DIR *dp = opendir(path);
+	struct dirent *ent;
+	int ret = true;
+
+	if (dp == NULL)
+		return false;
+
+	while ((ent = readdir(dp)) != NULL) {
+		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+
+		ret = false;
+		break;
+	}
+	closedir(dp);
+
+	return ret;
+}
+
+static bool can_remove_directory(char *path)
+{
+	if (access(path, F_OK) != 0)
+		return false;
+
+	return is_uftrace_directory(path) || is_empty_directory(path);
+}
+
 int create_directory(char *dirname)
 {
 	int ret = -1;
@@ -210,15 +239,15 @@ int create_directory(char *dirname)
 
 	xasprintf(&oldname, "%s.old", dirname);
 
-	if (!access(dirname, F_OK)) {
-		if (!access(oldname, F_OK) && is_uftrace_dir(oldname)) {
+	if (can_remove_directory(dirname)) {
+		if (can_remove_directory(oldname)) {
 			if (remove_directory(oldname) < 0) {
 				pr_warn("removing old directory failed: %m\n");
 				goto out;
 			}
 		}
 
-		if (is_uftrace_dir(dirname) && rename(dirname, oldname) < 0) {
+		if (rename(dirname, oldname) < 0) {
 			pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
 			goto out;
 		}
