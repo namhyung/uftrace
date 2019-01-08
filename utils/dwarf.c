@@ -319,14 +319,14 @@ static char * make_enum_name(Dwarf_Die *die)
 }
 
 /* returns size in bit */
-static size_t type_size(Dwarf_Die *die)
+static size_t type_size(Dwarf_Die *die, size_t default_size)
 {
 	int size;
 
 	/* just guess it's word size */
 	size = dwarf_bytesize(die);
 	if (size <= 0)
-		size = sizeof(long);
+		size = default_size;
 
 	return size * 8;
 }
@@ -338,7 +338,7 @@ static bool is_empty_aggregate(Dwarf_Die *die)
 	bool inherited = false;
 
 	/* C++ defines size of an empty struct as 1 byte */
-	if (type_size(die) > 8)
+	if (type_size(die, sizeof(long)) > 1 * 8)
 		return false;
 
 retry:
@@ -427,6 +427,8 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 				  td->enum_name, enum_str);
 			pr_dbg3("type: %s\n", enum_str);
 
+			td->size = type_size(die, sizeof(int));
+
 			parse_enum_string(enum_def, &td->dinfo->enums);
 			free(enum_def);
 			free(enum_str);
@@ -482,7 +484,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		return false;
 	}
 
-	td->size = type_size(die);
+	td->size = type_size(die, sizeof(long));
 	/* TODO: handle aggregate types correctly */
 	if (td->size > sizeof(long) * 8)
 		td->broken = true;
