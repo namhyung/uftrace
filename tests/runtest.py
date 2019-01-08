@@ -532,7 +532,7 @@ def save_test_result(result, case, shared):
 
 
 def print_test_result(case, result, diffs, color):
-    if sys.stdout.isatty() and color:
+    if color:
         result_list = [colored_result[r] for r in result]
     else:
         result_list = [text_result[r] for r in result]
@@ -562,7 +562,7 @@ def print_test_header(opts, flags):
     print(header2)
 
 
-def print_test_report(arg, shared):
+def print_test_report(color, shared):
     success = shared.stats[TestBase.TEST_SUCCESS] + shared.stats[TestBase.TEST_SUCCESS_FIXED]
     percent = 100.0 * success / shared.total
 
@@ -571,7 +571,7 @@ def print_test_report(arg, shared):
     print("====================")
     print("total %5d  Tests executed (success: %.2f%%)" % (shared.total, percent))
     for r in res:
-        if sys.stdout.isatty() and arg.color:
+        if color:
             result = colored_result[r]
         else:
             result = text_result[r]
@@ -665,13 +665,19 @@ if __name__ == "__main__":
     print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
     print_test_header(opts, flags)
 
+    color = arg.color
+    if not sys.stdout.isatty():
+        color = False
+    if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
+        color = False
+
     for tc in sorted(testcases):
         name = tc.split('.')[0]  # remove '.py'
 
         while name not in shared.results:
             time.sleep(1)
 
-        print_test_result(name, shared.results[name], shared.diffs[name], arg.color)
+        print_test_result(name, shared.results[name], shared.diffs[name], color)
 
     pool.close()
     pool.join()
@@ -679,4 +685,4 @@ if __name__ == "__main__":
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    print_test_report(arg, shared)
+    print_test_report(color, shared)

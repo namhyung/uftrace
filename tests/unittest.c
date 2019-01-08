@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
 	struct uftrace_unit_test *test_cases = NULL;
 	int test_stats[TEST_MAX] = { };
 	size_t i, test_num = 0;
+	char *term;
 	int c;
 
 	if (setup_unit_test(&test_cases, &test_num) < 0) {
@@ -282,6 +283,12 @@ int main(int argc, char *argv[])
 	}
 
 	outfp = logfp = stdout;
+
+	term = getenv("TERM");
+	if (term && !strcmp(term, "dumb"))
+		color = false;
+	if (!isatty(STDIN_FILENO))
+		color = false;
 
 	for (i = 0; i < test_num; i++)
 		run_unit_test(&test_cases[i], test_stats);
