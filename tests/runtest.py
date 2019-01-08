@@ -374,6 +374,7 @@ class TestBase:
 
     def run(self, name, cflags, diff, timeout):
         ret = TestBase.TEST_SUCCESS
+        dif = ''
 
         test_cmd = self.runcmd()
         self.pr_debug("test command: %s" % test_cmd)
@@ -407,20 +408,24 @@ class TestBase:
         ret = p.wait()
         if ret < 0:
             if timed_out:
-                return TestBase.TEST_TIME_OUT
+                return TestBase.TEST_TIME_OUT, ''
             else:
-                return TestBase.TEST_ABNORMAL_EXIT
+                return TestBase.TEST_ABNORMAL_EXIT, ''
         if ret > 0:
             if ret == 2:
-                return TestBase.TEST_ABNORMAL_EXIT
-            return TestBase.TEST_NONZERO_RETURN
+                return TestBase.TEST_ABNORMAL_EXIT, ''
+            if diff:
+                dif = "%s: %s returns %d\n" % (name, cflags, ret)
+            return TestBase.TEST_NONZERO_RETURN, dif
 
         self.pr_debug("=========== %s ===========\n%s" % ("original", result_origin))
         self.pr_debug("=========== %s ===========\n%s" % (" result ", result_tested))
         self.pr_debug("=========== %s ===========\n%s" % ("expected", result_expect))
 
         if result_expect.strip() == '':
-            return TestBase.TEST_DIFF_RESULT
+            if diff:
+                dif = "%s: has no output for %s\n" % (name, cflags)
+            return TestBase.TEST_DIFF_RESULT, dif
 
         if result_expect != result_tested:
             result_expect = self.sort(self.fixup(cflags, self.result))
@@ -434,17 +439,17 @@ class TestBase:
                 f = open('result', 'w')
                 f.write(result_tested + '\n')
                 f.close()
-                print("%s: diff result of %s" % (name, cflags))
+                dif = "%s: diff result of %s\n" % (name, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 except:
                     p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
-                print(p.communicate()[0].decode(errors='ignore'))
+                dif += p.communicate()[0].decode(errors='ignore')
                 os.remove('expect')
                 os.remove('result')
-            return TestBase.TEST_DIFF_RESULT
+            return TestBase.TEST_DIFF_RESULT, dif
 
-        return ret
+        return ret, ''
 
     def __del__(self):
         sp.call(['rm', '-rf', self.test_dir])
@@ -504,30 +509,37 @@ def run_single_case(case, flags, opts, arg):
     for flag in flags:
         for opt in opts:
             cflags = ' '.join(["-" + flag, "-" + opt])
+            dif = ''
             ret = tc.build(tc.name, cflags)
             if ret == TestBase.TEST_SUCCESS:
                 ret = tc.prerun(timeout)
                 if ret == TestBase.TEST_SUCCESS:
-                    ret = tc.run(case, cflags, arg.diff, timeout)
+                    ret, dif = tc.run(case, cflags, arg.diff, timeout)
                     ret = tc.post(ret)
-            result.append(ret)
+            result.append((ret, dif))
 
     return result
 
 
 def save_test_result(result, case, shared):
-    shared.results[case] = result
+    # save diff before results for print_test_result() to see it
+    shared.diffs[case]   = [r[1] for r in result]
+    shared.results[case] = [r[0] for r in result]
     shared.progress += 1
     for r in result:
-        shared.stats[r] += 1
+        shared.stats[r[0]] += 1
         shared.total += 1
 
 
-def print_test_result(case, result, color):
-    if sys.stdout.isatty() and color:
+def print_test_result(case, result, diffs, color):
+    if color:
         result_list = [colored_result[r] for r in result]
     else:
         result_list = [text_result[r] for r in result]
+
+    for dif in diffs:
+        if dif != '':
+            sys.stdout.write(dif + '\n')
 
     output = case[1:4]
     output += ' %-20s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
@@ -550,9 +562,7 @@ def print_test_header(opts, flags):
     print(header2)
 
 
-
-
-def print_test_report(arg, shared):
+def print_test_report(color, shared):
     success = shared.stats[TestBase.TEST_SUCCESS] + shared.stats[TestBase.TEST_SUCCESS_FIXED]
     percent = 100.0 * success / shared.total
 
@@ -561,7 +571,7 @@ def print_test_report(arg, shared):
     print("====================")
     print("total %5d  Tests executed (success: %.2f%%)" % (shared.total, percent))
     for r in res:
-        if sys.stdout.isatty() and arg.color:
+        if color:
             result = colored_result[r]
         else:
             result = text_result[r]
@@ -630,6 +640,7 @@ if __name__ == "__main__":
     shared.tests_count = len(testcases)
     shared.progress = 0
     shared.results = dict()
+    shared.diffs = dict()
     shared.total = 0
     res = []
     res.append(TestBase.TEST_SUCCESS)
@@ -654,13 +665,19 @@ if __name__ == "__main__":
     print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
     print_test_header(opts, flags)
 
+    color = arg.color
+    if not sys.stdout.isatty():
+        color = False
+    if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
+        color = False
+
     for tc in sorted(testcases):
         name = tc.split('.')[0]  # remove '.py'
 
         while name not in shared.results:
             time.sleep(1)
 
-        print_test_result(name, shared.results[name], arg.color)
+        print_test_result(name, shared.results[name], shared.diffs[name], color)
 
     pool.close()
     pool.join()
@@ -668,4 +685,4 @@ if __name__ == "__main__":
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    print_test_report(arg, shared)
+    print_test_report(color, shared)

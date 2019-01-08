@@ -547,7 +547,8 @@ static int read_taskinfo(void *arg)
 
 		if (!strncmp(&buf[9], "nr_tid=", 7)) {
 			info->nr_tid = strtol(&buf[16], NULL, 10);
-		} else if (!strncmp(&buf[9], "tids=", 5)) {
+		}
+		else if (!strncmp(&buf[9], "tids=", 5)) {
 			char *tids_str = &buf[14];
 			char *endp = tids_str;
 			int *tids = xcalloc(sizeof(*tids), info->nr_tid);
@@ -568,6 +569,8 @@ static int read_taskinfo(void *arg)
 
 			assert(nr_tid == info->nr_tid);
 		}
+		else
+			goto out;
 	}
 	ret = 0;
 out:
@@ -982,6 +985,9 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 	uint64_t info_mask = handle->hdr.info_mask;
 	struct uftrace_info *info = &handle->info;
 
+	if (info_mask == 0)
+		return;
+
 	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
 
 	if (stat(buf, &statbuf) < 0)
@@ -1036,8 +1042,10 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
-		if (handle->hdr.feat_mask & PERF_EVENT)
-			update_perf_task_comm(handle);
+		if (handle->hdr.feat_mask & PERF_EVENT) {
+			if (has_perf_data(handle))
+				update_perf_task_comm(handle);
+		}
 
 		sz = nr * 32;  /* 32 > strlen("tid (comm)") */
 		len = 0;
@@ -1148,9 +1156,13 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	if (ret < 0 && errno != ENODATA) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
-		return -1;
+	if (ret < 0) {
+		if (errno != ENODATA) {
+			pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+			return -1;
+		}
+
+		open_info_file(opts, &handle);
 	}
 
 	process_uftrace_info(&handle, opts, print_info, NULL);
