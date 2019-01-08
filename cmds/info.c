@@ -547,7 +547,8 @@ static int read_taskinfo(void *arg)
 
 		if (!strncmp(&buf[9], "nr_tid=", 7)) {
 			info->nr_tid = strtol(&buf[16], NULL, 10);
-		} else if (!strncmp(&buf[9], "tids=", 5)) {
+		}
+		else if (!strncmp(&buf[9], "tids=", 5)) {
 			char *tids_str = &buf[14];
 			char *endp = tids_str;
 			int *tids = xcalloc(sizeof(*tids), info->nr_tid);
@@ -568,6 +569,8 @@ static int read_taskinfo(void *arg)
 
 			assert(nr_tid == info->nr_tid);
 		}
+		else
+			goto out;
 	}
 	ret = 0;
 out:
