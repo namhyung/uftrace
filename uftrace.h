@@ -287,6 +287,7 @@ int command_tui(int argc, char *argv[], struct opts *opts);
 extern volatile bool uftrace_done;
 
 int open_data_file(struct opts *opts, struct uftrace_data *handle);
+int open_info_file(struct opts *opts, struct uftrace_data *handle);
 void close_data_file(struct opts *opts, struct uftrace_data *handle);
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_session, bool sym_rel_addr);
