@@ -19,3 +19,80 @@ ifneq ($(findstring $(MAKEFLAGS),s),s)
 	Q = @
   endif
 endif
+
+RM = rm -f
+INSTALL = install
+
+uname_M := $(shell uname -m 2>/dev/null || echo not)
+
+ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
+ifeq ($(ARCH),x86_64)
+  ifneq ($(findstring m32,$(CFLAGS)),)
+    override ARCH := i386
+  endif
+endif
+
+
+# Makefiles suck: This macro sets a default value of $(2) for the
+# variable named by $(1), unless the variable has been set by
+# environment or command line. This is necessary for CC and AR
+# because make sets default values, so the simpler ?= approach
+# won't work as expected.
+define allow-override
+  $(if $(or $(findstring environment,$(origin $(1))),\
+            $(findstring command line,$(origin $(1)))),,\
+    $(eval $(1) = $(2)))
+endef
+
+# Allow setting CC and AR and LD, or setting CROSS_COMPILE as a prefix.
+$(call allow-override,CC,$(CROSS_COMPILE)gcc)
+$(call allow-override,AR,$(CROSS_COMPILE)ar)
+$(call allow-override,LD,$(CROSS_COMPILE)ld)
+
+COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
+COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
+#CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
+COMMON_LDFLAGS := -lrt -ldl -pthread $(LDFLAGS)
+ifneq ($(elfdir),)
+  COMMON_CFLAGS  += -I$(elfdir)/include
+  COMMON_LDFLAGS += -L$(elfdir)/lib
+endif
+
+LIB_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
+LIB_CFLAGS += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
+LIB_LDFLAGS = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
+
+COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+
+ifeq ($(DEBUG), 1)
+  COMMON_CFLAGS += -O0 -g
+else
+  COMMON_CFLAGS += -O2 -g
+endif
+
+ifeq ($(COVERAGE), 1)
+  COMMON_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
+  LIB_CFLAGS    += -O0 -g --coverage -U_FORTIFY_SOURCE
+  LIB_LDFLAGS   += --coverage
+endif
+
+VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
+INCLUDE_CHECK := 0
+
+DEPENDENCY_CHECK := $(srcdir)/check-deps/check-tstamp
+
+all:
+
+ifneq ($(wildcard $(srcdir)/check-deps/check-tstamp),)
+  include $(srcdir)/check-deps/Makefile.check
+endif
+
+
+dependency-check: $(DEPENDENCY_CHECK)
+
+$(DEPENDENCY_CHECK):
+	$(MAKE) -siC $(srcdir)/check-deps
+
+export ARCH RM INSTALL VERSION_GIT CC AR LD
+export LIB_CFLAGS LIB_LDFLAGS COMMON_CFLAGS
+export dependency-check

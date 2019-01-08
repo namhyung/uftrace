@@ -1,9 +1,10 @@
+include $(srcdir)/Makefile.include
+
 LINKFLAGS := -r
 
 sdir := $(srcdir)/arch/x86_64
 odir := $(objdir)/arch/x86_64
 
-include $(srcdir)/Makefile.include
 
 ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 ARCH_MCOUNT_SRC = $(wildcard $(sdir)/mcount-*.c) $(sdir)/symbol.c
