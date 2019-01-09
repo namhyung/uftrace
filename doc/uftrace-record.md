@@ -122,6 +122,7 @@ OPTIONS
 :   Automatically record arguments and return values of known functions.
     These are usually functions in standard (C language or system) libraries
     but if debug info is available it includes functions in the user program.
+    You must compile the target program with debug info (using -g option).
 
 \--num-thread=*NUM*
 :   Use NUM threads to record trace data.  Default is 1/4 of online CPUs (but
@@ -511,6 +512,37 @@ Note that argument pattern (".") matches to any character so it recorded
 all (supported) functions.  It shows two arguments for "main" and a single
 string argument for "puts".  If you simply want to see all arguments and
 return values of every functions (if supported), use -a/\--auto-args option.
+
+For example,
+
+    $ gcc -g -pg -o autoargs tests/s-autoargs.c
+    $ uftrace record -a ./autoargs hello
+    hello
+
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+       0.571 us [  3241] | __monstartup();
+       0.181 us [  3241] | __cxa_atexit();
+                [  3241] | main(2, 0x7fff4a5b0088) {
+     128.795 us [  3241] |   strlen("autoargs test") = 13;
+       0.661 us [  3241] |   calloc(1, 14) = 0x56255c9dce00;
+       0.140 us [  3241] |   free(0x56255c9dce00);
+       0.460 us [  3241] |   strcmp("hello", "hello") = 0;
+      28.453 us [  3241] |   puts("hello") = 6;
+     161.917 us [  3241] | } = 0; /* main */
+
+    $ uftrace live -a ./autoargs hello
+    hello
+    # DURATION     TID     FUNCTION
+       1.253 us [  3263] | __monstartup();
+       0.431 us [  3263] | __cxa_atexit();
+                [  3263] | main(2, 0x7fff3f5cf7a8) {
+     208.757 us [  3263] |   strlen("autoargs test") = 13;
+       0.491 us [  3263] |   calloc(1, 14) = 0x564a86785e00;
+       0.751 us [  3263] |   free(0x564a86785e00);
+       0.571 us [  3263] |   strcmp("hello", "hello") = 0;
+       7.234 us [  3263] |   puts("hello") = 6;
+     225.317 us [  3263] | } = 0; /* main */
 
 
 DYNAMIC TRACING
