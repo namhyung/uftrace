@@ -64,6 +64,7 @@ struct demangle_data {
 	int level;
 	int type;
 	int nr_dbg;
+	int templates;
 	int type_info;
 	const char *debug[MAX_DEBUG_DEPTH];
 };
@@ -553,7 +554,7 @@ static int dd_template_args(struct demangle_data *dd)
 
 	DD_DEBUG_CONSUME(dd, 'I');
 
-	dd->type++;
+	dd->templates++;
 	dd->level++;
 
 	while (dd_curr(dd) != 'E') {
@@ -563,7 +564,7 @@ static int dd_template_args(struct demangle_data *dd)
 	__DD_DEBUG_CONSUME(dd, 'E');
 
 	dd->level--;
-	dd->type--;
+	dd->templates--;
 	return 0;
 }
 
@@ -1084,10 +1085,6 @@ static int dd_type(struct demangle_data *dd)
 				ret = dd_template_args(dd);
 			done = 1;
 		}
-		else if (c == 'N') {
-			ret = dd_nested_name(dd);
-			done = 1;
-		}
 		else if (c == 'u') {
 			/* vendor extended type */
 			dd_consume(dd);
@@ -1111,12 +1108,9 @@ static int dd_type(struct demangle_data *dd)
 			ret = dd_template_args(dd);
 			done = 1;
 		}
-		else if (c == 'Z') {
-			ret = dd_local_name(dd);
-			done = 1;
-		}
-		else if (isdigit(c)) {
-			ret = dd_source_name(dd);
+		else if (isdigit(c) || c == 'N' || c == 'Z') {
+			/* class or enum name */
+			ret = dd_name(dd);
 			done = 1;
 		}
 		else {
@@ -1163,7 +1157,7 @@ static int dd_special_name(struct demangle_data *dd)
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
 	char T_type[] = "VTISFJ";
-	char *T_type_name[] = { "virtual", "VTT", "typeinfo_name", "typeinfo",
+	char *T_type_name[] = { "vtable", "VTT", "typeinfo_name", "typeinfo",
 				"typeinfo_fn", "java_class" };
 
 	if (dd_eof(dd))
@@ -1180,6 +1174,7 @@ static int dd_special_name(struct demangle_data *dd)
 			p = strchr(T_type, c1);
 			idx = p - T_type;
 			/* special name prefix */
+			dd_append(dd, "__");
 			dd_append(dd, T_type_name[idx]);
 			dd_append(dd, "__");
 
@@ -1222,7 +1217,7 @@ static int dd_special_name(struct demangle_data *dd)
 		if (c1 == 'V') {
 			/* guard */
 			dd_consume_n(dd, 2);
-			dd_append(dd, "guard_variable__");
+			dd_append(dd, "__guard_variable__");
 			return dd_name(dd);
 		}
 		if (c1 == 'R') {
@@ -1368,10 +1363,13 @@ static int dd_source_name(struct demangle_data *dd)
 	if (dd_eof(dd) || dd->pos + num > dd->len)
 		DD_DEBUG(dd, "shorter name", 0);
 
-	if (dd->type)
+	if (dd->type && !dd->type_info)
 		goto out;
 
-	/* ignore hash code in a rust symbol */
+	if (dd->templates)
+		goto out;
+
+	/* ignore hash code in a Rust symbol */
 	if (num == 17 && dd->old[dd->pos] == 'h') {
 		for (i = 1; i < 17; i++) {
 			if (!isxdigit(dd->old[dd->pos + i]))
@@ -1926,7 +1924,7 @@ TEST_CASE(demangle_simple7)
 	char *name;
 
 	name = demangle_simple("_ZTSSt12system_error");
-	TEST_STREQ("typeinfo__std::system_error", name);
+	TEST_STREQ("__typeinfo__std::system_error", name);
 	free(name);
 
 	name = demangle_simple("_ZNSs4nposE");
@@ -1938,7 +1936,7 @@ TEST_CASE(demangle_simple7)
 	free(name);
 
 	name = demangle_simple("_ZGVNSt7__cxx117collateIcE2idE");
-	TEST_STREQ("guard_variable__std::__cxx11::collate::id", name);
+	TEST_STREQ("__guard_variable__std::__cxx11::collate::id", name);
 	free(name);
 
 	name = demangle_simple("_ZNSbIwSt11char_traitsIwESaIwEE4nposE");
