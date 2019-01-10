@@ -29,7 +29,6 @@ static struct argp_option demangler_options[] = {
 
 struct demangler_opts {
 	int mode;
-	char *symbol;
 	int idx;
 };
 
@@ -56,14 +55,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case ARGP_KEY_ARGS:
-		opts->symbol = state->argv[state->next];
 		opts->idx = state->next;
 		break;
 
 	case ARGP_KEY_NO_ARGS:
 	case ARGP_KEY_END:
-		if (state->arg_num < 1)
-			argp_usage(state);
 		break;
 
 	default:
@@ -93,7 +89,33 @@ int main(int argc, char *argv[])
 	outfp = stdout;
 	logfp = stdout;
 
-	printf("%s\n", demangle(opts.symbol));
+	if (opts.idx) {
+		int i;
+
+		for (i = opts.idx; i < argc; i++) {
+			char *name = demangle(argv[i]);
+
+			printf("%s\n", name);
+			free(name);
+		}
+	}
+	else {
+		char buf[4096];
+
+		while (fgets(buf, sizeof(buf), stdin)) {
+			char *name;
+			char *p;
+
+			buf[sizeof(buf)-1] = '\0';
+			p = strchr(buf, '\n');
+			if (p)
+				*p = '\0';
+
+			name = demangle(buf);
+			printf("%s\n", name);
+			free(name);
+		}
+	}
 
 	return 0;
 }

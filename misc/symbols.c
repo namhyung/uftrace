@@ -17,11 +17,13 @@ const char *argp_program_version = "symbols " UFTRACE_VERSION;
 
 static struct argp_option symbols_options[] = {
 	{ "data", 'd', "DATA", 0, "Use this DATA instead of uftrace.data" },
+	{ "verbose", 'v', 0, 0, "Be verbose" },
 	{ 0 }
 };
 
 struct symbols_opts {
 	char *dirname;
+	int  idx;
 };
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -31,6 +33,15 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	switch (key) {
 	case 'd':
 		opts->dirname = xstrdup(arg);
+		break;
+
+	case 'v':
+		debug++;
+		dbg_domain[DBG_SYMBOL]++;
+		break;
+
+	case ARGP_KEY_ARGS:
+		opts->idx = state->next;
 		break;
 
 	case ARGP_KEY_NO_ARGS:
@@ -179,6 +190,9 @@ int main(int argc, char *argv[])
 
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, &opts);
 
+	outfp = stdout;
+	logfp = stdout;
+
 retry:
 	if (read_session(&link, opts.dirname) < 0) {
 		if (!strcmp(opts.dirname, UFTRACE_DIR_NAME)) {
@@ -190,12 +204,31 @@ retry:
 		return -1;
 	}
 
-	while (scanf("%"PRIx64, &addr) == 1) {
-		printf("%"PRIx64":", addr);
-		if (needs_session)
+	if (opts.idx) {
+		int i;
+
+		for (i = opts.idx; i < argc; i++) {
+			sscanf(argv[i], "%"PRIx64, &addr);
+			printf("%"PRIx64":", addr);
+
+			if (needs_session)
+				putchar('\n');
+			walk_sessions(&link, print_session_symbol, &addr);
 			putchar('\n');
-		walk_sessions(&link, print_session_symbol, &addr);
-		putchar('\n');
+		}
+	}
+	else {
+		char buf[4096];
+
+		while (fgets(buf, sizeof(buf), stdin)) {
+			sscanf(buf, "%"PRIx64, &addr);
+			printf("%"PRIx64":", addr);
+
+			if (needs_session)
+				putchar('\n');
+			walk_sessions(&link, print_session_symbol, &addr);
+			putchar('\n');
+		}
 	}
 
 	return 0;
