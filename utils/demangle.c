@@ -1392,6 +1392,7 @@ static int dd_source_name(struct demangle_data *dd)
 	if (dollar > end)
 		goto out_append;
 
+	/* check special symbol mappings (e.g. '$LT$') for Rust */
 	while (dollar != NULL && dollar < end) {
 		bool found = false;
 
@@ -1412,8 +1413,9 @@ static int dd_source_name(struct demangle_data *dd)
 			break;
 		}
 
+		/* treat '$' as a normal symbol */
 		if (!found)
-			return -1;
+			break;
 
 		dollar = strchr(p, '$');
 	}
