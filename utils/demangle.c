@@ -1207,12 +1207,25 @@ static int dd_special_name(struct demangle_data *dd)
 			return dd_encoding(dd);
 		}
 		if (c1 == 'C') {
-			/* construction vtable */
 			dd_consume_n(dd, 2);
+			dd_append(dd, "__construction_vtable__");
+
+			/* base type */
+			dd->type_info = true;
 			if (dd_type(dd) < 0)
 				return -1;
+
 			if (dd_number(dd) < 0)
 				return -1;
+			__DD_DEBUG_CONSUME(dd, '_');
+
+			/*
+			 * ideally it'd be better using this derived type
+			 * for the simple name but it requires to support
+			 * substitution correctly which is not done yet.
+			 * So just use the base type info only.
+			 */
+			dd->type_info = false;
 			return dd_type(dd);
 		}
 		if (c1 == 'H' || c1 == 'W') {
@@ -1951,6 +1964,25 @@ TEST_CASE(demangle_simple7)
 
 	name = demangle_simple("_ZNSbIwSt11char_traitsIwESaIwEE4nposE");
 	TEST_STREQ("std::basic_string::npos", name);
+	free(name);
+
+	return TEST_OK;
+}
+
+TEST_CASE(demangle_simple8)
+{
+	char *name;
+
+	name = demangle_simple("_ZTV23SkCanvasVirtualEnforcerI8SkCanvasE");
+	TEST_STREQ("__vtable__SkCanvasVirtualEnforcer", name);
+	free(name);
+
+	name = demangle_simple("_ZZNK13SkImageShader14onAppendStagesERKN12SkShaderBase8StageRecEENK3$_0clEv");
+	TEST_STREQ("SkImageShader::onAppendStages::$_0::operator()", name);
+	free(name);
+
+	name = demangle_simple("_ZTCN2v88internal12StdoutStreamE0_NS0_8OFStreamE");
+	TEST_STREQ("__construction_vtable__v8::internal::StdoutStream", name);
 	free(name);
 
 	return TEST_OK;
