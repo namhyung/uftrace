@@ -22,6 +22,7 @@ static struct argp_option symbols_options[] = {
 
 struct symbols_opts {
 	char *dirname;
+	int  idx;
 };
 
 static error_t parse_option(int key, char *arg, struct argp_state *state)
@@ -31,6 +32,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 	switch (key) {
 	case 'd':
 		opts->dirname = xstrdup(arg);
+		break;
+
+	case ARGP_KEY_ARGS:
+		opts->idx = state->next;
 		break;
 
 	case ARGP_KEY_NO_ARGS:
@@ -190,12 +195,31 @@ retry:
 		return -1;
 	}
 
-	while (scanf("%"PRIx64, &addr) == 1) {
-		printf("%"PRIx64":", addr);
-		if (needs_session)
+	if (opts.idx) {
+		int i;
+
+		for (i = opts.idx; i < argc; i++) {
+			sscanf(argv[i], "%"PRIx64, &addr);
+			printf("%"PRIx64":", addr);
+
+			if (needs_session)
+				putchar('\n');
+			walk_sessions(&link, print_session_symbol, &addr);
 			putchar('\n');
-		walk_sessions(&link, print_session_symbol, &addr);
-		putchar('\n');
+		}
+	}
+	else {
+		char buf[4096];
+
+		while (fgets(buf, sizeof(buf), stdin)) {
+			sscanf(buf, "%"PRIx64, &addr);
+			printf("%"PRIx64":", addr);
+
+			if (needs_session)
+				putchar('\n');
+			walk_sessions(&link, print_session_symbol, &addr);
+			putchar('\n');
+		}
 	}
 
 	return 0;
