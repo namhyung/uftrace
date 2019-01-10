@@ -65,7 +65,8 @@ struct demangle_data {
 	int type;
 	int nr_dbg;
 	int templates;
-	int type_info;
+	bool type_info;
+	bool first_name;
 	const char *debug[MAX_DEBUG_DEPTH];
 };
 
@@ -329,6 +330,15 @@ static int dd_append(struct demangle_data *dd, char *str)
 	return dd_append_len(dd, str, strlen(str));
 }
 
+static int dd_append_separator(struct demangle_data *dd, char *str)
+{
+	if (!dd->first_name)
+		dd_append(dd, str);
+
+	dd->first_name = false;
+	return 0;
+}
+
 static int dd_number(struct demangle_data *dd)
 {
 	char *str = &dd->old[dd->pos];
@@ -457,8 +467,10 @@ static int dd_substitution(struct demangle_data *dd)
 	for (i = 0; i < ARRAY_SIZE(std_abbrevs); i++) {
 		if (c == std_abbrevs[i].code) {
 			__dd_consume(dd, NULL);
-			if (dd->type == 0 || dd->type_info)
+			if (dd->type == 0 || dd->type_info) {
+				dd_append_separator(dd, "::");
 				dd_append(dd, std_abbrevs[i].name);
+			}
 
 			if (dd_curr(dd) == 'B')
 				dd_abi_tag(dd);
@@ -1169,7 +1181,7 @@ static int dd_special_name(struct demangle_data *dd)
 			char *p;
 
 			dd_consume_n(dd, 2);
-			dd->type_info = 1;
+			dd->type_info = true;
 
 			p = strchr(T_type, c1);
 			idx = p - T_type;
@@ -1206,8 +1218,7 @@ static int dd_special_name(struct demangle_data *dd)
 		if (c1 == 'H' || c1 == 'W') {
 			/* TLS init and wrapper */
 			dd_consume_n(dd, 2);
-			if (dd->newpos)
-				dd_append(dd, "::");
+			dd_append_separator(dd, "::");
 			dd_append(dd, "TLS_");
 			dd_append(dd, c1 == 'H' ? "init" : "wrap");
 			return dd_name(dd);
@@ -1324,8 +1335,7 @@ static int dd_operator_name(struct demangle_data *dd)
 
 	for (i = 0; i < ARRAY_SIZE(ops); i++) {
 		if (c0 == ops[i].op[0] && c1 == ops[i].op[1]) {
-			if (dd->newpos)
-				dd_append(dd, "::");
+			dd_append_separator(dd, "::");
 			dd_append(dd, "operator");
 			dd_append(dd, ops[i].name);
 
@@ -1380,8 +1390,7 @@ static int dd_source_name(struct demangle_data *dd)
 			goto out;
 	}
 
-	if (dd->newpos)
-		dd_append(dd, "::");
+	dd_append_separator(dd, "::");
 
 	p = dd->old + dd->pos;
 	dollar = strchr(p, '$');
@@ -1476,9 +1485,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			if (dd->type)
 				return 0;
 
-			if (dd->newpos)
-				dd_append(dd, "::");
-
+			dd_append_separator(dd, "::");
 			snprintf(buf, sizeof(buf), "$_%d", n + 1);
 			dd_append(dd, buf);
 		}
@@ -1644,6 +1651,7 @@ static char *demangle_simple(char *str)
 	struct demangle_data dd = {
 		.old = str,
 		.len = strlen(str),
+		.first_name = true,
 	};
 	bool has_prefix = false;
 
