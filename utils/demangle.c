@@ -67,6 +67,7 @@ struct demangle_data {
 	int templates;
 	bool type_info;
 	bool first_name;
+	bool ignore_disc;
 	const char *debug[MAX_DEBUG_DEPTH];
 };
 
@@ -1247,6 +1248,9 @@ static int dd_special_name(struct demangle_data *dd)
 		if (c1 == 'R') {
 			/* reftemp */
 			dd_consume_n(dd, 2);
+			dd_append(dd, "__ref_temp__");
+
+			dd->ignore_disc = true;
 			if (dd_name(dd) < 0)
 				return -1;
 
@@ -1593,7 +1597,7 @@ static int dd_local_name(struct demangle_data *dd)
 	else
 		dd_name(dd);
 
-	if (dd_curr(dd) == '_')
+	if (dd_curr(dd) == '_' && !dd->ignore_disc)
 		dd_discriminator(dd);
 
 	return 0;
@@ -1983,6 +1987,10 @@ TEST_CASE(demangle_simple8)
 
 	name = demangle_simple("_ZTCN2v88internal12StdoutStreamE0_NS0_8OFStreamE");
 	TEST_STREQ("__construction_vtable__v8::internal::StdoutStream", name);
+	free(name);
+
+	name = demangle_simple("_ZGRZNK5blink8Variable27GetPropertyNameAtomicStringEvE4name_");
+	TEST_STREQ("__ref_temp__blink::Variable::GetPropertyNameAtomicString::name", name);
 	free(name);
 
 	return TEST_OK;
