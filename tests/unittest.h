@@ -18,19 +18,35 @@ enum {
 
 extern int debug;
 
-#define __TEST_NG(file, line, test)	({			\
-	if (debug)						\
+#define __TEST_NG(file, line, test, name_a, a, name_b, b) ({	\
+	if (debug) {						\
 		printf("test failed at %s:%d: %s\n",		\
 			file, line, test);			\
+		printf("  %-16s = %ld\n", name_a, (long)a);	\
+		printf("  %-16s = %ld\n", name_b, (long)b);	\
+	}							\
 	return TEST_NG;						\
 })
 
 #define __TEST_OP(a, op, b, file, line)  ({			\
+	const char *name_a;					\
+	const char *name_b;					\
 	__typeof__(a) __a = (a);				\
 	__typeof__(b) __b = (b);				\
 								\
+	if (__builtin_constant_p(a))				\
+		name_a = "value_1";				\
+	else							\
+		name_a = stringify(a);				\
+								\
+	if (__builtin_constant_p(b))				\
+		name_b = "value_2";				\
+	else							\
+		name_b = stringify(b);				\
+								\
 	if (!(__a op __b))					\
-		__TEST_NG(file, line, stringify(a op b));	\
+		__TEST_NG(file, line, stringify(a op b),	\
+			  name_a, __a, name_b, __b);		\
 	TEST_OK;						\
 })
 
@@ -41,16 +57,46 @@ extern int debug;
 #define TEST_LT(a, b)  __TEST_OP(a, <,  b, __FILE__, __LINE__)
 #define TEST_LE(a, b)  __TEST_OP(a, <=, b, __FILE__, __LINE__)
 
+#define __TEST_STRNG(file, line, test, name_a, a, name_b, b) ({	\
+	if (debug) {						\
+		printf("test failed at %s:%d: %s\n",		\
+			file, line, test);			\
+		printf("  %-16s = %s\n", name_a, a);		\
+		printf("  %-16s = %s\n", name_b, b);		\
+	}							\
+	return TEST_NG;						\
+})
+
 #define __TEST_STREQ(a, b, file, line)      ({			\
-	if (strcmp((a), (b)))					\
-		__TEST_NG(file, line, stringify(a == b));	\
+	const char *name_a;					\
+	const char *name_b;					\
+	const char *__a = (a);					\
+	const char *__b = (b);					\
+								\
+	if (__builtin_constant_p(a))				\
+		name_a = "expected";				\
+	else							\
+		name_a = stringify(a);				\
+								\
+	if (__builtin_constant_p(b))				\
+		name_b = "actual";				\
+	else							\
+		name_b = stringify(b);				\
+								\
+	if (strcmp(__a, __b))					\
+		__TEST_STRNG(file, line, stringify(a == b),	\
+			     name_a, __a, name_b, __b);		\
 	TEST_OK;						\
 })
-#define TEST_STREQ(a, b)  __TEST_STREQ((a), (b), __FILE__, __LINE__)
+#define TEST_STREQ(a, b)  __TEST_STREQ(a, b, __FILE__, __LINE__)
 
 #define __TEST_MEMEQ(a, b, sz, file, line)      ({		\
-	if (memcmp((a), (b), (sz)))				\
-		__TEST_NG(file, line, stringify(a == b));	\
+	const void * __a = (a);					\
+	const void * __b = (b);					\
+								\
+	if (memcmp(__a, __b, (sz)))				\
+		__TEST_NG(file, line, stringify(a == b),	\
+			  stringify(a), __a, stringify(b), __b);\
 	TEST_OK;						\
 })
 #define TEST_MEMEQ(a, b, sz)  __TEST_MEMEQ((a), (b), (sz), __FILE__, __LINE__)
