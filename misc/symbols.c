@@ -80,7 +80,7 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 	return 0;
 }
 
-static int read_session(struct uftrace_session_link *link, char *dirname)
+static int read_sessions(struct uftrace_session_link *link, char *dirname)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -173,6 +173,7 @@ static int read_session(struct uftrace_session_link *link, char *dirname)
 
 int main(int argc, char *argv[])
 {
+	int ret = 0;
 	uint64_t addr;
 	struct symbols_opts opts = {
 		.dirname = UFTRACE_DIR_NAME,
@@ -194,14 +195,15 @@ int main(int argc, char *argv[])
 	logfp = stdout;
 
 retry:
-	if (read_session(&link, opts.dirname) < 0) {
+	if (read_sessions(&link, opts.dirname) < 0) {
 		if (!strcmp(opts.dirname, UFTRACE_DIR_NAME)) {
 			opts.dirname = ".";
 			goto retry;
 		}
 
 		printf("read session failed\n");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	if (opts.idx) {
@@ -231,5 +233,7 @@ retry:
 		}
 	}
 
-	return 0;
+out:
+	delete_sessions(&link);
+	return ret;
 }
