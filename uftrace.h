@@ -219,6 +219,7 @@ struct opts {
 	int max_stack;
 	int port;
 	int color;
+	int comment;
 	int column_offset;
 	int sort_column;
 	int nr_thread;
@@ -245,7 +246,6 @@ struct opts {
 	bool want_bind_not;
 	bool task_newline;
 	bool chrome_trace;
-	bool comment;
 	bool flame_graph;
 	bool libmcount_single;
 	bool kernel;

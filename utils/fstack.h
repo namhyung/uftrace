@@ -73,6 +73,7 @@ struct uftrace_task_reader {
 		unsigned long flags;
 		uint64_t total_time;
 		uint64_t child_time;
+		char args[1024];
 	} *func_stack;
 	struct fstack_arguments args;
 };
