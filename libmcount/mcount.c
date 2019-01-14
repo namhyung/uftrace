@@ -432,17 +432,19 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	record_trace_data(mtdp, rstack, NULL);
 
 	if (dbg_domain[PR_DOMAIN]) {
-		for (idx = 0; idx < (int)ARRAY_SIZE(sigsegv_codes); idx++) {
+		int i;
+
+		for (i = 0; i < (int)ARRAY_SIZE(sigsegv_codes); i++) {
 			if (sig != SIGSEGV)
 				break;
 
-			if (si->si_code == sigsegv_codes[idx].code) {
+			if (si->si_code == sigsegv_codes[i].code) {
 				pr_red("Segmentation fault: %s (addr: %p)\n",
-				       sigsegv_codes[idx].msg, si->si_addr);
+				       sigsegv_codes[i].msg, si->si_addr);
 				break;
 			}
 		}
-		if (sig != SIGSEGV || idx == (int)ARRAY_SIZE(sigsegv_codes)) {
+		if (sig != SIGSEGV || i == (int)ARRAY_SIZE(sigsegv_codes)) {
 			pr_red("process crashed by signal %d: %s (si_code: %d)\n",
 			       sig, strsignal(sig), si->si_code);
 		}
