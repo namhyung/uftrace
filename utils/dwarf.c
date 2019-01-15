@@ -778,10 +778,8 @@ static char *find_last_component(char *name)
 	return p;
 }
 
-static bool match_name(struct sym *sym, char *name, bool demangled)
+static bool match_name(struct sym *sym, char *name)
 {
-	char *last_sym;
-	char *last_name;
 	bool ret;
 
 	if (sym == NULL)
@@ -790,17 +788,39 @@ static bool match_name(struct sym *sym, char *name, bool demangled)
 	if (!strcmp(sym->name, name))
 		return true;
 
-	if (demangled || demangler != DEMANGLE_SIMPLE)
-		return false;
+	/* name is mangled C++/Rust symbol */
+	if (name[0] == '_' && name[1] == 'Z') {
+		char *demangled_name = demangle(name);
 
-	last_sym = find_last_component(sym->name);
-	last_name = find_last_component(name);
+		ret = !strcmp(sym->name, demangled_name);
+		free(demangled_name);
+		return ret;
+	}
 
-	ret = !strcmp(last_sym, last_name);
+	/* name is already (fully) demangled */
+	if (strpbrk(name, "(<:>)")) {
+		char *demangled_sym = NULL;
+		char *last_sym;
+		char *last_name;
 
-	free(last_sym);
-	free(last_name);
-	return ret;
+		if (demangler == DEMANGLE_FULL)
+			return !strcmp(sym->name, name);
+
+		if (demangler == DEMANGLE_NONE)
+			demangled_sym = demangle(sym->name);
+
+		last_sym = find_last_component(sym->name);
+		last_name = find_last_component(name);
+
+		ret = !strcmp(last_sym, last_name);
+
+		free(last_sym);
+		free(last_name);
+		free(demangled_sym);
+		return ret;
+	}
+
+	return false;
 }
 
 static void get_source_location(Dwarf_Die *die, struct build_data *bd,
@@ -847,7 +867,6 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		.dinfo = bd->dinfo,
 	};
 	char *name = NULL;
-	bool needs_free = false;
 	Dwarf_Addr offset;
 	struct sym *sym;
 	int i;
@@ -869,10 +888,8 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	dwarf_lowpc(die, &offset);
 	offset += bd->dinfo->offset;
 
-	if (dwarf_hasattr_integrate(die, DW_AT_linkage_name)) {
-		name = demangle(str_attr(die, DW_AT_linkage_name, true));
-		needs_free = true;
-	}
+	if (dwarf_hasattr_integrate(die, DW_AT_linkage_name))
+		name = str_attr(die, DW_AT_linkage_name, true);
 	if (name == NULL)
 		name = (char *)dwarf_diename(die);
 	if (unlikely(name == NULL))
@@ -884,7 +901,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	 * but DWARF doesn't know about it.
 	 */
 	sym = find_sym(bd->symtab, offset + 1);
-	if (sym == NULL || !match_name(sym, name, needs_free)) {
+	if (sym == NULL || !match_name(sym, name)) {
 		pr_dbg2("skip unknown debug info: %s / %s (%lx)\n",
 			sym ? sym->name : "no name", name, offset);
 		goto out;
@@ -892,15 +909,15 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 
 	get_source_location(die, bd, sym);
 
-	ad.name = name;
+	ad.name = sym->name;
 	ad.addr = offset;
 
 	for (i = 0; i < bd->nr_rets; i++) {
-		if (!match_filter_pattern(&bd->rets[i], name))
+		if (!match_filter_pattern(&bd->rets[i], sym->name))
 			continue;
 
 		if (get_retspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->rets, name, sym->addr,
+			add_debug_entry(&bd->dinfo->rets, sym->name, sym->addr,
 					ad.argspec);
 		}
 
@@ -910,11 +927,11 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	}
 
 	for (i = 0; i < bd->nr_args; i++) {
-		if (!match_filter_pattern(&bd->args[i], name))
+		if (!match_filter_pattern(&bd->args[i], sym->name))
 			continue;
 
 		if (get_argspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->args, name, sym->addr,
+			add_debug_entry(&bd->dinfo->args, sym->name, sym->addr,
 					ad.argspec);
 		}
 
@@ -924,8 +941,6 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	}
 
 out:
-	if (needs_free)
-		free(name);
 	return DWARF_CB_OK;
 }
 
