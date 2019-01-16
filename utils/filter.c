@@ -844,12 +844,12 @@ static const struct trigger_action_parser actions[] = {
 	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
 	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
 	{ "caller",    parse_caller_action,       TRIGGER_FL_FILTER, },
+	{ "trace",     parse_trace_action,        TRIGGER_FL_SIGNAL, },
+	{ "finish",    parse_finish_action,       TRIGGER_FL_SIGNAL, },
 	{ "read=",     parse_read_action, },
 	{ "color=",    parse_color_action, },
-	{ "trace",     parse_trace_action, },
 	{ "backtrace", parse_backtrace_action, },
 	{ "recover",   parse_recover_action, },
-	{ "finish",    parse_finish_action, },
 	{ "auto-args", parse_auto_args_action, },
 };
 

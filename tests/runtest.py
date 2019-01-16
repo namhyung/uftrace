@@ -166,7 +166,7 @@ class TestBase:
             # ignore result of remaining functions which follows a blank line
             if ln.strip() == '':
                 break
-            pid_patt = re.compile('[^[]*\[ *(\d+)\] |')
+            pid_patt = re.compile('[^[]+\[ *(\d+)\] |')
             m = pid_patt.match(ln)
             try:
                 pid = int(m.group(1))

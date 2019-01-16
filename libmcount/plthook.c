@@ -728,7 +728,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	if (unlikely(special_flag & PLT_FL_SKIP))
 		goto out;
 
-	if (pd->dsymtab.nr_sym && child_idx < pd->dsymtab.nr_sym) {
+	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
 		pr_dbg2("[mod: %lx, idx: %d] enter %lx: %s\n",
 			module_id, child_idx, sym->addr, sym->name);
@@ -806,7 +806,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 	}
 
 out:
-	if (pd && pd->resolved_addr[child_idx])
+	if (likely(pd && child_idx < pd->dsymtab.nr_sym) &&
+	    pd->resolved_addr[child_idx] != 0)
 		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
@@ -815,22 +816,25 @@ out:
 	return real_addr;
 }
 
+void mtd_dtor(void *arg);
+
 unsigned long plthook_exit(long *retval)
 {
 	unsigned dyn_idx;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
+	unsigned long *ret_loc;
 	unsigned long ret_addr = 0;
 
 	mtdp = get_thread_data();
-	assert(mtdp != NULL);
+	assert(!check_thread_data(mtdp));
 
 	/*
-	 * there's a race with mcount_finish(), if it wins it already
-	 * restored the original return address for us so just return.
+	 * it's only called when mcount_entry() was succeeded
+	 * no need to check recursion here.  But still needs to
+	 * prevent recursion during this call.
 	 */
-	if (!mcount_guard_recursion(mtdp))
-		return 0;
+	__mcount_guard_recursion(mtdp);
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -854,8 +858,23 @@ again:
 		rstack = restore_vfork(mtdp, rstack);
 
 	dyn_idx = rstack->dyn_idx;
-	if (dyn_idx == MCOUNT_INVALID_DYNIDX)
+	if (unlikely(dyn_idx == MCOUNT_INVALID_DYNIDX ||
+		     dyn_idx >= rstack->pd->dsymtab.nr_sym))
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
+
+	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(mtdp->dead)) {
+		ret_addr = rstack->parent_ip;
+
+		/* make sure it doesn't have plthook below */
+		mtdp->idx--;
+
+		if (!mcount_rstack_has_plthook(mtdp)) {
+			free(mtdp->rstack);
+			mtdp->rstack = NULL;
+			mtdp->idx = 0;
+		}
+		return ret_addr;
+	}
 
 	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
 		rstack->pd->resolved_addr[dyn_idx],
@@ -867,16 +886,26 @@ again:
 	mcount_exit_filter_record(mtdp, rstack, retval);
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
+	ret_loc  = rstack->parent_loc;
 	ret_addr = rstack->parent_ip;
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
-	mcount_unguard_recursion(mtdp);
+	__mcount_unguard_recursion(mtdp);
 
-	if (unlikely(mcount_should_stop()))
-		ret_addr = 0;
+	if (unlikely(mcount_should_stop())) {
+		mtd_dtor(mtdp);
+		/*
+		 * mtd_dtor() will free rstack but current ret_addr
+		 * might be plthook_return() when it was a tailcall.
+		 * reload the return address after mtd_dtor() restored
+		 * all the parent locations.
+		 */
+		if (ARCH_CAN_RESTORE_PLTHOOK)
+			ret_addr = *ret_loc;
+	}
 
 	compiler_barrier();
 

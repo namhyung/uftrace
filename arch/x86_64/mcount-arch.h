@@ -33,5 +33,6 @@ struct mcount_arch_context {
 #define ARCH_PLTHOOK_ADDR_OFFSET  6
 
 #define ARCH_SUPPORT_AUTO_RECOVER  1
+#define ARCH_CAN_RESTORE_PLTHOOK   1
 
 #endif /* MCOUNT_ARCH_H */

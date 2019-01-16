@@ -70,7 +70,7 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	    getenv("UFTRACE_ARGUMENT")  || getenv("UFTRACE_RETVAL") ||
 	    getenv("UFTRACE_PATCH")     || getenv("UFTRACE_SCRIPT") ||
 	    getenv("UFTRACE_AUTO_ARGS") || getenv("UFTRACE_WATCH") ||
-	    getenv("UFTRACE_CALLER"))
+	    getenv("UFTRACE_CALLER")    || getenv("UFTRACE_SIGNAL"))
 		return false;
 	return true;
 }
@@ -306,6 +306,9 @@ static void setup_child_environ(struct opts *opts, int pfd,
 	if (opts->patt_type != PATT_REGEX)
 		setenv("UFTRACE_PATTERN", get_filter_pattern(opts->patt_type), 1);
 
+	if (opts->sig_trigger)
+		setenv("UFTRACE_SIGNAL", opts->sig_trigger, 1);
+
 	if (argc > 0) {
 		char *args = NULL;
 		int i;
@@ -316,6 +319,10 @@ static void setup_child_environ(struct opts *opts, int pfd,
 		setenv("UFTRACE_ARGS", args, 1);
 		free(args);
 	}
+
+	/*
+	 * ----- end of option processing -----
+	 */
 
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
@@ -1748,7 +1755,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 			break;
 
 		if (finish_received) {
-			ret = UFTRACE_EXIT_FINISHED;
+			status = UFTRACE_EXIT_FINISHED;
 			break;
 		}
 
@@ -1887,6 +1894,9 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 	wd.pid = pid;
 	wd.pipefd = pfd[0];
 	close(pfd[1]);
+
+	if (opts->sig_trigger)
+		pr_out("uftrace: install signal handlers to task %d\n", pid);
 
 	setup_writers(&wd, opts);
 	start_tracing(&wd, opts, ready);

@@ -24,6 +24,16 @@
 #include "utils/filter.h"
 #include "utils/compiler.h"
 
+/* could be defined in mcount-arch.h */
+#ifndef  ARCH_SUPPORT_AUTO_RECOVER
+# define ARCH_SUPPORT_AUTO_RECOVER  0
+#endif
+
+/* plt_hooker has return address to hook */
+#ifndef  ARCH_CAN_RESTORE_PLTHOOK
+# define ARCH_CAN_RESTORE_PLTHOOK  0
+#endif
+
 enum filter_result {
 	FILTER_RSTACK = -1,
 	FILTER_OUT,
@@ -111,6 +121,7 @@ struct mcount_thread_data {
 	int				record_idx;
 	bool				recursion_marker;
 	bool				in_exception;
+	bool				dead;
 	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
@@ -144,6 +155,8 @@ static inline void mcount_restore_arch_context(struct mcount_arch_context *ctx) 
 
 extern TLS struct mcount_thread_data mtd;
 
+void __mcount_guard_recursion(struct mcount_thread_data *mtdp);
+void __mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 
@@ -248,6 +261,7 @@ extern void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 					  unsigned long frame_addr);
 extern void mcount_auto_restore(struct mcount_thread_data *mtdp);
 extern void mcount_auto_reset(struct mcount_thread_data *mtdp);
+extern bool mcount_rstack_has_plthook(struct mcount_thread_data *mtdp);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
 extern void clear_shmem_buffer(struct mcount_thread_data *mtdp);

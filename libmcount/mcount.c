@@ -30,11 +30,6 @@
 #include "utils/filter.h"
 #include "utils/script.h"
 
-/* could be defined in mcount-arch.h */
-#ifndef  ARCH_SUPPORT_AUTO_RECOVER
-# define ARCH_SUPPORT_AUTO_RECOVER  0
-#endif
-
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -132,6 +127,250 @@ static void prepare_pmu_trigger(struct rb_root *root)
 	}
 }
 
+/* be careful: this can be called from signal handler */
+static void mcount_finish_trigger(void)
+{
+	if (mcount_global_flags & MCOUNT_GFL_FINISH)
+		return;
+
+	/* mark other threads can see the finish flag */
+	mcount_global_flags |= MCOUNT_GFL_FINISH;
+}
+
+static LIST_HEAD(siglist);
+
+struct signal_trigger_item {
+	struct list_head list;
+	int sig;
+	struct uftrace_trigger tr;
+};
+
+static struct uftrace_trigger * get_signal_trigger(int sig)
+{
+	struct signal_trigger_item *item;
+
+	list_for_each_entry(item, &siglist, list) {
+		if (item->sig == sig)
+			return &item->tr;
+	}
+
+	return NULL;
+}
+
+static void add_signal_trigger(int sig, const char *name,
+			       struct uftrace_trigger *tr)
+{
+	struct signal_trigger_item *item;
+
+	item = xmalloc(sizeof(*item));
+	item->sig = sig;
+	memcpy(&item->tr, tr, sizeof(*tr));
+
+	pr_dbg("add signal trigger: %s (%d), flags = %lx\n",
+	       name, sig, tr->flags);
+
+	list_add(&item->list, &siglist);
+}
+
+static void mcount_signal_trigger(int sig)
+{
+	struct uftrace_trigger *tr;
+
+	tr = get_signal_trigger(sig);
+	if (tr == NULL)
+		return;
+
+	pr_dbg("got signal %d\n", sig);
+
+	if (tr->flags & TRIGGER_FL_TRACE_ON) {
+		mcount_enabled = true;
+	}
+	if (tr->flags & TRIGGER_FL_TRACE_OFF) {
+		mcount_enabled = false;
+	}
+	if (tr->flags & TRIGGER_FL_FINISH) {
+		mcount_finish_trigger();
+	}
+}
+
+#define SIGTABLE_ENTRY(s)  { #s, s }
+
+static const struct sigtable {
+	const char *name;
+	int sig;
+} sigtable[] = {
+	SIGTABLE_ENTRY(SIGHUP),
+	SIGTABLE_ENTRY(SIGINT),
+	SIGTABLE_ENTRY(SIGQUIT),
+	SIGTABLE_ENTRY(SIGILL),
+	SIGTABLE_ENTRY(SIGTRAP),
+	SIGTABLE_ENTRY(SIGABRT),
+	SIGTABLE_ENTRY(SIGBUS),
+	SIGTABLE_ENTRY(SIGFPE),
+	SIGTABLE_ENTRY(SIGKILL),
+	SIGTABLE_ENTRY(SIGUSR1),
+	SIGTABLE_ENTRY(SIGSEGV),
+	SIGTABLE_ENTRY(SIGUSR2),
+	SIGTABLE_ENTRY(SIGPIPE),
+	SIGTABLE_ENTRY(SIGALRM),
+	SIGTABLE_ENTRY(SIGTERM),
+	SIGTABLE_ENTRY(SIGSTKFLT),
+	SIGTABLE_ENTRY(SIGCHLD),
+	SIGTABLE_ENTRY(SIGCONT),
+	SIGTABLE_ENTRY(SIGSTOP),
+	SIGTABLE_ENTRY(SIGTSTP),
+	SIGTABLE_ENTRY(SIGTTIN),
+	SIGTABLE_ENTRY(SIGTTOU),
+	SIGTABLE_ENTRY(SIGURG),
+	SIGTABLE_ENTRY(SIGXCPU),
+	SIGTABLE_ENTRY(SIGXFSZ),
+	SIGTABLE_ENTRY(SIGVTALRM),
+	SIGTABLE_ENTRY(SIGPROF),
+	SIGTABLE_ENTRY(SIGWINCH),
+	SIGTABLE_ENTRY(SIGIO),
+	SIGTABLE_ENTRY(SIGPWR),
+	SIGTABLE_ENTRY(SIGSYS),
+};
+
+#undef SIGTABLE_ENTRY
+
+static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
+{
+	char *pos, *tmp;
+	unsigned i;
+	int sig = -1;
+	int off = 0;
+	const char *signame = NULL;
+	bool num_spec = false;
+	char num_spec_str[16];
+	struct uftrace_trigger tr = {
+		.flags = 0,
+	};
+	struct sigaction old_sa;
+	struct sigaction sa = {
+		.sa_handler  = mcount_signal_trigger,
+		.sa_flags    = SA_RESTART,
+	};
+
+	pos = strchr(spec, '@');
+	if (pos == NULL)
+		return -1;
+	*pos = '\0';
+
+	if (isdigit(spec[0]))
+		num_spec = true;
+	else if (strncmp(spec, "SIG", 3))
+		off = 3;  /* skip "SIG" prefix */
+
+	for (i = 0; i < ARRAY_SIZE(sigtable); i++) {
+		if (num_spec) {
+			int num = strtol(spec, &tmp, 0);
+
+			if (num == sigtable[i].sig) {
+				sig = num;
+				signame = sigtable[i].name;
+				break;
+			}
+
+			continue;
+		}
+
+		if (!strcmp(sigtable[i].name + off, spec)) {
+			sig = sigtable[i].sig;
+			signame = sigtable[i].name;
+			break;
+		}
+	}
+
+	/* real-time signals */
+	if (!strncmp(spec, "SIGRTM" + off, 6 - off)) {
+		if (!strncmp(spec, "SIGRTMIN" + off, 8 - off))
+			sig = SIGRTMIN + strtol(&spec[8 - off], NULL, 0);
+		if (!strncmp(spec, "SIGRTMAX" + off, 8 - off))
+			sig = SIGRTMAX + strtol(&spec[8 - off], NULL, 0);
+		signame = spec;
+	}
+
+	if (sig == -1 && num_spec) {
+		int sigrtmid = (SIGRTMIN + SIGRTMAX) / 2;
+
+		sig = strtol(spec, &tmp, 0);
+
+		/* SIGRTMIN/MAX might not be constant, avoid switch/case */
+		if (sig == SIGRTMIN) {
+			strcpy(num_spec_str, "SIGRTMIN");
+		}
+		else if (SIGRTMIN < sig && sig <= sigrtmid) {
+			snprintf(num_spec_str, sizeof(num_spec_str), "%s+%d",
+				 "SIGRTMIN", sig - SIGRTMIN);
+		}
+		else if (sigrtmid < sig && sig < SIGRTMAX) {
+			snprintf(num_spec_str, sizeof(num_spec_str), "%s-%d",
+				 "SIGRTMAX", SIGRTMAX - sig);
+		}
+		else if (sig == SIGRTMAX) {
+			strcpy(num_spec_str, "SIGRTMAX");
+		}
+		else {
+			sig = -1;
+		}
+		signame = num_spec_str;
+	}
+
+	if (sig == -1) {
+		pr_use("failed to parse signal: %s\n", spec);
+		return -1;
+	}
+
+	/* setup_trigger_action() requires the '@' sign */
+	*pos = '@';
+
+	if (setup_trigger_action(spec, &tr, &tmp, TRIGGER_FL_SIGNAL, setting) < 0)
+		return -1;
+
+	add_signal_trigger(sig, signame, &tr);
+	if (sigaction(sig, &sa, &old_sa) < 0) {
+		pr_warn("cannot overwrite signal handler for %s\n", spec);
+		sigaction(sig, &old_sa, NULL);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int mcount_signal_init(char *sigspec,
+			      struct uftrace_filter_setting *setting)
+{
+	struct strv strv = STRV_INIT;
+	char *spec;
+	int i;
+	int ret = 0;
+
+	if (sigspec == NULL)
+		return 0;
+
+	strv_split(&strv, sigspec, ";");
+
+	strv_for_each(&strv, spec, i) {
+		if (parse_sigspec(spec, setting) < 0)
+			ret = -1;
+	}
+	strv_free(&strv);
+
+	return ret;
+}
+
+static void mcount_signal_finish(void)
+{
+	struct signal_trigger_item *item;
+
+	while (!list_empty(&siglist)) {
+		item = list_first_entry(&siglist, typeof(*item), list);
+		list_del(&item->list);
+		free(item);
+	}
+}
+
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       bool force)
 {
@@ -151,6 +390,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	};
 
 	load_module_symtabs(&symtabs);
+
+	mcount_signal_init(getenv("UFTRACE_SIGNAL"), &filter_setting);
 
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
@@ -232,6 +473,7 @@ static void mcount_filter_finish(void)
 	finish_debug_info(&symtabs);
 
 	finish_pmu_event();
+	mcount_signal_finish();
 }
 
 static void mcount_watch_init(void)
@@ -327,12 +569,12 @@ unlock:
 }
 
 /* to be used by pthread_create_key() */
-static void mtd_dtor(void *arg)
+void mtd_dtor(void *arg)
 {
 	struct mcount_thread_data *mtdp = arg;
 	struct uftrace_msg_task tmsg;
 
-	if (mtdp->rstack == NULL)
+	if (mtdp->dead)
 		return;
 
 	if (mcount_should_stop())
@@ -340,11 +582,15 @@ static void mtd_dtor(void *arg)
 
 	/* this thread is done, do not enter anymore */
 	mtdp->recursion_marker = true;
+	mtdp->dead = true;
 
 	mcount_rstack_restore(mtdp);
 
-	free(mtdp->rstack);
-	mtdp->rstack = NULL;
+	if (ARCH_CAN_RESTORE_PLTHOOK || !mcount_rstack_has_plthook(mtdp)) {
+		free(mtdp->rstack);
+		mtdp->rstack = NULL;
+		mtdp->idx = 0;
+	}
 
 	mcount_filter_release(mtdp);
 	mcount_watch_release(mtdp);
@@ -356,6 +602,16 @@ static void mtd_dtor(void *arg)
 	tmsg.time = mcount_gettime();
 
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
+}
+
+void __mcount_guard_recursion(struct mcount_thread_data *mtdp)
+{
+	mtdp->recursion_marker = true;
+}
+
+void __mcount_unguard_recursion(struct mcount_thread_data *mtdp)
+{
+	mtdp->recursion_marker = false;
 }
 
 bool mcount_guard_recursion(struct mcount_thread_data *mtdp)
@@ -376,7 +632,7 @@ void mcount_unguard_recursion(struct mcount_thread_data *mtdp)
 {
 	mtdp->recursion_marker = false;
 
-	if (mcount_should_stop())
+	if (unlikely(mcount_should_stop()))
 		mtd_dtor(mtdp);
 }
 
@@ -409,6 +665,9 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	if (check_thread_data(mtdp))
 		goto out;
 
+	if (mtdp->idx <= 0)
+		goto out;
+
 	mcount_rstack_restore(mtdp);
 
 	idx = mtdp->idx - 1;
@@ -417,17 +676,19 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	record_trace_data(mtdp, rstack, NULL);
 
 	if (dbg_domain[PR_DOMAIN]) {
-		for (idx = 0; idx < (int)ARRAY_SIZE(sigsegv_codes); idx++) {
+		int i;
+
+		for (i = 0; i < (int)ARRAY_SIZE(sigsegv_codes); i++) {
 			if (sig != SIGSEGV)
 				break;
 
-			if (si->si_code == sigsegv_codes[idx].code) {
+			if (si->si_code == sigsegv_codes[i].code) {
 				pr_red("Segmentation fault: %s (addr: %p)\n",
-				       sigsegv_codes[idx].msg, si->si_addr);
+				       sigsegv_codes[i].msg, si->si_addr);
 				break;
 			}
 		}
-		if (sig != SIGSEGV || idx == (int)ARRAY_SIZE(sigsegv_codes)) {
+		if (sig != SIGSEGV || i == (int)ARRAY_SIZE(sigsegv_codes)) {
 			pr_red("process crashed by signal %d: %s (si_code: %d)\n",
 			       sig, strsignal(sig), si->si_code);
 		}
@@ -682,16 +943,6 @@ static void script_hook_exit(struct mcount_thread_data *mtdp,
 
 skip:
 	symbol_putname(sym, symname);
-}
-
-/* be careful: this can be called from signal handler */
-static void mcount_finish_trigger(void)
-{
-	if (mcount_global_flags & MCOUNT_GFL_FINISH)
-		return;
-
-	/* mark other threads can see the finish flag */
-	mcount_global_flags |= MCOUNT_GFL_FINISH;
 }
 
 /* save current filter state to rstack */
@@ -999,33 +1250,44 @@ unsigned long mcount_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
+	unsigned long *ret_loc;
 	unsigned long retaddr;
 
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
+	assert(!mtdp->dead);
 
 	/*
-	 * if finish trigger was fired during the call, it already
-	 * restored the original return address for us so just return.
+	 * it's only called when mcount_entry() was succeeded
+	 * no need to check recursion here.  But still needs to
+	 * prevent recursion during this call.
 	 */
-	if (!mcount_guard_recursion(mtdp))
-		return 0;
+	__mcount_guard_recursion(mtdp);
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
 	rstack->end_time = mcount_gettime();
 	mcount_exit_filter_record(mtdp, rstack, retval);
 
+	ret_loc = rstack->parent_loc;
 	retaddr = rstack->parent_ip;
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
-	mcount_unguard_recursion(mtdp);
+	__mcount_unguard_recursion(mtdp);
 
-	if (unlikely(mcount_should_stop()))
-		retaddr = 0;
+	if (unlikely(mcount_should_stop())) {
+		mtd_dtor(mtdp);
+		/*
+		 * mtd_dtor() will free rstack but current ret_addr
+		 * might be plthook_return() when it was a tailcall.
+		 * reload the return address after mtd_dtor() restored
+		 * all the parent locations.
+		 */
+		retaddr = *ret_loc;
+	}
 
 	compiler_barrier();
 
@@ -1578,6 +1840,36 @@ TEST_CASE(mcount_thread_data)
 	TEST_EQ(check_thread_data(mtdp), false);
 
 	mcount_cleanup();
+
+	return TEST_OK;
+}
+
+TEST_CASE(mcount_signal_setup)
+{
+	struct signal_trigger_item *item;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_NONE,
+	};
+
+	/* it signal triggers are maintained in a stack (LIFO) */
+	mcount_signal_init("SIGUSR1@traceon;USR2@traceoff;RTMIN+3@finish",
+			   &setting);
+
+	item = list_first_entry(&siglist, typeof(*item), list);
+	TEST_EQ(item->sig, SIGRTMIN + 3);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_FINISH);
+
+	item = list_next_entry(item, list);
+	TEST_EQ(item->sig, SIGUSR2);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_TRACE_OFF);
+
+	item = list_next_entry(item, list);
+	TEST_EQ(item->sig, SIGUSR1);
+	TEST_EQ(item->tr.flags, TRIGGER_FL_TRACE_ON);
+
+	mcount_signal_finish();
+
+	TEST_EQ(list_empty(&siglist), true);
 
 	return TEST_OK;
 }

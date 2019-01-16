@@ -127,14 +127,37 @@ void build_debug_domain(char *dbg_domain_str)
 	}
 }
 
+bool mcount_rstack_has_plthook(struct mcount_thread_data *mtdp)
+{
+	int idx;
+
+	for (idx = 0; idx < mtdp->idx; idx++) {
+		if (mtdp->rstack[idx].dyn_idx != MCOUNT_INVALID_DYNIDX)
+			return true;
+	}
+	return false;
+}
+
 /* restore saved original return address */
 void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 {
 	int idx;
+	struct mcount_ret_stack *rstack;
 
 	/* reverse order due to tail calls */
-	for (idx = mtdp->idx - 1; idx >= 0; idx--)
-		*mtdp->rstack[idx].parent_loc = mtdp->rstack[idx].parent_ip;
+	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
+		rstack = &mtdp->rstack[idx];
+
+		if (rstack->parent_ip == (unsigned long)mcount_return ||
+		    rstack->parent_ip == (unsigned long)plthook_return)
+			continue;
+
+		if (!ARCH_CAN_RESTORE_PLTHOOK &&
+		    rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+			continue;
+
+		*rstack->parent_loc = rstack->parent_ip;
+	}
 }
 
 /* hook return address again (used after mcount_rstack_restore) */
@@ -148,7 +171,7 @@ void mcount_rstack_reset(struct mcount_thread_data *mtdp)
 
 		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
 			*rstack->parent_loc = (unsigned long)mcount_return;
-		else
+		else if (ARCH_CAN_RESTORE_PLTHOOK)
 			*rstack->parent_loc = (unsigned long)plthook_return;
 	}
 }
@@ -167,6 +190,10 @@ void mcount_auto_restore(struct mcount_thread_data *mtdp)
 
 	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
 	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
+
+	if (!ARCH_CAN_RESTORE_PLTHOOK &&
+	    prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+		return;
 
 	/* ignore tail calls */
 	if (curr_rstack->parent_loc == prev_rstack->parent_loc)
@@ -201,6 +228,10 @@ void mcount_auto_reset(struct mcount_thread_data *mtdp)
 
 	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
 	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
+
+	if (!ARCH_CAN_RESTORE_PLTHOOK &&
+	    prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+		return;
 
 	/* ignore tail calls */
 	if (curr_rstack->parent_loc == prev_rstack->parent_loc)
