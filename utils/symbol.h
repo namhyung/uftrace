@@ -26,8 +26,12 @@
 # define STT_GNU_IFUNC  10
 #endif
 
+#ifndef  STB_GNU_UNIQUE
+# define STB_GNU_UNIQUE  10
+#endif
+
 enum symtype {
-	ST_UNKNOWN,
+	ST_UNKNOWN	= '?',
 	ST_LOCAL_FUNC	= 't',
 	ST_GLOBAL_FUNC	= 'T',
 	ST_WEAK_FUNC	= 'w',
@@ -36,6 +40,7 @@ enum symtype {
 	ST_LOCAL_DATA	= 'd',
 	ST_GLOBAL_DATA	= 'D',
 	ST_WEAK_DATA	= 'v',
+	ST_UNIQUE_DATA	= 'u',
 };
 
 struct sym {

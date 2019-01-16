@@ -64,7 +64,10 @@ struct demangle_data {
 	int level;
 	int type;
 	int nr_dbg;
-	int type_info;
+	int templates;
+	bool type_info;
+	bool first_name;
+	bool ignore_disc;
 	const char *debug[MAX_DEBUG_DEPTH];
 };
 
@@ -328,6 +331,15 @@ static int dd_append(struct demangle_data *dd, char *str)
 	return dd_append_len(dd, str, strlen(str));
 }
 
+static int dd_append_separator(struct demangle_data *dd, char *str)
+{
+	if (!dd->first_name)
+		dd_append(dd, str);
+
+	dd->first_name = false;
+	return 0;
+}
+
 static int dd_number(struct demangle_data *dd)
 {
 	char *str = &dd->old[dd->pos];
@@ -456,8 +468,10 @@ static int dd_substitution(struct demangle_data *dd)
 	for (i = 0; i < ARRAY_SIZE(std_abbrevs); i++) {
 		if (c == std_abbrevs[i].code) {
 			__dd_consume(dd, NULL);
-			if (dd->type == 0 || dd->type_info)
+			if (dd->type == 0 || dd->type_info) {
+				dd_append_separator(dd, "::");
 				dd_append(dd, std_abbrevs[i].name);
+			}
 
 			if (dd_curr(dd) == 'B')
 				dd_abi_tag(dd);
@@ -553,7 +567,7 @@ static int dd_template_args(struct demangle_data *dd)
 
 	DD_DEBUG_CONSUME(dd, 'I');
 
-	dd->type++;
+	dd->templates++;
 	dd->level++;
 
 	while (dd_curr(dd) != 'E') {
@@ -563,7 +577,7 @@ static int dd_template_args(struct demangle_data *dd)
 	__DD_DEBUG_CONSUME(dd, 'E');
 
 	dd->level--;
-	dd->type--;
+	dd->templates--;
 	return 0;
 }
 
@@ -1084,10 +1098,6 @@ static int dd_type(struct demangle_data *dd)
 				ret = dd_template_args(dd);
 			done = 1;
 		}
-		else if (c == 'N') {
-			ret = dd_nested_name(dd);
-			done = 1;
-		}
 		else if (c == 'u') {
 			/* vendor extended type */
 			dd_consume(dd);
@@ -1111,12 +1121,9 @@ static int dd_type(struct demangle_data *dd)
 			ret = dd_template_args(dd);
 			done = 1;
 		}
-		else if (c == 'Z') {
-			ret = dd_local_name(dd);
-			done = 1;
-		}
-		else if (isdigit(c)) {
-			ret = dd_source_name(dd);
+		else if (isdigit(c) || c == 'N' || c == 'Z') {
+			/* class or enum name */
+			ret = dd_name(dd);
 			done = 1;
 		}
 		else {
@@ -1163,7 +1170,7 @@ static int dd_special_name(struct demangle_data *dd)
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
 	char T_type[] = "VTISFJ";
-	char *T_type_name[] = { "virtual", "VTT", "typeinfo_name", "typeinfo",
+	char *T_type_name[] = { "vtable", "VTT", "typeinfo_name", "typeinfo",
 				"typeinfo_fn", "java_class" };
 
 	if (dd_eof(dd))
@@ -1175,11 +1182,12 @@ static int dd_special_name(struct demangle_data *dd)
 			char *p;
 
 			dd_consume_n(dd, 2);
-			dd->type_info = 1;
+			dd->type_info = true;
 
 			p = strchr(T_type, c1);
 			idx = p - T_type;
 			/* special name prefix */
+			dd_append(dd, "__");
 			dd_append(dd, T_type_name[idx]);
 			dd_append(dd, "__");
 
@@ -1200,19 +1208,31 @@ static int dd_special_name(struct demangle_data *dd)
 			return dd_encoding(dd);
 		}
 		if (c1 == 'C') {
-			/* construction vtable */
 			dd_consume_n(dd, 2);
+			dd_append(dd, "__construction_vtable__");
+
+			/* base type */
+			dd->type_info = true;
 			if (dd_type(dd) < 0)
 				return -1;
+
 			if (dd_number(dd) < 0)
 				return -1;
+			__DD_DEBUG_CONSUME(dd, '_');
+
+			/*
+			 * ideally it'd be better using this derived type
+			 * for the simple name but it requires to support
+			 * substitution correctly which is not done yet.
+			 * So just use the base type info only.
+			 */
+			dd->type_info = false;
 			return dd_type(dd);
 		}
 		if (c1 == 'H' || c1 == 'W') {
 			/* TLS init and wrapper */
 			dd_consume_n(dd, 2);
-			if (dd->newpos)
-				dd_append(dd, "::");
+			dd_append_separator(dd, "::");
 			dd_append(dd, "TLS_");
 			dd_append(dd, c1 == 'H' ? "init" : "wrap");
 			return dd_name(dd);
@@ -1222,12 +1242,15 @@ static int dd_special_name(struct demangle_data *dd)
 		if (c1 == 'V') {
 			/* guard */
 			dd_consume_n(dd, 2);
-			dd_append(dd, "guard_variable__");
+			dd_append(dd, "__guard_variable__");
 			return dd_name(dd);
 		}
 		if (c1 == 'R') {
 			/* reftemp */
 			dd_consume_n(dd, 2);
+			dd_append(dd, "__ref_temp__");
+
+			dd->ignore_disc = true;
 			if (dd_name(dd) < 0)
 				return -1;
 
@@ -1329,8 +1352,7 @@ static int dd_operator_name(struct demangle_data *dd)
 
 	for (i = 0; i < ARRAY_SIZE(ops); i++) {
 		if (c0 == ops[i].op[0] && c1 == ops[i].op[1]) {
-			if (dd->newpos)
-				dd_append(dd, "::");
+			dd_append_separator(dd, "::");
 			dd_append(dd, "operator");
 			dd_append(dd, ops[i].name);
 
@@ -1368,10 +1390,13 @@ static int dd_source_name(struct demangle_data *dd)
 	if (dd_eof(dd) || dd->pos + num > dd->len)
 		DD_DEBUG(dd, "shorter name", 0);
 
-	if (dd->type)
+	if (dd->type && !dd->type_info)
 		goto out;
 
-	/* ignore hash code in a rust symbol */
+	if (dd->templates)
+		goto out;
+
+	/* ignore hash code in a Rust symbol */
 	if (num == 17 && dd->old[dd->pos] == 'h') {
 		for (i = 1; i < 17; i++) {
 			if (!isxdigit(dd->old[dd->pos + i]))
@@ -1382,8 +1407,7 @@ static int dd_source_name(struct demangle_data *dd)
 			goto out;
 	}
 
-	if (dd->newpos)
-		dd_append(dd, "::");
+	dd_append_separator(dd, "::");
 
 	p = dd->old + dd->pos;
 	dollar = strchr(p, '$');
@@ -1394,6 +1418,7 @@ static int dd_source_name(struct demangle_data *dd)
 	if (dollar > end)
 		goto out_append;
 
+	/* check special symbol mappings (e.g. '$LT$') for Rust */
 	while (dollar != NULL && dollar < end) {
 		bool found = false;
 
@@ -1414,8 +1439,9 @@ static int dd_source_name(struct demangle_data *dd)
 			break;
 		}
 
+		/* treat '$' as a normal symbol */
 		if (!found)
-			return -1;
+			break;
 
 		dollar = strchr(p, '$');
 	}
@@ -1476,9 +1502,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 			if (dd->type)
 				return 0;
 
-			if (dd->newpos)
-				dd_append(dd, "::");
-
+			dd_append_separator(dd, "::");
 			snprintf(buf, sizeof(buf), "$_%d", n + 1);
 			dd_append(dd, buf);
 		}
@@ -1573,7 +1597,7 @@ static int dd_local_name(struct demangle_data *dd)
 	else
 		dd_name(dd);
 
-	if (dd_curr(dd) == '_')
+	if (dd_curr(dd) == '_' && !dd->ignore_disc)
 		dd_discriminator(dd);
 
 	return 0;
@@ -1644,6 +1668,7 @@ static char *demangle_simple(char *str)
 	struct demangle_data dd = {
 		.old = str,
 		.len = strlen(str),
+		.first_name = true,
 	};
 	bool has_prefix = false;
 
@@ -1733,242 +1758,174 @@ char *demangle(char *str)
 }
 
 #ifdef UNIT_TEST
+
+#define DEMANGLE_TEST(m, d)			\
+do {						\
+	char *name = demangle_simple(m);	\
+	TEST_STREQ(d, name);			\
+	free(name);				\
+} while (0)
+
 TEST_CASE(demangle_simple1)
 {
-	char *name;
-
-	name = demangle_simple("normal");
-	TEST_STREQ("normal", name);
-	free(name);
-
-	name = demangle_simple("_ZN3ABC3fooEv");
-	TEST_STREQ("ABC::foo", name);
-	free(name);
-
-	name = demangle_simple("_ZN3ABCC1Ei");
-	TEST_STREQ("ABC::ABC", name);
-	free(name);
-
-	name = demangle_simple("_Znwm");
-	TEST_STREQ("operator new", name);
-	free(name);
-
-	name = demangle_simple("_ZN2ns3ns13foo4bar1Ev");
-	TEST_STREQ("ns::ns1::foo::bar1", name);
-	free(name);
+	DEMANGLE_TEST("normal", "normal");
+	DEMANGLE_TEST("_ZN3ABC3fooEv", "ABC::foo");
+	DEMANGLE_TEST("_ZN3ABCC1Ei", "ABC::ABC");
+	DEMANGLE_TEST("_Znwm", "operator new");
+	DEMANGLE_TEST("_ZN2ns3ns13foo4bar1Ev", "ns::ns1::foo::bar1");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple2)
 {
-	char *name;
-
-	name = demangle_simple("_ZThn8_N13FtraceServiceD0Ev");
-	TEST_STREQ("FtraceService::~FtraceService", name);
-	free(name);
-
-	name = demangle_simple("_ZN2v88internal12ScopedVectorIcEC1Ei");
-	TEST_STREQ("v8::internal::ScopedVector::ScopedVector", name);
-	free(name);
-
-	name = demangle_simple("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
-			       "ISt4pairIKSsN7pbnjson7JSchemaEEEEE9construct"
-			       "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
-			       "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_");
-	TEST_STREQ("std::allocator_traits::construct", name);
-	free(name);
+	DEMANGLE_TEST("_ZThn8_N13FtraceServiceD0Ev",
+		      "FtraceService::~FtraceService");
+	DEMANGLE_TEST("_ZN2v88internal12ScopedVectorIcEC1Ei",
+		      "v8::internal::ScopedVector::ScopedVector");
+	DEMANGLE_TEST("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
+		      "ISt4pairIKSsN7pbnjson7JSchemaEEEEE9construct"
+		      "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
+		      "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_",
+		      "std::allocator_traits::construct");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple3)
 {
-	char *name;
-
-	name = demangle_simple("_ZN4node8Watchdog7DestroyEv.part.0");
-	TEST_STREQ("node::Watchdog::Destroy", name);
-	free(name);
-
-	name = demangle_simple("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17");
-	TEST_STREQ("v8::internal::CodeStub::GetKey", name);
-	free(name);
-
-	name = demangle_simple("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
-			       "bRKSt15_Deque_iteratorIT_T0_T1_ESE_");
-	TEST_STREQ("std::operator==", name);
-	free(name);
-
-	name = demangle_simple("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
-			       "INS1_19ArithmeticPromotionIT_T0_XqugtsrNS1_"
-			       "11MaxExponentIS5_EE5valuesrNS7_IS6_EE5value"
-			       "qugtsrS8_5valueL_ZNS7_IiE5valueEELNS1_"
-			       "27ArithmeticPromotionCategoryE0ELSB_2E"
-			       "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
-			       "4typeEEERKNS3_IS5_EES6_");
-	TEST_STREQ("v8::base::internal::operator*", name);
-	free(name);
-
-	name = demangle_simple("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
-			       "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
-			       "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
-			       "6__typeES2_S3_");
-	TEST_STREQ("std::pow", name);
-	free(name);
+	DEMANGLE_TEST("_ZN4node8Watchdog7DestroyEv.part.0",
+		      "node::Watchdog::Destroy");
+	DEMANGLE_TEST("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17",
+		      "v8::internal::CodeStub::GetKey");
+	DEMANGLE_TEST("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
+		      "bRKSt15_Deque_iteratorIT_T0_T1_ESE_",
+		      "std::operator==");
+	DEMANGLE_TEST("_ZN2v84base8internalmlIiiEENS1_14CheckedNumeric"
+		      "INS1_19ArithmeticPromotionIT_T0_XqugtsrNS1_"
+		      "11MaxExponentIS5_EE5valuesrNS7_IS6_EE5value"
+		      "qugtsrS8_5valueL_ZNS7_IiE5valueEELNS1_"
+		      "27ArithmeticPromotionCategoryE0ELSB_2E"
+		      "qugtsrS9_5valueL_ZNSA_5valueEELSB_1ELSB_2EEE"
+		      "4typeEEERKNS3_IS5_EES6_",
+		      "v8::base::internal::operator*");
+	DEMANGLE_TEST("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
+		      "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
+		      "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
+		      "6__typeES2_S3_", "std::pow");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple4)
 {
-	char *name;
-
-	name = demangle_simple("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
-			       "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
-			       "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
-			       "St18input_iterator_tag");
-	TEST_STREQ("std::__find_if", name);
-	free(name);
-
-	name = demangle_simple("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev");
-	TEST_STREQ("convertToWindowType::~convertToWindowType", name);
-	free(name);
-
-	name = demangle_simple("_ZNSt3setISsSt4lessISsESaISsEE5eraseB5cxx11E"
-			       "St23_Rb_tree_const_iteratorISsE");
-	TEST_STREQ("std::set::erase::cxx11", name);
-	free(name);
-
-	name = demangle_simple("_ZNSt16allocator_traitsISaISsEE9_S_select"
-			       "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
-			       "IT_EE5valueES6_E4typeERS6_");
-	TEST_STREQ("std::allocator_traits::_S_select", name);
-	free(name);
-
-	name = demangle_simple("_ZN6icu_5416umtx_loadAcquireERU7_Atomici");
-	TEST_STREQ("icu_54::umtx_loadAcquire", name);
-	free(name);
+	DEMANGLE_TEST("_ZSt9__find_ifISt14_List_iteratorISt10shared_ptr"
+		      "I16AppLaunchingItemEEZN13MemoryChecker8add_itemE"
+		      "S1_I13LaunchingItemEEUlS7_E_ET_S9_S9_T0_"
+		      "St18input_iterator_tag",
+		      "std::__find_if");
+	DEMANGLE_TEST("_ZZ19convertToWindowTypeRKSsRSsENUt_D1Ev",
+		      "convertToWindowType::~convertToWindowType");
+	DEMANGLE_TEST("_ZNSt3setISsSt4lessISsESaISsEE5eraseB5cxx11E"
+		      "St23_Rb_tree_const_iteratorISsE",
+		      "std::set::erase::cxx11");
+	DEMANGLE_TEST("_ZNSt16allocator_traitsISaISsEE9_S_select"
+		      "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
+		      "IT_EE5valueES6_E4typeERS6_",
+		      "std::allocator_traits::_S_select");
+	DEMANGLE_TEST("_ZN6icu_5416umtx_loadAcquireERU7_Atomici",
+		      "icu_54::umtx_loadAcquire");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple5)
 {
-	char *name;
-
-	name = demangle_simple("_ZN2v88internal13RememberedSetILNS0_"
-			       "16PointerDirectionE1EE7IterateIZNS3_"
-			       "18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
-			       "S7_EEEvPNS0_4HeapET_EUlPhE_EEvSC_SD_");
-	TEST_STREQ("v8::internal::RememberedSet::Iterate", name);
-	free(name);
-
-	name = demangle_simple("_ZN2v88internal7SlotSet7Iterate"
-			       "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
-			       "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
-			       "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_");
-	TEST_STREQ("v8::internal::SlotSet::Iterate", name);
-	free(name);
-
-	name = demangle_simple("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev");
-	TEST_STREQ("std::tuple::tuple", name);
-	free(name);
-
-	name = demangle_simple("_Z26storageIndexFromLayoutItemRK"
-			       "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
-			       "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_");
-	TEST_STREQ("storageIndexFromLayoutItem", name);
-	free(name);
-
-	name = demangle_simple("_ZGTtNSt11range_errorD1Ev");
-	TEST_STREQ("std::range_error::~range_error", name);
-	free(name);
-
-	name = demangle_simple("_ZNSi6ignoreEl@@GLIBCXX_3.4.5");
-	TEST_STREQ("std::basic_istream::ignore", name);
-	free(name);
-
-	name = demangle_simple("_ZN4llvm12function_refIFN5clang12ActionResult"
-			       "IPNS1_4ExprELb1EEES4_EE11callback_fnIZNS1_4Sema"
-			       "25CorrectDelayedTyposInExprES4_PNS1_7VarDeclE"
-			       "S7_Ed_NUlS4_E_EEES5_lS4_");
-	TEST_STREQ("llvm::function_ref::callback_fn", name);
-	free(name);
+	DEMANGLE_TEST("_ZN2v88internal13RememberedSetILNS0_"
+		      "16PointerDirectionE1EE7IterateIZNS3_"
+		      "18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+		      "S7_EEEvPNS0_4HeapET_EUlPhE_EEvSC_SD_",
+		      "v8::internal::RememberedSet::Iterate");
+	DEMANGLE_TEST("_ZN2v88internal7SlotSet7Iterate"
+		      "IZNS0_13RememberedSetILNS0_16PointerDirectionE"
+		      "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
+		      "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_",
+		      "v8::internal::SlotSet::Iterate");
+	DEMANGLE_TEST("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev",
+		      "std::tuple::tuple");
+	DEMANGLE_TEST("_Z26storageIndexFromLayoutItemRK"
+		      "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
+		      "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_",
+		      "storageIndexFromLayoutItem");
+	DEMANGLE_TEST("_ZGTtNSt11range_errorD1Ev",
+		      "std::range_error::~range_error");
+	DEMANGLE_TEST("_ZNSi6ignoreEl@@GLIBCXX_3.4.5",
+		      "std::basic_istream::ignore");
+	DEMANGLE_TEST("_ZN4llvm12function_refIFN5clang12ActionResult"
+		      "IPNS1_4ExprELb1EEES4_EE11callback_fnIZNS1_4Sema"
+		      "25CorrectDelayedTyposInExprES4_PNS1_7VarDeclE"
+		      "S7_Ed_NUlS4_E_EEES5_lS4_",
+		      "llvm::function_ref::callback_fn");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple6)
 {
-	char *name;
-
-	name = demangle_simple("_ZN4base8internal15OptionalStorageImLb1ELb1EE"
-			       "CI2NS0_19OptionalStorageBaseImLb1EEEIJRKmEEE"
-			       "NS_10in_place_tEDpOT_");
-	TEST_STREQ("base::internal::OptionalStorage::OptionalStorage", name);
-	free(name);
-
-	name = demangle_simple("_ZL18color_lookup_tableILi3EEv"
-			       "PK28SkJumper_ColorLookupTableCtx"
-			       "RDv4_fS4_S4_S3_Dv4_jS5_");
-	TEST_STREQ("color_lookup_table", name);
-	free(name);
-
-	name = demangle_simple("_ZTWN6__xray19__xray_fdr_internal7RunningE");
-	TEST_STREQ("TLS_wrap::__xray::__xray_fdr_internal::Running", name);
-	free(name);
+	DEMANGLE_TEST("_ZN4base8internal15OptionalStorageImLb1ELb1EE"
+		      "CI2NS0_19OptionalStorageBaseImLb1EEEIJRKmEEE"
+		      "NS_10in_place_tEDpOT_",
+		      "base::internal::OptionalStorage::OptionalStorage");
+	DEMANGLE_TEST("_ZL18color_lookup_tableILi3EEv"
+		      "PK28SkJumper_ColorLookupTableCtx"
+		      "RDv4_fS4_S4_S3_Dv4_jS5_",
+		      "color_lookup_table");
+	DEMANGLE_TEST("_ZTWN6__xray19__xray_fdr_internal7RunningE",
+		      "TLS_wrap::__xray::__xray_fdr_internal::Running");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_simple7)
 {
-	char *name;
+	DEMANGLE_TEST("_ZTSSt12system_error",
+		      "__typeinfo__std::system_error");
+	DEMANGLE_TEST("_ZNSs4nposE",
+		      "std::basic_string<>::npos");
+	DEMANGLE_TEST("_ZNSt14numeric_limitsIoE5radixE",
+		      "std::numeric_limits::radix");
+	DEMANGLE_TEST("_ZGVNSt7__cxx117collateIcE2idE",
+		      "__guard_variable__std::__cxx11::collate::id");
+	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE",
+		      "std::basic_string::npos");
 
-	name = demangle_simple("_ZTSSt12system_error");
-	TEST_STREQ("typeinfo__std::system_error", name);
-	free(name);
+	return TEST_OK;
+}
 
-	name = demangle_simple("_ZNSs4nposE");
-	TEST_STREQ("std::basic_string<>::npos", name);
-	free(name);
-
-	name = demangle_simple("_ZNSt14numeric_limitsIoE5radixE");
-	TEST_STREQ("std::numeric_limits::radix", name);
-	free(name);
-
-	name = demangle_simple("_ZGVNSt7__cxx117collateIcE2idE");
-	TEST_STREQ("guard_variable__std::__cxx11::collate::id", name);
-	free(name);
-
-	name = demangle_simple("_ZNSbIwSt11char_traitsIwESaIwEE4nposE");
-	TEST_STREQ("std::basic_string::npos", name);
-	free(name);
+TEST_CASE(demangle_simple8)
+{
+	DEMANGLE_TEST("_ZTV23SkCanvasVirtualEnforcerI8SkCanvasE",
+		      "__vtable__SkCanvasVirtualEnforcer");
+	DEMANGLE_TEST("_ZZNK13SkImageShader14onAppendStagesE"
+		      "RKN12SkShaderBase8StageRecEENK3$_0clEv",
+		      "SkImageShader::onAppendStages::$_0::operator()");
+	DEMANGLE_TEST("_ZTCN2v88internal12StdoutStreamE0_NS0_8OFStreamE",
+		      "__construction_vtable__v8::internal::StdoutStream");
+	DEMANGLE_TEST("_ZGRZNK5blink8Variable27GetPropertyNameAtomicStringEvE4name_",
+		      "__ref_temp__blink::Variable::GetPropertyNameAtomicString::name");
 
 	return TEST_OK;
 }
 
 TEST_CASE(demangle_rust1)
 {
-	char *name;
-
-	dbg_domain[DBG_DEMANGLE] = 2;
-
-	name = demangle_simple("_ZN8$BP$test3fooE");
-	TEST_STREQ("*test::foo", name);
-	free(name);
-
-	name = demangle_simple("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E");
-	TEST_STREQ("Bar<[u32; 4]>", name);
-	free(name);
-
-	name = demangle_simple("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE");
-	TEST_STREQ("_<Test + 'static as foo..Bar<Test>>::bar", name);
-	free(name);
-
-	name = demangle_simple("_ZN3foo3bar17h05af221e174051e9E");
-	TEST_STREQ("foo::bar", name);
-	free(name);
+	DEMANGLE_TEST("_ZN8$BP$test3fooE", "*test::foo");
+	DEMANGLE_TEST("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E",
+		      "Bar<[u32; 4]>");
+	DEMANGLE_TEST("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static"
+		      "$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE",
+		      "_<Test + 'static as foo..Bar<Test>>::bar");
+	DEMANGLE_TEST("_ZN3foo3bar17h05af221e174051e9E", "foo::bar");
 
 	return TEST_OK;
 }

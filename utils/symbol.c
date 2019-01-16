@@ -216,6 +216,12 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 		else
 			sym->type = ST_WEAK_FUNC;
 		break;
+	case STB_GNU_UNIQUE:
+		if (elf_symbol_type(elf_sym) == STT_OBJECT) {
+			sym->type = ST_UNIQUE_DATA;
+			break;
+		}
+		/* fall through */
 	default:
 		sym->type = ST_UNKNOWN;
 		break;
@@ -878,7 +884,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 	size_t len = 0;
 	unsigned int i;
 	unsigned int grow = SYMTAB_GROW;
-	char allowed_types[] = "TtwPKDdv";
+	char allowed_types[] = "?TtwPKDdvu";
 	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
@@ -1073,7 +1079,7 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 	unsigned int i;
 	unsigned int grow = SYMTAB_GROW;
 	struct symtab *stab = &symtabs->symtab;
-	char allowed_types[] = "TtwPKDdv";
+	char allowed_types[] = "?TtwPKDdvu";
 	uint64_t prev_addr = -1;
 	char prev_type = 'X';
 
