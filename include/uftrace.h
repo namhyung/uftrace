@@ -28,8 +28,32 @@
 #define UFT_DISABLE_OPT
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* for explicit mcount() call in user functions */
+void __attribute__((weak)) mcount(void);
+
+/* apply "trace_on" trigger */
+UFT_DISABLE_OPT static void uftrace_trace_on(void) {}
+
+/* apply "trace_off" trigger */
+UFT_DISABLE_OPT static void uftrace_trace_off(void) {}
+
+/* apply "finish" trigger */
+UFT_DISABLE_OPT static void uftrace_trace_finish(void) {}
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef __cplusplus
+
+/* apply "trace_on"/"trace_off" triggers at ctor/dtor */
+class uftrace_trace_block {
+public:
+  UFT_DISABLE_OPT uftrace_trace_block()  {}
+  UFT_DISABLE_OPT ~uftrace_trace_block() {}
+};
 
 template <typename T>
 UFT_DISABLE_OPT
