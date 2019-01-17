@@ -431,7 +431,8 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 	return 1;
 }
 
-static void build_graph_node(struct uftrace_task_reader *task, uint64_t time,
+static void build_graph_node(struct opts *opts,
+			     struct uftrace_task_reader *task, uint64_t time,
 			     uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
@@ -445,6 +446,10 @@ static void build_graph_node(struct uftrace_task_reader *task, uint64_t time,
 		sym = session_find_dlsym(tg->utg.graph->sess, time, addr);
 
 	name = symbol_getname(sym, addr);
+
+	/* skip it if --no-libcall is given */
+	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		goto out;
 
 	if (tg->enabled) {
 		graph_add_node(&tg->utg, type, name,
@@ -520,7 +525,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 
 				if (fstack_enabled && fstack->valid &&
 				    !(fstack->flags & FSTACK_FL_NORECORD)) {
-					build_graph_node(task, prev_time,
+					build_graph_node(opts, task, prev_time,
 							 fstack->addr,
 							 UFTRACE_EXIT, func);
 				}
@@ -551,7 +556,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		if (task->stack_count >= opts->max_stack)
 			continue;
 
-		build_graph_node(task, frs->time, addr, frs->type, func);
+		build_graph_node(opts, task, frs->time, addr, frs->type, func);
 	}
 
 	/* add duration of remaining functions */
@@ -585,7 +590,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			build_graph_node(task, last_time, fstack->addr,
+			build_graph_node(opts, task, last_time, fstack->addr,
 					 UFTRACE_EXIT, func);
 		}
 	}
