@@ -485,6 +485,7 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 		.dirname = opts->diff,
 		.kernel  = opts->kernel,
 		.depth   = opts->depth,
+		.libcall = opts->libcall,
 	};
 	struct diff_data data = {
 		.dirname = opts->diff,

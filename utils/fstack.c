@@ -2275,6 +2275,10 @@ TEST_CASE(fstack_skip)
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_trigger tr = { 0, };
+	struct opts opts = {
+		.event_skip_out = true,
+		.libcall        = true,
+	};
 
 	TEST_EQ(fstack_test_setup_file(handle, 1), 0);
 
@@ -2290,7 +2294,7 @@ TEST_CASE(fstack_skip)
 	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
 
 	/* skip filtered records (due to depth) */
-	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, true), task);
+	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, &opts), task);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
