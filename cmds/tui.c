@@ -2518,6 +2518,16 @@ out:
 	tui_session_finish();
 }
 
+static void display_loading_msg()
+{
+	char *tuimsg = "Building graph for TUI...";
+	int row, col;
+
+	getmaxyx(stdscr, row, col);
+	mvprintw(row / 2, (col - strlen(tuimsg)) / 2, "%s", tuimsg);
+	refresh();
+}
+
 int command_tui(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -2538,6 +2548,9 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	noecho();
 
 	atexit(tui_cleanup);
+
+	/* Print a message before main screen is launched. */
+	display_loading_msg();
 
 	tui_setup(&handle, opts);
 	fstack_setup_filters(opts, &handle);
