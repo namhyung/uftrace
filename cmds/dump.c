@@ -1332,6 +1332,10 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 			sym = task_find_sym(sessions, task, frs);
 
+			/* skip it if --no-libcall is given */
+			if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+				continue;
+
 			name = symbol_getname(sym, frs->addr);
 			call_if_nonull(ops->task_rstack, ops, task, name);
 			symbol_putname(sym, name);
@@ -1427,7 +1431,8 @@ static bool check_task_rstack(struct uftrace_task_reader *task,
 }
 
 static void dump_replay_func(struct uftrace_dump_ops *ops,
-			     struct uftrace_task_reader *task)
+			     struct uftrace_task_reader *task,
+			     struct opts *opts)
 {
 	struct uftrace_record *rec = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
@@ -1435,6 +1440,10 @@ static void dump_replay_func(struct uftrace_dump_ops *ops,
 	char *name;
 
 	sym = task_find_sym(sessions, task, rec);
+
+	/* skip it if --no-libcall is given */
+	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		return;
 
 	name = symbol_getname(sym, rec->addr);
 	if (is_kernel_record(task, rec)) {
@@ -1515,10 +1524,11 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			ops->inverted_time(ops, task);
 		prev_time = frs->time;
 
+
 		if (task->rstack->type == UFTRACE_EVENT)
 			dump_replay_event(ops, task);
 		else
-			dump_replay_func(ops, task);
+			dump_replay_func(ops, task, opts);
 	}
 
 	/* add duration of remaining functions */
@@ -1571,7 +1581,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			if (task->rstack->type == UFTRACE_EVENT)
 				dump_replay_event(ops, task);
 			else
-				dump_replay_func(ops, task);
+				dump_replay_func(ops, task, opts);
 		}
 	}
 
