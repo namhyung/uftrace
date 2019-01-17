@@ -1528,13 +1528,17 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	}
 
 	if (maps == MAP_MAIN) {
-		sym = bsearch(&addr, stab->sym, stab->nr_sym,
+		/* try dynamic symbols first */
+		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
 			      sizeof(*sym), addrfind);
 		if (sym)
 			return sym;
 
-		/* try dynamic symbols if failed */
-		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
+		/*
+		 * normal symbol table may overlap with dynamic symbols
+		 * since it has data symbols too.
+		 */
+		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 		return sym;
 	}
