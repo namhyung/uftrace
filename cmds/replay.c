@@ -397,6 +397,10 @@ static int print_flat_rstack(struct uftrace_data *handle,
 	name = symbol_getname(sym, rstack->addr);
 	fstack = &task->func_stack[rstack->depth];
 
+	/* skip it if --no-libcall is given */
+	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		goto out;
+
 	switch (rstack->type) {
 	case UFTRACE_ENTRY:
 		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
@@ -421,7 +425,7 @@ static int print_flat_rstack(struct uftrace_data *handle,
 		pr_out(" time (%"PRIu64")\n", rstack->time);
 		break;
 	}
-
+out:
 	symbol_putname(sym, name);
 	return 0;
 }
@@ -755,6 +759,10 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
+	/* skip it if --no-libcall is given */
+	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		goto out;
+
 	if (rstack->type == UFTRACE_ENTRY) {
 		if (symname[strlen(symname) - 1] != ')' || rstack->more)
 			str_mode |= NEEDS_PAREN;
@@ -812,8 +820,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		fstack = &task->func_stack[task->stack_count - 1];
 
 		if (!opts->no_merge)
-			next = fstack_skip(handle, task, rstack_depth,
-					   opts->event_skip_out);
+			next = fstack_skip(handle, task, rstack_depth, opts);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -948,7 +955,7 @@ lost:
 		 * it might overwrite rstack - use (saved) rec for printing.
 		 */
 		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts->no_merge)
-			next = fstack_skip(handle, task, 0, opts->event_skip_out);
+			next = fstack_skip(handle, task, 0, opts);
 
 		if (task == next &&
 		    next->rstack->addr == EVENT_ID_PERF_SCHED_IN) {

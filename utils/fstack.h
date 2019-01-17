@@ -146,7 +146,7 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack);
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, bool event_skip_out);
+				       int curr_depth, struct opts *opts);
 bool fstack_check_filter(struct uftrace_task_reader *task);
 bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
 
