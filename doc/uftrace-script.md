@@ -33,9 +33,9 @@ OPTIONS
     See 'uftrace-replay' for details.
 
 -t *TIME*, \--time-filter=*TIME*
-:   Do not show functions which run under the time threshold.  If some functions
-    explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.
+:   Do not run script for functions which run under the time threshold.  If some
+    functions explicitly have the 'trace' trigger applied, those are always
+    traced regardless of execution time.
 
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of
@@ -46,11 +46,10 @@ OPTIONS
 :   Set trace limit in nesting level.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
-    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
+:   Only run script for functions executed within the time RANGE.  The RANGE can
+    be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\>
+    can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
+    they have \<time_unit\> postfix, for example '100us'.
 
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
 :   Add a script to do additional work at the entry and exit of function.
@@ -62,6 +61,9 @@ OPTIONS
 \--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
+
+\--no-libcall
+:   Do not run script for library calls.
 
 
 EXAMPLES

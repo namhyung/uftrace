@@ -109,6 +109,9 @@ OPTIONS
 \--no-event
 :   Do not show any events.
 
+\--no-libcall
+:   Do not show library calls.
+
 \--demangle=*TYPE*
 :   Use demangled C++ symbol names for filters, triggers, arguments and/or
     return values.  Possible values are "full", "simple" and "no".  Default

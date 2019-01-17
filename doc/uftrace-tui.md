@@ -68,6 +68,9 @@ OPTIONS
 \--no-event
 :   Do not show any events.
 
+\--no-libcall
+:   Do not show library calls.
+
 
 OUTLINE
 =======
