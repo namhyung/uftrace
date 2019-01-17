@@ -107,6 +107,8 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 static void build_function_tree(struct uftrace_data *handle,
 				struct rb_root *root, struct opts *opts)
 {
+	struct uftrace_session_link *sessions = &handle->sessions;
+	struct sym *sym = NULL;
 	struct uftrace_record *rstack;
 	struct uftrace_task_reader *task;
 	uint64_t addr;
@@ -143,9 +145,14 @@ static void build_function_tree(struct uftrace_data *handle,
 		if (is_kernel_record(task, rstack)) {
 			struct uftrace_session *fsess;
 
-			fsess = handle->sessions.first;
+			fsess = sessions->first;
 			addr = get_kernel_address(&fsess->symtabs, rstack->addr);
 		}
+
+		/* skip it if --no-libcall is given */
+		sym = task_find_sym(sessions, task, rstack);
+		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+			continue;
 
 		find_insert_node(root, task, rstack->time, addr);
 	}
