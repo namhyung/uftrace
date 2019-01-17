@@ -388,7 +388,8 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 }
 
 static int build_tui_node(struct uftrace_task_reader *task,
-			  struct uftrace_record *rec)
+			  struct uftrace_record *rec,
+			  struct opts *opts)
 {
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
@@ -415,6 +416,11 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	if (rec->type == UFTRACE_ENTRY || rec->type == UFTRACE_EXIT) {
 		sym = task_find_sym_addr(&task->h->sessions,
 					 task, rec->time, addr);
+
+		/* skip it if --no-libcall is given */
+		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+			return 0;
+
 		name = symbol_getname(sym, addr);
 
 		if (rec->type == UFTRACE_EXIT)
@@ -2545,7 +2551,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 		if (!fstack_check_filter(task))
 			continue;
 
-		ret = build_tui_node(task, rec);
+		ret = build_tui_node(task, rec, opts);
 		if (ret)
 			break;
 	}

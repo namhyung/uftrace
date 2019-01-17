@@ -33,6 +33,10 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
 
+	/* skip it if --no-libcall is given */
+	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		goto out;
+
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 

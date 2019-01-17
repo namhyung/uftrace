@@ -726,7 +726,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  * @handle     - file handle
  * @task       - tracee task
  * @curr_depth - current rstack depth
- * @event_skip_out - skip events outside of function
+ * @opts       - options
  *
  * This function checks next rstack and skip if it's filtered out.
  * The intention is to merge EXIT record after skipped ones.  It
@@ -735,11 +735,12 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  */
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, bool event_skip_out)
+				       int curr_depth, struct opts *opts)
 {
 	struct uftrace_task_reader *next = NULL;
 	struct fstack *fstack;
 	struct uftrace_record *curr_stack = task->rstack;
+	struct uftrace_session_link *sessions = &handle->sessions;
 
 	fstack = &task->func_stack[task->stack_count - 1];
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
@@ -751,6 +752,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 	while (true) {
 		struct uftrace_record *next_stack = next->rstack;
 		struct uftrace_trigger tr = { 0 };
+		struct sym *sym = task_find_sym(sessions, task, next_stack);
 
 		/* skip filtered entries until current matching EXIT records */
 		if (next == task && curr_stack == next_stack &&
@@ -765,12 +767,16 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 		}
 
 		if (next_stack->type == UFTRACE_EVENT) {
-			if (!next->user_stack_count && event_skip_out)
+			if (!next->user_stack_count && opts->event_skip_out)
 				goto next;
 		}
 
 		if (next_stack->type == UFTRACE_LOST)
 			return NULL;
+
+		/* skip it if --no-libcall is given */
+		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+			goto next;
 
 		/* return if it's not filtered */
 		if (fstack_check_skip(next, next_stack) >= 0)
