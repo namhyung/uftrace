@@ -17,6 +17,9 @@ DESCRIPTION
 This command receives tracing data from the network and saves it to files.
 Data will be sent using `uftrace-record` with -H/\--host option.
 
+
+OPTIONS
+=======
 -d *DATA*, \--data=*DATA*
 :   Specify directory name to save received data.
 

@@ -14,7 +14,9 @@ uftrace dump [*options*]
 
 DESCRIPTION
 ===========
-This command shows raw tracing data recorded in the data file.
+This command shows raw tracing data recorded in the data file.  The dump format
+can be configured by additional options such as --chrome, --flame-graph,
+or --graphviz.
 
 
 DUMP OPTIONS

@@ -14,6 +14,7 @@ DESCRIPTION
 ===========
 This command prints metadata recorded in the header of a given data file.
 
+
 OPTIONS
 =======
 \--symbols
