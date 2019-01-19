@@ -1632,10 +1632,6 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 	switch (orig->addr) {
 	case EVENT_ID_PERF_SCHED_IN:
 	case EVENT_ID_PERF_SCHED_OUT:
-		/* ignore early schedule events before main routine */
-		if (!task->fstack_set)
-			return false;
-
 		/* fall-through */
 		if (orig->addr == EVENT_ID_PERF_SCHED_OUT)
 			dummy->type = UFTRACE_ENTRY;
@@ -1745,7 +1741,7 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		if (rstack->type != UFTRACE_LOST) {
+		if (rstack->type != UFTRACE_LOST && rstack != &dummy_rec) {
 			task->stack_count = task->user_stack_count;
 			task->filter.depth = task->h->depth - task->stack_count;
 		}
