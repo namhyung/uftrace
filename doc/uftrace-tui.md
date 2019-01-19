@@ -31,6 +31,10 @@ OPTIONS
     underneath them).  This option can be used more than once.  See
     `uftrace-replay`(1) for an explanation of filters.
 
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of triggers.

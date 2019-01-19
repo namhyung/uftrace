@@ -32,13 +32,13 @@ OPTIONS
 :   Set filter not to trace selected functions (or the functions called
     underneath them).  This option can be used more than once.  See *FILTERS*.
 
--T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.
-    See *TRIGGERS*.
-
 -C *FUNC*, \--caller-filter=*FUNC*
 :   Set filter to trace callers of selected functions only.  This option can be
     used more than once.  See *FILTERS*.
+
+-T *TRG*, \--trigger=*TRG*
+:   Set trigger on selected functions.  This option can be used more than once.
+    See *TRIGGERS*.
 
 -D *DEPTH*, \--depth *DEPTH*
 :   Set trace limit in nesting level.  See *FILTERS*.
