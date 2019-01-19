@@ -161,13 +161,8 @@ OPTIONS
 \--kernel-buffer=*SIZE*
 :   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
-\--kernel-skip-out
-:   Do not show kernel functions called outside of user functions.  This option
-    is deprecated and set to true by default.
-
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is
-    the inverse of \--kernel-skip-out.
+:   Show all kernel functions called outside of user functions.
 
 \--kernel-only
 :   Show kernel functions only without user functions.

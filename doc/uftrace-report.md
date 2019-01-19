@@ -41,11 +41,6 @@ OPTIONS
 \--diff=*DATA*
 :   Report differences between the input trace data and the given DATA.
 
--k, \--kernel
-:   Show kernel functions as well as user functions.  Only kernel functions
-    called inside user functions will be shown.  Note that this option is set
-    by default and always shows kernel functions if exist.
-
 \--kernel-full
 :   Show all kernel functions, including those called outside of user functions.
 

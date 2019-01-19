@@ -32,17 +32,13 @@ OPTIONS
 \--graphviz
 :   Show DOT style output used by the graphviz toolkit.
 
--k, \--kernel
-:   Dump kernel functions as well as user functions.  Note that this option
-    is set by default and always shows kernel functions if exist.
-
 \--kernel-only
 :   Dump kernel functions only (without user functions).
 
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option
-    is the inverse of \--kernel-skip-out.  This option is only meaningful
-    when used with \--chrome or \--flame-graph options.
+:   Show all kernel functions called outside of user functions.  This option is
+    only meaningful when used with \--chrome, \--flame-graph or \--graphviz
+    options.
 
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more
