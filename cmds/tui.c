@@ -2170,43 +2170,10 @@ static bool tui_window_longest_child(struct tui_window *win)
 	return win->ops->longest_child(win, win->curr);
 }
 
-static bool tui_window_open_editor(struct tui_window *win)
+static void run_child_process(struct strv *strv)
 {
-	struct debug_location *dloc;
-	const char *editor = getenv("EDITOR");
-	struct strv editor_strv;
 	int pid, status;
 	int ret;
-
-	if (win->ops->location == NULL)
-		return false;
-
-	dloc = win->ops->location(win, win->curr);
-	if (dloc == NULL || dloc->file == NULL)
-		return false;
-
-	/* can read file? */
-	if (access(dloc->file->name, R_OK) < 0)
-		return false;
-
-	if (editor == NULL)
-		editor = "vi";
-
-	endwin();
-
-	strv_split(&editor_strv, editor, " ");
-	if (!strncmp(editor, "vi", 2) || !strncmp(editor, "emacs", 5)) {
-		char buf[16];
-
-		/* run 'vi +line file' */
-		snprintf(buf, sizeof(buf), "+%d", dloc->line);
-		strv_append(&editor_strv, buf);
-		strv_append(&editor_strv, dloc->file->name);
-	}
-	else {
-		/* I don't know what to do */
-		strv_append(&editor_strv, dloc->file->name);
-	}
 
 	pid = fork();
 	if (pid < 0) {
@@ -2219,17 +2186,73 @@ static bool tui_window_open_editor(struct tui_window *win)
 	}
 
 	if (pid == 0) {
-		execvp(editor_strv.p[0], editor_strv.p);
+		execvp(strv->p[0], strv->p);
 		exit(1);
 	}
 
-	strv_free(&editor_strv);
+	strv_free(strv);
 
 	do {
 		/* can return early by signal (e.g. SIGWINCH) */
 		ret = waitpid(pid, &status, 0);
 	}
 	while (ret < 0 && errno == EINTR);
+}
+
+static bool tui_window_open_editor(struct tui_window *win, const char *name)
+{
+	struct debug_location *dloc;
+	const char *editor = getenv("EDITOR");
+	struct strv editor_strv;
+	bool try_ctags = false;
+
+	if (win->ops->location == NULL)
+		return false;
+
+	if (editor == NULL)
+		editor = "vi";
+
+	dloc = win->ops->location(win, win->curr);
+	if (dloc == NULL || dloc->file == NULL ||
+	    access(dloc->file->name, R_OK) < 0)
+		try_ctags = true;
+
+	strv_split(&editor_strv, editor, " ");
+	if (try_ctags) {
+		/* file open using ctags */
+		const char *tagname;
+		char *cmd;
+
+		/* TODO: support emacs */
+		if (strncmp(editor, "vi", 2))
+			return false;
+
+		/* discard namespace and class fields from symbol name */
+		tagname = strrstr(name, "::");
+		tagname = tagname ? tagname + 2 : name;
+
+		/* run 'vi -t tagname' */
+		xasprintf(&cmd, "-t %s", tagname);
+		strv_append(&editor_strv, cmd);
+		free(cmd);
+	}
+	else if (!strncmp(editor, "vi", 2) || !strncmp(editor, "emacs", 5)) {
+		/* file open using exact debug line info */
+		char buf[16];
+
+		/* run 'vi +line file' */
+		snprintf(buf, sizeof(buf), "+%d", dloc->line);
+		strv_append(&editor_strv, buf);
+		strv_append(&editor_strv, dloc->file->name);
+	}
+	else {
+		/* I don't know what to do */
+		return false;
+	}
+
+	endwin();
+
+	run_child_process(&editor_strv);
 
 	refresh();
 	return true;
@@ -2429,7 +2452,16 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			}
 			break;
 		case 'O':
-			full_redraw = tui_window_open_editor(win);
+			if (win == &graph->win || win == &partial_graph.win) {
+				struct tui_graph_node *curr = win->curr;
+				const char *name = curr->n.name;
+				full_redraw = tui_window_open_editor(win, name);
+			}
+			else if (win == &report->win) {
+				struct tui_report_node *curr = win->curr;
+				const char *name = curr->n.name;
+				full_redraw = tui_window_open_editor(win, name);
+			}
 			break;
 		case 'c':
 			full_redraw = tui_window_collapse(win, false);
