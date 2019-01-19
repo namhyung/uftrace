@@ -31,6 +31,9 @@
 
 static bool kernel_tracing_enabled;
 
+/* tree of executed kernel functions */
+static struct rb_root kfunc_tree = RB_ROOT;
+
 static int prepare_kbuffer(struct uftrace_kernel_reader *kernel, int cpu);
 
 static int
@@ -1351,6 +1354,56 @@ static int next_kbuffer_page(struct uftrace_kernel_reader *kernel, int cpu)
 	return prepare_kbuffer(kernel, cpu);
 }
 
+struct uftrace_kfunc {
+	struct rb_node	node;
+	uint64_t	addr;
+};
+
+static void add_kfunc_addr(struct rb_root *root, uint64_t addr)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct uftrace_kfunc *iter, *kfunc;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_kfunc, node);
+
+		if (iter->addr == addr)
+			return;
+
+		if (iter->addr > addr)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	kfunc = xmalloc(sizeof(*kfunc));
+	kfunc->addr = addr;
+
+	rb_link_node(&kfunc->node, parent, p);
+	rb_insert_color(&kfunc->node, root);
+}
+
+static bool find_kfunc_addr(struct rb_root *root, uint64_t addr)
+{
+	struct rb_node *node = root->rb_node;
+	struct uftrace_kfunc *iter;
+
+	while (node) {
+		iter = rb_entry(node, struct uftrace_kfunc, node);
+
+		if (iter->addr == addr)
+			return true;
+
+		if (iter->addr > addr)
+			node = node->rb_left;
+		else
+			node = node->rb_right;
+	}
+	return false;
+}
+
 static int
 funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 			struct event_format *event, void *context)
@@ -1539,6 +1592,8 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			/* it needs to wait until matching exit found */
 			add_to_rstack_list(rstack_list, curr, NULL);
 
+			add_kfunc_addr(&kfunc_tree, real_addr);
+
 			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
 				struct time_filter_stack *tfs;
 
@@ -1560,6 +1615,9 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			uint64_t delta;
 			int count;
 			bool filtered = false;
+
+			if (!find_kfunc_addr(&kfunc_tree, real_addr))
+				continue;
 
 			if (task->filter.time) {
 				struct time_filter_stack *tfs;
