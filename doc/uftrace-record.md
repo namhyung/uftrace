@@ -135,7 +135,7 @@ COMMON OPTIONS
 :   Disable event recording which is used by default.  Note that explicit event
     tracing by `--event` option is not affected by this.
 
---match=*TYPE*
+\--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
 
@@ -198,8 +198,8 @@ filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
 `-N`/`--notrace`.  These filters can be applied either at record time or
 replay time.
 
-The first one is an opt-in filter. By default, it doesn't trace anything. But
-when one of the specified functions is executed, tracing is started. When the
+The first one is an opt-in filter. By default, it doesn't trace anything.  But
+when one of the specified functions is executed, tracing is started.  When the
 function returns, tracing is stopped again.
 
 For example, consider a simple program which calls `a()`, `b()` and `c()` in turn.
@@ -226,7 +226,8 @@ For example, consider a simple program which calls `a()`, `b()` and `c()` in tur
 
 Normally uftrace will trace all the functions from `main()` to `c()`.
 
-    $ uftrace ./abc
+    $ uftrace record ./abc
+    $ uftrace replay
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
@@ -341,7 +342,7 @@ TRIGGERS
 ========
 The uftrace tool supports triggering actions on selected function calls (with or
 without filters) and/or signals.  Currently supported triggers are listed below.
-The BNF for trigger specification is:
+The BNF for trigger specification is as follows:
 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
@@ -375,16 +376,11 @@ The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on`
 and `trace_off`) control whether uftrace records the specified functions or not.
 
 The 'recover' trigger is for some corner cases in which the process accesses the
-callstack directly.  During tracing of the v8 javascript engine, for example, it
-kept getting segfaults in the garbage collection stage.  It was because v8
-incorporates the return address into compiled code objects(?).  The `recover`
-trigger restores the original return address at the function entry point and
-resets to the uftrace return hook address again at function exit.  I was managed
-to work around the segfault by setting the `recover` trigger on the related
-function (specifically `ExitFrame::Iterate`).
+callstack directly.  For now it's not necessary to call it as uftrace does the
+job automatically.
 
 The 'time' trigger is to change time filter setting during execution of the
-function.  It can be used to apply differernt time filter for different functions.
+function.  It can be used to apply different time filter for different functions.
 
 The `read` trigger is to read some information at runtime.  The result will be
 recorded as (builtin) events at the beginning and the end of a given function.
@@ -409,7 +405,7 @@ The results are printed as events (comments) like below.
        1.448 us [ 1234] |         getpid();
       10.270 us [ 1234] |       } /* c */
       11.250 us [ 1234] |     } /* b */
-                [ 1234] |     /* read2:proc/statm (size=+4KB, rss=+0KB, shared=+0KB) */
+                [ 1234] |     /* diff:proc/statm (size=+4KB, rss=+0KB, shared=+0KB) */
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 
