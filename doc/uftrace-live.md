@@ -20,12 +20,8 @@ commands in turn, but it does not save a data file.  This command accepts most
 options that are accepted by the record or replay commands.
 
 
-OPTIONS
-=======
--b *SIZE*, \--buffer=*SIZE*
-:   Size of internal buffer in which trace data will be saved.  Default size is
-    128k.
-
+COMMON OPTIONS
+==============
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more
     than once.  See *FILTERS*.
@@ -50,6 +46,35 @@ OPTIONS
     explicitly have 'trace' trigger, those are always traced regardless of
     execution time.
 
+\--no-libcall
+:   Do not record library function invocations.  Library calls are normally
+    traced by hooking the dynamic linker's resolve function in the PLT.  One can
+    disable it with this option.
+
+\--no-event
+:   Disable event recording which is used by default.  Note that explicit event
+    tracing by \--event option is not affected by this.
+
+\--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
+    Default is `regex`.
+
+\--disable
+:   Start uftrace with tracing disabled.  This is only meaningful when used with
+    a `trace_on` trigger.
+
+
+LIVE OPTIONS
+============
+\--list-event
+:   Show available events in the process.
+
+\--report
+:   Show live-report before replay.
+
+
+RECORD OPTIONS
+==============
 -A *SPEC*, \--argument=*SPEC*
 :   Record function arguments.  This option can be used more than once.
     See *ARGUMENTS*.
@@ -58,25 +83,46 @@ OPTIONS
 :   Record function return value.  This option can be used more than once.
     See *ARGUMENTS*.
 
+-P *FUNC*, \--patch=*FUNC*
+:   Patch FUNC dynamically.  This is only applicable binaries built by
+    gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
+    This option can be used more than once.  See *DYNAMIC TRACING*.
+
+-E *EVENT*, \--event=*EVENT*
+:   Enable event tracing.  The event should be available on the system.
+
+-S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+:   Add a script to do additional work at the entry and exit of function.
+    The type of script is detected by the postfix such as '.py' for python.
+
+-W, \--watch=*POINT*
+:   Add watch point to display POINT if the value is changed.  See *WATCH POINT*.
+
 -a, \--auto-args
 :   Automatically record arguments and return values of known functions.
     These are usually functions in standard (C language or system) libraries
     but if debug info is available it includes functions in the user program.
 
--f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: duration, tid, time,
-    delta, elapsed and addr.  Multiple fields can be set by using comma.
-    Special field of 'none' can be used (solely) to hide all fields.
-    Default is 'duration,tid'.  See *FIELDS*.
+-l, \--nest-libcall
+:   Trace function calls between libraries.  By default, uftrace only record
+    library call from the main executable.  Implies \--force.
 
--r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
-    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  However, it is
-    highly recommended to use only elapsed time because there is no way to know
-    the timestamp before actually running the program.  The timestamp or elapsed
-    time can be shown with `-f time` or `-f elapsed` option respectively.
+-k, \--kernel
+:   Trace kernel functions as well as user functions.  This is simply a shortcut
+    to `--kernel-depth=1`.
+
+-K *DEPTH*, \--kernel-depth=*DEPTH*
+:   Set kernel max function depth separately.  Implies \--kernel.
+
+\--signal=*TRG*
+:   Set trigger on selected signals rather than functions.  But there are
+    restrictions so only a few of trigger actions are support for signals.
+    The available actions are: traceon, traceoff, finish.
+    This option can be used more than once.  See *TRIGGERS*.
+
+\--nop
+:   Do not record and replay any functions.  This is a no-op and only meaningful
+    for performance comparisons.
 
 \--force
 :   Allow running uftrace even if some problems occur.  When `uftrace record`
@@ -90,21 +136,18 @@ OPTIONS
     This option ignores the warning and goes on tracing without the argument
     and/or return value.
 
-\--flat
-:   Print flat format rather than C-like format.  This is usually for debugging
-    and testing purpose.
 
+RECORD CONFIG OPTIONS
+=====================
 -L *PATH*, \--library-path=*PATH*
 :   Load necessary internal libraries from this path.  This is for testing.
 
--k, \--kernel
-:   Trace kernel functions as well as user functions.  This is simply a shortcut
-    to `--kernel-depth=1`.
+-b *SIZE*, \--buffer=*SIZE*
+:   Size of internal buffer in which trace data will be saved.  Default size is
+    128k.
 
-\--no-libcall
-:   Do not record library function invocations.  Library calls are normally
-    traced by hooking the dynamic linker's resolve function in the PLT.  One can
-    disable it with this option.
+\--kernel-buffer=*SIZE*
+:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
 
 \--no-pltbind
 :   Do not bind dynamic symbol address.  This option uses the `LD_BIND_NOT`
@@ -112,20 +155,41 @@ OPTIONS
     due to concurrent (first) accesses.  It is not meaningful to use this option
     with the \--no-libcall option.
 
--l, \--nest-libcall
-:   Trace function calls between libraries.  By default, uftrace only record
-    library call from the main executable.  Implies \--force.
+\--num-thread=*NUM*
+:   Use NUM threads to record trace data.  Default is 1/4 of online CPUs (but
+    when full kernel tracing is enabled, it will use the full number of CPUs).
 
-\--disable
-:   Start uftrace with tracing disabled.  This is only meaningful when used with
-    a `trace_on` trigger.
+\--libmcount-single
+:   Use single thread version of libmcount for faster recording.  This is
+    ignored if the target program calls `pthread_create()`.
 
-\--demangle=*TYPE*
-:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".
-    Default is "simple" which ignores function arguments and template parameters.
+\--rt-prio=*PRIO*
+:   Boost priority of recording threads to real-time (FIFO) with priority of
+    *PRIO*.  This is particularly useful for high-volume data such as full
+    kernel tracing.
 
-\--report
-:   Show live-report before replay.
+\--keep-pid
+:   Retain same pid for traced program.  For some daemon processes, it is
+    important to have same pid when forked.  Running under uftrace normally
+    changes pid as it calls fork() again internally.  Note that it might corrupt
+    terminal setting so it'd be better using it with \--no-pager option.
+
+\--no-randomize-addr
+:   Disable ASLR (Address Space Layout Randomization).  It makes the target
+    process fix its address space layout.
+
+
+REPLAY OPTIONS
+==============
+-f *FIELD*, \--output-fields=*FIELD*
+:   Customize field in the output.  Possible values are: duration, tid, time,
+    delta, elapsed and addr.  Multiple fields can be set by using comma.
+    Special field of 'none' can be used (solely) to hide all fields.
+    Default is 'duration,tid'.  See *FIELDS*.
+
+\--flat
+:   Print flat format rather than C-like format.  This is usually for debugging
+    and testing purpose.
 
 \--column-view
 :   Show each task in separate column.  This makes easy to distinguish functions
@@ -139,81 +203,36 @@ OPTIONS
 :   Interleave a new line when task is changed.  This makes easy to distinguish
     functions in different tasks.
 
-\--num-thread=*NUM*
-:   Use NUM threads to record trace data.  Default is 1/4 of online CPUs (but
-    when full kernel tracing is enabled, it will use the full number of CPUs).
-
 \--no-comment
 :   Do not show comments of returned functions.
 
-\--libmcount-single
-:   Use single thread version of libmcount for faster recording.  This is
-    ignored if the target program calls `pthread_create()`.
+\--libname
+:   Show library name along with function name.
 
-\--rt-prio=*PRIO*
-:   Boost priority of recording threads to real-time (FIFO) with priority of
-    *PRIO*.  This is particularly useful for high-volume data such as full
-    kernel tracing.
 
--K *DEPTH*, \--kernel-depth=*DEPTH*
-:   Set kernel max function depth separately.  Implies \--kernel.
-
-\--kernel-buffer=*SIZE*
-:   Set kernel tracing buffer size.  The default value (in the kernel) is 1408k.
-
+COMMON ANALYSIS OPTIONS
+=======================
 \--kernel-full
 :   Show all kernel functions called outside of user functions.
 
 \--kernel-only
 :   Show kernel functions only without user functions.
 
--P *FUNC*, \--patch=*FUNC*
-:   Patch FUNC dynamically.  This is only applicable binaries built by
-    gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
-    This option can be used more than once.  See *DYNAMIC TRACING*.
-
--E *EVENT*, \--event=*EVENT*
-:   Enable event tracing.  The event should be available on the system.
-
-\--list-event
-:   Show available events in the process.
-
 \--event-full
 :   Show all (user) events outside of user functions.
 
-\--no-event
-:   Disable event recording which is used by default.  Note that explicit event
-    tracing by \--event option is not affected by this.
+\--demangle=*TYPE*
+:   Demangle C++ symbol names.  Possible values are "full", "simple" and "no".
+    Default is "simple" which ignores function arguments and template parameters.
 
-\--keep-pid
-:   Retain same pid for traced program.  For some daemon processes, it is
-    important to have same pid when forked.  Running under uftrace normally
-    changes pid as it calls fork() again internally.  Note that it might corrupt
-    terminal setting so it'd be better using it with \--no-pager option.
-
--S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Add a script to do additional work at the entry and exit of function.
-    The type of script is detected by the postfix such as '.py' for python.
-
-\--libname
-:   Show library name along with function name.
-
-\--match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
-
-\--no-randomize-addr
-:   Disable ASLR (Address Space Layout Randomization).  It makes the target
-    process fix its address space layout.
-
--W, \--watch=*POINT*
-:   Add watch point to display POINT if the value is changed.  See *WATCH POINT*.
-
-\--signal=*TRG*
-:   Set trigger on selected signals rather than functions.  But there are
-    restrictions so only a few of trigger actions are support for signals.
-    The available actions are: traceon, traceoff, finish.
-    This option can be used more than once.  See *TRIGGERS*.
+-r *RANGE*, \--time-range=*RANGE*
+:   Only show functions executed within the time RANGE.  The RANGE can be
+    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
+    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
+    they have \<time_unit\> postfix, for example '100us'.  However, it is
+    highly recommended to use only elapsed time because there is no way to know
+    the timestamp before actually running the program.  The timestamp or elapsed
+    time can be shown with `-f time` or `-f elapsed` option respectively.
 
 
 FILTERS
@@ -360,8 +379,13 @@ The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on` and
 `trace_off`) control whether uftrace records the specified functions or not.
 
 The 'recover' trigger is for some corner cases in which the process accesses the
-callstack directly.  For now it's not necessary to call it as uftrace does the
-job automatically.
+callstack directly.  During tracing of the v8 javascript engine, for example, it
+kept getting segfaults in the garbage collection stage.  It was because v8
+incorporates the return address into compiled code objects(?).  The `recover`
+trigger restores the original return address at the function entry point and
+resets to the uftrace return hook address again at function exit.  I was managed
+to work around the segfault by setting the `recover` trigger on the related
+function (specifically `ExitFrame::Iterate`).
 
 The 'time' trigger is to change time filter setting during execution of the
 function.  It can be used to apply different time filter for different functions.
