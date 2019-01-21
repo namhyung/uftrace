@@ -18,63 +18,17 @@ This command prints trace data recorded using the `uftrace-record`(1) command.
 The traced functions are printed like a C program in time order.
 
 
-OPTIONS
-=======
-\--flat
-:   Print flat format rather than C-like format.  This is usually for debugging
-    and testing purpose.
-
--F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See *FILTERS*.
-
--N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.  See *FILTERS*.
-
--T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.
-    See *TRIGGERS*.
-
--C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See *FILTERS*.
-
--D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.  See *FILTERS*.
-
--t *TIME*, \--time-filter=*TIME*
-:   Do not show functions which run under the time threshold.  If some functions
-    explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.  See *FILTERS*.
-
-\--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
-    `uftrace info`.  This option can also be used more than once.
-
+REPLAY OPTIONS
+==============
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: duration, tid, addr,
     time, delta, elapsed, task and module.  Multiple fields can be set by using
     comma.  Special field of 'none' can be used (solely) to hide all fields.
     Default is 'duration,tid'.  See *FIELDS*.
 
--r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
-    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
-    See *FILTERS*.
-
-\--disable
-:   Start uftrace with tracing disabled.  This is only meaningful when used with
-    a `trace_on` trigger.
-
-\--demangle=*TYPE*
-:   Use demangled C++ symbol names for filters, triggers, arguments and/or
-    return values.  Possible values are "full", "simple" and "no".  Default is
-    "simple" which ignores function arguments and template parameters.
+\--flat
+:   Print flat format rather than C-like format.  This is usually for debugging
+    and testing purpose.
 
 \--column-view
 :   Show each task in separate column.  This makes easy to distinguish functions
@@ -91,20 +45,55 @@ OPTIONS
 \--no-comment
 :   Do not show comments of returned functions.
 
--k, \--kernel
-:   Trace kernel functions (and events) as well as user functions (and events).
-    This options has no meaning and so is deprecated now.  It will always show
-    kernel functions and events if exists.  If you want to hide kernel
-    functions, please use `-N .@kernel` to filter out all kernel functions
-    (for the regex match).
+\--libname
+:   Show libname name along with function name.
 
+
+COMMON OPTIONS
+==============
+-F *FUNC*, \--filter=*FUNC*
+:   Set filter to trace selected functions only.  This option can be used more
+    than once.  See *FILTERS*.
+
+-N *FUNC*, \--notrace=*FUNC*
+:   Set filter not to trace selected functions (or the functions called
+    underneath them).  This option can be used more than once.  See *FILTERS*.
+
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See *FILTERS*.
+
+-T *TRG*, \--trigger=*TRG*
+:   Set trigger on selected functions.  This option can be used more than once.
+    See *TRIGGERS*.
+
+-D *DEPTH*, \--depth *DEPTH*
+:   Set trace limit in nesting level.  See *FILTERS*.
+
+-t *TIME*, \--time-filter=*TIME*
+:   Do not show functions which run under the time threshold.  If some functions
+    explicitly have the 'trace' trigger applied, those are always traced
+    regardless of execution time.  See *FILTERS*.
+
+\--no-libcall
+:   Do not show library calls.
+
+\--no-event
+:   Do not show any events.
+
+\--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
+    Default is `regex`.
+
+\--disable
+:   Start replay with tracing disabled.  This is only meaningful when used with
+    a `trace_on` trigger.
+
+
+COMMON ANALYSIS OPTIONS
+=======================
 \--kernel-full
 :   Show all kernel functions and events occurred outside of user functions.
-    This option is the inverse of `--kernel-skip-out`.
-
-\--kernel-skip-out
-:   Do not show kernel functions called outside of user functions.  This option
-    is deprecated and set to true by default.
 
 \--kernel-only
 :   Show kernel functions only without user functions.
@@ -112,18 +101,23 @@ OPTIONS
 \--event-full
 :   Show all (user) events outside of user functions.
 
-\--no-event
-:   Do not show any events.
+\--tid=*TID*[,*TID*,...]
+:   Only print functions called by the given threads.  To see the list of
+    threads in the data file, you can use `uftrace report --threads` or
+    `uftrace info`.  This option can also be used more than once.
 
-\--no-libcall
-:   Do not show library calls.
+\--demangle=*TYPE*
+:   Use demangled C++ symbol names for filters, triggers, arguments and/or
+    return values.  Possible values are "full", "simple" and "no".  Default is
+    "simple" which ignores function arguments and template parameters.
 
-\--libname
-:   Show libname name along with function name.
-
-\--match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
+-r *RANGE*, \--time-range=*RANGE*
+:   Only show functions executed within the time RANGE.  The RANGE can be
+    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
+    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
+    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
+    elapsed time can be shown with `-f time` or `-f elapsed` option respectively.
+    See *FILTERS*.
 
 
 FILTERS

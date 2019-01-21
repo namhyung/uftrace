@@ -17,8 +17,20 @@ DESCRIPTION
 This command runs a script for trace data recorded using the `uftrace-record`(1) command.
 
 
-OPTIONS
-=======
+SCRIPT OPTIONS
+==============
+-S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
+:   Run a given script to do additional work at the entry and exit of function
+    while processing recorded trace data.
+    The type of script is detected by the postfix such as '.py' for python.
+    See *SCRIPT EXECUTION*.
+
+\--record COMMAND [*command-options*]
+:   Record a new trace before running a given script.
+
+
+COMMON OPTIONS
+==============
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more
     than once.  See 'uftrace-replay' for details.
@@ -28,46 +40,59 @@ OPTIONS
     underneath them).  This option can be used more than once.  See
     `uftrace-replay` for details.
 
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.
     See 'uftrace-replay' for details.
+
+-D *DEPTH*, \--depth *DEPTH*
+:   Set trace limit in nesting level.
 
 -t *TIME*, \--time-filter=*TIME*
 :   Do not run script for functions which run under the time threshold.  If some
     functions explicitly have the 'trace' trigger applied, those are always
     traced regardless of execution time.
 
-\--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
-    `uftrace info`.  This option can also be used more than once.
-
--D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
-
--r *RANGE*, \--time-range=*RANGE*
-:   Only run script for functions executed within the time RANGE.  The RANGE can
-    be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\>
-    can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.
-
--S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Add a script to do additional work at the entry and exit of function.
-    The type of script is detected by the postfix such as '.py' for python.
-
-\--record COMMAND [*command-options*]
-:   Record a new trace before running a given script.
+\--no-libcall
+:   Do not run script for library calls.
 
 \--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
 
-\--no-libcall
-:   Do not run script for library calls.
+
+COMMON ANALYSIS OPTIONS
+=======================
+\--kernel-full
+:   Run script all kernel functions and events occurred outside of user functions.
+
+\--kernel-only
+:   Run script kernel functions only without user functions.
+
+\--tid=*TID*[,*TID*,...]
+:   Run script only for functions called by the given threads.  To see the list of
+    threads in the data file, you can use `uftrace report --threads` or
+    `uftrace info`.  This option can also be used more than once.
+
+\--demangle=*TYPE*
+:   Use demangled C++ symbol names for filters, triggers, arguments and/or
+    return values.  Possible values are "full", "simple" and "no".  Default is
+    "simple" which ignores function arguments and template parameters.
+
+-r *RANGE*, \--time-range=*RANGE*
+:   Run script only for functions executed within the time RANGE.  The RANGE can
+    be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\>
+    can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
+    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
+    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
+    in `uftrace replay`(1).
 
 
-EXAMPLES
-========
+SCRIPT EXECUTION
+================
 The uftrace tool supports script execution for each function entry and exit.
 The supported script is only Python 2.7 as of now.
 

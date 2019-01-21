@@ -20,8 +20,17 @@ result easily with key presses.  The command line options are used to limit
 the initial data loading.
 
 
-OPTIONS
-=======
+TUI OPTIONS
+===========
+-f *FIELD*, \--output-fields=*FIELD*
+:   Customize field in the output.  Possible values are: total, self and addr.
+    Multiple fields can be set by using comma.  Special field of 'none' can be
+    used (solely) to hide all fields.  Default is 'total'.
+    See `uftrace-graph`(1) for an explanation of fields.
+
+
+COMMON OPTIONS
+==============
 -F *FUNC*, \--filter=*FUNC*
 :   Set filter to trace selected functions only.  This option can be used more
     than once.  See `uftrace-replay`(1) for an explanation of filters.
@@ -31,45 +40,61 @@ OPTIONS
     underneath them).  This option can be used more than once.  See
     `uftrace-replay`(1) for an explanation of filters.
 
+-C *FUNC*, \--caller-filter=*FUNC*
+:   Set filter to trace callers of selected functions only.  This option can be
+    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of triggers.
+
+-D *DEPTH*, \--depth *DEPTH*
+:   Set trace limit in nesting level.
 
 -t *TIME*, \--time-filter=*TIME*
 :   Do not show functions which run under the time threshold.  If some functions
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.
 
+\--no-libcall
+:   Do not show library calls.
+
+\--no-event
+:   Do not show any events.
+
+\--match=*TYPE*
+:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
+    Default is `regex`.
+
+
+COMMON ANALYSIS OPTIONS
+=======================
+\--kernel-full
+:   Show all kernel functions called outside of user functions.
+
+\--kernel-only
+:   Show kernel functions only without user functions.
+
+\--event-full
+:   Show all (user) events outside of user functions.
+
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of
     threads in the data file, you can use `uftrace report --threads` or
     `uftrace info`.  This option can also be used more than once.
-
--D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
-
--r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\>
-    can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time
-    if they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
-    in `uftrace replay`(1).
 
 \--demangle=*TYPE*
 :   Use demangled C++ symbol names for filters, triggers, arguments and/or
     return values.  Possible values are "full", "simple" and "no".  Default is
     "simple" which ignores function arguments and template parameters.
 
---match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
-
-\--no-event
-:   Do not show any events.
-
-\--no-libcall
-:   Do not show library calls.
+-r *RANGE*, \--time-range=*RANGE*
+:   Only show functions executed within the time RANGE.  The RANGE can be
+    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
+    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
+    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
+    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
+    in `uftrace replay`(1).
 
 
 OUTLINE
