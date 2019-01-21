@@ -1440,6 +1440,58 @@ class: code-24px
        0.197 us [117990] |   foo();
       22.654 us [117990] | } = 0; /* main */
 ```
+---
+name: dwarf-args-clang
+class: code-11px
+<pre><code>$ uftrace replay --tid 179275 -t 5ms
+\# DURATION     TID     FUNCTION
+            [179275] | main(52, 0x7ffe180f20d8) {
+            [179275] |   cc1_main(0x7ffe180f17c0, 0x7ffe180f403f, <x-cyan>&GetExecutablePath::cxx11</x-cyan>) {
+            [179275] |     clang::CompilerInvocation::CreateFromArgs(0x15ec5be0, 0x7ffe180f17c0, 0x7ffe180f1950, 0x7ffe180f04c0) {
+            [179275] |       clang::driver::createDriverOptTable() {
+   5.356 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::OptTable(0x15ec7b70, <x-cyan>&InfoTable</x-cyan>, 0);
+   6.919 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"-std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+   6.860 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"--std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+  19.213 <x-green>ms</x-green> [179275] |       } = 0x7ffe180eff70; /\* clang::driver::createDriverOptTable \*/
+  23.958 <x-green>ms</x-green> [179275] |     } = 1; /\* clang::CompilerInvocation::CreateFromArgs \*/
+            [179275] |     clang::ExecuteCompilerInvocation(0x15ec3850) {
+            [179275] |       clang::CompilerInstance::ExecuteAction(0x15ec3850, 0x15eed930) {
+            [179275] |         clang::FrontendAction::BeginSourceFile(0x15eed930, 0x15ec3850, 0x15eec700) {
+   5.804 <x-green>ms</x-green> [179275] |           clang::CompilerInstance::createPreprocessor(0x15ec3850, <x-blue>TU_Complete</x-blue>);
+  13.783 <x-green>ms</x-green> [179275] |           clang::Builtin::Context::initializeBuiltins(0x15ec9288, 0x15ec91f8, 0x15ec39d0);
+  20.387 <x-green>ms</x-green> [179275] |         } = 1; /\* clang::FrontendAction::BeginSourceFile \*/
+            [179275] |         clang::FrontendAction::Execute(0x15eed930) {
+            [179275] |           clang::CodeGenAction::ExecuteAction(0x15eed930) {
+            [179275] |             clang::ASTFrontendAction::ExecuteAction(0x15eed930) {
+            [179275] |               clang::ParseAST(0x15f45240, 0, 0) {
+            [179275] |                 clang::Parser::Initialize(0x15f4c1d0) {
+  45.142 <x-green>ms</x-green> [179275] |                   clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+  45.593 <x-green>ms</x-green> [179275] |                 } /\* clang::Parser::Initialize \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+   6.473 <x-green>ms</x-green> [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+   6.475 <x-green>ms</x-green> [179275] |                           } /\* clang::Parser::ExpectAndConsumeSemi \*/
+   6.592 <x-green>ms</x-green> [179275] |                         } = 0x15f99e88; /\* clang::Parser::ParseDeclGroup \*/
+   6.660 <x-green>ms</x-green> [179275] |                       } = 0x15f99e88; /\* clang::Parser::ParseSimpleDeclaration \*/
+   6.662 <x-green>ms</x-green> [179275] |                     } = 0x15f99e88; /\* clang::Parser::ParseDeclaration \*/
+   6.663 <x-green>ms</x-green> [179275] |                   } = 0x15f99e88; /\* clang::Parser::ParseExternalDeclaration \*/
+   6.664 <x-green>ms</x-green> [179275] |                 } = 0; /\* clang::Parser::ParseTopLevelDecl \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+            [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                               clang::Preprocessor::CachingLex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                 clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                   clang::Lexer::Lex(0x15f8b290, 0x15f4c1e0) {
+            [179275] |                                     clang::Lexer::LexTokenInternal(0x15f8b290, 0x15f4c1e0, 1) {
+</code><pre>
 
 ---
 name: report
