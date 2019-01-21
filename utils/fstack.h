@@ -36,6 +36,7 @@ struct uftrace_task_reader {
 	bool valid;
 	bool done;
 	bool lost_seen;
+	bool sched_out_seen;
 	bool fork_handled;
 	bool fstack_set;
 	bool display_depth_set;
@@ -57,6 +58,7 @@ struct uftrace_task_reader {
 	int fork_display_depth;
 	int column_index;
 	int event_color;
+	int sched_cpu;
 	enum context ctx;
 	uint64_t timestamp;
 	uint64_t timestamp_last;

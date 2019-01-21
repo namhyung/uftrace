@@ -586,7 +586,7 @@ void fstack_exit(struct uftrace_task_reader *task)
 	fstack = &task->func_stack[task->stack_count];
 
 	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
-		task->tid, task->stack_count, fstack->orig_depth, task->display_depth,
+		task->tid, task->stack_count, task->rstack->depth, task->display_depth,
 		task->filter.in_count, task->filter.out_count, task->filter.depth,
 		fstack->flags);
 
@@ -611,8 +611,6 @@ void fstack_exit(struct uftrace_task_reader *task)
 int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack)
 {
-	struct uftrace_session *sess = task->h->sessions.first;
-
 	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
@@ -630,10 +628,8 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		}
 		else {
 			task->display_depth++;
-			if (!is_kernel_address(&sess->symtabs,
-					       fstack->addr)) {
+			if (task->ctx == FSTACK_CTX_USER)
 				task->user_display_depth++;
-			}
 		}
 
 		fstack->flags &= ~(FSTACK_FL_EXEC | FSTACK_FL_LONGJMP);
@@ -650,8 +646,7 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		else
 			task->display_depth = 0;
 
-		if (!is_kernel_address(&sess->symtabs,
-				       fstack->addr)) {
+		if (task->ctx == FSTACK_CTX_USER) {
 			if (task->user_display_depth > 0)
 				task->user_display_depth--;
 			else
@@ -1637,15 +1632,15 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 	switch (orig->addr) {
 	case EVENT_ID_PERF_SCHED_IN:
 	case EVENT_ID_PERF_SCHED_OUT:
-		/* ignore early schedule events before main routine */
-		if (!task->fstack_set)
-			return false;
-
-		/* fall-through */
-		if (orig->addr == EVENT_ID_PERF_SCHED_OUT)
+		if (orig->addr == EVENT_ID_PERF_SCHED_OUT) {
 			dummy->type = UFTRACE_ENTRY;
-		else
+			task->sched_out_seen = true;
+			task->sched_cpu = task->h->last_perf_idx;
+		}
+		else {
 			dummy->type = UFTRACE_EXIT;
+			task->sched_out_seen = false;
+		}
 
 		dummy->time  = orig->time;
 		dummy->magic = RECORD_MAGIC;
@@ -1750,7 +1745,7 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 
 	if (task->ctx == FSTACK_CTX_KERNEL && !is_kernel_func) {
 		/* protect from broken kernel records */
-		if (rstack->type != UFTRACE_LOST) {
+		if (rstack->type != UFTRACE_LOST && rstack != &dummy_rec) {
 			task->stack_count = task->user_stack_count;
 			task->filter.depth = task->h->depth - task->stack_count;
 		}
@@ -1978,6 +1973,38 @@ void fstack_consume(struct uftrace_data *handle,
 	__fstack_consume(task, kernel, cpu);
 }
 
+static bool peek_perf_data(struct uftrace_task_reader *task)
+{
+	struct uftrace_data *handle = task->h;
+	struct uftrace_perf_reader *perf = NULL;
+
+	read_perf_data(handle);
+	perf = &handle->perf[task->sched_cpu];
+
+	if (perf->tid != task->tid)
+		return false;
+
+	if (perf->type != PERF_RECORD_SWITCH || perf->u.ctxsw.out)
+		return false;
+
+	return true;
+}
+
+static bool peek_event_rstack(struct uftrace_task_reader *task)
+{
+	struct uftrace_record *rec;
+
+	rec = get_first_rstack_list(&task->event_list);
+
+	if (rec->type != UFTRACE_EVENT)
+		return false;
+
+	if (rec->addr != EVENT_ID_PERF_SCHED_IN)
+		return false;
+
+	return true;
+}
+
 static int __read_rstack(struct uftrace_data *handle,
 			 struct uftrace_task_reader **taskp,
 			 bool consume)
@@ -2017,7 +2044,7 @@ static int __read_rstack(struct uftrace_data *handle,
 		}
 	}
 
-	if (has_perf_data(handle)) {
+	if (has_perf_data(handle) && !handle->time_filter) {
 		p = read_perf_data(handle);
 		perf = &handle->perf[p];
 
@@ -2052,6 +2079,25 @@ static int __read_rstack(struct uftrace_data *handle,
 	case KERNEL:
 		ktask->rstack = get_kernel_record(kernel, ktask, k);
 		task = ktask;
+
+		/*
+		 * deep kernel trace includes 'schedule' function which
+		 * mixed with perf sched event.  since depth of in/out event
+		 * differs, consume sched in early with same depth.
+		 */
+		if (unlikely(task->sched_out_seen)) {
+			if (has_perf_data(handle) && !handle->time_filter &&
+			    peek_perf_data(task)) {
+				perf = &handle->perf[task->sched_cpu];
+				task->rstack = get_perf_record(handle, perf);
+				task->rstack->time = min_timestamp - 1;
+			}
+			else if (has_event_data(handle) && handle->time_filter &&
+				 peek_event_rstack(task)) {
+				task->rstack = &task->estack;
+				task->rstack->time = min_timestamp - 1;
+			}
+		}
 		break;
 
 	case PERF:

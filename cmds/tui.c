@@ -398,20 +398,20 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	char *name;
 	uint64_t addr = rec->addr;
 
-	tg = graph_get_task(task, sizeof(*tg));
-	graph = get_graph(task, rec->time, rec->addr);
-
-	if (tg->node == NULL || tg->graph != graph)
-		tg->node = &graph->root;
-
-	tg->graph = graph;
-
 	if (is_kernel_record(task, rec)) {
 		struct uftrace_session *fsess;
 
 		fsess = task->h->sessions.first;
 		addr = get_kernel_address(&fsess->symtabs, addr);
 	}
+
+	tg = graph_get_task(task, sizeof(*tg));
+	graph = get_graph(task, rec->time, addr);
+
+	if (tg->node == NULL || tg->graph != graph)
+		tg->node = &graph->root;
+
+	tg->graph = graph;
 
 	if (rec->type == UFTRACE_ENTRY || rec->type == UFTRACE_EXIT) {
 		sym = task_find_sym_addr(&task->h->sessions,
