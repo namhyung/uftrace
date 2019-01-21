@@ -197,6 +197,7 @@ name: toc
 - Advanced Topics
   - [(Python) Scripting](#python)
   - [Dynamic Tracing](#dynamic-tracing)
+  - [Triggers for Trace Control](#trace-control)
 
 ---
 ### uftrace
@@ -3430,6 +3431,133 @@ template: title-layout
      3.893 us [156072] |     } /* b */
      4.504 us [156072] |   } /* a */
      5.633 us [156072] | } /* main */
+```
+
+---
+name: trace-control
+template: title-layout
+# Triggers
+### Trace Control with "trace_on" / "trace_off" / "finish"
+.footnote[[doc/uftrace-record.md#triggers](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#triggers)]
+
+---
+class: code-24px
+### Trace Control Triggers
+<pre><code>
+    $ gcc -pg -g [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
+</code><pre>
+```
+    $ uftrace -a a.out
+    # DURATION     TID     FUNCTION
+                [ 17249] | main(1, 0x7fffdc926f98) {
+       0.290 us [ 17249] |   foo() = 0;
+       2.093 us [ 17249] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17249] |   raise(SIGUSR1) {
+                [ 17249] |     sighandler(10) {
+       0.257 us [ 17249] |       bar(10);
+       1.447 us [ 17249] |     } /* sighandler */
+      12.186 us [ 17249] |   } = 0; /* raise */
+       0.183 us [ 17249] |   foo() = 10;
+      19.990 us [ 17249] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (--disable)
+.footnote[.red[--disable] starts uftrace with tracing disabled]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--disable` a.out
+    WARN: cannot open record data: ... : No data available
+```
+---
+class: code-24px
+### Trace Control Triggers (trace_on)
+.footnote[.red[trace_on] trigger enables uftrace to start tracing]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `-T foo@trace_on` a.out
+    # DURATION     TID     FUNCTION
+       0.316 us [ 17381] |   `foo`() = 0;
+       2.760 us [ 17381] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17381] |   raise(SIGUSR1) {
+                [ 17381] |     sighandler(10) {
+       0.230 us [ 17381] |       bar(10);
+       1.524 us [ 17381] |     } /* sighandler */
+      13.487 us [ 17381] |   } = 0; /* raise */
+       0.183 us [ 17381] |   foo() = 10;
+      21.310 us [ 17381] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (finish)
+.footnote[.red[finish] trigger is to end recording]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `-T bar@finish` a.out
+    # DURATION     TID     FUNCTION
+                [ 17407] | main(1, 0x7ffd8aa8a3e8) {
+       0.267 us [ 17407] |   foo() = 0;
+       2.210 us [ 17407] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17407] |   raise(SIGUSR1) {
+                [ 17407] |     sighandler(10) {
+                [ 17407] |       `bar`() {
+                [ 17407] |         /* linux:task-exit */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172407
+    [3] bar
+    [2] sighandler
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--signal SIGUSR1@finish` a.out
+    uftrace: install signal handlers to task 172467
+    # DURATION     TID     FUNCTION
+                [ 17467] | main(1, 0x7ffc5d5e8158) {
+       0.330 us [ 17467] |   foo() = 0;
+       2.113 us [ 17467] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17467] |   raise(`SIGUSR1`) {
+                [ 17467] |     sighandler(10) {
+       0.233 us [ 17467] |       bar(10);
+       1.456 us [ 17467] |     } /* sighandler */
+                [ 17467] |     /* `linux:task-exit` */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172467
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `--signal SIGUSR1@trace_on` a.out
+    uftrace: install signal handlers to task 175678
+    # DURATION     TID     FUNCTION
+                [ 17678] |     } /* sighandler */
+       3.230 us [ 17678] |   } = 0; /* raise */
+       0.217 us [ 17678] |   foo() = 10;
+       5.700 us [ 17678] | } = 0; /* main */
 ```
 
 ---
