@@ -29,7 +29,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s replay -d %s --disable -T "operator new@traceon" -T "malloc@traceoff"' % (TestBase.uftrace_cmd, TDIR)
+        return '%s replay -d %s --disable -T "operator new@trace_on" -T "malloc@trace_off"' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

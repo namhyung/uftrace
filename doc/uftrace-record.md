@@ -77,7 +77,7 @@ RECORD OPTIONS
 \--signal=*TRG*
 :   Set trigger on selected signals rather than functions.  But there are
     restrictions so only a few of trigger actions are support for signals.
-    The available actions are: traceon, traceoff, finish.
+    The available actions are: trace_on, trace_off, finish.
     This option can be used more than once.  See *TRIGGERS*.
 
 \--nop
@@ -372,8 +372,8 @@ is 5, but when function `b()` is called, it is changed to 1, so functions below
 
 The `backtrace` trigger is only meaningful in the replay command.
 
-The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on`
-and `trace_off`) control whether uftrace records the specified functions or not.
+The `trace_on` and `trace_off` actions (the `_` can be omitted as `traceon`
+and `traceoff`) control whether uftrace records the specified functions or not.
 
 The 'recover' trigger is for some corner cases in which the process accesses the
 callstack directly.  For now it's not necessary to call it as uftrace does the

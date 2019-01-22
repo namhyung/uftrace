@@ -313,8 +313,8 @@ The following example shows how triggers work.  We set a filter on function
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
-The `traceon` and `traceoff` actions (the `_` can be omitted from `trace_on`
-and `trace_off`) control whether uftrace shows functions or not.  The trigger
+The `trace_on` and `trace_off` actions (the `_` can be omitted as `traceon`
+and `traceoff`) control whether uftrace shows functions or not.  The trigger
 runs at replay time, not run time, so it can handle kernel functions as well.
 Contrast this with triggers used under `uftrace record`.
 

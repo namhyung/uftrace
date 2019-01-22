@@ -197,6 +197,7 @@ name: toc
 - Advanced Topics
   - [(Python) Scripting](#python)
   - [Dynamic Tracing](#dynamic-tracing)
+  - [Triggers for Trace Control](#trace-control)
 
 ---
 ### uftrace
@@ -1439,6 +1440,58 @@ class: code-24px
        0.197 us [117990] |   foo();
       22.654 us [117990] | } = 0; /* main */
 ```
+---
+name: dwarf-args-clang
+class: code-11px
+<pre><code>$ uftrace replay --tid 179275 -t 5ms
+\# DURATION     TID     FUNCTION
+            [179275] | main(52, 0x7ffe180f20d8) {
+            [179275] |   cc1_main(0x7ffe180f17c0, 0x7ffe180f403f, <x-cyan>&GetExecutablePath::cxx11</x-cyan>) {
+            [179275] |     clang::CompilerInvocation::CreateFromArgs(0x15ec5be0, 0x7ffe180f17c0, 0x7ffe180f1950, 0x7ffe180f04c0) {
+            [179275] |       clang::driver::createDriverOptTable() {
+   5.356 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::OptTable(0x15ec7b70, <x-cyan>&InfoTable</x-cyan>, 0);
+   6.919 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"-std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+   6.860 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"--std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+  19.213 <x-green>ms</x-green> [179275] |       } = 0x7ffe180eff70; /\* clang::driver::createDriverOptTable \*/
+  23.958 <x-green>ms</x-green> [179275] |     } = 1; /\* clang::CompilerInvocation::CreateFromArgs \*/
+            [179275] |     clang::ExecuteCompilerInvocation(0x15ec3850) {
+            [179275] |       clang::CompilerInstance::ExecuteAction(0x15ec3850, 0x15eed930) {
+            [179275] |         clang::FrontendAction::BeginSourceFile(0x15eed930, 0x15ec3850, 0x15eec700) {
+   5.804 <x-green>ms</x-green> [179275] |           clang::CompilerInstance::createPreprocessor(0x15ec3850, <x-blue>TU_Complete</x-blue>);
+  13.783 <x-green>ms</x-green> [179275] |           clang::Builtin::Context::initializeBuiltins(0x15ec9288, 0x15ec91f8, 0x15ec39d0);
+  20.387 <x-green>ms</x-green> [179275] |         } = 1; /\* clang::FrontendAction::BeginSourceFile \*/
+            [179275] |         clang::FrontendAction::Execute(0x15eed930) {
+            [179275] |           clang::CodeGenAction::ExecuteAction(0x15eed930) {
+            [179275] |             clang::ASTFrontendAction::ExecuteAction(0x15eed930) {
+            [179275] |               clang::ParseAST(0x15f45240, 0, 0) {
+            [179275] |                 clang::Parser::Initialize(0x15f4c1d0) {
+  45.142 <x-green>ms</x-green> [179275] |                   clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+  45.593 <x-green>ms</x-green> [179275] |                 } /\* clang::Parser::Initialize \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+   6.473 <x-green>ms</x-green> [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+   6.475 <x-green>ms</x-green> [179275] |                           } /\* clang::Parser::ExpectAndConsumeSemi \*/
+   6.592 <x-green>ms</x-green> [179275] |                         } = 0x15f99e88; /\* clang::Parser::ParseDeclGroup \*/
+   6.660 <x-green>ms</x-green> [179275] |                       } = 0x15f99e88; /\* clang::Parser::ParseSimpleDeclaration \*/
+   6.662 <x-green>ms</x-green> [179275] |                     } = 0x15f99e88; /\* clang::Parser::ParseDeclaration \*/
+   6.663 <x-green>ms</x-green> [179275] |                   } = 0x15f99e88; /\* clang::Parser::ParseExternalDeclaration \*/
+   6.664 <x-green>ms</x-green> [179275] |                 } = 0; /\* clang::Parser::ParseTopLevelDecl \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+            [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                               clang::Preprocessor::CachingLex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                 clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                   clang::Lexer::Lex(0x15f8b290, 0x15f4c1e0) {
+            [179275] |                                     clang::Lexer::LexTokenInternal(0x15f8b290, 0x15f4c1e0, 1) {
+</code><pre>
 
 ---
 name: report
@@ -3430,6 +3483,133 @@ template: title-layout
      3.893 us [156072] |     } /* b */
      4.504 us [156072] |   } /* a */
      5.633 us [156072] | } /* main */
+```
+
+---
+name: trace-control
+template: title-layout
+# Triggers
+### Trace Control with "trace_on" / "trace_off" / "finish"
+.footnote[[doc/uftrace-record.md#triggers](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#triggers)]
+
+---
+class: code-24px
+### Trace Control Triggers
+<pre><code>
+    $ gcc -pg -g [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
+</code><pre>
+```
+    $ uftrace -a a.out
+    # DURATION     TID     FUNCTION
+                [ 17249] | main(1, 0x7fffdc926f98) {
+       0.290 us [ 17249] |   foo() = 0;
+       2.093 us [ 17249] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17249] |   raise(SIGUSR1) {
+                [ 17249] |     sighandler(10) {
+       0.257 us [ 17249] |       bar(10);
+       1.447 us [ 17249] |     } /* sighandler */
+      12.186 us [ 17249] |   } = 0; /* raise */
+       0.183 us [ 17249] |   foo() = 10;
+      19.990 us [ 17249] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (--disable)
+.footnote[.red[--disable] starts uftrace with tracing disabled]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--disable` a.out
+    WARN: cannot open record data: ... : No data available
+```
+---
+class: code-24px
+### Trace Control Triggers (trace_on)
+.footnote[.red[trace_on] trigger enables uftrace to start tracing]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `-T foo@trace_on` a.out
+    # DURATION     TID     FUNCTION
+       0.316 us [ 17381] |   `foo`() = 0;
+       2.760 us [ 17381] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17381] |   raise(SIGUSR1) {
+                [ 17381] |     sighandler(10) {
+       0.230 us [ 17381] |       bar(10);
+       1.524 us [ 17381] |     } /* sighandler */
+      13.487 us [ 17381] |   } = 0; /* raise */
+       0.183 us [ 17381] |   foo() = 10;
+      21.310 us [ 17381] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (finish)
+.footnote[.red[finish] trigger is to end recording]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `-T bar@finish` a.out
+    # DURATION     TID     FUNCTION
+                [ 17407] | main(1, 0x7ffd8aa8a3e8) {
+       0.267 us [ 17407] |   foo() = 0;
+       2.210 us [ 17407] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17407] |   raise(SIGUSR1) {
+                [ 17407] |     sighandler(10) {
+                [ 17407] |       `bar`() {
+                [ 17407] |         /* linux:task-exit */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172407
+    [3] bar
+    [2] sighandler
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--signal SIGUSR1@finish` a.out
+    uftrace: install signal handlers to task 172467
+    # DURATION     TID     FUNCTION
+                [ 17467] | main(1, 0x7ffc5d5e8158) {
+       0.330 us [ 17467] |   foo() = 0;
+       2.113 us [ 17467] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17467] |   raise(`SIGUSR1`) {
+                [ 17467] |     sighandler(10) {
+       0.233 us [ 17467] |       bar(10);
+       1.456 us [ 17467] |     } /* sighandler */
+                [ 17467] |     /* `linux:task-exit` */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172467
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `--signal SIGUSR1@trace_on` a.out
+    uftrace: install signal handlers to task 175678
+    # DURATION     TID     FUNCTION
+                [ 17678] |     } /* sighandler */
+       3.230 us [ 17678] |   } = 0; /* raise */
+       0.217 us [ 17678] |   foo() = 10;
+       5.700 us [ 17678] | } = 0; /* main */
 ```
 
 ---
