@@ -1,3 +1,23 @@
+uftrace v0.9.2
+--------------
+* trigger update
+  add --signal option to support trigger by signal
+
+* TUI update
+  add C/E key to collapse/expand all child nodes
+  make R/r key to go to report window separately
+  add z key to align screen to center
+
+* other changes
+  display data symbols in argument/return value
+  trace library calls even without PLT
+  add -l short option for --nest-libcall
+  rudimentary support for Rust programs
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Anas Balboul, Claudia J. Kang, Daniel T. Lee, Honggyu Kim
+
+
 uftrace v0.9.1
 --------------
 * filter update
