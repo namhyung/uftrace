@@ -298,6 +298,7 @@ static int read_perf_event(struct uftrace_data *handle,
 			   struct uftrace_perf_reader *perf)
 {
 	struct perf_event_header h;
+	struct uftrace_task_reader *task;
 	union {
 		struct perf_context_switch_event cs;
 		struct perf_task_event t;
@@ -393,7 +394,8 @@ again:
 		goto again;
 	}
 
-	if (unlikely(find_task(&handle->sessions, perf->tid) == NULL))
+	task = get_task_handle(handle, perf->tid);
+	if (unlikely(task == NULL || task->fp == NULL))
 		goto again;
 
 	perf->type = h.type;
@@ -560,6 +562,9 @@ void process_perf_event(struct uftrace_data *handle)
 		perf = &handle->perf[p];
 		rec = get_perf_record(handle, perf);
 		task = get_task_handle(handle, perf->tid);
+
+		if (unlikely(task == NULL || task->fp == NULL))
+			continue;
 
 		if (perf->type == PERF_RECORD_COMM) {
 			rec->more = 1;
