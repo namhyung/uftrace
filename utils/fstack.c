@@ -1413,7 +1413,7 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		struct uftrace_pmu_cycle cycle;
 		struct uftrace_pmu_cache cache;
 		struct uftrace_pmu_branch branch;
-		int cpu;
+		struct uftrace_watch_event watch;
 	} u;
 
 	switch (rec->addr) {
@@ -1484,12 +1484,35 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		break;
 
 	case EVENT_ID_WATCH_CPU:
-		if (read_task_event_size(task, &u.cpu, sizeof(u.cpu)) < 0)
+		if (read_task_event_size(task, &u.watch.cpu, sizeof(u.watch.cpu)) < 0)
 			return -1;
 		if (task->h->needs_byte_swap)
-			u.cpu = bswap_32(u.cpu);
+			u.watch.cpu = bswap_32(u.watch.cpu);
 
-		save_task_event(task, &u.cpu, sizeof(u.cpu));
+		save_task_event(task, &u.watch.cpu, sizeof(u.watch.cpu));
+		break;
+
+	case EVENT_ID_WATCH_ADDR:
+		if (data_is_lp64(task->h)) {
+			if (read_task_event_size(task, &u.watch.w64, sizeof(u.watch.w64)) < 0)
+				return -1;
+			if (task->h->needs_byte_swap) {
+				u.watch.w64.addr = bswap_64(u.watch.w64.addr);
+				u.watch.w64.data = bswap_64(u.watch.w64.data);
+			}
+
+			save_task_event(task, &u.watch.w64, sizeof(u.watch.w64));
+		}
+		else {
+			if (read_task_event_size(task, &u.watch.w32, sizeof(u.watch.w32)) < 0)
+				return -1;
+			if (task->h->needs_byte_swap) {
+				u.watch.w32.addr = bswap_64(u.watch.w32.addr);
+				u.watch.w32.data = bswap_64(u.watch.w32.data);
+			}
+
+			save_task_event(task, &u.watch.w32, sizeof(u.watch.w32));
+		}
 		break;
 
 	default:

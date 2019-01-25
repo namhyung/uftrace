@@ -118,6 +118,9 @@ char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 		case EVENT_ID_WATCH_CPU:
 			xasprintf(&evt_name, "watch:cpu");
 			break;
+		case EVENT_ID_WATCH_ADDR:
+			xasprintf(&evt_name, "watch:addr");
+			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
 			break;
@@ -158,7 +161,7 @@ char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		struct uftrace_pmu_cycle cycle;
 		struct uftrace_pmu_cache cache;
 		struct uftrace_pmu_branch branch;
-		int cpu;
+		struct uftrace_watch_event watch;
 	} u;
 
 	switch (evt_id) {
@@ -237,8 +240,14 @@ char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		break;
 
 	case EVENT_ID_WATCH_CPU:
-		memcpy(&u.cpu, data, sizeof(u.cpu));
-		xasprintf(&str, "cpu=%d", u.cpu);
+		memcpy(&u.watch, data, sizeof(u.watch.cpu));
+		xasprintf(&str, "cpu=%d", u.watch.cpu);
+		break;
+
+	case EVENT_ID_WATCH_ADDR:
+		/* TODO: handle 32-bit */
+		memcpy(&u.watch.w64, data, sizeof(u.watch.w64));
+		xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.w64.addr, u.watch.w64.data);
 		break;
 
 	default:
