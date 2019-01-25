@@ -102,6 +102,9 @@ __weak void dynamic_return(void)
 {
 }
 
+/* list of watch points (of global variables) */
+static LIST_HEAD(mcount_watch_list);
+
 #ifdef DISABLE_MCOUNT_FILTER
 
 static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
@@ -119,6 +122,10 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 static void mcount_filter_finish(void)
 {
 	finish_debug_info(&mcount_sym_info);
+}
+
+static void mcount_watch_finish(void)
+{
 }
 
 #else
@@ -471,19 +478,99 @@ static void mcount_watch_init(void)
 	strv_split(&watch, watch_str, ";");
 
 	strv_for_each(&watch, str, i) {
-		if (!strcasecmp(str, "cpu"))
-			mcount_watchpoints = MCOUNT_WATCH_CPU;
+		if (!strcasecmp(str, "cpu")) {
+			mcount_watchpoints |= MCOUNT_WATCH_CPU;
+			continue;
+		}
+
+		if (!strncasecmp(str, "addr:", 5)) {
+			struct mcount_watchpoint_item *w;
+			char *sep = NULL;
+			unsigned long addr;
+			int size;
+
+			addr = strtoul(str + 5, &sep, 16);
+			/* TODO: parse type and size */
+			size = sizeof(long);
+
+			w = xmalloc(sizeof(*w) + size);
+			w->addr = addr;
+			w->size = size;
+			w->inited = false;
+
+			mcount_memcpy1(w->data, (void *)addr, size);
+			list_add_tail(&w->list, &mcount_watch_list);
+
+			mcount_watchpoints |= MCOUNT_WATCH_ADDR;
+			continue;
+		}
 	}
 	strv_free(&watch);
 }
 
+static void mcount_watch_finish(void)
+{
+	struct mcount_watchpoint_item *w;
+
+	while (!list_empty(&mcount_watch_list)) {
+		w = list_first_entry(&mcount_watch_list, typeof(*w), list);
+		list_del(&w->list);
+		free(w);
+	}
+}
+
+bool mcount_watch_update(unsigned long addr, void *data, int size)
+{
+	static pthread_mutex_t watch_mutex = PTHREAD_MUTEX_INITIALIZER;
+	struct mcount_watchpoint_item *w;
+	bool updated = false;
+
+	pthread_mutex_lock(&watch_mutex);
+	list_for_each_entry(w, &mcount_watch_list, list) {
+		if (w->addr != addr)
+			continue;
+
+		/* someone already updated for us? */
+		if (w->inited && !memcmp(data, w->data, size))
+			break;
+
+		mcount_memcpy1(w->data, data, size);
+		w->inited = true;
+		updated = true;
+		break;
+	}
+	pthread_mutex_unlock(&watch_mutex);
+
+	return updated;
+}
+
 static void mcount_watch_setup(struct mcount_thread_data *mtdp)
 {
+	struct mcount_watchpoint_item *pos, *w;
+
 	mtdp->watch.cpu = -1;
+	INIT_LIST_HEAD(&mtdp->watch.list);
+
+	/* each thread gets a copy of the global watch items */
+	list_for_each_entry(pos, &mcount_watch_list, list) {
+		w = xmalloc(sizeof(*w) + pos->size);
+
+		memcpy(w, pos, sizeof(*w));
+		memcpy(w->data, (void *)w->addr, w->size);
+
+		list_add_tail(&w->list, &mtdp->watch.list);
+	}
 }
 
 static void mcount_watch_release(struct mcount_thread_data *mtdp)
 {
+	struct mcount_watchpoint_item *w;
+
+	while (!list_empty(&mtdp->watch.list)) {
+		w = list_first_entry(&mtdp->watch.list, typeof(*w), list);
+		list_del(&w->list);
+		free(w);
+	}
 }
 
 #endif /* DISABLE_MCOUNT_FILTER */
@@ -1984,6 +2071,7 @@ static void mcount_cleanup(void)
 #endif
 
 	mcount_filter_finish();
+	mcount_watch_finish();
 
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
