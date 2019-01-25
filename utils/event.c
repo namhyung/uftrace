@@ -121,6 +121,9 @@ char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 		case EVENT_ID_WATCH_ADDR:
 			xasprintf(&evt_name, "watch:addr");
 			break;
+		case EVENT_ID_WATCH_VAR:
+			xasprintf(&evt_name, "watch:var");
+			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
 			break;
@@ -147,13 +150,14 @@ out:
  * @evt_id - event id
  * @data - raw event data
  * @len - length of event data
+ * @sym - associated symbol (if any)
  * @verbose - whether it needs the verbose format
  *
  * This function returns a string of event name matching to @evt_id.
  * Callers must free the returned string.
  */
 char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *data, int len,
-			 bool verbose)
+			 struct uftrace_symbol *sym, bool verbose)
 {
 	char *str = NULL;
 	const char *diff = "";
@@ -258,6 +262,26 @@ char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *dat
 			memcpy(&u.watch.addr.data, data + 4, len - 4);
 		}
 		xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.addr.addr, u.watch.addr.data);
+		break;
+
+	case EVENT_ID_WATCH_VAR:
+		u.watch.var.addr = 0;
+		u.watch.var.data = 0;
+
+		if (data_is_lp64(handle)) {
+			memcpy(&u.watch.var.addr, data, 8);
+			memcpy(&u.watch.var.data, data + 8, len - 8);
+		}
+		else {
+			memcpy(&u.watch.var.addr, data, 4);
+			memcpy(&u.watch.var.data, data + 4, len - 4);
+		}
+
+		if (sym)
+			xasprintf(&str, "%s=%" PRIx64, sym->name, u.watch.var.data);
+		else
+			xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.var.addr,
+				  u.watch.var.data);
 		break;
 
 	default:
@@ -395,7 +419,7 @@ TEST_CASE(event_data)
 	pr_dbg("testing event data strings\n");
 	for (i = 0; i < ARRAY_SIZE(expected); i++) {
 		char *got = event_get_data_str(&handle, expected[i].evt_id, expected[i].data, 0,
-					       true);
+					       NULL, true);
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}

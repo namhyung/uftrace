@@ -123,10 +123,22 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 			.timestamp = rstack->time,
 			.address = rstack->addr,
 		};
+		struct uftrace_symbol *watch_sym = NULL;
+
+		if (rstack->addr == EVENT_ID_WATCH_VAR) {
+			unsigned long long addr = 0;
+
+			if (data_is_lp64(task->h))
+				memcpy(&addr, task->args.data, 8);
+			else
+				memcpy(&addr, task->args.data, 4);
+
+			watch_sym = task_find_sym_addr(sessions, task, rstack->time, addr);
+		}
 
 		sc_ctx.name = event_get_name(handle, rstack->addr);
 		sc_ctx.argbuf = event_get_data_str(handle, rstack->addr, task->args.data,
-						   task->args.len, false);
+						   task->args.len, watch_sym, false);
 
 		script_uftrace_event(&sc_ctx);
 
