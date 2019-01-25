@@ -93,16 +93,18 @@ struct mcount_event {
 
 #define MAX_EVENT 4
 
-enum mcount_watch_item {
+enum mcount_watch_kind {
 	MCOUNT_WATCH_NONE = 0,
 	MCOUNT_WATCH_CPU = (1 << 0),
 	MCOUNT_WATCH_ADDR = (1 << 1),
+	MCOUNT_WATCH_VAR = (1 << 2),
 };
 
 struct mcount_watchpoint_item {
 	struct list_head list;
 	unsigned long addr;
-	unsigned int type;
+	unsigned short kind;
+	unsigned short type;
 	unsigned int size;
 	unsigned char data[];
 };
