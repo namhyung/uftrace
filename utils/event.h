@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 struct uftrace_data;
+struct uftrace_symbol;
 
 /* please see man proc(5) for /proc/[pid]/statm */
 struct uftrace_proc_statm {
@@ -35,7 +36,7 @@ struct uftrace_pmu_branch {
 
 char *event_get_name(struct uftrace_data *handle, unsigned evt_id);
 char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *data, int len,
-			 bool verbose);
+			 struct uftrace_symbol *sym, bool verbose);
 
 void finish_events_file(struct uftrace_data *handle);
 int read_events_file(struct uftrace_data *handle);

@@ -497,8 +497,20 @@ static void pr_retval(struct uftrace_fstack_args *args)
 static void pr_event(struct uftrace_task_reader *task, unsigned evt_id)
 {
 	char *evt_name = event_get_name(task->h, evt_id);
-	char *evt_data = event_get_data_str(task->h, evt_id, task->args.data, task->args.len,
-					    false);
+	struct uftrace_symbol *sym = NULL;
+	char *evt_data;
+
+	if (evt_id == EVENT_ID_WATCH_VAR) {
+		unsigned long long addr = 0;
+
+		if (data_is_lp64(task->h))
+			memcpy(&addr, task->args.data, 8);
+		else
+			memcpy(&addr, task->args.data, 4);
+
+		sym = task_find_sym_addr(&task->h->sessions, task, task->ustack.time, addr);
+	}
+	evt_data = event_get_data_str(task->h, evt_id, task->args.data, task->args.len, sym, false);
 
 	pr_out("  %s", evt_name);
 	if (evt_data)
