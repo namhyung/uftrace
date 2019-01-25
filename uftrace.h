@@ -616,6 +616,7 @@ enum uftrace_event_id {
 	EVENT_ID_DIFF_PMU_BRANCH,
 	EVENT_ID_WATCH_CPU,
 	EVENT_ID_WATCH_ADDR,
+	EVENT_ID_WATCH_VAR,
 
 	/* supported perf events */
 	EVENT_ID_PERF = 200000U,

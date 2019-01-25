@@ -786,7 +786,7 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 		mtdp->watch.cpu = cpu;
 	}
 
-	if (watchpoints & MCOUNT_WATCH_ADDR) {
+	if (watchpoints & (MCOUNT_WATCH_ADDR | MCOUNT_WATCH_VAR)) {
 		struct mcount_watchpoint_item *w;
 		unsigned long watch_data = 0;
 		struct mcount_event *event;
@@ -806,7 +806,11 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 
 			event = &mtdp->event[mtdp->nr_events++];
 
-			event->id = EVENT_ID_WATCH_ADDR;
+			if (w->kind == MCOUNT_WATCH_ADDR)
+				event->id = EVENT_ID_WATCH_ADDR;
+			else
+				event->id = EVENT_ID_WATCH_VAR;
+
 			event->time = timestamp;
 			event->idx = rstack_idx;
 			event->dsize = sizeof(long) + w->size;

@@ -516,6 +516,7 @@ static void mcount_watch_init(void)
 			}
 
 			w = xmalloc(sizeof(*w) + size);
+			w->kind = MCOUNT_WATCH_ADDR;
 			w->addr = addr;
 			w->size = size;
 			w->inited = false;
@@ -524,6 +525,34 @@ static void mcount_watch_init(void)
 			list_add_tail(&w->list, &mcount_watch_list);
 
 			mcount_watchpoints |= MCOUNT_WATCH_ADDR;
+			continue;
+		}
+
+		if (!strncasecmp(str, "var:", 4)) {
+			struct mcount_watchpoint_item *w;
+			struct uftrace_mmap *map = mcount_sym_info.exec_map;
+			struct uftrace_symbol *sym;
+
+			w = xmalloc(sizeof(*w));
+			sym = find_symname(&map->mod->symtab, str + 4);
+			if (sym == NULL) {
+				pr_dbg("ignore watchpoint for %s\n", str);
+				free(w);
+				continue;
+			}
+
+			w->kind = MCOUNT_WATCH_VAR;
+			w->addr = map->start + sym->addr;
+			w->size = sym->size;
+			if (w->size > 8) {
+				pr_dbg("symbol is too big, ignored... %s\n", str);
+				free(w);
+				continue;
+			}
+
+			list_add_tail(&w->list, &mcount_watch_list);
+
+			mcount_watchpoints |= MCOUNT_WATCH_VAR;
 			continue;
 		}
 	}
