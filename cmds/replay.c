@@ -279,7 +279,6 @@ static void print_event(struct uftrace_task_reader *task, struct uftrace_record 
 {
 	unsigned evt_id = urec->addr;
 	char *evt_name = event_get_name(task->h, evt_id);
-	char *evt_data = event_get_data_str(evt_id, task->args.data, true);
 
 	if (evt_id == EVENT_ID_EXTERN_DATA) {
 		pr_color(color, "%s: %s", evt_name, (char *)task->args.data);
@@ -289,14 +288,32 @@ static void print_event(struct uftrace_task_reader *task, struct uftrace_record 
 		pr_color(color, "%s", evt_name);
 	}
 	else {
+		char *evt_data;
+		struct uftrace_symbol *sym = NULL;
+
+		if (evt_id == EVENT_ID_WATCH_VAR) {
+			unsigned long long addr = 0;
+
+			if (data_is_lp64(task->h))
+				memcpy(&addr, task->args.data, 8);
+			else
+				memcpy(&addr, task->args.data, 4);
+
+			sym = task_find_sym_addr(&task->h->sessions, task, task->ustack.time, addr);
+		}
+
+		evt_data = event_get_data_str(task->h, evt_id, task->args.data, task->args.len, sym,
+					      true);
+
 		pr_color(color, "%s", evt_name);
 
-		if (evt_data)
+		if (evt_data) {
 			pr_color(color, " (%s)", evt_data);
+			free(evt_data);
+		}
 	}
 
 	free(evt_name);
-	free(evt_data);
 }
 
 static int print_flat_rstack(struct uftrace_data *handle, struct uftrace_task_reader *task,

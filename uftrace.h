@@ -640,6 +640,16 @@ struct uftrace_event {
 	char *event;
 };
 
+struct uftrace_watch_event {
+	union {
+		int cpu;
+		struct {
+			uint64_t addr;
+			uint64_t data;
+		} var;
+	};
+};
+
 #define HTML_HEADER                                                                                \
 	"<html>\n"                                                                                 \
 	"<head></head>\n"                                                                          \
