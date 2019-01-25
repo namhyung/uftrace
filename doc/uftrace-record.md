@@ -889,6 +889,7 @@ so it might miss some updates.
 As of now, following watch points are supported:
 
  * "cpu" : cpu number current task is running on
+ * "var": read value of a global variable given after ":".
 
 Like read triggers, the result is displayed as event (comment):
 
@@ -904,6 +905,21 @@ Like read triggers, the result is displayed as event (comment):
        8.690 us [ 19060] |     } /* b */
        9.350 us [ 19060] |   } /* a */
       12.479 us [ 19060] | } /* main */
+
+This is how to use 'var' watchpoints:
+
+     $ uftrace -W var:mydata a.out
+     # DURATION     TID     FUNCTION
+                 [239842] | __monstartup() {
+                 [239842] |   /* watch:var (mydata=7) */
+        3.534 us [239842] | } /* __monstartup */
+        0.191 us [239842] | __cxa_atexit();
+                 [239842] | main() {
+                 [239842] |   foo() {
+                 [239842] |     /* watch:var (mydata=42) */
+        0.381 us [239842] |     bar();
+        1.069 us [239842] |   } /* foo */
+        2.698 us [239842] | } /* main */
 
 
 SEE ALSO
