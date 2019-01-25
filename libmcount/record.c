@@ -785,6 +785,36 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 		}
 		mtdp->watch.cpu = cpu;
 	}
+
+	if (watchpoints & MCOUNT_WATCH_ADDR) {
+		struct mcount_watchpoint_item *w;
+		unsigned long watch_data = 0;
+		struct mcount_event *event;
+
+		list_for_each_entry(w, &mtdp->watch.list, list) {
+			if (mtdp->nr_events >= MAX_EVENT)
+				continue;
+
+			mcount_memcpy1(&watch_data, (void *)w->addr, w->size);
+			if (!memcmp(&watch_data, w->data, w->size))
+				continue;
+
+			/* make sure only one thread update the global data */
+			if (mcount_watch_update(w->addr, &watch_data, w->size)) {
+				event = &mtdp->event[mtdp->nr_events++];
+
+				event->id = EVENT_ID_WATCH_ADDR;
+				event->time = timestamp;
+				event->idx = rstack_idx;
+				event->dsize = sizeof(long) + w->size;
+
+				mcount_memcpy4(event->data, &w->addr, sizeof(long));
+				mcount_memcpy1(event->data + sizeof(long), &watch_data, w->size);
+			}
+
+			mcount_memcpy1(w->data, &watch_data, w->size);
+		}
+	}
 }
 
 #else

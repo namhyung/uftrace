@@ -96,6 +96,15 @@ struct mcount_event {
 enum mcount_watch_item {
 	MCOUNT_WATCH_NONE = 0,
 	MCOUNT_WATCH_CPU = (1 << 0),
+	MCOUNT_WATCH_ADDR = (1 << 1),
+};
+
+struct mcount_watchpoint_item {
+	struct list_head list;
+	unsigned long addr;
+	unsigned int type;
+	unsigned int size;
+	unsigned char data[];
 };
 
 struct mcount_watchpoint {
@@ -104,6 +113,7 @@ struct mcount_watchpoint {
 	int cpu;
 
 	/* global watch points */
+	struct list_head list;
 };
 
 #ifndef DISABLE_MCOUNT_FILTER
@@ -429,6 +439,7 @@ bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr);
 
 void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		     unsigned long watchpoints);
+bool mcount_watch_update(unsigned long addr, void *data, int size);
 
 struct mcount_event_info {
 	char *module;
