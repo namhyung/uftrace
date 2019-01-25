@@ -490,8 +490,30 @@ static void mcount_watch_init(void)
 			int size;
 
 			addr = strtoul(str + 5, &sep, 16);
-			/* TODO: parse type and size */
 			size = sizeof(long);
+
+			if (*sep == '/') {
+				sep++;
+
+				/* ignore type info for now */
+				if (!isdigit(*sep))
+					sep++;
+
+				size = strtoul(sep, NULL, 0);
+				switch (size) {
+				case 8:
+				case 16:
+				case 32:
+				case 64:
+					size /= 8;
+					break;
+
+				/* invalid data size */
+				default:
+					pr_dbg("ignore invalid watch size: %s\n", str);
+					continue;
+				}
+			}
 
 			w = xmalloc(sizeof(*w) + size);
 			w->addr = addr;
