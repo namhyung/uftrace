@@ -307,6 +307,8 @@ static void print_event(struct uftrace_task_reader *task,
 			struct uftrace_pmu_branch *branch;
 			struct uftrace_watch_event *watch;
 		} u;
+		uint64_t watch_data;
+		uint64_t watch_len;
 
 		switch (evt_id) {
 		case EVENT_ID_READ_PROC_STATM:
@@ -369,15 +371,17 @@ static void print_event(struct uftrace_task_reader *task,
 
 		case EVENT_ID_WATCH_ADDR:
 			u.watch = task->args.data;
+			watch_data = 0;
+			watch_len = task->args.len;
 
-			if (data_is_lp64(task->h)) {
-				pr_color(color, "%s (addr:%"PRIx64" = %"PRIx64")",
-					 evt_name, u.watch->w64.addr, u.watch->w64.data);
-			}
-			else {
-				pr_color(color, "%s (addr:%lx = %lx)",
-					 evt_name, u.watch->w32.addr, u.watch->w32.data);
-			}
+			if (data_is_lp64(task->h))
+				watch_len -= 8;
+			else
+				watch_len -= 4;
+
+			memcpy(&watch_data, &u.watch->a.data, watch_len);
+			pr_color(color, "%s (addr:%"PRIx64" = %"PRIx64")",
+				 evt_name, u.watch->a.addr, watch_data);
 			return;
 
 		default:
