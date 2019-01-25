@@ -567,6 +567,10 @@ struct uftrace_watch_event {
 			uint64_t addr;
 			uint64_t data;
 		} a;
+		struct {
+			uint64_t addr;
+			uint64_t data;
+		} v;
 	};
 };
 

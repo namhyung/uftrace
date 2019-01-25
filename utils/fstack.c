@@ -1291,6 +1291,9 @@ char *get_event_name(struct uftrace_data *handle, unsigned evt_id)
 		case EVENT_ID_WATCH_ADDR:
 			xasprintf(&evt_name, "watch:addr");
 			break;
+		case EVENT_ID_WATCH_VAR:
+			xasprintf(&evt_name, "watch:var");
+			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
 			break;
@@ -1399,6 +1402,7 @@ int read_task_event(struct uftrace_task_reader *task,
 		break;
 
 	case EVENT_ID_WATCH_ADDR:
+	case EVENT_ID_WATCH_VAR:
 		if (read_task_watch_event(task, &u.watch, &len) < 0)
 			return -1;
 		save_task_event(task, &u.watch, len);
