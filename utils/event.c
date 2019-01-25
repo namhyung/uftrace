@@ -143,14 +143,17 @@ out:
 
 /**
  * event_get_data_str - convert event data to a string
+ * @handle - handle to uftrace data
  * @evt_id - event id
  * @data - raw event data
+ * @len - length of event data
  * @verbose - whether it needs the verbose format
  *
  * This function returns a string of event name matching to @evt_id.
  * Callers must free the returned string.
  */
-char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
+char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *data, int len,
+			 bool verbose)
 {
 	char *str = NULL;
 	const char *diff = "";
@@ -245,9 +248,16 @@ char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		break;
 
 	case EVENT_ID_WATCH_ADDR:
-		/* TODO: handle 32-bit */
-		memcpy(&u.watch.w64, data, sizeof(u.watch.w64));
-		xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.w64.addr, u.watch.w64.data);
+		memset(&u.watch.addr, 0, sizeof(u.watch.addr));
+		if (data_is_lp64(handle)) {
+			memcpy(&u.watch.addr.addr, data, 8);
+			memcpy(&u.watch.addr.data, data + 8, len - 8);
+		}
+		else {
+			memcpy(&u.watch.addr.addr, data, 4);
+			memcpy(&u.watch.addr.data, data + 4, len - 4);
+		}
+		xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.addr.addr, u.watch.addr.data);
 		break;
 
 	default:
@@ -364,6 +374,7 @@ TEST_CASE(event_data)
 {
 	char msg[] = "this is external data.";
 	char comm[] = "taskname";
+	struct uftrace_data handle = {};
 	struct uftrace_page_fault pgfault = { 1977, 1102 };
 	struct uftrace_pmu_cycle cycle = { 1024, 2048 };
 	int cpu = 123;
@@ -383,7 +394,8 @@ TEST_CASE(event_data)
 
 	pr_dbg("testing event data strings\n");
 	for (i = 0; i < ARRAY_SIZE(expected); i++) {
-		char *got = event_get_data_str(expected[i].evt_id, expected[i].data, true);
+		char *got = event_get_data_str(&handle, expected[i].evt_id, expected[i].data, 0,
+					       true);
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}

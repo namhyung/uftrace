@@ -1388,6 +1388,37 @@ static int read_task_event_size(struct uftrace_task_reader *task, void *buf, siz
 	return 0;
 }
 
+static int read_task_watch_event(struct uftrace_task_reader *task,
+				 struct uftrace_watch_event *watch, uint16_t *plen)
+{
+	uint16_t len;
+
+	memset(&watch->addr, 0, sizeof(watch->addr));
+
+	if (fread(&len, sizeof(len), 1, task->fp) != 1)
+		return -1;
+
+	*plen = len;
+
+	if (data_is_lp64(task->h)) {
+		if (fread(&watch->addr.addr, 8, 1, task->fp) != 1)
+			return -1;
+
+		len -= 8;
+	}
+	else {
+		if (fread(&watch->addr.addr, 4, 1, task->fp) != 1)
+			return -1;
+
+		len -= 4;
+	}
+
+	if (fread(&watch->addr.data, len, 1, task->fp) != 1)
+		return -1;
+
+	return 0;
+}
+
 static void save_task_event(struct uftrace_task_reader *task, void *buf, size_t buflen)
 {
 	int rem;
@@ -1415,6 +1446,7 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		struct uftrace_pmu_branch branch;
 		struct uftrace_watch_event watch;
 	} u;
+	uint16_t len;
 
 	switch (rec->addr) {
 	case EVENT_ID_READ_PROC_STATM:
@@ -1493,26 +1525,9 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		break;
 
 	case EVENT_ID_WATCH_ADDR:
-		if (data_is_lp64(task->h)) {
-			if (read_task_event_size(task, &u.watch.w64, sizeof(u.watch.w64)) < 0)
-				return -1;
-			if (task->h->needs_byte_swap) {
-				u.watch.w64.addr = bswap_64(u.watch.w64.addr);
-				u.watch.w64.data = bswap_64(u.watch.w64.data);
-			}
-
-			save_task_event(task, &u.watch.w64, sizeof(u.watch.w64));
-		}
-		else {
-			if (read_task_event_size(task, &u.watch.w32, sizeof(u.watch.w32)) < 0)
-				return -1;
-			if (task->h->needs_byte_swap) {
-				u.watch.w32.addr = bswap_64(u.watch.w32.addr);
-				u.watch.w32.data = bswap_64(u.watch.w32.data);
-			}
-
-			save_task_event(task, &u.watch.w32, sizeof(u.watch.w32));
-		}
+		if (read_task_watch_event(task, &u.watch, &len) < 0)
+			return -1;
+		save_task_event(task, &u.watch, len);
 		break;
 
 	default:

@@ -497,7 +497,8 @@ static void pr_retval(struct uftrace_fstack_args *args)
 static void pr_event(struct uftrace_task_reader *task, unsigned evt_id)
 {
 	char *evt_name = event_get_name(task->h, evt_id);
-	char *evt_data = event_get_data_str(evt_id, task->args.data, false);
+	char *evt_data = event_get_data_str(task->h, evt_id, task->args.data, task->args.len,
+					    false);
 
 	pr_out("  %s", evt_name);
 	if (evt_data)

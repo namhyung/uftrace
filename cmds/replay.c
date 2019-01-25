@@ -279,7 +279,7 @@ static void print_event(struct uftrace_task_reader *task, struct uftrace_record 
 {
 	unsigned evt_id = urec->addr;
 	char *evt_name = event_get_name(task->h, evt_id);
-	char *evt_data = event_get_data_str(evt_id, task->args.data, true);
+	char *evt_data = event_get_data_str(task->h, evt_id, task->args.data, task->args.len, true);
 
 	if (evt_id == EVENT_ID_EXTERN_DATA) {
 		pr_color(color, "%s: %s", evt_name, (char *)task->args.data);

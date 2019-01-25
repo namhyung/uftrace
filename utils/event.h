@@ -34,7 +34,8 @@ struct uftrace_pmu_branch {
 };
 
 char *event_get_name(struct uftrace_data *handle, unsigned evt_id);
-char *event_get_data_str(unsigned evt_id, void *data, bool verbose);
+char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *data, int len,
+			 bool verbose);
 
 void finish_events_file(struct uftrace_data *handle);
 int read_events_file(struct uftrace_data *handle);
