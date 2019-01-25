@@ -305,7 +305,7 @@ static void print_event(struct uftrace_task_reader *task,
 			struct uftrace_pmu_cycle  *cycle;
 			struct uftrace_pmu_cache  *cache;
 			struct uftrace_pmu_branch *branch;
-			int                       *cpu;
+			struct uftrace_watch_event *watch;
 		} u;
 
 		switch (evt_id) {
@@ -363,8 +363,21 @@ static void print_event(struct uftrace_task_reader *task,
 				 (u.branch->branch - u.branch->misses) * 100 / u.branch->branch);
 			return;
 		case EVENT_ID_WATCH_CPU:
-			u.cpu = task->args.data;
-			pr_color(color, "%s (cpu=%d)", evt_name, *u.cpu);
+			u.watch = task->args.data;
+			pr_color(color, "%s (cpu=%d)", evt_name, u.watch->cpu);
+			return;
+
+		case EVENT_ID_WATCH_ADDR:
+			u.watch = task->args.data;
+
+			if (data_is_lp64(task->h)) {
+				pr_color(color, "%s (addr:%"PRIx64" = %"PRIx64")",
+					 evt_name, u.watch->w64.addr, u.watch->w64.data);
+			}
+			else {
+				pr_color(color, "%s (addr:%lx = %lx)",
+					 evt_name, u.watch->w32.addr, u.watch->w32.data);
+			}
 			return;
 
 		default:

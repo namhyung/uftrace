@@ -559,4 +559,18 @@ struct uftrace_event {
 	char			*event;
 };
 
+struct uftrace_watch_event {
+	union {
+		int		cpu;
+		struct {
+			uint32_t addr;
+			uint32_t data;
+		} w32;
+		struct {
+			uint64_t addr;
+			uint64_t data;
+		} w64;
+	};
+};
+
 #endif /* UFTRACE_H */
