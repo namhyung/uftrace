@@ -263,8 +263,8 @@ $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c
 $(objdir)/version.h: PHONY
 	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(srcdir)
 
-$(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
-	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
+$(srcdir)/utils/auto-args-list.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-auto-args-list.py
+	$(QUIET_GEN)$(srcdir)/misc/gen-auto-args-list.py -i $< -o $@
 
 $(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/libtraceevent.a
 	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(UFTRACE_LDFLAGS)

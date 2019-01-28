@@ -11,7 +11,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
-#include "utils/auto-args.h"
+#include "utils/auto-args-list.h"
 #include "utils/dwarf.h"
 
 /* RB-tree maintaining automatic arguments and return value */

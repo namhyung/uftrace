@@ -260,8 +260,8 @@ def parse_argument():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input-file", dest='infile', default="prototypes.h",
                         help="input prototype header file (default: prototypes.h")
-    parser.add_argument("-o", "--output-file", dest='outfile', default="autoargs.h",
-                        help="output uftrace argspec file (default: autoargs.h)")
+    parser.add_argument("-o", "--output-file", dest='outfile', default="auto-args-list.h",
+                        help="output uftrace argspec file (default: auto-args-list.h)")
     parser.add_argument("-v", "--verbose", dest='verbose', action='store_true',
                         help="show internal command and result for debugging")
 
