@@ -175,6 +175,10 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/d16"
     elif ctype == "char":
         retval_format += "retval/c"
+    elif ctype == "float":
+        retval_format += "retval/f32"
+    elif ctype == "double":
+        retval_format += "retval/f64"
     elif ctype == "char*":
         retval_format += "retval/s"
     elif ctype == "std::string":
@@ -199,6 +203,7 @@ def make_uftrace_args_format(args, funcname):
     args_format = funcname + "@"
 
     i = 0
+    f = 1
     for arg in args:
         i += 1
         if (i > 1):
@@ -212,6 +217,14 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/d16" % i
         elif arg == "char":
             args_format += "arg%d/c" % i
+        elif arg == "float":
+            args_format += "fparg%d/32" % f
+            f += 1
+            i -= 1
+        elif arg == "double":
+            args_format += "fparg%d/64" % f
+            f += 1
+            i -= 1
         elif arg == "char*":
             args_format += "arg%d/s" % i
         elif arg == "std::string":
