@@ -169,6 +169,10 @@ def make_uftrace_retval_format(ctype, funcname):
     if ctype == "void":
         retval_format = ""
         pass
+    elif ctype == "int":
+        retval_format += "retval/d32"
+    elif ctype == "short":
+        retval_format += "retval/d16"
     elif ctype == "char":
         retval_format += "retval/c"
     elif ctype == "char*":
@@ -202,6 +206,10 @@ def make_uftrace_args_format(args, funcname):
         if arg == "void":
             args_format = ""
             break
+        elif arg == "int":
+            args_format += "arg%d/d32" % i
+        elif arg == "short":
+            args_format += "arg%d/d16" % i
         elif arg == "char":
             args_format += "arg%d/c" % i
         elif arg == "char*":
