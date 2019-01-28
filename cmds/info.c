@@ -22,6 +22,7 @@
 #include "utils/utils.h"
 #include "utils/filter.h"
 #include "utils/symbol.h"
+#include "utils/fstack.h"
 #include "version.h"
 
 #define BUILD_ID_SIZE 20
@@ -1165,6 +1166,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		open_info_file(opts, &handle);
 	}
 
+	fstack_setup_filters(opts, &handle);
 	process_uftrace_info(&handle, opts, print_info, NULL);
 
 out:
