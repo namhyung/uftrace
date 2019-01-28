@@ -13,20 +13,28 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-
-////////////////////////////////////////////////////////////////////////////////
-// memory
 #include <stdlib.h>
-void *malloc(size_t size);
-void free(void* ptr);
-void* calloc(size_t nmemb, size_t size);
-void* realloc(void* ptr, size_t size);
+int atoi(const char *str);
+long atol(const char *str);
+double atof(const char *str);
+
+long strtol(const char *str, void *endp, int base);
+unsigned long strtoul(const char *str, void *endp, int base);
+double strtod(const char *str, void *endp);
+float strtof(const char *str, void *endp);
 
 void qsort(void *base, size_t nmemb, size_t size, funcptr_t compar);
 void qsort_r(void *base, size_t nmemb, size_t size, funcptr_t compar, void *arg);
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, funcptr_t compar);
 
 void exit(int status);
+
+////////////////////////////////////////////////////////////////////////////////
+// memory
+void *malloc(size_t size);
+void free(void* ptr);
+void* calloc(size_t nmemb, size_t size);
+void* realloc(void* ptr, size_t size);
 
 #include <sys/mman.h>
 enum uft_mmap_prot { PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC = 4, };
@@ -228,6 +236,13 @@ int access(const char *pathname, enum uft_access_flag mode);
 int unlink(const char *pathname);
 int unlinkat(int dirfd, const char *pathname, int flags);
 int mkdir(const char *pathname, mode_t mode);
+int rmdir(const char *pathname);
+int chdir(const char *pathname);
+
+void * opendir(const char *name);
+int closedir(void *dirp);
+
+char * getcwd(void *buf, size_t size);
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -245,6 +260,8 @@ int execle(const char *path, const char *arg, ...);
 int execv(const char *path, ...);
 //int execvp(const char *file, char *const argv[]); // cannot understand argv type
 int execvp(const char *file, ...);
+//int execve(const char *file, char *const argv[], char *const envp[]);
+int execve(const char *file, ...);
 //int execvpe(const char *file, char *const argv[], char *const envp[]);
 int execvpe(const char *file, ...);
 
@@ -386,7 +403,40 @@ long syscall(long number, ...);
 int ioctl(int fd, unsigned long request, ...);
 
 #include <libintl.h>
+void textdomain(const char * domainname);
+void bindtextdomain(const char * domainname, const char * dirname);
 char *gettext (const char * msgid);
 char *dgettext (const char * domainname, const char * msgid);
 char *dcgettext (const char * domainname, const char * msgid, int category);
+
+#include <locale.h>
+enum uft_locale {
+	LC_TYPE = 0, LC_NUMERIC, LC_TIME, LC_COLLATE, LC_MONETARY, LC_MESSAGES,
+	LC_ALL, LC_PAPER, LC_NAME, LC_ADDRESS, LC_TELEPHONE, LC_MEASUREMENT,
+	LC_IDENTIFICATION,
+};
+char * setlocale(enum uft_locale category, const char * locale);
+
+#include <getopt.h>
+int getopt(int argc, void *argv, const char * optstr);
+/* ignore struct option for longopts for now */
+int getopt_long(int argc, void *argv, const char * optstr);
+int getopt_long_only(int argc, void *argv, const char * optstr);
+
+#include <sys/stat.h>
+int stat(const char *pathname, void *statbuf);
+int fstat(int fd, void *statbuf);
+int lstat(const char *pathname, void *statbuf);
+
+enum uft_mode {
+	mod_777 = 0777, mod_755 = 0755, mod_666 = 0666, mod_644 = 0644,
+	mod_400 = 0400, mod_600 = 0600, mod_660 = 0660, mod_640 = 0640,
+	mod_444 = 0444, mod_022 = 0022, mod_440 = 0440, mod_222 = 0222,
+	mod_111 = 0111, mod_011 = 0011, mod_033 = 0033, mod_077 = 0077,
+};
+int chmod(const char *pathname, enum uft_mode mode);
+int fchmod(int fd, enum uft_mode mode);
+void umask(enum uft_mode mask);
+
+int isatty(int fd);
 ////////////////////////////////////////////////////////////////////////////////
