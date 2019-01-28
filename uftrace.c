@@ -1050,7 +1050,8 @@ int main(int argc, char *argv[])
 	if (opts.nop)
 		opts.use_pager = false;
 
-	if (opts.use_pager)
+	/* 'live' will start pager at its replay time */
+	if (opts.use_pager && opts.mode != UFTRACE_MODE_LIVE)
 		start_pager();
 
 	if (opts.idx == 0)
