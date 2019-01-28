@@ -11,6 +11,7 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/auto-args.h"
 #include "utils/auto-args-list.h"
 #include "utils/dwarf.h"
 
@@ -421,18 +422,6 @@ static enum enum_token_ret enum_next_token(char **str)
 
 	return ret;
 }
-
-struct enum_def {
-	char *name;
-	struct list_head vals;
-	struct rb_node node;
-};
-
-struct enum_val {
-	struct list_head list;
-	char *str;
-	long val;
-};
 
 static void free_enum_def(struct enum_def *e_def)
 {
