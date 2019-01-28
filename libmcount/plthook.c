@@ -715,7 +715,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			goto out;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			goto out;
 	}
 
@@ -812,7 +812,7 @@ out:
 		real_addr = pd->resolved_addr[child_idx];
 
 	if (!recursion)
-		mcount_unguard_recursion(mtdp);
+		mcount_unguard_recursion();
 
 	return real_addr;
 }
@@ -863,7 +863,7 @@ again:
 		     dyn_idx >= rstack->pd->dsymtab.nr_sym))
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
 
-	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(mtdp->dead)) {
+	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(__mcount_check_dead(mtdp))) {
 		ret_addr = rstack->parent_ip;
 
 		/* make sure it doesn't have plthook below */

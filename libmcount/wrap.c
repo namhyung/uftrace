@@ -414,14 +414,14 @@ __visible_default void * dlopen(const char *filename, int flags)
 			return ret;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			return ret;
 	}
 
 	data.mtdp = mtdp;
 	dl_iterate_phdr(dlopen_base_callback, &data);
 
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 	return ret;
 }
 

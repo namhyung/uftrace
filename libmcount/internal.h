@@ -119,7 +119,6 @@ struct mcount_thread_data {
 	int				tid;
 	int				idx;
 	int				record_idx;
-	bool				recursion_marker;
 	bool				in_exception;
 	bool				dead;
 	unsigned long			cygprof_dummy;
@@ -145,20 +144,24 @@ static inline void mcount_restore_arch_context(struct mcount_arch_context *ctx) 
 
 #ifdef SINGLE_THREAD
 # define TLS
-# define get_thread_data()  &mtd
-# define check_thread_data(mtdp)  (mtdp->rstack == NULL)
+# define attr_tls_model
 #else
 # define TLS  __thread
-# define get_thread_data()  pthread_getspecific(mtd_key)
-# define check_thread_data(mtdp)  (mtdp == NULL)
+# define attr_tls_model __attribute__((tls_model("initial-exec")))
 #endif
 
-extern TLS struct mcount_thread_data mtd;
+extern TLS struct mcount_thread_data *_mtdp attr_tls_model;
+extern TLS bool mcount_recursion_marker attr_tls_model;
 
-void __mcount_guard_recursion(struct mcount_thread_data *mtdp);
-void __mcount_unguard_recursion(struct mcount_thread_data *mtdp);
-bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
-void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
+# define get_thread_data() _mtdp
+# define check_thread_data(mtdp)  (mtdp == NULL)
+
+bool __mcount_check_dead(struct mcount_thread_data *mtdp);
+void __mcount_should_dead(struct mcount_thread_data *mtdp);
+void __mcount_guard_recursion();
+void __mcount_unguard_recursion();
+bool mcount_guard_recursion();
+void mcount_unguard_recursion();
 
 extern uint64_t mcount_threshold;  /* nsec */
 extern pthread_key_t mtd_key;
