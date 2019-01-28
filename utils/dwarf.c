@@ -34,13 +34,6 @@ bool debug_info_has_location(struct debug_info *dinfo)
 	return dinfo->nr_locs_used;
 }
 
-struct debug_entry {
-	struct rb_node	node;
-	uint64_t	offset;
-	char		*name;
-	char		*spec;
-};
-
 static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
 			   char *argspec)
 {
@@ -145,15 +138,6 @@ static struct debug_file * get_debug_file(struct debug_info *dinfo,
 }
 
 #ifdef HAVE_LIBDW
-
-#include <libelf.h>
-#include <gelf.h>
-#include <dwarf.h>
-
-struct cu_files {
-	Dwarf_Files		*files;
-	size_t			num;     /* number of files */
-};
 
 static int elf_file_type(struct debug_info *dinfo)
 {

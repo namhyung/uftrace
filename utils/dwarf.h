@@ -11,10 +11,25 @@
 
 struct symtabs;
 
-#ifdef HAVE_LIBDW
-# include <elfutils/libdw.h>
+#ifndef HAVE_LIBDW
+#define Dwarf  void
 #else
-# define Dwarf  void
+#include <elfutils/libdw.h>
+#include <libelf.h>
+#include <gelf.h>
+#include <dwarf.h>
+
+struct cu_files {
+	Dwarf_Files		*files;
+	size_t			num;     /* number of files */
+};
+
+struct debug_entry {
+	struct rb_node	node;
+	uint64_t	offset;
+	char		*name;
+	char		*spec;
+};
 #endif
 
 struct debug_file {
