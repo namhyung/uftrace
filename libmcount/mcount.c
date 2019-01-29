@@ -1664,8 +1664,20 @@ static __used void mcount_startup(void)
 
 	pr_dbg("initializing mcount library\n");
 
+	dirname = getenv("UFTRACE_DIR");
+	if (dirname == NULL)
+		dirname = UFTRACE_DIR_NAME;
+
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);
+
+		if (pfd < 0) {
+			char *channel = NULL;
+
+			xasprintf(&channel, "%s/%s", dirname, ".channel");
+			pfd = open(channel, O_WRONLY);
+			free(channel);
+		}
 
 		/* minimal sanity check */
 		if (fstat(pfd, &statbuf) < 0 || !S_ISFIFO(statbuf.st_mode)) {
@@ -1681,10 +1693,6 @@ static __used void mcount_startup(void)
 
 	if (bufsize_str)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
-
-	dirname = getenv("UFTRACE_DIR");
-	if (dirname == NULL)
-		dirname = UFTRACE_DIR_NAME;
 
 	mcount_exename = read_exename();
 	symtabs.dirname = dirname;
