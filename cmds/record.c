@@ -144,8 +144,7 @@ void put_libmcount_path(char *libpath)
 	free(libpath);
 }
 
-static void setup_child_environ(struct opts *opts, int pfd,
-				int argc, char *argv[])
+static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 {
 	char buf[PATH_MAX];
 	char *old_preload, *libpath;
@@ -275,8 +274,7 @@ static void setup_child_environ(struct opts *opts, int pfd,
 		setenv("UFTRACE_LOGFD", buf, 1);
 	}
 
-	snprintf(buf, sizeof(buf), "%d", pfd);
-	setenv("UFTRACE_PIPE", buf, 1);
+	setenv("UFTRACE_PIPE", "-1", 1);
 	setenv("UFTRACE_SHMEM", "1", 1);
 
 	if (debug) {
@@ -1906,14 +1904,20 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 		chown_directory(opts->dirname);
 }
 
-int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
+int do_main_loop(int ready, struct opts *opts, int pid)
 {
 	int ret;
 	struct writer_data wd;
+	char *channel = NULL;
+
+	xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 
 	wd.pid = pid;
-	wd.pipefd = pfd[0];
-	close(pfd[1]);
+	wd.pipefd = open(channel, O_RDONLY | O_NONBLOCK);
+
+	free(channel);
+	if (wd.pipefd < 0)
+		pr_err("cannot open pipe");
 
 	if (opts->sig_trigger)
 		pr_out("uftrace: install signal handlers to task %d\n", pid);
@@ -1924,7 +1928,7 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 
 	while (!uftrace_done) {
 		struct pollfd pollfd = {
-			.fd = pfd[0],
+			.fd = wd.pipefd,
 			.events = POLLIN,
 		};
 
@@ -1935,7 +1939,7 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 			pr_err("error during poll");
 
 		if (pollfd.revents & POLLIN)
-			read_record_mmap(pfd[0], opts->dirname, opts->bufsize);
+			read_record_mmap(wd.pipefd, opts->dirname, opts->bufsize);
 
 		if (pollfd.revents & (POLLERR | POLLHUP))
 			break;
@@ -1948,7 +1952,7 @@ int do_main_loop(int pfd[2], int ready, struct opts *opts, int pid)
 	return ret;
 }
 
-int do_child_exec(int pfd[2], int ready, struct opts *opts,
+int do_child_exec(int ready, struct opts *opts,
 		  int argc, char *argv[])
 {
 	uint64_t dummy;
@@ -1960,8 +1964,6 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts,
 		if (personality(ADDR_NO_RANDOMIZE) < 0)
 			pr_dbg("disabling ASLR failed\n");
 	}
-
-	close(pfd[0]);
 
 	shebang = check_script_file(argv[0]);
 	if (shebang) {
@@ -1990,7 +1992,7 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts,
 		free(shebang);
 	}
 
-	setup_child_environ(opts, pfd[1], argc, argv);
+	setup_child_environ(opts, argc, argv);
 
 	/* wait for parent ready */
 	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
@@ -2007,12 +2009,9 @@ int do_child_exec(int pfd[2], int ready, struct opts *opts,
 int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
-	int pfd[2];
-	int efd;
+	int ready;
 	int ret = -1;
-
-	if (pipe(pfd) < 0)
-		pr_err("cannot setup internal pipe");
+	char *channel = NULL;
 
 	if (!opts->nop && create_directory(opts->dirname) < 0)
 		return -1;
@@ -2024,11 +2023,16 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	check_binary(opts);
 	check_perf_event(opts);
 
+	if (!opts->nop) {
+		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
+		mkfifo(channel, 0600);
+	}
+
 	fflush(stdout);
 
-	efd = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
-	if (efd < 0)
-		pr_dbg("creating eventfd failed: %d\n", efd);
+	ready = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
+	if (ready < 0)
+		pr_dbg("creating eventfd failed: %d\n", ready);
 
 	pid = fork();
 	if (pid < 0)
@@ -2036,15 +2040,21 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (pid == 0) {
 		if (opts->keep_pid)
-			ret = do_main_loop(pfd, efd, opts, getppid());
+			ret = do_main_loop(ready, opts, getppid());
 		else
-			do_child_exec(pfd, efd, opts, argc, argv);
+			do_child_exec(ready, opts, argc, argv);
+
+		if (channel)
+			unlink(channel);
 		return ret;
 	}
 
 	if (opts->keep_pid)
-		do_child_exec(pfd, efd, opts, argc, argv);
+		do_child_exec(ready, opts, argc, argv);
 	else
-		ret = do_main_loop(pfd, efd, opts, pid);
+		ret = do_main_loop(ready, opts, pid);
+
+	if (channel)
+		unlink(channel);
 	return ret;
 }
