@@ -133,6 +133,41 @@ int check_static_binary(const char *filename)
 	return ret;
 }
 
+/* caller should free the result */
+char * check_script_file(const char *filename)
+{
+	char *shebang = NULL;
+	char magic[2];
+	int fd;
+	char *p;
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0)
+		return NULL;
+
+	if (read(fd, magic, sizeof(magic)) < 0)
+		goto out;
+
+	if (magic[0] != '#' || magic[1] != '!')
+		goto out;
+
+	shebang = xmalloc(1024);
+	if (read(fd, shebang, 1024) < 0) {
+		free(shebang);
+		shebang = NULL;
+		goto out;
+	}
+	shebang[1023] = '\0';
+
+	p = strchr(shebang, '\n');
+	if (p)
+		*p = '\0';
+
+out:
+	close(fd);
+	return shebang;
+}
+
 void unload_symtab(struct symtab *symtab)
 {
 	size_t i;
