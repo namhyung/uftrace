@@ -32,6 +32,7 @@ static bool tui_debug;
 
 static char linebuf[MAX_LINE_WIDTH];
 static int field_width;
+static int leftcut;
 
 struct tui_graph_node {
 	struct uftrace_graph_node n;
@@ -1161,9 +1162,17 @@ static void println(const char *fmt, ...)
 static void flush_linebuf()
 {
 	int cols = COLS - field_width;
-	unsigned char *p = (unsigned char*)linebuf;
+	unsigned char *str = (unsigned char*)linebuf;
+	unsigned char *p;
 	int width = 0;
 
+	for (int i = 0; str && i < leftcut; i++) {
+		do {
+			str++;
+		} while (is_boxchar(*str));
+	}
+
+	p = str;
 	for (int i = 0; p && i < cols; i++) {
 		do {
 			p++;
@@ -1171,7 +1180,7 @@ static void flush_linebuf()
 		} while (is_boxchar(*p));
 	}
 
-	printw("%-*.*s", width, width, linebuf);
+	printw("%-*.*s", width, width, str);
 	linebuf[0] = '\0';
 	field_width = 0;
 }
@@ -2409,6 +2418,20 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			cancel_search();
 			tui_window_move_down(win);
 			break;
+		case KEY_LEFT:
+			if (win == &graph->win || win == &partial_graph.win) {
+				if (leftcut >= 1) {
+					leftcut -= 1;
+					full_redraw = true;
+				}
+			}
+			break;
+		case KEY_RIGHT:
+			if (win == &graph->win || win == &partial_graph.win) {
+				leftcut += 1;
+				full_redraw = true;
+			}
+			break;
 		case KEY_PPAGE:
 			cancel_search();
 			tui_window_page_up(win);
@@ -2474,9 +2497,11 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 								curr->n.name);
 				if (func == NULL)
 					break;
+				leftcut = 0;
 				build_partial_graph(func, graph);
 			}
 			else if (win == &report->win) {
+				leftcut = 0;
 				build_partial_graph(win->curr, graph);
 			}
 			else {
