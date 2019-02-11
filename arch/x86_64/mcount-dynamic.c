@@ -15,6 +15,7 @@
 #define XRAY_SECT  "xray_instr_map"
 
 #define CALL_INSN_SIZE  5
+#define JMP_INSN_SIZE   6
 
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
@@ -276,7 +277,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		memcpy(func, patch.bytes, sizeof(patch));
 	}
 
-	pr_dbg("update function '%s' dynamically to call xray functions\n",
+	pr_dbg3("update function '%s' dynamically to call xray functions\n",
 		sym->name);
 	return INSTRUMENT_SUCCESS;
 }
@@ -357,13 +358,7 @@ static int update_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
  *
  */
 
-// Change Memory protection flags.
-// to allow execute permission to stored code chunk.
-#define SETRWX(addr, len)   mprotect((void*)((addr) &~ 0xFFF),\
-		(len) + ((addr) - ((addr) &~ 0xFFF)),\
-		PROT_READ | PROT_EXEC | PROT_WRITE)
-
-csh csh_handle;
+static csh csh_handle;
 
 /* stored original instructions */
 struct address_entry {
@@ -372,12 +367,6 @@ struct address_entry {
 	struct list_head list;
 };
 static LIST_HEAD(address_list);
-
-/* The code to call the trampoline (__dentry__) */
-static unsigned char g_patch_code[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-
-/* The code to jump to the stored original code */
-static unsigned char g_jmp_insn[] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
 uintptr_t find_original_code(unsigned long addr)
 {
@@ -395,23 +384,11 @@ uintptr_t find_original_code(unsigned long addr)
 	return ret_addr;
 }
 
-static unsigned long get_trampoline_addr(struct mcount_dynamic_info *mdi,
-					 unsigned long addr, unsigned int offset)
-{
-	while (mdi) {
-		if (mdi->text_addr <= addr && addr < mdi->text_addr + mdi->text_size)
-			return mdi->trampoline - (addr + CALL_INSN_SIZE) + offset;
-
-		mdi = mdi->next;
-	}
-	return 0;
-}
-
 /* get relative offset from address to dentry trampoline */
-static unsigned long get_dentry_rel_trampoline_addr(struct mcount_dynamic_info *mdi,
-							 unsigned long addr)
+static unsigned long get_dentry_addr(struct mcount_dynamic_info *mdi,
+				     unsigned long addr)
 {
-	return get_trampoline_addr(mdi, addr, 16);
+	return mdi->trampoline - (addr + CALL_INSN_SIZE) + 16;
 }
 
 void mcount_disasm_init(void)
@@ -427,22 +404,6 @@ void mcount_disasm_init(void)
 void mcount_disasm_finish(void)
 {
 	cs_close(&csh_handle);
-}
-
-static void print_disassemble(void *address, uint32_t size)
-{
-	cs_insn *insn;
-	int count;
-	int j;
-
-	pr_dbg("============  DISASM ================\n");
-
-	count = cs_disasm(csh_handle, address, size, (long)address, 0, &insn);
-	for(j = 0; j < count; j++) {
-		pr_dbg("0x%"PRIx64"[%02d]:%s %s\n", insn[j].address,
-		       insn[j].size, insn[j].mnemonic, insn[j].op_str);
-	}
-	cs_free(insn, count);
 }
 
 #define CODE_PATCH_OK  0x1
@@ -473,7 +434,7 @@ static int check_instrumentable(csh ud, cs_insn *ins)
 	/* print the groups this instruction belong to */
 	if (detail->groups_count > 0) {
 		for (n = 0; n < detail->groups_count; n++) {
-			pr_dbg2("Instr Groups: %s\n",
+			pr_dbg3("Instr Groups: %s\n",
 				cs_group_name(handle, detail->groups[n]));
 
 			if (detail->groups[n] == X86_GRP_CALL ||
@@ -489,7 +450,7 @@ static int check_instrumentable(csh ud, cs_insn *ins)
 	if (!x86->op_count)
 		return CODE_PATCH_NO;
 
-	pr_dbg2("0x%" PRIx64 "[%02d]:\t%s\t%s\n",
+	pr_dbg3("0x%" PRIx64 "[%02d]:\t%s\t%s\n",
 		ins->address, ins->size, ins->mnemonic, ins->op_str);
 
 	for (i = 0; i < x86->op_count; i++) {
@@ -500,32 +461,28 @@ static int check_instrumentable(csh ud, cs_insn *ins)
 			status = CODE_PATCH_OK;
 			break;
 		case X86_OP_IMM:
-			if (jmp_or_call) {
-				status = CODE_PATCH_NO;
-				return status;
-			}
-			else {
-				status = CODE_PATCH_OK;
-			}
+			if (jmp_or_call)
+				return CODE_PATCH_NO;
+			status = CODE_PATCH_OK;
 			break;
 		case X86_OP_MEM:
 			// temporary till discover possibility of x86 instructions.
 			status = CODE_PATCH_NO;
 
 			if (op->mem.segment != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.segment: REG = %s\n",
+				pr_dbg3("\t\t\toperands[%u].mem.segment: REG = %s\n",
 					i, cs_reg_name(handle, op->mem.segment));
 			if (op->mem.base != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.base: REG = %s\n",
+				pr_dbg3("\t\t\toperands[%u].mem.base: REG = %s\n",
 					i, cs_reg_name(handle, op->mem.base));
 			if (op->mem.index != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.index: REG = %s\n",
+				pr_dbg3("\t\t\toperands[%u].mem.index: REG = %s\n",
 					i, cs_reg_name(handle, op->mem.index));
 			if (op->mem.scale != 1)
-				pr_dbg2("\t\t\toperands[%u].mem.scale: %u\n",
+				pr_dbg3("\t\t\toperands[%u].mem.scale: %u\n",
 					i, op->mem.scale);
 			if (op->mem.disp != 0)
-				pr_dbg2("\t\t\toperands[%u].mem.disp: 0x%" PRIx64 "\n",
+				pr_dbg3("\t\t\toperands[%u].mem.disp: 0x%" PRIx64 "\n",
 					i, op->mem.disp);
 			return status;
 		default:
@@ -542,8 +499,8 @@ static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
 				  uint32_t origin_code_size)
 {
 	unsigned char *stored_addr, *origin_code_addr;
-	unsigned char *ptr = (void *)&target_addr;
-	uint32_t i;
+	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
+	unsigned char jmp_insn[] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
 	/*
 	 *  stored origin instruction block:
@@ -555,14 +512,8 @@ static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
 	 *  | [Return   address] |
 	 *  ----------------------
 	 */
-	uint32_t store_code_size = origin_code_size + sizeof(g_jmp_insn) +
+	uint32_t store_code_size = origin_code_size + sizeof(jmp_insn) +
 				   sizeof(long);
-
-	/* build the instrumentation instruction */
-	for (i = 0; i < 4; i++) {
-		// E8 XX XX XX XX ; Relative call to trampoline
-		g_patch_code[1 + i] = *(ptr+i);
-	}
 
 	/*
 	 * XXX: allocate memory to store the original instructions
@@ -572,7 +523,24 @@ static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
 	 */
 	stored_addr = xmalloc(store_code_size);
 	memset(stored_addr, 0, store_code_size);
-	SETRWX((uintptr_t)stored_addr, store_code_size);
+
+	mprotect((void *)ROUND_DOWN((unsigned long)stored_addr, 4096),
+		 store_code_size + ((unsigned long)stored_addr & 0xfff),
+		 PROT_READ | PROT_WRITE | PROT_EXEC);
+
+	/* return address */
+	origin_code_addr = (void *)addr + origin_code_size;
+
+	memcpy(stored_addr, (void *)addr, origin_code_size);
+	memcpy(stored_addr + origin_code_size, jmp_insn, JMP_INSN_SIZE);
+	memcpy(stored_addr + origin_code_size + JMP_INSN_SIZE,
+	       &origin_code_addr, sizeof(long));
+
+	/* patch address */
+	origin_code_addr = (void *)addr;
+
+	/* build the instrumentation instruction */
+	memcpy(&call_insn[1], &target_addr, CALL_INSN_SIZE - 1);
 
 	/*
 	 * we need 5-bytes at least to instrumentation. however,
@@ -593,52 +561,14 @@ static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
 	 * dynamic: 0x400553[01]:nop
 	 * dynamic: 0x400554[01]:nop
 	 */
-	origin_code_addr = (void *)addr;
-	for (i = 0; i < origin_code_size; i++) {
-		stored_addr[i] = origin_code_addr[i];
+	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
+	memset(origin_code_addr + CALL_INSN_SIZE, 0x90,  /* NOP */
+	       origin_code_size - CALL_INSN_SIZE);
 
-		if (i >= CALL_INSN_SIZE)
-			origin_code_addr[i] = 0x90;
-		else
-			origin_code_addr[i] = g_patch_code[i];
-	}
-	/*
-	 * we build jump block in here.
-	 *  ----------------------
-	 *  | [jmpq    *0x0(rip) |
-	 *  ----------------------
-	 */
-	stored_addr[origin_code_size+0] = g_jmp_insn[0];
-	stored_addr[origin_code_size+1] = g_jmp_insn[1];
-	stored_addr[origin_code_size+2] = g_jmp_insn[2];
-	stored_addr[origin_code_size+3] = g_jmp_insn[3];
-	stored_addr[origin_code_size+4] = g_jmp_insn[4];
-	stored_addr[origin_code_size+5] = g_jmp_insn[5];
-	/*
-	 *  append return address.
-	 *  the 'return address' mean the last address that was overwritten.
-	 *  ----------------------
-	 *  | [Return   address] |
-	 *  ----------------------
-	 * [example]
-	 *  f1cff6:	jmp qword ptr [rip]
-	 *  f1cffc:	QW 0x0000000000400555 << return address
-	 *
-	 *  ...
-	 *  40054c[05]:call 0x400ff0
-	 *  400551[01]:nop
-	 *  400552[01]:nop
-	 *  400553[01]:nop
-	 *  400554[01]:nop
-	 *  400555		<< jump to here
-	 */
-	*((uintptr_t *)(&stored_addr[origin_code_size+6])) =
-			(uintptr_t)&origin_code_addr[origin_code_size];
+	/* flush icache so that cpu can execute the new insn */
+	__builtin___clear_cache(origin_code_addr,
+				origin_code_addr + origin_code_size);
 
-	if (debug) {
-		print_disassemble(stored_addr, store_code_size);
-		print_disassemble(origin_code_addr, origin_code_size);
-	}
 	return stored_addr;
 }
 
@@ -650,14 +580,12 @@ void do_instrument(struct mcount_dynamic_info *mdi,
 	unsigned char *stored_code;
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_dentry_rel_trampoline_addr(mdi, addr);
+	target_addr = get_dentry_addr(mdi, addr);
 
 	stored_code = patch_code(addr, target_addr, insn_size);
 	if (stored_code) {
 		// TODO : keep and manage stored_code chunks.
-		pr_dbg("Keep original instruction [%03d]: %llx\n",
-			insn_size, (uintptr_t)stored_code);
-		el = malloc(sizeof(struct address_entry));
+		el = malloc(sizeof(*el));
 		el->addr = addr;
 		el->saved_addr = (uintptr_t)stored_code;
 		list_add_tail(&el->list, &address_list);
@@ -672,38 +600,34 @@ static int check_instrument_size(uintptr_t addr, uint32_t size)
 
 	count = cs_disasm(csh_handle, (unsigned char*)addr, size, addr, 0, &insn);
 
-	for(i = 0;i < count;i++) {
-		int res = check_instrumentable(csh_handle, &insn[i]);
-		if (res & CODE_PATCH_NO) {
-			pr_dbg2("\tThe instruction not supported : %s\t %s\n",
+	for (i = 0; i < count; i++) {
+		if (check_instrumentable(csh_handle, &insn[i]) == CODE_PATCH_NO) {
+			pr_dbg3("instruction not supported: %s\t %s\n",
 				insn[i].mnemonic, insn[i].op_str);
-			return INSTRUMENT_SKIPPED;
+			return INSTRUMENT_FAILED;
 		}
 
 		code_size += insn[i].size;
 		if (code_size >= CALL_INSN_SIZE)
-			break;
+			return code_size;
 	}
 
-	return code_size;
+	return INSTRUMENT_FAILED;
 }
 
-static int instrument(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	int instr_size = 0;
+	int instr_size;
 
 	instr_size = check_instrument_size(sym->addr, sym->size);
-	pr_dbg2("%s - patch instruction, size of %d\n", sym->name, instr_size);
+	if (instr_size < CALL_INSN_SIZE)
+		return instr_size;
 
-	if (instr_size > 0) {
-		do_instrument(mdi, sym->addr, instr_size);
-		return INSTRUMENT_SUCCESS;
-	}
-	else if (instr_size == 0) {
-		return INSTRUMENT_SKIPPED;
-	}
+	pr_dbg2("patch normal func: %s (patch size: %d)\n",
+		sym->name, instr_size);
 
-	return instr_size;
+	do_instrument(mdi, sym->addr, instr_size);
+	return INSTRUMENT_SUCCESS;
 }
 
 #endif /* HAVE_LIBCAPSTONE */
@@ -719,19 +643,11 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 		result = patch_fentry_func(mdi, sym);
 #ifdef HAVE_LIBCAPSTONE
 		// function prolog does not match with nops instruction.
-		if (result & INSTRUMENT_SKIPPED) {
-			if (!strcmp(sym->name, "_start")) {
-				pr_dbg2("SKIP _start\n");
-				return INSTRUMENT_SKIPPED;
-			}
-			if (!strcmp(sym->name, "__libc_csu_init")) {
-				pr_dbg2("SKIP %s\n", sym->name);
-				return INSTRUMENT_SKIPPED;
-			}
+		if (result == INSTRUMENT_SKIPPED) {
 			if (sym->size < CALL_INSN_SIZE)
-				return INSTRUMENT_SKIPPED;
+				return result;
 
-			return instrument(mdi, sym);
+			return patch_normal_func(mdi, sym);
 		}
 #endif
 		return result;

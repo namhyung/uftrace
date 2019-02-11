@@ -106,10 +106,16 @@ static int prepare_dynamic_update(void)
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {
-	char *name, *nopatched_name = NULL;
 	struct symtab *symtab = &symtabs->symtab;
 	struct strv funcs = STRV_INIT;
+	char *name;
 	int j;
+	/* skip special startup (csu) functions */
+	const char *csu_skip_syms[] = {
+		"_start",
+		"__libc_csu_init",
+		"__libc_csu_fini",
+	};
 
 	if (patch_funcs == NULL)
 		return 0;
@@ -118,7 +124,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	strv_for_each(&funcs, name, j) {
 		bool found = false;
-		unsigned i;
+		bool csu_skip;
+		unsigned i, k;
 		struct sym *sym;
 		struct uftrace_pattern patt;
 
@@ -126,6 +133,16 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 		for (i = 0; i < symtab->nr_sym; i++) {
 			sym = &symtab->sym[i];
+
+			csu_skip = false;
+			for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
+				if (!strcmp(sym->name, csu_skip_syms[k])) {
+					csu_skip = true;
+					break;
+				}
+			}
+			if (csu_skip)
+				continue;
 
 			if (sym->type != ST_LOCAL_FUNC &&
 			    sym->type != ST_GLOBAL_FUNC)
@@ -149,8 +166,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			stats.total++;
 		}
 
-		if (!found || stats.failed || stats.skipped)
-			nopatched_name = name;
 		if (!found)
 			stats.nomatch++;
 
@@ -158,9 +173,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	if (stats.failed || stats.skipped || stats.nomatch) {
-		pr_out("%s cannot be patched dynamically\n",
-		       (stats.failed + stats.skipped + stats.nomatch) > 1 ?
-		       "some functions" : nopatched_name);
+		pr_out("uftrace: some functions cannot be patched dynamically (%d/%d)\n",
+		       stats.total - (stats.failed + stats.skipped), stats.total);
 	}
 
 	strv_free(&funcs);
