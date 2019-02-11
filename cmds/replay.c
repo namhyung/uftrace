@@ -142,8 +142,8 @@ static struct display_field field_tid = {
 static struct display_field field_addr = {
 	.id      = REPLAY_F_ADDR,
 	.name    = "addr",
-#if __SIZEOF_LONG == 4
-	.header  = "  ADDR  ",
+#if __SIZEOF_LONG__ == 4
+	.header  = " ADDRESS",
 	.length  = 8,
 #else
 	.header  = "   ADDRESS  ",
