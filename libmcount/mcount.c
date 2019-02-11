@@ -29,6 +29,7 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#include "utils/env-file.h"
 
 /* time filter in nsec */
 uint64_t mcount_threshold;
@@ -1874,6 +1875,14 @@ UFTRACE_ALIAS(__cyg_profile_func_exit);
 static void __attribute__((constructor))
 mcount_init(void)
 {
+	int env_fd;
+	char *has_environ = getenv("UFTRACE_ENVIRON");
+
+	if (!has_environ) {
+		env_fd = open_env_file();
+		set_env_from_file(env_fd);
+	}
+
 	mcount_startup();
 }
 

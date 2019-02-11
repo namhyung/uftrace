@@ -102,6 +102,7 @@ enum options {
 	OPT_no_event,
 	OPT_signal,
 	OPT_srcline,
+	OPT_pid,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -138,6 +139,7 @@ static struct argp_option uftrace_options[] = {
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection "
 		"(default: " stringify(UFTRACE_RECV_PORT) ")" },
+	{ "pid", OPT_pid, "PID", 0, "Use PID for attaching process" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
 	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs "
 		"(default: " OPT_SORT_KEYS ")" },
@@ -612,6 +614,12 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		}
 		break;
 
+	case OPT_pid:
+		opts->pid = strtol(arg, NULL, 0);
+		if (opts->pid <= 0)
+			pr_use("invalid pid number : %s (ignoreing..)\n", arg);
+		break;
+
 	case OPT_nopager:
 		opts->use_pager = false;
 		break;
@@ -865,7 +873,6 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 		if (opts->exename == NULL) {
 			switch (opts->mode) {
-			case UFTRACE_MODE_RECORD:
 			case UFTRACE_MODE_LIVE:
 				argp_usage(state);
 				break;
