@@ -391,18 +391,22 @@ static void pr_args(struct fstack_arguments *args)
 		else {
 			struct sym *sym;
 			long long val = 0;
+			uint64_t addr;
 
 			memcpy(&val, ptr, spec->size);
 
+			addr = val;
 			sym = task_find_sym_addr(sessions, task,
-						 task->rstack->time,
-						 (uint64_t)val);
+						 task->rstack->time, addr);
 
 			pr_out("  args[%d] %c%d: 0x%0*llx", i,
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
-			if (sym)
-				pr_out(" (&%s)", sym->name);
+			if (sym) {
+				char *name = symbol_getname_offset(sym, addr);
+				pr_out(" (&%s)", name);
+				free(name);
+			}
 			pr_out("\n");
 
 			size = spec->size;
