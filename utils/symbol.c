@@ -1663,6 +1663,21 @@ void symbol_putname(struct sym *sym, char *name)
 	free(name);
 }
 
+char *symbol_getname_offset(struct sym *sym, uint64_t addr)
+{
+	char *name;
+
+	if (addr == sym->addr)
+		name = xstrdup(sym->name);
+	else if (sym->addr < addr && addr < sym->addr + sym->size)
+		xasprintf(&name, "%s+%"PRIu64, sym->name, addr - sym->addr);
+	else
+		name = xstrdup("<unknown>");
+
+	/* the return string has to be free-ed after use. */
+	return name;
+}
+
 void print_symtabs(struct symtabs *symtabs)
 {
 	size_t i;

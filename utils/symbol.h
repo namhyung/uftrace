@@ -167,6 +167,8 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 char *symbol_getname(struct sym *sym, uint64_t addr);
 void symbol_putname(struct sym *sym, char *name);
 
+char *symbol_getname_offset(struct sym *sym, uint64_t addr);
+
 struct dynsym_idxlist {
 	unsigned *idx;
 	unsigned count;
