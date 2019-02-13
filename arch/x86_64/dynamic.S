@@ -78,7 +78,7 @@ GLOBAL(__dentry__)
 	movq 48(%rdx), %rdi
 
 	/* find location that has the original code */
-	call find_original_code
+	call mcount_find_code
 
 	/* original stack pointer */
 	movq 8(%rsp), %rdx
