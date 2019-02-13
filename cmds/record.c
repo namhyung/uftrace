@@ -296,8 +296,11 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 			setenv("UFTRACE_NEST_LIBCALL", "1", 1);
 	}
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME))
-		setenv("UFTRACE_DIR", opts->dirname, 1);
+	if (realpath(opts->dirname, buf) == NULL) {
+		pr_err("Could not access path : %s\n", buf);
+	}
+
+	setenv("UFTRACE_DIR", buf, 1);
 
 	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bufsize);
