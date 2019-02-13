@@ -1,5 +1,7 @@
 #include <string.h>
+#include <stdint.h>
 #include <link.h>
+#include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dynamic"
@@ -10,6 +12,8 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/rbtree.h"
+#include "utils/list.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
@@ -18,6 +22,99 @@ static struct mcount_dynamic_stats {
 	int skipped;
 	int nomatch;
 } stats;
+
+#define PAGE_SIZE   4096
+#define CODE_CHUNK  (PAGE_SIZE * 8)
+
+struct code_page {
+	struct list_head	list;
+	void			*page;
+	int			pos;
+};
+
+static LIST_HEAD(code_pages);
+static struct rb_root code_tree = RB_ROOT;
+
+static struct mcount_orig_insn *lookup_code(struct rb_root *root,
+					    unsigned long addr, bool create)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	struct mcount_orig_insn *iter;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct mcount_orig_insn, node);
+
+		if (iter->addr == addr)
+			return iter;
+
+		if (iter->addr > addr)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	if (!create)
+		return NULL;
+
+	iter = xmalloc(sizeof(*iter));
+	iter->addr = addr;
+
+	rb_link_node(&iter->node, parent, p);
+	rb_insert_color(&iter->node, root);
+	return iter;
+}
+
+struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size,
+					  void *jmp_insn, unsigned jmp_size)
+{
+	struct code_page *cp = NULL;
+	struct mcount_orig_insn *orig;
+	const int patch_size = ALIGN(insn_size + jmp_size, 32);
+
+	if (!list_empty(&code_pages))
+		cp = list_last_entry(&code_pages, struct code_page, list);
+
+	if (cp == NULL || (cp->pos + patch_size > CODE_CHUNK)) {
+		cp = xmalloc(sizeof(*cp));
+		cp->page = mmap(NULL, CODE_CHUNK, PROT_READ | PROT_WRITE | PROT_EXEC,
+				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if (cp->page == MAP_FAILED)
+			pr_err("mmap code page failed");
+		cp->pos = 0;
+
+		list_add_tail(&cp->list, &code_pages);
+	}
+
+	orig = lookup_code(&code_tree, addr, true);
+	orig->insn = cp->page + cp->pos;
+
+	memcpy(orig->insn, (void *)addr, insn_size);
+	memcpy(orig->insn + insn_size, jmp_insn, jmp_size);
+
+	cp->pos += patch_size;
+	return orig;
+}
+
+void mcount_freeze_code(void)
+{
+	struct code_page *cp;
+
+	list_for_each_entry(cp, &code_pages, list)
+		mprotect(cp->page, CODE_CHUNK, PROT_EXEC);
+}
+
+void *mcount_find_code(unsigned long addr)
+{
+	struct mcount_orig_insn *orig;
+
+	orig = lookup_code(&code_tree, addr, false);
+	if (orig == NULL)
+		pr_err_ns("cannot find matching patch insn: %#lx\n", addr);
+
+	return orig->insn;
+}
 
 /* dummy functions (will be overridden by arch-specific code) */
 __weak int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -44,11 +141,13 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	const char *name = info->dlpi_name;
 	struct mcount_dynamic_info *mdi;
+	struct symtabs *symtabs = data;
 	bool base_addr_set = false;
 	unsigned i;
 
-	if ((data == NULL && name[0] == '\0') || strstr(name, data)) {
-		mdi = xmalloc(sizeof(*mdi));
+	/* TODO: support dynamic tracing for libraries */
+	if (name[0] == '\0') {
+		mdi = xzalloc(sizeof(*mdi));
 		mdi->mod_name = xstrdup(name);
 		mdi->base_addr = 0;
 
@@ -71,6 +170,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		}
 		mdi->base_addr += info->dlpi_addr;
 		mdi->text_addr += info->dlpi_addr;
+		mdi->nr_symbols = symtabs->symtab.nr_sym;
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
@@ -83,14 +183,14 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return 0;
 }
 
-static int prepare_dynamic_update(void)
+static int prepare_dynamic_update(struct symtabs *symtabs)
 {
 	struct mcount_dynamic_info *mdi;
 	int ret = 0;
 
 	mcount_disasm_init();
 
-	dl_iterate_phdr(find_dynamic_module, NULL);
+	dl_iterate_phdr(find_dynamic_module, symtabs);
 
 	mdi = mdinfo;
 	while (mdi) {
@@ -197,6 +297,7 @@ static void finish_dynamic_update(void)
 	}
 
 	mcount_disasm_finish();
+	mcount_freeze_code();
 }
 
 static float calc_percent(int n, int total)
@@ -213,7 +314,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	int ret = 0;
 	int success;
 
-	if (prepare_dynamic_update() < 0) {
+	if (prepare_dynamic_update(symtabs) < 0) {
 		pr_dbg("cannot setup dynamic tracing\n");
 		return -1;
 	}

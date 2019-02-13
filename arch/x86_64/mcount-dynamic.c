@@ -360,30 +360,6 @@ static int update_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 static csh csh_handle;
 
-/* stored original instructions */
-struct address_entry {
-	uintptr_t addr;
-	uintptr_t saved_addr;
-	struct list_head list;
-};
-static LIST_HEAD(address_list);
-
-uintptr_t find_original_code(unsigned long addr)
-{
-	struct address_entry* entry;
-	uintptr_t patched_addr, ret_addr = 0;
-
-	patched_addr = addr - CALL_INSN_SIZE;
-
-	list_for_each_entry(entry, &address_list, list) {
-		if (entry->addr == patched_addr) {
-			ret_addr = entry->saved_addr;
-			break;
-		}
-	}
-	return ret_addr;
-}
-
 /* get relative offset from address to dentry trampoline */
 static unsigned long get_dentry_addr(struct mcount_dynamic_info *mdi,
 				     unsigned long addr)
@@ -495,46 +471,12 @@ static int check_instrumentable(csh ud, cs_insn *ins)
 /*
  * Patch the instruction to the address as given for arguments.
  */
-static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
-				  uint32_t origin_code_size)
+static void patch_code(struct mcount_dynamic_info *mdi,
+		       uintptr_t addr, uint32_t origin_code_size)
 {
-	unsigned char *stored_addr, *origin_code_addr;
+	unsigned char *origin_code_addr;
 	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	unsigned char jmp_insn[] = { 0xff, 0x25, 0x00, 0x00, 0x00, 0x00 };
-
-	/*
-	 *  stored origin instruction block:
-	 *  ----------------------
-	 *  | [origin_code_size] |
-	 *  ----------------------
-	 *  | [jmpq    *0x0(rip) |
-	 *  ----------------------
-	 *  | [Return   address] |
-	 *  ----------------------
-	 */
-	uint32_t store_code_size = origin_code_size + sizeof(jmp_insn) +
-				   sizeof(long);
-
-	/*
-	 * XXX: allocate memory to store the original instructions
-	 * and make them to executable.
-	 *
-	 * FIXME: use mmap() instead
-	 */
-	stored_addr = xmalloc(store_code_size);
-	memset(stored_addr, 0, store_code_size);
-
-	mprotect((void *)ROUND_DOWN((unsigned long)stored_addr, 4096),
-		 store_code_size + ((unsigned long)stored_addr & 0xfff),
-		 PROT_READ | PROT_WRITE | PROT_EXEC);
-
-	/* return address */
-	origin_code_addr = (void *)addr + origin_code_size;
-
-	memcpy(stored_addr, (void *)addr, origin_code_size);
-	memcpy(stored_addr + origin_code_size, jmp_insn, JMP_INSN_SIZE);
-	memcpy(stored_addr + origin_code_size + JMP_INSN_SIZE,
-	       &origin_code_addr, sizeof(long));
+	uint32_t target_addr = get_dentry_addr(mdi, addr);
 
 	/* patch address */
 	origin_code_addr = (void *)addr;
@@ -568,28 +510,6 @@ static unsigned char * patch_code(uintptr_t addr, uint32_t target_addr,
 	/* flush icache so that cpu can execute the new insn */
 	__builtin___clear_cache(origin_code_addr,
 				origin_code_addr + origin_code_size);
-
-	return stored_addr;
-}
-
-void do_instrument(struct mcount_dynamic_info *mdi,
-		   uintptr_t addr, uint32_t insn_size)
-{
-	uint32_t target_addr;
-	struct address_entry* el;
-	unsigned char *stored_code;
-
-	/* get the jump offset to the trampoline */
-	target_addr = get_dentry_addr(mdi, addr);
-
-	stored_code = patch_code(addr, target_addr, insn_size);
-	if (stored_code) {
-		// TODO : keep and manage stored_code chunks.
-		el = malloc(sizeof(*el));
-		el->addr = addr;
-		el->saved_addr = (uintptr_t)stored_code;
-		list_add_tail(&el->list, &address_list);
-	}
 }
 
 
@@ -618,6 +538,9 @@ static int check_instrument_size(uintptr_t addr, uint32_t size)
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	int instr_size;
+	uint8_t jmp_insn[14] = { 0xff, 0x25, };
+	uint64_t jmp_target;
+	struct mcount_orig_insn *orig;
 
 	instr_size = check_instrument_size(sym->addr, sym->size);
 	if (instr_size < CALL_INSN_SIZE)
@@ -626,7 +549,24 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	pr_dbg2("patch normal func: %s (patch size: %d)\n",
 		sym->name, instr_size);
 
-	do_instrument(mdi, sym->addr, instr_size);
+	/*
+	 *  stored origin instruction block:
+	 *  ----------------------
+	 *  | [origin_code_size] |
+	 *  ----------------------
+	 *  | [jmpq    *0x0(rip) |
+	 *  ----------------------
+	 *  | [Return   address] |
+	 *  ----------------------
+	 */
+	jmp_target = sym->addr + instr_size;
+	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
+	orig = mcount_save_code(sym->addr, instr_size,
+				jmp_insn, sizeof(jmp_insn));
+	/* make sure orig->addr same as when called from __dentry__ */
+	orig->addr += CALL_INSN_SIZE;
+
+	patch_code(mdi, sym->addr, instr_size);
 	return INSTRUMENT_SUCCESS;
 }
 

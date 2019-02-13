@@ -388,7 +388,8 @@ struct mcount_dynamic_info {
 	char *mod_name;
 	unsigned long base_addr;
 	unsigned long text_addr;
-	unsigned long text_size;
+	int text_size;
+	int nr_symbols;
 	unsigned long trampoline;
 	void *arch;
 };
@@ -399,6 +400,17 @@ struct mcount_dynamic_info {
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
+
+struct mcount_orig_insn {
+	struct rb_node		node;
+	unsigned long		addr;
+	void			*insn;
+};
+
+struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size,
+					  void *jmp_insn, unsigned jmp_size);
+void *mcount_find_code(unsigned long addr);
+void mcount_freeze_code(void);
 
 /* these should be implemented for each architecture */
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
