@@ -363,9 +363,6 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			break;
 	}
 
-	if (!strcmp(basename(filename), "libgrandfather.so"))
-		flags |= 0x800;
-
 	if (iter.shdr.sh_type != SHT_SYMTAB) {
 		/*
 		 * fallback to dynamic symbol table when there's no symbol table
