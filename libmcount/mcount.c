@@ -1193,8 +1193,8 @@ mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
 }
 #endif
 
-int mcount_entry(unsigned long *parent_loc, unsigned long child,
-		 struct mcount_regs *regs)
+static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
+			  struct mcount_regs *regs)
 {
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
@@ -1262,7 +1262,17 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	return 0;
 }
 
-unsigned long mcount_exit(long *retval)
+int mcount_entry(unsigned long *parent_loc, unsigned long child,
+		 struct mcount_regs *regs)
+{
+	int saved_errno = errno;
+	int ret = __mcount_entry(parent_loc, child, regs);
+
+	errno = saved_errno;
+	return ret;
+}
+
+static unsigned long __mcount_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
@@ -1311,7 +1321,16 @@ unsigned long mcount_exit(long *retval)
 	return retaddr;
 }
 
-static int cygprof_entry(unsigned long parent, unsigned long child)
+unsigned long mcount_exit(long *retval)
+{
+	int saved_errno = errno;
+	unsigned long ret = __mcount_exit(retval);
+
+	errno = saved_errno;
+	return ret;
+}
+
+static int __cygprof_entry(unsigned long parent, unsigned long child)
 {
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
@@ -1389,7 +1408,16 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 	return 0;
 }
 
-static void cygprof_exit(unsigned long parent, unsigned long child)
+static int cygprof_entry(unsigned long parent, unsigned long child)
+{
+	int saved_errno = errno;
+	int ret = __cygprof_entry(parent, child);
+
+	errno = saved_errno;
+	return ret;
+}
+
+static void __cygprof_exit(unsigned long parent, unsigned long child)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
@@ -1424,8 +1452,16 @@ out:
 	mtdp->idx--;
 }
 
-void xray_entry(unsigned long parent, unsigned long child,
-		struct mcount_regs *regs)
+static void cygprof_exit(unsigned long parent, unsigned long child)
+{
+	int saved_errno = errno;
+
+	__cygprof_exit(parent, child);
+	errno = saved_errno;
+}
+
+static void _xray_entry(unsigned long parent, unsigned long child,
+			struct mcount_regs *regs)
 {
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
@@ -1490,7 +1526,16 @@ void xray_entry(unsigned long parent, unsigned long child,
 	mcount_unguard_recursion(mtdp);
 }
 
-void xray_exit(long *retval)
+void xray_entry(unsigned long parent, unsigned long child,
+		struct mcount_regs *regs)
+{
+	int saved_errno = errno;
+
+	_xray_entry(parent, child, regs);
+	errno = saved_errno;
+}
+
+static void _xray_exit(long *retval)
 {
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
@@ -1523,6 +1568,14 @@ out:
 	compiler_barrier();
 
 	mtdp->idx--;
+}
+
+void xray_exit(long *retval)
+{
+	int saved_errno = errno;
+
+	_xray_exit(retval);
+	errno = saved_errno;
 }
 
 static void atfork_prepare_handler(void)

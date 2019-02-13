@@ -725,8 +725,10 @@ __weak unsigned long mcount_arch_child_idx(unsigned long child_idx)
 	return child_idx;
 }
 
-unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
-			    unsigned long module_id, struct mcount_regs *regs)
+static unsigned long __plthook_entry(unsigned long *ret_addr,
+				     unsigned long child_idx,
+				     unsigned long module_id,
+				     struct mcount_regs *regs)
 {
 	struct sym *sym;
 	struct mcount_thread_data *mtdp = NULL;
@@ -891,9 +893,21 @@ out:
 	return real_addr;
 }
 
+unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
+			    unsigned long module_id, struct mcount_regs *regs)
+{
+	int saved_errno = errno;
+	unsigned long ret;
+
+	ret = __plthook_entry(ret_addr, child_idx, module_id, regs);
+	errno = saved_errno;
+	return ret;
+}
+
+
 void mtd_dtor(void *arg);
 
-unsigned long plthook_exit(long *retval)
+static unsigned long __plthook_exit(long *retval)
 {
 	unsigned dyn_idx;
 	struct mcount_thread_data *mtdp;
@@ -994,4 +1008,13 @@ again:
 
 	mtdp->idx--;
 	return ret_addr;
+}
+
+unsigned long plthook_exit(long *retval)
+{
+	int saved_errno = errno;
+	unsigned long ret = __plthook_exit(retval);
+
+	errno = saved_errno;
+	return ret;
 }
