@@ -363,9 +363,6 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			break;
 	}
 
-	if (!strcmp(basename(filename), "libgrandfather.so"))
-		flags |= 0x800;
-
 	if (iter.shdr.sh_type != SHT_SYMTAB) {
 		/*
 		 * fallback to dynamic symbol table when there's no symbol table
@@ -437,10 +434,11 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 
 	sym = &dsymtab->sym[dsymtab->nr_sym++];
 
-	if (elf->ehdr.e_machine == EM_ARM && iter->sym.st_value)
+	if (iter->sym.st_value && iter->sym.st_shndx == STN_UNDEF)
 		sym->addr = iter->sym.st_value + offset;
 	else
 		sym->addr = prev_addr + plt_entsize;
+
 	sym->size = plt_entsize;
 	sym->type = ST_PLT_FUNC;
 
