@@ -30,9 +30,16 @@ struct xray_instr_map {
 	unsigned long count;
 };
 
+enum mcount_x86_dynamic_type {
+	DYNAMIC_NONE,
+	DYNAMIC_FENTRY,
+	DYNAMIC_XRAY,
+};
+
 struct arch_dynamic_info {
-	struct xray_instr_map *xrmap;
-	unsigned xrmap_count;
+	enum mcount_x86_dynamic_type	type;
+	struct xray_instr_map		*xrmap;
+	unsigned			xrmap_count;
 };
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -45,12 +52,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	size_t trampoline_size = 16;
 	void *trampoline_check;
 
-#ifdef HAVE_LIBCAPSTONE
-	trampoline_size *= 2;
-#else
-	if (adi && adi->xrmap_count)
+	if (adi->type == DYNAMIC_XRAY)
 		trampoline_size *= 2;
-#endif
 
 	/* find unused 16-byte at the end of the code segment */
 	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
@@ -78,7 +81,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		return -1;
 	}
 
-	if (adi && adi->xrmap_count) {
+	if (adi->type == DYNAMIC_XRAY) {
 		/* jmpq  *0x2(%rip)     # <xray_entry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
@@ -89,18 +92,19 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
 		       &xray_exit_addr, sizeof(xray_exit_addr));
 	}
-	else {
+	else if (adi->type == DYNAMIC_FENTRY) {
 		/* jmpq  *0x2(%rip)     # <fentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
 		       &fentry_addr, sizeof(fentry_addr));
-
+	}
+	else if (adi->type == DYNAMIC_NONE) {
 #ifdef HAVE_LIBCAPSTONE
 		unsigned long dentry_addr = (unsigned long)__dentry__;
 
 		/* jmpq  *0x2(%rip)     # <dentry_addr> */
-		memcpy((void *)mdi->trampoline + 16, trampoline, sizeof(trampoline));
-		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
+		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
+		memcpy((void *)mdi->trampoline + sizeof(trampoline),
 		       &dentry_addr, sizeof(dentry_addr));
 #endif
 	}
@@ -113,88 +117,93 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_err("cannot restore trampoline due to protection");
 }
 
-void mcount_arch_find_module(struct mcount_dynamic_info *mdi)
+static void read_xray_map(struct arch_dynamic_info *adi,
+			  struct uftrace_elf_data *elf,
+			  struct uftrace_elf_iter *iter,
+			  unsigned long offset)
 {
-	Elf64_Ehdr ehdr;
-	Elf64_Shdr shdr;
-	char *mod_name = mdi->mod_name;
-	char *names = NULL;
-	int fd;
-	unsigned i;
-	off_t pos;
+	typeof(iter->shdr) *shdr = &iter->shdr;
 
-	mdi->arch = NULL;
+	adi->xrmap_count = shdr->sh_size / sizeof(*adi->xrmap);
+	adi->xrmap = xmalloc(adi->xrmap_count * sizeof(*adi->xrmap));
 
-	if (*mod_name == '\0')
-		mod_name = read_exename();
+	elf_get_secdata(elf, iter);
+	elf_read_secdata(elf, iter, 0, adi->xrmap, shdr->sh_size);
 
-	fd = open(mod_name, O_RDONLY);
-	if (fd < 0)
-		pr_err("cannot open %s", mod_name);
+	/* handle position independent code */
+	if (elf->ehdr.e_type == ET_DYN) {
+		struct xray_instr_map *xrmap;
+		unsigned i;
 
-	if (read_all(fd, &ehdr, sizeof(ehdr)) < 0)
+		for (i = 0; i < adi->xrmap_count; i++) {
+			xrmap = &adi->xrmap[i];
+
+			xrmap->addr  += offset;
+			xrmap->entry += offset;
+		}
+	}
+}
+
+void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
+			     struct symtab *symtab)
+{
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	struct arch_dynamic_info *adi;
+	const char *adi_type_names[] = { "none", "fentry", "xray" };
+	unsigned char fentry_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
+	unsigned char fentry_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	int num_check = 5;
+	unsigned i = 0;
+
+	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+
+	if (elf_init(mdi->mod_name, &elf) < 0)
 		goto out;
-	if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG))
-		goto out;
 
-	/* read section header name */
-	if (pread_all(fd, &shdr, sizeof(shdr),
-		      ehdr.e_shoff + (ehdr.e_shstrndx * ehdr.e_shentsize)) < 0)
-		goto out;
+	elf_for_each_shdr(&elf, &iter) {
+		char *shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
-	names = xmalloc(shdr.sh_size);
-	if (pread_all(fd, names, shdr.sh_size, shdr.sh_offset) < 0)
-		goto out;
-
-	pos = ehdr.e_shoff;
-	for (i = 0; i < ehdr.e_shnum; i++, pos += ehdr.e_shentsize) {
-		struct arch_dynamic_info *adi;
-
-		if (pread_all(fd, &shdr, sizeof(shdr), pos) < 0)
+		if (!strcmp(shstr, XRAY_SECT)) {
+			adi->type = DYNAMIC_XRAY;
+			read_xray_map(adi, &elf, &iter, mdi->base_addr);
 			goto out;
+		}
+	}
 
-		if (strcmp(&names[shdr.sh_name], XRAY_SECT))
+	/* check first few functions have fentry signature */
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
+
+		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		adi = xmalloc(sizeof(*adi));
-		adi->xrmap_count = shdr.sh_size / sizeof(*adi->xrmap);
-		adi->xrmap = xmalloc(adi->xrmap_count * sizeof(*adi->xrmap));
+		/* dont' check special functions */
+		if (sym->name[0] == '_')
+			continue;
 
-		if (pread_all(fd, adi->xrmap, shdr.sh_size, shdr.sh_offset) < 0) {
-			free(adi);
-			goto out;
+		/* only support calls to __fentry__ at the beginning */
+		if (!memcmp((void *)sym->addr, fentry_patt1, CALL_INSN_SIZE) ||
+		    !memcmp((void *)sym->addr, fentry_patt2, CALL_INSN_SIZE)) {
+			adi->type = DYNAMIC_FENTRY;
+			break;
 		}
 
-		/* handle position independent code */
-		if (ehdr.e_type == ET_DYN) {
-			struct xray_instr_map *xrmap;
-
-			for (i = 0; i < adi->xrmap_count; i++) {
-				xrmap = &adi->xrmap[i];
-
-				xrmap->addr  += mdi->base_addr;
-				xrmap->entry += mdi->base_addr;
-			}
-		}
-
-		mdi->arch = adi;
-		break;
+		if (num_check-- == 0)
+			break;
 	}
 
 out:
-	close(fd);
-	free(names);
+	pr_dbg("dynamic patch type: %d (%s)\n", adi->type,
+	       adi_type_names[adi->type]);
+
+	mdi->arch = adi;
+	elf_finish(&elf);
 }
 
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
-	while (mdi) {
-		if (mdi->text_addr <= addr && addr < mdi->text_addr + mdi->text_size)
-			return mdi->trampoline - (addr + CALL_INSN_SIZE);
-
-		mdi = mdi->next;
-	}
-	return 0;
+	return mdi->trampoline - (addr + CALL_INSN_SIZE);
 }
 
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
@@ -208,7 +217,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
 	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
 		pr_dbg("skip non-applicable functions: %s\n", sym->name);
-		return INSTRUMENT_SKIPPED;
+		return INSTRUMENT_FAILED;
 	}
 
 	/* get the jump offset to the trampoline */
@@ -574,22 +583,27 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	int result;
+	struct arch_dynamic_info *adi = mdi->arch;
+	int result = INSTRUMENT_SKIPPED;
 
-	if (mdi->arch) {
-		return update_xray_func(mdi, sym);
-	}
-	else {
+	switch (adi->type) {
+	case DYNAMIC_XRAY:
+		result = update_xray_func(mdi, sym);
+		break;
+
+	case DYNAMIC_FENTRY:
 		result = patch_fentry_func(mdi, sym);
-#ifdef HAVE_LIBCAPSTONE
-		// function prolog does not match with nops instruction.
-		if (result == INSTRUMENT_SKIPPED) {
-			if (sym->size < CALL_INSN_SIZE)
-				return result;
+		break;
 
-			return patch_normal_func(mdi, sym);
-		}
+	case DYNAMIC_NONE:
+#ifdef HAVE_LIBCAPSTONE
+		if (sym->size >= CALL_INSN_SIZE)
+			result = patch_normal_func(mdi, sym);
 #endif
-		return result;
+		break;
+
+	default:
+		break;
 	}
+	return result;
 }
