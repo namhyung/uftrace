@@ -451,25 +451,12 @@ static int check_instrumentable(csh ud, cs_insn *ins)
 			status = CODE_PATCH_OK;
 			break;
 		case X86_OP_MEM:
-			// temporary till discover possibility of x86 instructions.
-			status = CODE_PATCH_NO;
+			if (op->mem.base == X86_REG_RIP ||
+			    op->mem.index == X86_REG_RIP)
+				return CODE_PATCH_NO;
 
-			if (op->mem.segment != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.segment: REG = %s\n",
-					i, cs_reg_name(handle, op->mem.segment));
-			if (op->mem.base != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.base: REG = %s\n",
-					i, cs_reg_name(handle, op->mem.base));
-			if (op->mem.index != X86_REG_INVALID)
-				pr_dbg2("\t\t\toperands[%u].mem.index: REG = %s\n",
-					i, cs_reg_name(handle, op->mem.index));
-			if (op->mem.scale != 1)
-				pr_dbg2("\t\t\toperands[%u].mem.scale: %u\n",
-					i, op->mem.scale);
-			if (op->mem.disp != 0)
-				pr_dbg2("\t\t\toperands[%u].mem.disp: 0x%" PRIx64 "\n",
-					i, op->mem.disp);
-			return status;
+			status = CODE_PATCH_OK;
+			break;
 		default:
 			break;
 		}
