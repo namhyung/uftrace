@@ -1490,8 +1490,7 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 		};
 
 		if (rec->addr == EVENT_ID_PERF_COMM) {
-			memcpy(perf.u.comm.comm, task->args.data,
-			       sizeof(perf.u.comm.comm));
+			strcpy(perf.u.comm.comm, task->args.data);
 			perf.u.comm.pid  = task->t->pid;
 		}
 
