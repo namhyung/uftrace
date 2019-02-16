@@ -28,11 +28,11 @@ struct_or_union_specifier = ["struct", "union"]
 enum_specifier = ["enum"]
 
 typedef_name = [
-        "size_t", "ssize_t", "pid_t", "off_t", "off64_t", "FILE",
+        "size_t", "ssize_t", "pid_t", "uid_t", "off_t", "off64_t",
         "sigset_t", "socklen_t", "intptr_t", "nfds_t",
         "pthread_t", "pthread_once_t", "pthread_attr_t",
         "pthread_mutex_t", "pthread_mutexattr_t",
-        "Lmid_t",
+        "Lmid_t", "FILE",
     ]
 
 artifitial_type = [ "funcptr_t" ]
@@ -185,7 +185,9 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/S"
     elif ctype[-1] == "*":
         retval_format += "retval/x"
-    elif "unsigned" in ctype or ctype == "size_t" or ctype == "pid_t":
+    elif ctype == "pid_t" or ctype == "uid_t":
+        retval_format += "retval/i32"
+    elif "unsigned" in ctype or ctype == "size_t":
         retval_format += "retval/u"
     elif ctype == "funcptr_t":
         retval_format += "retval/p"
@@ -231,7 +233,9 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/S" % i
         elif arg[-1] == "*":
             args_format += "arg%d/x" % i
-        elif "unsigned" in arg or arg == "size_t" or arg == "pid_t":
+        elif arg == "pid_t" or arg == "uid_t":
+            args_format += "arg%d/i32" % i
+        elif "unsigned" in arg or arg == "size_t":
             args_format += "arg%d/u" % i
         elif arg == "funcptr_t":
             args_format += "arg%d/p" % i
