@@ -75,18 +75,58 @@ static void color(const char *code, FILE *fp)
 		pr_dbg("resetting terminal color failed");
 }
 
-void setup_color(enum color_setting color)
+static bool check_busybox(const char *pager)
+{
+	struct strv path_strv = STRV_INIT;
+	char buf[PATH_MAX];
+	char *path;
+	int i;
+	bool ret;
+
+	if (pager == NULL)
+		return false;
+
+	if (pager[0] == '/')
+		goto check;
+
+	/* search "PATH" env for absolute path */
+	strv_split(&path_strv, getenv("PATH"), ":");
+	strv_for_each(&path_strv, path, i) {
+		snprintf(buf, sizeof(buf), "%s/%s", path, pager);
+
+		if (!access(pager, X_OK)) {
+			pager = buf;
+			break;
+		}
+	}
+	strv_free(&path_strv);
+
+check:
+	path = realpath(pager, NULL);
+	ret = !strncmp("busybox", basename(path), 7);
+	free(path);
+
+	return ret;
+}
+
+void setup_color(enum color_setting color, char *pager)
 {
 	if (likely(color == COLOR_AUTO)) {
 		char *term = getenv("TERM");
 		bool dumb = term && !strcmp(term, "dumb");
+		bool busybox = false;
 
 		out_color = COLOR_ON;
 		log_color = COLOR_ON;
 
-		if (!isatty(fileno(outfp)) || dumb)
+		if (pager) {
+			/* less in the busybox doesn't support color */
+			busybox = check_busybox(pager);
+		}
+
+		if (!isatty(fileno(outfp)) || dumb || busybox)
 			out_color = COLOR_OFF;
-		if (!isatty(fileno(logfp)) || dumb)
+		if (!isatty(fileno(logfp)) || dumb || busybox)
 			log_color = COLOR_OFF;
 	}
 	else {

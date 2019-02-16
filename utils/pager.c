@@ -75,13 +75,12 @@ void wait_for_pager(void)
 	pager_pid = 0;
 }
 
-void start_pager(void)
+char *setup_pager(void)
 {
-	const char *pager = getenv("PAGER");
-	const char *pager_argv[] = { "sh", "-c", NULL, NULL };
+	char *pager = getenv("PAGER");
 
-	if (!isatty(1))
-		return;
+	if (!isatty(STDOUT_FILENO))
+		return NULL;
 	if (!(pager || access("/usr/bin/pager", X_OK)))
 		pager = "/usr/bin/pager";
 	if (!(pager || access("/usr/bin/less", X_OK)))
@@ -89,6 +88,16 @@ void start_pager(void)
 	if (!pager)
 		pager = "cat";
 	if (!*pager || !strcmp(pager, "cat"))
+		return NULL;
+
+	return pager;
+}
+
+void start_pager(char *pager)
+{
+	const char *pager_argv[] = { "sh", "-c", NULL, NULL };
+
+	if (pager == NULL)
 		return;
 
 	/* spawn the pager */

@@ -101,7 +101,7 @@ extern void __pr_color(char code, const char *fmt, ...);
 
 extern enum color_setting log_color;
 extern enum color_setting out_color;
-extern void setup_color(enum color_setting color);
+extern void setup_color(enum color_setting color, char *pager);
 extern void setup_signal(void);
 
 #ifndef PR_FMT
@@ -290,7 +290,8 @@ void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec);
 void print_diff_count(unsigned long base, unsigned long pair);
 
-void start_pager(void);
+char *setup_pager(void);
+void start_pager(char *pager);
 void wait_for_pager(void);
 
 bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp);

@@ -1658,9 +1658,9 @@ static __used void mcount_startup(void)
 		demangler = strtol(demangle_str, NULL, 0);
 
 	if (color_str)
-		setup_color(strtol(color_str, NULL, 0));
+		setup_color(strtol(color_str, NULL, 0), NULL);
 	else
-		setup_color(COLOR_AUTO);
+		setup_color(COLOR_AUTO, NULL);
 
 	pr_dbg("initializing mcount library\n");
 

@@ -996,6 +996,7 @@ int main(int argc, char *argv[])
 		.doc = "uftrace -- function (graph) tracer for userspace",
 	};
 	int ret = -1;
+	char *pager = NULL;
 
 	/* this must be done before argp_parse() */
 	logfp = stderr;
@@ -1034,9 +1035,6 @@ int main(int argc, char *argv[])
 	opts.range.kernel_skip_out = opts.kernel_skip_out;
 	opts.range.event_skip_out  = opts.event_skip_out;
 
-	setup_color(opts.color);
-	setup_signal();
-
 	if (opts.mode == UFTRACE_MODE_RECORD ||
 	    opts.mode == UFTRACE_MODE_RECV ||
 	    opts.mode == UFTRACE_MODE_TUI)
@@ -1044,9 +1042,15 @@ int main(int argc, char *argv[])
 	if (opts.nop)
 		opts.use_pager = false;
 
+	if (opts.use_pager)
+		pager = setup_pager();
+
+	setup_color(opts.color, pager);
+	setup_signal();
+
 	/* 'live' will start pager at its replay time */
 	if (opts.use_pager && opts.mode != UFTRACE_MODE_LIVE)
-		start_pager();
+		start_pager(pager);
 
 	if (opts.idx == 0)
 		opts.idx = argc;
