@@ -137,7 +137,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 		reset_live_opts(opts);
 
 		if (opts->use_pager)
-			start_pager();
+			start_pager(setup_pager());
 
 		pr_dbg("live-record finished.. \n");
 		if (opts->report) {

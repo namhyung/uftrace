@@ -137,7 +137,8 @@ UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 UFTRACE_OBJS_VERSION := $(objdir)/cmds/script.o $(objdir)/cmds/tui.o
 UFTRACE_OBJS_VERSION += $(objdir)/cmds/dump.o $(objdir)/cmds/info.o
 
-DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c $(srcdir)/utils/debug.c
+DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c
+DEMANGLER_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
 DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
 
 SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/session.c
