@@ -1,4 +1,4 @@
-#include <python2.7/Python.h>
+#include <Python.h>
 
 #include "uftrace.h"
 #include "utils/symbol.h"
