@@ -151,7 +151,7 @@ SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
-PYTHON_SRCS := $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
+PYTHON_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
 PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
 PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(PYTHON_SRCS))
 
