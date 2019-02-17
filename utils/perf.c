@@ -570,7 +570,7 @@ void process_perf_event(struct uftrace_data *handle)
 			rec->more = 1;
 			args.args = NULL;
 			args.data = xstrdup(perf->u.comm.comm);
-			args.len  = strlen(perf->u.comm.comm);
+			args.len  = strlen(perf->u.comm.comm) + 1;
 		}
 		else if (perf->type == PERF_RECORD_SWITCH && !perf->u.ctxsw.out) {
 			struct uftrace_rstack_list_node *last;

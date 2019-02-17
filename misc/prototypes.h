@@ -10,9 +10,6 @@
 // contain more function prototypes as of now.
 //
 
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <stdlib.h>
 int atoi(const char *str);
 long atol(const char *str);
@@ -210,10 +207,36 @@ enum uft_open_flag {
 };
 int open(const char* pathname, enum uft_open_flag flags);
 int open64(const char* pathname, enum uft_open_flag flags);
+int openat(int fd, const char* pathname, enum uft_open_flag flags);
+int open64at(int fd, const char* pathname, enum uft_open_flag flags);
 int close(int fd);
+
+enum uft_fnctl_cmd {
+	F_DUPFD, F_GETFD, F_SETFD, F_GETFL, F_SETFL,
+	F_GETLK, F_SETLK, F_SETLKW,
+	F_SETOWN, F_GETOWN, F_SEGSIG, F_GETSIG,
+	F_GETLK64, F_SETLK64, F_SETLKW64,
+	F_SETOWN_EX, F_GETOWN_EX,
+};
+int fcntl(int fd, enum uft_fcntl_cmd);
+int fcntl64(int fd, enum uft_fcntl_cmd);
 
 enum uft_seek_whence { SEEK_SET, SEEK_CUR, SEEK_END, SEEK_DATA, SEEK_HOLE, };
 off_t lseek(int fd, off_t offset, enum uft_seek_whence whence);
+
+enum uft_falloc_mde {
+	FALLOC_FL_KEEP_SIZE         = 1,
+	FALLOC_FL_PUNCH_HOLE        = 2,
+	FALLOC_FL_NO_HIDE_STALE     = 4,
+	FALLOC_FL_COLLAPSE_RANGE    = 8,
+	FALLOC_FL_ZERO_RANGE        = 16,
+	FALLOC_FL_INSERT_RANGE      = 32,
+	FALLOC_FL_UNSHARE_RANGE     = 64,
+};
+int fallocate(int fd, enum uft_falloc_mode mode, off_t off, off_t len);
+
+int fsync(int fd);
+int fdatasync(int fd);
 
 FILE *fopen(const char *path, const char *mode);
 FILE *fopen64(const char *filename, const char *type);
@@ -222,11 +245,16 @@ FILE *freopen(const char *path, const char *mode, FILE *stream);
 int fclose(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
+int fflush(FILE *stream);
 
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+
+int feof(FILE *stream);
+int ferror(FILE *stream);
+int fileno(FILE *stream);
 
 enum uft_access_flag {
 	F_OK = 0, X_OK = 1, W_OK = 2, R_OK = 4,
@@ -239,6 +267,7 @@ int mkdir(const char *pathname, mode_t mode);
 int rmdir(const char *pathname);
 int chdir(const char *pathname);
 
+#include <dirent.h>
 void * opendir(const char *name);
 int closedir(void *dirp);
 
@@ -368,6 +397,10 @@ int sigfillset(sigset_t *set);
 int sigaddset(sigset_t *set, enum uft_signal signum);
 int sigdelset(sigset_t *set, enum uft_signal signum);
 int sigismember(const sigset_t *set, enum uft_signal signum);
+
+enum uft_sigmask { SIG_BLOCK, SIG_UNBLOCK, SIG_SETMASK };
+int sigprocmask(enum uft_sigmask how, const sigset_t *set, sigset_t *oldset);
+int pthread_sigmask(enum uft_sigmask how, const sigset_t *set, sigset_t *oldset);
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -393,8 +426,22 @@ enum uft_prctl_op {
 };
 int prctl(enum uft_prctl_op option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
 
+#include <sys/select.h>
+int select(int nfds, void *rset, void *wset, void *eset, void *timeout);
+int pselect(int nfds, void *rset, void *wset, void *eset, void *timeout, sigset_t *mask);
+
 #include <poll.h>
 int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+int ppoll(struct pollfd *fds, nfds_t nfds, void *timeout, sigset_t *mask);
+
+#include <sys/epoll.h>
+enum uft_epoll_op { EPOLL_CTL_ADD = 1, EPOLL_CTL_DEL, EPOLL_CTL_MOD };
+
+int epoll_create(int size);
+int epoll_create1(int flags);
+int epoll_ctl(int efd, enum uft_epoll_op op, int fd, void *event);
+int epoll_wait(int efd, void *events, int max_event, int timeout);
+int epoll_pwait(int efd, void *events, int max_event, int timeout, sigset_t *mask);
 
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 long syscall(long number, ...);
@@ -438,5 +485,26 @@ int chmod(const char *pathname, enum uft_mode mode);
 int fchmod(int fd, enum uft_mode mode);
 void umask(enum uft_mode mask);
 
+int creat(const char *file, enum uft_mode mode);
+int creat64(const char *file, enum uft_mode mode);
+
+#include <unistd.h>
 int isatty(int fd);
+
+uid_t getuid(void);
+uid_t getgid(void);
+uid_t geteuid(void);
+uid_t getegid(void);
+int setuid(uid_t id);
+int setgid(uid_t id);
+int seteuid(uid_t id);
+int setegid(uid_t id);
+int setreuid(uid_t ruid, uid_t euid);
+int setregid(uid_t rgid, uid_t egid);
+int setresuid(uid_t ruid, uid_t euid, uid_t suid);
+int setresgid(uid_t rgid, uid_t egid, uid_t sgid);
+
+int chown(const char *path, uid_t uid, uid_t gid);
+int lchown(const char *path, uid_t uid, uid_t gid);
+int fchown(int fd, uid_t uid, uid_t gid);
 ////////////////////////////////////////////////////////////////////////////////
