@@ -20,14 +20,14 @@ int check_py_string(PyObject *object)
 }
 
 /* the name should be 'init' + <module name> */
-PyMODINIT_FUNC inittrace_python(void)
+PyMODINIT_FUNC inittrace_python2(void)
 {
 	PyObject *m, *d;
 
 	outfp = stdout;
 	logfp = stdout;
 
-	m = Py_InitModule("trace_python", uftrace_methods);
+	m = Py_InitModule("trace_python2", uftrace_methods);
 	if (m == NULL)
 		return;
 
