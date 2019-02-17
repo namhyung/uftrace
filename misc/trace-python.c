@@ -4,8 +4,12 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 
+/* compatibility layers for both python2 and python3 */
+char *get_py_string(PyObject *object);
+int check_py_string(PyObject *object);
+
 /* pointer to python tracing function */
-static PyObject *uftrace_func;
+PyObject *uftrace_func;
 
 /* RB tree of python_symbol to map function name to address */
 static struct rb_root name_tree = RB_ROOT;
@@ -24,7 +28,7 @@ static void (*cygprof_exit) (unsigned long child, unsigned long parent);
 
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args);
 
-static PyMethodDef uftrace_methods[] = {
+PyMethodDef uftrace_methods[] = {
 	{ "trace", uftrace_trace_python, METH_VARARGS,
 	  "trace python function with uftrace." },
 	{ NULL, NULL, 0, NULL },
@@ -55,7 +59,7 @@ static void find_cygprof_funcs(const char *filename, unsigned long base_addr)
 	elf_finish(&elf);
 }
 
-static void find_libmcount_funcs(void)
+void find_libmcount_funcs(void)
 {
 	char *line = NULL;
 	size_t len = 0;
@@ -82,30 +86,6 @@ static void find_libmcount_funcs(void)
 
 	free(line);
 	fclose(fp);
-}
-
-/* the name should be 'init' + <module name> */
-PyMODINIT_FUNC inittrace_python(void)
-{
-	PyObject *m, *d;
-
-	outfp = stdout;
-	logfp = stdout;
-
-	m = Py_InitModule("trace_python", uftrace_methods);
-	if (m == NULL)
-		return;
-
-	d = PyModule_GetDict(m);
-
-	/* keep the pointer to trace function as it's used as a return value */
-	uftrace_func = PyDict_GetItemString(d, "trace");
-
-	/* check if it's loaded in a uftrace session */
-	if (getenv("UFTRACE_SHMEM") == NULL)
-		return;
-
-	find_libmcount_funcs();
 }
 
 static unsigned long find_function(struct rb_root *root, const char *name)
@@ -218,15 +198,15 @@ static unsigned long convert_function_addr(PyObject *frame)
 	if (name == NULL)
 		goto out;
 
-	str_name = PyString_AsString(name);
+	str_name = get_py_string(name);
+
 	if (!strcmp(str_name, "<module>")) {
 		PyObject *global = PyEval_GetGlobals();
 
 		if (global != NULL) {
 			PyObject *mod = PyDict_GetItemString(global, "__name__");
-
-			if (mod && PyString_Check(mod)) {
-				asprintf(&str_name, "<module:%s>", PyString_AsString(mod));
+			if (mod && check_py_string(mod)) {
+				xasprintf(&str_name, "<module:%s>", get_py_string(mod));
 				needs_free = true;
 			}
 		}
