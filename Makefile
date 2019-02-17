@@ -77,14 +77,14 @@ TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
-PYTHON_CFLAGS      = $(COMMON_CFLAGS) -fPIC
+PYTHON_CFLAGS      = $(COMMON_CFLAGS) -fPIC $(shell python-config --cflags)
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
-PYTHON_LDFLAGS     = $(COMMON_LDFLAGS) $(LDFLAGS_$@) -lpython2.7
+PYTHON_LDFLAGS     = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(shell python-config --ldflags)
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g
