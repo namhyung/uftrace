@@ -72,14 +72,14 @@ TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
-PYTHON_CFLAGS      = $(COMMON_CFLAGS) -fPIC $(shell python-config --cflags)
+PYTHON2_CFLAGS     = $(COMMON_CFLAGS) -fPIC $(shell python-config --cflags)
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
-PYTHON_LDFLAGS     = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(shell python-config --ldflags)
+PYTHON2_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(shell python-config --ldflags)
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g
@@ -130,7 +130,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler misc/symbols misc/trace_python.so
+_TARGETS += misc/demangler misc/symbols misc/trace_python2.so
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -151,9 +151,9 @@ SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
-PYTHON_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
-PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
-PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(PYTHON_SRCS))
+PYTHON2_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
+PYTHON2_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
+PYTHON2_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%-py2.op,$(PYTHON2_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -283,13 +283,13 @@ $(objdir)/misc/symbols: $(SYMBOLS_OBJS)
 	$(QUIET_LINK)$(CC) $(SYMBOLS_CFLAGS) -o $@ $(SYMBOLS_OBJS) $(SYMBOLS_LDFLAGS)
 
 ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
-$(PYTHON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(PYTHON_CFLAGS) -c -o $@ $<
+$(PYTHON2_OBJS): $(objdir)/%-py2.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(PYTHON2_CFLAGS) -c -o $@ $<
 
-$(objdir)/misc/trace_python.so: $(PYTHON_OBJS)
-	$(QUIET_LINK)$(CC) -shared $(PYTHON_CFLAGS) -o $@ $(PYTHON_OBJS) $(PYTHON_LDFLAGS)
+$(objdir)/misc/trace_python2.so: $(PYTHON2_OBJS)
+	$(QUIET_LINK)$(CC) -shared $(PYTHON2_CFLAGS) -o $@ $(PYTHON2_OBJS) $(PYTHON2_LDFLAGS)
 else
-$(objdir)/misc/trace_python.so:
+$(objdir)/misc/trace_python2.so:
 endif
 
 install: all

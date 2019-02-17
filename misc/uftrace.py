@@ -1,5 +1,5 @@
 import sys
-import trace_python
+import trace_python2
 
 sys.argv = sys.argv[1:]
 
@@ -12,6 +12,6 @@ globs = {
     '__cached__': None,
 }
 
-sys.settrace(trace_python.trace)
+sys.settrace(trace_python2.trace)
 
 exec(open(progname).read(), globs, globs)
