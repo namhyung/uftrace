@@ -13,6 +13,8 @@
 #include "utils/rbtree.h"
 #include "utils/filter.h"
 
+#define USE_OFFSET_CACHE  0
+
 static struct rb_root offset_cache = RB_ROOT;
 
 /* whether current machine supports hardfp */
@@ -38,6 +40,9 @@ static struct offset_entry *lookup_cache(struct rb_root *root,
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	struct offset_entry *iter;
+
+	if (!USE_OFFSET_CACHE)
+		return NULL;
 
 	while (*p) {
 		parent = *p;
@@ -114,7 +119,8 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	analyze_mcount_instructions(buf, &lr);
 
 	cache = lookup_cache(&offset_cache, sym->addr, true);
-	cache->offset = lr.offset;
+	if (cache)
+		cache->offset = lr.offset;
 
 	return parent_loc + lr.offset;
 }
