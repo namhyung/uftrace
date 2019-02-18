@@ -126,7 +126,8 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
 }
 
-__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			     struct mcount_disasm_engine *disasm)
 {
 	return -1;
 }
@@ -135,6 +136,14 @@ __weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 				    struct symtab *symtab)
 {
 	mdi->arch = NULL;
+}
+
+__weak void mcount_disasm_init(struct mcount_disasm_engine *disasm)
+{
+}
+
+__weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
+{
 }
 
 /* callback for dl_iterate_phdr() */
@@ -184,12 +193,13 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return 0;
 }
 
-static int prepare_dynamic_update(struct symtabs *symtabs)
+static int prepare_dynamic_update(struct mcount_disasm_engine *disasm,
+				  struct symtabs *symtabs)
 {
 	struct mcount_dynamic_info *mdi;
 	int ret = 0;
 
-	mcount_disasm_init();
+	mcount_disasm_init(disasm);
 
 	dl_iterate_phdr(find_dynamic_module, symtabs);
 
@@ -205,7 +215,8 @@ static int prepare_dynamic_update(struct symtabs *symtabs)
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			     enum uftrace_pattern_type ptype)
+			     enum uftrace_pattern_type ptype,
+			     struct mcount_disasm_engine *disasm)
 {
 	struct symtab *symtab = &symtabs->symtab;
 	struct strv funcs = STRV_INIT;
@@ -253,7 +264,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 				continue;
 
 			found = true;
-			switch (mcount_patch_func(mdinfo, sym)) {
+			switch (mcount_patch_func(mdinfo, sym, disasm)) {
 			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
@@ -282,7 +293,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	return 0;
 }
 
-static void finish_dynamic_update(void)
+static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
 {
 	struct mcount_dynamic_info *mdi, *tmp;
 
@@ -297,7 +308,7 @@ static void finish_dynamic_update(void)
 		mdi = tmp;
 	}
 
-	mcount_disasm_finish();
+	mcount_disasm_finish(disasm);
 	mcount_freeze_code();
 }
 
@@ -310,17 +321,18 @@ static float calc_percent(int n, int total)
 }
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			  enum uftrace_pattern_type ptype)
+			  enum uftrace_pattern_type ptype,
+			  struct mcount_disasm_engine *disasm)
 {
 	int ret = 0;
 	int success;
 
-	if (prepare_dynamic_update(symtabs) < 0) {
+	if (prepare_dynamic_update(disasm, symtabs) < 0) {
 		pr_dbg("cannot setup dynamic tracing\n");
 		return -1;
 	}
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
 
 	success = stats.total - stats.failed - stats.skipped;
 	pr_dbg("dynamic update stats:\n");
@@ -332,6 +344,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	pr_dbg(" skipped: %8d (%.2f%%)\n", stats.skipped,
 	       calc_percent(stats.skipped, stats.total));
 	pr_dbg("no match: %8d\n", stats.nomatch);
-	finish_dynamic_update();
+
+	finish_dynamic_update(disasm);
 	return ret;
 }

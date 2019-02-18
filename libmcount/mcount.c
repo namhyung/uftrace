@@ -86,6 +86,9 @@ static unsigned long __maybe_unused mcount_watchpoints;
 /* whether caller filter is activated */
 static bool __maybe_unused mcount_has_caller;
 
+/* disassembly engine for dynamic code patch */
+static struct mcount_disasm_engine disasm;
+
 #ifdef DISABLE_MCOUNT_FILTER
 
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
@@ -1720,7 +1723,7 @@ static __used void mcount_startup(void)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&symtabs, patch_str, patt_type);
+		mcount_dynamic_update(&symtabs, patch_str, patt_type, &disasm);
 
 	if (event_str)
 		mcount_setup_events(dirname, event_str, patt_type);
