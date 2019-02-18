@@ -17,6 +17,10 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 
+#ifdef HAVE_LIBCAPSTONE
+# include <capstone/capstone.h>
+#endif
+
 #include "uftrace.h"
 #include "mcount-arch.h"
 #include "utils/rbtree.h"
@@ -394,12 +398,19 @@ struct mcount_dynamic_info {
 	void *arch;
 };
 
+struct mcount_disasm_engine {
+#ifdef HAVE_LIBCAPSTONE
+	csh		engine;
+#endif
+};
+
 #define INSTRUMENT_SUCCESS                       0
 #define INSTRUMENT_FAILED                       -1
 #define INSTRUMENT_SKIPPED                      -2
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			  enum uftrace_pattern_type ptype);
+			  enum uftrace_pattern_type ptype,
+			  struct mcount_disasm_engine *disasm);
 
 struct mcount_orig_insn {
 	struct rb_node		node;
@@ -415,15 +426,12 @@ void mcount_freeze_code(void);
 /* these should be implemented for each architecture */
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
-int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym);
 
-#ifdef HAVE_LIBCAPSTONE
-void mcount_disasm_init(void);
-void mcount_disasm_finish(void);
-#else
-static inline void mcount_disasm_init(void) {}
-static inline void mcount_disasm_finish(void) {}
-#endif
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+		      struct mcount_disasm_engine *disasm);
+
+void mcount_disasm_init(struct mcount_disasm_engine *disasm);
+void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
 
 struct mcount_event_info {
 	char *module;
