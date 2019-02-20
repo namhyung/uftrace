@@ -82,6 +82,10 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return (mdi->trampoline - addr - 12) >> 2;
 }
 
+/* see mcount-insn.c */
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       uintptr_t addr, uint32_t size);
+
 static int mcount_patch_func_arm(struct mcount_dynamic_info *mdi, struct sym *sym,
 				 struct mcount_disasm_engine *disasm)
 {
@@ -91,6 +95,9 @@ static int mcount_patch_func_arm(struct mcount_dynamic_info *mdi, struct sym *sy
 
 	if (sym->size < CODE_SIZE)
 		return INSTRUMENT_SKIPPED;
+
+	if (disasm_check_insns(disasm, sym->addr, CODE_SIZE) < 0)
+		return INSTRUMENT_FAILED;
 
 	save_orig_code(sym->addr);
 

@@ -3,6 +3,7 @@
 #define PR_DOMAIN  DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 
@@ -170,3 +171,128 @@ int analyze_mcount_prolog(unsigned short *insn, struct lr_offset *lr)
 
 	return bit_size == 16 ? 1 : 2;
 }
+
+#ifdef HAVE_LIBCAPSTONE
+
+#include <capstone/capstone.h>
+#include <capstone/platform.h>
+
+void mcount_disasm_init(struct mcount_disasm_engine *disasm)
+{
+	/* TODO: handle CS_MODE_THUMB */
+	if (cs_open(CS_ARCH_ARM, CS_MODE_ARM, &disasm->engine) != CS_ERR_OK) {
+		pr_dbg("failed to init Capstone disasm engine\n");
+		return;
+	}
+
+	if (cs_option(disasm->engine, CS_OPT_DETAIL, CS_OPT_ON) != CS_ERR_OK)
+		pr_dbg("failed to set detail option\n");
+}
+
+void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
+{
+	cs_close(&disasm->engine);
+}
+
+static int check_instrumentable(struct mcount_disasm_engine *disasm,
+				cs_insn *insn)
+{
+	int i, n;
+	cs_arm *arm;
+	cs_detail *detail;
+	bool branch = false;
+	int status = CODE_PATCH_NO;
+
+	/*
+	 * 'detail' can be NULL on "data" instruction
+	 * if SKIPDATA option is turned ON
+	 */
+	if (insn->detail == NULL)
+		return CODE_PATCH_NO;
+
+	detail = insn->detail;
+
+	/* print the groups this instruction belong to */
+	if (detail->groups_count > 0) {
+		for (n = 0; n < detail->groups_count; n++) {
+			if (detail->groups[n] == CS_GRP_CALL ||
+			    detail->groups[n] == CS_GRP_JUMP) {
+				branch = true;
+			}
+		}
+	}
+
+	arm = &insn->detail->arm;
+
+	/* no operand */
+	if (!arm->op_count)
+		return CODE_PATCH_NO;
+
+	for (i = 0; i < arm->op_count; i++) {
+		cs_arm_op *op = &arm->operands[i];
+
+		switch((int)op->type) {
+		case ARM_OP_REG:
+			if (op->reg == ARM_REG_PC)
+				return CODE_PATCH_NO;
+			status = CODE_PATCH_OK;
+			break;
+		case ARM_OP_IMM:
+			if (branch)
+				return CODE_PATCH_NO;
+			status = CODE_PATCH_OK;
+			break;
+		case ARM_OP_MEM:
+			if (op->mem.base == ARM_REG_PC ||
+			    op->mem.index == ARM_REG_PC)
+				return CODE_PATCH_NO;
+
+			status = CODE_PATCH_OK;
+			break;
+		case ARM_OP_FP:
+			status = CODE_PATCH_OK;
+			break;
+		default:
+			break;
+		}
+	}
+	return status;
+}
+
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       uintptr_t addr, uint32_t size)
+{
+	cs_insn *insn;
+	uint32_t code_size = 0;
+	uint32_t count, i;
+	int ret = INSTRUMENT_FAILED;
+
+	count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0, &insn);
+	if (count < 2)
+		goto out;
+
+	for (i = 0; i < count; i++) {
+		if (check_instrumentable(disasm, &insn[i]) == CODE_PATCH_NO) {
+			pr_dbg3("instruction not supported: %s\t %s\n",
+				insn[i].mnemonic, insn[i].op_str);
+			goto out;
+		}
+	}
+	ret = INSTRUMENT_SUCCESS;
+
+out:
+	if (count)
+		cs_free(insn, count);
+
+	return ret;
+}
+
+#else /* HAVE_LIBCAPSTONE */
+
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       uintptr_t addr, uint32_t size)
+{
+	return INSTRUMENT_FAILED;
+}
+
+#endif /* HAVE_LIBCAPSTONE */
