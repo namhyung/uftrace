@@ -1179,6 +1179,11 @@ char *get_event_name(struct uftrace_data *handle, unsigned evt_id)
 	char *evt_name = NULL;
 	struct event_format *event;
 
+	if (evt_id == EVENT_ID_EXTERN_DATA) {
+		evt_name = xstrdup("external-data");
+		goto out;
+	}
+
 	if (evt_id >= EVENT_ID_USER) {
 		struct uftrace_event *ev;
 
@@ -1901,6 +1906,8 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 		else if (is_event_record(task, rstack))
 			node = list_first_entry(&task->event_list.read,
 						typeof(*node), list);
+		else if (is_extern_record(task, rstack))
+			goto consume_extern_data;
 		else
 			goto consume_perf_event;
 
@@ -1933,6 +1940,18 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 	}
 	else if (rstack->type == UFTRACE_LOST) {
 		kernel->missed_events[cpu] = 0;
+	}
+	else if (is_extern_record(task, rstack)) {
+		struct uftrace_extern_reader *extn;
+
+consume_extern_data:
+		extn = handle->extn;
+		extn->valid = false;
+
+		/* restore args/retval to task */
+		free(task->args.data);
+		task->args.data = xstrdup(extn->msg);
+		task->args.len  = strlen(extn->msg);
 	}
 	else {  /* must be perf event */
 		struct uftrace_perf_reader *perf;
@@ -2012,15 +2031,18 @@ static int __read_rstack(struct uftrace_data *handle,
 			 struct uftrace_task_reader **taskp,
 			 bool consume)
 {
-	int u, k = -1, p, e;
+	int u, k = -1, p, e, x;
 	struct uftrace_task_reader *task = NULL;
 	struct uftrace_task_reader *utask = NULL;
 	struct uftrace_task_reader *ktask = NULL;
 	struct uftrace_task_reader *etask = NULL;
 	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_perf_reader *perf = NULL;
+	struct uftrace_extern_reader *extn = handle->extn;
 	uint64_t min_timestamp = ~0ULL;
-	enum { NONE, USER, KERNEL, PERF, EVENT } source = NONE;
+	enum { NONE, USER, KERNEL, PERF, EVENT, EXTERN } source = NONE;
+	/* keep last selected task for external data */
+	static struct uftrace_task_reader *last_task = NULL;
 
 	if (handle->time_filter)
 		process_perf_event(handle);
@@ -2074,6 +2096,15 @@ static int __read_rstack(struct uftrace_data *handle,
 		}
 	}
 
+	if (has_extern_data(handle)) {
+		x = read_extern_data(extn);
+
+		if (x >= 0 && extn->time < min_timestamp) {
+			min_timestamp = extn->time;
+			source = EXTERN;
+		}
+	}
+
 	switch (source) {
 	case USER:
 		utask->rstack = &utask->ustack;
@@ -2123,14 +2154,24 @@ static int __read_rstack(struct uftrace_data *handle,
 		task = etask;
 		break;
 
+	case EXTERN:
+		task = last_task;
+		if (unlikely(task == NULL))
+			task = &handle->tasks[0];
+
+		task->rstack = get_extern_record(extn, &task->xstack);
+		break;
+
 	case NONE:
 	default:
 		return -1;
 	}
 
 	/* update stack count when the rstack is actually used */
-	if (consume)
+	if (consume) {
+		last_task = task;
 		__fstack_consume(task, kernel, k);
+	}
 
 	*taskp = task;
 	return 0;

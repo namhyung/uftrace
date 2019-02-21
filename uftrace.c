@@ -335,11 +335,8 @@ static bool has_time_unit(const char *str)
 		return false;
 }
 
-static uint64_t parse_timestamp(char *str, bool *elapsed)
+static uint64_t parse_any_timestamp(char *str, bool *elapsed)
 {
-	char *time;
-	uint64_t nsec;
-
 	if (*str == '\0')
 		return 0;
 
@@ -348,11 +345,8 @@ static uint64_t parse_timestamp(char *str, bool *elapsed)
 		return parse_time(str, 3);
 	}
 
-	if (asprintf(&time, "%ssec", str) < 0)
-		return -1;
-	nsec = parse_time(time, 9);
-	free(time);
-	return nsec;
+	*elapsed = false;
+	return parse_timestamp(str);
 }
 
 static bool parse_time_range(struct uftrace_time_range *range, char *arg)
@@ -369,8 +363,8 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 
 	*pos++ = '\0';
 
-	range->start = parse_timestamp(str, &range->start_elapsed);
-	range->stop  = parse_timestamp(pos, &range->stop_elapsed);
+	range->start = parse_any_timestamp(str, &range->start_elapsed);
+	range->stop  = parse_any_timestamp(pos, &range->stop_elapsed);
 
 	free(str);
 	return true;
@@ -1158,11 +1152,11 @@ TEST_CASE(option_parsing1)
 	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
 	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
 
-	TEST_EQ(parse_timestamp("1ns", &elapsed_time), 1ULL);
-	TEST_EQ(parse_timestamp("2us", &elapsed_time), 2000ULL);
-	TEST_EQ(parse_timestamp("3ms", &elapsed_time), 3000000ULL);
-	TEST_EQ(parse_timestamp("4s",  &elapsed_time), 4000000000ULL);
-	TEST_EQ(parse_timestamp("5m",  &elapsed_time), 300000000000ULL);
+	TEST_EQ(parse_any_timestamp("1ns", &elapsed_time), 1ULL);
+	TEST_EQ(parse_any_timestamp("2us", &elapsed_time), 2000ULL);
+	TEST_EQ(parse_any_timestamp("3ms", &elapsed_time), 3000000ULL);
+	TEST_EQ(parse_any_timestamp("4s",  &elapsed_time), 4000000000ULL);
+	TEST_EQ(parse_any_timestamp("5m",  &elapsed_time), 300000000000ULL);
 
 	return TEST_OK;
 }

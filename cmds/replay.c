@@ -288,7 +288,10 @@ static void print_event(struct uftrace_task_reader *task,
 	unsigned evt_id = urec->addr;
 	char *evt_name = get_event_name(task->h, evt_id);
 
-	if (evt_id >= EVENT_ID_USER) {
+	if (evt_id == EVENT_ID_EXTERN_DATA) {
+		pr_color(color, "%s: %s", evt_name, task->args.data);
+	}
+	else if (evt_id >= EVENT_ID_USER) {
 		/* TODO: some events might have arguments */
 		pr_color(color, "%s", evt_name);
 	}
@@ -969,6 +972,10 @@ lost:
 			rec.addr = sched_sym.addr;
 			evt_id = EVENT_ID_PERF_SCHED_IN;
 		}
+
+		/* show external data regardless of display depth */
+		if (evt_id == EVENT_ID_EXTERN_DATA)
+			depth = 0;
 
 		/* for sched-in to show schedule duration */
 		fstack = &task->func_stack[task->stack_count];

@@ -614,6 +614,8 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 	if (handle->hdr.feat_mask & PERF_EVENT)
 		setup_perf_data(handle);
 
+	setup_extern_data(handle, opts);
+
 	/* check there are data files actually */
 	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts->dirname);
 	if (!check_data_file(handle, buf)) {
@@ -653,6 +655,9 @@ void close_data_file(struct opts *opts, struct uftrace_data *handle)
 
 	if (has_perf_data(handle))
 		finish_perf_data(handle);
+
+	if (has_extern_data(handle))
+		finish_extern_data(handle);
 
 	delete_sessions(&handle->sessions);
 
