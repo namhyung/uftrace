@@ -1315,6 +1315,30 @@ static void send_sym_files(int sock, const char *dirname)
 	free(sym_list);
 }
 
+/* find "XXX.dbg" file */
+static int filter_dbg(const struct dirent *de)
+{
+	size_t len = strlen(de->d_name);
+
+	return !strncmp(".dbg", de->d_name + len - 4, 4);
+}
+
+static void send_dbg_files(int sock, const char *dirname)
+{
+	int i, dbgs;
+	struct dirent **dbg_list;
+
+	dbgs = scandir(dirname, &dbg_list, filter_dbg, alphasort);
+	if (dbgs < 0)
+		pr_err("cannot scan dbg files");
+
+	for (i = 0; i < dbgs; i++) {
+		send_trace_metadata(sock, dirname, dbg_list[i]->d_name);
+		free(dbg_list[i]);
+	}
+	free(dbg_list);
+}
+
 static void send_info_file(int sock, const char *dirname)
 {
 	int fd;
@@ -1888,6 +1912,7 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 		send_task_file(sock, opts->dirname);
 		send_map_files(sock, opts->dirname);
 		send_sym_files(sock, opts->dirname);
+		send_dbg_files(sock, opts->dirname);
 		send_info_file(sock, opts->dirname);
 
 		if (opts->kernel)
