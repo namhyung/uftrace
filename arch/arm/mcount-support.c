@@ -359,7 +359,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		ctx->val.i = ARG4(regs);
 		break;
 
-#ifdef HAVE_UFT_ARM_HARDFP
+#ifdef HAVE_ARM_HARDFP
 	case UFT_ARM_REG_S0:
 		asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
 		break;

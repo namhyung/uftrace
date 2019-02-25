@@ -720,7 +720,10 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				lm = len_mod[idx];
 
 				snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
-				print_args(fmtstr, val.ll);
+				if (spec->size == 8)
+					print_args(fmtstr, val.ll);
+				else
+					print_args(fmtstr, val.i);
 			}
 		}
 
