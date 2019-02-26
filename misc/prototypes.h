@@ -211,7 +211,7 @@ int openat(int fd, const char* pathname, enum uft_open_flag flags);
 int open64at(int fd, const char* pathname, enum uft_open_flag flags);
 int close(int fd);
 
-enum uft_fnctl_cmd {
+enum uft_fcntl_cmd {
 	F_DUPFD, F_GETFD, F_SETFD, F_GETFL, F_SETFL,
 	F_GETLK, F_SETLK, F_SETLKW,
 	F_SETOWN, F_GETOWN, F_SEGSIG, F_GETSIG,
@@ -362,7 +362,7 @@ enum uft_socket_type {
 enum uft_socket_flag {
 	 SOCK_NONBLOCK = 04000, SOCK_CLOEXEC = 02000000,
 };
-int socket(enum uft_socket_domain domain, enum eft_socket_type type, int protocol);
+int socket(enum uft_socket_domain domain, enum uft_socket_type type, int protocol);
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
