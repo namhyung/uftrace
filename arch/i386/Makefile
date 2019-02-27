@@ -1,4 +1,4 @@
-LINKFLAGS := -r
+LINKFLAGS := -r -m elf_i386
 
 sdir := $(srcdir)/arch/i386
 odir := $(objdir)/arch/i386
