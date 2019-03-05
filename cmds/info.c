@@ -1105,8 +1105,8 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 				 WEXITSTATUS(status));
 		}
 		else if (WIFSIGNALED(status)) {
-			snprintf(buf, sizeof(buf), "terminated by signal: %d",
-				 WTERMSIG(status));
+			snprintf(buf, sizeof(buf), "terminated by signal: %d (%s)",
+				 WTERMSIG(status), strsignal(WTERMSIG(status)));
 		}
 		else {
 			snprintf(buf, sizeof(buf), "unknown exit status: %d",
