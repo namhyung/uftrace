@@ -447,15 +447,15 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"libmcount-fast-single.so",
 		/* system base libraries */
 		"libc.so.6",
-		"libc-2.*.so"
+		"libc-2.*.so",
 		"libgcc_s.so.1",
 		"libpthread.so.0",
-		"libpthread-2.*.so"
+		"libpthread-2.*.so",
 		"linux-vdso.so.1",
 		"linux-gate.so.1",
 		"ld-linux-*.so.*",
 		"libdl.so.2",
-		"libdl-2.*.so"
+		"libdl-2.*.so",
 	};
 	size_t k;
 	static bool exe_once = true;
