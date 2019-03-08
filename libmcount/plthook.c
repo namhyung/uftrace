@@ -496,7 +496,8 @@ void mcount_setup_plthook(char *exename, bool nest_libcall)
 {
 	struct plthook_data *pd;
 
-	pr_dbg("setup PLT hooking %s\n", nest_libcall ? "(nest-libcall)" : "");
+	pr_dbg("setup %sPLT hooking \"%s\"\n", nest_libcall ? "nested " : "",
+		exename);
 
 	if (!nest_libcall)
 		dl_iterate_phdr(setup_exe_plthook_data, exename);
