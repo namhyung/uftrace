@@ -9,8 +9,8 @@
 #include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT     "plthook"
+#define PR_DOMAIN  DBG_PLTHOOK
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"

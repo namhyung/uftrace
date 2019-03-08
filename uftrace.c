@@ -313,6 +313,8 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_KERNEL] = level;
 		else if (!strcmp(tok, "mcount"))
 			dbg_domain[DBG_MCOUNT] = level;
+		else if (!strcmp(tok, "plthook"))
+			dbg_domain[DBG_PLTHOOK] = level;
 		else if (!strcmp(tok, "dynamic"))
 			dbg_domain[DBG_DYNAMIC] = level;
 		else if (!strcmp(tok, "event"))

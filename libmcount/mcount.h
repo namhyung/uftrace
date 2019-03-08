@@ -82,6 +82,6 @@ struct mcount_shmem_buffer {
 };
 
 /* must be in sync with enum debug_domain (bits) */
-#define DBG_DOMAIN_STR  "TSDFfsKMPERW"
+#define DBG_DOMAIN_STR  "TSDFfsKMpPERW"
 
 #endif /* UFTRACE_MCOUNT_H */
