@@ -9,8 +9,8 @@
 #include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT     "plthook"
+#define PR_DOMAIN  DBG_PLTHOOK
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -496,7 +496,8 @@ void mcount_setup_plthook(char *exename, bool nest_libcall)
 {
 	struct plthook_data *pd;
 
-	pr_dbg("setup PLT hooking %s\n", nest_libcall ? "(nest-libcall)" : "");
+	pr_dbg("setup %sPLT hooking \"%s\"\n", nest_libcall ? "nested " : "",
+		exename);
 
 	if (!nest_libcall)
 		dl_iterate_phdr(setup_exe_plthook_data, exename);
@@ -730,8 +731,8 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
-		pr_dbg2("[mod: %lx, idx: %d] enter %lx: %s\n",
-			module_id, child_idx, sym->addr, sym->name);
+		pr_dbg3("[idx: %4d] enter %lx: %s (mod: %lx)\n",
+			child_idx, sym->addr, sym->name, module_id);
 	}
 	else {
 		sym = NULL;
@@ -876,7 +877,7 @@ again:
 		return ret_addr;
 	}
 
-	pr_dbg3("[%d] exit  %lx: %s\n", dyn_idx,
+	pr_dbg3("[idx: %4d] exit  %lx: %s\n", dyn_idx,
 		rstack->pd->resolved_addr[dyn_idx],
 		rstack->pd->dsymtab.sym[dyn_idx].name);
 
