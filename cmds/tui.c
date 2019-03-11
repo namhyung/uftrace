@@ -23,6 +23,7 @@
 #include "utils/dwarf.h"
 
 #define KEY_ESCAPE  27
+#define BLANK  32
 
 static bool tui_finished;
 static bool tui_debug;
@@ -797,7 +798,6 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 				indent_mask[*depth] = false;
 		}
 	}
-
 	return NULL;
 }
 
@@ -988,6 +988,18 @@ out:
 	memcpy(graph->disp_mask, graph->top_mask, graph->mask_size);
 }
 
+static void win_footer(struct tui_window *win, char *msg)
+{
+	int msg_len = strlen(msg);
+	char footer[COLS + 1];
+
+	memset(footer, BLANK, sizeof(footer));
+	memcpy(footer, msg, COLS < msg_len ? COLS : msg_len);
+	footer[COLS] = '\0';
+
+	printw("%-*s", COLS, footer);
+}
+
 static void win_footer_graph(struct tui_window *win,
 			     struct uftrace_data *handle)
 {
@@ -1026,10 +1038,8 @@ static void win_footer_graph(struct tui_window *win,
 				 SESSION_ID_LEN, sess->sid, sess->exename);
 		}
 	}
-	buf[COLS] = '\0';
 
-	printw("%-*s", COLS, buf);
-
+	win_footer(win, buf);
 	graph->disp_update = false;
 }
 
@@ -1312,9 +1322,8 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 				 handle->dirname, report->nr_sess, report->nr_func);
 		}
 	}
-	buf[COLS] = '\0';
 
-	printw("%-*.*s", COLS, COLS, buf);
+	win_footer(win, buf);
 }
 
 static void win_display_report(struct tui_window *win, void *node)
@@ -1422,7 +1431,7 @@ static struct tui_list * tui_info_init(struct opts *opts,
 	process_uftrace_info(handle, opts, build_info_node, &tui_info);
 
 	tui_window_init(&tui_info.win, &info_ops);
-			
+
 	return &tui_info;
 }
 
@@ -1451,11 +1460,8 @@ static void win_footer_info(struct tui_window *win,
 			    struct uftrace_data *handle)
 {
 	char buf[256];
-	size_t sz = sizeof(buf);
-	int len = 0;
-
-	print_buf("uftrace version: %s", UFTRACE_VERSION);
-	printw("%-*.*s", COLS, COLS, buf);
+	snprintf(buf, COLS, "uftrace version: %s", UFTRACE_VERSION);
+	win_footer(win, buf);
 }
 
 static void win_display_info(struct tui_window *win, void *node)
@@ -1551,7 +1557,7 @@ static void win_footer_session(struct tui_window *win,
 		break;
 	}
 
-	printw("%-*s", COLS, buf);
+	win_footer(win, buf);
 }
 
 static struct tui_graph * get_current_graph(struct tui_list_node *node,
