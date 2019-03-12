@@ -35,6 +35,6 @@ class TestCase(TestBase):
         major, minor, release = uname[2].split('.')
         if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
            int(major) >= 4 and int(minor) >= 17:
-            return result.replace('sys_open', '__x64_sys_openat')
+            return result.replace(' sys_open', ' __x64_sys_openat')
         else:
-            return result.replace('sys_open', 'sys_openat')
+            return result.replace(' sys_open', ' sys_openat')

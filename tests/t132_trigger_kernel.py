@@ -49,4 +49,4 @@ class TestCase(TestBase):
            int(major) >= 4 and int(minor) >= 17:
             result = result.replace('sys_', '__x64_sys_')
 
-        return result.replace('sys_open', 'sys_openat')
+        return result.replace(' sys_open', ' sys_openat')
