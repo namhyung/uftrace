@@ -29,6 +29,7 @@ class TestCase(TestBase):
                 continue
             line = ln.split('|', 1)[-1]
             func = re.sub(r'0x[0-9a-f]+', '0xADDR', line)
+            func = re.sub(r'&[_a-z]+\+[0-9]+', '0xADDR', func)
             result.append(func)
 
         return '\n'.join(result)
