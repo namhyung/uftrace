@@ -39,6 +39,7 @@ class TestCase(TestBase):
         self.recv_p = sp.Popen(recv_cmd.split())
 
         argument  = '-H %s -k -d %s --port %s' % ('localhost', TDIR2, self.port)
+        argument += ' -N %s@kernel' % 'exit_to_usermode_loop'
         argument += ' -N %s@kernel' % '_*do_page_fault'
 
         record_cmd = '%s record %s %s' % (uftrace, argument, program)
