@@ -7,7 +7,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'taskname', ldflags='-pthread', result="""
+        TestBase.__init__(self, 'taskname', ldflags='-pthread', serial=True, result="""
 #      TASK NAME   FUNCTION
       t-taskname | main() {
       t-taskname |   task_name1() {

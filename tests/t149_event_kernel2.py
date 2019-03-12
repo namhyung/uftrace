@@ -5,7 +5,7 @@ import os
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', """
+        TestBase.__init__(self, 'fork', serial=True, result="""
 # DURATION    TID     FUNCTION
             [ 6532] | /* sched:sched_process_exec (filename=t-fork pid=6532 old_pid=6532) */
             [ 6532] | main() {

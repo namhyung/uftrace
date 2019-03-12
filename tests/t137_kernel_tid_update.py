@@ -5,7 +5,7 @@ import os
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork2', """
+        TestBase.__init__(self, 'fork2', serial=True, result="""
 # DURATION    TID     FUNCTION
             [19227] | main() {
  328.451 us [19227] |   fork();

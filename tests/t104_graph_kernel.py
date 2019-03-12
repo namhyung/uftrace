@@ -9,7 +9,7 @@ FUNC='main'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'getids', result="""
+        TestBase.__init__(self, 'getids', serial=True, result="""
 # Function Call Graph for 'main' (session: 59268c360e3c1bd6)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time  24.837 us

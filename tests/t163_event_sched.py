@@ -4,7 +4,7 @@ from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sleep', """
+        TestBase.__init__(self, 'sleep', serial=True, result="""
 # DURATION    TID     FUNCTION
             [  395] | main() {
             [  395] |   foo() {

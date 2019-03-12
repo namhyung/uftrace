@@ -9,7 +9,7 @@ TDIR2 = 'yyy'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'openclose', """
+        TestBase.__init__(self, 'openclose', serial=True, result="""
 # DURATION    TID     FUNCTION
    1.088 us [18343] | __monstartup();
    0.640 us [18343] | __cxa_atexit();

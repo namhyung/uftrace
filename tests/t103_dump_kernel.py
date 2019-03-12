@@ -8,7 +8,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'getids', """
+        TestBase.__init__(self, 'getids', serial=True, result="""
 {"traceEvents":[
 {"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":{'name': 't-getids'}},
 {"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":{'name': 't-getids'}},

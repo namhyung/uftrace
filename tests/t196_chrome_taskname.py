@@ -7,7 +7,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'taskname', ldflags='-pthread', result="""
+        TestBase.__init__(self, 'taskname', ldflags='-pthread', serial=True, result="""
 {"traceEvents":[
 {"ts":0,"ph":"M","pid":4694,"name":"process_name","args":{"name":"[4694] bar"}},
 {"ts":0,"ph":"M","pid":4694,"name":"thread_name","args":{"name":"[4694] bar"}},
