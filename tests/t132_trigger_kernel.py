@@ -6,7 +6,7 @@ import os
 # there was a problem applying depth filter if it contains kernel functions
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'openclose', """
+        TestBase.__init__(self, 'openclose', serial=True, result="""
 # DURATION    TID     FUNCTION
    0.714 us [ 4435] | __monstartup();
    0.349 us [ 4435] | __cxa_atexit();

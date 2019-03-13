@@ -7,7 +7,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', """
+        TestBase.__init__(self, 'sort', serial=True, result="""
   Total time   Self time       Calls  Function
   ==========  ==========  ==========  ====================================
     1.152 ms   71.683 us           1  main

@@ -8,7 +8,7 @@ FUNC='main'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', result="""
+        TestBase.__init__(self, 'sort', serial=True, result="""
 # Function Call Graph for 'main' (session: 54047ea45c46ad91)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time  10.329 ms

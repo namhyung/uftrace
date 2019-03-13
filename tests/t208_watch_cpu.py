@@ -5,7 +5,7 @@ import re
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'chcpu', result="""
+        TestBase.__init__(self, 'chcpu', serial=True, result="""
 # DURATION     TID     FUNCTION
             [ 19611] | main() {
             [ 19611] |   /* watch:cpu (cpu=6) */

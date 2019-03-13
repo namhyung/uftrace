@@ -5,7 +5,7 @@ import os
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'openclose', """
+        TestBase.__init__(self, 'openclose', serial=True, result="""
 # DURATION    TID     FUNCTION
             [ 9875] | main() {
             [ 9875] |   fopen() {

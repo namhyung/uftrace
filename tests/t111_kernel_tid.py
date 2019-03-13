@@ -8,7 +8,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', """
+        TestBase.__init__(self, 'fork', serial=True, result="""
 # DURATION    TID     FUNCTION
             [ 1661] | main() {
             [ 1661] |   fork() {

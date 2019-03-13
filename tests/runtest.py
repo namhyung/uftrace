@@ -31,7 +31,7 @@ class TestBase:
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
 
-    def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task'):
+    def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task', serial=False):
         _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
         os.chdir(_tmp)
         self.test_dir = _tmp
@@ -41,6 +41,7 @@ class TestBase:
         self.ldflags = ldflags
         self.lang = lang
         self.sort_method = sort
+        self.serial = serial
 
     def set_debug(self, dbg):
         self.debug = dbg
@@ -496,6 +497,14 @@ result_string = {
 }
 
 
+def check_serial_case(case):
+    # for python3
+    _locals = {}
+    exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
+    tc = _locals['tc']
+    return tc.serial
+
+
 def run_single_case(case, flags, opts, arg):
     result = []
 
@@ -655,11 +664,16 @@ if __name__ == "__main__":
 
     shared.stats = dict.fromkeys(res, 0)
     pool = multiprocessing.Pool(arg.worker)
+    serial_pool = multiprocessing.Pool(1)
 
     for tc in sorted(testcases):
+        _pool = pool
         name = tc.split('.')[0]  # remove '.py'
         clbk = partial(save_test_result, case=name, shared=shared)
-        pool.apply_async(run_single_case, callback=clbk,
+        if check_serial_case(name):
+            _pool = serial_pool
+
+        _pool.apply_async(run_single_case, callback=clbk,
                          args=[name, flags, opts.split(), arg])
 
     print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))

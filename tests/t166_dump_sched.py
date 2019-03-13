@@ -7,7 +7,7 @@ TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sleep', """
+        TestBase.__init__(self, 'sleep', serial=True, result="""
 {"traceEvents":[
 {"ts":0,"ph":"M","pid":306,"name":"process_name","args":{"name":"[306] t-sleep"}},
 {"ts":0,"ph":"M","pid":306,"name":"thread_name","args":{"name":"[306] t-sleep"}},

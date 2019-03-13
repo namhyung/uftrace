@@ -5,7 +5,7 @@ import os
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'getids', """
+        TestBase.__init__(self, 'getids', serial=True, result="""
 # DURATION    TID     FUNCTION
             [20769] | main() {
    0.925 us [20769] |   getpid();
