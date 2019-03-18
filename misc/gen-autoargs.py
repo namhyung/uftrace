@@ -184,7 +184,7 @@ def make_uftrace_retval_format(ctype, funcname):
     elif ctype == "std::string":
         retval_format += "retval/S"
     elif ctype[-1] == "*":
-        retval_format += "retval/x"
+        retval_format += "retval/p"
     elif ctype == "pid_t" or ctype == "uid_t":
         retval_format += "retval/i32"
     elif "unsigned" in ctype or ctype == "size_t":
@@ -232,7 +232,7 @@ def make_uftrace_args_format(args, funcname):
         elif arg == "std::string":
             args_format += "arg%d/S" % i
         elif arg[-1] == "*":
-            args_format += "arg%d/x" % i
+            args_format += "arg%d/p" % i
         elif arg == "pid_t" or arg == "uid_t":
             args_format += "arg%d/i32" % i
         elif "unsigned" in arg or arg == "size_t":
