@@ -655,8 +655,10 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("&%s", sym->name);
 				print_args("%s", color_reset);
 			}
-			else
+			else if (val.p)
 				print_args("%p", val.p);
+			else
+				print_args("0");
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
@@ -694,37 +696,17 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			free(estr);
 		}
 		else {
-			struct uftrace_session_link *sessions = &task->h->sessions;
-			struct uftrace_session *s;
-			struct sym *sym;
-			uint64_t addr;
-
 			if (spec->fmt != ARG_FMT_AUTO)
 				memcpy(val.v, data, spec->size);
 
-			s = find_task_session(sessions, task->t,
-					      task->rstack->time);
+			assert(idx < ARRAY_SIZE(len_mod));
+			lm = len_mod[idx];
 
-			addr = val.ll;
-			sym = find_symtabs(&s->symtabs, addr);
-
-			if (sym) {
-				char *name = symbol_getname_offset(sym, addr);
-				print_args("%s", color_symbol);
-				print_args("&%s", name);
-				print_args("%s", color_reset);
-				free(name);
-			}
-			else {
-				assert(idx < ARRAY_SIZE(len_mod));
-				lm = len_mod[idx];
-
-				snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
-				if (spec->size == 8)
-					print_args(fmtstr, val.ll);
-				else
-					print_args(fmtstr, val.i);
-			}
+                        snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+                        if (spec->size == 8)
+				print_args(fmtstr, val.ll);
+                        else
+				print_args(fmtstr, val.i);
 		}
 
 		i++;
