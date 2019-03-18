@@ -477,11 +477,11 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		td->size = sizeof(long) * 8;
 
 		/* treat 'char *' as string */
-		if (td->pointer == 1 && tname && !strcmp(tname, "char")) {
+		if (td->pointer == 1 && tname && !strcmp(tname, "char"))
 			td->fmt = ARG_FMT_STR;
-			return true;
-		}
-		return false;
+		else
+			td->fmt = ARG_FMT_PTR;
+		return true;
 	}
 
 	td->size = type_size(die, sizeof(long));
