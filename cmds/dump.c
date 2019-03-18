@@ -346,7 +346,7 @@ static void pr_args(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
-		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+		else if (spec->fmt == ARG_FMT_PTR) {
 			struct sym *sym;
 			unsigned long val = 0;
 
@@ -454,7 +454,7 @@ static void pr_retval(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
-		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+		else if (spec->fmt == ARG_FMT_PTR) {
 			struct sym *sym;
 			unsigned long val = 0;
 

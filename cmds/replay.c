@@ -641,7 +641,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				break;
 			}
 		}
-		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+		else if (spec->fmt == ARG_FMT_PTR) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
 			struct sym *sym;
 

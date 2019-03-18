@@ -51,7 +51,7 @@ enum uftrace_arg_format {
 	ARG_FMT_CHAR,
 	ARG_FMT_FLOAT,
 	ARG_FMT_STD_STRING,
-	ARG_FMT_FUNC_PTR,
+	ARG_FMT_PTR,
 	ARG_FMT_ENUM,
 };
 
