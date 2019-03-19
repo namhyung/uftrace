@@ -223,8 +223,8 @@ static int find_got(struct uftrace_elf_data *elf,
 	pd->base_addr  = offset;
 	pd->plt_addr   = plt_addr;
 
-	pr_dbg2("module: %s (id: %lx), addr = %lx, PLTGOT = %p\n",
-		pd->mod_name, pd->module_id, pd->base_addr, pd->pltgot_ptr);
+	pr_dbg2("\"%s\" is loaded at %#lx\n",
+		basename(pd->mod_name), pd->base_addr);
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
 	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
@@ -245,8 +245,10 @@ static int find_got(struct uftrace_elf_data *elf,
 			pd->module_id = (unsigned long)pd;
 		}
 
-		pr_dbg2("found GOT at %p (PLT resolver: %#lx)\n",
-			pd->pltgot_ptr, plthook_resolver_addr);
+		pr_dbg2("found GOT at %p (base_addr + %#lx)\n", pd->pltgot_ptr,
+			(unsigned long)pd->pltgot_ptr - pd->base_addr);
+		pr_dbg2("module id = %#lx, PLT resolver = %#lx\n",
+			pd->module_id, plthook_resolver_addr);
 
 		restore_plt_functions(pd);
 	}
