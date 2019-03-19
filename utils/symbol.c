@@ -1241,6 +1241,21 @@ out:
 	return 0;
 }
 
+static bool symbol_is_func(struct sym *sym)
+{
+        switch (sym->type) {
+        case ST_LOCAL_FUNC:
+        case ST_GLOBAL_FUNC:
+        case ST_WEAK_FUNC:
+        case ST_PLT_FUNC:
+        case ST_KERNEL_FUNC:
+                return true;
+
+        default:
+                return false;
+        }
+}
+
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename)
 {
@@ -1252,6 +1267,7 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	unsigned long offset = 0;
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
+	struct sym *sym, *prev;
 
 	xasprintf(&symfile, "%s/%s.sym", dirname, basename(exename));
 
@@ -1291,13 +1307,27 @@ do_it:
 	}
 
 	/* normal symbols */
-	for (i = 0; i < stab->nr_sym; i++)
-		fprintf(fp, "%016"PRIx64" %c %s\n", stab->sym[i].addr - offset,
-		       (char) stab->sym[i].type, stab->sym[i].name);
-	if (i > 0) {
+        prev = NULL;
+	for (i = 0; i < stab->nr_sym; i++) {
+		sym = &stab->sym[i];
+
+		if (prev) {
+			if (symbol_is_func(prev) && !symbol_is_func(sym)) {
+				fprintf(fp, "%016"PRIx64" %c %s\n",
+					prev->addr + prev->size - offset,
+					(char)prev->type, "__func_end");
+			}
+		}
+
+		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
+			(char)sym->type, sym->name);
+
+		prev = sym;
+	}
+	if (prev) {
 		fprintf(fp, "%016"PRIx64" %c %s\n",
-			stab->sym[i-1].addr + stab->sym[i-1].size - offset,
-			(char) stab->sym[i-1].type, "__sym_end");
+			prev->addr + prev->size - offset,
+			(char)prev->type, "__sym_end");
 	}
 
 	elf_finish(&elf);
@@ -1311,6 +1341,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	FILE *fp;
 	unsigned i;
 	bool prev_was_plt = false;
+	struct sym *sym, *prev;
 
 	if (stab->nr_sym == 0)
 		return;
@@ -1324,31 +1355,38 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	prev_was_plt = (stab->sym[0].type == ST_PLT_FUNC);
+        prev = &stab->sym[0];
+	prev_was_plt = (prev->type == ST_PLT_FUNC);
+
+	fprintf(fp, "%016"PRIx64" %c %s\n", prev->addr - offset,
+		(char)prev->type, prev->name);
 
 	/* PLT + normal symbols (in any order)*/
-	for (i = 0; i < stab->nr_sym; i++) {
-		struct sym *sym = &stab->sym[i];
+	for (i = 1; i < stab->nr_sym; i++) {
+		sym = &stab->sym[i];
 
 		/* mark end of the this kind of symbols */
 		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
-			struct sym *prev = sym - 1;
-
 			fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 				prev->addr + prev->size - offset,
-				(char) prev->type, prev_was_plt ? "dyn" : "");
+				(char)prev->type, prev_was_plt ? "dyn" : "");
 		}
-		prev_was_plt = (sym->type == ST_PLT_FUNC);
+		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
+			fprintf(fp, "%016"PRIx64" %c %s\n",
+				prev->addr + prev->size - offset,
+				(char)prev->type, "__func_end");
+		}
 
 		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
-			(char) sym->type, sym->name);
+			(char)sym->type, sym->name);
+
+		prev = sym;
+		prev_was_plt = (prev->type == ST_PLT_FUNC);
 	}
 	
-	struct sym *last = &stab->sym[stab->nr_sym - 1];
-
 	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
-		last->addr + last->size - offset,
-		(char) last->type, prev_was_plt ? "dyn" : "");
+		prev->addr + prev->size - offset,
+		(char)prev->type, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 }
