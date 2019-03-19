@@ -1611,7 +1611,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		 */
 		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
-		return sym;
+		goto out;
 	}
 
 	if (maps) {
@@ -1645,13 +1645,34 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 			      sizeof(*sym), addrfind);
 	}
 
+out:
+	if (sym != NULL) {
+		/* these dummy symbols are not part of real symbol table */
+		if (!strcmp(sym->name, "__sym_end") ||
+		    !strcmp(sym->name, "__dynsym_end") ||
+		    !strcmp(sym->name, "__func_end"))
+			sym = NULL;
+	}
+
 	return sym;
 }
 
 struct sym * find_sym(struct symtab *symtab, uint64_t addr)
 {
-	return bsearch(&addr, symtab->sym, symtab->nr_sym,
+	struct sym *sym;
+
+	sym =  bsearch(&addr, symtab->sym, symtab->nr_sym,
 		       sizeof(struct sym), addrfind);
+
+	if (sym != NULL) {
+		/* these dummy symbols are not part of real symbol table */
+		if (!strcmp(sym->name, "__sym_end") ||
+		    !strcmp(sym->name, "__dynsym_end") ||
+		    !strcmp(sym->name, "__func_end"))
+			sym = NULL;
+	}
+
+	return sym;
 }
 
 struct sym * find_symname(struct symtab *symtab, const char *name)
