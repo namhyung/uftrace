@@ -1390,6 +1390,14 @@ static void send_event_file(int sock, const char *dirname)
 	send_trace_metadata(sock, dirname, "events.txt");
 }
 
+static void send_log_file(int sock, const char *logfile)
+{
+	if (access(logfile, F_OK) != 0)
+		return;
+
+	send_trace_metadata(sock, NULL, (char*)logfile);
+}
+
 static void save_session_symbols(struct opts *opts)
 {
 	struct dirent **map_list;
@@ -1919,6 +1927,8 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 			send_kernel_metadata(sock, opts->dirname);
 		if (opts->event)
 			send_event_file(sock, opts->dirname);
+		if (opts->logfile)
+			send_log_file(sock, opts->logfile);
 
 		send_trace_end(sock);
 		close(sock);
