@@ -197,7 +197,10 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 		{ /* to be filled */ },
 	};
 
-	xasprintf(&pathname, "%s/%s", dirname, filename);
+	if (dirname)
+		xasprintf(&pathname, "%s/%s", dirname, filename);
+	else
+		pathname = xstrdup(filename);
 
 	fd = open(pathname, O_RDONLY);
 	if (fd < 0)
