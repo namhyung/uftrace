@@ -448,8 +448,8 @@ static void print_task_newline(int current_tid)
 ({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
 
 void get_argspec_string(struct uftrace_task_reader *task,
-		        char *args, size_t len,
-		        enum argspec_string_bits str_mode)
+			char *args, size_t len,
+			enum argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
 	char *str = NULL;
@@ -702,10 +702,10 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			assert(idx < ARRAY_SIZE(len_mod));
 			lm = len_mod[idx];
 
-                        snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
-                        if (spec->size == 8)
+			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+			if (spec->size == 8)
 				print_args(fmtstr, val.ll);
-                        else
+			else
 				print_args(fmtstr, val.i);
 		}
 

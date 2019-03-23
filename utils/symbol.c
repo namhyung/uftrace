@@ -1243,17 +1243,17 @@ out:
 
 static bool symbol_is_func(struct sym *sym)
 {
-        switch (sym->type) {
-        case ST_LOCAL_FUNC:
-        case ST_GLOBAL_FUNC:
-        case ST_WEAK_FUNC:
-        case ST_PLT_FUNC:
-        case ST_KERNEL_FUNC:
-                return true;
+	switch (sym->type) {
+	case ST_LOCAL_FUNC:
+	case ST_GLOBAL_FUNC:
+	case ST_WEAK_FUNC:
+	case ST_PLT_FUNC:
+	case ST_KERNEL_FUNC:
+		return true;
 
-        default:
-                return false;
-        }
+	default:
+		return false;
+	}
 }
 
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
@@ -1307,7 +1307,7 @@ do_it:
 	}
 
 	/* normal symbols */
-        prev = NULL;
+	prev = NULL;
 	for (i = 0; i < stab->nr_sym; i++) {
 		sym = &stab->sym[i];
 
@@ -1355,7 +1355,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-        prev = &stab->sym[0];
+	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
 
 	fprintf(fp, "%016"PRIx64" %c %s\n", prev->addr - offset,
@@ -1527,15 +1527,15 @@ size_t count_dynsym(struct symtabs *symtabs)
 
 static bool check_map_symtab(struct symtab *stab, uint64_t addr)
 {
-        uint64_t start, end;
+	uint64_t start, end;
 
-        if (stab == NULL || stab->nr_sym == 0)
-                return false;
+	if (stab == NULL || stab->nr_sym == 0)
+		return false;
 
-        start = stab->sym[0].addr;
-        end = stab->sym[stab->nr_sym - 1].addr + stab->sym[stab->nr_sym - 1].size;
+	start = stab->sym[0].addr;
+	end = stab->sym[stab->nr_sym - 1].addr + stab->sym[stab->nr_sym - 1].size;
 
-        return (start <= addr && addr < end);
+	return (start <= addr && addr < end);
 }
 
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
@@ -1545,9 +1545,9 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 	if (is_kernel_address(symtabs, addr))
 		return MAP_KERNEL;
 
-        if (check_map_symtab(&symtabs->symtab, addr) ||
-            check_map_symtab(&symtabs->dsymtab, addr))
-                return MAP_MAIN;
+	if (check_map_symtab(&symtabs->symtab, addr) ||
+	    check_map_symtab(&symtabs->dsymtab, addr))
+		return MAP_MAIN;
 
 	maps = symtabs->maps;
 	while (maps) {
