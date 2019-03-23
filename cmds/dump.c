@@ -346,7 +346,7 @@ static void pr_args(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
-		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+		else if (spec->fmt == ARG_FMT_PTR) {
 			struct sym *sym;
 			unsigned long val = 0;
 
@@ -358,9 +358,11 @@ static void pr_args(struct fstack_arguments *args)
 						 (uint64_t)val);
 
 			if (sym)
-				pr_out("  args[%d] p: &%s\n", i, sym->name);
-			else
+				pr_out("  args[%d] p: %lx (&%s)\n", i, val, sym->name);
+			else if (val)
 				pr_out("  args[%d] p: %p\n", i, (void *)val);
+			else
+				pr_out("  args[%d] p: 0\n", i);
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			long long val = 0;
@@ -389,25 +391,13 @@ static void pr_args(struct fstack_arguments *args)
 			size = spec->size;
 		}
 		else {
-			struct sym *sym;
 			long long val = 0;
-			uint64_t addr;
 
 			memcpy(&val, ptr, spec->size);
 
-			addr = val;
-			sym = task_find_sym_addr(sessions, task,
-						 task->rstack->time, addr);
-
-			pr_out("  args[%d] %c%d: 0x%0*llx", i,
+			pr_out("  args[%d] %c%d: 0x%0*llx\n", i,
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
-			if (sym) {
-				char *name = symbol_getname_offset(sym, addr);
-				pr_out(" (&%s)", name);
-				free(name);
-			}
-			pr_out("\n");
 
 			size = spec->size;
 		}
@@ -454,7 +444,7 @@ static void pr_retval(struct fstack_arguments *args)
 			free(buf);
 			size += 2;
 		}
-		else if (spec->fmt == ARG_FMT_FUNC_PTR) {
+		else if (spec->fmt == ARG_FMT_PTR) {
 			struct sym *sym;
 			unsigned long val = 0;
 
@@ -466,26 +456,17 @@ static void pr_retval(struct fstack_arguments *args)
 						 (uint64_t)val);
 
 			if (sym)
-				pr_out("  retval p: &%s\n", sym->name);
+				pr_out("  retval p: %lx (&%s)\n", val, sym->name);
 			else
 				pr_out("  retval p: %p\n", (void *)val);
 		}
 		else {
-			struct sym *sym;
 			long long val = 0;
 
 			memcpy(&val, ptr, spec->size);
-
-			sym = task_find_sym_addr(sessions, task,
-						 task->rstack->time,
-						 (uint64_t)val);
-
-			pr_out("  retval %c%d: 0x%0*llx",
+			pr_out("  retval %c%d: 0x%0*llx\n",
 			       ARG_SPEC_CHARS[spec->fmt], spec->size * 8,
 			       spec->size * 2, val);
-			if (sym)
-				pr_out(" (&%s)", sym->name);
-			pr_out("\n");
 
 			size = spec->size;
 		}

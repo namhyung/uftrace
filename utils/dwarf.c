@@ -458,7 +458,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 			break;
 		case DW_TAG_subroutine_type:
 			if (td->pointer == 1) {
-				td->fmt = ARG_FMT_FUNC_PTR;
+				td->fmt = ARG_FMT_PTR;
 				pr_dbg3("type: function pointer\n");
 				/* prevent to look up (return) type more */
 				return true;
@@ -477,11 +477,11 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 		td->size = sizeof(long) * 8;
 
 		/* treat 'char *' as string */
-		if (td->pointer == 1 && tname && !strcmp(tname, "char")) {
+		if (td->pointer == 1 && tname && !strcmp(tname, "char"))
 			td->fmt = ARG_FMT_STR;
-			return true;
-		}
-		return false;
+		else
+			td->fmt = ARG_FMT_PTR;
+		return true;
 	}
 
 	td->size = type_size(die, sizeof(long));
@@ -561,7 +561,7 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 			strcat(spec, sz);
 		}
 		break;
-	case ARG_FMT_FUNC_PTR:
+	case ARG_FMT_PTR:
 		strcat(spec, "/p");
 		break;
 	case ARG_FMT_ENUM:

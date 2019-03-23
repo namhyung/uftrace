@@ -23,7 +23,7 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-A foo@arg1,arg2 -A filecmp@arg1,arg2'
+        options = '-A foo@arg1/p,arg2 -A filecmp@arg1/p,arg2/p'
         program = 't-' + self.name
 
         return '%s %s %s' % (uftrace, options, program)

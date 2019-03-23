@@ -497,7 +497,7 @@ static int parse_spec(char *str, struct uftrace_arg_spec *arg, char *suffix,
 		fmt = ARG_FMT_STD_STRING;
 		break;
 	case 'p':
-		fmt = ARG_FMT_FUNC_PTR;
+		fmt = ARG_FMT_PTR;
 		break;
 	case 'e':
 		fmt = ARG_FMT_ENUM;
