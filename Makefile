@@ -103,11 +103,11 @@ ifeq ($(COVERAGE), 1)
 endif
 
 ifeq ($(ASAN), 1)
-  UFTRACE_CFLAGS    += -O0 -g -fsanitize=address
-  DEMANGLER_CFLAGS  += -O0 -g -fsanitize=address
-  SYMBOLS_CFLAGS    += -O0 -g -fsanitize=address
-  TRACEEVENT_CFLAGS += -O0 -g -fsanitize=address
-  TEST_CFLAGS       += -O0 -g -fsanitize=address
+  UFTRACE_CFLAGS    += -O0 -g -fsanitize=address -fsanitize=leak
+  DEMANGLER_CFLAGS  += -O0 -g -fsanitize=address -fsanitize=leak
+  SYMBOLS_CFLAGS    += -O0 -g -fsanitize=address -fsanitize=leak
+  TRACEEVENT_CFLAGS += -O0 -g -fsanitize=address -fsanitize=leak
+  TEST_CFLAGS       += -O0 -g -fsanitize=address -fsanitize=leak
 endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS TEST_CFLAGS TEST_LDFLAGS
