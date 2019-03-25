@@ -1102,7 +1102,7 @@ int main(int argc, char *argv[])
 		fclose(logfp);
 
 	if (opts.opt_file)
-		free_parsed_cmdline(argv);
+		free_parsed_cmdline(argv - opts.idx);
 
 	free_opts(&opts);
 	return ret;
