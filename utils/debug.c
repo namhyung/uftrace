@@ -81,7 +81,7 @@ static bool check_busybox(const char *pager)
 	char buf[PATH_MAX];
 	char *path;
 	int i;
-	bool ret;
+	bool ret = false;
 
 	if (pager == NULL)
 		return false;
@@ -103,8 +103,10 @@ static bool check_busybox(const char *pager)
 
 check:
 	path = realpath(pager, NULL);
-	ret = !strncmp("busybox", basename(path), 7);
-	free(path);
+	if (path) {
+		ret = !strncmp("busybox", basename(path), 7);
+		free(path);
+	}
 
 	return ret;
 }
