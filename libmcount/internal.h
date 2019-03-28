@@ -294,8 +294,8 @@ struct plthook_data {
 	unsigned long			base_addr;
 	unsigned long			plt_addr;
 	struct symtab			dsymtab;
-	unsigned long			*pltgot_ptr;
-	unsigned long			*resolved_addr;
+	unsigned long			*pltgot_ptr;	/* address of GOT[0] */
+	unsigned long			*resolved_addr;	/* starts from GOT[3] */
 	struct plthook_special_func	*special_funcs;
 	int				nr_special;
 };
