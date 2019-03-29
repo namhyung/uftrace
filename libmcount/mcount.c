@@ -1678,19 +1678,18 @@ static __used void mcount_startup(void)
 	if (pipefd_str) {
 		pfd = strtol(pipefd_str, NULL, 0);
 
-		if (pfd < 0) {
-			char *channel = NULL;
-
-			xasprintf(&channel, "%s/%s", dirname, ".channel");
-			pfd = open(channel, O_WRONLY);
-			free(channel);
-		}
-
 		/* minimal sanity check */
 		if (fstat(pfd, &statbuf) < 0 || !S_ISFIFO(statbuf.st_mode)) {
 			pr_dbg("ignore invalid pipe fd: %d\n", pfd);
 			pfd = -1;
 		}
+	}
+	else {
+		char *channel = NULL;
+
+		xasprintf(&channel, "%s/%s", dirname, ".channel");
+		pfd = open(channel, O_WRONLY);
+		free(channel);
 	}
 
 	if (getenv("UFTRACE_LIST_EVENT")) {

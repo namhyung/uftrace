@@ -274,7 +274,6 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 		setenv("UFTRACE_LOGFD", buf, 1);
 	}
 
-	setenv("UFTRACE_PIPE", "-1", 1);
 	setenv("UFTRACE_SHMEM", "1", 1);
 
 	if (debug) {
