@@ -302,6 +302,7 @@ char * get_libmcount_path(struct opts *opts);
 void put_libmcount_path(char *libpath);
 
 #define SESSION_ID_LEN  16
+#define TASK_COMM_LEN   16
 
 struct uftrace_session {
 	struct rb_node		 node;
@@ -332,7 +333,7 @@ struct uftrace_dlopen_list {
 
 struct uftrace_task {
 	int			 pid, tid, ppid;
-	char			 comm[16];
+	char			 comm[TASK_COMM_LEN];
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;

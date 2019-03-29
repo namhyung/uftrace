@@ -288,14 +288,23 @@ struct plthook_skip_symbol {
 };
 
 struct plthook_data {
+	/* links to the 'plthook_modules' list */
 	struct list_head		list;
+	/* full path of this module */
 	const char			*mod_name;
+	/* used by dynamic linker (PLT resolver), saved in GOT[1] */
 	unsigned long			module_id;
+	/* base address where this module is loaded */
 	unsigned long			base_addr;
+	/* start address of PLT code (PLT0) */
 	unsigned long			plt_addr;
+	/* symbol table for PLT functions */
 	struct symtab			dsymtab;
-	unsigned long			*pltgot_ptr;	/* address of GOT[0] */
-	unsigned long			*resolved_addr;	/* starts from GOT[3] */
+	/* address of global offset table (GOT) used for PLT */
+	unsigned long			*pltgot_ptr;
+	/* original address of each function (resolved by dynamic linker) */
+	unsigned long			*resolved_addr;
+	/* array of function that needs special care (see above) */
 	struct plthook_special_func	*special_funcs;
 	int				nr_special;
 };

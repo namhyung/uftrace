@@ -325,8 +325,15 @@ static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 	/* setup_trigger_action() requires the '@' sign */
 	*pos = '@';
 
+	tmp = NULL;
 	if (setup_trigger_action(spec, &tr, &tmp, TRIGGER_FL_SIGNAL, setting) < 0)
 		return -1;
+
+	if (tmp != NULL) {
+		pr_warn("invalid signal action: %s\n", tmp);
+		free(tmp);
+		return -1;
+	}
 
 	add_signal_trigger(sig, signame, &tr);
 	if (sigaction(sig, &sa, &old_sa) < 0) {
