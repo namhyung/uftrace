@@ -94,7 +94,7 @@ static bool check_busybox(const char *pager)
 	strv_for_each(&path_strv, path, i) {
 		snprintf(buf, sizeof(buf), "%s/%s", path, pager);
 
-		if (!access(pager, X_OK)) {
+		if (!access(buf, X_OK)) {
 			pager = buf;
 			break;
 		}
