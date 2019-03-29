@@ -1538,6 +1538,7 @@ again:
 			*p = '\0';
 
 		opts->exename = script;
+		close(fd);
 		goto again;
 	}
 
