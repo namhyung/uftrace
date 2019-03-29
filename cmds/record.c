@@ -274,7 +274,6 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 		setenv("UFTRACE_LOGFD", buf, 1);
 	}
 
-	setenv("UFTRACE_PIPE", "-1", 1);
 	setenv("UFTRACE_SHMEM", "1", 1);
 
 	if (debug) {
@@ -1538,6 +1537,7 @@ again:
 			*p = '\0';
 
 		opts->exename = script;
+		close(fd);
 		goto again;
 	}
 
@@ -2060,7 +2060,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (!opts->nop) {
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
-		mkfifo(channel, 0600);
+		if (mkfifo(channel, 0600) < 0)
+			pr_err("cannot create a communication channel");
 	}
 
 	fflush(stdout);
