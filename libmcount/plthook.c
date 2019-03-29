@@ -239,6 +239,10 @@ static int find_got(struct uftrace_elf_data *elf,
 		if (plthook_resolver_addr == 0)
 			plthook_resolver_addr = pd->pltgot_ptr[2];
 
+		/*
+		 * BIND_NOW (+ RELRO) makes module id not used and resets to 0.
+		 * but we still need it to find pd from plthook_enter().
+		 */
 		if (pd->module_id == 0) {
 			pr_dbg2("update module id to %p\n", pd);
 			overwrite_pltgot(pd, 1, pd);
