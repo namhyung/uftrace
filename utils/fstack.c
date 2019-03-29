@@ -1933,7 +1933,7 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 	}
 	else if (is_event_record(task, rstack)) {
 		if (rstack->addr == EVENT_ID_PERF_COMM)
-			strcpy(task->t->comm, task->args.data);
+			strncpy(task->t->comm, task->args.data, TASK_COMM_LEN);
 
 		if (task->event_list.count)
 			consume_first_rstack_list(&task->event_list);
