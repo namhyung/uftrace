@@ -2061,7 +2061,8 @@ int command_record(int argc, char *argv[], struct opts *opts)
 
 	if (!opts->nop) {
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
-		mkfifo(channel, 0600);
+		if (mkfifo(channel, 0600) < 0)
+			pr_err("cannot create a communication channel");
 	}
 
 	fflush(stdout);
