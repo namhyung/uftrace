@@ -123,6 +123,41 @@ static void print_module(struct field_data *fd)
 	pr_out("%*.*s", 16, 16, modname);
 }
 
+static void print_module_addr(struct field_data *fd)
+{
+	struct uftrace_task_reader *task = fd->task;
+	struct fstack *fstack = fd->fstack;
+	uint64_t timestamp = task->timestamp;
+	struct uftrace_session *s;
+	struct uftrace_mmap *map;
+
+	/* uftrace records (truncated) 48-bit addresses */
+	int width = sizeof(long) == 4 ? 8 : 12;
+
+	/* for EVENT or LOST record */
+	if (fstack == NULL) {
+		pr_out("%*s", width, "");
+		return;
+	}
+
+	s = find_task_session(&task->h->sessions, task->t, timestamp);
+	if (s == NULL) {  /* LOST */
+		pr_out("%*s", width, "");
+	}
+	else {
+		unsigned long base = 0;
+		unsigned long relative_addr = 0;
+
+		map = find_map(&s->symtabs, fstack->addr);
+		if (map == MAP_MAIN || map == MAP_KERNEL)
+			base = 0;
+		else if (map)
+			base = map->start;
+		relative_addr = fstack->addr - base;
+		pr_out("%*lx", width, ADDR_IN_48_BITS(relative_addr));
+	}
+}
+
 static struct display_field field_duration = {
 	.id      = REPLAY_F_DURATION,
 	.name    = "duration",
@@ -200,6 +235,20 @@ static struct display_field field_module = {
 	.list    = LIST_HEAD_INIT(field_module.list),
 };
 
+static struct display_field field_module_addr = {
+	.id      = REPLAY_F_MODULE_ADDR,
+	.name    = "module_addr",
+#if __SIZEOF_LONG__ == 4
+	.header  = "MOD ADDR",
+	.length  = 8,
+#else
+	.header  = " MODULE ADDR",
+	.length  = 12,
+#endif
+	.print   = print_module_addr,
+	.list    = LIST_HEAD_INIT(field_module_addr.list),
+};
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
 	&field_duration,
@@ -210,6 +259,7 @@ static struct display_field *field_table[] = {
 	&field_elapsed,
 	&field_task,
 	&field_module,
+	&field_module_addr,
 };
 
 static void print_field(struct uftrace_task_reader *task,
