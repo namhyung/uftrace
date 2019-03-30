@@ -24,6 +24,8 @@ static LIST_HEAD(output_fields);
 
 #define NO_TIME  (void *)1  /* to suppress duration */
 
+#define ADDR_IN_48_BITS(addr) ((addr) & 0xffffffffffffUL)
+
 static void print_duration(struct field_data *fd)
 {
 	struct fstack *fstack = fd->fstack;
@@ -53,7 +55,7 @@ static void print_addr(struct field_data *fd)
 	if (fstack == NULL)  /* LOST */
 		pr_out("%*s", width, "");
 	else
-		pr_out("%*lx", width, fstack->addr);
+		pr_out("%*lx", width, ADDR_IN_48_BITS(fstack->addr));
 }
 
 static void print_timestamp(struct field_data *fd)
