@@ -4,6 +4,8 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
+#define ADDR_IN_48_BITS(addr) ((addr) & 0xffffffffffffUL)
+
 /* data for field display */
 struct field_data {
 	struct uftrace_task_reader *task;

@@ -57,7 +57,7 @@ void print_addr(struct field_data *fd)
 	if (fd->addr == 0)  /* for EVENT or LOST record */
 		fd->print("%*s", width, "");
 	else
-		fd->print("%*lx", width, fd->addr);
+		fd->print("%*lx", width, ADDR_IN_48_BITS(fd->addr));
 }
 
 void add_field(struct list_head *output_fields, struct display_field *field)
