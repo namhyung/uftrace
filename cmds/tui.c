@@ -224,14 +224,6 @@ static void print_graph_self(struct field_data *fd)
 	print_time(d);
 }
 
-static void print_graph_addr(struct field_data *fd)
-{
-	/* uftrace records (truncated) 48-bit addresses */
-	int width = sizeof(long) == 4 ? 8 : 12;
-
-	fd->print("%*lx", width, fd->addr);
-}
-
 static struct display_field field_total_time= {
 	.id      = GRAPH_F_TOTAL_TIME,
 	.name    = "total-time",
@@ -263,7 +255,7 @@ static struct display_field field_addr = {
 	.header  = "   ADDRESS  ",
 	.length  = 12,
 #endif
-	.print   = print_graph_addr,
+	.print   = print_addr,
 	.list    = LIST_HEAD_INIT(field_addr.list),
 };
 

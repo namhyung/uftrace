@@ -60,14 +60,6 @@ static void print_self_time(struct field_data *fd)
 	print_time_unit(d);
 }
 
-static void print_addr(struct field_data *fd)
-{
-	/* uftrace records (truncated) 48-bit addresses */
-	int width = sizeof(long) == 4 ? 8 : 12;
-
-	fd->print("%*lx", width, fd->addr);
-}
-
 static struct display_field field_total_time= {
 	.id      = GRAPH_F_TOTAL_TIME,
 	.name    = "total-time",

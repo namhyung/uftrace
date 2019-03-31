@@ -49,6 +49,17 @@ int print_empty_field(struct list_head *output_fields, int space)
 	return 1;
 }
 
+void print_addr(struct field_data *fd)
+{
+	/* uftrace records (truncated) 48-bit addresses */
+	int width = sizeof(long) == 4 ? 8 : 12;
+
+	if (fd->addr == 0)  /* for EVENT or LOST record */
+		fd->print("%*s", width, "");
+	else
+		fd->print("%*lx", width, fd->addr);
+}
+
 void add_field(struct list_head *output_fields, struct display_field *field)
 {
 	if (field->used)

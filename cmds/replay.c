@@ -43,17 +43,6 @@ static void print_tid(struct field_data *fd)
 	pr_out("[%6d]", task->tid);
 }
 
-static void print_addr(struct field_data *fd)
-{
-	/* uftrace records (truncated) 48-bit addresses */
-	int width = sizeof(long) == 4 ? 8 : 12;
-
-	if (fd->addr == 0)  /* LOST */
-		fd->print("%*s", width, "");
-	else
-		fd->print("%*lx", width, fd->addr);
-}
-
 static void print_timestamp(struct field_data *fd)
 {
 	struct uftrace_task_reader *task = fd->task;
