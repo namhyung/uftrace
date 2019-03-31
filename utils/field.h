@@ -39,6 +39,12 @@ struct display_field {
 	const char *alias;
 };
 
+static inline uint64_t effective_addr(uint64_t addr)
+{
+	/* return 48-bit truncated address info */
+	return addr & ((1ULL << 48) - 1);
+}
+
 void print_header(struct list_head *output_fields, const char *prefix,
 		  int space);
 int print_field_data(struct list_head *output_fields, struct field_data *fd,

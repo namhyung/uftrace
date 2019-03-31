@@ -235,7 +235,7 @@ static void print_graph_addr(struct field_data *fd)
 	/* uftrace records (truncated) 48-bit addresses */
 	int width = sizeof(long) == 4 ? 8 : 12;
 
-	printw("%*lx", width, node->addr);
+	printw("%*"PRIx64, width, effective_addr(node->addr));
 }
 
 static struct display_field field_total_time= {

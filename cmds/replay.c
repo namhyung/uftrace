@@ -53,7 +53,7 @@ static void print_addr(struct field_data *fd)
 	if (fstack == NULL)  /* LOST */
 		pr_out("%*s", width, "");
 	else
-		pr_out("%*lx", width, fstack->addr);
+		pr_out("%*"PRIx64, width, effective_addr(fstack->addr));
 }
 
 static void print_timestamp(struct field_data *fd)
