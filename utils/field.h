@@ -10,6 +10,7 @@ struct field_data {
 	struct fstack *fstack;
 	void *arg;
 	unsigned long addr;
+	void (*print)(const char *fmt, ...);
 };
 
 enum display_field_id {

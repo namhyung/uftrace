@@ -65,7 +65,7 @@ static void print_addr(struct field_data *fd)
 	/* uftrace records (truncated) 48-bit addresses */
 	int width = sizeof(long) == 4 ? 8 : 12;
 
-	pr_out("%*lx", width, fd->addr);
+	fd->print("%*lx", width, fd->addr);
 }
 
 static struct display_field field_total_time= {
@@ -120,6 +120,7 @@ static void print_field(struct uftrace_graph_node *node)
 	struct field_data fd = {
 		.arg = node,
 		.addr = node->addr,
+		.print = __pr_out,
 	};
 
 	if (print_field_data(&output_fields, &fd, 2))

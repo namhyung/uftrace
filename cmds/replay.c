@@ -49,9 +49,9 @@ static void print_addr(struct field_data *fd)
 	int width = sizeof(long) == 4 ? 8 : 12;
 
 	if (fd->addr == 0)  /* LOST */
-		pr_out("%*s", width, "");
+		fd->print("%*s", width, "");
 	else
-		pr_out("%*lx", width, fd->addr);
+		fd->print("%*lx", width, fd->addr);
 }
 
 static void print_timestamp(struct field_data *fd)
@@ -214,6 +214,7 @@ static void print_field(struct uftrace_task_reader *task,
 		.fstack = fstack,
 		.arg = arg,
 		.addr = fstack ? fstack->addr : 0,
+		.print = __pr_out,
 	};
 
 	if (print_field_data(&output_fields, &fd, 1))
