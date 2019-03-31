@@ -9,6 +9,7 @@ struct field_data {
 	struct uftrace_task_reader *task;
 	struct fstack *fstack;
 	void *arg;
+	unsigned long addr;
 };
 
 enum display_field_id {
