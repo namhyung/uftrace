@@ -294,9 +294,9 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle);
 int open_info_file(struct opts *opts, struct uftrace_data *handle);
 void close_data_file(struct opts *opts, struct uftrace_data *handle);
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
-		   bool needs_session, bool sym_rel_addr);
+		   bool needs_symtab, bool sym_rel_addr);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
-		       bool needs_session, bool sym_rel_addr);
+		       bool needs_symtab, bool sym_rel_addr);
 
 char * get_libmcount_path(struct opts *opts);
 void put_libmcount_path(char *libpath);
@@ -397,12 +397,12 @@ struct uftrace_msg_dlopen {
 extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg,
-		    char *dirname, char *exename, bool sym_rel_addr);
+		    char *dirname, char *exename, bool sym_rel_addr, bool needs_symtab);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task,
 					  uint64_t timestamp);
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
-		 bool fork, bool needs_session);
+		 bool fork);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
 void delete_session_map(struct symtabs *symtabs);
