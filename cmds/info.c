@@ -1041,10 +1041,14 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 		int sz, len;
 		char *p;
 
+		/* ignore errors */
+		read_task_txt_file(&handle->sessions, opts->dirname,
+				   false, false);
+
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
 		if (handle->hdr.feat_mask & PERF_EVENT) {
-			if (has_perf_data(handle))
+			if (setup_perf_data(handle) == 0)
 				update_perf_task_comm(handle);
 		}
 
@@ -1138,7 +1142,11 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	int ret;
 	struct uftrace_data handle;
 
-	ret = open_data_file(opts, &handle);
+	ret = open_info_file(opts, &handle);
+	if (ret < 0) {
+		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		return -1;
+	}
 
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
@@ -1155,15 +1163,6 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		print_symtabs(&symtabs);
 		unload_symtabs(&symtabs);
 		goto out;
-	}
-
-	if (ret < 0) {
-		if (errno != ENODATA) {
-			pr_warn("cannot open record data: %s: %m\n", opts->dirname);
-			return -1;
-		}
-
-		open_info_file(opts, &handle);
 	}
 
 	fstack_setup_filters(opts, &handle);

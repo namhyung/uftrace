@@ -488,6 +488,9 @@ ok:
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err_ns("cannot read uftrace header info!\n");
 
+	if (opts->exename == NULL)
+		opts->exename = handle->info.exename;
+
 	fclose(fp);
 	return 0;
 }
@@ -508,9 +511,6 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 		errno = ENODATA;
 		return -1;
 	}
-
-	if (opts->exename == NULL)
-		opts->exename = handle->info.exename;
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		bool sym_rel = false;
