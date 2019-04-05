@@ -764,7 +764,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
-		pr_dbg3("[idx: %4d] enter %lx: %s (mod: %lx)\n",
+		pr_dbg3("[idx: %4d] enter %"PRIx64": %s@plt (mod: %lx)\n",
 			child_idx, sym->addr, sym->name, module_id);
 	}
 	else {
