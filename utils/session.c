@@ -466,6 +466,7 @@ void create_task(struct uftrace_session_link *sessions,
 	t->pid = fork ? msg->tid : msg->pid;
 	t->tid = msg->tid;
 	t->ppid = fork ? msg->pid : 0;
+	t->time.stamp = msg->time;
 
 	s = find_session(sessions, msg->pid, msg->time);
 	if (s == NULL) {

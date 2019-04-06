@@ -342,6 +342,11 @@ struct uftrace_task {
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;
+	struct {
+		uint64_t	 run;
+		uint64_t	 idle;
+		uint64_t	 stamp;
+	} time;
 };
 
 #define UFTRACE_MSG_MAGIC 0xface
