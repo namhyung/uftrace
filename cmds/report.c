@@ -302,7 +302,7 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 	pr_out("  %10lu  %-s\n", node->call, symname);
 }
 
-static void report_threads(struct uftrace_data *handle, struct opts *opts)
+static void report_task(struct uftrace_data *handle, struct opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
@@ -631,8 +631,8 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	if (opts->diff_policy)
 		apply_diff_policy(opts->diff_policy);
 
-	if (opts->report_thread)
-		report_threads(&handle, opts);
+	if (opts->show_task)
+		report_task(&handle, opts);
 	else if (opts->diff)
 		report_diff(&handle, opts);
 	else

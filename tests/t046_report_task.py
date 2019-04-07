@@ -23,7 +23,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report --threads -d %s' % (TestBase.uftrace_cmd, TDIR)
+        return '%s report --task -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])

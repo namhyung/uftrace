@@ -55,7 +55,7 @@ enum options {
 	OPT_symbols,
 	OPT_logfile,
 	OPT_force,
-	OPT_threads,
+	OPT_task,
 	OPT_no_merge,
 	OPT_nop,
 	OPT_time,
@@ -124,7 +124,7 @@ static struct argp_option uftrace_options[] = {
 	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer (default: 128K)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
-	{ "threads", OPT_threads, 0, 0, "Report thread stats instead" },
+	{ "task", OPT_task, 0, 0, "Show task info instead" },
 	{ "tid", OPT_tid_filter, "TID[,TID,...]", 0, "Only replay those tasks" },
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
@@ -560,8 +560,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->force = true;
 		break;
 
-	case OPT_threads:
-		opts->report_thread = true;
+	case OPT_task:
+		opts->show_task = true;
 		break;
 
 	case OPT_tid_filter:

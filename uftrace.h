@@ -237,7 +237,7 @@ struct opts {
 	bool libcall;
 	bool print_symtab;
 	bool force;
-	bool report_thread;
+	bool show_task;
 	bool no_merge;
 	bool nop;
 	bool time;
