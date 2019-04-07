@@ -910,10 +910,6 @@ again:
 		return ret_addr;
 	}
 
-	pr_dbg3("[idx: %4d] exit  %lx: %s\n", dyn_idx,
-		rstack->pd->resolved_addr[dyn_idx],
-		rstack->pd->dsymtab.sym[dyn_idx].name);
-
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
@@ -922,6 +918,10 @@ again:
 
 	ret_loc  = rstack->parent_loc;
 	ret_addr = rstack->parent_ip;
+
+	pr_dbg3("[idx: %4d] exit  %lx: %s     (resolved addr: %lx)\n",
+		dyn_idx, ret_addr, rstack->pd->dsymtab.sym[dyn_idx].name,
+		rstack->pd->resolved_addr[dyn_idx]);
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
