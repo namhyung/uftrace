@@ -914,6 +914,14 @@ again:
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
+
+	/*
+	 * Since dynamic linker calls fixup routine to patch this GOT entry
+	 * to the resolved address, it needs to restore GOT entry back to the
+	 * initial value so that it can go to plt_hooker again.
+	 * Otherwise, it will directly jump to the resolved address and there's
+	 * no way to trace it in the next reference.
+	 */
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
 	ret_loc  = rstack->parent_loc;
