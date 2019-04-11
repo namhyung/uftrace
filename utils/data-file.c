@@ -23,7 +23,7 @@
  * read_task_file - read 'task' file from data directory
  * @sess: session link to manage sessions and tasks
  * @dirname: name of the data directory
- * @needs_session: read session info too
+ * @needs_symtab: read session symbol tables too
  * @sym_rel_addr: whether symbol address is relative
  *
  * This function read the task file in the @dirname and build task
@@ -34,7 +34,7 @@
  * It returns 0 for success, -1 for error.
  */
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
-		   bool needs_session, bool sym_rel_addr)
+		   bool needs_symtab, bool sym_rel_addr)
 {
 	int fd;
 	char pad[8];
@@ -64,22 +64,22 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 			    read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
 				goto out;
 
-			if (needs_session)
-				create_session(sess, &smsg, dirname, buf, sym_rel_addr);
+			create_session(sess, &smsg, dirname, buf,
+				       sym_rel_addr, needs_symtab);
 			break;
 
 		case UFTRACE_MSG_TASK_START:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 
-			create_task(sess, &tmsg, false, needs_session);
+			create_task(sess, &tmsg, false);
 			break;
 
 		case UFTRACE_MSG_FORK_END:
 			if (read_all(fd, &tmsg, sizeof(tmsg)) < 0)
 				goto out;
 
-			create_task(sess, &tmsg, true, needs_session);
+			create_task(sess, &tmsg, true);
 			break;
 
 		default:
@@ -98,7 +98,7 @@ out:
  * read_task_txt_file - read 'task.txt' file from data directory
  * @sess: session link to manage sessions and tasks
  * @dirname: name of the data directory
- * @needs_session: read session info too
+ * @needs_symtab: read session symbol tables too
  * @sym_rel_addr: whethere symbol address is relative
  *
  * This function read the task.txt file in the @dirname and build task
@@ -107,7 +107,7 @@ out:
  * It returns 0 for success, -1 for error.
  */
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
-		       bool needs_session, bool sym_rel_addr)
+		       bool needs_symtab, bool sym_rel_addr)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -138,7 +138,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(sess, &tmsg, false, needs_session);
+			create_task(sess, &tmsg, false);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
 			num = sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
@@ -147,12 +147,9 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 				goto out;
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(sess, &tmsg, true, needs_session);
+			create_task(sess, &tmsg, true);
 		}
 		else if (!strncmp(line, "SESS", 4)) {
-			if (!needs_session)
-				continue;
-
 			num = sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
 				     &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
 			if (num != 4)
@@ -172,12 +169,13 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(sess, &smsg, dirname, exename, sym_rel_addr);
+			create_session(sess, &smsg, dirname, exename,
+				       sym_rel_addr, needs_symtab);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
 
-			if (!needs_session)
+			if (!needs_symtab)
 				continue;
 
 			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
@@ -490,6 +488,9 @@ ok:
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err_ns("cannot read uftrace header info!\n");
 
+	if (opts->exename == NULL)
+		opts->exename = handle->info.exename;
+
 	fclose(fp);
 	return 0;
 }
@@ -510,9 +511,6 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 		errno = ENODATA;
 		return -1;
 	}
-
-	if (opts->exename == NULL)
-		opts->exename = handle->info.exename;
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		bool sym_rel = false;

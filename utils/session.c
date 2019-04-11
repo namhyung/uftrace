@@ -119,7 +119,7 @@ void delete_session_map(struct symtabs *symtabs)
  */
 void create_session(struct uftrace_session_link *sessions,
 		    struct uftrace_msg_sess *msg, char *dirname, char *exename,
-		    bool sym_rel_addr)
+		    bool sym_rel_addr, bool needs_symtab)
 {
 	struct uftrace_session *s;
 	struct uftrace_task *t;
@@ -155,16 +155,18 @@ void create_session(struct uftrace_session_link *sessions,
 	pr_dbg2("new session: pid = %d, session = %.16s\n",
 		s->pid, s->sid);
 
-	s->symtabs.filename = s->exename;
-	s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
-	if (sym_rel_addr)
-		s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
+	if (needs_symtab) {
+		s->symtabs.filename = s->exename;
+		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
+		if (sym_rel_addr)
+			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
 
-	read_session_map(dirname, &s->symtabs, s->sid);
-	load_symtabs(&s->symtabs, dirname, s->exename);
+		read_session_map(dirname, &s->symtabs, s->sid);
+		load_symtabs(&s->symtabs, dirname, s->exename);
 
-	load_module_symtabs(&s->symtabs);
-	load_debug_info(&s->symtabs);
+		load_module_symtabs(&s->symtabs);
+		load_debug_info(&s->symtabs);
+	}
 
 	if (sessions->first == NULL)
 		sessions->first = s;
@@ -436,7 +438,7 @@ struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
  * @needs_session is %true.
  */
 void create_task(struct uftrace_session_link *sessions,
-		 struct uftrace_msg_task *msg, bool fork, bool needs_session)
+		 struct uftrace_msg_task *msg, bool fork)
 {
 	struct uftrace_task *t;
 	struct uftrace_session *s;
@@ -452,12 +454,10 @@ void create_task(struct uftrace_session_link *sessions,
 		else if (t->tid < msg->tid)
 			p = &parent->rb_right;
 		else {
-			if (needs_session) {
-				/* add new session */
-				s = find_session(sessions, msg->pid, msg->time);
-				if (s != NULL)
-					add_session_ref(t, s, msg->time);
-			}
+			/* add new session */
+			s = find_session(sessions, msg->pid, msg->time);
+			if (s != NULL)
+				add_session_ref(t, s, msg->time);
 			return;
 		}
 	}
@@ -469,31 +469,25 @@ void create_task(struct uftrace_session_link *sessions,
 	t->tid = msg->tid;
 	t->ppid = fork ? msg->pid : 0;
 
-	if (needs_session) {
-		s = find_session(sessions, msg->pid, msg->time);
-		if (s == NULL) {
-			struct uftrace_task *parent;
+	s = find_session(sessions, msg->pid, msg->time);
+	if (s == NULL) {
+		struct uftrace_task *parent;
 
-			parent = find_task(sessions, msg->pid);
-			if (parent && parent->sref_last &&
-			    parent->sref_last->start < msg->time)
-				s = parent->sref_last->sess;
-		}
-
-		if (s) {
-			add_session_ref(t, s, msg->time);
-			strncpy(t->comm, basename(s->exename), sizeof(t->comm));
-			t->comm[sizeof(t->comm) - 1] = '\0';
-		}
-
-		pr_dbg2("new task: tid = %d (%.*s), session = %-.16s\n",
-			t->tid, sizeof(t->comm), s ? t->comm : "unknown",
-			s ? s->sid : "unknown");
+		parent = find_task(sessions, msg->pid);
+		if (parent && parent->sref_last &&
+		    parent->sref_last->start < msg->time)
+			s = parent->sref_last->sess;
 	}
-	else {
-		memset(&t->sref, 0, sizeof(t->sref));
-		pr_dbg2("new task: tid = %d\n", t->tid);
+
+	if (s) {
+		add_session_ref(t, s, msg->time);
+		strncpy(t->comm, basename(s->exename), sizeof(t->comm));
+		t->comm[sizeof(t->comm) - 1] = '\0';
 	}
+
+	pr_dbg2("new task: tid = %d (%.*s), session = %-.16s\n",
+		t->tid, sizeof(t->comm), s ? t->comm : "unknown",
+		s ? s->sid : "unknown");
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
@@ -678,7 +672,8 @@ TEST_CASE(session_search)
 		fd = creat("sid-test.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &msg, ".", "unittest", false);
+		create_session(&test_sessions, &msg, ".", "unittest",
+			       false, false);
 		remove("sid-test.map");
 	}
 
@@ -731,8 +726,9 @@ TEST_CASE(task_search)
 		fd = creat("sid-initial.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", "unittest", false);
-		create_task(&test_sessions, &tmsg, false, true);
+		create_session(&test_sessions, &smsg, ".", "unittest",
+			       false, false);
+		create_task(&test_sessions, &tmsg, false);
 		remove("sid-initial.map");
 
 		task = find_task(&test_sessions, tmsg.tid);
@@ -756,7 +752,7 @@ TEST_CASE(task_search)
 			.time = 200,
 		};
 
-		create_task(&test_sessions, &tmsg, true, true);
+		create_task(&test_sessions, &tmsg, true);
 
 		task = find_task(&test_sessions, tmsg.tid);
 
@@ -778,7 +774,7 @@ TEST_CASE(task_search)
 			.time = 300,
 		};
 
-		create_task(&test_sessions, &tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false);
 
 		task = find_task(&test_sessions, tmsg.tid);
 
@@ -800,7 +796,7 @@ TEST_CASE(task_search)
 			.time = 400,
 		};
 
-		create_task(&test_sessions, &tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false);
 
 		task = find_task(&test_sessions, tmsg.tid);
 
@@ -835,8 +831,9 @@ TEST_CASE(task_search)
 		fd = creat("sid-after_exec.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", "unittest", false);
-		create_task(&test_sessions, &tmsg, false, true);
+		create_session(&test_sessions, &smsg, ".", "unittest",
+			       false, false);
+		create_task(&test_sessions, &tmsg, false);
 		remove("sid-after_exec.map");
 
 		task = find_task(&test_sessions, tmsg.tid);
@@ -859,7 +856,7 @@ TEST_CASE(task_search)
 			.time = 600,
 		};
 
-		create_task(&test_sessions, &tmsg, true, true);
+		create_task(&test_sessions, &tmsg, true);
 
 		task = find_task(&test_sessions, tmsg.tid);
 
@@ -880,7 +877,7 @@ TEST_CASE(task_search)
 			.time = 700,
 		};
 
-		create_task(&test_sessions, &tmsg, false, true);
+		create_task(&test_sessions, &tmsg, false);
 
 		task = find_task(&test_sessions, tmsg.tid);
 
@@ -966,8 +963,9 @@ TEST_CASE(task_symbol)
 	fprintf(fp, "00400500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", "unittest", false);
-	create_task(&test_sessions, &tmsg, false, true);
+	create_session(&test_sessions, &msg, ".", "unittest",
+		       false, true);
+	create_task(&test_sessions, &tmsg, false);
 	remove("sid-test.map");
 	remove("unittest.sym");
 
@@ -1014,7 +1012,8 @@ TEST_CASE(task_symbol_dlopen)
 	fprintf(fp, "0500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", "unittest", false);
+	create_session(&test_sessions, &msg, ".", "unittest",
+		       false, true);
 	remove("sid-test.map");
 
 	TEST_NE(test_sessions.first, NULL);

@@ -108,14 +108,14 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(link, &tmsg, false, true);
+			create_task(link, &tmsg, false);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
 			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
-			create_task(link, &tmsg, true, true);
+			create_task(link, &tmsg, true);
 		}
 		else if (!strncmp(line, "SESS", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
@@ -134,7 +134,7 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(link, &smsg, dirname, exename, true);
+			create_session(link, &smsg, dirname, exename, true, true);
 			count++;
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
