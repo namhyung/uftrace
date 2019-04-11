@@ -23,6 +23,7 @@
 #include "utils/dwarf.h"
 
 #define KEY_ESCAPE  27
+#define BLANK  32
 
 static bool tui_finished;
 static bool tui_debug;
@@ -72,6 +73,7 @@ struct tui_window {
 	void *old;
 	int top_index;
 	int curr_index;
+	int last_index;
 	int search_count;
 };
 
@@ -122,6 +124,8 @@ static void tui_window_move_down(struct tui_window *win);
 
 #define FIELD_SPACE  2
 #define FIELD_SEP  " :"
+
+#define POS_SIZE 5
 
 #define C_NORMAL  0
 #define C_HEADER  1
@@ -553,6 +557,24 @@ static void copy_graph_node(struct uftrace_graph_node *dst,
 	}
 }
 
+static int tui_last_index(struct tui_window *win)
+{
+	int count = win->curr_index;
+	void *next, *prev = win->curr;
+
+	while (true) {
+		next = win->ops->next(win, prev, false);
+		if (next == NULL)
+			return count;
+
+		count++;
+		if (win->ops->needs_blank(win, prev, next))
+			count++;
+
+		prev = next;
+	}
+}
+
 static void tui_window_init(struct tui_window *win,
 			    const struct tui_window_ops *ops)
 {
@@ -562,6 +584,7 @@ static void tui_window_init(struct tui_window *win,
 	win->top = top;
 	win->curr = win->old = top;
 	win->top_index = win->curr_index = 0;
+	win->last_index = tui_last_index(win);
 }
 
 static struct tui_graph * tui_graph_init(struct opts *opts)
@@ -594,10 +617,10 @@ static struct tui_graph * tui_graph_init(struct opts *opts)
 	partial_graph.top_mask  = xzalloc(graph->mask_size);
 	partial_graph.disp_mask = xmalloc(graph->mask_size);
 
-	tui_window_init(&partial_graph.win, &graph_ops);
-
 	INIT_LIST_HEAD(&partial_graph.ug.root.head);
 	INIT_LIST_HEAD(&partial_graph.ug.special_nodes);
+
+	tui_window_init(&partial_graph.win, &graph_ops);
 
 	/* select first session */
 	partial_graph.ug.sess = graph->ug.sess;
@@ -797,7 +820,6 @@ static struct tui_graph_node * graph_next_node(struct tui_graph_node *node,
 				indent_mask[*depth] = false;
 		}
 	}
-
 	return NULL;
 }
 
@@ -901,6 +923,7 @@ static bool win_enter_graph(struct tui_window *win, void *node)
 		return false;
 
 	curr->folded = !curr->folded;
+	win->last_index = tui_last_index(win);
 	return true;
 }
 
@@ -934,13 +957,19 @@ static int fold_graph_node(struct tui_graph_node *node, bool fold,
 static bool win_collapse_graph(struct tui_window *win, void *node, bool all,
 			       int depth)
 {
-	return fold_graph_node(node, true, all, depth);
+	bool result = fold_graph_node(node, true, all, depth);
+
+	win->last_index = tui_last_index(win);
+	return result;
 }
 
 static bool win_expand_graph(struct tui_window *win, void *node, bool all,
 			     int depth)
 {
-	return fold_graph_node(node, false, all, depth);
+	bool result = fold_graph_node(node, false, all, depth);
+
+	win->last_index = tui_last_index(win);
+	return result;
 }
 
 static void win_header_graph(struct tui_window *win,
@@ -988,6 +1017,27 @@ out:
 	memcpy(graph->disp_mask, graph->top_mask, graph->mask_size);
 }
 
+static int win_pos_percent(struct tui_window *win)
+{
+	return win->curr_index * 100.0 / win->last_index;
+}
+
+static void win_footer(struct tui_window *win, char *msg)
+{
+	int pos_start = COLS - POS_SIZE;
+	int msg_len = strlen(msg);
+	char footer[COLS + 1];
+
+	memset(footer, BLANK, sizeof(footer));
+	memcpy(footer, msg, COLS < msg_len ? COLS : msg_len);
+	if (pos_start > msg_len)
+		snprintf(footer + pos_start, POS_SIZE, "%3d%%", win_pos_percent(win));
+
+	footer[COLS] = '\0';
+
+	printw("%-*s", COLS, footer);
+}
+
 static void win_footer_graph(struct tui_window *win,
 			     struct uftrace_data *handle)
 {
@@ -997,9 +1047,10 @@ static void win_footer_graph(struct tui_window *win,
 	struct uftrace_session *sess = graph->ug.sess;
 
 	if (tui_debug) {
-		snprintf(buf, COLS, "uftrace graph: top: %d depth: %d, curr: %d depth: %d",
+		snprintf(buf, COLS, "uftrace graph: top: %d depth: %d, curr: %d depth: %d last: %d",
 			 graph->win.top_index, graph->top_depth,
-			 graph->win.curr_index, graph->curr_depth);
+			 graph->win.curr_index, graph->curr_depth,
+			 graph->win.last_index);
 	}
 	else if (tui_search) {
 		snprintf(buf, COLS, "uftrace graph: searching \"%s\"  (%d match, %s)",
@@ -1026,10 +1077,8 @@ static void win_footer_graph(struct tui_window *win,
 				 SESSION_ID_LEN, sess->sid, sess->exename);
 		}
 	}
-	buf[COLS] = '\0';
 
-	printw("%-*s", COLS, buf);
-
+	win_footer(win, buf);
 	graph->disp_update = false;
 }
 
@@ -1169,6 +1218,7 @@ static bool win_longest_child_graph(struct tui_window *win, void *node)
 	while (win->curr != longest_child)
 		tui_window_move_down(win);
 
+	win->last_index = tui_last_index(win);
 	return true;
 }
 
@@ -1229,6 +1279,7 @@ static struct tui_report * tui_report_init(struct opts *opts)
 
 	report_setup_sort("total");
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
+
 	tui_window_init(win, &report_ops);
 
 	return &tui_report;
@@ -1312,9 +1363,8 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 				 handle->dirname, report->nr_sess, report->nr_func);
 		}
 	}
-	buf[COLS] = '\0';
 
-	printw("%-*.*s", COLS, COLS, buf);
+	win_footer(win, buf);
 }
 
 static void win_display_report(struct tui_window *win, void *node)
@@ -1422,7 +1472,7 @@ static struct tui_list * tui_info_init(struct opts *opts,
 	process_uftrace_info(handle, opts, build_info_node, &tui_info);
 
 	tui_window_init(&tui_info.win, &info_ops);
-			
+
 	return &tui_info;
 }
 
@@ -1451,11 +1501,8 @@ static void win_footer_info(struct tui_window *win,
 			    struct uftrace_data *handle)
 {
 	char buf[256];
-	size_t sz = sizeof(buf);
-	int len = 0;
-
-	print_buf("uftrace version: %s", UFTRACE_VERSION);
-	printw("%-*.*s", COLS, COLS, buf);
+	snprintf(buf, COLS, "uftrace version: %s", UFTRACE_VERSION);
+	win_footer(win, buf);
 }
 
 static void win_display_info(struct tui_window *win, void *node)
@@ -1551,7 +1598,7 @@ static void win_footer_session(struct tui_window *win,
 		break;
 	}
 
-	printw("%-*s", COLS, buf);
+	win_footer(win, buf);
 }
 
 static struct tui_graph * get_current_graph(struct tui_list_node *node,
