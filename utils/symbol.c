@@ -202,7 +202,6 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 	char *name;
 	struct sym *sym;
 	typeof(iter->sym) *elf_sym = &iter->sym;
-	unsigned grow = SYMTAB_GROW;
 
 	if (elf_sym->st_shndx == STN_UNDEF)
 		return 0;
@@ -218,14 +217,6 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 	/* skip aliases */
 	if (prev_sym_value == elf_sym->st_value)
 		return 0;
-
-	if (symtab->nr_sym >= symtab->nr_alloc) {
-		if (symtab->nr_alloc >= grow * 4)
-			grow *= 2;
-		symtab->nr_alloc += grow;
-		symtab->sym = xrealloc(symtab->sym,
-				       symtab->nr_alloc * sizeof(*sym));
-	}
 
 	sym = &symtab->sym[symtab->nr_sym++];
 
@@ -381,6 +372,10 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 		pr_dbg2("no symtab, using dynsyms instead\n");
 	}
 
+	/* pre-allocate enough symbol table entries */
+	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
+	symtab->sym = malloc(symtab->nr_alloc * sizeof(*symtab->sym));
+
 	pr_dbg2("loading symbols from %s (offset: %#lx)\n", filename, offset);
 	if (iter.shdr.sh_type == SHT_SYMTAB) {
 		elf_for_each_symbol(&elf, &iter) {
@@ -401,6 +396,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	if (symtab->nr_sym == 0)
 		goto out;
 
+	/* also fixup the size of symbol table */
 	sort_symtab(symtab);
 	ret = 0;
 out:
@@ -416,21 +412,12 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 {
 	char *name;
 	struct sym *sym;
-	unsigned grow = SYMTAB_GROW;
 
 	elf_get_symbol(elf, iter, sym_idx);
 	name = elf_get_name(elf, iter, iter->sym.st_name);
 
 	if (*name == '\0')
 		return 0;
-
-	if (dsymtab->nr_sym >= dsymtab->nr_alloc) {
-		if (dsymtab->nr_alloc >= grow * 4)
-			grow *= 2;
-		dsymtab->nr_alloc += grow;
-		dsymtab->sym = xrealloc(dsymtab->sym,
-					dsymtab->nr_alloc * sizeof(*sym));
-	}
 
 	sym = &dsymtab->sym[dsymtab->nr_sym++];
 
@@ -455,6 +442,9 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 static void sort_dynsymtab(struct symtab *dsymtab)
 {
 	unsigned i, k;
+
+	dsymtab->nr_alloc = dsymtab->nr_sym;
+	dsymtab->sym = xrealloc(dsymtab->sym, dsymtab->nr_sym * sizeof(*dsymtab->sym));
 
 	/*
 	 * abuse ->sym_names[] to save original index
@@ -568,6 +558,10 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 
 	prev_addr = plt_addr;
 
+	/* pre-allocate enough symbol table entries */
+	dsymtab->nr_alloc = rel_iter.shdr.sh_size / rel_iter.shdr.sh_entsize;
+	dsymtab->sym = malloc(dsymtab->nr_alloc * sizeof(*dsymtab->sym));
+
 	if (rel_type == SHT_REL) {
 		elf_for_each_rel(elf, &rel_iter) {
 			symidx = elf_rel_symbol(&rel_iter.rel);
@@ -601,6 +595,7 @@ out_sort:
 	if (dsymtab->nr_sym == 0)
 		goto out;
 
+	/* also fixup the size of symbol table */
 	sort_dynsymtab(dsymtab);
 	ret = 0;
 
