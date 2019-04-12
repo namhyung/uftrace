@@ -323,6 +323,7 @@ static const char *skip_syms[] = {
 	"__cxa_end_catch",
 	"__cxa_finalize",
 	"_Unwind_Resume",
+	"dlsym",
 };
 
 static const char *setjmp_syms[] = {
