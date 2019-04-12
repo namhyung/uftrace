@@ -1751,8 +1751,16 @@ static void mcount_cleanup(void)
 	mcount_finish();
 	destroy_dynsym_indexes();
 
+#if 0
+	/*
+	 * This mtd_key deletion sometimes makes other thread get crashed
+	 * because they may try to get mtdp based on this mtd_key after being
+	 * deleted.  Since this key deletion is not mandatory, it'd be better
+	 * not to delete it until we find a better solution.
+	 */
 	pthread_key_delete(mtd_key);
 	mtd_key = -1;
+#endif
 
 	mcount_filter_finish();
 
