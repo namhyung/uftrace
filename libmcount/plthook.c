@@ -764,7 +764,7 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 
 	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
-		pr_dbg3("[idx: %4d] enter %lx: %s (mod: %lx)\n",
+		pr_dbg3("[idx: %4d] enter %"PRIx64": %s@plt (mod: %lx)\n",
 			child_idx, sym->addr, sym->name, module_id);
 	}
 	else {
@@ -910,18 +910,26 @@ again:
 		return ret_addr;
 	}
 
-	pr_dbg3("[idx: %4d] exit  %lx: %s\n", dyn_idx,
-		rstack->pd->resolved_addr[dyn_idx],
-		rstack->pd->dsymtab.sym[dyn_idx].name);
-
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
 
 	mcount_exit_filter_record(mtdp, rstack, retval);
+
+	/*
+	 * Since dynamic linker calls fixup routine to patch this GOT entry
+	 * to the resolved address, it needs to restore GOT entry back to the
+	 * initial value so that it can go to plt_hooker again.
+	 * Otherwise, it will directly jump to the resolved address and there's
+	 * no way to trace it in the next reference.
+	 */
 	update_pltgot(mtdp, rstack->pd, dyn_idx);
 
 	ret_loc  = rstack->parent_loc;
 	ret_addr = rstack->parent_ip;
+
+	pr_dbg3("[idx: %4d] exit  %lx: %s     (resolved addr: %lx)\n",
+		dyn_idx, ret_addr, rstack->pd->dsymtab.sym[dyn_idx].name,
+		rstack->pd->resolved_addr[dyn_idx]);
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
