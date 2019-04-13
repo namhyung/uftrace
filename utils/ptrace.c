@@ -14,8 +14,13 @@ void ptrace_attach(pid_t target)
 {
 	int status;
 
-	if (ptrace(PTRACE_ATTACH, target, NULL, NULL) == -1)
+	if (ptrace(PTRACE_ATTACH, target, NULL, NULL) == -1) {
+		pr_warn("attaching requires ptrace permission.\n"
+			"please, enable ptrace permission like following.\n"
+			"[example]\n"
+			"$ echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope\n");
 		pr_err("ptrace(PTRACE_ATTACH) failed");
+	}
 
 	if (waitpid(target, &status, WUNTRACED) != target)
 		pr_err("waitpid(%d) failed", target);
