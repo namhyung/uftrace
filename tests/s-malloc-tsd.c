@@ -33,6 +33,13 @@ void *malloc(size_t sz)
 	return ptr;
 }
 
+void *realloc(void *ptr, size_t size)
+{
+	void *p = malloc(size);
+	memcpy(p, ptr, size);
+	return p;
+}
+
 void free(void *ptr)
 {
 	char *p = ptr;

@@ -24,6 +24,13 @@ void *malloc(size_t size)
 	return ptr;
 }
 
+void *realloc(void *ptr, size_t size)
+{
+	void *p = malloc(size);
+	memcpy(p, ptr, size);
+	return p;
+}
+
 void free(void *ptr)
 {
 	free_count++;
