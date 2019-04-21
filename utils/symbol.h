@@ -172,6 +172,8 @@ int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);
 
 struct symtab * get_kernel_symtab(void);
+struct uftrace_module * get_kernel_module(void);
+
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     uint64_t offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,

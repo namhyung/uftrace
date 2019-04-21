@@ -156,11 +156,12 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 	};
 	char *arg_str;
 	unsigned long flag = is_retval ? TRIGGER_FL_RETVAL : TRIGGER_FL_ARGUMENT;
+	unsigned long addr = filter->start - dinfo->offset;
 
 	if (is_retval)
-		arg_str = get_dwarf_retspec(dinfo, filter->name, filter->start);
+		arg_str = get_dwarf_retspec(dinfo, filter->name, addr);
 	else
-		arg_str = get_dwarf_argspec(dinfo, filter->name, filter->start);
+		arg_str = get_dwarf_argspec(dinfo, filter->name, addr);
 	if (arg_str == NULL)
 		return NULL;
 

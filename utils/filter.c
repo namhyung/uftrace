@@ -900,13 +900,15 @@ out:
 	return ret;
 }
 
-static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
+static int add_trigger_entry(struct rb_root *root,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr,
+			     struct uftrace_mmap *map,
 			     struct debug_info *dinfo,
 			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
+	struct symtab *symtab = &map->mod->symtab;
 	struct sym *sym;
 	unsigned i;
 	int ret = 0;
@@ -920,6 +922,9 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		filter.name  = sym->name;
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
+
+		filter.start += map->start;
+		filter.end   += map->start;
 
 		ret += add_filter(root, &filter, tr,
 				  patt->type == PATT_SIMPLE, dinfo, setting);
@@ -982,32 +987,36 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			/* is it the main executable? */
 			if (!strncmp(module, basename(symtabs->filename),
 				     strlen(module))) {
-				ret += add_trigger_entry(root, &symtabs->symtab,
-							 &patt, &tr,
+				ret += add_trigger_entry(root, &patt, &tr,
+							 symtabs->maps,
 							 &symtabs->dinfo,
 							 setting);
-				ret += add_trigger_entry(root, &symtabs->dsymtab,
-							 &patt, &tr,
+				ret += add_trigger_entry(root, &patt, &tr,
+							 symtabs->maps,
 							 &symtabs->dinfo,
 							 setting);
 			}
 			else if (!strcasecmp(module, "PLT")) {
-				ret = add_trigger_entry(root, &symtabs->dsymtab,
-							&patt, &tr,
+				ret = add_trigger_entry(root, &patt, &tr,
+							symtabs->maps,
 							&symtabs->dinfo,
 							setting);
 			}
 			else if (has_kernel_opt(module)) {
-				ret = add_trigger_entry(root, get_kernel_symtab(),
-							&patt, &tr,
+				struct uftrace_mmap kernel_map = {
+					.mod = get_kernel_module(),
+				};
+
+				ret = add_trigger_entry(root, &patt, &tr,
+							&kernel_map,
 							&symtabs->dinfo,
 							setting);
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
-				if (map) {
-					ret = add_trigger_entry(root, &map->symtab,
-								&patt, &tr,
+				if (map && map->mod) {
+					ret = add_trigger_entry(root, &patt,
+								&tr, map,
 								&map->dinfo,
 								setting);
 				}
@@ -1017,18 +1026,23 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		}
 		else {
 			/* check main executable's symtab first */
-			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr, &symtabs->dinfo,
+			ret += add_trigger_entry(root, &patt, &tr,
+						 symtabs->maps,
+						 &symtabs->dinfo,
 						 setting);
-			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr, &symtabs->dinfo,
+			ret += add_trigger_entry(root, &patt, &tr,
+						 symtabs->maps,
+						 &symtabs->dinfo,
 						 setting);
 
 			/* and then find all module's symtabs */
 			for_each_map(symtabs, map) {
-				ret += add_trigger_entry(root, &map->symtab,
-							 &patt, &tr,
-							 &map->dinfo,
+				/* some modules don't have symbol table */
+				if (map->mod == NULL)
+					continue;
+
+				ret += add_trigger_entry(root, &patt, &tr,
+							 map, &map->dinfo,
 							 setting);
 			}
 		}
@@ -1223,11 +1237,20 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 		{ 0x21000, 0x1000, ST_PLT_FUNC, "malloc" },
 		{ 0x22000, 0x1000, ST_PLT_FUNC, "free" },
 	};
+	static struct uftrace_module mod;
+	static struct uftrace_mmap map = {
+		.mod = &mod,
+	};
 
 	stabs->symtab.sym = syms;
 	stabs->symtab.nr_sym = ARRAY_SIZE(syms);
 	stabs->dsymtab.sym = dsyms;
 	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
+
+	mod.symtab.sym = syms;
+	mod.symtab.nr_sym = ARRAY_SIZE(syms);
+
+	stabs->maps = &map;
 	stabs->loaded = true;
 	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }

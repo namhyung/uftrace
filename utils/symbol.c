@@ -30,7 +30,7 @@
 #endif
 
 /* (global) symbol for kernel */
-static struct symtabs ksymtabs;
+static struct uftrace_module kernel;
 
 /* prevent duplicate symbols table loading */
 static struct rb_root modules = RB_ROOT;
@@ -979,6 +979,12 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
 
+			/* prefer x64 syscall names than 32 bit ones */
+			if (!strncmp(sym->name, "__ia32", 6) &&
+			    !strncmp(name, "__x64", 5) &&
+			    !strcmp(sym->name + 6, name + 5))
+				strcpy(sym->name, name);
+
 			pr_dbg2("skip duplicated symbols: %s\n", name);
 			continue;
 		}
@@ -1161,6 +1167,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 		}
 
 		load_module_symtab(symtabs, map);
+		if (map->mod && map->mod->symtab.nr_sym)
+			continue;
 
 		pr_dbg2("load module symbol table: %s\n", map->libname);
 
@@ -1512,12 +1520,17 @@ void save_module_symtabs(struct symtabs *symtabs)
 {
 	char *symfile = NULL;
 	struct uftrace_mmap *map;
+	struct symtab *stab;
 
 	for_each_map(symtabs, map) {
+		if (map->mod == NULL)
+			continue;
+
 		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 			  basename(map->libname));
 
-		save_module_symbol_file(&map->symtab, symfile, map->start);
+		stab = &map->mod->symtab;
+		save_module_symbol_file(stab, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
@@ -1556,29 +1569,32 @@ int load_kernel_symbol(char *dirname)
 	unsigned i;
 	char *symfile = NULL;
 
-	if (ksymtabs.loaded)
+	/* abuse it for checking symbol loading */
+	if (kernel.node.rb_parent_color)
 		return 0;
 
 	xasprintf(&symfile, "%s/kallsyms", dirname);
-	if (load_symbol_file(&ksymtabs, symfile, 0) < 0) {
+	if (load_module_symbol_file(&kernel.symtab, symfile, 0) < 0) {
 		free(symfile);
 		return -1;
 	}
 
-	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)
-		ksymtabs.symtab.sym[i].type = ST_KERNEL_FUNC;
+	for (i = 0; i < kernel.symtab.nr_sym; i++)
+		kernel.symtab.sym[i].type = ST_KERNEL_FUNC;
 
+	kernel.node.rb_parent_color = 1;
 	free(symfile);
-	ksymtabs.loaded = true;
 	return 0;
 }
 
 struct symtab * get_kernel_symtab(void)
 {
-	if (ksymtabs.loaded)
-		return &ksymtabs.symtab;
+	return &kernel.symtab;
+}
 
-	return NULL;
+struct uftrace_module * get_kernel_module(void)
+{
+	return &kernel;
 }
 
 void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
