@@ -1681,19 +1681,22 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 
 struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 
 	if (find_symname(&symtabs->symtab, name))
 		return MAP_MAIN;
 
-	maps = symtabs->maps;
-	while (maps) {
+	map = symtabs->maps;
+	while (map) {
 		struct sym *sym;
-		sym = find_symname(&maps->symtab, name);
-		if (sym && sym->type != ST_PLT_FUNC)
-			return maps;
 
-		maps = maps->next;
+		if (map->mod != NULL) {
+			sym = find_symname(&map->mod->symtab, name);
+			if (sym && sym->type != ST_PLT_FUNC)
+				return map;
+		}
+
+		map = map->next;
 	}
 	return NULL;
 }
@@ -1702,11 +1705,11 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 	struct sym *sym = NULL;
 
-	maps = find_map(symtabs, addr);
-	if (maps == MAP_KERNEL) {
+	map = find_map(symtabs, addr);
+	if (map == MAP_KERNEL) {
 		struct symtab *ktab = get_kernel_symtab();
 		uint64_t kaddr = get_kernel_address(symtabs, addr);
 
@@ -1718,7 +1721,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		return sym;
 	}
 
-	if (maps == MAP_MAIN) {
+	if (map == MAP_MAIN) {
 		/* try dynamic symbols first */
 		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
 			      sizeof(*sym), addrfind);
@@ -1734,33 +1737,21 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		goto out;
 	}
 
-	if (maps) {
-		if (maps->symtab.nr_sym == 0) {
-			bool found = false;
-
-			if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
-				char *symfile = NULL;
-				unsigned long offset = 0;
-
-				if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-					offset = maps->start;
-
-				xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-					  basename(maps->libname));
-				if (!load_module_symbol_file(&maps->symtab,
-							     symfile, offset)) {
-					found = true;
-				}
-				free(symfile);
-			}
-
-			if (!found) {
-				load_symtab(&maps->symtab, maps->libname,
-					    maps->start, symtabs->flags);
-			}
+	if (map != NULL) {
+		if (map->mod == NULL) {
+			load_module_symtab(symtabs, map);
+			if (map->mod == NULL)
+				return NULL;
 		}
 
-		stab = &maps->symtab;
+		/*
+		 * use relative address for module symtab
+		 * since mappings can be loaded at any address
+		 * for multiple sessions
+		 */
+		addr -= map->start;
+
+		stab = &map->mod->symtab;
 		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 	}
