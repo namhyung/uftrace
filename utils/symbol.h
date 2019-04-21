@@ -14,6 +14,7 @@
 
 #include "utils/utils.h"
 #include "utils/list.h"
+#include "utils/rbtree.h"
 #include "utils/dwarf.h"
 
 #ifdef HAVE_LIBELF
@@ -60,8 +61,16 @@ struct symtab {
 	bool name_sorted;
 };
 
+struct uftrace_module {
+	struct rb_node node;
+	struct symtab symtab;
+	struct debug_info dinfo;
+	char name[];
+};
+
 struct uftrace_mmap {
 	struct uftrace_mmap *next;
+	struct uftrace_module *mod;
 	uint64_t start;
 	uint64_t end;
 	char prot[4];
@@ -128,6 +137,7 @@ void load_module_symtabs(struct symtabs *symtabs);
 void save_module_symtabs(struct symtabs *symtabs);
 void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
 			 const char *filename);
+void unload_module_symtabs(void);
 
 enum uftrace_trace_type {
 	TRACE_ERROR   = -1,

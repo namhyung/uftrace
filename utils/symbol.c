@@ -23,12 +23,17 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/rbtree.h"
 
 #ifndef  EM_AARCH64
 # define EM_AARCH64  183
 #endif
 
+/* (global) symbol for kernel */
 static struct symtabs ksymtabs;
+
+/* prevent duplicate symbols table loading */
+static struct rb_root modules = RB_ROOT;
 
 struct sym sched_sym = {
 	.addr = EVENT_ID_PERF_SCHED_BOTH,
@@ -1029,6 +1034,86 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 	return 0;
 }
 
+static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m)
+{
+	unsigned flags = symtabs->flags;
+	struct symtab dsymtab = {};
+
+	if (flags & SYMTAB_FL_USE_SYMFILE) {
+		char *symfile = NULL;
+
+		xasprintf(&symfile, "%s/%s.sym",
+			  symtabs->dirname, basename(m->name));
+		if (access(symfile, F_OK) == 0) {
+			load_module_symbol_file(&m->symtab, symfile, 0);
+		}
+
+		free(symfile);
+
+		if (m->symtab.nr_sym)
+			return;
+	}
+
+	/*
+	 * Currently it uses a single symtab for both normal symbols
+	 * and dynamic symbols.  Maybe it can be changed later to
+	 * support more sophisticated symbol handling.
+	 */
+	load_symtab(&m->symtab, m->name, 0, flags);
+	load_dynsymtab(&dsymtab, m->name, 0, flags);
+	merge_symtabs(&m->symtab, &dsymtab);
+	update_symtab_using_dynsym(&m->symtab, m->name, 0, flags);
+
+}
+
+static void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &modules.rb_node;
+	struct uftrace_module *m;
+	int pos;
+
+	while (*p) {
+		parent = *p;
+		m = rb_entry(parent, struct uftrace_module, node);
+
+		pos = strcmp(m->name, map->libname);
+		if (pos == 0) {
+			map->mod = m;
+			return;
+		}
+
+		if (pos < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	m = xzalloc(sizeof(*m) + strlen(map->libname) + 1);
+	strcpy(m->name, map->libname);
+	load_module_symbol(symtabs, m);
+	INIT_LIST_HEAD(&m->dinfo.files);
+	map->mod = m;
+
+	rb_link_node(&m->node, parent, p);
+	rb_insert_color(&m->node, &modules);
+}
+
+void unload_module_symtabs(void)
+{
+	struct rb_node *n;
+	struct uftrace_module *mod;
+
+	while (!RB_EMPTY_ROOT(&modules)) {
+		n = rb_first(&modules);
+		rb_erase(n, &modules);
+
+		mod = rb_entry(n, typeof (*mod), node);
+		unload_symtab(&mod->symtab);
+		free(mod);
+	}
+}
+
 void load_module_symtabs(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *maps;
@@ -1059,6 +1144,24 @@ void load_module_symtabs(struct symtabs *symtabs)
 		if (exec_path && !strcmp(maps->libname, exec_path))
 			goto next;
 
+		if (exec_path == NULL)
+			exec_path = maps->libname;
+
+		if (!check_cpp) {
+			if (has_dependency(exec_path, libstdcpp6))
+				needs_cpp = true;
+
+			check_cpp = true;
+		}
+
+		/* load symbols from libstdc++.so only if it's written in C++ */
+		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
+			if (!needs_cpp)
+				goto next;
+		}
+
+		load_module_symtab(symtabs, maps);
+
 		pr_dbg2("load module symbol table: %s\n", maps->libname);
 
 		if (flags & SYMTAB_FL_USE_SYMFILE) {
@@ -1074,22 +1177,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 			free(symfile);
 
 			if (maps->symtab.nr_sym)
-				goto next;
-		}
-
-		if (exec_path == NULL)
-			exec_path = maps->libname;
-
-		if (!check_cpp) {
-			if (has_dependency(exec_path, libstdcpp6))
-				needs_cpp = true;
-
-			check_cpp = true;
-		}
-
-		/* load symbols from libstdc++.so only if it's written in C++ */
-		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
-			if (!needs_cpp)
 				goto next;
 		}
 
