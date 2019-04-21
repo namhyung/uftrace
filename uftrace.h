@@ -150,6 +150,7 @@ struct uftrace_session_link {
 	struct rb_root		root;
 	struct rb_root		tasks;
 	struct uftrace_session *first;
+	struct uftrace_task    *first_task;
 };
 
 struct uftrace_data {
@@ -342,6 +343,8 @@ struct uftrace_task {
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;
+	struct list_head	children;
+	struct list_head	siblings;
 	struct {
 		uint64_t	 run;
 		uint64_t	 idle;

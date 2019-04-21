@@ -439,6 +439,7 @@ void create_task(struct uftrace_session_link *sessions,
 		 struct uftrace_msg_task *msg, bool fork)
 {
 	struct uftrace_task *t;
+	struct uftrace_task *pt;
 	struct uftrace_session *s;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &sessions->tasks.rb_node;
@@ -468,17 +469,20 @@ void create_task(struct uftrace_session_link *sessions,
 	t->ppid = fork ? msg->pid : 0;
 	t->time.stamp = msg->time;
 
+	INIT_LIST_HEAD(&t->children);
+	INIT_LIST_HEAD(&t->siblings);
+
+	pt = find_task(sessions, msg->pid);
+	if (pt != NULL)
+		list_add_tail(&t->siblings, &pt->children);
+
 	s = find_session(sessions, msg->pid, msg->time);
 	if (s == NULL) {
-		struct uftrace_task *parent;
-
-		parent = find_task(sessions, msg->pid);
-		if (parent && parent->sref_last &&
-		    parent->sref_last->start < msg->time)
-			s = parent->sref_last->sess;
+		if (pt && pt->sref_last && pt->sref_last->start < msg->time)
+			s = pt->sref_last->sess;
 	}
 
-	if (s) {
+	if (s != NULL) {
 		add_session_ref(t, s, msg->time);
 		strncpy(t->comm, basename(s->exename), sizeof(t->comm));
 		t->comm[sizeof(t->comm) - 1] = '\0';
@@ -487,6 +491,9 @@ void create_task(struct uftrace_session_link *sessions,
 	pr_dbg2("new task: tid = %d (%.*s), session = %-.16s\n",
 		t->tid, sizeof(t->comm), s ? t->comm : "unknown",
 		s ? s->sid : "unknown");
+
+	if (sessions->first_task == NULL)
+		sessions->first_task = t;
 
 	rb_link_node(&t->node, parent, p);
 	rb_insert_color(&t->node, &sessions->tasks);
