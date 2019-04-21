@@ -930,6 +930,17 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		char *name;
 		char *pos;
 
+		if (*line == '#') {
+			if (!strncmp(line, "# symbols: ", 11)) {
+				addr = strtoull(line + 11, &pos, 10);
+				symtab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				symtab->sym = xrealloc(symtab->sym, addr);
+			}
+			continue;
+		}
+
 		pos = strchr(line, '\n');
 		if (pos)
 			*pos = '\0';
@@ -1125,6 +1136,28 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		char *name;
 		char *pos;
 
+		if (*line == '#') {
+			if (!strncmp(line, "# symbols: ", 11)) {
+				stab = &symtabs->symtab;
+
+				addr = strtoull(line + 11, &pos, 10);
+				stab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				stab->sym = xrealloc(stab->sym, addr);
+			}
+			if (!strncmp(line, "# plt symbols: ", 15)) {
+				stab = &symtabs->dsymtab;
+
+				addr = strtoull(line + 15, &pos, 10);
+				stab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				stab->sym = xrealloc(stab->sym, addr);
+			}
+			continue;
+		}
+
 		pos = strchr(line, '\n');
 		if (pos)
 			*pos = '\0';
@@ -1291,6 +1324,9 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	symtabs->flags |= SYMTAB_FL_ADJ_OFFSET;
 
 do_it:
+	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);
+	fprintf(fp, "# plt symbols: %lu\n", dtab->nr_sym);
+
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
 		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym_names[i]->addr - offset,
@@ -1349,6 +1385,8 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	}
 
 	pr_dbg2("saving symbols to %s\n", symfile);
+
+	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);
 
 	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
