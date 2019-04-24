@@ -102,6 +102,9 @@ struct symtabs {
 	struct uftrace_mmap *maps;
 };
 
+#define for_each_map(symtabs, map)					\
+	for ((map) = (symtabs)->maps; (map) != NULL; (map) = (map)->next)
+
 /* addr should be from fstack or something other than rstack (rec) */
 static inline bool is_kernel_address(struct symtabs *symtabs, uint64_t addr)
 {

@@ -1132,8 +1132,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 	build_dwarf_info(&symtabs->dinfo, &symtabs->symtab, ptype,
 			 &dwarf_args, &dwarf_rets);
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		/* avoid loading of main executable or libmcount */
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
@@ -1142,7 +1141,6 @@ void prepare_debug_info(struct symtabs *symtabs,
 			build_dwarf_info(&map->dinfo, &map->symtab, ptype,
 					 &dwarf_args, &dwarf_rets);
 		}
-		map = map->next;
 	}
 
 	strv_free(&dwarf_args);
@@ -1160,13 +1158,10 @@ void finish_debug_info(struct symtabs *symtabs)
 
 	release_debug_info(&symtabs->dinfo);
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9))
 			release_debug_info(&map->dinfo);
-
-		map = map->next;
 	}
 
 	symtabs->loaded_debug = false;
@@ -1282,13 +1277,10 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 	/* XXX: libmcount doesn't set symtabs->dirname */
 	save_debug_entries(&symtabs->dinfo, dirname, symtabs->filename);
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9))
 			save_debug_entries(&map->dinfo, dirname, map->libname);
-
-		map = map->next;
 	}
 }
 
@@ -1404,15 +1396,13 @@ void load_debug_info(struct symtabs *symtabs)
 	load_debug_file(&symtabs->dinfo, &symtabs->symtab,
 			symtabs->dirname, symtabs->filename);
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		if (strcmp(map->libname, symtabs->filename) &&
 		    strncmp(basename(map->libname), "libmcount", 9)) {
 			map->dinfo.offset = map->start;
 			load_debug_file(&map->dinfo, &map->symtab,
 					symtabs->dirname, map->libname);
 		}
-		map = map->next;
 	}
 
 	symtabs->loaded_debug = true;

@@ -1025,13 +1025,11 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 						 setting);
 
 			/* and then find all module's symtabs */
-			map = symtabs->maps;
-			while (map) {
+			for_each_map(symtabs, map) {
 				ret += add_trigger_entry(root, &map->symtab,
 							 &patt, &tr,
 							 &map->dinfo,
 							 setting);
-				map = map->next;
 			}
 		}
 

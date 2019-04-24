@@ -820,20 +820,18 @@ out:
 struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 				      const char *prefix)
 {
-	struct uftrace_mmap *maps = symtabs->maps;
+	struct uftrace_mmap *map;
 	char *mod_name;
 
-	while (maps) {
-		mod_name = strrchr(maps->libname, '/');
+	for_each_map(symtabs, map) {
+		mod_name = strrchr(map->libname, '/');
 		if (mod_name == NULL)
-			mod_name = maps->libname;
+			mod_name = map->libname;
 		else
 			mod_name++;
 
 		if (!strncmp(mod_name, prefix, strlen(prefix)))
-			return maps;
-
-		maps = maps->next;
+			return map;
 	}
 	return NULL;
 }
@@ -1116,7 +1114,7 @@ void unload_module_symtabs(void)
 
 void load_module_symtabs(struct symtabs *symtabs)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 	static const char * const skip_libs[] = {
 		/* uftrace internal libraries */
 		"libmcount.so",
@@ -1131,21 +1129,26 @@ void load_module_symtabs(struct symtabs *symtabs)
 	bool check_cpp = false;
 	bool needs_cpp = false;
 
-	maps = symtabs->maps;
-	while (maps) {
+	for_each_map(symtabs, map) {
 		struct symtab dsymtab = {};
-		const char *libname = basename(maps->libname);
+		const char *libname = basename(map->libname);
+		bool skip = false;
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-			if (!strcmp(libname, skip_libs[k]))
-				goto next;
+			if (!strcmp(libname, skip_libs[k])) {
+				skip = true;
+				break;
+			}
 		}
 
-		if (exec_path && !strcmp(maps->libname, exec_path))
-			goto next;
+		if (skip)
+			continue;
+
+		if (exec_path && !strcmp(map->libname, exec_path))
+			continue;
 
 		if (exec_path == NULL)
-			exec_path = maps->libname;
+			exec_path = map->libname;
 
 		if (!check_cpp) {
 			if (has_dependency(exec_path, libstdcpp6))
@@ -1157,12 +1160,12 @@ void load_module_symtabs(struct symtabs *symtabs)
 		/* load symbols from libstdc++.so only if it's written in C++ */
 		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
 			if (!needs_cpp)
-				goto next;
+				continue;
 		}
 
-		load_module_symtab(symtabs, maps);
+		load_module_symtab(symtabs, map);
 
-		pr_dbg2("load module symbol table: %s\n", maps->libname);
+		pr_dbg2("load module symbol table: %s\n", map->libname);
 
 		if (flags & SYMTAB_FL_USE_SYMFILE) {
 			char *symfile = NULL;
@@ -1170,14 +1173,14 @@ void load_module_symtabs(struct symtabs *symtabs)
 			xasprintf(&symfile, "%s/%s.sym",
 				  symtabs->dirname, libname);
 			if (access(symfile, F_OK) == 0) {
-				load_module_symbol_file(&maps->symtab, symfile,
-							maps->start);
+				load_module_symbol_file(&map->symtab, symfile,
+							map->start);
 			}
 
 			free(symfile);
 
-			if (maps->symtab.nr_sym)
-				goto next;
+			if (map->symtab.nr_sym)
+				continue;
 		}
 
 		/*
@@ -1185,14 +1188,11 @@ void load_module_symtabs(struct symtabs *symtabs)
 		 * and dynamic symbols.  Maybe it can be changed later to
 		 * support more sophisticated symbol handling.
 		 */
-		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
-		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
-		merge_symtabs(&maps->symtab, &dsymtab);
-		update_symtab_using_dynsym(&maps->symtab, maps->libname,
-					   maps->start, flags);
-
-next:
-		maps = maps->next;
+		load_symtab(&map->symtab, map->libname, map->start, flags);
+		load_dynsymtab(&dsymtab, map->libname, map->start, flags);
+		merge_symtabs(&map->symtab, &dsymtab);
+		update_symtab_using_dynsym(&map->symtab, map->libname,
+					   map->start, flags);
 	}
 }
 
@@ -1516,8 +1516,7 @@ void save_module_symtabs(struct symtabs *symtabs)
 	char *symfile = NULL;
 	struct uftrace_mmap *map;
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
 			  basename(map->libname));
 
@@ -1525,8 +1524,6 @@ void save_module_symtabs(struct symtabs *symtabs)
 
 		free(symfile);
 		symfile = NULL;
-
-		map = map->next;
 	}
 }
 
@@ -1660,7 +1657,7 @@ static bool check_map_symtab(struct symtab *stab, uint64_t addr)
 
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 
 	if (is_kernel_address(symtabs, addr))
 		return MAP_KERNEL;
@@ -1669,12 +1666,9 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 	    check_map_symtab(&symtabs->dsymtab, addr))
 		return MAP_MAIN;
 
-	maps = symtabs->maps;
-	while (maps) {
-		if (maps->start <= addr && addr < maps->end)
-			return maps;
-
-		maps = maps->next;
+	for_each_map(symtabs, map) {
+		if (map->start <= addr && addr < map->end)
+			return map;
 	}
 	return NULL;
 }
@@ -1686,8 +1680,7 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 	if (find_symname(&symtabs->symtab, name))
 		return MAP_MAIN;
 
-	map = symtabs->maps;
-	while (map) {
+	for_each_map(symtabs, map) {
 		struct sym *sym;
 
 		if (map->mod != NULL) {
@@ -1695,8 +1688,6 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 			if (sym && sym->type != ST_PLT_FUNC)
 				return map;
 		}
-
-		map = map->next;
 	}
 	return NULL;
 }
