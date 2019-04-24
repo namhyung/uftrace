@@ -984,20 +984,8 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		free(name);
 
 		if (module) {
-			/* is it the main executable? */
-			if (!strncmp(module, basename(symtabs->filename),
-				     strlen(module))) {
-				ret += add_trigger_entry(root, &patt, &tr,
-							 symtabs->maps,
-							 setting);
-				ret += add_trigger_entry(root, &patt, &tr,
-							 symtabs->maps,
-							 setting);
-			}
-			else if (!strcasecmp(module, "PLT")) {
-				ret = add_trigger_entry(root, &patt, &tr,
-							symtabs->maps,
-							setting);
+			if (!strcasecmp(module, "PLT")) {
+				/* FIXME */
 			}
 			else if (has_kernel_opt(module)) {
 				struct uftrace_mmap kernel_map = {
@@ -1020,15 +1008,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			free(module);
 		}
 		else {
-			/* check main executable's symtab first */
-			ret += add_trigger_entry(root, &patt, &tr,
-						 symtabs->maps,
-						 setting);
-			ret += add_trigger_entry(root, &patt, &tr,
-						 symtabs->maps,
-						 setting);
-
-			/* and then find all module's symtabs */
 			for_each_map(symtabs, map) {
 				/* some modules don't have symbol table */
 				if (map->mod == NULL)
@@ -1224,20 +1203,20 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 		{ 0x4000, 0x1000, ST_GLOBAL_FUNC, "foo::baz2" },
 		{ 0x5000, 0x1000, ST_GLOBAL_FUNC, "foo::baz3" },
 		{ 0x6000, 0x1000, ST_GLOBAL_FUNC, "foo::~foo" },
+		{ 0x21000,0x1000, ST_PLT_FUNC, "malloc" },
+		{ 0x22000,0x1000, ST_PLT_FUNC, "free" },
 	};
-	static struct sym dsyms[] = {
-		{ 0x21000, 0x1000, ST_PLT_FUNC, "malloc" },
-		{ 0x22000, 0x1000, ST_PLT_FUNC, "free" },
+	static struct uftrace_module mod = {
+		.symtab = {
+			.sym    = syms,
+			.nr_sym = ARRAY_SIZE(syms),
+		},
 	};
-	static struct uftrace_module mod;
 	static struct uftrace_mmap map = {
-		.mod = &mod,
+		.mod   = &mod,
+		.start = 0x0,
+		.end   = 0x24000,
 	};
-
-	stabs->symtab.sym = syms;
-	stabs->symtab.nr_sym = ARRAY_SIZE(syms);
-	stabs->dsymtab.sym = dsyms;
-	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
 
 	mod.symtab.sym = syms;
 	mod.symtab.nr_sym = ARRAY_SIZE(syms);

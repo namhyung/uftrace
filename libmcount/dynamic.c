@@ -223,7 +223,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype,
 			     struct mcount_disasm_engine *disasm)
 {
-	struct symtab *symtab = &symtabs->symtab;
+	struct symtab *symtab = &symtabs->maps->mod->symtab;
 	struct strv funcs = STRV_INIT;
 	char *name;
 	int j;

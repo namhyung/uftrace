@@ -621,11 +621,17 @@ static int find_func(struct uftrace_session *s, void *arg)
 {
 	struct find_func_data *data = arg;
 	struct symtabs *symtabs = &s->symtabs;
+	struct uftrace_mmap *map;
 
-	if (find_symname(&symtabs->symtab, data->name))
-		data->found = true;
-	else if (find_symname(&symtabs->dsymtab, data->name))
-		data->found = true;
+	for_each_map(symtabs, map) {
+		if (map->mod == NULL)
+			continue;
+
+		if (find_symname(&map->mod->symtab, data->name)) {
+			data->found = true;
+			break;
+		}
+	}
 
 	return data->found;
 }

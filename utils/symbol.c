@@ -1070,7 +1070,7 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 
 }
 
-static void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
+void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &modules.rb_node;

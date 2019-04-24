@@ -1148,11 +1148,6 @@ void prepare_debug_info(struct symtabs *symtabs,
 	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
-	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base,
-			 force);
-	build_dwarf_info(&symtabs->dinfo, &symtabs->symtab, ptype,
-			 &dwarf_args, &dwarf_rets);
-
 	for_each_map(symtabs, map) {
 		struct symtab *stab = &map->mod->symtab;
 		struct debug_info *dinfo = &map->mod->dinfo;
@@ -1176,8 +1171,6 @@ void finish_debug_info(struct symtabs *symtabs)
 
 	if (!symtabs->loaded_debug)
 		return;
-
-	release_debug_info(&symtabs->dinfo);
 
 	for_each_map(symtabs, map) {
 		if (map->mod == NULL)
@@ -1290,13 +1283,6 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 
 	if (!symtabs->loaded_debug)
 		return;
-
-	/* use file-offset for main executable */
-	if (elf_file_type(&symtabs->dinfo) == ET_EXEC)
-		symtabs->dinfo.offset = symtabs->exec_base;
-
-	/* XXX: libmcount doesn't set symtabs->dirname */
-	save_debug_entries(&symtabs->dinfo, dirname, symtabs->filename);
 
 	for_each_map(symtabs, map) {
 		if (map->mod == NULL)
@@ -1413,10 +1399,6 @@ void load_debug_info(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *map;
 
-	symtabs->dinfo.offset = symtabs->exec_base;
-	load_debug_file(&symtabs->dinfo, &symtabs->symtab,
-			symtabs->dirname, symtabs->filename);
-
 	for_each_map(symtabs, map) {
 		struct symtab *stab = &map->mod->symtab;
 		struct debug_info *dinfo = &map->mod->dinfo;
@@ -1457,26 +1439,20 @@ struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 
 	map = find_map(symtabs, addr);
 
-	if (map == MAP_MAIN) {
-		symtab = &symtabs->symtab;
-		dinfo = &symtabs->dinfo;
-	}
-	else if (map == MAP_KERNEL) {
-		map = NULL;
-		dinfo = NULL;
-	}
-	else if (map != NULL) {
-		if (map->mod == NULL)
-			return NULL;
+	/* TODO: support kernel debug info */
+	if (map == MAP_KERNEL)
+		return NULL;
 
-		symtab = &map->mod->symtab;
-		dinfo = &map->mod->dinfo;
-	}
+	if (map == NULL || map->mod == NULL)
+		return NULL;
 
-	if (map && debug_info_has_location(dinfo))
+	symtab = &map->mod->symtab;
+	dinfo = &map->mod->dinfo;
+
+	if (debug_info_has_location(dinfo))
 		sym = find_sym(symtab, addr - map->start);
 
-	if (map == NULL || sym == NULL)
+	if (sym == NULL)
 		return NULL;
 
 	idx = sym - symtab->sym;
