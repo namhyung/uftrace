@@ -442,15 +442,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	}
 
 	if (autoargs_str) {
-		char *autoarg = get_auto_argspec_str();
-		char *autoret = get_auto_retspec_str();
+		char *autoarg = ".";
+		char *autoret = ".";
 
-		if (debug_info_has_argspec(&symtabs.dinfo)) {
-			if (ptype == PATT_REGEX)
-				autoarg = autoret = ".";
-			else  /* PATT_GLOB */
-				autoarg = autoret = "*";
-		}
+		if (ptype == PATT_GLOB)
+			autoarg = autoret = "*";
 
 		filter_setting.auto_args = true;
 
