@@ -907,11 +907,11 @@ static int add_trigger_entry(struct rb_root *root,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr,
 			     struct uftrace_mmap *map,
-			     struct debug_info *dinfo,
 			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
 	struct symtab *symtab = &map->mod->symtab;
+	struct debug_info *dinfo = &map->mod->dinfo;
 	struct sym *sym;
 	unsigned i;
 	int ret = 0;
@@ -989,17 +989,14 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				     strlen(module))) {
 				ret += add_trigger_entry(root, &patt, &tr,
 							 symtabs->maps,
-							 &symtabs->dinfo,
 							 setting);
 				ret += add_trigger_entry(root, &patt, &tr,
 							 symtabs->maps,
-							 &symtabs->dinfo,
 							 setting);
 			}
 			else if (!strcasecmp(module, "PLT")) {
 				ret = add_trigger_entry(root, &patt, &tr,
 							symtabs->maps,
-							&symtabs->dinfo,
 							setting);
 			}
 			else if (has_kernel_opt(module)) {
@@ -1009,7 +1006,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 				ret = add_trigger_entry(root, &patt, &tr,
 							&kernel_map,
-							&symtabs->dinfo,
 							setting);
 			}
 			else {
@@ -1017,7 +1013,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 				if (map && map->mod) {
 					ret = add_trigger_entry(root, &patt,
 								&tr, map,
-								&map->dinfo,
 								setting);
 				}
 			}
@@ -1028,11 +1023,9 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			/* check main executable's symtab first */
 			ret += add_trigger_entry(root, &patt, &tr,
 						 symtabs->maps,
-						 &symtabs->dinfo,
 						 setting);
 			ret += add_trigger_entry(root, &patt, &tr,
 						 symtabs->maps,
-						 &symtabs->dinfo,
 						 setting);
 
 			/* and then find all module's symtabs */
@@ -1042,8 +1035,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 					continue;
 
 				ret += add_trigger_entry(root, &patt, &tr,
-							 map, &map->dinfo,
-							 setting);
+							 map, setting);
 			}
 		}
 

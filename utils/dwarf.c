@@ -1154,13 +1154,14 @@ void prepare_debug_info(struct symtabs *symtabs,
 			 &dwarf_args, &dwarf_rets);
 
 	for_each_map(symtabs, map) {
+		struct symtab *stab = &map->mod->symtab;
+		struct debug_info *dinfo = &map->mod->dinfo;
+
 		if (map->mod == NULL)
 			continue;
 
-		setup_debug_info(map->libname, &map->dinfo, map->start,
-				 force);
-		build_dwarf_info(&map->dinfo, &map->mod->symtab, ptype,
-				 &dwarf_args, &dwarf_rets);
+		setup_debug_info(map->libname, dinfo, map->start, force);
+		build_dwarf_info(dinfo, stab, ptype, &dwarf_args, &dwarf_rets);
 	}
 
 	strv_free(&dwarf_args);
@@ -1182,7 +1183,7 @@ void finish_debug_info(struct symtabs *symtabs)
 		if (map->mod == NULL)
 			continue;
 
-		release_debug_info(&map->dinfo);
+		release_debug_info(&map->mod->dinfo);
 	}
 
 	symtabs->loaded_debug = false;
@@ -1301,7 +1302,7 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 		if (map->mod == NULL)
 			continue;
 
-		save_debug_entries(&map->dinfo, dirname, map->libname);
+		save_debug_entries(&map->mod->dinfo, dirname, map->libname);
 	}
 }
 
@@ -1417,11 +1418,16 @@ void load_debug_info(struct symtabs *symtabs)
 			symtabs->dirname, symtabs->filename);
 
 	for_each_map(symtabs, map) {
+		struct symtab *stab = &map->mod->symtab;
+		struct debug_info *dinfo = &map->mod->dinfo;
+
 		if (map->mod == NULL)
 			continue;
 
-		load_debug_file(&map->dinfo, &map->mod->symtab,
-				symtabs->dirname, map->libname);
+		if (!debug_info_has_location(dinfo)) {
+			load_debug_file(dinfo, stab,
+					symtabs->dirname, map->libname);
+		}
 	}
 
 	symtabs->loaded_debug = true;
@@ -1460,8 +1466,11 @@ struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 		dinfo = NULL;
 	}
 	else if (map != NULL) {
-		symtab = &map->symtab;
-		dinfo = &map->dinfo;
+		if (map->mod == NULL)
+			return NULL;
+
+		symtab = &map->mod->symtab;
+		dinfo = &map->mod->dinfo;
 	}
 
 	if (map && debug_info_has_location(dinfo))
