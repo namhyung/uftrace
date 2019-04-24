@@ -29,7 +29,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	const char *last_libname = symtabs->filename;
+	const char *last_libname = NULL;
 	struct uftrace_mmap **maps = &symtabs->maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
@@ -49,6 +49,12 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			   &start, &end, prot, path) != 4)
 			continue;
 
+		/* set base address of main executable */
+		if (symtabs->exec_base == 0 && symtabs->filename &&
+		    !strcmp(path, symtabs->filename)) {
+			symtabs->exec_base = start;
+		}
+
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
@@ -58,11 +64,6 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path)) {
-			if (symtabs->filename && !strcmp(path, symtabs->filename)) {
-				/* update it only once */
-				if (symtabs->exec_base == 0)
-					symtabs->exec_base = start;
-			}
 			continue;
 		}
 

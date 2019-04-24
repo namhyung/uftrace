@@ -1144,9 +1144,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 		if (skip)
 			continue;
 
-		if (exec_path && !strcmp(map->libname, exec_path))
-			continue;
-
 		if (exec_path == NULL)
 			exec_path = map->libname;
 
