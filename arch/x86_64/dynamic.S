@@ -42,9 +42,16 @@
 
 GLOBAL(__dentry__)
 	.cfi_startproc
-	sub $48, %rsp
+	sub $104, %rsp
 	.cfi_adjust_cfa_offset 48
 
+	movq %r15, 96(%rsp)
+	movq %r14, 88(%rsp)
+	movq %r13, 80(%rsp)
+	movq %r12, 72(%rsp)
+	movq %r11, 64(%rsp)
+	movq %r10, 56(%rsp)
+	movq %rbx, 48(%rsp)
 	movq %rdi, 40(%rsp)
 	movq %rsi, 32(%rsp)
 	movq %rdx, 24(%rsp)
@@ -53,10 +60,10 @@ GLOBAL(__dentry__)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
-	movq 48(%rsp), %rsi
+	movq 104(%rsp), %rsi
 
 	/* parent location */
-	lea 56(%rsp), %rdi
+	lea 112(%rsp), %rdi
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -75,7 +82,7 @@ GLOBAL(__dentry__)
 	movq 8(%rsp), %rdx
 
 	/* child addr */
-	movq 48(%rdx), %rdi
+	movq 104(%rdx), %rdi
 
 	/* find location that has the original code */
 	call mcount_find_code
@@ -84,7 +91,7 @@ GLOBAL(__dentry__)
 	movq 8(%rsp), %rdx
 
 	/* overwrite return address */
-	movq %rax, 48(%rdx)
+	movq %rax, 104(%rdx)
 
 	pop  %rax
 
@@ -97,8 +104,15 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 	movq 32(%rsp), %rsi
 	movq 40(%rsp), %rdi
+	movq 48(%rsp), %rbx
+	movq 56(%rsp), %r10
+	movq 64(%rsp), %r11
+	movq 72(%rsp), %r12
+	movq 80(%rsp), %r13
+	movq 88(%rsp), %r14
+	movq 96(%rsp), %r15
 
-	add $48, %rsp
+	add $104, %rsp
 	.cfi_adjust_cfa_offset -48
 
 	retq

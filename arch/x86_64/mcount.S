@@ -84,9 +84,21 @@ END(mcount)
 
 ENTRY(mcount_return)
 	.cfi_startproc
-	sub $48, %rsp
+	sub $144, %rsp
 	.cfi_def_cfa_offset 48
 
+	movq   %r15,  128(%rsp)
+	movq   %r14,  120(%rsp)
+	movq   %r13,  112(%rsp)
+	movq   %r12,  104(%rsp)
+	movq   %r11,  96(%rsp)
+	movq   %r10,  88(%rsp)
+	movq   %r9,   80(%rsp)
+	movq   %r8,   72(%rsp)
+	movq   %rdi,  64(%rsp)
+	movq   %rsi,  56(%rsp)
+	movq   %rcx,  48(%rsp)
+	movq   %rbx,  40(%rsp)
 	movdqu %xmm0, 16(%rsp)
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
@@ -96,13 +108,25 @@ ENTRY(mcount_return)
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 40(%rsp)
+	movq %rax, 136(%rsp)
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
+	movq   40(%rsp), %rbx
+	movq   48(%rsp), %rcx
+	movq   56(%rsp), %rsi
+	movq   64(%rsp), %rdi
+	movq   72(%rsp), %r8
+	movq   80(%rsp), %r9
+	movq   88(%rsp), %r10
+	movq   96(%rsp), %r11
+	movq   104(%rsp), %r12
+	movq   112(%rsp), %r13
+	movq   120(%rsp), %r14
+	movq   128(%rsp), %r15
 
-	add $40, %rsp
+	add $136, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
