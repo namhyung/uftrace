@@ -2066,9 +2066,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	int ret = -1;
 	char *channel = NULL;
 
-	if (!opts->nop && create_directory(opts->dirname) < 0)
-		return -1;
-
 	/* apply script-provided options */
 	if (opts->script_file)
 		parse_script_opt(opts);
@@ -2077,6 +2074,9 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	check_perf_event(opts);
 
 	if (!opts->nop) {
+		if (create_directory(opts->dirname) < 0)
+			return -1;
+
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 		if (mkfifo(channel, 0600) < 0)
 			pr_err("cannot create a communication channel");
