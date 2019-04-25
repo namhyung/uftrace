@@ -1950,6 +1950,19 @@ int do_main_loop(int ready, struct opts *opts, int pid)
 	struct writer_data wd;
 	char *channel = NULL;
 
+	if (opts->nop) {
+		setup_writers(&wd, opts);
+		start_tracing(&wd, opts, ready);
+		close(ready);
+
+		wait(NULL);
+		uftrace_done = true;
+
+		ret = stop_tracing(&wd, opts);
+		finish_writers(&wd, opts);
+		return ret;
+	}
+
 	xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 
 	wd.pid = pid;
