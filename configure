@@ -150,7 +150,7 @@ print_feature()
     file=$2
     description=$3
 
-    if [ -t 1 ]; then
+    if [ -t 1 -a "$TERM" != "dumb" ]; then
         # use colored output only when stdout is tty
         if [ -f ${srcdir}/check-deps/${file} ]; then
             onoff="\033[32mon \033[0m"
