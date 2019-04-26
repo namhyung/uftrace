@@ -246,7 +246,10 @@ static inline void mcount_memcpy4(void * restrict dst,
 }
 
 extern void mcount_return(void);
+extern void dynamic_return(void);
 extern unsigned long plthook_return(void);
+
+extern unsigned long mcount_return_fn;
 
 extern struct mcount_thread_data * mcount_prepare(void);
 
