@@ -1950,6 +1950,19 @@ int do_main_loop(int ready, struct opts *opts, int pid)
 	struct writer_data wd;
 	char *channel = NULL;
 
+	if (opts->nop) {
+		setup_writers(&wd, opts);
+		start_tracing(&wd, opts, ready);
+		close(ready);
+
+		wait(NULL);
+		uftrace_done = true;
+
+		ret = stop_tracing(&wd, opts);
+		finish_writers(&wd, opts);
+		return ret;
+	}
+
 	xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 
 	wd.pid = pid;
@@ -2053,9 +2066,6 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	int ret = -1;
 	char *channel = NULL;
 
-	if (!opts->nop && create_directory(opts->dirname) < 0)
-		return -1;
-
 	/* apply script-provided options */
 	if (opts->script_file)
 		parse_script_opt(opts);
@@ -2064,6 +2074,9 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	check_perf_event(opts);
 
 	if (!opts->nop) {
+		if (create_directory(opts->dirname) < 0)
+			return -1;
+
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 		if (mkfifo(channel, 0600) < 0)
 			pr_err("cannot create a communication channel");
