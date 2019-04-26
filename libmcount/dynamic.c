@@ -284,9 +284,9 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		free_filter_pattern(&patt);
 	}
 
-	if (stats.failed || stats.skipped || stats.nomatch) {
-		pr_out("uftrace: some functions cannot be patched dynamically (%d/%d)\n",
-		       stats.total - (stats.failed + stats.skipped), stats.total);
+	if (stats.failed + stats.skipped + stats.nomatch == 0) {
+		pr_dbg("patched all (%d) functions in '%s'\n",
+		       stats.total, basename(symtabs->filename));
 	}
 
 	strv_free(&funcs);
@@ -312,12 +312,13 @@ static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
 	mcount_freeze_code();
 }
 
-static float calc_percent(int n, int total)
+/* do not use floating-point in libmcount */
+static int calc_percent(int n, int total, int *rem)
 {
-	if (total == 0)
-		return 0;
+	int quot = 100 * n / total;
 
-	return 100.0 * n / total;
+	*rem = (100 * n - quot * total) * 100 / total;
+	return quot;
 }
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
@@ -325,7 +326,6 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  struct mcount_disasm_engine *disasm)
 {
 	int ret = 0;
-	int success;
 
 	if (prepare_dynamic_update(disasm, symtabs) < 0) {
 		pr_dbg("cannot setup dynamic tracing\n");
@@ -334,16 +334,21 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
 
-	success = stats.total - stats.failed - stats.skipped;
-	pr_dbg("dynamic update stats:\n");
-	pr_dbg("   total: %8d\n", stats.total);
-	pr_dbg(" patched: %8d (%.2f%%)\n", success,
-	       calc_percent(success, stats.total));
-	pr_dbg("  failed: %8d (%.2f%%)\n", stats.failed,
-	       calc_percent(stats.failed, stats.total));
-	pr_dbg(" skipped: %8d (%.2f%%)\n", stats.skipped,
-	       calc_percent(stats.skipped, stats.total));
-	pr_dbg("no match: %8d\n", stats.nomatch);
+	if (stats.total && stats.failed) {
+		int success = stats.total - stats.failed - stats.skipped;
+		int r, q;
+
+		pr_dbg("dynamic patch stats for '%s'\n",
+		       basename(symtabs->filename));
+		pr_dbg("   total: %8d\n", stats.total);
+		q = calc_percent(success, stats.total, &r);
+		pr_dbg(" patched: %8d (%2d.%02d%%)\n", success, q, r);
+		q = calc_percent(stats.failed, stats.total, &r);
+		pr_dbg("  failed: %8d (%2d.%02d%%)\n", stats.failed, q, r);
+		q = calc_percent(stats.skipped, stats.total, &r);
+		pr_dbg(" skipped: %8d (%2d.%02d%%)\n", stats.skipped, q, r);
+		pr_dbg("no match: %8d\n", stats.nomatch);
+	}
 
 	finish_dynamic_update(disasm);
 	return ret;
