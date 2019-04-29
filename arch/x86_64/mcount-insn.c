@@ -86,6 +86,53 @@ static bool check_instrumentable(struct mcount_disasm_engine *disasm,
 	return status;
 }
 
+static bool check_unsupported(struct mcount_disasm_engine *disasm,
+			      cs_insn *insn, uintptr_t addr, uint32_t size)
+{
+	int i;
+	cs_x86 *x86;
+	cs_detail *detail = insn->detail;
+	unsigned long target;
+	bool jump = false;
+
+	if (detail == NULL)
+		return false;
+
+	detail = insn->detail;
+
+	/* assume there's no call into the middle of function */
+	for (i = 0; i < detail->groups_count; i++) {
+		if (detail->groups[i] == CS_GRP_JUMP)
+			jump = true;
+	}
+
+	if (!jump)
+		return true;
+
+	x86 = &insn->detail->x86;
+	for (i = 0; i < x86->op_count; i++) {
+		cs_x86_op *op = &x86->operands[i];
+
+		switch((int)op->type) {
+		case X86_OP_IMM:
+			/* capstone seems already calculate target address */
+			target = op->imm;
+
+			/* disallow (back) jump to the prologue */
+			if (addr <= target && target < addr + size)
+				return false;
+			break;
+		case X86_OP_MEM:
+			/* TODO */
+			break;
+		default:
+			break;
+		}
+	}
+
+	return true;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       uintptr_t addr, uint32_t size)
 {
@@ -110,6 +157,12 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		}
 	}
 
+	while (++i < count) {
+		if (!check_unsupported(disasm, &insn[i], addr, code_size)) {
+			ret = INSTRUMENT_FAILED;
+			break;
+		}
+	}
 out:
 	if (count)
 		cs_free(insn, count);
