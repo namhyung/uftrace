@@ -447,6 +447,22 @@ static void print_task_newline(int current_tid)
 #define print_args(fmt, ...)						\
 ({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
 
+#define print_escaped_char(c)						\
+	do {								\
+		if (c == '\n')						\
+			print_args("\\\\n");				\
+		else if (c == '\t')					\
+			print_args("\\\\t");				\
+		else if (c == '\\')					\
+			print_args("\\\\");				\
+		else if (c == '"')					\
+			print_args("\\\"");				\
+		else if (isprint(c))					\
+			print_args("%c", c);				\
+		else							\
+			print_args("\\\\x%02hhx", c);			\
+	} while (0)
+
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
 			enum argspec_string_bits str_mode)
@@ -577,16 +593,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("\\\"");
 				while (*p) {
 					char c = *p++;
-					if (c == '\n')
-						print_args("\\\\n");
-					else if (c == '\t')
-						print_args("\\\\t");
-					else if (c == '"')
-						print_args("\\\"");
-					else if (isprint(c))
-						print_args("%c", c);
-					else
-						print_args("\\\\x%02hhx", c);
+					print_escaped_char(c);
 				}
 				print_args("\\\"");
 			}
@@ -607,13 +614,16 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			char c;
 
 			memcpy(&c, data, 1);
-			if (isprint(c)) {
+			if (needs_escape) {
+				print_args("'");
+				print_escaped_char(c);
+				print_args("'");
+			}
+			else {
 				print_args("%s", color_string);
 				print_args("'%c'", c);
 				print_args("%s", color_reset);
 			}
-			else
-				print_args("'\\x%02hhx'", c);
 			size = 1;
 		}
 		else if (spec->fmt == ARG_FMT_FLOAT) {
