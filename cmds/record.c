@@ -653,6 +653,8 @@ void *writer_thread(void *arg)
 	int i, dummy;
 	sigset_t sigset;
 
+	pthread_setname_np(pthread_self(), "WriterThread");
+
 	if (opts->rt_prio) {
 		struct sched_param param = {
 			.sched_priority = opts->rt_prio,
