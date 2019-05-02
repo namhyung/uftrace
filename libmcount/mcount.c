@@ -86,6 +86,14 @@ static unsigned long __maybe_unused mcount_watchpoints;
 /* whether caller filter is activated */
 static bool __maybe_unused mcount_has_caller;
 
+/* address of function will be called when a function returns */
+unsigned long mcount_return_fn;
+
+/* disassembly engine for dynamic code patch */
+static struct mcount_disasm_engine disasm;
+
+__weak void dynamic_return(void) { }
+
 #ifdef DISABLE_MCOUNT_FILTER
 
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
@@ -1048,7 +1056,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		if (tr->flags & FLAGS_TO_CHECK) {
 			if (tr->flags & TRIGGER_FL_RECOVER) {
 				mcount_rstack_restore(mtdp);
-				*rstack->parent_loc = (unsigned long) mcount_return;
+				*rstack->parent_loc = mcount_return_fn;
 				rstack->flags |= MCOUNT_FL_RECOVER;
 			}
 			if (tr->flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
@@ -1242,7 +1250,7 @@ int mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->event_idx  = ARGBUF_SIZE;
 
 	/* hijack the return address of child */
-	*parent_loc = (unsigned long)mcount_return;
+	*parent_loc = mcount_return_fn;
 
 	/* restore return address of parent */
 	if (mcount_auto_recover)
@@ -1710,6 +1718,11 @@ static __used void mcount_startup(void)
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
 
+	if (patch_str)
+		mcount_return_fn = (unsigned long)dynamic_return;
+	else
+		mcount_return_fn = (unsigned long)mcount_return;
+
 	mcount_filter_init(patt_type, dirname, !!patch_str);
 	mcount_watch_init();
 
@@ -1720,7 +1733,7 @@ static __used void mcount_startup(void)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&symtabs, patch_str, patt_type);
+		mcount_dynamic_update(&symtabs, patch_str, patt_type, &disasm);
 
 	if (event_str)
 		mcount_setup_events(dirname, event_str, patt_type);

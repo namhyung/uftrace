@@ -25,6 +25,7 @@ usage() {
   --without-libstdc++   build without libstdc++              (even if found on the system)
   --without-libpython   build without libpython2.7           (even if found on the system)
   --without-libncurses  build without libncursesw            (even if found on the system)
+  --without-capstone    build without libcapstone            (even if found on the system)
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
 
@@ -133,6 +134,7 @@ for dep in $IGNORE; do
         libpython*)  TARGET=have_libpython2.7  ;;
         libncurse*)  TARGET=have_libncurses    ;;
         libstdc++)   TARGET=cxa_demangle       ;;
+        capstone)    TARGET=have_libcapstone   ;;
         perf*)       TARGET=perf_clockid       ;;
         sched*)      TARGET=perf_context_switch;;
         *)           ;;
@@ -175,6 +177,7 @@ print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
 print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
+print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
 
 cat >$output <<EOF
 # this file is generated automatically

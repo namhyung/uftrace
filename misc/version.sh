@@ -44,6 +44,9 @@ fi
 if test -f ${SRCDIR}/check-deps/perf_context_switch; then
     DEPS="${DEPS} sched"
 fi
+if test -f ${SRCDIR}/check-deps/have_libcapstone; then
+    DEPS="${DEPS} dynamic"
+fi
 if [ "x${DEPS}" != "x" ]; then
     DEPS=" (${DEPS} )"
 fi
