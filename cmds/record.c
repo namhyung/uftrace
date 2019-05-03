@@ -1467,10 +1467,7 @@ static void print_child_usage(struct rusage *ru)
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
-#define UFTRACE_MSG  "Cannot trace '%s': No such executable file\n"	\
-"\tNote that uftrace doesn't search $PATH for you.\n"			\
-"\tIf you really want to trace executables in the $PATH,\n"		\
-"\tplease give it the absolute pathname (like /usr/bin/%s).\n"
+#define UFTRACE_MSG  "Cannot trace '%s': No such executable file.\n"
 
 #define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"		\
 "\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
@@ -1497,6 +1494,49 @@ static void print_child_usage(struct rusage *ru)
 # define EM_AARCH64  183
 #endif
 
+static bool is_regular_executable(const char *pathname)
+{
+	struct stat sb;
+
+	if (!stat(pathname, &sb)) {
+		if (S_ISREG(sb.st_mode) && (sb.st_mode & S_IXUSR))
+			return true;
+	}
+	return false;
+}
+
+static void find_in_path(char **exename)
+{
+	/* try to find the binary in PATH */
+	struct strv strv = STRV_INIT;
+	char *env = getenv("PATH");
+	char *pathname = NULL;
+	char *path;
+	bool found = false;
+	int i;
+
+	if (!env || *exename[0] == '/')
+		pr_err_ns(UFTRACE_MSG, *exename);
+
+	/* search opts->exename in PATH one by one */
+	strv_split(&strv, env, ":");
+
+	strv_for_each(&strv, path, i) {
+		xasprintf(&pathname, "%s/%s", path, *exename);
+		if (is_regular_executable(pathname)) {
+			found = true;
+			break;
+		}
+		free(pathname);
+	}
+
+	if (!found)
+		pr_err_ns(UFTRACE_MSG, *exename);
+
+	*exename = pathname;
+	strv_free(&strv);
+}
+
 static void check_binary(struct opts *opts)
 {
 	int fd;
@@ -1510,14 +1550,11 @@ static void check_binary(struct opts *opts)
 	};
 
 again:
-	pr_dbg3("checking binary %s\n", opts->exename);
+	/* if it cannot be found in PATH, then fails inside */
+	if (!is_regular_executable(opts->exename))
+		find_in_path(&opts->exename);
 
-	if (access(opts->exename, X_OK) < 0) {
-		if (errno == ENOENT && opts->exename[0] != '/') {
-			pr_err_ns(UFTRACE_MSG, opts->exename, opts->exename);
-		}
-		pr_err("Cannot trace '%s'", opts->exename);
-	}
+	pr_dbg("checking binary %s\n", opts->exename);
 
 	fd = open(opts->exename, O_RDONLY);
 	if (fd < 0)
@@ -1533,7 +1570,7 @@ again:
 		if (script == NULL)
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
-		if (!opts->force)
+		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
 
 		/* ignore options */
@@ -2052,8 +2089,8 @@ int do_child_exec(int ready, struct opts *opts,
 		pr_err("waiting for parent failed");
 
 	/*
-	 * I don't think the traced binary is in PATH.
-	 * So use plain 'execv' rather than 'execvp'.
+	 * The traced binary is already resolved into absolute pathname.
+	 * So plain 'execv' is enough and no need to use 'execvp'.
 	 */
 	execv(opts->exename, argv);
 	abort();
