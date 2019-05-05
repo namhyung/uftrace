@@ -922,6 +922,9 @@ static int add_trigger_entry(struct rb_root *root,
 		if (!match_filter_pattern(patt, sym->name))
 			continue;
 
+		if (setting->plt_only && sym->type != ST_PLT_FUNC)
+			continue;
+
 		filter.name  = sym->name;
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
@@ -985,7 +988,11 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 
 		if (module) {
 			if (!strcasecmp(module, "PLT")) {
-				/* FIXME */
+				setting->plt_only = true;
+				ret += add_trigger_entry(root, &patt, &tr,
+							 symtabs->maps,
+							 setting);
+				setting->plt_only = false;
 			}
 			else if (has_kernel_opt(module)) {
 				struct uftrace_mmap kernel_map = {
