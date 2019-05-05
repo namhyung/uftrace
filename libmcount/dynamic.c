@@ -152,6 +152,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	const char *name = info->dlpi_name;
 	struct mcount_dynamic_info *mdi;
 	struct symtabs *symtabs = data;
+	struct uftrace_mmap *map;
 	bool base_addr_set = false;
 	unsigned i;
 
@@ -180,12 +181,16 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		}
 		mdi->base_addr += info->dlpi_addr;
 		mdi->text_addr += info->dlpi_addr;
-		mdi->nr_symbols = symtabs->symtab.nr_sym;
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
 
-		mcount_arch_find_module(mdi, &symtabs->symtab);
+		map = find_map(symtabs, mdi->base_addr);
+		if (map && map->mod) {
+			mdi->sym_base = map->start;
+			mdi->nr_symbols = map->mod->symtab.nr_sym;
+			mcount_arch_find_module(mdi, &map->mod->symtab);
+		}
 
 		return 1;
 	}
