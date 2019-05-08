@@ -273,6 +273,10 @@ void * opendir(const char *name);
 int closedir(void *dirp);
 
 char * getcwd(void *buf, size_t size);
+
+#include <libgen.h>
+char *dirname(char *path);
+char *basename(char *path);
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -374,6 +378,16 @@ struct hostent *gethostbyname(const char *name);
 struct hostent *gethostbyaddr(const void *addr, socklen_t len, enum uft_socket_domain type);
 int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res);
 void freeaddrinfo(struct addrinfo *res);
+
+#include <netinet/in.h>
+#include <arpa/inet.h>
+int inet_pton(enum uft_socket_domain af, const char *src, void *dst);
+const char *inet_ntop(enum uft_socket_domain af, const void *src, char *dst, socklen_t size);
+int inet_aton(const char *cp, struct in_addr *inp);
+char *inet_ntoa(struct in_addr in);
+
+in_addr_t inet_addr(const char *cp);
+in_addr_t inet_network(const char *cp);
 ////////////////////////////////////////////////////////////////////////////////
 
 
