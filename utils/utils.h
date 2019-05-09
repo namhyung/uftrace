@@ -306,9 +306,9 @@ int fread_all(void *byf, size_t size, FILE *fp);
 int write_all(int fd, const void *buf, size_t size);
 int writev_all(int fd, struct iovec *iov, int count);
 
-int create_directory(char *dirname);
-int remove_directory(char *dirname);
-int chown_directory(char *dirname);
+int create_directory(const char *dirname);
+int remove_directory(const char *dirname);
+int chown_directory(const char *dirname);
 char *read_exename(void);
 
 void print_time_unit(uint64_t delta_nsec);
