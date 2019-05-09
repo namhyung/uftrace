@@ -133,7 +133,7 @@ int writev_all(int fd, struct iovec *iov, int count)
 	return 0;
 }
 
-int remove_directory(char *dirname)
+int remove_directory(const char *dirname)
 {
 	DIR *dp;
 	struct dirent *ent;
@@ -178,13 +178,13 @@ failed:
 	return ret;
 }
 
-static bool is_uftrace_directory(char *path)
+static bool is_uftrace_directory(const char *path)
 {
 	int fd;
 	char *info_path = NULL;
 	char sig[UFTRACE_MAGIC_LEN] = {0,};
 
-	// <uftrace data dir>/info always be exist.
+	/* ensure that there is "info" file in the recorded directory */
 	xasprintf(&info_path, "%s/info", path);
 	fd = open(info_path, O_RDONLY);
 	free(info_path);
@@ -203,7 +203,7 @@ static bool is_uftrace_directory(char *path)
 	return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 }
 
-static bool is_empty_directory(char *path)
+static bool is_empty_directory(const char *path)
 {
 	DIR *dp = opendir(path);
 	struct dirent *ent;
@@ -224,7 +224,7 @@ static bool is_empty_directory(char *path)
 	return ret;
 }
 
-static bool can_remove_directory(char *path)
+static bool can_remove_directory(const char *path)
 {
 	if (access(path, F_OK) != 0)
 		return false;
@@ -232,7 +232,7 @@ static bool can_remove_directory(char *path)
 	return is_uftrace_directory(path) || is_empty_directory(path);
 }
 
-int create_directory(char *dirname)
+int create_directory(const char *dirname)
 {
 	int ret = -1;
 	char *oldname = NULL;
@@ -262,7 +262,7 @@ out:
 	return ret;
 }
 
-int chown_directory(char *dirname)
+int chown_directory(const char *dirname)
 {
 	DIR *dp;
 	struct dirent *ent;
