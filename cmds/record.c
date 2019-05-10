@@ -2012,6 +2012,7 @@ int do_child_exec(int ready, struct opts *opts,
 {
 	uint64_t dummy;
 	char *shebang;
+	char fullpath[PATH_MAX];
 	struct strv new_args = STRV_INIT;
 
 	if (opts->no_randomize_addr) {
@@ -2019,6 +2020,13 @@ int do_child_exec(int ready, struct opts *opts,
 		if (personality(ADDR_NO_RANDOMIZE) < 0)
 			pr_dbg("disabling ASLR failed\n");
 	}
+
+	/*
+	 * The current working directory can be changed by calling chdir.
+	 * So dirname has to be converted to an absolute path to avoid unexpected problems.
+	 */
+	if (realpath(opts->dirname, fullpath) != NULL)
+		opts->dirname = fullpath;
 
 	shebang = check_script_file(argv[0]);
 	if (shebang) {
