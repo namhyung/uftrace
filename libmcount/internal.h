@@ -282,6 +282,7 @@ enum plthook_special_action {
 	PLT_FL_FLUSH		= 1U << 4,
 	PLT_FL_EXCEPT		= 1U << 5,
 	PLT_FL_RESOLVE		= 1U << 6,
+	PLT_FL_DLSYM		= 1U << 7,
 };
 
 struct plthook_special_func {

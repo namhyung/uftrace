@@ -342,6 +342,11 @@ static const char *vfork_syms[] = {
 	"vfork",
 };
 
+static const char *dlsym_syms[] = {
+	"dlsym",
+	"dlvsym",
+};
+
 static const char *flush_syms[] = {
 	"fork", "vfork", "daemon", "exit",
 	"longjmp", "siglongjmp", "__longjmp_chk",
@@ -426,6 +431,8 @@ void setup_dynsym_indexes(struct plthook_data *pd)
 			    PLT_FL_SETJMP);
 	build_special_funcs(pd, vfork_syms, ARRAY_SIZE(vfork_syms),
 			    PLT_FL_VFORK);
+	build_special_funcs(pd, dlsym_syms, ARRAY_SIZE(dlsym_syms),
+			    PLT_FL_DLSYM);
 	build_special_funcs(pd, flush_syms, ARRAY_SIZE(flush_syms),
 			    PLT_FL_FLUSH);
 	build_special_funcs(pd, except_syms, ARRAY_SIZE(except_syms),
@@ -828,13 +835,40 @@ unsigned long plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
 			rstack->flags |= MCOUNT_FL_VFORK;
 			prepare_vfork(mtdp, rstack);
 		}
+		else if (special_flag & PLT_FL_DLSYM) {
+			/*
+			 * Using RTLD_NEXT in a shared library caused
+			 * an infinite loop since libdl thinks it's
+			 * called from libmcount due to the return address.
+			 */
+			if (ARG1(regs) == (unsigned long)RTLD_NEXT &&
+			    strcmp(pd->mod_name, mcount_exename)) {
+				*ret_addr = rstack->parent_ip;
+				if (mcount_auto_recover)
+					mcount_auto_reset(mtdp);
+
+				/*
+				 * as its return address was recovered,
+				 * we need to manually resolve the function
+				 * not to overwrite PLT entry by the linker.
+				 */
+				special_flag |= PLT_FL_RESOLVE;
+
+				if (!(rstack->flags & MCOUNT_FL_NORECORD))
+					rstack->end_time = mcount_gettime();
+
+				mcount_exit_filter_record(mtdp, rstack, NULL);
+
+				mtdp->idx--;
+			}
+		}
 		else if (special_flag & PLT_FL_EXCEPT) {
 			/* exception handling requires stack unwind */
 			mcount_rstack_restore(mtdp);
 		}
 
 		if (special_flag & PLT_FL_RESOLVE) {
-			/* pthread_exit() doesn't have a change to resolve */
+			/* some functions don't have a chance to resolve */
 			resolve_pltgot(pd, child_idx);
 		}
 	}
