@@ -1554,9 +1554,6 @@ static void atfork_child_handler(void)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
-		/* we need it even if in a recursion */
-		mtdp->recursion_marker = false;
-
 		mtdp = mcount_prepare();
 		if (mtdp == NULL)
 			return;
