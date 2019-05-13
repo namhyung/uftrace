@@ -102,7 +102,8 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return 0;
 }
 
-int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+		      struct mcount_disasm_engine *disasm)
 {
 	return patch_fentry_func(mdi, sym);
 }
