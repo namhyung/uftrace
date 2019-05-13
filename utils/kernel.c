@@ -1655,7 +1655,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				filtered = true;
 
 			if (handle->caller_filter)
-				filtered = !(tr.flags & TRIGGER_FL_CALLER);
+				filtered |= !(tr.flags & TRIGGER_FL_CALLER);
 
 			if (filtered) {
 				/* also delete matching entry (at the last) */
