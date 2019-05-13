@@ -1409,8 +1409,16 @@ int read_task_ustack(struct uftrace_data *handle,
 			read_task_args(task, &task->ustack, true);
 		else if (task->ustack.type == UFTRACE_EVENT)
 			read_task_event(task, &task->ustack);
-		if (unlikely(task->args.args == NULL || task->args.len == 0))
-			pr_err_ns("record missing argument info\n");
+
+		if (unlikely(task->args.args == NULL || task->args.len == 0)) {
+			struct sym *sym;
+			char *symname;
+
+			sym = task_find_sym(&handle->sessions, task, &task->ustack);
+			symname = symbol_getname(sym, task->ustack.addr);
+			pr_err_ns("record missing argument info for %s\n", symname);
+			symbol_putname(sym, symname);
+		}
 	}
 
 	task->valid = true;
