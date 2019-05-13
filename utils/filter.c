@@ -273,13 +273,14 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 			tr->flags &= ~TRIGGER_FL_RETVAL;
 	}
 
-	if (tr->flags == 0 && orig_flags) {
+	/* remove unnecessary filters might be set by --auto-args */
+	if (tr->flags == TRIGGER_FL_AUTO_ARGS) {
 		/* restored for regex filter */
 		tr->flags = orig_flags;
 		return 0;
 	}
 
-	pr_dbg2("add filter for %s\n", filter->name);
+	pr_dbg2("add filter for %s (flags = %lx)\n", filter->name, tr->flags);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
 
