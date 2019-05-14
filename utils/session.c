@@ -957,11 +957,11 @@ TEST_CASE(task_symbol)
 
 	fp = fopen("unittest.sym", "w");
 	TEST_NE(fp, NULL);
-	fprintf(fp, "00400100 P printf\n");
-	fprintf(fp, "00400200 P __dynsym_end\n");
-	fprintf(fp, "00400300 T _start\n");
-	fprintf(fp, "00400400 T main\n");
-	fprintf(fp, "00400500 T __sym_end\n");
+	fprintf(fp, "00000100 P printf\n");
+	fprintf(fp, "00000200 P __dynsym_end\n");
+	fprintf(fp, "00000300 T _start\n");
+	fprintf(fp, "00000400 T main\n");
+	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest",

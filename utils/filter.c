@@ -251,8 +251,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
-		      struct uftrace_trigger *tr, bool exact_match,
-		      struct debug_info *dinfo,
+		      struct uftrace_trigger *tr, struct uftrace_mmap *map,
+		      bool exact_match, struct debug_info *dinfo,
 		      struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
@@ -282,6 +282,9 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	pr_dbg2("add filter for %s\n", filter->name);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
+
+	filter->start += map->start;
+	filter->end   += map->start;
 
 	while (*p) {
 		parent = *p;
@@ -923,10 +926,7 @@ static int add_trigger_entry(struct rb_root *root,
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
-		filter.start += map->start;
-		filter.end   += map->start;
-
-		ret += add_filter(root, &filter, tr,
+		ret += add_filter(root, &filter, tr, map,
 				  patt->type == PATT_SIMPLE, dinfo, setting);
 	}
 
