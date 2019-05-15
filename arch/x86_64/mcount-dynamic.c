@@ -369,7 +369,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 static void patch_code(struct mcount_dynamic_info *mdi,
 		       uintptr_t addr, uint32_t origin_code_size)
 {
-	unsigned char *origin_code_addr;
+	void *origin_code_addr;
 	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
 	uint32_t target_addr = get_target_addr(mdi, addr);
 

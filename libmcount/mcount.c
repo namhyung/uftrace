@@ -259,6 +259,9 @@ static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 		.sa_handler  = mcount_signal_trigger,
 		.sa_flags    = SA_RESTART,
 	};
+	const char *sigrtm   = "SIGRTM";
+	const char *sigrtmin = "SIGRTMIN";
+	const char *sigrtmax = "SIGRTMAX";
 
 	pos = strchr(spec, '@');
 	if (pos == NULL)
@@ -291,10 +294,10 @@ static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 	}
 
 	/* real-time signals */
-	if (!strncmp(spec, "SIGRTM" + off, 6 - off)) {
-		if (!strncmp(spec, "SIGRTMIN" + off, 8 - off))
+	if (!strncmp(spec, sigrtm + off, 6 - off)) {
+		if (!strncmp(spec, sigrtmin + off, 8 - off))
 			sig = SIGRTMIN + strtol(&spec[8 - off], NULL, 0);
-		if (!strncmp(spec, "SIGRTMAX" + off, 8 - off))
+		if (!strncmp(spec, sigrtmax + off, 8 - off))
 			sig = SIGRTMAX + strtol(&spec[8 - off], NULL, 0);
 		signame = spec;
 	}
