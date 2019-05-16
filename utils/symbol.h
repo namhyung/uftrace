@@ -137,10 +137,9 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
 
 void load_module_symtabs(struct symtabs *symtabs);
-void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map);
-void save_module_symtabs(struct symtabs *symtabs);
-void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
-			 const char *filename);
+struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+					   const char *mod_name);
+void save_module_symtabs(const char *dirname);
 void unload_module_symtabs(void);
 
 enum uftrace_trace_type {

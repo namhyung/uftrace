@@ -1404,7 +1404,7 @@ static void send_log_file(int sock, const char *logfile)
 	send_trace_metadata(sock, NULL, (char*)logfile);
 }
 
-static void save_session_symbols(struct opts *opts)
+static void load_session_symbols(struct opts *opts)
 {
 	struct dirent **map_list;
 	int i, maps;
@@ -1430,13 +1430,11 @@ static void save_session_symbols(struct opts *opts)
 		read_session_map(opts->dirname, &symtabs, sid);
 
 		load_module_symtabs(&symtabs);
-		save_module_symtabs(&symtabs);
 
 		delete_session_map(&symtabs);
 		unload_symtabs(&symtabs);
 	}
 
-	unload_module_symtabs();
 	free(map_list);
 }
 
@@ -1942,22 +1940,25 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 		return;
 
 	/* main executable and shared libraries */
-	save_session_symbols(opts);
+	load_session_symbols(opts);
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
 		struct symtabs dlib_symtabs = {
-			.loaded = false,
+			.dirname = opts->dirname,
+			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 
-		load_symtabs(&dlib_symtabs, opts->dirname, dlib->libname);
-		save_symbol_file(&dlib_symtabs, opts->dirname, dlib->libname);
+		load_module_symtab(&dlib_symtabs, dlib->libname);
 
 		list_del(&dlib->list);
 
 		free(dlib->libname);
 		free(dlib);
 	}
+
+	save_module_symtabs(opts->dirname);
+	unload_module_symtabs();
 
 	if (opts->host) {
 		int sock = wd->sock;

@@ -275,18 +275,11 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 {
 	struct uftrace_dlopen_list *udl, *pos;
 
-	udl = xmalloc(sizeof(*udl) + strlen(libname) + 1);
+	udl = xmalloc(sizeof(*udl));
 	udl->time = timestamp;
 	udl->base = base_addr;
-	strcpy(udl->name, libname);
 
-	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
-	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_USE_SYMFILE;
-	udl->symtabs.kernel_base = sess->symtabs.kernel_base;
-	udl->symtabs.dirname = sess->symtabs.dirname;
-
-	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
-
+	udl->mod = load_module_symtab(&sess->symtabs, libname);
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -314,7 +307,10 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 		if (pos->time > timestamp)
 			continue;
 
-		sym = find_symtabs(&pos->symtabs, addr);
+		if (pos->mod == NULL)
+			continue;
+
+		sym = find_sym(&pos->mod->symtab, addr - pos->base);
 		if (sym)
 			return sym;
 	}
@@ -328,7 +324,6 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
-		unload_symtabs(&udl->symtabs);
 		free(udl);
 	}
 

@@ -879,34 +879,6 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	symtabs->loaded = true;
 }
 
-void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
-			 const char *filename)
-{
-	const char *dirname = symtabs->dirname;
-
-	if (symtabs->loaded)
-		return;
-
-	/* try .sym files first */
-	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
-		char *symfile = NULL;
-
-		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
-		if (access(symfile, F_OK) == 0)
-			load_symbol_file(symtabs, symfile, offset);
-
-		free(symfile);
-	}
-	if (symtabs->symtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
-		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-	if (symtabs->dsymtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
-		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
-
-	symtabs->loaded = true;
-}
-
 static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 				   uint64_t offset)
 {
@@ -1070,7 +1042,8 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 
 }
 
-void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
+struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+					   const char *mod_name)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &modules.rb_node;
@@ -1081,11 +1054,9 @@ void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
 		parent = *p;
 		m = rb_entry(parent, struct uftrace_module, node);
 
-		pos = strcmp(m->name, map->libname);
-		if (pos == 0) {
-			map->mod = m;
-			return;
-		}
+		pos = strcmp(m->name, mod_name);
+		if (pos == 0)
+			return m;
 
 		if (pos < 0)
 			p = &parent->rb_left;
@@ -1093,14 +1064,15 @@ void load_module_symtab(struct symtabs *symtabs, struct uftrace_mmap *map)
 			p = &parent->rb_right;
 	}
 
-	m = xzalloc(sizeof(*m) + strlen(map->libname) + 1);
-	strcpy(m->name, map->libname);
+	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
+	strcpy(m->name, mod_name);
 	load_module_symbol(symtabs, m);
 	INIT_LIST_HEAD(&m->dinfo.files);
-	map->mod = m;
 
 	rb_link_node(&m->node, parent, p);
 	rb_insert_color(&m->node, &modules);
+
+	return m;
 }
 
 void unload_module_symtabs(void)
@@ -1166,7 +1138,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 				continue;
 		}
 
-		load_module_symtab(symtabs, map);
+		map->mod = load_module_symtab(symtabs, map->libname);
 		if (map->mod && map->mod->symtab.nr_sym)
 			continue;
 
@@ -1516,24 +1488,24 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	fclose(fp);
 }
 
-void save_module_symtabs(struct symtabs *symtabs)
+void save_module_symtabs(const char *dirname)
 {
+	struct rb_node *n = rb_first(&modules);
+	struct uftrace_module *mod;
 	char *symfile = NULL;
-	struct uftrace_mmap *map;
-	struct symtab *stab;
 
-	for_each_map(symtabs, map) {
-		if (map->mod == NULL)
-			continue;
+	while (n != NULL) {
+		mod = rb_entry(n, typeof (*mod), node);
 
-		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-			  basename(map->libname));
+		xasprintf(&symfile, "%s/%s.sym", dirname,
+			  basename(mod->name));
 
-		stab = &map->mod->symtab;
-		save_module_symbol_file(stab, symfile, 0);
+		save_module_symbol_file(&mod->symtab, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
+
+		n = rb_next(n);
 	}
 }
 
@@ -1743,7 +1715,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 
 	if (map != NULL) {
 		if (map->mod == NULL) {
-			load_module_symtab(symtabs, map);
+			map->mod = load_module_symtab(symtabs, map->libname);
 			if (map->mod == NULL)
 				return NULL;
 		}
