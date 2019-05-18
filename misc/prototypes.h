@@ -522,4 +522,22 @@ int setresgid(uid_t rgid, uid_t egid, uid_t sgid);
 int chown(const char *path, uid_t uid, uid_t gid);
 int lchown(const char *path, uid_t uid, uid_t gid);
 int fchown(int fd, uid_t uid, uid_t gid);
+
+#include <time.h>
+enum uft_clockid_t {
+	CLOCK_REALTIME = 0,
+	CLOCK_MONOTONIC,
+	CLOCK_PROCESS_CPUTIME_ID,
+	CLOCK_THREAD_CPUTIME_ID,
+	CLOCK_MONOTONIC_RAW,
+	CLOCK_REALTIME_COARSE,
+	CLOCK_MONOTONIC_COARSE,
+	CLOCK_BOOTTIME,
+	CLOCK_REALTIME_ALARM,
+	CLOCK_BOOTTIME_ALARM,
+	CLOCK_TAI = 11,
+};
+int clock_getres(enum uft_clockid_t clk_id, struct timespec *res);
+int clock_gettime(enum uft_clockid_t clk_id, struct timespec *tp);
+int clock_settime(enum uft_clockid_t clk_id, const struct timespec *tp);
 ////////////////////////////////////////////////////////////////////////////////

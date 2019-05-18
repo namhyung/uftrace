@@ -25,6 +25,7 @@ static char *auto_enum_list =
 	"enum uft_epoll_op { EPOLL_CTL_ADD = 1, EPOLL_CTL_DEL, EPOLL_CTL_MOD };"
 	"enum uft_locale {LC_TYPE = 0, LC_NUMERIC, LC_TIME, LC_COLLATE, LC_MONETARY, LC_MESSAGES,LC_ALL, LC_PAPER, LC_NAME, LC_ADDRESS, LC_TELEPHONE, LC_MEASUREMENT,LC_IDENTIFICATION,};"
 	"enum uft_mode {mod_777 = 0777, mod_755 = 0755, mod_666 = 0666, mod_644 = 0644,mod_400 = 0400, mod_600 = 0600, mod_660 = 0660, mod_640 = 0640,mod_444 = 0444, mod_022 = 0022, mod_440 = 0440, mod_222 = 0222,mod_111 = 0111, mod_011 = 0011, mod_033 = 0033, mod_077 = 0077,};"
+	"enum uft_clockid_t {CLOCK_REALTIME = 0,CLOCK_MONOTONIC,CLOCK_PROCESS_CPUTIME_ID,CLOCK_THREAD_CPUTIME_ID,CLOCK_MONOTONIC_RAW,CLOCK_REALTIME_COARSE,CLOCK_MONOTONIC_COARSE,CLOCK_BOOTTIME,CLOCK_REALTIME_ALARM,CLOCK_BOOTTIME_ALARM,CLOCK_TAI = 11,};"
 ;
 
 static char *auto_args_list =
@@ -241,6 +242,9 @@ static char *auto_args_list =
 	"chown@arg1/s,arg2/i32,arg3/i32;"
 	"lchown@arg1/s,arg2/i32,arg3/i32;"
 	"fchown@arg1/d32,arg2/i32,arg3/i32;"
+	"clock_getres@arg1/e:uft_clockid_t,arg2/p;"
+	"clock_gettime@arg1/e:uft_clockid_t,arg2/p;"
+	"clock_settime@arg1/e:uft_clockid_t,arg2/p;"
 ;
 
 static char *auto_retvals_list =
@@ -452,5 +456,8 @@ static char *auto_retvals_list =
 	"chown@retval/d32;"
 	"lchown@retval/d32;"
 	"fchown@retval/d32;"
+	"clock_getres@retval/d32;"
+	"clock_gettime@retval/d32;"
+	"clock_settime@retval/d32;"
 ;
 
