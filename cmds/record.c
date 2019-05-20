@@ -1457,14 +1457,14 @@ static char *get_child_time(struct timespec *ts1, struct timespec *ts2)
 
 static void print_child_time(char *elapsed_time)
 {
-	pr_out("elapsed time: %s\n", elapsed_time);
+	pr_out("elapsed time: %20s\n", elapsed_time);
 }
 
 static void print_child_usage(struct rusage *ru)
 {
-	pr_out(" system time: %lu.%06lu000 sec\n",
+	pr_out(" system time: %6lu.%06lu000 sec\n",
 	       ru->ru_stime.tv_sec, ru->ru_stime.tv_usec);
-	pr_out("   user time: %lu.%06lu000 sec\n",
+	pr_out("   user time: %6lu.%06lu000 sec\n",
 	       ru->ru_utime.tv_sec, ru->ru_utime.tv_usec);
 }
 
