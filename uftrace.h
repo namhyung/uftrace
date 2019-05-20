@@ -144,6 +144,7 @@ struct uftrace_session;
 struct uftrace_kernel_reader;
 struct uftrace_perf_reader;
 struct uftrace_extern_reader;
+struct uftrace_module;
 
 struct uftrace_session_link {
 	struct rb_root		root;
@@ -327,8 +328,7 @@ struct uftrace_dlopen_list {
 	struct list_head	list;
 	uint64_t		time;
 	unsigned long		base;
-	struct symtabs		symtabs;
-	char			name[];
+	struct uftrace_module	*mod;
 };
 
 struct uftrace_task {

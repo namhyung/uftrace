@@ -677,16 +677,17 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			struct debug_info *dinfo;
 			char *estr;
 
+			memcpy(val.v, data, spec->size);
 			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
 			map = find_map(&s->symtabs, task->rstack->addr);
-			if (map == MAP_MAIN)
-				dinfo = &s->symtabs.dinfo;
-			else
-				dinfo = &map->dinfo;
+			if (map == NULL || map->mod == NULL) {
+				print_args("<ENUM?> %lx", val.i);
+				goto next;
+			}
 
-			memcpy(val.v, data, spec->size);
+			dinfo = &map->mod->dinfo;
 			estr = get_enum_string(&dinfo->enums, spec->enum_str, val.i);
 			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
 				struct strv enum_vals = STRV_INIT;
@@ -719,6 +720,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args(fmtstr, val.i);
 		}
 
+next:
 		i++;
 		data += ALIGN(size, 4);
 

@@ -29,7 +29,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	const char *last_libname = symtabs->filename;
+	const char *last_libname = NULL;
 	struct uftrace_mmap **maps = &symtabs->maps;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
@@ -49,6 +49,12 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			   &start, &end, prot, path) != 4)
 			continue;
 
+		/* set base address of main executable */
+		if (symtabs->exec_base == 0 && symtabs->filename &&
+		    !strcmp(path, symtabs->filename)) {
+			symtabs->exec_base = start;
+		}
+
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
@@ -58,11 +64,6 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path)) {
-			if (symtabs->filename && !strcmp(path, symtabs->filename)) {
-				/* update it only once */
-				if (symtabs->exec_base == 0)
-					symtabs->exec_base = start;
-			}
 			continue;
 		}
 
@@ -156,13 +157,13 @@ void create_session(struct uftrace_session_link *sessions,
 		s->pid, s->sid);
 
 	if (needs_symtab) {
+		s->symtabs.dirname = dirname;
 		s->symtabs.filename = s->exename;
 		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
 			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
 
 		read_session_map(dirname, &s->symtabs, s->sid);
-		load_symtabs(&s->symtabs, dirname, s->exename);
 
 		load_module_symtabs(&s->symtabs);
 		load_debug_info(&s->symtabs);
@@ -274,18 +275,11 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 {
 	struct uftrace_dlopen_list *udl, *pos;
 
-	udl = xmalloc(sizeof(*udl) + strlen(libname) + 1);
+	udl = xmalloc(sizeof(*udl));
 	udl->time = timestamp;
 	udl->base = base_addr;
-	strcpy(udl->name, libname);
 
-	memset(&udl->symtabs, 0, sizeof(udl->symtabs));
-	udl->symtabs.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_USE_SYMFILE;
-	udl->symtabs.kernel_base = sess->symtabs.kernel_base;
-	udl->symtabs.dirname = sess->symtabs.dirname;
-
-	load_dlopen_symtabs(&udl->symtabs, base_addr, libname);
-
+	udl->mod = load_module_symtab(&sess->symtabs, libname);
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -313,7 +307,10 @@ struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp
 		if (pos->time > timestamp)
 			continue;
 
-		sym = find_symtabs(&pos->symtabs, addr);
+		if (pos->mod == NULL)
+			continue;
+
+		sym = find_sym(&pos->mod->symtab, addr - pos->base);
 		if (sym)
 			return sym;
 	}
@@ -327,7 +324,6 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
-		unload_symtabs(&udl->symtabs);
 		free(udl);
 	}
 
@@ -956,11 +952,11 @@ TEST_CASE(task_symbol)
 
 	fp = fopen("unittest.sym", "w");
 	TEST_NE(fp, NULL);
-	fprintf(fp, "00400100 P printf\n");
-	fprintf(fp, "00400200 P __dynsym_end\n");
-	fprintf(fp, "00400300 T _start\n");
-	fprintf(fp, "00400400 T main\n");
-	fprintf(fp, "00400500 T __sym_end\n");
+	fprintf(fp, "00000100 P printf\n");
+	fprintf(fp, "00000200 P __dynsym_end\n");
+	fprintf(fp, "00000300 T _start\n");
+	fprintf(fp, "00000400 T main\n");
+	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
 	create_session(&test_sessions, &msg, ".", "unittest",

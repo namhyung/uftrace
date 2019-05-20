@@ -134,6 +134,7 @@ struct uftrace_filter_setting {
 	bool				auto_args;
 	bool				allow_kernel;
 	bool				lp64;
+	bool				plt_only;
 	/* caller-defined data */
 	void				*private;
 };

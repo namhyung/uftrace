@@ -23,12 +23,17 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/rbtree.h"
 
 #ifndef  EM_AARCH64
 # define EM_AARCH64  183
 #endif
 
-static struct symtabs ksymtabs;
+/* (global) symbol for kernel */
+static struct uftrace_module kernel;
+
+/* prevent duplicate symbols table loading */
+static struct rb_root modules = RB_ROOT;
 
 struct sym sched_sym = {
 	.addr = EVENT_ID_PERF_SCHED_BOTH,
@@ -815,20 +820,18 @@ out:
 struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 				      const char *prefix)
 {
-	struct uftrace_mmap *maps = symtabs->maps;
+	struct uftrace_mmap *map;
 	char *mod_name;
 
-	while (maps) {
-		mod_name = strrchr(maps->libname, '/');
+	for_each_map(symtabs, map) {
+		mod_name = strrchr(map->libname, '/');
 		if (mod_name == NULL)
-			mod_name = maps->libname;
+			mod_name = map->libname;
 		else
 			mod_name++;
 
 		if (!strncmp(mod_name, prefix, strlen(prefix)))
-			return maps;
-
-		maps = maps->next;
+			return map;
 	}
 	return NULL;
 }
@@ -876,34 +879,6 @@ void load_symtabs(struct symtabs *symtabs, const char *dirname,
 	symtabs->loaded = true;
 }
 
-void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
-			 const char *filename)
-{
-	const char *dirname = symtabs->dirname;
-
-	if (symtabs->loaded)
-		return;
-
-	/* try .sym files first */
-	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
-		char *symfile = NULL;
-
-		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
-		if (access(symfile, F_OK) == 0)
-			load_symbol_file(symtabs, symfile, offset);
-
-		free(symfile);
-	}
-	if (symtabs->symtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL))
-		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-	if (symtabs->dsymtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
-		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
-
-	symtabs->loaded = true;
-}
-
 static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 				   uint64_t offset)
 {
@@ -929,6 +904,17 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		char type;
 		char *name;
 		char *pos;
+
+		if (*line == '#') {
+			if (!strncmp(line, "# symbols: ", 11)) {
+				addr = strtoull(line + 11, &pos, 10);
+				symtab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				symtab->sym = xrealloc(symtab->sym, addr);
+			}
+			continue;
+		}
 
 		pos = strchr(line, '\n');
 		if (pos)
@@ -964,6 +950,12 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 			    !strncmp(name, "sys_", 4) &&
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
+
+			/* prefer x64 syscall names than 32 bit ones */
+			if (!strncmp(sym->name, "__ia32", 6) &&
+			    !strncmp(name, "__x64", 5) &&
+			    !strcmp(sym->name + 6, name + 5))
+				strcpy(sym->name, name);
 
 			pr_dbg2("skip duplicated symbols: %s\n", name);
 			continue;
@@ -1018,9 +1010,89 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 	return 0;
 }
 
+static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m)
+{
+	unsigned flags = symtabs->flags;
+	struct symtab dsymtab = {};
+
+	if (flags & SYMTAB_FL_USE_SYMFILE) {
+		char *symfile = NULL;
+
+		xasprintf(&symfile, "%s/%s.sym",
+			  symtabs->dirname, basename(m->name));
+		if (access(symfile, F_OK) == 0) {
+			load_module_symbol_file(&m->symtab, symfile, 0);
+		}
+
+		free(symfile);
+
+		if (m->symtab.nr_sym)
+			return;
+	}
+
+	/*
+	 * Currently it uses a single symtab for both normal symbols
+	 * and dynamic symbols.  Maybe it can be changed later to
+	 * support more sophisticated symbol handling.
+	 */
+	load_symtab(&m->symtab, m->name, 0, flags);
+	load_dynsymtab(&dsymtab, m->name, 0, flags);
+	merge_symtabs(&m->symtab, &dsymtab);
+	update_symtab_using_dynsym(&m->symtab, m->name, 0, flags);
+
+}
+
+struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+					   const char *mod_name)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &modules.rb_node;
+	struct uftrace_module *m;
+	int pos;
+
+	while (*p) {
+		parent = *p;
+		m = rb_entry(parent, struct uftrace_module, node);
+
+		pos = strcmp(m->name, mod_name);
+		if (pos == 0)
+			return m;
+
+		if (pos < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
+	strcpy(m->name, mod_name);
+	load_module_symbol(symtabs, m);
+	INIT_LIST_HEAD(&m->dinfo.files);
+
+	rb_link_node(&m->node, parent, p);
+	rb_insert_color(&m->node, &modules);
+
+	return m;
+}
+
+void unload_module_symtabs(void)
+{
+	struct rb_node *n;
+	struct uftrace_module *mod;
+
+	while (!RB_EMPTY_ROOT(&modules)) {
+		n = rb_first(&modules);
+		rb_erase(n, &modules);
+
+		mod = rb_entry(n, typeof (*mod), node);
+		unload_symtab(&mod->symtab);
+		free(mod);
+	}
+}
+
 void load_module_symtabs(struct symtabs *symtabs)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 	static const char * const skip_libs[] = {
 		/* uftrace internal libraries */
 		"libmcount.so",
@@ -1035,39 +1107,23 @@ void load_module_symtabs(struct symtabs *symtabs)
 	bool check_cpp = false;
 	bool needs_cpp = false;
 
-	maps = symtabs->maps;
-	while (maps) {
+	for_each_map(symtabs, map) {
 		struct symtab dsymtab = {};
-		const char *libname = basename(maps->libname);
+		const char *libname = basename(map->libname);
+		bool skip = false;
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-			if (!strcmp(libname, skip_libs[k]))
-				goto next;
-		}
-
-		if (exec_path && !strcmp(maps->libname, exec_path))
-			goto next;
-
-		pr_dbg2("load module symbol table: %s\n", maps->libname);
-
-		if (flags & SYMTAB_FL_USE_SYMFILE) {
-			char *symfile = NULL;
-
-			xasprintf(&symfile, "%s/%s.sym",
-				  symtabs->dirname, libname);
-			if (access(symfile, F_OK) == 0) {
-				load_module_symbol_file(&maps->symtab, symfile,
-							maps->start);
+			if (!strcmp(libname, skip_libs[k])) {
+				skip = true;
+				break;
 			}
-
-			free(symfile);
-
-			if (maps->symtab.nr_sym)
-				goto next;
 		}
+
+		if (skip)
+			continue;
 
 		if (exec_path == NULL)
-			exec_path = maps->libname;
+			exec_path = map->libname;
 
 		if (!check_cpp) {
 			if (has_dependency(exec_path, libstdcpp6))
@@ -1079,7 +1135,29 @@ void load_module_symtabs(struct symtabs *symtabs)
 		/* load symbols from libstdc++.so only if it's written in C++ */
 		if (!strncmp(libname, libstdcpp6, strlen(libstdcpp6))) {
 			if (!needs_cpp)
-				goto next;
+				continue;
+		}
+
+		map->mod = load_module_symtab(symtabs, map->libname);
+		if (map->mod && map->mod->symtab.nr_sym)
+			continue;
+
+		pr_dbg2("load module symbol table: %s\n", map->libname);
+
+		if (flags & SYMTAB_FL_USE_SYMFILE) {
+			char *symfile = NULL;
+
+			xasprintf(&symfile, "%s/%s.sym",
+				  symtabs->dirname, libname);
+			if (access(symfile, F_OK) == 0) {
+				load_module_symbol_file(&map->symtab, symfile,
+							map->start);
+			}
+
+			free(symfile);
+
+			if (map->symtab.nr_sym)
+				continue;
 		}
 
 		/*
@@ -1087,14 +1165,11 @@ void load_module_symtabs(struct symtabs *symtabs)
 		 * and dynamic symbols.  Maybe it can be changed later to
 		 * support more sophisticated symbol handling.
 		 */
-		load_symtab(&maps->symtab, maps->libname, maps->start, flags);
-		load_dynsymtab(&dsymtab, maps->libname, maps->start, flags);
-		merge_symtabs(&maps->symtab, &dsymtab);
-		update_symtab_using_dynsym(&maps->symtab, maps->libname,
-					   maps->start, flags);
-
-next:
-		maps = maps->next;
+		load_symtab(&map->symtab, map->libname, map->start, flags);
+		load_dynsymtab(&dsymtab, map->libname, map->start, flags);
+		merge_symtabs(&map->symtab, &dsymtab);
+		update_symtab_using_dynsym(&map->symtab, map->libname,
+					   map->start, flags);
 	}
 }
 
@@ -1124,6 +1199,28 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		char type;
 		char *name;
 		char *pos;
+
+		if (*line == '#') {
+			if (!strncmp(line, "# symbols: ", 11)) {
+				stab = &symtabs->symtab;
+
+				addr = strtoull(line + 11, &pos, 10);
+				stab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				stab->sym = xrealloc(stab->sym, addr);
+			}
+			if (!strncmp(line, "# plt symbols: ", 15)) {
+				stab = &symtabs->dsymtab;
+
+				addr = strtoull(line + 15, &pos, 10);
+				stab->nr_alloc = addr;
+
+				addr *= sizeof(*sym);
+				stab->sym = xrealloc(stab->sym, addr);
+			}
+			continue;
+		}
 
 		pos = strchr(line, '\n');
 		if (pos)
@@ -1291,6 +1388,9 @@ void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 	symtabs->flags |= SYMTAB_FL_ADJ_OFFSET;
 
 do_it:
+	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);
+	fprintf(fp, "# plt symbols: %lu\n", dtab->nr_sym);
+
 	/* dynamic symbols */
 	for (i = 0; i < dtab->nr_sym; i++)
 		fprintf(fp, "%016"PRIx64" %c %s\n", dtab->sym_names[i]->addr - offset,
@@ -1350,6 +1450,8 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
+	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);
+
 	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
 
@@ -1386,22 +1488,24 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	fclose(fp);
 }
 
-void save_module_symtabs(struct symtabs *symtabs)
+void save_module_symtabs(const char *dirname)
 {
+	struct rb_node *n = rb_first(&modules);
+	struct uftrace_module *mod;
 	char *symfile = NULL;
-	struct uftrace_mmap *map;
 
-	map = symtabs->maps;
-	while (map) {
-		xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-			  basename(map->libname));
+	while (n != NULL) {
+		mod = rb_entry(n, typeof (*mod), node);
 
-		save_module_symbol_file(&map->symtab, symfile, map->start);
+		xasprintf(&symfile, "%s/%s.sym", dirname,
+			  basename(mod->name));
+
+		save_module_symbol_file(&mod->symtab, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
 
-		map = map->next;
+		n = rb_next(n);
 	}
 }
 
@@ -1437,29 +1541,32 @@ int load_kernel_symbol(char *dirname)
 	unsigned i;
 	char *symfile = NULL;
 
-	if (ksymtabs.loaded)
+	/* abuse it for checking symbol loading */
+	if (kernel.node.rb_parent_color)
 		return 0;
 
 	xasprintf(&symfile, "%s/kallsyms", dirname);
-	if (load_symbol_file(&ksymtabs, symfile, 0) < 0) {
+	if (load_module_symbol_file(&kernel.symtab, symfile, 0) < 0) {
 		free(symfile);
 		return -1;
 	}
 
-	for (i = 0; i < ksymtabs.symtab.nr_sym; i++)
-		ksymtabs.symtab.sym[i].type = ST_KERNEL_FUNC;
+	for (i = 0; i < kernel.symtab.nr_sym; i++)
+		kernel.symtab.sym[i].type = ST_KERNEL_FUNC;
 
+	kernel.node.rb_parent_color = 1;
 	free(symfile);
-	ksymtabs.loaded = true;
 	return 0;
 }
 
 struct symtab * get_kernel_symtab(void)
 {
-	if (ksymtabs.loaded)
-		return &ksymtabs.symtab;
+	return &kernel.symtab;
+}
 
-	return NULL;
+struct uftrace_module * get_kernel_module(void)
+{
+	return &kernel;
 }
 
 void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
@@ -1535,7 +1642,7 @@ static bool check_map_symtab(struct symtab *stab, uint64_t addr)
 
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 
 	if (is_kernel_address(symtabs, addr))
 		return MAP_KERNEL;
@@ -1544,31 +1651,28 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 	    check_map_symtab(&symtabs->dsymtab, addr))
 		return MAP_MAIN;
 
-	maps = symtabs->maps;
-	while (maps) {
-		if (maps->start <= addr && addr < maps->end)
-			return maps;
-
-		maps = maps->next;
+	for_each_map(symtabs, map) {
+		if (map->start <= addr && addr < map->end)
+			return map;
 	}
 	return NULL;
 }
 
 struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 {
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 
 	if (find_symname(&symtabs->symtab, name))
 		return MAP_MAIN;
 
-	maps = symtabs->maps;
-	while (maps) {
+	for_each_map(symtabs, map) {
 		struct sym *sym;
-		sym = find_symname(&maps->symtab, name);
-		if (sym && sym->type != ST_PLT_FUNC)
-			return maps;
 
-		maps = maps->next;
+		if (map->mod != NULL) {
+			sym = find_symname(&map->mod->symtab, name);
+			if (sym && sym->type != ST_PLT_FUNC)
+				return map;
+		}
 	}
 	return NULL;
 }
@@ -1577,11 +1681,11 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
 	struct symtab *stab = &symtabs->symtab;
 	struct symtab *dtab = &symtabs->dsymtab;
-	struct uftrace_mmap *maps;
+	struct uftrace_mmap *map;
 	struct sym *sym = NULL;
 
-	maps = find_map(symtabs, addr);
-	if (maps == MAP_KERNEL) {
+	map = find_map(symtabs, addr);
+	if (map == MAP_KERNEL) {
 		struct symtab *ktab = get_kernel_symtab();
 		uint64_t kaddr = get_kernel_address(symtabs, addr);
 
@@ -1593,7 +1697,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		return sym;
 	}
 
-	if (maps == MAP_MAIN) {
+	if (map == MAP_MAIN) {
 		/* try dynamic symbols first */
 		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
 			      sizeof(*sym), addrfind);
@@ -1609,33 +1713,21 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		goto out;
 	}
 
-	if (maps) {
-		if (maps->symtab.nr_sym == 0) {
-			bool found = false;
-
-			if (symtabs->flags & SYMTAB_FL_USE_SYMFILE) {
-				char *symfile = NULL;
-				unsigned long offset = 0;
-
-				if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-					offset = maps->start;
-
-				xasprintf(&symfile, "%s/%s.sym", symtabs->dirname,
-					  basename(maps->libname));
-				if (!load_module_symbol_file(&maps->symtab,
-							     symfile, offset)) {
-					found = true;
-				}
-				free(symfile);
-			}
-
-			if (!found) {
-				load_symtab(&maps->symtab, maps->libname,
-					    maps->start, symtabs->flags);
-			}
+	if (map != NULL) {
+		if (map->mod == NULL) {
+			map->mod = load_module_symtab(symtabs, map->libname);
+			if (map->mod == NULL)
+				return NULL;
 		}
 
-		stab = &maps->symtab;
+		/*
+		 * use relative address for module symtab
+		 * since mappings can be loaded at any address
+		 * for multiple sessions
+		 */
+		addr -= map->start;
+
+		stab = &map->mod->symtab;
 		sym = bsearch(&addr, stab->sym, stab->nr_sym,
 			      sizeof(*sym), addrfind);
 	}

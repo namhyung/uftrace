@@ -658,6 +658,7 @@ void close_data_file(struct opts *opts, struct uftrace_data *handle)
 		finish_extern_data(handle);
 
 	delete_sessions(&handle->sessions);
+	unload_module_symtabs();
 
 	if (handle->hdr.feat_mask & AUTO_ARGS)
 		finish_auto_args();

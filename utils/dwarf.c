@@ -144,6 +144,27 @@ static struct debug_file * get_debug_file(struct debug_info *dinfo,
 	return df;
 }
 
+/*
+ * symbol table contains normalized (zero-based) relative address.
+ * but some other info in non-PIE executable has different base
+ * address so it needs to convert back and forth.
+ */
+static inline unsigned long sym_to_dwarf_addr(struct debug_info *dinfo,
+					      unsigned long addr)
+{
+	if (dinfo->file_type == ET_EXEC)
+		addr += dinfo->offset;
+	return addr;
+}
+
+static inline unsigned long dwarf_to_sym_addr(struct debug_info *dinfo,
+					      unsigned long addr)
+{
+	if (dinfo->file_type == ET_EXEC)
+		addr -= dinfo->offset;
+	return addr;
+}
+
 #ifdef HAVE_LIBDW
 
 #include <libelf.h>
@@ -233,13 +254,14 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 	pr_dbg2("setup dwarf debug info for %s\n", filename);
 
 	/*
-	 * symbol address was adjusted to add offset already
-	 * but it needs to use address in file (for shared libraries).
+	 * symbol table already uses relative address but non-PIE
+	 * executble needs to use absolute address for DWARF info.
+	 * Also as filter entry uses absolute address, it needs to
+	 * keep the offset to recover relative address back.
 	 */
-	if (elf_file_type(dinfo) == ET_DYN)
-		dinfo->offset = offset;
-	else
-		dinfo->offset = 0;
+	dinfo->offset = offset;
+
+	dinfo->file_type = elf_file_type(dinfo);
 
 	return 0;
 }
@@ -504,7 +526,6 @@ static bool resolve_type_info(Dwarf_Die *die, struct type_data *td)
 
 struct arg_data {
 	const char		*name;
-	unsigned long		addr;
 	char			*argspec;
 	int			idx;
 	int			fpidx;
@@ -843,9 +864,10 @@ static void get_source_location(Dwarf_Die *die, struct build_data *bd,
 	else {
 		Dwarf_Die cudie;
 		Dwarf_Line *line;
+		unsigned long dwarf_addr = sym_to_dwarf_addr(dinfo, sym->addr);
 
 		dwarf_diecu(die, &cudie, NULL, NULL);
-		line = dwarf_getsrc_die(&cudie, sym->addr - dinfo->offset);
+		line = dwarf_getsrc_die(&cudie, dwarf_addr);
 		filename = dwarf_linesrc(line, NULL, NULL);
 		dfile = get_debug_file(dinfo, filename);
 		dwarf_lineno(line, &dline);
@@ -886,7 +908,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		return DWARF_CB_OK;
 
 	dwarf_lowpc(die, &offset);
-	offset += bd->dinfo->offset;
+	offset = dwarf_to_sym_addr(bd->dinfo, offset);
 
 	if (dwarf_hasattr_integrate(die, DW_AT_linkage_name))
 		name = str_attr(die, DW_AT_linkage_name, true);
@@ -910,7 +932,6 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	get_source_location(die, bd, sym);
 
 	ad.name = sym->name;
-	ad.addr = offset;
 
 	for (i = 0; i < bd->nr_rets; i++) {
 		if (!match_filter_pattern(&bd->rets[i], sym->name))
@@ -1127,22 +1148,15 @@ void prepare_debug_info(struct symtabs *symtabs,
 	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
-	setup_debug_info(symtabs->filename, &symtabs->dinfo, symtabs->exec_base,
-			 force);
-	build_dwarf_info(&symtabs->dinfo, &symtabs->symtab, ptype,
-			 &dwarf_args, &dwarf_rets);
+	for_each_map(symtabs, map) {
+		struct symtab *stab = &map->mod->symtab;
+		struct debug_info *dinfo = &map->mod->dinfo;
 
-	map = symtabs->maps;
-	while (map) {
-		/* avoid loading of main executable or libmcount */
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9)) {
-			setup_debug_info(map->libname, &map->dinfo, map->start,
-					 force);
-			build_dwarf_info(&map->dinfo, &map->symtab, ptype,
-					 &dwarf_args, &dwarf_rets);
-		}
-		map = map->next;
+		if (map->mod == NULL)
+			continue;
+
+		setup_debug_info(map->libname, dinfo, map->start, force);
+		build_dwarf_info(dinfo, stab, ptype, &dwarf_args, &dwarf_rets);
 	}
 
 	strv_free(&dwarf_args);
@@ -1158,15 +1172,11 @@ void finish_debug_info(struct symtabs *symtabs)
 	if (!symtabs->loaded_debug)
 		return;
 
-	release_debug_info(&symtabs->dinfo);
+	for_each_map(symtabs, map) {
+		if (map->mod == NULL)
+			continue;
 
-	map = symtabs->maps;
-	while (map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9))
-			release_debug_info(&map->dinfo);
-
-		map = map->next;
+		release_debug_info(&map->mod->dinfo);
 	}
 
 	symtabs->loaded_debug = false;
@@ -1252,8 +1262,7 @@ static void save_debug_entries(struct debug_info *dinfo,
 		if (loc->sym == NULL)
 			continue;
 
-		save_debug_file(fp, 'F', loc->sym->name,
-				loc->sym->addr - dinfo->offset);
+		save_debug_file(fp, 'F', loc->sym->name, loc->sym->addr);
 		save_debug_file(fp, 'L', loc->file->name, loc->line);
 
 		entry = find_debug_entry(&dinfo->args, loc->sym->addr);
@@ -1275,20 +1284,11 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 	if (!symtabs->loaded_debug)
 		return;
 
-	/* use file-offset for main executable */
-	if (elf_file_type(&symtabs->dinfo) == ET_EXEC)
-		symtabs->dinfo.offset = symtabs->exec_base;
+	for_each_map(symtabs, map) {
+		if (map->mod == NULL)
+			continue;
 
-	/* XXX: libmcount doesn't set symtabs->dirname */
-	save_debug_entries(&symtabs->dinfo, dirname, symtabs->filename);
-
-	map = symtabs->maps;
-	while (map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9))
-			save_debug_entries(&map->dinfo, dirname, map->libname);
-
-		map = map->next;
+		save_debug_entries(&map->mod->dinfo, dirname, map->libname);
 	}
 }
 
@@ -1340,7 +1340,6 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 		switch (line[0]) {
 		case 'F':
 			offset = strtoul(&line[3], &pos, 16);
-			offset += dinfo->offset;
 
 			if (*pos == ' ')
 				pos++;
@@ -1400,19 +1399,17 @@ void load_debug_info(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *map;
 
-	symtabs->dinfo.offset = symtabs->exec_base;
-	load_debug_file(&symtabs->dinfo, &symtabs->symtab,
-			symtabs->dirname, symtabs->filename);
+	for_each_map(symtabs, map) {
+		struct symtab *stab = &map->mod->symtab;
+		struct debug_info *dinfo = &map->mod->dinfo;
 
-	map = symtabs->maps;
-	while (map) {
-		if (strcmp(map->libname, symtabs->filename) &&
-		    strncmp(basename(map->libname), "libmcount", 9)) {
-			map->dinfo.offset = map->start;
-			load_debug_file(&map->dinfo, &map->symtab,
+		if (map->mod == NULL)
+			continue;
+
+		if (!debug_info_has_location(dinfo)) {
+			load_debug_file(dinfo, stab,
 					symtabs->dirname, map->libname);
 		}
-		map = map->next;
 	}
 
 	symtabs->loaded_debug = true;
@@ -1442,23 +1439,20 @@ struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 
 	map = find_map(symtabs, addr);
 
-	if (map == MAP_MAIN) {
-		symtab = &symtabs->symtab;
-		dinfo = &symtabs->dinfo;
-	}
-	else if (map == MAP_KERNEL) {
-		map = NULL;
-		dinfo = NULL;
-	}
-	else if (map != NULL) {
-		symtab = &map->symtab;
-		dinfo = &map->dinfo;
-	}
+	/* TODO: support kernel debug info */
+	if (map == MAP_KERNEL)
+		return NULL;
 
-	if (map && debug_info_has_location(dinfo))
-		sym = find_sym(symtab, addr);
+	if (map == NULL || map->mod == NULL)
+		return NULL;
 
-	if (map == NULL || sym == NULL)
+	symtab = &map->mod->symtab;
+	dinfo = &map->mod->dinfo;
+
+	if (debug_info_has_location(dinfo))
+		sym = find_sym(symtab, addr - map->start);
+
+	if (sym == NULL)
 		return NULL;
 
 	idx = sym - symtab->sym;

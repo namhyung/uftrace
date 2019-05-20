@@ -156,17 +156,21 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 	};
 	char *arg_str;
 	unsigned long flag = is_retval ? TRIGGER_FL_RETVAL : TRIGGER_FL_ARGUMENT;
+	unsigned long addr = filter->start;
 
 	if (is_retval)
-		arg_str = get_dwarf_retspec(dinfo, filter->name, filter->start);
+		arg_str = get_dwarf_retspec(dinfo, filter->name, addr);
 	else
-		arg_str = get_dwarf_argspec(dinfo, filter->name, filter->start);
+		arg_str = get_dwarf_argspec(dinfo, filter->name, addr);
 	if (arg_str == NULL)
 		return NULL;
 
+	arg_str = xstrdup(arg_str);
 	setup_trigger_action(arg_str, &dwarf_tr, NULL, flag, setting);
-	if (list_empty(dwarf_tr.pargs))
+	if (list_empty(dwarf_tr.pargs)) {
+		free(arg_str);
 		return NULL;
+	}
 
 	dwarf_filter = xzalloc(sizeof(*dwarf_filter));
 	INIT_LIST_HEAD(&dwarf_filter->args);
@@ -179,6 +183,7 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 	dwarf_filter->name = (void *)dwarf_argspec_list;
 	dwarf_argspec_list = dwarf_filter;
 
+	free(arg_str);
 	return dwarf_filter;
 }
 

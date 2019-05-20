@@ -264,7 +264,9 @@ static struct sym * find_task_sym(struct uftrace_data *handle,
 
 	if (task == main_task) {
 		/* This is the main thread */
-		task->func = sym = find_symname(&symtabs->symtab, "main");
+		struct uftrace_module *mod = symtabs->maps->mod;
+
+		task->func = sym = find_symname(&mod->symtab, "main");
 		if (sym)
 			return sym;
 

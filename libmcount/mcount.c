@@ -99,6 +99,8 @@ __weak void dynamic_return(void) { }
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       bool force)
 {
+	load_module_symtab(&symtabs, symtabs.maps->libname);
+
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
 	save_debug_info(&symtabs, dirname);
@@ -442,15 +444,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	}
 
 	if (autoargs_str) {
-		char *autoarg = get_auto_argspec_str();
-		char *autoret = get_auto_retspec_str();
+		char *autoarg = ".";
+		char *autoret = ".";
 
-		if (debug_info_has_argspec(&symtabs.dinfo)) {
-			if (ptype == PATT_REGEX)
-				autoarg = autoret = ".";
-			else  /* PATT_GLOB */
-				autoarg = autoret = "*";
-		}
+		if (ptype == PATT_GLOB)
+			autoarg = autoret = "*";
 
 		filter_setting.auto_args = true;
 
@@ -1713,7 +1711,6 @@ static __used void mcount_startup(void)
 	symtabs.filename = mcount_exename;
 
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);
-	load_symtabs(&symtabs, NULL, mcount_exename);
 
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
@@ -1780,7 +1777,7 @@ static void mcount_cleanup(void)
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
 
-	unload_symtabs(&symtabs);
+	unload_module_symtabs();
 
 	pr_dbg("exit from libmcount\n");
 }

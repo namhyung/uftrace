@@ -1081,6 +1081,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	FILE *ifp, *ofp;
 	char buf[PATH_MAX];
 	struct uftrace_mmap *prev_map = NULL;
+	bool prev_written = false;
 
 	ifp = fopen("/proc/self/maps", "r");
 	if (ifp == NULL)
@@ -1116,10 +1117,10 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		 * but [stack] is still needed to get kernel base address.
 		 */
 		if (path[0] == '[') {
-			if (prev_map != NULL) {
+			if (!prev_written) {
 				write_map(ofp, prev_map, prev_major,
 					  prev_minor, prev_ino, prev_off);
-				prev_map = NULL;
+				prev_written = true;
 			}
 			if (strncmp(path, "[stack", 6) == 0) {
 				symtabs->kernel_base = guess_kernel_base(buf);
@@ -1138,8 +1139,11 @@ void record_proc_maps(char *dirname, const char *sess_id,
 			}
 
 			/* write prev_map when it finds a new map */
-			write_map(ofp, prev_map, prev_major,
-				  prev_minor, prev_ino, prev_off);
+			if (!prev_written) {
+				write_map(ofp, prev_map, prev_major,
+					  prev_minor, prev_ino, prev_off);
+				prev_written = true;
+			}
 		}
 
 		/* save map for the executable */
@@ -1169,6 +1173,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		prev_ino = ino;
 		prev_major = major;
 		prev_minor = minor;
+		prev_written = false;
 	}
 
 	fclose(ifp);

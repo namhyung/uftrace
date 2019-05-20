@@ -174,6 +174,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	/* check first few functions have fentry signature */
 	for (i = 0; i < symtab->nr_sym; i++) {
 		struct sym *sym = &symtab->sym[i];
+		void *code_addr = (void *)sym->addr + mdi->sym_base;
 
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
@@ -183,8 +184,8 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			continue;
 
 		/* only support calls to __fentry__ at the beginning */
-		if (!memcmp((void *)sym->addr, fentry_patt1, CALL_INSN_SIZE) ||
-		    !memcmp((void *)sym->addr, fentry_patt2, CALL_INSN_SIZE)) {
+		if (!memcmp(code_addr, fentry_patt1, CALL_INSN_SIZE) ||
+		    !memcmp(code_addr, fentry_patt2, CALL_INSN_SIZE)) {
 			adi->type = DYNAMIC_FENTRY;
 			break;
 		}
@@ -210,7 +211,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
 	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr;
+	unsigned char *insn = (void *)sym->addr + mdi->sym_base;
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
@@ -221,7 +222,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, sym->addr);
+	target_addr = get_target_addr(mdi, sym->addr + mdi->sym_base);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
 
@@ -297,12 +298,13 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
+	uint64_t sym_addr = sym->addr + mdi->sym_base;
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < adi->xrmap_count; i++) {
 		xrmap = &adi->xrmap[i];
 
-		if (xrmap->addr < sym->addr || xrmap->addr >= sym->addr + sym->size)
+		if (xrmap->addr < sym_addr || xrmap->addr >= sym_addr + sym->size)
 			continue;
 
 		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
@@ -418,8 +420,9 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
 	struct mcount_orig_insn *orig;
+	uint64_t sym_addr = sym->addr + mdi->sym_base;
 
-	instr_size = disasm_check_insns(disasm, sym->addr, sym->size);
+	instr_size = disasm_check_insns(disasm, sym_addr, sym->size);
 	if (instr_size < CALL_INSN_SIZE)
 		return instr_size;
 
@@ -436,14 +439,14 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	 *  | [Return   address] |
 	 *  ----------------------
 	 */
-	jmp_target = sym->addr + instr_size;
+	jmp_target = sym_addr + instr_size;
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
-	orig = mcount_save_code(sym->addr, instr_size,
+	orig = mcount_save_code(sym_addr , instr_size,
 				jmp_insn, sizeof(jmp_insn));
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CALL_INSN_SIZE;
 
-	patch_code(mdi, sym->addr, instr_size);
+	patch_code(mdi, sym_addr, instr_size);
 	return INSTRUMENT_SUCCESS;
 }
 

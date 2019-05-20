@@ -14,6 +14,7 @@
 
 #include "utils/utils.h"
 #include "utils/list.h"
+#include "utils/rbtree.h"
 #include "utils/dwarf.h"
 
 #ifdef HAVE_LIBELF
@@ -60,8 +61,16 @@ struct symtab {
 	bool name_sorted;
 };
 
+struct uftrace_module {
+	struct rb_node node;
+	struct symtab symtab;
+	struct debug_info dinfo;
+	char name[];
+};
+
 struct uftrace_mmap {
 	struct uftrace_mmap *next;
+	struct uftrace_module *mod;
 	uint64_t start;
 	uint64_t end;
 	char prot[4];
@@ -92,6 +101,9 @@ struct symtabs {
 	uint64_t exec_base;
 	struct uftrace_mmap *maps;
 };
+
+#define for_each_map(symtabs, map)					\
+	for ((map) = (symtabs)->maps; (map) != NULL; (map) = (map)->next)
 
 /* addr should be from fstack or something other than rstack (rec) */
 static inline bool is_kernel_address(struct symtabs *symtabs, uint64_t addr)
@@ -125,9 +137,10 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
 
 void load_module_symtabs(struct symtabs *symtabs);
-void save_module_symtabs(struct symtabs *symtabs);
-void load_dlopen_symtabs(struct symtabs *symtabs, unsigned long offset,
-			 const char *filename);
+struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+					   const char *mod_name);
+void save_module_symtabs(const char *dirname);
+void unload_module_symtabs(void);
 
 enum uftrace_trace_type {
 	TRACE_ERROR   = -1,
@@ -159,6 +172,8 @@ int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);
 
 struct symtab * get_kernel_symtab(void);
+struct uftrace_module * get_kernel_module(void);
+
 int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     uint64_t offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,

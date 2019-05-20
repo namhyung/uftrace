@@ -251,8 +251,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
-		      struct uftrace_trigger *tr, bool exact_match,
-		      struct debug_info *dinfo,
+		      struct uftrace_trigger *tr, struct uftrace_mmap *map,
+		      bool exact_match, struct debug_info *dinfo,
 		      struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
@@ -273,15 +273,19 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 			tr->flags &= ~TRIGGER_FL_RETVAL;
 	}
 
-	if (tr->flags == 0 && orig_flags) {
+	/* remove unnecessary filters might be set by --auto-args */
+	if (tr->flags == TRIGGER_FL_AUTO_ARGS) {
 		/* restored for regex filter */
 		tr->flags = orig_flags;
 		return 0;
 	}
 
-	pr_dbg2("add filter for %s\n", filter->name);
+	pr_dbg2("add filter for %s (flags = %lx)\n", filter->name, tr->flags);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
+
+	filter->start += map->start;
+	filter->end   += map->start;
 
 	while (*p) {
 		parent = *p;
@@ -900,13 +904,15 @@ out:
 	return ret;
 }
 
-static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
+static int add_trigger_entry(struct rb_root *root,
 			     struct uftrace_pattern *patt,
 			     struct uftrace_trigger *tr,
-			     struct debug_info *dinfo,
+			     struct uftrace_mmap *map,
 			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
+	struct symtab *symtab = &map->mod->symtab;
+	struct debug_info *dinfo = &map->mod->dinfo;
 	struct sym *sym;
 	unsigned i;
 	int ret = 0;
@@ -917,11 +923,14 @@ static int add_trigger_entry(struct rb_root *root, struct symtab *symtab,
 		if (!match_filter_pattern(patt, sym->name))
 			continue;
 
+		if (setting->plt_only && sym->type != ST_PLT_FUNC)
+			continue;
+
 		filter.name  = sym->name;
 		filter.start = sym->addr;
 		filter.end   = sym->addr + sym->size;
 
-		ret += add_filter(root, &filter, tr,
+		ret += add_filter(root, &filter, tr, map,
 				  patt->type == PATT_SIMPLE, dinfo, setting);
 	}
 
@@ -979,36 +988,27 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		free(name);
 
 		if (module) {
-			/* is it the main executable? */
-			if (!strncmp(module, basename(symtabs->filename),
-				     strlen(module))) {
-				ret += add_trigger_entry(root, &symtabs->symtab,
-							 &patt, &tr,
-							 &symtabs->dinfo,
+			if (!strcasecmp(module, "PLT")) {
+				setting->plt_only = true;
+				ret += add_trigger_entry(root, &patt, &tr,
+							 symtabs->maps,
 							 setting);
-				ret += add_trigger_entry(root, &symtabs->dsymtab,
-							 &patt, &tr,
-							 &symtabs->dinfo,
-							 setting);
-			}
-			else if (!strcasecmp(module, "PLT")) {
-				ret = add_trigger_entry(root, &symtabs->dsymtab,
-							&patt, &tr,
-							&symtabs->dinfo,
-							setting);
+				setting->plt_only = false;
 			}
 			else if (has_kernel_opt(module)) {
-				ret = add_trigger_entry(root, get_kernel_symtab(),
-							&patt, &tr,
-							&symtabs->dinfo,
+				struct uftrace_mmap kernel_map = {
+					.mod = get_kernel_module(),
+				};
+
+				ret = add_trigger_entry(root, &patt, &tr,
+							&kernel_map,
 							setting);
 			}
 			else {
 				map = find_map_by_name(symtabs, module);
-				if (map) {
-					ret = add_trigger_entry(root, &map->symtab,
-								&patt, &tr,
-								&map->dinfo,
+				if (map && map->mod) {
+					ret = add_trigger_entry(root, &patt,
+								&tr, map,
 								setting);
 				}
 			}
@@ -1016,22 +1016,13 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			free(module);
 		}
 		else {
-			/* check main executable's symtab first */
-			ret += add_trigger_entry(root, &symtabs->symtab,
-						 &patt, &tr, &symtabs->dinfo,
-						 setting);
-			ret += add_trigger_entry(root, &symtabs->dsymtab,
-						 &patt, &tr, &symtabs->dinfo,
-						 setting);
+			for_each_map(symtabs, map) {
+				/* some modules don't have symbol table */
+				if (map->mod == NULL)
+					continue;
 
-			/* and then find all module's symtabs */
-			map = symtabs->maps;
-			while (map) {
-				ret += add_trigger_entry(root, &map->symtab,
-							 &patt, &tr,
-							 &map->dinfo,
-							 setting);
-				map = map->next;
+				ret += add_trigger_entry(root, &patt, &tr,
+							 map, setting);
 			}
 		}
 
@@ -1220,16 +1211,25 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 		{ 0x4000, 0x1000, ST_GLOBAL_FUNC, "foo::baz2" },
 		{ 0x5000, 0x1000, ST_GLOBAL_FUNC, "foo::baz3" },
 		{ 0x6000, 0x1000, ST_GLOBAL_FUNC, "foo::~foo" },
+		{ 0x21000,0x1000, ST_PLT_FUNC, "malloc" },
+		{ 0x22000,0x1000, ST_PLT_FUNC, "free" },
 	};
-	static struct sym dsyms[] = {
-		{ 0x21000, 0x1000, ST_PLT_FUNC, "malloc" },
-		{ 0x22000, 0x1000, ST_PLT_FUNC, "free" },
+	static struct uftrace_module mod = {
+		.symtab = {
+			.sym    = syms,
+			.nr_sym = ARRAY_SIZE(syms),
+		},
+	};
+	static struct uftrace_mmap map = {
+		.mod   = &mod,
+		.start = 0x0,
+		.end   = 0x24000,
 	};
 
-	stabs->symtab.sym = syms;
-	stabs->symtab.nr_sym = ARRAY_SIZE(syms);
-	stabs->dsymtab.sym = dsyms;
-	stabs->dsymtab.nr_sym = ARRAY_SIZE(dsyms);
+	mod.symtab.sym = syms;
+	mod.symtab.nr_sym = ARRAY_SIZE(syms);
+
+	stabs->maps = &map;
 	stabs->loaded = true;
 	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }
