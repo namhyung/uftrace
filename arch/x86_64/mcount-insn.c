@@ -131,6 +131,13 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 			if (insn_check->addr <= target &&
 			    target < insn_check->addr + insn_check->size)
 				return false;
+
+			/* disallow jump to middle of other function */
+			if (insn_check->addr > target ||
+			    target >= insn_check->addr + insn_check->func_size) {
+				/* also mark the target function as invalid */
+				return !add_bad_jump(mdi, insn->address, target);
+			}
 			break;
 		case X86_OP_MEM:
 			/* TODO */
@@ -154,6 +161,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		.addr		= sym->addr + mdi->map->start,
 		.func_size	= sym->size,
 	};
+
+	if (find_bad_jump(mdi, insn_check.addr))
+		return ret;
 
 	count = cs_disasm(disasm->engine, (void *)insn_check.addr, sym->size,
 			  insn_check.addr, 0, &insn);

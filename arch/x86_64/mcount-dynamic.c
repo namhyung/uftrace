@@ -40,6 +40,7 @@ struct arch_dynamic_info {
 	enum mcount_x86_dynamic_type	type;
 	struct xray_instr_map		*xrmap;
 	unsigned			xrmap_count;
+	struct list_head		bad_targets;  /* for non-local jumps */
 };
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -157,6 +158,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	unsigned i = 0;
 
 	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+	INIT_LIST_HEAD(&adi->bad_targets);
 
 	if (elf_init(mdi->map->libname, &elf) < 0)
 		goto out;
@@ -409,6 +411,52 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 				origin_code_addr + origin_code_size);
 }
 
+struct dynamic_bad_symbol * find_bad_jump(struct mcount_dynamic_info *mdi,
+					  unsigned long addr)
+{
+	struct sym *sym;
+	struct arch_dynamic_info *adi = mdi->arch;
+	struct dynamic_bad_symbol *badsym;
+
+	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
+	if (sym == NULL)
+		return NULL;
+
+	list_for_each_entry(badsym, &adi->bad_targets, list) {
+		if (badsym->sym == sym)
+			return badsym;
+	}
+
+	return NULL;
+}
+
+bool add_bad_jump(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		  unsigned long target)
+{
+	struct sym *sym;
+	struct arch_dynamic_info *adi = mdi->arch;
+	struct dynamic_bad_symbol *badsym;
+
+	if (find_bad_jump(mdi, target))
+		return true;
+
+	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
+	if (sym == NULL)
+		return true;
+
+	/* only care about jumps to the middle of a function */
+	if (sym->addr + mdi->map->start == target)
+		return false;
+
+	pr_dbg2("bad jump: %s:%lx to %lx\n", sym ? sym->name : "<unknown>",
+		callsite - mdi->map->start, target - mdi->map->start);
+
+	badsym = xmalloc(sizeof(*badsym));
+	badsym->sym = sym;
+
+	list_add_tail(&badsym->list, &adi->bad_targets);
+	return true;
+}
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm)
