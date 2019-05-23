@@ -7,6 +7,14 @@
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
 
+struct disasm_check_data {
+	uintptr_t		addr;
+	uint32_t		func_size;
+	uint32_t		patch_size;
+	uint32_t		copy_size;
+	uint32_t		size;
+};
+
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &disasm->engine) != CS_ERR_OK) {
@@ -86,8 +94,9 @@ static bool check_instrumentable(struct mcount_disasm_engine *disasm,
 	return status;
 }
 
-static bool check_unsupported(struct mcount_disasm_engine *disasm,
-			      cs_insn *insn, uintptr_t addr, uint32_t size)
+static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn,
+			      struct mcount_dynamic_info *mdi,
+			      struct disasm_check_data *insn_check)
 {
 	int i;
 	cs_x86 *x86;
@@ -119,7 +128,8 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 			target = op->imm;
 
 			/* disallow (back) jump to the prologue */
-			if (addr <= target && target < addr + size)
+			if (insn_check->addr <= target &&
+			    target < insn_check->addr + insn_check->size)
 				return false;
 			break;
 		case X86_OP_MEM:
@@ -134,24 +144,29 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 }
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       uintptr_t addr, uint32_t size)
+		       struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	cs_insn *insn = NULL;
-	uint32_t code_size = 0;
 	uint32_t count, i;
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	int ret = INSTRUMENT_FAILED;
+	struct disasm_check_data insn_check = {
+		.addr		= sym->addr + mdi->map->start,
+		.func_size	= sym->size,
+	};
 
-	count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0, &insn);
+	count = cs_disasm(disasm->engine, (void *)insn_check.addr, sym->size,
+			  insn_check.addr, 0, &insn);
 	if (unlikely(count == 0) &&
-	    !memcmp((void *)addr, endbr64, sizeof(endbr64))) {
+	    !memcmp((void *)insn_check.addr, endbr64, sizeof(endbr64))) {
 		/* old version of capstone doesn't recognize ENDBR64 insn */
-		addr += sizeof(endbr64);
-		size -= sizeof(endbr64);
-		code_size += sizeof(endbr64);
+		insn_check.addr += sizeof(endbr64);
+		insn_check.func_size -= sizeof(endbr64);
+		insn_check.copy_size += sizeof(endbr64);
 
-		count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0,
-				  &insn);
+		count = cs_disasm(disasm->engine, (void *)insn_check.addr,
+				  insn_check.func_size, insn_check.addr,
+				  insn_check.addr, &insn);
 	}
 
 	for (i = 0; i < count; i++) {
@@ -161,15 +176,15 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 			goto out;
 		}
 
-		code_size += insn[i].size;
-		if (code_size >= CALL_INSN_SIZE) {
-			ret = code_size;
+		insn_check.copy_size += insn[i].size;
+		if (insn_check.copy_size >= CALL_INSN_SIZE) {
+			ret = insn_check.copy_size;
 			break;
 		}
 	}
 
 	while (++i < count) {
-		if (!check_unsupported(disasm, &insn[i], addr, code_size)) {
+		if (!check_unsupported(disasm, &insn[i], mdi, &insn_check)) {
 			ret = INSTRUMENT_FAILED;
 			break;
 		}
@@ -184,7 +199,7 @@ out:
 #else /* HAVE_LIBCAPSTONE */
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       uintptr_t addr, uint32_t size)
+		       struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	return INSTRUMENT_FAILED;
 }

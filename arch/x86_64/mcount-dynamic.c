@@ -158,7 +158,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
 
-	if (elf_init(mdi->mod_name, &elf) < 0)
+	if (elf_init(mdi->map->libname, &elf) < 0)
 		goto out;
 
 	elf_for_each_shdr(&elf, &iter) {
@@ -174,7 +174,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	/* check first few functions have fentry signature */
 	for (i = 0; i < symtab->nr_sym; i++) {
 		struct sym *sym = &symtab->sym[i];
-		void *code_addr = (void *)sym->addr + mdi->sym_base;
+		void *code_addr = (void *)sym->addr + mdi->map->start;
 
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
@@ -211,7 +211,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
 	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr + mdi->sym_base;
+	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
@@ -222,7 +222,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, sym->addr + mdi->sym_base);
+	target_addr = get_target_addr(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
 
@@ -298,7 +298,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
-	uint64_t sym_addr = sym->addr + mdi->sym_base;
+	uint64_t sym_addr = sym->addr + mdi->map->start;
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < adi->xrmap_count; i++) {
@@ -409,9 +409,6 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 				origin_code_addr + origin_code_size);
 }
 
-/* see mcount-insn.c */
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       uintptr_t addr, uint32_t size);
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm)
@@ -420,9 +417,9 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
 	struct mcount_orig_insn *orig;
-	uint64_t sym_addr = sym->addr + mdi->sym_base;
+	uint64_t sym_addr = sym->addr + mdi->map->start;
 
-	instr_size = disasm_check_insns(disasm, sym_addr, sym->size);
+	instr_size = disasm_check_insns(disasm, mdi, sym);
 	if (instr_size < CALL_INSN_SIZE)
 		return instr_size;
 

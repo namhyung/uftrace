@@ -392,12 +392,10 @@ void save_watchpoint(struct mcount_thread_data *mtdp,
 
 struct mcount_dynamic_info {
 	struct mcount_dynamic_info *next;
-	char *mod_name;
+	struct uftrace_mmap *map;
 	unsigned long base_addr;
 	unsigned long text_addr;
-	unsigned long sym_base;
 	int text_size;
-	int nr_symbols;
 	unsigned long trampoline;
 	void *arch;
 };
