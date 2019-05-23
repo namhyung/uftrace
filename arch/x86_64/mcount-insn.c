@@ -161,9 +161,14 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		.addr		= sym->addr + mdi->map->start,
 		.func_size	= sym->size,
 	};
+	struct dynamic_bad_symbol *badsym;
 
-	if (find_bad_jump(mdi, insn_check.addr))
+	badsym = find_bad_jump(mdi, insn_check.addr);
+	if (badsym != NULL) {
+		list_del(&badsym->list);
+		free(badsym);
 		return ret;
+	}
 
 	count = cs_disasm(disasm->engine, (void *)insn_check.addr, sym->size,
 			  insn_check.addr, 0, &insn);

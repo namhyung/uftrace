@@ -139,6 +139,11 @@ __weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	mdi->arch = NULL;
 }
 
+__weak void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+					struct mcount_disasm_engine *disasm)
+{
+}
+
 __weak void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
 }
@@ -332,6 +337,7 @@ static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
 	while (mdi) {
 		tmp = mdi->next;
 
+		mcount_arch_dynamic_recover(mdi, disasm);
 		mcount_cleanup_trampoline(mdi);
 		free(mdi);
 
