@@ -541,6 +541,165 @@ void apply_diff_policy(char *policy)
 	strv_free(&strv);
 }
 
+/* task sort key support */
+struct sort_task_key {
+	const char *name;
+	int (*cmp)(struct uftrace_data *handle, struct uftrace_report_node *a,
+		   struct uftrace_report_node *b);
+	struct list_head list;
+};
+
+#define TASK_KEY(_name, _field)						\
+static int task_cmp_##_name(struct uftrace_data *handle,		\
+			    struct uftrace_report_node *a,		\
+			    struct uftrace_report_node *b)		\
+{									\
+	if (a->_field == b->_field)					\
+		return 0;						\
+	return a->_field > b->_field ? 1 : -1;				\
+}									\
+static struct sort_task_key task_##_name = {				\
+	.name = #_name,							\
+	.cmp = task_cmp_##_name,					\
+	.list = LIST_HEAD_INIT(task_##_name.list),			\
+}
+
+TASK_KEY(total, total.sum);
+TASK_KEY(self, self.sum);
+TASK_KEY(func, call);
+
+static int cmp_task_tid(struct uftrace_data *handle,
+			struct uftrace_report_node *a,
+			struct uftrace_report_node *b)
+{
+	return strcmp(b->name, a->name);
+}
+
+static struct sort_task_key task_tid = {
+	.name = "tid",
+	.cmp  = cmp_task_tid,
+	.list = LIST_HEAD_INIT(task_tid.list),
+};
+
+static int cmp_task_name(struct uftrace_data *handle,
+			 struct uftrace_report_node *a,
+			 struct uftrace_report_node *b)
+{
+	int tid_a = strtol(a->name, NULL, 0);
+	int tid_b = strtol(b->name, NULL, 0);
+	struct uftrace_task *task_a = find_task(&handle->sessions, tid_a);
+	struct uftrace_task *task_b = find_task(&handle->sessions, tid_b);
+
+	if (task_a == NULL || task_b == NULL)
+		return !task_a ? (!task_b ? 0 : 1) : -1;
+
+	return strcmp(task_b->comm, task_a->comm);
+}
+
+static struct sort_task_key task_name = {
+	.name = "name",
+	.cmp  = cmp_task_name,
+	.list = LIST_HEAD_INIT(task_name.list),
+};
+
+static struct sort_task_key * all_task_keys[] = {
+	&task_total,
+	&task_self,
+	&task_func,
+	&task_tid,
+	&task_name,
+};
+
+/* list of used sort keys for diff */
+static LIST_HEAD(task_keys);
+
+int report_setup_task(const char *key_str)
+{
+	struct strv keys = STRV_INIT;
+	char *k;
+	unsigned i;
+	int j;
+	int count = 0;
+
+	INIT_LIST_HEAD(&task_keys);
+
+	strv_split(&keys, key_str, ",");
+
+	strv_for_each(&keys, k, j) {
+		for (i = 0; i < ARRAY_SIZE(all_task_keys); i++) {
+			struct sort_task_key *sort_key = all_task_keys[i];
+
+			if (strcmp(k, sort_key->name))
+				continue;
+
+			list_add_tail(&sort_key->list, &task_keys);
+			count++;
+			break;
+		}
+
+		if (i == ARRAY_SIZE(all_task_keys)) {
+			count = -1;
+			break;
+		}
+	}
+	strv_free(&keys);
+
+	return count;
+}
+
+static int cmp_task(struct uftrace_data *handle, struct uftrace_report_node *a,
+		    struct uftrace_report_node *b)
+{
+	int ret;
+	struct sort_task_key *key;
+
+	list_for_each_entry(key, &task_keys, list) {
+		ret = key->cmp(handle, a, b);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static void insert_task(struct uftrace_data *handle, struct rb_root *root,
+			struct uftrace_report_node *node)
+{
+	struct uftrace_report_node *iter;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, typeof(*iter), sort_link);
+
+		if (cmp_task(handle, iter, node) < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	rb_link_node(&node->sort_link, parent, p);
+	rb_insert_color(&node->sort_link, root);
+}
+
+void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
+		       struct rb_root *sort_root)
+{
+	struct rb_node *n = rb_first(name_root);
+
+	*sort_root = RB_ROOT;
+
+	while (n && !uftrace_done) {
+		struct uftrace_report_node *node;
+
+		/* keep node in the name tree */
+		node = rb_entry(n, typeof(*node), name_link);
+
+		insert_task(handle, sort_root, node);
+		n = rb_next(n);
+	}
+}
+
 #ifdef UNIT_TEST
 
 #define TEST_NODES  3

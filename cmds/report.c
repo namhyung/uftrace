@@ -293,6 +293,28 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 	}
 }
 
+static void adjust_task_runtime(struct uftrace_data *handle,
+				struct rb_root *root)
+{
+	struct uftrace_task *t;
+	struct uftrace_report_node *node;
+	struct rb_node *n = rb_first(root);
+	int tid;
+
+	while (n != NULL) {
+		node = rb_entry(n, struct uftrace_report_node, name_link);
+		n = rb_next(n);
+
+		tid = strtol(node->name, NULL, 0);
+		t = find_task(&handle->sessions, tid);
+
+		/* total = runtime, self = cputime (= total - idle) */
+		memcpy(&node->total, &node->self, sizeof(node->self));
+		memset(&node->self, 0, sizeof(node->self));
+		node->self.sum = node->total.sum - t->time.idle;
+	}
+}
+
 static void print_thread(struct uftrace_report_node *node, void *arg)
 {
 	int pid;
@@ -303,9 +325,9 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 	t = find_task(&handle->sessions, pid);
 
 	pr_out("  ");
-	print_time_unit(node->self.sum);
+	print_time_unit(node->total.sum);
 	pr_out("  ");
-	print_time_unit(node->self.sum - t->time.idle);
+	print_time_unit(node->self.sum);
 	pr_out("  %10lu  %6d  %-s\n", node->call, pid, t->comm);
 }
 
@@ -313,6 +335,7 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
+	struct rb_root sort_tree = RB_ROOT;
 	struct uftrace_task_reader *task;
 	const char t_format[] = "  %10.10s  %10.10s  %10.10s  %6.6s  %-16.16s\n";
 	const char line[] = "=================================================";
@@ -358,11 +381,13 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 		return;
 
 	add_remaining_task_fstack(handle, &task_tree);
+	adjust_task_runtime(handle, &task_tree);
+	report_sort_tasks(handle, &task_tree, &sort_tree);
 
 	pr_out(t_format, "Total time", "Self time", "Num funcs", "TID", "Task name");
 	pr_out(t_format, line, line, line, line, line);
 
-	print_and_delete(&task_tree, false, handle, print_thread);
+	print_and_delete(&sort_tree, true, handle, print_thread);
 }
 
 struct diff_data {
@@ -640,13 +665,23 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	sort_keys = convert_sort_keys(opts->sort_keys);
-	if (opts->diff)
+	if (opts->diff) {
+		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_diff(sort_keys);
-	else
+	}
+	else if (opts->show_task) {
+		if (opts->sort_keys == NULL)
+			sort_keys = xstrdup("total");
+		else
+			sort_keys = xstrdup(opts->sort_keys);
+		ret = report_setup_task(sort_keys);
+	}
+	else {
+		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_sort(sort_keys);
-
+	}
 	free(sort_keys);
+
 	if (ret < 0) {
 		pr_use("invalid sort key: %s\n", opts->sort_keys);
 		return -1;
