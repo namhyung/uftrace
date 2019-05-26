@@ -242,64 +242,71 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 	print_and_delete(&sort_root, true, NULL, print_function);
 }
 
-static struct sym * find_task_sym(struct uftrace_data *handle,
-				  struct uftrace_task_reader *task,
-				  struct uftrace_record *rstack)
+static void add_remaining_task_fstack(struct uftrace_data *handle,
+				      struct rb_root *root)
 {
-	struct sym *sym;
-	struct uftrace_task_reader *main_task = &handle->tasks[0];
-	struct uftrace_session *sess = find_task_session(&handle->sessions,
-							 task->t, rstack->time);
-	struct symtabs *symtabs = &sess->symtabs;
+	struct uftrace_task_reader *task;
+	struct fstack *fstack;
+	char buf[10];
+	int i;
 
-	if (task->func)
-		return task->func;
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
 
-	if (sess == NULL) {
-		pr_dbg("cannot find session for tid %d\n", task->tid);
-		return NULL;
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		last_time = task->timestamp_last;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			if (fstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				if (task->t->time.stamp) {
+					task->t->time.idle += last_time -
+						fstack->total_time;
+				}
+				task->t->time.stamp = 0;
+			}
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			snprintf(buf, sizeof(buf), "%d", task->tid);
+			insert_node(root, task, buf);
+		}
 	}
-
-	if (is_kernel_record(task, rstack))
-		return NULL;
-
-	if (task == main_task) {
-		/* This is the main thread */
-		struct uftrace_module *mod = symtabs->maps->mod;
-
-		task->func = sym = find_symname(&mod->symtab, "main");
-		if (sym)
-			return sym;
-
-		pr_dbg("no main thread???\n");
-		/* fall through */
-	}
-
-	task->func = sym = find_symtabs(symtabs, rstack->addr);
-	if (sym == NULL)
-		pr_dbg("cannot find symbol for %lx\n", rstack->addr);
-
-	return sym;
 }
 
 static void print_thread(struct uftrace_report_node *node, void *arg)
 {
 	int pid;
-	const char *symname;
-	struct uftrace_task_reader *task;
+	struct uftrace_task *t;
 	struct uftrace_data *handle = arg;
 
 	pid = strtol(node->name, NULL, 10);
-	task = get_task_handle(handle, pid);
+	t = find_task(&handle->sessions, pid);
 
-	if (task == NULL || task->func == NULL)
-		symname = "unknown";
-	else
-		symname = task->func->name;
-
-	pr_out("  %5d  ", pid);
+	pr_out("  ");
 	print_time_unit(node->self.sum);
-	pr_out("  %10lu  %-s\n", node->call, symname);
+	pr_out("  ");
+	print_time_unit(node->self.sum - t->time.idle);
+	pr_out("  %10lu  %6d  %-s\n", node->call, pid, t->comm);
 }
 
 static void report_task(struct uftrace_data *handle, struct opts *opts)
@@ -307,18 +314,14 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
 	struct uftrace_task_reader *task;
-	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-.*s\n";
+	const char t_format[] = "  %10.10s  %10.10s  %10.10s  %6.6s  %-16.16s\n";
 	const char line[] = "=================================================";
 	char buf[10];
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
-		if (rstack->type == UFTRACE_ENTRY) {
-			if (task->func == NULL)
-				find_task_sym(handle, task, rstack);
-			continue;
-		}
-		if (rstack->type == UFTRACE_LOST)
+		if (rstack->type == UFTRACE_ENTRY ||
+		    rstack->type == UFTRACE_LOST)
 			continue;
 
 		if (!fstack_check_opts(task, opts))
@@ -326,6 +329,25 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 
 		if (!fstack_check_filter(task))
 			continue;
+
+		task->timestamp_last = rstack->time;
+
+		if (rstack->type == UFTRACE_EVENT) {
+			if (rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+				task->t->time.stamp = rstack->time;
+				continue;
+			}
+			else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				if (task->t->time.stamp) {
+					task->t->time.idle += rstack->time -
+						task->t->time.stamp;
+				}
+				task->t->time.stamp = 0;
+			}
+			else {
+				continue;
+			}
+		}
 
 		/* UFTRACE_EXIT */
 		snprintf(buf, sizeof(buf), "%d", task->tid);
@@ -335,8 +357,10 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	pr_out(t_format, "TID", "Run time", "Num funcs", maxlen, "Start function");
-	pr_out(t_format, line, line, line, maxlen, line);
+	add_remaining_task_fstack(handle, &task_tree);
+
+	pr_out(t_format, "Total time", "Self time", "Num funcs", "TID", "Task name");
+	pr_out(t_format, line, line, line, line, line);
 
 	print_and_delete(&task_tree, false, handle, print_thread);
 }
