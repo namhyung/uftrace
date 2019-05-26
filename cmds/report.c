@@ -86,9 +86,6 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 		while (--task->stack_count >= 0) {
 			fstack = &task->func_stack[task->stack_count];
 
-			if (fstack->addr == 0)
-				continue;
-
 			if (fstack->total_time > last_time)
 				continue;
 
@@ -99,7 +96,11 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			find_insert_node(root, task, last_time, fstack->addr);
+			if (fstack->addr == EVENT_ID_PERF_SCHED_IN)
+				insert_node(root, task, sched_sym.name);
+			else
+				find_insert_node(root, task, last_time,
+						 fstack->addr);
 		}
 	}
 }
