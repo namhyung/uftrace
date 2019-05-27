@@ -315,6 +315,8 @@ struct plthook_data {
 	/* array of function that needs special care (see above) */
 	struct plthook_special_func	*special_funcs;
 	int				nr_special;
+	/* architecture-specific info */
+	void				*arch;
 };
 
 unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx,

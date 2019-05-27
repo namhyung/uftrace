@@ -149,7 +149,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 			overwrite_pltgot(pd, got_idx, (void *)plthook_addr);
 			pr_dbg2("restore GOT[%d] from \"%s\"(%#lx) to PLT(base + %#lx)\n",
 				got_idx, sym->name, resolved_addr,
-				sym->name, plthook_addr - pd->base_addr);
+				plthook_addr - pd->base_addr);
 		}
 	}
 }
@@ -162,6 +162,12 @@ __weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf
 						    unsigned long offset)
 {
 	return NULL;
+}
+
+__weak void mcount_arch_plthook_setup(struct plthook_data *pd,
+				      struct uftrace_elf_data *elf)
+{
+	pd->arch = NULL;
 }
 
 static int find_got(struct uftrace_elf_data *elf,
@@ -233,6 +239,7 @@ static int find_got(struct uftrace_elf_data *elf,
 	pd->special_funcs = NULL;
 	pd->nr_special    = 0;
 
+	mcount_arch_plthook_setup(pd, elf);
 	list_add_tail(&pd->list, &plthook_modules);
 
 	if (plt_found) {
