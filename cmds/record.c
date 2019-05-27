@@ -1432,7 +1432,6 @@ static void load_session_symbols(struct opts *opts)
 		load_module_symtabs(&symtabs);
 
 		delete_session_map(&symtabs);
-		unload_symtabs(&symtabs);
 	}
 
 	free(map_list);

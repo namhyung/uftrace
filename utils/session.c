@@ -100,7 +100,6 @@ void delete_session_map(struct symtabs *symtabs)
 	map = symtabs->maps;
 	while (map) {
 		tmp = map->next;
-		unload_symtab(&map->symtab);
 		free(map);
 		map = tmp;
 	}
@@ -328,7 +327,6 @@ void delete_session(struct uftrace_session *sess)
 	}
 
 	finish_debug_info(&sess->symtabs);
-	unload_symtabs(&sess->symtabs);
 	delete_session_map(&sess->symtabs);
 	uftrace_cleanup_filter(&sess->filters);
 	uftrace_cleanup_filter(&sess->fixups);

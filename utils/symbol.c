@@ -173,7 +173,7 @@ out:
 	return shebang;
 }
 
-void unload_symtab(struct symtab *symtab)
+static void unload_symtab(struct symtab *symtab)
 {
 	size_t i;
 
@@ -188,15 +188,6 @@ void unload_symtab(struct symtab *symtab)
 	symtab->nr_sym = 0;
 	symtab->sym = NULL;
 	symtab->sym_names = NULL;
-}
-
-void unload_symtabs(struct symtabs *symtabs)
-{
-	pr_dbg2("unload symbol tables\n");
-	unload_symtab(&symtabs->symtab);
-	unload_symtab(&symtabs->dsymtab);
-
-	symtabs->loaded = false;
 }
 
 static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
@@ -834,49 +825,6 @@ struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 			return map;
 	}
 	return NULL;
-}
-
-void load_symtabs(struct symtabs *symtabs, const char *dirname,
-		  const char *filename)
-{
-	uint64_t offset = 0;
-
-	if (symtabs->loaded)
-		return;
-
-	symtabs->dirname = dirname;
-	symtabs->filename = filename;
-
-	if (symtabs->flags & SYMTAB_FL_ADJ_OFFSET)
-		offset = symtabs->exec_base;
-
-	/* try .sym files first */
-	if (dirname != NULL && (symtabs->flags & SYMTAB_FL_USE_SYMFILE)) {
-		char *symfile = NULL;
-
-		xasprintf(&symfile, "%s/%s.sym", dirname, basename(filename));
-		if (access(symfile, F_OK) == 0)
-			load_symbol_file(symtabs, symfile, offset);
-
-		free(symfile);
-	}
-
-	/*
-	 * skip loading unnecessary symbols (when no filter is used in
-	 * the libmcount).  but it still needs to load dynamic symbols
-	 * for plthook anyway.
-	 */
-	if (symtabs->symtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_NORMAL)) {
-		load_symtab(&symtabs->symtab, filename, offset, symtabs->flags);
-		update_symtab_using_dynsym(&symtabs->symtab, filename, offset,
-					   symtabs->flags);
-	}
-	if (symtabs->dsymtab.nr_sym == 0 &&
-	    !(symtabs->flags & SYMTAB_FL_SKIP_DYNAMIC))
-		load_dynsymtab(&symtabs->dsymtab, filename, offset, symtabs->flags);
-
-	symtabs->loaded = true;
 }
 
 static int load_module_symbol_file(struct symtab *symtab, const char *symfile,

@@ -124,11 +124,7 @@ extern struct sym sched_sym;
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_sym(struct symtab *symtab, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
-void load_symtabs(struct symtabs *symtabs, const char *dirname,
-		  const char *filename);
 void print_symtab(struct symtab *symtab);
-void unload_symtab(struct symtab *symtab);
-void unload_symtabs(struct symtabs *symtabs);
 
 int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			      struct uftrace_elf_data *elf,
