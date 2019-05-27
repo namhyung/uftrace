@@ -19,6 +19,7 @@ struct symtabs;
 
 struct debug_file {
 	struct list_head	list;
+	struct rb_node		node;
 	char			*name;
 };
 
@@ -34,7 +35,7 @@ struct debug_info {
 	struct rb_root		args;
 	struct rb_root		rets;
 	struct rb_root		enums;
-	struct list_head	files;
+	struct rb_root		files;
 	struct debug_location	*locs;
 	int			nr_locs;
 	int			nr_locs_used;

@@ -128,20 +128,50 @@ static struct debug_file * get_debug_file(struct debug_info *dinfo,
 					  const char *filename)
 {
 	struct debug_file *df;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &dinfo->files.rb_node;
+	int ret;
 
 	if (filename == NULL)
 		return NULL;
 
-	list_for_each_entry(df, &dinfo->files, list) {
-		if (!strcmp(df->name, filename))
+	while (*p) {
+		parent = *p;
+		df = rb_entry(parent, struct debug_file, node);
+
+		ret = strcmp(df->name, filename);
+
+		if (ret == 0)
 			return df;
+
+		if (ret < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
 	}
 
 	df = xmalloc(sizeof(*df));
 	df->name = xstrdup(filename);
-	list_add(&df->list, &dinfo->files);
+
+	rb_link_node(&df->node, parent, p);
+	rb_insert_color(&df->node, &dinfo->files);
 
 	return df;
+}
+
+static void release_debug_file(struct rb_root *root)
+{
+	struct debug_file *df;
+	struct rb_node *node;
+
+	while (!RB_EMPTY_ROOT(root)) {
+		node = rb_first(root);
+		df = rb_entry(node, typeof(*df), node);
+
+		rb_erase(node, root);
+		free(df->name);
+		free(df);
+	}
 }
 
 /*
@@ -1060,27 +1090,20 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
-	INIT_LIST_HEAD(&dinfo->files);
+	dinfo->files = RB_ROOT;
 
 	return setup_dwarf_info(filename, dinfo, offset, force);
 }
 
 static void release_debug_info(struct debug_info *dinfo)
 {
-	struct debug_file *df, *tmp;
-
 	free_debug_entry(&dinfo->args);
 	free_debug_entry(&dinfo->rets);
 	release_enum_def(&dinfo->enums);
+	release_debug_file(&dinfo->files);
 
 	free(dinfo->locs);
 	dinfo->locs = NULL;
-
-	list_for_each_entry_safe(df, tmp, &dinfo->files, list) {
-		list_del(&df->list);
-		free(df->name);
-		free(df);
-	}
 
 	release_dwarf_info(dinfo);
 }
@@ -1306,7 +1329,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
-	INIT_LIST_HEAD(&dinfo->files);
+	dinfo->files = RB_ROOT;
 	dinfo->nr_locs = symtab->nr_sym;
 	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 

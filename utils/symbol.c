@@ -1067,7 +1067,6 @@ struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
 	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
 	strcpy(m->name, mod_name);
 	load_module_symbol(symtabs, m);
-	INIT_LIST_HEAD(&m->dinfo.files);
 
 	rb_link_node(&m->node, parent, p);
 	rb_insert_color(&m->node, &modules);
