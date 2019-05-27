@@ -1107,6 +1107,12 @@ void load_module_symtabs(struct symtabs *symtabs)
 	bool check_cpp = false;
 	bool needs_cpp = false;
 
+	if (flags & SYMTAB_FL_USE_SYMFILE) {
+		/* just use the symfile if it's already saved */
+		check_cpp = true;
+		needs_cpp = true;
+	}
+
 	for_each_map(symtabs, map) {
 		struct symtab dsymtab = {};
 		const char *libname = basename(map->libname);
