@@ -1150,7 +1150,8 @@ int command_info(int argc, char *argv[], struct opts *opts)
 
 	if (opts->print_symtab) {
 		struct symtabs symtabs = {
-			.loaded = false,
+			.dirname = opts->dirname,
+			.filename = opts->exename,
 			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
 		};
 
@@ -1159,9 +1160,9 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			return -1;
 		}
 
-		load_symtabs(&symtabs, opts->dirname, opts->exename);
-		print_symtabs(&symtabs);
-		unload_symtabs(&symtabs);
+		load_module_symtabs(&symtabs);
+		print_symtab(&symtabs.maps->mod->symtab);
+		unload_module_symtabs();
 		goto out;
 	}
 

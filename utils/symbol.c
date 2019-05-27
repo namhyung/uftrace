@@ -1827,34 +1827,33 @@ char *symbol_getname_offset(struct sym *sym, uint64_t addr)
 	return name;
 }
 
-void print_symtabs(struct symtabs *symtabs)
+void print_symtab(struct symtab *symtab)
 {
 	size_t i;
-	struct symtab *stab = &symtabs->symtab;
-	struct symtab *dtab = &symtabs->dsymtab;
-	char *name;
 
 	pr_out("Normal symbols\n");
 	pr_out("==============\n");
-	for (i = 0; i < stab->nr_sym; i++) {
-		struct sym *sym = &stab->sym[i];
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
 
-		name = symbol_getname(sym, sym->addr);
+		if (sym->type == ST_PLT_FUNC)
+			continue;
+
 		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
-		       i, sym->addr, name, sym->size);
-		symbol_putname(sym, name);
+		       i, sym->addr, sym->name, sym->size);
 	}
 
 	pr_out("\n\n");
 	pr_out("Dynamic symbols\n");
 	pr_out("===============\n");
-	for (i = 0; i < dtab->nr_sym; i++) {
-		struct sym *sym = &dtab->sym[i];
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
 
-		name = symbol_getname(sym, sym->addr);
+		if (sym->type != ST_PLT_FUNC)
+			continue;
+
 		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
-		       i, sym->addr, name, sym->size);
-		symbol_putname(sym, name);
+		       i, sym->addr, sym->name, sym->size);
 	}
 }
 
