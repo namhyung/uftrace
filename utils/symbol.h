@@ -75,8 +75,6 @@ struct uftrace_mmap {
 	uint64_t end;
 	char prot[4];
 	uint32_t len;
-	struct symtab symtab;
-	struct debug_info dinfo;
 	char libname[];
 };
 
@@ -94,9 +92,6 @@ struct symtabs {
 	const char *dirname;
 	const char *filename;
 	enum symtab_flag flags;
-	struct symtab symtab;
-	struct symtab dsymtab;
-	struct debug_info dinfo;
 	uint64_t kernel_base;
 	uint64_t exec_base;
 	struct uftrace_mmap *maps;

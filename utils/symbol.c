@@ -1061,7 +1061,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 	}
 
 	for_each_map(symtabs, map) {
-		struct symtab dsymtab = {};
 		const char *libname = basename(map->libname);
 		bool skip = false;
 
@@ -1092,37 +1091,6 @@ void load_module_symtabs(struct symtabs *symtabs)
 		}
 
 		map->mod = load_module_symtab(symtabs, map->libname);
-		if (map->mod && map->mod->symtab.nr_sym)
-			continue;
-
-		pr_dbg2("load module symbol table: %s\n", map->libname);
-
-		if (flags & SYMTAB_FL_USE_SYMFILE) {
-			char *symfile = NULL;
-
-			xasprintf(&symfile, "%s/%s.sym",
-				  symtabs->dirname, libname);
-			if (access(symfile, F_OK) == 0) {
-				load_module_symbol_file(&map->symtab, symfile,
-							map->start);
-			}
-
-			free(symfile);
-
-			if (map->symtab.nr_sym)
-				continue;
-		}
-
-		/*
-		 * Currently it uses a single symtab for both normal symbols
-		 * and dynamic symbols.  Maybe it can be changed later to
-		 * support more sophisticated symbol handling.
-		 */
-		load_symtab(&map->symtab, map->libname, map->start, flags);
-		load_dynsymtab(&dsymtab, map->libname, map->start, flags);
-		merge_symtabs(&map->symtab, &dsymtab);
-		update_symtab_using_dynsym(&map->symtab, map->libname,
-					   map->start, flags);
 	}
 }
 
