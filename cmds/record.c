@@ -346,6 +346,7 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 
 	put_libmcount_path(libpath);
 	setenv("XRAY_OPTIONS", "patch_premain=false", 1);
+	setenv("GLIBC_TUNABLES", "glibc.cpu.hwcaps=-IBT,-SHSTK", 1);
 }
 
 static uint64_t calc_feat_mask(struct opts *opts)
