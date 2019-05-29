@@ -1067,7 +1067,6 @@ struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
 	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
 	strcpy(m->name, mod_name);
 	load_module_symbol(symtabs, m);
-	INIT_LIST_HEAD(&m->dinfo.files);
 
 	rb_link_node(&m->node, parent, p);
 	rb_insert_color(&m->node, &modules);
@@ -1106,6 +1105,12 @@ void load_module_symtabs(struct symtabs *symtabs)
 	const char *exec_path = symtabs->filename;
 	bool check_cpp = false;
 	bool needs_cpp = false;
+
+	if (flags & SYMTAB_FL_USE_SYMFILE) {
+		/* just use the symfile if it's already saved */
+		check_cpp = true;
+		needs_cpp = true;
+	}
 
 	for_each_map(symtabs, map) {
 		struct symtab dsymtab = {};

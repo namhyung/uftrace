@@ -372,6 +372,16 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 	return true;
 }
 
+static char * remove_trailing_slash(char *path)
+{
+	size_t len = strlen(path);
+
+	if (path[len - 1] == '/')
+		path[len - 1] = '\0';
+
+	return path;
+}
+
 static error_t parse_option(int key, char *arg, struct argp_state *state)
 {
 	struct opts *opts = state->input;
@@ -410,7 +420,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'd':
-		opts->dirname = arg;
+		opts->dirname = remove_trailing_slash(arg);
 		break;
 
 	case 'b':
