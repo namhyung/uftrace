@@ -379,7 +379,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 
 	/* pre-allocate enough symbol table entries */
 	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
-	symtab->sym = malloc(symtab->nr_alloc * sizeof(*symtab->sym));
+	symtab->sym = xmalloc(symtab->nr_alloc * sizeof(*symtab->sym));
 
 	pr_dbg2("loading symbols from %s (offset: %#lx)\n", filename, offset);
 	if (iter.shdr.sh_type == SHT_SYMTAB) {
@@ -565,7 +565,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 
 	/* pre-allocate enough symbol table entries */
 	dsymtab->nr_alloc = rel_iter.shdr.sh_size / rel_iter.shdr.sh_entsize;
-	dsymtab->sym = malloc(dsymtab->nr_alloc * sizeof(*dsymtab->sym));
+	dsymtab->sym = xmalloc(dsymtab->nr_alloc * sizeof(*dsymtab->sym));
 
 	if (rel_type == SHT_REL) {
 		elf_for_each_rel(elf, &rel_iter) {
