@@ -896,7 +896,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
 		errno = 0;
 		offset = lseek(fd, 0, SEEK_CUR);
-		if (offset == -1 && errno) {
+		if (offset == (off_t)-1 && errno) {
 			pr_dbg("skip info due to failed lseek: %m\n");
 			continue;
 		}
@@ -904,7 +904,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 		if (fill_handlers[i].handler(&arg) < 0) {
 			/* ignore failed info */
 			errno = 0;
-			if (lseek(fd, offset, SEEK_SET) == -1 && errno)
+			if (lseek(fd, offset, SEEK_SET) == (off_t)-1 && errno)
 				pr_warn("fail to reset uftrace info: %m\n");
 
 			continue;
