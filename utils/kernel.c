@@ -1089,7 +1089,7 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		char name[128];
-		size_t len;
+		size_t len = 0;
 
 		if (strncmp(buf, "TRACEFS:", 8) != 0) {
 			char val[32];
@@ -1114,7 +1114,10 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 			continue;
 		}
 
-		sscanf(buf, "TRACEFS: %[^:]: %zd\n", name, &len);
+		if (sscanf(buf, "TRACEFS: %[^:]: %zd\n", name, &len) != 2) {
+			ret = -1;
+			break;
+		}
 
 		if (fread(buf, 1, len, fp) != len) {
 			ret = -1;

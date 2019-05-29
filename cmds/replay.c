@@ -745,7 +745,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			      struct uftrace_task_reader *task,
 			      struct opts *opts)
 {
-	struct uftrace_record *rstack = task->rstack;
+	struct uftrace_record *rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
 	struct sym *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
@@ -757,6 +757,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	if (task == NULL)
 		return 0;
 
+	rstack = task->rstack;
 	if (rstack->type == UFTRACE_LOST)
 		goto lost;
 
