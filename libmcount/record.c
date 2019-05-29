@@ -1117,7 +1117,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		 * but [stack] is still needed to get kernel base address.
 		 */
 		if (path[0] == '[') {
-			if (!prev_written) {
+			if (prev_map && !prev_written) {
 				write_map(ofp, prev_map, prev_major,
 					  prev_minor, prev_ino, prev_off);
 				prev_written = true;
