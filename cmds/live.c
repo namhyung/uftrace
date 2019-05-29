@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -95,12 +96,14 @@ static void setup_child_environ(struct opts *opts)
 int command_live(int argc, char *argv[], struct opts *opts)
 {
 	char template[32] = "/tmp/uftrace-live-XXXXXX";
-	int fd = mkstemp(template);
+	int fd;
 	struct sigaction sa = {
 		.sa_flags = SA_RESETHAND,
 	};
 	int ret;
 
+	umask(022);
+	fd = mkstemp(template);
 	if (fd < 0)
 		pr_err("cannot create temp name");
 
