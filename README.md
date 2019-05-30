@@ -39,6 +39,25 @@ if the system enables the function graph tracer in the kernel
 (`CONFIG_FUNCTION_GRAPH_TRACER=y`).
 
 
+How to build and install uftrace
+================================
+
+On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) installs required
+software(s) on your system.  Those are for optional advanced features but highly
+recommend to install them together.
+
+    $ sudo misc/install-deps.sh
+
+Once you installed required software(s) on your system, it can be built and
+installed like following:
+
+    $ ./configure
+    $ make
+    $ sudo make install
+
+For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
+
+
 How to use uftrace
 ==================
 The uftrace command has following subcommands:
@@ -224,25 +243,6 @@ Currently python (version 2.7) is supported only.
 The `tui` command is for interactive text-based user interface using ncurses.
 It provides basic functionality of `graph`, `report` and `info` commands as of
 now.
-
-
-How to build and install uftrace
-================================
-
-On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) installs required
-software(s) on your system.  Those are for optional advanced features but highly
-recommend to install them together.
-
-    $ sudo misc/install-deps.sh
-
-Once you installed required software(s) on your system, it can be built and
-installed like following:
-
-    $ ./configure
-    $ make
-    $ sudo make install
-
-For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
 
 
 Limitations
