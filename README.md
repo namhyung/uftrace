@@ -226,21 +226,23 @@ It provides basic functionality of `graph`, `report` and `info` commands as of
 now.
 
 
-How to install uftrace
-======================
+How to build and install uftrace
+================================
 
-The uftrace is written in C and tried to minimize external dependencies.
-Currently it does not require any of them but there're some optional
-dependencies to enable advanced features.
+On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) installs required
+software(s) on your system.  Those are for optional advanced features but highly
+recommend to install them together.
+
+    $ sudo misc/install-deps.sh
 
 Once you installed required software(s) on your system, it can be built and
 installed like following:
 
+    $ ./configure
     $ make
     $ sudo make install
 
-For more advanced setup, please refer
-[INSTALL.md](INSTALL.md) file.
+For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
 
 
 Limitations

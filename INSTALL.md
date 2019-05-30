@@ -1,10 +1,10 @@
 QUICK GUIDE
 ===========
 
-On linux distros machines, following commands will build and install uftrace from
-source.
+On Linux distros, following commands will build and install uftrace from source.
 
-    $ sudo misc/install-deps.sh                 # optional for special features
+    $ sudo misc/install-deps.sh    # optional for advanced features
+    $ ./configure                  # --prefix can be used to change install dir
     $ make
     $ sudo make install
 
@@ -21,8 +21,9 @@ The latest version of uftrace is available at Github.
 DEPENDENCY
 ==========
 
-Now uftrace can be built without any external libraries.  But in order to use
-more advanced features, it'd be better to install them like below.
+The uftrace is written in C and tried to minimize external dependencies.
+Currently, uftrace can be built without any external libraries.  But in order to
+use more advanced features, it'd be better to install them like below.
 
 Firstly, please make sure `pkg-config` is installed in the system to properly
 detect the dependencies of uftrace.  Otherwise, some packages may not be
