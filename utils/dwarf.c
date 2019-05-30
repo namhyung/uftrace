@@ -1311,7 +1311,8 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 }
 
 static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
-			   const char *dirname, const char *filename)
+			   const char *dirname, const char *filename,
+			   bool needs_srcline)
 {
 	char *pathname;
 	FILE *fp;
@@ -1325,8 +1326,11 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
 	dinfo->files = RB_ROOT;
-	dinfo->nr_locs = symtab->nr_sym;
-	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
+
+	if (needs_srcline) {
+		dinfo->nr_locs = symtab->nr_sym;
+		dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
+	}
 
 	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
 
@@ -1381,6 +1385,9 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 				goto out;
 			break;
 		case 'L':
+			if (!needs_srcline)
+				break;
+
 			sym = find_sym(symtab, offset);
 			if (sym == NULL)
 				goto out;
@@ -1413,7 +1420,7 @@ out:
 	return ret;
 }
 
-void load_debug_info(struct symtabs *symtabs)
+void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 {
 	struct uftrace_mmap *map;
 
@@ -1425,8 +1432,8 @@ void load_debug_info(struct symtabs *symtabs)
 			continue;
 
 		if (!debug_info_has_location(dinfo)) {
-			load_debug_file(dinfo, stab,
-					symtabs->dirname, map->libname);
+			load_debug_file(dinfo, stab, symtabs->dirname,
+					map->libname, needs_srcline);
 		}
 	}
 
