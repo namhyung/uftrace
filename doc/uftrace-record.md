@@ -25,11 +25,11 @@ RECORD OPTIONS
 ==============
 -A *SPEC*, \--argument=*SPEC*
 :   Record function arguments.  This option can be used more than once.
-    See *ARGUMENTS*.
+    Implies \--srcline.  See *ARGUMENTS*.
 
 -R *SPEC*, \--retval=*SPEC*
 :   Record function return values.  This option can be used more than once.
-    See *ARGUMENTS*.
+    Implies \--srcline.  See *ARGUMENTS*.
 
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built by
@@ -52,6 +52,7 @@ RECORD OPTIONS
 :   Automatically record arguments and return values of known functions.
     These are usually functions in standard (C language or system) libraries
     but if debug info is available it includes functions in the user program.
+    Implies \--srcline.
 
 -l, \--nest-libcall
 :   Trace function calls between libraries.  By default, uftrace only record
@@ -187,6 +188,9 @@ RECORD CONFIG OPTIONS
 \--no-randomize-addr
 :   Disable ASLR (Address Space Layout Randomization).  It makes the target
     process fix its address space layout.
+
+\--srcline
+:   Enable recording source line in the debug info.
 
 
 FILTERS

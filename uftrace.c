@@ -98,6 +98,7 @@ enum options {
 	OPT_no_randomize_addr,
 	OPT_no_event,
 	OPT_signal,
+	OPT_srcline,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -176,6 +177,7 @@ static struct argp_option uftrace_options[] = {
 	{ "no-event", OPT_no_event, 0, 0, "Disable (default) events" },
 	{ "watch", 'W', "POINT", 0, "Watch and report POINT if it's changed" },
 	{ "signal", OPT_signal, "SIG@act[,act,...]", 0, "Trigger action on those SIGnal" },
+	{ "srcline", OPT_srcline, 0, 0, "Enable recording source line info" },
 	{ "help", 'h', 0, 0, "Give this help list" },
 	{ 0 }
 };
@@ -466,14 +468,17 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case 'A':
 		opts->args = opt_add_string(opts->args, arg);
+		opts->srcline = true;
 		break;
 
 	case 'R':
 		opts->retval = opt_add_string(opts->retval, arg);
+		opts->srcline = true;
 		break;
 
 	case 'a':
 		opts->auto_args = true;
+		opts->srcline = true;
 		break;
 
 	case 'l':
@@ -768,6 +773,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		opts->sig_trigger = opt_add_string(opts->sig_trigger, arg);
 		break;
 
+	case OPT_srcline:
+		opts->srcline = true;
+		break;
+
 	case ARGP_KEY_ARG:
 		if (state->arg_num) {
 			/*
@@ -1000,6 +1009,7 @@ int main(int argc, char *argv[])
 		.sort_column	= 2,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
+		.srcline        = true,
 	};
 	struct argp argp = {
 		.options = uftrace_options,

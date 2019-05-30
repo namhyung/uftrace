@@ -99,6 +99,9 @@ __weak void dynamic_return(void) { }
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       bool force)
 {
+	if (getenv("UFTRACE_SRCLINE") == NULL)
+		return;
+
 	symtabs.maps->mod = load_module_symtab(&symtabs, symtabs.maps->libname);
 
 	/* use debug info if available */
@@ -408,6 +411,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 		.lp64		= host_is_lp64(),
 		.arch		= host_cpu_arch(),
 	};
+	bool needs_debug_info = false;
 
 	load_module_symtabs(&symtabs);
 
@@ -418,12 +422,18 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	    (trigger_str && (strstr(trigger_str, "arg") ||
 			     strstr(trigger_str, "retval")))) {
 		setup_auto_args(&filter_setting);
+		needs_debug_info = true;
 	}
 
+	if (getenv("UFTRACE_SRCLINE"))
+		needs_debug_info = true;
+
 	/* use debug info if available */
-	prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
-			   !!autoargs_str, force);
-	save_debug_info(&symtabs, dirname);
+	if (needs_debug_info) {
+		prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
+				   !!autoargs_str, force);
+		save_debug_info(&symtabs, dirname);
+	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
 			     &mcount_filter_mode, &filter_setting);

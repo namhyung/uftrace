@@ -266,6 +266,7 @@ struct opts {
 	bool libname;
 	bool no_randomize_addr;
 	bool graphviz;
+	bool srcline;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
