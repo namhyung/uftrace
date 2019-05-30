@@ -205,7 +205,14 @@ The `dump` command shows raw output of each trace record.  You can see the resul
 in the chrome browser, once the data is processed with `uftrace dump --chrome`.
 Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
 
-![uftrace-chrome-dump](doc/uftrace-chrome.png)
+[![uftrace-chrome-dump](doc/uftrace-chrome.png)](https://uftrace.github.io/dump/clang.tmp.fib.html)
+
+It also supports flame-graph output as well.  The data can be processed with
+`uftrace dump --flame-graph` and passed to
+[flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
+Below is a flame graph result of gcc compiling a simple C program.
+
+[![uftrace-flame-graph-dump](https://uftrace.github.io/dump/gcc.svg)](https://uftrace.github.io/dump/gcc.svg)
 
 The `info` command shows system and program information when recorded.
 
