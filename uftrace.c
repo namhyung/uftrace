@@ -1009,7 +1009,6 @@ int main(int argc, char *argv[])
 		.sort_column	= 2,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
-		.srcline        = true,
 	};
 	struct argp argp = {
 		.options = uftrace_options,
@@ -1073,6 +1072,10 @@ int main(int argc, char *argv[])
 	/* 'live' will start pager at its replay time */
 	if (opts.use_pager && opts.mode != UFTRACE_MODE_LIVE)
 		start_pager(pager);
+
+	/* the srcline info is used for TUI status line by default */
+	if (opts.mode == UFTRACE_MODE_TUI)
+		opts.srcline = true;
 
 	if (opts.idx == 0)
 		opts.idx = argc;

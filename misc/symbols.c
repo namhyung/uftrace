@@ -134,7 +134,8 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(link, &smsg, dirname, exename, true, true);
+			create_session(link, &smsg, dirname, exename,
+				       true, true, false);
 			count++;
 		}
 		else if (!strncmp(line, "DLOP", 4)) {

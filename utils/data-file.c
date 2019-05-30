@@ -25,6 +25,7 @@
  * @dirname: name of the data directory
  * @needs_symtab: read session symbol tables too
  * @sym_rel_addr: whether symbol address is relative
+ * @needs_srcline: whether debug info loading is needed
  *
  * This function read the task file in the @dirname and build task
  * (and session when @needs_session is %true) information.  Note that
@@ -34,7 +35,7 @@
  * It returns 0 for success, -1 for error.
  */
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
-		   bool needs_symtab, bool sym_rel_addr)
+		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline)
 {
 	int fd;
 	char pad[8];
@@ -65,7 +66,8 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 				goto out;
 
 			create_session(sess, &smsg, dirname, buf,
-				       sym_rel_addr, needs_symtab);
+				       sym_rel_addr, needs_symtab,
+				       needs_srcline);
 			break;
 
 		case UFTRACE_MSG_TASK_START:
@@ -100,6 +102,7 @@ out:
  * @dirname: name of the data directory
  * @needs_symtab: read session symbol tables too
  * @sym_rel_addr: whethere symbol address is relative
+ * @needs_srcline: whether debug info loading is needed
  *
  * This function read the task.txt file in the @dirname and build task
  * (and session when @needs_session is %true) information.
@@ -107,7 +110,7 @@ out:
  * It returns 0 for success, -1 for error.
  */
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
-		       bool needs_symtab, bool sym_rel_addr)
+		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -170,7 +173,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			smsg.namelen = strlen(exename);
 
 			create_session(sess, &smsg, dirname, exename,
-				       sym_rel_addr, needs_symtab);
+				       sym_rel_addr, needs_symtab,
+				       needs_srcline);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
@@ -521,8 +525,10 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 			sym_rel = true;
 
 		/* read old task file first and then try task.txt file */
-		if (read_task_file(sessions, opts->dirname, true, sym_rel) < 0 &&
-		    read_task_txt_file(sessions, opts->dirname, true, sym_rel) < 0) {
+		if (read_task_file(sessions, opts->dirname, true, sym_rel,
+				   opts->srcline) < 0 &&
+		    read_task_txt_file(sessions, opts->dirname, true, sym_rel,
+				       opts->srcline) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else
