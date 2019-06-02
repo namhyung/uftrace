@@ -1558,4 +1558,58 @@ TEST_CASE(symbol_load_module) {
 	return TEST_OK;
 }
 
+#include <link.h>
+
+static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
+{
+	struct symtabs *symtabs = data;
+	struct uftrace_mmap *map;
+	char *exename = NULL;
+
+	exename = read_exename();
+	map = xzalloc(sizeof(*map) + strlen(exename) + 1);
+	map->start = info->dlpi_addr;
+	map->end   = map->start + 10 * 1024 * 1024;
+	map->len   = strlen(exename);
+	strcpy(map->libname, exename);
+
+	symtabs->maps = map;
+	return 1;
+}
+
+TEST_CASE(symbol_load_map) {
+	struct symtabs symtabs = {
+		.dirname = "",
+		.kernel_base = -4096ULL,
+	};
+	struct uftrace_mmap *map;
+	struct sym *sym;
+
+	/* just load a map for main executable */
+	dl_iterate_phdr(add_map, &symtabs);
+	/* load maps and symbols */
+	load_module_symtabs(&symtabs);
+	/* find map by address of a function */
+	map = find_map(&symtabs, (uintptr_t)&find_map);
+	TEST_NE(map, NULL);
+
+	/* check symbol table of uftrace binary */
+	sym = find_sym(&map->mod->symtab, (uintptr_t)&find_sym - map->start);
+	TEST_NE(sym, NULL);
+	TEST_NE(strstr(sym->name, "find_sym"), NULL);
+
+	sym = find_symname(&map->mod->symtab, "load_module_symtabs");
+	TEST_NE(sym, NULL);
+	TEST_EQ(sym->addr + map->start, (uintptr_t)&load_module_symtabs);
+
+	sym = find_symtabs(&symtabs, (uintptr_t)&add_map);
+	TEST_NE(sym, NULL);
+	TEST_NE(strstr(sym->name, "add_map"), NULL);
+
+	unload_module_symtabs();
+	TEST_EQ(RB_EMPTY_ROOT(&modules), true);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
