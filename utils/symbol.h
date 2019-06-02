@@ -150,9 +150,6 @@ enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
 char * check_script_file(const char *filename);
 
-struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
-size_t count_dynsym(struct symtabs *symtabs);
-
 /* map for main executable */
 #define MAP_MAIN (struct uftrace_mmap *)1
 

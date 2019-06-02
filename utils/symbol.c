@@ -1562,24 +1562,6 @@ bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 	return false;
 }
 
-struct sym * find_dynsym(struct symtabs *symtabs, size_t idx)
-{
-	struct symtab *dsymtab = &symtabs->dsymtab;
-
-	if (idx >= dsymtab->nr_sym)
-		return NULL;
-
-	/* ->sym_names are sorted by original index */
-	return dsymtab->sym_names[idx];
-}
-
-size_t count_dynsym(struct symtabs *symtabs)
-{
-	struct symtab *dsymtab = &symtabs->dsymtab;
-
-	return dsymtab->nr_sym;
-}
-
 static bool check_map_symtab(struct symtab *stab, uint64_t addr)
 {
 	uint64_t start, end;
