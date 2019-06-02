@@ -1562,29 +1562,12 @@ bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 	return false;
 }
 
-static bool check_map_symtab(struct symtab *stab, uint64_t addr)
-{
-	uint64_t start, end;
-
-	if (stab == NULL || stab->nr_sym == 0)
-		return false;
-
-	start = stab->sym[0].addr;
-	end = stab->sym[stab->nr_sym - 1].addr + stab->sym[stab->nr_sym - 1].size;
-
-	return (start <= addr && addr < end);
-}
-
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 {
 	struct uftrace_mmap *map;
 
 	if (is_kernel_address(symtabs, addr))
 		return MAP_KERNEL;
-
-	if (check_map_symtab(&symtabs->symtab, addr) ||
-	    check_map_symtab(&symtabs->dsymtab, addr))
-		return MAP_MAIN;
 
 	for_each_map(symtabs, map) {
 		if (map->start <= addr && addr < map->end)
@@ -1596,9 +1579,6 @@ struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
 struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 {
 	struct uftrace_mmap *map;
-
-	if (find_symname(&symtabs->symtab, name))
-		return MAP_MAIN;
 
 	for_each_map(symtabs, map) {
 		struct sym *sym;
@@ -1614,8 +1594,7 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
-	struct symtab *stab = &symtabs->symtab;
-	struct symtab *dtab = &symtabs->dsymtab;
+	struct symtab *stab;
 	struct uftrace_mmap *map;
 	struct sym *sym = NULL;
 
@@ -1630,22 +1609,6 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 		sym = bsearch(&kaddr, ktab->sym, ktab->nr_sym,
 			      sizeof(*ktab->sym), addrfind);
 		return sym;
-	}
-
-	if (map == MAP_MAIN) {
-		/* try dynamic symbols first */
-		sym = bsearch(&addr, dtab->sym, dtab->nr_sym,
-			      sizeof(*sym), addrfind);
-		if (sym)
-			return sym;
-
-		/*
-		 * normal symbol table may overlap with dynamic symbols
-		 * since it has data symbols too.
-		 */
-		sym = bsearch(&addr, stab->sym, stab->nr_sym,
-			      sizeof(*sym), addrfind);
-		goto out;
 	}
 
 	if (map != NULL) {
@@ -1667,7 +1630,6 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 			      sizeof(*sym), addrfind);
 	}
 
-out:
 	if (sym != NULL) {
 		/* these dummy symbols are not part of real symbol table */
 		if (!strcmp(sym->name, "__sym_end") ||

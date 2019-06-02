@@ -375,11 +375,10 @@ static void pr_args(struct fstack_arguments *args)
 					      task->rstack->time);
 
 			map = find_map(&s->symtabs, task->rstack->addr);
-			if (map == MAP_MAIN)
-				dinfo = &s->symtabs.dinfo;
-			else
-				dinfo = &map->dinfo;
+			if (!map || !map->mod)
+				goto print_raw;
 
+			dinfo = &map->mod->dinfo;
 			memcpy(&val, ptr, spec->size);
 			enum_def = get_enum_string(&dinfo->enums,
 						   spec->enum_str, val);
@@ -392,7 +391,7 @@ static void pr_args(struct fstack_arguments *args)
 		}
 		else {
 			long long val = 0;
-
+print_raw:
 			memcpy(&val, ptr, spec->size);
 
 			pr_out("  args[%d] %c%d: 0x%0*llx\n", i,

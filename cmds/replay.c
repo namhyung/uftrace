@@ -110,9 +110,7 @@ static void print_module(struct field_data *fd)
 	s = find_task_session(&task->h->sessions, task->t, timestamp);
 	if (s) {
 		map = find_map(&s->symtabs, fstack->addr);
-		if (map == MAP_MAIN)
-			modname = basename(s->exename);
-		else if (map == MAP_KERNEL)
+		if (map == MAP_KERNEL)
 			modname = "[kernel]";
 		else if (map)
 			modname = basename(map->libname);
@@ -782,7 +780,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		s = find_task_session(sessions, task->t, rstack->time);
 		if (s != NULL) {
 			map = find_symbol_map(&s->symtabs, symname);
-			if (map && map != MAP_MAIN)
+			if (map != NULL)
 				libname = basename(map->libname);
 		}
 	}

@@ -150,11 +150,8 @@ enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
 char * check_script_file(const char *filename);
 
-/* map for main executable */
-#define MAP_MAIN (struct uftrace_mmap *)1
-
 /* pseudo-map for kernel image */
-#define MAP_KERNEL (struct uftrace_mmap *)2
+#define MAP_KERNEL (struct uftrace_mmap *)1
 
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr);
 struct uftrace_mmap * find_map_by_name(struct symtabs *symtabs,
