@@ -75,8 +75,6 @@ struct uftrace_mmap {
 	uint64_t end;
 	char prot[4];
 	uint32_t len;
-	struct symtab symtab;
-	struct debug_info dinfo;
 	char libname[];
 };
 
@@ -94,9 +92,6 @@ struct symtabs {
 	const char *dirname;
 	const char *filename;
 	enum symtab_flag flags;
-	struct symtab symtab;
-	struct symtab dsymtab;
-	struct debug_info dinfo;
 	uint64_t kernel_base;
 	uint64_t exec_base;
 	struct uftrace_mmap *maps;
@@ -124,11 +119,7 @@ extern struct sym sched_sym;
 struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr);
 struct sym * find_sym(struct symtab *symtab, uint64_t addr);
 struct sym * find_symname(struct symtab *symtab, const char *name);
-void load_symtabs(struct symtabs *symtabs, const char *dirname,
-		  const char *filename);
-void unload_symtab(struct symtab *symtab);
-void unload_symtabs(struct symtabs *symtabs);
-void print_symtabs(struct symtabs *symtabs);
+void print_symtab(struct symtab *symtab);
 
 int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			      struct uftrace_elf_data *elf,
@@ -154,14 +145,8 @@ enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
 char * check_script_file(const char *filename);
 
-struct sym * find_dynsym(struct symtabs *symtabs, size_t idx);
-size_t count_dynsym(struct symtabs *symtabs);
-
-/* map for main executable */
-#define MAP_MAIN (struct uftrace_mmap *)1
-
 /* pseudo-map for kernel image */
-#define MAP_KERNEL (struct uftrace_mmap *)2
+#define MAP_KERNEL (struct uftrace_mmap *)1
 
 struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr);
 struct uftrace_mmap * find_map_by_name(struct symtabs *symtabs,
