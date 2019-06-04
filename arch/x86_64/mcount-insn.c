@@ -139,9 +139,20 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	cs_insn *insn = NULL;
 	uint32_t code_size = 0;
 	uint32_t count, i;
+	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	int ret = INSTRUMENT_FAILED;
 
 	count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0, &insn);
+	if (unlikely(count == 0) &&
+	    !memcmp((void *)addr, endbr64, sizeof(endbr64))) {
+		/* old version of capstone doesn't recognize ENDBR64 insn */
+		addr += sizeof(endbr64);
+		size -= sizeof(endbr64);
+		code_size += sizeof(endbr64);
+
+		count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0,
+				  &insn);
+	}
 
 	for (i = 0; i < count; i++) {
 		if (!check_instrumentable(disasm, &insn[i])) {

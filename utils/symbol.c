@@ -485,6 +485,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	int rel_type = SHT_NULL;
 	bool found_dynamic = false;
 	bool found_dynsym = false;
+	bool found_pltsec = false;
 	struct uftrace_elf_iter sec_iter;
 	struct uftrace_elf_iter dyn_iter;
 	struct uftrace_elf_iter rel_iter;
@@ -522,6 +523,11 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 			plt_addr = shdr->sh_addr + offset;
 			plt_entsize = shdr->sh_entsize;
 		}
+		else if (strcmp(shstr, ".plt.sec") == 0) {
+			plt_addr = shdr->sh_addr + offset;
+			plt_entsize = shdr->sh_entsize;
+			found_pltsec = true;
+		}
 		else if (strcmp(shstr, ".dynamic") == 0) {
 			found_dynamic = true;
 		}
@@ -553,6 +559,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	}
 
 	prev_addr = plt_addr;
+	if (found_pltsec)
+		prev_addr -= plt_entsize;
 
 	/* pre-allocate enough symbol table entries */
 	dsymtab->nr_alloc = rel_iter.shdr.sh_size / rel_iter.shdr.sh_entsize;

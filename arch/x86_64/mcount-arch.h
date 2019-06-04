@@ -35,4 +35,8 @@ struct mcount_arch_context {
 #define ARCH_SUPPORT_AUTO_RECOVER  1
 #define ARCH_CAN_RESTORE_PLTHOOK   1
 
+struct plthook_arch_context {
+	bool	has_plt_sec;
+};
+
 #endif /* MCOUNT_ARCH_H */
