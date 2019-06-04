@@ -1154,14 +1154,18 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			.filename = opts->exename,
 			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
 		};
+		struct uftrace_module *mod;
 
 		if (!opts->exename) {
 			pr_use("Usage: uftrace info --symbols [COMMAND]\n");
 			return -1;
 		}
 
-		load_module_symtabs(&symtabs);
-		print_symtab(&symtabs.maps->mod->symtab);
+		mod = load_module_symtab(&symtabs, symtabs.filename);
+		if (mod == NULL)
+			goto out;
+
+		print_symtab(&mod->symtab);
 		unload_module_symtabs();
 		goto out;
 	}
