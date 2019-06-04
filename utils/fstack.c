@@ -1940,8 +1940,10 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 			consume_first_rstack_list(&kernel->rstack_list[cpu]);
 	}
 	else if (is_event_record(task, rstack)) {
-		if (rstack->addr == EVENT_ID_PERF_COMM)
-			strncpy(task->t->comm, task->args.data, TASK_COMM_LEN);
+		if (rstack->addr == EVENT_ID_PERF_COMM) {
+			strncpy(task->t->comm, task->args.data, TASK_COMM_LAST);
+			task->t->comm[TASK_COMM_LAST] = '\0';
+		}
 
 		if (task->event_list.count)
 			consume_first_rstack_list(&task->event_list);
