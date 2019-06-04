@@ -928,14 +928,15 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		prev_addr = addr;
 		prev_type = type;
 
-		if (!strcmp(name, "__sym_end") ||
+		if (type == ST_UNKNOWN ||
+		    !strcmp(name, "__sym_end") ||
 		    !strcmp(name, "__dynsym_end") ||
 		    !strcmp(name, "__func_end")) {
 			if (symtab->nr_sym > 0) {
 				sym = &symtab->sym[symtab->nr_sym - 1];
 				sym->size = addr + offset - sym->addr;
-				continue;
 			}
+			continue;
 		}
 
 		if (symtab->nr_sym >= symtab->nr_alloc) {
@@ -1163,12 +1164,12 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
 			fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 				prev->addr + prev->size - offset,
-				(char)prev->type, prev_was_plt ? "dyn" : "");
+				(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 		}
 		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
 			fprintf(fp, "%016"PRIx64" %c %s\n",
 				prev->addr + prev->size - offset,
-				(char)prev->type, "__func_end");
+				(char)ST_UNKNOWN, "__func_end");
 		}
 
 		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
@@ -1180,7 +1181,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	
 	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 		prev->addr + prev->size - offset,
-		(char)prev->type, prev_was_plt ? "dyn" : "");
+		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 }
