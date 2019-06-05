@@ -928,6 +928,17 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		prev_addr = addr;
 		prev_type = type;
 
+		if (type == ST_UNKNOWN ||
+		    !strcmp(name, "__sym_end") ||
+		    !strcmp(name, "__dynsym_end") ||
+		    !strcmp(name, "__func_end")) {
+			if (symtab->nr_sym > 0) {
+				sym = &symtab->sym[symtab->nr_sym - 1];
+				sym->size = addr + offset - sym->addr;
+			}
+			continue;
+		}
+
 		if (symtab->nr_sym >= symtab->nr_alloc) {
 			if (symtab->nr_alloc >= grow * 4)
 				grow *= 2;
@@ -946,7 +957,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 
-		if (symtab->nr_sym > 1)
+		if (symtab->nr_sym > 1 && sym[-1].size == 0)
 			sym[-1].size = sym->addr - sym[-1].addr;
 	}
 	free(line);
@@ -1153,12 +1164,12 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
 			fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 				prev->addr + prev->size - offset,
-				(char)prev->type, prev_was_plt ? "dyn" : "");
+				(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 		}
 		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
 			fprintf(fp, "%016"PRIx64" %c %s\n",
 				prev->addr + prev->size - offset,
-				(char)prev->type, "__func_end");
+				(char)ST_UNKNOWN, "__func_end");
 		}
 
 		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
@@ -1170,7 +1181,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 	
 	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 		prev->addr + prev->size - offset,
-		(char)prev->type, prev_was_plt ? "dyn" : "");
+		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 }
@@ -1540,8 +1551,7 @@ TEST_CASE(symbol_load_module) {
 
 	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
-	/* +2 for the end markers of the symbols */
-	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym) + 2);
+	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym));
 	for (i = 0; i < 3; i++) {
 		struct sym *sym = &test.sym[i];
 
@@ -1550,17 +1560,15 @@ TEST_CASE(symbol_load_module) {
 		TEST_EQ(sym->type, stab.sym[i].type);
 		TEST_STREQ(sym->name, stab.sym[i].name);
 	}
-	TEST_STREQ("__dynsym_end", test.sym[3].name);
 
-	for (i = 4; i < 7; i++) {
+	for (i = 3; i < 6; i++) {
 		struct sym *sym = &test.sym[i];
 
-		TEST_EQ(sym->addr, stab.sym[i-1].addr);
-		TEST_EQ(sym->size, stab.sym[i-1].size);
-		TEST_EQ(sym->type, stab.sym[i-1].type);
-		TEST_STREQ(sym->name, stab.sym[i-1].name);
+		TEST_EQ(sym->addr, stab.sym[i].addr);
+		TEST_EQ(sym->size, stab.sym[i].size);
+		TEST_EQ(sym->type, stab.sym[i].type);
+		TEST_STREQ(sym->name, stab.sym[i].name);
 	}
-	TEST_STREQ("__sym_end", test.sym[7].name);
 
 	unlink(symfile);
 	return TEST_OK;
