@@ -173,6 +173,16 @@ out:
 	return shebang;
 }
 
+static bool is_symbol_end(const char *name)
+{
+	if (!strcmp(name, "__sym_end") ||
+	    !strcmp(name, "__dynsym_end") ||
+	    !strcmp(name, "__func_end")) {
+		return true;
+	}
+	return false;
+}
+
 static void unload_symtab(struct symtab *symtab)
 {
 	size_t i;
@@ -928,10 +938,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		prev_addr = addr;
 		prev_type = type;
 
-		if (type == ST_UNKNOWN ||
-		    !strcmp(name, "__sym_end") ||
-		    !strcmp(name, "__dynsym_end") ||
-		    !strcmp(name, "__func_end")) {
+		if (type == ST_UNKNOWN || is_symbol_end(name)) {
 			if (symtab->nr_sym > 0) {
 				sym = &symtab->sym[symtab->nr_sym - 1];
 				sym->size = addr + offset - sym->addr;
@@ -1148,7 +1155,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	fprintf(fp, "# symbols: %lu\n", stab->nr_sym);
+	fprintf(fp, "# symbols: %zd\n", stab->nr_sym);
 
 	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
@@ -1377,9 +1384,7 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 
 	if (sym != NULL) {
 		/* these dummy symbols are not part of real symbol table */
-		if (!strcmp(sym->name, "__sym_end") ||
-		    !strcmp(sym->name, "__dynsym_end") ||
-		    !strcmp(sym->name, "__func_end"))
+		if (is_symbol_end(sym->name))
 			sym = NULL;
 	}
 
@@ -1395,9 +1400,7 @@ struct sym * find_sym(struct symtab *symtab, uint64_t addr)
 
 	if (sym != NULL) {
 		/* these dummy symbols are not part of real symbol table */
-		if (!strcmp(sym->name, "__sym_end") ||
-		    !strcmp(sym->name, "__dynsym_end") ||
-		    !strcmp(sym->name, "__func_end"))
+		if (is_symbol_end(sym->name))
 			sym = NULL;
 	}
 
