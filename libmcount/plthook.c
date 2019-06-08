@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <dlfcn.h>
 #include <fnmatch.h>
+#include <errno.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "plthook"
