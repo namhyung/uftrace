@@ -272,6 +272,8 @@ struct opts {
 	enum uftrace_pattern_type patt_type;
 };
 
+extern struct strv default_opts;
+
 static inline bool opts_has_filter(struct opts *opts)
 {
 	return opts->filter || opts->trigger || opts->threshold ||
