@@ -47,6 +47,8 @@ const char *argp_program_bug_address = "https://github.com/namhyung/uftrace/issu
 
 static bool dbg_domain_set = false;
 
+static bool parsing_default_opts = false;
+
 enum options {
 	OPT_flat	= 301,
 	OPT_no_libcall,
@@ -460,6 +462,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 't':
+		/* do not override time-filter if it's already set */
+		if (parsing_default_opts && opts->threshold)
+			break;
+
 		/* add time-filter to uftrace.data/default.opts */
 		strv_append(&default_opts, "-t");
 		strv_append(&default_opts, arg);
@@ -1003,6 +1009,36 @@ static void free_opts(struct opts *opts)
 }
 
 #ifndef UNIT_TEST
+static void apply_default_opts(int *argc, char ***argv, struct opts *opts)
+{
+	char *basename = "default.opts";
+	char opts_file[PATH_MAX];
+	struct stat stbuf;
+
+	/* default.opts is only for analysis commands */
+	if (opts->mode == UFTRACE_MODE_RECORD ||
+	    opts->mode == UFTRACE_MODE_LIVE ||
+	    opts->mode == UFTRACE_MODE_RECV)
+		return;
+
+	/* this is not to override user given time-filter by default opts */
+	parsing_default_opts = true;
+
+	snprintf(opts_file, PATH_MAX, "%s/%s", opts->dirname, basename);
+	if (!stat(opts_file, &stbuf) && stbuf.st_size > 0) {
+		pr_dbg("apply '%s' option file\n", opts_file);
+		parse_opt_file(argc, argv, opts_file, opts);
+	}
+	else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) &&
+		 !access("./info", F_OK)) {
+		/* try again applying default.opts in the current dir */
+		if (!stat(basename, &stbuf) && stbuf.st_size > 0) {
+			pr_dbg("apply './%s' option file\n", basename);
+			parse_opt_file(argc, argv, basename, opts);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
@@ -1089,6 +1125,9 @@ int main(int argc, char *argv[])
 	/* the srcline info is used for TUI status line by default */
 	if (opts.mode == UFTRACE_MODE_TUI)
 		opts.srcline = true;
+
+	/* apply 'default.opts' options for analysis commands */
+	apply_default_opts(&argc, &argv, &opts);
 
 	if (opts.idx == 0)
 		opts.idx = argc;
