@@ -460,6 +460,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 't':
+		/* add time-filter to uftrace.data/default.opts */
+		strv_append(&default_opts, "-t");
+		strv_append(&default_opts, arg);
+
 		opts->threshold = parse_time(arg, 3);
 		if (opts->range.start || opts->range.stop) {
 			pr_use("--time-range cannot be used with --time-filter\n");
