@@ -184,6 +184,7 @@ failed:
 static bool is_uftrace_directory(const char *path)
 {
 	int fd;
+	bool ret = false;
 	char *info_path = NULL;
 	char sig[UFTRACE_MAGIC_LEN] = {0,};
 
@@ -192,18 +193,24 @@ static bool is_uftrace_directory(const char *path)
 	fd = open(info_path, O_RDONLY);
 	free(info_path);
 
-	if (fd == -1)
-		return false;
-
-	if (read(fd, sig, UFTRACE_MAGIC_LEN) != UFTRACE_MAGIC_LEN) {
-		/*
-		 * partial read() will return false anyway
-		 * since memcmp() below cannot success.
-		 */
+	if (fd != -1) {
+		if (read(fd, sig, UFTRACE_MAGIC_LEN) != UFTRACE_MAGIC_LEN) {
+			/*
+			 * partial read() will return false anyway
+			 * since memcmp() below cannot success.
+			 */
+		}
+		close(fd);
+		return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 	}
 
-	close(fd);
-	return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
+	/* if "info" file is missing, also check that there is "default.opts" */
+	xasprintf(&info_path, "%s/default.opts", path);
+	if (!access(info_path, F_OK))
+		ret = true;
+	free(info_path);
+
+	return ret;
 }
 
 static bool is_empty_directory(const char *path)
