@@ -99,7 +99,7 @@ __weak void dynamic_return(void) { }
 static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 			       bool force)
 {
-	load_module_symtab(&symtabs, symtabs.maps->libname);
+	symtabs.maps->mod = load_module_symtab(&symtabs, symtabs.maps->libname);
 
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
