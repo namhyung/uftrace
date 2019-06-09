@@ -39,6 +39,11 @@ ENTRY(mcount_return)
 	/* save return values */
 	stp	x0, x1, [sp, #-16]!
 	stp	d0, d1, [sp, #-16]!
+
+	/*
+	 * save indirect result location register
+	 * used in C++ for returning non-trivial objects
+	 */
 	str	x8, [sp, #-16]!
 
 	add	x0, sp, #32
@@ -46,8 +51,10 @@ ENTRY(mcount_return)
 	bl	mcount_exit
 	mov	x16, x0
 
-	/* restore return values */
+	/* restore indirect result location register */
 	ldr	x8, [sp], #16
+
+	/* restore return values */
 	ldp	d0, d1, [sp], #16
 	ldp	x0, x1, [sp], #16
 
