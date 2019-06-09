@@ -175,9 +175,9 @@ static void dd_debug_print(struct demangle_data *dd)
 		dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
 		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
 
-	pr_dbg2("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
+	pr_dbg3("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
 	for (i = 0; i < dd->nr_dbg; i++)
-		pr_dbg2("  [%d] %s\n", i, dd->debug[i]);
+		pr_dbg4("  [%d] %s\n", i, dd->debug[i]);
 }
 
 static const struct {

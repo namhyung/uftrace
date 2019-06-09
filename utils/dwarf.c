@@ -955,7 +955,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	 */
 	sym = find_sym(bd->symtab, offset + 1);
 	if (sym == NULL || !match_name(sym, name)) {
-		pr_dbg2("skip unknown debug info: %s / %s (%lx)\n",
+		pr_dbg4("skip unknown debug info: %s / %s (%lx)\n",
 			sym ? sym->name : "no name", name, offset);
 		goto out;
 	}
