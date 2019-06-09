@@ -266,7 +266,7 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 	else
 		sym->name = xstrdup(name);
 
-	pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
+	pr_dbg4("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
 		sym->type, sym->addr, sym->size, sym->name);
 	return 1;
 }
@@ -319,7 +319,7 @@ static void sort_symtab(struct symtab *symtab)
 	}
 
 	if (dup_syms)
-		pr_dbg2("removed %d duplicates\n", dup_syms);
+		pr_dbg4("removed %d duplicates\n", dup_syms);
 
 	symtab->nr_alloc = symtab->nr_sym;
 	symtab->sym = xrealloc(symtab->sym, symtab->nr_sym * sizeof(*symtab->sym));
@@ -375,14 +375,14 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 			goto out;
 		}
 
-		pr_dbg2("no symtab, using dynsyms instead\n");
+		pr_dbg4("no symtab, using dynsyms instead\n");
 	}
 
 	/* pre-allocate enough symbol table entries */
 	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
 	symtab->sym = xmalloc(symtab->nr_alloc * sizeof(*symtab->sym));
 
-	pr_dbg2("loading symbols from %s (offset: %#lx)\n", filename, offset);
+	pr_dbg3("loading symbols from %s (offset: %#lx)\n", filename, offset);
 	if (iter.shdr.sh_type == SHT_SYMTAB) {
 		elf_for_each_symbol(&elf, &iter) {
 			if (load_symbol(symtab, prev_sym_value, offset, flags,
@@ -397,7 +397,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 				prev_sym_value = iter.sym.st_value;
 		}
 	}
-	pr_dbg2("loaded %zd symbols\n", symtab->nr_sym);
+	pr_dbg4("loaded %zd symbols\n", symtab->nr_sym);
 
 	if (symtab->nr_sym == 0)
 		goto out;
@@ -440,7 +440,7 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 	else
 		sym->name = xstrdup(name);
 
-	pr_dbg3("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
+	pr_dbg4("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
 		sym->type, sym->addr, sym->size, sym->name);
 	return 1;
 }
@@ -544,7 +544,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	}
 
 	if (!found_dynsym || !found_dynamic) {
-		pr_dbg2("cannot find dynamic symbols.. skipping\n");
+		pr_dbg3("cannot find dynamic symbols.. skipping\n");
 		ret = 0;
 		goto out;
 	}
@@ -604,7 +604,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	}
 
 out_sort:
-	pr_dbg2("loaded %zd symbols\n", dsymtab->nr_sym);
+	pr_dbg4("loaded %zd symbols\n", dsymtab->nr_sym);
 
 	if (dsymtab->nr_sym == 0)
 		goto out;
@@ -628,7 +628,7 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 		return -1;
 	}
 
-	pr_dbg2("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
+	pr_dbg3("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
 	ret = load_elf_dynsymtab(dsymtab, &elf, offset, flags);
 
 	elf_finish(&elf);
@@ -652,7 +652,7 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 		return;
 	}
 
-	pr_dbg2("merge two symbol tables (left = %lu, right = %lu)\n",
+	pr_dbg4("merge two symbol tables (left = %lu, right = %lu)\n",
 		left->nr_sym, right->nr_sym);
 
 	syms = xmalloc(nr_sym * sizeof(*syms));
@@ -719,7 +719,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 		goto out;
 	}
 
-	pr_dbg2("updating symbol name using dynamic symbols\n");
+	pr_dbg4("updating symbol name using dynamic symbols\n");
 
 	elf_for_each_dynamic_symbol(&elf, &iter) {
 		struct sym *sym;
@@ -745,7 +745,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 		if (sym->name[1] == 'Z')
 			continue;
 
-		pr_dbg3("update symbol name to %s\n", name);
+		pr_dbg4("update symbol name to %s\n", name);
 		free(sym->name);
 		count++;
 
@@ -757,7 +757,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	ret = 1;
 
 	if (count)
-		pr_dbg2("updated %d symbols\n", count);
+		pr_dbg4("updated %d symbols\n", count);
 
 	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 	symtab->name_sorted = true;
@@ -795,12 +795,12 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 	}
 
 	if (iter.shdr.sh_type != SHT_DYNSYM) {
-		pr_dbg("cannot find dynamic symbols.. skipping\n");
+		pr_dbg3("cannot find dynamic symbols.. skipping\n");
 		ret = TRACE_NONE;
 		goto out;
 	}
 
-	pr_dbg2("check trace functions in %s\n", filename);
+	pr_dbg4("check trace functions in %s\n", filename);
 
 	elf_for_each_dynamic_symbol(&elf, &iter) {
 		elf_get_symbol(&elf, &iter, iter.i);
@@ -889,13 +889,13 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		addr = strtoull(line, &pos, 16);
 
 		if (*pos++ != ' ') {
-			pr_dbg2("invalid symbol file format before type\n");
+			pr_dbg4("invalid symbol file format before type\n");
 			continue;
 		}
 		type = *pos++;
 
 		if (*pos++ != ' ') {
-			pr_dbg2("invalid symbol file format after type\n");
+			pr_dbg4("invalid symbol file format after type\n");
 			continue;
 		}
 		name = pos;
@@ -923,7 +923,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 			    !strcmp(sym->name + 6, name + 5))
 				strcpy(sym->name, name);
 
-			pr_dbg2("skip duplicated symbols: %s\n", name);
+			pr_dbg4("skip duplicated symbols: %s\n", name);
 			continue;
 		}
 

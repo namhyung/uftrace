@@ -131,6 +131,12 @@ extern void setup_signal(void);
 		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
 })
 
+#define pr_dbg4(fmt, ...) 					\
+({								\
+	if (dbg_domain[PR_DOMAIN] > 3)		\
+		__pr_dbg(PR_FMT ": " fmt, ## __VA_ARGS__);	\
+})
+
 #define pr_err(fmt, ...)					\
 	__pr_err_s(PR_FMT ": %s:%d:%s\n ERROR: " fmt,		\
 		 __FILE__, __LINE__, __func__, ## __VA_ARGS__)
