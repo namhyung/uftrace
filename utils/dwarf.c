@@ -1060,11 +1060,6 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 
 #else  /* !HAVE_LIBDW */
 
-static int elf_file_type(struct debug_info *dinfo)
-{
-	return ET_NONE;
-}
-
 static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset, bool force)
 {
