@@ -8,6 +8,6 @@
 int main()
 {
 	cs_insn insn;
-	printf("size: %lu\n", sizeof(insn));
+	printf("size: %zu\n", sizeof(insn));
 	return 0;
 }
