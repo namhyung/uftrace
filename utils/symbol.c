@@ -201,7 +201,7 @@ static void unload_symtab(struct symtab *symtab)
 }
 
 static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
-		       unsigned long offset, unsigned long flags,
+		       unsigned long long offset, unsigned long flags,
 		       struct uftrace_elf_data *elf,
 		       struct uftrace_elf_iter *iter)
 {
@@ -334,7 +334,7 @@ static void sort_symtab(struct symtab *symtab)
 }
 
 static int load_symtab(struct symtab *symtab, const char *filename,
-		       unsigned long offset, unsigned long flags)
+		       unsigned long long offset, unsigned long flags)
 {
 	int ret = -1;
 	unsigned long prev_sym_value = -1;
