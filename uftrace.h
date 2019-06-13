@@ -228,6 +228,7 @@ struct opts {
 	int sort_column;
 	int nr_thread;
 	int rt_prio;
+	int size_filter;
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
