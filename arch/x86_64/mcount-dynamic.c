@@ -451,10 +451,17 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 }
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
-		      struct mcount_disasm_engine *disasm)
+		      struct mcount_disasm_engine *disasm,
+		      unsigned min_size)
 {
 	struct arch_dynamic_info *adi = mdi->arch;
 	int result = INSTRUMENT_SKIPPED;
+
+	if (min_size < CALL_INSN_SIZE)
+		min_size = CALL_INSN_SIZE;
+
+	if (sym->size < min_size)
+		return result;
 
 	switch (adi->type) {
 	case DYNAMIC_XRAY:
@@ -466,8 +473,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		break;
 
 	case DYNAMIC_NONE:
-		if (sym->size >= CALL_INSN_SIZE)
-			result = patch_normal_func(mdi, sym, disasm);
+		result = patch_normal_func(mdi, sym, disasm);
 		break;
 
 	default:
