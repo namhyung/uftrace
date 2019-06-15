@@ -96,6 +96,17 @@
         width: 49%;
       }
 
+      /* Two-column layout */
+      .left30-column {
+        float: left;
+        width: 29%;
+      }
+      .right70-column {
+        float: right;
+        width: 69%;
+      }
+
+
       /* Code Font Size */
       .code-3px  .remark-code-line { font-size: 3px;  min-height: 5px;  }
       .code-5px  .remark-code-line { font-size: 5px;  min-height: 7px;  }
@@ -197,6 +208,7 @@ name: toc
 - Advanced Topics
   - [(Python) Scripting](#python)
   - [Dynamic Tracing](#dynamic-tracing)
+  - [Full Dynamic Tracing](#full-dynamic-tracing)
   - [Triggers for Trace Control](#trace-control)
 
 ---
@@ -229,6 +241,7 @@ uftrace detected system features:
 ...   cxa_demangle: [ .green[on]  ] - full demangler support with libstdc++
 ...     perf_event: [ .green[on]  ] - perf (PMU) event support
 ...       schedule: [ .green[on]  ] - scheduler event support
+...       capstone: [ .red[OFF] ] - full dynamic tracing support
 
 $ make
 
@@ -254,6 +267,7 @@ uftrace detected system features:
 ...   cxa_demangle: [ .green[on]  ] - full demangler support with libstdc++
 ...     perf_event: [ .green[on]  ] - perf (PMU) event support
 ...       schedule: [ .green[on]  ] - scheduler event support
+...       capstone: [ .green[on]  ] - full dynamic tracing support
 
 $ make
 
@@ -3484,6 +3498,183 @@ template: title-layout
      4.504 us [156072] |   } /* a */
      5.633 us [156072] | } /* main */
 ```
+
+---
+name: full-dynamic-tracing
+template: title-layout
+# Full Dynamic Tracing
+### full-dynamic function tracing without compiler support
+.footnote[[doc/uftrace-record.md#full-dynamic-tracing](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#full-dynamic-tracing)]
+<pre><code class="bash">$ ./configure    
+capstone: [ .green[on]  ]</code></pre>
+
+---
+### Full Dynamic Tracing
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+```
+]
+---
+### Full Dynamic Tracing
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `--force` a.out
+WARN: cannot open record data: /tmp/uftrace-live- ...
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P main` a.out
+# DURATION     TID     FUNCTION
+   1.420 us [ 14766] | `main`();
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P foo -P bar` a.out
+# DURATION     TID     FUNCTION
+            [ 14813] | `foo`() {
+   0.507 us [ 14813] |   `bar`();
+   4.130 us [ 14813] | } /* foo */
+   0.240 us [ 14813] | `bar`();
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P .` a.out
+# DURATION     TID     FUNCTION
+            [ 14830] | `main`() {
+            [ 14830] |   `foo`() {
+   0.303 us [ 14830] |     `bar`();
+   2.433 us [ 14830] |   } /* foo */
+   0.176 us [ 14830] |   `bar`();
+   4.917 us [ 14830] | } /* main */
+```
+]
 
 ---
 name: trace-control
