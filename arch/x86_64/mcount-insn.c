@@ -55,6 +55,10 @@ static bool check_instrumentable(struct mcount_disasm_engine *disasm,
 	}
 
 	x86 = &insn->detail->x86;
+	if (x86->opcode[0] == 0x90 && x86->opcode[1] == 0) {
+		/* allow NOP instruction to be patched */
+		return true;
+	}
 
 	/* no operand: disallow just to be safer for now */
 	if (!x86->op_count)
