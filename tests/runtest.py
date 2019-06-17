@@ -95,6 +95,23 @@ class TestBase:
         self.pr_debug("build command: %s" % build_cmd)
         return self.build_it(build_cmd)
 
+    def build_notrace_lib(self, dstname, srcname, cflags='', ldflags =''):
+        lang = TestBase.supported_lang['C']
+
+        build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
+                                  os.getenv(lang['flags'], '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, \
+                                  os.getenv('LDFLAGS', '')])
+
+        lib_cflags = build_cflags + ' -shared -fPIC'
+
+        build_cmd = '%s -o lib%s.so %s s-%s.c %s' % \
+                    (lang['cc'], dstname, lib_cflags, srcname, build_ldflags)
+
+        build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
+        self.pr_debug("build command for library: %s" % build_cmd)
+        return self.build_it(build_cmd)
+
     def build_libabc(self, cflags='', ldflags=''):
         lang = TestBase.supported_lang['C']
 
@@ -129,7 +146,7 @@ class TestBase:
         self.pr_debug("build command for library: %s" % build_cmd)
         return self.build_it(build_cmd)
 
-    def build_libmain(self, exename, srcname, libs, cflags='', ldflags=''):
+    def build_libmain(self, exename, srcname, libs, cflags='', ldflags='', instrument=True):
         if self.lang not in TestBase.supported_lang:
             self.pr_debug("%s: unsupported language: %s" % (self.name, self.lang))
             return TestBase.TEST_UNSUPP_LANG
@@ -144,6 +161,8 @@ class TestBase:
             exe_ldflags += ' -l' + lib[3:-3]
 
         build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, srcname, exe_ldflags)
+        if not instrument:
+            build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
 
         self.pr_debug("build command for executable: %s" % build_cmd)
         return self.build_it(build_cmd)

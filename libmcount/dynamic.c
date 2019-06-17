@@ -156,74 +156,74 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	bool base_addr_set = false;
 	unsigned i;
 
-	/* TODO: support dynamic tracing for libraries */
-	if (name[0] == '\0') {
-		mdi = xzalloc(sizeof(*mdi));
+	mdi = xzalloc(sizeof(*mdi));
+
+	if (name[0] == '\0')
 		mdi->mod_name = xstrdup(read_exename());
-		mdi->base_addr = 0;
+	else
+		mdi->mod_name = xstrdup(name);
 
-		for (i = 0; i < info->dlpi_phnum; i++) {
-			if (info->dlpi_phdr[i].p_type != PT_LOAD)
-				continue;
+	for (i = 0; i < info->dlpi_phnum; i++) {
+		if (info->dlpi_phdr[i].p_type != PT_LOAD)
+			continue;
 
-			if (!base_addr_set) {
-				mdi->base_addr = info->dlpi_phdr[i].p_vaddr;
-				base_addr_set = true;
-			}
-
-			if (!(info->dlpi_phdr[i].p_flags & PF_X))
-				continue;
-
-			/* find address and size of code segment */
-			mdi->text_addr = info->dlpi_phdr[i].p_vaddr;
-			mdi->text_size = info->dlpi_phdr[i].p_memsz;
-			break;
+		if (!base_addr_set) {
+			mdi->base_addr = info->dlpi_phdr[i].p_vaddr;
+			base_addr_set = true;
 		}
-		mdi->base_addr += info->dlpi_addr;
-		mdi->text_addr += info->dlpi_addr;
 
+		if (!(info->dlpi_phdr[i].p_flags & PF_X))
+			continue;
+
+		/* find address and size of code segment */
+		mdi->text_addr = info->dlpi_phdr[i].p_vaddr;
+		mdi->text_size = info->dlpi_phdr[i].p_memsz;
+		break;
+	}
+	mdi->base_addr += info->dlpi_addr;
+	mdi->text_addr += info->dlpi_addr;
+
+	map = find_map(symtabs, mdi->base_addr);
+	if (map && map->mod) {
+		mdi->sym_base = map->start;
+		mdi->nr_symbols = map->mod->symtab.nr_sym;
+		mcount_arch_find_module(mdi, &map->mod->symtab);
 		mdi->next = mdinfo;
 		mdinfo = mdi;
-
-		map = find_map(symtabs, mdi->base_addr);
-		if (map && map->mod) {
-			mdi->sym_base = map->start;
-			mdi->nr_symbols = map->mod->symtab.nr_sym;
-			mcount_arch_find_module(mdi, &map->mod->symtab);
-		}
-
-		return 1;
 	}
 
 	return 0;
 }
 
-static int prepare_dynamic_update(struct mcount_disasm_engine *disasm,
+static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 				  struct symtabs *symtabs)
 {
-	struct mcount_dynamic_info *mdi;
-	int ret = 0;
-
 	mcount_disasm_init(disasm);
-
 	dl_iterate_phdr(find_dynamic_module, symtabs);
+}
 
-	mdi = mdinfo;
-	while (mdi) {
-		ret = mcount_setup_trampoline(mdi);
-		if (ret < 0)
+struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
+{
+	struct mcount_dynamic_info *mdi;
+
+	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
+		if (map->start == mdi->sym_base)
 			break;
-
-		mdi = mdi->next;
 	}
-	return ret;
+
+	if (mdi != NULL && mdi->trampoline == 0) {
+		if (mcount_setup_trampoline(mdi) < 0)
+			mdi = NULL;
+	}
+
+	return mdi;
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype,
 			     struct mcount_disasm_engine *disasm)
 {
-	struct symtab *symtab = &symtabs->maps->mod->symtab;
+	struct symtab *symtab;
 	struct strv funcs = STRV_INIT;
 	char *name;
 	int j;
@@ -242,9 +242,36 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	strv_for_each(&funcs, name, j) {
 		bool found = false;
 		bool csu_skip;
+		char *modname, *delim;
 		unsigned i, k;
 		struct sym *sym;
 		struct uftrace_pattern patt;
+		struct uftrace_mmap *map;
+		struct mcount_dynamic_info *mdi = NULL;
+
+		delim = strchr(name, '@');
+
+		if (delim == NULL) {
+			/* first of uftrace_mmap is main module always. */
+			map = symtabs->maps;
+			symtab = &symtabs->maps->mod->symtab;
+		}
+		else {
+			*delim = '\0';
+			modname = ++delim;
+			map = find_map_by_name(symtabs, modname);
+			if (map == NULL || map->mod == NULL) {
+				pr_dbg("Failed to find map of %s\n", modname);
+				continue;
+			}
+			symtab = &map->mod->symtab;
+		}
+
+		mdi = setup_trampoline(map);
+		if (mdi == NULL) {
+			pr_warn("Failed to set the trampoline into %s\n", map->libname);
+			continue;
+		}
 
 		init_filter_pattern(ptype, &patt, name);
 
@@ -269,7 +296,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 				continue;
 
 			found = true;
-			switch (mcount_patch_func(mdinfo, sym, disasm)) {
+			switch (mcount_patch_func(mdi, sym, disasm)) {
 			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
@@ -332,11 +359,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 {
 	int ret = 0;
 
-	if (prepare_dynamic_update(disasm, symtabs) < 0) {
-		pr_dbg("cannot setup dynamic tracing\n");
-		return -1;
-	}
-
+	prepare_dynamic_update(disasm, symtabs);
 	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
 
 	if (stats.total && stats.failed) {
