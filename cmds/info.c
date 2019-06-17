@@ -499,8 +499,8 @@ static int fill_taskinfo(void *arg)
 	};
 	int i;
 
-	if (read_task_txt_file(&link, fha->opts->dirname, false, false) < 0 &&
-	    read_task_file(&link, fha->opts->dirname, false, false) < 0)
+	if (read_task_txt_file(&link, fha->opts->dirname, false, false, false) < 0 &&
+	    read_task_file(&link, fha->opts->dirname, false, false, false) < 0)
 		return -1;
 
 	walk_tasks(&link, build_tid_list, &tlist);
@@ -1043,7 +1043,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 
 		/* ignore errors */
 		read_task_txt_file(&handle->sessions, opts->dirname,
-				   false, false);
+				   false, false, false);
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 

@@ -266,6 +266,7 @@ struct opts {
 	bool libname;
 	bool no_randomize_addr;
 	bool graphviz;
+	bool srcline;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
@@ -295,9 +296,9 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle);
 int open_info_file(struct opts *opts, struct uftrace_data *handle);
 void close_data_file(struct opts *opts, struct uftrace_data *handle);
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
-		   bool needs_symtab, bool sym_rel_addr);
+		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
-		       bool needs_symtab, bool sym_rel_addr);
+		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 
 char * get_libmcount_path(struct opts *opts);
 void put_libmcount_path(char *libpath);
@@ -397,8 +398,10 @@ struct uftrace_msg_dlopen {
 
 extern struct uftrace_session *first_session;
 
-void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg,
-		    char *dirname, char *exename, bool sym_rel_addr, bool needs_symtab);
+void create_session(struct uftrace_session_link *sess,
+		    struct uftrace_msg_sess *msg,
+		    char *dirname, char *exename, bool sym_rel_addr,
+		    bool needs_symtab, bool needs_srcline);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task,
 					  uint64_t timestamp);
