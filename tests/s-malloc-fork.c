@@ -34,12 +34,22 @@ void *malloc(size_t sz)
 
 void *realloc(void *ptr, size_t size)
 {
+	char *p;
+
 	if (real_realloc && (ptr < buf || ptr >= &buf[MALLOC_BUFSIZE]))
 		return real_realloc(ptr, size);
 
-	void *p = malloc(size);
-	if (ptr)
-		memcpy(p, ptr, size);
+	p = malloc(size);
+
+	/* using memcpy() caused segfault due to alignment */
+	if (ptr != NULL) {
+		char *q = ptr;
+		size_t i;
+
+		for (i = 0; i < size; i++)
+			p[i] = q[i];
+	}
+
 	return p;
 }
 
