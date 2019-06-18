@@ -13,7 +13,7 @@ void *malloc(size_t size)
 	static unsigned alloc_size;
 	void *ptr;
 
-	size = ALIGN(size, 8);
+	size = ALIGN(size, 16);
 	if (alloc_size + size > sizeof(buf))
 		return NULL;
 
@@ -27,7 +27,9 @@ void *malloc(size_t size)
 void *realloc(void *ptr, size_t size)
 {
 	void *p = malloc(size);
-	memcpy(p, ptr, size);
+
+	if (ptr)
+		memcpy(p, ptr, size);
 	return p;
 }
 
