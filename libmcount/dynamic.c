@@ -192,6 +192,9 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		mdi->next = mdinfo;
 		mdinfo = mdi;
 	}
+	else {
+		free(mdi);
+	}
 
 	return 0;
 }
