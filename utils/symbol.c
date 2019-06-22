@@ -201,7 +201,7 @@ static void unload_symtab(struct symtab *symtab)
 }
 
 static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
-		       unsigned long offset, unsigned long flags,
+		       unsigned long long offset, unsigned long flags,
 		       struct uftrace_elf_data *elf,
 		       struct uftrace_elf_iter *iter)
 {
@@ -334,7 +334,7 @@ static void sort_symtab(struct symtab *symtab)
 }
 
 static int load_symtab(struct symtab *symtab, const char *filename,
-		       unsigned long offset, unsigned long flags)
+		       unsigned long long offset, unsigned long flags)
 {
 	int ret = -1;
 	unsigned long prev_sym_value = -1;
@@ -1584,11 +1584,19 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 	struct symtabs *symtabs = data;
 	struct uftrace_mmap *map;
 	char *exename = NULL;
+	int i;
 
 	exename = read_exename();
 	map = xzalloc(sizeof(*map) + strlen(exename) + 1);
-	map->start = info->dlpi_addr;
-	map->end   = map->start + 10 * 1024 * 1024;
+
+	for (i = 0; i < info->dlpi_phnum; i++) {
+		if (info->dlpi_phdr[i].p_type != PT_LOAD)
+			continue;
+		map->start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+		map->end = map->start + info->dlpi_phdr[i].p_memsz;
+		break;
+	}
+
 	map->len   = strlen(exename);
 	strcpy(map->libname, exename);
 
@@ -1600,6 +1608,7 @@ TEST_CASE(symbol_load_map) {
 	struct symtabs symtabs = {
 		.dirname = "",
 		.kernel_base = -4096ULL,
+		.flags = SYMTAB_FL_ADJ_OFFSET,
 	};
 	struct uftrace_mmap *map;
 	struct sym *sym;

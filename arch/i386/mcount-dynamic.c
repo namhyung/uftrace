@@ -103,7 +103,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 }
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
-		      struct mcount_disasm_engine *disasm)
+		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
 	return patch_fentry_func(mdi, sym);
 }
