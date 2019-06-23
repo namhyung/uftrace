@@ -16,6 +16,9 @@
 
 volatile bool uftrace_done;
 
+/* default uftrace options to be applied for analysis commands */
+struct strv default_opts = STRV_INIT;
+
 void sighandler(int sig)
 {
 	uftrace_done = true;
@@ -181,6 +184,7 @@ failed:
 static bool is_uftrace_directory(const char *path)
 {
 	int fd;
+	bool ret = false;
 	char *info_path = NULL;
 	char sig[UFTRACE_MAGIC_LEN] = {0,};
 
@@ -189,18 +193,24 @@ static bool is_uftrace_directory(const char *path)
 	fd = open(info_path, O_RDONLY);
 	free(info_path);
 
-	if (fd == -1)
-		return false;
-
-	if (read(fd, sig, UFTRACE_MAGIC_LEN) != UFTRACE_MAGIC_LEN) {
-		/*
-		 * partial read() will return false anyway
-		 * since memcmp() below cannot success.
-		 */
+	if (fd != -1) {
+		if (read(fd, sig, UFTRACE_MAGIC_LEN) != UFTRACE_MAGIC_LEN) {
+			/*
+			 * partial read() will return false anyway
+			 * since memcmp() below cannot success.
+			 */
+		}
+		close(fd);
+		return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
 	}
 
-	close(fd);
-	return !memcmp(sig, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN);
+	/* if "info" file is missing, also check that there is "default.opts" */
+	xasprintf(&info_path, "%s/default.opts", path);
+	if (!access(info_path, F_OK))
+		ret = true;
+	free(info_path);
+
+	return ret;
 }
 
 static bool is_empty_directory(const char *path)
@@ -232,6 +242,31 @@ static bool can_remove_directory(const char *path)
 	return is_uftrace_directory(path) || is_empty_directory(path);
 }
 
+static bool create_default_opts(const char *dirname)
+{
+	char *opts_str = strv_join(&default_opts, " ");
+	char opts_filename[PATH_MAX];
+	FILE *fp;
+	bool ret = false;
+
+	snprintf(opts_filename, PATH_MAX, "%s/default.opts", dirname);
+	fp = fopen(opts_filename, "w");
+	if (fp == NULL) {
+		pr_dbg("Open failed: %s\n", opts_filename);
+		goto out;
+	}
+
+	if (opts_str)
+		fprintf(fp, "%s\n", opts_str);
+	fclose(fp);
+	free(opts_str);
+	ret = true;
+
+out:
+	strv_free(&default_opts);
+	return ret;
+}
+
 int create_directory(const char *dirname)
 {
 	int ret = -1;
@@ -256,6 +291,8 @@ int create_directory(const char *dirname)
 	ret = mkdir(dirname, 0755);
 	if (ret < 0)
 		pr_warn("creating directory failed: %m\n");
+
+	create_default_opts(dirname);
 
 out:
 	free(oldname);
