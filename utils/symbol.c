@@ -774,9 +774,9 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 	enum uftrace_trace_type ret = TRACE_ERROR;
 	const char *trace_funcs[] = {
 		"__cyg_profile_func_enter",
+		"__fentry__",
 		"mcount",
 		"_mcount",
-		"__fentry__",
 		"__gnu_mcount_nc",
 	};
 	char *name;
@@ -813,7 +813,12 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 
 		for (i = 0; i < ARRAY_SIZE(trace_funcs); i++) {
 			if (!strcmp(name, trace_funcs[i])) {
-				ret = (i == 0) ? TRACE_CYGPROF : TRACE_MCOUNT;
+				if (i == 0)
+					ret = TRACE_CYGPROF;
+				else if (i == 1)
+					ret = TRACE_FENTRY;
+				else
+					ret = TRACE_MCOUNT;
 				goto out;
 			}
 		}
