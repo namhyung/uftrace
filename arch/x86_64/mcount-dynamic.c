@@ -13,6 +13,7 @@
 
 #define PAGE_SIZE  4096
 #define XRAY_SECT  "xray_instr_map"
+#define MCOUNTLOC_SECT  "__mcount_loc"
 
 #define CALL_INSN_SIZE  5
 #define JMP_INSN_SIZE   6
@@ -45,7 +46,9 @@ static const char *adi_type_names[] = {
 struct arch_dynamic_info {
 	enum mcount_x86_dynamic_type	type;
 	struct xray_instr_map		*xrmap;
+	unsigned long			*mcount_loc;
 	unsigned			xrmap_count;
+	unsigned			nr_mcount_loc;
 	struct list_head		bad_targets;  /* for non-local jumps */
 };
 
@@ -151,6 +154,29 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 	}
 }
 
+static void read_mcount_loc(struct arch_dynamic_info *adi,
+			    struct uftrace_elf_data *elf,
+			    struct uftrace_elf_iter *iter,
+			    unsigned long offset)
+{
+	typeof(iter->shdr) *shdr = &iter->shdr;
+
+	adi->nr_mcount_loc = shdr->sh_size / sizeof(long);
+	adi->mcount_loc = xmalloc(shdr->sh_size);
+
+	elf_get_secdata(elf, iter);
+	elf_read_secdata(elf, iter, 0, adi->mcount_loc, shdr->sh_size);
+
+	/* symbol has relative address, fix it to match each other */
+	if (elf->ehdr.e_type == ET_EXEC) {
+		unsigned i;
+
+		for (i = 0; i < adi->nr_mcount_loc; i++) {
+			adi->mcount_loc[i] -= offset;
+		}
+	}
+}
+
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			     struct symtab *symtab)
 {
@@ -174,6 +200,11 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			adi->type = DYNAMIC_XRAY;
 			read_xray_map(adi, &elf, &iter, mdi->base_addr);
 			goto out;
+		}
+
+		if (!strcmp(shstr, MCOUNTLOC_SECT)) {
+			read_mcount_loc(adi, &elf, &iter, mdi->base_addr);
+			/* still needs to check pg or fentry */
 		}
 	}
 
@@ -507,28 +538,66 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return INSTRUMENT_SUCCESS;
 }
 
-static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int unpatch_func(uint8_t *insn, char *name)
 {
-	unsigned char nop5[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	uint64_t sym_addr = sym->addr + mdi->map->start;
-	unsigned char *insn = (void *)sym_addr;
-	int result = INSTRUMENT_SKIPPED;
+	uint8_t nop5[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	uint8_t nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	uint8_t *nop_insn;
+	size_t nop_size;
 
 	if (*insn == 0xe8) {
-		pr_dbg2("unpatch fentry: %s\n", sym->name);
-		memcpy(insn, nop5, sizeof(nop5));
-		__builtin___clear_cache(insn, insn + sizeof(nop5));
-		result = INSTRUMENT_SUCCESS;
+		nop_insn = nop5;
+		nop_size = sizeof(nop5);
 	}
 	else if (insn[0] == 0xff && insn[1] == 0x15) {
-		pr_dbg2("unpatch fentry: %s\n", sym->name);
-		memcpy(insn, nop6, sizeof(nop6));
-		__builtin___clear_cache(insn, insn + sizeof(nop6));
-		result = INSTRUMENT_SUCCESS;
+		nop_insn = nop6;
+		nop_size = sizeof(nop6);
+	}
+	else {
+		return INSTRUMENT_SKIPPED;
 	}
 
-	return result;
+	pr_dbg3("unpatch fentry: %s\n", name);
+	memcpy(insn, nop_insn, nop_size);
+	__builtin___clear_cache(insn, insn + nop_size);
+
+	return INSTRUMENT_SUCCESS;
+}
+
+static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	uint64_t sym_addr = sym->addr + mdi->map->start;
+
+	return unpatch_func((void *)sym_addr, sym->name);
+}
+
+static int cmp_loc(const void *a, const void *b)
+{
+	const struct sym *sym = a;
+	uintptr_t loc = *(uintptr_t *)b;
+
+	if (sym->addr <= loc && loc < sym->addr + sym->size)
+		return 0;
+
+	return sym->addr > loc ? 1 : -1;
+}
+
+static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	struct arch_dynamic_info *adi = mdi->arch;
+	uintptr_t *loc;
+
+	if (adi->nr_mcount_loc != 0) {
+		loc = bsearch(sym, adi->mcount_loc, adi->nr_mcount_loc,
+			       sizeof(adi->mcount_loc), cmp_loc);
+
+		if (loc != NULL) {
+			uint8_t *insn = (uint8_t*) *loc;
+			return unpatch_func(insn + mdi->map->start, sym->name);
+		}
+	}
+
+	return INSTRUMENT_SKIPPED;
 }
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
@@ -572,6 +641,10 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	switch (adi->type) {
 	case DYNAMIC_FENTRY:
 		result = unpatch_fentry_func(mdi, sym);
+		break;
+
+	case DYNAMIC_PG:
+		result = unpatch_mcount_func(mdi, sym);
 		break;
 
 	default:
