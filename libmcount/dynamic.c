@@ -152,11 +152,17 @@ __weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 {
 }
 
+struct find_module_data {
+	struct symtabs *symtabs;
+	bool needs_modules;
+};
+
 /* callback for dl_iterate_phdr() */
 static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	struct mcount_dynamic_info *mdi;
-	struct symtabs *symtabs = data;
+	struct find_module_data *fmd = data;
+	struct symtabs *symtabs = fmd->symtabs;
 	struct uftrace_mmap *map;
 	bool base_addr_set = false;
 	unsigned i;
@@ -195,14 +201,20 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		free(mdi);
 	}
 
-	return 0;
+	return !fmd->needs_modules;
 }
 
 static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
-				  struct symtabs *symtabs)
+				   struct symtabs *symtabs,
+				   bool needs_modules)
 {
+	struct find_module_data fmd = {
+		.symtabs = symtabs,
+		.needs_modules = needs_modules,
+	};
+
 	mcount_disasm_init(disasm);
-	dl_iterate_phdr(find_dynamic_module, symtabs);
+	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
 
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
@@ -364,8 +376,9 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	int ret = 0;
 	char *size_filter;
 	unsigned min_size = 0;
+	bool needs_modules = !!strchr(patch_funcs, '@');
 
-	prepare_dynamic_update(disasm, symtabs);
+	prepare_dynamic_update(disasm, symtabs, needs_modules);
 
 	size_filter = getenv("UFTRACE_PATCH_SIZE");
 	if (size_filter != NULL)
