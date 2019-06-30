@@ -21,6 +21,7 @@ static struct mcount_dynamic_stats {
 	int failed;
 	int skipped;
 	int nomatch;
+	int unpatch;
 } stats;
 
 #define PAGE_SIZE   4096
@@ -129,6 +130,12 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 __weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm,
 			     unsigned min_size)
+{
+	return -1;
+}
+
+__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			       struct mcount_disasm_engine *disasm)
 {
 	return -1;
 }
@@ -308,8 +315,11 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			    sym->type != ST_GLOBAL_FUNC)
 				continue;
 
-			if (!match_filter_pattern(&patt, sym->name))
+			if (!match_filter_pattern(&patt, sym->name)) {
+				if (mcount_unpatch_func(mdi, sym, disasm) == 0)
+					stats.unpatch++;
 				continue;
+			}
 
 			found = true;
 			switch (mcount_patch_func(mdi, sym, disasm, min_size)) {
