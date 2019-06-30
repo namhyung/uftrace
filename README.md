@@ -22,9 +22,9 @@ Features
 ========
 
 It traces each function in the executable and shows time duration.  It
-can also trace external library calls - but only entry and exit are
-supported and cannot trace internal function calls in the library call
-unless the library itself built with profiling enabled.
+can also trace external library calls - but usually entry and exit are
+supported.  Optionally it's possible to trace other (nested) external
+library calls and/or internal function calls in the library call.
 
 It can show detailed execution flow at function level, and report which
 function has the highest overhead.  And it also shows various information
@@ -84,9 +84,15 @@ If omitted, it defaults to the `live` command which is almost same as running
 record and replay subcommand in a row (but does not record the trace info
 to files).
 
-For recording, the executable should be compiled with `-pg`
+For recording, the executable needs to be compiled with the `-pg`
 (or `-finstrument-functions`) option which generates profiling code
 (calling mcount or __cyg_profile_func_enter/exit) for each function.
+
+Note that, there's an experimental support for dynamic tracing on x86_64
+which doesn't require such (re-)compilations.  Also recent compilers have
+some options to help uftrace to reduce tracing overhead with similar way
+(although it still needs recompilation of your program).  Please see
+[doc/uftrace-record.md](doc/uftrace-record.md) file.
 
     $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION
@@ -257,7 +263,7 @@ Limitations
 - It can trace a native C/C++ application on Linux.
 - It *cannot* trace already running process.
 - It *cannot* be used for system-wide tracing.
-- It supports x86_64 and ARM (v6 or later) and AArch64 for now.
+- It supports x86 (32 and 64 bit), ARM (v6 or later) and AArch64 for now.
 
 
 License
