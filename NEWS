@@ -1,3 +1,24 @@
+uftrace v0.9.3
+--------------
+* dynamic tracing update
+  add (optional) dependency of capstone disassembly engine
+  support tracing executables w/o instrumentation on x86_64
+  add -Z/--size-filter option not to select small functions
+
+* external event support
+  support display user-defined events in uftrace.data/extern.dat
+  it's a text file which has timestamp and message for each line
+
+* other changes
+  allow tracing (system) binaries in the PATH
+  add --srcline option to save debug info only if necessary
+  apply --time-filter for analysis commands by default
+  allow tracing execution of shell (interpreter)
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Daniel T. Lee, Hanbum Park, Honggyu Kim, Taeung Song
+
+
 uftrace v0.9.2
 --------------
 * trigger update
