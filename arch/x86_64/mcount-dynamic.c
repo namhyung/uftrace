@@ -40,6 +40,7 @@ struct arch_dynamic_info {
 	enum mcount_x86_dynamic_type	type;
 	struct xray_instr_map		*xrmap;
 	unsigned			xrmap_count;
+	struct list_head		bad_targets;  /* for non-local jumps */
 };
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -157,8 +158,9 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	unsigned i = 0;
 
 	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+	INIT_LIST_HEAD(&adi->bad_targets);
 
-	if (elf_init(mdi->mod_name, &elf) < 0)
+	if (elf_init(mdi->map->libname, &elf) < 0)
 		goto out;
 
 	elf_for_each_shdr(&elf, &iter) {
@@ -174,7 +176,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	/* check first few functions have fentry signature */
 	for (i = 0; i < symtab->nr_sym; i++) {
 		struct sym *sym = &symtab->sym[i];
-		void *code_addr = (void *)sym->addr + mdi->sym_base;
+		void *code_addr = (void *)sym->addr + mdi->map->start;
 
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
@@ -211,7 +213,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
 	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr + mdi->sym_base;
+	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
@@ -222,7 +224,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, sym->addr + mdi->sym_base);
+	target_addr = get_target_addr(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
 
@@ -298,7 +300,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
-	uint64_t sym_addr = sym->addr + mdi->sym_base;
+	uint64_t sym_addr = sym->addr + mdi->map->start;
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < adi->xrmap_count; i++) {
@@ -409,9 +411,52 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 				origin_code_addr + origin_code_size);
 }
 
-/* see mcount-insn.c */
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       uintptr_t addr, uint32_t size);
+struct dynamic_bad_symbol * find_bad_jump(struct mcount_dynamic_info *mdi,
+					  unsigned long addr)
+{
+	struct sym *sym;
+	struct arch_dynamic_info *adi = mdi->arch;
+	struct dynamic_bad_symbol *badsym;
+
+	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
+	if (sym == NULL)
+		return NULL;
+
+	list_for_each_entry(badsym, &adi->bad_targets, list) {
+		if (badsym->sym == sym)
+			return badsym;
+	}
+
+	return NULL;
+}
+
+bool add_bad_jump(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		  unsigned long target)
+{
+	struct sym *sym;
+	struct arch_dynamic_info *adi = mdi->arch;
+	struct dynamic_bad_symbol *badsym;
+
+	if (find_bad_jump(mdi, target))
+		return true;
+
+	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
+	if (sym == NULL)
+		return true;
+
+	/* only care about jumps to the middle of a function */
+	if (sym->addr + mdi->map->start == target)
+		return false;
+
+	pr_dbg2("bad jump: %s:%lx to %lx\n", sym ? sym->name : "<unknown>",
+		callsite - mdi->map->start, target - mdi->map->start);
+
+	badsym = xmalloc(sizeof(*badsym));
+	badsym->sym = sym;
+
+	list_add_tail(&badsym->list, &adi->bad_targets);
+	return true;
+}
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm)
@@ -420,9 +465,9 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
 	struct mcount_orig_insn *orig;
-	uint64_t sym_addr = sym->addr + mdi->sym_base;
+	uint64_t sym_addr = sym->addr + mdi->map->start;
 
-	instr_size = disasm_check_insns(disasm, sym_addr, sym->size);
+	instr_size = disasm_check_insns(disasm, mdi, sym);
 	if (instr_size < CALL_INSN_SIZE)
 		return instr_size;
 
@@ -480,4 +525,42 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		break;
 	}
 	return result;
+}
+
+#define INSN_CHECK_LEN  16
+
+static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			       struct mcount_disasm_engine *disasm)
+{
+	uint8_t jmp_insn[6] = { 0xff, 0x25, };
+	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
+	void *saved_insn;
+	int i;
+
+	saved_insn = mcount_find_code((uintptr_t)addr + CALL_INSN_SIZE);
+
+	/* we don't the original copy size, find the jmp insn instead */
+	for (i = CALL_INSN_SIZE; i < INSN_CHECK_LEN; i++) {
+		if (!memcmp(saved_insn + i, jmp_insn, sizeof(jmp_insn)))
+			break;
+	}
+
+	if (i == INSN_CHECK_LEN)
+		pr_err_ns("cannot find original insn length\n");
+
+	memcpy(addr, saved_insn, i);
+	__builtin___clear_cache(addr, addr + i);
+}
+
+void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+				 struct mcount_disasm_engine *disasm)
+{
+	struct arch_dynamic_info *adi = mdi->arch;
+	struct dynamic_bad_symbol *badsym, *tmp;
+
+	list_for_each_entry_safe(badsym, tmp, &adi->bad_targets, list) {
+		revert_normal_func(mdi, badsym->sym, disasm);
+		list_del(&badsym->list);
+		free(badsym);
+	}
 }
