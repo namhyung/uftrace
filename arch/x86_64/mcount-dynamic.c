@@ -507,6 +507,30 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return INSTRUMENT_SUCCESS;
 }
 
+static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	unsigned char nop5[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	uint64_t sym_addr = sym->addr + mdi->map->start;
+	unsigned char *insn = (void *)sym_addr;
+	int result = INSTRUMENT_SKIPPED;
+
+	if (*insn == 0xe8) {
+		pr_dbg2("unpatch fentry: %s\n", sym->name);
+		memcpy(insn, nop5, sizeof(nop5));
+		__builtin___clear_cache(insn, insn + sizeof(nop5));
+		result = INSTRUMENT_SUCCESS;
+	}
+	else if (insn[0] == 0xff && insn[1] == 0x15) {
+		pr_dbg2("unpatch fentry: %s\n", sym->name);
+		memcpy(insn, nop6, sizeof(nop6));
+		__builtin___clear_cache(insn, insn + sizeof(nop6));
+		result = INSTRUMENT_SUCCESS;
+	}
+
+	return result;
+}
+
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm,
 		      unsigned min_size)
@@ -531,6 +555,23 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	case DYNAMIC_NONE:
 		result = patch_normal_func(mdi, sym, disasm);
+		break;
+
+	default:
+		break;
+	}
+	return result;
+}
+
+int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			struct mcount_disasm_engine *disasm)
+{
+	struct arch_dynamic_info *adi = mdi->arch;
+	int result = INSTRUMENT_SKIPPED;
+
+	switch (adi->type) {
+	case DYNAMIC_FENTRY:
+		result = unpatch_fentry_func(mdi, sym);
 		break;
 
 	default:
