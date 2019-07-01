@@ -1012,8 +1012,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 								setting);
 				}
 			}
-
-			free(module);
 		}
 		else {
 			for_each_map(symtabs, map) {
@@ -1034,6 +1032,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		}
 next:
 		free_filter_pattern(&patt);
+		free(module);
 
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, typeof(*arg), list);
