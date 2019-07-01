@@ -280,7 +280,7 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		return 0;
 	}
 
-	pr_dbg2("add filter for %s (flags = %lx)\n", filter->name, tr->flags);
+	pr_dbg2("add filter for %s (flags = %x)\n", filter->name, tr->flags);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
 

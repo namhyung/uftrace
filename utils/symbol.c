@@ -652,7 +652,7 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 		return;
 	}
 
-	pr_dbg2("merge two symbol tables (left = %u, right = %u)\n",
+	pr_dbg2("merge two symbol tables (left = %lu, right = %lu)\n",
 		left->nr_sym, right->nr_sym);
 
 	syms = xmalloc(nr_sym * sizeof(*syms));
