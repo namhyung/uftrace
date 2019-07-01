@@ -1377,7 +1377,7 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("  ");
 	print_time(curr->n.self.sum);
 	printw("  ");
-	printw("%10u", curr->n.call);
+	printw("%10lu", curr->n.call);
 	printw("  ");
 
 	printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
@@ -1509,7 +1509,7 @@ static void win_display_info(struct tui_window *win, void *node)
 {
 	struct tui_list_node *curr = node;
 
-	printw("%-*.*s", COLS, COLS, curr->data);
+	printw("%-*.*s", COLS, COLS, (char *)curr->data);
 }
 
 static const struct tui_window_ops info_ops = {

@@ -353,13 +353,13 @@ static void print_event(struct uftrace_task_reader *task,
 			return;
 		case EVENT_ID_DIFF_PMU_CACHE:
 			u.cache = task->args.data;
-			pr_color(color, "%s (refers=%+"PRId64", misses=%+"PRId64", hit=%d%%)",
+			pr_color(color, "%s (refers=%+"PRId64", misses=%+"PRId64", hit=%"PRId64"%%)",
 				 evt_name, u.cache->refers, u.cache->misses,
 				 (u.cache->refers - u.cache->misses) * 100 / u.cache->refers);
 			return;
 		case EVENT_ID_DIFF_PMU_BRANCH:
 			u.branch = task->args.data;
-			pr_color(color, "%s (branch=%+"PRId64", misses=%+"PRId64", predict=%d%%)",
+			pr_color(color, "%s (branch=%+"PRId64", misses=%+"PRId64", predict=%"PRId64"%%)",
 				 evt_name, u.branch->branch, u.branch->misses,
 				 (u.branch->branch - u.branch->misses) * 100 / u.branch->branch);
 			return;
