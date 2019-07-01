@@ -359,7 +359,7 @@ static bool find_mem_region(struct rb_root *root, unsigned long addr)
 			p = &parent->rb_right;
 	}
 
-	pr_dbg2("cannot find mem region: %lx\n");
+	pr_dbg2("cannot find mem region: %lx\n", addr);
 	return false;
 }
 

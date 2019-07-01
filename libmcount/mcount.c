@@ -180,7 +180,7 @@ static void add_signal_trigger(int sig, const char *name,
 	memcpy(&item->tr, tr, sizeof(*tr));
 
 	pr_dbg("add signal trigger: %s (%d), flags = %lx\n",
-	       name, sig, tr->flags);
+	       name, sig, (unsigned long)tr->flags);
 
 	list_add(&item->list, &siglist);
 }
@@ -848,9 +848,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 
 	uftrace_match_filter(child, &mcount_triggers, tr);
 
-	pr_dbg3(" tr->flags: %lx, filter mode, count: [%d] %d/%d\n",
-		tr->flags, mcount_filter_mode, mtdp->filter.in_count,
-		mtdp->filter.out_count);
+	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n",
+		tr->flags, tr->fmode, mtdp->filter.in_count,
+		mtdp->filter.out_count, mtdp->filter.depth);
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)

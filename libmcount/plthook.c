@@ -72,7 +72,7 @@ static void resolve_pltgot(struct plthook_data *pd, int idx)
 				addr = (unsigned long)real_addr;
 		}
 
-		pr_dbg2("resolved addr of %s = %p\n", sym->name, addr);
+		pr_dbg2("resolved addr of %s = %#lx\n", sym->name, addr);
 		pd->resolved_addr[idx] = addr;
 	}
 }
@@ -782,7 +782,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
 		pr_dbg3("[idx: %4d] enter %"PRIx64": %s@plt (mod: %lx)\n",
-			child_idx, sym->addr, sym->name, module_id);
+			(int)child_idx, sym->addr, sym->name, module_id);
 	}
 	else {
 		sym = NULL;
