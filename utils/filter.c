@@ -867,6 +867,9 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	size_t i;
 	int j;
 
+	if (module != NULL)
+		*module = NULL;
+
 	if (pos == NULL)
 		return 0;
 
@@ -890,7 +893,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 		}
 
 		/* if it's not an action, treat it as a module name */
-		if (i == ARRAY_SIZE(actions)) {
+		if (i == ARRAY_SIZE(actions) && module != NULL) {
 			if (*module)
 				pr_use("ignoring extra module: %s\n", pos);
 			else
@@ -900,6 +903,9 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	ret = 0;
 
 out:
+	if (ret < 0 && module != NULL)
+		free(*module);
+
 	strv_free(&acts);
 	return ret;
 }
