@@ -111,7 +111,7 @@ void *mcount_find_code(unsigned long addr)
 
 	orig = lookup_code(&code_tree, addr, false);
 	if (orig == NULL)
-		pr_err_ns("cannot find matching patch insn: %#lx\n", addr);
+		return NULL;
 
 	return orig->insn;
 }

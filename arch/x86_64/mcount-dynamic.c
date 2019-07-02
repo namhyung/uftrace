@@ -538,6 +538,8 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	int i;
 
 	saved_insn = mcount_find_code((uintptr_t)addr + CALL_INSN_SIZE);
+	if (saved_insn == NULL)
+		return;
 
 	/* we don't the original copy size, find the jmp insn instead */
 	for (i = CALL_INSN_SIZE; i < INSN_CHECK_LEN; i++) {
