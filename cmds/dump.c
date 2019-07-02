@@ -155,7 +155,8 @@ static int pr_task(struct opts *opts)
 
 			pr_time(smsg.task.time);
 			pr_out("session of task %d: %.*s (%s)\n",
-			       smsg.task.tid, sizeof(smsg.sid), smsg.sid, exename);
+			       smsg.task.tid, SESSION_ID_LEN, smsg.sid,
+			       exename);
 			break;
 		default:
 			pr_out("unknown message type: %u\n", msg.type);
@@ -683,7 +684,7 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	/* check dummy 'time extend' record at the beginning */
 	if (raw->kbuf_offset == 0x18) {
 		uint64_t offset = 0x10;
-		unsigned long long timestamp = 0;
+		uint64_t timestamp = 0;
 		void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
 		unsigned char *tmp = data - 12;  /* data still returns next record */
 
@@ -712,8 +713,7 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
-	       tid, rstack_type(frs),
-	       name, frs->addr, frs->depth);
+	       tid, rstack_type(frs), name, frs->addr, frs->depth);
 
 	if (debug) {
 		/* this is only needed for hex dump */
@@ -746,7 +746,7 @@ static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 	event_data = read_kernel_event(kernel, cpu, &size);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s:%s(%d) %.*s\n",
+	pr_out("%5d: [%s] %s:%s(%ld) %.*s\n",
 	       tid, rstack_type(frs), event->system, event->name,
 	       frs->addr, size, event_data);
 
@@ -795,7 +795,7 @@ static void dump_raw_perf_event(struct uftrace_dump_ops *ops,
 	char *evt_name = get_event_name(NULL, frs->addr);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%d)\n",
+	pr_out("%5d: [%s] %s(%"PRIu64")\n",
 	       perf->tid, rstack_type(frs), evt_name, frs->addr);
 
 	if (debug) {

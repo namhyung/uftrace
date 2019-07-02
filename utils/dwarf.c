@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -48,7 +49,7 @@ static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 
-	pr_dbg3("add debug entry: %x %s%s\n", offset, func, argspec);
+	pr_dbg3("add debug entry: %"PRIx64" %s%s\n", offset, func, argspec);
 
 	while (*p) {
 		parent = *p;
@@ -94,7 +95,7 @@ static struct debug_entry * find_debug_entry(struct rb_root *root, uint64_t offs
 
 		ret = iter->offset - offset;
 		if (ret == 0) {
-			pr_dbg3("found debug entry at %x (%s%s)\n",
+			pr_dbg3("found debug entry at %"PRIx64" (%s%s)\n",
 				offset, iter->name, iter->spec);
 			return iter;
 		}

@@ -620,11 +620,12 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		ret = report_setup_diff(sort_keys);
 	else
 		ret = report_setup_sort(sort_keys);
+
+	free(sort_keys);
 	if (ret < 0) {
 		pr_use("invalid sort key: %s\n", opts->sort_keys);
 		return -1;
 	}
-	free(sort_keys);
 
 	if (opts->diff_policy)
 		apply_diff_policy(opts->diff_policy);

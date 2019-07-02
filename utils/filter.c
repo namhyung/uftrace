@@ -280,7 +280,7 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		return 0;
 	}
 
-	pr_dbg2("add filter for %s (flags = %lx)\n", filter->name, tr->flags);
+	pr_dbg2("add filter for %s (flags = %x)\n", filter->name, tr->flags);
 	if (dbg_domain[DBG_FILTER] >= 3)
 		print_trigger(tr);
 
@@ -867,6 +867,9 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	size_t i;
 	int j;
 
+	if (module != NULL)
+		*module = NULL;
+
 	if (pos == NULL)
 		return 0;
 
@@ -890,7 +893,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 		}
 
 		/* if it's not an action, treat it as a module name */
-		if (i == ARRAY_SIZE(actions)) {
+		if (i == ARRAY_SIZE(actions) && module != NULL) {
 			if (*module)
 				pr_use("ignoring extra module: %s\n", pos);
 			else
@@ -900,6 +903,9 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 	ret = 0;
 
 out:
+	if (ret < 0 && module != NULL)
+		free(*module);
+
 	strv_free(&acts);
 	return ret;
 }
@@ -1012,8 +1018,6 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 								setting);
 				}
 			}
-
-			free(module);
 		}
 		else {
 			for_each_map(symtabs, map) {
@@ -1034,6 +1038,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 		}
 next:
 		free_filter_pattern(&patt);
+		free(module);
 
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, typeof(*arg), list);

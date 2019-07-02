@@ -232,8 +232,10 @@ static int fill_cmdline(void *arg)
 	p[ret - 1] = '\n';
 
 	if ((write(fha->fd, "cmdline:", 8) < 8) ||
-	    (write(fha->fd, p, ret) < ret))
+	    (write(fha->fd, p, ret) < ret)) {
+		free(p);
 		return -1;
+	}
 
 	free(p);
 	return ret;
