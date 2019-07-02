@@ -91,6 +91,8 @@ static void setup_child_environ(struct opts *opts)
 	}
 	else
 		setenv("LD_PRELOAD", libpath, 1);
+
+	free(libpath);
 }
 
 int command_live(int argc, char *argv[], struct opts *opts)
