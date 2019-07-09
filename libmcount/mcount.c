@@ -709,18 +709,18 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 				break;
 
 			if (si->si_code == sigsegv_codes[i].code) {
-				pr_red("Segmentation fault: %s (addr: %p)\n",
+				pr_warn("Segmentation fault: %s (addr: %p)\n",
 				       sigsegv_codes[i].msg, si->si_addr);
 				break;
 			}
 		}
 		if (sig != SIGSEGV || i == (int)ARRAY_SIZE(sigsegv_codes)) {
-			pr_red("process crashed by signal %d: %s (si_code: %d)\n",
+			pr_warn("process crashed by signal %d: %s (si_code: %d)\n",
 			       sig, strsignal(sig), si->si_code);
 		}
 
-		pr_red("Backtrace from uftrace:\n");
-		pr_red("=====================================\n");
+		pr_warn("Backtrace from uftrace:\n");
+		pr_warn("=====================================\n");
 
 		while (rstack >= mtdp->rstack) {
 			struct sym *parent, *child;
@@ -731,7 +731,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 			child  = find_symtabs(&symtabs, rstack->child_ip);
 			cname = symbol_getname(child, rstack->child_ip);
 
-			pr_red("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
+			pr_warn("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
 			       cname, rstack->child_ip, pname, rstack->parent_ip);
 
 			symbol_putname(parent, pname);
