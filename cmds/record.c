@@ -131,14 +131,10 @@ char * get_libmcount_path(struct opts *opts)
 	}
 
 #ifdef INSTALL_LIB_PATH
+	/* try first to load libmcount from the installtion path */
 	snprintf(lib, PATH_MAX, "%s/%s", INSTALL_LIB_PATH, libmcount);
 	if (access(lib, F_OK) == 0)
 		return lib;
-
-	if (errno == ENOENT)
-		pr_warn("Didn't you run 'make install' ?\n");
-
-	/* fall through */
 #endif
 	strcpy(lib, libmcount);
 	return lib;
