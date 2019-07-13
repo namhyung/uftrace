@@ -32,9 +32,11 @@ RECORD OPTIONS
     Implies \--srcline.  See *ARGUMENTS*.
 
 -P *FUNC*, \--patch=*FUNC*
-:   Patch FUNC dynamically.  This is only applicable binaries built by
-    gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
-    This option can be used more than once.  See *DYNAMIC TRACING*.
+:   Patch FUNC dynamically.  This option can be used more than once.
+    See *DYNAMIC TRACING*.
+
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Patch functions bigger than SIZE bytes dynamically.  See *DYNAMIC TRACING*.
 
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
@@ -541,19 +543,25 @@ normally you need to build the target program with `-pg` (or
 funtions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
-`-P`/`--patch` option.  However you need to add some more compiler (gcc) options
-when building the target program.  The gcc 5.1 or more recent versions provide
-`-mfentry` and `-mnop-mcount` options which add instrumentation code (i.e.
-calling `mcount()` function) at the very beginning of a function and convert
-the instruction to a NOP.  Then it has almost zero performance overhead when
-running in a normal condition.  The uftrace can convert it back to call
-`mcount()` if users want to (using `-P` option).
+`-P`/`--patch` option.  With capstone disassembly engine you even don't need to
+(re)compile the target with the option above.  Now uftrace can analyze the
+instructions and (if possible) it can copy them to a different place and rewrite
+it to call `mcount()` function) so that it can be traced by uftrace.  After that
+the control is passed to the copied instructions and then returned back to the
+remaining instructions.
 
-The following example shows a error message when normally running uftrace with
-the excutable built with `-pg -mfentry -mnop-mcount`. Because the binary doesn't
-call any instrumentation code (i.e. 'mcount').
+If the capstone is not available, you need to add some more compiler (gcc)
+options when building the target program.  The gcc 5.1 or more recent versions
+provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
+(i.e.  calling `mcount()` function) at the very beginning of a function and
+convert the instruction to a NOP.  Then it has almost zero performance overhead
+when running in a normal condition.  The uftrace can selectively convert it
+back to call `mcount()` using `-P` option.
 
-    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+The following example shows an error message when normally running uftrace.
+Because the binary doesn't call any instrumentation code (i.e. 'mcount').
+
+    $ gcc -o abc tests/s-abc.c
     $ uftrace abc
     uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
       ERROR: Can't find 'mcount' symbol in the 'abc'.
@@ -568,8 +576,8 @@ trace `a()`.
     # DURATION    TID     FUNCTION
        0.923 us [19379] | a();
 
-In addition, you can enable all functions at load time using '.' that matches to
-any character in a regex pattern with `P` option.
+In addition, you can enable all functions using '.' (for glob, '*') that
+matches to any character in a regex pattern with `P` option.
 
     $ uftrace record --no-libcall -P . abc
     $ uftrace replay
