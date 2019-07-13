@@ -554,6 +554,7 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_flat:
 		opts->flat = true;
+		opts->no_event = true;
 		break;
 
 	case OPT_no_libcall:

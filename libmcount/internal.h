@@ -174,6 +174,8 @@ extern int page_size_in_kb;
 extern bool kernel_pid_update;
 extern bool mcount_auto_recover;
 
+extern bool mcount_flat;
+
 enum mcount_global_flag {
 	MCOUNT_GFL_SETUP	= (1U << 0),
 	MCOUNT_GFL_FINISH	= (1U << 1),

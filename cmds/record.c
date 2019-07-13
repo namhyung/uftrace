@@ -318,6 +318,9 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 	if (opts->srcline)
 		setenv("UFTRACE_SRCLINE", "1", 1);
 
+	if (opts->flat)
+		setenv("UFTRACE_FLAT", "1", 1);
+
 	if (argc > 0) {
 		char *args = NULL;
 		int i;
