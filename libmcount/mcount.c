@@ -1237,12 +1237,20 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	/* hijack the return address of child */
-	*parent_loc = mcount_return_fn;
+	if (unlikely(mcount_flat)) {
+		/* record function entry only in flat mode */
+		mtdp->idx = 0;
+		rstack->depth = 0;
+		record_trace_data(mtdp, rstack, NULL);
+	}
+	else {
+		/* hijack the return address of child */
+		*parent_loc = mcount_return_fn;
 
-	/* restore return address of parent */
-	if (mcount_auto_recover)
-		mcount_auto_restore(mtdp);
+		/* restore return address of parent */
+		if (mcount_auto_recover)
+			mcount_auto_restore(mtdp);
+	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
