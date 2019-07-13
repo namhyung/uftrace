@@ -382,7 +382,7 @@ static int load_symtab(struct symtab *symtab, const char *filename,
 	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
 	symtab->sym = xmalloc(symtab->nr_alloc * sizeof(*symtab->sym));
 
-	pr_dbg3("loading symbols from %s (offset: %#lx)\n", filename, offset);
+	pr_dbg3("loading symbols from %s (offset: %#llx)\n", filename, offset);
 	if (iter.shdr.sh_type == SHT_SYMTAB) {
 		elf_for_each_symbol(&elf, &iter) {
 			if (load_symbol(symtab, prev_sym_value, offset, flags,

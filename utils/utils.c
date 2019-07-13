@@ -259,11 +259,11 @@ static bool create_default_opts(const char *dirname)
 	if (opts_str)
 		fprintf(fp, "%s\n", opts_str);
 	fclose(fp);
-	free(opts_str);
 	ret = true;
 
 out:
 	strv_free(&default_opts);
+	free(opts_str);
 	return ret;
 }
 
