@@ -297,7 +297,7 @@ static void print_event(struct uftrace_task_reader *task,
 		pr_color(color, "%s", evt_name);
 
 		if (evt_id == EVENT_ID_PERF_COMM)
-			pr_color(color, " (name=%s)", task->args.data);
+			pr_color(color, " (name=%s)", (char *)task->args.data);
 	}
 	else if (evt_id >= EVENT_ID_BUILTIN) {
 		union {
