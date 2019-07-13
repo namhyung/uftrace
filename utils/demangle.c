@@ -1753,7 +1753,7 @@ char *demangle(char *str)
 		return xstrdup(str);
 	default:
 		pr_dbg("demangler error\n");
-		return str;
+		return xstrdup(str);
 	}
 }
 
