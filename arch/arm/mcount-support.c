@@ -231,7 +231,9 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	struct lr_offset lr = {
 		.offset = 0,
 	};
-	struct offset_entry *cache;
+	struct uftrace_mmap *map;
+	uint64_t map_start_addr = 0;
+	uint64_t load_addr;
 
 	sym = find_symtabs(symtabs, child_ip);
 	if (sym == NULL)
@@ -241,8 +243,13 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	if ((sym->addr & 1) == 0)
 		return parent_loc;
 
-	pr_dbg2("copying instructions of %s\n", sym->name);
-	memcpy(buf, (void *)(long)(sym->addr & ~1), sizeof(buf));
+	map = find_map(symtabs, child_ip);
+	if (map != NULL && map != MAP_KERNEL)
+		map_start_addr = map->start;
+	load_addr = sym->addr + map_start_addr;
+
+	pr_dbg2("copying instructions of %s from %#x\n", sym->name, load_addr);
+	memcpy(buf, (void *)(long)(load_addr & ~1), sizeof(buf));
 
 	analyze_mcount_instructions(buf, &lr);
 
