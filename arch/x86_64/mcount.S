@@ -51,7 +51,7 @@ GLOBAL(mcount)
 	movq %rsp, %rdx
 	.cfi_def_cfa_register rdx
 
-	/* align stack pointer to 16-byte */
+	/* align stack pointer to 16-bit */
 	andq $0xfffffffffffffff0, %rsp
 	push %rdx
 
