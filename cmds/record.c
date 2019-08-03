@@ -1878,12 +1878,12 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 				ret = UFTRACE_EXIT_SUCCESS;
 		}
 		else if (WIFSIGNALED(status)) {
-			pr_yellow("child terminated by signal: %d: %s\n",
+			pr_warn("child terminated by signal: %d: %s\n",
 				  WTERMSIG(status), strsignal(WTERMSIG(status)));
 			ret = UFTRACE_EXIT_SIGNALED;
 		}
 		else {
-			pr_yellow("child terminated with unknown reason: %d\n",
+			pr_warn("child terminated with unknown reason: %d\n",
 				  status);
 			memset(&wd->usage, 0, sizeof(wd->usage));
 			ret = UFTRACE_EXIT_UNKNOWN;

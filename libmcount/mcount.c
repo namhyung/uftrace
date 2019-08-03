@@ -683,6 +683,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
 	int idx;
+	int i;
 
 	/* set line buffer mode not to discard crash message */
 	setlinebuf(outfp);
@@ -701,44 +702,41 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	rstack = &mtdp->rstack[idx];
 	record_trace_data(mtdp, rstack, NULL);
 
-	if (dbg_domain[PR_DOMAIN]) {
-		int i;
+	/* print backtrace */
+	for (i = 0; i < (int)ARRAY_SIZE(sigsegv_codes); i++) {
+		if (sig != SIGSEGV)
+			break;
 
-		for (i = 0; i < (int)ARRAY_SIZE(sigsegv_codes); i++) {
-			if (sig != SIGSEGV)
-				break;
-
-			if (si->si_code == sigsegv_codes[i].code) {
-				pr_red("Segmentation fault: %s (addr: %p)\n",
-				       sigsegv_codes[i].msg, si->si_addr);
-				break;
-			}
+		if (si->si_code == sigsegv_codes[i].code) {
+			pr_warn("Segmentation fault: %s (addr: %p)\n",
+			       sigsegv_codes[i].msg, si->si_addr);
+			break;
 		}
-		if (sig != SIGSEGV || i == (int)ARRAY_SIZE(sigsegv_codes)) {
-			pr_red("process crashed by signal %d: %s (si_code: %d)\n",
-			       sig, strsignal(sig), si->si_code);
-		}
+	}
+	if (sig != SIGSEGV || i == (int)ARRAY_SIZE(sigsegv_codes)) {
+		pr_warn("process crashed by signal %d: %s (si_code: %d)\n",
+		       sig, strsignal(sig), si->si_code);
+	}
 
-		pr_red("Backtrace from uftrace:\n");
-		pr_red("=====================================\n");
+	pr_warn("Backtrace from uftrace:\n");
+	pr_warn("=====================================\n");
 
-		while (rstack >= mtdp->rstack) {
-			struct sym *parent, *child;
-			char *pname, *cname;
+	while (rstack >= mtdp->rstack) {
+		struct sym *parent, *child;
+		char *pname, *cname;
 
-			parent = find_symtabs(&symtabs, rstack->parent_ip);
-			pname = symbol_getname(parent, rstack->parent_ip);
-			child  = find_symtabs(&symtabs, rstack->child_ip);
-			cname = symbol_getname(child, rstack->child_ip);
+		parent = find_symtabs(&symtabs, rstack->parent_ip);
+		pname = symbol_getname(parent, rstack->parent_ip);
+		child  = find_symtabs(&symtabs, rstack->child_ip);
+		cname = symbol_getname(child, rstack->child_ip);
 
-			pr_red("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
-			       cname, rstack->child_ip, pname, rstack->parent_ip);
+		pr_warn("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
+		       cname, rstack->child_ip, pname, rstack->parent_ip);
 
-			symbol_putname(parent, pname);
-			symbol_putname(child, cname);
+		symbol_putname(parent, pname);
+		symbol_putname(child, cname);
 
-			rstack--;
-		}
+		rstack--;
 	}
 
 out:
