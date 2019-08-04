@@ -8,6 +8,7 @@
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
@@ -91,8 +92,11 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	if (min_size < CODE_SIZE)
 		min_size = CODE_SIZE;
-	if (sym->size < min_size)
+	if (sym->size <= min_size)
 		return INSTRUMENT_SKIPPED;
+
+	if (disasm_check_insns(disasm, mdi, sym) < 0)
+		return INSTRUMENT_FAILED;
 
 	save_orig_code(sym_addr);
 
