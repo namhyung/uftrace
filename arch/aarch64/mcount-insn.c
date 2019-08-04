@@ -137,10 +137,32 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 
 #else /* HAVE_LIBCAPSTONE */
 
+static bool disasm_check_insn(uint8_t *insn)
+{
+	// LDR (literal)
+	if ((*insn & 0x3b) == 0x18)
+		return false;
+
+	// ADR or ADRP
+	if ((*insn & 0x1f) == 0x10)
+		return false;
+
+	// Branch & system instructions
+	if ((*insn & 0x1c) == 0x14)
+		return false;
+
+	return true;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	return INSTRUMENT_FAILED;
+	uint8_t *insn = (void *)(uintptr_t)sym->addr + mdi->map->start;
+
+	if (!disasm_check_insn(&insn[3]) || !disasm_check_insn(&insn[7]))
+		return INSTRUMENT_FAILED;
+
+	return INSTRUMENT_SUCCESS;
 }
 
 #endif /* HAVE_LIBCAPSTONE */
