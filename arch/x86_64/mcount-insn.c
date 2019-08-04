@@ -64,7 +64,6 @@ static bool check_instrumentable(struct mcount_disasm_engine *disasm,
 
 	x86 = &insn->detail->x86;
 
-	/* no operand: disallow just to be safer for now */
 	if (!x86->op_count)
 		return true;
 
