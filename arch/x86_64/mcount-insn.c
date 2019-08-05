@@ -140,8 +140,11 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 			}
 			break;
 		case X86_OP_MEM:
-			/* TODO */
+			/* indirect jumps are not allowed */
+			return false;
 			break;
+		case X86_OP_REG:
+			return false;
 		default:
 			break;
 		}
