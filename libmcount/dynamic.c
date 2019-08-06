@@ -241,13 +241,42 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
+struct patt_list {
+	struct list_head list;
+	struct uftrace_pattern patt;
+	char *module;
+	bool positive;
+};
+
+static bool match_pattern_list(struct list_head *patterns,
+			       struct uftrace_mmap *map,
+			       char *sym_name)
+{
+	struct patt_list *pl;
+	bool ret = false;
+
+	list_for_each_entry(pl, patterns, list) {
+		char *libname = basename(map->libname);
+
+		if (strncmp(libname, pl->module, strlen(pl->module)))
+			continue;
+
+		if (match_filter_pattern(&pl->patt, sym_name))
+			ret = pl->positive;
+	}
+
+	return ret;
+}
+
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype,
 			     struct mcount_disasm_engine *disasm,
 			     unsigned min_size)
 {
+	struct uftrace_mmap *map;
 	struct symtab *symtab;
 	struct strv funcs = STRV_INIT;
+	char *def_mod;
 	char *name;
 	int j;
 	/* skip special startup (csu) functions */
@@ -256,47 +285,68 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
+	LIST_HEAD(patterns);
+	struct patt_list *pl;
+	bool all_negative = true;
 
 	if (patch_funcs == NULL)
 		return 0;
 
+	def_mod = basename(symtabs->maps->libname);
 	strv_split(&funcs, patch_funcs, ";");
 
 	strv_for_each(&funcs, name, j) {
-		bool found = false;
-		bool csu_skip;
-		char *modname, *delim;
-		unsigned i, k;
-		struct sym *sym;
-		struct uftrace_pattern patt;
-		struct uftrace_mmap *map;
-		struct mcount_dynamic_info *mdi = NULL;
+		char *delim;
+
+		pl = xzalloc(sizeof(*pl));
+
+		if (name[0] == '!')
+			name++;
+		else {
+			pl->positive = true;
+			all_negative = false;
+		}
 
 		delim = strchr(name, '@');
-
 		if (delim == NULL) {
-			/* first of uftrace_mmap is main module always. */
-			map = symtabs->maps;
-			symtab = &symtabs->maps->mod->symtab;
+			pl->module = xstrdup(def_mod);
 		}
 		else {
 			*delim = '\0';
-			modname = ++delim;
-			map = find_map_by_name(symtabs, modname);
-			if (map == NULL || map->mod == NULL) {
-				pr_dbg("Failed to find map of %s\n", modname);
-				continue;
-			}
-			symtab = &map->mod->symtab;
+			pl->module = xstrdup(++delim);
 		}
 
+		init_filter_pattern(ptype, &pl->patt, name);
+		list_add_tail(&pl->list, &patterns);
+	}
+
+	/* prepend match-all pattern, if all patterns are negative */
+	if (all_negative) {
+		pl = xzalloc(sizeof(*pl));
+		pl->positive = true;
+		pl->module = xstrdup(def_mod);
+
+		if (ptype == PATT_REGEX)
+			init_filter_pattern(ptype, &pl->patt, ".");
+		else
+			init_filter_pattern(PATT_GLOB, &pl->patt, "*");
+
+		list_add(&pl->list, &patterns);
+	}
+
+	for_each_map(symtabs, map) {
+		bool found;
+		bool csu_skip;
+		unsigned i, k;
+		struct sym *sym;
+		struct mcount_dynamic_info *mdi;
+
+		/* TODO: filter out unsuppported libs */
 		mdi = setup_trampoline(map);
-		if (mdi == NULL) {
-			pr_warn("Failed to set the trampoline into %s\n", map->libname);
+		if (mdi == NULL)
 			continue;
-		}
 
-		init_filter_pattern(ptype, &patt, name);
+		symtab = &map->mod->symtab;
 
 		for (i = 0; i < symtab->nr_sym; i++) {
 			sym = &symtab->sym[i];
@@ -315,7 +365,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			    sym->type != ST_GLOBAL_FUNC)
 				continue;
 
-			if (!match_filter_pattern(&patt, sym->name)) {
+			if (!match_pattern_list(&patterns, map, sym->name)) {
 				if (mcount_unpatch_func(mdi, sym, disasm) == 0)
 					stats.unpatch++;
 				continue;
@@ -338,13 +388,21 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 		if (!found)
 			stats.nomatch++;
-
-		free_filter_pattern(&patt);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n",
 		       stats.total, basename(symtabs->filename));
+	}
+
+	while (!list_empty(&patterns)) {
+		struct patt_list *pl;
+
+		pl = list_first_entry(&patterns, struct patt_list, list);
+
+		list_del(&pl->list);
+		free(pl->module);
+		free(pl);
 	}
 
 	strv_free(&funcs);

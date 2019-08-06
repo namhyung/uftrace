@@ -627,8 +627,9 @@ normally you need to build the target program with `-pg` (or
 funtions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
-`-P`/`--patch` option.  With capstone disassembly engine you even don't need to
-(re)compile the target with the option above.  Now uftrace can analyze the
+`-P`/`--patch` option and can also disable specific functions given by the
+`-U`/`--unpatch` option.  With capstone disassembly engine you even don't need
+to (re)compile the target with the option above.  Now uftrace can analyze the
 instructions and (if possible) it can copy them to a different place and rewrite
 it to call `mcount()` function) so that it can be traced by uftrace.  After that
 the control is passed to the copied instructions and then returned back to the
@@ -671,6 +672,25 @@ matches to any character in a regex pattern with `P` option.
        2.030 us [19387] |     } /* b */
        2.451 us [19387] |   } /* a */
        3.289 us [19387] | } /* main */
+
+Note that `-U` option has the opposite effect of `-P` option so users can
+the both to fine-control.  The option comes later will override the formers.
+For example if you want to trace all functions but 'a' in the above:
+
+    $ uftrace --no-libcall -P . -U a  abc
+    # DURATION    TID     FUNCTION
+                [19390] | main() {
+                [19390] |   b() {
+       0.983 us [19390] |     c();
+       2.012 us [19390] |   } /* b */
+       3.373 us [19390] | } /* main */
+
+The order of the options is important, if you change it like `-U a -P .` then
+it will trace all the functions since `-P .` will be effective for all.
+
+In addition, the `-U` option can be used to disable functions in binaries
+built with `-pg` (and `-mfentry` or `-mrecord-mcount`).  It might require
+capstone to parse the instructions.
 
 Clang/LLVM 4.0 provides a dynamic instrumentation technique called
 [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
