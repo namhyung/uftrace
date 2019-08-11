@@ -1,6 +1,8 @@
 #ifndef MCOUNT_ARCH_H
 #define MCOUNT_ARCH_H
 
+#include <stdint.h>
+
 #include "utils/arch.h"
 #include "utils/list.h"
 
@@ -47,9 +49,29 @@ struct sym;
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi, struct sym *sym);
 
+
+struct dynamic_constraint create_constraint(struct mcount_disasm_engine *disasm,
+				struct mcount_dynamic_info *mdi, struct sym *sym);
+
 struct dynamic_bad_symbol {
 	struct list_head	list;
 	struct sym		*sym;
+};
+
+struct dynamic_constraint
+{
+	uint8_t constraint[4];
+	int instr_size;
+};
+
+struct mcount_address_range{
+	uintptr_t start;
+	uintptr_t end;
+};
+
+struct dynamic_mem_region {
+	struct dynamic_mem_region*	next;
+	struct mcount_address_range range;
 };
 
 struct dynamic_bad_symbol * find_bad_jump(struct mcount_dynamic_info *mdi,
