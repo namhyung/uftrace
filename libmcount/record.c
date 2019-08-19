@@ -705,6 +705,8 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 				old_event = get_event_pointer(ptr, idx);
 				if (old_event->id == event->id)
 					break;
+
+				old_event = NULL;
 			}
 
 			if (old_event) {
