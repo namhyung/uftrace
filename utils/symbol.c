@@ -1592,9 +1592,13 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 	for (i = 0; i < info->dlpi_phnum; i++) {
 		if (info->dlpi_phdr[i].p_type != PT_LOAD)
 			continue;
-		map->start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
-		map->end = map->start + info->dlpi_phdr[i].p_memsz;
-		break;
+
+		if (map->start == 0)
+			map->start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+
+		/* use last PT_LOAD segment for end address */
+		map->end = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr +
+			info->dlpi_phdr[i].p_memsz;
 	}
 
 	map->len   = strlen(exename);
