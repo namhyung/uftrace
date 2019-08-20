@@ -137,6 +137,7 @@ struct mcount_thread_data {
 	struct mcount_mem_regions	mem_regions;
 	struct mcount_watchpoint	watch;
 	struct mcount_arch_context	arch;
+	struct list_head		pmu_fds;
 };
 
 #ifdef HAVE_MCOUNT_ARCH_CONTEXT
@@ -457,8 +458,9 @@ int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 void mcount_hook_functions(void);
 
-int prepare_pmu_event(enum uftrace_event_id id);
-int read_pmu_event(enum uftrace_event_id id, void *buf);
-void finish_pmu_event(void);
+int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
+		   void *buf);
+void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id);
+void finish_pmu_event(struct mcount_thread_data *mtdp);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

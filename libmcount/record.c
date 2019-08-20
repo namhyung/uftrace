@@ -540,7 +540,7 @@ void save_retval(struct mcount_thread_data *mtdp,
 	*(uint32_t *)argbuf = size;
 }
 
-static int save_proc_statm(void *buf)
+static int save_proc_statm(void *ctx, void *buf)
 {
 	FILE *fp;
 	struct uftrace_proc_statm *statm = buf;
@@ -563,7 +563,7 @@ static int save_proc_statm(void *buf)
 	return 0;
 }
 
-static void diff_proc_statm(void *dst, void *src)
+static void diff_proc_statm(void *ctx, void *dst, void *src)
 {
 	struct uftrace_proc_statm *dst_statm = dst;
 	struct uftrace_proc_statm *src_statm = src;
@@ -573,7 +573,7 @@ static void diff_proc_statm(void *dst, void *src)
 	dst_statm->shared -= src_statm->shared;
 }
 
-static int save_page_fault(void *buf)
+static int save_page_fault(void *ctx, void *buf)
 {
 	struct rusage ru;
 	struct uftrace_page_fault *page_fault = buf;
@@ -587,7 +587,7 @@ static int save_page_fault(void *buf)
 	return 0;
 }
 
-static void diff_page_fault(void *dst, void *src)
+static void diff_page_fault(void *ctx, void *dst, void *src)
 {
 	struct uftrace_page_fault *dst_pgflt = dst;
 	struct uftrace_page_fault *src_pgflt = src;
@@ -596,46 +596,52 @@ static void diff_page_fault(void *dst, void *src)
 	dst_pgflt->minor -= src_pgflt->minor;
 }
 
-static int save_pmu_cycle(void *buf)
+static int save_pmu_cycle(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_CYCLE, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_CYCLE, buf);
 }
 
-static void diff_pmu_cycle(void *dst, void *src)
+static void diff_pmu_cycle(void *ctx, void *dst, void *src)
 {
 	struct uftrace_pmu_cycle *dst_cycle = dst;
 	struct uftrace_pmu_cycle *src_cycle = src;
 
 	dst_cycle->cycles -= src_cycle->cycles;
 	dst_cycle->instrs -= src_cycle->instrs;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_CYCLE);
 }
 
-static int save_pmu_cache(void *buf)
+static int save_pmu_cache(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_CACHE, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_CACHE, buf);
 }
 
-static void diff_pmu_cache(void *dst, void *src)
+static void diff_pmu_cache(void *ctx, void *dst, void *src)
 {
 	struct uftrace_pmu_cache *dst_cache = dst;
 	struct uftrace_pmu_cache *src_cache = src;
 
 	dst_cache->refers -= src_cache->refers;
 	dst_cache->misses -= src_cache->misses;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_CACHE);
 }
 
-static int save_pmu_branch(void *buf)
+static int save_pmu_branch(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_BRANCH, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_BRANCH, buf);
 }
 
-static void diff_pmu_branch(void *dst, void *src)
+static void diff_pmu_branch(void *ctx, void *dst, void *src)
 {
 	struct uftrace_pmu_branch *dst_branch = dst;
 	struct uftrace_pmu_branch *src_branch = src;
 
 	dst_branch->branch -= src_branch->branch;
 	dst_branch->misses -= src_branch->misses;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_BRANCH);
 }
 
 /* above functions should follow the name convention to use below macro */
@@ -648,8 +654,8 @@ static struct read_event_data {
 	enum uftrace_event_id	id_read;
 	enum uftrace_event_id	id_diff;
 	size_t			size;
-	int (*save)(void *buf);
-	void (*diff)(void *dst, void *src);
+	int (*save)(void *ctx, void *buf);
+	void (*diff)(void *ctx, void *dst, void *src);
 } read_events[] = {
 	{ TR_ID(PROC_STATM), TR_DS(proc_statm), TR_FN(proc_statm) },
 	{ TR_ID(PAGE_FAULT), TR_DS(page_fault), TR_FN(page_fault) },
@@ -694,7 +700,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		event->dsize = red->size;
 		event->idx   = mtdp->idx;
 
-		if (red->save(event->data) < 0)
+		if (red->save(mtdp, event->data) < 0)
 			continue;
 
 		if (diff) {
@@ -705,11 +711,13 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 				old_event = get_event_pointer(ptr, idx);
 				if (old_event->id == event->id)
 					break;
+
+				old_event = NULL;
 			}
 
 			if (old_event) {
 				event->id = red->id_diff;
-				red->diff(event->data, old_event->data);
+				red->diff(mtdp, event->data, old_event->data);
 			}
 		}
 

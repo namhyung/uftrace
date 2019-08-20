@@ -116,30 +116,6 @@ static void mcount_filter_finish(void)
 
 #else
 
-static void prepare_pmu_trigger(struct rb_root *root)
-{
-	struct rb_node *node = rb_first(root);
-	struct uftrace_filter *entry;
-
-	while (node) {
-		entry = rb_entry(node, typeof(*entry), node);
-
-		if (entry->trigger.flags & TRIGGER_FL_READ) {
-			if (entry->trigger.read & TRIGGER_READ_PMU_CYCLE)
-				if (prepare_pmu_event(EVENT_ID_READ_PMU_CYCLE) < 0)
-					break;
-			if (entry->trigger.read & TRIGGER_READ_PMU_CACHE)
-				if (prepare_pmu_event(EVENT_ID_READ_PMU_CACHE) < 0)
-					break;
-			if (entry->trigger.read & TRIGGER_READ_PMU_BRANCH)
-				if (prepare_pmu_event(EVENT_ID_READ_PMU_BRANCH) < 0)
-					break;
-		}
-
-		node = rb_next(node);
-	}
-}
-
 /* be careful: this can be called from signal handler */
 static void mcount_finish_trigger(void)
 {
@@ -473,8 +449,6 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 
 	if (getenv("UFTRACE_DISABLED"))
 		mcount_enabled = false;
-
-	prepare_pmu_trigger(&mcount_triggers);
 }
 
 static void mcount_filter_setup(struct mcount_thread_data *mtdp)
@@ -483,12 +457,14 @@ static void mcount_filter_setup(struct mcount_thread_data *mtdp)
 	mtdp->filter.time   = mcount_threshold;
 	mtdp->enable_cached = mcount_enabled;
 	mtdp->argbuf        = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
+	INIT_LIST_HEAD(&mtdp->pmu_fds);
 }
 
 static void mcount_filter_release(struct mcount_thread_data *mtdp)
 {
 	free(mtdp->argbuf);
 	mtdp->argbuf = NULL;
+	finish_pmu_event(mtdp);
 }
 
 static void mcount_filter_finish(void)
@@ -498,7 +474,6 @@ static void mcount_filter_finish(void)
 
 	finish_debug_info(&symtabs);
 
-	finish_pmu_event();
 	mcount_signal_finish();
 }
 
