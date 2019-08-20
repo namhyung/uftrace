@@ -17,11 +17,9 @@ struct pmu_data {
 	struct list_head list;
 	enum uftrace_event_id evt_id;
 	int n_members;
+	int refcnt;
 	int fd[];
 };
-
-/* list of pmu_data */
-static LIST_HEAD(pmu_fds);
 
 /* attribute for perf_event_open(2) */
 struct pmu_config {
@@ -86,16 +84,19 @@ static void read_perf_event(int fd, void *buf, ssize_t len)
 		pr_dbg("reading perf_event failed: %m\n");
 }
 
-int prepare_pmu_event(enum uftrace_event_id id)
+static struct pmu_data * prepare_pmu_event(struct mcount_thread_data *mtdp,
+					   enum uftrace_event_id id)
 {
 	struct pmu_data *pd;
 	const struct pmu_info *info;
 	unsigned i, k;
 	int group_fd;
 
-	list_for_each_entry(pd, &pmu_fds, list) {
-		if (pd->evt_id == id)
-			return 0;
+	list_for_each_entry(pd, &mtdp->pmu_fds, list) {
+		if (pd->evt_id == id) {
+			pd->refcnt++;
+			return pd;
+		}
 	}
 
 	pr_dbg("setup PMU event (%d) using perf syscall\n", id);
@@ -115,7 +116,7 @@ int prepare_pmu_event(enum uftrace_event_id id)
 			pr_warn("failed to open '%s' perf event: %m\n",
 				info->setting[0].name);
 			free(pd);
-			return -1;
+			return NULL;
 		}
 
 		pd->fd[0] = group_fd;
@@ -127,23 +128,25 @@ int prepare_pmu_event(enum uftrace_event_id id)
 				pr_warn("failed to open '%s' perf event: %m\n",
 					info->setting[k].name);
 				free(pd);
-				return -1;
+				return NULL;
 			}
 		}
 
 		pd->n_members = info->n_members;
 		break;
 	}
+	pd->refcnt = 1;
 
 	if (i == ARRAY_SIZE(pmu_configs))
 		pr_dbg("unknown pmu event: %d - ignoring\n", id);
 	else
-		list_add_tail(&pd->list, &pmu_fds);
+		list_add_tail(&pd->list, &mtdp->pmu_fds);
 
-	return 0;
+	return pd;
 }
 
-int read_pmu_event(enum uftrace_event_id id, void *buf)
+int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
+		   void *buf)
 {
 	struct pmu_data *pd;
 	struct {
@@ -151,15 +154,9 @@ int read_pmu_event(enum uftrace_event_id id, void *buf)
 		uint64_t	data[2];
 	} read_buf;
 
-	list_for_each_entry(pd, &pmu_fds, list) {
-		if (pd->evt_id == id)
-			break;
-	}
-
-	if (list_no_entry(pd, &pmu_fds, list)) {
-		/* unsupported pmu events */
+	pd = prepare_pmu_event(mtdp, id);
+	if (pd == NULL)
 		return -1;
-	}
 
 	/* read group events at once */
 	read_perf_event(pd->fd[0], &read_buf, sizeof(read_buf));
@@ -169,13 +166,42 @@ int read_pmu_event(enum uftrace_event_id id, void *buf)
 	return 0;
 }
 
-void finish_pmu_event(void)
+void finish_pmu_event(struct mcount_thread_data *mtdp)
 {
 	struct pmu_data *pd, *tmp;
 
-	list_for_each_entry_safe(pd, tmp, &pmu_fds, list) {
+	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
 		list_del(&pd->list);
 
+		switch (pd->evt_id) {
+		case EVENT_ID_READ_PMU_CYCLE:
+		case EVENT_ID_READ_PMU_CACHE:
+		case EVENT_ID_READ_PMU_BRANCH:
+			close(pd->fd[0]);
+			close(pd->fd[1]);
+			break;
+		default:
+			break;
+		}
+		free(pd);
+	}
+}
+
+void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id)
+{
+	struct pmu_data *pd, *tmp;
+
+	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
+		if (pd->evt_id != id)
+			continue;
+
+		/* -2 because read and diff pass will increase it separately */
+		pd->refcnt -= 2;
+
+		if (pd->refcnt > 0)
+			continue;
+
+		list_del(&pd->list);
 		switch (pd->evt_id) {
 		case EVENT_ID_READ_PMU_CYCLE:
 		case EVENT_ID_READ_PMU_CACHE:

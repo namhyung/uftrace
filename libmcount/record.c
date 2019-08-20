@@ -598,7 +598,7 @@ static void diff_page_fault(void *ctx, void *dst, void *src)
 
 static int save_pmu_cycle(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_CYCLE, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_CYCLE, buf);
 }
 
 static void diff_pmu_cycle(void *ctx, void *dst, void *src)
@@ -608,11 +608,13 @@ static void diff_pmu_cycle(void *ctx, void *dst, void *src)
 
 	dst_cycle->cycles -= src_cycle->cycles;
 	dst_cycle->instrs -= src_cycle->instrs;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_CYCLE);
 }
 
 static int save_pmu_cache(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_CACHE, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_CACHE, buf);
 }
 
 static void diff_pmu_cache(void *ctx, void *dst, void *src)
@@ -622,11 +624,13 @@ static void diff_pmu_cache(void *ctx, void *dst, void *src)
 
 	dst_cache->refers -= src_cache->refers;
 	dst_cache->misses -= src_cache->misses;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_CACHE);
 }
 
 static int save_pmu_branch(void *ctx, void *buf)
 {
-	return read_pmu_event(EVENT_ID_READ_PMU_BRANCH, buf);
+	return read_pmu_event(ctx, EVENT_ID_READ_PMU_BRANCH, buf);
 }
 
 static void diff_pmu_branch(void *ctx, void *dst, void *src)
@@ -636,6 +640,8 @@ static void diff_pmu_branch(void *ctx, void *dst, void *src)
 
 	dst_branch->branch -= src_branch->branch;
 	dst_branch->misses -= src_branch->misses;
+
+	release_pmu_event(ctx, EVENT_ID_READ_PMU_BRANCH);
 }
 
 /* above functions should follow the name convention to use below macro */
