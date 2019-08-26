@@ -441,10 +441,10 @@ bool add_bad_jump(struct mcount_dynamic_info *mdi, unsigned long callsite,
 		return true;
 
 	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
-	if (sym == NULL)
-		return true;
-
 	/* only care about jumps to the middle of a function */
+	if (sym == NULL)
+		return false;
+
 	if (sym->addr + mdi->map->start == target)
 		return false;
 
