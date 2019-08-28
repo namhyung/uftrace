@@ -67,12 +67,12 @@ static struct mcount_orig_insn *lookup_code(struct rb_root *root,
 	return iter;
 }
 
-struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size,
+struct mcount_orig_insn *mcount_save_code(struct mcount_instrument_info *info,
 					  void *jmp_insn, unsigned jmp_size)
 {
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
-	const int patch_size = ALIGN(insn_size + jmp_size, 32);
+	const int patch_size = ALIGN(info->insns_size + jmp_size, 32);
 
 	if (!list_empty(&code_pages))
 		cp = list_last_entry(&code_pages, struct code_page, list);
@@ -88,11 +88,11 @@ struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size
 		list_add_tail(&cp->list, &code_pages);
 	}
 
-	orig = lookup_code(&code_tree, addr, true);
+	orig = lookup_code(&code_tree, info->addr, true);
 	orig->insn = cp->page + cp->pos;
 
-	memcpy(orig->insn, (void *)addr, insn_size);
-	memcpy(orig->insn + insn_size, jmp_insn, jmp_size);
+	memcpy(orig->insn, (void *)info->insns, info->insns_size);
+	memcpy(orig->insn + info->insns_size, jmp_insn, jmp_size);
 
 	cp->pos += patch_size;
 	return orig;
