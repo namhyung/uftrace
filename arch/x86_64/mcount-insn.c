@@ -129,7 +129,7 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 
 			/* disallow (back) jump to the prologue */
 			if (insn_check->addr <= target &&
-			    target < insn_check->addr + insn_check->size)
+			    target < insn_check->addr + insn_check->copy_size)
 				return false;
 
 			/* disallow jump to middle of other function */
