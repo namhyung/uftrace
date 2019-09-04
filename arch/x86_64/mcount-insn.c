@@ -163,6 +163,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	struct disasm_check_data insn_check = {
 		.addr		= sym->addr + mdi->map->start,
 		.func_size	= sym->size,
+		.size		= CALL_INSN_SIZE,
 	};
 	struct dynamic_bad_symbol *badsym;
 
