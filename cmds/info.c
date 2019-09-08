@@ -967,6 +967,10 @@ void clear_uftrace_info(struct uftrace_info *info)
 	free(info->record_date);
 	free(info->elapsed_time);
 	free(info->uftrace_version);
+	free(info->retspec);
+	free(info->autoarg);
+	free(info->autoret);
+	free(info->autoenum);
 }
 
 static void print_info(void *unused, const char *fmt, ...)
