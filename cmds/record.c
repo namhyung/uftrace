@@ -2158,8 +2158,10 @@ int command_record(int argc, char *argv[], struct opts *opts)
 		else
 			do_child_exec(ready, opts, argc, argv);
 
-		if (channel)
+		if (channel) {
 			unlink(channel);
+			free(channel);
+		}
 		return ret;
 	}
 
@@ -2168,7 +2170,9 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	else
 		ret = do_main_loop(ready, opts, pid);
 
-	if (channel)
+	if (channel) {
 		unlink(channel);
+		free(channel);
+	}
 	return ret;
 }
