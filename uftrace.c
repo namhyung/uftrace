@@ -1085,8 +1085,10 @@ int main(int argc, char *argv[])
 
 	if (opts.logfile) {
 		logfp = fopen(opts.logfile, "a");
-		if (logfp == NULL)
+		if (logfp == NULL) {
+			logfp = stderr;
 			pr_err("cannot open log file");
+		}
 
 		setvbuf(logfp, NULL, _IOLBF, 1024);
 	}
