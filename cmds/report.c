@@ -179,6 +179,7 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 			node = rb_entry(n, typeof(*node), name_link);
 
 		print_func(node, arg);
+		free(node->name);
 		free(node);
 	}
 }
@@ -476,11 +477,6 @@ static void print_function_diff(struct uftrace_report_node *node, void *arg)
 	}
 }
 
-static void print_nothing(struct uftrace_report_node *node, void *unused)
-{
-	/* just delete */
-}
-
 static void report_diff(struct uftrace_data *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
@@ -549,8 +545,6 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 
 out:
 	destroy_diff_nodes(&diff_tree);
-	print_and_delete(&base_tree, false, NULL, print_nothing);
-	print_and_delete(&pair_tree, false, NULL, print_nothing);
 	close_data_file(&dummy_opts, &data.handle);
 }
 
