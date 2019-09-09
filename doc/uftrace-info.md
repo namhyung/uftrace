@@ -25,6 +25,9 @@ OPTIONS
     be available from the recorded path of 'exe image' or the symbol file in the
     data directory.
 
+\--task
+:   Print task relationship in a tree form instead of the tracing info.
+
 
 EXAMPLE
 =======
@@ -84,6 +87,12 @@ To see the symbol table, one can use the `--symbols` option.
     [ 3] __monstartup (0x400560) size: 16
     [ 4] mcount (0x400570) size: 16
     [ 5] __cxa_atexit (0x400580) size: 16
+
+The `--task` option shows task family hierarchy.
+
+    $ uftrace info --task
+    [166399] parent
+          [166401] child
 
 
 SEE ALSO

@@ -86,9 +86,6 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 		while (--task->stack_count >= 0) {
 			fstack = &task->func_stack[task->stack_count];
 
-			if (fstack->addr == 0)
-				continue;
-
 			if (fstack->total_time > last_time)
 				continue;
 
@@ -99,7 +96,11 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			find_insert_node(root, task, last_time, fstack->addr);
+			if (fstack->addr == EVENT_ID_PERF_SCHED_IN)
+				insert_node(root, task, sched_sym.name);
+			else
+				find_insert_node(root, task, last_time,
+						 fstack->addr);
 		}
 	}
 }
@@ -241,83 +242,109 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 	print_and_delete(&sort_root, true, NULL, print_function);
 }
 
-static struct sym * find_task_sym(struct uftrace_data *handle,
-				  struct uftrace_task_reader *task,
-				  struct uftrace_record *rstack)
+static void add_remaining_task_fstack(struct uftrace_data *handle,
+				      struct rb_root *root)
 {
-	struct sym *sym;
-	struct uftrace_task_reader *main_task = &handle->tasks[0];
-	struct uftrace_session *sess = find_task_session(&handle->sessions,
-							 task->t, rstack->time);
-	struct symtabs *symtabs = &sess->symtabs;
+	struct uftrace_task_reader *task;
+	struct fstack *fstack;
+	char buf[10];
+	int i;
 
-	if (task->func)
-		return task->func;
+	for (i = 0; i < handle->nr_tasks; i++) {
+		uint64_t last_time;
 
-	if (sess == NULL) {
-		pr_dbg("cannot find session for tid %d\n", task->tid);
-		return NULL;
+		task = &handle->tasks[i];
+
+		if (task->stack_count == 0)
+			continue;
+
+		last_time = task->timestamp_last;
+
+		if (handle->time_range.stop)
+			last_time = handle->time_range.stop;
+
+		while (--task->stack_count >= 0) {
+			fstack = &task->func_stack[task->stack_count];
+
+			if (fstack->addr == 0)
+				continue;
+
+			if (fstack->total_time > last_time)
+				continue;
+
+			if (fstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				if (task->t->time.stamp) {
+					task->t->time.idle += last_time -
+						fstack->total_time;
+				}
+				task->t->time.stamp = 0;
+			}
+
+			fstack->total_time = last_time - fstack->total_time;
+			if (fstack->child_time > fstack->total_time)
+				fstack->total_time = fstack->child_time;
+
+			if (task->stack_count > 0)
+				fstack[-1].child_time += fstack->total_time;
+
+			snprintf(buf, sizeof(buf), "%d", task->tid);
+			insert_node(root, task, buf);
+		}
 	}
+}
 
-	if (is_kernel_record(task, rstack))
-		return NULL;
+static void adjust_task_runtime(struct uftrace_data *handle,
+				struct rb_root *root)
+{
+	struct uftrace_task *t;
+	struct uftrace_report_node *node;
+	struct rb_node *n = rb_first(root);
+	int tid;
 
-	if (task == main_task) {
-		/* This is the main thread */
-		struct uftrace_module *mod = symtabs->maps->mod;
+	while (n != NULL) {
+		node = rb_entry(n, struct uftrace_report_node, name_link);
+		n = rb_next(n);
 
-		task->func = sym = find_symname(&mod->symtab, "main");
-		if (sym)
-			return sym;
+		tid = strtol(node->name, NULL, 0);
+		t = find_task(&handle->sessions, tid);
 
-		pr_dbg("no main thread???\n");
-		/* fall through */
+		/* total = runtime, self = cputime (= total - idle) */
+		memcpy(&node->total, &node->self, sizeof(node->self));
+		memset(&node->self, 0, sizeof(node->self));
+		node->self.sum = node->total.sum - t->time.idle;
 	}
-
-	task->func = sym = find_symtabs(symtabs, rstack->addr);
-	if (sym == NULL)
-		pr_dbg("cannot find symbol for %lx\n", rstack->addr);
-
-	return sym;
 }
 
 static void print_thread(struct uftrace_report_node *node, void *arg)
 {
 	int pid;
-	const char *symname;
-	struct uftrace_task_reader *task;
+	struct uftrace_task *t;
 	struct uftrace_data *handle = arg;
 
 	pid = strtol(node->name, NULL, 10);
-	task = get_task_handle(handle, pid);
+	t = find_task(&handle->sessions, pid);
 
-	if (task == NULL || task->func == NULL)
-		symname = "unknown";
-	else
-		symname = task->func->name;
-
-	pr_out("  %5d  ", pid);
+	pr_out("  ");
+	print_time_unit(node->total.sum);
+	pr_out("  ");
 	print_time_unit(node->self.sum);
-	pr_out("  %10lu  %-s\n", node->call, symname);
+	pr_out("  %10lu  %6d  %-s\n", node->call, pid, t->comm);
 }
 
-static void report_threads(struct uftrace_data *handle, struct opts *opts)
+static void report_task(struct uftrace_data *handle, struct opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
+	struct rb_root sort_tree = RB_ROOT;
 	struct uftrace_task_reader *task;
-	const char t_format[] = "  %5.5s  %10.10s  %10.10s  %-.*s\n";
+	const char t_format[] = "  %10.10s  %10.10s  %10.10s  %6.6s  %-16.16s\n";
 	const char line[] = "=================================================";
 	char buf[10];
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
-		if (rstack->type == UFTRACE_ENTRY) {
-			if (task->func == NULL)
-				find_task_sym(handle, task, rstack);
-			continue;
-		}
-		if (rstack->type == UFTRACE_LOST)
+		if (rstack->type == UFTRACE_ENTRY ||
+		    rstack->type == UFTRACE_LOST)
 			continue;
 
 		if (!fstack_check_opts(task, opts))
@@ -325,6 +352,25 @@ static void report_threads(struct uftrace_data *handle, struct opts *opts)
 
 		if (!fstack_check_filter(task))
 			continue;
+
+		task->timestamp_last = rstack->time;
+
+		if (rstack->type == UFTRACE_EVENT) {
+			if (rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+				task->t->time.stamp = rstack->time;
+				continue;
+			}
+			else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				if (task->t->time.stamp) {
+					task->t->time.idle += rstack->time -
+						task->t->time.stamp;
+				}
+				task->t->time.stamp = 0;
+			}
+			else {
+				continue;
+			}
+		}
 
 		/* UFTRACE_EXIT */
 		snprintf(buf, sizeof(buf), "%d", task->tid);
@@ -334,10 +380,14 @@ static void report_threads(struct uftrace_data *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	pr_out(t_format, "TID", "Run time", "Num funcs", maxlen, "Start function");
-	pr_out(t_format, line, line, line, maxlen, line);
+	add_remaining_task_fstack(handle, &task_tree);
+	adjust_task_runtime(handle, &task_tree);
+	report_sort_tasks(handle, &task_tree, &sort_tree);
 
-	print_and_delete(&task_tree, false, handle, print_thread);
+	pr_out(t_format, "Total time", "Self time", "Num funcs", "TID", "Task name");
+	pr_out(t_format, line, line, line, line, line);
+
+	print_and_delete(&sort_tree, true, handle, print_thread);
 }
 
 struct diff_data {
@@ -615,13 +665,23 @@ int command_report(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	sort_keys = convert_sort_keys(opts->sort_keys);
-	if (opts->diff)
+	if (opts->diff) {
+		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_diff(sort_keys);
-	else
+	}
+	else if (opts->show_task) {
+		if (opts->sort_keys == NULL)
+			sort_keys = xstrdup("total");
+		else
+			sort_keys = xstrdup(opts->sort_keys);
+		ret = report_setup_task(sort_keys);
+	}
+	else {
+		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_sort(sort_keys);
-
+	}
 	free(sort_keys);
+
 	if (ret < 0) {
 		pr_use("invalid sort key: %s\n", opts->sort_keys);
 		return -1;
@@ -630,8 +690,8 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	if (opts->diff_policy)
 		apply_diff_policy(opts->diff_policy);
 
-	if (opts->report_thread)
-		report_threads(&handle, opts);
+	if (opts->show_task)
+		report_task(&handle, opts);
 	else if (opts->diff)
 		report_diff(&handle, opts);
 	else

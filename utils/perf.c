@@ -510,11 +510,15 @@ void update_perf_task_comm(struct uftrace_data *handle)
 			if (read_perf_event(handle, perf) < 0)
 				continue;
 
-			if (perf->type != PERF_RECORD_COMM)
-				continue;
-
 			task = find_task(&handle->sessions, perf->tid);
 			if (task == NULL)
+				continue;
+
+			if (task->time.stamp == 0 ||
+			    task->time.stamp > perf->time)
+				task->time.stamp = perf->time;
+
+			if (perf->type != PERF_RECORD_COMM)
 				continue;
 
 			memcpy(task->comm, perf->u.comm.comm, sizeof(task->comm));

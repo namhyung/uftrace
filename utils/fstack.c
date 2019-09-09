@@ -1657,8 +1657,8 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 
 		dummy->time  = orig->time;
 		dummy->magic = RECORD_MAGIC;
+		dummy->addr  = orig->addr;
 		dummy->depth = 0;
-		dummy->addr  = 0;
 		dummy->more  = 0;
 
 		return true;
@@ -1788,7 +1788,7 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		int idx = task->stack_count - 1;
 
 		if (idx < 0) {
-			pr_dbg("Warning: negative stack count\n");
+			pr_dbg("Warning: negative stack count [tid: %d]\n", task->tid);
 			idx = 0;
 		}
 

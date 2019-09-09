@@ -654,6 +654,154 @@ static void synthesize_depth_trigger(struct opts *opts,
 		 func, ffd.found ? "" : "kernel,", opts->depth);
 }
 
+static void reset_task_runtime(struct uftrace_data *handle)
+{
+	struct uftrace_task *t;
+	struct rb_node *n = rb_first(&handle->sessions.tasks);
+
+	while (n != NULL) {
+		t = rb_entry(n, struct uftrace_task, node);
+		n = rb_next(n);
+
+		t->time.run = 0;
+		t->time.idle = 0;
+		t->time.stamp = 0;
+	}
+}
+
+static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
+{
+	struct uftrace_task_reader *task;
+	struct uftrace_task *t;
+	int i;
+
+	reset_task_runtime(handle);
+
+	while (!read_rstack(handle, &task) && !uftrace_done) {
+		struct uftrace_record *frs = task->rstack;
+
+		if (!fstack_check_opts(task, opts))
+			continue;
+
+		if (!fstack_check_filter(task))
+			continue;
+
+		if (task->timestamp == 0)
+			task->timestamp = frs->time;
+		task->timestamp_last = frs->time;
+
+		t = task->t;
+
+		if (frs->type == UFTRACE_EVENT) {
+			switch (frs->addr) {
+			case EVENT_ID_PERF_SCHED_OUT:
+				t->time.stamp = frs->time;
+				break;
+			case EVENT_ID_PERF_SCHED_IN:
+				if (t->time.stamp)
+					t->time.idle += frs->time - t->time.stamp;
+				t->time.stamp = 0;
+				break;
+			}
+		}
+	}
+
+	/* update task time if some records were missing */
+	for (i = 0; i < handle->nr_tasks; i++) {
+		task = &handle->tasks[i];
+		t = task->t;
+
+		/* update idle time if last SCHED_IN event was missing */
+		if (t->time.stamp)
+			t->time.idle += task->timestamp_last - t->time.stamp;
+
+		t->time.run = task->timestamp_last - task->timestamp;
+	}
+}
+
+static bool print_task_node(struct uftrace_task *task,
+			    struct uftrace_task *parent,
+			    bool *indent_mask, int indent)
+{
+	char *name = task->comm;
+	struct uftrace_task *child;
+	int orig_indent = indent;
+	bool blank = false;
+
+	if (uftrace_done)
+		return false;
+
+	pr_out("  ");
+	print_time_unit(task->time.run);
+	pr_out("  ");
+	print_time_unit(task->time.run - task->time.idle);
+	pr_out(" : ");
+	pr_indent(indent_mask, indent, true);
+	pr_out("[%d] %s\n", task->tid, name);
+
+	if (list_empty(&task->children))
+		return false;
+
+	/* clear parent indent mask at the last node */
+	if (parent && !list_is_singular(&parent->children) &&
+	    parent->children.prev == &task->siblings) {
+		int parent_indent = orig_indent - 1;
+
+		if (task->pid != parent->pid)
+			parent_indent--;
+
+		indent_mask[parent_indent] = false;
+	}
+
+	list_for_each_entry(child, &task->children, siblings) {
+		indent = orig_indent;
+
+		indent_mask[indent++] = true;
+		if (child->pid != task->pid) {
+			/* print blank line before forked child */
+			blank = true;
+			indent++;
+		}
+
+		if (blank) {
+			pr_out(" %*s : ", 23, "");
+			pr_indent(indent_mask, indent, false);
+			pr_out("\n");
+
+			blank = false;
+		}
+
+		blank |= print_task_node(child, task, indent_mask, indent);
+
+		if (&child->siblings != task->children.prev &&
+		    child->pid != task->pid) {
+			/* print blank line after forked child */
+			blank = true;
+		}
+	}
+	indent_mask[orig_indent] = false;
+	return blank;
+}
+
+static int graph_print_task(struct uftrace_data *handle)
+{
+	bool *indent_mask;
+
+	if (uftrace_done)
+		return 0;
+
+	if (handle->nr_tasks <= 0)
+		return 0;
+
+	pr_out("========== TASK GRAPH ==========\n");
+	pr_out("# %10s  %10s : %s\n", "TOTAL-TIME", "SELF-TIME", "TASK");
+	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
+	print_task_node(handle->sessions.first_task, NULL, indent_mask, 0);
+	free(indent_mask);
+	pr_out("\n");
+	return 1;
+}
+
 int command_graph(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -689,6 +837,12 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
+	if (opts->show_task) {
+		graph_build_task(opts, &handle);
+		graph_print_task(&handle);
+		goto out;
+	}
+
 	build_graph(opts, &handle, func);
 
 	graph = graph_list;
@@ -717,6 +871,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	}
 	graph_remove_task();
 
+out:
 	close_data_file(opts, &handle);
 
 	return 0;

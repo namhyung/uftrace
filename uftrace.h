@@ -150,6 +150,7 @@ struct uftrace_session_link {
 	struct rb_root		root;
 	struct rb_root		tasks;
 	struct uftrace_session *first;
+	struct uftrace_task    *first_task;
 };
 
 struct uftrace_data {
@@ -237,7 +238,7 @@ struct opts {
 	bool libcall;
 	bool print_symtab;
 	bool force;
-	bool report_thread;
+	bool show_task;
 	bool no_merge;
 	bool nop;
 	bool time;
@@ -342,6 +343,13 @@ struct uftrace_task {
 	struct rb_node		 node;
 	struct uftrace_sess_ref	 sref;
 	struct uftrace_sess_ref	*sref_last;
+	struct list_head	children;
+	struct list_head	siblings;
+	struct {
+		uint64_t	 run;
+		uint64_t	 idle;
+		uint64_t	 stamp;
+	} time;
 };
 
 #define UFTRACE_MSG_MAGIC 0xface

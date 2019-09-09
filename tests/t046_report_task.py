@@ -8,13 +8,13 @@ TDIR='xxx'
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'thread-name', """
-    TID    Run time   Num funcs  Function
-  =====  ==========  ==========  ====================================
-   2569  772.936 us           9  main
-   2571  178.218 us           3  thread_first
-   2572   63.568 us           3  thread_second
-   2573  174.537 us           3  thread_third
-   2574  172.378 us           3  thread_fourth
+  Total time   Self time   Num funcs     TID  Task name
+  ==========  ==========  ==========  ======  ================
+  772.936 us  136.238 us           9   2569   t-thread-name
+  178.218 us  101.132 us           3   2571   t-thread-name
+  174.537 us   83.934 us           3   2573   t-thread-name
+  172.378 us   90.137 us           3   2574   t-thread-name
+   63.568 us   63.568 us           3   2572   t-thread-name
 """, ldflags='-pthread')
 
     def pre(self):
@@ -23,7 +23,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
-        return '%s report --threads -d %s' % (TestBase.uftrace_cmd, TDIR)
+        return '%s report --task -d %s' % (TestBase.uftrace_cmd, TDIR)
 
     def post(self, ret):
         sp.call(['rm', '-rf', TDIR])
@@ -37,15 +37,15 @@ class TestCase(TestBase):
             if ln.strip() == '':
                 continue
             line = ln.split()
-            if line[0] == 'TID':
+            if line[0] == 'Total':
                 continue
             if line[0].startswith('='):
                 continue
             # A report line consists of following data
-            # [0]  [1]       [2]   [3]        [4]
-            # tid  run_time  unit  num_funcs  function
+            # [0]         [1]   [2]        [3]   [4]        [5]  [6]
+            # total_time  unit  self_time  unit  num_funcs  tid  task_name
             if line[4].startswith('__'):
                 continue
-            result.append(line[4])
+            result.append(line[6])
 
         return '\n'.join(result)

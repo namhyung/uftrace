@@ -60,4 +60,8 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 void destroy_diff_nodes(struct rb_root *diff_root);
 void apply_diff_policy(char *policy);
 
+int report_setup_task(const char *key_str);
+void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
+		       struct rb_root *sort_root);
+
 #endif /* UFTRACE_REPORT_H */

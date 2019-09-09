@@ -1143,6 +1143,64 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 	process(data, "\n");
 }
 
+static void print_task(struct uftrace_data *handle, struct uftrace_task *t)
+{
+	char flags[6] = "     ";
+	struct stat stbuf;
+	char *filename = NULL;
+	struct uftrace_sess_ref *sref = &t->sref;
+
+	xasprintf(&filename, "%s/%d.dat", handle->dirname, t->tid);
+	if (stat(filename, &stbuf) < 0)
+		stbuf.st_size = 0;
+
+	if (t->tid == t->pid)
+		flags[0] = 'F';  /* FORK */
+	while (sref != NULL) {
+		if (sref->sess->tid == t->tid) {
+			flags[1] = 'S';  /* SESSION */
+			break;
+		}
+
+		sref = sref->next;
+	}
+
+	/* TIMESTAMP */
+	pr_out(" %13lu.%09lu ", t->time.stamp / NSEC_PER_SEC,
+	       t->time.stamp % NSEC_PER_SEC);
+	/* FLAGS  TID  COMM */
+	pr_out(" %s  [%6d]  %-16s ", flags, t->tid, t->comm);
+	/* DATA SIZE */
+	if (stbuf.st_size) {
+		uint64_t size_kb = stbuf.st_size / 1024;
+		uint64_t size_rem = size_kb % 1024;
+
+		pr_out(" %5"PRIu64".%03"PRIu64" MB\n", size_kb / 1024,
+		       size_rem >= 1000 ? 999 : size_rem);
+	}
+	else
+		pr_out("\n");
+
+	free(filename);
+}
+
+static void print_task_info(struct uftrace_data *handle)
+{
+	struct rb_node *n;
+	struct uftrace_task *t;
+
+	pr_out("#%23s  %5s  %8s  %-16s  %s\n",
+	       "TIMESTAMP     ", "FLAGS", "  TID  ", "TASK", "DATA SIZE");
+
+	n = rb_first(&handle->sessions.tasks);
+	while (n != NULL) {
+		t = rb_entry(n, struct uftrace_task, node);
+		n = rb_next(n);
+
+		print_task(handle, t);
+	}
+}
+
 int command_info(int argc, char *argv[], struct opts *opts)
 {
 	int ret;
@@ -1177,6 +1235,20 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	fstack_setup_filters(opts, &handle);
+	if (opts->show_task) {
+		/* ignore errors */
+		read_task_txt_file(&handle.sessions, opts->dirname,
+				   false, false, false);
+
+		if (handle.hdr.feat_mask & PERF_EVENT) {
+			if (setup_perf_data(&handle) == 0)
+				update_perf_task_comm(&handle);
+		}
+
+		print_task_info(&handle);
+		goto out;
+	}
+
 	process_uftrace_info(&handle, opts, print_info, NULL);
 
 out:

@@ -16,8 +16,8 @@ DESCRIPTION
 ===========
 This command collects trace data from a given data file and prints statistics
 and summary information.  It shows function statistics by default, but can show
-thread statistics with the `--threads` option and show differences between
-traces with the `--diff` option.
+task statistics with the `--task` option and show differences between traces
+with the `--diff` option.
 
 
 REPORT OPTIONS
@@ -35,8 +35,8 @@ REPORT OPTIONS
 \--avg-self
 :   Show average, min, max of each function's self time.
 
-\--threads
-:   Report thread summary information rather than function statistics.
+\--task
+:   Report task summary information rather than function statistics.
 
 \--diff=*DATA*
 :   Report differences between the input trace data and the given DATA.
