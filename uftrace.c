@@ -1006,6 +1006,9 @@ static void free_opts(struct opts *opts)
 	free(opts->retval);
 	free(opts->tid);
 	free(opts->event);
+	free(opts->patch);
+	free(opts->caller);
+	free(opts->watch);
 }
 
 #ifndef UNIT_TEST
