@@ -860,7 +860,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	char ph;
 	char spec_buf[1024];
 	struct uftrace_record *frs = task->rstack;
-	enum argspec_string_bits str_mode = NEEDS_ESCAPE;
+	enum argspec_string_bits str_mode = NEEDS_JSON;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	bool is_process = task->t->pid == task->tid;
 	int rec_type = frs->type;

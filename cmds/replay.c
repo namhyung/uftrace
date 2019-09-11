@@ -442,10 +442,13 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
+#define print_char(c)                                                   \
+({ args[n] = c; n++; len--; })
+
 #define print_args(fmt, ...)						\
 ({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
 
-#define print_escaped_char(c)						\
+#define print_json_escaped_char(c)					\
 	do {								\
 		if (c == '\n')						\
 			print_args("\\\\n");				\
@@ -456,10 +459,22 @@ static void print_task_newline(int current_tid)
 		else if (c == '"')					\
 			print_args("\\\"");				\
 		else if (isprint(c))					\
-			print_args("%c", c);				\
+			print_char(c);                                  \
 		else							\
 			print_args("\\\\x%02hhx", c);			\
 	} while (0)
+
+#define print_escaped_char(c)						\
+        do {								\
+                if (c == '\0')						\
+                        print_args("\\0");				\
+                else if (c == '\b')					\
+                        print_args("\\b");				\
+                else if (c == '\n')                                     \
+                        print_args("\\n");				\
+                else							\
+                        print_char(c);                                  \
+        } while (0)
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
@@ -487,7 +502,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 	bool has_more         = !!(str_mode & HAS_MORE);
 	bool is_retval        = !!(str_mode & IS_RETVAL);
 	bool needs_assignment = !!(str_mode & NEEDS_ASSIGNMENT);
-	bool needs_escape     = !!(str_mode & NEEDS_ESCAPE);
+	bool needs_json       = !!(str_mode & NEEDS_JSON);
 
 	if (!has_more) {
 		if (needs_paren)
@@ -586,19 +601,43 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			if (!memcmp(str, &null_str, sizeof(null_str)))
 				print_args("NULL");
-			else if (needs_escape) {
+			else if (needs_json) {
 				char *p = str;
 				print_args("\\\"");
 				while (*p) {
 					char c = *p++;
-					print_escaped_char(c);
+					print_json_escaped_char(c);
 				}
 				print_args("\\\"");
 			}
 			else {
 				print_args("%s", color_string);
-				print_args("\"%.*s\"", slen + newline, str);
-				print_args("%s", color_reset);
+				print_args("\"");
+
+                                char *p = str;
+                                while (*p) {
+                                        char c = *p++;
+                                        if (c & 0x80) {
+                                                break;
+                                        }
+                                }
+                                /*
+                                 * if value of character is over than 128(0x80),
+                                 * then it will be UTF-8 string
+                                 */
+                                if (*p) {
+                                        print_args("%.*s", slen + newline, str);
+                                }
+                                else {
+                                        p = str;
+                                        while (*p) {
+                                                char c = *p++;
+                                                print_escaped_char(c);
+                                        }
+                                }
+
+                                print_args("\"");
+                                print_args("%s", color_reset);
 			}
 
 			/* std::string can be represented as "TEXT"s from C++14 */
@@ -612,14 +651,16 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			char c;
 
 			memcpy(&c, data, 1);
-			if (needs_escape) {
+			if (needs_json) {
 				print_args("'");
-				print_escaped_char(c);
+				print_json_escaped_char(c);
 				print_args("'");
 			}
 			else {
 				print_args("%s", color_string);
-				print_args("'%c'", c);
+				print_args("'");
+				print_escaped_char(c);
+				print_args("'");
 				print_args("%s", color_reset);
 			}
 			size = 1;
