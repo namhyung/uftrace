@@ -14,7 +14,7 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        if platform.machine().startswith('arm'):
+        if not TestBase.check_dependency(self, 'have_libcapstone') or platform.machine().startswith('arm'):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
