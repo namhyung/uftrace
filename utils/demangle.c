@@ -7,7 +7,7 @@
  *
  * See https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling
  *
- * Rust demangler refered to https://github.com/alexcrichton/rustc-demangle
+ * Rust demangler referred to https://github.com/alexcrichton/rustc-demangle
  * which was released by MIT (or Apache) license.
  *
  * Copyright (c) 2014 Alex Crichton

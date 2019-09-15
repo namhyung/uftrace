@@ -14,7 +14,7 @@
 #include "utils/symbol.h"
 
 #define TRAMP_ENT_SIZE    16  /* size of trampoilne for each entry */
-#define TRAMP_PLT0_SIZE   32  /* module id + addres of plthook_addr() */
+#define TRAMP_PLT0_SIZE   32  /* module id + address of plthook_addr() */
 #define TRAMP_PCREL_JMP   10  /* PC_relative offset for JMP */
 #define TRAMP_IDX_OFFSET  1
 #define TRAMP_JMP_OFFSET  6
