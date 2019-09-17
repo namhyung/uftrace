@@ -30,6 +30,7 @@ bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
+docdir = $(srcdir)/doc
 
 srcdir = $(CURDIR)
 # set objdir to $(O) by default (if any)
@@ -297,7 +298,7 @@ endif
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	$(call QUIET_INSTALL, bash-completion)
 	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
-	@$(MAKE) -sC $(srcdir)/doc install DESTDIR=$(DESTDIR)$(mandir)
+	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
 uninstall:
@@ -315,7 +316,7 @@ uninstall:
 	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-single.so
 	$(call QUIET_UNINSTALL, bash-completion)
 	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
-	@$(MAKE) -sC $(srcdir)/doc uninstall DESTDIR=$(DESTDIR)$(mandir)
+	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
@@ -332,7 +333,7 @@ dist:
 	@gzip $(objdir)/uftrace-$(VERSION).tar
 
 doc:
-	@$(MAKE) -C $(srcdir)/doc
+	@$(MAKE) -C $(docdir)
 
 clean:
 	$(call QUIET_CLEAN, uftrace)
@@ -345,7 +346,7 @@ clean:
 	$(Q)$(RM) coverage.info
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
-	@$(MAKE) -sC $(srcdir)/doc clean
+	@$(MAKE) -sC $(docdir) clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)" clean
 
 reset-coverage:
