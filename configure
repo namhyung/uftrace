@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 #-*- mode: shell-script; -*-
 
+if [ $(uname -s) != "Linux" ]; then
+    echo "uftrace is only supported on Linux"
+    exit
+fi
+
 prefix=/usr/local
 
 srcdir=$(readlink -f $(dirname $0))
