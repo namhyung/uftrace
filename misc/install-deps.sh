@@ -22,6 +22,9 @@ case $distro in
         rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
         yum install $OPT pandoc elfutils-devel python2-devel ncurses-devel pkgconfig
         yum install $OPT capstone-devel ;;
+    "arch")
+	pacman $OPT -S pandoc libelf python2 ncurses pkgconf
+	pacman $OPT -S capstone ;;
     *) # we can add more install command for each distros.
         echo "\"$distro\" is not supported distro, so please install packages manually." ;;
 esac
