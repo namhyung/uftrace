@@ -228,7 +228,7 @@ static int fill_cmdline(void *arg)
 			*p = ' ';
 	}
 
-	p = strquote(buf, &ret);
+	p = json_quote(buf, &ret);
 	p[ret - 1] = '\n';
 
 	if ((write(fha->fd, "cmdline:", 8) < 8) ||

@@ -87,7 +87,7 @@ enum argspec_string_bits {
 	HAS_MORE_BIT,
 	IS_RETVAL_BIT,
 	NEEDS_ASSIGNMENT_BIT,
-	NEEDS_ESCAPE_BIT,
+	NEEDS_JSON_BIT,
 
 	/* bit mask */
 	NEEDS_PAREN		= (1U << NEEDS_PAREN_BIT),
@@ -95,7 +95,7 @@ enum argspec_string_bits {
 	HAS_MORE		= (1U << HAS_MORE_BIT),
 	IS_RETVAL		= (1U << IS_RETVAL_BIT),
 	NEEDS_ASSIGNMENT	= (1U << NEEDS_ASSIGNMENT_BIT),
-	NEEDS_ESCAPE		= (1U << NEEDS_ESCAPE_BIT),
+	NEEDS_JSON		= (1U << NEEDS_JSON_BIT),
 };
 
 extern bool fstack_enabled;

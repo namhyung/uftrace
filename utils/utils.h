@@ -331,7 +331,7 @@ uint64_t parse_time(char *arg, int limited_digits);
 uint64_t parse_timestamp(char *arg);
 
 char * strjoin(char *left, char *right, const char *delim);
-char * strquote(char *str, int *len);
+char * json_quote(char *str, int *len);
 
 /* strv - string vector */
 struct strv {

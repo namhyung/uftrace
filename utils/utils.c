@@ -681,8 +681,8 @@ void strv_free(struct strv *strv)
 #define DQUOTE '"'
 #define QUOTES "\'\""
 
-/* escape quotes with backslash - caller should free the returned string */
-char * strquote(char *str, int *len)
+/* escape double-quote with backslash - caller should free the returned string */
+char * json_quote(char *str, int *len)
 {
 	char *p = str;
 	int quote = 0;
@@ -690,20 +690,16 @@ char * strquote(char *str, int *len)
 	int orig_len = *len;
 
 	/* find number of necessary escape */
-	while ((p = strpbrk(p, QUOTES)) != NULL) {
+	while ((p = strchr(p, DQUOTE)) != NULL) {
 		quote++;
 		p++;
 	}
 
 	p = xmalloc(orig_len + quote + 1);
 
-	/* escape single- and double-quotes */
+	/* escape double-quotes */
 	for (i = k = 0; i < orig_len; i++, k++) {
-		if (str[i] == QUOTE) {
-			p[k++] = '\\';
-			p[k] = QUOTE;
-		}
-		else if (str[i] == DQUOTE) {
+		if (str[i] == DQUOTE) {
 			p[k++] = '\\';
 			p[k] = DQUOTE;
 		}
