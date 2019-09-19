@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: paul cannon <pik@debian.org>
 Build-Depends: debhelper (>= 9), libelf-dev, pandoc, python, pkg-config,
- libpython2.7-dev, libdw-dev, libncursesw5-dev
+ libpython2.7-dev, libdw-dev, libncursesw5-dev, libcapstone-dev
 Standards-Version: 4.2.1
 Homepage: https://github.com/namhyung/uftrace
 
@@ -18,9 +18,9 @@ Description: Traces and analyzes execution of programs written in C/C++
  analysis of the program's execution and performance.
  .
  It traces each function in the executable and shows time durations. It can
- also trace external library calls - but only entry and exit are supported, and
- internal function calls within the library cannot be traced unless the library
- itself was built with profiling enabled.
+ also trace external library calls - but usually only entry and exit are
+ supported. It is also possible to trace other (nested) external library calls
+ and/or internal function calls in the library call.
  .
  It can show detailed execution flow at function level, and report which
  function has the highest overhead. It also shows various information
