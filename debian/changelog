@@ -3,6 +3,8 @@ uftrace (0.9.3-1) UNRELEASED; urgency=low
   * New upstream release
   * Adds support for nodoc build option
   * Adds i386 as a build target
+  * Make build reproducible (this mostly involved adding the
+    -ffile-prefix-map compiler option)
   * Bump Standards-Version to 4.4.0
 
  -- paul cannon <pik@debian.org>  Wed, 18 Sep 2019 21:14:16 -0500

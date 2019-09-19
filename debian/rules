@@ -11,6 +11,9 @@ export LDFLAGS_uftrace=-pie
 # no colors in test executable
 export TESTARG=-n
 
+# don't put current build paths in executables
+export CFLAGS_configure=-ffile-prefix-map=$(CURDIR)=.
+
 %:
 	dh $@
 
@@ -20,7 +23,7 @@ MAKEVARS += has_pandoc=no
 endif
 
 override_dh_auto_configure:
-	LDFLAGS=-Wl,-z,now,-z,relro ./configure --prefix=/usr --libdir=/usr/lib/uftrace
+	LDFLAGS=-Wl,-z,now,-z,relro CFLAGS=$(CFLAGS_configure) ./configure --prefix=/usr --libdir=/usr/lib/uftrace
 
 override_dh_auto_install:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp/
