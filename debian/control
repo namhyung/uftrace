@@ -6,6 +6,8 @@ Build-Depends: debhelper (>= 9), libelf-dev, pandoc, python, pkg-config,
  libpython2.7-dev, libdw-dev, libncursesw5-dev, libcapstone-dev
 Standards-Version: 4.4.0
 Homepage: https://github.com/namhyung/uftrace
+Vcs-Git: https://github.com/thepaul/uftrace -b deb
+Vcs-Browser: https://github.com/thepaul/uftrace/tree/deb
 
 Package: uftrace
 Architecture: amd64 arm64 armhf
