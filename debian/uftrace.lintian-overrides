@@ -1,0 +1,2 @@
+# This shared object is all noop stubs, so it has no library dependencies.
+uftrace binary: shared-lib-without-dependency-information usr/lib/uftrace/libmcount-nop.so
