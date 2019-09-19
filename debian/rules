@@ -14,6 +14,11 @@ export TESTARG=-n
 %:
 	dh $@
 
+ifneq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
+# suppress man page generation
+MAKEVARS += has_pandoc=no
+endif
+
 override_dh_auto_configure:
 	LDFLAGS=-Wl,-z,now,-z,relro ./configure --prefix=/usr --libdir=/usr/lib/uftrace
 
