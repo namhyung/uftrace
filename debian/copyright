@@ -3,68 +3,39 @@ Upstream-Name: uftrace
 Source: https://github.com/namhyung/uftrace
 
 Files: *
-Copyright: 2014-2017, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
-           2017, LG Electronics, Honggyu Kim <hong.gyu.kim@lge.com>
+Copyright: 2014-2019, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+           2014-2018, LG Electronics, Namhyung Kim <namhyung@gmail.com>
+           2017-2018, LG Electronics, Honggyu Kim <hong.gyu.kim@lge.com>
 License: GPL-2
- This program is free software; you can redistribute it and/or modify it under
- the terms of the GNU General Public License as published by the Free Software
- Foundation; version 2 of the License.
- .
- This program is distributed in the hope that it will be useful, but WITHOUT
- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- details.
- .
- You should have received a copy of the GNU General Public License along with
- this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
- St, Fifth Floor, Boston, MA 02110-1301, USA.
- .
- On Debian systems, the full text of the GNU General Public License version 2
- can be found in the file `/usr/share/common-licenses/GPL-2'.
 
 Files: utils/rbtree*
 Copyright: 1999  Andrea Arcangeli <andrea@suse.de>
            2002  David Woodhouse <dwmw2@infradead.org>
 License: GPL-2+
- This program is free software; you can redistribute it and/or modify it under
- the terms of the GNU General Public License as published by the Free Software
- Foundation; either version 2 of the License, or (at your option) any later
- version.
- .
- This program is distributed in the hope that it will be useful, but WITHOUT
- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- details.
- .
- You should have received a copy of the GNU General Public License along with
- this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
- St, Fifth Floor, Boston, MA 02110-1301, USA.
- .
- On Debian systems, the full text of the GNU General Public License version 2
- can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+Files: uftrace-gdb.py gdb/uftrace/*
+Copyright: 2015 Thiebaud Weksteen
+           2018 LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+           2011-2013 Siemens AG, Jan Kiszka <jan.kiszka@siemens.com>
+License: GPL-2
 
 Files: libtraceevent/*
 Copyright: 2009-2012 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
            2009  Frederic Weisbecker
 License: LGPL-2.1
- This program is free software; you can redistribute it and/or modify it under
- the terms of the GNU Lesser General Public License as published by the Free
- Software Foundation; version 2.1 of the License (not later!)
- .
- This program is distributed in the hope that it will be useful, but WITHOUT
- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
- details.
- .
- You should have received a copy of the GNU Lesser General Public License along
- with this program; if not, write to the Free Software Foundation, Inc., 51
- Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- .
- On Debian systems, the full text of the GNU Lesser General Public License
- version 2.1 can be found in the file `/usr/share/common-licenses/LGPL-2.1'.
+
+Files: arch/i386/mcount-support.c
+Copyright: 2017. Hanbum Park <kese111@gmail.com>
+License: GPL-2+
+
+Files: utils/demangle.c
+Copyright: 2014-2019, LG Electronics, Namhyung Kim <namhyung.kim@lge.com>
+           2014 Alex Crichton
+License: GPL-2
 
 Files: debian/*
 Copyright: 2016-2017 Epoch Labs, Inc., paul cannon <thepaul@epochlabs.com>
+           2019 paul cannon <pik@debian.org>
 License: Expat
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -83,3 +54,55 @@ License: Expat
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation; version 2 of the License.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU General Public License along with
+ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+ St, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the full text of the GNU General Public License version 2
+ can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation; either version 2 of the License, or (at your option) any later
+ version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU General Public License along with
+ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+ St, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the full text of the GNU General Public License version 2
+ can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+License: LGPL-2.1
+ This program is free software; you can redistribute it and/or modify it under
+ the terms of the GNU Lesser General Public License as published by the Free
+ Software Foundation; version 2.1 of the License (not later!)
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU Lesser General Public License along
+ with this program; if not, write to the Free Software Foundation, Inc., 51
+ Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the full text of the GNU Lesser General Public License
+ version 2.1 can be found in the file `/usr/share/common-licenses/LGPL-2.1'.
