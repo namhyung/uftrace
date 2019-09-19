@@ -27,9 +27,7 @@ override_dh_auto_install:
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	@# having the wrong LDFLAGS (in particular, the one set by debian
-	@# machinery or an empty one) breaks the tests.
-	env -u LDFLAGS $(MAKE) -j1 test
+	MAKEFLAGS= make test $(MAKEVARS)
 endif
 
 override_dh_auto_clean:
