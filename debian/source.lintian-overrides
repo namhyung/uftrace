@@ -1,4 +1,0 @@
-# this would be great, but rather difficult to achieve without patching upstream.
-# the test _really_ wants to run in a build directory and operate on the uftrace
-# binary that has just been built, instead of an installed one. someday.
-uftrace source: testsuite-autopkgtest-missing
