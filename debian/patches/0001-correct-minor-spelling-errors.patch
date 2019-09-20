@@ -1,0 +1,82 @@
+From: paul cannon <paul@thepaul.org>
+Date: Thu, 19 Sep 2019 09:55:09 -0500
+Subject: correct minor spelling errors
+
+as found by Lintian.
+---
+ doc/uftrace-live.md   | 4 ++--
+ doc/uftrace-record.md | 4 ++--
+ uftrace.c             | 2 +-
+ utils/kernel.c        | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/doc/uftrace-live.md b/doc/uftrace-live.md
+index 3bec5c0..1033031 100644
+--- a/doc/uftrace-live.md
++++ b/doc/uftrace-live.md
+@@ -624,7 +624,7 @@ The uftrace tool supports dynamic function tracing which can be enabled at
+ runtime (load-time, to be precise) on x86_64.  Before recording functions,
+ normally you need to build the target program with `-pg` (or
+ `-finstrument-functions`), then it has some performance impact because all
+-funtions call `mcount()`.
++functions call `mcount()`.
+ 
+ With dynamic tracing, you can trace specific functions only given by the
+ `-P`/`--patch` option.  With capstone disassembly engine you even don't need to
+@@ -675,7 +675,7 @@ matches to any character in a regex pattern with `P` option.
+ Clang/LLVM 4.0 provides a dynamic instrumentation technique called
+ [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
+ `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
+-supports dynamic tracing on the excutables built with the `X-ray`.
++supports dynamic tracing on the executables built with the `X-ray`.
+ 
+ For example, you can build the target program by clang with the below option
+ and equally use `-P` option for dynamic tracing like below:
+diff --git a/doc/uftrace-record.md b/doc/uftrace-record.md
+index 2f2d7f0..8912a39 100644
+--- a/doc/uftrace-record.md
++++ b/doc/uftrace-record.md
+@@ -540,7 +540,7 @@ The uftrace tool supports dynamic function tracing which can be enabled at
+ runtime (load-time, to be precise) on x86_64.  Before recording functions,
+ normally you need to build the target program with `-pg` (or
+ `-finstrument-functions`), then it has some performance impact because all
+-funtions call `mcount()`.
++functions call `mcount()`.
+ 
+ With dynamic tracing, you can trace specific functions only given by the
+ `-P`/`--patch` option.  With capstone disassembly engine you even don't need to
+@@ -593,7 +593,7 @@ matches to any character in a regex pattern with `P` option.
+ Clang/LLVM 4.0 provides a dynamic instrumentation technique called
+ [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
+ `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
+-supports dynamic tracing on the excutables built with the `X-ray`.
++supports dynamic tracing on the executables built with the `X-ray`.
+ 
+ For example, you can build the target program by clang with the below option
+ and equally use `-P` option for dynamic tracing like below:
+diff --git a/uftrace.c b/uftrace.c
+index 536d33b..0796ae3 100644
+--- a/uftrace.c
++++ b/uftrace.c
+@@ -164,7 +164,7 @@ static struct argp_option uftrace_options[] = {
+ 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay or graph output" },
+ 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
+ 	{ "Event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
+-	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
++	{ "list-event", OPT_list_event, 0, 0, "List available events" },
+ 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
+ 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
+ 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
+diff --git a/utils/kernel.c b/utils/kernel.c
+index 1b0c7e4..b55ec57 100644
+--- a/utils/kernel.c
++++ b/utils/kernel.c
+@@ -862,7 +862,7 @@ void list_kernel_events(void)
+ 	filename = get_tracing_file("available_events");
+ 	fp = fopen(filename, "r");
+ 	if (fp == NULL) {
+-		pr_dbg("failed to open 'tracing/avaiable_events");
++		pr_dbg("failed to open 'tracing/available_events");
+ 		return;
+ 	}
+ 
