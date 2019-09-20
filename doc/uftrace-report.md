@@ -58,6 +58,9 @@ REPORT OPTIONS
     `--data` option, index 1 is for data given by the `--diff` option, and index
     2 is for (percentage) differences between the two data.
 
+\--format=*TYPE*
+:   Show format style output. Currently, simple style or csv style is supported.
+
 
 COMMON OPTIONS
 ==============
