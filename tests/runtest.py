@@ -646,6 +646,7 @@ if __name__ == "__main__":
     else:
         try:
             testcases = glob.glob('t*' + arg.case + '*.py')
+            arg.worker = min(arg.worker, len(testcases))
         finally:
             if len(testcases) == 0:
                 print("cannot find testcase for : %s" % arg.case)
