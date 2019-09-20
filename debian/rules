@@ -19,7 +19,7 @@ export CFLAGS_configure=-ffile-prefix-map=$(CURDIR)=.
 
 ifneq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
 # suppress man page generation
-MAKEVARS += has_pandoc=no
+export has_pandoc=no
 endif
 
 override_dh_auto_configure:
@@ -30,7 +30,7 @@ override_dh_auto_install:
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	MAKEFLAGS= make test $(MAKEVARS)
+	$(MAKE) -j1 test
 endif
 
 override_dh_auto_clean:

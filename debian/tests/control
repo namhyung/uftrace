@@ -1,4 +1,3 @@
-Test-Command: objdir=/usr/bin python runtest.py
+Test-Command: cd tests && objdir=/usr/bin python runtest.py
 Depends: @, build-essential, python
-Tests-Directory: tests
 Restrictions: allow-stderr
