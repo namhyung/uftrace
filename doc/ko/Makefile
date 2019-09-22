@@ -20,12 +20,12 @@ all: $(MANPAGES)
 # $(DESTDIR) already contains $(mandir) by ../Makefile
 install: all
 	$(call QUIET_INSTALL, man-pages)
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)/man1
-	$(Q)for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/man1; done
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)/ko/man1
+	$(Q)for F in $(MANPAGES); do $(INSTALL) -m 644 $${F} $(DESTDIR)/ko/man1; done
 
 uninstall:
 	$(call QUIET_UNINSTALL, man-pages)
-	$(Q)for F in $(MANPAGES); do ${RM} $(DESTDIR)/man1/$${F}; done
+	$(Q)for F in $(MANPAGES); do ${RM} $(DESTDIR)/ko/man1/$${F}; done
 
 clean:
 	$(call QUIET_CLEAN, man-pages)
