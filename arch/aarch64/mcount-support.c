@@ -114,6 +114,7 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 			  struct uftrace_arg_spec *spec)
 {
 	int offset = 1;
+	unsigned long *addr = ctx->stack_base;
 
 	switch (spec->type) {
 	case ARG_TYPE_STACK:
@@ -132,10 +133,20 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 		break;
 	}
 
-	if (offset < 1 || offset > 100)
+	if (offset < 1 || offset > 100) {
 		pr_dbg("invalid stack offset: %d\n", offset);
+		memset(ctx->val.v, 0, sizeof(ctx->val));
+		return;
+	}
 
-	memcpy(ctx->val.v, ctx->stack_base + offset, spec->size);
+	addr += offset;
+
+	if (check_mem_region(ctx, (unsigned long)addr))
+		memcpy(ctx->val.v, addr, spec->size);
+	else {
+		pr_dbg("stack address is not allowed: %p\n", addr);
+		memset(ctx->val.v, 0, sizeof(ctx->val));
+	}
 }
 
 void mcount_arch_get_arg(struct mcount_arg_context *ctx,

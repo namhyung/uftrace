@@ -363,8 +363,8 @@ static bool find_mem_region(struct rb_root *root, unsigned long addr)
 	return false;
 }
 
-static bool check_mem_region(struct mcount_arg_context *ctx,
-			     unsigned long addr)
+bool check_mem_region(struct mcount_arg_context *ctx,
+		      unsigned long addr)
 {
 	bool update = true;
 	struct mcount_mem_regions *regions = ctx->regions;
@@ -796,6 +796,12 @@ void save_watchpoint(struct mcount_thread_data *mtdp,
 		     struct mcount_ret_stack *rstack,
 		     unsigned long watchpoints)
 {
+}
+
+bool check_mem_region(struct mcount_arg_context *ctx,
+		      unsigned long addr)
+{
+	return true;
 }
 #endif
 

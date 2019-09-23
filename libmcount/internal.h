@@ -387,6 +387,9 @@ void save_trigger_read(struct mcount_thread_data *mtdp,
 		       enum trigger_read_type type, bool diff);
 #endif  /* DISABLE_MCOUNT_FILTER */
 
+bool check_mem_region(struct mcount_arg_context *ctx,
+		      unsigned long addr);
+
 void save_watchpoint(struct mcount_thread_data *mtdp,
 		     struct mcount_ret_stack *rstack,
 		     unsigned long watchpoints);
