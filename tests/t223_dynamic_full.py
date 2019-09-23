@@ -8,13 +8,14 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'dynamic', """
 # DURATION     TID     FUNCTION
          [ 63876] | main() {
+0.739 us [ 63876] |   test_jmp_prolog();
 0.739 us [ 63876] |   foo();
 0.833 us [ 63876] |   bar();
 1.903 us [ 63876] | } /* main */
 """)
 
     def pre(self):
-        if platform.machine().startswith('arm'):
+        if not TestBase.check_dependency(self, 'have_libcapstone') or platform.machine().startswith('arm'):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
@@ -26,6 +27,6 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-P main -P foo -P bar --no-libcall'
+        options = '-P main -P foo -P bar -P test_jmp_prolog --no-libcall'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)

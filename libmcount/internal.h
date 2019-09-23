@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <signal.h>
 
 #ifdef HAVE_LIBCAPSTONE
 # include <capstone/capstone.h>
@@ -250,6 +251,22 @@ static inline void mcount_memcpy4(void * restrict dst,
 		*p++ = *q++;
 }
 
+#ifndef max
+#define max(a, b) ({				\
+	typeof(a) _maxa = (a);			\
+	typeof(b) _maxb = (b);			\
+	(void) (&_maxa == &_maxb);		\
+	_maxa > _maxb ? _maxa : _maxb; })
+#endif
+
+#ifndef min
+#define min(a, b) ({				\
+	typeof(a) _maxa = (a);			\
+	typeof(b) _maxb = (b);			\
+	(void) (&_maxa == &_maxb);		\
+	_maxa < _maxb ? _maxa : _maxb; })
+#endif
+
 extern void mcount_return(void);
 extern void dynamic_return(void);
 extern unsigned long plthook_return(void);
@@ -404,6 +421,11 @@ struct mcount_dynamic_info {
 	void *arch;
 };
 
+#ifdef HAVE_LIBCAPSTONE
+struct sigaction mcount_user_handler;
+void mcount_dynamic_trap(int sig, siginfo_t* info, void* _ctx);
+#endif
+
 struct mcount_disasm_engine {
 #ifdef HAVE_LIBCAPSTONE
 	csh		engine;
@@ -423,6 +445,8 @@ struct mcount_orig_insn {
 	unsigned long		addr;
 	void			*insn;
 };
+
+typedef struct mcount_orig_insn mcount_redirection;
 
 struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size,
 					  void *jmp_insn, unsigned jmp_size);

@@ -5,6 +5,7 @@
 #include <link.h>
 #include <sys/uio.h>
 #include <spawn.h>
+#include <signal.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -216,6 +217,10 @@ static char ** merge_envp(char *const *env1, char **env2)
 /*
  * hooking functions
  */
+#ifdef HAVE_LIBCAPSTONE
+static int (*real_sigaction)(int __sig, const struct sigaction *__restrict __act,
+		        struct sigaction *__restrict __oact);
+#endif
 static int (*real_backtrace)(void **buffer, int sz);
 static void (*real_cxa_throw)(void *exc, void *type, void *dest);
 static void (*real_cxa_rethrow)(void);
@@ -241,6 +246,9 @@ static int (*real_fexecve)(int fd, char *const argv[], char *const envp[]);
 
 void mcount_hook_functions(void)
 {
+	#ifdef HAVE_LIBCAPSTONE
+	real_sigaction 		= dlsym(RTLD_NEXT, "sigaction");
+	#endif
 	real_backtrace		= dlsym(RTLD_NEXT, "backtrace");
 	real_cxa_throw		= dlsym(RTLD_NEXT, "__cxa_throw");
 	real_cxa_rethrow	= dlsym(RTLD_NEXT, "__cxa_rethrow");
@@ -255,6 +263,41 @@ void mcount_hook_functions(void)
 	real_execvpe		= dlsym(RTLD_NEXT, "execvpe");
 	real_fexecve		= dlsym(RTLD_NEXT, "fexecve");
 }
+
+/*
+ * we hook sigaction to force the use of mcount_dynamic_trap in case the 
+ * user tries to override it.
+ */
+#ifdef HAVE_LIBCAPSTONE
+__visible_default int sigaction (int __sig, const struct sigaction *__restrict __act,
+		      struct sigaction *__restrict __oact)
+{
+	int ret;	
+	struct sigaction act;
+	const struct sigaction *real_act = __act;
+
+	if (unlikely(real_sigaction == NULL))
+		mcount_hook_functions();
+
+	switch (__sig) {
+	case SIGTRAP: {
+		if(__act) {
+			act.sa_flags = SA_SIGINFO;
+			act.sa_sigaction = mcount_dynamic_trap;
+
+			mcount_user_handler = *__act;
+			real_act = &act;
+		} 
+		break;
+	}
+	default:
+		break;
+	}
+
+	ret = real_sigaction(__sig, real_act, __oact);
+	return ret;
+}
+#endif
 
 __visible_default int backtrace(void **buffer, int sz)
 {

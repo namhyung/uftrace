@@ -7,6 +7,8 @@
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
 
+const uint8_t trap_insn = 0xcc;
+
 struct disasm_check_data {
 	uintptr_t		addr;
 	uint32_t		func_size;
@@ -14,6 +16,7 @@ struct disasm_check_data {
 	uint32_t		copy_size;
 	uint32_t		size;
 };
+
 
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
@@ -153,6 +156,62 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 	return true;
 }
 
+struct dynamic_constraint create_constraint(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	cs_insn *insn = NULL;
+	uint32_t count, i;
+	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+	struct dynamic_constraint dc = {{0,0,0,0}, INSTRUMENT_FAILED};
+	struct disasm_check_data insn_check = {
+		.addr		= sym->addr + mdi->map->start,
+		.func_size	= sym->size,
+		.size		= CALL_INSN_SIZE,
+	};
+
+	count = cs_disasm(disasm->engine, (void *)insn_check.addr, sym->size,
+			  insn_check.addr, 0, &insn);
+	if (unlikely(count == 0) &&
+	    !memcmp((void *)insn_check.addr, endbr64, sizeof(endbr64))) {
+		/* old version of capstone doesn't recognize ENDBR64 insn */
+		insn_check.addr += sizeof(endbr64);
+		insn_check.func_size -= sizeof(endbr64);
+		insn_check.copy_size += sizeof(endbr64);
+
+		count = cs_disasm(disasm->engine, (void *)insn_check.addr,
+				  insn_check.func_size, insn_check.addr,
+				  insn_check.addr, &insn);
+	}
+	
+	for (i = 0; i < count; i++) {
+		if (!check_instrumentable(disasm, &insn[i])) {
+			pr_dbg3("instruction not supported: %s\t %s\n",
+				insn[i].mnemonic, insn[i].op_str);
+			goto out;
+		}
+
+		insn_check.copy_size += insn[i].size;
+		int index = insn[i].address - insn_check.addr - 1; /* -1 for call opcode */
+		if(index >= 0) {
+			dc.constraint[index] = trap_insn;
+		}
+
+		if (insn_check.copy_size >= CALL_INSN_SIZE) {
+
+			dc.instr_size = insn_check.copy_size;
+			break;
+		}
+	}
+	pr_dbg3("create dynamic constraint: %02X:%02X:%02X:%02X func: %s \n", dc.constraint[0],
+			dc.constraint[1],dc.constraint[2],dc.constraint[3], sym->name);
+
+out:
+	if (count)
+		cs_free(insn, count);
+
+	return dc;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi, struct sym *sym)
 {
@@ -163,6 +222,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	struct disasm_check_data insn_check = {
 		.addr		= sym->addr + mdi->map->start,
 		.func_size	= sym->size,
+		.size		= CALL_INSN_SIZE,
 	};
 	struct dynamic_bad_symbol *badsym;
 
@@ -220,6 +280,15 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	return INSTRUMENT_FAILED;
+}
+
+
+struct dynamic_constraint create_constraint(struct mcount_disasm_engine *disasm,
+				struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	struct dynamic_constraint dc;
+	dc.instr_size = INSTRUMENT_FAILED;
+	return dc;
 }
 
 #endif /* HAVE_LIBCAPSTONE */
