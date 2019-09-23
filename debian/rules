@@ -1,15 +1,9 @@
 #!/usr/bin/make -f
 
-# verbose build output
-export V=1
-
 # build with PIE explicitly where appropriate
 export CFLAGS_uftrace=-fPIE
 export CFLAGS_traceevent=-fPIE
 export LDFLAGS_uftrace=-pie
-
-# no colors in test executable
-export TESTARG=-n
 
 # don't put current build paths in executables
 export CFLAGS_configure=-ffile-prefix-map=$(CURDIR)=.
@@ -20,6 +14,11 @@ export CFLAGS_configure=-ffile-prefix-map=$(CURDIR)=.
 ifneq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
 # suppress man page generation
 export has_pandoc=no
+endif
+
+ifeq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
+# verbose build output
+export V=1
 endif
 
 override_dh_auto_configure:
