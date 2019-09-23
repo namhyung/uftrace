@@ -8,6 +8,8 @@ export LDFLAGS_uftrace=-pie
 # don't put current build paths in executables
 export CFLAGS_configure=-ffile-prefix-map=$(CURDIR)=.
 
+LIBDIR := /usr/lib/$(DEB_HOST_MULTIARCH)/uftrace
+
 %:
 	dh $@
 
@@ -22,7 +24,7 @@ export V=1
 endif
 
 override_dh_auto_configure:
-	LDFLAGS=-Wl,-z,now,-z,relro CFLAGS=$(CFLAGS_configure) ./configure --prefix=/usr --libdir=/usr/lib/uftrace
+	LDFLAGS=-Wl,-z,now,-z,relro CFLAGS=$(CFLAGS_configure) ./configure --prefix=/usr --libdir=$(LIBDIR)
 
 override_dh_auto_install:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp/

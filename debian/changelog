@@ -8,6 +8,7 @@ uftrace (0.9.3-1) UNRELEASED; urgency=low
   * Adds support for autopkgtest
   * Add Rules-Requires-Root: no
   * Bump Standards-Version to 4.4.0
+  * Install private shared objects to /usr/lib/$(DEB_HOST_MULTIARCH)/uftrace
 
  -- paul cannon <pik@debian.org>  Wed, 18 Sep 2019 21:14:16 -0500
 

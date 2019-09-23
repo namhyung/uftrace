@@ -1,2 +1,2 @@
 usr/bin/uftrace
-usr/lib/uftrace/*
+usr/lib/*/uftrace/*
