@@ -32,6 +32,10 @@ etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 docdir = $(srcdir)/doc
 
+ifeq ($(DOCLANG), ko)
+  docdir = $(srcdir)/doc/ko
+endif
+
 srcdir = $(CURDIR)
 # set objdir to $(O) by default (if any)
 ifeq ($(objdir),)
