@@ -7,6 +7,7 @@ Build-Depends: debhelper (>= 9), libelf-dev, pandoc, python, pkg-config,
  bash-completion
 Standards-Version: 4.4.0
 Homepage: https://github.com/namhyung/uftrace
+Rules-Requires-Root: no
 Vcs-Git: https://github.com/thepaul/uftrace -b deb
 Vcs-Browser: https://github.com/thepaul/uftrace/tree/deb
 
