@@ -138,6 +138,7 @@ enum uftrace_trace_type {
 	TRACE_NONE,
 	TRACE_MCOUNT,
 	TRACE_CYGPROF,
+	TRACE_FENTRY,
 };
 
 bool has_dependency(const char *filename, const char *libname);
