@@ -154,7 +154,7 @@ static struct argp_option uftrace_options[] = {
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
 	{ "rt-prio", OPT_rt_prio, "PRIO", 0, "Record with real-time (FIFO) priority" },
-	{ "kernel-depth", 'K', "DEPTH", 0, "Trace kernel functions within DEPTH (default: 1)" },
+	{ "kernel-depth", 'K', "DEPTH", 0, "Trace kernel functions within DEPTH" },
 	{ "kernel-buffer", OPT_kernel_bufsize, "SIZE", 0, "Size of kernel tracing buffer (default: 1408K)" },
 	{ "kernel-skip-out", OPT_kernel_skip_out, 0, 0, "Skip kernel functions outside of user (deprecated)" },
 	{ "kernel-full", OPT_kernel_full, 0, 0, "Show kernel functions outside of user" },
