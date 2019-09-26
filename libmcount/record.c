@@ -433,9 +433,11 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				 */
 				long *base = ctx->val.p;
 				long *_M_string_length = base + 1;
-				char *_M_dataplus = (char*)(*base);
-				len = *_M_string_length;
-				str = _M_dataplus;
+				if (check_mem_region(ctx, (unsigned long)base)) {
+					char *_M_dataplus = (char*)(*base);
+					len = *_M_string_length;
+					str = _M_dataplus;
+				}
 			}
 
 			if (str) {
@@ -443,7 +445,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				char *dst = ptr + 2;
 				char buf[32];
 
-				if (!check_mem_region(ctx, ctx->val.i)) {
+				if (!check_mem_region(ctx, (unsigned long)str)) {
 					len = snprintf(buf, sizeof(buf), "<%p>", str);
 					str = buf;
 				}
