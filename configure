@@ -148,8 +148,11 @@ for dep in $IGNORE; do
         rm -f ${srcdir}/check-deps/$TARGET
     fi
 done
-
-echo "uftrace detected system features:"
+if [[ $LANG =~ "ko_KR" ]]; then
+	echo "사용가능한 시스템 기능:"
+else 
+	echo "uftrace detected system features:"
+fi
 
 print_feature()
 {
@@ -173,17 +176,27 @@ print_feature()
     fi
     printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
 }
-
-printf "...%15s: %s\n" "prefix" "${prefix}"
-print_feature "libelf" "have_libelf" "more flexible ELF data handling"
-print_feature "libdw" "have_libdw" "DWARF debug info support"
-print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
-print_feature "libncursesw" "have_libncurses" "TUI support"
-print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
-print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
-print_feature "schedule" "perf_context_switch" "scheduler event support"
-print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
-
+if [[ $LANG =~ "ko_KR" ]]; then
+	printf "...%15s: %s\n" "prefix" "${prefix}"
+	print_feature "libelf" "have_libelf" "ELF 데이터를 더 유연하게 다룹니다."
+	print_feature "libdw" "have_libdw" "DWARF 디버그 정보를 지원합니다."
+	print_feature "libpython2.7" "have_libpython2.7" "python script를 지원합니다."
+	print_feature "libncursesw" "have_libncurses" "TUI를 지원합니다."
+	print_feature "cxa_demangle" "cxa_demangle" "모든 demangler를 libstdc++과 같이 지원합니다."
+	print_feature "perf_event" "perf_clockid" "perf (PMU) 이벤트를 지원합니다."
+	print_feature "schedule" "perf_context_switch" "스케줄러 이벤트를 지원합니다."
+	print_feature "capstone" "have_libcapstone" "모든 동적 추적기법을 지원합니다."
+else
+	printf "...%15s: %s\n" "prefix" "${prefix}"
+	print_feature "libelf" "have_libelf" "more flexible ELF data handling"
+	print_feature "libdw" "have_libdw" "DWARF debug info support"
+	print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
+	print_feature "libncursesw" "have_libncurses" "TUI support"
+	print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
+	print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
+	print_feature "schedule" "perf_context_switch" "scheduler event support"
+	print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
+fi
 cat >$output <<EOF
 # this file is generated automatically
 override prefix := $prefix
