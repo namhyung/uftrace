@@ -2,134 +2,130 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-report - Print statistics and summary for trace data
+uftrace-report - 기록된 데이터의 통계 자료와 요약을 출력 한다.
 
 
-SYNOPSIS
+사용법
 ========
 uftrace report [*options*]
 
 
-DESCRIPTION
+설명
 ===========
-This command collects trace data from a given data file and prints statistics
-and summary information.  It shows function statistics by default, but can show
-task statistics with the `--task` option and show differences between traces
-with the `--diff` option.
+이 명령어는 주어진 데이터 파일의 데이터를 모으고 그 요약 정보와 통계 자료들을 출력한다.
+기본적으로 함수자료들을 보여주는데, `--task` 옵션을 통해 실행한 태스크 단위의  통계자료를
+볼 수 있고, `--diff` 옵션은 추가 인자로 데이터를 입력하면, 그 데이터와 원본 데이터 간의
+차이점을 보여준다.
 
 
-REPORT OPTIONS
-==============
+REPORT 옵션
+=================
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
-:   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
-    comma (,).  Possible keys are `total` (time), `self` (time), `call`, `func`,
-    `avg`, `min`, `max`.  Note that the first 3 keys should be used when
-    neither of `--avg-total` nor `--avg-self` is used.  Likewise, the last 3
-    keys should be used when either of those options is used.
+:   주어진 키를 이용해 함수들을 분류한다. 다수의 키를 쉼표(,)로 분리하여 줄 수 있다.
+    가능한 키들에는 `total` (time), `self` (time), `call`, `func`, `avg`, `min`,
+    `max`가 있다. 처음 3개의 키는 `--avg-total`와 `--avg-self` 옵션이 주어지지 않은
+    경우에만 사용할 수 있다. 이러한 옵션 중 하나를 사용하는 경우에는 마지막 3개의
+    키와 함께 이용해야한다.
 
 \--avg-total
-:   Show average, min, max of each function's total time.
+:   각 함수의 총 시간(total time)의 평균, 최소, 최대 시간을 보여준다.
 
 \--avg-self
-:   Show average, min, max of each function's self time.
+:   각 함수의 자체 시간(self time)의 평균, 최소, 최대 시간을 보여준다.
 
 \--task
-:   Report task summary information rather than function statistics.
+:   함수의 통계자료가 아닌 태스크를 요약해서 보고한다.
 
 \--diff=*DATA*
-:   Report differences between the input trace data and the given DATA.
+:   입력한 추적 데이터와 주어진 데이터의 차이점을 보고한다. 두 데이터는 uftrace로
+    record한 데이터이며, 데이터를 담은 디렉토리를 인자로 넘겨야한다.
 
 \--diff-policy=*POLICY*
-:   Apply custom diff policy.  Available values are: "abs", "no-abs", "percent",
-    "no-percent", "compact" and "full".  The "abs" is to sort diff result using
-    absolute value so positvie and negative entries can be shown together while
-    "no-abs" will show positive entries first and then negative ones.  The
-    "percent" is to show diff in percentage while "no-percent" is to show the
-    values.  The "full" is to show all three columns of baseline, new data and
-    difference while "compact" only shows the difference.  The default is "abs",
-    "compact" and "no-percent".
+:   `--diff`옵션을 사용할 때, 사용자가 지정한 diff 정책을 적용한다. 사용가능한 값으로는
+    "abs", "no-abs", "percent", "no-percent", "compact" "full"이 있다. "abs"는 절대값을
+    사용하여 diff 결과를 정렬하며 양수와 음수 항목을 함께 표시할 수 있다. "no-abs"는
+    먼저 양수 항목을 표시한 다음 음수 항목을 표시한다. "percent"는 diff를 백분율로 표시하고
+    "no-percent"는 값으로 표시한다. "full"은 기준, 새 데이터, 차이점 이 세 열을 모두 표시하는
+    반면 "compact"는 차이점만 표시한다. 기본값은 "abs", "compact", "no-percent"다.
 
 \--sort-column=*IDX*
-:   When `--diff` is used with "full" policy, 3 columns will be shown for each
-    total time, self time and call count.  This option selects the index of the
-    column to be used as a sort key.  Index 0 is for original data given by the
-    `--data` option, index 1 is for data given by the `--diff` option, and index
-    2 is for (percentage) differences between the two data.
+:   `--diff`를 "full" 정책과 함께 사용할 때, 총 시간, 자체 시간, 호출 횟수 이 3개의 열이
+    표시된다. 이 옵션은 정렬 키로 사용할 열 인덱스를 선택한다. 인덱스 0은 `--data`옵션으로
+    제공되는 원본 데이터에 대한 것이고, 인덱스 1은 `--diff`옵션으로 제공되는 데이터에 대한 것,
+    인덱스 2는 두 데이터 간의 (백분율) 차이에 대한 것이다.
 
 
-COMMON OPTIONS
+공통 옵션
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수들(그리고 그 내부의 함수들)만 추적될 수 있는 필터를 설정한다.
+    이 옵션은 한 번 이상 쓰일 수 있다. 필터에 대한 설명은 `uftrace-replay`(1)를 참고한다.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.  See
-    `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수들 (또는 그 함수들 아래 함수들)을 출력에서 제외하도록 설정하는 옵션이다.
+    이 옵션은 한 번 이상 쓰일 수 있다. 필터에 대한 설명은 `uftrace-replay`(1)를 참고한다.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수의 호출자를 출력하는 필터를 설정한다. 이 옵션은 한 번 이상 쓰일 수 있다.
+    필터에 대한 설명은 `uftrace-replay`(1)를 참고한다.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.
-    See `uftrace-replay`(1) for an explanation of triggers.
+:   선택된 함수의 트리거를 설정한다. 이 옵션은 한 번 이상 쓰일 수 있다.
+    트리거에 대한 설명은 `uftrace-replay`(1)를 참고한다.
 
 -D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
+:   함수가 중첩될 수 있는 최대 깊이를 설정한다.
 
 -t *TIME*, \--time-filter=*TIME*
-:   Do not account functions which run under the time threshold.  If some
-    functions explicitly have the 'trace' trigger applied, those are always
-    accounted regardless of execution time.
+:   설정한 시간 이하로 수행된 함수는 표시되지 않게 한다. 만약 어떤 함수가
+    명시적으로 'trace' 트리거가 적용된 경우, 그 함수는 실행 시간과 상관없이
+    항상 출력된다.
 
 \--no-libcall
-:   Do not show library calls.
+:   라이브러리 호출은 표시하지 않게 한다.
 
 \--no-event
-:   Do not show any events.
+:   이벤트는 표시하지 않게 한다.
 
 \--match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
+:   타입(TYPE)으로 일치하는 패턴을 보여준다. 가능한 형태는 `regex`와 `glob`이다.
+    기본값은 `regex`이다.
 
 
-COMMON ANALYSIS OPTIONS
+공통 분석 옵션
 =======================
 \--kernel-full
-:   Show all kernel functions, including those called outside of user functions.
+:   사용자 함수 밖에서 호출된 커널 함수를 포함해서 모든 커널 함수를 출력한다.
 
 \--kernel-only
-:   Show kernel functions only without user functions.
+:   사용자 함수를 제외한 커널 함수만 출력한다.
 
 \--event-full
-:   Show all (user) events outside of user functions.
+:   사용자 함수 밖의 모든 (사용자) 이벤트를 출력한다.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --task` or
-    `uftrace info`.  This option can also be used more than once.
+:   주어진 태스크에 의해 호출된 함수들만 출력한다. `uftrace report --task`
+    또는 `uftrace info`를 이용해 데이터 파일 내의 스레드 목록을 볼 수 있다.
+    이 옵션은 한 번 이상 쓰일 수 있다.
 
 \--demangle=*TYPE*
-:   Use demangled C++ symbol names for filters, triggers, arguments and/or
-    return values.  Possible values are "full", "simple" and "no".  Default
-    is "simple" which ignores function arguments and template parameters.
+:   필터, 트리거, 함수인자와 (또는) 반환 값을 디맹글(demangle)된 C++ 심볼
+    이름으로 사용한다. "full", "simple", "no" 값을 사용할 수 있다. 기본 값은
+    "simple"이며, 템플릿 파라미터와 함수 인자를 무시한다.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
-    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
-    in `uftrace replay`(1).
+:   시간 범위(RANGE) 내에 실행된 함수들만 출력한다. 범위는 \<시작\>~\<끝\>
+    ("~"로 구분) 이고 \<시작\>과 \<끝\> 중 하나는 생략할 수 있다. \<시작\>과
+    \<끝\>은 타임스탬프 또는 '100us'와 같은 \<시간 단위\>가 있는 경과 시간이다.
+    타임스탬프 또는 경과된 시간은 각각 `uftrace replay`(1)에 있는 `-f time`
+    또는 `-f elapsed` 옵션을 이용해 표시할 수 있다.
 
 
-EXAMPLE
+예제
 =======
-This command shows information like the following:
+이 명령어는 아래와 같은 정보들을 출력한다.
 
     $ uftrace record abc
     $ uftrace report
@@ -167,7 +163,7 @@ This command shows information like the following:
       =====  ==========  ==========  =========================
       21959  178.118 us           6  main
 
-To see a difference between two data:
+두 데이터의 차이점을 보려면:
 
     $ uftrace record abc
 
@@ -186,8 +182,8 @@ To see a difference between two data:
        -0.131 us   -0.131 us          +0  __cxa_atexit
        -0.061 us   -0.061 us          +0  getpid
 
-The above example shows difference sorted by absolute value of total time.
-The following changes it to use (non-absolute) value of self time.
+위의 예제는 총 시간의 절대값으로 정렬한 두 데이터의 차이점들을 보여준다.
+아래의 예제는 자체 시간의 (부호가 있는) 값을 이용해 정렬했다.
 
     $ uftrace report --diff uftrace.data.old -s self --diff-policy no-abs
     #
@@ -204,9 +200,9 @@ The following changes it to use (non-absolute) value of self time.
        -0.151 us   -0.090 us          +0  c
        -0.131 us   -0.131 us          +0  __cxa_atexit
 
-By using "full" policy, user can see raw data as well like below.
-Also it's possible to sort by different column (for raw data).
-The example below will sort output by total time of the base data.
+"full" 정책을 사용하면 사용자는 아래와 같은 원시(raw) 데이터를 볼 수 있다.
+또한 (원시 데이터의 경우) 다른 열로 정렬도 가능하다.
+밑의 예제는 base 데이터의 총 시간을 기준으로 결과를 정렬한다.
 
     $ uftrace report --diff uftrace.data.old --sort-column 0 --diff-policy full,percent
     #
@@ -224,6 +220,10 @@ The example below will sort output by total time of the base data.
         0.767 us    0.706 us    -7.95%     0.767 us    0.706 us    -7.95%            1          1         +0   getpid
 
 
-SEE ALSO
-========
+함께 보기
+==========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-tui`(1)
+
+번역자
+=========
+김서영 <gegiraffe@gmail.com>
