@@ -2,12 +2,12 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-report - Print statistics and summary for trace data
+uftrace-report - 추적한 데이터의 통계 자료와 요약을 출력 한다.
 
 
-SYNOPSIS
+사용법
 ========
 uftrace report [*options*]
 
