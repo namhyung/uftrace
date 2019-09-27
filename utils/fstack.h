@@ -105,6 +105,8 @@ struct uftrace_task_reader *get_task_handle(struct uftrace_data *handle,
 					   int tid);
 void reset_task_handle(struct uftrace_data *handle);
 
+void fstack_setup_task(char *tid_filter, struct uftrace_data *handle);
+
 int read_rstack(struct uftrace_data *handle,
 		struct uftrace_task_reader **task);
 int peek_rstack(struct uftrace_data *handle,
