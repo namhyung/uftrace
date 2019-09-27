@@ -432,7 +432,7 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 			       opts->filter ?: "",
 			       (opts->filter && opts->trigger) ? " or " : "",
 			       opts->trigger ?: "",
-			       (opts->filter || opts->trigger) ? " or " : "",
+			       ((opts->filter || opts->trigger) && opts->caller) ? " or " : "",
 			       opts->caller ?: "");
 		}
 	}
