@@ -130,10 +130,12 @@ static struct argp_option uftrace_options[] = {
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
-	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH (default: 1024)" },
+	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH "
+		"(default: " stringify(OPT_RSTACK_DEFAULT) ")" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
-	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection (default: 8090)" },
+	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection "
+		"(default: " stringify(UFTRACE_RECV_PORT) ")" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
 	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs (default: total)" },
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
