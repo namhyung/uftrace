@@ -1234,7 +1234,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	fstack_setup_filters(opts, &handle);
+	fstack_setup_task(opts->tid, &handle);
 	if (opts->show_task) {
 		/* ignore errors */
 		read_task_txt_file(&handle.sessions, opts->dirname,

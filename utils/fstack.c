@@ -140,14 +140,14 @@ static void update_first_timestamp(struct uftrace_data *handle,
 }
 
 /**
- * setup_task_filter - setup task filters using tid
+ * fstack_setup_task - setup task filters using tid
  * @tid_filter - CSV of tid (or possibly separated by  ':')
  * @handle     - file handle
  *
  * This function sets up task filters using @tid_filter.
  * Tasks not listed will be ignored.
  */
-static void setup_task_filter(char *tid_filter, struct uftrace_data *handle)
+void fstack_setup_task(char *tid_filter, struct uftrace_data *handle)
 {
 	int i, k;
 	int nr_filters = 0;
@@ -432,7 +432,7 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 			       opts->filter ?: "",
 			       (opts->filter && opts->trigger) ? " or " : "",
 			       opts->trigger ?: "",
-			       (opts->filter || opts->trigger) ? " or " : "",
+			       ((opts->filter || opts->trigger) && opts->caller) ? " or " : "",
 			       opts->caller ?: "");
 		}
 	}
@@ -440,7 +440,7 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 	if (opts->disabled)
 		fstack_enabled = false;
 
-	setup_task_filter(opts->tid, handle);
+	fstack_setup_task(opts->tid, handle);
 
 	fstack_prepare_fixup(handle);
 	return 0;
@@ -2308,7 +2308,7 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid)
 
 		test_tasks[i].tid = handle->info.tids[i];
 	}
-	setup_task_filter(NULL, handle);
+	fstack_setup_task(NULL, handle);
 
 	/* for fstack_entry not to crash */
 	for (i = 0; i < handle->info.nr_tid; i++)
