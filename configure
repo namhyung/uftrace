@@ -89,12 +89,10 @@ for arg; do
     eval "$opt='$val'"
 done
 
-if [ -z "$ARCH" ]; then
-    uname_M=$(uname -m 2>/dev/null || echo not)
-    ARCH=$(echo $uname_M | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
-    if [ "$ARCH" = "x86_64" ] && echo "$CFLAGS" | grep -w m32 ; then
-        ARCH=i386
-    fi
+uname_M=$(uname -m 2>/dev/null || echo not)
+ARCH=$(echo $uname_M | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
+if [ "$ARCH" = "x86_64" ] && echo "$CC $CFLAGS" | grep -w "\-m32" ; then
+    ARCH=i386
 fi
 
 bindir=${bindir:-${prefix}/bin}
