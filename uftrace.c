@@ -122,7 +122,8 @@ static struct argp_option uftrace_options[] = {
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-libcall", OPT_no_libcall, 0, 0, "Don't trace library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
-	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer (default: 128K)" },
+	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer "
+		"(default: " stringify(SHMEM_BUFFER_SIZE_KB) "K)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "task", OPT_task, 0, 0, "Show task info instead" },

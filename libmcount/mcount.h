@@ -66,7 +66,8 @@ void _mcleanup(void);
 void mcount_restore(void);
 void mcount_reset(void);
 
-#define SHMEM_BUFFER_SIZE  (128 * 1024)
+#define SHMEM_BUFFER_SIZE_KB	128
+#define SHMEM_BUFFER_SIZE	(SHMEM_BUFFER_SIZE_KB * KB)
 
 enum shmem_buffer_flags {
 	SHMEM_FL_NEW		= (1U << 0),
