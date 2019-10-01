@@ -28,7 +28,7 @@ usage() {
   --without-libelf      build without libelf (and libdw)     (even if found on the system)
   --without-libdw       build without libdw                  (even if found on the system)
   --without-libstdc++   build without libstdc++              (even if found on the system)
-  --without-libpython   build without libpython2.7           (even if found on the system)
+  --without-libpython   build without libpython              (even if found on the system)
   --without-libluajit   build without libluajit              (even if found on the system)
   --without-libncurses  build without libncursesw            (even if found on the system)
   --without-capstone    build without libcapstone            (even if found on the system)
@@ -176,10 +176,34 @@ print_feature()
     printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
 }
 
+print_feature2()
+{
+    item=$1
+    file1=$2
+    file2=$3
+    description=$4
+
+    if [ -t 1 -a "$TERM" != "dumb" ]; then
+        # use colored output only when stdout is tty
+        if [ -f ${srcdir}/check-deps/${file1} -o -f ${srcdir}/check-deps/${file2} ]; then
+            onoff="\033[32mon \033[0m"
+        else
+            onoff="\033[91mOFF\033[0m"
+        fi
+    else
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="on "
+        else
+            onoff="OFF"
+        fi
+    fi
+    printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
+}
+
 printf "...%15s: %s\n" "prefix" "${prefix}"
 print_feature "libelf" "have_libelf" "more flexible ELF data handling"
 print_feature "libdw" "have_libdw" "DWARF debug info support"
-print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
+print_feature2 "libpython" "have_libpython2.7" "have_libpython3" "python scripting support"
 print_feature "libluajit" "have_libluajit" "luajit scripting support"
 print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
