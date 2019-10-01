@@ -600,8 +600,8 @@ out:
 
 char * convert_sort_keys(char *sort_keys)
 {
-	const char *default_sort_key[] = { "total", "total_avg",
-					   "self_avg", "total" };
+	const char *default_sort_key[] = { OPT_SORT_KEYS,
+					   "total_avg", "self_avg" };
 	struct strv keys = STRV_INIT;
 	char *new_keys;
 	char *k;
@@ -665,7 +665,7 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	}
 	else if (opts->show_task) {
 		if (opts->sort_keys == NULL)
-			sort_keys = xstrdup("total");
+			sort_keys = xstrdup(OPT_SORT_KEYS);
 		else
 			sort_keys = xstrdup(opts->sort_keys);
 		ret = report_setup_task(sort_keys);

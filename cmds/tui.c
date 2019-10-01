@@ -1277,7 +1277,7 @@ static struct tui_report * tui_report_init(struct opts *opts)
 {
 	struct tui_window *win = &tui_report.win;
 
-	report_setup_sort("total");
+	report_setup_sort(OPT_SORT_KEYS);
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 
 	tui_window_init(win, &report_ops);

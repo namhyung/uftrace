@@ -138,7 +138,8 @@ static struct argp_option uftrace_options[] = {
 	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection "
 		"(default: " stringify(UFTRACE_RECV_PORT) ")" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
-	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs (default: total)" },
+	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs "
+		"(default: " OPT_SORT_KEYS ")" },
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto (default: auto)" },
