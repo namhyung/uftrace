@@ -3,7 +3,7 @@
  *
  *         if %rax have value bigger than 0, it means return address
  *         to the function have patched for dynamic tracing.
- *         otherwise, it must be 0 that means error occured.
+ *         otherwise, it must be 0 that means error occurred.
  *         stack frame : parent addr = 8(%rsp), child addr = (%rsp)
  *
  *         For example:
