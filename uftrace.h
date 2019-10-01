@@ -26,6 +26,8 @@
 #define OPT_RSTACK_DEFAULT  1024
 #define OPT_DEPTH_MAX       OPT_RSTACK_MAX
 #define OPT_DEPTH_DEFAULT   OPT_RSTACK_DEFAULT
+#define OPT_COLUMN_OFFSET   8
+#define OPT_SORT_COLUMN     2
 
 #define KB 1024
 #define MB (KB * 1024)
