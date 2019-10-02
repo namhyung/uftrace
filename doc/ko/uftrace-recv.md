@@ -2,52 +2,53 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-recv - Receive tracing data from socket and save it to files
+uftrace-recv - 네트워크를 통해 데이터를 수신하고 파일로 저장한다.
 
 
-SYNOPSIS
+사용법
 ========
-uftrace recv [*options*]
+uftrace recv [*옵션*]
 
 
-DESCRIPTION
+설명
 ===========
-This command receives tracing data from the network and saves it to files.
-Data will be sent using `uftrace-record` with -H/\--host option.
+uftrace recv 명령어는 네트워크를 통해 데이터를 수신하고 파일로 저장한다.
+데이터는 `uftrace-record` 명령어와 -H/\--host 옵션을 사용하여 전송된다.
 
 
-OPTIONS
+옵션
 =======
 -d *DATA*, \--data=*DATA*
-:   Specify directory name to save received data.
+:   수신된 데이터를 저장할 디렉터리 이름을 지정한다.
 
 \--port=*PORT*
-:   Use given port instead of the default (8090).
+:   기본 포트(8090) 대신 사용할 포트 번호를 지정한다.
 
 \--run-cmd=*COMMAND*
-:   Run given (shell) command as soon as receive data.  For example, one can
-    run `uftrace replay` for received data.
+:   데이터를 수신한 다음에 주어진(쉘) 명령어를 바로 실행한다.
+    예를 들면, 수신된 데이터에 대해 uftrace replay를 실행할 수 있다.
 
 
-EXAMPLE
+예제
 =======
-The uftrace recv command should be run before sending data by record command.
+uftrace recv 명령은 `uftrace-record` 명령어로 데이터를 전송하기 전에 먼저 실행되어야 한다.
 
-    # HOST 
+    # 호스트 
     $ uftrace recv -d recv_data --port 1234
 
-Above command starts a server with port by given (default `8090`) to receive
-data from remote client.
+위의 명령어는 `-d` 옵션을 사용하여 데이터를 저장할 디렉터리 이름을 지정하고 포트
+`1234`를 사용하여 데이터 수신을 대기한다.
 
-    # CLIENT :
+    # 클라이언트 :
     $ uftrace record -H localhost -d example_data --port 1234 example
 
-Above command sends the trace data to a remote server that pointed by given
--H option (`localhost` in this case) after running the example program.  And
-as you see, you can choose save directory by using `-d` option (sending data
-will save to `example_data` in this case).
+위의 명령어는 `example`프로그램의 데이터를 기록한 다음 `-d` 옵션을 사용하여 
+`example_data` 디렉터리에 데이터를 저장하고 `-H` 옵션을 사용하여 수신할 
+호스트를 설정하고 전송한다. 최종적으로, 위의 명령어의 호스트는 `localhost`이고 
+포트번호는 `1234`이며, 클라이언트에서 호스트로 전송될 데이터의 
+디렉터리 이름은 `example_data`이 된다.
 
     # HOST : Check received data
     $ uftrace replay -d recv_data/example_data
@@ -62,10 +63,15 @@ will save to `example_data` in this case).
        4.845 us [17308] |   } /* a */
        5.076 us [17308] | } /* main */
 
-You can find saved trace data of example from `recv_data`'s subdirectory
-`example_data`.  Obviously, you should check at `HOST`.
+호스트에서 지정한 `recv_data` 디렉터리의 하위 디렉터리에서 
+`example_data` 데이터를 찾을 수 있다.
 
 
-SEE ALSO
+함께 보기
 ========
 `uftrace`(1), `uftrace-record`(1)
+
+
+번역자
+========
+김관영 <gy741.kim@gmail.com>
