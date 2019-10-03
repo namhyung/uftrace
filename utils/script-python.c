@@ -679,8 +679,11 @@ int script_init_for_python(struct script_info *info,
 	script_uftrace_end = python_uftrace_end;
 	script_atfork_prepare = python_atfork_prepare;
 
-	load_python_api_funcs();
-	set_python_path(py_pathname);
+	if (load_python_api_funcs() < 0)
+		return -1;
+
+	if (set_python_path(py_pathname) < 0)
+		return -1;
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
