@@ -547,7 +547,7 @@ With dynamic tracing, you can trace specific functions only given by the
 `-U`/`--unpatch` option.  With capstone disassembly engine you even don't need
 to (re)compile the target with the option above.  Now uftrace can analyze the
 instructions and (if possible) it can copy them to a different place and rewrite
-it to call `mcount()` function) so that it can be traced by uftrace.  After that
+it to call `mcount()` function so that it can be traced by uftrace.  After that
 the control is passed to the copied instructions and then returned back to the
 remaining instructions.
 
