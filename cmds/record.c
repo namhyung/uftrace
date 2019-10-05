@@ -136,7 +136,7 @@ char * get_libmcount_path(struct opts *opts)
 	if (access(lib, F_OK) == 0)
 		return lib;
 #endif
-	strcpy(lib, libmcount);
+	strncpy(lib, libmcount, PATH_MAX);
 	return lib;
 }
 
