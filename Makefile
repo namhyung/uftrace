@@ -158,11 +158,13 @@ SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
-PYTHON2_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
+PYTHON2_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c
+PYTHON2_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
 PYTHON2_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
 PYTHON2_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%-py2.op,$(PYTHON2_SRCS))
 
-PYTHON3_SRCS := $(srcdir)/misc/trace-python3.c $(srcdir)/misc/trace-python.c $(srcdir)/utils/debug.c
+PYTHON3_SRCS := $(srcdir)/misc/trace-python3.c $(srcdir)/misc/trace-python.c
+PYTHON3_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
 PYTHON3_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
 PYTHON3_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%-py3.op,$(PYTHON3_SRCS))
 
