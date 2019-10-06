@@ -122,7 +122,8 @@ static struct argp_option uftrace_options[] = {
 	{ "flat", OPT_flat, 0, 0, "Use flat output format" },
 	{ "no-libcall", OPT_no_libcall, 0, 0, "Don't trace library function calls" },
 	{ "symbols", OPT_symbols, 0, 0, "Print symbol tables" },
-	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer (default: 128K)" },
+	{ "buffer", 'b', "SIZE", 0, "Size of tracing buffer "
+		"(default: " stringify(SHMEM_BUFFER_SIZE_KB) "K)" },
 	{ "logfile", OPT_logfile, "FILE", 0, "Save log messages to this file" },
 	{ "force", OPT_force, 0, 0, "Trace even if executable is not instrumented" },
 	{ "task", OPT_task, 0, 0, "Show task info instead" },
@@ -130,12 +131,15 @@ static struct argp_option uftrace_options[] = {
 	{ "no-merge", OPT_no_merge, 0, 0, "Don't merge leaf functions" },
 	{ "nop", OPT_nop, 0, 0, "No operation (for performance test)" },
 	{ "time", OPT_time, 0, 0, "Print time information" },
-	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH (default: 1024)" },
+	{ "max-stack", OPT_max_stack, "DEPTH", 0, "Set max stack depth to DEPTH "
+		"(default: " stringify(OPT_RSTACK_DEFAULT) ")" },
 	{ "kernel", 'k', 0, 0, "Trace kernel functions also (if supported)" },
 	{ "host", 'H', "HOST", 0, "Send trace data to HOST instead of write to file" },
-	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection (default: 8090)" },
+	{ "port", OPT_port, "PORT", 0, "Use PORT for network connection "
+		"(default: " stringify(UFTRACE_RECV_PORT) ")" },
 	{ "no-pager", OPT_nopager, 0, 0, "Do not use pager" },
-	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs (default: total)" },
+	{ "sort", 's', "KEY[,KEY,...]", 0, "Sort reported functions by KEYs "
+		"(default: " OPT_SORT_KEYS ")" },
 	{ "avg-total", OPT_avg_total, 0, 0, "Show average/min/max of total function time" },
 	{ "avg-self", OPT_avg_self, 0, 0, "Show average/min/max of self function time" },
 	{ "color", OPT_color, "SET", 0, "Use color for output: yes, no, auto (default: auto)" },
@@ -144,12 +148,14 @@ static struct argp_option uftrace_options[] = {
 	{ "debug-domain", OPT_dbg_domain, "DOMAIN", 0, "Filter debugging domain" },
 	{ "report", OPT_report, 0, 0, "Show live report" },
 	{ "column-view", OPT_column_view, 0, 0, "Print tasks in separate columns" },
-	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column (default: 8)" },
+	{ "column-offset", OPT_column_offset, "DEPTH", 0, "Offset of each column "
+		"(default: " stringify(OPT_COLUMN_OFFSET) ")" },
 	{ "no-pltbind", OPT_bind_not, 0, 0, "Do not bind dynamic symbols (LD_BIND_NOT)" },
 	{ "task-newline", OPT_task_newline, 0, 0, "Interleave a newline when task is changed" },
 	{ "chrome", OPT_chrome_trace, 0, 0, "Dump recorded data in chrome trace format" },
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
-	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX (default: 2)" },
+	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX "
+		"(default: " stringify(OPT_SORT_COLUMN) ")" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
@@ -655,6 +661,8 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_column_offset:
 		opts->column_offset = strtol(arg, NULL, 0);
+		if (opts->column_offset < 0)
+			opts->column_offset = OPT_COLUMN_OFFSET;
 		break;
 
 	case OPT_bind_not:
@@ -687,10 +695,11 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_sort_column:
 		opts->sort_column = strtol(arg, NULL, 0);
-		if (opts->sort_column < 0 || opts->sort_column > 2) {
+		if (opts->sort_column < 0 || opts->sort_column > OPT_SORT_COLUMN) {
 			pr_use("invalid column number: %d\n", opts->sort_column);
-			pr_use("force to set it to --sort-column=2 for diff percentage\n");
-			opts->sort_column = 2;
+			pr_use("force to set it to --sort-column=%d for diff percentage\n",
+				OPT_SORT_COLUMN);
+			opts->sort_column = OPT_SORT_COLUMN;
 		}
 		break;
 
@@ -1059,11 +1068,11 @@ int main(int argc, char *argv[])
 		.port		= UFTRACE_RECV_PORT,
 		.use_pager	= true,
 		.color		= COLOR_AUTO,  /* default to 'auto' (turn on if terminal) */
-		.column_offset	= 8,
+		.column_offset	= OPT_COLUMN_OFFSET,
 		.comment	= true,
 		.kernel_skip_out= true,
 		.fields         = NULL,
-		.sort_column	= 2,
+		.sort_column	= OPT_SORT_COLUMN,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
 	};

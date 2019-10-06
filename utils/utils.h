@@ -230,6 +230,9 @@ extern void setup_signal(void);
 		fptr(__VA_ARGS__);					\
 })
 
+#define stringify(s)    __stringify(s)
+#define __stringify(s)  #s
+
 #define htonq(x)  htobe64(x)
 #define ntohq(x)  be64toh(x)
 
