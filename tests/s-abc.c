@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
 
 static int a(void);
 static int b(void);
@@ -26,10 +27,12 @@ static int c(void)
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-
+	int rows, columns;
+	
 	if (argc > 1)
 		ret = atoi(argv[1]);
 
-	ret += a();
+	ret += 2*a();
+	ret = ret - a();
 	return ret ? 0 : 1;
 }
