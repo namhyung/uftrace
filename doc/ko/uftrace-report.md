@@ -24,8 +24,8 @@ REPORT OPTIONS
 ==============
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
-    comma (,).  Possible keys are `total` (time), `self` (time), `call`, `avg`,
-    `min`, `max`, `func`.  Note that the first 3 keys should be used when
+    comma (,).  Possible keys are `total` (time), `self` (time), `call`, `func`,
+    `avg`, `min`, `max`.  Note that the first 3 keys should be used when
     neither of `--avg-total` nor `--avg-self` is used.  Likewise, the last 3
     keys should be used when either of those options is used.
 
@@ -110,7 +110,7 @@ COMMON ANALYSIS OPTIONS
 
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
+    threads in the data file, you can use `uftrace report --task` or
     `uftrace info`.  This option can also be used more than once.
 
 \--demangle=*TYPE*
