@@ -878,11 +878,11 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 
 		if (*line == '#') {
 			if (!strncmp(line, "# symbols: ", 11)) {
-				addr = strtoull(line + 11, &pos, 10);
-				symtab->nr_alloc = addr;
+				size_t nr_syms = strtoul(line + 11, &pos, 10);
+				size_t size_syms = nr_syms * sizeof(*sym);
 
-				addr *= sizeof(*sym);
-				symtab->sym = xrealloc(symtab->sym, addr);
+				symtab->nr_alloc = nr_syms;
+				symtab->sym = xrealloc(symtab->sym, size_syms);
 			}
 			continue;
 		}
