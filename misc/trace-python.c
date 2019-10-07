@@ -150,7 +150,7 @@ static void write_symtab(const char *dirname)
 	char *filename = NULL;
 	FILE *fp;
 
-	xasprintf(&filename, "%s/%s", dirname, PYTHON_SYMTAB_NAME);
+	xasprintf(&filename, "%s/%s.sym", dirname, PYTHON_SYMTAB_NAME);
 
 	fp = fopen(filename, "a");
 	if (fp == NULL) {

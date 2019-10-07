@@ -31,7 +31,7 @@
 # define STB_GNU_UNIQUE  10
 #endif
 
-#define PYTHON_SYMTAB_NAME  "python-symtab.sym"
+#define PYTHON_SYMTAB_NAME  "python-symtab"
 
 enum symtype {
 	ST_UNKNOWN	= '?',

@@ -776,21 +776,21 @@ void load_python_symtab(struct symtabs *symtabs)
 	struct uftrace_mmap *map;
 
 	/* try to load python symtab (if exists) */
-	xasprintf(&symfile, "%s/%s", symtabs->dirname, PYTHON_SYMTAB_NAME);
+	xasprintf(&symfile, "%s/%s.sym", symtabs->dirname, PYTHON_SYMTAB_NAME);
 	if (access(symfile, R_OK) < 0) {
 		free(symfile);
 		return;
 	}
 
 	/* add a fake map for python script */
-	map = xzalloc(sizeof(*map) + sizeof("<python>"));
+	map = xzalloc(sizeof(*map) + sizeof(PYTHON_SYMTAB_NAME));
 
 	map->start = 0;
 	map->end = 4096;
 	map->len = 8;
 
 	memcpy(map->prot, "rwxp", 4);
-	strcpy(map->libname, "<python>");
+	strcpy(map->libname, PYTHON_SYMTAB_NAME);
 
 	load_module_symbol_file(&map->symtab, symfile, 0);
 	setup_debug_info(symfile, &map->dinfo, 0, false);
