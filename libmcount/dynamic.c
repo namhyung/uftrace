@@ -292,7 +292,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	if (patch_funcs == NULL)
 		return 0;
 
-	def_mod = basename(symtabs->maps->libname);
+	def_mod = basename(symtabs->filename);
 	strv_split(&funcs, patch_funcs, ";");
 
 	strv_for_each(&funcs, name, j) {
