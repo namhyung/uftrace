@@ -725,24 +725,30 @@ static int setargs(char *args, char **argv)
 
 		/* consider quotes and update argv */
 		if (*args == QUOTE) {
+			++args;
+			if (*args == QUOTE )
+				continue;
 			if (argv)
-				argv[count] = ++args;
-			while (*args != QUOTE)
+				argv[count] = args;
+			while (*args && *args != QUOTE)
 				++args;
-			if (argv)
+			if (argv && *args)
 				*args = ' ';
 		}
 		else if (*args == DQUOTE) {
+			++args;
+			if (*args == DQUOTE)
+				continue;
 			if (argv)
-				argv[count] = ++args;
-			while (*args != DQUOTE)
+				argv[count] = args;
+			while (*args && *args != DQUOTE)
 				++args;
-			if (argv)
+			if (argv && *args)
 				*args = ' ';
 		}
 		else if (*args == '#') {
 			/* ignore comment line */
-			while (*args != '\n' || *args == '\0')
+			while (*args != '\n' && *args != '\0')
 				++args;
 			continue;
 		}
