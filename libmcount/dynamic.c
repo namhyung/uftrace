@@ -103,7 +103,7 @@ void mcount_freeze_code(void)
 	struct code_page *cp;
 
 	list_for_each_entry(cp, &code_pages, list)
-		mprotect(cp->page, CODE_CHUNK, PROT_EXEC);
+		mprotect(cp->page, CODE_CHUNK, PROT_READ|PROT_EXEC);
 }
 
 void *mcount_find_code(unsigned long addr)
