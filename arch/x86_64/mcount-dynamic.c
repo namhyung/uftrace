@@ -507,15 +507,18 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
 	struct mcount_orig_insn *orig;
-	struct mcount_instrument_info *info;
+	struct mcount_disasm_info info = {
+		.sym  = sym,
+		.addr = mdi->map->start + sym->addr,
+	};
+	int state;
 
-	info = disasm_check_insns(disasm, mdi, sym);
-
-	if (info->size < CALL_INSN_SIZE)
-		return info->size;
+	state = disasm_check_insns(disasm, mdi, &info);
+	if (state != INSTRUMENT_SUCCESS)
+		return state;
 
 	pr_dbg2("patch normal func: %s (patch size: %d)\n",
-		sym->name, info->size);
+		sym->name, info.orig_size);
 
 	/*
 	 *  stored origin instruction block:
@@ -527,15 +530,13 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	 *  | [Return   address] |
 	 *  ----------------------
 	 */
-	jmp_target = info->addr + info->size;
+	jmp_target = info.addr + info.orig_size;
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
-	orig = mcount_save_code(info, jmp_insn, sizeof(jmp_insn));
+	orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CALL_INSN_SIZE;
-	patch_code(mdi, info->addr, info->size);
+	patch_code(mdi, info.addr, info.orig_size);
 
-	free(info->insns);
-	free(info);
 	return INSTRUMENT_SUCCESS;
 }
 

@@ -7,8 +7,6 @@
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
 
-#define MAX_INSNS_BYTES			128
-
 struct disasm_check_data {
 	uintptr_t		addr;
 	uint32_t		func_size;
@@ -254,9 +252,9 @@ out:
 	return status;
 }
 
-static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn,
-			      struct mcount_dynamic_info *mdi,
-			      struct disasm_check_data *insn_check)
+static bool check_unsupported(struct mcount_disasm_engine *disasm,
+			      cs_insn *insn, struct mcount_dynamic_info *mdi,
+			      struct mcount_disasm_info *info)
 {
 	int i;
 	cs_x86 *x86;
@@ -288,13 +286,13 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 			target = op->imm;
 
 			/* disallow (back) jump to the prologue */
-			if (insn_check->addr <= target &&
-			    target < insn_check->addr + insn_check->copy_size)
+			if (info->addr < target &&
+			    target < info->addr + info->copy_size)
 				return false;
 
 			/* disallow jump to middle of other function */
-			if (insn_check->addr > target ||
-			    target >= insn_check->addr + insn_check->func_size) {
+			if (info->addr > target ||
+			    target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
 				return !add_bad_jump(mdi, insn->address, target);
 			}
@@ -312,78 +310,64 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 	return true;
 }
 
-
-struct mcount_instrument_info *
-disasm_check_insns(struct mcount_disasm_engine *disasm,
-		   struct mcount_dynamic_info *mdi, struct sym *sym)
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
 {
-	cs_insn *insn = NULL;
 	int status;
-	uint32_t count, i, insns_size;
-	uint8_t insns_byte[MAX_INSNS_BYTES] = {0, };
+	cs_insn *insn = NULL;
+	uint32_t count, i, size;
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
-	struct disasm_check_data insn_check = {
-		.addr		= sym->addr + mdi->map->start,
-		.func_size	= sym->size,
-	};
 	struct dynamic_bad_symbol *badsym;
-	struct mcount_instrument_info *info = xzalloc(sizeof(*info));
 
-	info->addr = sym->addr + mdi->map->start;
-	info->func_size = sym->size;
-
-	badsym = find_bad_jump(mdi, insn_check.addr);
+	badsym = find_bad_jump(mdi, info->addr);
 	if (badsym != NULL) {
 		list_del(&badsym->list);
 		free(badsym);
-		info->size = INSTRUMENT_FAILED;
-		return info;
+		return INSTRUMENT_FAILED;
 	}
 
-	count = cs_disasm(disasm->engine, (void *)insn_check.addr, sym->size,
-			  insn_check.addr, 0, &insn);
-	if (unlikely(count == 0) &&
-	    !memcmp((void *)insn_check.addr, endbr64, sizeof(endbr64))) {
+	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
+			  info->addr, 0, &insn);
+	if (count == 0 && !memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
 		/* old version of capstone doesn't recognize ENDBR64 insn */
-		insn_check.addr += sizeof(endbr64);
-		insn_check.func_size -= sizeof(endbr64);
-		insn_check.copy_size += sizeof(endbr64);
+		unsigned long addr = info->addr + sizeof(endbr64);
 
-		count = cs_disasm(disasm->engine, (void *)insn_check.addr,
-				  insn_check.func_size, insn_check.addr,
-				  insn_check.addr, &insn);
+		info->orig_size += sizeof(endbr64);
+		info->copy_size += sizeof(endbr64);
+
+		count = cs_disasm(disasm->engine, (void *)addr,
+				  info->sym->size - sizeof(endbr64),
+				  addr, 0, &insn);
 	}
 
 	for (i = 0; i < count; i++) {
-		memset(insns_byte, 0, MAX_INSNS_BYTES);
-		status = check_instrumentable(disasm, &insn[i]);
+		uint8_t insns_byte[32] = { 0, };
 
+		status = check_instrumentable(disasm, &insn[i]);
 		if (status > 0)
-			insns_size = manipulate_insns(&insn[i], insns_byte, &status);
+			size = manipulate_insns(&insn[i], insns_byte, &status);
 		else
-			insns_size = copy_insn_bytes(&insn[i], insns_byte);
+			size = copy_insn_bytes(&insn[i], insns_byte);
 
 		if (status > 0) {
-			info->size = INSTRUMENT_FAILED;
+			status = INSTRUMENT_FAILED;
 			pr_dbg3("not supported instruction found at %s : %s\t %s\n",
-				sym->name, insn[i].mnemonic, insn[i].op_str);
+				info->sym->name, insn[i].mnemonic, insn[i].op_str);
 			goto out;
 		}
 
-		info->insns = xrealloc(info->insns,
-				       info->insns_size + insns_size);
-		memcpy(info->insns + info->insns_size, insns_byte, insns_size);
-		info->insns_size += insns_size;
-		insn_check.copy_size += insn[i].size;
-		info->size += insn[i].size;
+		memcpy(info->insns + info->copy_size, insns_byte, size);
+		info->copy_size += size;
+		info->orig_size += insn[i].size;
 
-		if (insn_check.copy_size >= CALL_INSN_SIZE)
+		if (info->orig_size >= CALL_INSN_SIZE)
 			break;
 	}
 
 	while (++i < count) {
-		if (!check_unsupported(disasm, &insn[i], mdi, &insn_check)) {
-			info->size = INSTRUMENT_FAILED;
+		if (!check_unsupported(disasm, &insn[i], mdi, info)) {
+			status = INSTRUMENT_FAILED;
 			break;
 		}
 	}
@@ -392,19 +376,16 @@ out:
 	if (count)
 		cs_free(insn, count);
 
-	return info;
+	return status;
 }
 
 #else /* HAVE_LIBCAPSTONE */
 
-struct mcount_instrument_info *
-disasm_check_insns(struct mcount_disasm_engine *disasm,
-		   struct mcount_dynamic_info *mdi, struct sym *sym)
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
 {
-	struct mcount_instrument_info *info = xzalloc(sizeof(*info));
-
-	info->size = INSTRUMENT_FAILED;
-	return info;
+	return INSTRUMENT_FAILED;
 }
 
 #endif /* HAVE_LIBCAPSTONE */
