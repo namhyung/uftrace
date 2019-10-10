@@ -49,14 +49,4 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info);
 
-struct dynamic_bad_symbol {
-	struct list_head	list;
-	struct sym		*sym;
-};
-
-struct dynamic_bad_symbol * find_bad_jump(struct mcount_dynamic_info *mdi,
-					  unsigned long addr);
-bool add_bad_jump(struct mcount_dynamic_info *mdi, unsigned long callsite,
-		  unsigned long target);
-
 #endif /* MCOUNT_ARCH_H */

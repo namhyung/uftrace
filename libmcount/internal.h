@@ -401,6 +401,7 @@ struct mcount_dynamic_info {
 	unsigned long text_addr;
 	int text_size;
 	unsigned long trampoline;
+	struct list_head bad_syms;
 	void *arch;
 };
 
@@ -454,6 +455,17 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 void mcount_disasm_init(struct mcount_disasm_engine *disasm);
 void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
+
+struct dynamic_bad_symbol {
+	struct list_head	list;
+	struct sym		*sym;
+	bool			reverted;
+};
+
+struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
+					       unsigned long addr);
+bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		       unsigned long target);
 
 struct mcount_event_info {
 	char *module;

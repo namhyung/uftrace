@@ -195,6 +195,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	}
 	mdi->base_addr += info->dlpi_addr;
 	mdi->text_addr += info->dlpi_addr;
+	INIT_LIST_HEAD(&mdi->bad_syms);
 
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
@@ -472,4 +473,50 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	finish_dynamic_update(disasm);
 	return ret;
+}
+
+struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
+					       unsigned long addr)
+{
+	struct sym *sym;
+	struct dynamic_bad_symbol *badsym;
+
+	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
+	if (sym == NULL)
+		return NULL;
+
+	list_for_each_entry(badsym, &mdi->bad_syms, list) {
+		if (badsym->sym == sym)
+			return badsym;
+	}
+
+	return NULL;
+}
+
+bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		       unsigned long target)
+{
+	struct sym *sym;
+	struct dynamic_bad_symbol *badsym;
+
+	if (mcount_find_badsym(mdi, target))
+		return true;
+
+	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
+	if (sym == NULL)
+		return true;
+
+	/* only care about jumps to the middle of a function */
+	if (sym->addr + mdi->map->start == target)
+		return false;
+
+	pr_dbg2("bad jump: %s:%lx to %lx\n", sym ? sym->name : "<unknown>",
+		callsite - mdi->map->start, target - mdi->map->start);
+
+	badsym = xmalloc(sizeof(*badsym));
+	badsym->sym = sym;
+	badsym->reverted = false;
+
+	list_add_tail(&badsym->list, &mdi->bad_syms);
+	return true;
 }

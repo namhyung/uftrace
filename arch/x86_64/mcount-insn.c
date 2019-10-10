@@ -294,13 +294,13 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 			if (info->addr > target ||
 			    target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
-				return !add_bad_jump(mdi, insn->address, target);
+				return !mcount_add_badsym(mdi, insn->address,
+							  target);
 			}
 			break;
 		case X86_OP_MEM:
-			/* indirect jumps are not allowed */
-			return false;
 		case X86_OP_REG:
+			/* indirect jumps are not allowed */
 			return false;
 		default:
 			break;
@@ -320,10 +320,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct dynamic_bad_symbol *badsym;
 
-	badsym = find_bad_jump(mdi, info->addr);
+	badsym = mcount_find_badsym(mdi, info->addr);
 	if (badsym != NULL) {
-		list_del(&badsym->list);
-		free(badsym);
+		badsym->reverted = true;
 		return INSTRUMENT_FAILED;
 	}
 
