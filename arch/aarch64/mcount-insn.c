@@ -7,14 +7,6 @@
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
 
-struct disasm_check_data {
-	uintptr_t		addr;
-	uint32_t		func_size;
-	uint32_t		patch_size;
-	uint32_t		copy_size;
-	uint32_t		size;
-};
-
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
 	if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &disasm->engine) != CS_ERR_OK) {
@@ -103,18 +95,15 @@ static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 }
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi, struct sym *sym)
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
 {
 	cs_insn *insn = NULL;
 	uint32_t count, i;
 	int ret = INSTRUMENT_FAILED;
-	struct disasm_check_data insn_check = {
-		.addr		= sym->addr + mdi->map->start,
-		.func_size	= sym->size,
-	};
 
-	count = cs_disasm(disasm->engine, (void *)insn_check.addr, INSN_SIZE,
-			  insn_check.addr, 0, &insn);
+	count = cs_disasm(disasm->engine, (void *)info->addr, INSN_SIZE,
+			  info->addr, 0, &insn);
 
 	for (i = 0; i < count; i++) {
 		if (!check_prologue(disasm, &insn[i])) {
@@ -122,6 +111,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 				insn[i].mnemonic, insn[i].op_str);
 			break;
 		}
+
+		memcpy(info->insns + info->copy_size, insn[i].bytes, insn[i].size);
+		info->copy_size += insn[i].size;
 
 		if (i == 1) {
 			ret = INSTRUMENT_SUCCESS;
@@ -155,12 +147,16 @@ static bool disasm_check_insn(uint8_t *insn)
 }
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi, struct sym *sym)
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
 {
-	uint8_t *insn = (void *)(uintptr_t)sym->addr + mdi->map->start;
+	uint8_t *insn = (void *)info->addr;
 
 	if (!disasm_check_insn(&insn[3]) || !disasm_check_insn(&insn[7]))
 		return INSTRUMENT_FAILED;
+
+	memcpy(info->insns, insn, INSN_SIZE);
+	info->copy_size = INSN_SIZE;
 
 	return INSTRUMENT_SUCCESS;
 }
