@@ -34,9 +34,10 @@ struct mcount_arch_context {
 
 struct mcount_disasm_engine;
 struct mcount_dynamic_info;
-struct sym;
+struct mcount_disasm_info;
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi, struct sym *sym);
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info);
 
 #endif /* MCOUNT_ARCH_H */

@@ -72,7 +72,17 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 {
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
-	const int patch_size = ALIGN(info->copy_size + jmp_size, 32);
+	int patch_size;
+
+	if (unlikely(info->modified)) {
+		/* it needs to save original instructions as well */
+		int orig_size = ALIGN(info->orig_size, 16);
+		int copy_size = ALIGN(info->copy_size + jmp_size, 16);
+		patch_size = ALIGN(copy_size + orig_size, 32);
+	}
+	else {
+		patch_size = ALIGN(info->copy_size + jmp_size, 32);
+	}
 
 	if (!list_empty(&code_pages))
 		cp = list_last_entry(&code_pages, struct code_page, list);
@@ -90,6 +100,15 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 
 	orig = lookup_code(&code_tree, info->addr, true);
 	orig->insn = cp->page + cp->pos;
+	orig->orig = orig->insn;
+	orig->orig_size = info->orig_size;
+	orig->insn_size = info->copy_size + jmp_size;
+
+	if (info->modified) {
+		/* save original instructions before modification */
+		orig->orig = orig->insn + patch_size - ALIGN(info->orig_size, 16);
+		memcpy(orig->orig, (void *)info->addr, info->orig_size);
+	}
 
 	memcpy(orig->insn, info->insns, info->copy_size);
 	memcpy(orig->insn + info->copy_size, jmp_insn, jmp_size);
@@ -115,6 +134,11 @@ void *mcount_find_code(unsigned long addr)
 		return NULL;
 
 	return orig->insn;
+}
+
+struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
+{
+	return lookup_code(&code_tree, addr, false);
 }
 
 /* dummy functions (will be overridden by arch-specific code) */
@@ -195,6 +219,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	}
 	mdi->base_addr += info->dlpi_addr;
 	mdi->text_addr += info->dlpi_addr;
+	INIT_LIST_HEAD(&mdi->bad_syms);
 
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
@@ -472,4 +497,50 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	finish_dynamic_update(disasm);
 	return ret;
+}
+
+struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
+					       unsigned long addr)
+{
+	struct sym *sym;
+	struct dynamic_bad_symbol *badsym;
+
+	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
+	if (sym == NULL)
+		return NULL;
+
+	list_for_each_entry(badsym, &mdi->bad_syms, list) {
+		if (badsym->sym == sym)
+			return badsym;
+	}
+
+	return NULL;
+}
+
+bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		       unsigned long target)
+{
+	struct sym *sym;
+	struct dynamic_bad_symbol *badsym;
+
+	if (mcount_find_badsym(mdi, target))
+		return true;
+
+	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
+	if (sym == NULL)
+		return true;
+
+	/* only care about jumps to the middle of a function */
+	if (sym->addr + mdi->map->start == target)
+		return false;
+
+	pr_dbg2("bad jump: %s:%lx to %lx\n", sym ? sym->name : "<unknown>",
+		callsite - mdi->map->start, target - mdi->map->start);
+
+	badsym = xmalloc(sizeof(*badsym));
+	badsym->sym = sym;
+	badsym->reverted = false;
+
+	list_add_tail(&badsym->list, &mdi->bad_syms);
+	return true;
 }

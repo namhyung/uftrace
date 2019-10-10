@@ -19,22 +19,23 @@
 /* target instrumentation function it needs to call */
 extern void __dentry__(void);
 
-static void save_orig_code(unsigned long addr)
+static void save_orig_code(struct mcount_disasm_info *info)
 {
 	struct mcount_orig_insn *orig;
-	struct mcount_disasm_info info = {
-		.addr = addr,
-		.copy_size = CODE_SIZE,
-	};
-	uint32_t jmp_insn[] = {
+	uint32_t jmp_insn[6] = {
 		0x58000050,     /* LDR  ip0, addr */
 		0xd61f0200,     /* BR   ip0 */
-		addr + 8,
-		(addr + 8) >> 32,
+		info->addr + 8,
+		(info->addr + 8) >> 32,
 	};
+	size_t jmp_insn_size = 16;
 
-	memcpy(info.insns, (void *)addr, info.copy_size);
-	orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+	if (info->modified) {
+		memcpy(&jmp_insn[4], &info->insns[24], 8);
+		jmp_insn_size += 8;
+	}
+
+	orig = mcount_save_code(info, jmp_insn, jmp_insn_size);
 
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CODE_SIZE;
@@ -90,32 +91,35 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
-	uintptr_t sym_addr = sym->addr + mdi->map->start;
-	void *insn = (void *)sym_addr;
 	uint32_t push = 0xa9bf7bfd;  /* STP  x29, x30, [sp, #-0x10]! */
-	uint32_t target_addr;
+	uint32_t call;
+	struct mcount_disasm_info info = {
+		.sym = sym,
+		.addr = sym->addr + mdi->map->start,
+	};
+	void *insn = (void *)info.addr;
 
 	if (min_size < CODE_SIZE)
 		min_size = CODE_SIZE;
 	if (sym->size <= min_size)
 		return INSTRUMENT_SKIPPED;
 
-	if (disasm_check_insns(disasm, mdi, sym) < 0)
+	if (disasm_check_insns(disasm, mdi, &info) < 0)
 		return INSTRUMENT_FAILED;
 
-	save_orig_code(sym_addr);
+	save_orig_code(&info);
 
-	target_addr = get_target_addr(mdi, sym_addr);
+	call = get_target_addr(mdi, info.addr);
 
-	if ((target_addr & 0xfc000000) != 0)
+	if ((call & 0xfc000000) != 0)
 		return INSTRUMENT_FAILED;
 
 	/* make a "BL" insn with 26-bit offset */
-	target_addr |= 0x94000000;
+	call |= 0x94000000;
 
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(insn, &push, sizeof(push));
-	memcpy(insn+4, &target_addr, sizeof(target_addr));
+	memcpy(insn+4, &call, sizeof(call));
 
 	/* flush icache so that cpu can execute the new code */
 	__builtin___clear_cache(insn, insn + CODE_SIZE);
@@ -123,3 +127,30 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return INSTRUMENT_SUCCESS;
 }
 
+static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			       struct mcount_disasm_engine *disasm)
+{
+	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
+	void *saved_insn;
+
+	saved_insn = mcount_find_code((uintptr_t)addr + CODE_SIZE);
+	if (saved_insn == NULL)
+		return;
+
+	memcpy(addr, saved_insn, CODE_SIZE);
+	__builtin___clear_cache(addr, addr + CODE_SIZE);
+}
+
+void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+				 struct mcount_disasm_engine *disasm)
+{
+	struct dynamic_bad_symbol *badsym, *tmp;
+
+	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
+		if (!badsym->reverted)
+			revert_normal_func(mdi, badsym->sym, disasm);
+
+		list_del(&badsym->list);
+		free(badsym);
+	}
+}

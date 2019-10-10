@@ -49,7 +49,6 @@ struct arch_dynamic_info {
 	unsigned long			*mcount_loc;
 	unsigned			xrmap_count;
 	unsigned			nr_mcount_loc;
-	struct list_head		bad_targets;  /* for non-local jumps */
 };
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -188,7 +187,6 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	unsigned i = 0;
 
 	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
-	INIT_LIST_HEAD(&adi->bad_targets);
 
 	if (elf_init(mdi->map->libname, &elf) < 0)
 		goto out;
@@ -454,53 +452,6 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 				origin_code_addr + origin_code_size);
 }
 
-struct dynamic_bad_symbol * find_bad_jump(struct mcount_dynamic_info *mdi,
-					  unsigned long addr)
-{
-	struct sym *sym;
-	struct arch_dynamic_info *adi = mdi->arch;
-	struct dynamic_bad_symbol *badsym;
-
-	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
-	if (sym == NULL)
-		return NULL;
-
-	list_for_each_entry(badsym, &adi->bad_targets, list) {
-		if (badsym->sym == sym)
-			return badsym;
-	}
-
-	return NULL;
-}
-
-bool add_bad_jump(struct mcount_dynamic_info *mdi, unsigned long callsite,
-		  unsigned long target)
-{
-	struct sym *sym;
-	struct arch_dynamic_info *adi = mdi->arch;
-	struct dynamic_bad_symbol *badsym;
-
-	if (find_bad_jump(mdi, target))
-		return true;
-
-	sym = find_sym(&mdi->map->mod->symtab, target - mdi->map->start);
-	if (sym == NULL)
-		return true;
-
-	/* only care about jumps to the middle of a function */
-	if (sym->addr + mdi->map->start == target)
-		return false;
-
-	pr_dbg2("bad jump: %s:%lx to %lx\n", sym ? sym->name : "<unknown>",
-		callsite - mdi->map->start, target - mdi->map->start);
-
-	badsym = xmalloc(sizeof(*badsym));
-	badsym->sym = sym;
-
-	list_add_tail(&badsym->list, &adi->bad_targets);
-	return true;
-}
-
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm)
 {
@@ -655,41 +606,29 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return result;
 }
 
-#define INSN_CHECK_LEN  16
-
 static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			       struct mcount_disasm_engine *disasm)
 {
-	uint8_t jmp_insn[6] = { 0xff, 0x25, };
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
-	void *saved_insn;
-	int i;
+	struct mcount_orig_insn *moi;
 
-	saved_insn = mcount_find_code((uintptr_t)addr + CALL_INSN_SIZE);
-	if (saved_insn == NULL)
+	moi = mcount_find_insn((uintptr_t)addr + CALL_INSN_SIZE);
+	if (moi == NULL)
 		return;
 
-	/* we don't the original copy size, find the jmp insn instead */
-	for (i = CALL_INSN_SIZE; i < INSN_CHECK_LEN; i++) {
-		if (!memcmp(saved_insn + i, jmp_insn, sizeof(jmp_insn)))
-			break;
-	}
-
-	if (i == INSN_CHECK_LEN)
-		pr_err_ns("cannot find original insn length\n");
-
-	memcpy(addr, saved_insn, i);
-	__builtin___clear_cache(addr, addr + i);
+	memcpy(addr, moi->orig, moi->orig_size);
+	__builtin___clear_cache(addr, addr + moi->orig_size);
 }
 
 void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
 				 struct mcount_disasm_engine *disasm)
 {
-	struct arch_dynamic_info *adi = mdi->arch;
 	struct dynamic_bad_symbol *badsym, *tmp;
 
-	list_for_each_entry_safe(badsym, tmp, &adi->bad_targets, list) {
-		revert_normal_func(mdi, badsym->sym, disasm);
+	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
+		if (!badsym->reverted)
+			revert_normal_func(mdi, badsym->sym, disasm);
+
 		list_del(&badsym->list);
 		free(badsym);
 	}

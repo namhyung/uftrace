@@ -401,6 +401,7 @@ struct mcount_dynamic_info {
 	unsigned long text_addr;
 	int text_size;
 	unsigned long trampoline;
+	struct list_head bad_syms;
 	void *arch;
 };
 
@@ -421,7 +422,10 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 struct mcount_orig_insn {
 	struct rb_node		node;
 	unsigned long		addr;
+	void			*orig;
 	void			*insn;
+	int			orig_size;
+	int			insn_size;
 };
 
 /*
@@ -438,11 +442,13 @@ struct mcount_disasm_info {
 	unsigned char   	insns[64];
 	int			orig_size;
 	int			copy_size;
+	bool			modified;
 };
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 					  void *jmp_insn, unsigned jmp_size);
 void *mcount_find_code(unsigned long addr);
+struct mcount_orig_insn * mcount_find_insn(unsigned long addr);
 void mcount_freeze_code(void);
 
 /* these should be implemented for each architecture */
@@ -454,6 +460,17 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 void mcount_disasm_init(struct mcount_disasm_engine *disasm);
 void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
+
+struct dynamic_bad_symbol {
+	struct list_head	list;
+	struct sym		*sym;
+	bool			reverted;
+};
+
+struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
+					       unsigned long addr);
+bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
+		       unsigned long target);
 
 struct mcount_event_info {
 	char *module;
