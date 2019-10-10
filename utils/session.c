@@ -49,12 +49,6 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 			   &start, &end, prot, path) != 4)
 			continue;
 
-		/* set base address of main executable */
-		if (symtabs->exec_base == 0 && symtabs->filename &&
-		    !strcmp(path, symtabs->filename)) {
-			symtabs->exec_base = start;
-		}
-
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
@@ -79,6 +73,13 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 		last_libname = map->libname;
+
+		/* set base address of main executable */
+		if (symtabs->exec_base == 0 && symtabs->filename &&
+		    !strcmp(path, symtabs->filename)) {
+			symtabs->exec_map = map;
+			symtabs->exec_base = start;
+		}
 
 		*maps = map;
 		maps = &map->next;
