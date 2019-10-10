@@ -110,6 +110,7 @@ void delete_session_map(struct symtabs *symtabs)
 	}
 
 	symtabs->maps = NULL;
+	symtabs->exec_map = NULL;
 }
 
 /**

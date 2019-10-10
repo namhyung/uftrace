@@ -997,7 +997,7 @@ static void setup_trigger(char *filter_str, struct symtabs *symtabs,
 			if (!strcasecmp(module, "PLT")) {
 				setting->plt_only = true;
 				ret += add_trigger_entry(root, &patt, &tr,
-							 symtabs->maps,
+							 symtabs->exec_map,
 							 setting);
 				setting->plt_only = false;
 			}
@@ -1235,6 +1235,7 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 	mod.symtab.nr_sym = ARRAY_SIZE(syms);
 
 	stabs->maps = &map;
+	stabs->exec_map = &map;
 	stabs->loaded = true;
 	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }
