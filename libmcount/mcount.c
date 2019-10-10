@@ -102,7 +102,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	if (getenv("UFTRACE_SRCLINE") == NULL)
 		return;
 
-	symtabs.maps->mod = load_module_symtab(&symtabs, symtabs.maps->libname);
+	symtabs.exec_map->mod = load_module_symtab(&symtabs,
+						   symtabs.exec_map->libname);
 
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);

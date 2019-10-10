@@ -1610,6 +1610,7 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 	strcpy(map->libname, exename);
 
 	symtabs->maps = map;
+	symtabs->exec_map = map;
 	return 1;
 }
 

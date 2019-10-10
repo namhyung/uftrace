@@ -93,7 +93,7 @@ struct symtabs {
 	const char *filename;
 	enum symtab_flag flags;
 	uint64_t kernel_base;
-	uint64_t exec_base;
+	struct uftrace_mmap *exec_map;
 	struct uftrace_mmap *maps;
 };
 
