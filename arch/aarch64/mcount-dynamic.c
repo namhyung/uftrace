@@ -121,3 +121,30 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return INSTRUMENT_SUCCESS;
 }
 
+static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+			       struct mcount_disasm_engine *disasm)
+{
+	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
+	void *saved_insn;
+
+	saved_insn = mcount_find_code((uintptr_t)addr + CODE_SIZE);
+	if (saved_insn == NULL)
+		return;
+
+	memcpy(addr, saved_insn, CODE_SIZE);
+	__builtin___clear_cache(addr, addr + CODE_SIZE);
+}
+
+void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+				 struct mcount_disasm_engine *disasm)
+{
+	struct dynamic_bad_symbol *badsym, *tmp;
+
+	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
+		if (!badsym->reverted)
+			revert_normal_func(mdi, badsym->sym, disasm);
+
+		list_del(&badsym->list);
+		free(badsym);
+	}
+}

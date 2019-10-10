@@ -75,7 +75,7 @@ static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 	for (i = 0; i < arm64->op_count; i++) {
 		cs_arm64_op *op = &arm64->operands[i];
 
-		switch((int)op->type) {
+		switch (op->type) {
 		case ARM64_OP_REG:
 			status = true;
 			break;
@@ -94,6 +94,72 @@ static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 	return status;
 }
 
+/* return true if it's ok for dynamic tracing */
+static bool check_body(struct mcount_disasm_engine *disasm,
+		       cs_insn *insn, struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
+{
+	int i;
+	cs_arm64 *arm64;
+	cs_detail *detail = insn->detail;
+	unsigned long target;
+	bool jump = false;
+
+	/* we cannot investigate, not supported */
+	if (detail == NULL)
+		return false;
+
+	detail = insn->detail;
+
+	/* assume there's no call into the middle of function */
+	for (i = 0; i < detail->groups_count; i++) {
+		if (detail->groups[i] == CS_GRP_JUMP)
+			jump = true;
+	}
+
+	if (!jump)
+		return true;
+
+	arm64 = &insn->detail->arm64;
+	for (i = 0; i < arm64->op_count; i++) {
+		cs_arm64_op *op = &arm64->operands[i];
+
+		switch (op->type) {
+		case ARM64_OP_IMM:
+			/* capstone seems already calculate target address */
+			target = op->imm;
+
+			/* disallow (back) jump to the prologue */
+			if (info->addr < target &&
+			    target < info->addr + info->copy_size)
+				return false;
+
+			/* disallow jump to middle of other function */
+			if (info->addr > target ||
+			    target >= info->addr + info->sym->size) {
+				/* also mark the target function as invalid */
+				return !mcount_add_badsym(mdi, insn->address,
+							  target);
+			}
+			break;
+		case ARM64_OP_MEM:
+			/* indirect jumps are not allowed */
+			return false;
+		case ARM64_OP_REG:
+			/*
+			 * WARN: it should be disallowed too, but many of functions
+			 * use branch with register so this would drop the success
+			 * rate significantly.  Allowing it for now.
+			 */
+			return true;
+		default:
+			break;
+		}
+	}
+
+	return true;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
@@ -101,26 +167,41 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	cs_insn *insn = NULL;
 	uint32_t count, i;
 	int ret = INSTRUMENT_FAILED;
+	struct dynamic_bad_symbol *badsym;
 
-	count = cs_disasm(disasm->engine, (void *)info->addr, INSN_SIZE,
+	badsym = mcount_find_badsym(mdi, info->addr);
+	if (badsym != NULL) {
+		badsym->reverted = true;
+		return INSTRUMENT_FAILED;
+	}
+
+	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
 			  info->addr, 0, &insn);
 
 	for (i = 0; i < count; i++) {
 		if (!check_prologue(disasm, &insn[i])) {
 			pr_dbg3("instruction not supported: %s\t %s\n",
 				insn[i].mnemonic, insn[i].op_str);
-			break;
+			goto out;
 		}
 
 		memcpy(info->insns + info->copy_size, insn[i].bytes, insn[i].size);
 		info->copy_size += insn[i].size;
 
-		if (i == 1) {
+		if (info->copy_size >= INSN_SIZE) {
 			ret = INSTRUMENT_SUCCESS;
 			break;
 		}
 	}
 
+	while (++i < count) {
+		if (!check_body(disasm, &insn[i], mdi, info)) {
+			ret = INSTRUMENT_FAILED;
+			break;
+		}
+	}
+
+out:
 	if (count)
 		cs_free(insn, count);
 
