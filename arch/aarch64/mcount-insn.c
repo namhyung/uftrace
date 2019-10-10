@@ -23,28 +23,28 @@ void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 	cs_close(&disasm->engine);
 }
 
-/* return true if it's ok for dynamic tracing */
-static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
+/* return 0 if it's ok, -1 if not supported, 1 if modifiable */
+static int check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 {
 	int i;
 	cs_arm64 *arm64;
 	cs_detail *detail;
 	bool branch = false;
-	bool status = false;
+	int status = -1;
 
 	/*
 	 * 'detail' can be NULL on "data" instruction
 	 * if SKIPDATA option is turned ON
 	 */
 	if (insn->detail == NULL)
-		return false;
+		return -1;
 
-	/* disallow PC-relative instructions */
+	/* try to fix some PC-relative instructions */
 	if (insn->id == ARM64_INS_ADR || insn->id == ARM64_INS_ADRP)
-		return false;
+		return 1;
 
 	if (insn->id == ARM64_INS_LDR && (insn->bytes[3] & 0x3b) == 0x18)
-		return false;
+		return -1;
 
 	detail = insn->detail;
 
@@ -60,7 +60,7 @@ static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 #if CS_API_MAJOR >= 4
 		case CS_GRP_BRANCH_RELATIVE:
 #endif
-			return false;
+			return -1;
 		default:
 			break;
 		}
@@ -70,22 +70,22 @@ static bool check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 	arm64 = &insn->detail->arm64;
 
 	if (!arm64->op_count)
-		return true;
+		return 0;
 
 	for (i = 0; i < arm64->op_count; i++) {
 		cs_arm64_op *op = &arm64->operands[i];
 
 		switch (op->type) {
 		case ARM64_OP_REG:
-			status = true;
+			status = 0;
 			break;
 		case ARM64_OP_IMM:
 			if (branch)
-				return false;
-			status = true;
+				return -1;
+			status = 0;
 			break;
 		case ARM64_OP_MEM:
-			status = true;
+			status = 0;
 			break;
 		default:
 			break;
@@ -160,6 +160,65 @@ static bool check_body(struct mcount_disasm_engine *disasm,
 	return true;
 }
 
+static int opnd_reg(int capstone_reg)
+{
+	const uint8_t arm64_regs[] = {
+		ARM64_REG_X0,  ARM64_REG_X1,  ARM64_REG_X2,  ARM64_REG_X3,
+		ARM64_REG_X4,  ARM64_REG_X5,  ARM64_REG_X6,  ARM64_REG_X7,
+		ARM64_REG_X8,  ARM64_REG_X9,  ARM64_REG_X10, ARM64_REG_X11,
+		ARM64_REG_X12, ARM64_REG_X13, ARM64_REG_X14, ARM64_REG_X15,
+		ARM64_REG_X16, ARM64_REG_X17, ARM64_REG_X18, ARM64_REG_X19,
+		ARM64_REG_X20, ARM64_REG_X21, ARM64_REG_X22, ARM64_REG_X23,
+		ARM64_REG_X24, ARM64_REG_X25, ARM64_REG_X26, ARM64_REG_X27,
+		ARM64_REG_X28, ARM64_REG_X29, ARM64_REG_X30, ARM64_REG_NZCV,
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof(arm64_regs); i++) {
+		if (capstone_reg == arm64_regs[i])
+			return i;
+	}
+	return -1;
+}
+
+#define REG_SHIFT  5
+
+static bool modify_instruction(struct mcount_disasm_engine *disasm,
+			       cs_insn *insn, struct mcount_dynamic_info *mdi,
+			       struct mcount_disasm_info *info)
+{
+	if (insn->id == ARM64_INS_ADR || insn->id == ARM64_INS_ADRP) {
+		uint32_t ldr_insn = 0x580000c0;
+		uint64_t target_addr;
+		cs_arm64_op *op1 = &insn->detail->arm64.operands[0];
+		cs_arm64_op *op2 = &insn->detail->arm64.operands[1];
+
+		/* handle the first ADRP instruction only (for simplicity) */
+		if (info->copy_size != 0)
+			return false;
+
+		if (op1->type != ARM64_OP_REG || op2->type != ARM64_OP_IMM)
+			return false;
+
+		/*
+		 * craft LDR instruction to load addr to op1->reg.
+		 * the actual 'addr' is located after 24 byte from the insn.
+		 */
+		ldr_insn += opnd_reg(op1->reg);
+		target_addr = op2->imm;
+
+		memcpy(info->insns, &ldr_insn, sizeof(ldr_insn));
+		/* 24 = 8 (orig_insn) + 16 (br insn + address) */
+		memcpy(info->insns + 24, &target_addr, sizeof(target_addr));
+
+		info->copy_size += sizeof(ldr_insn);
+		info->modified = true;
+		return true;
+	}
+
+	return false;
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
@@ -179,16 +238,25 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 			  info->addr, 0, &insn);
 
 	for (i = 0; i < count; i++) {
-		if (!check_prologue(disasm, &insn[i])) {
+		int state = check_prologue(disasm, &insn[i]);
+
+		if (state < 0) {
 			pr_dbg3("instruction not supported: %s\t %s\n",
 				insn[i].mnemonic, insn[i].op_str);
 			goto out;
 		}
 
-		memcpy(info->insns + info->copy_size, insn[i].bytes, insn[i].size);
-		info->copy_size += insn[i].size;
+		if (state) {
+			if (!modify_instruction(disasm, &insn[i], mdi, info))
+				goto out;
+		}
+		else {
+			memcpy(info->insns + info->copy_size, insn[i].bytes, insn[i].size);
+			info->copy_size += insn[i].size;
+		}
+		info->orig_size += insn[i].size;
 
-		if (info->copy_size >= INSN_SIZE) {
+		if (info->orig_size >= INSN_SIZE) {
 			ret = INSTRUMENT_SUCCESS;
 			break;
 		}
@@ -237,6 +305,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		return INSTRUMENT_FAILED;
 
 	memcpy(info->insns, insn, INSN_SIZE);
+	info->orig_size = INSN_SIZE;
 	info->copy_size = INSN_SIZE;
 
 	return INSTRUMENT_SUCCESS;

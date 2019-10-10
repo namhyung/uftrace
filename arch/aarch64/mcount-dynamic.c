@@ -22,14 +22,20 @@ extern void __dentry__(void);
 static void save_orig_code(struct mcount_disasm_info *info)
 {
 	struct mcount_orig_insn *orig;
-	uint32_t jmp_insn[] = {
+	uint32_t jmp_insn[6] = {
 		0x58000050,     /* LDR  ip0, addr */
 		0xd61f0200,     /* BR   ip0 */
 		info->addr + 8,
 		(info->addr + 8) >> 32,
 	};
+	size_t jmp_insn_size = 16;
 
-	orig = mcount_save_code(info, jmp_insn, sizeof(jmp_insn));
+	if (info->modified) {
+		memcpy(&jmp_insn[4], &info->insns[24], 8);
+		jmp_insn_size += 8;
+	}
+
+	orig = mcount_save_code(info, jmp_insn, jmp_insn_size);
 
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CODE_SIZE;
