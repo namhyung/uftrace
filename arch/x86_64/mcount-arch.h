@@ -42,10 +42,12 @@ struct plthook_arch_context {
 
 struct mcount_disasm_engine;
 struct mcount_dynamic_info;
+struct mcount_disasm_info;
 struct sym;
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi, struct sym *sym);
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info);
 
 struct dynamic_bad_symbol {
 	struct list_head	list;

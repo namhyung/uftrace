@@ -424,7 +424,23 @@ struct mcount_orig_insn {
 	void			*insn;
 };
 
-struct mcount_orig_insn *mcount_save_code(unsigned long addr, unsigned insn_size,
+/*
+ * mcount_disasm_info - information for dynamic patch
+ * @sym : symbol for the function
+ * @addr : currently targeted function address.
+ * @insns : byte array to store instruction.
+ * @orig_size : size of original instructions
+ * @copy_size : size of copied instructions (may be modified)
+ */
+struct mcount_disasm_info {
+	struct sym		*sym;
+	unsigned long		addr;
+	unsigned char   	insns[64];
+	int			orig_size;
+	int			copy_size;
+};
+
+struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 					  void *jmp_insn, unsigned jmp_size);
 void *mcount_find_code(unsigned long addr);
 void mcount_freeze_code(void);
