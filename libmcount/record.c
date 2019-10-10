@@ -1177,7 +1177,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		/* still need to write the map for executable */
 		if (!strcmp(path, symtabs->filename)) {
 			symtabs->exec_map = map;
-			symtabs->exec_base = start;
 		}
 
 		if (prev_map)

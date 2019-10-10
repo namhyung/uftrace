@@ -31,6 +31,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	char buf[PATH_MAX];
 	const char *last_libname = NULL;
 	struct uftrace_mmap **maps = &symtabs->maps;
+	struct uftrace_mmap *last_map = NULL;
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
 	fp = fopen(buf, "rb");
@@ -58,6 +59,8 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 
 		/* use first mapping only (even if it's non-exec) */
 		if (last_libname && !strcmp(last_libname, path)) {
+			/* extend last_map to have all segments */
+			last_map->end = end;
 			continue;
 		}
 
@@ -72,14 +75,15 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		memcpy(map->prot, prot, 4);
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
-		last_libname = map->libname;
 
-		/* set base address of main executable */
-		if (symtabs->exec_base == 0 && symtabs->filename &&
+		/* set mapping of main executable */
+		if (symtabs->exec_map == NULL && symtabs->filename &&
 		    !strcmp(path, symtabs->filename)) {
 			symtabs->exec_map = map;
-			symtabs->exec_base = start;
 		}
+
+		last_libname = map->libname;
+		last_map = map;
 
 		*maps = map;
 		maps = &map->next;
