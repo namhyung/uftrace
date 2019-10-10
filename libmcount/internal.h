@@ -422,7 +422,10 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 struct mcount_orig_insn {
 	struct rb_node		node;
 	unsigned long		addr;
+	void			*orig;
 	void			*insn;
+	int			orig_size;
+	int			insn_size;
 };
 
 /*
@@ -439,11 +442,13 @@ struct mcount_disasm_info {
 	unsigned char   	insns[64];
 	int			orig_size;
 	int			copy_size;
+	bool			modified;
 };
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 					  void *jmp_insn, unsigned jmp_size);
 void *mcount_find_code(unsigned long addr);
+struct mcount_orig_insn * mcount_find_insn(unsigned long addr);
 void mcount_freeze_code(void);
 
 /* these should be implemented for each architecture */

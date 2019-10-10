@@ -606,31 +606,18 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return result;
 }
 
-#define INSN_CHECK_LEN  16
-
 static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			       struct mcount_disasm_engine *disasm)
 {
-	uint8_t jmp_insn[6] = { 0xff, 0x25, };
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
-	void *saved_insn;
-	int i;
+	struct mcount_orig_insn *moi;
 
-	saved_insn = mcount_find_code((uintptr_t)addr + CALL_INSN_SIZE);
-	if (saved_insn == NULL)
+	moi = mcount_find_insn((uintptr_t)addr + CALL_INSN_SIZE);
+	if (moi == NULL)
 		return;
 
-	/* we don't know the original copy size, find the jmp insn instead */
-	for (i = CALL_INSN_SIZE; i < INSN_CHECK_LEN; i++) {
-		if (!memcmp(saved_insn + i, jmp_insn, sizeof(jmp_insn)))
-			break;
-	}
-
-	if (i == INSN_CHECK_LEN)
-		pr_err_ns("cannot find original insn length\n");
-
-	memcpy(addr, saved_insn, i);
-	__builtin___clear_cache(addr, addr + i);
+	memcpy(addr, moi->orig, moi->orig_size);
+	__builtin___clear_cache(addr, addr + moi->orig_size);
 }
 
 void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,

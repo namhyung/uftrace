@@ -344,8 +344,11 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		uint8_t insns_byte[32] = { 0, };
 
 		status = check_instrumentable(disasm, &insn[i]);
-		if (status > 0)
+		if (status > 0) {
 			size = manipulate_insns(&insn[i], insns_byte, &status);
+			if (status == 0)
+				info->modified = true;
+		}
 		else
 			size = copy_insn_bytes(&insn[i], insns_byte);
 

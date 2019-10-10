@@ -72,7 +72,17 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 {
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
-	const int patch_size = ALIGN(info->copy_size + jmp_size, 32);
+	int patch_size;
+
+	if (unlikely(info->modified)) {
+		/* it needs to save original instructions as well */
+		int orig_size = ALIGN(info->orig_size, 16);
+		int copy_size = ALIGN(info->copy_size + jmp_size, 16);
+		patch_size = ALIGN(copy_size + orig_size, 32);
+	}
+	else {
+		patch_size = ALIGN(info->copy_size + jmp_size, 32);
+	}
 
 	if (!list_empty(&code_pages))
 		cp = list_last_entry(&code_pages, struct code_page, list);
@@ -90,6 +100,15 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 
 	orig = lookup_code(&code_tree, info->addr, true);
 	orig->insn = cp->page + cp->pos;
+	orig->orig = orig->insn;
+	orig->orig_size = info->orig_size;
+	orig->insn_size = info->copy_size + jmp_size;
+
+	if (info->modified) {
+		/* save original instructions before modification */
+		orig->orig = orig->insn + patch_size - ALIGN(info->orig_size, 16);
+		memcpy(orig->orig, (void *)info->addr, info->orig_size);
+	}
 
 	memcpy(orig->insn, info->insns, info->copy_size);
 	memcpy(orig->insn + info->copy_size, jmp_insn, jmp_size);
@@ -115,6 +134,11 @@ void *mcount_find_code(unsigned long addr)
 		return NULL;
 
 	return orig->insn;
+}
+
+struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
+{
+	return lookup_code(&code_tree, addr, false);
 }
 
 /* dummy functions (will be overridden by arch-specific code) */
