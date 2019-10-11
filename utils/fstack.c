@@ -1058,6 +1058,11 @@ static int read_task_arg(struct uftrace_task_reader *task,
 		args->len += 2;
 	}
 
+	rem  = (args->len + size) % 4;
+
+	if (rem)
+		size += 4 - rem;
+
 	args->data = xrealloc(args->data, args->len + size);
 
 	if (fread(args->data + args->len, size, 1, fp) != 1) {
@@ -1066,12 +1071,6 @@ static int read_task_arg(struct uftrace_task_reader *task,
 	}
 
 	args->len += size;
-
-	rem = args->len % 4;
-	if (rem) {
-		fseek(fp, 4 - rem, SEEK_CUR);
-		args->len += 4 - rem;
-	}
 
 	return 0;
 }
