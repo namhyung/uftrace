@@ -243,27 +243,25 @@ static int find_got(struct uftrace_elf_data *elf,
 	mcount_arch_plthook_setup(pd, elf);
 	list_add_tail(&pd->list, &plthook_modules);
 
-	if (plt_found) {
-		if (plthook_resolver_addr == 0)
-			plthook_resolver_addr = pd->pltgot_ptr[2];
+	if (plthook_resolver_addr == 0)
+		plthook_resolver_addr = pd->pltgot_ptr[2];
 
-		/*
-		 * BIND_NOW (+ RELRO) makes module id not used and resets to 0.
-		 * but we still need it to find pd from plthook_enter().
-		 */
-		if (pd->module_id == 0) {
-			pr_dbg2("update module id to %p\n", pd);
-			overwrite_pltgot(pd, 1, pd);
-			pd->module_id = (unsigned long)pd;
-		}
-
-		pr_dbg2("found GOT at %p (base_addr + %#lx)\n", pd->pltgot_ptr,
-			(unsigned long)pd->pltgot_ptr - pd->base_addr);
-		pr_dbg2("module id = %#lx, PLT resolver = %#lx\n",
-			pd->module_id, plthook_resolver_addr);
-
-		restore_plt_functions(pd);
+	/*
+	 * BIND_NOW (+ RELRO) makes module id not used and resets to 0.
+	 * but we still need it to find pd from plthook_enter().
+	 */
+	if (pd->module_id == 0) {
+		pr_dbg2("update module id to %p\n", pd);
+		overwrite_pltgot(pd, 1, pd);
+		pd->module_id = (unsigned long)pd;
 	}
+
+	pr_dbg2("found GOT at %p (base_addr + %#lx)\n", pd->pltgot_ptr,
+		(unsigned long)pd->pltgot_ptr - pd->base_addr);
+	pr_dbg2("module id = %#lx, PLT resolver = %#lx\n",
+		pd->module_id, plthook_resolver_addr);
+
+	restore_plt_functions(pd);
 
 	overwrite_pltgot(pd, 2, plt_hooker);
 
