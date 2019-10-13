@@ -133,13 +133,28 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
  */
 void finish_perf_record(struct uftrace_perf_writer *perf)
 {
-	int cpu;
+	int cpu, f_no;
+	char proclnk[PATH_MAX], filename[PATH_MAX];
+	ssize_t r;
+	struct stat stbuf;
 
 	for (cpu = 0; cpu < perf->nr_event; cpu++) {
 		close(perf->event_fd[cpu]);
 		munmap(perf->page[cpu], PERF_MMAP_SIZE);
-		if (perf->fp[cpu])
+		if (perf->fp[cpu]) {
+			f_no = fileno(perf->fp[cpu]);
+			sprintf(proclnk, "/proc/self/fd/%d", f_no);
+			r = readlink(proclnk, filename, PATH_MAX);
+			if (r < 0) {
+				pr_warn("failed to find perf record: %m\n");
+				continue;
+			}
+			filename[r] = '\0';
 			fclose(perf->fp[cpu]);
+			if (!stat(filename, &stbuf) && stbuf.st_size == 0) {
+				remove(filename);
+			}
+		}
 	}
 
 	free(perf->event_fd);
