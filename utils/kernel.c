@@ -829,6 +829,8 @@ int stop_kernel_tracing(struct uftrace_kernel_writer *kernel)
 int finish_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	int i;
+	char buf[PATH_MAX];
+	struct stat stbuf;
 
 	pr_dbg("kernel tracing stopped.\n");
 
@@ -838,6 +840,11 @@ int finish_kernel_tracing(struct uftrace_kernel_writer *kernel)
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		close(kernel->traces[i]);
 		close(kernel->fds[i]);
+		snprintf(buf, sizeof(buf), "%s/kernel-cpu%d.dat",
+			 kernel->output_dir, i);
+		if(!stat(buf, &stbuf) && stbuf.st_size == 0) {
+			remove(buf);
+		}
 	}
 
 	free(kernel->traces);
