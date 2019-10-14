@@ -2,104 +2,105 @@
 % Honggyu Kim <honggyu.kp@gmail.com>, Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-script - Run a script for recorded function trace
+uftrace-script - 기록된 데이터를 대상으로 스크립트를 실행한다.
 
 
-SYNOPSIS
-========
+사용법
+======
 uftrace script [*options*]
 
 
-DESCRIPTION
-===========
-This command runs a script for trace data recorded using the `uftrace-record`(1) command.
+설명
+====
+이 명령어는 `uftrace-record`(1) 명령어를 통해 기록된 데이터를 대상으로 스크립트를 실행한다.
 
 
-SCRIPT OPTIONS
-==============
+SCRIPT 옵션
+============
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
-:   Run a given script to do additional work at the entry and exit of function
-    while processing recorded trace data.
-    The type of script is detected by the postfix such as '.py' for python.
-    See *SCRIPT EXECUTION*.
+:   기록된 추적 데이터를 수행하는 동안 주어진 스크립트가 함수의 시작과 끝에서 추가적인
+    작업을 하도록 한다.
+    접미사가 '.py'와 같은 파이썬을 위한 파일이 스크립트의 타입으로 사용된다.
+    *SCRIPT 실행*을 보라.
 
 \--record COMMAND [*command-options*]
-:   Record a new trace before running a given script.
+:   주어진 스크립트로 실행하기 전에 새로운 추적을 기록한다.
 
 
-COMMON OPTIONS
+공통 옵션
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See 'uftrace-replay' for details.
+:   선택된 함수들 (그리고 그 내부의 함수들)만 스크립트를 실행하도록 필터를
+    설정한다.  이 옵션은 한번 이상 쓰일 수 있다.
+    필터에 대한 설명은 `uftrace-replay` 를 참고한다.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.  See
-    `uftrace-replay` for details.
+:   선택된 함수들 (또는 그 아래 함수들)을 스크립트 실행에서 제외하도록 설정하는
+    옵션이다.  이 옵션은 한번 이상 쓰일 수 있다.
+    필터에 대한 설명은 `uftrace-replay` 를 참고한다.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수의 호출자에 대해 스크립트를 실행하는 필터를 설정한다.
+    이 옵션은 한번 이상 쓰일 수 있다.
+    필터에 대한 설명은 `uftrace-replay` 를 참고한다.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.
-    See 'uftrace-replay' for details.
+:   선택된 함수의 트리거를 설정한다. 이 옵션은 한번 이상 쓰일 수 있다.
+    트리거에 대한 설명은 `uftrace-replay` 를 참고한다.
 
--D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
+-D *DEPTH*, \--depth=*DEPTH*
+:   함수가 중첩될 수 있는 최대 깊이를 설정한다.
 
 -t *TIME*, \--time-filter=*TIME*
-:   Do not run script for functions which run under the time threshold.  If some
-    functions explicitly have the 'trace' trigger applied, those are always
-    traced regardless of execution time.
+:   설정한 시간 이하로 수행된 함수는 스크립트를 실행하지 않게 한다. 만약 어떤
+    함수가 명시적으로 'trace' 트리거가 적용된 경우, 그 함수는 실행 시간과
+    상관없이 항상 스크립트를 실행한다.
 
 \--no-libcall
-:   Do not run script for library calls.
+:   라이브러리 호출은 스크립트를 실행하지 않게 한다.
 
 \--match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
+:   TYPE으로 일치하는 패턴을 보여준다. 가능한 형태는 `regex`와 `glob`이다.
+    기본은 `regex`이다.
 
 
-COMMON ANALYSIS OPTIONS
-=======================
+공통 분석 옵션
+=============
 \--kernel-full
-:   Run script all kernel functions and events occurred outside of user functions.
+:   사용자 함수 밖에서 호출된 모든 커널 함수에 대하여 스크립트를 실행한다.
 
 \--kernel-only
-:   Run script kernel functions only without user functions.
+:   사용자 함수를 제외한 커널 함수에 대해서만 스크립트를 실행한다.
 
 \--tid=*TID*[,*TID*,...]
-:   Run script only for functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
-    `uftrace info`.  This option can also be used more than once.
+:   주어진 태스크에 의해 호출된 함수만 스크립트를 실행한다.
+    uftrace report --task 또는 uftrace info 를 이용해 데이터 파일 내의 태스크
+    목록을 볼 수 있다.  이 옵션은 한번 이상 쓰일 수 있다.
 
 \--demangle=*TYPE*
-:   Use demangled C++ symbol names for filters, triggers, arguments and/or
-    return values.  Possible values are "full", "simple" and "no".  Default is
-    "simple" which ignores function arguments and template parameters.
+:   필터, 트리거, 함수인자와 (또는) 반환 값을 디맹글(demangled)된 C++ 심볼 이름으로 사용한다.
+    "full", "simple" 그리고 "no" 값을 사용할 수 있다.
+    함수인자와 템플릿 파라미터를 무시하는 "simple"이 기본이다.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Run script only for functions executed within the time RANGE.  The RANGE can
-    be \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\>
-    can be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
-    in `uftrace replay`(1).
+:   시간 RANGE 내에 수행된 함수들만 스크립트를 실행한다. RANGE는 \<시작\>~\<끝\>
+    ("~" 로 구분) 이고 \<시작\>과 \<끝\> 중 하나는 생략 될 수 있다.
+    \<시작\>과 \<끝\> 은 타임스탬프 또는 '100us'와 같은 \<시간단위\>가 있는
+    경과 시간이다.
+    `uftrace replay`(1)에서 `-f time` 또는 `-f elapsed`를 이용해 타임스탬프 또는
+    경과 시간을 표시할 수 있다.
 
 
 SCRIPT EXECUTION
 ================
-The uftrace tool supports script execution for each function entry and exit.
-The supported script is only Python 2.7 as of now.
+uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능하다.
+지원되는 스크립트는 아직까지는 Python 2.7 뿐이다.
 
-The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are
-executed whenever each function is executed at the entry and exit.  However
-'uftrace_begin' and 'uftrace_end' are only executed once when the target
-program begins and ends.
+사용자는 네 개의 함수를 작성할 수 있다. 'uftrace_entry' 와 'uftracce_exit' 은
+각 함수의 진입시점과 반환시점에 항상 실행된다.  하지만 'uftrace_begin' 과
+'uftrace_end' 는 분석 대상 프로그램이 초기화되고 종료될때 한 번씩만 실행된다.
 
     $ cat scripts/simple.py
     def uftrace_begin(ctx):
@@ -116,7 +117,7 @@ program begins and ends.
     def uftrace_end():
         print("program is finished")
 
-The 'ctx' variable is a dictionary type that contains the below information.
+'ctx' 변수는 아래의 정보를 포함하는 사전타입(dictionary type)의 변수이다.
 
     /* context information passed to uftrace_entry(ctx) and uftrace_exit(ctx) */
     script_context = {
@@ -137,8 +138,8 @@ The 'ctx' variable is a dictionary type that contains the below information.
         list      cmds;        # execution commands
     };
 
-The above script can be executed while reading the recorded data.  The usage
-is as follows:
+위의 스크립트는 미리 기록되어 있는 uftrace 데이터를 대상으로 실행될수 있다.
+사용법은 다음과 같다.
 
     $ uftrace record -F main tests/t-abc
 
@@ -156,9 +157,8 @@ is as follows:
     exit  : main()
     program is finished
 
-The below is another example that shows the different output compared to
-previous one for the same recorded data.  The output looks similar to
-`uftrace replay` this time.
+아래는 같은 데이터에 대하여 이전의 예와 다른 결과를 출력하는 예제이다.
+결과는 `uftrace replay` 와 비슷한 모습을 가진다.
 
     $ uftrace script -S scripts/replay.py
     # DURATION    TID     FUNCTION
@@ -173,13 +173,13 @@ previous one for the same recorded data.  The output looks similar to
       98.191 us [25794] |   } /* a */
      124.329 us [25794] | } /* main */
 
-The python script above can be modified to do more output customization.
+위의 파이썬 스크립트는 결과를 원하는 방식으로 출력하기 위해 수정될 수 있다.
 
-The python script can have an optional "UFTRACE_FUNCS" list which can have name
-(or pattern depending on the --match option) of functions to run the script.
-If it exists, only matched functions will run the script.  For example, if you
-add following lines to the script, it will run only for functions with a single
-letter name.
+파이썬 스크립트는 스크립트를 실행하는 함수의 이름(또는 --match 옵션에 따른 패턴)의
+"UFTRACE_FUNCS" 리스트를 선택적으로 가질 수 있는데 만약 이 리스트가 존재하면,
+이름이나 패턴이 일치하는 함수들만 스크립트를 실행한다.
+예를 들어, 다음과 같은 한 줄을 스크립트에 추가했다면, 이름이 한 글자인 함수들만
+스크립트를 실행한다.
 
     $ echo 'UFTRACE_FUNCS = [ "^.$" ]' >> replay.py
     $ uftrace script -S replay.py
@@ -191,9 +191,10 @@ letter name.
       70.924 us [25794] |     } /* b */
       98.191 us [25794] |   } /* a */
 
-Also script can have options for record if it requires some form of data
-(i.e. function argument or return value).  A comment line started with
-"uftrace-option:" will provide (a part of) such options when recording.
+또한, 스크립트는 자체적으로 데이터를 기록(record)하는 과정에 함수의 인자 또는
+반환 값과 같은 정보를 위한 옵션을 내부적으로 가질 수 있다.
+"uftrace-option:" 으로 시작하는 주석이 있으면 기록하는 동안 필요한 uftrace 의
+record 옵션들을 자동으로 추가할 수 있다.
 
     $ cat arg.py
     #
@@ -214,6 +215,11 @@ Also script can have options for record if it requires some form of data
     b has retval
 
 
-SEE ALSO
-========
+함께 보기
+=========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-live`(1)
+
+
+번역자
+======
+조정근 <wjdrms1388@gmail.com>, 김홍규 <honggyu.kp@gmail.com>
