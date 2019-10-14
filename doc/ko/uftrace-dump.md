@@ -2,120 +2,118 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-dump - Print raw tracing data in the data files
+uftrace-dump - 기록된 데이터를 다양한 형식으로 출력한다.
 
 
-SYNOPSIS
-========
-uftrace dump [*options*]
+사용법
+======
+uftrace dump [*옵션*]
 
 
-DESCRIPTION
-===========
-This command shows raw tracing data recorded in the data file.  The dump format
-can be configured by additional options such as --chrome, --flame-graph,
-or --graphviz.
+설명
+====
+데이터 파일에 기록된 데이터를 보여주는 명령어이다. 출력 형식은
+--chrome, --flame-graph 또는 --graphviz와 같은 옵션으로 설정할 수 있다.
 
 
-DUMP OPTIONS
-============
+덤프 옵션
+=========
 \--chrome
-:   Show JSON style output as used by the Google Chrome tracing facility.
+:   구글 크롬 추적 기능에서 사용되는 JSON 형식의 결과물을 표시한다.
 
 \--flame-graph
-:   Show FlameGraph style output viewable by modern web browsers (after
-    processing by the FlameGraph tool).
+:   최신 웹 브라우저에서 볼 수 있는 FlameGraph 형식으로 표시한다. (FlameGraph
+    툴로 처리 필요)
 
 \--graphviz
-:   Show DOT style output used by the graphviz toolkit.
+:   Graphviz 툴킷에서 사용되는 DOT 형식의 결과물을 표시한다.
 
 \--debug
-:   Show hex dump of data as well
+:   16진수 데이터를 보여준다.
 
-\--sample-time=*TIME*
-:   Apply sampling time when generating output for --flame-graph.  By default
-    it uses the number of calls for each function.  When this option is used it
-    simulates sampling by counting execution time at the given unit.  So
-    functions which ran less than the sampling time will be removed from the
-    output but functions longer than the time will be shown as larger.
+\--sample-time=*시간*
+:   --flame-graph 옵션의 결과물을 생성할 때 샘플링 시간을 적용한다. 기본으로는
+    각 함수의 호출 수가 적용된다. 이 옵션이 사용되면 주어진 단위로 실행 시간을
+    계산하여 샘플링한다. 만약 주어진 샘플링 시간보다 적게 수행된 함수는 결과물
+    에서 제외되지만, 더 길게 수행된 함수는 표시된다.
 
 
-COMMON OPTIONS
-==============
+공통 옵션
+=========
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수들 (그리고 그 내부의 함수들)만 출력하도록 필터를 설정한다.
+    이 옵션은 한번 이상 쓰일 수 있다. 필터에 대한 설명은 `uftrace-replay`(1) 를
+    참고한다.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.
-    See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수들 (또는 그 아래 함수들)을 출력에서 제외하도록 설정하는 옵션이다.
+    이 옵션은 한번 이상 쓰일 수 있다. 필터에 대한 설명은 `uftrace-replay`(1) 를
+    참고한다.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   선택된 함수의 호출자를 출력하는 필터를 설정한다. 이 옵션은 한번 이상 쓰일 수 있
+    다. 필터에 대한 설명은 `uftrace-replay`(1) 를 참고한다.
 
 -T *TRG*, \--trigger=*TRG*
-:   Set trigger on selected functions.  This option can be used more than once.
-    See `uftrace-replay`(1) for an explanation of triggers.
+:   선택된 함수의 트리거를 설정한다. 이 옵션은 한번 이상 쓰일 수 있다. 트리거에
+    대한 설명은 `uftrace-replay`(1) 를 참고한다.
 
 -D *DEPTH*, \--depth *DEPTH*
-:   Set trace limit in nesting level.
+:   함수가 중첩될 수 있는 최대 깊이를 설정한다. (이를 넘어서는 상세한 함수 실행과정
+    은 무시한다.)
 
 -t *TIME*, \--time-filter=*TIME*
-:   Do not show functions which run under the time threshold.  If some functions
-    explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.
+:   설정한 시간 이하로 수행된 함수는 표시하지 않게 한다. 만약 어떤 함수가 명시적
+    으로 '추적' trigger가 적용된 경우, 그 함수는 실행 시간과 상관없이 항상
+    출력된다.
 
 \--no-libcall
-:   Do not show library calls.
+:   라이브러리 호출은 표시하지 않게 한다.
 
 \--no-event
-:   Do not show any events.
+:   이벤트는 표시하지 않게 한다.
 
 \--match=*TYPE*
-:   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
-    Default is `regex`.
+:   TYPE으로 일치하는 패턴을 보여준다. 가능한 형태는 `regex`와 `glob`이다.
+    기본은 `regex`이다.
 
 
-COMMON ANALYSIS OPTIONS
+공통 분석 옵션
 =======================
 \--kernel-full
-:   Show all kernel functions called outside of user functions.  This option is
-    only meaningful when used with \--chrome, \--flame-graph or \--graphviz
-    options.
+:   사용자 함수 밖에서 호출된 모든 커널 함수를 보여준다. 이 옵션은 --chrome,
+    --flame-graph 또는 --graphviz 옵션과 함께 사용될 때만 의미가 있다.
 
 \--kernel-only
-:   Dump kernel functions only without user functions.
+:   사용자 함수를 제외한 커널 함수와 관련된 데이터만을 출력한다.
 
 \--event-full
-:   Show all (user) events outside of user functions.  This option is only
-    meaningful when used with \--chrome, \--flame-graph or \--graphviz options.
+:   사용자 함수 밖의 모든 (사용자) 이벤트를 보여준다. 이 옵션은 --chrome,
+    --flame-graph 또는 --graphviz 옵션과 함께 사용될 때만 의미가 있다.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
-    `uftrace info`.  This option can also be used more than once.
+:   주어진 태스크에 의해 호출된 함수만이 표시된다. `uftrace report --tasks`
+    또는 `uftrace info`를 이용해 데이터 파일 내의 태스크 목록을 볼 수 있다.
+    이 옵션은 한번 이상 쓰일 수 있다.
 
 \--demangle=*TYPE*
-:   Use demangled C++ symbol names for filters, triggers, arguments and/or
-    return values.  Possible values are "full", "simple" and "no".  Default
-    is "simple" which ignores function arguments and template parameters.
+:   필터, 트리거, 함수인자와 (또는) 반환 값을 디맹글(demangled)된 C++ 심볼
+    이름으로 사용한다. "full", "simple" 그리고 "no" 값을 사용할 수 있다.
+    함수인자와 템플릿 파라미터를 무시하는 "simple"이 기본이다.
 
 -r *RANGE*, \--time-range=*RANGE*
-:   Only show functions executed within the time RANGE.  The RANGE can be
-    \<start\>~\<stop\> (separated by "~") and one of \<start\> and \<stop\> can
-    be omitted.  The \<start\> and \<stop\> are timestamp or elapsed time if
-    they have \<time_unit\> postfix, for example '100us'.  The timestamp or
-    elapsed time can be shown with `-f time` or `-f elapsed` option respectively
-    in `uftrace replay`(1).
+:   시간 RANGE 내에 수행된 함수들만 표시한다. RANGE는 \<시작\>~\<끝\> ("~" 로
+    구분) 이고 \<시작\>과 \<끝\> 중 하나는 생략 될 수 있다. \<시작\>과 \<끝\>
+    은 타임스탬프 또는 '100us'와 같은 \<시간단위\>가 있는 경과 시간이다.
+    `uftrace replay`(1)에서 `-f time` 또는 `-f elapsed`를 이용해 타임스탬프 또는
+    경과 시간을 표시할 수 있다.
 
 
-EXAMPLE
-=======
-This command dumps data like below:
+예제
+====
+이 명령어는 아래와 같이 데이터를 보여준다:
 
     $ uftrace record abc
 
@@ -181,6 +179,10 @@ This command dumps data like below:
             c->getpid[xlabel = "Calls : 1"]
     }
 
-SEE ALSO
-========
+함께 보기
+=========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1)
+
+번역자
+======
+민지수 <kuongee@gmail.com>

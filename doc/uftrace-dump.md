@@ -45,8 +45,9 @@ DUMP OPTIONS
 COMMON OPTIONS
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   Set filter to trace selected functions (and the functions called
+    underneath them) only.  This option can be used more than once.
+    See `uftrace-replay`(1) for an explanation of filters.
 
 -N *FUNC*, \--notrace=*FUNC*
 :   Set filter not to trace selected functions (or the functions called
@@ -95,8 +96,8 @@ COMMON ANALYSIS OPTIONS
     meaningful when used with \--chrome, \--flame-graph or \--graphviz options.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
+:   Only print functions called by the given tasks.  To see the list of
+    tasks in the data file, you can use `uftrace report --tasks` or
     `uftrace info`.  This option can also be used more than once.
 
 \--demangle=*TYPE*
