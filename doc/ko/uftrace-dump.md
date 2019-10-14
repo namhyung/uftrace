@@ -94,7 +94,7 @@ uftrace dump [*옵션*]
     --flame-graph 또는 --graphviz 옵션과 함께 사용될 때만 의미가 있다.
 
 \--tid=*TID*[,*TID*,...]
-:   주어진 태스크에 의해 호출된 함수만이 표시된다. `uftrace report --tasks`
+:   주어진 태스크에 의해 호출된 함수만이 표시된다. `uftrace report --task`
     또는 `uftrace info`를 이용해 데이터 파일 내의 태스크 목록을 볼 수 있다.
     이 옵션은 한번 이상 쓰일 수 있다.
 
