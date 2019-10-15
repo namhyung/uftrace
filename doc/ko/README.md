@@ -10,7 +10,7 @@ of the Linux kernel (especially function graph tracer) and supports
 userspace programs.  It supports various kind of commands and filters
 to help analysis of the program execution and performance.
 
-![uftrace-live-demo](doc/uftrace-live-demo.gif)
+![uftrace-live-demo](../uftrace-live-demo.gif)
 
  * Homepage: https://github.com/namhyung/uftrace
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
@@ -42,7 +42,7 @@ if the system enables the function graph tracer in the kernel
 How to build and install uftrace
 ================================
 
-On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) installs required
+On Linux distros, [misc/install-deps.sh](../../misc/install-deps.sh) installs required
 software(s) on your system.  Those are for optional advanced features but highly
 recommend to install them together.
 
@@ -55,7 +55,7 @@ installed like following:
     $ make
     $ sudo make install
 
-For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
+For more advanced setup, please refer [INSTALL.md](../../INSTALL.md) file.
 
 
 How to use uftrace
@@ -92,7 +92,7 @@ Note that, there's an experimental support for dynamic tracing on x86_64
 which doesn't require such (re-)compilations.  Also recent compilers have
 some options to help uftrace to reduce tracing overhead with similar way
 (although it still needs recompilation of your program).  Please see
-[doc/uftrace-record.md](doc/uftrace-record.md) file.
+[doc/uftrace-record.md](uftrace-record.md) file.
 
     $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION
@@ -211,7 +211,7 @@ The `dump` command shows raw output of each trace record.  You can see the resul
 in the chrome browser, once the data is processed with `uftrace dump --chrome`.
 Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
 
-[![uftrace-chrome-dump](doc/uftrace-chrome.png)](https://uftrace.github.io/dump/clang.tmp.fib.html)
+[![uftrace-chrome-dump](../uftrace-chrome.png)](https://uftrace.github.io/dump/clang.tmp.fib.html)
 
 It also supports flame-graph output as well.  The data can be processed with
 `uftrace dump --flame-graph` and passed to
@@ -268,4 +268,4 @@ Limitations
 
 License
 =======
-The uftrace program is released under GPL v2.  See [COPYING file](COPYING) for details.
+The uftrace program is released under GPL v2.  See [COPYING file](../../COPYING) for details.
