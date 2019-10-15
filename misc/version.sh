@@ -35,6 +35,9 @@ fi
 if test -f ${SRCDIR}/check-deps/have_libpython2.7; then
     DEPS="${DEPS} python"
 fi
+if test -f ${SRCDIR}/check-deps/have_libluajit; then
+    DEPS="${DEPS} luajit"
+fi
 if test -f ${SRCDIR}/check-deps/have_libncurses; then
     DEPS="${DEPS} tui"
 fi

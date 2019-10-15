@@ -29,6 +29,7 @@ usage() {
   --without-libdw       build without libdw                  (even if found on the system)
   --without-libstdc++   build without libstdc++              (even if found on the system)
   --without-libpython   build without libpython2.7           (even if found on the system)
+  --without-libluajit   build without libluajit              (even if found on the system)
   --without-libncurses  build without libncursesw            (even if found on the system)
   --without-capstone    build without libcapstone            (even if found on the system)
   --without-perf        build without perf event             (even if available)
@@ -137,6 +138,7 @@ for dep in $IGNORE; do
         libelf)      TARGET=have_libelf        ;;
         libdw)       TARGET=have_libdw         ;;
         libpython*)  TARGET=have_libpython2.7  ;;
+        libluajit*)  TARGET=have_libluajit     ;;
         libncurse*)  TARGET=have_libncurses    ;;
         libstdc++)   TARGET=cxa_demangle       ;;
         capstone)    TARGET=have_libcapstone   ;;
@@ -178,6 +180,7 @@ printf "...%15s: %s\n" "prefix" "${prefix}"
 print_feature "libelf" "have_libelf" "more flexible ELF data handling"
 print_feature "libdw" "have_libdw" "DWARF debug info support"
 print_feature "libpython2.7" "have_libpython2.7" "python scripting support"
+print_feature "libluajit" "have_libluajit" "luajit scripting support"
 print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
 print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
