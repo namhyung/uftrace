@@ -10,14 +10,16 @@
 
 #include "libmcount/mcount.h"
 #include "utils/script-python.h"
+#include "utils/script-luajit.h"
 #include "utils/utils.h"
 
-#define SCRIPT_ENABLED (SCRIPT_PYTHON_ENABLED)
+#define SCRIPT_ENABLED (SCRIPT_LUAJIT_ENABLED || SCRIPT_PYTHON_ENABLED)
 
 /* script type */
 enum script_type_t {
 	SCRIPT_UNKNOWN = 0,
 	SCRIPT_PYTHON,
+	SCRIPT_LUAJIT,
 	SCRIPT_TYPE_COUNT
 };
 
