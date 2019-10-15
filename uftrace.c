@@ -171,7 +171,7 @@ static struct argp_option uftrace_options[] = {
 	{ "output-fields", 'f', "FIELD", 0, "Show FIELDs in the replay or graph output" },
 	{ "time-range", 'r', "TIME~TIME", 0, "Show output within the TIME(timestamp or elapsed time) range only" },
 	{ "Event", 'E', "EVENT", 0, "Enable EVENT to save more information" },
-	{ "list-event", OPT_list_event, 0, 0, "List avaiable events" },
+	{ "list-event", OPT_list_event, 0, 0, "List available events" },
 	{ "run-cmd", OPT_run_cmd, "CMDLINE", 0, "Command line that want to execute after tracing data received" },
 	{ "opt-file", OPT_opt_file, "FILE", 0, "Read command-line options from FILE" },
 	{ "keep-pid", OPT_keep_pid, 0, 0, "Keep same pid during execution of traced program" },
