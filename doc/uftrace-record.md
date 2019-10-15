@@ -131,7 +131,7 @@ COMMON OPTIONS
 
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally
-    traced by hooking the dynamic linker's resolve function in the PLT.
+    traced by hooking calls to the resolver function of dynamic linker in the PLT.
     One can disable it with this option.
 
 \--no-event
@@ -540,7 +540,7 @@ The uftrace tool supports dynamic function tracing which can be enabled at
 runtime (load-time, to be precise) on x86_64.  Before recording functions,
 normally you need to build the target program with `-pg` (or
 `-finstrument-functions`), then it has some performance impact because all
-funtions call `mcount()`.
+functions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
 `-P`/`--patch` option and can also disable specific functions given by the
@@ -710,7 +710,7 @@ Please see `uftrace-script`(1) for details about scripting.
 WATCH POINT
 ===========
 The uftrace watch point is to display certain value only if it's changed.
-It's conceptually same as debugger's but only works at function entry and exit
+It's conceptually same as other debuggers but only works at function entry and exit
 so it might miss some updates.
 
 As of now, following watch points are supported:

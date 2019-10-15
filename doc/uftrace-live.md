@@ -48,7 +48,7 @@ COMMON OPTIONS
 
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally
-    traced by hooking the dynamic linker's resolve function in the PLT.
+    traced by hooking calls to the resolver function of dynamic linker in the PLT.
     One can disable it with this option.
 
 \--no-event
@@ -695,7 +695,7 @@ capstone to parse the instructions.
 Clang/LLVM 4.0 provides a dynamic instrumentation technique called
 [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
 `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
-supports dynamic tracing on the excutables built with the `X-ray`.
+supports dynamic tracing on the executables built with the `X-ray`.
 
 For example, you can build the target program by clang with the below option
 and equally use `-P` option for dynamic tracing like below:

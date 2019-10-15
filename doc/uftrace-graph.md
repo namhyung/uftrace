@@ -16,7 +16,7 @@ DESCRIPTION
 ===========
 This command shows a function call graph for the binary or the given function
 in a uftrace record datafile.  If the function name is omitted, whole function
-call graph will be shonw.  If user gives a function name it will show backtrace
+call graph will be shown.  If user gives a function name it will show backtrace
 and calling functions.  Each function in the output is annotated with a hit
 count and the total time spent running that function.
 
