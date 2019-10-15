@@ -131,7 +131,7 @@ char * get_libmcount_path(struct opts *opts)
 	}
 
 #ifdef INSTALL_LIB_PATH
-	/* try first to load libmcount from the installtion path */
+	/* try first to load libmcount from the installation path */
 	snprintf(lib, PATH_MAX, "%s/%s", INSTALL_LIB_PATH, libmcount);
 	if (access(lib, F_OK) == 0)
 		return lib;
