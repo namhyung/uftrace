@@ -44,7 +44,7 @@ REPORT OPTIONS
 \--diff-policy=*POLICY*
 :   Apply custom diff policy.  Available values are: "abs", "no-abs", "percent",
     "no-percent", "compact" and "full".  The "abs" is to sort diff result using
-    absolute value so positvie and negative entries can be shown together while
+    absolute value so positive and negative entries can be shown together while
     "no-abs" will show positive entries first and then negative ones.  The
     "percent" is to show diff in percentage while "no-percent" is to show the
     values.  The "full" is to show all three columns of baseline, new data and
