@@ -36,7 +36,7 @@ struct script_filter_item {
 
 static LIST_HEAD(filters);
 
-static enum script_type_t get_script_type(const char *str)
+enum script_type_t get_script_type(const char *str)
 {
 	char *ext = strrchr(str, '.');
 
