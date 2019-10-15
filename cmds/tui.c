@@ -693,7 +693,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 			parent = (void *)parent->n.parent;
 		}
 
-		/* but, unfoled it if it's the last child */
+		/* but, unfolded it if it's the last child */
 		if (n == 2)
 			tmp->folded = false;
 	}
