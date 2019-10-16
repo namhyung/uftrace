@@ -346,6 +346,7 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 				xasprintf(&act, "%s@%s", name, args);
 				argspec = strjoin(argspec, act, ";");
 				free(act);
+				free(args);
 			}
 			if (rval) {
 				xasprintf(&act, "%s@retval", name);
