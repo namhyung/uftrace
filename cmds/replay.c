@@ -465,16 +465,16 @@ static void print_task_newline(int current_tid)
 	} while (0)
 
 #define print_escaped_char(c)						\
-        do {								\
-                if (c == '\0')						\
-                        print_args("\\0");				\
-                else if (c == '\b')					\
-                        print_args("\\b");				\
-                else if (c == '\n')                                     \
-                        print_args("\\n");				\
-                else							\
-                        print_char(c);                                  \
-        } while (0)
+	do {								\
+		if (c == '\0')						\
+			print_args("\\0");				\
+		else if (c == '\b')					\
+			print_args("\\b");				\
+		else if (c == '\n')                                     \
+			print_args("\\n");				\
+		else							\
+			print_char(c);                                  \
+	} while (0)
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
@@ -614,30 +614,30 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("%s", color_string);
 				print_args("\"");
 
-                                char *p = str;
-                                while (*p) {
-                                        char c = *p++;
-                                        if (c & 0x80) {
-                                                break;
-                                        }
-                                }
-                                /*
-                                 * if value of character is over than 128(0x80),
-                                 * then it will be UTF-8 string
-                                 */
-                                if (*p) {
-                                        print_args("%.*s", slen + newline, str);
-                                }
-                                else {
-                                        p = str;
-                                        while (*p) {
-                                                char c = *p++;
-                                                print_escaped_char(c);
-                                        }
-                                }
+				char *p = str;
+				while (*p) {
+					char c = *p++;
+					if (c & 0x80) {
+						break;
+					}
+				}
+				/*
+				* if value of character is over than 128(0x80),
+				* then it will be UTF-8 string
+				*/
+				if (*p) {
+					print_args("%.*s", slen + newline, str);
+				}
+				else {
+					p = str;
+					while (*p) {
+						char c = *p++;
+						print_escaped_char(c);
+					}
+				}
 
-                                print_args("\"");
-                                print_args("%s", color_reset);
+				print_args("\"");
+				print_args("%s", color_reset);
 			}
 
 			/* std::string can be represented as "TEXT"s from C++14 */
