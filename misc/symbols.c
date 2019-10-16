@@ -1,6 +1,5 @@
 #include <inttypes.h>
 #include <unistd.h>
-#include <argp.h>
 
 #include "uftrace.h"
 #include "version.h"
@@ -8,6 +7,7 @@
 #include "utils/symbol.h"
 #include "utils/dwarf.h"
 #include "utils/arch.h"
+#include "../argp/argp.h"
 
 /* needs to print session info with symbol */
 static bool needs_session;

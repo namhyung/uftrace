@@ -9,11 +9,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <time.h>
-#include <argp.h>
 #include <fcntl.h>
 #include <stdarg.h>
 
