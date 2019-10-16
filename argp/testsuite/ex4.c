@@ -25,7 +25,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <argp.h>
+#include "../argp.h"
 
 const char *argp_program_version =
   "argp-ex4 1.0";

@@ -52,7 +52,7 @@
 
    An options vector should be terminated by an option with all fields zero. */
 
-#include <argp.h>
+#include "../argp.h"
 
 #include <stdlib.h>
 

@@ -5,7 +5,7 @@
    messages and exit when there are any arguments, and print
    a (rather pointless) messages for -help. */
 
-#include <argp.h>
+#include "../argp.h"
 
 #include <stdlib.h>
 
