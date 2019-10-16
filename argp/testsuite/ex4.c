@@ -100,7 +100,7 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
     case ARGP_KEY_NO_ARGS:
       argp_usage (state);
-
+      break;
     case ARGP_KEY_ARG:
       /* Here we know that `state->arg_num == 0', since we
          force argument parsing to end before any more arguments can

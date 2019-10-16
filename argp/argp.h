@@ -560,7 +560,7 @@ __argp_short_program_name(const struct argp_state *state) __THROW;
 # endif
 
 # ifndef ARGP_EI
-#  define ARGP_EI extern inline
+#  define ARGP_EI __extern_inline
 # endif
 
 ARGP_EI void

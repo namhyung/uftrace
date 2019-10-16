@@ -282,10 +282,9 @@ dnl Check for gcc's __attribute__ construction
 AC_DEFUN([LSH_GCC_ATTRIBUTES],
 [AC_CACHE_CHECK(for __attribute__,
 	       lsh_cv_c_attribute,
-[ AC_TRY_COMPILE([
+[ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
-],
-[
+
 static void foo(void) __attribute__ ((noreturn));
 
 static void __attribute__ ((noreturn))
@@ -293,7 +292,7 @@ foo(void)
 {
   exit(1);
 }
-],
+]])],
 lsh_cv_c_attribute=yes,
 lsh_cv_c_attribute=no)])
 
@@ -328,11 +327,11 @@ AH_BOTTOM(
 
 AC_CACHE_CHECK(for __FUNCTION__,
 	       lsh_cv_c_FUNCTION,
-  [ AC_TRY_COMPILE(,
-      [ #if __GNUC__ == 3
+  [ AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+      [[ #if __GNUC__ == 3
 	#  error __FUNCTION__ is broken in gcc-3
 	#endif
-        void foo(void) { char c = __FUNCTION__[0]; } ],
+        void foo(void) { char c = __FUNCTION__[0]; } ]])],
       lsh_cv_c_FUNCTION=yes,
       lsh_cv_c_FUNCTION=no)])
 
@@ -442,7 +441,8 @@ AC_CACHE_VAL([ac_cv_header_stdint_t],[
 old_CXXFLAGS="$CXXFLAGS" ; CXXFLAGS=""
 old_CPPFLAGS="$CPPFLAGS" ; CPPFLAGS=""
 old_CFLAGS="$CFLAGS"     ; CFLAGS=""
-AC_TRY_COMPILE([#include <stdint.h>],[int_least32_t v = 0;],
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[#include <stdint.h>
+                                    int_least32_t v = 0;]])],
 [ac_cv_stdint_result="(assuming C99 compatible system)"
  ac_cv_header_stdint_t="stdint.h"; ],
 [ac_cv_header_stdint_t=""])

@@ -185,8 +185,7 @@ static const struct uparam_name uparam_names[] =
 static void
 fill_in_uparams (const struct argp_state *state)
 {
-  /* FIXME: Can we get away without an explicit cast? */
-  const unsigned char *var = (unsigned char *) getenv ("ARGP_HELP_FMT");
+  const char *var = getenv ("ARGP_HELP_FMT");
 
 #define SKIPWS(p) do { while (isspace (*p)) p++; } while (0);
 
@@ -201,7 +200,7 @@ fill_in_uparams (const struct argp_state *state)
 	    size_t var_len;
 	    const struct uparam_name *un;
 	    int unspec = 0, val = 0;
-	    const unsigned char *arg = var;
+	    const char *arg = var;
 
 	    while (isalnum (*arg) || *arg == '-' || *arg == '_')
 	      arg++;
