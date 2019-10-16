@@ -79,8 +79,8 @@ LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
-DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
-SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
+DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler) -L$(objdir)/argp -largp
+SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols) -L$(objdir)/argp -largp
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
@@ -131,7 +131,7 @@ include $(srcdir)/Makefile.include
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
 LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-single.so
 
-_TARGETS := uftrace libtraceevent/libtraceevent.a
+_TARGETS := uftrace libtraceevent/libtraceevent.a argp/libargp.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 _TARGETS += misc/demangler misc/symbols
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
@@ -184,7 +184,7 @@ LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
-LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
+LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -L$(objdir)/argp -largp -ldl
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
 LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD
@@ -272,13 +272,22 @@ $(objdir)/version.h: PHONY
 $(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
 	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
 
-$(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/libtraceevent.a
+$(objdir)/uftrace: $(objdir)/libtraceevent/libtraceevent.a $(objdir)/argp/libargp.a $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(UFTRACE_LDFLAGS)
 
-$(objdir)/misc/demangler: $(DEMANGLER_OBJS)
+$(objdir)/argp/libargp.a: $(srcdir)/argp/Makefile
+	@$(MAKE) -C $(objdir)/argp
+
+$(srcdir)/argp/Makefile: $(srcdir)/argp/configure
+	@cd $(srcdir)/argp; ./configure
+
+$(srcdir)/argp/configure:
+	@cd $(srcdir)/argp; autoreconf -i
+
+$(objdir)/misc/demangler: $(DEMANGLER_OBJS) $(objdir)/argp/libargp.a
 	$(QUIET_LINK)$(CC) $(DEMANGLER_CFLAGS) -o $@ $(DEMANGLER_OBJS) $(DEMANGLER_LDFLAGS)
 
-$(objdir)/misc/symbols: $(SYMBOLS_OBJS)
+$(objdir)/misc/symbols: $(SYMBOLS_OBJS) $(objdir)/argp/libargp.a
 	$(QUIET_LINK)$(CC) $(SYMBOLS_CFLAGS) -o $@ $(SYMBOLS_OBJS) $(SYMBOLS_LDFLAGS)
 
 install: all
@@ -352,6 +361,7 @@ clean:
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(docdir) clean
 	@$(MAKE) -sC $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)" clean
+	@$(MAKE) -sC $(srcdir)/argp clean
 
 reset-coverage:
 	$(Q)find -name "*\.gcda" | xargs $(RM)
