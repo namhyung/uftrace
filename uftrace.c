@@ -1015,6 +1015,7 @@ static void free_opts(struct opts *opts)
 {
 	free(opts->filter);
 	free(opts->trigger);
+	free(opts->sig_trigger);
 	free(opts->sort_keys);
 	free(opts->args);
 	free(opts->retval);
