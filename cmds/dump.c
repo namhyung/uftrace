@@ -48,7 +48,7 @@ struct uftrace_dump_ops {
 	void (*kernel_event)(struct uftrace_dump_ops *ops,
 			     struct uftrace_kernel_reader *kernel, int cpu,
 			     struct uftrace_record *frs);
-	/* thius is called when there's a lost record (usually in kernel) */
+	/* this is called when there's a lost record (usually in kernel) */
 	void (*lost)(struct uftrace_dump_ops *ops,
 		     uint64_t time, int tid, int losts);
 	/* this is called when a perf data (for each cpu) starts */
@@ -823,6 +823,7 @@ static void dump_raw_perf_event(struct uftrace_dump_ops *ops,
 	free(evt_name);
 }
 
+/* chrome support */
 static void dump_chrome_header(struct uftrace_dump_ops *ops,
 				struct uftrace_data *handle,
 				struct opts *opts)
@@ -1160,7 +1161,7 @@ static void dump_flame_footer(struct uftrace_dump_ops *ops,
 	graph_remove_task();
 }
 
-/* to graphviz support */
+/* graphviz support */
 static struct uftrace_graph graphviz_graph = {
 	.root.head     = LIST_HEAD_INIT(graphviz_graph.root.head),
 	.special_nodes = LIST_HEAD_INIT(graphviz_graph.special_nodes),

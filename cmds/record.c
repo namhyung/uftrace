@@ -259,7 +259,7 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 		setenv("UFTRACE_PLTHOOK", "1", 1);
 
 		if (opts->want_bind_not) {
-			/* do not update GOTPLT after resolving symbols */
+			/* do not update GOT/PLT after resolving symbols */
 			setenv("LD_BIND_NOT", "1", 1);
 		}
 
