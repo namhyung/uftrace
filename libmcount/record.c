@@ -18,6 +18,7 @@
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
+#include "utils/posix.h"
 
 #define SHMEM_SESSION_FMT  "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 

@@ -53,3 +53,7 @@ ifneq ($(wildcard $(srcdir)/check-deps/have_libcapstone),)
   COMMON_CFLAGS  += $(shell pkg-config --cflags capstone 2> /dev/null)
   COMMON_LDFLAGS += $(shell pkg-config --libs capstone 2> /dev/null)
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_posix_shm),)
+  COMMON_CFLAGS  += -DHAVE_POSIX_SHM
+endif

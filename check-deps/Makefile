@@ -10,6 +10,7 @@ CHECK_LIST += arm_has_hardfp
 CHECK_LIST += have_libncurses
 CHECK_LIST += have_libdw
 CHECK_LIST += have_libcapstone
+CHECK_LIST += have_posix_shm
 
 #
 # This is needed for checking build dependency
@@ -29,6 +30,7 @@ CFLAGS_have_libdw  = $(shell pkg-config --cflags libdw 2> /dev/null)
 LDFLAGS_have_libdw = $(shell pkg-config --libs   libdw 2> /dev/null || echo "-ldw")
 CFLAGS_have_libcapstone  = $(shell pkg-config --cflags capstone 2> /dev/null)
 LDFLAGS_have_libcapstone = $(shell pkg-config --libs   capstone 2> /dev/null)
+LDFLAGS_have_posix_shm = -lrt
 
 check-build: check-tstamp $(CHECK_LIST)
 
