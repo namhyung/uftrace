@@ -28,6 +28,7 @@
 #include "utils/filter.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
+#include "utils/posix.h"
 
 #ifndef EFD_SEMAPHORE
 # define EFD_SEMAPHORE (1 << 0)
@@ -921,7 +922,7 @@ static void unlink_shmem_list(void)
 		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
-		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
+		num = scandir(UFTRACE_SHMDIR_NAME, &shmem_bufs, filter_shmem, alphasort);
 		for (i = 0; i < num; i++) {
 			sid[0] = '/';
 			memcpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
