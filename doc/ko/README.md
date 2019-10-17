@@ -33,11 +33,6 @@ uftrace는 C/C++로 쓰인 프로그램의 실행과 분석을 위한 툴이다.
 또한 추적할 때 특정 함수를 포함/제외시키기 위해 필터를 설정할 수 있다.
 또한, 함수의 인자와 리턴값 또한 저장하고 출력할 수 있다.
 
-It supports multi-process and/or multi-threaded applications.  With root
-privilege, it can also trace kernel functions as well( with `-k` option)
-if the system enables the function graph tracer in the kernel
-(`CONFIG_FUNCTION_GRAPH_TRACER=y`).
-
 멀티 프로세스와 (혹은) 멀티 쓰레드 어플리케이션을 지원한다.
 만일 시스템이 커널 내의 함수 그래프 추적(`CONFIG_FUNCTION_GRAPH_TRACER=y`)을 사용한다면,
 루트 권한 상에서 (`-k`옵션을 통해) 커널 함수 또한 추적이 가능하다.
