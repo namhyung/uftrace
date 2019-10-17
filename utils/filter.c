@@ -145,7 +145,7 @@ struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
 		if (match_ip(iter, ip)) {
-		  	*tr = iter->trigger;
+			*tr = iter->trigger;
 
 			pr_dbg2("filter match: %s\n", iter->name);
 			if (dbg_domain[DBG_FILTER] >= 3)

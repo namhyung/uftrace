@@ -162,8 +162,8 @@ bool fstack_check_filter(struct uftrace_task_reader *task);
 bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
 
 void get_argspec_string(struct uftrace_task_reader *task,
-		        char *args, size_t len,
-		        enum argspec_string_bits str_mode);
+			char *args, size_t len,
+			enum argspec_string_bits str_mode);
 
 #define EXTERN_DATA_MAX  1024
 
