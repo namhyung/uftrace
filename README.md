@@ -34,7 +34,7 @@ You can setup filters to exclude or include specific functions when tracing.
 In addition, it can save and show function arguments and return value.
 
 It supports multi-process and/or multi-threaded applications.  With root
-privilege, it can also trace kernel functions as well( with `-k` option)
+privilege, it can also trace kernel functions as well(with `-k` option)
 if the system enables the function graph tracer in the kernel
 (`CONFIG_FUNCTION_GRAPH_TRACER=y`).
 
