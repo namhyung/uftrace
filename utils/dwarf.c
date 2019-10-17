@@ -175,6 +175,12 @@ static void release_debug_file(struct rb_root *root)
 	}
 }
 
+#ifdef HAVE_LIBDW
+
+#include <libelf.h>
+#include <gelf.h>
+#include <dwarf.h>
+
 /*
  * symbol table contains normalized (zero-based) relative address.
  * but some other info in non-PIE executable has different base
@@ -195,12 +201,6 @@ static inline unsigned long dwarf_to_sym_addr(struct debug_info *dinfo,
 		addr -= dinfo->offset;
 	return addr;
 }
-
-#ifdef HAVE_LIBDW
-
-#include <libelf.h>
-#include <gelf.h>
-#include <dwarf.h>
 
 struct cu_files {
 	Dwarf_Files		*files;
