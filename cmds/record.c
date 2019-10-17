@@ -30,6 +30,9 @@
 #include "utils/perf.h"
 #include "utils/posix.h"
 
+#ifndef EFD_SEMAPHORE
+# define EFD_SEMAPHORE (1 << 0)
+#endif
 #define SHMEM_NAME_SIZE (64 - (int)sizeof(struct list_head))
 
 struct shmem_list {

@@ -233,9 +233,12 @@ extern void setup_signal(void);
 #define stringify(s)    __stringify(s)
 #define __stringify(s)  #s
 
-#define htonq(x)  htobe64(x)
-#define ntohq(x)  be64toh(x)
-
+#ifndef htonq
+# define htonq(x)  htobe64(x)
+#endif
+#ifndef ntohq
+# define ntohq(x)  be64toh(x)
+#endif
 /* this comes from /usr/include/elf.h */
 #ifndef ELFDATA2LSB
 # define ELFDATA2LSB	1		/* 2's complement, little endian */

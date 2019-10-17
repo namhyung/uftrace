@@ -46,8 +46,12 @@
 #define __visible_default  __attribute__((visibility("default")))
 #define __alias(func)  __attribute__((alias(#func)))
 #define __maybe_unused  __attribute__((unused))
-#define __used  __attribute__((used))
-#define __noreturn  __attribute__((noreturn))
+#ifndef __used
+# define __used  __attribute__((used))
+#endif
+#ifndef __noreturn
+# define __noreturn  __attribute__((noreturn))
+#endif
 #define __align(n)  __attribute__((aligned(n)))
 
 #endif /* UFTRACE_COMPILER_H */
