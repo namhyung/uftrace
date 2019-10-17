@@ -228,6 +228,8 @@ static int fill_cmdline(void *arg)
 			*p = ' ';
 	}
 
+	buf[sizeof(fha->buf) - 1] = '\0';
+
 	p = json_quote(buf, &ret);
 	p[ret - 1] = '\n';
 
