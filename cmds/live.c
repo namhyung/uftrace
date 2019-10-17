@@ -120,6 +120,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	}
 
 	umask(022);
+
 	fd = mkstemp(template);
 	if (fd < 0)
 		pr_err("cannot create temp name");
