@@ -147,6 +147,7 @@ COMMON OPTIONS
     a `trace_on` trigger.
 
 
+
 RECORD CONFIG OPTIONS
 =====================
 -L *PATH*, \--library-path=*PATH*
@@ -195,20 +196,20 @@ RECORD CONFIG OPTIONS
 :   Enable recording source line in the debug info.
 
 
-FILTERS
+필터
 =======
-The uftrace tool supports filtering out uninteresting functions.  Filtering is
-highly recommended since it helps users focus on the interesting functions and
-reduces the data size.  When uftrace is called it receives two types of function
-filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
-`-N`/`--notrace`.  These filters can be applied either at record time or
-replay time.
+uftrace는 관심 대상이 아닌 함수들을 필터링한 결과들을 제공한다.
+필터링은 유저들이 관심 있는 함수들에만 집중할 수 있게 하고,
+데이터의 크기를 줄이기 때문에 사용이 권장된다.
+uftrace가 호출되면, 두 종류의 함수 필터를 갖게 된다;
+옵트인 필터로서의 `-F`/`--filter`와 옵트아웃 필터로서의 `-N`/`--notrace`.
+이 필터들은 시간을 레코드하거나 리플레이할 떄 적용된다.
 
-The first one is an opt-in filter. By default, it doesn't trace anything.  But
-when one of the specified functions is executed, tracing is started.  When the
-function returns, tracing is stopped again.
+첫번째 필터 종류는 옵트인 필터이다. 기본적으로, 이것은 아무것도 추적하지 않는다.
+하지만 어떤 명시된 함수가 실행되게 되면, 추적이 시작된다. 그러다 함수가 리턴하게 되면,
+추적은 다시 멈추게 된다.   
 
-For example, consider a simple program which calls `a()`, `b()` and `c()` in turn.
+예를 들어, `a()`, `b()` 와 `c()`를 차례로 호출하는 간단한 프로그램을 생각해보자.
 
     $ cat abc.c
     void c(void) {
@@ -230,10 +231,9 @@ For example, consider a simple program which calls `a()`, `b()` and `c()` in tur
 
     $ gcc -pg -o abc abc.c
 
-Normally uftrace will trace all the functions from `main()` to `c()`.
+일반적인 경우 uftrace는 `main()`부터 `c()`까지의 모든 함수들을 추적할 것이다.
 
-    $ uftrace record ./abc
-    $ uftrace replay
+    $ uftrace live ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
@@ -244,37 +244,35 @@ Normally uftrace will trace all the functions from `main()` to `c()`.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-But when the `-F b` filter option is used, it will not trace `main()` or `a()`
-but only `b()` and `c()`.
+위 예시에서, 명시적으로 `live`명령어가 쓰였다. 하지만 `live`명령어는 기본 명령어이기 때문에
+생략해도 무방하다. 따라서 위 명령어는 짧게 `uftrace ./abc`로 사용해도 같은 결과를 낸다.
 
-    $ uftrace record -F b ./abc
-    $ uftrace replay
+하지만 `-F b` 필터 옵션이 사용되었을 때는, `main()`과 `a()`함수는 추적되지 않고 오직 `b()`과 `c()`만 
+추적될 것이다.
+
+    $ uftrace -F b ./abc
     # DURATION    TID     FUNCTION
                 [ 1234] | b() {
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
-The second type of filter is opt-out. By default, everything is traced, but when
-one of the specified functions is executed, tracing stops.  When the excluded
-function returns, tracing is started again.
+두번째 필터 종류는 옵트아웃 필터이다. 기본적으로, 모든 것이 추적되지만,
+명시된 함수가 실행되게 되면, 추적을 멈춘다. 제외된 함수가 리턴하게 되면, 추적을 재개한다. 
 
-In the above example, you can omit the function `b()` and all calls it makes
-with the `-N` option.
+위 예시에서, `b()`함수와 그의 모든 호출은 `-N`옵션으로 생략할 수 있었다. 
 
-    $ uftrace record -N b ./abc
-    $ uftrace replay
+    $ uftrace -N b ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
-If users only care about specific functions and want to know how they are called,
-one can use the caller filter.  It makes the function as leaf and records the
-parent functions to the function.
+만일 특정 함수에만 관심이 있고 그 함수가 어떻게 호출되는지만 알고 싶다면,
+caller filter를 사용하면 될 것이다. 그 함수를 leaf로 만들고,
+그 함수의 모든 부모 함수들을 레코드한다.
 
-    $ uftrace record -C b ./abc
-    $ uftrace replay
+    $ uftrace -C b ./abc
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
                 [ 1234] |   a() {
@@ -282,13 +280,12 @@ parent functions to the function.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-In the above example, functions not in the calling path were not shown.  Also
-the function 'c' - which is a child of the function 'b' - is also hidden.
+위 예시에서, 호출 경로에 없는 함수들을 출력되지 않았다. 또한, 함수 `b()`의 자식 함수인 
+함수 `c()`또한 출력되지 않았다. 
 
-In addition, you can limit the nesting level of functions with the `-D` option.
+또한, `-D`옵션으로 함수의 중첩 깊이을 제한할 수도 있다.
 
-    $ uftrace record -D 3 ./abc
-    $ uftrace replay
+    $ uftrace -D 3 ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
@@ -297,18 +294,16 @@ In addition, you can limit the nesting level of functions with the `-D` option.
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-In the above example, uftrace only records functions up to a depth of 3, so
-leaf function `c()` was omitted.  Note that the `-D` option works with `-F`.
+위 예시에서, uftrace는 함수 호출 깊이를 최대 3으로 제한하여 출력했기 때문에,
+leaf 함수인 `c()`는 생략되었다. `-D`옵션이 `-F`옵션과 함께 쓰일 수 있음에 유의하라.
 
-Sometimes it's useful to see long-running functions only.  This is good because
-there are usually many tiny functions that are not interesting.
-The `-t`/`--time-filter` option implements the time-based filter that only
-records functions which run longer than the given threshold.  In the above
-example, the user might want to see functions running more than
-5 micro-seconds like below:
+때로는, 장시간 실행되는 함수를 관찰하는 것이 유용하다. 
+이는 작은 (실행시간을 가지는) 함수들 중에는 관심 대상이 아닌 것들이 많기 때문이다.
+`-t`/`--time-filter`옵션은 명시된 임계시간보다 오래 실행된 함수들만 레코드할 수 있게 하는
+시간 기반 필터이다. 위 예시에서는, 사용자는 대부분 아래와 같이 5마이크로 초 이상 동안 
+실행되는 함수를 보고 싶어할 것이다:
 
-    $ uftrace record -t 5us ./abc
-    $ uftrace replay
+    $ uftrace -t 5us ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
@@ -317,16 +312,11 @@ example, the user might want to see functions running more than
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-The `-t`/`--time-filter` option works for user-level functions only.  It does
-not work for recording kernel functions, but they can be hidden in replay, report,
-dump and graph commands with `-t`/`--time-filter` option.
+필터링된 함수에 트리거를 설정할 수도 있다. 더 많은 정보를 확인하기 위해 *TRIGGERS* 항목을
+참고한다.
 
-You can also set triggers on filtered functions.  See *TRIGGERS* section below
-for details.
-
-When kernel function tracing is enabled, you can also set the filters on kernel
-functions by marking the symbol with the `@kernel` modifier.  The following
-example will show all user functions and the (kernel) page fault handler.
+커널함수 추적을 설정하면, `@kernel` 식별자를 통해 커널 함수에 대한 필터를 적용할 수 있다.
+이하 예시에서는 모든 유저 함수와 (커널 레벨의) page fault 핸들러들을 보여준다.
 
     $ sudo uftrace -k -F '.*page_fault@kernel' ./abc
     # DURATION    TID     FUNCTION
@@ -344,30 +334,32 @@ example will show all user functions and the (kernel) page fault handler.
      79.086 us [14721] | } /* main */
 
 
-TRIGGERS
+트리거
 ========
-The uftrace tool supports triggering actions on selected function calls (with or
-without filters) and/or signals.  Currently supported triggers are listed below.
-The BNF for trigger specification is as follows:
+uftrace 도구는 선택된 함수 호출(필터가 있든 없든)과 
+시그널에 대한 트리거 동작을 지원한다.
+현재 지원되는 트리거와 사양에 대한 BNF는 다음과 같다.
 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
-    <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
-                     "time="<time_spec> | "read="<read_spec> | "finish" |
-                     "filter" | "notrace" | "recover"
+    <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
+                     "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
+                     "finish" | "filter" | "notrace"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
 
-The `depth` trigger is to change filter depth during execution of the function.
-It can be used to apply different filter depths for different functions.
+`depth` 트리거는 함수를 실행하는 동안 필터 깊이를 변경한다.
+다양한 함수에 대해 서로 다른 필터 깊이를 설정할 수 있다.
+그리고 `backtrace` 트리거는 replay 시 스택 역추적을 출력한다.
 
-The following example shows how triggers work.  The global filter maximum depth
-is 5, but when function `b()` is called, it is changed to 1, so functions below
-`b()` will not shown.
+색깔 트리거는 재생 명령어에서 색상을 변경한다.
+지원되는 색상은 `red`, `green`, `blue`, `yellow`, `magenta`, `cyan`,`bold`,`gray`. 등이 있다.
 
-    $ uftrace record -D 5 -T 'b@depth=1' ./abc
-    $ uftrace replay
+다음 예제는 트리거 작동 방식을 보여준다. 전역 필터 깊이가 5로 설정되어 있지만
+`b()` 함수에 `depth` 트리거를 설정하여 `b()` 아래 함수는 보이지 않게된다.
+
+    $ uftrace -D 5 -T 'b@depth=1' ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main() {
@@ -376,32 +368,35 @@ is 5, but when function `b()` is called, it is changed to 1, so functions below
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
-The `backtrace` trigger is only meaningful in the replay command.
+`backtrace` 트리거는 replay에서만 사용할 수 있다.
 
-The `trace_on` and `trace_off` actions (the `_` can be omitted as `traceon`
-and `traceoff`) control whether uftrace records the specified functions or not.
+`trace_on`과 `trace_off` 트리거는 uftrace가 지정된 함수를 기록할지 여부를 관리한다.
+또한, `_` 문자 없이 `traceon`과 `traceoff`로도 사용할 수있다.
 
-The 'recover' trigger is for some corner cases in which the process accesses the
-callstack directly.  For now it's not necessary to call it as uftrace does the
-job automatically.
+`recover` 트리거는 프로세스가 콜스택에 직접 접근하는 일부 경우에 사용된다.
+예를들어, v8 자바스크립트 엔진을 추적하는 동안 가비지 수집 단계에서 segfaults 
+문제가 발생된다면 이는 v8이 (변경된) 반환 주소를 통해 컴파일된 코드 객체에 접근하려 하기 때문이다.
+`recover` 트리거는 함수 시작점에 원래 반환 주소를 복원하고 기능 종료 시 
+다시 uftrace 리턴 주소로 재설정한다. (특히 v8 자바스크립트 엔진 사례에서 `ExitFrame::Iterate` 
+함수와 같이 문제를 발생시키는 상황에서 `recover` 사용하면 문제를 해결할 수 있다.)
 
-The 'time' trigger is to change time filter setting during execution of the
-function.  It can be used to apply different time filter for different functions.
 
-The `read` trigger is to read some information at runtime.  The result will be
-recorded as (builtin) events at the beginning and the end of a given function.
-As of now, following events are supported:
+`time` 트리거는 함수를 실행하는 동안 시간 필터 설정을 변경한다.
+다른 함수들에 대해서 다른 시간 필터를 적용할 떄 사용할 수 있다.
 
- * "proc/statm": process memory stat from /proc filesystem
- * "page-fault": number of page faults using getrusage(2)
- * "pmu-cycle":  cpu cycles and instructions using Linux perf-event syscall
- * "pmu-cache":  (cpu) cache-references and misses using Linux perf-event syscall
- * "pmu-branch": branch instructions and misses using Linux perf-event syscall
+`read` 트리거는 실행 시에 일부 정보를 읽을 수 있다. 
+결과는 주어진 함수의 시작과 끝에 (내장) 이벤트의 형태로 기록된다.
+현재는 다음과 같은 이벤트가 지원되고 있다.
 
-The results are printed as events (comments) like below.
+ * "proc/statm": /proc 파일시스템에서 메모리 통계 처리 
+ * "page-fault": getrusage(2)를 사용한 페이지 결함 수
+ * "pmu-cycle":  Linux perf-event 시스템콜을 통한 cpu 클럭 사이클 및 명령어 실행 횟수
+ * "pmu-cache":  (cpu) Linux Perfect-Event syscall을 사용한 캐시 참조 및 누락 
+ * "pmu-branch": Linux Perfect-Event syscall을 사용한 분기 지침 및 누락
+ 
+결과는 아래와 같이 이벤트(코멘트)로 출력된다.
 
-    $ uftrace record -T a@read=proc/statm ./abc
-    $ uftrace replay
+    $ uftrace -T a@read=proc/statm ./abc
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
                 [ 1234] |   a() {
@@ -415,26 +410,25 @@ The results are printed as events (comments) like below.
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 
-The 'finish' trigger is to end recording.  The process still can run and this
-can be useful to trace unterminated processes like daemon.
 
-The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
-`-N`/`--notrace` options respectively.
+`finish` 트리거는 기록을 종료할 떄 사용한다. 데몬과 같이 종료되지 
+않는 프로세스를 추적하는 데 유용할 수 있다.
 
-Triggers only work for user-level functions for now.
+`filter` 와 `notrace` 트리거는 각각 `-F`/`--filter`와 `-N` /`--notrace` 같은 효과가 있다.
 
-The trigger can be used for signals as well.  This is done by signal trigger
-with \--signal option.  The syntax is similar to function trigger but only
-"trace_on", "trace_off" and "finish" trigger actions are supported.
+트리거는 현재 유저 레벨 함수들에서만 동작한다.
 
-    $ uftrace record --signal 'SIGUSR1@finish' ./some-daemon
+트리거는 시그널에도 사용할 수 있다. `signal` 트리거에 의해 수행되며
+`\--signal option` 옵션으로 함수 트리거와 비슷하지만
+현재는 "trace_on", "trace_off" 및 "finish"트리거만 지원되고 있다.
+
+    $ uftrace --signal 'SIGUSR1@finish' ./some-daemon
 
 
-ARGUMENTS
+인자
 =========
-The uftrace tool supports recording function arguments and/or return values
-using the -A/\--argument and -R/\--retval options respectively.
-The syntax is very similar to that of triggers:
+uftrace는 함수의 인자와 리턴값을 각각 -A/\--argument와 -R/\--retval로 레코딩할 수 있다.
+이 문법체계는 트리거의 그것과 매우 유사하다:
 
     <argument>    :=  <symbol> [ "@" <specs> ]
     <specs>       :=  <spec> | <spec> "," <spec>
@@ -447,42 +441,39 @@ The syntax is very similar to that of triggers:
     <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
     <stack>       :=  "stack" [ "+" ] <offset>
 
-The -A/\--argument option takes a symbol name pattern and its optional specs.
-The spec is started by argN where N is an index of the arguments.  The index
-starts from 1 and corresponds to the argument passing order of the calling
-convention on the system.  Note that the indexes of arguments are separately
-counted for integer (or pointer) and floating-point type, and they can interfere
-depending on the calling convention.  The argN is for integer arguments and
-fpargN is for floating-point arguments.
+-A/\--argument옵션은 symbol의 이름과 그것의 spec들을 선택적으로 받는다.
+spec은 argN으로 시작되는데 여기서 N은 인자의 인덱스값이다.
+인덱스는 1부터 시작되며, 순서는 시스템 호출 관례의 인자 전달 순서와 상응한다. 
+인자의 인덱스는 정수형 (혹은 포인터형) 과 부동소수점형 각각 따로 세어진다는 점, 그리고 
+그것들은 호출 관례에 따라 각기 간섭을 일으킬 수 있다는 점에 유의하라.
+argN은 정수형 인자를, fpargN은 부동소수점형 인자를 위한 표기이다.
 
-Users can optionally specify a format and size for the arguments and/or return
-values.  The "d" format or without format field, uftrace treats them as
-'long int' type for integers and 'double' for floating-point numbers.
-The "i" format makes it signed integer type and "u" format is for unsigned
-type.  Both are printed as decimal while "x" format makes it printed as
-hexadecimal.  The "s" format is for null-terminated string type and "c" format
-is for character type.  The "f" format is for floating-point type and is
-meaningful only for return value (generally).  Note that fpargN doesn't take
-the format field since it's always floating-point.  The "S" format is for
-std::string, but it only supports libstdc++ library as of yet.  Finally,
-the "p" format is for function pointer. Once the target address is recorded,
-it will be displayed as function name.
+"d" 형식 혹은 아무 형식도 주지 않을 경우, uftrace는 정수형은 'long int'형으로 
+간주하고 소수형에 대해서는 'double'형으로 간주한다.
 
-Please beware when using string type arguments since it can crash the program
-if the (pointer) value is invalid.  Actually uftrace tries to keep track of
-valid ranges of process address space but it might miss some corner cases.
+"i" 형식은 signed 정수형으로, "u" 형식은 unsinged으로 출력한다.
+두 형식 모두 10진수가 출력되는 한편 "x" 형식은 16진수로 출력되게 한다.
+"s"는 null을 제외한 문자열 출력을 위한 형식이고, "c"는 단일 문자를 위한 형식이다.
+"f" 형식은 부동 소수점을 출력하는데, (일반적으로) 리턴 값에서만 의미를 가진다. 
 
-It is also possible to specify a certain register name or stack offset for
-arguments (but not for return value).  The following register names can be used
-for argument:
+fpargN은 항상 소수점 방식이기 때문에 어떤 형식 필드도 없음에 유의하라.
+"S" 형식은 std::string을 위한 형식이지만, 아직까지는 libstdc++ 라이브러리만 지원가능하다.
+마지막으로, "p" 형식은 함수포인터 형식이다. 추적 대상의 주소가 레코드 되면, 언제나 함수 이름으로 
+출력된다.
+
+문자형 타입의 인자를 사용할 때 (포인터) 값이 유효하지 않을 경우 프로그램을 중단시킬 수 있음에 주의하라.
+사실 uftrace는 유효한 프로세스 주소 공간의 범위를 지속적으로 추적하려 노력하지만, 
+몇몇 코너 케이스들을 놓칠 수 있다.
+
+또한 특정 레지스터의 이름이나 스택 오프셋도 인자로 명시할 수 있다 (리턴 값은 불가하다). 
+이하 레지스터 이름들이 인자로 쓰일 수 있는 레지스터 이름들이다:
 
  * x86: rdi, rsi, rdx, rcx, r8, r9 (for integer), xmm[0-7] (for floating-point)
  * arm: r[0-3] (for integer), s[0-15] or d[0-7] (for floating-point)
 
-Examples are below:
+예시는 아래와 같다:
 
-    $ uftrace record -A main@arg1/x -R main@retval/i32 ./abc
-    $ uftrace replay
+    $ uftrace -A main@arg1/x -R main@retval/i32 ./abc
     # DURATION    TID     FUNCTION
      138.494 us [ 1234] | __cxa_atexit();
                 [ 1234] | main(0x1) {
@@ -493,10 +484,8 @@ Examples are below:
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } = 0; /* main */
 
-    $ uftrace record -A puts@arg1/s -R puts@retval ./hello
+    $ uftrace -A puts@arg1/s -R puts@retval ./hello
     Hello world
-
-    $ uftrace replay
     # DURATION    TID     FUNCTION
        1.457 us [21534] | __monstartup();
        0.997 us [21534] | __cxa_atexit();
@@ -504,83 +493,70 @@ Examples are below:
        7.226 us [21534] |   puts("Hello world") = 12;
        8.708 us [21534] | } /* main */
 
-Note that these arguments and return value are recorded only if the executable
-was built with the `-pg` option.  Executables built with `-finstrument-functions`
-will ignore it except for library calls.  Recording of arguments and return
-values only works with user-level functions for now.
+이 인자들과 리턴값들은 실행파일이 `-pg`옵션으로 빌드되었을 때에만 레코드됨에 유의하라.
+`-finstrument-functions`로 만들어진 실행파일들은 라이브러리 호출을 제외하고는 무시된다.
+인자와 리턴값의 레코드는 아직까진 사용자 정의 함수에서만 동작한다.
 
-If the target program is built with debug info like DWARF, uftrace can identify
-number of arguments and their types automatically (when built with libdw).
-Also arguments and return value of some well-known library functions are
-provided even if the debug info is not available.  In these cases user don't
-need to specify spec of the arguments and return value manually - just a
-function name (or pattern) is enough.  In fact, manual argspec will suppress
-the automatic argspec.
+만일 프로그램이 DWARF와 같은 디버그 정보와 함께 빌드되었다면, uftrace는 (libdw로 빌드되었다면) 자동으로  
+인자들의 갯수와 자료형들을 식별할 수 있다. 또한 디버그 정보를 사용하지 않더라도, 몇몇 잘 알려진 
+라이브러리 함수들의 인자들과 리턴값은 기본적으로 제공된다. 
+이 경우 사용자는 인자들의 spec과 리턴값을 수동적으로 명시할 필요가 없다 - 그저 함수의 이름 (또는 패턴) 만 
+주는 것으로도 충분하다. 사실, 명시적으로 argspec 을 지정하면 자동 argspec을 표시되지 않게 한다. 
 
-For example, the above example can be written like below:
+예를 들어, 위 예시는 아래와 같이 작성할 수 있다.
 
-    $ uftrace record -A . -R main ./hello
+    $ uftrace -A . -R main -F main ./hello
     Hello world
-
-    $ uftrace replay -F main
     # DURATION     TID     FUNCTION
                 [ 18948] | main(1, 0x7ffeeb7590b8) {
        7.183 us [ 18948] |   puts("Hello world");
        9.832 us [ 18948] | } = 0; /* main */
 
-Note that argument pattern (".") matches to any character so it recorded
-all (supported) functions.  It shows two arguments for "main" and a single
-string argument for "puts".  If you simply want to see all arguments and
-return values of every functions (if supported), use -a/\--auto-args option.
+인자 패턴 (".")은 모든 문자에 대응되기 때문에 모든 (지원되는) 함수들이 레코드 되었음에 유의하라.
+"main"함수의 두 인자들과 "puts"의 한 문자열 인자를 보여준다.
+만일 모든 (지원되는) 함수의 모든 인자들과 리턴값들을 보고 싶다면, -a/\--auto-args 옵션을 사용하라.
 
 
-DYNAMIC TRACING
+동적 추적
 ===============
-The uftrace tool supports dynamic function tracing which can be enabled at
-runtime (load-time, to be precise) on x86_64.  Before recording functions,
-normally you need to build the target program with `-pg` (or
-`-finstrument-functions`), then it has some performance impact because all
-funtions call `mcount()`.
+uftrace는 x86_64, AArch64환경의 런타임 (정확하게는, 로드타임) 에서 동적인 함수 추적이 가능하다.
+함수를 레코드하기 전에, 보통 프로그램을 `-pg` (혹은
+`-finstrument-functions`으로) 빌드해야 하고, 그렇게 된다면 모든 함수들이 `mcount()`를
+호출하기 때문에 어느 정도 성능에 영향을 받게 될 것이다.
 
-With dynamic tracing, you can trace specific functions only given by the
-`-P`/`--patch` option.  With capstone disassembly engine you even don't need to
-(re)compile the target with the option above.  Now uftrace can analyze the
-instructions and (if possible) it can copy them to a different place and rewrite
-it to call `mcount()` function) so that it can be traced by uftrace.  After that
-the control is passed to the copied instructions and then returned back to the
-remaining instructions.
+동적인 추적을 할 때, `-P`/`--patch` 옵션을 통해 특정 함수만을 추적할 수 있다.
+capstone disassembly engine을 사용한다면 위 옵션을 지정해서 프로그램을 (재)컴파일할 필요가 없다.
 
-If the capstone is not available, you need to add some more compiler (gcc)
-options when building the target program.  The gcc 5.1 or more recent versions
-provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
-(i.e.  calling `mcount()` function) at the very beginning of a function and
-convert the instruction to a NOP.  Then it has almost zero performance overhead
-when running in a normal condition.  The uftrace can selectively convert it
-back to call `mcount()` using `-P` option.
+이제 uftrace는 명령어들을 분석할 수 있게 되고 (만약 가능하다면) 그 명령어들을 
+다른 곳에 복사하여 `mcount()`함수들을 호출하여 uftrace로 추적할 수 있게 rewrite 할 수 있다.
+그 이후 제어권은 복사된 명령어로 넘어가게 되고, 그 다음에야 남은 명령어들로 리턴하게 된다.
 
-The following example shows an error message when normally running uftrace.
-Because the binary doesn't call any instrumentation code (i.e. 'mcount').
+capstone을 사용할 수 없다면, 프로그램을 빌드할 때 몇몇 컴파일러 (gcc) 옵션들을 추가해야 할 것이다.
+gcc 5.1 버전 이상부터 `-mfentry`와 `-mnop-mcount`옵션을 제공하는데 
+이 옵션들은 함수 맨 앞에 인스트루먼테이션 (이를테면, `mcount()` 함수를 호출하는) 코드를 추가하고 
+그 명령어를 NOP로 변환한다. 그렇게 되면 정상적인 조건에서 실행한다면 성능 상의 오버헤드가 거의 없어질 것이다.
+uftrace는 `-P`옵션을 이용하여 선택적으로 `mcount()`함수를 호출할 수 있게 전환할 수 있다.
 
-    $ gcc -o abc tests/s-abc.c
+uftrace를 이하 예제에서 평소처럼 사용한다면 에러 메세지를 띄운다.
+그 이유는 바이너리가 어떤 인스트루먼테이션 코드 (이를테면 `mcount()`함수)도 호출하지 않기 때문이다.
+
+    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
     $ uftrace abc
     uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
       ERROR: Can't find 'mcount' symbol in the 'abc'.
              It seems not to be compiled with -pg or -finstrument-functions flag
              which generates traceable code.  Please check your binary file.
 
-But when the `-P a` patch option is used, and then only it can dynamically
-trace `a()`.
+하지만 `-P a` 패치 옵션을 적용한다면, 동적으로 `a()` 함수만을 추적할 것이다. 
 
-    $ uftrace record --no-libcall -P a abc
-    $ uftrace replay
+    $ uftrace --no-libcall -P a abc
     # DURATION    TID     FUNCTION
        0.923 us [19379] | a();
 
-In addition, you can enable all functions using '.' (for glob, '*') that
-matches to any character in a regex pattern with `P` option.
+추가로, '.'을 이용해 (glob은, '*') `P`옵션과 함께 정규표현식으로 쓰인 문자에 대해  
+하나라도 매칭되는 모든 함수들에 대해서도 적용시킬 수 있다.
 
-    $ uftrace record --no-libcall -P . abc
-    $ uftrace replay
+    $ uftrace --no-libcall -P . abc
     # DURATION    TID     FUNCTION
                 [19387] | main() {
                 [19387] |   a() {
@@ -590,24 +566,21 @@ matches to any character in a regex pattern with `P` option.
        2.451 us [19387] |   } /* a */
        3.289 us [19387] | } /* main */
 
-Clang/LLVM 4.0 provides a dynamic instrumentation technique called
-[X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
-`gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
-supports dynamic tracing on the excutables built with the `X-ray`.
+Clang/LLVM 4.0은 [X-ray](http://llvm.org/docs/XRay.html)라는 동적인 인스트루먼테이션 기술을 제공한다.
+이는 `gcc -mfentry -mnop-mcount`와 `-finstrument-functions`를 결합한 것과도 유사하다.
+uftrace는 `X-ray`로 빌드된 실행파일에 대해서도 동적인 추적을 지원한다.
 
-For example, you can build the target program by clang with the below option
-and equally use `-P` option for dynamic tracing like below:
+예를 들어, 대상 프로그램을 clang으로 아래의 옵션으로 빌드할 수도 있지만,
+그와 동일하게 동적인 추적을 위해 아래와 같이 `-P`옵션을 사용할 수도 있을 것이다:
 
     $ clang -fxray-instrument -fxray-instruction-threshold=1 -o abc-xray  tests/s-abc.c
-    $ uftrace record -P main abc-xray
-    $ uftrace replay
+    $ uftrace -P main abc-xray
     # DURATION    TID     FUNCTION
                 [11093] | main() {
        1.659 us [11093] |   getpid();
        5.963 us [11093] | } /* main */
 
-    $ uftrace record -P . abc-xray
-    $ uftrace replay
+    $ uftrace -P . abc-xray
     # DURATION    TID     FUNCTION
                 [11098] | main() {
                 [11098] |   a() {
@@ -620,15 +593,14 @@ and equally use `-P` option for dynamic tracing like below:
        3.005 us [11098] | } /* main */
 
 
-SCRIPT EXECUTION
+스크립트 실행
 ================
-The uftrace tool supports script execution for each function entry and exit.
-The supported script is only Python 2.7 as of now.
+uftrace는 함수의 진입과 종료를 보여주는 스크립트 실행을 지원한다.
+지원되는 스크립트는 아직까지는 Python 2.7 뿐이다.
 
-The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are
-executed whenever each function is executed at the entry and exit.  However
-'uftrace_begin' and 'uftrace_end' are only executed once when the target program
-begins and ends.
+사용자는 네 개의 함수를 쓸 수 있다. 'uftrace_entry'와 'uftracce_exit'은 
+각 함수가 진입과 종료시기에서 실행 중이라면 언제든 실행된다.
+하지만 'uftrace_begin'과 'uftrace_end'는 분석 대상 프로그램이 시작되고 끝날 때 한 번씩만 실행된다.
 
     $ cat scripts/simple.py
     def uftrace_begin(ctx):
@@ -645,9 +617,9 @@ begins and ends.
     def uftrace_end():
         print("program is finished")
 
-The above script can be executed in record time as follows:
+위 스크립트는 아래와 같이 레코드 시간 순으로 실행될 수 있다:
 
-    $ uftrace record -S scripts/simple.py -F main tests/t-abc
+    $ uftrace -S scripts/simple.py -F main tests/t-abc
     program begins...
     entry : main()
     entry : a()
@@ -660,8 +632,18 @@ The above script can be executed in record time as follows:
     exit  : a()
     exit  : main()
     program is finished
+    # DURATION    TID     FUNCTION
+                [10929] | main() {
+                [10929] |   a() {
+                [10929] |     b() {
+                [10929] |       c() {
+       4.293 us [10929] |         getpid();
+      19.017 us [10929] |       } /* c */
+      27.710 us [10929] |     } /* b */
+      37.007 us [10929] |   } /* a */
+      55.260 us [10929] | } /* main */
 
-The 'ctx' variable is a dictionary type that contains the below information.
+'ctx'변수는 아래의 정보를 포함하는 딕셔너리 변수이다.
 
     /* context information passed to uftrace_entry(ctx) and uftrace_exit(ctx) */
     script_context = {
@@ -682,21 +664,20 @@ The 'ctx' variable is a dictionary type that contains the below information.
         list      cmds;        # execution commands
     };
 
-Each field in 'script_context' can be read inside the script.
-Please see `uftrace-script`(1) for details about scripting.
+'script_context'에 있는 각 필드들은 스크립트 내에서 읽을 수 있다.
+스크립팅에 대한 자세한 사항은 `uftrace-script`(1)를 참고할 것.
 
 
-WATCH POINT
+조사식
 ===========
-The uftrace watch point is to display certain value only if it's changed.
-It's conceptually same as debugger's but only works at function entry and exit
-so it might miss some updates.
+uftrace의 watch point는 특정 값의 변경사항을 출력한다. 개념적으로는 디버거의 watch point와 같지만,
+함수의 진입과 종료에만 적용되기 때문에 몇몇 변경사항들은 놓칠 수도 있다.
 
-As of now, following watch points are supported:
+아직까지는, 아래의 watch point들이 지원된다:
 
- * "cpu" : cpu number current task is running on
+ * "cpu" : 현재 작업을 수행하는 cpu 번호
 
-Like read triggers, the result is displayed as event (comment):
+트리거를 읽을 때처럼, 결과는 이벤트로서 (주석으로) 출력된다:
 
     $ uftrace -W cpu tests/t-abc
     # DURATION     TID     FUNCTION
@@ -712,6 +693,11 @@ Like read triggers, the result is displayed as event (comment):
       12.479 us [ 19060] | } /* main */
 
 
-SEE ALSO
+함께 보기
 ========
 `uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui`(1)
+
+
+번역자
+======
+강민철 <tegongkang@gmail.com>
