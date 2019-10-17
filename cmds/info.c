@@ -209,7 +209,8 @@ static int fill_cmdline(void *arg)
 	struct fill_handler_arg *fha = arg;
 	char *buf = fha->buf;
 	FILE *fp;
-	int ret, i;
+	size_t ret;
+	int i;
 	char *p;
 
 	fp = fopen("/proc/self/cmdline", "r");
@@ -219,7 +220,7 @@ static int fill_cmdline(void *arg)
 	ret = fread(buf, 1, sizeof(fha->buf), fp);
 	fclose(fp);
 
-	if (ret < 0)
+	if (ret != sizeof(fha->buf))
 		return ret;
 
 	/* cmdline separated by NUL character - convert to space */
