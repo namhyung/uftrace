@@ -382,7 +382,7 @@ void print_diff_count(unsigned long base, unsigned long pair)
 
 	if (out_color == COLOR_ON) {
 		sc = diff_colors[sign_idx];
- 		ec = TERM_COLOR_RESET;
+		ec = TERM_COLOR_RESET;
 	}
 
 	pr_out("%s%+9ld%s", sc, diff, ec);

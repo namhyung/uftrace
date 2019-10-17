@@ -39,9 +39,9 @@ struct perf_comm_event {
 	 * type: PERF_RECORD_COMM (3)
 	 */
 	uint32_t		 pid, tid;
-        /* variable length (aligned to 8) */
+	/* variable length (aligned to 8) */
 	char			 comm[COMM_LEN];
-        /* needs to be read separately */
+	/* needs to be read separately */
 	struct sample_id	 sample_id;
 };
 

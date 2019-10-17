@@ -335,7 +335,7 @@ void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
 
 	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
 	fprintf(fp, "SESS timestamp=%s pid=%d sid=%s exename=\"%s\"\n",
-	        ts, smsg->task.pid, smsg->sid, exename);
+		ts, smsg->task.pid, smsg->sid, exename);
 
 	fclose(fp);
 	free(fname);
