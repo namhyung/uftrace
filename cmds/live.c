@@ -104,22 +104,30 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	};
 	int ret;
 
+	tmp_dirname = template;
 	umask(022);
 	fd = mkstemp(template);
-	if (fd < 0)
-		pr_err("cannot create temp name");
+	if (fd < 0) {
+		if (errno != EPERM)
+			pr_err("cannot access to /tmp");
+
+		fd = mkstemp(template + sizeof("/tmp/") - 1);
+
+		if (fd < 0)
+			pr_err("cannot create temp name");
+		tmp_dirname += sizeof("/tmp/") - 1;
+	}
 
 	close(fd);
-	unlink(template);
+	unlink(tmp_dirname);
 
-	tmp_dirname = template;
 	atexit(cleanup_tempdir);
 
 	sa.sa_handler = sigsegv_handler;
 	sigfillset(&sa.sa_mask);
 	sigaction(SIGSEGV, &sa, NULL);
 
-	opts->dirname = template;
+	opts->dirname = tmp_dirname;
 
 	if (opts->list_event) {
 		if (geteuid() == 0)
