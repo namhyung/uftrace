@@ -1237,7 +1237,7 @@ int save_kernel_symbol(char *dirname)
 	while ((len = fread(buf, 1, sizeof(buf), ifp)) > 0)
 		fwrite(buf, 1, len, ofp);
 
-	if (len < 0)
+	if (len != sizeof(buf))
 		ret = len;
 
 	fclose(ifp);
