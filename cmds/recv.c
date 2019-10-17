@@ -96,7 +96,7 @@ int setup_client_socket(struct opts *opts)
 
 	addr.sin_addr = *(struct in_addr *) hostinfo->h_addr;
 
-	if (connect(sock, &addr, sizeof(addr)) < 0)
+	if (connect(sock, (const struct sockaddr *)&addr, sizeof(addr)) < 0)
 		pr_err("socket connect failed");
 
 	return sock;
@@ -534,7 +534,7 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	socklen_t len = sizeof(addr);
 	char hbuf[NI_MAXHOST];
 
-	client = accept(sock, &addr, &len);
+	client = accept(sock, (struct sockaddr *)&addr, &len);
 	if (client < 0)
 		pr_err("socket accept failed");
 
