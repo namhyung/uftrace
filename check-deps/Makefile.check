@@ -57,3 +57,15 @@ endif
 ifneq ($(wildcard $(srcdir)/check-deps/have_posix_shm),)
   COMMON_CFLAGS  += -DHAVE_POSIX_SHM
 endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_strcoll),)
+  COMMON_CFLAGS  += -DHAVE_STRCOLL
+endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_strverscmp),)
+  COMMON_CFLAGS  += -DHAVE_STRVERSCMP
+endif
+
+ifneq ($(wildcard $(srcdir)/check-deps/have_versionsort),)
+  COMMON_CFLAGS  += -DHAVE_VERSIONSORT
+endif

@@ -22,6 +22,7 @@
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
+#include "utils/gnu.h"
 #include "utils/rbtree.h"
 #include "utils/kernel.h"
 #include "libtraceevent/kbuffer.h"

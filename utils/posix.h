@@ -44,4 +44,10 @@ static inline int shm_unlink(const char *file)
 }
 #endif
 
+#ifndef HAVE_STRCOLL
+static inline int strcoll(const char *a, const char *b) {
+	return strcmp(a, b);
+}
+#endif
+
 #endif /* POSIX_H */
