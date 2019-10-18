@@ -9,23 +9,23 @@ uftrace-dump - 기록된 데이터를 다양한 형식으로 출력한다.
 
 사용법
 ======
-uftrace dump [*옵션*]
+uftrace dump [*options*]
 
 
 설명
 ====
 데이터 파일에 기록된 데이터를 보여주는 명령어이다. 출력 형식은
---chrome, --flame-graph 또는 --graphviz와 같은 옵션으로 설정할 수 있다.
+--chrome, --flame-graph 또는 --graphviz 와 같은 옵션으로 설정할 수 있다.
 
 
-덤프 옵션
+DUMP 옵션
 =========
 \--chrome
 :   구글 크롬 추적 기능에서 사용되는 JSON 형식의 결과물을 표시한다.
 
 \--flame-graph
-:   최신 웹 브라우저에서 볼 수 있는 FlameGraph 형식으로 표시한다. (FlameGraph
-    툴로 처리 필요)
+:   최신 웹 브라우저에서 볼 수 있는 FlameGraph 형식으로 표시한다.
+    (FlameGraph 툴로 처리 필요)
 
 \--graphviz
 :   Graphviz 툴킷에서 사용되는 DOT 형식의 결과물을 표시한다.
@@ -115,7 +115,7 @@ uftrace dump [*옵션*]
 
 예제
 ====
-이 명령어는 아래와 같이 데이터를 보여준다:
+이 명령어는 아래와 같은 결과를 출력한다.
 
     $ uftrace record abc
 
@@ -184,6 +184,7 @@ uftrace dump [*옵션*]
 함께 보기
 =========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1)
+
 
 번역자
 ======
