@@ -27,7 +27,7 @@ case $distro in
 	pacman $OPT -S capstone ;;
     "alpine")
         apk $OPT add elfutils-dev python2-dev ncurses-dev pkgconf
-        apk $OPT add capstone-dev
+        apk $OPT add capstone-dev ;;
     *) # we can add more install command for each distros.
         echo "\"$distro\" is not supported distro, so please install packages manually." ;;
 esac
