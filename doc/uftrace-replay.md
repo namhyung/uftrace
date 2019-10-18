@@ -196,8 +196,8 @@ If users only care about specific functions and want to know how they are called
 one can use the caller filter.  It makes the function as leaf and prints the
 parent functions to the function.
 
-    $ uftrace record -C b ./abc
-    $ uftrace replay
+    $ uftrace record ./abc
+    $ uftrace replay -C b
     # DURATION    TID     FUNCTION
                 [ 1234] | main() {
                 [ 1234] |   a() {
@@ -309,7 +309,7 @@ The following example shows how triggers work.  We set a filter on function
     # DURATION    TID     FUNCTION
       backtrace [ 1234] | /* [ 0] main */
       backtrace [ 1234] | /* [ 1] a */
-                [ 1234] | b {
+                [ 1234] | b() {
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
