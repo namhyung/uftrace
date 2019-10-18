@@ -2157,6 +2157,7 @@ static int __read_rstack(struct uftrace_data *handle,
 		if (task->rstack->addr == EVENT_ID_PERF_COMM) {
 			task->rstack->more = 1;
 			/* abuse task->args to save comm */
+			free(task->args.data);
 			task->args.data = xstrdup(perf->u.comm.comm);
 			task->args.len  = strlen(perf->u.comm.comm);
 		}
