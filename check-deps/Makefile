@@ -10,6 +10,9 @@ CHECK_LIST += arm_has_hardfp
 CHECK_LIST += have_libncurses
 CHECK_LIST += have_libdw
 CHECK_LIST += have_libcapstone
+CHECK_LIST += have_strcoll
+CHECK_LIST += have_strverscmp
+CHECK_LIST += have_versionsort
 
 #
 # This is needed for checking build dependency
