@@ -45,9 +45,10 @@ data from remote client.
     $ uftrace record -H localhost -d example_data --port 1234 example
 
 Above command sends the trace data to a remote server that pointed by given
--H option (`localhost` in this case) after running the example program.  And
-as you see, you can choose save directory by using `-d` option (sending data
-will save to `example_data` in this case).
+-H option (`localhost` in this case) after running the example program.  
+And as you see, you can choose save directory by using `-d` option (sending data
+will save to `example_data` in this case) and wait for the reception of trace data 
+with port `1234`.
 
     # HOST : Check received data
     $ uftrace replay -d recv_data/example_data
