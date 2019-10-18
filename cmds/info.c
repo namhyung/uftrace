@@ -209,7 +209,8 @@ static int fill_cmdline(void *arg)
 	struct fill_handler_arg *fha = arg;
 	char *buf = fha->buf;
 	FILE *fp;
-	size_t ret;
+	int err;
+	int ret;
 	int i;
 	char *p;
 
@@ -218,10 +219,11 @@ static int fill_cmdline(void *arg)
 		return -1;
 
 	ret = fread(buf, 1, sizeof(fha->buf), fp);
+	err = ferror(fp);
 	fclose(fp);
 
-	if (ret != sizeof(fha->buf))
-		return ret;
+	if (!ret && err)
+		return -1;
 
 	/* cmdline separated by NUL character - convert to space */
 	for (i = 0, p = buf; i < ret; i++, p++) {
