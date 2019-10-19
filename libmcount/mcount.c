@@ -1000,7 +1000,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 			 * Flush existing rstack when mcount_enabled is off
 			 * (i.e. disabled).  Note that changing to enabled is
 			 * already handled in record_trace_data() on exit path
-			 * using the MCOUNT_FL_DISALBED flag.
+			 * using the MCOUNT_FL_DISABLED flag.
 			 */
 			if (unlikely(mtdp->enable_cached))
 				record_trace_data(mtdp, rstack, NULL);
@@ -1268,7 +1268,7 @@ static unsigned long __mcount_exit(long *retval)
 	assert(!mtdp->dead);
 
 	/*
-	 * it's only called when mcount_entry() was succeeded
+	 * it's only called when mcount_entry() was succeeded and
 	 * no need to check recursion here.  But still needs to
 	 * prevent recursion during this call.
 	 */
@@ -1292,8 +1292,8 @@ static unsigned long __mcount_exit(long *retval)
 		mtd_dtor(mtdp);
 		/*
 		 * mtd_dtor() will free rstack but current ret_addr
-		 * might be plthook_return() when it was a tailcall.
-		 * reload the return address after mtd_dtor() restored
+		 * might be plthook_return() when it was a tail call.
+		 * Reload the return address after mtd_dtor() restored
 		 * all the parent locations.
 		 */
 		retaddr = *ret_loc;
@@ -1415,7 +1415,7 @@ static void __cygprof_exit(unsigned long parent, unsigned long child)
 
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
-	 * it cannot use mcount_check_rstack() here
+	 * It cannot use mcount_check_rstack() here
 	 * since we didn't decrease the idx yet.
 	 */
 	if (mtdp->idx > mcount_rstack_max)
@@ -1533,7 +1533,7 @@ static void _xray_exit(long *retval)
 
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
-	 * it cannot use mcount_check_rstack() here
+	 * It cannot use mcount_check_rstack() here
 	 * since we didn't decrease the idx yet.
 	 */
 	if (mtdp->idx > mcount_rstack_max)
