@@ -227,7 +227,7 @@ static int fill_cmdline(void *arg)
 
 	/* cmdline separated by NUL character - convert to space */
 	for (i = 0, p = buf; i < ret; i++, p++) {
-		if (*p == '\0')
+		if (*p == '\0' || *p == '\n')
 			*p = ' ';
 	}
 
