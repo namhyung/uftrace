@@ -2,119 +2,122 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace - Function graph tracer for userspace
+uftrace - 프로그램 함수 호출 분석 도구
 
 
-SYNOPSIS
-========
+사용법
+======
 uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*|*tui*] [*options*] COMMAND [*command-options*]
 
 
-DESCRIPTION
-===========
-The uftrace tool is a function tracer that traces the execution of given
-`COMMAND` at the function level.  `COMMAND` should be a C or C++ executable
-built with compiler instrumentation (`-pg` or `-finstrument-functions`).
-COMMAND needs to have an ELF symbol table (i.e. not be `strip`(1)-ed) in order
-for the names of traced functions to be available.
+설명
+====
+uftrace 는 `COMMAND` 에 주어지는 프로그램의 실행을 함수 단위로 추적(trace)하는
+분석 도구이다.  `COMMAND` 에 주어지는 프로그램은 `-pg` 또는 `-finstrument-function`
+로 컴파일된 C 또는 C++ 프로그램이다.
+COMMAND 의 대상이 되는 실행 이미지는 이름을 읽을 수 있도록 (스트립 되지 않은)
+ELF 심볼 테이블을 필요로 한다.
 
-The uftrace command consists of a number of sub-commands, in the manner of
-`git`(1) or `perf`(1).  Below is a short description of each sub-command.
-For more detailed information, see the respective manual pages.  The options
-in this page can be given to any sub-command also.
+uftrace 는 `git`(1) 또는 `perf`(1) 와 같은 방식으로 다수의 보조 명령어들을 갖는다.
+아래에 보조 명령어과 함께 간략한 설명이 있다.  더 자세한 정보를 위해서는 각 보조
+명령어들의 메뉴얼 페이지를 참조할 수 있다.  또한, 이 페이지에 있는 옵션들은 다른
+보조 명령어들과 함께 사용될 수 있다.
 
-For convenience, if no sub-command is given, uftrace acts as though the `live`
-sub-command was specified, which runs the `record` and `replay` sub-commands in
-turn.  See `uftrace-live`(1) for options belonging to the `live` sub-command.
-For more detailed analysis, it is better to use `uftrace-record`(1) to save
-trace data, and then analyze it with other uftrace commands like
+만약 보조 명령어를 명시적으로 입력하지 않으면, uftrace 는 record 와 replay 를
+한번에 수행하는 `live` 보조 명령어로 동작한다.
+live 명령어의 옵션들은 `uftrace-live`(1) 에서 참조할 수 있다.
+더 자세한 분석을 위해, `uftrace-record`(1) 를 통해 데이터를 기록하고,
 `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1),
-`uftrace-script`(1) or `uftrace-tui`(1).
+`uftrace-script`(1), `uftrace-tui`(1) 중에 하나를 사용하여 분석할 수 있다.
 
 
-SUB-COMMANDS
+보조 명령어
 ============
 record
-:   Run a given command and save trace data in a data file or directory.
+:   명령어를 실행하고 데이터를 파일이나 디렉터리에 저장한다.
 
 replay
-:   Print recorded function trace data with time durations.
+:   저장된 함수를 시간정보와 함께 출력한다.
 
 live
-:   Do live tracing.  Print function trace of the given command.
+:   실시간 추적을 하고, 실행되는 함수를 출력한다.
 
 report
-:   Print various statistics and summary of the recorded trace data.
+:   다양한 통계와 저장된 데이터를 요약하여 출력한다.
 
 info
-:   Print side-band information like OS version, CPU info, command line and so on.
+:   OS 버전, cpu 정보, 라인 수 등의 추가적인 정보를 출력한다.
 
 dump
-:   Print raw tracing data in the data files.
+:   데이터 파일에 있는 저수준 데이터를 출력한다.
 
 recv
-:   Save tracing data sent to network
+:   네트워크로 보내진 데이터를 저장한다.
 
 graph
-:   Print function call graph
+:   함수 호출 그래프를 출력한다.
 
 script
-:   Run a script for recorded function trace
+:   저장된 함수 스크립트를 실행한다.
 
 tui
-:   Show text user interface for graph and report
+:   graph 와 report 를 볼 수 있는 텍스트 형식의 사용자 인터페이스를 보여준다.
 
 
-OPTIONS
-=======
+옵션
+====
 -?, \--help
-:   Print help message and list of options with description
+:   사용법을 옵션 리스트로 설명과 함께 출력한다.
 
 -h, \--help
-:   Print help message and list of options with description
+:   사용법을 옵션 리스트로 설명과 함께 출력한다.
 
 \--usage
-:   Print usage string
+:   사용법을 문자열로 출력한다.
 
 -V, \--version
-:   Print program version
+:   프로그램의 버전을 출력한다.
 
 -v, \--verbose
-:   Print verbose messages.  This option increases a debug level and can be
-    used at most 3 times.
+:   세부적인 메시지를 출력한다. 이 옵션은 디버그 레벨을 3 까지 올릴 수 있다.
 
 \--debug
-:   Print debug messages.  This option is same as `-v`/`--verbose` and is
-    provided only for backward compatibility.
+:   디버그 메시지를 출력한다. 이 옵션은 `-v'/ `--verbose`와 같으며 하위 호환성을
+    위해서만 존재한다.
 
 \--debug-domain=*DOMAIN*[,*DOMAIN*, ...]
-:   Limit the printing of debug messages to those belonging to one of the
-    DOMAINs specified.  Available domains are: uftrace, symbol, demangle,
-    filter, fstack, session, kernel, mcount, dynamic, event, script and dwarf.
-    The domains can have an their own debug level optionally (preceded by a
-    colon).  For example, `-v --debug-domain=filter:2` will apply debug level
-    of 2 to the "filter" domain and apply debug level of 1 to others.
+:   디버그 메시지출력을 도메인으로 한정한다. 가능한 도메인들은 uftrace, symbol,
+    demangle, filter, fstack, session, kernel, mcount, dynamic, event, script
+    그리고 dwarf 가 있다.
+    위의 도메인들은 콜론을 이용해 선택적으로 각각의 도메인 레벨을 지정할 수 있다.
+    예를 들어, `-v --debug-domain=filter:2` 는 filter 옵션에 디버깅 레벨을 지정하고,
+    다른 도메인은 디버그 레벨을 1 로 지정한다.
 
 -d *DATA*, \--data=*DATA*
-:   Specify name of trace data (directory).  Default is `uftrace.data`.
+:   데이터를 저장할 디렉터리의 이름을 정한다. 기본값은 `uftrace.data` 이다.
 
 \--logfile=*FILE*
-:   Save warning and debug messages into this file instead of stderr.
+:   경고와 디버그 메시지를 stderr 을 대신해 *FILE* 안에 저장한다.
 
 \--color=*VAL*
-:   Enable or disable color on the output.  Possible values are
-    "yes"(= "true" | "1" | "on" ), "no"(= "false" | "0" | "off" ) and "auto".
-    The "auto" value is default and turns on coloring if stdout is a terminal.
+:   결과에 색을 지정하거나 지정하지 않는다. 가능한 값은
+    "yes"(= "true" | "1" | "on" ), "no"(= "false" | "0" | "off" ) 와 "auto" 이다.
+    "auto" 는 출력이 터미널인 경우 기본적으로 색을 지정한다.
 
 \--no-pager
-:   Do not use a pager.
+:   pager 기능을 사용하지 않는다.
 
 \--opt-file=*FILE*
-:   Read command-line options from the FILE.
+:   uftrace 실행에 사용하는 옵션을 파일에서 읽어서 적용한다.
 
 
-SEE ALSO
+함께 보기
 ========
 `uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui(1)`
+
+
+번역자
+======
+류준호 <ruujoon93@gmail.com>
