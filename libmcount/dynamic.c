@@ -106,7 +106,9 @@ void mcount_save_code(struct mcount_disasm_info *info,
 		/* it needs to save original instructions as well */
 		int orig_size = ALIGN(info->orig_size, 16);
 		int copy_size = ALIGN(info->copy_size + jmp_size, 16);
-		patch_size = ALIGN(copy_size + orig_size, 32);
+		int table_size = mcount_arch_branch_table_size(info);
+
+		patch_size = ALIGN(copy_size + orig_size + table_size, 32);
 	}
 	else {
 		patch_size = ALIGN(info->copy_size + jmp_size, 32);
@@ -146,6 +148,8 @@ void mcount_save_code(struct mcount_disasm_info *info,
 		/* save original instructions before modification */
 		orig->orig = orig->insn + patch_size - ALIGN(info->orig_size, 16);
 		memcpy(orig->orig, (void *)info->addr, info->orig_size);
+
+		mcount_arch_patch_branch(info, orig);
 	}
 
 	memcpy(orig->insn, info->insns, info->copy_size);
@@ -245,6 +249,15 @@ __weak void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 }
 
 __weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
+{
+}
+
+__weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
+{
+	return 0;
+}
+
+__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_orig_insn *orig)
 {
 }
 
