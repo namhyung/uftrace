@@ -580,26 +580,14 @@ void get_argspec_string(struct uftrace_task_reader *task,
 		if (spec->fmt == ARG_FMT_STR ||
 		    spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short slen;
-			unsigned short newline = 0;
-			char last_ch;
 
 			memcpy(&slen, data, 2);
 
-			last_ch = *((char *)data + slen + 1);
-			if (last_ch == '\n')
-				newline = 1;
-
-			str = xmalloc(slen + newline + 1);
+			str = xmalloc(slen + 1);
 			memcpy(str, data + 2, slen);
 			str[slen] = '\0';
 
-			if (newline) {
-				str[slen - 1] = '\\';
-				str[slen]     = 'n';
-				str[slen + 1] = '\0';
-			}
-
-			if (!memcmp(str, &null_str, sizeof(null_str)))
+			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
 				print_args("NULL");
 			else if (needs_json) {
 				char *p = str;
@@ -626,7 +614,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				* then it will be UTF-8 string
 				*/
 				if (*p) {
-					print_args("%.*s", slen + newline, str);
+					print_args("%.*s", slen, str);
 				}
 				else {
 					p = str;
