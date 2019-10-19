@@ -340,17 +340,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 	struct uftrace_arg_spec *spec;
 	void *data = sc_ctx->argbuf;
 	PyObject *args;
-	union {
-		char          c;
-		short         s;
-		int           i;
-		long          l;
-		long long     L;
-		float         f;
-		double        d;
-		long double   D;
-		unsigned char v[16];
-	} val;
+	union script_arg_val val;
 	int count = 0;
 
 	list_for_each_entry(spec, sc_ctx->argspec, list) {

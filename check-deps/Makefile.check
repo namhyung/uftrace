@@ -19,6 +19,11 @@ ifneq ($(wildcard $(srcdir)/check-deps/have_libpython2.7),)
   COMMON_CFLAGS += -DHAVE_LIBPYTHON2
 endif
 
+ifneq ($(wildcard $(srcdir)/check-deps/have_libluajit),)
+  COMMON_CFLAGS += -DHAVE_LIBLUAJIT
+  COMMON_CFLAGS += $(shell pkg-config --cflags luajit)
+endif
+
 ifneq ($(wildcard $(srcdir)/check-deps/perf_clockid),)
   COMMON_CFLAGS += -DHAVE_PERF_CLOCKID
 endif

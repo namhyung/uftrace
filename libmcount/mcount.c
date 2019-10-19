@@ -1813,6 +1813,7 @@ static void mcount_cleanup(void)
 
 	if (SCRIPT_ENABLED && script_str)
 		script_finish();
+	script_str = NULL;
 
 	unload_module_symtabs();
 

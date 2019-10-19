@@ -10,12 +10,17 @@
 
 #include "libmcount/mcount.h"
 #include "utils/script-python.h"
+#include "utils/script-luajit.h"
 #include "utils/utils.h"
+
+#define SCRIPT_ENABLED (SCRIPT_LUAJIT_ENABLED || SCRIPT_PYTHON_ENABLED)
 
 /* script type */
 enum script_type_t {
 	SCRIPT_UNKNOWN = 0,
-	SCRIPT_PYTHON
+	SCRIPT_PYTHON,
+	SCRIPT_LUAJIT,
+	SCRIPT_TYPE_COUNT
 };
 
 /* informantion passed during initialization */
@@ -40,6 +45,18 @@ struct script_context {
 	struct list_head	*argspec;
 };
 
+union script_arg_val {
+	char          c;
+	short         s;
+	int           i;
+	long          l;
+	long long     L;
+	float         f;
+	double        d;
+	long double   D;
+	unsigned char v[16];
+};
+
 extern char *script_str;
 
 typedef int (*script_uftrace_entry_t)(struct script_context *sc_ctx);
@@ -59,5 +76,7 @@ void script_finish(void);
 void script_add_filter(char *func, enum uftrace_pattern_type ptype);
 int script_match_filter(char *func);
 void script_finish_filter(void);
+
+enum script_type_t get_script_type(const char *str);
 
 #endif /* UFTRACE_SCRIPT_H */
