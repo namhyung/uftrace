@@ -142,6 +142,7 @@ static const char *help[] = {
 	"g             Show call graph for this function",
 	"R             Show uftrace report",
 	"r             Show uftrace report for this function",
+	"s             Sort by the next column in report",
 	"I             Show uftrace info",
 	"S             Change session",
 	"O             Open editor",
@@ -158,6 +159,9 @@ static const char *help[] = {
 	"h/?           Show this help",
 	"q             Quit",
 };
+
+static const char *report_sort_key[] = { OPT_SORT_KEYS, "self", "call" };
+static int curr_sort_key = 0;
 
 static void init_colors(void)
 {
@@ -1329,8 +1333,10 @@ static bool win_search_report(struct tui_window *win, void *node, char *str)
 static void win_header_report(struct tui_window *win, struct uftrace_data *handle)
 {
 	int w = 46;
+	char header[][32] = { " Total Time", " Self Time", " Calls" };
 
-	printw("  %10s  %10s  %10s  %s", "Total Time", "Self Time", "Calls", "Function");
+	header[curr_sort_key][0] = '*';
+	printw(" %11s %11s %11s  %s", header[0], header[1], header[2], "Function");
 	if (COLS > w)
 		printw("%*s", COLS - w, "");
 }
@@ -2460,6 +2466,18 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				tui_window_move_home(win);
 				tui_window_set_middle_next(win, func);
 
+				full_redraw = true;
+			}
+			break;
+		case 's':
+			if (!tui_window_change(win, &report->win)) {
+				curr_sort_key = (curr_sort_key + 1) %
+						ARRAY_SIZE(report_sort_key);
+				report_setup_sort(report_sort_key[curr_sort_key]);
+				report_sort_nodes(&tui_report.name_tree,
+						  &tui_report.sort_tree);
+
+				tui_window_move_home(win);
 				full_redraw = true;
 			}
 			break;
