@@ -79,6 +79,94 @@ static int opnd_reg(int capstone_reg)
 }
 
 /*
+ * Handle relative conditional jumps and relative unconditional jumps.
+ *
+ * This function relocates jcc8 and jcc32 instructions by replacing them with a jcc8 
+ * that has a null offset. The offset will be patched later when the code is saved
+ * in the of line execution buffer. The new jcc8 will bounce (if condition is met)
+ * on a trampoline that jumps to the target of the orginal instruction.
+ *
+ * The relocation of jmp8 and jmp32 is achieved by replacing them with an absolute 
+ * indirect jump to the target.
+ *
+ */
+static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25,};
+	uint8_t opcode = insn->bytes[0];
+	uint64_t target;
+	struct cond_branch_info *cbi;
+
+#define JMP8_OPCODE 0xEB
+#define JMP32_OPCODE 0xE9
+#define IND_JMP_SIZE 6
+#define OP   0
+#define OFS	  1
+	cs_x86_op *opnd = &x86->operands[0];
+
+	if (x86->op_count != 1 || opnd->type != X86_OP_IMM)
+		goto out;
+
+	if ((opcode == JMP8_OPCODE || opcode == JMP32_OPCODE)) {
+		if (strcmp(insn->mnemonic, "jmp") != 0)
+			goto out;
+
+		target = opnd->imm;
+
+		memcpy(insns, relocated_insn, IND_JMP_SIZE);
+		memcpy(insns + IND_JMP_SIZE, &target, sizeof(target));
+
+		info->modified = true;
+		/* 
+		 * If this jump is the last insn in the prologue, we can ignore
+		 * the one in patch_normal_func()
+		 */
+		if (info->orig_size + insn->size >= ARCH_JMP32_SIZE)
+			info->has_jump = true;
+		return IND_JMP_SIZE + sizeof(target);
+
+	}/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
+	else if((opcode & 0xF0) == 0x70) {
+
+		cbi = &info->branch_info[info->nr_branch++];
+		cbi->insn_index = info->copy_size;
+		cbi->branch_target = opnd->imm;
+		cbi->insn_addr = insn->address;
+		cbi->insn_size = insn->size;
+
+		relocated_insn[OP] = opcode;
+		relocated_insn[OFS] = 0x00;
+
+		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+
+		info->modified = true;
+		return ARCH_JCC8_SIZE;
+
+	}/* Jump relative 32 if condition is met */
+	else if(opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
+
+		cbi = &info->branch_info[info->nr_branch++];
+		cbi->insn_index = info->copy_size;
+		cbi->branch_target = opnd->imm;
+		cbi->insn_addr = insn->address;
+		cbi->insn_size = insn->size;
+
+		/* We use the equivalent jcc8 of the original jcc32 */
+		relocated_insn[OP] = insn->bytes[1] - 0x10;
+		relocated_insn[OFS] = 0x00;
+
+		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+		
+		info->modified = true;
+		return ARCH_JCC8_SIZE;
+	}
+
+out:
+	return -1;
+}
+
+/*
  *  handle PIC code.
  *  for currently, this function targeted specific type of instruction.
  *
@@ -202,6 +290,11 @@ static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 	pr_dbg3("Manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
+	case INSTRUMENT_FAIL_RELJMP:
+		res = handle_rel_jmp(insn, insns, info);
+		if (res > 0)
+			*fail_reason = 0;
+		break;
 	case INSTRUMENT_FAIL_PICCODE:
 		res = handle_pic(insn, insns, info);
 		if (res > 0)

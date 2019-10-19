@@ -643,3 +643,71 @@ void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
 		free(badsym);
 	}
 }
+
+int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
+{
+	struct cond_branch_info *jcc_info;
+	unsigned long jcc_target;
+	int count = 0;
+	int i;
+
+	for (i = 0; i < info->nr_branch; i++) {
+		jcc_info = &info->branch_info[i];
+		jcc_target = jcc_info->branch_target;
+
+		/* no need to allocate entry for jcc that jump directly to prologue */
+		if (info->addr <= jcc_info->branch_target &&
+			jcc_target < info->addr + info->orig_size) {
+			continue;
+		}
+		count++;
+	}
+	return count * ARCH_BRANCH_ENTRY_SIZE;
+}
+
+void mcount_arch_patch_branch(struct mcount_disasm_info *info,
+					struct mcount_orig_insn *orig)
+{
+	/*
+	 * The first entry in the table starts right after the out-of-line 
+	 * execution buffer.
+	 */
+	uint64_t entry_offset = orig->insn_size;
+	uint8_t trampoline[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
+	unsigned long jcc_target;
+	unsigned long jcc_index;
+	struct cond_branch_info *jcc_info;
+	uint32_t disp;
+	int i;
+
+	for (i = 0; i < info->nr_branch; i++) {
+		jcc_info = &info->branch_info[i];
+		jcc_target = jcc_info->branch_target;
+		jcc_index = jcc_info->insn_index;
+
+		/* leave the original disp of jcc that target the prologue as it is */
+		if (info->addr <= jcc_info->branch_target &&
+			jcc_target < info->addr + info->orig_size) {
+
+			info->insns[jcc_index + 1] = jcc_target - (jcc_info->insn_addr + jcc_info->insn_size);
+			continue;
+		}
+
+		/* setup the branch entry trampoline */
+		memcpy(trampoline + JMP_INSN_SIZE, &jcc_target, sizeof(jcc_target));
+
+		/* write the entry to the branch table */
+		memcpy(orig->insn + entry_offset, trampoline, sizeof(trampoline));
+
+		/* previously, all jcc32 are downgraded to jcc8 */
+		disp = entry_offset - (jcc_index + ARCH_JCC8_SIZE);
+		if (disp > SCHAR_MAX) { /* should not happen */
+			pr_err("target is not in reach"); 
+		}
+
+		/* patch jcc displacement to target correspending entry in the table */
+		info->insns[jcc_index + 1] = disp;
+
+		entry_offset += ARCH_BRANCH_ENTRY_SIZE;
+	}
+}
