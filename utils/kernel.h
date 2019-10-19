@@ -25,6 +25,7 @@ struct uftrace_kernel_writer {
 
 struct uftrace_kernel_reader {
 	int				nr_cpus;
+	char				*name;
 	int				last_read_cpu;
 	bool				skip_out;
 	char				*dirname;

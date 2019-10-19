@@ -108,6 +108,7 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf,
 
 struct uftrace_perf_reader {
 	FILE			*fp;
+	char			*name;
 	bool			valid;
 	bool			done;
 	int			type;

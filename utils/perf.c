@@ -7,6 +7,8 @@
 #include <byteswap.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "uftrace.h"
 #include "utils/perf.h"
@@ -263,7 +265,7 @@ int setup_perf_data(struct uftrace_data *handle)
 	size_t i;
 	int ret = -1;
 
-	xasprintf(&pattern, "%s/perf-cpu*.dat", handle->dirname);
+	xasprintf(&pattern, "perf-cpu*.dat");
 	if (glob(pattern, GLOB_ERR, NULL, &globbuf)) {
 		pr_dbg("failed to search perf data file\n");
 		handle->hdr.feat_mask &= ~PERF_EVENT;
@@ -277,6 +279,7 @@ int setup_perf_data(struct uftrace_data *handle)
 		perf[i].fp = fopen(globbuf.gl_pathv[i], "r");
 		if (perf[i].fp == NULL)
 			pr_err("open failed: %s", globbuf.gl_pathv[i]);
+		perf[i].name = xstrdup(globbuf.gl_pathv[i]);
 	}
 
 	handle->nr_perf = globbuf.gl_pathc;

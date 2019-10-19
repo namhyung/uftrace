@@ -782,7 +782,7 @@ static void dump_raw_perf_start(struct uftrace_dump_ops *ops,
 	if (cpu == 0)
 		pr_out("\n");
 
-	pr_out("reading perf-cpu%d.dat\n", cpu);
+	pr_out("reading %s\n", perf->name);
 
 	raw->file_offset = 0;
 }
