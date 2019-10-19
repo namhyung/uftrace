@@ -1475,8 +1475,8 @@ static void print_child_usage(struct rusage *ru)
 #define UFTRACE_MSG  "Cannot trace '%s': No such executable file.\n"
 
 #define MCOUNT_MSG  "Can't find '%s' symbol in the '%s'.\n"		\
-"\tIt seems not to be compiled with -pg or -finstrument-functions flag\n" 	\
-"\twhich generates traceable code.  Please check your binary file.\n"
+"\tIt seems not to be compiled with -pg or -finstrument-functions flag.\n" 	\
+"\tYou can rebuild your program with it or use -P option for dynamic tracing.\n"
 
 #define UFTRACE_ELF_MSG  "Cannot trace '%s': Invalid file\n"		\
 "\tThis file doesn't look like an executable ELF file.\n"		\
