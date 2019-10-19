@@ -312,7 +312,7 @@ struct type_data {
 	int				pointer;
 	bool				ignore;
 	bool				broken;
-	char 				*enum_name;
+	char				*enum_name;
 	struct debug_info		*dinfo;
 };
 
