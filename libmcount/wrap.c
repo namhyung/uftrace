@@ -97,7 +97,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 	int idx;
 	struct mcount_ret_stack *rstack;
 
-	/* it needs to find how much stack frame was unwinded */
+	/* it needs to find how much stack frame unwinds */
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
 
@@ -109,7 +109,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 			/*
 			 * there might be tail call optimizations in the
 			 * middle of the exception handling path.
-			 * in that case, we need to keep the original
+			 * In that case, we need to keep the original
 			 * mtdp->idx but update parent address of the
 			 * first rstack of the tail call chain.
 			 */
@@ -133,7 +133,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 			break;
 		}
 
-		/* record unwinded functions */
+		/* record unwound functions */
 		if (!(rstack->flags & MCOUNT_FL_NORECORD))
 			rstack->end_time = mcount_gettime();
 

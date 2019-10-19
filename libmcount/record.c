@@ -131,7 +131,7 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 
 reuse:
 	/*
-	 * Start a new buffer and mark it recording data.
+	 * Start a new buffer and mark its recording data.
 	 * See cmd-record.c::writer_thread().
 	 */
 	__sync_fetch_and_or(&curr_buf->flag, SHMEM_FL_RECORDING);
@@ -554,9 +554,11 @@ static int save_proc_statm(void *ctx, void *buf)
 	if (fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
 		   &statm->vmsize, &statm->vmrss, &statm->shared) != 3)
 		pr_err("failed to scan /proc/self/statm");
-
-	/* Since /proc/[pid]/statm prints the number of pages for each field,
-	 * it'd be better to keep the memory size in KB. */
+		
+	/* 
+	 * Since /proc/[pid]/statm prints the number of pages for each field,
+	 * it'd be better to keep the memory size in KB.
+	 */
 	statm->vmsize *= page_size_in_kb;
 	statm->vmrss  *= page_size_in_kb;
 	statm->shared *= page_size_in_kb;
@@ -747,8 +749,8 @@ void save_watchpoint(struct mcount_thread_data *mtdp,
 		 * Normally watch point event comes before the rstack (record)
 		 * in order to indicate where it's changed precisely.
 		 * But first watch point event needs to come after the first
-		 * record otherwise it'd not shown since 'event-skip' mechanism.
-		 * so add 2(nsec) so that it can be 1 nsec later.
+		 * record otherwise it'd not show since 'event-skip' mechanism.
+		 * Therefore, add 2(nsec) so that it can be 1 nsec later.
 		 */
 		timestamp += 2;
 		mtdp->watch.inited = true;
@@ -853,8 +855,8 @@ static int record_event(struct mcount_thread_data *mtdp,
 	rec = (void *)(curr_buf->data + curr_buf->size);
 
 	/*
-	 * instead of set bitfields, do the bit operations manually.
-	 * this would be good both for performance and portability.
+	 * instead of set bit fields, do the bit operations manually.
+	 * this would be good for both performance and portability.
 	 */
 	rec->data  = UFTRACE_EVENT | RECORD_MAGIC << 3;
 	rec->data += (uint64_t)event->id << 16;
@@ -944,8 +946,8 @@ static int record_ret_stack(struct mcount_thread_data *mtdp,
 	frstack->addr   = mrstack->child_ip;
 #else
 	/*
-	 * instead of set bitfields, do the bit operations manually.
-	 * this would be good both for performance and portability.
+	 * instead of set bit fields, do the bit operations manually.
+	 * this would be good for both performance and portability.
 	 */
 	rec  = type | RECORD_MAGIC << 3;
 	rec += argbuf ? 4 : 0;

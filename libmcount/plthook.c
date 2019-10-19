@@ -642,12 +642,12 @@ static void setup_vfork(struct mcount_thread_data *mtdp)
 	update_kernel_tid(tmsg.tid);
 }
 
-/* this function detects whether child finished */
+/* this function detects whether child is finished */
 static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
 					       struct mcount_ret_stack *rstack)
 {
 	/*
-	 * On vfork, parent sleeps until child exec'ed or exited.
+	 * On vfork, parent sleeps until child is exec'ed or exited.
 	 * So if it sees parent pid, that means child was done.
 	 */
 	if (getpid() == vfork_parent) {
@@ -918,7 +918,7 @@ static unsigned long __plthook_exit(long *retval)
 	assert(!check_thread_data(mtdp));
 
 	/*
-	 * it's only called when mcount_entry() was succeeded
+	 * it's only called when mcount_entry() was succeeded and
 	 * no need to check recursion here.  But still needs to
 	 * prevent recursion during this call.
 	 */
@@ -995,8 +995,8 @@ again:
 		mtd_dtor(mtdp);
 		/*
 		 * mtd_dtor() will free rstack but current ret_addr
-		 * might be plthook_return() when it was a tailcall.
-		 * reload the return address after mtd_dtor() restored
+		 * might be plthook_return() when it was a tail call.
+		 * Reload the return address after mtd_dtor() restored
 		 * all the parent locations.
 		 */
 		if (ARCH_CAN_RESTORE_PLTHOOK)
