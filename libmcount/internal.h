@@ -435,6 +435,8 @@ struct mcount_orig_insn {
  * @insns : byte array to store instruction.
  * @orig_size : size of original instructions
  * @copy_size : size of copied instructions (may be modified)
+ * @modified : whether instruction is changed
+ * @has_jump : whether jump_target should be added
  */
 struct mcount_disasm_info {
 	struct sym		*sym;
@@ -443,6 +445,7 @@ struct mcount_disasm_info {
 	int			orig_size;
 	int			copy_size;
 	bool			modified;
+	bool			has_jump;
 };
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,

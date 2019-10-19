@@ -483,7 +483,12 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	 */
 	jmp_target = info.addr + info.orig_size;
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
-	orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+
+	if (info.has_jump)
+		orig = mcount_save_code(&info, jmp_insn, 0);
+	else
+		orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+
 	/* make sure orig->addr same as when called from __dentry__ */
 	orig->addr += CALL_INSN_SIZE;
 	patch_code(mdi, info.addr, info.orig_size);
@@ -538,6 +543,7 @@ static int cmp_loc(const void *a, const void *b)
 static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	struct arch_dynamic_info *adi = mdi->arch;
+
 	uintptr_t *loc;
 
 	if (adi->nr_mcount_loc != 0) {

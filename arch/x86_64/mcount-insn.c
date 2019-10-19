@@ -87,7 +87,8 @@ static int opnd_reg(int capstone_reg)
  *  to this.
  *    mov rcx, [calculated PC + 0x8f3f85]
  */
-static int handle_pic(cs_insn *insn, uint8_t insns[])
+static int handle_pic(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
 
@@ -141,6 +142,7 @@ static int handle_pic(cs_insn *insn, uint8_t insns[])
 	*(uint64_t *)&mov_insns[IMM] = PC_base;
 
 	memcpy(insns, (void *)mov_insns, sizeof(mov_insns));
+	info->modified = true;
 
 	return sizeof(mov_insns);
 
@@ -148,21 +150,70 @@ out:
 	return -1;
 }
 
-static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason)
+/*
+ *  handle CALL instructions.
+ *  it's basically PUSH + JMP instructions and we already add JMP
+ *  at the end of copied instructions so reuse the JMP.
+ *  But the pushed return address should be after the JMP instruction
+ *  so it needs to change the offset in the instruction opcode.
+ *  Therefore we added JMP here and ignore JMP in patch_normal_func().
+ *  The info->has_jump indicates this situation.
+ *
+ *  this function manipulate the instruction like below,
+ *    CALL <target>
+ *  to this.
+ *    PUSH <PC>+6  (return address : 6 = sizeof JMP)
+ *    JMP  <PC>+8  (target address : 8 = sizeof RETURN-ADDR)
+ *    <RETURN-ADDR>
+ *    <TARGET-ADDR>
+ */
+static int handle_call(cs_insn *insn, uint8_t insns[],
+		       struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	cs_x86_op *op = &x86->operands[0];
+	uint8_t push[6] = { 0xff, 0x35, 0x06, };
+	uint8_t jump[6] = { 0xff, 0x25, 0x08, };
+	uint64_t ret_addr;
+	uint64_t target;
+
+	if (x86->op_count != 1 || op->type != X86_OP_IMM)
+		return -1;
+
+	target = op->imm;
+	ret_addr = insn->address + insn->size;
+
+	memcpy(&insns[0], push, sizeof(push));
+	memcpy(&insns[6], jump, sizeof(jump));
+	memcpy(&insns[12], &ret_addr, sizeof(ret_addr));
+	memcpy(&insns[20], &target, sizeof(target));
+
+	info->modified = true;
+	info->has_jump = true;
+
+	return sizeof(push) + sizeof(jump) + 16;
+}
+
+static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
+			    struct mcount_disasm_info *info)
 {
 	int res = -1;
 
-	pr_dbg3("Try to instrument if instruction could be manipulate possibly.\n");
+	pr_dbg3("Manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
-		case INSTRUMENT_FAIL_PICCODE:
-			res = handle_pic(insn, insns);
-			if (res > 0) {
-				*fail_reason ^= INSTRUMENT_FAIL_PICCODE;
-			}
-			break;
-		default:
-			break;
+	case INSTRUMENT_FAIL_PICCODE:
+		res = handle_pic(insn, insns, info);
+		if (res > 0)
+			*fail_reason = 0;
+		break;
+	case INSTRUMENT_FAIL_RELCALL:
+		res = handle_call(insn, insns, info);
+		if (res > 0)
+			*fail_reason = 0;
+		break;
+	default:
+		break;
 	}
 
 	return res;
@@ -217,7 +268,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	for (i = 0; i < x86->op_count; i++) {
 		cs_x86_op *op = &x86->operands[i];
 
-		switch((int)op->type) {
+		switch (op->type) {
 		case X86_OP_REG:
 			continue;
 
@@ -344,11 +395,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		uint8_t insns_byte[32] = { 0, };
 
 		status = check_instrumentable(disasm, &insn[i]);
-		if (status > 0) {
-			size = manipulate_insns(&insn[i], insns_byte, &status);
-			if (status == 0)
-				info->modified = true;
-		}
+		if (status > 0)
+			size = manipulate_insns(&insn[i], insns_byte,
+						&status, info);
 		else
 			size = copy_insn_bytes(&insn[i], insns_byte);
 
