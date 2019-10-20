@@ -1044,6 +1044,7 @@ static void free_opts(struct opts *opts)
 	free(opts->patch);
 	free(opts->caller);
 	free(opts->watch);
+	free_parsed_cmdline(opts->run_cmd);
 }
 
 #ifndef UNIT_TEST
