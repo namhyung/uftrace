@@ -1059,7 +1059,7 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 	 * so 10 samples should be shown, but after accounting
 	 * foo and bar (4 samples each), its time would be
 	 * 10.567 - 4.789 - 4.987 = 0.791 so no samples for main.
-	 * But it acctually needs to get 2 samples.
+	 * But it actually needs to get 2 samples.
 	 *
 	 * So add the accounted child time only, not real time.
 	 */
