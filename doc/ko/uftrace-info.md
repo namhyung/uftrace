@@ -2,36 +2,34 @@
 % Namhyung Kim <namhyung@gmail.com>
 % Sep, 2018
 
-NAME
+이름
 ====
-uftrace-info - Print tracing information for trace data
+uftrace-info - 기록된 데이터에 대한 정보를 출력한다.
 
-SYNOPSIS
+사용법
 ========
 uftrace info [*options*] [*COMMAND*]
 
-DESCRIPTION
+설명
 ===========
-This command prints metadata recorded in the header of a given data file.
+이 명령어는 주어진 데이터 파일의 헤더에 기록된 메타 데이터를 출력한다.
 
 
-OPTIONS
+옵션
 =======
 \--symbols
-:   Print symbols table instead of the recorded tracing info.  It will print
-    two symbol tables - normal symbols and dynamic symbols.  The normal symbols
-    are from the executable itself, and dynamic symbols are for library calls.
-    When COMMAND is given, it should provide symbol information which might not
-    be available from the recorded path of 'exe image' or the symbol file in the
-    data directory.
+:   기록된 정보 대신에 심볼(symbol) 테이블을 출력한다. 심볼 정보는 일반 심볼들과 동적
+    심볼들로 분류되는데 일반 심볼들은 실행 이미지에 있는 정보이고, 동적 심볼은 라이브러리
+    호출을 위해 사용된다.
+    COMMAND 가 주어지면 실행 이미지로부터 심볼 정보를 추출해서 출력한다.
 
 \--task
-:   Print task relationship in a tree form instead of the tracing info.
+:   데이터 정보 대신 태스크의 관계를 트리 형태로 출력한다.
 
 
-EXAMPLE
+예시
 =======
-This command shows information like below:
+이 명령어는 아래와 같은 정보를 출력한다.
 
     $ uftrace record abc
 
@@ -64,7 +62,7 @@ This command shows information like below:
     # page fault          : 0 / 169 (major / minor)
     # disk iops           : 0 / 24 (read / write)
 
-To see the symbol table, one can use the `--symbols` option.
+'--symbols' 옵션을 사용해서 심볼 테이블을 볼 수 있다.
 
     $ uftrace info --symbols
     Normal symbols
@@ -88,13 +86,18 @@ To see the symbol table, one can use the `--symbols` option.
     [ 4] mcount (0x400570) size: 16
     [ 5] __cxa_atexit (0x400580) size: 16
 
-The `--task` option shows task family hierarchy.
+`--task` 옵션은 태스크들의 계층 관계를 보여준다.
 
     $ uftrace info --task
     [166399] parent
           [166401] child
 
 
-SEE ALSO
+함께 보기
 ========
 `uftrace`(1), `uftrace-record`(1), `uftrace-tui`(1)
+
+
+번역자
+========
+조정우 <jungwoo5759@gmail.com>
