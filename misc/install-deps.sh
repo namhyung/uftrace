@@ -23,8 +23,8 @@ case $distro in
         yum install $OPT pandoc elfutils-devel python2-devel ncurses-devel pkgconfig
         yum install $OPT capstone-devel luajit-devel ;;
     "arch" | "manjaro")
-	pacman $OPT -S pandoc libelf python2 ncurses pkgconf
-	pacman $OPT -S capstone luajit ;;
+        pacman $OPT -S pandoc libelf python2 ncurses pkgconf
+        pacman $OPT -S capstone luajit ;;
     "alpine")
         apk $OPT add elfutils-dev python2-dev ncurses-dev pkgconf
         apk $OPT add capstone-dev luajit-dev ;;
