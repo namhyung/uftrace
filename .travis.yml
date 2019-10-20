@@ -1,15 +1,15 @@
 language: c
 
-# Ubuntu 14.04 LTS
-dist: trusty
+# Ubuntu 16.04 LTS
+dist: xenial
 
 sudo: required
 
 install:
 - sudo apt-get -qq update
-- sudo apt-get -y  install libelf-dev libstdc++-4.8-dev pandoc
+- sudo misc/install-deps.sh -y
 
-script: ./configure && make
+script: ./configure && make && make unittest
 
 env:
   global:
