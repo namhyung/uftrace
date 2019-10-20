@@ -287,7 +287,7 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 
 			/* disallow (back) jump to the prologue */
 			if (info->addr < target &&
-			    target < info->addr + info->copy_size)
+			    target < info->addr + info->orig_size)
 				return false;
 
 			/* disallow jump to middle of other function */
