@@ -23,7 +23,8 @@ SCRIPT OPTIONS
 -S *SCRIPT_PATH*, \--script=*SCRIPT_PATH*
 :   Run a given script to do additional work at the entry and exit of function
     while processing recorded trace data.
-    The type of script is detected by the postfix such as '.py' for python.
+    The type of script is detected by the file extension.
+    For example '.py' for python and '.lua' for lua 5.1.
     See *SCRIPT EXECUTION*.
 
 \--record COMMAND [*command-options*]
@@ -95,7 +96,7 @@ COMMON ANALYSIS OPTIONS
 SCRIPT EXECUTION
 ================
 The uftrace tool supports script execution for each function entry and exit.
-The supported script is only Python 2.7 as of now.
+The supported script types are Python 2.7 and Lua 5.1 as of now.
 
 The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are
 executed whenever each function is executed at the entry and exit.  However
@@ -174,9 +175,9 @@ previous one for the same recorded data.  The output looks similar to
       98.191 us [25794] |   } /* a */
      124.329 us [25794] | } /* main */
 
-The python script above can be modified to do more output customization.
+The script above can be modified to do more output customization.
 
-The python script can have an optional "UFTRACE_FUNCS" list which can have name
+A script can have an optional "UFTRACE_FUNCS" list which can have name
 (or pattern depending on the --match option) of functions to run the script.
 If it exists, only matched functions will run the script.  For example, if you
 add following lines to the script, it will run only for functions with a single
@@ -192,7 +193,7 @@ letter name.
       70.924 us [25794] |     } /* b */
       98.191 us [25794] |   } /* a */
 
-Also script can have options for record if it requires some form of data
+Also a script can have options for record if it requires some form of data
 (i.e. function argument or return value).  A comment line started with
 "uftrace-option:" will provide (a part of) such options when recording.
 
