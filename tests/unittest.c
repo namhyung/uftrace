@@ -214,7 +214,7 @@ out:
 	return ret;
 }
 
-static void finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
+static int finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
 {
 	int i;
 
@@ -225,6 +225,10 @@ static void finish_unit_test(struct uftrace_unit_test *test_cases, int *test_sta
 
 	printf("\n");
 	free(test_cases);
+	return test_stats[TEST_NG]
+		+ test_stats[TEST_BAD]
+		+ test_stats[TEST_SIG]
+		> 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
@@ -281,6 +285,5 @@ int main(int argc, char *argv[])
 	for (i = 0; i < test_num; i++)
 		run_unit_test(&test_cases[i], test_stats);
 
-	finish_unit_test(test_cases, test_stats);
-	return 0;
+	return finish_unit_test(test_cases, test_stats);
 }
