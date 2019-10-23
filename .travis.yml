@@ -9,7 +9,7 @@ install:
 - sudo apt-get -qq update
 - sudo misc/install-deps.sh -y
 
-script: ./configure && make && make unittest
+script: ./configure && make ASAN=1 && make ASAN=1 unittest
 
 env:
   global:
