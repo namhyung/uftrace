@@ -79,8 +79,8 @@ COMMON ANALYSIS OPTIONS
 :   Show all (user) events outside of user functions.
 
 \--tid=*TID*[,*TID*,...]
-:   Only print functions called by the given threads.  To see the list of
-    threads in the data file, you can use `uftrace report --threads` or
+:   Only print functions called by the given tasks.  To see the list of
+    tasks in the data file, you can use `uftrace report --task` or
     `uftrace info`.  This option can also be used more than once.
 
 \--demangle=*TYPE*
