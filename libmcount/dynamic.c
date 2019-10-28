@@ -360,7 +360,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	for_each_map(symtabs, map) {
-		bool found;
+		bool found = false;
 		bool csu_skip;
 		unsigned i, k;
 		struct sym *sym;
