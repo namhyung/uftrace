@@ -1577,6 +1577,7 @@ TEST_CASE(symbol_load_module) {
 		TEST_STREQ(sym->name, stab.sym[i].name);
 	}
 
+	unload_symtab(&test);
 	unlink(symfile);
 	return TEST_OK;
 }
@@ -1646,6 +1647,7 @@ TEST_CASE(symbol_load_map) {
 	unload_module_symtabs();
 	TEST_EQ(RB_EMPTY_ROOT(&modules), true);
 
+	free(map);
 	return TEST_OK;
 }
 
