@@ -287,7 +287,7 @@ static void print_event(struct uftrace_task_reader *task,
 	char *evt_name = get_event_name(task->h, evt_id);
 
 	if (evt_id == EVENT_ID_EXTERN_DATA) {
-		pr_color(color, "%s: %s", evt_name, task->args.data);
+		pr_color(color, "%s: %s", evt_name, (char *)task->args.data);
 	}
 	else if (evt_id >= EVENT_ID_USER) {
 		/* TODO: some events might have arguments */
