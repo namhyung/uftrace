@@ -139,9 +139,9 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 	mov_insns[OPND] = mov_operands[opnd_reg(opnd1->reg)];
 
 	uint64_t PC_base = insn->address + insn->size + opnd2->mem.disp;
-	*(uint64_t *)&mov_insns[IMM] = PC_base;
+	memcpy(&mov_insns[IMM], &PC_base, sizeof(PC_base));
 
-	memcpy(insns, (void *)mov_insns, sizeof(mov_insns));
+	memcpy(insns, mov_insns, sizeof(mov_insns));
 	info->modified = true;
 
 	return sizeof(mov_insns);
