@@ -548,7 +548,7 @@ static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 	if (adi->nr_mcount_loc != 0) {
 		loc = bsearch(sym, adi->mcount_loc, adi->nr_mcount_loc,
-			       sizeof(adi->mcount_loc), cmp_loc);
+			       sizeof(*adi->mcount_loc), cmp_loc);
 
 		if (loc != NULL) {
 			uint8_t *insn = (uint8_t*) *loc;
