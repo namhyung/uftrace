@@ -1729,6 +1729,11 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 		wd->sock = -1;
 
 	wd->nr_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+	if (unlikely(wd->nr_cpu <= 0)) {
+		wd->nr_cpu = sysconf(_SC_NPROCESSORS_CONF);
+		if (wd->nr_cpu <= 0)
+			pr_err("cannot know number of cpu");
+	}
 
 	if (opts->kernel || has_kernel_event(opts->event)) {
 		int err;
