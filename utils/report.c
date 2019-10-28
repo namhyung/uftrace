@@ -80,11 +80,11 @@ void report_add_node(struct rb_root *root, const char *name,
 	find_or_create_node(root, name, node);
 }
 
-/* NOTE: this function does not free 'node' itself */
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 {
 	rb_erase(&node->name_link, root);
 	free(node->name);
+	free(node);
 }
 
 void report_update_node(struct uftrace_report_node *node,
@@ -810,9 +810,8 @@ TEST_CASE(report_sort)
 		rbnode = rb_first(&name_tree);
 		node = rb_entry(rbnode, typeof(*node), name_link);
 
-		report_delete_node(&name_tree, node);
 		rb_erase(&node->sort_link, &sort_tree);
-		free(node);
+		report_delete_node(&name_tree, node);
 	}
 	TEST_EQ(RB_EMPTY_ROOT(&sort_tree), true);
 
@@ -904,6 +903,19 @@ TEST_CASE(report_diff)
 
 	destroy_diff_nodes(&diff_tree);
 	TEST_EQ(RB_EMPTY_ROOT(&diff_tree), true);
+
+	while (!RB_EMPTY_ROOT(&orig_tree)) {
+		rbnode = rb_first(&orig_tree);
+		node = rb_entry(rbnode, typeof(*node), name_link);
+
+		report_delete_node(&orig_tree, node);
+	}
+	while (!RB_EMPTY_ROOT(&pair_tree)) {
+		rbnode = rb_first(&pair_tree);
+		node = rb_entry(rbnode, typeof(*node), name_link);
+
+		report_delete_node(&pair_tree, node);
+	}
 
 	return TEST_OK;
 }
