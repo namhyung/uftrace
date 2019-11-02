@@ -145,7 +145,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (!opts->script_file) {
-		pr_out("Usage: uftrace script [-S|--script] [<script_file>]\n");
+		pr_out("Usage: uftrace script (-S|--script) <script_file>\n");
 		return -1;
 	}
 

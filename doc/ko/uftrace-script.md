@@ -9,7 +9,8 @@ uftrace-script - 기록된 데이터를 대상으로 스크립트를 실행한�
 
 사용법
 ======
-uftrace script [*options*]
+uftrace script (-S|--script) <script file> [*options*]
+uftrace script (-S|--script) <script file> [*options*] --record COMMAND
 
 
 설명

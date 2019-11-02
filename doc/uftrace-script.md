@@ -9,7 +9,8 @@ uftrace-script - Run a script for recorded function trace
 
 SYNOPSIS
 ========
-uftrace script [*options*]
+uftrace script (-S|--script) <script file> [*options*]
+uftrace script (-S|--script) <script file> [*options*] --record COMMAND
 
 
 DESCRIPTION
