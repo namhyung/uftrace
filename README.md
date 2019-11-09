@@ -88,11 +88,12 @@ For recording, the executable needs to be compiled with the `-pg`
 (or `-finstrument-functions`) option which generates profiling code
 (calling mcount or __cyg_profile_func_enter/exit) for each function.
 
-Note that, there's an experimental support for dynamic tracing on x86_64
-which doesn't require such (re-)compilations.  Also recent compilers have
-some options to help uftrace to reduce tracing overhead with similar way
-(although it still needs recompilation of your program).  Please see
-[doc/uftrace-record.md](doc/uftrace-record.md) file.
+Note that, there's an experimental support for dynamic tracing on
+x86_64 and AArch64(ARM64) which doesn't require such (re-)compilations.
+Also recent compilers have some options to help uftrace
+to reduce tracing overhead with similar way
+(although it still needs recompilation of your program).
+Please see [doc/uftrace-record.md](doc/uftrace-record.md) file.
 
     $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION
@@ -251,7 +252,7 @@ The `info` command shows system and program information when recorded.
     # disk iops           : 0 / 24 (read / write)
 
 The `script` command allows user to run a custom script on a data recorded.
-Currently python (version 2.7) is supported only.
+The supported script types are Python 2.7 and Lua 5.1 as of now.
 
 The `tui` command is for interactive text-based user interface using ncurses.
 It provides basic functionality of `graph`, `report` and `info` commands as of
