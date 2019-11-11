@@ -144,11 +144,11 @@ endif
 include $(srcdir)/Makefile.include
 
 
-LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
-LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-single.so
+LIBMCOUNT_TARGETS := libmcount/libmcount-$(ARCH).so libmcount/libmcount-fast-$(ARCH).so
+LIBMCOUNT_TARGETS += libmcount/libmcount-single-$(ARCH).so libmcount/libmcount-fast-single-$(ARCH).so
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
-_TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
+_TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop-$(ARCH).so
 _TARGETS += misc/demangler misc/symbols
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
@@ -244,19 +244,19 @@ $(LIBMCOUNT_FAST_SINGLE_OBJS): $(objdir)/%-fast-single.op: $(srcdir)/%.c $(LIBMC
 $(LIBMCOUNT_NOP_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
-$(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+$(objdir)/libmcount/libmcount-$(ARCH).so: $(LIBMCOUNT_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/libmcount-fast.so: $(LIBMCOUNT_FAST_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+$(objdir)/libmcount/libmcount-fast-$(ARCH).so: $(LIBMCOUNT_FAST_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/libmcount-single.so: $(LIBMCOUNT_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+$(objdir)/libmcount/libmcount-single-$(ARCH).so: $(LIBMCOUNT_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/libmcount-fast-single.so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
+$(objdir)/libmcount/libmcount-fast-single-$(ARCH).so: $(LIBMCOUNT_FAST_SINGLE_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
-$(objdir)/libmcount/libmcount-nop.so: $(LIBMCOUNT_NOP_OBJS)
+$(objdir)/libmcount/libmcount-nop-$(ARCH).so: $(LIBMCOUNT_NOP_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
 
 $(LIBMCOUNT_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(LIBMCOUNT_DEPS)
@@ -311,11 +311,11 @@ endif
 	$(call QUIET_INSTALL, uftrace)
 	$(Q)$(INSTALL) $(objdir)/uftrace         $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_INSTALL, libmcount)
-	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount.so   $(DESTDIR)$(libdir)/libmcount.so
-	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-nop.so $(DESTDIR)$(libdir)/libmcount-nop.so
-	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
-	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
-	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-$(ARCH).so   $(DESTDIR)$(libdir)/libmcount-$(ARCH).so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-nop-$(ARCH).so $(DESTDIR)$(libdir)/libmcount-nop-$(ARCH).so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-$(ARCH).so $(DESTDIR)$(libdir)/libmcount-fast-$(ARCH).so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single-$(ARCH).so $(DESTDIR)$(libdir)/libmcount-single-$(ARCH).so
+	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single-$(ARCH).so $(DESTDIR)$(libdir)/libmcount-fast-single-$(ARCH).so
 	$(call QUIET_INSTALL, bash-completion)
 	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)
@@ -325,15 +325,15 @@ uninstall:
 	$(call QUIET_UNINSTALL, uftrace)
 	$(Q)$(RM) $(DESTDIR)$(bindir)/uftrace
 	$(call QUIET_UNINSTALL, libmcount)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-$(ARCH).so
 	$(call QUIET_UNINSTALL, libmcount-nop)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-nop.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-nop-$(ARCH).so
 	$(call QUIET_UNINSTALL, libmcount-fast)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-$(ARCH).so
 	$(call QUIET_UNINSTALL, libmcount-single)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-single.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-single-$(ARCH).so
 	$(call QUIET_UNINSTALL, libmcount-fast-single)
-	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-single-$(ARCH).so
 	$(call QUIET_UNINSTALL, bash-completion)
 	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)

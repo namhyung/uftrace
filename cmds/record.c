@@ -63,6 +63,8 @@ static bool has_perf_event;
 static bool has_sched_event;
 static bool finish_received;
 
+static char *elf_machine;
+
 static bool can_use_fast_libmcount(struct opts *opts)
 {
 	if (debug)
@@ -96,41 +98,46 @@ static char *build_debug_domain_string(void)
 
 char * get_libmcount_path(struct opts *opts)
 {
-	char *libmcount, *lib = xmalloc(PATH_MAX);
+	char *libmcount, *libmcount_fmt;
+	char *lib = xmalloc(PATH_MAX);
 	bool must_use_multi_thread = has_dependency(opts->exename,
 						    "libpthread.so.0");
 
 	if (opts->nop) {
-		libmcount = "libmcount-nop.so";
+		libmcount_fmt = "libmcount-nop-%s.so";
 	}
 	else if (opts->libmcount_single && !must_use_multi_thread) {
 		if (can_use_fast_libmcount(opts))
-			libmcount = "libmcount-fast-single.so";
+			libmcount_fmt = "libmcount-fast-single-%s.so";
 		else
-			libmcount = "libmcount-single.so";
+			libmcount_fmt = "libmcount-single-%s.so";
 	}
 	else {
 		if (must_use_multi_thread && opts->libmcount_single)
 			pr_dbg("--libmcount-single is off because it uses pthread\n");
 		if (can_use_fast_libmcount(opts))
-			libmcount = "libmcount-fast.so";
+			libmcount_fmt = "libmcount-fast-%s.so";
 		else
-			libmcount = "libmcount.so";
+			libmcount_fmt = "libmcount-%s.so";
 	}
+
+	/* build libmcount name with arch postfix such as "libmcount-x86_64.so" */
+	xasprintf(&libmcount, libmcount_fmt, elf_machine);
 
 	if (opts->lib_path) {
 		snprintf(lib, PATH_MAX, "%s/libmcount/%s", opts->lib_path, libmcount);
 
 		if (access(lib, F_OK) == 0) {
-			return lib;
+			goto out;
 		}
 		else if (errno == ENOENT) {
 			snprintf(lib, PATH_MAX, "%s/%s", opts->lib_path, libmcount);
 			if (access(lib, F_OK) == 0)
-				return lib;
+				goto out;
 		}
 		free(lib);
-		return NULL;
+		lib = NULL;
+		goto out;
 	}
 
 #ifdef INSTALL_LIB_PATH
@@ -140,6 +147,8 @@ char * get_libmcount_path(struct opts *opts)
 		return lib;
 #endif
 	strncpy(lib, libmcount, PATH_MAX);
+out:
+	free(libmcount);
 	return lib;
 }
 
@@ -1556,6 +1565,9 @@ static void check_binary(struct opts *opts)
 	uint16_t supported_machines[] = {
 		EM_X86_64, EM_ARM, EM_AARCH64, EM_386
 	};
+	char *supported_arches[] = {
+		"x86_64", "arm", "aarch64", "i386"
+	};
 
 again:
 	/* if it cannot be found in PATH, then fails inside */
@@ -1601,8 +1613,10 @@ again:
 		pr_err("Cannot read '%s'", opts->exename);
 
 	for (i = 0; i < ARRAY_SIZE(supported_machines); i++) {
-		if (e_machine == supported_machines[i])
+		if (e_machine == supported_machines[i]) {
+			elf_machine = supported_arches[i];
 			break;
+		}
 	}
 	if (i == ARRAY_SIZE(supported_machines))
 		pr_err_ns(MACHINE_MSG, opts->exename, e_machine);
