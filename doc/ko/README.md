@@ -89,7 +89,8 @@ x86_64 와 AArch64(ARM64) 아키텍처에서 (재)컴파일 과정이 필요하�
 실험적으로 지원되고 있다. 또한 최근 컴파일러들 중 
 (여전히 사용자 프로그램을 재컴파일해야 하긴 하지만) 비슷한 방식으로 
 uftrace의 추적 과정에서 생기는 오버헤드를 줄이기 위한 옵션들을 제공하고 있다. 
-[doc/uftrace-record.md](uftrace-record.md) 파일을 참조하라.
+더 자세한 내용은 [dynamic tracing](uftrace-record.md#dynamic-tracing) 에서 확인해
+볼 수 있다.
 
     $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION

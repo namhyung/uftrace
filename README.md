@@ -93,7 +93,8 @@ x86_64 and AArch64(ARM64) which doesn't require such (re-)compilations.
 Also recent compilers have some options to help uftrace
 to reduce tracing overhead with similar way
 (although it still needs recompilation of your program).
-Please see [doc/uftrace-record.md](doc/uftrace-record.md) file.
+Please see [dynamic tracing](doc/uftrace-record.md#dynamic-tracing) section
+for more details.
 
     $ uftrace tests/t-abc
     # DURATION    TID     FUNCTION
