@@ -12,7 +12,7 @@ void (*real_free)(void *ptr);
 
 #define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 
-#define MALLOC_BUFSIZE  (1024 * 1024 * 1024)
+#define MALLOC_BUFSIZE  (512 * 1024 * 1024)
 /* this is needed for optimized binaries */
 static char buf[MALLOC_BUFSIZE];
 
