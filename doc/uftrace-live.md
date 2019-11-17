@@ -72,6 +72,9 @@ LIVE OPTIONS
 \--report
 :   Show live-report before replay.
 
+\--record
+:   Do not discard the recorded data.
+
 
 RECORD OPTIONS
 ==============

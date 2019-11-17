@@ -75,6 +75,9 @@ LIVE 옵션
 \--report
 :   replay 출력 전 live-report 를 함께 출력한다.
 
+\--record
+:   기록된 데이터를 향후 분석을 위해 저장한다.
+
 
 RECORD 옵션
 ==============
