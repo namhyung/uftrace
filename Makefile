@@ -91,28 +91,44 @@ else
 endif
 
 ifeq ($(TRACE), 1)
-  UFTRACE_CFLAGS    += -pg -fno-omit-frame-pointer
-  DEMANGLER_CFLAGS  += -pg -fno-omit-frame-pointer
-  SYMBOLS_CFLAGS    += -pg -fno-omit-frame-pointer
-  TRACEEVENT_CFLAGS += -pg -fno-omit-frame-pointer
-  TEST_CFLAGS       += -pg -fno-omit-frame-pointer
+  TRACE_CFLAGS      := -pg -fno-omit-frame-pointer
+  UFTRACE_CFLAGS    += $(TRACE_CFLAGS)
+  DEMANGLER_CFLAGS  += $(TRACE_CFLAGS)
+  SYMBOLS_CFLAGS    += $(TRACE_CFLAGS)
+  TRACEEVENT_CFLAGS += $(TRACE_CFLAGS)
+  TEST_CFLAGS       += $(TRACE_CFLAGS)
   # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
 endif
 
 ifeq ($(COVERAGE), 1)
-  COMMON_CFLAGS += -O0 -g --coverage -U_FORTIFY_SOURCE
-  LIB_CFLAGS    += -O0 -g --coverage -U_FORTIFY_SOURCE
-  TEST_CFLAGS   += -O0 -g --coverage -U_FORTIFY_SOURCE
+  COVERAGE_CFLAGS := -O0 -g --coverage -U_FORTIFY_SOURCE
+  COMMON_CFLAGS   += $(COVERAGE_CFLAGS)
+  LIB_CFLAGS      += $(COVERAGE_CFLAGS)
+  TEST_CFLAGS     += $(COVERAGE_CFLAGS)
 
   LIB_LDFLAGS   += --coverage
 endif
 
 ifeq ($(ASAN), 1)
-  UFTRACE_CFLAGS    += -O0 -g -fsanitize=address -fsanitize=leak
-  DEMANGLER_CFLAGS  += -O0 -g -fsanitize=address -fsanitize=leak
-  SYMBOLS_CFLAGS    += -O0 -g -fsanitize=address -fsanitize=leak
-  TRACEEVENT_CFLAGS += -O0 -g -fsanitize=address -fsanitize=leak
-  TEST_CFLAGS       += -O0 -g -fsanitize=address -fsanitize=leak
+  ASAN_CFLAGS       := -O0 -g -fsanitize=address,leak
+  UFTRACE_CFLAGS    += $(ASAN_CFLAGS)
+  DEMANGLER_CFLAGS  += $(ASAN_CFLAGS)
+  SYMBOLS_CFLAGS    += $(ASAN_CFLAGS)
+  TRACEEVENT_CFLAGS += $(ASAN_CFLAGS)
+  TEST_CFLAGS       += $(ASAN_CFLAGS)
+endif
+
+ifneq ($(SAN),)
+  ifeq ($(SAN), all)
+    SAN_CFLAGS := -O0 -g -fsanitize=address,leak,undefined
+  else
+    SAN_CFLAGS := -O0 -g -fsanitize=$(SAN)
+  endif
+  UFTRACE_CFLAGS    += $(SAN_CFLAGS)
+  DEMANGLER_CFLAGS  += $(SAN_CFLAGS)
+  SYMBOLS_CFLAGS    += $(SAN_CFLAGS)
+  TRACEEVENT_CFLAGS += $(SAN_CFLAGS)
+  TEST_CFLAGS       += $(SAN_CFLAGS)
 endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS TEST_CFLAGS TEST_LDFLAGS
