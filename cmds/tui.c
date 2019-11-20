@@ -2340,7 +2340,9 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 	session = tui_session_init(opts);
 
 	/* start with graph only if there's one session */
-	if (session->nr_node > 1)
+	if (opts->report)
+		win = &report->win;
+	else if (session->nr_node > 1)
 		win = &session->win;
 	else
 		win = &graph->win;
