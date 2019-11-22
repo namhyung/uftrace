@@ -1,5 +1,6 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "x64_modrm.h"
 
 #define CALL_INSN_SIZE  5
 
@@ -59,6 +60,49 @@ void print_instrument_fail_msg(int reason)
 	if (reason & INSTRUMENT_FAIL_PICCODE) {
 		pr_dbg3("Not supported Position Independent Code\n");
 	}
+}
+
+/*
+ *  Get Register order in modrm table from capstone register
+ */
+static int modrm_order(int capstone_reg)
+{
+	size_t i;
+
+	uint8_t x86_regs[] = {
+		X86_REG_EAX, X86_REG_ECX, X86_REG_EDX, X86_REG_EBX,
+		X86_REG_ESP, X86_REG_EBP, X86_REG_ESI, X86_REG_EDI,
+	};
+	uint8_t x64_regs[] = {
+		X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX,
+		X86_REG_RSP, X86_REG_RBP, X86_REG_RSI, X86_REG_RDI,
+	};
+	uint8_t x64_expand_regs[] = {
+		X86_REG_R8,  X86_REG_R9,  X86_REG_R10, X86_REG_R11,
+		X86_REG_R12, X86_REG_R13, X86_REG_R14, X86_REG_R15,
+	};
+
+
+	if (X86_REG_EAX <= capstone_reg && capstone_reg <= X86_REG_ESP) {
+		for (i = 0; i < sizeof(x86_regs); i++) {
+			if (capstone_reg == x86_regs[i])
+				return i;
+		}
+	}
+	else if (X86_REG_RAX <= capstone_reg && capstone_reg <= X86_REG_RSP) {
+		for (i = 0; i < sizeof(x64_regs); i++) {
+			if (capstone_reg == x64_regs[i])
+				return i;
+		}
+	}
+	else if (X86_REG_R8 <= capstone_reg && capstone_reg <= X86_REG_R15) {
+		for (i = 0; i < sizeof(x64_expand_regs); i++) {
+			if (capstone_reg == x64_expand_regs[i])
+				return i;
+		}
+	}
+
+	return -1;
 }
 
 static int opnd_reg(int capstone_reg)
