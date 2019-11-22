@@ -194,6 +194,209 @@ out:
 }
 
 /*
+ *  handle PIC code for MOV instruction.
+ *  this function manipulate the instruction.
+ *
+ *  for examples :
+ *
+ *  case LOAD:
+ *	mov rcx, qword ptr [rip + 0x8f3f85]
+ *  to manipulate like below:
+ *	push rax
+ *	mov rax, PC_BASE + 0x8f3f85
+ *	mov rcx, [rax]
+ *	pop rax
+ *
+ *  case STORE:
+ *  	mov qword ptr [rip+0x8f3f85], rcx
+ *  to manipulate like below:
+ *	push rax
+ *	mov rax, PC_BASE + 0x8f3f85
+ *	mov [rax], rcx
+ *	pop rax
+ *
+ *  exceptional case in LOAD :
+ *  	mov rax, qword ptr [rip+0x8f3f85]
+ *  this will change like below:
+ * 	xchg rax, rcx
+ *  	push rax
+ *  	mov rax, PC_BASE + 0x8f3f85
+ *  	mov rcx, [rax]
+ *  	pop rax
+ *  	xchg rax, rcx
+ *
+ *  exceptional case in STORE :
+ *  	mov qword ptr [rip+0x8f3f85], rax
+ *  to manipulate like below:
+ *  	xchg rax, rcx
+ *	push rax
+ *	mov rax, PC_BASE + 0x8f3f85
+ *	mov [rax], rcx
+ *	pop rax
+ *	xchg rax, rcx
+ *
+ */
+static int handle_pic_mov(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	struct MODRM modrm;
+	int modrm_rows, modrm_cols;
+	effect_t effect_opnd;
+	uint64_t PC_base;
+
+	cs_x86 *x86 = &insn->detail->x86;
+	cs_x86_op *opnd1 = &x86->operands[0];
+	cs_x86_op *opnd2 = &x86->operands[1];
+
+	static const int NEED_XCHG = 0;
+	static const int NON_XCHG = 2;
+	static const int LOAD = 0;
+	static const int STORE = 1;
+
+	int adjust = NON_XCHG;
+	int insns_type = LOAD;
+
+	// typically instruction elements.
+	uint8_t mov_insns[20] = {0xCC};
+	int insns_size;
+	enum mov_insn_map {
+		XCHG_1 = 0,
+		PUSH = 2,
+		REX_P,
+		OP,
+		IMM,
+		IMM_END = 12,
+		REX_P2 = 13,
+		PREFIX_P2 = 13,
+		OP2,
+		MODRM,
+		POP = 16,
+		XCHG_2,
+	};
+
+	/* support MOV instruction only */
+	if (strcmp(insn->mnemonic, "mov") != 0)
+		goto out;
+
+	/* check PC-relative addressing mode */
+	if (opnd1->type == X86_OP_MEM && opnd1->mem.base == X86_REG_RIP) {
+		insns_type = STORE;
+	}
+	else if (opnd2->type == X86_OP_MEM && opnd2->mem.base == X86_REG_RIP) {
+		insns_type = LOAD;
+	}
+	else
+		goto out;
+
+	/* the SIB addressing is not supported yet */
+	if (opnd1->mem.scale > 1 || opnd2->mem.scale > 1)
+		goto out;
+
+	/* for handle exceptional case, */
+	if (insns_type == LOAD) {
+		/* for now, support only 64bit registere */
+		if (!(X86_REG_RAX <= opnd1->reg && opnd1->reg <= X86_REG_R15))
+			goto out;
+
+		if (opnd1->reg == X86_REG_RAX)
+			adjust = NEED_XCHG;
+
+		PC_base = insn->address + insn->size + opnd2->mem.disp;
+
+		if (X86_REG_RAX <= opnd1->reg && opnd1->reg <= X86_REG_RSP)
+			mov_insns[REX_P2 - adjust] = 0x48;
+		else if (X86_REG_R8 <= opnd1->reg && opnd1->reg <= X86_REG_R15)
+			mov_insns[REX_P2 - adjust] = 0x4C;
+		else
+			goto out;
+
+		mov_insns[OP2 - adjust] = 0x8b;
+		modrm_cols = RAX;
+		effect_opnd = effect_OP2;
+
+		if (adjust == NEED_XCHG)
+			modrm_rows = RCX;
+		else
+			modrm_rows = modrm_order(opnd1->reg);
+	}
+	else if (insns_type == STORE) {
+		/* for now, support only 64bit registere */
+		if (!(X86_REG_RAX <= opnd2->reg && opnd2->reg <= X86_REG_RSP))
+			goto out;
+
+		if (opnd2->reg == X86_REG_RAX)
+			adjust = NEED_XCHG;
+
+		PC_base = insn->address + insn->size + opnd1->mem.disp;
+
+		if (X86_REG_RAX <= opnd2->reg && opnd2->reg <= X86_REG_RSP)
+			mov_insns[REX_P2 - adjust] = 0x48;
+		else if (X86_REG_R8 <= opnd2->reg && opnd2->reg <= X86_REG_R15)
+			mov_insns[REX_P2 - adjust] = 0x4C;
+		else
+			goto out;
+
+		mov_insns[OP2 - adjust] = 0x89;
+		modrm_rows = RAX;
+		effect_opnd = effect_OP1;
+
+		if (adjust == NEED_XCHG)
+			modrm_cols = RCX;
+		else
+			modrm_cols = modrm_order(opnd2->reg);
+
+	}
+
+	memcpy(&mov_insns[IMM - adjust], &PC_base, sizeof(PC_base));
+
+	if (adjust == NEED_XCHG) {
+		mov_insns[XCHG_1 - adjust] = 0x48;
+		mov_insns[XCHG_1 - adjust + 1] = 0x91;
+		mov_insns[XCHG_2 - adjust] = 0x48;
+		mov_insns[XCHG_2 - adjust + 1] = 0x91;
+	}
+
+	/* build common instruction body */
+	mov_insns[PUSH - adjust] = 0x50;
+	mov_insns[POP - adjust] = 0x58;
+	mov_insns[REX_P - adjust] = 0x48;
+	mov_insns[OP - adjust] = 0xb8;
+
+	calc_modrm_x64(modrm_rows, modrm_cols, effect_opnd, disp_none, &modrm);
+	mov_insns[MODRM - adjust] = modrm_to_byte(modrm);
+	info->modified = true;
+
+	if (adjust == NEED_XCHG) {
+		/* for xchg, need 2bytes */
+		insns_size = XCHG_2 + 2;
+		memcpy(insns, mov_insns, insns_size);
+		return insns_size;
+	} else if (adjust == NON_XCHG) {
+		/* for pop, only 1byte needs. */
+		insns_size = POP - adjust + 1;
+		memcpy(insns, mov_insns, insns_size);
+		return insns_size;
+	}
+
+out:
+	return -1;
+}
+
+
+static int handle_pic(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	/* for now, support LEA instruction only */
+	if (strcmp(insn->mnemonic, "lea") == 0) {
+		return handle_pic_lea(insn, insns, info);
+	} else if (strcmp(insn->mnemonic, "mov") == 0) {
+		return handle_pic_mov(insn, insns, info);
+	}
+
+	return -1;
+}
+
+/*
  *  handle CALL instructions.
  *  it's basically PUSH + JMP instructions and we already add JMP
  *  at the end of copied instructions so reuse the JMP.
