@@ -112,7 +112,7 @@ next:
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, struct uftrace_arg_spec, list);
 			list_del(&arg->list);
-			free(arg);
+			free_arg_spec(arg);
 		}
 	}
 	strv_free(&specs);
@@ -261,7 +261,7 @@ static void release_auto_args(struct rb_root *root)
 
 		list_for_each_entry_safe(arg, tmp, &entry->args, list) {
 			list_del(&arg->list);
-			free(arg);
+			free_arg_spec(arg);
 		}
 
 		free(entry->name);

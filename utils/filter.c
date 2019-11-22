@@ -220,6 +220,13 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	}
 }
 
+void free_arg_spec(struct uftrace_arg_spec *arg)
+{
+	if (arg->fmt == ARG_FMT_ENUM)
+		free(arg->enum_str);
+	free(arg);
+}
+
 void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 		 bool exact_match)
 {
@@ -1043,10 +1050,7 @@ next:
 		while (!list_empty(&args)) {
 			arg = list_first_entry(&args, typeof(*arg), list);
 			list_del(&arg->list);
-
-			if (arg->fmt == ARG_FMT_ENUM)
-				free(arg->enum_str);
-			free(arg);
+			free_arg_spec(arg);
 		}
 
 	}
@@ -1156,7 +1160,7 @@ void uftrace_cleanup_filter(struct rb_root *root)
 
 		list_for_each_entry_safe(arg, tmp, &filter->args, list) {
 			list_del(&arg->list);
-			free(arg);
+			free_arg_spec(arg);
 		}
 		free(filter);
 	}
