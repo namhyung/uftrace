@@ -237,8 +237,9 @@ out:
  * @handle - uftrace data file handle
  *
  * This function prepares to read perf event data from perf-cpu*.dat
- * files.  It returns 0 on success, -1 on failure.  Callers should
- * call finish_perf_data() after reading all perf event data.
+ * files.  It returns 0 on success which includes that perf event data
+ * already setup, -1 on failure.  Callers should call
+ * finish_perf_data() after reading all perf event data.
  */
 int setup_perf_data(struct uftrace_data *handle)
 {
@@ -247,6 +248,9 @@ int setup_perf_data(struct uftrace_data *handle)
 	char *pattern;
 	size_t i;
 	int ret = -1;
+
+	if (has_perf_data(handle))
+		return 0;
 
 	xasprintf(&pattern, "%s/perf-cpu*.dat", handle->dirname);
 	if (glob(pattern, GLOB_ERR, NULL, &globbuf)) {
