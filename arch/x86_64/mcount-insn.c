@@ -131,14 +131,13 @@ static int opnd_reg(int capstone_reg)
  *  to this.
  *    mov rcx, [calculated PC + 0x8f3f85]
  */
-static int handle_pic(cs_insn *insn, uint8_t insns[],
+static int handle_pic_lea(cs_insn *insn, uint8_t insns[],
 		      struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
-
-#define REX   0
-#define OPND  1
-#define IMM   2
+	static const int REX = 0;
+	static const int OPND = 1;
+	static const int IMM = 2;
 
 	/*
 	 * array for mov instruction: REX + OPND + IMM(8-byte)
