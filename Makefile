@@ -358,7 +358,7 @@ reset-coverage:
 	$(Q)$(RM) coverage.info
 
 ctags:
-	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
+	@find uftrace.c uftrace.h libmcount arch utils misc libtraceevent -name "*\.[chS]" \
 		| xargs ctags --regex-asm='/^(GLOBAL|ENTRY|END)\(([^)]*)\).*/\2/'
 
 .PHONY: all config clean test dist doc ctags PHONY
