@@ -12,6 +12,8 @@
 #include "utils/symbol.h"
 
 #define PAGE_SIZE  4096
+#define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
+#define PAGE_LEN(a, l)    (a + l - (unsigned long)PAGE_ADDR(a))
 #define XRAY_SECT  "xray_instr_map"
 #define MCOUNTLOC_SECT  "__mcount_loc"
 
@@ -84,7 +86,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 			pr_err("failed to mmap trampoline for setup");
 	}
 
-	if (mprotect((void *)mdi->text_addr, mdi->text_size,
+	if (mprotect(PAGE_ADDR(mdi->text_addr), 
+			 PAGE_LEN(mdi->text_addr, mdi->text_size),
 		     PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
@@ -122,7 +125,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_EXEC))
+	if (mprotect(PAGE_ADDR(mdi->text_addr), 
+			 PAGE_LEN(mdi->text_addr, mdi->text_size), PROT_EXEC))
 		pr_err("cannot restore trampoline due to protection");
 }
 
