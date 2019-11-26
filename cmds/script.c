@@ -180,8 +180,10 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	strv_copy(&info.cmds, argc, argv);
 
 	/* initialize script */
-	if (script_init(&info, opts->patt_type) < 0)
-		return -1;
+	if (script_init(&info, opts->patt_type) < 0) {
+		ret = -1;
+		goto out;
+	}
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		if (!fstack_check_opts(task, opts))
@@ -195,10 +197,12 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	/* dtor for script support */
 	script_uftrace_end();
-
+out:
 	script_finish();
 
 	close_data_file(opts, &handle);
+
+	strv_free(&info.cmds);
 
 	return ret;
 }
