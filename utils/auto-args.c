@@ -286,7 +286,7 @@ void finish_auto_args(void)
 			spec = list_first_entry(dwarf_argspec_list->trigger.pargs,
 						typeof(*spec), list);
 			list_del(&spec->list);
-			free(spec);
+			free_arg_spec(spec);
 		}
 		free(dwarf_argspec_list);
 
