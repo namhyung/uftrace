@@ -677,6 +677,9 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 		return -1;
 
 	if (rstack->type == UFTRACE_EXIT) {
+		if (task->stack_count < 1)
+			return 0;
+
 		/* fstack_consume() is not called yet */
 		fstack = &task->func_stack[task->stack_count - 1];
 
