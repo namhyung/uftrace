@@ -788,14 +788,20 @@ static void mcount_finish(void)
 static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 {
 	if (mtdp->idx >= mcount_rstack_max) {
-		static bool warned = false;
+		if (!mtdp->warned) {
+			struct mcount_ret_stack *rstack;
 
-		if (!warned) {
-			pr_warn("too deeply nested calls: %d\n", mtdp->idx);
-			warned = true;
+			pr_warn("call depth beyond %d is not recorded.\n"
+			        "      (use --max-stack=DEPTH to record more)\n",
+				mtdp->idx);
+			/* flush current rstack */
+			rstack = &mtdp->rstack[mcount_rstack_max - 1];
+			record_trace_data(mtdp, rstack, NULL);
+			mtdp->warned = true;
 		}
 		return true;
 	}
+	mtdp->warned = false;
 	return false;
 }
 

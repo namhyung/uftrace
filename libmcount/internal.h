@@ -126,6 +126,7 @@ struct mcount_thread_data {
 	bool				recursion_marker;
 	bool				in_exception;
 	bool				dead;
+	bool				warned;
 	unsigned long			cygprof_dummy;
 	struct mcount_ret_stack		*rstack;
 	void				*argbuf;
