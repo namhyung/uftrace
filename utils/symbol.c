@@ -1436,6 +1436,14 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 	return NULL;
 }
 
+void append_map(struct uftrace_mmap *maps, struct uftrace_mmap *map)
+{
+	while (maps->next != NULL)
+		maps = maps->next;
+
+	maps->next = map;
+}
+
 char *symbol_getname(struct sym *sym, uint64_t addr)
 {
 	char *name;

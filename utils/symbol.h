@@ -154,6 +154,8 @@ struct uftrace_mmap * find_map_by_name(struct symtabs *symtabs,
 				       const char *prefix);
 struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name);
 
+void append_map(struct uftrace_mmap *maps, struct uftrace_mmap *map);
+
 int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);
 
