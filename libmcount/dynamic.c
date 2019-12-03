@@ -219,6 +219,23 @@ struct find_module_data {
 	bool needs_modules;
 };
 
+static struct mcount_dynamic_info * create_mdi(unsigned long baseaddr,
+					       unsigned long textaddr,
+					       unsigned int textsize)
+{
+	struct mcount_dynamic_info *mdi;
+
+	mdi = xzalloc(sizeof(*mdi));
+
+	mdi->base_addr = baseaddr;
+	mdi->text_addr = textaddr;
+	mdi->text_size = textsize;
+
+	INIT_LIST_HEAD(&mdi->bad_syms);
+
+	return mdi;
+}
+
 /* callback for dl_iterate_phdr() */
 static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
@@ -228,6 +245,8 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct uftrace_mmap *map;
 	bool base_addr_set = false;
 	unsigned i;
+	unsigned long base_addr = 0, text_addr = 0;
+	unsigned int text_size = 0;
 
 	mdi = xzalloc(sizeof(*mdi));
 
@@ -236,7 +255,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 			continue;
 
 		if (!base_addr_set) {
-			mdi->base_addr = info->dlpi_phdr[i].p_vaddr;
+			base_addr = info->dlpi_phdr[i].p_vaddr;
 			base_addr_set = true;
 		}
 
@@ -244,13 +263,14 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 			continue;
 
 		/* find address and size of code segment */
-		mdi->text_addr = info->dlpi_phdr[i].p_vaddr;
-		mdi->text_size = info->dlpi_phdr[i].p_memsz;
+		text_addr = info->dlpi_phdr[i].p_vaddr;
+		text_size = info->dlpi_phdr[i].p_memsz;
 		break;
 	}
-	mdi->base_addr += info->dlpi_addr;
-	mdi->text_addr += info->dlpi_addr;
-	INIT_LIST_HEAD(&mdi->bad_syms);
+	base_addr += info->dlpi_addr;
+	text_addr += info->dlpi_addr;
+
+	mdi = create_mdi(base_addr, text_addr, text_size);
 
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
