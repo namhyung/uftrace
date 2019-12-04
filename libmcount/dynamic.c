@@ -324,7 +324,7 @@ static void prepare_dynamic_update(struct symtabs *symtabs,
 
 	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
 				   hashmap_ptr_equals);
-	mcount_disasm_init(&disasm);
+
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
 
@@ -354,14 +354,27 @@ struct patt_list {
 	bool positive;
 };
 
+static bool match_pattern_module(char *pathname)
+{
+	struct patt_list *pl;
+	bool ret = false;
+	char *libname = basename(pathname);
+
+	list_for_each_entry(pl, &patterns, list) {
+		if (!strncmp(libname, pl->module, strlen(pl->module)))
+			ret = true;
+	}
+
+	return ret;
+}
+
 static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
 {
 	struct patt_list *pl;
 	bool ret = false;
+	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
-		char *libname = basename(map->libname);
-
 		if (strncmp(libname, pl->module, strlen(pl->module)))
 			continue;
 
@@ -441,6 +454,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	int j;
 	struct patt_list *pl;
 	bool all_negative = true;
+
+	mcount_disasm_init(&disasm);
 
 	if (patch_funcs == NULL)
 		return 0;
@@ -569,6 +584,48 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	return ret;
 }
 
+void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+			   char *pathname)
+{
+	struct mcount_dynamic_info *mdi;
+	struct uftrace_mmap *map;
+
+	if (!match_pattern_module(pathname))
+		return;
+
+	mdi = create_mdi(info);
+
+	map = xmalloc(sizeof(*map) + strlen(pathname) + 1);
+	map->start = info->dlpi_addr;
+	map->end = map->start + mdi->text_size;
+	map->len = strlen(pathname);
+
+	strcpy(map->libname, pathname);
+	mcount_memcpy1(map->prot, "r-xp", 4);
+	read_build_id(pathname, map->build_id, sizeof(map->build_id));
+
+	map->next = symtabs->maps;
+	symtabs->maps = map;
+	mdi->map = map;
+
+	map->mod = load_module_symtab(symtabs, map->libname, map->build_id);
+	mcount_arch_find_module(mdi, &map->mod->symtab);
+
+	if (mcount_setup_trampoline(mdi) < 0) {
+		pr_dbg("setup trampoline to %s failed\n", map->libname);
+		free(mdi);
+		return;
+	}
+
+	patch_func_matched(mdi, map);
+
+	mcount_arch_dynamic_recover(mdi, &disasm);
+	mcount_cleanup_trampoline(mdi);
+	free(mdi);
+
+	mcount_freeze_code();
+}
+
 void mcount_dynamic_finish(void)
 {
 	while (!list_empty(&patterns)) {
@@ -580,6 +637,8 @@ void mcount_dynamic_finish(void)
 		free(pl->module);
 		free(pl);
 	}
+
+	mcount_disasm_finish(&disasm);
 }
 
 struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,

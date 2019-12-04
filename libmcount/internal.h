@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <link.h>
 
 #ifdef HAVE_LIBCAPSTONE
 # include <capstone/capstone.h>
@@ -418,6 +419,8 @@ struct mcount_disasm_engine {
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
+void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+			   char *path);
 void mcount_dynamic_finish(void);
 
 struct mcount_orig_insn {
