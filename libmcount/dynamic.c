@@ -46,6 +46,7 @@ struct code_page {
 	struct list_head	list;
 	void			*page;
 	int			pos;
+	bool			frozen;
 };
 
 static LIST_HEAD(code_pages);
@@ -95,6 +96,22 @@ static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
 	return entry;
 }
 
+static struct code_page *alloc_codepage(void)
+{
+	struct code_page *cp = NULL;
+
+	cp = xzalloc(sizeof(*cp));
+	cp->page = mmap(NULL, CODE_CHUNK, PROT_READ | PROT_WRITE | PROT_EXEC,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+	if (cp->page == MAP_FAILED)
+		pr_err("mmap code page failed");
+
+	cp->pos = 0;
+	list_add_tail(&cp->list, &code_pages);
+	return cp;
+}
+
 void mcount_save_code(struct mcount_disasm_info *info,
 		      void *jmp_insn, unsigned jmp_size)
 {
@@ -116,19 +133,26 @@ void mcount_save_code(struct mcount_disasm_info *info,
 		cp = list_last_entry(&code_pages, struct code_page, list);
 
 	if (cp == NULL || (cp->pos + patch_size > CODE_CHUNK)) {
-		cp = xmalloc(sizeof(*cp));
-		cp->page = mmap(NULL, CODE_CHUNK, PROT_READ | PROT_WRITE | PROT_EXEC,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if (cp->page == MAP_FAILED)
-			pr_err("mmap code page failed");
-		cp->pos = 0;
-
-		list_add_tail(&cp->list, &code_pages);
+		cp = alloc_codepage();
 	}
 
 	orig = lookup_code(code_hmap, info->addr);
 	if (orig == NULL)
 		orig = create_code(code_hmap, info->addr);
+
+	/*
+	 * if dynamic patch has been processed before, cp be frozen by
+	 * calling freeze_code. so, when reaching here from the
+	 * mcount_handle_dlopen, cp unwriteable.
+	 */
+	if (cp->frozen) {
+		/* [Caution]
+		 * even if a little memory loss occurs, it can be dangerous
+		 * that to re-assigned write and execute permission to exist
+		 * codepage, so be sure to allocate new memory.
+		 */
+		cp = alloc_codepage();
+	}
 
 	orig->insn = cp->page + cp->pos;
 	orig->orig = orig->insn;
@@ -151,8 +175,10 @@ void mcount_freeze_code(void)
 {
 	struct code_page *cp;
 
-	list_for_each_entry(cp, &code_pages, list)
+	list_for_each_entry(cp, &code_pages, list) {
 		mprotect(cp->page, CODE_CHUNK, PROT_READ|PROT_EXEC);
+		cp->frozen = true;
+	}
 }
 
 void *mcount_find_code(unsigned long addr)
