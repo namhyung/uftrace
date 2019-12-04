@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <link.h>
 
 #ifdef HAVE_LIBCAPSTONE
 # include <capstone/capstone.h>
@@ -496,6 +497,9 @@ void mcount_list_events(void);
 int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 void mcount_hook_functions(void);
+void mcount_handle_dlopen(struct symtabs *symtabs,
+			  struct dl_phdr_info *info, char *mod_realpath,
+			  size_t size);
 
 int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
 		   void *buf);

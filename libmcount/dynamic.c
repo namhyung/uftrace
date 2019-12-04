@@ -651,6 +651,66 @@ bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 	return true;
 }
 
+void mcount_handle_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+			  char *mod_realpath, size_t size)
+{
+	struct uftrace_mmap *map;
+	struct mcount_dynamic_info *mdi;
+	char *modname;
+	unsigned long vaddr = 0, text_addr = 0;
+	unsigned int text_size = 0, namelen, i;
+	bool text_section_found = false;
+
+	modname = basename(mod_realpath);
+
+	if (!find_module_list(modname))
+		return;
+
+	namelen = strlen(modname) + 1;
+	map = xzalloc(sizeof(*map) + namelen);
+	map->start = info->dlpi_addr;
+	map->len = namelen;
+	mcount_memcpy1(map->libname, modname, namelen);
+
+	/* find last section and text section address */
+	for (i = 0; i < info->dlpi_phnum; i++) {
+		if (info->dlpi_phdr[i].p_type != PT_LOAD)
+			continue;
+
+		vaddr = ALIGN(info->dlpi_phdr[i].p_vaddr, 0x1000);
+		if (map->end < vaddr)
+			map->end = vaddr;
+
+		if ((info->dlpi_phdr[i].p_flags & PF_X) &&
+		     !text_section_found) {
+			/* find address and size of code segment */
+			text_addr = info->dlpi_phdr[i].p_vaddr;
+			text_size = info->dlpi_phdr[i].p_memsz;
+			text_section_found = true;
+		}
+	}
+
+	map->end += map->start;
+	text_addr += map->start;
+	map->mod = load_module_symtab(symtabs, mod_realpath);
+	append_map(symtabs->maps, map);
+
+	mdi = create_mdi(map->start, text_addr, text_size);
+	mdi->map = map;
+	mcount_arch_find_module(mdi, &map->mod->symtab);
+
+	mdi->next = mdinfo;
+	mdinfo = mdi;
+	if (mcount_setup_trampoline(mdi) < 0) {
+		free(mdi);
+		pr_dbg("setup trampoline to %s failed", mdi->map->libname);
+		free(mdi);
+		return;
+	}
+
+	patch_func_matched(mdi, map);
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(dynamic_find_code)
 {
