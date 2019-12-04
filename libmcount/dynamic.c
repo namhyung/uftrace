@@ -328,6 +328,8 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
+static LIST_HEAD(patterns);
+
 struct patt_list {
 	struct list_head list;
 	struct uftrace_pattern patt;
@@ -355,22 +357,74 @@ static bool match_pattern_list(struct list_head *patterns,
 	return ret;
 }
 
-static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			     enum uftrace_pattern_type ptype)
+static void patch_func_matched(struct list_head *patterns,
+			       struct mcount_dynamic_info *mdi,
+			       struct uftrace_mmap *map)
 {
-	struct uftrace_mmap *map;
+	bool found = false;
 	struct symtab *symtab;
-	struct strv funcs = STRV_INIT;
-	char *def_mod;
-	char *name;
-	int j;
+	bool csu_skip;
+	unsigned i, k;
+	struct sym *sym;
 	/* skip special startup (csu) functions */
 	const char *csu_skip_syms[] = {
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
-	LIST_HEAD(patterns);
+
+	symtab = &map->mod->symtab;
+
+	for (i = 0; i < symtab->nr_sym; i++) {
+		sym = &symtab->sym[i];
+
+		csu_skip = false;
+		for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
+			if (!strcmp(sym->name, csu_skip_syms[k])) {
+				csu_skip = true;
+				break;
+			}
+		}
+		if (csu_skip)
+			continue;
+
+		if (sym->type != ST_LOCAL_FUNC &&
+		    sym->type != ST_GLOBAL_FUNC)
+			continue;
+
+		if (!match_pattern_list(patterns, map, sym->name)) {
+			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+				stats.unpatch++;
+			continue;
+		}
+
+		found = true;
+		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+			case INSTRUMENT_FAILED:
+				stats.failed++;
+				break;
+			case INSTRUMENT_SKIPPED:
+				stats.skipped++;
+				break;
+			case INSTRUMENT_SUCCESS:
+			default:
+				break;
+		}
+		stats.total++;
+	}
+
+	if (!found)
+		stats.nomatch++;
+}
+
+static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			     enum uftrace_pattern_type ptype)
+{
+	struct uftrace_mmap *map;
+	struct strv funcs = STRV_INIT;
+	char *def_mod;
+	char *name;
+	int j;
 	struct patt_list *pl;
 	bool all_negative = true;
 
@@ -420,10 +474,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	for_each_map(symtabs, map) {
-		bool found = false;
-		bool csu_skip;
-		unsigned i, k;
-		struct sym *sym;
 		struct mcount_dynamic_info *mdi;
 
 		/* TODO: filter out unsuppported libs */
@@ -431,63 +481,12 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		if (mdi == NULL)
 			continue;
 
-		symtab = &map->mod->symtab;
-
-		for (i = 0; i < symtab->nr_sym; i++) {
-			sym = &symtab->sym[i];
-
-			csu_skip = false;
-			for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
-				if (!strcmp(sym->name, csu_skip_syms[k])) {
-					csu_skip = true;
-					break;
-				}
-			}
-			if (csu_skip)
-				continue;
-
-			if (sym->type != ST_LOCAL_FUNC &&
-			    sym->type != ST_GLOBAL_FUNC)
-				continue;
-
-			if (!match_pattern_list(&patterns, map, sym->name)) {
-				if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
-					stats.unpatch++;
-				continue;
-			}
-
-			found = true;
-			switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
-				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
-			}
-			stats.total++;
-		}
-
-		if (!found)
-			stats.nomatch++;
+		patch_func_matched(mdi, map);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n",
 		       stats.total, basename(symtabs->filename));
-	}
-
-	while (!list_empty(&patterns)) {
-		struct patt_list *pl;
-
-		pl = list_first_entry(&patterns, struct patt_list, list);
-
-		list_del(&pl->list);
-		free(pl->module);
-		free(pl);
 	}
 
 	strv_free(&funcs);
