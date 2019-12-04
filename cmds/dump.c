@@ -1509,7 +1509,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			continue;
 
 		if (prev_time > frs->time)
-			ops->inverted_time(ops, task);
+			call_if_nonull(ops->inverted_time, ops, task);
 		prev_time = frs->time;
 
 
