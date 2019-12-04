@@ -317,6 +317,8 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
+static LIST_HEAD(patterns);
+
 struct patt_list {
 	struct list_head list;
 	struct uftrace_pattern patt;
@@ -324,14 +326,12 @@ struct patt_list {
 	bool positive;
 };
 
-static bool match_pattern_list(struct list_head *patterns,
-			       struct uftrace_mmap *map,
-			       char *sym_name)
+static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
 {
 	struct patt_list *pl;
 	bool ret = false;
 
-	list_for_each_entry(pl, patterns, list) {
+	list_for_each_entry(pl, &patterns, list) {
 		char *libname = basename(map->libname);
 
 		if (strncmp(libname, pl->module, strlen(pl->module)))
@@ -344,22 +344,73 @@ static bool match_pattern_list(struct list_head *patterns,
 	return ret;
 }
 
-static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			     enum uftrace_pattern_type ptype)
+static void patch_func_matched(struct mcount_dynamic_info *mdi,
+			       struct uftrace_mmap *map)
 {
-	struct uftrace_mmap *map;
+	bool found = false;
 	struct symtab *symtab;
-	struct strv funcs = STRV_INIT;
-	char *def_mod;
-	char *name;
-	int j;
+	bool csu_skip;
+	unsigned i, k;
+	struct sym *sym;
 	/* skip special startup (csu) functions */
 	const char *csu_skip_syms[] = {
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
-	LIST_HEAD(patterns);
+
+	symtab = &map->mod->symtab;
+
+	for (i = 0; i < symtab->nr_sym; i++) {
+		sym = &symtab->sym[i];
+
+		csu_skip = false;
+		for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
+			if (!strcmp(sym->name, csu_skip_syms[k])) {
+				csu_skip = true;
+				break;
+			}
+		}
+		if (csu_skip)
+			continue;
+
+		if (sym->type != ST_LOCAL_FUNC &&
+		    sym->type != ST_GLOBAL_FUNC)
+			continue;
+
+		if (!match_pattern_list(map, sym->name)) {
+			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+				stats.unpatch++;
+			continue;
+		}
+
+		found = true;
+		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+			case INSTRUMENT_FAILED:
+				stats.failed++;
+				break;
+			case INSTRUMENT_SKIPPED:
+				stats.skipped++;
+				break;
+			case INSTRUMENT_SUCCESS:
+			default:
+				break;
+		}
+		stats.total++;
+	}
+
+	if (!found)
+		stats.nomatch++;
+}
+
+static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			     enum uftrace_pattern_type ptype)
+{
+	struct uftrace_mmap *map;
+	struct strv funcs = STRV_INIT;
+	char *def_mod;
+	char *name;
+	int j;
 	struct patt_list *pl;
 	bool all_negative = true;
 
@@ -409,10 +460,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	for_each_map(symtabs, map) {
-		bool found = false;
-		bool csu_skip;
-		unsigned i, k;
-		struct sym *sym;
 		struct mcount_dynamic_info *mdi;
 
 		/* TODO: filter out unsuppported libs */
@@ -420,48 +467,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		if (mdi == NULL)
 			continue;
 
-		symtab = &map->mod->symtab;
-
-		for (i = 0; i < symtab->nr_sym; i++) {
-			sym = &symtab->sym[i];
-
-			csu_skip = false;
-			for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
-				if (!strcmp(sym->name, csu_skip_syms[k])) {
-					csu_skip = true;
-					break;
-				}
-			}
-			if (csu_skip)
-				continue;
-
-			if (sym->type != ST_LOCAL_FUNC &&
-			    sym->type != ST_GLOBAL_FUNC)
-				continue;
-
-			if (!match_pattern_list(&patterns, map, sym->name)) {
-				if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
-					stats.unpatch++;
-				continue;
-			}
-
-			found = true;
-			switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
-				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
-			}
-			stats.total++;
-		}
-
-		if (!found)
-			stats.nomatch++;
+		patch_func_matched(mdi, map);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
@@ -469,21 +475,11 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		       stats.total, basename(symtabs->filename));
 	}
 
-	while (!list_empty(&patterns)) {
-		struct patt_list *pl;
-
-		pl = list_first_entry(&patterns, struct patt_list, list);
-
-		list_del(&pl->list);
-		free(pl->module);
-		free(pl);
-	}
-
 	strv_free(&funcs);
 	return 0;
 }
 
-static void finish_dynamic_update(void)
+static void freeze_dynamic_update(void)
 {
 	struct mcount_dynamic_info *mdi, *tmp;
 
@@ -541,8 +537,21 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	finish_dynamic_update();
+	freeze_dynamic_update();
 	return ret;
+}
+
+void mcount_dynamic_finish(void)
+{
+	while (!list_empty(&patterns)) {
+		struct patt_list *pl;
+
+		pl = list_first_entry(&patterns, struct patt_list, list);
+
+		list_del(&pl->list);
+		free(pl->module);
+		free(pl);
+	}
 }
 
 struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,

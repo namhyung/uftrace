@@ -418,6 +418,7 @@ struct mcount_disasm_engine {
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
+void mcount_dynamic_finish(void);
 
 struct mcount_orig_insn {
 	struct rb_node		node;

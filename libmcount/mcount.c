@@ -1799,6 +1799,7 @@ static void mcount_cleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
+	mcount_dynamic_finish();
 
 #if 0
 	/*
