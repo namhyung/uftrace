@@ -58,6 +58,22 @@ static uint64_t min_size = 0;
 /* disassembly engine for dynamic code patch */
 static struct mcount_disasm_engine disasm;
 
+static struct list_head *instrument_ml;
+
+struct patt_list {
+	struct list_head list;
+	struct uftrace_pattern patt;
+	char *module;
+	bool positive;
+};
+
+struct module_list {
+	struct list_head list;
+	struct list_head patt_list;
+	char *modname;
+};
+
+
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
 {
@@ -242,6 +258,40 @@ static struct mcount_dynamic_info * create_mdi(unsigned long baseaddr,
 	return mdi;
 }
 
+static struct module_list *find_module_list(char *modname)
+{
+	struct module_list *ml;
+
+	list_for_each_entry(ml, instrument_ml, list) {
+		if (!strncmp(ml->modname, modname, strlen(modname)))
+			return ml;
+	}
+
+	return NULL;
+}
+
+
+static struct module_list *add_module_list(char *modname)
+{
+	struct module_list *ml;
+
+	if (instrument_ml == NULL) {
+		instrument_ml = xmalloc(sizeof(*instrument_ml));
+		INIT_LIST_HEAD(instrument_ml);
+	}
+
+	ml = find_module_list(modname);
+
+	if (ml == NULL) {
+		ml = xmalloc(sizeof(*ml));
+		ml->modname = xstrdup(modname);
+		INIT_LIST_HEAD(&ml->patt_list);
+		list_add_tail(&ml->list, instrument_ml);
+	}
+
+	return ml;
+}
+
 /* callback for dl_iterate_phdr() */
 static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
@@ -328,14 +378,6 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
-static LIST_HEAD(patterns);
-
-struct patt_list {
-	struct list_head list;
-	struct uftrace_pattern patt;
-	char *module;
-	bool positive;
-};
 
 static bool match_pattern_list(struct list_head *patterns,
 			       struct uftrace_mmap *map,
@@ -357,8 +399,7 @@ static bool match_pattern_list(struct list_head *patterns,
 	return ret;
 }
 
-static void patch_func_matched(struct list_head *patterns,
-			       struct mcount_dynamic_info *mdi,
+static void patch_func_matched(struct mcount_dynamic_info *mdi,
 			       struct uftrace_mmap *map)
 {
 	bool found = false;
@@ -366,12 +407,17 @@ static void patch_func_matched(struct list_head *patterns,
 	bool csu_skip;
 	unsigned i, k;
 	struct sym *sym;
+	struct module_list *ml;
 	/* skip special startup (csu) functions */
 	const char *csu_skip_syms[] = {
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
+
+	ml = find_module_list(map->libname);
+	if (ml == NULL)
+		return;
 
 	symtab = &map->mod->symtab;
 
@@ -392,7 +438,7 @@ static void patch_func_matched(struct list_head *patterns,
 		    sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		if (!match_pattern_list(patterns, map, sym->name)) {
+		if (!match_pattern_list(&ml->patt_list, map, sym->name)) {
 			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
 				stats.unpatch++;
 			continue;
@@ -426,6 +472,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	char *name;
 	int j;
 	struct patt_list *pl;
+	struct module_list *ml;
 	bool all_negative = true;
 
 	if (patch_funcs == NULL)
@@ -455,8 +502,10 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			pl->module = xstrdup(++delim);
 		}
 
+		ml = add_module_list(pl->module);
+
 		init_filter_pattern(ptype, &pl->patt, name);
-		list_add_tail(&pl->list, &patterns);
+		list_add_tail(&pl->list, &ml->patt_list);
 	}
 
 	/* prepend match-all pattern, if all patterns are negative */
@@ -470,7 +519,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		else
 			init_filter_pattern(PATT_GLOB, &pl->patt, "*");
 
-		list_add(&pl->list, &patterns);
+		// add pl to all modules
+		// list_add(&pl->list, &patterns);
 	}
 
 	for_each_map(symtabs, map) {
