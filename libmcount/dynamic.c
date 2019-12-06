@@ -24,13 +24,15 @@ static struct mcount_dynamic_stats {
 	int unpatch;
 } stats;
 
-#define PAGE_SIZE   4096
+#if !defined(PAGE_SIZE)
+  #define PAGE_SIZE   4096
+#endif
 #define CODE_CHUNK  (PAGE_SIZE * 8)
 
 struct code_page {
 	struct list_head	list;
 	void			*page;
-	int			pos;
+	unsigned int		pos;
 };
 
 static LIST_HEAD(code_pages);
