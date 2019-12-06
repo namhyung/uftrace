@@ -11,7 +11,6 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define PAGE_SIZE  4096
 #define XRAY_SECT  "xray_instr_map"
 #define MCOUNTLOC_SECT  "__mcount_loc"
 

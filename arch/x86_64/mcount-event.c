@@ -11,7 +11,6 @@
 #include "libmcount/internal.h"
 
 #define INVALID_OPCODE  0xce
-#define PAGE_SIZE       4096
 #define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
 
 static void sdt_handler(int sig, siginfo_t *info, void *arg)
