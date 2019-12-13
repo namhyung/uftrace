@@ -12,9 +12,9 @@
 
 struct script_info;
 
-#ifdef HAVE_LIBPYTHON2
+#if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 
-#include <python2.7/Python.h>
+#include <Python.h>
 
 #define SCRIPT_PYTHON_ENABLED 1
 int script_init_for_python(struct script_info *info,

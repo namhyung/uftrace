@@ -6,7 +6,7 @@
  * Released under the GPL v2.
  */
 
-#ifdef HAVE_LIBPYTHON2
+#if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "script"
@@ -21,8 +21,13 @@
 #include "utils/script.h"
 #include "utils/script-python.h"
 
+#ifdef HAVE_LIBPYTHON2
 /* python library name, it only supports python 2.7 as of now */
-static const char *libpython = "libpython2.7.so";
+static const char libpython[] = "libpython2.7.so";
+#else
+/* python library name, it should support any version python3 */
+static const char libpython[] = "libpython" stringify(LIBPYTHON3_VERSION) ".so";
+#endif
 
 /* python library handle returned by dlopen() */
 static void *python_handle;
@@ -99,7 +104,16 @@ static const char *py_context_table[] = {
 	do { \
 		__##func = dlsym(python_handle, #func); \
 		if (!__##func) { \
-			pr_err("dlsym for \"" #func "\" is failed!\n"); \
+			pr_err("dlsym for \"" #func "\" is failed"); \
+			return -1; \
+		} \
+	} while (0)
+
+#define INIT_PY_API_FUNC2(func, name)		\
+	do { \
+		__##func = dlsym(python_handle, #name); \
+		if (!__##func) { \
+			pr_err("dlsym for \"" #name "\" is failed"); \
 			return -1; \
 		} \
 	} while (0)
@@ -113,9 +127,21 @@ static int load_python_api_funcs(void)
 	}
 
 	INIT_PY_API_FUNC(Py_Initialize);
+	INIT_PY_API_FUNC(PyImport_Import);
+
+#ifdef HAVE_LIBPYTHON2
 	INIT_PY_API_FUNC(Py_Finalize);
 	INIT_PY_API_FUNC(PySys_SetPath);
-	INIT_PY_API_FUNC(PyImport_Import);
+	INIT_PY_API_FUNC(PyString_FromString);
+	INIT_PY_API_FUNC(PyInt_FromLong);
+	INIT_PY_API_FUNC(PyString_AsString);
+#else
+	INIT_PY_API_FUNC2(Py_Finalize, Py_FinalizeEx);
+	INIT_PY_API_FUNC2(PySys_SetPath, Py_SetPath);
+	INIT_PY_API_FUNC2(PyString_FromString, PyUnicode_FromString);
+	INIT_PY_API_FUNC2(PyInt_FromLong, PyLong_FromLong);
+	INIT_PY_API_FUNC2(PyString_AsString, PyUnicode_AsUTF8);
+#endif
 
 	INIT_PY_API_FUNC(PyErr_Occurred);
 	INIT_PY_API_FUNC(PyErr_Print);
@@ -127,14 +153,11 @@ static int load_python_api_funcs(void)
 	INIT_PY_API_FUNC(PyObject_CallObject);
 	INIT_PY_API_FUNC(PyRun_SimpleStringFlags);
 
-	INIT_PY_API_FUNC(PyString_FromString);
-	INIT_PY_API_FUNC(PyInt_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromLong);
 	INIT_PY_API_FUNC(PyLong_FromUnsignedLongLong);
 	INIT_PY_API_FUNC(PyFloat_FromDouble);
 	INIT_PY_API_FUNC(PyBool_FromLong);
 
-	INIT_PY_API_FUNC(PyString_AsString);
 	INIT_PY_API_FUNC(PyLong_AsLong);
 
 	INIT_PY_API_FUNC(PyTuple_New);
@@ -197,13 +220,13 @@ static int import_python_module(char *py_pathname)
 	free(py_basename);
 
 	pModule = __PyImport_Import(pName);
+	Py_XDECREF(pName);
+
 	if (pModule == NULL) {
 		__PyErr_Print();
 		pr_warn("\"%s\" cannot be imported!\n", py_pathname);
 		return -1;
 	}
-
-	Py_XDECREF(pName);
 
 	/* import sys by default */
 	__PyRun_SimpleStringFlags("import sys", NULL);
@@ -656,8 +679,11 @@ int script_init_for_python(struct script_info *info,
 	script_uftrace_end = python_uftrace_end;
 	script_atfork_prepare = python_atfork_prepare;
 
-	load_python_api_funcs();
-	set_python_path(py_pathname);
+	if (load_python_api_funcs() < 0)
+		return -1;
+
+	if (set_python_path(py_pathname) < 0)
+		return -1;
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
@@ -715,4 +741,4 @@ void script_finish_for_python(void)
 	python_handle = NULL;
 }
 
-#endif /* !HAVE_LIBPYTHON2 */
+#endif /* !(HAVE_LIBPYTHON2 || HAVE_LIBPYTHON3) */
