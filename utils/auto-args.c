@@ -265,7 +265,7 @@ static void release_auto_args(struct rb_root *root)
 		}
 
 		free(entry->name);
-		free((void *)entry->end);
+		free((void *)(uintptr_t)entry->end);
 		free(entry);
 	}
 }

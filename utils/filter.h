@@ -109,8 +109,8 @@ struct uftrace_trigger {
 struct uftrace_filter {
 	struct rb_node		node;
 	char 			*name;
-	unsigned long		start;
-	unsigned long		end;
+	uint64_t		start;
+	uint64_t		end;
 	struct list_head	args;
 	struct uftrace_trigger	trigger;
 };

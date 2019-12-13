@@ -122,18 +122,18 @@ int uftrace_count_filter(struct rb_root *root, unsigned long flag)
 	return count;
 }
 
-static bool match_ip(struct uftrace_filter *filter, unsigned long ip)
+static bool match_ip(struct uftrace_filter *filter, uint64_t addr)
 {
-	return filter->start <= ip && ip < filter->end;
+	return filter->start <= addr && addr < filter->end;
 }
 
 /**
  * uftrace_match_filter - try to match @ip with filters in @root
- * @ip   - instruction address to match
+ * @addr - instruction address to match
  * @root - root of rbtree which has filters
  * @tr   - trigger data
  */
-struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
+struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct rb_root *root,
 					   struct uftrace_trigger *tr)
 {
 	struct rb_node *parent = NULL;
@@ -144,7 +144,7 @@ struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 		parent = *p;
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
-		if (match_ip(iter, ip)) {
+		if (match_ip(iter, addr)) {
 			*tr = iter->trigger;
 
 			pr_dbg2("filter match: %s\n", iter->name);
@@ -153,7 +153,7 @@ struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 			return iter;
 		}
 
-		if (iter->start > ip)
+		if (iter->start > addr)
 			p = &parent->rb_left;
 		else
 			p = &parent->rb_right;
