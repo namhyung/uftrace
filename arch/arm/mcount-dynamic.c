@@ -96,9 +96,8 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if (sym->size <= min_size)
 		return INSTRUMENT_SKIPPED;
 
-	memcpy(info.insns, (void*)info.addr, CODE_SIZE);
-	info.orig_size = CODE_SIZE;
-	info.copy_size = CODE_SIZE;
+	if (disasm_check_insns(disasm, mdi, &info) < 0)
+		return INSTRUMENT_FAILED;
 
 	save_orig_code(&info);
 
