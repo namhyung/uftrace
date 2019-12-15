@@ -29,6 +29,7 @@ enum display_field_id {
 
 	GRAPH_F_TASK_TOTAL_TIME = 0,
 	GRAPH_F_TASK_SELF_TIME,
+	GRAPH_F_TASK_TID,
 };
 
 struct display_field {

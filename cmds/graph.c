@@ -126,6 +126,12 @@ static void print_task_self_time(struct field_data *fd)
 	print_time_unit(d);
 }
 
+static void print_task_tid(struct field_data *fd)
+{
+	struct uftrace_task *task = fd->arg;
+	pr_out("[%6d]", task->tid);
+}
+
 static struct display_field field_task_total_time = {
 	.id      = GRAPH_F_TASK_TOTAL_TIME,
 	.name    = "total-time",
@@ -146,6 +152,15 @@ static struct display_field field_task_self_time = {
 	.list    = LIST_HEAD_INIT(field_task_self_time.list),
 };
 
+static struct display_field field_task_tid = {
+	.id      = GRAPH_F_TASK_TID,
+	.name    = "tid",
+	.header  = "   TID  ",
+	.length  = 8,
+	.print   = print_task_tid,
+	.list    = LIST_HEAD_INIT(field_task_tid.list),
+};
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
 	&field_total_time,
@@ -157,6 +172,7 @@ static struct display_field *field_table[] = {
 static struct display_field *field_task_table[] = {
 	&field_task_total_time,
 	&field_task_self_time,
+	&field_task_tid,
 };
 
 static void setup_default_field(struct list_head *fields, struct opts *opts)
@@ -168,6 +184,7 @@ static void setup_default_task_field(struct list_head *fields, struct opts *opts
 {
 	add_field(fields, field_task_table[GRAPH_F_TASK_TOTAL_TIME]);
 	add_field(fields, field_task_table[GRAPH_F_TASK_SELF_TIME]);
+	add_field(fields, field_task_table[GRAPH_F_TASK_TID]);
 }
 
 static void print_field(struct uftrace_graph_node *node)
@@ -796,7 +813,7 @@ static bool print_task_node(struct uftrace_task *task,
 
 	print_task_field(task);
 	pr_indent(indent_mask, indent, true);
-	pr_out("[%d] %s\n", task->tid, name);
+	pr_out("%s\n", name);
 
 	if (list_empty(&task->children))
 		return false;
