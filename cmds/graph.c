@@ -813,7 +813,14 @@ static bool print_task_node(struct uftrace_task *task,
 
 	print_task_field(task);
 	pr_indent(indent_mask, indent, true);
-	pr_out("%s\n", name);
+	if (parent && parent->pid == task->pid) {
+		/* print thread name in green color */
+		pr_green("%s\n", name);
+	}
+	else {
+		/* print process name */
+		pr_out("%s\n", name);
+	}
 
 	if (list_empty(&task->children))
 		return false;
