@@ -801,7 +801,8 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 
 static bool print_task_node(struct uftrace_task *task,
 			    struct uftrace_task *parent,
-			    bool *indent_mask, int indent)
+			    bool *indent_mask, int indent,
+			    struct opts *opts)
 {
 	char *name = task->comm;
 	struct uftrace_task *child;
@@ -837,6 +838,10 @@ static bool print_task_node(struct uftrace_task *task,
 	}
 
 	list_for_each_entry(child, &task->children, siblings) {
+		/* filter out if total time is less than time-filter */
+		if (opts->threshold > child->time.run)
+			continue;
+
 		indent = orig_indent;
 
 		indent_mask[indent++] = true;
@@ -856,7 +861,7 @@ static bool print_task_node(struct uftrace_task *task,
 			blank = false;
 		}
 
-		blank |= print_task_node(child, task, indent_mask, indent);
+		blank |= print_task_node(child, task, indent_mask, indent, opts);
 
 		if (&child->siblings != task->children.prev &&
 		    child->pid != task->pid) {
@@ -871,12 +876,15 @@ static bool print_task_node(struct uftrace_task *task,
 static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 {
 	bool *indent_mask;
+	struct uftrace_task *task;
 
 	if (uftrace_done)
 		return 0;
 
 	if (handle->nr_tasks <= 0)
 		return 0;
+
+	task = handle->sessions.first_task;
 
 	setup_field(&output_task_fields, opts, &setup_default_task_field,
 		    field_task_table, ARRAY_SIZE(field_task_table));
@@ -885,7 +893,11 @@ static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 	print_header(&output_task_fields, "# ", "TASK NAME", 2);
 
 	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
-	print_task_node(handle->sessions.first_task, NULL, indent_mask, 0);
+
+	/* filter out if total time is less than time-filter */
+	if (opts->threshold <= task->time.run)
+		print_task_node(task, NULL, indent_mask, 0, opts);
+
 	free(indent_mask);
 	pr_out("\n");
 	return 1;
