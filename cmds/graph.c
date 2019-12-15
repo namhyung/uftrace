@@ -421,7 +421,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 
 	if (graph->ug.root.time || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
-		print_header(&output_fields, "# ", 2);
+		print_header(&output_fields, "# ", "FUNCTION", 2);
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(&graph->ug, &graph->ug.root, indent_mask, 0,
 				 graph->ug.root.nr_edges > 1);
