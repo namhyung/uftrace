@@ -4,11 +4,15 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
+#define ADDR_IN_48_BITS(addr) ((addr) & 0xffffffffffffUL)
+
 /* data for field display */
 struct field_data {
 	struct uftrace_task_reader *task;
 	struct fstack *fstack;
 	void *arg;
+	unsigned long addr;
+	void (*print)(const char *fmt, ...);
 };
 
 enum display_field_id {
@@ -22,6 +26,7 @@ enum display_field_id {
 	REPLAY_F_ELAPSED,
 	REPLAY_F_TASK,
 	REPLAY_F_MODULE,
+	REPLAY_F_MODULE_ADDR,
 
 	GRAPH_F_TOTAL_TIME      = 0,
 	GRAPH_F_SELF_TIME,
@@ -44,6 +49,8 @@ void print_header(struct list_head *output_fields, const char *prefix,
 int print_field_data(struct list_head *output_fields, struct field_data *fd,
 		     int space);
 int print_empty_field(struct list_head *output_fields, int space);
+void print_addr(struct field_data *fd);
+
 void add_field(struct list_head *output_fields, struct display_field *field);
 void setup_field(struct list_head *output_fields, struct opts *opts,
 		 void (*setup_default_field)(struct list_head *fields, struct opts*),

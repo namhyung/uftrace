@@ -194,10 +194,10 @@ RECORD CONFIG OPTIONS
 REPLAY OPTIONS
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: duration, tid, time,
-    delta, elapsed and addr.  Multiple fields can be set by using comma.
-    Special field of 'none' can be used (solely) to hide all fields.
-    Default is 'duration,tid'.  See *FIELDS*.
+:   Customize field in the output.  Possible values are: duration, tid, addr,
+    time, delta, elapsed, task, module and module_addr.  Multiple fields can be
+    set by using comma.  Special field of 'none' can be used (solely) to hide
+    all fields.  Default is 'duration,tid'.  See *FIELDS*.
 
 \--flat
 :   Print flat format rather than C-like format.  This is usually for debugging
@@ -614,6 +614,7 @@ Each field has following meaning:
  * addr: address of the function
  * task: task name (comm)
  * module: library or executable name of the function
+ * module_addr: relative function address from the module load base
 
 The default value is 'duration,tid'.  If given field name starts with "+", then
 it'll be appended to the default fields.  So "-f +time" is as same as
