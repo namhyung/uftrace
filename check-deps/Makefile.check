@@ -11,6 +11,10 @@ ifneq ($(wildcard $(srcdir)/check-deps/cxa_demangle),)
   COMMON_LDFLAGS += -lstdc++
 endif
 
+ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
+  LIB_CFLAGS += -mno-sse2
+endif
+
 ifneq ($(wildcard $(srcdir)/check-deps/have_libpython3),)
   COMMON_CFLAGS += -DHAVE_LIBPYTHON3
   COMMON_CFLAGS += -I $(shell python3 -c 'import sysconfig; print(sysconfig.get_config_vars()["INCLUDEPY"])')
