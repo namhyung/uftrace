@@ -523,6 +523,9 @@ int chown(const char *path, uid_t uid, uid_t gid);
 int lchown(const char *path, uid_t uid, uid_t gid);
 int fchown(int fd, uid_t uid, uid_t gid);
 
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+
 #include <time.h>
 enum uft_clockid_t {
 	CLOCK_REALTIME = 0,
