@@ -755,6 +755,11 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 	struct uftrace_task *t;
 	int i;
 
+	/*
+	 * we need to know entire runtime, so not apply time filter now
+	 * and it will be filtered when it's printed.
+	 */
+	handle->time_filter = 0;
 	reset_task_runtime(handle);
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
@@ -797,6 +802,38 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 
 		t->time.run = task->timestamp_last - task->timestamp;
 	}
+	handle->time_filter = opts->threshold;
+}
+
+/* returns true if any of child has more runtime than the filter */
+static bool check_time_filter(struct uftrace_task *task, struct opts *opts)
+{
+	struct uftrace_task *child;
+
+	list_for_each_entry(child, &task->children, siblings) {
+		if (child->time.run >= opts->threshold)
+			return true;
+		if (check_time_filter(child, opts))
+			return true;
+	}
+	return false;
+}
+
+static bool is_last_child(struct uftrace_task *task,
+			  struct uftrace_task *parent,
+			  struct opts *opts)
+{
+	if (list_is_singular(&parent->children) ||
+	    parent->children.prev == &task->siblings)
+		return true;
+
+	/* any sibling satisfies the time filter? */
+	list_for_each_entry_continue(task, &parent->children, siblings) {
+		if (task->time.run >= opts->threshold ||
+		    check_time_filter(task, opts))
+			return false;
+	}
+	return true;
 }
 
 static bool print_task_node(struct uftrace_task *task,
@@ -823,12 +860,11 @@ static bool print_task_node(struct uftrace_task *task,
 		pr_out("%s\n", name);
 	}
 
-	if (list_empty(&task->children))
+	if (list_empty(&task->children) || !check_time_filter(task, opts))
 		return false;
 
 	/* clear parent indent mask at the last node */
-	if (parent && !list_is_singular(&parent->children) &&
-	    parent->children.prev == &task->siblings) {
+	if (parent && is_last_child(task, parent, opts)) {
 		int parent_indent = orig_indent - 1;
 
 		if (task->pid != parent->pid)
@@ -838,8 +874,14 @@ static bool print_task_node(struct uftrace_task *task,
 	}
 
 	list_for_each_entry(child, &task->children, siblings) {
-		/* filter out if total time is less than time-filter */
-		if (opts->threshold > child->time.run)
+		/*
+		 * Filter out if total time is less than time-filter.
+		 * Note that child might live longer than parent.
+		 * In that case we should print the parent even if it's
+		 * shorter than the time filter to show a correct tree.
+		 */
+		if (opts->threshold > child->time.run &&
+		    !check_time_filter(child, opts))
 			continue;
 
 		indent = orig_indent;
