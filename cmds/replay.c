@@ -1145,7 +1145,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		    field_table, ARRAY_SIZE(field_table));
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
-		print_header(&output_fields, "#", 1);
+		print_header(&output_fields, "#", "FUNCTION", 1);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rstack = task->rstack;

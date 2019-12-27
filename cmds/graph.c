@@ -14,6 +14,7 @@
 #include "utils/graph.h"
 
 static LIST_HEAD(output_fields);
+static LIST_HEAD(output_task_fields);
 
 struct graph_backtrace {
 	struct list_head list;
@@ -105,6 +106,61 @@ static struct display_field field_addr = {
 	.list    = LIST_HEAD_INIT(field_addr.list),
 };
 
+static void print_task_total_time(struct field_data *fd)
+{
+	struct uftrace_task *node = fd->arg;
+	uint64_t d;
+
+	d = node->time.run;
+
+	print_time_unit(d);
+}
+
+static void print_task_self_time(struct field_data *fd)
+{
+	struct uftrace_task *node = fd->arg;
+	uint64_t d;
+
+	d = node->time.run - node->time.idle;
+
+	print_time_unit(d);
+}
+
+static void print_task_tid(struct field_data *fd)
+{
+	struct uftrace_task *task = fd->arg;
+	pr_out("[%6d]", task->tid);
+}
+
+static struct display_field field_task_total_time = {
+	.id      = GRAPH_F_TASK_TOTAL_TIME,
+	.name    = "total-time",
+	.alias   = "total",
+	.header  = "TOTAL TIME",
+	.length  = 10,
+	.print   = print_task_total_time,
+	.list    = LIST_HEAD_INIT(field_task_total_time.list),
+};
+
+static struct display_field field_task_self_time = {
+	.id      = GRAPH_F_TASK_SELF_TIME,
+	.name    = "self-time",
+	.alias   = "self",
+	.header  = " SELF TIME",
+	.length  = 10,
+	.print   = print_task_self_time,
+	.list    = LIST_HEAD_INIT(field_task_self_time.list),
+};
+
+static struct display_field field_task_tid = {
+	.id      = GRAPH_F_TASK_TID,
+	.name    = "tid",
+	.header  = "   TID  ",
+	.length  = 8,
+	.print   = print_task_tid,
+	.list    = LIST_HEAD_INIT(field_task_tid.list),
+};
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
 	&field_total_time,
@@ -112,9 +168,23 @@ static struct display_field *field_table[] = {
 	&field_addr,
 };
 
+/* index of this task table should be matched to display_field_id */
+static struct display_field *field_task_table[] = {
+	&field_task_total_time,
+	&field_task_self_time,
+	&field_task_tid,
+};
+
 static void setup_default_field(struct list_head *fields, struct opts *opts)
 {
 	add_field(fields, field_table[GRAPH_F_TOTAL_TIME]);
+}
+
+static void setup_default_task_field(struct list_head *fields, struct opts *opts)
+{
+	add_field(fields, field_task_table[GRAPH_F_TASK_TOTAL_TIME]);
+	add_field(fields, field_task_table[GRAPH_F_TASK_SELF_TIME]);
+	add_field(fields, field_task_table[GRAPH_F_TASK_TID]);
 }
 
 static void print_field(struct uftrace_graph_node *node)
@@ -124,6 +194,16 @@ static void print_field(struct uftrace_graph_node *node)
 	};
 
 	if (print_field_data(&output_fields, &fd, 2))
+		pr_out(" : ");
+}
+
+static void print_task_field(struct uftrace_task *node)
+{
+	struct field_data fd = {
+		.arg = node,
+	};
+
+	if (print_field_data(&output_task_fields, &fd, 2))
 		pr_out(" : ");
 }
 
@@ -421,7 +501,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 
 	if (graph->ug.root.time || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
-		print_header(&output_fields, "# ", 2);
+		print_header(&output_fields, "# ", "FUNCTION", 2);
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(&graph->ug, &graph->ug.root, indent_mask, 0,
 				 graph->ug.root.nr_edges > 1);
@@ -721,7 +801,8 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 
 static bool print_task_node(struct uftrace_task *task,
 			    struct uftrace_task *parent,
-			    bool *indent_mask, int indent)
+			    bool *indent_mask, int indent,
+			    struct opts *opts)
 {
 	char *name = task->comm;
 	struct uftrace_task *child;
@@ -731,13 +812,16 @@ static bool print_task_node(struct uftrace_task *task,
 	if (uftrace_done)
 		return false;
 
-	pr_out("  ");
-	print_time_unit(task->time.run);
-	pr_out("  ");
-	print_time_unit(task->time.run - task->time.idle);
-	pr_out(" : ");
+	print_task_field(task);
 	pr_indent(indent_mask, indent, true);
-	pr_out("[%d] %s\n", task->tid, name);
+	if (parent && parent->pid == task->pid) {
+		/* print thread name in green color */
+		pr_green("%s\n", name);
+	}
+	else {
+		/* print process name */
+		pr_out("%s\n", name);
+	}
 
 	if (list_empty(&task->children))
 		return false;
@@ -754,6 +838,10 @@ static bool print_task_node(struct uftrace_task *task,
 	}
 
 	list_for_each_entry(child, &task->children, siblings) {
+		/* filter out if total time is less than time-filter */
+		if (opts->threshold > child->time.run)
+			continue;
+
 		indent = orig_indent;
 
 		indent_mask[indent++] = true;
@@ -764,14 +852,16 @@ static bool print_task_node(struct uftrace_task *task,
 		}
 
 		if (blank) {
-			pr_out(" %*s : ", 23, "");
+			/* print blank line between siblings */
+			if (print_empty_field(&output_task_fields, 2))
+				pr_out(" : ");
 			pr_indent(indent_mask, indent, false);
 			pr_out("\n");
 
 			blank = false;
 		}
 
-		blank |= print_task_node(child, task, indent_mask, indent);
+		blank |= print_task_node(child, task, indent_mask, indent, opts);
 
 		if (&child->siblings != task->children.prev &&
 		    child->pid != task->pid) {
@@ -783,9 +873,10 @@ static bool print_task_node(struct uftrace_task *task,
 	return blank;
 }
 
-static int graph_print_task(struct uftrace_data *handle)
+static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 {
 	bool *indent_mask;
+	struct uftrace_task *task;
 
 	if (uftrace_done)
 		return 0;
@@ -793,10 +884,20 @@ static int graph_print_task(struct uftrace_data *handle)
 	if (handle->nr_tasks <= 0)
 		return 0;
 
+	task = handle->sessions.first_task;
+
+	setup_field(&output_task_fields, opts, &setup_default_task_field,
+		    field_task_table, ARRAY_SIZE(field_task_table));
+
 	pr_out("========== TASK GRAPH ==========\n");
-	pr_out("# %10s  %10s : %s\n", "TOTAL-TIME", "SELF-TIME", "TASK");
+	print_header(&output_task_fields, "# ", "TASK NAME", 2);
+
 	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
-	print_task_node(handle->sessions.first_task, NULL, indent_mask, 0);
+
+	/* filter out if total time is less than time-filter */
+	if (opts->threshold <= task->time.run)
+		print_task_node(task, NULL, indent_mask, 0, opts);
+
 	free(indent_mask);
 	pr_out("\n");
 	return 1;
@@ -839,7 +940,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	if (opts->show_task) {
 		graph_build_task(opts, &handle);
-		graph_print_task(&handle);
+		graph_print_task(&handle, opts);
 		goto out;
 	}
 

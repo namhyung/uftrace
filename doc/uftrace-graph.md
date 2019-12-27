@@ -28,6 +28,10 @@ GRAPH OPTIONS
     Multiple fields can be set by using comma.  Special field of 'none' can be
     used (solely) to hide all fields.  Default is 'total'.  See *FIELDS*.
 
+--task
+:   Print task graph instead of normal function graph.  The each node in the
+    output shows process or thread(printed in green color).
+
 
 COMMON OPTIONS
 ==============
@@ -184,6 +188,60 @@ from `main`.  Since `loop` is a leaf function, it didn't call any other
 function.  In this case, `loop` was called only from a single path so
 backtrace #0 is hit 6 times.
 
+While graph command shows function-level call graph, --task option makes the
+output in task-level graph which shows how processes and threads are created.
+The term here `task` includes process and thread.
+
+For example, the task graph of GCC compiler can be shown as follows:
+
+    $ uftrace record --force /usr/bin/gcc hello.c
+
+    $ uftrace graph --task
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      159.854 ms    4.440 ms  [ 82723] : gcc
+                                       :  |
+       90.951 ms   90.951 ms  [ 82734] :  +----cc1
+                                       :  |
+       17.150 ms   17.150 ms  [ 82735] :  +----as
+                                       :  |
+       45.183 ms    6.076 ms  [ 82736] :  +----collect2
+                                       :        |
+       38.880 ms   38.880 ms  [ 82737] :        +----ld
+
+The above output shows `gcc` created `cc1`, `as`, and `collect2` processes then
+`collect2` created `ld` process.
+
+`TOTAL TIME` is the lifetime of the task from its creation to termination, and
+`SELF TIME` is also lifetime, but it excludes internal idle time.  `TID` is the
+thread id of the task.
+
+The following shows task graph of uftrace recording itself.  It shows uftrace
+created `t-abc` process, and also created many threads whose names are all
+`WriterThread`.
+
+    $ uftrace record -P. ./uftrace record -d uftrace.data.abc t-abc
+
+    $ uftrace graph --task
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      404.929 ms  321.692 ms  [  4230] : uftrace
+                                       :  |
+      278.662 us  278.662 us  [  4241] :  +----t-abc
+                                       :  |
+       33.754 ms    4.061 ms  [  4242] :  +-WriterThread
+       27.415 ms  120.992 us  [  4244] :  +-WriterThread
+       27.212 ms    8.119 ms  [  4245] :  +-WriterThread
+       26.754 ms    6.616 ms  [  4248] :  +-WriterThread
+       26.859 ms    8.154 ms  [  4247] :  +-WriterThread
+       26.509 ms    1.645 ms  [  4243] :  +-WriterThread
+       25.320 ms   57.350 us  [  4246] :  +-WriterThread
+       24.757 ms    4.391 ms  [  4249] :  +-WriterThread
+       26.040 ms    3.707 ms  [  4250] :  +-WriterThread
+       24.004 ms    3.999 ms  [  4251] :  +-WriterThread
+
+Please note that the indentation depth of thread is different from process.
+
 
 FIELDS
 ======
@@ -228,6 +286,42 @@ display and shows function output only.
 
 This output can be useful when comparing two different call graph outputs using
 diff tool.
+
+It also supports field customization for task graph.  The default field is set
+to `total,self,tid`, but the field option can also be used as follows:
+
+    $ uftrace graph --task -f tid,self
+    ========== TASK GRAPH ==========
+    #    TID     SELF TIME   TASK NAME
+      [ 82723]    4.440 ms : gcc
+                           :  |
+      [ 82734]   90.951 ms :  +----cc1
+                           :  |
+      [ 82735]   17.150 ms :  +----as
+                           :  |
+      [ 82736]    6.076 ms :  +----collect2
+                           :        |
+      [ 82737]   38.880 ms :        +----ld
+
+Each field has following meaning:
+
+ * total: total task lifetime from its creation to termination
+ * self : task execution time excluding its idle time
+ * tid  : task id (obtained by gettid(2))
+
+It also accepts a special field `none`, which hides all the fields on the left.
+
+    $ uftrace graph --task -f none
+    ========== TASK GRAPH ==========
+    gcc
+     |
+     +----cc1
+     |
+     +----as
+     |
+     +----collect2
+           |
+           +----ld
 
 
 SEE ALSO

@@ -26,6 +26,10 @@ enum display_field_id {
 	GRAPH_F_TOTAL_TIME      = 0,
 	GRAPH_F_SELF_TIME,
 	GRAPH_F_ADDR,
+
+	GRAPH_F_TASK_TOTAL_TIME = 0,
+	GRAPH_F_TASK_SELF_TIME,
+	GRAPH_F_TASK_TID,
 };
 
 struct display_field {
@@ -46,7 +50,7 @@ static inline uint64_t effective_addr(uint64_t addr)
 }
 
 void print_header(struct list_head *output_fields, const char *prefix,
-		  int space);
+		  const char *postfix, int space);
 int print_field_data(struct list_head *output_fields, struct field_data *fd,
 		     int space);
 int print_empty_field(struct list_head *output_fields, int space);
