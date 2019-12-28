@@ -185,6 +185,59 @@ GRAPH 옵션
 이 경우에 `loop` 함수는 단 하나의 경로를 통해서만 호출되었기 때문에 backtrace #0
 의 호출 횟수는 6 이된다.
 
+graph 명령어는 함수 단위의 호출 그래프를 보여주지만, --task 옵션을 사용하면 어떻게
+프로세스와 스레드들이 생성되었는지를 보여주는 태스크 단위 그래프를 보여줄 수 있다.
+
+예를 들면, GCC 컴파일러의 실행에 대한 태스크 그래프는 다음과 같다.
+
+    $ uftrace record --force /usr/bin/gcc hello.c
+
+    $ uftrace graph --task
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      159.854 ms    4.440 ms  [ 82723] : gcc
+                                       :  |
+       90.951 ms   90.951 ms  [ 82734] :  +----cc1
+                                       :  |
+       17.150 ms   17.150 ms  [ 82735] :  +----as
+                                       :  |
+       45.183 ms    6.076 ms  [ 82736] :  +----collect2
+                                       :        |
+       38.880 ms   38.880 ms  [ 82737] :        +----ld
+
+위의 출력 결과에서 보이는 것과 같이 `gcc` 는 `cc1`, `as` 그리고 `collect2` 프로세스를
+생성하였고, `collect2` 는 내부적으로 `ld` 프로세스를 생성한 것을 확인 할 수 있다.
+
+`TOTAL TIME` 은 태스크의 생성에서부터 소멸까지의 총 시간을 나타내고, `SELF TIME` 은
+역시 같은 방식의 총 시간을 나타내지만 내부적으로 유휴(idle) 시간은 제외를 한 시간을
+나타낸다.  `TID` 는 해당 태스크의 스레드 번호인 tid 를 보여준다.
+
+아래의 결과는 uftrace 가 record 하는 실행에 자체에 대한 내부적인 태스크 그래프를
+보여준다.  결과에서는 uftrace 가 `t-abc` 프로세스를 생성했고, 또한 `WriterThread`
+라는 이름을 갖는 다수의 스레드들을 생성한 것을 확인 가능하다.
+
+    $ uftrace record -P. ./uftrace record -d uftrace.data.abc t-abc
+
+    $ uftrace graph --task
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      404.929 ms  321.692 ms  [  4230] : uftrace
+                                       :  |
+      278.662 us  278.662 us  [  4241] :  +----t-abc
+                                       :  |
+       33.754 ms    4.061 ms  [  4242] :  +-WriterThread
+       27.415 ms  120.992 us  [  4244] :  +-WriterThread
+       27.212 ms    8.119 ms  [  4245] :  +-WriterThread
+       26.754 ms    6.616 ms  [  4248] :  +-WriterThread
+       26.859 ms    8.154 ms  [  4247] :  +-WriterThread
+       26.509 ms    1.645 ms  [  4243] :  +-WriterThread
+       25.320 ms   57.350 us  [  4246] :  +-WriterThread
+       24.757 ms    4.391 ms  [  4249] :  +-WriterThread
+       26.040 ms    3.707 ms  [  4250] :  +-WriterThread
+       24.004 ms    3.999 ms  [  4251] :  +-WriterThread
+
+위의 결과와 같이 스레드의 들여쓰기 깊이는 프로세스와는 다르게 표현된다.
+
 
 FIELDS
 ======
@@ -229,6 +282,43 @@ uftrace 사용자는 graph 결과를 몇몇의 필드로 원하는 방식대로 
 
 이런 방식의 출력은 diff 도구를 사용하여 두 개의 서로 다른 그래프 출력을 비교할 때
 유용하게 사용될 수 있다.
+
+같은 방식으로 태스크 그래프에 대해서도 출력 필드를 원하는 방식대로 구성할 수 있다.
+기본적인 필드 설정은 `total,self,tid` 이지만 필드 옵션은 아래와 같이 사용될 수도
+있다.
+
+    $ uftrace graph --task -f tid,self
+    ========== TASK GRAPH ==========
+    #    TID     SELF TIME   TASK NAME
+      [ 82723]    4.440 ms : gcc
+                           :  |
+      [ 82734]   90.951 ms :  +----cc1
+                           :  |
+      [ 82735]   17.150 ms :  +----as
+                           :  |
+      [ 82736]    6.076 ms :  +----collect2
+                           :        |
+      [ 82737]   38.880 ms :        +----ld
+
+각 필드는 다음과 같은 의미가 있다.
+
+ * total: 태스크의 생성부터 소멸까지의 총 시간
+ * self : 태스크의 총 시간에서 유휴(idle) 시간을 제외한 시간
+ * tid  : task id (gettid(2)로 얻을 수 있다.)
+
+또한 특별한 필드인 'none' 을 사용하면 왼쪽에 아무런 필드도 출력하지 않게 할 수 있다.
+
+    $ uftrace graph --task -f none
+    ========== TASK GRAPH ==========
+    gcc
+     |
+     +----cc1
+     |
+     +----as
+     |
+     +----collect2
+           |
+           +----ld
 
 
 함께 보기
