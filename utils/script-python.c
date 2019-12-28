@@ -125,6 +125,7 @@ static int load_python_api_funcs(void)
 		pr_warn("%s cannot be loaded!\n", libpython);
 		return -1;
 	}
+	pr_dbg("%s is loaded\n", libpython);
 
 	INIT_PY_API_FUNC(Py_Initialize);
 	INIT_PY_API_FUNC(PyImport_Import);

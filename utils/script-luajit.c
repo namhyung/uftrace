@@ -328,6 +328,7 @@ static int load_luajit_api_funcs(void)
 		pr_warn("%s cannot be loaded!\n", libluajit);
 		return -1;
 	}
+	pr_dbg("%s is loaded\n", libluajit);
 
 	INIT_LUAJIT_API_FUNC(luaL_newstate);
 	INIT_LUAJIT_API_FUNC(luaL_openlibs);
