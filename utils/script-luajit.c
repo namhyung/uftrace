@@ -213,7 +213,6 @@ static int luajit_uftrace_begin(struct script_info *info)
 {
 	int i;
 	char *s;
-	pr_dbg("%s()\n", __func__);
 
 	dllua_getglobal(L, "uftrace_begin");
 	if (dllua_isnil(L, -1))
@@ -246,8 +245,6 @@ static int luajit_uftrace_begin(struct script_info *info)
 
 static int luajit_uftrace_entry(struct script_context *sc_ctx)
 {
-	pr_dbg("%s()\n", __func__);
-
 	dllua_getglobal(L, "uftrace_entry");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
@@ -269,8 +266,6 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 
 static int luajit_uftrace_exit(struct script_context *sc_ctx)
 {
-	pr_dbg("%s()\n", __func__);
-
 	dllua_getglobal(L, "uftrace_exit");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
@@ -293,7 +288,6 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 
 static int luajit_uftrace_end(void)
 {
-	pr_dbg("%s()\n", __func__);
 	dllua_getglobal(L, "uftrace_end");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
