@@ -236,7 +236,7 @@ static int luajit_uftrace_begin(struct script_info *info)
 	}
 	dllua_settable(L, -3);
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -256,7 +256,7 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 		setup_argument_context(false, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_entry failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_entry failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -278,7 +278,7 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 		setup_argument_context(true, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_exit failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_exit failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -294,7 +294,7 @@ static int luajit_uftrace_end(void)
 		return -1;
 	}
 	if (dllua_pcall(L, 0, 0, 0) != 0) {
-		pr_warn("uftrace_end failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_end failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
