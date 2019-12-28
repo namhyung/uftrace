@@ -128,15 +128,14 @@ static int load_python_api_funcs(void)
 
 	INIT_PY_API_FUNC(Py_Initialize);
 	INIT_PY_API_FUNC(PyImport_Import);
+	INIT_PY_API_FUNC(Py_Finalize);
 
 #ifdef HAVE_LIBPYTHON2
-	INIT_PY_API_FUNC(Py_Finalize);
 	INIT_PY_API_FUNC(PySys_SetPath);
 	INIT_PY_API_FUNC(PyString_FromString);
 	INIT_PY_API_FUNC(PyInt_FromLong);
 	INIT_PY_API_FUNC(PyString_AsString);
 #else
-	INIT_PY_API_FUNC2(Py_Finalize, Py_FinalizeEx);
 	INIT_PY_API_FUNC2(PySys_SetPath, Py_SetPath);
 	INIT_PY_API_FUNC2(PyString_FromString, PyUnicode_FromString);
 	INIT_PY_API_FUNC2(PyInt_FromLong, PyLong_FromLong);

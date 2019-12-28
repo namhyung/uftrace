@@ -193,6 +193,12 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 		if (lr->pushed)
 			lr->offset += imm;
 	}
+	else if ((opcode & 0xf800) == 0x4800) {
+		/* LDR [PC + imm] */
+	}
+	else if ((opcode & 0xfff0) == 0xf8d0) {
+		/* LDR.W (reg + imm) */
+	}
 	else {
 		pr_err_ns("cannot analyze insn: %hx\n", opcode);
 	}
