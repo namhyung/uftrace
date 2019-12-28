@@ -8,17 +8,19 @@ include $(srcdir)/Makefile.include
 ARCH_ENTRY_SRC = $(wildcard $(sdir)/*.S)
 ARCH_MCOUNT_SRC = $(wildcard $(sdir)/mcount-*.c) $(sdir)/symbol.c
 ARCH_UFTRACE_SRC = $(sdir)/cpuinfo.c $(sdir)/symbol.c
+ARCH_ATTACH_ASM = $(wildcard $(sdir)/inject*.S)
 
 ARCH_MCOUNT_OBJS  = $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
 ARCH_MCOUNT_OBJS += $(patsubst $(sdir)/%.c,$(odir)/%.op,$(ARCH_MCOUNT_SRC))
 ARCH_UFTRACE_OBJS = $(patsubst $(sdir)/%.c,$(odir)/%.o,$(ARCH_UFTRACE_SRC))
+ARCH_ATTACH_OBJS  = $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ATTACH_ASM))
 
 all: $(odir)/entry.op
 
 $(odir)/mcount-entry.op: $(ARCH_MCOUNT_OBJS)
 	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
 
-$(odir)/uftrace.o: $(ARCH_UFTRACE_OBJS)
+$(odir)/uftrace.o: $(ARCH_UFTRACE_OBJS) $(ARCH_ATTACH_OBJS)
 	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
 
 $(odir)/%.op: $(sdir)/%.S

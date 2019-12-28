@@ -29,6 +29,7 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#include "utils/env-file.h"
 
 /* time filter in nsec */
 uint64_t mcount_threshold;
@@ -51,7 +52,8 @@ unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 pthread_key_t mtd_key = (pthread_key_t)-1;
 
 /* thread local data to trace function execution */
-TLS struct mcount_thread_data mtd;
+TLS struct mcount_thread_data *_mtdp attr_tls_model;
+TLS bool mcount_recursion_marker attr_tls_model;
 
 /* pipe file descriptor to communite to uftrace */
 int pfd = -1;
@@ -576,15 +578,15 @@ void mtd_dtor(void *arg)
 	struct mcount_thread_data *mtdp = arg;
 	struct uftrace_msg_task tmsg;
 
-	if (mtdp->dead)
+	if (__mcount_check_dead(mtdp))
 		return;
 
 	if (mcount_should_stop())
 		mcount_trace_finish(true);
 
 	/* this thread is done, do not enter anymore */
-	mtdp->recursion_marker = true;
-	mtdp->dead = true;
+	__mcount_guard_recursion();
+	__mcount_should_dead(mtdp);
 
 	mcount_rstack_restore(mtdp);
 
@@ -598,6 +600,7 @@ void mtd_dtor(void *arg)
 	mcount_watch_release(mtdp);
 	finish_mem_region(&mtdp->mem_regions);
 	shmem_finish(mtdp);
+	free(mtdp);
 
 	tmsg.pid = getpid(),
 	tmsg.tid = mcount_gettid(mtdp),
@@ -606,36 +609,46 @@ void mtd_dtor(void *arg)
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
 }
 
-void __mcount_guard_recursion(struct mcount_thread_data *mtdp)
+bool __mcount_check_dead(struct mcount_thread_data *mtdp)
 {
-	mtdp->recursion_marker = true;
+	return mtdp->dead;
 }
 
-void __mcount_unguard_recursion(struct mcount_thread_data *mtdp)
+void __mcount_should_dead(struct mcount_thread_data *mtdp)
 {
-	mtdp->recursion_marker = false;
+	mtdp->dead = true;
 }
 
-bool mcount_guard_recursion(struct mcount_thread_data *mtdp)
+void __mcount_guard_recursion()
 {
-	if (unlikely(mtdp->recursion_marker))
+	mcount_recursion_marker = true;
+}
+
+void __mcount_unguard_recursion()
+{
+	mcount_recursion_marker = false;
+}
+
+bool mcount_guard_recursion()
+{
+	if (unlikely(mcount_recursion_marker))
 		return false;
 
 	if (unlikely(mcount_should_stop())) {
-		mtd_dtor(mtdp);
+		mtd_dtor(get_thread_data());
 		return false;
 	}
 
-	mtdp->recursion_marker = true;
+	__mcount_guard_recursion();
 	return true;
 }
 
-void mcount_unguard_recursion(struct mcount_thread_data *mtdp)
+void mcount_unguard_recursion()
 {
-	mtdp->recursion_marker = false;
+	__mcount_unguard_recursion();
 
-	if (unlikely(mcount_should_stop()))
-		mtd_dtor(mtdp);
+	if (mcount_should_stop())
+		mtd_dtor(get_thread_data());
 }
 
 static struct sigaction old_sigact[2];
@@ -727,7 +740,7 @@ static void mcount_init_file(void)
 		.sa_flags = SA_SIGINFO,
 	};
 
-	send_session_msg(&mtd, mcount_session_name());
+	send_session_msg(get_thread_data(), mcount_session_name());
 	pr_dbg("new session started: %.*s: %s\n",
 	       SESSION_ID_LEN, mcount_session_name(), basename(mcount_exename));
 
@@ -736,10 +749,15 @@ static void mcount_init_file(void)
 	sigaction(SIGSEGV, &sa, &old_sigact[1]);
 }
 
+struct mcount_thread_data * mcount_thread_data_alloc(void)
+{
+	return get_thread_data() = xzalloc(sizeof(struct mcount_thread_data));
+}
+
 struct mcount_thread_data * mcount_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
-	struct mcount_thread_data *mtdp = &mtd;
+	struct mcount_thread_data *mtdp = get_thread_data();
 	struct uftrace_msg_task tmsg;
 
 	if (unlikely(mcount_should_stop()))
@@ -751,14 +769,17 @@ struct mcount_thread_data * mcount_prepare(void)
 	 *
 	 * mcount_entry -> mcount_prepare -> xmalloc -> mcount_entry -> ...
 	 */
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion())
 		return NULL;
 
 	compiler_barrier();
 
+	if (mtdp == NULL)
+		mtdp = mcount_thread_data_alloc();
+
 	mcount_filter_setup(mtdp);
 	mcount_watch_setup(mtdp);
-	mtdp->rstack = xmalloc(mcount_rstack_max * sizeof(*mtd.rstack));
+	mtdp->rstack = xmalloc(mcount_rstack_max * sizeof(struct mcount_ret_stack));
 
 	pthread_once(&once_control, mcount_init_file);
 	prepare_shmem_buffer(mtdp);
@@ -1193,14 +1214,14 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			return -1;
 	}
 
 	tr.flags = 0;
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 	if (filtered != FILTER_IN) {
-		mcount_unguard_recursion(mtdp);
+		mcount_unguard_recursion();
 		return -1;
 	}
 
@@ -1242,7 +1263,7 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 		mcount_auto_restore(mtdp);
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 	return 0;
 }
 
@@ -1265,14 +1286,14 @@ static unsigned long __mcount_exit(long *retval)
 
 	mtdp = get_thread_data();
 	assert(mtdp != NULL);
-	assert(!mtdp->dead);
+	assert(!__mcount_check_dead(mtdp));
 
 	/*
 	 * it's only called when mcount_entry() was succeeded and
 	 * no need to check recursion here.  But still needs to
 	 * prevent recursion during this call.
 	 */
-	__mcount_guard_recursion(mtdp);
+	__mcount_guard_recursion();
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
 
@@ -1286,7 +1307,7 @@ static unsigned long __mcount_exit(long *retval)
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
-	__mcount_unguard_recursion(mtdp);
+	__mcount_unguard_recursion();
 
 	if (unlikely(mcount_should_stop())) {
 		mtd_dtor(mtdp);
@@ -1331,7 +1352,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 			return -1;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			return -1;
 	}
 
@@ -1365,7 +1386,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 	 * since the cygprof_exit() will be called anyway
 	 */
 	if (filtered == FILTER_RSTACK) {
-		mcount_unguard_recursion(mtdp);
+		mcount_unguard_recursion();
 		return 0;
 	}
 
@@ -1388,7 +1409,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 	return 0;
 }
 
@@ -1410,7 +1431,7 @@ static void __cygprof_exit(unsigned long parent, unsigned long child)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion())
 		return;
 
 	/*
@@ -1429,7 +1450,7 @@ static void __cygprof_exit(unsigned long parent, unsigned long child)
 	mcount_exit_filter_record(mtdp, rstack, NULL);
 
 out:
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 
 	compiler_barrier();
 
@@ -1462,7 +1483,7 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			return;
 	}
 
@@ -1507,7 +1528,7 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 }
 
 void xray_entry(unsigned long parent, unsigned long child,
@@ -1528,7 +1549,7 @@ static void _xray_exit(long *retval)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	if (!mcount_guard_recursion(mtdp))
+	if (!mcount_guard_recursion())
 		return;
 
 	/*
@@ -1547,7 +1568,7 @@ static void _xray_exit(long *retval)
 	mcount_exit_filter_record(mtdp, rstack, retval);
 
 out:
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 
 	compiler_barrier();
 
@@ -1592,12 +1613,14 @@ static void atfork_child_handler(void)
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
+		/* we need it even if in a recursion */
+		__mcount_unguard_recursion();
 		mtdp = mcount_prepare();
 		if (mtdp == NULL)
 			return;
 	}
 	else {
-		if (!mcount_guard_recursion(mtdp))
+		if (!mcount_guard_recursion())
 			return;
 	}
 
@@ -1617,7 +1640,7 @@ static void atfork_child_handler(void)
 	for (i = 0; i < mtdp->idx; i++)
 		mtdp->rstack[i].flags |= MCOUNT_FL_WRITTEN;
 
-	mcount_unguard_recursion(mtdp);
+	mcount_unguard_recursion();
 }
 
 static void mcount_script_init(enum uftrace_pattern_type patt_type)
@@ -1661,7 +1684,7 @@ static __used void mcount_startup(void)
 	if (!(mcount_global_flags & MCOUNT_GFL_SETUP))
 		return;
 
-	mtd.recursion_marker = true;
+	__mcount_guard_recursion();
 
 	outfp = stdout;
 	logfp = stderr;
@@ -1790,7 +1813,7 @@ static __used void mcount_startup(void)
 	pr_dbg("mcount setup done\n");
 
 	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
-	mtd.recursion_marker = false;
+	__mcount_unguard_recursion();
 }
 
 static void mcount_cleanup(void)
@@ -1874,6 +1897,14 @@ UFTRACE_ALIAS(__cyg_profile_func_exit);
 static void __attribute__((constructor))
 mcount_init(void)
 {
+	int env_fd;
+	char *has_environ = getenv("UFTRACE_ENVIRON");
+
+	if (!has_environ) {
+		env_fd = open_env_file();
+		set_env_from_file(env_fd);
+	}
+
 	mcount_startup();
 }
 

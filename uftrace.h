@@ -33,6 +33,9 @@
 
 #define KB 1024
 #define MB (KB * 1024)
+/* the methods used to tracing */
+#define METHOD_PRELOAD			1
+#define METHOD_ATTACH			2
 
 struct uftrace_file_header {
 	char magic[UFTRACE_MAGIC_LEN];
@@ -228,6 +231,7 @@ struct opts {
 	int kernel_depth;
 	int max_stack;
 	int port;
+	int pid;
 	int color;
 	int column_offset;
 	int sort_column;

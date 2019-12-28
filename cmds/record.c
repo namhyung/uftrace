@@ -28,6 +28,8 @@
 #include "utils/filter.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
+#include "utils/env-file.h"
+#include "utils/inject.h"
 
 #ifndef EFD_SEMAPHORE
 # define EFD_SEMAPHORE (1 << 0)
@@ -62,6 +64,9 @@ static int thread_ctl[2];
 static bool has_perf_event;
 static bool has_sched_event;
 static bool finish_received;
+
+/* set the default mode to METHOD_PRELOAD */
+static int mode = METHOD_PRELOAD;
 
 static bool can_use_fast_libmcount(struct opts *opts)
 {
@@ -148,10 +153,31 @@ void put_libmcount_path(char *libpath)
 	free(libpath);
 }
 
+
+static typeof(&setenv) setenv_wrap = setenv;
+// temporary overwrite setenv function
+#define setenv(key, value, overwrite)			\
+({							\
+	if (mode == METHOD_ATTACH)			\
+		set_env_to_file(env_fd, key, value);	\
+	else						\
+		setenv_wrap(key, value, overwrite);	\
+})
+
 static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 {
 	char buf[PATH_MAX];
 	char *old_preload, *libpath;
+	int env_fd = 0;
+
+	if (mode == METHOD_ATTACH) {
+		env_fd = create_env_file();
+		if (env_fd < 0)
+			pr_err("Create environment file has be failed\n");
+	}
+	else {
+		setenv("UFTRACE_ENVIRON", "use_env", 1);
+	}
 
 #ifdef INSTALL_LIB_PATH
 	if (!opts->lib_path) {
@@ -270,8 +296,11 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 			setenv("UFTRACE_NEST_LIBCALL", "1", 1);
 	}
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME))
-		setenv("UFTRACE_DIR", opts->dirname, 1);
+	if (realpath(opts->dirname, buf) == NULL) {
+		pr_err("Could not access path : %s\n", buf);
+	}
+
+	setenv("UFTRACE_DIR", buf, 1);
 
 	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
 		snprintf(buf, sizeof(buf), "%lu", opts->bufsize);
@@ -2127,6 +2156,52 @@ int do_child_exec(int ready, struct opts *opts,
 	abort();
 }
 
+void do_inject(int ready, struct opts *opts, int argc, char** argv)
+{
+	char *libmcount_path;
+
+	setup_child_environ(opts, argc, argv);
+	libmcount_path = get_libmcount_path(opts);
+
+	if (libmcount_path == NULL)
+		pr_err("Cannot found shared object from %s", libmcount_path);
+
+	inject(libmcount_path, opts->pid);
+	abort();
+}
+
+
+
+/*
+ * find the executable file for the process you want to inject.
+ * Local symbol information are required to use dynamic tracing.
+ */
+int find_exefile(struct opts *opts)
+{
+	static char exe_full_path[PATH_MAX];
+	ssize_t len;
+	char buf[PATH_MAX];
+	pid_t pid = opts->pid;
+	DIR *directory = opendir("/proc/");
+
+	if (!directory)
+		return -1;
+
+	sprintf(buf, "/proc/%d/exe", pid);
+	len = readlink(buf, exe_full_path, PATH_MAX - 1);
+
+	if (len == -1) {
+		return -1;
+	}
+
+	closedir(directory);
+
+	pr_dbg("%s\n", exe_full_path);
+	opts->exename = exe_full_path;
+	return 0;
+}
+
+
 int command_record(int argc, char *argv[], struct opts *opts)
 {
 	int pid;
@@ -2134,9 +2209,15 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	int ret = -1;
 	char *channel = NULL;
 
+	if (opts->pid > 0)
+		mode = METHOD_ATTACH;
+
 	/* apply script-provided options */
 	if (opts->script_file)
 		parse_script_opt(opts);
+
+	if (mode == METHOD_ATTACH && find_exefile(opts) < 0)
+		pr_err("Could not found executable file");
 
 	check_binary(opts);
 	check_perf_event(opts);
@@ -2160,23 +2241,38 @@ int command_record(int argc, char *argv[], struct opts *opts)
 	if (pid < 0)
 		pr_err("cannot start child process");
 
-	if (pid == 0) {
-		if (opts->keep_pid)
-			ret = do_main_loop(ready, opts, getppid());
-		else
-			do_child_exec(ready, opts, argc, argv);
+	if (mode == METHOD_PRELOAD) {
+		if (pid == 0) {
+			if (opts->keep_pid)
+				ret = do_main_loop(ready, opts, getppid());
+			else
+				do_child_exec(ready, opts, argc, argv);
 
-		if (channel) {
-			unlink(channel);
-			free(channel);
+			if (channel) {
+				unlink(channel);
+				free(channel);
+			}
+			return ret;
 		}
-		return ret;
-	}
 
-	if (opts->keep_pid)
-		do_child_exec(ready, opts, argc, argv);
-	else
-		ret = do_main_loop(ready, opts, pid);
+		if (opts->keep_pid)
+			do_child_exec(ready, opts, argc, argv);
+		else
+			ret = do_main_loop(ready, opts, pid);
+	}
+	else if (mode == METHOD_ATTACH) {
+		if (pid == 0) {
+			do_inject(ready, opts, argc, argv);
+
+			if (channel) {
+				unlink(channel);
+				free(channel);
+			}
+			return ret;
+		}
+		else
+			ret = do_main_loop(ready, opts, pid);
+	}
 
 	if (channel) {
 		unlink(channel);

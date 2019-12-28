@@ -16,6 +16,16 @@ uftrace_ ## sym:
 	.type sym, %function;			\
 sym:
 
+#define OBJECT(sym)				\
+	.global sym;				\
+	.type sym, %object;			\
+sym:
+
+#define FUNC(sym)				\
+	.global sym;				\
+	.type sym, %function;			\
+sym:
+
 #define END(sym)				\
 	.size sym, .-sym;
 
