@@ -34,6 +34,9 @@ class TestCase(TestBase):
 """, sort='chrome')
 
     def pre(self):
+        if not TestBase.check_perf_paranoid(self):
+            return TestBase.TEST_SKIP
+
         uftrace  = TestBase.uftrace_cmd
         argument = '-d %s -E linux:task-name' % TDIR
         program  = 't-' + self.name
