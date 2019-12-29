@@ -559,11 +559,13 @@ def save_test_result(result, case, shared):
         shared.total += 1
 
 
-def print_test_result(case, result, diffs, color):
+def print_test_result(case, result, diffs, color, ftests):
+    plain_result = [text_result[r] for r in result]
+
     if color:
         result_list = [colored_result[r] for r in result]
     else:
-        result_list = [text_result[r] for r in result]
+        result_list = plain_result
 
     for dif in diffs:
         if dif != '':
@@ -571,10 +573,21 @@ def print_test_result(case, result, diffs, color):
 
     output = case[1:4]
     output += ' %-20s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
+
     sys.stdout.write(output)
 
+    # write abnormal test result to failed-tests.txt
+    normal = [TestBase.TEST_SUCCESS, TestBase.TEST_SUCCESS_FIXED, TestBase.TEST_SKIP]
+    for r in result:
+        if r not in normal:
+            output = case[1:4]
+            output += ' %-20s' % case[5:] + ': ' + ' '.join(plain_result) + '\n'
+            ftests.write(output)
+            ftests.flush()
+            break
 
-def print_test_header(opts, flags):
+
+def print_test_header(opts, flags, ftests):
     optslen = len(opts)
 
     header1 = '%-24s ' % 'Test case'
@@ -588,6 +601,9 @@ def print_test_header(opts, flags):
 
     print(header1)
     print(header2)
+    ftests.write(header1 + '\n')
+    ftests.write(header2 + '\n')
+    ftests.flush()
 
 
 def print_test_report(color, shared):
@@ -682,6 +698,8 @@ if __name__ == "__main__":
     res.append(TestBase.TEST_UNSUPP_LANG)
     res.append(TestBase.TEST_SKIP)
 
+    ftests = open("failed-tests.txt", "w")
+
     shared.stats = dict.fromkeys(res, 0)
     pool = multiprocessing.Pool(arg.worker)
     serial_pool = multiprocessing.Pool(1)
@@ -697,7 +715,7 @@ if __name__ == "__main__":
                          args=[name, flags, opts.split(), arg])
 
     print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
-    print_test_header(opts, flags)
+    print_test_header(opts, flags, ftests)
 
     color = arg.color
     if not sys.stdout.isatty():
@@ -711,10 +729,12 @@ if __name__ == "__main__":
         while name not in shared.results:
             time.sleep(1)
 
-        print_test_result(name, shared.results[name], shared.diffs[name], color)
+        print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
 
     pool.close()
     pool.join()
+
+    ftests.close()
 
     sys.stdout.write("\n")
     sys.stdout.flush()
