@@ -213,7 +213,6 @@ static int luajit_uftrace_begin(struct script_info *info)
 {
 	int i;
 	char *s;
-	pr_dbg("%s()\n", __func__);
 
 	dllua_getglobal(L, "uftrace_begin");
 	if (dllua_isnil(L, -1))
@@ -237,7 +236,7 @@ static int luajit_uftrace_begin(struct script_info *info)
 	}
 	dllua_settable(L, -3);
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -246,8 +245,6 @@ static int luajit_uftrace_begin(struct script_info *info)
 
 static int luajit_uftrace_entry(struct script_context *sc_ctx)
 {
-	pr_dbg("%s()\n", __func__);
-
 	dllua_getglobal(L, "uftrace_entry");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
@@ -259,7 +256,7 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 		setup_argument_context(false, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_entry failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_entry failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -269,8 +266,6 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 
 static int luajit_uftrace_exit(struct script_context *sc_ctx)
 {
-	pr_dbg("%s()\n", __func__);
-
 	dllua_getglobal(L, "uftrace_exit");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
@@ -283,7 +278,7 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 		setup_argument_context(true, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
-		pr_warn("uftrace_exit failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_exit failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -293,14 +288,13 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 
 static int luajit_uftrace_end(void)
 {
-	pr_dbg("%s()\n", __func__);
 	dllua_getglobal(L, "uftrace_end");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
 		return -1;
 	}
 	if (dllua_pcall(L, 0, 0, 0) != 0) {
-		pr_warn("uftrace_end failed: %s\n", dllua_tostring(L, -1));
+		pr_dbg("uftrace_end failed: %s\n", dllua_tostring(L, -1));
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -328,6 +322,7 @@ static int load_luajit_api_funcs(void)
 		pr_warn("%s cannot be loaded!\n", libluajit);
 		return -1;
 	}
+	pr_dbg("%s is loaded\n", libluajit);
 
 	INIT_LUAJIT_API_FUNC(luaL_newstate);
 	INIT_LUAJIT_API_FUNC(luaL_openlibs);
