@@ -197,9 +197,9 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	/* dtor for script support */
 	script_uftrace_end();
-out:
-	script_finish();
 
+	script_finish();
+out:
 	close_data_file(opts, &handle);
 
 	strv_free(&info.cmds);

@@ -102,6 +102,7 @@ int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 	pr_dbg2("%s(\"%s\")\n", __func__, script_pathname);
 	if (access(script_pathname, F_OK) < 0) {
 		perror(script_pathname);
+		script_finish_filter();
 		return -1;
 	}
 
@@ -124,8 +125,10 @@ int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 		script_pathname = NULL;
 	}
 
-	if (script_pathname == NULL)
+	if (script_pathname == NULL) {
+		script_finish_filter();
 		return -1;
+	}
 
 	return 0;
 }
