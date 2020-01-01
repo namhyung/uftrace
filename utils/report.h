@@ -21,7 +21,7 @@ struct uftrace_report_node {
 	char				*name;
 	struct report_time_stat 	total;
 	struct report_time_stat 	self;
-	unsigned long			call;
+	uint64_t			call;
 	struct rb_node			name_link;
 	struct rb_node			sort_link;
 
