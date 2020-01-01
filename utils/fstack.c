@@ -1512,14 +1512,15 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 				}
 			}
 
-			if (rstack_list->count == 0) {
+			list_for_each_entry_reverse(last, &rstack_list->read, list) {
+				if (last->rstack.type == UFTRACE_ENTRY)
+					break;
+			}
+			if (list_no_entry(last, &rstack_list->read, list)) {
 				/* it's already exceeded time filter, just return */
 				add_to_rstack_list(rstack_list, curr, &task->args);
 				break;
 			}
-
-			last = list_last_entry(&rstack_list->read,
-					       typeof(*last), list);
 
 			/* time filter is meaningful for functions */
 			while (last->rstack.type != UFTRACE_ENTRY)
