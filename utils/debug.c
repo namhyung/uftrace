@@ -364,7 +364,7 @@ void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
 		__print_time_unit(pair_nsec - base_nsec, true);
 }
 
-void print_diff_count(unsigned long base, unsigned long pair)
+void print_diff_count(uint64_t base, uint64_t pair)
 {
 	const char *diff_colors[] = {
 		TERM_COLOR_RED,
@@ -373,7 +373,7 @@ void print_diff_count(unsigned long base, unsigned long pair)
 	const char *sc = TERM_COLOR_NORMAL;
 	const char *ec = TERM_COLOR_NORMAL;
 	int sign_idx = (pair < base);
-	long diff = pair - base;
+	int64_t diff = pair - base;
 
 	if (diff == 0) {
 		pr_out("%9s", "+0");
@@ -385,5 +385,5 @@ void print_diff_count(unsigned long base, unsigned long pair)
 		ec = TERM_COLOR_RESET;
 	}
 
-	pr_out("%s%+9ld%s", sc, diff, ec);
+	pr_out("%s%+9"PRId64"%s", sc, diff, ec);
 }

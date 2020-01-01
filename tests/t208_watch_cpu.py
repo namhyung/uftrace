@@ -24,7 +24,8 @@ class TestCase(TestBase):
 
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
-        options = '-F main -W cpu -E "linux:*"'
+        # ignore unexpected memset on ARM (raspbian)
+        options = '-F main -W cpu -E "linux:*" -N memset'
         program = 't-' + self.name
         return '%s %s %s' % (uftrace, options, program)
 

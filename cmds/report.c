@@ -447,7 +447,7 @@ static void print_function_diff(struct uftrace_report_node *node, void *arg)
 		pr_out("   ");
 
 		if (diff_policy.full)
-			pr_out(" %9lu  %9lu", node->call, pair->call);
+			pr_out(" %9"PRIu64"  %9"PRIu64, node->call, pair->call);
 
 		pr_out("  ");
 
