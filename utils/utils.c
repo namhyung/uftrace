@@ -484,16 +484,15 @@ uint64_t parse_time(char *arg, int limited_digits)
 uint64_t parse_timestamp(char *arg)
 {
 	char *sep;
-	unsigned long tmp;
-	uint64_t ts;
+	uint64_t ts, tmp;
 	int len;
 
-	tmp = strtoul(arg, &sep, 0);
+	tmp = strtoull(arg, &sep, 0);
 	ts = tmp * NSEC_PER_SEC;
 
 	if (*sep == '.') {
 		arg = sep + 1;
-		tmp = strtoul(arg, &sep, 0);
+		tmp = strtoull(arg, &sep, 0);
 
 		len = 0;
 		while (isdigit(*arg)) {
