@@ -2002,6 +2002,37 @@ class: code-15px
                                            :        |
         0.284 us    0.284 us        400960 :        +-(1) operator delete
 ```
+---
+### Task graph of GCC compiler
+- `graph` command is for function-level call graph
+- `graph --task` is for task-level (hierarchy) graph
+
+```
+    $ uftrace --force /usr/bin/gcc hello.c
+
+    $ uftrace graph `--task`
+```
+---
+### Task graph of GCC compiler
+- `graph` command is for function-level call graph
+- `graph --task` is for task-level (hierarchy) graph
+
+```
+    $ uftrace --force /usr/bin/gcc hello.c
+
+    $ uftrace graph `--task`
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      159.854 ms    4.440 ms  [ 82723] : gcc
+                                       :  |
+       90.951 ms   90.951 ms  [ 82734] :  +----cc1
+                                       :  |
+       17.150 ms   17.150 ms  [ 82735] :  +----as
+                                       :  |
+       45.183 ms    6.076 ms  [ 82736] :  +----collect2
+                                       :        |
+       38.880 ms   38.880 ms  [ 82737] :        +----ld
+```
 
 ---
 name: tui
