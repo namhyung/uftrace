@@ -1178,6 +1178,12 @@ static int scandir_filter(const struct dirent *d)
 	return !strncmp(d->d_name, "kernel-cpu", 10);
 }
 
+static int scandir_sort(const struct dirent **a, const struct dirent **b)
+{
+	return strtol((*a)->d_name + sizeof("kernel-cpu") - 1, NULL, 0)
+		- strtol((*b)->d_name + sizeof("kernel-cpu") - 1, NULL, 0);
+}
+
 /**
  * setup_kernel_data - prepare to read kernel ftrace data from files
  * @kernel - kernel ftrace handle
@@ -1200,7 +1206,7 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 
 	trace_seq_init(&kernel->trace_buf);
 
-	kernel->nr_cpus = scandir(kernel->dirname, &list, scandir_filter, versionsort);
+	kernel->nr_cpus = scandir(kernel->dirname, &list, scandir_filter, scandir_sort);
 	if (kernel->nr_cpus <= 0) {
 		pr_out("cannot find kernel trace data\n");
 		goto out;
