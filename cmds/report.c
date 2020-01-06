@@ -192,7 +192,7 @@ static void print_function(struct uftrace_report_node *node, void *unused)
 		print_time_unit(node->total.sum);
 		pr_out("  ");
 		print_time_unit(node->self.sum);
-		pr_out("  %10lu  %-s\n", node->call, node->name);
+		pr_out("  %10"PRIu64 "  %-s\n", node->call, node->name);
 	}
 	else {
 		uint64_t time_avg, time_min, time_max;
@@ -329,7 +329,7 @@ static void print_thread(struct uftrace_report_node *node, void *arg)
 	print_time_unit(node->total.sum);
 	pr_out("  ");
 	print_time_unit(node->self.sum);
-	pr_out("  %10lu  %6d  %-s\n", node->call, pid, t->comm);
+	pr_out("  %10"PRIu64 "  %6d  %-s\n", node->call, pid, t->comm);
 }
 
 static void report_task(struct uftrace_data *handle, struct opts *opts)
