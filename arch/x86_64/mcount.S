@@ -30,6 +30,10 @@
 
 GLOBAL(mcount)
 	.cfi_startproc
+
+	/* save RFLAGS register otherwise clobbered */
+	pushf
+
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
 
@@ -42,7 +46,7 @@ GLOBAL(mcount)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
-	movq 48(%rsp), %rsi
+	movq 56(%rsp), %rsi
 
 	/* parent location */
 	lea 8(%rbp), %rdi
@@ -77,6 +81,10 @@ GLOBAL(mcount)
 
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+
+	/* restore RFLAGS register */
+	popf
+
 	retq
 	.cfi_endproc
 END(mcount)
@@ -94,9 +102,15 @@ ENTRY(mcount_return)
 	/* set the first argument of mcount_exit as pointer to return values */
 	movq %rsp, %rdi
 
+	/* save RFLAGS register otherwise clobbered */
+	pushf
+
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 40(%rsp)
+	movq %rax, 48(%rsp)
+
+	/* restore RFLAGS register */
+	popf
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx

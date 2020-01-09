@@ -28,6 +28,10 @@
 
 GLOBAL(__fentry__)
 	.cfi_startproc
+
+	/* save RFLAGS register otherwise clobbered */
+	pushf
+
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
 
@@ -40,10 +44,10 @@ GLOBAL(__fentry__)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
-	movq 48(%rsp), %rsi
+	movq 56(%rsp), %rsi
 
 	/* parent location */
-	lea 56(%rsp), %rdi
+	lea 64(%rsp), %rdi
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -75,6 +79,10 @@ GLOBAL(__fentry__)
 
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+
+	/* restore RFLAGS register */
+	popf
+
 	retq
 	.cfi_endproc
 END(__fentry__)

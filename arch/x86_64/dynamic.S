@@ -42,6 +42,10 @@
 
 GLOBAL(__dentry__)
 	.cfi_startproc
+
+	/* save RFLAGS register otherwise clobbered */
+	pushf
+
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
 
@@ -53,10 +57,10 @@ GLOBAL(__dentry__)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
-	movq 48(%rsp), %rsi
+	movq 56(%rsp), %rsi
 
 	/* parent location */
-	lea 56(%rsp), %rdi
+	lea 64(%rsp), %rdi
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -79,7 +83,7 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 
 	/* child addr */
-	movq 48(%rdx), %rdi
+	movq 56(%rdx), %rdi
 
 	/* find location that has the original code */
 	call mcount_find_code
@@ -88,7 +92,7 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 
 	/* overwrite return address */
-	movq %rax, 48(%rdx)
+	movq %rax, 56(%rdx)
 
 	pop  %r11
 	pop  %r10
@@ -106,6 +110,9 @@ GLOBAL(__dentry__)
 
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+
+	/* restore RFLAGS register */
+	popf
 
 	retq
 	.cfi_endproc
@@ -134,9 +141,15 @@ ENTRY(dynamic_return)
 	/* set the first argument of mcount_exit as pointer to return values */
 	movq   %rsp, %rdi
 
+	/* save RFLAGS register otherwise clobbered */
+	pushf
+
 	/* returns original parent address */
 	call   mcount_exit
-	movq   %rax, 88(%rsp)
+	movq   %rax, 96(%rsp)
+
+	/* restore RFLAGS register */
+	popf
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
