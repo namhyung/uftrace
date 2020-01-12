@@ -371,6 +371,32 @@ class TestBase:
 
         return True
 
+    def is_32bit(self):
+        EI_NIDENT = 16
+
+        # e_ident[] indexes
+        EI_CLASS      = 4
+
+        # EI_CLASS
+        ELFCLASSNONE  = 0
+        ELFCLASS32    = 1
+        ELFCLASS64    = 2
+        ELFCLASSNUM   = 3
+
+        try:
+            elfname = 't-' + self.name
+            f = open(elfname, 'rb')
+            elf_ident = list(f.read(EI_NIDENT))
+            ei_class = ord(elf_ident[EI_CLASS])
+            f.close()
+
+            if ei_class == ELFCLASS32:
+                return True
+        except:
+            pass
+
+        return False
+
     def prerun(self, timeout):
         ret = TestBase.TEST_SUCCESS
 
