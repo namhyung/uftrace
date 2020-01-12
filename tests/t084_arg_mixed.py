@@ -32,7 +32,7 @@ class TestCase(TestBase):
 
         if platform.machine().startswith('arm'):
             argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
-        elif platform.machine().startswith('i686'):
+        elif TestBase.is_32bit(self):
             argopt  = '-A "mixed_add@arg1/i32,fparg2/32"         -R "mixed_add@retval/f64" '
             argopt += '-A "mixed_sub@arg1/x,arg2"                -R "mixed_sub@retval" '
             argopt += '-A "mixed_mul@fparg1,arg3/i64"            -R "mixed_mul@retval/i64" '
