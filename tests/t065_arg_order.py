@@ -26,8 +26,7 @@ class TestCase(TestBase):
 
         if TestBase.is_32bit(self):
             # int_mul@arg1 is a 'long long', so we should skip arg2
-            argopt  = '-A "int_mul@arg1/i64" -A "^int_@arg1" '
-            argopt += '-A "int_(add|sub|div)@arg2" -A "int_mul@arg3/x" '
-            argopt += '-A "int_add@arg1/i32"'
+            argopt  = '-A "int_mul@arg3/x" -A "^int_@arg1" '
+            argopt += '-A "int_(add|sub|div)@arg2" -A "int_mul@arg1/i64" '
 
         return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
