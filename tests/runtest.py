@@ -397,6 +397,39 @@ class TestBase:
 
         return False
 
+    def get_elf_machine(self):
+        EI_NIDENT = 16
+
+        # e_machine (architecture)
+        EM_386        = 3       # Intel 80386
+        EM_ARM        = 40      # ARM
+        EM_X86_64     = 62      # AMD x86-64 architecture
+        EM_AARCH64    = 183     # ARM AARCH64
+
+        machine = {
+            EM_386: 'i386',
+            EM_ARM: 'arm',
+            EM_X86_64: 'x86_64',
+            EM_AARCH64: 'aarch64'
+        }
+
+        try:
+            elfname = 't-' + self.name
+            f = open(elfname, 'rb')
+
+            # consume elf_ident and e_type
+            f.read(EI_NIDENT + 2)
+
+            # read e_machine
+            e_machine = ord(f.read(2)[0])
+            f.close()
+
+            return machine[e_machine]
+        except:
+            pass
+
+        return None
+
     def prerun(self, timeout):
         ret = TestBase.TEST_SUCCESS
 
