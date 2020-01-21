@@ -15,6 +15,11 @@ class TestCase(TestBase):
    4.891 ms [18277] | } /* main */
 """)
 
+    def pre(self):
+        if TestBase.get_elf_machine(self) == 'i386':
+            return TestBase.TEST_SKIP
+        return TestBase.TEST_SUCCESS
+
     def build(self, name, cflags='', ldflags=''):
         # cygprof doesn't support arguments now
         if cflags.find('-finstrument-functions') >= 0:
