@@ -139,7 +139,7 @@ for dep in $IGNORE; do
     case "$dep" in
         libelf)      TARGET=have_libelf        ;;
         libdw)       TARGET=have_libdw         ;;
-        libpython*)  TARGET=have_libpython2.7  ;;
+        libpython*)  TARGET='have_libpython*'  ;;
         libluajit*)  TARGET=have_libluajit     ;;
         libncurse*)  TARGET=have_libncurses    ;;
         libstdc++)   TARGET=cxa_demangle       ;;

@@ -109,13 +109,13 @@ int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 	switch (script_lang) {
 	case SCRIPT_PYTHON:
 		if (script_init_for_python(info, ptype) < 0) {
-			pr_dbg("failed to init python scripting\n");
+			pr_warn("failed to init python scripting\n");
 			script_pathname = NULL;
 		}
 		break;
 	case SCRIPT_LUAJIT:
 		if (script_init_for_luajit(info, ptype) < 0) {
-			pr_dbg("failed to init luajit scripting\n");
+			pr_warn("failed to init luajit scripting\n");
 			script_pathname = NULL;
 		}
 		break;

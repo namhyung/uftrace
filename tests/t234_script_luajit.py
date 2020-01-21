@@ -10,13 +10,11 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'abc', '5')
 
     def pre(self):
-        script_cmd = '%s script' % (TestBase.uftrace_cmd)
+        script_cmd = '%s script -S %s/scripts/count.lua -d %s --record %s' % \
+                     (TestBase.uftrace_cmd, self.basedir, TDIR, 't-abc')
         p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
         if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
             return TestBase.TEST_SKIP
-
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-abc')
-        sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
