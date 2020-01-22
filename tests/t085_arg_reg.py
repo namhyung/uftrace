@@ -34,8 +34,7 @@ class TestCase(TestBase):
         argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" '
         argopt += '-A "mixed_str@arg1/s%rdi,fparg1%xmm0"'
 
-        import platform
-        if platform.machine().startswith('arm'):
+        if TestBase.get_elf_machine(self) == 'arm':
             argopt = argopt.replace('%rdi', '%r0')
             argopt = argopt.replace('%rsi', '%r1')
             argopt = argopt.replace('32%xmm0', '32%s0')

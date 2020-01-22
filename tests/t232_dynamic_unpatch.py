@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import platform
 
 class TestCase(TestBase):
     def __init__(self):
@@ -16,7 +15,7 @@ class TestCase(TestBase):
 """)
 
     def pre(self):
-        if platform.machine().startswith('arm'):
+        if TestBase.get_elf_machine(self) == 'arm':
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
