@@ -19,6 +19,11 @@ class TestCase(TestBase):
   17.873 us [32417] | } /* main */
 """)
 
+    def pre(self):
+        if not TestBase.check_perf_paranoid(self):
+            return TestBase.TEST_SKIP
+        return TestCase.TEST_SUCCESS
+
     def runcmd(self):
         uftrace = TestBase.uftrace_cmd
         args    = '-F main -T b@read=pmu-cycle'
