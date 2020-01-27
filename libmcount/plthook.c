@@ -816,6 +816,8 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
+
 	if (unlikely(mcount_flat)) {
 		/* record function entry only in flat mode */
 		mtdp->idx = 0;
@@ -830,8 +832,6 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 		if (mcount_auto_recover)
 			mcount_auto_restore(mtdp);
 	}
-
-	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
 	if (unlikely(special_flag)) {
 		/* force flush rstack on some special functions */
