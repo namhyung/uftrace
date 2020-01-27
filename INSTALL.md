@@ -119,6 +119,14 @@ directories or build directory with this script.
       --without-perf        build without perf event             (even if available)
       --without-schedule    build without scheduler event        (even if available)
 
+      --arch=<ARCH>         set target architecture              (default: system default arch)
+                            e.g. x86_64, aarch64, i386, or arm
+      --cross-compile=<CROSS_COMPILE>
+                            Specify the compiler prefix during compilation
+                            e.g. CC is overridden by $(CROSS_COMPILE)gcc
+      --cflags=<CFLAGS>     pass extra C compiler flags
+      --ldflags=<LDFLAGS>   pass extra linker flags
+
       -p                    preserve old setting
 
       Some influential environment variables:
@@ -138,6 +146,9 @@ For cross compile, you may want to setup the toolchain something like below:
 
     $ export CROSS_COMPILE=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
     $ ARCH=arm CFLAGS='--sysroot /path/to/sysroot' ./configure
+        or
+    $ ./configure --arch=arm --cflags='--sysroot /path/to/sysroot' \
+          --cross-compile=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
 
 This assumes you already installed the cross-built `libelf` on the sysroot
 directory.  Otherwise, you can also build it from source (please see below) or
