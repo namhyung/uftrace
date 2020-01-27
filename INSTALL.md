@@ -137,7 +137,7 @@ feature disabled - `uftrace script` command will still exist but won't work.
 For cross compile, you may want to setup the toolchain something like below:
 
     $ export CROSS_COMPILE=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
-    $ ./configure ARCH=arm CFLAGS='--sysroot /path/to/sysroot'
+    $ ARCH=arm CFLAGS='--sysroot /path/to/sysroot' ./configure
 
 This assumes you already installed the cross-built `libelf` on the sysroot
 directory.  Otherwise, you can also build it from source (please see below) or
