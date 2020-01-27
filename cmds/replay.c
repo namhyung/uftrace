@@ -379,6 +379,17 @@ static void print_event(struct uftrace_task_reader *task,
 	free(evt_name);
 }
 
+static void print_task_newline(int current_tid)
+{
+	if (prev_tid != -1 && current_tid != prev_tid) {
+		if (print_empty_field(&output_fields, 1))
+			pr_out(" | ");
+		pr_out("\n");
+	}
+
+	prev_tid = current_tid;
+}
+
 static int print_flat_rstack(struct uftrace_data *handle,
 			     struct uftrace_task_reader *task,
 			     struct opts *opts)
@@ -425,17 +436,6 @@ static int print_flat_rstack(struct uftrace_data *handle,
 out:
 	symbol_putname(sym, name);
 	return 0;
-}
-
-static void print_task_newline(int current_tid)
-{
-	if (prev_tid != -1 && current_tid != prev_tid) {
-		if (print_empty_field(&output_fields, 1))
-			pr_out(" | ");
-		pr_out("\n");
-	}
-
-	prev_tid = current_tid;
 }
 
 #define print_char(c)                                                   \
