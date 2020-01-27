@@ -60,6 +60,7 @@ enum uftrace_feat_bits {
 	PERF_EVENT_BIT,
 	AUTO_ARGS_BIT,
 	DEBUG_INFO_BIT,
+	FLAT_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -75,6 +76,7 @@ enum uftrace_feat_bits {
 	PERF_EVENT		= (1U << PERF_EVENT_BIT),
 	AUTO_ARGS		= (1U << AUTO_ARGS_BIT),
 	DEBUG_INFO		= (1U << DEBUG_INFO_BIT),
+	FLAT			= (1U << FLAT_BIT),
 };
 
 enum uftrace_info_bits {
@@ -92,6 +94,7 @@ enum uftrace_info_bits {
 	RECORD_DATE,
 	PATTERN_TYPE,
 	VERSION,
+	FLATINFO,
 };
 
 struct uftrace_info {
@@ -130,6 +133,7 @@ struct uftrace_info {
 	float load15;
 	enum uftrace_pattern_type patt_type;
 	char *uftrace_version;
+	int flat;
 };
 
 enum {

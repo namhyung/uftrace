@@ -402,6 +402,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	globfree(&g);
 	free(buf);
 
+	if (opts->flat)
+		features |= FLAT;
+
 	return features;
 }
 

@@ -866,6 +866,31 @@ static int read_uftrace_version(void *arg)
 	return 0;
 }
 
+static int fill_flatinfo(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+
+	dprintf(fha->fd, "flat:%d\n", fha->opts->flat);
+	return 0;
+}
+
+static int read_flatinfo(void *arg)
+{
+	struct read_handler_arg *rha = arg;
+	struct uftrace_data *handle = rha->handle;
+	struct uftrace_info *info = &handle->info;
+	char *buf = rha->buf;
+
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "flat:", 5))
+		return -1;
+
+	sscanf(&buf[5], "%d", &info->flat);
+
+	return 0;
+}
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -898,6 +923,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int statu
 		{ RECORD_DATE,	fill_record_date },
 		{ PATTERN_TYPE, fill_pattern_type },
 		{ VERSION,	fill_uftrace_version },
+		{ FLATINFO,	fill_flatinfo },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -941,6 +967,7 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 		{ RECORD_DATE,	read_record_date },
 		{ PATTERN_TYPE, read_pattern_type },
 		{ VERSION,	read_uftrace_version },
+		{ FLATINFO,	read_flatinfo },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -1108,6 +1135,9 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 
 	if (info_mask & (1UL << PATTERN_TYPE))
 		process(data, fmt, "pattern", get_filter_pattern(info->patt_type));
+
+	if (info_mask & (1UL << FLATINFO))
+		process(data, fmt, "flat", info->flat ? "true" : "false");
 
 	if (info_mask & (1UL << EXIT_STATUS)) {
 		int status = info->exit_status;
