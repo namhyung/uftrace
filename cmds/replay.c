@@ -16,6 +16,7 @@
 
 #include "libtraceevent/event-parse.h"
 
+static bool flat_mode = false;
 
 static int column_index;
 static int prev_tid = -1;
@@ -229,7 +230,10 @@ static void setup_default_field(struct list_head *fields, struct opts *opts)
 		else
 			add_field(fields, field_table[REPLAY_F_TIMESTAMP]);
 	}
-	add_field(fields, field_table[REPLAY_F_DURATION]);
+	if (flat_mode)
+		add_field(fields, field_table[REPLAY_F_ELAPSED]);
+	else
+		add_field(fields, field_table[REPLAY_F_DURATION]);
 	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
@@ -394,47 +398,72 @@ static int print_flat_rstack(struct uftrace_data *handle,
 			     struct uftrace_task_reader *task,
 			     struct opts *opts)
 {
-	static int count;
-	struct uftrace_record *rstack = task->rstack;
-	struct uftrace_session_link *sessions = &task->h->sessions;
+	struct uftrace_record *rstack;
+	struct uftrace_session_link *sessions = &handle->sessions;
 	struct sym *sym = NULL;
-	char *name;
-	struct fstack *fstack;
+	char *symname = NULL;
+
+	if (task == NULL)
+		return 0;
+
+	rstack = task->rstack;
+	if (rstack->type == UFTRACE_LOST)
+		goto lost;
 
 	sym = task_find_sym(sessions, task, rstack);
-	name = symbol_getname(sym, rstack->addr);
-	fstack = &task->func_stack[rstack->depth];
+	symname = symbol_getname(sym, rstack->addr);
 
 	/* skip it if --no-libcall is given */
 	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
 
-	switch (rstack->type) {
-	case UFTRACE_ENTRY:
-		pr_out("[%d] ==> %d/%d: ip (%s), time (%"PRIu64")\n",
-		       count++, task->tid, rstack->depth,
-		       name, rstack->time);
-		break;
+	task->timestamp_last = task->timestamp;
+	task->timestamp = rstack->time;
 
-	case UFTRACE_EXIT:
-		pr_out("[%d] <== %d/%d: ip (%s), time (%"PRIu64":%"PRIu64")\n",
-		       count++, task->tid, rstack->depth,
-		       name, rstack->time, fstack->total_time);
-		break;
+	if (rstack->type == UFTRACE_ENTRY) {
+		enum argspec_string_bits str_mode = NEEDS_PAREN;
+		struct fstack *fstack;
+		char args[1024];
 
-	case UFTRACE_LOST:
-		pr_out("[%d] XXX %d: lost %d records\n",
-		       count++, task->tid, (int)rstack->addr);
-		break;
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
 
-	case UFTRACE_EVENT:
-		pr_out("[%d] !!! %d: ", count++, task->tid);
-		print_event(task, rstack, task->event_color);
-		pr_out(" time (%"PRIu64")\n", rstack->time);
-		break;
+		if (rstack->more)
+			str_mode |= HAS_MORE;
+		get_argspec_string(task, args, sizeof(args), str_mode);
+
+		fstack = &task->func_stack[task->stack_count - 1];
+
+		/* function entry */
+		print_field(task, fstack, NO_TIME);
+		pr_out("%s%s\n", symname, args);
+
+		fstack_update(UFTRACE_ENTRY, task, fstack);
+	}
+	else if (rstack->type == UFTRACE_LOST) {
+		int losts;
+lost:
+		losts = (int)rstack->addr;
+
+		/* skip kernel lost messages outside of user functions */
+		if (opts->kernel_skip_out && task->user_stack_count == 0)
+			return 0;
+
+		/* give a new line when tid is changed */
+		if (opts->task_newline)
+			print_task_newline(task->tid);
+
+		print_field(task, NULL, NO_TIME);
+
+		if (losts > 0)
+			pr_red("/* LOST %d records!! */\n", losts);
+		else /* kernel sometimes have unknown count */
+			pr_red("/* LOST some records!! */\n");
+		return 0;
 	}
 out:
-	symbol_putname(sym, name);
+	symbol_putname(sym, symname);
 	return 0;
 }
 
@@ -1140,11 +1169,14 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
+	if (handle.hdr.feat_mask & FLAT)
+		flat_mode = true;
+
 	fstack_setup_filters(opts, &handle);
 	setup_field(&output_fields, opts, &setup_default_field,
 		    field_table, ARRAY_SIZE(field_table));
 
-	if (!opts->flat && peek_rstack(&handle, &task) == 0)
+	if (peek_rstack(&handle, &task) == 0)
 		print_header(&output_fields, "#", "FUNCTION", 1);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
@@ -1165,7 +1197,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			prev_time = rstack->time;
 		}
 
-		if (opts->flat)
+		if (flat_mode)
 			ret = print_flat_rstack(&handle, task, opts);
 		else
 			ret = print_graph_rstack(&handle, task, opts);
@@ -1174,7 +1206,8 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			break;
 	}
 
-	print_remaining_stack(opts, &handle);
+	if (!flat_mode)
+		print_remaining_stack(opts, &handle);
 
 	close_data_file(opts, &handle);
 
