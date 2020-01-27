@@ -367,7 +367,8 @@ __visible_default void * __cxa_begin_catch(void *exception)
 	obj = real_cxa_begin_catch(exception);
 
 	mtdp = get_thread_data();
-	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
+	if (!mcount_estimate_return && !check_thread_data(mtdp) &&
+	    unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
@@ -446,7 +447,7 @@ __visible_default __noreturn void pthread_exit(void *retval)
 		mcount_hook_functions();
 
 	mtdp = get_thread_data();
-	if (!check_thread_data(mtdp)) {
+	if (!mcount_estimate_return && !check_thread_data(mtdp)) {
 		rstack = &mtdp->rstack[mtdp->idx - 1];
 		/* record the final call */
 		mcount_exit_filter_record(mtdp, rstack, NULL);

@@ -144,6 +144,9 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 	int idx;
 	struct mcount_ret_stack *rstack;
 
+	if (unlikely(mcount_estimate_return))
+		return;
+
 	/* reverse order due to tail calls */
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
@@ -165,6 +168,9 @@ void mcount_rstack_reset(struct mcount_thread_data *mtdp)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
+
+	if (unlikely(mcount_estimate_return))
+		return;
 
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
