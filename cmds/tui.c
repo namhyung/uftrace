@@ -1086,7 +1086,7 @@ static void win_footer_graph(struct tui_window *win,
 	graph->disp_update = false;
 }
 
-static void print_graph_field(struct uftrace_graph_node *node)
+static void print_graph_field(struct uftrace_graph_node *node, int width)
 {
 	struct display_field *field;
 	struct field_data fd = {
@@ -1097,17 +1097,28 @@ static void print_graph_field(struct uftrace_graph_node *node)
 		return;
 
 	list_for_each_entry(field, &graph_output_fields, list) {
-		printw("%*s", FIELD_SPACE, "");
-		field->print(&fd);
+		if (width >= FIELD_SPACE) {
+			printw("%*s", FIELD_SPACE, "");
+			width -= FIELD_SPACE;
+		}
+
+		if (width >= field->length) {
+			field->print(&fd);
+			width -= field->length;
+		}
 	}
-	printw(FIELD_SEP);
+
+	if (width >= FIELD_SPACE)
+		printw(FIELD_SEP);
 }
 
-static void print_graph_empty(void)
+static void print_graph_empty(struct tui_graph *graph, int width)
 {
 	struct display_field *field;
 
 	if (list_empty(&graph_output_fields))
+		return;
+	if (graph->width > width)
 		return;
 
 	list_for_each_entry(field, &graph_output_fields, list)
@@ -1118,12 +1129,18 @@ static void print_graph_empty(void)
 
 static void print_graph_indent(struct tui_graph *graph,
 			       struct tui_graph_node *node,
-			       int depth, bool single_child)
+			       int width, int depth, bool single_child)
 {
 	int i;
 	struct tui_graph_node *parent = (void *)node->n.parent;
 
 	for (i = 0; i < depth; i++) {
+		if (width < 3) {
+			printw("%*.*s", width, width, "   ");
+			break;
+		}
+		width -= 3;
+
 		if (!graph->disp_mask[i]) {
 			printw("   ");
 			continue;
@@ -1150,8 +1167,8 @@ static void win_display_graph(struct tui_window *win, void *node)
 	int width;
 
 	if (node == NULL) {
-		print_graph_empty();
-		print_graph_indent(graph, graph->disp, d, true);
+		print_graph_empty(graph, COLS);
+		print_graph_indent(graph, graph->disp, COLS - w, d, true);
 		return;
 	}
 
@@ -1166,8 +1183,8 @@ static void win_display_graph(struct tui_window *win, void *node)
 			fold_sign = " ";
 	}
 
-	print_graph_field(&curr->n);
-	print_graph_indent(graph, curr, d, single_child);
+	print_graph_field(&curr->n, COLS);
+	print_graph_indent(graph, curr, COLS - w, d, single_child);
 
 	width = d * 3 + w;
 
@@ -1179,14 +1196,22 @@ static void win_display_graph(struct tui_window *win, void *node)
 	else {
 		char buf[32];
 
-		/* 4 = fold_sign(1) + parenthesis92) + space(1) */
-		width += snprintf(buf, sizeof(buf),
-				  "%d", curr->n.nr_calls) + 4;
-		width = COLS - width;
+		if (width < COLS) {
+			w = COLS - width;
+			width += snprintf(buf, sizeof(buf), "%s(%d) ",
+					  fold_sign, curr->n.nr_calls);
 
-		if (width > 0) {
-			printw("%s(%d) %-*.*s", fold_sign, curr->n.nr_calls,
-			       width, width, curr->n.name);
+			/* handle UTF-8 character length */
+			if (strcmp(fold_sign, " ")) {
+				width -= 2;
+				w += 2;
+			}
+			printw("%.*s", w, buf);
+		}
+
+		if (width < COLS) {
+			w = COLS - width;
+			printw("%-*.*s", w, w, curr->n.name);
 		}
 	}
 }
