@@ -94,6 +94,11 @@ RECORD 옵션
     이 옵션은 한번 이상 쓰일 수 있다.
     관련 설명은 *DYNAMIC TRACING* 을 참고한다.
 
+-U *FUNC*, \--unpatch=*FUNC*
+:   주어진 FUNC 함수에 대해 동적 패치를 적용하지 않는다.
+    이 옵션은 한번 이상 쓰일 수 있다.
+    관련 설명은 *DYNAMIC TRACING* 을 참고한다.
+
 -Z *SIZE*, \--size-filter=*SIZE*
 :   SIZE 바이트보다 큰 함수들을 동적으로 패치한다.
     동적추적에 대해서는 *DYNAMIC TRACING* 을 참고한다.
