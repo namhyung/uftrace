@@ -29,8 +29,7 @@ class TestCase(TestBase):
         return '%s --demangle=full -N "ns2.*" %s' % (TestBase.uftrace_cmd, 't-namespace')
 
     def fixup(self, cflags, result):
-        import platform
-        if platform.architecture()[0].startswith('32bit'):
+        if TestBase.is_32bit(self):
             return result.replace('unsigned long', 'unsigned int')
 
         return result.replace('delete(void*);',

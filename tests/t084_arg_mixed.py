@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import platform
 
 class TestCase(TestBase):
     def __init__(self):
@@ -30,9 +29,9 @@ class TestCase(TestBase):
         argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" -R "mixed_div@retval/f80" '
         argopt += '-A "mixed_str@arg1/s,fparg1"              -R "mixed_str@retval/s"'
 
-        if platform.machine().startswith('arm'):
+        if TestBase.get_elf_machine(self) == 'arm':
             argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
-        elif platform.machine().startswith('i686'):
+        elif TestBase.is_32bit(self):
             argopt  = '-A "mixed_add@arg1/i32,fparg2/32"         -R "mixed_add@retval/f64" '
             argopt += '-A "mixed_sub@arg1/x,arg2"                -R "mixed_sub@retval" '
             argopt += '-A "mixed_mul@fparg1,arg3/i64"            -R "mixed_mul@retval/i64" '

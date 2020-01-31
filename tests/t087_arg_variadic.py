@@ -26,8 +26,7 @@ class TestCase(TestBase):
         argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg1" '
         argopt += '-A "vsnprintf@arg2,arg3/s" '
 
-        import platform
-        if platform.machine().startswith('i686'):
+        if TestBase.is_32bit(self):
             argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg9" '
             argopt += '-A "vsnprintf@arg2,arg3/s" '
         return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)

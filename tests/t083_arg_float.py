@@ -27,17 +27,11 @@ class TestCase(TestBase):
         argopt += '-A "float_mul@fparg1/64,fparg2/32" -R "float_mul@retval/f64" '
         argopt += '-A "float_div@fparg1,fparg2"       -R "float_div@retval/f"'
 
-        import platform
-        if platform.machine().startswith('arm'):
+        if TestBase.is_32bit(self):
             # argument count follows the size of type
             argopt = argopt.replace('float_mul@fparg1/64,fparg2/32',
                                     'float_mul@fparg1/64,fparg3/32')
-
-        elif platform.machine().startswith('i686'):
-            # argument count follows the size of type
-            argopt  = '-A "float_add@fparg1/32,fparg2/32" -R "float_add@retval/f32" '
-            argopt += '-A "float_sub@fparg1/32,fparg2"    -R "float_sub@retval/f32" '
-            argopt += '-A "float_mul@fparg1/64,fparg3/32" -R "float_mul@retval/f64" '
-            argopt += '-A "float_div@fparg1/64,fparg3/64" -R "float_div@retval/f64"'
+            argopt = argopt.replace('float_div@fparg1,fparg2',
+                                    'float_div@fparg1,fparg3')
 
         return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
