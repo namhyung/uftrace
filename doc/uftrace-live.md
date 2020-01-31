@@ -91,6 +91,13 @@ RECORD OPTIONS
     gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
     This option can be used more than once.  See *DYNAMIC TRACING*.
 
+-U *FUNC*, \--unpatch=*FUNC*
+:   Do not apply dynamic patching for FUNC.  This option can be used more than once.
+    See *DYNAMIC TRACING*.
+
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Patch functions bigger than SIZE bytes dynamically.  See *DYNAMIC TRACING*.
+
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
 

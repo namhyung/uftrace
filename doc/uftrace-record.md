@@ -35,6 +35,10 @@ RECORD OPTIONS
 :   Patch FUNC dynamically.  This option can be used more than once.
     See *DYNAMIC TRACING*.
 
+-U *FUNC*, \--unpatch=*FUNC*
+:   Do not apply dynamic patching for FUNC.  This option can be used more than once.
+    See *DYNAMIC TRACING*.
+
 -Z *SIZE*, \--size-filter=*SIZE*
 :   Patch functions bigger than SIZE bytes dynamically.  See *DYNAMIC TRACING*.
 
