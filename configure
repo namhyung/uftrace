@@ -35,10 +35,18 @@ usage() {
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
 
+  --arch=<ARCH>         set target architecture              (default: system default arch)
+                        e.g. x86_64, aarch64, i386, or arm
+  --cross-compile=<CROSS_COMPILE>
+                        Specify the compiler prefix during compilation
+                        e.g. CC is overridden by \$(CROSS_COMPILE)gcc
+  --cflags=<CFLAGS>     pass extra C compiler flags
+  --ldflags=<LDFLAGS>   pass extra linker flags
+
   -p                    preserve old setting
 
   Some influential environment variables:
-    ARCH                Target architecture    e.g. arm, aarch64, or x86_64
+    ARCH                Target architecture    e.g. x86_64, aarch64, i386, or arm
     CROSS_COMPILE       Specify the compiler prefix during compilation
                         e.g. CC is overridden by \$(CROSS_COMPILE)gcc
     CFLAGS              C compiler flags
@@ -98,6 +106,32 @@ if [ "$ARCH" = "x86_64" -o "$ARCH" = "x86" ]; then
     if echo "$CC $CFLAGS" | grep -w "\-m32" > /dev/null; then
         ARCH=i386
     fi
+fi
+
+#
+# Support --arch, --cross-compile, --cflags and --ldflags options
+#
+if [ ! -z "$arch" ]; then
+    export ARCH=$arch
+    if [ "$arch" = "x86_64" ] || [ "$arch" = "arm" ] || [ "$arch" = "aarch64" ]; then
+        export ARCH=$arch
+    elif [ "$arch" = "i386" ]; then
+        export ARCH="i386"
+        export CFLAGS="-m32 $CFLAGS"
+        export LDFLAGS="-m32 $LDFLAGS"
+    else
+        echo "$arch is not a supported architecture"
+        exit 1
+    fi
+fi
+if [ ! -z "$cross_compile" ]; then
+    export CROSS_COMPILE=$cross_compile
+fi
+if [ ! -z "$cflags" ]; then
+    export CFLAGS="$cflags $CFLAGS"
+fi
+if [ ! -z "$ldflags" ]; then
+    export LDFLAGS="$ldflags $LDFLAGS"
 fi
 
 bindir=${bindir:-${prefix}/bin}

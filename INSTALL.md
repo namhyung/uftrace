@@ -112,19 +112,29 @@ directories or build directory with this script.
       --without-libelf      build without libelf (and libdw)     (even if found on the system)
       --without-libdw       build without libdw                  (even if found on the system)
       --without-libstdc++   build without libstdc++              (even if found on the system)
-      --without-libpython   build without libpython2.7           (even if found on the system)
+      --without-libpython   build without libpython              (even if found on the system)
+      --without-libluajit   build without libluajit              (even if found on the system)
       --without-libncurses  build without libncursesw            (even if found on the system)
+      --without-capstone    build without libcapstone            (even if found on the system)
       --without-perf        build without perf event             (even if available)
       --without-schedule    build without scheduler event        (even if available)
+
+      --arch=<ARCH>         set target architecture              (default: system default arch)
+                            e.g. x86_64, aarch64, i386, or arm
+      --cross-compile=<CROSS_COMPILE>
+                            Specify the compiler prefix during compilation
+                            e.g. CC is overridden by $(CROSS_COMPILE)gcc
+      --cflags=<CFLAGS>     pass extra C compiler flags
+      --ldflags=<LDFLAGS>   pass extra linker flags
 
       -p                    preserve old setting
 
       Some influential environment variables:
-        ARCH           Target architecture    e.g. arm, aarch64, or x86_64
-        CROSS_COMPILE  Specify the compiler prefix during compilation
-                       e.g. CC is overridden by $(CROSS_COMPILE)gcc
-        CFLAGS         C compiler flags
-        LDFLAGS        linker flags
+        ARCH                Target architecture    e.g. x86_64, aarch64, i386, or arm
+        CROSS_COMPILE       Specify the compiler prefix during compilation
+                            e.g. CC is overridden by $(CROSS_COMPILE)gcc
+        CFLAGS              C compiler flags
+        LDFLAGS             linker flags
 
 Also you can set the target architecture and compiler options like CC, CFLAGS.
 
@@ -135,7 +145,10 @@ feature disabled - `uftrace script` command will still exist but won't work.
 For cross compile, you may want to setup the toolchain something like below:
 
     $ export CROSS_COMPILE=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
-    $ ./configure ARCH=arm CFLAGS='--sysroot /path/to/sysroot'
+    $ ARCH=arm CFLAGS='--sysroot /path/to/sysroot' ./configure
+        or
+    $ ./configure --arch=arm --cflags='--sysroot /path/to/sysroot' \
+          --cross-compile=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
 
 This assumes you already installed the cross-built `libelf` on the sysroot
 directory.  Otherwise, you can also build it from source (please see below) or
