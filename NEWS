@@ -1,3 +1,36 @@
+uftrace v0.9.4
+--------------
+* dynamic tracing update
+  improve success rate on x86_64
+  dynamic unpatch on x86_64 (for -mfentry or -mrecord-mcount)
+  add -U/--unpatch option for dynamic tracing
+  experimental support for aarch64
+
+* script update
+  luaJIT (lua 5.1) support by Byeonggon
+  python3 support
+
+* build change
+  update configure script for better compatibility
+  handle common cross compile settings
+
+* tui change
+  add 's' key to sort column in tui report mode by Hyoungjong
+  use --report option to start tui with report mode
+  
+* other changes
+  task level analysis for graph and info command
+  add Korean documentation
+  a lot of memory leak fixes
+
+And many bug fixes and improvements.  Thanks for all contributors:
+  Anas Balboul, Byeonggon Lee, Colin Lord, George Karlos, GwanYeong Kim,
+  Haeun Jeon, Hanbum Park, Handong Choi, Honggyu Kim, Hyoungjong Kim,
+  Jeesoo Min, Joonho Ryu, Jungkeun Cho, Jungwoo Jo, Junil Kim,
+  Minchul Kang, MinJeong Kim, Sang-Heon Jeon, Sangyun Han,
+  SeoYoung Kim, Sungho Yoon, Yeomin Nam
+
+
 uftrace v0.9.3
 --------------
 * dynamic tracing update
