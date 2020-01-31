@@ -38,6 +38,9 @@ static pthread_mutex_t python_interpreter_lock = PTHREAD_MUTEX_INITIALIZER;
 /* whether error in script was reported to user */
 static bool python_error_reported = false;
 
+/* whether script_init() was done successfully */
+static bool python_initialized;
+
 static PyAPI_FUNC(void) (*__Py_Initialize)(void);
 static PyAPI_FUNC(void) (*__Py_Finalize)(void);
 static PyAPI_FUNC(void) (*__PySys_SetPath)(char *);
@@ -682,16 +685,20 @@ int script_init_for_python(struct script_info *info,
 	if (load_python_api_funcs() < 0)
 		return -1;
 
-	if (set_python_path(py_pathname) < 0)
+	if (set_python_path(py_pathname) < 0) {
+		dlclose(python_handle);
 		return -1;
+	}
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
 	__Py_Initialize();
+	python_initialized = true;
 
 	/* Import python module that is passed by -p option. */
 	if (import_python_module(py_pathname) < 0) {
 		pthread_mutex_unlock(&python_interpreter_lock);
+		/* script_finish() will release resources */
 		return -1;
 	}
 
@@ -730,6 +737,9 @@ int script_init_for_python(struct script_info *info,
 void script_finish_for_python(void)
 {
 	pr_dbg("%s()\n", __func__);
+
+	if (!python_initialized)
+		return;
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
