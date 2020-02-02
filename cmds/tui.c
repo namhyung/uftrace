@@ -23,10 +23,16 @@
 #include "utils/dwarf.h"
 
 #define KEY_ESCAPE  27
-#define BLANK  32
+#define BLANK       32
+
+#define MAX_LINE_WIDTH 8192
 
 static bool tui_finished;
 static bool tui_debug;
+
+static char linebuf[MAX_LINE_WIDTH];
+static int field_width;
+static int leftcut;
 
 struct tui_graph_node {
 	struct uftrace_graph_node n;
@@ -216,6 +222,7 @@ static void print_graph_total(struct field_data *fd)
 	d = node->time;
 
 	print_time(d);
+	field_width += 10;
 }
 
 static void print_graph_self(struct field_data *fd)
@@ -226,6 +233,7 @@ static void print_graph_self(struct field_data *fd)
 	d = node->time - node->child_time;
 
 	print_time(d);
+	field_width += 10;
 }
 
 static void print_graph_addr(struct field_data *fd)
@@ -236,6 +244,7 @@ static void print_graph_addr(struct field_data *fd)
 	int width = sizeof(long) == 4 ? 8 : 12;
 
 	printw("%*"PRIx64, width, effective_addr(node->addr));
+	field_width += width;
 }
 
 static struct display_field field_total_time= {
@@ -1098,9 +1107,11 @@ static void print_graph_field(struct uftrace_graph_node *node)
 
 	list_for_each_entry(field, &graph_output_fields, list) {
 		printw("%*s", FIELD_SPACE, "");
+		field_width += FIELD_SPACE;
 		field->print(&fd);
 	}
 	printw(FIELD_SEP);
+	field_width += FIELD_SPACE;
 }
 
 static void print_graph_empty(void)
@@ -1110,10 +1121,68 @@ static void print_graph_empty(void)
 	if (list_empty(&graph_output_fields))
 		return;
 
-	list_for_each_entry(field, &graph_output_fields, list)
+	list_for_each_entry(field, &graph_output_fields, list) {
 		printw("%*s", field->length + FIELD_SPACE, "");
+		field_width += field->length + FIELD_SPACE;
+	}
 
 	printw(FIELD_SEP);
+	field_width += FIELD_SPACE;
+}
+
+static bool is_boxchar(unsigned char p)
+{
+	/*
+	 * simply check whether the given character is a box character or not.
+	 *   ├ = 0xe2949c, │ = 0xe29482, └ = 0xe29494,
+	 *   ─ = 0xe29480, ▶ = 0xe296b6
+	 */
+	if (p >= (unsigned char)0x80)
+		return true;
+
+	return false;
+}
+
+static void println(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	char *apstr = NULL;
+	char *linestr = NULL;
+
+	xvasprintf(&apstr, fmt, ap);
+	xasprintf(&linestr, "%s%s", linebuf, apstr);
+	strncpy(linebuf, linestr, sizeof(linebuf));
+	free(linestr);
+	free(apstr);
+
+	va_end(ap);
+}
+
+static void flush_linebuf()
+{
+	int cols = COLS - field_width;
+	unsigned char *str = (unsigned char*)linebuf;
+	unsigned char *p;
+	int width = 0;
+
+	for (int i = 0; str && i < leftcut; i++) {
+		do {
+			str++;
+		} while (is_boxchar(*str));
+	}
+
+	p = str;
+	for (int i = 0; p && i < cols; i++) {
+		do {
+			p++;
+			width++;
+		} while (is_boxchar(*p));
+	}
+
+	printw("%-*.*s", width, width, str);
+	linebuf[0] = '\0';
+	field_width = 0;
 }
 
 static void print_graph_indent(struct tui_graph *graph,
@@ -1125,16 +1194,16 @@ static void print_graph_indent(struct tui_graph *graph,
 
 	for (i = 0; i < depth; i++) {
 		if (!graph->disp_mask[i]) {
-			printw("   ");
+			println("   ");
 			continue;
 		}
 
 		if (i < depth - 1 || single_child)
-			printw("  │");
+			println("  │");
 		else if (is_last_child(parent, node))
-			printw("  └");
+			println("  └");
 		else
-			printw("  ├");
+			println("  ├");
 	}
 }
 
@@ -1144,14 +1213,13 @@ static void win_display_graph(struct tui_window *win, void *node)
 	struct tui_graph_node *curr = node;
 	struct tui_graph_node *parent;
 	int d = graph->disp_depth;
-	int w = graph->width;
 	const char *fold_sign;
 	bool single_child = false;
-	int width;
 
 	if (node == NULL) {
 		print_graph_empty();
 		print_graph_indent(graph, graph->disp, d, true);
+		flush_linebuf();
 		return;
 	}
 
@@ -1169,26 +1237,12 @@ static void win_display_graph(struct tui_window *win, void *node)
 	print_graph_field(&curr->n);
 	print_graph_indent(graph, curr, d, single_child);
 
-	width = d * 3 + w;
+	if (is_special_node(&curr->n))
+		println("%s", curr->n.name);
+	else
+		println("%s(%d) %s", fold_sign, curr->n.nr_calls, curr->n.name);
 
-	if (is_special_node(&curr->n)) {
-		width = COLS - width;
-		if (width > 0)
-			printw("%-*.*s", width, width, curr->n.name);
-	}
-	else {
-		char buf[32];
-
-		/* 4 = fold_sign(1) + parenthesis92) + space(1) */
-		width += snprintf(buf, sizeof(buf),
-				  "%d", curr->n.nr_calls) + 4;
-		width = COLS - width;
-
-		if (width > 0) {
-			printw("%s(%d) %-*.*s", fold_sign, curr->n.nr_calls,
-			       width, width, curr->n.name);
-		}
-	}
+	flush_linebuf();
 }
 
 static bool win_search_graph(struct tui_window *win, void *node, char *str)
@@ -2364,6 +2418,20 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			cancel_search();
 			tui_window_move_down(win);
 			break;
+		case KEY_LEFT:
+			if (win == &graph->win || win == &partial_graph.win) {
+				if (leftcut >= 1) {
+					leftcut -= 1;
+					full_redraw = true;
+				}
+			}
+			break;
+		case KEY_RIGHT:
+			if (win == &graph->win || win == &partial_graph.win) {
+				leftcut += 1;
+				full_redraw = true;
+			}
+			break;
 		case KEY_PPAGE:
 			cancel_search();
 			tui_window_page_up(win);
@@ -2429,9 +2497,11 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 								curr->n.name);
 				if (func == NULL)
 					break;
+				leftcut = 0;
 				build_partial_graph(func, graph);
 			}
 			else if (win == &report->win) {
+				leftcut = 0;
 				build_partial_graph(win->curr, graph);
 			}
 			else {
