@@ -50,9 +50,9 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 	struct fstack *fstack;
 
 	while (task->stack_count >= task->user_stack_count) {
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
 
-		if (fstack_enabled && fstack->valid &&
+		if (fstack_enabled && fstack && fstack->valid &&
 		    !(fstack->flags & FSTACK_FL_NORECORD)) {
 			find_insert_node(root, task, task->timestamp_last,
 					 fstack->addr);
@@ -84,7 +84,9 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->total_time > last_time)
 				continue;
@@ -265,7 +267,9 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->addr == 0)
 				continue;

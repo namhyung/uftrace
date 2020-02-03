@@ -310,8 +310,12 @@ static int save_backtrace_addr(struct task_graph *tg)
 	if (len == 0)
 		return 0;
 
-	for (i = len - 1; i >= 0; i--)
-		addrs[i] = task->func_stack[i + skip].addr;
+	for (i = len - 1; i >= 0; i--) {
+		struct fstack *fstack = fstack_get(task, i + skip);
+
+		if (fstack != NULL)
+			addrs[i] = fstack->addr;
+	}
 
 	list_for_each_entry(bt, &graph->bt_list, list) {
 		if (len == bt->len &&
@@ -338,9 +342,9 @@ found:
 static void save_backtrace_time(struct task_graph *tg)
 {
 	struct uftrace_task_reader *task = tg->utg.task;
-	struct fstack *fstack = &task->func_stack[task->stack_count];
+	struct fstack *fstack = fstack_get(task, task->stack_count);
 
-	if (tg->bt_curr)
+	if (tg->bt_curr != NULL && fstack != NULL)
 		tg->bt_curr->time += fstack->total_time;
 
 	tg->bt_curr = NULL;
@@ -601,9 +605,9 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			while (task->stack_count >= task->user_stack_count) {
 				struct fstack *fstack;
 
-				fstack = &task->func_stack[task->stack_count];
+				fstack = fstack_get(task, task->stack_count);
 
-				if (fstack_enabled && fstack->valid &&
+				if (fstack_enabled && fstack && fstack->valid &&
 				    !(fstack->flags & FSTACK_FL_NORECORD)) {
 					build_graph_node(opts, task, prev_time,
 							 fstack->addr,
@@ -655,7 +659,9 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->addr == 0)
 				continue;

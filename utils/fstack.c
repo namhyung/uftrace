@@ -651,6 +651,9 @@ void fstack_exit(struct uftrace_task_reader *task)
 int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack)
 {
+	if (fstack == NULL)
+		return task->display_depth;
+
 	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;

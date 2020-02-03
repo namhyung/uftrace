@@ -253,11 +253,14 @@ static void print_backtrace(struct uftrace_task_reader *task)
 		struct display_field *field;
 		struct sym *sym;
 		char *name;
-		struct fstack *fstack = &task->func_stack[i];
+		struct fstack *fstack = fstack_get(task, i);
 		struct field_data fd = {
 			.task = task,
 			.fstack = fstack,
 		};
+
+		if (fstack == NULL)
+			continue;
 
 		sym = task_find_sym_addr(sessions, task,
 					 fstack->total_time, fstack->addr);
@@ -392,7 +395,10 @@ static int print_flat_rstack(struct uftrace_data *handle,
 
 	sym = task_find_sym(sessions, task, rstack);
 	name = symbol_getname(sym, rstack->addr);
-	fstack = &task->func_stack[rstack->depth];
+	fstack = fstack_get(task, rstack->depth);
+
+	if (fstack == NULL)
+		goto out;
 
 	/* skip it if --no-libcall is given */
 	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
@@ -845,7 +851,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			str_mode |= HAS_MORE;
 		get_argspec_string(task, args, sizeof(args), str_mode);
 
-		fstack = &task->func_stack[task->stack_count - 1];
+		fstack = fstack_get(task, task->stack_count - 1);
 
 		if (!opts->no_merge)
 			next = fstack_skip(handle, task, rstack_depth, opts);
@@ -905,9 +911,10 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		struct fstack *fstack;
 
 		/* function exit */
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
 
-		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+		if (fstack_enabled && fstack != NULL &&
+		    !(fstack->flags & FSTACK_FL_NORECORD)) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 			char *retval = args;
 
@@ -999,9 +1006,10 @@ lost:
 			depth = 0;
 
 		/* for sched-in to show schedule duration */
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
 
-		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+		if (fstack_enabled && fstack != NULL &&
+		    !(fstack->flags & FSTACK_FL_NORECORD)) {
 			if (evt_id == EVENT_ID_PERF_SCHED_IN &&
 			    fstack->total_time)
 				print_field(task, fstack, NULL);
@@ -1029,18 +1037,18 @@ static void print_warning(struct uftrace_task_reader *task)
 
 static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 {
-	uint64_t ip;
 	struct sym *sym;
+	struct fstack *fstack;
 
-	if (task->func_stack == NULL)
+	fstack = fstack_get(task, 0);
+	if (fstack == NULL)
 		return true;
 
 	/* skip 'sys_exit[_group] at last for kernel tracing */
 	if (!has_kernel_data(task->h->kernel) || task->user_stack_count != 0)
 		return false;
 
-	ip = task->func_stack[0].addr;
-	sym = find_symtabs(&task->h->sessions.first->symtabs, ip);
+	sym = find_symtabs(&task->h->sessions.first->symtabs, fstack->addr);
 	if (sym == NULL)
 		return false;
 
@@ -1068,7 +1076,10 @@ static void print_remaining_stack(struct opts *opts,
 			continue;
 
 		for (k = 0; k < task->stack_count; k++) {
-			if (task->func_stack[k].addr)
+			struct fstack *fstack;
+
+			fstack = fstack_get(task, k);
+			if (fstack != NULL && fstack->addr != 0)
 				break;
 			zero_count++;
 		}
@@ -1084,13 +1095,15 @@ static void print_remaining_stack(struct opts *opts,
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		struct uftrace_task_reader *task = &handle->tasks[i];
+		struct fstack *fstack;
 		int zero_count = 0;
 
 		if (task->stack_count == 0)
 			continue;
 
 		for (k = 0; k < task->stack_count; k++) {
-			if (task->func_stack[k].addr)
+			fstack = fstack_get(task, k);
+			if (fstack != NULL && fstack->addr != 0)
 				break;
 			zero_count++;
 		}
@@ -1104,12 +1117,17 @@ static void print_remaining_stack(struct opts *opts,
 		pr_out("task: %d\n", task->tid);
 
 		while (task->stack_count-- > 0) {
-			struct fstack *fstack = &task->func_stack[task->stack_count];
-			uint64_t time = fstack->total_time;
-			uint64_t ip = fstack->addr;
+			uint64_t time;
+			uint64_t ip;
 			struct sym *sym;
 			char *symname;
 
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
+
+			time = fstack->total_time;
+			ip = fstack->addr;
 			sym = task_find_sym_addr(sessions, task, time, ip);
 			symname = symbol_getname(sym, ip);
 

@@ -481,7 +481,9 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->addr == 0)
 				continue;

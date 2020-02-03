@@ -55,7 +55,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		/* display depth is set in fstack_entry() */
 		depth = task->display_depth;
 
-		fstack = &task->func_stack[task->stack_count - 1];
+		fstack = fstack_get(task ,task->stack_count - 1);
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 
 		if (!script_match_filter(symname))
@@ -83,9 +83,10 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		struct fstack *fstack;
 
 		/* function exit */
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
 
-		if (!(fstack->flags & FSTACK_FL_NORECORD) && fstack_enabled) {
+		if (fstack_enabled && fstack &&
+		    !(fstack->flags & FSTACK_FL_NORECORD)) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 
 			if (!script_match_filter(symname)) {
