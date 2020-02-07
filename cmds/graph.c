@@ -380,7 +380,7 @@ static int print_backtrace(struct session_graph *graph)
 
 static int start_graph(struct task_graph *tg)
 {
-	if (!tg->enabled++) {
+	if (tg->utg.graph && !tg->enabled++) {
 		save_backtrace_addr(tg);
 
 		pr_dbg("start graph for task %d\n", tg->utg.task->tid);
@@ -524,6 +524,8 @@ static void build_graph_node(struct opts *opts,
 	char *name;
 
 	tg = get_task_graph(task, time, addr);
+	if (unlikely(tg->utg.graph == NULL))
+		return;
 
 	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
 	if (sym == NULL)
@@ -636,9 +638,6 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			return;
 		}
 		prev_time = frs->time;
-
-		if (task->stack_count >= opts->max_stack)
-			continue;
 
 		build_graph_node(opts, task, frs->time, addr, frs->type, func);
 	}
