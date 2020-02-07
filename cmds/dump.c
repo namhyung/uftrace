@@ -1030,10 +1030,10 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 {
 	struct uftrace_dump_ops *ops = arg;
 	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
-	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count];
 	struct uftrace_graph_node *node = tg->node;
-	uint64_t curr_time = fstack->total_time;
-	uint64_t sample_time = flame->sample_time;
+	struct fstack *fstack;
+	uint64_t curr_time;
+	uint64_t sample_time;
 	uint64_t accounted_time;
 
 	if (flame->sample_time == 0)
@@ -1041,6 +1041,13 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 
 	if (tg->node->parent == NULL)
 		return;
+
+	fstack = fstack_get(tg->task, tg->task->stack_count);
+	if (fstack == NULL)
+		return;
+
+	curr_time = fstack->total_time;
+	sample_time = flame->sample_time;
 
 	/*
 	 * it needs to track the child time separately
@@ -1537,7 +1544,9 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			struct fstack *fstack;
 			struct uftrace_session *fsess = handle->sessions.first;
 
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->addr == 0)
 				continue;

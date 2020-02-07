@@ -447,6 +447,39 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
 }
 
 /**
+ * fstack_get - retrieve func_stack entry in a task
+ * @task - tracee task
+ * @idx  - stack index
+ *
+ * This function returns a pointer to func_stack in @task or %NULL if it has
+ * no function call stack or @idx is out of the boundary.
+ */
+struct fstack * fstack_get(struct uftrace_task_reader *task, int idx)
+{
+	if (task->func_stack == NULL)
+		return NULL;
+
+	if (idx >= task->h->hdr.max_stack) {
+		if (!task->fstack_warned) {
+			pr_dbg("call stack overflow (task: %d)\n", task->tid);
+			task->fstack_warned = true;
+		}
+		return NULL;
+	}
+
+	if (idx < 0) {
+		if (!task->fstack_warned) {
+			pr_dbg("negative call stack count (task: %d)\n",
+			       task->tid);
+			task->fstack_warned = true;
+		}
+		return NULL;
+	}
+
+	return &task->func_stack[idx];
+}
+
+/**
  * fstack_entry - function entry handler
  * @task    - tracee task
  * @rstack  - function return stack
@@ -469,7 +502,9 @@ int fstack_entry(struct uftrace_task_reader *task,
 	uint64_t addr = rstack->addr;
 
 	/* stack_count was increased in __read_rstack */
-	fstack = &task->func_stack[task->stack_count - 1];
+	fstack = fstack_get(task, task->stack_count - 1);
+	if (fstack == NULL)
+		return -1;
 
 	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
 		task->tid, task->stack_count-1, rstack->depth, task->display_depth,
@@ -586,7 +621,9 @@ void fstack_exit(struct uftrace_task_reader *task)
 {
 	struct fstack *fstack;
 
-	fstack = &task->func_stack[task->stack_count];
+	fstack = fstack_get(task, task->stack_count);
+	if (fstack == NULL)
+		return;
 
 	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count, task->rstack->depth, task->display_depth,
@@ -614,6 +651,9 @@ void fstack_exit(struct uftrace_task_reader *task)
 int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack)
 {
+	if (fstack == NULL)
+		return task->display_depth;
+
 	if (type == UFTRACE_ENTRY) {
 		if (fstack->flags & FSTACK_FL_EXEC) {
 			task->display_depth = 0;
@@ -681,7 +721,9 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 			return 0;
 
 		/* fstack_consume() is not called yet */
-		fstack = &task->func_stack[task->stack_count - 1];
+		fstack = fstack_get(task, task->stack_count - 1);
+		if (fstack == NULL)
+			return -1;
 
 		if (fstack->flags & FSTACK_FL_NORECORD)
 			return -1;
@@ -743,7 +785,10 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 	struct uftrace_record *curr_stack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
 
-	fstack = &task->func_stack[task->stack_count - 1];
+	fstack = fstack_get(task, task->stack_count - 1);
+	if (fstack == NULL)
+		return NULL;
+
 	if (fstack->flags & (FSTACK_FL_EXEC | FSTACK_FL_LONGJMP))
 		return NULL;
 
@@ -821,7 +866,9 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	struct uftrace_trigger tr = {};
 
 	if (task->rstack->type == UFTRACE_ENTRY) {
-		fstack = &task->func_stack[task->stack_count - 1];
+		fstack = fstack_get(task, task->stack_count - 1);
+		if (fstack == NULL)
+			return false;
 
 		if (fstack_entry(task, task->rstack, &tr) < 0)
 			return false;
@@ -829,7 +876,9 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 	}
 	else if (task->rstack->type == UFTRACE_EXIT) {
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
+		if (fstack == NULL)
+			return false;
 
 		if ((fstack->flags & FSTACK_FL_NORECORD) || !fstack_enabled) {
 			fstack_exit(task);
@@ -847,19 +896,24 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 		     task->filter.in_count == 0))
 			return false;
 
-		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
-			fstack = &task->func_stack[task->stack_count];
+		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
+		    task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+			int idx = task->stack_count;
+			const char *sched = "IN";
 
-			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, IN\n",
-				task->tid, task->stack_count, fstack->orig_depth, task->display_depth,
-				task->filter.in_count, task->filter.out_count, task->filter.depth);
-		}
-		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
-			fstack = &task->func_stack[task->stack_count - 1];
+			if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+				idx--;
+				sched = "OUT";
+			}
 
-			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, OUT\n",
-				task->tid, task->stack_count - 1, fstack->orig_depth, task->display_depth,
-				task->filter.in_count, task->filter.out_count, task->filter.depth);
+			fstack = fstack_get(task, idx);
+			if (fstack == NULL)
+				return false;
+
+			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, %s\n",
+				task->tid, idx, fstack->orig_depth, task->display_depth,
+				task->filter.in_count, task->filter.out_count,
+				task->filter.depth, sched);
 		}
 	}
 
@@ -1726,11 +1780,13 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 
 		/* calculate duration from now on */
 		for (i = 0; i < task->stack_count; i++) {
-			fstack = &task->func_stack[i];
+			fstack = fstack_get(task, i);
 
-			fstack->total_time = rstack->time;  /* start time */
-			fstack->child_time = 0;
-			fstack->valid = true;
+			if (fstack != NULL) {
+				fstack->total_time = rstack->time;  /* start time */
+				fstack->child_time = 0;
+				fstack->valid = true;
+			}
 		}
 
 		task->filter.depth = task->h->depth;
@@ -1754,11 +1810,13 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 
 		/* XXX: currently LOST can occur in kernel */
 		for (i = 0; i <= rstack->depth; i++) {
-			fstack = &task->func_stack[i + task->user_stack_count];
+			fstack = fstack_get(task, i + task->user_stack_count);
 
 			/* reset timestamp after seeing LOST */
-			fstack->total_time = timestamp_after_lost;
-			fstack->child_time = 0;
+			if (fstack != NULL) {
+				fstack->total_time = timestamp_after_lost;
+				fstack->child_time = 0;
+			}
 		}
 	}
 
@@ -1775,7 +1833,9 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		return;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		fstack = &task->func_stack[task->stack_count];
+		fstack = fstack_get(task, task->stack_count);
+		if (fstack == NULL)
+			return;
 
 		fstack->addr = rstack->addr;
 		fstack->total_time = rstack->time;  /* start time */
@@ -1793,12 +1853,9 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		uint64_t delta;
 		int idx = task->stack_count - 1;
 
-		if (idx < 0) {
-			pr_dbg("Warning: negative stack count [tid: %d]\n", task->tid);
-			idx = 0;
-		}
-
-		fstack = &task->func_stack[idx];
+		fstack = fstack_get(task, idx);
+		if (fstack == NULL)
+			return;
 
 		delta = rstack->time - fstack->total_time;
 
@@ -1823,9 +1880,8 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 
 		/* XXX: currently LOST can occur in kernel */
 		for (i = task->stack_count; i >= task->user_stack_count; i--) {
-			fstack = &task->func_stack[i];
-
-			if (!fstack->valid)
+			fstack = fstack_get(task, i);
+			if (fstack == NULL)
 				continue;
 
 			if (lost_time == 0)

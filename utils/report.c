@@ -90,18 +90,29 @@ void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 void report_update_node(struct uftrace_report_node *node,
 			struct uftrace_task_reader *task)
 {
-	struct fstack *fstack = &task->func_stack[task->stack_count];
-	uint64_t total_time = fstack->total_time;
-	uint64_t self_time = fstack->total_time - fstack->child_time;
+	struct fstack *fstack;
+	uint64_t total_time;
+	uint64_t self_time;
 	bool recursive = false;
 	int i;
 
+	fstack = fstack_get(task, task->stack_count);
+	if (fstack == NULL)
+		return;
+
 	for (i = 0; i < task->stack_count; i++) {
-		if (task->func_stack[i].addr == fstack->addr) {
+		struct fstack *check = fstack_get(task, i);
+		if (check == NULL)
+			break;
+
+		if (check->addr == fstack->addr) {
 			recursive = true;
 			break;
 		}
 	}
+
+	total_time = fstack->total_time;
+	self_time = fstack->total_time - fstack->child_time;
 
 	update_time_stat(&node->total, total_time, recursive);
 	update_time_stat(&node->self, self_time, false);
@@ -744,7 +755,14 @@ TEST_CASE(report_sort)
 	struct rb_node *rbnode;
 	struct uftrace_report_node *node;
 	static struct fstack fstack[TEST_NODES];
+	struct uftrace_data handle = {
+		.hdr = {
+			.max_stack = TEST_NODES,
+		},
+		.nr_tasks = 1,
+	};
 	struct uftrace_task_reader task = {
+		.h = &handle,
 		.func_stack = fstack,
 	};
 	int i;
@@ -827,12 +845,20 @@ TEST_CASE(report_diff)
 	struct uftrace_report_node *node;
 	int i;
 
+	struct uftrace_data handle = {
+		.hdr = {
+			.max_stack = TEST_NODES,
+		},
+		.nr_tasks = 2,
+	};
 	struct fstack orig_fstack[TEST_NODES];
 	struct uftrace_task_reader orig_task = {
+		.h = &handle,
 		.func_stack = orig_fstack,
 	};
 	struct fstack pair_fstack[TEST_NODES];
 	struct uftrace_task_reader pair_task = {
+		.h = &handle,
 		.func_stack = pair_fstack,
 	};
 

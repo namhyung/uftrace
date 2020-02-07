@@ -310,8 +310,12 @@ static int save_backtrace_addr(struct task_graph *tg)
 	if (len == 0)
 		return 0;
 
-	for (i = len - 1; i >= 0; i--)
-		addrs[i] = task->func_stack[i + skip].addr;
+	for (i = len - 1; i >= 0; i--) {
+		struct fstack *fstack = fstack_get(task, i + skip);
+
+		if (fstack != NULL)
+			addrs[i] = fstack->addr;
+	}
 
 	list_for_each_entry(bt, &graph->bt_list, list) {
 		if (len == bt->len &&
@@ -338,9 +342,9 @@ found:
 static void save_backtrace_time(struct task_graph *tg)
 {
 	struct uftrace_task_reader *task = tg->utg.task;
-	struct fstack *fstack = &task->func_stack[task->stack_count];
+	struct fstack *fstack = fstack_get(task, task->stack_count);
 
-	if (tg->bt_curr)
+	if (tg->bt_curr != NULL && fstack != NULL)
 		tg->bt_curr->time += fstack->total_time;
 
 	tg->bt_curr = NULL;
@@ -376,7 +380,7 @@ static int print_backtrace(struct session_graph *graph)
 
 static int start_graph(struct task_graph *tg)
 {
-	if (!tg->enabled++) {
+	if (tg->utg.graph && !tg->enabled++) {
 		save_backtrace_addr(tg);
 
 		pr_dbg("start graph for task %d\n", tg->utg.task->tid);
@@ -520,6 +524,8 @@ static void build_graph_node(struct opts *opts,
 	char *name;
 
 	tg = get_task_graph(task, time, addr);
+	if (unlikely(tg->utg.graph == NULL))
+		return;
 
 	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
 	if (sym == NULL)
@@ -601,9 +607,9 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			while (task->stack_count >= task->user_stack_count) {
 				struct fstack *fstack;
 
-				fstack = &task->func_stack[task->stack_count];
+				fstack = fstack_get(task, task->stack_count);
 
-				if (fstack_enabled && fstack->valid &&
+				if (fstack_enabled && fstack && fstack->valid &&
 				    !(fstack->flags & FSTACK_FL_NORECORD)) {
 					build_graph_node(opts, task, prev_time,
 							 fstack->addr,
@@ -633,9 +639,6 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		}
 		prev_time = frs->time;
 
-		if (task->stack_count >= opts->max_stack)
-			continue;
-
 		build_graph_node(opts, task, frs->time, addr, frs->type, func);
 	}
 
@@ -655,7 +658,9 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			fstack = &task->func_stack[task->stack_count];
+			fstack = fstack_get(task, task->stack_count);
+			if (fstack == NULL)
+				continue;
 
 			if (fstack->addr == 0)
 				continue;

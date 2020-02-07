@@ -62,7 +62,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
-	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count - 1];
+	struct fstack *fstack = fstack_get(tg->task, tg->task->stack_count - 1);
 
 	if (tg->lost)
 		return 1;  /* ignore kernel functions after LOST */
@@ -73,7 +73,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 		tg->new_sess = false;
 	}
 
-	if (curr == NULL)
+	if (curr == NULL || fstack == NULL)
 		return -1;
 
 	list_for_each_entry(node, &curr->head, list) {
@@ -135,10 +135,10 @@ out:
 
 static int add_graph_exit(struct uftrace_task_graph *tg)
 {
-	struct fstack *fstack = &tg->task->func_stack[tg->task->stack_count];
+	struct fstack *fstack = fstack_get(tg->task, tg->task->stack_count);
 	struct uftrace_graph_node *node = tg->node;
 
-	if (node == NULL)
+	if (node == NULL || fstack == NULL)
 		return -1;
 
 	if (tg->lost) {

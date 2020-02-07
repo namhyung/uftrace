@@ -40,6 +40,7 @@ struct uftrace_task_reader {
 	bool fork_handled;
 	bool fstack_set;
 	bool display_depth_set;
+	bool fstack_warned;
 	FILE *fp;
 	struct sym *func;
 	struct uftrace_task *t;
@@ -149,6 +150,7 @@ void setup_fstack_args(char *argspec, char *retspec,
 		       struct uftrace_filter_setting *setting);
 int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle);
 
+struct fstack * fstack_get(struct uftrace_task_reader *task, int idx);
 int fstack_entry(struct uftrace_task_reader *task,
 		 struct uftrace_record *rstack,
 		 struct uftrace_trigger *tr);
