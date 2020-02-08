@@ -1,5 +1,12 @@
 language: c
 
+arch:
+  - amd64
+  - arm64
+
+compiler:
+  - gcc
+
 # Ubuntu 16.04 LTS
 dist: xenial
 
