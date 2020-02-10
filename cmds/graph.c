@@ -315,6 +315,8 @@ static int save_backtrace_addr(struct task_graph *tg)
 
 		if (fstack != NULL)
 			addrs[i] = fstack->addr;
+		else
+			addrs[i] = 0;
 	}
 
 	list_for_each_entry(bt, &graph->bt_list, list) {
