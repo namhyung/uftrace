@@ -1,8 +1,6 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
 
-#define CALL_INSN_SIZE  5
-
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
 #include <capstone/platform.h>

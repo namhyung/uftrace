@@ -17,9 +17,6 @@
 #define XRAY_SECT  "xray_instr_map"
 #define MCOUNTLOC_SECT  "__mcount_loc"
 
-#define CALL_INSN_SIZE  5
-#define JMP_INSN_SIZE   6
-
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
 extern void __dentry__(void);
