@@ -45,6 +45,9 @@ struct mcount_dynamic_info;
 struct mcount_disasm_info;
 struct sym;
 
+#define CALL_INSN_SIZE	5
+#define JMP_INSN_SIZE	6
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info);
