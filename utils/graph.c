@@ -162,6 +162,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 			    snode->pid == tg->task->t->ppid) {
 				node = snode->node;
 				list_del(&snode->list);
+				free(snode);
 				pr_dbg("recover from fork\n");
 				goto out;
 			}
