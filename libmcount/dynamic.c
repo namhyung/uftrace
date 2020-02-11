@@ -36,8 +36,36 @@ struct code_page {
 static LIST_HEAD(code_pages);
 static struct rb_root code_tree = RB_ROOT;
 
+static struct mcount_orig_insn *create_code(struct rb_root *root,
+					    unsigned long addr)
+{
+	struct rb_node *parent = NULL;
+	struct mcount_orig_insn *iter;
+	struct rb_node **p = &root->rb_node;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct mcount_orig_insn, node);
+
+		if (iter->addr == addr)
+			return iter;
+
+		if (iter->addr > addr)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	iter = xmalloc(sizeof(*iter));
+	iter->addr = addr;
+
+	rb_link_node(&iter->node, parent, p);
+	rb_insert_color(&iter->node, root);
+	return iter;
+
+}
 static struct mcount_orig_insn *lookup_code(struct rb_root *root,
-					    unsigned long addr, bool create)
+					    unsigned long addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -56,15 +84,7 @@ static struct mcount_orig_insn *lookup_code(struct rb_root *root,
 			p = &parent->rb_right;
 	}
 
-	if (!create)
-		return NULL;
-
-	iter = xmalloc(sizeof(*iter));
-	iter->addr = addr;
-
-	rb_link_node(&iter->node, parent, p);
-	rb_insert_color(&iter->node, root);
-	return iter;
+	return NULL;
 }
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
@@ -98,7 +118,10 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 		list_add_tail(&cp->list, &code_pages);
 	}
 
-	orig = lookup_code(&code_tree, info->addr, true);
+	orig = lookup_code(&code_tree, info->addr);
+	if (orig == NULL)
+		orig = create_code(&code_tree, info->addr);
+
 	orig->insn = cp->page + cp->pos;
 	orig->orig = orig->insn;
 	orig->orig_size = info->orig_size;
@@ -129,7 +152,7 @@ void *mcount_find_code(unsigned long addr)
 {
 	struct mcount_orig_insn *orig;
 
-	orig = lookup_code(&code_tree, addr, false);
+	orig = lookup_code(&code_tree, addr);
 	if (orig == NULL)
 		return NULL;
 
@@ -138,7 +161,7 @@ void *mcount_find_code(unsigned long addr)
 
 struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
 {
-	return lookup_code(&code_tree, addr, false);
+	return lookup_code(&code_tree, addr);
 }
 
 /* dummy functions (will be overridden by arch-specific code) */
