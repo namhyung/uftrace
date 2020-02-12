@@ -102,6 +102,7 @@ enum options {
 	OPT_no_event,
 	OPT_signal,
 	OPT_srcline,
+	OPT_format,
 };
 
 static struct argp_option uftrace_options[] = {
@@ -157,6 +158,7 @@ static struct argp_option uftrace_options[] = {
 	{ "diff", OPT_diff, "DATA", 0, "Report differences" },
 	{ "sort-column", OPT_sort_column, "INDEX", 0, "Sort diff report on column INDEX "
 		"(default: " stringify(OPT_SORT_COLUMN) ")" },
+	{ "format", OPT_format, "FORMAT", 0, "Use FORMAT for output format" },
 	{ "num-thread", OPT_num_thread, "NUM", 0, "Create NUM recorder threads" },
 	{ "no-comment", OPT_no_comment, 0, 0, "Don't show comments of returned functions" },
 	{ "libmcount-single", OPT_libmcount_single, 0, 0, "Use single thread version of libmcount" },
@@ -692,6 +694,10 @@ static error_t parse_option(int key, char *arg, struct argp_state *state)
 
 	case OPT_diff_policy:
 		opts->diff_policy = arg;
+		break;
+
+	case OPT_format:
+		opts->format = arg;
 		break;
 
 	case OPT_sort_column:

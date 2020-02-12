@@ -222,6 +222,7 @@ struct opts {
 	char *diff_policy;
 	char *caller;
 	char *extern_data;
+	char *format;
 	int mode;
 	int idx;
 	int depth;

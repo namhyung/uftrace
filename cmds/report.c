@@ -187,6 +187,34 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 	}
 }
 
+static void print_csv_function(struct uftrace_report_node *node, void *unused)
+{
+	if (avg_mode == AVG_NONE) {
+		pr_out("%"PRIu64", ", node->total.sum);
+		pr_out("%"PRIu64", ", node->self.sum);
+		pr_out("%lu, %s\n", node->call, node->name);
+	}
+	else {
+		uint64_t time_avg, time_min, time_max;
+
+		if (avg_mode == AVG_TOTAL) {
+			time_avg = node->total.avg;
+			time_min = node->total.min;
+			time_max = node->total.max;
+		}
+		else {
+			time_avg = node->self.avg;
+			time_min = node->self.min;
+			time_max = node->self.max;
+		}
+		pr_out("%"PRIu64", ", time_avg);
+		pr_out("%"PRIu64", ", time_min);
+		pr_out("%"PRIu64", ", time_max);
+		pr_out("%s\n", node->name);
+	}
+}
+
+
 static void print_function(struct uftrace_report_node *node, void *unused)
 {
 	if (avg_mode == AVG_NONE) {
@@ -224,6 +252,7 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 	struct rb_root name_root = RB_ROOT;
 	struct rb_root sort_root = RB_ROOT;
 	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
+	const char csv_format[] = "%s, %s, %s, %s\n";
 	const char line[] = "=================================================";
 
 	build_function_tree(handle, &name_root, opts);
@@ -233,16 +262,27 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Calls", maxlen, "Function");
-	else if (avg_mode == AVG_TOTAL)
-		pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
-	else if (avg_mode == AVG_SELF)
-		pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
+	if (opts->format && !strcmp(opts->format, "csv")) {
+		if (avg_mode == AVG_NONE)
+			pr_out(csv_format, "Total time", "Self time", "Calls", "Function");
+		else if (avg_mode == AVG_TOTAL)
+			pr_out(csv_format, "Avg total", "Min total", "Max total", "Function");
+		else if (avg_mode == AVG_SELF)
+			pr_out(csv_format, "Avg self", "Min self", "Max self", "Function");
 
-	pr_out(f_format, line, line, line, maxlen, line);
+		print_and_delete(&sort_root, true, NULL, print_csv_function);
+	}
+	else {
+		if (avg_mode == AVG_NONE)
+			pr_out(f_format, "Total time", "Self time", "Calls", maxlen, "Function");
+		else if (avg_mode == AVG_TOTAL)
+			pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
+		else if (avg_mode == AVG_SELF)
+			pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
 
-	print_and_delete(&sort_root, true, NULL, print_function);
+		pr_out(f_format, line, line, line, maxlen, line);
+		print_and_delete(&sort_root, true, NULL, print_function);
+	}
 }
 
 static void add_remaining_task_fstack(struct uftrace_data *handle,
