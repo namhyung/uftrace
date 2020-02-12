@@ -174,12 +174,12 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		if (spec->size <= 4) {
 			asm volatile ("ldr s0, %1\n"
 				      "str s0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (float_retval));
+				      "=m" (ctx->val.v) : "m" (*float_retval));
 		}
 		else {
 			asm volatile ("ldr d0, %1\n"
 				      "str d0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (float_retval));
+				      "=m" (ctx->val.v) : "m" (*float_retval));
 		}
 	}
 	else
