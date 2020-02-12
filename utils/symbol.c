@@ -966,7 +966,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 		sym->name = demangle(name);
 		sym->size = 0;
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
+		pr_dbg4("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
 			sym->type, sym->addr, sym->size, sym->name);
 
 		if (symtab->nr_sym > 1 && sym[-1].size == 0)
