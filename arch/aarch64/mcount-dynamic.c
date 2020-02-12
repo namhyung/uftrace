@@ -36,9 +36,6 @@ static void save_orig_code(struct mcount_disasm_info *info)
 	}
 
 	orig = mcount_save_code(info, jmp_insn, jmp_insn_size);
-
-	/* make sure orig->addr same as when called from __dentry__ */
-	orig->addr += CODE_SIZE;
 }
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
@@ -133,7 +130,7 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
 	void *saved_insn;
 
-	saved_insn = mcount_find_code((uintptr_t)addr + CODE_SIZE);
+	saved_insn = mcount_find_code((uintptr_t)addr);
 	if (saved_insn == NULL)
 		return;
 

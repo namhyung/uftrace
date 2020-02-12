@@ -458,7 +458,6 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 {
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
-	struct mcount_orig_insn *orig;
 	struct mcount_disasm_info info = {
 		.sym  = sym,
 		.addr = mdi->map->start + sym->addr,
@@ -486,12 +485,10 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
 	if (info.has_jump)
-		orig = mcount_save_code(&info, jmp_insn, 0);
+		mcount_save_code(&info, jmp_insn, 0);
 	else
-		orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+		mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
 
-	/* make sure orig->addr same as when called from __dentry__ */
-	orig->addr += CALL_INSN_SIZE;
 	patch_code(mdi, info.addr, info.orig_size);
 
 	return INSTRUMENT_SUCCESS;
@@ -619,7 +616,7 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
 	struct mcount_orig_insn *moi;
 
-	moi = mcount_find_insn((uintptr_t)addr + CALL_INSN_SIZE);
+	moi = mcount_find_insn((uintptr_t)addr);
 	if (moi == NULL)
 		return;
 
