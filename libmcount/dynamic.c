@@ -1,3 +1,17 @@
+/*
+ * INSTRUMENTED CODE LAYOUT
+ *
+ * Func offset | Instrumented code
+ * --------------------------------
+ * 	   0x0 | Call Trampoline
+ * 	   0x6 | nop
+ * 	   0x7 | nop
+ *
+ * we must use starting address of function when
+ * -. store original code to hashmap
+ * -. find original code from hashmap
+ * -. unpatch function
+ */
 #include <string.h>
 #include <stdint.h>
 #include <link.h>
@@ -14,6 +28,7 @@
 #include "utils/filter.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/hashmap.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
@@ -34,57 +49,28 @@ struct code_page {
 };
 
 static LIST_HEAD(code_pages);
-static struct rb_root code_tree = RB_ROOT;
 
-static struct mcount_orig_insn *create_code(struct rb_root *root,
+#define HASHMAP_INIT_VALUE 50000
+static struct Hashmap *code_hmap;
+
+static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
 {
-	struct rb_node *parent = NULL;
-	struct mcount_orig_insn *iter;
-	struct rb_node **p = &root->rb_node;
+	struct mcount_orig_insn *entry;
 
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct mcount_orig_insn, node);
-
-		if (iter->addr == addr)
-			return iter;
-
-		if (iter->addr > addr)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	iter = xmalloc(sizeof(*iter));
-	iter->addr = addr;
-
-	rb_link_node(&iter->node, parent, p);
-	rb_insert_color(&iter->node, root);
-	return iter;
-
+	entry = xmalloc(sizeof *entry);
+	entry->addr = addr;
+	hashmap_put(code_hmap, &entry->addr, entry);
+	return entry;
 }
-static struct mcount_orig_insn *lookup_code(struct rb_root *root,
+
+static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
 					    unsigned long addr)
 {
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct mcount_orig_insn *iter;
+	struct mcount_orig_insn *entry;
 
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct mcount_orig_insn, node);
-
-		if (iter->addr == addr)
-			return iter;
-
-		if (iter->addr > addr)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	return NULL;
+	entry = hashmap_get(code_hmap, &addr);
+	return entry;
 }
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
@@ -118,9 +104,9 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 		list_add_tail(&cp->list, &code_pages);
 	}
 
-	orig = lookup_code(&code_tree, info->addr);
+	orig = lookup_code(code_hmap, info->addr);
 	if (orig == NULL)
-		orig = create_code(&code_tree, info->addr);
+		orig = create_code(code_hmap, info->addr);
 
 	orig->insn = cp->page + cp->pos;
 	orig->orig = orig->insn;
@@ -152,7 +138,7 @@ void *mcount_find_code(unsigned long addr)
 {
 	struct mcount_orig_insn *orig;
 
-	orig = lookup_code(&code_tree, addr);
+	orig = lookup_code(code_hmap, addr);
 	if (orig == NULL)
 		return NULL;
 
@@ -161,7 +147,7 @@ void *mcount_find_code(unsigned long addr)
 
 struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
 {
-	return lookup_code(&code_tree, addr);
+	return lookup_code(code_hmap, addr);
 }
 
 /* dummy functions (will be overridden by arch-specific code) */
@@ -268,6 +254,8 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 		.needs_modules = needs_modules,
 	};
 
+	code_hmap = hashmap_create(HASHMAP_INIT_VALUE, hashmap_default_hash,
+				   hashmap_default_equals);
 	mcount_disasm_init(disasm);
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
