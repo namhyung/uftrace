@@ -1323,16 +1323,6 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	char *func = NULL;
 	uint64_t offset = 0;
 
-	dinfo->args = RB_ROOT;
-	dinfo->rets = RB_ROOT;
-	dinfo->enums = RB_ROOT;
-	dinfo->files = RB_ROOT;
-
-	if (needs_srcline) {
-		dinfo->nr_locs = symtab->nr_sym;
-		dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
-	}
-
 	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
 
 	fp = fopen(pathname, "r");
@@ -1346,6 +1336,16 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	}
 
 	pr_dbg2("load debug info from %s\n", pathname);
+
+	dinfo->args = RB_ROOT;
+	dinfo->rets = RB_ROOT;
+	dinfo->enums = RB_ROOT;
+	dinfo->files = RB_ROOT;
+
+	if (needs_srcline && dinfo->locs == NULL) {
+		dinfo->nr_locs = symtab->nr_sym;
+		dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
+	}
 
 	while (getline(&line, &len, fp) >= 0) {
 		char *pos;
@@ -1432,7 +1432,7 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 		if (map->mod == NULL)
 			continue;
 
-		if (!debug_info_has_location(dinfo)) {
+		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
 			load_debug_file(dinfo, stab, symtabs->dirname,
 					map->libname, needs_srcline);
 		}
