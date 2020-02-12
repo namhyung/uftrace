@@ -644,6 +644,8 @@ and equally use `-P` option for dynamic tracing like below:
        2.405 us [11098] |   } /* a */
        3.005 us [11098] | } /* main */
 
+For dynamic tracking, the -Z option tracks and results only functions that are larger than the size you specify. You can skip features that are usually insignificant and small to make tracking more efficient.
+
 
 SCRIPT EXECUTION
 ================
