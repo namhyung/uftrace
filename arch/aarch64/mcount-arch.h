@@ -26,7 +26,9 @@ struct mcount_regs {
 #define ARCH_MAX_REG_ARGS  8
 #define ARCH_MAX_FLOAT_REGS  8
 
+#define HAVE_MCOUNT_ARCH_CONTEXT
 struct mcount_arch_context {
+	double d[ARCH_MAX_FLOAT_REGS];
 };
 
 #define ARCH_PLT0_SIZE  32
