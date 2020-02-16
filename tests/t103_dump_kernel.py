@@ -84,7 +84,7 @@ class TestCase(TestBase):
         # Linux v4.17 (x86_64) changed syscall routines
         major, minor, release = uname[2].split('.')
         if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
-           int(major) >= 4 and int(minor) >= 17:
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
             result = result.replace('sys_get', '__x64_sys_get')
 
         return result
