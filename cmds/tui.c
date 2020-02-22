@@ -2661,6 +2661,8 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 		ret = build_tui_node(task, rec, opts);
 		if (ret)
 			break;
+
+		fstack_check_filter_done(task);
 	}
 	add_remaining_node(opts, &handle);
 

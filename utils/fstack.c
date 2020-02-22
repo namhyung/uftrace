@@ -872,8 +872,6 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 
 		if (fstack_entry(task, task->rstack, &tr) < 0)
 			return false;
-
-		fstack_update(UFTRACE_ENTRY, task, fstack);
 	}
 	else if (task->rstack->type == UFTRACE_EXIT) {
 		fstack = fstack_get(task, task->stack_count);
@@ -886,7 +884,6 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 		}
 
 		fstack_update(UFTRACE_EXIT, task, fstack);
-		fstack_exit(task);
 	}
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
@@ -918,6 +915,33 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	}
 
 	return true;
+}
+
+/**
+ * fstack_check_filter_done - post-process filter settings
+ * @task       - tracee task
+ *
+ * This function should be called after fstack_check_filter() returned
+ * true and uftrace handled the fstack.
+ */
+void fstack_check_filter_done(struct uftrace_task_reader *task)
+{
+	struct fstack *fstack;
+
+	if (task->rstack->type == UFTRACE_ENTRY) {
+		fstack = fstack_get(task, task->stack_count - 1);
+		if (fstack == NULL)
+			return;
+
+		fstack_update(UFTRACE_ENTRY, task, fstack);
+	}
+	else if (task->rstack->type == UFTRACE_EXIT) {
+		fstack = fstack_get(task, task->stack_count);
+		if (fstack == NULL)
+			return;
+
+		fstack_exit(task);
+	}
 }
 
 /**

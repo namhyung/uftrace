@@ -642,6 +642,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		prev_time = frs->time;
 
 		build_graph_node(opts, task, frs->time, addr, frs->type, func);
+		fstack_check_filter_done(task);
 	}
 
 	/* add duration of remaining functions */
@@ -796,6 +797,8 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 				break;
 			}
 		}
+
+		fstack_check_filter_done(task);
 	}
 
 	/* update task time if some records were missing */
