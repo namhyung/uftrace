@@ -58,6 +58,7 @@ find_or_create_node(struct rb_root *root, const char *name,
 		return NULL;
 
 	node->name = xstrdup(name);
+	node->loc = NULL;
 	init_time_stat(&node->total);
 	init_time_stat(&node->self);
 
@@ -88,7 +89,8 @@ void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 }
 
 void report_update_node(struct uftrace_report_node *node,
-			struct uftrace_task_reader *task)
+			struct uftrace_task_reader *task,
+			struct debug_location *loc)
 {
 	struct fstack *fstack;
 	uint64_t total_time;
@@ -117,6 +119,7 @@ void report_update_node(struct uftrace_report_node *node,
 	update_time_stat(&node->total, total_time, recursive);
 	update_time_stat(&node->self, self_time, false);
 	node->call++;
+	node->loc = loc;
 }
 
 void report_calc_avg(struct rb_root *root)
@@ -512,7 +515,7 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 void destroy_diff_nodes(struct rb_root *diff_root)
 {
 	struct rb_node *n = rb_first(diff_root);
-	
+
 	while (n) {
 		struct uftrace_report_node *iter;
 
@@ -782,7 +785,7 @@ TEST_CASE(report_sort)
 	for (i = 0; i < TEST_NODES; i++) {
 		node = xzalloc(sizeof(*node));
 		report_add_node(&name_tree, test_name[i], node);
-		report_update_node(node, &task);
+		report_update_node(node, &task, NULL);
 		task.stack_count++;
 	}
 	report_calc_avg(&name_tree);
@@ -888,7 +891,7 @@ TEST_CASE(report_diff)
 
 		node = xzalloc(sizeof(*node));
 		report_add_node(&orig_tree, orig_name[i], node);
-		report_update_node(node, &orig_task);
+		report_update_node(node, &orig_task, NULL);
 		orig_task.stack_count++;
 	}
 	report_calc_avg(&orig_tree);
@@ -900,7 +903,7 @@ TEST_CASE(report_diff)
 
 		node = xzalloc(sizeof(*node));
 		report_add_node(&pair_tree, pair_name[i], node);
-		report_update_node(node, &pair_task);
+		report_update_node(node, &pair_task, NULL);
 		pair_task.stack_count++;
 	}
 	report_calc_avg(&pair_tree);

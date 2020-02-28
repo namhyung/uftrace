@@ -21,7 +21,7 @@ enum {
 static int maxlen = 20;
 
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			char *symname)
+			char *symname, struct debug_location* loc)
 {
 	struct uftrace_report_node *node;
 
@@ -30,22 +30,27 @@ static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 		node = xzalloc(sizeof(*node));
 		report_add_node(root, symname, node);
 	}
-	report_update_node(node, task);
+	report_update_node(node, task, loc);
 }
 
 static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			     uint64_t timestamp, uint64_t addr)
+			     uint64_t timestamp, uint64_t addr, bool needs_srcline)
 {
 	struct sym *sym;
 	char *symname;
+	struct debug_location *loc = NULL;
 
 	sym = task_find_sym_addr(&task->h->sessions, task, timestamp, addr);
+	if (needs_srcline)
+		loc = task_find_loc_addr(&task->h->sessions, task, timestamp, addr);
+
 	symname = symbol_getname(sym, addr);
-	insert_node(root, task, symname);
+	insert_node(root, task, symname, loc);
 	symbol_putname(sym, symname);
 }
 
-static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task)
+static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task,
+			    struct opts *opts)
 {
 	struct fstack *fstack;
 
@@ -55,7 +60,7 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 		if (fstack_enabled && fstack && fstack->valid &&
 		    !(fstack->flags & FSTACK_FL_NORECORD)) {
 			find_insert_node(root, task, task->timestamp_last,
-					 fstack->addr);
+					 fstack->addr, opts->srcline);
 		}
 
 		fstack_exit(task);
@@ -64,7 +69,7 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 }
 
 static void add_remaining_fstack(struct uftrace_data *handle,
-				 struct rb_root *root)
+				 struct rb_root *root, struct opts *opts)
 {
 	struct uftrace_task_reader *task;
 	struct fstack *fstack;
@@ -99,10 +104,10 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 				fstack[-1].child_time += fstack->total_time;
 
 			if (fstack->addr == EVENT_ID_PERF_SCHED_IN)
-				insert_node(root, task, sched_sym.name);
+				insert_node(root, task, sched_sym.name, NULL);
 			else
 				find_insert_node(root, task, last_time,
-						 fstack->addr);
+						 fstack->addr, opts->srcline);
 		}
 	}
 }
@@ -135,13 +140,13 @@ static void build_function_tree(struct uftrace_data *handle,
 
 		if (rstack->type == UFTRACE_EVENT) {
 			if (rstack->addr == EVENT_ID_PERF_SCHED_IN)
-				insert_node(root, task, sched_sym.name);
+				insert_node(root, task, sched_sym.name, NULL);
 			continue;
 		}
 
 		if (rstack->type == UFTRACE_LOST) {
 			/* add partial duration of functions before LOST */
-			add_lost_fstack(root, task);
+			add_lost_fstack(root, task, opts);
 			continue;
 		}
 
@@ -161,7 +166,7 @@ static void build_function_tree(struct uftrace_data *handle,
 			continue;
 		}
 
-		find_insert_node(root, task, rstack->time, addr);
+		find_insert_node(root, task, rstack->time, addr, opts->srcline);
 
 		fstack_check_filter_done(task);
 	}
@@ -169,7 +174,7 @@ static void build_function_tree(struct uftrace_data *handle,
 	if (uftrace_done)
 		return;
 
-	add_remaining_fstack(handle, root);
+	add_remaining_fstack(handle, root, opts);
 }
 
 static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
@@ -200,7 +205,10 @@ static void print_function(struct uftrace_report_node *node, void *unused)
 		print_time_unit(node->total.sum);
 		pr_out("  ");
 		print_time_unit(node->self.sum);
-		pr_out("  %10"PRIu64 "  %-s\n", node->call, node->name);
+		pr_out("  %10"PRIu64 "  %-s", node->call, node->name);
+		if (node->loc)
+			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+		pr_out("\n");
 	}
 	else {
 		uint64_t time_avg, time_min, time_max;
@@ -221,7 +229,10 @@ static void print_function(struct uftrace_report_node *node, void *unused)
 		print_time_unit(time_min);
 		pr_out("  ");
 		print_time_unit(time_max);
-		pr_out("  %-s\n", node->name);
+		pr_out("  %-s", node->name);
+		if (node->loc)
+			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+		pr_out("\n");
 	}
 }
 
@@ -229,7 +240,7 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 {
 	struct rb_root name_root = RB_ROOT;
 	struct rb_root sort_root = RB_ROOT;
-	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s\n";
+	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s";
 	const char line[] = "=================================================";
 
 	build_function_tree(handle, &name_root, opts);
@@ -245,8 +256,12 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 		pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
 	else if (avg_mode == AVG_SELF)
 		pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
+	if (opts->srcline)
+		pr_gray(" [Source]");
+	pr_out("\n");
 
 	pr_out(f_format, line, line, line, maxlen, line);
+	pr_out("\n");
 
 	print_and_delete(&sort_root, true, NULL, print_function);
 }
@@ -299,7 +314,7 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 				fstack[-1].child_time += fstack->total_time;
 
 			snprintf(buf, sizeof(buf), "%d", task->tid);
-			insert_node(root, task, buf);
+			insert_node(root, task, buf, NULL);
 		}
 	}
 }
@@ -385,7 +400,7 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 
 		/* UFTRACE_EXIT */
 		snprintf(buf, sizeof(buf), "%d", task->tid);
-		insert_node(&task_tree, task, buf);
+		insert_node(&task_tree, task, buf, NULL);
 	}
 
 	if (uftrace_done)
@@ -462,7 +477,10 @@ static void print_function_diff(struct uftrace_report_node *node, void *arg)
 		pr_out("  ");
 
 		print_diff_count(node->call, pair->call);
-		pr_out("   %-s\n", node->name);
+		pr_out("   %-s", node->name);
+		if (node->loc)
+			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+		pr_out("\n");
 	}
 	else {
 		uint64_t time_avg, time_min, time_max;
@@ -533,7 +551,10 @@ static void print_function_diff(struct uftrace_report_node *node, void *arg)
 		else
 			print_diff_time_unit(time_max, pair_max);
 
-		pr_out("   %-s\n", node->name);
+		pr_out("   %-s", node->name);
+		if (node->loc)
+			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+		pr_out("\n");
 	}
 }
 
@@ -553,10 +574,10 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	struct rb_root pair_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
 	const char *formats[] = {
-		"  %35.35s   %35.35s   %32.32s   %-.*s\n",  /* diff numbers */
-		"  %32.32s   %32.32s   %32.32s   %-.*s\n",  /* diff percent */
-		"  %35.35s   %35.35s   %35.35s   %-.*s\n",  /* diff avg numbers */
-		"  %11.11s   %11.11s   %11.11s   %-.*s\n",  /* diff compact */
+		"  %35.35s   %35.35s   %32.32s   %-.*s",  /* diff numbers */
+		"  %32.32s   %32.32s   %32.32s   %-.*s",  /* diff percent */
+		"  %35.35s   %35.35s   %35.35s   %-.*s",  /* diff avg numbers */
+		"  %11.11s   %11.11s   %11.11s   %-.*s",  /* diff compact */
 	};
 	const char line[] = "=================================================";
 	const char *headers[][3] = {
@@ -599,7 +620,12 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	pr_out("#\n");
 	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2],
 	       maxlen, "Function");
+	if (opts->srcline)
+		pr_gray(" [Source]");
+	pr_out("\n");
+
 	pr_out(formats[f_idx], line, line, line, maxlen, line);
+	pr_out("\n");
 
 	print_and_delete(&diff_tree, true, NULL, print_function_diff);
 

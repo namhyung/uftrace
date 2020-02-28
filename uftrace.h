@@ -440,6 +440,9 @@ struct sym * task_find_sym(struct uftrace_session_link *sess,
 struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
 				struct uftrace_task_reader *task,
 				uint64_t time, uint64_t addr);
+struct debug_location * task_find_loc_addr(struct uftrace_session_link *sess,
+					   struct uftrace_task_reader *task,
+					   uint64_t time, uint64_t addr);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(struct uftrace_session_link *sess,
