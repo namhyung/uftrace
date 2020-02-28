@@ -392,7 +392,7 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 	if (list_is_none(&graph_node->link))
 		list_add_tail(&graph_node->link, &node->head);
 
-	report_update_node(&node->n, task);
+	report_update_node(&node->n, task, NULL);
 }
 
 static int build_tui_node(struct uftrace_task_reader *task,

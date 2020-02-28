@@ -655,6 +655,63 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 	return sym;
 }
 
+/**
+ * task_find_loc_addr - find a debug location that matches to @addr
+ * @sessions: session link to manage sessions and tasks
+ * @task: handle for functions in a task
+ * @time: timestamp of the @addr
+ * @addr: instruction address
+ *
+ * This function returns a debug location of symbol
+ * that looked up in symbol table in current session
+ */
+struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions,
+				struct uftrace_task_reader *task,
+				uint64_t time, uint64_t addr)
+{
+	struct uftrace_session *sess;
+	struct sym *sym = NULL;
+	struct uftrace_mmap *map;
+	struct debug_info *dinfo;
+	struct debug_location *loc;
+	ptrdiff_t sym_idx;
+
+	sess = find_task_session(sessions, task->t, time);
+
+	if (sess == NULL) {
+		struct uftrace_session *fsess = sessions->first;
+
+		if (is_kernel_address(&fsess->symtabs, addr))
+			sess = fsess;
+		else
+			return NULL;
+	}
+
+	sym = find_symtabs(&sess->symtabs, addr);
+	if (sym == NULL)
+		sym = session_find_dlsym(sess, time, addr);
+
+	if (sym == NULL)
+		return NULL;
+
+	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
+		map = find_map(&sess->symtabs, addr);
+		if (map == NULL)
+			return NULL;
+
+		dinfo = &(map->mod->dinfo);
+		if (dinfo == NULL || dinfo->nr_locs_used == 0)
+			return NULL;
+
+		sym_idx = sym - map->mod->symtab.sym;
+		loc = &dinfo->locs[sym_idx];
+		if (loc->file != NULL)
+			return loc;
+	}
+
+	return NULL;
+}
+
 #ifdef UNIT_TEST
 
 static struct uftrace_session_link test_sessions;
