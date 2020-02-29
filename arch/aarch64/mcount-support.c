@@ -174,12 +174,12 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		if (spec->size <= 4) {
 			asm volatile ("ldr s0, %1\n"
 				      "str s0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (float_retval));
+				      "=m" (ctx->val.v) : "m" (*float_retval));
 		}
 		else {
 			asm volatile ("ldr d0, %1\n"
 				      "str d0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (float_retval));
+				      "=m" (ctx->val.v) : "m" (*float_retval));
 		}
 	}
 	else
@@ -192,4 +192,28 @@ unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 
 	sym = &pd->dsymtab.sym[0];
 	return sym->addr - ARCH_PLT0_SIZE;
+}
+
+void mcount_save_arch_context(struct mcount_arch_context *ctx)
+{
+	asm volatile ("str d0, %0\n" : "=m" (ctx->d[0]));
+	asm volatile ("str d1, %0\n" : "=m" (ctx->d[1]));
+	asm volatile ("str d2, %0\n" : "=m" (ctx->d[2]));
+	asm volatile ("str d3, %0\n" : "=m" (ctx->d[3]));
+	asm volatile ("str d4, %0\n" : "=m" (ctx->d[4]));
+	asm volatile ("str d5, %0\n" : "=m" (ctx->d[5]));
+	asm volatile ("str d6, %0\n" : "=m" (ctx->d[6]));
+	asm volatile ("str d7, %0\n" : "=m" (ctx->d[7]));
+}
+
+void mcount_restore_arch_context(struct mcount_arch_context *ctx)
+{
+	asm volatile ("ldr d0, %0\n" :: "m" (ctx->d[0]));
+	asm volatile ("ldr d1, %0\n" :: "m" (ctx->d[1]));
+	asm volatile ("ldr d2, %0\n" :: "m" (ctx->d[2]));
+	asm volatile ("ldr d3, %0\n" :: "m" (ctx->d[3]));
+	asm volatile ("ldr d4, %0\n" :: "m" (ctx->d[4]));
+	asm volatile ("ldr d5, %0\n" :: "m" (ctx->d[5]));
+	asm volatile ("ldr d6, %0\n" :: "m" (ctx->d[6]));
+	asm volatile ("ldr d7, %0\n" :: "m" (ctx->d[7]));
 }
