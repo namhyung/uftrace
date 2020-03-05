@@ -503,12 +503,13 @@ void save_argument(struct mcount_thread_data *mtdp,
 {
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
-	struct mcount_arg_context ctx = {
-		.regs = regs,
-		.stack_base = rstack->parent_loc,
-		.regions = &mtdp->mem_regions,
-		.arch = &mtdp->arch,
-	};
+	struct mcount_arg_context ctx;
+
+	mcount_memset4(&ctx, 0, sizeof(ctx));
+	ctx.regs = regs;
+	ctx.stack_base = rstack->parent_loc;
+	ctx.regions = &mtdp->mem_regions;
+	ctx.arch = &mtdp->arch;
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
@@ -526,11 +527,12 @@ void save_retval(struct mcount_thread_data *mtdp,
 	struct list_head *args_spec = rstack->pargs;
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
-	struct mcount_arg_context ctx = {
-		.retval = retval,
-		.regions = &mtdp->mem_regions,
-		.arch = &mtdp->arch,
-	};
+	struct mcount_arg_context ctx;
+
+	mcount_memset4(&ctx, 0, sizeof(ctx));
+	ctx.retval = retval;
+	ctx.regions = &mtdp->mem_regions;
+	ctx.arch = &mtdp->arch;
 
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {

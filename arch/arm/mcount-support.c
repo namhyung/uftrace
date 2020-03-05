@@ -488,8 +488,10 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	/* type of return value cannot be FLOAT, so check format instead */
 #ifdef HAVE_ARM_HARDFP
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
-		/* d0 register (64 bit) was saved below the r0 */
-		memcpy(ctx->val.v, ctx->retval - 2, spec->size);
+		/* d0, d1 registers (64 bit) were saved below the r0 */
+		long *float_retval = ctx->retval - 4;
+
+		mcount_memcpy4(ctx->val.v, float_retval, spec->size);
 	}
 	else
 #endif /* HAVE_ARM_HARDFP */

@@ -732,9 +732,6 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	struct sym *sym;
 	struct mcount_thread_data *mtdp = NULL;
 	struct mcount_ret_stack *rstack;
-	struct uftrace_trigger tr = {
-		.flags = 0,
-	};
 	bool skip = false;
 	bool recursion = true;
 	enum filter_result filtered;
@@ -742,6 +739,9 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
 	unsigned long real_addr = 0;
+	struct uftrace_trigger tr;
+
+	mcount_memset4(&tr, 0, sizeof(tr));
 
 	// if necessary, implement it by architecture.
 	child_idx = mcount_arch_child_idx(child_idx);

@@ -31,7 +31,5 @@ class TestCase(TestBase):
             # argument count follows the size of type
             argopt = argopt.replace('float_mul@fparg1/64,fparg2/32',
                                     'float_mul@fparg1/64,fparg3/32')
-            argopt = argopt.replace('float_div@fparg1,fparg2',
-                                    'float_div@fparg1,fparg3')
 
         return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
