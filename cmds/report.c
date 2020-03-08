@@ -420,142 +420,6 @@ struct diff_data {
 	struct uftrace_data		handle;
 };
 
-#define NODATA "-"
-
-static void print_time_or_dash(uint64_t time_nsec)
-{
-	if (time_nsec)
-		print_time_unit(time_nsec);
-	else
-		pr_out("%10s", NODATA);
-}
-
-static void print_function_diff(struct uftrace_report_node *node, void *arg, int space)
-{
-	struct uftrace_report_node *pair = node->pair;
-
-	if (avg_mode == AVG_NONE) {
-		pr_out("  ");
-
-		if (diff_policy.full) {
-			print_time_or_dash(node->total.sum);
-			pr_out("  ");
-			print_time_or_dash(pair->total.sum);
-			pr_out("  ");
-		}
-		else if (diff_policy.percent)
-			pr_out("   ");
-
-		if (diff_policy.percent)
-			print_diff_percent(node->total.sum, pair->total.sum);
-		else
-			print_diff_time_unit(node->total.sum, pair->total.sum);
-
-		pr_out("   ");
-
-		if (diff_policy.full) {
-			print_time_or_dash(node->self.sum);
-			pr_out("  ");
-			print_time_or_dash(pair->self.sum);
-			pr_out("  ");
-		}
-		else if (diff_policy.percent)
-			pr_out("   ");
-
-		if (diff_policy.percent)
-			print_diff_percent(node->self.sum, pair->self.sum);
-		else
-			print_diff_time_unit(node->self.sum, pair->self.sum);
-
-		pr_out("   ");
-
-		if (diff_policy.full)
-			pr_out(" %9"PRIu64"  %9"PRIu64, node->call, pair->call);
-
-		pr_out("  ");
-
-		print_diff_count(node->call, pair->call);
-		pr_out("   %-s", node->name);
-		if (node->loc)
-			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
-		pr_out("\n");
-	}
-	else {
-		uint64_t time_avg, time_min, time_max;
-		uint64_t pair_avg, pair_min, pair_max;
-
-		if (avg_mode == AVG_TOTAL) {
-			time_avg = node->total.avg;
-			time_min = node->total.min;
-			time_max = node->total.max;
-			pair_avg = pair->total.avg;
-			pair_min = pair->total.min;
-			pair_max = pair->total.max;
-		}
-		else {
-			time_avg = node->self.avg;
-			time_min = node->self.min;
-			time_max = node->self.max;
-			pair_avg = pair->self.avg;
-			pair_min = pair->self.min;
-			pair_max = pair->self.max;
-		}
-
-		pr_out("  ");
-
-		if (diff_policy.full) {
-			print_time_unit(time_avg);
-			pr_out("  ");
-			print_time_unit(time_avg);
-			pr_out("  ");
-		}
-		else if (diff_policy.percent)
-			pr_out("   ");
-
-		if (diff_policy.percent)
-			print_diff_percent(time_avg, pair_avg);
-		else
-			print_diff_time_unit(time_avg, pair_avg);
-
-		pr_out("   ");
-
-		if (diff_policy.full) {
-			print_time_unit(time_min);
-			pr_out("  ");
-			print_time_unit(pair_min);
-			pr_out("  ");
-		}
-		else if (diff_policy.percent)
-			pr_out("   ");
-
-		if (diff_policy.percent)
-			print_diff_percent(time_min, pair_min);
-		else
-			print_diff_time_unit(time_min, pair_min);
-
-		pr_out("   ");
-
-		if (diff_policy.full) {
-			print_time_unit(time_max);
-			pr_out("  ");
-			print_time_unit(pair_max);
-			pr_out("  ");
-		}
-		else if (diff_policy.percent)
-			pr_out("   ");
-
-		if (diff_policy.percent)
-			print_diff_percent(time_max, pair_max);
-		else
-			print_diff_time_unit(time_max, pair_max);
-
-		pr_out("   %-s", node->name);
-		if (node->loc)
-			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
-		pr_out("\n");
-	}
-}
-
 static void report_diff(struct uftrace_data *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
@@ -571,28 +435,7 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	struct rb_root base_tree = RB_ROOT;
 	struct rb_root pair_tree = RB_ROOT;
 	struct rb_root diff_tree = RB_ROOT;
-	const char *formats[] = {
-		"  %35.35s   %35.35s   %32.32s   %-.*s",  /* diff numbers */
-		"  %32.32s   %32.32s   %32.32s   %-.*s",  /* diff percent */
-		"  %35.35s   %35.35s   %35.35s   %-.*s",  /* diff avg numbers */
-		"  %11.11s   %11.11s   %11.11s   %-.*s",  /* diff compact */
-	};
-	const char line[] = "=================================================";
-	const char *headers[][3] = {
-		{ "Total time (diff)", "Self time (diff)", "Calls (diff)" },
-		{ "Avg total (diff)", "Min total (diff)", "Max total (diff)" },
-		{ "Avg self (diff)", "Min self (diff)", "Max self (diff)" },
-		{ "Total time", "Self time", "Calls" },
-		{ "Avg total", "Min total", "Max total" },
-		{ "Avg self", "Min self", "Max self" },
-	};
-	int h_idx = (avg_mode == AVG_NONE) ? 0 : (avg_mode == AVG_TOTAL) ? 1 : 2;
-	int f_idx = diff_policy.percent ? 1 : (avg_mode == AVG_NONE) ? 0 : 2;
-
-	if (!diff_policy.full) {
-		h_idx += 3;
-		f_idx = 3;
-	}
+	int field_space = 3;
 
 	build_function_tree(handle, &base_tree, opts);
 	report_calc_avg(&base_tree);
@@ -616,17 +459,19 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
 	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
 	pr_out("#\n");
-	pr_out(formats[f_idx], headers[h_idx][0], headers[h_idx][1], headers[h_idx][2],
-	       maxlen, "Function");
-	if (opts->srcline)
-		pr_gray(" [Source]");
-	pr_out("\n");
 
-	pr_out(formats[f_idx], line, line, line, maxlen, line);
-	pr_out("\n");
+	setup_report_field(&output_fields, opts, avg_mode);
 
-	print_and_delete(&diff_tree, true, NULL, print_function_diff, 0);
+	print_header_align(&output_fields, "  ", "Function", field_space,
+			   ALIGN_RIGHT, false);
+	if (!list_empty(&output_fields)) {
+		if (opts->srcline)
+			pr_gray(" [Source]");
+		pr_out("\n");
+	}
 
+	print_line(&output_fields, field_space);
+	print_and_delete(&diff_tree, true, NULL, print_function, field_space);
 out:
 	destroy_diff_nodes(&diff_tree);
 	close_data_file(&dummy_opts, &data.handle);
