@@ -1,5 +1,4 @@
-TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h -Wno-sign-compare
-TEST_CFLAGS  += -pg -g
+TEST_CFLAGS  += -g -include $(srcdir)/tests/unittest.h -Wno-sign-compare
 
 UNIT_TEST_SRC := $(srcdir)/uftrace.c
 UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
