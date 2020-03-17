@@ -162,6 +162,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       int curr_depth, struct opts *opts);
 bool fstack_check_filter(struct uftrace_task_reader *task);
 bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
+void fstack_check_filter_done(struct uftrace_task_reader *task);
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,

@@ -128,8 +128,10 @@ static void build_function_tree(struct uftrace_data *handle,
 		if (!fstack_check_filter(task))
 			continue;
 
-		if (rstack->type == UFTRACE_ENTRY)
+		if (rstack->type == UFTRACE_ENTRY) {
+			fstack_check_filter_done(task);
 			continue;
+		}
 
 		if (rstack->type == UFTRACE_EVENT) {
 			if (rstack->addr == EVENT_ID_PERF_SCHED_IN)
@@ -154,10 +156,14 @@ static void build_function_tree(struct uftrace_data *handle,
 
 		/* skip it if --no-libcall is given */
 		sym = task_find_sym(sessions, task, rstack);
-		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC) {
+			fstack_check_filter_done(task);
 			continue;
+		}
 
 		find_insert_node(root, task, rstack->time, addr);
+
+		fstack_check_filter_done(task);
 	}
 
 	if (uftrace_done)

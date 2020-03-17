@@ -872,8 +872,6 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 
 		if (fstack_entry(task, task->rstack, &tr) < 0)
 			return false;
-
-		fstack_update(UFTRACE_ENTRY, task, fstack);
 	}
 	else if (task->rstack->type == UFTRACE_EXIT) {
 		fstack = fstack_get(task, task->stack_count);
@@ -886,7 +884,6 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 		}
 
 		fstack_update(UFTRACE_EXIT, task, fstack);
-		fstack_exit(task);
 	}
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
@@ -918,6 +915,33 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	}
 
 	return true;
+}
+
+/**
+ * fstack_check_filter_done - post-process filter settings
+ * @task       - tracee task
+ *
+ * This function should be called after fstack_check_filter() returned
+ * true and uftrace handled the fstack.
+ */
+void fstack_check_filter_done(struct uftrace_task_reader *task)
+{
+	struct fstack *fstack;
+
+	if (task->rstack->type == UFTRACE_ENTRY) {
+		fstack = fstack_get(task, task->stack_count - 1);
+		if (fstack == NULL)
+			return;
+
+		fstack_update(UFTRACE_ENTRY, task, fstack);
+	}
+	else if (task->rstack->type == UFTRACE_EXIT) {
+		fstack = fstack_get(task, task->stack_count);
+		if (fstack == NULL)
+			return;
+
+		fstack_exit(task);
+	}
 }
 
 /**
@@ -2315,26 +2339,40 @@ static struct uftrace_record test_record[NUM_TASK][NUM_RECORD] = {
 	}
 };
 
+static struct uftrace_record exec_record[] = {
+	{ 000, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 }, // main
+	{ 100, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x43000 }, // execve
+	{ 200, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 }, // main
+	{ 300, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x40100 }, // a
+	{ 400, UFTRACE_ENTRY, false, RECORD_MAGIC, 2, 0x40200 }, // b
+	{ 500, UFTRACE_ENTRY, false, RECORD_MAGIC, 3, 0x40300 }, // c
+	{ 600, UFTRACE_EXIT,  false, RECORD_MAGIC, 3, 0x40300 }, // c
+	{ 700, UFTRACE_EXIT,  false, RECORD_MAGIC, 2, 0x40200 }, // b
+	{ 800, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x40100 }, // a
+	{ 900, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 }, // main
+};
+
 static struct uftrace_session test_sess;
 static struct uftrace_data fstack_test_handle;
 static void fstack_test_finish_file(void);
 
-static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid)
+static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *tids,
+				  int nr_record, struct uftrace_record **records)
 {
 	int i;
 	char *filename;
 
 	handle->dirname = "tmp.dir";
-	handle->info.tids = test_tids;
+	handle->info.tids = tids;
 	handle->info.nr_tid = nr_tid;
 	handle->hdr.max_stack = 16;
+	handle->depth = 16;
+
+	if (handle->sessions.first == NULL)
+		handle->sessions.first = &test_sess;
 
 	/* it doesn't have kernel functions */
-	test_sess.symtabs.kernel_base = -1ULL;
-
-	handle->sessions.root  = RB_ROOT;
-	handle->sessions.tasks = RB_ROOT;
-	handle->sessions.first = &test_sess;
+	handle->sessions.first->symtabs.kernel_base = -1ULL;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
 		if (errno != EEXIST) {
@@ -2360,8 +2398,7 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid)
 			return -1;
 		}
 
-		fwrite(test_record[i], sizeof(test_record[i][0]),
-		       ARRAY_SIZE(test_record[i]), fp);
+		fwrite(records[i], sizeof(**records), nr_record, fp);
 
 		free(filename);
 		fclose(fp);
@@ -2371,12 +2408,59 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid)
 	fstack_setup_task(NULL, handle);
 
 	/* for fstack_entry not to crash */
-	for (i = 0; i < handle->info.nr_tid; i++)
-		handle->tasks[i].t = &test_tasks[i];
+	for (i = 0; i < handle->info.nr_tid; i++) {
+		if (handle->tasks[i].t == NULL)
+			handle->tasks[i].t = &test_tasks[i];
+	}
 
 	setup_perf_data(handle);
 	atexit(fstack_test_finish_file);
 	return 0;
+}
+
+static int fstack_test_setup_normal(struct uftrace_data *handle)
+{
+	struct uftrace_record *normal_tests[] = { test_record[0],
+						  test_record[1], };
+
+	return fstack_test_setup_file(handle, NUM_TASK, test_tids,
+				      NUM_RECORD, normal_tests);
+}
+
+static int fstack_test_setup_single(struct uftrace_data *handle)
+{
+	struct uftrace_record *single_tests[] = { test_record[0], };
+
+	return fstack_test_setup_file(handle, 1, test_tids,
+				      NUM_RECORD, single_tests);
+}
+
+static int fstack_test_setup_exec(struct uftrace_data *handle)
+{
+	struct uftrace_record *exec_tests[] = { exec_record, };
+	static struct sym exec_sym = { .addr = 0x3000, .size = 16,
+				       .name = "execve", .type = ST_PLT_FUNC, };
+	static struct uftrace_module exec_mod = {
+		.symtab = { .sym = &exec_sym, .nr_sym = 1, },
+	};
+	static struct uftrace_mmap map = { .mod = &exec_mod,
+					   .start = 0x40000, .end = 0x50000, };
+	struct uftrace_msg_sess smsg = {
+		.task = { .pid = test_tids[0], .tid = test_tids[0], },
+		.sid = "uftrace-session", .namelen = 8,
+		/* .name falls through (?) */
+	};
+	char name[] = "unittest";
+
+	create_session(&handle->sessions, &smsg, "tests", name,
+		       true, false, false);
+	create_task(&handle->sessions, &smsg.task, false);
+
+	handle->sessions.first->symtabs.maps = &map;
+	handle->sessions.first->symtabs.exec_map = &map;
+
+	return fstack_test_setup_file(handle, 1, test_tids,
+				      ARRAY_SIZE(exec_record), exec_tests);
 }
 
 static void fstack_test_finish_file(void)
@@ -2408,7 +2492,7 @@ TEST_CASE(fstack_read)
 	struct uftrace_task_reader *task;
 	int i;
 
-	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
+	TEST_EQ(fstack_test_setup_normal(handle), 0);
 
 	for (i = 0; i < NUM_RECORD; i++) {
 		TEST_EQ(read_rstack(handle, &task), 0);
@@ -2443,7 +2527,7 @@ TEST_CASE(fstack_skip)
 		.libcall        = true,
 	};
 
-	TEST_EQ(fstack_test_setup_file(handle, 1), 0);
+	TEST_EQ(fstack_test_setup_single(handle), 0);
 
 	/* this makes to skip depth 1 records */
 	handle->depth = 1;
@@ -2472,7 +2556,7 @@ TEST_CASE(fstack_time)
 	struct uftrace_task_reader *task;
 	int i;
 
-	TEST_EQ(fstack_test_setup_file(handle, ARRAY_SIZE(test_tids)), 0);
+	TEST_EQ(fstack_test_setup_normal(handle), 0);
 
 	/* this makes to discard depth 1 records */
 	handle->time_filter = 200;
@@ -2494,4 +2578,29 @@ TEST_CASE(fstack_time)
 	return TEST_OK;
 }
 
+TEST_CASE(fstack_fixup)
+{
+	struct uftrace_data *handle = &fstack_test_handle;
+	struct uftrace_task_reader *task;
+	int i;
+
+	TEST_EQ(fstack_test_setup_exec(handle), 0);
+	fstack_prepare_fixup(handle);
+
+	for (i = 0; i < ARRAY_SIZE(exec_record); i++) {
+		TEST_EQ(read_rstack(handle, &task), 0);
+		TEST_EQ(fstack_check_filter(task), true);
+
+		TEST_EQ(task->tid, test_tids[0]);
+		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)exec_record[i].addr);
+		if (task->rstack->type == UFTRACE_ENTRY)
+			TEST_EQ(task->stack_count-1, (int)exec_record[i].depth);
+		else
+			TEST_EQ(task->stack_count, (int)exec_record[i].depth);
+
+		fstack_check_filter_done(task);
+	}
+
+	return TEST_OK;
+}
 #endif /* UNIT_TEST */

@@ -1325,12 +1325,16 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 			sym = task_find_sym(sessions, task, frs);
 
 			/* skip it if --no-libcall is given */
-			if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+			if (!opts->libcall && sym && sym->type == ST_PLT_FUNC) {
+				fstack_check_filter_done(task);
 				continue;
+			}
 
 			name = symbol_getname(sym, frs->addr);
 			call_if_nonull(ops->task_rstack, ops, task, name);
 			symbol_putname(sym, name);
+
+			fstack_check_filter_done(task);
 		}
 	}
 
@@ -1413,10 +1417,10 @@ static bool check_task_rstack(struct uftrace_task_reader *task,
 	if (!fstack_check_opts(task, opts))
 		return false;
 
-	if (!fstack_check_filter(task))
+	if (!check_time_range(&task->h->time_range, frs->time))
 		return false;
 
-	if (!check_time_range(&task->h->time_range, frs->time))
+	if (!fstack_check_filter(task))
 		return false;
 
 	return true;
@@ -1524,6 +1528,8 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 			dump_replay_event(ops, task);
 		else
 			dump_replay_func(ops, task, opts);
+
+		fstack_check_filter_done(task);
 	}
 
 	/* add duration of remaining functions */
@@ -1579,6 +1585,8 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 				dump_replay_event(ops, task);
 			else
 				dump_replay_func(ops, task, opts);
+
+			fstack_check_filter_done(task);
 		}
 	}
 
