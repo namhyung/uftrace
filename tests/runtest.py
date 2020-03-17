@@ -456,8 +456,13 @@ class TestBase:
         dif = ''
 
         test_cmd = self.runcmd()
-        self.pr_debug("test command: %s" % test_cmd)
+        if self.debug:
+            verbose_level = " -"
+            for i in range(self.debug):
+                verbose_level = verbose_level + "v"
+            test_cmd = test_cmd.replace("uftrace", "uftrace " + verbose_level)
 
+        self.pr_debug("test command: %s" % test_cmd)
         p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
         class Timeout(Exception):
@@ -475,7 +480,8 @@ class TestBase:
 
         timed_out = False
         try:
-            result_origin = p.communicate()[0].decode(errors='ignore')
+            out, err = p.communicate()
+            result_origin = out.decode(errors='ignore')
         except Timeout:
             result_origin = ''
             timed_out = True
@@ -497,6 +503,7 @@ class TestBase:
                 dif = "%s: %s returns %d\n" % (name, cflags, ret)
             return TestBase.TEST_NONZERO_RETURN, dif
 
+        self.pr_debug("=========== %s ===========\n%s" % (" stderr ", err))
         self.pr_debug("=========== %s ===========\n%s" % ("original", result_origin))
         self.pr_debug("=========== %s ===========\n%s" % (" result ", result_tested))
         self.pr_debug("=========== %s ===========\n%s" % ("expected", result_expect))
@@ -698,7 +705,7 @@ def parse_argument():
                         help="profiling with -finstrument-functions option")
     parser.add_argument("-d", "--diff", dest='diff', action='store_true',
                         help="show diff result if not matched")
-    parser.add_argument("-v", "--verbose", dest='debug', action='store_true',
+    parser.add_argument("-v", "--verbosity", dest='debug', action='count',
                         help="show internal command and result for debugging")
     parser.add_argument("-n", "--no-color", dest='color', action='store_false',
                         help="suppress color in the output")
