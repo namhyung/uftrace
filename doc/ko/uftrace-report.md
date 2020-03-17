@@ -161,10 +161,10 @@ REPORT 옵션
         0.939 us    0.939 us    0.939 us  a
         0.934 us    0.934 us    0.934 us  b
 
-    $ uftrace report --threads
-        TID    Run time   Num funcs  Start function
-      =====  ==========  ==========  =========================
-      21959  178.118 us           6  main
+    $ uftrace report --task
+      Total time   Self time   Num funcs     TID  Task name
+      ==========  ==========  ==========  ======  ================
+       22.178 us   22.178 us           7   29955  t-abc
 
 두 데이터의 차이점을 보려면:
 
