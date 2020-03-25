@@ -7,8 +7,8 @@
 #include <spawn.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT     "wrap"
+#define PR_DOMAIN  DBG_WRAP
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
