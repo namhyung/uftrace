@@ -101,7 +101,8 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
 
-		pr_dbg2("[%d] parent at %p\n", idx, rstack->parent_loc);
+		pr_dbg3("%s: [%d] parent at %p\n",
+			__func__, idx, rstack->parent_loc);
 		if (rstack->parent_loc == &mtdp->cygprof_dummy)
 			break;
 
@@ -124,7 +125,8 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 
 				idx--;
 				rstack = tail_call;
-				pr_dbg2("exception in tail call at [%d]\n", idx + 1);
+				pr_dbg3("%s: exception in tail call at [%d]\n",
+					__func__, idx + 1);
 			}
 			idx = orig_idx;
 
@@ -142,7 +144,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 
 	/* we're in ENTER state, so add 1 to the index */
 	mtdp->idx = idx + 1;
-	pr_dbg2("exception returned to [%d]\n", mtdp->idx);
+	pr_dbg3("%s: exception returned to [%d]\n", __func__, mtdp->idx);
 
 	mcount_rstack_reset(mtdp);
 }
@@ -268,6 +270,7 @@ __visible_default int backtrace(void **buffer, int sz)
 	if (!check_thread_data(mtdp))
 		mcount_rstack_restore(mtdp);
 
+	pr_dbg("%s is called from [%d]\n", __func__, mtdp->idx);
 	ret = real_backtrace(buffer, sz);
 
 	if (!check_thread_data(mtdp))
@@ -285,7 +288,8 @@ __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg("exception thrown from [%d]\n", mtdp->idx);
+		pr_dbg2("%s: exception thrown from [%d]\n",
+			__func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -309,7 +313,8 @@ __visible_default void __cxa_rethrow(void)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg("exception rethrown from [%d]\n", mtdp->idx);
+		pr_dbg2("%s: exception rethrown from [%d]\n",
+			__func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -333,7 +338,8 @@ __visible_default void _Unwind_Resume(void *exception)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg2("exception resumed on [%d]\n", mtdp->idx);
+		pr_dbg2("%s: exception resumed on [%d]\n",
+			__func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -372,6 +378,8 @@ __visible_default void * __cxa_begin_catch(void *exception)
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
+		pr_dbg2("%s: exception catched begin on [%d]\n",
+			__func__, mtdp->idx);
 	}
 
 	return obj;
@@ -382,6 +390,7 @@ __visible_default void __cxa_end_catch(void)
 	if (unlikely(real_cxa_end_catch == NULL))
 		mcount_hook_functions();
 
+	pr_dbg2("%s: exception catched end\n", __func__);
 	real_cxa_end_catch();
 }
 
@@ -402,6 +411,7 @@ __visible_default void * dlopen(const char *filename, int flags)
 	if (unlikely(real_dlopen == NULL))
 		mcount_hook_functions();
 
+	pr_dbg("%s is called for '%s'\n", __func__, filename);
 	ret = real_dlopen(filename, flags);
 
 	if (filename == NULL)
@@ -448,6 +458,7 @@ __visible_default __noreturn void pthread_exit(void *retval)
 		mcount_rstack_restore(mtdp);
 	}
 
+	pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
 	real_pthread_exit(retval);
 }
 
@@ -465,6 +476,7 @@ __visible_default int posix_spawn(pid_t *pid, const char *path,
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
+	pr_dbg("%s is called for '%s'\n", __func__, path);
 	return real_posix_spawn(pid, path, actions, attr, argv, new_envp);
 }
 
@@ -482,6 +494,7 @@ __visible_default int posix_spawnp(pid_t *pid, const char *file,
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
+	pr_dbg("%s is called for '%s'\n", __func__, file);
 	return real_posix_spawnp(pid, file, actions, attr, argv, new_envp);
 }
 
@@ -497,6 +510,7 @@ __visible_default int execve(const char *path, char *const argv[],
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
+	pr_dbg("%s is called for '%s'\n", __func__, path);
 	return real_execve(path, argv, new_envp);
 }
 
@@ -512,6 +526,7 @@ __visible_default int execvpe(const char *file, char *const argv[],
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
+	pr_dbg("%s is called for '%s'\n", __func__, file);
 	return real_execvpe(file, argv, new_envp);
 }
 
@@ -526,6 +541,7 @@ __visible_default int fexecve(int fd, char *const argv[], char *const envp[])
 	uftrace_envp = collect_uftrace_envp();
 	new_envp = merge_envp(envp, uftrace_envp);
 
+	pr_dbg("%s is called for fd %d\n", __func__, fd);
 	return real_fexecve(fd, argv, new_envp);
 }
 
