@@ -26,7 +26,8 @@ class TestBase:
 
     basedir = os.path.dirname(os.getcwd())
     objdir = 'objdir' in os.environ and os.environ['objdir'] or basedir
-    uftrace_cmd = objdir + '/uftrace --no-pager --no-event -L' + objdir
+    uftrace_cmd = objdir + '/uftrace'
+    default_opt = '--no-pager --no-event -L' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
@@ -42,6 +43,9 @@ class TestBase:
         self.lang = lang
         self.sort_method = sort
         self.serial = serial
+        self.subcmd = 'live'
+        self.option = ''
+        self.exearg = 't-' + name
 
     def set_debug(self, dbg):
         self.debug = dbg
@@ -167,10 +171,19 @@ class TestBase:
         self.pr_debug("build command for executable: %s" % build_cmd)
         return self.build_it(build_cmd)
 
+    def prepare(self):
+        """ This function returns command line need to be run before"""
+        return ''
+
+    def setup(self):
+        """ This function sets up options to be passed to runcmd"""
+        pass
+
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
             A test case can extend this to setup a complex configuration.  """
-        return '%s %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+        return '%s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
+                                   TestBase.default_opt, self.option, self.exearg)
 
     def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
@@ -340,11 +353,7 @@ class TestBase:
         else:
             return ''  # this leads to a failure with 'NG'
 
-    def pre(self):
-        """This function is called before running a testcase"""
-        return TestBase.TEST_SUCCESS
-
-    def post(self, result):
+    def postrun(self, result):
         """This function is called after running a testcase"""
         return result
 
@@ -431,7 +440,15 @@ class TestBase:
         return None
 
     def prerun(self, timeout):
-        ret = TestBase.TEST_SUCCESS
+        self.subcmd = 'live'
+        self.option = ''
+        self.exearg = 't-' + self.name
+
+        cmd = self.prepare()
+        if cmd == '':
+            return TestBase.TEST_SUCCESS
+
+        self.pr_debug("prerun command: " + cmd)
 
         class Timeout(Exception):
             pass
@@ -439,12 +456,13 @@ class TestBase:
         def timeout_handler(sig, frame):
             raise Timeout
 
+        ret = TestBase.TEST_SUCCESS
         import signal
         signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
 
         try:
-            ret = self.pre()
+            signal.alarm(timeout)
+            sp.call(cmd.split())
         except Timeout:
             ret = TestBase.TEST_TIME_OUT
         signal.alarm(0)
@@ -455,6 +473,7 @@ class TestBase:
         ret = TestBase.TEST_SUCCESS
         dif = ''
 
+        self.setup()
         test_cmd = self.runcmd()
         self.pr_debug("test command: %s" % test_cmd)
 
@@ -471,10 +490,10 @@ class TestBase:
 
         import signal
         signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)
 
         timed_out = False
         try:
+            signal.alarm(timeout)
             result_origin = p.communicate()[0].decode(errors='ignore')
         except Timeout:
             result_origin = ''
@@ -602,7 +621,7 @@ def run_single_case(case, flags, opts, arg):
                 ret = tc.prerun(timeout)
                 if ret == TestBase.TEST_SUCCESS:
                     ret, dif = tc.run(case, cflags, arg.diff, timeout)
-                    ret = tc.post(ret)
+                    ret = tc.postrun(ret)
             result.append((ret, dif))
 
     return result

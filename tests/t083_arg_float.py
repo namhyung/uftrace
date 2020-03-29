@@ -21,15 +21,13 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "float_add@fparg1/32,fparg2/32" -R "float_add@retval/f32" '
-        argopt += '-A "float_sub@fparg1/32,fparg2"    -R "float_sub@retval/f32" '
-        argopt += '-A "float_mul@fparg1/64,fparg2/32" -R "float_mul@retval/f64" '
-        argopt += '-A "float_div@fparg1,fparg2"       -R "float_div@retval/f"'
+    def setup(self):
+        self.option  = '-A "float_add@fparg1/32,fparg2/32" -R "float_add@retval/f32" '
+        self.option += '-A "float_sub@fparg1/32,fparg2"    -R "float_sub@retval/f32" '
+        self.option += '-A "float_mul@fparg1/64,fparg2/32" -R "float_mul@retval/f64" '
+        self.option += '-A "float_div@fparg1,fparg2"       -R "float_div@retval/f"'
 
         if TestBase.is_32bit(self):
             # argument count follows the size of type
-            argopt = argopt.replace('float_mul@fparg1/64,fparg2/32',
-                                    'float_mul@fparg1/64,fparg3/32')
-
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+            self.option = self.option.replace('float_mul@fparg1/64,fparg2/32',
+                                              'float_mul@fparg1/64,fparg3/32')

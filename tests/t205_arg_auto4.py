@@ -23,9 +23,9 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s -F main --auto-args %s bye' % \
-            (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option  = '-F main --auto-args'
+        self.exearg += ' bye'
 
     def sort(self, output):
         result = []

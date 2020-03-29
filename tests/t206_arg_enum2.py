@@ -21,11 +21,8 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-F main -A kill -A foo'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-F main -A kill -A foo'
 
     def sort(self, output):
         result = []

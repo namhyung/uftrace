@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -23,16 +20,13 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
         return TestBase.build(self, name, cflags, ldflags)
 
-    def pre(self):
-        record_cmd = "%s record -A %s -A %s -R %s -d %s %s" % \
-                     (TestBase.uftrace_cmd, 'main@arg1', '(malloc|free|usleep)@plt,arg1', \
-                      'malloc@retval', TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd  = "record"
+        self.option  = "-A main@arg1 "
+        self.option += "-A (malloc|free|usleep)@plt,arg1 "
+        self.option += "-R malloc@retval"
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s replay -t 1ms -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-t 1ms'

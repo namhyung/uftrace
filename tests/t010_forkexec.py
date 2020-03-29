@@ -30,5 +30,5 @@ class TestCase(TestBase):
         ret += TestBase.build(self, self.name, cflags, ldflags)
         return ret
 
-    def runcmd(self):
-        return '%s -F main %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '-F main'

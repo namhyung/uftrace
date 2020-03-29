@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -14,17 +11,13 @@ main;a;b 1
 main;a;b;c 1
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s dump -d %s -F main -D 4 --flame-graph' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'dump'
+        self.option = '-F main -D 4 --flame-graph'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

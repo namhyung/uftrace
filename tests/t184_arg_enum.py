@@ -18,8 +18,8 @@ class TestCase(TestBase):
   37.849 us [14885] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F main --auto-args %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '-F main --auto-args'
 
     def sort(self, output):
         result = []

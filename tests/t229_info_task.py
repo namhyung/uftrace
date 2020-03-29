@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR = 'xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -13,20 +10,13 @@ class TestCase(TestBase):
         347768.711664373  F      [ 27366]  t-fork                0.000 MB
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-fork')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '--task'
-
-        return '%s info %s -d %s' % (uftrace, options, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'info'
+        self.option = '--task'
 
     def sort(self, output):
         import re

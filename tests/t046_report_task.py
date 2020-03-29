@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -17,17 +14,13 @@ class TestCase(TestBase):
    63.568 us   63.568 us           3   2572   t-thread-name
 """, ldflags='-pthread')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-thread-name')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s report --task -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '--task'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

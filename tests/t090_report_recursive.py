@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 # This test checks total time of recursive calls not exceeds self time.
 # But the actual time will be different than this example run.
@@ -20,17 +17,12 @@ class TestCase(TestBase):
     2.194 us    2.194 us           1  __cxa_atexit
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s report -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared.

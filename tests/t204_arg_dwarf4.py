@@ -19,10 +19,8 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s %s %s' % (TestBase.uftrace_cmd,
-                             '-A . -R . -F main -N personality_v.',
-                             't-' + self.name)
+    def setup(self):
+        self.option = '-A . -R . -F main -N personality_v.'
 
     def sort(self, output):
         import re

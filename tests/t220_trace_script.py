@@ -22,23 +22,13 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """, sort='simple')
 
-    def pre(self):
         f = open(TEST_SCRIPT, "w")
         f.write("""#!/bin/sh
 ./t-abc
 """)
         f.close()
         os.chmod(TEST_SCRIPT, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-        return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = "--force -F fork -F main"
-        program = TEST_SCRIPT
-
-        return "%s %s %s" % (uftrace, options, program)
-
-    def post(self, result):
-        os.remove(TEST_SCRIPT)
-        return result
-
+    def setup(self):
+        self.option = "--force -F fork -F main"
+        self.exearg = TEST_SCRIPT

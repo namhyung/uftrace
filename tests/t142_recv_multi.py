@@ -2,9 +2,10 @@
 
 from runtest import TestBase
 import subprocess as sp
+import os.path
+import random
 
 TDIR  = 'xxx'
-TDIR2 = 'yyy'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -21,29 +22,40 @@ class TestCase(TestBase):
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
 """)
+
+    def prerun(self, timeout):
         self.gen_port()
 
-    recv_p = None
-
-    def pre(self):
-        recv_cmd = '%s recv -d %s --port %s' % (TestBase.uftrace_cmd, TDIR, self.port)
+        self.subcmd = 'recv'
+        self.option = '-d %s --port %s' % (TDIR, self.port)
+        self.exearg = ''
+        recv_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
         # recorded but not used
-        record_cmd = '%s record -H %s --port %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, 't-abc')
+        self.subcmd = 'record'
+        self.option = '-H %s --port %s' % ('localhost', self.port)
+        self.exearg = 't-' + self.name
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
 
         # use this
-        record_cmd = '%s record -H %s --port %s -d %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, TDIR2, 't-abc')
+        self.pr_debug('run another record')
+        self.dirname = 'dir-' + str(random.randint(100000, 999999))
+        self.pr_debug('after randint')
+        self.option += ' -d ' + self.dirname
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        import os.path
-        return '%s replay -d %s' % (TestBase.uftrace_cmd, os.path.join(TDIR, TDIR2))
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-d %s' % os.path.join(TDIR, self.dirname)
 
-    def post(self, ret):
+    def postrun(self, ret):
         self.recv_p.terminate()
-        sp.call(['rm', '-rf', TDIR])
         return ret

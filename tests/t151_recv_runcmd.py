@@ -21,28 +21,32 @@ class TestCase(TestBase):
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
 """)
+
+    def prerun(self, timeout):
         self.gen_port()
-
-    recv_p = None
-    file_p = None
-
-    def pre(self):
         self.file_p = open(TMPF, 'w+')
-        recv_cmd = TestBase.uftrace_cmd.split() + \
-                   ['recv', '-d', TDIR, '--port', str(self.port), '--run-cmd', TestBase.uftrace_cmd + ' replay']
+
+        recv_cmd  = [TestBase.uftrace_cmd, 'recv']
+        recv_cmd += TestBase.default_opt.split()
+        recv_cmd += ['-d', TDIR, '--port', str(self.port)]
+        recv_cmd += ['--run-cmd', '%s %s' % (TestBase.uftrace_cmd, 'replay')]
+        self.pr_debug('prerun command: ' + ' '.join(recv_cmd))
         self.recv_p = sp.Popen(recv_cmd, stdout=self.file_p, stderr=self.file_p)
 
-        record_cmd = '%s record -H %s --port %s %s' % (TestBase.uftrace_cmd, 'localhost', self.port, 't-' + self.name)
-        sp.call(record_cmd.split())
+        record_cmd  = [TestBase.uftrace_cmd, 'record']
+        record_cmd += TestBase.default_opt.split()
+        record_cmd += ['-H', 'localhost', '--port', str(self.port)]
+        record_cmd += ['t-' + self.name]
+        self.pr_debug('prerun command: ' + ' '.join(record_cmd))
+        sp.call(record_cmd)
+
         return TestBase.TEST_SUCCESS
 
     def runcmd(self):
         # run replay at recv time and print the result now
-        return 'cat %s' % TMPF
+        return 'cat ' + TMPF
 
-    def post(self, ret):
+    def postrun(self, ret):
         self.recv_p.terminate()
-        sp.call(['rm', '-rf', TDIR])
         self.file_p.close()
-        sp.call(['rm', '-f', TMPF])
         return ret

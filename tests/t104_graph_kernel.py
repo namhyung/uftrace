@@ -4,9 +4,6 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-FUNC='main'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'getids', serial=True, result="""
@@ -41,26 +38,24 @@ class TestCase(TestBase):
    1.710 us :    (1) sys_getegid
 """, sort='graph')
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        uftrace  = TestBase.uftrace_cmd
-        argument = '-k -d %s' % TDIR
-        program  = 't-' + self.name
+        self.subcmd = 'record'
+        self.option = '-k'
+        self.exearg = 't-' + self.name
 
-        record_cmd = '%s record %s %s' % (uftrace, argument, program)
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s graph -k -d %s %s' % (TestBase.uftrace_cmd, TDIR, FUNC)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'graph'
+        self.option = '-k'
+        self.exearg = 'main'
 
     def fixup(self, cflags, result):
         uname = os.uname()

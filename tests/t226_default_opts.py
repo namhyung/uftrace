@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -16,14 +13,11 @@ class TestCase(TestBase):
    9.336 ms [ 41487] | } /* main */
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s -t 2ms %s' % (TestBase.uftrace_cmd, TDIR, 't-sleep2')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        self.option = '-t 2ms'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s -t 4ms %s' % (TestBase.uftrace_cmd, 't-' + self.name)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-t 4ms'

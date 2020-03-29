@@ -14,7 +14,7 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if TestBase.get_elf_machine(self) == 'arm':
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
@@ -26,5 +26,5 @@ class TestCase(TestBase):
         TestBase.supported_lang['C']['cc'] = old_cc
         return r
 
-    def runcmd(self):
-        return '%s -P %s %s' % (TestBase.uftrace_cmd, 'a.?', 't-' + self.name)
+    def setup(self):
+        self.option = "-P 'a.?'"

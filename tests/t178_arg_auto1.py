@@ -15,5 +15,6 @@ class TestCase(TestBase):
   18.574 us [16523] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F main -A ^str -R ^str %s hello' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option  = '-F main -A ^str -R ^str'
+        self.exearg += ' hello'

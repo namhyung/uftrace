@@ -3,7 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
 START=0
 
 class TestCase(TestBase):
@@ -18,14 +17,20 @@ class TestCase(TestBase):
     0.740 us    0.740 us           1  getpid
 """, sort='report')
 
-    def pre(self):
+    def prerun(self, timeout):
         global START
 
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
+        self.subcmd = 'record'
+        record_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
         # find timestamp of function 'c'
-        replay_cmd = '%s replay -d %s -f time -F main' % (TestBase.uftrace_cmd, TDIR)
+        self.subcmd = 'replay'
+        self.option = '-f time -F main'
+        replay_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + replay_cmd)
+
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
         START = r.split('\n')[6].split()[0] # skip header, main, a, b, c and getpid (= 6)
@@ -33,9 +38,6 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s report -F main -r ~%s -d %s' % (TestBase.uftrace_cmd, START, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '-F main -r ~%s' % START

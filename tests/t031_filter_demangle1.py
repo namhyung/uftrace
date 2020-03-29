@@ -18,5 +18,5 @@ class TestCase(TestBase):
  100.290 us [14470] | } /* ns::ns1::foo::bar */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -F "ns::ns1::foo::bar" %s' % (TestBase.uftrace_cmd, 't-namespace')
+    def setup(self):
+        self.option = '-F "ns::ns1::foo::bar"'

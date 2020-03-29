@@ -31,8 +31,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-T main@filter,depth=3,arg1'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-T main@filter,depth=3,arg1'

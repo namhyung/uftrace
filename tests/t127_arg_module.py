@@ -41,5 +41,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s -A "alloc*@t-allocfree,arg1" %s' % (TestBase.uftrace_cmd, 't-allocfree')
+    def setup(self):
+        self.option = '-A "alloc*@t-allocfree,arg1"'

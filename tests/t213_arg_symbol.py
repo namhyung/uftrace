@@ -21,9 +21,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-A foo@arg1/p,arg2 -A filecmp@arg1/p,arg2/p'
-        program = 't-' + self.name
-
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-A foo@arg1/p,arg2 -A filecmp@arg1/p,arg2/p'

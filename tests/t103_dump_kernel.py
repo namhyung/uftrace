@@ -4,8 +4,6 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'getids', serial=True, result="""
@@ -50,23 +48,21 @@ class TestCase(TestBase):
 } }
 """, sort='chrome')
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -d %s %s' % \
-                     (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
+        self.subcmd = 'record'
+        self.option = '-k'
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s dump -k --chrome -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'dump'
+        self.option = '-k --chrome'
 
     def fixup(self, cflags, result):
         result = result.replace("""\

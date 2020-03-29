@@ -23,21 +23,22 @@ class TestCase(TestBase):
     1.622 us    1.694 us    +4.44%     1.622 us    1.694 us    +4.44%            1          1         +0   getpid
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, XDIR, 't-abc')
+    def prerun(self, timeout):
+        self.subcmd = 'record'
+        self.option = '-d ' + XDIR
+        self.exearg = 't-' + self.name
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, YDIR, 't-abc')
+
+        self.option = '-d ' + YDIR
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '--sort-column 0 --diff-policy full,percent'  # old behavior
-        return '%s report -d %s --diff %s %s' % (uftrace, XDIR, YDIR, options)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', XDIR, YDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '--sort-column 0 --diff-policy full,percent'  # old behavior
+        self.exearg = '-d %s --diff %s' % (XDIR, YDIR)
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

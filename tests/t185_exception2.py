@@ -19,5 +19,5 @@ class TestCase(TestBase):
   23.092 us [ 25279] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s %s %s' % (TestBase.uftrace_cmd, '-N personality_v.', 't-' + self.name)
+    def setup(self):
+        self.option = '-N personality_v.'

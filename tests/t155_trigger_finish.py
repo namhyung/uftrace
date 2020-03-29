@@ -23,11 +23,8 @@ task: 4131
 [0] main
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-F main -T getpid@finish'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-F main -T getpid@finish'
 
 
     def fixup(self, cflags, result):

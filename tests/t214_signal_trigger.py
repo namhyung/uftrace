@@ -22,12 +22,8 @@ task: 11892
 [0] main
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = "--signal SIGUSR1@finish"
-        program = 't-' + self.name
-
-        return "%s %s %s" % (uftrace, options, program)
+    def setup(self):
+        self.option = "--signal SIGUSR1@finish"
 
     def fixup(self, cflags, result):
         return result.replace("""     } /* sighandler */

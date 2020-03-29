@@ -19,8 +19,5 @@ class TestCase(TestBase):
   25.925 us [ 5908] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-T main@filter,depth=3 -T ^ns::ns2@notrace'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-T main@filter,depth=3 -T ^ns::ns2@notrace'

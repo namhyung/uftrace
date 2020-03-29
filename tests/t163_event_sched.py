@@ -17,15 +17,12 @@ class TestCase(TestBase):
    2.121 ms [  395] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_dependency(self, 'perf_context_switch'):
             return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
         return TestCase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-D 2 -F main -F bar -E linux:schedule'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-D 2 -F main -F bar -E linux:schedule'

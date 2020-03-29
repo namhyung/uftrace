@@ -19,11 +19,9 @@ class TestCase(TestBase):
    2.107 ms [18219] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd.replace('--no-event', '')
-        args    = "-F main -t 1ms -T '(foo|bar)@read=proc/statm'"
-        prog    = 't-' + self.name
-        return '%s %s %s' % (uftrace, args, prog)
+    def setup(self):
+        self.option  = "-F main -t 1ms -T '(foo|bar)@read=proc/statm' "
+        self.option += "-E read:* -E diff:*"
 
     def sort(self, output):
         result = []

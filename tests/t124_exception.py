@@ -25,8 +25,8 @@ class TestCase(TestBase):
   85.590 us [10827] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s %s %s' % (TestBase.uftrace_cmd, '-N personality_v.', 't-' + self.name)
+    def setup(self):
+        self.option = '-N personality_v.'
 
     def fixup(self, cflags, result):
         r = result.replace("} /* oops */", """} /* oops */

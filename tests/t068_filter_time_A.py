@@ -22,6 +22,6 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s -t 1ms -R mem_alloc@retval -A mem_free@arg1 -A usleep@plt,arg1 %s' % \
-            (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option  = '-t 1ms -R mem_alloc@retval '
+        self.option += '-A mem_free@arg1 -A usleep@plt,arg1'

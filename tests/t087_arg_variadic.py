@@ -22,11 +22,10 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg1" '
-        argopt += '-A "vsnprintf@arg2,arg3/s" '
+    def setup(self):
+        self.option  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg1" '
+        self.option += '-A "vsnprintf@arg2,arg3/s" '
 
         if TestBase.is_32bit(self):
-            argopt  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg9" '
-            argopt += '-A "vsnprintf@arg2,arg3/s" '
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+            self.option  = '-A "variadic@arg1/s,arg2/c,arg3/s,arg4,arg5,arg6,arg7/i64,fparg9" '
+            self.option += '-A "vsnprintf@arg2,arg3/s" '

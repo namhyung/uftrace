@@ -25,5 +25,5 @@ class TestCase(TestBase):
                                       ['libabc_test_lib.so', 'libfoo.so'],
                                       cflags, ldflags)
 
-    def runcmd(self):
-        return "%s %s %s" % (TestBase.uftrace_cmd, "-D3 --nest-libcall", 't-' + self.name)
+    def setup(self):
+        self.option = '-D3 --nest-libcall'

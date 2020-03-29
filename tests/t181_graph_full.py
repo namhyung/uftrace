@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
-NOFILTERS='-N __monstartup -N __cxa_atexit'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -34,17 +30,15 @@ class TestCase(TestBase):
         ret += TestBase.build(self, self.name, cflags, ldflags)
         return ret
 
-    def pre(self):
-        record_cmd = '%s record %s -d %s %s' % (TestBase.uftrace_cmd, NOFILTERS, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        self.option = '-N __monstartup -N __cxa_atexit'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s graph -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'graph'
+        self.option = ''
+        self.exearg = ''
 
     def fixup(self, cflags, result):
         return result.replace("readlink", """memset

@@ -13,5 +13,5 @@ class TestCase(TestBase):
  114.958 us [20175] | } /* alloc1 */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -D1 -F "alloc[135]" %s' % (TestBase.uftrace_cmd, 't-allocfree')
+    def setup(self):
+        self.option = '-D1 -F "alloc[135]"'

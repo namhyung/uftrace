@@ -31,6 +31,5 @@ class TestCase(TestBase):
   18.019 us [ 4107] | } /* main */
 """)
 
-    def runcmd(self):
-        args = '-A .?longjmp@arg2 -R .?setjmp@retval'
-        return '%s %s %s' % (TestBase.uftrace_cmd, args, 't-' + self.name)
+    def setup(self):
+        self.option = '-A .?longjmp@arg2 -R .?setjmp@retval'

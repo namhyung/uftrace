@@ -23,21 +23,26 @@ class TestCase(TestBase):
     1.300 ms           -    -1.300 ms     1.300 ms           -    -1.300 ms            3          0         -3   usleep
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s -F main %s 0' % (TestBase.uftrace_cmd, XDIR, 't-' + self.name)
+    def prerun(self, timeout):
+        self.subcmd = 'record'
+        self.option = '-d %s -F main' % XDIR
+        self.exearg = 't-' + self.name + ' 0'
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
-        record_cmd = '%s record -d %s -F main %s 1' % (TestBase.uftrace_cmd, YDIR, 't-' + self.name)
+
+        self.option = '-d %s -F main' % YDIR
+        self.exearg = 't-' + self.name + ' 1'
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
+
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '--diff-policy full,no-abs -s call,total'
-        return '%s report -d %s --diff %s %s' % (uftrace, YDIR, XDIR, options)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', XDIR, YDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '--diff-policy full,no-abs -s call,total'
+        self.exearg = '-d %s --diff %s' % (YDIR, XDIR)
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

@@ -17,9 +17,9 @@ class TestCase(TestBase):
 """)
 
     # override calloc() to save 2nd argument only
-    def runcmd(self):
-        return '%s -F main -A calloc@arg2 --auto-args %s hello' % \
-            (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option  = '-F main -A calloc@arg2 --auto-args'
+        self.exearg += ' hello'
 
     def sort(self, output):
         result = []

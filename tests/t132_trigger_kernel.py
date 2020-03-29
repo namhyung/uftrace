@@ -20,7 +20,7 @@ class TestCase(TestBase):
   17.632 us [ 4435] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
@@ -28,17 +28,12 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        program = 't-' + self.name
-
-        argument  = '-K3'
-        argument += ' -T ^sys_@kernel,depth=1'
-        argument += ' -T ^__x64_@kernel,depth=1'
-        argument += ' -N exit_to_usermode_loop@kernel'
-        argument += ' -N _*do_page_fault@kernel'
-
-        return '%s %s %s' % (uftrace, argument, program)
+    def setup(self):
+        self.option  = '-K3 '
+        self.option += '-T ^sys_@kernel,depth=1 '
+        self.option += '-T ^__x64_@kernel,depth=1 '
+        self.option += '-N exit_to_usermode_loop@kernel '
+        self.option += '-N _*do_page_fault@kernel'
 
     def fixup(self, cflags, result):
         uname = os.uname()

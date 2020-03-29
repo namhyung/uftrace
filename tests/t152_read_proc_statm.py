@@ -19,11 +19,8 @@ class TestCase(TestBase):
   17.873 us [32417] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        args    = '-F main -T b@read=proc/statm'
-        prog    = 't-' + self.name
-        return '%s %s %s' % (uftrace, args, prog)
+    def setup(self):
+        self.option = '-F main -T b@read=proc/statm'
 
     def sort(self, output):
         result = []

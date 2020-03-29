@@ -2,9 +2,9 @@
 
 from runtest import TestBase
 import subprocess as sp
+import os.path
 
 TDIR  = 'xxx'
-TDIR2 = 'xxx/uftrace.data'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -26,28 +26,42 @@ class TestCase(TestBase):
    2.120 ms [  395] |   } /* foo */
    2.121 ms [  395] | } /* main */
 """)
-        self.gen_port()
 
-    recv_p = None
-
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_dependency(self, 'perf_context_switch'):
             return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        recv_cmd = '%s recv -d %s --port %s' % (TestBase.uftrace_cmd, TDIR, self.port)
+        self.gen_port()
+        self.subcmd = 'recv'
+        self.option = '-d %s --port %s' % (TDIR, self.port)
+        self.exearg = ''
+
+        recv_cmd = TestBase.runcmd(self)
+        self.pr_debug('prerun command: ' + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        options = '-H %s --port %s -E %s' % ('localhost', self.port, 'linux:schedule')
-        record_cmd = '%s record %s %s' % (TestBase.uftrace_cmd, options, 't-' + self.name)
+        self.subcmd  = 'record'
+        self.option  = '-H %s --port %s ' % ('localhost', self.port)
+        self.option += '-E %s' % 'linux:schedule'
+        self.exearg  = 't-' + self.name
+
+        record_cmd = TestBase.runcmd(self)
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
+
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -d %s' % (TestBase.uftrace_cmd.split()[0], TDIR2)
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-d ' + os.path.join(TDIR, 'uftrace.data')
+        self.exearg = ''
 
-    def post(self, ret):
+    def runcmd(self):
+        cmd = TestBase.runcmd(self)
+        return cmd.replace('--no-event', '')
+
+    def postrun(self, ret):
         self.recv_p.terminate()
-        sp.call(['rm', '-rf', TDIR])
         return ret

@@ -18,8 +18,5 @@ class TestCase(TestBase):
         cflags += ' -funroll-loops'
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-P. -Z 100'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-P. -Z 100'

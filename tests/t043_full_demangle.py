@@ -25,8 +25,8 @@ class TestCase(TestBase):
   76.629 us [22757] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --demangle=full -N "ns2.*" %s' % (TestBase.uftrace_cmd, 't-namespace')
+    def setup(self):
+        self.option = '--demangle=full -N "ns2.*"'
 
     def fixup(self, cflags, result):
         if TestBase.is_32bit(self):

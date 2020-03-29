@@ -25,5 +25,5 @@ class TestCase(TestBase):
  280.194 us [ 5078] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F main -F thread %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '-F main -F thread'

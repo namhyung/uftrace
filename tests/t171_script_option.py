@@ -20,7 +20,7 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', 'fopen(/dev/null)')
 
-    def pre(self):
+    def prerun(self, timeout):
         script_cmd = '%s script' % (TestBase.uftrace_cmd)
         p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
         if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
@@ -31,11 +31,9 @@ class TestCase(TestBase):
         f.close()
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-S ' + FILE
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.subcmd = 'script'
+        self.option = '-S %s --record' % FILE
 
     def sort(self, output):
         i = 0
@@ -43,7 +41,3 @@ class TestCase(TestBase):
         if output.startswith('uftrace: -A or -R might not work'):
             i = 1
         return output.strip().split('\n')[i]
-
-    def post(self, ret):
-        sp.call(['rm', '-f', FILE])
-        return ret

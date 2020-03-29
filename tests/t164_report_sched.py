@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', serial=True, result="""
@@ -20,20 +18,23 @@ class TestCase(TestBase):
     1.200 us    1.200 us           1  __cxa_atexit   # and this too
 """, sort='report')
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_dependency(self, 'perf_context_switch'):
             return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        options = '-d %s -E %s' % (TDIR, 'linux:schedule')
-        record_cmd = '%s record %s %s' % (TestBase.uftrace_cmd, options, 't-' + self.name)
+        self.subcmd = 'record'
+        self.option = '-E linux:schedule'
+        record_cmd = TestBase.runcmd(self)
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s report -d %s' % (TestBase.uftrace_cmd.split()[0], TDIR)
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '-E linux:schedule'
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def runcmd(self):
+        cmd = TestBase.runcmd(self)
+        return cmd.replace('--no-event', '')

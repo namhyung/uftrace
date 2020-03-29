@@ -20,10 +20,8 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s %s %s' % (TestBase.uftrace_cmd,
-                             '-A . -R . -D2 -F main',
-                             't-' + self.name)
+    def setup(self):
+        self.option = '-A . -R . -D2 -F main'
 
     def sort(self, output):
         import re

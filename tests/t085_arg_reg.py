@@ -15,7 +15,7 @@ class TestCase(TestBase):
    4.891 ms [18277] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if TestBase.get_elf_machine(self) == 'i386':
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
@@ -27,18 +27,16 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "mixed_add@arg1/i32%rdi,fparg1/32%xmm0" '
-        argopt += '-A "mixed_sub@arg1/x%rdi,arg2%rsi" '
-        argopt += '-A "mixed_mul@fparg1%xmm0,arg1/i64" '
-        argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" '
-        argopt += '-A "mixed_str@arg1/s%rdi,fparg1%xmm0"'
+    def setup(self):
+        self.option  = '-A "mixed_add@arg1/i32%rdi,fparg1/32%xmm0" '
+        self.option += '-A "mixed_sub@arg1/x%rdi,arg2%rsi" '
+        self.option += '-A "mixed_mul@fparg1%xmm0,arg1/i64" '
+        self.option += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" '
+        self.option += '-A "mixed_str@arg1/s%rdi,fparg1%xmm0"'
 
         if TestBase.get_elf_machine(self) == 'arm':
-            argopt = argopt.replace('%rdi', '%r0')
-            argopt = argopt.replace('%rsi', '%r1')
-            argopt = argopt.replace('32%xmm0', '32%s0')
-            argopt = argopt.replace('%xmm0', '%d0')
-            argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
-
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+            self.option = self.option.replace('%rdi', '%r0')
+            self.option = self.option.replace('%rsi', '%r1')
+            self.option = self.option.replace('32%xmm0', '32%s0')
+            self.option = self.option.replace('%xmm0', '%d0')
+            self.option = self.option.replace('fparg1/80%stack+1', 'fparg1/80')

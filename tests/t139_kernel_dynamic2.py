@@ -15,7 +15,7 @@ class TestCase(TestBase):
   37.051 us [ 9875] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
@@ -24,9 +24,8 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     # check syscall name would corrected (for SyS_ prefix)
-    def runcmd(self):
-        return '%s -k -P %s %s openclose' % \
-            (TestBase.uftrace_cmd, '_*sys_open@kernel', 't-' + self.name)
+    def setup(self):
+        self.option = "-k -P '_*sys_open@kernel'"
 
     def fixup(self, cflags, result):
         uname = os.uname()

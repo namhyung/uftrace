@@ -27,9 +27,7 @@ class TestCase(TestBase):
     def fixup(self, cflags, result):
         return result.replace("std_string_ret::cxx11()", "std_string_ret()")
 
-    def runcmd(self):
-        arg = '-A ^std_string_arg@arg1/S'
-        retval = '-R ^std_string_ret@retval/S'
-        opts = '-F main -F ^std_string_ -D 1'
-        name = 't-' + self.name
-        return '%s %s %s %s %s' % (TestBase.uftrace_cmd, arg, retval, opts, name)
+    def setup(self):
+        self.option  = '-A ^std_string_arg@arg1/S '
+        self.option += '-R ^std_string_ret@retval/S '
+        self.option += '-F main -F ^std_string_ -D 1'

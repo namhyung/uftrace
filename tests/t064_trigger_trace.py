@@ -16,6 +16,5 @@ class TestCase(TestBase):
    2.107 ms [18219] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -t 1ms -T "mem_alloc@trace" %s' % (TestBase.uftrace_cmd, 't-' + self.name)
-
+    def setup(self):
+        self.option = '-t 1ms -T "mem_alloc@trace"'

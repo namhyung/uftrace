@@ -12,5 +12,5 @@ class TestCase(TestBase):
    1.043 us [18130] | getgid();
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -F "get.?id@plt" %s' % (TestBase.uftrace_cmd, 't-getids')
+    def setup(self):
+        self.option = '-F "get.?id@plt"'

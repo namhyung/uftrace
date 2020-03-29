@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'taskname', ldflags='-pthread', serial=True, result="""
@@ -22,24 +20,21 @@ class TestCase(TestBase):
              bar | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        uftrace  = TestBase.uftrace_cmd
-        argument = '-d %s -E linux:task-name' % TDIR
-        program  = 't-' + self.name
+        self.subcmd = 'record'
+        self.option = '-E linux:task-name'
 
-        record_cmd = '%s record %s %s' % (uftrace, argument, program)
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -F main -f task -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-F main -f task'
 
     def sort(self, output, ignore_children=False):
         result = []
