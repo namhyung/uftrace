@@ -1253,8 +1253,11 @@ int main(int argc, char *argv[])
 		pr_out(uftrace_usage);
 		return 0;
 	case -3:
+		if (opts.use_pager)
+			start_pager(setup_pager());
 		pr_out(uftrace_usage);
 		pr_out(uftrace_help);
+		wait_for_pager();
 		return 0;
 	}
 
