@@ -1080,7 +1080,7 @@ static void release_dwarf_info(struct debug_info *dinfo)
 
 #endif  /* !HAVE_LIBDW */
 
-static int setup_debug_info(const char *filename, struct debug_info *dinfo,
+int setup_debug_info(const char *filename, struct debug_info *dinfo,
 			    unsigned long offset, bool force)
 {
 	dinfo->args = RB_ROOT;

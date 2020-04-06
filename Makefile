@@ -58,7 +58,7 @@ export ARCH CC AR LD RM srcdir objdir LDFLAGS
 COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lrt -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+COMMON_LDFLAGS := -lrt -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS) $(LDFLAGS_$@)
 ifneq ($(elfdir),)
   COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib
@@ -77,12 +77,16 @@ TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
+PYTHON2_CFLAGS     = $(COMMON_CFLAGS) -fPIC $(shell python-config --cflags)
+PYTHON3_CFLAGS     = $(COMMON_CFLAGS) -fPIC $(shell python3-config --cflags)
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
+PYTHON2_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(shell python-config --ldflags)
+PYTHON3_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(shell python3-config --ldflags)
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g
@@ -149,7 +153,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler misc/symbols
+_TARGETS += misc/demangler misc/symbols misc/trace_python2.so misc/trace_python3.so
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -169,6 +173,16 @@ SYMBOLS_SRCS += $(srcdir)/utils/filter.c $(srcdir)/utils/dwarf.c
 SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
+
+PYTHON2_SRCS := $(srcdir)/misc/trace-python2.c $(srcdir)/misc/trace-python.c
+PYTHON2_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
+PYTHON2_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
+PYTHON2_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%-py2.op,$(PYTHON2_SRCS))
+
+PYTHON3_SRCS := $(srcdir)/misc/trace-python3.c $(srcdir)/misc/trace-python.c
+PYTHON3_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
+PYTHON3_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c) $(srcdir)/utils/rbtree.c
+PYTHON3_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%-py3.op,$(PYTHON3_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -198,7 +212,7 @@ COMMON_DEPS := $(objdir)/.config $(UFTRACE_HDRS)
 LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 
 CFLAGS_$(objdir)/mcount.op = -pthread
-CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
+CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"' -DPYTHON_DIR='"$(srcdir)/misc"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
@@ -297,6 +311,23 @@ $(objdir)/misc/demangler: $(DEMANGLER_OBJS)
 $(objdir)/misc/symbols: $(SYMBOLS_OBJS)
 	$(QUIET_LINK)$(CC) $(SYMBOLS_CFLAGS) -o $@ $(SYMBOLS_OBJS) $(SYMBOLS_LDFLAGS)
 
+ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
+$(PYTHON2_OBJS): $(objdir)/%-py2.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(PYTHON2_CFLAGS) -c -o $@ $<
+
+$(PYTHON3_OBJS): $(objdir)/%-py3.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(PYTHON3_CFLAGS) -c -o $@ $<
+
+$(objdir)/misc/trace_python2.so: $(PYTHON2_OBJS)
+	$(QUIET_LINK)$(CC) -shared $(PYTHON2_CFLAGS) -o $@ $(PYTHON2_OBJS) $(PYTHON2_LDFLAGS)
+
+$(objdir)/misc/trace_python3.so: $(PYTHON3_OBJS)
+	$(QUIET_LINK)$(CC) -shared $(PYTHON3_CFLAGS) -o $@ $(PYTHON3_OBJS) $(PYTHON3_LDFLAGS)
+else
+$(objdir)/misc/trace_python2.so:
+$(objdir)/misc/trace_python3.so:
+endif
+
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
@@ -359,7 +390,7 @@ clean:
 	$(call QUIET_CLEAN, uftrace)
 	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
 	$(Q)$(RM) $(objdir)/cmds/*.o $(objdir)/utils/*.o $(objdir)/misc/*.o
-	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
+	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op $(objdir)/misc/*.op
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
