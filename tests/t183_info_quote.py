@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'hello', """
@@ -12,7 +10,7 @@ class TestCase(TestBase):
 # ==================
 # program version     : uftrace v0.8.1-133-g7f71
 # recorded on         : Mon Nov 27 09:40:31 2017
-# cmdline             : ../uftrace --no-pager -L.. record -d xxx t-hello \\"uftrace\\"
+# cmdline             : ../uftrace record --no-pager --no-event -L.. t-hello \\"uftrace\\"
 # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
 # number of cpus      : 12 / 12 (online / possible)
 # memory info         : 13.2 / 23.5 GB (free / total)
@@ -36,20 +34,20 @@ class TestCase(TestBase):
 # disk iops           : 0 / 16 (read / write)""")
 
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s %s' % \
-                     (TestBase.uftrace_cmd, TDIR, 't-' + self.name, '"uftrace"')
+    def prerun(self, timeout):
+        self.subcmd  = 'record'
+        self.exearg += ' "uftrace"'
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
+
         f = open('/dev/null')
         sp.call(record_cmd.split(), stdout=f, stderr=f)
         f.close()
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s info -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'info'
+        self.exearg = ''
 
     def sort(self, output):
         for ln in output.split('\n'):

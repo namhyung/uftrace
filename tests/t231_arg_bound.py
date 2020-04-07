@@ -33,8 +33,5 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-A "many@arg1,arg9999999,arg2,arg4294967295"'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-A "many@arg1,arg9999999,arg2,arg4294967295"'

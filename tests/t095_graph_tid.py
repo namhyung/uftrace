@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
-FUNC='a'
+import os.path
 
 class TestCase(TestBase):
     def __init__(self):
@@ -22,15 +19,13 @@ class TestCase(TestBase):
    2.616 us : (1) getpid
 """, sort='graph')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        import os.path
+    def setup(self):
         t = 0
-        for ln in open(os.path.join(TDIR, 'task.txt')):
+        for ln in open(os.path.join('uftrace.data', 'task.txt')):
             if not ln.startswith('TASK'):
                 continue
             try:
@@ -38,9 +33,9 @@ class TestCase(TestBase):
             except:
                 pass
         if t == 0:
-            return 'FAILED TO FIND TID'
-        return '%s graph -d %s --tid %d %s' % (TestBase.uftrace_cmd, TDIR, t, FUNC)
+            self.subcmd = 'FAILED TO FIND TID'
+            return
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+        self.subcmd = 'graph'
+        self.option = '--tid %d' % t
+        self.exearg = 'a'

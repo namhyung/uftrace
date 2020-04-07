@@ -22,20 +22,28 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "mixed_add@arg1/i32,fparg1/32"         -R "mixed_add@retval/f64" '
-        argopt += '-A "mixed_sub@arg1/x,arg2"                -R "mixed_sub@retval" '
-        argopt += '-A "mixed_mul@fparg1,arg1/i64"            -R "mixed_mul@retval/i64" '
-        argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" -R "mixed_div@retval/f80" '
-        argopt += '-A "mixed_str@arg1/s,fparg1"              -R "mixed_str@retval/s"'
+    def setup(self):
+        self.option  = '-A "mixed_add@arg1/i32,fparg1/32" '
+        self.option += '-R "mixed_add@retval/f64" '
+        self.option += '-A "mixed_sub@arg1/x,arg2" '
+        self.option += '-R "mixed_sub@retval" '
+        self.option += '-A "mixed_mul@fparg1,arg1/i64" '
+        self.option += '-R "mixed_mul@retval/i64" '
+        self.option += '-A "mixed_div@arg1/i64,fparg1/80%stack+1" '
+        self.option += '-R "mixed_div@retval/f80" '
+        self.option += '-A "mixed_str@arg1/s,fparg1" '
+        self.option += '-R "mixed_str@retval/s"'
 
         if TestBase.get_elf_machine(self) == 'arm':
-            argopt = argopt.replace('fparg1/80%stack+1', 'fparg1/80')
+            self.option = self.option.replace('fparg1/80%stack+1', 'fparg1/80')
         elif TestBase.is_32bit(self):
-            argopt  = '-A "mixed_add@arg1/i32,fparg2/32"         -R "mixed_add@retval/f64" '
-            argopt += '-A "mixed_sub@arg1/x,arg2"                -R "mixed_sub@retval" '
-            argopt += '-A "mixed_mul@fparg1,arg3/i64"            -R "mixed_mul@retval/i64" '
-            argopt += '-A "mixed_div@arg1/i64,fparg1/80%stack+3" -R "mixed_div@retval/f80" '
-            argopt += '-A "mixed_str@arg1/s,fparg1"              -R "mixed_str@retval/s"'
-
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+            self.option  = '-A "mixed_add@arg1/i32,fparg2/32" '
+            self.option += '-R "mixed_add@retval/f64" '
+            self.option += '-A "mixed_sub@arg1/x,arg2" '
+            self.option += '-R "mixed_sub@retval" '
+            self.option += '-A "mixed_mul@fparg1,arg3/i64" '
+            self.option += '-R "mixed_mul@retval/i64" '
+            self.option += '-A "mixed_div@arg1/i64,fparg1/80%stack+3" '
+            self.option += '-R "mixed_div@retval/f80" '
+            self.option += '-A "mixed_str@arg1/s,fparg1" '
+            self.option += '-R "mixed_str@retval/s"'

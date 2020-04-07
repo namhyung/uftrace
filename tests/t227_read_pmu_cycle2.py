@@ -21,16 +21,13 @@ class TestCase(TestBase):
   17.873 us [ 32417] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
         return TestCase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-F main -T [bc]@read=pmu-cycle'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = "-F main -T '[bc]@read=pmu-cycle'"
 
     def sort(self, output):
         result = []

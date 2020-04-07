@@ -26,13 +26,16 @@ class TestCase(TestBase):
 
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
         return TestBase.TEST_SUCCESS
+
+    def setup(self):
+        self.option  = '-E sched:sched_switch@kernel'
 
     def sort(self, output, ignored=''):
         """ This function post-processes output of the test to be compared .
@@ -54,8 +57,3 @@ class TestCase(TestBase):
             result.append(func)
 
         return '\n'.join(result)
-
-    def runcmd(self):
-        arg  = '-E sched:sched_switch@kernel'
-        name = 't-' + self.name
-        return '%s %s %s' % (TestBase.uftrace_cmd, arg, name)

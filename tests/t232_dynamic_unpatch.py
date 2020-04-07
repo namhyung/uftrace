@@ -14,7 +14,7 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if TestBase.get_elf_machine(self) == 'arm':
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
@@ -24,8 +24,5 @@ class TestCase(TestBase):
         cflags += ' -fno-pie -fno-plt'  # workaround of build failure
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        uftrace  = TestBase.uftrace_cmd
-        argument = '-P . -U a --no-libcall'
-        program  = 't-' + self.name
-        return '%s %s %s' % (uftrace, argument, program)
+    def setup(self):
+        self.option = '-P . -U a --no-libcall'

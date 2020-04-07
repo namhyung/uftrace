@@ -30,8 +30,5 @@ class TestCase(TestBase):
                                       ['libdyn1.so', 'libdyn2.so'],
                                       cflags, ldflags, instrument=False)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-Pmain -P.@libdyn1.so -P.@libdyn2.so --no-libcall'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-Pmain -P.@libdyn1.so -P.@libdyn2.so --no-libcall'

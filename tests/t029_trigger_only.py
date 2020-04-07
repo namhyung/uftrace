@@ -34,5 +34,5 @@ class TestCase(TestBase):
   11.175 us [31924] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -T "alloc3@depth=1" -T "free@backtrace" %s' % (TestBase.uftrace_cmd, 't-allocfree')
+    def setup(self):
+        self.option = '-T "alloc3@depth=1" -T "free@backtrace"'

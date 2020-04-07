@@ -23,6 +23,6 @@ class TestCase(TestBase):
  107.604 us [30192] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -T "ns::ns1::foo::bar2@trace_off" -T "ns::ns2::foo::bar2@trace-on" %s' % \
-            (TestBase.uftrace_cmd, 't-namespace')
+    def setup(self):
+        self.option  = '-T "ns::ns1::foo::bar2@trace_off" '
+        self.option += '-T "ns::ns2::foo::bar2@trace-on"'

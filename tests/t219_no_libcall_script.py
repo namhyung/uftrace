@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'signal', """
@@ -27,15 +25,25 @@ uftrace_begin(ctx)
 uftrace_end()
 """, sort='dump')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
+    def prerun(self, timeout):
+        self.subcmd = 'script'
+        self.option = ''
+        self.exearg = ''
+
+        script_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + script_cmd)
+        p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
+        if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
+            return TestBase.TEST_SKIP
+
+        self.subcmd = 'record'
+        self.exearg = 't-' + self.name
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s script -S %s/scripts/dump.py --no-libcall -d %s' % \
-               (TestBase.uftrace_cmd, TestBase.basedir, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'script'
+        self.option = '-S %s/scripts/dump.py --no-libcall' % self.basedir
+        self.exearg = ''

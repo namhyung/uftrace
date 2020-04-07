@@ -19,6 +19,6 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt = '-A "foo@arg1/c,arg2/c,arg3/c" -A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+    def setup(self):
+        self.option  = '-A "foo@arg1/c,arg2/c,arg3/c" '
+        self.option += '-A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'

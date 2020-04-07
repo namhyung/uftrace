@@ -19,5 +19,5 @@ class TestCase(TestBase):
    1.378 us [  772] | }
 """)
 
-    def runcmd(self):
-        return '%s --no-comment %s' % (TestBase.uftrace_cmd, 't-abc')
+    def setup(self):
+        self.option = '--no-comment'

@@ -31,5 +31,5 @@ task: 23290
         ret += TestBase.build(self, self.name, cflags, ldflags + ' -pthread')
         return ret
 
-    def runcmd(self):
-        return '%s -N ^__ %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '-N ^__'

@@ -36,16 +36,13 @@ class TestCase(TestBase):
   55.132 us [256522] | } /* thread_fourth */
 """, ldflags='-pthread')
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
         return TestCase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-T foo@read=pmu-cycle'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-T foo@read=pmu-cycle'
 
     def sort(self, output):
         import re

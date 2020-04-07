@@ -58,8 +58,5 @@ class TestCase(TestBase):
  658.759 us [ 1429] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '--no-merge -T pthread_create@arg3/p'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '--no-merge -T pthread_create@arg3/p'

@@ -4,8 +4,6 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', serial=True, result="""
@@ -18,33 +16,24 @@ class TestCase(TestBase):
  128.387 us [18343] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        uftrace  = TestBase.uftrace_cmd
-        options  = '-k -d ' + TDIR
-        program  = 't-' + self.name
+        self.subcmd = 'record'
+        self.option = '-k'
 
-        record_cmd = '%s record %s %s' % (uftrace, options, program)
+        record_cmd = self.runcmd()
+        self.pr_debug('prerun command: ' + record_cmd)
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        uname = os.uname()
-
-        kfunc = 'sys_open*@kernel'
-
-        argument = '-F main -D2 -F %s -d %s' % (kfunc, TDIR)
-        return '%s replay %s' % (uftrace, argument)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-F main -D2 -F sys_open*@kernel'
 
     def fixup(self, cflags, result):
         uname = os.uname()

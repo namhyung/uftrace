@@ -4,8 +4,6 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', serial=True, result="""
@@ -22,30 +20,25 @@ class TestCase(TestBase):
  128.387 us [18343] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        uftrace = TestBase.uftrace_cmd
-        program = 't-' + self.name
+        self.subcmd  = 'record'
+        self.option  = '-K3 '
+        self.option += '-N %s@kernel' % 'exit_to_usermode_loop '
+        self.option += '-N %s@kernel' % '_*do_page_fault'
 
-        argument  = '-K3 -d ' + TDIR
-        argument += ' -N %s@kernel' % 'exit_to_usermode_loop'
-        argument += ' -N %s@kernel' % '_*do_page_fault'
-
-        record_cmd = '%s record %s %s' % (uftrace, argument, program)
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -k -D3 -d %s' % (TestBase.uftrace_cmd, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-k -D3'
 
     def fixup(self, cflags, result):
         uname = os.uname()

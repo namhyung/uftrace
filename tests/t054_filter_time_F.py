@@ -11,5 +11,5 @@ class TestCase(TestBase):
    2.080 ms [18229] | } /* bar */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -t 1ms -F bar %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '-t 1ms -F bar'

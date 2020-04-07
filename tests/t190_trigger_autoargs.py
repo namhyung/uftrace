@@ -13,6 +13,6 @@ class TestCase(TestBase):
   18.574 us [16523] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F main -T calloc@trace-off -T strcmp@trace-on,auto-args %s hello' % \
-            (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option  = '-F main -T calloc@trace-off -T strcmp@trace-on,auto-args'
+        self.exearg += ' hello'

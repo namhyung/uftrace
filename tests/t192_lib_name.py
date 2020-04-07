@@ -25,11 +25,8 @@ class TestCase(TestBase):
                                       ['libabc_test_lib.so', 'libfoo.so'],
                                       cflags, ldflags)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = "--nest-libcall --libname -f +module"
-        program = 't-' + self.name
-        return "%s %s %s" % (uftrace, options, program)
+    def setup(self):
+        self.option = "--nest-libcall --libname -f +module"
 
     def fixup(self, cflags, result):
         import re

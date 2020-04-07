@@ -20,8 +20,5 @@ class TestCase(TestBase):
    1.200 us [ 6624] | } /* ns::ns2::foo::bar2 */
 """, sort='simple')
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '--disable -F ".*foo::foo" -T .foo::foo@trace_on -F .bar2'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '--disable -F ".*foo::foo" -T .foo::foo@trace_on -F .bar2'

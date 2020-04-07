@@ -23,19 +23,15 @@ class TestCase(TestBase):
   81.933 us [20769] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        program = 't-' + self.name
-        options = "-k -F sys_gete.*@kernel"
-
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = "-k -F sys_gete.*@kernel"
 
     def fixup(self, cflags, result):
         uname = os.uname()

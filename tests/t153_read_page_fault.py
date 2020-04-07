@@ -19,11 +19,8 @@ class TestCase(TestBase):
   26.963 us [32766] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        args    = '-F main -T b@read=page-fault'
-        prog    = 't-' + self.name
-        return '%s %s %s' % (uftrace, args, prog)
+    def setup(self):
+        self.option = '-F main -T b@read=page-fault'
 
     def sort(self, output):
         result = []

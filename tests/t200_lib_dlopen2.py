@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
+import os
 
 class TestCase(TestBase):
     """This tests when dlopen() loads multiple libraries (libbar and libbaz)
@@ -20,6 +21,7 @@ class TestCase(TestBase):
   48.519 us [ 29510] |   dlclose();
  465.432 us [ 29510] | } /* main */
 """)
+        os.environ['LD_LIBRARY_PATH'] = "."
 
     def build(self, name, cflags='', ldflags=''):
         if TestBase.build_libfoo(self, 'bar', cflags, ldflags) != 0:
@@ -29,5 +31,5 @@ class TestCase(TestBase):
         return TestBase.build_libmain(self, name, 's-dlopen2.cpp', ['libdl.so'],
                                       cflags, ldflags)
 
-    def runcmd(self):
-        return 'LD_LIBRARY_PATH=. %s -F a %s' % (TestBase.uftrace_cmd, 't-dlopen2')
+    def setup(self):
+        self.option = '-F a'

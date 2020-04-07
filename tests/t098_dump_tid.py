@@ -2,8 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-
-TDIR='xxx'
+import os.path
 
 class TestCase(TestBase):
     def __init__(self):
@@ -34,15 +33,13 @@ reading 5186.dat
 reading 5188.dat
 """, sort='dump')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        import os.path
+    def setup(self):
         t = 0
-        for ln in open(os.path.join(TDIR, 'task.txt')):
+        for ln in open(os.path.join('uftrace.data', 'task.txt')):
             if not ln.startswith('TASK'):
                 continue
             try:
@@ -50,12 +47,11 @@ reading 5188.dat
             except:
                 pass
         if t == 0:
-            return 'FAILED TO FIND TID'
-        return '%s dump -d %s --tid %d' % (TestBase.uftrace_cmd, TDIR, t)
+            self.subcmd = 'FAILED TO FIND TID'
+            return
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+        self.subcmd = 'dump'
+        self.option = '--tid %d' % t
 
     def fixup(self, cflags, result):
         if TestBase.is_32bit(self):

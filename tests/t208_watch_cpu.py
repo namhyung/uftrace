@@ -22,12 +22,9 @@ class TestCase(TestBase):
  142.912 us [ 19611] | } /* main */
 """)
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
+    def setup(self):
         # ignore unexpected memset on ARM (raspbian)
-        options = '-F main -W cpu -E "linux:*" -N memset'
-        program = 't-' + self.name
-        return '%s %s %s' % (uftrace, options, program)
+        self.option = '-F main -W cpu -E "linux:*" -N memset'
 
     def sort(self, output):
         result = []

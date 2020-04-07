@@ -2,8 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-
-TDIR='xxx'
+import os.path
 
 class TestCase(TestBase):
     def __init__(self):
@@ -21,11 +20,21 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-abc')
+    def prerun(self, timeout):
+        self.subcmd = 'record'
+        self.option = ''
+        self.exearg = 't-' + self.name
+
+        record_cmd = TestBase.runcmd(self)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
-        replay_cmd = '%s replay -d %s -F main -f time' % (TestBase.uftrace_cmd, TDIR)
+        self.subcmd = 'replay'
+        self.option = '-F main -f time'
+        self.exearg = ''
+        replay_cmd = TestBase.runcmd(self)
+        self.pr_debug("prerun command: " + replay_cmd)
+
         p = sp.Popen(replay_cmd.split(), stdout=sp.PIPE)
         if p.wait() != 0:
             return TestBase.TEST_NONZERO_RETURN
@@ -42,15 +51,17 @@ class TestCase(TestBase):
             # add the external data right after the first line
             msg = '%s.%d %s\n' % (t[:point], nsec + 1, 'user message')
 
-            data_file = open(TDIR + '/extern.dat', 'w')
+            data_file = open(os.path.join('uftrace.data', 'extern.dat'), 'w')
             data_file.write(msg)
             data_file.close()
             break
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -d %s' % (TestBase.uftrace_cmd.replace(' --no-event',''), TDIR)
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = ''
+        self.exearg = ''
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def runcmd(self):
+        cmd = TestBase.runcmd(self)
+        return cmd.replace('--no-event', '')

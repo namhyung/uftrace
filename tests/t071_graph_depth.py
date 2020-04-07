@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
-FUNC='main'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -39,14 +35,13 @@ class TestCase(TestBase):
    0.187 us :     +-(1) free
 """, sort='graph')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.uftrace_cmd, TDIR, 't-namespace')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        self.option = ''
+        self.exearg = 't-' + self.name
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s graph -d %s -D5 %s' % (TestBase.uftrace_cmd, TDIR, FUNC)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'graph'
+        self.option = '-D5'
+        self.exearg = 'main'

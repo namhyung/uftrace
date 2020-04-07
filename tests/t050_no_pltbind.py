@@ -40,5 +40,5 @@ class TestCase(TestBase):
    1.122 ms [22829] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --no-pltbind --column-view --no-merge %s' % (TestBase.uftrace_cmd, 't-' + self.name)
+    def setup(self):
+        self.option = '--no-pltbind --column-view --no-merge'

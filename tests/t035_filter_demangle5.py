@@ -25,5 +25,5 @@ class TestCase(TestBase):
 """, sort='simple')
 
     # test whether filter option preserves the ordering
-    def runcmd(self):
-        return '%s -F "ns1::.*" -N "bar2$" -F "bar2$" %s' % (TestBase.uftrace_cmd, 't-namespace')
+    def setup(self):
+        self.option = '-F "ns1::.*" -N "bar2$" -F "bar2$"'

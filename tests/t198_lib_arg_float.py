@@ -20,8 +20,6 @@ class TestCase(TestBase):
         ldflags += " -lm"
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "expf@fparg1/32" -R "expf@retval/f32" '
-        argopt += '-A "log@fparg1/64"  -R "log@retval/f64" '
-
-        return '%s %s %s' % (TestBase.uftrace_cmd, argopt, 't-' + self.name)
+    def setup(self):
+        self.option  = '-A "expf@fparg1/32" -R "expf@retval/f32" '
+        self.option += '-A "log@fparg1/64"  -R "log@retval/f64" '

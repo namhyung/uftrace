@@ -2,8 +2,6 @@
 
 from runtest import TestBase
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'taskname', ldflags='-pthread', serial=True, result="""
@@ -23,14 +21,10 @@ class TestCase(TestBase):
              bar | } /* main */
 """, sort='simple')
 
-    def pre(self):
+    def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace  = TestBase.uftrace_cmd
-        options = '-F main -E linux:task-name -t 1'
-        program  = 't-' + self.name
-
-        return '%s %s %s' % (uftrace, options, program)
+    def setup(self):
+        self.option = '-F main -E linux:task-name -t 1'

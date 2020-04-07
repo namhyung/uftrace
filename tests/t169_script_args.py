@@ -3,7 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
 FILE='script.py'
 
 script = """
@@ -19,7 +18,7 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'openclose', 'fopen(/dev/null)')
 
-    def pre(self):
+    def prerun(self, timeout):
         script_cmd = '%s script' % (TestBase.uftrace_cmd)
         p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
         if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
@@ -29,23 +28,17 @@ class TestCase(TestBase):
         f.write(script)
         f.close()
 
-        uftrace = TestBase.uftrace_cmd
-        options = '-A fopen@arg1/s'
-        program = 't-' + self.name
-        record_cmd = '%s record -d %s %s %s' % (uftrace, TDIR, options, program)
+        self.subcmd = 'record'
+        self.option = '-A fopen@arg1/s'
+        record_cmd = self.runcmd()
 
-        self.pr_debug("record command: %s" % record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split(), stdout=sp.PIPE)
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        uftrace = TestBase.uftrace_cmd
-        options = '-S ' + FILE
-        return '%s script -d %s %s' % (uftrace, TDIR, options)
+    def setup(self):
+        self.subcmd = 'script'
+        self.option = '-S ' + FILE
 
     def sort(self, output):
         return output.strip()
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR, FILE])
-        return ret
