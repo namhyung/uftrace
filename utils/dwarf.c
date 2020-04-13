@@ -262,8 +262,8 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 {
 	int fd;
 
-	if (!force && check_trace_functions(filename) != TRACE_MCOUNT)
-		return 0;
+	if (force || check_trace_functions(filename) != TRACE_CYGPROF)
+		dinfo->needs_args = true;
 
 	pr_dbg2("setup dwarf debug info for %s\n", filename);
 
@@ -1043,6 +1043,12 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 
 		if (uftrace_done)
 			break;
+
+		/* do not read arguments when it's not needed */
+		if (!dinfo->needs_args) {
+			bd.nr_args = 0;
+			bd.nr_rets = 0;
+		}
 
 		dwarf_getsrcfiles(&cudie, &bd.files.files, &bd.files.num);
 
