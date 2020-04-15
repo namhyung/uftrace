@@ -443,6 +443,8 @@ static void parse_debug_domain(char *arg)
 			dbg_domain[DBG_SCRIPT] = level;
 		else if (!strcmp(tok, "dwarf"))
 			dbg_domain[DBG_DWARF] = level;
+		else if (!strcmp(tok, "wrap"))
+			dbg_domain[DBG_WRAP] = level;
 	}
 
 	dbg_domain_set = true;
