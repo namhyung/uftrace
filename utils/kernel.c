@@ -659,7 +659,7 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	if (ret < 0)
 		return ret;
 
-	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_ONLN);
+	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_CONF);
 
 	kernel->traces	= xcalloc(n, sizeof(*kernel->traces));
 	kernel->fds	= xcalloc(n, sizeof(*kernel->fds));
