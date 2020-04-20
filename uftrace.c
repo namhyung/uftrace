@@ -1156,21 +1156,22 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 	/* initial option parsing index */
 	optind = 1;
 
-	/* first argument can be a sub-command or a program to run */
-	if (argc > 1 && argv[1][0] != '-') {
-		update_subcmd(opts, argv[1]);
-
-		if (opts->mode != UFTRACE_MODE_INVALID)
-			optind++;
-	}
-
 	while (true) {
 		int key, tmp = 0;
 
 		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options,
 				  &tmp);
-		if (key == -1 || key == '?')
+		if (key == -1 || key == '?') {
+			if (optind < argc && opts->mode == UFTRACE_MODE_INVALID) {
+				update_subcmd(opts, argv[optind]);
+
+				if (opts->mode != UFTRACE_MODE_INVALID) {
+					optind++;
+					continue;
+				}
+			}
 			break;
+		}
 
 		tmp = parse_option(opts, key, optarg);
 		if (tmp < 0)
