@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dlfcn.h>
+#include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dwarf"
@@ -910,6 +911,7 @@ static void get_source_location(Dwarf_Die *die, struct build_data *bd,
 	dinfo->locs[sym_idx].sym  = sym;
 	dinfo->locs[sym_idx].file = dfile;
 	dinfo->locs[sym_idx].line = dline;
+	dinfo->nr_locs_used++;
 }
 
 static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
@@ -996,6 +998,109 @@ out:
 	return DWARF_CB_OK;
 }
 
+struct comp_dir_entry {
+	struct rb_node	node;
+	char		*name;
+	int		nr_used;  /* number of times comp_dir is used in module */
+	int		nr_locs;  /* number of source locations built into comp_dir */
+};
+
+static int add_comp_dir(struct rb_root *root, char *name, int nr_locs)
+{
+	struct comp_dir_entry *entry, *iter;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &root->rb_node;
+	int cmp;
+
+	pr_dbg3("add dir entry: %s (%d)\n", name, nr_locs);
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct comp_dir_entry, node);
+
+		cmp = strcmp(iter->name, name);
+		if (cmp == 0) {
+			iter->nr_used++;
+			iter->nr_locs += nr_locs;
+			return 0;
+		}
+
+		if (cmp > 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	entry = xmalloc(sizeof(*entry));
+	entry->name = xstrdup(name);
+	entry->nr_locs = nr_locs;
+	entry->nr_used = 1;
+
+	rb_link_node(&entry->node, parent, p);
+	rb_insert_color(&entry->node, root);
+
+	return 0;
+}
+
+static void free_comp_dir(struct rb_root *root)
+{
+	struct comp_dir_entry *entry;
+	struct rb_node *node;
+
+	while (!RB_EMPTY_ROOT(root)) {
+		node = rb_first(root);
+		entry = rb_entry(node, typeof(*entry), node);
+
+		rb_erase(node, root);
+		free(entry->name);
+		free(entry);
+	}
+}
+
+static struct comp_dir_entry * get_max_comp_dir(struct comp_dir_entry *a, struct comp_dir_entry *b)
+{
+	if (a->nr_used > b->nr_used ||
+	   (a->nr_used == b->nr_used && a->nr_locs > b->nr_locs))
+		return a;
+	else
+		return b;
+}
+
+static char* get_base_comp_dir(struct rb_root *dirs)
+{
+	struct rb_node *rbnode;
+	struct comp_dir_entry *e;
+	struct comp_dir_entry *prev = NULL;
+	struct comp_dir_entry *max;
+
+	if (RB_EMPTY_ROOT(dirs))
+		return NULL;
+
+	rbnode = rb_first(dirs);
+	max = rb_entry(rbnode, typeof(*e), node);
+	prev = max;
+	rbnode = rb_next(rbnode);
+
+	while (rbnode != NULL) {
+		e = rb_entry(rbnode, typeof(*e), node);
+
+		if (!strncmp(e->name, prev->name, strlen(prev->name))) {
+			prev->nr_used += e->nr_used;
+			prev->nr_locs += e->nr_locs;
+		}
+		else {
+			max = get_max_comp_dir(prev, max);
+			prev = e;
+		}
+
+		rbnode = rb_next(rbnode);
+	}
+
+	max = get_max_comp_dir(prev, max);
+
+	return max->name;
+}
+
 static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
@@ -1005,6 +1110,8 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 	size_t header_sz = 0;
 	struct uftrace_pattern *arg_patt;
 	struct uftrace_pattern *ret_patt;
+	struct rb_root comp_dirs = RB_ROOT;
+	char *dir;
 	char *s;
 	int i;
 
@@ -1054,7 +1161,23 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 
 		dwarf_getfuncs(&cudie, get_dwarfspecs_cb, &bd, 0);
 
+		if (dwarf_hasattr(&cudie, DW_AT_comp_dir)) {
+			dir = str_attr(&cudie, DW_AT_comp_dir, false);
+			add_comp_dir(&comp_dirs, dir, dinfo->nr_locs_used);
+			dinfo->nr_locs_used = 0;
+		}
+
 		curr = next;
+	}
+
+	dir = get_base_comp_dir(&comp_dirs);
+	if (dir) {
+		pr_dbg3("base dir: %s\n", dir);
+		dinfo->base_dir = xstrdup(dir);
+		free_comp_dir(&comp_dirs);
+	}
+	else {
+		dinfo->base_dir = NULL;
 	}
 
 	for (i = 0; i < args->nr; i++)
@@ -1106,6 +1229,8 @@ static void release_debug_info(struct debug_info *dinfo)
 
 	free(dinfo->locs);
 	dinfo->locs = NULL;
+
+	free(dinfo->base_dir);
 
 	release_dwarf_info(dinfo);
 }
@@ -1273,6 +1398,8 @@ static void save_debug_entries(struct debug_info *dinfo,
 {
 	int i;
 	FILE *fp;
+	int idx = 0;
+	int len;
 
 	fp = create_debug_file(dirname, basename(filename));
 	if (fp == NULL)
@@ -1288,7 +1415,15 @@ static void save_debug_entries(struct debug_info *dinfo,
 			continue;
 
 		save_debug_file(fp, 'F', loc->sym->name, loc->sym->addr);
-		save_debug_file(fp, 'L', loc->file->name, loc->line);
+
+		if (dinfo->base_dir) {
+			len = strlen(dinfo->base_dir);
+			if (!strncmp(loc->file->name, dinfo->base_dir, len))
+				idx = len + 1;
+		}
+
+		/* skip common parts with compile directory  */
+		save_debug_file(fp, 'L', loc->file->name + idx, loc->line);
 
 		entry = find_debug_entry(&dinfo->args, loc->sym->addr);
 		if (entry)
@@ -1380,7 +1515,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 		case 'R':
 			if (line[0] == 'R')
 				root = &dinfo->rets;
-			
+
 			if (func == NULL)
 				goto out;
 
@@ -1490,3 +1625,89 @@ struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 	idx = sym - symtab->sym;
 	return &dinfo->locs[idx];
 }
+
+#ifdef UNIT_TEST
+
+struct comp_dir {
+	char *name;
+	int nr_loc;
+};
+
+/* test: same number of compilation unit */
+TEST_CASE(srcline_remove_common_prefix)
+{
+	struct rb_root dirs = RB_ROOT;
+	int i;
+
+	static struct comp_dir test_dirs [] = {
+		{"/home/soft/uftrace/cmds", 1},
+		{"/home/soft/uftrace/utils", 1},
+		{"/home/soft/uftrace/libmcount", 1},
+	};
+
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+
+	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace/cmds");
+
+	free_comp_dir(&dirs);
+
+	return TEST_OK;
+}
+
+/* test: number of compilation unit */
+TEST_CASE(srcline_remove_common_prefix2)
+{
+	struct rb_root dirs = RB_ROOT;
+	int i;
+
+	static struct comp_dir test_dirs [] = {
+		{"/home/a/tests", 1},
+		{"/home/soft/uftrace/cmds", 1},
+		{"/home/soft/uftrace", 1},
+	};
+
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+
+	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace");
+
+	free_comp_dir(&dirs);
+
+	return TEST_OK;
+}
+
+/* test: number of debug info of compilation unit */
+TEST_CASE(srcline_remove_common_prefix3)
+{
+	struct rb_root dirs = RB_ROOT;
+	int i;
+
+	static struct comp_dir test_dirs [] = {
+		{"/home/a/tests", 1},
+		{"/home/a/tests", 3},
+		{"/home/soft/uftrace/cmds", 4},
+		{"/home/soft/uftrace", 1},
+	};
+
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+
+	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace");
+
+	free_comp_dir(&dirs);
+
+	return TEST_OK;
+}
+
+/* test: no compilation unit */
+TEST_CASE(srcline_remove_common_prefix4)
+{
+	struct rb_root dirs = RB_ROOT;
+
+	TEST_EQ(get_base_comp_dir(&dirs), NULL);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
