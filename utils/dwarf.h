@@ -41,6 +41,7 @@ struct debug_info {
 	int			nr_locs_used;
 	int			file_type;
 	bool			needs_args;
+	char			*base_dir;
 };
 
 extern void prepare_debug_info(struct symtabs *symtabs,
