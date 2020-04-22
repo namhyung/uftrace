@@ -3,7 +3,7 @@
 #include "utils/list.h"
 
 void print_header(struct list_head *output_fields, const char *prefix,
-		  const char *postfix, int space)
+		  const char *postfix, int space, bool new_line)
 {
 	struct display_field *field;
 	bool first = true;
@@ -18,7 +18,9 @@ void print_header(struct list_head *output_fields, const char *prefix,
 		first = false;
 	}
 
-	pr_out("   %s\n", postfix);
+	pr_out("   %s", postfix);
+	if (new_line)
+		pr_out("\n");
 }
 
 int print_field_data(struct list_head *output_fields, struct field_data *fd,

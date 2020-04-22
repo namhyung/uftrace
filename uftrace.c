@@ -594,17 +594,14 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'A':
 		opts->args = opt_add_string(opts->args, arg);
-		opts->srcline = true;
 		break;
 
 	case 'R':
 		opts->retval = opt_add_string(opts->retval, arg);
-		opts->srcline = true;
 		break;
 
 	case 'a':
 		opts->auto_args = true;
-		opts->srcline = true;
 		break;
 
 	case 'l':
@@ -1465,7 +1462,7 @@ TEST_CASE(option_parsing2)
 	};
 	int argc = ARRAY_SIZE(argv);
 	int saved_debug = debug;
-	
+
 	parse_options(argc, argv, &opts);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
