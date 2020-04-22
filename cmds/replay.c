@@ -782,6 +782,8 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	char args[1024];
 	char *libname = "";
 	struct uftrace_mmap *map = NULL;
+	struct debug_location *loc = NULL;
+	char *str_loc = NULL;
 
 	if (task == NULL)
 		return 0;
@@ -814,6 +816,12 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			if (map != NULL)
 				libname = basename(map->libname);
 		}
+	}
+
+	if (opts->srcline) {
+		loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
+		if (opts->comment && loc)
+			xasprintf(&str_loc, "%s:%d", loc->file->name, loc->line);
 	}
 
 	if (rstack->type == UFTRACE_ENTRY) {
@@ -877,13 +885,16 @@ static int print_graph_rstack(struct uftrace_data *handle,
 				pr_color(tr.color, "%s", symname);
 				if (*libname)
 					pr_color(tr.color, "@%s", libname);
-				pr_out("%s%s\n", args, retval);
+				pr_out("%s%s", args, retval);
 			}
 			else {
-				pr_out("%s%s%s%s%s\n", symname,
+				pr_out("%s%s%s%s%s", symname,
 				       *libname ? "@" : "",
 				       libname, args, retval);
 			}
+			if (str_loc)
+				pr_gray(" /* %s */", str_loc);
+			pr_out("\n");
 
 			/* fstack_update() is not needed here */
 
@@ -897,12 +908,15 @@ static int print_graph_rstack(struct uftrace_data *handle,
 				pr_color(tr.color, "%s", symname);
 				if (*libname)
 					pr_color(tr.color, "@%s", libname);
-				pr_out("%s {\n", args);
+				pr_out("%s {", args);
 			}
 			else {
-				pr_out("%s%s%s%s {\n", symname,
+				pr_out("%s%s%s%s {", symname,
 				       *libname ? "@" : "", libname, args);
 			}
+			if (str_loc)
+				pr_gray(" /* %s */", str_loc);
+			pr_out("\n");
 
 			fstack_update(UFTRACE_ENTRY, task, fstack);
 		}
@@ -934,11 +948,14 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 			print_field(task, fstack, NULL);
 			pr_out("%*s}%s", depth * 2, "", retval);
-			if (opts->comment)
-				pr_gray(" /* %s%s%s */\n", symname,
+			if (opts->comment) {
+				pr_gray(" /* %s%s%s ", symname,
 					*libname ? "@" : "", libname);
-			else
-				pr_gray("\n");
+				if (str_loc)
+					pr_gray("at %s ", str_loc);
+				pr_gray("*/");
+			}
+			pr_out("\n");
 		}
 
 		fstack_exit(task);
@@ -965,6 +982,7 @@ lost:
 		else /* kernel sometimes have unknown count */
 			pr_red("%*s/* LOST some records!! */\n",
 			       depth * 2, "");
+		free(str_loc);
 		return 0;
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
@@ -1020,10 +1038,10 @@ lost:
 			print_event(task, &rec, task->event_color);
 			pr_color(task->event_color, " */\n");
 		}
-
 	}
 out:
 	symbol_putname(sym, symname);
+	free(str_loc);
 	return 0;
 }
 
@@ -1163,7 +1181,10 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		    field_table, ARRAY_SIZE(field_table));
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
-		print_header(&output_fields, "#", "FUNCTION", 1);
+		print_header(&output_fields, "#", "FUNCTION", 1, false);
+	if (opts->srcline)
+		pr_gray(" [SOURCE]");
+	pr_out("\n");
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rstack = task->rstack;

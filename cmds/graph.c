@@ -507,7 +507,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 
 	if (graph->ug.root.time || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
-		print_header(&output_fields, "# ", "FUNCTION", 2);
+		print_header(&output_fields, "# ", "FUNCTION", 2, true);
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(&graph->ug, &graph->ug.root, indent_mask, 0,
 				 graph->ug.root.nr_edges > 1);
@@ -942,7 +942,7 @@ static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 		    field_task_table, ARRAY_SIZE(field_task_table));
 
 	pr_out("========== TASK GRAPH ==========\n");
-	print_header(&output_task_fields, "# ", "TASK NAME", 2);
+	print_header(&output_task_fields, "# ", "TASK NAME", 2, true);
 
 	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
 
