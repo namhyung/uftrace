@@ -102,8 +102,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	if (getenv("UFTRACE_SRCLINE") == NULL)
 		return;
 
-	symtabs.exec_map->mod = load_module_symtab(&symtabs,
-						   symtabs.exec_map->libname);
+	load_module_symtabs(&symtabs);
 
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
@@ -1358,7 +1357,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 		mtdp->in_exception = false;
 	}
 
-	/* 
+	/*
 	 * recording arguments and return value is not supported.
 	 * also 'recover' trigger is only work for -pg entry.
 	 */
