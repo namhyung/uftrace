@@ -597,6 +597,15 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		/* Disable syscall tracing in the kernel */
 		"syscall_trace_enter_phase1",
 		"syscall_slow_exit_work",
+#ifdef __aarch64__
+		/*
+		 * TTBR is for page table setting and it is needed for security
+		 * enhancement against spectre/meltdown attacks.
+		 * post_ttbr_update_workaround() is better to be hidden not to
+		 * confuse general users unnecessarily.
+		 */
+		"post_ttbr_update_workaround",
+#endif
 	};
 	const char *skip_patches[] = {
 		/* kernel 4.17 changed syscall entry on x86_64 */
