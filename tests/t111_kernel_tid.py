@@ -4,16 +4,27 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', serial=True, result=""" # DURATION TID FUNCTION [ 1661] | main() { [ 1661] | fork() { 5.135 us [
-1661] | sys_writev(); 32.391 us [ 1661] | sys_clone(); 130.930 us [ 1661] | } /*
-fork */ [ 1661] | wait() { 7.074 us [ 1661] | sys_wait4(); 691.873 us [ 1661] |
-} /* wait */ [ 1661] | a() { [ 1661] | b() { [ 1661] | c() { 4.234 us [ 1661] |
-getpid(); 5.680 us [ 1661] | } /* c */ 6.094 us [ 1661] | } /* b */ 6.602 us [
-1661] | } /* a */ 849.948 us [ 1661] | } /* main */ """)
+        TestBase.__init__(self, 'fork', serial=True, result="""
+# DURATION    TID     FUNCTION
+            [ 1661] | main() {
+            [ 1661] |   fork() {
+   5.135 us [ 1661] |     sys_writev();
+  32.391 us [ 1661] |     sys_clone();
+ 130.930 us [ 1661] |   } /* fork */
+            [ 1661] |   wait() {
+   7.074 us [ 1661] |     sys_wait4();
+ 691.873 us [ 1661] |   } /* wait */
+            [ 1661] |   a() {
+            [ 1661] |     b() {
+            [ 1661] |       c() {
+   4.234 us [ 1661] |         getpid();
+   5.680 us [ 1661] |       } /* c */
+   6.094 us [ 1661] |     } /* b */
+   6.602 us [ 1661] |   } /* a */
+ 849.948 us [ 1661] | } /* main */
+""")
 
     def prerun(self, timeout):
         if os.geteuid() != 0:
@@ -31,7 +42,7 @@ getpid(); 5.680 us [ 1661] | } /* c */ 6.094 us [ 1661] | } /* b */ 6.602 us [
 
     def setup(self):
         t = 0
-        for ln in open(os.path.join(TDIR, 'task.txt')):
+        for ln in open(os.path.join('uftrace.data', 'task.txt')):
             if not ln.startswith('TASK'):
                 continue
             try:
