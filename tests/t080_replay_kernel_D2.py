@@ -31,6 +31,6 @@ class TestCase(TestBase):
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
+    def setup(self):
         self.subcmd = 'replay'
         self.option = '-k -D2'

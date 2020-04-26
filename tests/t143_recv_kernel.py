@@ -39,7 +39,7 @@ class TestCase(TestBase):
         self.pr_debug('prerun command: ' + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        self.dirname = 'dir-' + random.randint(100000, 999999)
+        self.dirname = 'dir-%d' % random.randint(100000, 999999)
         self.subcmd = 'record'
         self.option = '-H %s --port %s -d %s' % ('localhost', self.port, self.dirname)
         self.exearg = 't-' + self.name

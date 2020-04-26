@@ -28,7 +28,7 @@ class TestCase(TestBase):
 
         self.subcmd  = 'record'
         self.option  = '-K3 '
-        self.option += '-N %s@kernel' % 'exit_to_usermode_loop '
+        self.option += '-N %s@kernel ' % 'exit_to_usermode_loop'
         self.option += '-N %s@kernel' % '_*do_page_fault'
 
         record_cmd = self.runcmd()
