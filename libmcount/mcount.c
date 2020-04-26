@@ -2012,10 +2012,10 @@ mcount_fini(void)
 
 static void setup_mcount_test(void)
 {
+	pr_dbg("init libmcount for testing\n");
+
 	mcount_exename = read_exename();
-
 	pthread_key_create(&mtd_key, mtd_dtor);
-
 	mcount_global_flags = 0;
 }
 
@@ -2086,6 +2086,51 @@ TEST_CASE(mcount_signal_setup)
 	mcount_signal_finish();
 
 	TEST_EQ(list_empty(&siglist), true);
+
+	return TEST_OK;
+}
+
+struct fake_rstack {
+	unsigned long *frame_pointer;
+	unsigned long func_addr;
+};
+
+TEST_CASE(mcount_estimate_return_depth)
+{
+	/* dummy frame pointer values - just to check relative values */
+	unsigned long frame_pointers[8];
+	/* increase idx/depth when frame pointer goes down */
+	struct fake_rstack test_scenario[] = {
+		{ &frame_pointers[7], 0x1234 },
+		{ &frame_pointers[4], 0x1234 },
+		{ &frame_pointers[0], 0x1234 },
+		{ &frame_pointers[4], 0x1234 },
+		{ &frame_pointers[5], 0x1234 },
+	};
+	/* mtdp->idx increased after mcount_entry() */
+	int depth_check[] = { 0, 1, 2, 1, 1 };
+	struct mcount_thread_data *mtdp;
+	unsigned i;
+
+	setup_mcount_test();
+	mtdp = mcount_prepare();
+	/* mcount_prepare calls mcount_guard_recursion() internally */
+	mcount_unguard_recursion(mtdp);
+
+	mcount_estimate_return = true;
+
+	for (i = 0; i < ARRAY_SIZE(test_scenario); i++) {
+		TEST_EQ(mcount_entry(test_scenario[i].frame_pointer,
+				     test_scenario[i].func_addr, NULL), 0);
+
+		pr_dbg("[%d] mcount entry: idx = %d, depth = %d\n",
+		       i, mtdp->idx, mtdp->rstack[mtdp->idx - 1].depth);
+		TEST_EQ(mtdp->idx, depth_check[i] + 1);
+		TEST_EQ(mtdp->rstack[mtdp->idx - 1].depth, depth_check[i]);
+	}
+
+	cleanup_thread_data(mtdp);
+	mcount_cleanup();
 
 	return TEST_OK;
 }
