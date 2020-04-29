@@ -1890,6 +1890,8 @@ mcount_fini(void)
 }
 #else  /* UNIT_TEST */
 
+#include <sys/mman.h>
+
 static void setup_mcount_test(void)
 {
 	mcount_exename = read_exename();
@@ -1897,6 +1899,23 @@ static void setup_mcount_test(void)
 	pthread_key_create(&mtd_key, mtd_dtor);
 
 	mcount_global_flags = 0;
+}
+
+#define SHMEM_SESSION_FMT  "/uftrace-%s-%d-%03d"
+
+static void cleanup_thread_data(struct mcount_thread_data *mtdp)
+{
+	char shm_id[128];
+	int tid = mcount_gettid(mtdp);
+	int idx;
+
+	shmem_finish(mtdp);
+
+	for (idx = 0; idx < 2; idx++) {
+		snprintf(shm_id, sizeof(shm_id), SHMEM_SESSION_FMT,
+			 mcount_session_name(), tid, idx);
+		shm_unlink(shm_id);
+	}
 }
 
 TEST_CASE(mcount_thread_data)
@@ -1915,6 +1934,7 @@ TEST_CASE(mcount_thread_data)
 
 	TEST_EQ(check_thread_data(mtdp), false);
 
+	cleanup_thread_data(mtdp);
 	mcount_cleanup();
 
 	return TEST_OK;
