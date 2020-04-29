@@ -149,6 +149,20 @@ static int find_load_base(struct dl_phdr_info *info,
 	return 1;
 }
 
+static int sort_tests(const void *tc1, const void *tc2)
+{
+	const struct uftrace_unit_test *test1 = tc1;
+	const struct uftrace_unit_test *test2 = tc2;
+
+	/* keep unittest_framework first */
+	if (!strcmp(test1->name, "unittest_framework"))
+		return -1;
+	if (!strcmp(test2->name, "unittest_framework"))
+		return 1;
+
+	return strcmp(test1->name, test2->name);
+}
+
 static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
@@ -203,6 +217,8 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 	       tc->func = (void *)faddr;
 	       tc->name = (void *)naddr;
 	}
+
+	qsort(tcases, num, sizeof(*tcases), sort_tests);
 
 	*test_cases = tcases;
 	*test_num   = num;
