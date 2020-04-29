@@ -1520,6 +1520,9 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 
 	trace_seq_reset(&kernel->trace_buf);
 	type = pevent_data_type(kernel->pevent, &record);
+	if (type == 0)
+		return -1; // padding
+
 	event = pevent_find_event(kernel->pevent, type);
 	if (event == NULL) {
 		pr_dbg("cannot find event for type: %d\n", type);
@@ -2042,6 +2045,13 @@ static int record_depth(struct funcgraph_exit *rec)
 	return rec->common_type == FUNCGRAPH_ENTRY ? rec->calltime : rec->depth;
 }
 
+/* fwrite with checking return value */
+#define cwrite(bf)							\
+	if (fwrite_all(&bf, sizeof(bf), fp) < 0) pr_dbg("write failed: %s\n", #bf)
+
+#define cwrite2(bf, sz)							\
+	if (fwrite_all(bf, sz, fp) < 0) pr_dbg("write failed: %s\n", #bf)
+
 static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool event)
 {
 	int cpu, i;
@@ -2071,9 +2081,9 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 		return -1;
 	}
 
-	fwrite(test_kernel_header, 1, strlen(test_kernel_header), fp);
+	cwrite2(test_kernel_header, strlen(test_kernel_header));
 	if (event)
-		fwrite(test_kernel_event, 1, strlen(test_kernel_event), fp);
+		cwrite2(test_kernel_event, strlen(test_kernel_event));
 
 	free(filename);
 	fclose(fp);
@@ -2093,22 +2103,19 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 			return -1;
 		}
 
-		fwrite(&header, 1, sizeof(header), fp);
+		cwrite(header);
 
 		if (event) {
 			for (i = 0; i < NUM_EVENT; i++) {
-				fwrite(&test_event_len_ts[cpu][i], 1,
-				       sizeof(test_event_len_ts[cpu][i]), fp);
-				fwrite(&test_event[cpu][i], 1,
-				       sizeof(test_event[cpu][i]), fp);
+				cwrite(test_event_len_ts[cpu][i]);
+				cwrite(test_event[cpu][i]);
 			}
 		}
 		else {
 			for (i = 0; i < NUM_RECORD; i++) {
-				fwrite(&test_len_ts[cpu][i], 1,
-				       sizeof(test_len_ts[cpu][i]), fp);
-				fwrite(&test_record[cpu][i], 1,
-				       record_size(&test_record[cpu][i]), fp);
+				cwrite(test_len_ts[cpu][i]);
+				cwrite2(&test_record[cpu][i],
+					record_size(&test_record[cpu][i]));
 			}
 		}
 
@@ -2125,6 +2132,9 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 
 	return setup_kernel_data(kernel);
 }
+
+#undef cwrite
+#undef cwrite2
 
 static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 				    struct uftrace_data *handle)

@@ -318,6 +318,7 @@ int pread_all(int fd, void *buf, size_t size, off_t off);
 int fread_all(void *byf, size_t size, FILE *fp);
 int write_all(int fd, const void *buf, size_t size);
 int writev_all(int fd, struct iovec *iov, int count);
+int fwrite_all(const void *buf, size_t size, FILE *fp);
 
 int create_directory(const char *dirname);
 int remove_directory(const char *dirname);
