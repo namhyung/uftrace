@@ -136,6 +136,24 @@ int writev_all(int fd, struct iovec *iov, int count)
 	return 0;
 }
 
+int fwrite_all(const void *buf, size_t size, FILE *fp)
+{
+	size_t ret;
+
+	while (size) {
+		if (feof(fp))
+			return -1;
+
+		ret = fwrite(buf, 1, size, fp);
+		if (ferror(fp))
+			return -1;
+
+		buf  += ret;
+		size -= ret;
+	}
+	return 0;
+}
+
 int remove_directory(const char *dirname)
 {
 	DIR *dp;

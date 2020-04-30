@@ -815,10 +815,15 @@ static struct mcount_shmem_buffer * get_shmem_buffer(struct mcount_thread_data *
 						     size_t size)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
-	struct mcount_shmem_buffer *curr_buf = shmem->buffer[shmem->curr];
+	struct mcount_shmem_buffer *curr_buf;
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
 
-	if (unlikely(shmem->curr == -1 || curr_buf->size + size > maxsize)) {
+	if (unlikely(shmem->curr == -1 || shmem->buffer == NULL))
+		goto get_buffer;
+
+	curr_buf = shmem->buffer[shmem->curr];
+	if (unlikely(curr_buf->size + size > maxsize)) {
+get_buffer:
 		if (shmem->done)
 			return NULL;
 		if (shmem->curr > -1)

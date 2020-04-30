@@ -272,8 +272,8 @@ int setup_perf_data(struct uftrace_data *handle)
 	handle->perf = perf;
 	ret = 0;
 
-out:
 	globfree(&globbuf);
+out:
 	free(pattern);
 	return ret;
 }
