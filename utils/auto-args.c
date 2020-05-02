@@ -770,9 +770,11 @@ TEST_CASE(argspec_auto_args)
 	};
 	int idx = 1;
 
+	pr_dbg("build auto args from: %s\n", test_auto_args);
 	build_auto_args(test_auto_args, &auto_argspec, TRIGGER_FL_ARGUMENT,
 			&setting);
 
+	pr_dbg("'foo' should have two arguments\n");
 	key.name = "foo";
 	entry = find_auto_argspec(&key, NULL, NULL, &setting);
 	TEST_NE(entry, NULL);
@@ -784,6 +786,7 @@ TEST_CASE(argspec_auto_args)
 		idx++;
 	}
 
+	pr_dbg("'foo' should have one FP argument\n");
 	key.name = "bar";
 	entry = find_auto_argspec(&key, NULL, NULL, &setting);
 	TEST_NE(entry, NULL);
@@ -793,12 +796,14 @@ TEST_CASE(argspec_auto_args)
 	TEST_EQ(spec->fmt, ARG_FMT_FLOAT);
 	TEST_EQ(spec->idx, 1);
 
+	pr_dbg("'xxx' should not have arguments\n");
 	key.name = "xxx";
 	entry = find_auto_argspec(&key, NULL, NULL, &setting);
 	TEST_EQ(entry, NULL);
 
 	release_auto_args(&auto_argspec);
 
+	pr_dbg("'foo' should not have arguments after released\n");
 	key.name = "foo";
 	entry = find_auto_argspec(&key, NULL, NULL, &setting);
 	TEST_EQ(entry, NULL);
@@ -813,6 +818,7 @@ TEST_CASE(argspec_extract)
 	char test_trigger_str3[] = "foo@libabc,arg3/i32%rax,backtrace";
 	char *args, *rets;
 
+	pr_dbg("extracting args/rets from %s\n", test_trigger_str1);
 	args = rets = NULL;
 	extract_trigger_args(&args, &rets, test_trigger_str1);
 
@@ -822,6 +828,7 @@ TEST_CASE(argspec_extract)
 	free(args);
 	free(rets);
 
+	pr_dbg("extracting args/rets from %s\n", test_trigger_str2);
 	args = rets = NULL;
 	extract_trigger_args(&args, &rets, test_trigger_str2);
 
@@ -831,6 +838,7 @@ TEST_CASE(argspec_extract)
 	free(args);
 	free(rets);
 
+	pr_dbg("extracting args/rets from %s\n", test_trigger_str3);
 	args = rets = NULL;
 	extract_trigger_args(&args, &rets, test_trigger_str3);
 
@@ -854,8 +862,11 @@ TEST_CASE(argspec_parse_enum)
 	struct enum_val *e_val, *e_next;
 	char *str;
 
+	pr_dbg("parse enum string: %s\n", test_enum_str1);
 	TEST_EQ(parse_enum_string(test_enum_str1, &enum_tree), 0);
+	pr_dbg("parse enum string: %s\n", test_enum_str2);
 	TEST_EQ(parse_enum_string(test_enum_str2, &enum_tree), 0);
+	pr_dbg("parse enum string: %s\n", test_enum_str3);
 	TEST_EQ(parse_enum_string(test_enum_str3, &enum_tree), 0);
 
 	node = rb_first(&enum_tree);
@@ -876,19 +887,23 @@ TEST_CASE(argspec_parse_enum)
 	e_def = find_enum_def(&enum_tree, "xxx");
 	TEST_NE(e_def, NULL);
 
+	pr_dbg("first enum item should have 0 value\n");
 	e_val = list_last_entry(&e_def->vals, struct enum_val, list);
 	TEST_STREQ(e_val->str, "ZERO");
 	TEST_EQ(e_val->val, 0L);
 
+	pr_dbg("check value increments from previous value\n");
 	e_val = list_first_entry(&e_def->vals, struct enum_val, list);
 	TEST_STREQ(e_val->str, "TWO");
 	TEST_EQ(e_val->val, 112L);
 
+	pr_dbg("check value match to multiple bitmask\n");
 	e_def = find_enum_def(&enum_tree, "a");
 	str = convert_enum_val(e_def, 3);
 	TEST_STREQ(str, "CCC|BBB");
 	free(str);
 
+	pr_dbg("check value increments correctly for negative numbers\n");
 	e_def = find_enum_def(&enum_tree, "uftrace");
 	str = convert_enum_val(e_def, -22);
 	TEST_STREQ(str, "report");
@@ -896,6 +911,7 @@ TEST_CASE(argspec_parse_enum)
 
 	release_enum_def(&enum_tree);
 
+	pr_dbg("after release, it should not find any definition\n");
 	TEST_EQ(find_enum_def(&enum_tree, "xxx"), NULL);
 
 	return TEST_OK;

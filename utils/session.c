@@ -726,6 +726,7 @@ TEST_CASE(session_search)
 
 	TEST_EQ(test_sessions.first, NULL);
 
+	pr_dbg("create same session %d times\n", NUM_TEST);
 	for (i = 0; i < NUM_TEST; i++) {
 		struct uftrace_msg_sess msg = {
 			.task = {
@@ -750,6 +751,7 @@ TEST_CASE(session_search)
 	TEST_EQ(test_sessions.first->pid, 1);
 	TEST_EQ(test_sessions.first->start_time, 0);
 
+	pr_dbg("find sessions including random timestamp\n");
 	for (i = 0; i < NUM_TEST; i++) {
 		int t;
 		struct uftrace_session *s;
@@ -775,7 +777,7 @@ TEST_CASE(task_search)
 	struct uftrace_session *sess;
 	int fd;
 
-	/* 1. create initial task */
+	pr_dbg("create initial task\n");
 	{
 		struct uftrace_msg_sess smsg = {
 			.task = {
@@ -813,7 +815,7 @@ TEST_CASE(task_search)
 		TEST_EQ(sess->tid, task->tid);
 	}
 
-	/* 2. fork child task */
+	pr_dbg("fork child task\n");
 	{
 		struct uftrace_msg_task tmsg = {
 			.pid = 1,  /* ppid */
@@ -835,7 +837,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	/* 3. create parent thread */
+	pr_dbg("create parent thread\n");
 	{
 		struct uftrace_msg_task tmsg = {
 			.pid = 1,
@@ -857,7 +859,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	/* 4. create child thread */
+	pr_dbg("create child thread\n");
 	{
 		struct uftrace_msg_task tmsg = {
 			.pid = 2,
@@ -880,7 +882,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	/* 5. exec from child */
+	pr_dbg("exec from child\n");
 	{
 		struct uftrace_msg_sess smsg = {
 			.task = {
@@ -917,7 +919,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	/* 6. fork grand-child task */
+	pr_dbg("fork grand-child task\n");
 	{
 		struct uftrace_msg_task tmsg = {
 			.pid = 4,  /* ppid */
@@ -938,7 +940,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
-	/* 7. create grand-child thread */
+	pr_dbg("create grand-child thread\n");
 	{
 		struct uftrace_msg_task tmsg = {
 			.pid = 5,
@@ -960,6 +962,7 @@ TEST_CASE(task_search)
 		TEST_LE(sess->start_time, tmsg.time);
 	}
 
+	pr_dbg("finding tasks in the initial session\n");
 	task = find_task(&test_sessions, 1);
 	sess = find_task_session(&test_sessions, task, 100);
 	TEST_NE(sess, NULL);
@@ -975,6 +978,7 @@ TEST_CASE(task_search)
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "initial");
 
+	pr_dbg("finding tasks in the session after exec\n");
 	sess = find_task_session(&test_sessions, task, 500);
 	TEST_NE(sess, NULL);
 	TEST_STREQ(sess->sid, "after_exec");
@@ -1018,6 +1022,7 @@ TEST_CASE(task_symbol)
 	};
 	FILE *fp;
 
+	pr_dbg("creating symbol and map files\n");
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);
 	fprintf(fp, "%s", session_map);
@@ -1041,6 +1046,7 @@ TEST_CASE(task_symbol)
 	TEST_NE(test_sessions.first, NULL);
 	TEST_EQ(test_sessions.first->pid, 1);
 
+	pr_dbg("try to find a symbol from a mapped address\n");
 	task.t = find_task(&test_sessions, 1);
 	sym = task_find_sym_addr(&test_sessions, &task, 100, 0x400410);
 
@@ -1072,6 +1078,7 @@ TEST_CASE(task_symbol_dlopen)
 	fprintf(fp, "%s", session_map);
 	fclose(fp);
 
+	pr_dbg("creating symbol for the dlopen library\n");
 	fp = fopen("libuftrace-test.so.0.sym", "w");
 	TEST_NE(fp, NULL);
 	fprintf(fp, "0100 P __tls_get_addr\n");
@@ -1088,11 +1095,13 @@ TEST_CASE(task_symbol_dlopen)
 	TEST_NE(test_sessions.first, NULL);
 	TEST_EQ(test_sessions.first->pid, 1);
 
+	pr_dbg("add dlopen info message\n");
 	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0");
 	remove("libuftrace-test.so.0.sym");
 
 	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
 
+	pr_dbg("try to find a symbol from the dlopen address\n");
 	sym = session_find_dlsym(test_sessions.first, 250, 0x7003410);
 
 	TEST_NE(sym, NULL);

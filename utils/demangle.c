@@ -1759,11 +1759,13 @@ char *demangle(char *str)
 
 #ifdef UNIT_TEST
 
-#define DEMANGLE_TEST(m, d)			\
-do {						\
-	char *name = demangle_simple(m);	\
-	TEST_STREQ(d, name);			\
-	free(name);				\
+#define DEMANGLE_TEST(m, d)				\
+do {							\
+	char *name = demangle_simple(m);		\
+	pr_dbg("%.64s should be converted to %s\n",	\
+	       m, d);					\
+	TEST_STREQ(d, name);				\
+	free(name);					\
 } while (0)
 
 TEST_CASE(demangle_simple1)

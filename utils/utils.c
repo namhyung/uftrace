@@ -890,6 +890,7 @@ TEST_CASE(utils_parse_cmdline)
 	cmdv = parse_cmdline(NULL, NULL);
 	TEST_EQ(cmdv, NULL);
 
+	pr_dbg("parse_cmdline() should handle quoted stringss\n");
 	cmdv = parse_cmdline("uftrace recv --run-cmd 'uftrace replay'", &argc);
 	TEST_NE(cmdv, NULL);
 	TEST_EQ(argc, 4);
@@ -914,10 +915,12 @@ TEST_CASE(utils_strv)
 	TEST_EQ(strv.nr, 0);
 	TEST_EQ(strv.p, NULL);
 
+	pr_dbg("split string into a vector using ';' delimiter\n");
 	strv_split(&strv, test_str, ";");
 	strv_for_each(&strv, s, i)
 		TEST_STREQ(s, test_array[i]);
 
+	pr_dbg("join the string vector into a single string\n");
 	s = strv_join(&strv, ";");
 	TEST_STREQ(s, test_str);
 	free(s);
@@ -926,6 +929,7 @@ TEST_CASE(utils_strv)
 	strv_free(&strv);
 	TEST_EQ(strv.nr, 0);
 
+	pr_dbg("append string items to string vector\n");
 	for (i = 0; i < 3; i++) {
 		strv_append(&strv, test_array[i]);
 		TEST_STREQ(strv.p[i], test_array[i]);

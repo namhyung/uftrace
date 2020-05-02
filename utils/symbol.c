@@ -1554,10 +1554,12 @@ TEST_CASE(symbol_load_module) {
 	stab.sym = mixed_sym;
 	stab.nr_sym = ARRAY_SIZE(mixed_sym);
 
+	pr_dbg("save symbol file and load symbols\n");
 	save_module_symbol_file(&stab, symfile, 0x400000);
 
 	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
+	pr_dbg("check PLT symbols first\n");
 	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym));
 	for (i = 0; i < 3; i++) {
 		struct sym *sym = &test.sym[i];
@@ -1568,6 +1570,7 @@ TEST_CASE(symbol_load_module) {
 		TEST_STREQ(sym->name, stab.sym[i].name);
 	}
 
+	pr_dbg("check normal symbols\n");
 	for (i = 3; i < 6; i++) {
 		struct sym *sym = &test.sym[i];
 
@@ -1623,23 +1626,30 @@ TEST_CASE(symbol_load_map) {
 	struct uftrace_mmap *map;
 	struct sym *sym;
 
+	pr_dbg("load a real map file of the unittest binary\n");
+
 	/* just load a map for main executable */
 	dl_iterate_phdr(add_map, &symtabs);
 	/* load maps and symbols */
 	load_module_symtabs(&symtabs);
+
+	pr_dbg("try to find the map using a real symbol: find_map\n");
 	/* find map by address of a function */
 	map = find_map(&symtabs, (uintptr_t)&find_map);
 	TEST_NE(map, NULL);
 
 	/* check symbol table of uftrace binary */
+	pr_dbg("check specific symbol table to have the address\n");
 	sym = find_sym(&map->mod->symtab, (uintptr_t)&find_sym - map->start);
 	TEST_NE(sym, NULL);
 	TEST_NE(strstr(sym->name, "find_sym"), NULL);
 
+	pr_dbg("check the symbol table to have: load_module_symtabs\n");
 	sym = find_symname(&map->mod->symtab, "load_module_symtabs");
 	TEST_NE(sym, NULL);
 	TEST_EQ(sym->addr + map->start, (uintptr_t)&load_module_symtabs);
 
+	pr_dbg("check entire symbol tables to have: add_map\n");
 	sym = find_symtabs(&symtabs, (uintptr_t)&add_map);
 	TEST_NE(sym, NULL);
 	TEST_NE(strstr(sym->name, "add_map"), NULL);
