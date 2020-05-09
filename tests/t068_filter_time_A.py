@@ -15,13 +15,6 @@ class TestCase(TestBase):
    2.107 ms [23157] | } /* main */
 """)
 
-    def build(self, name, cflags='', ldflags=''):
-        # cygprof doesn't support return value now
-        if cflags.find('-finstrument-functions') >= 0:
-            return TestBase.TEST_SKIP
-
-        return TestBase.build(self, name, cflags, ldflags)
-
     def setup(self):
         self.option  = '-t 1ms -R mem_alloc@retval '
         self.option += '-A mem_free@arg1 -A usleep@plt,arg1'
