@@ -2138,6 +2138,67 @@ static bool peek_event_rstack(struct uftrace_task_reader *task)
 	return true;
 }
 
+/* delay ustack after this schedule event */
+static void adjust_rstack_after_schedule(struct uftrace_data *handle,
+					 struct uftrace_task_reader *task)
+{
+	struct uftrace_record *next_rec;
+	struct fstack *prev_fstack;
+
+	if (task->rstack_list.count == 0)
+		return;
+
+	next_rec = get_first_rstack_list(&task->rstack_list);
+	if (next_rec->type == UFTRACE_ENTRY) {
+		task->timestamp_next = 0;
+		return;
+	}
+
+	/* get ENTRY record of the user function */
+	if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN && task->stack_count >= 2)
+		prev_fstack = fstack_get(task, task->stack_count - 2);
+	else
+		prev_fstack = fstack_get(task, task->stack_count - 1);
+
+	if (prev_fstack == NULL || prev_fstack->addr != next_rec->addr)
+		return;
+
+	if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+		if (task->timestamp_next == 0) {
+			/*
+			 * Get start time of next real (ENTRY) record as
+			 * it's necessary to adjust return time after schedule.
+			 * Note that estimated time of an EXIT record is a
+			 * half between two ENTRY records.
+			 *
+			 * So we can next timestamp by adding diff between
+			 * ENTRY and EXIT (i.e. half of delta) to EXIT.
+			 *
+			 *  EXIT + (EXIT - ENTRY) = 2*EXIT - ENTRY
+			 */
+			task->timestamp_next  = next_rec->time * 2;
+			task->timestamp_next -= prev_fstack->total_time;
+		}
+
+		pr_dbg3("task[%6d] delay next record after schedule\n", task->tid);
+		next_rec->time = ~0ULL;
+		return;
+	}
+
+	/* if next record's time is later than schedule, it's fine */
+	if (task->timestamp_estimate > task->rstack->time) {
+		next_rec->time = task->timestamp_estimate;
+		return;
+	}
+
+	/* calculate half between sched in and next */
+	next_rec->time = (task->rstack->time + task->timestamp_next) / 2;
+	/* save it in case it's overwritten by subsequent schedule */
+	task->timestamp_estimate = next_rec->time;
+
+	pr_dbg3("task[%6d] estimate next record after schedule\n", task->tid);
+}
+
 static int __read_rstack(struct uftrace_data *handle,
 			 struct uftrace_task_reader **taskp,
 			 bool consume)
@@ -2220,6 +2281,23 @@ static int __read_rstack(struct uftrace_data *handle,
 	case USER:
 		utask->rstack = &utask->ustack;
 		task = utask;
+
+		/* subsequent EXIT records might have inverted timestamp */
+		if (handle->hdr.feat_mask & ESTIMATE_RETURN &&
+		    task->timestamp_estimate != 0) {
+			if (task->rstack->type == UFTRACE_EXIT &&
+			    task->rstack->time <= task->timestamp_estimate) {
+				task->rstack->time = ++task->timestamp_estimate;
+			}
+			else {
+				/*
+				 * ENTRY records are always fine since
+				 * they have real timestamps.
+				 */
+				task->timestamp_estimate = 0;
+				task->timestamp_next = 0;
+			}
+		}
 		break;
 	case KERNEL:
 		ktask->rstack = get_kernel_record(kernel, ktask, k);
@@ -2258,6 +2336,12 @@ static int __read_rstack(struct uftrace_data *handle,
 			free(task->args.data);
 			task->args.data = xstrdup(perf->u.comm.comm);
 			task->args.len  = strlen(perf->u.comm.comm);
+		}
+		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
+			 task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+			if (handle->hdr.feat_mask & ESTIMATE_RETURN &&
+			    task->stack_count > 0)
+				adjust_rstack_after_schedule(handle, task);
 		}
 		break;
 
