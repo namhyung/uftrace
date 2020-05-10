@@ -152,6 +152,10 @@ static void restore_plt_functions(struct plthook_data *pd)
 				got_idx, sym->name, resolved_addr,
 				plthook_addr - pd->base_addr);
 		}
+		else if (mcount_estimate_return) {
+			/* we can't resolve PLT functions at return. do it now */
+			resolve_pltgot(pd, i);
+		}
 	}
 }
 
@@ -803,7 +807,12 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 		/* but if we don't have rstack, just bail out */
 		if (filtered == FILTER_RSTACK)
 			goto out;
+		if (mcount_estimate_return)
+			goto out;
 	}
+
+	if (mcount_estimate_return)
+		mcount_rstack_inject_return(mtdp, ret_addr);
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -819,12 +828,14 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	/* hijack the return address of child */
-	*ret_addr = (unsigned long)plthook_return;
+	if (!mcount_estimate_return) {
+		/* hijack the return address of child */
+		*ret_addr = (unsigned long)plthook_return;
 
-	/* restore return address of parent */
-	if (mcount_auto_recover)
-		mcount_auto_restore(mtdp);
+		/* restore return address of parent */
+		if (mcount_auto_recover)
+			mcount_auto_restore(mtdp);
+	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 
