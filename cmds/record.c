@@ -318,6 +318,9 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 	if (opts->srcline)
 		setenv("UFTRACE_SRCLINE", "1", 1);
 
+	if (opts->estimate_return)
+		setenv("UFTRACE_ESTIMATE_RETURN", "1", 1);
+
 	if (argc > 0) {
 		char *args = NULL;
 		int i;
@@ -391,6 +394,9 @@ static uint64_t calc_feat_mask(struct opts *opts)
 
 	if (opts->event)
 		features |= EVENT;
+
+	if (opts->estimate_return)
+		features |= ESTIMATE_RETURN;
 
 	xasprintf(&buf, "%s/*.dbg", opts->dirname);
 	if (glob(buf, GLOB_NOSORT, NULL, &g) != GLOB_NOMATCH)

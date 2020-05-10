@@ -152,6 +152,16 @@ RECORD OPTIONS
 \--time
 :   Print running time of children in `time`(1)-style.
 
+-e, \--estimate-return
+:   Record only ENTRY data for each function.  This option is useful when the
+    target program deals with stack in some way.  Normally uftrace modifies
+    task's execution stack frame to hook return from the function.  However
+    sometimes it makes troubles and it's hard to handle all the cases properly.
+    This option tells uftrace not to hook return address in order to prevent
+    those problems.  The return time is estimated as a half of execution time
+    of two consecutive functions.
+
+
 RECORD CONFIG OPTIONS
 =====================
 -L *PATH*, \--library-path=*PATH*
