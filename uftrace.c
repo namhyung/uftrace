@@ -144,6 +144,7 @@ __used static const char uftrace_help[] =
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "      --graphviz             Dump recorded data in DOT format\n"
+"  -H, --hide=FUNC            Hide FUNCs from trace\n"
 "      --host=HOST            Send trace data to HOST instead of write to file\n"
 "  -k, --kernel               Trace kernel functions also (if supported)\n"
 "      --keep-pid             Keep same pid during execution of traced program\n"
@@ -210,7 +211,7 @@ __used static const char uftrace_help[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:eE:f:F:hkK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
@@ -293,6 +294,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(watch, 'W'),
 	REQ_ARG(signal, OPT_signal),
 	NO_ARG(srcline, OPT_srcline),
+	REQ_ARG(hide, 'H'),
 	NO_ARG(help, 'h'),
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
@@ -536,6 +538,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'C':
 		opts->caller = opt_add_string(opts->caller, arg);
+		break;
+
+	case 'H':
+		opts->hide = opt_add_string(opts->hide, arg);
 		break;
 
 	case 'v':
