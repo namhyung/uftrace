@@ -804,6 +804,14 @@ static void print_##_func##_diff_full_percent(struct field_data *fd)		\
 }										\
 FIELD_STRUCT(_id, _name, _func##_diff_full_percent, _header, 32)
 
+#define FIELD_TID(_id, _name, _func, _header)			\
+static void print_##_func(struct field_data *fd)		\
+{								\
+	struct uftrace_report_node *node = fd->arg;		\
+	pr_out("%6d", strtol(node->name, NULL, 10));		\
+}								\
+FIELD_STRUCT(_id, _name, _func, _header, 6)
+
 #define NODATA "-"
 static void print_time_or_dash(uint64_t time_nsec)
 {
@@ -852,6 +860,11 @@ FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min (diff)");
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_CALL_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full_percent, "Calls (diff)");
+
+FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time");
+FIELD_TIME(REPORT_F_TASK_SELF_TIME, self, self.sum, task_self, "Self time");
+FIELD_CALL(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
+FIELD_TID(REPORT_F_TASK_TID, tid, task_tid, "TID");
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
@@ -905,6 +918,14 @@ static struct display_field *field_diff_full_percent_table[] = {
 	&field_call_diff_full_percent,
 };
 
+/* index of this table should be matched to display_field_id */
+static struct display_field *field_task_table[] = {
+	&field_task_total,
+	&field_task_self,
+	&field_task_nr_func,
+	&field_task_tid,
+};
+
 static void setup_default_field(struct list_head *fields, struct opts *opts,
 				struct display_field *p_field_table[])
 {
@@ -929,6 +950,15 @@ static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
 }
 
+static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+				struct display_field *p_field_table[])
+{
+	add_field(fields, p_field_table[REPORT_F_TASK_TOTAL_TIME]);
+	add_field(fields, p_field_table[REPORT_F_TASK_SELF_TIME]);
+	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
+	add_field(fields, p_field_table[REPORT_F_TASK_TID]);
+}
+
 void setup_report_field(struct list_head *output_fields, struct opts *opts,
 			enum avg_mode avg_mode)
 {
@@ -937,6 +967,12 @@ void setup_report_field(struct list_head *output_fields, struct opts *opts,
 	setup_default_field_t fn[] = { &setup_default_field,
 				       &setup_avg_total_field,
 				       &setup_avg_self_field };
+
+	if (opts->show_task) {
+		setup_field(output_fields, opts, setup_default_task_field,
+			    field_task_table, ARRAY_SIZE(field_task_table));
+		return;
+	}
 
 	if (opts->diff) {
 		if (opts->diff_policy && diff_policy.full) {

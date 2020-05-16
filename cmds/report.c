@@ -339,7 +339,7 @@ static void adjust_task_runtime(struct uftrace_data *handle,
 	}
 }
 
-static void print_thread(struct uftrace_report_node *node, void *arg, int space)
+static void print_task(struct uftrace_report_node *node, void *arg, int space)
 {
 	int pid;
 	struct uftrace_task *t;
@@ -348,11 +348,10 @@ static void print_thread(struct uftrace_report_node *node, void *arg, int space)
 	pid = strtol(node->name, NULL, 10);
 	t = find_task(&handle->sessions, pid);
 
-	pr_out("  ");
-	print_time_unit(node->total.sum);
-	pr_out("  ");
-	print_time_unit(node->self.sum);
-	pr_out("  %10"PRIu64 "  %6d  %-s\n", node->call, pid, t->comm);
+	print_field(node, space);
+
+	pr_out("%*s", space, " ");
+	pr_out("%-16s\n", t->comm);
 }
 
 static void report_task(struct uftrace_data *handle, struct opts *opts)
@@ -361,9 +360,8 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 	struct rb_root task_tree = RB_ROOT;
 	struct rb_root sort_tree = RB_ROOT;
 	struct uftrace_task_reader *task;
-	const char t_format[] = "  %10.10s  %10.10s  %10.10s  %6.6s  %-16.16s\n";
-	const char line[] = "=================================================";
 	char buf[10];
+	int field_space = 2;
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
@@ -408,10 +406,13 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 	adjust_task_runtime(handle, &task_tree);
 	report_sort_tasks(handle, &task_tree, &sort_tree);
 
-	pr_out(t_format, "Total time", "Self time", "Num funcs", "TID", "Task name");
-	pr_out(t_format, line, line, line, line, line);
+	setup_report_field(&output_fields, opts, avg_mode);
 
-	print_and_delete(&sort_tree, true, handle, print_thread, 0);
+	print_header_align(&output_fields, "  ", "Task name", field_space,
+			   ALIGN_RIGHT, true);
+
+	print_line(&output_fields, field_space);
+	print_and_delete(&sort_tree, true, handle, print_task, field_space);
 }
 
 struct diff_data {
