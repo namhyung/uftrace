@@ -328,6 +328,7 @@ static const char *skip_syms[] = {
 	"__cxa_begin_catch",
 	"__cxa_end_catch",
 	"__cxa_finalize",
+	"__gxx_personality_v0",
 	"_Unwind_Resume",
 };
 
