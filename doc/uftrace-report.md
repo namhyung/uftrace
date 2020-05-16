@@ -22,10 +22,19 @@ with the `--diff` option.
 
 REPORT OPTIONS
 ==============
+-f *FIELD*, \--output-fields=*FIELD*
+:   Customize field in the output.  Possible values are: `total`, `total-avg`,
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max` and
+    `call`.  Multiple fields can be set by using comma.  Special field of
+    'none' can be used (solely) to hide all fields.
+    Default is 'total,self,call'.  See *FIELDS*.
+
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
-    comma (,).  Possible keys are `total` (time), `self` (time), `call`, `func`,
-    `avg`, `min`, `max`.  Note that the first 3 keys should be used when
+    comma (,).  Possible keys are `total` (time), `total-avg`, `total-min`,
+    `total-max`, `self` (time), `self-avg`, `self-min`, `self-max`, `call`
+    and `func`.
+    Note that the first 3 keys should be used when
     neither of `--avg-total` nor `--avg-self` is used.  Likewise, the last 3
     keys should be used when either of those options is used.
 
@@ -37,6 +46,10 @@ REPORT OPTIONS
 
 \--task
 :   Report task summary information rather than function statistics.
+    Customize field in the output with -f option. Possible values are: `total`,
+    `self`, `func` and `tid`.  Multiple fields can be set by using comma.
+    Special field of 'none' can be used (solely) to hide all fields.
+    Default is 'total,self,func,tid'.  See *TASK FIELDS*.
 
 \--diff=*DATA*
 :   Report differences between the input trace data and the given DATA.
@@ -238,6 +251,96 @@ The example below will sort output by total time of the base data.
         0.920 us    0.789 us   -14.24%     0.920 us    0.789 us   -14.24%            1          1         +0   __cxa_atexit
         0.767 us    0.706 us    -7.95%     0.767 us    0.706 us    -7.95%            1          1         +0   getpid
 
+FIELDS
+======
+The uftrace allows for user to customize the report output with a couple of fields.
+By default it uses total, self and call fields, but you can use other fields
+in any order like:
+
+    $ uftrace report -f total,total-max,self-min,call
+    Total time   Total max    Self min       Calls  Function
+    ==========  ==========  ==========  ==========  ====================
+     97.234 us   36.033 us    1.073 us           3  lib_a
+     50.552 us   26.690 us    2.828 us           2  lib_b
+     46.806 us   46.806 us    3.290 us           1  main
+     43.516 us   43.516 us    7.483 us           1  foo
+     32.010 us   20.847 us    9.684 us           2  lib_c
+
+Each field can be used as sort key:
+
+    $ uftrace report -f total,total-max,self-min,call -s call
+    Total time   Total max    Self min       Calls  Function
+    ==========  ==========  ==========  ==========  ====================
+     97.234 us   36.033 us    1.073 us           3  lib_a
+     50.552 us   26.690 us    2.828 us           2  lib_b
+     32.010 us   20.847 us    9.684 us           2  lib_c
+     43.516 us   43.516 us    7.483 us           1  foo
+     46.806 us   46.806 us    3.290 us           1  main
+
+    $ uftrace report -f total,total-max,self-min,total-min,call -s self-min,total-min
+    Total time   Total max    Self min   Total min       Calls  Function
+    ==========  ==========  ==========  ==========  ==========  ====================
+     32.010 us   20.847 us    9.684 us   11.163 us           2  lib_c
+     43.516 us   43.516 us    7.483 us   43.516 us           1  foo
+     46.806 us   46.806 us    3.290 us   46.806 us           1  main
+     50.552 us   26.690 us    2.828 us   23.862 us           2  lib_b
+     97.234 us   36.033 us    1.073 us   27.763 us           3  lib_a
+
+Each field can be used with --diff option:
+
+    $ uftrace report --diff uftrace.data.old -f total,total-min
+    #
+    # uftrace diff
+    #  [0] base: uftrace.data       (from uftrace record test/t-lib)
+    #  [1] diff: uftrace.data.old   (from uftrace record test/t-lib)
+    #
+     Total time     Total min   Function
+    ===========   ===========   ====================
+     +34.560 us     +9.884 us   lib_a
+     +18.086 us     +8.517 us   lib_b
+     +16.887 us    +16.887 us   main
+     +15.479 us    +15.479 us   foo
+     +10.600 us     +3.127 us   lib_c
+
+    $ uftrace report --diff uftrace.data.old -f total,total-min,self-avg --diff-policy full
+    #
+    # uftrace diff
+    #  [0] base: uftrace.data           (from uftrace record --srcline test/t-lib)
+    #  [1] diff: uftrace.data.old	(from uftrace record --srcline test/t-lib)
+    #
+                      Total time (diff)                      Total min (diff)                       Self avg (diff)   Function
+    ===================================   ===================================   ===================================   ====================
+     14.616 us   13.796 us    +0.820 us     4.146 us    3.823 us    +0.323 us     0.443 us    0.459 us    -0.016 us   lib_a
+      6.529 us    5.957 us    +0.572 us     6.529 us    5.957 us    +0.572 us     0.436 us    0.356 us    +0.080 us   main
+      7.700 us    7.173 us    +0.527 us     3.677 us    3.426 us    +0.251 us     0.365 us    0.363 us    +0.002 us   lib_b
+      6.093 us    5.601 us    +0.492 us     6.093 us    5.601 us    +0.492 us     0.741 us    0.476 us    +0.265 us   foo
+      5.638 us    5.208 us    +0.430 us     2.346 us    2.187 us    +0.159 us     1.646 us    1.510 us    +0.136 us   lib_c
+
+Each field has following meaning:
+
+ * total: total time of each function.
+ * total-avg: average of total time of each function.
+ * total-min: min of total time of each function.
+ * total-max: max of total time of each function.
+ * self: self time of each function.
+ * self-avg: average of self time of each function.
+ * self-min: min of self time of each function.
+ * self-max: max of self time of each function.
+ * call: called count of each function.
+
+The default value is 'total,self,call'.  If given field name starts with "+",
+then it'll be appended to the default fields.  So "-f +total-avg" is as same as
+"-f total,self,call,total-avg".  And it also accepts a special field name of
+'none' which disables the field display and shows function output only.
+
+TASK FIELDS
+======
+ * total: total time of each task.
+ * self: self time of each task.
+ * func: number of functions in the task.
+ * tid: task ID.
+
+The default value is 'total,self,func,tid'. See *FIELDS* for field usage.
 
 SEE ALSO
 ========

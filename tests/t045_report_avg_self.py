@@ -5,15 +5,15 @@ from runtest import TestBase
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', """
-    Avg self    Min self    Max self  Function
-  ==========  ==========  ==========  ====================================
-    1.078 ms    1.078 ms    1.078 ms  usleep
-   71.683 us   71.683 us   71.683 us  main
-   70.176 us   70.176 us   70.176 us  __monstartup   # ignore this
-    1.813 us    1.813 us    1.813 us  bar
-    1.051 us    0.868 us    1.912 us  loop
-    1.002 us    1.002 us    1.002 us  __cxa_atexit   # and this too
-    0.509 us    0.359 us    0.660 us  foo
+    Self avg    Self min    Self max  Function
+  ==========  ==========  ==========  ====================
+   10.288 ms   10.288 ms   10.288 ms  usleep
+  598.518 us  598.518 us  598.518 us  main
+  249.854 us  249.854 us  249.854 us  bar
+   39.967 us   39.801 us   40.275 us  loop
+    1.044 us    0.884 us    1.205 us  foo
+    0.701 us    0.701 us    0.701 us  __monstartup   # ignore this
+    0.270 us    0.270 us    0.270 us  __cxa_atexit   # and this too
 """)
 
     def prepare(self):
@@ -32,7 +32,7 @@ class TestCase(TestBase):
             if ln.strip() == '':
                 continue
             line = ln.split()
-            if line[0] == 'Avg':
+            if line[1] == 'avg':
                 continue
             if line[0].startswith('='):
                 continue
