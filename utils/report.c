@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "uftrace.h"
 #include "utils/report.h"
 #include "utils/fstack.h"
 #include "utils/utils.h"
+#include "utils/field.h"
 
 static void init_time_stat(struct report_time_stat *ts)
 {
@@ -712,6 +714,90 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 		insert_task(handle, sort_root, node);
 		n = rb_next(n);
 	}
+}
+
+#define FIELD_STRUCT(_id, _name, _func, _header, _length)	\
+static struct display_field field_##_func = {			\
+	.id      = _id,						\
+	.name    = #_name,					\
+	.header  = _header,					\
+	.length  = _length,					\
+	.print   = print_##_func,				\
+	.list    = LIST_HEAD_INIT(field_##_func.list)		\
+};
+
+#define FIELD_TIME(_id, _name, _field, _func, _header)		\
+static void print_##_func(struct field_data *fd)		\
+{								\
+	struct uftrace_report_node *node = fd->arg;		\
+	print_time_unit(node->_field);				\
+}								\
+FIELD_STRUCT(_id, _name, _func, _header, 10)
+
+#define FIELD_CALL(_id, _name, _field, _func, _header)		\
+static void print_##_func(struct field_data *fd)		\
+{								\
+	struct uftrace_report_node *node = fd->arg;		\
+	pr_out("%10"PRIu64 "", node->_field);			\
+}								\
+FIELD_STRUCT(_id, _name, _func, _header, 10)
+
+FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
+FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg");
+FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "Total min");
+FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "Total max");
+FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "Self time");
+FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg");
+FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
+FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
+FIELD_CALL(REPORT_F_CALL, call, call, call, "Calls");
+
+/* index of this table should be matched to display_field_id */
+static struct display_field *field_table[] = {
+	&field_total,
+	&field_total_avg,
+	&field_total_min,
+	&field_total_max,
+	&field_self,
+	&field_self_avg,
+	&field_self_min,
+	&field_self_max,
+	&field_call,
+};
+
+static void setup_default_field(struct list_head *fields, struct opts *opts,
+				struct display_field *p_field_table[])
+{
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME]);
+	add_field(fields, p_field_table[REPORT_F_CALL]);
+}
+
+static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
+				  struct display_field *p_field_table[])
+{
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_AVG]);
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MIN]);
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MAX]);
+}
+
+static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
+				 struct display_field *p_field_table[])
+{
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME_AVG]);
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MIN]);
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
+}
+
+void setup_report_field(struct list_head *output_fields, struct opts *opts,
+			enum avg_mode avg_mode)
+{
+	setup_default_field_t fn[] = { &setup_default_field,
+				       &setup_avg_total_field,
+				       &setup_avg_self_field };
+
+	setup_field(output_fields, opts, fn[avg_mode],
+		    field_table, ARRAY_SIZE(field_table));
 }
 
 #ifdef UNIT_TEST

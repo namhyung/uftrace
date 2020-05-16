@@ -221,7 +221,8 @@ static void print_field(struct uftrace_task_reader *task,
 		pr_out(" | ");
 }
 
-static void setup_default_field(struct list_head *fields, struct opts *opts)
+static void setup_default_field(struct list_head *fields, struct opts *opts,
+				struct display_field *p_field_table[])
 {
 	if (opts->range.start > 0 || opts->range.stop > 0) {
 		if (opts->range.start_elapsed || opts->range.stop_elapsed)

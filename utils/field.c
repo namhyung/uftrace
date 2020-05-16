@@ -23,6 +23,32 @@ void print_header(struct list_head *output_fields, const char *prefix,
 		pr_out("\n");
 }
 
+void print_header_align(struct list_head *output_fields, const char *prefix,
+			const char *postfix, int space, enum align_pos align,
+			bool new_line)
+{
+	struct display_field *field;
+	bool first = true;
+
+	/* do not print anything if not needed */
+	if (list_empty(output_fields))
+		return;
+
+	list_for_each_entry(field, output_fields, list) {
+		pr_out("%*s", space, first ? prefix : "");
+		if (align == ALIGN_LEFT)
+			pr_out("%-*s", field->length, field->header);
+		else
+			pr_out("%*s", field->length, field->header);
+		first = false;
+	}
+
+	pr_out("%*s", space, " ");
+	pr_out("%s", postfix);
+	if (new_line)
+		pr_out("\n");
+}
+
 int print_field_data(struct list_head *output_fields, struct field_data *fd,
 		     int space)
 {
@@ -74,7 +100,7 @@ static bool check_field_name(struct display_field *field, const char *name)
 }
 
 void setup_field(struct list_head *output_fields, struct opts *opts,
-		 void (*setup_default_field)(struct list_head *fields, struct opts*),
+		 setup_default_field_t setup_default_field,
 		 struct display_field *field_table[], size_t field_table_size)
 {
 	struct display_field *field;
@@ -85,7 +111,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 
 	/* default fields */
 	if (opts->fields == NULL) {
-		setup_default_field(output_fields, opts);
+		setup_default_field(output_fields, opts, field_table);
 		return;
 	}
 
@@ -96,7 +122,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 
 	if (*str == '+') {
 		/* prepend default fields */
-		setup_default_field(output_fields, opts);
+		setup_default_field(output_fields, opts, field_table);
 		str++;
 	}
 

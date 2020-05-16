@@ -175,12 +175,14 @@ static struct display_field *field_task_table[] = {
 	&field_task_tid,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts)
+static void setup_default_field(struct list_head *fields, struct opts *opts,
+				struct display_field *p_field_table[])
 {
 	add_field(fields, field_table[GRAPH_F_TOTAL_TIME]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts)
+static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+				     struct display_field *p_field_table[])
 {
 	add_field(fields, field_task_table[GRAPH_F_TASK_TOTAL_TIME]);
 	add_field(fields, field_task_table[GRAPH_F_TASK_SELF_TIME]);

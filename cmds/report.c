@@ -9,16 +9,23 @@
 #include "utils/list.h"
 #include "utils/fstack.h"
 #include "utils/report.h"
+#include "utils/field.h"
 
-enum {
-	AVG_NONE,
-	AVG_TOTAL,
-	AVG_SELF,
-	AVG_ANY,
-} avg_mode = AVG_NONE;
+enum avg_mode avg_mode = AVG_NONE;
 
 /* maximum length of symbol */
 static int maxlen = 20;
+
+static LIST_HEAD(output_fields);
+
+static void print_field(struct uftrace_report_node *node, int space)
+{
+	struct field_data fd = {
+		.arg = node,
+	};
+
+	print_field_data(&output_fields, &fd, space);
+}
 
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 			char *symname, struct debug_location* loc)
@@ -178,7 +185,8 @@ static void build_function_tree(struct uftrace_data *handle,
 }
 
 static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
-			     void (*print_func)(struct uftrace_report_node *, void *))
+			     void (*print_func)(struct uftrace_report_node *, void *, int space),
+			     int space)
 {
 	while (!RB_EMPTY_ROOT(root)) {
 		struct rb_node *n;
@@ -192,56 +200,48 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 		else
 			node = rb_entry(n, typeof(*node), name_link);
 
-		print_func(node, arg);
+		print_func(node, arg, space);
 		free(node->name);
 		free(node);
 	}
 }
 
-static void print_function(struct uftrace_report_node *node, void *unused)
+static void print_function(struct uftrace_report_node *node, void *unused, int space)
 {
-	if (avg_mode == AVG_NONE) {
-		pr_out("  ");
-		print_time_unit(node->total.sum);
-		pr_out("  ");
-		print_time_unit(node->self.sum);
-		pr_out("  %10"PRIu64 "  %-s", node->call, node->name);
-		if (node->loc)
-			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
-		pr_out("\n");
-	}
-	else {
-		uint64_t time_avg, time_min, time_max;
+	print_field(node, space);
 
-		if (avg_mode == AVG_TOTAL) {
-			time_avg = node->total.avg;
-			time_min = node->total.min;
-			time_max = node->total.max;
-		}
-		else {
-			time_avg = node->self.avg;
-			time_min = node->self.min;
-			time_max = node->self.max;
-		}
-		pr_out("  ");
-		print_time_unit(time_avg);
-		pr_out("  ");
-		print_time_unit(time_min);
-		pr_out("  ");
-		print_time_unit(time_max);
-		pr_out("  %-s", node->name);
-		if (node->loc)
-			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
-		pr_out("\n");
+	pr_out("%*s", space, " ");
+	pr_out("%-s", node->name);
+
+	if (node->loc)
+		pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+
+	pr_out("\n");
+}
+
+static void print_line(struct list_head *output_fields, int space)
+{
+	struct display_field *field;
+	const char line[] = "=================================================";
+
+	/* do not print anything if not needed */
+	if (list_empty(output_fields))
+		return;
+
+	list_for_each_entry(field, output_fields, list) {
+		pr_out("%*s", space, "");
+		pr_out("%-.*s", field->length, line);
 	}
+
+	pr_out("%*s", space, " ");
+	pr_out("%-.*s\n", maxlen, line);
 }
 
 static void report_functions(struct uftrace_data *handle, struct opts *opts)
 {
 	struct rb_root name_root = RB_ROOT;
 	struct rb_root sort_root = RB_ROOT;
-	const char f_format[] = "  %10.10s  %10.10s  %10.10s  %-.*s";
-	const char line[] = "=================================================";
+	const int field_space = 2;
 
 	build_function_tree(handle, &name_root, opts);
 	report_calc_avg(&name_root);
@@ -250,20 +250,18 @@ static void report_functions(struct uftrace_data *handle, struct opts *opts)
 	if (uftrace_done)
 		return;
 
-	if (avg_mode == AVG_NONE)
-		pr_out(f_format, "Total time", "Self time", "Calls", maxlen, "Function");
-	else if (avg_mode == AVG_TOTAL)
-		pr_out(f_format, "Avg total", "Min total", "Max total", maxlen, "Function");
-	else if (avg_mode == AVG_SELF)
-		pr_out(f_format, "Avg self", "Min self", "Max self", maxlen, "Function");
-	if (opts->srcline)
-		pr_gray(" [Source]");
-	pr_out("\n");
+	setup_report_field(&output_fields, opts, avg_mode);
 
-	pr_out(f_format, line, line, line, maxlen, line);
-	pr_out("\n");
+	print_header_align(&output_fields, "  ", "Function", field_space,
+			   ALIGN_RIGHT, false);
+	if (!list_empty(&output_fields)) {
+		if (opts->srcline)
+			pr_gray(" [Source]");
+		pr_out("\n");
+	}
 
-	print_and_delete(&sort_root, true, NULL, print_function);
+	print_line(&output_fields, field_space);
+	print_and_delete(&sort_root, true, NULL, print_function, field_space);
 }
 
 static void add_remaining_task_fstack(struct uftrace_data *handle,
@@ -341,7 +339,7 @@ static void adjust_task_runtime(struct uftrace_data *handle,
 	}
 }
 
-static void print_thread(struct uftrace_report_node *node, void *arg)
+static void print_thread(struct uftrace_report_node *node, void *arg, int space)
 {
 	int pid;
 	struct uftrace_task *t;
@@ -413,7 +411,7 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 	pr_out(t_format, "Total time", "Self time", "Num funcs", "TID", "Task name");
 	pr_out(t_format, line, line, line, line, line);
 
-	print_and_delete(&sort_tree, true, handle, print_thread);
+	print_and_delete(&sort_tree, true, handle, print_thread, 0);
 }
 
 struct diff_data {
@@ -432,7 +430,7 @@ static void print_time_or_dash(uint64_t time_nsec)
 		pr_out("%10s", NODATA);
 }
 
-static void print_function_diff(struct uftrace_report_node *node, void *arg)
+static void print_function_diff(struct uftrace_report_node *node, void *arg, int space)
 {
 	struct uftrace_report_node *pair = node->pair;
 
@@ -627,7 +625,7 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	pr_out(formats[f_idx], line, line, line, maxlen, line);
 	pr_out("\n");
 
-	print_and_delete(&diff_tree, true, NULL, print_function_diff);
+	print_and_delete(&diff_tree, true, NULL, print_function_diff, 0);
 
 out:
 	destroy_diff_nodes(&diff_tree);
@@ -646,8 +644,17 @@ char * convert_sort_keys(char *sort_keys)
 	if (sort_keys == NULL)
 		return xstrdup(default_sort_key[avg_mode]);
 
-	if (avg_mode == AVG_NONE)
-		return xstrdup(sort_keys);
+	if (avg_mode == AVG_NONE) {
+		new_keys = xstrdup(sort_keys);
+		char *s = new_keys;
+		while (*s) {
+			if (*s == '-')
+				*s = '_';
+			s++;
+		}
+
+		return new_keys;
+	}
 
 	strv_split(&keys, sort_keys, ",");
 
@@ -682,10 +689,15 @@ int command_report(int argc, char *argv[], struct opts *opts)
 		pr_use("--avg-total and --avg-self options should not be used together.\n");
 		exit(1);
 	}
-	else if (opts->avg_total)
+	else if (opts->fields && (opts->avg_self || opts->avg_total)) {
+		pr_warn("--avg-total and --avg-self options are ignored when used with -f option.\n");
+	}
+	else if (opts->avg_total) {
 		avg_mode = AVG_TOTAL;
-	else if (opts->avg_self)
+	}
+	else if (opts->avg_self) {
 		avg_mode = AVG_SELF;
+	}
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
