@@ -381,6 +381,8 @@ class TestBase:
         return os.path.exists('%s/check-deps/' % self.basedir + item)
 
     def check_perf_paranoid(self):
+        if not 'perf' in TestBase.feature:
+            return False
         try:
             f = open('/proc/sys/kernel/perf_event_paranoid')
             v = int(f.readline())
