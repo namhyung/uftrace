@@ -38,7 +38,7 @@ ENTRY(mcount_return)
 
 	/* save return values */
 	stp	x0, x1, [sp, #-16]!
-	stp	d0, d1, [sp, #-16]!
+	str	q0, [sp, #-16]!
 
 	/*
 	 * save indirect result location register
@@ -55,7 +55,7 @@ ENTRY(mcount_return)
 	ldr	x8, [sp], #16
 
 	/* restore return values */
-	ldp	d0, d1, [sp], #16
+	ldr	q0, [sp], #16
 	ldp	x0, x1, [sp], #16
 
 	/* restore frame pointer */

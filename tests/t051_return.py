@@ -16,7 +16,8 @@ class TestCase(TestBase):
 """)
 
     def fixup(self, cflags, result):
-        if TestBase.get_elf_machine(self) == 'arm':
+        machine = TestBase.get_elf_machine(self)
+        if machine == 'arm' or machine == 'aarch64':
             return result.replace('memset', """memset();
    1.440 us [12703] |     memcpy""");
 
