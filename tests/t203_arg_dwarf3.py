@@ -25,6 +25,8 @@ class TestCase(TestBase):
 """, lang='C++', cflags='-g')
 
     def build(self, name, cflags='', ldflags=''):
+        if not 'dwarf' in self.feature:
+            return TestBase.TEST_SKIP
         if cflags.find('-finstrument-functions') >= 0:
             return TestBase.TEST_SKIP
 

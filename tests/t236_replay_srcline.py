@@ -19,6 +19,11 @@ class TestCase(TestBase):
    2.644 us [ 19939] | } /* main at tests/s-abc.c:26 */
 """, cflags='-g')
 
+    def build(self, name, cflags='', ldflags=''):
+        if not 'dwarf' in self.feature:
+            return TestBase.TEST_SKIP
+        return TestBase.build(self, name, cflags, ldflags)
+
     def prepare(self):
         self.subcmd = 'record'
         self.option = '--srcline'
