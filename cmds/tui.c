@@ -447,7 +447,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	else  /* rec->type == UFTRACE_LOST */
 		return 0;
 
-	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
+	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node), NULL);
 	if (tg->node && tg->node != &graph->root) {
 		graph_node = (struct tui_graph_node *)tg->node;
 		graph_node->graph = graph;
@@ -507,7 +507,7 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 
 			update_report_node(task, name, tg);
 			graph_add_node(tg, UFTRACE_EXIT, name,
-				       sizeof(struct tui_graph_node));
+				       sizeof(struct tui_graph_node), NULL);
 
 			symbol_putname(sym, name);
 		}

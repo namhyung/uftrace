@@ -456,10 +456,15 @@ static void print_graph_node(struct uftrace_graph *graph,
 	pr_indent(indent_mask, indent, needs_line);
 
 	/* FIXME: it should count fork+exec properly */
-	if (full_graph && node == &graph->root)
+	if (full_graph && node == &graph->root) {
 		pr_out("(%d) %s\n", 1, symname);
-	else
-		pr_out("(%d) %s\n", node->nr_calls, symname);
+	}
+	else {
+		pr_out("(%d) %s", node->nr_calls, symname);
+		if (node->loc)
+			pr_gray(" [%s:%d]", node->loc->file->name, node->loc->line);
+		pr_out("\n");
+	}
 
 	if (node->nr_edges > 1) {
 		pr_dbg2("add mask (%d) for %s\n", indent, symname);
@@ -509,7 +514,13 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 
 	if (graph->ug.root.time || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
-		print_header(&output_fields, "# ", "FUNCTION", 2, true);
+		print_header(&output_fields, "# ", "FUNCTION", 2, false);
+		if (!list_empty(&output_fields)) {
+			if (opts->srcline)
+				pr_gray(" %s", "[SOURCE]");
+			pr_out("\n");
+		}
+
 		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
 		print_graph_node(&graph->ug, &graph->ug.root, indent_mask, 0,
 				 graph->ug.root.nr_edges > 1);
@@ -526,6 +537,7 @@ static void build_graph_node(struct opts *opts,
 	struct task_graph *tg;
 	struct sym *sym = NULL;
 	char *name;
+	struct debug_location *loc = NULL;
 
 	tg = get_task_graph(task, time, addr);
 	if (unlikely(tg->utg.graph == NULL))
@@ -542,8 +554,12 @@ static void build_graph_node(struct opts *opts,
 		goto out;
 
 	if (tg->enabled) {
+		if (opts->srcline) {
+			loc = task_find_loc_addr(&task->h->sessions, task, time, addr);
+		}
+
 		graph_add_node(&tg->utg, type, name,
-			       sizeof(struct uftrace_graph_node));
+			       sizeof(struct uftrace_graph_node), loc);
 	}
 
 	/* cannot find a session for this record */
