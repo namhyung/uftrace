@@ -32,6 +32,9 @@ GRAPH OPTIONS
 :   Print task graph instead of normal function graph.  The each node in the
     output shows process or thread(printed in green color).
 
+\--srcline
+:   Show source location of each function if available.
+
 
 COMMON OPTIONS
 ==============
@@ -242,6 +245,24 @@ created `t-abc` process, and also created many threads whose names are all
 
 Please note that the indentation depth of thread is different from process.
 
+Running the `graph` command with `--srcline` option shows source location
+in call graph like below:
+
+    $ uftrace record --srcline t-abc
+    $ uftrace graph --srcline
+    # Function Call Graph for 't-abc' (session: 60195bac953d8736)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   FUNCTION [SOURCE]
+      8.909 us : (1) t-abc
+      1.260 us :  +-(1) __monstartup
+               :  |
+      0.179 us :  +-(1) __cxa_atexit
+               :  |
+      7.470 us :  +-(1) main [tests/s-abc.c:26]
+      5.522 us :    (1) a [tests/s-abc.c:11]
+      4.912 us :    (1) b [tests/s-abc.c:16]
+      4.176 us :    (1) c [tests/s-abc.c:21]
+      0.794 us :    (1) getpid
 
 FIELDS
 ======
