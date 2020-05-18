@@ -162,6 +162,7 @@ Following keys can be used in the TUI window:
  * `<`/`P`:               Search previous match
  * `>`/`N`:               Search next match
  * `v`:                   Show debug message
+ * `d`:                   Show source location
  * `h`/`?`:               Show help window
  * `q`:                   Quit
 

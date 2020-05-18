@@ -1133,7 +1133,7 @@ static void dump_flame_task_rstack(struct uftrace_dump_ops *ops,
 	if (graph->node == NULL)
 		graph->node = &flame_graph.root;
 
-	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
+	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node), NULL);
 }
 
 static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
@@ -1155,7 +1155,7 @@ static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 	if (graph->node == NULL)
 		graph->node = &flame_graph.root;
 
-	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node));
+	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node), NULL);
 }
 
 static void dump_flame_footer(struct uftrace_dump_ops *ops,
@@ -1210,7 +1210,7 @@ static void dump_graphviz_task_rstack(struct uftrace_dump_ops *ops,
 	if (graph->node == NULL)
 		graph->node = &graphviz_graph.root;
 
-	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node));
+	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node), NULL);
 }
 
 static void dump_graphviz_kernel_rstack(struct uftrace_dump_ops *ops,
@@ -1232,7 +1232,7 @@ static void dump_graphviz_kernel_rstack(struct uftrace_dump_ops *ops,
 	if (graph->node == NULL)
 		graph->node = &graphviz_graph.root;
 
-	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node));
+	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node), NULL);
 }
 
 static void print_graph_to_graphviz(struct uftrace_graph_node *node,

@@ -541,7 +541,7 @@ static void build_graph_node(struct opts *opts,
 
 	if (tg->enabled) {
 		graph_add_node(&tg->utg, type, name,
-			       sizeof(struct uftrace_graph_node));
+			       sizeof(struct uftrace_graph_node), NULL);
 	}
 
 	/* cannot find a session for this record */

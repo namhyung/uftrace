@@ -58,7 +58,8 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 }
 
 static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
-			   size_t node_size)
+			   size_t node_size,
+			   struct debug_location* loc)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
@@ -94,6 +95,8 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 		node->parent = curr;
 		list_add_tail(&node->list, &node->parent->head);
 		node->parent->nr_edges++;
+
+		node->loc = loc;
 
 		if (uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
 			struct sym *sym;
@@ -192,7 +195,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 	if (rec->addr == EVENT_ID_PERF_SCHED_OUT) {
 		/* to match addr with sched-in */
 		rec->addr = EVENT_ID_PERF_SCHED_IN;
-		return add_graph_entry(tg, sched_sym.name, node_size);
+		return add_graph_entry(tg, sched_sym.name, node_size, NULL);
 	}
 	else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
 		return add_graph_exit(tg);
@@ -202,10 +205,11 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 }
 
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size)
+		   size_t node_size,
+		   struct debug_location* loc)
 {
 	if (type == UFTRACE_ENTRY)
-		return add_graph_entry(tg, name, node_size);
+		return add_graph_entry(tg, name, node_size, loc);
 	else if (type == UFTRACE_EXIT)
 		return add_graph_exit(tg);
 	else if (type == UFTRACE_EVENT)
