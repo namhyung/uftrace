@@ -16,12 +16,6 @@ class TestCase(TestBase):
     0.186 us    0.186 us           1  __cxa_atexit
 """, cflags='-g')
 
-    def build(self, name, cflags='', ldflags=''):
-        if cflags.find('-finstrument-functions') >= 0:
-            return TestBase.TEST_SKIP
-
-        return TestBase.build(self, name, cflags, ldflags)
-
     def prepare(self):
         self.subcmd = 'record'
         self.option = '--srcline'
