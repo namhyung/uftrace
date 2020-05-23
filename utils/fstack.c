@@ -253,6 +253,12 @@ static int count_filters(struct uftrace_session *s, void *arg)
 	return 0;
 }
 
+static int count_callers(struct uftrace_session *s, void *arg)
+{
+	*(int *)arg += uftrace_count_filter(&s->filters, TRIGGER_FL_CALLER);
+	return 0;
+}
+
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @handle      - handle for uftrace data
@@ -307,9 +313,14 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
 
 		if (prev == count)
 			return -1;
+	}
 
+	/* there might be caller triggers, count it separately */
+	count = 0;
+	walk_sessions(sessions, count_callers, &count);
+	if (count != 0) {
 		handle->caller_filter = true;
-		pr_dbg("setup caller filters for %d function(s)\n", count - prev);
+		pr_dbg("setup caller filters for %d function(s)\n", count);
 	}
 
 	return 0;

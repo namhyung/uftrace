@@ -424,11 +424,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &symtabs,
 					    &mcount_triggers, &filter_setting);
-
-		if (uftrace_count_filter(&mcount_triggers,
-					 TRIGGER_FL_CALLER) != 0)
-			mcount_has_caller = true;
 	}
+
+	/* there might be caller triggers, count it separately */
+	if (uftrace_count_filter(&mcount_triggers, TRIGGER_FL_CALLER) != 0)
+		mcount_has_caller = true;
 
 	if (autoargs_str) {
 		char *autoarg = ".";
