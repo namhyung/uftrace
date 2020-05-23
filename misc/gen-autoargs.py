@@ -31,7 +31,7 @@ typedef_name = [
         "size_t", "ssize_t", "pid_t", "uid_t", "off_t", "off64_t",
         "sigset_t", "socklen_t", "intptr_t", "nfds_t",
         "pthread_t", "pthread_once_t", "pthread_attr_t",
-        "pthread_mutex_t", "pthread_mutexattr_t",
+        "pthread_mutex_t", "pthread_mutexattr_t", "pthread_cond_t",
         "Lmid_t", "FILE", "in_addr_t",
     ]
 
