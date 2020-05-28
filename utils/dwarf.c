@@ -1634,7 +1634,7 @@ struct comp_dir {
 };
 
 /* test: same number of compilation unit */
-TEST_CASE(srcline_remove_common_prefix)
+TEST_CASE(dwarf_srcline_prefix1)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1660,7 +1660,7 @@ TEST_CASE(srcline_remove_common_prefix)
 }
 
 /* test: number of compilation unit */
-TEST_CASE(srcline_remove_common_prefix2)
+TEST_CASE(dwarf_srcline_prefix2)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1686,7 +1686,7 @@ TEST_CASE(srcline_remove_common_prefix2)
 }
 
 /* test: number of debug info of compilation unit */
-TEST_CASE(srcline_remove_common_prefix3)
+TEST_CASE(dwarf_srcline_prefix3)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1713,7 +1713,7 @@ TEST_CASE(srcline_remove_common_prefix3)
 }
 
 /* test: no compilation unit */
-TEST_CASE(srcline_remove_common_prefix4)
+TEST_CASE(dwarf_srcline_prefix4)
 {
 	struct rb_root dirs = RB_ROOT;
 
