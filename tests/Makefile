@@ -8,6 +8,11 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
 UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
 
+UNIT_TEST_HDR := $(srcdir)/uftrace.h
+UNIT_TEST_HDR += $(wildcard $(srcdir)/utils/*.h)
+UNIT_TEST_HDR += $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
+UNIT_TEST_HDR += $(wildcard $(srcdir)/libmcount/*.h)
+
 UNIT_TEST_OBJ_VERSION := $(objdir)/cmds/script.ot $(objdir)/cmds/tui.ot
 UNIT_TEST_OBJ_VERSION += $(objdir)/cmds/dump.ot   $(objdir)/cmds/info.ot
 UNIT_TEST_OBJ_VERSION += $(objdir)/libmcount/mcount.ot
@@ -32,7 +37,7 @@ test_run:
 test_unit: unittest
 	$(QUIET_TEST)./unittest $(TESTARG)
 
-unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
+unittest: unittest.c unittest.h $(UNIT_TEST_OBJ) $(UNIT_TEST_HDR)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
 
 $(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
