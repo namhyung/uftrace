@@ -280,7 +280,8 @@ static struct display_field *graph_field_table[] = {
 	&field_addr,
 };
 
-static void setup_default_graph_field(struct list_head *fields, struct opts *opts)
+static void setup_default_graph_field(struct list_head *fields, struct opts *opts,
+				      struct display_field *p_field_table[])
 {
 	add_field(fields, graph_field_table[GRAPH_F_TOTAL_TIME]);
 }

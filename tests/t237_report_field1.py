@@ -5,15 +5,15 @@ from runtest import TestBase
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', """
-   Total avg   Total min   Total max  Function
-  ==========  ==========  ==========  ====================
-   11.378 ms   11.378 ms   11.378 ms  main
-   10.537 ms   10.537 ms   10.537 ms  bar
-   10.288 ms   10.288 ms   10.288 ms  usleep
-  120.947 us  120.605 us  121.290 us  foo
-   39.967 us   39.801 us   40.275 us  loop
-    0.701 us    0.701 us    0.701 us  __monstartup   # ignore this
-    0.270 us    0.270 us    0.270 us  __cxa_atexit   # and this too
+  Total time       Calls   Function
+  ==========  ==========   ====================
+   11.173 ms           1   main
+   10.467 ms           1   bar
+   10.297 ms           1   usleep
+  207.139 us           2   foo
+  204.033 us           6   loop
+    0.763 us           1   __monstartup
+    0.299 us           1   __cxa_atexit
 """)
 
     def prepare(self):
@@ -22,7 +22,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'report'
-        self.option = '--avg-total'
+        self.option = '-f total,call'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .
@@ -32,15 +32,15 @@ class TestCase(TestBase):
             if ln.strip() == '':
                 continue
             line = ln.split()
-            if line[1] == 'avg':
+            if line[0] == 'Total':
                 continue
             if line[0].startswith('='):
                 continue
             # A report line consists of following data
-            # [0]        [1]   [2]        [3]   [4]        [5]   [6]
-            # avg_total  unit  min_total  unit  max_total  unit  function
-            if line[6].startswith('__'):
+            # [0]         [1]   [2]     [3]
+            # total_time  unit  called  function
+            if line[-1].startswith('__'):
                 continue
-            result.append(line[6])
+            result.append('%s %s' % (line[-2], line[-1]))
 
         return '\n'.join(result)

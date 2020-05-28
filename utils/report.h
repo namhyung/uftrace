@@ -9,6 +9,13 @@
 
 struct sym;
 
+enum avg_mode {
+	AVG_NONE,
+	AVG_TOTAL,
+	AVG_SELF,
+	AVG_ANY,
+};
+
 struct report_time_stat {
 	uint64_t	sum;
 	uint64_t	rec;  /* time in recursive call */
@@ -65,5 +72,8 @@ void apply_diff_policy(char *policy);
 int report_setup_task(const char *key_str);
 void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 		       struct rb_root *sort_root);
+
+void setup_report_field(struct list_head *output_fields, struct opts *opts,
+			enum avg_mode avg_mode);
 
 #endif /* UFTRACE_REPORT_H */
