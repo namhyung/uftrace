@@ -553,7 +553,9 @@ TEST_CASE(mcount_wrap_dlopen)
 
 	TEST_EQ(real_dlopen, NULL);
 
-	handle= dlopen(NULL, RTLD_LAZY);
+	pr_dbg("calling %s (%s) should init all the wrappers\n",
+	       "dlopen", "or other wrapped function");
+	handle = dlopen(NULL, RTLD_LAZY);
 
 	TEST_NE(handle, NULL);
 	TEST_NE(real_dlopen, NULL);

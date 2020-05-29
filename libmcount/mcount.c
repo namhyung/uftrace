@@ -1924,9 +1924,11 @@ TEST_CASE(mcount_thread_data)
 
 	setup_mcount_test();
 
+	pr_dbg("try to get thread data - should fail\n");
 	mtdp = get_thread_data();
 	TEST_EQ(check_thread_data(mtdp), true);
 
+	pr_dbg("mcount_prepare() should setup the thread data\n");
 	mtdp = mcount_prepare();
 	TEST_EQ(check_thread_data(mtdp), false);
 

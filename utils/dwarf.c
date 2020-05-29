@@ -1634,7 +1634,7 @@ struct comp_dir {
 };
 
 /* test: same number of compilation unit */
-TEST_CASE(srcline_remove_common_prefix)
+TEST_CASE(dwarf_srcline_prefix1)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1645,9 +1645,13 @@ TEST_CASE(srcline_remove_common_prefix)
 		{"/home/soft/uftrace/libmcount", 1},
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n",
+		       test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+	}
 
+	pr_dbg("selected base_dir=%s\n", "/home/soft/uftrace/cmds");
 	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace/cmds");
 
 	free_comp_dir(&dirs);
@@ -1656,7 +1660,7 @@ TEST_CASE(srcline_remove_common_prefix)
 }
 
 /* test: number of compilation unit */
-TEST_CASE(srcline_remove_common_prefix2)
+TEST_CASE(dwarf_srcline_prefix2)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1667,9 +1671,13 @@ TEST_CASE(srcline_remove_common_prefix2)
 		{"/home/soft/uftrace", 1},
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n",
+		       test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+	}
 
+	pr_dbg("selected base_dir=%s\n", "/home/soft/uftrace");
 	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace");
 
 	free_comp_dir(&dirs);
@@ -1678,7 +1686,7 @@ TEST_CASE(srcline_remove_common_prefix2)
 }
 
 /* test: number of debug info of compilation unit */
-TEST_CASE(srcline_remove_common_prefix3)
+TEST_CASE(dwarf_srcline_prefix3)
 {
 	struct rb_root dirs = RB_ROOT;
 	int i;
@@ -1690,9 +1698,13 @@ TEST_CASE(srcline_remove_common_prefix3)
 		{"/home/soft/uftrace", 1},
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++)
+	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n",
+		       test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
+	}
 
+	pr_dbg("selected base_dir=%s\n", "/home/soft/uftrace");
 	TEST_STREQ(get_base_comp_dir(&dirs), "/home/soft/uftrace");
 
 	free_comp_dir(&dirs);
@@ -1701,10 +1713,11 @@ TEST_CASE(srcline_remove_common_prefix3)
 }
 
 /* test: no compilation unit */
-TEST_CASE(srcline_remove_common_prefix4)
+TEST_CASE(dwarf_srcline_prefix4)
 {
 	struct rb_root dirs = RB_ROOT;
 
+	pr_dbg("check empty comp_dir\n");
 	TEST_EQ(get_base_comp_dir(&dirs), NULL);
 
 	return TEST_OK;

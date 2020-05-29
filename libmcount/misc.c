@@ -253,11 +253,13 @@ TEST_CASE(mcount_debug_domain)
 	/* ensure domain string matches to current domain bit */
 	TEST_EQ(DBG_DOMAIN_MAX, (int)strlen(DBG_DOMAIN_STR));
 
+	pr_dbg("initially all domains are off\n");
 	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
 		if (i != PR_DOMAIN)
 			TEST_EQ(dbg_domain[i], 0);
 	}
 
+	pr_dbg("turn on all domains\n");
 	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
 		dbg_str[i * 2]     = DBG_DOMAIN_STR[i];
 		dbg_str[i * 2 + 1] = '1';

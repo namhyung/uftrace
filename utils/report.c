@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 #include <string.h>
 #include <inttypes.h>
 
@@ -1011,18 +1012,20 @@ TEST_CASE(report_find)
 	const char *name_sort[TEST_NODES] = { "abc", "bar", "foo" };
 	int i;
 
+	pr_dbg("add report node in an arbitrary order\n");
 	for (i = 0; i < TEST_NODES; i++) {
 		node = xzalloc(sizeof(*node));
 		report_add_node(&root, test_name[i], node);
 	}
 
+	pr_dbg("find report node by name\n");
 	for (i = 0; i < TEST_NODES; i++) {
 		node = report_find_node(&root, test_name[i]);
 		TEST_NE(node, NULL);
 		TEST_STREQ(node->name, test_name[i]);
 	}
 
-	/* check the tree was sorted by name */
+	pr_dbg("check the tree was sorted by name\n");
 	i = 0;
 	while (!RB_EMPTY_ROOT(&root)) {
 		rbnode = rb_first(&root);
@@ -1060,6 +1063,7 @@ TEST_CASE(report_sort)
 	int total_order[TEST_NODES] = { 2, 0, 1 };
 	int  self_order[TEST_NODES] = { 1, 0, 2 };
 
+	pr_dbg("setup fstack manually\n");
 	for (i = 0; i < TEST_NODES; i++) {
 		fstack[i].addr       = i;
 		fstack[i].total_time = total_times[i];
@@ -1077,6 +1081,7 @@ TEST_CASE(report_sort)
 	TEST_LT(report_setup_sort("foobar"), 0);
 	TEST_EQ(report_setup_sort("total"), 1);
 	report_sort_nodes(&name_tree, &sort_tree);
+	pr_dbg("sort report result with: total\n");
 
 	i = 0;
 	rbnode = rb_first(&sort_tree);
@@ -1086,6 +1091,8 @@ TEST_CASE(report_sort)
 		TEST_STREQ(node->name, test_name[total_order[i]]);
 		TEST_EQ(node->total.sum, total_times[total_order[i]]);
 		TEST_EQ(node->call, 1);
+		pr_dbg("[%d] %s: %5"PRIu64", %"PRIu64"\n",
+		       i, node->name, node->total.sum, node->call);
 
 		rbnode = rb_next(rbnode);
 		i++;
@@ -1093,6 +1100,7 @@ TEST_CASE(report_sort)
 
 	TEST_EQ(report_setup_sort("call,self_avg"), 2);
 	report_sort_nodes(&name_tree, &sort_tree);
+	pr_dbg("sort report result with: call, self_avg\n");
 
 	i = 0;
 	rbnode = rb_first(&sort_tree);
@@ -1106,6 +1114,8 @@ TEST_CASE(report_sort)
 		TEST_EQ(node->self.avg, self_time);
 		TEST_EQ(node->self.min, self_time);
 		TEST_EQ(node->self.max, self_time);
+		pr_dbg("[%d] %s: %"PRIu64", %5"PRIu64"\n",
+		       i, node->name, node->call, node->self.avg);
 
 		rbnode = rb_next(rbnode);
 		i++;
@@ -1160,6 +1170,7 @@ TEST_CASE(report_diff)
 
 	TEST_EQ(diff_policy.absolute, true);
 
+	pr_dbg("diff policy = %s\n", "no-abs, compact, no-percent");
 	apply_diff_policy("no-abs,compact,no-percent");
 
 	TEST_EQ(diff_policy.absolute, false);
@@ -1167,6 +1178,7 @@ TEST_CASE(report_diff)
 	TEST_EQ(diff_policy.percent,  false);
 
 	TEST_EQ(report_setup_diff("total,self"), 2);
+	pr_dbg("report diff sorted by: total, self\n");
 
 	for (i = 0; i < TEST_NODES; i++) {
 		orig_fstack[i].addr       = i;
@@ -1208,6 +1220,7 @@ TEST_CASE(report_diff)
 			TEST_STREQ(node->name, pair_name[-idx - 1]);
 
 		TEST_EQ(node->pair->total.sum - node->total.sum, diff_total[i]);
+		pr_dbg("[%d] %s, %5"PRId64"\n", i, node->name, diff_total[i]);
 
 		rbnode = rb_next(rbnode);
 		i++;

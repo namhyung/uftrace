@@ -1258,7 +1258,7 @@ TEST_CASE(filter_setup_simple)
 
 	filter_test_load_symtabs(&stabs);
 
-	/* test1: simple method */
+	pr_dbg("checking simple match\n");
 	uftrace_setup_filter("foo::bar", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
@@ -1271,7 +1271,7 @@ TEST_CASE(filter_setup_simple)
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
-	/* test2: destructor */
+	pr_dbg("checking destructor match\n");
 	uftrace_setup_filter("foo::~foo", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
@@ -1284,7 +1284,7 @@ TEST_CASE(filter_setup_simple)
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
-	/* test3: unknown symbol */
+	pr_dbg("checking unknown symbol\n");
 	uftrace_setup_filter("invalid_name", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
@@ -1305,6 +1305,7 @@ TEST_CASE(filter_setup_regex)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("try to match with regex pattern: ^foo::b\n");
 	uftrace_setup_filter("^foo::b", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
@@ -1332,6 +1333,7 @@ TEST_CASE(filter_setup_regex)
 	TEST_EQ(filter->start, 0x5000UL);
 	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
 
+	pr_dbg("found 4 symbols. done\n");
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
@@ -1352,6 +1354,7 @@ TEST_CASE(filter_setup_glob)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("try to match with glob pattern: foo::b*\n");
 	uftrace_setup_filter("foo::b*", &stabs, &root, NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
@@ -1379,6 +1382,7 @@ TEST_CASE(filter_setup_glob)
 	TEST_EQ(filter->start, 0x5000UL);
 	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
 
+	pr_dbg("found 4 symbols. done\n");
 	uftrace_cleanup_filter(&root);
 	TEST_EQ(RB_EMPTY_ROOT(&root), true);
 
@@ -1400,20 +1404,24 @@ TEST_CASE(filter_setup_notrace)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("setup inclusive filter for foo::*\n");
 	uftrace_setup_filter("foo::*", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
+	pr_dbg("add/replace exclusive filter for foo::foo\n");
 	uftrace_setup_filter("!foo::foo", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);  /* overall filter mode doesn't change */
 
+	pr_dbg("foo:foo should have OUT filter mode\n");
 	node = rb_first(&root);
 	filter = rb_entry(node, struct uftrace_filter, node);
 	TEST_STREQ(filter->name, "foo::foo");
 	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(filter->trigger.fmode, FILTER_MODE_OUT);
 
+	pr_dbg("foo:bar should have IN filter mode\n");
 	node = rb_next(node);
 	filter = rb_entry(node, struct uftrace_filter, node);
 	TEST_STREQ(filter->name, "foo::bar");
@@ -1440,10 +1448,12 @@ TEST_CASE(filter_match)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("check filter address match with foo::foo at 0x1000-0x1fff\n");
 	uftrace_setup_filter("foo::foo", &stabs, &root, &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 	TEST_EQ(fmode, FILTER_MODE_IN);
 
+	pr_dbg("check addresses inside the symbol\n");
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x1000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
@@ -1454,6 +1464,7 @@ TEST_CASE(filter_match)
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_IN);
 
+	pr_dbg("addresses out of the symbol should not have FILTER flags\n");
 	memset(&tr, 0, sizeof(tr));
 	TEST_EQ(uftrace_match_filter(0xfff, &root, &tr), NULL);
 	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
@@ -1482,6 +1493,7 @@ TEST_CASE(trigger_setup_actions)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("checking depth trigger\n");
 	uftrace_setup_trigger("foo::bar@depth=2", &stabs, &root,
 			      NULL, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
@@ -1491,18 +1503,21 @@ TEST_CASE(trigger_setup_actions)
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 2);
 
+	pr_dbg("checking backtrace trigger\n");
 	uftrace_setup_trigger("foo::bar@backtrace", &stabs, &root,
 			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
+	pr_dbg("checking trace-on trigger\n");
 	uftrace_setup_trigger("foo::baz1@traceon", &stabs, &root,
 			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
 
+	pr_dbg("checking trace-off trigger and overwrite the depth\n");
 	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &stabs, &root,
 			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
@@ -1510,6 +1525,7 @@ TEST_CASE(trigger_setup_actions)
 	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
 	TEST_EQ(tr.depth, 1);
 
+	pr_dbg("checking caller trigger\n");
 	uftrace_setup_trigger("foo::baz2@caller", &stabs, &root,
 			      NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
@@ -1537,6 +1553,7 @@ TEST_CASE(trigger_setup_filters)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("setup notrace filter with trigger action\n");
 	uftrace_setup_trigger("foo::bar@depth=2,notrace", &stabs, &root,
 			      &fmode, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
@@ -1548,6 +1565,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.depth, 2);
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
+	pr_dbg("compare regular filter setting with trigger\n");
 	uftrace_setup_filter("foo::baz1", &stabs, &root,
 			     &fmode, &setting);
 	TEST_EQ(fmode, FILTER_MODE_IN);
@@ -1566,6 +1584,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
+	pr_dbg("check caller filter setting\n");
 	uftrace_setup_caller_filter("foo::baz3", &stabs, &root, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
@@ -1594,6 +1613,7 @@ TEST_CASE(trigger_setup_args)
 
 	filter_test_load_symtabs(&stabs);
 
+	pr_dbg("check regular argument setting\n");
 	uftrace_setup_argument("foo::bar@arg1", &stabs, &root, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
 
@@ -1602,6 +1622,7 @@ TEST_CASE(trigger_setup_args)
 	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
 	TEST_NE(tr.pargs, NULL);
 
+	pr_dbg("compare argument setting via trigger\n");
 	uftrace_setup_trigger("foo::bar@arg2/s", &stabs, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
@@ -1611,6 +1632,9 @@ TEST_CASE(trigger_setup_args)
 	count = 0;
 	list_for_each_entry(spec, tr.pargs, list) {
 		count++;
+		pr_dbg("arg%d: fmt = %d, type = %d\n",
+		       spec->idx, spec->fmt, spec->type);
+
 		if (count == 1) {
 			TEST_EQ(spec->idx, 1);
 			TEST_EQ(spec->fmt, ARG_FMT_AUTO);
@@ -1624,6 +1648,7 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 2);
 
+	pr_dbg("check argument format, type and size\n");
 	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2",
 			       &stabs, &root, &setting);
 	memset(&tr, 0, sizeof(tr));
@@ -1632,6 +1657,9 @@ TEST_CASE(trigger_setup_args)
 
 	count = 0;
 	list_for_each_entry(spec, tr.pargs, list) {
+		pr_dbg("arg%d: fmt = %d, type = %d, size = %d\n",
+		       spec->idx, spec->fmt, spec->type, spec->size);
+
 		switch (++count) {
 		case 1:
 			TEST_EQ(spec->idx, 1);
@@ -1665,6 +1693,7 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 4);
 
+	pr_dbg("check argument location\n");
 	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64",
 			      &stabs, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
@@ -1673,6 +1702,9 @@ TEST_CASE(trigger_setup_args)
 
 	count = 0;
 	list_for_each_entry(spec, tr.pargs, list) {
+		pr_dbg("arg%d: fmt = %d, type = %d, size = %d\n",
+		       spec->idx, spec->fmt, spec->type, spec->size);
+
 		switch (++count) {
 		case 1:
 			TEST_EQ(spec->idx, 1);

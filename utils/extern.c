@@ -124,3 +124,60 @@ int finish_extern_data(struct uftrace_data *handle)
 	}
 	return 0;
 }
+
+#ifdef UNIT_TEST
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+TEST_CASE(fstack_extern_data)
+{
+	int fd;
+	struct uftrace_data handle = {
+		.dirname = "extern.test",
+	};
+	struct opts opts = {
+		.dirname = "extern.test",
+	};
+	const char extern_data[] = "# test data\n"
+		"1234.987654321 first data\n"
+		"1234.123456789 second data\n";
+
+	pr_dbg("creating external data file\n");
+	mkdir("extern.test", 0755);
+	fd = creat("extern.test/" DEFAULT_FILENAME, 0644);
+	TEST_NE(fd, -1);
+	write(fd, extern_data, sizeof(extern_data)-1);
+	close(fd);
+
+	setup_extern_data(&handle, &opts);
+
+	pr_dbg("first read should return first data\n");
+	read_extern_data(handle.extn);
+	TEST_EQ(handle.extn->valid, true);
+	TEST_EQ(handle.extn->time, 1234987654321ULL);
+	TEST_STREQ(handle.extn->msg, "first data");
+
+	pr_dbg("next read should return same data\n");
+	read_extern_data(handle.extn);
+	TEST_EQ(handle.extn->time, 1234987654321ULL);
+	TEST_STREQ(handle.extn->msg, "first data");
+
+	pr_dbg("after invalidate, a read should return second data\n");
+	handle.extn->valid = false;
+	read_extern_data(handle.extn);
+
+	TEST_EQ(handle.extn->valid, true);
+	TEST_EQ(handle.extn->time, 1234123456789);
+	TEST_STREQ(handle.extn->msg, "second data");
+
+	finish_extern_data(&handle);
+
+	unlink("extern.test/" DEFAULT_FILENAME);
+	rmdir("extern.test");
+
+	return TEST_OK;
+}
+
+#endif  /* UNIT_TEST */

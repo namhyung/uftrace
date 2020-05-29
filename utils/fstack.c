@@ -2506,18 +2506,21 @@ TEST_CASE(fstack_read)
 	TEST_EQ(fstack_test_setup_normal(handle), 0);
 
 	for (i = 0; i < NUM_RECORD; i++) {
+		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[0]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[0]);
 		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i].depth);
 		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i].addr);
 
+		pr_dbg("[%d] peek rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(peek_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
 		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
 		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
 
+		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
 		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
@@ -2540,9 +2543,10 @@ TEST_CASE(fstack_skip)
 
 	TEST_EQ(fstack_test_setup_single(handle), 0);
 
-	/* this makes to skip depth 1 records */
+	pr_dbg("set depth filter to skip depth 1 records\n");
 	handle->depth = 1;
 
+	pr_dbg("read first rstack for task %d\n", test_tids[0]);
 	TEST_EQ(read_rstack(handle, &task), 0);
 
 	TEST_EQ(fstack_entry(task, task->rstack, &tr), 0);
@@ -2552,6 +2556,7 @@ TEST_CASE(fstack_skip)
 	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
 
 	/* skip filtered records (due to depth) */
+	pr_dbg("fstack skip to rstack for task %d again\n", test_tids[0]);
 	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, &opts), task);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
@@ -2569,16 +2574,18 @@ TEST_CASE(fstack_time)
 
 	TEST_EQ(fstack_test_setup_normal(handle), 0);
 
-	/* this makes to discard depth 1 records */
+	pr_dbg("set time filter to skip depth 1 records\n");
 	handle->time_filter = 200;
 
 	for (i = 0; i < NUM_TASK; i++) {
+		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[0]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[0]);
 		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i*3].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i*3].depth);
 		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i*3].addr);
 
+		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
 		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i*3].type);
@@ -2596,12 +2603,15 @@ TEST_CASE(fstack_fixup)
 	int i;
 
 	TEST_EQ(fstack_test_setup_exec(handle), 0);
+	pr_dbg("set fixup filter to detect special functions like exec\n");
 	fstack_prepare_fixup(handle);
 
 	for (i = 0; i < ARRAY_SIZE(exec_record); i++) {
+		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[0]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(fstack_check_filter(task), true);
 
+		pr_dbg("check stack count of the task\n");
 		TEST_EQ(task->tid, test_tids[0]);
 		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)exec_record[i].addr);
 		if (task->rstack->type == UFTRACE_ENTRY)
@@ -2609,6 +2619,7 @@ TEST_CASE(fstack_fixup)
 		else
 			TEST_EQ(task->stack_count, (int)exec_record[i].depth);
 
+		pr_dbg("adjust stack count after filter check\n");
 		fstack_check_filter_done(task);
 	}
 

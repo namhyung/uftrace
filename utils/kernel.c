@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -2219,6 +2220,8 @@ TEST_CASE(kernel_read)
 
 		timestamp[cpu] += test_len_ts[cpu][i / 2].ts;
 
+		pr_dbg("[%d] read kernel record: type=%d, depth=%d, addr=%"PRIx64"\n",
+		       i, rstack->type, rstack->depth, (uint64_t)rstack->addr);
 		TEST_EQ((int)rstack->type, record_type(rec));
 		TEST_EQ((int)rstack->time, timestamp[cpu]);
 		TEST_EQ((uint64_t)rstack->addr, rec->func);
@@ -2252,6 +2255,8 @@ TEST_CASE(kernel_cpu_read)
 
 			timestamp[cpu] += test_len_ts[cpu][i].ts;
 
+			pr_dbg("[%d] read cpu record: type=%d, depth=%d, addr=%"PRIx64"\n",
+			       i, rstack->type, rstack->depth, (uint64_t)rstack->addr);
 			TEST_EQ((int)rstack->type, record_type(rec));
 			TEST_EQ((int)rstack->time, timestamp[cpu]);
 			TEST_EQ((uint64_t)rstack->addr, rec->func);
@@ -2269,6 +2274,7 @@ TEST_CASE(kernel_event_read)
 	int timestamp[NUM_CPU] = { };
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 
+	pr_dbg("checking custom event format parsing\n");
 	TEST_EQ(kernel_test_setup_file(kernel, true), 0);
 
 	for (cpu = 0; cpu < NUM_CPU; cpu++) {
@@ -2284,6 +2290,8 @@ TEST_CASE(kernel_event_read)
 
 			timestamp[cpu] += test_event_len_ts[cpu][i].ts;
 
+			pr_dbg("[%d] read event record: type=%d, data=%s\n",
+			       i, rstack->type, data);
 			TEST_EQ((int)rstack->type, UFTRACE_EVENT);
 			TEST_EQ((int)rstack->time, timestamp[cpu]);
 			TEST_EQ((int)rstack->addr, TEST_EXAMPLE);

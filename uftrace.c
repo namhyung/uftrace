@@ -1394,10 +1394,12 @@ TEST_CASE(option_parsing1)
 	int i;
 	bool elapsed_time;
 
+	pr_dbg("check parsing size suffix\n");
 	TEST_EQ(parse_size("1234"), 1234);
 	TEST_EQ(parse_size("10k"),  10240);
 	TEST_EQ(parse_size("100M"), 100 * 1024 * 1024);
 
+	pr_dbg("check string list addition\n");
 	stropt = opt_add_string(stropt, "abc");
 	TEST_STREQ(stropt, "abc");
 	stropt = opt_add_string(stropt, "def");
@@ -1406,6 +1408,7 @@ TEST_CASE(option_parsing1)
 	free(stropt);
 	stropt = NULL;
 
+	pr_dbg("check string list addition with prefix\n");
 	stropt = opt_add_prefix_string(stropt, "!", "abc");
 	TEST_STREQ(stropt, "!abc");
 	stropt = opt_add_prefix_string(stropt, "?", "def");
@@ -1414,6 +1417,7 @@ TEST_CASE(option_parsing1)
 	free(stropt);
 	stropt = NULL;
 
+	pr_dbg("check parsing colors\n");
 	TEST_EQ(parse_color("1"),    COLOR_ON);
 	TEST_EQ(parse_color("true"), COLOR_ON);
 	TEST_EQ(parse_color("off"),  COLOR_OFF);
@@ -1421,6 +1425,7 @@ TEST_CASE(option_parsing1)
 	TEST_EQ(parse_color("auto"), COLOR_AUTO);
 	TEST_EQ(parse_color("ok"),   COLOR_UNKNOWN);
 
+	pr_dbg("check parsing demanglers\n");
 	TEST_EQ(parse_demangle("simple"), DEMANGLE_SIMPLE);
 	TEST_EQ(parse_demangle("no"),     DEMANGLE_NONE);
 	TEST_EQ(parse_demangle("0"),      DEMANGLE_NONE);
@@ -1430,6 +1435,7 @@ TEST_CASE(option_parsing1)
 	for (i = 0; i < DBG_DOMAIN_MAX; i++)
 		dbg_domain[i] = 0;
 
+	pr_dbg("check parsing debug domains\n");
 	parse_debug_domain("mcount:1,uftrace:2,symbol:3");
 	TEST_EQ(dbg_domain[DBG_UFTRACE], 2);
 	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
@@ -1463,6 +1469,7 @@ TEST_CASE(option_parsing2)
 	int argc = ARRAY_SIZE(argv);
 	int saved_debug = debug;
 
+	pr_dbg("check parsing regular command line options\n");
 	parse_options(argc, argv, &opts);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
@@ -1496,9 +1503,11 @@ TEST_CASE(option_parsing3)
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
+	pr_dbg("check parsing regular command line options\n");
 	parse_options(argc, argv, &opts);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
+	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
 
@@ -1550,14 +1559,17 @@ TEST_CASE(option_parsing4)
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
+	pr_dbg("check parsing regular command line options\n");
 	parse_options(argc, argv, &opts);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
+	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
 
 	unlink(OPT_FILE);
 
+	pr_dbg("command mode should remain as is\n");
 	TEST_EQ(opts.mode, UFTRACE_MODE_INVALID);
 	TEST_EQ(debug, saved_debug + 1);
 	TEST_EQ(opts.kernel, 1);
@@ -1591,13 +1603,16 @@ TEST_CASE(option_parsing5)
 	fwrite(opt_file, strlen(opt_file), 1, fp);
 	fclose(fp);
 
+	pr_dbg("check parsing regular command line options\n");
 	parse_options(argc, argv, &opts);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
+	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
 
 	unlink(OPT_FILE);
 
+	pr_dbg("opt file should update command mode\n");
 	TEST_EQ(opts.mode, UFTRACE_MODE_RECORD);
 	TEST_EQ(debug, saved_debug + 1);
 	/* preserve original arg[cv] if command line is given */

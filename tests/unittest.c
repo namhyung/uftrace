@@ -18,6 +18,7 @@ TEST_CASE(unittest_framework)
 {
 	static const char hello[] = "Hello";
 
+	pr_dbg("check basic test macro\n");
 	TEST_EQ(1 + 1, 2);
 	TEST_NE(true, false);
 	TEST_GT(1 * 2, 0 * 2);
@@ -25,6 +26,7 @@ TEST_CASE(unittest_framework)
 	TEST_LT(0 * 2, 1);
 	TEST_LE(0.0, 0);
 
+	pr_dbg("check string test macro\n");
 	TEST_STREQ("Hello", hello);
 	TEST_MEMEQ("Hello", hello, sizeof(hello));
 
