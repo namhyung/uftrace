@@ -151,3 +151,97 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	}
 	strv_free(&strv);
 }
+
+#ifdef UNIT_TEST
+
+static void print_nothing(struct field_data* fd) {}
+
+static void setup_first_field(struct list_head *head, struct opts *opts,
+			      struct display_field *p_field_table[])
+{
+	add_field(head, p_field_table[0]);
+}
+
+#define DEFINE_FIELD(_id, _name, _alias)			\
+static struct display_field field##_id = {			\
+	.id = _id, .name = _name, .header = _name,		\
+	.length = 1, .print = print_nothing, .alias = _alias,	\
+}
+
+DEFINE_FIELD(1, "foo", "FOO");
+DEFINE_FIELD(2, "bar", "baz");
+DEFINE_FIELD(3, "abc", "xyz");
+
+static struct display_field *test_field_table[] = {
+	&field1, &field2, &field3,
+};
+
+TEST_CASE(field_setup_default)
+{
+	LIST_HEAD(output_fields);
+	struct opts opts = { .fields = NULL, };
+
+	pr_dbg("calling setup_default_field\n");
+	setup_field(&output_fields, &opts, setup_first_field,
+		    test_field_table, ARRAY_SIZE(test_field_table));
+
+	TEST_EQ(output_fields.next, &field1.list);
+	TEST_EQ(field1.used, true);
+	TEST_EQ(field2.used, false);
+	TEST_EQ(field3.used, false);
+
+	return TEST_OK;
+}
+
+TEST_CASE(field_setup_default_plus)
+{
+	LIST_HEAD(output_fields);
+	struct opts opts = { .fields = "+abc", };
+
+	pr_dbg("add 'abc' field after the default\n");
+	setup_field(&output_fields, &opts, setup_first_field,
+		    test_field_table, ARRAY_SIZE(test_field_table));
+
+	TEST_EQ(output_fields.next, &field1.list);
+	TEST_EQ(field1.used, true);
+	TEST_EQ(field2.used, false);
+	TEST_EQ(field3.used, true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(field_setup_list)
+{
+	LIST_HEAD(output_fields);
+	struct opts opts = { .fields = "bar,foo", };
+
+	pr_dbg("setup fields in a given order\n");
+	setup_field(&output_fields, &opts, setup_first_field,
+		    test_field_table, ARRAY_SIZE(test_field_table));
+
+	TEST_EQ(output_fields.next, &field2.list);
+	TEST_EQ(field1.used, true);
+	TEST_EQ(field2.used, true);
+	TEST_EQ(field3.used, false);
+
+	return TEST_OK;
+}
+
+TEST_CASE(field_setup_list_alias)
+{
+	LIST_HEAD(output_fields);
+	struct opts opts = { .fields = "baz,xyz", };
+
+	pr_dbg("setup fields with alias name\n");
+	setup_field(&output_fields, &opts, setup_first_field,
+		    test_field_table, ARRAY_SIZE(test_field_table));
+
+	TEST_EQ(output_fields.next, &field2.list);
+	TEST_EQ(field1.used, false);
+	TEST_EQ(field2.used, true);
+	TEST_EQ(field3.used, true);
+
+	return TEST_OK;
+}
+
+#endif  /* UNIT_TEST */
