@@ -120,6 +120,7 @@ int finish_extern_data(struct uftrace_data *handle)
 		fclose(extn->fp);
 		extn->fp = NULL;
 
+		free(extn);
 		handle->extn = NULL;
 	}
 	return 0;
