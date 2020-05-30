@@ -1183,9 +1183,11 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
 		print_header(&output_fields, "#", "FUNCTION", 1, false);
-	if (opts->srcline)
-		pr_gray(" [SOURCE]");
-	pr_out("\n");
+	if (!list_empty(&output_fields)) {
+		if (opts->srcline)
+			pr_gray(" [SOURCE]");
+		pr_out("\n");
+	}
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rstack = task->rstack;
