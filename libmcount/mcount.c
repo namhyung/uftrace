@@ -740,7 +740,8 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 		rstack--;
 	}
 
-	pr_red("\nPlease report this bug to https://github.com/namhyung/uftrace/issues.\n\n");
+	pr_out("\n");
+	pr_red(BUG_REPORT_MSG);
 
 out:
 	sigaction(sig, &old_sigact[(sig == SIGSEGV)], NULL);
