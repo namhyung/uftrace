@@ -8,6 +8,13 @@
 #include <sys/stat.h>
 #include <libgen.h>
 
+#if !DEBUG_MODE
+#include <execinfo.h>
+#else
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#endif
+
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/kernel.h"
@@ -879,6 +886,67 @@ char *absolute_dirname(const char *path, char *resolved_path)
 	dirname(resolved_path);
 
 	return resolved_path;
+}
+
+void stacktrace(void)
+{
+#if !DEBUG_MODE
+	void *buffer[64];
+	int nptrs = backtrace(buffer, 64);
+
+	int i;
+	char **strings;
+
+	pr_yellow("Stack trace:\n");
+	strings = backtrace_symbols(buffer, nptrs);
+	for (i = 1; i < nptrs; i++) {
+		if (strings)
+			pr_yellow("  #%-2d %s\n", i, strings[i]);
+		else
+			pr_yellow("  #%-2d %p\n", i, buffer[i]);
+	}
+	free(strings);
+#else
+	const int max_depth = 64;
+	int i = 0;
+	bool out = false;
+	unw_cursor_t cursor;
+	unw_context_t context;
+
+	unw_getcontext(&context);
+	unw_init_local(&cursor, &context);
+
+	pr_yellow("Stack trace:\n");
+	while (unw_step(&cursor) && i < max_depth && !out) {
+		char symbol[256] = {"<unknown>"};
+		char *name = symbol;
+		unw_word_t ip, off;
+
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		if (!ip)
+			break;
+
+		if (!unw_get_proc_name(&cursor, symbol, sizeof(symbol), &off))
+			name = symbol;
+
+		pr_yellow("  #%-2d 0x%012" PRIxPTR " %s + 0x%" PRIxPTR "\n",
+				++i,
+				(uintptr_t)(ip),
+				name,
+				(uintptr_t)(off));
+
+		/*
+		 * plt_hooker goes into infinite loop with unwinding.
+		 * so stop following the stack below.
+		 */
+		if (!strcmp(name, "plt_hooker"))
+			out = true;
+
+		if (name != symbol)
+			free(name);
+	}
+#endif
+	pr_out("\n");
 }
 
 #ifdef UNIT_TEST
