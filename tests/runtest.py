@@ -31,6 +31,7 @@ class TestBase:
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']
+    feature = set()
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task', serial=False):
         _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
@@ -46,6 +47,7 @@ class TestBase:
         self.subcmd = 'live'
         self.option = ''
         self.exearg = 't-' + name
+        self.test_feature()
 
     def set_debug(self, dbg):
         self.debug = dbg
@@ -56,6 +58,17 @@ class TestBase:
 
     def gen_port(self):
         self.port = random.randint(40000, 50000)
+
+    def test_feature(self):
+        try:
+            p = sp.Popen(self.uftrace_cmd + ' --version', shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+            uftrace_version = p.communicate()[0].decode(errors='ignore')
+            s = uftrace_version.split()
+            for i in range(3, len(s) - 1):
+                self.feature.add(s[i])
+            return True
+        except:
+            return False
 
     def convert_abs_path(self, build_cmd):
         cmd = build_cmd.split()
@@ -368,6 +381,8 @@ class TestBase:
         return os.path.exists('%s/check-deps/' % self.basedir + item)
 
     def check_perf_paranoid(self):
+        if not 'perf' in TestBase.feature:
+            return False
         try:
             f = open('/proc/sys/kernel/perf_event_paranoid')
             v = int(f.readline())

@@ -37,3 +37,6 @@ class TestCase(TestBase):
             result.append(func)
 
         return '\n'.join(result)
+
+    def fixup(self, cflags, result):
+        return re.sub(r'.*/\* linux:schedule \*/\n', '', result)

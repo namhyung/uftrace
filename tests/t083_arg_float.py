@@ -31,3 +31,5 @@ class TestCase(TestBase):
             # argument count follows the size of type
             self.option = self.option.replace('float_mul@fparg1/64,fparg2/32',
                                               'float_mul@fparg1/64,fparg3/32')
+            self.option = self.option.replace('float_div@fparg1,fparg2',
+                                              'float_div@fparg1/64,fparg3/64')
