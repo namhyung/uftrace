@@ -812,7 +812,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 	}
 
 	if (mcount_estimate_return)
-		mcount_rstack_inject_return(mtdp, ret_addr);
+		mcount_rstack_inject_return(mtdp, ret_addr, sym->addr);
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
