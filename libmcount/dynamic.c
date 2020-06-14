@@ -150,6 +150,29 @@ struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
 	return lookup_code(code_hmap, addr);
 }
 
+static bool release_code(void *key, void *value, void *ctx)
+{
+	hashmap_remove(code_hmap, key);
+	free(value);
+	return true;
+}
+
+/* not actually called for safety reason */
+void mcount_release_code(void)
+{
+	hashmap_for_each(code_hmap, release_code, NULL);
+	hashmap_free(code_hmap);
+
+	while (!list_empty(&code_pages)) {
+		struct code_page *cp;
+
+		cp = list_first_entry(&code_pages, struct code_page, list);
+		list_del(&cp->list);
+		munmap(cp->page, CODE_CHUNK);
+		free(cp);
+	}
+}
+
 /* dummy functions (will be overridden by arch-specific code) */
 __weak int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
@@ -555,3 +578,49 @@ bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 	list_add_tail(&badsym->list, &mdi->bad_syms);
 	return true;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(dynamic_find_code)
+{
+	struct mcount_disasm_info info1 = {
+		.addr = 0x1000,
+		.insns = { 0xaa, 0xbb, 0xcc, 0xdd, },
+		.orig_size = 4,
+		.copy_size = 4,
+	};
+	struct mcount_disasm_info info2 = {
+		.addr = 0x2000,
+		.insns = { 0xf1, 0xf2, 0xcc, 0xdd, },
+		.orig_size = 2,
+		.copy_size = 4,
+	};
+	uint8_t jmp_insn[] = { 0xcc };
+	uint8_t *insn;
+
+	pr_dbg("create hash map to search code\n");
+	code_hmap = hashmap_create(4, hashmap_default_hash,
+				   hashmap_default_equals);
+
+	pr_dbg("save fake code to the hash\n");
+	mcount_save_code(&info1, jmp_insn, sizeof(jmp_insn));
+	mcount_save_code(&info2, jmp_insn, sizeof(jmp_insn));
+
+	pr_dbg("freeze the code page\n");
+	mcount_freeze_code();
+
+	pr_dbg("finding the first code\n");
+	insn = mcount_find_code(info1.addr);
+	TEST_NE(insn, NULL);
+	TEST_MEMEQ(insn, info1.insns, info1.orig_size);
+
+	pr_dbg("finding the second code\n");
+	insn = mcount_find_code(info2.addr);
+	TEST_NE(insn, NULL);
+	TEST_MEMEQ(insn, info2.insns, info2.orig_size);
+
+	pr_dbg("release the code page and hash\n");
+	mcount_release_code();
+	return TEST_OK;
+}
+
+#endif  /* UNIT_TEST */

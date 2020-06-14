@@ -367,3 +367,44 @@ bool hashmap_default_equals(void *keyA, void *keyB)
 	hash_t b = *((hash_t *)keyB);
 	return a == b;
 }
+
+#ifdef UNIT_TEST
+#include "utils/utils.h"
+
+TEST_CASE(hashmap_expand)
+{
+	int orig_size = 3;
+	Hashmap *hmap = hashmap_create(orig_size, hashmap_default_hash,
+				       hashmap_default_equals);
+	size_t count = hmap->bucket_count;
+	hash_t keys[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	char str_value[] = "string value longer than the keys";
+	int i;
+
+	pr_dbg("add entries not to expand yet\n");
+	for (i = 0; i < orig_size; i++) {
+		hashmap_put(hmap, &keys[i], &str_value[i]);
+	}
+	TEST_EQ(hmap->bucket_count, count);
+
+	pr_dbg("add more entries to expand\n");
+	for (i = 0; i < ARRAY_SIZE(keys); i++) {
+		if (i < orig_size) {
+			TEST_EQ(hashmap_contains_key(hmap, &keys[i]), true);
+			continue;
+		}
+		hashmap_put(hmap, &keys[i], &str_value[i]);
+	}
+	pr_dbg("now hmap should be expanded\n");
+	TEST_GT(hmap->bucket_count, count);
+
+	pr_dbg("check keys return correct values\n");
+	for (i = 0; i < ARRAY_SIZE(keys); i++) {
+		void *val = hashmap_get(hmap, &keys[i]);
+		TEST_NE(val, NULL);
+		TEST_EQ(val, &str_value[i]);
+	}
+	hashmap_free(hmap);
+	return TEST_OK;
+}
+#endif  /* UNIT_TEST */
