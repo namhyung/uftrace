@@ -1,3 +1,17 @@
+/*
+ * INSTRUMENTED CODE LAYOUT
+ *
+ * Func offset | Instrumented code
+ * --------------------------------
+ * 	   0x0 | Call Trampoline
+ * 	   0x6 | nop
+ * 	   0x7 | nop
+ *
+ * we must use starting address of function when
+ * -. store original code to hashmap
+ * -. find original code from hashmap
+ * -. unpatch function
+ */
 #include <string.h>
 #include <stdint.h>
 #include <link.h>
@@ -14,6 +28,7 @@
 #include "utils/filter.h"
 #include "utils/rbtree.h"
 #include "utils/list.h"
+#include "utils/hashmap.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
@@ -34,37 +49,28 @@ struct code_page {
 };
 
 static LIST_HEAD(code_pages);
-static struct rb_root code_tree = RB_ROOT;
 
-static struct mcount_orig_insn *lookup_code(struct rb_root *root,
-					    unsigned long addr, bool create)
+#define HASHMAP_INIT_VALUE 50000
+static struct Hashmap *code_hmap;
+
+static struct mcount_orig_insn *create_code(struct Hashmap *map,
+					    unsigned long addr)
 {
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct mcount_orig_insn *iter;
+	struct mcount_orig_insn *entry;
 
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct mcount_orig_insn, node);
+	entry = xmalloc(sizeof *entry);
+	entry->addr = addr;
+	hashmap_put(code_hmap, &entry->addr, entry);
+	return entry;
+}
 
-		if (iter->addr == addr)
-			return iter;
+static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
+					    unsigned long addr)
+{
+	struct mcount_orig_insn *entry;
 
-		if (iter->addr > addr)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	if (!create)
-		return NULL;
-
-	iter = xmalloc(sizeof(*iter));
-	iter->addr = addr;
-
-	rb_link_node(&iter->node, parent, p);
-	rb_insert_color(&iter->node, root);
-	return iter;
+	entry = hashmap_get(code_hmap, &addr);
+	return entry;
 }
 
 struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
@@ -98,7 +104,10 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 		list_add_tail(&cp->list, &code_pages);
 	}
 
-	orig = lookup_code(&code_tree, info->addr, true);
+	orig = lookup_code(code_hmap, info->addr);
+	if (orig == NULL)
+		orig = create_code(code_hmap, info->addr);
+
 	orig->insn = cp->page + cp->pos;
 	orig->orig = orig->insn;
 	orig->orig_size = info->orig_size;
@@ -129,7 +138,7 @@ void *mcount_find_code(unsigned long addr)
 {
 	struct mcount_orig_insn *orig;
 
-	orig = lookup_code(&code_tree, addr, false);
+	orig = lookup_code(code_hmap, addr);
 	if (orig == NULL)
 		return NULL;
 
@@ -138,7 +147,30 @@ void *mcount_find_code(unsigned long addr)
 
 struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
 {
-	return lookup_code(&code_tree, addr, false);
+	return lookup_code(code_hmap, addr);
+}
+
+static bool release_code(void *key, void *value, void *ctx)
+{
+	hashmap_remove(code_hmap, key);
+	free(value);
+	return true;
+}
+
+/* not actually called for safety reason */
+void mcount_release_code(void)
+{
+	hashmap_for_each(code_hmap, release_code, NULL);
+	hashmap_free(code_hmap);
+
+	while (!list_empty(&code_pages)) {
+		struct code_page *cp;
+
+		cp = list_first_entry(&code_pages, struct code_page, list);
+		list_del(&cp->list);
+		munmap(cp->page, CODE_CHUNK);
+		free(cp);
+	}
 }
 
 /* dummy functions (will be overridden by arch-specific code) */
@@ -245,6 +277,8 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 		.needs_modules = needs_modules,
 	};
 
+	code_hmap = hashmap_create(HASHMAP_INIT_VALUE, hashmap_default_hash,
+				   hashmap_default_equals);
 	mcount_disasm_init(disasm);
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
@@ -544,3 +578,49 @@ bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 	list_add_tail(&badsym->list, &mdi->bad_syms);
 	return true;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(dynamic_find_code)
+{
+	struct mcount_disasm_info info1 = {
+		.addr = 0x1000,
+		.insns = { 0xaa, 0xbb, 0xcc, 0xdd, },
+		.orig_size = 4,
+		.copy_size = 4,
+	};
+	struct mcount_disasm_info info2 = {
+		.addr = 0x2000,
+		.insns = { 0xf1, 0xf2, 0xcc, 0xdd, },
+		.orig_size = 2,
+		.copy_size = 4,
+	};
+	uint8_t jmp_insn[] = { 0xcc };
+	uint8_t *insn;
+
+	pr_dbg("create hash map to search code\n");
+	code_hmap = hashmap_create(4, hashmap_default_hash,
+				   hashmap_default_equals);
+
+	pr_dbg("save fake code to the hash\n");
+	mcount_save_code(&info1, jmp_insn, sizeof(jmp_insn));
+	mcount_save_code(&info2, jmp_insn, sizeof(jmp_insn));
+
+	pr_dbg("freeze the code page\n");
+	mcount_freeze_code();
+
+	pr_dbg("finding the first code\n");
+	insn = mcount_find_code(info1.addr);
+	TEST_NE(insn, NULL);
+	TEST_MEMEQ(insn, info1.insns, info1.orig_size);
+
+	pr_dbg("finding the second code\n");
+	insn = mcount_find_code(info2.addr);
+	TEST_NE(insn, NULL);
+	TEST_MEMEQ(insn, info2.insns, info2.orig_size);
+
+	pr_dbg("release the code page and hash\n");
+	mcount_release_code();
+	return TEST_OK;
+}
+
+#endif  /* UNIT_TEST */

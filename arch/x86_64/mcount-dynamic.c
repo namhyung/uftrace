@@ -17,9 +17,6 @@
 #define XRAY_SECT  "xray_instr_map"
 #define MCOUNTLOC_SECT  "__mcount_loc"
 
-#define CALL_INSN_SIZE  5
-#define JMP_INSN_SIZE   6
-
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
 extern void __dentry__(void);
@@ -462,7 +459,6 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 {
 	uint8_t jmp_insn[14] = { 0xff, 0x25, };
 	uint64_t jmp_target;
-	struct mcount_orig_insn *orig;
 	struct mcount_disasm_info info = {
 		.sym  = sym,
 		.addr = mdi->map->start + sym->addr,
@@ -489,13 +485,14 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	jmp_target = info.addr + info.orig_size;
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
+	/* make sure info.addr same as when called from __dentry__ */
+	info.addr += CALL_INSN_SIZE;
 	if (info.has_jump)
-		orig = mcount_save_code(&info, jmp_insn, 0);
+		mcount_save_code(&info, jmp_insn, 0);
 	else
-		orig = mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+		mcount_save_code(&info, jmp_insn, sizeof(jmp_insn));
+	info.addr -= CALL_INSN_SIZE;
 
-	/* make sure orig->addr same as when called from __dentry__ */
-	orig->addr += CALL_INSN_SIZE;
 	patch_code(mdi, info.addr, info.orig_size);
 
 	return INSTRUMENT_SUCCESS;
