@@ -27,6 +27,7 @@
 
 static bool tui_finished;
 static bool tui_debug;
+static bool tui_srcline;
 
 struct tui_graph_node {
 	struct uftrace_graph_node n;
@@ -127,11 +128,13 @@ static void tui_window_move_down(struct tui_window *win);
 
 #define POS_SIZE 5
 
-#define C_NORMAL  0
-#define C_HEADER  1
-#define C_GREEN   2
-#define C_YELLOW  3
-#define C_RED     4
+#define C_NORMAL   0
+#define C_HEADER   1
+#define C_GREEN    2
+#define C_YELLOW   3
+#define C_RED      4
+#define C_GRAY     5
+#define C_HDR_GRAY 6
 
 static const char *help[] = {
 	"ARROW         Navigation",
@@ -156,6 +159,7 @@ static const char *help[] = {
 	"/             Search",
 	"</>/N/P       Search next/prev",
 	"v             Show debug message",
+	"d             Show source location",
 	"h/?           Show this help",
 	"q             Quit",
 };
@@ -175,6 +179,15 @@ static void init_colors(void)
 	init_pair(C_GREEN,  COLOR_GREEN,  COLOR_BLACK);
 	init_pair(C_YELLOW, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(C_RED,    COLOR_RED,    COLOR_BLACK);
+
+	if (init_color(COLOR_CYAN, 128, 128, 128) == ERR) {
+		init_pair(C_GRAY,     COLOR_WHITE, COLOR_BLACK);
+		init_pair(C_HDR_GRAY, COLOR_WHITE, COLOR_BLUE);
+	}
+	else {
+		init_pair(C_GRAY,     COLOR_CYAN, COLOR_BLACK);
+		init_pair(C_HDR_GRAY, COLOR_CYAN, COLOR_BLUE);
+	}
 }
 
 static void print_time(uint64_t ntime)
@@ -371,7 +384,8 @@ static bool list_is_none(struct list_head *list)
 }
 
 static void update_report_node(struct uftrace_task_reader *task, char *symname,
-			       struct uftrace_task_graph *tg)
+			       struct uftrace_task_graph *tg,
+			       struct debug_location* loc)
 {
 	struct tui_report_node *node;
 	struct tui_graph_node *graph_node;
@@ -393,7 +407,7 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 	if (list_is_none(&graph_node->link))
 		list_add_tail(&graph_node->link, &node->head);
 
-	report_update_node(&node->n, task, NULL);
+	report_update_node(&node->n, task, loc);
 }
 
 static int build_tui_node(struct uftrace_task_reader *task,
@@ -406,6 +420,8 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	struct sym *sym;
 	char *name;
 	uint64_t addr = rec->addr;
+	struct debug_location *loc = NULL;
+	bool loc_found = false;
 
 	if (is_kernel_record(task, rec)) {
 		struct uftrace_session *fsess;
@@ -432,22 +448,31 @@ static int build_tui_node(struct uftrace_task_reader *task,
 
 		name = symbol_getname(sym, addr);
 
-		if (rec->type == UFTRACE_EXIT)
-			update_report_node(task, name, tg);
+		if (rec->type == UFTRACE_EXIT) {
+			if (opts->srcline) {
+				loc = task_find_loc_addr(&task->h->sessions, task, rec->time, addr);
+				loc_found = true;
+			}
+
+			update_report_node(task, name, tg, loc);
+		}
 	}
 	else if (rec->type == UFTRACE_EVENT) {
 		sym = &sched_sym;
 		name = symbol_getname(sym, addr);
 
 		if (addr == EVENT_ID_PERF_SCHED_IN)
-			update_report_node(task, name, tg);
+			update_report_node(task, name, tg, NULL);
 		else if (addr != EVENT_ID_PERF_SCHED_OUT)
 			return 0;
 	}
 	else  /* rec->type == UFTRACE_LOST */
 		return 0;
 
-	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node));
+	if (opts->srcline && !loc_found)
+		loc = task_find_loc_addr(&task->h->sessions, task, rec->time, addr);
+
+	graph_add_node(tg, rec->type, name, sizeof(struct tui_graph_node), loc);
 	if (tg->node && tg->node != &graph->root) {
 		graph_node = (struct tui_graph_node *)tg->node;
 		graph_node->graph = graph;
@@ -466,6 +491,7 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 	struct sym *sym;
 	char *name;
 	int i;
+	struct debug_location *loc = NULL;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		task = &handle->tasks[i];
@@ -505,9 +531,14 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			update_report_node(task, name, tg);
+			if (opts->srcline)
+				loc = task_find_loc_addr(&task->h->sessions,
+							 task, fstack->total_time,
+							 fstack->addr);
+
+			update_report_node(task, name, tg, loc);
 			graph_add_node(tg, UFTRACE_EXIT, name,
-				       sizeof(struct tui_graph_node));
+				       sizeof(struct tui_graph_node), NULL);
 
 			symbol_putname(sym, name);
 		}
@@ -559,6 +590,7 @@ static void copy_graph_node(struct uftrace_graph_node *dst,
 		node->n.time       += child->time;
 		node->n.child_time += child->child_time;
 		node->n.nr_calls   += child->nr_calls;
+		node->n.loc         = child->loc;
 
 		copy_graph_node(&node->n, child);
 	}
@@ -692,6 +724,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 			tmp->n.time       = node->n.time;
 			tmp->n.child_time = node->n.child_time;
 			tmp->n.nr_calls   = node->n.nr_calls;
+			tmp->n.loc        = node->n.loc;
 
 			/* fold backtrace at the first child */
 			if (n++ == 1)
@@ -719,6 +752,7 @@ static void build_partial_graph(struct tui_report_node *root_node,
 		root->n.time       += node->n.time;
 		root->n.child_time += node->n.child_time;
 		root->n.nr_calls   += node->n.nr_calls;
+		root->n.loc        = node->n.loc;
 
 		copy_graph_node(&root->n, &node->n);
 	}
@@ -983,6 +1017,7 @@ static void win_header_graph(struct tui_window *win,
 			     struct uftrace_data *handle)
 {
 	int w = 0, c;
+	int width = 0;
 	char *buf, *p;
 	struct tui_graph *graph = (struct tui_graph *)win;
 	struct display_field *field;
@@ -997,6 +1032,7 @@ static void win_header_graph(struct tui_window *win,
 	graph->width = w;
 
 	w += strlen(" FUNCTION");
+	width = w;
 
 	if (list_empty(&graph_output_fields)) {
 		printw("%-*.*s", COLS, COLS, "uftrace graph TUI");
@@ -1013,7 +1049,18 @@ static void win_header_graph(struct tui_window *win,
 	}
 	snprintf(p, w+1, "%s %s", FIELD_SEP, "FUNCTION");
 
-	printw("%-*.*s", COLS, COLS, buf);
+	printw("%s", buf);
+
+	if (tui_srcline) {
+		attron(COLOR_PAIR(C_HDR_GRAY));
+		printw("%s", " [SOURCE]");
+		attron(COLOR_PAIR(C_HEADER));
+		width += strlen(" [SOURCE]");
+	}
+
+	if (COLS > width)
+		printw("%*s", COLS - width, "");
+
 	free(buf);
 
 out:
@@ -1168,6 +1215,7 @@ static void win_display_graph(struct tui_window *win, void *node)
 	const char *fold_sign;
 	bool single_child = false;
 	int width;
+	char *str_loc;
 
 	if (node == NULL) {
 		print_graph_empty(graph, COLS);
@@ -1213,8 +1261,19 @@ static void win_display_graph(struct tui_window *win, void *node)
 		}
 
 		if (width < COLS) {
-			w = COLS - width;
-			printw("%-*.*s", w, w, curr->n.name);
+			if (tui_srcline && curr->n.loc) {
+				printw("%s ", curr->n.name);
+				width += strlen(curr->n.name) + 1;
+
+				xasprintf(&str_loc, "[%s:%d]", curr->n.loc->file->name, curr->n.loc->line);
+				attron(COLOR_PAIR(C_GRAY));
+				printw("%-*.*s", COLS - width, COLS - width, str_loc);
+				attroff(COLOR_PAIR(C_GRAY));
+				free(str_loc);
+			}
+			else {
+				printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
+			}
 		}
 	}
 }
@@ -1365,6 +1424,14 @@ static void win_header_report(struct tui_window *win, struct uftrace_data *handl
 
 	header[curr_sort_key][0] = '*';
 	printw(" %11s %11s %11s  %s", header[0], header[1], header[2], "Function");
+
+	if (tui_srcline) {
+		attron(COLOR_PAIR(C_HDR_GRAY));
+		printw("%s", " [SOURCE]");
+		attron(COLOR_PAIR(C_HEADER));
+		w += strlen(" [SOURCE]");
+	}
+
 	if (COLS > w)
 		printw("%*s", COLS - w, "");
 }
@@ -1405,6 +1472,7 @@ static void win_display_report(struct tui_window *win, void *node)
 {
 	struct tui_report_node *curr = node;
 	int width = 38;  /* 3 output fields and spaces */
+	char *str_loc;
 
 	printw("  ");
 	print_time(curr->n.total.sum);
@@ -1414,7 +1482,19 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("%10lu", curr->n.call);
 	printw("  ");
 
-	printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
+	if (tui_srcline && curr->n.loc) {
+		printw("%s ", curr->n.name);
+		width += strlen(curr->n.name) + 1;
+
+		xasprintf(&str_loc, "[%s:%d]", curr->n.loc->file->name, curr->n.loc->line);
+		attron(COLOR_PAIR(C_GRAY));
+		printw("%-*.*s", COLS - width, COLS - width, str_loc);
+		attroff(COLOR_PAIR(C_GRAY));
+		free(str_loc);
+	}
+	else {
+		printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
+	}
 }
 
 static struct debug_location *win_location_report(struct tui_window *win,
@@ -2576,6 +2656,10 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			break;
 		case 'v':
 			tui_debug = !tui_debug;
+			break;
+		case 'd':
+			tui_srcline = !tui_srcline;
+			full_redraw = true;
 			break;
 		case 'h':
 		case '?':
