@@ -368,6 +368,18 @@ bool hashmap_default_equals(void *keyA, void *keyB)
 	return a == b;
 }
 
+hash_t hashmap_ptr_hash(void* key)
+{
+	return (uintptr_t) key;
+}
+
+bool hashmap_ptr_equals(void *keyA, void *keyB)
+{
+	hash_t a = (uintptr_t)keyA;
+	hash_t b = (uintptr_t)keyB;
+	return a == b;
+}
+
 #ifdef UNIT_TEST
 #include "utils/utils.h"
 

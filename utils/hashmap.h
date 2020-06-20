@@ -144,4 +144,14 @@ size_t hashmap_current_capacity(Hashmap* map);
  */
 size_t hashmap_count_collisions(Hashmap* map);
 
+/**
+ * Key utilities - use pointer as key.
+ */
+hash_t hashmap_ptr_hash(void *key);
+
+/**
+ * Compares two pointers for equality.
+ */
+bool hashmap_ptr_equals(void* keyA, void* keyB);
+
 #endif /* __HASHMAP_H */
