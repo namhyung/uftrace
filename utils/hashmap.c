@@ -212,7 +212,7 @@ void* hashmap_put(Hashmap* map, void* key, void* value)
 			}
 			map->size++;
 			expand_if_necessary(map);
-			return NULL;
+			return value;
 		}
 
 		// Replace existing entry.

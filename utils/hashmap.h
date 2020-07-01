@@ -62,7 +62,7 @@ hash_t hashmap_hash(void* key, size_t keySize);
 
 /**
  * Puts value for the given key in the map. Returns pre-existing value if
- * any.
+ * any, otherwise it returns the given value.
  *
  * If memory allocation fails, this function returns NULL, the map's size
  * does not increase, and errno is set to ENOMEM.

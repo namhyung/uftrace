@@ -60,7 +60,8 @@ static struct mcount_orig_insn *create_code(struct Hashmap *map,
 
 	entry = xmalloc(sizeof *entry);
 	entry->addr = addr;
-	hashmap_put(code_hmap, (void *)entry->addr, entry);
+	if (hashmap_put(code_hmap, (void *)entry->addr, entry) == NULL)
+		pr_err("code map allocation failed");
 	return entry;
 }
 
