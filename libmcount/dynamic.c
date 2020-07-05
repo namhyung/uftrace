@@ -60,7 +60,8 @@ static struct mcount_orig_insn *create_code(struct Hashmap *map,
 
 	entry = xmalloc(sizeof *entry);
 	entry->addr = addr;
-	hashmap_put(code_hmap, &entry->addr, entry);
+	if (hashmap_put(code_hmap, (void *)entry->addr, entry) == NULL)
+		pr_err("code map allocation failed");
 	return entry;
 }
 
@@ -69,7 +70,7 @@ static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
 {
 	struct mcount_orig_insn *entry;
 
-	entry = hashmap_get(code_hmap, &addr);
+	entry = hashmap_get(code_hmap, (void *)addr);
 	return entry;
 }
 
@@ -276,9 +277,13 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 		.symtabs = symtabs,
 		.needs_modules = needs_modules,
 	};
+	int hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	code_hmap = hashmap_create(HASHMAP_INIT_VALUE, hashmap_default_hash,
-				   hashmap_default_equals);
+	if (needs_modules)
+		hash_size *= 2;
+
+	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
+				   hashmap_ptr_equals);
 	mcount_disasm_init(disasm);
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
@@ -598,8 +603,7 @@ TEST_CASE(dynamic_find_code)
 	uint8_t *insn;
 
 	pr_dbg("create hash map to search code\n");
-	code_hmap = hashmap_create(4, hashmap_default_hash,
-				   hashmap_default_equals);
+	code_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
 
 	pr_dbg("save fake code to the hash\n");
 	mcount_save_code(&info1, jmp_insn, sizeof(jmp_insn));

@@ -62,7 +62,7 @@ hash_t hashmap_hash(void* key, size_t keySize);
 
 /**
  * Puts value for the given key in the map. Returns pre-existing value if
- * any.
+ * any, otherwise it returns the given value.
  *
  * If memory allocation fails, this function returns NULL, the map's size
  * does not increase, and errno is set to ENOMEM.
@@ -143,5 +143,15 @@ size_t hashmap_current_capacity(Hashmap* map);
  * Counts the number of entry collisions.
  */
 size_t hashmap_count_collisions(Hashmap* map);
+
+/**
+ * Key utilities - use pointer as key.
+ */
+hash_t hashmap_ptr_hash(void *key);
+
+/**
+ * Compares two pointers for equality.
+ */
+bool hashmap_ptr_equals(void* keyA, void* keyB);
 
 #endif /* __HASHMAP_H */

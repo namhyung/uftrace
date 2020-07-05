@@ -212,7 +212,7 @@ void* hashmap_put(Hashmap* map, void* key, void* value)
 			}
 			map->size++;
 			expand_if_necessary(map);
-			return NULL;
+			return value;
 		}
 
 		// Replace existing entry.
@@ -365,6 +365,18 @@ bool hashmap_default_equals(void *keyA, void *keyB)
 {
 	hash_t a = *((hash_t *)keyA);
 	hash_t b = *((hash_t *)keyB);
+	return a == b;
+}
+
+hash_t hashmap_ptr_hash(void* key)
+{
+	return (uintptr_t) key;
+}
+
+bool hashmap_ptr_equals(void *keyA, void *keyB)
+{
+	hash_t a = (uintptr_t)keyA;
+	hash_t b = (uintptr_t)keyB;
 	return a == b;
 }
 
