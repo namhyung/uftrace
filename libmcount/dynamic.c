@@ -277,8 +277,12 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 		.symtabs = symtabs,
 		.needs_modules = needs_modules,
 	};
+	int hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	code_hmap = hashmap_create(HASHMAP_INIT_VALUE, hashmap_ptr_hash,
+	if (needs_modules)
+		hash_size *= 2;
+
+	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
 				   hashmap_ptr_equals);
 	mcount_disasm_init(disasm);
 	dl_iterate_phdr(find_dynamic_module, &fmd);
