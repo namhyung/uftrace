@@ -52,6 +52,9 @@ static LIST_HEAD(code_pages);
 
 static struct Hashmap *code_hmap;
 
+/* at least, function size must be greater than this */
+static uint64_t min_size = 0;
+
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
 {
@@ -525,7 +528,6 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 {
 	int ret = 0;
 	char *size_filter;
-	unsigned min_size = 0;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	prepare_dynamic_update(disasm, symtabs, needs_modules);
