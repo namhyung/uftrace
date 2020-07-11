@@ -55,6 +55,9 @@ static struct Hashmap *code_hmap;
 /* minimum function size for dynamic update */
 static unsigned min_size;
 
+/* disassembly engine for dynamic code patch (for capstone) */
+static struct mcount_disasm_engine disasm;
+
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
 {
@@ -279,8 +282,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
-				   struct symtabs *symtabs,
+static void prepare_dynamic_update(struct symtabs *symtabs,
 				   bool needs_modules)
 {
 	struct find_module_data fmd = {
@@ -294,7 +296,7 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 
 	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
 				   hashmap_ptr_equals);
-	mcount_disasm_init(disasm);
+	mcount_disasm_init(&disasm);
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
 
@@ -343,8 +345,7 @@ static bool match_pattern_list(struct list_head *patterns,
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			     enum uftrace_pattern_type ptype,
-			     struct mcount_disasm_engine *disasm)
+			     enum uftrace_pattern_type ptype)
 {
 	struct uftrace_mmap *map;
 	struct symtab *symtab;
@@ -439,13 +440,13 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 				continue;
 
 			if (!match_pattern_list(&patterns, map, sym->name)) {
-				if (mcount_unpatch_func(mdi, sym, disasm) == 0)
+				if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
 					stats.unpatch++;
 				continue;
 			}
 
 			found = true;
-			switch (mcount_patch_func(mdi, sym, disasm, min_size)) {
+			switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
 			case INSTRUMENT_FAILED:
 				stats.failed++;
 				break;
@@ -482,7 +483,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	return 0;
 }
 
-static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
+static void finish_dynamic_update(void)
 {
 	struct mcount_dynamic_info *mdi, *tmp;
 
@@ -490,14 +491,13 @@ static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
 	while (mdi) {
 		tmp = mdi->next;
 
-		mcount_arch_dynamic_recover(mdi, disasm);
+		mcount_arch_dynamic_recover(mdi, &disasm);
 		mcount_cleanup_trampoline(mdi);
 		free(mdi);
 
 		mdi = tmp;
 	}
 
-	mcount_disasm_finish(disasm);
 	mcount_freeze_code();
 }
 
@@ -511,20 +511,19 @@ static int calc_percent(int n, int total, int *rem)
 }
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			  enum uftrace_pattern_type ptype,
-			  struct mcount_disasm_engine *disasm)
+			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
 	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
-	prepare_dynamic_update(disasm, symtabs, needs_modules);
+	prepare_dynamic_update(symtabs, needs_modules);
 
 	size_filter = getenv("UFTRACE_PATCH_SIZE");
 	if (size_filter != NULL)
 		min_size = strtoul(size_filter, NULL, 0);
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
 
 	if (stats.total && stats.failed) {
 		int success = stats.total - stats.failed - stats.skipped;
@@ -542,7 +541,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	finish_dynamic_update(disasm);
+	finish_dynamic_update();
 	return ret;
 }
 
