@@ -177,12 +177,16 @@ setup:
 	handle->tasks = xmalloc(sizeof(*handle->tasks) * handle->nr_tasks);
 
 	for (i = 0; i < handle->nr_tasks; i++) {
+		bool found;
+		int tid;
+		struct uftrace_task_reader *task;
+
 		if (handle->info.tids == NULL)
 			pr_err_ns("The info file is broken: missing tids\n");
 
-		bool found = !tid_filter;
-		int tid = handle->info.tids[i];
-		struct uftrace_task_reader *task = &handle->tasks[i];
+		found = !tid_filter;
+		tid = handle->info.tids[i];
+		task = &handle->tasks[i];
 
 		prepare_task_handle(handle, task, tid);
 

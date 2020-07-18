@@ -89,6 +89,9 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 		      struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
+	cs_x86_op *opnd1;
+	cs_x86_op *opnd2;
+	uint64_t PC_base;
 
 #define REX   0
 #define OPND  1
@@ -112,8 +115,8 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 		goto out;
 
 	/* according to intel manual, lea instruction takes 2 operand */
-	cs_x86_op *opnd1 = &x86->operands[0];
-	cs_x86_op *opnd2 = &x86->operands[1];
+	opnd1 = &x86->operands[0];
+	opnd2 = &x86->operands[1];
 
 	/* check PC-relative addressing mode */
 	if (opnd2->type != X86_OP_MEM || opnd2->mem.base != X86_REG_RIP)
@@ -136,7 +139,7 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 	/* convert LEA to MOV instruction */
 	mov_insns[OPND] = mov_operands[opnd_reg(opnd1->reg)];
 
-	uint64_t PC_base = insn->address + insn->size + opnd2->mem.disp;
+	PC_base = insn->address + insn->size + opnd2->mem.disp;
 	memcpy(&mov_insns[IMM], &PC_base, sizeof(PC_base));
 
 	memcpy(insns, mov_insns, sizeof(mov_insns));

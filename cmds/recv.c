@@ -500,10 +500,12 @@ static void recv_trace_end(int sock, int efd)
 }
 
 static void execute_run_cmd(char **argv) {
+	int pid;
+
 	if (!argv)
 		return;
 
-	int pid = fork();
+	pid = fork();
 	if (pid < 0)
 		pr_err("cannot start child process");
 

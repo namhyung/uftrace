@@ -46,16 +46,19 @@ Hashmap* hashmap_create(size_t initial_capacity,
 			hash_t (*hash)(void* key),
 			bool (*equals)(void* keyA, void* keyB))
 {
+	Hashmap* map;
+	size_t minimum_bucket_count;
+
 	assert(hash != NULL);
 	assert(equals != NULL);
 
-	Hashmap* map = malloc(sizeof(Hashmap));
+	map = malloc(sizeof(Hashmap));
 	if (map == NULL) {
 		return NULL;
 	}
 
 	// 0.75 load factor.
-	size_t minimum_bucket_count = initial_capacity * 4 / 3;
+	minimum_bucket_count = initial_capacity * 4 / 3;
 	map->bucket_count = 1;
 	while (map->bucket_count <= minimum_bucket_count) {
 		// Bucket count must be power of 2.
@@ -102,14 +105,16 @@ static void expand_if_necessary(Hashmap* map)
 	if (map->size > (map->bucket_count * 3 / 4)) {
 		// Start off with a 0.33 load factor.
 		size_t new_bucket_count = map->bucket_count << 1;
-		Entry** new_buckets = calloc(new_bucket_count, sizeof(Entry*));
+		Entry** new_buckets;
+		size_t i;
+
+		new_buckets = calloc(new_bucket_count, sizeof(Entry*));
 		if (new_buckets == NULL) {
 			// Abort expansion.
 			return;
 		}
 
 		// Move over existing entries.
-		size_t i;
 		for (i = 0; i < map->bucket_count; i++) {
 			Entry* entry = map->buckets[i];
 			while (entry != NULL) {
@@ -272,12 +277,15 @@ void* hashmap_memoize(Hashmap* map, void* key,
 
 		// Add a new entry.
 		if (current == NULL) {
+			void* value;
+
 			*p = create_entry(key, hash, NULL);
 			if (*p == NULL) {
 				errno = ENOMEM;
 				return NULL;
 			}
-			void* value = initial_value(key, context);
+
+			value = initial_value(key, context);
 			(*p)->value = value;
 			map->size++;
 			expand_if_necessary(map);
