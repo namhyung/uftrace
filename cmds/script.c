@@ -41,6 +41,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	task->timestamp = rstack->time;
 
 	if (rstack->type == UFTRACE_ENTRY) {
+		struct script_context sc_ctx;
 		struct fstack *fstack;
 		int depth;
 		struct uftrace_trigger tr = {
@@ -61,14 +62,11 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		if (!script_match_filter(symname))
 			goto out;
 
-		/* setup context for script execution */
-		struct script_context sc_ctx = {
-			.tid       = task->tid,
-			.depth     = depth,  /* display depth */
-			.timestamp = rstack->time,
-			.address   = rstack->addr,
-			.name      = symname,
-		};
+		sc_ctx.tid       = task->tid;
+		sc_ctx.depth     = depth;  /* display depth */
+		sc_ctx.timestamp = rstack->time;
+		sc_ctx.address   = rstack->addr;
+		sc_ctx.name      = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT) {
 			sc_ctx.argbuf  = task->args.data;
@@ -80,6 +78,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		script_uftrace_entry(&sc_ctx);
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
+		struct script_context sc_ctx;
 		struct fstack *fstack;
 
 		/* function exit */
@@ -98,14 +97,12 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			struct script_context sc_ctx = {
-				.tid       = task->tid,
-				.depth     = rstack->depth,
-				.timestamp = rstack->time,
-				.duration  = fstack->total_time,
-				.address   = rstack->addr,
-				.name      = symname,
-			};
+			sc_ctx.tid       = task->tid;
+			sc_ctx.depth     = rstack->depth;
+			sc_ctx.timestamp = rstack->time;
+			sc_ctx.duration  = fstack->total_time;
+			sc_ctx.address   = rstack->addr;
+			sc_ctx.name      = symname;
 
 			if (rstack->more) {
 				sc_ctx.argbuf  = task->args.data;
@@ -151,10 +148,12 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->record) {
+		char *script_file;
+
 		/* parse in-script record option - "uftrace_options" */
 		parse_script_opt(opts);
 
-		char *script_file = opts->script_file;
+		script_file = opts->script_file;
 		opts->script_file = NULL;
 
 		pr_dbg("start recording before running a script\n");

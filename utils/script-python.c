@@ -499,18 +499,22 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 
 int python_uftrace_begin(struct script_info *info)
 {
+	PyObject *dict;
+	PyObject *cmds;
+	PyObject *ctx;
+	int i;
+	char *s;
+
 	if (unlikely(!pFuncBegin))
 		return -1;
 
 	/* python_interpreter_lock is already held */
-	PyObject *dict = __PyDict_New();
+	dict = __PyDict_New();
 
 	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
 
-	int i;
-	char *s;
-	PyObject *cmds = __PyTuple_New(info->cmds.nr);
+	cmds = __PyTuple_New(info->cmds.nr);
 
 	strv_for_each(&info->cmds, s, i)
 		insert_tuple_string(cmds, i, s);
@@ -518,7 +522,7 @@ int python_uftrace_begin(struct script_info *info)
 	__PyDict_SetItemString(dict, "cmds", cmds);
 	Py_XDECREF(cmds);
 
-	PyObject *ctx = __PyTuple_New(1);
+	ctx = __PyTuple_New(1);
 
 	__PyTuple_SetItem(ctx, 0, dict);
 	__PyObject_CallObject(pFuncBegin, ctx);
@@ -536,13 +540,16 @@ int python_uftrace_begin(struct script_info *info)
 
 int python_uftrace_entry(struct script_context *sc_ctx)
 {
+	PyObject *pDict;
+	PyObject *pythonContext;
+
 	if (unlikely(!pFuncEntry))
 		return -1;
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
 	/* Entire arguments are passed into a single dictionary. */
-	PyObject *pDict = __PyDict_New();
+	pDict = __PyDict_New();
 
 	/* Setup common info in both entry and exit into a dictionary */
 	setup_common_context(&pDict, sc_ctx);
@@ -551,7 +558,7 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 		setup_argument_context(&pDict, false, sc_ctx);
 
 	/* Python function arguments must be passed in a tuple. */
-	PyObject *pythonContext = __PyTuple_New(1);
+	pythonContext = __PyTuple_New(1);
 	__PyTuple_SetItem(pythonContext, 0, pDict);
 
 	/* Call python function "uftrace_entry". */
@@ -575,13 +582,16 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 
 int python_uftrace_exit(struct script_context *sc_ctx)
 {
+	PyObject *pDict;
+	PyObject *pythonContext;
+
 	if (unlikely(!pFuncExit))
 		return -1;
 
 	pthread_mutex_lock(&python_interpreter_lock);
 
 	/* Entire arguments are passed into a single dictionary. */
-	PyObject *pDict = __PyDict_New();
+	pDict = __PyDict_New();
 
 	/* Setup common info in both entry and exit into a dictionary */
 	setup_common_context(&pDict, sc_ctx);
@@ -593,7 +603,7 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 		setup_argument_context(&pDict, true, sc_ctx);
 
 	/* Python function arguments must be passed in a tuple. */
-	PyObject *pythonContext = __PyTuple_New(1);
+	pythonContext = __PyTuple_New(1);
 	__PyTuple_SetItem(pythonContext, 0, pDict);
 
 	/* Call python function "uftrace_exit". */

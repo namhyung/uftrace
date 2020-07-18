@@ -594,6 +594,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("NULL");
 			else if (needs_json) {
 				char *p = str;
+
 				print_args("\\\"");
 				while (*p) {
 					char c = *p++;
@@ -602,10 +603,10 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("\\\"");
 			}
 			else {
+				char *p = str;
+
 				print_args("%s", color_string);
 				print_args("\"");
-
-				char *p = str;
 				while (*p) {
 					char c = *p++;
 					if (c & 0x80) {

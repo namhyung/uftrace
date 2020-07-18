@@ -491,8 +491,9 @@ char * convert_sort_keys(char *sort_keys)
 		return xstrdup(default_sort_key[avg_mode]);
 
 	if (avg_mode == AVG_NONE) {
-		new_keys = xstrdup(sort_keys);
-		char *s = new_keys;
+		char *s;
+
+		s = new_keys = xstrdup(sort_keys);
 		while (*s) {
 			if (*s == '-')
 				*s = '_';
