@@ -2276,7 +2276,8 @@ static bool tui_window_open_editor(struct tui_window *win)
 	endwin();
 
 	strv_split(&editor_strv, editor, " ");
-	if (!strncmp(editor, "vi", 2) || !strncmp(editor, "emacs", 5)) {
+	if (!strncmp(editor, "nvi", 3) || !strncmp(editor, "vi", 2) ||
+        !strncmp(editor, "emacs", 5)) {
 		char buf[16];
 
 		/* run 'vi +line file' */
