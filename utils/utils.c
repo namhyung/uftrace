@@ -694,6 +694,38 @@ void strv_free(struct strv *strv)
 	strv->nr = 0;
 }
 
+/**
+ * strstr - locate a substring in reverse order
+ * @haystack: full string for search
+ * @needle: substring for pattern matching
+ *
+ * The strrstr() function finds the last occurrence of the substring needle in
+ * the string haystack.  The terminating null bytes ('\0') are not compared.
+ */
+char *strrstr(const char *haystack, const char *needle)
+{
+	int haystack_len = strlen(haystack);
+	int needle_len = strlen(needle);
+	char *ptr;
+
+	if (needle_len == 0)
+		return (char*)haystack;
+
+	if (needle_len > haystack_len)
+		return NULL;
+
+	ptr = (char*)haystack + haystack_len - needle_len;
+	while (1) {
+		if (!strncmp(ptr, needle, needle_len))
+			return ptr;
+		if (ptr == haystack)
+			break;
+		--ptr;
+	}
+
+	return NULL;
+}
+
 #define QUOTE '\''
 #define DQUOTE '"'
 #define QUOTES "\'\""

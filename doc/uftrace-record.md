@@ -129,9 +129,9 @@ COMMON OPTIONS
 :   Set global trace limit in nesting level.  See *FILTERS*.
 
 -t *TIME*, \--time-filter=*TIME*
-:   Do not show functions which run under the time threshold.  If some functions
-    explicitly have the 'trace' trigger applied, those are always traced
-    regardless of execution time.  See *FILTERS*.
+:   Do not record functions which run under the time threshold.  If some
+    functions explicitly have the 'trace' trigger applied, those are always
+    recorded regardless of execution time.  See *FILTERS*.
 
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally

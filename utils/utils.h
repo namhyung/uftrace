@@ -358,6 +358,8 @@ void strv_replace(struct strv *strv, int idx, const char *str);
 char * strv_join(struct strv *strv, const char *delim);
 void strv_free(struct strv *strv);
 
+char *strrstr(const char *haystack, const char *needle);
+
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
 
