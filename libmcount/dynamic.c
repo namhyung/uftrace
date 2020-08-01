@@ -489,6 +489,30 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		stats.nomatch++;
 }
 
+void mcount_cleanup_dynamic(void)
+{
+	mcount_disasm_finish(&disasm);
+
+	if (instrument_ml) {
+		while (!list_empty(instrument_ml)) {
+			struct module_list *ml;
+
+			ml = list_first_entry(instrument_ml, struct module_list, list);
+			while (!list_empty(&ml->patt_list)) {
+				struct patt_list *pl;
+				pl = list_first_entry(&ml->patt_list, struct patt_list, list);
+				list_del(&pl->list);
+				free(pl->module);
+				free(pl);
+			}
+
+			list_del(&ml->list);
+			free(ml->modname);
+			free(ml);
+		}
+	}
+}
+
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {

@@ -497,6 +497,7 @@ void mcount_list_events(void);
 int mcount_arch_enable_event(struct mcount_event_info *mei);
 
 void mcount_hook_functions(void);
+void mcount_cleanup_dynamic(void);
 void mcount_handle_dlopen(struct symtabs *symtabs,
 			  struct dl_phdr_info *info, char *mod_realpath,
 			  size_t size);

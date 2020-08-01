@@ -1818,6 +1818,7 @@ static void mcount_cleanup(void)
 	script_str = NULL;
 
 	unload_module_symtabs();
+	mcount_cleanup_dynamic();
 
 	pr_dbg("exit from libmcount\n");
 }
