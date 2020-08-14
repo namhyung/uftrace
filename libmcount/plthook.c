@@ -477,6 +477,8 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		/* system base libraries */
 		"libc.so.6",
 		"libc-2.*.so",
+		"libm.so.6",
+		"libm-2.*.so",
 		"libgcc_s.so.1",
 		"libpthread.so.0",
 		"libpthread-2.*.so",
