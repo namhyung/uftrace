@@ -73,8 +73,8 @@ static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
 	return entry;
 }
 
-struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
-					  void *jmp_insn, unsigned jmp_size)
+void mcount_save_code(struct mcount_disasm_info *info,
+		      void *jmp_insn, unsigned jmp_size)
 {
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
@@ -123,7 +123,6 @@ struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
 	memcpy(orig->insn + info->copy_size, jmp_insn, jmp_size);
 
 	cp->pos += patch_size;
-	return orig;
 }
 
 void mcount_freeze_code(void)
