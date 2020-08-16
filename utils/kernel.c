@@ -811,7 +811,7 @@ int record_kernel_tracing(struct uftrace_kernel_writer *kernel)
 		bytes += n;
 	}
 
-	pr_dbg2("kernel ftrace record wrote %zd bytes\n", bytes);
+	pr_dbg3("kernel ftrace record wrote %zd bytes\n", bytes);
 	return bytes;
 }
 
