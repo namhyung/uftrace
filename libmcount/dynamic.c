@@ -50,7 +50,6 @@ struct code_page {
 
 static LIST_HEAD(code_pages);
 
-#define HASHMAP_INIT_VALUE 50000
 static struct Hashmap *code_hmap;
 
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
