@@ -449,8 +449,8 @@ struct mcount_disasm_info {
 	bool			has_jump;
 };
 
-struct mcount_orig_insn *mcount_save_code(struct mcount_disasm_info *info,
-					  void *jmp_insn, unsigned jmp_size);
+void mcount_save_code(struct mcount_disasm_info *info,
+		      void *jmp_insn, unsigned jmp_size);
 void *mcount_find_code(unsigned long addr);
 struct mcount_orig_insn * mcount_find_insn(unsigned long addr);
 void mcount_freeze_code(void);

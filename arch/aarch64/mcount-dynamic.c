@@ -21,7 +21,6 @@ extern void __dentry__(void);
 
 static void save_orig_code(struct mcount_disasm_info *info)
 {
-	struct mcount_orig_insn *orig;
 	uint32_t jmp_insn[6] = {
 		0x58000050,     /* LDR  ip0, addr */
 		0xd61f0200,     /* BR   ip0 */
@@ -37,7 +36,7 @@ static void save_orig_code(struct mcount_disasm_info *info)
 
 	/* make sure info.addr same as when called from __dentry__ */
 	info->addr += CODE_SIZE;
-	orig = mcount_save_code(info, jmp_insn, jmp_insn_size);
+	mcount_save_code(info, jmp_insn, jmp_insn_size);
 	info->addr -= CODE_SIZE;
 }
 
