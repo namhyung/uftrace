@@ -855,11 +855,25 @@ static void dump_chrome_header(struct uftrace_dump_ops *ops,
 	chrome->last_comma = false;
 }
 
+static void escape_func_name(char *name_buf, const char *name)
+{
+	size_t namelen = strlen(name);
+	size_t i, j;
+
+	for (i = 0, j = 0; i < namelen; i++) {
+		if (name[i] == '"')
+			name_buf[j++] = '\\';
+		name_buf[j++] = name[i];
+	}
+	name_buf[j] = '\0';
+}
+
 static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 				     struct uftrace_task_reader *task, char *name)
 {
 	char ph;
-	char spec_buf[1024];
+	char spec_buf[2048];
+	char name_buf[2048];
 	struct uftrace_record *frs = task->rstack;
 	enum argspec_string_bits str_mode = NEEDS_JSON;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
@@ -885,6 +899,9 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		}
 	}
 
+	/* escape the function name */
+	escape_func_name(name_buf, name);
+
 	if (chrome->last_comma)
 		pr_out(",\n");
 	chrome->last_comma = true;
@@ -894,11 +911,11 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name_buf);
 		}
 		else {
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name_buf);
 		}
 
 		if (frs->more) {
@@ -914,11 +931,11 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name);
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name_buf);
 		}
 		else {
 			pr_out("{\"ts\":%"PRIu64".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name);
+			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name_buf);
 		}
 
 		if (frs->more) {
