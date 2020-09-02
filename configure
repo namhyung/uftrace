@@ -120,7 +120,7 @@ if [ ! -z "$arch" ]; then
         export CFLAGS="-m32 $CFLAGS"
         export LDFLAGS="-m32 $LDFLAGS"
     else
-        echo "$arch is not a supported architecture"
+        echo "Error: '$arch' is not a supported architecture" >&2
         exit 1
     fi
 fi
@@ -168,7 +168,7 @@ export CC CFLAGS LD LDFLAGS
 check_command() {
 	if ! command -v $1 &>/dev/null
 	then
-		echo "'$1' command is not found"
+		echo "Error: '$1' command is not found" >&2
 		exit 1
 	fi
 }
