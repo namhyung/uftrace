@@ -165,6 +165,17 @@ MAKEOVERRIDES=
 
 export CC CFLAGS LD LDFLAGS
 
+check_command() {
+	if ! command -v $1 &>/dev/null
+	then
+		echo "'$1' command is not found"
+		exit 1
+	fi
+}
+
+check_command make
+check_command ${CC}
+
 make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
