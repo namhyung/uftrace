@@ -1140,13 +1140,14 @@ static bool symbol_is_func(struct sym *sym)
 	}
 }
 
-static void save_module_symbol_file(struct symtab *stab, const char *symfile,
-				    unsigned long offset)
+static void save_module_symbol_file(struct symtab *stab, const char *pathname,
+				    const char *symfile, unsigned long offset)
 {
 	FILE *fp;
 	unsigned i;
 	bool prev_was_plt = false;
 	struct sym *sym, *prev;
+	char build_id[BUILD_ID_STR_SIZE];
 
 	if (stab->nr_sym == 0)
 		return;
@@ -1160,7 +1161,10 @@ static void save_module_symbol_file(struct symtab *stab, const char *symfile,
 
 	pr_dbg2("saving symbols to %s\n", symfile);
 
+	fprintf(fp, "# path name: %s\n", pathname);
 	fprintf(fp, "# symbols: %zd\n", stab->nr_sym);
+	if (read_build_id(pathname, build_id, sizeof(build_id)) == 0)
+		fprintf(fp, "# build-id: %s\n", build_id);
 
 	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
@@ -1210,7 +1214,7 @@ void save_module_symtabs(const char *dirname)
 		xasprintf(&symfile, "%s/%s.sym", dirname,
 			  basename(mod->name));
 
-		save_module_symbol_file(&mod->symtab, symfile, 0);
+		save_module_symbol_file(&mod->symtab, mod->name, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
@@ -1616,7 +1620,7 @@ TEST_CASE(symbol_load_module) {
 	stab.nr_sym = ARRAY_SIZE(mixed_sym);
 
 	pr_dbg("save symbol file and load symbols\n");
-	save_module_symbol_file(&stab, symfile, 0x400000);
+	save_module_symbol_file(&stab, symfile, symfile, 0x400000);
 
 	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
