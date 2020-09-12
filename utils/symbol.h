@@ -31,6 +31,9 @@
 # define STB_GNU_UNIQUE  10
 #endif
 
+#define BUILD_ID_SIZE 20
+#define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
+
 enum symtype {
 	ST_UNKNOWN	= '?',
 	ST_LOCAL_FUNC	= 't',
@@ -217,5 +220,7 @@ static inline char *demangle_full(char *str)
 	return str;
 }
 #endif /* HAVE_CXA_DEMANGLE */
+
+int read_build_id(const char *filename, char *buf, int len);
 
 #endif /* UFTRACE_SYMBOL_H */

@@ -25,9 +25,6 @@
 #include "utils/fstack.h"
 #include "version.h"
 
-#define BUILD_ID_SIZE 20
-#define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
-
 struct read_handler_arg {
 	struct uftrace_data *handle;
 	char buf[PATH_MAX];
@@ -86,52 +83,14 @@ static int read_exe_name(void *arg)
 static int fill_exe_build_id(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	unsigned char build_id[BUILD_ID_SIZE];
-	char build_id_str[BUILD_ID_STR_SIZE];
-	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
-	bool found_build_id = false;
-	int offset;
+	char buf[BUILD_ID_STR_SIZE];
 
-	if (elf_init(fha->opts->exename, &elf) < 0)
-		return -1;
-
-	elf_for_each_shdr(&elf, &iter) {
-		char *str;
-
-		if (iter.shdr.sh_type != SHT_NOTE)
-			continue;
-
-		/* there can be more than one note sections */
-		str = elf_get_name(&elf, &iter, iter.shdr.sh_name);
-		if (!strcmp(str, ".note.gnu.build-id")) {
-			found_build_id = true;
-			break;
-		}
-	}
-
-	if (!found_build_id) {
-		pr_dbg("cannot find build-id section\n");
+	if (read_build_id(fha->opts->exename, buf, sizeof(buf)) < 0) {
+		pr_dbg("cannot read build-id section\n");
 		return -1;
 	}
 
-	elf_for_each_note(&elf, &iter) {
-		if (iter.nhdr.n_type != NT_GNU_BUILD_ID)
-			continue;
-		if (!strcmp(iter.note_name, "GNU")) {
-			memcpy(build_id, iter.note_desc, BUILD_ID_SIZE);
-			break;
-		}
-	}
-	elf_finish(&elf);
-
-	for (offset = 0; offset < BUILD_ID_SIZE; offset++) {
-		unsigned char c = build_id[offset];
-		sprintf(&build_id_str[offset*2], "%02x", c);
-	}
-	build_id_str[BUILD_ID_STR_SIZE - 1] = '\0';
-
-	return dprintf(fha->fd, "build_id:%s\n", build_id_str);
+	return dprintf(fha->fd, "build_id:%s\n", buf);
 }
 
 static int convert_to_int(unsigned char hex)
