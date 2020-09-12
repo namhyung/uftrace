@@ -1412,6 +1412,30 @@ static void send_log_file(int sock, const char *logfile)
 	send_trace_metadata(sock, NULL, (char*)logfile);
 }
 
+static void update_session_maps(struct opts *opts)
+{
+	struct dirent **map_list;
+	int i, maps;
+
+	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
+	if (maps <= 0) {
+		if (maps == 0)
+			errno = ENOENT;
+		pr_err("cannot find map files");
+	}
+
+	for (i = 0; i < maps; i++) {
+		char buf[PATH_MAX];
+
+		snprintf(buf, sizeof(buf), "%s/%s",
+			 opts->dirname, map_list[i]->d_name);
+		update_session_map(buf);
+		free(map_list[i]);
+	}
+
+	free(map_list);
+}
+
 static void load_session_symbols(struct opts *opts)
 {
 	struct dirent **map_list;
@@ -1957,6 +1981,9 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	if (opts->nop)
 		return;
+
+	/* add build-id info map files */
+	update_session_maps(opts);
 
 	/* main executable and shared libraries */
 	load_session_symbols(opts);

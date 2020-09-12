@@ -68,6 +68,7 @@ struct uftrace_module {
 	struct rb_node node;
 	struct symtab symtab;
 	struct debug_info dinfo;
+	char build_id[BUILD_ID_STR_SIZE];
 	char name[];
 };
 
@@ -78,6 +79,7 @@ struct uftrace_mmap {
 	uint64_t end;
 	char prot[4];
 	uint32_t len;
+	char build_id[BUILD_ID_STR_SIZE];
 	char libname[];
 };
 

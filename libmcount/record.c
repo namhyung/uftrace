@@ -18,6 +18,7 @@
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/filter.h"
+#include "utils/symbol.h"
 
 #define SHMEM_SESSION_FMT  "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
@@ -1183,10 +1184,11 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		mcount_memcpy1(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
 
+		read_build_id(path, map->build_id, sizeof(map->build_id));
+
 		/* still need to write the map for executable */
-		if (!strcmp(path, symtabs->filename)) {
+		if (!strcmp(path, symtabs->filename))
 			symtabs->exec_map = map;
-		}
 
 		if (prev_map)
 			prev_map->next = map;
