@@ -511,7 +511,7 @@ struct enum_def * find_enum_def(struct rb_root *root, char *name)
 	return NULL;
 }
 
-char * convert_enum_val(struct enum_def *e_def, long val)
+char * convert_enum_val(struct enum_def *e_def, int val)
 {
 	struct enum_val *e_val;
 	char *str = NULL;
@@ -537,22 +537,22 @@ char * convert_enum_val(struct enum_def *e_def, long val)
 	if (str && val) {
 		char *tmp;
 
-		xasprintf(&tmp, "%s+%#lx", str, val);
+		xasprintf(&tmp, "%s+%#x", str, val);
 		free(str);
 		str = tmp;
 	}
 	else if (unlikely(str == NULL)) {
 		if (labs(val) > 100000)
-			xasprintf(&str, "%#lx", val);
+			xasprintf(&str, "%#x", val);
 		else
-			xasprintf(&str, "%ld", val);
+			xasprintf(&str, "%d", val);
 	}
 
 	return str;
 }
 
 /* caller should free the return value */
-char *get_enum_string(struct rb_root *root, char *name, long val)
+char *get_enum_string(struct rb_root *root, char *name, int val)
 {
 	struct enum_def *e_def;
 	char *ret;
@@ -562,7 +562,7 @@ char *get_enum_string(struct rb_root *root, char *name, long val)
 		e_def = find_enum_def(&auto_enum, name);
 
 	if (e_def == NULL)
-		xasprintf(&ret, "%ld", val);
+		xasprintf(&ret, "%d", val);
 	else
 		ret = convert_enum_val(e_def, val);
 

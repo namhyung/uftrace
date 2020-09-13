@@ -714,12 +714,12 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			map = find_map(&s->symtabs, task->rstack->addr);
 			if (map == NULL || map->mod == NULL) {
-				print_args("<ENUM?> %lx", val.i);
+				print_args("<ENUM?> %x", (int)val.i);
 				goto next;
 			}
 
 			dinfo = &map->mod->dinfo;
-			estr = get_enum_string(&dinfo->enums, spec->enum_str, val.i);
+			estr = get_enum_string(&dinfo->enums, spec->enum_str, (int)val.i);
 			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
 				struct strv enum_vals = STRV_INIT;
 
