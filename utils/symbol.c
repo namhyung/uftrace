@@ -1125,6 +1125,48 @@ void load_module_symtabs(struct symtabs *symtabs)
 	}
 }
 
+/* returns the number of matching entries (1 = path only, 2 = build-id) */
+int check_symbol_file(const char *symfile, char *pathname, int pathlen,
+		      char *build_id, int build_id_len)
+{
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	int ret = 0;
+
+	fp = fopen(symfile, "r");
+	if (fp == NULL) {
+		pr_dbg("reading %s failed: %m\n", symfile);
+		return -1;
+	}
+
+	memset(build_id, 0, build_id_len);
+	while (getline(&line, &len, fp) > 0) {
+		if (*line != '#')
+			break;
+
+		if (!strncmp(line, "# path name: ", 13)) {
+			strncpy(pathname, line + 13, pathlen);
+			pathlen = strlen(pathname);
+			if (pathname[pathlen - 1] == '\n')
+				pathname[pathlen - 1] = '\0';
+			ret++;
+		}
+		if (!strncmp(line, "# build-id: ", 12)) {
+			strncpy(build_id, line + 12, build_id_len - 1);
+			build_id[build_id_len - 1] = '\0';
+			/* in case it has a shorter build-id */
+			build_id_len = strlen(build_id);
+			if (build_id[build_id_len - 1] == '\n')
+				build_id[build_id_len - 1] = '\0';
+			ret++;
+		}
+	}
+	free(line);
+	fclose(fp);
+	return ret;
+}
+
 static bool symbol_is_func(struct sym *sym)
 {
 	switch (sym->type) {

@@ -169,6 +169,8 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     uint64_t offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);
+int check_symbol_file(const char *symfile, char *pathname, int pathlen,
+		      char *build_id, int build_id_len);
 
 char *symbol_getname(struct sym *sym, uint64_t addr);
 void symbol_putname(struct sym *sym, char *name);
