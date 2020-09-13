@@ -362,7 +362,7 @@ static char * make_enum_name(Dwarf_Die *die)
 
 	off = dwarf_cuoffset(die);
 
-	xasprintf(&enum_name, "%s_%lx", basename(cu_name), off);
+	xasprintf(&enum_name, "_%s_%lx", basename(cu_name), off);
 
 	/* replace forbidden characters */
 	tmp = enum_name;
