@@ -7,11 +7,11 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'lib', """
   Total time   Self time       Calls  Function [Source]
   ==========  ==========  ==========  ====================
-    4.457 us    0.630 us           2  lib_a
-    3.266 us    0.413 us           1  main [xxx/uftrace/tests/s-libmain.c:16]
-    2.853 us    0.412 us           1  foo [xxx/uftrace/tests/s-libmain.c:11]
-    1.811 us    0.598 us           1  lib_b [xxx/uftrace/tests/s-lib.c:15]
-    1.213 us    1.213 us           1  lib_c [xxx/uftrace/tests/s-lib.c:20]
+    4.362 us    0.212 us           1  main [xxx/uftrace/tests/s-libmain.c:16]
+    4.150 us    1.713 us           1  foo [xxx/uftrace/tests/s-libmain.c:11]
+    1.804 us    0.186 us           1  lib_a [xxx/uftrace/tests/s-lib.c:10]
+    1.618 us    0.980 us           1  lib_b [xxx/uftrace/tests/s-lib.c:15]
+    0.638 us    0.638 us           1  lib_c [xxx/uftrace/tests/s-lib.c:20]
 """, cflags='-g')
 
     def build(self, name, cflags='', ldflags=''):
@@ -23,7 +23,7 @@ class TestCase(TestBase):
 
     def prepare(self):
         self.subcmd = 'record'
-        self.option = '--srcline'
+        self.option = '--srcline --no-libcall'
         return self.runcmd()
 
     def setup(self):
