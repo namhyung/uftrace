@@ -1182,30 +1182,74 @@ static bool symbol_is_func(struct sym *sym)
 	}
 }
 
+char * make_new_symbol_filename(const char *symfile, const char *pathname,
+				char *build_id)
+{
+	const char *p;
+	char *newfile = NULL;
+	int len = strlen(symfile);
+	uint16_t csum = 0;
+
+	if (strlen(build_id) > 0) {
+		xasprintf(&newfile, "%.*s-%.4s.sym", len - 4, symfile, build_id);
+		return newfile;
+	}
+
+	/* if there's no build-id, calculate checksum using pathname */
+	p = pathname;
+	while (*p)
+		csum += (int)*p++;
+
+	xasprintf(&newfile, "%.*s-%04x.sym", len - 4, symfile, csum);
+	return newfile;
+}
+
+
 static void save_module_symbol_file(struct symtab *stab, const char *pathname,
-				    const char *symfile, unsigned long offset)
+				    char *build_id, const char *symfile,
+				    unsigned long offset)
 {
 	FILE *fp;
 	unsigned i;
 	bool prev_was_plt = false;
 	struct sym *sym, *prev;
-	char build_id[BUILD_ID_STR_SIZE];
+	char *newfile = NULL;
 
 	if (stab->nr_sym == 0)
 		return;
 
 	fp = fopen(symfile, "wx");
 	if (fp == NULL) {
-		if (errno == EEXIST)
-			return;
-		pr_err("cannot open %s file", symfile);
-	}
+		char buf[PATH_MAX];
+		char orig_id[BUILD_ID_STR_SIZE];
 
+		if (errno != EEXIST)
+			pr_err("cannot open %s file", symfile);
+
+		/* read path and build-id from the symbol file */
+		if (check_symbol_file(symfile, buf, sizeof(buf),
+				      orig_id, sizeof(orig_id)) <= 0) {
+			pr_dbg("cannot check symbol file\n");
+			return;
+		}
+
+		/* check if same file was already saved */
+		if (!strcmp(buf, pathname) && !strcmp(orig_id, build_id))
+			return;
+
+		newfile = make_new_symbol_filename(symfile, pathname, build_id);
+		symfile = newfile;
+		fp = fopen(newfile, "wx");
+		if (fp == NULL) {
+			free(newfile);
+			return;
+		}
+	}
 	pr_dbg2("saving symbols to %s\n", symfile);
 
-	fprintf(fp, "# path name: %s\n", pathname);
 	fprintf(fp, "# symbols: %zd\n", stab->nr_sym);
-	if (read_build_id(pathname, build_id, sizeof(build_id)) == 0)
+	fprintf(fp, "# path name: %s\n", pathname);
+	if (strlen(build_id) > 0)
 		fprintf(fp, "# build-id: %s\n", build_id);
 
 	prev = &stab->sym[0];
@@ -1242,6 +1286,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *pathname,
 		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
+	free(newfile);
 }
 
 void save_module_symtabs(const char *dirname)
@@ -1249,6 +1294,7 @@ void save_module_symtabs(const char *dirname)
 	struct rb_node *n = rb_first(&modules);
 	struct uftrace_module *mod;
 	char *symfile = NULL;
+	char build_id[BUILD_ID_STR_SIZE];
 
 	while (n != NULL) {
 		mod = rb_entry(n, typeof (*mod), node);
@@ -1256,7 +1302,9 @@ void save_module_symtabs(const char *dirname)
 		xasprintf(&symfile, "%s/%s.sym", dirname,
 			  basename(mod->name));
 
-		save_module_symbol_file(&mod->symtab, mod->name, symfile, 0);
+		read_build_id(mod->name, build_id, sizeof(build_id));
+		save_module_symbol_file(&mod->symtab, mod->name, build_id,
+					symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
@@ -1662,7 +1710,7 @@ TEST_CASE(symbol_load_module) {
 	stab.nr_sym = ARRAY_SIZE(mixed_sym);
 
 	pr_dbg("save symbol file and load symbols\n");
-	save_module_symbol_file(&stab, symfile, symfile, 0x400000);
+	save_module_symbol_file(&stab, symfile, "", symfile, 0x400000);
 
 	TEST_EQ(load_module_symbol_file(&test, symfile, 0x400000), 0);
 
