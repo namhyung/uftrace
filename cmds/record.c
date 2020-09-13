@@ -1994,8 +1994,10 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 			.dirname = opts->dirname,
 			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
+		char build_id[BUILD_ID_STR_SIZE];
 
-		load_module_symtab(&dlib_symtabs, dlib->libname);
+		read_build_id(dlib->libname, build_id, sizeof(build_id));
+		load_module_symtab(&dlib_symtabs, dlib->libname, build_id);
 
 		list_del(&dlib->list);
 

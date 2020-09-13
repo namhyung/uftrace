@@ -134,7 +134,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 
 void load_module_symtabs(struct symtabs *symtabs);
 struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
-					   const char *mod_name);
+					   const char *mod_name,
+					   char *build_id);
 void save_module_symtabs(const char *dirname);
 void unload_module_symtabs(void);
 

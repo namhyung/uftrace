@@ -996,12 +996,26 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 
 	if (flags & SYMTAB_FL_USE_SYMFILE) {
 		char *symfile = NULL;
+		char buf[PATH_MAX];
+		char build_id[BUILD_ID_STR_SIZE];
 
 		xasprintf(&symfile, "%s/%s.sym",
 			  symtabs->dirname, basename(m->name));
 		if (access(symfile, F_OK) == 0) {
-			load_module_symbol_file(&m->symtab, symfile, 0);
+			if (check_symbol_file(symfile, buf, sizeof(buf),
+					      build_id, sizeof(build_id)) > 0 &&
+			    (strcmp(buf, m->name) || strcmp(build_id, m->build_id))) {
+				char *new_file;
+
+				new_file = make_new_symbol_filename(symfile,
+								    m->name,
+								    m->build_id);
+				free(symfile);
+				symfile = new_file;
+			}
 		}
+		if (access(symfile, F_OK) == 0)
+			load_module_symbol_file(&m->symtab, symfile, 0);
 
 		free(symfile);
 
@@ -1022,7 +1036,8 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 }
 
 struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
-					   const char *mod_name)
+					   const char *mod_name,
+					   char *build_id)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &modules.rb_node;
@@ -1034,8 +1049,11 @@ struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
 		m = rb_entry(parent, struct uftrace_module, node);
 
 		pos = strcmp(m->name, mod_name);
-		if (pos == 0)
-			return m;
+		if (pos == 0) {
+			pos = strcmp(m->build_id, build_id);
+			if (pos == 0)
+				return m;
+		}
 
 		if (pos < 0)
 			p = &parent->rb_left;
@@ -1045,6 +1063,7 @@ struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
 
 	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
 	strcpy(m->name, mod_name);
+	strcpy(m->build_id, build_id);
 	load_module_symbol(symtabs, m);
 
 	rb_link_node(&m->node, parent, p);
@@ -1121,7 +1140,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 				continue;
 		}
 
-		map->mod = load_module_symtab(symtabs, map->libname);
+		map->mod = load_module_symtab(symtabs, map->libname,
+					      map->build_id);
 	}
 }
 
@@ -1463,7 +1483,8 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 
 	if (map != NULL) {
 		if (map->mod == NULL) {
-			map->mod = load_module_symtab(symtabs, map->libname);
+			map->mod = load_module_symtab(symtabs, map->libname,
+						      map->build_id);
 			if (map->mod == NULL)
 				return NULL;
 		}
@@ -1832,6 +1853,170 @@ TEST_CASE(symbol_read_build_id) {
 	/* invalid buffer size */
 	TEST_LT(read_build_id(read_exename(), build_id, 1), 0);
 	TEST_STREQ(build_id, "");
+
+	return TEST_OK;
+}
+
+static void init_test_module_info(struct uftrace_module **pmod1,
+				  struct uftrace_module **pmod2,
+				  bool set_build_id, bool load_symbols)
+{
+	struct uftrace_module *mod1, *mod2;
+	const char mod1_name[] = "/some/where/module/name";
+	const char mod2_name[] = "/different/path/name";
+	const char mod1_build_id[] = "1234567890abcdef";
+	const char mod2_build_id[] = "DUMMY-BUILD-ID";
+	static struct sym mod1_syms[] = {
+		{ 0x1000, 0x1000, ST_PLT_FUNC, "func1" },
+		{ 0x2000, 0x1000, ST_LOCAL_FUNC, "func2" },
+		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "func3" },
+	};
+	static struct sym mod2_syms[] = {
+		{ 0x5000, 0x1000, ST_PLT_FUNC, "funcA" },
+		{ 0x6000, 0x1000, ST_PLT_FUNC, "funcB" },
+		{ 0x7000, 0x1000, ST_PLT_FUNC, "funcC" },
+		{ 0x8000, 0x1000, ST_GLOBAL_FUNC, "funcD" },
+	};
+
+	mod1 = xzalloc(sizeof(*mod1) + sizeof(mod1_name));
+	mod2 = xzalloc(sizeof(*mod2) + sizeof(mod2_name));
+
+	strcpy(mod1->name, mod1_name);
+	strcpy(mod2->name, mod2_name);
+
+	if (set_build_id) {
+		strcpy(mod1->build_id, mod1_build_id);
+		strcpy(mod2->build_id, mod2_build_id);
+	}
+
+	if (load_symbols) {
+		mod1->symtab.sym = mod1_syms;
+		mod1->symtab.nr_sym = ARRAY_SIZE(mod1_syms);
+		mod2->symtab.sym = mod2_syms;
+		mod2->symtab.nr_sym = ARRAY_SIZE(mod2_syms);
+	}
+
+	*pmod1 = mod1;
+	*pmod2 = mod2;
+}
+
+TEST_CASE(symbol_same_file_name1) {
+	struct symtabs test_symtabs = { .dirname = ".", .flags = SYMTAB_FL_USE_SYMFILE, };
+	struct uftrace_module *save_mod[2];
+	struct uftrace_module *load_mod[2];
+	size_t i;
+
+	/* recover from earlier failures */
+	system("rm -f name*.sym");
+
+	pr_dbg("allocating modules\n");
+	init_test_module_info(&save_mod[0], &save_mod[1], false, true);
+	init_test_module_info(&load_mod[0], &load_mod[1], false, false);
+
+	pr_dbg("save symbol files with same name (no build-id)\n");
+	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name,
+				save_mod[0]->build_id, "name.sym", 0);
+	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name,
+				save_mod[1]->build_id, "name.sym", 0);
+
+	pr_dbg("load symbol table from the files\n");
+	load_module_symbol(&test_symtabs, load_mod[0]);
+	load_module_symbol(&test_symtabs, load_mod[1]);
+
+	pr_dbg("check symbol table contents of module1\n");
+	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);
+	for (i = 0; i < load_mod[0]->symtab.nr_sym; i++) {
+		struct sym *save_sym = &save_mod[0]->symtab.sym[i];
+		struct sym *load_sym = &load_mod[0]->symtab.sym[i];
+
+		TEST_EQ(save_sym->addr, load_sym->addr);
+		TEST_EQ(save_sym->size, load_sym->size);
+		TEST_EQ(save_sym->type, load_sym->type);
+		TEST_STREQ(save_sym->name, load_sym->name);
+	}
+
+	pr_dbg("check symbol table contents of module2\n");
+	TEST_EQ(save_mod[1]->symtab.nr_sym, load_mod[1]->symtab.nr_sym);
+	for (i = 0; i < load_mod[1]->symtab.nr_sym; i++) {
+		struct sym *save_sym = &save_mod[1]->symtab.sym[i];
+		struct sym *load_sym = &load_mod[1]->symtab.sym[i];
+
+		TEST_EQ(save_sym->addr, load_sym->addr);
+		TEST_EQ(save_sym->size, load_sym->size);
+		TEST_EQ(save_sym->type, load_sym->type);
+		TEST_STREQ(save_sym->name, load_sym->name);
+	}
+
+	pr_dbg("releasing modules\n");
+	free(save_mod[0]);
+	free(save_mod[1]);
+	unload_symtab(&load_mod[0]->symtab);
+	free(load_mod[0]);
+	unload_symtab(&load_mod[1]->symtab);
+	free(load_mod[1]);
+
+	system("rm -f name*.sym");
+
+	return TEST_OK;
+}
+
+TEST_CASE(symbol_same_file_name2) {
+	struct symtabs test_symtabs = { .dirname = ".", .flags = SYMTAB_FL_USE_SYMFILE, };
+	struct uftrace_module *save_mod[2];
+	struct uftrace_module *load_mod[2];
+	size_t i;
+
+	/* recover from earlier failures */
+	system("rm -f name*.sym");
+
+	pr_dbg("allocating modules\n");
+	init_test_module_info(&save_mod[0], &save_mod[1], true, true);
+	init_test_module_info(&load_mod[0], &load_mod[1], true, false);
+
+	pr_dbg("save symbol files with same name (with build-id)\n");
+	/* save them in the opposite order */
+	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name,
+				save_mod[1]->build_id, "name.sym", 0);
+	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name,
+				save_mod[0]->build_id, "name.sym", 0);
+
+	pr_dbg("load symbol table from the files\n");
+	load_module_symbol(&test_symtabs, load_mod[0]);
+	load_module_symbol(&test_symtabs, load_mod[1]);
+
+	pr_dbg("check symbol table contents of module1\n");
+	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);
+	for (i = 0; i < load_mod[0]->symtab.nr_sym; i++) {
+		struct sym *save_sym = &save_mod[0]->symtab.sym[i];
+		struct sym *load_sym = &load_mod[0]->symtab.sym[i];
+
+		TEST_EQ(save_sym->addr, load_sym->addr);
+		TEST_EQ(save_sym->size, load_sym->size);
+		TEST_EQ(save_sym->type, load_sym->type);
+		TEST_STREQ(save_sym->name, load_sym->name);
+	}
+
+	pr_dbg("check symbol table contents of module2\n");
+	TEST_EQ(save_mod[1]->symtab.nr_sym, load_mod[1]->symtab.nr_sym);
+	for (i = 0; i < load_mod[1]->symtab.nr_sym; i++) {
+		struct sym *save_sym = &save_mod[1]->symtab.sym[i];
+		struct sym *load_sym = &load_mod[1]->symtab.sym[i];
+
+		TEST_EQ(save_sym->addr, load_sym->addr);
+		TEST_EQ(save_sym->size, load_sym->size);
+		TEST_EQ(save_sym->type, load_sym->type);
+		TEST_STREQ(save_sym->name, load_sym->name);
+	}
+
+	pr_dbg("releasing modules\n");
+	free(save_mod[0]);
+	free(save_mod[1]);
+	unload_symtab(&load_mod[0]->symtab);
+	free(load_mod[0]);
+	unload_symtab(&load_mod[1]->symtab);
+	free(load_mod[1]);
+
+	system("rm -f name*.sym");
 
 	return TEST_OK;
 }

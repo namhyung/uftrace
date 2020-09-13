@@ -351,12 +351,14 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 			unsigned long base_addr, const char *libname)
 {
 	struct uftrace_dlopen_list *udl, *pos;
+	char build_id[BUILD_ID_STR_SIZE];
 
 	udl = xmalloc(sizeof(*udl));
 	udl->time = timestamp;
 	udl->base = base_addr;
 
-	udl->mod = load_module_symtab(&sess->symtabs, libname);
+	read_build_id(libname, build_id, sizeof(build_id));
+	udl->mod = load_module_symtab(&sess->symtabs, libname, build_id);
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;

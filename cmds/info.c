@@ -1183,13 +1183,19 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
 		};
 		struct uftrace_module *mod;
+		char build_id[BUILD_ID_STR_SIZE];
+		int i;
 
 		if (!opts->exename) {
 			pr_use("Usage: uftrace info --symbols [COMMAND]\n");
 			return -1;
 		}
 
-		mod = load_module_symtab(&symtabs, symtabs.filename);
+		for (i = 0; i < BUILD_ID_SIZE; i++) {
+			snprintf(build_id + i * 2, 3, "%02x",
+				 handle.info.build_id[i]);
+		}
+		mod = load_module_symtab(&symtabs, symtabs.filename, build_id);
 		if (mod == NULL)
 			goto out;
 
