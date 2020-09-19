@@ -209,6 +209,8 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 		};
 		unsigned long ret_addr;
 		unsigned long search_ret_addr;
+		bool found_main_ret = false;
+		int stack_index = 0;
 
 		ret_addr = *parent_loc;
 		parent_sym = find_symtabs(symtabs, ret_addr);
@@ -217,9 +219,6 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 		child_name = symbol_getname(child_sym, child_ip);
 
 		// Assuming that this happens only in main..			
-		bool found_main_ret = false;
-		int stack_index = 0;
-
 		if (!(strcmp(find_main[0], parent_name) || 
 		      strcmp(find_main[1], child_name))) {
 			ret_addr = *parent_loc;
