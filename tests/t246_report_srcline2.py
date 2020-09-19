@@ -15,6 +15,8 @@ class TestCase(TestBase):
 """, cflags='-g')
 
     def build(self, name, cflags='', ldflags=''):
+        if not 'dwarf' in self.feature:
+            return TestBase.TEST_SKIP
         if TestBase.build_libabc(self, cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
         return TestBase.build_libmain(self, name, 's-libmain.c',

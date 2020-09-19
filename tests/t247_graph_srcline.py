@@ -20,6 +20,10 @@ class TestCase(TestBase):
    10.183 ms :    (1) usleep
 """, sort='graph', cflags='-g')
 
+    def build(self, name, cflags='', ldflags=''):
+        if not 'dwarf' in self.feature:
+            return TestBase.TEST_SKIP
+
     def prepare(self):
         self.subcmd = 'record'
         self.option = '--srcline'
