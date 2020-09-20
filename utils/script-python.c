@@ -78,6 +78,32 @@ static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
 static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
+/* for python3.8+ compatibility */
+static PyAPI_FUNC(void) (*__Py_Dealloc)(PyObject *);
+
+#if PY_VERSION_HEX >= 0x03080000
+
+static inline void __Py_DECREF(PyObject *obj)
+{
+	_Py_DEC_REFTOTAL;
+	if (--obj->ob_refcnt == 0)
+		__Py_Dealloc(obj);
+}
+
+#undef  Py_DECREF
+#define Py_DECREF(obj) __Py_DECREF((PyObject *)obj))
+
+static inline void __Py_XDECREF(PyObject *obj)
+{
+	if (obj)
+		__Py_DECREF(obj);
+}
+
+#undef  Py_XDECREF
+#define Py_XDECREF(obj) __Py_XDECREF((PyObject*)obj)
+
+#endif  /* PY_VERSION_HEX >= 0x03080000 */
+
 static PyObject *pModule, *pFuncBegin, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
 enum py_context_idx {
@@ -144,6 +170,7 @@ static int load_python_api_funcs(void)
 	INIT_PY_API_FUNC2(PyString_FromString, PyUnicode_FromString);
 	INIT_PY_API_FUNC2(PyInt_FromLong, PyLong_FromLong);
 	INIT_PY_API_FUNC2(PyString_AsString, PyUnicode_AsUTF8);
+	INIT_PY_API_FUNC2(Py_Dealloc, _Py_Dealloc);
 #endif
 
 	INIT_PY_API_FUNC(PyErr_Occurred);
