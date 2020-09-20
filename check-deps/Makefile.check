@@ -16,7 +16,11 @@ ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
 endif
 
 ifneq ($(wildcard $(srcdir)/check-deps/have_libpython3),)
-  PYTHON3 := $(shell python3-config --libs | sed 's/-l\(python[0-9\.m]\+\) .*/\1/g')
+  # python3.8 added --embed option
+  ifneq ($(shell python3-config | grep embed),)
+    EMBED := --embed
+  endif
+  PYTHON3 := $(shell python3-config $(EMBED) --libs | sed 's/-l\(python[0-9\.m]\+\) .*/\1/g')
   COMMON_CFLAGS += -DHAVE_LIBPYTHON3
   COMMON_CFLAGS += -I $(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["INCLUDEPY"])')
   COMMON_CFLAGS += -DLIBPYTHON3_VERSION=$(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["LDVERSION"])')
