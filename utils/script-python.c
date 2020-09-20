@@ -282,6 +282,11 @@ static void python_insert_tuple(PyObject *tuple, char type, int idx,
 		break;
 	case 's':
 		obj = __PyString_FromString(val.s);
+		if (__PyErr_Occurred()) {
+			Py_XDECREF(obj);
+			obj = __PyString_FromString("<invalid value>");
+			__PyErr_Clear();
+		}
 		break;
 	case 'f':
 		obj = __PyFloat_FromDouble(val.f);
@@ -309,6 +314,11 @@ static void python_insert_dict(PyObject *dict, char type, const char *key,
 		break;
 	case 's':
 		obj = __PyString_FromString(val.s);
+		if (__PyErr_Occurred()) {
+			Py_XDECREF(obj);
+			obj = __PyString_FromString("<invalid value>");
+			__PyErr_Clear();
+		}
 		break;
 	case 'b':
 		obj = __PyBool_FromLong(val.l);
