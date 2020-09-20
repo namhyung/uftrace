@@ -223,16 +223,17 @@ print_feature()
     printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
 }
 
-print_feature2()
+print_feature3()
 {
     item=$1
     file1=$2
     file2=$3
-    description=$4
+    file3=$4
+    description=$5
 
     if [ -t 1 -a "$TERM" != "dumb" ]; then
         # use colored output only when stdout is tty
-        if [ -f ${srcdir}/check-deps/${file1} -o -f ${srcdir}/check-deps/${file2} ]; then
+        if [ -f ${srcdir}/check-deps/${file1} -o -f ${srcdir}/check-deps/${file2} -o -f ${srcdir}/check-deps/${file3} ]; then
             onoff="\033[32mon \033[0m"
         else
             onoff="\033[91mOFF\033[0m"
@@ -250,7 +251,7 @@ print_feature2()
 printf "...%15s: %s\n" "prefix" "${prefix}"
 print_feature "libelf" "have_libelf" "more flexible ELF data handling"
 print_feature "libdw" "have_libdw" "DWARF debug info support"
-print_feature2 "libpython" "have_libpython2.7" "have_libpython3" "python scripting support"
+print_feature3 "libpython" "have_libpython2.7" "have_libpython3" "have_libpython3.8_" "python scripting support"
 print_feature "libluajit" "have_libluajit" "luajit scripting support"
 print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"

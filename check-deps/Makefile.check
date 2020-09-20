@@ -15,11 +15,18 @@ ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
   LIB_CFLAGS += -mno-sse2
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libpython3),)
+ifneq ($(wildcard $(srcdir)/check-deps/have_libpython3.8_),)
+  PYTHON3 := $(shell python3-config --embed --libs | sed 's/-l\(python[0-9\.m]\+\) .*/\1/g')
+  COMMON_CFLAGS += -DHAVE_LIBPYTHON3
+  COMMON_CFLAGS += -DLIBPYTHON3_VERSION=$(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["LDVERSION"])')
+  COMMON_CFLAGS += -I $(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["INCLUDEPY"])')
+  COMMON_LDFLAGS += $(shell python3-config --embed --libs)
+else ifneq ($(wildcard $(srcdir)/check-deps/have_libpython3),)
   PYTHON3 := $(shell python3-config --libs | sed 's/-l\(python[0-9\.m]\+\) .*/\1/g')
   COMMON_CFLAGS += -DHAVE_LIBPYTHON3
   COMMON_CFLAGS += -I $(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["INCLUDEPY"])')
   COMMON_CFLAGS += -DLIBPYTHON3_VERSION=$(shell $(PYTHON3) -c 'import sysconfig; print(sysconfig.get_config_vars()["LDVERSION"])')
+  COMMON_LDFLAGS += $(shell python3-config --libs)
 else ifneq ($(wildcard $(srcdir)/check-deps/have_libpython2.7),)
   COMMON_CFLAGS += -DHAVE_LIBPYTHON2
   COMMON_CFLAGS += -I/usr/include/python2.7
