@@ -21,13 +21,8 @@
 #include "utils/script.h"
 #include "utils/script-python.h"
 
-#ifdef HAVE_LIBPYTHON2
-/* python library name, it only supports python 2.7 as of now */
-static const char libpython[] = "libpython2.7.so";
-#else
-/* python library name, it should support any version python3 */
-static const char libpython[] = "libpython" stringify(LIBPYTHON3_VERSION) ".so";
-#endif
+/* python library name, it should support any version python v2 or v3 */
+static const char libpython[] = "libpython" stringify(LIBPYTHON_VERSION) ".so";
 
 /* python library handle returned by dlopen() */
 static void *python_handle;
