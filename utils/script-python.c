@@ -21,13 +21,8 @@
 #include "utils/script.h"
 #include "utils/script-python.h"
 
-#ifdef HAVE_LIBPYTHON2
-/* python library name, it only supports python 2.7 as of now */
-static const char libpython[] = "libpython2.7.so";
-#else
-/* python library name, it should support any version python3 */
-static const char libpython[] = "libpython" stringify(LIBPYTHON3_VERSION) ".so";
-#endif
+/* python library name, it should support any version python v2 or v3 */
+static const char libpython[] = "libpython" stringify(LIBPYTHON_VERSION) ".so";
 
 /* python library handle returned by dlopen() */
 static void *python_handle;
@@ -77,6 +72,32 @@ static PyAPI_FUNC(PyObject *) (*__PyDict_New)(void);
 static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject *item);
 static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
 static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
+
+/* for python3.8+ compatibility */
+static PyAPI_FUNC(void) (*__Py_Dealloc)(PyObject *);
+
+#if PY_VERSION_HEX >= 0x03080000
+
+static inline void __Py_DECREF(PyObject *obj)
+{
+	_Py_DEC_REFTOTAL;
+	if (--obj->ob_refcnt == 0)
+		__Py_Dealloc(obj);
+}
+
+#undef  Py_DECREF
+#define Py_DECREF(obj) __Py_DECREF((PyObject *)obj))
+
+static inline void __Py_XDECREF(PyObject *obj)
+{
+	if (obj)
+		__Py_DECREF(obj);
+}
+
+#undef  Py_XDECREF
+#define Py_XDECREF(obj) __Py_XDECREF((PyObject*)obj)
+
+#endif  /* PY_VERSION_HEX >= 0x03080000 */
 
 static PyObject *pModule, *pFuncBegin, *pFuncEntry, *pFuncExit, *pFuncEnd;
 
@@ -144,6 +165,7 @@ static int load_python_api_funcs(void)
 	INIT_PY_API_FUNC2(PyString_FromString, PyUnicode_FromString);
 	INIT_PY_API_FUNC2(PyInt_FromLong, PyLong_FromLong);
 	INIT_PY_API_FUNC2(PyString_AsString, PyUnicode_AsUTF8);
+	INIT_PY_API_FUNC2(Py_Dealloc, _Py_Dealloc);
 #endif
 
 	INIT_PY_API_FUNC(PyErr_Occurred);
@@ -260,6 +282,11 @@ static void python_insert_tuple(PyObject *tuple, char type, int idx,
 		break;
 	case 's':
 		obj = __PyString_FromString(val.s);
+		if (__PyErr_Occurred()) {
+			Py_XDECREF(obj);
+			obj = __PyString_FromString("<invalid value>");
+			__PyErr_Clear();
+		}
 		break;
 	case 'f':
 		obj = __PyFloat_FromDouble(val.f);
@@ -287,6 +314,11 @@ static void python_insert_dict(PyObject *dict, char type, const char *key,
 		break;
 	case 's':
 		obj = __PyString_FromString(val.s);
+		if (__PyErr_Occurred()) {
+			Py_XDECREF(obj);
+			obj = __PyString_FromString("<invalid value>");
+			__PyErr_Clear();
+		}
 		break;
 	case 'b':
 		obj = __PyBool_FromLong(val.l);
