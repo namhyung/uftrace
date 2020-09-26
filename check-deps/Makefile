@@ -21,7 +21,7 @@ CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -Werror
 CHECK_LDFLAGS = $(LDFLAGS) $(LDFLAGS_$@)
 
 # python3.8 added --embed option
-ifneq ($(shell python3-config | grep embed),)
+ifneq ($(shell python3-config 2> /dev/null | grep embed),)
   EMBED := --embed
 endif
 
