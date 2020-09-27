@@ -193,19 +193,23 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	if (found) {
 		/* do not overwrite exact match by regex match */
 		if (exact_match || !oarg->exact) {
-			if (oarg->fmt == ARG_FMT_ENUM) {
-				free(oarg->enum_str);
-				oarg->enum_str = NULL;
-			}
+			free(oarg->type_name);
+			oarg->type_name = NULL;
 
 			oarg->fmt   = arg->fmt;
 			oarg->size  = arg->size;
 			oarg->exact = exact_match;
 			oarg->type  = arg->type;
 			oarg->reg_idx = arg->reg_idx;
+			oarg->struct_reg_cnt = arg->struct_reg_cnt;
 
-			if (arg->fmt == ARG_FMT_ENUM)
-				oarg->enum_str = xstrdup(arg->enum_str);
+			if (arg->type_name)
+				oarg->type_name = xstrdup(arg->type_name);
+
+			if (arg->struct_reg_cnt) {
+				memcpy(oarg->struct_regs, arg->struct_regs,
+				       sizeof(arg->struct_regs));
+			}
 		}
 	}
 	else {
@@ -216,19 +220,20 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 		narg->exact = exact_match;
 		narg->type  = arg->type;
 		narg->reg_idx = arg->reg_idx;
+		narg->struct_reg_cnt = arg->struct_reg_cnt;
 
-		if (arg->fmt == ARG_FMT_ENUM)
-			narg->enum_str = xstrdup(arg->enum_str);
+		if (arg->type_name)
+			narg->type_name = xstrdup(arg->type_name);
+		else
+			narg->type_name = NULL;
+
+		if (arg->struct_reg_cnt) {
+			memcpy(narg->struct_regs, arg->struct_regs,
+			       sizeof(arg->struct_regs));
+		}
 
 		list_add_tail(&narg->list, &oarg->list);
 	}
-}
-
-void free_arg_spec(struct uftrace_arg_spec *arg)
-{
-	if (arg->fmt == ARG_FMT_ENUM)
-		free(arg->enum_str);
-	free(arg);
 }
 
 void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,

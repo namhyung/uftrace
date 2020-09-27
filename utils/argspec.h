@@ -16,6 +16,7 @@ enum uftrace_arg_format {
 	ARG_FMT_STD_STRING,
 	ARG_FMT_PTR,
 	ARG_FMT_ENUM,
+	ARG_FMT_STRUCT,
 };
 
 #define ARG_TYPE_INDEX  0
@@ -24,7 +25,7 @@ enum uftrace_arg_format {
 #define ARG_TYPE_STACK  3
 
 /* should match with uftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxscfSpe"
+#define ARG_SPEC_CHARS  "diuxscfSpet"
 
 /**
  * uftrace_arg_spec contains arguments and return value info.
@@ -43,11 +44,13 @@ struct uftrace_arg_spec {
 	int			size;
 	bool			exact;
 	unsigned char		type;
+	short			struct_reg_cnt;
 	union {
 		short		reg_idx;
 		short		stack_ofs;
 	};
-	char			*enum_str;
+	char			*type_name;
+	short			struct_regs[4];
 };
 
 struct uftrace_filter_setting;
