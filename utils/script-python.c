@@ -160,6 +160,8 @@ static int load_python_api_funcs(void)
 	INIT_PY_API_FUNC(PyString_FromString);
 	INIT_PY_API_FUNC(PyInt_FromLong);
 	INIT_PY_API_FUNC(PyString_AsString);
+	/* just to suppress compiler warning */
+	__Py_Dealloc = NULL;
 #else
 	INIT_PY_API_FUNC2(PySys_SetPath, Py_SetPath);
 	INIT_PY_API_FUNC2(PyString_FromString, PyUnicode_FromString);

@@ -1295,7 +1295,7 @@ TEST_CASE(filter_setup_regex)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
@@ -1344,7 +1344,7 @@ TEST_CASE(filter_setup_glob)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
@@ -1393,7 +1393,7 @@ TEST_CASE(filter_setup_notrace)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
@@ -1438,7 +1438,7 @@ TEST_CASE(filter_match)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	enum filter_mode fmode;
 	struct uftrace_trigger tr;
@@ -1483,7 +1483,7 @@ TEST_CASE(trigger_setup_actions)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
@@ -1542,7 +1542,7 @@ TEST_CASE(trigger_setup_filters)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
 	enum filter_mode fmode = FILTER_MODE_NONE;
@@ -1600,7 +1600,7 @@ TEST_CASE(trigger_setup_args)
 {
 	struct symtabs stabs = {
 		.loaded = false,
-	};;
+	};
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
 	struct uftrace_arg_spec *spec;

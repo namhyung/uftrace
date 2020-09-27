@@ -519,7 +519,7 @@ static int unpatch_func(uint8_t *insn, char *name)
 
 	pr_dbg3("unpatch fentry: %s\n", name);
 	memcpy(insn, nop_insn, nop_size);
-	__builtin___clear_cache(insn, insn + nop_size);
+	__builtin___clear_cache((void *)insn, (void *)insn + nop_size);
 
 	return INSTRUMENT_SUCCESS;
 }

@@ -23,6 +23,7 @@ class TestCase(TestBase):
     def build(self, name, cflags='', ldflags=''):
         if not 'dwarf' in self.feature:
             return TestBase.TEST_SKIP
+        return TestBase.build(self, name, cflags, ldflags)
 
     def prepare(self):
         self.subcmd = 'record'
