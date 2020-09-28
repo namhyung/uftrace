@@ -425,6 +425,7 @@ void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
 void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
 void delete_session_map(struct symtabs *symtabs);
+void update_session_map(const char *filename);
 struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
 					      char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,

@@ -31,6 +31,9 @@
 # define STB_GNU_UNIQUE  10
 #endif
 
+#define BUILD_ID_SIZE 20
+#define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
+
 enum symtype {
 	ST_UNKNOWN	= '?',
 	ST_LOCAL_FUNC	= 't',
@@ -65,6 +68,7 @@ struct uftrace_module {
 	struct rb_node node;
 	struct symtab symtab;
 	struct debug_info dinfo;
+	char build_id[BUILD_ID_STR_SIZE];
 	char name[];
 };
 
@@ -75,6 +79,7 @@ struct uftrace_mmap {
 	uint64_t end;
 	char prot[4];
 	uint32_t len;
+	char build_id[BUILD_ID_STR_SIZE];
 	char libname[];
 };
 
@@ -129,7 +134,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 
 void load_module_symtabs(struct symtabs *symtabs);
 struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
-					   const char *mod_name);
+					   const char *mod_name,
+					   char *build_id);
 void save_module_symtabs(const char *dirname);
 void unload_module_symtabs(void);
 
@@ -164,6 +170,10 @@ int load_symbol_file(struct symtabs *symtabs, const char *symfile,
 		     uint64_t offset);
 void save_symbol_file(struct symtabs *symtabs, const char *dirname,
 		      const char *exename);
+int check_symbol_file(const char *symfile, char *pathname, int pathlen,
+		      char *build_id, int build_id_len);
+char * make_new_symbol_filename(const char *symfile, const char *pathname,
+				char *build_id);
 
 char *symbol_getname(struct sym *sym, uint64_t addr);
 void symbol_putname(struct sym *sym, char *name);
@@ -217,5 +227,7 @@ static inline char *demangle_full(char *str)
 	return str;
 }
 #endif /* HAVE_CXA_DEMANGLE */
+
+int read_build_id(const char *filename, char *buf, int len);
 
 #endif /* UFTRACE_SYMBOL_H */

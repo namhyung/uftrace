@@ -1332,14 +1332,60 @@ void finish_debug_info(struct symtabs *symtabs)
 	symtabs->loaded_debug = false;
 }
 
-static FILE * create_debug_file(char *dirname, const char *filename)
+static bool match_debug_file(const char *dbgname, const char *pathname,
+			     char *build_id)
+{
+	FILE *fp;
+	bool ret = true;
+	char *line = NULL;
+	size_t len = 0;
+
+	fp = fopen(dbgname, "r");
+	if (fp == NULL)
+		return false;
+
+	while (getline(&line, &len, fp) >= 0) {
+		if (line[0] != '#')
+			break;
+
+		/* remove trailing newline */
+		line[strlen(line) - 1] = '\0';
+
+		if (!strncmp(line, "# path name: ", 13))
+			ret = !strcmp(line + 13, pathname);
+		if (!strncmp(line, "# build-id: ", 12))
+			ret = !strcmp(line + 12, build_id);
+	}
+	free(line);
+	fclose(fp);
+	return ret;
+}
+
+static FILE * create_debug_file(const char *dirname, const char *filename,
+				char *build_id)
 {
 	FILE *fp;
 	char *tmp;
 
-	xasprintf(&tmp, "%s/%s.dbg", dirname, filename);
+	xasprintf(&tmp, "%s/%s.dbg", dirname, basename(filename));
+	if (match_debug_file(tmp, filename, build_id)) {
+		free(tmp);
+		return NULL;
+	}
 
 	fp = fopen(tmp, "ax");
+	if (fp == NULL && errno == EEXIST) {
+		char *dbgfile;
+		int len;
+
+		dbgfile = make_new_symbol_filename(tmp, filename, build_id);
+		len = strlen(dbgfile);
+		strncpy(dbgfile + len - 3, "dbg", 4);
+
+		free(tmp);
+		tmp = dbgfile;
+		fp = fopen(tmp, "ax");
+	}
 
 	free(tmp);
 	return fp;
@@ -1393,17 +1439,21 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 	}
 }
 
-static void save_debug_entries(struct debug_info *dinfo,
-			       char *dirname, const char *filename)
+static void save_debug_entries(struct debug_info *dinfo, char *dirname,
+			       const char *filename, char *build_id)
 {
 	int i;
 	FILE *fp;
 	int idx = 0;
 	int len;
 
-	fp = create_debug_file(dirname, basename(filename));
+	fp = create_debug_file(dirname, filename, build_id);
 	if (fp == NULL)
 		return;  /* somebody already did that! */
+
+	fprintf(fp, "# path name: %s\n", filename);
+	if (strlen(build_id) > 0)
+		fprintf(fp, "# build-id: %s\n", build_id);
 
 	save_enum_def(&dinfo->enums, fp);
 
@@ -1448,13 +1498,14 @@ void save_debug_info(struct symtabs *symtabs, char *dirname)
 		if (map->mod == NULL)
 			continue;
 
-		save_debug_entries(&map->mod->dinfo, dirname, map->libname);
+		save_debug_entries(&map->mod->dinfo, dirname, map->libname,
+				   map->build_id);
 	}
 }
 
 static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 			   const char *dirname, const char *filename,
-			   bool needs_srcline)
+			   char *build_id, bool needs_srcline)
 {
 	char *pathname;
 	FILE *fp;
@@ -1465,6 +1516,19 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	uint64_t offset = 0;
 
 	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
+
+	if (!match_debug_file(pathname, filename, build_id)) {
+		char *newfile;
+
+		newfile = make_new_symbol_filename(pathname, filename, build_id);
+		len = strlen(newfile);
+		strcpy(newfile + len - 3, "dbg");
+
+		/* replace pathname */
+		free(pathname);
+		pathname = newfile;
+		len = 0;
+	}
 
 	fp = fopen(pathname, "r");
 	if (fp == NULL) {
@@ -1494,6 +1558,9 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 		struct sym *sym;
 		ptrdiff_t sym_idx;
 		unsigned long lineno;
+
+		if (line[0] == '#')
+			continue;
 
 		if (line[1] != ':' || line[2] != ' ')
 			goto out;
@@ -1537,6 +1604,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 			lineno = strtoul(&line[3], &pos, 0);
 
 			sym_idx = sym - symtab->sym;
+			dinfo->locs[sym_idx].sym  = sym;
 			dinfo->locs[sym_idx].line = lineno;
 			dinfo->locs[sym_idx].file = get_debug_file(dinfo, pos + 1);
 			dinfo->nr_locs_used++;
@@ -1575,7 +1643,8 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
 			load_debug_file(dinfo, stab, symtabs->dirname,
-					map->libname, needs_srcline);
+					map->libname, map->build_id,
+					needs_srcline);
 		}
 	}
 
@@ -1721,6 +1790,215 @@ TEST_CASE(dwarf_srcline_prefix4)
 	TEST_EQ(get_base_comp_dir(&dirs), NULL);
 
 	return TEST_OK;
+}
+
+static void setup_test_debug_info(struct uftrace_module *mod)
+{
+	struct debug_info *dinfo = &mod->dinfo;
+	struct debug_file *file;
+	int i;
+
+	file = xzalloc(sizeof(*file));
+	file->name = xstrdup(mod->name);
+
+	dinfo->files.rb_node = &file->node;
+	dinfo->nr_locs = mod->symtab.nr_sym;
+
+	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
+	for (i = 0; i < dinfo->nr_locs; i++) {
+		struct sym *sym = &mod->symtab.sym[i];
+		struct debug_location *loc = &dinfo->locs[i];
+		char argspec[32];
+
+		loc->sym = sym;
+		loc->file = file;
+		loc->line = (i + 1) * 10;
+
+		snprintf(argspec, sizeof(argspec), "arg%d", i + 1);
+		add_debug_entry(&dinfo->args, sym->name, sym->addr, argspec);
+	}
+}
+
+static void init_test_module_info(struct uftrace_module **pmod1,
+				  struct uftrace_module **pmod2,
+				  bool init_debug_info)
+{
+	struct uftrace_module *mod1, *mod2;
+	const char mod1_name[] = "/some/where/module/name";
+	const char mod2_name[] = "/different/path/name";
+	const char mod1_build_id[] = "1234567890abcdef";
+	const char mod2_build_id[] = "DUMMY-BUILD-ID";
+	static struct sym mod1_syms[] = {
+		{ 0x1000, 0x1000, ST_PLT_FUNC, "func1" },
+		{ 0x2000, 0x1000, ST_LOCAL_FUNC, "func2" },
+		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "func3" },
+	};
+	static struct sym mod2_syms[] = {
+		{ 0x5000, 0x1000, ST_PLT_FUNC, "funcA" },
+		{ 0x6000, 0x1000, ST_PLT_FUNC, "funcB" },
+		{ 0x7000, 0x1000, ST_PLT_FUNC, "funcC" },
+		{ 0x8000, 0x1000, ST_GLOBAL_FUNC, "funcD" },
+	};
+
+	mod1 = xzalloc(sizeof(*mod1) + sizeof(mod1_name));
+	mod2 = xzalloc(sizeof(*mod2) + sizeof(mod2_name));
+
+	strcpy(mod1->name, mod1_name);
+	strcpy(mod2->name, mod2_name);
+	strcpy(mod1->build_id, mod1_build_id);
+	strcpy(mod2->build_id, mod2_build_id);
+
+	mod1->symtab.sym = mod1_syms;
+	mod1->symtab.nr_sym = ARRAY_SIZE(mod1_syms);
+	mod2->symtab.sym = mod2_syms;
+	mod2->symtab.nr_sym = ARRAY_SIZE(mod2_syms);
+
+	if (init_debug_info) {
+		setup_test_debug_info(mod1);
+		setup_test_debug_info(mod2);
+	}
+
+	*pmod1 = mod1;
+	*pmod2 = mod2;
+}
+
+static int check_test_debug_info(struct debug_info *dinfo1,
+				 struct debug_info *dinfo2)
+{
+	int i;
+	struct rb_node *node;
+	struct debug_entry *save_entry, *load_entry;
+
+	TEST_EQ(dinfo1->nr_locs, dinfo2->nr_locs);
+	for (i = 0; i < dinfo1->nr_locs; i++) {
+		struct debug_location *save_loc = &dinfo1->locs[i];
+		struct debug_location *load_loc = &dinfo2->locs[i];
+
+		TEST_STREQ(save_loc->sym->name, load_loc->sym->name);
+		TEST_STREQ(save_loc->file->name, load_loc->file->name);
+		TEST_EQ(save_loc->line, load_loc->line);
+	}
+
+	TEST_EQ(RB_EMPTY_ROOT(&dinfo1->args), false);
+	TEST_EQ(RB_EMPTY_ROOT(&dinfo2->args), false);
+
+	node = rb_first(&dinfo1->args);
+	save_entry = rb_entry(node, struct debug_entry, node);
+	node = rb_first(&dinfo2->args);
+	load_entry = rb_entry(node, struct debug_entry, node);
+
+	while (save_entry && load_entry) {
+		TEST_STREQ(save_entry->name, load_entry->name);
+		TEST_STREQ(save_entry->spec, load_entry->spec);
+		TEST_EQ(save_entry->offset, load_entry->offset);
+
+		save_entry = rb_entry(rb_next(&save_entry->node),
+				      struct debug_entry, node);
+		load_entry = rb_entry(rb_next(&load_entry->node),
+				      struct debug_entry, node);
+	}
+	TEST_EQ(save_entry == NULL, load_entry == NULL);
+
+	return TEST_OK;
+}
+
+TEST_CASE(dwarf_same_file_name1)
+{
+	struct uftrace_module *save_mod[2];
+	struct uftrace_module *load_mod[2];
+	int ret;
+
+	/* recover from earlier failures */
+	system("rm -f name*.dbg");
+
+	pr_dbg("init debug info and save .dbg files (no build-id)\n");
+	init_test_module_info(&save_mod[0], &save_mod[1], true);
+	save_debug_entries(&save_mod[0]->dinfo, ".", save_mod[0]->name, "");
+	save_debug_entries(&save_mod[1]->dinfo, ".", save_mod[1]->name, "");
+
+	pr_dbg("load .dbg files\n");
+	init_test_module_info(&load_mod[0], &load_mod[1], false);
+
+	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab,
+			      ".", load_mod[0]->name, "", true);
+	TEST_EQ(ret, 0);
+
+	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab,
+			      ".", load_mod[1]->name, "", true);
+	TEST_EQ(ret, 0);
+
+	pr_dbg("compare debug info1\n");
+	ret = check_test_debug_info(&save_mod[0]->dinfo, &load_mod[0]->dinfo);
+	if (ret == TEST_OK) {
+		pr_dbg("compare debug info2\n");
+		ret = check_test_debug_info(&save_mod[1]->dinfo,
+					    &load_mod[1]->dinfo);
+	}
+
+	pr_dbg("release debug info\n");
+	release_debug_info(&save_mod[0]->dinfo);
+	release_debug_info(&save_mod[1]->dinfo);
+	release_debug_info(&load_mod[0]->dinfo);
+	release_debug_info(&load_mod[1]->dinfo);
+	free(save_mod[0]);
+	free(save_mod[1]);
+	free(load_mod[0]);
+	free(load_mod[1]);
+
+	system("rm -f name*.dbg");
+
+	return ret;
+}
+
+TEST_CASE(dwarf_same_file_name2)
+{
+	struct uftrace_module *save_mod[2];
+	struct uftrace_module *load_mod[2];
+	int ret;
+
+	/* recover from earlier failures */
+	system("rm -f name*.dbg");
+
+	pr_dbg("init debug info and save .dbg files (with build-id)\n");
+	init_test_module_info(&save_mod[0], &save_mod[1], true);
+	/* save them in the opposite order */
+	save_debug_entries(&save_mod[1]->dinfo, ".", save_mod[1]->name,
+			   save_mod[1]->build_id);
+	save_debug_entries(&save_mod[0]->dinfo, ".", save_mod[0]->name,
+			   save_mod[0]->build_id);
+
+	pr_dbg("load .dbg files\n");
+	init_test_module_info(&load_mod[0], &load_mod[1], false);
+
+	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab, ".",
+			      load_mod[0]->name, load_mod[0]->build_id, true);
+	TEST_EQ(ret, 0);
+
+	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab, ".",
+			      load_mod[1]->name, load_mod[1]->build_id, true);
+	TEST_EQ(ret, 0);
+
+	pr_dbg("compare debug info1\n");
+	ret = check_test_debug_info(&save_mod[0]->dinfo, &load_mod[0]->dinfo);
+	if (ret == TEST_OK) {
+		pr_dbg("compare debug info2\n");
+		ret = check_test_debug_info(&save_mod[1]->dinfo,
+					    &load_mod[1]->dinfo);
+	}
+
+	pr_dbg("release debug info\n");
+	release_debug_info(&save_mod[0]->dinfo);
+	release_debug_info(&save_mod[1]->dinfo);
+	release_debug_info(&load_mod[0]->dinfo);
+	release_debug_info(&load_mod[1]->dinfo);
+	free(save_mod[0]);
+	free(save_mod[1]);
+	free(load_mod[0]);
+	free(load_mod[1]);
+
+	system("rm -f name*.dbg");
+
+	return ret;
 }
 
 #endif /* UNIT_TEST */

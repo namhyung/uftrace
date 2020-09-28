@@ -32,6 +32,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 	const char *last_libname = NULL;
 	struct uftrace_mmap **maps = &symtabs->maps;
 	struct uftrace_mmap *last_map = NULL;
+	const char build_id_prefix[] = "build-id:";
 
 	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
 	fp = fopen(buf, "rb");
@@ -42,13 +43,19 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		uint64_t start, end;
 		char prot[5];
 		char path[PATH_MAX];
+		char build_id[BUILD_ID_STR_SIZE + sizeof(build_id_prefix)];
 		size_t namelen;
 		struct uftrace_mmap *map;
 
+		/* prevent to reuse previous iteration's result */
+		build_id[0] = '\0';
+
 		/* skip anon mappings */
-		if (sscanf(buf, "%"PRIx64"-%"PRIx64" %s %*x %*x:%*x %*d %s\n",
-			   &start, &end, prot, path) != 4)
+		if (sscanf(buf, "%"PRIx64"-%"PRIx64" %s %*x %*x:%*x %*d %s %s",
+			   &start, &end, prot, path, build_id) < 4) {
+			pr_dbg("sscanf failed\n");
 			continue;
+		}
 
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
@@ -75,6 +82,11 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		memcpy(map->prot, prot, 4);
 		memcpy(map->libname, path, namelen);
 		map->libname[strlen(path)] = '\0';
+
+		if (!strncmp(build_id, build_id_prefix, strlen(build_id_prefix))) {
+			memcpy(map->build_id, build_id + strlen(build_id_prefix),
+			       sizeof(build_id) - sizeof(build_id_prefix));
+		}
 
 		/* set mapping of main executable */
 		if (symtabs->exec_map == NULL && symtabs->filename &&
@@ -111,6 +123,62 @@ void delete_session_map(struct symtabs *symtabs)
 
 	symtabs->maps = NULL;
 	symtabs->exec_map = NULL;
+}
+
+/**
+ * update_session_maps - rewrite map files to have build-id
+ * @filename - name of map file
+ *
+ * This function updates @filename map file to add build-id at the end
+ * of each line.
+ */
+void update_session_map(const char *filename)
+{
+	FILE *ifp, *ofp;
+	char buf[PATH_MAX];
+	const char build_id_prefix[] = "build-id:";
+
+	ifp = fopen(filename, "r");
+	if (ifp == NULL)
+		pr_err("cannot open map file: %s", filename);
+
+	snprintf(buf, sizeof(buf), "%s.tmp", filename);
+	ofp = fopen(buf, "w");
+	if (ofp == NULL)
+		pr_err("cannot create new map file: %s", buf);
+
+
+	while (fgets(buf, sizeof(buf), ifp) != NULL) {
+		char path[PATH_MAX];
+		char build_id[BUILD_ID_STR_SIZE];
+		int len;
+
+		len = strlen(buf);
+		if (len > 0 && buf[len - 1] == '\n')
+			buf[--len] = '\0';
+		fwrite_all(buf, len, ofp);
+
+		/* skip anon mappings */
+		if (sscanf(buf, "%*x-%*x %*s %*x %*x:%*x %*d %s", path) != 1)
+			goto next;
+
+		/* skip the special mappings like [stack] */
+		if (path[0] == '[')
+			goto next;
+
+		if (read_build_id(path, build_id, sizeof(build_id)) == 0)
+			fprintf(ofp, " %s%s", build_id_prefix, build_id);
+
+next:
+		fputc('\n', ofp);
+	}
+
+	fclose(ifp);
+	fclose(ofp);
+
+	snprintf(buf, sizeof(buf), "%s.tmp", filename);
+	if (rename(buf, filename) < 0)
+		pr_err("cannot rename map file: %s", filename);
 }
 
 /**
@@ -283,12 +351,14 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 			unsigned long base_addr, const char *libname)
 {
 	struct uftrace_dlopen_list *udl, *pos;
+	char build_id[BUILD_ID_STR_SIZE];
 
 	udl = xmalloc(sizeof(*udl));
 	udl->time = timestamp;
 	udl->base = base_addr;
 
-	udl->mod = load_module_symtab(&sess->symtabs, libname);
+	read_build_id(libname, build_id, sizeof(build_id));
+	udl->mod = load_module_symtab(&sess->symtabs, libname, build_id);
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -718,6 +788,10 @@ static struct uftrace_session_link test_sessions;
 static const char session_map[] =
 	"00400000-00401000 r-xp 00000000 08:03 4096 unittest\n"
 	"bfff0000-bffff000 rw-p 00000000 08:03 4096 [stack]\n";
+static const char session_map_with_build_id[] =
+	"00400000-00401000 r-xp 00000000 08:03 4096 unittest build-id:1234567890abcdef\n"
+	"5f98a000-5fa8c000 r-xp 00000000 08:03 4096 libc.so\n"
+	"bfff0000-bffff000 rw-p 00000000 08:03 4096 [stack]\n";
 
 TEST_CASE(session_search)
 {
@@ -1109,6 +1183,38 @@ TEST_CASE(task_symbol_dlopen)
 
 	delete_sessions(&test_sessions);
 	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(session_map_build_id)
+{
+	FILE *fp;
+	struct uftrace_mmap *map;
+	struct symtabs test_symtabs = { .loaded = false, };
+
+	fp = fopen("sid-test.map", "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "%s", session_map_with_build_id);
+	fclose(fp);
+
+	pr_dbg("read map file with build-id info\n");
+	read_session_map(".", &test_symtabs, "test");
+
+	pr_dbg("first entry should have a build-id\n");
+	map = test_symtabs.maps;
+	TEST_NE(map, NULL);
+	TEST_STREQ(map->libname, "unittest");
+	TEST_STREQ(map->build_id, "1234567890abcdef");
+
+	pr_dbg("next entry should not have one\n");
+	map = map->next;
+	TEST_NE(map, NULL);
+	TEST_STREQ(map->libname, "libc.so");
+	TEST_STREQ(map->build_id, "");
+
+	map = map->next;
+	TEST_EQ(map, NULL);
 
 	return TEST_OK;
 }
