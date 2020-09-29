@@ -12,6 +12,7 @@
 #include "include/uftrace/script.h"
 #include "utils/script-python.h"
 #include "utils/script-luajit.h"
+#include "utils/script-native.h"
 #include "utils/utils.h"
 
 /* script type */
@@ -19,6 +20,7 @@ enum script_type_t {
 	SCRIPT_UNKNOWN = 0,
 	SCRIPT_PYTHON,
 	SCRIPT_LUAJIT,
+	SCRIPT_NATIVE,
 	SCRIPT_TYPE_COUNT
 };
 
