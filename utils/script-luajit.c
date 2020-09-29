@@ -396,7 +396,8 @@ static int load_luajit_api_funcs(void)
 
 int script_init_for_luajit(struct uftrace_script_info *info, enum uftrace_pattern_type ptype)
 {
-	pr_dbg("%s()\n", __func__);
+	pr_dbg("%s(\"%s\")\n", __func__, info->name);
+
 	script_uftrace_entry = luajit_uftrace_entry;
 	script_uftrace_exit = luajit_uftrace_exit;
 	script_uftrace_event = luajit_uftrace_event;
