@@ -719,7 +719,7 @@ int start_kernel_tracing(struct uftrace_kernel_writer *kernel)
 		snprintf(buf, sizeof(buf), "%s/kernel-cpu%d.dat",
 			 kernel->output_dir, i);
 
-		kernel->fds[i] = open(buf, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+		kernel->fds[i] = open(buf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 		if (kernel->fds[i] < 0) {
 			pr_dbg("failed to open output file: %s: %m\n", buf);
 			goto out;
