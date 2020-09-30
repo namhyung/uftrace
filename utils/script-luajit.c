@@ -362,7 +362,8 @@ int script_init_for_luajit(struct script_info *info,
 	script_uftrace_end = luajit_uftrace_end;
 	script_atfork_prepare = luajit_atfork_prepare;
 
-	load_luajit_api_funcs();
+	if (load_luajit_api_funcs() < 0)
+		return -1;
 
 	L = dlluaL_newstate();
 	dlluaL_openlibs(L);
@@ -395,6 +396,9 @@ void script_finish_for_luajit(void)
 {
 	pr_dbg("%s()\n", __func__);
 	dllua_close(L);
+
+	dlclose(luajit_handle);
+	luajit_handle = NULL;
 }
 
 #endif

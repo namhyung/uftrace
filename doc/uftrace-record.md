@@ -648,7 +648,7 @@ and equally use `-P` option for dynamic tracing like below:
 SCRIPT EXECUTION
 ================
 The uftrace tool supports script execution for each function entry and exit.
-The supported script is only Python 2.7 as of now.
+The supported script types are Python 2.7, Python 3 and Lua 5.1 as of now.
 
 The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are
 executed whenever each function is executed at the entry and exit.  However
