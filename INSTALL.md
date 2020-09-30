@@ -174,5 +174,5 @@ The below is the way to compile uftrace together with libelf/libdw.
     $ make install
 
 `misc/install-elfutils.sh` downloads and builds elfutils and install both
-libelf and libdw to prefix directory.  The installed libelf and libdw can be
+libelf and libdw to prefix directory. The installed libelf and libdw can be
 found using `--with-elfutils` in `configure` script.
