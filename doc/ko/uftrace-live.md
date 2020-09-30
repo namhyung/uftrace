@@ -714,7 +714,7 @@ Clang/LLVM 4.0은 [X-ray](http://llvm.org/docs/XRay.html)라는 기술을 제공
 SCRIPT EXECUTION
 ================
 uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능하다.
-지원되는 스크립트는 아직까지는 Python 2.7 뿐이다.
+현재 지원되는 스크립트 타입은 Python 2.7, Python 3 그리고 Lua 5.1 이다.
 
 사용자는 네 개의 함수를 작성할 수 있다. 'uftrace_entry' 와 'uftracce_exit' 은
 각 함수의 진입시점과 반환시점에 항상 실행된다.  하지만 'uftrace_begin' 과
