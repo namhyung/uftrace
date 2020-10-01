@@ -28,6 +28,7 @@ endif
 prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib/uftrace
+incdir = $(prefix)/include/uftrace
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 docdir = $(srcdir)/doc
@@ -211,7 +212,7 @@ PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(PYTHON_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
-UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h))
+UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h $(srcdir)/include/uftrace/*.h))
 UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
@@ -362,6 +363,7 @@ endif
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(incdir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(completiondir)
 ifneq ($(wildcard $(elfdir)/lib/libelf.so),)
 ifeq ($(wildcard $(prefix)/lib/libelf.so),)
@@ -383,6 +385,8 @@ ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
 	$(Q)$(INSTALL) $(srcdir)/python/uftrace.py  $(DESTDIR)$(libdir)/uftrace.py
 	$(Q)$(INSTALL) $(objdir)/python/uftrace_python.so  $(DESTDIR)$(libdir)/uftrace_python.so
 endif
+	$(call QUIET_INSTALL, headers)
+	$(Q)$(INSTALL) -m 644 $(srcdir)/include/uftrace/script.h $(DESTDIR)$(incdir)/script.h
 	$(call QUIET_INSTALL, bash-completion)
 	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(completiondir)/uftrace
 	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)

@@ -138,6 +138,7 @@ fi
 
 bindir=${bindir:-${prefix}/bin}
 libdir=${libdir:-${prefix}/lib/uftrace}
+incdir=${incdir:-${prefix}/include/uftrace}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
 
@@ -271,6 +272,7 @@ cat >$output <<EOF
 override prefix := $prefix
 override bindir := $bindir
 override libdir := $libdir
+override incdir := $incdir
 override mandir := $mandir
 override etcdir := $etcdir
 EOF
