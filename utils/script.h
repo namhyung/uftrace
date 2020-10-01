@@ -9,6 +9,7 @@
 #define UFTRACE_SCRIPT_H
 
 #include "libmcount/mcount.h"
+#include "include/uftrace/script.h"
 #include "utils/script-python.h"
 #include "utils/script-luajit.h"
 #include "utils/utils.h"
@@ -21,24 +22,6 @@ enum script_type_t {
 	SCRIPT_PYTHON,
 	SCRIPT_LUAJIT,
 	SCRIPT_TYPE_COUNT
-};
-
-/* informantion passed during initialization */
-struct uftrace_script_info {
-	char			*name;
-	char			*version;
-	bool			record;
-	const char 		*cmds;
-};
-
-/* base context information passed to script */
-struct uftrace_script_base_ctx {
-	int			tid;
-	int			depth;
-	uint64_t		timestamp;
-	uint64_t		duration;	/* exit only */
-	unsigned long		address;
-	char			*name;
 };
 
 /* arguments and return value passed to script */
