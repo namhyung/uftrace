@@ -129,13 +129,14 @@ out:
 
 int command_script(int argc, char *argv[], struct opts *opts)
 {
-	int ret;
+	int ret, i;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_script_info info = {
 		.name           = opts->script_file,
 		.version        = UFTRACE_VERSION,
 	};
+	char *cmds = NULL;
 
 	if (!SCRIPT_ENABLED) {
 		pr_warn("script command is not supported due to missing libpython2.7.so\n");
@@ -177,7 +178,9 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	strv_copy(&info.cmds, argc, argv);
+	for (i = 0; i < argc; i++)
+		cmds = strjoin(cmds, argv[i], "\n");
+	info.cmds = cmds;
 
 	/* initialize script */
 	if (script_init(&info, opts->patt_type) < 0) {
@@ -202,7 +205,7 @@ out:
 
 	close_data_file(opts, &handle);
 
-	strv_free(&info.cmds);
+	free(cmds);
 
 	return ret;
 }
