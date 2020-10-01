@@ -4,8 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define SCRIPT_API_VERSION 1
+
 /* informantion passed during initialization */
 struct uftrace_script_info {
+	int api_version;
 	char *name;
 	char *version;
 	bool record;

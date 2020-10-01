@@ -1746,6 +1746,7 @@ static void atfork_child_handler(void)
 static void mcount_script_init(enum uftrace_pattern_type patt_type)
 {
 	struct uftrace_script_info info = {
+		.api_version = SCRIPT_API_VERSION,
 		.name = script_str,
 		.version = UFTRACE_VERSION,
 		.record = true,
