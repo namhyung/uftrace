@@ -133,6 +133,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_script_info info = {
+		.api_version    = SCRIPT_API_VERSION,
 		.name           = opts->script_file,
 		.version        = UFTRACE_VERSION,
 	};
