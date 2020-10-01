@@ -8,6 +8,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/arch.h"
+#include "utils/argspec.h"
 
 /**
  * REGEX_CHARS: characters for regex matching.
@@ -42,19 +43,6 @@ enum filter_mode {
 	FILTER_MODE_OUT,
 };
 
-enum uftrace_arg_format {
-	ARG_FMT_AUTO,
-	ARG_FMT_SINT,
-	ARG_FMT_UINT,
-	ARG_FMT_HEX,
-	ARG_FMT_STR,
-	ARG_FMT_CHAR,
-	ARG_FMT_FLOAT,
-	ARG_FMT_STD_STRING,
-	ARG_FMT_PTR,
-	ARG_FMT_ENUM,
-};
-
 enum trigger_read_type {
 	TRIGGER_READ_NONE         = 0,
 	TRIGGER_READ_PROC_STATM   = 1,
@@ -62,38 +50,6 @@ enum trigger_read_type {
 	TRIGGER_READ_PMU_CYCLE    = 4,
 	TRIGGER_READ_PMU_CACHE    = 8,
 	TRIGGER_READ_PMU_BRANCH   = 16,
-};
-
-#define ARG_TYPE_INDEX  0
-#define ARG_TYPE_FLOAT  1
-#define ARG_TYPE_REG    2
-#define ARG_TYPE_STACK  3
-
-/* should match with uftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxscfSpe"
-
-/**
- * uftrace_arg_spec contains arguments and return value info.
- *
- * If idx is zero, it means the recorded data is return value.
- *
- * If idx is not zero, it means the recorded data is arguments
- * and idx shows the sequence order of arguments.
- */
-#define RETVAL_IDX 0
-
-struct uftrace_arg_spec {
-	struct list_head	list;
-	int			idx;
-	enum uftrace_arg_format	fmt;
-	int			size;
-	bool			exact;
-	unsigned char		type;
-	union {
-		short		reg_idx;
-		short		stack_ofs;
-		char		*enum_str;
-	};
 };
 
 struct uftrace_trigger {
@@ -200,34 +156,6 @@ enum uftrace_pattern_type parse_filter_pattern(const char *str);
 const char * get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char * uftrace_clear_kernel(char *filter_str);
-
-void setup_auto_args(struct uftrace_filter_setting *setting);
-void setup_auto_args_str(char *args, char *rets, char *enums,
-			 struct uftrace_filter_setting *setting);
-void finish_auto_args(void);
-
-void free_arg_spec(struct uftrace_arg_spec *arg);
-
-struct debug_info;
-
-struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
-					  struct uftrace_filter_setting *setting);
-struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
-					  struct uftrace_filter_setting *setting);
-char *get_auto_argspec_str(void);
-char *get_auto_retspec_str(void);
-char *get_auto_enum_str(void);
-int extract_trigger_args(char **pargs, char **prets, char *trigger);
-int parse_enum_string(char *enum_str, struct rb_root *root);
-char *get_enum_string(struct rb_root *root, char *name, int val);
-void save_enum_def(struct rb_root *root, FILE *fp);
-void release_enum_def(struct rb_root *root);
-
-extern struct rb_root dwarf_enum;
 
 void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 		 bool exact_match);
