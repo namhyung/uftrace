@@ -106,9 +106,17 @@ static int script_init_for_testing(struct uftrace_script_info *info,
 {
 	int i;
 	char *name;
+	struct strv sv = {
+		0,
+	};
 
-	strv_for_each(&info->cmds, name, i)
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
+
+	strv_for_each(&sv, name, i)
 		script_add_filter(name, ptype);
+
+	strv_free(&sv);
 
 	return 0;
 }
@@ -193,8 +201,7 @@ static int setup_testing_script(struct uftrace_script_info *info)
 
 	fprintf(fp, "# uftrace script testing\n");
 
-	strv_append(&info->cmds, "abc");
-	strv_append(&info->cmds, "x*z");
+	info->cmds = xstrdup("abc\nx*z");
 
 	fclose(fp);
 	return 0;
@@ -202,8 +209,10 @@ static int setup_testing_script(struct uftrace_script_info *info)
 
 static int cleanup_testing_script(struct uftrace_script_info *info)
 {
+	char *cmds = (char *)info->cmds;
+
 	unlink(SCRIPT_FILE);
-	strv_free(&info->cmds);
+	free(cmds);
 	return 0;
 }
 

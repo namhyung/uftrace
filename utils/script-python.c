@@ -572,6 +572,9 @@ int python_uftrace_begin(struct uftrace_script_info *info)
 	PyObject *ctx;
 	int i;
 	char *s;
+	struct strv sv = {
+		0,
+	};
 
 	if (unlikely(!pFuncBegin))
 		return -1;
@@ -582,9 +585,12 @@ int python_uftrace_begin(struct uftrace_script_info *info)
 	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
 
-	cmds = __PyTuple_New(info->cmds.nr);
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
 
-	strv_for_each(&info->cmds, s, i)
+	cmds = __PyTuple_New(sv.nr);
+
+	strv_for_each(&sv, s, i)
 		insert_tuple_string(cmds, i, s);
 
 	__PyDict_SetItemString(dict, "cmds", cmds);

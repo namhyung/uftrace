@@ -29,7 +29,7 @@ struct uftrace_script_info {
 	char *name;
 	char *version;
 	bool record;
-	struct strv cmds;
+	const char *cmds;
 };
 
 /* context information passed to script */

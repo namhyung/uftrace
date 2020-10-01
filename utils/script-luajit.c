@@ -223,6 +223,9 @@ static int luajit_uftrace_begin(struct uftrace_script_info *info)
 {
 	int i;
 	char *s;
+	struct strv sv = {
+		0,
+	};
 
 	dllua_getglobal(L, "uftrace_begin");
 	if (dllua_isnil(L, -1)) {
@@ -238,11 +241,15 @@ static int luajit_uftrace_begin(struct uftrace_script_info *info)
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "cmds");
 	dllua_newtable(L);
-	strv_for_each(&info->cmds, s, i) {
+
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
+	strv_for_each(&sv, s, i) {
 		dllua_pushinteger(L, i + 1);
 		dllua_pushstring(L, s);
 		dllua_settable(L, -3);
 	}
+
 	dllua_settable(L, -3);
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
 		pr_dbg("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
