@@ -1216,6 +1216,7 @@ TEST_CASE(session_map_build_id)
 	map = map->next;
 	TEST_EQ(map, NULL);
 
+	delete_session_map(&test_symtabs);
 	return TEST_OK;
 }
 
