@@ -435,7 +435,7 @@ static int fill_file_header(struct opts *opts, int status, struct rusage *rusage
 	hdr.version = UFTRACE_FILE_VERSION;
 	hdr.header_size = sizeof(hdr);
 	hdr.endian = elf_ident[EI_DATA];
-	hdr.class = elf_ident[EI_CLASS];
+	hdr.elf_class = elf_ident[EI_CLASS];
 	hdr.feat_mask = calc_feat_mask(opts);
 	hdr.info_mask = 0;
 	hdr.max_stack = opts->max_stack;

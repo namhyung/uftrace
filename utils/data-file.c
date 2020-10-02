@@ -408,7 +408,7 @@ static bool check_data_file(struct uftrace_data *handle,
 
 bool data_is_lp64(struct uftrace_data *handle)
 {
-	return handle->hdr.class == ELFCLASS64;
+	return handle->hdr.elf_class == ELFCLASS64;
 }
 
 int open_info_file(struct opts *opts, struct uftrace_data *handle)

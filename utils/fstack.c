@@ -222,7 +222,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_filter(setting->private, &s->symtabs, &s->filters,
+	uftrace_setup_filter(setting->info_str, &s->symtabs, &s->filters,
 			     &fstack_filter_mode, setting);
 	return 0;
 }
@@ -231,7 +231,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_trigger(setting->private, &s->symtabs, &s->filters,
+	uftrace_setup_trigger(setting->info_str, &s->symtabs, &s->filters,
 			      &fstack_filter_mode, setting);
 	return 0;
 }
@@ -240,7 +240,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_caller_filter(setting->private, &s->symtabs, &s->filters,
+	uftrace_setup_caller_filter(setting->info_str, &s->symtabs, &s->filters,
 				    setting);
 	return 0;
 }
@@ -285,7 +285,7 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
 	struct uftrace_session_link *sessions = &handle->sessions;
 
 	if (filter_str) {
-		setting->private = filter_str;
+		setting->info_str = filter_str;
 		walk_sessions(sessions, setup_filters, setting);
 		walk_sessions(sessions, count_filters, &count);
 
@@ -298,7 +298,7 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
 	if (trigger_str) {
 		int prev = count;
 
-		setting->private = trigger_str;
+		setting->info_str = trigger_str;
 		walk_sessions(sessions, setup_trigger, setting);
 		walk_sessions(sessions, count_filters, &count);
 
@@ -311,7 +311,7 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
 	if (caller_str) {
 		int prev = count;
 
-		setting->private = caller_str;
+		setting->info_str = caller_str;
 		walk_sessions(sessions, setup_callers, setting);
 		walk_sessions(sessions, count_filters, &count);
 
@@ -373,8 +373,8 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	if (setting->private)
-		uftrace_setup_argument(setting->private, &s->symtabs, &s->filters,
+	if (setting->info_str)
+		uftrace_setup_argument(setting->info_str, &s->symtabs, &s->filters,
 				       setting);
 
 	return 0;
@@ -384,8 +384,8 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	if (setting->private)
-		uftrace_setup_retval(setting->private, &s->symtabs, &s->filters,
+	if (setting->info_str)
+		uftrace_setup_retval(setting->info_str, &s->symtabs, &s->filters,
 				     setting);
 
 	return 0;
@@ -411,15 +411,15 @@ void setup_fstack_args(char *argspec, char *retspec,
 
 	pr_dbg("setup argspec and/or retspec\n");
 
-	setting->private = argspec;
+	setting->info_str = argspec;
 	walk_sessions(&handle->sessions, build_arg_spec, setting);
 
-	setting->private = retspec;
+	setting->info_str = retspec;
 	walk_sessions(&handle->sessions, build_ret_spec, setting);
 
 	/* old data does not have separated retspec */
 	if (argspec && strstr(argspec, "retval")) {
-		setting->private = argspec;
+		setting->info_str = argspec;
 		walk_sessions(&handle->sessions, build_ret_spec, setting);
 	}
 }
