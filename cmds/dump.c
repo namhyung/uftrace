@@ -551,7 +551,7 @@ static void dump_raw_header(struct uftrace_dump_ops *ops,
 	pr_out("uftrace file header: endian        = %u (%s)\n",
 	       handle->hdr.endian, handle->hdr.endian == 1 ? "little" : "big");
 	pr_out("uftrace file header: class         = %u (%s bit)\n",
-	       handle->hdr.class, handle->hdr.class == 2 ? "64" : "32");
+	       handle->hdr.elf_class, handle->hdr.elf_class == 2 ? "64" : "32");
 	get_feature_string(buf, sizeof(buf), handle->hdr.feat_mask);
 	pr_out("uftrace file header: features      = %#"PRIx64" (%s)\n",
 	       handle->hdr.feat_mask, buf);

@@ -39,7 +39,7 @@ struct uftrace_file_header {
 	uint32_t version;
 	uint16_t header_size;
 	uint8_t  endian;
-	uint8_t  class;
+	uint8_t  elf_class;
 	uint64_t feat_mask;
 	uint64_t info_mask;
 	uint16_t max_stack;

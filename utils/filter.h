@@ -92,7 +92,7 @@ struct uftrace_filter_setting {
 	bool				lp64;
 	bool				plt_only;
 	/* caller-defined data */
-	void				*private;
+	void				*info_str;
 };
 
 /* please see man proc(5) for /proc/[pid]/statm */
