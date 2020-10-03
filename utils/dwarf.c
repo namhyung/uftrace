@@ -669,7 +669,7 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 			 * ignore minus offsets since it doesn't set the
 			 * frame-pointer yet (we're before the prologue).
 			 */
-			if ((int)ops->number > 0) {
+			if ((int)ops->number >= 0) {
 				ld->type = ARG_TYPE_STACK;
 				ld->offset = DIV_ROUND_UP(ops->number,
 							  sizeof(long)) + 1;
