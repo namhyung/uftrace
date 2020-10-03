@@ -181,7 +181,7 @@ type:
 			type = ARG_TYPE_STACK;
 		}
 		else {
-			arg->reg_idx = arch_register_index(setting->arch, suffix);
+			arg->reg_idx = arch_register_number(setting->arch, suffix);
 			type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {

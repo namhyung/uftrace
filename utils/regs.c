@@ -5,7 +5,7 @@
 
 struct uftrace_reg_table {
 	const char	*name;
-	int		idx;
+	int		reg;
 };
 
 static const struct uftrace_reg_table uft_x86_64_reg_table[] = {
@@ -80,7 +80,13 @@ static const size_t arch_reg_sizes[] = {
 	ARRAY_SIZE(uft_i386_reg_table),
 };
 
-int arch_register_index(enum uftrace_cpu_arch arch, char *reg_name)
+/* number of integer reigsters */
+static const int arch_reg_int_sizes[] = {
+	0, 6, 4, 8, 2,
+};
+
+/* returns uftrace register number for the architecture */
+int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name)
 {
 	unsigned i;
 	const struct uftrace_reg_table *table;
@@ -90,11 +96,53 @@ int arch_register_index(enum uftrace_cpu_arch arch, char *reg_name)
 	table = arch_reg_tables[arch];
 	for (i = 0; i < arch_reg_sizes[arch]; i++) {
 		if (!strcasecmp(reg_name, table[i].name))
-			return table[i].idx;
+			return table[i].reg;
 	}
 	return -1;
 }
 
+/* return uftrace register number at the given index (for argspec) */
+int arch_register_at(enum uftrace_cpu_arch arch, bool integer, int idx)
+{
+	int int_regs;
+	const struct uftrace_reg_table *table;
+
+	assert(arch < ARRAY_SIZE(arch_reg_tables));
+	int_regs = arch_reg_int_sizes[arch];
+	table = arch_reg_tables[arch];
+
+	if (idx < 0)
+		return -1;
+	if (integer && idx >= int_regs)
+		return -1;
+
+	if (!integer)
+		idx += int_regs;
+	if (idx >= (int)arch_reg_sizes[arch])
+		return -1;
+
+	return table[idx].reg;
+}
+
+/* returns argspec register index from uftrace register number */
+int arch_register_index(enum uftrace_cpu_arch arch, int reg)
+{
+	unsigned i;
+	const struct uftrace_reg_table *table;
+
+	assert(arch < ARRAY_SIZE(arch_reg_tables));
+
+	table = arch_reg_tables[arch];
+	for (i = 0; i < arch_reg_sizes[arch]; i++) {
+		if (table[i].reg != reg)
+			continue;
+
+		if (i >= (unsigned)arch_reg_int_sizes[arch])
+			i -= arch_reg_int_sizes[arch];
+		return i;
+	}
+	return -1;
+}
 
 #ifdef HAVE_LIBDW
 
@@ -185,7 +233,7 @@ const char * arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg)
 
 	table = arch_dwarf_tables[arch];
 	for (i = 0; i < arch_dwarf_sizes[arch]; i++) {
-		if (dwarf_reg == table[i].idx)
+		if (dwarf_reg == table[i].reg)
 			return table[i].name;
 	}
 	return "invalid register";
