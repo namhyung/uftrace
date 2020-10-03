@@ -144,6 +144,25 @@ int arch_register_index(enum uftrace_cpu_arch arch, int reg)
 	return -1;
 }
 
+
+const char * arch_register_argspec_name(enum uftrace_cpu_arch arch,
+					bool integer, int idx)
+{
+	const struct uftrace_reg_table *table;
+
+	assert(arch < ARRAY_SIZE(arch_reg_tables));
+
+	table = arch_reg_tables[arch];
+
+	if (!integer)
+		idx += arch_reg_int_sizes[arch];
+
+	if ((unsigned)idx >= arch_reg_sizes[arch])
+		return NULL;
+
+	return table[idx].name;
+}
+
 #ifdef HAVE_LIBDW
 
 #include <dwarf.h>

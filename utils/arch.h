@@ -158,5 +158,7 @@ int arch_register_at(enum uftrace_cpu_arch arch, bool integer, int idx);
 int arch_register_index(enum uftrace_cpu_arch arch, int idx);
 
 const char * arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg);
+const char * arch_register_argspec_name(enum uftrace_cpu_arch arch,
+					bool integer, int idx);
 
 #endif /* UFTRACE_ARCH_H */
