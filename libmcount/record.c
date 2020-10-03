@@ -417,6 +417,15 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
 
+		if (spec->fmt == ARG_FMT_STRUCT) {
+			if (total_size + spec->size > max_size) {
+				/* just to make it fail */
+				total_size += spec->size;
+				break;
+			}
+			ctx->val.p = ptr;
+		}
+
 		if (is_retval)
 			mcount_arch_get_retval(ctx, spec);
 		else
@@ -482,6 +491,13 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				mcount_memcpy1(ptr + 2, null_str, len);
 			}
 			size = ALIGN(len + 2, 4);
+		}
+		else if (spec->fmt == ARG_FMT_STRUCT) {
+			/*
+			 * It already filled the argbuf in the
+			 * mcount_arch_get_arg/retval() above.
+			 */
+			size = ALIGN(spec->size, 4);
 		}
 		else {
 			size = ALIGN(spec->size, 4);
