@@ -18,6 +18,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 	for (i = 0; i < dinfo->nr_locs; i++) {
 		struct debug_location *loc = &dinfo->locs[i];
 		int idx = 0;
+		char *symname;
 
 		if (loc->sym == NULL)
 			continue;
@@ -27,7 +28,9 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 		if (argspec == NULL && retspec == NULL && !auto_args)
 			continue;
 
-		printf("%s [addr: %lx]\n", loc->sym->name, loc->sym->addr);
+		symname = demangle(loc->sym->name);
+		printf("%s [addr: %lx]\n", symname, loc->sym->addr);
+		free(symname);
 
 		/* skip common parts with compile directory  */
 		if (dinfo->base_dir) {
@@ -57,7 +60,7 @@ int main(int argc, char *argv[])
 	enum uftrace_pattern_type ptype = PATT_REGEX;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "aA:R:")) != -1) {
+	while ((opt = getopt(argc, argv, "aA:R:v")) != -1) {
 		switch (opt) {
 		case 'a':
 			auto_args = true;
@@ -67,6 +70,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'R':
 			retspec = optarg;
+			break;
+		case 'v':
+			debug++;
+			dbg_domain[DBG_DWARF]++;
 			break;
 		default:
 			printf("dbginfo: unknown option: %c\n", opt);
@@ -79,6 +86,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	filename = argv[optind];
+
+	logfp = stderr;
+	outfp = stdout;
 
 	map = xzalloc(sizeof(*map) + strlen(filename) + 1);
 	strcpy(map->libname, filename);
