@@ -40,3 +40,4 @@ cscope.*
 *.gcno
 misc/demangler
 misc/symbols
+misc/dbginfo

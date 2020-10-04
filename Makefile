@@ -74,6 +74,7 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 UFTRACE_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
 DEMANGLER_CFLAGS   = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_demangler)
 SYMBOLS_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_symbols)
+DBGINFO_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_dbginfo)
 TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
@@ -82,6 +83,7 @@ TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
+DBGINFO_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_dbginfo)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
@@ -96,6 +98,7 @@ ifeq ($(TRACE), 1)
   UFTRACE_CFLAGS    += $(TRACE_CFLAGS)
   DEMANGLER_CFLAGS  += $(TRACE_CFLAGS)
   SYMBOLS_CFLAGS    += $(TRACE_CFLAGS)
+  DBGINFO_CFLAGS    += $(TRACE_CFLAGS)
   TRACEEVENT_CFLAGS += $(TRACE_CFLAGS)
   TEST_CFLAGS       += $(TRACE_CFLAGS)
   # cannot add -pg to LIB_CFLAGS because mcount() is not reentrant
@@ -115,6 +118,7 @@ ifeq ($(ASAN), 1)
   UFTRACE_CFLAGS    += $(ASAN_CFLAGS)
   DEMANGLER_CFLAGS  += $(ASAN_CFLAGS)
   SYMBOLS_CFLAGS    += $(ASAN_CFLAGS)
+  DBGINFO_CFLAGS    += $(ASAN_CFLAGS)
   TRACEEVENT_CFLAGS += $(ASAN_CFLAGS)
   TEST_CFLAGS       += $(ASAN_CFLAGS)
 endif
@@ -128,6 +132,7 @@ ifneq ($(SAN),)
   UFTRACE_CFLAGS    += $(SAN_CFLAGS)
   DEMANGLER_CFLAGS  += $(SAN_CFLAGS)
   SYMBOLS_CFLAGS    += $(SAN_CFLAGS)
+  DBGINFO_CFLAGS    += $(SAN_CFLAGS)
   TRACEEVENT_CFLAGS += $(SAN_CFLAGS)
   TEST_CFLAGS       += $(SAN_CFLAGS)
 endif
@@ -150,7 +155,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler misc/symbols
+_TARGETS += misc/demangler misc/symbols misc/dbginfo
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -171,6 +176,14 @@ SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(srcdir)/utils/argspec.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
+
+DBGINFO_SRCS := $(srcdir)/misc/dbginfo.c $(srcdir)/utils/dwarf.c
+DBGINFO_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
+DBGINFO_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
+DBGINFO_SRCS += $(srcdir)/utils/argspec.c $(srcdir)/utils/rbtree.c
+DBGINFO_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/filter.c
+DBGINFO_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
+DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -280,6 +293,9 @@ $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COM
 $(objdir)/misc/symbols.o: $(srcdir)/misc/symbols.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(SYMBOLS_CFLAGS) -c -o $@ $<
 
+$(objdir)/misc/dbginfo.o: $(srcdir)/misc/dbginfo.c $(objdir)/version.h $(COMMON_DEPS)
+	$(QUIET_CC)$(CC) $(DBGINFO_CFLAGS) -c -o $@ $<
+
 $(UFTRACE_OBJS_VERSION): $(objdir)/version.h
 
 $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
@@ -299,6 +315,9 @@ $(objdir)/misc/demangler: $(DEMANGLER_OBJS)
 
 $(objdir)/misc/symbols: $(SYMBOLS_OBJS)
 	$(QUIET_LINK)$(CC) $(SYMBOLS_CFLAGS) -o $@ $(SYMBOLS_OBJS) $(SYMBOLS_LDFLAGS)
+
+$(objdir)/misc/dbginfo: $(DBGINFO_OBJS)
+	$(QUIET_LINK)$(CC) $(DBGINFO_CFLAGS) -o $@ $(DBGINFO_OBJS) $(DBGINFO_LDFLAGS)
 
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
