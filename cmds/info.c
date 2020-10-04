@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <time.h>
-#include <argp.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 
