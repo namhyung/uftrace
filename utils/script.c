@@ -95,7 +95,7 @@ void script_finish_filter(void)
 	}
 }
 
-int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
+int script_init(struct uftrace_script_info *info, enum uftrace_pattern_type ptype)
 {
 	char *script_pathname = info->name;
 

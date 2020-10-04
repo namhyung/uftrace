@@ -385,7 +385,7 @@ static void insert_dict_bool(PyObject *dict, const char *key, bool v)
 
 #define PYCTX(_item)  py_context_table[PY_CTX_##_item]
 
-static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx)
+static void setup_common_context(PyObject **pDict, struct uftrace_script_context *sc_ctx)
 {
 	insert_dict_long(*pDict, PYCTX(TID), sc_ctx->tid);
 	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->depth);
@@ -395,7 +395,7 @@ static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx
 }
 
 static void setup_argument_context(PyObject **pDict, bool is_retval,
-				   struct script_context *sc_ctx)
+				   struct uftrace_script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
 	void *data = sc_ctx->argbuf;
@@ -531,7 +531,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 	Py_XDECREF(args);
 }
 
-int python_uftrace_begin(struct script_info *info)
+int python_uftrace_begin(struct uftrace_script_info *info)
 {
 	PyObject *dict;
 	PyObject *cmds;
@@ -572,7 +572,7 @@ int python_uftrace_begin(struct script_info *info)
 	return 0;
 }
 
-int python_uftrace_entry(struct script_context *sc_ctx)
+int python_uftrace_entry(struct uftrace_script_context *sc_ctx)
 {
 	PyObject *pDict;
 	PyObject *pythonContext;
@@ -614,7 +614,7 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 	return 0;
 }
 
-int python_uftrace_exit(struct script_context *sc_ctx)
+int python_uftrace_exit(struct uftrace_script_context *sc_ctx)
 {
 	PyObject *pDict;
 	PyObject *pythonContext;
@@ -713,7 +713,7 @@ static PyObject * get_python_callback(char *name)
 	return func;
 }
 
-int script_init_for_python(struct script_info *info,
+int script_init_for_python(struct uftrace_script_info *info,
 			   enum uftrace_pattern_type ptype)
 {
 	char *py_pathname = info->name;

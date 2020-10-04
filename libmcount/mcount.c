@@ -912,7 +912,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	return FILTER_IN;
 }
 
-static int script_save_context(struct script_context *sc_ctx,
+static int script_save_context(struct uftrace_script_context *sc_ctx,
 			       struct mcount_thread_data *mtdp,
 			       struct mcount_ret_stack *rstack,
 			       char *symname, bool has_arg_retval,
@@ -948,7 +948,7 @@ static void script_hook_entry(struct mcount_thread_data *mtdp,
 			      struct mcount_ret_stack *rstack,
 			      struct uftrace_trigger *tr)
 {
-	struct script_context sc_ctx;
+	struct uftrace_script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
 	struct sym *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
@@ -970,7 +970,7 @@ skip:
 static void script_hook_exit(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *rstack)
 {
-	struct script_context sc_ctx;
+	struct uftrace_script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
 	struct sym *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
@@ -1742,7 +1742,7 @@ static void atfork_child_handler(void)
 
 static void mcount_script_init(enum uftrace_pattern_type patt_type)
 {
-	struct script_info info = {
+	struct uftrace_script_info info = {
 		.name           = script_str,
 		.version        = UFTRACE_VERSION,
 		.record         = true,
