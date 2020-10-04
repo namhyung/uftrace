@@ -25,7 +25,7 @@ enum script_type_t {
 };
 
 /* informantion passed during initialization */
-struct script_info {
+struct uftrace_script_info {
 	char *name;
 	char *version;
 	bool record;
@@ -33,7 +33,7 @@ struct script_info {
 };
 
 /* context information passed to script */
-struct script_context {
+struct uftrace_script_context {
 	int tid;
 	int depth;
 	uint64_t timestamp;
@@ -60,9 +60,9 @@ union script_arg_val {
 
 extern char *script_str;
 
-typedef int (*script_uftrace_entry_t)(struct script_context *sc_ctx);
-typedef int (*script_uftrace_exit_t)(struct script_context *sc_ctx);
-typedef int (*script_uftrace_event_t)(struct script_context *sc_ctx);
+typedef int (*script_uftrace_entry_t)(struct uftrace_script_context *sc_ctx);
+typedef int (*script_uftrace_exit_t)(struct uftrace_script_context *sc_ctx);
+typedef int (*script_uftrace_event_t)(struct uftrace_script_context *sc_ctx);
 typedef int (*script_uftrace_end_t)(void);
 typedef int (*script_atfork_prepare_t)(void);
 
@@ -73,7 +73,7 @@ extern script_uftrace_event_t script_uftrace_event;
 extern script_uftrace_end_t script_uftrace_end;
 extern script_atfork_prepare_t script_atfork_prepare;
 
-int script_init(struct script_info *info, enum uftrace_pattern_type ptype);
+int script_init(struct uftrace_script_info *info, enum uftrace_pattern_type ptype);
 void script_finish(void);
 
 void script_add_filter(char *func, enum uftrace_pattern_type ptype);

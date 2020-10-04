@@ -45,7 +45,7 @@ static void (*dllua_settop)(lua_State *L, int index);
 #define dllua_isnil(L, n) (dllua_type(L, (n)) == LUA_TNIL)
 #define dllua_getglobal(L, s) dllua_getfield(L, LUA_GLOBALSINDEX, (s))
 
-static void setup_common_context(struct script_context *sc_ctx)
+static void setup_common_context(struct uftrace_script_context *sc_ctx)
 {
 	dllua_newtable(L);
 	dllua_pushstring(L, "tid");
@@ -68,7 +68,7 @@ static void setup_common_context(struct script_context *sc_ctx)
 	dllua_settable(L, -3);
 }
 
-static void setup_argument_context(bool is_retval, struct script_context *sc_ctx)
+static void setup_argument_context(bool is_retval, struct uftrace_script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
 	void *data = sc_ctx->argbuf;
@@ -219,7 +219,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 	dllua_settable(L, -3);
 }
 
-static int luajit_uftrace_begin(struct script_info *info)
+static int luajit_uftrace_begin(struct uftrace_script_info *info)
 {
 	int i;
 	char *s;
@@ -252,7 +252,7 @@ static int luajit_uftrace_begin(struct script_info *info)
 	return 0;
 }
 
-static int luajit_uftrace_entry(struct script_context *sc_ctx)
+static int luajit_uftrace_entry(struct uftrace_script_context *sc_ctx)
 {
 	dllua_getglobal(L, "uftrace_entry");
 	if (dllua_isnil(L, -1)) {
@@ -273,7 +273,7 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 	return 0;
 }
 
-static int luajit_uftrace_exit(struct script_context *sc_ctx)
+static int luajit_uftrace_exit(struct uftrace_script_context *sc_ctx)
 {
 	dllua_getglobal(L, "uftrace_exit");
 	if (dllua_isnil(L, -1)) {
@@ -295,7 +295,7 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 	return 0;
 }
 
-static int luajit_uftrace_event(struct script_context *sc_ctx)
+static int luajit_uftrace_event(struct uftrace_script_context *sc_ctx)
 {
 	dllua_getglobal(L, "uftrace_event");
 	if (dllua_isnil(L, -1)) {
@@ -387,7 +387,7 @@ static int load_luajit_api_funcs(void)
 	return 0;
 }
 
-int script_init_for_luajit(struct script_info *info, enum uftrace_pattern_type ptype)
+int script_init_for_luajit(struct uftrace_script_info *info, enum uftrace_pattern_type ptype)
 {
 	pr_dbg("%s()\n", __func__);
 	script_uftrace_entry = luajit_uftrace_entry;

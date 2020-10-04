@@ -40,7 +40,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 	task->timestamp = rstack->time;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		struct script_context sc_ctx = {
+		struct uftrace_script_context sc_ctx = {
 			0,
 		};
 		struct uftrace_fstack *fstack;
@@ -79,7 +79,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 		script_uftrace_entry(&sc_ctx);
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
-		struct script_context sc_ctx = {
+		struct uftrace_script_context sc_ctx = {
 			0,
 		};
 		struct uftrace_fstack *fstack;
@@ -119,7 +119,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 		fstack_exit(task);
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
-		struct script_context sc_ctx = {
+		struct uftrace_script_context sc_ctx = {
 			.tid = task->tid,
 			.depth = rstack->depth,
 			.timestamp = rstack->time,
@@ -148,7 +148,7 @@ int command_script(int argc, char *argv[], struct uftrace_opts *opts)
 	int ret;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
-	struct script_info info = {
+	struct uftrace_script_info info = {
 		.name = opts->script_file,
 		.version = UFTRACE_VERSION,
 	};
