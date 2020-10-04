@@ -14,8 +14,6 @@
 #include "utils/script-python.h"
 #include "utils/utils.h"
 
-#define SCRIPT_ENABLED (SCRIPT_LUAJIT_ENABLED || SCRIPT_PYTHON_ENABLED)
-
 /* script type */
 enum script_type_t {
 	SCRIPT_UNKNOWN = 0,

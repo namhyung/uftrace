@@ -559,7 +559,7 @@ static void mcount_trace_finish(bool send_msg)
 		goto unlock;
 
 	/* dtor for script support */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_uftrace_end();
 
 	/* notify to uftrace that we're finished */
@@ -1089,7 +1089,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 		}
 
 		/* script hooking for function entry */
-		if (SCRIPT_ENABLED && script_str)
+		if (script_str)
 			script_hook_entry(mtdp, rstack, tr);
 
 #define FLAGS_TO_CHECK (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
@@ -1184,7 +1184,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 		}
 
 		/* script hooking for function exit */
-		if (SCRIPT_ENABLED && script_str)
+		if (script_str)
 			script_hook_exit(mtdp, rstack);
 	}
 }
@@ -1693,7 +1693,7 @@ static void atfork_prepare_handler(void)
 	};
 
 	/* call script atfork preparation routine */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_atfork_prepare();
 
 	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
@@ -2206,7 +2206,7 @@ static __used void mcount_startup(void)
 	mcount_hook_functions();
 
 	/* initialize script binding */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		mcount_script_init(patt_type);
 
 	compiler_barrier();
@@ -2236,7 +2236,7 @@ static void mcount_cleanup(void)
 
 	mcount_filter_finish();
 
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_finish();
 	script_str = NULL;
 

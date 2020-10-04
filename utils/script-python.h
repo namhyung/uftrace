@@ -16,14 +16,12 @@ struct uftrace_script_info;
 
 #include <Python.h>
 
-#define SCRIPT_PYTHON_ENABLED 1
 int script_init_for_python(struct uftrace_script_info *info, enum uftrace_pattern_type ptype);
 void script_finish_for_python(void);
 
-#else /* HAVE_LIBPYTHON2 */
+#else /* HAVE_LIBPYTHON2 || HAVE_LIBPYTHON3 */
 
-/* Do nothing if libpython2.7.so is not installed. */
-#define SCRIPT_PYTHON_ENABLED 0
+/* Do nothing if libpython.so is not installed. */
 static inline int script_init_for_python(struct uftrace_script_info *info,
 					 enum uftrace_pattern_type ptype)
 {
@@ -34,6 +32,6 @@ static inline void script_finish_for_python(void)
 {
 }
 
-#endif /* HAVE_LIBPYTHON2 */
+#endif /* HAVE_LIBPYTHON2 || HAVE_LIBPYTHON3 */
 
 #endif /* UFTRACE_SCRIPT_PYTHON_H */

@@ -156,11 +156,6 @@ int command_script(int argc, char *argv[], struct uftrace_opts *opts)
 	};
 	char *cmds = NULL;
 
-	if (!SCRIPT_ENABLED) {
-		pr_warn("script command is not supported due to missing libpython2.7.so\n");
-		return -1;
-	}
-
 	if (!opts->script_file) {
 		pr_out("Usage: uftrace script (-S|--script) <script_file>\n");
 		return -1;
