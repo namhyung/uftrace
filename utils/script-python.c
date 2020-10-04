@@ -495,7 +495,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 			str[slen] = '\0';
 
 			/* NULL string is encoded as '0xffffffff' */
-			if (!memcmp(str, &null_str, sizeof(null_str)))
+			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
 				strcpy(str, "NULL");
 
 			insert_tuple_string(args, count++, str);
