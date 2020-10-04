@@ -1391,7 +1391,8 @@ static FILE * create_debug_file(const char *dirname, const char *filename,
 	return fp;
 }
 
-static void close_debug_file(FILE *fp, char *dirname, const char *filename)
+static void close_debug_file(FILE *fp, char *dirname, const char *filename,
+			     char *build_id)
 {
 	bool delete = !ftell(fp);
 	char *tmp;
@@ -1404,6 +1405,31 @@ static void close_debug_file(FILE *fp, char *dirname, const char *filename)
 	pr_dbg2("delete debug file for %s\n", filename);
 
 	xasprintf(&tmp, "%s/%s.dbg", dirname, filename);
+	if (!match_debug_file(tmp, filename, build_id)) {
+		char *dbgfile;
+		int len;
+
+		dbgfile = make_new_symbol_filename(tmp, filename, build_id);
+		len = strlen(dbgfile);
+		strncpy(dbgfile + len - 3, "dbg", 4);
+
+		free(tmp);
+		tmp = dbgfile;
+		delete = false;
+
+		fp = fopen(tmp, "r");
+		if (fp != NULL) {
+			fseek(fp, 0, SEEK_END);
+			delete = !ftell(fp);
+			fclose(fp);
+		}
+
+		if (!delete) {
+			free(tmp);
+			return;
+		}
+	}
+
 	unlink(tmp);
 	free(tmp);
 }
@@ -1484,7 +1510,7 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 			save_debug_file(fp, 'R', entry->spec, 0);
 	}
 
-	close_debug_file(fp, dirname, basename(filename));
+	close_debug_file(fp, dirname, basename(filename), build_id);
 }
 
 void save_debug_info(struct symtabs *symtabs, char *dirname)
