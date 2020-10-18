@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <link.h>
 #include <sys/mman.h>
+#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dynamic"
@@ -335,6 +336,38 @@ static bool match_pattern_list(struct list_head *patterns,
 	}
 
 	return ret;
+}
+
+
+static struct module_patt_list *find_ml(struct list_head *patterns,
+						char *modname)
+{
+	struct module_patt_list *ml;
+
+	list_for_each_entry(ml, patterns, list) {
+		if (!strncmp(ml->module, modname, strlen(modname)))
+			return ml;
+
+		if (match_filter_pattern(&ml->module_patt, modname))
+			return ml;
+	}
+
+	return NULL;
+}
+
+static struct module_patt_list *create_ml(struct list_head *patterns,
+					  enum uftrace_pattern_type ptype,
+					  char *modname)
+{
+	struct module_patt_list *ml;
+
+	ml = xmalloc(sizeof(*ml));
+	INIT_LIST_HEAD(&ml->func_patt);
+	ml->module = xstrdup(modname);
+	init_filter_pattern(ptype, &ml->module_patt, modname);
+	list_add_tail(&ml->list, patterns);
+
+	return ml;
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
