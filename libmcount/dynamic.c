@@ -390,6 +390,29 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	LIST_HEAD(patterns);
 	struct func_patt_list *pl;
 	bool all_negative = true;
+	const char *skip_libs[] = {
+		/* uftrace internal libraries */
+		"libmcount.so",
+		"libmcount-fast.so",
+		"libmcount-single.so",
+		"libmcount-fast-single.so",
+		/* used by uftrace for dynamic tracing */
+		"libcapstone.so.3",
+		/* system base libraries */
+		"libpthread.so.0",
+		"libpthread-2.*.so",
+		"ld-*.so",
+		"libc.so.6",
+		"libc-2.*.so",
+		"libm.so.6",
+		"libm-2.*.so",
+		"libgcc_s.so.1",
+		"linux-vdso.so.1",
+		"linux-gate.so.1",
+		"ld-linux-*.so.*",
+		"libdl.so.2",
+		"libdl-2.*.so",
+	};
 
 	if (patch_funcs == NULL)
 		return 0;
