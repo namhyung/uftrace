@@ -310,6 +310,13 @@ struct patt_list {
 	bool positive;
 };
 
+struct module_patt_list {
+	struct list_head list;
+	struct list_head func_patt;
+	struct uftrace_pattern module_patt;
+	char *module;
+};
+
 static bool match_pattern_list(struct list_head *patterns,
 			       struct uftrace_mmap *map,
 			       char *sym_name)
