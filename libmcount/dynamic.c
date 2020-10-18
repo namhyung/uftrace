@@ -537,13 +537,22 @@ NEXT:
 	}
 
 	while (!list_empty(&patterns)) {
-		struct func_patt_list *pl;
+		struct module_patt_list *ml;
 
-		pl = list_first_entry(&patterns, struct func_patt_list, list);
+		ml = list_first_entry(&patterns, struct module_patt_list, list);
+		while (!list_empty(&ml->func_patt)) {
+			struct func_patt_list *pl;
 
-		list_del(&pl->list);
-		free(pl->module);
-		free(pl);
+			pl = list_first_entry(&ml->func_patt, struct func_patt_list, list);
+
+			list_del(&pl->list);
+			free(pl->module);
+			free(pl);
+		}
+
+		list_del(&ml->list);
+		free(ml->module);
+		free(ml);
 	}
 
 	strv_free(&funcs);
