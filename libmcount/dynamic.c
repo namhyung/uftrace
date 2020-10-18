@@ -303,7 +303,7 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
-struct patt_list {
+struct func_patt_list {
 	struct list_head list;
 	struct uftrace_pattern patt;
 	char *module;
@@ -321,7 +321,7 @@ static bool match_pattern_list(struct list_head *patterns,
 			       struct uftrace_mmap *map,
 			       char *sym_name)
 {
-	struct patt_list *pl;
+	struct func_patt_list *pl;
 	bool ret = false;
 
 	list_for_each_entry(pl, patterns, list) {
@@ -355,7 +355,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		"__libc_csu_fini",
 	};
 	LIST_HEAD(patterns);
-	struct patt_list *pl;
+	struct func_patt_list *pl;
 	bool all_negative = true;
 
 	if (patch_funcs == NULL)
@@ -465,9 +465,9 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	while (!list_empty(&patterns)) {
-		struct patt_list *pl;
+		struct func_patt_list *pl;
 
-		pl = list_first_entry(&patterns, struct patt_list, list);
+		pl = list_first_entry(&patterns, struct func_patt_list, list);
 
 		list_del(&pl->list);
 		free(pl->module);
