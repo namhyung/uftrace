@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <link.h>
 #include <sys/mman.h>
+#include <fnmatch.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dynamic"
@@ -303,31 +304,65 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
-struct patt_list {
+struct func_patt_list {
 	struct list_head list;
 	struct uftrace_pattern patt;
 	char *module;
 	bool positive;
 };
 
-static bool match_pattern_list(struct list_head *patterns,
-			       struct uftrace_mmap *map,
-			       char *sym_name)
+struct module_patt_list {
+	struct list_head list;
+	struct list_head func_patt;
+	struct uftrace_pattern module_patt;
+	char *module;
+};
+
+static bool match_func_list(struct list_head *func_patt,
+			    struct uftrace_mmap *map,
+			    char *sym_name)
 {
-	struct patt_list *pl;
+	struct func_patt_list *pl;
 	bool ret = false;
 
-	list_for_each_entry(pl, patterns, list) {
-		char *libname = basename(map->libname);
-
-		if (strncmp(libname, pl->module, strlen(pl->module)))
-			continue;
-
+	list_for_each_entry(pl, func_patt, list) {
 		if (match_filter_pattern(&pl->patt, sym_name))
 			ret = pl->positive;
 	}
 
 	return ret;
+}
+
+
+static struct module_patt_list *find_ml(struct list_head *patterns,
+						char *modname)
+{
+	struct module_patt_list *ml;
+
+	list_for_each_entry(ml, patterns, list) {
+		if (!strncmp(ml->module, modname, strlen(modname)))
+			return ml;
+
+		if (match_filter_pattern(&ml->module_patt, modname))
+			return ml;
+	}
+
+	return NULL;
+}
+
+static struct module_patt_list *create_ml(struct list_head *patterns,
+					  enum uftrace_pattern_type ptype,
+					  char *modname)
+{
+	struct module_patt_list *ml;
+
+	ml = xmalloc(sizeof(*ml));
+	INIT_LIST_HEAD(&ml->func_patt);
+	ml->module = xstrdup(modname);
+	init_filter_pattern(ptype, &ml->module_patt, modname);
+	list_add_tail(&ml->list, patterns);
+
+	return ml;
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
@@ -348,8 +383,32 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		"__libc_csu_fini",
 	};
 	LIST_HEAD(patterns);
-	struct patt_list *pl;
+	struct func_patt_list *pl;
+	struct module_patt_list *ml;
 	bool all_negative = true;
+	const char *skip_libs[] = {
+		/* uftrace internal libraries */
+		"libmcount.so",
+		"libmcount-fast.so",
+		"libmcount-single.so",
+		"libmcount-fast-single.so",
+		/* used by uftrace for dynamic tracing */
+		"libcapstone.so.3",
+		/* system base libraries */
+		"libpthread.so.0",
+		"libpthread-2.*.so",
+		"ld-*.so",
+		"libc.so.6",
+		"libc-2.*.so",
+		"libm.so.6",
+		"libm-2.*.so",
+		"libgcc_s.so.1",
+		"linux-vdso.so.1",
+		"linux-gate.so.1",
+		"ld-linux-*.so.*",
+		"libdl.so.2",
+		"libdl-2.*.so",
+	};
 
 	if (patch_funcs == NULL)
 		return 0;
@@ -378,8 +437,12 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			pl->module = xstrdup(++delim);
 		}
 
+		ml = find_ml(&patterns, pl->module);
+		if (ml == NULL)
+			ml = create_ml(&patterns, ptype, pl->module);
+
 		init_filter_pattern(ptype, &pl->patt, name);
-		list_add_tail(&pl->list, &patterns);
+		list_add_tail(&pl->list, &ml->func_patt);
 	}
 
 	/* prepend match-all pattern, if all patterns are negative */
@@ -402,11 +465,20 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		unsigned i, k;
 		struct sym *sym;
 		struct mcount_dynamic_info *mdi;
+		struct module_patt_list *ml;
 
-		/* TODO: filter out unsuppported libs */
+		ml = find_ml(&patterns, basename(map->libname));
+		if (ml == NULL)
+			continue;
+
+		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
+			if (!fnmatch(skip_libs[k], basename(map->libname), 0))
+				goto NEXT;
+		}
+
 		mdi = setup_trampoline(map);
 		if (mdi == NULL)
-			continue;
+			goto NEXT;
 
 		symtab = &map->mod->symtab;
 
@@ -427,13 +499,14 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			    sym->type != ST_GLOBAL_FUNC)
 				continue;
 
-			if (!match_pattern_list(&patterns, map, sym->name)) {
+			if (!match_func_list(&ml->func_patt, map, sym->name)) {
 				if (mcount_unpatch_func(mdi, sym, disasm) == 0)
 					stats.unpatch++;
 				continue;
 			}
 
 			found = true;
+
 			switch (mcount_patch_func(mdi, sym, disasm, min_size)) {
 			case INSTRUMENT_FAILED:
 				stats.failed++;
@@ -450,6 +523,12 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 		if (!found)
 			stats.nomatch++;
+
+		pr_dbg3("Module %s done\n", map->libname);
+		continue;
+
+NEXT:
+		pr_dbg3("Module %s passed\n", map->libname);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
@@ -458,13 +537,22 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	while (!list_empty(&patterns)) {
-		struct patt_list *pl;
+		struct module_patt_list *ml;
 
-		pl = list_first_entry(&patterns, struct patt_list, list);
+		ml = list_first_entry(&patterns, struct module_patt_list, list);
+		while (!list_empty(&ml->func_patt)) {
+			struct func_patt_list *pl;
 
-		list_del(&pl->list);
-		free(pl->module);
-		free(pl);
+			pl = list_first_entry(&ml->func_patt, struct func_patt_list, list);
+
+			list_del(&pl->list);
+			free(pl->module);
+			free(pl);
+		}
+
+		list_del(&ml->list);
+		free(ml->module);
+		free(ml);
 	}
 
 	strv_free(&funcs);
