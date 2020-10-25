@@ -318,9 +318,11 @@ static bool match_pattern_list(struct list_head *patterns,
 	bool ret = false;
 
 	list_for_each_entry(pl, patterns, list) {
+		char *soname = get_soname(map->libname);
 		char *libname = basename(map->libname);
 
-		if (strncmp(libname, pl->module, strlen(pl->module)))
+		if (!(strncmp(libname, pl->module, strlen(pl->module)) == 0 ||
+		    strncmp(soname, pl->module, strlen(pl->module) == 0)))
 			continue;
 
 		if (match_filter_pattern(&pl->patt, sym_name))
