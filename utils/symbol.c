@@ -82,6 +82,34 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
+char * get_soname(const char *filename)
+{
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	char *soname = NULL;
+
+	if (elf_init(filename, &elf) < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return NULL;
+	}
+
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_DYNAMIC)
+			break;
+	}
+
+	elf_for_each_dynamic(&elf, &iter) {
+		if (iter.dyn.d_tag != DT_SONAME)
+			continue;
+
+		soname = xstrdup(elf_get_name(&elf, &iter, iter.dyn.d_un.d_ptr));
+		break;
+	}
+
+	elf_finish(&elf);
+	return soname;
+}
+
 bool has_dependency(const char *filename, const char *libname)
 {
 	bool ret = false;
