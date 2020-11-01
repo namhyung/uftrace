@@ -219,13 +219,9 @@ struct find_module_data {
 	bool needs_modules;
 };
 
-/* callback for dl_iterate_phdr() */
-static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
 {
 	struct mcount_dynamic_info *mdi;
-	struct find_module_data *fmd = data;
-	struct symtabs *symtabs = fmd->symtabs;
-	struct uftrace_mmap *map;
 	bool base_addr_set = false;
 	unsigned i;
 
@@ -251,6 +247,19 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	mdi->base_addr += info->dlpi_addr;
 	mdi->text_addr += info->dlpi_addr;
 	INIT_LIST_HEAD(&mdi->bad_syms);
+
+	return mdi;
+}
+
+/* callback for dl_iterate_phdr() */
+static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+{
+	struct mcount_dynamic_info *mdi;
+	struct find_module_data *fmd = data;
+	struct symtabs *symtabs = fmd->symtabs;
+	struct uftrace_mmap *map;
+
+	mdi = create_mdi(info);
 
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
