@@ -52,6 +52,9 @@ static LIST_HEAD(code_pages);
 
 static struct Hashmap *code_hmap;
 
+/* minimum function size for dynamic update */
+static unsigned min_size;
+
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
 {
@@ -341,8 +344,7 @@ static bool match_pattern_list(struct list_head *patterns,
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			     enum uftrace_pattern_type ptype,
-			     struct mcount_disasm_engine *disasm,
-			     unsigned min_size)
+			     struct mcount_disasm_engine *disasm)
 {
 	struct uftrace_mmap *map;
 	struct symtab *symtab;
@@ -514,7 +516,6 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 {
 	int ret = 0;
 	char *size_filter;
-	unsigned min_size = 0;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	prepare_dynamic_update(disasm, symtabs, needs_modules);
@@ -523,7 +524,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	if (size_filter != NULL)
 		min_size = strtoul(size_filter, NULL, 0);
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm, min_size);
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm);
 
 	if (stats.total && stats.failed) {
 		int success = stats.total - stats.failed - stats.skipped;
