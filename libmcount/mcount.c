@@ -89,9 +89,6 @@ static bool __maybe_unused mcount_has_caller;
 /* address of function will be called when a function returns */
 unsigned long mcount_return_fn;
 
-/* disassembly engine for dynamic code patch */
-static struct mcount_disasm_engine disasm;
-
 __weak void dynamic_return(void) { }
 
 #ifdef DISABLE_MCOUNT_FILTER
@@ -1772,7 +1769,7 @@ static __used void mcount_startup(void)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&symtabs, patch_str, patt_type, &disasm);
+		mcount_dynamic_update(&symtabs, patch_str, patt_type);
 
 	if (event_str)
 		mcount_setup_events(dirname, event_str, patt_type);
@@ -1802,6 +1799,7 @@ static void mcount_cleanup(void)
 {
 	mcount_finish();
 	destroy_dynsym_indexes();
+	mcount_dynamic_finish();
 
 #if 0
 	/*

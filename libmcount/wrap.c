@@ -88,6 +88,8 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	/* report a library not found in the session maps */
 	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp,
 			info->dlpi_addr, info->dlpi_name);
+
+	mcount_dynamic_dlopen(&symtabs, info, p);
 	return 0;
 }
 

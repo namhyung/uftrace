@@ -46,11 +46,18 @@ struct code_page {
 	struct list_head	list;
 	void			*page;
 	int			pos;
+	bool			frozen;
 };
 
 static LIST_HEAD(code_pages);
 
 static struct Hashmap *code_hmap;
+
+/* minimum function size for dynamic update */
+static unsigned min_size;
+
+/* disassembly engine for dynamic code patch (for capstone) */
+static struct mcount_disasm_engine disasm;
 
 static struct mcount_orig_insn *create_code(struct Hashmap *map,
 					    unsigned long addr)
@@ -71,6 +78,21 @@ static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
 
 	entry = hashmap_get(code_hmap, (void *)addr);
 	return entry;
+}
+
+static struct code_page *alloc_codepage(void)
+{
+	struct code_page *cp;
+
+	cp = xzalloc(sizeof(*cp));
+	cp->page = mmap(NULL, CODE_CHUNK, PROT_READ | PROT_WRITE | PROT_EXEC,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+	if (cp->page == MAP_FAILED)
+		pr_err("mmap code page failed");
+
+	list_add_tail(&cp->list, &code_pages);
+	return cp;
 }
 
 void mcount_save_code(struct mcount_disasm_info *info,
@@ -94,19 +116,26 @@ void mcount_save_code(struct mcount_disasm_info *info,
 		cp = list_last_entry(&code_pages, struct code_page, list);
 
 	if (cp == NULL || (cp->pos + patch_size > CODE_CHUNK)) {
-		cp = xmalloc(sizeof(*cp));
-		cp->page = mmap(NULL, CODE_CHUNK, PROT_READ | PROT_WRITE | PROT_EXEC,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if (cp->page == MAP_FAILED)
-			pr_err("mmap code page failed");
-		cp->pos = 0;
-
-		list_add_tail(&cp->list, &code_pages);
+		cp = alloc_codepage();
 	}
 
 	orig = lookup_code(code_hmap, info->addr);
 	if (orig == NULL)
 		orig = create_code(code_hmap, info->addr);
+
+	/*
+	 * if dynamic patch has been processed before, cp be frozen by
+	 * calling freeze_code. so, when reaching here from the
+	 * mcount_handle_dlopen, cp unwriteable.
+	 */
+	if (cp->frozen) {
+		/* [Caution]
+		 * even if a little memory loss occurs, it can be dangerous
+		 * that to re-assigned write and execute permission to exist
+		 * codepage, so be sure to allocate new memory.
+		 */
+		cp = alloc_codepage();
+	}
 
 	orig->insn = cp->page + cp->pos;
 	orig->orig = orig->insn;
@@ -129,8 +158,13 @@ void mcount_freeze_code(void)
 {
 	struct code_page *cp;
 
-	list_for_each_entry(cp, &code_pages, list)
+	list_for_each_entry(cp, &code_pages, list) {
+		if (cp->frozen)
+			continue;
+
 		mprotect(cp->page, CODE_CHUNK, PROT_READ|PROT_EXEC);
+		cp->frozen = true;
+	}
 }
 
 void *mcount_find_code(unsigned long addr)
@@ -219,13 +253,9 @@ struct find_module_data {
 	bool needs_modules;
 };
 
-/* callback for dl_iterate_phdr() */
-static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
 {
 	struct mcount_dynamic_info *mdi;
-	struct find_module_data *fmd = data;
-	struct symtabs *symtabs = fmd->symtabs;
-	struct uftrace_mmap *map;
 	bool base_addr_set = false;
 	unsigned i;
 
@@ -252,6 +282,19 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	mdi->text_addr += info->dlpi_addr;
 	INIT_LIST_HEAD(&mdi->bad_syms);
 
+	return mdi;
+}
+
+/* callback for dl_iterate_phdr() */
+static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+{
+	struct mcount_dynamic_info *mdi;
+	struct find_module_data *fmd = data;
+	struct symtabs *symtabs = fmd->symtabs;
+	struct uftrace_mmap *map;
+
+	mdi = create_mdi(info);
+
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
 		mdi->map = map;
@@ -267,8 +310,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
-				   struct symtabs *symtabs,
+static void prepare_dynamic_update(struct symtabs *symtabs,
 				   bool needs_modules)
 {
 	struct find_module_data fmd = {
@@ -282,7 +324,7 @@ static void prepare_dynamic_update(struct mcount_disasm_engine *disasm,
 
 	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
 				   hashmap_ptr_equals);
-	mcount_disasm_init(disasm);
+
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
 
@@ -303,6 +345,8 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	return mdi;
 }
 
+static LIST_HEAD(patterns);
+
 struct patt_list {
 	struct list_head list;
 	struct uftrace_pattern patt;
@@ -310,16 +354,27 @@ struct patt_list {
 	bool positive;
 };
 
-static bool match_pattern_list(struct list_head *patterns,
-			       struct uftrace_mmap *map,
-			       char *sym_name)
+static bool match_pattern_module(char *pathname)
 {
 	struct patt_list *pl;
 	bool ret = false;
+	char *libname = basename(pathname);
 
-	list_for_each_entry(pl, patterns, list) {
-		char *libname = basename(map->libname);
+	list_for_each_entry(pl, &patterns, list) {
+		if (!strncmp(libname, pl->module, strlen(pl->module)))
+			ret = true;
+	}
 
+	return ret;
+}
+
+static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
+{
+	struct patt_list *pl;
+	bool ret = false;
+	char *libname = basename(map->libname);
+
+	list_for_each_entry(pl, &patterns, list) {
 		if (strncmp(libname, pl->module, strlen(pl->module)))
 			continue;
 
@@ -330,26 +385,77 @@ static bool match_pattern_list(struct list_head *patterns,
 	return ret;
 }
 
-static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			     enum uftrace_pattern_type ptype,
-			     struct mcount_disasm_engine *disasm,
-			     unsigned min_size)
+static void patch_func_matched(struct mcount_dynamic_info *mdi,
+			       struct uftrace_mmap *map)
 {
-	struct uftrace_mmap *map;
+	bool found = false;
 	struct symtab *symtab;
-	struct strv funcs = STRV_INIT;
-	char *def_mod;
-	char *name;
-	int j;
+	bool csu_skip;
+	unsigned i, k;
+	struct sym *sym;
 	/* skip special startup (csu) functions */
 	const char *csu_skip_syms[] = {
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
-	LIST_HEAD(patterns);
+
+	symtab = &map->mod->symtab;
+
+	for (i = 0; i < symtab->nr_sym; i++) {
+		sym = &symtab->sym[i];
+
+		csu_skip = false;
+		for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
+			if (!strcmp(sym->name, csu_skip_syms[k])) {
+				csu_skip = true;
+				break;
+			}
+		}
+		if (csu_skip)
+			continue;
+
+		if (sym->type != ST_LOCAL_FUNC &&
+		    sym->type != ST_GLOBAL_FUNC)
+			continue;
+
+		if (!match_pattern_list(map, sym->name)) {
+			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+				stats.unpatch++;
+			continue;
+		}
+
+		found = true;
+		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+			case INSTRUMENT_FAILED:
+				stats.failed++;
+				break;
+			case INSTRUMENT_SKIPPED:
+				stats.skipped++;
+				break;
+			case INSTRUMENT_SUCCESS:
+			default:
+				break;
+		}
+		stats.total++;
+	}
+
+	if (!found)
+		stats.nomatch++;
+}
+
+static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+			     enum uftrace_pattern_type ptype)
+{
+	struct uftrace_mmap *map;
+	struct strv funcs = STRV_INIT;
+	char *def_mod;
+	char *name;
+	int j;
 	struct patt_list *pl;
 	bool all_negative = true;
+
+	mcount_disasm_init(&disasm);
 
 	if (patch_funcs == NULL)
 		return 0;
@@ -397,10 +503,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	for_each_map(symtabs, map) {
-		bool found = false;
-		bool csu_skip;
-		unsigned i, k;
-		struct sym *sym;
 		struct mcount_dynamic_info *mdi;
 
 		/* TODO: filter out unsuppported libs */
@@ -408,48 +510,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		if (mdi == NULL)
 			continue;
 
-		symtab = &map->mod->symtab;
-
-		for (i = 0; i < symtab->nr_sym; i++) {
-			sym = &symtab->sym[i];
-
-			csu_skip = false;
-			for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
-				if (!strcmp(sym->name, csu_skip_syms[k])) {
-					csu_skip = true;
-					break;
-				}
-			}
-			if (csu_skip)
-				continue;
-
-			if (sym->type != ST_LOCAL_FUNC &&
-			    sym->type != ST_GLOBAL_FUNC)
-				continue;
-
-			if (!match_pattern_list(&patterns, map, sym->name)) {
-				if (mcount_unpatch_func(mdi, sym, disasm) == 0)
-					stats.unpatch++;
-				continue;
-			}
-
-			found = true;
-			switch (mcount_patch_func(mdi, sym, disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
-				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
-			}
-			stats.total++;
-		}
-
-		if (!found)
-			stats.nomatch++;
+		patch_func_matched(mdi, map);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
@@ -457,21 +518,11 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		       stats.total, basename(symtabs->filename));
 	}
 
-	while (!list_empty(&patterns)) {
-		struct patt_list *pl;
-
-		pl = list_first_entry(&patterns, struct patt_list, list);
-
-		list_del(&pl->list);
-		free(pl->module);
-		free(pl);
-	}
-
 	strv_free(&funcs);
 	return 0;
 }
 
-static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
+static void freeze_dynamic_update(void)
 {
 	struct mcount_dynamic_info *mdi, *tmp;
 
@@ -479,14 +530,13 @@ static void finish_dynamic_update(struct mcount_disasm_engine *disasm)
 	while (mdi) {
 		tmp = mdi->next;
 
-		mcount_arch_dynamic_recover(mdi, disasm);
+		mcount_arch_dynamic_recover(mdi, &disasm);
 		mcount_cleanup_trampoline(mdi);
 		free(mdi);
 
 		mdi = tmp;
 	}
 
-	mcount_disasm_finish(disasm);
 	mcount_freeze_code();
 }
 
@@ -500,21 +550,19 @@ static int calc_percent(int n, int total, int *rem)
 }
 
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
-			  enum uftrace_pattern_type ptype,
-			  struct mcount_disasm_engine *disasm)
+			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
 	char *size_filter;
-	unsigned min_size = 0;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
-	prepare_dynamic_update(disasm, symtabs, needs_modules);
+	prepare_dynamic_update(symtabs, needs_modules);
 
 	size_filter = getenv("UFTRACE_PATCH_SIZE");
 	if (size_filter != NULL)
 		min_size = strtoul(size_filter, NULL, 0);
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype, disasm, min_size);
+	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
 
 	if (stats.total && stats.failed) {
 		int success = stats.total - stats.failed - stats.skipped;
@@ -532,8 +580,65 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	finish_dynamic_update(disasm);
+	freeze_dynamic_update();
 	return ret;
+}
+
+void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+			   char *pathname)
+{
+	struct mcount_dynamic_info *mdi;
+	struct uftrace_mmap *map;
+
+	if (!match_pattern_module(pathname))
+		return;
+
+	mdi = create_mdi(info);
+
+	map = xmalloc(sizeof(*map) + strlen(pathname) + 1);
+	map->start = info->dlpi_addr;
+	map->end = map->start + mdi->text_size;
+	map->len = strlen(pathname);
+
+	strcpy(map->libname, pathname);
+	mcount_memcpy1(map->prot, "r-xp", 4);
+	read_build_id(pathname, map->build_id, sizeof(map->build_id));
+
+	map->next = symtabs->maps;
+	symtabs->maps = map;
+	mdi->map = map;
+
+	map->mod = load_module_symtab(symtabs, map->libname, map->build_id);
+	mcount_arch_find_module(mdi, &map->mod->symtab);
+
+	if (mcount_setup_trampoline(mdi) < 0) {
+		pr_dbg("setup trampoline to %s failed\n", map->libname);
+		free(mdi);
+		return;
+	}
+
+	patch_func_matched(mdi, map);
+
+	mcount_arch_dynamic_recover(mdi, &disasm);
+	mcount_cleanup_trampoline(mdi);
+	free(mdi);
+
+	mcount_freeze_code();
+}
+
+void mcount_dynamic_finish(void)
+{
+	while (!list_empty(&patterns)) {
+		struct patt_list *pl;
+
+		pl = list_first_entry(&patterns, struct patt_list, list);
+
+		list_del(&pl->list);
+		free(pl->module);
+		free(pl);
+	}
+
+	mcount_disasm_finish(&disasm);
 }
 
 struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
