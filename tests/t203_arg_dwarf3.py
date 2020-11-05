@@ -16,11 +16,11 @@ class TestCase(TestBase):
             [ 28332] |   C::C(0x7ffce3e4fe60, 0x7ffce3e4fe30) {
    0.432 us [ 28332] |     C::copy(0x7ffce3e4fe60, 1, "debug info");
    1.360 us [ 28332] |   } /* C::C */
-            [ 28332] |   foo(0x7ffce3e4fe50, 0x7ffce3e4fe60, 0x7ffce3e4fe40, 0.001000) {
+            [ 28332] |   foo(C{...}, 0x7ffce3e4fe40, "passed by value", 0.001000) {
             [ 28332] |     C::C(0x7ffce3e4fe50, 3, "passed by value") {
    0.346 us [ 28332] |       C::construct(0x7ffce3e4fe50, 3, "passed by value");
    1.332 us [ 28332] |     } /* C::C */
-   2.225 us [ 28332] |   } = 0x7ffce3e4fe50; /* foo */
+   2.225 us [ 28332] |   } = C{...}; /* foo */
  457.250 us [ 28332] | } = 0; /* main */
 """, lang='C++', cflags='-g')
 
