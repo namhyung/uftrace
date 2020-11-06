@@ -89,6 +89,9 @@ static bool __maybe_unused mcount_has_caller;
 /* address of function will be called when a function returns */
 unsigned long mcount_return_fn;
 
+/* do not hook return address and inject EXIT record between functions */
+bool mcount_estimate_return;
+
 __weak void dynamic_return(void) { }
 
 #ifdef DISABLE_MCOUNT_FILTER
@@ -566,6 +569,24 @@ unlock:
 	pthread_mutex_unlock(&finish_lock);
 }
 
+static void mcount_rstack_estimate_finish(struct mcount_thread_data *mtdp)
+{
+	uint64_t ret_time = mcount_gettime();
+
+	pr_dbg2("generates EXIT records for task %d (idx = %d)\n",
+		mcount_gettid(mtdp), mtdp->idx);
+
+	while (mtdp->idx > 0) {
+		mtdp->idx--;
+		ret_time++;
+
+		/* add fake exit records */
+		mtdp->rstack[mtdp->idx].end_time = ret_time;
+		mcount_exit_filter_record(mtdp, &mtdp->rstack[mtdp->idx],
+					  NULL);
+	}
+}
+
 /* to be used by pthread_create_key() */
 void mtd_dtor(void *arg)
 {
@@ -581,6 +602,9 @@ void mtd_dtor(void *arg)
 	/* this thread is done, do not enter anymore */
 	mtdp->recursion_marker = true;
 	mtdp->dead = true;
+
+	if (mcount_estimate_return)
+		mcount_rstack_estimate_finish(mtdp);
 
 	mcount_rstack_restore(mtdp);
 
@@ -690,6 +714,11 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 		       sig, strsignal(sig), si->si_code);
 	}
 
+	if (!mcount_estimate_return) {
+		pr_warn(" if this happens only with uftrace,"
+			" please consider -e/--estimate-return option.\n\n");
+	}
+
 	pr_warn("Backtrace from uftrace:\n");
 	pr_warn("=====================================\n");
 
@@ -778,6 +807,12 @@ static void mcount_finish(void)
 	if (!mcount_should_stop())
 		mcount_trace_finish(false);
 
+	if (mcount_estimate_return) {
+		struct mcount_thread_data *mtdp = get_thread_data();
+		if (!check_thread_data(mtdp))
+			mcount_rstack_estimate_finish(mtdp);
+	}
+
 	mcount_global_flags |= MCOUNT_GFL_FINISH;
 }
 
@@ -804,6 +839,13 @@ static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 #ifndef DISABLE_MCOUNT_FILTER
 extern void * get_argbuf(struct mcount_thread_data *, struct mcount_ret_stack *);
 
+static void mcount_save_filter(struct mcount_thread_data *mtdp)
+{
+	/* save original depth and time to restore at exit time */
+	mtdp->filter.saved_depth = mtdp->filter.depth;
+	mtdp->filter.saved_time  = mtdp->filter.time;
+}
+
 /* update filter state from trigger result */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 					     unsigned long child,
@@ -814,9 +856,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
-	/* save original depth and time to restore at exit time */
-	mtdp->filter.saved_depth = mtdp->filter.depth;
-	mtdp->filter.saved_time  = mtdp->filter.time;
+	mcount_save_filter(mtdp);
 
 	/* already filtered by notrace option */
 	if (mtdp->filter.out_count > 0)
@@ -1168,6 +1208,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 	}
 }
 
+static void mcount_save_filter(struct mcount_thread_data *mtdp)
+{
+}
 #endif /* DISABLE_MCOUNT_FILTER */
 
 #ifndef FIX_PARENT_LOC
@@ -1178,6 +1221,68 @@ mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
 	return parent_loc;
 }
 #endif
+
+bool within_same_module(unsigned long addr1, unsigned long addr2)
+{
+	return find_map(&symtabs, addr1) == find_map(&symtabs, addr2);
+}
+
+void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
+				 unsigned long *frame_pointer,
+				 unsigned long addr)
+{
+	uint64_t estimated_ret_time = 0;
+
+	if (mtdp->idx > 0) {
+		int idx = mtdp->idx - 1;
+
+		/*
+		 * NOTE: we don't know the exact return time.
+		 * estimate it as a half of delta from the previous start.
+		 */
+		estimated_ret_time  = mcount_gettime();
+		estimated_ret_time += mtdp->rstack[idx].start_time;
+		estimated_ret_time /= 2;
+
+		/*
+		 * if previous symbol is a PLT function, and this one came
+		 * from same module, we assume these two are siblings and
+		 * use same depth even if it has a lower frame pointer.
+		 */
+		if (mtdp->rstack[idx].dyn_idx != MCOUNT_INVALID_DYNIDX &&
+		    mtdp->rstack[idx].parent_loc > frame_pointer &&
+		    within_same_module(mtdp->rstack[idx].child_ip, addr)) {
+			/* add a fake exit record for the PLT func */
+			mtdp->rstack[idx].end_time = estimated_ret_time;
+			mcount_exit_filter_record(mtdp, &mtdp->rstack[idx],
+						  NULL);
+			/* make it have a same depth */
+			mtdp->idx--;
+			mtdp->record_idx = mtdp->idx;
+			mcount_save_filter(mtdp);
+			return;
+		}
+	}
+
+	while (mtdp->idx > 0) {
+		int below = mtdp->idx - 1;
+
+		if (mtdp->rstack[below].parent_loc == &mtdp->cygprof_dummy)
+			break;
+
+		if (mtdp->rstack[below].parent_loc > frame_pointer)
+			break;
+
+		/* add fake exit records */
+		mtdp->rstack[below].end_time = estimated_ret_time;
+		mcount_exit_filter_record(mtdp, &mtdp->rstack[below],
+					  NULL);
+		mtdp->idx--;
+		estimated_ret_time++;
+	}
+	mtdp->record_idx = mtdp->idx;
+	mcount_save_filter(mtdp);
+}
 
 static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 			  struct mcount_regs *regs)
@@ -1223,6 +1328,9 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
 	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
 
+	if (mcount_estimate_return)
+		mcount_rstack_inject_return(mtdp, parent_loc, child);
+
 	rstack = &mtdp->rstack[mtdp->idx++];
 
 	rstack->depth      = mtdp->record_idx;
@@ -1236,12 +1344,14 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 	rstack->nr_events  = 0;
 	rstack->event_idx  = ARGBUF_SIZE;
 
-	/* hijack the return address of child */
-	*parent_loc = mcount_return_fn;
+	if (!mcount_estimate_return) {
+		/* hijack the return address of child */
+		*parent_loc = mcount_return_fn;
 
-	/* restore return address of parent */
-	if (mcount_auto_recover)
-		mcount_auto_restore(mtdp);
+		/* restore return address of parent */
+		if (mcount_auto_recover)
+			mcount_auto_restore(mtdp);
+	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
@@ -1353,6 +1463,9 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
+
+	if (mcount_estimate_return)
+		mcount_rstack_inject_return(mtdp, (void *)~0UL, child);
 
 	/*
 	 * recording arguments and return value is not supported.
@@ -1484,6 +1597,9 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
+
+	if (mcount_estimate_return)
+		mcount_rstack_inject_return(mtdp, (void *)~0UL, child);
 
 	/* 'recover' trigger is only for -pg entry */
 	tr.flags &= ~TRIGGER_FL_RECOVER;
@@ -1774,11 +1890,16 @@ static __used void mcount_startup(void)
 	if (event_str)
 		mcount_setup_events(dirname, event_str, patt_type);
 
-	if (plthook_str)
-		mcount_setup_plthook(mcount_exename, nest_libcall);
-
 	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
 		kernel_pid_update = true;
+
+	if (getenv("UFTRACE_ESTIMATE_RETURN"))
+		mcount_estimate_return = true;
+
+	if (plthook_str) {
+		/* PLT hook depends on mcount_estimate_return */
+		mcount_setup_plthook(mcount_exename, nest_libcall);
+	}
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
@@ -1891,10 +2012,10 @@ mcount_fini(void)
 
 static void setup_mcount_test(void)
 {
+	pr_dbg("init libmcount for testing\n");
+
 	mcount_exename = read_exename();
-
 	pthread_key_create(&mtd_key, mtd_dtor);
-
 	mcount_global_flags = 0;
 }
 
@@ -1965,6 +2086,51 @@ TEST_CASE(mcount_signal_setup)
 	mcount_signal_finish();
 
 	TEST_EQ(list_empty(&siglist), true);
+
+	return TEST_OK;
+}
+
+struct fake_rstack {
+	unsigned long *frame_pointer;
+	unsigned long func_addr;
+};
+
+TEST_CASE(mcount_estimate_return_depth)
+{
+	/* dummy frame pointer values - just to check relative values */
+	unsigned long frame_pointers[8];
+	/* increase idx/depth when frame pointer goes down */
+	struct fake_rstack test_scenario[] = {
+		{ &frame_pointers[7], 0x1234 },
+		{ &frame_pointers[4], 0x1234 },
+		{ &frame_pointers[0], 0x1234 },
+		{ &frame_pointers[4], 0x1234 },
+		{ &frame_pointers[5], 0x1234 },
+	};
+	/* mtdp->idx increased after mcount_entry() */
+	int depth_check[] = { 0, 1, 2, 1, 1 };
+	struct mcount_thread_data *mtdp;
+	unsigned i;
+
+	setup_mcount_test();
+	mtdp = mcount_prepare();
+	/* mcount_prepare calls mcount_guard_recursion() internally */
+	mcount_unguard_recursion(mtdp);
+
+	mcount_estimate_return = true;
+
+	for (i = 0; i < ARRAY_SIZE(test_scenario); i++) {
+		TEST_EQ(mcount_entry(test_scenario[i].frame_pointer,
+				     test_scenario[i].func_addr, NULL), 0);
+
+		pr_dbg("[%d] mcount entry: idx = %d, depth = %d\n",
+		       i, mtdp->idx, mtdp->rstack[mtdp->idx - 1].depth);
+		TEST_EQ(mtdp->idx, depth_check[i] + 1);
+		TEST_EQ(mtdp->rstack[mtdp->idx - 1].depth, depth_check[i]);
+	}
+
+	cleanup_thread_data(mtdp);
+	mcount_cleanup();
 
 	return TEST_OK;
 }

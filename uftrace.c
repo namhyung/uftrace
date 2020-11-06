@@ -134,6 +134,7 @@ __used static const char uftrace_help[] =
 "                             (default: 'abs,compact,no-percent')\n"
 "      --disable              Start with tracing disabled\n"
 "  -D, --depth=DEPTH          Trace functions within DEPTH\n"
+"  -e, --estimate-return      Use only entry record type for safety\n"
 "      --event-full           Show all events outside of function\n"
 "  -E, --Event=EVENT          Enable EVENT to save more information\n"
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
@@ -208,7 +209,7 @@ __used static const char uftrace_help[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:E:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
@@ -294,6 +295,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(help, 'h'),
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
+	NO_ARG(estimate-return, 'e'),
 	{ 0 }
 };
 
@@ -650,6 +652,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'W':
 		opts->watch = opt_add_string(opts->watch, arg);
+		break;
+
+	case 'e':
+		opts->estimate_return = true;
 		break;
 
 	case 'V':

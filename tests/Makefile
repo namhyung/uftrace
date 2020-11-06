@@ -9,6 +9,7 @@ UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
 
 UNIT_TEST_HDR := $(srcdir)/uftrace.h
+UNIT_TEST_HDR += $(srcdir)/tests/unittest.h
 UNIT_TEST_HDR += $(wildcard $(srcdir)/utils/*.h)
 UNIT_TEST_HDR += $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
 UNIT_TEST_HDR += $(wildcard $(srcdir)/libmcount/*.h)
@@ -37,12 +38,12 @@ test_run:
 test_unit: unittest
 	$(QUIET_TEST)./unittest $(TESTARG)
 
-unittest: unittest.c unittest.h $(UNIT_TEST_OBJ) $(UNIT_TEST_HDR)
+unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
 
 $(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
 
-$(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config $(srcdir)/tests/unittest.h
+$(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config $(UNIT_TEST_HDR)
 	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $<
 
 clean:

@@ -175,6 +175,7 @@ extern char *mcount_exename;
 extern int page_size_in_kb;
 extern bool kernel_pid_update;
 extern bool mcount_auto_recover;
+extern bool mcount_estimate_return;
 
 enum mcount_global_flag {
 	MCOUNT_GFL_SETUP	= (1U << 0),
@@ -376,6 +377,9 @@ extern int record_trace_data(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *mrstack, long *retval);
 extern void record_proc_maps(char *dirname, const char *sess_id,
 			     struct symtabs *symtabs);
+extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
+					unsigned long *frame_pointer,
+					unsigned long addr);
 
 #ifndef DISABLE_MCOUNT_FILTER
 extern void save_argument(struct mcount_thread_data *mtdp,
