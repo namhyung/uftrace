@@ -376,10 +376,16 @@ static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name,
 	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
-		if (strncmp(libname, pl->module, strlen(pl->module)))
-			continue;
+		int len = strlen(pl->module);
+		bool matched = false;
 
-		if (match_filter_pattern(&pl->patt, sym_name))
+		if (soname != NULL)
+			matched = (strncmp(soname, pl->module, len) == 0);
+
+		if (!matched)
+			matched = (strncmp(libname, pl->module, len) == 0);
+
+		if (matched && match_filter_pattern(&pl->patt, sym_name))
 			ret = pl->positive;
 	}
 
