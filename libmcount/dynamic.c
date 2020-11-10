@@ -368,7 +368,8 @@ static bool match_pattern_module(char *pathname)
 	return ret;
 }
 
-static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
+static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name,
+			       char* soname)
 {
 	struct patt_list *pl;
 	bool ret = false;
@@ -420,7 +421,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		    sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		if (!match_pattern_list(map, sym->name)) {
+		if (!match_pattern_list(map, sym->name, soname)) {
 			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
 				stats.unpatch++;
 			continue;
