@@ -399,6 +399,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
+	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
 
@@ -442,6 +443,9 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 
 	if (!found)
 		stats.nomatch++;
+
+	if (soname != NULL)
+		free(soname);
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
