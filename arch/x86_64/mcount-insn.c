@@ -59,6 +59,31 @@ void print_instrument_fail_msg(int reason)
 	}
 }
 
+static int opnd_orig_reg(int capstone_reg)
+{
+
+#define PADDING X86_REG_ENDING + 1
+#define COLUMN_SIZE 5
+
+	uint8_t x86_regs[] = {
+		X86_REG_AH, X86_REG_AL, X86_REG_AX, X86_REG_EAX, X86_REG_RAX,
+		X86_REG_CH, X86_REG_CL, X86_REG_CX, X86_REG_ECX, X86_REG_RCX,
+		X86_REG_DH, X86_REG_DL, X86_REG_DX, X86_REG_EDX, X86_REG_RDX,
+		X86_REG_BH, X86_REG_BL, X86_REG_BX, X86_REG_EBX, X86_REG_RBX,
+		X86_REG_SPL, X86_REG_SP, X86_REG_ESP, X86_REG_RSP, PADDING,
+		X86_REG_BPL, X86_REG_BP, X86_REG_EBP, X86_REG_RBP, PADDING,
+		X86_REG_SIL, X86_REG_SI, X86_REG_ESI, X86_REG_RSI, PADDING,
+		X86_REG_DIL, X86_REG_DI, X86_REG_EDI, X86_REG_RDI, PADDING,
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof(x86_regs); i++) {
+		if (capstone_reg == x86_regs[i])
+			return i / COLUMN_SIZE;
+	}
+	return -1;
+}
+
 static int opnd_reg(int capstone_reg)
 {
 	uint8_t x86_regs[] = {
@@ -152,6 +177,249 @@ out:
 }
 
 /*
+ * We should be careful as some instructions implicitly use registers.
+ * For instance, cmpxchg implicitly use ax. Using ax as a scratch register
+ * when relocating cmpxchg will most probably alter the program's execution
+ * flow.
+ */
+static uint8_t find_scratch_register(const cs_insn* insn)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	bool implicitly_used;
+	int reg;
+	uint8_t i;
+	uint8_t j;
+
+	struct candidate_reg {
+		bool available;
+		const char* implicit_users[15];
+		const uint8_t count;
+	};
+
+	/*
+	 * Instructions that implicity use registers:
+	 *
+	 * mulx:
+	 *   EDX, RDX => dx
+	 * div/idiv/mul/imul:
+	 *   AX, DX, EDX, EAX, RDX, RAX => ax, dx
+	 * cmpxchg:
+	 *   AL, AX, EAX, RAX => ax
+	 * cmpxchg8b/cmpxchg16b:
+	 *   EAX, EDX, ECX, EBX, RAX, RDX, RCX, RBX => ax, bx, cx, dx
+	 * pop:
+	 *   RSP
+	 *
+	 * TODO: add more instructions.
+	 */
+	struct candidate_reg regs[8]={
+		{true, {"idiv", "imul", "mul", "div", "cmpxchg",
+				"cmpxchg8b","cmpxchg16b"}, 7}, /* ax */
+		{true, {"cmpxchg8b", "cmpxchg16b", }, 2}, /* cx */
+		{true, {"idiv", "imul", "mul", "div", "cmpxchg8b",
+				"cmpxchg16b", "mulx"}, 7}, /* dx */
+		{true, {"cmpxchg8b", "cmpxchg16b"}, 2}, /* bx */
+		{true, {"push", "pop", "call"}, 3}, /* sp */
+		{true, {}, }, /* bp */
+		{true, {}, }, /* si */
+		{true, {}, }, /* di */
+	};
+
+	/* Look for unavailable scratch registers that are used by the insn */
+	for (i = 0; i < x86->op_count; i++) {
+		if (x86->operands[i].type == X86_OP_REG) {
+			reg = opnd_orig_reg(x86->operands[i].reg);
+			if(reg >= 0)
+				regs[reg].available = false;
+
+		} else if (x86->operands[i].type == X86_OP_MEM) {
+			reg = opnd_orig_reg(x86->operands[i].mem.base);
+			if(reg >= 0)
+				regs[reg].available = false;
+
+			reg = opnd_orig_reg(x86->operands[i].mem.index);
+			if(reg >= 0)
+				regs[reg].available = false;
+		}
+	}
+
+	/* Find an available and implicitly unused scratch register  */
+	for (i = 0; i < sizeof(regs) / sizeof(struct candidate_reg); i++) {
+		if (regs[i].available) {
+			implicitly_used = false;
+
+			for (j = 0; j < regs[i].count; j++) {
+				if (!strcmp(regs[i].implicit_users[j], insn->mnemonic)) {
+					implicitly_used = true;
+					break;
+				}
+			}
+
+			if(implicitly_used)
+				continue;
+			else
+				return i;
+		}
+	}
+
+	return 255;
+}
+
+/* FIXME: using same function name from Linux code. I'am wondering if it's okay IANAL :/ */
+static inline int insn_offset_rex_prefix(cs_insn *insn)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	int count = 0;
+
+#define IRRELEVANT_PREFIX 0
+#define PREFIX_LENGTH 4
+
+	for(uint8_t i = 0; i < PREFIX_LENGTH; i++) {
+		count += x86->prefix[i] != IRRELEVANT_PREFIX ? 1 : 0;
+	}
+
+	return count;
+}
+
+static inline int insn_offset_opcode(cs_insn *insn)
+{
+#define IRRELEVANT_PREFIX 0
+	return insn_offset_rex_prefix(insn) + (insn->detail->x86.rex != IRRELEVANT_PREFIX ? 1 : 0);
+}
+
+static inline int insn_offset_modrm(cs_insn *insn)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	int count = 0;
+
+#define IRRELEVANT_OPCODE 0
+#define OPCODE_LENGTH 4
+
+	for(uint8_t i = 0; i < OPCODE_LENGTH; i++)
+		count += x86->opcode[i] != IRRELEVANT_OPCODE ? 1 : 0;
+
+	return insn_offset_opcode(insn) + count;
+}
+
+static inline int insn_offset_sib(cs_insn *insn)
+{
+#define MODRM_SIZE 1
+	return insn_offset_modrm(insn) + MODRM_SIZE;
+}
+
+static inline int insn_offset_displacement(cs_insn *insn)
+{
+#define IRRELEVANT_SIB 0
+	return insn_offset_sib(insn) + (insn->detail->x86.sib != IRRELEVANT_SIB ? 1 : 0);
+}
+
+/*
+ *  handle PIC code.
+ *  Generically, this function handle all PIC instructions.
+ *
+ *  this function manipulate any RIP-relative insns like below,
+ *    lea rcx, qword ptr [rip + 0x8f3f85]
+ *  to this.
+ *    push reg
+ *    mov [calculated PC + 0x8f3f85], reg
+ *    lea rcx, reg
+ *    pop reg
+ *
+ *  To achieve its goal, the function change modrm (and REX)
+ *  to keep the same instruction, but forces it to use a
+ *  scratch register. The scratch register will hold the
+ *  computed [RIP + disp] address.
+ *
+ *  The function looks for a scratch register that won't
+ *  alter the relocated instruction when used as an operand.
+ *
+ *  To avoid clobbering reg, we need to save it before
+ *  executing the insn and restore it after.
+ */
+static int handle_pic_modrm(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	int insns_size = 0;
+	uint8_t reg_id;
+	uint8_t modrm_index;
+	uint8_t disp_index;
+	uint64_t target;
+	uint8_t *offset;
+	uint8_t relocated_insn[15];
+	/* PUSH + reg_id */
+	uint8_t push = 0x50;
+	/* MOV + reg_id */
+	uint8_t mov[10] = { 0x48 /* REX.w for 8-byte imm */, 0xb8, };
+	/* POP + reg_id */
+	uint8_t pop = 0x58;
+
+	/* RIP-relative insn always have a displacement of 4 bytes */
+#define DISP_SIZE   4
+#define IRRELEVANT_REX   0
+
+	/* Look for an valid scratch register */
+	reg_id = find_scratch_register(insn);
+	if (reg_id == 255)
+		goto out;
+
+	/* Setup and write PUSH reg */
+	push += reg_id;
+	memcpy(&insns[0], &push, sizeof(push));
+
+	/* Setup MOV imm, reg */
+	mov[1] += reg_id;
+	disp_index = insn_offset_displacement(insn);
+	/* Compute operand address [RIP + disp] */
+	target = insn->address + insn->size + *(int32_t*)(insn->bytes + disp_index);
+	memcpy(&mov[2], &target, sizeof(target));
+
+	/* Write MOV imm, reg */
+	memcpy(&insns[1], &mov, sizeof(mov));
+
+	/* Setup relocated insn */
+	memcpy(relocated_insn, insn->bytes, insn->size);
+	/*
+	 * Clear REX.b bit (LSB). Insns may set it to extend r/m. Since RIP-relative
+	 * will always use RIP instead of r8+, this bit is ignored.
+	 */
+	if (insn->detail->x86.rex != IRRELEVANT_REX) {
+		offset = relocated_insn + insn_offset_rex_prefix(insn);
+		*offset &= 0xfe;
+	}
+
+	/* We only check mdorm because RIP-relative insns never use SIB */
+	modrm_index = insn_offset_modrm(insn);
+	offset = relocated_insn + modrm_index;
+	/* Change modrm from "00 reg 101" to "10 reg reg_id" */
+	*offset = (reg_id & 0b00000111) | (*offset & 0b00111000);
+
+	insns_size = sizeof(push) + sizeof(mov);
+
+	/* Write prefixes, REX and opcode */
+	memcpy(&insns[insns_size], &relocated_insn, modrm_index);
+	insns_size += modrm_index;
+
+	/* Write modrm byte */
+	memcpy(&insns[insns_size], &relocated_insn[modrm_index], 1);
+	insns_size += 1;
+
+	/* Write imm (skip disp) */
+	memcpy(&insns[insns_size], &relocated_insn[disp_index + DISP_SIZE],
+			insn->size - DISP_SIZE - (modrm_index + 1));
+	insns_size += insn->size - DISP_SIZE - (modrm_index + 1);
+
+	/* Write POP reg */
+	pop += reg_id;
+	memcpy(&insns[insns_size], &pop, sizeof(pop));
+	insns_size += sizeof(pop);
+
+	return insns_size;
+
+out:
+	return -1;
+}
+
+/*
  *  handle CALL instructions.
  *  it's basically PUSH + JMP instructions and we already add JMP
  *  at the end of copied instructions so reuse the JMP.
@@ -204,7 +472,7 @@ static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_PICCODE:
-		res = handle_pic(insn, insns, info);
+		res = handle_pic_modrm(insn, insns, info);
 		if (res > 0)
 			*fail_reason = 0;
 		break;
