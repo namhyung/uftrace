@@ -555,7 +555,9 @@ TEST_CASE(mcount_wrap_dlopen)
 {
 	void *handle;
 
-	TEST_EQ(real_dlopen, NULL);
+	/* In some environment, dlopen() is called already */
+	if (unlikely(real_dlopen != NULL))
+		real_dlopen = NULL;
 
 	pr_dbg("calling %s (%s) should init all the wrappers\n",
 	       "dlopen", "or other wrapped function");
