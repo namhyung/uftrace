@@ -305,7 +305,13 @@ extern volatile bool uftrace_done;
 
 int open_data_file(struct opts *opts, struct uftrace_data *handle);
 int open_info_file(struct opts *opts, struct uftrace_data *handle);
-void close_data_file(struct opts *opts, struct uftrace_data *handle);
+void __close_data_file(struct opts *opts, struct uftrace_data *handle,
+		       bool unload_modules);
+static inline void close_data_file(struct opts *opts, struct uftrace_data *handle)
+{
+	__close_data_file(opts, handle, true);
+}
+
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
