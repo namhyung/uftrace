@@ -509,24 +509,36 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 
 			insert_diff(diff_root, node, diff_column);
 		}
-		iter->pair = NULL;
 
 		n = rb_next(n);
 	}
 }
 
-void destroy_diff_nodes(struct rb_root *diff_root)
+void destroy_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root)
 {
-	struct rb_node *n = rb_first(diff_root);
+	struct rb_node *n;
+	struct uftrace_report_node *iter;
 
+	n = rb_first(orig_root);
 	while (n) {
-		struct uftrace_report_node *iter;
+		iter = rb_entry(n, typeof(*iter), name_link);
+		n = rb_next(n);
 
-		rb_erase(n, diff_root);
-		iter = rb_entry(n, typeof(*iter), sort_link);
+		/* name is already freed in print_and_delete */
+		rb_erase(&iter->name_link, orig_root);
 		free(iter);
+	}
 
-		n = rb_first(diff_root);
+	n = rb_first(pair_root);
+	while (n) {
+		iter = rb_entry(n, typeof(*iter), name_link);
+		n = rb_next(n);
+
+		rb_erase(&iter->name_link, pair_root);
+		/* if it has a pair, only base name was freed */
+		if (iter->pair)
+			free(iter->name);
+		free(iter);
 	}
 }
 
@@ -1213,6 +1225,7 @@ TEST_CASE(report_diff)
 		int idx = diff_order[i];
 
 		node = rb_entry(rbnode, typeof(*node), sort_link);
+		rbnode = rb_next(rbnode);
 
 		if (idx >= 0)
 			TEST_STREQ(node->name, orig_name[idx]);
@@ -1222,26 +1235,18 @@ TEST_CASE(report_diff)
 		TEST_EQ(node->pair->total.sum - node->total.sum, diff_total[i]);
 		pr_dbg("[%d] %s, %5"PRId64"\n", i, node->name, diff_total[i]);
 
-		rbnode = rb_next(rbnode);
+		rb_erase(&node->sort_link, &diff_tree);
+		free(node->name);
+		free(node);
+
 		i++;
 	}
 	TEST_EQ(i, 4);
 
-	destroy_diff_nodes(&diff_tree);
+	destroy_diff_nodes(&orig_tree, &pair_tree);
+	TEST_EQ(RB_EMPTY_ROOT(&orig_tree), true);
+	TEST_EQ(RB_EMPTY_ROOT(&pair_tree), true);
 	TEST_EQ(RB_EMPTY_ROOT(&diff_tree), true);
-
-	while (!RB_EMPTY_ROOT(&orig_tree)) {
-		rbnode = rb_first(&orig_tree);
-		node = rb_entry(rbnode, typeof(*node), name_link);
-
-		report_delete_node(&orig_tree, node);
-	}
-	while (!RB_EMPTY_ROOT(&pair_tree)) {
-		rbnode = rb_first(&pair_tree);
-		node = rb_entry(rbnode, typeof(*node), name_link);
-
-		report_delete_node(&pair_tree, node);
-	}
 
 	return TEST_OK;
 }
