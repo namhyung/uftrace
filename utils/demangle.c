@@ -319,7 +319,8 @@ static int dd_append_len(struct demangle_data *dd, char *str, int size)
 		dd->new = xrealloc(dd->new, dd->alloc);
 	}
 
-	strncpy(&dd->new[dd->newpos], str, size);
+	/* copy including the last NUL byte (but usually not) */
+	strncpy(&dd->new[dd->newpos], str, size + 1);
 	dd->newpos += size;
 	dd->new[dd->newpos] = '\0';
 
