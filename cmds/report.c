@@ -474,8 +474,8 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	print_line(&output_fields, field_space);
 	print_and_delete(&diff_tree, true, NULL, print_function, field_space);
 out:
-	destroy_diff_nodes(&diff_tree);
-	close_data_file(&dummy_opts, &data.handle);
+	destroy_diff_nodes(&base_tree, &pair_tree);
+	__close_data_file(&dummy_opts, &data.handle, false);
 }
 
 char * convert_sort_keys(char *sort_keys)

@@ -461,7 +461,8 @@ __visible_default __noreturn void pthread_exit(void *retval)
 		mcount_rstack_restore(mtdp);
 	}
 
-	pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
+	if (mtdp)
+		pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
 	real_pthread_exit(retval);
 }
 
@@ -554,7 +555,9 @@ TEST_CASE(mcount_wrap_dlopen)
 {
 	void *handle;
 
-	TEST_EQ(real_dlopen, NULL);
+	/* In some environment, dlopen() is called already */
+	if (unlikely(real_dlopen != NULL))
+		real_dlopen = NULL;
 
 	pr_dbg("calling %s (%s) should init all the wrappers\n",
 	       "dlopen", "or other wrapped function");

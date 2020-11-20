@@ -66,7 +66,7 @@ void report_sort_nodes(struct rb_root *name_root, struct rb_root *sort_root);
 int report_setup_diff(const char *key_str);
 void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 		       struct rb_root *diff_root, int diff_column);
-void destroy_diff_nodes(struct rb_root *diff_root);
+void destroy_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root);
 void apply_diff_policy(char *policy);
 
 int report_setup_task(const char *key_str);
