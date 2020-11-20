@@ -556,7 +556,7 @@ void process_perf_event(struct uftrace_data *handle)
 	struct uftrace_perf_reader *perf;
 	struct uftrace_task_reader *task;
 	struct uftrace_record *rec;
-	struct fstack_arguments args;
+	struct fstack_arguments args = {};
 	int p;
 
 	if (handle->perf_event_processed)
@@ -608,6 +608,11 @@ void process_perf_event(struct uftrace_data *handle)
 
 add_it:
 		add_to_rstack_list(&task->event_list, rec, &args);
+		if (args.len) {
+			free(args.data);
+			args.data = NULL;
+			args.len = 0;
+		}
 		perf->valid = false;
 	}
 
