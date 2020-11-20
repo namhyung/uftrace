@@ -461,7 +461,8 @@ __visible_default __noreturn void pthread_exit(void *retval)
 		mcount_rstack_restore(mtdp);
 	}
 
-	pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
+	if (mtdp)
+		pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
 	real_pthread_exit(retval);
 }
 
