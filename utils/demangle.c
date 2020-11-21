@@ -1026,7 +1026,7 @@ static int dd_type(struct demangle_data *dd)
 	unsigned i;
 	char cv_qual[] = "rVK";
 	char prefix[] = "PROCG";
-	char D_types[] = "defhisacn";
+	char D_types[] = "defhisacnu";
 	char scue[] = "sue"; /* struct, class, union, enum */
 	int done = 0;
 	int ret = -1;
@@ -1916,6 +1916,8 @@ TEST_CASE(demangle_simple8)
 		      "__construction_vtable__v8::internal::StdoutStream");
 	DEMANGLE_TEST("_ZGRZNK5blink8Variable27GetPropertyNameAtomicStringEvE4name_",
 		      "__ref_temp__blink::Variable::GetPropertyNameAtomicString::name");
+	DEMANGLE_TEST("_ZNSt14numeric_limitsIDuE8is_exactE",
+		      "std::numeric_limits::is_exact");
 
 	return TEST_OK;
 }
