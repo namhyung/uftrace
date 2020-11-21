@@ -466,8 +466,11 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	int state;
 
 	state = disasm_check_insns(disasm, mdi, &info);
-	if (state != INSTRUMENT_SUCCESS)
+	if (state != INSTRUMENT_SUCCESS) {
+		pr_dbg3("  >> %s: %s\n", state == INSTRUMENT_FAILED ? "FAIL" : "SKIP",
+			sym->name);
 		return state;
+	}
 
 	pr_dbg2("patch normal func: %s (patch size: %d)\n",
 		sym->name, info.orig_size);

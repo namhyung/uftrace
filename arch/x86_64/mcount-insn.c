@@ -1,5 +1,10 @@
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "dynamic"
+#define PR_DOMAIN  DBG_DYNAMIC
+
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
@@ -16,7 +21,7 @@ struct disasm_check_data {
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &disasm->engine) != CS_ERR_OK) {
-		pr_dbg("failed to init Capstone disasm engine\n");
+		pr_dbg("failed to init capstone disasm engine\n");
 		return;
 	}
 
@@ -46,16 +51,16 @@ enum branch_group {
 void print_instrument_fail_msg(int reason)
 {
 	if (reason & INSTRUMENT_FAIL_NOOPRND) {
-		pr_dbg3("Not supported opcode without operand\n");
+		pr_dbg3("prologue has insn with no operand\n");
 	}
 	if (reason & INSTRUMENT_FAIL_RELJMP) {
-		pr_dbg3("Not supported opcode that jump to relative address\n");
+		pr_dbg3("prologue has relative jump\n");
 	}
 	if (reason & INSTRUMENT_FAIL_RELCALL) {
-		pr_dbg3("Not supported opcode that call to relative address\n");
+		pr_dbg3("prologue has (relative) call\n");
 	}
 	if (reason & INSTRUMENT_FAIL_PICCODE) {
-		pr_dbg3("Not supported Position Independent Code\n");
+		pr_dbg3("prologue has PC-relative addressing\n");
 	}
 }
 
@@ -288,7 +293,7 @@ static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 {
 	int res = -1;
 
-	pr_dbg3("Manipulate instructions having PC-relative addressing.\n");
+	pr_dbg3("manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_RELJMP:
@@ -391,9 +396,6 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	}
 
 out:
-	if (status > 0)
-		print_instrument_fail_msg(status);
-
 	return status;
 }
 
@@ -432,15 +434,27 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 
 			/* disallow (back) jump to the prologue */
 			if (info->addr < target &&
-			    target < info->addr + info->orig_size)
+			    target < info->addr + info->orig_size) {
+				pr_dbg4("jump to prologue: addr=%lx, target=%lx\n",
+					insn->address - mdi->map->start,
+					target - mdi->map->start);
 				return false;
+			}
 
 			/* disallow jump to middle of other function */
 			if (info->addr > target ||
 			    target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
-				return !mcount_add_badsym(mdi, insn->address,
-							  target);
+				if (!mcount_add_badsym(mdi, insn->address,
+						       target)) {
+					/* it was actuall ok (like tail call) */
+					return true;
+				}
+
+				pr_dbg4("jump to middle of function: addr=%lx, target=%lx\n",
+					insn->address - mdi->map->start,
+					target - mdi->map->start);
+				return false;
 			}
 			break;
 		case X86_OP_MEM:
@@ -496,9 +510,8 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 			size = copy_insn_bytes(&insn[i], insns_byte);
 
 		if (status > 0) {
+			print_instrument_fail_msg(status);
 			status = INSTRUMENT_FAILED;
-			pr_dbg3("not supported instruction found at %s : %s\t %s\n",
-				info->sym->name, insn[i].mnemonic, insn[i].op_str);
 			goto out;
 		}
 
