@@ -36,9 +36,6 @@ struct mcount_arch_context {
 #define ARCH_SUPPORT_AUTO_RECOVER  1
 #define ARCH_CAN_RESTORE_PLTHOOK   1
 
-#define ARCH_JCC8_SIZE 2
-#define ARCH_JMP32_SIZE 5
-
 #define ARCH_TRAMPOLINE_SIZE 14
 #define ARCH_BRANCH_ENTRY_SIZE ARCH_TRAMPOLINE_SIZE
 
@@ -53,6 +50,9 @@ struct sym;
 
 #define CALL_INSN_SIZE	5
 #define JMP_INSN_SIZE	6
+#define JCC8_INSN_SIZE  2
+#define JMP32_INSN_SIZE 5
+
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,

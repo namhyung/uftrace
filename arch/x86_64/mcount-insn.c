@@ -35,11 +35,10 @@ void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 }
 
 enum fail_reason {
-	INSTRUMENT_FAIL_NODETAIL	= (1U << 0),
-	INSTRUMENT_FAIL_NOOPRND		= (1U << 1),
-	INSTRUMENT_FAIL_RELJMP		= (1U << 2),
-	INSTRUMENT_FAIL_RELCALL		= (1U << 3),
-	INSTRUMENT_FAIL_PICCODE		= (1U << 4),
+	INSTRUMENT_FAIL_NO_DETAIL	= (1U << 0),
+	INSTRUMENT_FAIL_RELJMP		= (1U << 1),
+	INSTRUMENT_FAIL_RELCALL		= (1U << 2),
+	INSTRUMENT_FAIL_PIC		= (1U << 3),
 };
 
 enum branch_group {
@@ -50,16 +49,13 @@ enum branch_group {
 
 void print_instrument_fail_msg(int reason)
 {
-	if (reason & INSTRUMENT_FAIL_NOOPRND) {
-		pr_dbg3("prologue has insn with no operand\n");
-	}
 	if (reason & INSTRUMENT_FAIL_RELJMP) {
 		pr_dbg3("prologue has relative jump\n");
 	}
 	if (reason & INSTRUMENT_FAIL_RELCALL) {
 		pr_dbg3("prologue has (relative) call\n");
 	}
-	if (reason & INSTRUMENT_FAIL_PICCODE) {
+	if (reason & INSTRUMENT_FAIL_PIC) {
 		pr_dbg3("prologue has PC-relative addressing\n");
 	}
 }
@@ -96,42 +92,41 @@ static int opnd_reg(int capstone_reg)
 static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
-	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25,};
+	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
 	uint8_t opcode = insn->bytes[0];
 	uint64_t target;
 	struct cond_branch_info *cbi;
-
-#define JMP8_OPCODE 0xEB
-#define JMP32_OPCODE 0xE9
-#define IND_JMP_SIZE 6
-#define OP   0
-#define OFS	  1
 	cs_x86_op *opnd = &x86->operands[0];
+
+#define JMP8_OPCODE  0xEB
+#define JMP32_OPCODE 0xE9
+#define OP   0
+#define OFS  1
 
 	if (x86->op_count != 1 || opnd->type != X86_OP_IMM)
 		goto out;
 
-	if ((opcode == JMP8_OPCODE || opcode == JMP32_OPCODE)) {
+	if (opcode == JMP8_OPCODE || opcode == JMP32_OPCODE) {
 		if (strcmp(insn->mnemonic, "jmp") != 0)
 			goto out;
 
 		target = opnd->imm;
 
-		memcpy(insns, relocated_insn, IND_JMP_SIZE);
-		memcpy(insns + IND_JMP_SIZE, &target, sizeof(target));
+		memcpy(insns, relocated_insn, JMP_INSN_SIZE);
+		memcpy(insns + JMP_INSN_SIZE, &target, sizeof(target));
 
 		info->modified = true;
 		/* 
 		 * If this jump is the last insn in the prologue, we can ignore
 		 * the one in patch_normal_func()
 		 */
-		if (info->orig_size + insn->size >= ARCH_JMP32_SIZE)
+		if (info->orig_size + insn->size >= JMP32_INSN_SIZE)
 			info->has_jump = true;
-		return IND_JMP_SIZE + sizeof(target);
 
-	}/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
-	else if((opcode & 0xF0) == 0x70) {
-
+		return JMP_INSN_SIZE + sizeof(target);
+	}
+	/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
+	else if ((opcode & 0xF0) == 0x70) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = opnd->imm;
@@ -141,14 +136,13 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 		relocated_insn[OP] = opcode;
 		relocated_insn[OFS] = 0x00;
 
-		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+		memcpy(insns, (void *)relocated_insn, JCC8_INSN_SIZE);
 
 		info->modified = true;
-		return ARCH_JCC8_SIZE;
-
-	}/* Jump relative 32 if condition is met */
-	else if(opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
-
+		return JCC8_INSN_SIZE;
+	}
+	/* Jump relative 32 if condition is met */
+	else if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = opnd->imm;
@@ -159,10 +153,10 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 		relocated_insn[OP] = insn->bytes[1] - 0x10;
 		relocated_insn[OFS] = 0x00;
 
-		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+		memcpy(insns, (void *)relocated_insn, JCC8_INSN_SIZE);
 		
 		info->modified = true;
-		return ARCH_JCC8_SIZE;
+		return JCC8_INSN_SIZE;
 	}
 
 out:
@@ -301,7 +295,7 @@ static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 		if (res > 0)
 			*fail_reason = 0;
 		break;
-	case INSTRUMENT_FAIL_PICCODE:
+	case INSTRUMENT_FAIL_PIC:
 		res = handle_pic(insn, insns, info);
 		if (res > 0)
 			*fail_reason = 0;
@@ -346,7 +340,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	 * if SKIPDATA option is turned ON
 	 */
 	if (insn->detail == NULL) {
-		status = INSTRUMENT_FAIL_NODETAIL;
+		status = INSTRUMENT_FAIL_NO_DETAIL;
 		goto out;
 	}
 
@@ -385,7 +379,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 		case X86_OP_MEM:
 			if (op->mem.base == X86_REG_RIP ||
 			    op->mem.index == X86_REG_RIP) {
-				status |= INSTRUMENT_FAIL_PICCODE;
+				status |= INSTRUMENT_FAIL_PIC;
 				goto out;
 			}
 			continue;
