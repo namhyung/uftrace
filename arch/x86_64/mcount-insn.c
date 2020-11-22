@@ -451,10 +451,6 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 				return false;
 			}
 			break;
-		case X86_OP_MEM:
-		case X86_OP_REG:
-			/* indirect jumps are not allowed */
-			return false;
 		default:
 			break;
 		}
