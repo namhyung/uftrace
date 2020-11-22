@@ -475,6 +475,15 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		return INSTRUMENT_FAILED;
 	}
 
+	/*
+	 * some compilers split cold part of the code into a separate function
+	 * and it's likely to have a jump into original function body.  We need
+	 * to skip those functions and allow the original function.
+	 */
+	size = strlen(info->sym->name);
+	if (size > 5 && !strcmp(info->sym->name + size - 5, ".cold"))
+		return INSTRUMENT_SKIPPED;
+
 	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
 			  info->addr, 0, &insn);
 	if (count == 0 && !memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
