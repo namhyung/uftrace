@@ -89,7 +89,9 @@ static int opnd_reg(int capstone_reg)
  * indirect jump to the target.
  *
  */
-static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
+static int handle_rel_jmp(cs_insn *insn, uint8_t insns[],
+			  struct mcount_dynamic_info *mdi,
+			  struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
 	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
@@ -106,11 +108,17 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 	if (x86->op_count != 1 || opnd->type != X86_OP_IMM)
 		goto out;
 
+	target = opnd->imm;
+	/* disallow jump to middle of other function */
+	if (info->addr > target || target >= info->addr + info->sym->size) {
+		/* also mark the target function as invalid */
+		if (mcount_add_badsym(mdi, insn->address, target))
+			goto out;
+	}
+
 	if (opcode == JMP8_OPCODE || opcode == JMP32_OPCODE) {
 		if (strcmp(insn->mnemonic, "jmp") != 0)
 			goto out;
-
-		target = opnd->imm;
 
 		memcpy(insns, relocated_insn, JMP_INSN_SIZE);
 		memcpy(insns + JMP_INSN_SIZE, &target, sizeof(target));
@@ -129,7 +137,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 	else if ((opcode & 0xF0) == 0x70) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
-		cbi->branch_target = opnd->imm;
+		cbi->branch_target = target;
 		cbi->insn_addr = insn->address;
 		cbi->insn_size = insn->size;
 
@@ -145,7 +153,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 	else if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
-		cbi->branch_target = opnd->imm;
+		cbi->branch_target = target;
 		cbi->insn_addr = insn->address;
 		cbi->insn_size = insn->size;
 
@@ -283,6 +291,7 @@ static int handle_call(cs_insn *insn, uint8_t insns[],
 }
 
 static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
+			    struct mcount_dynamic_info *mdi,
 			    struct mcount_disasm_info *info)
 {
 	int res = -1;
@@ -291,7 +300,7 @@ static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_RELJMP:
-		res = handle_rel_jmp(insn, insns, info);
+		res = handle_rel_jmp(insn, insns, mdi, info);
 		if (res > 0)
 			*fail_reason = 0;
 		break;
@@ -504,7 +513,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		status = check_instrumentable(disasm, &insn[i]);
 		if (status > 0)
 			size = manipulate_insns(&insn[i], insns_byte,
-						&status, info);
+						&status, mdi, info);
 		else
 			size = copy_insn_bytes(&insn[i], insns_byte);
 
