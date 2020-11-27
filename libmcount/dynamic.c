@@ -257,7 +257,8 @@ __weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
 	return 0;
 }
 
-__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_orig_insn *orig)
+__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info,
+				     struct mcount_orig_insn *orig)
 {
 }
 

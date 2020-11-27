@@ -1,5 +1,10 @@
+/* This should be defined before #include "utils.h" */
+#define PR_FMT     "dynamic"
+#define PR_DOMAIN  DBG_DYNAMIC
+
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
@@ -16,7 +21,7 @@ struct disasm_check_data {
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &disasm->engine) != CS_ERR_OK) {
-		pr_dbg("failed to init Capstone disasm engine\n");
+		pr_dbg("failed to init capstone disasm engine\n");
 		return;
 	}
 
@@ -30,11 +35,10 @@ void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 }
 
 enum fail_reason {
-	INSTRUMENT_FAIL_NODETAIL	= (1U << 0),
-	INSTRUMENT_FAIL_NOOPRND		= (1U << 1),
-	INSTRUMENT_FAIL_RELJMP		= (1U << 2),
-	INSTRUMENT_FAIL_RELCALL		= (1U << 3),
-	INSTRUMENT_FAIL_PICCODE		= (1U << 4),
+	INSTRUMENT_FAIL_NO_DETAIL	= (1U << 0),
+	INSTRUMENT_FAIL_RELJMP		= (1U << 1),
+	INSTRUMENT_FAIL_RELCALL		= (1U << 2),
+	INSTRUMENT_FAIL_PIC		= (1U << 3),
 };
 
 enum branch_group {
@@ -45,17 +49,14 @@ enum branch_group {
 
 void print_instrument_fail_msg(int reason)
 {
-	if (reason & INSTRUMENT_FAIL_NOOPRND) {
-		pr_dbg3("Not supported opcode without operand\n");
-	}
 	if (reason & INSTRUMENT_FAIL_RELJMP) {
-		pr_dbg3("Not supported opcode that jump to relative address\n");
+		pr_dbg3("prologue has relative jump\n");
 	}
 	if (reason & INSTRUMENT_FAIL_RELCALL) {
-		pr_dbg3("Not supported opcode that call to relative address\n");
+		pr_dbg3("prologue has (relative) call\n");
 	}
-	if (reason & INSTRUMENT_FAIL_PICCODE) {
-		pr_dbg3("Not supported Position Independent Code\n");
+	if (reason & INSTRUMENT_FAIL_PIC) {
+		pr_dbg3("prologue has PC-relative addressing\n");
 	}
 }
 
@@ -88,65 +89,71 @@ static int opnd_reg(int capstone_reg)
  * indirect jump to the target.
  *
  */
-static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
+static int handle_rel_jmp(cs_insn *insn, uint8_t insns[],
+			  struct mcount_dynamic_info *mdi,
+			  struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
-	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25,};
+	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
 	uint8_t opcode = insn->bytes[0];
 	uint64_t target;
 	struct cond_branch_info *cbi;
-
-#define JMP8_OPCODE 0xEB
-#define JMP32_OPCODE 0xE9
-#define IND_JMP_SIZE 6
-#define OP   0
-#define OFS	  1
 	cs_x86_op *opnd = &x86->operands[0];
+
+#define JMP8_OPCODE  0xEB
+#define JMP32_OPCODE 0xE9
+#define OP   0
+#define OFS  1
 
 	if (x86->op_count != 1 || opnd->type != X86_OP_IMM)
 		goto out;
 
-	if ((opcode == JMP8_OPCODE || opcode == JMP32_OPCODE)) {
+	target = opnd->imm;
+	/* disallow jump to middle of other function */
+	if (info->addr > target || target >= info->addr + info->sym->size) {
+		/* also mark the target function as invalid */
+		if (mcount_add_badsym(mdi, insn->address, target))
+			goto out;
+	}
+
+	if (opcode == JMP8_OPCODE || opcode == JMP32_OPCODE) {
 		if (strcmp(insn->mnemonic, "jmp") != 0)
 			goto out;
 
-		target = opnd->imm;
-
-		memcpy(insns, relocated_insn, IND_JMP_SIZE);
-		memcpy(insns + IND_JMP_SIZE, &target, sizeof(target));
+		memcpy(insns, relocated_insn, JMP_INSN_SIZE);
+		memcpy(insns + JMP_INSN_SIZE, &target, sizeof(target));
 
 		info->modified = true;
 		/* 
 		 * If this jump is the last insn in the prologue, we can ignore
 		 * the one in patch_normal_func()
 		 */
-		if (info->orig_size + insn->size >= ARCH_JMP32_SIZE)
+		if (info->orig_size + insn->size >= JMP32_INSN_SIZE)
 			info->has_jump = true;
-		return IND_JMP_SIZE + sizeof(target);
 
-	}/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
-	else if((opcode & 0xF0) == 0x70) {
-
+		return JMP_INSN_SIZE + sizeof(target);
+	}
+	/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
+	else if ((opcode & 0xF0) == 0x70) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
-		cbi->branch_target = opnd->imm;
+		cbi->branch_target = target;
 		cbi->insn_addr = insn->address;
 		cbi->insn_size = insn->size;
 
 		relocated_insn[OP] = opcode;
 		relocated_insn[OFS] = 0x00;
 
-		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+		memcpy(insns, (void *)relocated_insn, JCC8_INSN_SIZE);
 
 		info->modified = true;
-		return ARCH_JCC8_SIZE;
-
-	}/* Jump relative 32 if condition is met */
-	else if(opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
-
+		return JCC8_INSN_SIZE;
+	}
+	/* Jump relative 32 if condition is met */
+	else if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
-		cbi->branch_target = opnd->imm;
+		cbi->branch_target = target;
 		cbi->insn_addr = insn->address;
 		cbi->insn_size = insn->size;
 
@@ -154,10 +161,10 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_disasm_i
 		relocated_insn[OP] = insn->bytes[1] - 0x10;
 		relocated_insn[OFS] = 0x00;
 
-		memcpy(insns, (void *)relocated_insn, ARCH_JCC8_SIZE);
+		memcpy(insns, (void *)relocated_insn, JCC8_INSN_SIZE);
 		
 		info->modified = true;
-		return ARCH_JCC8_SIZE;
+		return JCC8_INSN_SIZE;
 	}
 
 out:
@@ -284,19 +291,20 @@ static int handle_call(cs_insn *insn, uint8_t insns[],
 }
 
 static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
+			    struct mcount_dynamic_info *mdi,
 			    struct mcount_disasm_info *info)
 {
 	int res = -1;
 
-	pr_dbg3("Manipulate instructions having PC-relative addressing.\n");
+	pr_dbg3("manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_RELJMP:
-		res = handle_rel_jmp(insn, insns, info);
+		res = handle_rel_jmp(insn, insns, mdi, info);
 		if (res > 0)
 			*fail_reason = 0;
 		break;
-	case INSTRUMENT_FAIL_PICCODE:
+	case INSTRUMENT_FAIL_PIC:
 		res = handle_pic(insn, insns, info);
 		if (res > 0)
 			*fail_reason = 0;
@@ -341,7 +349,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	 * if SKIPDATA option is turned ON
 	 */
 	if (insn->detail == NULL) {
-		status = INSTRUMENT_FAIL_NODETAIL;
+		status = INSTRUMENT_FAIL_NO_DETAIL;
 		goto out;
 	}
 
@@ -380,7 +388,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 		case X86_OP_MEM:
 			if (op->mem.base == X86_REG_RIP ||
 			    op->mem.index == X86_REG_RIP) {
-				status |= INSTRUMENT_FAIL_PICCODE;
+				status |= INSTRUMENT_FAIL_PIC;
 				goto out;
 			}
 			continue;
@@ -391,9 +399,6 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 	}
 
 out:
-	if (status > 0)
-		print_instrument_fail_msg(status);
-
 	return status;
 }
 
@@ -432,21 +437,29 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 
 			/* disallow (back) jump to the prologue */
 			if (info->addr < target &&
-			    target < info->addr + info->orig_size)
+			    target < info->addr + info->orig_size) {
+				pr_dbg4("jump to prologue: addr=%lx, target=%lx\n",
+					insn->address - mdi->map->start,
+					target - mdi->map->start);
 				return false;
+			}
 
 			/* disallow jump to middle of other function */
 			if (info->addr > target ||
 			    target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
-				return !mcount_add_badsym(mdi, insn->address,
-							  target);
+				if (!mcount_add_badsym(mdi, insn->address,
+						       target)) {
+					/* it was actuall ok (like tail call) */
+					return true;
+				}
+
+				pr_dbg4("jump to middle of function: addr=%lx, target=%lx\n",
+					insn->address - mdi->map->start,
+					target - mdi->map->start);
+				return false;
 			}
 			break;
-		case X86_OP_MEM:
-		case X86_OP_REG:
-			/* indirect jumps are not allowed */
-			return false;
 		default:
 			break;
 		}
@@ -471,6 +484,15 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		return INSTRUMENT_FAILED;
 	}
 
+	/*
+	 * some compilers split cold part of the code into a separate function
+	 * and it's likely to have a jump into original function body.  We need
+	 * to skip those functions and allow the original function.
+	 */
+	size = strlen(info->sym->name);
+	if (size > 5 && !strcmp(info->sym->name + size - 5, ".cold"))
+		return INSTRUMENT_SKIPPED;
+
 	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
 			  info->addr, 0, &insn);
 	if (count == 0 && !memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
@@ -491,14 +513,13 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		status = check_instrumentable(disasm, &insn[i]);
 		if (status > 0)
 			size = manipulate_insns(&insn[i], insns_byte,
-						&status, info);
+						&status, mdi, info);
 		else
 			size = copy_insn_bytes(&insn[i], insns_byte);
 
 		if (status > 0) {
+			print_instrument_fail_msg(status);
 			status = INSTRUMENT_FAILED;
-			pr_dbg3("not supported instruction found at %s : %s\t %s\n",
-				info->sym->name, insn[i].mnemonic, insn[i].op_str);
 			goto out;
 		}
 
