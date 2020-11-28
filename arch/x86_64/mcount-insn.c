@@ -60,17 +60,17 @@ void print_instrument_fail_msg(int reason)
 	}
 }
 
-static int opnd_reg(int capstone_reg)
+static int x86_reg_index(int capstone_reg)
 {
-	uint8_t x86_regs[] = {
-		X86_REG_RAX, X86_REG_RBX, X86_REG_RCX, X86_REG_RDX,
-		X86_REG_RDI, X86_REG_RSI, X86_REG_RBP, X86_REG_RSP,
+	int x86_regs[] = {
+		X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX,
+		X86_REG_RSP, X86_REG_RBP, X86_REG_RSI, X86_REG_RDI,
 		X86_REG_R8,  X86_REG_R9,  X86_REG_R10, X86_REG_R11,
 		X86_REG_R12, X86_REG_R13, X86_REG_R14, X86_REG_R15,
 	};
 	size_t i;
 
-	for (i = 0; i < sizeof(x86_regs); i++) {
+	for (i = 0; i < ARRAY_SIZE(x86_regs); i++) {
 		if (capstone_reg == x86_regs[i])
 			return i;
 	}
@@ -186,24 +186,17 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 	cs_x86 *x86 = &insn->detail->x86;
 	cs_x86_op *opnd1;
 	cs_x86_op *opnd2;
-	uint64_t PC_base;
-
-#define REX   0
-#define OPND  1
-#define IMM   2
-
+	uint64_t target;
 	/*
-	 * array for mov instruction: REX + OPND + IMM(8-byte)
+	 * array for mov instruction: REX + OPCODE + IMM(8-byte)
 	 * ex) mov rbx, 0x555556d35690
 	 */
-	uint8_t mov_insns[10];
+	uint8_t mov_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+	int reg;
 
-	const uint8_t mov_operands[] = {
-	/*	rax,	rbx,	rcx,	rdx,	rdi,	rsi,	rbp,	rsp */
-		0xb8,	0xbb,	0xb9,	0xba,	0xbf,	0xbe,	0xbd,	0xbc,
-	/*	r8,	r9,	r10,	r11,	r12,	r13,	r14,	r15 */
-		0xb8,	0xb9,	0xba,	0xbb,	0xbc,	0xbd,	0xbe,	0xbf,
-	};
+#define REX   0
+#define OPC   1
+#define IMM   2
 
 	/* for now, support LEA instruction only */
 	if (strcmp(insn->mnemonic, "lea") != 0)
@@ -214,28 +207,28 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 	opnd2 = &x86->operands[1];
 
 	/* check PC-relative addressing mode */
-	if (opnd2->type != X86_OP_MEM || opnd2->mem.base != X86_REG_RIP)
+	if (opnd1->type != X86_OP_REG || opnd2->type != X86_OP_MEM ||
+	    opnd2->mem.base != X86_REG_RIP)
 		goto out;
 
 	/* the SIB addressing is not supported yet */
 	if (opnd2->mem.scale > 1 || opnd2->mem.disp == 0)
 		goto out;
 
-	if (X86_REG_RAX <= opnd1->reg && opnd1->reg <= X86_REG_RSP) {
-		mov_insns[REX] = 0x48;
-	}
-	else if (X86_REG_R8 <= opnd1->reg && opnd1->reg <= X86_REG_R15) {
-		mov_insns[REX] = 0x49;
-	}
-	else {
+	reg = x86_reg_index(opnd1->reg);
+	if (reg < 0)
 		goto out;
-	}
 
-	/* convert LEA to MOV instruction */
-	mov_insns[OPND] = mov_operands[opnd_reg(opnd1->reg)];
+	/* set register index (high bit) */
+	if (reg >= ARCH_NUM_BASE_REGS)
+		mov_insns[REX]++;
 
-	PC_base = insn->address + insn->size + opnd2->mem.disp;
-	memcpy(&mov_insns[IMM], &PC_base, sizeof(PC_base));
+	/* set register index (least 3 bits only) */
+	mov_insns[OPC] |= reg & (ARCH_NUM_BASE_REGS - 1);
+
+	/* update target address (PC + disp) */
+	target = insn->address + insn->size + opnd2->mem.disp;
+	memcpy(&mov_insns[IMM], &target, sizeof(target));
 
 	memcpy(insns, mov_insns, sizeof(mov_insns));
 	info->modified = true;
