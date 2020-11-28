@@ -753,4 +753,45 @@ TEST_CASE(dynamic_find_code)
 	return TEST_OK;
 }
 
+TEST_CASE(dynamic_pattern_list)
+{
+	struct uftrace_mmap *main_map, *other_map;
+
+	main_map = xzalloc(sizeof(*main_map) + 16);
+	strcpy(main_map->libname, "main");
+	other_map = xzalloc(sizeof(*other_map) + 16);
+	strcpy(other_map->libname, "other");
+
+	pr_dbg("check simple match with default module\n");
+	parse_pattern_list("abc;!def", "main", PATT_SIMPLE);
+
+	TEST_EQ(match_pattern_list(main_map, "abc"), true);
+	TEST_EQ(match_pattern_list(main_map, "def"), false);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), false);
+
+	release_pattern_list();
+
+	pr_dbg("check negative regex match with default module\n");
+	parse_pattern_list("!^a", "main", PATT_REGEX);
+
+	TEST_EQ(match_pattern_list(main_map, "abc"), false);
+	TEST_EQ(match_pattern_list(main_map, "def"), true);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), false);
+
+	release_pattern_list();
+
+	pr_dbg("check wildcard match with other module\n");
+	parse_pattern_list("*@other", "main", PATT_GLOB);
+
+	TEST_EQ(match_pattern_list(main_map, "abc"), false);
+	TEST_EQ(match_pattern_list(main_map, "def"), false);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), true);
+
+	release_pattern_list();
+
+	free(main_map);
+	free(other_map);
+
+	return TEST_OK;
+}
 #endif  /* UNIT_TEST */
