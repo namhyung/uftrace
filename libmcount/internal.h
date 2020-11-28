@@ -474,7 +474,7 @@ struct mcount_disasm_info {
 	struct cond_branch_info branch_info[MAX_COND_BRANCH];
 };
 
-void mcount_save_code(struct mcount_disasm_info *info,
+void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size,
 		      void *jmp_insn, unsigned jmp_size);
 void *mcount_find_code(unsigned long addr);
 struct mcount_orig_insn * mcount_find_insn(unsigned long addr);

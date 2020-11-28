@@ -95,7 +95,7 @@ static struct code_page *alloc_codepage(void)
 	return cp;
 }
 
-void mcount_save_code(struct mcount_disasm_info *info,
+void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size,
 		      void *jmp_insn, unsigned jmp_size)
 {
 	struct code_page *cp = NULL;
@@ -121,9 +121,7 @@ void mcount_save_code(struct mcount_disasm_info *info,
 		cp = alloc_codepage();
 	}
 
-	orig = lookup_code(code_hmap, info->addr);
-	if (orig == NULL)
-		orig = create_code(code_hmap, info->addr);
+	orig = create_code(code_hmap, info->addr + call_size);
 
 	/*
 	 * if dynamic patch has been processed before, cp be frozen by
@@ -723,8 +721,8 @@ TEST_CASE(dynamic_find_code)
 	code_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
 
 	pr_dbg("save fake code to the hash\n");
-	mcount_save_code(&info1, jmp_insn, sizeof(jmp_insn));
-	mcount_save_code(&info2, jmp_insn, sizeof(jmp_insn));
+	mcount_save_code(&info1, 0, jmp_insn, sizeof(jmp_insn));
+	mcount_save_code(&info2, 0, jmp_insn, sizeof(jmp_insn));
 
 	pr_dbg("freeze the code page\n");
 	mcount_freeze_code();

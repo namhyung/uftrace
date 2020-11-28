@@ -35,9 +35,7 @@ static void save_orig_code(struct mcount_disasm_info *info)
 	}
 
 	/* make sure info.addr same as when called from __dentry__ */
-	info->addr += CODE_SIZE;
-	mcount_save_code(info, jmp_insn, jmp_insn_size);
-	info->addr -= CODE_SIZE;
+	mcount_save_code(info, CODE_SIZE, jmp_insn, jmp_insn_size);
 }
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
