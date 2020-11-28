@@ -216,15 +216,14 @@ static int handle_call(cs_insn *insn, uint8_t insns[],
 }
 
 /*
- *  handle PIC code.
- *  for currently, this function targeted specific type of instruction.
+ *  handle LEA instruction.
  *
  *  this function manipulate the instruction like below,
  *    lea rcx, qword ptr [rip + 0x8f3f85]
  *  to this.
  *    mov rcx, [calculated PC + 0x8f3f85]
  */
-static int handle_pic(cs_insn *insn, uint8_t insns[],
+static int handle_lea(cs_insn *insn, uint8_t insns[],
 		      struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
@@ -241,10 +240,6 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 #define REX   0
 #define OPC   1
 #define IMM   2
-
-	/* for now, support LEA instruction only */
-	if (strcmp(insn->mnemonic, "lea") != 0)
-		goto out;
 
 	/* according to intel manual, lea instruction takes 2 operand */
 	opnd1 = &x86->operands[0];
@@ -280,6 +275,73 @@ static int handle_pic(cs_insn *insn, uint8_t insns[],
 	return sizeof(mov_insns);
 
 out:
+	return -1;
+}
+
+/*
+ *  handle MOV instruction (LOAD).
+ *
+ *  this function changes addressing mode of the instruction to use 8-byte
+ *  immediate value.  For now it handles the case when the destination is a
+ *  64-bit register.  For example, it'd change the following instruction
+ *
+ *    MOV rdi, qword ptr [rip + 0x8f3f85]
+ *
+ *  to this.
+ *
+ *    MOV rdi, [calculated PC + 0x8f3f85]  (= LEA)
+ *    MOV rdi, qword ptr [rdi]
+ */
+static int handle_mov(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	uint8_t mov_insn[3] = { 0x48, 0x8b };
+	int reg;
+
+	/* we only support it when the destination is a register like LEA */
+	if (handle_lea(insn, insns, info) < 0)
+		goto out;
+
+	reg = x86_reg_index(x86->operands[0].reg);
+	if (reg < 0)
+		goto out;
+
+	/* set register index (high bit) */
+	if (reg >= ARCH_NUM_BASE_REGS)
+		mov_insn[REX] += 5;
+
+	/* now we only care about the lower 3 bits */
+	reg &= ARCH_NUM_BASE_REGS - 1;
+
+	/* not support RSP, RBP, R12 and R13 due to addressing mode constraints */
+	if (reg == 4 || reg == 5)
+		return -1;
+
+	/* set register index */
+	mov_insn[2] = (reg << 3) | reg;  /* modrm.reg and modrm.rm */
+
+	/* skip the part handle_lea() added (= MOV_INSN_SIZE) */
+	memcpy(insns + MOV_INSN_SIZE, mov_insn, sizeof(mov_insn));
+
+	info->modified = true;
+
+	return MOV_INSN_SIZE + sizeof(mov_insn);
+
+out:
+	return -1;
+}
+
+/* handle position independent code (PIC) */
+static int handle_pic(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	if (insn->id == X86_INS_LEA)
+		return handle_lea(insn, insns, info);
+	if (insn->id == X86_INS_MOV &&
+	    insn->detail->x86.operands[0].type == X86_OP_REG)
+		return handle_mov(insn, insns, info);
+
 	return -1;
 }
 
