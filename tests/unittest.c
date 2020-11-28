@@ -95,11 +95,15 @@ static void set_debug_domain(struct uftrace_unit_test *test)
 		dbg_domain[DBG_UFTRACE] = debug;
 }
 
-static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
+static void run_unit_test(struct uftrace_unit_test *test, int *test_stats,
+			  char *filter)
 {
 	static int count;
 	int status;
 	int ret = TEST_BAD;
+
+	if (filter && !strstr(test->name, filter))
+		return;
 
 	if (debug) {
 		printf("Testing %s...\n", test->name);
@@ -268,6 +272,7 @@ int main(int argc, char *argv[])
 	struct uftrace_unit_test *test_cases = NULL;
 	int test_stats[TEST_MAX] = { };
 	size_t i, test_num = 0;
+	char *filter = NULL;
 	char *term;
 	int c;
 
@@ -292,6 +297,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (optind < argc)
+		filter = argv[optind];
+
 	outfp = logfp = stdout;
 
 	term = getenv("TERM");
@@ -301,7 +309,7 @@ int main(int argc, char *argv[])
 		color = false;
 
 	for (i = 0; i < test_num; i++)
-		run_unit_test(&test_cases[i], test_stats);
+		run_unit_test(&test_cases[i], test_stats, filter);
 
 	return finish_unit_test(test_cases, test_stats);
 }
