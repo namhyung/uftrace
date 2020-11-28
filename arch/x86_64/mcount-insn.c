@@ -172,6 +172,50 @@ out:
 }
 
 /*
+ *  handle CALL instructions.
+ *  it's basically PUSH + JMP instructions and we already add JMP
+ *  at the end of copied instructions so reuse the JMP.
+ *  But the pushed return address should be after the JMP instruction
+ *  so it needs to change the offset in the instruction opcode.
+ *  Therefore we added JMP here and ignore JMP in patch_normal_func().
+ *  The info->has_jump indicates this situation.
+ *
+ *  this function manipulate the instruction like below,
+ *    CALL <target>
+ *  to this.
+ *    PUSH <PC>+6  (return address : 6 = sizeof JMP)
+ *    JMP  <PC>+8  (target address : 8 = sizeof RETURN-ADDR)
+ *    <RETURN-ADDR>
+ *    <TARGET-ADDR>
+ */
+static int handle_call(cs_insn *insn, uint8_t insns[],
+		       struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	cs_x86_op *op = &x86->operands[0];
+	uint8_t push[6] = { 0xff, 0x35, 0x06, };
+	uint8_t jump[6] = { 0xff, 0x25, 0x08, };
+	uint64_t ret_addr;
+	uint64_t target;
+
+	if (x86->op_count != 1 || op->type != X86_OP_IMM)
+		return -1;
+
+	target = op->imm;
+	ret_addr = insn->address + insn->size;
+
+	memcpy(&insns[0], push, sizeof(push));
+	memcpy(&insns[6], jump, sizeof(jump));
+	memcpy(&insns[12], &ret_addr, sizeof(ret_addr));
+	memcpy(&insns[20], &target, sizeof(target));
+
+	info->modified = true;
+	info->has_jump = true;
+
+	return sizeof(push) + sizeof(jump) + 16;
+}
+
+/*
  *  handle PIC code.
  *  for currently, this function targeted specific type of instruction.
  *
@@ -239,78 +283,31 @@ out:
 	return -1;
 }
 
-/*
- *  handle CALL instructions.
- *  it's basically PUSH + JMP instructions and we already add JMP
- *  at the end of copied instructions so reuse the JMP.
- *  But the pushed return address should be after the JMP instruction
- *  so it needs to change the offset in the instruction opcode.
- *  Therefore we added JMP here and ignore JMP in patch_normal_func().
- *  The info->has_jump indicates this situation.
- *
- *  this function manipulate the instruction like below,
- *    CALL <target>
- *  to this.
- *    PUSH <PC>+6  (return address : 6 = sizeof JMP)
- *    JMP  <PC>+8  (target address : 8 = sizeof RETURN-ADDR)
- *    <RETURN-ADDR>
- *    <TARGET-ADDR>
- */
-static int handle_call(cs_insn *insn, uint8_t insns[],
-		       struct mcount_disasm_info *info)
-{
-	cs_x86 *x86 = &insn->detail->x86;
-	cs_x86_op *op = &x86->operands[0];
-	uint8_t push[6] = { 0xff, 0x35, 0x06, };
-	uint8_t jump[6] = { 0xff, 0x25, 0x08, };
-	uint64_t ret_addr;
-	uint64_t target;
-
-	if (x86->op_count != 1 || op->type != X86_OP_IMM)
-		return -1;
-
-	target = op->imm;
-	ret_addr = insn->address + insn->size;
-
-	memcpy(&insns[0], push, sizeof(push));
-	memcpy(&insns[6], jump, sizeof(jump));
-	memcpy(&insns[12], &ret_addr, sizeof(ret_addr));
-	memcpy(&insns[20], &target, sizeof(target));
-
-	info->modified = true;
-	info->has_jump = true;
-
-	return sizeof(push) + sizeof(jump) + 16;
-}
-
 static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 			    struct mcount_dynamic_info *mdi,
 			    struct mcount_disasm_info *info)
 {
-	int res = -1;
+	int res;
 
 	pr_dbg3("manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_RELJMP:
 		res = handle_rel_jmp(insn, insns, mdi, info);
-		if (res > 0)
-			*fail_reason = 0;
-		break;
-	case INSTRUMENT_FAIL_PIC:
-		res = handle_pic(insn, insns, info);
-		if (res > 0)
-			*fail_reason = 0;
 		break;
 	case INSTRUMENT_FAIL_RELCALL:
 		res = handle_call(insn, insns, info);
-		if (res > 0)
-			*fail_reason = 0;
+		break;
+	case INSTRUMENT_FAIL_PIC:
+		res = handle_pic(insn, insns, info);
 		break;
 	default:
+		res = -1;
 		break;
 	}
 
+	if (res > 0)
+		*fail_reason = 0;
 	return res;
 }
 
