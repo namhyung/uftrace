@@ -545,6 +545,343 @@ out:
 	return status;
 }
 
+#ifdef UNIT_TEST
+
+#define ORIGINAL_BASE  0x111122220000
+#define CODEPAGE_BASE  0x555566660000
+
+TEST_CASE(dynamic_x86_handle_lea)
+{
+	struct sym sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym,
+		.addr = ORIGINAL_BASE + sym.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t lea_insn[7] = { 0x48, 0x8d, 0x05, 0x60, };  /* lea 0x60(%rip),%rax */
+	uint8_t new_insns[16];
+	int new_size;
+
+	mcount_disasm_init(&disasm);
+
+	pr_dbg("running capstone disassemler for LEA instruction\n");
+	count = cs_disasm(disasm.engine, lea_insn, sizeof(lea_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_LEA);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x60);
+
+	pr_dbg("handling LEA instruction\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 10);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(lea_insn) + 0x60);
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
+
+TEST_CASE(dynamic_x86_handle_call)
+{
+	struct sym sym1 = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct sym sym2 = { .name = "b", .addr = 0x4000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym1,
+		.addr = ORIGINAL_BASE + sym1.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t call_insn[5] = { 0xe8, 0xfb, 0x0f, };  /* 0xffb + 5 = 0x1000 */
+	uint8_t new_insns[32];
+	int new_size;
+	uint64_t target = ORIGINAL_BASE + sym2.addr;
+
+	mcount_disasm_init(&disasm);
+
+	pr_dbg("running capstone disassemler for CALL instruction\n");
+	count = cs_disasm(disasm.engine, call_insn, sizeof(call_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_CALL);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, target);
+
+	pr_dbg("handling CALL instruction\n");
+	new_size = handle_call(insn, new_insns, &info);
+	TEST_EQ(new_size, 28);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, 12 /* actual insn size */,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	TEST_EQ(insn[0].id, X86_INS_PUSH);
+	TEST_EQ(insn[0].address, CODEPAGE_BASE);
+	x86 = &insn[0].detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[0].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[0].mem.disp, 6);
+
+	memcpy(&target, &new_insns[12], sizeof(target));
+	TEST_EQ(target, info.addr + CALL_INSN_SIZE);
+
+	TEST_EQ(insn[1].id, X86_INS_JMP);
+	TEST_EQ(insn[1].address, CODEPAGE_BASE + 6);
+	x86 = &insn[0].detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[0].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[0].mem.disp, 6);
+
+	memcpy(&target, &new_insns[20], sizeof(target));
+	TEST_EQ(target, ORIGINAL_BASE + sym2.addr);
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
+
+TEST_CASE(dynamic_x86_handle_jmp)
+{
+	struct sym sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym,
+		.addr = ORIGINAL_BASE + sym.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t jmp8_insn[2] = { 0xeb, 0x0e, };   /* 0xe + 2 = 0x10 */
+	uint8_t jmp32_insn[5] = { 0xe9, 0x0b, };  /* 0xb + 5 = 0x10 */
+	uint8_t new_insns[32];
+	int new_size;
+	uint64_t target = info.addr + 0x10;
+
+	mcount_disasm_init(&disasm);
+
+	pr_dbg("running capstone disassemler for JMP8 instruction\n");
+	count = cs_disasm(disasm.engine, jmp8_insn, sizeof(jmp8_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_JMP);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, target);
+
+	pr_dbg("handling JMP instruction\n");
+	new_size = handle_rel_jmp(insn, new_insns, NULL, &info);
+	TEST_EQ(new_size, 14);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 1);
+
+	TEST_EQ(insn->id, X86_INS_JMP);
+	TEST_EQ(insn->address, CODEPAGE_BASE);
+	x86 = &insn->detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[0].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[0].mem.disp, 0);
+
+	memcpy(&target, &new_insns[6], sizeof(target));
+	TEST_EQ(target, info.addr + 0x10);
+
+	cs_free(insn, count);
+
+	pr_dbg("running capstone disassemler for JMP32 instruction\n");
+	count = cs_disasm(disasm.engine, jmp32_insn, sizeof(jmp32_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_JMP);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, target);
+
+	pr_dbg("handling JMP instruction\n");
+	new_size = handle_rel_jmp(insn, new_insns, NULL, &info);
+	TEST_EQ(new_size, 14);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 1);
+
+	TEST_EQ(insn->id, X86_INS_JMP);
+	TEST_EQ(insn->address, CODEPAGE_BASE);
+	x86 = &insn->detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[0].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[0].mem.disp, 0);
+
+	memcpy(&target, &new_insns[6], sizeof(target));
+	TEST_EQ(target, info.addr + 0x10);
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
+
+TEST_CASE(dynamic_x86_handle_jcc)
+{
+	struct sym sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym,
+		.addr = ORIGINAL_BASE + sym.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t jcc8_insn[2] = { 0x74, 0x0e, };         /* 0x0e + 2 = 0x10 */
+	uint8_t jcc32_insn[6] = { 0x0f, 0x85, 0x0a, };  /* 0x0a + 6 = 0x10 */
+	uint8_t new_insns[32];
+	int new_size;
+	uint64_t target = info.addr + 0x10;
+
+	mcount_disasm_init(&disasm);
+
+	pr_dbg("running capstone disassemler for Jcc8 instruction\n");
+	count = cs_disasm(disasm.engine, jcc8_insn, sizeof(jcc8_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_JE);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, target);
+
+	pr_dbg("handling JE instruction\n");
+	new_size = handle_rel_jmp(insn, new_insns, NULL, &info);
+	TEST_EQ(new_size, 2);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, 2,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 1);
+
+	TEST_EQ(insn->id, X86_INS_JE);
+	TEST_EQ(insn->address, CODEPAGE_BASE);
+	x86 = &insn->detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, CODEPAGE_BASE + 2);
+
+	TEST_EQ(info.nr_branch, 1);
+	TEST_EQ(info.branch_info[0].insn_index, 0);
+	TEST_EQ(info.branch_info[0].branch_target, target);
+	TEST_EQ(info.branch_info[0].insn_addr, info.addr);
+	TEST_EQ(info.branch_info[0].insn_size, sizeof(jcc8_insn));
+
+	cs_free(insn, count);
+
+	pr_dbg("running capstone disassemler for Jcc32 instruction\n");
+	count = cs_disasm(disasm.engine, jcc32_insn, sizeof(jcc32_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_JNE);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, target);
+
+	pr_dbg("handling JNE instruction\n");
+	new_size = handle_rel_jmp(insn, new_insns, NULL, &info);
+	TEST_EQ(new_size, 2);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, 2,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 1);
+
+	TEST_EQ(insn->id, X86_INS_JNE);
+	TEST_EQ(insn->address, CODEPAGE_BASE);
+	x86 = &insn->detail->x86;
+	TEST_EQ(x86->op_count, 1);
+	TEST_EQ(x86->operands[0].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[0].imm, CODEPAGE_BASE + 2);
+
+	TEST_EQ(info.nr_branch, 2);
+	TEST_EQ(info.branch_info[1].insn_index, 0);
+	TEST_EQ(info.branch_info[1].branch_target, target);
+	TEST_EQ(info.branch_info[1].insn_addr, info.addr);
+	TEST_EQ(info.branch_info[1].insn_size, sizeof(jcc32_insn));
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
+#endif  /* UNIT_TEST */
+
 #else /* HAVE_LIBCAPSTONE */
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
