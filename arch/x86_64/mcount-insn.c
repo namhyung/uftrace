@@ -297,36 +297,76 @@ static int handle_mov(cs_insn *insn, uint8_t insns[],
 {
 	cs_x86 *x86 = &insn->detail->x86;
 	uint8_t mov_insn[3] = { 0x48, 0x8b };
+	int insn_size = sizeof(mov_insn);
 	int reg;
 
-	/* we only support it when the destination is a register like LEA */
-	if (handle_lea(insn, insns, info) < 0)
-		goto out;
+	if (x86->rex) {
+		/* we only support it when the destination is a register like LEA */
+		if (handle_lea(insn, insns, info) < 0)
+			goto out;
 
-	reg = x86_reg_index(x86->operands[0].reg);
-	if (reg < 0)
-		goto out;
+		reg = x86_reg_index(x86->operands[0].reg);
+		if (reg < 0)
+			goto out;
 
-	/* set register index (high bit) */
-	if (reg >= ARCH_NUM_BASE_REGS)
-		mov_insn[REX] += 5;
+		/* set register index (high bit) */
+		if (reg >= ARCH_NUM_BASE_REGS)
+			mov_insn[REX] += 5;
 
-	/* now we only care about the lower 3 bits */
-	reg &= ARCH_NUM_BASE_REGS - 1;
+		/* now we only care about the lower 3 bits */
+		reg &= ARCH_NUM_BASE_REGS - 1;
 
-	/* not support RSP, RBP, R12 and R13 due to addressing mode constraints */
-	if (reg == 4 || reg == 5)
-		return -1;
+		/* not support RSP, RBP, R12 and R13 due to addressing mode constraints */
+		if (reg == 4 || reg == 5)
+			return -1;
 
-	/* set register index */
-	mov_insn[2] = (reg << 3) | reg;  /* modrm.reg and modrm.rm */
+		/* set register index */
+		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
 
-	/* skip the part handle_lea() added (= MOV_INSN_SIZE) */
-	memcpy(insns + MOV_INSN_SIZE, mov_insn, sizeof(mov_insn));
+		/* skip the part handle_lea() added (= MOV_INSN_SIZE) */
+		memcpy(insns + MOV_INSN_SIZE, mov_insn, insn_size);
+	}
+	else {
+		uint8_t opcode = insn->bytes[0];
+		/* this is actually MOVABS but we can think as LEA */
+		uint8_t lea_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+		uint64_t target;
+
+#define MOV8_OPCODE   0x8a
+#define MOV32_OPCODE  0x8b
+
+		/* ignore insns with prefixes */
+		if (opcode != MOV8_OPCODE && opcode != MOV32_OPCODE)
+			goto out;
+
+		/* extract modrm.reg */
+		reg = (insn->bytes[1] >> 3) & 7;
+
+		/* not support ESP, EBP due to addressing mode constraints */
+		if (reg == 4 || reg == 5)
+			return -1;
+
+		lea_insns[OPC] |= reg;
+
+		/* update target address (PC + disp) */
+		target = insn->address + insn->size + x86->operands[1].mem.disp;
+		memcpy(&lea_insns[IMM], &target, sizeof(target));
+
+		memcpy(insns, lea_insns, sizeof(lea_insns));
+
+		/* skip REX prefix */
+		insn_size--;
+
+		mov_insn[1] = opcode;
+		/* set register index */
+		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
+
+		memcpy(insns + sizeof(lea_insns), &mov_insn[1], insn_size);
+	}
 
 	info->modified = true;
 
-	return MOV_INSN_SIZE + sizeof(mov_insn);
+	return MOV_INSN_SIZE + insn_size;
 
 out:
 	return -1;
