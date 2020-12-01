@@ -972,6 +972,171 @@ TEST_CASE(dynamic_x86_handle_jcc)
 
 	return TEST_OK;
 }
+
+TEST_CASE(dynamic_x86_handle_mov_load)
+{
+	struct sym sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym,
+		.addr = ORIGINAL_BASE + sym.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t mov64_insn[7] = { 0x48, 0x8b, 0x3d, 0x64 };  /* mov 0x64(%rip),%rdi */
+	uint8_t mov32_insn[6] = { 0x8b, 0x0d, 0x32 };        /* mov 0x32(%rip),%ecx */
+	uint8_t mov8_insn[6] = { 0x8a, 0x05, 0x08 };         /* mov 0x08(%rip),%al */
+	uint8_t new_insns[16];
+	int new_size;
+
+	mcount_disasm_init(&disasm);
+
+	/* 1. 64-bit MOV (with REX) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov64_insn, sizeof(mov64_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x64);
+
+	pr_dbg("handling MOV instruction (64-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 13);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov64_insn) + 0x64);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
+
+	cs_free(insn, count);
+
+	/* 2. 32-bit MOV (without REX) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov32_insn, sizeof(mov32_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_ECX);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x32);
+
+	pr_dbg("handling MOV instruction (32-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 12);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RCX);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov32_insn) + 0x32);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_ECX);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RCX);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
+
+	cs_free(insn, count);
+
+	/* 3. 8-bit MOV (with a different OPCODE) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov8_insn, sizeof(mov8_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_AL);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x8);
+
+	pr_dbg("handling MOV instruction (8-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 12);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov8_insn) + 0x8);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_AL);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
 #endif  /* UNIT_TEST */
 
 #else /* HAVE_LIBCAPSTONE */
