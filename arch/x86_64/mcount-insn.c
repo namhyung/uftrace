@@ -60,17 +60,17 @@ void print_instrument_fail_msg(int reason)
 	}
 }
 
-static int opnd_reg(int capstone_reg)
+static int x86_reg_index(int capstone_reg)
 {
-	uint8_t x86_regs[] = {
-		X86_REG_RAX, X86_REG_RBX, X86_REG_RCX, X86_REG_RDX,
-		X86_REG_RDI, X86_REG_RSI, X86_REG_RBP, X86_REG_RSP,
+	int x86_regs[] = {
+		X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX,
+		X86_REG_RSP, X86_REG_RBP, X86_REG_RSI, X86_REG_RDI,
 		X86_REG_R8,  X86_REG_R9,  X86_REG_R10, X86_REG_R11,
 		X86_REG_R12, X86_REG_R13, X86_REG_R14, X86_REG_R15,
 	};
 	size_t i;
 
-	for (i = 0; i < sizeof(x86_regs); i++) {
+	for (i = 0; i < ARRAY_SIZE(x86_regs); i++) {
 		if (capstone_reg == x86_regs[i])
 			return i;
 	}
@@ -172,81 +172,6 @@ out:
 }
 
 /*
- *  handle PIC code.
- *  for currently, this function targeted specific type of instruction.
- *
- *  this function manipulate the instruction like below,
- *    lea rcx, qword ptr [rip + 0x8f3f85]
- *  to this.
- *    mov rcx, [calculated PC + 0x8f3f85]
- */
-static int handle_pic(cs_insn *insn, uint8_t insns[],
-		      struct mcount_disasm_info *info)
-{
-	cs_x86 *x86 = &insn->detail->x86;
-	cs_x86_op *opnd1;
-	cs_x86_op *opnd2;
-	uint64_t PC_base;
-
-#define REX   0
-#define OPND  1
-#define IMM   2
-
-	/*
-	 * array for mov instruction: REX + OPND + IMM(8-byte)
-	 * ex) mov rbx, 0x555556d35690
-	 */
-	uint8_t mov_insns[10];
-
-	const uint8_t mov_operands[] = {
-	/*	rax,	rbx,	rcx,	rdx,	rdi,	rsi,	rbp,	rsp */
-		0xb8,	0xbb,	0xb9,	0xba,	0xbf,	0xbe,	0xbd,	0xbc,
-	/*	r8,	r9,	r10,	r11,	r12,	r13,	r14,	r15 */
-		0xb8,	0xb9,	0xba,	0xbb,	0xbc,	0xbd,	0xbe,	0xbf,
-	};
-
-	/* for now, support LEA instruction only */
-	if (strcmp(insn->mnemonic, "lea") != 0)
-		goto out;
-
-	/* according to intel manual, lea instruction takes 2 operand */
-	opnd1 = &x86->operands[0];
-	opnd2 = &x86->operands[1];
-
-	/* check PC-relative addressing mode */
-	if (opnd2->type != X86_OP_MEM || opnd2->mem.base != X86_REG_RIP)
-		goto out;
-
-	/* the SIB addressing is not supported yet */
-	if (opnd2->mem.scale > 1 || opnd2->mem.disp == 0)
-		goto out;
-
-	if (X86_REG_RAX <= opnd1->reg && opnd1->reg <= X86_REG_RSP) {
-		mov_insns[REX] = 0x48;
-	}
-	else if (X86_REG_R8 <= opnd1->reg && opnd1->reg <= X86_REG_R15) {
-		mov_insns[REX] = 0x49;
-	}
-	else {
-		goto out;
-	}
-
-	/* convert LEA to MOV instruction */
-	mov_insns[OPND] = mov_operands[opnd_reg(opnd1->reg)];
-
-	PC_base = insn->address + insn->size + opnd2->mem.disp;
-	memcpy(&mov_insns[IMM], &PC_base, sizeof(PC_base));
-
-	memcpy(insns, mov_insns, sizeof(mov_insns));
-	info->modified = true;
-
-	return sizeof(mov_insns);
-
-out:
-	return -1;
-}
-
-/*
  *  handle CALL instructions.
  *  it's basically PUSH + JMP instructions and we already add JMP
  *  at the end of copied instructions so reuse the JMP.
@@ -290,34 +215,201 @@ static int handle_call(cs_insn *insn, uint8_t insns[],
 	return sizeof(push) + sizeof(jump) + 16;
 }
 
+/*
+ *  handle LEA instruction.
+ *
+ *  this function manipulate the instruction like below,
+ *    lea rcx, qword ptr [rip + 0x8f3f85]
+ *  to this.
+ *    mov rcx, [calculated PC + 0x8f3f85]
+ */
+static int handle_lea(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	cs_x86_op *opnd1;
+	cs_x86_op *opnd2;
+	uint64_t target;
+	/*
+	 * array for mov instruction: REX + OPCODE + IMM(8-byte)
+	 * ex) mov rbx, 0x555556d35690
+	 */
+	uint8_t mov_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+	int reg;
+
+#define REX   0
+#define OPC   1
+#define IMM   2
+
+	/* according to intel manual, lea instruction takes 2 operand */
+	opnd1 = &x86->operands[0];
+	opnd2 = &x86->operands[1];
+
+	/* check PC-relative addressing mode */
+	if (opnd1->type != X86_OP_REG || opnd2->type != X86_OP_MEM ||
+	    opnd2->mem.base != X86_REG_RIP)
+		goto out;
+
+	/* the SIB addressing is not supported yet */
+	if (opnd2->mem.scale > 1 || opnd2->mem.disp == 0)
+		goto out;
+
+	reg = x86_reg_index(opnd1->reg);
+	if (reg < 0)
+		goto out;
+
+	/* set register index (high bit) */
+	if (reg >= ARCH_NUM_BASE_REGS)
+		mov_insns[REX]++;
+
+	/* set register index (least 3 bits only) */
+	mov_insns[OPC] |= reg & (ARCH_NUM_BASE_REGS - 1);
+
+	/* update target address (PC + disp) */
+	target = insn->address + insn->size + opnd2->mem.disp;
+	memcpy(&mov_insns[IMM], &target, sizeof(target));
+
+	memcpy(insns, mov_insns, sizeof(mov_insns));
+	info->modified = true;
+
+	return sizeof(mov_insns);
+
+out:
+	return -1;
+}
+
+/*
+ *  handle MOV instruction (LOAD).
+ *
+ *  this function changes addressing mode of the instruction to use 8-byte
+ *  immediate value.  For now it handles the case when the destination is a
+ *  64-bit register.  For example, it'd change the following instruction
+ *
+ *    MOV rdi, qword ptr [rip + 0x8f3f85]
+ *
+ *  to this.
+ *
+ *    MOV rdi, [calculated PC + 0x8f3f85]  (= LEA)
+ *    MOV rdi, qword ptr [rdi]
+ */
+static int handle_mov(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	cs_x86 *x86 = &insn->detail->x86;
+	uint8_t mov_insn[3] = { 0x48, 0x8b };
+	int insn_size = sizeof(mov_insn);
+	int reg;
+
+	if (x86->rex) {
+		/* we only support it when the destination is a register like LEA */
+		if (handle_lea(insn, insns, info) < 0)
+			goto out;
+
+		reg = x86_reg_index(x86->operands[0].reg);
+		if (reg < 0)
+			goto out;
+
+		/* set register index (high bit) */
+		if (reg >= ARCH_NUM_BASE_REGS)
+			mov_insn[REX] += 5;
+
+		/* now we only care about the lower 3 bits */
+		reg &= ARCH_NUM_BASE_REGS - 1;
+
+		/* not support RSP, RBP, R12 and R13 due to addressing mode constraints */
+		if (reg == 4 || reg == 5)
+			return -1;
+
+		/* set register index */
+		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
+
+		/* skip the part handle_lea() added (= MOV_INSN_SIZE) */
+		memcpy(insns + MOV_INSN_SIZE, mov_insn, insn_size);
+	}
+	else {
+		uint8_t opcode = insn->bytes[0];
+		/* this is actually MOVABS but we can think as LEA */
+		uint8_t lea_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+		uint64_t target;
+
+#define MOV8_OPCODE   0x8a
+#define MOV32_OPCODE  0x8b
+
+		/* ignore insns with prefixes */
+		if (opcode != MOV8_OPCODE && opcode != MOV32_OPCODE)
+			goto out;
+
+		/* extract modrm.reg */
+		reg = (insn->bytes[1] >> 3) & 7;
+
+		/* not support ESP, EBP due to addressing mode constraints */
+		if (reg == 4 || reg == 5)
+			return -1;
+
+		lea_insns[OPC] |= reg;
+
+		/* update target address (PC + disp) */
+		target = insn->address + insn->size + x86->operands[1].mem.disp;
+		memcpy(&lea_insns[IMM], &target, sizeof(target));
+
+		memcpy(insns, lea_insns, sizeof(lea_insns));
+
+		/* skip REX prefix */
+		insn_size--;
+
+		mov_insn[1] = opcode;
+		/* set register index */
+		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
+
+		memcpy(insns + sizeof(lea_insns), &mov_insn[1], insn_size);
+	}
+
+	info->modified = true;
+
+	return MOV_INSN_SIZE + insn_size;
+
+out:
+	return -1;
+}
+
+/* handle position independent code (PIC) */
+static int handle_pic(cs_insn *insn, uint8_t insns[],
+		      struct mcount_disasm_info *info)
+{
+	if (insn->id == X86_INS_LEA)
+		return handle_lea(insn, insns, info);
+	if (insn->id == X86_INS_MOV &&
+	    insn->detail->x86.operands[0].type == X86_OP_REG)
+		return handle_mov(insn, insns, info);
+
+	return -1;
+}
+
 static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
 			    struct mcount_dynamic_info *mdi,
 			    struct mcount_disasm_info *info)
 {
-	int res = -1;
+	int res;
 
 	pr_dbg3("manipulate instructions having PC-relative addressing.\n");
 
 	switch (*fail_reason) {
 	case INSTRUMENT_FAIL_RELJMP:
 		res = handle_rel_jmp(insn, insns, mdi, info);
-		if (res > 0)
-			*fail_reason = 0;
-		break;
-	case INSTRUMENT_FAIL_PIC:
-		res = handle_pic(insn, insns, info);
-		if (res > 0)
-			*fail_reason = 0;
 		break;
 	case INSTRUMENT_FAIL_RELCALL:
 		res = handle_call(insn, insns, info);
-		if (res > 0)
-			*fail_reason = 0;
+		break;
+	case INSTRUMENT_FAIL_PIC:
+		res = handle_pic(insn, insns, info);
 		break;
 	default:
+		res = -1;
 		break;
 	}
 
+	if (res > 0)
+		*fail_reason = 0;
 	return res;
 }
 
@@ -873,6 +965,171 @@ TEST_CASE(dynamic_x86_handle_jcc)
 	TEST_EQ(info.branch_info[1].branch_target, target);
 	TEST_EQ(info.branch_info[1].insn_addr, info.addr);
 	TEST_EQ(info.branch_info[1].insn_size, sizeof(jcc32_insn));
+
+	cs_free(insn, count);
+
+	mcount_disasm_finish(&disasm);
+
+	return TEST_OK;
+}
+
+TEST_CASE(dynamic_x86_handle_mov_load)
+{
+	struct sym sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_info info = {
+		.sym  = &sym,
+		.addr = ORIGINAL_BASE + sym.addr,
+	};
+	int count;
+	cs_insn *insn = NULL;
+	cs_x86 *x86;
+	uint8_t mov64_insn[7] = { 0x48, 0x8b, 0x3d, 0x64 };  /* mov 0x64(%rip),%rdi */
+	uint8_t mov32_insn[6] = { 0x8b, 0x0d, 0x32 };        /* mov 0x32(%rip),%ecx */
+	uint8_t mov8_insn[6] = { 0x8a, 0x05, 0x08 };         /* mov 0x08(%rip),%al */
+	uint8_t new_insns[16];
+	int new_size;
+
+	mcount_disasm_init(&disasm);
+
+	/* 1. 64-bit MOV (with REX) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov64_insn, sizeof(mov64_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x64);
+
+	pr_dbg("handling MOV instruction (64-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 13);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov64_insn) + 0x64);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RDI);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
+
+	cs_free(insn, count);
+
+	/* 2. 32-bit MOV (without REX) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov32_insn, sizeof(mov32_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_ECX);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x32);
+
+	pr_dbg("handling MOV instruction (32-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 12);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RCX);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov32_insn) + 0x32);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_ECX);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RCX);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
+
+	cs_free(insn, count);
+
+	/* 3. 8-bit MOV (with a different OPCODE) */
+	pr_dbg("running capstone disassemler for MOV instruction\n");
+	count = cs_disasm(disasm.engine, mov8_insn, sizeof(mov8_insn),
+			  info.addr, 0, &insn);
+	TEST_EQ(count, 1);
+
+	x86 = &insn->detail->x86;
+
+	TEST_EQ(insn->id, X86_INS_MOV);
+	TEST_EQ(insn->address, info.addr);
+	TEST_EQ(x86->op_count, 2);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_AL);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RIP);
+	TEST_EQ(x86->operands[1].mem.disp, 0x8);
+
+	pr_dbg("handling MOV instruction (8-bit load)\n");
+	new_size = handle_pic(insn, new_insns, &info);
+	TEST_EQ(new_size, 12);
+
+	cs_free(insn, count);
+
+	pr_dbg("checking modified instruction\n");
+	count = cs_disasm(disasm.engine, new_insns, new_size,
+			  CODEPAGE_BASE, 0, &insn);
+	TEST_EQ(count, 2);
+
+	x86 = &insn[0].detail->x86;
+
+	TEST_EQ(insn[0].id, X86_INS_MOVABS);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].type, X86_OP_IMM);
+	TEST_EQ(x86->operands[1].imm, info.addr + sizeof(mov8_insn) + 0x8);
+
+	x86 = &insn[1].detail->x86;
+
+	TEST_EQ(insn[1].id, X86_INS_MOV);
+	TEST_EQ(x86->operands[0].type, X86_OP_REG);
+	TEST_EQ(x86->operands[0].reg, X86_REG_AL);
+	TEST_EQ(x86->operands[1].type, X86_OP_MEM);
+	TEST_EQ(x86->operands[1].mem.base, X86_REG_RAX);
+	TEST_EQ(x86->operands[1].mem.disp, 0);
 
 	cs_free(insn, count);
 

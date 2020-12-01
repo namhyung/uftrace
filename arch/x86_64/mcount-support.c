@@ -95,7 +95,7 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 		offset = spec->idx - ARCH_MAX_REG_ARGS;
 		break;
 	case ARG_TYPE_FLOAT:
-		offset = (spec->idx - ARCH_MAX_FLOAT_REGS) * 2 - 1;
+		offset = (spec->idx - ARCH_MAX_FLOAT_ARGS) * 2 - 1;
 		break;
 	case ARG_TYPE_REG:
 	default:

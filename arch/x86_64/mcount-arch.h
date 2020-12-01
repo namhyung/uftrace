@@ -22,12 +22,13 @@ struct mcount_regs {
 #define  ARG5(a)  ((a)->r8)
 #define  ARG6(a)  ((a)->r9)
 
-#define ARCH_MAX_REG_ARGS  6
-#define ARCH_MAX_FLOAT_REGS  8
+#define ARCH_MAX_REG_ARGS    6
+#define ARCH_MAX_FLOAT_ARGS  8
+#define ARCH_NUM_BASE_REGS   8
 
 #define HAVE_MCOUNT_ARCH_CONTEXT
 struct mcount_arch_context {
-	double xmm[ARCH_MAX_FLOAT_REGS];
+	double xmm[ARCH_MAX_FLOAT_ARGS];
 };
 
 #define ARCH_PLT0_SIZE  16
@@ -49,10 +50,10 @@ struct mcount_disasm_info;
 struct sym;
 
 #define CALL_INSN_SIZE	5
-#define JMP_INSN_SIZE	6
+#define JMP_INSN_SIZE	6  /* indirect jump */
 #define JCC8_INSN_SIZE  2
 #define JMP32_INSN_SIZE 5
-
+#define MOV_INSN_SIZE  10  /* move 8-byte immediate to reg */
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
