@@ -72,24 +72,37 @@ END(plt_hooker)
 
 ENTRY(plthook_return)
 	.cfi_startproc
-	sub $48, %rsp
-	.cfi_def_cfa_offset 48
+	sub $56, %rsp
+	.cfi_def_cfa_offset 56
 
+	movq   %rdi,  32(%rsp)
 	movdqu %xmm0, 16(%rsp)
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
 
 	/* set the first argument of plthook_exit as pointer to return values */
-	movq %rsp, %rdi
+	movq   %rsp, %rdi
+
+	/* align stack pointer to 16-byte */
+	andq   $0xfffffffffffffff0, %rsp
+	sub    $16,   %rsp
+	/* save original stack pointer */
+	movq   %rdi,  0(%rsp)
 
 	call plthook_exit
-	movq %rax, 40(%rsp)
+
+	/* restore original stack pointer */
+	movq   0(%rsp),  %rsp
+
+	/* restore original return address in parent */
+	movq   %rax, 48(%rsp)
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
+	movq   32(%rsp), %rdi
 
-	add $40, %rsp
+	add $48, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc

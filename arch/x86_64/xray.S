@@ -63,20 +63,31 @@ ENTRY(__xray_exit)
 	sub $40, %rsp  /* return address already consume 8 byte */
 	.cfi_def_cfa_offset 40
 
+	movq   %rdi,  32(%rsp)
 	/* save original return values */
 	movdqu %xmm0, 16(%rsp)
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
 
 	/* set the first argument of mcount_exit as pointer to return values */
-	movq %rsp, %rdi
+	movq   %rsp, %rdi
+
+	/* align stack pointer to 16-byte */
+	andq   $0xfffffffffffffff0, %rsp
+	sub    $16,  %rsp
+	/* save original stack pointer */
+	movq   %rdi, (%rsp)
 
 	call xray_exit
+
+	/* restore original stack pointer */
+	movq    0(%rsp), %rsp
 
 	/* restore return values */
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
+	movq   32(%rsp), %rdi
 
 	add $40, %rsp
 

@@ -81,26 +81,44 @@ GLOBAL(mcount)
 	.cfi_endproc
 END(mcount)
 
-
+/*
+ * Now, we are just returned from the child, RSP points to the right above the
+ * stack address containing the return address (now it is mcount_return), but we
+ * should restore the orignal address and the RSP to return.
+ */
 ENTRY(mcount_return)
 	.cfi_startproc
 	sub $48, %rsp
 	.cfi_def_cfa_offset 48
 
+	movq   %rdi,  32(%rsp)
 	movdqu %xmm0, 16(%rsp)
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
 
 	/* set the first argument of mcount_exit as pointer to return values */
-	movq %rsp, %rdi
+	movq   %rsp, %rdi
+	.cfi_def_cfa_register rdi
+
+	/* align stack pointer to 16-byte */
+	andq   $0xfffffffffffffff0, %rsp
+	sub    $16,  %rsp
+	/* save original stack pointer */
+	movq   %rdi, (%rsp)
 
 	/* returns original parent address */
 	call mcount_exit
-	movq %rax, 40(%rsp)
+
+	/* restore original stack pointer */
+	movq    0(%rsp), %rsp
+
+	/* restore orignal return address in parent */
+	movq    %rax, 40(%rsp)
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
+	movq   32(%rsp), %rdi
 
 	add $40, %rsp
 	.cfi_def_cfa_offset 8

@@ -124,7 +124,7 @@ ENTRY(dynamic_return)
 	movq   %r8,   56(%rsp)
 	movq   %rdi,  48(%rsp)
 	movq   %rsi,  40(%rsp)
-	movq   %rcx , 32(%rsp)
+	movq   %rcx,  32(%rsp)
 
 	/* below are used to carry return value */
 	movdqu %xmm0, 16(%rsp)
@@ -132,15 +132,26 @@ ENTRY(dynamic_return)
 	movq   %rax,   0(%rsp)
 
 	/* set the first argument of mcount_exit as pointer to return values */
-	movq   %rsp, %rdi
+	movq   %rsp,   %rdi
+
+	/* align stack pointer to 16-byte */
+	andq   $0xfffffffffffffff0, %rsp
+	sub    $16,    %rsp
+	/* save original stack pointer */
+	movq   %rdi,   (%rsp)
 
 	/* returns original parent address */
 	call   mcount_exit
-	movq   %rax, 88(%rsp)
+
+	/* restore original stack pointer */
+	movq   (%rsp), %rsp
+
+	/* restore orignal return address in parent */
+	movq   %rax,   88(%rsp)
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
-	movq   16(%rsp), %xmm0
+	movdqu 16(%rsp), %xmm0
 
 	movq   32(%rsp), %rcx
 	movq   40(%rsp), %rsi
