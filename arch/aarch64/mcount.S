@@ -8,6 +8,9 @@ GLOBAL(_mcount)
 	stp	x29, x30, [sp, #-16]!
 	mov	x29, sp
 
+        /* save indirect result location */
+	stp	x8, x18, [sp, #-16]!
+
 	/* save arguments */
 	stp	x6, x7, [sp, #-16]!
 	stp	x4, x5, [sp, #-16]!
@@ -25,6 +28,9 @@ GLOBAL(_mcount)
 	ldp	x2, x3, [sp], #16
 	ldp	x4, x5, [sp], #16
 	ldp	x6, x7, [sp], #16
+
+        /* restore indirect result location */
+	ldp	x8, x18, [sp], #16
 
 	/* restore frame pointer */
 	ldp	x29, x30, [sp], #16
@@ -44,7 +50,7 @@ ENTRY(mcount_return)
 	 * save indirect result location register
 	 * used in C++ for returning non-trivial objects
 	 */
-	str	x8, [sp, #-16]!
+	stp	x8, x18, [sp, #-16]!
 
 	add	x0, sp, #32
 
@@ -52,7 +58,7 @@ ENTRY(mcount_return)
 	mov	x16, x0
 
 	/* restore indirect result location register */
-	ldr	x8, [sp], #16
+	ldp	x8, x18, [sp], #16
 
 	/* restore return values */
 	ldr	q0, [sp], #16
@@ -63,4 +69,3 @@ ENTRY(mcount_return)
 
 	br	x16
 END(mcount_return)
-
