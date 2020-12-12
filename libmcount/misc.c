@@ -143,6 +143,7 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
+	unsigned long plthook_return_fn = (unsigned long)plthook_return;
 
 	if (unlikely(mcount_estimate_return))
 		return;
@@ -152,12 +153,57 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 		rstack = &mtdp->rstack[idx];
 
 		if (rstack->parent_ip == mcount_return_fn ||
-		    rstack->parent_ip == (unsigned long)plthook_return)
+		    rstack->parent_ip == plthook_return_fn)
 			continue;
 
 		if (!ARCH_CAN_RESTORE_PLTHOOK &&
-		    rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+		    rstack->dyn_idx != MCOUNT_INVALID_DYNIDX) {
+			/*
+			 * We don't know exact location where the return address
+			 * was saved (on ARM/AArch64).  But we know that the
+			 * return address itself was changed to plthook_return_fn
+			 * by the plt_hooker().  So it needs to scan the stack to
+			 * look up the value.
+			 */
+			unsigned long *loc, *end;
+
+			if (idx < mtdp->idx - 1) {
+				struct mcount_ret_stack *next_rstack;
+
+				next_rstack = rstack + 1;
+				/* skip rstacks for -finstrument-functions */
+				while (next_rstack->parent_loc == &mtdp->cygprof_dummy &&
+				       next_rstack < &mtdp->rstack[mtdp->idx])
+					next_rstack++;
+
+				if (next_rstack == &mtdp->rstack[mtdp->idx])
+					goto last_rstack;
+
+				/* special case: same as tail-call */
+				if (next_rstack->parent_ip == plthook_return_fn) {
+					rstack->parent_loc = next_rstack->parent_loc;
+					*rstack->parent_loc = rstack->parent_ip;
+					continue;
+				}
+
+				end = next_rstack->parent_loc;
+			}
+			else {
+last_rstack:
+				/* just check 32 stack slots */
+				end = rstack->parent_loc - 32;
+			}
+
+			for (loc = rstack->parent_loc; loc < end; loc--) {
+				if (*loc != plthook_return_fn)
+					continue;
+
+				rstack->parent_loc = loc;
+				*loc = rstack->parent_ip;
+				break;
+			}
 			continue;
+		}
 
 		*rstack->parent_loc = rstack->parent_ip;
 	}
