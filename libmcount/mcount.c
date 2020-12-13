@@ -719,7 +719,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 			" please consider -e/--estimate-return option.\n\n");
 	}
 
-	pr_warn("Backtrace from uftrace:\n");
+	pr_warn("Backtrace from uftrace " UFTRACE_VERSION "\n");
 	pr_warn("=====================================\n");
 
 	while (rstack >= mtdp->rstack) {
@@ -739,6 +739,8 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 
 		rstack--;
 	}
+
+	pr_red("\nPlease report this bug to https://github.com/namhyung/uftrace/issues.\n\n");
 
 out:
 	sigaction(sig, &old_sigact[(sig == SIGSEGV)], NULL);
