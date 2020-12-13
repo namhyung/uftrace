@@ -810,9 +810,10 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 		}
 	}
 	else {
-		sym = NULL;
-		pr_err_ns("invalid function idx found! (idx: %lu/%zu, module: %s)\n",
-			  child_idx, pd->dsymtab.nr_sym, pd->mod_name);
+		pr_dbg("invalid function idx found! (idx: %lu/%zu, module: %s)\n",
+		       child_idx, pd->dsymtab.nr_sym, pd->mod_name);
+		mcount_unguard_recursion(mtdp);
+		return 0;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);
