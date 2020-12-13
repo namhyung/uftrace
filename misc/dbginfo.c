@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "utils/symbol.h"
 #include "utils/dwarf.h"
@@ -29,7 +30,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 			continue;
 
 		symname = demangle(loc->sym->name);
-		printf("%s [addr: %lx]\n", symname, loc->sym->addr);
+		printf("%s [addr: %"PRIx64"]\n", symname, loc->sym->addr);
 		free(symname);
 
 		/* skip common parts with compile directory  */
