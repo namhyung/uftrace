@@ -72,7 +72,12 @@ static void resolve_pltgot(struct plthook_data *pd, int idx)
 				addr = (unsigned long)real_addr;
 		}
 
-		pr_dbg2("resolved addr of %s = %#lx\n", sym->name, addr);
+		if (dbg_domain[DBG_PLTHOOK] >= 2) {
+			char *symname = demangle(sym->name);
+
+			pr_dbg2("resolved addr of %s = %#lx\n", symname, addr);
+			free(symname);
+		}
 		pd->resolved_addr[idx] = addr;
 	}
 }
@@ -145,12 +150,20 @@ static void restore_plt_functions(struct plthook_data *pd)
 		resolved_addr = pd->pltgot_ptr[got_idx];
 		plthook_addr = mcount_arch_plthook_addr(pd, i);
 		if (resolved_addr != plthook_addr) {
+			char *symname;
+
 			/* save already resolved address and hook it */
 			pd->resolved_addr[i] = resolved_addr;
 			overwrite_pltgot(pd, got_idx, (void *)plthook_addr);
+
+			if (dbg_domain[DBG_PLTHOOK] < 2)
+				continue;
+
+			symname = demangle(sym->name);
 			pr_dbg2("restore GOT[%d] from \"%s\"(%#lx) to PLT(base + %#lx)\n",
-				got_idx, sym->name, resolved_addr,
+				got_idx, symname, resolved_addr,
 				plthook_addr - pd->base_addr);
+			free(symname);
 		}
 		else if (mcount_estimate_return) {
 			/* we can't resolve PLT functions at return. do it now */
@@ -238,7 +251,8 @@ static int find_got(struct uftrace_elf_data *elf,
 		basename(pd->mod_name), pd->base_addr);
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
-	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, SYMTAB_FL_DEMANGLE);
+	/* do not demangle symbol names since it might call dlsym() */
+	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, 0);
 
 	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
 	pd->special_funcs = NULL;
@@ -786,13 +800,20 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 
 	if (likely(child_idx < pd->dsymtab.nr_sym)) {
 		sym = &pd->dsymtab.sym[child_idx];
-		pr_dbg3("[idx: %4d] enter %"PRIx64": %s@plt (mod: %lx)\n",
-			(int)child_idx, sym->addr, sym->name, module_id);
+
+		if (dbg_domain[DBG_PLTHOOK] >= 3) {
+			char *symname = demangle(sym->name);
+
+			pr_dbg3("[idx: %4d] enter %"PRIx64": %s@plt (mod: %lx)\n",
+				(int)child_idx, sym->addr, symname, module_id);
+			free(symname);
+		}
 	}
 	else {
-		sym = NULL;
-		pr_err_ns("invalid function idx found! (idx: %lu/%zu, module: %s)\n",
-			  child_idx, pd->dsymtab.nr_sym, pd->mod_name);
+		pr_dbg("invalid function idx found! (idx: %lu/%zu, module: %s)\n",
+		       child_idx, pd->dsymtab.nr_sym, pd->mod_name);
+		mcount_unguard_recursion(mtdp);
+		return 0;
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);

@@ -8,6 +8,7 @@
 .align 2
 
 .macro save_args
+	stp	x8, x18, [sp, #-16]!
 	stp	x6, x7, [sp, #-16]!
 	stp	x4, x5, [sp, #-16]!
 	stp	x2, x3, [sp, #-16]!
@@ -19,6 +20,7 @@
 	ldp	x2, x3, [sp], #16
 	ldp	x4, x5, [sp], #16
 	ldp	x6, x7, [sp], #16
+	ldp	x8, x18, [sp], #16
 .endm
 
 ENTRY(plt_hooker)
@@ -31,10 +33,10 @@ ENTRY(plt_hooker)
 	 */
 
 	stp	x16, x17, [sp, #-16]!
-	save_args	/* sp -= 64 */
+	save_args	/* sp -= 80 */
 
-	add	x0, sp, #88
-	ldr	x1, [sp, #80]
+	add	x0, sp, #104
+	ldr	x1, [sp, #96]
 	sub	x1, x1, x16
 	lsr	x1, x1, #3
 	sub	x1, x1, #1
@@ -85,7 +87,7 @@ ENTRY(plthook_return)
 	 * save indirect result location register
 	 * used in C++ for returning non-trivial objects
 	 */
-	str	x8, [sp, #-16]!
+	stp	x8, x18, [sp, #-16]!
 
 	add	x0, sp, #32
 
@@ -93,7 +95,7 @@ ENTRY(plthook_return)
 	mov	x16, x0
 
 	/* restore indirect result location register */
-	ldr	x8, [sp], #16
+	ldp	x8, x18, [sp], #16
 
 	/* restore return values */
 	ldp	d0, d1, [sp], #16
