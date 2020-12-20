@@ -1470,7 +1470,7 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 {
 	int i;
 	FILE *fp;
-	int idx = 0;
+	int idx;
 	int len;
 
 	fp = create_debug_file(dirname, filename, build_id);
@@ -1492,6 +1492,7 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 
 		save_debug_file(fp, 'F', loc->sym->name, loc->sym->addr);
 
+		idx = 0;
 		if (dinfo->base_dir) {
 			len = strlen(dinfo->base_dir);
 			if (!strncmp(loc->file->name, dinfo->base_dir, len))
