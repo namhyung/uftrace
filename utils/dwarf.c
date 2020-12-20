@@ -1503,11 +1503,11 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 		save_debug_file(fp, 'L', loc->file->name + idx, loc->line);
 
 		entry = find_debug_entry(&dinfo->args, loc->sym->addr);
-		if (entry)
+		if (entry && entry->spec)
 			save_debug_file(fp, 'A', entry->spec, 0);
 
 		entry = find_debug_entry(&dinfo->rets, loc->sym->addr);
-		if (entry)
+		if (entry && entry->spec)
 			save_debug_file(fp, 'R', entry->spec, 0);
 	}
 
