@@ -7,7 +7,7 @@ _uftrace () {
     COMPREPLY=()
 
     subcmds='record replay report live dump graph info recv script tui'
-    options=$(uftrace -? | awk '$1 ~ /--[a-z]/ { split($1, r, "="); print r[1] } \
+    options=$(uftrace -h | awk '$1 ~ /--[a-z]/ { split($1, r, "="); print r[1] } \
                                 $2 ~ /--[a-z]/ { split($2, r, "="); print r[1] }')
     demangle='full simple no'
     sort_key='total self call avg min max'
