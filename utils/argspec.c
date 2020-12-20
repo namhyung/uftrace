@@ -138,7 +138,8 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 		if (p)
 			*p = '\0';
 		pr_dbg2("parsing argspec for enum: %s\n", arg->enum_str);
-		goto out;
+		suffix += strlen(arg->enum_str) + 2;
+		goto type;
 	default:
 		if (fmt == ARG_FMT_FLOAT && isdigit(*suffix))
 			goto size;
