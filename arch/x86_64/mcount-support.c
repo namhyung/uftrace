@@ -10,8 +10,16 @@
 #include "utils/filter.h"
 #include "utils/arch.h"
 
-int mcount_get_register_arg(struct mcount_arg_context *ctx,
-			    struct uftrace_arg_spec *spec)
+#define COPY_XMM(xmm)								\
+do {										\
+	if (spec->size == 8)							\
+		asm volatile ("movsd %%" xmm ", %0\n" : "=m" (ctx->val.v));	\
+	else									\
+		asm volatile ("movss %%" xmm ", %0\n" : "=m" (ctx->val.v));	\
+} while (0)
+
+static int mcount_get_register_arg(struct mcount_arg_context *ctx,
+				   struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -30,6 +38,8 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	default:
 		return -1;
 	}
+
+	ctx->val.i = 0;
 
 	switch (reg_idx) {
 	case UFT_X86_64_REG_RDI:
@@ -51,28 +61,28 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		ctx->val.i = ARG6(regs);
 		break;
 	case UFT_X86_64_REG_XMM0:
-		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm0");
 		break;
 	case UFT_X86_64_REG_XMM1:
-		asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm1");
 		break;
 	case UFT_X86_64_REG_XMM2:
-		asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm2");
 		break;
 	case UFT_X86_64_REG_XMM3:
-		asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm3");
 		break;
 	case UFT_X86_64_REG_XMM4:
-		asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm4");
 		break;
 	case UFT_X86_64_REG_XMM5:
-		asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm5");
 		break;
 	case UFT_X86_64_REG_XMM6:
-		asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm6");
 		break;
 	case UFT_X86_64_REG_XMM7:
-		asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->val.v));
+		COPY_XMM("xmm7");
 		break;
 	default:
 		return -1;
@@ -81,8 +91,8 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	return 0;
 }
 
-void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-			  struct uftrace_arg_spec *spec)
+static void mcount_get_stack_arg(struct mcount_arg_context *ctx,
+				 struct uftrace_arg_spec *spec)
 {
 	int offset;
 	unsigned long *addr = ctx->stack_base;
@@ -106,17 +116,19 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 
 	if (offset < 1 || offset > 100) {
 		pr_dbg("invalid stack offset: %d\n", offset);
-		memset(ctx->val.v, 0, sizeof(ctx->val));
+		mcount_memset4(ctx->val.v, 0, sizeof(ctx->val));
 		return;
 	}
 
 	addr += offset;
 
-	if (check_mem_region(ctx, (unsigned long)addr))
-		memcpy(ctx->val.v, addr, spec->size);
+	if (check_mem_region(ctx, (unsigned long)addr)) {
+		/* save long double arguments properly */
+		mcount_memcpy4(ctx->val.v, addr, ALIGN(spec->size, 4));
+	}
 	else {
 		pr_dbg("stack address is not allowed: %p\n", addr);
-		memset(ctx->val.v, 0, sizeof(ctx->val));
+		mcount_memset4(ctx->val.v, 0, sizeof(ctx->val));
 	}
 }
 
@@ -132,7 +144,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 {
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt != ARG_FMT_FLOAT)
-		memcpy(ctx->val.v, ctx->retval, spec->size);
+		mcount_memcpy1(ctx->val.v, ctx->retval, spec->size);
 	else if (spec->size == 10) /* for long double type */
 		asm volatile ("fstpt %0\n\tfldt %0" : "=m" (ctx->val.v));
 	else
