@@ -193,6 +193,11 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	if (found) {
 		/* do not overwrite exact match by regex match */
 		if (exact_match || !oarg->exact) {
+			if (oarg->fmt == ARG_FMT_ENUM) {
+				free(oarg->enum_str);
+				oarg->enum_str = NULL;
+			}
+
 			oarg->fmt   = arg->fmt;
 			oarg->size  = arg->size;
 			oarg->exact = exact_match;
