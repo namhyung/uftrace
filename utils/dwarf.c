@@ -575,6 +575,9 @@ struct param_data {
 	/* if it's set, FP registers are allowed */
 	bool				use_fpregs;
 
+	/* check member name (for std::string detection) */
+	bool				lookup_string;
+
 	/* previous (or current) register class in case of merge */
 	int				prev_class;
 };
@@ -733,12 +736,15 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 		p = strpbrk(td->name + 1, "< ({[");
 		if (p)
 			*p = '\0';
+
+		if (!strcmp(td->name, "basic_string"))
+			pd.lookup_string = true;
 	}
 
 	if (dwarf_child(die, &child) != 0)
 		return;  /* no child = no member */
 
-	if (td->size > pd.max_struct_size) {
+	if (td->size > pd.max_struct_size && !pd.lookup_string) {
 		if (ad->class_via_ptr)
 			check_class_ptr_only = true;
 		else
@@ -752,6 +758,16 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 				param_class = get_param_class(&child, ad, &pd);
 				if (param_class == PARAM_CLASS_MEM)
 					found_mem_class = true;
+
+				if (!pd.lookup_string)
+					break;
+
+				sname = dwarf_diename(&child);
+				if (sname && !strcmp(sname, "_M_dataplus")) {
+					td->fmt = ARG_FMT_STD_STRING;
+					td->size = sizeof(long) * 8;
+					return;
+				}
 			}
 			break;
 
@@ -991,6 +1007,9 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		if (!ad->broken)
 			strcat(spec, "/s");
 		break;
+	case ARG_FMT_STD_STRING:
+		strcat(spec, "/S");
+		break;
 	case ARG_FMT_FLOAT:
 		if (ad->idx) {  /* for arguments */
 			snprintf(spec, len, "fparg%d/%zu",
@@ -1183,7 +1202,6 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die,
 		if (reg) {
 			snprintf(buf, sizeof(buf), "%%%s", reg);
 			strcat(spec, buf);
-			return;
 		}
 		return;
 	}
@@ -1249,6 +1267,10 @@ static int get_retspec(Dwarf_Die *die, void *data, bool found)
 
 	if (ad->last_fmt == ARG_FMT_STRUCT && ad->struct_return_needs_ptr &&
 	    ad->struct_reg_cnt == 1 && ad->struct_regs[0] == PARAM_CLASS_PTR) {
+		ad->struct_passed = true;
+		ad->reg_pos = 1;
+	}
+	else if (ad->last_fmt == ARG_FMT_STD_STRING) {
 		ad->struct_passed = true;
 		ad->reg_pos = 1;
 	}
