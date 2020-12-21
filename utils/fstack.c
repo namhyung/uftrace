@@ -1182,6 +1182,9 @@ static int read_task_arg(struct uftrace_task_reader *task,
 	unsigned size = spec->size;
 	int rem;
 
+	if (spec->size == 0)
+		return 0;
+
 	if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 		args->data = xrealloc(args->data, args->len + 2);
 
@@ -1552,6 +1555,23 @@ int read_task_ustack(struct uftrace_data *handle,
 			struct sym *sym;
 			char *symname;
 
+			/* there might be zero-length struct as a return value */
+			if (task->args.args) {
+				int actual_len = 0;
+				struct uftrace_arg_spec *spec;
+
+				list_for_each_entry(spec, task->args.args, list) {
+					if ((task->ustack.type == UFTRACE_EXIT) !=
+					    (spec->idx == RETVAL_IDX))
+						continue;
+
+					actual_len += spec->size;
+				}
+
+				if (actual_len == 0)
+					goto out;
+			}
+
 			sym = task_find_sym(&handle->sessions, task, &task->ustack);
 			symname = symbol_getname(sym, task->ustack.addr);
 			pr_err_ns("record missing argument info for %s\n", symname);
@@ -1559,6 +1579,7 @@ int read_task_ustack(struct uftrace_data *handle,
 		}
 	}
 
+out:
 	task->valid = true;
 	return 0;
 }
