@@ -307,7 +307,8 @@ static void release_dwarf_info(struct debug_info *dinfo)
 	dinfo->dw = NULL;
 }
 
-#define MAX_STRUCT_REGS  4
+#define ARGSPEC_MAX_SIZE  256
+#define MAX_STRUCT_REGS   4
 
 /* arg_data contains argument passing info for single function */
 struct arg_data {
@@ -428,7 +429,7 @@ struct type_data {
 	int				pointer;
 	bool				ignore;
 	bool				broken;
-	char				*enum_name;
+	char				*name;
 };
 
 static char * fill_enum_str(Dwarf_Die *die)
@@ -722,6 +723,18 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 	ad->struct_reg_cnt = 0;
 	ad->struct_passed = true;
 
+	sname = dwarf_diename(die);
+	if (sname) {
+		char *p;
+
+		td->name = xstrdup(sname);
+
+		/* remove long C++ type name to prevent confusion */
+		p = strpbrk(td->name + 1, "< ({[");
+		if (p)
+			*p = '\0';
+	}
+
 	if (dwarf_child(die, &child) != 0)
 		return;  /* no child = no member */
 
@@ -851,12 +864,12 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 			td->fmt = ARG_FMT_ENUM;
 			tname = dwarf_diename(die);
 			if (tname && (isalpha(*tname) || *tname == '_'))
-				td->enum_name = xstrdup(tname);
+				td->name = xstrdup(tname);
 			else
-				td->enum_name = make_enum_name(die);
+				td->name = make_enum_name(die);
 
 			xasprintf(&enum_def, "enum %s { %s }",
-				  td->enum_name, enum_str);
+				  td->name, enum_str);
 			pr_dbg3("type: %s\n", enum_str);
 
 			td->size = type_size(die, sizeof(int));
@@ -869,7 +882,6 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 		case DW_TAG_structure_type:
 		case DW_TAG_union_type:
 		case DW_TAG_class_type:
-			pr_dbg3("type: struct/union/class\n");
 			/* ignore struct with no member (when called-by-value) */
 			if (td->pointer)
 				break;
@@ -880,6 +892,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 			else
 				td->size = type_size(die, sizeof(long));
 			place_struct_members(die, ad, td);
+			pr_dbg3("type: struct/union/class: %s\n", td->name ?: "(no name)");
 			return true;
 
 		case DW_TAG_pointer_type:
@@ -998,7 +1011,7 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		break;
 	case ARG_FMT_ENUM:
 		strcat(spec, "/e:");
-		strcat(spec, data.enum_name);
+		strcat(spec, data.name);
 		break;
 	case ARG_FMT_STRUCT:
 		if (ad->idx) {  /* for arguments */
@@ -1011,11 +1024,26 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 			snprintf(sz, sizeof(sz), "/t%d", ad->last_size);
 			strcat(spec, sz);
 		}
+		if (data.name) {
+			int len1 = strlen(spec) + 1;
+			int len2 = strlen(data.name);
+
+			strcat(spec, ":");
+			if (len1 + len2 >= ARGSPEC_MAX_SIZE) {
+				strncat(spec, data.name,
+					ARGSPEC_MAX_SIZE - len1 - 1);
+				spec[ARGSPEC_MAX_SIZE - 1] = '\0';
+			}
+			else {
+				strcat(spec, data.name);
+			}
+		}
 		break;
 	default:
 		break;
 	}
 
+	free(data.name);
 	return true;
 }
 
@@ -1192,7 +1220,7 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die,
 static int get_retspec(Dwarf_Die *die, void *data, bool found)
 {
 	struct arg_data *ad = data;
-	char buf[256];
+	char buf[ARGSPEC_MAX_SIZE];
 	Dwarf_Die spec;
 
 	ad->has_retspec = true;
@@ -1253,7 +1281,7 @@ static int get_argspec(Dwarf_Die *die, void *data)
 	}
 
 	do {
-		char buf[256];
+		char buf[ARGSPEC_MAX_SIZE];
 
 		if (dwarf_tag(&arg) != DW_TAG_formal_parameter)
 			continue;
