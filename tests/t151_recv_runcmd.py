@@ -35,7 +35,7 @@ class TestCase(TestBase):
 
         record_cmd  = [TestBase.uftrace_cmd, 'record']
         record_cmd += TestBase.default_opt.split()
-        record_cmd += ['-H', 'localhost', '--port', str(self.port)]
+        record_cmd += ['--host', 'localhost', '--port', str(self.port)]
         record_cmd += ['t-' + self.name]
         self.pr_debug('prerun command: ' + ' '.join(record_cmd))
         sp.call(record_cmd)

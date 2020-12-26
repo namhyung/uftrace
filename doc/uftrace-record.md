@@ -72,13 +72,13 @@ RECORD OPTIONS
 -K *DEPTH*, \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
--H *HOST*, \--host=*HOST*
+\--host=*HOST*
 :   Send trace data to given host via the network, not writing to files.
     The `uftrace recv` command should be run on the destination host to receive
     the data.
 
 \--port=*PORT*
-:   When sending data to the network (with `-H`), use the given port instead of
+:   When sending data to the network (with `--host`), use the given port instead of
     the default (8090).
 
 \--signal=*TRG*

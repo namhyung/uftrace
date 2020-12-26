@@ -43,7 +43,7 @@ class TestCase(TestBase):
         self.recv_p = sp.Popen(recv_cmd.split())
 
         self.subcmd  = 'record'
-        self.option  = '-H %s --port %s ' % ('localhost', self.port)
+        self.option  = '--host %s --port %s ' % ('localhost', self.port)
         self.option += '-E %s' % 'linux:schedule'
         self.exearg  = 't-' + self.name
 

@@ -41,7 +41,7 @@ class TestCase(TestBase):
 
         self.dirname = 'dir-%d' % random.randint(100000, 999999)
         self.subcmd = 'record'
-        self.option = '-H %s --port %s -d %s' % ('localhost', self.port, self.dirname)
+        self.option = '--host %s --port %s -d %s' % ('localhost', self.port, self.dirname)
         self.exearg = 't-' + self.name
         record_cmd = self.runcmd()
         self.pr_debug('prerun command: ' + record_cmd)
