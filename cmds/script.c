@@ -62,16 +62,16 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		if (!script_match_filter(symname))
 			goto out;
 
-		sc_ctx.tid       = task->tid;
-		sc_ctx.depth     = depth;  /* display depth */
-		sc_ctx.timestamp = rstack->time;
-		sc_ctx.address   = rstack->addr;
-		sc_ctx.name      = symname;
+		sc_ctx.base.tid       = task->tid;
+		sc_ctx.base.depth     = depth;  /* display depth */
+		sc_ctx.base.timestamp = rstack->time;
+		sc_ctx.base.address   = rstack->addr;
+		sc_ctx.base.name      = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT) {
-			sc_ctx.argbuf  = task->args.data;
-			sc_ctx.arglen  = task->args.len;
-			sc_ctx.argspec = task->args.args;
+			sc_ctx.args.argbuf  = task->args.data;
+			sc_ctx.args.arglen  = task->args.len;
+			sc_ctx.args.argspec = task->args.args;
 		}
 
 		/* script hooking for function entry */
@@ -97,17 +97,17 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			sc_ctx.tid       = task->tid;
-			sc_ctx.depth     = rstack->depth;
-			sc_ctx.timestamp = rstack->time;
-			sc_ctx.duration  = fstack->total_time;
-			sc_ctx.address   = rstack->addr;
-			sc_ctx.name      = symname;
+			sc_ctx.base.tid       = task->tid;
+			sc_ctx.base.depth     = rstack->depth;
+			sc_ctx.base.timestamp = rstack->time;
+			sc_ctx.base.duration  = fstack->total_time;
+			sc_ctx.base.address   = rstack->addr;
+			sc_ctx.base.name      = symname;
 
 			if (rstack->more) {
-				sc_ctx.argbuf  = task->args.data;
-				sc_ctx.arglen  = task->args.len;
-				sc_ctx.argspec = task->args.args;
+				sc_ctx.args.argbuf  = task->args.data;
+				sc_ctx.args.arglen  = task->args.len;
+				sc_ctx.args.argspec = task->args.args;
 			}
 
 			/* script hooking for function exit */
