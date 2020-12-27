@@ -63,16 +63,16 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 		if (!script_match_filter(symname))
 			goto out;
 
-		sc_ctx.tid = task->tid;
-		sc_ctx.depth = depth; /* display depth */
-		sc_ctx.timestamp = rstack->time;
-		sc_ctx.address = rstack->addr;
-		sc_ctx.name = symname;
+		sc_ctx.base.tid = task->tid;
+		sc_ctx.base.depth = depth; /* display depth */
+		sc_ctx.base.timestamp = rstack->time;
+		sc_ctx.base.address = rstack->addr;
+		sc_ctx.base.name = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT && opts->show_args) {
-			sc_ctx.argbuf = task->args.data;
-			sc_ctx.arglen = task->args.len;
-			sc_ctx.argspec = task->args.args;
+			sc_ctx.args.argbuf = task->args.data;
+			sc_ctx.args.arglen = task->args.len;
+			sc_ctx.args.argspec = task->args.args;
 		}
 
 		/* script hooking for function entry */
@@ -99,17 +99,17 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			sc_ctx.tid = task->tid;
-			sc_ctx.depth = rstack->depth;
-			sc_ctx.timestamp = rstack->time;
-			sc_ctx.duration = fstack->total_time;
-			sc_ctx.address = rstack->addr;
-			sc_ctx.name = symname;
+			sc_ctx.base.tid = task->tid;
+			sc_ctx.base.depth = rstack->depth;
+			sc_ctx.base.timestamp = rstack->time;
+			sc_ctx.base.duration = fstack->total_time;
+			sc_ctx.base.address = rstack->addr;
+			sc_ctx.base.name = symname;
 
 			if (rstack->more && opts->show_args) {
-				sc_ctx.argbuf = task->args.data;
-				sc_ctx.arglen = task->args.len;
-				sc_ctx.argspec = task->args.args;
+				sc_ctx.args.argbuf = task->args.data;
+				sc_ctx.args.arglen = task->args.len;
+				sc_ctx.args.argspec = task->args.args;
 			}
 
 			/* script hooking for function exit */
@@ -120,19 +120,21 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		struct uftrace_script_context sc_ctx = {
-			.tid = task->tid,
-			.depth = rstack->depth,
-			.timestamp = rstack->time,
-			.address = rstack->addr,
+			0,
 		};
 
-		sc_ctx.name = event_get_name(handle, rstack->addr);
-		sc_ctx.argbuf = event_get_data_str(rstack->addr, task->args.data, false);
+		sc_ctx.base.tid = task->tid;
+		sc_ctx.base.depth = rstack->depth;
+		sc_ctx.base.timestamp = rstack->time;
+		sc_ctx.base.address = rstack->addr;
+
+		sc_ctx.base.name = event_get_name(handle, rstack->addr);
+		sc_ctx.args.argbuf = event_get_data_str(rstack->addr, task->args.data, false);
 
 		script_uftrace_event(&sc_ctx);
 
-		free(sc_ctx.name);
-		free(sc_ctx.argbuf);
+		free(sc_ctx.base.name);
+		free(sc_ctx.args.argbuf);
 	}
 	else if (rstack->type == UFTRACE_LOST) {
 		/* Do nothing as of now */

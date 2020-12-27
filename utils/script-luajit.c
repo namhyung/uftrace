@@ -49,33 +49,33 @@ static void setup_common_context(struct uftrace_script_context *sc_ctx)
 {
 	dllua_newtable(L);
 	dllua_pushstring(L, "tid");
-	dllua_pushinteger(L, sc_ctx->tid);
+	dllua_pushinteger(L, sc_ctx->base.tid);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "depth");
-	dllua_pushinteger(L, sc_ctx->depth);
+	dllua_pushinteger(L, sc_ctx->base.depth);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "timestamp");
-	dllua_pushinteger(L, sc_ctx->timestamp);
+	dllua_pushinteger(L, sc_ctx->base.timestamp);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "duration");
-	dllua_pushinteger(L, sc_ctx->duration);
+	dllua_pushinteger(L, sc_ctx->base.duration);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "address");
-	dllua_pushinteger(L, sc_ctx->address);
+	dllua_pushinteger(L, sc_ctx->base.address);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "name");
-	dllua_pushstring(L, sc_ctx->name);
+	dllua_pushstring(L, sc_ctx->base.name);
 	dllua_settable(L, -3);
 }
 
 static void setup_argument_context(bool is_retval, struct uftrace_script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
-	void *data = sc_ctx->argbuf;
+	void *data = sc_ctx->args.argbuf;
 	union script_arg_val val;
 	int count = 0;
 
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
@@ -92,7 +92,7 @@ static void setup_argument_context(bool is_retval, struct uftrace_script_context
 	dllua_newtable(L);
 
 	count = 0;
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		const int null_str = -1;
 		unsigned short slen;
 		char ch_str[2];
@@ -268,7 +268,7 @@ static int luajit_uftrace_entry(struct uftrace_script_context *sc_ctx)
 	}
 
 	setup_common_context(sc_ctx);
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(false, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
@@ -290,7 +290,7 @@ static int luajit_uftrace_exit(struct uftrace_script_context *sc_ctx)
 
 	setup_common_context(sc_ctx);
 
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(true, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
@@ -312,9 +312,9 @@ static int luajit_uftrace_event(struct uftrace_script_context *sc_ctx)
 
 	setup_common_context(sc_ctx);
 
-	if (sc_ctx->argbuf) {
+	if (sc_ctx->args.argbuf) {
 		dllua_pushstring(L, "args");
-		dllua_pushstring(L, sc_ctx->argbuf);
+		dllua_pushstring(L, sc_ctx->args.argbuf);
 		dllua_settable(L, -3);
 	}
 

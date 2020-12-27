@@ -32,18 +32,27 @@ struct uftrace_script_info {
 	const char *cmds;
 };
 
-/* context information passed to script */
-struct uftrace_script_context {
+/* base context information passed to script */
+struct uftrace_script_base_ctx {
 	int tid;
 	int depth;
 	uint64_t timestamp;
 	uint64_t duration; /* exit only */
 	unsigned long address;
 	char *name;
-	/* for arguments and return value */
+};
+
+/* arguments and return value passed to script */
+struct uftrace_script_args {
 	int arglen;
 	void *argbuf;
 	struct list_head *argspec;
+};
+
+/* context and args information passed to script */
+struct uftrace_script_context {
+	struct uftrace_script_base_ctx base;
+	struct uftrace_script_args args;
 };
 
 union script_arg_val {

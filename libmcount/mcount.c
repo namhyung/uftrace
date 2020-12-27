@@ -936,24 +936,24 @@ static int script_save_context(struct uftrace_script_context *sc_ctx,
 	if (!script_match_filter(symname))
 		return -1;
 
-	sc_ctx->tid = mcount_gettid(mtdp);
-	sc_ctx->depth = rstack->depth;
-	sc_ctx->address = rstack->child_ip;
-	sc_ctx->name = symname;
-	sc_ctx->timestamp = rstack->start_time;
+	sc_ctx->base.tid = mcount_gettid(mtdp);
+	sc_ctx->base.depth = rstack->depth;
+	sc_ctx->base.address = rstack->child_ip;
+	sc_ctx->base.name = symname;
+	sc_ctx->base.timestamp = rstack->start_time;
 	if (rstack->end_time)
-		sc_ctx->duration = rstack->end_time - rstack->start_time;
+		sc_ctx->base.duration = rstack->end_time - rstack->start_time;
 
 	if (has_arg_retval) {
 		unsigned *argbuf = get_argbuf(mtdp, rstack);
 
-		sc_ctx->arglen = argbuf[0];
-		sc_ctx->argbuf = &argbuf[1];
-		sc_ctx->argspec = pargs;
+		sc_ctx->args.arglen = argbuf[0];
+		sc_ctx->args.argbuf = &argbuf[1];
+		sc_ctx->args.argspec = pargs;
 	}
 	else {
 		/* prevent access to arguments */
-		sc_ctx->arglen = 0;
+		sc_ctx->args.arglen = 0;
 	}
 
 	return 0;
