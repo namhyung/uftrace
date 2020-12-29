@@ -1310,6 +1310,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	pr_dbg("running %s\n", uftrace_version);
+
 	opts.range.kernel_skip_out = opts.kernel_skip_out;
 	opts.range.event_skip_out  = opts.event_skip_out;
 
