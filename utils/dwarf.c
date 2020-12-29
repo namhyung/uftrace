@@ -379,7 +379,7 @@ static size_t type_size(Dwarf_Die *die, size_t default_size)
 
 	/* just guess it's word size */
 	size = dwarf_bytesize(die);
-	if (size <= 0)
+	if ((long)size <= 0)
 		size = default_size;
 
 	return size * 8;
