@@ -2,8 +2,8 @@
 
 VERSION_FILE=$1
 
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <filename> <version> <srcdir>"
+if [ $# -ne 4 ]; then
+    echo "Usage: $0 <filename> <version> <arch> <srcdir>"
     exit 1
 fi
 
@@ -11,7 +11,9 @@ CURR_VERSION=$2
 FILE_VERSION=
 GIT_VERSION=
 
-SRCDIR=$3
+ARCH=$3
+
+SRCDIR=$4
 
 if test -f ${VERSION_FILE}; then
     FILE_VERSION=$(cut -d'"' -f2 ${VERSION_FILE})
@@ -28,7 +30,7 @@ if test -z "${GIT_VERSION}" -a -n "${FILE_VERSION}"; then
     exit 0
 fi
 
-DEPS=""
+DEPS=" ${ARCH}"
 if test -f ${SRCDIR}/check-deps/have_libdw; then
     DEPS="${DEPS} dwarf"
 fi
