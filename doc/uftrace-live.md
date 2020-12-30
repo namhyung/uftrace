@@ -30,6 +30,11 @@ COMMON OPTIONS
 :   Set filter not to trace selected functions (or the functions called
     underneath them).  This option can be used more than once.  See *FILTERS*.
 
+-H *FUNC*, \--hide=*FUNC*
+:   Set filter not to trace selected functions.
+    It doesn't affects their subtrees, but hides only the given functions.
+    This option can be used more than once.  See *FILTERS*.
+
 -C *FUNC*, \--caller-filter=*FUNC*
 :   Set filter to trace callers of selected functions only.  This option can be
     used more than once.  See *FILTERS*.
@@ -339,6 +344,21 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+You can hide the function `b()` only without affecting the calls it makes in its
+subtree functions with `-H` option.
+
+    $ uftrace -H b ./abc
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       3.880 us [ 1234] |     c();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+The above `-H` option is especially useful when hiding std namespace functions
+in C++ programs by using `-H ^std::` option setting.
+
 If users only care about specific functions and want to know how they are called,
 one can use the caller filter.  It makes the function as leaf and records the
 parent functions to the function.
@@ -417,7 +437,7 @@ The BNF for trigger specification is as follows:
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace"
+                     "finish" | "filter" | "notrace" | "hide"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
@@ -448,7 +468,7 @@ The `backtrace` trigger is only meaningful in the replay command.
 The `trace_on` and `trace_off` actions (the `_` can be omitted as `traceon`
 and `traceoff`) control whether uftrace records the specified functions or not.
 
-The 'recover' trigger is for some corner cases in which the process accesses the
+The `recover` trigger is for some corner cases in which the process accesses the
 callstack directly.  During tracing of the v8 javascript engine, for example, it
 kept getting segfaults in the garbage collection stage.  It was because v8
 incorporates the return address into compiled code objects(?).  The `recover`
@@ -457,7 +477,7 @@ resets to the uftrace return hook address again at function exit.  I was managed
 to work around the segfault by setting the `recover` trigger on the related
 function (specifically `ExitFrame::Iterate`).
 
-The 'time' trigger is to change time filter setting during execution of the
+The `time` trigger is to change time filter setting during execution of the
 function.  It can be used to apply different time filter for different functions.
 
 The `read` trigger is to read some information at runtime.  The result will be
@@ -486,11 +506,15 @@ The results are printed as events (comments) like below.
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 
-The 'finish' trigger is to end recording.  The process still can run and this
+The `finish` trigger is to end recording.  The process still can run and this
 can be useful to trace unterminated processes like daemon.
 
-The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
+The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
 `-N`/`--notrace` options respectively.
+
+The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
+given functions, but do not affect to the functions in their subtree unlike
+the `notrace` trigger.
 
 Triggers only work for user-level functions for now.
 

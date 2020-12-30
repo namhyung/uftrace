@@ -59,6 +59,11 @@ COMMON OPTIONS
 :   Set filter not to trace selected functions (or the functions called
     underneath them).  This option can be used more than once.  See *FILTERS*.
 
+-H *FUNC*, \--hide=*FUNC*
+:   Set filter not to trace selected functions.
+    It doesn't affects their subtrees, but hides only the given functions.
+    This option can be used more than once.  See *FILTERS*.
+
 -C *FUNC*, \--caller-filter=*FUNC*
 :   Set filter to trace callers of selected functions only.  This option can be
     used more than once.  See *FILTERS*.
@@ -192,6 +197,22 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+You can hide the function `b()` only without affecting the calls it makes in its
+subtree functions with `-H` option.
+
+    $ uftrace record ./abc
+    $ uftrace replay -H b
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       3.880 us [ 1234] |     c();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+The above `-H` option is especially useful when hiding std namespace functions
+in C++ programs by using `-H ^std::` option setting.
+
 If users only care about specific functions and want to know how they are called,
 one can use the caller filter.  It makes the function as leaf and prints the
 parent functions to the function.
@@ -288,7 +309,7 @@ without filters.  Currently supported triggers are `depth`, `backtrace`,
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
-                     "color="<color> | "time="<time_spec> | "filter" | "notrace"
+                     "color="<color> | "time="<time_spec> | "filter" | "notrace" | "hide"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
 
@@ -318,11 +339,15 @@ and `traceoff`) control whether uftrace shows functions or not.  The trigger
 runs at replay time, not run time, so it can handle kernel functions as well.
 Contrast this with triggers used under `uftrace record`.
 
-The 'time' trigger is to change time filter setting during execution of the
+The `time` trigger is to change time filter setting during execution of the
 function.  It can be used to apply different time filter for different functions.
 
-The 'filter' and 'notrace' triggers have same effect as -F/--filter and
--N/--notrace options respectively.
+The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
+`-N`/`--notrace` options respectively.
+
+The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
+given functions, but do not affect to the functions in their subtree unlike
+the `notrace` trigger.
 
 
 FIELDS

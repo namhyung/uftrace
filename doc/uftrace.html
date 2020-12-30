@@ -1190,6 +1190,55 @@ class: code-26px
 ---
 class: code-26px
 ### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-H foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+//              [112643] |   `foo`() {
+     0.190 us [112643] |     bar();
+//     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-H foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     0.190 us [112643] |   bar();
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
 - -t TIME, --time-filter=TIME
   - Do not show small functions under the time threshold.
 
