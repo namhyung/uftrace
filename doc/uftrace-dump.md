@@ -45,13 +45,13 @@ DUMP OPTIONS
 COMMON OPTIONS
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions (and the functions called
-    underneath them) only.  This option can be used more than once.
+:   Set filter to trace selected functions and their children functions.
+    This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of filters.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.
+:   Set filter not to trace selected functions and their children functions.
+    This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of filters.
 
 -H *FUNC*, \--hide=*FUNC*
@@ -61,8 +61,9 @@ COMMON OPTIONS
     See `uftrace-replay`(1) for an explanation of filters.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See `uftrace-replay`(1) for an explanation of filters.
+:   Set filter to trace callers of selected functions only.
+    This option can be used more than once.
+    See `uftrace-replay`(1) for an explanation of filters.
 
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.

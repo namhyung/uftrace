@@ -119,16 +119,16 @@ RECORD OPTIONS
 COMMON OPTIONS
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See *FILTERS*.
+:   Set filter to trace selected functions and their children functions.
+    This option can be used more than once.  See *FILTERS*.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.  See *FILTERS*.
+:   Set filter not to trace selected functions and their children functions.
+    This option can be used more than once.  See *FILTERS*.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See *FILTERS*.
+:   Set filter to trace callers of selected functions only.
+    This option can be used more than once.  See *FILTERS*.
 
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.
