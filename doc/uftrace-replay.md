@@ -61,7 +61,7 @@ COMMON OPTIONS
 
 -H *FUNC*, \--hide=*FUNC*
 :   Set filter not to trace selected functions.
-    It doesn't affects their subtrees, but hides only the given functions.
+    It doesn't affect their subtrees, but hides only the given functions.
     This option can be used more than once.  See *FILTERS*.
 
 -C *FUNC*, \--caller-filter=*FUNC*
