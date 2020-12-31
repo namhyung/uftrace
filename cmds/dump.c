@@ -390,6 +390,21 @@ static void pr_args(struct fstack_arguments *args)
 			free(enum_def);
 			size = spec->size;
 		}
+		else if (spec->fmt == ARG_FMT_STRUCT) {
+			int c;
+			unsigned char *p = ptr;
+
+			pr_out("  args[%d] struct %s:", i, spec->type_name ?: "");
+			for (c = 0 ; c < spec->size; c++) {
+				if ((c % 16) == 0)
+					pr_out("\n\t");
+				pr_out("%02x ", p[c]);
+				if ((c % 8) == 7)
+					pr_out(" ");
+			}
+			pr_out("\n");
+			size = spec->size;
+		}
 		else {
 			long long val = 0;
 print_raw:
@@ -459,6 +474,21 @@ static void pr_retval(struct fstack_arguments *args)
 				pr_out("  retval p: %lx (&%s)\n", val, sym->name);
 			else
 				pr_out("  retval p: %p\n", (void *)val);
+		}
+		else if (spec->fmt == ARG_FMT_STRUCT) {
+			int c;
+			unsigned char *p = ptr;
+
+			pr_out("  retval struct %s:", spec->type_name ?: "");
+			for (c = 0 ; c < spec->size; c++) {
+				if ((c % 16) == 0)
+					pr_out("\n\t");
+				pr_out("%02x ", p[c]);
+				if ((c % 8) == 7)
+					pr_out(" ");
+			}
+			pr_out("\n");
+			size = spec->size;
 		}
 		else {
 			long long val = 0;

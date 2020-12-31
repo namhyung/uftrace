@@ -737,6 +737,14 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			print_args("%s", color_reset);
 			free(estr);
 		}
+		else if (spec->fmt == ARG_FMT_STRUCT) {
+			if (spec->type_name)
+				print_args("%s", spec->type_name);
+			if (spec->size)
+				print_args("{...}");
+			else
+				print_args("{}");
+		}
 		else {
 			if (spec->fmt != ARG_FMT_AUTO)
 				memcpy(val.v, data, spec->size);
