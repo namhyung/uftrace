@@ -58,6 +58,7 @@ enum options {
 	OPT_nop,
 	OPT_time,
 	OPT_max_stack,
+	OPT_host,
 	OPT_port,
 	OPT_nopager,
 	OPT_avg_total,
@@ -143,7 +144,8 @@ __used static const char uftrace_help[] =
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "      --graphviz             Dump recorded data in DOT format\n"
-"  -H, --host=HOST            Send trace data to HOST instead of write to file\n"
+"  -H, --hide=FUNC            Hide FUNCs from trace\n"
+"      --host=HOST            Send trace data to HOST instead of write to file\n"
 "  -k, --kernel               Trace kernel functions also (if supported)\n"
 "      --keep-pid             Keep same pid during execution of traced program\n"
 "      --kernel-buffer=SIZE   Size of kernel tracing buffer (default: 1408K)\n"
@@ -242,7 +244,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(nop, OPT_nop),
 	NO_ARG(time, OPT_time),
 	REQ_ARG(max-stack, OPT_max_stack),
-	REQ_ARG(host, 'H'),
+	REQ_ARG(host, OPT_host),
 	REQ_ARG(port, OPT_port),
 	NO_ARG(no-pager, OPT_nopager),
 	REQ_ARG(sort, 's'),
@@ -292,6 +294,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(watch, 'W'),
 	REQ_ARG(signal, OPT_signal),
 	NO_ARG(srcline, OPT_srcline),
+	REQ_ARG(hide, 'H'),
 	NO_ARG(help, 'h'),
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
@@ -537,6 +540,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		opts->caller = opt_add_string(opts->caller, arg);
 		break;
 
+	case 'H':
+		opts->hide = opt_add_string(opts->hide, arg);
+		break;
+
 	case 'v':
 		debug++;
 		break;
@@ -564,10 +571,6 @@ static int parse_option(struct opts *opts, int key, char *arg)
 			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
 			opts->kernel_depth = 0;
 		}
-		break;
-
-	case 'H':
-		opts->host = arg;
 		break;
 
 	case 's':
@@ -718,6 +721,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 			       OPT_RSTACK_MAX);
 			opts->max_stack = OPT_RSTACK_DEFAULT;
 		}
+		break;
+
+	case OPT_host:
+		opts->host = arg;
 		break;
 
 	case OPT_port:

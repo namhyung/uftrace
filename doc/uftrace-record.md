@@ -72,13 +72,13 @@ RECORD OPTIONS
 -K *DEPTH*, \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
--H *HOST*, \--host=*HOST*
+\--host=*HOST*
 :   Send trace data to given host via the network, not writing to files.
     The `uftrace recv` command should be run on the destination host to receive
     the data.
 
 \--port=*PORT*
-:   When sending data to the network (with `-H`), use the given port instead of
+:   When sending data to the network (with `--host`), use the given port instead of
     the default (8090).
 
 \--signal=*TRG*
@@ -119,16 +119,16 @@ RECORD OPTIONS
 COMMON OPTIONS
 ==============
 -F *FUNC*, \--filter=*FUNC*
-:   Set filter to trace selected functions only.  This option can be used more
-    than once.  See *FILTERS*.
+:   Set filter to trace selected functions and their children functions.
+    This option can be used more than once.  See *FILTERS*.
 
 -N *FUNC*, \--notrace=*FUNC*
-:   Set filter not to trace selected functions (or the functions called
-    underneath them).  This option can be used more than once.  See *FILTERS*.
+:   Set filter not to trace selected functions and their children functions.
+    This option can be used more than once.  See *FILTERS*.
 
 -C *FUNC*, \--caller-filter=*FUNC*
-:   Set filter to trace callers of selected functions only.  This option can be
-    used more than once.  See *FILTERS*.
+:   Set filter to trace callers of selected functions only.
+    This option can be used more than once.  See *FILTERS*.
 
 -T *TRG*, \--trigger=*TRG*
 :   Set trigger on selected functions.  This option can be used more than once.

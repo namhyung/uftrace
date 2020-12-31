@@ -629,6 +629,13 @@ static int parse_caller_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
+static int parse_hide_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
+{
+	tr->flags |= TRIGGER_FL_HIDE;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr,
@@ -645,6 +652,7 @@ static const struct trigger_action_parser actions[] = {
 	{ "depth=",    parse_depth_action,        TRIGGER_FL_FILTER, },
 	{ "time=",     parse_time_action,         TRIGGER_FL_FILTER, },
 	{ "caller",    parse_caller_action,       TRIGGER_FL_FILTER, },
+	{ "hide",      parse_hide_action,         TRIGGER_FL_FILTER, },
 	{ "trace",     parse_trace_action,        TRIGGER_FL_SIGNAL, },
 	{ "finish",    parse_finish_action,       TRIGGER_FL_SIGNAL, },
 	{ "read=",     parse_read_action, },
@@ -929,6 +937,22 @@ void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_CALLER, NULL,
+		      setting);
+}
+
+
+/**
+ * uftrace_setup_hide_filter - add hide filters to rbtree
+ * @filter_str - CSV of filter string
+ * @symtabs    - symbol tables to find symbol address
+ * @root       - root of resulting rbtree
+ * @setting    - filter settings
+ */
+void uftrace_setup_hide_filter(char *filter_str, struct symtabs *symtabs,
+				 struct rb_root *root,
+				 struct uftrace_filter_setting *setting)
+{
+	setup_trigger(filter_str, symtabs, root, TRIGGER_FL_HIDE, NULL,
 		      setting);
 }
 

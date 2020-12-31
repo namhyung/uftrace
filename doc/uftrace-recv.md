@@ -15,7 +15,7 @@ uftrace recv [*options*]
 DESCRIPTION
 ===========
 This command receives tracing data from the network and saves it to files.
-Data will be sent using `uftrace-record` with -H/\--host option.
+Data will be sent using `uftrace-record` with \--host option.
 
 
 OPTIONS
@@ -41,12 +41,12 @@ The uftrace recv command should be run before sending data by record command.
 Above command starts a server with port by given (default `8090`) to receive
 data from remote client.
 
-    # CLIENT :
-    $ uftrace record -H localhost -d example_data --port 1234 example
+    # CLIENT
+    $ uftrace record -d example_data --host localhost --port 1234 example
 
 Above command sends the trace data to a remote server that pointed by given
--H option (`localhost` in this case) after running the example program.  And
-as you see, you can choose save directory by using `-d` option (sending data
+`--host` option (`localhost` in this case) after running the example program.
+And as you see, you can choose save directory by using `-d` option (sending data
 will save to `example_data` in this case).
 
     # HOST : Check received data

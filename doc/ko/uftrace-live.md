@@ -32,6 +32,10 @@ uftrace [live] [*options*] COMMAND [*command-options*]
     이 옵션은 한번 이상 쓰일 수 있다.
     필터에 대한 설명은 *FILTERS* 를 참고한다.
 
+-H *FUNC*, \--hide=*FUNC*
+:   주어진 FUNC 함수들을 출력 대상에서 제외할 수 있다.  이는 선택된 함수의 자식
+    함수들에 대해서는 영향을 주지 않으며 단지 주어진 함수들만 숨기는 기능을 하게
+    된다. 이 옵션은 한번 이상 쓰일 수 있다.
 
 -C *FUNC*, \--caller-filter=*FUNC*
 :   선택된 함수의 호출자를 출력하는 필터를 설정한다. 이 옵션은 한번 이상 쓰일 수 있다.
@@ -338,6 +342,20 @@ uftrace 가 호출되면, 두 종류의 함수 필터를 갖게 되는데 이들
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+`b()` 함수만을 숨기고 그의 하위 함수들은 그대로 보고 싶으면 `-H` 옵션을 사용할 수 있다.
+
+    $ uftrace -H b ./abc
+    # DURATION    TID     FUNCTION
+     138.494 us [ 1234] | __cxa_atexit();
+                [ 1234] | main() {
+                [ 1234] |   a() {
+       3.880 us [ 1234] |     c();
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+위의 `-H` 옵션은 특히 C++ 프로그램에서 `-H ^std::` 와 같이 사용해서
+std 네임스페이스의 호출들을 숨길때 유용하다.
+
 만일 특정 함수에만 관심이 있고 그 함수가 어떻게 호출되는지만 알고 싶다면,
 caller filter 를 사용하면 될 것이다. 그 함수를 마지막(leaf) 노드로 만들고,
 그 함수의 모든 부모 함수들을 기록한다.
@@ -414,7 +432,7 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace"
+                     "finish" | "filter" | "notrace" | "hide"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
@@ -487,6 +505,9 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
 
 `filter` 와 `notrace` 트리거는 각각 `-F`/`--filter` 와 `-N` /`--notrace` 같은
 효과가 있다.
+
+`hide` 트리거는 특정 함수를 보이지 않게 하는 `-H`/`--hide` 옵션과 같은 효과가
+있어서 `notrace` 와 다르게 하위 함수들에 대해서는 적용되지 않는다.
 
 트리거는 현재 커널 함수를 제외한 사용자 함수들에서만 동작한다.
 

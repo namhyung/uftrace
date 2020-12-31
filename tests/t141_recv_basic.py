@@ -33,7 +33,7 @@ class TestCase(TestBase):
         self.recv_p = sp.Popen(recv_cmd.split())
 
         self.subcmd = 'record'
-        self.option = '-H %s --port %s' % ('localhost', self.port)
+        self.option = '--host %s --port %s' % ('localhost', self.port)
         self.exearg = 't-' + self.name
         record_cmd = self.runcmd()
         self.pr_debug("prerun command: " + record_cmd)
