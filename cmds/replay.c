@@ -719,7 +719,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			}
 
 			dinfo = &map->mod->dinfo;
-			estr = get_enum_string(&dinfo->enums, spec->enum_str, (int)val.i);
+			estr = get_enum_string(&dinfo->enums, spec->type_name, (int)val.i);
 			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
 				struct strv enum_vals = STRV_INIT;
 
@@ -736,6 +736,14 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				print_args("%s", estr);
 			print_args("%s", color_reset);
 			free(estr);
+		}
+		else if (spec->fmt == ARG_FMT_STRUCT) {
+			if (spec->type_name)
+				print_args("%s", spec->type_name);
+			if (spec->size)
+				print_args("{...}");
+			else
+				print_args("{}");
 		}
 		else {
 			if (spec->fmt != ARG_FMT_AUTO)

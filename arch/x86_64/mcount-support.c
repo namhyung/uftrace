@@ -132,9 +132,52 @@ static void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 	}
 }
 
+static void mcount_get_struct_arg(struct mcount_arg_context *ctx,
+				  struct uftrace_arg_spec *spec)
+{
+	struct uftrace_arg_spec reg_spec = {
+		.type = ARG_TYPE_REG,
+	};
+	void *ptr = ctx->val.p;
+	int i;
+
+	for (i = 0; i < spec->struct_reg_cnt; i++) {
+		reg_spec.reg_idx = spec->struct_regs[i];
+
+		mcount_get_register_arg(ctx, &reg_spec);
+		mcount_memcpy4(ptr, ctx->val.v, sizeof(long));
+		ptr += sizeof(long);
+	}
+
+	if (spec->stack_ofs > 0) {
+		unsigned long *addr = ctx->stack_base + spec->stack_ofs;
+
+		/*
+		 * it cannot call mcount_get_stack_arg() since the struct
+		 * might be bigger than the ctx->val.  It directly updates
+		 * the argument buffer (in the ptr).
+		 */
+		if (check_mem_region(ctx, (unsigned long)addr))
+			mcount_memcpy4(ptr, addr, spec->size);
+		else {
+			pr_dbg("stack address is not allowed: %p\n", addr);
+			mcount_memset4(ptr, 0, spec->size);
+		}
+	}
+	else if (spec->struct_reg_cnt == 0) {
+		mcount_get_register_arg(ctx, spec);
+		mcount_memcpy4(ptr, ctx->val.v, sizeof(long));
+	}
+}
+
 void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 			 struct uftrace_arg_spec *spec)
 {
+	if (spec->fmt == ARG_FMT_STRUCT) {
+		mcount_get_struct_arg(ctx, spec);
+		return;
+	}
+
 	if (mcount_get_register_arg(ctx, spec) < 0)
 		mcount_get_stack_arg(ctx, spec);
 }
@@ -142,8 +185,10 @@ void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 			    struct uftrace_arg_spec *spec)
 {
+	if (spec->fmt == ARG_FMT_STRUCT)
+		mcount_memcpy4(ctx->val.v, ctx->retval, sizeof(long));
 	/* type of return value cannot be FLOAT, so check format instead */
-	if (spec->fmt != ARG_FMT_FLOAT)
+	else if (spec->fmt != ARG_FMT_FLOAT)
 		mcount_memcpy1(ctx->val.v, ctx->retval, spec->size);
 	else if (spec->size == 10) /* for long double type */
 		asm volatile ("fstpt %0\n\tfldt %0" : "=m" (ctx->val.v));

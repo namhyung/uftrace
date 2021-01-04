@@ -7,10 +7,10 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'dwarf2', """
 # DURATION     TID     FUNCTION
             [ 23714] | main() {
- 482.922 us [ 23714] |   A::A(0x7ffecd0fe6e0, FOO, 4, "debug info test");
+ 482.922 us [ 23714] |   A::A(0x7ffecd0fe6e0, empty{}, FOO, 4, "debug info test");
   16.629 us [ 23714] |   std::sort(0x7ffecd0fe700, 0x7ffecd0fe714, &myless);
-   5.713 us [ 23714] |   std::sort(0x7ffecd0fe700, 0x7ffecd0fe714, 0x7ffecd0fe700);
-   5.853 us [ 23714] |   std::sort(0x7ffecd0fe700, 0x7ffecd0fe714, 0x7ffecd0fe700);
+   5.713 us [ 23714] |   std::sort(0x7ffecd0fe700, 0x7ffecd0fe714, less{...});
+   5.853 us [ 23714] |   std::sort(0x7ffecd0fe700, 0x7ffecd0fe714, {...});
  515.511 us [ 23714] | } = 0; /* main */
 """, lang='C++', cflags='-g -std=c++11')
 
