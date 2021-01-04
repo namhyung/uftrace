@@ -1746,6 +1746,7 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
 	dinfo->files = RB_ROOT;
+	dinfo->loaded = true;
 
 	return setup_dwarf_info(filename, dinfo, offset, force);
 }
@@ -1763,6 +1764,7 @@ static void release_debug_info(struct debug_info *dinfo)
 	free(dinfo->base_dir);
 
 	release_dwarf_info(dinfo);
+	dinfo->loaded = false;
 }
 
 /* find argspecs only have function name (pattern) */
@@ -1809,9 +1811,6 @@ void prepare_debug_info(struct symtabs *symtabs,
 	struct strv dwarf_args = STRV_INIT;
 	struct strv dwarf_rets = STRV_INIT;
 
-	if (symtabs->loaded_debug)
-		return;
-
 	extract_dwarf_args(argspec, retspec, &dwarf_args, &dwarf_rets);
 
 	if (auto_args) {
@@ -1832,7 +1831,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 		struct symtab *stab = &map->mod->symtab;
 		struct debug_info *dinfo = &map->mod->dinfo;
 
-		if (map->mod == NULL)
+		if (map->mod == NULL || map->mod->dinfo.loaded)
 			continue;
 
 		setup_debug_info(map->libname, dinfo, map->start, force);
@@ -1841,25 +1840,18 @@ void prepare_debug_info(struct symtabs *symtabs,
 
 	strv_free(&dwarf_args);
 	strv_free(&dwarf_rets);
-
-	symtabs->loaded_debug = true;
 }
 
 void finish_debug_info(struct symtabs *symtabs)
 {
 	struct uftrace_mmap *map;
 
-	if (!symtabs->loaded_debug)
-		return;
-
 	for_each_map(symtabs, map) {
-		if (map->mod == NULL)
+		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
 		release_debug_info(&map->mod->dinfo);
 	}
-
-	symtabs->loaded_debug = false;
 }
 
 static bool match_debug_file(const char *dbgname, const char *pathname,
@@ -1921,8 +1913,8 @@ static FILE * create_debug_file(const char *dirname, const char *filename,
 	return fp;
 }
 
-static void close_debug_file(FILE *fp, char *dirname, const char *filename,
-			     char *build_id)
+static void close_debug_file(FILE *fp, const char *dirname,
+			     const char *filename, char *build_id)
 {
 	bool delete = !ftell(fp);
 	char *tmp;
@@ -1995,7 +1987,7 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 	}
 }
 
-static void save_debug_entries(struct debug_info *dinfo, char *dirname,
+static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
 			       const char *filename, char *build_id)
 {
 	int i;
@@ -2044,15 +2036,12 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 	close_debug_file(fp, dirname, basename(filename), build_id);
 }
 
-void save_debug_info(struct symtabs *symtabs, char *dirname)
+void save_debug_info(struct symtabs *symtabs, const char *dirname)
 {
 	struct uftrace_mmap *map;
 
-	if (!symtabs->loaded_debug)
-		return;
-
 	for_each_map(symtabs, map) {
-		if (map->mod == NULL)
+		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
 		save_debug_entries(&map->mod->dinfo, dirname, map->libname,
@@ -2103,6 +2092,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	dinfo->rets = RB_ROOT;
 	dinfo->enums = RB_ROOT;
 	dinfo->files = RB_ROOT;
+	dinfo->loaded = true;
 
 	if (needs_srcline && dinfo->locs == NULL) {
 		dinfo->nr_locs = symtab->nr_sym;
@@ -2204,8 +2194,6 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 					needs_srcline);
 		}
 	}
-
-	symtabs->loaded_debug = true;
 }
 
 char * get_dwarf_argspec(struct debug_info *dinfo, char *name, unsigned long addr)

@@ -93,7 +93,6 @@ enum symtab_flag {
 
 struct symtabs {
 	bool loaded;
-	bool loaded_debug;
 	const char *dirname;
 	const char *filename;
 	enum symtab_flag flags;

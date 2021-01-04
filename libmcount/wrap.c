@@ -23,7 +23,7 @@ struct dlopen_base_data {
 };
 
 
-static const char *simple_basename(const char *pathname)
+const char *uftrace_basename(const char *pathname)
 {
 	const char *p = strrchr(pathname, '/');
 
@@ -82,7 +82,7 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	if (p == NULL)
 		p = buf;
 
-	if (find_map_by_name(&symtabs, simple_basename(p)))
+	if (find_map_by_name(&symtabs, uftrace_basename(p)))
 		return 0;
 
 	/* report a library not found in the session maps */
@@ -195,16 +195,23 @@ static char ** collect_uftrace_envp(void)
 	return envp;
 }
 
+static int count_envp(char *const *env)
+{
+	int i, n = 0;
+
+	for (i = 0; env && env[i]; i++)
+		n++;
+
+	return n;
+}
+
 static char ** merge_envp(char *const *env1, char **env2)
 {
 	int i, n = 0;
 	char **envp;
 
-	for (i = 0; env1 && env1[i]; i++)
-		n++;
-	for (i = 0; env2 && env2[i]; i++)
-		n++;
-
+	n += count_envp(env1);
+	n += count_envp(env2);
 
 	envp = xcalloc(sizeof(*envp), n + 1);
 
@@ -565,6 +572,29 @@ TEST_CASE(mcount_wrap_dlopen)
 
 	TEST_NE(handle, NULL);
 	TEST_NE(real_dlopen, NULL);
+
+	return TEST_OK;
+}
+
+TEST_CASE(mcount_env_check)
+{
+	char **uftrace_envp;
+	char **new_envp;
+	int old1_cnt, old2_cnt, new_cnt;
+
+	pr_dbg("collecting environ related to uftrace\n");
+	uftrace_envp = collect_uftrace_envp();
+	old1_cnt = count_envp(uftrace_envp);
+	old2_cnt = count_envp(environ);
+
+	pr_dbg("merging uftrace envp to the existing one\n");
+	new_envp = merge_envp(environ, uftrace_envp);
+	new_cnt = count_envp(new_envp);
+
+	TEST_EQ(old1_cnt + old2_cnt, new_cnt);
+
+	free(uftrace_envp);
+	free(new_envp);
 
 	return TEST_OK;
 }
