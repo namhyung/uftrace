@@ -1913,8 +1913,8 @@ static FILE * create_debug_file(const char *dirname, const char *filename,
 	return fp;
 }
 
-static void close_debug_file(FILE *fp, char *dirname, const char *filename,
-			     char *build_id)
+static void close_debug_file(FILE *fp, const char *dirname,
+			     const char *filename, char *build_id)
 {
 	bool delete = !ftell(fp);
 	char *tmp;
@@ -1987,7 +1987,7 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 	}
 }
 
-static void save_debug_entries(struct debug_info *dinfo, char *dirname,
+static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
 			       const char *filename, char *build_id)
 {
 	int i;
@@ -2036,7 +2036,7 @@ static void save_debug_entries(struct debug_info *dinfo, char *dirname,
 	close_debug_file(fp, dirname, basename(filename), build_id);
 }
 
-void save_debug_info(struct symtabs *symtabs, char *dirname)
+void save_debug_info(struct symtabs *symtabs, const char *dirname)
 {
 	struct uftrace_mmap *map;
 
