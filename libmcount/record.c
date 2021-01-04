@@ -1117,6 +1117,27 @@ static void write_map(FILE *out, struct uftrace_mmap *map,
 			ino, map->libname);
 }
 
+struct uftrace_mmap * new_map(const char *path, uint64_t start, uint64_t end,
+			      const char *prot)
+{
+	size_t namelen;
+	struct uftrace_mmap *map;
+
+	namelen = strlen(path) + 1;
+
+	map = xzalloc(sizeof(*map) + ALIGN(namelen, 4));
+
+	map->start = start;
+	map->end = end;
+	map->len = namelen;
+	mcount_memcpy1(map->prot, prot, 4);
+	mcount_memcpy1(map->libname, path, namelen);
+
+	read_build_id(path, map->build_id, sizeof(map->build_id));
+
+	return map;
+}
+
 void record_proc_maps(char *dirname, const char *sess_id,
 		      struct symtabs *symtabs)
 {
@@ -1145,7 +1166,6 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		uint32_t ino, prev_ino = 0;
 		uint64_t off, prev_off = 0;
 		char path[PATH_MAX];
-		size_t namelen;
 		struct uftrace_mmap *map;
 
 		/* skip anon mappings */
@@ -1188,21 +1208,9 @@ void record_proc_maps(char *dirname, const char *sess_id,
 			}
 		}
 
+		map = new_map(path, start, end, prot);
+
 		/* save map for the executable */
-		namelen = ALIGN(strlen(path) + 1, 4);
-
-		map = xzalloc(sizeof(*map) + namelen);
-
-		map->start = start;
-		map->end = end;
-		map->len = namelen;
-		mcount_memcpy1(map->prot, prot, 4);
-		mcount_memcpy1(map->libname, path, namelen);
-		map->libname[strlen(path)] = '\0';
-
-		read_build_id(path, map->build_id, sizeof(map->build_id));
-
-		/* still need to write the map for executable */
 		if (!strcmp(path, symtabs->filename))
 			symtabs->exec_map = map;
 
