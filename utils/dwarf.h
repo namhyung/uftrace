@@ -41,6 +41,7 @@ struct debug_info {
 	int			nr_locs_used;
 	int			file_type;
 	bool			needs_args;
+	bool			loaded;
 	char			*base_dir;
 };
 

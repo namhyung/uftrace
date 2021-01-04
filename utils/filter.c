@@ -1047,6 +1047,9 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 			.sym    = syms,
 			.nr_sym = ARRAY_SIZE(syms),
 		},
+		.dinfo = {
+			.loaded = true,
+		}
 	};
 	static struct uftrace_mmap map = {
 		.mod   = &mod,
@@ -1060,7 +1063,6 @@ static void filter_test_load_symtabs(struct symtabs *stabs)
 	stabs->maps = &map;
 	stabs->exec_map = &map;
 	stabs->loaded = true;
-	stabs->loaded_debug = true;  /* skip DWARF debug info parsing */
 }
 
 TEST_CASE(filter_setup_simple)
