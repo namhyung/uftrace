@@ -23,7 +23,7 @@ struct dlopen_base_data {
 };
 
 
-static const char *simple_basename(const char *pathname)
+const char *uftrace_basename(const char *pathname)
 {
 	const char *p = strrchr(pathname, '/');
 
@@ -82,7 +82,7 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	if (p == NULL)
 		p = buf;
 
-	if (find_map_by_name(&symtabs, simple_basename(p)))
+	if (find_map_by_name(&symtabs, uftrace_basename(p)))
 		return 0;
 
 	/* report a library not found in the session maps */

@@ -382,6 +382,7 @@ extern void record_proc_maps(char *dirname, const char *sess_id,
 extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
 					unsigned long *frame_pointer,
 					unsigned long addr);
+extern const char *uftrace_basename(const char *pathname);
 
 #ifndef DISABLE_MCOUNT_FILTER
 extern void save_argument(struct mcount_thread_data *mtdp,
