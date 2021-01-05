@@ -259,6 +259,15 @@ else
     message('Disabling scheduler event support (disabled by: with-schedule)')
 endif
 
+####################################
+# -Dwith-libresolver build options #
+####################################
+
+# TODO: add -Dwith-libresolver option
+
+libresolver_project = subproject('libresolver')
+libresolver_dep = libresolver_project.get_variable('libresolver_dep')
+
 #########################
 # required dependencies #
 #########################
@@ -296,6 +305,7 @@ if arch == 'aarch64'
         'arch/aarch64/mcount.S',
         'arch/aarch64/plthook.S',
     ]
+    libmcount_arch_deps = []
 elif arch == 'arm'
     libmcount_arch_include = include_directories('arch/arm')
     libmcount_arch_sources = [
@@ -306,6 +316,7 @@ elif arch == 'arm'
         'arch/arm/mcount.S',
         'arch/arm/plthook.S',
     ]
+    libmcount_arch_deps = []
 elif arch == 'i386'
     libmcount_arch_include = include_directories('arch/i386')
     libmcount_arch_sources = [
@@ -319,6 +330,7 @@ elif arch == 'i386'
         'arch/i386/mcount.S',
         'arch/i386/plthook.S',
     ]
+    libmcount_arch_deps = []
 elif arch == 'x86_64'
     libmcount_arch_include = include_directories('arch/x86_64')
     libmcount_arch_sources = [
@@ -337,6 +349,7 @@ elif arch == 'x86_64'
         'arch/x86_64/plthook.S',
         'arch/x86_64/xray.S',
     ]
+    libmcount_arch_deps = [libresolver_dep]
 else
     error('target architecture `@0@` is not supported'.format(arch))
 endif
@@ -383,6 +396,7 @@ libmcount_base_deps = [
     libdw_dep,
     libelf_dep,
     libluajit_dep,
+    libmcount_arch_deps,
     libncurses_dep,
     libpthread_dep,
     libpython_dep,
@@ -683,6 +697,7 @@ unittests_deps = [
     libdw_dep,
     libelf_dep,
     libluajit_dep,
+    libmcount_arch_deps,
     libncurses_dep,
     libpthread_dep,
     libpython_dep,
