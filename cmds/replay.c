@@ -445,39 +445,52 @@ static void print_task_newline(int current_tid)
 	prev_tid = current_tid;
 }
 
-#define print_char(c)                                                   \
-({ args[n] = c; n++; len--; })
+static void print_char(char **args, size_t *len, const char c)
+{
+	**args = c;
+	*args += 1;
+	*len -= 1;
+}
 
-#define print_args(fmt, ...)						\
-({ int _x = snprintf(args + n, len, fmt, ##__VA_ARGS__); n += _x; len -= _x; })
+static void print_args(char **args, size_t *len, const char *fmt, ...)
+{
+	int x;
+	va_list ap;
 
-#define print_json_escaped_char(c)					\
-	do {								\
-		if (c == '\n')						\
-			print_args("\\\\n");				\
-		else if (c == '\t')					\
-			print_args("\\\\t");				\
-		else if (c == '\\')					\
-			print_args("\\\\");				\
-		else if (c == '"')					\
-			print_args("\\\"");				\
-		else if (isprint(c))					\
-			print_char(c);                                  \
-		else							\
-			print_args("\\\\x%02hhx", c);			\
-	} while (0)
+	va_start(ap, fmt);
+	x = vsnprintf(*args, *len, fmt, ap);
+	va_end(ap);
+	*args += x;
+	*len -= x;
+}
 
-#define print_escaped_char(c)						\
-	do {								\
-		if (c == '\0')						\
-			print_args("\\0");				\
-		else if (c == '\b')					\
-			print_args("\\b");				\
-		else if (c == '\n')                                     \
-			print_args("\\n");				\
-		else							\
-			print_char(c);                                  \
-	} while (0)
+static void print_json_escaped_char(char **args, size_t *len, const char c)
+{
+	if (c == '\n')
+		print_args(args, len, "\\\\n");
+	else if (c == '\t')
+		print_args(args, len, "\\\\t");
+	else if (c == '\\')
+		print_args(args, len, "\\\\");
+	else if (c == '"')
+		print_args(args, len, "\\\"");
+	else if (isprint(c))
+		print_char(args, len, c);
+	else
+		print_args(args, len, "\\\\x%02hhx", c);
+}
+
+static void print_escaped_char(char **args, size_t *len, const char c)
+{
+	if (c == '\0')
+		print_args(args, len, "\\0");
+	else if (c == '\b')
+		print_args(args, len, "\\b");
+	else if (c == '\n')
+		print_args(args, len, "\\n");
+	else
+		print_char(args, len, c);
+}
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
@@ -521,9 +534,9 @@ void get_argspec_string(struct uftrace_task_reader *task,
 	assert(arg_list && !list_empty(arg_list));
 
 	if (needs_paren)
-		print_args("%s(%s", color_bold, color_reset);
+		print_args(&args, &len, "%s(%s", color_bold, color_reset);
 	else if (needs_assignment)
-		print_args("%s = %s", color_bold, color_reset);
+		print_args(&args, &len, "%s = %s", color_bold, color_reset);
 
 	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
@@ -537,7 +550,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			continue;
 
 		if (i > 0)
-			print_args("%s, %s", color_bold, color_reset);
+			print_args(&args, &len, "%s, %s", color_bold, color_reset);
 
 		memset(val.v, 0, sizeof(val));
 		fmt = ARG_SPEC_CHARS[spec->fmt];
@@ -591,22 +604,21 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			str[slen] = '\0';
 
 			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
-				print_args("NULL");
+				print_args(&args, &len, "NULL");
 			else if (needs_json) {
 				char *p = str;
 
-				print_args("\\\"");
+				print_args(&args, &len, "\\\"");
 				while (*p) {
 					char c = *p++;
-					print_json_escaped_char(c);
+					print_json_escaped_char(&args, &len, c);
 				}
-				print_args("\\\"");
+				print_args(&args, &len, "\\\"");
 			}
 			else {
 				char *p = str;
 
-				print_args("%s", color_string);
-				print_args("\"");
+				print_args(&args, &len, "%s\"", color_string);
 				while (*p) {
 					char c = *p++;
 					if (c & 0x80) {
@@ -618,23 +630,22 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				* then it will be UTF-8 string
 				*/
 				if (*p) {
-					print_args("%.*s", slen, str);
+					print_args(&args, &len, "%.*s", slen, str);
 				}
 				else {
 					p = str;
 					while (*p) {
 						char c = *p++;
-						print_escaped_char(c);
+						print_escaped_char(&args, &len, c);
 					}
 				}
 
-				print_args("\"");
-				print_args("%s", color_reset);
+				print_args(&args, &len, "\"%s", color_reset);
 			}
 
 			/* std::string can be represented as "TEXT"s from C++14 */
 			if (spec->fmt == ARG_FMT_STD_STRING)
-				print_args("s");
+				print_args(&args, &len, "s");
 
 			free(str);
 			size = slen + 2;
@@ -644,16 +655,16 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			memcpy(&c, data, 1);
 			if (needs_json) {
-				print_args("'");
-				print_json_escaped_char(c);
-				print_args("'");
+				print_args(&args, &len, "'");
+				print_json_escaped_char(&args, &len, c);
+				print_args(&args, &len, "'");
 			}
 			else {
-				print_args("%s", color_string);
-				print_args("'");
-				print_escaped_char(c);
-				print_args("'");
-				print_args("%s", color_reset);
+				print_args(&args, &len, "%s", color_string);
+				print_args(&args, &len, "'");
+				print_escaped_char(&args, &len, c);
+				print_args(&args, &len, "'");
+				print_args(&args, &len, "%s", color_reset);
 			}
 			size = 1;
 		}
@@ -668,13 +679,13 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			switch (spec->size) {
 			case 4:
-				print_args(fmtstr, val.f);
+				print_args(&args, &len, fmtstr, val.f);
 				break;
 			case 8:
-				print_args(fmtstr, val.d);
+				print_args(&args, &len, fmtstr, val.d);
 				break;
 			case 10:
-				print_args(fmtstr, val.D);
+				print_args(&args, &len, fmtstr, val.D);
 				break;
 			default:
 				pr_dbg("invalid floating-point type size %d\n",
@@ -692,14 +703,14 @@ void get_argspec_string(struct uftrace_task_reader *task,
 						 (uint64_t)val.i);
 
 			if (sym) {
-				print_args("%s", color_symbol);
-				print_args("&%s", sym->name);
-				print_args("%s", color_reset);
+				print_args(&args, &len, "%s", color_symbol);
+				print_args(&args, &len, "&%s", sym->name);
+				print_args(&args, &len, "%s", color_reset);
 			}
 			else if (val.p)
-				print_args("%p", val.p);
+				print_args(&args, &len, "%p", val.p);
 			else
-				print_args("0");
+				print_args(&args, &len, "0");
 		}
 		else if (spec->fmt == ARG_FMT_ENUM) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
@@ -714,7 +725,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			map = find_map(&s->symtabs, task->rstack->addr);
 			if (map == NULL || map->mod == NULL) {
-				print_args("<ENUM?> %x", (int)val.i);
+				print_args(&args, &len, "<ENUM?> %x", (int)val.i);
 				goto next;
 			}
 
@@ -729,21 +740,21 @@ void get_argspec_string(struct uftrace_task_reader *task,
 				strv_free(&enum_vals);
 			}
 
-			print_args("%s", color_enum);
+			print_args(&args, &len, "%s", color_enum);
 			if (strlen(estr) >= len)
-				print_args("<ENUM>");
+				print_args(&args, &len, "<ENUM>");
 			else
-				print_args("%s", estr);
-			print_args("%s", color_reset);
+				print_args(&args, &len, "%s", estr);
+			print_args(&args, &len, "%s", color_reset);
 			free(estr);
 		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {
 			if (spec->type_name)
-				print_args("%s", spec->type_name);
+				print_args(&args, &len, "%s", spec->type_name);
 			if (spec->size)
-				print_args("{...}");
+				print_args(&args, &len, "{...}");
 			else
-				print_args("{}");
+				print_args(&args, &len, "{}");
 		}
 		else {
 			if (spec->fmt != ARG_FMT_AUTO)
@@ -754,9 +765,9 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
 			if (spec->size == 8)
-				print_args(fmtstr, val.ll);
+				print_args(&args, &len, fmtstr, val.ll);
 			else
-				print_args(fmtstr, val.i);
+				print_args(&args, &len, fmtstr, val.i);
 		}
 
 next:
@@ -772,7 +783,7 @@ next:
 	}
 
 	if (needs_paren) {
-		print_args("%s)%s", color_bold, color_reset);
+		print_args(&args, &len, "%s)%s", color_bold, color_reset);
 	} else {
 		if (needs_semi_colon)
 			args[n++] = ';';
