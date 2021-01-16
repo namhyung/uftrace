@@ -464,7 +464,7 @@ static void print_args(char **args, size_t *len, const char *fmt, ...)
 	*len -= x;
 }
 
-static void print_json_escaped_char(char **args, size_t *len, const char c)
+void print_json_escaped_char(char **args, size_t *len, const char c)
 {
 	if (c == '\n')
 		print_args(args, len, "\\\\n");
