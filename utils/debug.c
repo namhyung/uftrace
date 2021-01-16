@@ -38,6 +38,7 @@ const char *color_reset   = TERM_COLOR_RESET;
 const char *color_bold    = TERM_COLOR_BOLD;
 const char *color_string  = TERM_COLOR_MAGENTA;
 const char *color_symbol  = TERM_COLOR_CYAN;
+const char *color_struct  = TERM_COLOR_CYAN;
 const char *color_enum    = TERM_COLOR_BLUE;
 const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_RESET TERM_COLOR_BLUE;
 
@@ -141,6 +142,7 @@ void setup_color(enum color_setting color, char *pager)
 		color_bold    = "";
 		color_string  = "";
 		color_symbol  = "";
+		color_struct  = "";
 		color_enum    = "";
 		color_enum_or = "|";
 	}
