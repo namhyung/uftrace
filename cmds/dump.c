@@ -885,18 +885,7 @@ static void dump_chrome_header(struct uftrace_dump_ops *ops,
 	chrome->last_comma = false;
 }
 
-static void escape_func_name(char *name_buf, const char *name)
-{
-	size_t namelen = strlen(name);
-	size_t i, j;
-
-	for (i = 0, j = 0; i < namelen; i++) {
-		if (name[i] == '"')
-			name_buf[j++] = '\\';
-		name_buf[j++] = name[i];
-	}
-	name_buf[j] = '\0';
-}
+void print_json_escaped_char(char **args, size_t *len, const char c);
 
 static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 				     struct uftrace_task_reader *task, char *name)
@@ -909,6 +898,10 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	bool is_process = task->t->pid == task->tid;
 	int rec_type = frs->type;
+	size_t namelen = strlen(name);
+	char *p = name_buf;
+	size_t len = sizeof(name_buf) - 1;
+	size_t i;
 
 	if (rec_type == UFTRACE_EVENT) {
 		switch (frs->addr) {
@@ -930,7 +923,9 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	}
 
 	/* escape the function name */
-	escape_func_name(name_buf, name);
+	for (i = 0; i < namelen; i++)
+		print_json_escaped_char(&p, &len, name[i]);
+	*p = '\0';
 
 	if (chrome->last_comma)
 		pr_out(",\n");

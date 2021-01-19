@@ -53,6 +53,7 @@ extern const char *color_reset;
 extern const char *color_bold;
 extern const char *color_string;
 extern const char *color_symbol;
+extern const char *color_struct;
 extern const char *color_enum;
 extern const char *color_enum_or;
 
