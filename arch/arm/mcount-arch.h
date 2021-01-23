@@ -32,4 +32,12 @@ unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
 #define ARCH_PLT0_SIZE  20
 #define ARCH_PLTHOOK_ADDR_OFFSET  0
 
+struct mcount_disasm_engine;
+struct mcount_dynamic_info;
+struct mcount_disasm_info;
+
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info);
+
 #endif /* MCOUNT_ARCH_H */
