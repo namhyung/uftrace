@@ -9,6 +9,9 @@ void uftrace_begin(struct uftrace_script_info *sc_info)
 	printf("%s\n", sc_info->version);
 	printf("%s\n", sc_info->name);
 	printf("%s\n", sc_info->cmds);
+
+	/* disable actual data record by uftrace */
+	sc_info->record = false;
 }
 
 void uftrace_entry(struct uftrace_script_base_ctx *sc_ctx)
