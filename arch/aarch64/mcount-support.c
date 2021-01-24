@@ -6,8 +6,8 @@
 #include "utils/filter.h"
 
 /* FIXME: x0 is overwritten before calling _mcount() */
-int mcount_get_register_arg(struct mcount_arg_context *ctx,
-			    struct uftrace_arg_spec *spec)
+static int mcount_get_register_arg(struct mcount_arg_context *ctx,
+				   struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -110,8 +110,8 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	return 0;
 }
 
-void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-			  struct uftrace_arg_spec *spec)
+static void mcount_get_stack_arg(struct mcount_arg_context *ctx,
+				 struct uftrace_arg_spec *spec)
 {
 	int offset = 1;
 	unsigned long *addr = ctx->stack_base;
@@ -135,17 +135,17 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 
 	if (offset < 1 || offset > 100) {
 		pr_dbg("invalid stack offset: %d\n", offset);
-		memset(ctx->val.v, 0, sizeof(ctx->val));
+		mcount_memset4(ctx->val.v, 0, sizeof(ctx->val));
 		return;
 	}
 
 	addr += offset;
 
 	if (check_mem_region(ctx, (unsigned long)addr))
-		memcpy(ctx->val.v, addr, spec->size);
+		mcount_memcpy4(ctx->val.v, addr, spec->size);
 	else {
 		pr_dbg("stack address is not allowed: %p\n", addr);
-		memset(ctx->val.v, 0, sizeof(ctx->val));
+		mcount_memset4(ctx->val.v, 0, sizeof(ctx->val));
 	}
 }
 
@@ -228,7 +228,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		}
 	}
 	else
-		memcpy(ctx->val.v, ctx->retval, spec->size);
+		mcount_memcpy4(ctx->val.v, ctx->retval, spec->size);
 }
 
 unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
