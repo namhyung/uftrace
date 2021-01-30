@@ -64,7 +64,7 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 		type = ARG_TYPE_INDEX;
 		suffix = str + 6;
 	}
-	else if (!strncmp(str, "fparg", 5 && isdigit(str[5]))) {
+	else if (!strncmp(str, "fparg", 5) && isdigit(str[5])) {
 		idx = strtol(str+5, &suffix, 0);
 		fmt = ARG_FMT_FLOAT;
 		type = ARG_TYPE_FLOAT;

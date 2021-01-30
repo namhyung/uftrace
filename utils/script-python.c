@@ -80,7 +80,6 @@ static PyAPI_FUNC(void) (*__Py_Dealloc)(PyObject *);
 
 static inline void __Py_DECREF(PyObject *obj)
 {
-	_Py_DEC_REFTOTAL;
 	if (--obj->ob_refcnt == 0)
 		__Py_Dealloc(obj);
 }
