@@ -223,6 +223,8 @@ static int read_cmdline(void *arg)
 	return 0;
 }
 
+#define NUM_CPU_INFO  2
+
 static int fill_cpuinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
@@ -232,7 +234,7 @@ static int fill_cpuinfo(void *arg)
 	nr_possible = sysconf(_SC_NPROCESSORS_CONF);
 	nr_online = sysconf(_SC_NPROCESSORS_ONLN);
 
-	dprintf(fha->fd, "cpuinfo:lines=2\n");
+	dprintf(fha->fd, "cpuinfo:lines=%d\n", NUM_CPU_INFO);
 	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu / %lu (online/possible)\n",
 		nr_online, nr_possible);
 
@@ -254,6 +256,10 @@ static int read_cpuinfo(void *arg)
 		return -1;
 
 	if (sscanf(&buf[8], "lines=%d\n", &lines) == EOF)
+		return -1;
+
+	/* old data might have fewer lines */
+	if (lines > NUM_CPU_INFO)
 		return -1;
 
 	for (i = 0; i < lines; i++) {
@@ -356,6 +362,8 @@ static int read_meminfo(void *arg)
 	return 0;
 }
 
+#define NUM_OS_INFO  3
+
 static int fill_osinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
@@ -366,7 +374,7 @@ static int fill_osinfo(void *arg)
 
 	uname(&uts);
 
-	dprintf(fha->fd, "osinfo:lines=3\n");
+	dprintf(fha->fd, "osinfo:lines=%d\n", NUM_OS_INFO);
 	dprintf(fha->fd, "osinfo:kernel=%s %s\n", uts.sysname, uts.release);
 	dprintf(fha->fd, "osinfo:hostname=%s\n", uts.nodename);
 
@@ -417,6 +425,10 @@ static int read_osinfo(void *arg)
 	if (sscanf(&buf[7], "lines=%d\n", &lines) == EOF)
 		return -1;
 
+	/* old data might have fewer lines */
+	if (lines > NUM_OS_INFO)
+		return -1;
+
 	for (i = 0; i < lines; i++) {
 		if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 			return -1;
@@ -452,6 +464,8 @@ static int build_tid_list(struct uftrace_task *t, void *arg)
 	return 0;
 }
 
+#define NUM_TASK_INFO  2
+
 static int fill_taskinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
@@ -471,7 +485,7 @@ static int fill_taskinfo(void *arg)
 
 	walk_tasks(&link, build_tid_list, &tlist);
 
-	dprintf(fha->fd, "taskinfo:lines=2\n");
+	dprintf(fha->fd, "taskinfo:lines=%d\n", NUM_TASK_INFO);
 	dprintf(fha->fd, "taskinfo:nr_tid=%d\n", tlist.nr);
 
 	dprintf(fha->fd, "taskinfo:tids=");
@@ -504,6 +518,10 @@ static int read_taskinfo(void *arg)
 
 	if (sscanf(&buf[9], "lines=%d\n", &lines) == EOF)
 		goto out;
+
+	/* old data might have fewer lines */
+	if (lines > NUM_TASK_INFO)
+		return -1;
 
 	for (i = 0; i < lines; i++) {
 		if (getline(&buf, &len, handle->fp) < 0)
@@ -545,6 +563,8 @@ out:
 	return ret;
 }
 
+#define NUM_USAGE_INFO  6
+
 static int fill_usageinfo(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
@@ -554,7 +574,7 @@ static int fill_usageinfo(void *arg)
 	if (!memcmp(r, &zero, sizeof(*r)))
 		return -1;
 
-	dprintf(fha->fd, "usageinfo:lines=6\n");
+	dprintf(fha->fd, "usageinfo:lines=%d\n", NUM_USAGE_INFO);
 	dprintf(fha->fd, "usageinfo:systime=%lu.%06lu\n",
 		r->ru_stime.tv_sec, r->ru_stime.tv_usec);
 	dprintf(fha->fd, "usageinfo:usrtime=%lu.%06lu\n",
@@ -584,6 +604,10 @@ static int read_usageinfo(void *arg)
 		return -1;
 
 	if (sscanf(&buf[10], "lines=%d\n", &lines) == EOF)
+		return -1;
+
+	/* old data might have fewer lines */
+	if (lines > NUM_USAGE_INFO)
 		return -1;
 
 	for (i = 0; i < lines; i++) {
@@ -648,6 +672,8 @@ static int read_loadinfo(void *arg)
 	return 0;
 }
 
+#define MAX_ARGSPEC_INFO  6
+
 static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
@@ -704,6 +730,9 @@ static int read_arg_spec(void *arg)
 
 	if (sscanf(&buf[8], "lines=%d\n", &lines) == EOF)
 		goto out;
+
+	if (lines > MAX_ARGSPEC_INFO)
+		return -1;
 
 	for (i = 0; i < lines; i++) {
 		if (getline(&buf, &len, handle->fp) < 0)
