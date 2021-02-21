@@ -827,7 +827,7 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 	return;
 
 pass_via_stack:
-	pr_dbg3("struct passed via stack: size = %d bytes\n", td->size / 8);
+	pr_dbg3("struct passed via stack: size = %zd bytes\n", td->size / 8);
 	ad->struct_reg_cnt = 0;
 
 	if (((ad->has_retspec && ad->struct_return_needs_ptr) ||
