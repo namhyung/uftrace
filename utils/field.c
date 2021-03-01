@@ -88,6 +88,17 @@ void add_field(struct list_head *output_fields, struct display_field *field)
 	list_add_tail(&field->list, output_fields);
 }
 
+void del_field(struct display_field *field)
+{
+	if (!field->used)
+		return;
+
+	pr_dbg("delete field \"%s\"\n", field->name);
+
+	field->used = false;
+	list_del(&field->list);
+}
+
 static bool check_field_name(struct display_field *field, const char *name)
 {
 	if (!strcmp(field->name, name))

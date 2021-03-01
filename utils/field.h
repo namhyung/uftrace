@@ -81,6 +81,7 @@ int print_field_data(struct list_head *output_fields, struct field_data *fd,
 		     int space);
 int print_empty_field(struct list_head *output_fields, int space);
 void add_field(struct list_head *output_fields, struct display_field *field);
+void del_field(struct display_field *field);
 void setup_field(struct list_head *output_fields, struct opts *opts,
 		 setup_default_field_t setup_default_field,
 		 struct display_field *field_table[],
