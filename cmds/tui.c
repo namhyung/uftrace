@@ -156,8 +156,23 @@ static const char *help[] = {
 	"/             Search",
 	"</>/N/P       Search next/prev",
 	"v             Show debug message",
+	"f             Customize fields in graph mode",
 	"h/?           Show this help",
 	"q             Quit",
+};
+
+#define NUM_GRAPH_FIELD 3
+
+static const char *graph_field_names[NUM_GRAPH_FIELD] = {
+	"TOTAL TIME", "SELF TIME", "ADDRESS",
+};
+
+static const char *graph_field_help[] = {
+	"DOWN/UP ARROW Move down/up",
+	"j/k           Move down/up",
+	"Enter         Apply checked fields",
+	"SPACE         Check or uncheck a field",
+	"f/q           Close the window without any changes",
 };
 
 static const char *report_sort_key[] = { OPT_SORT_KEYS, "self", "call" };
@@ -2346,7 +2361,109 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
-static inline void cancel_search()
+static void display_graph_field(WINDOW *win, int selected_field, bool graph_field_flags[])
+{
+	int i;
+
+	for (i = 0; i < NUM_GRAPH_FIELD; i++) {
+		if (i == selected_field)
+			wattron(win, A_REVERSE);
+		mvwprintw(win, i + ARRAY_SIZE(graph_field_help) + 4, 2, "[ %c ] %s",
+				graph_field_flags[i] ? 'x' : ' ', graph_field_names[i]);
+		wattroff(win, A_REVERSE);
+	}
+}
+
+static void update_graph_output_fields(bool graph_field_flags[]) {
+	struct display_field *field, *tmp;
+	int i;
+
+	list_for_each_entry_safe(field, tmp, &graph_output_fields, list)
+		del_field(field);
+
+	for (i = 0; i < NUM_GRAPH_FIELD; i++) {
+		if (graph_field_flags[i])
+			add_field(&graph_output_fields, graph_field_table[i]);
+	}
+}
+
+static inline void tui_graph_field_flags_init(bool graph_field_flags[])
+{
+	int i;
+
+	for (i = 0; i < NUM_GRAPH_FIELD; i++)
+		graph_field_flags[i] = graph_field_table[i]->used;
+}
+
+static void tui_window_graph_field(void)
+{
+	WINDOW *win;
+	int w = 64;
+	int h = ARRAY_SIZE(graph_field_names) + ARRAY_SIZE(graph_field_help) + 6;
+	bool done = false;
+	unsigned i;
+	bool graph_field_flags[NUM_GRAPH_FIELD] = { false };
+	int selected_field = 0;
+
+	tui_graph_field_flags_init(graph_field_flags);
+
+	if (w > COLS)
+		w = COLS;
+	if (h > LINES)
+		h = LINES;
+
+	win = newwin(h, w, (LINES - h) / 2, (COLS - w) / 2);
+	keypad(win, true);
+	wrefresh(win);
+	box(win, 0, 0);
+
+	mvwprintw(win, 1, 2, "Customize fields in graph mode");
+
+	for (i = 0; i < ARRAY_SIZE(graph_field_help); i++)
+		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, graph_field_help[i]);
+
+	display_graph_field(win, selected_field, graph_field_flags);
+
+	mvwprintw(win, h-1, w-1, "");
+	wrefresh(win);
+
+	while (!done) {
+		int k = wgetch(win);
+
+		switch (k) {
+		case 'k':
+		case KEY_UP:
+			selected_field--;
+			if (selected_field < 0)
+				selected_field = NUM_GRAPH_FIELD - 1;
+			display_graph_field(win, selected_field, graph_field_flags);
+			break;
+		case 'j':
+		case KEY_DOWN:
+			selected_field++;
+			if (selected_field >= NUM_GRAPH_FIELD)
+				selected_field = 0;
+			display_graph_field(win, selected_field, graph_field_flags);
+			break;
+		case KEY_ENTER:
+		case '\n':
+			update_graph_output_fields(graph_field_flags);
+			done = true;
+			break;
+		case 'f':
+		case 'q':
+			done = true;
+			break;
+		case ' ':
+			graph_field_flags[selected_field] = !graph_field_flags[selected_field];
+			display_graph_field(win, selected_field, graph_field_flags);
+			break;
+		}
+	}
+	delwin(win);
+}
+
+static inline void cancel_search(void)
 {
 	free(tui_search);
 	tui_search = NULL;
@@ -2578,6 +2695,10 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 		case 'v':
 			tui_debug = !tui_debug;
 			break;
+		case 'f':
+			tui_window_graph_field();
+			full_redraw = true;
+			break;
 		case 'h':
 		case '?':
 			tui_window_help();
@@ -2614,7 +2735,7 @@ out:
 	tui_session_finish();
 }
 
-static void display_loading_msg()
+static void display_loading_msg(void)
 {
 	char *tuimsg = "Building graph for TUI...";
 	int row, col;
@@ -2641,6 +2762,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	initscr();
 	init_colors();
 	keypad(stdscr, true);
+	curs_set(0);
 	noecho();
 
 	atexit(tui_cleanup);

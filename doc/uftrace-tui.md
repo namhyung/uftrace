@@ -170,6 +170,7 @@ Following keys can be used in the TUI window:
  * `<`/`P`:               Search previous match
  * `>`/`N`:               Search next match
  * `v`:                   Show debug message
+ * `f`:                   Customize fields in graph mode
  * `h`/`?`:               Show help window
  * `q`:                   Quit
 
