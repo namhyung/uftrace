@@ -29,6 +29,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/hashmap.h"
+#include "utils/membarrier.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
@@ -73,6 +74,7 @@ static inline bool is_sym_patched(char* name, bool dontexist) {
 
 static LIST_HEAD(code_pages);
 
+/* contains out-of-line execution code (return address -> modified instructions ptr) */
 static struct Hashmap *code_hmap;
 
 /* minimum function size for dynamic update */
@@ -626,12 +628,21 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
+__weak int mcount_dynamic_init_arch(void) {
+	return 0;
+}
+
 int mcount_dynamic_init(struct symtabs *symtabs)
 {
 	char *size_filter;
 	int hash_size;
 
 	mcount_disasm_init(&disasm);
+
+	if (mcount_dynamic_init_arch() < 0) {
+		pr_dbg("mcount_dynamic_init: failed to execute arch initialization\n");
+		return -1;
+	}
 
 	hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
 	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);

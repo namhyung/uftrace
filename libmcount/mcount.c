@@ -889,7 +889,11 @@ void *command_daemon(void *arg) {
             case UFTRACE_DOPT_PATCH: /* TODO */
                 if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
                     pr_err("error reading option");
-                pr_warn("unsupported option: patch\n");
+				if (mcount_dynamic_update(&symtabs, buf, PATT_SIMPLE) < 0) {
+					pr_dbg("mcount_dynamic_update failed\n");
+				} else {
+					pr_dbg("mcount_dynamic_update success\n");
+				}
                 break;
 
             case UFTRACE_DOPT_FILTER: /* -F or -N */

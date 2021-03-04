@@ -73,6 +73,20 @@ GLOBAL(__dentry__)
 	push %r10
 	push %r11
 
+	push %rdi
+	push %rdx
+	mov %rsi,%rdi
+	call get_real_call_return_adress
+	mov %rax,%rsi
+	pop %rdx
+	pop %rdi
+
+	/* original stack pointer */
+	movq 24(%rsp), %rdx
+
+	/* update child addr with real address */
+	movq %rax,48(%rdx)
+
 	call mcount_entry
 
 	/* original stack pointer */
