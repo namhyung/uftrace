@@ -20,5 +20,5 @@ class TestCase(TestBase):
    1.200 us [ 6624] | } /* ns::ns2::foo::bar2 */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s --disable -F ".*foo::foo@traceon" -F ".*::bar2" %s' % (TestBase.ftrace, 't-namespace')
+    def setup(self):
+        self.option = '--disable -F ".*foo::foo" -T .foo::foo@trace_on -F .bar2'

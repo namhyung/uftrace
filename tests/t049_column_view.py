@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -59,5 +58,5 @@ class TestCase(TestBase):
    1.995 ms [15156] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --column-view --column-offset=4 --no-merge %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--column-view --column-offset=4 --no-merge'

@@ -6,21 +6,21 @@ import os
 # there was a problem applying depth filter if it contains kernel functions
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'openclose', """
+        TestBase.__init__(self, 'openclose', serial=True, result="""
 # DURATION    TID     FUNCTION
    0.714 us [ 4435] | __monstartup();
    0.349 us [ 4435] | __cxa_atexit();
             [ 4435] | main() {
-            [ 4435] |   open() {
+            [ 4435] |   fopen() {
    6.413 us [ 4435] |     sys_open();
-   7.037 us [ 4435] |   } /* open */
-            [ 4435] |   close() {
+   7.037 us [ 4435] |   } /* fopen */
+            [ 4435] |   fclose() {
    8.389 us [ 4435] |     sys_close();
-   9.949 us [ 4435] |   } /* close */
+   9.949 us [ 4435] |   } /* fclose */
   17.632 us [ 4435] | } /* main */
 """)
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
@@ -28,8 +28,20 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        # the -T option works on replay time and accept a regex
-        # while -N option works on record time and accept a glob
-        return '%s -K3 -T %s@kernel,depth=1 -N %s@kernel -N %s@kernel %s' % \
-            (TestBase.ftrace, '^sys_', 'exit_to_usermode_loop', 'smp_irq_work_interrupt', 't-' + self.name)
+    def setup(self):
+        self.option  = '-K3 '
+        self.option += '-T ^sys_@kernel,depth=1 '
+        self.option += '-T ^__x64_@kernel,depth=1 '
+        self.option += '-N exit_to_usermode_loop@kernel '
+        self.option += '-N _*do_page_fault@kernel'
+
+    def fixup(self, cflags, result):
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+            result = result.replace('sys_', '__x64_sys_')
+
+        return result.replace(' sys_open', ' sys_openat')

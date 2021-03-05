@@ -2,8 +2,7 @@
 
 from runtest import TestBase
 import subprocess as sp
-
-TDIR='xxx'
+import os.path
 
 class TestCase(TestBase):
     def __init__(self):
@@ -13,8 +12,8 @@ uftrace file header: version       = 4
 uftrace file header: header size   = 40
 uftrace file header: endian        = 1 (little)
 uftrace file header: class         = 2 (64 bit)
-uftrace file header: features      = 0x63 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK)
-uftrace file header: info          = 0x3ff
+uftrace file header: features      = 0x363 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK | PERF_EVENT | AUTO_ARGS)
+uftrace file header: info          = 0x3bff
 
 reading 5186.dat
 58071.916834908   5186: [entry] main(400590) depth: 0
@@ -34,15 +33,13 @@ reading 5186.dat
 reading 5188.dat
 """, sort='dump')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        import os.path
+    def setup(self):
         t = 0
-        for ln in open(os.path.join(TDIR, 'task.txt')):
+        for ln in open(os.path.join('uftrace.data', 'task.txt')):
             if not ln.startswith('TASK'):
                 continue
             try:
@@ -50,19 +47,16 @@ reading 5188.dat
             except:
                 pass
         if t == 0:
-            return 'FAILED TO FIND TID'
-        return '%s dump -d %s --tid %d' % (TestBase.ftrace, TDIR, t)
+            self.subcmd = 'FAILED TO FIND TID'
+            return
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+        self.subcmd = 'dump'
+        self.option = '--tid %d' % t
 
     def fixup(self, cflags, result):
-        import platform
-
-        if platform.architecture()[0] == '32bit':
+        if TestBase.is_32bit(self):
             result = result.replace("2 (64 bit)", "1 (32 bit)")
         p = sp.Popen(['file', 't-' + self.name], stdout=sp.PIPE)
         if 'BuildID' not in p.communicate()[0].decode(errors='ignore'):
-            result = result.replace("0x3ff", "0x3fd")
+            result = result.replace("0xbff", "0xbfd")
         return result

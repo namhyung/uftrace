@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -20,14 +17,11 @@ class TestCase(TestBase):
         return TestBase.build_libmain(self, name, 's-libmain.c',
                                       ['libabc_test_lib.so'])
 
-    def pre(self):
-        record_cmd = '%s record --force -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        self.option = '--force'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s replay -d %s -F lib_b@libabc_test' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-F lib_b@libabc_test'

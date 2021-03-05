@@ -19,5 +19,5 @@ class TestCase(TestBase):
  104.119 us [11583] | } /* alloc1 */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -F "^alloc.*$" %s' % (TestBase.ftrace, 't-allocfree')
+    def setup(self):
+        self.option = '-F "^alloc.*$"'

@@ -1,10 +1,11 @@
 #include <stdlib.h>
 
-static void * alloc1(void);
-static void * alloc2(void);
-static void * alloc3(void);
-static void * alloc4(void);
-static void * alloc5(void);
+// block compiler optimizing.
+static void * alloc1(volatile int);
+static void * alloc2(volatile int);
+static void * alloc3(volatile int);
+static void * alloc4(volatile int);
+static void * alloc5(volatile int);
 
 static void free1(void *ptr);
 static void free2(void *ptr);
@@ -12,29 +13,29 @@ static void free3(void *ptr);
 static void free4(void *ptr);
 static void free5(void *ptr);
 
-static void * alloc1(void)
+static void * alloc1(volatile int one)
 {
-	return alloc2();
+	return alloc2(one);
 }
 
-static void * alloc2(void)
+static void * alloc2(volatile int one)
 {
-	return alloc3();
+	return alloc3(one);
 }
 
-static void * alloc3(void)
+static void * alloc3(volatile int one)
 {
-	return alloc4();
+	return alloc4(one);
 }
 
-static void * alloc4(void)
+static void * alloc4(volatile int one)
 {
-	return alloc5();
+	return alloc5(one);
 }
 
-static void * alloc5(void)
+static void * alloc5(volatile int one)
 {
-	return malloc(1);
+	return malloc(one);
 }
 
 static void free1(void *ptr)
@@ -64,6 +65,7 @@ static void free5(void *ptr)
 
 int main(int argc, char *argv[])
 {
-	free1(alloc1());
+	volatile int one = 1;
+	free1(alloc1(one));
 	return 0;
 }

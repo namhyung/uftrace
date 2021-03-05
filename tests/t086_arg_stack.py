@@ -32,9 +32,14 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "many@arg1/i32%stack+1,arg2/i32%stack+2" '
-        argopt += '-A "many@arg3/i32%stack+3,arg4/i32%stack+4" '
-        argopt += '-A "many@arg5/i32%stack5,arg6/i32%stack6,arg7/i32%stack7"'
+    def setup(self):
+        self.option  = '-A "many@arg1/i32%stack+1,arg2/i32%stack+2" '
+        self.option += '-A "many@arg3/i32%stack+3,arg4/i32%stack+4" '
+        self.option += '-A "many@arg5/i32%stack5,arg6/i32%stack6,arg7/i32%stack7"'
 
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+        if TestBase.is_32bit(self):
+            # i386 use stack for passing argument. so, change order.
+            self.option  = '-A "many@arg1/i32%stack+7,arg2/i32%stack+8" '
+            self.option += '-A "many@arg3/i32%stack+9,arg4/i32%stack+10" '
+            self.option += '-A "many@arg5/i32%stack11,arg6/i32%stack12,arg7/i32%stack13"'
+            # FIXME: arm has to be handled differently

@@ -3,12 +3,12 @@
 
 volatile int dummy;
 
-void foo(void)
+typedef void (*sighandler_t)(int sig);
+sighandler_t old_handler;
+
+int foo(void)
 {
-	if (dummy == 0)
-		dummy = 1;
-	else
-		dummy = 0;
+	return dummy;
 }
 
 void bar(int n)
@@ -19,6 +19,9 @@ void bar(int n)
 void sighandler(int sig)
 {
 	bar(sig);
+
+	if (old_handler != SIG_DFL)
+		old_handler(sig);
 }
 
 int main(int argc, char *argv[])
@@ -29,7 +32,7 @@ int main(int argc, char *argv[])
 		sig = atoi(argv[1]);
 
 	foo();
-	signal(sig, sighandler);
+	old_handler = signal(sig, sighandler);
 	raise(sig);
 	foo();
 

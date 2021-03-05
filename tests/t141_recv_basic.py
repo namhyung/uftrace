@@ -2,9 +2,9 @@
 
 from runtest import TestBase
 import subprocess as sp
+import os.path
 
 TDIR  = 'xxx'
-TDIR2 = 'xxx/uftrace.data'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -22,20 +22,29 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    recv_p = None
+    def prerun(self, timeout):
+        self.gen_port()
 
-    def pre(self):
-        recv_cmd = '%s recv -d %s' % (TestBase.ftrace, TDIR)
+        self.subcmd = 'recv'
+        self.option = '-d %s --port %s' % (TDIR, self.port)
+        self.exearg = ''
+        recv_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        record_cmd = '%s record -H %s %s' % (TestBase.ftrace, 'localhost', 't-abc')
+        self.subcmd = 'record'
+        self.option = '--host %s --port %s' % ('localhost', self.port)
+        self.exearg = 't-' + self.name
+        record_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -d %s' % (TestBase.ftrace, TDIR2)
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-d ' + os.path.join(TDIR, 'uftrace.data')
+        self.exearg = ''
 
-    def post(self, ret):
+    def postrun(self, ret):
         self.recv_p.terminate()
-        sp.call(['rm', '-rf', TDIR])
         return ret

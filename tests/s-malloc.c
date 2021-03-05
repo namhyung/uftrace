@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include <string.h>
 
 #define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
 
-#define MALLOC_BUFSIZE  (1024 * 1024 * 1024)
+#define MALLOC_BUFSIZE  (128 * 1024 * 1024)
 
 int malloc_count;
 int free_count;
@@ -13,7 +14,7 @@ void *malloc(size_t size)
 	static unsigned alloc_size;
 	void *ptr;
 
-	size = ALIGN(size, 8);
+	size = ALIGN(size, 16);
 	if (alloc_size + size > sizeof(buf))
 		return NULL;
 
@@ -22,6 +23,15 @@ void *malloc(size_t size)
 
 	malloc_count++;
 	return ptr;
+}
+
+void *realloc(void *ptr, size_t size)
+{
+	void *p = malloc(size);
+
+	if (ptr)
+		memcpy(p, ptr, size);
+	return p;
 }
 
 void free(void *ptr)

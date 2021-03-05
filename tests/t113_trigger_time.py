@@ -18,5 +18,5 @@ class TestCase(TestBase):
    2.086 ms [16873] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -t 1ms -T mem_alloc@time=0 %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '-t 1ms -T mem_alloc@time=0'

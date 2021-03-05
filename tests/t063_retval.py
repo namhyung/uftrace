@@ -23,13 +23,11 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt = '-A "^int_@arg1,arg2" -R "^int_@retval/i32"'
+    def setup(self):
+        self.option = '-A "^int_@arg1,arg2" -R "^int_@retval/i32"'
 
-        import platform
-        if platform.machine().startswith('arm'):
+        if TestBase.is_32bit(self):
             # int_mul@arg1 is a 'long long', so we should skip arg2
-            argopt  = '-A "int_(add|sub|div)@arg1,arg2" -A "int_mul@arg1/i64,arg3" '
-            argopt += '-R "^int_@retval/i32"'
-
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+            self.option  = '-A "int_(add|sub|div)@arg1,arg2" '
+            self.option += '-A "int_mul@arg1/i64,arg3" '
+            self.option += '-R "^int_@retval/i32"'

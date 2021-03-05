@@ -1,57 +1,47 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
-FUNC='main'
 
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'namespace', lang="C++", result="""
-#
-# function graph for 'main'
-#
+# Function Call Graph for 'main' (session: b508f628ffe7287f)
+=============== BACKTRACE ===============
+ backtrace #0: hit 1, time  17.931 us
+   [0] main (0x400790)
 
-backtrace
-================================
- backtrace #0: hit 1, time  17.930 us
-   [0] main (0x4004f0)
-
-calling functions
-================================
-  17.930 us : (1) main
-   2.472 us :  +-(2) operator new
+========== FUNCTION CALL GRAPH ==========
+  17.931 us : (1) main
+   2.087 us :  +-(2) operator new
             :  | 
-   1.106 us :  +-(1) ns::ns1::foo::foo
+   0.183 us :  +-(1) ns::ns1::foo::foo
             :  | 
-   4.968 us :  +-(1) ns::ns1::foo::bar
-   2.788 us :  |  +-(1) ns::ns1::foo::bar1
-   2.469 us :  |  | (1) ns::ns1::foo::bar2
-   2.117 us :  |  | (1) ns::ns1::foo::bar3
+   4.816 us :  +-(1) ns::ns1::foo::bar
+   2.810 us :  |  +-(1) ns::ns1::foo::bar1
+   2.536 us :  |  | (1) ns::ns1::foo::bar2
+   2.240 us :  |  | (1) ns::ns1::foo::bar3
             :  |  | 
-   1.565 us :  |  +-(1) free
+   1.356 us :  |  +-(1) free
             :  | 
-   3.924 us :  +-(2) operator delete
+   2.624 us :  +-(2) operator delete
             :  | 
-   0.092 us :  +-(1) ns::ns2::foo::foo
+   0.093 us :  +-(1) ns::ns2::foo::foo
             :  | 
-   1.917 us :  +-(1) ns::ns2::foo::bar
-   1.220 us :     +-(1) ns::ns2::foo::bar1
-   0.963 us :     | (1) ns::ns2::foo::bar2
-   0.714 us :     | (1) ns::ns2::foo::bar3
+   1.997 us :  +-(1) ns::ns2::foo::bar
+   1.286 us :     +-(1) ns::ns2::foo::bar1
+   1.017 us :     | (1) ns::ns2::foo::bar2
+   0.740 us :     | (1) ns::ns2::foo::bar3
             :     | 
-   0.240 us :     +-(1) free
+   0.187 us :     +-(1) free
 """, sort='graph')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        self.option = ''
+        self.exearg = 't-' + self.name
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s graph -d %s -D5 %s' % (TestBase.ftrace, TDIR, FUNC)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'graph'
+        self.option = '-D5'
+        self.exearg = 'main'

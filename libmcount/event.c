@@ -3,29 +3,23 @@
 #include <string.h>
 #include <unistd.h>
 #include <link.h>
-#include <libelf.h>
-#include <gelf.h>
-#include <fnmatch.h>
+#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
 #define PR_DOMAIN  DBG_EVENT
 
 #include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/list.h"
-#include "utils/compiler.h"
+#include "utils/filter.h"
 
 #define SDT_SECT  ".note.stapsdt"
 #define SDT_NAME  "stapsdt"
 #define SDT_TYPE  3
 
-struct event_spec {
-	struct list_head list;
-	char *provider;
-	char *event;
-};
-
+/* systemtap SDT data structure */
 struct stapsdt {
 	unsigned long probe_addr;
 	unsigned long link_addr;
@@ -33,7 +27,17 @@ struct stapsdt {
 	char vea[];  /* vendor + event + arguments */
 };
 
+/* user-given event specifier (may contains patterns) */
+struct event_spec {
+	struct list_head list;
+	struct uftrace_pattern provider;
+	struct uftrace_pattern event;
+};
+
+/* list of event spec */
 static LIST_HEAD(events);
+
+/* event id which is allocated dynamically */
 static unsigned event_id = EVENT_ID_USER;
 
 __weak int mcount_arch_enable_event(struct mcount_event_info *mei)
@@ -46,74 +50,53 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 	const char *name = info->dlpi_name;
 	struct mcount_event_info *mei;
 	struct list_head *spec_list = data;
-	Elf *elf;
-	int fd, ret = -1;
-	size_t shstr_idx;
-	size_t off, next, name_off, desc_off;
-	Elf_Scn *note_sec, *sec;
-	Elf_Data *note_data;
-	GElf_Nhdr nhdr;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	bool found_sdt = false;
+	int ret = -1;
 
 	if (name[0] == '\0')
 		name = read_exename();
 
-	fd = open(name, O_RDONLY);
-	if (fd < 0) {
+	if (elf_init(name, &elf) < 0) {
 		pr_dbg("error during open file: %s: %m\n", name);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = note_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+	elf_for_each_shdr(&elf, &iter) {
 		char *shstr;
-		GElf_Shdr shdr;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
+		if (iter.shdr.sh_type != SHT_NOTE)
+			continue;
 
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		/* there can be more than one note sections */
+		shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
 		if (strcmp(shstr, SDT_SECT) == 0) {
-			note_sec = sec;
+			found_sdt = true;
 			break;
 		}
 	}
 
-	if (note_sec == NULL) {
+	if (!found_sdt) {
 		ret = 0;
 		goto out;
 	}
 
-	note_data = elf_getdata(note_sec, NULL);
-	if (note_data == NULL)
-		goto elf_error;
-
 	pr_dbg2("loading sdt notes from %s\n", name);
 
-	off = 0;
-	while ((next = gelf_getnote(note_data, off, &nhdr, &name_off, &desc_off))) {
+	elf_for_each_note(&elf, &iter) {
 		struct stapsdt *sdt;
 		struct event_spec *spec;
 		char *vendor, *event, *args;
 
-		off = next;
-
-		if (strncmp(note_data->d_buf + name_off, SDT_NAME, nhdr.n_namesz))
+		if (strncmp(iter.note_name, SDT_NAME, iter.nhdr.n_namesz))
 			continue;
 
-		if (nhdr.n_type != SDT_TYPE)
+		if (iter.nhdr.n_type != SDT_TYPE)
 			continue;
 
-		sdt = note_data->d_buf + desc_off;
+		sdt = iter.note_desc;
 
 		vendor = sdt->vea;
 		event  = vendor + strlen(vendor) + 1;
@@ -126,9 +109,9 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		}
 
 		list_for_each_entry(spec, spec_list, list) {
-			if (fnmatch(spec->provider, vendor, 0) != 0)
+			if (!match_filter_pattern(&spec->provider, vendor))
 				continue;
-			if (fnmatch(spec->event, event, 0) != 0)
+			if (!match_filter_pattern(&spec->event, event))
 				continue;
 			break;
 		}
@@ -151,63 +134,59 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 
 	ret = 0;
 out:
-	elf_end(elf);
-	close(fd);
+	elf_finish(&elf);
 	return ret;
-
-elf_error:
-	pr_dbg("ELF error during checking SDT events: %s\n",
-	       elf_errmsg(elf_errno()));
-	goto out;
 }
 
-int mcount_setup_events(char *dirname, char *event_str)
+int mcount_setup_events(char *dirname, char *event_str,
+			enum uftrace_pattern_type ptype)
 {
-	char *str;
 	int ret = 0;
 	FILE *fp;
 	char *filename = NULL;
 	struct mcount_event_info *mei;
+	struct strv strv = STRV_INIT;
 	LIST_HEAD(specs);
 	struct event_spec *es, *tmp;
-	char *spec, *pos;
+	char *spec;
+	int i;
 
-	str = xstrdup(event_str);
+	strv_split(&strv, event_str, ";");
 
-	spec = strtok_r(str, ";", &pos);
-	while (spec != NULL) {
+	strv_for_each(&strv, spec, i) {
 		char *sep = strchr(spec, ':');
+		char *kernel;
 
 		if (sep) {
-			*sep = '\0';
+			*sep++ = '\0';
+
+			kernel = has_kernel_filter(sep);
+			if (kernel)
+				continue;
 
 			es = xmalloc(sizeof(*es));
-			es->provider = spec;
-			es->event = sep + 1;
+
+			init_filter_pattern(ptype, &es->provider, spec);
+			init_filter_pattern(ptype, &es->event, sep);
 			list_add_tail(&es->list, &specs);
 		}
 		else {
-			if (!strcmp(spec, "list") && list_empty(&specs))
-				break;
-			else
-				pr_dbg("ignore invalid event spec: %s\n", spec);
+			pr_dbg("ignore invalid event spec: %s\n", spec);
 		}
-
-		spec = strtok_r(NULL, ";", &pos);
 	}
 
 	dl_iterate_phdr(search_sdt_event, &specs);
 
 	list_for_each_entry_safe(es, tmp, &specs, list) {
 		list_del(&es->list);
+
+		free_filter_pattern(&es->provider);
+		free_filter_pattern(&es->event);
 		free(es);
 	}
-	free(str);
+	strv_free(&strv);
 
 	if (list_empty(&events)) {
-		if (!strcmp(event_str, "list"))
-			exit(0);
-
 		pr_dbg("cannot find any event for %s\n", event_str);
 		goto out;
 	}
@@ -216,7 +195,7 @@ int mcount_setup_events(char *dirname, char *event_str)
 
 	fp = fopen(filename, "w");
 	if (fp == NULL)
-		pr_err("cannot open file: %s\n", filename);
+		pr_err("cannot open file: %s", filename);
 
 	list_for_each_entry(mei, &events, list) {
 		fprintf(fp, "EVENT: %u %s:%s\n",
@@ -243,6 +222,37 @@ struct mcount_event_info * mcount_lookup_event(unsigned long addr)
 			return mei;
 	}
 	return NULL;
+}
+
+void mcount_list_events(void)
+{
+	LIST_HEAD(list);
+
+	dl_iterate_phdr(search_sdt_event, &list);
+}
+
+/* save an asynchronous event */
+int mcount_save_event(struct mcount_event_info *mei)
+{
+	struct mcount_thread_data *mtdp;
+
+	if (unlikely(mcount_should_stop()))
+		return -1;
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp)))
+		return -1;
+
+	if (mtdp->nr_events < MAX_EVENT) {
+		int i = mtdp->nr_events++;
+
+		mtdp->event[i].id   = mei->id;
+		mtdp->event[i].time = mcount_gettime();
+		mtdp->event[i].dsize = 0;
+		mtdp->event[i].idx   = ASYNC_IDX;
+	}
+
+	return 0;
 }
 
 void mcount_finish_events(void)

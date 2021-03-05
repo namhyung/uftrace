@@ -14,5 +14,5 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -N c %s' % (TestBase.ftrace, 't-abc')
+    def setup(self):
+        self.option = '-N c'

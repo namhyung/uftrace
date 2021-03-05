@@ -1,0 +1,3977 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif);
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body {
+        font-family: 'Droid Serif';
+        //font-family: 'Roboto', sans-serif;
+        background-color: black;
+      }
+      textarea {
+        display: none;
+      }
+      h1, h2, h3, h4 {
+        font-family: 'Yanone Kaffeesatz';
+        //font-family: 'Roboto', sans-serif;
+        //font-family: 'Arials', serif;
+        font-weight: 400;
+        margin-bottom: 0;
+      }
+      .remark-slide-content h1 { font-size: 85px; min-height: 87px; }
+      .remark-slide-content h2 { font-size: 60px; min-height: 62px; }
+      .remark-slide-content h3 { font-size: 35px; min-height: 37px; }
+      .remark-slide-content h4 { font-size: 30px; min-height: 32px; }
+      .remark-slide-content {
+        background-color: #000;
+        background-size: cover;
+        background-position: center;
+        color: #f8f8f8;
+        font-size: 24px;
+        text-shadow: 0px 0px 16px #000, 0px 0px 32px #000;
+        padding: 10px 20px 10px 20px;
+      }
+      .remark-slide-number { font-size: 20px }
+      .footnote {
+        font-size: 22px;
+        position: absolute;
+        bottom: 1.8em;
+        right: 1em;
+      }
+      .remark-container {
+        background-color: #000;
+      }
+      .remark-slide-scaler {
+        -moz-box-shadow: 0 0 30px #000;
+        -webkit-box-shadow: 0 0 30px #000;
+        box-shadow: 0 0 30px #000;
+      }
+
+      li p { line-height: 1.25em; }
+      .large { font-size: 2em; }
+      a, a > code {
+        color: rgb(100, 100, 255);
+        text-decoration: none;
+      }
+
+      /*
+      code {
+        background: #e7e8e2;
+        border-radius: 5px;
+      }
+      */
+
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono', monospace; }
+      .remark-code-span-highlighted     { background-color: #000; color: red; padding: 0px; }
+      .remark-code-line-highlighted     { background-color: #600; }
+
+      .remark-code      { font-size:  22px; }
+      .remark-code-line { min-height: 24px; }
+
+      .picture {
+        align: center;
+        width: 680px;
+        background-color: #FFF;
+      }
+      .center-image {
+        background-color: #FFF;
+        margin: 0 auto;
+        display: block;
+      }
+
+      /* Two-column layout */
+      .left-column {
+        float: left;
+        width: 49%;
+      }
+      .right-column {
+        float: right;
+        width: 49%;
+      }
+
+      /* Two-column layout */
+      .left30-column {
+        float: left;
+        width: 29%;
+      }
+      .right70-column {
+        float: right;
+        width: 69%;
+      }
+
+
+      /* Code Font Size */
+      .code-3px  .remark-code-line { font-size: 3px;  min-height: 5px;  }
+      .code-5px  .remark-code-line { font-size: 5px;  min-height: 7px;  }
+      .code-7px  .remark-code-line { font-size: 7px;  min-height: 9px;  }
+      .code-8px  .remark-code-line { font-size: 8px;  min-height: 10px; }
+      .code-9px  .remark-code-line { font-size: 9px;  min-height: 11px; }
+      .code-10px .remark-code-line { font-size: 10px; min-height: 12px; }
+      .code-11px .remark-code-line { font-size: 11px; min-height: 13px; }
+      .code-12px .remark-code-line { font-size: 12px; min-height: 14px; }
+      .code-13px .remark-code-line { font-size: 13px; min-height: 15px; }
+      .code-14px .remark-code-line { font-size: 14px; min-height: 16px; }
+      .code-15px .remark-code-line { font-size: 15px; min-height: 17px; }
+      .code-16px .remark-code-line { font-size: 16px; min-height: 18px; }
+      .code-17px .remark-code-line { font-size: 17px; min-height: 19px; }
+      .code-18px .remark-code-line { font-size: 18px; min-height: 20px; }
+      .code-19px .remark-code-line { font-size: 19px; min-height: 21px; }
+      .code-20px .remark-code-line { font-size: 20px; min-height: 22px; }
+      .code-21px .remark-code-line { font-size: 21px; min-height: 23px; }
+      .code-22px .remark-code-line { font-size: 22px; min-height: 24px; }
+      .code-23px .remark-code-line { font-size: 23px; min-height: 25px; }
+      .code-24px .remark-code-line { font-size: 24px; min-height: 26px; }
+      .code-25px .remark-code-line { font-size: 25px; min-height: 27px; }
+      .code-26px .remark-code-line { font-size: 26px; min-height: 28px; }
+      .code-27px .remark-code-line { font-size: 27px; min-height: 29px; }
+      .code-28px .remark-code-line { font-size: 28px; min-height: 30px; }
+
+      /* Colors */
+      .red      { color: red;     }
+      .green    { color: green;   }
+      .blue     { color: blue;    }
+      .yellow   { color: yellow;  }
+      .orange   { color: orange;  }
+      .grey     { color: grey;    }
+      .cyan     { color: cyan;    }
+      .magenta  { color: magenta; }
+      x-red     { color: red;     }
+      x-green   { color: green;   }
+      x-blue    { color: blue;    }
+      x-yellow  { color: yellow;  }
+      x-orange  { color: orange;  }
+      x-grey    { color: grey;    }
+      x-cyan    { color: cyan;    }
+      x-magenta { color: magenta; }
+
+      /* for TUI pages */
+      .tui .remark-code-line {
+          font-family: 'Courier New';
+          font-size: 14px;
+          min-height: 16px;
+      }
+      x-tui-blue-line  { background-color: blue; }
+      x-tui-white-line { background-color: white; color: black; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: title
+template: title-layout
+
+# uftrace
+### A function (graph) tracer for C/C++ userspace programs
+### [https://github.com/namhyung/uftrace](https://github.com/namhyung/uftrace)
+.footnote[[https://uftrace.github.io](https://uftrace.github.io)]
+
+---
+name: toc
+### Table of Contents
+- [Installation](#installation)
+- [Basic Tracing](#basic-tracing)
+  - [(user) Function Tracing](#user-tracing)
+  - [Library Function Tracing](#lib-tracing)
+  - [Linux Kernel Function Tracing](#kernel-tracing)
+  - [Event Tracing](#event-tracing)
+- Filters and Arguments
+  - [Filters](#filters)
+  - [Display Function Arguments](#args)
+  - [Arguments Detection with Debug Info](#autoargs)
+- Recorded Data Analysis
+  - [report command](#report)
+  - [dump command](#dump)
+  - [graph command](#graph)
+  - [tui command](#tui)
+- Advanced Topics
+  - [(Python) Scripting](#python)
+  - [Dynamic Tracing](#dynamic-tracing)
+  - [Full Dynamic Tracing](#full-dynamic-tracing)
+  - [Triggers for Trace Control](#trace-control)
+
+---
+### uftrace
+- The [uftrace](https://github.com/namhyung/uftrace) tool is to trace and analyze execution of a program written in C/C++.
+- It was heavily inspired by the [ftrace](https://www.kernel.org/doc/Documentation/trace/ftrace.txt) framework of the Linux kernel (especially function graph tracer) and supports userspace programs.
+- It supports various kind of commands and filters to help analysis of the program execution and performance.
+
+---
+template: picture-layout
+<img src="https://raw.githubusercontent.com/namhyung/uftrace/master/doc/uftrace-live-demo.gif" class="center-image" width="680">
+
+---
+name: installation
+### Quick Installation
+.footnote[[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md)]
+<pre>
+<code class="bash">$ git clone https://github.com/namhyung/uftrace && cd uftrace
+
+
+
+
+$ ./configure
+uftrace detected system features:
+...         prefix: /usr/local
+...         libelf: [ .green[on]  ] - more flexible ELF data handling
+...          libdw: [ .red[OFF] ] - DWARF debug info support
+...   libpython2.7: [ .red[OFF] ] - python scripting support
+...    libncursesw: [ .red[OFF] ] - TUI support
+...   cxa_demangle: [ .green[on]  ] - full demangler support with libstdc++
+...     perf_event: [ .green[on]  ] - perf (PMU) event support
+...       schedule: [ .green[on]  ] - scheduler event support
+...       capstone: [ .red[OFF] ] - full dynamic tracing support
+
+$ make
+
+$ sudo make install
+</code>
+</pre>
+---
+### Quick Installation
+.footnote[[INSTALL.md](https://github.com/namhyung/uftrace/blob/master/INSTALL.md)]
+<pre>
+<code class="bash">$ git clone https://github.com/namhyung/uftrace && cd uftrace
+
+# To install required packages
+$ sudo <a href="https://raw.githubusercontent.com/namhyung/uftrace/master/misc/install-deps.sh">./misc/install-deps.sh</a>
+
+$ ./configure
+uftrace detected system features:
+...         prefix: /usr/local
+...         libelf: [ .green[on]  ] - more flexible ELF data handling
+...          libdw: [ .green[on]  ] - DWARF debug info support
+...   libpython2.7: [ .green[on]  ] - python scripting support
+...    libncursesw: [ .green[on]  ] - TUI support
+...   cxa_demangle: [ .green[on]  ] - full demangler support with libstdc++
+...     perf_event: [ .green[on]  ] - perf (PMU) event support
+...       schedule: [ .green[on]  ] - scheduler event support
+...       capstone: [ .green[on]  ] - full dynamic tracing support
+
+$ make
+
+$ sudo make install
+</code>
+</pre>
+
+---
+name: basic-tracing
+template: title-layout
+# Basic Tracing
+### record and replay
+
+---
+### uftrace
+- uftrace is able to trace
+  - C/C++ (user space) functions
+      - compiled with -pg or -finstrument-functions
+  - Library functions
+  - Linux kernel functions
+  - Some of system events
+
+---
+name: user-tracing
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+.left-column[
+```
+$ cat foobar.c
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+```
+]
+
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+.left-column[
+```
+$ cat foobar.c
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+.left-column[
+```
+$ cat foobar.c
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+$ gcc `-pg` foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+.left-column[
+```
+$ cat foobar.c
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+$ gcc `-finstrument-functions` foobar.c
+<bar>:
+* call <__cyg_profile_func_enter@plt>
+* call <__cyg_profile_func_exit@plt>
+  ret
+
+<foo>:
+* call <__cyg_profile_func_enter@plt>
+  call <bar>
+* call <__cyg_profile_func_exit@plt>
+  ret
+
+<main>:
+* call <__cyg_profile_func_enter@plt>
+  call <foo>
+  call <bar>
+* call <__cyg_profile_func_exit@plt>
+  ret
+```
+]
+
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc foobar.c
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc `-pg` foobar.c
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ ./a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace `record` a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+.footnote[[uftrace.data](https://github.com/namhyung/uftrace/wiki/Data-Format) contains recorded data]
+- uftrace record
+  - Run a command and record its trace data
+
+<pre><code>  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ ls
+  <x-green>a.out</x-green>  foobar.c  <a href="https://github.com/namhyung/uftrace/wiki/Data-Format">uftrace.data</a>
+</code></pre>
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace replay
+  - Print recorded function trace
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace `replay`
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace live
+  - Trace functions both doing record and replay
+
+```
+  $ gcc -pg foobar.c
+
+  $ uftrace `live` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace .grey[(live)]
+  - .red[live] can be omitted
+
+```
+  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+```
+
+---
+name: lib-tracing
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
+
+```
+    $ gcc -pg foobar.c
+```
+
+.left-column[
+```
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+<bar>:
+  call <mcount@plt>
+
+  ret
+
+<foo>:
+  call <mcount@plt>
+  call <bar>
+  ret
+
+<main>:
+  call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+---
+### Library Function Tracing
+- Library Function Tracing works via .red[PLT hooking]
+  - PLT contains trampoline code for calling shared functions
+
+```
+    $ gcc -pg foobar.c
+```
+
+.left-column[
+```
+void bar() {
+  `getpid()`;
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+  bar();
+}
+```
+]
+.right-column[
+```
+<bar>:
+  call <mcount@plt>
+* call <getpid@plt> # call to PLT
+  ret
+
+<foo>:
+  call <mcount@plt>
+  call <bar>
+  ret
+
+<main>:
+  call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
+
+```
+    $ gcc -pg foobar.c
+```
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace a.out
+```
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+  - PLT contains trampoline code for calling shared functions
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace a.out
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+                [112962] |     bar() {
+       0.863 us [112962] |       `getpid`();
+       1.774 us [112962] |     } /* bar */
+       2.334 us [112962] |   } /* foo */
+                [112962] |   bar() {
+       0.176 us [112962] |     `getpid`();
+       0.666 us [112962] |   } /* bar */
+       3.663 us [112962] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --no-libcall
+  - Do not record library function invocations.
+
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace `--no-libcall` a.out
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+                [112962] |     bar() {
+//       0.863 us [112962] |       getpid();
+       1.774 us [112962] |     } /* bar */
+       2.334 us [112962] |   } /* foo */
+                [112962] |   bar() {
+//       0.176 us [112962] |     getpid();
+       0.666 us [112962] |   } /* bar */
+       3.663 us [112962] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --no-libcall
+  - Do not record library function invocations.
+
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace `--no-libcall` a.out
+    # DURATION     TID     FUNCTION
+                [112962] | main() {
+                [112962] |   foo() {
+       1.774 us [112962] |     bar();
+       2.334 us [112962] |   } /* foo */
+       0.666 us [112962] |   bar();
+       3.663 us [112962] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - new and delete library calls
+
+```
+  $ cat new-delete.cpp
+  int main()
+  {
+      int* p = new int;
+      delete p;
+  }
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - new and delete library calls
+
+```
+  $ cat new-delete.cpp
+  int main()
+  {
+      int* p = new int;
+      delete p;
+  }
+
+  $ g++ -pg new-delete.cpp
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - It shows .red[operator new] and .red[operator delete]
+
+```
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [180964] | main() {
+     2.420 us [180964] |   `operator new`();
+     3.170 us [180964] |   `operator delete`();
+    11.220 us [180964] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --nest-libcall
+  - Trace function calls between libraries.
+
+```
+  $ uftrace `--nest-libcall` a.out
+  # DURATION     TID     FUNCTION
+              [180978] | main() {
+              [180978] |   operator new() {
+
+     4.250 us [180978] |   } /* operator new */
+              [180978] |   operator delete() {
+
+     3.547 us [180978] |   } /* operator delete */
+    11.857 us [180978] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --nest-libcall
+  - Trace function calls between libraries.
+
+```
+  $ uftrace `--nest-libcall` a.out
+  # DURATION     TID     FUNCTION
+              [180978] | main() {
+              [180978] |   operator new() {
+     0.957 us [180978] |     `malloc`();
+     4.250 us [180978] |   } /* operator new */
+              [180978] |   operator delete() {
+     1.540 us [180978] |     `free`();
+     3.547 us [180978] |   } /* operator delete */
+    11.857 us [180978] | } /* main */
+```
+
+---
+name: kernel-tracing
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ uftrace a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161960] | main() {
+     7.267 us [161960] |   printf();
+     6.920 us [161960] |   fflush();
+    15.694 us [161960] | } /* main */
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ `sudo` uftrace `-k` a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161968] | main() {
+              [161968] |   printf() {
+
+
+    32.457 us [161968] |   } /* printf */
+              [161968] |   fflush() {
+
+    25.244 us [161968] |   } /* fflush */
+    59.221 us [161968] | } /* main */
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ `sudo` uftrace `-k` a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161968] | main() {
+              [161968] |   printf() {
+     7.770 us [161968] |     `sys_newfstat`();
+    11.737 us [161968] |     `__do_page_fault`();
+    32.457 us [161968] |   } /* printf */
+              [161968] |   fflush() {
+    18.637 us [161968] |     `sys_write`();
+    25.244 us [161968] |   } /* fflush */
+    59.221 us [161968] | } /* main */
+```
+---
+class: code-18px
+### Linux Kernel Function Tracing
+- -K DEPTH, --kernel-depth=DEPTH
+  - Set kernel max function depth separately.
+
+```
+      $ sudo uftrace `-K 2` a.out
+      Hello World!
+```
+---
+class: code-18px
+### Linux Kernel Function Tracing
+- -K DEPTH, --kernel-depth=DEPTH
+  - Set kernel max function depth separately.
+
+```
+      $ sudo uftrace `-K 2` a.out
+      Hello World!
+      # DURATION     TID     FUNCTION
+                  [162954] | main() {
+                  [162954] |   printf() {
+                  [162954] |     `sys_newfstat`() {
+         3.074 us [162954] |       `vfs_fstat`();
+         1.200 us [162954] |       `cp_new_stat`();
+         6.914 us [162954] |     } /* sys_newfstat */
+                  [162954] |     `__do_page_fault`() {
+         0.643 us [162954] |       `down_read_trylock`();
+         0.630 us [162954] |       `_cond_resched`();
+         2.440 us [162954] |       `find_vma`();
+         9.697 us [162954] |       `handle_mm_fault`();
+         0.690 us [162954] |       `up_read`();
+        21.813 us [162954] |     } /* __do_page_fault */
+        42.064 us [162954] |   } /* printf */
+                  [162954] |   fflush() {
+                  [162954] |     `sys_write`() {
+         0.933 us [162954] |       `__fdget_pos`();
+        18.310 us [162954] |       `vfs_write`();
+        27.117 us [162954] |     } /* sys_write */
+        30.673 us [162954] |   } /* fflush */
+        74.223 us [162954] | } /* main */
+```
+
+---
+name: event-tracing
+class: code-20px
+### Event Tracing (scheduling event)
+<pre>
+<code class="plain">        $ uftrace tests/t-fork
+        # DURATION     TID     FUNCTION
+                    [ 14528] | main() {
+         127.033 us [ 14528] |   fork();
+                    [ 14528] |   wait() {
+                    [ 14528] |     /* <x-green>linux:sched-out</x-green> */
+                    [ 14540] |   } /* fork */
+                    [ 14540] |   a() {
+                    [ 14540] |     b() {
+                    [ 14540] |       c() {
+           1.507 us [ 14540] |         getpid();
+           2.987 us [ 14540] |       } /* c */
+           3.464 us [ 14540] |     } /* b */
+           3.854 us [ 14540] |   } /* a */
+          13.394 us [ 14540] | } /* main */
+                    [ 14528] |     /* <x-green>linux:sched-in</x-green> */
+         799.270 us [ 14528] |   } /* wait */
+                    [ 14528] |   a() {
+                    [ 14528] |     b() {
+                    [ 14528] |       c() {
+           2.410 us [ 14528] |         getpid();
+           3.470 us [ 14528] |       } /* c */
+           3.833 us [ 14528] |     } /* b */
+           4.144 us [ 14528] |   } /* a */
+         952.797 us [ 14528] | } /* main */
+</code>
+</pre>
+---
+class: code-20px
+### Event Tracing (scheduling event)
+<pre>
+<code class="plain">        $ uftrace `--no-event` tests/t-fork
+        # DURATION     TID     FUNCTION
+                    [ 14528] | main() {
+         127.033 us [ 14528] |   fork();
+                    [ 14528] |   wait() {
+                    [ 14540] |   } /* fork */
+                    [ 14540] |   a() {
+                    [ 14540] |     b() {
+                    [ 14540] |       c() {
+           1.507 us [ 14540] |         getpid();
+           2.987 us [ 14540] |       } /* c */
+           3.464 us [ 14540] |     } /* b */
+           3.854 us [ 14540] |   } /* a */
+          13.394 us [ 14540] | } /* main */
+         799.270 us [ 14528] |   } /* wait */
+                    [ 14528] |   a() {
+                    [ 14528] |     b() {
+                    [ 14528] |       c() {
+           2.410 us [ 14528] |         getpid();
+           3.470 us [ 14528] |       } /* c */
+           3.833 us [ 14528] |     } /* b */
+           4.144 us [ 14528] |   } /* a */
+         952.797 us [ 14528] | } /* main */
+</code>
+</pre>
+
+---
+name: filters
+template: title-layout
+# Filters
+.footnote[[wiki/Filters](https://github.com/namhyung/uftrace/wiki/Filters)]
+
+---
+class: code-26px
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-D 2` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+//     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-D 2` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     1.083 us [112643] |   foo();
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION     TID     FUNCTION
+//              [112643] | main() {
+              [112643] |   `foo`() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     0.127 us [112643] |   bar();
+//     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | `foo`() {
+     0.190 us [112643] |   bar();
+     1.083 us [112643] | } /* foo */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Set filter to trace callers of selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Set filter to trace callers of selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-C foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   `foo`() {
+//     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -C FUNC, --caller-filter=FUNC
+  - Set filter to trace callers of selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-C foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     1.083 us [112643] |   `foo`();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-N foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+//              [112643] |   `foo`() {
+//     0.190 us [112643] |     bar();
+//     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions and their children functions.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-N foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-H foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+//              [112643] |   `foo`() {
+     0.190 us [112643] |     bar();
+//     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -H FUNC, --hide=FUNC
+  - Set filter not to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-H foo` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     0.190 us [112643] |   bar();
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+     0.190 us [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+     0.127 us [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-t 200ns` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+              [112643] |   foo() {
+//     `0.190 us` [112643] |     bar();
+     1.083 us [112643] |   } /* foo */
+//     `0.127 us` [112643] |   bar();
+     2.050 us [112643] | } /* main */
+</code></pre>
+---
+class: code-26px
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-t 200ns` a.out
+  # DURATION     TID     FUNCTION
+              [112643] | main() {
+     1.083 us [112643] |   foo();
+     2.050 us [112643] | } /* main */
+</code></pre>
+
+---
+name: args
+template: title-layout
+## Display Function Arguments
+.footnote[[wiki/Arguments](https://github.com/namhyung/uftrace/wiki/Arguments)]
+
+---
+### Display Function Arguments
+```
+    $ gcc -pg fibonacci.c
+```
+---
+### Display Function Arguments
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace a.out 5
+    fib(5) = 5
+```
+---
+### Display Function Arguments
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib() {
+                [31321] |     fib() {
+                [31321] |       fib() {
+       0.155 us [31321] |         fib();
+       0.123 us [31321] |         fib();
+       0.883 us [31321] |       } /* fib */
+       0.125 us [31321] |       fib();
+       1.483 us [31321] |     } /* fib */
+                [31321] |     fib() {
+       0.125 us [31321] |       fib();
+       0.125 us [31321] |       fib();
+       0.774 us [31321] |     } /* fib */
+       2.716 us [31321] |   } /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+### Record function arguments with -A / --argument
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace `-A fib@arg1` a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(`5`) {
+                [31321] |     fib(`4`) {
+                [31321] |       fib(`3`) {
+       0.155 us [31321] |         fib(`2`);
+       0.123 us [31321] |         fib(`1`);
+       0.883 us [31321] |       } /* fib */
+       0.125 us [31321] |       fib(`2`);
+       1.483 us [31321] |     } /* fib */
+                [31321] |     fib(`3`) {
+       0.125 us [31321] |       fib(`2`);
+       0.125 us [31321] |       fib(`1`);
+       0.774 us [31321] |     } /* fib */
+       2.716 us [31321] |   } /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+### Record function return values with -R / --retval
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace -A fib@arg1 `-R fib@retval` a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(5) {
+                [31321] |     fib(4) {
+                [31321] |       fib(3) {
+       0.155 us [31321] |         fib(2) `= 1`;
+       0.123 us [31321] |         fib(1) `= 1`;
+       0.883 us [31321] |       } `= 2`; /* fib */
+       0.125 us [31321] |       fib(2) `= 1`;
+       1.483 us [31321] |     } `= 3`; /* fib */
+                [31321] |     fib(3) {
+       0.125 us [31321] |       fib(2) `= 1`;
+       0.125 us [31321] |       fib(1) `= 1`;
+       0.774 us [31321] |     } `= 2`; /* fib */
+       2.716 us [31321] |   } `= 5`; /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+### Record function arguments with type setting
+```
+    $ clang -pg hello.c
+    $ uftrace -A printf@`arg1` a.out 
+```
+---
+### Record function arguments with type setting
+```
+    $ clang -pg hello.c
+    $ uftrace -A printf@`arg1` a.out 
+    Hello World!
+    # DURATION     TID     FUNCTION
+                [117536] | main() {
+       6.100 us [117536] |   printf(`0x40074c`);
+       7.390 us [117536] | } /* main */
+```
+---
+### Record function arguments with type setting
+```
+    $ clang -pg hello.c
+    $ uftrace -A printf@arg1`/s` a.out 
+```
+---
+### Record function arguments with type setting
+```
+    $ clang -pg hello.c
+    $ uftrace -A printf@arg1`/s` a.out 
+    Hello World!
+    # DURATION     TID     FUNCTION
+                [117594] | main() {
+     319.904 us [117594] |   printf(`"Hello World!\n"`);
+     321.521 us [117594] | } /* main */
+```
+---
+class: code-18px
+### Display Function Arguments
+- uftrace can record function arguments and return values
+  - using the .red[-A]/.red[--argument] and .red[-R]/.red[--retval] options.
+
+```
+    <argument>    :=  <symbol> "@" <specs>
+    <specs>       :=  <spec> | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <size>        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+
+---
+name: autoargs
+template: title-layout
+## Arguments Detection with Debug Info
+#### -a / --auto-args option
+.footnote[[wiki/Arguments](https://github.com/namhyung/uftrace/wiki/Arguments)]
+<pre><code class="bash">$ ./configure 
+libdw: [ .green[on]  ]</code></pre>
+
+---
+### Detect function types using debug info with -a / --auto-args
+```
+    $ gcc -pg fibonacci.c
+```
+---
+### Detect function types using debug info with -a / --auto-args
+.footnote[gcc .red[-g] produces debug info ([DWARF](http://dwarfstd.org))]
+```
+    $ gcc -pg `-g` fibonacci.c
+```
+---
+### Detect function types using debug info with -a / --auto-args
+.footnote[.red[-a]/.red[--auto-args] uses debug info to detect type info of user functions]
+```
+    $ gcc -pg `-g` fibonacci.c
+    $ uftrace `-a` a.out 5
+```
+---
+### Detect function types using debug info with -a / --auto-args
+<pre><code>    $ gcc -pg `-g` fibonacci.c
+    $ uftrace `-a` a.out 5
+    <x-orange>fib(5) = 5</x-orange>
+    # DURATION    TID     FUNCTION
+                [31321] | main(`2`, `0x7ffd62a92a18`) {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(`5`) {
+                [31321] |     fib(`4`) {
+                [31321] |       fib(`3`) {
+       0.155 us [31321] |         fib(`2`) `= 1`;
+       0.123 us [31321] |         fib(`1`) `= 1`;
+       0.883 us [31321] |       } = `2`; /* fib */
+       0.125 us [31321] |       fib(`2`) `= 1`;
+       1.483 us [31321] |     } `= 3`; /* fib */
+                [31321] |     fib(`3`) {
+       0.125 us [31321] |       fib(`2`) `= 1`;
+       0.125 us [31321] |       fib(`1`) `= 1`;
+       0.774 us [31321] |     } `= 2`; /* fib */
+       2.716 us [31321] |   } `= 5`; /* fib */
+       4.382 us [31321] |   printf(<x-orange>"fib(%d) = %d\n"</x-orange>) `= 11`;
+       9.456 us [31321] | } `= 0`; /* main */
+</code></pre>
+---
+class: code-24px
+### Detect function types using debug info with -a / --auto-args
+.footnote[-a/--auto-args is able to detect .red[enum] and .red[function pointer] types]
+<pre><code>
+    $ gcc -pg <x-red>-g</x-red> [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
+</code><pre>
+```
+    $ uftrace `-a` a.out
+    # DURATION     TID     FUNCTION
+                [117990] | main(1, 0x7ffd6b5381f8) {
+       0.437 us [117990] |   foo();
+       2.250 us [117990] |   signal(`SIGUSR1`, `&sighandler`) = 0;
+                [117990] |   raise(`SIGUSR1`) {
+                [117990] |     sighandler(10) {
+       0.240 us [117990] |       bar(10);
+       1.343 us [117990] |     } /* sighandler */
+      14.254 us [117990] |   } /* raise */
+       0.197 us [117990] |   foo();
+      22.654 us [117990] | } = 0; /* main */
+```
+---
+name: dwarf-args-clang
+class: code-11px
+<pre><code>$ uftrace replay --tid 179275 -t 5ms
+\# DURATION     TID     FUNCTION
+            [179275] | main(52, 0x7ffe180f20d8) {
+            [179275] |   cc1_main(0x7ffe180f17c0, 0x7ffe180f403f, <x-cyan>&GetExecutablePath::cxx11</x-cyan>) {
+            [179275] |     clang::CompilerInvocation::CreateFromArgs(0x15ec5be0, 0x7ffe180f17c0, 0x7ffe180f1950, 0x7ffe180f04c0) {
+            [179275] |       clang::driver::createDriverOptTable() {
+   5.356 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::OptTable(0x15ec7b70, <x-cyan>&InfoTable</x-cyan>, 0);
+   6.919 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"-std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+   6.860 <x-green>ms</x-green> [179275] |         llvm::opt::OptTable::addValues(0x15ec7b70, <x-magenta>"--std="</x-magenta>, <x-magenta>"c89,c90,iso9899:1990,iso9899:199409,gnu89,gnu90..."</x-magenta>) = 1;
+  19.213 <x-green>ms</x-green> [179275] |       } = 0x7ffe180eff70; /\* clang::driver::createDriverOptTable \*/
+  23.958 <x-green>ms</x-green> [179275] |     } = 1; /\* clang::CompilerInvocation::CreateFromArgs \*/
+            [179275] |     clang::ExecuteCompilerInvocation(0x15ec3850) {
+            [179275] |       clang::CompilerInstance::ExecuteAction(0x15ec3850, 0x15eed930) {
+            [179275] |         clang::FrontendAction::BeginSourceFile(0x15eed930, 0x15ec3850, 0x15eec700) {
+   5.804 <x-green>ms</x-green> [179275] |           clang::CompilerInstance::createPreprocessor(0x15ec3850, <x-blue>TU_Complete</x-blue>);
+  13.783 <x-green>ms</x-green> [179275] |           clang::Builtin::Context::initializeBuiltins(0x15ec9288, 0x15ec91f8, 0x15ec39d0);
+  20.387 <x-green>ms</x-green> [179275] |         } = 1; /\* clang::FrontendAction::BeginSourceFile \*/
+            [179275] |         clang::FrontendAction::Execute(0x15eed930) {
+            [179275] |           clang::CodeGenAction::ExecuteAction(0x15eed930) {
+            [179275] |             clang::ASTFrontendAction::ExecuteAction(0x15eed930) {
+            [179275] |               clang::ParseAST(0x15f45240, 0, 0) {
+            [179275] |                 clang::Parser::Initialize(0x15f4c1d0) {
+  45.142 <x-green>ms</x-green> [179275] |                   clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+  45.593 <x-green>ms</x-green> [179275] |                 } /\* clang::Parser::Initialize \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+   6.473 <x-green>ms</x-green> [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0);
+   6.475 <x-green>ms</x-green> [179275] |                           } /\* clang::Parser::ExpectAndConsumeSemi \*/
+   6.592 <x-green>ms</x-green> [179275] |                         } = 0x15f99e88; /\* clang::Parser::ParseDeclGroup \*/
+   6.660 <x-green>ms</x-green> [179275] |                       } = 0x15f99e88; /\* clang::Parser::ParseSimpleDeclaration \*/
+   6.662 <x-green>ms</x-green> [179275] |                     } = 0x15f99e88; /\* clang::Parser::ParseDeclaration \*/
+   6.663 <x-green>ms</x-green> [179275] |                   } = 0x15f99e88; /\* clang::Parser::ParseExternalDeclaration \*/
+   6.664 <x-green>ms</x-green> [179275] |                 } = 0; /\* clang::Parser::ParseTopLevelDecl \*/
+            [179275] |                 clang::Parser::ParseTopLevelDecl(0x15f4c1d0, 0x7ffe180f0098) {
+            [179275] |                   clang::Parser::ParseExternalDeclaration(0x15f4c1d0, 0x7ffe180f0000, 0) {
+            [179275] |                     clang::Parser::ParseDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000) {
+            [179275] |                       clang::Parser::ParseSimpleDeclaration(0x15f4c1d0, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0x7ffe180f0000, 1, 0) {
+            [179275] |                         clang::Parser::ParseDeclGroup(0x15f4c1d0, 0x7ffe180efc40, <x-blue>FileContext</x-blue>, 0x7ffe180eff90, 0) {
+            [179275] |                           clang::Parser::ExpectAndConsumeSemi(0x15f4c1d0, 1263) {
+            [179275] |                             clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                               clang::Preprocessor::CachingLex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                 clang::Preprocessor::Lex(0x15ec9020, 0x15f4c1e0) {
+            [179275] |                                   clang::Lexer::Lex(0x15f8b290, 0x15f4c1e0) {
+            [179275] |                                     clang::Lexer::LexTokenInternal(0x15f8b290, 0x15f4c1e0, 1) {
+</code><pre>
+
+---
+name: report
+template: title-layout
+# uftrace report
+### Print statistics and summary for trace data
+.footnote[[doc/uftrace-report.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-report.md)]
+
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg tests/s-signal.c
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report
+    Total time   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.370 us    1.086 us           1  sighandler
+      1.276 us    1.276 us           1  __cxa_atexit
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[total time] (default)
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report `-s total`
+    `Total time`   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.370 us    1.086 us           1  sighandler
+      1.276 us    1.276 us           1  __cxa_atexit
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[self time]
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report `-s self`
+    Total time   `Self time`       Calls  Function
+    ==========  ==========  ==========  ====================
+     16.474 us   15.104 us           1  raise
+     25.310 us    5.848 us           1  main
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.276 us    1.276 us           1  __cxa_atexit
+      1.370 us    1.086 us           1  sighandler
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[number of calls]
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report `-s call`
+    Total time   Self time       `Calls`  Function
+    ==========  ==========  ==========  ====================
+      0.741 us    0.741 us           2  foo
+      1.276 us    1.276 us           1  __cxa_atexit
+      3.007 us    3.007 us           1  __monstartup
+      0.284 us    0.284 us           1  bar
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      1.370 us    1.086 us           1  sighandler
+      2.247 us    2.247 us           1  signal
+```
+
+---
+name: dump
+template: title-layout
+# uftrace dump
+### with visualization
+.footnote[[doc/uftrace-dump.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-dump.md)]
+
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+- Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
+  - uftrace dump --chrome
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[<a href="https://uftrace.github.io/dump/clang.tmp.fib.html" target="_blank">open in chrome trace viewer</a>]
+- Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
+  - uftrace dump --chrome
+
+<a href="https://uftrace.github.io/dump/clang.tmp.fib.html" target="_blank">
+<img src="https://raw.githubusercontent.com/namhyung/uftrace/master/doc/uftrace-chrome.png" class="center-image" width="90%">
+</a>
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+        $ uftrace record a.out
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+        $ uftrace record a.out
+
+        $ uftrace dump `--chrome` > uftrace-dump-chrome.json
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+        $ uftrace record a.out
+
+        $ uftrace dump --chrome > uftrace-dump-chrome.json
+
+        $ `trace2html` uftrace-dump-chrome.json
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+        $ uftrace record a.out
+
+        $ uftrace dump --chrome > uftrace-dump-chrome.json
+
+        $ trace2html uftrace-dump-chrome.json
+        `uftrace-dump-chrome.html`
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+        $ uftrace record a.out
+
+        $ uftrace dump --chrome > uftrace-dump-chrome.json
+
+        $ trace2html uftrace-dump-chrome.json
+        uftrace-dump-chrome.html
+
+```
+
+- Then run a web server to open in chrome browser (if needed)
+<pre><code class="plain">    $ python -m <a href="https://docs.python.org/2/library/simplehttpserver.html">SimpleHTTPServer</a> 12345
+            or
+        $ python3 -m <a href="https://docs.python.org/3/library/http.server.html">http.server</a> 12345
+</code></pre>
+
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+- Flame graph of gcc compiling a simple c program.
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+.footnote[<a href="https://honggyukim.github.io/uftrace/v8/octane-splay/trace_splay.js.svg" target="_blank">open in browser</a>]
+- Flame graph of gcc compiling a simple c program.
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+
+<a href="https://uftrace.github.io/dump/gcc.svg" target="_blank">
+<img src="https://uftrace.github.io/dump/gcc.svg" class="center-image" width="90%">
+</a>
+
+---
+name: graph
+template: title-layout
+# uftrace graph
+### Show function call graph
+.footnote[[doc/uftrace-graph.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-graph.md)]
+
+---
+### Call graph of std::shared_ptr
+```cpp
+    $ cat shared_ptr.cc
+    #include <memory>
+
+    int main()
+    {
+        std::shared_ptr<int> sp1(new int);
+    }
+```
+---
+### Call graph of std::shared_ptr
+```cpp
+    $ cat shared_ptr.cc
+    #include <memory>
+
+    int main()
+    {
+        std::shared_ptr<int> sp1(new int);
+    }
+```
+```
+    $ g++ -std=c++11 -pg -g shared_ptr.cc
+```
+---
+### Call graph of std::shared_ptr
+```cpp
+    $ cat shared_ptr.cc
+    #include <memory>
+
+    int main()
+    {
+        std::shared_ptr<int> sp1(new int);
+    }
+```
+```
+    $ g++ -std=c++11 -pg -g shared_ptr.cc
+
+    $ uftrace record a.out
+```
+---
+### Call graph of std::shared_ptr
+```cpp
+    $ cat shared_ptr.cc
+    #include <memory>
+
+    int main()
+    {
+        std::shared_ptr<int> sp1(new int);
+    }
+```
+```
+    $ g++ -std=c++11 -pg -g shared_ptr.cc
+
+    $ uftrace record a.out
+
+    $ uftrace `graph`
+```
+---
+class: code-15px
+.footnote[aggregated call graph]
+```
+    $ uftrace `graph`
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   FUNCTION
+       20.914 us : (1) a.out
+       20.914 us : (1) main
+        1.997 us :  +-(1) operator new
+                 :  |
+        4.170 us :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(1) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                 :  |
+       10.027 us :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (1) std::__shared_count::~__shared_count
+        9.054 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(2) __gthread_active_p
+                 :     |  |
+        0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
+                 :     |
+        3.803 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (1) operator delete
+                 :     |
+        2.083 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+                 :        |
+        0.284 us :        +-(1) operator delete
+```
+---
+class: code-15px
+.footnote[.red[number of calls]]
+```
+    $ uftrace graph
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   FUNCTION
+       20.914 us : (`1`) a.out
+       20.914 us : (`1`) main
+        1.997 us :  +-(`1`) operator new
+                 :  |
+        4.170 us :  +-(`1`) std::shared_ptr::shared_ptr
+        3.797 us :  | (`1`) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(`1`) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(`1`) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(`1`) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (`1`) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (`1`) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(`1`) std::__enable_shared_from_this_helper
+                 :  |
+       10.027 us :  +-(`1`) std::shared_ptr::~shared_ptr
+        9.700 us :    (`1`) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (`1`) std::__shared_count::~__shared_count
+        9.054 us :    (`1`) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(`2`) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(`2`) __gthread_active_p
+                 :     |  |
+        0.260 us :     |  +-(`2`) __gnu_cxx::__exchange_and_add_single
+                 :     |
+        3.803 us :     +-(`1`) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (`1`) operator delete
+                 :     |
+        2.083 us :     +-(`1`) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (`1`) std::_Sp_counted_base::~_Sp_counted_base
+                 :        |
+        0.284 us :        +-(`1`) operator delete
+```
+---
+class: code-15px
+.footnote[.red[total time of each call graph]]
+```
+    $ uftrace graph
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
+    ========== FUNCTION CALL GRAPH ==========
+    # `TOTAL TIME`   FUNCTION
+       20.914 us : (1) a.out
+       20.914 us : (1) main
+        1.997 us :  +-(1) operator new
+                 :  |
+        `4.170 us` :  +-(1) `std::shared_ptr::shared_ptr`
+        3.797 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(1) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                 :  |
+       `10.027 us` :  +-(1) `std::shared_ptr::~shared_ptr`
+        9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (1) std::__shared_count::~__shared_count
+        9.054 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(2) __gthread_active_p
+                 :     |  |
+        0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
+                 :     |
+        3.803 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (1) operator delete
+                 :     |
+        2.083 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+                 :        |
+        0.284 us :        +-(1) operator delete
+```
+---
+class: code-15px
+```
+    $ uftrace graph `-f +self`
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   `SELF TIME`   FUNCTION
+       20.914 us             : (1) a.out
+       20.914 us    4.720 us : (1) main
+        1.997 us    1.997 us :  +-(1) operator new
+                             :  |
+        4.170 us    0.373 us :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us    0.677 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us    0.980 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us    0.630 us :  |  |  +-(1) operator new
+                             :  |  |  |
+        1.357 us    0.497 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us    0.630 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us    0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                             :  |  |
+        0.153 us    0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                             :  |
+       10.027 us    0.327 us :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us    0.326 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us    0.320 us :    (1) std::__shared_count::~__shared_count
+        9.054 us    1.075 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us    1.546 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us    0.287 us :     |  +-(2) __gthread_active_p
+                             :     |  |
+        0.260 us    0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
+                             :     |
+        3.803 us    0.913 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us    2.890 us :     | (1) operator delete
+                             :     |
+        2.083 us    0.386 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us    0.727 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us    0.543 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us    0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+                             :        |
+        0.284 us    0.284 us :        +-(1) operator delete
+```
+---
+class: code-15px
+```
+    $ uftrace graph `-f +self,addr`
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   `SELF TIME`     `ADDRESS`     FUNCTION
+       20.914 us                    400c3c : (1) a.out
+       20.914 us    4.720 us        400c3c : (1) main
+        1.997 us    1.997 us        400a10 :  +-(1) operator new
+                                           :  |
+        4.170 us    0.373 us        400cdf :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us    0.677 us        400d3b :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us    0.980 us        400e16 :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us    0.630 us        400a10 :  |  |  +-(1) operator new
+                                           :  |  |  |
+        1.357 us    0.497 us        400f21 :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us    0.630 us        400fd1 :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us    0.230 us        400fbd :  |  |    (1) std::_Mutex_base::_Mutex_base
+                                           :  |  |
+        0.153 us    0.153 us        400e91 :  |  +-(1) std::__enable_shared_from_this_helper
+                                           :  |
+       10.027 us    0.327 us        400cbf :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us    0.326 us        400c9b :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us    0.320 us        400d0b :    (1) std::__shared_count::~__shared_count
+        9.054 us    1.075 us        400d95 :    (1) std::_Sp_counted_base::_M_release
+        2.093 us    1.546 us        400bf4 :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us    0.287 us        400b7f :     |  +-(2) __gthread_active_p
+                                           :     |  |
+        0.260 us    0.260 us        400bc1 :     |  +-(2) __gnu_cxx::__exchange_and_add_single
+                                           :     |
+        3.803 us    0.913 us        40107f :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us    2.890 us        400960 :     | (1) operator delete
+                                           :     |
+        2.083 us    0.386 us        4010a3 :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us    0.727 us        401053 :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us    0.543 us        401013 :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us    0.143 us        400f5d :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+                                           :        |
+        0.284 us    0.284 us        400960 :        +-(1) operator delete
+```
+---
+### Task graph of GCC compiler
+- `graph` command is for function-level call graph
+- `graph --task` is for task-level (hierarchy) graph
+
+```
+    $ uftrace --force /usr/bin/gcc hello.c
+
+    $ uftrace graph `--task`
+```
+---
+### Task graph of GCC compiler
+- `graph` command is for function-level call graph
+- `graph --task` is for task-level (hierarchy) graph
+
+```
+    $ uftrace --force /usr/bin/gcc hello.c
+
+    $ uftrace graph `--task`
+    ========== TASK GRAPH ==========
+    # TOTAL TIME   SELF TIME     TID     TASK NAME
+      159.854 ms    4.440 ms  [ 82723] : gcc
+                                       :  |
+       90.951 ms   90.951 ms  [ 82734] :  +----cc1
+                                       :  |
+       17.150 ms   17.150 ms  [ 82735] :  +----as
+                                       :  |
+       45.183 ms    6.076 ms  [ 82736] :  +----collect2
+                                       :        |
+       38.880 ms   38.880 ms  [ 82737] :        +----ld
+```
+
+---
+name: tui
+template: title-layout
+# uftrace tui
+### (Interactive) Text-based User Interface
+.footnote[[doc/uftrace-tui.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-tui.md)]
+<pre><code class="bash">$ ./configure       
+libncursesw: [ .green[on]  ]</code></pre>
+
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+  <x-tui-white-line>   20.914 us : (1) a.out</x-tui-white-line>
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├─(1) std::shared_ptr::shared_ptr
+      3.797 us :  │ (1) std::__shared_ptr::__shared_ptr
+      2.967 us :  │  ├─(1) std::__shared_count::__shared_count
+      0.630 us :  │  │  ├─(1) operator new
+               :  │  │  │
+      1.357 us :  │  │  └─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.860 us :  │  │    (1) std::_Sp_counted_base::_Sp_counted_base
+      0.230 us :  │  │    (1) std::_Mutex_base::_Mutex_base
+               :  │  │
+      0.153 us :  │  └─(1) std::__enable_shared_from_this_helper
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: session c6e074b930018807 (/home/honggyu/uftrace/a.out)</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us : (1) main</x-tui-white-line>
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├─(1) std::shared_ptr::shared_ptr
+      3.797 us :  │ (1) std::__shared_ptr::__shared_ptr
+      2.967 us :  │  ├─(1) std::__shared_count::__shared_count
+      0.630 us :  │  │  ├─(1) operator new
+               :  │  │  │
+      1.357 us :  │  │  └─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.860 us :  │  │    (1) std::_Sp_counted_base::_Sp_counted_base
+      0.230 us :  │  │    (1) std::_Mutex_base::_Mutex_base
+               :  │  │
+      0.153 us :  │  └─(1) std::__enable_shared_from_this_helper
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[h]/.red[?] - Show help]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us : (1) main</x-tui-white-line>
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├─┌──────────────────────────────────────────────────────────────┐
+      3.797 us :  │ │Help: (press any key to exit)                                 │
+      2.967 us :  │ │                                                              │
+      0.630 us :  │ │ ARROW         Navigation                                     │
+               :  │ │ PgUp/Dn                                                      │
+      1.357 us :  │ │ Home/End                                                     │
+      0.860 us :  │ │ Enter         Fold/unfold graph or Select session            │
+      0.230 us :  │ │ G             Show (full) call graph                         │
+               :  │ │ g             Show call graph for this function              │
+      0.153 us :  │ │ R             Show uftrace report                            │
+               :  │ │ I             Show uftrace info                              │
+     10.027 us :  └─│ S             Change session                                 │
+      9.700 us :    │ O             Open editor                                    │
+      9.374 us :    │ c/e           Collapse/Expand graph                          │
+      9.054 us :    │ n/p           Next/Prev sibling                              │
+      2.093 us :    │ u             Move up to parent                              │
+      0.287 us :    │ l             Move to the longest executed child             │
+               :    │ j/k           Move down/up                                   │
+      0.260 us :    │ /             Search                                         │
+               :    │ <&#8203;/>/N/P       Search next/prev                               │
+      3.803 us :    │ v             Show debug message                             │
+      2.890 us :    │ h/?           Show this help                                 │
+               :    │ q             Quit                                           │
+      2.083 us :    │                                                              │
+      1.697 us :    └──────────────────────────────────────────────────────────────┘
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[Enter] - .red[Fold]/Unfold]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us :<x-red>▶</x-red>(1) main</x-tui-white-line>
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[Enter] - Fold/.red[Unfold]]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us : (1) main</x-tui-white-line>
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├─(1) std::shared_ptr::shared_ptr
+      3.797 us :  │ (1) std::__shared_ptr::__shared_ptr
+      2.967 us :  │  ├─(1) std::__shared_count::__shared_count
+      0.630 us :  │  │  ├─(1) operator new
+               :  │  │  │
+      1.357 us :  │  │  └─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.860 us :  │  │    (1) std::_Sp_counted_base::_Sp_counted_base
+      0.230 us :  │  │    (1) std::_Mutex_base::_Mutex_base
+               :  │  │
+      0.153 us :  │  └─(1) std::__enable_shared_from_this_helper
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[c]/e - .red[Collapse]/Expand graph]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us : (1) main</x-tui-white-line>
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├<x-red>▶</x-red>(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └<x-red>▶</x-red>(1) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[c/.red[e] - Collapse/.red[Expand] graph]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+  <x-tui-white-line>   20.914 us : (1) main</x-tui-white-line>
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├─(1) std::shared_ptr::shared_ptr
+      3.797 us :  │ (1) std::__shared_ptr::__shared_ptr
+      2.967 us :  │  ├─(1) std::__shared_count::__shared_count
+      0.630 us :  │  │  ├─(1) operator new
+               :  │  │  │
+      1.357 us :  │  │  └─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.860 us :  │  │    (1) std::_Sp_counted_base::_Sp_counted_base
+      0.230 us :  │  │    (1) std::_Mutex_base::_Mutex_base
+               :  │  │
+      0.153 us :  │  └─(1) std::__enable_shared_from_this_helper
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /home/honggyu/shared_ptr.cc [line:3]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[l] - Move to the longest executed child]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      <x-red>1.997 us</x-red> :  ├─(1) operator new
+               :  │
+      <x-red>4.170 us</x-red> :  ├<x-red>▶</x-red>(1) std::shared_ptr::shared_ptr
+               :  │
+  <x-tui-white-line>   <x-red>10.027 us</x-red> :  └─(1) std::shared_ptr::~shared_ptr</x-tui-white-line>
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr.h [line:93]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+  <x-tui-white-line>    9.054 us :    (1) std::_Sp_counted_base::_M_release</x-tui-white-line>
+      2.093 us :     ├─(2) __gnu_cxx::__exchange_and_add_dispatch
+      0.287 us :     │  ├─(2) __gthread_active_p
+               :     │  │
+      0.260 us :     │  └─(2) __gnu_cxx::__exchange_and_add_single
+               :     │
+      3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.686 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.284 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr.h [line:93]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[l] - Move to the longest executed child]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      <x-red>2.093 us</x-red> :     ├<x-red>▶</x-red>(2) __gnu_cxx::__exchange_and_add_dispatch
+               :     │
+  <x-tui-white-line>    <x-red>3.803 us</x-red> :     ├─(1) std::_Sp_counted_ptr::_M_dispose</x-tui-white-line>
+      2.890 us :     │ (1) operator delete
+               :     │
+      <x-red>2.083 us</x-red> :     └<x-red>▶</x-red>(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr_base.h [line:373]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[O] - Open editor]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├▶(2) __gnu_cxx::__exchange_and_add_dispatch
+               :     │
+  <x-tui-white-line>    3.803 us :     ├─(1) <x-red>std::_Sp_counted_ptr::_M_dispose</x-red></x-tui-white-line>
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: <x-red>/usr/include/c++/5/bits/shared_ptr_base.h [line:373]</x-red></x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[O] - Open editor]
+```cpp
+   357     class __weak_count;
+   358
+   359   template<_Lock_policy _Lp = __default_lock_policy>
+   360     class __shared_count;
+   361
+   362
+   363   // Counted ptr with no deleter or allocator support
+   364   template<typename _Ptr, _Lock_policy _Lp>
+   365     class _Sp_counted_ptr final : public _Sp_counted_base<_Lp>
+   366     {
+   367     public:
+   368       explicit
+   369       _Sp_counted_ptr(_Ptr __p) noexcept
+   370       : _M_ptr(__p) { }
+   371
+   372       virtual void
+*  373       _M_dispose() noexcept
+   374       { delete _M_ptr; }
+   375
+   376       virtual void
+   377       _M_destroy() noexcept
+   378       { delete this; }
+   379
+   380       virtual void*
+   381       _M_get_deleter(const std::type_info&) noexcept
+   382       { return nullptr; }
+   383
+   384       _Sp_counted_ptr(const _Sp_counted_ptr&) = delete;
+   385       _Sp_counted_ptr& operator=(const _Sp_counted_ptr&) = delete;
+   386
+   387     private:
+   388       _Ptr             _M_ptr;
+   389     };
+   390
+  /usr/include/c++/5/bits/shared_ptr_base.h [RO]                                  373,7          22%
+```
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+      9.054 us :    (1) std::_Sp_counted_base::_M_release
+      2.093 us :     ├▶(2) __gnu_cxx::__exchange_and_add_dispatch
+               :     │
+  <x-tui-white-line>    3.803 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose</x-tui-white-line>
+      2.890 us :     │ (1) operator delete
+               :     │
+      2.083 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr_base.h [line:373]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[u] - Move up to parent]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+      9.374 us :    (1) std::__shared_count::~__shared_count
+  <x-tui-white-line>    9.054 us :    (1) std::_Sp_counted_base::_M_release</x-tui-white-line>
+      2.093 us :     ├<x-red>▶</x-red>(2) __gnu_cxx::__exchange_and_add_dispatch
+               :     │
+      3.803 us :     ├<x-red>▶</x-red>(1) std::_Sp_counted_ptr::_M_dispose
+               :     │
+      2.083 us :     └<x-red>▶</x-red>(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr_base.h [line:143]</x-tui-blue-line>
+</code>
+</pre>
+---
+class: tui
+.footnote[.red[u] - Move up to parent]
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+     20.914 us : (1) a.out
+     20.914 us : (1) main
+      1.997 us :  ├─(1) operator new
+               :  │
+      4.170 us :  ├▶(1) std::shared_ptr::shared_ptr
+               :  │
+     10.027 us :  └─(1) std::shared_ptr::~shared_ptr
+      9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+  <x-tui-white-line>    9.374 us :    (1) std::__shared_count::~__shared_count</x-tui-white-line>
+      9.054 us :   <x-red>▶</x-red>(1) std::_Sp_counted_base::_M_release
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/5/bits/shared_ptr_base.h [line:656]</x-tui-blue-line>
+</code>
+</pre>
+
+---
+name: python
+template: title-layout
+# (Python) Scripting
+### uftrace record -S / uftrace script -S
+.footnote[[doc/uftrace-script.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md)]
+<pre><code class="bash">$ ./configure        
+libpython2.7: [ .green[on]  ]</code></pre>
+
+---
+### uftrace script
+- uftrace is able to run (python) script
+  - at the entry and exit for each user and library function
+---
+### uftrace script
+- uftrace is able to run (python) script
+  - at the entry and exit for each user and library function
+
+
+- Script can be executed
+  - at runtime (record time)
+      - execute a given script at record time.
+      - able to perform additional actions while target binary execution.
+          - but slow
+  - at analysis time (post processing)
+      - run a given script for a recorded data (uftrace.data)
+      - using [uftrace script](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md) command
+      - faster and more reliable
+
+---
+### uftrace script
+- uftrace script (python) APIs
+  - `uftrace_entry`(.red[ctx])
+      - runs at the entry of each function
+  - `uftrace_exit`(.red[ctx])
+      - runs at the exit of each function
+  - `uftrace_begin`(.red[ctx])
+      - runs only once at the beginning of program
+      - optional, so can be omitted
+  - `uftrace_end`()
+      - runs only once at the end of program
+      - optional, so can be omitted
+
+
+- The .red[ctx] variable is a dictionary type.
+  - including function name, tid, timestamp, etc.
+
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+```
+    $ uftrace tests/t-abc
+```
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+```
+    $ uftrace tests/t-abc
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     b() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         getpid();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace `-S scripts/simple.py` tests/t-abc
+```
+]
+.right-column[
+```
+
+
+    $ cat `scripts/simple.py`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    `program begins...`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    `def uftrace_begin(ctx):`
+    `    print("program begins...")`
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    `entry : main()`
+    `entry : a()`
+    `entry : b()`
+    `entry : c()`
+    `entry : getpid()`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    `def uftrace_entry(ctx):`
+    `    func = ctx["name"]`
+    `    print("entry : " + func + "()")`
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    `exit  : getpid()`
+    `exit  : c()`
+    `exit  : b()`
+    `exit  : a()`
+    `exit  : main()`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    `def uftrace_exit(ctx):`
+    `    func = ctx["name"]`
+    `    print("exit  : " + func + "()")`
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    exit  : getpid()
+    exit  : c()
+    exit  : b()
+    exit  : a()
+    exit  : main()
+    `program is finished`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    `def uftrace_end():`
+    `    print("program is finished")`
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    exit  : getpid()
+    exit  : c()
+    exit  : b()
+    exit  : a()
+    exit  : main()
+    program is finished
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     b() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         getpid();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+//    entry : main()
+//    entry : a()
+    entry : `b`()
+//    entry : c()
+    entry : `getpid`()
+    exit  : `getpid`()
+//    exit  : c()
+    exit  : `b`()
+//    exit  : a()
+//    exit  : main()
+    program is finished
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     `b`() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         `getpid`();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    `UFTRACE_FUNCS = ["b", "getpid"]`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    `program begins...`
+    `entry : b()`
+    `entry : getpid()`
+    `exit  : getpid()`
+    `exit  : b()`
+    `program is finished`
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     `b`() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         `getpid`();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    `UFTRACE_FUNCS = ["b", "getpid"]`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### Arguments Passing in Python Script
+- uftrace script (python) APIs
+  - `uftrace_entry`(.red[ctx])
+  - `uftrace_exit`(.red[ctx])
+  - `uftrace_begin`(.red[ctx])
+  - `uftrace_end`()
+
+```sh
+    /* context info passed to uftrace_entry(`ctx`) and uftrace_exit(`ctx`) */
+    script_context = {
+        int       tid;
+        int       depth;
+        long      timestamp;
+        long      duration;    # exit only
+        long      address;
+        string    name;
+        list      args;        # entry only (if available)
+        value     retval;      # exit  only (if available)
+    };
+
+    /* context info passed to uftrace_begin(`ctx`) */
+    script_context = {
+        bool      record;      # True if it runs at record time, otherwise False
+        string    version;     # uftrace version info
+        list      cmds;        # execution commands
+    };
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+```
+    $ uftrace record tests/t-abc
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+```
+    $ uftrace record `-S scripts/dump.py` tests/t-abc
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed by .red[uftrace_begin(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    `uftrace_begin(ctx)`
+    `  record  : True`
+    `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
+    `  cmds    : tests/t-abc`
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["record"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+    `  record  : True`
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["version"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+    `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
+      cmds    : tests/t-abc
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["cmds"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+    `  cmds    : tests/t-abc`
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed by .red[uftrace_entry(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    `18267435.348824687  87238: [entry] main(40072a) depth: 0`
+    `  args[0] <type 'long'>: 1`
+    `  args[1] <type 'long'>: 140731679137864`
+    `18267435.348891549  87238: [entry] a(4006cf) depth: 1`
+    `18267435.348912748  87238: [entry] b(4006e2) depth: 2`
+    `18267435.348926465  87238: [entry] c(4006f5) depth: 3`
+    `18267435.348939564  87238: [entry] getpid(400520) depth: 4`
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["timestamp"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    `18267435.348824687`  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    `18267435.348891549`  87238: [entry] a(4006cf) depth: 1
+    `18267435.348912748`  87238: [entry] b(4006e2) depth: 2
+    `18267435.348926465`  87238: [entry] c(4006f5) depth: 3
+    `18267435.348939564`  87238: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["tid"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  `87238`: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  `87238`: [entry] a(4006cf) depth: 1
+    18267435.348912748  `87238`: [entry] b(4006e2) depth: 2
+    18267435.348926465  `87238`: [entry] c(4006f5) depth: 3
+    18267435.348939564  `87238`: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["name"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] `main`(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] `a`(4006cf) depth: 1
+    18267435.348912748  87238: [entry] `b`(4006e2) depth: 2
+    18267435.348926465  87238: [entry] `c`(4006f5) depth: 3
+    18267435.348939564  87238: [entry] `getpid`(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["address"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(`40072a`) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(`4006cf`) depth: 1
+    18267435.348912748  87238: [entry] b(`4006e2`) depth: 2
+    18267435.348926465  87238: [entry] c(`4006f5`) depth: 3
+    18267435.348939564  87238: [entry] getpid(`400520`) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["depth"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) `depth`: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) `depth`: 1
+    18267435.348912748  87238: [entry] b(4006e2) `depth`: 2
+    18267435.348926465  87238: [entry] c(4006f5) `depth`: 3
+    18267435.348939564  87238: [entry] getpid(400520) `depth`: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["args"][0]] and .red[ctx["args"][1]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+    `  args[0] <type 'long'>: 1`
+    `  args[1] <type 'long'>: 140731679137864`
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed by .red[uftrace_exit(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    `18267435.348939564  87238: [exit ] getpid(400520) depth: 4`
+    `  retval  <type 'long'>: 87238`
+    `18267435.348926465  87238: [exit ] c(4006f5) depth: 3`
+    `  retval  <type 'long'>: 87238`
+    `18267435.348912748  87238: [exit ] b(4006e2) depth: 2`
+    `  retval  <type 'long'>: 87239`
+    `18267435.348891549  87238: [exit ] a(4006cf) depth: 1`
+    `  retval  <type 'long'>: 87238`
+    `18267435.348824687  87238: [exit ] main(40072a) depth: 0`
+    `  retval  <type 'long'>: 0`
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed using .red[ctx["retval"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    18267435.348939564  87238: [exit ] getpid(400520) depth: 4
+    `  retval  <type 'long'>: 87238`
+    18267435.348926465  87238: [exit ] c(4006f5) depth: 3
+    `  retval  <type 'long'>: 87238`
+    18267435.348912748  87238: [exit ] b(4006e2) depth: 2
+    `  retval  <type 'long'>: 87239`
+    18267435.348891549  87238: [exit ] a(4006cf) depth: 1
+    `  retval  <type 'long'>: 87238`
+    18267435.348824687  87238: [exit ] main(40072a) depth: 0
+    `  retval  <type 'long'>: 0`
+```
+---
+class: code-20px
+### Arguments Passing in Python Script ([dump.py](https://github.com/namhyung/uftrace/blob/master/scripts/dump.py))
+.footnote[printed by .red[uftrace_end()]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      record  : True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      cmds    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    18267435.348939564  87238: [exit ] getpid(400520) depth: 4
+      retval  <type 'long'>: 87238
+    18267435.348926465  87238: [exit ] c(4006f5) depth: 3
+      retval  <type 'long'>: 87238
+    18267435.348912748  87238: [exit ] b(4006e2) depth: 2
+      retval  <type 'long'>: 87239
+    18267435.348891549  87238: [exit ] a(4006cf) depth: 1
+      retval  <type 'long'>: 87238
+    18267435.348824687  87238: [exit ] main(40072a) depth: 0
+      retval  <type 'long'>: 0
+
+    `uftrace_end()`
+```
+
+---
+name: dynamic-tracing
+template: title-layout
+# Dynamic Tracing
+### dynamic function tracing enabled at runtime
+.footnote[[doc/uftrace-record.md#dynamic-tracing](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#dynamic-tracing)]
+
+---
+### Dynamic tracing
+- need (recent) compiler support
+  - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
+  - convert it to jump at runtime (load-time precisely)
+---
+### Dynamic tracing
+- need (recent) compiler support
+  - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
+  - convert it to jump at runtime (load-time precisely)
+
+
+- gcc has .red[-mnop-mcount]
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+```
+---
+### Dynamic tracing
+- need (recent) compiler support
+  - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
+  - convert it to jump at runtime (load-time precisely)
+
+
+- gcc has .red[-mnop-mcount]
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+```
+
+- clang has .red[-fxray-instrument]
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg `-mfentry -mnop-mcount` -o t-abc s-abc.c
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+
+  $ uftrace t-abc
+  `uftrace: /home/honggyu/work/uftrace/cmds/record.c:1503:check_binary`
+   ERROR: Can't find 'mcount' symbol in the 't-abc'.
+          It seems not to be compiled with -pg or -finstrument-functions flag
+          which generates traceable code.  Please check your binary file.
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+
+  $ uftrace `-P b` --no-libcall t-abc
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+
+  $ uftrace `-P b` --no-libcall t-abc
+  # DURATION     TID     FUNCTION
+     1.650 us [153473] | `b`();
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+
+  $ uftrace `-P main -P b` --no-libcall t-abc
+  # DURATION     TID     FUNCTION
+              [153493] | `main`() {
+     1.250 us [153493] |   `b`();
+     3.557 us [153493] | } /* main */
+```
+---
+### Dynamic tracing
+```
+  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+
+  $ uftrace `-P .` --no-libcall t-abc
+  some functions cannot be patched dynamically
+  # DURATION     TID     FUNCTION
+              [153515] | `main`() {
+              [153515] |   `a`() {
+              [153515] |     `b`() {
+     1.107 us [153515] |       `c`();
+     2.871 us [153515] |     } /* b */
+     3.500 us [153515] |   } /* a */
+     4.644 us [153515] | } /* main */
+```
+---
+### Dynamic tracing
+.footnote[[https://llvm.org/docs/XRay.html](https://llvm.org/docs/XRay.html)]
+```
+  $ clang++ `-fxray-instrument -fxray-instruction-threshold=1` s-abc.c
+```
+---
+### Dynamic tracing
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+
+  $ uftrace t-abc
+  `uftrace: /home/honggyu/work/uftrace/cmds/record.c:1503:check_binary`
+   ERROR: Can't find 'mcount' symbol in the 't-abc'.
+          It seems not to be compiled with -pg or -finstrument-functions flag
+          which generates traceable code.  Please check your binary file.
+```
+---
+### Dynamic tracing
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+
+  $ uftrace `-P b` --no-libcall a.out
+```
+---
+### Dynamic tracing
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+
+  $ uftrace `-P b` --no-libcall a.out
+  ==156038==Unable to determine CPU frequency for TSC accounting.
+  ==156038==Unable to determine CPU frequency.
+  ==156038==WARNING: Required CPU features missing for XRay instrumentation,
+  using emulation instead.
+  # DURATION     TID     FUNCTION
+     3.140 us [156038] | `b`();
+```
+---
+### Dynamic tracing
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+
+  $ uftrace `-P main -P b` --no-libcall a.out
+  ==156058==Unable to determine CPU frequency for TSC accounting.
+  ==156058==Unable to determine CPU frequency.
+  ==156058==WARNING: Required CPU features missing for XRay instrumentation,
+  using emulation instead.
+  # DURATION     TID     FUNCTION
+              [156058] | `main`() {
+     2.086 us [156058] |   `b`();
+     4.527 us [156058] | } /* main */
+```
+---
+### Dynamic tracing
+```
+  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+
+  $ uftrace `-P .` --no-libcall a.out
+  ==156072==Unable to determine CPU frequency for TSC accounting.
+  ==156072==Unable to determine CPU frequency.
+  ==156072==WARNING: Required CPU features missing for XRay instrumentation,
+  using emulation instead.
+  some functions cannot be patched dynamically
+  # DURATION     TID     FUNCTION
+              [156072] | `main`() {
+              [156072] |   `a`() {
+              [156072] |     `b`() {
+     2.193 us [156072] |       `c`();
+     3.893 us [156072] |     } /* b */
+     4.504 us [156072] |   } /* a */
+     5.633 us [156072] | } /* main */
+```
+
+---
+name: full-dynamic-tracing
+template: title-layout
+# Full Dynamic Tracing
+### full-dynamic function tracing without compiler support
+.footnote[[doc/uftrace-record.md#full-dynamic-tracing](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#full-dynamic-tracing)]
+<pre><code class="bash">$ ./configure    
+capstone: [ .green[on]  ]</code></pre>
+
+---
+### Full Dynamic Tracing
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+```
+]
+---
+### Full Dynamic Tracing
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `--force` a.out
+WARN: cannot open record data: /tmp/uftrace-live- ...
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+
+  ret
+
+
+<foo>:
+
+  call <bar>
+  ret
+
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P main` a.out
+# DURATION     TID     FUNCTION
+   1.420 us [ 14766] | `main`();
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P foo -P bar` a.out
+# DURATION     TID     FUNCTION
+            [ 14813] | `foo`() {
+   0.507 us [ 14813] |   `bar`();
+   4.130 us [ 14813] | } /* foo */
+   0.240 us [ 14813] | `bar`();
+```
+]
+---
+### Full Dynamic Tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches mcount call at runtime without compiler support.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P .` a.out
+# DURATION     TID     FUNCTION
+            [ 14830] | `main`() {
+            [ 14830] |   `foo`() {
+   0.303 us [ 14830] |     `bar`();
+   2.433 us [ 14830] |   } /* foo */
+   0.176 us [ 14830] |   `bar`();
+   4.917 us [ 14830] | } /* main */
+```
+]
+
+---
+name: trace-control
+template: title-layout
+# Triggers
+### Trace Control with "trace_on" / "trace_off" / "finish"
+.footnote[[doc/uftrace-record.md#triggers](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#triggers)]
+
+---
+class: code-24px
+### Trace Control Triggers
+<pre><code>
+    $ gcc -pg -g [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
+</code><pre>
+```
+    $ uftrace -a a.out
+    # DURATION     TID     FUNCTION
+                [ 17249] | main(1, 0x7fffdc926f98) {
+       0.290 us [ 17249] |   foo() = 0;
+       2.093 us [ 17249] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17249] |   raise(SIGUSR1) {
+                [ 17249] |     sighandler(10) {
+       0.257 us [ 17249] |       bar(10);
+       1.447 us [ 17249] |     } /* sighandler */
+      12.186 us [ 17249] |   } = 0; /* raise */
+       0.183 us [ 17249] |   foo() = 10;
+      19.990 us [ 17249] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (--disable)
+.footnote[.red[--disable] starts uftrace with tracing disabled]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--disable` a.out
+    WARN: cannot open record data: ... : No data available
+```
+---
+class: code-24px
+### Trace Control Triggers (trace_on)
+.footnote[.red[trace_on] trigger enables uftrace to start tracing]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `-T foo@trace_on` a.out
+    # DURATION     TID     FUNCTION
+       0.316 us [ 17381] |   `foo`() = 0;
+       2.760 us [ 17381] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17381] |   raise(SIGUSR1) {
+                [ 17381] |     sighandler(10) {
+       0.230 us [ 17381] |       bar(10);
+       1.524 us [ 17381] |     } /* sighandler */
+      13.487 us [ 17381] |   } = 0; /* raise */
+       0.183 us [ 17381] |   foo() = 10;
+      21.310 us [ 17381] | } = 0; /* main */
+```
+---
+class: code-24px
+### Trace Control Triggers (finish)
+.footnote[.red[finish] trigger is to end recording]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `-T bar@finish` a.out
+    # DURATION     TID     FUNCTION
+                [ 17407] | main(1, 0x7ffd8aa8a3e8) {
+       0.267 us [ 17407] |   foo() = 0;
+       2.210 us [ 17407] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17407] |   raise(SIGUSR1) {
+                [ 17407] |     sighandler(10) {
+                [ 17407] |       `bar`() {
+                [ 17407] |         /* linux:task-exit */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172407
+    [3] bar
+    [2] sighandler
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a `--signal SIGUSR1@finish` a.out
+    uftrace: install signal handlers to task 172467
+    # DURATION     TID     FUNCTION
+                [ 17467] | main(1, 0x7ffc5d5e8158) {
+       0.330 us [ 17467] |   foo() = 0;
+       2.113 us [ 17467] |   signal(SIGUSR1, &sighandler) = 0;
+                [ 17467] |   raise(`SIGUSR1`) {
+                [ 17467] |     sighandler(10) {
+       0.233 us [ 17467] |       bar(10);
+       1.456 us [ 17467] |     } /* sighandler */
+                [ 17467] |     /* `linux:task-exit` */
+
+    uftrace stopped tracing with remaining functions
+    ================================================
+    task: 172467
+    [1] raise
+    [0] main
+```
+---
+class: code-24px
+### Signal Trigger (--signal)
+.footnote[.red[--signal] is to register a trigger action]
+```
+
+    $ gcc -pg -g tests/s-signal.c
+
+    $ uftrace -a --disable `--signal SIGUSR1@trace_on` a.out
+    uftrace: install signal handlers to task 175678
+    # DURATION     TID     FUNCTION
+                [ 17678] |     } /* sighandler */
+       3.230 us [ 17678] |   } = 0; /* raise */
+       0.217 us [ 17678] |   foo() = 10;
+       5.700 us [ 17678] | } = 0; /* main */
+```
+
+---
+template: title-layout
+# For more information
+
+---
+### man pages
+- uftrace provides manual pages for each command
+  - [man uftrace](https://github.com/namhyung/uftrace/blob/master/doc/uftrace.md)
+  - [man uftrace record](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md)
+  - [man uftrace replay](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-replay.md)
+  - [man uftrace live](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-live.md)
+  - [man uftrace report](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-report.md)
+  - [man uftrace dump](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-dump.md)
+  - [man uftrace graph](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-graph.md)
+  - [man uftrace script](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md)
+  - [man uftrace tui](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-tui.md)
+  - [man uftrace info](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-info.md)
+  - [man uftrace recv](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-recv.md)
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script>
+      var slideshow = remark.create({
+        // Set the slideshow display ratio
+        // Default: '4:3'
+        // Alternatives: '16:9', ...
+        ratio: '4:3',
+
+        // Syntax highlighting theme
+        highlightStyle: 'ir-black',
+        highlightLanguage: 'plain',
+        highlightLines: true,
+        highlightSpans: true,
+
+        // Customize slide number label, either using a format string..
+        slideNumberFormat: '%current% / %total%',
+
+        //sourceUrl: 'extern.md',
+      }) ;
+    </script>
+    <script>
+      var comment = /(\/\*.*\*\/)/g;
+      var line_comment = /^\/\/(.*)/g;
+      var lines = document.getElementsByClassName('remark-code-line');
+      console.log(lines);
+      for (var i = 0; i < lines.length; i++) {
+          lines[i].innerHTML = lines[i].innerHTML.replace(comment, '<x-grey>$1</x-grey>');
+          lines[i].innerHTML = lines[i].innerHTML.replace(line_comment, '<x-grey>$1</x-grey>');
+      }
+
+      function rightPad(str, padch, padlen) {
+          var pad = '';
+          var tag = /<[a-z\-/]+>/g;
+          padlen -= str.replace(tag, '').length;
+          for (var j = 0; j < padlen; j++)
+              pad += padch;
+          return str + pad;
+      }
+
+      var tui_blue_lines = document.getElementsByTagName('x-tui-blue-line');
+      for (var i = 0; i < tui_blue_lines.length; i++) {
+          var elem = tui_blue_lines[i];
+          elem.innerHTML = rightPad(elem.innerHTML, ' ', 101);
+      }
+      var tui_white_lines = document.getElementsByTagName('x-tui-white-line');
+      for (var i = 0; i < tui_white_lines.length; i++) {
+          var elem = tui_white_lines[i];
+          elem.innerHTML = rightPad(elem.innerHTML, ' ', 101);
+      }
+    </script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

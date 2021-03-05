@@ -4,11 +4,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <gelf.h>
-#include <libelf.h>
 #include <link.h>
 
 #include "utils/utils.h"
+#include "utils/symbol.h"
 #include "tests/unittest.h"
 
 
@@ -19,6 +18,7 @@ TEST_CASE(unittest_framework)
 {
 	static const char hello[] = "Hello";
 
+	pr_dbg("check basic test macro\n");
 	TEST_EQ(1 + 1, 2);
 	TEST_NE(true, false);
 	TEST_GT(1 * 2, 0 * 2);
@@ -26,6 +26,7 @@ TEST_CASE(unittest_framework)
 	TEST_LT(0 * 2, 1);
 	TEST_LE(0.0, 0);
 
+	pr_dbg("check string test macro\n");
 	TEST_STREQ("Hello", hello);
 	TEST_MEMEQ("Hello", hello, sizeof(hello));
 
@@ -56,19 +57,63 @@ static const char *messages[] = {
 	"unknown result",
 };
 
-static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
+static void set_debug_domain(struct uftrace_unit_test *test)
+{
+#define DOMAIN(x)  { #x, DBG_##x }
+
+	struct {
+		char *name;
+		int domain;
+	} domains[] = {
+		DOMAIN(SYMBOL),
+		DOMAIN(DEMANGLE),
+		DOMAIN(FILTER),
+		DOMAIN(FSTACK),
+		DOMAIN(SESSION),
+		DOMAIN(KERNEL),
+		DOMAIN(MCOUNT),
+		DOMAIN(DYNAMIC),
+		DOMAIN(EVENT),
+		DOMAIN(SCRIPT),
+		DOMAIN(DWARF),
+		/* some fixup domains */
+		{ "task",       DBG_SESSION },
+		{ "argspec",    DBG_FILTER },
+		{ "trigger",    DBG_FILTER },
+	};
+	unsigned int i;
+	int count = 0;
+
+	for (i = 0; i < ARRAY_SIZE(domains); i++) {
+		if (strcasestr(test->name, domains[i].name)) {
+			dbg_domain[domains[i].domain] = debug;
+			count++;
+		}
+	}
+
+	if (count == 0)
+		dbg_domain[DBG_UFTRACE] = debug;
+}
+
+static void run_unit_test(struct uftrace_unit_test *test, int *test_stats,
+			  char *filter)
 {
 	static int count;
 	int status;
 	int ret = TEST_BAD;
+
+	if (filter && !strstr(test->name, filter))
+		return;
 
 	if (debug) {
 		printf("Testing %s...\n", test->name);
 		fflush(stdout);
 	}
 
-	if (!fork())
+	if (!fork()) {
+		set_debug_domain(test);
 		exit(test->func());
+	}
 	wait(&status);
 
 	if (WIFSIGNALED(status))
@@ -82,6 +127,8 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats)
 	test_stats[ret]++;
 	printf("[%03d] %-30s: %s\n", ++count, test->name,
 	       color ? retcodes[ret] : retcodes_nocolor[ret]);
+	if (debug)
+		printf("-------------\n");
 	fflush(stdout);
 }
 
@@ -100,75 +147,72 @@ static int find_load_base(struct dl_phdr_info *info,
 		return 1;
 
 	for (i = 0; i < info->dlpi_phnum; i++) {
-		const ElfW(Phdr) *phdr = info->dlpi_phdr + i;
-
-		if (phdr->p_type == PT_LOAD) {
-			load_base = info->dlpi_addr - phdr->p_vaddr;
+		if (info->dlpi_phdr[i].p_type == PT_LOAD) {
+			load_base = info->dlpi_addr - info->dlpi_phdr[i].p_vaddr;
 			break;
 		}
 	}
 	return 1;
 }
 
+static int sort_tests(const void *tc1, const void *tc2)
+{
+	const struct uftrace_unit_test *test1 = tc1;
+	const struct uftrace_unit_test *test2 = tc2;
+
+	/* keep unittest_framework first */
+	if (!strcmp(test1->name, "unittest_framework"))
+		return -1;
+	if (!strcmp(test2->name, "unittest_framework"))
+		return 1;
+
+	return strcmp(test1->name, test2->name);
+}
+
 static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
 {
 	char *exename;
-	int fd, len;
-	Elf *elf;
-	size_t shstr_idx, sec_size;
-	Elf_Scn *sec, *test_sec;
-	Elf_Data *data;
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
 	struct uftrace_unit_test *tcases;
+	bool found_unittest = false;
+	size_t sec_size;
 	unsigned i, num;
 	int ret = -1;
 
 	exename = read_exename();
-	fd = open(exename, O_RDONLY);
-	if (fd < 0) {
-		printf("error during load ELF header: %s: %m\n", exename);
+	if (elf_init(exename, &elf) < 0) {
+		printf("error during load ELF header: %s\n", exename);
 		return -1;
 	}
 
-	elf_version(EV_CURRENT);
-
-	elf = elf_begin(fd, ELF_C_READ_MMAP, NULL);
-	if (elf == NULL)
-		goto elf_error;
-
-	if (elf_getshdrstrndx(elf, &shstr_idx) < 0)
-		goto elf_error;
-
-	sec = test_sec = NULL;
-	while ((sec = elf_nextscn(elf, sec)) != NULL) {
+	elf_for_each_shdr(&elf, &iter) {
 		char *shstr;
-		GElf_Shdr shdr;
 
-		if (gelf_getshdr(sec, &shdr) == NULL)
-			goto elf_error;
-
-		shstr = elf_strptr(elf, shstr_idx, shdr.sh_name);
+		shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
 		if (strcmp(shstr, "uftrace.unit_test") == 0) {
-			test_sec = sec;
-			sec_size = shdr.sh_size;
+			sec_size = iter.shdr.sh_size;
+			found_unittest = true;
 			break;
 		}
 	}
 
-	if (test_sec == NULL) {
+	if (!found_unittest) {
 		printf("cannot find unit test data\n");
 		goto out;
 	}
 
 	dl_iterate_phdr(find_load_base, NULL);
 
-	data   = elf_getdata(test_sec, NULL);
 	tcases = xmalloc(sec_size);
 	num    = sec_size / sizeof(*tcases);
-	memcpy(tcases, data->d_buf, sec_size);
+
+	elf_get_secdata(&elf, &iter);
+	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
 
 	/* relocate section symbols in case of PIE */
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < num && load_base; i++) {
 		struct uftrace_unit_test *tc = &tcases[i];
 		unsigned long faddr = (unsigned long)tc->func;
 		unsigned long naddr = (unsigned long)tc->name;
@@ -180,24 +224,19 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 	       tc->name = (void *)naddr;
 	}
 
+	qsort(tcases, num, sizeof(*tcases), sort_tests);
+
 	*test_cases = tcases;
 	*test_num   = num;
 
 	ret = 0;
 
-elf_error:
-	if (ret < 0) {
-		printf("ELF error during symbol loading: %s\n",
-		       elf_errmsg(elf_errno()));
-	}
 out:
-	elf_end(elf);
-	close(fd);
-
+	elf_finish(&elf);
 	return ret;
 }
 
-static void finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
+static int finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
 {
 	int i;
 
@@ -208,6 +247,10 @@ static void finish_unit_test(struct uftrace_unit_test *test_cases, int *test_sta
 
 	printf("\n");
 	free(test_cases);
+	return test_stats[TEST_NG]
+		+ test_stats[TEST_BAD]
+		+ test_stats[TEST_SIG]
+		> 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
@@ -215,28 +258,22 @@ int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
 	return 0;
 }
 
-void mcount_return(void)
-{
-}
-
-void plthook_return(void)
-{
-}
-
-void __xray_entry(void)
-{
-}
-
-void __xray_exit(void)
-{
-}
+void mcount_return(void) {}
+void plthook_return(void) {}
+void dynamic_return(void) {}
+void __fentry__(void) {}
+void __dentry__(void) {}
+void __xray_entry(void) {}
+void __xray_exit(void) {}
 
 #undef main
 int main(int argc, char *argv[])
 {
-	struct uftrace_unit_test *test_cases;
+	struct uftrace_unit_test *test_cases = NULL;
 	int test_stats[TEST_MAX] = { };
-	size_t i, test_num;
+	size_t i, test_num = 0;
+	char *filter = NULL;
+	char *term;
 	int c;
 
 	if (setup_unit_test(&test_cases, &test_num) < 0) {
@@ -260,11 +297,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (optind < argc)
+		filter = argv[optind];
+
 	outfp = logfp = stdout;
 
-	for (i = 0; i < test_num; i++)
-		run_unit_test(&test_cases[i], test_stats);
+	term = getenv("TERM");
+	if (term && !strcmp(term, "dumb"))
+		color = false;
+	if (!isatty(STDIN_FILENO))
+		color = false;
 
-	finish_unit_test(test_cases, test_stats);
-	return 0;
+	for (i = 0; i < test_num; i++)
+		run_unit_test(&test_cases[i], test_stats, filter);
+
+	return finish_unit_test(test_cases, test_stats);
 }

@@ -14,7 +14,7 @@ class TestCase(TestBase):
             [32130] |       alloc3(1) {
             [32130] |         alloc4(1) {
             [32130] |           alloc5(1) {
-   1.850 us [32130] |             malloc();
+   1.850 us [32130] |             malloc(1);
    4.284 us [32130] |           } /* alloc5 */
   11.517 us [32130] |         } /* alloc4 */
   12.357 us [32130] |       } /* alloc3 */
@@ -41,5 +41,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s -A "alloc*@t-allocfree,arg1" %s' % (TestBase.ftrace, 't-allocfree')
+    def setup(self):
+        self.option = '-A "alloc*@t-allocfree,arg1"'

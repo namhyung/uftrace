@@ -15,5 +15,5 @@ class TestCase(TestBase):
   72.252 us [28141] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --no-libcall %s' % (TestBase.ftrace, 't-abc')
+    def setup(self):
+        self.option = '--no-libcall'

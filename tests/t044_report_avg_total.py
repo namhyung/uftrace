@@ -1,35 +1,28 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', """
-   Avg total   Min total   Max total  Function
-  ==========  ==========  ==========  ====================================
-    1.152 ms    1.152 ms    1.152 ms  main
-    1.080 ms    1.080 ms    1.080 ms  bar
-    1.078 ms    1.078 ms    1.078 ms  usleep
-   70.176 us   70.176 us   70.176 us  __monstartup   # ignore this
-    3.665 us    2.976 us    4.354 us  foo
-    1.051 us    0.868 us    1.912 us  loop
-    1.002 us    1.002 us    1.002 us  __cxa_atexit   # and this too
+   Total avg   Total min   Total max  Function
+  ==========  ==========  ==========  ====================
+   11.378 ms   11.378 ms   11.378 ms  main
+   10.537 ms   10.537 ms   10.537 ms  bar
+   10.288 ms   10.288 ms   10.288 ms  usleep
+  120.947 us  120.605 us  121.290 us  foo
+   39.967 us   39.801 us   40.275 us  loop
+    0.701 us    0.701 us    0.701 us  __monstartup   # ignore this
+    0.270 us    0.270 us    0.270 us  __cxa_atexit   # and this too
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-sort')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s report --avg-total -d %s' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '--avg-total'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .
@@ -39,7 +32,7 @@ class TestCase(TestBase):
             if ln.strip() == '':
                 continue
             line = ln.split()
-            if line[0] == 'Avg':
+            if line[1] == 'avg':
                 continue
             if line[0].startswith('='):
                 continue

@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sleep', """
 {"traceEvents":[
+{"ts":0,"ph":"M","pid":32537,"name":"process_name","args":{"name":"[32537] t-sleep"}},
+{"ts":0,"ph":"M","pid":32537,"name":"thread_name","args":{"name":"[32537] t-sleep"}},
 {"ts":56466448731,"ph":"B","pid":32537,"name":"main"},
 {"ts":56466448731,"ph":"B","pid":32537,"name":"foo"},
 {"ts":56466448742,"ph":"B","pid":32537,"name":"bar"},
@@ -23,14 +22,10 @@ class TestCase(TestBase):
 } }
 """, sort='chrome')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s dump -d %s -t 1ms --chrome' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'dump'
+        self.option = '-t 1ms --chrome'

@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 # Test that task.txt files with a tid in the SESS line still work
 
 class TestCase(TestBase):
@@ -26,19 +24,18 @@ class TestCase(TestBase):
     def build(self, name, cflags='', ldflags=''):
         ret  = TestBase.build(self, 'abc', cflags, ldflags)
         return ret
-        
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-abc')
+
+    def prerun(self, timeout):
+        self.subcmd = 'record'
+        record_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
+
         # Replace pid by tid on the SESS line to test backward-compatibility
-        sed_cmd = 'sed -i "/SESS/s/pid/tid/g" %s/task.txt' % (TDIR)
+        sed_cmd = 'sed -i "/SESS/s/pid/tid/g" uftrace.data/task.txt'
+        self.pr_debug("prerun command: " + sed_cmd)
         sp.call(sed_cmd, shell=True)
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -d %s' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
-        
+    def setup(self):
+        self.subcmd = 'replay'

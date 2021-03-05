@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
+import os.path
 
 class TestCase(TestBase):
     def __init__(self):
@@ -22,15 +20,13 @@ class TestCase(TestBase):
  849.948 us [ 1661] | } /* main */
 """)
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        import os.path
+    def setup(self):
         t = 0
-        for ln in open(os.path.join(TDIR, 'task.txt')):
+        for ln in open(os.path.join('uftrace.data', 'task.txt')):
             if not ln.startswith('TASK'):
                 continue
             try:
@@ -38,9 +34,8 @@ class TestCase(TestBase):
             except:
                 pass
         if t == 0:
-            return 'FAILED TO FIND TID'
-        return '%s replay -d %s -F main --tid %d' % (TestBase.ftrace, TDIR, t)
+            self.subcmd = 'FAILED TO FIND TID'
+            return
 
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+        self.subcmd = 'replay'
+        self.option = '-F main --tid %d' % t

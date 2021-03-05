@@ -3,7 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
 START=0
 
 class TestCase(TestBase):
@@ -18,14 +17,18 @@ class TestCase(TestBase):
     74469.340767541 | } /* main */
 """, sort='simple')
 
-    def pre(self):
+    def prerun(self, timeout):
         global START
 
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        self.subcmd = 'record'
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
 
         # find timestamp of function 'c'
-        replay_cmd = '%s replay -d %s -f time -F main' % (TestBase.ftrace, TDIR)
+        self.subcmd = 'replay'
+        self.option = '-f time -F main'
+        replay_cmd = self.runcmd()
+
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
         START = r.split('\n')[4].split()[0] # skip header, main, a and b (= 4)
@@ -33,9 +36,6 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -f time -r %s~ -d %s' % (TestBase.ftrace, START, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-f time -r %s~' % START

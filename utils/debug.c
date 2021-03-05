@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
-#include <limits.h>
 #include <inttypes.h>
 
 #include "utils/utils.h"
@@ -19,13 +18,13 @@
 #define TERM_COLOR_NORMAL	""
 #define TERM_COLOR_RESET	"\033[0m"
 #define TERM_COLOR_BOLD		"\033[1m"
-#define TERM_COLOR_RED		"\033[31m"
+#define TERM_COLOR_RED		"\033[91m"    /* bright red */
 #define TERM_COLOR_GREEN	"\033[32m"
 #define TERM_COLOR_YELLOW	"\033[33m"
-#define TERM_COLOR_BLUE		"\033[34m"
+#define TERM_COLOR_BLUE		"\033[94m"    /* bright blue */
 #define TERM_COLOR_MAGENTA	"\033[35m"
 #define TERM_COLOR_CYAN		"\033[36m"
-#define TERM_COLOR_GRAY		"\033[37m"
+#define TERM_COLOR_GRAY		"\033[90m"    /* bright black */
 
 int debug;
 FILE *logfp;
@@ -33,6 +32,15 @@ FILE *outfp;
 enum color_setting log_color;
 enum color_setting out_color;
 int dbg_domain[DBG_DOMAIN_MAX];
+
+/* colored output for argspec display */
+const char *color_reset   = TERM_COLOR_RESET;
+const char *color_bold    = TERM_COLOR_BOLD;
+const char *color_string  = TERM_COLOR_MAGENTA;
+const char *color_symbol  = TERM_COLOR_CYAN;
+const char *color_struct  = TERM_COLOR_CYAN;
+const char *color_enum    = TERM_COLOR_BLUE;
+const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_RESET TERM_COLOR_BLUE;
 
 static const struct color_code {
 	char		code;
@@ -65,18 +73,78 @@ static void color(const char *code, FILE *fp)
 
 	len = sizeof(TERM_COLOR_RESET) - 1;
 	if (fwrite(TERM_COLOR_RESET, 1, len, fp) != len)
-		pr_err("resetting terminal color failed");
+		pr_dbg("resetting terminal color failed");
 }
 
-void setup_color(enum color_setting color)
+static bool check_busybox(const char *pager)
+{
+	struct strv path_strv = STRV_INIT;
+	char buf[PATH_MAX];
+	char *path;
+	int i;
+	bool ret = false;
+
+	if (pager == NULL)
+		return false;
+
+	if (pager[0] == '/')
+		goto check;
+
+	/* search "PATH" env for absolute path */
+	strv_split(&path_strv, getenv("PATH"), ":");
+	strv_for_each(&path_strv, path, i) {
+		snprintf(buf, sizeof(buf), "%s/%s", path, pager);
+
+		if (!access(buf, X_OK)) {
+			pager = buf;
+			break;
+		}
+	}
+	strv_free(&path_strv);
+
+check:
+	path = realpath(pager, NULL);
+	if (path) {
+		ret = !strncmp("busybox", basename(path), 7);
+		free(path);
+	}
+
+	return ret;
+}
+
+void setup_color(enum color_setting color, char *pager)
 {
 	if (likely(color == COLOR_AUTO)) {
-		log_color = isatty(fileno(logfp)) ? COLOR_ON : COLOR_OFF;
-		out_color = isatty(fileno(outfp)) ? COLOR_ON : COLOR_OFF;
+		char *term = getenv("TERM");
+		bool dumb = term && !strcmp(term, "dumb");
+		bool busybox = false;
+
+		out_color = COLOR_ON;
+		log_color = COLOR_ON;
+
+		if (pager) {
+			/* less in the busybox doesn't support color */
+			busybox = check_busybox(pager);
+		}
+
+		if (!isatty(fileno(outfp)) || dumb || busybox)
+			out_color = COLOR_OFF;
+		if (!isatty(fileno(logfp)) || dumb || busybox)
+			log_color = COLOR_OFF;
 	}
 	else {
 		log_color = color;
 		out_color = color;
+	}
+
+	if (out_color != COLOR_ON) {
+		color_reset   = "";
+		color_bold    = "";
+		color_string  = "";
+		color_symbol  = "";
+		color_struct  = "";
+		color_enum    = "";
+		color_enum_or = "|";
 	}
 }
 
@@ -85,19 +153,6 @@ void __pr_dbg(const char *fmt, ...)
 	va_list ap;
 
 	color(TERM_COLOR_GRAY, logfp);
-
-	va_start(ap, fmt);
-	vfprintf(logfp, fmt, ap);
-	va_end(ap);
-
-	color(TERM_COLOR_RESET, logfp);
-}
-
-void __pr_log(const char *fmt, ...)
-{
-	va_list ap;
-
-	color(TERM_COLOR_BOLD, logfp);
 
 	va_start(ap, fmt);
 	vfprintf(logfp, fmt, ap);
@@ -182,9 +237,9 @@ void __pr_color(char code, const char *fmt, ...)
 	color(TERM_COLOR_RESET, outfp);
 }
 
-void print_time_unit(uint64_t delta_nsec)
+static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
-	uint64_t delta = delta_nsec;
+	uint64_t delta = llabs(delta_nsec);
 	uint64_t delta_small = 0;
 	char *units[] = { "us", "ms", " s", " m", " h", };
 	char *color_units[] = {
@@ -199,6 +254,8 @@ void print_time_unit(uint64_t delta_nsec)
 	unsigned idx;
 
 	if (delta_nsec == 0UL) {
+		if (needs_sign)
+			pr_out(" ");
 		pr_out("%7s %2s", "", "");
 		return;
 	}
@@ -222,28 +279,113 @@ void print_time_unit(uint64_t delta_nsec)
 	else
 		unit = units[idx];
 
-	pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+	if (needs_sign) {
+		const char *signs[] = { "+", "-" };
+		const char *color_signs[] = {
+			TERM_COLOR_RED     "+",
+			TERM_COLOR_MAGENTA "+",
+			TERM_COLOR_NORMAL  "+",
+			TERM_COLOR_BLUE    "-",
+			TERM_COLOR_CYAN    "-",
+			TERM_COLOR_NORMAL  "-",
+		};
+		int sign_idx = (delta_nsec > 0);
+		int indent = (delta >= 100) ? 0 : (delta >= 10) ? 1 : 2;
+		const char *sign = signs[sign_idx];
+		const char *ends = TERM_COLOR_NORMAL;
+
+		if (out_color == COLOR_ON) {
+			if (delta_nsec >= 100000)
+				sign_idx = 0;
+			else if (delta_nsec >= 5000)
+				sign_idx = 1;
+			else if (delta_nsec > 0)
+				sign_idx = 2;
+			else if (delta_nsec <= -100000)
+				sign_idx = 3;
+			else if (delta_nsec <= -5000)
+				sign_idx = 4;
+			else
+				sign_idx = 5;
+
+			sign = color_signs[sign_idx];
+			ends = TERM_COLOR_RESET;
+		}
+
+		pr_out("%*s%s%"PRId64".%03"PRIu64"%s %s", indent, "",
+		       sign, delta, delta_small, ends, unit);
+	}
+	else
+		pr_out("%3"PRIu64".%03"PRIu64" %s", delta, delta_small, unit);
+}
+
+void print_time_unit(uint64_t delta_nsec)
+{
+	__print_time_unit(delta_nsec, false);
 }
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
-	double percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
-	char *color = percent > 20 ? TERM_COLOR_RED :
-		percent > 3 ? TERM_COLOR_MAGENTA :
-		percent < -20 ? TERM_COLOR_BLUE :
-		percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+	double percent = 999.99;
+	const char *sc = TERM_COLOR_NORMAL;
+	const char *ec = TERM_COLOR_NORMAL;
 
-	if (percent == 0) {
-		pr_out(" %7s ", "");
+	if (base_nsec == 0) {
+		pr_out("%s%7s%s ", TERM_COLOR_RED, "N/A", ec);
 		return;
 	}
+	if (pair_nsec == 0) {
+		pr_out("%s%7s%s ", TERM_COLOR_BLUE, "N/A", ec);
+		return;
+	}
+
+	percent = 100.0 * (int64_t)(pair_nsec - base_nsec) / base_nsec;
 
 	/* for some error cases */
 	if (percent > 999.99)
 		percent = 999.99;
+	else if (percent < -999.99)
+		percent = -999.99;
 
-	if (out_color == COLOR_ON)
-		pr_out(" %s%+7.2f%%%s", color, percent, TERM_COLOR_RESET);
+	if (out_color == COLOR_ON) {
+		sc = percent > 30 ? TERM_COLOR_RED :
+			percent > 3 ? TERM_COLOR_MAGENTA :
+			percent < -30 ? TERM_COLOR_BLUE :
+			percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
+		ec = TERM_COLOR_RESET;
+	}
+
+	pr_out("%s%+7.2f%s%%", sc, percent, ec);
+}
+
+void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
+{
+	if (base_nsec == pair_nsec)
+		pr_out("%11s", "0 us");
 	else
-		pr_out(" %+7.2f%%", percent);
+		__print_time_unit(pair_nsec - base_nsec, true);
+}
+
+void print_diff_count(uint64_t base, uint64_t pair)
+{
+	const char *diff_colors[] = {
+		TERM_COLOR_RED,
+		TERM_COLOR_BLUE,
+	};
+	const char *sc = TERM_COLOR_NORMAL;
+	const char *ec = TERM_COLOR_NORMAL;
+	int sign_idx = (pair < base);
+	int64_t diff = pair - base;
+
+	if (diff == 0) {
+		pr_out("%9s", "+0");
+		return;
+	}
+
+	if (out_color == COLOR_ON) {
+		sc = diff_colors[sign_idx];
+		ec = TERM_COLOR_RESET;
+	}
+
+	pr_out("%s%+9"PRId64"%s", sc, diff, ec);
 }

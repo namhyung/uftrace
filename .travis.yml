@@ -1,15 +1,22 @@
 language: c
 
-# Ubuntu 14.04 LTS
-dist: trusty
+arch:
+  - amd64
+  - arm64
+
+compiler:
+  - gcc
+
+# Ubuntu 16.04 LTS
+dist: xenial
 
 sudo: required
 
 install:
 - sudo apt-get -qq update
-- sudo apt-get -y  install libelf-dev libstdc++-4.8-dev pandoc
+- sudo misc/install-deps.sh -y
 
-script: ./configure && make
+script: ./configure && make ASAN=1 && make ASAN=1 unittest
 
 env:
   global:

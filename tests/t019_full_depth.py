@@ -16,5 +16,5 @@ class TestCase(TestBase):
  120.407 us [30388] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -D3 %s' % (TestBase.ftrace, 't-allocfree')
+    def setup(self):
+        self.option = '-D3'

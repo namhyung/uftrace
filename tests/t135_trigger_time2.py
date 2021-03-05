@@ -24,14 +24,21 @@ class TestCase(TestBase):
    2.192 ms [27437] | } /* main */
 """, sort='simple')
 
-    def pre(self):
+    def prerun(self, timeout):
         global TIME, UNIT
 
-        record_cmd = '%s record -F main -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
+        self.subcmd = 'record'
+        self.option = '-F main'
+        record_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
         # find timestamp of function 'malloc'
-        replay_cmd = '%s replay -d %s -F malloc' % (TestBase.ftrace, TDIR)
+        self.subcmd = 'replay'
+        self.option = '-F malloc'
+        replay_cmd = self.runcmd()
+        self.pr_debug("prerun command: " + replay_cmd)
+
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
         TIME, UNIT = r.split('\n')[1].split()[0:2] # skip header
@@ -40,9 +47,6 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s replay -T main@time=%.3f%s -d %s' % (TestBase.ftrace, TIME, UNIT, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'replay'
+        self.option = '-T main@time=%.3f%s' % (TIME, UNIT)

@@ -25,13 +25,12 @@ class TestCase(TestBase):
   76.629 us [22757] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --demangle=full -N "ns2.*" %s' % (TestBase.ftrace, 't-namespace')
+    def setup(self):
+        self.option = '--demangle=full -N "ns2.*"'
 
     def fixup(self, cflags, result):
-       import platform
-       if platform.machine().startswith('arm'):
-               return result.replace('unsigned long', 'unsigned int')
+        if TestBase.is_32bit(self):
+            return result.replace('unsigned long', 'unsigned int')
 
-       return result.replace('delete(void*);',
-                             'delete(void*, unsigned long);')
+        return result.replace('delete(void*);',
+                              'delete(void*, unsigned long);')

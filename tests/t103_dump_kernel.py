@@ -4,12 +4,12 @@ from runtest import TestBase
 import subprocess as sp
 import os
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'getids', """
+        TestBase.__init__(self, 'getids', serial=True, result="""
 {"traceEvents":[
+{"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":{'name': 't-getids'}},
+{"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":{'name': 't-getids'}},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"main"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},
@@ -48,28 +48,39 @@ class TestCase(TestBase):
 } }
 """, sort='chrome')
 
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
             return TestBase.TEST_SKIP
 
-        record_cmd = '%s record -k -N %s@kernel -d %s %s' % \
-                     (TestBase.ftrace, 'smp_irq_work_interrupt', TDIR, 't-' + self.name)
+        self.subcmd = 'record'
+        self.option = '-k'
+        record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s dump -k --chrome -d %s' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'dump'
+        self.option = '-k --chrome'
 
     def fixup(self, cflags, result):
-        return result.replace("""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
-{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""",
-"""{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+        result = result.replace("""\
+{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
+""",
+"""\
+{"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"sys_getpid"},
 {"ts":14510734172,"ph":"E","pid":32687,"name":"sys_getpid"},
-{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},""")
+{"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
+""")
+        uname = os.uname()
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+            result = result.replace('sys_get', '__x64_sys_get')
+
+        return result

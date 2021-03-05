@@ -4,18 +4,6 @@
 jmp_buf env1;
 jmp_buf env2;
 
-int set(int i)
-{
-	int ret;
-
-	if (i == 1)
-		ret = setjmp(env1);
-	else
-		ret = setjmp(env2);
-
-	return ret;
-}
-
 int foo(int i)
 {
 	if (i == 1)
@@ -43,10 +31,10 @@ int main(int argc, char *argv[])
 {
 	int ret;
 
-	ret = set(1);
+	ret = setjmp(env1);
 	getpid();
 	if (ret == 0)
-		ret = set(2);
+		ret = setjmp(env2);
 
 	if (ret == 0)
 		foo(1);

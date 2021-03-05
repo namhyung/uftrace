@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 class TestCase(TestBase):
     def __init__(self):
@@ -20,14 +17,10 @@ class TestCase(TestBase):
     1.140 us    1.140 us           1  __cxa_atexit
 """, sort='report')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s report -d %s -D 3' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'report'
+        self.option = '-D 3'

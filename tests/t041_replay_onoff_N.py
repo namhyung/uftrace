@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 from runtest import TestBase
-import subprocess as sp
-
-TDIR='xxx'
 
 # in this case, malloc() in ns2 was already filtered out,
 # so 'trace-off' trigger cannot be fired and shows delete() and main exit.
@@ -22,15 +19,11 @@ class TestCase(TestBase):
  143.705 us [29826] | } /* main */
 """, sort='simple')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-namespace')
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s replay -d %s --disable -N "ns2.*" -T "operator new@trace-on" -T "malloc@traceoff"' % \
-            (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd  = 'replay'
+        self.option  = "--disable -N 'ns2.*' -T 'operator new@trace-on' "
+        self.option += "-T 'malloc@traceoff'"

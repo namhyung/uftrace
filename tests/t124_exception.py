@@ -7,7 +7,7 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'exception', lang='C++', result="""
 # DURATION    TID     FUNCTION
    2.777 us [10827] | __cxa_atexit();
-            [10827] | foo() {
+            [10827] | _GLOBAL__sub_I__Z3foov() {
             [10827] |   __static_initialization_and_destruction_0() {
  108.818 us [10827] |     std::ios_base::Init::Init();
    0.350 us [10827] |     __cxa_atexit();
@@ -19,15 +19,18 @@ class TestCase(TestBase):
             [10827] |     oops() {
    1.752 us [10827] |       __cxa_allocate_exception();
    0.088 us [10827] |       std::exception::exception();
-   9.640 us [10827] |       __gxx_personality_v0();
-   9.640 us [10827] |       __gxx_personality_v0();
-   9.640 us [10827] |       __gxx_personality_v0();
   84.367 us [10827] |     } /* oops */
-   9.640 us [10827] |     __gxx_personality_v0();
-   1.903 us [10827] |     __gxx_personality_v0();
-   0.873 us [10827] |     std::exception::~exception();
   84.652 us [10827] |   } /* test */
    0.090 us [10827] |   bar();
   85.590 us [10827] | } /* main */
-   2.352 us [10827] | std::ios_base::Init::~Init();
 """)
+
+    def setup(self):
+        self.option = '-N personality_v.'
+
+    def fixup(self, cflags, result):
+        r = result.replace("} /* oops */", """} /* oops */
+   0.088 us [10827] |     std::exception::~exception();""")
+        r = r.replace("} /* main */", """} /* main */
+ 108.818 us [10827] | std::ios_base::Init::~Init();""")
+        return r

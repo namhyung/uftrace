@@ -7,12 +7,12 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'std-string', lang='C++', result="""
 # DURATION    TID     FUNCTION
             [71555] | main() {
-   7.549 us [71555] |   std_string_arg("Hello");
-   0.218 us [71555] |   std_string_arg("World!");
-   0.150 us [71555] |   std_string_arg("std::string support is done!");
-   0.240 us [71555] |   std_string_ret::cxx11() = "Hello";
-   0.124 us [71555] |   std_string_ret::cxx11() = "World!";
-   0.110 us [71555] |   std_string_ret::cxx11() = "std::string support is done!";
+   7.549 us [71555] |   std_string_arg("Hello"s);
+   0.218 us [71555] |   std_string_arg("World!"s);
+   0.150 us [71555] |   std_string_arg("std::string support is done!"s);
+   0.240 us [71555] |   std_string_ret::cxx11() = "Hello"s;
+   0.124 us [71555] |   std_string_ret::cxx11() = "World!"s;
+   0.110 us [71555] |   std_string_ret::cxx11() = "std::string support is done!"s;
   10.346 us [71555] | } /* main */
 """)
 
@@ -27,9 +27,7 @@ class TestCase(TestBase):
     def fixup(self, cflags, result):
         return result.replace("std_string_ret::cxx11()", "std_string_ret()")
 
-    def runcmd(self):
-        arg = '-A ^std_string_arg@arg1/S'
-        retval = '-R ^std_string_ret@retval/S'
-        opts = '-F main -F ^std_string_ -D 1'
-        name = 't-' + self.name
-        return '%s %s %s %s %s' % (TestBase.ftrace, arg, retval, opts, name)
+    def setup(self):
+        self.option  = '-A ^std_string_arg@arg1/S '
+        self.option += '-R ^std_string_ret@retval/S '
+        self.option += '-F main -F ^std_string_ -D 1'

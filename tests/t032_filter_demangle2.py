@@ -12,5 +12,5 @@ class TestCase(TestBase):
    0.317 us [30174] | operator delete();
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s -F "^operator" %s' % (TestBase.ftrace, 't-namespace')
+    def setup(self):
+        self.option = '-F "^operator"'

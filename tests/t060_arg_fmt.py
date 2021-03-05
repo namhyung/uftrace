@@ -21,6 +21,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt = '-A "int_add@arg1/i32,arg2/u" -A "int_div@arg1/i16,arg2/x8"'
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+    def setup(self):
+        self.option = '-A "int_add@arg1/i32,arg2/u" -A "int_div@arg1/i16,arg2/x8"'

@@ -25,5 +25,7 @@ class TestCase(TestBase):
  199.848 us [ 3336] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s %s' % (TestBase.ftrace, 't-' + self.name)
+    def fixup(self, cflags, result):
+        return result.replace('tsd_dtor();', """tsd_dtor() {
+   0.347 us [ 3336] |     free();
+   0.549 us [ 3336] |   } /* tsd_dtor */""")

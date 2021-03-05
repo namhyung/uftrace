@@ -15,5 +15,5 @@ class TestCase(TestBase):
    3.017 us [28141] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -E uftrace:* %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '-E uftrace:* --match glob'

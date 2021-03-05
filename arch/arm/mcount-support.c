@@ -7,8 +7,7 @@
 # define EF_ARM_ABI_FLOAT_HARD  EF_ARM_VFP_FLOAT
 #endif
 
-#include "mcount-arch.h"
-#include "libmcount/mcount.h"
+#include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
@@ -21,46 +20,22 @@ struct lr_offset {
 
 #define REG_SP  13
 
-static struct rb_root offset_cache = RB_ROOT;
+/* whether current machine supports hardfp */
 static bool use_hard_float = false;
+
+#ifdef HAVE_ARM_HARDFP
+/* need to check hardfp at runtime */
 static bool float_abi_checked = false;
+#else
+/* disable hardfp as it's not supported */
+static bool float_abi_checked = true;
+#endif
 
 struct offset_entry {
 	struct rb_node node;
 	unsigned long  addr;
 	unsigned long  offset;
 };
-
-static struct offset_entry *lookup_cache(struct rb_root *root,
-					 unsigned long addr, bool create)
-{
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct offset_entry *iter;
-
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct offset_entry, node);
-
-		if (iter->addr == addr)
-			return iter;
-
-		if (iter->addr > addr)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	if (!create)
-		return NULL;
-
-	iter = xmalloc(sizeof(*iter));
-	iter->addr = addr;
-
-	rb_link_node(&iter->node, parent, p);
-	rb_insert_color(&iter->node, root);
-	return iter;
-}
 
 static unsigned rotate_right(unsigned val, unsigned bits, unsigned shift)
 {
@@ -218,6 +193,12 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 		if (lr->pushed)
 			lr->offset += imm;
 	}
+	else if ((opcode & 0xf800) == 0x4800) {
+		/* LDR [PC + imm] */
+	}
+	else if ((opcode & 0xfff0) == 0xf8d0) {
+		/* LDR.W (reg + imm) */
+	}
 	else {
 		pr_err_ns("cannot analyze insn: %hx\n", opcode);
 	}
@@ -256,7 +237,9 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	struct lr_offset lr = {
 		.offset = 0,
 	};
-	struct offset_entry *cache;
+	struct uftrace_mmap *map;
+	uint64_t map_start_addr = 0;
+	uint64_t load_addr;
 
 	sym = find_symtabs(symtabs, child_ip);
 	if (sym == NULL)
@@ -266,17 +249,15 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 	if ((sym->addr & 1) == 0)
 		return parent_loc;
 
-	cache = lookup_cache(&offset_cache, sym->addr, false);
-	if (cache)
-		return parent_loc + cache->offset;
+	map = find_map(symtabs, child_ip);
+	if (map != NULL && map != MAP_KERNEL)
+		map_start_addr = map->start;
+	load_addr = sym->addr + map_start_addr;
 
-	pr_dbg2("copying instructions of %s\n", sym->name);
-	memcpy(buf, (void *)(long)(sym->addr & ~1), sizeof(buf));
+	pr_dbg2("copying instructions of %s from %#x\n", sym->name, load_addr);
+	memcpy(buf, (void *)(long)(load_addr & ~1), sizeof(buf));
 
 	analyze_mcount_instructions(buf, &lr);
-
-	cache = lookup_cache(&offset_cache, sym->addr, true);
-	cache->offset = lr.offset;
 
 	return parent_loc + lr.offset;
 }
@@ -289,7 +270,7 @@ int check_float_abi_cb(struct dl_phdr_info *info, size_t size, void *data)
 		const Elf32_Phdr *phdr = info->dlpi_phdr + i;
 
 		if (phdr->p_type == PT_LOAD) {
-			Elf32_Ehdr *ehdr = (void *)phdr->p_vaddr;
+			Elf32_Ehdr *ehdr = (void *)info->dlpi_addr + phdr->p_vaddr;
 			use_hard_float = ehdr->e_flags & EF_ARM_ABI_FLOAT_HARD;
 			break;
 		}
@@ -305,7 +286,7 @@ void check_float_abi(void)
 }
 
 int mcount_get_register_arg(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -317,9 +298,9 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	case ARG_TYPE_FLOAT:
 		if (use_hard_float) {
 			if (spec->size <= 4)
-				reg_idx = spec->idx + ARM_REG_FLOAT_BASE;
+				reg_idx = spec->idx + UFT_ARM_REG_FLOAT_BASE;
 			else
-				reg_idx = spec->idx + ARM_REG_DOUBLE_BASE;
+				reg_idx = spec->idx + UFT_ARM_REG_DOUBLE_BASE;
 			break;
 		}
 		/* fall through */
@@ -334,94 +315,98 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	}
 
 	switch (reg_idx) {
-	case ARM_REG_R0:
+	case UFT_ARM_REG_R0:
 		ctx->val.i = ARG1(regs);
 		if (spec->size == 8)
 			ctx->val.ll.hi = ARG2(regs);
 		break;
-	case ARM_REG_R1:
+	case UFT_ARM_REG_R1:
 		ctx->val.i = ARG2(regs);
 		break;
-	case ARM_REG_R2:
+	case UFT_ARM_REG_R2:
 		ctx->val.i = ARG3(regs);
 		if (spec->size == 8)
 			ctx->val.ll.hi = ARG4(regs);
 		break;
-	case ARM_REG_R3:
+	case UFT_ARM_REG_R3:
 		ctx->val.i = ARG4(regs);
 		break;
-	case ARM_REG_S0:
+
+#ifdef HAVE_ARM_HARDFP
+	case UFT_ARM_REG_S0:
 		asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S1:
+	case UFT_ARM_REG_S1:
 		asm volatile ("vstr %%s1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S2:
+	case UFT_ARM_REG_S2:
 		asm volatile ("vstr %%s2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S3:
+	case UFT_ARM_REG_S3:
 		asm volatile ("vstr %%s3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S4:
+	case UFT_ARM_REG_S4:
 		asm volatile ("vstr %%s4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S5:
+	case UFT_ARM_REG_S5:
 		asm volatile ("vstr %%s5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S6:
+	case UFT_ARM_REG_S6:
 		asm volatile ("vstr %%s6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S7:
+	case UFT_ARM_REG_S7:
 		asm volatile ("vstr %%s7, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S8:
+	case UFT_ARM_REG_S8:
 		asm volatile ("vstr %%s8, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S9:
+	case UFT_ARM_REG_S9:
 		asm volatile ("vstr %%s9, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S10:
+	case UFT_ARM_REG_S10:
 		asm volatile ("vstr %%s10, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S11:
+	case UFT_ARM_REG_S11:
 		asm volatile ("vstr %%s11, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S12:
+	case UFT_ARM_REG_S12:
 		asm volatile ("vstr %%s12, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S13:
+	case UFT_ARM_REG_S13:
 		asm volatile ("vstr %%s13, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S14:
+	case UFT_ARM_REG_S14:
 		asm volatile ("vstr %%s14, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_S15:
+	case UFT_ARM_REG_S15:
 		asm volatile ("vstr %%s15, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D0:
+	case UFT_ARM_REG_D0:
 		asm volatile ("vstr %%d0, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D1:
+	case UFT_ARM_REG_D1:
 		asm volatile ("vstr %%d1, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D2:
+	case UFT_ARM_REG_D2:
 		asm volatile ("vstr %%d2, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D3:
+	case UFT_ARM_REG_D3:
 		asm volatile ("vstr %%d3, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D4:
+	case UFT_ARM_REG_D4:
 		asm volatile ("vstr %%d4, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D5:
+	case UFT_ARM_REG_D5:
 		asm volatile ("vstr %%d5, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D6:
+	case UFT_ARM_REG_D6:
 		asm volatile ("vstr %%d6, %0\n" : "=m" (ctx->val.v));
 		break;
-	case ARM_REG_D7:
+	case UFT_ARM_REG_D7:
 		asm volatile ("vstr %%d7, %0\n" : "=m" (ctx->val.v));
 		break;
+#endif /* HAVE_ARM_HARDFP */
+
 	default:
 		return -1;
 	}
@@ -430,9 +415,10 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-			  struct ftrace_arg_spec *spec)
+			  struct uftrace_arg_spec *spec)
 {
 	int offset = 1;
+	unsigned long *addr = ctx->stack_base;
 
 	switch (spec->type) {
 	case ARG_TYPE_STACK:
@@ -459,14 +445,24 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 		break;
 	}
 
-	if (offset < 1 || offset > 100)
+	if (offset < 1 || offset > 100) {
 		pr_dbg("invalid stack offset: %d\n", offset);
+		memset(ctx->val.v, 0, sizeof(ctx->val));
+		return;
+	}
 
-	memcpy(ctx->val.v, ctx->stack_base + offset, spec->size);
+	addr += offset;
+
+	if (check_mem_region(ctx, (unsigned long)addr))
+		memcpy(ctx->val.v, addr, spec->size);
+	else {
+		pr_dbg("stack address is not allowed: %p\n", addr);
+		memset(ctx->val.v, 0, sizeof(ctx->val));
+	}
 }
 
 void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-			 struct ftrace_arg_spec *spec)
+			 struct uftrace_arg_spec *spec)
 {
 	if (!float_abi_checked)
 		check_float_abi();
@@ -480,7 +476,7 @@ void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 }
 
 void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-			    struct ftrace_arg_spec *spec)
+			    struct uftrace_arg_spec *spec)
 {
 	if (!float_abi_checked)
 		check_float_abi();
@@ -490,12 +486,19 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		spec->size = 8;
 
 	/* type of return value cannot be FLOAT, so check format instead */
+#ifdef HAVE_ARM_HARDFP
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
-		if (spec->size <= 4)
-			asm volatile ("vstr %%s0, %0\n" : "=m" (ctx->val.v));
-		else
-			asm volatile ("vstr %%d0, %0\n" : "=m" (ctx->val.v));
+		/* d0, d1 registers (64 bit) were saved below the r0 */
+		long *float_retval = ctx->retval - 4;
+
+		mcount_memcpy4(ctx->val.v, float_retval, spec->size);
 	}
 	else
+#endif /* HAVE_ARM_HARDFP */
 		memcpy(ctx->val.v, ctx->retval, spec->size);
+}
+
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+{
+	return pd->plt_addr;
 }

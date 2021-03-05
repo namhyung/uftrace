@@ -34,6 +34,18 @@
  * clobber the ip register.  This is OK because the ARM calling convention
  * allows it to be clobbered in subroutines and doesn't use it to hold
  * parameters.)
+ *
+ * Also recent clang generates following code to call mcount.  It saves the
+ * fp and lr registers before calling the function:
+ *
+ *	push	{fp, lr}
+ *	mov	fp, sp
+ *	sub	sp, sp, #8
+ *	bl	mcount
+ *
+ * I'm not sure subtracting sp by 8 is guaranteed, but anyway it could use
+ * fp register to find the return address (lr) of the parent function.
+ *
  */
 
 #include "utils/asm.h"
@@ -42,11 +54,11 @@
 	.align 2
 
 GLOBAL(__gnu_mcount_nc)
-	push 	{r0-r3, lr}
+	push 	{r0-r3, lr}  /* note that caller already pushed lr */
 	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
 	add	r0, sp, #20 /* r0 points to pushed LR  */
 	bne	1f
-	ldr	r1, [fp]    /* fp (=r11) might point to return address on ARM */
+	ldr	r1, [fp]    /* fp (=r11) might point to return address on THUMB */
 	ldr	r2, [r0]
 	cmp	r1, r2
 	moveq	r0, fp
@@ -61,14 +73,39 @@ GLOBAL(__gnu_mcount_nc)
 END(__gnu_mcount_nc)
 
 
-ENTRY(mcount_return)
-	push 	{r0-r3, lr}
+GLOBAL(mcount)
+	push 	{r0-r3, fp, lr}  /* ensure 8-byte alignment */
+	ands	r3, lr, #1  /* check lr for ARM/THUMB detection */
+	add	r0, fp, #4  /* r0 points to pushed LR  */
+	bne	1f
+	ldr	r1, [fp]    /* fp (=r11) might point to return address on THUMB */
+	ldr	r2, [r0]
+	cmp	r1, r2
+	moveq	r0, lr
+1:
+	mov 	r1, lr      /* child ip */
+	mov	r2, sp      /* mcount_args */
 
-	/* set the first argument of mcount_exit as pointer to return values */
+	bl 	mcount_entry
+
+	pop 	{r0-r3, fp, lr}
+	bx	lr
+END(mcount)
+
+
+ENTRY(mcount_return)
+	push 	{r0-r3, lr, pc}  /* ensure 8-byte alignment */
 	mov	r0, sp
+#ifdef HAVE_ARM_HARDFP
+	vpush	{d0-d1}
+#endif
 
 	bl 	mcount_exit
-	mov 	ip, r0
-	pop 	{r0-r3, lr}
-	bx	ip
+
+#if HAVE_ARM_HARDFP
+	vpop	{d0-d1}
+#endif
+	/* update return address (pc) in the stack */
+	str 	r0, [sp, #20]
+	pop 	{r0-r3, lr, pc}
 END(mcount_return)

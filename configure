@@ -1,5 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #-*- mode: shell-script; -*-
+
+if [ $(uname -s) != "Linux" ]; then
+    echo "uftrace is only supported on Linux"
+    exit
+fi
 
 prefix=/usr/local
 
@@ -10,15 +15,42 @@ output=${output:-${objdir}/.config}
 usage() {
     echo "Usage: $0 [<options>]
 
-  --help             print this message
-  --prefix=<DIR>     set install root dir as <DIR>        (default: /usr/local)
-  --bindir=<DIR>     set executable install dir as <DIR>  (default: \${prefix}/bin)
-  --libdir=<DIR>     set library install dir as <DIR>     (default: \${prefix}/lib)
-  --mandir=<DIR>     set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
-  --objdir=<DIR>     set build dir as <DIR>               (default: \${PWD})
-  --sysconfdir=<DIR> override the etc dir as <DIR>
+  --help                print this message
+  --prefix=<DIR>        set install root dir as <DIR>        (default: /usr/local)
+  --bindir=<DIR>        set executable install dir as <DIR>  (default: \${prefix}/bin)
+  --libdir=<DIR>        set library install dir as <DIR>     (default: \${prefix}/lib)
+  --mandir=<DIR>        set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
+  --objdir=<DIR>        set build dir as <DIR>               (default: \${PWD})
+  --sysconfdir=<DIR>    override the etc dir as <DIR>
 
-  -p                 preserve old setting
+  --with-elfutils=<DIR> search for elfutils in <DIR>/include and <DIR>/lib
+
+  --without-libelf      build without libelf (and libdw)     (even if found on the system)
+  --without-libdw       build without libdw                  (even if found on the system)
+  --without-libstdc++   build without libstdc++              (even if found on the system)
+  --without-libpython   build without libpython              (even if found on the system)
+  --without-libluajit   build without libluajit              (even if found on the system)
+  --without-libncurses  build without libncursesw            (even if found on the system)
+  --without-capstone    build without libcapstone            (even if found on the system)
+  --without-perf        build without perf event             (even if available)
+  --without-schedule    build without scheduler event        (even if available)
+
+  --arch=<ARCH>         set target architecture              (default: system default arch)
+                        e.g. x86_64, aarch64, i386, or arm
+  --cross-compile=<CROSS_COMPILE>
+                        Specify the compiler prefix during compilation
+                        e.g. CC is overridden by \$(CROSS_COMPILE)gcc
+  --cflags=<CFLAGS>     pass extra C compiler flags
+  --ldflags=<LDFLAGS>   pass extra linker flags
+
+  -p                    preserve old setting
+
+  Some influential environment variables:
+    ARCH                Target architecture    e.g. x86_64, aarch64, i386, or arm
+    CROSS_COMPILE       Specify the compiler prefix during compilation
+                        e.g. CC is overridden by \$(CROSS_COMPILE)gcc
+    CFLAGS              C compiler flags
+    LDFLAGS             linker flags
 "
     exit 1
 }
@@ -39,15 +71,18 @@ preserve() {
     fi
 }
 
+IGNORE=
 while getopts ":ho:-:p" opt; do
     case "$opt" in
         -)
 	    # process --long-options
 	    case "$OPTARG" in
-                help)  usage ;;
-                *=*)   opt=${OPTARG%%=*}; val=${OPTARG#*=}
-                       eval "${opt/-/_}='$val'" ;;
-                *)     ;;
+                help)            usage ;;
+                without-libelf)  IGNORE="${IGNORE} libelf libdw" ;;
+                without-*)       IGNORE="${IGNORE} ${OPTARG#*-}" ;;
+                *=*)             opt=${OPTARG%%=*}; val=${OPTARG#*=}
+                                 eval "${opt/-/_}='$val'" ;;
+                *)               ;;
             esac
 	    ;;
         o)       output=$OPTARG ;;
@@ -66,9 +101,37 @@ done
 if [ -z "$ARCH" ]; then
     uname_M=$(uname -m 2>/dev/null || echo not)
     ARCH=$(echo $uname_M | sed -e s/i.86/i386/ -e s/arm.*/arm/ )
-    if [ "$ARCH" = "x86_64" ] && echo "$CFLAGS" | grep -w m32 ; then
+fi
+if [ "$ARCH" = "x86_64" -o "$ARCH" = "x86" ]; then
+    if echo "$CC $CFLAGS" | grep -w "\-m32" > /dev/null; then
         ARCH=i386
     fi
+fi
+
+#
+# Support --arch, --cross-compile, --cflags and --ldflags options
+#
+if [ ! -z "$arch" ]; then
+    export ARCH=$arch
+    if [ "$arch" = "x86_64" ] || [ "$arch" = "arm" ] || [ "$arch" = "aarch64" ]; then
+        export ARCH=$arch
+    elif [ "$arch" = "i386" ]; then
+        export ARCH="i386"
+        export CFLAGS="-m32 $CFLAGS"
+        export LDFLAGS="-m32 $LDFLAGS"
+    else
+        echo "Error: '$arch' is not a supported architecture" >&2
+        exit 1
+    fi
+fi
+if [ ! -z "$cross_compile" ]; then
+    export CROSS_COMPILE=$cross_compile
+fi
+if [ ! -z "$cflags" ]; then
+    export CFLAGS="$cflags $CFLAGS"
+fi
+if [ ! -z "$ldflags" ]; then
+    export LDFLAGS="$ldflags $LDFLAGS"
 fi
 
 bindir=${bindir:-${prefix}/bin}
@@ -100,12 +163,100 @@ output=${output:-${objdir}/.config}
 MAKEFLAGS=
 MAKEOVERRIDES=
 
+export CC CFLAGS LD LDFLAGS
+
+check_command() {
+	if ! command -v $1 &>/dev/null
+	then
+		echo "Error: '$1' command is not found" >&2
+		exit 1
+	fi
+}
+
+check_command make
+check_command ${CC}
+
+make -siC ${srcdir}/check-deps check-clean
 make -siC ${srcdir}/check-deps check-build
 
-if [ ! -e ${srcdir}/check-deps/have_libelf ]; then
-    echo "Error: cannot find 'libelf' (from elfutils): Please install it first."
-    exit 1
-fi
+for dep in $IGNORE; do
+    TARGET=
+    case "$dep" in
+        libelf)      TARGET=have_libelf        ;;
+        libdw)       TARGET=have_libdw         ;;
+        libpython*)  TARGET='have_libpython*'  ;;
+        libluajit*)  TARGET=have_libluajit     ;;
+        libncurse*)  TARGET=have_libncurses    ;;
+        libstdc++)   TARGET=cxa_demangle       ;;
+        capstone)    TARGET=have_libcapstone   ;;
+        perf*)       TARGET=perf_clockid       ;;
+        sched*)      TARGET=perf_context_switch;;
+        *)           ;;
+    esac
+    if [ ! -z "$TARGET" ]; then
+        rm -f ${srcdir}/check-deps/$TARGET
+    fi
+done
+
+echo "uftrace detected system features:"
+
+print_feature()
+{
+    item=$1
+    file=$2
+    description=$3
+
+    if [ -t 1 -a "$TERM" != "dumb" ]; then
+        # use colored output only when stdout is tty
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="\033[32mon \033[0m"
+        else
+            onoff="\033[91mOFF\033[0m"
+        fi
+    else
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="on "
+        else
+            onoff="OFF"
+        fi
+    fi
+    printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
+}
+
+print_feature2()
+{
+    item=$1
+    file1=$2
+    file2=$3
+    description=$4
+
+    if [ -t 1 -a "$TERM" != "dumb" ]; then
+        # use colored output only when stdout is tty
+        if [ -f ${srcdir}/check-deps/${file1} -o -f ${srcdir}/check-deps/${file2} ]; then
+            onoff="\033[32mon \033[0m"
+        else
+            onoff="\033[91mOFF\033[0m"
+        fi
+    else
+        if [ -f ${srcdir}/check-deps/${file} ]; then
+            onoff="on "
+        else
+            onoff="OFF"
+        fi
+    fi
+    printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
+}
+
+printf "...%15s: %s\n" "prefix" "${prefix}"
+print_feature "libelf" "have_libelf" "more flexible ELF data handling"
+print_feature "libdw" "have_libdw" "DWARF debug info support"
+print_feature2 "libpython" "have_libpython2.7" "have_libpython3" "python scripting support"
+print_feature "libluajit" "have_libluajit" "luajit scripting support"
+print_feature "libncursesw" "have_libncurses" "TUI support"
+print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
+print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
+print_feature "schedule" "perf_context_switch" "scheduler event support"
+print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
 
 cat >$output <<EOF
 # this file is generated automatically
@@ -114,6 +265,13 @@ override bindir := $bindir
 override libdir := $libdir
 override mandir := $mandir
 override etcdir := $etcdir
+EOF
+
+if [ ! -z $with_elfutils ]; then
+    echo "override elfdir := $with_elfutils" >> $output
+fi
+
+cat >>$output <<EOF
 
 override ARCH   := $ARCH
 override CC     := $CC
@@ -144,17 +302,17 @@ all: prepare
 	@\$(MAKE) -C \$(srcdir)
 
 clean:
-	@rm -rf arch libmcount libtraceevent utils
+	@rm -rf cmds arch libmcount libtraceevent utils misc
 	@rm -f uftrace version.h *.o *.op
 
 prepare:
-	@mkdir -p arch/\$(ARCH) libmcount libtraceevent utils
+	@mkdir -p cmds arch/\$(ARCH) libmcount libtraceevent utils misc
 
 install:
 	@\$(MAKE) -C \$(srcdir) install
 
 test: all
-	@\$(MAKE) -C \$(srcdir)/tests TESTARG="\$(TESTARG)" test
+	@\$(MAKE) -C \$(srcdir) test TESTARG="\$(TESTARG)"
 
 .PHONY: all clean prepare test install
 EOF

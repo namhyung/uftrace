@@ -32,8 +32,7 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt  = '-A "many@arg1/i32,arg2/i32,arg3/i32,arg4/i32,'
-        argopt += 'arg5/i32,arg6/i32,arg7/i32,arg8/i32,arg9/i32,'
-        argopt += 'arg10/i32,arg11/i32,arg12/i32,arg13/i32"'
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+    def setup(self):
+        self.option  = '-A "many@arg1/i32,arg2/i32,arg3/i32,arg4/i32,'
+        self.option += 'arg5/i32,arg6/i32,arg7/i32,arg8/i32,arg9/i32,'
+        self.option += 'arg10/i32,arg11/i32,arg12/i32,arg13/i32"'

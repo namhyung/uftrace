@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 static int a(void);
 static int b(void);

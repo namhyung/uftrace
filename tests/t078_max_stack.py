@@ -15,5 +15,5 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --max-stack=3 %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--max-stack=3'

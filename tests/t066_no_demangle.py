@@ -18,6 +18,5 @@ class TestCase(TestBase):
    6.702 us [17005] | } /* _ZN2ns3ns13foo3barEv */
 """, sort='simple')
 
-    def runcmd(self):
-        return '%s --demangle=no -F "_ZN2ns3ns13foo3barEv" %s' % \
-            (TestBase.ftrace, 't-namespace')
+    def setup(self):
+        self.option = '--demangle=no -F "_ZN2ns3ns13foo3barEv"'

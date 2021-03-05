@@ -12,5 +12,5 @@ class TestCase(TestBase):
    1.512 us [ 4408] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F main %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '-F main'

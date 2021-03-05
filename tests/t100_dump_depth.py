@@ -3,8 +3,6 @@
 from runtest import TestBase
 import subprocess as sp
 
-TDIR='xxx'
-
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc', """
@@ -13,8 +11,8 @@ uftrace file header: version       = 4
 uftrace file header: header size   = 40
 uftrace file header: endian        = 1 (little)
 uftrace file header: class         = 2 (64 bit)
-uftrace file header: features      = 0x63 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK)
-uftrace file header: info          = 0x3ff
+uftrace file header: features      = 0x363 (PLTHOOK | TASK_SESSION | SYM_REL_ADDR | MAX_STACK | PERF_EVENT | AUTO_ARGS)
+uftrace file header: info          = 0x3bff
 
 reading 5231.dat
 58348.873444506   5231: [entry] main(400512) depth: 0
@@ -25,24 +23,18 @@ reading 5231.dat
 58348.873449309   5231: [exit ] main(400512) depth: 0
 """, sort='dump')
 
-    def pre(self):
-        record_cmd = '%s record -d %s %s' % (TestBase.ftrace, TDIR, 't-' + self.name)
-        sp.call(record_cmd.split())
-        return TestBase.TEST_SUCCESS
+    def prepare(self):
+        self.subcmd = 'record'
+        return self.runcmd()
 
-    def runcmd(self):
-        return '%s dump -d %s -F main -D 3' % (TestBase.ftrace, TDIR)
-
-    def post(self, ret):
-        sp.call(['rm', '-rf', TDIR])
-        return ret
+    def setup(self):
+        self.subcmd = 'dump'
+        self.option = '-F main -D 3'
 
     def fixup(self, cflags, result):
-        import platform
-
-        if platform.architecture()[0] == '32bit':
+        if TestBase.is_32bit(self):
             result = result.replace("2 (64 bit)", "1 (32 bit)")
         p = sp.Popen(['file', 't-' + self.name], stdout=sp.PIPE)
         if 'BuildID' not in p.communicate()[0].decode(errors='ignore'):
-            result = result.replace("0x3ff", "0x3fd")
+            result = result.replace("0xbff", "0xbfd")
         return result

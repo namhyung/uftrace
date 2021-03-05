@@ -5,31 +5,30 @@ import os
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'forkexec', """
+        TestBase.__init__(self, 'fork2', serial=True, result="""
 # DURATION    TID     FUNCTION
-            [ 9874] | main() {
- 142.145 us [ 9874] |   fork();
-            [ 9874] |   waitpid() {
- 473.298 us [ 9875] |   } /* fork */
-            [ 9875] |   execl() {
-            [ 9875] | main() {
-            [ 9875] |   open() {
-  14.416 us [ 9875] |     sys_open();
-  19.099 us [ 9875] |   } /* open */
-            [ 9875] |   close() {
-   3.380 us [ 9875] |     sys_close();
-   9.720 us [ 9875] |   } /* close */
-  37.051 us [ 9875] | } /* main */
-   2.515 ms [ 9874] |   } /* waitpid */
-   2.708 ms [ 9874] | } /* main */
+            [19227] | main() {
+ 328.451 us [19227] |   fork();
+            [19227] |   wait() {
+            [19231] |   } /* fork */
+            [19231] |   open() {
+  17.068 us [19231] |     sys_open();
+  21.964 us [19231] |   } /* open */
+            [19231] |   close() {
+   2.537 us [19231] |     sys_close();
+   7.057 us [19231] |   } /* close */
+            [19231] | } /* main */
+  40.601 ms [19227] |   } /* wait */
+            [19227] |   open() {
+  30.832 us [19227] |     sys_open();
+  37.121 us [19227] |   } /* open */
+            [19227] |   close() {
+   2.950 us [19227] |     sys_close();
+   9.520 us [19227] |   } /* close */
+  41.010 ms [19227] | } /* main */
 """)
 
-    def build(self, name, cflags='', ldflags=''):
-        ret  = TestBase.build(self, 'openclose', cflags, ldflags)
-        ret += TestBase.build(self, self.name, cflags, ldflags)
-        return ret
-
-    def pre(self):
+    def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
         if os.path.exists('/.dockerenv'):
@@ -37,6 +36,20 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
-    def runcmd(self):
-        return '%s -k -F %s -F %s -F %s %s openclose' % \
-            (TestBase.ftrace, 'main', 'sys_open@kernel', 'sys_close@kernel', 't-' + self.name)
+    def setup(self):
+        self.option  = '-k -F main '
+        self.option += '-F sys_open*@kernel '
+        self.option += '-F sys_close*@kernel'
+
+    def fixup(self, cflags, result):
+        uname = os.uname()
+
+        result = result.replace(' sys_open', ' sys_openat')
+
+        # Linux v4.17 (x86_64) changed syscall routines
+        major, minor, release = uname[2].split('.')
+        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+            result = result.replace('sys_', '__x64_sys_')
+
+        return result

@@ -1,64 +1,45 @@
-#ifndef __MCOUNT_ARCH_H__
-#define __MCOUNT_ARCH_H__
+#ifndef MCOUNT_ARCH_H
+#define MCOUNT_ARCH_H
 
 #define mcount_regs  mcount_regs
 
 struct mcount_regs {
-	unsigned long  r0;
-	unsigned long  r1;
-	unsigned long  r2;
-	unsigned long  r3;
-	unsigned long  r4;
-	unsigned long  r5;
-	unsigned long  r6;
-	unsigned long  r7;
+	unsigned long  x0;
+	unsigned long  x1;
+	unsigned long  x2;
+	unsigned long  x3;
+	unsigned long  x4;
+	unsigned long  x5;
+	unsigned long  x6;
+	unsigned long  x7;
 };
 
-#define  ARG1(a)  ((a)->r0)
-#define  ARG2(a)  ((a)->r1)
-#define  ARG3(a)  ((a)->r2)
-#define  ARG4(a)  ((a)->r3)
-#define  ARG5(a)  ((a)->r4)
-#define  ARG6(a)  ((a)->r5)
-#define  ARG7(a)  ((a)->r6)
-#define  ARG8(a)  ((a)->r7)
+#define  ARG1(a)  ((a)->x0)
+#define  ARG2(a)  ((a)->x1)
+#define  ARG3(a)  ((a)->x2)
+#define  ARG4(a)  ((a)->x3)
+#define  ARG5(a)  ((a)->x4)
+#define  ARG6(a)  ((a)->x5)
+#define  ARG7(a)  ((a)->x6)
+#define  ARG8(a)  ((a)->x7)
 
 #define ARCH_MAX_REG_ARGS  8
 #define ARCH_MAX_FLOAT_REGS  8
 
-enum arm_reg_index {
-	AARCH64_REG_INT_BASE = 0,
-	/* integer registers */
-	AARCH64_REG_R0,
-	AARCH64_REG_R1,
-	AARCH64_REG_R2,
-	AARCH64_REG_R3,
-	AARCH64_REG_R4,
-	AARCH64_REG_R5,
-	AARCH64_REG_R6,
-	AARCH64_REG_R7,
-
-	AARCH64_REG_FLOAT_BASE = 100,
-	/* (single-precision) floating-point registers */
-	AARCH64_REG_S0,
-	AARCH64_REG_S1,
-	AARCH64_REG_S2,
-	AARCH64_REG_S3,
-	AARCH64_REG_S4,
-	AARCH64_REG_S5,
-	AARCH64_REG_S6,
-	AARCH64_REG_S7,
-
-	AARCH64_REG_DOUBLE_BASE = 200,
-	/* (double-precision) floating-point registers */
-	AARCH64_REG_D0,
-	AARCH64_REG_D1,
-	AARCH64_REG_D2,
-	AARCH64_REG_D3,
-	AARCH64_REG_D4,
-	AARCH64_REG_D5,
-	AARCH64_REG_D6,
-	AARCH64_REG_D7,
+#define HAVE_MCOUNT_ARCH_CONTEXT
+struct mcount_arch_context {
+	double d[ARCH_MAX_FLOAT_REGS];
 };
 
-#endif /* __MCOUNT_ARCH_H__ */
+#define ARCH_PLT0_SIZE  32
+#define ARCH_PLTHOOK_ADDR_OFFSET  0
+
+struct mcount_disasm_engine;
+struct mcount_dynamic_info;
+struct mcount_disasm_info;
+
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info);
+
+#endif /* MCOUNT_ARCH_H */

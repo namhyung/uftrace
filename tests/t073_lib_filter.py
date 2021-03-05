@@ -17,5 +17,5 @@ class TestCase(TestBase):
         return TestBase.build_libmain(self, name, 's-libmain.c',
                                       ['libabc_test_lib.so'])
 
-    def runcmd(self):
-        return '%s --force -F lib_b@libabc_test %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--force -F lib_b@libabc_test'

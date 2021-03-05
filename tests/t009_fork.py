@@ -34,5 +34,5 @@ class TestCase(TestBase):
  420.059 us [26125] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --no-merge %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--no-merge'

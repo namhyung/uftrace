@@ -1,6 +1,6 @@
 % UFTRACE-INFO(1) Uftrace User Manuals
 % Namhyung Kim <namhyung@gmail.com>
-% May, 2016
+% Sep, 2018
 
 NAME
 ====
@@ -14,10 +14,19 @@ DESCRIPTION
 ===========
 This command prints metadata recorded in the header of a given data file.
 
+
 OPTIONS
 =======
 \--symbols
-:   Print symbols table instead of the recorded tracing info.  It will print two symbol tables - normal symbols and dynamic symbols.  The normal symbols are from the executable itself, and dynamic symbols are for library calls.   When COMMAND is given, it should provide symbol information which might not be available from the recorded path of 'exe image' or the symbol file in the data directory.
+:   Print symbols table instead of the recorded tracing info.  It will print
+    two symbol tables - normal symbols and dynamic symbols.  The normal symbols
+    are from the executable itself, and dynamic symbols are for library calls.
+    When COMMAND is given, it should provide symbol information which might not
+    be available from the recorded path of 'exe image' or the symbol file in the
+    data directory.
+
+\--task
+:   Print task relationship in a tree form instead of the tracing info.
 
 
 EXAMPLE
@@ -29,8 +38,8 @@ This command shows information like below:
     $ uftrace info
     # system information
     # ==================
-    # program version     : uftrace v0.5-191-g30a3
-    # recorded on         : Tue May 24 15:59:00 2016
+    # program version     : v0.9 ( dwarf python tui perf sched )
+    # recorded on         : Wed Sep 19 17:30:39 2018
     # cmdline             : uftrace record abc
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
     # number of cpus      : 12 / 12 (online / possible)
@@ -43,10 +52,12 @@ This command shows information like below:
     # process information
     # ===================
     # number of tasks     : 1
-    # task list           : 8284
+    # task list           : 8284(abc)
     # exe image           : /home/namhyung/tmp/abc
     # build id            : a3c50d25f7dd98dab68e94ef0f215edb06e98434
+    # pattern             : regex
     # exit status         : exited with code: 0
+    # elapsed time        : 0.003219479 sec
     # cpu time            : 0.003 / 0.000 sec (sys / user)
     # context switch      : 1 / 1 (voluntary / involuntary)
     # max rss             : 3104 KB
@@ -77,6 +88,13 @@ To see the symbol table, one can use the `--symbols` option.
     [ 4] mcount (0x400570) size: 16
     [ 5] __cxa_atexit (0x400580) size: 16
 
+The `--task` option shows task family hierarchy.
+
+    $ uftrace info --task
+    [166399] parent
+          [166401] child
+
+
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-record`(1)
+`uftrace`(1), `uftrace-record`(1), `uftrace-tui`(1)

@@ -25,5 +25,5 @@ class TestCase(TestBase):
  105.160 us [ 3357] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -N ".*ns1::.*" %s' % (TestBase.ftrace, 't-namespace')
+    def setup(self):
+        self.option = '-N ".*ns1::.*"'

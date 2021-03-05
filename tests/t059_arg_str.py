@@ -22,5 +22,5 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        return '%s -A "^str_@arg1/s,arg2/s" %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '-A "^str_@arg1/s,arg2/s"'

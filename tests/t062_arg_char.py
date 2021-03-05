@@ -8,7 +8,7 @@ class TestCase(TestBase):
 # DURATION    TID     FUNCTION
             [18279] | main() {
    0.371 ms [18279] |   foo('f', 'o', 'o');
-   0.923 ms [18279] |   bar('\\x00', 'B', 97, 0x72);
+   0.923 ms [18279] |   bar('\\0', 'B', 97, 0x72);
    3.281 ms [18279] | } /* main */
 """)
 
@@ -19,6 +19,6 @@ class TestCase(TestBase):
 
         return TestBase.build(self, name, cflags, ldflags)
 
-    def runcmd(self):
-        argopt = '-A "foo@arg1/c,arg2/c,arg3/c" -A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'
-        return '%s %s %s' % (TestBase.ftrace, argopt, 't-' + self.name)
+    def setup(self):
+        self.option  = '-A "foo@arg1/c,arg2/c,arg3/c" '
+        self.option += '-A "bar@arg1/c,arg2/c,arg3/i,arg4/x8"'

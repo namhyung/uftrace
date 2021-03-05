@@ -26,5 +26,5 @@ class TestCase(TestBase):
   66.699 us [  767] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -F "main" -F "alloc3@depth=1" %s' % (TestBase.ftrace, 't-allocfree')
+    def setup(self):
+        self.option = '-F "main" -F "alloc3@depth=1"'

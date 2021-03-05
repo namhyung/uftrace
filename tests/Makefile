@@ -1,28 +1,50 @@
-TEST_CFLAGS  := -D_GNU_SOURCE -DUNIT_TEST -I$(srcdir) -I$(objdir) -I$(srcdir)/arch/$(ARCH) -g
-TEST_CFLAGS  += -include $(srcdir)/tests/unittest.h
-TEST_LDFLAGS := -L$(objdir)/libtraceevent -ltraceevent -lelf -pthread -lrt -ldl
+TEST_CFLAGS  += -g -include $(srcdir)/tests/unittest.h -Wno-sign-compare
 
-UNIT_TEST_SRC := $(wildcard $(srcdir)/*.c $(srcdir)/utils/*.c)
+UNIT_TEST_SRC := $(srcdir)/uftrace.c
+UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
+UNIT_TEST_SRC += $(wildcard $(srcdir)/utils/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/arch/$(ARCH)/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
-UNIT_TEST_OBJ := $(patsubst %.c,%.ot,$(UNIT_TEST_SRC))
+UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
+
+UNIT_TEST_HDR := $(srcdir)/uftrace.h
+UNIT_TEST_HDR += $(srcdir)/tests/unittest.h
+UNIT_TEST_HDR += $(wildcard $(srcdir)/utils/*.h)
+UNIT_TEST_HDR += $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
+UNIT_TEST_HDR += $(wildcard $(srcdir)/libmcount/*.h)
+
+UNIT_TEST_OBJ_VERSION := $(objdir)/cmds/script.ot $(objdir)/cmds/tui.ot
+UNIT_TEST_OBJ_VERSION += $(objdir)/cmds/dump.ot   $(objdir)/cmds/info.ot
+UNIT_TEST_OBJ_VERSION += $(objdir)/libmcount/mcount.ot
+
+FULL_WORKER := -j $(shell getconf _NPROCESSORS_ONLN || echo 1)
+
+# these needs to be recursively expanded
+JOPT = $(filter -j%, $(MAKEFLAGS))
+WORKER = $(if $(JOPT), $(if $(patsubst -j%,%,$(JOPT)), $(JOPT), $(FULL_WORKER)), -j1)
 
 include $(srcdir)/Makefile.include
 
-test: test_unit test_run
+test: test_all
+
+test_all: unittest
+	$(QUIET_TEST)./unittest $(TESTARG)
+	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG)
 
 test_run:
-	./runtest.py $(TESTARG)
+	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG)
 
 test_unit: unittest
-	./unittest $(TESTARG)
+	$(QUIET_TEST)./unittest $(TESTARG)
 
 unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
 	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
 
-$(UNIT_TEST_OBJ): %.ot: %.c
-	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $^
+$(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
+
+$(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config $(UNIT_TEST_HDR)
+	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $<
 
 clean:
 	$(call QUIET_CLEAN, test)

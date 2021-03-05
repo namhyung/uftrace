@@ -1,5 +1,8 @@
-#ifndef __MCOUNT_ARCH_H__
-#define __MCOUNT_ARCH_H__
+#ifndef MCOUNT_ARCH_H
+#define MCOUNT_ARCH_H
+
+#include "utils/arch.h"
+#include "utils/list.h"
 
 #define mcount_regs  mcount_regs
 
@@ -19,29 +22,41 @@ struct mcount_regs {
 #define  ARG5(a)  ((a)->r8)
 #define  ARG6(a)  ((a)->r9)
 
-#define ARCH_MAX_REG_ARGS  6
-#define ARCH_MAX_FLOAT_REGS  8
+#define ARCH_MAX_REG_ARGS    6
+#define ARCH_MAX_FLOAT_ARGS  8
+#define ARCH_NUM_BASE_REGS   8
 
-enum x86_reg_index {
-	X86_REG_INT_BASE = 0,
-	/* integer registers */
-	X86_REG_RDI,
-	X86_REG_RSI,
-	X86_REG_RDX,
-	X86_REG_RCX,
-	X86_REG_R8,
-	X86_REG_R9,
-
-	X86_REG_FLOAT_BASE = 100,
-	/* floating-point registers */
-	X86_REG_XMM0,
-	X86_REG_XMM1,
-	X86_REG_XMM2,
-	X86_REG_XMM3,
-	X86_REG_XMM4,
-	X86_REG_XMM5,
-	X86_REG_XMM6,
-	X86_REG_XMM7,
+#define HAVE_MCOUNT_ARCH_CONTEXT
+struct mcount_arch_context {
+	double xmm[ARCH_MAX_FLOAT_ARGS];
 };
 
-#endif /* __MCOUNT_ARCH_H__ */
+#define ARCH_PLT0_SIZE  16
+#define ARCH_PLTHOOK_ADDR_OFFSET  6
+
+#define ARCH_SUPPORT_AUTO_RECOVER  1
+#define ARCH_CAN_RESTORE_PLTHOOK   1
+
+#define ARCH_TRAMPOLINE_SIZE 14
+#define ARCH_BRANCH_ENTRY_SIZE ARCH_TRAMPOLINE_SIZE
+
+struct plthook_arch_context {
+	bool	has_plt_sec;
+};
+
+struct mcount_disasm_engine;
+struct mcount_dynamic_info;
+struct mcount_disasm_info;
+struct sym;
+
+#define CALL_INSN_SIZE	5
+#define JMP_INSN_SIZE	6  /* indirect jump */
+#define JCC8_INSN_SIZE  2
+#define JMP32_INSN_SIZE 5
+#define MOV_INSN_SIZE  10  /* move 8-byte immediate to reg */
+
+int disasm_check_insns(struct mcount_disasm_engine *disasm,
+		       struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info);
+
+#endif /* MCOUNT_ARCH_H */

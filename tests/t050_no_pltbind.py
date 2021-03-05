@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -41,5 +40,5 @@ class TestCase(TestBase):
    1.122 ms [22829] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --no-pltbind --column-view --no-merge %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--no-pltbind --column-view --no-merge'

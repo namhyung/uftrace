@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -12,5 +11,5 @@ class TestCase(TestBase):
    2.090 ms [18260] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s -t 1ms -T "mem_alloc@trace-off" -T "mem_free@trace-on" %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '-t 1ms -T "mem_alloc@trace-off" -T "mem_free@trace-on"'

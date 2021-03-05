@@ -19,6 +19,3 @@ class TestCase(TestBase):
    0.671 us [ 3024] |   } /* _setjmp */
    7.291 us [ 3024] | } /* main */
 """)
-
-    def fixup(self, cflags, result):
-        return result.replace('longjmp', "__longjmp_chk")

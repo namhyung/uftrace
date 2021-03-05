@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import re
 from runtest import TestBase
 
 class TestCase(TestBase):
@@ -59,5 +58,5 @@ class TestCase(TestBase):
  658.759 us [ 1429] | } /* main */
 """)
 
-    def runcmd(self):
-        return '%s --no-merge %s' % (TestBase.ftrace, 't-' + self.name)
+    def setup(self):
+        self.option = '--no-merge'
