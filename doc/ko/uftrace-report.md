@@ -23,11 +23,11 @@ uftrace report [*options*]
 REPORT 옵션
 ===========
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
-:   주어진 키를 이용해 함수들을 분류한다. 다수의 키들은 쉼표(,)로 분리할 수 있고,
-    가능한 키들에는 `total` (time), `self` (time), `call`, `func`, `avg`, `min`,
-    `max`가 있다. 처음 세개의 키는 `--avg-total` 와 `--avg-self` 옵션이 주어지지
-    않은 경우에만 사용할 수 있다. 이러한 옵션 중 하나를 사용하는 경우에는 마지막
-    세개의 키와 함께 이용해야한다.
+:   주어진 키를 기반으로 함수들을 정렬한다. 여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.
+    `total` (time), `total-avg`, `total-min`, `total-max`, `self` (time), `self-avg`, `self-min`,
+    `self-max`, `call`, `func`를 키로 이용할 수 있다. 그러나 `--avg-total` 또는 `--avg-self`
+    옵션이 사용된 경우, 총 시간(total time) 또는 자체 시간(self time에)에 적용되는
+    `avg`, `min`, `max`를 키로 이용할 수 있다.
 
 \--avg-total
 :   각 함수의 총 시간(total time)의 평균, 최소, 최대 시간을 보여준다.

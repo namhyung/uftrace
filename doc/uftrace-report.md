@@ -33,10 +33,9 @@ REPORT OPTIONS
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
     comma (,).  Possible keys are `total` (time), `total-avg`, `total-min`,
     `total-max`, `self` (time), `self-avg`, `self-min`, `self-max`, `call`
-    and `func`.
-    Note that the first 3 keys should be used when
-    neither of `--avg-total` nor `--avg-self` is used.  Likewise, the last 3
-    keys should be used when either of those options is used.
+    and `func`.  But if either `--avg-total` or `--avg-self` is used, the
+    possible keys can be `avg`, `min` and `max` that apply to total or self
+    time respectively.
 
 \--avg-total
 :   Show average, min, max of each function's total time.
@@ -261,7 +260,7 @@ The example below will sort output by total time of the base data.
 
 FIELDS
 ======
-The uftrace allows for user to customize the report output with a couple of fields.
+The uftrace allows user to customize the report output with a couple of fields.
 By default it uses total, self and call fields, but you can use other fields
 in any order like:
 
