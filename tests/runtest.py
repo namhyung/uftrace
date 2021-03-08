@@ -49,6 +49,17 @@ class TestBase:
         self.exearg = 't-' + name
         self.test_feature()
 
+    def set_compiler(self, compiler):
+        if compiler == 'gcc':
+            self.supported_lang['C']['cc'] = 'gcc'
+            self.supported_lang['C++']['cc'] = 'g++'
+        elif compiler == 'clang':
+            self.supported_lang['C']['cc'] = 'clang'
+            self.supported_lang['C++']['cc'] = 'clang++'
+        else:
+            # ignore invalid compiler argument
+            pass
+
     def set_debug(self, dbg):
         self.debug = dbg
 
@@ -625,6 +636,7 @@ def run_single_case(case, flags, opts, arg):
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
     tc.set_debug(arg.debug)
+    tc.set_compiler(arg.compiler)
     timeout = int(arg.timeout)
 
     for flag in flags:
@@ -740,6 +752,8 @@ def parse_argument():
                         help="fail test if it runs more than TIMEOUT seconds")
     parser.add_argument("-j", "--worker", dest='worker', type=int, default=multiprocessing.cpu_count(),
                         help="Parallel worker count; using all core for default")
+    parser.add_argument("-c", "--compiler", dest='compiler', default="gcc",
+                        help="Select compiler gcc or clang. (gcc by default)")
 
     return parser.parse_args()
 
