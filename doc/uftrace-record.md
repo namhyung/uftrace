@@ -149,7 +149,10 @@ COMMON OPTIONS
 
 \--no-event
 :   Disable event recording which is used by default.  Note that explicit event
-    tracing by `--event` option is not affected by this.
+    tracing by `--event` option is not affected by this.  Implies `--no-sched`.
+
+\--no-sched
+:   Disable schedule event recording which is used by default.
 
 \--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
