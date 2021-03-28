@@ -541,6 +541,11 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'C':
 		opts->caller = opt_add_string(opts->caller, arg);
+		/*
+		 * caller filter focuses onto a given function,
+		 * displaying sched event with it is annoying.
+		 */
+		opts->no_sched = true;
 		break;
 
 	case 'H':

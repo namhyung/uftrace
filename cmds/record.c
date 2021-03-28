@@ -1679,13 +1679,6 @@ static void check_perf_event(struct opts *opts)
 	if (opts->no_sched)
 		has_sched_event = false;
 
-	/*
-	 * caller filter focuses onto a given function,
-	 * displaying sched event with it is annoying.
-	 */
-	if (opts->caller != NULL)
-		has_sched_event = false;
-
 	if (opts->event == NULL)
 		return;
 
