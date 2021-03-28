@@ -1000,6 +1000,22 @@ void fstack_check_filter_done(struct uftrace_task_reader *task)
 }
 
 /**
+ * is_sched_event - check whether the given address is a schedule event
+ * @addr       - address to check whether it's a schedule event or now
+ *
+ * This function returns true if the given address is a schedule event otherwise
+ * returns false.
+ */
+bool is_sched_event(uint64_t addr)
+{
+	if (addr == EVENT_ID_PERF_SCHED_IN ||
+	    addr == EVENT_ID_PERF_SCHED_OUT ||
+	    addr == EVENT_ID_PERF_SCHED_BOTH)
+		return true;
+	return false;
+}
+
+/**
  * fstack_check_opt - Check filter options for current function
  * @task       - tracee task
  * @opts       - options given by user
@@ -1031,6 +1047,9 @@ bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts)
 	}
 
 	if (opts->no_event && rec->type == UFTRACE_EVENT)
+		return false;
+
+	if (opts->no_sched && is_sched_event(rec->addr))
 		return false;
 
 	return true;
