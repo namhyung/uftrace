@@ -473,6 +473,7 @@ struct mcount_disasm_info {
 	int			copy_size;
 	bool			modified;
 	bool			has_jump;
+	bool			has_intel_cet;
 	uint8_t			nr_branch;
 	struct cond_branch_info branch_info[MAX_COND_BRANCH];
 };

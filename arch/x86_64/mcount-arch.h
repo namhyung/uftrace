@@ -54,6 +54,7 @@ struct sym;
 #define JCC8_INSN_SIZE  2
 #define JMP32_INSN_SIZE 5
 #define MOV_INSN_SIZE  10  /* move 8-byte immediate to reg */
+#define ENDBR_INSN_SIZE 4
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,

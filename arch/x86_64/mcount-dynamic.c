@@ -414,14 +414,19 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
  * Patch the instruction to the address as given for arguments.
  */
 static void patch_code(struct mcount_dynamic_info *mdi,
-		       uintptr_t addr, uint32_t origin_code_size)
+		       struct mcount_disasm_info *info)
 {
 	void *origin_code_addr;
 	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	uint32_t target_addr = get_target_addr(mdi, addr);
+	uint32_t target_addr = get_target_addr(mdi, info->addr);
 
 	/* patch address */
-	origin_code_addr = (void *)addr;
+	origin_code_addr = (void *)info->addr;
+
+	if (info->has_intel_cet) {
+		origin_code_addr += ENDBR_INSN_SIZE;
+		target_addr = get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
+	}
 
 	/* build the instrumentation instruction */
 	memcpy(&call_insn[1], &target_addr, CALL_INSN_SIZE - 1);
@@ -447,11 +452,11 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 	 */
 	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
 	memset(origin_code_addr + CALL_INSN_SIZE, 0x90,  /* NOP */
-	       origin_code_size - CALL_INSN_SIZE);
+	       info->orig_size - CALL_INSN_SIZE);
 
 	/* flush icache so that cpu can execute the new insn */
 	__builtin___clear_cache(origin_code_addr,
-				origin_code_addr + origin_code_size);
+				origin_code_addr + info->orig_size);
 }
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
@@ -463,6 +468,7 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		.sym  = sym,
 		.addr = mdi->map->start + sym->addr,
 	};
+	unsigned call_offset = CALL_INSN_SIZE;
 	int state;
 
 	state = disasm_check_insns(disasm, mdi, &info);
@@ -486,14 +492,19 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	 *  ----------------------
 	 */
 	jmp_target = info.addr + info.orig_size;
+	if (info.has_intel_cet) {
+		jmp_target += ENDBR_INSN_SIZE;
+		call_offset += ENDBR_INSN_SIZE;
+	}
+
 	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
 	if (info.has_jump)
-		mcount_save_code(&info, CALL_INSN_SIZE, jmp_insn, 0);
+		mcount_save_code(&info, call_offset, jmp_insn, 0);
 	else
-		mcount_save_code(&info, CALL_INSN_SIZE, jmp_insn, sizeof(jmp_insn));
+		mcount_save_code(&info, call_offset, jmp_insn, sizeof(jmp_insn));
 
-	patch_code(mdi, info.addr, info.orig_size);
+	patch_code(mdi, &info);
 
 	return INSTRUMENT_SUCCESS;
 }

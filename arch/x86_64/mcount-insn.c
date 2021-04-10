@@ -569,6 +569,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	uint32_t count, i, size;
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct dynamic_bad_symbol *badsym;
+	unsigned long addr = info->addr;
 
 	badsym = mcount_find_badsym(mdi, info->addr);
 	if (badsym != NULL) {
@@ -585,19 +586,20 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	if (size > 5 && !strcmp(info->sym->name + size - 5, ".cold"))
 		return INSTRUMENT_SKIPPED;
 
-	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
-			  info->addr, 0, &insn);
-	if (count == 0 && !memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
-		/* old version of capstone doesn't recognize ENDBR64 insn */
-		unsigned long addr = info->addr + sizeof(endbr64);
+	size = info->sym->size;
+	if (!memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
+		addr += sizeof(endbr64);
+		size -= sizeof(endbr64);
 
-		info->orig_size += sizeof(endbr64);
-		info->copy_size += sizeof(endbr64);
+		if (size <= CALL_INSN_SIZE)
+			return INSTRUMENT_SKIPPED;
 
-		count = cs_disasm(disasm->engine, (void *)addr,
-				  info->sym->size - sizeof(endbr64),
-				  addr, 0, &insn);
+		info->has_intel_cet = true;
 	}
+
+	count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0, &insn);
+	if (count == 0)
+		return INSTRUMENT_FAILED;
 
 	for (i = 0; i < count; i++) {
 		uint8_t insns_byte[32] = { 0, };
