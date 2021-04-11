@@ -52,7 +52,7 @@ struct arch_dynamic_info {
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	unsigned char trampoline[] = { 0xff, 0x25, 0x02, 0x00, 0x00, 0x00, 0xcc, 0xcc };
+	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
 	unsigned long fentry_addr = (unsigned long)__fentry__;
 	unsigned long xray_entry_addr = (unsigned long)__xray_entry;
 	unsigned long xray_exit_addr = (unsigned long)__xray_exit;
@@ -91,18 +91,18 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	}
 
 	if (adi->type == DYNAMIC_XRAY) {
-		/* jmpq  *0x2(%rip)     # <xray_entry_addr> */
+		/* jmpq  *0x1(%rip)     # <xray_entry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
 		       &xray_entry_addr, sizeof(xray_entry_addr));
 
-		/* jmpq  *0x2(%rip)     # <xray_exit_addr> */
+		/* jmpq  *0x1(%rip)     # <xray_exit_addr> */
 		memcpy((void *)mdi->trampoline + 16, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
 		       &xray_exit_addr, sizeof(xray_exit_addr));
 	}
 	else if (adi->type == DYNAMIC_FENTRY_NOP) {
-		/* jmpq  *0x2(%rip)     # <fentry_addr> */
+		/* jmpq  *0x1(%rip)     # <fentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
 		       &fentry_addr, sizeof(fentry_addr));
@@ -462,7 +462,7 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			     struct mcount_disasm_engine *disasm)
 {
-	uint8_t jmp_insn[14] = { 0xff, 0x25, };
+	uint8_t jmp_insn[15] = { 0x3e, 0xff, 0x25, };
 	uint64_t jmp_target;
 	struct mcount_disasm_info info = {
 		.sym  = sym,
@@ -497,7 +497,7 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		call_offset += ENDBR_INSN_SIZE;
 	}
 
-	memcpy(jmp_insn + JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
+	memcpy(jmp_insn + CET_JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
 	if (info.has_jump)
 		mcount_save_code(&info, call_offset, jmp_insn, 0);
@@ -629,7 +629,11 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			       struct mcount_disasm_engine *disasm)
 {
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
+	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct mcount_orig_insn *moi;
+
+	if (!memcmp(addr, endbr64, sizeof(endbr64)))
+		addr += sizeof(endbr64);
 
 	moi = mcount_find_insn((uintptr_t)addr + CALL_INSN_SIZE);
 	if (moi == NULL)
@@ -684,7 +688,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 	 * execution buffer.
 	 */
 	uint64_t entry_offset = orig->insn_size;
-	uint8_t trampoline[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
+	uint8_t trampoline[ARCH_TRAMPOLINE_SIZE] = { 0x3e, 0xff, 0x25, };
 	struct cond_branch_info *jcc_info;
 	unsigned long jcc_target;
 	unsigned long jcc_index;
@@ -704,7 +708,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 		}
 
 		/* setup the branch entry trampoline */
-		memcpy(trampoline + JMP_INSN_SIZE, &jcc_target, sizeof(jcc_target));
+		memcpy(trampoline + CET_JMP_INSN_SIZE, &jcc_target, sizeof(jcc_target));
 
 		/* write the entry to the branch table */
 		memcpy(orig->insn + entry_offset, trampoline, sizeof(trampoline));
