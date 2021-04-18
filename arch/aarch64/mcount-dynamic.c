@@ -111,6 +111,9 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if ((call & 0xfc000000) != 0)
 		return INSTRUMENT_FAILED;
 
+	pr_dbg2("patch normal func: %s (patch size: %d)\n",
+		sym->name, info.orig_size);
+
 	/* make a "BL" insn with 26-bit offset */
 	call |= 0x94000000;
 
