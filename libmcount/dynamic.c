@@ -264,6 +264,7 @@ __weak void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 struct find_module_data {
 	struct symtabs *symtabs;
 	bool needs_modules;
+	bool skip_first;
 };
 
 static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
@@ -306,8 +307,12 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct symtabs *symtabs = fmd->symtabs;
 	struct uftrace_mmap *map;
 
-	mdi = create_mdi(info);
+	if (fmd->skip_first) {
+		fmd->skip_first = false;
+		return !fmd->needs_modules;
+	}
 
+	mdi = create_mdi(info);
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
 		mdi->map = map;
@@ -323,22 +328,38 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct symtabs *symtabs,
-				   bool needs_modules)
+static void load_modules_dynamic_info(struct symtabs *symtabs, bool needs_modules)
 {
-	struct find_module_data fmd = {
+	static enum {
+		NONE_LOADED,
+		MAIN_BINARY_LOADED,
+		ALL_MODULES_LOADED,
+	} loaded_module = NONE_LOADED;
+
+	struct find_module_data callback_data = {
 		.symtabs = symtabs,
 		.needs_modules = needs_modules,
+		.skip_first = (loaded_module == MAIN_BINARY_LOADED),
 	};
-	int hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	if (needs_modules)
-		hash_size *= 2;
+	switch (loaded_module) {
+	case NONE_LOADED:
+		dl_iterate_phdr(find_dynamic_module, &callback_data);
+		loaded_module = needs_modules ? ALL_MODULES_LOADED : MAIN_BINARY_LOADED;
+		break;
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
-				   hashmap_ptr_equals);
+	case MAIN_BINARY_LOADED:
+		if (!needs_modules) {
+			return;
+		}
 
-	dl_iterate_phdr(find_dynamic_module, &fmd);
+		dl_iterate_phdr(find_dynamic_module, &callback_data);
+		loaded_module = ALL_MODULES_LOADED;
+		break;
+
+	case ALL_MODULES_LOADED:
+		return;
+	}
 }
 
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
@@ -580,20 +601,35 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
+int mcount_dynamic_init(struct symtabs *symtabs)
+{
+	char *size_filter;
+	int hash_size;
+
+	mcount_disasm_init(&disasm);
+
+	hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
+	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (code_hmap == NULL) {
+		return -1;
+	}
+
+	size_filter = getenv("UFTRACE_PATCH_SIZE");
+	if (size_filter != NULL) {
+		min_size = strtoul(size_filter, NULL, 0);
+	}
+
+	return 0;
+}
+
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
-	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	mcount_disasm_init(&disasm);
-
-	prepare_dynamic_update(symtabs, needs_modules);
-
-	size_filter = getenv("UFTRACE_PATCH_SIZE");
-	if (size_filter != NULL)
-		min_size = strtoul(size_filter, NULL, 0);
+	load_modules_dynamic_info(symtabs, needs_modules);
 
 	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
 
