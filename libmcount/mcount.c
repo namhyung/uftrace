@@ -2172,6 +2172,7 @@ static __used void mcount_startup(void)
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
+	mcount_dynamic_init(&symtabs);
 	if (patch_str)
 		mcount_dynamic_update(&symtabs, patch_str, patt_type);
 
