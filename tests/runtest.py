@@ -846,4 +846,5 @@ if __name__ == "__main__":
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    print_test_report(color, shared)
+    if shared.total >= 30:
+        print_test_report(color, shared)
