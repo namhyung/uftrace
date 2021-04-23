@@ -20,12 +20,18 @@ struct large return_large(char patt)
 	return l;
 }
 
+#if __clang__
+__attribute__((optnone))
+#endif
 struct small return_small(void)
 {
 	struct small s = { .bit = 1 };
 	return s;
 }
 
+#if __clang__
+__attribute__((optnone))
+#endif
 long double return_long_double(void)
 {
 	return LDBL_MAX;
