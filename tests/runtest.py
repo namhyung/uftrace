@@ -432,6 +432,9 @@ class TestBase:
 
         return False
 
+    def get_machine(self):
+        return os.uname()[4]
+
     def get_elf_machine(self):
         EI_NIDENT = 16
 

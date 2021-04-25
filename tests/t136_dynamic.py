@@ -12,12 +12,11 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """)
 
-    def prerun(self, timeout):
-        if TestBase.get_elf_machine(self) == 'arm':
-            return TestBase.TEST_SKIP
-        return TestBase.TEST_SUCCESS
-
     def build(self, name, cflags='', ldflags=''):
+        if TestBase.get_machine(self) != 'x86_64':
+            return TestBase.TEST_SKIP
+        if self.supported_lang['C']['cc'] == 'clang':
+            return TestBase.TEST_SKIP
         cflags += ' -mfentry -mnop-mcount'
         cflags += ' -fno-pie -fno-plt'  # workaround of build failure
         return TestBase.build(self, name, cflags, ldflags)
