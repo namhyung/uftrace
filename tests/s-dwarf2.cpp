@@ -6,7 +6,7 @@ struct empty {};
 
 class A {
 public:
-	A(empty e, enum xxx x, long i, char *s)
+	A(empty e, enum xxx x, long i, const char *s)
 		: E(e), X(x), I(i), S(s)
 	{}
 
@@ -14,7 +14,7 @@ private:
 	empty E;
 	enum xxx X;
 	long I;
-	char *S;
+	const char *S;
 };
 
 bool myless(int a, int b)
