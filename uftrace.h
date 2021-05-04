@@ -197,6 +197,7 @@ bool data_is_lp64(struct uftrace_data *handle);
 #define UFTRACE_MODE_GRAPH   8
 #define UFTRACE_MODE_SCRIPT  9
 #define UFTRACE_MODE_TUI     10
+#define UFTRACE_MODE_CLIENT  11
 
 #define UFTRACE_MODE_DEFAULT  UFTRACE_MODE_LIVE
 
@@ -237,6 +238,7 @@ struct opts {
 	int nr_thread;
 	int rt_prio;
 	int size_filter;
+	int pid;
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
@@ -304,6 +306,7 @@ int command_dump(int argc, char *argv[], struct opts *opts);
 int command_graph(int argc, char *argv[], struct opts *opts);
 int command_script(int argc, char *argv[], struct opts *opts);
 int command_tui(int argc, char *argv[], struct opts *opts);
+int command_client(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool uftrace_done;
 
