@@ -142,6 +142,9 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+\--daemon
+:   Start the daemon in libmcount. This loads the `libmcount-daemon.so` object.
+
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally
     traced by hooking calls to the resolver function of dynamic linker in the PLT.
@@ -751,4 +754,4 @@ Like read triggers, the result is displayed as event (comment):
 
 SEE ALSO
 ========
-`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui`(1)
+`uftrace`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui`(1), `uftrace-client`(1)
