@@ -103,6 +103,7 @@ enum options {
 	OPT_srcline,
 	OPT_usage,
 	OPT_no_daemon,
+	OPT_kill_daemon,
 };
 
 __used static const char uftrace_usage[] =
@@ -110,7 +111,7 @@ __used static const char uftrace_usage[] =
 "\n"
 "Usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
 "\n"
-" COMMAND: record|replay|live|report|graph|info|dump|recv|script|tui\n"
+" COMMAND: record|replay|live|report|graph|info|dump|recv|script|tui|client\n"
 "\n";
 
 __used static const char uftrace_help[] =
@@ -155,6 +156,7 @@ __used static const char uftrace_help[] =
 "      --kernel-only          Dump kernel data only\n"
 "      --kernel-skip-out      Skip kernel functions outside of user (deprecated)\n"
 "  -K, --kernel-depth=DEPTH   Trace kernel functions within DEPTH\n"
+"      --kill                 Kill the daemon\n"
 "      --libmcount-single     Use single thread version of libmcount\n"
 "      --list-event           List available events\n"
 "      --logfile=FILE         Save log messages to this file\n"
@@ -181,6 +183,7 @@ __used static const char uftrace_help[] =
 "      --port=PORT            Use PORT for network connection (default: "
 	stringify(UFTRACE_RECV_PORT) ")\n"
 "  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
+"  -p, --pid=PID              PID of the daemon\n"
 "      --record               Record a new trace data before running command\n"
 "      --report               Show live report\n"
 "      --rt-prio=PRIO         Record with real-time (FIFO) priority\n"
@@ -215,7 +218,7 @@ __used static const char uftrace_help[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:p:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
@@ -305,6 +308,8 @@ static const struct option uftrace_options[] = {
 	NO_ARG(version, 'V'),
 	NO_ARG(estimate-return, 'e'),
 	NO_ARG(no-daemon, OPT_no_daemon),
+	REQ_ARG(pid, 'p'),
+	NO_ARG(kill, OPT_kill_daemon),
 
 	{ 0 }
 };
@@ -673,6 +678,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		opts->estimate_return = true;
 		break;
 
+	case 'p':
+		opts->pid = atoi(arg);
+		break;
+
 	case 'V':
 		pr_out("%s\n", uftrace_version);
 		return -1;
@@ -982,6 +991,8 @@ static void update_subcmd(struct opts *opts, char *cmd)
 		opts->mode = UFTRACE_MODE_SCRIPT;
 	else if (!strcmp(cmd, "tui"))
 		opts->mode = UFTRACE_MODE_TUI;
+	else if (!strcmp(cmd, "client"))
+		opts->mode = UFTRACE_MODE_CLIENT;
 	else
 		opts->mode = UFTRACE_MODE_INVALID;
 }
@@ -1266,6 +1277,7 @@ int main(int argc, char *argv[])
 		.sort_column	= OPT_SORT_COLUMN,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
+		.kill       = false,
 	};
 	int ret = -1;
 	char *pager = NULL;
@@ -1344,7 +1356,8 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_RECORD ||
 	    opts.mode == UFTRACE_MODE_RECV ||
-	    opts.mode == UFTRACE_MODE_TUI)
+	    opts.mode == UFTRACE_MODE_TUI ||
+	    opts.mode == UFTRACE_MODE_CLIENT)
 		opts.use_pager = false;
 	if (opts.nop)
 		opts.use_pager = false;
@@ -1402,6 +1415,9 @@ int main(int argc, char *argv[])
 		break;
 	case UFTRACE_MODE_TUI:
 		ret = command_tui(argc, argv, &opts);
+		break;
+	case UFTRACE_MODE_CLIENT:
+		ret = command_client(argc, argv, &opts);
 		break;
 	case UFTRACE_MODE_INVALID:
 		ret = 1;
