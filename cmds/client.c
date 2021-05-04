@@ -22,6 +22,7 @@ int command_client(int argc, char *argv[], struct opts *opts) {
     int sfd;        /* Socket file descriptor, to communicate with the daemon */
     uid_t uid;
     char *channel = NULL;
+    char command[MCOUNT_DOPT_SIZE];
     struct sockaddr_un addr;
 
     sfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -63,11 +64,61 @@ int command_client(int argc, char *argv[], struct opts *opts) {
             pr_err("error sending options");
     }
 
+    if (opts->patch) {
+        send_option(sfd, UFTRACE_DOPT_PATCH);
+        pr_dbg3("changing patch options\n");
+
+        strcpy(command, opts->patch);
+        if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
+            pr_err("error sending options");
+    }
+
+    if (opts->filter) {
+        char *filter_str = uftrace_clear_kernel(opts->filter);
+
+        pr_dbg3("changing filter options\n");
+        if (filter_str) {
+            send_option(sfd, UFTRACE_DOPT_FILTER);
+
+            if (write(sfd, filter_str, MCOUNT_DOPT_SIZE) == -1)
+                pr_err("error sending options");
+
+            free(filter_str);
+        }
+    }
+
+    if (opts->caller) {
+        pr_dbg3("changing caller filter options\n");
+        send_option(sfd, UFTRACE_DOPT_CALLER_FILTER);
+
+        strcpy(command, opts->caller);
+        if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
+            pr_err("error sending options");
+    }
+
+    if (opts->trigger) {
+        pr_dbg3("changing trigger options\n");
+        send_option(sfd, UFTRACE_DOPT_TRIGGER);
+
+        strcpy(command, opts->trigger);
+        if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
+            pr_err("error sending options");
+    }
+
     if (opts->threshold) {
         pr_dbg3("changing time filter value\n");
         send_option(sfd, UFTRACE_DOPT_THRESHOLD);
 
         if (write(sfd, &opts->threshold, sizeof(typeof (opts->threshold))) == -1)
+            pr_err("error sending options");
+    }
+
+    if (opts->watch) {
+        pr_dbg3("changing watchpoints options\n");
+        send_option(sfd, UFTRACE_DOPT_WATCH);
+
+        strcpy(command, opts->watch);
+        if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
             pr_err("error sending options");
     }
 
