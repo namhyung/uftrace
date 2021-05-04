@@ -400,8 +400,13 @@ enum uftrace_msg_type {
 enum uftrace_dopt {
 	UFTRACE_DOPT_DISABLED,
 	UFTRACE_DOPT_PATT_TYPE,
+	UFTRACE_DOPT_PATCH,
 	UFTRACE_DOPT_DEPTH,
+	UFTRACE_DOPT_TRIGGER,
+	UFTRACE_DOPT_FILTER,
+	UFTRACE_DOPT_CALLER_FILTER,
 	UFTRACE_DOPT_THRESHOLD,
+	UFTRACE_DOPT_WATCH,
 	UFTRACE_DOPT_CLOSE,         /* Close the connection with the client */
 	UFTRACE_DOPT_KILL,          /* Kill the daemon */
 };

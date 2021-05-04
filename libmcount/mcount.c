@@ -81,6 +81,11 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 /* tree of trigger actions */
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
+#ifdef ENABLE_MCOUNT_DAEMON
+/* readers-writers lock for the RB tree */
+pthread_rwlock_t tree_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+#endif // ENABLE_MCOUNT_DAEMON
+
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
 
@@ -763,11 +768,19 @@ void *command_daemon(void *arg) {
 	uid_t uid;
 	char *channel = NULL;
 	char *run_dir = NULL;
+	char buf[MCOUNT_DOPT_SIZE];
 	bool close_connection, kill_daemon;
 	bool disabled;
 	enum uftrace_dopt dopt;
 	enum uftrace_pattern_type ptype = PATT_REGEX;
 	struct sockaddr_un addr;
+	struct uftrace_filter_setting filter_setting = {
+		.ptype      = ptype,
+		.auto_args  = false,
+		.allow_kernel   = false,
+		.lp64       = host_is_lp64(),
+		.arch       = host_cpu_arch()
+	};
 
 	/* Open socket at /var/run/user/%UID/uftrace/%PID.socket */
 	sfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -815,6 +828,10 @@ void *command_daemon(void *arg) {
 
 		close_connection = false;
 		while (!close_connection) {
+			struct strv watch;
+			char *str;
+			int i;
+
 			if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
 				pr_warn("error reading option\n", errno);
 				break;
@@ -844,6 +861,54 @@ void *command_daemon(void *arg) {
 				if (read(cfd, &mcount_threshold,
 						 sizeof(typeof(mcount_threshold))) == -1)
 					pr_err("error reading option");
+				break;
+
+			case UFTRACE_DOPT_FILTER: /* -F or -N */
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pthread_rwlock_wrlock(&tree_rwlock);
+				uftrace_setup_filter(buf,
+									 &symtabs,
+									 &mcount_triggers,
+									 &mcount_filter_mode,
+									 &filter_setting);
+				pthread_rwlock_unlock(&tree_rwlock);
+				break;
+
+			case UFTRACE_DOPT_CALLER_FILTER:
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pthread_rwlock_wrlock(&tree_rwlock);
+				uftrace_setup_caller_filter(buf,
+											&symtabs,
+											&mcount_triggers,
+											&filter_setting);
+				pthread_rwlock_unlock(&tree_rwlock);
+				break;
+
+			case UFTRACE_DOPT_TRIGGER:
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pthread_rwlock_wrlock(&tree_rwlock);
+				uftrace_setup_trigger(buf,
+									  &symtabs,
+									  &mcount_triggers,
+									  &mcount_filter_mode,
+									  &filter_setting);
+				pthread_rwlock_unlock(&tree_rwlock);
+				break;
+
+			case UFTRACE_DOPT_WATCH:
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+
+				watch = STRV_INIT;
+				strv_split(&watch, buf, ";");
+				strv_for_each(&watch, str, i) {
+					if (!strcasecmp(str, "cpu"))
+						mcount_watchpoints = MCOUNT_WATCH_CPU;
+				}
+				strv_free(&watch);
 				break;
 
 			case UFTRACE_DOPT_KILL:
@@ -992,7 +1057,13 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
+#ifdef ENABLE_MCOUNT_DAEMON
+	pthread_rwlock_rdlock(&tree_rwlock);
 	uftrace_match_filter(child, &mcount_triggers, tr);
+	pthread_rwlock_unlock(&tree_rwlock);
+#else
+	uftrace_match_filter(child, &mcount_triggers, tr);
+#endif // ENABLE_MCOUNT_DAEMON
 
 	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n",
 		tr->flags, tr->fmode, mtdp->filter.in_count,

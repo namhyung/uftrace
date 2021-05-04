@@ -21,6 +21,8 @@
 #define MCOUNT_NOTRACE_IDX     0x10000
 #define MCOUNT_INVALID_DYNIDX  0xefefefef
 
+#define MCOUNT_DOPT_SIZE       4096
+
 enum mcount_rstack_flag {
 	MCOUNT_FL_SETJMP	= (1U << 0),
 	MCOUNT_FL_LONGJMP	= (1U << 1),
