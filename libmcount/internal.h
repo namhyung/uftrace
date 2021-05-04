@@ -124,6 +124,7 @@ struct mcount_thread_data {
 	int				tid;
 	int				idx;
 	int				record_idx;
+	int				depth_trigger_count, time_trigger_count;
 	bool				recursion_marker;
 	bool				in_exception;
 	bool				dead;

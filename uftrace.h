@@ -398,6 +398,10 @@ enum uftrace_msg_type {
 
 /* Dynamic options sent by the client to the daemon */
 enum uftrace_dopt {
+    UFTRACE_DOPT_DISABLED,
+    UFTRACE_DOPT_PATT_TYPE,
+    UFTRACE_DOPT_DEPTH,
+    UFTRACE_DOPT_THRESHOLD,
     UFTRACE_DOPT_CLOSE,         /* Close the connection with the client */
     UFTRACE_DOPT_KILL,          /* Kill the daemon */
 };
