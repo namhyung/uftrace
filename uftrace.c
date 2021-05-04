@@ -1265,7 +1265,7 @@ int main(int argc, char *argv[])
 		.dirname	= UFTRACE_DIR_NAME,
 		.libcall	= true,
 		.bufsize	= SHMEM_BUFFER_SIZE,
-		.depth		= OPT_DEPTH_DEFAULT,
+		.depth		= -1,
 		.max_stack	= OPT_RSTACK_DEFAULT,
 		.port		= UFTRACE_RECV_PORT,
 		.use_pager	= true,
@@ -1321,6 +1321,10 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_INVALID)
 		opts.mode = UFTRACE_MODE_DEFAULT;
+	if (opts.mode != UFTRACE_MODE_CLIENT) {
+		if (opts.depth == -1)
+			opts.depth = OPT_DEPTH_DEFAULT;
+	}
 
 	if (dbg_domain_set && !debug)
 		debug = 1;
