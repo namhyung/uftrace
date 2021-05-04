@@ -17,6 +17,7 @@
 #include <sys/uio.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <string.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -761,6 +762,29 @@ out:
 }
 
 #ifdef ENABLE_MCOUNT_DAEMON
+void str_merge_symbs(char* base, char* new, size_t base_size) {
+	int i;
+	char *symb;
+	struct strv symbs = STRV_INIT;
+
+	strv_split(&symbs, new, ",");
+	strv_for_each(&symbs, symb, i) {
+		if (strstr(base, symb) == NULL) {
+			if (strlen(base) + strlen(symb) > base_size) {
+				pr_warn("cannot merge symbols: buffer too small\n");
+				break;
+			}
+			if (strlen(base) > 0)
+				strcat(base, ",");
+			strcat(base, symb);
+		}
+	}
+
+	strv_free(&symbs);
+
+	return;
+}
+
 /* Daemon thread, waiting for instructions from the client. */
 void *command_daemon(void *arg) {
 	int sfd, cfd;               /* socket fd, connection fd */
@@ -769,6 +793,7 @@ void *command_daemon(void *arg) {
 	char *channel = NULL;
 	char *run_dir = NULL;
 	char buf[MCOUNT_DOPT_SIZE];
+	char dyn_args_str[MCOUNT_DOPT_SIZE], dyn_retval_str[MCOUNT_DOPT_SIZE];
 	bool close_connection, kill_daemon;
 	bool disabled;
 	enum uftrace_dopt dopt;
@@ -863,6 +888,12 @@ void *command_daemon(void *arg) {
 					pr_err("error reading option");
 				break;
 
+			case UFTRACE_DOPT_PATCH: /* TODO */
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pr_warn("unsupported option: patch\n");
+				break;
+
 			case UFTRACE_DOPT_FILTER: /* -F or -N */
 				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
 					pr_err("error reading option");
@@ -896,6 +927,30 @@ void *command_daemon(void *arg) {
 									  &mcount_filter_mode,
 									  &filter_setting);
 				pthread_rwlock_unlock(&tree_rwlock);
+				break;
+
+			case UFTRACE_DOPT_ARGUMENT:
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pthread_rwlock_wrlock(&tree_rwlock);
+				uftrace_setup_argument(buf,
+									   &symtabs,
+									   &mcount_triggers,
+									   &filter_setting);
+				pthread_rwlock_unlock(&tree_rwlock);
+				str_merge_symbs(dyn_args_str, buf, MCOUNT_DOPT_SIZE);
+				break;
+
+			case UFTRACE_DOPT_RETVAL:
+				if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+					pr_err("error reading option");
+				pthread_rwlock_wrlock(&tree_rwlock);
+				uftrace_setup_retval(buf,
+									 &symtabs,
+									 &mcount_triggers,
+									 &filter_setting);
+				pthread_rwlock_unlock(&tree_rwlock);
+				str_merge_symbs(dyn_retval_str, buf, MCOUNT_DOPT_SIZE);
 				break;
 
 			case UFTRACE_DOPT_WATCH:
@@ -932,6 +987,15 @@ void *command_daemon(void *arg) {
 		pr_warn("cannot close socket\n");
 	}
 	unlink(channel);
+
+	/* Tell uftrace these options changed before it saves the original options
+	 * to disk. */
+	uftrace_send_message(UFTRACE_MSG_SEND_ARGS,
+						 dyn_args_str,
+						 strlen(dyn_args_str));
+	uftrace_send_message(UFTRACE_MSG_SEND_RETVAL,
+						 dyn_retval_str,
+						 strlen(dyn_retval_str));
 
 	free(channel);
 	free(run_dir);

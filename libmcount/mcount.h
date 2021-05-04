@@ -9,6 +9,7 @@
 #ifndef UFTRACE_MCOUNT_H
 #define UFTRACE_MCOUNT_H
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -66,6 +67,7 @@ struct mcount_ret_stack {
 };
 
 #ifdef ENABLE_MCOUNT_DAEMON
+void str_merge_symbs(char* base, char* new, size_t base_size);
 void *command_daemon(void *arg);
 #endif // ENABLE_MCOUNT_DAEMON
 void __monstartup(unsigned long low, unsigned long high);

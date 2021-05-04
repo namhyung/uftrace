@@ -181,6 +181,24 @@ int command_client(int argc, char *argv[], struct opts *opts) {
 			pr_err("error sending options");
 	}
 
+	if (opts->args) {
+		pr_dbg3("changing argument options\n");
+		send_option(sfd, UFTRACE_DOPT_ARGUMENT);
+
+		strcpy(command, opts->args);
+		if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
+			pr_err("error sending options");
+	}
+
+	if (opts->retval) {
+		pr_dbg3("changing retval options\n");
+		send_option(sfd, UFTRACE_DOPT_RETVAL);
+
+		strcpy(command, opts->retval);
+		if (write(sfd, &command, MCOUNT_DOPT_SIZE) == -1)
+			pr_err("error sending options");
+	}
+
 	if (opts->threshold) {
 		pr_dbg3("changing time filter value\n");
 		send_option(sfd, UFTRACE_DOPT_THRESHOLD);
