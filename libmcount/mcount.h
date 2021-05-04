@@ -36,6 +36,8 @@ enum mcount_rstack_flag {
 	MCOUNT_FL_ARGUMENT	= (1U << 11),
 	MCOUNT_FL_READ		= (1U << 12),
 	MCOUNT_FL_CALLER	= (1U << 13),
+	MCOUNT_FL_DEPTH     = (1U << 14),
+	MCOUNT_FL_TIME_FILTER = (1U << 15),
 };
 
 struct plthook_data;
