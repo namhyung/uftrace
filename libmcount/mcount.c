@@ -15,6 +15,8 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -90,6 +92,11 @@ unsigned long mcount_return_fn;
 
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
+
+#ifdef ENABLE_MCOUNT_DAEMON
+/* daemon thread */
+pthread_t daemon_thread;
+#endif // ENABLE_MCOUNT_DAEMON
 
 __weak void dynamic_return(void) { }
 
@@ -746,6 +753,99 @@ out:
 	sigaction(sig, &old_sigact[(sig == SIGSEGV)], NULL);
 	raise(sig);
 }
+
+#ifdef ENABLE_MCOUNT_DAEMON
+/* Daemon thread, waiting for instructions from the client. */
+void *command_daemon(void *arg) {
+	int sfd, cfd;               /* socket fd, connection fd */
+	pid_t pid;
+	uid_t uid;
+	char *channel = NULL;
+	char *run_dir = NULL;
+	bool close_connection, kill_daemon;
+	enum uftrace_dopt dopt;
+	struct sockaddr_un addr;
+
+	/* Open socket at /var/run/user/%UID/uftrace/%PID.socket */
+	sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sfd == -1)
+		pr_err("error opening socket");
+
+	memset(&addr, 0, sizeof(struct sockaddr_un));
+	addr.sun_family = AF_UNIX;
+
+	uid = getuid();
+	pid = getpid();
+	xasprintf(&run_dir, "/var/run/user/%d/uftrace", uid);
+	if (mkdir(run_dir, 0775) == -1) {
+		if (errno == EEXIST)
+			pr_dbg3("skipping pre-existing run directory %s\n", run_dir);
+		else
+			pr_err("error creating run directory");
+	}
+
+	xasprintf(&channel, "%s/%d.%s", run_dir, pid, "socket");
+	strncpy(addr.sun_path, channel, sizeof(addr.sun_path) - 1);
+	pr_dbg3("using socket %s\n", channel);
+
+	if (unlink(channel) == -1) {
+		if (errno != ENOENT)
+			pr_err("cannot unlink %s", channel);
+	}
+	if (bind(sfd, (struct sockaddr *) &addr,
+			 sizeof(struct sockaddr_un)) == -1) {
+		pr_warn("error binding to socket\n");
+		return NULL;
+	}
+
+	if (listen(sfd, 1) == -1) {
+		pr_warn("error listening to socket\n");
+		return NULL;
+	}
+
+	kill_daemon = false;
+	while (!kill_daemon) {
+		if ((cfd = accept(sfd, NULL, NULL)) == -1) {
+			pr_warn("error accepting socket connection\n");
+			continue;
+		}
+
+		close_connection = false;
+		while (!close_connection) {
+			if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
+				pr_warn("error reading option\n", errno);
+				break;
+			}
+
+			switch (dopt) {
+			case UFTRACE_DOPT_KILL:
+				kill_daemon = true;
+				__attribute__((fallthrough));
+
+			case UFTRACE_DOPT_CLOSE:
+				close_connection = true;
+				break;
+
+			default:
+				pr_warn("option not recognized: %d\n", dopt);
+		   }
+		}
+		if (close(cfd) == -1) {
+			pr_warn("cannot close connection\n");
+		}
+	}
+
+	if (close(sfd) == -1) {
+		pr_warn("cannot close socket\n");
+	}
+	unlink(channel);
+
+	free(channel);
+	free(run_dir);
+
+	return 0;
+}
+#endif // ENABLE_MCOUNT_DAEMON
 
 static void mcount_init_file(void)
 {
@@ -1903,6 +2003,12 @@ static __used void mcount_startup(void)
 		mcount_setup_plthook(mcount_exename, nest_libcall);
 	}
 
+#ifdef ENABLE_MCOUNT_DAEMON
+	errno = pthread_create(&daemon_thread, NULL, &command_daemon, NULL);
+	if (errno != 0)
+		pr_err("cannot start daemon: %s", strerror((errno)));
+#endif // ENABLE_MCOUNT_DAEMON
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
@@ -1918,8 +2024,46 @@ static __used void mcount_startup(void)
 	mtd.recursion_marker = false;
 }
 
+#ifdef ENABLE_MCOUNT_DAEMON
+/* Check if the daemon is up, and send it a KILL message if so. Then join the
+ * thread daemon, so the target program can exit. */
+void kill_daemon_if_needed() {
+	int daemon_sfd;
+	pid_t pid;
+	uid_t uid;
+	char *channel = NULL;
+	struct sockaddr_un addr;
+	enum uftrace_dopt opt = UFTRACE_DOPT_KILL;
+
+	daemon_sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (daemon_sfd == -1)
+		pr_err("error opening socket");
+	memset(&addr, 0, sizeof(struct sockaddr_un));
+	addr.sun_family = AF_UNIX;
+	uid = getuid();
+	pid = getpid();
+	xasprintf(&channel, "/var/run/user/%d/uftrace/%d.socket", uid, pid);
+	strncpy(addr.sun_path, channel,
+			sizeof(addr.sun_path) - 1);
+	if (connect(daemon_sfd, (struct sockaddr *) &addr,
+				sizeof(struct sockaddr_un)) == -1) {
+		if (errno != ENOENT) /* The daemon may have ended and deleted the socket */
+			pr_err("error connecting to socket");
+	}
+	else if (write(daemon_sfd, &opt, sizeof(enum uftrace_dopt)) == -1) {
+		pr_err("error sending option type");
+	}
+	if (pthread_join(daemon_thread, NULL) == -1)
+		pr_err("error joining daemon thread");
+	free(channel);
+}
+#endif // ENABLE_MCOUNT_DAEMON
+
 static void mcount_cleanup(void)
 {
+#ifdef ENABLE_MCOUNT_DAEMON
+	kill_daemon_if_needed();
+#endif // ENABLE_MCOUNT_DAEMON
 	mcount_finish();
 	destroy_dynsym_indexes();
 	mcount_dynamic_finish();

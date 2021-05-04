@@ -74,6 +74,8 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	    getenv("UFTRACE_AUTO_ARGS") || getenv("UFTRACE_WATCH") ||
 	    getenv("UFTRACE_CALLER")    || getenv("UFTRACE_SIGNAL"))
 		return false;
+	if (getenv("UFTRACE_DAEMON"))
+		return false;
 	return true;
 }
 
@@ -101,6 +103,9 @@ char * get_libmcount_path(struct opts *opts)
 
 	if (opts->nop) {
 		libmcount = "libmcount-nop.so";
+	}
+	else if (opts->daemon) {
+		libmcount = "libmcount-daemon.so";
 	}
 	else if (opts->libmcount_single && !must_use_multi_thread) {
 		if (can_use_fast_libmcount(opts))
@@ -292,6 +297,9 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 
 	if (opts->disabled)
 		setenv("UFTRACE_DISABLED", "1", 1);
+
+	if (opts->daemon)
+		setenv("UFTRACE_DAEMON", "1", 1);
 
 	if (log_color == COLOR_ON) {
 		snprintf(buf, sizeof(buf), "%d", log_color);

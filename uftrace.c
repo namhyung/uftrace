@@ -102,6 +102,8 @@ enum options {
 	OPT_signal,
 	OPT_srcline,
 	OPT_usage,
+	OPT_daemon,
+	OPT_kill_daemon,
 };
 
 __used static const char uftrace_usage[] =
@@ -127,6 +129,7 @@ __used static const char uftrace_help[] =
 	stringify(OPT_COLUMN_OFFSET) ")\n"
 "      --column-view          Print tasks in separate columns\n"
 "  -C, --caller-filter=FUNC   Only trace callers of those FUNCs\n"
+"      --daemon               Enable the daemon\n"
 "  -d, --data=DATA            Use this DATA instead of uftrace.data\n"
 "      --debug-domain=DOMAIN  Filter debugging domain\n"
 "      --demangle=TYPE        C++ symbol demangling: full, simple, no\n"
@@ -302,6 +305,10 @@ static const struct option uftrace_options[] = {
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
 	NO_ARG(estimate-return, 'e'),
+	NO_ARG(daemon, OPT_daemon),
+	REQ_ARG(pid, 'p'),
+	NO_ARG(kill, OPT_kill_daemon),
+
 	{ 0 }
 };
 
@@ -944,6 +951,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_srcline:
 		opts->srcline = true;
+		break;
+
+	case OPT_daemon:
+		opts->daemon = true;
 		break;
 
 	default:

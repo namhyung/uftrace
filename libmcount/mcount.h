@@ -61,6 +61,9 @@ struct mcount_ret_stack {
 	struct list_head *pargs;
 };
 
+#ifdef ENABLE_MCOUNT_DAEMON
+void *command_daemon(void *arg);
+#endif // ENABLE_MCOUNT_DAEMON
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);
