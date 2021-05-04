@@ -102,6 +102,7 @@ enum options {
 	OPT_signal,
 	OPT_srcline,
 	OPT_usage,
+	OPT_no_daemon,
 };
 
 __used static const char uftrace_usage[] =
@@ -165,6 +166,7 @@ __used static const char uftrace_help[] =
 "      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
 	stringify(OPT_RSTACK_MAX) ")\n"
 "      --no-comment           Don't show comments of returned functions\n"
+"      --no-daemon            Disable the daemon\n"
 "      --no-event             Disable (default) events\n"
 "      --no-sched             Disable schedule events\n"
 "      --no-libcall           Don't trace library function calls\n"
@@ -302,6 +304,8 @@ static const struct option uftrace_options[] = {
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
 	NO_ARG(estimate-return, 'e'),
+	NO_ARG(no-daemon, OPT_no_daemon),
+
 	{ 0 }
 };
 
@@ -944,6 +948,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_srcline:
 		opts->srcline = true;
+		break;
+
+	case OPT_no_daemon:
+		opts->no_daemon = true;
 		break;
 
 	default:

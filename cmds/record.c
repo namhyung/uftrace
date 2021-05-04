@@ -75,6 +75,8 @@ static bool can_use_fast_libmcount(struct opts *opts)
 	    getenv("UFTRACE_AUTO_ARGS") || getenv("UFTRACE_WATCH") ||
 	    getenv("UFTRACE_CALLER")    || getenv("UFTRACE_SIGNAL"))
 		return false;
+	if (!getenv("UFTRACE_NO_DAEMON"))
+		return false;
 	return true;
 }
 
@@ -293,6 +295,10 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 
 	if (opts->disabled)
 		setenv("UFTRACE_DISABLED", "1", 1);
+
+	if (opts->no_daemon) {
+		setenv("UFTRACE_NO_DAEMON", "1", 1);
+	}
 
 	if (log_color == COLOR_ON) {
 		snprintf(buf, sizeof(buf), "%d", log_color);

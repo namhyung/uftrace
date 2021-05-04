@@ -61,6 +61,7 @@ struct mcount_ret_stack {
 	struct list_head *pargs;
 };
 
+void *command_daemon(void *arg);
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);
