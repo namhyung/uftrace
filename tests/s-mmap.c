@@ -9,7 +9,7 @@ int foo(long sz)
 	void *ptr;
 
 	fd = open("/dev/zero", O_RDONLY);
-	ptr = mmap(NULL, sz, PROT_READ, MAP_ANON|MAP_PRIVATE, fd, 0);
+	ptr = mmap(NULL, sz, PROT_READ, MAP_ANON | MAP_PRIVATE, fd, 0);
 	mprotect(ptr, sz, PROT_NONE);
 	munmap(ptr, sz);
 	close(fd);

@@ -4,8 +4,8 @@
 #include <link.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "filter"
-#define PR_DOMAIN  DBG_FILTER
+#define PR_FMT "filter"
+#define PR_DOMAIN DBG_FILTER
 
 #include "uftrace.h"
 #include "utils/arch.h"
@@ -37,14 +37,14 @@ static int has_shared_object(const char *soname)
 	if (so_used != -1)
 		return so_used;
 
-	so_used = dl_iterate_phdr(check_so_cb, (void*)soname);
+	so_used = dl_iterate_phdr(check_so_cb, (void *)soname);
 
 	return so_used;
 }
 
 /* argument_spec = arg1/i32,arg2/x64,... */
-struct uftrace_arg_spec * parse_argspec(char *str,
-					struct uftrace_filter_setting *setting)
+struct uftrace_arg_spec *parse_argspec(char *str,
+				       struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	int fmt = ARG_FMT_AUTO;
@@ -58,19 +58,16 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 	if (!strncmp(str, "arg", 3) && isdigit(str[3])) {
 		idx = strtol(str + 3, &suffix, 0);
 		type = ARG_TYPE_INDEX;
-	}
-	else if (!strncmp(str, "retval", 6)) {
+	} else if (!strncmp(str, "retval", 6)) {
 		idx = RETVAL_IDX;
 		type = ARG_TYPE_INDEX;
 		suffix = str + 6;
-	}
-	else if (!strncmp(str, "fparg", 5) && isdigit(str[5])) {
-		idx = strtol(str+5, &suffix, 0);
+	} else if (!strncmp(str, "fparg", 5) && isdigit(str[5])) {
+		idx = strtol(str + 5, &suffix, 0);
 		fmt = ARG_FMT_FLOAT;
 		type = ARG_TYPE_FLOAT;
 		size = sizeof(double);
-	}
-	else {
+	} else {
 		pr_dbg("invalid argspec: %s\n", str);
 		return NULL;
 	}
@@ -128,7 +125,8 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 		break;
 	case 'e':
 		fmt = ARG_FMT_ENUM;
-		if (suffix[1] != ':' || (!isalpha(suffix[2]) && suffix[2] != '_')) {
+		if (suffix[1] != ':' ||
+		    (!isalpha(suffix[2]) && suffix[2] != '_')) {
 			pr_use("invalid enum spec: %s\n", suffix);
 			goto err;
 		}
@@ -169,13 +167,14 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 				if (next)
 					*next = '\0';
 
-				reg = arch_register_number(setting->arch, ++suffix);
+				reg = arch_register_number(setting->arch,
+							   ++suffix);
 				if (reg >= 0)
-					arg->struct_regs[arg->struct_reg_cnt++] = reg;
+					arg->struct_regs[arg->struct_reg_cnt++] =
+						reg;
 
 				suffix = next;
-			}
-			while (suffix);
+			} while (suffix);
 
 			if (arg->struct_reg_cnt)
 				type = ARG_TYPE_REG;
@@ -219,11 +218,11 @@ type:
 		suffix++;
 
 		if (!strncmp(suffix, "stack", 5)) {
-			arg->stack_ofs = strtol(suffix+5, NULL, 0);
+			arg->stack_ofs = strtol(suffix + 5, NULL, 0);
 			type = ARG_TYPE_STACK;
-		}
-		else {
-			arg->reg_idx = arch_register_number(setting->arch, suffix);
+		} else {
+			arg->reg_idx =
+				arch_register_number(setting->arch, suffix);
 			type = ARG_TYPE_REG;
 
 			if (arg->reg_idx < 0) {
@@ -231,8 +230,7 @@ type:
 				goto err;
 			}
 		}
-	}
-	else if (*suffix != '\0')
+	} else if (*suffix != '\0')
 		goto err;
 
 out:
@@ -240,8 +238,8 @@ out:
 	if (fmt == ARG_FMT_FLOAT && size == 10 && is_arm_machine(setting))
 		size = 8;
 
-	arg->idx  = idx;
-	arg->fmt  = fmt;
+	arg->idx = idx;
+	arg->fmt = fmt;
 	arg->size = size;
 	arg->type = type;
 
@@ -286,4 +284,4 @@ TEST_CASE(argspec_parse_struct)
 	free(str);
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

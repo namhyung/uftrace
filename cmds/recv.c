@@ -19,9 +19,9 @@
 #include "utils/list.h"
 
 struct client_data {
-	struct list_head	list;
-	int			sock;
-	char			*dirname;
+	struct list_head list;
+	int sock;
+	char *dirname;
 };
 
 static LIST_HEAD(client_list);
@@ -77,8 +77,8 @@ static int signal_fd(struct opts *opts)
 int setup_client_socket(struct opts *opts)
 {
 	struct sockaddr_in addr = {
-		.sin_family	= AF_INET,
-		.sin_port	= htons(opts->port),
+		.sin_family = AF_INET,
+		.sin_port = htons(opts->port),
 	};
 	struct hostent *hostinfo;
 	int sock;
@@ -94,7 +94,7 @@ int setup_client_socket(struct opts *opts)
 	if (hostinfo == NULL)
 		pr_err("cannot find host: %s", opts->host);
 
-	addr.sin_addr = *(struct in_addr *) hostinfo->h_addr;
+	addr.sin_addr = *(struct in_addr *)hostinfo->h_addr;
 
 	if (connect(sock, (const struct sockaddr *)&addr, sizeof(addr)) < 0)
 		pr_err("socket connect failed");
@@ -107,12 +107,12 @@ void send_trace_dir_name(int sock, char *name)
 	ssize_t len = strlen(name);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_DIR_NAME),
-		.len   = htonl(len),
+		.type = htons(UFTRACE_MSG_SEND_DIR_NAME),
+		.len = htonl(len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = name, .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = name, .iov_len = len },
 	};
 
 	pr_dbg2("send UFTRACE_MSG_SEND_HDR\n");
@@ -125,13 +125,13 @@ void send_trace_data(int sock, int tid, void *data, size_t len)
 	int32_t msg_tid = htonl(tid);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_DATA),
-		.len   = htonl(sizeof(msg_tid) + len),
+		.type = htons(UFTRACE_MSG_SEND_DATA),
+		.len = htonl(sizeof(msg_tid) + len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = &msg_tid, .iov_len = sizeof(msg_tid), },
-		{ .iov_base = data,     .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = &msg_tid, .iov_len = sizeof(msg_tid) },
+		{ .iov_base = data, .iov_len = len },
 	};
 
 	pr_dbg2("send UFTRACE_MSG_SEND_DATA\n");
@@ -144,13 +144,13 @@ void send_trace_kernel_data(int sock, int cpu, void *data, size_t len)
 	int32_t msg_cpu = htonl(cpu);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_KERNEL_DATA),
-		.len   = htonl(sizeof(msg_cpu) + len),
+		.type = htons(UFTRACE_MSG_SEND_KERNEL_DATA),
+		.len = htonl(sizeof(msg_cpu) + len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = &msg_cpu, .iov_len = sizeof(msg_cpu), },
-		{ .iov_base = data,     .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = &msg_cpu, .iov_len = sizeof(msg_cpu) },
+		{ .iov_base = data, .iov_len = len },
 	};
 
 	pr_dbg2("send UFTRACE_MSG_SEND_KERNEL_DATA\n");
@@ -163,13 +163,13 @@ void send_trace_perf_data(int sock, int cpu, void *data, size_t len)
 	int32_t msg_cpu = htonl(cpu);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_PERF_DATA),
-		.len   = htonl(sizeof(msg_cpu) + len),
+		.type = htons(UFTRACE_MSG_SEND_PERF_DATA),
+		.len = htonl(sizeof(msg_cpu) + len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = &msg_cpu, .iov_len = sizeof(msg_cpu), },
-		{ .iov_base = data,     .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = &msg_cpu, .iov_len = sizeof(msg_cpu) },
+		{ .iov_base = data, .iov_len = len },
 	};
 
 	pr_dbg2("send UFTRACE_MSG_SEND_PERF_DATA\n");
@@ -187,13 +187,13 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 	int32_t namelen = strlen(filename);
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_META_DATA),
-		.len   = sizeof(namelen) + namelen,
+		.type = htons(UFTRACE_MSG_SEND_META_DATA),
+		.len = sizeof(namelen) + namelen,
 	};
 	struct iovec iov[4] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = &namelen, .iov_len = sizeof(namelen), },
-		{ .iov_base = filename, .iov_len = namelen, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = &namelen, .iov_len = sizeof(namelen) },
+		{ .iov_base = filename, .iov_len = namelen },
 		{ /* to be filled */ },
 	};
 
@@ -214,7 +214,7 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 
 	msg.len = htonl(msg.len + len);
 	iov[3].iov_base = buf;
-	iov[3].iov_len  = len;
+	iov[3].iov_len = len;
 
 	if (read_all(fd, buf, len) < 0)
 		pr_err("map read failed");
@@ -230,25 +230,25 @@ void send_trace_metadata(int sock, const char *dirname, char *filename)
 	close(fd);
 }
 
-void send_trace_info(int sock, struct uftrace_file_header *hdr,
-		     void *info, int len)
+void send_trace_info(int sock, struct uftrace_file_header *hdr, void *info,
+		     int len)
 {
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_INFO),
-		.len   = htonl(sizeof(*hdr) + len),
+		.type = htons(UFTRACE_MSG_SEND_INFO),
+		.len = htonl(sizeof(*hdr) + len),
 	};
 	struct iovec iov[] = {
-		{ .iov_base = &msg,     .iov_len = sizeof(msg), },
-		{ .iov_base = hdr,      .iov_len = sizeof(*hdr), },
-		{ .iov_base = info,     .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = hdr, .iov_len = sizeof(*hdr) },
+		{ .iov_base = info, .iov_len = len },
 	};
 
-	hdr->version     = htonl(hdr->version);
+	hdr->version = htonl(hdr->version);
 	hdr->header_size = htons(hdr->header_size);
-	hdr->feat_mask   = htonq(hdr->feat_mask);
-	hdr->info_mask   = htonq(hdr->info_mask);
-	hdr->max_stack   = htons(hdr->max_stack);
+	hdr->feat_mask = htonq(hdr->feat_mask);
+	hdr->info_mask = htonq(hdr->info_mask);
+	hdr->max_stack = htons(hdr->max_stack);
 
 	pr_dbg2("send UFTRACE_MSG_SEND_INFO\n");
 	if (writev_all(sock, iov, ARRAY_SIZE(iov)) < 0)
@@ -259,7 +259,7 @@ void send_trace_end(int sock)
 {
 	struct uftrace_msg msg = {
 		.magic = htons(UFTRACE_MSG_MAGIC),
-		.type  = htons(UFTRACE_MSG_SEND_END),
+		.type = htons(UFTRACE_MSG_SEND_END),
 	};
 
 	pr_dbg2("send UFTRACE_MSG_SEND_END\n");
@@ -267,22 +267,22 @@ void send_trace_end(int sock)
 		pr_err("send end failed");
 }
 
-
 /* server (recv) side API */
 static struct client_data *find_client(int sock)
 {
 	struct client_data *c;
 
-	list_for_each_entry(c, &client_list, list) {
+	list_for_each_entry (c, &client_list, list) {
 		if (c->sock == sock)
 			return c;
 	}
 	return NULL;
 }
 
-#define O_CLIENT_FLAGS  (O_WRONLY | O_APPEND | O_CREAT)
+#define O_CLIENT_FLAGS (O_WRONLY | O_APPEND | O_CREAT)
 
-static void write_client_file(struct client_data *c, char *filename, int nr, ...)
+static void write_client_file(struct client_data *c, char *filename, int nr,
+			      ...)
 {
 	int i, fd;
 	va_list ap;
@@ -297,7 +297,7 @@ static void write_client_file(struct client_data *c, char *filename, int nr, ...
 	va_start(ap, nr);
 	for (i = 0; i < nr; i++) {
 		iov[i].iov_base = va_arg(ap, void *);
-		iov[i].iov_len  = va_arg(ap, int);
+		iov[i].iov_len = va_arg(ap, int);
 	}
 	va_end(ap);
 
@@ -462,11 +462,11 @@ static void recv_trace_info(int sock, int len)
 	if (read_all(sock, &hdr, sizeof(hdr)) < 0)
 		pr_err("recv file header failed");
 
-	hdr.version     = ntohl(hdr.version);
+	hdr.version = ntohl(hdr.version);
 	hdr.header_size = ntohs(hdr.header_size);
-	hdr.feat_mask   = ntohq(hdr.feat_mask);
-	hdr.info_mask   = ntohq(hdr.info_mask);
-	hdr.max_stack   = ntohs(hdr.max_stack);
+	hdr.feat_mask = ntohq(hdr.feat_mask);
+	hdr.info_mask = ntohq(hdr.info_mask);
+	hdr.max_stack = ntohs(hdr.max_stack);
 
 	len -= sizeof(hdr);
 	info = xmalloc(len);
@@ -499,7 +499,8 @@ static void recv_trace_end(int sock, int efd)
 	close(sock);
 }
 
-static void execute_run_cmd(char **argv) {
+static void execute_run_cmd(char **argv)
+{
 	int pid;
 
 	if (!argv)
@@ -540,14 +541,15 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	if (client < 0)
 		pr_err("socket accept failed");
 
-	getnameinfo((struct sockaddr *)&addr, len, hbuf, sizeof(hbuf),
-		    NULL, 0, NI_NUMERICHOST);
+	getnameinfo((struct sockaddr *)&addr, len, hbuf, sizeof(hbuf), NULL, 0,
+		    NI_NUMERICHOST);
 
 	epoll_add(efd, client, EPOLLIN);
 	pr_dbg("new connection added from %s\n", hbuf);
 }
 
-static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opts)
+static void handle_client_sock(struct epoll_event *ev, int efd,
+			       struct opts *opts)
 {
 	int sock = ev->data.fd;
 	struct uftrace_msg msg;
@@ -562,8 +564,8 @@ static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opt
 		pr_err("message recv failed");
 
 	msg.magic = ntohs(msg.magic);
-	msg.type  = ntohs(msg.type);
-	msg.len   = ntohl(msg.len);
+	msg.type = ntohs(msg.type);
+	msg.len = ntohl(msg.len);
 
 	if (msg.magic != UFTRACE_MSG_MAGIC)
 		pr_err_ns("invalid message\n");
@@ -628,7 +630,7 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 	if (efd < 0)
 		pr_err("epoll create failed");
 
-	epoll_add(efd, sock,  EPOLLIN);
+	epoll_add(efd, sock, EPOLLIN);
 	epoll_add(efd, sigfd, EPOLLIN);
 
 	while (!uftrace_done) {
@@ -646,8 +648,7 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 					waitpid(-1, NULL, WNOHANG);
 				else
 					uftrace_done = true;
-			}
-			else if (ev[i].data.fd == sock)
+			} else if (ev[i].data.fd == sock)
 				handle_server_sock(&ev[i], efd);
 			else
 				handle_client_sock(&ev[i], efd, opts);

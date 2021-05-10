@@ -18,16 +18,16 @@ static struct option symbols_options[] = {
 };
 
 static const char symbols_usage[] =
-"symbols " UFTRACE_VERSION "\n"
-"\n"
-" OPTION:\n"
-"  -d, --data             Use this DATA instead of uftrace.data\n"
-"  -v, --verbose          Be verbose\n"
-"\n";
+	"symbols " UFTRACE_VERSION "\n"
+	"\n"
+	" OPTION:\n"
+	"  -d, --data             Use this DATA instead of uftrace.data\n"
+	"  -v, --verbose          Be verbose\n"
+	"\n";
 
 struct symbols_opts {
 	char *dirname;
-	int  idx;
+	int idx;
 };
 
 static void parse_option(int argc, char **argv, struct symbols_opts *opts)
@@ -115,15 +115,13 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(link, &tmsg, false);
-		}
-		else if (!strncmp(line, "FORK", 4)) {
+		} else if (!strncmp(line, "FORK", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
 			       &sec, &nsec, &tmsg.tid, &tmsg.pid);
 
 			tmsg.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			create_task(link, &tmsg, true);
-		}
-		else if (!strncmp(line, "SESS", 4)) {
+		} else if (!strncmp(line, "SESS", 4)) {
 			sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
 			       &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
 
@@ -131,7 +129,7 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			pos = strstr(line, "exename=");
 			if (pos == NULL)
 				pr_err_ns("invalid task.txt format");
-			exename = pos + 8 + 1;  // skip double-quote
+			exename = pos + 8 + 1; // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
 				*pos = '\0';
@@ -140,21 +138,21 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(link, &smsg, dirname, exename,
-				       true, true, false);
+			create_session(link, &smsg, dirname, exename, true,
+				       true, false);
 			count++;
-		}
-		else if (!strncmp(line, "DLOP", 4)) {
+		} else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
 
-			sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
+			sscanf(line + 5,
+			       "timestamp=%lu.%lu tid=%d sid=%s base=%" PRIx64,
 			       &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
 			       &dlop.base_addr);
 
 			pos = strstr(line, "libname=");
 			if (pos == NULL)
 				pr_err_ns("invalid task.txt format");
-			exename = pos + 8 + 1;  // skip double-quote
+			exename = pos + 8 + 1; // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
 				*pos = '\0';
@@ -164,8 +162,8 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			dlop.namelen = strlen(exename);
 
 			s = get_session_from_sid(link, dlop.sid);
-			session_add_dlopen(s, dlop.task.time,
-					   dlop.base_addr, exename);
+			session_add_dlopen(s, dlop.task.time, dlop.base_addr,
+					   exename);
 		}
 	}
 
@@ -186,7 +184,7 @@ int main(int argc, char *argv[])
 		.dirname = UFTRACE_DIR_NAME,
 	};
 	struct uftrace_session_link link = {
-		.root  = RB_ROOT,
+		.root = RB_ROOT,
 		.tasks = RB_ROOT,
 	};
 
@@ -211,21 +209,20 @@ retry:
 		int i;
 
 		for (i = opts.idx; i < argc; i++) {
-			sscanf(argv[i], "%"PRIx64, &addr);
-			printf("%"PRIx64":", addr);
+			sscanf(argv[i], "%" PRIx64, &addr);
+			printf("%" PRIx64 ":", addr);
 
 			if (needs_session)
 				putchar('\n');
 			walk_sessions(&link, print_session_symbol, &addr);
 			putchar('\n');
 		}
-	}
-	else {
+	} else {
 		char buf[4096];
 
 		while (fgets(buf, sizeof(buf), stdin)) {
-			sscanf(buf, "%"PRIx64, &addr);
-			printf("%"PRIx64":", addr);
+			sscanf(buf, "%" PRIx64, &addr);
+			printf("%" PRIx64 ":", addr);
 
 			if (needs_session)
 				putchar('\n');

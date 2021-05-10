@@ -20,7 +20,7 @@ long double mixed_div(long long a, long double b, int c)
 	return a / b;
 }
 
-char * mixed_str(char *a, double b)
+char *mixed_str(char *a, double b)
 {
 	static char buf[32];
 

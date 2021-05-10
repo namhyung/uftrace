@@ -19,17 +19,18 @@ void graph_init(struct uftrace_graph *graph, struct uftrace_session *s)
 	INIT_LIST_HEAD(&graph->special_nodes);
 }
 
-void graph_init_callbacks(graph_fn entry_fn, graph_fn exit_fn, graph_fn event_fn, void *arg)
+void graph_init_callbacks(graph_fn entry_fn, graph_fn exit_fn,
+			  graph_fn event_fn, void *arg)
 {
 	entry_cb = entry_fn;
-	exit_cb  = exit_fn;
+	exit_cb = exit_fn;
 	event_cb = event_fn;
 
-	cb_arg   = arg;
+	cb_arg = arg;
 }
 
-struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
-					   size_t tg_size)
+struct uftrace_task_graph *graph_get_task(struct uftrace_task_reader *task,
+					  size_t tg_size)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &task_graph_root.rb_node;
@@ -58,26 +59,26 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 }
 
 static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
-			   size_t node_size,
-			   struct debug_location* loc)
+			   size_t node_size, struct debug_location *loc)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
 	struct fstack *fstack = fstack_get(tg->task, tg->task->stack_count - 1);
 
 	if (tg->lost)
-		return 1;  /* ignore kernel functions after LOST */
+		return 1; /* ignore kernel functions after LOST */
 
 	if (tg->new_sess) {
 		curr = &tg->graph->root;
-		pr_dbg2("starts new session graph for task %d\n", tg->task->tid);
+		pr_dbg2("starts new session graph for task %d\n",
+			tg->task->tid);
 		tg->new_sess = false;
 	}
 
 	if (curr == NULL || fstack == NULL)
 		return -1;
 
-	list_for_each_entry(node, &curr->head, list) {
+	list_for_each_entry (node, &curr->head, list) {
 		if (name && !strcmp(name, node->name))
 			break;
 	}
@@ -119,7 +120,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 			snode = xmalloc(sizeof(*snode));
 			snode->node = node;
 			snode->type = type;
-			snode->pid  = tg->task->t->pid;
+			snode->pid = tg->task->t->pid;
 
 			/* find recent one first */
 			list_add(&snode->list, &tg->graph->special_nodes);
@@ -159,7 +160,8 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	if (node->addr != fstack->addr) {
 		struct uftrace_special_node *snode, *tmp;
 
-		list_for_each_entry_safe(snode, tmp, &tg->graph->special_nodes, list) {
+		list_for_each_entry_safe (snode, tmp, &tg->graph->special_nodes,
+					  list) {
 			if (snode->node->addr == tg->task->rstack->addr &&
 			    snode->type == NODE_T_FORK &&
 			    snode->pid == tg->task->t->ppid) {
@@ -174,7 +176,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	}
 
 out:
-	node->time       += fstack->total_time;
+	node->time += fstack->total_time;
 	node->child_time += fstack->child_time;
 
 	if (exit_cb)
@@ -196,8 +198,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 		/* to match addr with sched-in */
 		rec->addr = EVENT_ID_PERF_SCHED_IN;
 		return add_graph_entry(tg, sched_sym.name, node_size, NULL);
-	}
-	else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
+	} else if (rec->addr == EVENT_ID_PERF_SCHED_IN) {
 		return add_graph_exit(tg);
 	}
 
@@ -205,8 +206,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 }
 
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size,
-		   struct debug_location* loc)
+		   size_t node_size, struct debug_location *loc)
 {
 	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg, name, node_size, loc);
@@ -222,7 +222,7 @@ static void graph_destroy_node(struct uftrace_graph_node *node)
 {
 	struct uftrace_graph_node *child, *tmp;
 
-	list_for_each_entry_safe(child, tmp, &node->head, list)
+	list_for_each_entry_safe (child, tmp, &node->head, list)
 		graph_destroy_node(child);
 
 	list_del(&node->list);
@@ -235,10 +235,10 @@ void graph_destroy(struct uftrace_graph *graph)
 	struct uftrace_graph_node *node, *tmp;
 	struct uftrace_special_node *snode, *stmp;
 
-	list_for_each_entry_safe(node, tmp, &graph->root.head, list)
+	list_for_each_entry_safe (node, tmp, &graph->root.head, list)
 		graph_destroy_node(node);
 
-	list_for_each_entry_safe(snode, stmp, &graph->special_nodes, list) {
+	list_for_each_entry_safe (snode, stmp, &graph->special_nodes, list) {
 		list_del(&snode->list);
 		free(snode);
 	}

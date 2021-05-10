@@ -4,8 +4,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -13,35 +13,50 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define TRAMP_ENT_SIZE    16  /* size of trampoilne for each entry */
-#define TRAMP_PLT0_SIZE   32  /* module id + address of plthook_addr() */
-#define TRAMP_PCREL_JMP   10  /* PC_relative offset for JMP */
-#define TRAMP_IDX_OFFSET  1
-#define TRAMP_JMP_OFFSET  6
+#define TRAMP_ENT_SIZE 16 /* size of trampoilne for each entry */
+#define TRAMP_PLT0_SIZE 32 /* module id + address of plthook_addr() */
+#define TRAMP_PCREL_JMP 10 /* PC_relative offset for JMP */
+#define TRAMP_IDX_OFFSET 1
+#define TRAMP_JMP_OFFSET 6
 
 extern void __weak plt_hooker(void);
-struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
-					      const char *modname,
-					      unsigned long offset)
+struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
+					     const char *modname,
+					     unsigned long offset)
 {
 	struct plthook_data *pd;
 	void *trampoline;
 	size_t tramp_len;
 	uint32_t i;
-	const uint8_t tramp_plt0[] = {  /* followed by module_id + plthook_addr */
+	const uint8_t tramp_plt0[] = {
+		/* followed by module_id + plthook_addr */
+
+		/* clang-format off */
+		
 		/* PUSH module_id */
 		0xff, 0x35, 0xa, 0, 0, 0,
+
 		/* JMP plthook_addr */
 		0xff, 0x25, 0xc, 0, 0, 0,
 		0xcc, 0xcc, 0xcc, 0xcc,
+
+		/* clang-format on */
 	};
-	const uint8_t tramp_insns[] = {  /* make stack what plt_hooker expect */
+	const uint8_t tramp_insns[] = {
+		/* make stack what plt_hooker expect */
+
+		/* clang-format off */
+
 		/* PUSH child_idx */
 		0x68, 0, 0, 0, 0,
+
 		/* JMP plt0 */
 		0xe9, 0, 0, 0, 0,
+
 		/* should never reach here */
 		0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
+
+		/* clang-format on */
 	};
 	void *plthook_addr = plt_hooker;
 	void *tramp;
@@ -57,8 +72,8 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	}
 
 	tramp_len = TRAMP_PLT0_SIZE + pd->dsymtab.nr_sym * TRAMP_ENT_SIZE;
-	trampoline = mmap(NULL, tramp_len, PROT_READ|PROT_WRITE,
-			  MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	trampoline = mmap(NULL, tramp_len, PROT_READ | PROT_WRITE,
+			  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (trampoline == MAP_FAILED) {
 		pr_dbg("mmap failed: %m: ignore libcall hooking\n");
 		free(pd);
@@ -108,7 +123,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		pcrel = trampoline - (tramp + TRAMP_PCREL_JMP);
 		memcpy(tramp + TRAMP_JMP_OFFSET, &pcrel, sizeof(pcrel));
 
-		rela = (void*)sym->addr;
+		rela = (void *)sym->addr;
 		/* save resolved address in GOT */
 		memcpy(&pd->resolved_addr[i], (void *)rela->r_offset + offset,
 		       sizeof(long));
@@ -118,7 +133,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		tramp += TRAMP_ENT_SIZE;
 	}
 
-	mprotect(trampoline, tramp_len, PROT_READ|PROT_EXEC);
+	mprotect(trampoline, tramp_len, PROT_READ | PROT_EXEC);
 
 	pd->mod_name = xstrdup(modname);
 

@@ -16,8 +16,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "kernel"
-#define PR_DOMAIN  DBG_KERNEL
+#define PR_FMT "kernel"
+#define PR_DOMAIN DBG_KERNEL
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -28,7 +28,7 @@
 #include "libtraceevent/kbuffer.h"
 #include "libtraceevent/event-parse.h"
 
-#define TRACING_DIR  "/sys/kernel/debug/tracing"
+#define TRACING_DIR "/sys/kernel/debug/tracing"
 
 static bool kernel_tracing_enabled;
 
@@ -37,15 +37,15 @@ static struct rb_root kfunc_tree = RB_ROOT;
 
 static int prepare_kbuffer(struct uftrace_kernel_reader *kernel, int cpu);
 
-static int
-funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
-			struct event_format *event, void *context);
-static int
-funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
-		       struct event_format *event, void *context);
-static int
-generic_event_handler(struct trace_seq *s, struct pevent_record *record,
-		      struct event_format *event, void *context);
+static int funcgraph_entry_handler(struct trace_seq *s,
+				   struct pevent_record *record,
+				   struct event_format *event, void *context);
+static int funcgraph_exit_handler(struct trace_seq *s,
+				  struct pevent_record *record,
+				  struct event_format *event, void *context);
+static int generic_event_handler(struct trace_seq *s,
+				 struct pevent_record *record,
+				 struct event_format *event, void *context);
 
 static int save_kernel_files(struct uftrace_kernel_writer *kernel);
 static int load_kernel_files(struct uftrace_kernel_reader *kernel);
@@ -106,7 +106,7 @@ static int __write_tracing_file(int fd, const char *name, const char *val,
 	}
 
 	pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
-	       val, name);
+		val, name);
 
 	if (write(fd, val, size) == size)
 		ret = 0;
@@ -123,8 +123,8 @@ static int __write_tracing_file(int fd, const char *name, const char *val,
 		if (write(fd, " ", 1) < 0)
 			ret = -1;
 
-		pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing",
-			val, name);
+		pr_dbg2("%s '%s' to tracing/%s\n",
+			append ? "appending" : "writing", val, name);
 
 		if (write(fd, val, size) == size)
 			ret = 0;
@@ -197,7 +197,7 @@ static int set_filter_file(const char *filter_file, struct list_head *filters)
 	if (fd < 0)
 		return -1;
 
-	list_for_each_entry_safe(pos, tmp, filters, list) {
+	list_for_each_entry_safe (pos, tmp, filters, list) {
 		/*
 		 * it might fail with non-existing functions added by
 		 * add_single_filter() or skip_kernel_functions().
@@ -337,7 +337,8 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 
 	strv_split(&strv, filter_str, ";");
 
-	strv_for_each(&strv, name, j) {
+	strv_for_each(&strv, name, j)
+	{
 		struct uftrace_pattern patt;
 
 		pos = has_kernel_filter(name);
@@ -348,8 +349,7 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel,
 		if (name[0] == '!') {
 			head = notrace;
 			name++;
-		}
-		else
+		} else
 			head = filters;
 
 		init_filter_pattern(ptype, &patt, name);
@@ -373,7 +373,7 @@ static int set_tracing_event(struct uftrace_kernel_writer *kernel)
 {
 	struct kevent *pos, *tmp;
 
-	list_for_each_entry_safe(pos, tmp, &kernel->events, list) {
+	list_for_each_entry_safe (pos, tmp, &kernel->events, list) {
 		if (append_tracing_file("set_event", pos->name) < 0)
 			return -1;
 
@@ -428,7 +428,8 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel,
 
 	strv_split(&strv, event_str, ";");
 
-	strv_for_each(&strv, name, j) {
+	strv_for_each(&strv, name, j)
+	{
 		struct uftrace_pattern patt;
 
 		pos = has_kernel_filter(name);
@@ -556,14 +557,14 @@ static void check_and_add_list(struct uftrace_kernel_writer *kernel,
 		struct kfilter *pos;
 
 		/* Don't skip it if user particularly want to see them*/
-		list_for_each_entry(pos, &kernel->filters, list) {
+		list_for_each_entry (pos, &kernel->filters, list) {
 			if (!strcmp(pos->name, name)) {
 				add = false;
 				break;
 			}
 		}
 
-		list_for_each_entry(pos, &kernel->patches, list) {
+		list_for_each_entry (pos, &kernel->patches, list) {
 			if (!strcmp(pos->name, name)) {
 				add = false;
 				break;
@@ -627,7 +628,8 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts)
+int setup_kernel_tracing(struct uftrace_kernel_writer *kernel,
+			 struct opts *opts)
 {
 	int i, n;
 	int ret;
@@ -662,8 +664,8 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 
 	kernel->nr_cpus = n = sysconf(_SC_NPROCESSORS_CONF);
 
-	kernel->traces	= xcalloc(n, sizeof(*kernel->traces));
-	kernel->fds	= xcalloc(n, sizeof(*kernel->fds));
+	kernel->traces = xcalloc(n, sizeof(*kernel->traces));
+	kernel->fds = xcalloc(n, sizeof(*kernel->fds));
 
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		kernel->traces[i] = -1;
@@ -755,8 +757,8 @@ out:
  *
  * This function read trace data for @cpu and save it to file.
  */
-int record_kernel_trace_pipe(struct uftrace_kernel_writer *kernel,
-			     int cpu, int sock)
+int record_kernel_trace_pipe(struct uftrace_kernel_writer *kernel, int cpu,
+			     int sock)
 {
 	char buf[PATH_MAX];
 	ssize_t n;
@@ -955,8 +957,8 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (!strcmp(sys->d_name, "ftrace"))
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s/enable",
-			 TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "%s/events/%s/enable", TRACING_DIR,
+			 sys->d_name);
 
 		if (read_file(buf, buf, sizeof(buf)) < 0)
 			goto out;
@@ -965,8 +967,8 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (buf[0] == '0')
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s",
-			 TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "%s/events/%s", TRACING_DIR,
+			 sys->d_name);
 
 		event = opendir(buf);
 		if (event == NULL)
@@ -1056,7 +1058,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_set_file_bigendian(pevent, is_big_endian);
 	pevent_set_host_bigendian(pevent, is_big_endian);
 
-	fd = open(TRACING_DIR"/events/header_page", O_RDONLY);
+	fd = open(TRACING_DIR "/events/header_page", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1064,7 +1066,8 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_header_page(pevent, buf, len, sizeof(long));
 	close(fd);
 
-	fd = open(TRACING_DIR"/events/ftrace/funcgraph_entry/format", O_RDONLY);
+	fd = open(TRACING_DIR "/events/ftrace/funcgraph_entry/format",
+		  O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1072,7 +1075,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_event(pevent, buf, len, "ftrace");
 	close(fd);
 
-	fd = open(TRACING_DIR"/events/ftrace/funcgraph_exit/format", O_RDONLY);
+	fd = open(TRACING_DIR "/events/ftrace/funcgraph_exit/format", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1094,7 +1097,7 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 	xasprintf(&path, "%s/kernel_header", kernel->dirname);
 
 	fp = fopen(path, "r");
-	if (fp == NULL)  /* old data doesn't have the kernel header */
+	if (fp == NULL) /* old data doesn't have the kernel header */
 		return load_current_kernel(kernel);
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
@@ -1109,12 +1112,10 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 			if (!strcmp(name, "PAGE_SIZE")) {
 				ret = strtol(val, NULL, 0);
 				pevent_set_page_size(pevent, ret);
-			}
-			else if (!strcmp(name, "LONG_SIZE")) {
+			} else if (!strcmp(name, "LONG_SIZE")) {
 				ret = strtol(val, NULL, 0);
 				pevent_set_long_size(pevent, ret);
-			}
-			else if (!strcmp(name, "ENDIAN")) {
+			} else if (!strcmp(name, "ENDIAN")) {
 				ret = (strcmp(val, "BE") == 0);
 				pevent_set_file_bigendian(pevent, ret);
 
@@ -1137,16 +1138,14 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 		if (!strcmp(name, "events/header_page")) {
 			pevent_parse_header_page(pevent, buf, len,
 						 pevent_get_long_size(pevent));
-		}
-		else if (!strncmp(name, "events/ftrace/", 14)) {
+		} else if (!strncmp(name, "events/ftrace/", 14)) {
 			ret = pevent_parse_event(pevent, buf, len, "ftrace");
 			if (ret != 0) {
 				pevent_strerror(pevent, ret, buf, len);
 				pr_err_ns("%s: %s\n", name, buf);
 			}
-		}
-		else if (!strncmp(name, "events/", 7) &&
-			 !strncmp(name + strlen(name) - 7, "/format", 7)) {
+		} else if (!strncmp(name, "events/", 7) &&
+			   !strncmp(name + strlen(name) - 7, "/format", 7)) {
 			/* extract subsystem and event names */
 			char *pos1 = strchr(name + 8, '/');
 			char *pos2 = strrchr(name, '/');
@@ -1170,8 +1169,7 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 						      name + 7, pos1 + 1,
 						      generic_event_handler,
 						      kernel);
-		}
-		else {
+		} else {
 			pr_dbg("unknown data: %s\n", name);
 			ret = -1;
 			break;
@@ -1190,8 +1188,8 @@ static int scandir_filter(const struct dirent *d)
 
 static int scandir_sort(const struct dirent **a, const struct dirent **b)
 {
-	return strtol((*a)->d_name + sizeof("kernel-cpu") - 1, NULL, 0)
-		- strtol((*b)->d_name + sizeof("kernel-cpu") - 1, NULL, 0);
+	return strtol((*a)->d_name + sizeof("kernel-cpu") - 1, NULL, 0) -
+	       strtol((*b)->d_name + sizeof("kernel-cpu") - 1, NULL, 0);
 }
 
 /**
@@ -1216,7 +1214,8 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 
 	trace_seq_init(&kernel->trace_buf);
 
-	kernel->nr_cpus = scandir(kernel->dirname, &list, scandir_filter, scandir_sort);
+	kernel->nr_cpus =
+		scandir(kernel->dirname, &list, scandir_filter, scandir_sort);
 	if (kernel->nr_cpus <= 0) {
 		pr_out("cannot find kernel trace data\n");
 		goto out;
@@ -1229,18 +1228,22 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 
 	pr_dbg("found kernel ftrace data for %d cpus\n", kernel->nr_cpus);
 
-	kernel->fds	= xcalloc(kernel->nr_cpus, sizeof(*kernel->fds));
-	kernel->offsets	= xcalloc(kernel->nr_cpus, sizeof(*kernel->offsets));
-	kernel->sizes	= xcalloc(kernel->nr_cpus, sizeof(*kernel->sizes));
-	kernel->mmaps	= xcalloc(kernel->nr_cpus, sizeof(*kernel->mmaps));
-	kernel->kbufs	= xcalloc(kernel->nr_cpus, sizeof(*kernel->kbufs));
+	kernel->fds = xcalloc(kernel->nr_cpus, sizeof(*kernel->fds));
+	kernel->offsets = xcalloc(kernel->nr_cpus, sizeof(*kernel->offsets));
+	kernel->sizes = xcalloc(kernel->nr_cpus, sizeof(*kernel->sizes));
+	kernel->mmaps = xcalloc(kernel->nr_cpus, sizeof(*kernel->mmaps));
+	kernel->kbufs = xcalloc(kernel->nr_cpus, sizeof(*kernel->kbufs));
 	kernel->rstacks = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstacks));
 
-	kernel->rstack_list   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_list));
-	kernel->rstack_valid  = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
-	kernel->rstack_done   = xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
-	kernel->missed_events = xcalloc(kernel->nr_cpus, sizeof(*kernel->missed_events));
-	kernel->tids          = xcalloc(kernel->nr_cpus, sizeof(*kernel->tids));
+	kernel->rstack_list =
+		xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_list));
+	kernel->rstack_valid =
+		xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_valid));
+	kernel->rstack_done =
+		xcalloc(kernel->nr_cpus, sizeof(*kernel->rstack_done));
+	kernel->missed_events =
+		xcalloc(kernel->nr_cpus, sizeof(*kernel->missed_events));
+	kernel->tids = xcalloc(kernel->nr_cpus, sizeof(*kernel->tids));
 
 	if (pevent_is_file_bigendian(kernel->pevent))
 		endian = KBUFFER_ENDIAN_BIG;
@@ -1251,8 +1254,8 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 	for (i = 0; i < kernel->nr_cpus; i++) {
 		struct stat stbuf;
 
-		snprintf(buf, sizeof(buf), "%s/%s",
-			 kernel->dirname, list[i]->d_name);
+		snprintf(buf, sizeof(buf), "%s/%s", kernel->dirname,
+			 list[i]->d_name);
 		free(list[i]);
 
 		kernel->fds[i] = open(buf, O_RDONLY);
@@ -1285,10 +1288,12 @@ int setup_kernel_data(struct uftrace_kernel_reader *kernel)
 		return -1;
 	}
 
-	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_entry",
+	pevent_register_event_handler(kernel->pevent, -1, "ftrace",
+				      "funcgraph_entry",
 				      funcgraph_entry_handler, kernel);
-	pevent_register_event_handler(kernel->pevent, -1, "ftrace", "funcgraph_exit",
-				      funcgraph_exit_handler, kernel);
+	pevent_register_event_handler(kernel->pevent, -1, "ftrace",
+				      "funcgraph_exit", funcgraph_exit_handler,
+				      kernel);
 	return 0;
 
 out:
@@ -1344,11 +1349,13 @@ int finish_kernel_data(struct uftrace_kernel_reader *kernel)
 
 static int prepare_kbuffer(struct uftrace_kernel_reader *kernel, int cpu)
 {
-	kernel->mmaps[cpu] = mmap(NULL, kernel->pagesize, PROT_READ, MAP_PRIVATE,
-				  kernel->fds[cpu], kernel->offsets[cpu]);
+	kernel->mmaps[cpu] =
+		mmap(NULL, kernel->pagesize, PROT_READ, MAP_PRIVATE,
+		     kernel->fds[cpu], kernel->offsets[cpu]);
 	if (kernel->mmaps[cpu] == MAP_FAILED) {
 		pr_dbg("loading kbuffer for cpu %d (fd: %d, offset: %lu, pagesize: %zd) failed\n",
-		       cpu, kernel->fds[cpu], kernel->offsets[cpu], kernel->pagesize);
+		       cpu, kernel->fds[cpu], kernel->offsets[cpu],
+		       kernel->pagesize);
 		return -1;
 	}
 
@@ -1374,8 +1381,8 @@ static int next_kbuffer_page(struct uftrace_kernel_reader *kernel, int cpu)
 }
 
 struct uftrace_kfunc {
-	struct rb_node	node;
-	uint64_t	addr;
+	struct rb_node node;
+	uint64_t addr;
 };
 
 static void add_kfunc_addr(struct rb_root *root, uint64_t addr)
@@ -1423,9 +1430,9 @@ static bool find_kfunc_addr(struct rb_root *root, uint64_t addr)
 	return false;
 }
 
-static int
-funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
-			struct event_format *event, void *context)
+static int funcgraph_entry_handler(struct trace_seq *s,
+				   struct pevent_record *record,
+				   struct event_format *event, void *context)
 {
 	struct uftrace_kernel_reader *kernel = context;
 	unsigned long long depth;
@@ -1437,18 +1444,18 @@ funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	kernel->trace_rec.type  = UFTRACE_ENTRY;
-	kernel->trace_rec.time  = record->ts;
-	kernel->trace_rec.addr  = addr;
+	kernel->trace_rec.type = UFTRACE_ENTRY;
+	kernel->trace_rec.time = record->ts;
+	kernel->trace_rec.addr = addr;
 	kernel->trace_rec.depth = depth;
-	kernel->trace_rec.more  = 0;
+	kernel->trace_rec.more = 0;
 
 	return 0;
 }
 
-static int
-funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
-		       struct event_format *event, void *context)
+static int funcgraph_exit_handler(struct trace_seq *s,
+				  struct pevent_record *record,
+				  struct event_format *event, void *context)
 {
 	struct uftrace_kernel_reader *kernel = context;
 	unsigned long long depth;
@@ -1460,26 +1467,26 @@ funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
 	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
-	kernel->trace_rec.type  = UFTRACE_EXIT;
-	kernel->trace_rec.time  = record->ts;
-	kernel->trace_rec.addr  = addr;
+	kernel->trace_rec.type = UFTRACE_EXIT;
+	kernel->trace_rec.time = record->ts;
+	kernel->trace_rec.addr = addr;
 	kernel->trace_rec.depth = depth;
-	kernel->trace_rec.more  = 0;
+	kernel->trace_rec.more = 0;
 
 	return 0;
 }
 
-static int
-generic_event_handler(struct trace_seq *s, struct pevent_record *record,
-		      struct event_format *event, void *context)
+static int generic_event_handler(struct trace_seq *s,
+				 struct pevent_record *record,
+				 struct event_format *event, void *context)
 {
 	struct uftrace_kernel_reader *kernel = context;
 
-	kernel->trace_rec.type  = UFTRACE_EVENT;
-	kernel->trace_rec.time  = record->ts;
-	kernel->trace_rec.addr  = event->id;
+	kernel->trace_rec.type = UFTRACE_EVENT;
+	kernel->trace_rec.time = record->ts;
+	kernel->trace_rec.addr = event->id;
 	kernel->trace_rec.depth = 0;
-	kernel->trace_rec.more  = 1;
+	kernel->trace_rec.more = 1;
 
 	/* for trace_seq to be filled according to its print_fmt */
 	return 1;
@@ -1516,8 +1523,8 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 	record.missed_events = kbuffer_missed_events(kernel->kbufs[cpu]);
 	record.size = kbuffer_event_size(kernel->kbufs[cpu]);
 	record.record_size = kbuffer_curr_size(kernel->kbufs[cpu]);
-//	record.ref_count = 1;
-//	record.locked = 1;
+	//	record.ref_count = 1;
+	//	record.locked = 1;
 
 	trace_seq_reset(&kernel->trace_buf);
 	type = pevent_data_type(kernel->pevent, &record);
@@ -1534,7 +1541,8 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 	pevent_event_info(&kernel->trace_buf, event, &record);
 
 	kernel->tids[cpu] = pevent_data_pid(kernel->pevent, &record);
-	memcpy(&kernel->rstacks[cpu], &kernel->trace_rec, sizeof(kernel->trace_rec));
+	memcpy(&kernel->rstacks[cpu], &kernel->trace_rec,
+	       sizeof(kernel->trace_rec));
 	kernel->rstack_valid[cpu] = true;
 
 	/*
@@ -1546,14 +1554,14 @@ int read_kernel_cpu_data(struct uftrace_kernel_reader *kernel, int cpu)
 		unsigned long long tid;
 
 		/* for sched_switch event */
-		if (pevent_get_field_val(NULL, event, "next_pid",
-					 &record, &tid, 0) == 0 &&
+		if (pevent_get_field_val(NULL, event, "next_pid", &record, &tid,
+					 0) == 0 &&
 		    get_task_handle(kernel->handle, tid) != NULL)
 			kernel->tids[cpu] = tid;
 		/* for sched_wakeup event (or others) */
-		else if (pevent_get_field_val(NULL, event, "pid",
-					 &record, &tid, 0) == 0 &&
-		    get_task_handle(kernel->handle, tid) != NULL)
+		else if (pevent_get_field_val(NULL, event, "pid", &record, &tid,
+					      0) == 0 &&
+			 get_task_handle(kernel->handle, tid) != NULL)
 			kernel->tids[cpu] = tid;
 	}
 
@@ -1631,8 +1639,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			/* XXX: handle scheduled task properly */
 			if (tid != prev_tid)
 				break;
-		}
-		else if (curr->type == UFTRACE_EXIT) {
+		} else if (curr->type == UFTRACE_EXIT) {
 			struct uftrace_rstack_list_node *last;
 			uint64_t delta;
 			int count;
@@ -1653,7 +1660,8 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				}
 			}
 
-			if (rstack_list->count == 0 || tr.flags & TRIGGER_FL_TRACE) {
+			if (rstack_list->count == 0 ||
+			    tr.flags & TRIGGER_FL_TRACE) {
 				/*
 				 * it's already exceeded time filter or
 				 * it might set TRACE trigger, just return.
@@ -1687,17 +1695,15 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				/* XXX: handle scheduled task properly */
 				if (tid != prev_tid)
 					break;
-			}
-			else {
+			} else {
 				/* found! process all existing rstacks in the list */
 				add_to_rstack_list(rstack_list, curr, NULL);
 				break;
 			}
-		}
-		else if (curr->type == UFTRACE_EVENT) {
+		} else if (curr->type == UFTRACE_EVENT) {
 			struct fstack_arguments arg = {
 				.data = kernel->trace_buf.buffer,
-				.len  = kernel->trace_buf.len,
+				.len = kernel->trace_buf.len,
 			};
 
 			add_to_rstack_list(rstack_list, curr, &arg);
@@ -1705,8 +1711,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			/* XXX: handle scheduled task properly */
 			if (tid != prev_tid)
 				break;
-		}
-		else {
+		} else {
 			/* TODO: handle LOST properly */
 			add_to_rstack_list(rstack_list, curr, NULL);
 			break;
@@ -1742,7 +1747,8 @@ out:
  * pointer to event data if succeeded, NULL if current record is not a
  * tracepoint.
  */
-void * read_kernel_event(struct uftrace_kernel_reader *kernel, int cpu, int *psize)
+void *read_kernel_event(struct uftrace_kernel_reader *kernel, int cpu,
+			int *psize)
 {
 	struct uftrace_record *rstack = &kernel->rstacks[cpu];
 
@@ -1812,8 +1818,9 @@ retry:
 		if (first_rstack->more) {
 			struct uftrace_rstack_list_node *node;
 
-			node = list_first_entry(&kernel->rstack_list[first_cpu].read,
-						typeof(*node), list);
+			node = list_first_entry(
+				&kernel->rstack_list[first_cpu].read,
+				typeof(*node), list);
 			free(node->args.data);
 			node->args.data = NULL;
 		}
@@ -1828,9 +1835,9 @@ retry:
 	return first_cpu;
 }
 
-struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
-					  struct uftrace_task_reader *task,
-					  int cpu)
+struct uftrace_record *get_kernel_record(struct uftrace_kernel_reader *kernel,
+					 struct uftrace_task_reader *task,
+					 int cpu)
 {
 	static struct uftrace_record lost_record;
 
@@ -1857,15 +1864,15 @@ struct uftrace_record * get_kernel_record(struct uftrace_kernel_reader *kernel,
 
 #include <sys/stat.h>
 
-#define NUM_CPU     2
-#define NUM_TASK    2
-#define NUM_RECORD  4
-#define NUM_EVENT   2
+#define NUM_CPU 2
+#define NUM_TASK 2
+#define NUM_RECORD 4
+#define NUM_EVENT 2
 
 /* event id */
-#define FUNCGRAPH_ENTRY  11
-#define FUNCGRAPH_EXIT   10
-#define TEST_EXAMPLE     100
+#define FUNCGRAPH_ENTRY 11
+#define FUNCGRAPH_EXIT 10
+#define TEST_EXAMPLE 100
 
 static struct uftrace_data test_handle;
 static struct uftrace_session test_sess;
@@ -1874,59 +1881,59 @@ static void kernel_test_finish_handle(void);
 
 /* NOTE: assume 64-bit little-endian systems */
 static const char test_kernel_header[] =
-"PAGE_SIZE: 4096\n"
-"LONG_SIZE: 8\n"
-"ENDIAN: LE\n"
-"TRACEFS: events/header_page: 205\n"
-"\tfield: u64 timestamp;\toffset:0;\tsize:8;\tsigned:0;\n"
-"\tfield: local_t commit;\toffset:8;\tsize:8;\tsigned:1;\n"
-"\tfield: int overwrite;\toffset:8;\tsize:1;\tsigned:1;\n"
-"\tfield: char data;\toffset:16;\tsize:4080;\tsigned:1;\n"
-"TRACEFS: events/ftrace/funcgraph_entry/format: 438\n"
-"name: funcgraph_entry\n"
-"ID: 11\n"
-"format:\n"
-"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
-"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
-"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
-"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
-"\n"
-"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
-"\tfield:int depth;\toffset:16;\tsize:4;\tsigned:1;\n"
-"\n"
-"print fmt: \"--> %lx (%d)\", REC->func, REC->depth\n"
-"TRACEFS: events/ftrace/funcgraph_exit/format: 700\n"
-"name: funcgraph_exit\n"
-"ID: 10\n"
-"format:\n"
-"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
-"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
-"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
-"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
-"\n"
-"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
-"\tfield:unsigned long long calltime;\toffset:24;\tsize:8;\tsigned:0;\n"
-"\tfield:unsigned long long rettime;\toffset:32;\tsize:8;\tsigned:0;\n"
-"\tfield:unsigned long overrun;	offset:16;\tsize:8;\tsigned:0;\n"
-"\tfield:int depth;\toffset:40;\tsize:4;\tsigned:1;\n"
-"\n"
-"print fmt: \"<-- %lx (%d) (start: %llx  end: %llx) over: %d\", "
-"REC->func, REC->depth, REC->calltime, REC->rettime, REC->depth\n";
+	"PAGE_SIZE: 4096\n"
+	"LONG_SIZE: 8\n"
+	"ENDIAN: LE\n"
+	"TRACEFS: events/header_page: 205\n"
+	"\tfield: u64 timestamp;\toffset:0;\tsize:8;\tsigned:0;\n"
+	"\tfield: local_t commit;\toffset:8;\tsize:8;\tsigned:1;\n"
+	"\tfield: int overwrite;\toffset:8;\tsize:1;\tsigned:1;\n"
+	"\tfield: char data;\toffset:16;\tsize:4080;\tsigned:1;\n"
+	"TRACEFS: events/ftrace/funcgraph_entry/format: 438\n"
+	"name: funcgraph_entry\n"
+	"ID: 11\n"
+	"format:\n"
+	"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+	"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+	"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+	"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
+	"\tfield:int depth;\toffset:16;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"print fmt: \"--> %lx (%d)\", REC->func, REC->depth\n"
+	"TRACEFS: events/ftrace/funcgraph_exit/format: 700\n"
+	"name: funcgraph_exit\n"
+	"ID: 10\n"
+	"format:\n"
+	"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+	"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+	"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+	"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"\tfield:unsigned long func;\toffset:8;\tsize:8;\tsigned:0;\n"
+	"\tfield:unsigned long long calltime;\toffset:24;\tsize:8;\tsigned:0;\n"
+	"\tfield:unsigned long long rettime;\toffset:32;\tsize:8;\tsigned:0;\n"
+	"\tfield:unsigned long overrun;	offset:16;\tsize:8;\tsigned:0;\n"
+	"\tfield:int depth;\toffset:40;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"print fmt: \"<-- %lx (%d) (start: %llx  end: %llx) over: %d\", "
+	"REC->func, REC->depth, REC->calltime, REC->rettime, REC->depth\n";
 
 static const char test_kernel_event[] =
-"TRACEFS: events/test/example/format: 419\n"
-"name: example\n"
-"ID: 100\n"
-"format:\n"
-"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
-"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
-"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
-"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
-"\n"
-"\tfield:int foo;\toffset:8;\tsize:4;\tsigned:0;\n"
-"\tfield:int bar;\toffset:12;\tsize:4;\tsigned:1;\n"
-"\n"
-"print fmt: \"foo=%d, bar=0x%x\", REC->foo, REC->bar\n";
+	"TRACEFS: events/test/example/format: 419\n"
+	"name: example\n"
+	"ID: 100\n"
+	"format:\n"
+	"\tfield:unsigned short common_type;\toffset:0;\tsize:2;\tsigned:0;\n"
+	"\tfield:unsigned char common_flags;\toffset:2;\tsize:1;\tsigned:0;\n"
+	"\tfield:unsigned char common_preempt_count;\toffset:3;\tsize:1;\tsigned:0;\n"
+	"\tfield:int common_pid;\toffset:4;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"\tfield:int foo;\toffset:8;\tsize:4;\tsigned:0;\n"
+	"\tfield:int bar;\toffset:12;\tsize:4;\tsigned:1;\n"
+	"\n"
+	"print fmt: \"foo=%d, bar=0x%x\", REC->foo, REC->bar\n";
 
 struct header_page {
 	uint64_t timestamp;
@@ -1934,41 +1941,41 @@ struct header_page {
 };
 
 struct type_len_ts {
-	uint32_t type_len: 5;
-	uint32_t ts: 27;
+	uint32_t type_len : 5;
+	uint32_t ts : 27;
 };
 
 struct funcgraph_entry {
 	unsigned short common_type;
-	unsigned char  common_flags;
-	unsigned char  common_preempt_count;
-	int            common_pid;
+	unsigned char common_flags;
+	unsigned char common_preempt_count;
+	int common_pid;
 
-	uint64_t       func;
-	int            depth;
+	uint64_t func;
+	int depth;
 };
 
 struct funcgraph_exit {
 	unsigned short common_type;
-	unsigned char  common_flags;
-	unsigned char  common_preempt_count;
-	int            common_pid;
+	unsigned char common_flags;
+	unsigned char common_preempt_count;
+	int common_pid;
 
-	uint64_t       func;
-	uint64_t       calltime;
-	uint64_t       rettime;
-	uint64_t       overrun;
-	int            depth;
+	uint64_t func;
+	uint64_t calltime;
+	uint64_t rettime;
+	uint64_t overrun;
+	int depth;
 };
 
 struct test_example {
 	unsigned short common_type;
-	unsigned char  common_flags;
-	unsigned char  common_preempt_count;
-	int            common_pid;
+	unsigned char common_flags;
+	unsigned char common_preempt_count;
+	int common_pid;
 
-	int            foo;
-	int            bar;
+	int foo;
+	int bar;
 };
 
 static int test_tids[NUM_TASK] = { 1234, 5678 };
@@ -1979,14 +1986,14 @@ static struct type_len_ts test_len_ts[NUM_CPU][NUM_RECORD] = {
 	{
 		{ sizeof(struct funcgraph_entry) / 4, 100 },
 		{ sizeof(struct funcgraph_entry) / 4, 100 },
-		{ sizeof(struct funcgraph_exit)  / 4, 100 },
-		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+		{ sizeof(struct funcgraph_exit) / 4, 100 },
+		{ sizeof(struct funcgraph_exit) / 4, 100 },
 	},
 	{
 		{ sizeof(struct funcgraph_entry) / 4, 150 },
-		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+		{ sizeof(struct funcgraph_exit) / 4, 100 },
 		{ sizeof(struct funcgraph_entry) / 4, 100 },
-		{ sizeof(struct funcgraph_exit)  / 4, 100 },
+		{ sizeof(struct funcgraph_exit) / 4, 100 },
 	}
 };
 
@@ -1996,14 +2003,14 @@ static struct funcgraph_exit test_record[NUM_CPU][NUM_RECORD] = {
 		/* NOTE: entry->depth might not set on big-endian? */
 		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff1000, 0 },
 		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff2000, 1 },
-		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff2000, 200, 300, 0, 1 },
-		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff1000, 100, 400, 0, 0 },
+		{ FUNCGRAPH_EXIT, 0, 0, 1234, 0xffff2000, 200, 300, 0, 1 },
+		{ FUNCGRAPH_EXIT, 0, 0, 1234, 0xffff1000, 100, 400, 0, 0 },
 	},
 	{
 		{ FUNCGRAPH_ENTRY, 0, 0, 1234, 0xffff3000, 0 },
-		{ FUNCGRAPH_EXIT,  0, 0, 1234, 0xffff3000, 150, 250, 0, 0 },
+		{ FUNCGRAPH_EXIT, 0, 0, 1234, 0xffff3000, 150, 250, 0, 0 },
 		{ FUNCGRAPH_ENTRY, 0, 0, 5678, 0xffff4000, 1 },
-		{ FUNCGRAPH_EXIT,  0, 0, 5678, 0xffff4000, 350, 450, 0, 1 },
+		{ FUNCGRAPH_EXIT, 0, 0, 5678, 0xffff4000, 350, 450, 0, 1 },
 	}
 };
 
@@ -2033,12 +2040,14 @@ static struct test_example test_event[NUM_CPU][NUM_EVENT] = {
 static int record_size(struct funcgraph_exit *rec)
 {
 	return rec->common_type == FUNCGRAPH_ENTRY ?
-		sizeof(struct funcgraph_entry) : sizeof(struct funcgraph_exit);
+			     sizeof(struct funcgraph_entry) :
+			     sizeof(struct funcgraph_exit);
 }
 
 static int record_type(struct funcgraph_exit *rec)
 {
-	return rec->common_type == FUNCGRAPH_ENTRY ? UFTRACE_ENTRY : UFTRACE_EXIT;
+	return rec->common_type == FUNCGRAPH_ENTRY ? UFTRACE_ENTRY :
+							   UFTRACE_EXIT;
 }
 
 static int record_depth(struct funcgraph_exit *rec)
@@ -2047,13 +2056,16 @@ static int record_depth(struct funcgraph_exit *rec)
 }
 
 /* fwrite with checking return value */
-#define cwrite(bf)							\
-	if (fwrite_all(&bf, sizeof(bf), fp) < 0) pr_dbg("write failed: %s\n", #bf)
+#define cwrite(bf)                                                             \
+	if (fwrite_all(&bf, sizeof(bf), fp) < 0)                               \
+	pr_dbg("write failed: %s\n", #bf)
 
-#define cwrite2(bf, sz)							\
-	if (fwrite_all(bf, sz, fp) < 0) pr_dbg("write failed: %s\n", #bf)
+#define cwrite2(bf, sz)                                                        \
+	if (fwrite_all(bf, sz, fp) < 0)                                        \
+	pr_dbg("write failed: %s\n", #bf)
 
-static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool event)
+static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel,
+				  bool event)
 {
 	int cpu, i;
 	FILE *fp;
@@ -2090,8 +2102,8 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 	fclose(fp);
 
 	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
-		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
-			     kernel->dirname, cpu) < 0) {
+		if (asprintf(&filename, "%s/kernel-cpu%d.dat", kernel->dirname,
+			     cpu) < 0) {
 			pr_dbg("cannot alloc filename: %s/kernel-cpu%d.dat",
 			       kernel->dirname, cpu);
 			return -1;
@@ -2111,8 +2123,7 @@ static int kernel_test_setup_file(struct uftrace_kernel_reader *kernel, bool eve
 				cwrite(test_event_len_ts[cpu][i]);
 				cwrite(test_event[cpu][i]);
 			}
-		}
-		else {
+		} else {
 			for (i = 0; i < NUM_RECORD; i++) {
 				cwrite(test_len_ts[cpu][i]);
 				cwrite2(&test_record[cpu][i],
@@ -2150,7 +2161,7 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 
 	for (i = 0; i < NUM_TASK; i++) {
 		handle->tasks[i].tid = test_tids[i];
-		handle->tasks[i].fp  = (void *)1;  /* prevent retry */
+		handle->tasks[i].fp = (void *)1; /* prevent retry */
 	}
 
 	test_sess.symtabs.kernel_base = 0xffff0000UL;
@@ -2173,8 +2184,8 @@ static void kernel_test_finish_file(void)
 	finish_kernel_data(kernel);
 
 	for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
-		if (asprintf(&filename, "%s/kernel-cpu%d.dat",
-			     kernel->dirname, cpu) < 0)
+		if (asprintf(&filename, "%s/kernel-cpu%d.dat", kernel->dirname,
+			     cpu) < 0)
 			return;
 
 		remove(filename);
@@ -2205,7 +2216,7 @@ static void kernel_test_finish_handle(void)
 TEST_CASE(kernel_read)
 {
 	int cpu, i;
-	int timestamp[NUM_CPU] = { };
+	int timestamp[NUM_CPU] = {};
 	struct uftrace_data *handle = &test_handle;
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 	struct uftrace_task_reader *task;
@@ -2220,7 +2231,8 @@ TEST_CASE(kernel_read)
 
 		timestamp[cpu] += test_len_ts[cpu][i / 2].ts;
 
-		pr_dbg("[%d] read kernel record: type=%d, depth=%d, addr=%"PRIx64"\n",
+		pr_dbg("[%d] read kernel record: type=%d, depth=%d, addr=%" PRIx64
+		       "\n",
 		       i, rstack->type, rstack->depth, (uint64_t)rstack->addr);
 		TEST_EQ((int)rstack->type, record_type(rec));
 		TEST_EQ((int)rstack->time, timestamp[cpu]);
@@ -2241,7 +2253,7 @@ TEST_CASE(kernel_read)
 TEST_CASE(kernel_cpu_read)
 {
 	int cpu, i;
-	int timestamp[NUM_CPU] = { };
+	int timestamp[NUM_CPU] = {};
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 
 	TEST_EQ(kernel_test_setup_file(kernel, false), 0);
@@ -2255,8 +2267,10 @@ TEST_CASE(kernel_cpu_read)
 
 			timestamp[cpu] += test_len_ts[cpu][i].ts;
 
-			pr_dbg("[%d] read cpu record: type=%d, depth=%d, addr=%"PRIx64"\n",
-			       i, rstack->type, rstack->depth, (uint64_t)rstack->addr);
+			pr_dbg("[%d] read cpu record: type=%d, depth=%d, addr=%" PRIx64
+			       "\n",
+			       i, rstack->type, rstack->depth,
+			       (uint64_t)rstack->addr);
 			TEST_EQ((int)rstack->type, record_type(rec));
 			TEST_EQ((int)rstack->time, timestamp[cpu]);
 			TEST_EQ((uint64_t)rstack->addr, rec->func);
@@ -2271,7 +2285,7 @@ TEST_CASE(kernel_cpu_read)
 TEST_CASE(kernel_event_read)
 {
 	int cpu, i;
-	int timestamp[NUM_CPU] = { };
+	int timestamp[NUM_CPU] = {};
 	struct uftrace_kernel_reader *kernel = xzalloc(sizeof(*kernel));
 
 	pr_dbg("checking custom event format parsing\n");
@@ -2286,12 +2300,13 @@ TEST_CASE(kernel_event_read)
 			int foo, bar;
 
 			TEST_EQ(read_kernel_cpu_data(kernel, cpu), 0);
-			TEST_NE(data = read_kernel_event(kernel, cpu, &size), NULL);
+			TEST_NE(data = read_kernel_event(kernel, cpu, &size),
+				NULL);
 
 			timestamp[cpu] += test_event_len_ts[cpu][i].ts;
 
-			pr_dbg("[%d] read event record: type=%d, data=%s\n",
-			       i, rstack->type, data);
+			pr_dbg("[%d] read event record: type=%d, data=%s\n", i,
+			       rstack->type, data);
 			TEST_EQ((int)rstack->type, UFTRACE_EVENT);
 			TEST_EQ((int)rstack->time, timestamp[cpu]);
 			TEST_EQ((int)rstack->addr, TEST_EXAMPLE);

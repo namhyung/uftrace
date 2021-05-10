@@ -7,6 +7,6 @@
 
 int main(void)
 {
-       Py_Initialize();
-       return 0;
+	Py_Initialize();
+	return 0;
 }

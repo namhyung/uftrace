@@ -6,13 +6,16 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define TEST_PROG1  "t-abc"
-#define TEST_PROG2  "t-openclose"
+#define TEST_PROG1 "t-abc"
+#define TEST_PROG2 "t-openclose"
 
 int main(int argc, char *argv[])
 {
 	int pid;
-	char *args[] = { NULL, NULL, };
+	char *args[] = {
+		NULL,
+		NULL,
+	};
 	char *envp[] = { "PATH=.", "HOME=/home/user", NULL };
 
 	args[0] = TEST_PROG1;

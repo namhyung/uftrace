@@ -20,7 +20,6 @@
 
 #include "libtraceevent/event-parse.h"
 
-
 static int run_script_for_rstack(struct uftrace_data *handle,
 				 struct uftrace_task_reader *task,
 				 struct opts *opts)
@@ -41,7 +40,9 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	task->timestamp = rstack->time;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		struct script_context sc_ctx = { 0, };
+		struct script_context sc_ctx = {
+			0,
+		};
 		struct fstack *fstack;
 		int depth;
 		struct uftrace_trigger tr = {
@@ -56,29 +57,30 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		/* display depth is set in fstack_entry() */
 		depth = task->display_depth;
 
-		fstack = fstack_get(task ,task->stack_count - 1);
+		fstack = fstack_get(task, task->stack_count - 1);
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 
 		if (!script_match_filter(symname))
 			goto out;
 
-		sc_ctx.tid       = task->tid;
-		sc_ctx.depth     = depth;  /* display depth */
+		sc_ctx.tid = task->tid;
+		sc_ctx.depth = depth; /* display depth */
 		sc_ctx.timestamp = rstack->time;
-		sc_ctx.address   = rstack->addr;
-		sc_ctx.name      = symname;
+		sc_ctx.address = rstack->addr;
+		sc_ctx.name = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT) {
-			sc_ctx.argbuf  = task->args.data;
-			sc_ctx.arglen  = task->args.len;
+			sc_ctx.argbuf = task->args.data;
+			sc_ctx.arglen = task->args.len;
 			sc_ctx.argspec = task->args.args;
 		}
 
 		/* script hooking for function entry */
 		script_uftrace_entry(&sc_ctx);
-	}
-	else if (rstack->type == UFTRACE_EXIT) {
-		struct script_context sc_ctx = { 0, };
+	} else if (rstack->type == UFTRACE_EXIT) {
+		struct script_context sc_ctx = {
+			0,
+		};
 		struct fstack *fstack;
 
 		/* function exit */
@@ -97,16 +99,16 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			sc_ctx.tid       = task->tid;
-			sc_ctx.depth     = rstack->depth;
+			sc_ctx.tid = task->tid;
+			sc_ctx.depth = rstack->depth;
 			sc_ctx.timestamp = rstack->time;
-			sc_ctx.duration  = fstack->total_time;
-			sc_ctx.address   = rstack->addr;
-			sc_ctx.name      = symname;
+			sc_ctx.duration = fstack->total_time;
+			sc_ctx.address = rstack->addr;
+			sc_ctx.name = symname;
 
 			if (rstack->more) {
-				sc_ctx.argbuf  = task->args.data;
-				sc_ctx.arglen  = task->args.len;
+				sc_ctx.argbuf = task->args.data;
+				sc_ctx.arglen = task->args.len;
 				sc_ctx.argspec = task->args.args;
 			}
 
@@ -115,11 +117,9 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		}
 
 		fstack_exit(task);
-	}
-	else if (rstack->type == UFTRACE_LOST) {
+	} else if (rstack->type == UFTRACE_LOST) {
 		/* Do nothing as of now */
-	}
-	else if (rstack->type == UFTRACE_EVENT) {
+	} else if (rstack->type == UFTRACE_EVENT) {
 		/* TODO: event handling */
 	}
 out:
@@ -133,8 +133,8 @@ int command_script(int argc, char *argv[], struct opts *opts)
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 	struct script_info info = {
-		.name           = opts->script_file,
-		.version        = UFTRACE_VERSION,
+		.name = opts->script_file,
+		.version = UFTRACE_VERSION,
 	};
 
 	if (!SCRIPT_ENABLED) {

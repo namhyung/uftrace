@@ -30,10 +30,10 @@
 #define COMMIT_MASK ((1 << 27) - 1)
 
 enum {
-	KBUFFER_FL_HOST_BIG_ENDIAN	= (1<<0),
-	KBUFFER_FL_BIG_ENDIAN		= (1<<1),
-	KBUFFER_FL_LONG_8		= (1<<2),
-	KBUFFER_FL_OLD_FORMAT		= (1<<3),
+	KBUFFER_FL_HOST_BIG_ENDIAN = (1 << 0),
+	KBUFFER_FL_BIG_ENDIAN = (1 << 1),
+	KBUFFER_FL_LONG_8 = (1 << 2),
+	KBUFFER_FL_OLD_FORMAT = (1 << 3),
 };
 
 #define ENDIAN_MASK (KBUFFER_FL_HOST_BIG_ENDIAN | KBUFFER_FL_BIG_ENDIAN)
@@ -56,16 +56,16 @@ enum {
  * @read_long		- Function to read a long word (4 or 8 bytes with needed swap)
  */
 struct kbuffer {
-	unsigned long long 	timestamp;
-	long long		lost_events;
-	unsigned long		flags;
-	void			*subbuffer;
-	void			*data;
-	unsigned int		index;
-	unsigned int		curr;
-	unsigned int		next;
-	unsigned int		size;
-	unsigned int		start;
+	unsigned long long timestamp;
+	long long lost_events;
+	unsigned long flags;
+	void *subbuffer;
+	void *data;
+	unsigned int index;
+	unsigned int curr;
+	unsigned int next;
+	unsigned int size;
+	unsigned int start;
 
 	unsigned int (*read_4)(void *ptr);
 	unsigned long long (*read_8)(void *ptr);
@@ -90,7 +90,7 @@ static int host_is_bigendian(void)
 static int do_swap(struct kbuffer *kbuf)
 {
 	return ((kbuf->flags & KBUFFER_FL_HOST_BIG_ENDIAN) + kbuf->flags) &
-		ENDIAN_MASK;
+	       ENDIAN_MASK;
 }
 
 static unsigned long long __read_8(void *ptr)
@@ -105,14 +105,13 @@ static unsigned long long __read_8_sw(void *ptr)
 	unsigned long long data = *(unsigned long long *)ptr;
 	unsigned long long swap;
 
-	swap = ((data & 0xffULL) << 56) |
-		((data & (0xffULL << 8)) << 40) |
-		((data & (0xffULL << 16)) << 24) |
-		((data & (0xffULL << 24)) << 8) |
-		((data & (0xffULL << 32)) >> 8) |
-		((data & (0xffULL << 40)) >> 24) |
-		((data & (0xffULL << 48)) >> 40) |
-		((data & (0xffULL << 56)) >> 56);
+	swap = ((data & 0xffULL) << 56) | ((data & (0xffULL << 8)) << 40) |
+	       ((data & (0xffULL << 16)) << 24) |
+	       ((data & (0xffULL << 24)) << 8) |
+	       ((data & (0xffULL << 32)) >> 8) |
+	       ((data & (0xffULL << 40)) >> 24) |
+	       ((data & (0xffULL << 48)) >> 40) |
+	       ((data & (0xffULL << 56)) >> 56);
 
 	return swap;
 }
@@ -129,10 +128,9 @@ static unsigned int __read_4_sw(void *ptr)
 	unsigned int data = *(unsigned int *)ptr;
 	unsigned int swap;
 
-	swap = ((data & 0xffULL) << 24) |
-		((data & (0xffULL << 8)) << 8) |
-		((data & (0xffULL << 16)) >> 8) |
-		((data & (0xffULL << 24)) >> 24);
+	swap = ((data & 0xffULL) << 24) | ((data & (0xffULL << 8)) << 8) |
+	       ((data & (0xffULL << 16)) >> 8) |
+	       ((data & (0xffULL << 24)) >> 24);
 
 	return swap;
 }
@@ -176,8 +174,8 @@ static int __next_event(struct kbuffer *kbuf);
  *
  * Allocates and returns a new kbuffer.
  */
-struct kbuffer *
-kbuffer_alloc(enum kbuffer_long_size size, enum kbuffer_endian endian)
+struct kbuffer *kbuffer_alloc(enum kbuffer_long_size size,
+			      enum kbuffer_endian endian)
 {
 	struct kbuffer *kbuf;
 	int flags = 0;
@@ -240,8 +238,7 @@ void kbuffer_free(struct kbuffer *kbuf)
 	free(kbuf);
 }
 
-static unsigned int type4host(struct kbuffer *kbuf,
-			      unsigned int type_len_ts)
+static unsigned int type4host(struct kbuffer *kbuf, unsigned int type_len_ts)
 {
 	if (kbuf->flags & KBUFFER_FL_BIG_ENDIAN)
 		return (type_len_ts >> 29) & 3;
@@ -249,8 +246,7 @@ static unsigned int type4host(struct kbuffer *kbuf,
 		return type_len_ts & 3;
 }
 
-static unsigned int len4host(struct kbuffer *kbuf,
-			     unsigned int type_len_ts)
+static unsigned int len4host(struct kbuffer *kbuf, unsigned int type_len_ts)
 {
 	if (kbuf->flags & KBUFFER_FL_BIG_ENDIAN)
 		return (type_len_ts >> 27) & 7;
@@ -267,8 +263,7 @@ static unsigned int type_len4host(struct kbuffer *kbuf,
 		return type_len_ts & ((1 << 5) - 1);
 }
 
-static unsigned int ts4host(struct kbuffer *kbuf,
-			    unsigned int type_len_ts)
+static unsigned int ts4host(struct kbuffer *kbuf, unsigned int type_len_ts)
 {
 	if (kbuf->flags & KBUFFER_FL_BIG_ENDIAN)
 		return type_len_ts & ((1 << 27) - 1);
@@ -350,14 +345,15 @@ static int __old_next_event(struct kbuffer *kbuf)
 		if (kbuf->next >= kbuf->size)
 			return -1;
 		type = old_update_pointers(kbuf);
-	} while (type == OLD_RINGBUF_TYPE_TIME_EXTEND || type == OLD_RINGBUF_TYPE_PADDING);
+	} while (type == OLD_RINGBUF_TYPE_TIME_EXTEND ||
+		 type == OLD_RINGBUF_TYPE_PADDING);
 
 	return 0;
 }
 
-static unsigned int
-translate_data(struct kbuffer *kbuf, void *data, void **rptr,
-	       unsigned long long *delta, int *length)
+static unsigned int translate_data(struct kbuffer *kbuf, void *data,
+				   void **rptr, unsigned long long *delta,
+				   int *length)
 {
 	unsigned long long extend;
 	unsigned int type_len_ts;
@@ -444,7 +440,7 @@ void *kbuffer_translate_data(int swap, void *data, unsigned int *size)
 	} else {
 		kbuf.read_8 = __read_8;
 		kbuf.read_4 = __read_4;
-		kbuf.flags = host_is_bigendian() ? KBUFFER_FL_BIG_ENDIAN: 0;
+		kbuf.flags = host_is_bigendian() ? KBUFFER_FL_BIG_ENDIAN : 0;
 	}
 
 	type_len = translate_data(&kbuf, data, &ptr, &delta, &length);
@@ -469,7 +465,8 @@ static int __next_event(struct kbuffer *kbuf)
 		if (kbuf->next >= kbuf->size)
 			return -1;
 		type = update_pointers(kbuf);
-	} while (type == KBUFFER_TYPE_TIME_EXTEND || type == KBUFFER_TYPE_PADDING);
+	} while (type == KBUFFER_TYPE_TIME_EXTEND ||
+		 type == KBUFFER_TYPE_PADDING);
 
 	return 0;
 }

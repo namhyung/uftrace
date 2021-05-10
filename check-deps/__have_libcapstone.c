@@ -4,7 +4,6 @@
 #include <capstone/platform.h>
 #include <capstone/capstone.h>
 
-
 int main()
 {
 	cs_insn insn;

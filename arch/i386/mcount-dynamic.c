@@ -3,27 +3,29 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define PAGE_SIZE  4096
+#define PAGE_SIZE 4096
 
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
+	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00,
+				       0x58, 0xff, 0x60, 0x04 };
 	unsigned long fentry_addr = (unsigned long)__fentry__;
 	size_t trampoline_size = 16;
 	void *trampoline_check;
 
 	/* find unused 16-byte at the end of the code segment */
-	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE) - trampoline_size;
+	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE) -
+			  trampoline_size;
 
 	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
 		mdi->trampoline += trampoline_size;
@@ -32,24 +34,25 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
 			mdi->trampoline);
 
-		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
-					PROT_READ | PROT_WRITE,
-		     			MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
-					-1, 0);
+		trampoline_check =
+			mmap((void *)mdi->trampoline, PAGE_SIZE,
+			     PROT_READ | PROT_WRITE,
+			     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 		if (trampoline_check == MAP_FAILED)
 			pr_err("failed to mmap trampoline for setup");
 	}
 
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE)) {
+	if (mprotect((void *)mdi->text_addr, mdi->text_size,
+		     PROT_READ | PROT_WRITE)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
 	}
 
 	/* jmpq  *0x2(%rip)     # <fentry_addr> */
 	memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
-	memcpy((void *)mdi->trampoline + sizeof(trampoline),
-	       &fentry_addr, sizeof(fentry_addr));
+	memcpy((void *)mdi->trampoline + sizeof(trampoline), &fentry_addr,
+	       sizeof(fentry_addr));
 	return 0;
 }
 
@@ -61,10 +64,12 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 
 #define CALL_INSN_SIZE 5
 
-static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
+static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
+				     unsigned long addr)
 {
 	while (mdi) {
-		if (mdi->text_addr <= addr && addr < mdi->text_addr + mdi->text_size)
+		if (mdi->text_addr <= addr &&
+		    addr < mdi->text_addr + mdi->text_size)
 			return mdi->trampoline - (addr + CALL_INSN_SIZE);
 
 		mdi = mdi->next;
@@ -74,7 +79,7 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	// In case of "gcc" which is not patched because of old version, 
+	// In case of "gcc" which is not patched because of old version,
 	// it may not create 5 byte nop.
 	unsigned char nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char *insn = (unsigned char *)((uintptr_t)sym->addr);
@@ -107,4 +112,3 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 {
 	return patch_fentry_func(mdi, sym);
 }
-

@@ -7,8 +7,8 @@
  */
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "script"
-#define PR_DOMAIN  DBG_SCRIPT
+#define PR_FMT "script"
+#define PR_DOMAIN DBG_SCRIPT
 
 #include <unistd.h>
 #include "utils/script.h"
@@ -30,8 +30,8 @@ script_uftrace_end_t script_uftrace_end;
 script_atfork_prepare_t script_atfork_prepare;
 
 struct script_filter_item {
-	struct list_head	list;
-	struct uftrace_pattern	patt;
+	struct list_head list;
+	struct uftrace_pattern patt;
 };
 
 static LIST_HEAD(filters);
@@ -78,7 +78,7 @@ int script_match_filter(char *func)
 	if (list_empty(&filters))
 		return 1;
 
-	list_for_each_entry(item, &filters, list) {
+	list_for_each_entry (item, &filters, list) {
 		if (match_filter_pattern(&item->patt, func))
 			return 1;
 	}
@@ -89,7 +89,7 @@ void script_finish_filter(void)
 {
 	struct script_filter_item *item, *tmp;
 
-	list_for_each_entry_safe(item, tmp, &filters, list) {
+	list_for_each_entry_safe (item, tmp, &filters, list) {
 		free_filter_pattern(&item->patt);
 		free(item);
 	}

@@ -1,7 +1,7 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
 
-#define INSN_SIZE  8
+#define INSN_SIZE 8
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
@@ -64,7 +64,6 @@ static int check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 		default:
 			break;
 		}
-
 	}
 
 	arm64 = &insn->detail->arm64;
@@ -95,8 +94,8 @@ static int check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 }
 
 /* return true if it's ok for dynamic tracing */
-static bool check_body(struct mcount_disasm_engine *disasm,
-		       cs_insn *insn, struct mcount_dynamic_info *mdi,
+static bool check_body(struct mcount_disasm_engine *disasm, cs_insn *insn,
+		       struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	int i;
@@ -181,7 +180,7 @@ static int opnd_reg(int capstone_reg)
 	return -1;
 }
 
-#define REG_SHIFT  5
+#define REG_SHIFT 5
 
 static bool modify_instruction(struct mcount_disasm_engine *disasm,
 			       cs_insn *insn, struct mcount_dynamic_info *mdi,
@@ -249,9 +248,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		if (state) {
 			if (!modify_instruction(disasm, &insn[i], mdi, info))
 				goto out;
-		}
-		else {
-			memcpy(info->insns + info->copy_size, insn[i].bytes, insn[i].size);
+		} else {
+			memcpy(info->insns + info->copy_size, insn[i].bytes,
+			       insn[i].size);
 			info->copy_size += insn[i].size;
 		}
 		info->orig_size += insn[i].size;

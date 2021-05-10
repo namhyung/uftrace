@@ -48,7 +48,7 @@ static bool dbg_domain_set = false;
 static bool parsing_default_opts = false;
 
 enum options {
-	OPT_flat	= 301,
+	OPT_flat = 301,
 	OPT_no_libcall,
 	OPT_symbols,
 	OPT_logfile,
@@ -104,118 +104,122 @@ enum options {
 };
 
 __used static const char uftrace_usage[] =
-"uftrace -- function (graph) tracer for userspace\n"
-"\n"
-"Usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
-"\n"
-" COMMAND: record|replay|live|report|graph|info|dump|recv|script|tui\n"
-"\n";
+	"uftrace -- function (graph) tracer for userspace\n"
+	"\n"
+	"Usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
+	"\n"
+	" COMMAND: record|replay|live|report|graph|info|dump|recv|script|tui\n"
+	"\n";
 
+/* clang-format off */
 __used static const char uftrace_help[] =
-" OPTION:\n"
-"      --avg-self             Show average/min/max of self function time\n"
-"      --avg-total            Show average/min/max of total function time\n"
-"  -a, --auto-args            Show arguments and return value of known functions\n"
-"  -A, --argument=FUNC@arg[,arg,...]\n"
-"                             Show function arguments\n"
-"  -b, --buffer=SIZE          Size of tracing buffer (default: "
-	stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
-"      --chrome               Dump recorded data in chrome trace format\n"
-"      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
-"      --column-offset=DEPTH  Offset of each column (default: "
-	stringify(OPT_COLUMN_OFFSET) ")\n"
-"      --column-view          Print tasks in separate columns\n"
-"  -C, --caller-filter=FUNC   Only trace callers of those FUNCs\n"
-"  -d, --data=DATA            Use this DATA instead of uftrace.data\n"
-"      --debug-domain=DOMAIN  Filter debugging domain\n"
-"      --demangle=TYPE        C++ symbol demangling: full, simple, no\n"
-"                             (default: simple)\n"
-"      --diff=DATA            Report differences\n"
-"      --diff-policy=POLICY   Control diff report policy\n"
-"                             (default: 'abs,compact,no-percent')\n"
-"      --disable              Start with tracing disabled\n"
-"  -D, --depth=DEPTH          Trace functions within DEPTH\n"
-"  -e, --estimate-return      Use only entry record type for safety\n"
-"      --event-full           Show all events outside of function\n"
-"  -E, --Event=EVENT          Enable EVENT to save more information\n"
-"      --flame-graph          Dump recorded data in FlameGraph format\n"
-"      --flat                 Use flat output format\n"
-"      --force                Trace even if executable is not instrumented\n"
-"  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
-"  -F, --filter=FUNC          Only trace those FUNCs\n"
-"      --graphviz             Dump recorded data in DOT format\n"
-"  -H, --hide=FUNC            Hide FUNCs from trace\n"
-"      --host=HOST            Send trace data to HOST instead of write to file\n"
-"  -k, --kernel               Trace kernel functions also (if supported)\n"
-"      --keep-pid             Keep same pid during execution of traced program\n"
-"      --kernel-buffer=SIZE   Size of kernel tracing buffer (default: 1408K)\n"
-"      --kernel-full          Show kernel functions outside of user\n"
-"      --kernel-only          Dump kernel data only\n"
-"      --kernel-skip-out      Skip kernel functions outside of user (deprecated)\n"
-"  -K, --kernel-depth=DEPTH   Trace kernel functions within DEPTH\n"
-"      --libmcount-single     Use single thread version of libmcount\n"
-"      --list-event           List available events\n"
-"      --logfile=FILE         Save log messages to this file\n"
-"  -l, --nest-libcall         Show nested library calls\n"
-"      --libname              Show libname name with symbol name\n"
-"  -L, --library-path=PATH    Load libraries from this PATH\n"
-"      --match=TYPE           Support pattern match: regex, glob (default:\n"
-"                             regex)\n"
-"      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
-	stringify(OPT_RSTACK_MAX) ")\n"
-"      --no-comment           Don't show comments of returned functions\n"
-"      --no-event             Disable (default) events\n"
-"      --no-libcall           Don't trace library function calls\n"
-"      --no-merge             Don't merge leaf functions\n"
-"      --no-pager             Do not use pager\n"
-"      --no-pltbind           Do not bind dynamic symbols (LD_BIND_NOT)\n"
-"      --no-randomize-addr    Disable ASLR (Address Space Layout Randomization)\n"
-"      --nop                  No operation (for performance test)\n"
-"      --num-thread=NUM       Create NUM recorder threads\n"
-"  -N, --notrace=FUNC         Don't trace those FUNCs\n"
-"      --opt-file=FILE        Read command-line options from FILE\n"
-"      --port=PORT            Use PORT for network connection (default: "
-	stringify(UFTRACE_RECV_PORT) ")\n"
-"  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
-"      --record               Record a new trace data before running command\n"
-"      --report               Show live report\n"
-"      --rt-prio=PRIO         Record with real-time (FIFO) priority\n"
-"  -r, --time-range=TIME~TIME Show output within the TIME(timestamp or elapsed time)\n"
-"                             range only\n"
-"      --run-cmd=CMDLINE      Command line that want to execute after tracing\n"
-"                             data received\n"
-"  -R, --retval=FUNC@retval   Show function return value\n"
-"      --sample-time=TIME     Show flame graph with this sampling time\n"
-"      --signal=SIG@act[,act,...]   Trigger action on those SIGnal\n"
-"      --sort-column=INDEX    Sort diff report on column INDEX (default: 2)\n"
-"      --srcline              Enable recording source line info\n"
-"      --symbols              Print symbol tables\n"
-"  -s, --sort=KEY[,KEY,...]   Sort reported functions by KEYs (default: "
-	stringify(OPT_SORT_COLUMN) ")\n"
-"  -S, --script=SCRIPT        Run a given SCRIPT in function entry and exit\n"
-"  -t, --time-filter=TIME     Hide small functions run less than the TIME\n"
-"      --task                 Show task info instead\n"
-"      --task-newline         Interleave a newline when task is changed\n"
-"      --tid=TID[,TID,...]    Only replay those tasks\n"
-"      --time                 Print time information\n"
-"  -T, --trigger=FUNC@act[,act,...]\n"
-"                             Trigger action on those FUNCs\n"
-"  -U, --unpatch=FUNC         Don't apply dynamic patching for FUNCs\n"
-"  -v, --debug                Print debug messages\n"
-"      --verbose              Print verbose (debug) messages\n"
-"  -W, --watch=POINT          Watch and report POINT if it's changed\n"
-"  -Z, --size-filter=SIZE     Apply dynamic patching for functions bigger than SIZE\n"
-"  -h, --help                 Give this help list\n"
-"      --usage                Give a short usage message\n"
-"  -V, --version              Print program version\n"
-"\n";
+	" OPTION:\n"
+	"      --avg-self             Show average/min/max of self function time\n"
+	"      --avg-total            Show average/min/max of total function time\n"
+	"  -a, --auto-args            Show arguments and return value of known functions\n"
+	"  -A, --argument=FUNC@arg[,arg,...]\n"
+	"                             Show function arguments\n"
+	"  -b, --buffer=SIZE          Size of tracing buffer (default: " stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
+	"      --chrome               Dump recorded data in chrome trace format\n"
+	"      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
+	"      --column-offset=DEPTH  Offset of each column (default: " stringify(OPT_COLUMN_OFFSET) ")\n"
+	"      --column-view          Print tasks in separate columns\n"
+	"  -C, --caller-filter=FUNC   Only trace callers of those FUNCs\n"
+	"  -d, --data=DATA            Use this DATA instead of uftrace.data\n"
+	"      --debug-domain=DOMAIN  Filter debugging domain\n"
+	"      --demangle=TYPE        C++ symbol demangling: full, simple, no\n"
+	"                             (default: simple)\n"
+	"      --diff=DATA            Report differences\n"
+	"      --diff-policy=POLICY   Control diff report policy\n"
+	"                             (default: 'abs,compact,no-percent')\n"
+	"      --disable              Start with tracing disabled\n"
+	"  -D, --depth=DEPTH          Trace functions within DEPTH\n"
+	"  -e, --estimate-return      Use only entry record type for safety\n"
+	"      --event-full           Show all events outside of function\n"
+	"  -E, --Event=EVENT          Enable EVENT to save more information\n"
+	"      --flame-graph          Dump recorded data in FlameGraph format\n"
+	"      --flat                 Use flat output format\n"
+	"      --force                Trace even if executable is not instrumented\n"
+	"  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
+	"  -F, --filter=FUNC          Only trace those FUNCs\n"
+	"      --graphviz             Dump recorded data in DOT format\n"
+	"  -H, --hide=FUNC            Hide FUNCs from trace\n"
+	"      --host=HOST            Send trace data to HOST instead of write to file\n"
+	"  -k, --kernel               Trace kernel functions also (if supported)\n"
+	"      --keep-pid             Keep same pid during execution of traced program\n"
+	"      --kernel-buffer=SIZE   Size of kernel tracing buffer (default: 1408K)\n"
+	"      --kernel-full          Show kernel functions outside of user\n"
+	"      --kernel-only          Dump kernel data only\n"
+	"      --kernel-skip-out      Skip kernel functions outside of user (deprecated)\n"
+	"  -K, --kernel-depth=DEPTH   Trace kernel functions within DEPTH\n"
+	"      --libmcount-single     Use single thread version of libmcount\n"
+	"      --list-event           List available events\n"
+	"      --logfile=FILE         Save log messages to this file\n"
+	"  -l, --nest-libcall         Show nested library calls\n"
+	"      --libname              Show libname name with symbol name\n"
+	"  -L, --library-path=PATH    Load libraries from this PATH\n"
+	"      --match=TYPE           Support pattern match: regex, glob (default:\n"
+	"                             regex)\n"
+	"      --max-stack=DEPTH      Set max stack depth to DEPTH (default: " stringify(OPT_RSTACK_MAX) ")\n"
+	"      --no-comment           Don't show comments of returned functions\n"
+	"      --no-event             Disable (default) events\n"
+	"      --no-libcall           Don't trace library function calls\n"
+	"      --no-merge             Don't merge leaf functions\n"
+	"      --no-pager             Do not use pager\n"
+	"      --no-pltbind           Do not bind dynamic symbols (LD_BIND_NOT)\n"
+	"      --no-randomize-addr    Disable ASLR (Address Space Layout Randomization)\n"
+	"      --nop                  No operation (for performance test)\n"
+	"      --num-thread=NUM       Create NUM recorder threads\n"
+	"  -N, --notrace=FUNC         Don't trace those FUNCs\n"
+	"      --opt-file=FILE        Read command-line options from FILE\n"
+	"      --port=PORT            Use PORT for network connection (default: " stringify(UFTRACE_RECV_PORT) ")\n"
+	"  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
+	"      --record               Record a new trace data before running command\n"
+	"      --report               Show live report\n"
+	"      --rt-prio=PRIO         Record with real-time (FIFO) priority\n"
+	"  -r, --time-range=TIME~TIME Show output within the TIME(timestamp or elapsed time)\n"
+	"                             range only\n"
+	"      --run-cmd=CMDLINE      Command line that want to execute after tracing\n"
+	"                             data received\n"
+	"  -R, --retval=FUNC@retval   Show function return value\n"
+	"      --sample-time=TIME     Show flame graph with this sampling time\n"
+	"      --signal=SIG@act[,act,...]   Trigger action on those SIGnal\n"
+	"      --sort-column=INDEX    Sort diff report on column INDEX (default: 2)\n"
+	"      --srcline              Enable recording source line info\n"
+	"      --symbols              Print symbol tables\n"
+	"  -s, --sort=KEY[,KEY,...]   Sort reported functions by KEYs (default: " stringify( OPT_SORT_COLUMN) ")\n"
+	"  -S, --script=SCRIPT        Run a given SCRIPT in function entry and exit\n"
+	"  -t, --time-filter=TIME     Hide small functions run less than the TIME\n"
+	"      --task                 Show task info instead\n"
+	"      --task-newline         Interleave a newline when task is changed\n"
+	"      --tid=TID[,TID,...]    Only replay those tasks\n"
+	"      --time                 Print time information\n"
+	"  -T, --trigger=FUNC@act[,act,...]\n"
+	"                             Trigger action on those FUNCs\n"
+	"  -U, --unpatch=FUNC         Don't apply dynamic patching for FUNCs\n"
+	"  -v, --debug                Print debug messages\n"
+	"      --verbose              Print verbose (debug) messages\n"
+	"  -W, --watch=POINT          Watch and report POINT if it's changed\n"
+	"  -Z, --size-filter=SIZE     Apply dynamic patching for functions bigger than SIZE\n"
+	"  -h, --help                 Give this help list\n"
+	"      --usage                Give a short usage message\n"
+	"  -V, --version              Print program version\n"
+	"\n";
+/* clang-format on */
 
 static const char uftrace_shopts[] =
 	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
 
-#define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
-#define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
+#define REQ_ARG(name, shopt)                                                   \
+	{                                                                      \
+#name, required_argument, 0, shopt                             \
+	}
+#define NO_ARG(name, shopt)                                                    \
+	{                                                                      \
+#name, no_argument, 0, shopt                                   \
+	}
 
+/* clang-format off */
 static const struct option uftrace_options[] = {
 	REQ_ARG(library-path, 'L'),
 	REQ_ARG(filter, 'F'),
@@ -301,6 +305,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(estimate-return, 'e'),
 	{ 0 }
 };
+/* clang-format on */
 
 #undef REQ_ARG
 #undef NO_ARG
@@ -336,12 +341,12 @@ static unsigned long parse_size(char *str)
 	return size;
 }
 
-static char * opt_add_string(char *old_opt, char *new_opt)
+static char *opt_add_string(char *old_opt, char *new_opt)
 {
 	return strjoin(old_opt, new_opt, ";");
 }
 
-static char * opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
+static char *opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
 {
 	new_opt = strjoin(xstrdup(prefix), new_opt, "");
 
@@ -354,11 +359,11 @@ static char * opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
 	return new_opt;
 }
 
-static const char * true_str[] = {
+static const char *true_str[] = {
 	"true", "yes", "on", "y", "1",
 };
 
-static const char * false_str[] = {
+static const char *false_str[] = {
 	"false", "no", "off", "n", "0",
 };
 
@@ -411,7 +416,8 @@ static void parse_debug_domain(char *arg)
 
 	strv_split(&strv, arg, ",");
 
-	strv_for_each(&strv, tok, i) {
+	strv_for_each(&strv, tok, i)
+	{
 		int level = -1;
 
 		tmp = strchr(tok, ':');
@@ -420,7 +426,7 @@ static void parse_debug_domain(char *arg)
 			level = strtol(tmp, NULL, 0);
 		}
 
-		if (!strcmp(tok, "ftrace"))  /* for backward compatibility */
+		if (!strcmp(tok, "ftrace")) /* for backward compatibility */
 			dbg_domain[DBG_UFTRACE] = level;
 		else if (!strcmp(tok, "uftrace"))
 			dbg_domain[DBG_UFTRACE] = level;
@@ -493,13 +499,13 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 	*pos++ = '\0';
 
 	range->start = parse_any_timestamp(str, &range->start_elapsed);
-	range->stop  = parse_any_timestamp(pos, &range->stop_elapsed);
+	range->stop = parse_any_timestamp(pos, &range->stop_elapsed);
 
 	free(str);
 	return true;
 }
 
-static char * remove_trailing_slash(char *path)
+static char *remove_trailing_slash(char *path)
 {
 	size_t len = strlen(path);
 
@@ -648,8 +654,7 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		if (!strcmp(arg, "list")) {
 			pr_use("'-E list' is deprecated, use --list-event instead.\n");
 			opts->list_event = true;
-		}
-		else
+		} else
 			opts->event = opt_add_string(opts->event, arg);
 		break;
 
@@ -762,10 +767,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 	case OPT_demangle:
 		demangler = parse_demangle(arg);
 		if (demangler == DEMANGLE_ERROR) {
-			pr_use("unknown demangle value: %s (ignoring..)\n", arg);
+			pr_use("unknown demangle value: %s (ignoring..)\n",
+			       arg);
 			demangler = DEMANGLE_SIMPLE;
-		}
-		else if (demangler == DEMANGLE_NOT_SUPPORTED) {
+		} else if (demangler == DEMANGLE_NOT_SUPPORTED) {
 			pr_use("'%s' demangler is not supported\n", arg);
 			demangler = DEMANGLE_SIMPLE;
 		}
@@ -819,10 +824,12 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_sort_column:
 		opts->sort_column = strtol(arg, NULL, 0);
-		if (opts->sort_column < 0 || opts->sort_column > OPT_SORT_COLUMN) {
-			pr_use("invalid column number: %d\n", opts->sort_column);
+		if (opts->sort_column < 0 ||
+		    opts->sort_column > OPT_SORT_COLUMN) {
+			pr_use("invalid column number: %d\n",
+			       opts->sort_column);
 			pr_use("force to set it to --sort-column=%d for diff percentage\n",
-				OPT_SORT_COLUMN);
+			       OPT_SORT_COLUMN);
 			opts->sort_column = OPT_SORT_COLUMN;
 		}
 		break;
@@ -847,7 +854,7 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		opts->rt_prio = strtol(arg, NULL, 0);
 		if (opts->rt_prio < 1 || opts->rt_prio > 99) {
 			pr_use("invalid rt prioity: %d (ignoring...)\n",
-				opts->rt_prio);
+			       opts->rt_prio);
 			opts->rt_prio = 0;
 		}
 		break;
@@ -856,12 +863,12 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		opts->kernel_bufsize = parse_size(arg);
 		if (opts->kernel_bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
-			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize,
-							getpagesize());
+			opts->kernel_bufsize =
+				ROUND_UP(opts->kernel_bufsize, getpagesize());
 		}
 		break;
 
-	case OPT_kernel_skip_out:  /* deprecated */
+	case OPT_kernel_skip_out: /* deprecated */
 		opts->kernel_skip_out = true;
 		break;
 
@@ -913,7 +920,8 @@ static int parse_option(struct opts *opts, int key, char *arg)
 	case OPT_match_type:
 		opts->patt_type = parse_filter_pattern(arg);
 		if (opts->patt_type == PATT_NONE) {
-			pr_use("invalid match pattern: %s (ignoring...)\n", arg);
+			pr_use("invalid match pattern: %s (ignoring...)\n",
+			       arg);
 			opts->patt_type = PATT_REGEX;
 		}
 		break;
@@ -966,7 +974,8 @@ static void update_subcmd(struct opts *opts, char *cmd)
 		opts->mode = UFTRACE_MODE_INVALID;
 }
 
-static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts *opts)
+static void parse_opt_file(int *argc, char ***argv, char *filename,
+			   struct opts *opts)
 {
 	int file_argc;
 	char **file_argv;
@@ -1008,14 +1017,12 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 		if (opts->mode == UFTRACE_MODE_INVALID) {
 			opts->mode = orig_mode;
 			has_subcmd = true;
-		}
-		else {
+		} else {
 			if (orig_mode != UFTRACE_MODE_INVALID &&
 			    orig_mode != opts->mode) {
 				pr_use("ignore uftrace command in opt-file\n");
 				opts->mode = orig_mode;
-			}
-			else {
+			} else {
 				has_subcmd = true;
 			}
 		}
@@ -1046,8 +1053,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 
 		/* mark it to free at the end */
 		opts->opt_file = filename;
-	}
-	else {
+	} else {
 		opts->exename = orig_exename;
 		free_parsed_cmdline(file_argv);
 	}
@@ -1075,12 +1081,8 @@ void parse_script_opt(struct opts *opts)
 	size_t len = 0;
 	static const char optname[] = "uftrace-option";
 	enum script_type_t script_type;
-	const char* comments[SCRIPT_TYPE_COUNT] = {
-		"",
-		"#",
-		"--"
-	};
-	const char* comment;
+	const char *comments[SCRIPT_TYPE_COUNT] = { "", "#", "--" };
+	const char *comment;
 	size_t comment_len;
 
 	if (opts->script_file == NULL)
@@ -1172,7 +1174,8 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options,
 				  &tmp);
 		if (key == -1 || key == '?') {
-			if (optind < argc && opts->mode == UFTRACE_MODE_INVALID) {
+			if (optind < argc &&
+			    opts->mode == UFTRACE_MODE_INVALID) {
 				update_subcmd(opts, argv[optind]);
 
 				if (opts->mode != UFTRACE_MODE_INVALID) {
@@ -1196,7 +1199,8 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 	return 0;
 }
 
-__used static void apply_default_opts(int *argc, char ***argv, struct opts *opts)
+__used static void apply_default_opts(int *argc, char ***argv,
+				      struct opts *opts)
 {
 	char *basename = "default.opts";
 	char opts_file[PATH_MAX];
@@ -1204,8 +1208,7 @@ __used static void apply_default_opts(int *argc, char ***argv, struct opts *opts
 
 	/* default.opts is only for analysis commands */
 	if (opts->mode == UFTRACE_MODE_RECORD ||
-	    opts->mode == UFTRACE_MODE_LIVE ||
-	    opts->mode == UFTRACE_MODE_RECV)
+	    opts->mode == UFTRACE_MODE_LIVE || opts->mode == UFTRACE_MODE_RECV)
 		return;
 
 	/* this is not to override user given time-filter by default opts */
@@ -1215,9 +1218,8 @@ __used static void apply_default_opts(int *argc, char ***argv, struct opts *opts
 	if (!stat(opts_file, &stbuf) && stbuf.st_size > 0) {
 		pr_dbg("apply '%s' option file\n", opts_file);
 		parse_opt_file(argc, argv, opts_file, opts);
-	}
-	else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) &&
-		 !access("./info", F_OK)) {
+	} else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) &&
+		   !access("./info", F_OK)) {
 		/* try again applying default.opts in the current dir */
 		if (!stat(basename, &stbuf) && stbuf.st_size > 0) {
 			pr_dbg("apply './%s' option file\n", basename);
@@ -1230,22 +1232,22 @@ __used static void apply_default_opts(int *argc, char ***argv, struct opts *opts
 int main(int argc, char *argv[])
 {
 	struct opts opts = {
-		.mode		= UFTRACE_MODE_INVALID,
-		.dirname	= UFTRACE_DIR_NAME,
-		.libcall	= true,
-		.bufsize	= SHMEM_BUFFER_SIZE,
-		.depth		= OPT_DEPTH_DEFAULT,
-		.max_stack	= OPT_RSTACK_DEFAULT,
-		.port		= UFTRACE_RECV_PORT,
-		.use_pager	= true,
-		.color		= COLOR_AUTO,  /* turn on if terminal */
-		.column_offset	= OPT_COLUMN_OFFSET,
-		.comment	= true,
-		.kernel_skip_out= true,
-		.fields         = NULL,
-		.sort_column	= OPT_SORT_COLUMN,
+		.mode = UFTRACE_MODE_INVALID,
+		.dirname = UFTRACE_DIR_NAME,
+		.libcall = true,
+		.bufsize = SHMEM_BUFFER_SIZE,
+		.depth = OPT_DEPTH_DEFAULT,
+		.max_stack = OPT_RSTACK_DEFAULT,
+		.port = UFTRACE_RECV_PORT,
+		.use_pager = true,
+		.color = COLOR_AUTO, /* turn on if terminal */
+		.column_offset = OPT_COLUMN_OFFSET,
+		.comment = true,
+		.kernel_skip_out = true,
+		.fields = NULL,
+		.sort_column = OPT_SORT_COLUMN,
 		.event_skip_out = true,
-		.patt_type      = PATT_REGEX,
+		.patt_type = PATT_REGEX,
 	};
 	int ret = -1;
 	char *pager = NULL;
@@ -1301,8 +1303,7 @@ int main(int argc, char *argv[])
 		}
 
 		setvbuf(logfp, NULL, _IOLBF, 1024);
-	}
-	else if (debug) {
+	} else if (debug) {
 		/* ensure normal output is not mixed by debug message */
 		setvbuf(outfp, NULL, _IOLBF, 1024);
 	}
@@ -1320,11 +1321,10 @@ int main(int argc, char *argv[])
 	pr_dbg("running %s\n", uftrace_version);
 
 	opts.range.kernel_skip_out = opts.kernel_skip_out;
-	opts.range.event_skip_out  = opts.event_skip_out;
+	opts.range.event_skip_out = opts.event_skip_out;
 
 	if (opts.mode == UFTRACE_MODE_RECORD ||
-	    opts.mode == UFTRACE_MODE_RECV ||
-	    opts.mode == UFTRACE_MODE_TUI)
+	    opts.mode == UFTRACE_MODE_RECV || opts.mode == UFTRACE_MODE_TUI)
 		opts.use_pager = false;
 	if (opts.nop)
 		opts.use_pager = false;
@@ -1401,7 +1401,7 @@ int main(int argc, char *argv[])
 }
 #else
 
-#define OPT_FILE  "opt"
+#define OPT_FILE "opt"
 
 TEST_CASE(option_parsing1)
 {
@@ -1411,7 +1411,7 @@ TEST_CASE(option_parsing1)
 
 	pr_dbg("check parsing size suffix\n");
 	TEST_EQ(parse_size("1234"), 1234);
-	TEST_EQ(parse_size("10k"),  10240);
+	TEST_EQ(parse_size("10k"), 10240);
 	TEST_EQ(parse_size("100M"), 100 * 1024 * 1024);
 
 	pr_dbg("check string list addition\n");
@@ -1433,19 +1433,19 @@ TEST_CASE(option_parsing1)
 	stropt = NULL;
 
 	pr_dbg("check parsing colors\n");
-	TEST_EQ(parse_color("1"),    COLOR_ON);
+	TEST_EQ(parse_color("1"), COLOR_ON);
 	TEST_EQ(parse_color("true"), COLOR_ON);
-	TEST_EQ(parse_color("off"),  COLOR_OFF);
-	TEST_EQ(parse_color("n"),    COLOR_OFF);
+	TEST_EQ(parse_color("off"), COLOR_OFF);
+	TEST_EQ(parse_color("n"), COLOR_OFF);
 	TEST_EQ(parse_color("auto"), COLOR_AUTO);
-	TEST_EQ(parse_color("ok"),   COLOR_UNKNOWN);
+	TEST_EQ(parse_color("ok"), COLOR_UNKNOWN);
 
 	pr_dbg("check parsing demanglers\n");
 	TEST_EQ(parse_demangle("simple"), DEMANGLE_SIMPLE);
-	TEST_EQ(parse_demangle("no"),     DEMANGLE_NONE);
-	TEST_EQ(parse_demangle("0"),      DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("no"), DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("0"), DEMANGLE_NONE);
 	/* full demangling might not supported */
-	TEST_NE(parse_demangle("full"),   DEMANGLE_SIMPLE);
+	TEST_NE(parse_demangle("full"), DEMANGLE_SIMPLE);
 
 	for (i = 0; i < DBG_DOMAIN_MAX; i++)
 		dbg_domain[i] = 0;
@@ -1453,14 +1453,14 @@ TEST_CASE(option_parsing1)
 	pr_dbg("check parsing debug domains\n");
 	parse_debug_domain("mcount:1,uftrace:2,symbol:3");
 	TEST_EQ(dbg_domain[DBG_UFTRACE], 2);
-	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
-	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
+	TEST_EQ(dbg_domain[DBG_MCOUNT], 1);
+	TEST_EQ(dbg_domain[DBG_SYMBOL], 3);
 
 	TEST_EQ(parse_any_timestamp("1ns", &elapsed_time), 1ULL);
 	TEST_EQ(parse_any_timestamp("2us", &elapsed_time), 2000ULL);
 	TEST_EQ(parse_any_timestamp("3ms", &elapsed_time), 3000000ULL);
-	TEST_EQ(parse_any_timestamp("4s",  &elapsed_time), 4000000000ULL);
-	TEST_EQ(parse_any_timestamp("5m",  &elapsed_time), 300000000000ULL);
+	TEST_EQ(parse_any_timestamp("4s", &elapsed_time), 4000000000ULL);
+	TEST_EQ(parse_any_timestamp("5m", &elapsed_time), 300000000000ULL);
 
 	return TEST_OK;
 }
@@ -1471,15 +1471,9 @@ TEST_CASE(option_parsing2)
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = {
-		"uftrace",
-		"replay",
-		"-v",
-		"--data=abc.data",
-		"--kernel",
-		"-t", "1us",
-		"-F", "foo",
-		"-N", "bar",
-		"-Abaz@kernel",
+		"uftrace",  "replay", "-v",  "--data=abc.data",
+		"--kernel", "-t",     "1us", "-F",
+		"foo",	    "-N",     "bar", "-Abaz@kernel",
 	};
 	int argc = ARRAY_SIZE(argv);
 	int saved_debug = debug;
@@ -1504,9 +1498,18 @@ TEST_CASE(option_parsing3)
 	struct opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
+	char *argv[] = {
+		"uftrace",
+		"-v",
+		"--opt-file",
+		OPT_FILE,
+	};
 	int argc = ARRAY_SIZE(argv);
-	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
+	char opt_file[] = "-K 2\n"
+			  "-b4m\n"
+			  "--column-view\n"
+			  "--depth=3\n"
+			  "t-abc";
 	int file_argc;
 	char **file_argv;
 	FILE *fp;
@@ -1524,7 +1527,7 @@ TEST_CASE(option_parsing3)
 
 	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
-	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
+	TEST_EQ(file_argc, 7); // +1 for dummy prefix
 
 	unlink(OPT_FILE);
 
@@ -1547,9 +1550,15 @@ TEST_CASE(option_parsing4)
 	struct opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
+	char *argv[] = {
+		"uftrace",
+		"-v",
+		"--opt-file",
+		OPT_FILE,
+	};
 	int argc = ARRAY_SIZE(argv);
-	char opt_file[] = "-K 2\n"
+	char opt_file[] =
+		"-K 2\n"
 		"# buffer size: 4 MB\n"
 		"-b4m\n"
 		"\n"
@@ -1580,7 +1589,7 @@ TEST_CASE(option_parsing4)
 
 	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
-	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
+	TEST_EQ(file_argc, 7); // +1 for dummy prefix
 
 	unlink(OPT_FILE);
 
@@ -1606,7 +1615,11 @@ TEST_CASE(option_parsing5)
 	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, "hello" };
 	int argc = ARRAY_SIZE(argv);
-	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
+	char opt_file[] = "record\n"
+			  "-F main\n"
+			  "--time-filter 1us\n"
+			  "--depth=3\n"
+			  "t-abc";
 	int file_argc = argc;
 	char **file_argv = argv;
 	FILE *fp;

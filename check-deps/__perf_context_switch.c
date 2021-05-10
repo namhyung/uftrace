@@ -6,7 +6,7 @@
 int main(void)
 {
 	struct perf_event_attr attr = {
-		.context_switch	= 1,
+		.context_switch = 1,
 	};
 
 	syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0);

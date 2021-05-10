@@ -28,7 +28,7 @@ static void print_field(struct uftrace_report_node *node, int space)
 }
 
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			char *symname, struct debug_location* loc)
+			char *symname, struct debug_location *loc)
 {
 	struct uftrace_report_node *node;
 
@@ -40,8 +40,10 @@ static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 	report_update_node(node, task, loc);
 }
 
-static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			     uint64_t timestamp, uint64_t addr, bool needs_srcline)
+static void find_insert_node(struct rb_root *root,
+			     struct uftrace_task_reader *task,
+			     uint64_t timestamp, uint64_t addr,
+			     bool needs_srcline)
 {
 	struct sym *sym;
 	char *symname;
@@ -49,15 +51,16 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 
 	sym = task_find_sym_addr(&task->h->sessions, task, timestamp, addr);
 	if (needs_srcline)
-		loc = task_find_loc_addr(&task->h->sessions, task, timestamp, addr);
+		loc = task_find_loc_addr(&task->h->sessions, task, timestamp,
+					 addr);
 
 	symname = symbol_getname(sym, addr);
 	insert_node(root, task, symname, loc);
 	symbol_putname(sym, symname);
 }
 
-static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task,
-			    struct opts *opts)
+static void add_lost_fstack(struct rb_root *root,
+			    struct uftrace_task_reader *task, struct opts *opts)
 {
 	struct fstack *fstack;
 
@@ -163,7 +166,8 @@ static void build_function_tree(struct uftrace_data *handle,
 			struct uftrace_session *fsess;
 
 			fsess = sessions->first;
-			addr = get_kernel_address(&fsess->symtabs, rstack->addr);
+			addr = get_kernel_address(&fsess->symtabs,
+						  rstack->addr);
 		}
 
 		/* skip it if --no-libcall is given */
@@ -185,7 +189,8 @@ static void build_function_tree(struct uftrace_data *handle,
 }
 
 static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
-			     void (*print_func)(struct uftrace_report_node *, void *, int space),
+			     void (*print_func)(struct uftrace_report_node *,
+						void *, int space),
 			     int space)
 {
 	while (!RB_EMPTY_ROOT(root)) {
@@ -206,7 +211,8 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 	}
 }
 
-static void print_function(struct uftrace_report_node *node, void *unused, int space)
+static void print_function(struct uftrace_report_node *node, void *unused,
+			   int space)
 {
 	print_field(node, space);
 
@@ -228,7 +234,7 @@ static void print_line(struct list_head *output_fields, int space)
 	if (list_empty(output_fields))
 		return;
 
-	list_for_each_entry(field, output_fields, list) {
+	list_for_each_entry (field, output_fields, list) {
 		pr_out("%*s", space, "");
 		pr_out("%-.*s", field->length, line);
 	}
@@ -298,8 +304,8 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 
 			if (fstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				if (task->t->time.stamp) {
-					task->t->time.idle += last_time -
-						fstack->total_time;
+					task->t->time.idle +=
+						last_time - fstack->total_time;
 				}
 				task->t->time.stamp = 0;
 			}
@@ -381,15 +387,14 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 			if (rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
 				task->t->time.stamp = rstack->time;
 				continue;
-			}
-			else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+			} else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				if (task->t->time.stamp) {
-					task->t->time.idle += rstack->time -
+					task->t->time.idle +=
+						rstack->time -
 						task->t->time.stamp;
 				}
 				task->t->time.stamp = 0;
-			}
-			else {
+			} else {
 				continue;
 			}
 		}
@@ -416,22 +421,22 @@ static void report_task(struct uftrace_data *handle, struct opts *opts)
 }
 
 struct diff_data {
-	char				*dirname;
-	struct rb_root			root;
-	struct uftrace_data		handle;
+	char *dirname;
+	struct rb_root root;
+	struct uftrace_data handle;
 };
 
 static void report_diff(struct uftrace_data *handle, struct opts *opts)
 {
 	struct opts dummy_opts = {
 		.dirname = opts->diff,
-		.kernel  = opts->kernel,
-		.depth   = opts->depth,
+		.kernel = opts->kernel,
+		.depth = opts->depth,
 		.libcall = opts->libcall,
 	};
 	struct diff_data data = {
 		.dirname = opts->diff,
-		.root    = RB_ROOT,
+		.root = RB_ROOT,
 	};
 	struct rb_root base_tree = RB_ROOT;
 	struct rb_root pair_tree = RB_ROOT;
@@ -450,15 +455,18 @@ static void report_diff(struct uftrace_data *handle, struct opts *opts)
 	build_function_tree(&data.handle, &pair_tree, &dummy_opts);
 	report_calc_avg(&pair_tree);
 
-	report_diff_nodes(&base_tree, &pair_tree, &diff_tree, opts->sort_column);
+	report_diff_nodes(&base_tree, &pair_tree, &diff_tree,
+			  opts->sort_column);
 
 	if (uftrace_done)
 		goto out;
 
 	pr_out("#\n");
 	pr_out("# uftrace diff\n");
-	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname, handle->info.cmdline);
-	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff, data.handle.info.cmdline);
+	pr_out("#  [%d] base: %s\t(from %s)\n", 0, handle->dirname,
+	       handle->info.cmdline);
+	pr_out("#  [%d] diff: %s\t(from %s)\n", 1, opts->diff,
+	       data.handle.info.cmdline);
 	pr_out("#\n");
 
 	setup_report_field(&output_fields, opts, avg_mode);
@@ -478,10 +486,10 @@ out:
 	__close_data_file(&dummy_opts, &data.handle, false);
 }
 
-char * convert_sort_keys(char *sort_keys)
+char *convert_sort_keys(char *sort_keys)
 {
-	const char *default_sort_key[] = { OPT_SORT_KEYS,
-					   "total_avg", "self_avg" };
+	const char *default_sort_key[] = { OPT_SORT_KEYS, "total_avg",
+					   "self_avg" };
 	struct strv keys = STRV_INIT;
 	char *new_keys;
 	char *k;
@@ -505,18 +513,20 @@ char * convert_sort_keys(char *sort_keys)
 
 	strv_split(&keys, sort_keys, ",");
 
-	strv_for_each(&keys, k, i) {
+	strv_for_each(&keys, k, i)
+	{
 		if (!strcmp(k, "avg")) {
-			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
-				     "total_avg" : "self_avg");
-		}
-		else if (!strcmp(k, "min")) {
-			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
-				     "total_min" : "self_min");
-		}
-		else if (!strcmp(k, "max")) {
-			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
-				     "total_max" : "self_max");
+			strv_replace(&keys, i,
+				     avg_mode == AVG_TOTAL ? "total_avg" :
+								   "self_avg");
+		} else if (!strcmp(k, "min")) {
+			strv_replace(&keys, i,
+				     avg_mode == AVG_TOTAL ? "total_min" :
+								   "self_min");
+		} else if (!strcmp(k, "max")) {
+			strv_replace(&keys, i,
+				     avg_mode == AVG_TOTAL ? "total_max" :
+								   "self_max");
 		}
 	}
 
@@ -535,14 +545,11 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	if (opts->avg_total && opts->avg_self) {
 		pr_use("--avg-total and --avg-self options should not be used together.\n");
 		exit(1);
-	}
-	else if (opts->fields && (opts->avg_self || opts->avg_total)) {
+	} else if (opts->fields && (opts->avg_self || opts->avg_total)) {
 		pr_warn("--avg-total and --avg-self options are ignored when used with -f option.\n");
-	}
-	else if (opts->avg_total) {
+	} else if (opts->avg_total) {
 		avg_mode = AVG_TOTAL;
-	}
-	else if (opts->avg_self) {
+	} else if (opts->avg_self) {
 		avg_mode = AVG_SELF;
 	}
 
@@ -557,15 +564,13 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	if (opts->diff) {
 		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_diff(sort_keys);
-	}
-	else if (opts->show_task) {
+	} else if (opts->show_task) {
 		if (opts->sort_keys == NULL)
 			sort_keys = xstrdup(OPT_SORT_KEYS);
 		else
 			sort_keys = xstrdup(opts->sort_keys);
 		ret = report_setup_task(sort_keys);
-	}
-	else {
+	} else {
 		sort_keys = convert_sort_keys(opts->sort_keys);
 		ret = report_setup_sort(sort_keys);
 	}

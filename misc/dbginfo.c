@@ -23,12 +23,15 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 		if (loc->sym == NULL)
 			continue;
 
-		argspec = get_dwarf_argspec(dinfo, loc->sym->name, loc->sym->addr);
-		retspec = get_dwarf_retspec(dinfo, loc->sym->name, loc->sym->addr);
+		argspec = get_dwarf_argspec(dinfo, loc->sym->name,
+					    loc->sym->addr);
+		retspec = get_dwarf_retspec(dinfo, loc->sym->name,
+					    loc->sym->addr);
 		if (argspec == NULL && retspec == NULL && !auto_args)
 			continue;
 
-		printf("%s [addr: %"PRIx64"]\n", loc->sym->name, loc->sym->addr);
+		printf("%s [addr: %" PRIx64 "]\n", loc->sym->name,
+		       loc->sym->addr);
 
 		/* skip common parts with compile directory  */
 		if (dinfo->base_dir) {

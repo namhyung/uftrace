@@ -34,8 +34,8 @@ static struct format_field comm = {
 };
 
 struct event_list {
-	struct event_list	*next;
-	struct event_format	*event;
+	struct event_list *next;
+	struct event_format *event;
 };
 
 static void show_error(char *error_buf, const char *fmt, ...)
@@ -54,10 +54,10 @@ static void show_error(char *error_buf, const char *fmt, ...)
 		strcpy(error_buf, input);
 		error_buf[len] = '\n';
 		for (i = 1; i < len && i < index; i++)
-			error_buf[len+i] = ' ';
+			error_buf[len + i] = ' ';
 		error_buf[len + i] = '^';
 		error_buf[len + i + 1] = '\n';
-		len += i+2;
+		len += i + 2;
 	}
 
 	va_start(ap, fmt);
@@ -81,8 +81,7 @@ static enum event_type read_token(char **tok)
 	} while (type == EVENT_NEWLINE || type == EVENT_SPACE);
 
 	/* If token is = or ! check to see if the next char is ~ */
-	if (token &&
-	    (strcmp(token, "=") == 0 || strcmp(token, "!") == 0) &&
+	if (token && (strcmp(token, "=") == 0 || strcmp(token, "!") == 0) &&
 	    pevent_peek_char() == '~') {
 		/* append it */
 		*tok = malloc(3);
@@ -115,24 +114,20 @@ static int filter_cmp(const void *a, const void *b)
 	return 0;
 }
 
-static struct filter_type *
-find_filter_type(struct event_filter *filter, int id)
+static struct filter_type *find_filter_type(struct event_filter *filter, int id)
 {
 	struct filter_type *filter_type;
 	struct filter_type key;
 
 	key.event_id = id;
 
-	filter_type = bsearch(&key, filter->event_filters,
-			      filter->filters,
-			      sizeof(*filter->event_filters),
-			      filter_cmp);
+	filter_type = bsearch(&key, filter->event_filters, filter->filters,
+			      sizeof(*filter->event_filters), filter_cmp);
 
 	return filter_type;
 }
 
-static struct filter_type *
-add_filter_type(struct event_filter *filter, int id)
+static struct filter_type *add_filter_type(struct event_filter *filter, int id)
 {
 	struct filter_type *filter_type;
 	int i;
@@ -141,9 +136,9 @@ add_filter_type(struct event_filter *filter, int id)
 	if (filter_type)
 		return filter_type;
 
-	filter_type = realloc(filter->event_filters,
-			      sizeof(*filter->event_filters) *
-			      (filter->filters + 1));
+	filter_type =
+		realloc(filter->event_filters,
+			sizeof(*filter->event_filters) * (filter->filters + 1));
 	if (!filter_type)
 		return NULL;
 
@@ -155,10 +150,9 @@ add_filter_type(struct event_filter *filter, int id)
 	}
 
 	if (i < filter->filters)
-		memmove(&filter->event_filters[i+1],
+		memmove(&filter->event_filters[i + 1],
 			&filter->event_filters[i],
-			sizeof(*filter->event_filters) *
-			(filter->filters - i));
+			sizeof(*filter->event_filters) * (filter->filters - i));
 
 	filter_type = &filter->event_filters[i];
 	filter_type->event_id = id;
@@ -236,8 +230,7 @@ static void free_arg(struct filter_arg *arg)
 	free(arg);
 }
 
-static int add_event(struct event_list **events,
-		      struct event_format *event)
+static int add_event(struct event_list **events, struct event_format *event)
 {
 	struct event_list *list;
 
@@ -251,21 +244,20 @@ static int add_event(struct event_list **events,
 	return 0;
 }
 
-static int event_match(struct event_format *event,
-		       regex_t *sreg, regex_t *ereg)
+static int event_match(struct event_format *event, regex_t *sreg, regex_t *ereg)
 {
 	if (sreg) {
 		return !regexec(sreg, event->system, 0, NULL, 0) &&
-			!regexec(ereg, event->name, 0, NULL, 0);
+		       !regexec(ereg, event->name, 0, NULL, 0);
 	}
 
 	return !regexec(ereg, event->system, 0, NULL, 0) ||
-		!regexec(ereg, event->name, 0, NULL, 0);
+	       !regexec(ereg, event->name, 0, NULL, 0);
 }
 
-static enum pevent_errno
-find_event(struct pevent *pevent, struct event_list **events,
-	   char *sys_name, char *event_name)
+static enum pevent_errno find_event(struct pevent *pevent,
+				    struct event_list **events, char *sys_name,
+				    char *event_name)
 {
 	struct event_format *event;
 	regex_t ereg;
@@ -288,7 +280,7 @@ find_event(struct pevent *pevent, struct event_list **events,
 
 	sprintf(reg, "^%s$", event_name);
 
-	ret = regcomp(&ereg, reg, REG_ICASE|REG_NOSUB);
+	ret = regcomp(&ereg, reg, REG_ICASE | REG_NOSUB);
 	free(reg);
 
 	if (ret)
@@ -302,7 +294,7 @@ find_event(struct pevent *pevent, struct event_list **events,
 		}
 
 		sprintf(reg, "^%s$", sys_name);
-		ret = regcomp(&sreg, reg, REG_ICASE|REG_NOSUB);
+		ret = regcomp(&sreg, reg, REG_ICASE | REG_NOSUB);
 		free(reg);
 		if (ret) {
 			regfree(&ereg);
@@ -358,7 +350,6 @@ create_arg_item(struct event_format *event, const char *token,
 	}
 
 	switch (type) {
-
 	case EVENT_SQUOTE:
 	case EVENT_DQUOTE:
 		arg->type = FILTER_ARG_VALUE;
@@ -367,7 +358,8 @@ create_arg_item(struct event_format *event, const char *token,
 		arg->value.str = strdup(token);
 		if (!arg->value.str) {
 			free_arg(arg);
-			show_error(error_str, "failed to allocate string filter arg");
+			show_error(error_str,
+				   "failed to allocate string filter arg");
 			return PEVENT_ERRNO__MEM_ALLOC_FAILED;
 		}
 		break;
@@ -403,8 +395,7 @@ create_arg_item(struct event_format *event, const char *token,
 	return 0;
 }
 
-static struct filter_arg *
-create_arg_op(enum filter_op_type btype)
+static struct filter_arg *create_arg_op(enum filter_op_type btype)
 {
 	struct filter_arg *arg;
 
@@ -418,8 +409,7 @@ create_arg_op(enum filter_op_type btype)
 	return arg;
 }
 
-static struct filter_arg *
-create_arg_exp(enum filter_exp_type etype)
+static struct filter_arg *create_arg_exp(enum filter_exp_type etype)
 {
 	struct filter_arg *arg;
 
@@ -433,8 +423,7 @@ create_arg_exp(enum filter_exp_type etype)
 	return arg;
 }
 
-static struct filter_arg *
-create_arg_cmp(enum filter_cmp_type ctype)
+static struct filter_arg *create_arg_cmp(enum filter_cmp_type ctype)
 {
 	struct filter_arg *arg;
 
@@ -449,8 +438,8 @@ create_arg_cmp(enum filter_cmp_type ctype)
 	return arg;
 }
 
-static enum pevent_errno
-add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
+static enum pevent_errno add_right(struct filter_arg *op,
+				   struct filter_arg *arg, char *error_str)
 {
 	struct filter_arg *left;
 	char *str;
@@ -527,8 +516,9 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 
 			/* Left arg must be a field */
 			if (left->type != FILTER_ARG_FIELD) {
-				show_error(error_str,
-					   "Illegal lvalue for string comparison");
+				show_error(
+					error_str,
+					"Illegal lvalue for string comparison");
 				return PEVENT_ERRNO__ILLEGAL_LVALUE;
 			}
 
@@ -543,7 +533,8 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 
 			case FILTER_CMP_REGEX:
 			case FILTER_CMP_NOT_REGEX:
-				ret = regcomp(&op->str.reg, str, REG_ICASE|REG_NOSUB);
+				ret = regcomp(&op->str.reg, str,
+					      REG_ICASE | REG_NOSUB);
 				if (ret) {
 					show_error(error_str,
 						   "RegEx '%s' did not compute",
@@ -562,7 +553,8 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 			op->str.field = left->field.field;
 			op->str.val = strdup(str);
 			if (!op->str.val) {
-				show_error(error_str, "Failed to allocate string filter");
+				show_error(error_str,
+					   "Failed to allocate string filter");
 				return PEVENT_ERRNO__MEM_ALLOC_FAILED;
 			}
 			/*
@@ -570,7 +562,8 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 			 */
 			op->str.buffer = malloc(op->str.field->size + 1);
 			if (!op->str.buffer) {
-				show_error(error_str, "Failed to allocate string filter");
+				show_error(error_str,
+					   "Failed to allocate string filter");
 				return PEVENT_ERRNO__MEM_ALLOC_FAILED;
 			}
 			/* Null terminate this buffer */
@@ -584,7 +577,7 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 
 		case FILTER_NUMBER:
 
- do_int:
+		do_int:
 			switch (op->num.type) {
 			case FILTER_CMP_REGEX:
 			case FILTER_CMP_NOT_REGEX:
@@ -609,13 +602,13 @@ add_right(struct filter_arg *op, struct filter_arg *arg, char *error_str)
 
 	return 0;
 
- out_fail:
+out_fail:
 	show_error(error_str, "Syntax error");
 	return PEVENT_ERRNO__SYNTAX_ERROR;
 }
 
-static struct filter_arg *
-rotate_op_right(struct filter_arg *a, struct filter_arg *b)
+static struct filter_arg *rotate_op_right(struct filter_arg *a,
+					  struct filter_arg *b)
 {
 	struct filter_arg *arg;
 
@@ -660,8 +653,7 @@ enum op_type {
 	OP_CMP,
 };
 
-static enum op_type process_op(const char *token,
-			       enum filter_op_type *btype,
+static enum op_type process_op(const char *token, enum filter_op_type *btype,
 			       enum filter_cmp_type *ctype,
 			       enum filter_exp_type *etype)
 {
@@ -760,15 +752,15 @@ enum filter_vals {
 	FILTER_VAL_TRUE,
 };
 
-static enum pevent_errno
-reparent_op_arg(struct filter_arg *parent, struct filter_arg *old_child,
-		struct filter_arg *arg, char *error_str)
+static enum pevent_errno reparent_op_arg(struct filter_arg *parent,
+					 struct filter_arg *old_child,
+					 struct filter_arg *arg,
+					 char *error_str)
 {
 	struct filter_arg *other_child;
 	struct filter_arg **ptr;
 
-	if (parent->type != FILTER_ARG_OP &&
-	    arg->type != FILTER_ARG_OP) {
+	if (parent->type != FILTER_ARG_OP && arg->type != FILTER_ARG_OP) {
 		show_error(error_str, "can not reparent other than OP");
 		return PEVENT_ERRNO__REPARENT_NOT_OP;
 	}
@@ -819,7 +811,6 @@ static int test_arg(struct filter_arg *parent, struct filter_arg *arg,
 	int lval, rval;
 
 	switch (arg->type) {
-
 		/* bad case */
 	case FILTER_ARG_BOOLEAN:
 		return FILTER_VAL_FALSE + arg->boolean.value;
@@ -861,8 +852,8 @@ static int test_arg(struct filter_arg *parent, struct filter_arg *arg,
 				if (rval != FILTER_VAL_NORM)
 					return rval;
 
-				return reparent_op_arg(parent, arg, arg->op.right,
-						       error_str);
+				return reparent_op_arg(
+					parent, arg, arg->op.right, error_str);
 
 			case FILTER_VAL_FALSE:
 				if (arg->op.type == FILTER_OP_AND)
@@ -871,8 +862,8 @@ static int test_arg(struct filter_arg *parent, struct filter_arg *arg,
 				if (rval != FILTER_VAL_NORM)
 					return rval;
 
-				return reparent_op_arg(parent, arg, arg->op.right,
-						       error_str);
+				return reparent_op_arg(
+					parent, arg, arg->op.right, error_str);
 
 			default:
 				return lval;
@@ -947,9 +938,9 @@ static int collapse_tree(struct filter_arg *arg,
 	return ret;
 }
 
-static enum pevent_errno
-process_filter(struct event_format *event, struct filter_arg **parg,
-	       char *error_str, int not)
+static enum pevent_errno process_filter(struct event_format *event,
+					struct filter_arg **parg,
+					char *error_str, int not )
 {
 	enum event_type type;
 	char *token = NULL;
@@ -972,7 +963,8 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 		case EVENT_SQUOTE:
 		case EVENT_DQUOTE:
 		case EVENT_ITEM:
-			ret = create_arg_item(event, token, type, &arg, error_str);
+			ret = create_arg_item(event, token, type, &arg,
+					      error_str);
 			if (ret < 0)
 				goto fail;
 			if (!left_item)
@@ -983,7 +975,7 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 					goto fail;
 				left_item = NULL;
 				/* Not's only one one expression */
-				if (not) {
+				if (not ) {
 					arg = NULL;
 					if (current_op)
 						goto fail_syntax;
@@ -1005,14 +997,16 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 
 			if (*token == '(') {
 				if (left_item) {
-					show_error(error_str,
-						   "Open paren can not come after item");
+					show_error(
+						error_str,
+						"Open paren can not come after item");
 					ret = PEVENT_ERRNO__INVALID_PAREN;
 					goto fail;
 				}
 				if (current_exp) {
-					show_error(error_str,
-						   "Open paren can not come after expression");
+					show_error(
+						error_str,
+						"Open paren can not come after expression");
 					ret = PEVENT_ERRNO__INVALID_PAREN;
 					goto fail;
 				}
@@ -1020,8 +1014,9 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 				ret = process_filter(event, &arg, error_str, 0);
 				if (ret != PEVENT_ERRNO__UNBALANCED_PAREN) {
 					if (ret == 0) {
-						show_error(error_str,
-							   "Unbalanced number of '('");
+						show_error(
+							error_str,
+							"Unbalanced number of '('");
 						ret = PEVENT_ERRNO__UNBALANCED_PAREN;
 					}
 					goto fail;
@@ -1029,7 +1024,7 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 				ret = 0;
 
 				/* A not wants just one expression */
-				if (not) {
+				if (not ) {
 					if (current_op)
 						goto fail_syntax;
 					*parg = arg;
@@ -1037,7 +1032,8 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 				}
 
 				if (current_op)
-					ret = add_right(current_op, arg, error_str);
+					ret = add_right(current_op, arg,
+							error_str);
 				else
 					current_exp = arg;
 
@@ -1083,8 +1079,8 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 					goto fail_syntax;
 				break;
 			case OP_NONE:
-				show_error(error_str,
-					   "Unknown op token %s", token);
+				show_error(error_str, "Unknown op token %s",
+					   token);
 				ret = PEVENT_ERRNO__UNKNOWN_TOKEN;
 				goto fail;
 			}
@@ -1108,7 +1104,8 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 				if (arg == NULL)
 					goto fail_alloc;
 				if (current_op)
-					ret = add_right(current_op, arg, error_str);
+					ret = add_right(current_op, arg,
+							error_str);
 				if (ret < 0)
 					goto fail;
 				current_exp = arg;
@@ -1130,7 +1127,8 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 					goto fail_alloc;
 
 				if (current_op)
-					ret = add_right(current_op, arg, error_str);
+					ret = add_right(current_op, arg,
+							error_str);
 				if (ret < 0)
 					goto fail;
 				ret = add_left(arg, left_item);
@@ -1170,14 +1168,14 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 
 	return 0;
 
- fail_alloc:
+fail_alloc:
 	show_error(error_str, "failed to allocate filter arg");
 	ret = PEVENT_ERRNO__MEM_ALLOC_FAILED;
 	goto fail;
- fail_syntax:
+fail_syntax:
 	show_error(error_str, "Syntax error");
 	ret = PEVENT_ERRNO__SYNTAX_ERROR;
- fail:
+fail:
 	free_arg(current_op);
 	free_arg(current_exp);
 	free_arg(arg);
@@ -1185,9 +1183,10 @@ process_filter(struct event_format *event, struct filter_arg **parg,
 	return ret;
 }
 
-static enum pevent_errno
-process_event(struct event_format *event, const char *filter_str,
-	      struct filter_arg **parg, char *error_str)
+static enum pevent_errno process_event(struct event_format *event,
+				       const char *filter_str,
+				       struct filter_arg **parg,
+				       char *error_str)
 {
 	int ret;
 
@@ -1210,9 +1209,9 @@ process_event(struct event_format *event, const char *filter_str,
 	return 0;
 }
 
-static enum pevent_errno
-filter_event(struct event_filter *filter, struct event_format *event,
-	     const char *filter_str, char *error_str)
+static enum pevent_errno filter_event(struct event_filter *filter,
+				      struct event_format *event,
+				      const char *filter_str, char *error_str)
 {
 	struct filter_type *filter_type;
 	struct filter_arg *arg;
@@ -1286,8 +1285,7 @@ enum pevent_errno pevent_filter_add_filter_str(struct event_filter *filter,
 
 	do {
 		next_event = strchr(filter_str, ',');
-		if (next_event &&
-		    (!filter_start || next_event < filter_start))
+		if (next_event && (!filter_start || next_event < filter_start))
 			len = next_event - filter_str;
 		else if (filter_start)
 			len = filter_start - filter_str;
@@ -1319,7 +1317,8 @@ enum pevent_errno pevent_filter_add_filter_str(struct event_filter *filter,
 		}
 
 		/* Find this event */
-		ret = find_event(pevent, &events, strim(sys_name), strim(event_name));
+		ret = find_event(pevent, &events, strim(sys_name),
+				 strim(event_name));
 		if (ret < 0) {
 			free_events(events);
 			free(this_event);
@@ -1342,7 +1341,8 @@ enum pevent_errno pevent_filter_add_filter_str(struct event_filter *filter,
 
 		if (ret >= 0 && pevent->test_filters) {
 			char *test;
-			test = pevent_filter_make_string(filter, event->event->id);
+			test = pevent_filter_make_string(filter,
+							 event->event->id);
 			if (test) {
 				printf(" '%s: %s'\n", event->event->name, test);
 				free(test);
@@ -1400,8 +1400,7 @@ int pevent_filter_strerror(struct event_filter *filter, enum pevent_errno err,
  * Returns 1: if an event was removed
  *   0: if the event was not found
  */
-int pevent_filter_remove_event(struct event_filter *filter,
-			       int event_id)
+int pevent_filter_remove_event(struct event_filter *filter, int event_id)
 {
 	struct filter_type *filter_type;
 	unsigned long len;
@@ -1418,7 +1417,7 @@ int pevent_filter_remove_event(struct event_filter *filter,
 
 	/* The filter_type points into the event_filters array */
 	len = (unsigned long)(filter->event_filters + filter->filters) -
-		(unsigned long)(filter_type + 1);
+	      (unsigned long)(filter_type + 1);
 
 	memmove(filter_type, filter_type + 1, len);
 	filter->filters--;
@@ -1459,8 +1458,8 @@ void pevent_filter_free(struct event_filter *filter)
 static char *arg_to_str(struct event_filter *filter, struct filter_arg *arg);
 
 static int copy_filter_type(struct event_filter *filter,
-			     struct event_filter *source,
-			     struct filter_type *filter_type)
+			    struct event_filter *source,
+			    struct filter_type *filter_type)
 {
 	struct filter_arg *arg;
 	struct event_format *event;
@@ -1528,7 +1527,6 @@ int pevent_filter_copy(struct event_filter *dest, struct event_filter *source)
 	return ret;
 }
 
-
 /**
  * pevent_update_trivial - update the trivial filters with the given filter
  * @dest - the filter to update
@@ -1540,7 +1538,8 @@ int pevent_filter_copy(struct event_filter *dest, struct event_filter *source)
  * Returns 0 on success and -1 if there was a problem updating, but
  *   events may have still been updated on error.
  */
-int pevent_update_trivial(struct event_filter *dest, struct event_filter *source,
+int pevent_update_trivial(struct event_filter *dest,
+			  struct event_filter *source,
 			  enum filter_trivial_type type)
 {
 	struct pevent *src_pevent;
@@ -1571,9 +1570,8 @@ int pevent_update_trivial(struct event_filter *dest, struct event_filter *source
 
 		if (src_pevent != dest_pevent) {
 			/* do a look up */
-			event = pevent_find_event_by_name(src_pevent,
-							  event->system,
-							  event->name);
+			event = pevent_find_event_by_name(
+				src_pevent, event->system, event->name);
 			if (!event)
 				return -1;
 		}
@@ -1600,7 +1598,7 @@ int pevent_update_trivial(struct event_filter *dest, struct event_filter *source
  * Returns 0 on success and -1 if there was a problem.
  */
 int pevent_filter_clear_trivial(struct event_filter *filter,
-				 enum filter_trivial_type type)
+				enum filter_trivial_type type)
 {
 	struct filter_type *filter_type;
 	int count = 0;
@@ -1662,8 +1660,7 @@ int pevent_filter_clear_trivial(struct event_filter *filter,
  * Returns 1 if the event contains a matching trivial type
  *  otherwise 0.
  */
-int pevent_filter_event_has_trivial(struct event_filter *filter,
-				    int event_id,
+int pevent_filter_event_has_trivial(struct event_filter *filter, int event_id,
 				    enum filter_trivial_type type)
 {
 	struct filter_type *filter_type;
@@ -1693,8 +1690,8 @@ int pevent_filter_event_has_trivial(struct event_filter *filter,
 static int test_filter(struct event_format *event, struct filter_arg *arg,
 		       struct pevent_record *record, enum pevent_errno *err);
 
-static const char *
-get_comm(struct event_format *event, struct pevent_record *record)
+static const char *get_comm(struct event_format *event,
+			    struct pevent_record *record)
 {
 	const char *comm;
 	int pid;
@@ -1704,9 +1701,9 @@ get_comm(struct event_format *event, struct pevent_record *record)
 	return comm;
 }
 
-static unsigned long long
-get_value(struct event_format *event,
-	  struct format_field *field, struct pevent_record *record)
+static unsigned long long get_value(struct event_format *event,
+				    struct format_field *field,
+				    struct pevent_record *record)
 {
 	unsigned long long val;
 
@@ -1736,13 +1733,15 @@ get_value(struct event_format *event,
 	return val;
 }
 
-static unsigned long long
-get_arg_value(struct event_format *event, struct filter_arg *arg,
-	      struct pevent_record *record, enum pevent_errno *err);
+static unsigned long long get_arg_value(struct event_format *event,
+					struct filter_arg *arg,
+					struct pevent_record *record,
+					enum pevent_errno *err);
 
-static unsigned long long
-get_exp_value(struct event_format *event, struct filter_arg *arg,
-	      struct pevent_record *record, enum pevent_errno *err)
+static unsigned long long get_exp_value(struct event_format *event,
+					struct filter_arg *arg,
+					struct pevent_record *record,
+					enum pevent_errno *err)
 {
 	unsigned long long lval, rval;
 
@@ -1795,9 +1794,10 @@ get_exp_value(struct event_format *event, struct filter_arg *arg,
 	return 0;
 }
 
-static unsigned long long
-get_arg_value(struct event_format *event, struct filter_arg *arg,
-	      struct pevent_record *record, enum pevent_errno *err)
+static unsigned long long get_arg_value(struct event_format *event,
+					struct filter_arg *arg,
+					struct pevent_record *record,
+					enum pevent_errno *err)
 {
 	switch (arg->type) {
 	case FILTER_ARG_FIELD:
@@ -1861,7 +1861,8 @@ static int test_num(struct event_format *event, struct filter_arg *arg,
 	}
 }
 
-static const char *get_field_str(struct filter_arg *arg, struct pevent_record *record)
+static const char *get_field_str(struct filter_arg *arg,
+				 struct pevent_record *record)
 {
 	struct event_format *event;
 	struct pevent *pevent;
@@ -1940,11 +1941,11 @@ static int test_op(struct event_format *event, struct filter_arg *arg,
 	switch (arg->op.type) {
 	case FILTER_OP_AND:
 		return test_filter(event, arg->op.left, record, err) &&
-			test_filter(event, arg->op.right, record, err);
+		       test_filter(event, arg->op.right, record, err);
 
 	case FILTER_OP_OR:
 		return test_filter(event, arg->op.left, record, err) ||
-			test_filter(event, arg->op.right, record, err);
+		       test_filter(event, arg->op.right, record, err);
 
 	case FILTER_OP_NOT:
 		return !test_filter(event, arg->op.right, record, err);
@@ -2048,7 +2049,8 @@ enum pevent_errno pevent_filter_match(struct event_filter *filter,
 	if (!filter_type)
 		return PEVENT_ERRNO__FILTER_NOT_FOUND;
 
-	ret = test_filter(filter_type->event, filter_type->filter, record, &err);
+	ret = test_filter(filter_type->event, filter_type->filter, record,
+			  &err);
 	if (err)
 		return err;
 
@@ -2307,8 +2309,8 @@ static char *str_to_str(struct event_filter *filter, struct filter_arg *arg)
 		if (!op)
 			op = "!~";
 
-		if (asprintf(&str, "%s %s \"%s\"",
-			 arg->str.field->name, op, arg->str.val) < 0)
+		if (asprintf(&str, "%s %s \"%s\"", arg->str.field->name, op,
+			     arg->str.val) < 0)
 			return NULL;
 		break;
 
@@ -2351,7 +2353,6 @@ static char *arg_to_str(struct event_filter *filter, struct filter_arg *arg)
 		/* ?? */
 		return NULL;
 	}
-
 }
 
 /**
@@ -2363,8 +2364,7 @@ static char *arg_to_str(struct event_filter *filter, struct filter_arg *arg)
  *  This string must be freed with free(str).
  *  NULL is returned if no filter is found or allocation failed.
  */
-char *
-pevent_filter_make_string(struct event_filter *filter, int event_id)
+char *pevent_filter_make_string(struct event_filter *filter, int event_id)
 {
 	struct filter_type *filter_type;
 
@@ -2388,7 +2388,8 @@ pevent_filter_make_string(struct event_filter *filter, int event_id)
  *  1 if the two filters hold the same content.
  *  0 if they do not.
  */
-int pevent_filter_compare(struct event_filter *filter1, struct event_filter *filter2)
+int pevent_filter_compare(struct event_filter *filter1,
+			  struct event_filter *filter2)
 {
 	struct filter_type *filter_type1;
 	struct filter_type *filter_type2;
@@ -2408,7 +2409,8 @@ int pevent_filter_compare(struct event_filter *filter1, struct event_filter *fil
 	 */
 	for (i = 0; i < filter1->filters; i++) {
 		filter_type1 = &filter1->event_filters[i];
-		filter_type2 = find_filter_type(filter2, filter_type1->event_id);
+		filter_type2 =
+			find_filter_type(filter2, filter_type1->event_id);
 		if (!filter_type2)
 			break;
 		if (filter_type1->filter->type != filter_type2->filter->type)
@@ -2440,4 +2442,3 @@ int pevent_filter_compare(struct event_filter *filter1, struct event_filter *fil
 		return 0;
 	return 1;
 }
-

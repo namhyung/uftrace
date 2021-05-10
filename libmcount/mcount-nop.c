@@ -8,7 +8,6 @@
 
 #include "utils/compiler.h"
 
-
 void __visible_default mcount(void)
 {
 }

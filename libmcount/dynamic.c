@@ -18,8 +18,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -39,14 +39,14 @@ static struct mcount_dynamic_stats {
 	int unpatch;
 } stats;
 
-#define PAGE_SIZE   4096
-#define CODE_CHUNK  (PAGE_SIZE * 8)
+#define PAGE_SIZE 4096
+#define CODE_CHUNK (PAGE_SIZE * 8)
 
 struct code_page {
-	struct list_head	list;
-	void			*page;
-	int			pos;
-	bool			frozen;
+	struct list_head list;
+	void *page;
+	int pos;
+	bool frozen;
 };
 
 static LIST_HEAD(code_pages);
@@ -109,8 +109,7 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size,
 		int table_size = mcount_arch_branch_table_size(info);
 
 		patch_size = ALIGN(copy_size + orig_size + table_size, 32);
-	}
-	else {
+	} else {
 		patch_size = ALIGN(info->copy_size + jmp_size, 32);
 	}
 
@@ -144,7 +143,8 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size,
 
 	if (info->modified) {
 		/* save original instructions before modification */
-		orig->orig = orig->insn + patch_size - ALIGN(info->orig_size, 16);
+		orig->orig =
+			orig->insn + patch_size - ALIGN(info->orig_size, 16);
 		memcpy(orig->orig, (void *)info->addr, info->orig_size);
 
 		mcount_arch_patch_branch(info, orig);
@@ -160,11 +160,11 @@ void mcount_freeze_code(void)
 {
 	struct code_page *cp;
 
-	list_for_each_entry(cp, &code_pages, list) {
+	list_for_each_entry (cp, &code_pages, list) {
 		if (cp->frozen)
 			continue;
 
-		if (mprotect(cp->page, CODE_CHUNK, PROT_READ|PROT_EXEC) < 0)
+		if (mprotect(cp->page, CODE_CHUNK, PROT_READ | PROT_EXEC) < 0)
 			pr_err("mprotect to freeze code page failed");
 		cp->frozen = true;
 	}
@@ -181,7 +181,7 @@ void *mcount_find_code(unsigned long addr)
 	return orig->insn;
 }
 
-struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
+struct mcount_orig_insn *mcount_find_insn(unsigned long addr)
 {
 	return lookup_code(code_hmap, addr);
 }
@@ -315,16 +315,14 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
-	}
-	else {
+	} else {
 		free(mdi);
 	}
 
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct symtabs *symtabs,
-				   bool needs_modules)
+static void prepare_dynamic_update(struct symtabs *symtabs, bool needs_modules)
 {
 	struct find_module_data fmd = {
 		.symtabs = symtabs,
@@ -335,8 +333,8 @@ static void prepare_dynamic_update(struct symtabs *symtabs,
 	if (needs_modules)
 		hash_size *= 2;
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
-				   hashmap_ptr_equals);
+	code_hmap =
+		hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
 
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
@@ -373,7 +371,7 @@ static bool match_pattern_module(char *pathname)
 	bool ret = false;
 	char *libname = basename(pathname);
 
-	list_for_each_entry(pl, &patterns, list) {
+	list_for_each_entry (pl, &patterns, list) {
 		if (!strncmp(libname, pl->module, strlen(pl->module)))
 			ret = true;
 	}
@@ -387,7 +385,7 @@ static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
 	bool ret = false;
 	char *libname = basename(map->libname);
 
-	list_for_each_entry(pl, &patterns, list) {
+	list_for_each_entry (pl, &patterns, list) {
 		if (strncmp(libname, pl->module, strlen(pl->module)))
 			continue;
 
@@ -409,7 +407,8 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 
 	strv_split(&funcs, patch_funcs, ";");
 
-	strv_for_each(&funcs, name, j) {
+	strv_for_each(&funcs, name, j)
+	{
 		char *delim;
 
 		pl = xzalloc(sizeof(*pl));
@@ -424,8 +423,7 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 		delim = strchr(name, '@');
 		if (delim == NULL) {
 			pl->module = xstrdup(def_mod);
-		}
-		else {
+		} else {
 			*delim = '\0';
 			pl->module = xstrdup(++delim);
 		}
@@ -455,7 +453,7 @@ static void release_pattern_list(void)
 {
 	struct patt_list *pl, *tmp;
 
-	list_for_each_entry_safe(pl, tmp, &patterns, list) {
+	list_for_each_entry_safe (pl, tmp, &patterns, list) {
 		list_del(&pl->list);
 		free_filter_pattern(&pl->patt);
 		free(pl->module);
@@ -493,8 +491,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		if (csu_skip)
 			continue;
 
-		if (sym->type != ST_LOCAL_FUNC &&
-		    sym->type != ST_GLOBAL_FUNC)
+		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
 
 		if (!match_pattern_list(map, sym->name)) {
@@ -505,15 +502,15 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 
 		found = true;
 		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
-				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
+		case INSTRUMENT_FAILED:
+			stats.failed++;
+			break;
+		case INSTRUMENT_SKIPPED:
+			stats.skipped++;
+			break;
+		case INSTRUMENT_SUCCESS:
+		default:
+			break;
 		}
 		stats.total++;
 	}
@@ -534,7 +531,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	def_mod = basename(symtabs->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
-	for_each_map(symtabs, map) {
+	for_each_map(symtabs, map)
+	{
 		struct mcount_dynamic_info *mdi;
 
 		/* TODO: filter out unsuppported libs */
@@ -546,8 +544,8 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
-		pr_dbg("patched all (%d) functions in '%s'\n",
-		       stats.total, basename(symtabs->filename));
+		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
+		       basename(symtabs->filename));
 	}
 
 	return 0;
@@ -665,8 +663,8 @@ void mcount_dynamic_finish(void)
 	mcount_disasm_finish(&disasm);
 }
 
-struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
-					       unsigned long addr)
+struct dynamic_bad_symbol *mcount_find_badsym(struct mcount_dynamic_info *mdi,
+					      unsigned long addr)
 {
 	struct sym *sym;
 	struct dynamic_bad_symbol *badsym;
@@ -675,7 +673,7 @@ struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 	if (sym == NULL)
 		return NULL;
 
-	list_for_each_entry(badsym, &mdi->bad_syms, list) {
+	list_for_each_entry (badsym, &mdi->bad_syms, list) {
 		if (badsym->sym == sym)
 			return badsym;
 	}
@@ -795,4 +793,4 @@ TEST_CASE(dynamic_pattern_list)
 
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

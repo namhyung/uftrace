@@ -4,8 +4,8 @@
 #include <linux/perf_event.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -23,48 +23,49 @@ struct pmu_data {
 
 /* attribute for perf_event_open(2) */
 struct pmu_config {
-	uint32_t	type;
-	uint64_t	config;
-	char		*name;
+	uint32_t type;
+	uint64_t config;
+	char *name;
 };
 
 static const struct pmu_config cycle[] = {
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, "cycles", },
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, "instructions", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, "cycles" },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, "instructions" },
 };
 
 static const struct pmu_config cache[] = {
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES, "cache-references", },
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES, "cache-misses", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES,
+	  "cache-references" },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES, "cache-misses" },
 };
 
 static const struct pmu_config branch[] = {
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS, "branches", },
-	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch-misses", },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS, "branches" },
+	{ PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch-misses" },
 };
 
 static const struct pmu_info {
-	enum uftrace_event_id		event_id;
-	unsigned			n_members;
-	const struct pmu_config *const	setting;
+	enum uftrace_event_id event_id;
+	unsigned n_members;
+	const struct pmu_config *const setting;
 } pmu_configs[] = {
-	{ EVENT_ID_READ_PMU_CYCLE,  ARRAY_SIZE(cycle),  cycle },
-	{ EVENT_ID_READ_PMU_CACHE,  ARRAY_SIZE(cache),  cache },
+	{ EVENT_ID_READ_PMU_CYCLE, ARRAY_SIZE(cycle), cycle },
+	{ EVENT_ID_READ_PMU_CACHE, ARRAY_SIZE(cache), cache },
 	{ EVENT_ID_READ_PMU_BRANCH, ARRAY_SIZE(branch), branch },
 };
 
-#ifndef  PERF_FLAG_FD_CLOEXEC
-# define PERF_FLAG_FD_CLOEXEC  0
+#ifndef PERF_FLAG_FD_CLOEXEC
+#define PERF_FLAG_FD_CLOEXEC 0
 #endif
 
 static int open_perf_event(uint32_t type, uint64_t config, int group_fd)
 {
 	struct perf_event_attr attr = {
-		.size			= sizeof(attr),
-		.type			= type,
-		.config			= config,
-		.exclude_kernel		= 1,
-		.read_format		= PERF_FORMAT_GROUP,
+		.size = sizeof(attr),
+		.type = type,
+		.config = config,
+		.exclude_kernel = 1,
+		.read_format = PERF_FORMAT_GROUP,
 	};
 	unsigned long flag = PERF_FLAG_FD_CLOEXEC;
 	int fd;
@@ -84,15 +85,15 @@ static void read_perf_event(int fd, void *buf, ssize_t len)
 		pr_dbg("reading perf_event failed: %m\n");
 }
 
-static struct pmu_data * prepare_pmu_event(struct mcount_thread_data *mtdp,
-					   enum uftrace_event_id id)
+static struct pmu_data *prepare_pmu_event(struct mcount_thread_data *mtdp,
+					  enum uftrace_event_id id)
 {
 	struct pmu_data *pd;
 	const struct pmu_info *info;
 	unsigned i, k;
 	int group_fd;
 
-	list_for_each_entry(pd, &mtdp->pmu_fds, list) {
+	list_for_each_entry (pd, &mtdp->pmu_fds, list) {
 		if (pd->evt_id == id) {
 			pd->refcnt++;
 			return pd;
@@ -110,8 +111,7 @@ static struct pmu_data * prepare_pmu_event(struct mcount_thread_data *mtdp,
 		pd->evt_id = id;
 
 		group_fd = open_perf_event(info->setting[0].type,
-					   info->setting[0].config,
-					   -1);
+					   info->setting[0].config, -1);
 		if (group_fd < 0) {
 			pr_warn("failed to open '%s' perf event: %m\n",
 				info->setting[0].name);
@@ -150,8 +150,8 @@ int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
 {
 	struct pmu_data *pd;
 	struct {
-		uint64_t	nr_members;
-		uint64_t	data[2];
+		uint64_t nr_members;
+		uint64_t data[2];
 	} read_buf;
 
 	pd = prepare_pmu_event(mtdp, id);
@@ -170,7 +170,7 @@ void finish_pmu_event(struct mcount_thread_data *mtdp)
 {
 	struct pmu_data *pd, *tmp;
 
-	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
+	list_for_each_entry_safe (pd, tmp, &mtdp->pmu_fds, list) {
 		list_del(&pd->list);
 
 		switch (pd->evt_id) {
@@ -187,11 +187,12 @@ void finish_pmu_event(struct mcount_thread_data *mtdp)
 	}
 }
 
-void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id)
+void release_pmu_event(struct mcount_thread_data *mtdp,
+		       enum uftrace_event_id id)
 {
 	struct pmu_data *pd, *tmp;
 
-	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
+	list_for_each_entry_safe (pd, tmp, &mtdp->pmu_fds, list) {
 		if (pd->evt_id != id)
 			continue;
 

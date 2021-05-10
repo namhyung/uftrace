@@ -21,7 +21,9 @@ static inline int script_init_for_luajit(struct script_info *info,
 	return -1;
 }
 
-static inline void script_finish_for_luajit(void) {}
+static inline void script_finish_for_luajit(void)
+{
+}
 
 #endif /* HAVE_LIBLUAJIT */
 

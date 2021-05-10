@@ -31,7 +31,6 @@
 
 /* ----------------------- trace_seq ----------------------- */
 
-
 #ifndef TRACE_SEQ_BUF_SIZE
 #define TRACE_SEQ_BUF_SIZE 4096
 #endif
@@ -41,20 +40,20 @@
 #endif
 
 struct pevent_record {
-	unsigned long long	ts;
-	unsigned long long	offset;
-	long long		missed_events;	/* buffer dropped events before */
-	int			record_size;	/* size of binary record */
-	int			size;		/* size of data */
-	void			*data;
-	int			cpu;
-	int			ref_count;
-	int			locked;		/* Do not free, even if ref_count is zero */
-	void			*priv;
+	unsigned long long ts;
+	unsigned long long offset;
+	long long missed_events; /* buffer dropped events before */
+	int record_size; /* size of binary record */
+	int size; /* size of data */
+	void *data;
+	int cpu;
+	int ref_count;
+	int locked; /* Do not free, even if ref_count is zero */
+	void *priv;
 #if DEBUG_RECORD
-	struct pevent_record	*prev;
-	struct pevent_record	*next;
-	long			alloc_addr;
+	struct pevent_record *prev;
+	struct pevent_record *next;
+	long alloc_addr;
 #endif
 };
 
@@ -70,11 +69,11 @@ enum trace_seq_fail {
  */
 
 struct trace_seq {
-	char			*buffer;
-	unsigned int		buffer_size;
-	unsigned int		len;
-	unsigned int		readpos;
-	enum trace_seq_fail	state;
+	char *buffer;
+	unsigned int buffer_size;
+	unsigned int len;
+	unsigned int readpos;
+	enum trace_seq_fail state;
 };
 
 void trace_seq_init(struct trace_seq *s);
@@ -82,9 +81,9 @@ void trace_seq_reset(struct trace_seq *s);
 void trace_seq_destroy(struct trace_seq *s);
 
 extern int trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__attribute__((format(printf, 2, 3)));
 extern int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
-	__attribute__ ((format (printf, 2, 0)));
+	__attribute__((format(printf, 2, 0)));
 
 extern int trace_seq_puts(struct trace_seq *s, const char *str);
 extern int trace_seq_putc(struct trace_seq *s, unsigned char c);
@@ -92,7 +91,6 @@ extern int trace_seq_putc(struct trace_seq *s, unsigned char c);
 extern void trace_seq_terminate(struct trace_seq *s);
 
 extern int trace_seq_do_printf(struct trace_seq *s);
-
 
 /* ----------------------- pevent ----------------------- */
 
@@ -108,15 +106,15 @@ typedef int (*pevent_plugin_load_func)(struct pevent *pevent);
 typedef int (*pevent_plugin_unload_func)(struct pevent *pevent);
 
 struct pevent_plugin_option {
-	struct pevent_plugin_option	*next;
-	void				*handle;
-	char				*file;
-	char				*name;
-	char				*plugin_alias;
-	char				*description;
-	char				*value;
-	void				*priv;
-	int				set;
+	struct pevent_plugin_option *next;
+	void *handle;
+	char *file;
+	char *name;
+	char *plugin_alias;
+	char *description;
+	char *value;
+	void *priv;
+	int set;
 };
 
 /*
@@ -159,111 +157,111 @@ struct pevent_plugin_option {
 #define PEVENT_PLUGIN_UNLOADER pevent_plugin_unloader
 #define PEVENT_PLUGIN_OPTIONS pevent_plugin_options
 #define PEVENT_PLUGIN_ALIAS pevent_plugin_alias
-#define _MAKE_STR(x)	#x
-#define MAKE_STR(x)	_MAKE_STR(x)
+#define _MAKE_STR(x) #x
+#define MAKE_STR(x) _MAKE_STR(x)
 #define PEVENT_PLUGIN_LOADER_NAME MAKE_STR(PEVENT_PLUGIN_LOADER)
 #define PEVENT_PLUGIN_UNLOADER_NAME MAKE_STR(PEVENT_PLUGIN_UNLOADER)
 #define PEVENT_PLUGIN_OPTIONS_NAME MAKE_STR(PEVENT_PLUGIN_OPTIONS)
 #define PEVENT_PLUGIN_ALIAS_NAME MAKE_STR(PEVENT_PLUGIN_ALIAS)
 
-#define NSECS_PER_SEC		1000000000ULL
-#define NSECS_PER_USEC		1000ULL
+#define NSECS_PER_SEC 1000000000ULL
+#define NSECS_PER_USEC 1000ULL
 
 enum format_flags {
-	FIELD_IS_ARRAY		= 1,
-	FIELD_IS_POINTER	= 2,
-	FIELD_IS_SIGNED		= 4,
-	FIELD_IS_STRING		= 8,
-	FIELD_IS_DYNAMIC	= 16,
-	FIELD_IS_LONG		= 32,
-	FIELD_IS_FLAG		= 64,
-	FIELD_IS_SYMBOLIC	= 128,
+	FIELD_IS_ARRAY = 1,
+	FIELD_IS_POINTER = 2,
+	FIELD_IS_SIGNED = 4,
+	FIELD_IS_STRING = 8,
+	FIELD_IS_DYNAMIC = 16,
+	FIELD_IS_LONG = 32,
+	FIELD_IS_FLAG = 64,
+	FIELD_IS_SYMBOLIC = 128,
 };
 
 struct format_field {
-	struct format_field	*next;
-	struct event_format	*event;
-	char			*type;
-	char			*name;
-	int			offset;
-	int			size;
-	unsigned int		arraylen;
-	unsigned int		elementsize;
-	unsigned long		flags;
+	struct format_field *next;
+	struct event_format *event;
+	char *type;
+	char *name;
+	int offset;
+	int size;
+	unsigned int arraylen;
+	unsigned int elementsize;
+	unsigned long flags;
 };
 
 struct format {
-	int			nr_common;
-	int			nr_fields;
-	struct format_field	*common_fields;
-	struct format_field	*fields;
+	int nr_common;
+	int nr_fields;
+	struct format_field *common_fields;
+	struct format_field *fields;
 };
 
 struct print_arg_atom {
-	char			*atom;
+	char *atom;
 };
 
 struct print_arg_string {
-	char			*string;
-	int			offset;
+	char *string;
+	int offset;
 };
 
 struct print_arg_bitmask {
-	char			*bitmask;
-	int			offset;
+	char *bitmask;
+	int offset;
 };
 
 struct print_arg_field {
-	char			*name;
-	struct format_field	*field;
+	char *name;
+	struct format_field *field;
 };
 
 struct print_flag_sym {
-	struct print_flag_sym	*next;
-	char			*value;
-	char			*str;
+	struct print_flag_sym *next;
+	char *value;
+	char *str;
 };
 
 struct print_arg_typecast {
-	char 			*type;
-	struct print_arg	*item;
+	char *type;
+	struct print_arg *item;
 };
 
 struct print_arg_flags {
-	struct print_arg	*field;
-	char			*delim;
-	struct print_flag_sym	*flags;
+	struct print_arg *field;
+	char *delim;
+	struct print_flag_sym *flags;
 };
 
 struct print_arg_symbol {
-	struct print_arg	*field;
-	struct print_flag_sym	*symbols;
+	struct print_arg *field;
+	struct print_flag_sym *symbols;
 };
 
 struct print_arg_hex {
-	struct print_arg	*field;
-	struct print_arg	*size;
+	struct print_arg *field;
+	struct print_arg *size;
 };
 
 struct print_arg_dynarray {
-	struct format_field	*field;
-	struct print_arg	*index;
+	struct format_field *field;
+	struct print_arg *index;
 };
 
 struct print_arg;
 
 struct print_arg_op {
-	char			*op;
-	int			prio;
-	struct print_arg	*left;
-	struct print_arg	*right;
+	char *op;
+	int prio;
+	struct print_arg *left;
+	struct print_arg *right;
 };
 
 struct pevent_function_handler;
 
 struct print_arg_func {
-	struct pevent_function_handler	*func;
-	struct print_arg		*args;
+	struct pevent_function_handler *func;
+	struct print_arg *args;
 };
 
 enum print_arg_type {
@@ -283,50 +281,50 @@ enum print_arg_type {
 };
 
 struct print_arg {
-	struct print_arg		*next;
-	enum print_arg_type		type;
+	struct print_arg *next;
+	enum print_arg_type type;
 	union {
-		struct print_arg_atom		atom;
-		struct print_arg_field		field;
-		struct print_arg_typecast	typecast;
-		struct print_arg_flags		flags;
-		struct print_arg_symbol		symbol;
-		struct print_arg_hex		hex;
-		struct print_arg_func		func;
-		struct print_arg_string		string;
-		struct print_arg_bitmask	bitmask;
-		struct print_arg_op		op;
-		struct print_arg_dynarray	dynarray;
+		struct print_arg_atom atom;
+		struct print_arg_field field;
+		struct print_arg_typecast typecast;
+		struct print_arg_flags flags;
+		struct print_arg_symbol symbol;
+		struct print_arg_hex hex;
+		struct print_arg_func func;
+		struct print_arg_string string;
+		struct print_arg_bitmask bitmask;
+		struct print_arg_op op;
+		struct print_arg_dynarray dynarray;
 	};
 };
 
 struct print_fmt {
-	char			*format;
-	struct print_arg	*args;
+	char *format;
+	struct print_arg *args;
 };
 
 struct event_format {
-	struct pevent		*pevent;
-	char			*name;
-	int			id;
-	int			flags;
-	struct format		format;
-	struct print_fmt	print_fmt;
-	char			*system;
+	struct pevent *pevent;
+	char *name;
+	int id;
+	int flags;
+	struct format format;
+	struct print_fmt print_fmt;
+	char *system;
 	pevent_event_handler_func handler;
-	void			*context;
+	void *context;
 };
 
 enum {
-	EVENT_FL_ISFTRACE	= 0x01,
-	EVENT_FL_ISPRINT	= 0x02,
-	EVENT_FL_ISBPRINT	= 0x04,
-	EVENT_FL_ISFUNCENT	= 0x10,
-	EVENT_FL_ISFUNCRET	= 0x20,
-	EVENT_FL_NOHANDLE	= 0x40,
-	EVENT_FL_PRINTRAW	= 0x80,
+	EVENT_FL_ISFTRACE = 0x01,
+	EVENT_FL_ISPRINT = 0x02,
+	EVENT_FL_ISBPRINT = 0x04,
+	EVENT_FL_ISFUNCENT = 0x10,
+	EVENT_FL_ISFUNCRET = 0x20,
+	EVENT_FL_NOHANDLE = 0x40,
+	EVENT_FL_PRINTRAW = 0x80,
 
-	EVENT_FL_FAILED		= 0x80000000
+	EVENT_FL_FAILED = 0x80000000
 };
 
 enum event_sort_type {
@@ -348,7 +346,7 @@ enum event_type {
 };
 
 typedef unsigned long long (*pevent_func_handler)(struct trace_seq *s,
-					     unsigned long long *args);
+						  unsigned long long *args);
 
 enum pevent_func_arg_type {
 	PEVENT_FUNC_ARG_VOID,
@@ -360,47 +358,49 @@ enum pevent_func_arg_type {
 };
 
 enum pevent_flag {
-	PEVENT_NSEC_OUTPUT		= 1,	/* output in NSECS */
-	PEVENT_DISABLE_SYS_PLUGINS	= 1 << 1,
-	PEVENT_DISABLE_PLUGINS		= 1 << 2,
+	PEVENT_NSEC_OUTPUT = 1, /* output in NSECS */
+	PEVENT_DISABLE_SYS_PLUGINS = 1 << 1,
+	PEVENT_DISABLE_PLUGINS = 1 << 2,
 };
 
-#define PEVENT_ERRORS 							      \
-	_PE(MEM_ALLOC_FAILED,	"failed to allocate memory"),		      \
-	_PE(PARSE_EVENT_FAILED,	"failed to parse event"),		      \
-	_PE(READ_ID_FAILED,	"failed to read event id"),		      \
-	_PE(READ_FORMAT_FAILED,	"failed to read event format"),		      \
-	_PE(READ_PRINT_FAILED,	"failed to read event print fmt"), 	      \
-	_PE(OLD_FTRACE_ARG_FAILED,"failed to allocate field name for ftrace"),\
-	_PE(INVALID_ARG_TYPE,	"invalid argument type"),		      \
-	_PE(INVALID_EXP_TYPE,	"invalid expression type"),		      \
-	_PE(INVALID_OP_TYPE,	"invalid operator type"),		      \
-	_PE(INVALID_EVENT_NAME,	"invalid event name"),			      \
-	_PE(EVENT_NOT_FOUND,	"no event found"),			      \
-	_PE(SYNTAX_ERROR,	"syntax error"),			      \
-	_PE(ILLEGAL_RVALUE,	"illegal rvalue"),			      \
-	_PE(ILLEGAL_LVALUE,	"illegal lvalue for string comparison"),      \
-	_PE(INVALID_REGEX,	"regex did not compute"),		      \
-	_PE(ILLEGAL_STRING_CMP,	"illegal comparison for string"), 	      \
-	_PE(ILLEGAL_INTEGER_CMP,"illegal comparison for integer"), 	      \
-	_PE(REPARENT_NOT_OP,	"cannot reparent other than OP"),	      \
-	_PE(REPARENT_FAILED,	"failed to reparent filter OP"),	      \
-	_PE(BAD_FILTER_ARG,	"bad arg in filter tree"),		      \
-	_PE(UNEXPECTED_TYPE,	"unexpected type (not a value)"),	      \
-	_PE(ILLEGAL_TOKEN,	"illegal token"),			      \
-	_PE(INVALID_PAREN,	"open parenthesis cannot come here"), 	      \
-	_PE(UNBALANCED_PAREN,	"unbalanced number of parenthesis"),	      \
-	_PE(UNKNOWN_TOKEN,	"unknown token"),			      \
-	_PE(FILTER_NOT_FOUND,	"no filter found"),			      \
-	_PE(NOT_A_NUMBER,	"must have number field"),		      \
-	_PE(NO_FILTER,		"no filters exists"),			      \
-	_PE(FILTER_MISS,	"record does not match to filter")
+/* clang-format off */
+#define PEVENT_ERRORS                                                       \
+	_PE(MEM_ALLOC_FAILED, "failed to allocate memory"),                     \
+	_PE(PARSE_EVENT_FAILED, "failed to parse event"),                       \
+	_PE(READ_ID_FAILED, "failed to read event id"),                         \
+	_PE(READ_FORMAT_FAILED, "failed to read event format"),                 \
+	_PE(READ_PRINT_FAILED, "failed to read event print fmt"),               \
+	_PE(OLD_FTRACE_ARG_FAILED, "failed to allocate field name for ftrace"), \
+	_PE(INVALID_ARG_TYPE, "invalid argument type"),                         \
+	_PE(INVALID_EXP_TYPE, "invalid expression type"),                       \
+	_PE(INVALID_OP_TYPE, "invalid operator type"),                          \
+	_PE(INVALID_EVENT_NAME, "invalid event name"),                          \
+	_PE(EVENT_NOT_FOUND, "no event found"),                                 \
+	_PE(SYNTAX_ERROR, "syntax error"),                                      \
+	_PE(ILLEGAL_RVALUE, "illegal rvalue"),                                  \
+	_PE(ILLEGAL_LVALUE, "illegal lvalue for string comparison"),            \
+	_PE(INVALID_REGEX, "regex did not compute"),                            \
+	_PE(ILLEGAL_STRING_CMP, "illegal comparison for string"),               \
+	_PE(ILLEGAL_INTEGER_CMP, "illegal comparison for integer"),             \
+	_PE(REPARENT_NOT_OP, "cannot reparent other than OP"),                  \
+	_PE(REPARENT_FAILED, "failed to reparent filter OP"),                   \
+	_PE(BAD_FILTER_ARG, "bad arg in filter tree"),                          \
+	_PE(UNEXPECTED_TYPE, "unexpected type (not a value)"),                  \
+	_PE(ILLEGAL_TOKEN, "illegal token"),                                    \
+	_PE(INVALID_PAREN, "open parenthesis cannot come here"),                \
+	_PE(UNBALANCED_PAREN, "unbalanced number of parenthesis"),              \
+	_PE(UNKNOWN_TOKEN, "unknown token"),                                    \
+	_PE(FILTER_NOT_FOUND, "no filter found"),                               \
+	_PE(NOT_A_NUMBER, "must have number field"),                            \
+	_PE(NO_FILTER, "no filters exists"),                                    \
+	_PE(FILTER_MISS, "record does not match to filter")
+/* clang-format on */
 
 #undef _PE
-#define _PE(__code, __str) PEVENT_ERRNO__ ## __code
+#define _PE(__code, __str) PEVENT_ERRNO__##__code
 enum pevent_errno {
-	PEVENT_ERRNO__SUCCESS			= 0,
-	PEVENT_ERRNO__FILTER_MATCH		= PEVENT_ERRNO__SUCCESS,
+	PEVENT_ERRNO__SUCCESS = 0,
+	PEVENT_ERRNO__FILTER_MATCH = PEVENT_ERRNO__SUCCESS,
 
 	/*
 	 * Choose an arbitrary negative big number not to clash with standard
@@ -409,7 +409,7 @@ enum pevent_errno {
 	 *
 	 * http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/errno.h.html
 	 */
-	__PEVENT_ERRNO__START			= -100000,
+	__PEVENT_ERRNO__START = -100000,
 
 	PEVENT_ERRORS,
 
@@ -419,7 +419,7 @@ enum pevent_errno {
 
 struct plugin_list;
 
-#define INVALID_PLUGIN_LIST_OPTION	((char **)((unsigned long)-1))
+#define INVALID_PLUGIN_LIST_OPTION ((char **)((unsigned long)-1))
 
 struct plugin_list *traceevent_load_plugins(struct pevent *pevent);
 void traceevent_unload_plugins(struct plugin_list *plugin_list,
@@ -429,8 +429,8 @@ void traceevent_plugin_free_options_list(char **list);
 int traceevent_plugin_add_options(const char *name,
 				  struct pevent_plugin_option *options);
 void traceevent_plugin_remove_options(struct pevent_plugin_option *options);
-void traceevent_print_plugins(struct trace_seq *s,
-			      const char *prefix, const char *suffix,
+void traceevent_print_plugins(struct trace_seq *s, const char *prefix,
+			      const char *suffix,
 			      const struct plugin_list *list);
 
 struct cmdline;
@@ -473,7 +473,6 @@ struct pevent {
 	struct printk_list *printklist;
 	unsigned int printk_count;
 
-
 	struct event_format **events;
 	int nr_events;
 	struct event_format **sort_events;
@@ -485,7 +484,7 @@ struct pevent {
 	int pid_offset;
 	int pid_size;
 
- 	int pc_offset;
+	int pc_offset;
 	int pc_size;
 
 	int flags_offset;
@@ -518,65 +517,62 @@ static inline void pevent_set_flag(struct pevent *pevent, int flag)
 	pevent->flags |= flag;
 }
 
-static inline unsigned short
-__data2host2(struct pevent *pevent, unsigned short data)
+static inline unsigned short __data2host2(struct pevent *pevent,
+					  unsigned short data)
 {
 	unsigned short swap;
 
 	if (pevent->host_bigendian == pevent->file_bigendian)
 		return data;
 
-	swap = ((data & 0xffULL) << 8) |
-		((data & (0xffULL << 8)) >> 8);
+	swap = ((data & 0xffULL) << 8) | ((data & (0xffULL << 8)) >> 8);
 
 	return swap;
 }
 
-static inline unsigned int
-__data2host4(struct pevent *pevent, unsigned int data)
+static inline unsigned int __data2host4(struct pevent *pevent,
+					unsigned int data)
 {
 	unsigned int swap;
 
 	if (pevent->host_bigendian == pevent->file_bigendian)
 		return data;
 
-	swap = ((data & 0xffULL) << 24) |
-		((data & (0xffULL << 8)) << 8) |
-		((data & (0xffULL << 16)) >> 8) |
-		((data & (0xffULL << 24)) >> 24);
+	swap = ((data & 0xffULL) << 24) | ((data & (0xffULL << 8)) << 8) |
+	       ((data & (0xffULL << 16)) >> 8) |
+	       ((data & (0xffULL << 24)) >> 24);
 
 	return swap;
 }
 
-static inline unsigned long long
-__data2host8(struct pevent *pevent, unsigned long long data)
+static inline unsigned long long __data2host8(struct pevent *pevent,
+					      unsigned long long data)
 {
 	unsigned long long swap;
 
 	if (pevent->host_bigendian == pevent->file_bigendian)
 		return data;
 
-	swap = ((data & 0xffULL) << 56) |
-		((data & (0xffULL << 8)) << 40) |
-		((data & (0xffULL << 16)) << 24) |
-		((data & (0xffULL << 24)) << 8) |
-		((data & (0xffULL << 32)) >> 8) |
-		((data & (0xffULL << 40)) >> 24) |
-		((data & (0xffULL << 48)) >> 40) |
-		((data & (0xffULL << 56)) >> 56);
+	swap = ((data & 0xffULL) << 56) | ((data & (0xffULL << 8)) << 40) |
+	       ((data & (0xffULL << 16)) << 24) |
+	       ((data & (0xffULL << 24)) << 8) |
+	       ((data & (0xffULL << 32)) >> 8) |
+	       ((data & (0xffULL << 40)) >> 24) |
+	       ((data & (0xffULL << 48)) >> 40) |
+	       ((data & (0xffULL << 56)) >> 56);
 
 	return swap;
 }
 
-#define data2host2(pevent, ptr)		__data2host2(pevent, *(unsigned short *)(ptr))
-#define data2host4(pevent, ptr)		__data2host4(pevent, *(unsigned int *)(ptr))
-#define data2host8(pevent, ptr)					\
-({								\
-	unsigned long long __val;				\
-								\
-	memcpy(&__val, (ptr), sizeof(unsigned long long));	\
-	__data2host8(pevent, __val);				\
-})
+#define data2host2(pevent, ptr) __data2host2(pevent, *(unsigned short *)(ptr))
+#define data2host4(pevent, ptr) __data2host4(pevent, *(unsigned int *)(ptr))
+#define data2host8(pevent, ptr)                                                \
+	({                                                                     \
+		unsigned long long __val;                                      \
+                                                                               \
+		memcpy(&__val, (ptr), sizeof(unsigned long long));             \
+		__data2host8(pevent, __val);                                   \
+	})
 
 static inline int traceevent_host_bigendian(void)
 {
@@ -589,11 +585,11 @@ static inline int traceevent_host_bigendian(void)
 
 /* taken from kernel/trace/trace.h */
 enum trace_flag_type {
-	TRACE_FLAG_IRQS_OFF		= 0x01,
-	TRACE_FLAG_IRQS_NOSUPPORT	= 0x02,
-	TRACE_FLAG_NEED_RESCHED		= 0x04,
-	TRACE_FLAG_HARDIRQ		= 0x08,
-	TRACE_FLAG_SOFTIRQ		= 0x10,
+	TRACE_FLAG_IRQS_OFF = 0x01,
+	TRACE_FLAG_IRQS_NOSUPPORT = 0x02,
+	TRACE_FLAG_NEED_RESCHED = 0x04,
+	TRACE_FLAG_HARDIRQ = 0x08,
+	TRACE_FLAG_SOFTIRQ = 0x10,
 };
 
 int pevent_register_comm(struct pevent *pevent, const char *comm, int pid);
@@ -607,15 +603,15 @@ int pevent_pid_is_registered(struct pevent *pevent, int pid);
 void pevent_print_event(struct pevent *pevent, struct trace_seq *s,
 			struct pevent_record *record, bool use_trace_clock);
 
-int pevent_parse_header_page(struct pevent *pevent, char *buf, unsigned long size,
-			     int long_size);
+int pevent_parse_header_page(struct pevent *pevent, char *buf,
+			     unsigned long size, int long_size);
 
 enum pevent_errno pevent_parse_event(struct pevent *pevent, const char *buf,
 				     unsigned long size, const char *sys);
 enum pevent_errno pevent_parse_format(struct pevent *pevent,
 				      struct event_format **eventp,
-				      const char *buf,
-				      unsigned long size, const char *sys);
+				      const char *buf, unsigned long size,
+				      const char *sys);
 void pevent_free_format(struct event_format *event);
 
 void *pevent_get_field_raw(struct trace_seq *s, struct event_format *event,
@@ -637,15 +633,18 @@ int pevent_print_num_field(struct trace_seq *s, const char *fmt,
 			   struct pevent_record *record, int err);
 
 int pevent_print_func_field(struct trace_seq *s, const char *fmt,
-			   struct event_format *event, const char *name,
-			   struct pevent_record *record, int err);
+			    struct event_format *event, const char *name,
+			    struct pevent_record *record, int err);
 
 int pevent_register_event_handler(struct pevent *pevent, int id,
 				  const char *sys_name, const char *event_name,
-				  pevent_event_handler_func func, void *context);
+				  pevent_event_handler_func func,
+				  void *context);
 int pevent_unregister_event_handler(struct pevent *pevent, int id,
-				    const char *sys_name, const char *event_name,
-				    pevent_event_handler_func func, void *context);
+				    const char *sys_name,
+				    const char *event_name,
+				    pevent_event_handler_func func,
+				    void *context);
 int pevent_register_print_function(struct pevent *pevent,
 				   pevent_func_handler func,
 				   enum pevent_func_arg_type ret_type,
@@ -653,34 +652,42 @@ int pevent_register_print_function(struct pevent *pevent,
 int pevent_unregister_print_function(struct pevent *pevent,
 				     pevent_func_handler func, char *name);
 
-struct format_field *pevent_find_common_field(struct event_format *event, const char *name);
-struct format_field *pevent_find_field(struct event_format *event, const char *name);
-struct format_field *pevent_find_any_field(struct event_format *event, const char *name);
+struct format_field *pevent_find_common_field(struct event_format *event,
+					      const char *name);
+struct format_field *pevent_find_field(struct event_format *event,
+				       const char *name);
+struct format_field *pevent_find_any_field(struct event_format *event,
+					   const char *name);
 
-const char *pevent_find_function(struct pevent *pevent, unsigned long long addr);
-unsigned long long
-pevent_find_function_address(struct pevent *pevent, unsigned long long addr);
-unsigned long long pevent_read_number(struct pevent *pevent, const void *ptr, int size);
+const char *pevent_find_function(struct pevent *pevent,
+				 unsigned long long addr);
+unsigned long long pevent_find_function_address(struct pevent *pevent,
+						unsigned long long addr);
+unsigned long long pevent_read_number(struct pevent *pevent, const void *ptr,
+				      int size);
 int pevent_read_number_field(struct format_field *field, const void *data,
 			     unsigned long long *value);
 
 struct event_format *pevent_find_event(struct pevent *pevent, int id);
 
-struct event_format *
-pevent_find_event_by_name(struct pevent *pevent, const char *sys, const char *name);
+struct event_format *pevent_find_event_by_name(struct pevent *pevent,
+					       const char *sys,
+					       const char *name);
 
-void pevent_data_lat_fmt(struct pevent *pevent,
-			 struct trace_seq *s, struct pevent_record *record);
+void pevent_data_lat_fmt(struct pevent *pevent, struct trace_seq *s,
+			 struct pevent_record *record);
 int pevent_data_type(struct pevent *pevent, struct pevent_record *rec);
-struct event_format *pevent_data_event_from_type(struct pevent *pevent, int type);
+struct event_format *pevent_data_event_from_type(struct pevent *pevent,
+						 int type);
 int pevent_data_pid(struct pevent *pevent, struct pevent_record *rec);
 const char *pevent_data_comm_from_pid(struct pevent *pevent, int pid);
 void pevent_event_info(struct trace_seq *s, struct event_format *event,
 		       struct pevent_record *record);
-int pevent_strerror(struct pevent *pevent, enum pevent_errno errnum,
-		    char *buf, size_t buflen);
+int pevent_strerror(struct pevent *pevent, enum pevent_errno errnum, char *buf,
+		    size_t buflen);
 
-struct event_format **pevent_list_events(struct pevent *pevent, enum event_sort_type);
+struct event_format **pevent_list_events(struct pevent *pevent,
+					 enum event_sort_type);
 struct format_field **pevent_event_common_fields(struct event_format *event);
 struct format_field **pevent_event_fields(struct event_format *event);
 
@@ -814,91 +821,87 @@ enum filter_arg_type {
 	FILTER_ARG_STR,
 };
 
-enum filter_value_type {
-	FILTER_NUMBER,
-	FILTER_STRING,
-	FILTER_CHAR
-};
+enum filter_value_type { FILTER_NUMBER, FILTER_STRING, FILTER_CHAR };
 
 struct fliter_arg;
 
 struct filter_arg_boolean {
-	enum filter_boolean_type	value;
+	enum filter_boolean_type value;
 };
 
 struct filter_arg_field {
-	struct format_field	*field;
+	struct format_field *field;
 };
 
 struct filter_arg_value {
-	enum filter_value_type	type;
+	enum filter_value_type type;
 	union {
-		char			*str;
-		unsigned long long	val;
+		char *str;
+		unsigned long long val;
 	};
 };
 
 struct filter_arg_op {
-	enum filter_op_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
+	enum filter_op_type type;
+	struct filter_arg *left;
+	struct filter_arg *right;
 };
 
 struct filter_arg_exp {
-	enum filter_exp_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
+	enum filter_exp_type type;
+	struct filter_arg *left;
+	struct filter_arg *right;
 };
 
 struct filter_arg_num {
-	enum filter_cmp_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
+	enum filter_cmp_type type;
+	struct filter_arg *left;
+	struct filter_arg *right;
 };
 
 struct filter_arg_str {
-	enum filter_cmp_type	type;
-	struct format_field	*field;
-	char			*val;
-	char			*buffer;
-	regex_t			reg;
+	enum filter_cmp_type type;
+	struct format_field *field;
+	char *val;
+	char *buffer;
+	regex_t reg;
 };
 
 struct filter_arg {
-	enum filter_arg_type	type;
+	enum filter_arg_type type;
 	union {
-		struct filter_arg_boolean	boolean;
-		struct filter_arg_field		field;
-		struct filter_arg_value		value;
-		struct filter_arg_op		op;
-		struct filter_arg_exp		exp;
-		struct filter_arg_num		num;
-		struct filter_arg_str		str;
+		struct filter_arg_boolean boolean;
+		struct filter_arg_field field;
+		struct filter_arg_value value;
+		struct filter_arg_op op;
+		struct filter_arg_exp exp;
+		struct filter_arg_num num;
+		struct filter_arg_str str;
 	};
 };
 
 struct filter_type {
-	int			event_id;
-	struct event_format	*event;
-	struct filter_arg	*filter;
+	int event_id;
+	struct event_format *event;
+	struct filter_arg *filter;
 };
 
-#define PEVENT_FILTER_ERROR_BUFSZ  1024
+#define PEVENT_FILTER_ERROR_BUFSZ 1024
 
 struct event_filter {
-	struct pevent		*pevent;
-	int			filters;
-	struct filter_type	*event_filters;
-	char			error_buffer[PEVENT_FILTER_ERROR_BUFSZ];
+	struct pevent *pevent;
+	int filters;
+	struct filter_type *event_filters;
+	char error_buffer[PEVENT_FILTER_ERROR_BUFSZ];
 };
 
 struct event_filter *pevent_filter_alloc(struct pevent *pevent);
 
 /* for backward compatibility */
-#define FILTER_NONE		PEVENT_ERRNO__NO_FILTER
-#define FILTER_NOEXIST		PEVENT_ERRNO__FILTER_NOT_FOUND
-#define FILTER_MISS		PEVENT_ERRNO__FILTER_MISS
-#define FILTER_MATCH		PEVENT_ERRNO__FILTER_MATCH
+#define FILTER_NONE PEVENT_ERRNO__NO_FILTER
+#define FILTER_NOEXIST PEVENT_ERRNO__FILTER_NOT_FOUND
+#define FILTER_MISS PEVENT_ERRNO__FILTER_MISS
+#define FILTER_MATCH PEVENT_ERRNO__FILTER_MATCH
 
 enum filter_trivial_type {
 	FILTER_TRIVIAL_FALSE,
@@ -915,30 +918,29 @@ enum pevent_errno pevent_filter_match(struct event_filter *filter,
 int pevent_filter_strerror(struct event_filter *filter, enum pevent_errno err,
 			   char *buf, size_t buflen);
 
-int pevent_event_filtered(struct event_filter *filter,
-			  int event_id);
+int pevent_event_filtered(struct event_filter *filter, int event_id);
 
 void pevent_filter_reset(struct event_filter *filter);
 
 int pevent_filter_clear_trivial(struct event_filter *filter,
-				 enum filter_trivial_type type);
+				enum filter_trivial_type type);
 
 void pevent_filter_free(struct event_filter *filter);
 
 char *pevent_filter_make_string(struct event_filter *filter, int event_id);
 
-int pevent_filter_remove_event(struct event_filter *filter,
-			       int event_id);
+int pevent_filter_remove_event(struct event_filter *filter, int event_id);
 
-int pevent_filter_event_has_trivial(struct event_filter *filter,
-				    int event_id,
+int pevent_filter_event_has_trivial(struct event_filter *filter, int event_id,
 				    enum filter_trivial_type type);
 
 int pevent_filter_copy(struct event_filter *dest, struct event_filter *source);
 
-int pevent_update_trivial(struct event_filter *dest, struct event_filter *source,
+int pevent_update_trivial(struct event_filter *dest,
+			  struct event_filter *source,
 			  enum filter_trivial_type type);
 
-int pevent_filter_compare(struct event_filter *filter1, struct event_filter *filter2);
+int pevent_filter_compare(struct event_filter *filter1,
+			  struct event_filter *filter2);
 
 #endif /* _PARSE_EVENTS_H */

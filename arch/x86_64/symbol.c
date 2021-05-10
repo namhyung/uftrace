@@ -4,8 +4,8 @@
 #include <errno.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "symbol"
-#define PR_DOMAIN  DBG_SYMBOL
+#define PR_FMT "symbol"
+#define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -13,9 +13,9 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
 
-#define R_OFFSET_POS  2
+#define R_OFFSET_POS 2
 #define JMP_INSN_SIZE 6
-#define PLTGOT_SIZE   8
+#define PLTGOT_SIZE 8
 
 int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			      struct uftrace_elf_data *elf,
@@ -31,16 +31,16 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 	memset(dsymtab, 0, sizeof(*dsymtab));
 
 	/* assumes there's only one RELA section (rela.dyn) for no-plt binary */
-	elf_for_each_shdr(elf, &sec_iter) {
+	elf_for_each_shdr (elf, &sec_iter) {
 		if (sec_iter.shdr.sh_type == SHT_RELA) {
 			memcpy(&rel_iter, &sec_iter, sizeof(sec_iter));
 			pr_dbg2("found RELA section: %s\n",
-				elf_get_name(elf, &sec_iter, sec_iter.shdr.sh_name));
+				elf_get_name(elf, &sec_iter,
+					     sec_iter.shdr.sh_name));
 
 			reloc_start = rel_iter.shdr.sh_addr + offset;
 			reloc_entsize = rel_iter.shdr.sh_entsize;
-		}
-		else if (sec_iter.shdr.sh_type == SHT_DYNSYM) {
+		} else if (sec_iter.shdr.sh_type == SHT_DYNSYM) {
 			memcpy(&sym_iter, &sec_iter, sizeof(sec_iter));
 			elf_get_strtab(elf, &sym_iter, sec_iter.shdr.sh_link);
 			elf_get_secdata(elf, &sym_iter);
@@ -50,7 +50,8 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 	if (reloc_start == 0)
 		return 0;
 
-	elf_for_each_rela(elf, &rel_iter) {
+	elf_for_each_rela(elf, &rel_iter)
+	{
 		struct sym *sym;
 		int symidx;
 		char *name;
@@ -75,8 +76,8 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 			if (dsymtab->nr_alloc >= grow * 4)
 				grow *= 2;
 			dsymtab->nr_alloc += grow;
-			dsymtab->sym = xrealloc(dsymtab->sym,
-						dsymtab->nr_alloc * sizeof(*sym));
+			dsymtab->sym = xrealloc(
+				dsymtab->sym, dsymtab->nr_alloc * sizeof(*sym));
 		}
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
@@ -92,8 +93,8 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 		else
 			sym->name = xstrdup(name);
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym, sym->type,
+			sym->addr, sym->size, sym->name);
 	}
 
 	return dsymtab->nr_sym;
@@ -108,7 +109,7 @@ void mcount_arch_plthook_setup(struct plthook_data *pd,
 
 	ctx = xzalloc(sizeof(*ctx));
 
-	elf_for_each_shdr(elf, &iter) {
+	elf_for_each_shdr (elf, &iter) {
 		secname = elf_get_name(elf, &iter, iter.shdr.sh_name);
 
 		if (strcmp(secname, ".plt.sec") == 0) {
