@@ -43,12 +43,6 @@ COMMON OPTIONS
     This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of filters.
 
--H *FUNC*, \--hide=*FUNC*
-:   Set filter not to trace selected functions.
-    It doesn't affect their subtrees, but hides only the given functions.
-    This option can be used more than once.
-    See `uftrace-replay`(1) for an explanation of filters.
-
 -C *FUNC*, \--caller-filter=*FUNC*
 :   Set filter to trace callers of selected functions only.
     This option can be used more than once.
@@ -76,6 +70,12 @@ COMMON OPTIONS
 
 COMMON ANALYSIS OPTIONS
 =======================
+-H *FUNC*, \--hide=*FUNC*
+:   Set filter not to trace selected functions.
+    It doesn't affect their subtrees, but hides only the given functions.
+    This option can be used more than once.
+    See `uftrace-replay`(1) for an explanation of filters.
+
 \--kernel-full
 :   Run script all kernel functions and events occurred outside of user functions.
 
