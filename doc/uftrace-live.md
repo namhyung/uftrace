@@ -30,11 +30,6 @@ COMMON OPTIONS
 :   Set filter not to trace selected functions and their children functions.
     This option can be used more than once.  See *FILTERS*.
 
--H *FUNC*, \--hide=*FUNC*
-:   Set filter not to trace selected functions.
-    It doesn't affect their subtrees, but hides only the given functions.
-    This option can be used more than once.  See *FILTERS*.
-
 -C *FUNC*, \--caller-filter=*FUNC*
 :   Set filter to trace callers of selected functions only.
     This option can be used more than once.  See *FILTERS*.
@@ -246,6 +241,11 @@ REPLAY OPTIONS
 
 COMMON ANALYSIS OPTIONS
 =======================
+-H *FUNC*, \--hide=*FUNC*
+:   Set filter not to trace selected functions.
+    It doesn't affect their subtrees, but hides only the given functions.
+    This option can be used more than once.  See *FILTERS*.
+
 \--kernel-full
 :   Show all kernel functions called outside of user functions.
 
