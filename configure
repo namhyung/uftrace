@@ -139,6 +139,7 @@ bindir=${bindir:-${prefix}/bin}
 libdir=${libdir:-${prefix}/lib}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
+compldir=${compldir:-${prefix}/share/bash-completion/completions}
 
 if [ "$etcdir" = /usr/etc ]; then
     etcdir=/etc
@@ -268,6 +269,7 @@ override bindir := $bindir
 override libdir := $libdir
 override mandir := $mandir
 override etcdir := $etcdir
+override compldir := $compldir
 EOF
 
 if [ ! -z $with_elfutils ]; then
