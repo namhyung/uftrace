@@ -30,23 +30,23 @@
  * The TRACE_SEQ_POISON is to catch the use of using
  * a trace_seq structure after it was destroyed.
  */
-#define TRACE_SEQ_POISON	((void *)0xdeadbeef)
-#define TRACE_SEQ_CHECK(s)						\
-do {									\
-	if (WARN_ONCE((s)->buffer == TRACE_SEQ_POISON,			\
-		      "Usage of trace_seq after it was destroyed"))	\
-		(s)->state = TRACE_SEQ__BUFFER_POISONED;		\
-} while (0)
+#define TRACE_SEQ_POISON ((void *)0xdeadbeef)
+#define TRACE_SEQ_CHECK(s)                                                     \
+	do {                                                                   \
+		if (WARN_ONCE((s)->buffer == TRACE_SEQ_POISON,                 \
+			      "Usage of trace_seq after it was destroyed"))    \
+			(s)->state = TRACE_SEQ__BUFFER_POISONED;               \
+	} while (0)
 
-#define TRACE_SEQ_CHECK_RET_N(s, n)		\
-do {						\
-	TRACE_SEQ_CHECK(s);			\
-	if ((s)->state != TRACE_SEQ__GOOD)	\
-		return n; 			\
-} while (0)
+#define TRACE_SEQ_CHECK_RET_N(s, n)                                            \
+	do {                                                                   \
+		TRACE_SEQ_CHECK(s);                                            \
+		if ((s)->state != TRACE_SEQ__GOOD)                             \
+			return n;                                              \
+	} while (0)
 
-#define TRACE_SEQ_CHECK_RET(s)   TRACE_SEQ_CHECK_RET_N(s, )
-#define TRACE_SEQ_CHECK_RET0(s)  TRACE_SEQ_CHECK_RET_N(s, 0)
+#define TRACE_SEQ_CHECK_RET(s) TRACE_SEQ_CHECK_RET_N(s, )
+#define TRACE_SEQ_CHECK_RET0(s) TRACE_SEQ_CHECK_RET_N(s, 0)
 
 /**
  * trace_seq_init - initialize the trace_seq structure
@@ -120,14 +120,13 @@ static void expand_buffer(struct trace_seq *s)
  * buffer (@s). Then the output may be either used by
  * the sequencer or pulled into another buffer.
  */
-int
-trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
+int trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 {
 	va_list ap;
 	int len;
 	int ret;
 
- try_again:
+try_again:
 	TRACE_SEQ_CHECK_RET0(s);
 
 	len = (s->buffer_size - 1) - s->len;
@@ -157,13 +156,12 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
  * buffer (@s). Then the output may be either used by
  * the sequencer or pulled into another buffer.
  */
-int
-trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
+int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
 {
 	int len;
 	int ret;
 
- try_again:
+try_again:
 	TRACE_SEQ_CHECK_RET0(s);
 
 	len = (s->buffer_size - 1) - s->len;

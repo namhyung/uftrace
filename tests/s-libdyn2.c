@@ -21,4 +21,3 @@ static int lib_f(int mask)
 {
 	return getpid() % mask;
 }
-

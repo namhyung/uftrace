@@ -11,7 +11,6 @@
 #include "utils/kernel.h"
 #include "libmcount/mcount.h"
 
-
 static char *tmp_dirname;
 static void cleanup_tempdir(void)
 {
@@ -36,9 +35,9 @@ static void reset_live_opts(struct opts *opts)
 	free(opts->caller);
 	opts->caller = NULL;
 
-	opts->depth	= MCOUNT_DEFAULT_DEPTH;
-	opts->disabled	= false;
-	opts->no_event  = false;
+	opts->depth = MCOUNT_DEFAULT_DEPTH;
+	opts->disabled = false;
+	opts->no_event = false;
 }
 
 static void sigsegv_handler(int sig)
@@ -69,8 +68,7 @@ static void setup_child_environ(struct opts *opts)
 			libpath = strjoin(envbuf, INSTALL_LIB_PATH, ":");
 			setenv("LD_LIBRARY_PATH", libpath, 1);
 			free(libpath);
-		}
-		else {
+		} else {
 			setenv("LD_LIBRARY_PATH", INSTALL_LIB_PATH, 1);
 		}
 	}
@@ -88,8 +86,7 @@ static void setup_child_environ(struct opts *opts)
 		snprintf(preload, len, "%s:%s", libpath, old_preload);
 		setenv("LD_PRELOAD", preload, 1);
 		free(preload);
-	}
-	else
+	} else
 		setenv("LD_PRELOAD", libpath, 1);
 
 	free(libpath);

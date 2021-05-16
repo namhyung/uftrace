@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#define TEST_PROG  "t-abc"
+#define TEST_PROG "t-abc"
 
 int main(int argc, char *argv[])
 {

@@ -13,29 +13,29 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#define UFTRACE_DIR_NAME   "uftrace.data"
+#define UFTRACE_DIR_NAME "uftrace.data"
 
-#define MCOUNT_RSTACK_MAX      OPT_RSTACK_DEFAULT
-#define MCOUNT_DEFAULT_DEPTH   OPT_DEPTH_DEFAULT
+#define MCOUNT_RSTACK_MAX OPT_RSTACK_DEFAULT
+#define MCOUNT_DEFAULT_DEPTH OPT_DEPTH_DEFAULT
 
-#define MCOUNT_NOTRACE_IDX     0x10000
-#define MCOUNT_INVALID_DYNIDX  0xefefefef
+#define MCOUNT_NOTRACE_IDX 0x10000
+#define MCOUNT_INVALID_DYNIDX 0xefefefef
 
 enum mcount_rstack_flag {
-	MCOUNT_FL_SETJMP	= (1U << 0),
-	MCOUNT_FL_LONGJMP	= (1U << 1),
-	MCOUNT_FL_NORECORD	= (1U << 2),
-	MCOUNT_FL_NOTRACE	= (1U << 3),
-	MCOUNT_FL_FILTERED	= (1U << 4),
-	MCOUNT_FL_VFORK		= (1U << 5),
-	MCOUNT_FL_WRITTEN	= (1U << 6),
-	MCOUNT_FL_DISABLED	= (1U << 7),
-	MCOUNT_FL_RECOVER	= (1U << 8),
-	MCOUNT_FL_RETVAL	= (1U << 9),
-	MCOUNT_FL_TRACE		= (1U << 10),
-	MCOUNT_FL_ARGUMENT	= (1U << 11),
-	MCOUNT_FL_READ		= (1U << 12),
-	MCOUNT_FL_CALLER	= (1U << 13),
+	MCOUNT_FL_SETJMP = (1U << 0),
+	MCOUNT_FL_LONGJMP = (1U << 1),
+	MCOUNT_FL_NORECORD = (1U << 2),
+	MCOUNT_FL_NOTRACE = (1U << 3),
+	MCOUNT_FL_FILTERED = (1U << 4),
+	MCOUNT_FL_VFORK = (1U << 5),
+	MCOUNT_FL_WRITTEN = (1U << 6),
+	MCOUNT_FL_DISABLED = (1U << 7),
+	MCOUNT_FL_RECOVER = (1U << 8),
+	MCOUNT_FL_RETVAL = (1U << 9),
+	MCOUNT_FL_TRACE = (1U << 10),
+	MCOUNT_FL_ARGUMENT = (1U << 11),
+	MCOUNT_FL_READ = (1U << 12),
+	MCOUNT_FL_CALLER = (1U << 13),
 };
 
 struct plthook_data;
@@ -66,13 +66,13 @@ void _mcleanup(void);
 void mcount_restore(void);
 void mcount_reset(void);
 
-#define SHMEM_BUFFER_SIZE_KB	128
-#define SHMEM_BUFFER_SIZE	(SHMEM_BUFFER_SIZE_KB * KB)
+#define SHMEM_BUFFER_SIZE_KB 128
+#define SHMEM_BUFFER_SIZE (SHMEM_BUFFER_SIZE_KB * KB)
 
 enum shmem_buffer_flags {
-	SHMEM_FL_NEW		= (1U << 0),
-	SHMEM_FL_WRITTEN	= (1U << 1),
-	SHMEM_FL_RECORDING	= (1U << 2),
+	SHMEM_FL_NEW = (1U << 0),
+	SHMEM_FL_WRITTEN = (1U << 1),
+	SHMEM_FL_RECORDING = (1U << 2),
 };
 
 struct mcount_shmem_buffer {
@@ -83,6 +83,6 @@ struct mcount_shmem_buffer {
 };
 
 /* must be in sync with enum debug_domain (bits) */
-#define DBG_DOMAIN_STR  "TSDFfsKMpPERWw"
+#define DBG_DOMAIN_STR "TSDFfsKMpPERWw"
 
 #endif /* UFTRACE_MCOUNT_H */

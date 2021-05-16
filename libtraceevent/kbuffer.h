@@ -22,7 +22,7 @@
 #define _KBUFFER_H
 
 #ifndef TS_SHIFT
-#define TS_SHIFT		27
+#define TS_SHIFT 27
 #endif
 
 enum kbuffer_endian {
@@ -36,14 +36,15 @@ enum kbuffer_long_size {
 };
 
 enum {
-	KBUFFER_TYPE_PADDING		= 29,
-	KBUFFER_TYPE_TIME_EXTEND	= 30,
-	KBUFFER_TYPE_TIME_STAMP		= 31,
+	KBUFFER_TYPE_PADDING = 29,
+	KBUFFER_TYPE_TIME_EXTEND = 30,
+	KBUFFER_TYPE_TIME_STAMP = 31,
 };
 
 struct kbuffer;
 
-struct kbuffer *kbuffer_alloc(enum kbuffer_long_size size, enum kbuffer_endian endian);
+struct kbuffer *kbuffer_alloc(enum kbuffer_long_size size,
+			      enum kbuffer_endian endian);
 void kbuffer_free(struct kbuffer *kbuf);
 int kbuffer_load_subbuffer(struct kbuffer *kbuf, void *subbuffer);
 void *kbuffer_read_event(struct kbuffer *kbuf, unsigned long long *ts);
@@ -52,7 +53,8 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf);
 
 void *kbuffer_translate_data(int swap, void *data, unsigned int *size);
 
-void *kbuffer_read_at_offset(struct kbuffer *kbuf, unsigned int offset, unsigned long long *ts);
+void *kbuffer_read_at_offset(struct kbuffer *kbuf, unsigned int offset,
+			     unsigned long long *ts);
 
 int kbuffer_curr_index(struct kbuffer *kbuf);
 

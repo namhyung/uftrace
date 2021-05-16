@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "filter"
-#define PR_DOMAIN  DBG_FILTER
+#define PR_FMT "filter"
+#define PR_DOMAIN DBG_FILTER
 
 #include "uftrace.h"
 #include "utils/filter.h"
@@ -20,8 +20,8 @@ static struct rb_root auto_argspec = RB_ROOT;
 static struct rb_root auto_retspec = RB_ROOT;
 static struct rb_root auto_enum = RB_ROOT;
 
-extern void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
-			bool exact_match);
+extern void add_trigger(struct uftrace_filter *filter,
+			struct uftrace_trigger *tr, bool exact_match);
 extern int setup_trigger_action(char *str, struct uftrace_trigger *tr,
 				char **module, unsigned long orig_flags,
 				struct uftrace_filter_setting *setting);
@@ -77,7 +77,8 @@ static void build_auto_args(const char *args_str, struct rb_root *root,
 
 	strv_split(&specs, args_str, ";");
 
-	strv_for_each(&specs, name, j) {
+	strv_for_each(&specs, name, j)
+	{
 		LIST_HEAD(args);
 		struct uftrace_arg_spec *arg;
 		struct uftrace_trigger tr = {
@@ -109,9 +110,10 @@ static void build_auto_args(const char *args_str, struct rb_root *root,
 
 		add_auto_args(root, &entry, &tr);
 
-next:
+	next:
 		while (!list_empty(&args)) {
-			arg = list_first_entry(&args, struct uftrace_arg_spec, list);
+			arg = list_first_entry(&args, struct uftrace_arg_spec,
+					       list);
 			list_del(&arg->list);
 			free_arg_spec(arg);
 		}
@@ -119,7 +121,7 @@ next:
 	strv_free(&specs);
 }
 
-static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
+static struct uftrace_filter *find_auto_args(struct rb_root *root, char *name)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -145,10 +147,9 @@ static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
 
 static struct uftrace_filter *dwarf_argspec_list;
 
-static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
-						  struct debug_info *dinfo,
-						  bool is_retval,
-						  struct uftrace_filter_setting *setting)
+static struct uftrace_filter *
+find_dwarf_argspec(struct uftrace_filter *filter, struct debug_info *dinfo,
+		   bool is_retval, struct uftrace_filter_setting *setting)
 {
 	LIST_HEAD(dwarf_argspec);
 	struct uftrace_filter *dwarf_filter;
@@ -156,7 +157,8 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 		.pargs = &dwarf_argspec,
 	};
 	char *arg_str;
-	unsigned long flag = is_retval ? TRIGGER_FL_RETVAL : TRIGGER_FL_ARGUMENT;
+	unsigned long flag =
+		is_retval ? TRIGGER_FL_RETVAL : TRIGGER_FL_ARGUMENT;
 	unsigned long addr = filter->start;
 
 	if (is_retval)
@@ -188,10 +190,10 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 	return dwarf_filter;
 }
 
-struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
-					  struct uftrace_filter_setting *setting)
+struct uftrace_filter *find_auto_argspec(struct uftrace_filter *filter,
+					 struct uftrace_trigger *tr,
+					 struct debug_info *dinfo,
+					 struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_arg = NULL;
 
@@ -204,10 +206,10 @@ struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 	return auto_arg;
 }
 
-struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
-					  struct uftrace_filter_setting *setting)
+struct uftrace_filter *find_auto_retspec(struct uftrace_filter *filter,
+					 struct uftrace_trigger *tr,
+					 struct debug_info *dinfo,
+					 struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_ret = NULL;
 
@@ -232,7 +234,6 @@ char *get_auto_retspec_str(void)
 
 void setup_auto_args(struct uftrace_filter_setting *setting)
 {
-
 	parse_enum_string(auto_enum_list, &auto_enum);
 	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT,
 			setting);
@@ -260,7 +261,7 @@ static void release_auto_args(struct rb_root *root)
 
 		rb_erase(p, root);
 
-		list_for_each_entry_safe(arg, tmp, &entry->args, list) {
+		list_for_each_entry_safe (arg, tmp, &entry->args, list) {
 			list_del(&arg->list);
 			free_arg_spec(arg);
 		}
@@ -284,8 +285,9 @@ void finish_auto_args(void)
 		tmp = (void *)dwarf_argspec_list->name;
 
 		while (!list_empty(dwarf_argspec_list->trigger.pargs)) {
-			spec = list_first_entry(dwarf_argspec_list->trigger.pargs,
-						typeof(*spec), list);
+			spec = list_first_entry(
+				dwarf_argspec_list->trigger.pargs,
+				typeof(*spec), list);
 			list_del(&spec->list);
 			free_arg_spec(spec);
 		}
@@ -321,7 +323,8 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 
 		strv_split(&actions, trigger, ";");
 
-		strv_for_each(&actions, pos, j) {
+		strv_for_each(&actions, pos, j)
+		{
 			char *name = pos;
 			char *args = NULL;
 			char *rval = NULL;
@@ -489,7 +492,7 @@ static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 	rb_insert_color(&e_def->node, root);
 }
 
-struct enum_def * find_enum_def(struct rb_root *root, char *name)
+struct enum_def *find_enum_def(struct rb_root *root, char *name)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -512,19 +515,19 @@ struct enum_def * find_enum_def(struct rb_root *root, char *name)
 	return NULL;
 }
 
-char * convert_enum_val(struct enum_def *e_def, int val)
+char *convert_enum_val(struct enum_def *e_def, int val)
 {
 	struct enum_val *e_val;
 	char *str = NULL;
 
 	/* exact match? */
-	list_for_each_entry(e_val, &e_def->vals, list) {
+	list_for_each_entry (e_val, &e_def->vals, list) {
 		if (e_val->val == val)
 			return xstrdup(e_val->str);
 	}
 
 	/* if not, try OR-ing bit flags */
-	list_for_each_entry(e_val, &e_def->vals, list) {
+	list_for_each_entry (e_val, &e_def->vals, list) {
 		if (e_val->val <= val) {
 			val -= e_val->val;
 			str = strjoin(str, e_val->str, "|");
@@ -541,8 +544,7 @@ char * convert_enum_val(struct enum_def *e_def, int val)
 		xasprintf(&tmp, "%s+%#x", str, val);
 		free(str);
 		str = tmp;
-	}
-	else if (unlikely(str == NULL)) {
+	} else if (unlikely(str == NULL)) {
 		if (labs(val) > 100000)
 			xasprintf(&str, "%#x", val);
 		else
@@ -603,7 +605,8 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 
 	strv_split(&strv, enum_str, ";");
 
-	strv_for_each(&strv, pos, j) {
+	strv_for_each(&strv, pos, j)
+	{
 		long val = 0;
 
 		ret = enum_next_token(&pos);
@@ -668,7 +671,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 			pr_dbg3("  %s = %ld\n", name, val);
 
 			/* sort by value, just in case */
-			list_for_each_entry(e, &e_def->vals, list) {
+			list_for_each_entry (e, &e_def->vals, list) {
 				if (e->val <= val)
 					break;
 			}
@@ -683,8 +686,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		if (!strcmp(enum_token, "}")) {
 			add_enum_tree(root, e_def);
 			e_def = NULL;
-		}
-		else {
+		} else {
 			pr_dbg("invalid enum def: %s\n", enum_token);
 			goto out;
 		}
@@ -704,7 +706,7 @@ static char *get_enum_def_string(struct enum_def *def)
 	char *str = NULL;
 	char *buf = NULL;
 
-	list_for_each_entry_reverse(e_val, &def->vals, list) {
+	list_for_each_entry_reverse (e_val, &def->vals, list) {
 		/* simple case */
 		if (e_val->val == ++last) {
 			str = strjoin(str, e_val->str, ",");
@@ -781,7 +783,7 @@ TEST_CASE(argspec_auto_args)
 	TEST_NE(entry, NULL);
 	TEST_EQ(entry->trigger.flags, TRIGGER_FL_ARGUMENT);
 
-	list_for_each_entry(spec, &entry->args, list) {
+	list_for_each_entry (spec, &entry->args, list) {
 		TEST_EQ(spec->idx, idx);
 		TEST_EQ(spec->fmt, idx == 1 ? ARG_FMT_AUTO : ARG_FMT_STR);
 		idx++;
@@ -815,7 +817,8 @@ TEST_CASE(argspec_auto_args)
 TEST_CASE(argspec_extract)
 {
 	char test_trigger_str1[] = "foo@arg1,retval";
-	char test_trigger_str2[] = "foo@trace-on;bar@depth=2,arg1/s,trace-off,arg2/x64";
+	char test_trigger_str2[] =
+		"foo@trace-on;bar@depth=2,arg1/s,trace-off,arg2/x64";
 	char test_trigger_str3[] = "foo@libabc,arg3/i32%rax,backtrace";
 	char *args, *rets;
 
@@ -874,11 +877,11 @@ TEST_CASE(argspec_parse_enum)
 	while (node) {
 		e_def = rb_entry(node, struct enum_def, node);
 
-		e_val  = list_first_entry(&e_def->vals, struct enum_val, list);
+		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
 		e_next = list_next_entry(e_val, list);
 		TEST_GE(e_val->val, e_next->val);
 
-		e_val  = list_next_entry(e_val, list);
+		e_val = list_next_entry(e_val, list);
 		e_next = list_next_entry(e_next, list);
 		TEST_GE(e_val->val, e_next->val);
 

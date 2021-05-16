@@ -56,52 +56,52 @@ static int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		ctx->val.i = ARG8(regs);
 		break;
 	case UFT_AARCH64_REG_S0:
-		asm volatile ("str s0, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s0, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S1:
-		asm volatile ("str s1, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s1, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S2:
-		asm volatile ("str s2, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s2, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S3:
-		asm volatile ("str s3, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s3, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S4:
-		asm volatile ("str s4, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s4, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S5:
-		asm volatile ("str s5, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s5, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S6:
-		asm volatile ("str s6, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s6, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_S7:
-		asm volatile ("str s7, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str s7, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D0:
-		asm volatile ("str d0, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d0, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D1:
-		asm volatile ("str d1, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d1, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D2:
-		asm volatile ("str d2, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d2, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D3:
-		asm volatile ("str d3, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d3, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D4:
-		asm volatile ("str d4, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d4, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D5:
-		asm volatile ("str d5, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d5, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D6:
-		asm volatile ("str d6, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d6, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_AARCH64_REG_D7:
-		asm volatile ("str d7, %0\n" : "=m" (ctx->val.v));
+		asm volatile("str d7, %0\n" : "=m"(ctx->val.v));
 		break;
 	default:
 		return -1;
@@ -180,8 +180,7 @@ static void mcount_get_struct_arg(struct mcount_arg_context *ctx,
 			pr_dbg("stack address is not allowed: %p\n", addr);
 			mcount_memset4(ptr, 0, spec->size);
 		}
-	}
-	else if (spec->struct_reg_cnt == 0) {
+	} else if (spec->struct_reg_cnt == 0) {
 		mcount_get_register_arg(ctx, spec);
 		mcount_memcpy4(ptr, ctx->val.v, sizeof(long));
 	}
@@ -217,17 +216,17 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 		long *float_retval = ctx->retval - 2;
 
 		if (spec->size <= 4) {
-			asm volatile ("ldr s0, %1\n"
-				      "str s0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (*float_retval));
+			asm volatile("ldr s0, %1\n"
+				     "str s0, %0\n"
+				     : "=m"(ctx->val.v)
+				     : "m"(*float_retval));
+		} else {
+			asm volatile("ldr d0, %1\n"
+				     "str d0, %0\n"
+				     : "=m"(ctx->val.v)
+				     : "m"(*float_retval));
 		}
-		else {
-			asm volatile ("ldr d0, %1\n"
-				      "str d0, %0\n" :
-				      "=m" (ctx->val.v) : "m" (*float_retval));
-		}
-	}
-	else
+	} else
 		mcount_memcpy4(ctx->val.v, ctx->retval, spec->size);
 }
 
@@ -241,24 +240,24 @@ unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 
 void mcount_save_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("str d0, %0\n" : "=m" (ctx->d[0]));
-	asm volatile ("str d1, %0\n" : "=m" (ctx->d[1]));
-	asm volatile ("str d2, %0\n" : "=m" (ctx->d[2]));
-	asm volatile ("str d3, %0\n" : "=m" (ctx->d[3]));
-	asm volatile ("str d4, %0\n" : "=m" (ctx->d[4]));
-	asm volatile ("str d5, %0\n" : "=m" (ctx->d[5]));
-	asm volatile ("str d6, %0\n" : "=m" (ctx->d[6]));
-	asm volatile ("str d7, %0\n" : "=m" (ctx->d[7]));
+	asm volatile("str d0, %0\n" : "=m"(ctx->d[0]));
+	asm volatile("str d1, %0\n" : "=m"(ctx->d[1]));
+	asm volatile("str d2, %0\n" : "=m"(ctx->d[2]));
+	asm volatile("str d3, %0\n" : "=m"(ctx->d[3]));
+	asm volatile("str d4, %0\n" : "=m"(ctx->d[4]));
+	asm volatile("str d5, %0\n" : "=m"(ctx->d[5]));
+	asm volatile("str d6, %0\n" : "=m"(ctx->d[6]));
+	asm volatile("str d7, %0\n" : "=m"(ctx->d[7]));
 }
 
 void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("ldr d0, %0\n" :: "m" (ctx->d[0]));
-	asm volatile ("ldr d1, %0\n" :: "m" (ctx->d[1]));
-	asm volatile ("ldr d2, %0\n" :: "m" (ctx->d[2]));
-	asm volatile ("ldr d3, %0\n" :: "m" (ctx->d[3]));
-	asm volatile ("ldr d4, %0\n" :: "m" (ctx->d[4]));
-	asm volatile ("ldr d5, %0\n" :: "m" (ctx->d[5]));
-	asm volatile ("ldr d6, %0\n" :: "m" (ctx->d[6]));
-	asm volatile ("ldr d7, %0\n" :: "m" (ctx->d[7]));
+	asm volatile("ldr d0, %0\n" ::"m"(ctx->d[0]));
+	asm volatile("ldr d1, %0\n" ::"m"(ctx->d[1]));
+	asm volatile("ldr d2, %0\n" ::"m"(ctx->d[2]));
+	asm volatile("ldr d3, %0\n" ::"m"(ctx->d[3]));
+	asm volatile("ldr d4, %0\n" ::"m"(ctx->d[4]));
+	asm volatile("ldr d5, %0\n" ::"m"(ctx->d[5]));
+	asm volatile("ldr d6, %0\n" ::"m"(ctx->d[6]));
+	asm volatile("ldr d7, %0\n" ::"m"(ctx->d[7]));
 }

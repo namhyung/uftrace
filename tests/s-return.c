@@ -8,7 +8,7 @@ struct large {
 };
 
 struct small {
-	unsigned char bit:1;
+	unsigned char bit : 1;
 };
 
 struct large return_large(char patt)

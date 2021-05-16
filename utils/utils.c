@@ -13,7 +13,6 @@
 #include "utils/kernel.h"
 #include "libtraceevent/event-parse.h"
 
-
 volatile bool uftrace_done;
 
 /* default uftrace options to be applied for analysis commands */
@@ -26,7 +25,7 @@ void sighandler(int sig)
 
 void setup_signal(void)
 {
-	signal(SIGINT,  sighandler);
+	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 	signal(SIGPIPE, sighandler);
 }
@@ -59,9 +58,9 @@ int pread_all(int fd, void *buf, size_t size, off_t off)
 		if (ret <= 0)
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
-		off  += ret;
+		off += ret;
 	}
 	return 0;
 }
@@ -78,7 +77,7 @@ int fread_all(void *buf, size_t size, FILE *fp)
 		if (ferror(fp))
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
 	}
 	return 0;
@@ -131,7 +130,7 @@ int writev_all(int fd, struct iovec *iov, int count)
 		}
 
 		iov->iov_base += ret;
-		iov->iov_len  -= ret;
+		iov->iov_len -= ret;
 	}
 	return 0;
 }
@@ -148,7 +147,7 @@ int fwrite_all(const void *buf, size_t size, FILE *fp)
 		if (ferror(fp))
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
 	}
 	return 0;
@@ -170,8 +169,7 @@ int remove_directory(const char *dirname)
 	pr_dbg("removing %s directory\n", dirname);
 
 	while ((ent = readdir(dp)) != NULL) {
-		if (!strcmp(ent->d_name, ".") ||
-		    !strcmp(ent->d_name, ".."))
+		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
@@ -185,7 +183,7 @@ int remove_directory(const char *dirname)
 			ret = unlink(buf);
 
 		if (ret < 0) {
-failed:
+		failed:
 			saved_errno = errno;
 			break;
 		}
@@ -204,7 +202,9 @@ static bool is_uftrace_directory(const char *path)
 	int fd;
 	bool ret = false;
 	char *info_path = NULL;
-	char sig[UFTRACE_MAGIC_LEN] = {0,};
+	char sig[UFTRACE_MAGIC_LEN] = {
+		0,
+	};
 
 	/* ensure that there is "info" file in the recorded directory */
 	xasprintf(&info_path, "%s/info", path);
@@ -301,7 +301,8 @@ int create_directory(const char *dirname)
 		}
 
 		if (rename(dirname, oldname) < 0) {
-			pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
+			pr_warn("rename %s -> %s failed: %m\n", dirname,
+				oldname);
 			goto out;
 		}
 	}
@@ -364,7 +365,7 @@ char *read_exename(void)
 	static char exename[PATH_MAX];
 
 	if (!*exename) {
-		len = readlink("/proc/self/exe", exename, sizeof(exename)-1);
+		len = readlink("/proc/self/exe", exename, sizeof(exename) - 1);
 		if (len < 0)
 			pr_err("cannot read executable name");
 
@@ -460,11 +461,12 @@ uint64_t parse_time(char *arg, int limited_digits)
 	for (i = 1; i < limited_digits; i++)
 		limited *= 10;
 	if (val >= limited)
-		pr_err_ns("Limited %d digits (before and after decimal point)\n",
-			  limited_digits);
+		pr_err_ns(
+			"Limited %d digits (before and after decimal point)\n",
+			limited_digits);
 	/* ignore more digits than limited digits before decimal point */
 	while (decimal >= limited)
-		decimal /=10;
+		decimal /= 10;
 
 	/*
 	 * if the unit is omitted, it is regarded as default unit 'ns'.
@@ -547,7 +549,7 @@ uint64_t parse_timestamp(char *arg)
  * a copy of @right will be returned.  @left must be dynamically allocated
  * buffer so that it can be passed to realloc.
  */
-char * strjoin(char *left, char *right, const char *delim)
+char *strjoin(char *left, char *right, const char *delim)
 {
 	size_t llen = left ? strlen(left) : 0;
 	size_t rlen = strlen(right);
@@ -589,7 +591,7 @@ void strv_split(struct strv *strv, const char *str, const char *delim)
 	}
 
 	strv->nr = c;
-	strv->p = xcalloc(c + 1, sizeof(*strv->p));  /* including NULL at last */
+	strv->p = xcalloc(c + 1, sizeof(*strv->p)); /* including NULL at last */
 
 	c = 0;
 	tmp = saved_str;
@@ -663,14 +665,13 @@ void strv_replace(struct strv *strv, int idx, const char *str)
  * @strv with @delim.  Note that if @strv contains a single string,
  * @delim will be omitted and a copy of @right will be returned.
  */
-char * strv_join(struct strv *strv, const char *delim)
+char *strv_join(struct strv *strv, const char *delim)
 {
 	int i;
 	char *s;
 	char *str = NULL;
 
-	strv_for_each(strv, s, i)
-		str = strjoin(str, s, delim);
+	strv_for_each(strv, s, i) str = strjoin(str, s, delim);
 
 	return str;
 }
@@ -686,8 +687,7 @@ void strv_free(struct strv *strv)
 	int i;
 	char *s;
 
-	strv_for_each(strv, s, i)
-		free(s);
+	strv_for_each(strv, s, i) free(s);
 
 	free(strv->p);
 	strv->p = NULL;
@@ -699,7 +699,7 @@ void strv_free(struct strv *strv)
 #define QUOTES "\'\""
 
 /* escape double-quote with backslash - caller should free the returned string */
-char * json_quote(char *str, int *len)
+char *json_quote(char *str, int *len)
 {
 	char *p = str;
 	int quote = 0;
@@ -719,8 +719,7 @@ char * json_quote(char *str, int *len)
 		if (str[i] == DQUOTE) {
 			p[k++] = '\\';
 			p[k] = DQUOTE;
-		}
-		else
+		} else
 			p[k] = str[i];
 	}
 	p[k] = '\0';
@@ -743,7 +742,7 @@ static int setargs(char *args, char **argv)
 		/* consider quotes and update argv */
 		if (*args == QUOTE) {
 			++args;
-			if (*args == QUOTE )
+			if (*args == QUOTE)
 				continue;
 			if (argv)
 				argv[count] = args;
@@ -751,8 +750,7 @@ static int setargs(char *args, char **argv)
 				++args;
 			if (argv && *args)
 				*args = ' ';
-		}
-		else if (*args == DQUOTE) {
+		} else if (*args == DQUOTE) {
 			++args;
 			if (*args == DQUOTE)
 				continue;
@@ -762,14 +760,12 @@ static int setargs(char *args, char **argv)
 				++args;
 			if (argv && *args)
 				*args = ' ';
-		}
-		else if (*args == '#') {
+		} else if (*args == '#') {
 			/* ignore comment line */
 			while (*args != '\n' && *args != '\0')
 				++args;
 			continue;
-		}
-		else if (argv) {
+		} else if (argv) {
 			argv[count] = args;
 		}
 		/* read characters until '\0' or space */
@@ -833,7 +829,6 @@ char **parse_cmdline(char *cmd, int *argc)
 	/* returns +1 addr to hide cmd_dup address */
 	return &argv[1];
 }
-
 
 /**
  * free_parsed_cmdline - free memory that was allocated by parse_cmdline
@@ -910,15 +905,14 @@ TEST_CASE(utils_strv)
 	int i;
 
 	const char test_str[] = "abc;def;xyz";
-	const char * test_array[] = { "abc", "def", "xyz" };
+	const char *test_array[] = { "abc", "def", "xyz" };
 
 	TEST_EQ(strv.nr, 0);
 	TEST_EQ(strv.p, NULL);
 
 	pr_dbg("split string into a vector using ';' delimiter\n");
 	strv_split(&strv, test_str, ";");
-	strv_for_each(&strv, s, i)
-		TEST_STREQ(s, test_array[i]);
+	strv_for_each(&strv, s, i) TEST_STREQ(s, test_array[i]);
 
 	pr_dbg("join the string vector into a single string\n");
 	s = strv_join(&strv, ";");

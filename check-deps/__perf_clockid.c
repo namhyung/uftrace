@@ -7,8 +7,8 @@
 int main(void)
 {
 	struct perf_event_attr attr = {
-		.use_clockid	= 1,
-		.clockid	= CLOCK_MONOTONIC,
+		.use_clockid = 1,
+		.clockid = CLOCK_MONOTONIC,
 	};
 
 	syscall(SYS_perf_event_open, &attr, 0, -1, -1, 0);

@@ -25,4 +25,3 @@ int arch_fill_cpuinfo_model(int fd)
 	fclose(fp);
 	return ret;
 }
-

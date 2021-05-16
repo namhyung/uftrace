@@ -3,7 +3,8 @@
 
 #define LOOP_CNT 4
 
-int big(int n) {
+int big(int n)
+{
 	char string[] = "a local string variable saved in the stack memory";
 	volatile unsigned x = n;
 	int i;
@@ -19,11 +20,13 @@ int big(int n) {
 	return n;
 }
 
-int small(int n) {
+int small(int n)
+{
 	return big(n) ? n : 1;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	char string[] = "a very long string variable saved in the stack memory";
 	int n = 123456;
 	int i;
@@ -36,7 +39,7 @@ int main(int argc, char *argv[]) {
 	small(n ? n : 123456);
 
 	for (i = 0; i < LOOP_CNT; i++) {
-		static volatile unsigned x = 42; 
+		static volatile unsigned x = 42;
 
 		x *= 1 << i;
 		x ^= 0xdeadbeef;

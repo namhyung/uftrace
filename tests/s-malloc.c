@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
+#define ALIGN(n, a) (((n) + (a)-1) & ~((a)-1))
 
-#define MALLOC_BUFSIZE  (128 * 1024 * 1024)
+#define MALLOC_BUFSIZE (128 * 1024 * 1024)
 
 int malloc_count;
 int free_count;

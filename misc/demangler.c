@@ -12,7 +12,7 @@ char *demangle(char *str);
 extern enum symbol_demangler demangler;
 
 enum options {
-	OPT_simple	= 301,
+	OPT_simple = 301,
 	OPT_full,
 	OPT_no,
 };
@@ -25,14 +25,14 @@ static struct option demangler_options[] = {
 };
 
 static const char demangler_usage[] =
-"demangler " UFTRACE_VERSION "\n"
-"\n"
-" OPTION:\n"
-"      --simple           Use internal simple demangler (default)\n"
-"      --full             Use libstdc++ demangler\n"
-"      --no               Do not use demangler\n"
-"  -v, --verbose          Be verbose\n"
-"\n";
+	"demangler " UFTRACE_VERSION "\n"
+	"\n"
+	" OPTION:\n"
+	"      --simple           Use internal simple demangler (default)\n"
+	"      --full             Use libstdc++ demangler\n"
+	"      --no               Do not use demangler\n"
+	"  -v, --verbose          Be verbose\n"
+	"\n";
 
 struct demangler_opts {
 	int mode;
@@ -100,15 +100,14 @@ int main(int argc, char *argv[])
 			printf("%s\n", name);
 			free(name);
 		}
-	}
-	else {
+	} else {
 		char buf[4096];
 
 		while (fgets(buf, sizeof(buf), stdin)) {
 			char *name;
 			char *p;
 
-			buf[sizeof(buf)-1] = '\0';
+			buf[sizeof(buf) - 1] = '\0';
 			p = strchr(buf, '\n');
 			if (p)
 				*p = '\0';

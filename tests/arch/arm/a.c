@@ -21,4 +21,3 @@ int main(void)
 	a1();
 	return acount + tcount;
 }
-

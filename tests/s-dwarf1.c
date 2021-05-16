@@ -1,6 +1,9 @@
 #include <stdio.h>
 
-enum xx { ONE = 1, TWO, };
+enum xx {
+	ONE = 1,
+	TWO,
+};
 
 void null(char *s)
 {

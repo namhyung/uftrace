@@ -1,6 +1,6 @@
 #ifdef HAVE_LIBLUAJIT
 
-#define PR_FMT    "script"
+#define PR_FMT "script"
 #define PR_DOMAIN DBG_SCRIPT
 
 #include <dlfcn.h>
@@ -18,7 +18,7 @@ static const char *libluajit = "libluajit-5.1.so";
 static void *luajit_handle;
 static lua_State *L;
 
-static lua_State* (*dlluaL_newstate)(void);
+static lua_State *(*dlluaL_newstate)(void);
 static void (*dlluaL_openlibs)(lua_State *L);
 static int (*dlluaL_loadfile)(lua_State *L, const char *filename);
 static void (*dllua_close)(lua_State *L);
@@ -27,7 +27,7 @@ static int (*dllua_next)(lua_State *L, int index);
 static void (*dllua_createtable)(lua_State *L, int narr, int nrec);
 static void (*dllua_gettable)(lua_State *L, int index);
 static void (*dllua_settable)(lua_State *L, int index);
-static const char* (*dllua_tolstring)(lua_State *L, int index, size_t *len);
+static const char *(*dllua_tolstring)(lua_State *L, int index, size_t *len);
 static void (*dllua_pushstring)(lua_State *L, const char *s);
 static void (*dllua_pushinteger)(lua_State *L, lua_Integer n);
 static void (*dllua_pushnumber)(lua_State *L, lua_Number n);
@@ -40,7 +40,7 @@ static int (*dllua_type)(lua_State *L, int index);
 static void (*dllua_settop)(lua_State *L, int index);
 
 #define dllua_newtable(L) dllua_createtable(L, 0, 0)
-#define dllua_pop(L, n) dllua_settop(L, -(n) - 1)
+#define dllua_pop(L, n) dllua_settop(L, -(n)-1)
 #define dllua_tostring(L, i) dllua_tolstring(L, (i), NULL)
 #define dllua_isnil(L, n) (dllua_type(L, (n)) == LUA_TNIL)
 #define dllua_getglobal(L, s) dllua_getfield(L, LUA_GLOBALSINDEX, (s))
@@ -68,14 +68,15 @@ static void setup_common_context(struct script_context *sc_ctx)
 	dllua_settable(L, -3);
 }
 
-static void setup_argument_context(bool is_retval, struct script_context *sc_ctx)
+static void setup_argument_context(bool is_retval,
+				   struct script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
 	void *data = sc_ctx->argbuf;
 	union script_arg_val val;
 	int count = 0;
 
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry (spec, sc_ctx->argspec, list) {
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
@@ -92,7 +93,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 	dllua_newtable(L);
 
 	count = 0;
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry (spec, sc_ctx->argspec, list) {
 		const int null_str = -1;
 		unsigned short slen;
 		char ch_str[2];
@@ -136,7 +137,8 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 				dllua_settable(L, -3);
 				break;
 			default:
-				pr_warn("invalid argument format: %d\n", spec->fmt);
+				pr_warn("invalid argument format: %d\n",
+					spec->fmt);
 				break;
 			}
 			data += ALIGN(spec->size, 4);
@@ -177,7 +179,8 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			str[slen] = '\0';
 
 			/* NULL string is encoded as '0xffffffff' */
-			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
+			if (slen == 4 &&
+			    !memcmp(str, &null_str, sizeof(null_str)))
 				strcpy(str, "NULL");
 
 			dllua_pushinteger(L, 1 + count++);
@@ -215,8 +218,7 @@ static int luajit_uftrace_begin(struct script_info *info)
 	char *s;
 
 	dllua_getglobal(L, "uftrace_begin");
-	if (dllua_isnil(L, -1))
-	{
+	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
 		return -1;
 	}
@@ -229,7 +231,8 @@ static int luajit_uftrace_begin(struct script_info *info)
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "cmds");
 	dllua_newtable(L);
-	strv_for_each(&info->cmds, s, i) {
+	strv_for_each(&info->cmds, s, i)
+	{
 		dllua_pushinteger(L, i + 1);
 		dllua_pushstring(L, s);
 		dllua_settable(L, -3);
@@ -306,13 +309,13 @@ static int luajit_atfork_prepare(void)
 	return 0;
 }
 
-#define INIT_LUAJIT_API_FUNC(func) \
-	do { \
-		dl##func = dlsym(luajit_handle, #func); \
-		if (!dl##func) { \
-			pr_err("dlsym for \"" #func "\" is failed!\n"); \
-			return -1; \
-		} \
+#define INIT_LUAJIT_API_FUNC(func)                                             \
+	do {                                                                   \
+		dl##func = dlsym(luajit_handle, #func);                        \
+		if (!dl##func) {                                               \
+			pr_err("dlsym for \"" #func "\" is failed!\n");        \
+			return -1;                                             \
+		}                                                              \
 	} while (0)
 
 static int load_luajit_api_funcs(void)
@@ -376,11 +379,10 @@ int script_init_for_luajit(struct script_info *info,
 	}
 
 	dllua_getglobal(L, "UFTRACE_FUNCS");
-	if (!dllua_isnil(L, -1))
-	{
+	if (!dllua_isnil(L, -1)) {
 		dllua_pushnil(L);
 		while (dllua_next(L, -2) != 0) {
-			char* filter_str = xstrdup(dllua_tostring(L, -1));
+			char *filter_str = xstrdup(dllua_tostring(L, -1));
 			script_add_filter(filter_str, ptype);
 			free(filter_str);
 			dllua_pop(L, 1);

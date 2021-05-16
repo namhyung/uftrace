@@ -5,8 +5,8 @@
 #include <sys/uio.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -68,16 +68,15 @@ const char *mcount_session_name(void)
 				pr_err("reading from urandom");
 
 			close(fd);
-		}
-		else {
+		} else {
 			srandom(time(NULL));
 			session_id = random();
 			session_id <<= 32;
 			session_id |= random();
 		}
 
-		snprintf(session, sizeof(session), "%0*"PRIx64,
-			 SESSION_ID_LEN, session_id);
+		snprintf(session, sizeof(session), "%0*" PRIx64, SESSION_ID_LEN,
+			 session_id);
 	}
 	return session;
 }
@@ -90,8 +89,8 @@ void uftrace_send_message(int type, void *data, size_t len)
 		.len = len,
 	};
 	struct iovec iov[2] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = data, .iov_len = len, },
+		{ .iov_base = &msg, .iov_len = sizeof(msg) },
+		{ .iov_base = data, .iov_len = len },
 	};
 
 	if (pfd < 0)
@@ -115,7 +114,7 @@ void build_debug_domain(char *dbg_domain_str)
 	for (i = 0; i < len; i += 2) {
 		const char *pos;
 		char domain = dbg_domain_str[i];
-		int level = dbg_domain_str[i+1] - '0';
+		int level = dbg_domain_str[i + 1] - '0';
 		int d;
 
 		pos = strchr(DBG_DOMAIN_STR, domain);
@@ -172,7 +171,8 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 
 				next_rstack = rstack + 1;
 				/* skip rstacks for -finstrument-functions */
-				while (next_rstack->parent_loc == &mtdp->cygprof_dummy &&
+				while (next_rstack->parent_loc ==
+					       &mtdp->cygprof_dummy &&
 				       next_rstack < &mtdp->rstack[mtdp->idx])
 					next_rstack++;
 
@@ -180,16 +180,17 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 					goto last_rstack;
 
 				/* special case: same as tail-call */
-				if (next_rstack->parent_ip == plthook_return_fn) {
-					rstack->parent_loc = next_rstack->parent_loc;
+				if (next_rstack->parent_ip ==
+				    plthook_return_fn) {
+					rstack->parent_loc =
+						next_rstack->parent_loc;
 					*rstack->parent_loc = rstack->parent_ip;
 					continue;
 				}
 
 				end = next_rstack->parent_loc;
-			}
-			else {
-last_rstack:
+			} else {
+			last_rstack:
 				/* just check 32 stack slots */
 				end = rstack->parent_loc - 32;
 			}
@@ -313,7 +314,7 @@ TEST_CASE(mcount_debug_domain)
 
 	pr_dbg("turn on all domains\n");
 	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
-		dbg_str[i * 2]     = DBG_DOMAIN_STR[i];
+		dbg_str[i * 2] = DBG_DOMAIN_STR[i];
 		dbg_str[i * 2 + 1] = '1';
 	}
 	dbg_str[i * 2] = '\0';

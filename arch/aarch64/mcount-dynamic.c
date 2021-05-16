@@ -3,8 +3,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -13,8 +13,8 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 
-#define PAGE_SIZE  4096
-#define CODE_SIZE  8
+#define PAGE_SIZE 4096
+#define CODE_SIZE 8
 
 /* target instrumentation function it needs to call */
 extern void __dentry__(void);
@@ -22,8 +22,8 @@ extern void __dentry__(void);
 static void save_orig_code(struct mcount_disasm_info *info)
 {
 	uint32_t jmp_insn[6] = {
-		0x58000050,     /* LDR  ip0, addr */
-		0xd61f0200,     /* BR   ip0 */
+		0x58000050, /* LDR  ip0, addr */
+		0xd61f0200, /* BR   ip0 */
 		info->addr + 8,
 		(info->addr + 8) >> 32,
 	};
@@ -46,15 +46,14 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	 * make sure stack is 8-byte aligned.
 	 */
 	uint32_t trampoline[] = {
-		0x910003fd,                     /* MOV  x29, sp */
-		0x58000050,                     /* LDR  ip0, &__dentry__ */
-		0xd61f0200,                     /* BR   ip0 */
-		dentry_addr,
-		dentry_addr >> 32,
+		0x910003fd, /* MOV  x29, sp */
+		0x58000050, /* LDR  ip0, &__dentry__ */
+		0xd61f0200, /* BR   ip0 */
+		dentry_addr, dentry_addr >> 32,
 	};
 
 	/* find unused 16-byte at the end of the code segment */
-	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
+	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
 	mdi->trampoline -= sizeof(trampoline);
 
 	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
@@ -88,7 +87,7 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
-	uint32_t push = 0xa9bf7bfd;  /* STP  x29, x30, [sp, #-0x10]! */
+	uint32_t push = 0xa9bf7bfd; /* STP  x29, x30, [sp, #-0x10]! */
 	uint32_t call;
 	struct mcount_disasm_info info = {
 		.sym = sym,
@@ -111,15 +110,15 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if ((call & 0xfc000000) != 0)
 		return INSTRUMENT_FAILED;
 
-	pr_dbg2("patch normal func: %s (patch size: %d)\n",
-		sym->name, info.orig_size);
+	pr_dbg2("patch normal func: %s (patch size: %d)\n", sym->name,
+		info.orig_size);
 
 	/* make a "BL" insn with 26-bit offset */
 	call |= 0x94000000;
 
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(insn, &push, sizeof(push));
-	memcpy(insn+4, &call, sizeof(call));
+	memcpy(insn + 4, &call, sizeof(call));
 
 	/* flush icache so that cpu can execute the new code */
 	__builtin___clear_cache(insn, insn + CODE_SIZE);
@@ -146,7 +145,7 @@ void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
 {
 	struct dynamic_bad_symbol *badsym, *tmp;
 
-	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
+	list_for_each_entry_safe (badsym, tmp, &mdi->bad_syms, list) {
 		if (!badsym->reverted)
 			revert_normal_func(mdi, badsym->sym, disasm);
 

@@ -44,22 +44,22 @@ static int is_symbolic_field;
 
 static int show_warning = 1;
 
-#define do_warning(fmt, ...)				\
-	do {						\
-		if (show_warning)			\
-			warning(fmt, ##__VA_ARGS__);	\
+#define do_warning(fmt, ...)                                                   \
+	do {                                                                   \
+		if (show_warning)                                              \
+			warning(fmt, ##__VA_ARGS__);                           \
 	} while (0)
 
-#define do_warning_event(event, fmt, ...)			\
-	do {							\
-		if (!show_warning)				\
-			continue;				\
-								\
-		if (event)					\
-			warning("[%s:%s] " fmt, event->system,	\
-				event->name, ##__VA_ARGS__);	\
-		else						\
-			warning(fmt, ##__VA_ARGS__);		\
+#define do_warning_event(event, fmt, ...)                                      \
+	do {                                                                   \
+		if (!show_warning)                                             \
+			continue;                                              \
+                                                                               \
+		if (event)                                                     \
+			warning("[%s:%s] " fmt, event->system, event->name,    \
+				##__VA_ARGS__);                                \
+		else                                                           \
+			warning(fmt, ##__VA_ARGS__);                           \
 	} while (0)
 
 static void init_input_buf(const char *buf, unsigned long long size)
@@ -80,31 +80,32 @@ unsigned long long pevent_get_input_buf_ptr(void)
 }
 
 struct event_handler {
-	struct event_handler		*next;
-	int				id;
-	const char			*sys_name;
-	const char			*event_name;
-	pevent_event_handler_func	func;
-	void				*context;
+	struct event_handler *next;
+	int id;
+	const char *sys_name;
+	const char *event_name;
+	pevent_event_handler_func func;
+	void *context;
 };
 
 struct pevent_func_params {
-	struct pevent_func_params	*next;
-	enum pevent_func_arg_type	type;
+	struct pevent_func_params *next;
+	enum pevent_func_arg_type type;
 };
 
 struct pevent_function_handler {
-	struct pevent_function_handler	*next;
-	enum pevent_func_arg_type	ret_type;
-	char				*name;
-	pevent_func_handler		func;
-	struct pevent_func_params	*params;
-	int				nr_args;
+	struct pevent_function_handler *next;
+	enum pevent_func_arg_type ret_type;
+	char *name;
+	pevent_func_handler func;
+	struct pevent_func_params *params;
+	int nr_args;
 };
 
-static unsigned long long
-process_defined_func(struct trace_seq *s, void *data, int size,
-		     struct event_format *event, struct print_arg *arg);
+static unsigned long long process_defined_func(struct trace_seq *s, void *data,
+					       int size,
+					       struct event_format *event,
+					       struct print_arg *arg);
 
 static void free_func_handle(struct pevent_function_handler *func);
 
@@ -151,9 +152,9 @@ static int cmdline_cmp(const void *a, const void *b)
 }
 
 struct cmdline_list {
-	struct cmdline_list	*next;
-	char			*comm;
-	int			pid;
+	struct cmdline_list *next;
+	char *comm;
+	int pid;
 };
 
 static int cmdline_init(struct pevent *pevent)
@@ -253,13 +254,14 @@ static int add_new_comm(struct pevent *pevent, const char *comm, int pid)
 	key.pid = pid;
 
 	cmdline = bsearch(&key, pevent->cmdlines, pevent->cmdline_count,
-		       sizeof(*pevent->cmdlines), cmdline_cmp);
+			  sizeof(*pevent->cmdlines), cmdline_cmp);
 	if (cmdline) {
 		errno = EEXIST;
 		return -1;
 	}
 
-	cmdlines = realloc(cmdlines, sizeof(*cmdlines) * (pevent->cmdline_count + 1));
+	cmdlines = realloc(cmdlines,
+			   sizeof(*cmdlines) * (pevent->cmdline_count + 1));
 	if (!cmdlines) {
 		errno = ENOMEM;
 		return -1;
@@ -273,7 +275,7 @@ static int add_new_comm(struct pevent *pevent, const char *comm, int pid)
 	}
 
 	cmdlines[pevent->cmdline_count].pid = pid;
-		
+
 	if (cmdlines[pevent->cmdline_count].comm)
 		pevent->cmdline_count++;
 
@@ -323,16 +325,16 @@ void pevent_register_trace_clock(struct pevent *pevent, char *trace_clock)
 }
 
 struct func_map {
-	unsigned long long		addr;
-	char				*func;
-	char				*mod;
+	unsigned long long addr;
+	char *func;
+	char *mod;
 };
 
 struct func_list {
-	struct func_list	*next;
-	unsigned long long	addr;
-	char			*func;
-	char			*mod;
+	struct func_list *next;
+	unsigned long long addr;
+	char *func;
+	char *mod;
 };
 
 static int func_cmp(const void *a, const void *b)
@@ -359,8 +361,7 @@ static int func_bcmp(const void *a, const void *b)
 
 	if ((fa->addr == fb->addr) ||
 
-	    (fa->addr > fb->addr &&
-	     fa->addr < (fb+1)->addr))
+	    (fa->addr > fb->addr && fa->addr < (fb + 1)->addr))
 		return 0;
 
 	if (fa->addr < fb->addr)
@@ -408,8 +409,8 @@ static int func_map_init(struct pevent *pevent)
 	return 0;
 }
 
-static struct func_map *
-find_func(struct pevent *pevent, unsigned long long addr)
+static struct func_map *find_func(struct pevent *pevent,
+				  unsigned long long addr)
 {
 	struct func_map *func;
 	struct func_map key;
@@ -454,8 +455,8 @@ const char *pevent_find_function(struct pevent *pevent, unsigned long long addr)
  * conjunction with pevent_find_function to print both the function
  * name and the function offset.
  */
-unsigned long long
-pevent_find_function_address(struct pevent *pevent, unsigned long long addr)
+unsigned long long pevent_find_function_address(struct pevent *pevent,
+						unsigned long long addr)
 {
 	struct func_map *map;
 
@@ -525,8 +526,7 @@ void pevent_print_funcs(struct pevent *pevent)
 		func_map_init(pevent);
 
 	for (i = 0; i < (int)pevent->func_count; i++) {
-		printf("%016llx %s",
-		       pevent->func_map[i].addr,
+		printf("%016llx %s", pevent->func_map[i].addr,
 		       pevent->func_map[i].func);
 		if (pevent->func_map[i].mod)
 			printf(" [%s]\n", pevent->func_map[i].mod);
@@ -536,14 +536,14 @@ void pevent_print_funcs(struct pevent *pevent)
 }
 
 struct printk_map {
-	unsigned long long		addr;
-	char				*printk;
+	unsigned long long addr;
+	char *printk;
 };
 
 struct printk_list {
-	struct printk_list	*next;
-	unsigned long long	addr;
-	char			*printk;
+	struct printk_list *next;
+	unsigned long long addr;
+	char *printk;
 };
 
 static int printk_cmp(const void *a, const void *b)
@@ -582,7 +582,8 @@ static int printk_map_init(struct pevent *pevent)
 		free(item);
 	}
 
-	qsort(printk_map, pevent->printk_count, sizeof(*printk_map), printk_cmp);
+	qsort(printk_map, pevent->printk_count, sizeof(*printk_map),
+	      printk_cmp);
 
 	pevent->printk_map = printk_map;
 	pevent->printklist = NULL;
@@ -590,8 +591,8 @@ static int printk_map_init(struct pevent *pevent)
 	return 0;
 }
 
-static struct printk_map *
-find_printk(struct pevent *pevent, unsigned long long addr)
+static struct printk_map *find_printk(struct pevent *pevent,
+				      unsigned long long addr)
 {
 	struct printk_map *printk;
 	struct printk_map key;
@@ -668,8 +669,7 @@ void pevent_print_printk(struct pevent *pevent)
 		printk_map_init(pevent);
 
 	for (i = 0; i < (int)pevent->printk_count; i++) {
-		printf("%016llx %s\n",
-		       pevent->printk_map[i].addr,
+		printf("%016llx %s\n", pevent->printk_map[i].addr,
 		       pevent->printk_map[i].printk);
 	}
 }
@@ -682,8 +682,8 @@ static struct event_format *alloc_event(void)
 static int add_event(struct pevent *pevent, struct event_format *event)
 {
 	int i;
-	struct event_format **events = realloc(pevent->events, sizeof(event) *
-					       (pevent->nr_events + 1));
+	struct event_format **events = realloc(
+		pevent->events, sizeof(event) * (pevent->nr_events + 1));
 	if (!events)
 		return -1;
 
@@ -694,8 +694,7 @@ static int add_event(struct pevent *pevent, struct event_format *event)
 			break;
 	}
 	if (i < pevent->nr_events)
-		memmove(&pevent->events[i + 1],
-			&pevent->events[i],
+		memmove(&pevent->events[i + 1], &pevent->events[i],
 			sizeof(event) * (pevent->nr_events - i));
 
 	pevent->events[i] = event;
@@ -869,7 +868,6 @@ static enum event_type __read_token(char **tok)
 
 	*tok = NULL;
 
-
 	ch = __read_char();
 	if (ch < 0)
 		return EVENT_NONE;
@@ -925,7 +923,7 @@ static enum event_type __read_token(char **tok)
 		*tok = strdup(buf);
 		return type;
 
- test_equal:
+	test_equal:
 		ch = __peek_char();
 		if (ch == '=')
 			buf[i++] = __read_char();
@@ -937,7 +935,7 @@ static enum event_type __read_token(char **tok)
 		i--;
 		quote_ch = ch;
 		last_ch = 0;
- concat:
+	concat:
 		do {
 			if (i == (BUFSIZ - 1)) {
 				buf[i] = 0;
@@ -993,7 +991,7 @@ static enum event_type __read_token(char **tok)
 		buf[i++] = ch;
 	}
 
- out:
+out:
 	buf[i] = 0;
 	if (extend_token(tok, buf, tok_size + i + 1) < 0)
 		return EVENT_NONE;
@@ -1031,7 +1029,7 @@ static enum event_type force_token(const char *str, char **tok)
 	unsigned long long save_input_buf_ptr;
 	unsigned long long save_input_buf_siz;
 	enum event_type type;
-	
+
 	/* save off the current input pointers */
 	save_input_buf = input_buf;
 	save_input_buf_ptr = input_buf_ptr;
@@ -1116,31 +1114,30 @@ static enum event_type read_token_item(char **tok)
 static int test_type(enum event_type type, enum event_type expect)
 {
 	if (type != expect) {
-		do_warning("Error: expected type %d but read %d",
-		    expect, type);
+		do_warning("Error: expected type %d but read %d", expect, type);
 		return -1;
 	}
 	return 0;
 }
 
 static int test_type_token(enum event_type type, const char *token,
-		    enum event_type expect, const char *expect_tok)
+			   enum event_type expect, const char *expect_tok)
 {
 	if (type != expect) {
-		do_warning("Error: expected type %d but read %d",
-		    expect, type);
+		do_warning("Error: expected type %d but read %d", expect, type);
 		return -1;
 	}
 
 	if (strcmp(token, expect_tok) != 0) {
-		do_warning("Error: expected '%s' but read '%s'",
-		    expect_tok, token);
+		do_warning("Error: expected '%s' but read '%s'", expect_tok,
+			   token);
 		return -1;
 	}
 	return 0;
 }
 
-static int __read_expect_type(enum event_type expect, char **tok, int newline_ok)
+static int __read_expect_type(enum event_type expect, char **tok,
+			      int newline_ok)
 {
 	enum event_type type;
 
@@ -1200,7 +1197,7 @@ static char *event_read_name(void)
 
 	return token;
 
- fail:
+fail:
 	free_token(token);
 	return NULL;
 }
@@ -1223,7 +1220,7 @@ static int event_read_id(void)
 	free_token(token);
 	return id;
 
- fail:
+fail:
 	free_token(token);
 	return -1;
 }
@@ -1262,16 +1259,9 @@ static unsigned int type_size(const char *name)
 		const char *type;
 		unsigned int size;
 	} table[] = {
-		{ "u8",   1 },
-		{ "u16",  2 },
-		{ "u32",  4 },
-		{ "u64",  8 },
-		{ "s8",   1 },
-		{ "s16",  2 },
-		{ "s32",  4 },
-		{ "s64",  8 },
-		{ "char", 1 },
-		{ },
+		{ "u8", 1 },   { "u16", 2 }, { "u32", 4 }, { "u64", 8 },
+		{ "s8", 1 },   { "s16", 2 }, { "s32", 4 }, { "s64", 8 },
+		{ "char", 1 }, {},
 	};
 	int i;
 
@@ -1283,7 +1273,8 @@ static unsigned int type_size(const char *name)
 	return 0;
 }
 
-static int event_read_fields(struct event_format *event, struct format_field **fields)
+static int event_read_fields(struct event_format *event,
+			     struct format_field **fields)
 {
 	struct format_field *field = NULL;
 	enum event_type type;
@@ -1311,8 +1302,8 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 		 * The ftrace fields may still use the "special" name.
 		 * Just ignore it.
 		 */
-		if (event->flags & EVENT_FL_ISFTRACE &&
-		    type == EVENT_ITEM && strcmp(token, "special") == 0) {
+		if (event->flags & EVENT_FL_ISFTRACE && type == EVENT_ITEM &&
+		    strcmp(token, "special") == 0) {
 			free_token(token);
 			type = read_token(&token);
 		}
@@ -1343,15 +1334,15 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 			     */
 			    (event->flags & EVENT_FL_ISFTRACE &&
 			     type == EVENT_OP && strcmp(token, ".") == 0)) {
-
 				if (strcmp(token, "*") == 0)
 					field->flags |= FIELD_IS_POINTER;
 
 				if (field->type) {
 					char *new_type;
-					new_type = realloc(field->type,
-							   strlen(field->type) +
-							   strlen(last_token) + 2);
+					new_type = realloc(
+						field->type,
+						strlen(field->type) +
+							strlen(last_token) + 2);
 					if (!new_type) {
 						free(last_token);
 						goto fail;
@@ -1393,7 +1384,7 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 			else
 				field->arraylen = 0;
 
-		        while (strcmp(token, "]") != 0) {
+			while (strcmp(token, "]") != 0) {
 				if (last_type == EVENT_ITEM &&
 				    type == EVENT_ITEM)
 					len = 2;
@@ -1401,9 +1392,9 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 					len = 1;
 				last_type = type;
 
-				new_brackets = realloc(brackets,
-						       strlen(brackets) +
-						       strlen(token) + len);
+				new_brackets = realloc(
+					brackets,
+					strlen(brackets) + strlen(token) + len);
 				if (!new_brackets) {
 					free(brackets);
 					goto fail;
@@ -1417,7 +1408,8 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 				free_token(token);
 				type = read_token(&token);
 				if (type == EVENT_NONE) {
-					do_warning_event(event, "failed to find token");
+					do_warning_event(
+						event, "failed to find token");
 					goto fail;
 				}
 			}
@@ -1441,10 +1433,11 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 			 */
 			if (type == EVENT_ITEM) {
 				char *new_type;
-				new_type = realloc(field->type,
-						   strlen(field->type) +
-						   strlen(field->name) +
-						   strlen(brackets) + 2);
+				new_type =
+					realloc(field->type,
+						strlen(field->type) +
+							strlen(field->name) +
+							strlen(brackets) + 2);
 				if (!new_type) {
 					free(brackets);
 					goto fail;
@@ -1459,9 +1452,10 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 				type = read_token(&token);
 			} else {
 				char *new_type;
-				new_type = realloc(field->type,
-						   strlen(field->type) +
-						   strlen(brackets) + 1);
+				new_type =
+					realloc(field->type,
+						strlen(field->type) +
+							strlen(brackets) + 1);
 				if (!new_type) {
 					free(brackets);
 					goto fail;
@@ -1479,7 +1473,7 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 		if (field_is_long(field))
 			field->flags |= FIELD_IS_LONG;
 
-		if (test_type_token(type, token,  EVENT_OP, ";"))
+		if (test_type_token(type, token, EVENT_OP, ";"))
 			goto fail;
 		free_token(token);
 
@@ -1540,15 +1534,17 @@ static int event_read_fields(struct event_format *event, struct format_field **f
 
 		if (field->flags & FIELD_IS_ARRAY) {
 			if (field->arraylen)
-				field->elementsize = field->size / field->arraylen;
+				field->elementsize =
+					field->size / field->arraylen;
 			else if (field->flags & FIELD_IS_DYNAMIC)
 				field->elementsize = size_dynamic;
 			else if (field->flags & FIELD_IS_STRING)
 				field->elementsize = 1;
 			else if (field->flags & FIELD_IS_LONG)
-				field->elementsize = event->pevent ?
-						     event->pevent->long_size :
-						     (int)sizeof(long);
+				field->elementsize =
+					event->pevent ?
+						      event->pevent->long_size :
+						      (int)sizeof(long);
 		} else
 			field->elementsize = field->size;
 
@@ -1597,17 +1593,17 @@ static int event_read_format(struct event_format *event)
 
 	return 0;
 
- fail:
+fail:
 	free_token(token);
 	return -1;
 }
 
-static enum event_type
-process_arg_token(struct event_format *event, struct print_arg *arg,
-		  char **tok, enum event_type type);
+static enum event_type process_arg_token(struct event_format *event,
+					 struct print_arg *arg, char **tok,
+					 enum event_type type);
 
-static enum event_type
-process_arg(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_arg(struct event_format *event,
+				   struct print_arg *arg, char **tok)
 {
 	enum event_type type;
 	char *token;
@@ -1618,15 +1614,15 @@ process_arg(struct event_format *event, struct print_arg *arg, char **tok)
 	return process_arg_token(event, arg, tok, type);
 }
 
-static enum event_type
-process_op(struct event_format *event, struct print_arg *arg, char **tok);
+static enum event_type process_op(struct event_format *event,
+				  struct print_arg *arg, char **tok);
 
 /*
  * For __print_symbolic() and __print_flags, we need to completely
  * evaluate the first argument, which defines what to print next.
  */
-static enum event_type
-process_field_arg(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_field_arg(struct event_format *event,
+					 struct print_arg *arg, char **tok)
 {
 	enum event_type type;
 
@@ -1639,8 +1635,8 @@ process_field_arg(struct event_format *event, struct print_arg *arg, char **tok)
 	return type;
 }
 
-static enum event_type
-process_cond(struct event_format *event, struct print_arg *top, char **tok)
+static enum event_type process_cond(struct event_format *event,
+				    struct print_arg *top, char **tok)
 {
 	struct print_arg *arg, *left, *right;
 	enum event_type type;
@@ -1665,7 +1661,7 @@ process_cond(struct event_format *event, struct print_arg *top, char **tok)
 	*tok = NULL;
 	type = process_arg(event, left, &token);
 
- again:
+again:
 	/* Handle other operations in the arguments */
 	if (type == EVENT_OP && strcmp(token, ":") != 0) {
 		type = process_op(event, left, &token);
@@ -1692,8 +1688,8 @@ out_free:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_array(struct event_format *event, struct print_arg *top, char **tok)
+static enum event_type process_array(struct event_format *event,
+				     struct print_arg *top, char **tok)
 {
 	struct print_arg *arg;
 	enum event_type type;
@@ -1758,17 +1754,13 @@ static int get_op_prio(char *op)
 			return -1;
 		}
 	} else {
-		if (strcmp(op, "++") == 0 ||
-		    strcmp(op, "--") == 0) {
+		if (strcmp(op, "++") == 0 || strcmp(op, "--") == 0) {
 			return 3;
-		} else if (strcmp(op, ">>") == 0 ||
-			   strcmp(op, "<<") == 0) {
+		} else if (strcmp(op, ">>") == 0 || strcmp(op, "<<") == 0) {
 			return 8;
-		} else if (strcmp(op, ">=") == 0 ||
-			   strcmp(op, "<=") == 0) {
+		} else if (strcmp(op, ">=") == 0 || strcmp(op, "<=") == 0) {
 			return 9;
-		} else if (strcmp(op, "==") == 0 ||
-			   strcmp(op, "!=") == 0) {
+		} else if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0) {
 			return 10;
 		} else if (strcmp(op, "&&") == 0) {
 			return 14;
@@ -1783,7 +1775,6 @@ static int get_op_prio(char *op)
 
 static int set_op_prio(struct print_arg *arg)
 {
-
 	/* single ops are the greatest */
 	if (!arg->op.left || arg->op.left->type == PRINT_NULL)
 		arg->op.prio = 0;
@@ -1794,8 +1785,8 @@ static int set_op_prio(struct print_arg *arg)
 }
 
 /* Note, *tok does not get freed, but will most likely be saved */
-static enum event_type
-process_op(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_op(struct event_format *event,
+				  struct print_arg *arg, char **tok)
 {
 	struct print_arg *left, *right = NULL;
 	enum event_type type;
@@ -1819,7 +1810,6 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 		default:
 			do_warning_event(event, "bad op token %s", token);
 			goto out_free;
-
 		}
 
 		/* make an empty left */
@@ -1841,7 +1831,6 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 		type = process_arg(event, right, tok);
 
 	} else if (strcmp(token, "?") == 0) {
-
 		left = alloc_arg();
 		if (!left)
 			goto out_warn_free;
@@ -1857,24 +1846,15 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 		/* it will set arg->op.right */
 		type = process_cond(event, arg, tok);
 
-	} else if (strcmp(token, ">>") == 0 ||
-		   strcmp(token, "<<") == 0 ||
-		   strcmp(token, "&") == 0 ||
-		   strcmp(token, "|") == 0 ||
-		   strcmp(token, "&&") == 0 ||
-		   strcmp(token, "||") == 0 ||
-		   strcmp(token, "-") == 0 ||
-		   strcmp(token, "+") == 0 ||
-		   strcmp(token, "*") == 0 ||
-		   strcmp(token, "^") == 0 ||
-		   strcmp(token, "/") == 0 ||
-		   strcmp(token, "<") == 0 ||
-		   strcmp(token, ">") == 0 ||
-		   strcmp(token, "<=") == 0 ||
-		   strcmp(token, ">=") == 0 ||
-		   strcmp(token, "==") == 0 ||
+	} else if (strcmp(token, ">>") == 0 || strcmp(token, "<<") == 0 ||
+		   strcmp(token, "&") == 0 || strcmp(token, "|") == 0 ||
+		   strcmp(token, "&&") == 0 || strcmp(token, "||") == 0 ||
+		   strcmp(token, "-") == 0 || strcmp(token, "+") == 0 ||
+		   strcmp(token, "*") == 0 || strcmp(token, "^") == 0 ||
+		   strcmp(token, "/") == 0 || strcmp(token, "<") == 0 ||
+		   strcmp(token, ">") == 0 || strcmp(token, "<=") == 0 ||
+		   strcmp(token, ">=") == 0 || strcmp(token, "==") == 0 ||
 		   strcmp(token, "!=") == 0) {
-
 		left = alloc_arg();
 		if (!left)
 			goto out_warn_free;
@@ -1898,8 +1878,8 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 		*tok = token;
 
 		/* could just be a type pointer */
-		if ((strcmp(arg->op.op, "*") == 0) &&
-		    type == EVENT_DELIM && (strcmp(token, ")") == 0)) {
+		if ((strcmp(arg->op.op, "*") == 0) && type == EVENT_DELIM &&
+		    (strcmp(token, ")") == 0)) {
 			char *new_atom;
 
 			if (left->type != PRINT_ATOM) {
@@ -1907,7 +1887,7 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 				goto out_free;
 			}
 			new_atom = realloc(left->atom.atom,
-					    strlen(left->atom.atom) + 3);
+					   strlen(left->atom.atom) + 3);
 			if (!new_atom)
 				goto out_warn_free;
 
@@ -1928,7 +1908,6 @@ process_op(struct event_format *event, struct print_arg *arg, char **tok)
 		arg->op.right = right;
 
 	} else if (strcmp(token, "[") == 0) {
-
 		left = alloc_arg();
 		if (!left)
 			goto out_warn_free;
@@ -1973,9 +1952,8 @@ out_free:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_entry(struct event_format *event __maybe_unused, struct print_arg *arg,
-	      char **tok)
+static enum event_type process_entry(struct event_format *event __maybe_unused,
+				     struct print_arg *arg, char **tok)
 {
 	enum event_type type;
 	char *field;
@@ -1992,11 +1970,13 @@ process_entry(struct event_format *event __maybe_unused, struct print_arg *arg,
 	arg->field.name = field;
 
 	if (is_flag_field) {
-		arg->field.field = pevent_find_any_field(event, arg->field.name);
+		arg->field.field =
+			pevent_find_any_field(event, arg->field.name);
 		arg->field.field->flags |= FIELD_IS_FLAG;
 		is_flag_field = 0;
 	} else if (is_symbolic_field) {
-		arg->field.field = pevent_find_any_field(event, arg->field.name);
+		arg->field.field =
+			pevent_find_any_field(event, arg->field.name);
 		arg->field.field->flags |= FIELD_IS_SYMBOLIC;
 		is_symbolic_field = 0;
 	}
@@ -2006,17 +1986,17 @@ process_entry(struct event_format *event __maybe_unused, struct print_arg *arg,
 
 	return type;
 
- out_free:
+out_free:
 	free_token(token);
- out_err:
+out_err:
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
-static char *arg_eval (struct print_arg *arg);
+static char *arg_eval(struct print_arg *arg);
 
-static unsigned long long
-eval_type_str(unsigned long long val, const char *type, int pointer)
+static unsigned long long eval_type_str(unsigned long long val,
+					const char *type, int pointer)
 {
 	int sign = 0;
 	char *ref;
@@ -2025,8 +2005,7 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 	len = strlen(type);
 
 	if (pointer) {
-
-		if (type[len-1] != '*') {
+		if (type[len - 1] != '*') {
 			do_warning("pointer expected with non pointer type");
 			return val;
 		}
@@ -2064,8 +2043,7 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 	if (strcmp(type, "u32") == 0)
 		return val & 0xffffffff;
 
-	if (strcmp(type, "u64") == 0 ||
-	    strcmp(type, "s64"))
+	if (strcmp(type, "u64") == 0 || strcmp(type, "s64"))
 		return val;
 
 	if (strcmp(type, "s8") == 0)
@@ -2109,8 +2087,8 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 /*
  * Try to figure out the type.
  */
-static unsigned long long
-eval_type(unsigned long long val, struct print_arg *arg, int pointer)
+static unsigned long long eval_type(unsigned long long val,
+				    struct print_arg *arg, int pointer)
 {
 	if (arg->type != PRINT_TYPE) {
 		do_warning("expected type argument");
@@ -2275,12 +2253,11 @@ static int arg_num_eval(struct print_arg *arg, long long *val)
 	default:
 		do_warning("invalid eval type %d", arg->type);
 		ret = 0;
-
 	}
 	return ret;
 }
 
-static char *arg_eval (struct print_arg *arg)
+static char *arg_eval(struct print_arg *arg)
 {
 	long long val;
 	static char buf[20];
@@ -2309,8 +2286,8 @@ static char *arg_eval (struct print_arg *arg)
 	return NULL;
 }
 
-static enum event_type
-process_fields(struct event_format *event, struct print_flag_sym **list, char **tok)
+static enum event_type process_fields(struct event_format *event,
+				      struct print_flag_sym **list, char **tok)
 {
 	enum event_type type;
 	struct print_arg *arg = NULL;
@@ -2390,8 +2367,8 @@ out_free:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_flags(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_flags(struct event_format *event,
+				     struct print_arg *arg, char **tok)
 {
 	struct print_arg *field;
 	enum event_type type;
@@ -2443,8 +2420,8 @@ out_free:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_symbols(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_symbols(struct event_format *event,
+				       struct print_arg *arg, char **tok)
 {
 	struct print_arg *field;
 	enum event_type type;
@@ -2482,8 +2459,8 @@ out_free:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_hex(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_hex(struct event_format *event,
+				   struct print_arg *arg, char **tok)
 {
 	struct print_arg *field;
 	enum event_type type;
@@ -2525,15 +2502,15 @@ process_hex(struct event_format *event, struct print_arg *arg, char **tok)
 	type = read_token_item(tok);
 	return type;
 
- out_free:
+out_free:
 	free_arg(field);
 	free_token(token);
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_dynamic_array(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_dynamic_array(struct event_format *event,
+					     struct print_arg *arg, char **tok)
 {
 	struct format_field *field;
 	enum event_type type;
@@ -2588,16 +2565,16 @@ process_dynamic_array(struct event_format *event, struct print_arg *arg, char **
 	type = read_token_item(tok);
 	return type;
 
- out_free_arg:
+out_free_arg:
 	free_arg(arg);
- out_free:
+out_free:
 	free_token(token);
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_paren(struct event_format *event, struct print_arg *arg, char **tok)
+static enum event_type process_paren(struct event_format *event,
+				     struct print_arg *arg, char **tok)
 {
 	struct print_arg *item_arg;
 	enum event_type type;
@@ -2626,12 +2603,12 @@ process_paren(struct event_format *event, struct print_arg *arg, char **tok)
 	 */
 	if (event_item_type(type) ||
 	    (type == EVENT_DELIM && strcmp(token, "(") == 0)) {
-
 		/* make this a typecast and contine */
 
 		/* prevous must be an atom */
 		if (arg->type != PRINT_ATOM) {
-			do_warning_event(event, "previous needed to be PRINT_ATOM");
+			do_warning_event(event,
+					 "previous needed to be PRINT_ATOM");
 			goto out_free;
 		}
 
@@ -2646,22 +2623,19 @@ process_paren(struct event_format *event, struct print_arg *arg, char **tok)
 		arg->typecast.type = arg->atom.atom;
 		arg->typecast.item = item_arg;
 		type = process_arg_token(event, item_arg, &token, type);
-
 	}
 
 	*tok = token;
 	return type;
 
- out_free:
+out_free:
 	free_token(token);
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
-
-static enum event_type
-process_str(struct event_format *event __maybe_unused, struct print_arg *arg,
-	    char **tok)
+static enum event_type process_str(struct event_format *event __maybe_unused,
+				   struct print_arg *arg, char **tok)
 {
 	enum event_type type;
 	char *token;
@@ -2681,16 +2655,16 @@ process_str(struct event_format *event __maybe_unused, struct print_arg *arg,
 
 	return type;
 
- out_free:
+out_free:
 	free_token(token);
- out_err:
+out_err:
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
 static enum event_type
-process_bitmask(struct event_format *event __maybe_unused, struct print_arg *arg,
-	    char **tok)
+process_bitmask(struct event_format *event __maybe_unused,
+		struct print_arg *arg, char **tok)
 {
 	enum event_type type;
 	char *token;
@@ -2710,15 +2684,15 @@ process_bitmask(struct event_format *event __maybe_unused, struct print_arg *arg
 
 	return type;
 
- out_free:
+out_free:
 	free_token(token);
- out_err:
+out_err:
 	*tok = NULL;
 	return EVENT_ERROR;
 }
 
-static struct pevent_function_handler *
-find_func_handler(struct pevent *pevent, char *func_name)
+static struct pevent_function_handler *find_func_handler(struct pevent *pevent,
+							 char *func_name)
 {
 	struct pevent_function_handler *func;
 
@@ -2750,7 +2724,8 @@ static void remove_func_handler(struct pevent *pevent, char *func_name)
 }
 
 static enum event_type
-process_func_handler(struct event_format *event, struct pevent_function_handler *func,
+process_func_handler(struct event_format *event,
+		     struct pevent_function_handler *func,
 		     struct print_arg *arg, char **tok)
 {
 	struct print_arg **next_arg;
@@ -2776,15 +2751,17 @@ process_func_handler(struct event_format *event, struct pevent_function_handler 
 		type = process_arg(event, farg, &token);
 		if (i < (func->nr_args - 1)) {
 			if (type != EVENT_DELIM || strcmp(token, ",") != 0) {
-				do_warning_event(event,
+				do_warning_event(
+					event,
 					"Error: function '%s()' expects %d arguments but event %s only uses %d",
-					func->name, func->nr_args,
-					event->name, i + 1);
+					func->name, func->nr_args, event->name,
+					i + 1);
 				goto err;
 			}
 		} else {
 			if (type != EVENT_DELIM || strcmp(token, ")") != 0) {
-				do_warning_event(event,
+				do_warning_event(
+					event,
 					"Error: function '%s()' only expects %d arguments but event %s has more",
 					func->name, func->nr_args, event->name);
 				goto err;
@@ -2807,9 +2784,9 @@ err:
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_function(struct event_format *event, struct print_arg *arg,
-		 char *token, char **tok)
+static enum event_type process_function(struct event_format *event,
+					struct print_arg *arg, char *token,
+					char **tok)
 {
 	struct pevent_function_handler *func;
 
@@ -2851,9 +2828,9 @@ process_function(struct event_format *event, struct print_arg *arg,
 	return EVENT_ERROR;
 }
 
-static enum event_type
-process_arg_token(struct event_format *event, struct print_arg *arg,
-		  char **tok, enum event_type type)
+static enum event_type process_arg_token(struct event_format *event,
+					 struct print_arg *arg, char **tok,
+					 enum event_type type)
 {
 	char *token;
 	char *atom;
@@ -2885,8 +2862,8 @@ process_arg_token(struct event_format *event, struct print_arg *arg,
 		/* atoms can be more than one token long */
 		while (type == EVENT_ITEM) {
 			char *new_atom;
-			new_atom = realloc(atom,
-					   strlen(atom) + strlen(token) + 2);
+			new_atom =
+				realloc(atom, strlen(atom) + strlen(token) + 2);
 			if (!new_atom) {
 				free(atom);
 				*tok = NULL;
@@ -2941,7 +2918,8 @@ process_arg_token(struct event_format *event, struct print_arg *arg,
 	return type;
 }
 
-static int event_read_print_args(struct event_format *event, struct print_arg **list)
+static int event_read_print_args(struct event_format *event,
+				 struct print_arg **list)
 {
 	enum event_type type = EVENT_ERROR;
 	struct print_arg *arg;
@@ -3017,7 +2995,7 @@ static int event_read_print(struct event_format *event)
 	if (read_expect_type(EVENT_DQUOTE, &token) < 0)
 		goto fail;
 
- concat:
+concat:
 	event->print_fmt.format = token;
 	event->print_fmt.args = NULL;
 
@@ -3039,7 +3017,7 @@ static int event_read_print(struct event_format *event)
 		token = cat;
 		goto concat;
 	}
-			     
+
 	if (test_type_token(type, token, EVENT_DELIM, ","))
 		goto fail;
 
@@ -3051,7 +3029,7 @@ static int event_read_print(struct event_format *event)
 
 	return ret;
 
- fail:
+fail:
 	free_token(token);
 	return -1;
 }
@@ -3064,13 +3042,13 @@ static int event_read_print(struct event_format *event)
  * Returns a common field from the event by the given @name.
  * This only searchs the common fields and not all field.
  */
-struct format_field *
-pevent_find_common_field(struct event_format *event, const char *name)
+struct format_field *pevent_find_common_field(struct event_format *event,
+					      const char *name)
 {
 	struct format_field *format;
 
-	for (format = event->format.common_fields;
-	     format; format = format->next) {
+	for (format = event->format.common_fields; format;
+	     format = format->next) {
 		if (strcmp(format->name, name) == 0)
 			break;
 	}
@@ -3086,13 +3064,12 @@ pevent_find_common_field(struct event_format *event, const char *name)
  * Returns a non-common field by the given @name.
  * This does not search common fields.
  */
-struct format_field *
-pevent_find_field(struct event_format *event, const char *name)
+struct format_field *pevent_find_field(struct event_format *event,
+				       const char *name)
 {
 	struct format_field *format;
 
-	for (format = event->format.fields;
-	     format; format = format->next) {
+	for (format = event->format.fields; format; format = format->next) {
 		if (strcmp(format->name, name) == 0)
 			break;
 	}
@@ -3109,8 +3086,8 @@ pevent_find_field(struct event_format *event, const char *name)
  * This searchs the common field names first, then
  * the non-common ones if a common one was not found.
  */
-struct format_field *
-pevent_find_any_field(struct event_format *event, const char *name)
+struct format_field *pevent_find_any_field(struct event_format *event,
+					   const char *name)
 {
 	struct format_field *format;
 
@@ -3129,8 +3106,8 @@ pevent_find_any_field(struct event_format *event, const char *name)
  * Returns the number (converted to host) from the
  * raw data.
  */
-unsigned long long pevent_read_number(struct pevent *pevent,
-				      const void *ptr, int size)
+unsigned long long pevent_read_number(struct pevent *pevent, const void *ptr,
+				      int size)
 {
 	switch (size) {
 	case 1:
@@ -3176,8 +3153,8 @@ int pevent_read_number_field(struct format_field *field, const void *data,
 	}
 }
 
-static int get_common_info(struct pevent *pevent,
-			   const char *type, int *offset, int *size)
+static int get_common_info(struct pevent *pevent, const char *type, int *offset,
+			   int *size)
 {
 	struct event_format *event;
 	struct format_field *field;
@@ -3202,8 +3179,8 @@ static int get_common_info(struct pevent *pevent,
 	return 0;
 }
 
-static int __parse_common(struct pevent *pevent, void *data,
-			  int *size, int *offset, const char *name)
+static int __parse_common(struct pevent *pevent, void *data, int *size,
+			  int *offset, const char *name)
 {
 	int ret;
 
@@ -3217,44 +3194,38 @@ static int __parse_common(struct pevent *pevent, void *data,
 
 static int trace_parse_common_type(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->type_size, &pevent->type_offset,
-			      "common_type");
+	return __parse_common(pevent, data, &pevent->type_size,
+			      &pevent->type_offset, "common_type");
 }
 
 static int parse_common_pid(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->pid_size, &pevent->pid_offset,
-			      "common_pid");
+	return __parse_common(pevent, data, &pevent->pid_size,
+			      &pevent->pid_offset, "common_pid");
 }
 
 static int parse_common_pc(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->pc_size, &pevent->pc_offset,
-			      "common_preempt_count");
+	return __parse_common(pevent, data, &pevent->pc_size,
+			      &pevent->pc_offset, "common_preempt_count");
 }
 
 static int parse_common_flags(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->flags_size, &pevent->flags_offset,
-			      "common_flags");
+	return __parse_common(pevent, data, &pevent->flags_size,
+			      &pevent->flags_offset, "common_flags");
 }
 
 static int parse_common_lock_depth(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->ld_size, &pevent->ld_offset,
-			      "common_lock_depth");
+	return __parse_common(pevent, data, &pevent->ld_size,
+			      &pevent->ld_offset, "common_lock_depth");
 }
 
 static int parse_common_migrate_disable(struct pevent *pevent, void *data)
 {
-	return __parse_common(pevent, data,
-			      &pevent->ld_size, &pevent->ld_offset,
-			      "common_migrate_disable");
+	return __parse_common(pevent, data, &pevent->ld_size,
+			      &pevent->ld_offset, "common_migrate_disable");
 }
 
 static int events_id_cmp(const void *a, const void *b);
@@ -3298,15 +3269,14 @@ struct event_format *pevent_find_event(struct pevent *pevent, int id)
  * This returns an event with a given @name and under the system
  * @sys. If @sys is NULL the first event with @name is returned.
  */
-struct event_format *
-pevent_find_event_by_name(struct pevent *pevent,
-			  const char *sys, const char *name)
+struct event_format *pevent_find_event_by_name(struct pevent *pevent,
+					       const char *sys,
+					       const char *name)
 {
 	struct event_format *event = NULL;
 	int i;
 
-	if (pevent->last_event &&
-	    strcmp(pevent->last_event->name, name) == 0 &&
+	if (pevent->last_event && strcmp(pevent->last_event->name, name) == 0 &&
 	    (!sys || strcmp(pevent->last_event->system, sys) == 0))
 		return pevent->last_event;
 
@@ -3326,8 +3296,9 @@ pevent_find_event_by_name(struct pevent *pevent,
 	return event;
 }
 
-static unsigned long long
-eval_num_arg(void *data, int size, struct event_format *event, struct print_arg *arg)
+static unsigned long long eval_num_arg(void *data, int size,
+				       struct event_format *event,
+				       struct print_arg *arg)
 {
 	struct pevent *pevent = event->pevent;
 	unsigned long long val = 0;
@@ -3345,14 +3316,15 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 		return strtoull(arg->atom.atom, NULL, 0);
 	case PRINT_FIELD:
 		if (!arg->field.field) {
-			arg->field.field = pevent_find_any_field(event, arg->field.name);
+			arg->field.field =
+				pevent_find_any_field(event, arg->field.name);
 			if (!arg->field.field)
 				goto out_warning_field;
-			
 		}
 		/* must be a number */
-		val = pevent_read_number(pevent, data + arg->field.field->offset,
-				arg->field.field->size);
+		val = pevent_read_number(pevent,
+					 data + arg->field.field->offset,
+					 arg->field.field->size);
 		break;
 	case PRINT_FLAGS:
 	case PRINT_SYMBOL:
@@ -3393,11 +3365,13 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 
 			switch (larg->type) {
 			case PRINT_DYNAMIC_ARRAY:
-				offset = pevent_read_number(pevent,
-						   data + larg->dynarray.field->offset,
-						   larg->dynarray.field->size);
+				offset = pevent_read_number(
+					pevent,
+					data + larg->dynarray.field->offset,
+					larg->dynarray.field->size);
 				if (larg->dynarray.field->elementsize)
-					field_size = larg->dynarray.field->elementsize;
+					field_size = larg->dynarray.field
+							     ->elementsize;
 				/*
 				 * The actual length of the dynamic array is stored
 				 * in the top half of the field, and the offset
@@ -3409,7 +3383,9 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 			case PRINT_FIELD:
 				if (!larg->field.field) {
 					larg->field.field =
-						pevent_find_any_field(event, larg->field.name);
+						pevent_find_any_field(
+							event,
+							larg->field.name);
 					if (!larg->field.field) {
 						arg = larg;
 						goto out_warning_field;
@@ -3417,13 +3393,13 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 				}
 				field_size = larg->field.field->elementsize;
 				offset = larg->field.field->offset +
-					right * larg->field.field->elementsize;
+					 right * larg->field.field->elementsize;
 				break;
 			default:
 				goto default_op; /* oops, all bets off */
 			}
-			val = pevent_read_number(pevent,
-						 data + offset, field_size);
+			val = pevent_read_number(pevent, data + offset,
+						 field_size);
 			if (typearg)
 				val = eval_type(val, typearg, 1);
 			break;
@@ -3431,12 +3407,14 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 			left = eval_num_arg(data, size, event, arg->op.left);
 			arg = arg->op.right;
 			if (left)
-				val = eval_num_arg(data, size, event, arg->op.left);
+				val = eval_num_arg(data, size, event,
+						   arg->op.left);
 			else
-				val = eval_num_arg(data, size, event, arg->op.right);
+				val = eval_num_arg(data, size, event,
+						   arg->op.right);
 			break;
 		}
- default_op:
+	default_op:
 		left = eval_num_arg(data, size, event, arg->op.left);
 		right = eval_num_arg(data, size, event, arg->op.right);
 		switch (arg->op.op[0]) {
@@ -3542,8 +3520,8 @@ out_warning_op:
 	return 0;
 
 out_warning_field:
-	do_warning_event(event, "%s: field %s not found",
-			 __func__, arg->field.name);
+	do_warning_event(event, "%s: field %s not found", __func__,
+			 arg->field.name);
 	return 0;
 }
 
@@ -3553,19 +3531,13 @@ struct flag {
 };
 
 static const struct flag flags[] = {
-	{ "HI_SOFTIRQ", 0 },
-	{ "TIMER_SOFTIRQ", 1 },
-	{ "NET_TX_SOFTIRQ", 2 },
-	{ "NET_RX_SOFTIRQ", 3 },
-	{ "BLOCK_SOFTIRQ", 4 },
-	{ "BLOCK_IOPOLL_SOFTIRQ", 5 },
-	{ "TASKLET_SOFTIRQ", 6 },
-	{ "SCHED_SOFTIRQ", 7 },
-	{ "HRTIMER_SOFTIRQ", 8 },
-	{ "RCU_SOFTIRQ", 9 },
+	{ "HI_SOFTIRQ", 0 },	    { "TIMER_SOFTIRQ", 1 },
+	{ "NET_TX_SOFTIRQ", 2 },    { "NET_RX_SOFTIRQ", 3 },
+	{ "BLOCK_SOFTIRQ", 4 },	    { "BLOCK_IOPOLL_SOFTIRQ", 5 },
+	{ "TASKLET_SOFTIRQ", 6 },   { "SCHED_SOFTIRQ", 7 },
+	{ "HRTIMER_SOFTIRQ", 8 },   { "RCU_SOFTIRQ", 9 },
 
-	{ "HRTIMER_NORESTART", 0 },
-	{ "HRTIMER_RESTART", 1 },
+	{ "HRTIMER_NORESTART", 0 }, { "HRTIMER_RESTART", 1 },
 };
 
 static unsigned long long eval_flag(const char *flag)
@@ -3580,7 +3552,7 @@ static unsigned long long eval_flag(const char *flag)
 	if (isdigit(flag[0]))
 		return strtoull(flag, NULL, 0);
 
-	for (i = 0; i < (int)(sizeof(flags)/sizeof(flags[0])); i++)
+	for (i = 0; i < (int)(sizeof(flags) / sizeof(flags[0])); i++)
 		if (strcmp(flags[i].name, flag) == 0)
 			return flags[i].value;
 
@@ -3596,9 +3568,9 @@ static void print_str_to_seq(struct trace_seq *s, const char *format,
 		trace_seq_printf(s, format, str);
 }
 
-static void print_bitmask_to_seq(struct pevent *pevent,
-				 struct trace_seq *s, const char *format,
-				 int len_arg, const void *data, int size)
+static void print_bitmask_to_seq(struct pevent *pevent, struct trace_seq *s,
+				 const char *format, int len_arg,
+				 const void *data, int size)
 {
 	int nr_bits = size * 8;
 	int str_size = (nr_bits + 3) / 4;
@@ -3683,7 +3655,7 @@ static void print_str_arg(struct trace_seq *s, void *data, int size,
 			arg->field.field = field;
 		}
 		/* Zero sized fields, mean the rest of the data */
-		len = field->size ? : size - field->offset;
+		len = field->size ?: size - field->offset;
 
 		/*
 		 * Some events pass in pointers. If this is not an array
@@ -3743,7 +3715,8 @@ static void print_str_arg(struct trace_seq *s, void *data, int size,
 	case PRINT_HEX:
 		if (arg->hex.field->type == PRINT_DYNAMIC_ARRAY) {
 			unsigned long offset;
-			offset = pevent_read_number(pevent,
+			offset = pevent_read_number(
+				pevent,
 				data + arg->hex.field->dynarray.field->offset,
 				arg->hex.field->dynarray.field->size);
 			hex = data + (offset & 0xffff);
@@ -3779,7 +3752,8 @@ static void print_str_arg(struct trace_seq *s, void *data, int size,
 		}
 		str_offset = data2host4(pevent, data + arg->string.offset);
 		str_offset &= 0xffff;
-		print_str_to_seq(s, format, len_arg, ((char *)data) + str_offset);
+		print_str_to_seq(s, format, len_arg,
+				 ((char *)data) + str_offset);
 		break;
 	}
 	case PRINT_BSTRING:
@@ -3810,11 +3784,11 @@ static void print_str_arg(struct trace_seq *s, void *data, int size,
 			return;
 		val = eval_num_arg(data, size, event, arg->op.left);
 		if (val)
-			print_str_arg(s, data, size, event,
-				      format, len_arg, arg->op.right->op.left);
+			print_str_arg(s, data, size, event, format, len_arg,
+				      arg->op.right->op.left);
 		else
-			print_str_arg(s, data, size, event,
-				      format, len_arg, arg->op.right->op.right);
+			print_str_arg(s, data, size, event, format, len_arg,
+				      arg->op.right->op.right);
 		break;
 	case PRINT_FUNC:
 		process_defined_func(s, data, size, event, arg);
@@ -3827,13 +3801,14 @@ static void print_str_arg(struct trace_seq *s, void *data, int size,
 	return;
 
 out_warning_field:
-	do_warning_event(event, "%s: field %s not found",
-			 __func__, arg->field.name);
+	do_warning_event(event, "%s: field %s not found", __func__,
+			 arg->field.name);
 }
 
-static unsigned long long
-process_defined_func(struct trace_seq *s, void *data, int size,
-		     struct event_format *event, struct print_arg *arg)
+static unsigned long long process_defined_func(struct trace_seq *s, void *data,
+					       int size,
+					       struct event_format *event,
+					       struct print_arg *arg)
 {
 	struct pevent_function_handler *func_handle = arg->func.func;
 	struct pevent_func_params *param;
@@ -3894,7 +3869,8 @@ process_defined_func(struct trace_seq *s, void *data, int size,
 			 * Something went totally wrong, this is not
 			 * an input error, something in this code broke.
 			 */
-			do_warning_event(event, "Unexpected end of arguments\n");
+			do_warning_event(event,
+					 "Unexpected end of arguments\n");
 			goto out_free;
 		}
 		farg = farg->next;
@@ -3911,7 +3887,7 @@ out_free:
 		free(string);
 	}
 
- out:
+out:
 	/* TBD : handle return type here */
 	return ret;
 }
@@ -3928,7 +3904,8 @@ static void free_args(struct print_arg *args)
 	}
 }
 
-static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struct event_format *event)
+static struct print_arg *make_bprint_args(char *fmt, void *data, int size,
+					  struct event_format *event)
 {
 	struct pevent *pevent = event->pevent;
 	struct format_field *field, *ip_field;
@@ -3944,27 +3921,31 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 	if (!field) {
 		field = pevent_find_field(event, "buf");
 		if (!field) {
-			do_warning_event(event, "can't find buffer field for binary printk");
+			do_warning_event(
+				event,
+				"can't find buffer field for binary printk");
 			return NULL;
 		}
 		ip_field = pevent_find_field(event, "ip");
 		if (!ip_field) {
-			do_warning_event(event, "can't find ip field for binary printk");
+			do_warning_event(
+				event, "can't find ip field for binary printk");
 			return NULL;
 		}
 		pevent->bprint_buf_field = field;
 		pevent->bprint_ip_field = ip_field;
 	}
 
-	ip = pevent_read_number(pevent, data + ip_field->offset, ip_field->size);
+	ip = pevent_read_number(pevent, data + ip_field->offset,
+				ip_field->size);
 
 	/*
 	 * The first arg is the IP pointer.
 	 */
 	args = alloc_arg();
 	if (!args) {
-		do_warning_event(event, "%s(%d): not enough memory!",
-				 __func__, __LINE__);
+		do_warning_event(event, "%s(%d): not enough memory!", __func__,
+				 __LINE__);
 		return NULL;
 	}
 	arg = args;
@@ -3972,7 +3953,7 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 	next = &arg->next;
 
 	arg->type = PRINT_ATOM;
-		
+
 	if (asprintf(&arg->atom.atom, "%lld", ip) < 0)
 		goto out_free;
 
@@ -3982,7 +3963,7 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 		int ls = 0;
 
 		if (*ptr == '%') {
- process_again:
+		process_again:
 			ptr++;
 			switch (*ptr) {
 			case '%':
@@ -4024,19 +4005,21 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 					vsize = 4;
 
 				/* the pointers are always 4 bytes aligned */
-				bptr = (void *)(((unsigned long)bptr + 3) &
-						~3);
+				bptr = (void *)(((unsigned long)bptr + 3) & ~3);
 				val = pevent_read_number(pevent, bptr, vsize);
 				bptr += vsize;
 				arg = alloc_arg();
 				if (!arg) {
-					do_warning_event(event, "%s(%d): not enough memory!",
-						   __func__, __LINE__);
+					do_warning_event(
+						event,
+						"%s(%d): not enough memory!",
+						__func__, __LINE__);
 					goto out_free;
 				}
 				arg->next = NULL;
 				arg->type = PRINT_ATOM;
-				if (asprintf(&arg->atom.atom, "%lld", val) < 0) {
+				if (asprintf(&arg->atom.atom, "%lld", val) <
+				    0) {
 					free(arg);
 					goto out_free;
 				}
@@ -4053,8 +4036,10 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 			case 's':
 				arg = alloc_arg();
 				if (!arg) {
-					do_warning_event(event, "%s(%d): not enough memory!",
-						   __func__, __LINE__);
+					do_warning_event(
+						event,
+						"%s(%d): not enough memory!",
+						__func__, __LINE__);
 					goto out_free;
 				}
 				arg->next = NULL;
@@ -4078,9 +4063,8 @@ out_free:
 	return NULL;
 }
 
-static char *
-get_bprint_format(void *data, int size __maybe_unused,
-		  struct event_format *event)
+static char *get_bprint_format(void *data, int size __maybe_unused,
+			       struct event_format *event)
 {
 	struct pevent *pevent = event->pevent;
 	unsigned long long addr;
@@ -4093,7 +4077,9 @@ get_bprint_format(void *data, int size __maybe_unused,
 	if (!field) {
 		field = pevent_find_field(event, "fmt");
 		if (!field) {
-			do_warning_event(event, "can't find format field for binary printk");
+			do_warning_event(
+				event,
+				"can't find format field for binary printk");
 			return NULL;
 		}
 		pevent->bprint_fmt_field = field;
@@ -4103,7 +4089,8 @@ get_bprint_format(void *data, int size __maybe_unused,
 
 	printk = find_printk(pevent, addr);
 	if (!printk) {
-		if (asprintf(&format, "%%pf: (NO FORMAT FOUND at %llx)\n", addr) < 0)
+		if (asprintf(&format, "%%pf: (NO FORMAT FOUND at %llx)\n",
+			     addr) < 0)
 			return NULL;
 		return format;
 	}
@@ -4126,8 +4113,7 @@ static void print_mac_arg(struct trace_seq *s, int mac, void *data, int size,
 	}
 
 	if (arg->type != PRINT_FIELD) {
-		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d",
-				 arg->type);
+		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d", arg->type);
 		return;
 	}
 
@@ -4147,7 +4133,8 @@ static void print_mac_arg(struct trace_seq *s, int mac, void *data, int size,
 		return;
 	}
 	buf = data + arg->field.field->offset;
-	trace_seq_printf(s, fmt, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+	trace_seq_printf(s, fmt, buf[0], buf[1], buf[2], buf[3], buf[4],
+			 buf[5]);
 }
 
 static int is_printable_array(char *p, unsigned int len)
@@ -4156,7 +4143,7 @@ static int is_printable_array(char *p, unsigned int len)
 
 	for (i = 0; i < len && p[i]; i++)
 		if (!isprint(p[i]) && !isspace(p[i]))
-		    return 0;
+			return 0;
 	return 1;
 }
 
@@ -4175,27 +4162,32 @@ static void print_event_fields(struct trace_seq *s, void *data,
 			offset = field->offset;
 			len = field->size;
 			if (field->flags & FIELD_IS_DYNAMIC) {
-				val = pevent_read_number(event->pevent, data + offset, len);
+				val = pevent_read_number(event->pevent,
+							 data + offset, len);
 				offset = val;
 				len = offset >> 16;
 				offset &= 0xffff;
 			}
 			if (field->flags & FIELD_IS_STRING &&
 			    is_printable_array(data + offset, len)) {
-				trace_seq_printf(s, "%s", (char *)data + offset);
+				trace_seq_printf(s, "%s",
+						 (char *)data + offset);
 			} else {
 				trace_seq_puts(s, "ARRAY[");
 				for (i = 0; i < len; i++) {
 					if (i)
 						trace_seq_puts(s, ", ");
-					trace_seq_printf(s, "%02x",
-							 *((unsigned char *)data + offset + i));
+					trace_seq_printf(
+						s, "%02x",
+						*((unsigned char *)data +
+						  offset + i));
 				}
 				trace_seq_putc(s, ']');
 				field->flags &= ~FIELD_IS_STRING;
 			}
 		} else {
-			val = pevent_read_number(event->pevent, data + field->offset,
+			val = pevent_read_number(event->pevent,
+						 data + field->offset,
 						 field->size);
 			if (field->flags & FIELD_IS_POINTER) {
 				trace_seq_printf(s, "0x%llx", val);
@@ -4207,9 +4199,11 @@ static void print_event_fields(struct trace_seq *s, void *data,
 					 * A long usually stores pointers.
 					 */
 					if (field->flags & FIELD_IS_LONG)
-						trace_seq_printf(s, "0x%x", (int)val);
+						trace_seq_printf(s, "0x%x",
+								 (int)val);
 					else
-						trace_seq_printf(s, "%d", (int)val);
+						trace_seq_printf(s, "%d",
+								 (int)val);
 					break;
 				case 2:
 					trace_seq_printf(s, "%2d", (short)val);
@@ -4231,7 +4225,8 @@ static void print_event_fields(struct trace_seq *s, void *data,
 	}
 }
 
-static void pretty_print(struct trace_seq *s, void *data, int size, struct event_format *event)
+static void pretty_print(struct trace_seq *s, void *data, int size,
+			 struct event_format *event)
 {
 	struct pevent *pevent = event->pevent;
 	struct print_fmt *print_fmt = &event->print_fmt;
@@ -4289,7 +4284,7 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 			saveptr = ptr;
 			show_func = 0;
 			len_as_arg = 0;
- cont_process:
+		cont_process:
 			ptr++;
 			switch (*ptr) {
 			case '%':
@@ -4310,7 +4305,8 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 			case '*':
 				/* The argument is the length. */
 				if (!arg) {
-					do_warning_event(event, "no argument match");
+					do_warning_event(event,
+							 "no argument match");
 					event->flags |= EVENT_FL_FAILED;
 					goto out_failed;
 				}
@@ -4329,12 +4325,13 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 				else
 					ls = 2;
 
-				if (*(ptr+1) == 'F' ||
-				    *(ptr+1) == 'f') {
+				if (*(ptr + 1) == 'F' || *(ptr + 1) == 'f') {
 					ptr++;
 					show_func = *ptr;
-				} else if (*(ptr+1) == 'M' || *(ptr+1) == 'm') {
-					print_mac_arg(s, *(ptr+1), data, size, event, arg);
+				} else if (*(ptr + 1) == 'M' ||
+					   *(ptr + 1) == 'm') {
+					print_mac_arg(s, *(ptr + 1), data, size,
+						      event, arg);
 					ptr++;
 					arg = arg->next;
 					break;
@@ -4347,13 +4344,14 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 			case 'X':
 			case 'u':
 				if (!arg) {
-					do_warning_event(event, "no argument match");
+					do_warning_event(event,
+							 "no argument match");
 					event->flags |= EVENT_FL_FAILED;
 					goto out_failed;
 				}
 
 				len = ((unsigned long)ptr + 1) -
-					(unsigned long)saveptr;
+				      (unsigned long)saveptr;
 
 				/* should never happen */
 				if (len > 31) {
@@ -4373,9 +4371,9 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 					if (func) {
 						trace_seq_puts(s, func->func);
 						if (show_func == 'F')
-							trace_seq_printf(s,
-							       "+0x%llx",
-							       val - func->addr);
+							trace_seq_printf(
+								s, "+0x%llx",
+								val - func->addr);
 						break;
 					}
 				}
@@ -4387,56 +4385,74 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 					/* make %l into %ll */
 					p = strchr(format, 'l');
 					if (p)
-						memmove(p+1, p, strlen(p)+1);
+						memmove(p + 1, p,
+							strlen(p) + 1);
 					else if (strcmp(format, "%p") == 0)
 						strcpy(format, "0x%llx");
 				}
 				switch (ls) {
 				case -2:
 					if (len_as_arg)
-						trace_seq_printf(s, format, len_arg, (char)val);
+						trace_seq_printf(s, format,
+								 len_arg,
+								 (char)val);
 					else
-						trace_seq_printf(s, format, (char)val);
+						trace_seq_printf(s, format,
+								 (char)val);
 					break;
 				case -1:
 					if (len_as_arg)
-						trace_seq_printf(s, format, len_arg, (short)val);
+						trace_seq_printf(s, format,
+								 len_arg,
+								 (short)val);
 					else
-						trace_seq_printf(s, format, (short)val);
+						trace_seq_printf(s, format,
+								 (short)val);
 					break;
 				case 0:
 					if (len_as_arg)
-						trace_seq_printf(s, format, len_arg, (int)val);
+						trace_seq_printf(s, format,
+								 len_arg,
+								 (int)val);
 					else
-						trace_seq_printf(s, format, (int)val);
+						trace_seq_printf(s, format,
+								 (int)val);
 					break;
 				case 1:
 					if (len_as_arg)
-						trace_seq_printf(s, format, len_arg, (long)val);
+						trace_seq_printf(s, format,
+								 len_arg,
+								 (long)val);
 					else
-						trace_seq_printf(s, format, (long)val);
+						trace_seq_printf(s, format,
+								 (long)val);
 					break;
 				case 2:
 					if (len_as_arg)
-						trace_seq_printf(s, format, len_arg,
-								 (long long)val);
+						trace_seq_printf(
+							s, format, len_arg,
+							(long long)val);
 					else
-						trace_seq_printf(s, format, (long long)val);
+						trace_seq_printf(
+							s, format,
+							(long long)val);
 					break;
 				default:
-					do_warning_event(event, "bad count (%d)", ls);
+					do_warning_event(event,
+							 "bad count (%d)", ls);
 					event->flags |= EVENT_FL_FAILED;
 				}
 				break;
 			case 's':
 				if (!arg) {
-					do_warning_event(event, "no matching argument");
+					do_warning_event(
+						event, "no matching argument");
 					event->flags |= EVENT_FL_FAILED;
 					goto out_failed;
 				}
 
 				len = ((unsigned long)ptr + 1) -
-					(unsigned long)saveptr;
+				      (unsigned long)saveptr;
 
 				/* should never happen */
 				if (len > 31) {
@@ -4451,8 +4467,8 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 					len_arg = -1;
 				/* Use helper trace_seq */
 				trace_seq_init(&p);
-				print_str_arg(&p, data, size, event,
-					      format, len_arg, arg);
+				print_str_arg(&p, data, size, event, format,
+					      len_arg, arg);
 				trace_seq_terminate(&p);
 				trace_seq_puts(s, p.buffer);
 				trace_seq_destroy(&p);
@@ -4460,14 +4476,13 @@ static void pretty_print(struct trace_seq *s, void *data, int size, struct event
 				break;
 			default:
 				trace_seq_printf(s, ">%c<", *ptr);
-
 			}
 		} else
 			trace_seq_putc(s, *ptr);
 	}
 
 	if (event->flags & EVENT_FL_FAILED) {
-out_failed:
+	out_failed:
 		trace_seq_printf(s, "[FAILED TO PARSE]");
 	}
 
@@ -4487,8 +4502,8 @@ out_failed:
  * need rescheduling, in hard/soft interrupt, preempt count
  * and lock depth) and places it into the trace_seq.
  */
-void pevent_data_lat_fmt(struct pevent *pevent,
-			 struct trace_seq *s, struct pevent_record *record)
+void pevent_data_lat_fmt(struct pevent *pevent, struct trace_seq *s,
+			 struct pevent_record *record)
 {
 	static int check_lock_depth = 1;
 	static int check_migrate_disable = 1;
@@ -4530,13 +4545,14 @@ void pevent_data_lat_fmt(struct pevent *pevent,
 	softirq = lat_flags & TRACE_FLAG_SOFTIRQ;
 
 	trace_seq_printf(s, "%c%c%c",
-	       (lat_flags & TRACE_FLAG_IRQS_OFF) ? 'd' :
-	       (lat_flags & TRACE_FLAG_IRQS_NOSUPPORT) ?
-	       'X' : '.',
-	       (lat_flags & TRACE_FLAG_NEED_RESCHED) ?
-	       'N' : '.',
-	       (hardirq && softirq) ? 'H' :
-	       hardirq ? 'h' : softirq ? 's' : '.');
+			 (lat_flags & TRACE_FLAG_IRQS_OFF)	 ? 'd' :
+			 (lat_flags & TRACE_FLAG_IRQS_NOSUPPORT) ? 'X' :
+									 '.',
+			 (lat_flags & TRACE_FLAG_NEED_RESCHED) ? 'N' : '.',
+			 (hardirq && softirq) ? 'H' :
+			 hardirq	      ? 'h' :
+			 softirq	      ? 's' :
+						      '.');
 
 	if (pc)
 		trace_seq_printf(s, "%x", pc);
@@ -4579,7 +4595,8 @@ int pevent_data_type(struct pevent *pevent, struct pevent_record *rec)
  *
  * This returns the event form a given @type;
  */
-struct event_format *pevent_data_event_from_type(struct pevent *pevent, int type)
+struct event_format *pevent_data_event_from_type(struct pevent *pevent,
+						 int type)
 {
 	return pevent_find_event(pevent, type);
 }
@@ -4629,7 +4646,6 @@ void pevent_event_info(struct trace_seq *s, struct event_format *event,
 	if (event->pevent->print_raw || (event->flags & EVENT_FL_PRINTRAW))
 		print_event_fields(s, record->data, record->size, event);
 	else {
-
 		if (event->handler && !(event->flags & EVENT_FL_NOHANDLE))
 			print_pretty = event->handler(s, record, event,
 						      event->context);
@@ -4646,8 +4662,8 @@ static bool is_timestamp_in_us(char *trace_clock, bool use_trace_clock)
 	if (!use_trace_clock)
 		return true;
 
-	if (!strcmp(trace_clock, "local") || !strcmp(trace_clock, "global")
-	    || !strcmp(trace_clock, "uptime") || !strcmp(trace_clock, "perf"))
+	if (!strcmp(trace_clock, "local") || !strcmp(trace_clock, "global") ||
+	    !strcmp(trace_clock, "uptime") || !strcmp(trace_clock, "perf"))
 		return true;
 
 	/* trace_clock is setting in tsc or counter mode */
@@ -4670,8 +4686,8 @@ void pevent_print_event(struct pevent *pevent, struct trace_seq *s,
 	int p;
 	bool use_usec_format;
 
-	use_usec_format = is_timestamp_in_us(pevent->trace_clock,
-							use_trace_clock);
+	use_usec_format =
+		is_timestamp_in_us(pevent->trace_clock, use_trace_clock);
 	if (use_usec_format) {
 		secs = record->ts / NSECS_PER_SEC;
 		nsecs = record->ts - secs * NSECS_PER_SEC;
@@ -4694,8 +4710,7 @@ void pevent_print_event(struct pevent *pevent, struct trace_seq *s,
 	comm = find_cmdline(pevent, pid);
 
 	if (pevent->latency_format) {
-		trace_seq_printf(s, "%8.8s-%-5d %3d",
-		       comm, pid, record->cpu);
+		trace_seq_printf(s, "%8.8s-%-5d %3d", comm, pid, record->cpu);
 		pevent_data_lat_fmt(pevent, s, record);
 	} else
 		trace_seq_printf(s, "%16s-%-5d [%03d]", comm, pid, record->cpu);
@@ -4709,11 +4724,10 @@ void pevent_print_event(struct pevent *pevent, struct trace_seq *s,
 			p = 6;
 		}
 
-		trace_seq_printf(s, " %5lu.%0*lu: %s: ",
-					secs, p, usecs, event->name);
+		trace_seq_printf(s, " %5lu.%0*lu: %s: ", secs, p, usecs,
+				 event->name);
 	} else
-		trace_seq_printf(s, " %12llu: %s: ",
-					record->ts, event->name);
+		trace_seq_printf(s, " %12llu: %s: ", record->ts, event->name);
 
 	/* Space out the event names evenly. */
 	len = strlen(event->name);
@@ -4725,8 +4739,8 @@ void pevent_print_event(struct pevent *pevent, struct trace_seq *s,
 
 static int events_id_cmp(const void *a, const void *b)
 {
-	struct event_format * const * ea = a;
-	struct event_format * const * eb = b;
+	struct event_format *const *ea = a;
+	struct event_format *const *eb = b;
 
 	if ((*ea)->id < (*eb)->id)
 		return -1;
@@ -4739,8 +4753,8 @@ static int events_id_cmp(const void *a, const void *b)
 
 static int events_name_cmp(const void *a, const void *b)
 {
-	struct event_format * const * ea = a;
-	struct event_format * const * eb = b;
+	struct event_format *const *ea = a;
+	struct event_format *const *eb = b;
 	int res;
 
 	res = strcmp((*ea)->name, (*eb)->name);
@@ -4756,8 +4770,8 @@ static int events_name_cmp(const void *a, const void *b)
 
 static int events_system_cmp(const void *a, const void *b)
 {
-	struct event_format * const * ea = a;
-	struct event_format * const * eb = b;
+	struct event_format *const *ea = a;
+	struct event_format *const *eb = b;
 	int res;
 
 	res = strcmp((*ea)->system, (*eb)->system);
@@ -4771,7 +4785,8 @@ static int events_system_cmp(const void *a, const void *b)
 	return events_id_cmp(a, b);
 }
 
-struct event_format **pevent_list_events(struct pevent *pevent, enum event_sort_type sort_type)
+struct event_format **pevent_list_events(struct pevent *pevent,
+					 enum event_sort_type sort_type)
 {
 	struct event_format **events;
 	int (*sort)(const void *a, const void *b);
@@ -4786,7 +4801,8 @@ struct event_format **pevent_list_events(struct pevent *pevent, enum event_sort_
 		if (!events)
 			return NULL;
 
-		memcpy(events, pevent->events, sizeof(*events) * pevent->nr_events);
+		memcpy(events, pevent->events,
+		       sizeof(*events) * pevent->nr_events);
 		events[pevent->nr_events] = NULL;
 
 		pevent->sort_events = events;
@@ -4818,9 +4834,9 @@ struct event_format **pevent_list_events(struct pevent *pevent, enum event_sort_
 	return events;
 }
 
-static struct format_field **
-get_event_fields(const char *type, const char *name,
-		 int count, struct format_field *list)
+static struct format_field **get_event_fields(const char *type,
+					      const char *name, int count,
+					      struct format_field *list)
 {
 	struct format_field **fields;
 	struct format_field *field;
@@ -4834,15 +4850,15 @@ get_event_fields(const char *type, const char *name,
 		fields[i++] = field;
 		if (i == count + 1) {
 			do_warning("event %s has more %s fields than specified",
-				name, type);
+				   name, type);
 			i--;
 			break;
 		}
 	}
 
 	if (i != count)
-		do_warning("event %s has less %s fields than specified",
-			name, type);
+		do_warning("event %s has less %s fields than specified", name,
+			   type);
 
 	fields[i] = NULL;
 
@@ -4858,8 +4874,7 @@ get_event_fields(const char *type, const char *name,
  */
 struct format_field **pevent_event_common_fields(struct event_format *event)
 {
-	return get_event_fields("common", event->name,
-				event->format.nr_common,
+	return get_event_fields("common", event->name, event->format.nr_common,
 				event->format.common_fields);
 }
 
@@ -4872,8 +4887,7 @@ struct format_field **pevent_event_common_fields(struct event_format *event)
  */
 struct format_field **pevent_event_fields(struct event_format *event)
 {
-	return get_event_fields("event", event->name,
-				event->format.nr_fields,
+	return get_event_fields("event", event->name, event->format.nr_fields,
 				event->format.fields);
 }
 
@@ -4961,8 +4975,8 @@ static void print_args(struct print_arg *args)
 	}
 }
 
-static void parse_header_field(const char *field,
-			       int *offset, int *size, int mandatory)
+static void parse_header_field(const char *field, int *offset, int *size,
+			       int mandatory)
 {
 	unsigned long long save_input_buf_ptr;
 	unsigned long long save_input_buf_siz;
@@ -5042,11 +5056,11 @@ static void parse_header_field(const char *field,
 		if (read_expect_type(EVENT_NEWLINE, &token))
 			goto fail;
 	}
- fail:
+fail:
 	free_token(token);
 	return;
 
- discard:
+discard:
 	input_buf_ptr = save_input_buf_ptr;
 	input_buf_siz = save_input_buf_siz;
 	*offset = 0;
@@ -5066,8 +5080,8 @@ static void parse_header_field(const char *field,
  *
  * /sys/kernel/debug/tracing/events/header_page
  */
-int pevent_parse_header_page(struct pevent *pevent, char *buf, unsigned long size,
-			     int long_size)
+int pevent_parse_header_page(struct pevent *pevent, char *buf,
+			     unsigned long size, int long_size)
 {
 	int ignore;
 
@@ -5088,17 +5102,16 @@ int pevent_parse_header_page(struct pevent *pevent, char *buf, unsigned long siz
 			   &pevent->header_page_ts_size, 1);
 	parse_header_field("commit", &pevent->header_page_size_offset,
 			   &pevent->header_page_size_size, 1);
-	parse_header_field("overwrite", &pevent->header_page_overwrite,
-			   &ignore, 0);
+	parse_header_field("overwrite", &pevent->header_page_overwrite, &ignore,
+			   0);
 	parse_header_field("data", &pevent->header_page_data_offset,
 			   &pevent->header_page_data_size, 1);
 
 	return 0;
 }
 
-static int event_matches(struct event_format *event,
-			 int id, const char *sys_name,
-			 const char *event_name)
+static int event_matches(struct event_format *event, int id,
+			 const char *sys_name, const char *event_name)
 {
 	if (id >= 0 && id != event->id)
 		return 0;
@@ -5123,11 +5136,9 @@ static int find_event_handle(struct pevent *pevent, struct event_format *event)
 {
 	struct event_handler *handle, **next;
 
-	for (next = &pevent->handlers; *next;
-	     next = &(*next)->next) {
+	for (next = &pevent->handlers; *next; next = &(*next)->next) {
 		handle = *next;
-		if (event_matches(event, handle->id,
-				  handle->sys_name,
+		if (event_matches(event, handle->id, handle->sys_name,
 				  handle->event_name))
 			break;
 	}
@@ -5135,8 +5146,8 @@ static int find_event_handle(struct pevent *pevent, struct event_format *event)
 	if (!(*next))
 		return 0;
 
-//	pr_stat("overriding event (%d) %s:%s with new print handler",
-//		event->id, event->system, event->name);
+	//	pr_stat("overriding event (%d) %s:%s with new print handler",
+	//		event->id, event->system, event->name);
 
 	event->handler = handle->func;
 	event->context = handle->context;
@@ -5186,7 +5197,7 @@ enum pevent_errno __pevent_parse_format(struct event_format **eventp,
 		if (strcmp(event->name, "bprint") == 0)
 			event->flags |= EVENT_FL_ISBPRINT;
 	}
-		
+
 	event->id = event_read_id();
 	if (event->id < 0) {
 		ret = PEVENT_ERRNO__READ_ID_FAILED;
@@ -5255,11 +5266,11 @@ enum pevent_errno __pevent_parse_format(struct event_format **eventp,
 
 	return 0;
 
- event_parse_failed:
+event_parse_failed:
 	event->flags |= EVENT_FL_FAILED;
 	return ret;
 
- event_alloc_failed:
+event_alloc_failed:
 	free(event->system);
 	free(event->name);
 	free(event);
@@ -5268,10 +5279,8 @@ enum pevent_errno __pevent_parse_format(struct event_format **eventp,
 }
 
 static enum pevent_errno
-__pevent_parse_event(struct pevent *pevent,
-		     struct event_format **eventp,
-		     const char *buf, unsigned long size,
-		     const char *sys)
+__pevent_parse_event(struct pevent *pevent, struct event_format **eventp,
+		     const char *buf, unsigned long size, const char *sys)
 {
 	int ret = __pevent_parse_format(eventp, pevent, buf, size, sys);
 	struct event_format *event = *eventp;
@@ -5312,8 +5321,8 @@ event_add_failed:
  */
 enum pevent_errno pevent_parse_format(struct pevent *pevent,
 				      struct event_format **eventp,
-				      const char *buf,
-				      unsigned long size, const char *sys)
+				      const char *buf, unsigned long size,
+				      const char *sys)
 {
 	return __pevent_parse_event(pevent, eventp, buf, size, sys);
 }
@@ -5341,9 +5350,7 @@ enum pevent_errno pevent_parse_event(struct pevent *pevent, const char *buf,
 
 #undef _PE
 #define _PE(code, str) str
-static const char * const pevent_error_str[] = {
-	PEVENT_ERRORS
-};
+static const char *const pevent_error_str[] = { PEVENT_ERRORS };
 #undef _PE
 
 int pevent_strerror(struct pevent *pevent __maybe_unused,
@@ -5362,8 +5369,7 @@ int pevent_strerror(struct pevent *pevent __maybe_unused,
 		return 0;
 	}
 
-	if (errnum <= __PEVENT_ERRNO__START ||
-	    errnum >= __PEVENT_ERRNO__END)
+	if (errnum <= __PEVENT_ERRNO__START || errnum >= __PEVENT_ERRNO__END)
 		return -1;
 
 	idx = errnum - __PEVENT_ERRNO__START - 1;
@@ -5432,8 +5438,8 @@ void *pevent_get_field_raw(struct trace_seq *s, struct event_format *event,
 
 	offset = field->offset;
 	if (field->flags & FIELD_IS_DYNAMIC) {
-		offset = pevent_read_number(event->pevent,
-					    data + offset, field->size);
+		offset = pevent_read_number(event->pevent, data + offset,
+					    field->size);
 		*len = offset >> 16;
 		offset &= 0xffff;
 	} else
@@ -5543,7 +5549,7 @@ int pevent_print_num_field(struct trace_seq *s, const char *fmt,
 
 	return trace_seq_printf(s, fmt, val);
 
- failed:
+failed:
 	if (err)
 		trace_seq_printf(s, "CAN'T FIND FIELD \"%s\"", name);
 	return -1;
@@ -5585,7 +5591,7 @@ int pevent_print_func_field(struct trace_seq *s, const char *fmt,
 
 	return trace_seq_printf(s, fmt, tmp);
 
- failed:
+failed:
 	if (err)
 		trace_seq_printf(s, "CAN'T FIND FIELD \"%s\"", name);
 	return -1;
@@ -5692,7 +5698,7 @@ int pevent_register_print_function(struct pevent *pevent,
 	pevent->func_handlers = func_handle;
 
 	return 0;
- out_free:
+out_free:
 	va_end(ap);
 	free_func_handle(func_handle);
 	return ret;
@@ -5772,14 +5778,14 @@ int pevent_register_event_handler(struct pevent *pevent, int id,
 	if (event == NULL)
 		goto not_found;
 
-//	pr_stat("overriding event (%d) %s:%s with new print handler",
-//		event->id, event->system, event->name);
+	//	pr_stat("overriding event (%d) %s:%s with new print handler",
+	//		event->id, event->system, event->name);
 
 	event->handler = func;
 	event->context = context;
 	return 0;
 
- not_found:
+not_found:
 	/* Save for later use. */
 	handle = calloc(1, sizeof(*handle));
 	if (!handle) {
@@ -5846,8 +5852,10 @@ static int handle_matches(struct event_handler *handler, int id,
  * Returns 0 if handler was removed successfully, -1 if event was not found.
  */
 int pevent_unregister_event_handler(struct pevent *pevent, int id,
-				    const char *sys_name, const char *event_name,
-				    pevent_event_handler_func func, void *context)
+				    const char *sys_name,
+				    const char *event_name,
+				    pevent_event_handler_func func,
+				    void *context)
 {
 	struct event_format *event;
 	struct event_handler *handle;
@@ -5869,8 +5877,8 @@ int pevent_unregister_event_handler(struct pevent *pevent, int id,
 not_found:
 	for (next = &pevent->handlers; *next; next = &(*next)->next) {
 		handle = *next;
-		if (handle_matches(handle, id, sys_name, event_name,
-				   func, context))
+		if (handle_matches(handle, id, sys_name, event_name, func,
+				   context))
 			break;
 	}
 

@@ -50,7 +50,7 @@ static int start_command(const char *argv[])
 
 		setenv("LESS", "FRSX", 0);
 
-		execvp(argv[0], (char *const*) argv);
+		execvp(argv[0], (char *const *)argv);
 		exit(127);
 	}
 

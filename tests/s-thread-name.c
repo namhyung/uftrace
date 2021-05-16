@@ -7,7 +7,7 @@ void foo(void)
 		asm volatile("" ::: "memory");
 }
 
-void * bar(void *arg)
+void *bar(void *arg)
 {
 	if (arg)
 		arg = NULL;
@@ -43,9 +43,9 @@ int main(void)
 	int i;
 	pthread_t thid[4];
 
-	pthread_create(&thid[0], NULL, thread_first,  NULL);
+	pthread_create(&thid[0], NULL, thread_first, NULL);
 	pthread_create(&thid[1], NULL, thread_second, NULL);
-	pthread_create(&thid[2], NULL, thread_third,  NULL);
+	pthread_create(&thid[2], NULL, thread_third, NULL);
 	pthread_create(&thid[3], NULL, thread_fourth, NULL);
 
 	for (i = 0; i < 4; i++)

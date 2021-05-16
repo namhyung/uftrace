@@ -12,7 +12,7 @@ void print_header(struct list_head *output_fields, const char *prefix,
 	if (list_empty(output_fields))
 		return;
 
-	list_for_each_entry(field, output_fields, list) {
+	list_for_each_entry (field, output_fields, list) {
 		pr_out("%*s", space, first ? prefix : "");
 		pr_out("%s", field->header);
 		first = false;
@@ -34,7 +34,7 @@ void print_header_align(struct list_head *output_fields, const char *prefix,
 	if (list_empty(output_fields))
 		return;
 
-	list_for_each_entry(field, output_fields, list) {
+	list_for_each_entry (field, output_fields, list) {
 		pr_out("%*s", space, first ? prefix : "");
 		if (align == ALIGN_LEFT)
 			pr_out("%-*s", field->length, field->header);
@@ -57,7 +57,7 @@ int print_field_data(struct list_head *output_fields, struct field_data *fd,
 	if (list_empty(output_fields))
 		return 0;
 
-	list_for_each_entry(field, output_fields, list) {
+	list_for_each_entry (field, output_fields, list) {
 		pr_out("%*s", space, "");
 		field->print(fd);
 	}
@@ -71,7 +71,7 @@ int print_empty_field(struct list_head *output_fields, int space)
 	if (list_empty(output_fields))
 		return 0;
 
-	list_for_each_entry(field, output_fields, list)
+	list_for_each_entry (field, output_fields, list)
 		pr_out("%*s", field->length + space, "");
 
 	return 1;
@@ -139,7 +139,8 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 
 	strv_split(&strv, str, ",");
 
-	strv_for_each(&strv, p, j) {
+	strv_for_each(&strv, p, j)
+	{
 		for (i = 0; i < field_table_size; i++) {
 			field = field_table[i];
 
@@ -165,7 +166,9 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 
 #ifdef UNIT_TEST
 
-static void print_nothing(struct field_data* fd) {}
+static void print_nothing(struct field_data *fd)
+{
+}
 
 static void setup_first_field(struct list_head *head, struct opts *opts,
 			      struct display_field *p_field_table[])
@@ -173,28 +176,36 @@ static void setup_first_field(struct list_head *head, struct opts *opts,
 	add_field(head, p_field_table[0]);
 }
 
-#define DEFINE_FIELD(_id, _name, _alias)			\
-static struct display_field field##_id = {			\
-	.id = _id, .name = _name, .header = _name,		\
-	.length = 1, .print = print_nothing, .alias = _alias,	\
-}
+#define DEFINE_FIELD(_id, _name, _alias)                                       \
+	static struct display_field field##_id = {                             \
+		.id = _id,                                                     \
+		.name = _name,                                                 \
+		.header = _name,                                               \
+		.length = 1,                                                   \
+		.print = print_nothing,                                        \
+		.alias = _alias,                                               \
+	}
 
 DEFINE_FIELD(1, "foo", "FOO");
 DEFINE_FIELD(2, "bar", "baz");
 DEFINE_FIELD(3, "abc", "xyz");
 
 static struct display_field *test_field_table[] = {
-	&field1, &field2, &field3,
+	&field1,
+	&field2,
+	&field3,
 };
 
 TEST_CASE(field_setup_default)
 {
 	LIST_HEAD(output_fields);
-	struct opts opts = { .fields = NULL, };
+	struct opts opts = {
+		.fields = NULL,
+	};
 
 	pr_dbg("calling setup_default_field\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
 	TEST_EQ(field1.used, true);
@@ -207,11 +218,13 @@ TEST_CASE(field_setup_default)
 TEST_CASE(field_setup_default_plus)
 {
 	LIST_HEAD(output_fields);
-	struct opts opts = { .fields = "+abc", };
+	struct opts opts = {
+		.fields = "+abc",
+	};
 
 	pr_dbg("add 'abc' field after the default\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
 	TEST_EQ(field1.used, true);
@@ -224,11 +237,13 @@ TEST_CASE(field_setup_default_plus)
 TEST_CASE(field_setup_list)
 {
 	LIST_HEAD(output_fields);
-	struct opts opts = { .fields = "bar,foo", };
+	struct opts opts = {
+		.fields = "bar,foo",
+	};
 
 	pr_dbg("setup fields in a given order\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field2.list);
 	TEST_EQ(field1.used, true);
@@ -241,11 +256,13 @@ TEST_CASE(field_setup_list)
 TEST_CASE(field_setup_list_alias)
 {
 	LIST_HEAD(output_fields);
-	struct opts opts = { .fields = "baz,xyz", };
+	struct opts opts = {
+		.fields = "baz,xyz",
+	};
 
 	pr_dbg("setup fields with alias name\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field2.list);
 	TEST_EQ(field1.used, false);
@@ -255,4 +272,4 @@ TEST_CASE(field_setup_list_alias)
 	return TEST_OK;
 }
 
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

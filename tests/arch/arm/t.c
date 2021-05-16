@@ -12,4 +12,3 @@ void __attribute__((noinline)) t2(void)
 {
 	tcount++;
 }
-

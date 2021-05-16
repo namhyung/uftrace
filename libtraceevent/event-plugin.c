@@ -32,21 +32,21 @@
 #define LOCAL_PLUGIN_DIR ".traceevent/plugins"
 
 static struct registered_plugin_options {
-	struct registered_plugin_options	*next;
-	struct pevent_plugin_option		*options;
-} *registered_options;
+	struct registered_plugin_options *next;
+	struct pevent_plugin_option *options;
+} * registered_options;
 
 static struct trace_plugin_options {
-	struct trace_plugin_options	*next;
-	char				*plugin;
-	char				*option;
-	char				*value;
-} *trace_plugin_options;
+	struct trace_plugin_options *next;
+	char *plugin;
+	char *option;
+	char *value;
+} * trace_plugin_options;
 
 struct plugin_list {
-	struct plugin_list	*next;
-	char			*name;
-	void			*handle;
+	struct plugin_list *next;
+	char *name;
+	void *handle;
 };
 
 /**
@@ -71,7 +71,8 @@ char **traceevent_plugin_list_options(void)
 
 	for (reg = registered_options; reg; reg = reg->next) {
 		for (op = reg->options; op->name; op++) {
-			char *alias = op->plugin_alias ? op->plugin_alias : op->file;
+			char *alias =
+				op->plugin_alias ? op->plugin_alias : op->file;
 			char **temp = list;
 
 			name = malloc(strlen(op->name) + strlen(alias) + 2);
@@ -91,7 +92,7 @@ char **traceevent_plugin_list_options(void)
 	}
 	return list;
 
- err:
+err:
 	while (--count >= 0)
 		free(list[count]);
 	free(list);
@@ -115,8 +116,7 @@ void traceevent_plugin_free_options_list(char **list)
 	free(list);
 }
 
-static int
-update_option(const char *file, struct pevent_plugin_option *option)
+static int update_option(const char *file, struct pevent_plugin_option *option)
 {
 	struct trace_plugin_options *op;
 	char *plugin;
@@ -161,7 +161,7 @@ update_option(const char *file, struct pevent_plugin_option *option)
 		break;
 	}
 
- out:
+out:
 	free(plugin);
 	return 0;
 }
@@ -222,8 +222,8 @@ void traceevent_plugin_remove_options(struct pevent_plugin_option *options)
  * returned by traceevent_load_plugins(). Use @prefix and @suffix for formating:
  * @prefix = "  ", @suffix = "\n".
  */
-void traceevent_print_plugins(struct trace_seq *s,
-			      const char *prefix, const char *suffix,
+void traceevent_print_plugins(struct trace_seq *s, const char *prefix,
+			      const char *suffix,
 			      const struct plugin_list *list)
 {
 	while (list) {
@@ -232,9 +232,8 @@ void traceevent_print_plugins(struct trace_seq *s,
 	}
 }
 
-static void
-load_plugin(struct pevent *pevent, const char *path,
-	    const char *file, void *data)
+static void load_plugin(struct pevent *pevent, const char *path,
+			const char *file, void *data)
 {
 	struct plugin_list **plugin_list = data;
 	pevent_plugin_load_func func;
@@ -255,8 +254,7 @@ load_plugin(struct pevent *pevent, const char *path,
 
 	handle = dlopen(plugin, RTLD_NOW | RTLD_GLOBAL);
 	if (!handle) {
-		warning("could not load plugin '%s'\n%s\n",
-			plugin, dlerror());
+		warning("could not load plugin '%s'\n%s\n", plugin, dlerror());
 		goto out_free;
 	}
 
@@ -286,17 +284,14 @@ load_plugin(struct pevent *pevent, const char *path,
 	func(pevent);
 	return;
 
- out_free:
+out_free:
 	free(plugin);
 }
 
 static void
-load_plugins_dir(struct pevent *pevent, const char *suffix,
-		 const char *path,
-		 void (*load_plugin)(struct pevent *pevent,
-				     const char *path,
-				     const char *name,
-				     void *data),
+load_plugins_dir(struct pevent *pevent, const char *suffix, const char *path,
+		 void (*load_plugin)(struct pevent *pevent, const char *path,
+				     const char *name, void *data),
 		 void *data)
 {
 	struct dirent *dent;
@@ -318,8 +313,7 @@ load_plugins_dir(struct pevent *pevent, const char *suffix,
 	while ((dent = readdir(dir))) {
 		const char *name = dent->d_name;
 
-		if (strcmp(name, ".") == 0 ||
-		    strcmp(name, "..") == 0)
+		if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
 			continue;
 
 		/* Only load plugins that end in suffix */
@@ -332,13 +326,11 @@ load_plugins_dir(struct pevent *pevent, const char *suffix,
 	closedir(dir);
 }
 
-static void
-load_plugins(struct pevent *pevent, const char *suffix,
-	     void (*load_plugin)(struct pevent *pevent,
-				 const char *path,
-				 const char *name,
-				 void *data),
-	     void *data)
+static void load_plugins(struct pevent *pevent, const char *suffix,
+			 void (*load_plugin)(struct pevent *pevent,
+					     const char *path, const char *name,
+					     void *data),
+			 void *data)
 {
 	char *home;
 	char *path;
@@ -347,14 +339,13 @@ load_plugins(struct pevent *pevent, const char *suffix,
 	if (pevent->flags & PEVENT_DISABLE_PLUGINS)
 		return;
 
-	/*
+		/*
 	 * If a system plugin directory was defined,
 	 * check that first.
 	 */
 #ifdef PLUGIN_DIR
 	if (!(pevent->flags & PEVENT_DISABLE_SYS_PLUGINS))
-		load_plugins_dir(pevent, suffix, PLUGIN_DIR,
-				 load_plugin, data);
+		load_plugins_dir(pevent, suffix, PLUGIN_DIR, load_plugin, data);
 #endif
 
 	/*
@@ -388,8 +379,7 @@ load_plugins(struct pevent *pevent, const char *suffix,
 	free(path);
 }
 
-struct plugin_list*
-traceevent_load_plugins(struct pevent *pevent)
+struct plugin_list *traceevent_load_plugins(struct pevent *pevent)
 {
 	struct plugin_list *list = NULL;
 
@@ -397,8 +387,8 @@ traceevent_load_plugins(struct pevent *pevent)
 	return list;
 }
 
-void
-traceevent_unload_plugins(struct plugin_list *plugin_list, struct pevent *pevent)
+void traceevent_unload_plugins(struct plugin_list *plugin_list,
+			       struct pevent *pevent)
 {
 	pevent_plugin_unload_func func;
 	struct plugin_list *list;

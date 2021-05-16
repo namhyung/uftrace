@@ -1,5 +1,5 @@
-extern char *__cxa_demangle(const char *name, char *output,
-			    long *len, int *status);
+extern char *__cxa_demangle(const char *name, char *output, long *len,
+			    int *status);
 
 int main(void)
 {
