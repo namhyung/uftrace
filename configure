@@ -138,12 +138,22 @@ bindir=${bindir:-${prefix}/bin}
 libdir=${libdir:-${prefix}/lib}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
+compldir=
 
 if [ "$etcdir" = /usr/etc ]; then
     etcdir=/etc
 fi
 if [ -n "$sysconfdir" ]; then
     etcdir=$sysconfdir
+fi
+if [ ${prefix:0:10} = /usr/local ]; then
+    if [ -d "$(pkg-config --variable=completionsdir bash-completion)" ]; then
+        compldir=$(pkg-config --variable=completionsdir bash-completion)
+    elif [ -d "$(pkg-config --variable=compatdir bash-completion)" ]; then
+        compldir=$(pkg-config --variable=compatdir bash-completion)
+    else
+        continue
+    fi
 fi
 
 CC=${CC:-${CROSS_COMPILE}gcc}
@@ -265,6 +275,7 @@ override bindir := $bindir
 override libdir := $libdir
 override mandir := $mandir
 override etcdir := $etcdir
+override compldir := $compldir
 EOF
 
 if [ ! -z $with_elfutils ]; then

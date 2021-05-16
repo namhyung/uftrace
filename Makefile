@@ -322,7 +322,6 @@ $(objdir)/misc/dbginfo: $(DBGINFO_OBJS)
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(etcdir)/bash_completion.d
 ifneq ($(wildcard $(elfdir)/lib/libelf.so),)
 ifeq ($(wildcard $(prefix)/lib/libelf.so),)
 	# install libelf only when it's not in the install directory.
@@ -338,8 +337,10 @@ endif
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+ifneq ($(compldir),)
 	$(call QUIET_INSTALL, bash-completion)
-	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
+	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(compldir)/uftrace
+endif
 	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
@@ -356,8 +357,10 @@ uninstall:
 	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-single.so
 	$(call QUIET_UNINSTALL, libmcount-fast-single)
 	$(Q)$(RM) $(DESTDIR)$(libdir)/libmcount-fast-single.so
+ifneq ($(compldir),)
 	$(call QUIET_UNINSTALL, bash-completion)
-	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
+	$(Q)$(RM) $(DESTDIR)$(compldir)/uftrace
+endif
 	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
