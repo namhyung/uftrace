@@ -20,6 +20,12 @@ class TestCase(TestBase):
    3.623 us [13348] | } /* main */
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        if self.supported_lang['C']['cc'] == 'clang':
+            # clang doesn't allow nested function.
+            return TestBase.TEST_SKIP
+        return TestBase.build(self, name, cflags, ldflags)
+
     def sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """

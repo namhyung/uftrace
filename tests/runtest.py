@@ -432,6 +432,9 @@ class TestBase:
 
         return False
 
+    def get_machine(self):
+        return os.uname()[4]
+
     def get_elf_machine(self):
         EI_NIDENT = 16
 
@@ -846,4 +849,5 @@ if __name__ == "__main__":
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    print_test_report(color, shared)
+    if shared.total >= 30:
+        print_test_report(color, shared)
