@@ -560,6 +560,8 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	}
 	else if (elf->ehdr.e_machine == EM_AARCH64) {
 		plt_addr += 16;    /* AARCH64 PLT0 size is 32 */
+		if (plt_entsize == 0)
+			plt_entsize = 16;
 	}
 	else if (elf->ehdr.e_machine == EM_386) {
 		plt_entsize += 12;
