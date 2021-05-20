@@ -1425,7 +1425,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 	}
 
 perf:
-	if (!has_perf_data(handle) || uftrace_done)
+	if (opts->no_event || !has_perf_data(handle) || uftrace_done)
 		goto footer;
 
 	for (i = 0; i < handle->nr_perf; i++) {
@@ -1436,14 +1436,17 @@ perf:
 		while (!uftrace_done) {
 			struct uftrace_record *rec;
 
+			/* for re-read perf data from file */
+			perf->valid = false;
+
 			rec = get_perf_record(handle, perf);
 			if (rec == NULL)
 				break;
 
-			call_if_nonull(ops->perf_event, ops, perf, rec);
+			if (opts->no_sched && is_sched_event(rec->addr))
+				continue;
 
-			/* for re-read perf data from file */
-			perf->valid = false;
+			call_if_nonull(ops->perf_event, ops, perf, rec);
 		}
 	}
 

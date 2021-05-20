@@ -166,6 +166,8 @@ bool fstack_check_filter(struct uftrace_task_reader *task);
 bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
 void fstack_check_filter_done(struct uftrace_task_reader *task);
 
+bool is_sched_event(uint64_t addr);
+
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
 			enum argspec_string_bits str_mode);

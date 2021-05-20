@@ -39,6 +39,7 @@ static void reset_live_opts(struct opts *opts)
 	opts->depth	= MCOUNT_DEFAULT_DEPTH;
 	opts->disabled	= false;
 	opts->no_event  = false;
+	opts->no_sched  = false;
 }
 
 static void sigsegv_handler(int sig)

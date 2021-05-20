@@ -269,6 +269,7 @@ struct opts {
 	bool list_event;
 	bool event_skip_out;
 	bool no_event;
+	bool no_sched;
 	bool nest_libcall;
 	bool record;
 	bool auto_args;

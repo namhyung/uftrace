@@ -62,7 +62,11 @@ COMMON OPTIONS
 :   Do not show library calls.
 
 \--no-event
-:   Do not show any events.
+:   Do not show any events.  Implies `--no-sched`.
+
+\--no-sched
+:   Do not show schedule events.
+
 
 \--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.

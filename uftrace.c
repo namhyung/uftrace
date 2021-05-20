@@ -98,6 +98,7 @@ enum options {
 	OPT_match_type,
 	OPT_no_randomize_addr,
 	OPT_no_event,
+	OPT_no_sched,
 	OPT_signal,
 	OPT_srcline,
 	OPT_usage,
@@ -165,6 +166,7 @@ __used static const char uftrace_help[] =
 	stringify(OPT_RSTACK_MAX) ")\n"
 "      --no-comment           Don't show comments of returned functions\n"
 "      --no-event             Disable (default) events\n"
+"      --no-sched             Disable schedule events\n"
 "      --no-libcall           Don't trace library function calls\n"
 "      --no-merge             Don't merge leaf functions\n"
 "      --no-pager             Do not use pager\n"
@@ -279,6 +281,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(time-range, 'r'),
 	REQ_ARG(Event, 'E'),
 	NO_ARG(no-event, OPT_no_event),
+	NO_ARG(no-sched, OPT_no_sched),
 	NO_ARG(list-event, OPT_list_event),
 	REQ_ARG(run-cmd, OPT_run_cmd),
 	REQ_ARG(opt-file, OPT_opt_file),
@@ -538,6 +541,11 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'C':
 		opts->caller = opt_add_string(opts->caller, arg);
+		/*
+		 * caller filter focuses onto a given function,
+		 * displaying sched event with it is annoying.
+		 */
+		opts->no_sched = true;
 		break;
 
 	case 'H':
@@ -924,6 +932,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_no_event:
 		opts->no_event = true;
+		break;
+
+	case OPT_no_sched:
+		opts->no_sched = true;
 		break;
 
 	case OPT_signal:
