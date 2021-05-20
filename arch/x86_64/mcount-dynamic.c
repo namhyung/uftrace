@@ -574,6 +574,7 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 			xrmap->function += offset;
 		}
 	}
+
 }
 
 static void read_mcount_loc(struct arch_dynamic_info *adi,
@@ -703,68 +704,130 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return INSTRUMENT_SUCCESS;
 }
 
-static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
+static uint8_t xray_unpatched_entry[2] = {
+	/* 2-bytes relative jump */
+	0xeb, 0x09,
+};
+
+static uint8_t xray_unpatched_exit[1] = {
+	/* 1-byte procedure return */
+	0xc3,
+};
+
+static int enable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *sym,
 			    struct xray_instr_map *xrmap)
 {
-	unsigned char entry_insn[] = { 0xeb, 0x09 };
-	unsigned char exit_insn[]  = { 0xc3, 0x2e };
-	unsigned char pad[] = { 0x66, 0x0f, 0x1f, 0x84, 0x00,
-				0x00, 0x02, 0x00, 0x00 };
-	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char nop4[] = { 0x0f, 0x1f, 0x40, 0x00 };
-	unsigned int target_addr;
-	unsigned char *func = (void *)xrmap->address;
-	union {
-		unsigned long word;
-		char bytes[8];
-	} patch;
+	uint32_t target_addr;
+	uint8_t *func = (void *)xrmap->address;
 
-	if (memcmp(func + 2, pad, sizeof(pad)))
-		return INSTRUMENT_FAILED;
+	uint8_t patch[11] = {
+		/* 4-bytes call/jump instruction opcode */
+		(xrmap->kind == 0) ? 0xe8 : 0xe9,
+
+		/* 4-bytes call/jump target address */
+		0x00, 0x00, 0x00, 0x00,
+
+		/* 6-bytes NOP */
+		0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00,
+	};
 
 	if (xrmap->kind == 0) {  /* ENTRY */
-		if (memcmp(func, entry_insn, sizeof(entry_insn)))
+		if (memcmp(func, xray_unpatched_entry, sizeof(xray_unpatched_entry)))
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline - (xrmap->address + 5);
+		memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-		memcpy(func + 5, nop6, sizeof(nop6));
+		/* write the 9 last bytes */
+		memcpy(&func[2], &patch[2], sizeof(patch) - 2);
 
-		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe8;  /* "call" insn */
-		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
-		memcpy(&patch.bytes[5], nop6, 3);
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
 
-		memcpy(func, patch.bytes, sizeof(patch));
+		/* atomically replace 2-bytes jump with our call */
+		__atomic_store((uint16_t*)func, (uint16_t*)patch, __ATOMIC_SEQ_CST);
 	}
 	else {  /* EXIT */
-		if (memcmp(func, exit_insn, sizeof(exit_insn)))
+		if (memcmp(func, xray_unpatched_exit, sizeof(xray_unpatched_exit)))
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline + 16 - (xrmap->address + 5);
+		memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-		memcpy(func + 5, nop4, sizeof(nop4));
+		/* write the 10 last bytes */
+		memcpy(&func[1], &patch[1], sizeof(patch) - 1);
 
-		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe9;  /* "jmp" insn */
-		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
-		memcpy(&patch.bytes[5], nop4, 3);
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
 
-		memcpy(func, patch.bytes, sizeof(patch));
+		/* atomically replace 1-byte ret with our jump */
+		__atomic_store((uint8_t*)func, (uint8_t*)patch, __ATOMIC_SEQ_CST);
 	}
 
-	pr_dbg3("update function '%s' dynamically to call xray functions\n",
-		sym->name);
+	pr_dbg3("dynamically enabled '%s' xray tracepoints\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
-static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int disable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *sym,
+			    struct xray_instr_map *xrmap)
+{
+	uint8_t expected_entry_byte = 0xe8;
+	uint8_t expected_exit_byte  = 0xe9;
+	uint8_t expected_nop[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	uint8_t *func = (void *)xrmap->address;
+
+	if (memcmp(&func[5], expected_nop, sizeof(expected_nop)))
+		return INSTRUMENT_FAILED;
+
+	if (xrmap->kind == 0) {  /* ENTRY */
+		if (func[0] != expected_entry_byte)
+			return INSTRUMENT_FAILED;
+
+		/* atomically replace our call with 2-bytes jump */
+		__atomic_store((uint16_t*)func, (uint16_t*)xray_unpatched_entry, __ATOMIC_SEQ_CST);
+
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
+	}
+	else {  /* EXIT */
+		if (func[0] != expected_exit_byte)
+			return INSTRUMENT_FAILED;
+
+		/* atomically replace our jump with a 1-byte ret */
+		__atomic_store((uint8_t*)func, (uint8_t*)xray_unpatched_exit, __ATOMIC_SEQ_CST);
+
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
+	}
+
+	/*
+	 * We do not rewrite the last 9 or 10 original bytes because it creates a race condition
+	 * where a thread may try to execute an invalid instruction. Not replacing these original
+	 * bytes simplify the cross-thread modifications of the code, plus we don't really need
+	 * to do it.
+	 */
+
+	pr_dbg3("dynamically disabled '%s' xray tracepoints\n", sym->name);
+	return INSTRUMENT_SUCCESS;
+}
+
+static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym, bool enable)
 {
 	unsigned i;
 	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
 	uint64_t sym_addr = sym->addr + mdi->map->start;
+
+	xray_lock_patching_write();
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < adi->xrmap_count; i++) {
@@ -773,7 +836,12 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
 
-		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
+		do {
+			if (enable)
+				ret = enable_xray_tracepoint(mdi, sym, xrmap);
+			else
+				ret = disable_xray_tracepoint(mdi, sym, xrmap);
+
 			if (i == adi->xrmap_count - 1)
 				break;
 			i++;
@@ -781,10 +849,12 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 			if (xrmap->function != xrmap[1].function)
 				break;
 			xrmap++;
-		}
+		} while (ret == 0);
 
 		break;
 	}
+
+	xray_unlock_patching();
 
 	return ret;
 }
@@ -1150,7 +1220,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	switch (adi->type) {
 	case DYNAMIC_XRAY:
-		result = patch_xray_func(mdi, sym);
+		result = patch_xray_func(mdi, sym, true);
 		break;
 
 	case DYNAMIC_FENTRY_NOP:
@@ -1174,6 +1244,10 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	int result = INSTRUMENT_SKIPPED;
 
 	switch (adi->type) {
+	case DYNAMIC_XRAY:
+		result = patch_xray_func(mdi, sym, false);
+		break;
+
 	case DYNAMIC_FENTRY:
 		result = unpatch_fentry_func(mdi, sym);
 		break;
