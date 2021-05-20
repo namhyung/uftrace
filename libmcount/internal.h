@@ -538,4 +538,8 @@ int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
 void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id);
 void finish_pmu_event(struct mcount_thread_data *mtdp);
 
+int xray_lock_patching_write(void);
+int xray_lock_patching_read(void);
+int xray_unlock_patching(void);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

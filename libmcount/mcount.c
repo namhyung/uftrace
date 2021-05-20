@@ -1851,6 +1851,48 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	errno = saved_errno;
 }
 
+static pthread_rwlock_t xray_patching_rwlock;
+
+int xray_lock_patching_write(void) {
+	int status = pthread_rwlock_wrlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_wrlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_lock_patching_read(void) {
+	int status = pthread_rwlock_rdlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_rdlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_unlock_patching(void) {
+	int status = pthread_rwlock_unlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_unlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_init(void) {
+	int status = pthread_rwlock_init(&xray_patching_rwlock, NULL);
+	if (status != 0) {
+		pr_err("pthread_rwlock_init: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
 static void _xray_entry(unsigned long parent, unsigned long child,
 			struct mcount_regs *regs)
 {
@@ -1872,6 +1914,8 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 		if (!mcount_guard_recursion(mtdp))
 			return;
 	}
+
+	xray_lock_patching_read();
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
@@ -1918,6 +1962,8 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
+
+	xray_unlock_patching();
 }
 
 void xray_entry(unsigned long parent, unsigned long child,
@@ -1941,6 +1987,8 @@ static void _xray_exit(long *retval)
 	if (!mcount_guard_recursion(mtdp))
 		return;
 
+	xray_lock_patching_read();
+
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
 	 * It cannot use mcount_check_rstack() here
@@ -1962,6 +2010,8 @@ out:
 	compiler_barrier();
 
 	mtdp->idx--;
+
+	xray_unlock_patching();
 }
 
 void xray_exit(long *retval)
@@ -2095,6 +2145,8 @@ static __used void mcount_startup(void)
 	pattern_str = getenv("UFTRACE_PATTERN");
 
 	page_size_in_kb = getpagesize() / KB;
+
+	xray_init();
 
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
