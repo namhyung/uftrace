@@ -1,3 +1,35 @@
+uftrace v0.10
+=============
+* new options
+  --estimate-return to avoid return address hooking
+  -H/--hide to not display unwanted symbols
+  --no-sched to suppress scheduler events
+  --srcline supports report/replay/graph (by Eunseon)
+
+* dynamic tracing update (mostly by Hanbum)
+  convert to hash map to find saved code
+  it can trace functions in libraries loaded by dlopen()
+  support patching MOV instruction in x86
+
+* other changes
+  convert from argparse to getopt_long
+  check binary build-id (for binaries have same name)
+  struct argument/return value (pass-by-value) support
+  support customizing output fields in TUI graph (by Sangwon)
+
+* bug fixes
+  fix floating-point register access on AArch64
+  fix issues with Intel CET technology on x86
+  handle zero PLT entry size on AArch64
+  fix crash when C++ object is passed indirectly
+
+And many other fixes and improvements.  Thanks all contributors:
+  Anas Blaboul, Daniel T. Lee, Dohyung Kim, Eunseon Lee,
+  Hanbum Park, Honggyu Kim, Kang Minchul, Lei Maohui,
+  Nathan Lanza, Sang-Heon Jeon, Sangwon Hong, SeokHoon Yoon,
+  Sungho Bae, Tim Gates
+
+
 uftrace v0.9.4
 --------------
 * dynamic tracing update
