@@ -36,45 +36,45 @@ static bool python_error_reported = false;
 /* whether script_init() was done successfully */
 static bool python_initialized;
 
-static PyAPI_FUNC(void) (*__Py_Initialize)(void);
-static PyAPI_FUNC(void) (*__Py_Finalize)(void);
-static PyAPI_FUNC(void) (*__PySys_SetPath)(char *);
-static PyAPI_FUNC(PyObject *) (*__PyImport_Import)(PyObject *name);
+static void (*__Py_Initialize)(void);
+static void (*__Py_Finalize)(void);
+static void (*__PySys_SetPath)(char *);
+static PyObject * (*__PyImport_Import)(PyObject *name);
 
-static PyAPI_FUNC(PyObject *) (*__PyErr_Occurred)(void);
-static PyAPI_FUNC(void) (*__PyErr_Print)(void);
-static PyAPI_FUNC(void) (*__PyErr_Clear)(void);
+static PyObject * (*__PyErr_Occurred)(void);
+static void (*__PyErr_Print)(void);
+static void (*__PyErr_Clear)(void);
 
-static PyAPI_FUNC(int) (*__PyObject_HasAttrString)(PyObject *, const char *);
-static PyAPI_FUNC(PyObject *) (*__PyObject_GetAttrString)(PyObject *, const char *);
-static PyAPI_FUNC(int) (*__PyCallable_Check)(PyObject *);
-static PyAPI_FUNC(PyObject *) (*__PyObject_CallObject)(PyObject *callable_object, PyObject *args);
-static PyAPI_FUNC(int) (*__PyRun_SimpleStringFlags)(const char *, PyCompilerFlags *);
+static int (*__PyObject_HasAttrString)(PyObject *, const char *);
+static PyObject * (*__PyObject_GetAttrString)(PyObject *, const char *);
+static int (*__PyCallable_Check)(PyObject *);
+static PyObject * (*__PyObject_CallObject)(PyObject *callable_object, PyObject *args);
+static int (*__PyRun_SimpleStringFlags)(const char *, PyCompilerFlags *);
 
-static PyAPI_FUNC(PyObject *) (*__PyString_FromString)(const char *);
-static PyAPI_FUNC(PyObject *) (*__PyInt_FromLong)(long);
-static PyAPI_FUNC(PyObject *) (*__PyLong_FromLong)(long);
-static PyAPI_FUNC(PyObject *) (*__PyLong_FromUnsignedLongLong)(unsigned PY_LONG_LONG);
-static PyAPI_FUNC(PyObject *) (*__PyFloat_FromDouble)(double);
-static PyAPI_FUNC(PyObject *) (*__PyBool_FromLong)(long);
+static PyObject * (*__PyString_FromString)(const char *);
+static PyObject * (*__PyInt_FromLong)(long);
+static PyObject * (*__PyLong_FromLong)(long);
+static PyObject * (*__PyLong_FromUnsignedLongLong)(unsigned PY_LONG_LONG);
+static PyObject * (*__PyFloat_FromDouble)(double);
+static PyObject * (*__PyBool_FromLong)(long);
 
-static PyAPI_FUNC(char *) (*__PyString_AsString)(PyObject *);
-static PyAPI_FUNC(long) (*__PyLong_AsLong)(PyObject *);
+static char * (*__PyString_AsString)(PyObject *);
+static long (*__PyLong_AsLong)(PyObject *);
 
-static PyAPI_FUNC(PyObject *) (*__PyTuple_New)(Py_ssize_t size);
-static PyAPI_FUNC(int) (*__PyTuple_SetItem)(PyObject *, Py_ssize_t, PyObject *);
-static PyAPI_FUNC(PyObject *) (*__PyTuple_GetItem)(PyObject *, Py_ssize_t);
+static PyObject * (*__PyTuple_New)(Py_ssize_t size);
+static int (*__PyTuple_SetItem)(PyObject *, Py_ssize_t, PyObject *);
+static PyObject * (*__PyTuple_GetItem)(PyObject *, Py_ssize_t);
 
-static PyAPI_FUNC(Py_ssize_t) (*__PyList_Size)(PyObject *);
-static PyAPI_FUNC(PyObject *) (*__PyList_GetItem)(PyObject *, Py_ssize_t);
+static Py_ssize_t (*__PyList_Size)(PyObject *);
+static PyObject * (*__PyList_GetItem)(PyObject *, Py_ssize_t);
 
-static PyAPI_FUNC(PyObject *) (*__PyDict_New)(void);
-static PyAPI_FUNC(int) (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject *item);
-static PyAPI_FUNC(int) (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
-static PyAPI_FUNC(PyObject *) (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
+static PyObject * (*__PyDict_New)(void);
+static int (*__PyDict_SetItem)(PyObject *mp, PyObject *key, PyObject *item);
+static int (*__PyDict_SetItemString)(PyObject *dp, const char *key, PyObject *item);
+static PyObject * (*__PyDict_GetItem)(PyObject *mp, PyObject *key);
 
 /* for python3.8+ compatibility */
-static PyAPI_FUNC(void) (*__Py_Dealloc)(PyObject *);
+static void (*__Py_Dealloc)(PyObject *);
 
 #if PY_VERSION_HEX >= 0x03080000
 
