@@ -24,10 +24,12 @@ extern void __xray_entry(void);
 extern void __xray_exit(void);
 
 struct xray_instr_map {
-	unsigned long addr;
-	unsigned long entry;
-	unsigned long type;
-	unsigned long count;
+	uint64_t address;
+	uint64_t function;
+	uint8_t kind;
+	uint8_t always_instrument;
+	uint8_t version;
+	uint8_t padding[13];
 };
 
 enum mcount_x86_dynamic_type {
@@ -133,6 +135,8 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 			  struct uftrace_elf_iter *iter,
 			  unsigned long offset)
 {
+	struct xray_instr_map *xrmap;
+	unsigned i;
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
 	adi->xrmap_count = shdr->sh_size / sizeof(*adi->xrmap);
@@ -141,16 +145,16 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 	elf_get_secdata(elf, iter);
 	elf_read_secdata(elf, iter, 0, adi->xrmap, shdr->sh_size);
 
-	/* handle position independent code */
-	if (elf->ehdr.e_type == ET_DYN) {
-		struct xray_instr_map *xrmap;
-		unsigned i;
+	for (i = 0; i < adi->xrmap_count; i++) {
+		xrmap = &adi->xrmap[i];
 
-		for (i = 0; i < adi->xrmap_count; i++) {
-			xrmap = &adi->xrmap[i];
-
-			xrmap->addr  += offset;
-			xrmap->entry += offset;
+		if (xrmap->version == 2) {
+			xrmap->address += offset + (shdr->sh_offset + i * sizeof(*xrmap));
+			xrmap->function += offset + (shdr->sh_offset + i * sizeof(*xrmap) + 8);
+		}
+		else if (elf->ehdr.e_type == ET_DYN) {
+			xrmap->address += offset;
+			xrmap->function += offset;
 		}
 	}
 }
@@ -292,7 +296,7 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
 	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char nop4[] = { 0x0f, 0x1f, 0x40, 0x00 };
 	unsigned int target_addr;
-	unsigned char *func = (void *)xrmap->addr;
+	unsigned char *func = (void *)xrmap->address;
 	union {
 		unsigned long word;
 		char bytes[8];
@@ -301,11 +305,11 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if (memcmp(func + 2, pad, sizeof(pad)))
 		return INSTRUMENT_FAILED;
 
-	if (xrmap->type == 0) {  /* ENTRY */
+	if (xrmap->kind == 0) {  /* ENTRY */
 		if (memcmp(func, entry_insn, sizeof(entry_insn)))
 			return INSTRUMENT_FAILED;
 
-		target_addr = mdi->trampoline - (xrmap->addr + 5);
+		target_addr = mdi->trampoline - (xrmap->address + 5);
 
 		memcpy(func + 5, nop6, sizeof(nop6));
 
@@ -320,7 +324,7 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
 		if (memcmp(func, exit_insn, sizeof(exit_insn)))
 			return INSTRUMENT_FAILED;
 
-		target_addr = mdi->trampoline + 16 - (xrmap->addr + 5);
+		target_addr = mdi->trampoline + 16 - (xrmap->address + 5);
 
 		memcpy(func + 5, nop4, sizeof(nop4));
 
@@ -349,7 +353,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	for (i = 0; i < adi->xrmap_count; i++) {
 		xrmap = &adi->xrmap[i];
 
-		if (xrmap->addr < sym_addr || xrmap->addr >= sym_addr + sym->size)
+		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
 
 		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
@@ -357,7 +361,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 				break;
 			i++;
 
-			if (xrmap->entry != xrmap[1].entry)
+			if (xrmap->function != xrmap[1].function)
 				break;
 			xrmap++;
 		}
