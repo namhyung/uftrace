@@ -454,7 +454,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 	char *name;
 	int j;
 	struct patt_list *pl;
-	bool all_negative = true;
 
 	strv_split(&funcs, patch_funcs, ";");
 
@@ -467,7 +466,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 			name++;
 		else {
 			pl->positive = true;
-			all_negative = false;
 		}
 
 		delim = strchr(name, '@');
@@ -481,20 +479,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 
 		init_filter_pattern(ptype, &pl->patt, name);
 		list_add_tail(&pl->list, &patterns);
-	}
-
-	/* prepend match-all pattern, if all patterns are negative */
-	if (all_negative) {
-		pl = xzalloc(sizeof(*pl));
-		pl->positive = true;
-		pl->module = xstrdup(def_mod);
-
-		if (ptype == PATT_REGEX)
-			init_filter_pattern(ptype, &pl->patt, ".");
-		else
-			init_filter_pattern(PATT_GLOB, &pl->patt, "*");
-
-		list_add(&pl->list, &patterns);
 	}
 
 	strv_free(&funcs);
