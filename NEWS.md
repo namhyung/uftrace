@@ -1,29 +1,35 @@
 uftrace v0.10
 =============
-* new options
-  --estimate-return to avoid return address hooking
-  -H/--hide to not display unwanted symbols
-  --no-sched to suppress scheduler events
-  --srcline supports report/replay/graph (by Eunseon)
+new options
+-----------
+* --estimate-return to avoid return address hooking [#1097](https://github.com/namhyung/uftrace/pull/1097)
+* -H/--hide to not display unwanted symbols [#1217](https://github.com/namhyung/uftrace/pull/1217)
+* --no-sched to suppress scheduler events [#1245](https://github.com/namhyung/uftrace/pull/1245)
+* --srcline supports report/replay/graph (by Eunseon) [#1133](https://github.com/namhyung/uftrace/pull/1133), [#1165](https://github.com/namhyung/uftrace/pull/1165), [#1175](https://github.com/namhyung/uftrace/pull/1175)
 
-* dynamic tracing update (mostly by Hanbum)
-  convert to hash map to find saved code
-  it can trace functions in libraries loaded by dlopen()
-  support patching MOV instruction in x86
+dynamic tracing update (mostly by Hanbum)
+-----------------------------------------
+* convert to hash map to find saved code [#1051](https://github.com/namhyung/uftrace/pull/1051)
+* it can trace functions in libraries loaded by dlopen() [#1059](https://github.com/namhyung/uftrace/pull/1059)
+* support patching MOV instruction in x86 [#1047](https://github.com/namhyung/uftrace/pull/1047)
 
-* other changes
-  convert from argparse to getopt_long
-  check binary build-id (for binaries have same name)
-  struct argument/return value (pass-by-value) support
-  support customizing output fields in TUI graph (by Sangwon)
+other changes
+-------------
+* convert from argparse to getopt_long [#871](https://github.com/namhyung/uftrace/issues/871)
+* check binary build-id (for binaries have same name) [#1186](https://github.com/namhyung/uftrace/issues/1186)
+* struct argument/return value (pass-by-value) support [#650](https://github.com/namhyung/uftrace/issues/650)
+* support customizing output fields in TUI graph (by Sangwon) [#1240](https://github.com/namhyung/uftrace/pull/1240)
 
-* bug fixes
-  fix floating-point register access on AArch64
-  fix issues with Intel CET technology on x86
-  handle zero PLT entry size on AArch64
-  fix crash when C++ object is passed indirectly
+bug fixes
+---------
+* fix floating-point register access on ARM [#1088](https://github.com/namhyung/uftrace/issues/1088), [#1135](https://github.com/namhyung/uftrace/pull/1135)
+* fix floating-point register access on AArch64 [#1122](https://github.com/namhyung/uftrace/pull/1122)
+* fix issues with Intel CET technology on x86 [#738](https://github.com/namhyung/uftrace/issues/738)
+* handle zero PLT entry size on AArch64 [#1254](https://github.com/namhyung/uftrace/issues/1254), [#1256](https://github.com/namhyung/uftrace/pull/1256)
+* fix crash when C++ object is passed indirectly [#1219](https://github.com/namhyung/uftrace/issues/1219)
 
-And many other fixes and improvements.  Thanks all contributors:
+And many other fixes and improvements.  Thanks to all contributors:
+
   Anas Blaboul, Daniel T. Lee, Dohyung Kim, Eunseon Lee,
   Hanbum Park, Honggyu Kim, Kang Minchul, Lei Maohui,
   Nathan Lanza, Sang-Heon Jeon, Sangwon Hong, SeokHoon Yoon,
@@ -31,31 +37,37 @@ And many other fixes and improvements.  Thanks all contributors:
 
 
 uftrace v0.9.4
---------------
-* dynamic tracing update
-  improve success rate on x86_64
-  dynamic unpatch on x86_64 (for -mfentry or -mrecord-mcount)
-  add -U/--unpatch option for dynamic tracing
-  experimental support for aarch64
+==============
+dynamic tracing update
+----------------------
+* improve success rate on x86_64
+* dynamic unpatch on x86_64 (for -mfentry or -mrecord-mcount)
+* add -U/--unpatch option for dynamic tracing
+* experimental support for aarch64
 
-* script update
-  luaJIT (lua 5.1) support by Byeonggon
-  python3 support
+script update
+-------------
+* luaJIT (lua 5.1) support by Byeonggon
+* python3 support
 
-* build change
-  update configure script for better compatibility
-  handle common cross compile settings
+build change
+------------
+* update configure script for better compatibility
+* handle common cross compile settings
 
-* tui change
-  add 's' key to sort column in tui report mode by Hyoungjong
-  use --report option to start tui with report mode
+tui change
+----------
+* add 's' key to sort column in tui report mode by Hyoungjong
+* use --report option to start tui with report mode
   
-* other changes
-  task level analysis for graph and info command
-  add Korean documentation
-  a lot of memory leak fixes
+other changes
+-------------
+* task level analysis for graph and info command
+* add Korean documentation
+* a lot of memory leak fixes
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Anas Balboul, Byeonggon Lee, Colin Lord, George Karlos, GwanYeong Kim,
   Haeun Jeon, Hanbum Park, Handong Choi, Honggyu Kim, Hyoungjong Kim,
   Jeesoo Min, Joonho Ryu, Jungkeun Cho, Jungwoo Jo, Junil Kim,
@@ -64,286 +76,340 @@ And many bug fixes and improvements.  Thanks for all contributors:
 
 
 uftrace v0.9.3
---------------
-* dynamic tracing update
-  add (optional) dependency of capstone disassembly engine
-  support tracing executables w/o instrumentation on x86_64
-  add -Z/--size-filter option not to select small functions
+==============
+dynamic tracing update
+----------------------
+* add (optional) dependency of capstone disassembly engine
+* support tracing executables w/o instrumentation on x86_64
+* add -Z/--size-filter option not to select small functions
 
-* external event support
-  support display user-defined events in uftrace.data/extern.dat
-  it's a text file which has timestamp and message for each line
+external event support
+----------------------
+* support display user-defined events in uftrace.data/extern.dat
+* it's a text file which has timestamp and message for each line
 
-* other changes
-  allow tracing (system) binaries in the PATH
-  add --srcline option to save debug info only if necessary
-  apply --time-filter for analysis commands by default
-  allow tracing execution of shell (interpreter)
+other changes
+-------------
+* allow tracing (system) binaries in the PATH
+* add --srcline option to save debug info only if necessary
+* apply --time-filter for analysis commands by default
+* allow tracing execution of shell (interpreter)
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Daniel T. Lee, Hanbum Park, Honggyu Kim, Taeung Song
 
 
 uftrace v0.9.2
+==============
+trigger update
 --------------
-* trigger update
-  add --signal option to support trigger by signal
+* add --signal option to support trigger by signal
 
-* TUI update
-  add C/E key to collapse/expand all child nodes
-  make R/r key to go to report window separately
-  add z key to align screen to center
+TUI update
+----------
+* add C/E key to collapse/expand all child nodes
+* make R/r key to go to report window separately
+* add z key to align screen to center
 
-* other changes
-  display data symbols in argument/return value
-  trace library calls even without PLT
-  add -l short option for --nest-libcall
-  rudimentary support for Rust programs
+other changes
+-------------
+* display data symbols in argument/return value
+* trace library calls even without PLT
+* add -l short option for --nest-libcall
+* rudimentary support for Rust programs
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Anas Balboul, Claudia J. Kang, Daniel T. Lee, Honggyu Kim
 
 
 uftrace v0.9.1
+==============
+filter update
+-------------
+* add --caller-filter option
+
+script changes
 --------------
-* filter update
-  add --caller-filter option
+* rename context in uftrace_begin: "args" -> "cmds"
+* rename context in uftrace_begin: "recording" -> "record"
 
-* script changes
-  rename context in uftrace_begin: "args" -> "cmds"
-  rename context in uftrace_begin: "recording" -> "record"
+other changes
+-------------
+* add --watch option to trace cpu task is running
+* add --graphviz option to produce output in DOT format
+* filter 'do_syscall_64' kernel function by default
 
-* other changes
-  add --watch option to trace cpu task is running
-  add --graphviz option to produce output in DOT format
-  filter 'do_syscall_64' kernel function by default
+And many bug fixes and improvements.  Thanks to all contributors:
 
-And many bug fixes and improvements.  Thanks for all contributors:
   Ahn Seung-rye, Claudia J. Kang, Daniel T. Lee, GwanYeong Kim,
   Hanbum Park, Honggyu Kim, Leah Neukirchen, Rikard Falkeborn
 
 
 uftrace v0.9
 ============
-* argument update
-  automatic argument using DWARF debug info
-  display enum constants properly
-  add -a short option for --auto-args
+argument update
+---------------
+* automatic argument using DWARF debug info
+* display enum constants properly
+* add -a short option for --auto-args
 
-* TUI implementation
-  graph, report and info commands using ncurses
-  redraw graph for a selected function
-  fold/unfold and search nodes in graph
+TUI implementation
+------------------
+* graph, report and info commands using ncurses
+* redraw graph for a selected function
+* fold/unfold and search nodes in graph
 
-* build changes
-  configure script shows status of dependencies
-  add --without-XXX option to the configure script
-  allow build without libelf
+build changes
+-------------
+* configure script shows status of dependencies
+* add --without-XXX option to the configure script
+* allow build without libelf
 
-* filter changes
-  add --match option to select pattern matching method: regex or glob
-  add --no-event option to disable default events
-  apply recover trigger for every function automatically
+filter changes
+--------------
+* add --match option to select pattern matching method: regex or glob
+* add --no-event option to disable default events
+* apply recover trigger for every function automatically
 
-* other changes
-  pass runtime info to script
-  add -h short option for help message
-  add --no-randomize-addr option to disable ASLR
-  enable task scheduling events by default
-  use gray color for comments and green for events
-  add basic gdb (python) script to help debugging
-  add misc/symbols tool to show symbol name from address
+other changes
+-------------
+* pass runtime info to script
+* add -h short option for help message
+* add --no-randomize-addr option to disable ASLR
+* enable task scheduling events by default
+* use gray color for comments and green for events
+* add basic gdb (python) script to help debugging
+* add misc/symbols tool to show symbol name from address
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   GwanYeong Kim, Hanbum Park, Honggyu Kim, Taeguk Kwon, Taeung Song,
   Khem Raj
 
 
 uftrace v0.8.3
+==============
+i386 arch support (by Hanbum Park):
+-----------------------------------
+* support arguments and dynamic tracing
+
+graph update (by Honggyu Kim):
+------------------------------
+* add -f/--output-fields option to control output
+* share common code/behavior with replay command
+
+event update:
+-------------
+* add task events (fork/comm/exit) using Linux perf subsystem
+* enable task events always if supported
+
+trigger change:
+---------------
+* change 'read' trigger action to read events twice (at entry and exit)
+* support some pmu-related events using read trigger (with perf syscall)
+* allow 'd' format specifier for default behavior with different size
+
+other changes:
 --------------
-* i386 arch support (by Hanbum Park):
-  support arguments and dynamic tracing
+* add misc/demangler to test demangling easily
+* add --libname option to show library names for PLT functions
 
-* graph update (by Honggyu Kim):
-  add -f/--output-fields option to control output
-  share common code/behavior with replay command
+And many bug fixes and improvements.  Thanks to all contributors:
 
-* event update:
-  add task events (fork/comm/exit) using Linux perf subsystem
-  enable task events always if supported
-
-* trigger change:
-  change 'read' trigger action to read events twice (at entry and exit)
-  support some pmu-related events using read trigger (with perf syscall)
-  allow 'd' format specifier for default behavior with different size
-
-* other changes:
-  add misc/demangler to test demangling easily
-  add --libname option to show library names for PLT functions
-
-And many bug fixes and improvements.  Thanks for all contributors:
   Hanbum Park, Honggyu Kim, Taeung Song
 
 
 uftrace v0.8.2
+==============
+trigger update
 --------------
-* trigger update
-  add 'p' format for function pointer
-  add --auto-args option for automatic argument/return value
-  support enum type for auto-args
+* add 'p' format for function pointer
+* add --auto-args option for automatic argument/return value
+* support enum type for auto-args
 
-* diff change
-  add 'compact' policy and make it default
-  old behavior is supported on 'full' policy
+diff change
+-----------
+* add 'compact' policy and make it default
+* old behavior is supported on 'full' policy
 
-* graph change
-  show full graph when no function given
-  support fork+exec properly
+graph change
+------------
+* show full graph when no function given
+* support fork+exec properly
 
-* script change
-  flush stdout buffer before fork
-  serialize execution using a mutex
+script change
+-------------
+* flush stdout buffer before fork
+* serialize execution using a mutex
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Andrew Slough, Hansuk Hong, Hanbum Park, Honggyu Kim, JangSoJin,
   Myungjin Ko, MyungSik Ji, Sangwon Hong, Taeung Song,
   Vincent LE GARREC, Yujeong Kim
 
 
 uftrace v0.8.1
+==============
+trigger update
 --------------
-* trigger update
-  apply filter/trigger to all libraries by default
-  save symbol tables of all libraries
-  -T/--trigger option supports filtering and argument/return value
+* apply filter/trigger to all libraries by default
+* save symbol tables of all libraries
+* -T/--trigger option supports filtering and argument/return value
 
-* other changes
-  make --nest-libcall option imply --force option
-  add --record option to script command
-  replay show 's' suffix for std::string arguments
-  allow reading data in current directory
+other changes
+-------------
+* make --nest-libcall option imply --force option
+* add --record option to script command
+* replay show 's' suffix for std::string arguments
+* allow reading data in current directory
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Honggyu Kim, Taeung Song
 
 
 uftrace v0.8
 ============
-* event tracing support:
-  enable tracing events as well as functions.  following events are
-  supported using -E/--event option
-    - SystemTap SDT (x86_64 only)
-    - kernel tracepoint
-    - scheduler (using perf syscall)
-  list available events using --list-event option
-  new read trigger also creates 'proc/statm' and 'page-fault' events
+event tracing support:
+----------------------
+* enable tracing events as well as functions.  following events are
+* supported using -E/--event option
+  * SystemTap SDT (x86_64 only)
+  * kernel tracepoint
+  * scheduler (using perf syscall)
+* list available events using --list-event option
+* new read trigger also creates 'proc/statm' and 'page-fault' events
 
-* libcall tracing update:
-  fix to trace already resolved functions too
-  trace nested calls from other libraries using --nest-libcall option
-  handle BIND-NOW + PIE properly
+libcall tracing update:
+-----------------------
+* fix to trace already resolved functions too
+* trace nested calls from other libraries using --nest-libcall option
+* handle BIND-NOW + PIE properly
 
-* python scripting support:
-  add new 'script' command with -S/--script option
-  also support record-time scripting
-  support additional filter for script execution
-  allow to specify options for recording
+python scripting support:
+-------------------------
+* add new 'script' command with -S/--script option
+* also support record-time scripting
+* support additional filter for script execution
+* allow to specify options for recording
 
-* report diff change:
-  sort by (absolute) diff
-  add --diff-policy option to control behavior
-  add 'func' sort key
-  change color setting
+report diff change:
+-------------------
+* sort by (absolute) diff
+* add --diff-policy option to control behavior
+* add 'func' sort key
+* change color setting
 
-* other changes:
-  std::string argument display
-  add elapsed time info
-  "uftrace recv --run-cmd" can execute user-given command
-  add "finish" trigger action to tracing
-  add --opt-file option to allow reading options from file
-  add --keep-pid option to preserve pid when running program
+other changes:
+--------------
+* std::string argument display
+* add elapsed time info
+* "uftrace recv --run-cmd" can execute user-given command
+* add "finish" trigger action to tracing
+* add --opt-file option to allow reading options from file
+* add --keep-pid option to preserve pid when running program
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Changhyeok Bae, Honggyu Kim, JeongBong Seo, SeongJae Park,
   Taeung Song, Paul Cannon
 
 
 uftrace v0.7
 ============
-* dynamic tracing support (x86_64 only)
-  enable tracing for selected functions with -P option
-  it needs some compiler support though
-  - gcc with -mnop-mcount option
-  - clang (X-ray) with -fxray-instrument option
+dynamic tracing support (x86_64 only)
+-------------------------------------
+* enable tracing for selected functions with -P option
+* it needs some compiler support though
+  * gcc with -mnop-mcount option
+  * clang (X-ray) with -fxray-instrument option
 
-* AArch64 support
-  add preliminary support for ARM v8 (64-bit)
-  first integer argument is missing
+AArch64 support
+---------------
+* add preliminary support for ARM v8 (64-bit)
+* first integer argument is missing
 
-* kernel tracing change
-  show recorded kernel functions by default
-  partial support for event tracing
-  fix to send/receive kernel data via network
-  filter out sys_clock_gettime() for non-VDSO systems
+kernel tracing change
+---------------------
+* show recorded kernel functions by default
+* partial support for event tracing
+* fix to send/receive kernel data via network
+* filter out sys_clock_gettime() for non-VDSO systems
 
-* dump change:
-  show arguments and return values properly
-  show more kernel tracing info
-  fix file offset printing
+dump change:
+------------
+* show arguments and return values properly
+* show more kernel tracing info
+* fix file offset printing
 
-* build change:
-  fix various problems on GCC 7
-  update configure script for better distro packaging
+build change:
+-------------
+* fix various problems on GCC 7
+* update configure script for better distro packaging
 
-And many bug fixes and improvements.  Thanks for all contributors:
+And many bug fixes and improvements.  Thanks to all contributors:
+
   Dridi Boukelmoune, Honggyu Kim, Taeung Song, Wonseok Ko
 
 
 uftrace v0.6.2
+==============
+dlopen() support:
+-----------------
+* can show functions from dynamic loaded library using dlopen()
+
+kernel tracing update:
+----------------------
+* save kernel metadata so that it can be viewed from a different machine
+* adjust tracer settings to reduce lost kernel data
+
+filter change:
 --------------
-* dlopen() support:
-  can show functions from dynamic loaded library using dlopen()
+* remove '+' sign in elapsed time for --time-range option
+* allow to use 'm' or 'min' to specify elapsed time
 
-* kernel tracing update:
-  save kernel metadata so that it can be viewed from a different machine
-  adjust tracer settings to reduce lost kernel data
+And many bug fixes and improvements.  Thanks to all contributors:
 
-* filter change:
-  remove '+' sign in elapsed time for --time-range option
-  allow to use 'm' or 'min' to specify elapsed time
-
-And many bug fixes and improvements.  Thanks for all contributors:
   Abder Benbachir, Geneviève Bastien, Honggyu Kim, Taeung Song,
   Wonseok Ko
 
 
 uftrace v0.6.1
+==============
+kernel option change:
+---------------------
+* The -K option is same as --kernel-depth
+* The --kernel-skip-out is deprecated and use
+* The --kernel-full is to show kernel functions outside of user functions
+* The --kernel-only option was added
+
+replay change:
 --------------
-* kernel option change:
-  The -K option is same as --kernel-depth
-  The --kernel-skip-out is deprecated and use
-  The --kernel-full is to show kernel functions outside of user functions
-  The --kernel-only option was added
+* add --output-fields option to customize the info on the left side
+* currently time, delta, elapsed, duration, tid and addr fields are supported
 
-* replay change:
-  add --output-fields option to customize the info on the left side
-  currently time, delta, elapsed, duration, tid and addr fields are supported
+filter change:
+--------------
+* apply time filter on replay
+* add --time-range option to limit data analysis
+* report, graph and dump honors same filter on replay
+* add 'time' trigger to set a different threshold on specific functions
 
-* filter change:
-  apply time filter on replay
-  add --time-range option to limit data analysis
-  report, graph and dump honors same filter on replay
-  add 'time' trigger to set a different threshold on specific functions
+flame-graph support:
+--------------------
+* "uftrace dump --flame-graph" creates a SVG file
+* use --sample-time option to control sampling frequency in the output
 
-* flame-graph support:
-  "uftrace dump --flame-graph" creates a SVG file
-  use --sample-time option to control sampling frequency in the output
-
-* build change:
-  improve build process to facilitate distro packaging
-  configure script checks dependency and shows warning
+build change:
+-------------
+* improve build process to facilitate distro packaging
+* configure script checks dependency and shows warning
 
 
 uftrace v0.6
 ============
-* project open!
+project open!
+-------------
