@@ -109,6 +109,7 @@ struct tui_list {
 
 static LIST_HEAD(tui_graph_list);
 static LIST_HEAD(graph_output_fields);
+static LIST_HEAD(report_output_fields);
 static struct tui_report tui_report;
 static struct tui_graph partial_graph;
 static struct tui_list tui_info;
@@ -295,10 +296,70 @@ static struct display_field *graph_field_table[] = {
 	&graph_field_addr,
 };
 
+#define REPORT_FIELD_STRUCT(_id, _name, _func, _header, _length)	\
+static struct display_field report_field_##_func = {			\
+	.id      = _id,							\
+	.name    = #_name,						\
+	.header  = _header,						\
+	.length  = _length,						\
+	.print   = print_report_##_func,				\
+	.list    = LIST_HEAD_INIT(report_field_##_func.list)		\
+};
+
+#define REPORT_FIELD_TIME(_id, _name, _field, _func, _header)	\
+static void print_report_##_func(struct field_data *fd)		\
+{									\
+	struct uftrace_report_node *node = fd->arg;			\
+	uint64_t d = node->_field;					\
+	printw("  ");							\
+	print_time(d);							\
+}									\
+REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
+
+#define REPORT_FIELD_CALL(_id, _name, _field, _func, _header)	\
+static void print_report_##_func(struct field_data *fd)		\
+{									\
+	struct uftrace_report_node *node = fd->arg;			\
+	uint64_t d = node->_field;					\
+	printw("  ");							\
+	printw("%10"PRIu64 "", d);					\
+}									\
+REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
+
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "TOTAL TIME");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "TOTAL AVG");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "TOTAL MIN");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "TOTAL MAX");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "SELF TIME");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "SELF AVG");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MIN");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
+REPORT_FIELD_CALL(REPORT_F_CALL, call, call, call, "CALL");
+
+static struct display_field *report_field_table[] = {
+	&report_field_total,
+	&report_field_total_avg,
+	&report_field_total_min,
+	&report_field_total_max,
+	&report_field_self,
+	&report_field_self_avg,
+	&report_field_self_min,
+	&report_field_self_max,
+	&report_field_call,
+};
+
 static void setup_default_graph_field(struct list_head *fields, struct opts *opts,
 				      struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[GRAPH_F_TOTAL_TIME]);
+}
+
+static void setup_default_report_field(struct list_head *fields, struct opts *opts,
+				      struct display_field *p_field_table[])
+{
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME]);
+	add_field(fields, p_field_table[REPORT_F_CALL]);
 }
 
 static inline bool is_first_child(struct tui_graph_node *prev,
@@ -337,6 +398,7 @@ static void tui_setup(struct uftrace_data *handle, struct opts *opts)
 
 	setup_field(&graph_output_fields, opts, setup_default_graph_field,
 		    graph_field_table, ARRAY_SIZE(graph_field_table));
+	setup_default_report_field(&report_output_fields, opts, report_field_table);
 }
 
 static void tui_cleanup(void)
@@ -1326,6 +1388,7 @@ static struct tui_report * tui_report_init(struct opts *opts)
 
 	report_setup_sort(OPT_SORT_KEYS);
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
+	report_calc_avg(&tui_report.name_tree);
 
 	tui_window_init(win, &report_ops);
 
@@ -1375,13 +1438,40 @@ static bool win_search_report(struct tui_window *win, void *node, char *str)
 
 static void win_header_report(struct tui_window *win, struct uftrace_data *handle)
 {
-	int w = 46;
-	char header[][32] = { " Total Time", " Self Time", " Calls" };
+	int w = 0, c;
+	char *buf, *p;
+	struct display_field *field;
+	int i = 0;
 
-	header[curr_sort_key][0] = '*';
-	printw(" %11s %11s %11s  %s", header[0], header[1], header[2], "Function");
-	if (COLS > w)
-		printw("%*s", COLS - w, "");
+	if (list_empty(&report_output_fields)) {
+		printw("%-*.*s", COLS, COLS, "uftrace report TUI");
+		return;
+	}
+
+	list_for_each_entry(field, &report_output_fields, list) {
+		w += field->length + 3;
+	}
+
+	w += strlen("  FUNCTION");
+
+	buf = p = xmalloc(w + 1);
+
+	list_for_each_entry(field, &report_output_fields, list) {
+		char header[field->length + 1];
+
+		header[0] = '\0';
+		if (i == curr_sort_key)
+			strcpy(header, "*");
+		strcat(header, field->header);
+		c = snprintf(p, w, " %*s", field->length, header);
+		p += c;
+		w -= c;
+		i++;
+	}
+	snprintf(p, w+1, "  %s", "FUNCTION");
+
+	printw("%-*.*s", COLS, COLS, buf);
+	free(buf);
 }
 
 static void win_footer_report(struct tui_window *win, struct uftrace_data *handle)
@@ -1418,18 +1508,20 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 
 static void win_display_report(struct tui_window *win, void *node)
 {
+	struct display_field *field;
 	struct tui_report_node *curr = node;
-	int width = 38;  /* 3 output fields and spaces */
+	struct field_data fd = {
+		.arg = curr,
+	};
+	int w = 2;
+
+	list_for_each_entry(field, &report_output_fields, list) {
+		field->print(&fd);
+		w += field->length + 1;
+	}
 
 	printw("  ");
-	print_time(curr->n.total.sum);
-	printw("  ");
-	print_time(curr->n.self.sum);
-	printw("  ");
-	printw("%10lu", curr->n.call);
-	printw("  ");
-
-	printw("%-*.*s", COLS - width, COLS - width, curr->n.name);
+	printw("%-*.*s", COLS - w, COLS - w, curr->n.name);
 }
 
 static struct debug_location *win_location_report(struct tui_window *win,
