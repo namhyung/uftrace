@@ -674,16 +674,37 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return mdi->trampoline - (addr + CALL_INSN_SIZE);
 }
 
+static uint8_t fentry_unpatched_entry_old[5] = {
+	/* 5-bytes NOP */
+	0x67, 0x0f, 0x1f, 0x04, 0x00,
+};
+
+static uint8_t fentry_unpatched_entry[5] = {
+	/* 5-bytes NOP */
+	0x0f, 0x1f, 0x44, 0x00, 0x00,
+};
+
+static uint8_t fentry_temporary_jump[2] = {
+	/* 2-bytes jump */
+	0xeb, 0x03,
+};
+
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr + mdi->map->start;
+	uint8_t *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
+	uint8_t patch[5] = {
+		/* 4-bytes call instruction opcode */
+		0xe8,
+
+		/* 4-bytes call target address */
+		0x00, 0x00, 0x00, 0x00,
+	};
+
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
-	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
+	if (memcmp(insn, fentry_unpatched_entry_old, sizeof(fentry_unpatched_entry_old)) &&
+	    memcmp(insn, fentry_unpatched_entry, sizeof(fentry_unpatched_entry))) {
 		pr_dbg("skip non-applicable functions: %s\n", sym->name);
 		return INSTRUMENT_FAILED;
 	}
@@ -692,15 +713,45 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	target_addr = get_target_addr(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
+	memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-	/* make a "call" insn with 4-byte offset */
-	insn[0] = 0xe8;
-	/* hopefully we're not patching 'memcpy' itself */
-	memcpy(&insn[1], &target_addr, sizeof(target_addr));
+	/* atomically replace the first 2-bytes of the NOP with our temporary jump */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_temporary_jump, __ATOMIC_SEQ_CST);
 
-	pr_dbg3("update function '%s' dynamically to call __fentry__\n",
-		sym->name);
+	/* syncronize the instruction cache of each processor*/
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
 
+	/* write the 3 last bytes of the call */
+	memcpy(&insn[2], &patch[2], sizeof(patch) - 2);
+
+	/* atomically replace the temporary jump with the other 2-bytes of the call */
+	__atomic_store((uint16_t*)insn, (uint16_t*)patch, __ATOMIC_SEQ_CST);
+
+	pr_dbg3("dynamically enabled '%s' fentry tracepoint\n", sym->name);
+	return INSTRUMENT_SUCCESS;
+}
+
+static int unpatch_fentry_nop_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	uint8_t *insn = (void *)sym->addr + mdi->map->start;
+
+	/* atomically replace the first 2-bytes of the call with our temporary jump */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_temporary_jump, __ATOMIC_SEQ_CST);
+
+	/* syncronize the instruction cache of each processor*/
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
+
+	/* write the 3 last bytes of the NOP */
+	memcpy(&insn[2], &fentry_unpatched_entry[2], sizeof(fentry_unpatched_entry) - 2);
+
+	/* atomically replace the temporary jump with the other 2-bytes of the NOP */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_unpatched_entry, __ATOMIC_SEQ_CST);
+
+	pr_dbg3("dynamically disabled '%s' fentry tracepoint\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
@@ -768,7 +819,7 @@ static int enable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *s
 		__atomic_store((uint8_t*)func, (uint8_t*)patch, __ATOMIC_SEQ_CST);
 	}
 
-	pr_dbg3("dynamically enabled '%s' xray tracepoints\n", sym->name);
+	pr_dbg3("dynamically enabled '%s' xray tracepoint\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
@@ -815,7 +866,7 @@ static int disable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *
 	 * to do it.
 	 */
 
-	pr_dbg3("dynamically disabled '%s' xray tracepoints\n", sym->name);
+	pr_dbg3("dynamically disabled '%s' xray tracepoint\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
@@ -1250,6 +1301,10 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	case DYNAMIC_FENTRY:
 		result = unpatch_fentry_func(mdi, sym);
+		break;
+
+	case DYNAMIC_FENTRY_NOP:
+		result = unpatch_fentry_nop_func(mdi, sym);
 		break;
 
 	case DYNAMIC_PG:
