@@ -167,7 +167,7 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = {
 	"TOTAL TIME", "SELF TIME", "ADDRESS",
 };
 
-static const char *graph_field_help[] = {
+static const char *field_help[] = {
 	"DOWN/UP ARROW Move down/up",
 	"j/k           Move down/up",
 	"Enter         Apply checked fields",
@@ -253,27 +253,27 @@ static void print_graph_addr(struct field_data *fd)
 	printw("%*"PRIx64, width, effective_addr(node->addr));
 }
 
-static struct display_field field_total_time= {
+static struct display_field graph_field_total = {
 	.id      = GRAPH_F_TOTAL_TIME,
 	.name    = "total-time",
 	.alias   = "total",
 	.header  = "TOTAL TIME",
 	.length  = 10,
 	.print   = print_graph_total,
-	.list    = LIST_HEAD_INIT(field_total_time.list),
+	.list    = LIST_HEAD_INIT(graph_field_total.list),
 };
 
-static struct display_field field_self_time= {
+static struct display_field graph_field_self = {
 	.id      = GRAPH_F_SELF_TIME,
 	.name    = "self-time",
 	.alias   = "self",
 	.header  = " SELF TIME",
 	.length  = 10,
 	.print   = print_graph_self,
-	.list    = LIST_HEAD_INIT(field_self_time.list),
+	.list    = LIST_HEAD_INIT(graph_field_self.list),
 };
 
-static struct display_field field_addr = {
+static struct display_field graph_field_addr = {
 	.id      = GRAPH_F_ADDR,
 	.name    = "address",
 	.alias   = "addr",
@@ -285,20 +285,20 @@ static struct display_field field_addr = {
 	.length  = 12,
 #endif
 	.print   = print_graph_addr,
-	.list    = LIST_HEAD_INIT(field_addr.list),
+	.list    = LIST_HEAD_INIT(graph_field_addr.list),
 };
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *graph_field_table[] = {
-	&field_total_time,
-	&field_self_time,
-	&field_addr,
+	&graph_field_total,
+	&graph_field_self,
+	&graph_field_addr,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct opts *opts,
 				      struct display_field *p_field_table[])
 {
-	add_field(fields, graph_field_table[GRAPH_F_TOTAL_TIME]);
+	add_field(fields, p_field_table[GRAPH_F_TOTAL_TIME]);
 }
 
 static inline bool is_first_child(struct tui_graph_node *prev,
@@ -2361,15 +2361,16 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
-static void display_graph_field(WINDOW *win, int selected_field, bool graph_field_flags[])
+static void display_tui_field(WINDOW *win, int selected_field, bool field_flags[],
+		int num_field, const char *field_names[])
 {
 	int i;
 
-	for (i = 0; i < NUM_GRAPH_FIELD; i++) {
+	for (i = 0; i < num_field; i++) {
 		if (i == selected_field)
 			wattron(win, A_REVERSE);
-		mvwprintw(win, i + ARRAY_SIZE(graph_field_help) + 4, 2, "[ %c ] %s",
-				graph_field_flags[i] ? 'x' : ' ', graph_field_names[i]);
+		mvwprintw(win, i + ARRAY_SIZE(field_help) + 4, 2, "[ %c ] %s",
+				field_flags[i] ? 'x' : ' ', field_names[i]);
 		wattroff(win, A_REVERSE);
 	}
 }
@@ -2395,11 +2396,11 @@ static inline void tui_graph_field_flags_init(bool graph_field_flags[])
 		graph_field_flags[i] = graph_field_table[i]->used;
 }
 
-static void tui_window_graph_field(void)
+static void tui_window_field(void)
 {
 	WINDOW *win;
 	int w = 64;
-	int h = ARRAY_SIZE(graph_field_names) + ARRAY_SIZE(graph_field_help) + 6;
+	int h = ARRAY_SIZE(graph_field_names) + ARRAY_SIZE(field_help) + 6;
 	bool done = false;
 	unsigned i;
 	bool graph_field_flags[NUM_GRAPH_FIELD] = { false };
@@ -2419,10 +2420,11 @@ static void tui_window_graph_field(void)
 
 	mvwprintw(win, 1, 2, "Customize fields in graph mode");
 
-	for (i = 0; i < ARRAY_SIZE(graph_field_help); i++)
-		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, graph_field_help[i]);
+	for (i = 0; i < ARRAY_SIZE(field_help); i++)
+		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, field_help[i]);
 
-	display_graph_field(win, selected_field, graph_field_flags);
+	display_tui_field(win, selected_field, graph_field_flags,
+			NUM_GRAPH_FIELD, graph_field_names);
 
 	mvwprintw(win, h-1, w-1, "");
 	wrefresh(win);
@@ -2436,14 +2438,16 @@ static void tui_window_graph_field(void)
 			selected_field--;
 			if (selected_field < 0)
 				selected_field = NUM_GRAPH_FIELD - 1;
-			display_graph_field(win, selected_field, graph_field_flags);
+			display_tui_field(win, selected_field, graph_field_flags,
+					NUM_GRAPH_FIELD, graph_field_names);
 			break;
 		case 'j':
 		case KEY_DOWN:
 			selected_field++;
 			if (selected_field >= NUM_GRAPH_FIELD)
 				selected_field = 0;
-			display_graph_field(win, selected_field, graph_field_flags);
+			display_tui_field(win, selected_field, graph_field_flags,
+					NUM_GRAPH_FIELD, graph_field_names);
 			break;
 		case KEY_ENTER:
 		case '\n':
@@ -2456,7 +2460,8 @@ static void tui_window_graph_field(void)
 			break;
 		case ' ':
 			graph_field_flags[selected_field] = !graph_field_flags[selected_field];
-			display_graph_field(win, selected_field, graph_field_flags);
+			display_tui_field(win, selected_field, graph_field_flags,
+					NUM_GRAPH_FIELD, graph_field_names);
 			break;
 		}
 	}
@@ -2696,7 +2701,7 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			tui_debug = !tui_debug;
 			break;
 		case 'f':
-			tui_window_graph_field();
+			tui_window_field();
 			full_redraw = true;
 			break;
 		case 'h':
