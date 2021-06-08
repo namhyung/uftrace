@@ -1663,7 +1663,7 @@ static void win_footer_info(struct tui_window *win,
 			    struct uftrace_data *handle)
 {
 	char buf[256];
-	snprintf(buf, COLS, "uftrace version: %s", UFTRACE_VERSION);
+	snprintf(buf, sizeof(buf), "uftrace version: %s", UFTRACE_VERSION);
 	win_footer(win, buf);
 }
 
