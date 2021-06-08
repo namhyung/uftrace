@@ -617,24 +617,6 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	return 0;
 }
 
-static void freeze_dynamic_update(void)
-{
-	struct mcount_dynamic_info *mdi, *tmp;
-
-	mdi = mdinfo;
-	while (mdi) {
-		tmp = mdi->next;
-
-		mcount_arch_dynamic_recover(mdi, &disasm);
-		mcount_cleanup_trampoline(mdi);
-		free(mdi);
-
-		mdi = tmp;
-	}
-
-	mcount_freeze_code();
-}
-
 /* do not use floating-point in libmcount */
 static int calc_percent(int n, int total, int *rem)
 {
@@ -697,7 +679,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	freeze_dynamic_update();
+	mcount_freeze_code();
 	return ret;
 }
 
