@@ -157,7 +157,7 @@ static const char *help[] = {
 	"/             Search",
 	"</>/N/P       Search next/prev",
 	"v             Show debug message",
-	"f             Customize fields in graph mode",
+	"f             Customize fields in graph or report mode",
 	"h/?           Show this help",
 	"q             Quit",
 };
@@ -168,6 +168,14 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = {
 	"TOTAL TIME", "SELF TIME", "ADDRESS",
 };
 
+#define NUM_REPORT_FIELD 9
+
+static const char *report_field_names[NUM_REPORT_FIELD] = {
+	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX",
+	"SELF TIME", "SELF AVG", "SELF MIN", "SELF MAX",
+	"CALL",
+};
+
 static const char *field_help[] = {
 	"DOWN/UP ARROW Move down/up",
 	"j/k           Move down/up",
@@ -176,7 +184,20 @@ static const char *field_help[] = {
 	"f/q           Close the window without any changes",
 };
 
-static const char *report_sort_key[] = { OPT_SORT_KEYS, "self", "call" };
+enum tui_mode {
+	TUI_MODE_GRAPH,
+	TUI_MODE_REPORT,
+	TUI_MODE_OTHER,
+};
+
+static char *report_sort_key[] = {
+	OPT_SORT_KEYS, "total_avg", "total_min", "total_max",
+	"self", "self_avg", "self_min", "self_max",
+	"call"
+};
+
+static char *selected_report_sort_key[NUM_REPORT_FIELD];
+
 static int curr_sort_key = 0;
 
 static void init_colors(void)
@@ -2480,6 +2501,26 @@ static void update_graph_output_fields(bool graph_field_flags[]) {
 	}
 }
 
+static void update_report_output_fields(bool report_field_flags[]) {
+	struct display_field *field, *tmp;
+	int i, j = 0;
+
+	list_for_each_entry_safe(field, tmp, &report_output_fields, list)
+		del_field(field);
+
+	curr_sort_key = 0;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++)
+		selected_report_sort_key[i] = NULL;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++) {
+		if (report_field_flags[i]) {
+			add_field(&report_output_fields, report_field_table[i]);
+			selected_report_sort_key[j++] = report_sort_key[i];
+		}
+	}
+}
+
 static inline void tui_graph_field_flags_init(bool graph_field_flags[])
 {
 	int i;
@@ -2488,17 +2529,34 @@ static inline void tui_graph_field_flags_init(bool graph_field_flags[])
 		graph_field_flags[i] = graph_field_table[i]->used;
 }
 
-static void tui_window_field(void)
+static inline void tui_report_field_flags_init(bool report_field_flags[])
+{
+	int i;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++)
+		report_field_flags[i] = report_field_table[i]->used;
+}
+
+static void tui_window_field(enum tui_mode tui_mode)
 {
 	WINDOW *win;
 	int w = 64;
-	int h = ARRAY_SIZE(graph_field_names) + ARRAY_SIZE(field_help) + 6;
+	int h;
 	bool done = false;
 	unsigned i;
 	bool graph_field_flags[NUM_GRAPH_FIELD] = { false };
+	bool report_field_flags[NUM_REPORT_FIELD] = { false };
 	int selected_field = 0;
+	int num_field;
+
+	if (tui_mode == TUI_MODE_OTHER)
+		return;
+
+	num_field = tui_mode == TUI_MODE_GRAPH ? NUM_GRAPH_FIELD : NUM_REPORT_FIELD;
+	h = num_field + ARRAY_SIZE(field_help) + 6;
 
 	tui_graph_field_flags_init(graph_field_flags);
+	tui_report_field_flags_init(report_field_flags);
 
 	if (w > COLS)
 		w = COLS;
@@ -2510,13 +2568,20 @@ static void tui_window_field(void)
 	wrefresh(win);
 	box(win, 0, 0);
 
-	mvwprintw(win, 1, 2, "Customize fields in graph mode");
+	if (tui_mode == TUI_MODE_GRAPH)
+		mvwprintw(win, 1, 2, "Customize fields in graph mode");
+	else
+		mvwprintw(win, 1, 2, "Customize fields in report mode");
 
 	for (i = 0; i < ARRAY_SIZE(field_help); i++)
 		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, field_help[i]);
 
-	display_tui_field(win, selected_field, graph_field_flags,
-			NUM_GRAPH_FIELD, graph_field_names);
+	if (tui_mode == TUI_MODE_GRAPH)
+		display_tui_field(win, selected_field, graph_field_flags,
+				NUM_GRAPH_FIELD, graph_field_names);
+	else
+		display_tui_field(win, selected_field, report_field_flags,
+				NUM_REPORT_FIELD, report_field_names);
 
 	mvwprintw(win, h-1, w-1, "");
 	wrefresh(win);
@@ -2529,21 +2594,32 @@ static void tui_window_field(void)
 		case KEY_UP:
 			selected_field--;
 			if (selected_field < 0)
-				selected_field = NUM_GRAPH_FIELD - 1;
-			display_tui_field(win, selected_field, graph_field_flags,
-					NUM_GRAPH_FIELD, graph_field_names);
+				selected_field = num_field - 1;
+			if (tui_mode == TUI_MODE_GRAPH)
+				display_tui_field(win, selected_field, graph_field_flags,
+						NUM_GRAPH_FIELD, graph_field_names);
+			else
+				display_tui_field(win, selected_field, report_field_flags,
+						NUM_REPORT_FIELD, report_field_names);
 			break;
 		case 'j':
 		case KEY_DOWN:
 			selected_field++;
-			if (selected_field >= NUM_GRAPH_FIELD)
+			if (selected_field >= num_field)
 				selected_field = 0;
-			display_tui_field(win, selected_field, graph_field_flags,
-					NUM_GRAPH_FIELD, graph_field_names);
+			if (tui_mode == TUI_MODE_GRAPH)
+				display_tui_field(win, selected_field, graph_field_flags,
+						NUM_GRAPH_FIELD, graph_field_names);
+			else
+				display_tui_field(win, selected_field, report_field_flags,
+						NUM_REPORT_FIELD, report_field_names);
 			break;
 		case KEY_ENTER:
 		case '\n':
-			update_graph_output_fields(graph_field_flags);
+			if (tui_mode == TUI_MODE_GRAPH)
+				update_graph_output_fields(graph_field_flags);
+			else
+				update_report_output_fields(report_field_flags);
 			done = true;
 			break;
 		case 'f':
@@ -2551,9 +2627,16 @@ static void tui_window_field(void)
 			done = true;
 			break;
 		case ' ':
-			graph_field_flags[selected_field] = !graph_field_flags[selected_field];
-			display_tui_field(win, selected_field, graph_field_flags,
-					NUM_GRAPH_FIELD, graph_field_names);
+			if (tui_mode == TUI_MODE_GRAPH) {
+				graph_field_flags[selected_field] ^= 1;
+				display_tui_field(win, selected_field, graph_field_flags,
+						NUM_GRAPH_FIELD, graph_field_names);
+			}
+			else {
+				report_field_flags[selected_field] ^= 1;
+				display_tui_field(win, selected_field, report_field_flags,
+						NUM_REPORT_FIELD, report_field_names);
+			}
 			break;
 		}
 	}
@@ -2566,6 +2649,26 @@ static inline void cancel_search(void)
 	tui_search = NULL;
 }
 
+static int count_selected_report_sort_key(void)
+{
+	int count = 0;
+	int i;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++) {
+		if (report_field_table[i]->used)
+			count++;
+	}
+
+	return count;
+}
+
+static inline void report_sort_key_init()
+{
+	selected_report_sort_key[0] = report_sort_key[REPORT_F_TOTAL_TIME];
+	selected_report_sort_key[1] = report_sort_key[REPORT_F_SELF_TIME];
+	selected_report_sort_key[2] = report_sort_key[REPORT_F_CALL];
+}
+
 static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 {
 	int key = 0;
@@ -2576,19 +2679,29 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 	struct tui_list *session;
 	struct tui_window *win;
 	void *old_top;
+	enum tui_mode tui_mode;
+	int num_sort_key = 3;
 
 	graph = tui_graph_init(opts);
 	report = tui_report_init(opts);
 	info = tui_info_init(opts, handle);
 	session = tui_session_init(opts);
 
+	report_sort_key_init();
+
 	/* start with graph only if there's one session */
-	if (opts->report)
+	if (opts->report) {
 		win = &report->win;
-	else if (session->nr_node > 1)
+		tui_mode = TUI_MODE_REPORT;
+	}
+	else if (session->nr_node > 1) {
 		win = &session->win;
-	else
+		tui_mode = TUI_MODE_OTHER;
+	}
+	else {
 		win = &graph->win;
+		tui_mode = TUI_MODE_GRAPH;
+	}
 
 	old_top = win->top;
 
@@ -2634,21 +2747,26 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				case TUI_SESS_REPORT:
 					win = &report->win;
 					tui_window_move_home(win);
+					tui_mode = TUI_MODE_REPORT;
 					break;
 				case TUI_SESS_INFO:
 					win = &info->win;
 					tui_window_move_home(win);
+					tui_mode = TUI_MODE_OTHER;
 					break;
 				case TUI_SESS_HELP:
 					tui_window_help();
+					tui_mode = TUI_MODE_OTHER;
 					break;
 				case TUI_SESS_QUIT:
+					tui_mode = TUI_MODE_OTHER;
 					goto out;
 				default:
 					/* change window for the current graph */
 					graph = get_current_graph(win->curr, NULL);
 					win = &graph->win;
 					tui_window_move_home(win);
+					tui_mode = TUI_MODE_GRAPH;
 					break;
 				}
 			}
@@ -2661,6 +2779,7 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				/* full graph mode */
 				win = &graph->win;
 				full_redraw = true;
+				tui_mode = TUI_MODE_GRAPH;
 			}
 			break;
 		case 'g':
@@ -2686,12 +2805,14 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			tui_window_move_home(win);
 			tui_window_search_count(win);
 			full_redraw = true;
+			tui_mode = TUI_MODE_GRAPH;
 			break;
 		case 'R':
 			if (tui_window_change(win, &report->win)) {
 				win = &report->win;
 				tui_window_move_home(win);
 				full_redraw = true;
+				tui_mode = TUI_MODE_REPORT;
 			}
 			break;
 		case 'r':
@@ -2712,13 +2833,18 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 				tui_window_set_middle_next(win, func);
 
 				full_redraw = true;
+				tui_mode = TUI_MODE_REPORT;
 			}
 			break;
 		case 's':
 			if (!tui_window_change(win, &report->win)) {
-				curr_sort_key = (curr_sort_key + 1) %
-						ARRAY_SIZE(report_sort_key);
-				report_setup_sort(report_sort_key[curr_sort_key]);
+				num_sort_key = count_selected_report_sort_key();
+				if (num_sort_key == 0)
+					break;
+
+				curr_sort_key = (curr_sort_key + 1) % num_sort_key;
+
+				report_setup_sort(selected_report_sort_key[curr_sort_key]);
 				report_sort_nodes(&tui_report.name_tree,
 						  &tui_report.sort_tree);
 
@@ -2730,12 +2856,14 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			if (tui_window_change(win, &info->win)) {
 				win = &info->win;
 				full_redraw = true;
+				tui_mode = TUI_MODE_OTHER;
 			}
 			break;
 		case 'S':
 			if (tui_window_change(win, &session->win)) {
 				win = &session->win;
 				full_redraw = true;
+				tui_mode = TUI_MODE_OTHER;
 			}
 			break;
 		case 'O':
@@ -2793,7 +2921,17 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 			tui_debug = !tui_debug;
 			break;
 		case 'f':
-			tui_window_field();
+			tui_window_field(tui_mode);
+			if (tui_mode == TUI_MODE_REPORT && count_selected_report_sort_key()) {
+				if (!tui_window_change(win, &report->win)) {
+					report_setup_sort(selected_report_sort_key[curr_sort_key]);
+					report_sort_nodes(&tui_report.name_tree,
+							&tui_report.sort_tree);
+
+					tui_window_move_home(win);
+				}
+
+			}
 			full_redraw = true;
 			break;
 		case 'h':
