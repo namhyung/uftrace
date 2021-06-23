@@ -23,10 +23,16 @@ the initial data loading.
 TUI OPTIONS
 ===========
 -f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: total, self and addr.
-    Multiple fields can be set by using comma.  Special field of 'none' can be
-    used (solely) to hide all fields.  Default is 'total'.
-    See `uftrace-graph`(1) for an explanation of fields.
+:   Customize fields in the output.  This option basically indicates graph fields.
+    Possible values are total, self and addr.  The default value is 'total'.
+    But if this option is used with --report option,
+    this option indicates report fields.  Possible values are total, total-avg,
+    total-min, total-max, self, self-avg, self-min, self-max and call.
+    The default value is 'total,self,call'.
+    Multiple fields can be set by using comma.
+    If given field name starts with "+", then it'll be appended to the default fields.
+    The special field 'none' can be used (solely) to hide all fields.
+    See `uftrace-graph`(1) or `uftrace-report`(1) for an explanation of fields.
 
 
 COMMON OPTIONS

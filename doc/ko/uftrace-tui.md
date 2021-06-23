@@ -22,10 +22,15 @@ uftrace tui [*options*]
 TUI 옵션
 =========
 -f *FIELD*, \--output-fields=*FIELD*
-:   출력 필드를 사용자 지정으로 설정한다. 설정 가능한 값은 total, self, addr 이며
-    쉼표를 사용하여 여러 필드를 설정할 수 있다.  'none' 과 같은 특수 필드를
-    사용하여 모든 필드를 숨길 수 있으며 기본 설정은 'total' 이다.
-    필드에 대한 설명은 `uftrace-graph`(1) 를 참고한다.
+:   출력 필드를 사용자 지정으로 설정한다. 이 옵션은 기본적으로 graph 필드를 나타낸다.
+    설정 가능한 값은 total, self, addr 이고, 기본 설정값은 `total`이다.
+    그런데 이 옵션이 --report 옵션과 함께 사용된다면, 이 옵션은 report 필드를 나타낸다.
+    설정 가능한 값은 total, total-avg, total-min, total-max, self, self-avg, self-min,
+    self-max, call이고, 기본 설정값은 'total,self,call'이다.
+    쉼표를 사용하여 여러 필드를 설정할 수 있고, 주어진 필드 이름이 "+"로 시작할 경우,
+    기본 설정값에 추가하는 방식으로 필드를 설정할 수 있다.
+    'none' 과 같은 특수 필드를 사용하면 모든 필드를 숨길 수 있다.
+    필드에 대한 설명은 `uftrace-graph`(1) 또는 `uftrace-report`(1)를 참고한다.
 
 
 공통 옵션

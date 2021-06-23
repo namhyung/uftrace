@@ -417,9 +417,16 @@ static void tui_setup(struct uftrace_data *handle, struct opts *opts)
 
 	tui_report.name_tree = RB_ROOT;
 
-	setup_field(&graph_output_fields, opts, setup_default_graph_field,
-		    graph_field_table, ARRAY_SIZE(graph_field_table));
-	setup_default_report_field(&report_output_fields, opts, report_field_table);
+	if (opts->report) {
+		setup_field(&report_output_fields, opts, setup_default_report_field,
+				report_field_table, ARRAY_SIZE(report_field_table));
+		setup_default_graph_field(&graph_output_fields, opts, graph_field_table);
+	}
+	else {
+		setup_field(&graph_output_fields, opts, setup_default_graph_field,
+				graph_field_table, ARRAY_SIZE(graph_field_table));
+		setup_default_report_field(&report_output_fields, opts, report_field_table);
+	}
 }
 
 static void tui_cleanup(void)
@@ -1402,14 +1409,39 @@ static void * win_parent_no(struct tui_window *win, void *node)
 	return NULL;
 }
 
+static void report_sort_key_init(void)
+{
+	int i, j = 0;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++) {
+		if (report_field_table[i]->used)
+			selected_report_sort_key[j++] = report_sort_key[i];
+	}
+}
+
+static int count_selected_report_sort_key(void)
+{
+	int count = 0;
+	int i;
+
+	for (i = 0; i < NUM_REPORT_FIELD; i++) {
+		if (report_field_table[i]->used)
+			count++;
+	}
+
+	return count;
+}
+
 /* per-window operations for report window */
 static struct tui_report * tui_report_init(struct opts *opts)
 {
 	struct tui_window *win = &tui_report.win;
 
-	report_setup_sort(OPT_SORT_KEYS);
-	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 	report_calc_avg(&tui_report.name_tree);
+	report_sort_key_init();
+	if (count_selected_report_sort_key())
+		report_setup_sort(selected_report_sort_key[curr_sort_key]);
+	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 
 	tui_window_init(win, &report_ops);
 
@@ -2649,25 +2681,7 @@ static inline void cancel_search(void)
 	tui_search = NULL;
 }
 
-static int count_selected_report_sort_key(void)
-{
-	int count = 0;
-	int i;
 
-	for (i = 0; i < NUM_REPORT_FIELD; i++) {
-		if (report_field_table[i]->used)
-			count++;
-	}
-
-	return count;
-}
-
-static inline void report_sort_key_init()
-{
-	selected_report_sort_key[0] = report_sort_key[REPORT_F_TOTAL_TIME];
-	selected_report_sort_key[1] = report_sort_key[REPORT_F_SELF_TIME];
-	selected_report_sort_key[2] = report_sort_key[REPORT_F_CALL];
-}
 
 static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 {
@@ -2686,8 +2700,6 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 	report = tui_report_init(opts);
 	info = tui_info_init(opts, handle);
 	session = tui_session_init(opts);
-
-	report_sort_key_init();
 
 	/* start with graph only if there's one session */
 	if (opts->report) {
@@ -2992,6 +3004,8 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
+	tui_setup(&handle, opts);
+
 	setlocale(LC_ALL, "");
 
 	initscr();
@@ -3005,7 +3019,6 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	/* Print a message before main screen is launched. */
 	display_loading_msg();
 
-	tui_setup(&handle, opts);
 	fstack_setup_filters(opts, &handle);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
