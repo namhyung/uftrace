@@ -114,11 +114,12 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		 setup_default_field_t setup_default_field,
 		 struct display_field *field_table[], size_t field_table_size)
 {
-	struct display_field *field;
+	struct display_field *field, *tmp;
 	struct strv strv = STRV_INIT;
 	char *str, *p;
 	unsigned i;
 	int j;
+	bool *field_flags;
 
 	/* default fields */
 	if (opts->fields == NULL) {
@@ -129,11 +130,17 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	if (!strcmp(opts->fields, "none"))
 		return;
 
+	field_flags = xcalloc(field_table_size, sizeof(*field_flags));
+
 	str = opts->fields;
 
 	if (*str == '+') {
 		/* prepend default fields */
 		setup_default_field(output_fields, opts, field_table);
+		for (i = 0; i < field_table_size; i++) {
+			if (field_table[i]->used)
+				field_flags[i] = true;
+		}
 		str++;
 	}
 
@@ -147,7 +154,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 			if (!check_field_name(field, p))
 				continue;
 
-			add_field(output_fields, field);
+			field_flags[i] = true;
 			break;
 		}
 
@@ -161,6 +168,16 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		}
 	}
 	strv_free(&strv);
+
+	list_for_each_entry_safe(field, tmp, output_fields, list)
+		del_field(field);
+
+	for (i = 0; i < field_table_size; i++) {
+		if (field_flags[i])
+			add_field(output_fields, field_table[i]);
+	}
+
+	free(field_flags);
 }
 
 #ifdef UNIT_TEST
@@ -214,6 +231,7 @@ TEST_CASE(field_setup_default_plus)
 		    test_field_table, ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
+	TEST_EQ(field1.list.next, &field3.list);
 	TEST_EQ(field1.used, true);
 	TEST_EQ(field2.used, false);
 	TEST_EQ(field3.used, true);
@@ -230,7 +248,8 @@ TEST_CASE(field_setup_list)
 	setup_field(&output_fields, &opts, setup_first_field,
 		    test_field_table, ARRAY_SIZE(test_field_table));
 
-	TEST_EQ(output_fields.next, &field2.list);
+	TEST_EQ(output_fields.next, &field1.list);
+	TEST_EQ(field1.list.next, &field2.list);
 	TEST_EQ(field1.used, true);
 	TEST_EQ(field2.used, true);
 	TEST_EQ(field3.used, false);
@@ -248,6 +267,7 @@ TEST_CASE(field_setup_list_alias)
 		    test_field_table, ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field2.list);
+	TEST_EQ(field2.list.next, &field3.list);
 	TEST_EQ(field1.used, false);
 	TEST_EQ(field2.used, true);
 	TEST_EQ(field3.used, true);
