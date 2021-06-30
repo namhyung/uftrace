@@ -170,8 +170,10 @@ struct uftrace_arg_spec * parse_argspec(char *str,
 					*next = '\0';
 
 				reg = arch_register_number(setting->arch, ++suffix);
-				if (reg >= 0)
+				if (reg >= 0) {
 					arg->struct_regs[arg->struct_reg_cnt++] = reg;
+					arg->reg_idx = reg;
+				}
 
 				suffix = next;
 			}
