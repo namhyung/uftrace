@@ -16,6 +16,9 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <string.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "mcount"
@@ -74,11 +77,17 @@ static int __maybe_unused mcount_depth = MCOUNT_DEFAULT_DEPTH;
 /* boolean flag to turn on/off recording */
 static bool __maybe_unused mcount_enabled = true;
 
+/* boolean flag to turn on/off recording */
+static bool __maybe_unused mcount_daemon_enabled = true;
+
 /* function filtering mode - inclusive or exclusive */
 static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 
 /* tree of trigger actions */
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
+
+/* readers-writers lock for the RB tree */
+pthread_rwlock_t tree_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
@@ -91,6 +100,9 @@ unsigned long mcount_return_fn;
 
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
+
+/* daemon thread */
+pthread_t daemon_thread;
 
 __weak void dynamic_return(void) { }
 
@@ -455,6 +467,7 @@ static void mcount_filter_setup(struct mcount_thread_data *mtdp)
 {
 	mtdp->filter.depth  = mcount_depth;
 	mtdp->filter.time   = mcount_threshold;
+	mtdp->depth_trigger_count = 0;
 	mtdp->enable_cached = mcount_enabled;
 	mtdp->argbuf        = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 	INIT_LIST_HEAD(&mtdp->pmu_fds);
@@ -747,6 +760,252 @@ out:
 	raise(sig);
 }
 
+void str_merge_symbs(char* base, char* new, size_t base_size) {
+	int i;
+	char *symb;
+	struct strv symbs = STRV_INIT;
+
+	strv_split(&symbs, new, ",");
+	strv_for_each(&symbs, symb, i) {
+		if (strstr(base, symb) == NULL) {
+			if (strlen(base) + strlen(symb) > base_size) {
+				pr_warn("cannot merge symbols: buffer too small\n");
+				break;
+			}
+			if (strlen(base) > 0)
+				strcat(base, ",");
+			strcat(base, symb);
+		}
+	}
+
+	strv_free(&symbs);
+
+	return;
+}
+
+/* Daemon thread, waiting for instructions from the client. */
+void *command_daemon(void *arg) {
+    int sfd, cfd;               /* socket fd, connection fd */
+    pid_t pid;
+    uid_t uid;
+    char *channel = NULL;
+    char *run_dir = NULL;
+    char buf[MCOUNT_DOPT_SIZE];
+    char dyn_args_str[MCOUNT_DOPT_SIZE], dyn_retval_str[MCOUNT_DOPT_SIZE];
+    bool close_connection, kill_daemon;
+    bool disabled;
+    enum uftrace_dopt dopt;
+    enum uftrace_pattern_type ptype = PATT_REGEX;
+    struct sockaddr_un addr;
+    struct uftrace_filter_setting filter_setting = {
+        .ptype      = ptype,
+        .auto_args  = false,
+        .allow_kernel   = false,
+        .lp64       = host_is_lp64(),
+        .arch       = host_cpu_arch()
+    };
+
+    /* Open socket at /var/run/user/%UID/uftrace/%PID.socket */
+    sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sfd == -1)
+        pr_err("error opening socket");
+
+    memset(&addr, 0, sizeof(struct sockaddr_un));
+    addr.sun_family = AF_UNIX;
+
+    uid = getuid();
+    pid = getpid();
+    xasprintf(&run_dir, "/var/run/user/%d/uftrace", uid);
+    if (mkdir(run_dir, 0775) == -1) {
+        if (errno == EEXIST)
+            pr_dbg3("skipping pre-existing run directory %s\n", run_dir);
+        else
+            pr_err("error creating run directory");
+    }
+
+    xasprintf(&channel, "%s/%d.%s", run_dir, pid, "socket");
+    strncpy(addr.sun_path, channel, sizeof(addr.sun_path) - 1);
+    pr_dbg3("using socket %s\n", channel);
+
+    if (unlink(channel) == -1) {
+        if (errno != ENOENT)
+            pr_err("cannot unlink %s", channel);
+    }
+    if (bind(sfd, (struct sockaddr *) &addr,
+             sizeof(struct sockaddr_un)) == -1) {
+        pr_warn("error binding to socket\n");
+		return NULL;
+	}
+
+    if (listen(sfd, 1) == -1) {
+        pr_warn("error listening to socket\n");
+		return NULL;
+	}
+
+    kill_daemon = false;
+    while (!kill_daemon) {
+        if ((cfd = accept(sfd, NULL, NULL)) == -1) {
+            pr_warn("error accepting socket connection\n");
+			continue;
+		}
+
+        close_connection = false;
+        while (!close_connection) {
+            struct strv watch;
+            char *str;
+            int i;
+
+            if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
+                pr_warn("error reading option\n", errno);
+				break;
+			}
+
+            switch (dopt) {
+            case UFTRACE_DOPT_DISABLED:
+                if (read(cfd, &disabled, sizeof(bool)) == -1)
+                    pr_err("error reading option");
+                mcount_enabled = !disabled;
+                break;
+
+            case UFTRACE_DOPT_PATT_TYPE:
+                if (read(cfd, &ptype,
+                         sizeof(enum uftrace_pattern_type)) == -1)
+                    pr_err("error reading option");
+                /* filter_setting.ptype = ptype; */
+                pr_warn("unsupported option: pattern\n");
+                break;
+
+            case UFTRACE_DOPT_DEPTH:
+                if (read(cfd, &mcount_depth, sizeof(int)) == -1)
+                    pr_err("error reading option");
+                break;
+
+            case UFTRACE_DOPT_THRESHOLD:
+                if (read(cfd, &mcount_threshold,
+                         sizeof(typeof(mcount_threshold))) == -1)
+                    pr_err("error reading option");
+                break;
+
+            case UFTRACE_DOPT_PATCH: /* TODO */
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+				if (mcount_dynamic_update(&symtabs, buf, PATT_SIMPLE) < 0) {
+					pr_dbg("mcount_dynamic_update failed\n");
+				} else {
+					pr_dbg("mcount_dynamic_update success\n");
+				}
+                break;
+
+            case UFTRACE_DOPT_FILTER: /* -F or -N */
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+                pthread_rwlock_wrlock(&tree_rwlock);
+                uftrace_setup_filter(buf,
+                                     &symtabs,
+                                     &mcount_triggers,
+                                     &mcount_filter_mode,
+                                     &filter_setting);
+                pthread_rwlock_unlock(&tree_rwlock);
+                break;
+
+            case UFTRACE_DOPT_CALLER_FILTER:
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+                pthread_rwlock_wrlock(&tree_rwlock);
+                uftrace_setup_caller_filter(buf,
+                                            &symtabs,
+                                            &mcount_triggers,
+                                            &filter_setting);
+                pthread_rwlock_unlock(&tree_rwlock);
+                break;
+
+            case UFTRACE_DOPT_TRIGGER:
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+                pthread_rwlock_wrlock(&tree_rwlock);
+                uftrace_setup_trigger(buf,
+                                      &symtabs,
+                                      &mcount_triggers,
+                                      &mcount_filter_mode,
+                                      &filter_setting);
+                pthread_rwlock_unlock(&tree_rwlock);
+                break;
+
+            case UFTRACE_DOPT_ARGUMENT:
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+                pthread_rwlock_wrlock(&tree_rwlock);
+                uftrace_setup_argument(buf,
+                                       &symtabs,
+                                       &mcount_triggers,
+                                       &filter_setting);
+                pthread_rwlock_unlock(&tree_rwlock);
+                str_merge_symbs(dyn_args_str, buf, MCOUNT_DOPT_SIZE);
+                break;
+
+            case UFTRACE_DOPT_RETVAL:
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+                pthread_rwlock_wrlock(&tree_rwlock);
+                uftrace_setup_retval(buf,
+                                     &symtabs,
+                                     &mcount_triggers,
+                                     &filter_setting);
+                pthread_rwlock_unlock(&tree_rwlock);
+                str_merge_symbs(dyn_retval_str, buf, MCOUNT_DOPT_SIZE);
+                break;
+
+            case UFTRACE_DOPT_WATCH:
+                if (read(cfd, buf, MCOUNT_DOPT_SIZE) == -1)
+                    pr_err("error reading option");
+
+                watch = STRV_INIT;
+                strv_split(&watch, buf, ";");
+                strv_for_each(&watch, str, i) {
+                    if (!strcasecmp(str, "cpu"))
+                        mcount_watchpoints = MCOUNT_WATCH_CPU;
+                }
+                strv_free(&watch);
+                break;
+
+            case UFTRACE_DOPT_KILL:
+                kill_daemon = true;
+                __attribute__((fallthrough));
+
+            case UFTRACE_DOPT_CLOSE:
+                close_connection = true;
+                break;
+
+            default:
+                pr_warn("option not recognized: %d\n", dopt);
+           }
+        }
+        if (close(cfd) == -1) {
+			pr_warn("cannot close connection\n");
+		}
+    }
+
+    if (close(sfd) == -1) {
+		pr_warn("cannot close socket\n");
+	}
+    unlink(channel);
+
+    /* Tell uftrace these options changed before it saves the original options
+     * to disk. */
+    uftrace_send_message(UFTRACE_MSG_SEND_ARGS,
+                         dyn_args_str,
+                         strlen(dyn_args_str));
+    uftrace_send_message(UFTRACE_MSG_SEND_RETVAL,
+                         dyn_retval_str,
+                         strlen(dyn_retval_str));
+
+    free(channel);
+    free(run_dir);
+
+    return 0;
+}
+
+
 static void mcount_init_file(void)
 {
 	struct sigaction sa = {
@@ -864,7 +1123,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
+	pthread_rwlock_rdlock(&tree_rwlock);
 	uftrace_match_filter(child, &mcount_triggers, tr);
+	pthread_rwlock_unlock(&tree_rwlock);
 
 	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n",
 		tr->flags, tr->fmode, mtdp->filter.in_count,
@@ -884,14 +1145,28 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 		if (mcount_filter_mode == FILTER_MODE_IN &&
 		    mtdp->filter.in_count == 0)
 			return FILTER_OUT;
+
+		if (mtdp->depth_trigger_count == 0) {
+			if (mtdp->idx + 1 > mcount_depth) {
+				mtdp->filter.depth = 0;
+			}
+			else {
+				mtdp->filter.depth = mcount_depth - mtdp->idx;
+			}
+		}
 	}
+
+	if (mtdp->time_trigger_count == 0)
+		mtdp->filter.time = mcount_threshold;
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON |	\
 			 TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
-		if (tr->flags & TRIGGER_FL_DEPTH)
+		if (tr->flags & TRIGGER_FL_DEPTH) {
 			mtdp->filter.depth = tr->depth;
+			mtdp->depth_trigger_count++;
+		}
 
 		if (tr->flags & TRIGGER_FL_TRACE_ON)
 			mcount_enabled = true;
@@ -899,8 +1174,10 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 		if (tr->flags & TRIGGER_FL_TRACE_OFF)
 			mcount_enabled = false;
 
-		if (tr->flags & TRIGGER_FL_TIME_FILTER)
+		if (tr->flags & TRIGGER_FL_TIME_FILTER) {
 			mtdp->filter.time = tr->time;
+			mtdp->time_trigger_count++;
+		}
 	}
 
 #undef FLAGS_TO_CHECK
@@ -1004,7 +1281,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL |	\
 			 TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |		\
-			 TRIGGER_FL_CALLER)
+			 TRIGGER_FL_CALLER | TRIGGER_FL_DEPTH | TRIGGER_FL_TIME_FILTER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
 		if (tr->flags & TRIGGER_FL_FILTER) {
@@ -1025,6 +1302,12 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 
 		if (tr->flags & TRIGGER_FL_CALLER)
 			rstack->flags |= MCOUNT_FL_CALLER;
+
+		if (tr->flags & TRIGGER_FL_DEPTH)
+			rstack->flags |= MCOUNT_FL_DEPTH;
+
+		if (tr->flags & TRIGGER_FL_TIME_FILTER)
+			rstack->flags |= MCOUNT_FL_TIME_FILTER;
 
 		if (tr->flags & TRIGGER_FL_FINISH) {
 			record_trace_data(mtdp, rstack, NULL);
@@ -1106,7 +1389,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 
-#define FLAGS_TO_CHECK  (MCOUNT_FL_FILTERED | MCOUNT_FL_NOTRACE | MCOUNT_FL_RECOVER)
+#define FLAGS_TO_CHECK  (MCOUNT_FL_FILTERED | MCOUNT_FL_NOTRACE |	\
+						 MCOUNT_FL_RECOVER | MCOUNT_FL_DEPTH)
 
 	if (rstack->flags & FLAGS_TO_CHECK) {
 		if (rstack->flags & MCOUNT_FL_FILTERED)
@@ -1116,6 +1400,12 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 
 		if (rstack->flags & MCOUNT_FL_RECOVER)
 			mcount_rstack_reset(mtdp);
+
+		if (rstack->flags & MCOUNT_FL_DEPTH)
+			mtdp->depth_trigger_count--;
+
+		if (rstack->flags & MCOUNT_FL_TIME_FILTER)
+			mtdp->time_trigger_count--;
 	}
 
 #undef FLAGS_TO_CHECK
@@ -1561,6 +1851,48 @@ static void cygprof_exit(unsigned long parent, unsigned long child)
 	errno = saved_errno;
 }
 
+static pthread_rwlock_t xray_patching_rwlock;
+
+int xray_lock_patching_write(void) {
+	int status = pthread_rwlock_wrlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_wrlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_lock_patching_read(void) {
+	int status = pthread_rwlock_rdlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_rdlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_unlock_patching(void) {
+	int status = pthread_rwlock_unlock(&xray_patching_rwlock);
+	if (status != 0) {
+		pr_err("pthread_rwlock_unlock: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
+int xray_init(void) {
+	int status = pthread_rwlock_init(&xray_patching_rwlock, NULL);
+	if (status != 0) {
+		pr_err("pthread_rwlock_init: %s\n", strerror(status));
+		return -1;
+	}
+
+	return 0;
+}
+
 static void _xray_entry(unsigned long parent, unsigned long child,
 			struct mcount_regs *regs)
 {
@@ -1582,6 +1914,8 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 		if (!mcount_guard_recursion(mtdp))
 			return;
 	}
+
+	xray_lock_patching_read();
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr);
 
@@ -1628,6 +1962,8 @@ static void _xray_entry(unsigned long parent, unsigned long child,
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
+
+	xray_unlock_patching();
 }
 
 void xray_entry(unsigned long parent, unsigned long child,
@@ -1651,6 +1987,8 @@ static void _xray_exit(long *retval)
 	if (!mcount_guard_recursion(mtdp))
 		return;
 
+	xray_lock_patching_read();
+
 	/*
 	 * cygprof_exit() can be called beyond rstack max.
 	 * It cannot use mcount_check_rstack() here
@@ -1672,6 +2010,8 @@ out:
 	compiler_barrier();
 
 	mtdp->idx--;
+
+	xray_unlock_patching();
 }
 
 void xray_exit(long *retval)
@@ -1806,6 +2146,8 @@ static __used void mcount_startup(void)
 
 	page_size_in_kb = getpagesize() / KB;
 
+	xray_init();
+
 	if (logfd_str) {
 		int fd = strtol(logfd_str, NULL, 0);
 
@@ -1886,6 +2228,7 @@ static __used void mcount_startup(void)
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
+	mcount_dynamic_init(&symtabs);
 	if (patch_str)
 		mcount_dynamic_update(&symtabs, patch_str, patt_type);
 
@@ -1903,6 +2246,16 @@ static __used void mcount_startup(void)
 		mcount_setup_plthook(mcount_exename, nest_libcall);
 	}
 
+	if (getenv("UFTRACE_NO_DAEMON"))
+		mcount_daemon_enabled = false;
+
+	if (mcount_daemon_enabled) {
+		errno = pthread_create(&daemon_thread, NULL, &command_daemon, NULL);
+		if (errno != 0) {
+			pr_err("cannot start daemon: %s", strerror((errno)));
+		}
+	}
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
@@ -1918,8 +2271,46 @@ static __used void mcount_startup(void)
 	mtd.recursion_marker = false;
 }
 
+/* Check is the daemon is up, and send it a KILL message if so. Then join the
+ * thread daemon, so the target program can exit. */
+void kill_daemon_if_needed() {
+    int daemon_sfd;
+    pid_t pid;
+    uid_t uid;
+    char *channel = NULL;
+    struct sockaddr_un addr;
+    enum uftrace_dopt opt = UFTRACE_DOPT_KILL;
+
+	if (!mcount_daemon_enabled)
+		return;
+
+    daemon_sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (daemon_sfd == -1)
+        pr_err("error opening socket");
+    memset(&addr, 0, sizeof(struct sockaddr_un));
+    addr.sun_family = AF_UNIX;
+    uid = getuid();
+    pid = getpid();
+    xasprintf(&channel, "/var/run/user/%d/uftrace/%d.socket", uid, pid);
+    strncpy(addr.sun_path, channel,
+            sizeof(addr.sun_path) - 1);
+    if (connect(daemon_sfd, (struct sockaddr *) &addr,
+                sizeof(struct sockaddr_un)) == -1) {
+        if (errno != ENOENT) { /* The daemon may have ended and deleted the socket */
+            pr_err("error connecting to socket");
+        }
+    }
+	else if (write(daemon_sfd, &opt, sizeof(enum uftrace_dopt)) == -1) {
+        pr_err("error sending option type");
+    }
+    if (pthread_join(daemon_thread, NULL) == -1)
+        pr_err("error joining daemon thread");
+    free(channel);
+}
+
 static void mcount_cleanup(void)
 {
+    kill_daemon_if_needed();
 	mcount_finish();
 	destroy_dynsym_indexes();
 	mcount_dynamic_finish();

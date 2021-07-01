@@ -29,6 +29,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 #include "utils/hashmap.h"
+#include "utils/membarrier.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
@@ -49,8 +50,31 @@ struct code_page {
 	bool			frozen;
 };
 
+static Hashmap* sym_patched = NULL;
+
+static inline int register_sym_patched(char* name) {
+	return (hashmap_put(sym_patched, name, (void*) true) == NULL) ? -1 : 0;
+}
+
+static inline int register_sym_unpatched(char* name) {
+	return (hashmap_put(sym_patched, name, (void*) false) == NULL) ? -1 : 0;
+}
+
+static inline bool is_sym_registered(char* name) {
+	return hashmap_contains_key(sym_patched, name);
+}
+
+static inline bool is_sym_patched(char* name, bool dontexist) {
+	if (!is_sym_registered(name)) {
+		return dontexist;
+	}
+
+	return (bool) hashmap_get(sym_patched, name);
+}
+
 static LIST_HEAD(code_pages);
 
+/* contains out-of-line execution code (return address -> modified instructions ptr) */
 static struct Hashmap *code_hmap;
 
 /* minimum function size for dynamic update */
@@ -264,6 +288,7 @@ __weak void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 struct find_module_data {
 	struct symtabs *symtabs;
 	bool needs_modules;
+	bool skip_first;
 };
 
 static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
@@ -306,8 +331,12 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct symtabs *symtabs = fmd->symtabs;
 	struct uftrace_mmap *map;
 
-	mdi = create_mdi(info);
+	if (fmd->skip_first) {
+		fmd->skip_first = false;
+		return !fmd->needs_modules;
+	}
 
+	mdi = create_mdi(info);
 	map = find_map(symtabs, mdi->base_addr);
 	if (map && map->mod) {
 		mdi->map = map;
@@ -323,22 +352,38 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct symtabs *symtabs,
-				   bool needs_modules)
+static void load_modules_dynamic_info(struct symtabs *symtabs, bool needs_modules)
 {
-	struct find_module_data fmd = {
+	static enum {
+		NONE_LOADED,
+		MAIN_BINARY_LOADED,
+		ALL_MODULES_LOADED,
+	} loaded_module = NONE_LOADED;
+
+	struct find_module_data callback_data = {
 		.symtabs = symtabs,
 		.needs_modules = needs_modules,
+		.skip_first = (loaded_module == MAIN_BINARY_LOADED),
 	};
-	int hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	if (needs_modules)
-		hash_size *= 2;
+	switch (loaded_module) {
+	case NONE_LOADED:
+		dl_iterate_phdr(find_dynamic_module, &callback_data);
+		loaded_module = needs_modules ? ALL_MODULES_LOADED : MAIN_BINARY_LOADED;
+		break;
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
-				   hashmap_ptr_equals);
+	case MAIN_BINARY_LOADED:
+		if (!needs_modules) {
+			return;
+		}
 
-	dl_iterate_phdr(find_dynamic_module, &fmd);
+		dl_iterate_phdr(find_dynamic_module, &callback_data);
+		loaded_module = ALL_MODULES_LOADED;
+		break;
+
+	case ALL_MODULES_LOADED:
+		return;
+	}
 }
 
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
@@ -381,10 +426,16 @@ static bool match_pattern_module(char *pathname)
 	return ret;
 }
 
-static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
+enum pattern_match {
+	PATTERN_NO_MATCH,
+	PATTERN_MATCH_POSITIVE,
+	PATTERN_MATCH_NEGATIVE,
+};
+
+static enum pattern_match match_pattern_list(struct uftrace_mmap *map, char *sym_name)
 {
 	struct patt_list *pl;
-	bool ret = false;
+	enum pattern_match ret = PATTERN_NO_MATCH;
 	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
@@ -392,7 +443,7 @@ static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
 			continue;
 
 		if (match_filter_pattern(&pl->patt, sym_name))
-			ret = pl->positive;
+			ret = (pl->positive) ? PATTERN_MATCH_POSITIVE : PATTERN_MATCH_NEGATIVE;
 	}
 
 	return ret;
@@ -405,7 +456,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 	char *name;
 	int j;
 	struct patt_list *pl;
-	bool all_negative = true;
 
 	strv_split(&funcs, patch_funcs, ";");
 
@@ -418,7 +468,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 			name++;
 		else {
 			pl->positive = true;
-			all_negative = false;
 		}
 
 		delim = strchr(name, '@');
@@ -432,20 +481,6 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod,
 
 		init_filter_pattern(ptype, &pl->patt, name);
 		list_add_tail(&pl->list, &patterns);
-	}
-
-	/* prepend match-all pattern, if all patterns are negative */
-	if (all_negative) {
-		pl = xzalloc(sizeof(*pl));
-		pl->positive = true;
-		pl->module = xstrdup(def_mod);
-
-		if (ptype == PATT_REGEX)
-			init_filter_pattern(ptype, &pl->patt, ".");
-		else
-			init_filter_pattern(PATT_GLOB, &pl->patt, "*");
-
-		list_add(&pl->list, &patterns);
 	}
 
 	strv_free(&funcs);
@@ -497,23 +532,46 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		    sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		if (!match_pattern_list(map, sym->name)) {
-			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
-				stats.unpatch++;
-			continue;
-		}
+		switch (match_pattern_list(map, sym->name)) {
+		case PATTERN_NO_MATCH:
+			if (!is_sym_registered(sym->name)) {
+				register_sym_unpatched(sym->name);
 
-		found = true;
-		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
+				if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+					stats.unpatch++;
+			} else {
 				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
+			}
+			break;
+
+		case PATTERN_MATCH_POSITIVE:
+			found = true;
+			if (!is_sym_patched(sym->name, false)) {
+				register_sym_patched(sym->name);
+
+				switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+					case INSTRUMENT_FAILED:
+						stats.failed++;
+						break;
+					case INSTRUMENT_SKIPPED:
+						stats.skipped++;
+						break;
+					case INSTRUMENT_SUCCESS:
+					default:
+						break;
+				}
+			}
+			break;
+
+		case PATTERN_MATCH_NEGATIVE:
+			found = true;
+			if (is_sym_patched(sym->name, true)) {
+				register_sym_unpatched(sym->name);
+
+				if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+					stats.unpatch++;
+			}
+			break;
 		}
 		stats.total++;
 	}
@@ -534,6 +592,12 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	def_mod = basename(symtabs->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
+	stats.total = 0;
+	stats.failed = 0;
+	stats.skipped = 0;
+	stats.nomatch = 0;
+	stats.unpatch = 0;
+
 	for_each_map(symtabs, map) {
 		struct mcount_dynamic_info *mdi;
 
@@ -550,25 +614,9 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		       stats.total, basename(symtabs->filename));
 	}
 
+	release_pattern_list();
+
 	return 0;
-}
-
-static void freeze_dynamic_update(void)
-{
-	struct mcount_dynamic_info *mdi, *tmp;
-
-	mdi = mdinfo;
-	while (mdi) {
-		tmp = mdi->next;
-
-		mcount_arch_dynamic_recover(mdi, &disasm);
-		mcount_cleanup_trampoline(mdi);
-		free(mdi);
-
-		mdi = tmp;
-	}
-
-	mcount_freeze_code();
 }
 
 /* do not use floating-point in libmcount */
@@ -580,20 +628,49 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
+__weak int mcount_dynamic_init_arch(void) {
+	return 0;
+}
+
+int mcount_dynamic_init(struct symtabs *symtabs)
+{
+	char *size_filter;
+	int hash_size;
+
+	mcount_disasm_init(&disasm);
+
+	if (mcount_dynamic_init_arch() < 0) {
+		pr_dbg("mcount_dynamic_init: failed to execute arch initialization\n");
+		return -1;
+	}
+
+	hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
+	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (code_hmap == NULL) {
+		return -1;
+	}
+
+	sym_patched = hashmap_create(10, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (sym_patched == NULL) {
+		return -1;
+	}
+
+	size_filter = getenv("UFTRACE_PATCH_SIZE");
+	if (size_filter != NULL) {
+		min_size = strtoul(size_filter, NULL, 0);
+	}
+
+	return 0;
+}
+
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
-	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	mcount_disasm_init(&disasm);
-
-	prepare_dynamic_update(symtabs, needs_modules);
-
-	size_filter = getenv("UFTRACE_PATCH_SIZE");
-	if (size_filter != NULL)
-		min_size = strtoul(size_filter, NULL, 0);
+	load_modules_dynamic_info(symtabs, needs_modules);
 
 	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
 
@@ -613,7 +690,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	freeze_dynamic_update();
+	mcount_freeze_code();
 	return ret;
 }
 
@@ -657,11 +734,12 @@ void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
 	free(mdi);
 
 	mcount_freeze_code();
+
+	release_pattern_list();
 }
 
 void mcount_dynamic_finish(void)
 {
-	release_pattern_list();
 	mcount_disasm_finish(&disasm);
 }
 
@@ -766,27 +844,27 @@ TEST_CASE(dynamic_pattern_list)
 	pr_dbg("check simple match with default module\n");
 	parse_pattern_list("abc;!def", "main", PATT_SIMPLE);
 
-	TEST_EQ(match_pattern_list(main_map, "abc"), true);
-	TEST_EQ(match_pattern_list(main_map, "def"), false);
-	TEST_EQ(match_pattern_list(other_map, "xyz"), false);
+	TEST_EQ(match_pattern_list(main_map, "abc"), PATTERN_MATCH_POSITIVE);
+	TEST_EQ(match_pattern_list(main_map, "def"), PATTERN_MATCH_NEGATIVE);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), PATTERN_NO_MATCH);
 
 	release_pattern_list();
 
 	pr_dbg("check negative regex match with default module\n");
 	parse_pattern_list("!^a", "main", PATT_REGEX);
 
-	TEST_EQ(match_pattern_list(main_map, "abc"), false);
-	TEST_EQ(match_pattern_list(main_map, "def"), true);
-	TEST_EQ(match_pattern_list(other_map, "xyz"), false);
+	TEST_EQ(match_pattern_list(main_map, "abc"), PATTERN_MATCH_NEGATIVE);
+	TEST_EQ(match_pattern_list(main_map, "def"), PATTERN_MATCH_POSITIVE);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), PATTERN_NO_MATCH);
 
 	release_pattern_list();
 
 	pr_dbg("check wildcard match with other module\n");
 	parse_pattern_list("*@other", "main", PATT_GLOB);
 
-	TEST_EQ(match_pattern_list(main_map, "abc"), false);
-	TEST_EQ(match_pattern_list(main_map, "def"), false);
-	TEST_EQ(match_pattern_list(other_map, "xyz"), true);
+	TEST_EQ(match_pattern_list(main_map, "abc"), PATTERN_NO_MATCH);
+	TEST_EQ(match_pattern_list(main_map, "def"), PATTERN_NO_MATCH);
+	TEST_EQ(match_pattern_list(other_map, "xyz"), PATTERN_MATCH_POSITIVE);
 
 	release_pattern_list();
 

@@ -367,4 +367,6 @@ struct uftrace_data;
 char *get_event_name(struct uftrace_data *handle, unsigned evt_id);
 char *absolute_dirname(const char *path, char *resolved_path);
 
+ssize_t list_files(const char* directory, char** result);
+
 #endif /* UFTRACE_UTILS_H */

@@ -1,6 +1,13 @@
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/ucontext.h>
 #include <unistd.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+#include <linux/membarrier.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "dynamic"
@@ -10,6 +17,8 @@
 #include "libmcount/internal.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/hashmap.h"
+#include "utils/membarrier.h"
 
 #define PAGE_SIZE  4096
 #define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
@@ -22,6 +31,406 @@ extern void __fentry__(void);
 extern void __dentry__(void);
 extern void __xray_entry(void);
 extern void __xray_exit(void);
+
+typedef struct saved_instructions {
+	unsigned int len;
+	uint8_t insns[];
+} saved_instructions_t;
+
+/*
+ * This hashmap contains a mapping between function start addresses and the
+ * relevant saved instructions. It is used when restoring the original
+ * instructions in the unpatching process.
+ *
+ * (void* -> saved_instructions_t*)
+ */
+static struct Hashmap *saved_instructions_hmap = NULL;
+
+static int save_instructions(void* addr, unsigned int len) {
+	saved_instructions_t *insns;
+
+	if (hashmap_contains_key(saved_instructions_hmap, addr)) {
+		return 0;
+	}
+
+	insns = malloc(sizeof(unsigned int) + sizeof(uint8_t) * len);
+	if (insns == NULL) {
+		return -1;
+	}
+
+	insns->len = len;
+	memcpy(&insns->insns, addr, len);
+
+	if (hashmap_put(saved_instructions_hmap, addr, insns) == NULL) {
+		free(insns);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_saved_instructions(void* addr, unsigned int offset, unsigned int count) {
+	saved_instructions_t *insns = hashmap_get(saved_instructions_hmap, addr);
+	if (insns == NULL) {
+		return -1;
+	}
+
+	if (offset + count >= insns->len) {
+		return 0;
+	}
+
+	if (count == 0) {
+		count = insns->len - offset;
+	}
+
+	memcpy(addr + offset, &insns->insns[offset], count);
+
+	return 0;
+}
+
+static int get_saved_instructions_length(void* addr) {
+	saved_instructions_t *insns;
+
+	if (saved_instructions_hmap == NULL) {
+		return -1;
+	}
+
+	insns = hashmap_get(saved_instructions_hmap, addr);
+	if (insns == NULL) {
+		return -1;
+	}
+
+	return insns->len;
+}
+
+typedef struct int3_patch {
+	void *address;
+	void *return_address;
+	struct mcount_dynamic_info *mdi;
+} int3_patch_t;
+
+/*
+ * This hashmap contains a mapping between an int3 trap tracepoint and its
+ * relevant information. Is is used in the patching/unpatching process. When
+ * a trap get executed (SIGTRAP handler), the trap will emulate an equivalent
+ * call instruction.
+ *
+ * (void* -> int3_patch_t*)
+ */
+static struct Hashmap *int3_patchs_hmap = NULL;
+
+static int save_int3_mdi(void *address, void *return_address, struct mcount_dynamic_info *mdi) {
+	int3_patch_t *patch;
+
+	if (hashmap_contains_key(int3_patchs_hmap, address)) {
+		return 0;
+	}
+
+	patch = malloc(sizeof(*patch));
+	if (patch == NULL) {
+		return -1;
+	}
+
+	patch->address = address;
+	patch->return_address = return_address;
+	patch->mdi = mdi;
+
+	if (hashmap_put(int3_patchs_hmap, patch->address, patch) == NULL) {
+		return -1;
+	}
+
+	return 0;
+}
+
+static void sigtrap_handler(int sig, siginfo_t *info, void *ucontext) {
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	int3_patch_t *patch;
+	uint64_t return_address;
+	void* int3_address;
+	(void) sig;
+
+	__atomic_signal_fence(__ATOMIC_SEQ_CST);
+	int3_address = (void*) mctx->gregs[REG_RIP] - 1;
+	patch = hashmap_get(int3_patchs_hmap, int3_address);
+
+	return_address = (uint64_t) patch->return_address;
+
+	mctx->gregs[REG_RIP] = patch->mdi->trampoline;
+	mctx->gregs[REG_RSP] -= 8;
+	memcpy((void*) mctx->gregs[REG_RSP], &return_address, 8);
+
+	pr_dbg("int3 address   = %p\n", int3_address);
+	pr_dbg("return address = %p\n", (void*) return_address);
+}
+
+static bool sigtrap_handler_configured = false;
+
+static int configure_sigtrap_handler() {
+	struct sigaction act;
+
+	if (sigtrap_handler_configured) {
+		return 0;
+	}
+
+	act.sa_sigaction = sigtrap_handler;
+	act.sa_flags = SA_SIGINFO;
+
+	if (sigaction(SIGTRAP, &act, NULL) < 0) {
+		pr_err("failed to configure SIGTRAP handler\n");
+		return -1;
+	}
+
+	pr_dbg("configured SIGTRAP handler\n");
+	sigtrap_handler_configured = true;
+
+	return 0;
+}
+
+/*
+ * This hashmap contains a mapping between a return address that is emulated by
+ * the SIGTRAP handler and the real return address that would be pushed onto the
+ * stack a by a real call instruction.
+ *
+ * (void* -> void*)
+ */
+static struct Hashmap *call_return_addresses_hmap = NULL;
+
+static int map_emulated_call_return_address(void* emulated, void* real) {
+	if (emulated == real) {
+		return 0;
+	}
+
+	if (hashmap_contains_key(call_return_addresses_hmap, emulated)) {
+		return 0;
+	}
+
+	if (hashmap_put(call_return_addresses_hmap, emulated, real) == NULL) {
+		return -1;
+	}
+
+	return 0;
+}
+
+void* get_real_call_return_adress(void* emulated) {
+	void* real = hashmap_get(call_return_addresses_hmap, emulated);
+	if (real == NULL) {
+		return emulated;
+	}
+
+	return real;
+}
+
+/*
+ * This hashmap contains a mapping between an instruction to another another
+ * instruction. It is used in the SIGRTMIN+n handler of a thread during the
+ * patching/unpatching process.
+ *
+ * When patching, the mapping will be from the original instructions to the
+ * one in the trampoline. When unpatching, the mapping will be from the
+ * trampoline instructions to the original one.
+ *
+ * (instruction address -> instruction address)
+ */
+static struct Hashmap *move_instruction_hmap;
+
+static int map_move_instructions(void* insns, void* trampoline_insns, unsigned int count) {
+	for (unsigned int i = 0; i < count; i++) {
+		if (hashmap_contains_key(move_instruction_hmap, insns + i)) {
+			continue;
+		}
+
+		if (hashmap_put(move_instruction_hmap, insns + i, trampoline_insns + i) == NULL) {
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int unmap_move_instructions(void* insns, void* trampoline_insns, unsigned int count) {
+	for (unsigned int i = 0; i < count; i++) {
+		if (!hashmap_contains_key(move_instruction_hmap, insns + i)) {
+			continue;
+		}
+
+		if (hashmap_remove(move_instruction_hmap, insns + i)) {
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static void* get_move_instruction_address(void* insn) {
+	return hashmap_get(move_instruction_hmap, insn);
+}
+
+static void sigrt_handler(int sig, siginfo_t *info, void *ucontext) {
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	void* next_insn;
+	void* trampoline_insn;
+	(void) sig;
+
+	next_insn = (void*) mctx->gregs[REG_RIP];
+	trampoline_insn = get_move_instruction_address(next_insn);
+	if (trampoline_insn == NULL) {
+		return;
+	}
+
+	pr_dbg("moving thread to trampoline: %p -> %p\n", next_insn, trampoline_insn);
+	mctx->gregs[REG_RIP] = (uint64_t) trampoline_insn;
+}
+
+static int sigrt_offset = -1;
+
+static int send_sigrt_to_all_threads() {
+	char path[256];
+	DIR* directory;
+	struct dirent* directory_entry;
+	long tid;
+
+	if (sigrt_offset < 0) {
+		pr_err("invalid SIGRTMIN offset\n");
+		goto fail_sigrt_check;
+	}
+
+	snprintf(path, 256, "/proc/%u/task", getpid());
+
+	directory = opendir(path);
+	if (directory == NULL) {
+		pr_err("failed to open directory `%s`\n", path);
+		goto fail_open_directory;
+	}
+
+	errno = 0;
+	while (1) {
+		directory_entry = readdir(directory);
+		if (directory_entry == NULL) {
+			if (errno != 0) {
+				pr_err("failed to read directory entry\n");
+				goto fail_read_directory;
+			}
+
+			break;
+		}
+
+		/* skip "." and ".." directories */
+		if (directory_entry->d_name[0] == '.') {
+			continue;
+		}
+
+		tid = strtol(directory_entry->d_name, NULL, 10);
+		if (errno != 0 || tid < 0) {
+			pr_err("failed to parse TID\n");
+			goto fail_parse_tid;
+		}
+
+		/* ignore our TID */
+		if (tid == getpid()) {
+			continue;
+		}
+
+		/*
+		 * By reading /proc/<pid>/task directory, there is the possibility of
+		 * a race condition where a thread exits before we send the signal.
+		 * Therefore, we do not check for errors on this call.
+		 */
+		kill((pid_t) tid, SIGRTMIN+sigrt_offset);
+	}
+
+	if (closedir(directory) < 0) {
+		pr_err("failed to close directory\n");
+	}
+
+	return 0;
+
+fail_parse_tid:
+fail_read_directory:
+	closedir(directory);
+fail_open_directory:
+fail_sigrt_check:
+	return -1;
+}
+
+static int find_unused_sigrt(void) {
+    struct sigaction oldact;
+
+	for (int n = 0; SIGRTMIN + n <= SIGRTMAX; n++) {
+		if (sigaction(SIGRTMIN + n, NULL, &oldact) < 0) {
+			pr_err("failed to check current handler\n");
+			return -1;
+		}
+
+		if (oldact.sa_handler == NULL) {
+			return n;
+		}
+	}
+
+	return -1;
+}
+
+static int configure_sigrt_handler(void) {
+	static bool sigrt_configured = false;
+	struct sigaction act;
+
+	if (sigrt_configured) {
+		return 0;
+	}
+
+	sigrt_offset = find_unused_sigrt();
+	if (sigrt_offset < 0) {
+		pr_err("failed to find unused SIGRT\n");
+		return -1;
+	}
+
+	act.sa_sigaction = sigrt_handler;
+	act.sa_flags = SA_SIGINFO;
+
+	if (sigaction(SIGRTMIN+sigrt_offset, &act, NULL) < 0) {
+		pr_err("failed to configure SIGRTMIN+%d handler\n", sigrt_offset);
+		return -1;
+	}
+
+	pr_dbg("configured SIGRTMIN+%d handler\n", sigrt_offset);
+	sigrt_configured = true;
+
+	return 0;
+}
+
+int mcount_dynamic_init_arch(void) {
+	saved_instructions_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (saved_instructions_hmap == NULL) {
+		pr_dbg("mcount_dynamic_init_arch: failed to create hashmap\n");
+		return -1;
+	}
+
+	int3_patchs_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (int3_patchs_hmap == NULL) {
+		pr_dbg("mcount_dynamic_init_arch: failed to create hashmap\n");
+		return -1;
+	}
+
+	call_return_addresses_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (call_return_addresses_hmap == NULL) {
+		pr_dbg("mcount_dynamic_init_arch: failed to create hashmap\n");
+		return -1;
+	}
+
+	move_instruction_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (move_instruction_hmap == NULL) {
+		pr_dbg("mcount_dynamic_init_arch: failed to create hashmap\n");
+		return -1;
+	}
+
+	if (membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0) {
+		pr_err("failed to register intent to use MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE\n");
+		return -1;
+	}
+
+	return 0;
+}
 
 struct xray_instr_map {
 	uint64_t address;
@@ -64,6 +473,14 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 	if (adi->type == DYNAMIC_XRAY)
 		trampoline_size *= 2;
+
+	if (configure_sigtrap_handler() < 0) {
+		return -1;
+	}
+
+	if (configure_sigrt_handler() < 0) {
+		return -1;
+	}
 
 	/* find unused 16-byte at the end of the code segment */
 	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
@@ -157,6 +574,7 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 			xrmap->function += offset;
 		}
 	}
+
 }
 
 static void read_mcount_loc(struct arch_dynamic_info *adi,
@@ -256,16 +674,37 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return mdi->trampoline - (addr + CALL_INSN_SIZE);
 }
 
+static uint8_t fentry_unpatched_entry_old[5] = {
+	/* 5-bytes NOP */
+	0x67, 0x0f, 0x1f, 0x04, 0x00,
+};
+
+static uint8_t fentry_unpatched_entry[5] = {
+	/* 5-bytes NOP */
+	0x0f, 0x1f, 0x44, 0x00, 0x00,
+};
+
+static uint8_t fentry_temporary_jump[2] = {
+	/* 2-bytes jump */
+	0xeb, 0x03,
+};
+
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (void *)sym->addr + mdi->map->start;
+	uint8_t *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
+	uint8_t patch[5] = {
+		/* 4-bytes call instruction opcode */
+		0xe8,
+
+		/* 4-bytes call target address */
+		0x00, 0x00, 0x00, 0x00,
+	};
+
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
-	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
+	if (memcmp(insn, fentry_unpatched_entry_old, sizeof(fentry_unpatched_entry_old)) &&
+	    memcmp(insn, fentry_unpatched_entry, sizeof(fentry_unpatched_entry))) {
 		pr_dbg("skip non-applicable functions: %s\n", sym->name);
 		return INSTRUMENT_FAILED;
 	}
@@ -274,80 +713,172 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	target_addr = get_target_addr(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
+	memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-	/* make a "call" insn with 4-byte offset */
-	insn[0] = 0xe8;
-	/* hopefully we're not patching 'memcpy' itself */
-	memcpy(&insn[1], &target_addr, sizeof(target_addr));
+	/* atomically replace the first 2-bytes of the NOP with our temporary jump */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_temporary_jump, __ATOMIC_SEQ_CST);
 
-	pr_dbg3("update function '%s' dynamically to call __fentry__\n",
-		sym->name);
+	/* syncronize the instruction cache of each processor*/
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
 
+	/* write the 3 last bytes of the call */
+	memcpy(&insn[2], &patch[2], sizeof(patch) - 2);
+
+	/* atomically replace the temporary jump with the other 2-bytes of the call */
+	__atomic_store((uint16_t*)insn, (uint16_t*)patch, __ATOMIC_SEQ_CST);
+
+	pr_dbg3("dynamically enabled '%s' fentry tracepoint\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
-static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
+static int unpatch_fentry_nop_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	uint8_t *insn = (void *)sym->addr + mdi->map->start;
+
+	/* atomically replace the first 2-bytes of the call with our temporary jump */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_temporary_jump, __ATOMIC_SEQ_CST);
+
+	/* syncronize the instruction cache of each processor*/
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
+
+	/* write the 3 last bytes of the NOP */
+	memcpy(&insn[2], &fentry_unpatched_entry[2], sizeof(fentry_unpatched_entry) - 2);
+
+	/* atomically replace the temporary jump with the other 2-bytes of the NOP */
+	__atomic_store((uint16_t*)insn, (uint16_t*)fentry_unpatched_entry, __ATOMIC_SEQ_CST);
+
+	pr_dbg3("dynamically disabled '%s' fentry tracepoint\n", sym->name);
+	return INSTRUMENT_SUCCESS;
+}
+
+static uint8_t xray_unpatched_entry[2] = {
+	/* 2-bytes relative jump */
+	0xeb, 0x09,
+};
+
+static uint8_t xray_unpatched_exit[1] = {
+	/* 1-byte procedure return */
+	0xc3,
+};
+
+static int enable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *sym,
 			    struct xray_instr_map *xrmap)
 {
-	unsigned char entry_insn[] = { 0xeb, 0x09 };
-	unsigned char exit_insn[]  = { 0xc3, 0x2e };
-	unsigned char pad[] = { 0x66, 0x0f, 0x1f, 0x84, 0x00,
-				0x00, 0x02, 0x00, 0x00 };
-	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char nop4[] = { 0x0f, 0x1f, 0x40, 0x00 };
-	unsigned int target_addr;
-	unsigned char *func = (void *)xrmap->address;
-	union {
-		unsigned long word;
-		char bytes[8];
-	} patch;
+	uint32_t target_addr;
+	uint8_t *func = (void *)xrmap->address;
 
-	if (memcmp(func + 2, pad, sizeof(pad)))
-		return INSTRUMENT_FAILED;
+	uint8_t patch[11] = {
+		/* 4-bytes call/jump instruction opcode */
+		(xrmap->kind == 0) ? 0xe8 : 0xe9,
+
+		/* 4-bytes call/jump target address */
+		0x00, 0x00, 0x00, 0x00,
+
+		/* 6-bytes NOP */
+		0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00,
+	};
 
 	if (xrmap->kind == 0) {  /* ENTRY */
-		if (memcmp(func, entry_insn, sizeof(entry_insn)))
+		if (memcmp(func, xray_unpatched_entry, sizeof(xray_unpatched_entry)))
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline - (xrmap->address + 5);
+		memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-		memcpy(func + 5, nop6, sizeof(nop6));
+		/* write the 9 last bytes */
+		memcpy(&func[2], &patch[2], sizeof(patch) - 2);
 
-		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe8;  /* "call" insn */
-		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
-		memcpy(&patch.bytes[5], nop6, 3);
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
 
-		memcpy(func, patch.bytes, sizeof(patch));
+		/* atomically replace 2-bytes jump with our call */
+		__atomic_store((uint16_t*)func, (uint16_t*)patch, __ATOMIC_SEQ_CST);
 	}
 	else {  /* EXIT */
-		if (memcmp(func, exit_insn, sizeof(exit_insn)))
+		if (memcmp(func, xray_unpatched_exit, sizeof(xray_unpatched_exit)))
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline + 16 - (xrmap->address + 5);
+		memcpy(&patch[1], &target_addr, sizeof(target_addr));
 
-		memcpy(func + 5, nop4, sizeof(nop4));
+		/* write the 10 last bytes */
+		memcpy(&func[1], &patch[1], sizeof(patch) - 1);
 
-		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe9;  /* "jmp" insn */
-		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
-		memcpy(&patch.bytes[5], nop4, 3);
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
 
-		memcpy(func, patch.bytes, sizeof(patch));
+		/* atomically replace 1-byte ret with our jump */
+		__atomic_store((uint8_t*)func, (uint8_t*)patch, __ATOMIC_SEQ_CST);
 	}
 
-	pr_dbg3("update function '%s' dynamically to call xray functions\n",
-		sym->name);
+	pr_dbg3("dynamically enabled '%s' xray tracepoint\n", sym->name);
 	return INSTRUMENT_SUCCESS;
 }
 
-static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int disable_xray_tracepoint(struct mcount_dynamic_info *mdi, struct sym *sym,
+			    struct xray_instr_map *xrmap)
+{
+	uint8_t expected_entry_byte = 0xe8;
+	uint8_t expected_exit_byte  = 0xe9;
+	uint8_t expected_nop[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	uint8_t *func = (void *)xrmap->address;
+
+	if (memcmp(&func[5], expected_nop, sizeof(expected_nop)))
+		return INSTRUMENT_FAILED;
+
+	if (xrmap->kind == 0) {  /* ENTRY */
+		if (func[0] != expected_entry_byte)
+			return INSTRUMENT_FAILED;
+
+		/* atomically replace our call with 2-bytes jump */
+		__atomic_store((uint16_t*)func, (uint16_t*)xray_unpatched_entry, __ATOMIC_SEQ_CST);
+
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
+	}
+	else {  /* EXIT */
+		if (func[0] != expected_exit_byte)
+			return INSTRUMENT_FAILED;
+
+		/* atomically replace our jump with a 1-byte ret */
+		__atomic_store((uint8_t*)func, (uint8_t*)xray_unpatched_exit, __ATOMIC_SEQ_CST);
+
+		/* syncronize the instruction cache of each processor*/
+		if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+			pr_err("failed to execute serializing instruction\n");
+		}
+	}
+
+	/*
+	 * We do not rewrite the last 9 or 10 original bytes because it creates a race condition
+	 * where a thread may try to execute an invalid instruction. Not replacing these original
+	 * bytes simplify the cross-thread modifications of the code, plus we don't really need
+	 * to do it.
+	 */
+
+	pr_dbg3("dynamically disabled '%s' xray tracepoint\n", sym->name);
+	return INSTRUMENT_SUCCESS;
+}
+
+static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym, bool enable)
 {
 	unsigned i;
 	int ret = -2;
 	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
 	uint64_t sym_addr = sym->addr + mdi->map->start;
+
+	xray_lock_patching_write();
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < adi->xrmap_count; i++) {
@@ -356,7 +887,12 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
 
-		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
+		do {
+			if (enable)
+				ret = enable_xray_tracepoint(mdi, sym, xrmap);
+			else
+				ret = disable_xray_tracepoint(mdi, sym, xrmap);
+
 			if (i == adi->xrmap_count - 1)
 				break;
 			i++;
@@ -364,103 +900,134 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 			if (xrmap->function != xrmap[1].function)
 				break;
 			xrmap++;
-		}
+		} while (ret == 0);
 
 		break;
 	}
 
+	xray_unlock_patching();
+
 	return ret;
 }
 
-/*
- *  we overwrite instructions over 5bytes from start of function
- *  to call '__dentry__' that seems similar like '__fentry__'.
- *
- *  while overwriting, After adding the generated instruction which
- *  returns to the address of the original instruction end,
- *  save it in the heap.
- *
- *  for example:
- *
- *   4005f0:       31 ed                   xor     %ebp,%ebp
- *   4005f2:       49 89 d1                mov     %rdx,%r9
- *   4005f5:       5e                      pop     %rsi
- *
- *  will changed like this :
- *
- *   4005f0	call qword ptr [rip + 0x200a0a] # 0x601000
- *
- *  and keeping original instruction :
- *
- *  Original Instructions---------------
- *    f1cff0:	xor ebp, ebp
- *    f1cff2:	mov r9, rdx
- *    f1cff5:	pop rsi
- *  Generated Instruction to return-----
- *    f1cff6:	jmp qword ptr [rip]
- *    f1cffc:	QW 0x00000000004005f6
- *
- *  In the original case, address 0x601000 has a dynamic symbol
- *  start address. It is also the first element in the GOT array.
- *  while initializing the mcount library, we will replace it with
- *  the address of the function '__dentry__'. so, the changed
- *  instruction will be calling '__dentry__'.
- *
- *  '__dentry__' has a similar function like '__fentry__'.
- *  the other thing is that it returns to original instructions
- *  we keeping. it makes it possible to execute the original
- *  instructions and return to the address at the end of the original
- *  instructions. Thus, the execution will goes on.
- *
- */
-
-/*
- * Patch the instruction to the address as given for arguments.
- */
 static void patch_code(struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
-	void *origin_code_addr;
-	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	uint32_t target_addr = get_target_addr(mdi, info->addr);
+	/*
+	 * Let assume that we have the following instructions.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the
+	 * following instructions.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <garbage instructions>
+	 *     0xb: <other instructions>
+	 */
 
-	/* patch address */
-	origin_code_addr = (void *)info->addr;
+	unsigned int original_code_size = info->orig_size;
+	void* original_code_addr = (void *)info->addr;
+	void* modified_code_addr = mcount_find_code((unsigned long) original_code_addr + CALL_INSN_SIZE);
+	void* trampoline_addr = (void*)get_target_addr(mdi, info->addr);
 
 	if (info->has_intel_cet) {
-		origin_code_addr += ENDBR_INSN_SIZE;
-		target_addr = get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
+		original_code_addr += ENDBR_INSN_SIZE;
+		trampoline_addr = (void *)get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
 	}
 
-	/* build the instrumentation instruction */
-	memcpy(&call_insn[1], &target_addr, CALL_INSN_SIZE - 1);
+	/*
+	 * The first step is to insert a 1-byte trap-based probe point.
+	 *
+	 *     0x0: int3
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * When the trap handler is executed, it will change the program
+	 * counter to points to <trampoline>. When the trap handler exits,
+	 * the code at <trampoline> will execute (which is __dentry__
+	 * defined in dynamic.s).
+	 *
+	 * That said, __dentry__ is expected to be called like a function
+	 * and it depends on the return address of the caller, which should
+	 * be on the stack, to know which tracepoint was executed. Therefore,
+	 * the trap handler actually needs to emulate a call instruction
+	 * entirely (moving the instruction pointer is not enough).
+	 *
+	 * To do so, the trap handler will also push on the stack the next
+	 * instruction pointer  that would be used if the executed
+	 * instruction was a call instruction.
+	 */
+
+	if (map_emulated_call_return_address(original_code_addr + original_code_size, original_code_addr + CALL_INSN_SIZE) < 0) {
+		pr_dbg("failed to map emulated return address\n");
+	}
+
+	__atomic_signal_fence(__ATOMIC_SEQ_CST);
+	save_int3_mdi(original_code_addr, original_code_addr + original_code_size, mdi);
+	((uint8_t*) original_code_addr)[0] = 0xcc;
 
 	/*
-	 * we need 5-bytes at least to instrumentation. however,
-	 * if instructions is not fit 5-bytes, we will overwrite the
-	 * 5-bytes and fill the remaining part of the last
-	 * instruction with nop.
+	 * The second step is to move all thread that are currently
+	 * executing in the patching region to the modified instructions
+	 * at the end of the trampoline. This is needed in order to prevent
+	 * the possible execution of invalid instructions.
 	 *
-	 * [example]
-	 * In this example, we overwrite 9-bytes to use 5-bytes.
-	 *
-	 * dynamic: 0x19e98b0[01]:push rbp
-	 * dynamic: 0x19e98b1[03]:mov rbp, rsp
-	 * dynamic: 0x19e98b4[05]:mov edi, 0x4005f4
-	 *
-	 * dynamic: 0x40054c[05]:call 0x400ff0
-	 * dynamic: 0x400551[01]:nop
-	 * dynamic: 0x400552[01]:nop
-	 * dynamic: 0x400553[01]:nop
-	 * dynamic: 0x400554[01]:nop
+	 * The method used to move the threads is to send the SIGRTMIN+n
+	 * signal to all other threads. When their thread handler executes,
+	 * it will check if the next instruction pointer is in the patching
+	 * region. If it is, will move the next instruction pointer to the
+	 * equivalent modified instruction.
 	 */
-	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
-	memset(origin_code_addr + CALL_INSN_SIZE, 0x90,  /* NOP */
-	       info->orig_size - CALL_INSN_SIZE);
 
-	/* flush icache so that cpu can execute the new insn */
-	__builtin___clear_cache(origin_code_addr,
-				origin_code_addr + info->orig_size);
+	if (map_move_instructions(original_code_addr, modified_code_addr, original_code_size) < 0) {
+		pr_dbg("failed to map instructions to trampoline\n");
+	}
+
+	send_sigrt_to_all_threads();
+
+	if (unmap_move_instructions(original_code_addr, modified_code_addr, original_code_size) < 0) {
+		pr_dbg("failed to unmap instructions to trampoline\n");
+	}
+
+	/*
+	 * The third step is to write the target address of the jump. From
+	 * the processor view the 4-bytes address can be any garbage
+	 * instructions.
+	 *
+	 *     0x0: int3
+	 *     0x1: <trampoline>
+	 *     0x5: <garbage instructions>
+	 *     0xb: <other instructions>
+	 *
+	 * Before writing the last byte, a serialization instruction must
+	 * be executed in order to syncronize the instruction cache of
+	 * each processor. The easiest method is to execute a membarrier
+	 * system call with MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE.
+	 * It will send a inter-processor interrupt that will execute
+	 * the required serialization.
+	 */
+
+	memcpy(&((uint8_t*) original_code_addr)[1], &trampoline_addr, CALL_INSN_SIZE - 1);
+
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
+
+	/*
+	 * The fourth and last step is to write the missing byte jump
+	 * instruction itself.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <garbage instructions>
+	 *     0xb: <other instructions>
+	 */
+
+	((uint8_t*) original_code_addr)[0] = 0xe8;
 }
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
@@ -503,6 +1070,10 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	memcpy(jmp_insn + CET_JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
+	if (save_instructions((void*)info.addr, info.orig_size) < 0) {
+		pr_err("failed to save instructions for function %s\n", sym->name);
+	}
+
 	if (info.has_jump)
 		mcount_save_code(&info, call_offset, jmp_insn, 0);
 	else
@@ -511,6 +1082,115 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	patch_code(mdi, &info);
 
 	return INSTRUMENT_SUCCESS;
+}
+
+static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	/*
+	 * Let assume that we have the following instructions.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <garbage instructions>
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the
+	 * following instructions.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	void* original_code_addr = (void *)mdi->map->start + sym->addr;
+	void* modified_code_addr = mcount_find_code((unsigned long) original_code_addr + CALL_INSN_SIZE);
+
+	int original_code_size = get_saved_instructions_length(original_code_addr);
+	if (original_code_size < 0) {
+		pr_dbg("failed to get original instructions length\n");
+		return -1;
+	}
+
+	/*
+	 * The first step is to insert a trap.
+	 *
+	 *     0x0: int3
+	 *     0x1: <trampoline>
+	 *     0x5: <garbage instructions>
+	 *     0xb: <other instructions>
+	 */
+
+	/*
+	 * TODO: The emulated return call address is not unmapped at
+	 *       the end of the patching process. Hence, we can reuse
+	 *       it and don't need to map it here. That said, it should
+	 *       be unmapped after the aptching process and we would
+	 *       need to remap it here.
+	 */
+
+	((uint8_t*) original_code_addr)[0] = 0xcc;
+
+	/*
+	 * The second step is to restore the bytes after the trap instruction.
+	 *
+	 *     0x0: int3
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * Before restoring the last byte, a serialization instruction must
+	 * be executed in order to syncronize the instruction cache of
+	 * each processor. The easiest method is to execute a membarrier
+	 * system call with MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE.
+	 * It will send a inter-processor interrupt that will execute
+	 * the required serialization.
+	 */
+
+	if (restore_saved_instructions(original_code_addr, 1, 0) < 0) {
+		return 0;
+	}
+
+	if (membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0) < 0){
+		pr_err("failed to execute serializing instruction\n");
+	}
+
+	/*
+	 * The third is to restore the last byte.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	if (restore_saved_instructions(original_code_addr, 0, 1) < 0) {
+		return 0;
+	}
+
+	/*
+	 * The fourth and last step is to move all thread that are currently
+	 * executing in the modified instructions to the original instructions
+	 * at the end of the trampoline. This is needed in order to free the
+	 * memory allocated for the trampoline without any race condition.
+	 *
+	 * The method used to move the threads is to send the SIGRTMIN+n
+	 * signal to all other threads. When their thread handler executes,
+	 * it will check if the next instruction pointer is in the patching
+	 * region. If it is, will move the next instruction pointer to the
+	 * equivalent modified instruction.
+	 */
+
+	if (map_move_instructions(modified_code_addr, original_code_addr, original_code_size) < 0) {
+		pr_dbg("failed to map instructions to trampoline\n");
+	}
+
+	send_sigrt_to_all_threads();
+
+	if (unmap_move_instructions(modified_code_addr, original_code_addr, original_code_size) < 0) {
+		pr_dbg("failed to unmap instructions to trampoline\n");
+	}
+
+	return 0;
 }
 
 static int unpatch_func(uint8_t *insn, char *name)
@@ -591,7 +1271,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	switch (adi->type) {
 	case DYNAMIC_XRAY:
-		result = patch_xray_func(mdi, sym);
+		result = patch_xray_func(mdi, sym, true);
 		break;
 
 	case DYNAMIC_FENTRY_NOP:
@@ -615,12 +1295,24 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	int result = INSTRUMENT_SKIPPED;
 
 	switch (adi->type) {
+	case DYNAMIC_XRAY:
+		result = patch_xray_func(mdi, sym, false);
+		break;
+
 	case DYNAMIC_FENTRY:
 		result = unpatch_fentry_func(mdi, sym);
 		break;
 
+	case DYNAMIC_FENTRY_NOP:
+		result = unpatch_fentry_nop_func(mdi, sym);
+		break;
+
 	case DYNAMIC_PG:
 		result = unpatch_mcount_func(mdi, sym);
+		break;
+
+	case DYNAMIC_NONE:
+		result = unpatch_normal_func(mdi, sym);
 		break;
 
 	default:

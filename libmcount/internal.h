@@ -124,6 +124,7 @@ struct mcount_thread_data {
 	int				tid;
 	int				idx;
 	int				record_idx;
+	int				depth_trigger_count, time_trigger_count;
 	bool				recursion_marker;
 	bool				in_exception;
 	bool				dead;
@@ -431,6 +432,8 @@ struct mcount_disasm_engine {
  */
 #define MAX_COND_BRANCH 3
 
+int mcount_dynamic_init(struct symtabs *symtabs);
+int mcount_dynamic_init_arch(void);
 int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
 void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
@@ -534,5 +537,9 @@ int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id,
 		   void *buf);
 void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id);
 void finish_pmu_event(struct mcount_thread_data *mtdp);
+
+int xray_lock_patching_write(void);
+int xray_lock_patching_read(void);
+int xray_unlock_patching(void);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
