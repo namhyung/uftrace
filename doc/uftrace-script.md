@@ -224,6 +224,32 @@ Also a script can have options for record if it requires some form of data
     b has retval
 
 
+
+The script can be executed during or after record. If a script is given with
+`record` or `live` command, it runs with the target program, but a script is
+given with `script` command, it runs while reading the pre-recorded data.
+
+In order to detect if the script is executed during record time, ctx["record"]
+is provided in `uftrace_begin` as follows:
+
+
+    $ cat info.py
+    def  uftrace_begin(ctx):
+         print(ctx["record"])
+         print(ctx["version"])
+         print(stx["cmds"])
+
+    $ uftrace record -S info.py a.out
+    True
+    v0.8.3-537-g0836 ( dwarf python tui perf sched )
+    ('a.out',)
+
+    $ uftrace script -S info.py
+    False
+    v0.8.3-537-g0836 ( dwarf python tui perf sched )
+    ()
+
+
 SEE ALSO
 ========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-live`(1)
