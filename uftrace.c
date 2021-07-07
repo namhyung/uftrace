@@ -1090,7 +1090,8 @@ void parse_script_opt(struct opts *opts)
 	const char* comments[SCRIPT_TYPE_COUNT] = {
 		"",
 		"#",
-		"--"
+		"--",
+		"//",
 	};
 	const char* comment;
 	size_t comment_len;

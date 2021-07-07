@@ -28,6 +28,7 @@ endif
 prefix ?= /usr/local
 bindir = $(prefix)/bin
 libdir = $(prefix)/lib
+incdir = $(prefix)/include/uftrace
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 docdir = $(srcdir)/doc
@@ -187,7 +188,7 @@ DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
-UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h))
+UFTRACE_HDRS := $(filter-out $(srcdir)/version.h,$(wildcard $(srcdir)/*.h $(srcdir)/utils/*.h $(srcdir)/include/uftrace/*.h))
 UFTRACE_HDRS += $(srcdir)/libmcount/mcount.h $(wildcard $(srcdir)/arch/$(ARCH)/*.h)
 
 LIBMCOUNT_SRCS := $(filter-out %-nop.c,$(wildcard $(srcdir)/libmcount/*.c))
@@ -199,7 +200,8 @@ LIBMCOUNT_FAST_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast-single.
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/regs.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
-LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c $(srcdir)/utils/script-luajit.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script-luajit.c $(srcdir)/utils/script-native.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/dwarf.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/hashmap.c $(srcdir)/utils/argspec.c
 LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
@@ -322,6 +324,7 @@ $(objdir)/misc/dbginfo: $(DBGINFO_OBJS)
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(incdir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(etcdir)/bash_completion.d
 ifneq ($(wildcard $(elfdir)/lib/libelf.so),)
 ifeq ($(wildcard $(prefix)/lib/libelf.so),)
@@ -338,6 +341,8 @@ endif
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast.so $(DESTDIR)$(libdir)/libmcount-fast.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-single.so $(DESTDIR)$(libdir)/libmcount-single.so
 	$(Q)$(INSTALL) $(objdir)/libmcount/libmcount-fast-single.so $(DESTDIR)$(libdir)/libmcount-fast-single.so
+	$(call QUIET_INSTALL, headers)
+	$(Q)$(INSTALL) -m 644 $(srcdir)/include/uftrace/script.h $(DESTDIR)$(incdir)/script.h
 	$(call QUIET_INSTALL, bash-completion)
 	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
 	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)

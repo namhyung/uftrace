@@ -550,7 +550,7 @@ static void mcount_trace_finish(bool send_msg)
 		goto unlock;
 
 	/* dtor for script support */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_uftrace_end();
 
 	/* notify to uftrace that we're finished */
@@ -912,7 +912,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
 	return FILTER_IN;
 }
 
-static int script_save_context(struct script_context *sc_ctx,
+static int script_save_context(struct uftrace_script_context *sc_ctx,
 			       struct mcount_thread_data *mtdp,
 			       struct mcount_ret_stack *rstack,
 			       char *symname, bool has_arg_retval,
@@ -921,24 +921,24 @@ static int script_save_context(struct script_context *sc_ctx,
 	if (!script_match_filter(symname))
 		return -1;
 
-	sc_ctx->tid       = mcount_gettid(mtdp);
-	sc_ctx->depth     = rstack->depth;
-	sc_ctx->address   = rstack->child_ip;
-	sc_ctx->name      = symname;
-	sc_ctx->timestamp = rstack->start_time;
+	sc_ctx->base.tid       = mcount_gettid(mtdp);
+	sc_ctx->base.depth     = rstack->depth;
+	sc_ctx->base.address   = rstack->child_ip;
+	sc_ctx->base.name      = symname;
+	sc_ctx->base.timestamp = rstack->start_time;
 	if (rstack->end_time)
-		sc_ctx->duration = rstack->end_time - rstack->start_time;
+		sc_ctx->base.duration = rstack->end_time - rstack->start_time;
 
 	if (has_arg_retval) {
 		unsigned *argbuf = get_argbuf(mtdp, rstack);
 
-		sc_ctx->arglen  = argbuf[0];
-		sc_ctx->argbuf  = &argbuf[1];
-		sc_ctx->argspec = pargs;
+		sc_ctx->args.arglen  = argbuf[0];
+		sc_ctx->args.argbuf  = &argbuf[1];
+		sc_ctx->args.argspec = pargs;
 	}
 	else {
 		/* prevent access to arguments */
-		sc_ctx->arglen  = 0;
+		sc_ctx->args.arglen  = 0;
 	}
 
 	return 0;
@@ -948,7 +948,7 @@ static void script_hook_entry(struct mcount_thread_data *mtdp,
 			      struct mcount_ret_stack *rstack,
 			      struct uftrace_trigger *tr)
 {
-	struct script_context sc_ctx;
+	struct uftrace_script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
 	struct sym *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
@@ -970,7 +970,7 @@ skip:
 static void script_hook_exit(struct mcount_thread_data *mtdp,
 			     struct mcount_ret_stack *rstack)
 {
-	struct script_context sc_ctx;
+	struct uftrace_script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
 	struct sym *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
@@ -1077,7 +1077,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
 		}
 
 		/* script hooking for function entry */
-		if (SCRIPT_ENABLED && script_str)
+		if (script_str)
 			script_hook_entry(mtdp, rstack, tr);
 
 #define FLAGS_TO_CHECK  (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
@@ -1128,7 +1128,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 			mtdp->record_idx--;
 
 		if (!mcount_enabled)
-			return;
+			goto out;
 
 		if (!(rstack->flags & MCOUNT_FL_RETVAL))
 			retval = NULL;
@@ -1172,8 +1172,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				mtdp->nr_events = k;  /* invalidate sync events */
 		}
 
+out:
 		/* script hooking for function exit */
-		if (SCRIPT_ENABLED && script_str)
+		if (script_str)
 			script_hook_exit(mtdp, rstack);
 	}
 }
@@ -1690,7 +1691,7 @@ static void atfork_prepare_handler(void)
 	};
 
 	/* call script atfork preparation routine */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_atfork_prepare();
 
 	uftrace_send_message(UFTRACE_MSG_FORK_START, &tmsg, sizeof(tmsg));
@@ -1742,7 +1743,8 @@ static void atfork_child_handler(void)
 
 static void mcount_script_init(enum uftrace_pattern_type patt_type)
 {
-	struct script_info info = {
+	struct uftrace_script_info info = {
+		.api_version    = SCRIPT_API_VERSION,
 		.name           = script_str,
 		.version        = UFTRACE_VERSION,
 		.record         = true,
@@ -1751,12 +1753,12 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 
 	cmds_str = getenv("UFTRACE_ARGS");
 	if (cmds_str)
-		strv_split(&info.cmds, cmds_str, "\n");
+		info.cmds = cmds_str;
 
 	if (script_init(&info, patt_type) < 0)
 		script_str = NULL;
-
-	strv_free(&info.cmds);
+	else if (!info.record)
+		mcount_enabled = false;
 }
 
 static __used void mcount_startup(void)
@@ -1908,7 +1910,7 @@ static __used void mcount_startup(void)
 	mcount_hook_functions();
 
 	/* initialize script binding */
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		mcount_script_init(patt_type);
 
 	compiler_barrier();
@@ -1937,7 +1939,7 @@ static void mcount_cleanup(void)
 
 	mcount_filter_finish();
 
-	if (SCRIPT_ENABLED && script_str)
+	if (script_str)
 		script_finish();
 	script_str = NULL;
 

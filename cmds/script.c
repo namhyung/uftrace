@@ -41,7 +41,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	task->timestamp = rstack->time;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		struct script_context sc_ctx = { 0, };
+		struct uftrace_script_context sc_ctx = { 0, };
 		struct fstack *fstack;
 		int depth;
 		struct uftrace_trigger tr = {
@@ -62,23 +62,23 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		if (!script_match_filter(symname))
 			goto out;
 
-		sc_ctx.tid       = task->tid;
-		sc_ctx.depth     = depth;  /* display depth */
-		sc_ctx.timestamp = rstack->time;
-		sc_ctx.address   = rstack->addr;
-		sc_ctx.name      = symname;
+		sc_ctx.base.tid       = task->tid;
+		sc_ctx.base.depth     = depth;  /* display depth */
+		sc_ctx.base.timestamp = rstack->time;
+		sc_ctx.base.address   = rstack->addr;
+		sc_ctx.base.name      = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT) {
-			sc_ctx.argbuf  = task->args.data;
-			sc_ctx.arglen  = task->args.len;
-			sc_ctx.argspec = task->args.args;
+			sc_ctx.args.argbuf  = task->args.data;
+			sc_ctx.args.arglen  = task->args.len;
+			sc_ctx.args.argspec = task->args.args;
 		}
 
 		/* script hooking for function entry */
 		script_uftrace_entry(&sc_ctx);
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
-		struct script_context sc_ctx = { 0, };
+		struct uftrace_script_context sc_ctx = { 0, };
 		struct fstack *fstack;
 
 		/* function exit */
@@ -97,17 +97,17 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			sc_ctx.tid       = task->tid;
-			sc_ctx.depth     = rstack->depth;
-			sc_ctx.timestamp = rstack->time;
-			sc_ctx.duration  = fstack->total_time;
-			sc_ctx.address   = rstack->addr;
-			sc_ctx.name      = symname;
+			sc_ctx.base.tid       = task->tid;
+			sc_ctx.base.depth     = rstack->depth;
+			sc_ctx.base.timestamp = rstack->time;
+			sc_ctx.base.duration  = fstack->total_time;
+			sc_ctx.base.address   = rstack->addr;
+			sc_ctx.base.name      = symname;
 
 			if (rstack->more) {
-				sc_ctx.argbuf  = task->args.data;
-				sc_ctx.arglen  = task->args.len;
-				sc_ctx.argspec = task->args.args;
+				sc_ctx.args.argbuf  = task->args.data;
+				sc_ctx.args.arglen  = task->args.len;
+				sc_ctx.args.argspec = task->args.args;
 			}
 
 			/* script hooking for function exit */
@@ -129,18 +129,15 @@ out:
 
 int command_script(int argc, char *argv[], struct opts *opts)
 {
-	int ret;
+	int ret, i;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
-	struct script_info info = {
+	struct uftrace_script_info info = {
+		.api_version    = SCRIPT_API_VERSION,
 		.name           = opts->script_file,
 		.version        = UFTRACE_VERSION,
 	};
-
-	if (!SCRIPT_ENABLED) {
-		pr_warn("script command is not supported due to missing libpython2.7.so\n");
-		return -1;
-	}
+	char *cmds = NULL;
 
 	if (!opts->script_file) {
 		pr_out("Usage: uftrace script (-S|--script) <script_file>\n");
@@ -177,7 +174,9 @@ int command_script(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
-	strv_copy(&info.cmds, argc, argv);
+	for (i = 0; i < argc; i++)
+		cmds = strjoin(cmds, argv[i], "\n");
+	info.cmds = cmds;
 
 	/* initialize script */
 	if (script_init(&info, opts->patt_type) < 0) {
@@ -202,7 +201,7 @@ out:
 
 	close_data_file(opts, &handle);
 
-	strv_free(&info.cmds);
+	free(cmds);
 
 	return ret;
 }

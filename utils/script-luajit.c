@@ -45,37 +45,37 @@ static void (*dllua_settop)(lua_State *L, int index);
 #define dllua_isnil(L, n) (dllua_type(L, (n)) == LUA_TNIL)
 #define dllua_getglobal(L, s) dllua_getfield(L, LUA_GLOBALSINDEX, (s))
 
-static void setup_common_context(struct script_context *sc_ctx)
+static void setup_common_context(struct uftrace_script_context *sc_ctx)
 {
 	dllua_newtable(L);
 	dllua_pushstring(L, "tid");
-	dllua_pushinteger(L, sc_ctx->tid);
+	dllua_pushinteger(L, sc_ctx->base.tid);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "depth");
-	dllua_pushinteger(L, sc_ctx->depth);
+	dllua_pushinteger(L, sc_ctx->base.depth);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "timestamp");
-	dllua_pushinteger(L, sc_ctx->timestamp);
+	dllua_pushinteger(L, sc_ctx->base.timestamp);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "duration");
-	dllua_pushinteger(L, sc_ctx->duration);
+	dllua_pushinteger(L, sc_ctx->base.duration);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "address");
-	dllua_pushinteger(L, sc_ctx->address);
+	dllua_pushinteger(L, sc_ctx->base.address);
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "name");
-	dllua_pushstring(L, sc_ctx->name);
+	dllua_pushstring(L, sc_ctx->base.name);
 	dllua_settable(L, -3);
 }
 
-static void setup_argument_context(bool is_retval, struct script_context *sc_ctx)
+static void setup_argument_context(bool is_retval, struct uftrace_script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
-	void *data = sc_ctx->argbuf;
+	void *data = sc_ctx->args.argbuf;
 	union script_arg_val val;
 	int count = 0;
 
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
@@ -92,7 +92,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 	dllua_newtable(L);
 
 	count = 0;
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		const int null_str = -1;
 		unsigned short slen;
 		char ch_str[2];
@@ -209,10 +209,11 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 	dllua_settable(L, -3);
 }
 
-static int luajit_uftrace_begin(struct script_info *info)
+static int luajit_uftrace_begin(struct uftrace_script_info *info)
 {
 	int i;
 	char *s;
+	struct strv sv = { 0, };
 
 	dllua_getglobal(L, "uftrace_begin");
 	if (dllua_isnil(L, -1))
@@ -229,11 +230,15 @@ static int luajit_uftrace_begin(struct script_info *info)
 	dllua_settable(L, -3);
 	dllua_pushstring(L, "cmds");
 	dllua_newtable(L);
-	strv_for_each(&info->cmds, s, i) {
+
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
+	strv_for_each(&sv, s, i) {
 		dllua_pushinteger(L, i + 1);
 		dllua_pushstring(L, s);
 		dllua_settable(L, -3);
 	}
+
 	dllua_settable(L, -3);
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
 		pr_dbg("uftrace_begin failed: %s\n", dllua_tostring(L, -1));
@@ -243,7 +248,7 @@ static int luajit_uftrace_begin(struct script_info *info)
 	return 0;
 }
 
-static int luajit_uftrace_entry(struct script_context *sc_ctx)
+static int luajit_uftrace_entry(struct uftrace_script_context *sc_ctx)
 {
 	dllua_getglobal(L, "uftrace_entry");
 	if (dllua_isnil(L, -1)) {
@@ -252,7 +257,7 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 	}
 
 	setup_common_context(sc_ctx);
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(false, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
@@ -264,7 +269,7 @@ static int luajit_uftrace_entry(struct script_context *sc_ctx)
 	return 0;
 }
 
-static int luajit_uftrace_exit(struct script_context *sc_ctx)
+static int luajit_uftrace_exit(struct uftrace_script_context *sc_ctx)
 {
 	dllua_getglobal(L, "uftrace_exit");
 	if (dllua_isnil(L, -1)) {
@@ -274,7 +279,7 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 
 	setup_common_context(sc_ctx);
 
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(true, sc_ctx);
 
 	if (dllua_pcall(L, 1, 0, 0) != 0) {
@@ -353,10 +358,11 @@ static int load_luajit_api_funcs(void)
 	return 0;
 }
 
-int script_init_for_luajit(struct script_info *info,
+int script_init_for_luajit(struct uftrace_script_info *info,
 			   enum uftrace_pattern_type ptype)
 {
-	pr_dbg("%s()\n", __func__);
+	pr_dbg("%s(\"%s\")\n", __func__, info->name);
+
 	script_uftrace_entry = luajit_uftrace_entry;
 	script_uftrace_exit = luajit_uftrace_exit;
 	script_uftrace_end = luajit_uftrace_end;
