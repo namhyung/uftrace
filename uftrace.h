@@ -197,6 +197,7 @@ bool data_is_lp64(struct uftrace_data *handle);
 #define UFTRACE_MODE_GRAPH   8
 #define UFTRACE_MODE_SCRIPT  9
 #define UFTRACE_MODE_TUI     10
+#define UFTRACE_MODE_CLIENT  11
 
 #define UFTRACE_MODE_DEFAULT  UFTRACE_MODE_LIVE
 
@@ -237,6 +238,7 @@ struct opts {
 	int nr_thread;
 	int rt_prio;
 	int size_filter;
+	int pid;
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
@@ -278,6 +280,8 @@ struct opts {
 	bool graphviz;
 	bool srcline;
 	bool estimate_return;
+	bool no_daemon;
+	bool kill;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
@@ -302,6 +306,7 @@ int command_dump(int argc, char *argv[], struct opts *opts);
 int command_graph(int argc, char *argv[], struct opts *opts);
 int command_script(int argc, char *argv[], struct opts *opts);
 int command_tui(int argc, char *argv[], struct opts *opts);
+int command_client(int argc, char *argv[], struct opts *opts);
 
 extern volatile bool uftrace_done;
 
@@ -383,12 +388,31 @@ enum uftrace_msg_type {
 
 	UFTRACE_MSG_SEND_START		= 100,
 	UFTRACE_MSG_SEND_DIR_NAME,
+	UFTRACE_MSG_SEND_ARGS,
+	UFTRACE_MSG_SEND_RETVAL,
 	UFTRACE_MSG_SEND_DATA,
 	UFTRACE_MSG_SEND_KERNEL_DATA,
 	UFTRACE_MSG_SEND_PERF_DATA,
 	UFTRACE_MSG_SEND_INFO,
 	UFTRACE_MSG_SEND_META_DATA,
 	UFTRACE_MSG_SEND_END,
+};
+
+/* Dynamic options sent by the client to the daemon */
+enum uftrace_dopt {
+    UFTRACE_DOPT_DISABLED,
+    UFTRACE_DOPT_PATT_TYPE,
+    UFTRACE_DOPT_PATCH,
+    UFTRACE_DOPT_DEPTH,
+    UFTRACE_DOPT_TRIGGER,
+    UFTRACE_DOPT_FILTER,
+    UFTRACE_DOPT_CALLER_FILTER,
+    UFTRACE_DOPT_ARGUMENT,
+    UFTRACE_DOPT_RETVAL,
+    UFTRACE_DOPT_THRESHOLD,
+    UFTRACE_DOPT_WATCH,
+    UFTRACE_DOPT_CLOSE,         /* Close the connection with the client */
+    UFTRACE_DOPT_KILL,          /* Kill the daemon */
 };
 
 /* msg format for communicating by pipe */

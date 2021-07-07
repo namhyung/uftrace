@@ -9,6 +9,7 @@
 #ifndef UFTRACE_MCOUNT_H
 #define UFTRACE_MCOUNT_H
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -20,6 +21,8 @@
 
 #define MCOUNT_NOTRACE_IDX     0x10000
 #define MCOUNT_INVALID_DYNIDX  0xefefefef
+
+#define MCOUNT_DOPT_SIZE       4096
 
 enum mcount_rstack_flag {
 	MCOUNT_FL_SETJMP	= (1U << 0),
@@ -36,6 +39,8 @@ enum mcount_rstack_flag {
 	MCOUNT_FL_ARGUMENT	= (1U << 11),
 	MCOUNT_FL_READ		= (1U << 12),
 	MCOUNT_FL_CALLER	= (1U << 13),
+	MCOUNT_FL_DEPTH     = (1U << 14),
+	MCOUNT_FL_TIME_FILTER = (1U << 15),
 };
 
 struct plthook_data;
@@ -61,6 +66,8 @@ struct mcount_ret_stack {
 	struct list_head *pargs;
 };
 
+void str_merge_symbs(char* base, char* new, size_t base_size);
+void *command_daemon(void *arg);
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);

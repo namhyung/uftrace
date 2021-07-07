@@ -9,7 +9,7 @@ uftrace - Function graph tracer for userspace
 
 SYNOPSIS
 ========
-uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*|*tui*] [*options*] COMMAND [*command-options*]
+uftrace [*record*|*replay*|*live*|*report*|*info*|*dump*|*recv*|*graph*|*script*|*tui*|*client*] [*options*] COMMAND [*command-options*]
 
 
 DESCRIPTION
@@ -27,11 +27,12 @@ in this page can be given to any sub-command also.
 
 For convenience, if no sub-command is given, uftrace acts as though the `live`
 sub-command was specified, which runs the `record` and `replay` sub-commands in
-turn.  See `uftrace-live`(1) for options belonging to the `live` sub-command.
-For more detailed analysis, it is better to use `uftrace-record`(1) to save
-trace data, and then analyze it with other uftrace commands like
-`uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1),
-`uftrace-script`(1) or `uftrace-tui`(1).
+turn. See `uftrace-live`(1) for options belonging to the `live` sub-command. For
+more detailed analysis, it is better to use `uftrace-record`(1) to save trace
+data, and then analyze it with other uftrace commands like `uftrace-replay`(1),
+`uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-script`(1)
+or `uftrace-tui`(1). The `uftrace-client` command can be used to control uftrace
+as a deamon.
 
 
 SUB-COMMANDS
@@ -65,6 +66,9 @@ script
 
 tui
 :   Show text user interface for graph and report
+
+client
+:   Send commands to an uftrace daemon
 
 
 OPTIONS
