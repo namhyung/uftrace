@@ -511,6 +511,14 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 			data += 4;
 			break;
 
+		case ARG_FMT_STRUCT:
+			if (spec->type_name) {
+				slen = strlen(spec->type_name);
+				insert_tuple_string(args, count++, spec->type_name);
+				data += ALIGN(slen, 4);
+			}
+			break;
+
 		default:
 			pr_warn("invalid argument format: %d\n", spec->fmt);
 			break;
