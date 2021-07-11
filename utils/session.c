@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
 #include <unistd.h>
 
 #define PR_FMT     "session"

@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <string.h>
 #include <sys/mman.h>
 

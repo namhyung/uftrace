@@ -3,7 +3,6 @@
 #include <signal.h>
 #include <inttypes.h>
 #include <stdio_ext.h>
-#include <assert.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"

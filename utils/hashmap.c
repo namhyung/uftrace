@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 #include <stdio.h>
-#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <pthread.h>
+
 #include "hashmap.h"
+#include "utils.h"
 
 typedef pthread_mutex_t mutex_t;
 typedef struct Entry Entry;
@@ -49,8 +50,8 @@ Hashmap* hashmap_create(size_t initial_capacity,
 	Hashmap* map;
 	size_t minimum_bucket_count;
 
-	assert(hash != NULL);
-	assert(equals != NULL);
+	ASSERT(hash != NULL);
+	ASSERT(equals != NULL);
 
 	map = malloc(sizeof(Hashmap));
 	if (map == NULL) {

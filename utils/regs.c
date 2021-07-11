@@ -1,4 +1,3 @@
-#include <assert.h>
 
 #include "utils/utils.h"
 #include "utils/arch.h"
@@ -91,7 +90,7 @@ int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name)
 	unsigned i;
 	const struct uftrace_reg_table *table;
 
-	assert(arch < ARRAY_SIZE(arch_reg_tables));
+	ASSERT(arch < ARRAY_SIZE(arch_reg_tables));
 
 	table = arch_reg_tables[arch];
 	for (i = 0; i < arch_reg_sizes[arch]; i++) {
@@ -107,7 +106,7 @@ int arch_register_at(enum uftrace_cpu_arch arch, bool integer, int idx)
 	int int_regs;
 	const struct uftrace_reg_table *table;
 
-	assert(arch < ARRAY_SIZE(arch_reg_tables));
+	ASSERT(arch < ARRAY_SIZE(arch_reg_tables));
 	int_regs = arch_reg_int_sizes[arch];
 	table = arch_reg_tables[arch];
 
@@ -130,7 +129,7 @@ int arch_register_index(enum uftrace_cpu_arch arch, int reg)
 	unsigned i;
 	const struct uftrace_reg_table *table;
 
-	assert(arch < ARRAY_SIZE(arch_reg_tables));
+	ASSERT(arch < ARRAY_SIZE(arch_reg_tables));
 
 	table = arch_reg_tables[arch];
 	for (i = 0; i < arch_reg_sizes[arch]; i++) {
@@ -150,7 +149,7 @@ const char * arch_register_argspec_name(enum uftrace_cpu_arch arch,
 {
 	const struct uftrace_reg_table *table;
 
-	assert(arch < ARRAY_SIZE(arch_reg_tables));
+	ASSERT(arch < ARRAY_SIZE(arch_reg_tables));
 
 	table = arch_reg_tables[arch];
 
@@ -248,7 +247,7 @@ const char * arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg)
 
 	const struct uftrace_reg_table *table;
 
-	assert(arch < ARRAY_SIZE(arch_dwarf_tables));
+	ASSERT(arch < ARRAY_SIZE(arch_dwarf_tables));
 
 	table = arch_dwarf_tables[arch];
 	for (i = 0; i < arch_dwarf_sizes[arch]; i++) {

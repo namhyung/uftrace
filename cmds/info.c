@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <assert.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -552,7 +551,7 @@ static int read_taskinfo(void *arg)
 			}
 			info->tids = tids;
 
-			assert(nr_tid == info->nr_tid);
+			ASSERT(nr_tid == info->nr_tid);
 		}
 		else
 			goto out;

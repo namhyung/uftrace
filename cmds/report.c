@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <inttypes.h>
-#include <assert.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"

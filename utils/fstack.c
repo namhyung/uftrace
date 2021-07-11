@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <errno.h>
 #include <byteswap.h>
 
@@ -1092,7 +1091,7 @@ struct uftrace_record *get_first_rstack_list(struct uftrace_rstack_list *list)
 {
 	struct uftrace_rstack_list_node *node;
 
-	assert(list->count > 0);
+	ASSERT(list->count > 0);
 
 	node = list_first_entry(&list->read, typeof(*node), list);
 	return &node->rstack;
@@ -1102,13 +1101,13 @@ void consume_first_rstack_list(struct uftrace_rstack_list *list)
 {
 	struct uftrace_rstack_list_node *node;
 
-	assert(list->count > 0);
+	ASSERT(list->count > 0);
 
 	node = list_first_entry(&list->read, typeof(*node), list);
 	list_move(&node->list, &list->unused);
 
 	if (node->rstack.more)
-		assert(node->args.data == NULL);
+		ASSERT(node->args.data == NULL);
 
 	list->count--;
 }
@@ -1117,7 +1116,7 @@ void delete_last_rstack_list(struct uftrace_rstack_list *list)
 {
 	struct uftrace_rstack_list_node *node;
 
-	assert(list->count > 0);
+	ASSERT(list->count > 0);
 
 	node = list_last_entry(&list->read, typeof(*node), list);
 	if (node->rstack.more) {
@@ -1298,7 +1297,7 @@ static int read_task_event_size(struct uftrace_task_reader *task,
 	if (fread(&len, sizeof(len), 1, task->fp) != 1)
 		return -1;
 
-	assert(len == buflen);
+	ASSERT(len == buflen);
 
 	if (fread(buf, len, 1, task->fp) != 1)
 		return -1;
@@ -2063,7 +2062,7 @@ static int find_rstack_cpu(struct uftrace_kernel_reader *kernel,
 			    rstack->depth == kernel->rstacks[cpu].depth)
 				break;
 		}
-		assert(cpu < kernel->nr_cpus);
+		ASSERT(cpu < kernel->nr_cpus);
 	}
 	else {
 		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
@@ -2071,7 +2070,7 @@ static int find_rstack_cpu(struct uftrace_kernel_reader *kernel,
 			    rstack->addr == kernel->rstacks[cpu].addr)
 				break;
 		}
-		assert(cpu < kernel->nr_cpus);
+		ASSERT(cpu < kernel->nr_cpus);
 	}
 
 	return cpu;
@@ -2100,7 +2099,7 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 		else
 			goto consume_perf_event;
 
-		assert(node->args.data);
+		ASSERT(node->args.data);
 
 		/* restore args/retval to task */
 		free(task->args.data);
@@ -2148,7 +2147,7 @@ consume_extern_data:
 		struct uftrace_perf_reader *perf;
 
 consume_perf_event:
-		assert(handle->last_perf_idx >= 0);
+		ASSERT(handle->last_perf_idx >= 0);
 		perf = &handle->perf[handle->last_perf_idx];
 
 		if (rstack->addr == EVENT_ID_PERF_COMM) {
