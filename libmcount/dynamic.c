@@ -381,17 +381,24 @@ static bool match_pattern_module(char *pathname)
 	return ret;
 }
 
-static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name)
+static bool match_pattern_list(struct uftrace_mmap *map, char *sym_name,
+			       char* soname)
 {
 	struct patt_list *pl;
 	bool ret = false;
 	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
-		if (strncmp(libname, pl->module, strlen(pl->module)))
-			continue;
+		int len = strlen(pl->module);
+		bool matched = false;
 
-		if (match_filter_pattern(&pl->patt, sym_name))
+		if (soname != NULL)
+			matched = (strncmp(soname, pl->module, len) == 0);
+
+		if (!matched)
+			matched = (strncmp(libname, pl->module, len) == 0);
+
+		if (matched && match_filter_pattern(&pl->patt, sym_name))
 			ret = pl->positive;
 	}
 
@@ -477,6 +484,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
+	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
 
@@ -497,7 +505,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		    sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		if (!match_pattern_list(map, sym->name)) {
+		if (!match_pattern_list(map, sym->name, soname)) {
 			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
 				stats.unpatch++;
 			continue;
@@ -520,6 +528,9 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 
 	if (!found)
 		stats.nomatch++;
+
+	if (soname != NULL)
+		free(soname);
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
