@@ -4,7 +4,6 @@
 #include <link.h>
 #include <sys/mman.h>
 #include <pthread.h>
-#include <assert.h>
 #include <dlfcn.h>
 #include <fnmatch.h>
 #include <errno.h>
@@ -604,7 +603,7 @@ static void restore_jmpbuf_rstack(struct mcount_thread_data *mtdp,
 		if (jbstack->addr == addr)
 			break;
 	}
-	assert(!list_no_entry(jbstack, &jmpbuf_list, list));
+	ASSERT(!list_no_entry(jbstack, &jmpbuf_list, list));
 
 	pr_dbg2("restore jmpbuf rstack at %lx (%d entries)\n", addr, jbstack->count);
 
@@ -950,7 +949,7 @@ static unsigned long __plthook_exit(long *retval)
 	unsigned long ret_addr = 0;
 
 	mtdp = get_thread_data();
-	assert(!check_thread_data(mtdp));
+	ASSERT(!check_thread_data(mtdp));
 
 	/*
 	 * it's only called when mcount_entry() was succeeded and

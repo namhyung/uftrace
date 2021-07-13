@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <assert.h>
 #include <byteswap.h>
 #include <glob.h>
 #include <sys/stat.h>
@@ -202,7 +201,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			dlop.namelen = strlen(exename);
 
 			s = get_session_from_sid(sess, dlop.sid);
-			assert(s);
+			ASSERT(s);
 			session_add_dlopen(s, dlop.task.time,
 					   dlop.base_addr, exename);
 		}

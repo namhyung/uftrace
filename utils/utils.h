@@ -17,6 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <signal.h>
 
 #include "compiler.h"
 
@@ -43,6 +44,8 @@
 
 #define NSEC_PER_SEC  1000000000
 #define NSEC_PER_MSEC 1000000
+
+#define BUG_REPORT_MSG "Please report this bug to https://github.com/namhyung/uftrace/issues.\n\n"
 
 extern int debug;
 extern FILE *logfp;
@@ -366,5 +369,25 @@ struct uftrace_data;
 
 char *get_event_name(struct uftrace_data *handle, unsigned evt_id);
 char *absolute_dirname(const char *path, char *resolved_path);
+
+void stacktrace(void);
+
+#define ASSERT(cond) 							\
+	if (unlikely(!(cond))) { 					\
+		pr_red("%s:%d: %s: ASSERT `%s' failed.\n",		\
+			__FILE__, __LINE__, __func__, #cond);		\
+		stacktrace();						\
+		pr_red(BUG_REPORT_MSG);					\
+		raise(SIGTRAP);						\
+	}
+
+#define DASSERT(cond) 							\
+	if (DEBUG_MODE && unlikely(!(cond))) { 				\
+		pr_red("%s:%d: %s: DEBUG ASSERT `%s' failed.\n",	\
+			__FILE__, __LINE__, __func__, #cond);		\
+		stacktrace();						\
+		pr_red(BUG_REPORT_MSG);					\
+		raise(SIGTRAP);						\
+	}
 
 #endif /* UFTRACE_UTILS_H */

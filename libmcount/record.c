@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <assert.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <pthread.h>
@@ -1103,7 +1102,7 @@ int record_trace_data(struct mcount_thread_data *mtdp,
 		count--;
 	}
 
-	assert(count == 0);
+	ASSERT(count == 0);
 	return 0;
 }
 

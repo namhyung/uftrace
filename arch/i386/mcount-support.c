@@ -6,7 +6,6 @@
  * Released under the GPL v2.
  */
 
-#include <assert.h>
 #include <string.h>
 #include <sys/mman.h>
 

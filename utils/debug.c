@@ -10,7 +10,6 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <inttypes.h>
 
 #include "utils/utils.h"
@@ -268,7 +267,7 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 			break;
 	}
 
-	assert(idx < ARRAY_SIZE(units));
+	ASSERT(idx < ARRAY_SIZE(units));
 
 	/* for some error cases */
 	if (delta > 999)

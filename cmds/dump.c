@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <time.h>
-#include <assert.h>
 #include <sys/stat.h>
 
 #include "uftrace.h"
@@ -1540,7 +1539,7 @@ static void dump_replay_event(struct uftrace_dump_ops *ops,
 	else {
 		struct uftrace_perf_reader *perf;
 
-		assert(task->h->last_perf_idx >= 0);
+		ASSERT(task->h->last_perf_idx >= 0);
 		perf = &task->h->perf[task->h->last_perf_idx];
 
 		call_if_nonull(ops->perf_event, ops, perf, rec);

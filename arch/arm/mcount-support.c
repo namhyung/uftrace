@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <assert.h>
 #include <link.h>
 #include <elf.h>
 

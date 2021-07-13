@@ -1,7 +1,6 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <ucontext.h>
-#include <assert.h>
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
@@ -21,7 +20,7 @@ static void sdt_handler(int sig, siginfo_t *info, void *arg)
 	struct mcount_event_info * mei;
 
 	mei = mcount_lookup_event(addr);
-	assert(mei != NULL);
+	ASSERT(mei != NULL);
 
 	/* TODO: collect and write arguments */
 	mcount_save_event(mei);

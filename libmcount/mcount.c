@@ -12,7 +12,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <assert.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
@@ -740,7 +739,8 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 		rstack--;
 	}
 
-	pr_red("\nPlease report this bug to https://github.com/namhyung/uftrace/issues.\n\n");
+	pr_out("\n");
+	pr_red(BUG_REPORT_MSG);
 
 out:
 	sigaction(sig, &old_sigact[(sig == SIGSEGV)], NULL);
@@ -1378,8 +1378,8 @@ static unsigned long __mcount_exit(long *retval)
 	unsigned long retaddr;
 
 	mtdp = get_thread_data();
-	assert(mtdp != NULL);
-	assert(!mtdp->dead);
+	ASSERT(mtdp != NULL);
+	ASSERT(!mtdp->dead);
 
 	/*
 	 * it's only called when mcount_entry() was succeeded and

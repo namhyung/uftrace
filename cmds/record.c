@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <assert.h>
 #include <dirent.h>
 #include <pthread.h>
 #include <signal.h>

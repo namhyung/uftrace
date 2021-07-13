@@ -12,7 +12,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <assert.h>
 #include <inttypes.h>
 
 /* This should be defined before #include "utils.h" */

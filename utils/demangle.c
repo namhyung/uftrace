@@ -38,7 +38,6 @@
  */
 
 #include <stdlib.h>
-#include <assert.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "demangle"

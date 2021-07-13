@@ -3,7 +3,6 @@
 #include <signal.h>
 #include <inttypes.h>
 #include <stdio_ext.h>
-#include <assert.h>
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -531,7 +530,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 		return;
 	}
 
-	assert(arg_list && !list_empty(arg_list));
+	ASSERT(arg_list && !list_empty(arg_list));
 
 	if (needs_paren)
 		print_args(&args, &len, "%s(%s", color_bold, color_reset);
@@ -761,7 +760,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			if (spec->fmt != ARG_FMT_AUTO)
 				memcpy(val.v, data, spec->size);
 
-			assert(idx < ARRAY_SIZE(len_mod));
+			ASSERT(idx < ARRAY_SIZE(len_mod));
 			lm = len_mod[idx];
 
 			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
