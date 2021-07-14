@@ -197,6 +197,16 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			data += 4;
 			break;
 
+		case ARG_FMT_STRUCT:
+			if (spec->type_name) {
+				slen = strlen(spec->type_name);
+				dllua_pushinteger(L, 1 + count++);
+				dllua_pushstring(L, spec->type_name);
+				dllua_settable(L, -3);
+				data += ALIGN(slen, 4);
+			}
+			break;
+
 		default:
 			break;
 		}
