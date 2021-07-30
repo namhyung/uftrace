@@ -40,7 +40,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'replay'
-        self.option = '-d ' + os.path.join(TDIR, 'uftrace.data')
+        self.option = '-E uftrace:event -d ' + os.path.join(TDIR, 'uftrace.data')
         self.exearg = ''
 
     def postrun(self, ret):
