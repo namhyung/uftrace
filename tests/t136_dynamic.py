@@ -15,6 +15,8 @@ class TestCase(TestBase):
     def build(self, name, cflags='', ldflags=''):
         if TestBase.get_machine(self) != 'x86_64':
             return TestBase.TEST_SKIP
+        if cflags.find('-finstrument-functions') >= 0:
+             return TestBase.TEST_SKIP
         if self.supported_lang['C']['cc'] == 'clang':
             return TestBase.TEST_SKIP
         cflags += ' -mfentry -mnop-mcount'
