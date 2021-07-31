@@ -477,6 +477,12 @@ class TestBase:
 
         return None
 
+    def check_arch_full_dynamic_support(self):
+        elf_machine = TestBase.get_elf_machine(self)
+        if elf_machine == 'x86_64' or elf_machine == 'aarch64':
+            return True
+        return False
+
     def check_arch_mfentry_mnop_mcount_support(self):
         machine = TestBase.get_machine(self)
         if machine == 'x86_64' or machine == 'i386':

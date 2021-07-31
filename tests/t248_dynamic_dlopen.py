@@ -22,6 +22,11 @@ class TestCase(TestBase):
 488.088 us [108977] | } /* main */
 """)
 
+    def prerun(self, timeout):
+        if not TestBase.check_arch_full_dynamic_support(self):
+            return TestBase.TEST_SKIP
+        return TestBase.TEST_SUCCESS
+
     def build(self, name, cflags='', ldflags=''):
         cflags = cflags.replace('-pg', '')
         cflags = cflags.replace('-finstrument-functions', '')
