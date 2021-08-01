@@ -468,7 +468,9 @@ class TestBase:
             f.read(EI_NIDENT + 2)
 
             # read e_machine
-            e_machine = ord(f.read(2)[0])
+            e_machine = f.read(2)[0]
+            if type(e_machine) is str:
+                e_machine = ord(e_machine)
             f.close()
 
             return machine[e_machine]
