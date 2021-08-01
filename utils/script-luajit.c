@@ -116,22 +116,22 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			memcpy(val.v, data, spec->size);
 			switch (spec->size) {
 			case 1:
-				dllua_pushinteger(L, 1 + count++);
+				dllua_pushinteger(L, ++count);
 				dllua_pushinteger(L, val.c);
 				dllua_settable(L, -3);
 				break;
 			case 2:
-				dllua_pushinteger(L, 1 + count++);
+				dllua_pushinteger(L, ++count);
 				dllua_pushinteger(L, val.s);
 				dllua_settable(L, -3);
 				break;
 			case 4:
-				dllua_pushinteger(L, 1 + count++);
+				dllua_pushinteger(L, ++count);
 				dllua_pushinteger(L, val.i);
 				dllua_settable(L, -3);
 				break;
 			case 8:
-				dllua_pushinteger(L, 1 + count++);
+				dllua_pushinteger(L, ++count);
 				dllua_pushinteger(L, val.L);
 				dllua_settable(L, -3);
 				break;
@@ -159,7 +159,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 				dval = 0;
 				break;
 			}
-			dllua_pushinteger(L, 1 + count++);
+			dllua_pushinteger(L, ++count);
 			dllua_pushnumber(L, dval);
 			dllua_settable(L, -3);
 			data += ALIGN(spec->size, 4);
@@ -180,7 +180,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
 				strcpy(str, "NULL");
 
-			dllua_pushinteger(L, 1 + count++);
+			dllua_pushinteger(L, ++count);
 			dllua_pushstring(L, str);
 			dllua_settable(L, -3);
 			free(str);
@@ -191,13 +191,24 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			/* make it a string */
 			memcpy(ch_str, data, 1);
 			ch_str[1] = '\0';
-			dllua_pushinteger(L, 1 + count++);
+			dllua_pushinteger(L, ++count);
 			dllua_pushstring(L, ch_str);
 			dllua_settable(L, -3);
 			data += 4;
 			break;
 
+		case ARG_FMT_STRUCT:
+			str = NULL;
+			xasprintf(&str, "struct: %s{}", spec->type_name ? spec->type_name : "");
+			dllua_pushinteger(L, ++count);
+			dllua_pushstring(L, str);
+			dllua_settable(L, -3);
+			free(str);
+			data += ALIGN(spec->size, 4);
+			break;
+
 		default:
+			pr_warn("invalid argument format: %d\n", spec->fmt);
 			break;
 		}
 	}

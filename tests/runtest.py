@@ -319,17 +319,26 @@ class TestBase:
     def dump_sort(self, output, ignored):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
+        mode = 1
+        result = []
 
         # A (raw) dump result consists of following data
         # <timestamp> <tid>: [<type>] <func>(<addr>) depth: <N>
-        mode = 1
         patt = re.compile(r'[^[]*(?P<type>\[(entry|exit )\]) (?P<func>[_a-z0-9]*)\([0-9a-f]+\) (?P<depth>.*)')
-        result = []
+
+        # A (raw) dump argument patter
+        arg_patt = re.compile(r'^  args')
+
         for ln in output.split('\n'):
             if ln.startswith('uftrace'):
                 #result.append(ln)
                 pass
             else:
+                m = arg_patt.match(ln)
+                if m is not None:
+                    result.append(ln)
+                    continue
+
                 m = patt.match(ln)
                 if m is None:
                     continue

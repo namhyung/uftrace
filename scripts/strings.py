@@ -13,7 +13,7 @@ def uftrace_entry(ctx):
         for arg in args:
             if isinstance(arg, str):
                 arg = arg.strip()
-                if arg is not "":
+                if arg != "" and arg[:8] != "struct: ":
                     strset.add(arg)
 
 def uftrace_exit(ctx):
@@ -22,7 +22,7 @@ def uftrace_exit(ctx):
         ret = ctx["retval"]
         if isinstance(ret, str):
             ret = ret.strip()
-            if ret is not "":
+            if ret != "" and ret[:8] != "struct: ":
                 strset.add(ret)
 
 def uftrace_end():

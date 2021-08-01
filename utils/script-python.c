@@ -511,6 +511,14 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 			data += 4;
 			break;
 
+		case ARG_FMT_STRUCT:
+			str = NULL;
+			xasprintf(&str, "struct: %s{}", spec->type_name ? spec->type_name : "");
+			insert_tuple_string(args, count++, str);
+			free(str);
+			data += ALIGN(spec->size, 4);
+			break;
+
 		default:
 			pr_warn("invalid argument format: %d\n", spec->fmt);
 			break;

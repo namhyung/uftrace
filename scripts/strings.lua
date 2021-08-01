@@ -12,7 +12,7 @@ function uftrace_entry(ctx)
             if type(arg) == 'string' then
                 arg = string.gsub(arg, '^%s+', '')
                 arg = string.gsub(arg, '%s+$', '')
-                if arg ~= '' then
+                if arg ~= '' and arg:sub(1, 8) ~= 'struct: ' then
                     strset[arg] = true
                 end
             end
@@ -22,11 +22,11 @@ end
 
 function uftrace_exit(ctx)
     if ctx['retval'] ~= nil then
-        local ret = ctx['retval'] 
+        local ret = ctx['retval']
         if type(ctx['retval']) == 'string' then
             ret = string.gsub(ret, '^%s+', '')
             ret = string.gsub(ret, '%s+$', '')
-            if ret ~= '' then
+            if ret ~= '' and ret:sub(1, 8) ~= 'struct: ' then
                 strset[ret] = true
             end
         end
