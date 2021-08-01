@@ -491,6 +491,12 @@ class TestBase:
             return True
         return False
 
+    def check_arch_sdt_support(self):
+        machine = TestBase.get_machine(self)
+        if machine == 'x86_64':
+            return True
+        return False
+
     def prerun(self, timeout):
         self.subcmd = 'live'
         self.option = ''

@@ -38,6 +38,11 @@ class TestCase(TestBase):
 
         return TestBase.TEST_SUCCESS
 
+    def build(self, name, cflags='', ldflags=''):
+        if not TestBase.check_arch_sdt_support(self):
+            return TestBase.TEST_SKIP
+        return TestBase.build(self, name, cflags, ldflags)
+
     def setup(self):
         self.subcmd = 'replay'
         self.option = '-E uftrace:event -d ' + os.path.join(TDIR, 'uftrace.data')

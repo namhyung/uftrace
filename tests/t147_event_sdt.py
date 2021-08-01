@@ -15,5 +15,10 @@ class TestCase(TestBase):
    3.017 us [28141] | } /* main */
 """)
 
+    def build(self, name, cflags='', ldflags=''):
+        if not TestBase.check_arch_sdt_support(self):
+            return TestBase.TEST_SKIP
+        return TestBase.build(self, name, cflags, ldflags)
+
     def setup(self):
         self.option = '-E uftrace:* --match glob'
