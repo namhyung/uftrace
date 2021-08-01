@@ -48,8 +48,8 @@ enum display_field_id {
 
 	REPORT_F_TASK_TOTAL_TIME = 0,
 	REPORT_F_TASK_SELF_TIME,
-	REPORT_F_TASK_NR_FUNC,
 	REPORT_F_TASK_TID,
+	REPORT_F_TASK_NR_FUNC,
 };
 
 struct display_field {

@@ -4,24 +4,19 @@ from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'thread-name', """
+        TestBase.__init__(self, 'thread', """
      TID   Num funcs  Task name
   ======  ==========  ====================
-   22038           9  t-thread-name
-   22040           3  t-thread-name
-   22042           3  t-thread-name
-   22041           3  t-thread-name
-   22043           3  t-thread-name
+   36562           1  t-thread
+   36578           4  t-thread
+   36577           4  t-thread
+   36580           4  t-thread
+   36579           4  t-thread
 """, ldflags='-pthread')
-
-    def build(self, name, cflags='', ldflags=''):
-        if cflags.find('-pg') >= 0:
-            return TestBase.TEST_SKIP
-
-        return TestBase.build(self, name, cflags, ldflags)
 
     def prepare(self):
         self.subcmd = 'record'
+        self.option = '--no-libcall'
         return self.runcmd()
 
     def setup(self):

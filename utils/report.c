@@ -634,8 +634,8 @@ static struct sort_task_key task_name = {
 static struct sort_task_key * all_task_keys[] = {
 	&task_total,
 	&task_self,
-	&task_func,
 	&task_tid,
+	&task_func,
 	&task_name,
 };
 
@@ -876,8 +876,8 @@ FIELD_CALL_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full_percent, "Calls (
 
 FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time");
 FIELD_TIME(REPORT_F_TASK_SELF_TIME, self, self.sum, task_self, "Self time");
-FIELD_CALL(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
 FIELD_TID(REPORT_F_TASK_TID, tid, task_tid, "TID");
+FIELD_CALL(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
@@ -935,8 +935,8 @@ static struct display_field *field_diff_full_percent_table[] = {
 static struct display_field *field_task_table[] = {
 	&field_task_total,
 	&field_task_self,
-	&field_task_nr_func,
 	&field_task_tid,
+	&field_task_nr_func,
 };
 
 static void setup_default_field(struct list_head *fields, struct opts *opts,
@@ -968,8 +968,8 @@ static void setup_default_task_field(struct list_head *fields, struct opts *opts
 {
 	add_field(fields, p_field_table[REPORT_F_TASK_TOTAL_TIME]);
 	add_field(fields, p_field_table[REPORT_F_TASK_SELF_TIME]);
-	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
 	add_field(fields, p_field_table[REPORT_F_TASK_TID]);
+	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
 }
 
 void setup_report_field(struct list_head *output_fields, struct opts *opts,
