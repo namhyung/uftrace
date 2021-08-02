@@ -19,6 +19,7 @@
 #include "utils/symbol.h"
 #include "utils/hashmap.h"
 #include "utils/membarrier.h"
+#include "utils/list.h"
 
 #define PAGE_SIZE  4096
 #define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
@@ -395,6 +396,57 @@ static int configure_sigrt_handler(void) {
 
 	pr_dbg("configured SIGRTMIN+%d handler\n", sigrt_offset);
 	sigrt_configured = true;
+
+	return 0;
+}
+
+/*
+ * These two lists are used to store functions that need to be optimized or cleaned
+ * up later in the code. In both case, a SIGRTMIN+n must be send. By optimizing or
+ * cleaning all of them up at the same time, we only need to send one signal per thread.
+ */
+
+LIST_HEAD(patched_funcs_to_finish);
+LIST_HEAD(unpatched_funcs_to_finish);
+
+typedef struct patched_func_info {
+	struct mcount_dynamic_info *mdi;
+	struct mcount_disasm_info info;
+	struct list_head list;
+} patched_func_info_t;
+
+typedef struct unpatched_func_info {
+	struct mcount_dynamic_info *mdi;
+	struct sym *sym;
+	struct list_head list;
+} unpatched_func_info_t;
+
+static int add_patched_func_to_finish(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info) {
+	patched_func_info_t *func_info = xmalloc(sizeof(*func_info));
+	if (func_info == NULL) {
+		return -1;
+	}
+
+	func_info->mdi = mdi;
+	func_info->info = *info;
+	INIT_LIST_HEAD(&(func_info->list));
+
+	list_add (&(func_info->list), &patched_funcs_to_finish);
+
+	return 0;
+}
+
+static int add_unpatched_func_to_finish(struct mcount_dynamic_info *mdi, struct sym *sym) {
+	unpatched_func_info_t *func_info = xmalloc(sizeof(*func_info));
+	if (func_info == NULL) {
+		return -1;
+	}
+
+	func_info->mdi = mdi;
+	func_info->sym = sym;
+	INIT_LIST_HEAD(&(func_info->list));
+
+	list_add (&(func_info->list), &unpatched_funcs_to_finish);
 
 	return 0;
 }
@@ -932,12 +984,6 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 	unsigned int original_code_size = info->orig_size;
 	void* original_code_addr = (void *)info->addr;
 	void* modified_code_addr = mcount_find_code((unsigned long) original_code_addr + CALL_INSN_SIZE);
-	void* trampoline_addr = (void*)get_target_addr(mdi, info->addr);
-
-	if (info->has_intel_cet) {
-		original_code_addr += ENDBR_INSN_SIZE;
-		trampoline_addr = (void *)get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
-	}
 
 	/*
 	 * The first step is to insert a 1-byte trap-based probe point.
@@ -988,7 +1034,23 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 		pr_dbg("failed to map instructions to trampoline\n");
 	}
 
-	send_sigrt_to_all_threads();
+	if (add_patched_func_to_finish(mdi, info) < 0) {
+		pr_dbg("failed to add patched function to finish\n");
+	}
+}
+
+static void patch_code_finish(struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info)
+{
+	unsigned int original_code_size = info->orig_size;
+	void* original_code_addr = (void *)info->addr;
+	void* modified_code_addr = mcount_find_code((unsigned long) original_code_addr + CALL_INSN_SIZE);
+	void* trampoline_addr = (void*)get_target_addr(mdi, info->addr);
+
+	if (info->has_intel_cet) {
+		original_code_addr += ENDBR_INSN_SIZE;
+		trampoline_addr = (void *)get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
+	}
 
 	if (unmap_move_instructions(original_code_addr, modified_code_addr, original_code_size) < 0) {
 		pr_dbg("failed to unmap instructions to trampoline\n");
@@ -1082,6 +1144,11 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	patch_code(mdi, &info);
 
 	return INSTRUMENT_SUCCESS;
+}
+
+static void patch_normal_func_finish(struct mcount_dynamic_info *mdi,
+		       struct mcount_disasm_info *info) {
+	patch_code_finish(mdi, info);
 }
 
 static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
@@ -1181,10 +1248,25 @@ static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	 */
 
 	if (map_move_instructions(modified_code_addr, original_code_addr, original_code_size) < 0) {
-		pr_dbg("failed to map instructions to trampoline\n");
+		pr_err("failed to map instructions to trampoline\n");
 	}
 
-	send_sigrt_to_all_threads();
+	if (add_unpatched_func_to_finish(mdi, sym) < 0) {
+		pr_err("failed to add unpatch function to finish\n");
+	}
+
+	return 0;
+}
+
+static int unpatch_normal_func_finish(struct mcount_dynamic_info *mdi, struct sym *sym) {
+	void* original_code_addr = (void *)mdi->map->start + sym->addr;
+	void* modified_code_addr = mcount_find_code((unsigned long) original_code_addr + CALL_INSN_SIZE);
+
+	int original_code_size = get_saved_instructions_length(original_code_addr);
+	if (original_code_size < 0) {
+		pr_err("failed to get original instructions length\n");
+		return -1;
+	}
 
 	if (unmap_move_instructions(modified_code_addr, original_code_addr, original_code_size) < 0) {
 		pr_dbg("failed to unmap instructions to trampoline\n");
@@ -1288,6 +1370,32 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return result;
 }
 
+int mcount_patched_funcs_finish(void) {
+	struct list_head *element = NULL; 
+	struct list_head *tmp = NULL; 
+	patched_func_info_t *func_info = NULL ;
+
+	send_sigrt_to_all_threads();
+
+	list_for_each_safe (element, tmp, &patched_funcs_to_finish) { 
+		struct arch_dynamic_info *adi;
+		func_info = list_entry(element, patched_func_info_t , list);
+		adi = func_info->mdi->arch;
+
+		switch (adi->type) {
+		case DYNAMIC_NONE:
+			patch_normal_func_finish(func_info->mdi, &func_info->info);
+			break;
+		default:
+			break;
+		}
+
+		list_del(element);
+	}
+
+	return 0;
+}
+
 int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			struct mcount_disasm_engine *disasm)
 {
@@ -1310,7 +1418,6 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	case DYNAMIC_PG:
 		result = unpatch_mcount_func(mdi, sym);
 		break;
-
 	case DYNAMIC_NONE:
 		result = unpatch_normal_func(mdi, sym);
 		break;
@@ -1319,6 +1426,32 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		break;
 	}
 	return result;
+}
+
+int mcount_unpatched_funcs_finish(void) {
+	struct list_head *element = NULL; 
+	struct list_head *tmp = NULL; 
+	unpatched_func_info_t *func_info = NULL ;
+
+	send_sigrt_to_all_threads();
+
+	list_for_each_safe (element, tmp, &unpatched_funcs_to_finish) { 
+		struct arch_dynamic_info *adi;
+		func_info = list_entry(element, unpatched_func_info_t , list);
+		adi = func_info->mdi->arch;
+
+		switch (adi->type) {
+		case DYNAMIC_NONE:
+			unpatch_normal_func_finish(func_info->mdi, func_info->sym);
+			break;
+		default:
+			break;
+		}
+
+		list_del(element);
+	}
+
+	return 0;
 }
 
 static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,

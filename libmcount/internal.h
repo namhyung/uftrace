@@ -493,7 +493,7 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size);
-
+int mcount_patch_func_finish(void);
 void mcount_disasm_init(struct mcount_disasm_engine *disasm);
 void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
 
