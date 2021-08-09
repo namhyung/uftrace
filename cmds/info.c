@@ -1132,6 +1132,32 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 		process(data, "# %-20s: %ld / %ld (read / write)\n", "disk iops",
 		       info->rblock, info->wblock);
 	}
+
+	snprintf(buf, sizeof(buf), "%s/note.txt", opts->dirname);
+	if (!access(buf, R_OK)) {
+		size_t size;
+		char *note_buf;
+		FILE *fp = fopen(buf, "r");
+
+		if (fstat(fileno(fp), &statbuf) < 0) {
+			pr_dbg("failed to get the size of note.txt\n");
+			goto out;
+		}
+		size = (size_t)statbuf.st_size;
+
+		note_buf = xmalloc(size + 1);
+		if (fread(note_buf, size, 1, fp) != size)
+			pr_dbg("couldn't read the whole note.txt contents");
+		note_buf[size] = '\0';
+
+		process(data, "#\n");
+		process(data, "# extra note information\n");
+		process(data, "# ======================\n");
+		process(data, "%s", note_buf);
+		free(note_buf);
+out:
+		fclose(fp);
+	}
 	process(data, "\n");
 }
 
