@@ -50,10 +50,11 @@ int mcount_arch_enable_event(struct mcount_event_info *mei)
 		return -1;
 	}
 
-	/* replace NOP to an invalid OP so that it can catch SIGILL */
+	/* replace NOP to an invalid OP so that it can catch SIGILL,
+	   then it will fall into sdt_handler() above. */
 	memset((void *)mei->addr, INVALID_OPCODE, 1);
 
-	if (mprotect(PAGE_ADDR(mei->addr), PAGE_SIZE, PROT_EXEC))
+	if (mprotect(PAGE_ADDR(mei->addr), PAGE_SIZE, PROT_READ | PROT_EXEC))
 		pr_err("cannot setup event due to protection");
 
 	return 0;

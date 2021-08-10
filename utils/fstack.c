@@ -1045,7 +1045,7 @@ bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts)
 			return false;
 	}
 
-	if (opts->no_event && rec->type == UFTRACE_EVENT)
+	if (opts->no_event && !opts->event && rec->type == UFTRACE_EVENT)
 		return false;
 
 	if (opts->no_sched && is_sched_event(rec->addr))
