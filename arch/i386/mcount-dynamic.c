@@ -15,6 +15,25 @@
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
 
+enum mcount_i386_dynamic_type {
+	DYNAMIC_NONE,		/* not supported */
+	DYNAMIC_PG,
+	DYNAMIC_FENTRY,
+	DYNAMIC_FENTRY_NOP,
+};
+
+static const char *adi_type_names[] = {
+	"none", "pg", "fentry", "fentry-nop",
+};
+
+struct arch_dynamic_info {
+	enum mcount_i386_dynamic_type	type;
+	struct xray_instr_map		*xrmap;
+	unsigned long			*mcount_loc;
+	unsigned			xrmap_count;
+	unsigned			nr_mcount_loc;
+};
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
@@ -55,11 +74,55 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_EXEC))
+	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_EXEC))
 		pr_err("cannot restore trampoline due to protection");
 }
 
-#define CALL_INSN_SIZE 5
+void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
+			     struct symtab *symtab)
+{
+	struct arch_dynamic_info *adi;
+	unsigned char fentry_nop_patt[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+	unsigned i = 0;
+
+	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+
+	/* check first few functions have fentry signature */
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
+		void *code_addr = (unsigned char *)((uintptr_t)(sym->addr + mdi->map->start));
+
+		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+			continue;
+
+		/* dont' check special functions */
+		if (sym->name[0] == '_')
+			continue;
+
+		/* only support calls to __fentry__ at the beginning */
+		if (!memcmp(code_addr, fentry_nop_patt, CALL_INSN_SIZE)) {
+			adi->type = DYNAMIC_FENTRY_NOP;
+			goto out;
+		}
+	}
+
+	switch (check_trace_functions(mdi->map->libname)) {
+	case TRACE_MCOUNT:
+		adi->type = DYNAMIC_PG;
+		break;
+	case TRACE_FENTRY:
+		adi->type = DYNAMIC_FENTRY;
+		break;
+	default:
+		break;
+	}
+
+out:
+	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
+	       adi->type, adi_type_names[adi->type]);
+
+	mdi->arch = adi;
+}
 
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
@@ -77,7 +140,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	// In case of "gcc" which is not patched because of old version, 
 	// it may not create 5 byte nop.
 	unsigned char nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
-	unsigned char *insn = (unsigned char *)((uintptr_t)sym->addr);
+	unsigned char *insn = (unsigned char *)((uintptr_t)(sym->addr + mdi->map->start));
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
@@ -87,7 +150,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, sym->addr);
+	target_addr = get_target_addr(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return -2;
 
@@ -105,6 +168,22 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
-	return patch_fentry_func(mdi, sym);
+	struct arch_dynamic_info *adi = mdi->arch;
+	int result = INSTRUMENT_SKIPPED;
+
+	if (min_size < CALL_INSN_SIZE)
+		min_size = CALL_INSN_SIZE;
+
+	if (sym->size < min_size)
+		return result;
+
+	switch (adi->type) {
+	case DYNAMIC_FENTRY_NOP:
+		result = patch_fentry_func(mdi, sym);
+		break;
+	default:
+		break;
+	}
+	return result;
 }
 

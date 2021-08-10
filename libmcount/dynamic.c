@@ -164,7 +164,7 @@ void mcount_freeze_code(void)
 		if (cp->frozen)
 			continue;
 
-		if (mprotect(cp->page, CODE_CHUNK, PROT_READ|PROT_EXEC) < 0)
+		if (mprotect(cp->page, CODE_CHUNK, PROT_READ | PROT_EXEC) < 0)
 			pr_err("mprotect to freeze code page failed");
 		cp->frozen = true;
 	}

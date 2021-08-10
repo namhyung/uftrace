@@ -118,7 +118,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		tramp += TRAMP_ENT_SIZE;
 	}
 
-	mprotect(trampoline, tramp_len, PROT_READ|PROT_EXEC);
+	mprotect(trampoline, tramp_len, PROT_READ | PROT_EXEC);
 
 	pd->mod_name = xstrdup(modname);
 
