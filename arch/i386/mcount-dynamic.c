@@ -55,7 +55,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_EXEC))
+	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_EXEC))
 		pr_err("cannot restore trampoline due to protection");
 }
 
