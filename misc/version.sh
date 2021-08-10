@@ -34,7 +34,7 @@ DEPS=" ${ARCH}"
 if test -f ${SRCDIR}/check-deps/have_libdw; then
     DEPS="${DEPS} dwarf"
 fi
-if test -f ${SRCDIR}/check-deps/have_libpython2.7; then
+if test -f ${SRCDIR}/check-deps/have_libpython*; then
     DEPS="${DEPS} python"
 fi
 if test -f ${SRCDIR}/check-deps/have_libluajit; then
