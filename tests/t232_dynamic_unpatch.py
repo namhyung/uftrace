@@ -20,7 +20,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def build(self, name, cflags='', ldflags=''):
-        if TestBase.get_machine(self) != 'x86_64':
+        if not TestBase.check_arch_mfentry_mnop_mcount_support(self):
             return TestBase.TEST_SKIP
         if cflags.find('-finstrument-functions') >= 0:
              return TestBase.TEST_SKIP

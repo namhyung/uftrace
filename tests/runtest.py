@@ -477,6 +477,12 @@ class TestBase:
 
         return None
 
+    def check_arch_mfentry_mnop_mcount_support(self):
+        machine = TestBase.get_machine(self)
+        if machine == 'x86_64' or machine == 'i386':
+            return True
+        return False
+
     def prerun(self, timeout):
         self.subcmd = 'live'
         self.option = ''
