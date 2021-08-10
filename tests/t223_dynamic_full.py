@@ -13,7 +13,7 @@ class TestCase(TestBase):
 """)
 
     def prerun(self, timeout):
-        if TestBase.get_elf_machine(self) == 'arm':
+        if not TestBase.check_arch_full_dynamic_support(self):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 

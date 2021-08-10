@@ -20,6 +20,11 @@ class TestCase(TestBase):
 7.607 us [ 26661] | } /* main */
 """)
 
+    def prerun(self, timeout):
+        if not TestBase.check_arch_full_dynamic_support(self):
+            return TestBase.TEST_SKIP
+        return TestBase.TEST_SUCCESS
+
     def build(self, name, cflags='', ldflags=''):
         if TestBase.build_notrace_lib(self, 'dyn1', 'libdyn1', cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL

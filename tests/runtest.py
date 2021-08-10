@@ -468,7 +468,9 @@ class TestBase:
             f.read(EI_NIDENT + 2)
 
             # read e_machine
-            e_machine = ord(f.read(2)[0])
+            e_machine = f.read(2)[0]
+            if type(e_machine) is str:
+                e_machine = ord(e_machine)
             f.close()
 
             return machine[e_machine]
@@ -476,6 +478,24 @@ class TestBase:
             pass
 
         return None
+
+    def check_arch_full_dynamic_support(self):
+        elf_machine = TestBase.get_elf_machine(self)
+        if elf_machine == 'x86_64' or elf_machine == 'aarch64':
+            return True
+        return False
+
+    def check_arch_mfentry_mnop_mcount_support(self):
+        machine = TestBase.get_machine(self)
+        if machine == 'x86_64' or machine == 'i386':
+            return True
+        return False
+
+    def check_arch_sdt_support(self):
+        machine = TestBase.get_machine(self)
+        if machine == 'x86_64':
+            return True
+        return False
 
     def prerun(self, timeout):
         self.subcmd = 'live'
