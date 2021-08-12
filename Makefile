@@ -115,7 +115,7 @@ ifeq ($(COVERAGE), 1)
 endif
 
 ifeq ($(ASAN), 1)
-  ASAN_CFLAGS       := -O0 -g -fsanitize=address,leak
+  ASAN_CFLAGS       := -O0 -g -fsanitize=address,leak,undefined
   UFTRACE_CFLAGS    += $(ASAN_CFLAGS)
   DEMANGLER_CFLAGS  += $(ASAN_CFLAGS)
   SYMBOLS_CFLAGS    += $(ASAN_CFLAGS)
