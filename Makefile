@@ -89,9 +89,8 @@ TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g -DDEBUG_MODE=1
-  COMMON_LDFLAGS += -lunwind
 else
-  COMMON_CFLAGS += -O2 -g -DDEBUG_MODE=0 -rdynamic
+  COMMON_CFLAGS += -O2 -g -DDEBUG_MODE=0
 endif
 
 ifeq ($(TRACE), 1)
