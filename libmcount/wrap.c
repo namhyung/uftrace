@@ -581,6 +581,7 @@ TEST_CASE(mcount_env_check)
 	char **uftrace_envp;
 	char **new_envp;
 	int old1_cnt, old2_cnt, new_cnt;
+	int i;
 
 	pr_dbg("collecting environ related to uftrace\n");
 	uftrace_envp = collect_uftrace_envp();
@@ -593,6 +594,8 @@ TEST_CASE(mcount_env_check)
 
 	TEST_EQ(old1_cnt + old2_cnt, new_cnt);
 
+	for (i = 0; i < old1_cnt; i++)
+		free(uftrace_envp[i]);
 	free(uftrace_envp);
 	free(new_envp);
 
