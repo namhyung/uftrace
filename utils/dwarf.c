@@ -2182,11 +2182,15 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 	struct uftrace_mmap *map;
 
 	for_each_map(symtabs, map) {
-		struct symtab *stab = &map->mod->symtab;
-		struct debug_info *dinfo = &map->mod->dinfo;
+		struct uftrace_module *mod = map->mod;
+		struct symtab *stab;
+		struct debug_info *dinfo;
 
 		if (map->mod == NULL)
 			continue;
+
+		stab = &mod->symtab;
+		dinfo = &mod->dinfo;
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
 			load_debug_file(dinfo, stab, symtabs->dirname,
