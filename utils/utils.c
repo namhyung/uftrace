@@ -8,9 +8,7 @@
 #include <sys/stat.h>
 #include <libgen.h>
 
-#if !DEBUG_MODE
-#include <execinfo.h>
-#else
+#ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #endif
@@ -890,23 +888,7 @@ char *absolute_dirname(const char *path, char *resolved_path)
 
 void stacktrace(void)
 {
-#if !DEBUG_MODE
-	void *buffer[64];
-	int nptrs = backtrace(buffer, 64);
-
-	int i;
-	char **strings;
-
-	pr_yellow("Stack trace:\n");
-	strings = backtrace_symbols(buffer, nptrs);
-	for (i = 1; i < nptrs; i++) {
-		if (strings)
-			pr_yellow("  #%-2d %s\n", i, strings[i]);
-		else
-			pr_yellow("  #%-2d %p\n", i, buffer[i]);
-	}
-	free(strings);
-#else
+#ifdef HAVE_LIBUNWIND
 	const int max_depth = 64;
 	int i = 0;
 	bool out = false;

@@ -31,6 +31,7 @@ usage() {
   --without-libpython   build without libpython              (even if found on the system)
   --without-libluajit   build without libluajit              (even if found on the system)
   --without-libncurses  build without libncursesw            (even if found on the system)
+  --without-libunwind   build without libunwind              (even if found on the system)
   --without-capstone    build without libcapstone            (even if found on the system)
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
@@ -187,6 +188,7 @@ for dep in $IGNORE; do
         libpython*)  TARGET='have_libpython*'  ;;
         libluajit*)  TARGET=have_libluajit     ;;
         libncurse*)  TARGET=have_libncurses    ;;
+        libunwind)   TARGET=have_libunwind     ;;
         libstdc++)   TARGET=cxa_demangle       ;;
         capstone)    TARGET=have_libcapstone   ;;
         perf*)       TARGET=perf_clockid       ;;
@@ -257,6 +259,7 @@ print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc
 print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
 print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
+print_feature "libunwind" "have_libunwind" "libunwind support"
 
 cat >$output <<EOF
 # this file is generated automatically
