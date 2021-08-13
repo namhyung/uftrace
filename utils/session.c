@@ -721,6 +721,13 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
 	if (sym == NULL)
 		sym = session_find_dlsym(sess, time, addr);
 
+	if (sym == NULL) {
+		if (EVENT_ID_PERF_SCHED_IN == addr ||
+		    EVENT_ID_PERF_SCHED_OUT == addr ||
+		    EVENT_ID_PERF_SCHED_BOTH == addr)
+			return &sched_sym;
+	}
+
 	return sym;
 }
 
