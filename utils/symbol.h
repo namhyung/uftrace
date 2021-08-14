@@ -146,6 +146,7 @@ enum uftrace_trace_type {
 	TRACE_FENTRY,
 };
 
+char * get_soname(const char *filename);
 bool has_dependency(const char *filename, const char *libname);
 enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
