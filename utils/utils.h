@@ -87,6 +87,13 @@ enum color_setting {
 	COLOR_ON,
 };
 
+enum format_mode {
+	FORMAT_NORMAL,
+	FORMAT_HTML,
+};
+
+#define COLOR_CODE_NORMAL   '.'
+#define COLOR_CODE_RESET    '-'
 #define COLOR_CODE_RED      'R'
 #define COLOR_CODE_GREEN    'G'
 #define COLOR_CODE_BLUE     'B'
@@ -107,6 +114,7 @@ extern void __pr_color(char code, const char *fmt, ...);
 
 extern enum color_setting log_color;
 extern enum color_setting out_color;
+extern enum format_mode format_mode;
 extern void setup_color(enum color_setting color, char *pager);
 extern void setup_signal(void);
 

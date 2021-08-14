@@ -35,6 +35,9 @@ GRAPH OPTIONS
 \--srcline
 :   Show source location of each function if available.
 
+\--format=*TYPE*
+:   Show format style output. Currently, normal and html styles are supported.
+
 
 COMMON OPTIONS
 ==============
