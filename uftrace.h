@@ -599,4 +599,15 @@ struct uftrace_event {
 	char			*event;
 };
 
+#define HTML_HEADER \
+	"<html>\n"\
+	"<head></head>\n"\
+	"<body style='background-color:black;color:white;'>\n"\
+	"<pre>\n"
+
+#define HTML_FOOTER \
+	"</pre>\n"\
+	"</body>\n"\
+	"</html>\n"
+
 #endif /* UFTRACE_H */

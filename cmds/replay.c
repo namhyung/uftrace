@@ -703,7 +703,10 @@ void get_argspec_string(struct uftrace_task_reader *task,
 
 			if (sym) {
 				print_args(&args, &len, "%s", color_symbol);
-				print_args(&args, &len, "&%s", sym->name);
+				if (format_mode == FORMAT_HTML)
+					print_args(&args, &len, "&amp;%s", sym->name);
+				else
+					print_args(&args, &len, "&%s", sym->name);
 				print_args(&args, &len, "%s", color_reset);
 			}
 			else if (val.p)
@@ -1218,6 +1221,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	setup_field(&output_fields, opts, &setup_default_field,
 		    field_table, ARRAY_SIZE(field_table));
 
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_HEADER);
+
 	if (!opts->flat && peek_rstack(&handle, &task) == 0)
 		print_header(&output_fields, "#", "FUNCTION", 1, false);
 	if (!list_empty(&output_fields)) {
@@ -1254,6 +1260,9 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	}
 
 	print_remaining_stack(opts, &handle);
+
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_FOOTER);
 
 	close_data_file(opts, &handle);
 

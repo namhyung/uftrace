@@ -48,6 +48,9 @@ REPLAY OPTIONS
 \--libname
 :   Show libname name along with function name.
 
+\--format=*TYPE*
+:   Show format style output. Currently, normal and html styles are supported.
+
 
 COMMON OPTIONS
 ==============

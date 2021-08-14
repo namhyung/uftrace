@@ -578,12 +578,18 @@ int command_report(int argc, char *argv[], struct opts *opts)
 	if (opts->diff_policy)
 		apply_diff_policy(opts->diff_policy);
 
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_HEADER);
+
 	if (opts->show_task)
 		report_task(&handle, opts);
 	else if (opts->diff)
 		report_diff(&handle, opts);
 	else
 		report_functions(&handle, opts);
+
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_FOOTER);
 
 	close_data_file(opts, &handle);
 

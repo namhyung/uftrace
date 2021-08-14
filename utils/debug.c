@@ -25,11 +25,23 @@
 #define TERM_COLOR_CYAN		"\033[36m"
 #define TERM_COLOR_GRAY		"\033[90m"    /* bright black */
 
+#define HTML_COLOR_NORMAL	"<span>"
+#define HTML_COLOR_RESET	"</span>"
+#define HTML_COLOR_BOLD		"<span style='font-weight:bold'>"
+#define HTML_COLOR_RED		"<span style='color:red'>"    /* bright red */
+#define HTML_COLOR_GREEN	"<span style='color:green'>"
+#define HTML_COLOR_YELLOW	"<span style='color:yellow'>"
+#define HTML_COLOR_BLUE		"<span style='color:blue'>"    /* bright blue */
+#define HTML_COLOR_MAGENTA	"<span style='color:magenta'>"
+#define HTML_COLOR_CYAN		"<span style='color:cyan'>"
+#define HTML_COLOR_GRAY		"<span style='color:gray'>"    /* bright black */
+
 int debug;
 FILE *logfp;
 FILE *outfp;
 enum color_setting log_color;
 enum color_setting out_color;
+enum format_mode format_mode;
 int dbg_domain[DBG_DOMAIN_MAX];
 
 /* colored output for argspec display */
@@ -44,15 +56,18 @@ const char *color_enum_or = TERM_COLOR_RESET TERM_COLOR_BOLD "|" TERM_COLOR_RESE
 static const struct color_code {
 	char		code;
 	const char	*color;
+	const char	*html_color;
 } colors[] = {
-	{ COLOR_CODE_RED,	TERM_COLOR_RED },
-	{ COLOR_CODE_GREEN,	TERM_COLOR_GREEN },
-	{ COLOR_CODE_BLUE,	TERM_COLOR_BLUE },
-	{ COLOR_CODE_YELLOW,	TERM_COLOR_YELLOW },
-	{ COLOR_CODE_MAGENTA,	TERM_COLOR_MAGENTA },
-	{ COLOR_CODE_CYAN,	TERM_COLOR_CYAN },
-	{ COLOR_CODE_GRAY,	TERM_COLOR_GRAY },
-	{ COLOR_CODE_BOLD,	TERM_COLOR_BOLD },
+	{ COLOR_CODE_NORMAL,	TERM_COLOR_NORMAL,	HTML_COLOR_NORMAL },
+	{ COLOR_CODE_RESET,	TERM_COLOR_RESET,	HTML_COLOR_RESET },
+	{ COLOR_CODE_RED,	TERM_COLOR_RED,		HTML_COLOR_RED },
+	{ COLOR_CODE_GREEN,	TERM_COLOR_GREEN,	HTML_COLOR_GREEN },
+	{ COLOR_CODE_BLUE,	TERM_COLOR_BLUE,	HTML_COLOR_BLUE },
+	{ COLOR_CODE_YELLOW,	TERM_COLOR_YELLOW,	HTML_COLOR_YELLOW },
+	{ COLOR_CODE_MAGENTA,	TERM_COLOR_MAGENTA,	HTML_COLOR_MAGENTA },
+	{ COLOR_CODE_CYAN,	TERM_COLOR_CYAN,	HTML_COLOR_CYAN },
+	{ COLOR_CODE_GRAY,	TERM_COLOR_GRAY,	HTML_COLOR_GRAY },
+	{ COLOR_CODE_BOLD,	TERM_COLOR_BOLD,	HTML_COLOR_BOLD },
 };
 
 static void color(const char *code, FILE *fp)
@@ -136,6 +151,15 @@ void setup_color(enum color_setting color, char *pager)
 		out_color = color;
 	}
 
+	if (format_mode == FORMAT_HTML) {
+		color_reset   = HTML_COLOR_RESET;
+		color_bold    = HTML_COLOR_BOLD;
+		color_string  = HTML_COLOR_MAGENTA;
+		color_symbol  = HTML_COLOR_CYAN;
+		color_struct  = HTML_COLOR_CYAN;
+		color_enum    = HTML_COLOR_BLUE;
+		color_enum_or = HTML_COLOR_RESET HTML_COLOR_BOLD "|" HTML_COLOR_RESET HTML_COLOR_BLUE;
+	}
 	if (out_color != COLOR_ON) {
 		color_reset   = "";
 		color_bold    = "";
@@ -145,6 +169,24 @@ void setup_color(enum color_setting color, char *pager)
 		color_enum    = "";
 		color_enum_or = "|";
 	}
+}
+
+static const char *get_color(char code)
+{
+	unsigned i;
+
+	if (out_color != COLOR_ON)
+		return TERM_COLOR_NORMAL;
+
+	for (i = 0; i < ARRAY_SIZE(colors); i++) {
+		if (code == colors[i].code) {
+			if (format_mode == FORMAT_HTML)
+				return colors[i].html_color;
+			else
+				return colors[i].color;
+		}
+	}
+	return TERM_COLOR_NORMAL;
 }
 
 void __pr_dbg(const char *fmt, ...)
@@ -218,22 +260,17 @@ void __pr_out(const char *fmt, ...)
 
 void __pr_color(char code, const char *fmt, ...)
 {
-	size_t i;
 	va_list ap;
-	const char *cs = TERM_COLOR_NORMAL;
+	const char *sc = get_color(code);
+	const char *ec = get_color(COLOR_CODE_RESET);
 
-	for (i = 0; i < ARRAY_SIZE(colors); i++) {
-		if (code == colors[i].code)
-			cs = colors[i].color;
-	}
-
-	color(cs, outfp);
+	color(sc, outfp);
 
 	va_start(ap, fmt);
 	vfprintf(outfp, fmt, ap);
 	va_end(ap);
 
-	color(TERM_COLOR_RESET, outfp);
+	color(ec, outfp);
 }
 
 static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
@@ -242,11 +279,18 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 	uint64_t delta_small = 0;
 	char *units[] = { "us", "ms", " s", " m", " h", };
 	char *color_units[] = {
-		TERM_COLOR_NORMAL "us" TERM_COLOR_RESET,
+		                  "us",
 		TERM_COLOR_GREEN  "ms" TERM_COLOR_RESET,
 		TERM_COLOR_YELLOW " s" TERM_COLOR_RESET,
 		TERM_COLOR_RED    " m" TERM_COLOR_RESET,
 		TERM_COLOR_RED    " h" TERM_COLOR_RESET,
+	};
+	char *html_color_units[] = {
+		                  "us",
+		HTML_COLOR_GREEN  "ms" HTML_COLOR_RESET,
+		HTML_COLOR_YELLOW " s" HTML_COLOR_RESET,
+		HTML_COLOR_RED    " m" HTML_COLOR_RESET,
+		HTML_COLOR_RED    " h" HTML_COLOR_RESET,
 	};
 	char *unit;
 	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
@@ -273,8 +317,12 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 	if (delta > 999)
 		delta = delta_small = 999;
 
-	if (out_color == COLOR_ON)
-		unit = color_units[idx];
+	if (out_color == COLOR_ON) {
+		if (format_mode == FORMAT_HTML)
+			unit = html_color_units[idx];
+		else
+			unit = color_units[idx];
+	}
 	else
 		unit = units[idx];
 
@@ -287,6 +335,14 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 			TERM_COLOR_BLUE    "-",
 			TERM_COLOR_CYAN    "-",
 			TERM_COLOR_NORMAL  "-",
+		};
+		const char *html_color_signs[] = {
+			HTML_COLOR_RED     "+",
+			HTML_COLOR_MAGENTA "+",
+			HTML_COLOR_NORMAL  "+",
+			HTML_COLOR_BLUE    "-",
+			HTML_COLOR_CYAN    "-",
+			HTML_COLOR_NORMAL  "-",
 		};
 		int sign_idx = (delta_nsec > 0);
 		int indent = (delta >= 100) ? 0 : (delta >= 10) ? 1 : 2;
@@ -307,8 +363,14 @@ static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 			else
 				sign_idx = 5;
 
-			sign = color_signs[sign_idx];
-			ends = TERM_COLOR_RESET;
+			if (format_mode == FORMAT_HTML) {
+				sign = html_color_signs[sign_idx];
+				ends = HTML_COLOR_RESET;
+			}
+			else {
+				sign = color_signs[sign_idx];
+				ends = TERM_COLOR_RESET;
+			}
 		}
 
 		pr_out("%*s%s%"PRId64".%03"PRIu64"%s %s", indent, "",
@@ -323,27 +385,19 @@ void print_time_unit(uint64_t delta_nsec)
 	__print_time_unit(delta_nsec, false);
 }
 
-static const char *get_color(const char *color)
-{
-	if (out_color == COLOR_ON)
-		return color;
-	else
-		return TERM_COLOR_NORMAL;
-}
-
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
 	double percent = 999.99;
-	const char *sc = TERM_COLOR_NORMAL;
-	const char *ec = get_color(TERM_COLOR_RESET);
+	const char *sc = get_color(COLOR_CODE_NORMAL);
+	const char *ec = get_color(COLOR_CODE_RESET);
 
 	if (base_nsec == 0) {
-		sc = get_color(TERM_COLOR_RED);
+		sc = get_color(COLOR_CODE_RED);
 		pr_out("%s%7s%s ", sc, "N/A", ec);
 		return;
 	}
 	if (pair_nsec == 0) {
-		sc = get_color(TERM_COLOR_BLUE);
+		sc = get_color(COLOR_CODE_BLUE);
 		pr_out("%s%7s%s ", sc, "N/A", ec);
 		return;
 	}
@@ -356,12 +410,10 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 	else if (percent < -999.99)
 		percent = -999.99;
 
-	if (out_color == COLOR_ON) {
-		sc = percent > 30 ? TERM_COLOR_RED :
-			percent > 3 ? TERM_COLOR_MAGENTA :
-			percent < -30 ? TERM_COLOR_BLUE :
-			percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
-	}
+	sc = percent > 30 ? get_color(COLOR_CODE_RED) :
+		percent > 3 ? get_color(COLOR_CODE_MAGENTA) :
+		percent < -30 ? get_color(COLOR_CODE_BLUE) :
+		percent < -3 ? get_color(COLOR_CODE_CYAN) : get_color(COLOR_CODE_NORMAL);
 
 	pr_out("%s%+7.2f%s%%", sc, percent, ec);
 }
@@ -376,14 +428,14 @@ void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec)
 
 void print_diff_count(uint64_t base, uint64_t pair)
 {
-	const char *diff_colors[] = {
-		TERM_COLOR_RED,
-		TERM_COLOR_BLUE,
+	char diff_colors[] = {
+		COLOR_CODE_RED,
+		COLOR_CODE_BLUE,
 	};
 	int sign_idx = (pair < base);
 	int64_t diff = pair - base;
 	const char *sc = get_color(diff_colors[sign_idx]);
-	const char *ec = get_color(TERM_COLOR_RESET);
+	const char *ec = get_color(COLOR_CODE_RESET);
 
 	if (diff != 0)
 		pr_out("%s%+9"PRId64"%s", sc, diff, ec);

@@ -1007,6 +1007,9 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 
 	fstack_setup_filters(opts, &handle);
 
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_HEADER);
+
 	if (opts->show_task) {
 		graph_build_task(opts, &handle);
 		graph_print_task(&handle, opts);
@@ -1042,6 +1045,9 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	graph_remove_task();
 
 out:
+	if (format_mode == FORMAT_HTML)
+		pr_out(HTML_FOOTER);
+
 	close_data_file(opts, &handle);
 
 	return 0;

@@ -77,6 +77,7 @@ enum options {
 	OPT_graphviz,
 	OPT_sample_time,
 	OPT_diff,
+	OPT_format,
 	OPT_sort_column,
 	OPT_tid_filter,
 	OPT_num_thread,
@@ -143,6 +144,7 @@ __used static const char uftrace_help[] =
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
 "      --flat                 Use flat output format\n"
 "      --force                Trace even if executable is not instrumented\n"
+"      --format=FORMAT        Use FORMAT for output: normal, html (default: normal)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "      --graphviz             Dump recorded data in DOT format\n"
@@ -268,6 +270,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(flame-graph, OPT_flame_graph),
 	REQ_ARG(sample-time, OPT_sample_time),
 	REQ_ARG(diff, OPT_diff),
+	REQ_ARG(format, OPT_format),
 	REQ_ARG(sort-column, OPT_sort_column),
 	REQ_ARG(num-thread, OPT_num_thread),
 	NO_ARG(no-comment, OPT_no_comment),
@@ -826,6 +829,20 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_diff_policy:
 		opts->diff_policy = arg;
+		break;
+
+	case OPT_format:
+		if (!strcmp(arg, "normal"))
+			format_mode = FORMAT_NORMAL;
+		else if (!strcmp(arg, "html")) {
+			format_mode = FORMAT_HTML;
+			if (opts->color == COLOR_AUTO)
+				opts->color = COLOR_ON;
+		}
+		else {
+			pr_use("invalid format argument: %s\n", arg);
+			format_mode = FORMAT_NORMAL;
+		}
 		break;
 
 	case OPT_sort_column:
