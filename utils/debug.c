@@ -323,18 +323,28 @@ void print_time_unit(uint64_t delta_nsec)
 	__print_time_unit(delta_nsec, false);
 }
 
+static const char *get_color(const char *color)
+{
+	if (out_color == COLOR_ON)
+		return color;
+	else
+		return TERM_COLOR_NORMAL;
+}
+
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
 	double percent = 999.99;
 	const char *sc = TERM_COLOR_NORMAL;
-	const char *ec = TERM_COLOR_NORMAL;
+	const char *ec = get_color(TERM_COLOR_RESET);
 
 	if (base_nsec == 0) {
-		pr_out("%s%7s%s ", TERM_COLOR_RED, "N/A", ec);
+		sc = get_color(TERM_COLOR_RED);
+		pr_out("%s%7s%s ", sc, "N/A", ec);
 		return;
 	}
 	if (pair_nsec == 0) {
-		pr_out("%s%7s%s ", TERM_COLOR_BLUE, "N/A", ec);
+		sc = get_color(TERM_COLOR_BLUE);
+		pr_out("%s%7s%s ", sc, "N/A", ec);
 		return;
 	}
 
@@ -351,7 +361,6 @@ void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 			percent > 3 ? TERM_COLOR_MAGENTA :
 			percent < -30 ? TERM_COLOR_BLUE :
 			percent < -3 ? TERM_COLOR_CYAN : TERM_COLOR_NORMAL;
-		ec = TERM_COLOR_RESET;
 	}
 
 	pr_out("%s%+7.2f%s%%", sc, percent, ec);
@@ -371,20 +380,13 @@ void print_diff_count(uint64_t base, uint64_t pair)
 		TERM_COLOR_RED,
 		TERM_COLOR_BLUE,
 	};
-	const char *sc = TERM_COLOR_NORMAL;
-	const char *ec = TERM_COLOR_NORMAL;
 	int sign_idx = (pair < base);
 	int64_t diff = pair - base;
+	const char *sc = get_color(diff_colors[sign_idx]);
+	const char *ec = get_color(TERM_COLOR_RESET);
 
-	if (diff == 0) {
+	if (diff != 0)
+		pr_out("%s%+9"PRId64"%s", sc, diff, ec);
+	else
 		pr_out("%9s", "+0");
-		return;
-	}
-
-	if (out_color == COLOR_ON) {
-		sc = diff_colors[sign_idx];
-		ec = TERM_COLOR_RESET;
-	}
-
-	pr_out("%s%+9"PRId64"%s", sc, diff, ec);
 }
