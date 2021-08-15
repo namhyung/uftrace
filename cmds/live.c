@@ -22,24 +22,24 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
-static void reset_live_opts(struct opts *opts)
+static void reset_live_opts(void)
 {
 	/* this is needed to set display_depth at replay */
-	live_disabled = opts->disabled;
+	live_disabled = opts.disabled;
 
 	/*
 	 * These options are handled in record and no need to do it in
 	 * replay again.
 	 */
-	free(opts->filter);
-	opts->filter = NULL;
-	free(opts->caller);
-	opts->caller = NULL;
+	free(opts.filter);
+	opts.filter = NULL;
+	free(opts.caller);
+	opts.caller = NULL;
 
-	opts->depth	= MCOUNT_DEFAULT_DEPTH;
-	opts->disabled	= false;
-	opts->no_event  = false;
-	opts->no_sched  = false;
+	opts.depth	= MCOUNT_DEFAULT_DEPTH;
+	opts.disabled	= false;
+	opts.no_event  = false;
+	opts.no_sched  = false;
 }
 
 static void sigsegv_handler(int sig)
@@ -49,20 +49,20 @@ static void sigsegv_handler(int sig)
 	raise(sig);
 }
 
-static bool can_skip_replay(struct opts *opts, int record_result)
+static bool can_skip_replay(int record_result)
 {
-	if (opts->nop)
+	if (opts.nop)
 		return true;
 
 	return false;
 }
 
-static void setup_child_environ(struct opts *opts)
+static void setup_child_environ(void)
 {
 	char *old_preload, *libpath;
 
 #ifdef INSTALL_LIB_PATH
-	if (!opts->lib_path) {
+	if (!opts.lib_path) {
 		char *envbuf = getenv("LD_LIBRARY_PATH");
 
 		if (envbuf) {
@@ -77,7 +77,7 @@ static void setup_child_environ(struct opts *opts)
 	}
 #endif
 
-	libpath = get_libmcount_path(opts);
+	libpath = get_libmcount_path();
 	if (libpath == NULL)
 		pr_err_ns("cannot found libmcount.so\n");
 
@@ -96,7 +96,7 @@ static void setup_child_environ(struct opts *opts)
 	free(libpath);
 }
 
-int command_live(int argc, char *argv[], struct opts *opts)
+int command_live(int argc, char *argv[])
 {
 	char template[32] = "/tmp/uftrace-live-XXXXXX";
 	int fd;
@@ -105,7 +105,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 	};
 	int ret;
 
-	if (!opts->record) {
+	if (!opts.record) {
 		tmp_dirname = template;
 		umask(022);
 		fd = mkstemp(template);
@@ -129,36 +129,36 @@ int command_live(int argc, char *argv[], struct opts *opts)
 		sigfillset(&sa.sa_mask);
 		sigaction(SIGSEGV, &sa, NULL);
 
-		opts->dirname = tmp_dirname;
+		opts.dirname = tmp_dirname;
 	}
 
-	if (opts->list_event) {
+	if (opts.list_event) {
 		if (geteuid() == 0)
 			list_kernel_events();
 
 		if (fork() == 0) {
-			setup_child_environ(opts);
+			setup_child_environ();
 			setenv("UFTRACE_LIST_EVENT", "1", 1);
 
-			execv(opts->exename, argv);
+			execv(opts.exename, argv);
 			abort();
 		}
 		return 0;
 	}
 
-	ret = command_record(argc, argv, opts);
-	if (!can_skip_replay(opts, ret)) {
+	ret = command_record(argc, argv);
+	if (!can_skip_replay(ret)) {
 		int ret2;
 
-		reset_live_opts(opts);
+		reset_live_opts();
 
-		if (opts->use_pager)
+		if (opts.use_pager)
 			start_pager(setup_pager());
 
 		pr_dbg("live-record finished.. \n");
-		if (opts->report) {
+		if (opts.report) {
 			pr_out("#\n# uftrace report\n#\n");
-			ret2 = command_report(argc, argv, opts);
+			ret2 = command_report(argc, argv);
 			if (ret == UFTRACE_EXIT_SUCCESS)
 				ret = ret2;
 
@@ -166,7 +166,7 @@ int command_live(int argc, char *argv[], struct opts *opts)
 		}
 
 		pr_dbg("start live-replaying...\n");
-		ret2 = command_replay(argc, argv, opts);
+		ret2 = command_replay(argc, argv);
 		if (ret == UFTRACE_EXIT_SUCCESS)
 			ret = ret2;
 	}

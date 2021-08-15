@@ -220,11 +220,11 @@ static void print_field(struct uftrace_task_reader *task,
 		pr_out(" | ");
 }
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields,
 				struct display_field *p_field_table[])
 {
-	if (opts->range.start > 0 || opts->range.stop > 0) {
-		if (opts->range.start_elapsed || opts->range.stop_elapsed)
+	if (opts.range.start > 0 || opts.range.stop > 0) {
+		if (opts.range.start_elapsed || opts.range.stop_elapsed)
 			add_field(fields, field_table[REPLAY_F_ELAPSED]);
 		else
 			add_field(fields, field_table[REPLAY_F_TIMESTAMP]);
@@ -233,15 +233,15 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
-static int task_column_depth(struct uftrace_task_reader *task, struct opts *opts)
+static int task_column_depth(struct uftrace_task_reader *task)
 {
-	if (!opts->column_view)
+	if (!opts.column_view)
 		return 0;
 
 	if (task->column_index == -1)
 		task->column_index = column_index++;
 
-	return task->column_index * opts->column_offset;
+	return task->column_index * opts.column_offset;
 }
 
 static void print_backtrace(struct uftrace_task_reader *task)
@@ -383,8 +383,7 @@ static void print_event(struct uftrace_task_reader *task,
 }
 
 static int print_flat_rstack(struct uftrace_data *handle,
-			     struct uftrace_task_reader *task,
-			     struct opts *opts)
+			     struct uftrace_task_reader *task)
 {
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
@@ -401,7 +400,7 @@ static int print_flat_rstack(struct uftrace_data *handle,
 		goto out;
 
 	/* skip it if --no-libcall is given */
-	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+	if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
 
 	switch (rstack->type) {
@@ -792,8 +791,7 @@ next:
 }
 
 static int print_graph_rstack(struct uftrace_data *handle,
-			      struct uftrace_task_reader *task,
-			      struct opts *opts)
+			      struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
@@ -817,7 +815,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	symname = symbol_getname(sym, rstack->addr);
 
 	/* skip it if --no-libcall is given */
-	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+	if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
 
 	if (rstack->type == UFTRACE_ENTRY) {
@@ -828,7 +826,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	task->timestamp_last = task->timestamp;
 	task->timestamp = rstack->time;
 
-	if (opts->libname && sym && sym->type == ST_PLT_FUNC) {
+	if (opts.libname && sym && sym->type == ST_PLT_FUNC) {
 		struct uftrace_session *s;
 
 		s = find_task_session(sessions, task->t, rstack->time);
@@ -839,9 +837,9 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		}
 	}
 
-	if (opts->srcline) {
+	if (opts.srcline) {
 		loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
-		if (opts->comment && loc)
+		if (opts.comment && loc)
 			xasprintf(&str_loc, "%s:%d", loc->file->name, loc->line);
 	}
 
@@ -863,7 +861,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		depth = task->display_depth;
 
 		/* give a new line when tid is changed */
-		if (opts->task_newline)
+		if (opts.task_newline)
 			print_task_newline(task->tid);
 
 		if (tr.flags & TRIGGER_FL_BACKTRACE)
@@ -874,7 +872,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		else
 			task->event_color = DEFAULT_EVENT_COLOR;
 
-		depth += task_column_depth(task, opts);
+		depth += task_column_depth(task);
 
 		if (rstack->more)
 			str_mode |= HAS_MORE;
@@ -882,8 +880,8 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 		fstack = fstack_get(task, task->stack_count - 1);
 
-		if (!opts->no_merge)
-			next = fstack_skip(handle, task, rstack_depth, opts);
+		if (!opts.no_merge)
+			next = fstack_skip(handle, task, rstack_depth);
 
 		if (task == next &&
 		    next->rstack->depth == rstack_depth &&
@@ -953,7 +951,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 			char *retval = args;
 
-			depth += task_column_depth(task, opts);
+			depth += task_column_depth(task);
 
 			str_mode = IS_RETVAL;
 			if (rstack->more) {
@@ -964,12 +962,12 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			get_argspec_string(task, retval, sizeof(args), str_mode);
 
 			/* give a new line when tid is changed */
-			if (opts->task_newline)
+			if (opts.task_newline)
 				print_task_newline(task->tid);
 
 			print_field(task, fstack, NULL);
 			pr_out("%*s}%s", depth * 2, "", retval);
-			if (opts->comment) {
+			if (opts.comment) {
 				pr_gray(" /* %s%s%s ", symname,
 					*libname ? "@" : "", libname);
 				if (str_loc)
@@ -988,11 +986,11 @@ lost:
 		losts = (int)rstack->addr;
 
 		/* skip kernel lost messages outside of user functions */
-		if (opts->kernel_skip_out && task->user_stack_count == 0)
+		if (opts.kernel_skip_out && task->user_stack_count == 0)
 			return 0;
 
 		/* give a new line when tid is changed */
-		if (opts->task_newline)
+		if (opts.task_newline)
 			print_task_newline(task->tid);
 
 		print_field(task, NULL, NO_TIME);
@@ -1019,17 +1017,17 @@ lost:
 			goto out;
 
 		/* give a new line when tid is changed */
-		if (opts->task_newline)
+		if (opts.task_newline)
 			print_task_newline(task->tid);
 
-		depth += task_column_depth(task, opts);
+		depth += task_column_depth(task);
 
 		/*
 		 * try to merge a subsequent sched-in event:
 		 * it might overwrite rstack - use (saved) rec for printing.
 		 */
-		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts->no_merge)
-			next = fstack_skip(handle, task, 0, opts);
+		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts.no_merge)
+			next = fstack_skip(handle, task, 0);
 
 		if (task == next &&
 		    next->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
@@ -1074,7 +1072,7 @@ static void print_warning(struct uftrace_task_reader *task)
 	       (task->display_depth + 1) * 2, "");
 }
 
-static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
+static bool skip_sys_exit(struct uftrace_task_reader *task)
 {
 	struct sym *sym;
 	struct fstack *fstack;
@@ -1100,8 +1098,7 @@ static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 	return false;
 }
 
-static void print_remaining_stack(struct opts *opts,
-				  struct uftrace_data *handle)
+static void print_remaining_stack(struct uftrace_data *handle)
 {
 	int i, k;
 	int total = 0;
@@ -1111,7 +1108,7 @@ static void print_remaining_stack(struct opts *opts,
 		struct uftrace_task_reader *task = &handle->tasks[i];
 		int zero_count = 0;
 
-		if (skip_sys_exit(opts, task))
+		if (skip_sys_exit(task))
 			continue;
 
 		if (task->stack_count == 1) {
@@ -1167,7 +1164,7 @@ static void print_remaining_stack(struct opts *opts,
 		if (zero_count == task->stack_count)
 			continue;
 
-		if (skip_sys_exit(opts, task))
+		if (skip_sys_exit(task))
 			continue;
 
 		pr_out("task: %d\n", task->tid);
@@ -1198,7 +1195,7 @@ static void print_remaining_stack(struct opts *opts,
 	}
 }
 
-int command_replay(int argc, char *argv[], struct opts *opts)
+int command_replay(int argc, char *argv[])
 {
 	int ret;
 	uint64_t prev_time = 0;
@@ -1208,20 +1205,20 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	ret = open_data_file(opts, &handle);
+	ret = open_data_file(&handle);
 	if (ret < 0) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts.dirname);
 		return -1;
 	}
 
-	fstack_setup_filters(opts, &handle);
-	setup_field(&output_fields, opts, &setup_default_field,
-		    field_table, ARRAY_SIZE(field_table));
+	fstack_setup_filters(&handle);
+	setup_field(&output_fields, &setup_default_field, field_table,
+		    ARRAY_SIZE(field_table));
 
-	if (!opts->flat && peek_rstack(&handle, &task) == 0)
+	if (!opts.flat && peek_rstack(&handle, &task) == 0)
 		print_header(&output_fields, "#", "FUNCTION", 1, false);
 	if (!list_empty(&output_fields)) {
-		if (opts->srcline)
+		if (opts.srcline)
 			pr_gray(" [SOURCE]");
 		pr_out("\n");
 	}
@@ -1230,7 +1227,7 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 		struct uftrace_record *rstack = task->rstack;
 		uint64_t curr_time = rstack->time;
 
-		if (!fstack_check_opts(task, opts))
+		if (!fstack_check_opts(task))
 			continue;
 
 		/*
@@ -1244,18 +1241,18 @@ int command_replay(int argc, char *argv[], struct opts *opts)
 			prev_time = rstack->time;
 		}
 
-		if (opts->flat)
-			ret = print_flat_rstack(&handle, task, opts);
+		if (opts.flat)
+			ret = print_flat_rstack(&handle, task);
 		else
-			ret = print_graph_rstack(&handle, task, opts);
+			ret = print_graph_rstack(&handle, task);
 
 		if (ret)
 			break;
 	}
 
-	print_remaining_stack(opts, &handle);
+	print_remaining_stack(&handle);
 
-	close_data_file(opts, &handle);
+	close_data_file(&handle);
 
 	return ret;
 }

@@ -410,7 +410,7 @@ bool data_is_lp64(struct uftrace_data *handle)
 	return handle->hdr.elf_class == ELFCLASS64;
 }
 
-int open_info_file(struct opts *opts, struct uftrace_data *handle)
+int open_info_file(struct uftrace_data *handle)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
@@ -419,7 +419,7 @@ int open_info_file(struct opts *opts, struct uftrace_data *handle)
 
 	memset(handle, 0, sizeof(*handle));
 
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	snprintf(buf, sizeof(buf), "%s/info", opts.dirname);
 
 	fp = fopen(buf, "rb");
 	if (fp != NULL)
@@ -427,15 +427,15 @@ int open_info_file(struct opts *opts, struct uftrace_data *handle)
 
 	saved_errno = errno;
 	/* provide a better error code for empty/invalid directories */
-	if (stat(opts->dirname, &stbuf) == 0)
+	if (stat(opts.dirname, &stbuf) == 0)
 		saved_errno = EINVAL;
 
 	/* if default dirname is failed */
-	if (!strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+	if (!strcmp(opts.dirname, UFTRACE_DIR_NAME)) {
 		/* try again inside the current directory */
 		fp = fopen("./info", "rb");
 		if (fp != NULL) {
-			opts->dirname = "./";
+			opts.dirname = "./";
 			goto ok;
 		}
 
@@ -443,14 +443,14 @@ int open_info_file(struct opts *opts, struct uftrace_data *handle)
 		snprintf(buf, sizeof(buf), "%s/info", UFTRACE_DIR_OLD_NAME);
 		fp = fopen(buf, "rb");
 		if (fp != NULL) {
-			opts->dirname = UFTRACE_DIR_OLD_NAME;
+			opts.dirname = UFTRACE_DIR_OLD_NAME;
 			goto ok;
 		}
 
 		saved_errno = errno;
 
 		/* restore original file name for error reporting */
-		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+		snprintf(buf, sizeof(buf), "%s/info", opts.dirname);
 	}
 
 	/* data file loading is failed */
@@ -460,10 +460,10 @@ int open_info_file(struct opts *opts, struct uftrace_data *handle)
 ok:
 	saved_errno = 0;
 	handle->fp = fp;
-	handle->dirname = opts->dirname;
-	handle->depth = opts->depth;
-	handle->time_filter = opts->threshold;
-	handle->time_range = opts->range;
+	handle->dirname = opts.dirname;
+	handle->depth = opts.depth;
+	handle->time_filter = opts.threshold;
+	handle->time_range = opts.range;
 	handle->sessions.root  = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
 	handle->last_perf_idx = -1;
@@ -491,20 +491,20 @@ ok:
 	if (read_uftrace_info(handle->hdr.info_mask, handle) < 0)
 		pr_err_ns("cannot read uftrace header info!\n");
 
-	if (opts->exename == NULL)
-		opts->exename = handle->info.exename;
+	if (opts.exename == NULL)
+		opts.exename = handle->info.exename;
 
 	fclose(fp);
 	return 0;
 }
 
-int open_data_file(struct opts *opts, struct uftrace_data *handle)
+int open_data_file(struct uftrace_data *handle)
 {
 	int ret;
 	char buf[PATH_MAX];
 	int saved_errno = 0;
 
-	ret = open_info_file(opts, handle);
+	ret = open_info_file(handle);
 	if (ret < 0) {
 		errno = -ret;
 		return -1;
@@ -524,10 +524,10 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 			sym_rel = true;
 
 		/* read old task file first and then try task.txt file */
-		if (read_task_file(sessions, opts->dirname, true, sym_rel,
-				   opts->srcline) < 0 &&
-		    read_task_txt_file(sessions, opts->dirname, true, sym_rel,
-				       opts->srcline) < 0) {
+		if (read_task_file(sessions, opts.dirname, true, sym_rel,
+				   opts.srcline) < 0 &&
+		    read_task_txt_file(sessions, opts.dirname, true, sym_rel,
+				       opts.srcline) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else
@@ -598,12 +598,12 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 		kernel = xzalloc(sizeof(*kernel));
 
 		kernel->handle   = handle;
-		kernel->dirname  = opts->dirname;
-		kernel->skip_out = opts->kernel_skip_out;
+		kernel->dirname  = opts.dirname;
+		kernel->skip_out = opts.kernel_skip_out;
 
 		if (setup_kernel_data(kernel) == 0) {
 			handle->kernel = kernel;
-			load_kernel_symbol(opts->dirname);
+			load_kernel_symbol(opts.dirname);
 		}
 		else {
 			free(kernel);
@@ -617,14 +617,14 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 	if (handle->hdr.feat_mask & PERF_EVENT)
 		setup_perf_data(handle);
 
-	setup_extern_data(handle, opts);
+	setup_extern_data(handle);
 
 	/* check there are data files actually */
-	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts->dirname);
+	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts.dirname);
 	if (!check_data_file(handle, buf)) {
 		if (handle->kernel) {
 			snprintf(buf, sizeof(buf), "%s/kernel-*.dat",
-				 opts->dirname);
+				 opts.dirname);
 
 			if (check_data_file(handle, buf))
 				goto out;
@@ -636,7 +636,7 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 
 out:
 	if (saved_errno) {
-		close_data_file(opts, handle);
+		close_data_file(handle);
 		errno = saved_errno;
 		ret = -1;
 	}
@@ -646,11 +646,10 @@ out:
 	return ret;
 }
 
-void __close_data_file(struct opts *opts, struct uftrace_data *handle,
-		       bool unload_modules)
+void __close_data_file(struct uftrace_data *handle, bool unload_modules)
 {
-	if (opts->exename == handle->info.exename)
-		opts->exename = NULL;
+	if (opts.exename == handle->info.exename)
+		opts.exename = NULL;
 
 	if (has_kernel_data(handle->kernel)) {
 		finish_kernel_data(handle->kernel);

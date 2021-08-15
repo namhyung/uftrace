@@ -174,13 +174,13 @@ static struct display_field *field_task_table[] = {
 	&field_task_tid,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, field_table[GRAPH_F_TOTAL_TIME]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+static void setup_default_task_field(struct list_head *fields,
 				     struct display_field *p_field_table[])
 {
 	add_field(fields, field_task_table[GRAPH_F_TASK_TOTAL_TIME]);
@@ -227,8 +227,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	return 0;
 }
 
-static void setup_graph_list(struct uftrace_data *handle, struct opts *opts,
-			     char *func)
+static void setup_graph_list(struct uftrace_data *handle, char *func)
 {
 	struct session_graph *graph;
 
@@ -236,7 +235,7 @@ static void setup_graph_list(struct uftrace_data *handle, struct opts *opts,
 
 	graph = graph_list;
 	while (graph) {
-		graph->ug.kernel_only = opts->kernel_only;
+		graph->ug.kernel_only = opts.kernel_only;
 		graph = graph->next;
 	}
 }
@@ -492,7 +491,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
 }
 
-static int print_graph(struct session_graph *graph, struct opts *opts)
+static int print_graph(struct session_graph *graph)
 {
 	bool *indent_mask;
 
@@ -509,18 +508,18 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 		print_backtrace(graph);
 	}
 
-	setup_field(&output_fields, opts, &setup_default_field, field_table, ARRAY_SIZE(field_table));
+	setup_field(&output_fields, &setup_default_field, field_table, ARRAY_SIZE(field_table));
 
 	if (graph->ug.root.time || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
 		print_header(&output_fields, "# ", "FUNCTION", 2, false);
 		if (!list_empty(&output_fields)) {
-			if (opts->srcline)
+			if (opts.srcline)
 				pr_gray(" %s", "[SOURCE]");
 			pr_out("\n");
 		}
 
-		indent_mask = xcalloc(opts->max_stack, sizeof(*indent_mask));
+		indent_mask = xcalloc(opts.max_stack, sizeof(*indent_mask));
 		print_graph_node(&graph->ug, &graph->ug.root, indent_mask, 0,
 				 graph->ug.root.nr_edges > 1);
 		free(indent_mask);
@@ -529,8 +528,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 	return 1;
 }
 
-static void build_graph_node(struct opts *opts,
-			     struct uftrace_task_reader *task, uint64_t time,
+static void build_graph_node(struct uftrace_task_reader *task, uint64_t time,
 			     uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
@@ -549,11 +547,11 @@ static void build_graph_node(struct opts *opts,
 	name = symbol_getname(sym, addr);
 
 	/* skip it if --no-libcall is given */
-	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+	if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
 
 	if (tg->enabled) {
-		if (opts->srcline) {
+		if (opts.srcline) {
 			loc = task_find_loc_addr(&task->h->sessions, task, time, addr);
 		}
 
@@ -580,21 +578,20 @@ out:
 	symbol_putname(sym, name);
 }
 
-static void build_graph(struct opts *opts, struct uftrace_data *handle,
-		       char *func)
+static void build_graph(struct uftrace_data *handle, char *func)
 {
 	struct uftrace_task_reader *task;
 	struct session_graph *graph;
 	uint64_t prev_time = 0;
 	int i;
 
-	setup_graph_list(handle, opts, func);
+	setup_graph_list(handle, func);
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 		uint64_t addr = frs->addr;
 
-		if (!fstack_check_opts(task, opts))
+		if (!fstack_check_opts(task))
 			continue;
 
 		if (!fstack_check_filter(task))
@@ -617,7 +614,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			struct task_graph *tg;
 			struct uftrace_session *fsess;
 
-			if (opts->kernel_skip_out && !task->user_stack_count)
+			if (opts.kernel_skip_out && !task->user_stack_count)
 				continue;
 
 			pr_dbg("*** LOST ***\n");
@@ -630,7 +627,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 
 				if (fstack_enabled && fstack && fstack->valid &&
 				    !(fstack->flags & FSTACK_FL_NORECORD)) {
-					build_graph_node(opts, task, prev_time,
+					build_graph_node(task, prev_time,
 							 fstack->addr,
 							 UFTRACE_EXIT, func);
 				}
@@ -658,7 +655,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 		}
 		prev_time = frs->time;
 
-		build_graph_node(opts, task, frs->time, addr, frs->type, func);
+		build_graph_node(task, frs->time, addr, frs->type, func);
 		fstack_check_filter_done(task);
 	}
 
@@ -695,7 +692,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			if (task->stack_count > 0)
 				fstack[-1].child_time += fstack->total_time;
 
-			build_graph_node(opts, task, last_time, fstack->addr,
+			build_graph_node(task, last_time, fstack->addr,
 					 UFTRACE_EXIT, func);
 		}
 	}
@@ -741,11 +738,10 @@ static int find_func(struct uftrace_session *s, void *arg)
 	return data->found;
 }
 
-static void synthesize_depth_trigger(struct opts *opts,
-				     struct uftrace_data *handle,
+static void synthesize_depth_trigger(struct uftrace_data *handle,
 				     char *func)
 {
-	size_t old_len = opts->trigger ? strlen(opts->trigger) : 0;
+	size_t old_len = opts.trigger ? strlen(opts.trigger) : 0;
 	size_t new_len = strlen(func) + 32;
 	struct find_func_data ffd = {
 		.name = func,
@@ -753,10 +749,10 @@ static void synthesize_depth_trigger(struct opts *opts,
 
 	walk_sessions(&handle->sessions, find_func, &ffd);
 
-	opts->trigger = xrealloc(opts->trigger, old_len + new_len);
-	snprintf(opts->trigger + old_len, new_len,
+	opts.trigger = xrealloc(opts.trigger, old_len + new_len);
+	snprintf(opts.trigger + old_len, new_len,
 		 "%s%s@%sdepth=%d", old_len ? ";" : "",
-		 func, ffd.found ? "" : "kernel,", opts->depth);
+		 func, ffd.found ? "" : "kernel,", opts.depth);
 }
 
 static void reset_task_runtime(struct uftrace_data *handle)
@@ -774,7 +770,7 @@ static void reset_task_runtime(struct uftrace_data *handle)
 	}
 }
 
-static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
+static void graph_build_task(struct uftrace_data *handle)
 {
 	struct uftrace_task_reader *task;
 	struct uftrace_task *t;
@@ -790,7 +786,7 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
 
-		if (!fstack_check_opts(task, opts))
+		if (!fstack_check_opts(task))
 			continue;
 
 		if (!fstack_check_filter(task))
@@ -829,26 +825,25 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 
 		t->time.run = task->timestamp_last - task->timestamp;
 	}
-	handle->time_filter = opts->threshold;
+	handle->time_filter = opts.threshold;
 }
 
 /* returns true if any of child has more runtime than the filter */
-static bool check_time_filter(struct uftrace_task *task, struct opts *opts)
+static bool check_time_filter(struct uftrace_task *task)
 {
 	struct uftrace_task *child;
 
 	list_for_each_entry(child, &task->children, siblings) {
-		if (child->time.run >= opts->threshold)
+		if (child->time.run >= opts.threshold)
 			return true;
-		if (check_time_filter(child, opts))
+		if (check_time_filter(child))
 			return true;
 	}
 	return false;
 }
 
 static bool is_last_child(struct uftrace_task *task,
-			  struct uftrace_task *parent,
-			  struct opts *opts)
+			  struct uftrace_task *parent)
 {
 	if (list_is_singular(&parent->children) ||
 	    parent->children.prev == &task->siblings)
@@ -856,8 +851,8 @@ static bool is_last_child(struct uftrace_task *task,
 
 	/* any sibling satisfies the time filter? */
 	list_for_each_entry_continue(task, &parent->children, siblings) {
-		if (task->time.run >= opts->threshold ||
-		    check_time_filter(task, opts))
+		if (task->time.run >= opts.threshold ||
+		    check_time_filter(task))
 			return false;
 	}
 	return true;
@@ -865,8 +860,7 @@ static bool is_last_child(struct uftrace_task *task,
 
 static bool print_task_node(struct uftrace_task *task,
 			    struct uftrace_task *parent,
-			    bool *indent_mask, int indent,
-			    struct opts *opts)
+			    bool *indent_mask, int indent)
 {
 	char *name = task->comm;
 	struct uftrace_task *child;
@@ -887,11 +881,11 @@ static bool print_task_node(struct uftrace_task *task,
 		pr_out("%s\n", name);
 	}
 
-	if (list_empty(&task->children) || !check_time_filter(task, opts))
+	if (list_empty(&task->children) || !check_time_filter(task))
 		return false;
 
 	/* clear parent indent mask at the last node */
-	if (parent && is_last_child(task, parent, opts)) {
+	if (parent && is_last_child(task, parent)) {
 		int parent_indent = orig_indent - 1;
 
 		if (task->pid != parent->pid)
@@ -907,8 +901,8 @@ static bool print_task_node(struct uftrace_task *task,
 		 * In that case we should print the parent even if it's
 		 * shorter than the time filter to show a correct tree.
 		 */
-		if (opts->threshold > child->time.run &&
-		    !check_time_filter(child, opts))
+		if (opts.threshold > child->time.run &&
+		    !check_time_filter(child))
 			continue;
 
 		indent = orig_indent;
@@ -930,7 +924,7 @@ static bool print_task_node(struct uftrace_task *task,
 			blank = false;
 		}
 
-		blank |= print_task_node(child, task, indent_mask, indent, opts);
+		blank |= print_task_node(child, task, indent_mask, indent);
 
 		if (&child->siblings != task->children.prev &&
 		    child->pid != task->pid) {
@@ -942,7 +936,7 @@ static bool print_task_node(struct uftrace_task *task,
 	return blank;
 }
 
-static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
+static int graph_print_task(struct uftrace_data *handle)
 {
 	bool *indent_mask;
 	struct uftrace_task *task;
@@ -955,7 +949,7 @@ static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 
 	task = handle->sessions.first_task;
 
-	setup_field(&output_task_fields, opts, &setup_default_task_field,
+	setup_field(&output_task_fields, &setup_default_task_field,
 		    field_task_table, ARRAY_SIZE(field_task_table));
 
 	pr_out("========== TASK GRAPH ==========\n");
@@ -964,15 +958,15 @@ static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 	indent_mask = xcalloc(handle->nr_tasks, sizeof(*indent_mask));
 
 	/* filter out if total time is less than time-filter */
-	if (opts->threshold <= task->time.run)
-		print_task_node(task, NULL, indent_mask, 0, opts);
+	if (opts.threshold <= task->time.run)
+		print_task_node(task, NULL, indent_mask, 0);
 
 	free(indent_mask);
 	pr_out("\n");
 	return 1;
 }
 
-int command_graph(int argc, char *argv[], struct opts *opts)
+int command_graph(int argc, char *argv[])
 {
 	int ret;
 	struct uftrace_data handle;
@@ -990,40 +984,40 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 		full_graph = true;
 	}
 
-	ret = open_data_file(opts, &handle);
+	ret = open_data_file(&handle);
 	if (ret < 0) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts.dirname);
 		return -1;
 	}
 
-	if (opts->depth != OPT_DEPTH_DEFAULT) {
+	if (opts.depth != OPT_DEPTH_DEFAULT) {
 		/*
 		 * Applying depth filter before the function might
 		 * lead to undesired result.  Set a synthetic depth
 		 * trigger to prevent the function from filtering out.
 		 */
-		synthesize_depth_trigger(opts, &handle, func);
+		synthesize_depth_trigger(&handle, func);
 	}
 
-	fstack_setup_filters(opts, &handle);
+	fstack_setup_filters(&handle);
 
-	if (opts->show_task) {
-		graph_build_task(opts, &handle);
-		graph_print_task(&handle, opts);
+	if (opts.show_task) {
+		graph_build_task(&handle);
+		graph_print_task(&handle);
 		goto out;
 	}
 
-	build_graph(opts, &handle, func);
+	build_graph(&handle, func);
 
 	graph = graph_list;
 	while (graph && !uftrace_done) {
-		ret += print_graph(graph, opts);
+		ret += print_graph(graph);
 		graph = graph->next;
 	}
 
 	if (!ret && !uftrace_done) {
 		pr_out("uftrace: cannot find graph for '%s'\n", func);
-		if (opts_has_filter(opts))
+		if (opts_has_filter())
 			pr_out("\t please check your filter settings.\n");
 	}
 
@@ -1042,7 +1036,7 @@ int command_graph(int argc, char *argv[], struct opts *opts)
 	graph_remove_task();
 
 out:
-	close_data_file(opts, &handle);
+	close_data_file(&handle);
 
 	return 0;
 }

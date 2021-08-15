@@ -47,6 +47,25 @@ static bool dbg_domain_set = false;
 
 static bool parsing_default_opts = false;
 
+struct opts opts = {
+	.mode		= UFTRACE_MODE_INVALID,
+	.dirname	= UFTRACE_DIR_NAME,
+	.libcall	= true,
+	.bufsize	= SHMEM_BUFFER_SIZE,
+	.depth		= OPT_DEPTH_DEFAULT,
+	.max_stack	= OPT_RSTACK_DEFAULT,
+	.port		= UFTRACE_RECV_PORT,
+	.use_pager	= true,
+	.color		= COLOR_AUTO,  /* turn on if terminal */
+	.column_offset	= OPT_COLUMN_OFFSET,
+	.comment	= true,
+	.kernel_skip_out= true,
+	.fields         = NULL,
+	.sort_column	= OPT_SORT_COLUMN,
+	.event_skip_out = true,
+	.patt_type      = PATT_REGEX,
+};
+
 enum options {
 	OPT_flat	= 301,
 	OPT_no_libcall,
@@ -512,44 +531,44 @@ static char * remove_trailing_slash(char *path)
 	return path;
 }
 
-static int parse_option(struct opts *opts, int key, char *arg)
+static int parse_option(int key, char *arg)
 {
 	switch (key) {
 	case 'L':
-		opts->lib_path = arg;
+		opts.lib_path = arg;
 		break;
 
 	case 'F':
-		opts->filter = opt_add_string(opts->filter, arg);
+		opts.filter = opt_add_string(opts.filter, arg);
 		break;
 
 	case 'N':
-		opts->filter = opt_add_prefix_string(opts->filter, "!", arg);
+		opts.filter = opt_add_prefix_string(opts.filter, "!", arg);
 		break;
 
 	case 'T':
-		opts->trigger = opt_add_string(opts->trigger, arg);
+		opts.trigger = opt_add_string(opts.trigger, arg);
 		break;
 
 	case 'D':
-		opts->depth = strtol(arg, NULL, 0);
-		if (opts->depth <= 0 || opts->depth >= OPT_DEPTH_MAX) {
+		opts.depth = strtol(arg, NULL, 0);
+		if (opts.depth <= 0 || opts.depth >= OPT_DEPTH_MAX) {
 			pr_use("invalid depth given: %s (ignoring..)\n", arg);
-			opts->depth = OPT_DEPTH_DEFAULT;
+			opts.depth = OPT_DEPTH_DEFAULT;
 		}
 		break;
 
 	case 'C':
-		opts->caller = opt_add_string(opts->caller, arg);
+		opts.caller = opt_add_string(opts.caller, arg);
 		/*
 		 * caller filter focuses onto a given function,
 		 * displaying sched event with it is annoying.
 		 */
-		opts->no_sched = true;
+		opts.no_sched = true;
 		break;
 
 	case 'H':
-		opts->hide = opt_add_string(opts->hide, arg);
+		opts.hide = opt_add_string(opts.hide, arg);
 		break;
 
 	case 'v':
@@ -557,116 +576,116 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		break;
 
 	case 'd':
-		opts->dirname = remove_trailing_slash(arg);
+		opts.dirname = remove_trailing_slash(arg);
 		break;
 
 	case 'b':
-		opts->bufsize = parse_size(arg);
-		if (opts->bufsize & (getpagesize() - 1)) {
+		opts.bufsize = parse_size(arg);
+		if (opts.bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
-			opts->bufsize = ROUND_UP(opts->bufsize, getpagesize());
+			opts.bufsize = ROUND_UP(opts.bufsize, getpagesize());
 		}
 		break;
 
 	case 'k':
-		opts->kernel = true;
+		opts.kernel = true;
 		break;
 
 	case 'K':
-		opts->kernel = true;
-		opts->kernel_depth = strtol(arg, NULL, 0);
-		if (opts->kernel_depth < 1 || opts->kernel_depth > 50) {
+		opts.kernel = true;
+		opts.kernel_depth = strtol(arg, NULL, 0);
+		if (opts.kernel_depth < 1 || opts.kernel_depth > 50) {
 			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
-			opts->kernel_depth = 0;
+			opts.kernel_depth = 0;
 		}
 		break;
 
 	case 's':
-		opts->sort_keys = opt_add_string(opts->sort_keys, arg);
+		opts.sort_keys = opt_add_string(opts.sort_keys, arg);
 		break;
 
 	case 'S':
-		opts->script_file = arg;
+		opts.script_file = arg;
 		break;
 
 	case 't':
 		/* do not override time-filter if it's already set */
-		if (parsing_default_opts && opts->threshold)
+		if (parsing_default_opts && opts.threshold)
 			break;
 
 		/* add time-filter to uftrace.data/default.opts */
 		strv_append(&default_opts, "-t");
 		strv_append(&default_opts, arg);
 
-		opts->threshold = parse_time(arg, 3);
-		if (opts->range.start || opts->range.stop) {
+		opts.threshold = parse_time(arg, 3);
+		if (opts.range.start || opts.range.stop) {
 			pr_use("--time-range cannot be used with --time-filter\n");
-			opts->range.start = opts->range.stop = 0;
+			opts.range.start = opts.range.stop = 0;
 		}
 		break;
 
 	case 'A':
-		opts->args = opt_add_string(opts->args, arg);
+		opts.args = opt_add_string(opts.args, arg);
 		break;
 
 	case 'R':
-		opts->retval = opt_add_string(opts->retval, arg);
+		opts.retval = opt_add_string(opts.retval, arg);
 		break;
 
 	case 'a':
-		opts->auto_args = true;
+		opts.auto_args = true;
 		break;
 
 	case 'l':
 		/* --nest-libcall implies --force option */
-		opts->force = true;
-		opts->nest_libcall = true;
+		opts.force = true;
+		opts.nest_libcall = true;
 		break;
 
 	case 'f':
-		opts->fields = arg;
+		opts.fields = arg;
 		break;
 
 	case 'r':
-		if (!parse_time_range(&opts->range, arg))
+		if (!parse_time_range(&opts.range, arg))
 			pr_use("invalid time range: %s (ignoring...)\n", arg);
-		if (opts->threshold) {
+		if (opts.threshold) {
 			pr_use("--time-filter cannot be used with --time-range\n");
-			opts->threshold = 0;
+			opts.threshold = 0;
 		}
 		break;
 
 	case 'P':
-		opts->patch = opt_add_string(opts->patch, arg);
+		opts.patch = opt_add_string(opts.patch, arg);
 		break;
 
 	case 'U':
-		opts->patch = opt_add_prefix_string(opts->patch, "!", arg);
+		opts.patch = opt_add_prefix_string(opts.patch, "!", arg);
 		break;
 
 	case 'Z':
-		opts->size_filter = strtol(arg, NULL, 0);
-		if (opts->size_filter <= 0) {
+		opts.size_filter = strtol(arg, NULL, 0);
+		if (opts.size_filter <= 0) {
 			pr_use("--size-filter should be positive\n");
-			opts->size_filter = 0;
+			opts.size_filter = 0;
 		}
 		break;
 
 	case 'E':
 		if (!strcmp(arg, "list")) {
 			pr_use("'-E list' is deprecated, use --list-event instead.\n");
-			opts->list_event = true;
+			opts.list_event = true;
 		}
 		else
-			opts->event = opt_add_string(opts->event, arg);
+			opts.event = opt_add_string(opts.event, arg);
 		break;
 
 	case 'W':
-		opts->watch = opt_add_string(opts->watch, arg);
+		opts.watch = opt_add_string(opts.watch, arg);
 		break;
 
 	case 'e':
-		opts->estimate_return = true;
+		opts.estimate_return = true;
 		break;
 
 	case 'V':
@@ -680,91 +699,91 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		return -2;
 
 	case OPT_flat:
-		opts->flat = true;
+		opts.flat = true;
 		break;
 
 	case OPT_no_libcall:
-		opts->libcall = false;
+		opts.libcall = false;
 		break;
 
 	case OPT_symbols:
-		opts->print_symtab = true;
+		opts.print_symtab = true;
 		break;
 
 	case OPT_logfile:
-		opts->logfile = arg;
+		opts.logfile = arg;
 		break;
 
 	case OPT_force:
-		opts->force = true;
+		opts.force = true;
 		break;
 
 	case OPT_task:
-		opts->show_task = true;
+		opts.show_task = true;
 		break;
 
 	case OPT_tid_filter:
 		if (strtol(arg, NULL, 0) <= 0)
 			pr_use("invalid thread id: %s\n", arg);
 		else
-			opts->tid = opt_add_string(opts->tid, arg);
+			opts.tid = opt_add_string(opts.tid, arg);
 		break;
 
 	case OPT_no_merge:
-		opts->no_merge = true;
+		opts.no_merge = true;
 		break;
 
 	case OPT_nop:
-		opts->nop = true;
+		opts.nop = true;
 		break;
 
 	case OPT_time:
-		opts->time = true;
+		opts.time = true;
 		break;
 
 	case OPT_max_stack:
-		opts->max_stack = strtol(arg, NULL, 0);
-		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX) {
+		opts.max_stack = strtol(arg, NULL, 0);
+		if (opts.max_stack <= 0 || opts.max_stack > OPT_RSTACK_MAX) {
 			pr_use("max stack depth should be >0 and <%d\n",
 			       OPT_RSTACK_MAX);
-			opts->max_stack = OPT_RSTACK_DEFAULT;
+			opts.max_stack = OPT_RSTACK_DEFAULT;
 		}
 		break;
 
 	case OPT_host:
-		opts->host = arg;
+		opts.host = arg;
 		break;
 
 	case OPT_port:
-		opts->port = strtol(arg, NULL, 0);
-		if (opts->port <= 0) {
+		opts.port = strtol(arg, NULL, 0);
+		if (opts.port <= 0) {
 			pr_use("invalid port number: %s (ignoring..)\n", arg);
-			opts->port = UFTRACE_RECV_PORT;
+			opts.port = UFTRACE_RECV_PORT;
 		}
 		break;
 
 	case OPT_nopager:
-		opts->use_pager = false;
+		opts.use_pager = false;
 		break;
 
 	case OPT_avg_total:
-		opts->avg_total = true;
+		opts.avg_total = true;
 		break;
 
 	case OPT_avg_self:
-		opts->avg_self = true;
+		opts.avg_self = true;
 		break;
 
 	case OPT_color:
-		opts->color = parse_color(arg);
-		if (opts->color == COLOR_UNKNOWN) {
+		opts.color = parse_color(arg);
+		if (opts.color == COLOR_UNKNOWN) {
 			pr_use("unknown color setting: %s (ignoring..)\n", arg);
-			opts->color = COLOR_AUTO;
+			opts.color = COLOR_AUTO;
 		}
 		break;
 
 	case OPT_disabled:
-		opts->disabled = true;
+		opts.disabled = true;
 		break;
 
 	case OPT_demangle:
@@ -784,166 +803,166 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		break;
 
 	case OPT_report:
-		opts->report = true;
+		opts.report = true;
 		break;
 
 	case OPT_column_view:
-		opts->column_view = true;
+		opts.column_view = true;
 		break;
 
 	case OPT_column_offset:
-		opts->column_offset = strtol(arg, NULL, 0);
-		if (opts->column_offset < 0)
-			opts->column_offset = OPT_COLUMN_OFFSET;
+		opts.column_offset = strtol(arg, NULL, 0);
+		if (opts.column_offset < 0)
+			opts.column_offset = OPT_COLUMN_OFFSET;
 		break;
 
 	case OPT_bind_not:
-		opts->want_bind_not = true;
+		opts.want_bind_not = true;
 		break;
 
 	case OPT_task_newline:
-		opts->task_newline = true;
+		opts.task_newline = true;
 		break;
 
 	case OPT_chrome_trace:
-		opts->chrome_trace = true;
+		opts.chrome_trace = true;
 		break;
 
 	case OPT_flame_graph:
-		opts->flame_graph = true;
+		opts.flame_graph = true;
 		break;
 
 	case OPT_graphviz:
-		opts->graphviz = true;
+		opts.graphviz = true;
 		break;
 
 	case OPT_diff:
-		opts->diff = arg;
+		opts.diff = arg;
 		break;
 
 	case OPT_diff_policy:
-		opts->diff_policy = arg;
+		opts.diff_policy = arg;
 		break;
 
 	case OPT_sort_column:
-		opts->sort_column = strtol(arg, NULL, 0);
-		if (opts->sort_column < 0 || opts->sort_column > OPT_SORT_COLUMN) {
-			pr_use("invalid column number: %d\n", opts->sort_column);
+		opts.sort_column = strtol(arg, NULL, 0);
+		if (opts.sort_column < 0 || opts.sort_column > OPT_SORT_COLUMN) {
+			pr_use("invalid column number: %d\n", opts.sort_column);
 			pr_use("force to set it to --sort-column=%d for diff percentage\n",
 				OPT_SORT_COLUMN);
-			opts->sort_column = OPT_SORT_COLUMN;
+			opts.sort_column = OPT_SORT_COLUMN;
 		}
 		break;
 
 	case OPT_num_thread:
-		opts->nr_thread = strtol(arg, NULL, 0);
-		if (opts->nr_thread < 0) {
+		opts.nr_thread = strtol(arg, NULL, 0);
+		if (opts.nr_thread < 0) {
 			pr_use("invalid thread number: %s\n", arg);
-			opts->nr_thread = 0;
+			opts.nr_thread = 0;
 		}
 		break;
 
 	case OPT_no_comment:
-		opts->comment = false;
+		opts.comment = false;
 		break;
 
 	case OPT_libmcount_single:
-		opts->libmcount_single = true;
+		opts.libmcount_single = true;
 		break;
 
 	case OPT_rt_prio:
-		opts->rt_prio = strtol(arg, NULL, 0);
-		if (opts->rt_prio < 1 || opts->rt_prio > 99) {
+		opts.rt_prio = strtol(arg, NULL, 0);
+		if (opts.rt_prio < 1 || opts.rt_prio > 99) {
 			pr_use("invalid rt prioity: %d (ignoring...)\n",
-				opts->rt_prio);
-			opts->rt_prio = 0;
+				opts.rt_prio);
+			opts.rt_prio = 0;
 		}
 		break;
 
 	case OPT_kernel_bufsize:
-		opts->kernel_bufsize = parse_size(arg);
-		if (opts->kernel_bufsize & (getpagesize() - 1)) {
+		opts.kernel_bufsize = parse_size(arg);
+		if (opts.kernel_bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
-			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize,
+			opts.kernel_bufsize = ROUND_UP(opts.kernel_bufsize,
 							getpagesize());
 		}
 		break;
 
 	case OPT_kernel_skip_out:  /* deprecated */
-		opts->kernel_skip_out = true;
+		opts.kernel_skip_out = true;
 		break;
 
 	case OPT_kernel_full:
-		opts->kernel_skip_out = false;
+		opts.kernel_skip_out = false;
 		/* see setup_kernel_tracing() also */
 		break;
 
 	case OPT_kernel_only:
-		opts->kernel_only = true;
+		opts.kernel_only = true;
 		break;
 
 	case OPT_sample_time:
-		opts->sample_time = parse_time(arg, 9);
+		opts.sample_time = parse_time(arg, 9);
 		break;
 
 	case OPT_list_event:
-		opts->list_event = true;
+		opts.list_event = true;
 		break;
 
 	case OPT_run_cmd:
-		if (opts->run_cmd) {
+		if (opts.run_cmd) {
 			pr_warn("intermediate --run-cmd argument is ignored.\n");
-			free_parsed_cmdline(opts->run_cmd);
+			free_parsed_cmdline(opts.run_cmd);
 		}
-		opts->run_cmd = parse_cmdline(arg, NULL);
+		opts.run_cmd = parse_cmdline(arg, NULL);
 		break;
 
 	case OPT_opt_file:
-		opts->opt_file = arg;
+		opts.opt_file = arg;
 		break;
 
 	case OPT_keep_pid:
-		opts->keep_pid = true;
+		opts.keep_pid = true;
 		break;
 
 	case OPT_event_full:
-		opts->event_skip_out = false;
+		opts.event_skip_out = false;
 		break;
 
 	case OPT_record:
-		opts->record = true;
+		opts.record = true;
 		break;
 
 	case OPT_libname:
-		opts->libname = true;
+		opts.libname = true;
 		break;
 
 	case OPT_match_type:
-		opts->patt_type = parse_filter_pattern(arg);
-		if (opts->patt_type == PATT_NONE) {
+		opts.patt_type = parse_filter_pattern(arg);
+		if (opts.patt_type == PATT_NONE) {
 			pr_use("invalid match pattern: %s (ignoring...)\n", arg);
-			opts->patt_type = PATT_REGEX;
+			opts.patt_type = PATT_REGEX;
 		}
 		break;
 
 	case OPT_no_randomize_addr:
-		opts->no_randomize_addr = true;
+		opts.no_randomize_addr = true;
 		break;
 
 	case OPT_no_event:
-		opts->no_event = true;
+		opts.no_event = true;
 		break;
 
 	case OPT_no_sched:
-		opts->no_sched = true;
+		opts.no_sched = true;
 		break;
 
 	case OPT_signal:
-		opts->sig_trigger = opt_add_string(opts->sig_trigger, arg);
+		opts.sig_trigger = opt_add_string(opts.sig_trigger, arg);
 		break;
 
 	case OPT_srcline:
-		opts->srcline = true;
+		opts.srcline = true;
 		break;
 
 	default:
@@ -952,40 +971,40 @@ static int parse_option(struct opts *opts, int key, char *arg)
 	return 0;
 }
 
-static void update_subcmd(struct opts *opts, char *cmd)
+static void update_subcmd(char *cmd)
 {
 	if (!strcmp(cmd, "record"))
-		opts->mode = UFTRACE_MODE_RECORD;
+		opts.mode = UFTRACE_MODE_RECORD;
 	else if (!strcmp(cmd, "replay"))
-		opts->mode = UFTRACE_MODE_REPLAY;
+		opts.mode = UFTRACE_MODE_REPLAY;
 	else if (!strcmp(cmd, "report"))
-		opts->mode = UFTRACE_MODE_REPORT;
+		opts.mode = UFTRACE_MODE_REPORT;
 	else if (!strcmp(cmd, "live"))
-		opts->mode = UFTRACE_MODE_LIVE;
+		opts.mode = UFTRACE_MODE_LIVE;
 	else if (!strcmp(cmd, "graph"))
-		opts->mode = UFTRACE_MODE_GRAPH;
+		opts.mode = UFTRACE_MODE_GRAPH;
 	else if (!strcmp(cmd, "info"))
-		opts->mode = UFTRACE_MODE_INFO;
+		opts.mode = UFTRACE_MODE_INFO;
 	else if (!strcmp(cmd, "dump"))
-		opts->mode = UFTRACE_MODE_DUMP;
+		opts.mode = UFTRACE_MODE_DUMP;
 	else if (!strcmp(cmd, "recv"))
-		opts->mode = UFTRACE_MODE_RECV;
+		opts.mode = UFTRACE_MODE_RECV;
 	else if (!strcmp(cmd, "script"))
-		opts->mode = UFTRACE_MODE_SCRIPT;
+		opts.mode = UFTRACE_MODE_SCRIPT;
 	else if (!strcmp(cmd, "tui"))
-		opts->mode = UFTRACE_MODE_TUI;
+		opts.mode = UFTRACE_MODE_TUI;
 	else
-		opts->mode = UFTRACE_MODE_INVALID;
+		opts.mode = UFTRACE_MODE_INVALID;
 }
 
-static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts *opts)
+static void parse_opt_file(int *argc, char ***argv, char *filename)
 {
 	int file_argc;
 	char **file_argv;
 	char *buf;
 	struct stat stbuf;
 	FILE *fp;
-	char *orig_exename = opts->exename;
+	char *orig_exename = opts.exename;
 	bool has_subcmd = false;
 
 	if (stat(filename, &stbuf) < 0) {
@@ -1007,25 +1026,25 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 	file_argv = parse_cmdline(buf, &file_argc);
 
 	/* clear opt_file for error reporting */
-	opts->opt_file = NULL;
+	opts.opt_file = NULL;
 
 	/* re-initialize getopt as we start another round */
 	optind = 0;
 
 	if (file_argv[1][0] != '-') {
-		int orig_mode = opts->mode;
+		int orig_mode = opts.mode;
 
-		update_subcmd(opts, file_argv[1]);
+		update_subcmd(file_argv[1]);
 
-		if (opts->mode == UFTRACE_MODE_INVALID) {
-			opts->mode = orig_mode;
+		if (opts.mode == UFTRACE_MODE_INVALID) {
+			opts.mode = orig_mode;
 			has_subcmd = true;
 		}
 		else {
 			if (orig_mode != UFTRACE_MODE_INVALID &&
-			    orig_mode != opts->mode) {
+			    orig_mode != opts.mode) {
 				pr_use("ignore uftrace command in opt-file\n");
-				opts->mode = orig_mode;
+				opts.mode = orig_mode;
 			}
 			else {
 				has_subcmd = true;
@@ -1045,7 +1064,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 				break;
 		}
 
-		parse_option(opts, key, optarg);
+		parse_option(key, optarg);
 	}
 
 	/* overwrite argv only if it's not given on command line */
@@ -1053,14 +1072,14 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
 		*argc = file_argc;
 		*argv = file_argv;
 
-		opts->idx = optind;
-		opts->exename = file_argv[optind];
+		opts.idx = optind;
+		opts.exename = file_argv[optind];
 
 		/* mark it to free at the end */
-		opts->opt_file = filename;
+		opts.opt_file = filename;
 	}
 	else {
-		opts->exename = orig_exename;
+		opts.exename = orig_exename;
 		free_parsed_cmdline(file_argv);
 	}
 
@@ -1078,7 +1097,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
  * Note that it only handles some options like filter, trigger,
  * argument, return values and maybe some more.
  */
-void parse_script_opt(struct opts *opts)
+void parse_script_opt(void)
 {
 	FILE *fp;
 	int opt_argc;
@@ -1095,14 +1114,14 @@ void parse_script_opt(struct opts *opts)
 	const char* comment;
 	size_t comment_len;
 
-	if (opts->script_file == NULL)
+	if (opts.script_file == NULL)
 		return;
 
-	fp = fopen(opts->script_file, "r");
+	fp = fopen(opts.script_file, "r");
 	if (fp == NULL)
-		pr_err("cannot open script file: %s", opts->script_file);
+		pr_err("cannot open script file: %s", opts.script_file);
 
-	script_type = get_script_type(opts->script_file);
+	script_type = get_script_type(opts.script_file);
 
 	if (script_type == SCRIPT_UNKNOWN) {
 		fclose(fp);
@@ -1146,7 +1165,7 @@ void parse_script_opt(struct opts *opts)
 			if (key == -1 || key == '?')
 				break;
 
-			parse_option(opts, key, optarg);
+			parse_option(key, optarg);
 		}
 
 		free_parsed_cmdline(opt_argv);
@@ -1157,23 +1176,23 @@ void parse_script_opt(struct opts *opts)
 	fclose(fp);
 }
 
-static void free_opts(struct opts *opts)
+static void free_opts(void)
 {
-	free(opts->filter);
-	free(opts->trigger);
-	free(opts->sig_trigger);
-	free(opts->sort_keys);
-	free(opts->args);
-	free(opts->retval);
-	free(opts->tid);
-	free(opts->event);
-	free(opts->patch);
-	free(opts->caller);
-	free(opts->watch);
-	free_parsed_cmdline(opts->run_cmd);
+	free(opts.filter);
+	free(opts.trigger);
+	free(opts.sig_trigger);
+	free(opts.sort_keys);
+	free(opts.args);
+	free(opts.retval);
+	free(opts.tid);
+	free(opts.event);
+	free(opts.patch);
+	free(opts.caller);
+	free(opts.watch);
+	free_parsed_cmdline(opts.run_cmd);
 }
 
-static int parse_options(int argc, char **argv, struct opts *opts)
+static int parse_options(int argc, char **argv)
 {
 	/* initial option parsing index */
 	optind = 1;
@@ -1184,10 +1203,10 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options,
 				  &tmp);
 		if (key == -1 || key == '?') {
-			if (optind < argc && opts->mode == UFTRACE_MODE_INVALID) {
-				update_subcmd(opts, argv[optind]);
+			if (optind < argc && opts.mode == UFTRACE_MODE_INVALID) {
+				update_subcmd(argv[optind]);
 
-				if (opts->mode != UFTRACE_MODE_INVALID) {
+				if (opts.mode != UFTRACE_MODE_INVALID) {
 					optind++;
 					continue;
 				}
@@ -1195,45 +1214,45 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 			break;
 		}
 
-		tmp = parse_option(opts, key, optarg);
+		tmp = parse_option(key, optarg);
 		if (tmp < 0)
 			return tmp;
 	}
 
 	if (optind < argc) {
-		opts->idx = optind;
-		opts->exename = argv[optind];
+		opts.idx = optind;
+		opts.exename = argv[optind];
 	}
 
 	return 0;
 }
 
-__used static void apply_default_opts(int *argc, char ***argv, struct opts *opts)
+__used static void apply_default_opts(int *argc, char ***argv)
 {
 	char *basename = "default.opts";
 	char opts_file[PATH_MAX];
 	struct stat stbuf;
 
 	/* default.opts is only for analysis commands */
-	if (opts->mode == UFTRACE_MODE_RECORD ||
-	    opts->mode == UFTRACE_MODE_LIVE ||
-	    opts->mode == UFTRACE_MODE_RECV)
+	if (opts.mode == UFTRACE_MODE_RECORD ||
+	    opts.mode == UFTRACE_MODE_LIVE ||
+	    opts.mode == UFTRACE_MODE_RECV)
 		return;
 
 	/* this is not to override user given time-filter by default opts */
 	parsing_default_opts = true;
 
-	snprintf(opts_file, PATH_MAX, "%s/%s", opts->dirname, basename);
+	snprintf(opts_file, PATH_MAX, "%s/%s", opts.dirname, basename);
 	if (!stat(opts_file, &stbuf) && stbuf.st_size > 0) {
 		pr_dbg("apply '%s' option file\n", opts_file);
-		parse_opt_file(argc, argv, opts_file, opts);
+		parse_opt_file(argc, argv, opts_file);
 	}
-	else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) &&
+	else if (!strcmp(opts.dirname, UFTRACE_DIR_NAME) &&
 		 !access("./info", F_OK)) {
 		/* try again applying default.opts in the current dir */
 		if (!stat(basename, &stbuf) && stbuf.st_size > 0) {
 			pr_dbg("apply './%s' option file\n", basename);
-			parse_opt_file(argc, argv, basename, opts);
+			parse_opt_file(argc, argv, basename);
 		}
 	}
 }
@@ -1241,24 +1260,6 @@ __used static void apply_default_opts(int *argc, char ***argv, struct opts *opts
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
-	struct opts opts = {
-		.mode		= UFTRACE_MODE_INVALID,
-		.dirname	= UFTRACE_DIR_NAME,
-		.libcall	= true,
-		.bufsize	= SHMEM_BUFFER_SIZE,
-		.depth		= OPT_DEPTH_DEFAULT,
-		.max_stack	= OPT_RSTACK_DEFAULT,
-		.port		= UFTRACE_RECV_PORT,
-		.use_pager	= true,
-		.color		= COLOR_AUTO,  /* turn on if terminal */
-		.column_offset	= OPT_COLUMN_OFFSET,
-		.comment	= true,
-		.kernel_skip_out= true,
-		.fields         = NULL,
-		.sort_column	= OPT_SORT_COLUMN,
-		.event_skip_out = true,
-		.patt_type      = PATT_REGEX,
-	};
 	int ret = -1;
 	char *pager = NULL;
 
@@ -1271,7 +1272,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	switch (parse_options(argc, argv, &opts)) {
+	switch (parse_options(argc, argv)) {
 	case -1:
 		return 0;
 	case -2:
@@ -1287,7 +1288,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (opts.opt_file)
-		parse_opt_file(&argc, &argv, opts.opt_file, &opts);
+		parse_opt_file(&argc, &argv, opts.opt_file);
 
 	if (opts.exename == NULL) {
 		switch (opts.mode) {
@@ -1356,7 +1357,7 @@ int main(int argc, char *argv[])
 		opts.srcline = true;
 
 	/* apply 'default.opts' options for analysis commands */
-	apply_default_opts(&argc, &argv, &opts);
+	apply_default_opts(&argc, &argv);
 
 	if (opts.idx == 0)
 		opts.idx = argc;
@@ -1366,34 +1367,34 @@ int main(int argc, char *argv[])
 
 	switch (opts.mode) {
 	case UFTRACE_MODE_RECORD:
-		ret = command_record(argc, argv, &opts);
+		ret = command_record(argc, argv);
 		break;
 	case UFTRACE_MODE_REPLAY:
-		ret = command_replay(argc, argv, &opts);
+		ret = command_replay(argc, argv);
 		break;
 	case UFTRACE_MODE_LIVE:
-		ret = command_live(argc, argv, &opts);
+		ret = command_live(argc, argv);
 		break;
 	case UFTRACE_MODE_REPORT:
-		ret = command_report(argc, argv, &opts);
+		ret = command_report(argc, argv);
 		break;
 	case UFTRACE_MODE_INFO:
-		ret = command_info(argc, argv, &opts);
+		ret = command_info(argc, argv);
 		break;
 	case UFTRACE_MODE_RECV:
-		ret = command_recv(argc, argv, &opts);
+		ret = command_recv(argc, argv);
 		break;
 	case UFTRACE_MODE_DUMP:
-		ret = command_dump(argc, argv, &opts);
+		ret = command_dump(argc, argv);
 		break;
 	case UFTRACE_MODE_GRAPH:
-		ret = command_graph(argc, argv, &opts);
+		ret = command_graph(argc, argv);
 		break;
 	case UFTRACE_MODE_SCRIPT:
-		ret = command_script(argc, argv, &opts);
+		ret = command_script(argc, argv);
 		break;
 	case UFTRACE_MODE_TUI:
-		ret = command_tui(argc, argv, &opts);
+		ret = command_tui(argc, argv);
 		break;
 	case UFTRACE_MODE_INVALID:
 		ret = 1;
@@ -1408,7 +1409,7 @@ int main(int argc, char *argv[])
 	if (opts.opt_file)
 		free_parsed_cmdline(argv - opts.idx);
 
-	free_opts(&opts);
+	free_opts();
 	return ret;
 }
 #else
@@ -1479,9 +1480,6 @@ TEST_CASE(option_parsing1)
 
 TEST_CASE(option_parsing2)
 {
-	struct opts opts = {
-		.mode = UFTRACE_MODE_INVALID,
-	};
 	char *argv[] = {
 		"uftrace",
 		"replay",
@@ -1497,7 +1495,7 @@ TEST_CASE(option_parsing2)
 	int saved_debug = debug;
 
 	pr_dbg("check parsing regular command line options\n");
-	parse_options(argc, argv, &opts);
+	parse_options(argc, argv);
 
 	TEST_EQ(opts.mode, UFTRACE_MODE_REPLAY);
 	TEST_EQ(debug, saved_debug + 1);
@@ -1507,15 +1505,12 @@ TEST_CASE(option_parsing2)
 	TEST_STREQ(opts.filter, "foo;!bar");
 	TEST_STREQ(opts.args, "baz@kernel");
 
-	free_opts(&opts);
+	free_opts();
 	return TEST_OK;
 }
 
 TEST_CASE(option_parsing3)
 {
-	struct opts opts = {
-		.mode = UFTRACE_MODE_INVALID,
-	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
@@ -1531,11 +1526,11 @@ TEST_CASE(option_parsing3)
 	fclose(fp);
 
 	pr_dbg("check parsing regular command line options\n");
-	parse_options(argc, argv, &opts);
+	parse_options(argc, argv);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	pr_dbg("check parsing option files\n");
-	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file);
 	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
 
 	unlink(OPT_FILE);
@@ -1550,15 +1545,12 @@ TEST_CASE(option_parsing3)
 	TEST_STREQ(opts.exename, "t-abc");
 
 	free_parsed_cmdline(file_argv);
-	free_opts(&opts);
+	free_opts();
 	return TEST_OK;
 }
 
 TEST_CASE(option_parsing4)
 {
-	struct opts opts = {
-		.mode = UFTRACE_MODE_INVALID,
-	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "-K 2\n"
@@ -1587,11 +1579,11 @@ TEST_CASE(option_parsing4)
 	fclose(fp);
 
 	pr_dbg("check parsing regular command line options\n");
-	parse_options(argc, argv, &opts);
+	parse_options(argc, argv);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	pr_dbg("check parsing option files\n");
-	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file);
 	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
 
 	unlink(OPT_FILE);
@@ -1607,15 +1599,12 @@ TEST_CASE(option_parsing4)
 	TEST_STREQ(opts.exename, "t-abc");
 
 	free_parsed_cmdline(file_argv);
-	free_opts(&opts);
+	free_opts();
 	return TEST_OK;
 }
 
 TEST_CASE(option_parsing5)
 {
-	struct opts opts = {
-		.mode = UFTRACE_MODE_INVALID,
-	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, "hello" };
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
@@ -1631,11 +1620,11 @@ TEST_CASE(option_parsing5)
 	fclose(fp);
 
 	pr_dbg("check parsing regular command line options\n");
-	parse_options(argc, argv, &opts);
+	parse_options(argc, argv);
 	TEST_STREQ(opts.opt_file, OPT_FILE);
 
 	pr_dbg("check parsing option files\n");
-	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
+	parse_opt_file(&file_argc, &file_argv, opts.opt_file);
 
 	unlink(OPT_FILE);
 
@@ -1652,7 +1641,7 @@ TEST_CASE(option_parsing5)
 	/* it should not update exename to "t-abc" */
 	TEST_STREQ(opts.exename, "hello");
 
-	free_opts(&opts);
+	free_opts();
 	return TEST_OK;
 }
 

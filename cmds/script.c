@@ -22,8 +22,7 @@
 
 
 static int run_script_for_rstack(struct uftrace_data *handle,
-				 struct uftrace_task_reader *task,
-				 struct opts *opts)
+				 struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
@@ -34,7 +33,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	symname = symbol_getname(sym, rstack->addr);
 
 	/* skip it if --no-libcall is given */
-	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+	if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
 
 	task->timestamp_last = task->timestamp;
@@ -127,13 +126,13 @@ out:
 	return 0;
 }
 
-int command_script(int argc, char *argv[], struct opts *opts)
+int command_script(int argc, char *argv[])
 {
 	int ret;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 	struct script_info info = {
-		.name           = opts->script_file,
+		.name           = opts.script_file,
 		.version        = UFTRACE_VERSION,
 	};
 
@@ -142,54 +141,54 @@ int command_script(int argc, char *argv[], struct opts *opts)
 		return -1;
 	}
 
-	if (!opts->script_file) {
+	if (!opts.script_file) {
 		pr_out("Usage: uftrace script (-S|--script) <script_file>\n");
 		return -1;
 	}
 
-	if (opts->record) {
+	if (opts.record) {
 		char *script_file;
 
 		/* parse in-script record option - "uftrace_options" */
-		parse_script_opt(opts);
+		parse_script_opt();
 
-		script_file = opts->script_file;
-		opts->script_file = NULL;
+		script_file = opts.script_file;
+		opts.script_file = NULL;
 
 		pr_dbg("start recording before running a script\n");
-		ret = command_record(argc, argv, opts);
+		ret = command_record(argc, argv);
 		if (ret < 0) {
 			pr_warn("cannot record data: %m\n");
 			return -1;
 		}
 
-		opts->script_file = script_file;
+		opts.script_file = script_file;
 	}
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
 
-	ret = open_data_file(opts, &handle);
+	ret = open_data_file(&handle);
 	if (ret < 0) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts.dirname);
 		return -1;
 	}
 
-	fstack_setup_filters(opts, &handle);
+	fstack_setup_filters(&handle);
 
 	strv_copy(&info.cmds, argc, argv);
 
 	/* initialize script */
-	if (script_init(&info, opts->patt_type) < 0) {
+	if (script_init(&info, opts.patt_type) < 0) {
 		ret = -1;
 		goto out;
 	}
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
-		if (!fstack_check_opts(task, opts))
+		if (!fstack_check_opts(task))
 			continue;
 
-		ret = run_script_for_rstack(&handle, task, opts);
+		ret = run_script_for_rstack(&handle, task);
 
 		if (ret)
 			break;
@@ -200,7 +199,7 @@ int command_script(int argc, char *argv[], struct opts *opts)
 out:
 	script_finish();
 
-	close_data_file(opts, &handle);
+	close_data_file(&handle);
 
 	strv_free(&info.cmds);
 

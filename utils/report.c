@@ -939,7 +939,7 @@ static struct display_field *field_task_table[] = {
 	&field_task_nr_func,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
@@ -947,7 +947,7 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_CALL]);
 }
 
-static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_total_field(struct list_head *fields,
 				  struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_AVG]);
@@ -955,7 +955,7 @@ static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MAX]);
 }
 
-static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_self_field(struct list_head *fields,
 				 struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_AVG]);
@@ -963,7 +963,7 @@ static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+static void setup_default_task_field(struct list_head *fields,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TASK_TOTAL_TIME]);
@@ -972,8 +972,7 @@ static void setup_default_task_field(struct list_head *fields, struct opts *opts
 	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
 }
 
-void setup_report_field(struct list_head *output_fields, struct opts *opts,
-			enum avg_mode avg_mode)
+void setup_report_field(struct list_head *output_fields, enum avg_mode avg_mode)
 {
 	struct display_field **f_table;
 	int table_size;
@@ -981,14 +980,14 @@ void setup_report_field(struct list_head *output_fields, struct opts *opts,
 				       &setup_avg_total_field,
 				       &setup_avg_self_field };
 
-	if (opts->show_task) {
-		setup_field(output_fields, opts, setup_default_task_field,
+	if (opts.show_task) {
+		setup_field(output_fields, setup_default_task_field,
 			    field_task_table, ARRAY_SIZE(field_task_table));
 		return;
 	}
 
-	if (opts->diff) {
-		if (opts->diff_policy && diff_policy.full) {
+	if (opts.diff) {
+		if (opts.diff_policy && diff_policy.full) {
 			if (diff_policy.percent) {
 				f_table = field_diff_full_percent_table;
 				table_size = ARRAY_SIZE(field_diff_full_percent_table);
@@ -1008,7 +1007,7 @@ void setup_report_field(struct list_head *output_fields, struct opts *opts,
 		table_size = ARRAY_SIZE(field_table);
 	}
 
-	setup_field(output_fields, opts, fn[avg_mode], f_table, table_size);
+	setup_field(output_fields, fn[avg_mode], f_table, table_size);
 }
 
 #ifdef UNIT_TEST

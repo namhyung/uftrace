@@ -25,7 +25,7 @@
 
 #define DEFAULT_FILENAME  "extern.dat"
 
-int setup_extern_data(struct uftrace_data *handle, struct opts *opts)
+int setup_extern_data(struct uftrace_data *handle)
 {
 	struct uftrace_extern_reader *extn;
 	char *filename;
@@ -33,13 +33,13 @@ int setup_extern_data(struct uftrace_data *handle, struct opts *opts)
 
 	handle->extn = NULL;
 
-	filename = opts->extern_data;
+	filename = opts.extern_data;
 	if (filename == NULL)
-		xasprintf(&filename, "%s/%s", opts->dirname, DEFAULT_FILENAME);
+		xasprintf(&filename, "%s/%s", opts.dirname, DEFAULT_FILENAME);
 
 	fp = fopen(filename, "r");
 
-	if (opts->extern_data == NULL)
+	if (opts.extern_data == NULL)
 		free(filename);
 
 	if (fp == NULL) {
@@ -138,12 +138,11 @@ TEST_CASE(fstack_extern_data)
 	struct uftrace_data handle = {
 		.dirname = "extern.test",
 	};
-	struct opts opts = {
-		.dirname = "extern.test",
-	};
 	const char extern_data[] = "# test data\n"
 		"1234.987654321 first data\n"
 		"1234.123456789 second data\n";
+
+	opts.dirname = "extern.test",
 
 	pr_dbg("creating external data file\n");
 	mkdir("extern.test", 0755);
@@ -152,7 +151,7 @@ TEST_CASE(fstack_extern_data)
 	write(fd, extern_data, sizeof(extern_data)-1);
 	close(fd);
 
-	setup_extern_data(&handle, &opts);
+	setup_extern_data(&handle);
 
 	pr_dbg("first read should return first data\n");
 	read_extern_data(handle.extn);

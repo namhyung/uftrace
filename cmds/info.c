@@ -32,7 +32,6 @@ struct read_handler_arg {
 struct fill_handler_arg {
 	int fd;
 	int exit_status;
-	struct opts *opts;
 	struct rusage *rusage;
 	char *elapsed_time;
 	char buf[PATH_MAX];
@@ -54,9 +53,9 @@ static int fill_exe_name(void *arg)
 	struct fill_handler_arg *fha = arg;
 	char *exename;
 
-	exename = realpath(fha->opts->exename, fha->buf);
+	exename = realpath(opts.exename, fha->buf);
 	if (exename == NULL)
-		exename = fha->opts->exename;
+		exename = opts.exename;
 
 	return dprintf(fha->fd, "exename:%s\n", exename);
 }
@@ -84,7 +83,7 @@ static int fill_exe_build_id(void *arg)
 	struct fill_handler_arg *fha = arg;
 	char buf[BUILD_ID_STR_SIZE];
 
-	if (read_build_id(fha->opts->exename, buf, sizeof(buf)) < 0) {
+	if (read_build_id(opts.exename, buf, sizeof(buf)) < 0) {
 		pr_dbg("cannot read build-id section\n");
 		return -1;
 	}
@@ -478,8 +477,8 @@ static int fill_taskinfo(void *arg)
 	};
 	int i;
 
-	if (read_task_txt_file(&link, fha->opts->dirname, false, false, false) < 0 &&
-	    read_task_file(&link, fha->opts->dirname, false, false, false) < 0)
+	if (read_task_txt_file(&link, opts.dirname, false, false, false) < 0 &&
+	    read_task_file(&link, opts.dirname, false, false, false) < 0)
 		return -1;
 
 	walk_tasks(&link, build_tid_list, &tlist);
@@ -676,15 +675,15 @@ static int read_loadinfo(void *arg)
 static int fill_arg_spec(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
-	char *argspec = fha->opts->args;
-	char *retspec = fha->opts->retval;
+	char *argspec = opts.args;
+	char *retspec = opts.retval;
 	int n;
 
-	n = extract_trigger_args(&argspec, &retspec, fha->opts->trigger);
-	if (n == 0 && !fha->opts->auto_args)
+	n = extract_trigger_args(&argspec, &retspec, opts.trigger);
+	if (n == 0 && !opts.auto_args)
 		return -1;
 
-	dprintf(fha->fd, "argspec:lines=%d\n", n + 3 + !!fha->opts->auto_args);
+	dprintf(fha->fd, "argspec:lines=%d\n", n + 3 + !!opts.auto_args);
 	if (argspec) {
 		dprintf(fha->fd, "argspec:%s\n", argspec);
 		free(argspec);
@@ -698,7 +697,7 @@ static int fill_arg_spec(void *arg)
 	dprintf(fha->fd, "retauto:%s\n", get_auto_retspec_str());
 	dprintf(fha->fd, "enumauto:%s\n", get_auto_enum_str());
 
-	if (fha->opts->auto_args)
+	if (opts.auto_args)
 		dprintf(fha->fd, "auto-args:1\n");
 
 	return 0;
@@ -801,7 +800,7 @@ static int fill_pattern_type(void *arg)
 	struct fill_handler_arg *fha = arg;
 
 	dprintf(fha->fd, "pattern_type:%s\n",
-		get_filter_pattern(fha->opts->patt_type));
+		get_filter_pattern(opts.patt_type));
 
 	return 0;
 }
@@ -858,14 +857,13 @@ struct uftrace_info_handler {
 	int (*handler)(void *arg);
 };
 
-void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+void fill_uftrace_info(uint64_t *info_mask, int fd, int status,
 		      struct rusage *rusage, char *elapsed_time)
 {
 	size_t i;
 	off_t offset;
 	struct fill_handler_arg arg = {
 		.fd = fd,
-		.opts = opts,
 		.exit_status = status,
 		.rusage = rusage,
 		.elapsed_time = elapsed_time,
@@ -974,7 +972,7 @@ static void print_info(void *unused, const char *fmt, ...)
 	va_end(ap);
 }
 
-void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
+void process_uftrace_info(struct uftrace_data *handle,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data)
 {
@@ -987,7 +985,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 	if (info_mask == 0)
 		return;
 
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	snprintf(buf, sizeof(buf), "%s/info", opts.dirname);
 
 	if (stat(buf, &statbuf) < 0)
 		return;
@@ -1040,7 +1038,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 		char *p;
 
 		/* ignore errors */
-		read_task_txt_file(&handle->sessions, opts->dirname,
+		read_task_txt_file(&handle->sessions, opts.dirname,
 				   false, false, false);
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
@@ -1193,28 +1191,28 @@ static void print_task_info(struct uftrace_data *handle)
 	}
 }
 
-int command_info(int argc, char *argv[], struct opts *opts)
+int command_info(int argc, char *argv[])
 {
 	int ret;
 	struct uftrace_data handle;
 
-	ret = open_info_file(opts, &handle);
+	ret = open_info_file(&handle);
 	if (ret < 0) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts.dirname);
 		return -1;
 	}
 
-	if (opts->print_symtab) {
+	if (opts.print_symtab) {
 		struct symtabs symtabs = {
-			.dirname = opts->dirname,
-			.filename = opts->exename,
+			.dirname = opts.dirname,
+			.filename = opts.exename,
 			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
 		};
 		struct uftrace_module *mod;
 		char build_id[BUILD_ID_STR_SIZE];
 		int i;
 
-		if (!opts->exename) {
+		if (!opts.exename) {
 			pr_use("Usage: uftrace info --symbols [COMMAND]\n");
 			return -1;
 		}
@@ -1232,10 +1230,10 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	fstack_setup_task(opts->tid, &handle);
-	if (opts->show_task) {
+	fstack_setup_task(opts.tid, &handle);
+	if (opts.show_task) {
 		/* ignore errors */
-		read_task_txt_file(&handle.sessions, opts->dirname,
+		read_task_txt_file(&handle.sessions, opts.dirname,
 				   false, false, false);
 
 		if (handle.hdr.feat_mask & PERF_EVENT) {
@@ -1247,10 +1245,10 @@ int command_info(int argc, char *argv[], struct opts *opts)
 		goto out;
 	}
 
-	process_uftrace_info(&handle, opts, print_info, NULL);
+	process_uftrace_info(&handle, print_info, NULL);
 
 out:
-	close_data_file(opts, &handle);
+	close_data_file(&handle);
 
 	return 0;
 }

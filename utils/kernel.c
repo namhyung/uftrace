@@ -622,12 +622,11 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 /**
  * setup_kernel_tracing - prepare to record kernel ftrace data (binary)
  * @kernel : kernel ftrace handle
- * @opts: option related to kernel tracing
  *
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts)
+int setup_kernel_tracing(struct uftrace_kernel_writer *kernel)
 {
 	int i, n;
 	int ret;
@@ -638,22 +637,22 @@ int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts
 	INIT_LIST_HEAD(&kernel->nopatch);
 	INIT_LIST_HEAD(&kernel->events);
 
-	build_kernel_filter(kernel, opts->filter, opts->patt_type,
+	build_kernel_filter(kernel, opts.filter, opts.patt_type,
 			    &kernel->filters, &kernel->notrace);
-	build_kernel_filter(kernel, opts->patch, opts->patt_type,
+	build_kernel_filter(kernel, opts.patch, opts.patt_type,
 			    &kernel->patches, &kernel->nopatch);
-	build_kernel_event(kernel, opts->event, opts->patt_type,
+	build_kernel_event(kernel, opts.event, opts.patt_type,
 			   &kernel->events);
 
-	if (opts->kernel)
+	if (opts.kernel)
 		kernel->tracer = KERNEL_GRAPH_TRACER;
 	else
 		kernel->tracer = KERNEL_NOP_TRACER;
 
 	/* mark kernel tracing is enabled (for event tracing) */
-	opts->kernel = true;
+	opts.kernel = true;
 
-	if (opts->kernel_skip_out)
+	if (opts.kernel_skip_out)
 		skip_kernel_functions(kernel);
 
 	ret = __setup_kernel_tracing(kernel);

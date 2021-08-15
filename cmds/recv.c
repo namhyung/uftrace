@@ -26,7 +26,7 @@ struct client_data {
 
 static LIST_HEAD(client_list);
 
-static int server_socket(struct opts *opts)
+static int server_socket(void)
 {
 	int sock;
 	int on = 1;
@@ -35,7 +35,7 @@ static int server_socket(struct opts *opts)
 		.sin_addr	= {
 			.s_addr	= htonl(INADDR_ANY),
 		},
-		.sin_port	= htons(opts->port),
+		.sin_port	= htons(opts.port),
 	};
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,7 +53,7 @@ static int server_socket(struct opts *opts)
 	return sock;
 }
 
-static int signal_fd(struct opts *opts)
+static int signal_fd(void)
 {
 	int fd;
 	sigset_t mask;
@@ -74,11 +74,11 @@ static int signal_fd(struct opts *opts)
 }
 
 /* client (record) side API */
-int setup_client_socket(struct opts *opts)
+int setup_client_socket(void)
 {
 	struct sockaddr_in addr = {
 		.sin_family	= AF_INET,
-		.sin_port	= htons(opts->port),
+		.sin_port	= htons(opts.port),
 	};
 	struct hostent *hostinfo;
 	int sock;
@@ -90,9 +90,9 @@ int setup_client_socket(struct opts *opts)
 
 	setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
-	hostinfo = gethostbyname(opts->host);
+	hostinfo = gethostbyname(opts.host);
 	if (hostinfo == NULL)
-		pr_err("cannot find host: %s", opts->host);
+		pr_err("cannot find host: %s", opts.host);
 
 	addr.sin_addr = *(struct in_addr *) hostinfo->h_addr;
 
@@ -547,7 +547,7 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	pr_dbg("new connection added from %s\n", hbuf);
 }
 
-static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opts)
+static void handle_client_sock(struct epoll_event *ev, int efd)
 {
 	int sock = ev->data.fd;
 	struct uftrace_msg msg;
@@ -596,7 +596,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opt
 	case UFTRACE_MSG_SEND_END:
 		pr_dbg2("receive UFTRACE_MSG_SEND_END\n");
 		recv_trace_end(sock, efd);
-		execute_run_cmd(opts->run_cmd);
+		execute_run_cmd(opts.run_cmd);
 		break;
 	default:
 		pr_dbg("unknown message: %d\n", msg.type);
@@ -604,25 +604,25 @@ static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opt
 	}
 }
 
-int command_recv(int argc, char *argv[], struct opts *opts)
+int command_recv(int argc, char *argv[])
 {
 	struct signalfd_siginfo si;
 	int sock;
 	int sigfd;
 	int efd;
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+	if (strcmp(opts.dirname, UFTRACE_DIR_NAME)) {
 		char *dirname = "current";
 
-		if ((mkdir(opts->dirname, 0755) == 0 || errno == EEXIST) &&
-		    chdir(opts->dirname) == 0)
-			dirname = opts->dirname;
+		if ((mkdir(opts.dirname, 0755) == 0 || errno == EEXIST) &&
+		    chdir(opts.dirname) == 0)
+			dirname = opts.dirname;
 
 		pr_dbg("saving to %s directory\n", dirname);
 	}
 
-	sock = server_socket(opts);
-	sigfd = signal_fd(opts);
+	sock = server_socket();
+	sigfd = signal_fd();
 
 	efd = epoll_create1(EPOLL_CLOEXEC);
 	if (efd < 0)
@@ -650,7 +650,7 @@ int command_recv(int argc, char *argv[], struct opts *opts)
 			else if (ev[i].data.fd == sock)
 				handle_server_sock(&ev[i], efd);
 			else
-				handle_client_sock(&ev[i], efd, opts);
+				handle_client_sock(&ev[i], efd);
 		}
 	}
 

@@ -369,13 +369,13 @@ static struct display_field *report_field_table[] = {
 	&report_field_call,
 };
 
-static void setup_default_graph_field(struct list_head *fields, struct opts *opts,
+static void setup_default_graph_field(struct list_head *fields,
 				      struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[GRAPH_F_TOTAL_TIME]);
 }
 
-static void setup_default_report_field(struct list_head *fields, struct opts *opts,
+static void setup_default_report_field(struct list_head *fields,
 				      struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
@@ -411,21 +411,21 @@ static int create_data(struct uftrace_session *sess, void *arg)
 	return 0;
 }
 
-static void tui_setup(struct uftrace_data *handle, struct opts *opts)
+static void tui_setup(struct uftrace_data *handle)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
 
 	tui_report.name_tree = RB_ROOT;
 
-	if (opts->report) {
-		setup_field(&report_output_fields, opts, setup_default_report_field,
+	if (opts.report) {
+		setup_field(&report_output_fields, setup_default_report_field,
 				report_field_table, ARRAY_SIZE(report_field_table));
-		setup_default_graph_field(&graph_output_fields, opts, graph_field_table);
+		setup_default_graph_field(&graph_output_fields, graph_field_table);
 	}
 	else {
-		setup_field(&graph_output_fields, opts, setup_default_graph_field,
+		setup_field(&graph_output_fields, setup_default_graph_field,
 				graph_field_table, ARRAY_SIZE(graph_field_table));
-		setup_default_report_field(&report_output_fields, opts, report_field_table);
+		setup_default_report_field(&report_output_fields, report_field_table);
 	}
 }
 
@@ -502,8 +502,7 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 }
 
 static int build_tui_node(struct uftrace_task_reader *task,
-			  struct uftrace_record *rec,
-			  struct opts *opts)
+			  struct uftrace_record *rec)
 {
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
@@ -532,7 +531,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 					 task, rec->time, addr);
 
 		/* skip it if --no-libcall is given */
-		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 			return 0;
 
 		name = symbol_getname(sym, addr);
@@ -562,7 +561,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	return 0;
 }
 
-static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
+static void add_remaining_node(struct uftrace_data *handle)
 {
 	uint64_t last_time;
 	struct fstack *fstack;
@@ -578,7 +577,7 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 		if (task->stack_count == 0)
 			continue;
 
-		if (opts->kernel_skip_out && task->user_stack_count == 0)
+		if (opts.kernel_skip_out && task->user_stack_count == 0)
 			continue;
 
 		last_time = task->rstack->time;
@@ -699,7 +698,7 @@ static void tui_window_init(struct tui_window *win,
 	win->last_index = tui_last_index(win);
 }
 
-static struct tui_graph * tui_graph_init(struct opts *opts)
+static struct tui_graph * tui_graph_init(void)
 {
 	struct tui_graph *graph;
 	struct uftrace_graph_node *top, *node;
@@ -717,7 +716,7 @@ static struct tui_graph * tui_graph_init(struct opts *opts)
 
 		tui_window_init(&graph->win, &graph_ops);
 
-		graph->mask_size = sizeof(*graph->top_mask) * opts->max_stack;
+		graph->mask_size = sizeof(*graph->top_mask) * opts.max_stack;
 
 		graph->top_mask  = xzalloc(graph->mask_size);
 		graph->disp_mask = xmalloc(graph->mask_size);
@@ -1433,7 +1432,7 @@ static int count_selected_report_sort_key(void)
 }
 
 /* per-window operations for report window */
-static struct tui_report * tui_report_init(struct opts *opts)
+static struct tui_report * tui_report_init(void)
 {
 	struct tui_window *win = &tui_report.win;
 
@@ -1659,11 +1658,10 @@ static void build_info_node(void *data, const char *fmt, ...)
 	list_add_tail(&node->list, &info->head);
 }
 
-static struct tui_list * tui_info_init(struct opts *opts,
-				       struct uftrace_data *handle)
+static struct tui_list * tui_info_init(struct uftrace_data *handle)
 {
 	INIT_LIST_HEAD(&tui_info.head);
-	process_uftrace_info(handle, opts, build_info_node, &tui_info);
+	process_uftrace_info(handle, build_info_node, &tui_info);
 
 	tui_window_init(&tui_info.win, &info_ops);
 
@@ -1726,7 +1724,7 @@ static const struct tui_window_ops info_ops = {
 #define TUI_SESS_DUMMY_NR  4
 
 /* per-window operations for session window */
-static struct tui_list * tui_session_init(struct opts *opts)
+static struct tui_list * tui_session_init(void)
 {
 	struct tui_graph *graph;
 	struct tui_list_node *node;
@@ -2683,7 +2681,7 @@ static inline void cancel_search(void)
 
 
 
-static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
+static void tui_main_loop(struct uftrace_data *handle)
 {
 	int key = 0;
 	bool full_redraw = true;
@@ -2696,13 +2694,13 @@ static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
 	enum tui_mode tui_mode;
 	int num_sort_key = 3;
 
-	graph = tui_graph_init(opts);
-	report = tui_report_init(opts);
-	info = tui_info_init(opts, handle);
-	session = tui_session_init(opts);
+	graph = tui_graph_init();
+	report = tui_report_init();
+	info = tui_info_init(handle);
+	session = tui_session_init();
 
 	/* start with graph only if there's one session */
-	if (opts->report) {
+	if (opts.report) {
 		win = &report->win;
 		tui_mode = TUI_MODE_REPORT;
 	}
@@ -2992,19 +2990,19 @@ static void display_loading_msg(void)
 	refresh();
 }
 
-int command_tui(int argc, char *argv[], struct opts *opts)
+int command_tui(int argc, char *argv[])
 {
 	int ret;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 
-	ret = open_data_file(opts, &handle);
+	ret = open_data_file(&handle);
 	if (ret < 0) {
-		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
+		pr_warn("cannot open record data: %s: %m\n", opts.dirname);
 		return -1;
 	}
 
-	tui_setup(&handle, opts);
+	tui_setup(&handle);
 
 	setlocale(LC_ALL, "");
 
@@ -3019,28 +3017,28 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 	/* Print a message before main screen is launched. */
 	display_loading_msg();
 
-	fstack_setup_filters(opts, &handle);
+	fstack_setup_filters(&handle);
 
 	while (read_rstack(&handle, &task) == 0 && !uftrace_done) {
 		struct uftrace_record *rec = task->rstack;
 
-		if (!fstack_check_opts(task, opts))
+		if (!fstack_check_opts(task))
 			continue;
 
 		if (!fstack_check_filter(task))
 			continue;
 
-		ret = build_tui_node(task, rec, opts);
+		ret = build_tui_node(task, rec);
 		if (ret)
 			break;
 
 		fstack_check_filter_done(task);
 	}
-	add_remaining_node(opts, &handle);
+	add_remaining_node(&handle);
 
-	tui_main_loop(opts, &handle);
+	tui_main_loop(&handle);
 
-	close_data_file(opts, &handle);
+	close_data_file(&handle);
 
 	tui_cleanup();
 	return 0;
@@ -3051,7 +3049,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 #include "uftrace.h"
 #include "utils/utils.h"
 
-int command_tui(int argc, char *argv[], struct opts *opts)
+int command_tui(int argc, char *argv[])
 {
 	pr_warn("TUI is unsupported (libncursesw.so is missing)\n");
 	return 0;

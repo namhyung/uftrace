@@ -282,36 +282,37 @@ struct opts {
 	enum uftrace_pattern_type patt_type;
 };
 
+extern struct opts opts;
+
 extern struct strv default_opts;
 
-static inline bool opts_has_filter(struct opts *opts)
+static inline bool opts_has_filter(void)
 {
-	return opts->filter || opts->trigger || opts->threshold ||
-		opts->depth != OPT_DEPTH_DEFAULT;
+	return opts.filter || opts.trigger || opts.threshold ||
+		opts.depth != OPT_DEPTH_DEFAULT;
 }
 
-void parse_script_opt(struct opts *opts);
+void parse_script_opt(void);
 
-int command_record(int argc, char *argv[], struct opts *opts);
-int command_replay(int argc, char *argv[], struct opts *opts);
-int command_live(int argc, char *argv[], struct opts *opts);
-int command_report(int argc, char *argv[], struct opts *opts);
-int command_info(int argc, char *argv[], struct opts *opts);
-int command_recv(int argc, char *argv[], struct opts *opts);
-int command_dump(int argc, char *argv[], struct opts *opts);
-int command_graph(int argc, char *argv[], struct opts *opts);
-int command_script(int argc, char *argv[], struct opts *opts);
-int command_tui(int argc, char *argv[], struct opts *opts);
+int command_record(int argc, char *argv[]);
+int command_replay(int argc, char *argv[]);
+int command_live(int argc, char *argv[]);
+int command_report(int argc, char *argv[]);
+int command_info(int argc, char *argv[]);
+int command_recv(int argc, char *argv[]);
+int command_dump(int argc, char *argv[]);
+int command_graph(int argc, char *argv[]);
+int command_script(int argc, char *argv[]);
+int command_tui(int argc, char *argv[]);
 
 extern volatile bool uftrace_done;
 
-int open_data_file(struct opts *opts, struct uftrace_data *handle);
-int open_info_file(struct opts *opts, struct uftrace_data *handle);
-void __close_data_file(struct opts *opts, struct uftrace_data *handle,
-		       bool unload_modules);
-static inline void close_data_file(struct opts *opts, struct uftrace_data *handle)
+int open_data_file(struct uftrace_data *handle);
+int open_info_file(struct uftrace_data *handle);
+void __close_data_file(struct uftrace_data *handle, bool unload_modules);
+static inline void close_data_file(struct uftrace_data *handle)
 {
-	__close_data_file(opts, handle, true);
+	__close_data_file(handle, true);
 }
 
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
@@ -319,7 +320,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 
-char * get_libmcount_path(struct opts *opts);
+char * get_libmcount_path(void);
 void put_libmcount_path(char *libpath);
 
 #define SESSION_ID_LEN  16
@@ -463,7 +464,7 @@ typedef int (*walk_tasks_cb_t)(struct uftrace_task *task, void *arg);
 void walk_tasks(struct uftrace_session_link *sess,
 		walk_tasks_cb_t callback, void *arg);
 
-int setup_client_socket(struct opts *opts);
+int setup_client_socket(void);
 void send_trace_dir_name(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
 void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
@@ -550,10 +551,10 @@ static inline bool has_event_data(struct uftrace_data *handle)
 
 struct rusage;
 
-void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+void fill_uftrace_info(uint64_t *info_mask, int fd, int status,
 		      struct rusage *rusage, char *elapsed_time);
 int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);
-void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
+void process_uftrace_info(struct uftrace_data *handle,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data);
 void clear_uftrace_info(struct uftrace_info *info);

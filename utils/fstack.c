@@ -452,49 +452,48 @@ void setup_fstack_args(char *argspec, char *retspec,
 
 /**
  * fstack_setup_filters - setup necessary filters for processing data
- * @opts: uftrace user options
  * @handle: handle for uftrace data
  *
  * This function sets up all kind of filters given by user.
  */
-int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
+int fstack_setup_filters(struct uftrace_data *handle)
 {
-	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
+	if (opts.filter || opts.trigger || opts.caller || opts.hide) {
 		struct uftrace_filter_setting setting = {
-			.ptype		= opts->patt_type,
+			.ptype		= opts.patt_type,
 			.allow_kernel	= true,
 			.lp64		= data_is_lp64(handle),
 			.arch		= handle->arch,
 		};
 
-		if (setup_fstack_filters(handle, opts->filter, opts->trigger,
-					 opts->caller, opts->hide, &setting) < 0) {
+		if (setup_fstack_filters(handle, opts.filter, opts.trigger,
+					 opts.caller, opts.hide, &setting) < 0) {
 			char *or = "";
 			pr_use("failed to set filter or trigger: ");
-			if (opts->filter) {
-				pr_out("%s%s", or, opts->filter);
+			if (opts.filter) {
+				pr_out("%s%s", or, opts.filter);
 				or = " or ";
 			}
-			if (opts->trigger) {
-				pr_out("%s%s", or, opts->trigger);
+			if (opts.trigger) {
+				pr_out("%s%s", or, opts.trigger);
 				or = " or ";
 			}
-			if (opts->caller) {
-				pr_out("%s%s", or, opts->caller);
+			if (opts.caller) {
+				pr_out("%s%s", or, opts.caller);
 				or = " or ";
 			}
-			if (opts->hide) {
-				pr_out("%s%s", or, opts->hide);
+			if (opts.hide) {
+				pr_out("%s%s", or, opts.hide);
 				or = " or ";
 			}
 			pr_out("\n");
 		}
 	}
 
-	if (opts->disabled)
+	if (opts.disabled)
 		fstack_enabled = false;
 
-	fstack_setup_task(opts->tid, handle);
+	fstack_setup_task(opts.tid, handle);
 
 	fstack_prepare_fixup(handle);
 	return 0;
@@ -823,7 +822,6 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  * @handle     - file handle
  * @task       - tracee task
  * @curr_depth - current rstack depth
- * @opts       - options
  *
  * This function checks next rstack and skip if it's filtered out.
  * The intention is to merge EXIT record after skipped ones.  It
@@ -832,7 +830,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  */
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, struct opts *opts)
+				       int curr_depth)
 {
 	struct uftrace_task_reader *next = NULL;
 	struct fstack *fstack;
@@ -867,7 +865,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 		}
 
 		if (next_stack->type == UFTRACE_EVENT) {
-			if (!next->user_stack_count && opts->event_skip_out)
+			if (!next->user_stack_count && opts.event_skip_out)
 				goto next;
 		}
 
@@ -875,7 +873,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 			return NULL;
 
 		/* skip it if --no-libcall is given */
-		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
+		if (!opts.libcall && sym && sym->type == ST_PLT_FUNC)
 			goto next;
 
 		/* return if it's not filtered */
@@ -1017,38 +1015,37 @@ bool is_sched_event(uint64_t addr)
 /**
  * fstack_check_opt - Check filter options for current function
  * @task       - tracee task
- * @opts       - options given by user
  *
- * This function checks @task->func_stack with @opts and returns
+ * This function checks @task->func_stack with opts and returns
  * whether it should be filtered out or not.  True means it's ok to
  * process this function and false means it should be skipped.
  */
-bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts)
+bool fstack_check_opts(struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rec = task->rstack;
 
 	/* skip user functions if --kernel-only is set */
-	if (opts->kernel_only) {
+	if (opts.kernel_only) {
 		if (!is_kernel_record(task, rec) && rec->type != UFTRACE_LOST)
 			return false;
 	}
 
-	if (opts->kernel_skip_out) {
+	if (opts.kernel_skip_out) {
 		/* skip kernel functions outside user functions */
 		if (!task->user_stack_count && is_kernel_record(task, rec))
 			return false;
 	}
 
-	if (opts->event_skip_out) {
+	if (opts.event_skip_out) {
 		/* skip event outside of user functions */
 		if (!task->user_stack_count && rec->type == UFTRACE_EVENT)
 			return false;
 	}
 
-	if (opts->no_event && !opts->event && rec->type == UFTRACE_EVENT)
+	if (opts.no_event && !opts.event && rec->type == UFTRACE_EVENT)
 		return false;
 
-	if (opts->no_sched && is_sched_event(rec->addr))
+	if (opts.no_sched && is_sched_event(rec->addr))
 		return false;
 
 	return true;
@@ -2703,10 +2700,9 @@ TEST_CASE(fstack_skip)
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_trigger tr = { 0, };
-	struct opts opts = {
-		.event_skip_out = true,
-		.libcall        = true,
-	};
+
+	opts.event_skip_out = true,
+	opts.libcall        = true,
 
 	TEST_EQ(fstack_test_setup_single(handle), 0);
 
@@ -2724,7 +2720,7 @@ TEST_CASE(fstack_skip)
 
 	/* skip filtered records (due to depth) */
 	pr_dbg("fstack skip to rstack for task %d again\n", test_tids[0]);
-	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, &opts), task);
+	TEST_EQ(fstack_skip(handle, task, task->rstack->depth), task);
 	TEST_EQ(task->tid, test_tids[0]);
 	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
