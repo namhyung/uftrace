@@ -101,6 +101,7 @@ enum options {
 	OPT_no_sched,
 	OPT_signal,
 	OPT_srcline,
+	OPT_with_syms,
 	OPT_usage,
 };
 
@@ -205,6 +206,7 @@ __used static const char uftrace_help[] =
 "  -U, --unpatch=FUNC         Don't apply dynamic patching for FUNCs\n"
 "  -v, --debug                Print debug messages\n"
 "      --verbose              Print verbose (debug) messages\n"
+"      --with-syms=DIR        Use symbol files in the DIR\n"
 "  -W, --watch=POINT          Watch and report POINT if it's changed\n"
 "  -Z, --size-filter=SIZE     Apply dynamic patching for functions bigger than SIZE\n"
 "  -h, --help                 Give this help list\n"
@@ -302,6 +304,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
 	NO_ARG(estimate-return, 'e'),
+	REQ_ARG(with-syms, OPT_with_syms),
 	{ 0 }
 };
 
@@ -944,6 +947,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_srcline:
 		opts->srcline = true;
+		break;
+
+	case OPT_with_syms:
+		opts->with_syms = arg;
 		break;
 
 	default:
