@@ -64,7 +64,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 			    read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
 				goto out;
 
-			create_session(sess, &smsg, dirname, buf,
+			create_session(sess, &smsg, dirname, dirname, buf,
 				       sym_rel_addr, needs_symtab,
 				       needs_srcline);
 			break;
@@ -171,7 +171,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(sess, &smsg, dirname, exename,
+			create_session(sess, &smsg, dirname, dirname, exename,
 				       sym_rel_addr, needs_symtab,
 				       needs_srcline);
 		}

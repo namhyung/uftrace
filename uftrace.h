@@ -426,8 +426,8 @@ extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess,
 		    struct uftrace_msg_sess *msg,
-		    char *dirname, char *exename, bool sym_rel_addr,
-		    bool needs_symtab, bool needs_srcline);
+		    char *dirname, char *symdir, char *exename,
+		    bool sym_rel_addr, bool needs_symtab, bool needs_srcline);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task,
 					  uint64_t timestamp);
