@@ -108,7 +108,7 @@ out:
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
+int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
 		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline)
 {
 	FILE *fp;
@@ -171,7 +171,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(sess, &smsg, dirname, dirname, exename,
+			create_session(sess, &smsg, dirname, symdir, exename,
 				       sym_rel_addr, needs_symtab,
 				       needs_srcline);
 		}
@@ -526,8 +526,8 @@ int open_data_file(struct opts *opts, struct uftrace_data *handle)
 		/* read old task file first and then try task.txt file */
 		if (read_task_file(sessions, opts->dirname, true, sym_rel,
 				   opts->srcline) < 0 &&
-		    read_task_txt_file(sessions, opts->dirname, true, sym_rel,
-				       opts->srcline) < 0) {
+		    read_task_txt_file(sessions, opts->dirname, opts->dirname,
+				       true, sym_rel, opts->srcline) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else

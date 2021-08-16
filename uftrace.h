@@ -316,7 +316,7 @@ static inline void close_data_file(struct opts *opts, struct uftrace_data *handl
 
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
-int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
+int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
 		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 
 char * get_libmcount_path(struct opts *opts);
