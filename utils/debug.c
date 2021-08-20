@@ -187,7 +187,7 @@ void __pr_err_s(const char *fmt, ...)
 	vfprintf(logfp, fmt, ap);
 	va_end(ap);
 
-	fprintf(logfp, ": %s\n", strerror_r(saved_errno, buf, sizeof(buf)));
+	fprintf(logfp, ": %s\n", uftrace_strerror(saved_errno, buf, sizeof(buf)));
 
 	color(TERM_COLOR_RESET, logfp);
 
