@@ -886,6 +886,23 @@ char *absolute_dirname(const char *path, char *resolved_path)
 	return resolved_path;
 }
 
+char *uftrace_strerror(int errnum, char *buf, size_t buflen)
+{
+	long result = (long) strerror_r(errnum, buf, buflen);
+
+	if (result == 0)
+		/* XSI-compliant strerror_r succeed */
+		return buf;
+	else if (result < 4096) {
+		/* XSI-compliant strerror_r failed */
+		snprintf(buf, buflen, "error: %d", errnum);
+		return buf;
+	}
+	else
+		/* GNU-specific strerror_r */
+		return (char *)result;
+}
+
 void stacktrace(void)
 {
 #ifdef HAVE_LIBUNWIND

@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <limits.h>
 
+#include "utils/utils.h"
 #include "event-parse.h"
 #include "event-utils.h"
 
@@ -5353,7 +5354,7 @@ int pevent_strerror(struct pevent *pevent __maybe_unused,
 	const char *msg;
 
 	if (errnum >= 0) {
-		msg = strerror_r(errnum, buf, buflen);
+		msg = uftrace_strerror(errnum, buf, buflen);
 		if (msg != buf) {
 			size_t len = strlen(msg);
 			memcpy(buf, msg, min(buflen - 1, len));
