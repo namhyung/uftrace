@@ -323,6 +323,7 @@ static int dd_local_name(struct demangle_data *dd);
 static int dd_source_name(struct demangle_data *dd);
 static int dd_operator_name(struct demangle_data *dd);
 static int dd_nested_name(struct demangle_data *dd);
+static int dd_unqualified_name(struct demangle_data *dd);
 static int dd_type(struct demangle_data *dd);
 static int dd_decltype(struct demangle_data *dd);
 static int dd_expression(struct demangle_data *dd);
@@ -633,6 +634,8 @@ static int dd_unresolved_type(struct demangle_data *dd)
 			return -1;
 		if (dd_curr(dd) == 'I')
 			return dd_template_args(dd);
+		if (isdigit(dd_curr(dd)))
+			return dd_unqualified_name(dd);
 		return 0;
 	}
 	return -1;
@@ -689,32 +692,38 @@ static int dd_unresolved_name(struct demangle_data *dd)
 
 	if (c0 == 's' && c1 == 'r') {
 		dd_consume_n(dd, 2);
-		if (dd_curr(dd) == 'N')
-			__dd_consume(dd, NULL);
 
 		c0 = dd_curr(dd);
 		if (c0 == 'T' || c0 == 'D' || c0 == 'S') {
-			if (dd_unresolved_type(dd) < 0)
+			if (dd_type(dd) < 0)
+				return -1;
+
+			if (dd_base_unresolved_name(dd) < 0)
+				return -1;
+
+			if (dd_curr(dd) == 'I')
+				dd_template_args(dd);
+
+			return 0;
+		}
+
+		if (c0 == 'N') {
+			__dd_consume(dd, NULL);
+			if (dd_type(dd) < 0)
 				return -1;
 		}
 
 		c0 = dd_curr(dd);
-		c1 = dd_peek(dd, 1);
-
-		while (isdigit(c0)) {
+		while (c0 != 'E') {
 			if (dd_simple_id(dd) < 0)
-				return -1;
+				return 0;
 			c0 = dd_curr(dd);
-			c1 = dd_peek(dd, 1);
 		}
 
-		if (c0 == 'E') {
-			dd_consume(dd);
-			return dd_base_unresolved_name(dd);
-		}
-		if ((c0 == 'o' || c0 == 'd') && c1 == 'n')
-			return dd_base_unresolved_name(dd);
-		return 0;
+		if (c0 != 'E')
+			pr_dbg("no E\n");
+
+		__DD_DEBUG_CONSUME(dd, 'E');
 	}
 
 	return dd_base_unresolved_name(dd);
@@ -1114,7 +1123,10 @@ static int dd_type(struct demangle_data *dd)
 			done = 1;
 		}
 		else if (c == 'S') {
+			c = dd_peek(dd, 1);
 			ret = dd_substitution(dd);
+			if (!ret && c == 't' && isdigit(dd_curr(dd)))
+				ret = dd_unqualified_name(dd);
 			if (dd_curr(dd) == 'I')
 				ret = dd_template_args(dd);
 			done = 1;
@@ -1240,6 +1252,8 @@ static int dd_special_name(struct demangle_data *dd)
 
 			if (dd_number(dd) < 0)
 				return -1;
+			if (dd_eof(dd))
+				return 0;
 			__DD_DEBUG_CONSUME(dd, '_');
 
 			/*
@@ -1948,6 +1962,10 @@ TEST_CASE(demangle_simple8)
 		      "__ref_temp__blink::Variable::GetPropertyNameAtomicString::name");
 	DEMANGLE_TEST("_ZNSt14numeric_limitsIDuE8is_exactE",
 		      "std::numeric_limits::is_exact");
+	DEMANGLE_TEST("_ZTCSt10istrstream0_Si",
+		      "__construction_vtable__std::istrstream");
+	DEMANGLE_TEST("_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
+		      "__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
 
 	return TEST_OK;
 }
