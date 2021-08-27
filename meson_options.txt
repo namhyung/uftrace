@@ -64,6 +64,13 @@ option(
 )
 
 option(
+    'with-libunwind',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libunwind',
+)
+
+option(
     'with-libstdcxx',
     type : 'feature',
     value : 'auto',

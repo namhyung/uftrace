@@ -1,6 +1,6 @@
 # TODO: cross-compile supports is rudimentary
 
-project('uftrace', 'c', version: '0.9.4')
+project('uftrace', 'c', version: '0.10')
 python_module = import('python')
 
 common_cflags = ['-D_GNU_SOURCE', '-D_DEFAULT_SOURCE', '-D_XOPEN_SOURCE=600']
@@ -39,9 +39,9 @@ endif
 ################################
 
 if get_option('debugging')
-    common_cflags += ['-O0', '-g']
+    common_cflags += ['-O0', '-g', '-DDEBUG_MODE=1']
 else
-    common_cflags += ['-O2', '-g']
+    common_cflags += ['-O2', '-g', '-DDEBUG_MODE=0']
 endif
 
 if get_option('trace')
@@ -183,6 +183,17 @@ elif get_option('with-libpython').disabled()
     message('Disabling libython support (disabled by: with-libpython)')
 endif
 
+##################################
+# -Dwith-libunwind build option #
+##################################
+
+libunwind_is_enabled = false
+libunwind_dep = dependency('libunwind', required: get_option('with-libunwind'))
+if get_option('debugging') and libunwind_dep.found()
+    libunwind_is_enabled = true
+    common_cflags += '-DHAVE_LIBUNWIND'
+endif
+
 #################################
 # -Dwith-libstdcxx build option #
 #################################
@@ -280,7 +291,7 @@ librt_dep = cc.find_library('rt', required: true)
 ###########
 
 version_sh = find_program('misc/version.sh')
-version_sh_cmd = '$(git describe --tags 2> /dev/null || echo v' + meson.project_version() + ')'
+version_sh_cmd = '$(git describe --tags --abbrev=4 --match="v[0-9].[0-9]*" 2> /dev/null || echo v' + meson.project_version() + ')'
 version_h = custom_target(
     'gen_version_h',
     output: 'version.h',
@@ -394,6 +405,7 @@ libmcount_base_deps = [
     libncurses_dep,
     libpthread_dep,
     libpython_dep,
+    libunwind_dep,
     librt_dep,
 ]
 
@@ -528,6 +540,7 @@ uftrace_deps = [
     libncurses_dep,
     libpthread_dep,
     libpython_dep,
+    libunwind_dep,
     librt_dep,
     libtraceevent_dep,
 ]
@@ -566,6 +579,7 @@ dbginfo_deps = [
     libdl_dep,
     libdw_dep,
     libelf_dep,
+    libunwind_dep,
 ]
 
 dbginfo = executable(
@@ -589,6 +603,7 @@ demangler_sources = [
 
 demangler_deps = [
     cxa_demangle_dep,
+    libunwind_dep,
 ]
 
 demangler = executable(
@@ -625,6 +640,7 @@ symbols_deps = [
     libdl_dep,
     libdw_dep,
     libelf_dep,
+    libunwind_dep,
 ]
 
 symbols = executable(
@@ -694,6 +710,7 @@ unittests_deps = [
     libncurses_dep,
     libpthread_dep,
     libpython_dep,
+    libunwind_dep,
     librt_dep,
     libtraceevent_dep,
 ]
@@ -806,6 +823,7 @@ libncurses_is_enabled   = (libncurses_is_enabled)   ? text_on : text_off
 cxa_demangle_is_enabled = (cxa_demangle_is_enabled) ? text_on : text_off
 perf_clockid_is_enabled = (perf_clockid_is_enabled) ? text_on : text_off
 perf_ctxsw_is_enabled   = (perf_ctxsw_is_enabled)   ? text_on : text_off
+libunwind_is_enabled    = (libunwind_is_enabled)    ? text_on : text_off
 
 message('          prefix: @0@'.format(get_option('prefix')))
 message('     libcapstone: [ @0@ ] - full dynamic tracing support'.format(libcapstone_is_enabled))
@@ -817,3 +835,4 @@ message('      libncurses: [ @0@ ] - terminal UI support'.format(libncurses_is_e
 message('    cxa_demangle: [ @0@ ] - full demangler support with libstdc++'.format(cxa_demangle_is_enabled))
 message('      perf event: [ @0@ ] - perf event support'.format(perf_clockid_is_enabled))
 message('   perf schedule: [ @0@ ] - perf scheduler event support'.format(perf_ctxsw_is_enabled))
+message('       libunwind: [ @0@ ] - libunwind support'.format(libunwind_is_enabled))
