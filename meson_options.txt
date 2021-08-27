@@ -50,10 +50,10 @@ option(
 )
 
 option(
-    'with-libncurses',
+    'with-libncursesw',
     type : 'feature',
     value : 'auto',
-    description: 'Build with libncurses',
+    description: 'Build with libncursesw',
 )
 
 option(

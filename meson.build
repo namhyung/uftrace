@@ -136,14 +136,14 @@ if libluajit_dep.found()
     common_cflags += '-DHAVE_LIBLUAJIT'
 endif
 
-##################################
-# -Dwith-libncurses build option #
-##################################
+###################################
+# -Dwith-libncursesw build option #
+###################################
 
-libncurses_is_enabled = false
-libncurses_dep = dependency('ncurses', required: get_option('with-libncurses'))
-if libncurses_dep.found()
-    libncurses_is_enabled = true
+libncursesw_is_enabled = false
+libncursesw_dep = dependency('ncursesw', required: get_option('with-libncursesw'))
+if libncursesw_dep.found()
+    libncursesw_is_enabled = true
     common_cflags += '-DHAVE_LIBNCURSES'
 endif
 
@@ -387,7 +387,7 @@ libmcount_base_deps = [
     libdw_dep,
     libelf_dep,
     libluajit_dep,
-    libncurses_dep,
+    libncursesw_dep,
     libpthread_dep,
     libpython_dep,
     libunwind_dep,
@@ -522,7 +522,7 @@ uftrace_deps = [
     libdw_dep,
     libelf_dep,
     libluajit_dep,
-    libncurses_dep,
+    libncursesw_dep,
     libpthread_dep,
     libpython_dep,
     libunwind_dep,
@@ -692,7 +692,7 @@ unittests_deps = [
     libdw_dep,
     libelf_dep,
     libluajit_dep,
-    libncurses_dep,
+    libncursesw_dep,
     libpthread_dep,
     libpython_dep,
     libunwind_dep,
@@ -804,7 +804,7 @@ libdw_is_enabled        = (libdw_is_enabled)        ? text_on : text_off
 libelf_is_enabled       = (libelf_is_enabled)       ? text_on : text_off
 libluajit_is_enabled    = (libluajit_is_enabled)    ? text_on : text_off
 libpython_is_enabled    = (libpython_is_enabled)    ? text_on : text_off
-libncurses_is_enabled   = (libncurses_is_enabled)   ? text_on : text_off
+libncursesw_is_enabled   = (libncursesw_is_enabled)   ? text_on : text_off
 cxa_demangle_is_enabled = (cxa_demangle_is_enabled) ? text_on : text_off
 perf_clockid_is_enabled = (perf_clockid_is_enabled) ? text_on : text_off
 perf_ctxsw_is_enabled   = (perf_ctxsw_is_enabled)   ? text_on : text_off
@@ -816,7 +816,7 @@ message('           libdw: [ @0@ ] - dwarf support'.format(libdw_is_enabled))
 message('          libelf: [ @0@ ] - more flexible ELF data handling'.format(libelf_is_enabled))
 message('       libluajit: [ @0@ ] - luajit scripting support'.format(libluajit_is_enabled))
 message('       libpython: [ @0@ ] - python scripting support'.format(libpython_is_enabled))
-message('      libncurses: [ @0@ ] - terminal UI support'.format(libncurses_is_enabled))
+message('     libncursesw: [ @0@ ] - terminal UI support'.format(libncursesw_is_enabled))
 message('    cxa_demangle: [ @0@ ] - full demangler support with libstdc++'.format(cxa_demangle_is_enabled))
 message('      perf event: [ @0@ ] - perf event support'.format(perf_clockid_is_enabled))
 message('   perf schedule: [ @0@ ] - perf scheduler event support'.format(perf_ctxsw_is_enabled))
