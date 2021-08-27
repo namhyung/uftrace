@@ -154,33 +154,18 @@ endif
 libpython_is_enabled = false
 libpython_dep = []
 python_cflags = []
-python2_installation = python_module.find_installation('python2', required: false)
-python3_installation = python_module.find_installation('python3', required: false)
-if python3_installation.found()
-    libpython_dep = python3_installation.dependency()
-    if libpython_dep.found()
-        libpython_is_enabled = true
-        python_cflags += '-DHAVE_LIBPYTHON3'
-    endif
-elif python2_installation.found()
-    libpython_dep = python2_installation.dependency()
-    if libpython_dep.found()
-        libpython_is_enabled = true
-        python_cflags += '-DHAVE_LIBPYTHON2'
-    endif
-endif
-
-if get_option('with-libpython').enabled()
-    if not libpython_is_enabled
-        error('Failed to find a valid python installation')
-    endif
-
+libpython2_dep = dependency('python2', required: get_option('with-libpython'))
+libpython3_dep = dependency('python3', required: get_option('with-libpython'))
+if libpython3_dep.found()
+    libpython_dep = libpython3_dep
     libpython_is_enabled = true
-    common_cflags += python_cflags
-    message('Enabling libython support (enabled by: with-libpython)')
-elif get_option('with-libpython').disabled()
-    libpython_is_enabled = false
-    message('Disabling libython support (disabled by: with-libpython)')
+    common_cflags += '-DHAVE_LIBPYTHON3'
+    common_cflags += '-DLIBPYTHON_VERSION=3.8'
+elif libpython2_dep.found()
+    libpython_dep = libpython2_dep
+    libpython_is_enabled = true
+    common_cflags += '-DHAVE_LIBPYTHON2'
+    common_cflags += '-DLIBPYTHON_VERSION=2.7'
 endif
 
 ##################################
