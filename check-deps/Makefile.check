@@ -1,17 +1,17 @@
-ifeq ($(wildcard $(srcdir)/check-deps/clock_without_librt),)
+ifeq ($(wildcard $(objdir)/check-deps/clock_without_librt),)
   LDFLAGS_libmcount.so += -lrt
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mfentry),)
+ifneq ($(wildcard $(objdir)/check-deps/cc_has_mfentry),)
   export HAVE_CC_MFENTRY = 1
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/cxa_demangle),)
+ifneq ($(wildcard $(objdir)/check-deps/cxa_demangle),)
   COMMON_CFLAGS  += -DHAVE_CXA_DEMANGLE
   COMMON_LDFLAGS += -lstdc++
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/cc_has_mno_sse2),)
+ifneq ($(wildcard $(objdir)/check-deps/cc_has_mno_sse2),)
   LIB_CFLAGS += -mno-sse2
 endif
 
@@ -29,41 +29,41 @@ else ifneq ($(wildcard $(srcdir)/check-deps/have_libpython2.7),)
   COMMON_CFLAGS += -DLIBPYTHON_VERSION="2.7"
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libluajit),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libluajit),)
   COMMON_CFLAGS += -DHAVE_LIBLUAJIT
   COMMON_CFLAGS += $(shell pkg-config --cflags luajit)
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/perf_clockid),)
+ifneq ($(wildcard $(objdir)/check-deps/perf_clockid),)
   COMMON_CFLAGS += -DHAVE_PERF_CLOCKID
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/perf_context_switch),)
+ifneq ($(wildcard $(objdir)/check-deps/perf_context_switch),)
   COMMON_CFLAGS += -DHAVE_PERF_CTXSW
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/arm_has_hardfp),)
+ifneq ($(wildcard $(objdir)/check-deps/arm_has_hardfp),)
   COMMON_CFLAGS += -DHAVE_ARM_HARDFP
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libncurses),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libncurses),)
   COMMON_CFLAGS   += -DHAVE_LIBNCURSES $(shell pkg-config --cflags ncursesw)
   UFTRACE_LDFLAGS += $(shell pkg-config --libs ncursesw)
   TEST_LDFLAGS    += $(shell pkg-config --libs ncursesw)
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libelf),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libelf),)
   COMMON_CFLAGS  += -DHAVE_LIBELF
   COMMON_LDFLAGS += -lelf
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libdw),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libdw),)
   COMMON_CFLAGS  += -DHAVE_LIBDW
   COMMON_CFLAGS  += $(shell pkg-config --cflags libdw 2> /dev/null)
   COMMON_LDFLAGS += $(shell pkg-config --libs libdw 2> /dev/null || echo "-ldw")
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libunwind),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libunwind),)
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS  += -DHAVE_LIBUNWIND
   COMMON_CFLAGS  += $(shell pkg-config --cflags libunwind 2> /dev/null)
@@ -71,12 +71,12 @@ ifeq ($(DEBUG), 1)
 endif
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/have_libcapstone),)
+ifneq ($(wildcard $(objdir)/check-deps/have_libcapstone),)
   COMMON_CFLAGS  += -DHAVE_LIBCAPSTONE
   COMMON_CFLAGS  += $(shell pkg-config --cflags capstone 2> /dev/null)
   COMMON_LDFLAGS += $(shell pkg-config --libs capstone 2> /dev/null)
 endif
 
-ifneq ($(wildcard $(srcdir)/check-deps/cc_has_minline_all_stringops),)
+ifneq ($(wildcard $(objdir)/check-deps/cc_has_minline_all_stringops),)
   LIB_CFLAGS += -minline-all-stringops
 endif

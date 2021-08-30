@@ -45,6 +45,7 @@ usage() {
   --ldflags=<LDFLAGS>   pass extra linker flags
 
   -p                    preserve old setting
+  -o <NAME>             output filename
 
   Some influential environment variables:
     ARCH                Target architecture    e.g. x86_64, aarch64, i386, or arm
@@ -177,8 +178,8 @@ check_command() {
 check_command make
 check_command ${CC}
 
-make -siC ${srcdir}/check-deps check-clean
-make -siC ${srcdir}/check-deps check-build
+make -siC ${srcdir}/check-deps O=${objdir} check-clean
+make -siC ${srcdir}/check-deps O=${objdir} check-build
 
 for dep in $IGNORE; do
     TARGET=
@@ -196,7 +197,7 @@ for dep in $IGNORE; do
         *)           ;;
     esac
     if [ ! -z "$TARGET" ]; then
-        rm -f ${srcdir}/check-deps/$TARGET
+        rm -f ${objdir}/check-deps/$TARGET
     fi
 done
 
@@ -210,13 +211,13 @@ print_feature()
 
     if [ -t 1 -a "$TERM" != "dumb" ]; then
         # use colored output only when stdout is tty
-        if [ -f ${srcdir}/check-deps/${file} ]; then
+        if [ -f ${objdir}/check-deps/${file} ]; then
             onoff="\033[32mon \033[0m"
         else
             onoff="\033[91mOFF\033[0m"
         fi
     else
-        if [ -f ${srcdir}/check-deps/${file} ]; then
+        if [ -f ${objdir}/check-deps/${file} ]; then
             onoff="on "
         else
             onoff="OFF"
@@ -234,13 +235,13 @@ print_feature2()
 
     if [ -t 1 -a "$TERM" != "dumb" ]; then
         # use colored output only when stdout is tty
-        if [ -f ${srcdir}/check-deps/${file1} -o -f ${srcdir}/check-deps/${file2} ]; then
+        if [ -f ${objdir}/check-deps/${file1} -o -f ${objdir}/check-deps/${file2} ]; then
             onoff="\033[32mon \033[0m"
         else
             onoff="\033[91mOFF\033[0m"
         fi
     else
-        if [ -f ${srcdir}/check-deps/${file} ]; then
+        if [ -f ${objdir}/check-deps/${file} ]; then
             onoff="on "
         else
             onoff="OFF"
