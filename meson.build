@@ -38,10 +38,10 @@ endif
 # additional compilation flags #
 ################################
 
-if get_option('debugging')
-    common_cflags += ['-O0', '-g', '-DDEBUG_MODE=1']
+if get_option('debug')
+    common_cflags += ['-DDEBUG_MODE=1']
 else
-    common_cflags += ['-O2', '-g', '-DDEBUG_MODE=0']
+    common_cflags += ['-DDEBUG_MODE=0']
 endif
 
 if get_option('trace')
@@ -161,7 +161,7 @@ endif
 ##################################
 
 libunwind_dep = dependency('libunwind', required: get_option('with-libunwind'))
-libunwind_is_enabled = get_option('debugging') and libunwind_dep.found()
+libunwind_is_enabled = get_option('debug') and libunwind_dep.found()
 if libunwind_is_enabled
     common_cflags += '-DHAVE_LIBUNWIND'
 endif

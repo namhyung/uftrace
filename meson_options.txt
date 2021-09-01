@@ -91,13 +91,6 @@ option(
 )
 
 option(
-    'debugging',
-    type : 'boolean',
-    value : 'false',
-    description: 'Enable debugging symbols',
-)
-
-option(
     'trace',
     type : 'boolean',
     value : 'false',
