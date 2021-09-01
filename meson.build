@@ -2,7 +2,6 @@ project('uftrace', 'c', version: '0.10')
 python_module = import('python')
 
 common_cflags = ['-D_GNU_SOURCE', '-D_DEFAULT_SOURCE', '-D_XOPEN_SOURCE=600']
-common_cflags += '-fvisibility=hidden'
 common_cflags += '-fno-omit-frame-pointer'
 common_ldflags = []
 uftrace_cflags    = ['-DINSTALL_LIB_PATH="@0@"'.format(get_option('prefix') / get_option('libdir'))]
@@ -397,6 +396,7 @@ libmcount = shared_library(
     c_args: [common_cflags, libmcount_cflags],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 libmcount_fast = shared_library(
@@ -406,6 +406,7 @@ libmcount_fast = shared_library(
     c_args: [common_cflags, libmcount_cflags, '-DDISABLE_MCOUNT_FILTER'],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 libmcount_single = shared_library(
@@ -415,6 +416,7 @@ libmcount_single = shared_library(
     c_args: [common_cflags, libmcount_cflags, '-DSINGLE_THREAD'],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 libmcount_fast_single = shared_library(
@@ -424,6 +426,7 @@ libmcount_fast_single = shared_library(
     c_args: [common_cflags, libmcount_cflags, '-DDISABLE_MCOUNT_FILTER', '-DSINGLE_THREAD'],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 libmcount_fast_nop = shared_library(
@@ -433,6 +436,7 @@ libmcount_fast_nop = shared_library(
     c_args: [common_cflags, libmcount_cflags, '-DDISABLE_MCOUNT_FILTER', '-DSINGLE_THREAD'],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 #################
@@ -458,6 +462,7 @@ libtraceevent = static_library(
     c_args: [common_cflags, traceevent_cflags],
     link_args: [common_ldflags],
     pic: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 libtraceevent_dep = declare_dependency(
@@ -536,6 +541,7 @@ uftrace = executable(
     c_args: [common_cflags, uftrace_cflags],
     link_args: [common_ldflags],
     install: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 ###########
@@ -572,6 +578,7 @@ dbginfo = executable(
     c_args: [common_cflags, dbginfo_cflags],
     link_args: [common_ldflags],
     build_by_default: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 #############
@@ -597,6 +604,7 @@ demangler = executable(
     c_args: [common_cflags, demangler_cflags],
     link_args: [common_ldflags],
     build_by_default: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 ###########
@@ -634,6 +642,7 @@ symbols = executable(
     c_args: [common_cflags, symbols_cflags],
     link_args: [common_ldflags],
     build_by_default: true,
+    gnu_symbol_visibility: 'hidden',
 )
 
 #########
@@ -715,6 +724,7 @@ unittests = executable(
     c_args: [common_cflags, test_cflags,  '-DUNIT_TEST', '-include', tests_unittest_h],
     link_args: [common_ldflags],
     build_by_default: false,
+    gnu_symbol_visibility: 'hidden',
 )
 
 if not cross_compiling
