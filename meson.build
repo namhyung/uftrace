@@ -54,41 +54,12 @@ if get_option('trace')
     # cannot add -pg to libmcount_cflags because mcount() is not reentrant
 endif
 
-if get_option('asan')
-    asan_cflags = ['-O0', '-g', '-fsanitize=address,leak']
-    common_ldflags   += ['-fsanitize=address,leak']
-
-    uftrace_cflags    += asan_cflags
-    demangler_cflags  += asan_cflags
-    symbols_cflags    += asan_cflags
-    dbginfo_cflags    += asan_cflags
-    traceevent_cflags += asan_cflags
-    test_cflags       += asan_cflags
-endif
-
 if get_option('coverage')
     coverage_cflags   = ['-O0', '-g', '--coverage', '-U_FORTIFY_SOURCE']
     common_ldflags   += ['--coverage']
     common_cflags    += coverage_cflags
     libmcount_cflags += coverage_cflags
     test_cflags      += coverage_cflags
-endif
-
-if get_option('san') != ''
-    if get_option('san') == 'all'
-        sanitize_cflags = ['-O0', '-g', '-fsanitize=address,leak,undefined']
-        common_ldflags += ['-fsanitize=address,leak,undefined']
-    else
-        sanitize_cflags = ['-O0', '-g', '-fsanitize=@0@'.format(get_option('sanitize'))]
-        common_ldflags += ['-fsanitize=@0@'.format(get_option('sanitize'))]
-    endif
-
-    uftrace_cflags    += sanitize_cflags
-    demangler_cflags  += sanitize_cflags
-    symbols_cflags    += sanitize_cflags
-    dbginfo_cflags    += sanitize_cflags
-    traceevent_cflags += sanitize_cflags
-    test_cflags       += sanitize_cflags
 endif
 
 ################################

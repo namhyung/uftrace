@@ -103,17 +103,3 @@ option(
     value : 'false',
     description: 'Enable code coverage',
 )
-
-option(
-    'asan',
-    type : 'boolean',
-    value : 'false',
-    description: 'Enable address sanitizer',
-)
-
-option(
-    'san',
-    type : 'string',
-    value : '',
-    description: 'Specify address and thread sanitizer options',
-)
