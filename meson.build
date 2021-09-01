@@ -268,6 +268,15 @@ version_h = custom_target(
     'gen_version_h',
     output: 'version.h',
     command: [program_shell, '-c', '@0@ @OUTPUT@ @1@ @2@ . > /dev/null'.format(version_sh.path(), version_sh_cmd, arch)],
+    env: [
+        'UFTRACE_HAVE_LIBCAPSTONE=@0@'        .format(libcapstone_is_enabled  ? 'on' : 'off'),
+        'UFTRACE_HAVE_LIBDW=@0@'              .format(libdw_is_enabled        ? 'on' : 'off'),
+        'UFTRACE_HAVE_LIBLUAJIT=@0@'          .format(libluajit_is_enabled    ? 'on' : 'off'),
+        'UFTRACE_HAVE_LIBPYTHON=@0@'          .format(libpython_is_enabled    ? 'on' : 'off'),
+        'UFTRACE_HAVE_LIBNCURSES=@0@'         .format(libncursesw_is_enabled  ? 'on' : 'off'),
+        'UFTRACE_HAVE_PERF_CLOCKID=@0@'       .format(perf_clockid_is_enabled ? 'on' : 'off'),
+        'UFTRACE_HAVE_PERF_CONTEXT_SWITCH=@0@'.format(perf_ctxsw_is_enabled   ? 'on' : 'off'),
+    ],
 )
 
 #############################
