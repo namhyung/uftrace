@@ -79,7 +79,7 @@ static void setup_child_environ(struct opts *opts)
 
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
-		pr_err_ns("cannot found libmcount.so\n");
+		pr_err_ns("uftrace could not find libmcount.so for live-tracing\n");
 
 	old_preload = getenv("LD_PRELOAD");
 	if (old_preload) {

@@ -337,7 +337,7 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
-		pr_err_ns("cannot found libmcount.so\n");
+		pr_err_ns("uftrace could not find libmcount.so for record-tracing\n");
 
 	pr_dbg("using %s library for tracing\n", libpath);
 
