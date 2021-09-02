@@ -125,7 +125,7 @@ void delete_session_map(struct symtabs *symtabs)
 }
 
 /**
- * update_session_maps - rewrite map files to have build-id
+ * update_session_map - rewrite map files to have build-id
  * @filename - name of map file
  *
  * This function updates @filename map file to add build-id at the end
@@ -185,6 +185,7 @@ next:
  * @sessions: session link to manage sessions and tasks
  * @msg: uftrace session message read from task file
  * @dirname: uftrace data directory name
+ * @symdir: symbol directory name
  * @exename: executable name started this session
  * @sym_rel_addr: whether symbol table uses relative address
  * @needs_symtab: whether symbol table loading is needed
@@ -195,7 +196,7 @@ next:
  * Also it loads symbol table and debug info if needed.
  */
 void create_session(struct uftrace_session_link *sessions,
-		    struct uftrace_msg_sess *msg, char *dirname, char *exename,
+		    struct uftrace_msg_sess *msg, char *dirname, char *symdir, char *exename,
 		    bool sym_rel_addr, bool needs_symtab, bool needs_srcline)
 {
 	struct uftrace_session *s;
@@ -233,11 +234,13 @@ void create_session(struct uftrace_session_link *sessions,
 		s->pid, s->sid);
 
 	if (needs_symtab) {
-		s->symtabs.dirname = dirname;
+		s->symtabs.dirname = symdir;
 		s->symtabs.filename = s->exename;
 		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
 			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
+		if (strcmp(dirname, symdir))
+			s->symtabs.flags |= SYMTAB_FL_SYMS_DIR;
 
 		read_session_map(dirname, &s->symtabs, s->sid);
 
@@ -822,7 +825,7 @@ TEST_CASE(session_search)
 		fd = creat("sid-test.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &msg, ".", "unittest",
+		create_session(&test_sessions, &msg, ".", ".", "unittest",
 			       false, false, false);
 		remove("sid-test.map");
 	}
@@ -877,7 +880,7 @@ TEST_CASE(task_search)
 		fd = creat("sid-initial.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", "unittest",
+		create_session(&test_sessions, &smsg, ".", ".", "unittest",
 			       false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-initial.map");
@@ -982,7 +985,7 @@ TEST_CASE(task_search)
 		fd = creat("sid-after_exec.map", 0400);
 		write_all(fd, session_map, sizeof(session_map)-1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", "unittest",
+		create_session(&test_sessions, &smsg, ".", ".", "unittest",
 			       false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-after_exec.map");
@@ -1117,7 +1120,7 @@ TEST_CASE(task_symbol)
 	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", "unittest",
+	create_session(&test_sessions, &msg, ".", ".", "unittest",
 		       false, true, false);
 	create_task(&test_sessions, &tmsg, false);
 	remove("sid-test.map");
@@ -1168,7 +1171,7 @@ TEST_CASE(task_symbol_dlopen)
 	fprintf(fp, "0500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", "unittest",
+	create_session(&test_sessions, &msg, ".", ".", "unittest",
 		       false, true, false);
 	remove("sid-test.map");
 

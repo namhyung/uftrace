@@ -478,7 +478,7 @@ static int fill_taskinfo(void *arg)
 	};
 	int i;
 
-	if (read_task_txt_file(&link, fha->opts->dirname, false, false, false) < 0 &&
+	if (read_task_txt_file(&link, fha->opts->dirname, fha->opts->dirname, false, false, false) < 0 &&
 	    read_task_file(&link, fha->opts->dirname, false, false, false) < 0)
 		return -1;
 
@@ -1041,7 +1041,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
 
 		/* ignore errors */
 		read_task_txt_file(&handle->sessions, opts->dirname,
-				   false, false, false);
+				   opts->dirname, false, false, false);
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
@@ -1261,7 +1261,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	fstack_setup_task(opts->tid, &handle);
 	if (opts->show_task) {
 		/* ignore errors */
-		read_task_txt_file(&handle.sessions, opts->dirname,
+		read_task_txt_file(&handle.sessions, opts->dirname, opts->dirname,
 				   false, false, false);
 
 		if (handle.hdr.feat_mask & PERF_EVENT) {

@@ -225,6 +225,7 @@ struct opts {
 	char *caller;
 	char *extern_data;
 	char *hide;
+	char *with_syms;
 	int mode;
 	int idx;
 	int depth;
@@ -316,7 +317,7 @@ static inline void close_data_file(struct opts *opts, struct uftrace_data *handl
 
 int read_task_file(struct uftrace_session_link *sess, char *dirname,
 		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
-int read_task_txt_file(struct uftrace_session_link *sess, char *dirname,
+int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
 		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 
 char * get_libmcount_path(struct opts *opts);
@@ -426,8 +427,8 @@ extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess,
 		    struct uftrace_msg_sess *msg,
-		    char *dirname, char *exename, bool sym_rel_addr,
-		    bool needs_symtab, bool needs_srcline);
+		    char *dirname, char *symdir, char *exename,
+		    bool sym_rel_addr, bool needs_symtab, bool needs_srcline);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task,
 					  uint64_t timestamp);
