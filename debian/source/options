@@ -1,0 +1,2 @@
+tar-ignore = "debian/__pycache__/"
+diff-ignore = "[.]git"

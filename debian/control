@@ -2,14 +2,14 @@ Source: uftrace
 Section: utils
 Priority: optional
 Maintainer: paul cannon <pik@debian.org>
-Build-Depends: debhelper (>= 9), libelf-dev, pandoc, python, pkg-config,
- libpython2.7-dev, libdw-dev, libncursesw5-dev, libcapstone-dev,
- bash-completion
+Build-Depends: debhelper (>= 12), libelf-dev, pandoc, python3, pkg-config,
+ libpython3-dev, libdw-dev, libncursesw5-dev, libcapstone-dev,
+ python-is-python3, libluajit-5.1-dev, libunwind-dev, bash-completion
 Standards-Version: 4.4.0
 Homepage: https://github.com/namhyung/uftrace
 Rules-Requires-Root: no
-Vcs-Git: https://github.com/thepaul/uftrace -b deb
-Vcs-Browser: https://github.com/thepaul/uftrace/tree/deb
+Vcs-Git: https://github.com/bernhardkaindl/uftrace -b deb
+Vcs-Browser: https://github.com/bernhardkaindl/uftrace/tree/deb
 
 Package: uftrace
 Architecture: amd64 arm64 armhf i386

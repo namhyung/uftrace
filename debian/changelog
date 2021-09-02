@@ -1,3 +1,28 @@
+uftrace (0.10.54-1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * New upstream release
+    + Fixes FTBFS on buster/sid (Closes: 966988)
+    + Switch to python3 (Closes: 967228)
+
+ -- Bernhard Kaindl <bernhard.kaindl@mailo.com>  Thu, 02 Sep 2021 11:26:37 +0200
+
+uftrace (0.9.4-0.2) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * Remove the autopkgtest for now, it doesn't fail when tests fail
+    but fails for other reasons on arm64. (Closes: #947089)
+
+ -- Adrian Bunk <bunk@debian.org>  Wed, 22 Apr 2020 17:06:49 +0300
+
+uftrace (0.9.4-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+    - Fixes FTBFS on armhf. (Closes: #947089)
+
+ -- Adrian Bunk <bunk@debian.org>  Mon, 13 Apr 2020 16:18:27 +0300
+
 uftrace (0.9.3-1) unstable; urgency=low
 
   * New upstream release

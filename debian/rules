@@ -31,10 +31,10 @@ override_dh_auto_install:
 
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 override_dh_auto_test:
-	$(MAKE) -j1 test
+	$(MAKE) test
 endif
 
 override_dh_auto_clean:
 	dh_auto_clean
-	$(RM) .config
+	$(RM) -r .config tests/__pycache__ tests/failed-tests.txt
 	$(MAKE) -C check-deps check-clean
