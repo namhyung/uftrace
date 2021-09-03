@@ -533,9 +533,9 @@ void get_argspec_string(struct uftrace_task_reader *task,
 	ASSERT(arg_list && !list_empty(arg_list));
 
 	if (needs_paren)
-		print_args(&args, &len, "%s(%s", color_bold, color_reset);
+		print_args(&args, &len, "(");
 	else if (needs_assignment)
-		print_args(&args, &len, "%s = %s", color_bold, color_reset);
+		print_args(&args, &len, " = ");
 
 	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
@@ -549,7 +549,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			continue;
 
 		if (i > 0)
-			print_args(&args, &len, "%s, %s", color_bold, color_reset);
+			print_args(&args, &len, ", ");
 
 		memset(val.v, 0, sizeof(val));
 		fmt = ARG_SPEC_CHARS[spec->fmt];
@@ -786,7 +786,7 @@ next:
 	}
 
 	if (needs_paren) {
-		print_args(&args, &len, "%s)%s", color_bold, color_reset);
+		print_args(&args, &len, ")");
 	} else {
 		if (needs_semi_colon)
 			args[n++] = ';';
