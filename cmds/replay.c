@@ -748,9 +748,17 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			free(estr);
 		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {
-			if (spec->type_name)
-				print_args(&args, &len, "%s%s%s", color_struct,
-						spec->type_name, color_reset);
+			if (spec->type_name) {
+				/*
+				 * gcc puts "<lambda" to annoymous lambda
+				 * but let's ignore to make it same as clang.
+				 */
+				if (strcmp(spec->type_name, "<lambda")) {
+					print_args(&args, &len, "%s%s%s",
+						   color_struct, spec->type_name,
+						   color_reset);
+				}
+			}
 			if (spec->size)
 				print_args(&args, &len, "{...}");
 			else
