@@ -65,21 +65,35 @@ To build uftrace, you need to install basic software development tools first -
 like gcc and make.  And also you need to install dependent softwares, please
 see DEPENDENCY section for details.
 
-Once you installed required software(s), you can run `make` to build it.
+Once you installed required software(s), you need to run `configure` to set
+install directory and other features.  It installs the uftrace under /usr/local
+by default, if you want install it to other location, you can set the `prefix`
+variable (see below).
+
+    $ ./configure --prefix=/usr
+
+It will show the prefix directory and detected features like:
+
+    uftrace detected system features:
+    ...         prefix: /usr
+    ...         libelf: [ on  ] - more flexible ELF data handling
+    ...          libdw: [ on  ] - DWARF debug info support
+    ...      libpython: [ on  ] - python scripting support
+    ...      libluajit: [ OFF ] - luajit scripting support
+    ...    libncursesw: [ on  ] - TUI support
+    ...   cxa_demangle: [ on  ] - full demangler support with libstdc++
+    ...     perf_event: [ on  ] - perf (PMU) event support
+    ...       schedule: [ on  ] - scheduler event support
+    ...       capstone: [ on  ] - full dynamic tracing support
+    ...      libunwind: [ OFF ] - libunwind support
+
+Then you can run `make` to build the source.
 
     $ make
 
 It builds uftrace and resulting binary exists in the current directory.
 This is good for testing, but you'll want to install it for normal use.
 
-    $ sudo make install
-
-It installs the uftrace under /usr/local by default, if you want install it
-to other location, you can set the `prefix` variable when invoking the
-configure before running make. (see below).
-
-    $ ./configure --prefix=/usr
-    $ make
     $ sudo make install
 
 The output of build looks like linux kernel style, users can see original
