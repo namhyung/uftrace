@@ -24,9 +24,10 @@ REPORT OPTIONS
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max` and
-    `call`.  Multiple fields can be set by using comma.  Special field of
-    'none' can be used (solely) to hide all fields.
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`,
+    `call` and `all`.  Multiple fields can be set by using comma.  Special field
+    of 'none' can be used (solely) to hide all fields and 'all' can be used to
+    show all fields.
     Default is 'total,self,call'.  See *FIELDS*.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
