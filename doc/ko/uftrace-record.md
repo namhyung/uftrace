@@ -23,11 +23,11 @@ RECORD 옵션
 ==============
 -A *SPEC*, \--argument=*SPEC*
 :   함수의 인자들을 기록한다.  이 옵션은 한번 이상 쓰일 수 있다.
-    인자에 대한 설명은 *ARGUMENTS* 를 참고한다.
+    --srcline 옵션이 자동으로 적용된다.  인자에 대한 설명은 *ARGUMENTS* 를 참고한다.
 
 -R *SPEC*, \--retval=*SPEC*
 :   함수들의 반환값을 기록한다.  이 옵션은 한번 이상 쓰일 수 있다.
-    반환값에 대한 설명은 *ARGUMENTS* 를 참고한다.
+    --srcline 옵션이 자동으로 적용된다.  반환값에 대한 설명은 *ARGUMENTS* 를 참고한다.
 
 -P *FUNC*, \--patch=*FUNC*
 :   주어진 FUNC 함수를 동적으로 패치하여 추적하고 기록한다.
@@ -60,6 +60,7 @@ RECORD 옵션
 :   알려진 함수의 인자와 반환값들을 자동으로 기록한다.
     보통의 경우 C 언어 또는 시스템의 표준 라이브러리 함수들에 해당하지만,
     디버그 정보를 이용할 수 있다면 사용자 함수들에도 적용할 수 있다.
+    --srcline 옵션이 자동으로 적용된다.
 
 -l, \--nest-libcall
 :   라이브러리들 간의 함수 호출도 함께 기록한다.
@@ -105,6 +106,13 @@ RECORD 옵션
 
 \--time
 :   time(1) 스타일로 실행시간을 출력한다.
+
+-e, \--estimate-return
+:   각 함수의 진입 데이터만을 기록한다.  이 옵션은 대상 프로그램이 스택을 다룰 경우
+    유용하게 사용될 수 있다.  일반적으로 uftrace는 함수의 반환값을 후킹하기 위해
+    작업 대상의 실행 스택 프레임을 수정한다.  하지만 이는 때때로 문제를 발생시키고
+    모든 경우를 제대로 다루기 어렵다.  이 옵션은 uftrace가 리턴 주소를 후킹하지 않도록 하여
+    이러한 문제를 예방한다.  반환된 시간은 연속된 두 함수들의 실행 시간의 절반으로 예측된다.
 
 
 공통 옵션
@@ -327,6 +335,10 @@ caller filter 를 사용하면 될 것이다. 그 함수를 마지막(leaf) 노�
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
 
+`-t`/`--time-filter` 옵션은 사용자 함수에게만 동작한다.  커널 함수들을 기록하지는 않지만,
+이것들은 replay, report, dump와 `-t`/`--time-filter` 옵션과 함께 사용한 graph 명령의 결과에
+숨겨져 있을 수 있다.
+
 필터링된 함수에 트리거를 설정할 수도 있다.  더 많은 정보는 *TRIGGERS* 항목에서
 참고할 수 있다.
 
@@ -357,19 +369,15 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
 
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
-    <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
-                     "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace"
+    <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
+                     "time="<time_spec> | "read="<read_spec> | "finish" |
+                     "filter" | "notrace" | "recover"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
 
 `depth` 트리거는 함수를 실행하는 동안 필터의 깊이를 변경한다.  다양한 함수에 대해
-서로 다른 필터 깊이를 설정할 수 있다.  그리고 `backtrace` 트리거는 replay 시 스택
-백트레이스를 출력한다.
-
-`color` 트리거는 replay 명령어에서 색상을 변경한다.  지원되는 색상은 `red`,
-`green`, `blue`, `yellow`, `magenta`, `cyan`, `bold`, `gray` 가 있다.
+서로 다른 필터 깊이를 설정할 수 있다.
 
 다음 예제는 트리거 작동 방식을 보여준다.  전역 필터 깊이가 5 로 설정되어 있지만
 `b()` 함수에 `depth` 트리거를 설정하여 `b()` 아래 함수는 보이지 않게된다.
@@ -390,14 +398,7 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
 관리한다.  또한, `_` 문자 없이 `traceon` 과 `traceoff` 로도 사용할 수 있다.
 
 `recover` 트리거는 프로세스가 호출 스택(call stack)에 직접 접근하는 일부 경우에
-사용된다.  예를들어, v8 자바스크립트 엔진을 추적하는 동안 가비지 컬렉션 단계에서
-세그멘테이션 폴트 문제가 발생된다면 이는 v8 이 (변경된) 반환 주소를 통해 컴파일된
-코드 객체에 접근하려 하기 때문이다.
-`recover` 트리거는 함수 진입점에 원래 반환 주소를 복원하고 함수 반환점에서
-다시 uftrace 에서 조작한 반환 주소로 재설정한다.  (특히 v8 자바스크립트 엔진
-사례에서 `ExitFrame::Iterate` 함수와 같이 문제를 발생시키는 상황에서 `recover`
-트리거를 사용하면 문제를 해결할 수 있다.)
-
+사용된다.  지금으로서는 uftrace가 해당 작업을 자동으로 수행하기에 호출할 필요는 없다.
 
 `time` 트리거는 함수를 실행하는 동안 시간 필터(time-filter) 설정을 변경한다.
 다른 함수들에 대해서 서로 다른 시간 필터를 적용할 떄 사용할 수 있다.
@@ -572,7 +573,7 @@ uftrace 를 아래의 예제에서 평소처럼 사용할때에는 에러 메세
 그 이유는 바이너리가 어떤 `mcount()` 와 같은 함수 추적을 위한 코드도 호출하지
 않기 때문이다.
 
-    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+    $ gcc -o abc tests/s-abc.c
     $ uftrace abc
     uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
       ERROR: Can't find 'mcount' symbol in the 'abc'.
@@ -676,7 +677,7 @@ uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능�
 
 위 스크립트는 아래와 같이 기록된 시간 순으로 실행될 수 있다:
 
-    $ uftrace -S scripts/simple.py -F main tests/t-abc
+    $ uftrace record -S scripts/simple.py -F main tests/t-abc
     program begins...
     entry : main()
     entry : a()
@@ -689,16 +690,6 @@ uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능�
     exit  : a()
     exit  : main()
     program is finished
-    # DURATION    TID     FUNCTION
-                [10929] | main() {
-                [10929] |   a() {
-                [10929] |     b() {
-                [10929] |       c() {
-       4.293 us [10929] |         getpid();
-      19.017 us [10929] |       } /* c */
-      27.710 us [10929] |     } /* b */
-      37.007 us [10929] |   } /* a */
-      55.260 us [10929] | } /* main */
 
 'ctx' 변수는 아래의 정보를 포함하는 사전타입(dictionary type)의 변수이다.
 

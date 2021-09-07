@@ -30,6 +30,16 @@ GRAPH 옵션
     사용하여 모든 필드를 숨길 수 있으며 기본 설정은 'total' 이다.
     필드에 대한 상세한 내용은 *FIELDS* 를 참고할 수 있다.
 
+--task
+:   일반적인 함수 그래프 대신 태스크 그래프를 출력한다. 출력된 각 노드들은
+    프로세스 혹은 (초록색으로 표기된)스레드를 보여준다.
+
+\--srcline
+:   가능한 각 함수들의 소스 줄번호를 표시한다.
+
+\--format=*TYPE*
+:   형식화된 출력을 보여준다. 현재는 'normal' 과 'html' 형식이 지원된다.
+
 
 공통 옵션
 =========
@@ -246,6 +256,25 @@ graph 명령어는 함수 단위의 호출 그래프를 보여주지만, --task 
 
 위의 결과와 같이 스레드의 들여쓰기 깊이는 프로세스와는 다르게 표현된다.
 
+`graph` 명령을 `--srcline` 옵션과 함께 실행한다면 아래와 같이 호출 함수의
+소스 줄번호를 보여준다.
+
+    $ uftrace record --srcline t-abc
+    $ uftrace graph --srcline
+    # Function Call Graph for 't-abc' (session: 60195bac953d8736)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   FUNCTION [SOURCE]
+      8.909 us : (1) t-abc
+      1.260 us :  +-(1) __monstartup
+               :  |
+      0.179 us :  +-(1) __cxa_atexit
+               :  |
+      7.470 us :  +-(1) main [tests/s-abc.c:26]
+      5.522 us :    (1) a [tests/s-abc.c:11]
+      4.912 us :    (1) b [tests/s-abc.c:16]
+      4.176 us :    (1) c [tests/s-abc.c:21]
+      0.794 us :    (1) getpid
+
 
 FIELDS
 ======
@@ -336,4 +365,4 @@ uftrace 사용자는 graph 결과를 몇몇의 필드로 원하는 방식대로 
 
 번역자
 ======
-김관영 <gy741.kim@gmail.com>
+김관영 <gy741.kim@gmail.com>, 강민철 <tegongkang@gmail.com>
