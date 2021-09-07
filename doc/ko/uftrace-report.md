@@ -22,6 +22,13 @@ uftrace report [*options*]
 
 REPORT 옵션
 ===========
+-f *FIELD*, \--output-fields=*FIELD*
+:   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 `total`, `total-avg`,
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max` 그리고
+    `call`이 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
+    모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
+    기본적으로 'total,self,call' 이 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
+
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   주어진 키를 기반으로 함수들을 정렬한다. 여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.
     `total` (time), `total-avg`, `total-min`, `total-max`, `self` (time), `self-avg`, `self-min`,
@@ -37,6 +44,11 @@ REPORT 옵션
 
 \--task
 :   함수의 통계자료가 아닌 태스크를 요약해서 보고한다.
+    -f 옵션을 이용해 출력 필드를 사용자가 지정할 수 있다.
+    가능한 값들로는: `total`, `self`, `func` 그리고 `tid`가 있다.
+    여러 필드를 갖는 경우 콤마로 구분된다. 모든 필드를 감추기 위한
+    (단일하게 사용되는) 'none' 특수 필드가 있으며 기본적으로 'total,self,func,tid' 가 사용된다.
+    상세한 설명은 *FIELDS* 를 참고한다.
 
 \--diff=*DATA*
 :   입력한 추적 데이터와 주어진 데이터의 차이점을 보고한다. 두 데이터는 uftrace 로
@@ -55,6 +67,12 @@ REPORT 옵션
     표시된다. 이 옵션은 정렬 키로 사용할 열 인덱스를 선택한다. 인덱스 0은 `--data`옵션으로
     제공되는 원본 데이터에 대한 것이고, 인덱스 1은 `--diff`옵션으로 제공되는 데이터에 대한 것,
     인덱스 2는 두 데이터 간의 (백분율) 차이에 대한 것이다.
+
+\--srcline
+:   가능한 각 함수들의 소스 줄번호를 표시한다.
+
+\--format=*TYPE*
+:   형식화된 출력을 보여준다. 현재는 'normal' 과 'html' 형식이 지원된다.
 
 
 공통 옵션
@@ -174,6 +192,18 @@ REPORT 옵션
       ==========  ==========  ==========  ======  ================
        22.178 us   22.178 us           7   29955  t-abc
 
+    $ uftrace record --srcline abc
+    $ uftrace report --srcline
+      Total time   Self time       Calls  Function [Source]
+      ==========  ==========  ==========  ====================
+       17.508 us    2.199 us           1  main [./tests/s-abc.c:26]
+       15.309 us    2.384 us           1  a [./tests/s-abc.c:11]
+       12.925 us    2.633 us           1  b [./tests/s-abc.c:16]
+       10.292 us    5.159 us           1  c [./tests/s-abc.c:21]
+        5.133 us    5.133 us           1  getpid
+        3.437 us    3.437 us           1  __monstartup
+        1.959 us    1.959 us           1  __cxa_atexit
+
 두 데이터의 차이점을 보려면:
 
     $ uftrace record abc
@@ -231,6 +261,98 @@ REPORT 옵션
         0.767 us    0.706 us    -7.95%     0.767 us    0.706 us    -7.95%            1          1         +0   getpid
 
 
+FIELDS
+======
+uftrace 사용자는 report 결과를 몇몇의 필드로 원하는 방식대로 구성할 수 있다.
+기본적으로 total, self와 call 필드를 사용하지만, 다른 필드들도 다음과 같이
+임의의 순서로 사용 가능하다.
+
+    $ uftrace report -f total,total-max,self-min,call
+    Total time   Total max    Self min       Calls  Function
+    ==========  ==========  ==========  ==========  ====================
+     97.234 us   36.033 us    1.073 us           3  lib_a
+     50.552 us   26.690 us    2.828 us           2  lib_b
+     46.806 us   46.806 us    3.290 us           1  main
+     43.516 us   43.516 us    7.483 us           1  foo
+     32.010 us   20.847 us    9.684 us           2  lib_c
+
+각 필드는 아래와 같이 정렬 키로도 사용될 수 있다.
+
+    $ uftrace report -f total,total-max,self-min,call -s call
+    Total time   Total max    Self min       Calls  Function
+    ==========  ==========  ==========  ==========  ====================
+     97.234 us   36.033 us    1.073 us           3  lib_a
+     50.552 us   26.690 us    2.828 us           2  lib_b
+     32.010 us   20.847 us    9.684 us           2  lib_c
+     43.516 us   43.516 us    7.483 us           1  foo
+     46.806 us   46.806 us    3.290 us           1  main
+
+    $ uftrace report -f total,total-max,self-min,total-min,call -s self-min,total-min
+    Total time   Total max    Self min   Total min       Calls  Function
+    ==========  ==========  ==========  ==========  ==========  ====================
+     32.010 us   20.847 us    9.684 us   11.163 us           2  lib_c
+     43.516 us   43.516 us    7.483 us   43.516 us           1  foo
+     46.806 us   46.806 us    3.290 us   46.806 us           1  main
+     50.552 us   26.690 us    2.828 us   23.862 us           2  lib_b
+     97.234 us   36.033 us    1.073 us   27.763 us           3  lib_a
+
+각 필드는 아래와 같이 --diff 옵션과 함께 사용될 수 있다.
+
+    $ uftrace report --diff uftrace.data.old -f total,total-min
+    #
+    # uftrace diff
+    #  [0] base: uftrace.data       (from uftrace record test/t-lib)
+    #  [1] diff: uftrace.data.old   (from uftrace record test/t-lib)
+    #
+     Total time     Total min   Function
+    ===========   ===========   ====================
+     +34.560 us     +9.884 us   lib_a
+     +18.086 us     +8.517 us   lib_b
+     +16.887 us    +16.887 us   main
+     +15.479 us    +15.479 us   foo
+     +10.600 us     +3.127 us   lib_c
+
+    $ uftrace report --diff uftrace.data.old -f total,total-min,self-avg --diff-policy full
+    #
+    # uftrace diff
+    #  [0] base: uftrace.data           (from uftrace record --srcline test/t-lib)
+    #  [1] diff: uftrace.data.old	(from uftrace record --srcline test/t-lib)
+    #
+                      Total time (diff)                      Total min (diff)                       Self avg (diff)   Function
+    ===================================   ===================================   ===================================   ====================
+     14.616 us   13.796 us    +0.820 us     4.146 us    3.823 us    +0.323 us     0.443 us    0.459 us    -0.016 us   lib_a
+      6.529 us    5.957 us    +0.572 us     6.529 us    5.957 us    +0.572 us     0.436 us    0.356 us    +0.080 us   main
+      7.700 us    7.173 us    +0.527 us     3.677 us    3.426 us    +0.251 us     0.365 us    0.363 us    +0.002 us   lib_b
+      6.093 us    5.601 us    +0.492 us     6.093 us    5.601 us    +0.492 us     0.741 us    0.476 us    +0.265 us   foo
+      5.638 us    5.208 us    +0.430 us     2.346 us    2.187 us    +0.159 us     1.646 us    1.510 us    +0.136 us   lib_c
+
+각 필드는 다음과 같은 의미가 있다.
+
+ * total: 함수의 전체 실행 시간
+ * total-avg: 각 함수들의 총합 시간의 평균값.
+ * total-min: 각 함수들의 총합 시간의 최소값.
+ * total-max: 각 함수들의 총합 시간의 최대값.
+ * self: 각 함수별 소요 시간.
+ * self-avg: 각 함수별 소요 시간의 평균값.
+ * self-min: 각 함수별 소요 시간의 최소값.
+ * self-max: 각 함수별 소요 시간의 최대값.
+ * call: 각 함수들이 호출된 횟수.
+
+기본적으로 설정된 필드값은 'total,self,call'이다.  만약 주어진 필드의 이름이 "+"로
+시작된다면, 그 필드는 기본 필드값에 추가될 것이다.  즉, "-f +total-avg" 는
+"-f total,self,call,total-avg" 와 같은 것이다.  또한 'none'이라는 특별한 필드도 받을 수
+있는데, 이는 필드 출력을 하지 않고 오직 함수 실행 결과만을 보여준다.
+
+TASK FIELDS
+======
+ * total: 각 작업의 총 소요 시간.
+ * self: 각 작업별 소요 시간.
+ * func: 작업 내의 함수 갯수.
+ * tid: 작업 ID.
+
+기본적으로 설정된 필드값은 'total,self,func,tid'이다.  상세한 설명은 *FIELDS* 를 참고한다.
+
+
 함께 보기
 =========
 `uftrace`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-tui`(1)
@@ -238,4 +360,4 @@ REPORT 옵션
 
 번역자
 ======
-김서영 <gegiraffe@gmail.com>
+김서영 <gegiraffe@gmail.com>, 강민철 <tegongkang@gmail.com>

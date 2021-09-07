@@ -21,7 +21,7 @@ uftrace replay [*options*]
 REPLAY 옵션
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
-:   결과로 보여지는 필드를 사용자가 지정한다. 가능한 값들로는 duration, tid,
+:   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 duration, tid,
     time, delta, elapsed, addr 가 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
     모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'duration,tid' 가 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
@@ -47,6 +47,9 @@ REPLAY 옵션
 
 \--libname
 :   함수 이름과 함께 라이브러리 이름을 출력한다.
+
+\--format=*TYPE*
+:   형식화된 출력을 보여준다. 현재는 'normal' 과 'html' 형식이 지원된다.
 
 
 공통 옵션
