@@ -120,6 +120,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	unsigned i;
 	int j;
 	bool *field_flags;
+	bool all = false;
 
 	/* default fields */
 	if (opts->fields == NULL) {
@@ -147,6 +148,11 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 	strv_split(&strv, str, ",");
 
 	strv_for_each(&strv, p, j) {
+		if (!strcmp(p, "all")) {
+			all = true;
+			break;
+		}
+
 		for (i = 0; i < field_table_size; i++) {
 			field = field_table[i];
 
@@ -173,7 +179,7 @@ void setup_field(struct list_head *output_fields, struct opts *opts,
 		del_field(field);
 
 	for (i = 0; i < field_table_size; i++) {
-		if (field_flags[i])
+		if (field_flags[i] || all)
 			add_field(output_fields, field_table[i]);
 	}
 
