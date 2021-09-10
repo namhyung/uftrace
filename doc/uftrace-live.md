@@ -455,7 +455,7 @@ The supported colors are `red`, `green`, `blue`, `yellow`, `magenta`, `cyan`,
 
 The following example shows how triggers work.  The global filter maximum depth
 is 5, but when function `b()` is called, it is changed to 1, so functions below
-`b()` will not shown.
+`b()` will not be shown.
 
     $ uftrace -D 5 -T 'b@depth=1' ./abc
     # DURATION    TID     FUNCTION
