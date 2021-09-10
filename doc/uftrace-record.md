@@ -380,7 +380,7 @@ It can be used to apply different filter depths for different functions.
 
 The following example shows how triggers work.  The global filter maximum depth
 is 5, but when function `b()` is called, it is changed to 1, so functions below
-`b()` will not shown.
+`b()` will not be shown.
 
     $ uftrace record -D 5 -T 'b@depth=1' ./abc
     $ uftrace replay
