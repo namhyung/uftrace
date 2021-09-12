@@ -149,7 +149,8 @@ TEST_CASE(fstack_extern_data)
 	mkdir("extern.test", 0755);
 	fd = creat("extern.test/" DEFAULT_FILENAME, 0644);
 	TEST_NE(fd, -1);
-	write(fd, extern_data, sizeof(extern_data)-1);
+	if (!write(fd, extern_data, sizeof(extern_data)-1))
+		return TEST_NG;
 	close(fd);
 
 	setup_extern_data(&handle, &opts);

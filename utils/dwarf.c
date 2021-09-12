@@ -2458,7 +2458,8 @@ TEST_CASE(dwarf_same_file_name1)
 	int ret;
 
 	/* recover from earlier failures */
-	system("rm -f name*.dbg");
+	if (system("rm -f name*.dbg"))
+		return TEST_NG;
 
 	pr_dbg("init debug info and save .dbg files (no build-id)\n");
 	init_test_module_info(&save_mod[0], &save_mod[1], true);
@@ -2494,7 +2495,8 @@ TEST_CASE(dwarf_same_file_name1)
 	free(load_mod[0]);
 	free(load_mod[1]);
 
-	system("rm -f name*.dbg");
+	if (system("rm -f name*.dbg"))
+		return TEST_NG;
 
 	return ret;
 }
@@ -2506,7 +2508,8 @@ TEST_CASE(dwarf_same_file_name2)
 	int ret;
 
 	/* recover from earlier failures */
-	system("rm -f name*.dbg");
+	if (system("rm -f name*.dbg"))
+		return TEST_NG;
 
 	pr_dbg("init debug info and save .dbg files (with build-id)\n");
 	init_test_module_info(&save_mod[0], &save_mod[1], true);
@@ -2545,7 +2548,8 @@ TEST_CASE(dwarf_same_file_name2)
 	free(load_mod[0]);
 	free(load_mod[1]);
 
-	system("rm -f name*.dbg");
+	if (system("rm -f name*.dbg"))
+		return TEST_NG;
 
 	return ret;
 }
