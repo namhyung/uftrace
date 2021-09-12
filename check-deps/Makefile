@@ -22,9 +22,9 @@ CHECK_LIST += cc_has_minline_all_stringops
 CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -Werror
 CHECK_LDFLAGS = $(LDFLAGS) $(LDFLAGS_$@)
 
-# python3.8 added --embed option
-ifneq ($(shell python3-config 2> /dev/null | grep embed),)
-  EMBED := --embed
+# libpython3 provides an embed verison of pkg-config file since python3.8
+ifeq ($(shell pkg-config python3-embed --exists 2> /dev/null; echo $$?), 0)
+  EMBED := -embed
 endif
 
 CFLAGS_cc_has_mfentry = -mfentry
@@ -32,8 +32,8 @@ LDFLAGS_cxa_demangle = -lstdc++
 LDFLAGS_have_libelf = -lelf
 CFLAGS_cc_has_mno_sse2 = -mno-sse2
 LDFLAGS_have_libpython2.7 = -lpython2.7
-CFLAGS_have_libpython3 = $(shell python3-config --cflags 2> /dev/null)
-LDFLAGS_have_libpython3 = $(shell python3-config $(EMBED) --libs 2> /dev/null)
+CFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --cflags 2> /dev/null)
+LDFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --libs 2> /dev/null)
 CFLAGS_have_libluajit = $(shell pkg-config --cflags luajit 2> /dev/null)
 LDFLAGS_have_libluajit = $(shell pkg-config --libs  luajit 2> /dev/null)
 CFLAGS_have_libncurses  = $(shell pkg-config --cflags ncursesw 2> /dev/null)
