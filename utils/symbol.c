@@ -1937,7 +1937,8 @@ TEST_CASE(symbol_same_file_name1) {
 	size_t i;
 
 	/* recover from earlier failures */
-	system("rm -f name*.sym");
+	if (system("rm -f name*.sym"))
+		return TEST_NG;
 
 	pr_dbg("allocating modules\n");
 	init_test_module_info(&save_mod[0], &save_mod[1], false, true);
@@ -1985,7 +1986,8 @@ TEST_CASE(symbol_same_file_name1) {
 	unload_symtab(&load_mod[1]->symtab);
 	free(load_mod[1]);
 
-	system("rm -f name*.sym");
+	if (system("rm -f name*.sym"))
+		return TEST_NG;
 
 	return TEST_OK;
 }
@@ -1997,7 +1999,8 @@ TEST_CASE(symbol_same_file_name2) {
 	size_t i;
 
 	/* recover from earlier failures */
-	system("rm -f name*.sym");
+	if (system("rm -f name*.sym"))
+		return TEST_NG;
 
 	pr_dbg("allocating modules\n");
 	init_test_module_info(&save_mod[0], &save_mod[1], true, true);
@@ -2046,7 +2049,8 @@ TEST_CASE(symbol_same_file_name2) {
 	unload_symtab(&load_mod[1]->symtab);
 	free(load_mod[1]);
 
-	system("rm -f name*.sym");
+	if (system("rm -f name*.sym"))
+		return TEST_NG;
 
 	return TEST_OK;
 }
