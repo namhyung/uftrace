@@ -50,6 +50,12 @@
 
 enum symbol_demangler demangler = DEMANGLE_SIMPLE;
 
+struct demangle_debug {
+	const char *func;
+	int level;
+	int pos;
+};
+
 struct demangle_data {
 	char *old;
 	char *new;
@@ -67,7 +73,7 @@ struct demangle_data {
 	bool type_info;
 	bool first_name;
 	bool ignore_disc;
-	const char *debug[MAX_DEBUG_DEPTH];
+	struct demangle_debug debug[MAX_DEBUG_DEPTH];
 };
 
 static char dd_expbuf[2];
@@ -89,10 +95,15 @@ static char dd_curr(struct demangle_data *dd)
 	return dd_peek(dd, 0);
 }
 
-static void __dd_add_debug(struct demangle_data *dd, const char *dbg)
+static void __dd_add_debug(struct demangle_data *dd, const char *func)
 {
-	if (dd->nr_dbg < MAX_DEBUG_DEPTH && dbg)
-		dd->debug[dd->nr_dbg++] = dbg;
+	if (dd->nr_dbg < MAX_DEBUG_DEPTH && func) {
+		struct demangle_debug *dbg = &dd->debug[dd->nr_dbg++];
+
+		dbg->func = func;
+		dbg->level = dd->level;
+		dbg->pos = dd->pos;
+	}
 }
 
 static char __dd_consume_n(struct demangle_data *dd, int n, const char *dbg)
@@ -175,8 +186,14 @@ static void dd_debug_print(struct demangle_data *dd)
 		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
 
 	pr_dbg4("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
-	for (i = 0; i < dd->nr_dbg; i++)
-		pr_dbg4("  [%d] %s\n", i, dd->debug[i]);
+	for (i = 0; i < dd->nr_dbg; i++) {
+		struct demangle_debug *dbg = &dd->debug[i];
+
+		pr_dbg4("  [%02d] (%03d/%c%c) %*s%s\n",
+			i, dbg->pos, dbg->pos < dd->len ? dd->old[dbg->pos] : ' ',
+			dbg->pos + 1 < dd->len ? dd->old[dbg->pos+1] : ' ',
+			dbg->level * 2, "", dbg->func);
+	}
 }
 
 static const struct {
