@@ -389,8 +389,10 @@ static int dd_seq_id(struct demangle_data *dd)
 		return -1;
 
 	/* just skip for now */
-	while (isdigit(c) || isupper(c))
+	while (isdigit(c) || isupper(c)) {
+		dd_add_debug(dd);
 		c = dd->old[++dd->pos];
+	}
 	return 0;
 }
 
@@ -1052,6 +1054,8 @@ static int dd_type(struct demangle_data *dd)
 
 	/* ignore type names */
 	dd->type++;
+	dd_add_debug(dd);
+	dd->level++;
 
 	while (!done && !dd_eof(dd)) {
 		char c = dd_curr(dd);
@@ -1147,7 +1151,7 @@ static int dd_type(struct demangle_data *dd)
 			/* builtin types */
 			for (i = 0; i < ARRAY_SIZE(types); i++) {
 				if (c == types[i].code) {
-					dd_consume(dd);
+					__dd_consume(dd, NULL);
 					ret = 0;
 					break;
 				}
@@ -1156,6 +1160,7 @@ static int dd_type(struct demangle_data *dd)
 		}
 	}
 
+	dd->level--;
 	dd->type--;
 	return ret;
 }
@@ -1400,12 +1405,15 @@ static int dd_source_name(struct demangle_data *dd)
 	char *dollar;
 	char *p, *end;
 	unsigned i;
+	bool add_name = false;
 
 	if (num < 0)
 		return -1;
 
 	if (dd_eof(dd) || dd->pos + num > dd->len)
 		DD_DEBUG(dd, "shorter name", 0);
+
+	dd_add_debug(dd);
 
 	if (dd->type && !dd->type_info)
 		goto out;
@@ -1424,16 +1432,17 @@ static int dd_source_name(struct demangle_data *dd)
 			goto out;
 	}
 
+	add_name = true;
 	dd_append_separator(dd, "::");
 
 	p = dd->old + dd->pos;
 	dollar = strchr(p, '$');
 	if (dollar == NULL)
-		goto out_append;
+		goto out;
 
 	end = p + num;
 	if (dollar > end)
-		goto out_append;
+		goto out;
 
 	/* check special symbol mappings (e.g. '$LT$') for Rust */
 	while (dollar != NULL && dollar < end) {
@@ -1447,6 +1456,7 @@ static int dd_source_name(struct demangle_data *dd)
 				    strlen(rust_mappings[i].code)))
 				continue;
 
+			dd_add_debug(dd);
 			dd_append(dd, rust_mappings[i].punc);
 			num += strlen(rust_mappings[i].code) + 2;
 			__dd_consume_n(dd, num, NULL);
@@ -1464,11 +1474,10 @@ static int dd_source_name(struct demangle_data *dd)
 	}
 	num = end - p;
 
-out_append:
-	dd_append_len(dd, p, num);
 out:
+	if (add_name)
+		dd_append_len(dd, p, num);
 	__dd_consume_n(dd, num, NULL);
-	__dd_add_debug(dd, __func__);
 	return 0;
 }
 
