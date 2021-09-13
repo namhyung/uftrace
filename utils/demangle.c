@@ -1657,24 +1657,31 @@ static int dd_name(struct demangle_data *dd)
 static int dd_encoding(struct demangle_data *dd)
 {
 	int ret;
-	char c = dd_curr(dd);
+	char c;
 	char end[] = "E.@";
 
 	if (dd_eof(dd))
 		return -1;
 
-	dd_add_debug(dd);
+	if (dd->pos == 0)
+		dd_consume_n(dd, 2);  /* skip initial "_Z" */
+	else
+		dd_add_debug(dd);
 
-	if (c == 'T' || c == 'G')
-		return dd_special_name(dd);
+	dd->level++;
+
+	c = dd_curr(dd);
+	if (c == 'T' || c == 'G') {
+		ret = dd_special_name(dd);
+		dd->level--;
+		return ret;
+	}
 
 	ret = dd_name(dd);
 	if (ret < 0)
 		return ret;
 
 	while (!dd_eof(dd) && !strchr(end, dd_curr(dd))) {
-		__dd_add_debug(dd, "dd_type");
-
 		if (dd_type(dd) < 0)
 			break;
 	}
@@ -1686,6 +1693,7 @@ static int dd_encoding(struct demangle_data *dd)
 	if (dd_curr(dd) == '@')
 		dd->len = dd->pos;
 
+	dd->level--;
 	return 0;
 }
 
@@ -1706,9 +1714,6 @@ static char *demangle_simple(char *str)
 
 	if (dd.old[0] != '_' || dd.old[1] != 'Z')
 		return xstrdup(str);
-
-	dd.pos = 2;
-	dd.new = xzalloc(0);
 
 	if (dd_encoding(&dd) < 0 || dd.level != 0) {
 		dd_debug_print(&dd);
