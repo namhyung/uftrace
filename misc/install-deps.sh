@@ -13,7 +13,7 @@ distro=$(grep "^ID=" /etc/os-release | cut -d\= -f2 | sed -e 's/"//g')
 
 case $distro in
     "ubuntu" | "debian" | "raspbian" | "kali" | "linuxmint")
-        apt-get $OPT install pandoc libdw-dev libpython3-dev libncursesw5-dev pkg-config
+        apt-get $OPT install pandoc libdw-dev python3-dev libncursesw5-dev pkg-config
         apt-get $OPT install libluajit-5.1-dev || true
         apt-get $OPT install libcapstone-dev || true ;;
     "fedora")
