@@ -13,7 +13,7 @@ def uftrace_begin(ctx):
 
 def uftrace_entry(ctx):
     _name = ctx["name"]
-    if libcall_map.has_key(_name):
+    if _name in libcall_map:
         libcall_map[_name] += 1
     else:
         libcall_map[_name] = 1
@@ -23,7 +23,7 @@ def uftrace_exit(ctx):
 
 def uftrace_end():
     global libcall_map
-    sorted_dict = sorted(libcall_map.iteritems(), key=lambda (k, v): (v, k), reverse=True)
+    sorted_dict = sorted(libcall_map.items(), key=lambda k: k[1], reverse=True)
 
     pid = os.getpid()
     with open("/proc/%s/comm" % pid) as proc_comm:
