@@ -27,6 +27,12 @@ ifeq ($(shell pkg-config python3-embed --exists 2> /dev/null; echo $$?), 0)
   EMBED := -embed
 endif
 
+ifneq ($(O), )
+  CHKDIR := $(O)/check-deps
+else
+  CHKDIR := $(CURDIR)
+endif
+
 CFLAGS_cc_has_mfentry = -mfentry
 LDFLAGS_cxa_demangle = -lstdc++
 LDFLAGS_have_libelf = -lelf
@@ -46,16 +52,17 @@ CFLAGS_have_libunwind  = $(shell pkg-config --cflags libunwind 2> /dev/null)
 LDFLAGS_have_libunwind = $(shell pkg-config --libs   libunwind 2> /dev/null)
 CFLAGS_cc_has_minline_all_stringops = -minline-all-stringops
 
-check-build: check-tstamp $(CHECK_LIST)
+check-build: $(CHKDIR)/check-tstamp $(CHECK_LIST)
 
 $(CHECK_LIST): %: __%.c
-	@$(CC) $(CHECK_CFLAGS) -o $@ $< $(CHECK_LDFLAGS) > /dev/null 2>&1
+	@$(CC) $(CHECK_CFLAGS) -o $(CHKDIR)/$@  $< $(CHECK_LDFLAGS) > /dev/null 2>&1
 
-check-tstamp: PHONY
+$(CHKDIR)/check-tstamp: PHONY
+	@mkdir -p $(dir $@)
 	@touch $@
 	@if [ `id -u` -eq 0 ]; then chmod 666 $@; fi
 
 check-clean:
-	@$(RM) $(shell find -type f -executable) check-tstamp *.o
+	@$(RM) $(shell find $(CHKDIR) -type f -executable 2> /dev/null) $(CHKDIR)/check-tstamp $(CHKDIR)/*.o
 
 .PHONY: PHONY;

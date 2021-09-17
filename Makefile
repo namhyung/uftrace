@@ -143,7 +143,7 @@ VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
 
 all:
 
-ifneq ($(wildcard $(srcdir)/check-deps/check-tstamp),)
+ifneq ($(wildcard $(objdir)/check-deps/check-tstamp),)
   include $(srcdir)/check-deps/Makefile.check
 endif
 
@@ -231,14 +231,10 @@ MAKEFLAGS += --no-print-directory
 all: $(objdir)/.config $(TARGETS)
 
 $(objdir)/.config: $(srcdir)/configure $(srcdir)/check-deps/Makefile
-	$(QUIET_GEN)$(srcdir)/configure -p -o $@ $(MAKEOVERRIDES)
-	@$(MAKE) -C $(objdir)
-# The above recursive make will handle all build procedure with
-# updated dependency.  So just abort the current build.
-	$(error)
+	$(error Please run 'configure' first)
 
 config: $(srcdir)/configure
-	$(QUIET_GEN)$(srcdir)/configure -o $(objdir)/.config $(MAKEOVERRIDES)
+	$(QUIET_GEN)$(srcdir)/configure --objdir=$(objdir) $(MAKEOVERRIDES)
 
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/libmcount/%.op: $(srcdir)/utils/%.c $(LIBMCOUNT_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
@@ -302,7 +298,7 @@ $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
-	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(ARCH) $(srcdir)
+	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(ARCH) $(objdir)
 
 $(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
 	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
