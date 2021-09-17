@@ -1,3 +1,36 @@
+uftrace v0.11
+=============
+* new options
+  --format=html to print a html page directly  (#1308)
+  --with-syms to replay/report with existing symbol data  (#1228)
+
+* new features
+  support note.txt in the data directory to put extra notes  (#1307)
+  improve debugging with stacktrace using libunwind  (#1177)
+  support customizing output fields in TUI report (#1270)
+
+* dynamic tracing updates
+  support -mfentry -mnop-mcount on i386  (#1296)
+  dynamic tracing for clang XRay v2  (#1265)
+  SONAME support for library patterns in dynamic tracing  (#1216)
+
+* bug fixes
+  fix two similar struct arguments are used  (#1281)
+  fix struct argument is used in uftrace script  (#1282)
+  fix TUI info mode crash in a large screen
+  fix crash in the USDT event tracing  (#1286)
+
+* other changes
+  update and fix build with python3  (#1271, #1344)
+  ignore remaining schedule events in replay  (#1293)
+  enable undefined-behavior sanitizer (ubsan) with ASAN=1  (#1295)
+
+And many other fixes and improvements.  Thanks all contributors:
+  Bernhard Kaindl, Gabriel-Andrew Pollo-Guilbert, Hanbum Park
+  Honggyu Kim, Kang Minchul, Kun-Chuan Hsieh, Michael Sartain
+  Sangwon Hong
+
+
 uftrace v0.10
 =============
 * new options
