@@ -50,6 +50,12 @@
 
 enum symbol_demangler demangler = DEMANGLE_SIMPLE;
 
+struct demangle_debug {
+	const char *func;
+	int level;
+	int pos;
+};
+
 struct demangle_data {
 	char *old;
 	char *new;
@@ -67,7 +73,7 @@ struct demangle_data {
 	bool type_info;
 	bool first_name;
 	bool ignore_disc;
-	const char *debug[MAX_DEBUG_DEPTH];
+	struct demangle_debug debug[MAX_DEBUG_DEPTH];
 };
 
 static char dd_expbuf[2];
@@ -89,10 +95,15 @@ static char dd_curr(struct demangle_data *dd)
 	return dd_peek(dd, 0);
 }
 
-static void __dd_add_debug(struct demangle_data *dd, const char *dbg)
+static void __dd_add_debug(struct demangle_data *dd, const char *func)
 {
-	if (dd->nr_dbg < MAX_DEBUG_DEPTH && dbg)
-		dd->debug[dd->nr_dbg++] = dbg;
+	if (dd->nr_dbg < MAX_DEBUG_DEPTH && func) {
+		struct demangle_debug *dbg = &dd->debug[dd->nr_dbg++];
+
+		dbg->func = func;
+		dbg->level = dd->level;
+		dbg->pos = dd->pos;
+	}
 }
 
 static char __dd_consume_n(struct demangle_data *dd, int n, const char *dbg)
@@ -175,8 +186,14 @@ static void dd_debug_print(struct demangle_data *dd)
 		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
 
 	pr_dbg4("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
-	for (i = 0; i < dd->nr_dbg; i++)
-		pr_dbg4("  [%d] %s\n", i, dd->debug[i]);
+	for (i = 0; i < dd->nr_dbg; i++) {
+		struct demangle_debug *dbg = &dd->debug[i];
+
+		pr_dbg4("  [%02d] (%03d/%c%c) %*s%s\n",
+			i, dbg->pos, dbg->pos < dd->len ? dd->old[dbg->pos] : ' ',
+			dbg->pos + 1 < dd->len ? dd->old[dbg->pos+1] : ' ',
+			dbg->level * 2, "", dbg->func);
+	}
 }
 
 static const struct {
@@ -306,6 +323,7 @@ static int dd_local_name(struct demangle_data *dd);
 static int dd_source_name(struct demangle_data *dd);
 static int dd_operator_name(struct demangle_data *dd);
 static int dd_nested_name(struct demangle_data *dd);
+static int dd_unqualified_name(struct demangle_data *dd);
 static int dd_type(struct demangle_data *dd);
 static int dd_decltype(struct demangle_data *dd);
 static int dd_expression(struct demangle_data *dd);
@@ -372,8 +390,10 @@ static int dd_seq_id(struct demangle_data *dd)
 		return -1;
 
 	/* just skip for now */
-	while (isdigit(c) || isupper(c))
+	while (isdigit(c) || isupper(c)) {
+		dd_add_debug(dd);
 		c = dd->old[++dd->pos];
+	}
 	return 0;
 }
 
@@ -614,6 +634,8 @@ static int dd_unresolved_type(struct demangle_data *dd)
 			return -1;
 		if (dd_curr(dd) == 'I')
 			return dd_template_args(dd);
+		if (isdigit(dd_curr(dd)))
+			return dd_unqualified_name(dd);
 		return 0;
 	}
 	return -1;
@@ -670,32 +692,38 @@ static int dd_unresolved_name(struct demangle_data *dd)
 
 	if (c0 == 's' && c1 == 'r') {
 		dd_consume_n(dd, 2);
-		if (dd_curr(dd) == 'N')
-			__dd_consume(dd, NULL);
 
 		c0 = dd_curr(dd);
 		if (c0 == 'T' || c0 == 'D' || c0 == 'S') {
-			if (dd_unresolved_type(dd) < 0)
+			if (dd_type(dd) < 0)
+				return -1;
+
+			if (dd_base_unresolved_name(dd) < 0)
+				return -1;
+
+			if (dd_curr(dd) == 'I')
+				dd_template_args(dd);
+
+			return 0;
+		}
+
+		if (c0 == 'N') {
+			__dd_consume(dd, NULL);
+			if (dd_type(dd) < 0)
 				return -1;
 		}
 
 		c0 = dd_curr(dd);
-		c1 = dd_peek(dd, 1);
-
-		while (isdigit(c0)) {
+		while (c0 != 'E') {
 			if (dd_simple_id(dd) < 0)
-				return -1;
+				return 0;
 			c0 = dd_curr(dd);
-			c1 = dd_peek(dd, 1);
 		}
 
-		if (c0 == 'E') {
-			dd_consume(dd);
-			return dd_base_unresolved_name(dd);
-		}
-		if ((c0 == 'o' || c0 == 'd') && c1 == 'n')
-			return dd_base_unresolved_name(dd);
-		return 0;
+		if (c0 != 'E')
+			pr_dbg("no E\n");
+
+		__DD_DEBUG_CONSUME(dd, 'E');
 	}
 
 	return dd_base_unresolved_name(dd);
@@ -1035,6 +1063,8 @@ static int dd_type(struct demangle_data *dd)
 
 	/* ignore type names */
 	dd->type++;
+	dd_add_debug(dd);
+	dd->level++;
 
 	while (!done && !dd_eof(dd)) {
 		char c = dd_curr(dd);
@@ -1093,7 +1123,10 @@ static int dd_type(struct demangle_data *dd)
 			done = 1;
 		}
 		else if (c == 'S') {
+			c = dd_peek(dd, 1);
 			ret = dd_substitution(dd);
+			if (!ret && c == 't' && isdigit(dd_curr(dd)))
+				ret = dd_unqualified_name(dd);
 			if (dd_curr(dd) == 'I')
 				ret = dd_template_args(dd);
 			done = 1;
@@ -1130,7 +1163,7 @@ static int dd_type(struct demangle_data *dd)
 			/* builtin types */
 			for (i = 0; i < ARRAY_SIZE(types); i++) {
 				if (c == types[i].code) {
-					dd_consume(dd);
+					__dd_consume(dd, NULL);
 					ret = 0;
 					break;
 				}
@@ -1139,6 +1172,7 @@ static int dd_type(struct demangle_data *dd)
 		}
 	}
 
+	dd->level--;
 	dd->type--;
 	return ret;
 }
@@ -1218,6 +1252,8 @@ static int dd_special_name(struct demangle_data *dd)
 
 			if (dd_number(dd) < 0)
 				return -1;
+			if (dd_eof(dd))
+				return 0;
 			__DD_DEBUG_CONSUME(dd, '_');
 
 			/*
@@ -1383,12 +1419,15 @@ static int dd_source_name(struct demangle_data *dd)
 	char *dollar;
 	char *p, *end;
 	unsigned i;
+	bool add_name = false;
 
 	if (num < 0)
 		return -1;
 
 	if (dd_eof(dd) || dd->pos + num > dd->len)
 		DD_DEBUG(dd, "shorter name", 0);
+
+	dd_add_debug(dd);
 
 	if (dd->type && !dd->type_info)
 		goto out;
@@ -1407,16 +1446,17 @@ static int dd_source_name(struct demangle_data *dd)
 			goto out;
 	}
 
+	add_name = true;
 	dd_append_separator(dd, "::");
 
 	p = dd->old + dd->pos;
 	dollar = strchr(p, '$');
 	if (dollar == NULL)
-		goto out_append;
+		goto out;
 
 	end = p + num;
 	if (dollar > end)
-		goto out_append;
+		goto out;
 
 	/* check special symbol mappings (e.g. '$LT$') for Rust */
 	while (dollar != NULL && dollar < end) {
@@ -1430,6 +1470,7 @@ static int dd_source_name(struct demangle_data *dd)
 				    strlen(rust_mappings[i].code)))
 				continue;
 
+			dd_add_debug(dd);
 			dd_append(dd, rust_mappings[i].punc);
 			num += strlen(rust_mappings[i].code) + 2;
 			__dd_consume_n(dd, num, NULL);
@@ -1447,11 +1488,10 @@ static int dd_source_name(struct demangle_data *dd)
 	}
 	num = end - p;
 
-out_append:
-	dd_append_len(dd, p, num);
 out:
+	if (add_name)
+		dd_append_len(dd, p, num);
 	__dd_consume_n(dd, num, NULL);
-	__dd_add_debug(dd, __func__);
 	return 0;
 }
 
@@ -1631,24 +1671,31 @@ static int dd_name(struct demangle_data *dd)
 static int dd_encoding(struct demangle_data *dd)
 {
 	int ret;
-	char c = dd_curr(dd);
+	char c;
 	char end[] = "E.@";
 
 	if (dd_eof(dd))
 		return -1;
 
-	dd_add_debug(dd);
+	if (dd->pos == 0)
+		dd_consume_n(dd, 2);  /* skip initial "_Z" */
+	else
+		dd_add_debug(dd);
 
-	if (c == 'T' || c == 'G')
-		return dd_special_name(dd);
+	dd->level++;
+
+	c = dd_curr(dd);
+	if (c == 'T' || c == 'G') {
+		ret = dd_special_name(dd);
+		dd->level--;
+		return ret;
+	}
 
 	ret = dd_name(dd);
 	if (ret < 0)
 		return ret;
 
 	while (!dd_eof(dd) && !strchr(end, dd_curr(dd))) {
-		__dd_add_debug(dd, "dd_type");
-
 		if (dd_type(dd) < 0)
 			break;
 	}
@@ -1660,6 +1707,7 @@ static int dd_encoding(struct demangle_data *dd)
 	if (dd_curr(dd) == '@')
 		dd->len = dd->pos;
 
+	dd->level--;
 	return 0;
 }
 
@@ -1680,9 +1728,6 @@ static char *demangle_simple(char *str)
 
 	if (dd.old[0] != '_' || dd.old[1] != 'Z')
 		return xstrdup(str);
-
-	dd.pos = 2;
-	dd.new = xzalloc(0);
 
 	if (dd_encoding(&dd) < 0 || dd.level != 0) {
 		dd_debug_print(&dd);
@@ -1917,6 +1962,10 @@ TEST_CASE(demangle_simple8)
 		      "__ref_temp__blink::Variable::GetPropertyNameAtomicString::name");
 	DEMANGLE_TEST("_ZNSt14numeric_limitsIDuE8is_exactE",
 		      "std::numeric_limits::is_exact");
+	DEMANGLE_TEST("_ZTCSt10istrstream0_Si",
+		      "__construction_vtable__std::istrstream");
+	DEMANGLE_TEST("_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
+		      "__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
 
 	return TEST_OK;
 }
