@@ -52,9 +52,9 @@ CFLAGS_have_libunwind  = $(shell pkg-config --cflags libunwind 2> /dev/null)
 LDFLAGS_have_libunwind = $(shell pkg-config --libs   libunwind 2> /dev/null)
 CFLAGS_cc_has_minline_all_stringops = -minline-all-stringops
 
-check-build: $(CHKDIR)/check-tstamp $(CHECK_LIST)
+check-build: $(CHECK_LIST)
 
-$(CHECK_LIST): %: __%.c
+$(CHECK_LIST): %: __%.c $(CHKDIR)/check-tstamp
 	@$(CC) $(CHECK_CFLAGS) -o $(CHKDIR)/$@  $< $(CHECK_LDFLAGS) > /dev/null 2>&1
 
 $(CHKDIR)/check-tstamp: PHONY
