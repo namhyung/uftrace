@@ -34,6 +34,11 @@ TUI OPTIONS
     The special field 'none' can be used (solely) to hide all fields.
     See `uftrace-graph`(1) or `uftrace-report`(1) for an explanation of fields.
 
+-s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
+:   Sort functions by given KEYS. Multiple KEYS can be given, separated by comma (,).
+    Possible keys are total (time), total-avg, total-min, total-max, self (time), self-avg,
+    self-min, self-max, call and func.
+    This option must be used with --report option.
 
 COMMON OPTIONS
 ==============
