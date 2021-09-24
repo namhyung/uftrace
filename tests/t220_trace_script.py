@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-import os, stat
+import os
+import stat
+
 from runtest import TestBase
 
 TEST_SCRIPT = "./test-script.sh"

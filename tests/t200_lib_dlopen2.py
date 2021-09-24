@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from runtest import TestBase
 import os
+
+from runtest import TestBase
 
 class TestCase(TestBase):
     """This tests when dlopen() loads multiple libraries (libbar and libbaz)

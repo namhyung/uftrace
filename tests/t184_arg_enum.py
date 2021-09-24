@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from runtest import TestBase
 import re
+
+from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
