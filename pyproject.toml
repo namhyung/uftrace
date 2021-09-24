@@ -1,0 +1,8 @@
+[tool.isort]
+profile = "black"
+lines_between_types = 0
+lines_after_imports = 1
+combine_as_imports = true
+ignore_whitespace = true
+skip_gitignore = true
+

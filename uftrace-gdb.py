@@ -22,9 +22,9 @@ try:
 except:
     gdb.write("NOTE: gdb 7.2 or later required for helper scripts to work.\n")
 else:
-    import uftrace.utils
     import uftrace.lists
-    import uftrace.plthook
     import uftrace.mcount
+    import uftrace.plthook
     import uftrace.rbtree
     import uftrace.trigger
+    import uftrace.utils

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from runtest import TestBase
 import subprocess as sp
+
+from runtest import TestBase
 
 # Test that task.txt files with a tid in the SESS line still work
 

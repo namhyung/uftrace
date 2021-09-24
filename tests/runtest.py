@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-import random
-import os, sys
-import tempfile
-import glob, re
-import subprocess as sp
+import glob
 import multiprocessing
+import os
+import random
+import re
+import subprocess as sp
+import sys
+import tempfile
 import time
 
 class TestBase:

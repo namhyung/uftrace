@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from runtest import TestBase
 import os
+
+from runtest import TestBase
 
 # there was a problem applying depth filter if it contains kernel functions
 class TestCase(TestBase):
