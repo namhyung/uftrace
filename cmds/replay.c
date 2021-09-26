@@ -113,6 +113,8 @@ static void print_module(struct field_data *fd)
 			modname = "[kernel]";
 		else if (map)
 			modname = basename(map->libname);
+		else if (is_sched_event(fstack->addr))
+			modname = "[event]";
 	}
 
 	pr_out("%*.*s", 16, 16, modname);
