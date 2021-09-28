@@ -507,6 +507,7 @@ struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 					       unsigned long addr);
 bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 		       unsigned long target);
+void mcount_free_badsym(struct mcount_dynamic_info *mdi);
 
 struct mcount_event_info {
 	char *module;

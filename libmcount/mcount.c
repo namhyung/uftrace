@@ -2137,4 +2137,33 @@ TEST_CASE(mcount_estimate_return_depth)
 	return TEST_OK;
 }
 
+#define TESTDIR_NAME  "testdir"
+
+TEST_CASE(mcount_setup)
+{
+	setenv("UFTRACE_DIR", TESTDIR_NAME, 1);
+	setenv("UFTRACE_FILTER", "mcount.*_init", 1);
+	setenv("UFTRACE_ESTIMATE_RETURN", "1", 1);
+
+	create_directory(TESTDIR_NAME);
+
+	TEST_EQ(mcount_global_flags, MCOUNT_GFL_SETUP);
+	TEST_EQ(mcount_return_fn, 0);
+
+	/* just to detect sanitizer failures */
+	mcount_startup();
+
+	TEST_EQ(mcount_global_flags, 0);
+	TEST_EQ(mcount_estimate_return, true);
+	TEST_NE(mcount_return_fn, 0);
+
+	mcount_cleanup();
+
+	TEST_EQ(mcount_global_flags, MCOUNT_GFL_FINISH);
+
+	remove_directory(TESTDIR_NAME);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */

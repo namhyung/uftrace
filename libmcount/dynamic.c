@@ -726,6 +726,16 @@ bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 	return true;
 }
 
+void mcount_free_badsym(struct mcount_dynamic_info *mdi)
+{
+	struct dynamic_bad_symbol *badsym, *tmp;
+
+	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
+		list_del(&badsym->list);
+		free(badsym);
+	}
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(dynamic_find_code)
 {
@@ -807,6 +817,79 @@ TEST_CASE(dynamic_pattern_list)
 
 	free(main_map);
 	free(other_map);
+
+	return TEST_OK;
+}
+
+struct test_map_data {
+	struct mcount_dynamic_info *mdi;
+};
+
+/* callback for dl_iterate_phdr() */
+static int setup_test_map(struct dl_phdr_info *info, size_t sz, void *data)
+{
+	struct test_map_data *tmd = data;
+	struct mcount_dynamic_info *mdi;
+	struct uftrace_mmap *map;
+	struct uftrace_module *mod;
+	static struct sym syms[] = {
+		{ 0x100, 0x100, ST_LOCAL_FUNC, "a" },
+		{ 0x200, 0x100, ST_LOCAL_FUNC, "b" },
+		{ 0x300, 0x100, ST_LOCAL_FUNC, "c" },
+	};
+
+	mdi = create_mdi(info);
+
+	map = xzalloc(sizeof(*map) + 16);
+	map->start = info->dlpi_addr;
+	map->end = map->start + 0x1000;
+	strcpy(map->libname, "main");
+	map->len = strlen(map->libname);
+	mcount_memcpy1(map->prot, "r-xp", 4);
+
+	mod = xzalloc(sizeof(*mod) + 16);
+	strcpy(mod->name, "main");
+	mod->symtab.sym = syms;
+	mod->symtab.nr_sym = ARRAY_SIZE(syms);
+
+	map->mod = mod;
+	mdi->map = map;
+	tmd->mdi = mdi;
+
+	return 1;
+};
+
+static void cleanup_test_map(struct mcount_dynamic_info *mdi)
+{
+	struct uftrace_mmap *map = mdi->map;
+	struct uftrace_module *mod = map->mod;
+
+	free(mod);
+	free(map);
+	free(mdi);
+}
+
+TEST_CASE(dynamic_find_badsym)
+{
+	struct test_map_data tmd = {};
+	unsigned long base;
+
+	pr_dbg("setup test map info\n");
+	dl_iterate_phdr(setup_test_map, &tmd);
+	base = tmd.mdi->map->start;
+
+	pr_dbg("adding bad symbols\n");
+	TEST_EQ(mcount_add_badsym(tmd.mdi, 0, base + 0x100), false);
+	TEST_EQ(mcount_add_badsym(tmd.mdi, 0, base + 0x234), true);
+
+	pr_dbg("finding bad symbols\n");
+	TEST_EQ(mcount_find_badsym(tmd.mdi, base + 0x100), NULL);
+	TEST_NE(mcount_find_badsym(tmd.mdi, base + 0x234), NULL);  /* found */
+	TEST_EQ(mcount_find_badsym(tmd.mdi, base + 0x369), NULL);
+
+	pr_dbg("cleanup test map info\n");
+	mcount_free_badsym(tmd.mdi);
+	cleanup_test_map(tmd.mdi);
 
 	return TEST_OK;
 }
