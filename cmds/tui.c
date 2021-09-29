@@ -1432,15 +1432,40 @@ static int count_selected_report_sort_key(void)
 	return count;
 }
 
+static void curr_sort_key_init(char *sort_keys)
+{
+	int count = count_selected_report_sort_key();
+	int i;
+
+	for (i = 0; i < count; i++) {
+		const char *key = selected_report_sort_key[i];
+
+		if (!strncmp(sort_keys, key, strlen(key))) {
+			curr_sort_key = i;
+			break;
+		}
+	}
+}
+
 /* per-window operations for report window */
 static struct tui_report * tui_report_init(struct opts *opts)
 {
 	struct tui_window *win = &tui_report.win;
+	char *sort_keys;
 
 	report_calc_avg(&tui_report.name_tree);
 	report_sort_key_init();
-	if (count_selected_report_sort_key())
-		report_setup_sort(selected_report_sort_key[curr_sort_key]);
+
+	if (count_selected_report_sort_key()) {
+		if (opts->report && opts->sort_keys) {
+			sort_keys = convert_sort_keys(opts->sort_keys, AVG_NONE);
+			curr_sort_key_init(sort_keys);
+		}
+		else {
+			sort_keys = selected_report_sort_key[curr_sort_key];
+		}
+		report_setup_sort(sort_keys);
+	}
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 
 	tui_window_init(win, &report_ops);
@@ -2539,8 +2564,6 @@ static void update_report_output_fields(bool report_field_flags[]) {
 
 	list_for_each_entry_safe(field, tmp, &report_output_fields, list)
 		del_field(field);
-
-	curr_sort_key = 0;
 
 	for (i = 0; i < NUM_REPORT_FIELD; i++)
 		selected_report_sort_key[i] = NULL;

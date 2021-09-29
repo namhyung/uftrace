@@ -32,6 +32,11 @@ TUI 옵션
     'none' 과 같은 특수 필드를 사용하면 모든 필드를 숨길 수 있다.
     필드에 대한 설명은 `uftrace-graph`(1) 또는 `uftrace-report`(1)를 참고한다.
 
+-s *KEYS*[,*KEYS*,...], --sort=*KEYS*[,*KEYS*,...]
+:   주어진 키를 기반으로 함수들을 정렬한다.
+    여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.  total (time), total-avg,
+    total-min, total-max, self (time), self-avg, self-min, self-max, call, func를 키로
+    이용할 수 있다.  이 옵션은 반드시 --report 옵션과 함께 사용해야 한다.
 
 공통 옵션
 =========

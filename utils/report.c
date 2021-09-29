@@ -199,6 +199,54 @@ static struct sort_key * all_sort_keys[] = {
 /* list of used sort keys */
 static LIST_HEAD(sort_keys);
 
+char * convert_sort_keys(char *sort_keys, enum avg_mode avg_mode)
+{
+	const char *default_sort_key[] = { OPT_SORT_KEYS,
+					   "total_avg", "self_avg" };
+	struct strv keys = STRV_INIT;
+	char *new_keys;
+	char *k;
+	int i;
+
+	if (sort_keys == NULL)
+		return xstrdup(default_sort_key[avg_mode]);
+
+	if (avg_mode == AVG_NONE) {
+		char *s;
+
+		s = new_keys = xstrdup(sort_keys);
+		while (*s) {
+			if (*s == '-')
+				*s = '_';
+			s++;
+		}
+
+		return new_keys;
+	}
+
+	strv_split(&keys, sort_keys, ",");
+
+	strv_for_each(&keys, k, i) {
+		if (!strcmp(k, "avg")) {
+			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
+				     "total_avg" : "self_avg");
+		}
+		else if (!strcmp(k, "min")) {
+			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
+				     "total_min" : "self_min");
+		}
+		else if (!strcmp(k, "max")) {
+			strv_replace(&keys, i, avg_mode == AVG_TOTAL ?
+				     "total_max" : "self_max");
+		}
+	}
+
+	new_keys = strv_join(&keys, ",");
+	strv_free(&keys);
+
+	return new_keys;
+}
+
 int report_setup_sort(const char *key_str)
 {
 	struct strv keys = STRV_INIT;
