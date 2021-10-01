@@ -21,7 +21,7 @@ to help analysis of the program execution and performance.
 Features
 ========
 
-It traces each function in the executable and shows time duration.  It
+Traces each function in the executable and shows time duration.  It
 can also trace external library calls - but usually entry and exit are
 supported.  Optionally it's possible to trace other (nested) external
 library calls and/or internal function calls in the library call.
@@ -48,7 +48,7 @@ recommend to install them together.
 
     $ sudo misc/install-deps.sh
 
-Once you installed required software(s) on your system, it can be built and
+Once you have installed required software(s) on your system, it can be built and
 installed like following:
 
     $ ./configure
