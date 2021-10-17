@@ -8,6 +8,7 @@
 #  histogram of return value of 'strlen'
 #
 #   <     0b  :          0  (  0.0 %)
+#   <     1b  :          0  (  0.0 %)
 #   <     2b  :          5  (  2.3 %)
 #   <     4b  :         11  (  5.1 %)
 #   <     8b  :         24  ( 11.1 %)
@@ -37,8 +38,8 @@ divider = {
 
 def create_histogram():
     h = []
-    # 1 ~ 1024 (logarithm) = 10 + 2 (= lower/upper bounds)
-    for i in range(12):
+    # 1 ~ 1024 (logarithm) = 11 + 2 (= lower/upper bounds)
+    for i in range(13):
         h.append(0)
     return h
 
@@ -46,10 +47,10 @@ def get_histogram_index(val):
     if val < 0:
         return 0
     val = int(val / divider[unit])
-    for i in range(10):
-        if val < (1 << (i+1)):
+    for i in range(11):
+        if val < (1 << i):
             return i+1
-    return 11
+    return 12
 
 def print_histogram():
     print("histogram of return value of '%s'\n" % func)
@@ -60,9 +61,9 @@ def print_histogram():
         return
 
     print(" <  %4d%s  : %10d  (%5.1f %%)" % (0, unit, histo[0], 100.0 * histo[0] / total))
-    for i in range(10):
-        print(" <  %4d%s  : %10d  (%5.1f %%)" % (1 << (i+1), unit, histo[i+1], 100.0 * histo[i+1] / total))
-    print(" >= %4d%s  : %10d  (%5.1f %%)" % (1024, unit, histo[11], 100.0 * histo[11] / total))
+    for i in range(11):
+        print(" <  %4d%s  : %10d  (%5.1f %%)" % (1 << i, unit, histo[i+1], 100.0 * histo[i+1] / total))
+    print(" >= %4d%s  : %10d  (%5.1f %%)" % (1024, unit, histo[12], 100.0 * histo[12] / total))
 
 def parse_args(args):
     global func, unit
