@@ -1462,9 +1462,10 @@ static struct tui_report * tui_report_init(struct opts *opts)
 			curr_sort_key_init(sort_keys);
 		}
 		else {
-			sort_keys = selected_report_sort_key[curr_sort_key];
+			sort_keys = xstrdup(selected_report_sort_key[curr_sort_key]);
 		}
 		report_setup_sort(sort_keys);
+		free(sort_keys);
 	}
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
 
