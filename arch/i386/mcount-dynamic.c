@@ -133,8 +133,8 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(&insn[1], &target_addr, sizeof(target_addr));
 
-	pr_dbg3("update function '%s' dynamically to call __fentry__\n",
-		sym->name);
+	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n",
+		insn, sym->name);
 
 	return 0;
 }
