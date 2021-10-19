@@ -5,6 +5,47 @@
 
 #include "utils/symbol.h"
 
+#define PAGE_SIZE  4096
+#define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
+#define PAGE_LEN(a, l)    (a + l - (unsigned long)PAGE_ADDR(a))
+#define XRAY_SECT  "xray_instr_map"
+#define MCOUNTLOC_SECT  "__mcount_loc"
+
+/* target instrumentation function it needs to call */
+extern void __fentry__(void);
+extern void __dentry__(void);
+extern void __xray_entry(void);
+extern void __xray_exit(void);
+
+struct xray_instr_map {
+	uint64_t address;
+	uint64_t function;
+	uint8_t kind;
+	uint8_t always_instrument;
+	uint8_t version;
+	uint8_t padding[13];
+};
+
+enum mcount_dynamic_type {
+	DYNAMIC_NONE,
+	DYNAMIC_PG,
+	DYNAMIC_FENTRY,
+	DYNAMIC_FENTRY_NOP,
+	DYNAMIC_XRAY,
+};
+
+__maybe_unused static const char *adi_type_names[] = {
+	"none", "pg", "fentry", "fentry-nop", "xray",
+};
+
+struct arch_dynamic_info {
+	enum mcount_dynamic_type	type;
+	struct xray_instr_map		*xrmap;
+	unsigned long			*mcount_loc;
+	unsigned			xrmap_count;
+	unsigned			nr_mcount_loc;
+};
+
 struct mcount_dynamic_info {
 	struct mcount_dynamic_info *next;
 	struct uftrace_mmap *map;

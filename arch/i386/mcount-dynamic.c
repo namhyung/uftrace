@@ -11,30 +11,6 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define PAGE_SIZE  4096
-
-/* target instrumentation function it needs to call */
-extern void __fentry__(void);
-
-enum mcount_i386_dynamic_type {
-	DYNAMIC_NONE,		/* not supported */
-	DYNAMIC_PG,
-	DYNAMIC_FENTRY,
-	DYNAMIC_FENTRY_NOP,
-};
-
-static const char *adi_type_names[] = {
-	"none", "pg", "fentry", "fentry-nop",
-};
-
-struct arch_dynamic_info {
-	enum mcount_i386_dynamic_type	type;
-	struct xray_instr_map		*xrmap;
-	unsigned long			*mcount_loc;
-	unsigned			xrmap_count;
-	unsigned			nr_mcount_loc;
-};
-
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
