@@ -22,6 +22,7 @@
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "libmcount/dynamic.h"
 #include "mcount-arch.h"
 #include "version.h"
 #include "utils/utils.h"

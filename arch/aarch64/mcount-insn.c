@@ -1,4 +1,5 @@
 #include "libmcount/internal.h"
+#include "libmcount/dynamic.h"
 #include "mcount-arch.h"
 
 #define INSN_SIZE  8

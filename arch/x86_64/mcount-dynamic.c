@@ -8,6 +8,7 @@
 
 #include "mcount-arch.h"
 #include "libmcount/internal.h"
+#include "libmcount/dynamic.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
