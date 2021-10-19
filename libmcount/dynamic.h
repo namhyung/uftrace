@@ -34,16 +34,8 @@ enum mcount_dynamic_type {
 	DYNAMIC_XRAY,
 };
 
-__maybe_unused static const char *adi_type_names[] = {
+__maybe_unused static const char *mdi_type_names[] = {
 	"none", "pg", "fentry", "fentry-nop", "xray",
-};
-
-struct arch_dynamic_info {
-	enum mcount_dynamic_type	type;
-	struct xray_instr_map		*xrmap;
-	unsigned long			*mcount_loc;
-	unsigned			xrmap_count;
-	unsigned			nr_mcount_loc;
 };
 
 struct mcount_dynamic_info {
@@ -54,7 +46,11 @@ struct mcount_dynamic_info {
 	int text_size;
 	unsigned long trampoline;
 	struct list_head bad_syms;
-	void *arch;
+	enum mcount_dynamic_type type;
+	struct xray_instr_map *xrmap;
+	unsigned long *mcount_loc;
+	unsigned xrmap_count;
+	unsigned nr_mcount_loc;
 };
 
 struct mcount_disasm_engine {

@@ -236,7 +236,6 @@ __weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 __weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 				    struct symtab *symtab)
 {
-	mdi->arch = NULL;
 }
 
 __weak void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,

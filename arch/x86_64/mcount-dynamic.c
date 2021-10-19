@@ -18,11 +18,10 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	unsigned long fentry_addr = (unsigned long)__fentry__;
 	unsigned long xray_entry_addr = (unsigned long)__xray_entry;
 	unsigned long xray_exit_addr = (unsigned long)__xray_exit;
-	struct arch_dynamic_info *adi = mdi->arch;
 	size_t trampoline_size = 16;
 	void *trampoline_check;
 
-	if (adi->type == DYNAMIC_XRAY)
+	if (mdi->type == DYNAMIC_XRAY)
 		trampoline_size *= 2;
 
 	/* find unused 16-byte at the end of the code segment */
@@ -52,7 +51,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		return -1;
 	}
 
-	if (adi->type == DYNAMIC_XRAY) {
+	if (mdi->type == DYNAMIC_XRAY) {
 		/* jmpq  *0x1(%rip)     # <xray_entry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
@@ -63,13 +62,13 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
 		       &xray_exit_addr, sizeof(xray_exit_addr));
 	}
-	else if (adi->type == DYNAMIC_FENTRY_NOP) {
+	else if (mdi->type == DYNAMIC_FENTRY_NOP) {
 		/* jmpq  *0x1(%rip)     # <fentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
 		       &fentry_addr, sizeof(fentry_addr));
 	}
-	else if (adi->type == DYNAMIC_NONE) {
+	else if (mdi->type == DYNAMIC_NONE) {
 #ifdef HAVE_LIBCAPSTONE
 		unsigned long dentry_addr = (unsigned long)__dentry__;
 
@@ -90,7 +89,7 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_err("cannot restore trampoline due to protection");
 }
 
-static void read_xray_map(struct arch_dynamic_info *adi,
+static void read_xray_map(struct mcount_dynamic_info *mdi,
 			  struct uftrace_elf_data *elf,
 			  struct uftrace_elf_iter *iter,
 			  unsigned long offset)
@@ -99,14 +98,14 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 	unsigned i;
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
-	adi->xrmap_count = shdr->sh_size / sizeof(*adi->xrmap);
-	adi->xrmap = xmalloc(adi->xrmap_count * sizeof(*adi->xrmap));
+	mdi->xrmap_count = shdr->sh_size / sizeof(*mdi->xrmap);
+	mdi->xrmap = xmalloc(mdi->xrmap_count * sizeof(*mdi->xrmap));
 
 	elf_get_secdata(elf, iter);
-	elf_read_secdata(elf, iter, 0, adi->xrmap, shdr->sh_size);
+	elf_read_secdata(elf, iter, 0, mdi->xrmap, shdr->sh_size);
 
-	for (i = 0; i < adi->xrmap_count; i++) {
-		xrmap = &adi->xrmap[i];
+	for (i = 0; i < mdi->xrmap_count; i++) {
+		xrmap = &mdi->xrmap[i];
 
 		if (xrmap->version == 2) {
 			xrmap->address += offset + (shdr->sh_offset + i * sizeof(*xrmap));
@@ -119,25 +118,25 @@ static void read_xray_map(struct arch_dynamic_info *adi,
 	}
 }
 
-static void read_mcount_loc(struct arch_dynamic_info *adi,
+static void read_mcount_loc(struct mcount_dynamic_info *mdi,
 			    struct uftrace_elf_data *elf,
 			    struct uftrace_elf_iter *iter,
 			    unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
-	adi->nr_mcount_loc = shdr->sh_size / sizeof(long);
-	adi->mcount_loc = xmalloc(shdr->sh_size);
+	mdi->nr_mcount_loc = shdr->sh_size / sizeof(long);
+	mdi->mcount_loc = xmalloc(shdr->sh_size);
 
 	elf_get_secdata(elf, iter);
-	elf_read_secdata(elf, iter, 0, adi->mcount_loc, shdr->sh_size);
+	elf_read_secdata(elf, iter, 0, mdi->mcount_loc, shdr->sh_size);
 
 	/* symbol has relative address, fix it to match each other */
 	if (elf->ehdr.e_type == ET_EXEC) {
 		unsigned i;
 
-		for (i = 0; i < adi->nr_mcount_loc; i++) {
-			adi->mcount_loc[i] -= offset;
+		for (i = 0; i < mdi->nr_mcount_loc; i++) {
+			mdi->mcount_loc[i] -= offset;
 		}
 	}
 }
@@ -147,12 +146,11 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
-	struct arch_dynamic_info *adi;
 	unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
 	unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned i = 0;
 
-	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+	mdi->type = DYNAMIC_NONE;
 
 	if (elf_init(mdi->map->libname, &elf) < 0)
 		goto out;
@@ -161,13 +159,13 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 		char *shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
 
 		if (!strcmp(shstr, XRAY_SECT)) {
-			adi->type = DYNAMIC_XRAY;
-			read_xray_map(adi, &elf, &iter, mdi->base_addr);
+			mdi->type = DYNAMIC_XRAY;
+			read_xray_map(mdi, &elf, &iter, mdi->base_addr);
 			goto out;
 		}
 
 		if (!strcmp(shstr, MCOUNTLOC_SECT)) {
-			read_mcount_loc(adi, &elf, &iter, mdi->base_addr);
+			read_mcount_loc(mdi, &elf, &iter, mdi->base_addr);
 			/* still needs to check pg or fentry */
 		}
 	}
@@ -187,17 +185,17 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 		/* only support calls to __fentry__ at the beginning */
 		if (!memcmp(code_addr, fentry_nop_patt1, CALL_INSN_SIZE) ||
 		    !memcmp(code_addr, fentry_nop_patt2, CALL_INSN_SIZE)) {
-			adi->type = DYNAMIC_FENTRY_NOP;
+			mdi->type = DYNAMIC_FENTRY_NOP;
 			goto out;
 		}
 	}
 
 	switch (check_trace_functions(mdi->map->libname)) {
 	case TRACE_MCOUNT:
-		adi->type = DYNAMIC_PG;
+		mdi->type = DYNAMIC_PG;
 		break;
 	case TRACE_FENTRY:
-		adi->type = DYNAMIC_FENTRY;
+		mdi->type = DYNAMIC_FENTRY;
 		break;
 	default:
 		break;
@@ -205,9 +203,8 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 out:
 	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
-	       adi->type, adi_type_names[adi->type]);
+	       mdi->type, mdi_type_names[mdi->type]);
 
-	mdi->arch = adi;
 	elf_finish(&elf);
 }
 
@@ -305,19 +302,18 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
 	unsigned i;
 	int ret = -2;
-	struct arch_dynamic_info *adi = mdi->arch;
 	struct xray_instr_map *xrmap;
 	uint64_t sym_addr = sym->addr + mdi->map->start;
 
 	/* xray provides a pair of entry and exit (or more) */
-	for (i = 0; i < adi->xrmap_count; i++) {
-		xrmap = &adi->xrmap[i];
+	for (i = 0; i < mdi->xrmap_count; i++) {
+		xrmap = &mdi->xrmap[i];
 
 		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
 
 		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
-			if (i == adi->xrmap_count - 1)
+			if (i == mdi->xrmap_count - 1)
 				break;
 			i++;
 
@@ -519,13 +515,11 @@ static int cmp_loc(const void *a, const void *b)
 
 static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	struct arch_dynamic_info *adi = mdi->arch;
-
 	uintptr_t *loc;
 
-	if (adi->nr_mcount_loc != 0) {
-		loc = bsearch(sym, adi->mcount_loc, adi->nr_mcount_loc,
-			       sizeof(*adi->mcount_loc), cmp_loc);
+	if (mdi->nr_mcount_loc != 0) {
+		loc = bsearch(sym, mdi->mcount_loc, mdi->nr_mcount_loc,
+			       sizeof(*mdi->mcount_loc), cmp_loc);
 
 		if (loc != NULL) {
 			uint8_t *insn = (uint8_t*) *loc;
@@ -540,7 +534,6 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm,
 		      unsigned min_size)
 {
-	struct arch_dynamic_info *adi = mdi->arch;
 	int result = INSTRUMENT_SKIPPED;
 
 	if (min_size < CALL_INSN_SIZE)
@@ -549,7 +542,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if (sym->size < min_size)
 		return result;
 
-	switch (adi->type) {
+	switch (mdi->type) {
 	case DYNAMIC_XRAY:
 		result = patch_xray_func(mdi, sym);
 		break;
@@ -571,10 +564,9 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 			struct mcount_disasm_engine *disasm)
 {
-	struct arch_dynamic_info *adi = mdi->arch;
 	int result = INSTRUMENT_SKIPPED;
 
-	switch (adi->type) {
+	switch (mdi->type) {
 	case DYNAMIC_FENTRY:
 		result = unpatch_fentry_func(mdi, sym);
 		break;
