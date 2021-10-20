@@ -98,14 +98,14 @@ static void read_xray_map(struct mcount_dynamic_info *mdi,
 	unsigned i;
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
-	mdi->xrmap_count = shdr->sh_size / sizeof(*mdi->xrmap);
-	mdi->xrmap = xmalloc(mdi->xrmap_count * sizeof(*mdi->xrmap));
+	mdi->nr_patch_target = shdr->sh_size / sizeof(*xrmap);
+	mdi->patch_target = xmalloc(mdi->nr_patch_target * sizeof(*xrmap));
 
 	elf_get_secdata(elf, iter);
-	elf_read_secdata(elf, iter, 0, mdi->xrmap, shdr->sh_size);
+	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
 
-	for (i = 0; i < mdi->xrmap_count; i++) {
-		xrmap = &mdi->xrmap[i];
+	for (i = 0; i < mdi->nr_patch_target; i++) {
+		xrmap = &((struct xray_instr_map*)mdi->patch_target)[i];
 
 		if (xrmap->version == 2) {
 			xrmap->address += offset + (shdr->sh_offset + i * sizeof(*xrmap));
@@ -125,18 +125,19 @@ static void read_mcount_loc(struct mcount_dynamic_info *mdi,
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
-	mdi->nr_mcount_loc = shdr->sh_size / sizeof(long);
-	mdi->mcount_loc = xmalloc(shdr->sh_size);
+	mdi->nr_patch_target = shdr->sh_size / sizeof(long);
+	mdi->patch_target = xmalloc(shdr->sh_size);
 
 	elf_get_secdata(elf, iter);
-	elf_read_secdata(elf, iter, 0, mdi->mcount_loc, shdr->sh_size);
+	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
 
 	/* symbol has relative address, fix it to match each other */
 	if (elf->ehdr.e_type == ET_EXEC) {
+		unsigned long *mcount_loc = mdi->patch_target;
 		unsigned i;
 
-		for (i = 0; i < mdi->nr_mcount_loc; i++) {
-			mdi->mcount_loc[i] -= offset;
+		for (i = 0; i < mdi->nr_patch_target; i++) {
+			mcount_loc[i] -= offset;
 		}
 	}
 }
@@ -306,14 +307,14 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	uint64_t sym_addr = sym->addr + mdi->map->start;
 
 	/* xray provides a pair of entry and exit (or more) */
-	for (i = 0; i < mdi->xrmap_count; i++) {
-		xrmap = &mdi->xrmap[i];
+	for (i = 0; i < mdi->nr_patch_target; i++) {
+		xrmap = &((struct xray_instr_map*)mdi->patch_target)[i];
 
 		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
 
 		while ((ret = update_xray_code(mdi, sym, xrmap)) == 0) {
-			if (i == mdi->xrmap_count - 1)
+			if (i == mdi->nr_patch_target - 1)
 				break;
 			i++;
 
@@ -515,11 +516,12 @@ static int cmp_loc(const void *a, const void *b)
 
 static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
+	unsigned long *mcount_loc = mdi->patch_target;
 	uintptr_t *loc;
 
-	if (mdi->nr_mcount_loc != 0) {
-		loc = bsearch(sym, mdi->mcount_loc, mdi->nr_mcount_loc,
-			       sizeof(*mdi->mcount_loc), cmp_loc);
+	if (mdi->nr_patch_target != 0) {
+		loc = bsearch(sym, mcount_loc, mdi->nr_patch_target,
+			       sizeof(*mcount_loc), cmp_loc);
 
 		if (loc != NULL) {
 			uint8_t *insn = (uint8_t*) *loc;

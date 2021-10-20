@@ -47,10 +47,8 @@ struct mcount_dynamic_info {
 	unsigned long trampoline;
 	struct list_head bad_syms;
 	enum mcount_dynamic_type type;
-	struct xray_instr_map *xrmap;
-	unsigned long *mcount_loc;
-	unsigned xrmap_count;
-	unsigned nr_mcount_loc;
+	void *patch_target;
+	unsigned nr_patch_target;
 };
 
 struct mcount_disasm_engine {
