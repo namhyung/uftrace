@@ -7,32 +7,9 @@
 #define PR_DOMAIN  DBG_DYNAMIC
 
 #include "libmcount/internal.h"
+#include "libmcount/dynamic.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
-
-#define PAGE_SIZE  4096
-
-/* target instrumentation function it needs to call */
-extern void __fentry__(void);
-
-enum mcount_i386_dynamic_type {
-	DYNAMIC_NONE,		/* not supported */
-	DYNAMIC_PG,
-	DYNAMIC_FENTRY,
-	DYNAMIC_FENTRY_NOP,
-};
-
-static const char *adi_type_names[] = {
-	"none", "pg", "fentry", "fentry-nop",
-};
-
-struct arch_dynamic_info {
-	enum mcount_i386_dynamic_type	type;
-	struct xray_instr_map		*xrmap;
-	unsigned long			*mcount_loc;
-	unsigned			xrmap_count;
-	unsigned			nr_mcount_loc;
-};
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
@@ -81,11 +58,10 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			     struct symtab *symtab)
 {
-	struct arch_dynamic_info *adi;
 	unsigned char fentry_nop_patt[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned i = 0;
 
-	adi = xzalloc(sizeof(*adi));  /* DYNAMIC_NONE */
+	mdi->type = DYNAMIC_NONE;
 
 	/* check first few functions have fentry signature */
 	for (i = 0; i < symtab->nr_sym; i++) {
@@ -101,17 +77,17 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 		/* only support calls to __fentry__ at the beginning */
 		if (!memcmp(code_addr, fentry_nop_patt, CALL_INSN_SIZE)) {
-			adi->type = DYNAMIC_FENTRY_NOP;
+			mdi->type = DYNAMIC_FENTRY_NOP;
 			goto out;
 		}
 	}
 
 	switch (check_trace_functions(mdi->map->libname)) {
 	case TRACE_MCOUNT:
-		adi->type = DYNAMIC_PG;
+		mdi->type = DYNAMIC_PG;
 		break;
 	case TRACE_FENTRY:
-		adi->type = DYNAMIC_FENTRY;
+		mdi->type = DYNAMIC_FENTRY;
 		break;
 	default:
 		break;
@@ -119,9 +95,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 out:
 	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
-	       adi->type, adi_type_names[adi->type]);
-
-	mdi->arch = adi;
+	       mdi->type, mdi_type_names[mdi->type]);
 }
 
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
@@ -159,8 +133,8 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(&insn[1], &target_addr, sizeof(target_addr));
 
-	pr_dbg3("update function '%s' dynamically to call __fentry__\n",
-		sym->name);
+	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n",
+		insn, sym->name);
 
 	return 0;
 }
@@ -168,7 +142,6 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
-	struct arch_dynamic_info *adi = mdi->arch;
 	int result = INSTRUMENT_SKIPPED;
 
 	if (min_size < CALL_INSN_SIZE)
@@ -177,7 +150,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	if (sym->size < min_size)
 		return result;
 
-	switch (adi->type) {
+	switch (mdi->type) {
 	case DYNAMIC_FENTRY_NOP:
 		result = patch_fentry_func(mdi, sym);
 		break;

@@ -8,16 +8,13 @@
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "libmcount/dynamic.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 
-#define PAGE_SIZE  4096
 #define CODE_SIZE  8
-
-/* target instrumentation function it needs to call */
-extern void __dentry__(void);
 
 static void save_orig_code(struct mcount_disasm_info *info)
 {
