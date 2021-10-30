@@ -782,6 +782,81 @@ and equally use `-P` option for dynamic tracing like below:
        3.005 us [11098] | } /* main */
 
 
+PATCHABLE FUNCTION ENTRY
+------------------------
+Recent compilers in both gcc and clang support another useful option
+`-fpatchable-function-entry=N[,M]` that generates M NOPs before the function
+entry and N-M NOPs after the function entry.  We can simply use the case when M
+is 0 so `-fpatchable-function-entry=N` is enough.  The number of NOPs required
+for dynamic tracing depends on the architecture but x86_64 requires 5 NOPs and
+AArch64 requires 2 NOPs to dynamically patch a call instruction for uftrace
+recording.
+
+For example in x86_64, you can build the target program and trace as follows.
+
+    $ gcc -fpatchable-function-entry=5 -o abc-fpatchable tests/s-abc.c
+    $ uftrace -P . abc-fpatchable
+    # DURATION     TID     FUNCTION
+                [  6818] | main() {
+                [  6818] |   a() {
+                [  6818] |     b() {
+                [  6818] |       c() {
+       0.926 us [  6818] |         getpid();
+       4.158 us [  6818] |       } /* c */
+       4.590 us [  6818] |     } /* b */
+       4.957 us [  6818] |   } /* a */
+       5.593 us [  6818] | } /* main */
+
+This feature can also be used by explicitly adding compiler attribute to some
+specific functions with `__attribute__ ((patchable_function_entry (N,M)))`.
+For example, the 'tests/s-abc.c' program can be modified as follows.
+
+    static int c(void)
+    {
+            return 100000;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    static int b(void)
+    {
+            return c() + 1;
+    }
+
+    static int a(void)
+    {
+            return b() - 1;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    int main(void)
+    {
+            int ret = 0;
+
+            ret += a();
+            return ret ? 0 : 1;
+    }
+
+The attribute is added to function 'main' and 'b' only and this program can
+normally be compiled without any additional compiler options, but the compiler
+detects the attributes and adds 5 NOPs at the entry of 'main' and 'b'.
+
+    $ gcc -o abc tests/s-patchable-abc.c
+    $ uftrace -P . abc
+    # DURATION     TID     FUNCTION
+                [ 20803] | main() {
+       0.342 us [ 20803] |   b();
+       1.608 us [ 20803] | } /* main */
+
+With this way, uftrace can selectively trace only the functions user wants by
+explicitly adding the attribute.  This approach can collect trace records in a
+much less intrusive way compared to tracing the entire functions enabled by
+compiler flags.
+
+`-fpatchable-function-entry=N[,M]` option and its attribute are supported since
+gcc-8.1 and clang-10.
+This dynamic tracing feature can be used in both x86_64 and AArch64 as of now.
+
+
 SCRIPT EXECUTION
 ================
 The uftrace tool supports script execution for each function entry and exit.
