@@ -667,33 +667,27 @@ which disables the field display and shows function output only.
 
 DYNAMIC TRACING
 ===============
+FULL DYNAMIC TRACING
+--------------------
 The uftrace tool supports dynamic function tracing which can be enabled at
-runtime (load-time, to be precise) on x86_64.  Before recording functions,
-normally you need to build the target program with `-pg` (or
+runtime (load-time, to be precise) on x86_64 and AArch64.  Before recording
+functions, normally you need to build the target program with `-pg` (or
 `-finstrument-functions`), then it has some performance impact because all
-funtions call `mcount()`.
+functions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
 `-P`/`--patch` option and can also disable specific functions given by the
 `-U`/`--unpatch` option.  With capstone disassembly engine you even don't need
 to (re)compile the target with the option above.  Now uftrace can analyze the
 instructions and (if possible) it can copy them to a different place and rewrite
-it to call `mcount()` function) so that it can be traced by uftrace.  After that
+it to call `mcount()` function so that it can be traced by uftrace.  After that
 the control is passed to the copied instructions and then returned back to the
 remaining instructions.
-
-If the capstone is not available, you need to add some more compiler (gcc)
-options when building the target program.  The gcc 5.1 or more recent versions
-provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
-(i.e.  calling `mcount()` function) at the very beginning of a function and
-convert the instruction to a NOP.  Then it has almost zero performance overhead
-when running in a normal condition.  The uftrace can selectively convert it 
-back to call `mcount()` using `-P` option.
 
 The following example shows an error message when normally running uftrace.
 Because the binary doesn't call any instrumentation code (i.e. 'mcount').
 
-    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+    $ gcc -o abc tests/s-abc.c
     $ uftrace abc
     uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
       ERROR: Can't find 'mcount' symbol in the 'abc'.
@@ -735,10 +729,31 @@ For example if you want to trace all functions but 'a' in the above:
 The order of the options is important, if you change it like `-U a -P .` then
 it will trace all the functions since `-P .` will be effective for all.
 
-In addition, the `-U` option can be used to disable functions in binaries
-built with `-pg` (and `-mfentry` or `-mrecord-mcount`).  It might require
-capstone to parse the instructions.
 
+GCC FENTRY
+----------
+If the capstone is not available, you need to add some more compiler (gcc)
+options when building the target program.  The gcc 5.1 or more recent versions
+provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
+(i.e.  calling `mcount()` function) at the very beginning of a function and
+convert the instruction to a NOP.  Then it has almost zero performance overhead
+when running in a normal condition.  The uftrace can selectively convert it
+back to call `mcount()` using `-P` option.
+
+    $ gcc -pg -mfentry -mnop-mcount -o abc-fentry tests/s-abc.c
+    $ uftrace -P . --no-libcall abc-fentry
+    # DURATION     TID     FUNCTION
+                [ 18973] | main() {
+                [ 18973] |   a() {
+                [ 18973] |     b() {
+       0.852 us [ 18973] |       c();
+       2.378 us [ 18973] |     } /* b */
+       2.909 us [ 18973] |   } /* a */
+       3.756 us [ 18973] | } /* main */
+
+
+CLANG XRAY
+----------
 Clang/LLVM 4.0 provides a dynamic instrumentation technique called
 [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
 `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
