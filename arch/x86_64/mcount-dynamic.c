@@ -12,6 +12,11 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
+static const unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
+static const unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+static const unsigned char patchable_gcc_nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
+static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x08 };
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
@@ -171,8 +176,6 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
-	unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned i = 0;
 
 	mdi->type = DYNAMIC_NONE;
@@ -246,14 +249,12 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
-	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
+	if (memcmp(insn, fentry_nop_patt1, sizeof(fentry_nop_patt1)) &&  /* old pattern */
+	    memcmp(insn, fentry_nop_patt2, sizeof(fentry_nop_patt2))) {  /* new pattern */
 		pr_dbg("skip non-applicable functions: %s\n", sym->name);
 		return INSTRUMENT_FAILED;
 	}
@@ -276,8 +277,6 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char patchable_gcc_nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
-	unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x08 };
 	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 

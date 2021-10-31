@@ -11,6 +11,8 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
+static const unsigned char fentry_nop_patt[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0xe8, 0x00, 0x00, 0x00, 0x00, 0x58, 0xff, 0x60, 0x04 };
@@ -58,7 +60,6 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			     struct symtab *symtab)
 {
-	unsigned char fentry_nop_patt[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned i = 0;
 
 	mdi->type = DYNAMIC_NONE;
@@ -111,14 +112,11 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 
 static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	// In case of "gcc" which is not patched because of old version, 
-	// it may not create 5 byte nop.
-	unsigned char nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char *insn = (unsigned char *)((uintptr_t)(sym->addr + mdi->map->start));
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop, sizeof(nop))) {
+	if (memcmp(insn, fentry_nop_patt, sizeof(fentry_nop_patt))) {
 		pr_dbg2("skip non-applicable functions: %s\n", sym->name);
 		return -2;
 	}

@@ -16,6 +16,8 @@
 
 #define CODE_SIZE  8
 
+static const unsigned int patchable_nop_patt[] = { 0xd503201f, 0xd503201f };
+
 static void save_orig_code(struct mcount_disasm_info *info)
 {
 	uint32_t jmp_insn[6] = {
@@ -175,7 +177,6 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned int patchable_nop_patt[] = { 0xd503201f, 0xd503201f };
 	void *insn = (void *)sym->addr + mdi->map->start;
 
 	/* only support calls to 2 NOPs at the beginning */
