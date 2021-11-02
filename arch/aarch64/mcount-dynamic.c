@@ -53,7 +53,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		dentry_addr >> 32,
 	};
 
-	if (mdi->type == DYNAMIC_PATCHABLE) {
+	if (mdi->type == DYNAMIC_FENTRY_NOP || mdi->type == DYNAMIC_PATCHABLE) {
 		trampoline[3] = fentry_addr;
 		trampoline[4] = fentry_addr >> 32;
 	}
@@ -113,6 +113,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
+	unsigned i = 0;
 
 	mdi->type = DYNAMIC_NONE;
 
@@ -125,6 +126,32 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 		if (!strcmp(shstr, PATCHABLE_SECT)) {
 			mdi->type = DYNAMIC_PATCHABLE;
 			read_patchable_loc(mdi, &elf, &iter, mdi->base_addr);
+			goto out;
+		}
+	}
+
+	/*
+	 * check first few functions have patchable function entry
+	 * signature.
+	 */
+	for (i = 0; i < symtab->nr_sym; i++) {
+		struct sym *sym = &symtab->sym[i];
+		void *code_addr = (void *)sym->addr + mdi->map->start;
+
+		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+			continue;
+
+		/* dont' check special functions */
+		if (sym->name[0] == '_')
+			continue;
+
+		/*
+		 * there might be some chances of not having patchable section
+		 * '__patchable_function_entries' but shows the NOPs pattern.
+		 * this can be marked as DYNAMIC_FENTRY_NOP.
+		 */
+		if (!memcmp(code_addr, patchable_nop_patt, CODE_SIZE)) {
+			mdi->type = DYNAMIC_FENTRY_NOP;
 			goto out;
 		}
 	}
@@ -181,8 +208,8 @@ static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct sym *sym
 
 	/* only support calls to 2 NOPs at the beginning */
 	if (memcmp(insn, patchable_nop_patt, sizeof(patchable_nop_patt))) {
-		pr_dbg("skip non-applicable functions: %s\n", sym->name);
-		return INSTRUMENT_FAILED;
+		pr_dbg4("skip non-applicable functions: %s\n", sym->name);
+		return INSTRUMENT_SKIPPED;
 	}
 
 	if (patch_code(mdi, sym) < 0)
@@ -228,6 +255,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	switch (mdi->type) {
 	case DYNAMIC_PATCHABLE:
+	case DYNAMIC_FENTRY_NOP:
 		result = patch_patchable_func(mdi, sym);
 		break;
 

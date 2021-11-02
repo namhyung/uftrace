@@ -591,6 +591,13 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
 static void patch_func_matched(struct mcount_dynamic_info *mdi,
 			       struct uftrace_mmap *map)
 {
+	/*
+	 * In some cases, the __patchable_function_entries section can be
+	 * removed.  For example, -Wl,--gc-sections strips this section.
+	 * In this case, we try patching in patch_normal_func_matched() by
+	 * looping over all the symbols available and check if the function
+	 * begins with NOP patterns for patchable function entry.
+	 */
 	if (mdi->type == DYNAMIC_PATCHABLE)
 		patch_patchable_func_matched(mdi, map);
 	else
