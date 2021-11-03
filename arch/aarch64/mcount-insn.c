@@ -281,8 +281,8 @@ out:
 
 static bool disasm_check_insn(uint8_t *insn)
 {
-	// LDR (literal)
-	if ((*insn & 0x3b) == 0x18)
+	// LDR (literal) or LDRB (Post-index, Pre-index variant, Unsigned offset)
+	if ((*insn & 0x3f) == 0x18 || (*insn & 0x3e) == 0x38)
 		return false;
 
 	// ADR or ADRP
