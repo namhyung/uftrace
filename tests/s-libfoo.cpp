@@ -12,6 +12,7 @@ public:
 extern "C" {
 	void foo(int n)
 	{
+		a = n;
 		AAA::bar(n);
 	}
 }
