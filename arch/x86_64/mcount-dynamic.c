@@ -596,8 +596,8 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 {
 	int result = INSTRUMENT_SKIPPED;
 
-	if (min_size < CALL_INSN_SIZE)
-		min_size = CALL_INSN_SIZE;
+	if (min_size < CALL_INSN_SIZE + 1)
+		min_size = CALL_INSN_SIZE + 1;
 
 	if (sym->size < min_size)
 		return result;
