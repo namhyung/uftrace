@@ -248,10 +248,11 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 {
 	int result = INSTRUMENT_SKIPPED;
 
-	if (min_size < CODE_SIZE)
-		min_size = CODE_SIZE;
-	if (sym->size <= min_size)
-		return INSTRUMENT_SKIPPED;
+	if (min_size < CODE_SIZE + 1)
+		min_size = CODE_SIZE + 1;
+
+	if (sym->size < min_size)
+		return result;
 
 	switch (mdi->type) {
 	case DYNAMIC_PATCHABLE:
