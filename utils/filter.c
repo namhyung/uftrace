@@ -46,6 +46,12 @@ static void print_trigger(struct uftrace_trigger *tr)
 		else
 			pr_dbg("\ttrigger: filter OUT\n");
 	}
+	if (tr->flags & TRIGGER_FL_LOC) {
+		if (tr->lmode == FILTER_MODE_IN)
+			pr_dbg("\ttrigger: location filter IN\n");
+		else
+			pr_dbg("\ttrigger: location filter OUT\n");
+	}
 	if (tr->flags & TRIGGER_FL_BACKTRACE)
 		pr_dbg("\ttrigger: backtrace\n");
 	if (tr->flags & TRIGGER_FL_TRACE)
@@ -241,6 +247,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool
 		filter->trigger.depth = tr->depth;
 	if (tr->flags & TRIGGER_FL_FILTER)
 		filter->trigger.fmode = tr->fmode;
+	if (tr->flags & TRIGGER_FL_LOC)
+		filter->trigger.lmode = tr->lmode;
 
 	if (tr->flags & TRIGGER_FL_TRACE_ON)
 		filter->trigger.flags &= ~TRIGGER_FL_TRACE_OFF;
@@ -780,14 +788,30 @@ static int add_trigger_entry(struct rb_root *root, struct uftrace_pattern *patt,
 	struct uftrace_symtab *symtab = &map->mod->symtab;
 	struct uftrace_dbg_info *dinfo = &map->mod->dinfo;
 	struct uftrace_symbol *sym;
-	unsigned i;
+	size_t i;
 	int ret = 0;
+	char *pos;
 
 	for (i = 0; i < symtab->nr_sym; i++) {
 		sym = &symtab->sym[i];
 
-		if (!match_filter_pattern(patt, sym->name))
-			continue;
+		if (tr->flags == TRIGGER_FL_LOC) {
+			if (!dinfo || i >= dinfo->nr_locs || !dinfo->locs[i].file)
+				continue;
+
+			if (patt->type == PATT_SIMPLE && strchr(patt->patt, '/') == NULL &&
+			    (pos = strrchr(dinfo->locs[i].file->name, '/')))
+				pos = pos + 1;
+			else
+				pos = dinfo->locs[i].file->name;
+
+			if (!match_filter_pattern(patt, pos))
+				continue;
+		}
+		else {
+			if (!match_filter_pattern(patt, sym->name))
+				continue;
+		}
 
 		if (setting->plt_only && sym->type != ST_PLT_FUNC)
 			continue;
@@ -846,6 +870,15 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 				tr.fmode = FILTER_MODE_IN;
 		}
 
+		if (flags & TRIGGER_FL_LOC) {
+			if (name[0] == '!') {
+				tr.lmode = FILTER_MODE_OUT;
+				name++;
+			}
+			else
+				tr.lmode = FILTER_MODE_IN;
+		}
+
 		/* use demangled name for triggers (some auto-args need it) */
 		name = demangle(name);
 		init_filter_pattern(setting->ptype, &patt, name);
@@ -884,6 +917,13 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER) && fmode) {
 			if (tr.fmode == FILTER_MODE_IN)
+				*fmode = FILTER_MODE_IN;
+			else if (*fmode == FILTER_MODE_NONE)
+				*fmode = FILTER_MODE_OUT;
+		}
+
+		if (ret > 0 && (tr.flags & TRIGGER_FL_LOC) && fmode) {
+			if (tr.lmode == FILTER_MODE_IN)
 				*fmode = FILTER_MODE_IN;
 			else if (*fmode == FILTER_MODE_NONE)
 				*fmode = FILTER_MODE_OUT;
@@ -990,6 +1030,21 @@ void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root, struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_HIDE, NULL, setting);
+}
+
+/**
+ * uftrace_setup_loc_filter - add source location filters to rbtree
+ * @filter_str - CSV of filter string
+ * @sinfo      - symbol information to find symbol address
+ * @root       - root of resulting rbtree
+ * @mode       - filter mode: opt-in (-L) or opt-out (-L with '@hide' suffix)
+ * @setting    - filter settings
+ */
+void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+			      struct rb_root *root, enum filter_mode *mode,
+			      struct uftrace_filter_setting *setting)
+{
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_LOC, mode, setting);
 }
 
 /**
