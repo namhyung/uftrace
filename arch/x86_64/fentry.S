@@ -28,8 +28,16 @@
 
 GLOBAL(__fentry__)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+    sub $112, %rsp
+	.cfi_adjust_cfa_offset 112
+
+    vmovdqu %ymm0, 80(%rsp)
+    vmovdqu %ymm1, 48(%rsp)
+#else
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
+#endif // ENABLE_LTTNG
 
 	/* save register arguments in mcount_args */
 	movq %rdi, 40(%rsp)
@@ -40,10 +48,18 @@ GLOBAL(__fentry__)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
+#ifdef ENABLE_LTTNG
+    movq 112(%rsp), %rsi
+#else
 	movq 48(%rsp), %rsi
+#endif // ENABLE_LTTNG
 
 	/* parent location */
+#ifdef ENABLE_LTTNG
+    lea 120(%rsp), %rdi
+#else
 	lea 56(%rsp), %rdi
+#endif // ENABLE_LTTNG
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -72,9 +88,16 @@ GLOBAL(__fentry__)
 	movq 24(%rsp), %rdx
 	movq 32(%rsp), %rsi
 	movq 40(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+    vmovdqu 48(%rsp), %ymm1
+    vmovdqu 80(%rsp), %ymm0
 
+    add $112, %rsp
+    .cfi_adjust_cfa_offset -112
+#else
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+#endif // ENABLE_LTTNG
 	retq
 	.cfi_endproc
 END(__fentry__)

@@ -30,8 +30,16 @@
 
 GLOBAL(mcount)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+    sub $112, %rsp
+	.cfi_adjust_cfa_offset 112
+
+    vmovdqu %ymm0, 80(%rsp)
+    vmovdqu %ymm1, 48(%rsp)
+#else
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
+#endif // ENABLE_LTTNG
 
 	/* save register arguments in mcount_args */
 	movq %rdi, 40(%rsp)
@@ -42,7 +50,11 @@ GLOBAL(mcount)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
+#ifdef ENABLE_LTTNG
+    movq 112(%rsp), %rsi
+#else
 	movq 48(%rsp), %rsi
+#endif // ENABLE_LTTNG
 
 	/* parent location */
 	lea 8(%rbp), %rdi
@@ -74,9 +86,16 @@ GLOBAL(mcount)
 	movq 24(%rsp), %rdx
 	movq 32(%rsp), %rsi
 	movq 40(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+    vmovdqu 48(%rsp), %ymm1
+    vmovdqu 80(%rsp), %ymm0
 
+    add $112, %rsp
+	.cfi_adjust_cfa_offset -112
+#else
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+#endif // ENABLE_LTTNG
 	retq
 	.cfi_endproc
 END(mcount)
@@ -88,11 +107,20 @@ END(mcount)
  */
 ENTRY(mcount_return)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+    sub $96, %rsp
+	.cfi_def_cfa_offset 96
+
+    vmovdqu %ymm0, 56(%rsp)
+    vmovdqu %ymm1, 24(%rsp)
+    movq    %rdi,  16(%rsp)
+#else
 	sub $48, %rsp
 	.cfi_def_cfa_offset 48
 
 	movq   %rdi,  32(%rsp)
 	movdqu %xmm0, 16(%rsp)
+#endif // ENABLE_LTTNG
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
 
@@ -113,14 +141,26 @@ ENTRY(mcount_return)
 	movq    0(%rsp), %rsp
 
 	/* restore original return address in parent */
+#ifdef ENABLE_LTTNG
+    movq    %rax, 88(%rsp)
+#else
 	movq    %rax, 40(%rsp)
+#endif // ENABLE_LTTNG
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
+#ifdef ENABLE_LTTNG
+    movq    16(%rsp), %rdi
+    vmovdqu 24(%rsp), %ymm1
+    vmovdqu 56(%rsp), %ymm0
+
+    add $88, %rsp
+#else
 	movdqu 16(%rsp), %xmm0
 	movq   32(%rsp), %rdi
 
 	add $40, %rsp
+#endif // ENABLE_LTTNG
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc
