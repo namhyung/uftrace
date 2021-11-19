@@ -12,6 +12,11 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
+static const unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
+static const unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
+static const unsigned char patchable_gcc_nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
+static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x08 };
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
@@ -62,7 +67,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
 		       &xray_exit_addr, sizeof(xray_exit_addr));
 	}
-	else if (mdi->type == DYNAMIC_FENTRY_NOP) {
+	else if (mdi->type == DYNAMIC_FENTRY_NOP || mdi->type == DYNAMIC_PATCHABLE) {
 		/* jmpq  *0x1(%rip)     # <fentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
 		memcpy((void *)mdi->trampoline + sizeof(trampoline),
@@ -142,13 +147,35 @@ static void read_mcount_loc(struct mcount_dynamic_info *mdi,
 	}
 }
 
+static void read_patchable_loc(struct mcount_dynamic_info *mdi,
+			    struct uftrace_elf_data *elf,
+			    struct uftrace_elf_iter *iter,
+			    unsigned long offset)
+{
+	typeof(iter->shdr) *shdr = &iter->shdr;
+
+	mdi->nr_patch_target = shdr->sh_size / sizeof(long);
+	mdi->patch_target = xmalloc(shdr->sh_size);
+
+	elf_get_secdata(elf, iter);
+	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
+
+	/* symbol has relative address, fix it to match each other */
+	if (elf->ehdr.e_type == ET_EXEC) {
+		unsigned long *patchable_loc = mdi->patch_target;
+		unsigned i;
+
+		for (i = 0; i < mdi->nr_patch_target; i++) {
+			patchable_loc[i] -= offset;
+		}
+	}
+}
+
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 			     struct symtab *symtab)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
-	unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned i = 0;
 
 	mdi->type = DYNAMIC_NONE;
@@ -158,6 +185,12 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 	elf_for_each_shdr(&elf, &iter) {
 		char *shstr = elf_get_name(&elf, &iter, iter.shdr.sh_name);
+
+		if (!strcmp(shstr, PATCHABLE_SECT)) {
+			mdi->type = DYNAMIC_PATCHABLE;
+			read_patchable_loc(mdi, &elf, &iter, mdi->base_addr);
+			goto out;
+		}
 
 		if (!strcmp(shstr, XRAY_SECT)) {
 			mdi->type = DYNAMIC_XRAY;
@@ -171,7 +204,10 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 		}
 	}
 
-	/* check first few functions have fentry signature */
+	/*
+	 * check first few functions have fentry or patchable function entry
+	 * signature.
+	 */
 	for (i = 0; i < symtab->nr_sym; i++) {
 		struct sym *sym = &symtab->sym[i];
 		void *code_addr = (void *)sym->addr + mdi->map->start;
@@ -182,6 +218,17 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 		/* dont' check special functions */
 		if (sym->name[0] == '_')
 			continue;
+
+		/*
+		 * there might be some chances of not having patchable section
+		 * '__patchable_function_entries' but shows the NOPs pattern.
+		 * this can be treated as DYNAMIC_FENTRY_NOP.
+		 */
+		if (!memcmp(code_addr, patchable_gcc_nop, CALL_INSN_SIZE) ||
+		    !memcmp(code_addr, patchable_clang_nop, CALL_INSN_SIZE)) {
+			mdi->type = DYNAMIC_FENTRY_NOP;
+			goto out;
+		}
 
 		/* only support calls to __fentry__ at the beginning */
 		if (!memcmp(code_addr, fentry_nop_patt1, CALL_INSN_SIZE) ||
@@ -214,18 +261,18 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return mdi->trampoline - (addr + CALL_INSN_SIZE);
 }
 
-static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct sym *sym)
 {
-	unsigned char nop1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
-	unsigned char nop2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
 
-	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, nop1, sizeof(nop1)) &&  /* old pattern */
-	    memcmp(insn, nop2, sizeof(nop2))) {  /* new pattern */
-		pr_dbg("skip non-applicable functions: %s\n", sym->name);
-		return INSTRUMENT_FAILED;
+	/* support patchable function entry and __fentry__ at the beginning */
+	if (memcmp(insn, patchable_gcc_nop, sizeof(patchable_gcc_nop)) &&
+	    memcmp(insn, patchable_clang_nop, sizeof(patchable_clang_nop)) &&
+	    memcmp(insn, fentry_nop_patt1, sizeof(fentry_nop_patt1)) &&
+	    memcmp(insn, fentry_nop_patt2, sizeof(fentry_nop_patt2))) {
+		pr_dbg4("skip non-applicable functions: %s\n", sym->name);
+		return INSTRUMENT_SKIPPED;
 	}
 
 	/* get the jump offset to the trampoline */
@@ -242,6 +289,17 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 		insn, sym->name);
 
 	return INSTRUMENT_SUCCESS;
+}
+
+static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	return patch_fentry_code(mdi, sym);
+}
+
+static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+{
+	/* it does the same patch logic with fentry. */
+	return patch_fentry_code(mdi, sym);
 }
 
 static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
@@ -439,7 +497,7 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 		return state;
 	}
 
-	pr_dbg2("patch normal func: %s (patch size: %d)\n",
+	pr_dbg2("force patch normal func: %s (patch size: %d)\n",
 		sym->name, info.orig_size);
 
 	/*
@@ -551,6 +609,10 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 
 	case DYNAMIC_FENTRY_NOP:
 		result = patch_fentry_func(mdi, sym);
+		break;
+
+	case DYNAMIC_PATCHABLE:
+		result = patch_patchable_func(mdi, sym);
 		break;
 
 	case DYNAMIC_NONE:

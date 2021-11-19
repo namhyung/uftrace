@@ -667,33 +667,27 @@ which disables the field display and shows function output only.
 
 DYNAMIC TRACING
 ===============
+FULL DYNAMIC TRACING
+--------------------
 The uftrace tool supports dynamic function tracing which can be enabled at
-runtime (load-time, to be precise) on x86_64.  Before recording functions,
-normally you need to build the target program with `-pg` (or
+runtime (load-time, to be precise) on x86_64 and AArch64.  Before recording
+functions, normally you need to build the target program with `-pg` (or
 `-finstrument-functions`), then it has some performance impact because all
-funtions call `mcount()`.
+functions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
 `-P`/`--patch` option and can also disable specific functions given by the
 `-U`/`--unpatch` option.  With capstone disassembly engine you even don't need
 to (re)compile the target with the option above.  Now uftrace can analyze the
 instructions and (if possible) it can copy them to a different place and rewrite
-it to call `mcount()` function) so that it can be traced by uftrace.  After that
+it to call `mcount()` function so that it can be traced by uftrace.  After that
 the control is passed to the copied instructions and then returned back to the
 remaining instructions.
-
-If the capstone is not available, you need to add some more compiler (gcc)
-options when building the target program.  The gcc 5.1 or more recent versions
-provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
-(i.e.  calling `mcount()` function) at the very beginning of a function and
-convert the instruction to a NOP.  Then it has almost zero performance overhead
-when running in a normal condition.  The uftrace can selectively convert it 
-back to call `mcount()` using `-P` option.
 
 The following example shows an error message when normally running uftrace.
 Because the binary doesn't call any instrumentation code (i.e. 'mcount').
 
-    $ gcc -o abc -pg -mfentry -mnop-mcount tests/s-abc.c
+    $ gcc -o abc tests/s-abc.c
     $ uftrace abc
     uftrace: /home/namhyung/project/uftrace/cmd-record.c:1305:check_binary
       ERROR: Can't find 'mcount' symbol in the 'abc'.
@@ -735,10 +729,31 @@ For example if you want to trace all functions but 'a' in the above:
 The order of the options is important, if you change it like `-U a -P .` then
 it will trace all the functions since `-P .` will be effective for all.
 
-In addition, the `-U` option can be used to disable functions in binaries
-built with `-pg` (and `-mfentry` or `-mrecord-mcount`).  It might require
-capstone to parse the instructions.
 
+GCC FENTRY
+----------
+If the capstone is not available, you need to add some more compiler (gcc)
+options when building the target program.  The gcc 5.1 or more recent versions
+provide `-mfentry` and `-mnop-mcount` options which add instrumentation code
+(i.e.  calling `mcount()` function) at the very beginning of a function and
+convert the instruction to a NOP.  Then it has almost zero performance overhead
+when running in a normal condition.  The uftrace can selectively convert it
+back to call `mcount()` using `-P` option.
+
+    $ gcc -pg -mfentry -mnop-mcount -o abc-fentry tests/s-abc.c
+    $ uftrace -P . --no-libcall abc-fentry
+    # DURATION     TID     FUNCTION
+                [ 18973] | main() {
+                [ 18973] |   a() {
+                [ 18973] |     b() {
+       0.852 us [ 18973] |       c();
+       2.378 us [ 18973] |     } /* b */
+       2.909 us [ 18973] |   } /* a */
+       3.756 us [ 18973] | } /* main */
+
+
+CLANG XRAY
+----------
 Clang/LLVM 4.0 provides a dynamic instrumentation technique called
 [X-ray](http://llvm.org/docs/XRay.html).  It's similar to a combination of
 `gcc -mfentry -mnop-mcount` and `-finstrument-functions`.  The uftrace also
@@ -765,6 +780,81 @@ and equally use `-P` option for dynamic tracing like below:
        1.915 us [11098] |     } /* b */
        2.405 us [11098] |   } /* a */
        3.005 us [11098] | } /* main */
+
+
+PATCHABLE FUNCTION ENTRY
+------------------------
+Recent compilers in both gcc and clang support another useful option
+`-fpatchable-function-entry=N[,M]` that generates M NOPs before the function
+entry and N-M NOPs after the function entry.  We can simply use the case when M
+is 0 so `-fpatchable-function-entry=N` is enough.  The number of NOPs required
+for dynamic tracing depends on the architecture but x86_64 requires 5 NOPs and
+AArch64 requires 2 NOPs to dynamically patch a call instruction for uftrace
+recording.
+
+For example in x86_64, you can build the target program and trace as follows.
+
+    $ gcc -fpatchable-function-entry=5 -o abc-fpatchable tests/s-abc.c
+    $ uftrace -P . abc-fpatchable
+    # DURATION     TID     FUNCTION
+                [  6818] | main() {
+                [  6818] |   a() {
+                [  6818] |     b() {
+                [  6818] |       c() {
+       0.926 us [  6818] |         getpid();
+       4.158 us [  6818] |       } /* c */
+       4.590 us [  6818] |     } /* b */
+       4.957 us [  6818] |   } /* a */
+       5.593 us [  6818] | } /* main */
+
+This feature can also be used by explicitly adding compiler attribute to some
+specific functions with `__attribute__ ((patchable_function_entry (N,M)))`.
+For example, the 'tests/s-abc.c' program can be modified as follows.
+
+    static int c(void)
+    {
+            return 100000;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    static int b(void)
+    {
+            return c() + 1;
+    }
+
+    static int a(void)
+    {
+            return b() - 1;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    int main(void)
+    {
+            int ret = 0;
+
+            ret += a();
+            return ret ? 0 : 1;
+    }
+
+The attribute is added to function 'main' and 'b' only and this program can
+normally be compiled without any additional compiler options, but the compiler
+detects the attributes and adds 5 NOPs at the entry of 'main' and 'b'.
+
+    $ gcc -o abc tests/s-patchable-abc.c
+    $ uftrace -P . abc
+    # DURATION     TID     FUNCTION
+                [ 20803] | main() {
+       0.342 us [ 20803] |   b();
+       1.608 us [ 20803] | } /* main */
+
+With this way, uftrace can selectively trace only the functions user wants by
+explicitly adding the attribute.  This approach can collect trace records in a
+much less intrusive way compared to tracing the entire functions enabled by
+compiler flags.
+
+`-fpatchable-function-entry=N[,M]` option and its attribute are supported since
+gcc-8.1 and clang-10.
+This dynamic tracing feature can be used in both x86_64 and AArch64 as of now.
 
 
 SCRIPT EXECUTION

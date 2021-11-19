@@ -10,6 +10,7 @@
 #define PAGE_LEN(a, l)    (a + l - (unsigned long)PAGE_ADDR(a))
 #define XRAY_SECT  "xray_instr_map"
 #define MCOUNTLOC_SECT  "__mcount_loc"
+#define PATCHABLE_SECT  "__patchable_function_entries"
 
 /* target instrumentation function it needs to call */
 extern void __fentry__(void);
@@ -32,10 +33,11 @@ enum mcount_dynamic_type {
 	DYNAMIC_FENTRY,
 	DYNAMIC_FENTRY_NOP,
 	DYNAMIC_XRAY,
+	DYNAMIC_PATCHABLE,
 };
 
 __maybe_unused static const char *mdi_type_names[] = {
-	"none", "pg", "fentry", "fentry-nop", "xray",
+	"none", "pg", "fentry", "fentry-nop", "xray", "fpatchable",
 };
 
 struct mcount_dynamic_info {

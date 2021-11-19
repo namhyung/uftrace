@@ -475,20 +475,99 @@ static void release_pattern_list(void)
 	}
 }
 
-static void patch_func_matched(struct mcount_dynamic_info *mdi,
-			       struct uftrace_mmap *map)
+static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
+		     struct uftrace_mmap *map, char *soname)
 {
-	bool found = false;
-	struct symtab *symtab;
-	bool csu_skip;
-	unsigned i, k;
-	struct sym *sym;
 	/* skip special startup (csu) functions */
 	const char *csu_skip_syms[] = {
 		"_start",
 		"__libc_csu_init",
 		"__libc_csu_fini",
 	};
+	unsigned i;
+
+	for (i = 0; i < ARRAY_SIZE(csu_skip_syms); i++) {
+		if (!strcmp(sym->name, csu_skip_syms[i]))
+			return true;
+	}
+
+	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+		return true;
+
+	if (!match_pattern_list(map, soname, sym->name)) {
+		if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+			stats.unpatch++;
+		return true;
+	}
+
+	return false;
+}
+
+static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
+					 struct sym *sym)
+{
+	switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+	case INSTRUMENT_FAILED:
+		stats.failed++;
+		break;
+	case INSTRUMENT_SKIPPED:
+		stats.skipped++;
+		break;
+	case INSTRUMENT_SUCCESS:
+	default:
+		break;
+	}
+	stats.total++;
+}
+
+static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
+					 struct uftrace_mmap *map)
+{
+	struct symtab *symtab;
+	unsigned long *patchable_loc = mdi->patch_target;
+	unsigned i;
+	struct sym *sym;
+	char namebuf[BUFSIZ];
+	struct sym fake_sym = {
+		.size = UINT_MAX,
+		.name = namebuf,
+	};
+	char *soname = get_soname(map->libname);
+
+	symtab = &map->mod->symtab;
+
+	/*
+	 * If __patchable_function_entries is found, then apply patching
+	 * only to the target addresses found at the section.
+	 */
+	for (i = 0; i < mdi->nr_patch_target; i++) {
+		uint64_t rel_addr = patchable_loc[i];
+		struct sym *searched_sym = find_sym(symtab, rel_addr);
+
+		if (searched_sym == NULL) {
+			sym = &fake_sym;
+			sym->addr = rel_addr;
+			snprintf(sym->name, sizeof(namebuf), "<%lx>", patchable_loc[i]);
+		}
+		else {
+			sym = searched_sym;
+			if (skip_sym(sym, mdi, map, soname))
+				continue;
+		}
+
+		mcount_patch_func_with_stats(mdi, sym);
+	}
+
+	free(soname);
+}
+
+static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
+				      struct uftrace_mmap *map)
+{
+	struct symtab *symtab;
+	unsigned i;
+	struct sym *sym;
+	bool found = false;
 	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
@@ -496,45 +575,33 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 	for (i = 0; i < symtab->nr_sym; i++) {
 		sym = &symtab->sym[i];
 
-		csu_skip = false;
-		for (k = 0; k < ARRAY_SIZE(csu_skip_syms); k++) {
-			if (!strcmp(sym->name, csu_skip_syms[k])) {
-				csu_skip = true;
-				break;
-			}
-		}
-		if (csu_skip)
+		if (skip_sym(sym, mdi, map, soname))
 			continue;
-
-		if (sym->type != ST_LOCAL_FUNC &&
-		    sym->type != ST_GLOBAL_FUNC)
-			continue;
-
-		if (!match_pattern_list(map, soname, sym->name)) {
-			if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
-				stats.unpatch++;
-			continue;
-		}
 
 		found = true;
-		switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
-			case INSTRUMENT_FAILED:
-				stats.failed++;
-				break;
-			case INSTRUMENT_SKIPPED:
-				stats.skipped++;
-				break;
-			case INSTRUMENT_SUCCESS:
-			default:
-				break;
-		}
-		stats.total++;
+		mcount_patch_func_with_stats(mdi, sym);
 	}
 
 	if (!found)
 		stats.nomatch++;
 
 	free(soname);
+}
+
+static void patch_func_matched(struct mcount_dynamic_info *mdi,
+			       struct uftrace_mmap *map)
+{
+	/*
+	 * In some cases, the __patchable_function_entries section can be
+	 * removed.  For example, -Wl,--gc-sections strips this section.
+	 * In this case, we try patching in patch_normal_func_matched() by
+	 * looping over all the symbols available and check if the function
+	 * begins with NOP patterns for patchable function entry.
+	 */
+	if (mdi->type == DYNAMIC_PATCHABLE)
+		patch_patchable_func_matched(mdi, map);
+	else
+		patch_normal_func_matched(mdi, map);
 }
 
 static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
