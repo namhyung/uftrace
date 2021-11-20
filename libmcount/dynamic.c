@@ -491,7 +491,9 @@ static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
 			return true;
 	}
 
-	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+	if (sym->type != ST_LOCAL_FUNC &&
+	    sym->type != ST_GLOBAL_FUNC &&
+	    sym->type != ST_WEAK_FUNC)
 		return true;
 
 	if (!match_pattern_list(map, soname, sym->name)) {
