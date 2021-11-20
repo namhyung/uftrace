@@ -15,7 +15,7 @@ class TestCase(TestBase):
    10.148 ms   37.889 us  560e956bd610 : (1) main
    15.991 us    0.765 us  560e956bd7ce :  +-(2) foo
    15.226 us   15.226 us  560e956bd7a0 :  | (6) loop
-                                       :  | 
+                                       :  |
    10.094 ms   13.365 us  560e956bd802 :  +-(1) bar
    10.081 ms   10.081 ms  560e956bd608 :    (1) usleep
 """, sort='graph')

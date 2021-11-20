@@ -274,7 +274,7 @@ static int add_new_comm(struct pevent *pevent, const char *comm, int pid)
 	}
 
 	cmdlines[pevent->cmdline_count].pid = pid;
-		
+
 	if (cmdlines[pevent->cmdline_count].comm)
 		pevent->cmdline_count++;
 
@@ -1032,7 +1032,7 @@ static enum event_type force_token(const char *str, char **tok)
 	unsigned long long save_input_buf_ptr;
 	unsigned long long save_input_buf_siz;
 	enum event_type type;
-	
+
 	/* save off the current input pointers */
 	save_input_buf = input_buf;
 	save_input_buf_ptr = input_buf_ptr;
@@ -3040,7 +3040,7 @@ static int event_read_print(struct event_format *event)
 		token = cat;
 		goto concat;
 	}
-			     
+
 	if (test_type_token(type, token, EVENT_DELIM, ","))
 		goto fail;
 
@@ -3349,7 +3349,7 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 			arg->field.field = pevent_find_any_field(event, arg->field.name);
 			if (!arg->field.field)
 				goto out_warning_field;
-			
+
 		}
 		/* must be a number */
 		val = pevent_read_number(pevent, data + arg->field.field->offset,
@@ -3973,7 +3973,7 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 	next = &arg->next;
 
 	arg->type = PRINT_ATOM;
-		
+
 	if (asprintf(&arg->atom.atom, "%lld", ip) < 0)
 		goto out_free;
 
@@ -5187,7 +5187,7 @@ enum pevent_errno __pevent_parse_format(struct event_format **eventp,
 		if (strcmp(event->name, "bprint") == 0)
 			event->flags |= EVENT_FL_ISBPRINT;
 	}
-		
+
 	event->id = event_read_id();
 	if (event->id < 0) {
 		ret = PEVENT_ERRNO__READ_ID_FAILED;

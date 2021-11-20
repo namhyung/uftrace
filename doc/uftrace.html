@@ -1382,13 +1382,13 @@ template: title-layout
 ### Record function arguments with type setting
 ```
     $ clang -pg hello.c
-    $ uftrace -A printf@`arg1` a.out 
+    $ uftrace -A printf@`arg1` a.out
 ```
 ---
 ### Record function arguments with type setting
 ```
     $ clang -pg hello.c
-    $ uftrace -A printf@`arg1` a.out 
+    $ uftrace -A printf@`arg1` a.out
     Hello World!
     # DURATION     TID     FUNCTION
                 [117536] | main() {
@@ -1399,13 +1399,13 @@ template: title-layout
 ### Record function arguments with type setting
 ```
     $ clang -pg hello.c
-    $ uftrace -A printf@arg1`/s` a.out 
+    $ uftrace -A printf@arg1`/s` a.out
 ```
 ---
 ### Record function arguments with type setting
 ```
     $ clang -pg hello.c
-    $ uftrace -A printf@arg1`/s` a.out 
+    $ uftrace -A printf@arg1`/s` a.out
     Hello World!
     # DURATION     TID     FUNCTION
                 [117594] | main() {
@@ -1437,7 +1437,7 @@ template: title-layout
 ## Arguments Detection with Debug Info
 #### -a / --auto-args option
 .footnote[[wiki/Arguments](https://github.com/namhyung/uftrace/wiki/Arguments)]
-<pre><code class="bash">$ ./configure 
+<pre><code class="bash">$ ./configure
 libdw: [ .green[on]  ]</code></pre>
 
 ---
@@ -2089,7 +2089,7 @@ template: title-layout
 # uftrace tui
 ### (Interactive) Text-based User Interface
 .footnote[[doc/uftrace-tui.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-tui.md)]
-<pre><code class="bash">$ ./configure       
+<pre><code class="bash">$ ./configure
 libncursesw: [ .green[on]  ]</code></pre>
 
 ---
@@ -2723,7 +2723,7 @@ template: title-layout
 # (Python) Scripting
 ### uftrace record -S / uftrace script -S
 .footnote[[doc/uftrace-script.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md)]
-<pre><code class="bash">$ ./configure        
+<pre><code class="bash">$ ./configure
 libpython2.7: [ .green[on]  ]</code></pre>
 
 ---
@@ -3585,7 +3585,7 @@ template: title-layout
 # Full Dynamic Tracing
 ### full-dynamic function tracing without compiler support
 .footnote[[doc/uftrace-record.md#full-dynamic-tracing](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-record.md#full-dynamic-tracing)]
-<pre><code class="bash">$ ./configure    
+<pre><code class="bash">$ ./configure
 capstone: [ .green[on]  ]</code></pre>
 
 ---

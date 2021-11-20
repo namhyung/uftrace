@@ -151,7 +151,7 @@ Running the `graph` command shows function call graph like below:
       10.293 ms : (1) main
       46.626 us :  +-(2) foo
       44.360 us :  | (6) loop
-                :  | 
+                :  |
       10.138 ms :  +-(1) bar
       10.100 ms :    (1) usleep
 
@@ -175,13 +175,13 @@ backtrace like below:
     =============== BACKTRACE ===============
      backtrace #0: hit 1, time  10.293 ms
        [0] main (0x4004f0)
-    
+
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   FUNCTION
        10.293 ms : (1) main
        46.626 us :  +-(2) foo
        44.360 us :  | (6) loop
-                 :  | 
+                 :  |
        10.138 ms :  +-(1) bar
        10.100 ms :    (1) usleep
 
@@ -195,7 +195,7 @@ itself.  Running graph command on a leaf function looks like below.
        [0] main (0x4004b0)
        [1] foo (0x400622)
        [2] loop (0x400f5f6)
-    
+
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   FUNCTION
        44.360 us : (6) loop

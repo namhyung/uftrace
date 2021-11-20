@@ -10,7 +10,7 @@ GLOBAL(mcount)
 	sub $32, %esp
 	/* save registers */
 	movl %edx, 28(%esp)
-	movl %ecx, 24(%esp)	
+	movl %ecx, 24(%esp)
 	movl %eax, 20(%esp)
 	movl $0, 16(%esp)
 	/* parent location */

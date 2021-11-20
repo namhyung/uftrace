@@ -18,7 +18,7 @@ ENTRY(plt_hooker)
 	/* child_idx */
 	movl 36(%esp), %eax
 	movl %eax, 4(%esp)
-	
+
 	/* module_id */
 	movl 32(%esp), %eax
 	movl %eax, 8(%esp)

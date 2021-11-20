@@ -14,7 +14,7 @@ class TestCase(TestBase):
 (1) main
  +-(2) foo
  | (6) loop
- | 
+ |
  +-(1) bar
    (1) usleep
 

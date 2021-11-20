@@ -82,7 +82,7 @@ uftrace v0.9.4
 * tui change
   add 's' key to sort column in tui report mode by Hyoungjong
   use --report option to start tui with report mode
-  
+
 * other changes
   task level analysis for graph and info command
   add Korean documentation

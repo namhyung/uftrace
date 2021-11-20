@@ -157,4 +157,3 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	}
 	return result;
 }
-

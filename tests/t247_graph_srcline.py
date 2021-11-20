@@ -15,7 +15,7 @@ class TestCase(TestBase):
    13.120 ms : (1) main
   694.492 us :  +-(2) foo [/home/eslee/soft/uftrace/tests/s-sort.c:10]
   688.800 us :  | (6) loop [/home/eslee/soft/uftrace/tests/s-sort.c:3]
-             :  | 
+             :  |
    10.748 ms :  +-(1) bar [/home/eslee/soft/uftrace/tests/s-sort.c:17]
    10.183 ms :    (1) usleep
 """, sort='graph', cflags='-g')

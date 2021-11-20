@@ -11,7 +11,7 @@ class TestCase(TestBase):
    18.227 us : (1) t-signal
    18.227 us : (1) main
     0.353 us :  +-(2) foo
-             :  | 
+             :  |
     0.734 us :  +-(1) sighandler
     0.144 us :    (1) bar
 """, sort='graph')

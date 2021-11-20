@@ -18,7 +18,7 @@ class TestCase(TestBase):
   10.329 ms : (1) main
   53.100 us :  +-(2) foo
   50.745 us :  | (6) loop
-            :  | 
+            :  |
   10.150 ms :  +-(1) bar
   10.102 ms :    (1) usleep
   10.088 ms :    (1) linux:schedule

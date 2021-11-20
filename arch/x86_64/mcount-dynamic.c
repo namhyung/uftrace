@@ -49,7 +49,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 			pr_err("failed to mmap trampoline for setup");
 	}
 
-	if (mprotect(PAGE_ADDR(mdi->text_addr), 
+	if (mprotect(PAGE_ADDR(mdi->text_addr),
 			 PAGE_LEN(mdi->text_addr, mdi->text_size),
 		     PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
@@ -704,7 +704,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 			      struct mcount_orig_insn *orig)
 {
 	/*
-	 * The first entry in the table starts right after the out-of-line 
+	 * The first entry in the table starts right after the out-of-line
 	 * execution buffer.
 	 */
 	uint64_t entry_offset = orig->insn_size;
@@ -736,7 +736,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 		/* previously, all jcc32 are downgraded to jcc8 */
 		disp = entry_offset - (jcc_index + JCC8_INSN_SIZE);
 		if (disp > SCHAR_MAX) { /* should not happen */
-			pr_err("target is not in reach"); 
+			pr_err("target is not in reach");
 		}
 
 		/* patch jcc displacement to target correspending entry in the table */

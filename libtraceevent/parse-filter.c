@@ -2440,4 +2440,3 @@ int pevent_filter_compare(struct event_filter *filter1, struct event_filter *fil
 		return 0;
 	return 1;
 }
-

@@ -35,7 +35,7 @@ EXAMPLE
 =======
 The uftrace recv command should be run before sending data by record command.
 
-    # HOST 
+    # HOST
     $ uftrace recv -d recv_data --port 1234
 
 Above command starts a server with port by given (default `8090`) to receive

@@ -476,4 +476,3 @@ static char *auto_retvals_list =
 	"clock_gettime@retval/d32;"
 	"clock_settime@retval/d32;"
 ;
-

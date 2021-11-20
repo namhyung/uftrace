@@ -19,9 +19,9 @@ class TestCase(TestBase):
    3.679 ms : (1) t-forkexec
    3.679 ms : (1) main
  127.172 us :  +-(1) fork
-            :  | 
+            :  |
    3.527 ms :  +-(1) waitpid
-            :  | 
+            :  |
             :  +-(1) execl
 """, sort='graph')
 
@@ -42,5 +42,5 @@ class TestCase(TestBase):
 
     def fixup(self, cflags, result):
         return result.replace("readlink", """memset
-            :  | 
+            :  |
    9.814 us :  +-(1) readlink""")
