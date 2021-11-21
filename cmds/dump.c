@@ -17,6 +17,10 @@
 #include "libtraceevent/event-parse.h"
 
 
+/* target sampling frequency for flame graph */
+#define FLAME_GRAPH_SAMPLE_FREQ  1000000
+
+
 struct uftrace_dump_ops {
 	/* this is called at the beginning */
 	void (*header)(struct uftrace_dump_ops *ops,
@@ -1117,13 +1121,16 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 	node->parent->child_time += accounted_time;
 }
 
-static void print_flame_graph(struct uftrace_graph_node *node, struct opts *opts)
+static void print_flame_graph(struct uftrace_dump_ops *ops,
+			      struct uftrace_graph_node *node,
+			      struct opts *opts)
 {
 	struct uftrace_graph_node *child;
+	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
 	unsigned long sample = node->nr_calls;
 
-	if (sample && opts->sample_time)
-		sample = (node->time - node->child_time) / opts->sample_time;
+	if (sample && flame->sample_time)
+		sample = (node->time - node->child_time) / flame->sample_time;
 
 	if (sample) {
 		struct uftrace_graph_node *parent = node;
@@ -1149,7 +1156,7 @@ static void print_flame_graph(struct uftrace_graph_node *node, struct opts *opts
 	}
 
 	list_for_each_entry(child, &node->head, list)
-		print_flame_graph(child, opts);
+		print_flame_graph(ops, child, opts);
 }
 
 static void dump_flame_header(struct uftrace_dump_ops *ops,
@@ -1203,7 +1210,7 @@ static void dump_flame_footer(struct uftrace_dump_ops *ops,
 			       struct uftrace_data *handle,
 			       struct opts *opts)
 {
-	print_flame_graph(&flame_graph.root, opts);
+	print_flame_graph(ops, &flame_graph.root, opts);
 
 	graph_destroy(&flame_graph);
 	graph_remove_task();
@@ -1675,6 +1682,24 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 			.sample_time = opts->sample_time,
 		};
 
+		if (!opts->sample_time &&
+		    handle.hdr.info_mask & (1UL << RECORD_DATE)) {
+			uint64_t total_time, sample_time;
+
+			/* elapsed time is saved in second */
+			total_time = strtod(handle.info.elapsed_time, NULL) * 1e9;
+
+			/* start from 1 usec and increase it for the target freq */
+			for (sample_time = 1000;
+			     sample_time * FLAME_GRAPH_SAMPLE_FREQ < total_time;
+			     sample_time *= 10) {
+				/* max sample time is 1 sec */
+				if (sample_time == 1000000000)
+					break;
+			}
+
+			dump.sample_time = sample_time;
+		}
 		do_dump_replay(&dump.ops, opts, &handle);
 	}
 	else if (opts->graphviz) {

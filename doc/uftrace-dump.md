@@ -35,11 +35,12 @@ DUMP OPTIONS
 :   Show hex dump of data as well
 
 \--sample-time=*TIME*
-:   Apply sampling time when generating output for --flame-graph.  By default
-    it uses the number of calls for each function.  When this option is used it
-    simulates sampling by counting execution time at the given unit.  So
-    functions which ran less than the sampling time will be removed from the
-    output but functions longer than the time will be shown as larger.
+:   Apply sampling time when generating output for --flame-graph.  By default it
+    tries to find a period from 1 usec to 1 sec where it keeps the total number
+    of samples under 1 million (in a single-threaded program).  You can override
+    the sampling time with this option explicitly.  Note that functions which
+    ran less than the sampling time will be removed from the output and
+    functions ran longer than the time will be shown as larger.
 
 
 COMMON OPTIONS
