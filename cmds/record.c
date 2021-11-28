@@ -2105,7 +2105,7 @@ int do_child_exec(int ready, struct opts *opts,
 
 	if (opts->no_randomize_addr) {
 		/* disable ASLR (Address Space Layout Randomization) */
-		if (personality(ADDR_NO_RANDOMIZE) < 0)
+		if (personality(0x0040000 /* ADDR_NO_RANDOMIZE */) < 0)
 			pr_dbg("disabling ASLR failed\n");
 	}
 
