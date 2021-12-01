@@ -983,11 +983,8 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			print_field(task, fstack, NULL);
 			pr_out("%*s}%s", depth * 2, "", retval);
 			if (opts->comment) {
-				pr_gray(" /* %s%s%s ", symname,
+				pr_gray(" /* %s%s%s */", symname,
 					*libname ? "@" : "", libname);
-				if (str_loc)
-					pr_gray("at %s ", str_loc);
-				pr_gray("*/");
 			}
 			pr_out("\n");
 		}
