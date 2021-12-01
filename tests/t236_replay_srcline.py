@@ -13,10 +13,10 @@ class TestCase(TestBase):
             [ 19939] |     b() { /* tests/s-abc.c:16 */
             [ 19939] |       c() { /* tests/s-abc.c:21 */
    1.120 us [ 19939] |         getpid();
-   1.697 us [ 19939] |       } /* c at tests/s-abc.c:21 */
-   2.044 us [ 19939] |     } /* b at tests/s-abc.c:16 */
-   2.329 us [ 19939] |   } /* a at tests/s-abc.c:11 */
-   2.644 us [ 19939] | } /* main at tests/s-abc.c:26 */
+   1.697 us [ 19939] |       } /* c */
+   2.044 us [ 19939] |     } /* b */
+   2.329 us [ 19939] |   } /* a */
+   2.644 us [ 19939] | } /* main */
 """, cflags='-g')
 
     def build(self, name, cflags='', ldflags=''):
