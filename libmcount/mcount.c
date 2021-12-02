@@ -79,6 +79,9 @@ static bool __maybe_unused mcount_enabled = true;
 /* function filtering mode - inclusive or exclusive */
 static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 
+/* location filtering mode - inclusive or exclusive */
+static enum filter_mode __maybe_unused mcount_loc_mode = FILTER_MODE_NONE;
+
 /* tree of trigger actions */
 static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
 
@@ -366,6 +369,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	char *retval_str = getenv("UFTRACE_RETVAL");
 	char *autoargs_str = getenv("UFTRACE_AUTO_ARGS");
 	char *caller_str = getenv("UFTRACE_CALLER");
+	char *loc_str = getenv("UFTRACE_LOCATION");
 
 	struct uftrace_filter_setting filter_setting = {
 		.ptype = ptype,
@@ -403,6 +407,11 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 			      &filter_setting);
 	uftrace_setup_argument(argument_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
 	uftrace_setup_retval(retval_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
+
+	if (needs_debug_info) {
+		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, &mcount_triggers,
+					 &mcount_loc_mode, &filter_setting);
+	}
 
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, &mcount_triggers,
@@ -869,6 +878,15 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	else {
 		/* not matched by filter */
 		if (mcount_filter_mode == FILTER_MODE_IN && mtdp->filter.in_count == 0)
+			return FILTER_OUT;
+	}
+
+	if (tr->flags & TRIGGER_FL_LOC) {
+		if (tr->lmode == FILTER_MODE_OUT)
+			return FILTER_OUT;
+	}
+	else {
+		if (mcount_loc_mode == FILTER_MODE_IN)
 			return FILTER_OUT;
 	}
 

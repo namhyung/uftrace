@@ -146,6 +146,10 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+-L *LOCATION*, \--loc-filter=*LOCATION*
+:   Set filter to trace selected source locations.
+    This option can be used more than once. Implies --srcline. See *FILTERS*.
+
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally
     traced by hooking calls to the resolver function of dynamic linker in the PLT.
@@ -367,6 +371,25 @@ example will show all user functions and the (kernel) page fault handler.
       3.340 us [14721] |   } /* a */
      79.086 us [14721] | } /* main */
 
+In addition, you can set filter to record selected source locations with `-L` option.
+
+  $ uftrace record -L s-libmain.c t-lib
+  $ uftrace replay --srcline
+  # DURATION     TID     FUNCTION [SOURCE]
+              [  5043] | main() { /* /home/uftrace/tests/s-libmain.c:16 */
+     6.998 us [  5043] |   foo(); /* /home/uftrace/tests/s-libmain.c:11 */
+     9.393 us [  5043] | } /* main */
+
+You can set filter with the `@hide` suffix not to record selected source locations.
+
+  $ uftrace record -L s-libmain.c@hide t-lib
+  $ uftrace replay --srcline
+  # DURATION     TID     FUNCTION [SOURCE]
+              [ 14688] | lib_a() { /* /home/uftrace/tests/s-lib.c:10 */
+              [ 14688] |   lib_b() { /* /home/uftrace/tests/s-lib.c:15 */
+     1.505 us [ 14688] |     lib_c(); /* /home/uftrace/tests/s-lib.c:20 */
+     2.816 us [ 14688] |   } /* lib_b */
+     3.181 us [ 14688] | } /* lib_a */
 
 TRIGGERS
 ========
