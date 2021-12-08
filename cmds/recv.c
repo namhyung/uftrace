@@ -42,7 +42,8 @@ static int server_socket(struct opts *opts)
 	if (sock < 0)
 		pr_err("socket creation failed");
 
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) != 0)
+		pr_warn("socket setting failed\n");
 
 	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
 		pr_err("socket bind failed");
@@ -88,7 +89,8 @@ int setup_client_socket(struct opts *opts)
 	if (sock < 0)
 		pr_err("socket create failed");
 
-	setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+	if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) != 0)
+		pr_warn("socket setting failed\n");
 
 	hostinfo = gethostbyname(opts->host);
 	if (hostinfo == NULL)
