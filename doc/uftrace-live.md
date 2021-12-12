@@ -130,6 +130,10 @@ RECORD OPTIONS
 -K *DEPTH*, \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
+\--clock=*CLOCK*
+:   Set clock source for timestamp recording.
+    *CLOCK* can be one of 'mono', 'mono_raw', or 'boot'.  Default is 'mono'.
+
 \--signal=*TRG*
 :   Set trigger on selected signals rather than functions.  But there are
     restrictions so only a few of trigger actions are support for signals.

@@ -226,6 +226,7 @@ struct opts {
 	char *extern_data;
 	char *hide;
 	char *with_syms;
+	char *clock;
 	int mode;
 	int idx;
 	int depth;

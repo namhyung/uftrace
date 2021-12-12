@@ -103,6 +103,7 @@ enum options {
 	OPT_signal,
 	OPT_srcline,
 	OPT_with_syms,
+	OPT_clock,
 	OPT_usage,
 };
 
@@ -124,6 +125,7 @@ __used static const char uftrace_help[] =
 "  -b, --buffer=SIZE          Size of tracing buffer (default: "
 	stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
 "      --chrome               Dump recorded data in chrome trace format\n"
+"      --clock                Set clock source for timestamp (default: mono)\n"
 "      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
 "      --column-offset=DEPTH  Offset of each column (default: "
 	stringify(OPT_COLUMN_OFFSET) ")\n"
@@ -303,6 +305,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(signal, OPT_signal),
 	NO_ARG(srcline, OPT_srcline),
 	REQ_ARG(hide, 'H'),
+	REQ_ARG(clock, OPT_clock),
 	NO_ARG(help, 'h'),
 	NO_ARG(usage, OPT_usage),
 	NO_ARG(version, 'V'),
@@ -968,6 +971,17 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case OPT_with_syms:
 		opts->with_syms = arg;
+		break;
+
+	case OPT_clock:
+		if (strcmp(arg, "mono") &&
+		    strcmp(arg, "mono_raw") &&
+		    strcmp(arg, "boot")) {
+			pr_use("invalid clock source: '%s' "
+				"(force to use 'mono')\n", arg);
+			arg = "mono";
+		}
+		opts->clock = arg;
 		break;
 
 	default:

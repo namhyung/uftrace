@@ -92,6 +92,8 @@ unsigned long mcount_return_fn;
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
 
+clockid_t clock_source = CLOCK_MONOTONIC;
+
 __weak void dynamic_return(void) { }
 
 #ifdef DISABLE_MCOUNT_FILTER
@@ -1760,6 +1762,15 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
+static const struct {
+	const char *name;
+	clockid_t clock_id;
+} trace_clocks[] = {
+	{ "mono",	CLOCK_MONOTONIC		},
+	{ "mono_raw",	CLOCK_MONOTONIC_RAW	},
+	{ "boot",	CLOCK_BOOTTIME		},
+};
+
 static __used void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1775,6 +1786,7 @@ static __used void mcount_startup(void)
 	char *event_str;
 	char *dirname;
 	char *pattern_str;
+	char *clock_str;
 	struct stat statbuf;
 	bool nest_libcall;
 	enum uftrace_pattern_type patt_type = PATT_REGEX;
@@ -1804,6 +1816,7 @@ static __used void mcount_startup(void)
 	script_str = getenv("UFTRACE_SCRIPT");
 	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
 	pattern_str = getenv("UFTRACE_PATTERN");
+	clock_str = getenv("UFTRACE_CLOCK");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -1902,6 +1915,17 @@ static __used void mcount_startup(void)
 	if (plthook_str) {
 		/* PLT hook depends on mcount_estimate_return */
 		mcount_setup_plthook(mcount_exename, nest_libcall);
+	}
+
+	if (clock_str) {
+		size_t i;
+
+		for (i = 0; i < ARRAY_SIZE(trace_clocks); i++) {
+			if (!strcmp(clock_str, trace_clocks[i].name)) {
+				clock_source = trace_clocks[i].clock_id;
+				break;
+			}
+		}
 	}
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
