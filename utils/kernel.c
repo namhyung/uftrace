@@ -177,9 +177,12 @@ static int set_tracing_pid(int pid)
 	return 0;
 }
 
-static int set_tracing_clock(void)
+static int set_tracing_clock(char *clock_str)
 {
-	return write_tracing_file("trace_clock", "mono");
+	/* set to default clock source if not given */
+	if (clock_str == NULL)
+		clock_str = "mono";
+	return write_tracing_file("trace_clock", clock_str);
 }
 
 struct kfilter {
@@ -511,7 +514,7 @@ static int __setup_kernel_tracing(struct uftrace_kernel_writer *kernel)
 	if (write_tracing_file("trace", "0") < 0)
 		goto out;
 
-	if (set_tracing_clock() < 0)
+	if (set_tracing_clock(kernel->clock) < 0)
 		goto out;
 
 	if (set_tracing_pid(kernel->pid) < 0)

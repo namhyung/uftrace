@@ -72,6 +72,10 @@ RECORD OPTIONS
 -K *DEPTH*, \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Implies `--kernel`.
 
+\--clock=*CLOCK*
+:   Set clock source for timestamp recording.
+    *CLOCK* can be one of 'mono', 'mono_raw', or 'boot'.  Default is 'mono'.
+
 \--host=*HOST*
 :   Send trace data to given host via the network, not writing to files.
     The `uftrace recv` command should be run on the destination host to receive

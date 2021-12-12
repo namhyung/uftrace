@@ -320,6 +320,9 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 	if (opts->estimate_return)
 		setenv("UFTRACE_ESTIMATE_RETURN", "1", 1);
 
+	if (opts->clock)
+		setenv("UFTRACE_CLOCK", opts->clock, 1);
+
 	if (argc > 0) {
 		char *args = NULL;
 		int i;
@@ -1767,6 +1770,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 		kernel->output_dir = opts->dirname;
 		kernel->depth = opts->kernel_depth ?: 1;
 		kernel->bufsize = opts->kernel_bufsize;
+		kernel->clock = opts->clock;
 
 		if (!opts->nr_thread) {
 			if (opts->kernel_depth >= 4)

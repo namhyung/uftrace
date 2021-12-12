@@ -197,10 +197,12 @@ static inline void mcount_watch_setup(struct mcount_thread_data *mtdp) {}
 static inline void mcount_watch_release(struct mcount_thread_data *mtdp) {}
 #endif /* DISABLE_MCOUNT_FILTER */
 
+extern clockid_t clock_source;
+
 static inline uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	clock_gettime(clock_source, &ts);
 	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
 }
 

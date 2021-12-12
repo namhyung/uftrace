@@ -16,6 +16,7 @@ struct uftrace_kernel_writer {
 	int			*traces;
 	int			*fds;
 	char			*output_dir;
+	char			*clock;
 	struct list_head	filters;
 	struct list_head	notrace;
 	struct list_head	patches;
