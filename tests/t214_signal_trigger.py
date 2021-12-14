@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'signal', """
+        TestBase.__init__(
+            self,
+            "signal",
+            """
 # DURATION     TID     FUNCTION
             [ 11892] | main() {
    0.241 us [ 11892] |   foo();
@@ -20,11 +24,15 @@ task: 11892
 [2] sighandler
 [1] raise
 [0] main
-""")
+""",
+        )
 
     def setup(self):
         self.option = "--signal SIGUSR1@finish"
 
     def fixup(self, cflags, result):
-        return result.replace("""     } /* sighandler */
-""", "")
+        return result.replace(
+            """     } /* sighandler */
+""",
+            "",
+        )

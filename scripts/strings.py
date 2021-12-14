@@ -6,6 +6,7 @@
 
 strset = set()
 
+
 def uftrace_entry(ctx):
     global strset
     if "args" in ctx:
@@ -16,6 +17,7 @@ def uftrace_entry(ctx):
                 if arg != "" and arg[:8] != "struct: ":
                     strset.add(arg)
 
+
 def uftrace_exit(ctx):
     global strset
     if "retval" in ctx:
@@ -24,6 +26,7 @@ def uftrace_exit(ctx):
             ret = ret.strip()
             if ret != "" and ret[:8] != "struct: ":
                 strset.add(ret)
+
 
 def uftrace_end():
     global strset

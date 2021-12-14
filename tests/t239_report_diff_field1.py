@@ -4,12 +4,16 @@ import subprocess as sp
 
 from runtest import TestBase
 
-XDIR='xxx'
-YDIR='yyy'
+XDIR = "xxx"
+YDIR = "yyy"
+
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 #
 # uftrace diff
 #  [0] base: xxx   (from uftrace record -d xxx tests/t-abc )
@@ -22,42 +26,45 @@ class TestCase(TestBase):
     5.925 us    5.385 us    -9.11%     0.786 us    0.554 us   -29.52%            1          1         +0   b
     5.139 us    4.831 us    -5.99%     3.517 us    3.137 us   -10.80%            1          1         +0   c
     1.622 us    1.694 us    +4.44%     1.622 us    1.694 us    +4.44%            1          1         +0   getpid
-""")
+""",
+        )
 
     def prerun(self, timeout):
-        self.subcmd = 'record'
-        self.option = '-d ' + XDIR
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.option = "-d " + XDIR
+        self.exearg = "t-" + self.name
         record_cmd = self.runcmd()
         sp.call(record_cmd.split())
 
-        self.option = '-d ' + YDIR
+        self.option = "-d " + YDIR
         record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'report'
-        self.option = '-f total,self,call --sort-column 0 --diff-policy full,percent'  # old behavior
-        self.exearg = '-d %s --diff %s' % (XDIR, YDIR)
+        self.subcmd = "report"
+        self.option = (
+            "-f total,self,call --sort-column 0 --diff-policy full,percent"  # old behavior
+        )
+        self.exearg = "-d %s --diff %s" % (XDIR, YDIR)
 
     def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
+        """This function post-processes output of the test to be compared .
+        It ignores blank and comment (#) lines and remaining functions."""
         result = []
-        for ln in output.split('\n'):
-            if ln.startswith('#') or ln.strip() == '':
+        for ln in output.split("\n"):
+            if ln.startswith("#") or ln.strip() == "":
                 continue
             line = ln.split()
-            if line[0] == 'Total':
+            if line[0] == "Total":
                 continue
-            if line[0].startswith('='):
+            if line[0].startswith("="):
                 continue
             # A report line consists of following data
             # [0]  [1]  [2]  [3]  [4]      [5]  [6]  [7]  [8]  [9]      [10]   [11]   [12]       [13]
             # tT/0 unit tT/1 unit percent  tS/0 unit tS/1 unit percent  call/0 call/1 call/diff  function
-            if line[-1].startswith('__'):
+            if line[-1].startswith("__"):
                 continue
-            result.append('%s %s %s %s' % (line[-4], line[-3], line[-2], line[-1]))
+            result.append("%s %s %s %s" % (line[-4], line[-3], line[-2], line[-1]))
 
-        return '\n'.join(result)
+        return "\n".join(result)

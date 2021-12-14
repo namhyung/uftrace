@@ -1,8 +1,12 @@
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'daemon', """
+        TestBase.__init__(
+            self,
+            "daemon",
+            """
 # DURATION    TID     FUNCTION
             [22067] | main() {
             [22067] |   daemon() {
@@ -21,7 +25,8 @@ uftrace stopped tracing with remaining functions
 task: 22067
 [1] daemon
 [0] main
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--keep-pid --no-pager'
+        self.option = "--keep-pid --no-pager"

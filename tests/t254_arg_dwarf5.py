@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'dwarf5', """
+        TestBase.__init__(
+            self,
+            "dwarf5",
+            """
 # DURATION     TID     FUNCTION
             [1167172] | main() {
  143.049 us [1167172] |   pass_int1(int1{...}, 1, "2", 3.000000) = 1;
@@ -18,15 +22,17 @@ class TestCase(TestBase):
    0.255 us [1167172] |   pass_mix3(mix3{...}, 1, "2", 3.000000) = 1;
  154.430 us [1167172] | } /* main */
 
-""", cflags='-g')
+""",
+            cflags="-g",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        if not 'dwarf' in self.feature:
+    def build(self, name, cflags="", ldflags=""):
+        if not "dwarf" in self.feature:
             return TestBase.TEST_SKIP
-        if cflags.find('-finstrument-functions') >= 0:
+        if cflags.find("-finstrument-functions") >= 0:
             return TestBase.TEST_SKIP
 
         return TestBase.build(self, name, cflags, ldflags)
 
     def setup(self):
-        self.option = '-A ^pass -R ^pass -F main'
+        self.option = "-A ^pass -R ^pass -F main"

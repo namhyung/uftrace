@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'struct', """
+        TestBase.__init__(
+            self,
+            "struct",
+            """
 uftrace file header: magic         = 4674726163652100
 uftrace file header: version       = 4
 uftrace file header: header size   = 40
@@ -27,24 +31,27 @@ reading 3121.dat
 11431966.433135754   3121: [exit ] main(400673) depth: 0
 11431966.433135754   3121: [retval] length = 8
   retval d64: 0x0000000000000000
-""", cflags='-g', sort='dump')
+""",
+            cflags="-g",
+            sort="dump",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        if not 'dwarf' in self.feature:
+    def build(self, name, cflags="", ldflags=""):
+        if not "dwarf" in self.feature:
             return TestBase.TEST_SKIP
         # cygprof doesn't support arguments now
-        if cflags.find('-finstrument-functions') >= 0:
+        if cflags.find("-finstrument-functions") >= 0:
             return TestBase.TEST_SKIP
         return TestBase.build(self, name, cflags, ldflags)
 
     def prepare(self):
-        self.subcmd = 'record'
-        self.option = '-a --no-libcall'
+        self.subcmd = "record"
+        self.option = "-a --no-libcall"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'dump'
+        self.subcmd = "dump"
 
     def fixup(self, cflags, result):
         # 32-bit will show the output differently
-        return result.replace('d64: 0x00000000', 'd32: 0x')
+        return result.replace("d64: 0x00000000", "d32: 0x")

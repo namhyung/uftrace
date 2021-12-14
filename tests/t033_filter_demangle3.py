@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [ 3357] | main() {
    2.874 us [ 3357] |   operator new();
@@ -23,7 +28,8 @@ class TestCase(TestBase):
    2.072 us [ 3357] |   } /* ns::ns2::foo::bar */
    0.311 us [ 3357] |   operator delete();
  105.160 us [ 3357] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
         self.option = '-N ".*ns1::.*"'

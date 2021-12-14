@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'longjmp3', """
+        TestBase.__init__(
+            self,
+            "longjmp3",
+            """
 # DURATION    TID     FUNCTION
    1.164 us [ 4107] | __monstartup();
    0.657 us [ 4107] | __cxa_atexit();
@@ -29,7 +33,8 @@ class TestCase(TestBase):
             [ 4107] |       longjmp(4) {
    0.642 us [ 4107] |   } = 4; /* _setjmp */
   18.019 us [ 4107] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '-A .?longjmp@arg2 -R .?setjmp@retval'
+        self.option = "-A .?longjmp@arg2 -R .?setjmp@retval"

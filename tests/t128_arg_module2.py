@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'allocfree', """
+        TestBase.__init__(
+            self,
+            "allocfree",
+            """
 # DURATION    TID     FUNCTION
    3.937 us [  447] | __monstartup();
    1.909 us [  447] | __cxa_atexit();
@@ -32,11 +36,12 @@ class TestCase(TestBase):
    5.713 us [  447] |     } /* free2 */
    6.341 us [  447] |   } /* free1 */
   21.174 us [  447] | } /* main */
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
+    def build(self, name, cflags="", ldflags=""):
         # cygprof doesn't support arguments now
-        if cflags.find('-finstrument-functions') >= 0:
+        if cflags.find("-finstrument-functions") >= 0:
             return TestBase.TEST_SKIP
 
         return TestBase.build(self, name, cflags, ldflags)

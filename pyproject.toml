@@ -6,3 +6,5 @@ combine_as_imports = true
 ignore_whitespace = true
 skip_gitignore = true
 
+[tool.black]
+line-length = 100

@@ -4,9 +4,13 @@ import os.path
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """digraph "%s" {
+        TestBase.__init__(
+            self,
+            "abc",
+            """digraph "%s" {
 
         # Attributes
         splines=ortho;
@@ -20,25 +24,26 @@ class TestCase(TestBase):
         "a" -> "b" [xlabel = "Calls : 1"]
         "b" -> "c" [xlabel = "Calls : 1"]
         }
-        """)
+        """,
+        )
         self.result = self.result % os.path.join(self.test_dir, "t-abc")
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'dump'
-        self.option = '-F main -D 4 --graphviz'
+        self.subcmd = "dump"
+        self.option = "-F main -D 4 --graphviz"
 
     def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
+        """This function post-processes output of the test to be compared .
+        It ignores blank and comment (#) lines and remaining functions."""
         result = []
-        for line, ln in enumerate(output.split('\n')):
+        for line, ln in enumerate(output.split("\n")):
             # remove all comments
             ln = ln.strip()
-            if ln.startswith('#'):
+            if ln.startswith("#"):
                 continue
             result.append(ln)
-        return '\n'.join(result)
+        return "\n".join(result)

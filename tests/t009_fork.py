@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', """
+        TestBase.__init__(
+            self,
+            "fork",
+            """
 # DURATION    TID     FUNCTION
             [26125] | __cxa_atexit() {
   68.297 us [26125] | } /* __cxa_atexit */
@@ -32,7 +36,8 @@ class TestCase(TestBase):
    6.520 us [26125] |     } /* b */
    7.140 us [26125] |   } /* a */
  420.059 us [26125] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--no-merge'
+        self.option = "--no-merge"

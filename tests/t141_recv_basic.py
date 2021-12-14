@@ -5,11 +5,15 @@ import subprocess as sp
 
 from runtest import TestBase
 
-TDIR  = 'xxx'
+TDIR = "xxx"
+
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION    TID     FUNCTION
   62.202 us [28141] | __cxa_atexit();
             [28141] | main() {
@@ -21,30 +25,31 @@ class TestCase(TestBase):
    1.915 us [28141] |     } /* b */
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         self.gen_port()
 
-        self.subcmd = 'recv'
-        self.option = '-d %s --port %s' % (TDIR, self.port)
-        self.exearg = ''
+        self.subcmd = "recv"
+        self.option = "-d %s --port %s" % (TDIR, self.port)
+        self.exearg = ""
         recv_cmd = self.runcmd()
         self.pr_debug("prerun command: " + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        self.subcmd = 'record'
-        self.option = '--host %s --port %s' % ('localhost', self.port)
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.option = "--host %s --port %s" % ("localhost", self.port)
+        self.exearg = "t-" + self.name
         record_cmd = self.runcmd()
         self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'replay'
-        self.option = '-d ' + os.path.join(TDIR, 'uftrace.data')
-        self.exearg = ''
+        self.subcmd = "replay"
+        self.option = "-d " + os.path.join(TDIR, "uftrace.data")
+        self.exearg = ""
 
     def postrun(self, ret):
         self.recv_p.terminate()

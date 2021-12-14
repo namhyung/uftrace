@@ -4,9 +4,14 @@ import re
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'chcpu', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "chcpu",
+            serial=True,
+            result="""
 # DURATION     TID     FUNCTION
             [ 19611] | main() {
             [ 19611] |   /* watch:cpu (cpu=6) */
@@ -21,7 +26,8 @@ class TestCase(TestBase):
             [ 19611] |     /* watch:cpu (cpu=6) */
   37.281 us [ 19611] |   } /* sched_setaffinity */
  142.912 us [ 19611] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
         # ignore unexpected memset on ARM (raspbian)
@@ -29,15 +35,15 @@ class TestCase(TestBase):
 
     def sort(self, output):
         result = []
-        for ln in output.split('\n'):
+        for ln in output.split("\n"):
             # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
+            if ln.strip() == "" or ln.startswith("#"):
                 continue
-            line = ln.split('|', 1)[-1]
-            func = re.sub(r'cpu=[0-9a-f]+', 'cpu=N', line)
+            line = ln.split("|", 1)[-1]
+            func = re.sub(r"cpu=[0-9a-f]+", "cpu=N", line)
             result.append(func)
 
-        return '\n'.join(result)
+        return "\n".join(result)
 
     def fixup(self, cflags, result):
-        return re.sub(r'.*/\* linux:schedule \*/\n', '', result)
+        return re.sub(r".*/\* linux:schedule \*/\n", "", result)

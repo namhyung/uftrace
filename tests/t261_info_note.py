@@ -4,9 +4,13 @@ import subprocess as sp
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'hello', """
+        TestBase.__init__(
+            self,
+            "hello",
+            """
 # system information
 # ==================
 # program version     : v0.10-52-gca6c ( x86_64 dwarf python luajit tui perf sched dynamic )
@@ -37,33 +41,34 @@ class TestCase(TestBase):
 #
 # extra note information
 # ======================
-You can leave a note for the recorded data.""")
+You can leave a note for the recorded data.""",
+        )
 
     def prerun(self, timeout):
-        self.subcmd  = 'record'
-        self.exearg += ' note.txt'
+        self.subcmd = "record"
+        self.exearg += " note.txt"
         record_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
 
-        f = open('/dev/null')
+        f = open("/dev/null")
         sp.call(record_cmd.split(), stdout=f, stderr=f)
         f.close()
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        with open('uftrace.data/note.txt', 'w+') as f:
-            f.write('You can leave a note for the recorded data.')
-        self.subcmd = 'info'
-        self.exearg = ''
+        with open("uftrace.data/note.txt", "w+") as f:
+            f.write("You can leave a note for the recorded data.")
+        self.subcmd = "info"
+        self.exearg = ""
 
     def sort(self, output):
         header_match = 0
-        for ln in output.split('\n'):
+        for ln in output.split("\n"):
             if header_match == 0:
-                if ln.startswith('# extra note information'):
+                if ln.startswith("# extra note information"):
                     header_match = 1
             elif header_match == 1:
                 header_match = 2
             elif header_match == 2:
                 return ln
-        return ''
+        return ""

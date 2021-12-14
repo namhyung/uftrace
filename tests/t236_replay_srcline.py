@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION     TID     FUNCTION [SOURCE]
    0.678 us [ 19939] | __monstartup();
    0.234 us [ 19939] | __cxa_atexit();
@@ -17,41 +21,43 @@ class TestCase(TestBase):
    2.044 us [ 19939] |     } /* b */
    2.329 us [ 19939] |   } /* a */
    2.644 us [ 19939] | } /* main */
-""", cflags='-g')
+""",
+            cflags="-g",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        if not 'dwarf' in self.feature:
+    def build(self, name, cflags="", ldflags=""):
+        if not "dwarf" in self.feature:
             return TestBase.TEST_SKIP
         return TestBase.build(self, name, cflags, ldflags)
 
     def prepare(self):
-        self.subcmd = 'record'
-        self.option = '--srcline'
+        self.subcmd = "record"
+        self.option = "--srcline"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'replay'
-        self.option = '--srcline'
+        self.subcmd = "replay"
+        self.option = "--srcline"
 
     def sort(self, output):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
+        """This function post-processes output of the test to be compared .
+        It ignores blank and comment (#) lines and remaining functions."""
         result = []
         before_main = True
-        for ln in output.split('\n'):
-            if ln.find(' | main()') > 0:
+        for ln in output.split("\n"):
+            if ln.find(" | main()") > 0:
                 before_main = False
             if before_main:
                 continue
             # ignore result of remaining functions which follows a blank line
-            if ln.strip() == '':
+            if ln.strip() == "":
                 break
 
-            func = ln.split('|', 1)[-1].split('/*')
+            func = ln.split("|", 1)[-1].split("/*")
 
-            if len(func) < 2 :
-                result.append('%s' % (func[0]))
-            else :
-                result.append('%s %s' % (func[-2], func[-1][0:-3].split('/')[-1]))
+            if len(func) < 2:
+                result.append("%s" % (func[0]))
+            else:
+                result.append("%s %s" % (func[-2], func[-1][0:-3].split("/")[-1]))
 
-        return '\n'.join(result)
+        return "\n".join(result)

@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', """
+        TestBase.__init__(
+            self,
+            "sort",
+            """
   Total time   Self time  Nr. called  Function
   ==========  ==========  ==========  ====================================
    36.388 us   36.388 us           6  loop
@@ -14,12 +18,14 @@ class TestCase(TestBase):
    70.176 us   70.176 us           1  __monstartup   # ignore this
     1.080 ms    1.813 us           1  bar
     1.200 us    1.200 us           1  __cxa_atexit   # and this too
-""", sort='report')
+""",
+            sort="report",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'report'
-        self.option = '-s call,self'
+        self.subcmd = "report"
+        self.option = "-s call,self"

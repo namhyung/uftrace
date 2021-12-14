@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'dlopen', """1
+        TestBase.__init__(
+            self,
+            "dlopen",
+            """1
 # DURATION    TID     FUNCTION
    1.404 us [22207] | __cxa_atexit();
             [22207] | main() {
@@ -23,12 +27,12 @@ class TestCase(TestBase):
   19.869 us [22207] |   } /* foo */
   13.391 us [22207] |   dlclose();
  274.723 us [22207] | } /* main */
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
+    def build(self, name, cflags="", ldflags=""):
         if TestBase.build_libabc(self, cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
-        if TestBase.build_libfoo(self, 'foo', cflags, ldflags) != 0:
+        if TestBase.build_libfoo(self, "foo", cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
-        return TestBase.build_libmain(self, name, 's-dlopen.c', ['libdl.so'],
-                                      cflags, ldflags)
+        return TestBase.build_libmain(self, name, "s-dlopen.c", ["libdl.so"], cflags, ldflags)

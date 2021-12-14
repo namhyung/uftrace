@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', """
+        TestBase.__init__(
+            self,
+            "namespace",
+            """
 # DURATION    TID     FUNCTION
             [ 6565] | main() {
    2.234 us [ 6565] |   operator new();
@@ -23,12 +27,16 @@ task: 6565
 [2] ns::ns1::foo::bar1
 [1] ns::ns1::foo::bar
 [0] main
-""", lang='C++')
+""",
+            lang="C++",
+        )
 
     def setup(self):
-        self.option = '-F main -T ns::ns1::foo::bar3@finish'
+        self.option = "-F main -T ns::ns1::foo::bar3@finish"
 
     def fixup(self, cflags, result):
-        return result.replace("""ns::ns1::foo::bar3() {
+        return result.replace(
+            """ns::ns1::foo::bar3() {
             [ 6565] |           /* linux:task-exit */""",
-                                "ns::ns1::foo::bar3() {")
+            "ns::ns1::foo::bar3() {",
+        )

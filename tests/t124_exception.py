@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'exception', lang='C++', result="""
+        TestBase.__init__(
+            self,
+            "exception",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
    2.777 us [10827] | __cxa_atexit();
             [10827] | _GLOBAL__sub_I__Z3foov() {
@@ -23,14 +28,21 @@ class TestCase(TestBase):
   84.652 us [10827] |   } /* test */
    0.090 us [10827] |   bar();
   85.590 us [10827] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '-N personality_v.'
+        self.option = "-N personality_v."
 
     def fixup(self, cflags, result):
-        r = result.replace("} /* oops */", """} /* oops */
-   0.088 us [10827] |     std::exception::~exception();""")
-        r = r.replace("} /* main */", """} /* main */
- 108.818 us [10827] | std::ios_base::Init::~Init();""")
+        r = result.replace(
+            "} /* oops */",
+            """} /* oops */
+   0.088 us [10827] |     std::exception::~exception();""",
+        )
+        r = r.replace(
+            "} /* main */",
+            """} /* main */
+ 108.818 us [10827] | std::ios_base::Init::~Init();""",
+        )
         return r

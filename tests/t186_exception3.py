@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'exception3', lang='C++', result="""
+        TestBase.__init__(
+            self,
+            "exception3",
+            lang="C++",
+            result="""
 # DURATION     TID     FUNCTION
             [ 16014] | main() {
    0.205 us [ 16014] |   A::A();
@@ -45,7 +50,8 @@ class TestCase(TestBase):
   14.698 us [ 16014] |     } /* bar */
   14.948 us [ 16014] |   } /* catch_exc */
   85.226 us [ 16014] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '-N personality_v.'
+        self.option = "-N personality_v."

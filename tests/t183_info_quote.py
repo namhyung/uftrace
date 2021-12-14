@@ -4,9 +4,13 @@ import subprocess as sp
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'hello', """
+        TestBase.__init__(
+            self,
+            "hello",
+            """
 # system information
 # ==================
 # program version     : uftrace v0.8.1-133-g7f71
@@ -32,26 +36,26 @@ class TestCase(TestBase):
 # context switch      : 1 / 0 (voluntary / involuntary)
 # max rss             : 3284 KB
 # page fault          : 0 / 197 (major / minor)
-# disk iops           : 0 / 16 (read / write)""")
-
+# disk iops           : 0 / 16 (read / write)""",
+        )
 
     def prerun(self, timeout):
-        self.subcmd  = 'record'
+        self.subcmd = "record"
         self.exearg += ' "uftrace"'
         record_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
 
-        f = open('/dev/null')
+        f = open("/dev/null")
         sp.call(record_cmd.split(), stdout=f, stderr=f)
         f.close()
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'info'
-        self.exearg = ''
+        self.subcmd = "info"
+        self.exearg = ""
 
     def sort(self, output):
-        for ln in output.split('\n'):
-            if ln.startswith('# cmdline'):
+        for ln in output.split("\n"):
+            if ln.startswith("# cmdline"):
                 return ln.split()[-1]
-        return ''
+        return ""

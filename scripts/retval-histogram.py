@@ -22,19 +22,20 @@
 #   >= 1024b  :          0  (  0.0 %)
 #
 
-func = ''
-unit = 'b'
+func = ""
+unit = "b"
 histo = None
 
 divider = {
-    'b': 1,
-    'k': 1000,
-    'K': 1000,
-    'm': 1000000,
-    'M': 1000000,
-    'g': 1000000000,
-    'G': 1000000000,
+    "b": 1,
+    "k": 1000,
+    "K": 1000,
+    "m": 1000000,
+    "M": 1000000,
+    "g": 1000000000,
+    "G": 1000000000,
 }
+
 
 def create_histogram():
     h = []
@@ -43,14 +44,16 @@ def create_histogram():
         h.append(0)
     return h
 
+
 def get_histogram_index(val):
     if val < 0:
         return 0
     val = int(val / divider[unit])
     for i in range(11):
         if val < (1 << i):
-            return i+1
+            return i + 1
     return 12
+
 
 def print_histogram():
     print("histogram of return value of '%s'\n" % func)
@@ -62,17 +65,22 @@ def print_histogram():
 
     print(" <  %4d%s  : %10d  (%5.1f %%)" % (0, unit, histo[0], 100.0 * histo[0] / total))
     for i in range(11):
-        print(" <  %4d%s  : %10d  (%5.1f %%)" % (1 << i, unit, histo[i+1], 100.0 * histo[i+1] / total))
+        print(
+            " <  %4d%s  : %10d  (%5.1f %%)"
+            % (1 << i, unit, histo[i + 1], 100.0 * histo[i + 1] / total)
+        )
     print(" >= %4d%s  : %10d  (%5.1f %%)" % (1024, unit, histo[12], 100.0 * histo[12] / total))
+
 
 def parse_args(args):
     global func, unit
-    if args[0] == '-u' or args[0] == '--unit':
+    if args[0] == "-u" or args[0] == "--unit":
         unit = args[1]
         func = args[2]
     else:
-        unit = 'b'
+        unit = "b"
         func = args[0]
+
 
 #
 # uftrace interface functions
@@ -89,8 +97,10 @@ def uftrace_begin(ctx):
         return
     histo = create_histogram()
 
+
 def uftrace_entry(ctx):
     pass
+
 
 def uftrace_exit(ctx):
     global histo
@@ -103,6 +113,7 @@ def uftrace_exit(ctx):
     retval = int(ctx["retval"])
     idx = get_histogram_index(retval)
     histo[idx] += 1
+
 
 def uftrace_end():
     if histo is None:

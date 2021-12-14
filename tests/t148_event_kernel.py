@@ -4,9 +4,14 @@ import os
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sleep', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "sleep",
+            serial=True,
+            result="""
 # DURATION    TID     FUNCTION
             [24464] | main() {
             [24464] |   foo() {
@@ -25,36 +30,37 @@ class TestCase(TestBase):
    2.215 ms [24464] |   } /* foo */
    2.216 ms [24464] | } /* main */
 
-""")
+""",
+        )
 
     def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists("/.dockerenv"):
             return TestBase.TEST_SKIP
 
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.option  = '-E sched:sched_switch@kernel'
+        self.option = "-E sched:sched_switch@kernel"
 
-    def sort(self, output, ignored=''):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
+    def sort(self, output, ignored=""):
+        """This function post-processes output of the test to be compared .
+        It ignores blank and comment (#) lines and remaining functions."""
         result = []
         before_main = True
-        for ln in output.split('\n'):
-            if ln.find(' | main()') > 0:
+        for ln in output.split("\n"):
+            if ln.find(" | main()") > 0:
                 before_main = False
             if before_main:
                 continue
             # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
+            if ln.strip() == "" or ln.startswith("#"):
                 continue
             # delete event specific info
-            if ln.find('sched:sched_switch') > 0:
-                ln = ' |         /* sched:sched_switch */'
-            func = ln.split('|', 1)[-1]
+            if ln.find("sched:sched_switch") > 0:
+                ln = " |         /* sched:sched_switch */"
+            func = ln.split("|", 1)[-1]
             result.append(func)
 
-        return '\n'.join(result)
+        return "\n".join(result)

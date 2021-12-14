@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sleep', """
+        TestBase.__init__(
+            self,
+            "sleep",
+            """
 {"traceEvents":[
 {"ts":0,"ph":"M","pid":32537,"name":"process_name","args":{"name":"[32537] t-sleep"}},
 {"ts":0,"ph":"M","pid":32537,"name":"thread_name","args":{"name":"[32537] t-sleep"}},
@@ -20,12 +24,14 @@ class TestCase(TestBase):
 "command_line":"uftrace record -d xxx t-sleep ",
 "recorded_time":"Mon Oct  3 22:45:57 2016"
 } }
-""", sort='chrome')
+""",
+            sort="chrome",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'dump'
-        self.option = '-t 1ms --chrome'
+        self.subcmd = "dump"
+        self.option = "-t 1ms --chrome"

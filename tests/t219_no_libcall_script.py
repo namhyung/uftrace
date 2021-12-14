@@ -4,9 +4,13 @@ import subprocess as sp
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'signal', """
+        TestBase.__init__(
+            self,
+            "signal",
+            """
 uftrace_begin(ctx)
   record  : False
   version : v0.9.1-161-g13755 ( dwarf python tui perf sched )
@@ -24,27 +28,29 @@ uftrace_begin(ctx)
 50895.869970227  73755: [exit ] main(400787) depth: 0
 
 uftrace_end()
-""", sort='dump')
+""",
+            sort="dump",
+        )
 
     def prerun(self, timeout):
-        self.subcmd = 'script'
-        self.option = ''
-        self.exearg = ''
+        self.subcmd = "script"
+        self.option = ""
+        self.exearg = ""
 
         script_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + script_cmd)
+        self.pr_debug("prerun command: " + script_cmd)
         p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
-        if p.communicate()[1].decode(errors='ignore').startswith('WARN:'):
+        if p.communicate()[1].decode(errors="ignore").startswith("WARN:"):
             return TestBase.TEST_SKIP
 
-        self.subcmd = 'record'
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.exearg = "t-" + self.name
         record_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'script'
-        self.option = '-S %s/scripts/dump.py --no-libcall' % self.basedir
-        self.exearg = ''
+        self.subcmd = "script"
+        self.option = "-S %s/scripts/dump.py --no-libcall" % self.basedir
+        self.exearg = ""

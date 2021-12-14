@@ -4,9 +4,14 @@ import os
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "fork",
+            serial=True,
+            result="""
 # DURATION    TID     FUNCTION
             [ 6532] | /* sched:sched_process_exec (filename=t-fork pid=6532 old_pid=6532) */
             [ 6532] | main() {
@@ -35,36 +40,37 @@ class TestCase(TestBase):
    6.522 us [ 6532] |   } /* a */
   50.451 ms [ 6532] | } /* main */
             [ 6532] | /* sched:sched_process_exit (comm=t-fork pid=6532 prio=120) */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists("/.dockerenv"):
             return TestBase.TEST_SKIP
 
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.option  = '-E sched:sched_process_*@kernel --kernel-full --event-full'
+        self.option = "-E sched:sched_process_*@kernel --kernel-full --event-full"
 
-    def sort(self, output, ignored=''):
-        """ This function post-processes output of the test to be compared .
-            It ignores blank and comment (#) lines and remaining functions.  """
+    def sort(self, output, ignored=""):
+        """This function post-processes output of the test to be compared .
+        It ignores blank and comment (#) lines and remaining functions."""
         result = []
         before_main = True
-        for ln in output.split('\n'):
-            if ln.find(' | main()') > 0:
+        for ln in output.split("\n"):
+            if ln.find(" | main()") > 0:
                 before_main = False
             if before_main:
                 continue
             # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
+            if ln.strip() == "" or ln.startswith("#"):
                 continue
             # delete event specific info
-            if ln.find('sched:sched_') > 0:
-                ln = ln.split('(', 1)[0] + '*/'
-            func = ln.split('|', 1)[-1]
+            if ln.find("sched:sched_") > 0:
+                ln = ln.split("(", 1)[0] + "*/"
+            func = ln.split("|", 1)[-1]
             result.append(func)
 
-        return '\n'.join(result)
+        return "\n".join(result)

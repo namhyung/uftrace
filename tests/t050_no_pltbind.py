@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'racycount', ldflags='-pthread', result="""
+        TestBase.__init__(
+            self,
+            "racycount",
+            ldflags="-pthread",
+            result="""
 # DURATION    TID     FUNCTION
             [22829] | __monstartup() {
   17.753 us [22829] | } /* __monstartup */
@@ -38,7 +43,8 @@ class TestCase(TestBase):
             [22829] |   pthread_join() {
    5.735 us [22829] |   } /* pthread_join */
    1.122 ms [22829] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--no-pltbind --column-view --no-merge'
+        self.option = "--no-pltbind --column-view --no-merge"

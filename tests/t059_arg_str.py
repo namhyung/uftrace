@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'exp-str', result="""
+        TestBase.__init__(
+            self,
+            "exp-str",
+            result="""
 # DURATION    TID     FUNCTION
             [18141] | main() {
    0.271 ms [18141] |   str_cpy("", "hello");
@@ -13,11 +17,12 @@ class TestCase(TestBase):
    0.216 ms [18141] |   str_cpy("hello world", "goodbye");
    0.303 ms [18141] |   str_cat("goodbye", " world");
    3.134 ms [18141] | } /* main */
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
+    def build(self, name, cflags="", ldflags=""):
         # cygprof doesn't support arguments now
-        if cflags.find('-finstrument-functions') >= 0:
+        if cflags.find("-finstrument-functions") >= 0:
             return TestBase.TEST_SKIP
 
         return TestBase.build(self, name, cflags, ldflags)

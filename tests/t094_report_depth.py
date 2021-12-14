@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', """
+        TestBase.__init__(
+            self,
+            "fork",
+            """
   Total time   Self time       Calls  Function
   ==========  ==========  ==========  ====================================
   849.948 us   20.543 us           2  main
@@ -15,12 +19,14 @@ class TestCase(TestBase):
     3.626 us    1.612 us           1  c
     1.568 us    1.568 us           1  __monstartup
     1.140 us    1.140 us           1  __cxa_atexit
-""", sort='report')
+""",
+            sort="report",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'report'
-        self.option = '-D 3'
+        self.subcmd = "report"
+        self.option = "-D 3"

@@ -4,11 +4,16 @@ import subprocess as sp
 
 from runtest import TestBase
 
-FUNC='main'
+FUNC = "main"
+
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "sort",
+            serial=True,
+            result="""
 # Function Call Graph for 'main' (session: 54047ea45c46ad91)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time  10.329 ms
@@ -22,28 +27,30 @@ class TestCase(TestBase):
   10.150 ms :  +-(1) bar
   10.102 ms :    (1) usleep
   10.088 ms :    (1) linux:schedule
-""", sort='graph')
+""",
+            sort="graph",
+        )
 
     def prerun(self, timeout):
-        if not TestBase.check_dependency(self, 'perf_context_switch'):
+        if not TestBase.check_dependency(self, "perf_context_switch"):
             return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        self.subcmd = 'record'
-        self.option = '-E linux:schedule'
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.option = "-E linux:schedule"
+        self.exearg = "t-" + self.name
 
         record_cmd = TestBase.runcmd(self)
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'graph'
-        self.option = ''
-        self.exearg = 'main'
+        self.subcmd = "graph"
+        self.option = ""
+        self.exearg = "main"
 
     def runcmd(self):
         cmd = TestBase.runcmd(self)
-        return cmd.replace('--no-event', '')
+        return cmd.replace("--no-event", "")

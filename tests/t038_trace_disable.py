@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [12683] |   ns::ns2::foo::bar() {
             [12683] |     ns::ns2::foo::bar1() {
@@ -18,7 +23,9 @@ class TestCase(TestBase):
  105.025 us [12683] |   } /* ns::ns2::foo::bar */
    0.602 us [12683] |   operator delete();
             [12683] | } /* main */
-""", sort='simple')
+""",
+            sort="simple",
+        )
 
     def setup(self):
         self.option = '--disable -T "ns::ns2::foo::bar@trace_on"'

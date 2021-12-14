@@ -7,13 +7,15 @@
 #
 
 # Only "memcpy" calls this script and other functions never.
-UFTRACE_FUNCS = [ "memcpy" ]
+UFTRACE_FUNCS = ["memcpy"]
 
 count = 0
 total_bytes = 0
 
+
 def uftrace_begin(ctx):
     pass
+
 
 def uftrace_entry(ctx):
     global count
@@ -21,8 +23,10 @@ def uftrace_entry(ctx):
     count += 1
     total_bytes += ctx["args"][0]
 
+
 def uftrace_exit(ctx):
     pass
+
 
 def uftrace_end():
     global count

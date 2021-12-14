@@ -8,8 +8,10 @@ import os
 
 libcall_map = {}
 
+
 def uftrace_begin(ctx):
     pass
+
 
 def uftrace_entry(ctx):
     _name = ctx["name"]
@@ -18,8 +20,10 @@ def uftrace_entry(ctx):
     else:
         libcall_map[_name] = 1
 
+
 def uftrace_exit(ctx):
     pass
+
 
 def uftrace_end():
     global libcall_map

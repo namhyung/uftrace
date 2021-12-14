@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [22757] | main() {
    2.554 us [22757] |   operator new(unsigned long);
@@ -23,14 +28,14 @@ class TestCase(TestBase):
    0.283 us [22757] |   operator new(unsigned long);
    0.223 us [22757] |   operator delete(void*);
   76.629 us [22757] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
         self.option = '--demangle=full -N "ns2.*"'
 
     def fixup(self, cflags, result):
         if TestBase.is_32bit(self):
-            return result.replace('unsigned long', 'unsigned int')
+            return result.replace("unsigned long", "unsigned int")
 
-        return result.replace('delete(void*);',
-                              'delete(void*, unsigned long);')
+        return result.replace("delete(void*);", "delete(void*, unsigned long);")

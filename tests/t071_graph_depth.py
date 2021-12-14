@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # Function Call Graph for 'main' (session: b508f628ffe7287f)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time  17.931 us
@@ -33,15 +38,17 @@ class TestCase(TestBase):
    0.740 us :     | (1) ns::ns2::foo::bar3
             :     | 
    0.187 us :     +-(1) free
-""", sort='graph')
+""",
+            sort="graph",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
-        self.option = ''
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.option = ""
+        self.exearg = "t-" + self.name
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'graph'
-        self.option = '-D5'
-        self.exearg = 'main'
+        self.subcmd = "graph"
+        self.option = "-D5"
+        self.exearg = "main"

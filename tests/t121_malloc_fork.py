@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'malloc-fork', ldflags='-ldl', result="""
+        TestBase.__init__(
+            self,
+            "malloc-fork",
+            ldflags="-ldl",
+            result="""
 # DURATION    TID     FUNCTION
             [22300] | __cxa_atexit() {
    1.328 us [22300] | } /* __cxa_atexit */
@@ -24,7 +29,8 @@ class TestCase(TestBase):
             [22304] |   free() {
    0.081 us [22304] |   } /* free */
             [22304] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--no-merge'
+        self.option = "--no-merge"

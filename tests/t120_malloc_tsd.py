@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'malloc-tsd', ldflags='-pthread -ldl', result="""
+        TestBase.__init__(
+            self,
+            "malloc-tsd",
+            ldflags="-pthread -ldl",
+            result="""
 # DURATION    TID     FUNCTION
             [ 5078] | main() {
    2.139 us [ 5078] |   pthread_key_create();
@@ -23,7 +28,8 @@ class TestCase(TestBase):
    1.246 us [ 5078] |   } /* tsd_dtor */
    1.314 us [ 5078] |   pthread_key_delete();
  280.194 us [ 5078] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '-F main -F thread'
+        self.option = "-F main -F thread"

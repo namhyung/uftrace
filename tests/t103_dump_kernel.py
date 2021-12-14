@@ -5,9 +5,14 @@ import subprocess as sp
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'getids', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "getids",
+            serial=True,
+            result="""
 {"traceEvents":[
 {"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":{'name': 't-getids'}},
 {"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":{'name': 't-getids'}},
@@ -47,41 +52,49 @@ class TestCase(TestBase):
 "command_line":"uftrace record -k -d xxx t-getids ",
 "recorded_time":"Sun Oct  2 20:52:31 2016"
 } }
-""", sort='chrome')
+""",
+            sort="chrome",
+        )
 
     def prerun(self, timeout):
         if os.geteuid() != 0:
             return TestBase.TEST_SKIP
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists("/.dockerenv"):
             return TestBase.TEST_SKIP
 
-        self.subcmd = 'record'
-        self.option = '-k'
+        self.subcmd = "record"
+        self.option = "-k"
         record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'dump'
-        self.option = '-k --chrome'
+        self.subcmd = "dump"
+        self.option = "-k --chrome"
 
     def fixup(self, cflags, result):
-        result = result.replace("""\
+        result = result.replace(
+            """\
 {"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
 """,
-"""\
+            """\
 {"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"sys_getpid"},
 {"ts":14510734172,"ph":"E","pid":32687,"name":"sys_getpid"},
 {"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},\
-""")
+""",
+        )
         uname = os.uname()
 
         # Linux v4.17 (x86_64) changed syscall routines
-        major, minor, release = uname[2].split('.')
-        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
-           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
-            result = result.replace('sys_get', '__x64_sys_get')
+        major, minor, release = uname[2].split(".")
+        if (
+            uname[0] == "Linux"
+            and uname[4] == "x86_64"
+            and int(major) >= 5
+            or (int(major) == 4 and int(minor) >= 17)
+        ):
+            result = result.replace("sys_get", "__x64_sys_get")
 
         return result

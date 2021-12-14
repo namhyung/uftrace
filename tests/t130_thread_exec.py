@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'thread-exec', """
+        TestBase.__init__(
+            self,
+            "thread-exec",
+            """
 # DURATION    TID     FUNCTION
             [23290] | main() {
   29.452 us [23290] |   pthread_create();
@@ -24,12 +28,13 @@ uftrace stopped tracing with remaining functions
 ================================================
 task: 23290
 [0] main
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        ret  = TestBase.build(self, 'abc', cflags, ldflags)
-        ret += TestBase.build(self, self.name, cflags, ldflags + ' -pthread')
+    def build(self, name, cflags="", ldflags=""):
+        ret = TestBase.build(self, "abc", cflags, ldflags)
+        ret += TestBase.build(self, self.name, cflags, ldflags + " -pthread")
         return ret
 
     def setup(self):
-        self.option = '-N ^__'
+        self.option = "-N ^__"

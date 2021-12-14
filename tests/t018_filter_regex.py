@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'allocfree', """
+        TestBase.__init__(
+            self,
+            "allocfree",
+            """
 # DURATION    TID     FUNCTION
             [11583] | alloc1() {
             [11583] |   alloc2() {
@@ -17,7 +21,9 @@ class TestCase(TestBase):
    4.239 us [11583] |     } /* alloc3 */
    5.016 us [11583] |   } /* alloc2 */
  104.119 us [11583] | } /* alloc1 */
-""", sort='simple')
+""",
+            sort="simple",
+        )
 
     def setup(self):
         self.option = '-F "^alloc.*$"'

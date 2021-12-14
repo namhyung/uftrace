@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'arg', """
+        TestBase.__init__(
+            self,
+            "arg",
+            """
 # DURATION    TID     FUNCTION
             [16325] | main() {
             [16325] |   foo() {
@@ -23,8 +27,9 @@ class TestCase(TestBase):
    0.130 us [16325] |     check();
    0.427 us [16325] |   } /* pass */
   42.161 us [16325] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
         # to avoid unexpected memcpy in aarch64
-        self.option = '-N memcpy '
+        self.option = "-N memcpy "

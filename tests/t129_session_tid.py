@@ -6,9 +6,13 @@ from runtest import TestBase
 
 # Test that task.txt files with a tid in the SESS line still work
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION    TID     FUNCTION
   62.202 us [28141] | __cxa_atexit();
             [28141] | main() {
@@ -20,14 +24,15 @@ class TestCase(TestBase):
    1.915 us [28141] |     } /* b */
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        ret  = TestBase.build(self, 'abc', cflags, ldflags)
+    def build(self, name, cflags="", ldflags=""):
+        ret = TestBase.build(self, "abc", cflags, ldflags)
         return ret
 
     def prerun(self, timeout):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         record_cmd = self.runcmd()
         self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
@@ -39,4 +44,4 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'replay'
+        self.subcmd = "replay"

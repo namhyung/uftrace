@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'libexcept-main', lang='C++', result="""
+        TestBase.__init__(
+            self,
+            "libexcept-main",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [423633] | main() {
             [423633] |   XXX::XXX() {
@@ -15,14 +20,19 @@ class TestCase(TestBase):
    0.541 us [423633] |     std::runtime_error::runtime_error();
    5.670 us [423633] |   } /* YYY::YYY */
   42.354 us [423633] | } /* main */
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        if TestBase.build_libfoo(self, 'except', cflags, ldflags) != 0:
+    def build(self, name, cflags="", ldflags=""):
+        if TestBase.build_libfoo(self, "except", cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
-        return TestBase.build_libmain(self, name, 's-libexcept-main.cpp', ['libexcept.so'],
-                                      cflags, ldflags)
+        return TestBase.build_libmain(
+            self, name, "s-libexcept-main.cpp", ["libexcept.so"], cflags, ldflags
+        )
 
     def fixup(self, cflags, result):
-        return result.replace("""   6.353 us [423633] |   std::runtime_error:~runtime_error();
-""", '')
+        return result.replace(
+            """   6.353 us [423633] |   std::runtime_error:~runtime_error();
+""",
+            "",
+        )

@@ -22,27 +22,40 @@ argspec_file = "autoargs.h"
 storage_class_specifier = ["auto", "register", "static", "extern", "typedef"]
 type_qualifier = ["const", "volatile"]
 
-type_specifier = ["void", "char", "short", "int", "long", "float", "double", \
-                    "signed", "unsigned" ]
+type_specifier = ["void", "char", "short", "int", "long", "float", "double", "signed", "unsigned"]
 
 struct_or_union_specifier = ["struct", "union"]
 enum_specifier = ["enum"]
 
 typedef_name = [
-        "size_t", "ssize_t", "pid_t", "uid_t", "off_t", "off64_t",
-        "sigset_t", "socklen_t", "intptr_t", "nfds_t",
-        "pthread_t", "pthread_once_t", "pthread_attr_t",
-        "pthread_mutex_t", "pthread_mutexattr_t", "pthread_cond_t",
-        "Lmid_t", "FILE", "in_addr_t",
-    ]
+    "size_t",
+    "ssize_t",
+    "pid_t",
+    "uid_t",
+    "off_t",
+    "off64_t",
+    "sigset_t",
+    "socklen_t",
+    "intptr_t",
+    "nfds_t",
+    "pthread_t",
+    "pthread_once_t",
+    "pthread_attr_t",
+    "pthread_mutex_t",
+    "pthread_mutexattr_t",
+    "pthread_cond_t",
+    "Lmid_t",
+    "FILE",
+    "in_addr_t",
+]
 
-artifitial_type = [ "funcptr_t" ]
+artifitial_type = ["funcptr_t"]
 
 pointer = "*"
 reference = "&"
 
 type_specifier.extend(struct_or_union_specifier)
-#type_specifier.extend(enum_specifier)
+# type_specifier.extend(enum_specifier)
 type_specifier.extend(typedef_name)
 type_specifier.extend(["std::string"])
 type_specifier.extend(artifitial_type)
@@ -57,6 +70,7 @@ header = """\
 """
 
 verbose = False
+
 
 def parse_return_type(words):
     global storage_class_specifier
@@ -105,8 +119,8 @@ def parse_func_name(words):
 
 
 def parse_args(words):
-    if words[0] != '(' and words[-1] != ')':
-        return []   # fail
+    if words[0] != "(" and words[-1] != ")":
+        return []  # fail
 
     arg_type = []
     enum_flag = False
@@ -142,7 +156,7 @@ def parse_args(words):
 
 
 def parse_func_decl(func):
-    chunks = re.split('[\s,;]+|([*()])', func)
+    chunks = re.split("[\s,;]+|([*()])", func)
     words = [x for x in chunks if x]
     (return_type, words) = parse_return_type(words)
     (funcname, words) = parse_func_name(words)
@@ -154,15 +168,17 @@ DECL_TYPE_NONE = 0
 DECL_TYPE_FUNC = 1
 DECL_TYPE_ENUM = 2
 
+
 def get_decl_type(line):
     # function should have parenthesis
-    if line.find('(') >= 0:
+    if line.find("(") >= 0:
         return DECL_TYPE_FUNC
     # or it should be enum
-    if line.startswith('enum'):
+    if line.startswith("enum"):
         return DECL_TYPE_ENUM
     # error
     return DECL_TYPE_NONE
+
 
 def make_uftrace_retval_format(ctype, funcname):
     retval_format = funcname + "@"
@@ -194,7 +210,7 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/p"
     elif ctype == "off64_t":
         retval_format += "retval/d64"
-    elif ctype.startswith('enum'):
+    elif ctype.startswith("enum"):
         retval_format += "retval/e:%s" % ctype[5:]
     else:
         retval_format += "retval"
@@ -209,7 +225,7 @@ def make_uftrace_args_format(args, funcname):
     f = 1
     for arg in args:
         i += 1
-        if (i > 1):
+        if i > 1:
             args_format += ","
         if arg == "void":
             args_format = ""
@@ -242,7 +258,7 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/p" % i
         elif arg == "off64_t":
             args_format += "arg%d/d64" % i
-        elif arg.startswith('enum'):
+        elif arg.startswith("enum"):
             args_format += "arg%d/e:%s" % (i, arg[5:])
         else:
             args_format += "arg%d" % i
@@ -252,23 +268,38 @@ def make_uftrace_args_format(args, funcname):
 
 def parse_enum(line):
     # is this the final line (including semi-colon)
-    if line.find(';') >= 0:
-        return (DECL_TYPE_NONE, ' '.join(line.split()))
+    if line.find(";") >= 0:
+        return (DECL_TYPE_NONE, " ".join(line.split()))
 
     # continue to parse next line
-    return (DECL_TYPE_ENUM, ' '.join(line.split()))
+    return (DECL_TYPE_ENUM, " ".join(line.split()))
 
 
 def parse_argument():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input-file", dest='infile', default="prototypes.h",
-                        help="input prototype header file (default: prototypes.h")
-    parser.add_argument("-o", "--output-file", dest='outfile', default="autoargs.h",
-                        help="output uftrace argspec file (default: autoargs.h)")
-    parser.add_argument("-v", "--verbose", dest='verbose', action='store_true',
-                        help="show internal command and result for debugging")
+    parser.add_argument(
+        "-i",
+        "--input-file",
+        dest="infile",
+        default="prototypes.h",
+        help="input prototype header file (default: prototypes.h",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-file",
+        dest="outfile",
+        default="autoargs.h",
+        help="output uftrace argspec file (default: autoargs.h)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="show internal command and result for debugging",
+    )
 
     return parser.parse_args()
 
@@ -287,24 +318,24 @@ if __name__ == "__main__":
     retvals_list = ""
 
     # operator new and delete and their variations
-    args_list     = '\t\"_Znwm@arg1/u;\"\n'   \
-                  + '\t\"_Znam@arg1/u;\"\n'   \
-                  + '\t\"_ZdlPv@arg1/x;\"\n'  \
-                  + '\t\"_ZdaPv@arg1/x;\"\n'
+    args_list = (
+        '\t"_Znwm@arg1/u;"\n'
+        + '\t"_Znam@arg1/u;"\n'
+        + '\t"_ZdlPv@arg1/x;"\n'
+        + '\t"_ZdaPv@arg1/x;"\n'
+    )
 
     # operator new and its variations
-    retvals_list  = '\t\"_Znwm@retval/x;\"\n' \
-                  + '\t\"_Znam@retval/x;\"\n'
+    retvals_list = '\t"_Znwm@retval/x;"\n' + '\t"_Znam@retval/x;"\n'
 
     t = DECL_TYPE_NONE
     with open(prototype_file) as fin:
         for line in fin:
-            if len(line) <= 1 or line[0] == '#' or line[0:2] == "//" \
-                    or line[0:7] == "typedef":
+            if len(line) <= 1 or line[0] == "#" or line[0:2] == "//" or line[0:7] == "typedef":
                 continue
 
             if verbose:
-                print(line, end='')
+                print(line, end="")
 
             if t == DECL_TYPE_ENUM:
                 (t, curr) = parse_enum(line)
@@ -352,7 +383,7 @@ if __name__ == "__main__":
     fout.write(header)
 
     if len(enum_list) == 0:
-        enum_list="\"\""
+        enum_list = '""'
 
     fout.write("static char *auto_enum_list =\n")
     fout.write(enum_list)

@@ -1,6 +1,7 @@
 def uftrace_begin(ctx):
     print("# DURATION     TID     FUNCTION")
 
+
 def uftrace_entry(ctx):
     # read arguments
     _tid = ctx["tid"]
@@ -12,6 +13,7 @@ def uftrace_entry(ctx):
 
     buf = " %10s [%6d] | %s%s() {" % ("", _tid, space, _symname)
     print(buf)
+
 
 def uftrace_exit(ctx):
     # read arguments
@@ -28,8 +30,10 @@ def uftrace_exit(ctx):
     buf = "%s /* %s */" % (buf, _symname)
     print(buf)
 
+
 def uftrace_end():
     pass
+
 
 def get_time_and_unit(duration):
     duration = float(duration)

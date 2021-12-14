@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'dynmain', """
+        TestBase.__init__(
+            self,
+            "dynmain",
+            """
 # DURATION     TID     FUNCTION
          [ 26661] | main() {
          [ 26661] |   lib_a() {
@@ -18,22 +22,29 @@ class TestCase(TestBase):
 1.266 us [ 26661] |     } /* lib_e */
 1.438 us [ 26661] |   } /* lib_d */
 7.607 us [ 26661] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         if not TestBase.check_arch_full_dynamic_support(self):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
-    def build(self, name, cflags='', ldflags=''):
-        if TestBase.build_notrace_lib(self, 'dyn1', 'libdyn1', cflags, ldflags) != 0:
+    def build(self, name, cflags="", ldflags=""):
+        if TestBase.build_notrace_lib(self, "dyn1", "libdyn1", cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
-        if TestBase.build_notrace_lib(self, 'dyn2', 'libdyn2', cflags, ldflags) != 0:
+        if TestBase.build_notrace_lib(self, "dyn2", "libdyn2", cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
 
-        return TestBase.build_libmain(self, name, 's-dynmain.c',
-                                      ['libdyn1.so', 'libdyn2.so'],
-                                      cflags, ldflags, instrument=False)
+        return TestBase.build_libmain(
+            self,
+            name,
+            "s-dynmain.c",
+            ["libdyn1.so", "libdyn2.so"],
+            cflags,
+            ldflags,
+            instrument=False,
+        )
 
     def setup(self):
-        self.option = '-Pmain -P.@libdyn1.so -P.@libdyn2.so --no-libcall'
+        self.option = "-Pmain -P.@libdyn1.so -P.@libdyn2.so --no-libcall"

@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION     TID     FUNCTION
             [ 32417] | main() {
             [ 32417] |   a() {
@@ -19,7 +23,8 @@ class TestCase(TestBase):
   16.914 us [ 32417] |     } /* b */
   17.083 us [ 32417] |   } /* a */
   17.873 us [ 32417] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
@@ -31,16 +36,16 @@ class TestCase(TestBase):
 
     def sort(self, output):
         result = []
-        for ln in output.split('\n'):
+        for ln in output.split("\n"):
             # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
+            if ln.strip() == "" or ln.startswith("#"):
                 continue
-            func = ln.split('|', 1)[-1]
+            func = ln.split("|", 1)[-1]
             # remove actual numbers in pmu-cycle
-            if func.find('read:pmu-cycle') > 0:
-                func = '       /* read:pmu-cycle */'
-            if func.find('diff:pmu-cycle') > 0:
-                func = '       /* diff:pmu-cycle */'
+            if func.find("read:pmu-cycle") > 0:
+                func = "       /* read:pmu-cycle */"
+            if func.find("diff:pmu-cycle") > 0:
+                func = "       /* diff:pmu-cycle */"
             result.append(func)
 
-        return '\n'.join(result)
+        return "\n".join(result)

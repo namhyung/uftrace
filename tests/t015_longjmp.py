@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'longjmp', """
+        TestBase.__init__(
+            self,
+            "longjmp",
+            """
 # DURATION    TID     FUNCTION
   63.615 us [29065] | __cxa_atexit();
             [29065] | main() {
@@ -14,4 +18,5 @@ class TestCase(TestBase):
    0.907 us [29065] |   } /* _setjmp */
    0.105 us [29065] |   bar();
   36.125 us [29065] | } /* main */
-""")
+""",
+        )

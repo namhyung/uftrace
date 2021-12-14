@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'thread-exit', ldflags='-pthread', result="""
+        TestBase.__init__(
+            self,
+            "thread-exit",
+            ldflags="-pthread",
+            result="""
 1.000000
 1.000000
 # DURATION    TID     FUNCTION
@@ -26,7 +31,8 @@ class TestCase(TestBase):
             [26832] |   pthread_join() {
    1.000 us [26832] |   } /* pthread_join */
  457.662 us [26832] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--no-merge'
+        self.option = "--no-merge"

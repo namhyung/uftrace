@@ -6,11 +6,15 @@ import subprocess as sp
 
 from runtest import TestBase
 
-TDIR  = 'xxx'
+TDIR = "xxx"
+
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION    TID     FUNCTION
   62.202 us [28141] | __cxa_atexit();
             [28141] | main() {
@@ -22,40 +26,41 @@ class TestCase(TestBase):
    1.915 us [28141] |     } /* b */
    2.405 us [28141] |   } /* a */
    3.005 us [28141] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         self.gen_port()
 
-        self.subcmd = 'recv'
-        self.option = '-d %s --port %s' % (TDIR, self.port)
-        self.exearg = ''
+        self.subcmd = "recv"
+        self.option = "-d %s --port %s" % (TDIR, self.port)
+        self.exearg = ""
         recv_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + recv_cmd)
+        self.pr_debug("prerun command: " + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
         # recorded but not used
-        self.subcmd = 'record'
-        self.option = '--host %s --port %s' % ('localhost', self.port)
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.option = "--host %s --port %s" % ("localhost", self.port)
+        self.exearg = "t-" + self.name
         record_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
         # use this
-        self.pr_debug('run another record')
-        self.dirname = 'dir-' + str(random.randint(100000, 999999))
-        self.pr_debug('after randint')
-        self.option += ' -d ' + self.dirname
+        self.pr_debug("run another record")
+        self.dirname = "dir-" + str(random.randint(100000, 999999))
+        self.pr_debug("after randint")
+        self.option += " -d " + self.dirname
         record_cmd = self.runcmd()
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'replay'
-        self.option = '-d %s' % os.path.join(TDIR, self.dirname)
+        self.subcmd = "replay"
+        self.option = "-d %s" % os.path.join(TDIR, self.dirname)
 
     def postrun(self, ret):
         self.recv_p.terminate()

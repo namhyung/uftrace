@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'fork', """
+        TestBase.__init__(
+            self,
+            "fork",
+            """
 # DURATION     TID     FUNCTION
             [  3309] | main() {
             [  3324] | a() {
@@ -25,7 +29,8 @@ class TestCase(TestBase):
  124.879 us [  3309] |     } /* b */
  125.839 us [  3309] |   } /* a */
    2.630 ms [  3309] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
@@ -33,20 +38,20 @@ class TestCase(TestBase):
         return TestCase.TEST_SUCCESS
 
     def setup(self):
-        self.option = '-T c@read=pmu-cycle --no-libcall'
+        self.option = "-T c@read=pmu-cycle --no-libcall"
 
     def sort(self, output):
         result = []
-        for ln in output.split('\n'):
+        for ln in output.split("\n"):
             # ignore blank lines and comments
-            if ln.strip() == '' or ln.startswith('#'):
+            if ln.strip() == "" or ln.startswith("#"):
                 continue
-            func = ln.split('|', 1)[-1]
+            func = ln.split("|", 1)[-1]
             # remove actual numbers in pmu-cycle
-            if func.find('read:pmu-cycle') > 0:
-                func = '       /* read:pmu-cycle */'
-            if func.find('diff:pmu-cycle') > 0:
-                func = '       /* diff:pmu-cycle */'
+            if func.find("read:pmu-cycle") > 0:
+                func = "       /* read:pmu-cycle */"
+            if func.find("diff:pmu-cycle") > 0:
+                func = "       /* diff:pmu-cycle */"
             result.append(func)
 
-        return '\n'.join(result)
+        return "\n".join(result)

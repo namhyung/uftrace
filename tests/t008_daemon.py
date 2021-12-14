@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'daemon', """
+        TestBase.__init__(
+            self,
+            "daemon",
+            """
 # DURATION    TID     FUNCTION
   71.636 us [28239] | __cxa_atexit();
             [28239] | main() {
@@ -25,4 +29,5 @@ task: 28239
 [1] daemon
 [0] main
 
-""")
+""",
+        )

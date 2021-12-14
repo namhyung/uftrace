@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'signal', """
+        TestBase.__init__(
+            self,
+            "signal",
+            """
 uftrace file header: magic         = 4674726163652100
 uftrace file header: version       = 4
 uftrace file header: header size   = 40
@@ -24,12 +28,14 @@ reading 73755.dat
 50895.869969790  73755: [entry] foo(40071f) depth: 1
 50895.869969907  73755: [exit ] foo(40071f) depth: 1
 50895.869970227  73755: [exit ] main(400787) depth: 0
-""", sort='dump')
+""",
+            sort="dump",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'dump'
-        self.option = '--no-libcall'
+        self.subcmd = "dump"
+        self.option = "--no-libcall"

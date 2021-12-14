@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'posix_spawn', """
+        TestBase.__init__(
+            self,
+            "posix_spawn",
+            """
 # DURATION    TID     FUNCTION
             [ 9874] | main() {
  142.145 us [ 9874] |   posix_spawn();
@@ -28,13 +32,14 @@ class TestCase(TestBase):
    2.515 ms [ 9874] |   } /* waitpid */
    2.708 ms [ 9874] | } /* main */
 
-""")
+""",
+        )
 
-    def build(self, name, cflags='', ldflags=''):
-        ret  = TestBase.build(self, 'abc', cflags, ldflags)
-        ret += TestBase.build(self, 'openclose', cflags, ldflags)
+    def build(self, name, cflags="", ldflags=""):
+        ret = TestBase.build(self, "abc", cflags, ldflags)
+        ret += TestBase.build(self, "openclose", cflags, ldflags)
         ret += TestBase.build(self, self.name, cflags, ldflags)
         return ret
 
     def setup(self):
-        self.option = '-F main'
+        self.option = "-F main"

@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', result="""
+        TestBase.__init__(
+            self,
+            "abc",
+            result="""
 # Function Call Graph for 'getpid' (session: adff9f265b25c0d8)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time   2.010 us
@@ -16,13 +20,15 @@ class TestCase(TestBase):
 
 ========== FUNCTION CALL GRAPH ==========
    2.010 us : (1) getpid
-""", sort='graph')
+""",
+            sort="graph",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
-        self.exearg = 't-' + self.name
+        self.subcmd = "record"
+        self.exearg = "t-" + self.name
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'graph'
-        self.exearg = 'getpid'
+        self.subcmd = "graph"
+        self.exearg = "getpid"

@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'thread', ldflags='-pthread', result="""
+        TestBase.__init__(
+            self,
+            "thread",
+            ldflags="-pthread",
+            result="""
 # DURATION    TID     FUNCTION
             [15156] | main() {
             [15156] |   pthread_create() {
@@ -56,7 +61,8 @@ class TestCase(TestBase):
    1.796 us [15161] |                                 } /* foo */
    1.358 ms [15156] |   } /* pthread_join */
    1.995 ms [15156] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '--column-view --column-offset=4 --no-merge'
+        self.option = "--column-view --column-offset=4 --no-merge"

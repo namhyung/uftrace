@@ -4,9 +4,15 @@ import subprocess as sp
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'taskname', ldflags='-pthread', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "taskname",
+            ldflags="-pthread",
+            serial=True,
+            result="""
 {"traceEvents":[
 {"ts":0,"ph":"M","pid":4694,"name":"process_name","args":{"name":"[4694] bar"}},
 {"ts":0,"ph":"M","pid":4694,"name":"thread_name","args":{"name":"[4694] bar"}},
@@ -30,24 +36,26 @@ class TestCase(TestBase):
 "command_line":"../uftrace record --no-pager --no-event -L.. t-taskname",
 "recorded_time":"Tue Jan 30 16:05:24 2018"
 } }
-""", sort='chrome')
+""",
+            sort="chrome",
+        )
 
     def prerun(self, timeout):
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
-        self.subcmd = 'record'
-        self.option = '-E linux:task-name'
+        self.subcmd = "record"
+        self.option = "-E linux:task-name"
 
         record_cmd = TestBase.runcmd(self)
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'dump'
-        self.option = '--chrome -F main'
+        self.subcmd = "dump"
+        self.option = "--chrome -F main"
 
     def runcmd(self):
         cmd = TestBase.runcmd(self)
-        return cmd.replace('--no-event', '')
+        return cmd.replace("--no-event", "")

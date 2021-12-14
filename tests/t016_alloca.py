@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'alloca', """
+        TestBase.__init__(
+            self,
+            "alloca",
+            """
 # DURATION    TID     FUNCTION'
   75.736 us [ 6681] | __cxa_atexit();
             [ 6681] | main() {
@@ -20,4 +24,5 @@ class TestCase(TestBase):
    1.336 us [ 6681] |     } /* foo */
    3.723 us [ 6681] |   } /* bar */
    8.063 us [ 6681] | } /* main */
-""")
+""",
+        )

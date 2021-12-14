@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'backtrace', lang='C++', result="""
+        TestBase.__init__(
+            self,
+            "backtrace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
    2.277 us [11616] | __cxa_atexit();
             [11616] | main() {
@@ -18,4 +23,5 @@ class TestCase(TestBase):
   53.031 us [11616] |     } /* b */
   53.317 us [11616] |   } /* a */
   53.703 us [11616] | } /* main */
-""")
+""",
+        )

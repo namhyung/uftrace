@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'demangle', lang='C++', result="""
+        TestBase.__init__(
+            self,
+            "demangle",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [31433] | ABC::foo() {
             [31433] |   __static_initialization_and_destruction_0() {
@@ -22,7 +27,8 @@ class TestCase(TestBase):
    1.323 us [31433] |   } /* ABC::foo */
    5.623 us [31433] | } /* main */
    9.223 us [31433] | std::ios_base::Init::~Init();
-""")
+""",
+        )
 
     def fixup(self, cflags, result):
-        return result.replace(" std::ios_base::Init::~Init();\n", '')
+        return result.replace(" std::ios_base::Init::~Init();\n", "")

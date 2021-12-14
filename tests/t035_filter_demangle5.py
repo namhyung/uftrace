@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
   66.323 us [ 1845] | ns::ns1::foo::foo();
             [ 1845] | ns::ns1::foo::bar() {
@@ -22,7 +27,9 @@ class TestCase(TestBase):
    0.450 us [ 1845] |     malloc();
    0.930 us [ 1845] |   } /* ns::ns2::foo::bar3 */
    1.393 us [ 1845] | } /* ns::ns2::foo::bar2 */
-""", sort='simple')
+""",
+            sort="simple",
+        )
 
     # test whether filter option preserves the ordering
     def setup(self):

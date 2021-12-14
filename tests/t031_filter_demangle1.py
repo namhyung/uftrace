@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [14470] | ns::ns1::foo::bar() {
             [14470] |   ns::ns1::foo::bar1() {
@@ -16,7 +21,9 @@ class TestCase(TestBase):
    6.858 us [14470] |   } /* ns::ns1::foo::bar1 */
    2.207 us [14470] |   free();
  100.290 us [14470] | } /* ns::ns1::foo::bar */
-""", sort='simple')
+""",
+            sort="simple",
+        )
 
     def setup(self):
         self.option = '-F "ns::ns1::foo::bar"'

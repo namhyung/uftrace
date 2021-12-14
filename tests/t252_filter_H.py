@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
+        TestBase.__init__(
+            self,
+            "abc",
+            """
 # DURATION     TID     FUNCTION
             [ 30217] | main() {
             [ 30217] |   a() {
@@ -13,7 +17,8 @@ class TestCase(TestBase):
    8.600 us [ 30217] |     } /* b */
   11.500 us [ 30217] |   } /* a */
   14.500 us [ 30217] | } /* main */
-""")
+""",
+        )
 
     def setup(self):
-        self.option = '-H c'
+        self.option = "-H c"

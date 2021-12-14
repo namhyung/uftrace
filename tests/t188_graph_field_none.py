@@ -2,9 +2,13 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sort', """
+        TestBase.__init__(
+            self,
+            "sort",
+            """
 # Function Call Graph for 'main' (session: 6085c5f021e501d0)
 =============== BACKTRACE ===============
  backtrace #0: hit 1, time  10.321 ms
@@ -18,13 +22,15 @@ class TestCase(TestBase):
  +-(1) bar
    (1) usleep
 
-""", sort='graph')
+""",
+            sort="graph",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'graph'
-        self.option = '-f none'
-        self.exearg = 'main'
+        self.subcmd = "graph"
+        self.option = "-f none"
+        self.exearg = "main"

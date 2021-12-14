@@ -5,11 +5,16 @@ import subprocess as sp
 
 from runtest import TestBase
 
-TDIR  = 'xxx'
+TDIR = "xxx"
+
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'sleep', serial=True, result="""
+        TestBase.__init__(
+            self,
+            "sleep",
+            serial=True,
+            result="""
 # DURATION    TID     FUNCTION
             [  395] | main() {
             [  395] |   foo() {
@@ -26,42 +31,43 @@ class TestCase(TestBase):
    3.783 us [  395] |     } /* mem_free */
    2.120 ms [  395] |   } /* foo */
    2.121 ms [  395] | } /* main */
-""")
+""",
+        )
 
     def prerun(self, timeout):
-        if not TestBase.check_dependency(self, 'perf_context_switch'):
+        if not TestBase.check_dependency(self, "perf_context_switch"):
             return TestBase.TEST_SKIP
         if not TestBase.check_perf_paranoid(self):
             return TestBase.TEST_SKIP
 
         self.gen_port()
-        self.subcmd = 'recv'
-        self.option = '-d %s --port %s' % (TDIR, self.port)
-        self.exearg = ''
+        self.subcmd = "recv"
+        self.option = "-d %s --port %s" % (TDIR, self.port)
+        self.exearg = ""
 
         recv_cmd = TestBase.runcmd(self)
-        self.pr_debug('prerun command: ' + recv_cmd)
+        self.pr_debug("prerun command: " + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
 
-        self.subcmd  = 'record'
-        self.option  = '--host %s --port %s ' % ('localhost', self.port)
-        self.option += '-E %s' % 'linux:schedule'
-        self.exearg  = 't-' + self.name
+        self.subcmd = "record"
+        self.option = "--host %s --port %s " % ("localhost", self.port)
+        self.option += "-E %s" % "linux:schedule"
+        self.exearg = "t-" + self.name
 
         record_cmd = TestBase.runcmd(self)
-        self.pr_debug('prerun command: ' + record_cmd)
+        self.pr_debug("prerun command: " + record_cmd)
         sp.call(record_cmd.split())
 
         return TestBase.TEST_SUCCESS
 
     def setup(self):
-        self.subcmd = 'replay'
-        self.option = '-d ' + os.path.join(TDIR, 'uftrace.data')
-        self.exearg = ''
+        self.subcmd = "replay"
+        self.option = "-d " + os.path.join(TDIR, "uftrace.data")
+        self.exearg = ""
 
     def runcmd(self):
         cmd = TestBase.runcmd(self)
-        return cmd.replace('--no-event', '')
+        return cmd.replace("--no-event", "")
 
     def postrun(self, ret):
         self.recv_p.terminate()

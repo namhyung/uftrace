@@ -6,7 +6,11 @@ from runtest import TestBase
 # so 'trace-off' trigger cannot be fired and shows delete() and main exit.
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
    4.843 us [29826] |   operator new();
    1.846 us [29826] |   ns::ns1::foo::foo();
@@ -17,13 +21,15 @@ class TestCase(TestBase):
    0.597 us [29826] |   operator new();
    0.410 us [29826] |   operator delete();
  143.705 us [29826] | } /* main */
-""", sort='simple')
+""",
+            sort="simple",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd  = 'replay'
-        self.option  = "--disable -N 'ns2.*' -T 'operator new@trace-on' "
+        self.subcmd = "replay"
+        self.option = "--disable -N 'ns2.*' -T 'operator new@trace-on' "
         self.option += "-T 'malloc@traceoff'"

@@ -2,9 +2,14 @@
 
 from runtest import TestBase
 
+
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'namespace', lang="C++", result="""
+        TestBase.__init__(
+            self,
+            "namespace",
+            lang="C++",
+            result="""
 # DURATION    TID     FUNCTION
             [ 7102] | main() {
    2.697 us [ 7102] |   operator new();
@@ -21,12 +26,13 @@ class TestCase(TestBase):
    1.566 us [ 7102] |   ns::ns2::foo::bar();
    0.168 us [ 7102] |   operator delete();
   78.921 us [ 7102] | } /* main */
-""")
+""",
+        )
 
     def prepare(self):
-        self.subcmd = 'record'
+        self.subcmd = "record"
         return self.runcmd()
 
     def setup(self):
-        self.subcmd = 'replay'
+        self.subcmd = "replay"
         self.option = '-N "bar3$" -Tns::ns2::foo::bar@depth=1'

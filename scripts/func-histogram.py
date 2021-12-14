@@ -22,17 +22,18 @@
 #   >= 1024us  :          0  (  0.0 %)
 #
 
-func = ''
-unit = 'us'
+func = ""
+unit = "us"
 histo = None
 
 divider = {
-    'ns': 1,
-    'us': 1000,
-    'ms': 1000000,
-    's':  1000000000,
-    'm':  60000000000,
+    "ns": 1,
+    "us": 1000,
+    "ms": 1000000,
+    "s": 1000000000,
+    "m": 60000000000,
 }
+
 
 def create_histogram():
     h = []
@@ -41,14 +42,16 @@ def create_histogram():
         h.append(0)
     return h
 
+
 def get_histogram_index(val):
     if val < 0:
         return 0
     val = int(val / divider[unit])
     for i in range(11):
         if val < (1 << i):
-            return i+1
+            return i + 1
     return 12
+
 
 def print_histogram():
     print("histogram of function latency of '%s'\n" % func)
@@ -60,17 +63,22 @@ def print_histogram():
 
     print(" <  %4d%-2s  : %10d  (%5.1f %%)" % (0, unit, histo[0], 100.0 * histo[0] / total))
     for i in range(11):
-        print(" <  %4d%-2s  : %10d  (%5.1f %%)" % (1 << i, unit, histo[i+1], 100.0 * histo[i+1] / total))
+        print(
+            " <  %4d%-2s  : %10d  (%5.1f %%)"
+            % (1 << i, unit, histo[i + 1], 100.0 * histo[i + 1] / total)
+        )
     print(" >= %4d%-2s  : %10d  (%5.1f %%)" % (1024, unit, histo[12], 100.0 * histo[12] / total))
+
 
 def parse_args(args):
     global func, unit
-    if args[0] == '-u' or args[0] == '--unit':
+    if args[0] == "-u" or args[0] == "--unit":
         unit = args[1]
         func = args[2]
     else:
-        unit = 'us'
+        unit = "us"
         func = args[0]
+
 
 #
 # uftrace interface functions
@@ -87,8 +95,10 @@ def uftrace_begin(ctx):
         return
     histo = create_histogram()
 
+
 def uftrace_entry(ctx):
     pass
+
 
 def uftrace_exit(ctx):
     global histo
@@ -101,6 +111,7 @@ def uftrace_exit(ctx):
     dur = int(ctx["duration"])
     idx = get_histogram_index(dur)
     histo[idx] += 1
+
 
 def uftrace_end():
     if histo is None:
