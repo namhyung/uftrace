@@ -6,6 +6,7 @@ arch:
 
 compiler:
   - gcc
+  - clang
 
 # Ubuntu 18.04 LTS
 dist: bionic

@@ -109,16 +109,29 @@ struct uftrace_unit_test {
 	int (*func)(void);
 };
 
-#define TEST_CASE(t)				\
-extern int func_ ## t(void);			\
-						\
-__attribute__((section(TEST_SECTION),used))	\
-const struct uftrace_unit_test test_ ## t = {	\
-	.name = stringify(t),			\
-	.func = func_ ## t,			\
-};						\
-						\
+#ifdef __clang__
+#define TEST_CASE(t)							\
+extern int func_ ## t(void);						\
+									\
+__attribute__((section(TEST_SECTION),used,no_sanitize("address")))	\
+const struct uftrace_unit_test test_ ## t = {				\
+	.name = stringify(t),						\
+	.func = func_ ## t,						\
+};									\
+									\
 int func_ ## t(void)
+#else	/* #ifdef __clang__ */
+#define TEST_CASE(t)							\
+extern int func_ ## t(void);						\
+									\
+__attribute__((section(TEST_SECTION),used))				\
+const struct uftrace_unit_test test_ ## t = {				\
+	.name = stringify(t),						\
+	.func = func_ ## t,						\
+};									\
+									\
+int func_ ## t(void)
+#endif	/* #ifdef __clang__ */
 
 
 #define TERM_COLOR_NORMAL	""
