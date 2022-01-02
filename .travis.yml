@@ -7,8 +7,8 @@ arch:
 compiler:
   - gcc
 
-# Ubuntu 16.04 LTS
-dist: xenial
+# Ubuntu 18.04 LTS
+dist: bionic
 
 sudo: required
 
