@@ -32,4 +32,6 @@ unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
 #define ARCH_PLT0_SIZE  20
 #define ARCH_PLTHOOK_ADDR_OFFSET  0
 
+#define NOP_INSN_SIZE   4
+
 #endif /* MCOUNT_ARCH_H */

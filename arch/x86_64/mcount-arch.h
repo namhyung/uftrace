@@ -56,6 +56,7 @@ struct sym;
 #define MOV_INSN_SIZE  10  /* move 8-byte immediate to reg */
 #define ENDBR_INSN_SIZE 4
 #define CET_JMP_INSN_SIZE 7  /* indirect jump + prefix */
+#define NOP_INSN_SIZE   1
 
 int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		       struct mcount_dynamic_info *mdi,
