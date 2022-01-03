@@ -13,6 +13,7 @@
 #define PR_DOMAIN  DBG_DWARF
 
 #include "uftrace.h"
+#include "mcount-arch.h"
 #include "utils/utils.h"
 #include "utils/dwarf.h"
 #include "utils/symbol.h"
@@ -1430,9 +1431,23 @@ static void get_source_location(Dwarf_Die *die, struct build_data *bd,
 		Dwarf_Die cudie;
 		Dwarf_Line *line;
 		unsigned long dwarf_addr = sym_to_dwarf_addr(dinfo, sym->addr);
+		unsigned long limit_addr = dwarf_addr + sym->size;
+		int search_limit = 10;
 
 		dwarf_diecu(die, &cudie, NULL, NULL);
-		line = dwarf_getsrc_die(&cudie, dwarf_addr);
+
+		/*
+		 * This loop is needed because gcc doesn't create dwarf info at NOP
+		 * instruction address so dwarf_getsrc_die() returns NULL.
+		 * To avoid this problem, we move forward until we see the first actual
+		 * instruction address of the function, which has a valid dwarf info.
+		 * The search is limited to the function size.
+		 */
+		do {
+			line = dwarf_getsrc_die(&cudie, dwarf_addr);
+			dwarf_addr += NOP_INSN_SIZE;
+		} while (line == NULL && --search_limit > 0 && dwarf_addr < limit_addr);
+
 		filename = dwarf_linesrc(line, NULL, NULL);
 		dfile = get_debug_file(dinfo, filename);
 		dwarf_lineno(line, &dline);

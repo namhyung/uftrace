@@ -32,5 +32,6 @@ unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
 #define ARCH_CAN_RESTORE_PLTHOOK   1
 
 #define CALL_INSN_SIZE 5
+#define NOP_INSN_SIZE  1
 
 #endif /* __MCOUNT_ARCH_H__ */
