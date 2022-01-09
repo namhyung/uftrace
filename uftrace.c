@@ -106,6 +106,7 @@ enum options {
 	OPT_with_syms,
 	OPT_clock,
 	OPT_usage,
+	OPT_libmcount_path,
 };
 
 __used static const char uftrace_usage[] =
@@ -175,7 +176,7 @@ __used static const char uftrace_help[] =
 "      --logfile=FILE         Save log messages to this file\n"
 "  -l, --nest-libcall         Show nested library calls\n"
 "      --libname              Show libname name with symbol name\n"
-"  -L, --library-path=PATH    Load libraries from this PATH\n"
+"      --libmcount-path=PATH  Load libmcount libraries from this PATH\n"
 "      --match=TYPE           Support pattern match: regex, glob (default:\n"
 "                             regex)\n"
 "      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
@@ -237,13 +238,14 @@ __used static const char uftrace_footer[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:eE:f:F:hH:kK:lL:N:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:hH:kK:lN:P:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
 
 static const struct option uftrace_options[] = {
-	REQ_ARG(library-path, 'L'),
+	REQ_ARG(libmcount-path, OPT_libmcount_path),
+	REQ_ARG(library-path, OPT_libmcount_path),
 	REQ_ARG(filter, 'F'),
 	REQ_ARG(notrace, 'L'),
 	REQ_ARG(depth, 'D'),
@@ -543,10 +545,6 @@ static char * remove_trailing_slash(char *path)
 static int parse_option(struct opts *opts, int key, char *arg)
 {
 	switch (key) {
-	case 'L':
-		opts->lib_path = arg;
-		break;
-
 	case 'F':
 		opts->filter = opt_add_string(opts->filter, arg);
 		break;
@@ -703,6 +701,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 
 	case 'h':
 		return -3;
+
+	case OPT_libmcount_path:
+		opts->lib_path = arg;
+		break;
 
 	case OPT_usage:
 		return -2;

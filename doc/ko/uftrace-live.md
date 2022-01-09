@@ -176,8 +176,8 @@ RECORD 옵션
 
 RECORD 설정 옵션
 =====================
--L *PATH*, \--library-path=*PATH*
-:   필요한 내부 라이브러리를 *PATH* 에서 먼저 찾는다.
+\--libmcount-path=*PATH*
+:   limcount 라이브러리를 *PATH* 에서 먼저 찾는다.
     이 옵션은 대부분 테스트 목적으로 사용된다.
 
 -b *SIZE*, \--buffer=*SIZE*

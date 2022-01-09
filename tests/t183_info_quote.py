@@ -11,7 +11,7 @@ class TestCase(TestBase):
 # ==================
 # program version     : uftrace v0.8.1-133-g7f71
 # recorded on         : Mon Nov 27 09:40:31 2017
-# cmdline             : ../uftrace record --no-pager --no-event -L.. t-hello \\"uftrace\\"
+# cmdline             : ../uftrace record --no-pager --no-event --libmcount-path=.. t-hello \\"uftrace\\"
 # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
 # number of cpus      : 12 / 12 (online / possible)
 # memory info         : 13.2 / 23.5 GB (free / total)
