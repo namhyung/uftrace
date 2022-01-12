@@ -110,4 +110,3 @@ ENTRY(dynamic_return)
 
 	br	x16
 END(dynamic_return)
-

@@ -81,12 +81,12 @@ static int x86_reg_index(int capstone_reg)
 /*
  * Handle relative conditional jumps and relative unconditional jumps.
  *
- * This function relocates jcc8 and jcc32 instructions by replacing them with a jcc8 
+ * This function relocates jcc8 and jcc32 instructions by replacing them with a jcc8
  * that has a null offset. The offset will be patched later when the code is saved
  * in the of line execution buffer. The new jcc8 will bounce (if condition is met)
  * on a trampoline that jumps to the target of the orginal instruction.
  *
- * The relocation of jmp8 and jmp32 is achieved by replacing them with an absolute 
+ * The relocation of jmp8 and jmp32 is achieved by replacing them with an absolute
  * indirect jump to the target.
  *
  */
@@ -125,7 +125,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[],
 		memcpy(insns + JMP_INSN_SIZE, &target, sizeof(target));
 
 		info->modified = true;
-		/* 
+		/*
 		 * If this jump is the last insn in the prologue, we can ignore
 		 * the one in patch_normal_func()
 		 */
@@ -163,7 +163,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[],
 		relocated_insn[OFS] = 0x00;
 
 		memcpy(insns, (void *)relocated_insn, JCC8_INSN_SIZE);
-		
+
 		info->modified = true;
 		return JCC8_INSN_SIZE;
 	}

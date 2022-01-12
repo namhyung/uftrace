@@ -34,7 +34,7 @@ ENTRY(plt_hooker)
 	add sp, sp, #8
 	ldr lr, [sp, #-4]
 	ldr pc, [sp, #-8] /* return */
-	
+
 1:
 	ldr r2, .L2
 .LPIC0:

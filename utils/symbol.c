@@ -1330,7 +1330,7 @@ static void save_module_symbol_file(struct symtab *stab, const char *pathname,
 		prev = sym;
 		prev_was_plt = (prev->type == ST_PLT_FUNC);
 	}
-	
+
 	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
 		prev->addr + prev->size - offset,
 		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");

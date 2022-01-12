@@ -198,11 +198,11 @@ example, function graph of function 'main' looks like below:
     =============== BACKTRACE ===============
      backtrace #0: hit 1, time  25.024 us
        [0] main (0x40066b)
-    
+
     ========== FUNCTION CALL GRAPH ==========
       25.024 us : (1) main
        2.706 us :  +-(1) atoi
-                :  | 
+                :  |
       19.600 us :  +-(1) fib
       16.683 us :    (2) fib
       12.773 us :    (4) fib
@@ -229,7 +229,7 @@ The `info` command shows system and program information when recorded.
     # ==================
     # program version     : uftrace v0.8.1
     # recorded on         : Tue May 24 11:21:59 2016
-    # cmdline             : uftrace record tests/t-abc 
+    # cmdline             : uftrace record tests/t-abc
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
     # number of cpus      : 12 / 12 (online / possible)
     # memory info         : 20.1 / 23.5 GB (free / total)

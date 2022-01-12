@@ -16,25 +16,25 @@ class TestCase(TestBase):
 ========== FUNCTION CALL GRAPH ==========
   24.837 us : (1) main
    0.860 us :  +-(1) getpid
-            :  | 
+            :  |
    3.130 us :  +-(1) getppid
    1.080 us :  | (1) sys_getppid
-            :  | 
+            :  |
    2.926 us :  +-(1) getpgid
    0.834 us :  | (1) sys_getpgid
-            :  | 
+            :  |
    2.393 us :  +-(1) getsid
    0.750 us :  | (1) sys_getsid
-            :  | 
+            :  |
    2.030 us :  +-(1) getuid
    0.660 us :  | (1) sys_getuid
-            :  | 
+            :  |
    2.074 us :  +-(1) geteuid
    0.510 us :  | (1) sys_geteuid
-            :  | 
+            :  |
    4.391 us :  +-(1) getgid
    0.696 us :  | (1) sys_getgid
-            :  | 
+            :  |
    4.223 us :  +-(1) getegid
    1.710 us :    (1) sys_getegid
 """, sort='graph')

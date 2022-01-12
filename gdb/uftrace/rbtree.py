@@ -79,7 +79,7 @@ def rb_next(node):
     elif node.type != rb_node.get_type():
         raise gdb.GdbError("Must be struct rb_node not {}"
                            .format(node.type))
-    
+
     parent = rb_parent(node)
     if parent is not None and parent.address == node.address:
         return None
@@ -109,7 +109,7 @@ def rb_prev(node):
     elif node.type != rb_node.get_type():
         raise gdb.GdbError("Must be struct rb_node not {}"
                            .format(node.type))
-    
+
     parent = rb_parent(node)
     if parent is not None and parent.address == node.address:
         return None

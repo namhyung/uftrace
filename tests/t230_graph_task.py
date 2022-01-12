@@ -10,7 +10,7 @@ class TestCase(TestBase):
 ========== TASK GRAPH ==========
 # TOTAL TIME   SELF TIME     TID     TASK NAME
    16.172 ms  356.762 us  [129306] : t-fork
-                                   :  |    
+                                   :  |
    11.015 us   11.015 us  [129317] :  +----t-fork
 """)
 

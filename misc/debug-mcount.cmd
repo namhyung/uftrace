@@ -10,4 +10,3 @@ commands
 end
 
 r record -L. -d xxx --keep-pid --force argv
- 

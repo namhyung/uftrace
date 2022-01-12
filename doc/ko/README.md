@@ -21,9 +21,9 @@ uftrace 는 C/C++ 로 작성된 프로그램의 실행 흐름을 추적(trace)�
 기능
 ========
 
-프로그램 실행 중 각 함수들과 그 실행 소요시간을 추적한다. 
+프로그램 실행 중 각 함수들과 그 실행 소요시간을 추적한다.
 외부 라이브러리의 호출 또한 지원하지만, 보통 진입과 종료만 지원한다.
-다른 (중첩된) 외부 라이브러리의 호출 그리고 (혹은) 라이브러리 호출에서 
+다른 (중첩된) 외부 라이브러리의 호출 그리고 (혹은) 라이브러리 호출에서
 내부 함수의 호출을 추적하는 것도 가능하다.
 
 함수 레벨의 구체적인 실행 흐름을 보여주고, 어떤 함수가 가장 많은 오버헤드를
@@ -40,7 +40,7 @@ uftrace 는 C/C++ 로 작성된 프로그램의 실행 흐름을 추적(trace)�
 uftrace 빌드 및 설치 방법
 ================================
 
-리눅스 배포판에서, [misc/install-deps.sh](../../misc/install-deps.sh) 스크립트는 
+리눅스 배포판에서, [misc/install-deps.sh](../../misc/install-deps.sh) 스크립트는
 추가적으로 필요한 소프트웨어를 설치해준다.
 이는 고급 기능들을 위한 것이며 반드시 설치할 필요는 없지만
 함께 설치하기를 적극 권장한다.
@@ -79,16 +79,16 @@ uftrace 명령어는 다음과 같은 하위 명령어들로 구성된다.
     Try `uftrace --help' or `uftrace --usage' for more information.
 
 만일 하위 명령어를 생략한다면, 기본적으로 record 와 replay 를 차례로 적용한 것과 동일한
-`live` 명령어를 수행한다. (하지만 추적 정보를 파일로 저장하지 않는다) 
+`live` 명령어를 수행한다. (하지만 추적 정보를 파일로 저장하지 않는다)
 
-record 명령어로 기록을 하려면, 각 함수마다 mcount 나 __cyg_profile_func_enter/exit 함수를 
+record 명령어로 기록을 하려면, 각 함수마다 mcount 나 __cyg_profile_func_enter/exit 함수를
 호출하는 프로파일링 코드를 생성하기 위해 실행 파일을 `-pg`(혹은 `-finstrument-functions`) 옵션으로
 컴파일해야 한다.
 
 x86_64 와 AArch64(ARM64) 아키텍처에서 (재)컴파일 과정이 필요하지 않은 동적 추적 기능이
-실험적으로 지원되고 있다. 또한 최근 컴파일러들 중 
-(여전히 사용자 프로그램을 재컴파일해야 하긴 하지만) 비슷한 방식으로 
-uftrace의 추적 과정에서 생기는 오버헤드를 줄이기 위한 옵션들을 제공하고 있다. 
+실험적으로 지원되고 있다. 또한 최근 컴파일러들 중
+(여전히 사용자 프로그램을 재컴파일해야 하긴 하지만) 비슷한 방식으로
+uftrace의 추적 과정에서 생기는 오버헤드를 줄이기 위한 옵션들을 제공하고 있다.
 더 자세한 내용은 [dynamic tracing](uftrace-record.md#dynamic-tracing) 에서 확인해
 볼 수 있다.
 
@@ -106,9 +106,9 @@ uftrace의 추적 과정에서 생기는 오버헤드를 줄이기 위한 옵션
        4.962 us [ 1892] |   } /* a */
        5.769 us [ 1892] | } /* main */
 
-더 상세한 분석을 하려면, record를 통해 우선 데이터를 기록하고 
-replay, report, graph, dump, info와 같은 
-분석 명령어를 여러 번 사용하는 것이 좋다. 
+더 상세한 분석을 하려면, record를 통해 우선 데이터를 기록하고
+replay, report, graph, dump, info와 같은
+분석 명령어를 여러 번 사용하는 것이 좋다.
 
     $ uftrace record tests/t-abc
 
@@ -124,11 +124,11 @@ c 함수에서, 일반적인 시스템의 C 라이브러리 (glibc)에 내장된
 사용자들은 함수들의 레코드/출력을 제한하기 위해 다양한 필터를 이용할 수 있다.
 깊이 필터 (`-D` 옵션)은 주어진 호출 깊이보다 더 깊게 호출된 함수들을 생략하는 필터이다.
 시간 필터 (`-t` 옵션)은 주어진 시간보다 더 작은 시간동안 실행된 함수들을 생략하는 필터이다.
-그리고 함수 필터(`-F`와 `-N` 옵션)은 주어진 함수의 하위 함수들을 보여주고/생략하는 필터이다. 
+그리고 함수 필터(`-F`와 `-N` 옵션)은 주어진 함수의 하위 함수들을 보여주고/생략하는 필터이다.
 
-`-k` 옵션으로 커널 함수들 또한 추적이 가능하다 (루트 권한 필요). 
+`-k` 옵션으로 커널 함수들 또한 추적이 가능하다 (루트 권한 필요).
 보통 'hello world' 프로그램에 대한 출력 결과는 아래와 같다
-(시스템 호출을 직접 호출하기 위해, 일반적인 printf()가 아닌 
+(시스템 호출을 직접 호출하기 위해, 일반적인 printf()가 아닌
 stderr와 fprintf()를 사용하기로 한 것에 유의하라):
 
     $ sudo uftrace -k tests/t-hello
@@ -172,7 +172,7 @@ fprintf()호출 내부에서 page fault 핸들러와 write syscall 핸들러가
       19.600 us [22080] |   } = 5; /* fib */
       25.024 us [22080] | } /* main */
 
-`report` 명령어는 어떤 함수가 그 자식을 포함해서 
+`report` 명령어는 어떤 함수가 그 자식을 포함해서
 가장 오랫동안 실행되었는지, 총 시간을 알려준다.
 
     $ uftrace report
@@ -186,18 +186,18 @@ fprintf()호출 내부에서 page fault 핸들러와 write syscall 핸들러가
 
 
 `graph` 명령어는 주어진 함수의 호출 그래프를 보여준다.
-위의 예제에서, main 함수의 호출 그래프는 아래와 같다: 
+위의 예제에서, main 함수의 호출 그래프는 아래와 같다:
 
     $ uftrace graph  main
     # Function Call Graph for 'main' (session: 073f1e84aa8b09d3)
     =============== BACKTRACE ===============
      backtrace #0: hit 1, time  25.024 us
        [0] main (0x40066b)
-    
+
     ========== FUNCTION CALL GRAPH ==========
       25.024 us : (1) main
        2.706 us :  +-(1) atoi
-                :  | 
+                :  |
       19.600 us :  +-(1) fib
       16.683 us :    (2) fib
       12.773 us :    (4) fib
@@ -223,7 +223,7 @@ flame-graph 형식의 결과 또한 지원한다. 해당 데이터는 `uftrace d
     # ==================
     # program version     : uftrace v0.8.1
     # recorded on         : Tue May 24 11:21:59 2016
-    # cmdline             : uftrace record tests/t-abc 
+    # cmdline             : uftrace record tests/t-abc
     # cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
     # number of cpus      : 12 / 12 (online / possible)
     # memory info         : 20.1 / 23.5 GB (free / total)

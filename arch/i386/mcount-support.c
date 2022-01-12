@@ -13,7 +13,7 @@
 #define PR_FMT     "mcount"
 #define PR_DOMAIN  DBG_MCOUNT
 
-// a max number that retrieves the stack to find the location of 
+// a max number that retrieves the stack to find the location of
 // the real return address of the main function for i386.
 #define MAX_SEARCH_STACK 5
 
@@ -22,7 +22,7 @@
 
 static bool search_main_ret = false;
 
-int mcount_get_register_arg(struct mcount_arg_context *ctx, 
+int mcount_get_register_arg(struct mcount_arg_context *ctx,
                             struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
@@ -33,7 +33,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		reg_idx = spec->reg_idx;
 		break;
 	default:
-		return -1; 
+		return -1;
 	}
 
 	switch (reg_idx) {
@@ -127,7 +127,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt != ARG_FMT_FLOAT)
 		memcpy(ctx->val.v, ctx->retval, spec->size);
-	else if (spec->size == 4)  
+	else if (spec->size == 4)
 		asm volatile ("fstps %0\n\tflds %0" : "=m" (ctx->val.v));
 	else if (spec->size == 8)
 		asm volatile ("fstpl %0\n\tfldl %0" : "=m" (ctx->val.v));
@@ -160,7 +160,7 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 }
 
 /*
-	For 16-byte stack-alignment, 
+	For 16-byte stack-alignment,
 	the main function stores the return address in its stack scope at prologue.
 	When the time comes for the main function to return,
 	1. restore the saved return address from stack.
@@ -178,24 +178,24 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 	8048606: 83 ec 14              sub    $0x14,%esp
 	8048609: e8 02 fe ff ff        call   8048410 <mcount@plt>
 
-	... ... 
+	... ...
 
 	8048645: 8b 4d fc              mov    -0x4(%ebp),%ecx
 	8048648: c9                    leave
 	8048649: 8d 61 fc              lea    -0x4(%ecx),%esp
 	804864c: c3                    ret
 
-	So, in this case. The return address we want to replace with 
-	mcount_exit is in the stack scope of the main function. 
-	Non a parent located. 
+	So, in this case. The return address we want to replace with
+	mcount_exit is in the stack scope of the main function.
+	Non a parent located.
 
-	we search stack for that address. 
+	we search stack for that address.
 	we will look for it.
-	we will find it, and we will replace it. 
+	we will find it, and we will replace it.
 	GOOD LUCK!
 */
 unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
-                                            unsigned long *parent_loc, 
+                                            unsigned long *parent_loc,
                                             unsigned long child_ip)
 {
 	if (!search_main_ret) {
@@ -217,8 +217,8 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 		child_sym = find_symtabs(symtabs, child_ip);
 		child_name = symbol_getname(child_sym, child_ip);
 
-		// Assuming that this happens only in main..			
-		if (!(strcmp(find_main[0], parent_name) || 
+		// Assuming that this happens only in main..
+		if (!(strcmp(find_main[0], parent_name) ||
 		      strcmp(find_main[1], child_name))) {
 			ret_addr = *parent_loc;
 			for (stack_index = 1; stack_index < MAX_SEARCH_STACK; stack_index++) {

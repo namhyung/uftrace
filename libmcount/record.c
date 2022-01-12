@@ -572,8 +572,8 @@ static int save_proc_statm(void *ctx, void *buf)
 	if (fscanf(fp, "%"SCNu64" %"SCNu64" %"SCNu64,
 		   &statm->vmsize, &statm->vmrss, &statm->shared) != 3)
 		pr_err("failed to scan /proc/self/statm");
-		
-	/* 
+
+	/*
 	 * Since /proc/[pid]/statm prints the number of pages for each field,
 	 * it'd be better to keep the memory size in KB.
 	 */

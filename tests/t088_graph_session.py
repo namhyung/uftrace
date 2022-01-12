@@ -25,7 +25,7 @@ class TestCase(TestBase):
 ========== FUNCTION CALL GRAPH ==========
    3.679 ms : (1) main
  127.172 us :  +-(1) fork
-            :  | 
+            :  |
    3.527 ms :  +-(1) waitpid
 """)
 
@@ -45,7 +45,7 @@ class TestCase(TestBase):
 
     def fixup(self, cflags, result):
         return result.replace("readlink", """memset
-            :  | 
+            :  |
    9.814 us :  +-(1) readlink""")
 
     def sort(self, output):

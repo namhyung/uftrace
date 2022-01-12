@@ -159,7 +159,7 @@ RECORD 옵션
     기본은 `regex`이다.
 
 \--disable
-:   추적을 사용하지 않은 채로 uftrace를 시작한다. 이것은 `trace_on` 트리거와 함께 
+:   추적을 사용하지 않은 채로 uftrace를 시작한다. 이것은 `trace_on` 트리거와 함께
     사용되었을 때만 의미를 가진다.
 
 

@@ -36,4 +36,3 @@ case $distro in
     *) # we can add more install command for each distros.
         echo "\"$distro\" is not supported distro, so please install packages manually." ;;
 esac
-

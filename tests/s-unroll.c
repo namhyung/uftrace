@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 	small(n ? n : 123456);
 
 	for (i = 0; i < LOOP_CNT; i++) {
-		static volatile unsigned x = 42; 
+		static volatile unsigned x = 42;
 
 		x *= 1 << i;
 		x ^= 0xdeadbeef;

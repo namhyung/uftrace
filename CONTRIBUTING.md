@@ -26,7 +26,7 @@ Please note that the position of the "else if" line.
 
 For python programs (for tests or scripts), use 4 spaces to indent.
 
-[1] https://www.kernel.org/doc/Documentation/process/coding-style.rst 
+[1] https://www.kernel.org/doc/Documentation/process/coding-style.rst
 
 
 Include subject word in message header
@@ -38,11 +38,11 @@ developers more easily distinguish patches from other subject.
 
     $ git log --oneline --graph
     *   fef4226 Merge branch 'misc-fix'
-    |\  
+    |\
     | * 54a4ef0 test: Fix to be able to call runtest.py directly
     | * 6bbe4a0 graph: Skip kernel functions outside of user
     | * a76c7cb kernel: Use real address for filter match
-    |/  
+    |/
     ...
 
 

@@ -618,4 +618,3 @@ add_it:
 
 	handle->perf_event_processed = true;
 }
-

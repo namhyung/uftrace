@@ -96,7 +96,7 @@ bindir_relative_SQ = $(subst ','\'',$(bindir_relative))
 
 LIB_FILE = $(obj)/libtraceevent.a # $(obj)/libtraceevent.so
 
-CONFIG_INCLUDES = 
+CONFIG_INCLUDES =
 CONFIG_LIBS	=
 CONFIG_FLAGS	=
 

@@ -140,7 +140,7 @@ arrow keys are used to move the cursor to a different location.
        3.194 us :    (1) b
        2.454 us :    (1) c
        1.000 us :    (1) getpid
-     
+
      uftrace graph: session 2a22812ebbd06f40 (/tmp/uftrace/tests/t-abc)
 
 If there're more than one session, it'll start with session selection mode.
@@ -154,7 +154,7 @@ whole sessions.
       I  uftrace Info
       h  Help message
       q  quit
-     
+
      session a27acff69aec5c9c:  exe image: /tmp/uftrace/tests/t-forkexec
 
 
