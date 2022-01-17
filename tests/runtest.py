@@ -563,6 +563,10 @@ class TestBase:
         result_expect = self.sort(self.result)
         result_tested = self.sort(result_origin)  # for python3
 
+        # strip trailing whitespace for each line.
+        result_expect = '\n'.join([line.rstrip() for line in result_expect.split('\n')])
+        result_tested = '\n'.join([line.rstrip() for line in result_tested.split('\n')])
+
         ret = p.wait()
         if ret < 0:
             if timed_out:
