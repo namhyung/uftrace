@@ -553,6 +553,8 @@ fpargN 은 항상 소수점 방식이기 때문에 어떤 형식 필드도 없�
 
 DYNAMIC TRACING
 ===============
+FULL DYNAMIC TRACING
+--------------------
 uftrace 는 x86_64, AArch64 환경의 런타임 (정확하게는, 로드 타임) 에서
 동적추적(dynamic tracing)이 가능하다.  함수를 기록하기 전에, 보통 프로그램을
 `-pg` (혹은 `-finstrument-functions`으로) 빌드해야 하고, 그렇게 된다면 모든
@@ -565,13 +567,6 @@ capstone 디스어셈블리 엔진을 사용한다면 위 옵션을 지정해서
 uftrace 로 추적할 수 있게 바이너리를 조작 할 수 있다.
 그 이후 제어권은 복사된 명령어로 넘어가게 되고, 그 다음에야 남은 명령어들로
 반환하게 된다.
-
-capstone 을 사용할 수 없다면, 프로그램을 빌드할 때 몇몇 컴파일러 (gcc) 옵션들을
-추가해야 할 것이다.  gcc 5.1 버전 이상부터는 `-mfentry`와 `-mnop-mcount` 옵션을
-제공하는데 이 옵션들은 함수 맨 앞에 `mcount()` 와 같은 함수 추적을 위한 코드를
-추가하고 그 명령어를 NOP 으로 변환한다.  그렇게 되면 일반적인 조건에서 실행할
-때에는 성능 상의 오버헤드가 거의 없어질 것이다.  uftrace 는 `-P` 옵션을 이용하여
-선택적으로 `mcount()` 함수를 호출할 수 있도록 전환할 수 있다.
 
 uftrace 를 아래의 예제에서 평소처럼 사용할때에는 에러 메세지를 보여준다.
 그 이유는 바이너리가 어떤 `mcount()` 와 같은 함수 추적을 위한 코드도 호출하지
@@ -622,10 +617,31 @@ uftrace 를 아래의 예제에서 평소처럼 사용할때에는 에러 메세
 여기서 순서가 중요한데 만약 순서를 `-U a -P .` 와 같이 사용하면 모든 함수들을
 기록하는 결과를 보이는데 이는 `-P .` 가 다른 모든것에 우선해 작용해서이다.
 
-추가적으로, `-U` 옵션은 `-pg`(그리고 `-mfentry 또는 `-mrecord-mcount`)로 컴파일된
-바이너리에 대해서도 사용 가능하다.  이 기능에 대해서는 capstone 이 명령어를
-분석할 수 있어야 한다.
 
+GCC FENTRY
+----------
+capstone 을 사용할 수 없다면, 프로그램을 빌드할 때 몇몇 컴파일러 (gcc) 옵션들을
+추가해야 할 것이다.  gcc 5.1 버전 이상부터는 `-mfentry`와 `-mnop-mcount` 옵션을
+제공하는데 이 옵션들은 함수 맨 앞에 `mcount()` 와 같은 함수 추적을 위한 코드를
+추가하고 그 명령어를 NOP 으로 변환한다.  그렇게 되면 일반적인 조건에서 실행할
+때에는 성능 상의 오버헤드가 거의 없어질 것이다.  uftrace 는 `-P` 옵션을 이용하여
+선택적으로 `mcount()` 함수를 호출할 수 있도록 전환할 수 있다.
+
+    $ gcc -pg -mfentry -mnop-mcount -o abc-fentry tests/s-abc.c
+    $ uftrace record -P . --no-libcall abc-fentry
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+                [ 18973] | main() {
+                [ 18973] |   a() {
+                [ 18973] |     b() {
+       0.852 us [ 18973] |       c();
+       2.378 us [ 18973] |     } /* b */
+       2.909 us [ 18973] |   } /* a */
+       3.756 us [ 18973] | } /* main */
+
+
+CLANG XRAY
+----------
 Clang/LLVM 4.0은 [X-ray](http://llvm.org/docs/XRay.html)라는 기술을 제공한다.
 이는 `gcc -mfentry -mnop-mcount` 와 `-finstrument-functions` 를 결합한 것과도
 유사하다.  uftrace는 `X-ray`로 빌드된 실행파일에 대해서도 동적추적을 지원한다.
@@ -653,6 +669,79 @@ Clang/LLVM 4.0은 [X-ray](http://llvm.org/docs/XRay.html)라는 기술을 제공
        1.915 us [11098] |     } /* b */
        2.405 us [11098] |   } /* a */
        3.005 us [11098] | } /* main */
+
+
+PATCHABLE FUNCTION ENTRY
+------------------------
+최근 gcc와 clang 컴파일러는 모두 `-fpatchable-function-entry=N[,M]`라는
+유용한 옵션을 제공하는데, 이는 함수 진입 이전에 M NOP를 생성하고 함수 진입 이후에 N-M NOP를 생성한다.
+M이 0인 경우 `-fpatchable-function-entry=N`만으로도 충분하다.
+
+동적추적을 위한 NOP 수는 아키텍처에 따라 다르지만 uftrace 기록을 위해
+동적으로 호출 명령어를 패치하려면 x86_64는 5개의 NOP를 요구하고 AArch64는 2개의 NOP를 요구한다.
+
+예를 들어 x86_64에서는, 아래와 같이 대상 프로그램을 빌드하고 추적할 수 있다.
+
+    $ gcc -fpatchable-function-entry=5 -o abc-fpatchable tests/s-abc.c
+    $ uftrace record -P . abc-fpatchable
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+                [  6818] | main() {
+                [  6818] |   a() {
+                [  6818] |     b() {
+                [  6818] |       c() {
+       0.926 us [  6818] |         getpid();
+       4.158 us [  6818] |       } /* c */
+       4.590 us [  6818] |     } /* b */
+       4.957 us [  6818] |   } /* a */
+       5.593 us [  6818] | } /* main */
+
+이 기능은 `__attribute__ ((patchable_function_entry (N,M)))`로 특정 함수에
+컴파일러 속성을 추가하여 사용할 수도 있다.
+예를 들어, 'tests/s-abc.c' 프로그램은 아래와 같이 수정될 수 있다.
+
+    static int c(void)
+    {
+            return 100000;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    static int b(void)
+    {
+            return c() + 1;
+    }
+
+    static int a(void)
+    {
+            return b() - 1;
+    }
+
+    __attribute__((patchable_function_entry(5)))
+    int main(void)
+    {
+            int ret = 0;
+
+            ret += a();
+            return ret ? 0 : 1;
+    }
+
+이 속성은 'main'과 'b' 함수에만 추가되었고 이 프로그램은 다른 추가적인 컴파일러 옵션 없이도
+정상적으로 컴파일되지만, 컴파일러는 속성을 감지하고 'main'과 'b' 함수 진입시점에 5개의 NOP를 추가한다.
+
+    $ gcc -o abc tests/s-patchable-abc.c
+    $ uftrace record -P . abc
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+                [ 20803] | main() {
+       0.342 us [ 20803] |   b();
+       1.608 us [ 20803] | } /* main */
+
+이런 식으로, uftrace는 사용자가 원하여 명시적으로 속성을 추가한 함수만을 선별적으로 추적할 수 있다.
+이러한 접근은 컴파일러 플래그로 활성화된 함수 전체를 추적하는 방식보다 덜 번거로운 방식으로
+추적 기록을 수집할 수 있다.
+
+`-fpatchable-function-entry=N[,M]` 옵션과 그것의 속성은 gcc-8.1과 clang-10부터 지원된다.
+이 동적추적 기능은 현재로서 x86_64와 AArch64 모두에서 사용 가능하다.
 
 
 SCRIPT EXECUTION
