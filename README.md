@@ -76,9 +76,23 @@ The uftrace command has following subcommands:
 You can use `-h`, `-?` or `--help` option to see available commands and options.
 
     $ uftrace
-    Usage: uftrace [OPTION...]
-                [record|replay|live|report|info|dump|recv|graph|script|tui] [<program>]
-    Try `uftrace --help' or `uftrace --usage' for more information.
+    uftrace -- function (graph) tracer for userspace
+
+     usage: uftrace [COMMAND] [OPTION...] [<program>]
+
+     COMMAND:
+       record          Run a program and saves the trace data
+       replay          Show program execution in the trace data
+       report          Show performance statistics in the trace data
+       live            Do record and replay in a row (default)
+       info            Show system and program info in the trace data
+       dump            Show low-level trace data
+       recv            Save the trace data from network
+       graph           Show function call graph in the trace data
+       script          Run a script for recorded trace data
+       tui             Show text user interface for graph and report
+
+    Try `uftrace --help' or `man uftrace [COMMAND]' for more information.
 
 If omitted, it defaults to the `live` command which is almost same as running
 record and replay subcommand in a row (but does not record the trace info

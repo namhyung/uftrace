@@ -74,9 +74,23 @@ uftrace 명령어는 다음과 같은 하위 명령어들로 구성된다.
 사용 가능한 명령어와 옵션을 보기 위해 `-h`, `-?` 혹은 `--help` 옵션을 사용할 수 있다.
 
     $ uftrace
-    Usage: uftrace [OPTION...]
-                [record|replay|live|report|info|dump|recv|graph|script|tui] [<program>]
-    Try `uftrace --help' or `uftrace --usage' for more information.
+    uftrace -- function (graph) tracer for userspace
+
+     usage: uftrace [COMMAND] [OPTION...] [<program>]
+
+     COMMAND:
+       record          Run a program and saves the trace data
+       replay          Show program execution in the trace data
+       report          Show performance statistics in the trace data
+       live            Do record and replay in a row (default)
+       info            Show system and program info in the trace data
+       dump            Show low-level trace data
+       recv            Save the trace data from network
+       graph           Show function call graph in the trace data
+       script          Run a script for recorded trace data
+       tui             Show text user interface for graph and report
+
+    Try `uftrace --help' or `man uftrace [COMMAND]' for more information.
 
 만일 하위 명령어를 생략한다면, 기본적으로 record 와 replay 를 차례로 적용한 것과 동일한
 `live` 명령어를 수행한다. (하지만 추적 정보를 파일로 저장하지 않는다)
