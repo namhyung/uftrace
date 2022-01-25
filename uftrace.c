@@ -108,11 +108,21 @@ enum options {
 };
 
 __used static const char uftrace_usage[] =
-"uftrace -- function (graph) tracer for userspace\n"
+" uftrace -- function (graph) tracer for userspace\n"
 "\n"
-"Usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
+" usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
 "\n"
-" COMMAND: record|replay|live|report|graph|info|dump|recv|script|tui\n"
+" COMMAND:\n"
+"   record          Run a program and saves the trace data\n"
+"   replay          Show program execution in the trace data\n"
+"   report          Show performance statistics in the trace data\n"
+"   live            Do record and replay in a row (default)\n"
+"   info            Show system and program info in the trace data\n"
+"   dump            Show low-level trace data\n"
+"   recv            Save the trace data from network\n"
+"   graph           Show function call graph in the trace data\n"
+"   script          Run a script for recorded trace data\n"
+"   tui             Show text user interface for graph and report\n"
 "\n";
 
 __used static const char uftrace_help[] =
@@ -216,6 +226,12 @@ __used static const char uftrace_help[] =
 "  -h, --help                 Give this help list\n"
 "      --usage                Give a short usage message\n"
 "  -V, --version              Print program version\n"
+"\n"
+" Try `man uftrace [COMMAND]' for more information.\n"
+"\n";
+
+__used static const char uftrace_footer[] =
+" Try `uftrace --help' or `man uftrace [COMMAND]' for more information.\n"
 "\n";
 
 static const char uftrace_shopts[] =
@@ -1306,6 +1322,7 @@ int main(int argc, char *argv[])
 
 	if (argc == 1) {
 		pr_out(uftrace_usage);
+		pr_out(uftrace_footer);
 		return 0;
 	}
 
@@ -1314,6 +1331,7 @@ int main(int argc, char *argv[])
 		return 0;
 	case -2:
 		pr_out(uftrace_usage);
+		pr_out(uftrace_footer);
 		return 0;
 	case -3:
 		if (opts.use_pager)
@@ -1333,6 +1351,7 @@ int main(int argc, char *argv[])
 		case UFTRACE_MODE_LIVE:
 		case UFTRACE_MODE_INVALID:
 			pr_out(uftrace_usage);
+			pr_out(uftrace_footer);
 			return 1;
 		}
 	}
