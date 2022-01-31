@@ -73,7 +73,7 @@ The uftrace command has following subcommands:
  * `script` : runs a script for recorded trace data
  * `tui`    : show text user interface for graph and report
 
-You can use `-h`, `-?` or `--help` option to see available commands and options.
+You can use `-h` or `--help` option to see available commands and options.
 
     $ uftrace
     uftrace -- function (graph) tracer for userspace
