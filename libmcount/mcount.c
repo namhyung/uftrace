@@ -1785,6 +1785,7 @@ static __used void mcount_startup(void)
 	char *dirname;
 	char *pattern_str;
 	char *clock_str;
+	char *symdir_str;
 	struct stat statbuf;
 	bool nest_libcall;
 	enum uftrace_pattern_type patt_type = PATT_REGEX;
@@ -1815,6 +1816,7 @@ static __used void mcount_startup(void)
 	nest_libcall = !!getenv("UFTRACE_NEST_LIBCALL");
 	pattern_str = getenv("UFTRACE_PATTERN");
 	clock_str = getenv("UFTRACE_CLOCK");
+	symdir_str = getenv("UFTRACE_SYMBOL_DIR");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -1877,8 +1879,11 @@ static __used void mcount_startup(void)
 
 	mcount_exename = read_exename();
 	symtabs.dirname = dirname;
-	symtabs.symdir = dirname;
+	symtabs.symdir = symdir_str ?: dirname;
 	symtabs.filename = mcount_exename;
+
+	if (symdir_str)
+		symtabs.flags |= SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_SYMS_DIR;
 
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);
 
