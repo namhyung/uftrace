@@ -98,8 +98,7 @@ __weak void dynamic_return(void) { }
 
 #ifdef DISABLE_MCOUNT_FILTER
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
-			       bool force)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 {
 	if (getenv("UFTRACE_SRCLINE") == NULL)
 		return;
@@ -108,7 +107,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 
 	/* use debug info if available */
 	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
-	save_debug_info(&symtabs, dirname);
+	save_debug_info(&symtabs, symtabs.dirname);
 }
 
 static void mcount_filter_finish(void)
@@ -372,8 +371,7 @@ static void mcount_signal_finish(void)
 	}
 }
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
-			       bool force)
+static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 {
 	char *filter_str    = getenv("UFTRACE_FILTER");
 	char *trigger_str   = getenv("UFTRACE_TRIGGER");
@@ -410,7 +408,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, char *dirname,
 	if (needs_debug_info) {
 		prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
 				   !!autoargs_str, force);
-		save_debug_info(&symtabs, dirname);
+		save_debug_info(&symtabs, symtabs.dirname);
 	}
 
 	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
@@ -1891,7 +1889,7 @@ static __used void mcount_startup(void)
 	else
 		mcount_return_fn = (unsigned long)mcount_return;
 
-	mcount_filter_init(patt_type, dirname, !!patch_str);
+	mcount_filter_init(patt_type, !!patch_str);
 	mcount_watch_init();
 
 	if (maxstack_str)
