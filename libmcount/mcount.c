@@ -1877,6 +1877,7 @@ static __used void mcount_startup(void)
 
 	mcount_exename = read_exename();
 	symtabs.dirname = dirname;
+	symtabs.symdir = dirname;
 	symtabs.filename = mcount_exename;
 
 	record_proc_maps(dirname, mcount_session_name(), &symtabs);

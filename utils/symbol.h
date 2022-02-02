@@ -96,6 +96,7 @@ struct symtabs {
 	bool loaded;
 	const char *dirname;
 	const char *filename;
+	const char *symdir;
 	enum symtab_flag flags;
 	uint64_t kernel_base;
 	struct uftrace_mmap *exec_map;
