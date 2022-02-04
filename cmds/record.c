@@ -323,6 +323,9 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 	if (opts->clock)
 		setenv("UFTRACE_CLOCK", opts->clock, 1);
 
+	if (opts->with_syms)
+		setenv("UFTRACE_SYMBOL_DIR", opts->with_syms, 1);
+
 	if (argc > 0) {
 		char *args = NULL;
 		int i;
@@ -1980,6 +1983,24 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 		finish_perf_record(&wd->perf);
 }
 
+static void copy_data_files(struct opts *opts, const char *ext)
+{
+	char path[PATH_MAX];
+	glob_t g;
+	size_t i;
+
+	snprintf(path, sizeof(path), "%s/*%s", opts->with_syms, ext);
+	glob(path, GLOB_NOSORT, NULL, &g);
+
+	for (i = 0; i < g.gl_pathc; i++) {
+		snprintf(path, sizeof(path), "%s/%s",
+			 opts->dirname, basename(g.gl_pathv[i]));
+		copy_file(g.gl_pathv[i], path);
+	}
+
+	globfree(&g);
+}
+
 static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 {
 	struct dlopen_list *dlib, *tmp;
@@ -1989,6 +2010,12 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	/* add build-id info map files */
 	update_session_maps(opts);
+
+	if (opts->with_syms) {
+		copy_data_files(opts, ".sym");
+		copy_data_files(opts, ".dbg");
+		goto after_save;
+	}
 
 	/* main executable and shared libraries */
 	load_session_symbols(opts);
@@ -2013,6 +2040,7 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 	save_module_symtabs(opts->dirname);
 	unload_module_symtabs();
 
+after_save:
 	if (opts->host) {
 		int sock = wd->sock;
 
