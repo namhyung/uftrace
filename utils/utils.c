@@ -948,6 +948,41 @@ void stacktrace(void)
 	pr_out("\n");
 }
 
+int copy_file(const char *path_in, const char *path_out)
+{
+	char buf[4096];
+	FILE *ifp, *ofp;
+	int n;
+
+	ifp = fopen(path_in, "r");
+	if (ifp == NULL) {
+		pr_warn("cannot open file: %s: %m\n", path_in);
+		return -1;
+	}
+
+	ofp = fopen(path_out, "w");
+	if (ofp == NULL) {
+		pr_warn("cannot create file: %s: %m\n", path_out);
+		fclose(ifp);
+		return -1;
+	}
+
+	while (true) {
+		n = fread(buf, 1, sizeof(buf), ifp);
+		if (n == 0)
+			break;
+
+		if (fwrite_all(buf, n, ofp) < 0) {
+			pr_warn("cannot write to file: %m\n");
+			break;
+		}
+	}
+
+	fclose(ifp);
+	fclose(ofp);
+	return 0;
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(utils_parse_cmdline)
 {
