@@ -247,7 +247,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(libmcount-path, OPT_libmcount_path),
 	REQ_ARG(library-path, OPT_libmcount_path),
 	REQ_ARG(filter, 'F'),
-	REQ_ARG(notrace, 'L'),
+	REQ_ARG(notrace, 'N'),
 	REQ_ARG(depth, 'D'),
 	REQ_ARG(time-filter, 't'),
 	REQ_ARG(caller-filter, 'C'),
