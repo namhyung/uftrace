@@ -479,7 +479,7 @@ void setup_fstack_args(char *argspec, char *retspec, struct uftrace_data *handle
  */
 int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
-	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
+	if (opts->filter || opts->trigger || opts->caller || opts->hide || opts->loc_filter) {
 		struct uftrace_filter_setting setting = {
 			.ptype = opts->patt_type,
 			.allow_kernel = true,
@@ -488,7 +488,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 		};
 
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger, opts->caller,
-					 opts->hide, NULL, &setting) < 0) {
+					 opts->hide, opts->loc_filter, &setting) < 0) {
 			char * or = "";
 			pr_use("failed to set filter or trigger: ");
 			if (opts->filter) {
@@ -505,6 +505,10 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 			}
 			if (opts->hide) {
 				pr_out("%s%s", or, opts->hide);
+				or = " or ";
+			}
+			if (opts->loc_filter) {
+				pr_out("%s%s", or, opts->loc_filter);
 				or = " or ";
 			}
 			pr_out("\n");

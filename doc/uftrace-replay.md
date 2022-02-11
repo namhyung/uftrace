@@ -48,6 +48,9 @@ REPLAY OPTIONS
 \--libname
 :   Show libname name along with function name.
 
+\--srcline
+:   Show source location of each function if available.
+
 \--format=*TYPE*
 :   Show format style output. Currently, normal and html styles are supported.
 
@@ -80,6 +83,10 @@ COMMON OPTIONS
 :   Do not show functions which run under the time threshold.  If some functions
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
+
+-L *LOCATION*, \--loc-filter=*LOCATION*
+:   Set filter to trace selected source locations.
+    This option can be used more than once.  See *FILTERS*.
 
 \--no-libcall
 :   Do not show library calls.
@@ -313,6 +320,26 @@ as well as DURATION and TID.
       42.124 us   0.220 us [ 6126] |   fgets();
       42.529 us            [ 6126] |   get_values_from() {
       42.645 us   0.236 us [ 6126] |     strdup();
+
+In addition, you can set filter to trace selected source locations with `-L` option.
+For this option, the `--srcline` option is required when using record command.
+
+    $ uftrace record --srcline t-lib
+    $ uftrace replay --srcline -L s-libmain.c
+    # DURATION     TID     FUNCTION [SOURCE]
+                [  5043] | main() { /* /home/uftrace/tests/s-libmain.c:16 */
+       6.998 us [  5043] |   foo(); /* /home/uftrace/tests/s-libmain.c:11 */
+       9.393 us [  5043] | } /* main */
+
+You can set filter with the `@hide` suffix not to trace selected source locations.
+
+    $ uftrace replay -L libmain*@hide
+    # DURATION     TID     FUNCTION
+                [   866] | lib_a() {
+                [   866] |   lib_b() {
+       1.576 us [   866] |     lib_c();
+       2.833 us [   866] |   } /* lib_b */
+       3.132 us [   866] | } /* lib_a */
 
 You can also set triggers on filtered functions.  See *TRIGGERS* section below
 for details.

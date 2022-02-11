@@ -463,7 +463,8 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 		/* read old task file first and then try task.txt file */
 		if (read_task_file(sessions, opts->dirname, true, sym_rel, opts->srcline) < 0 &&
 		    read_task_txt_file(sessions, opts->dirname, opts->with_syms ?: opts->dirname,
-				       true, sym_rel, opts->srcline) < 0) {
+				       true, sym_rel,
+				       opts->srcline | (opts->loc_filter != NULL)) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else
