@@ -67,6 +67,11 @@ COMMON OPTIONS
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
 
+\--with-syms=*DIR*
+:   Read symbol data from the .sym files in *DIR* directory instead of the
+    binary.  This can be useful to deal with stripped binaries.  The file name
+    of the main binary should be the same when saved and used.
+
 
 COMMON ANALYSIS OPTIONS
 =======================

@@ -234,8 +234,9 @@ void create_session(struct uftrace_session_link *sessions,
 		s->pid, s->sid);
 
 	if (needs_symtab) {
-		s->symtabs.dirname = symdir;
+		s->symtabs.dirname = dirname;
 		s->symtabs.filename = s->exename;
+		s->symtabs.symdir = symdir;
 		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
 			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;

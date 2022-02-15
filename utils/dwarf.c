@@ -1826,6 +1826,11 @@ void prepare_debug_info(struct symtabs *symtabs,
 	struct strv dwarf_args = STRV_INIT;
 	struct strv dwarf_rets = STRV_INIT;
 
+	if (symtabs->flags & SYMTAB_FL_SYMS_DIR) {
+		load_debug_info(symtabs, true);
+		return;
+	}
+
 	extract_dwarf_args(argspec, retspec, &dwarf_args, &dwarf_rets);
 
 	if (auto_args) {
@@ -2208,7 +2213,7 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 		dinfo = &mod->dinfo;
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
-			load_debug_file(dinfo, stab, symtabs->dirname,
+			load_debug_file(dinfo, stab, symtabs->symdir,
 					map->libname, map->build_id,
 					needs_srcline);
 		}

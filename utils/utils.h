@@ -400,4 +400,6 @@ void stacktrace(void);
 		raise(SIGTRAP);						\
 	}
 
+int copy_file(const char *path_in, const char *path_out);
+
 #endif /* UFTRACE_UTILS_H */

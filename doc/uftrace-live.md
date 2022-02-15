@@ -66,6 +66,11 @@ COMMON OPTIONS
 :   Start uftrace with tracing disabled.  This is only meaningful when used with
     a `trace_on` trigger.
 
+\--with-syms=*DIR*
+:   Read symbol data from the .sym files in *DIR* directory instead of the
+    binary.  This can be useful to deal with stripped binaries.  The file name
+    of the main binary should be the same when saved and used.
+
 
 LIVE OPTIONS
 ============

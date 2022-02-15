@@ -1029,7 +1029,7 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 		char build_id[BUILD_ID_STR_SIZE];
 
 		xasprintf(&symfile, "%s/%s.sym",
-			  symtabs->dirname, basename(m->name));
+			  symtabs->symdir, basename(m->name));
 		if (access(symfile, F_OK) == 0) {
 			if (check_symbol_file(symfile, buf, sizeof(buf),
 					      build_id, sizeof(build_id)) > 0 &&
@@ -1826,6 +1826,7 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 TEST_CASE(symbol_load_map) {
 	struct symtabs symtabs = {
 		.dirname = "",
+		.symdir = "",
 		.kernel_base = -4096ULL,
 		.flags = SYMTAB_FL_ADJ_OFFSET,
 	};
@@ -1931,7 +1932,11 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 }
 
 TEST_CASE(symbol_same_file_name1) {
-	struct symtabs test_symtabs = { .dirname = ".", .flags = SYMTAB_FL_USE_SYMFILE, };
+	struct symtabs test_symtabs = {
+		.dirname = ".",
+		.symdir = ".",
+		.flags = SYMTAB_FL_USE_SYMFILE,
+	};
 	struct uftrace_module *save_mod[2];
 	struct uftrace_module *load_mod[2];
 	size_t i;
@@ -1993,7 +1998,11 @@ TEST_CASE(symbol_same_file_name1) {
 }
 
 TEST_CASE(symbol_same_file_name2) {
-	struct symtabs test_symtabs = { .dirname = ".", .flags = SYMTAB_FL_USE_SYMFILE, };
+	struct symtabs test_symtabs = {
+		.dirname = ".",
+		.symdir = ".",
+		.flags = SYMTAB_FL_USE_SYMFILE,
+	};
 	struct uftrace_module *save_mod[2];
 	struct uftrace_module *load_mod[2];
 	size_t i;
