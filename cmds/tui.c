@@ -2523,7 +2523,7 @@ static void tui_window_help(void)
 	for (i = 0; i < ARRAY_SIZE(help); i++)
 		mvwprintw(win, i + 3, 2, "%-*.*s", w-3, w-3, help[i]);
 
-	mvwprintw(win, h-1, w-1, "");
+	mvwprintw(win, h-1, w-1, " ");
 	wrefresh(win);
 
 	/* wait for key press */
@@ -2639,7 +2639,7 @@ static void tui_window_field(enum tui_mode tui_mode)
 		display_tui_field(win, selected_field, report_field_flags,
 				NUM_REPORT_FIELD, report_field_names);
 
-	mvwprintw(win, h-1, w-1, "");
+	mvwprintw(win, h-1, w-1, " ");
 	wrefresh(win);
 
 	while (!done) {
