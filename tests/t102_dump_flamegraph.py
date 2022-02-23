@@ -4,11 +4,8 @@ from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """
-main 1
-main;a 1
-main;a;b 1
-main;a;b;c 1
+        TestBase.__init__(self, 'sleep', """
+main;foo;bar;usleep 1
 """)
 
     def prepare(self):
@@ -17,7 +14,7 @@ main;a;b;c 1
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-F main -D 4 --flame-graph'
+        self.option = '--flame-graph --sample-time=2ms'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

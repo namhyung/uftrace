@@ -215,3 +215,35 @@ void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id
 		free(pd);
 	}
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(mcount_pmu_event)
+{
+	struct mcount_thread_data mtd;
+	enum uftrace_event_id eid = EVENT_ID_READ_PMU_CYCLE;
+	struct pmu_data *pd;
+	char buf[32];
+
+	pr_dbg("checking PMU cycle event\n");
+	INIT_LIST_HEAD(&mtd.pmu_fds);
+	pd = prepare_pmu_event(&mtd, eid);
+	if (pd == NULL)
+		return TEST_SKIP;
+
+	TEST_EQ(pd->refcnt, 1);
+	TEST_EQ(read_pmu_event(&mtd, eid, buf), 0);
+	finish_pmu_event(&mtd);
+
+	pr_dbg("checking PMU cache event\n");
+	eid = EVENT_ID_READ_PMU_CACHE;
+	pd = prepare_pmu_event(&mtd, eid);
+	if (pd == NULL)
+		return TEST_SKIP;
+
+	TEST_EQ(pd->refcnt, 1);
+	TEST_EQ(read_pmu_event(&mtd, eid, buf), 0);
+	release_pmu_event(&mtd, eid);
+
+	return TEST_OK;
+}
+#endif  /* UNIT_TEST */

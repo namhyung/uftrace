@@ -268,3 +268,15 @@ void mcount_finish_events(void)
 		free(mei);
 	}
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(mcount_list_event)
+{
+	pr_dbg("checking event list\n");
+	mcount_list_events();
+	TEST_EQ(mcount_lookup_event(0x123), NULL);
+	mcount_finish_events();
+
+	return TEST_OK;
+}
+#endif  /* UNIT_TEST */
