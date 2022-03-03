@@ -1700,7 +1700,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		else if (curr->type == UFTRACE_EVENT) {
 			struct fstack_arguments arg = {
 				.data = kernel->trace_buf.buffer,
-				.len  = kernel->trace_buf.len,
+				.len  = kernel->trace_buf.len + 1,
 			};
 
 			add_to_rstack_list(rstack_list, curr, &arg);
