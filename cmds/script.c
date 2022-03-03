@@ -129,8 +129,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		sc_ctx.argbuf = event_get_data_str(rstack->addr,
 						   task->args.data, false);
 
-		if (script_uftrace_event)
-			script_uftrace_event(&sc_ctx);
+		script_uftrace_event(&sc_ctx);
 
 		free(sc_ctx.name);
 		free(sc_ctx.argbuf);
