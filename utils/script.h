@@ -61,12 +61,14 @@ extern char *script_str;
 
 typedef int (*script_uftrace_entry_t)(struct script_context *sc_ctx);
 typedef int (*script_uftrace_exit_t)(struct script_context *sc_ctx);
+typedef int (*script_uftrace_event_t)(struct script_context *sc_ctx);
 typedef int (*script_uftrace_end_t)(void);
 typedef int (*script_atfork_prepare_t)(void);
 
 /* The below functions are used both in record time and script command. */
 extern script_uftrace_entry_t script_uftrace_entry;
 extern script_uftrace_exit_t script_uftrace_exit;
+extern script_uftrace_event_t script_uftrace_event;
 extern script_uftrace_end_t script_uftrace_end;
 extern script_atfork_prepare_t script_atfork_prepare;
 

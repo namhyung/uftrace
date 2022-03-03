@@ -17,6 +17,7 @@
 #include "utils/filter.h"
 #include "utils/fstack.h"
 #include "utils/script.h"
+#include "utils/event.h"
 
 #include "libtraceevent/event-parse.h"
 
@@ -116,12 +117,28 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 
 		fstack_exit(task);
 	}
+	else if (rstack->type == UFTRACE_EVENT) {
+		struct script_context sc_ctx = {
+			.tid       = task->tid,
+			.depth     = rstack->depth,
+			.timestamp = rstack->time,
+			.address   = rstack->addr,
+		};
+
+		sc_ctx.name = event_get_name(handle, rstack->addr);
+		sc_ctx.argbuf = event_get_data_str(rstack->addr,
+						   task->args.data, false);
+
+		if (script_uftrace_event)
+			script_uftrace_event(&sc_ctx);
+
+		free(sc_ctx.name);
+		free(sc_ctx.argbuf);
+	}
 	else if (rstack->type == UFTRACE_LOST) {
 		/* Do nothing as of now */
 	}
-	else if (rstack->type == UFTRACE_EVENT) {
-		/* TODO: event handling */
-	}
+
 out:
 	symbol_putname(sym, symname);
 	return 0;
