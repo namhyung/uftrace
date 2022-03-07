@@ -95,6 +95,7 @@ enum options {
 	OPT_diff_policy,
 	OPT_event_full,
 	OPT_record,
+	OPT_no_args,
 	OPT_libname,
 	OPT_match_type,
 	OPT_no_randomize_addr,
@@ -179,6 +180,7 @@ __used static const char uftrace_help[] =
 "                             regex)\n"
 "      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
 	stringify(OPT_RSTACK_MAX) ")\n"
+"      --no-args              Do not show arguments and return value\n"
 "      --no-comment           Don't show comments of returned functions\n"
 "      --no-event             Disable (default) events\n"
 "      --no-sched             Disable schedule events\n"
@@ -250,6 +252,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(argument, 'A'),
 	REQ_ARG(retval, 'R'),
 	NO_ARG(auto-args, 'a'),
+	NO_ARG(no-args, OPT_no_args),
 	REQ_ARG(patch, 'P'),
 	REQ_ARG(unpatch, 'U'),
 	REQ_ARG(size-filter, 'Z'),
@@ -953,6 +956,10 @@ static int parse_option(struct opts *opts, int key, char *arg)
 		opts->record = true;
 		break;
 
+	case OPT_no_args:
+		opts->show_args = false;
+		break;
+
 	case OPT_libname:
 		opts->libname = true;
 		break;
@@ -1312,6 +1319,7 @@ int main(int argc, char *argv[])
 		.sort_column	= OPT_SORT_COLUMN,
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
+		.show_args      = true,
 	};
 	int ret = -1;
 	char *pager = NULL;

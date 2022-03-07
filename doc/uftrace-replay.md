@@ -51,6 +51,9 @@ REPLAY OPTIONS
 \--format=*TYPE*
 :   Show format style output. Currently, normal and html styles are supported.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 COMMON OPTIONS
 ==============

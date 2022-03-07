@@ -20,6 +20,8 @@
 /* target sampling frequency for flame graph */
 #define FLAME_GRAPH_SAMPLE_FREQ  1000000
 
+/* this is to skip arguments and return value output */
+static bool show_args;
 
 struct uftrace_dump_ops {
 	/* this is called at the beginning */
@@ -642,7 +644,7 @@ static void dump_raw_task_rstack(struct uftrace_dump_ops *ops,
 	if (frs->type == UFTRACE_EVENT)
 		free(name);
 
-	if (frs->more) {
+	if (frs->more && show_args) {
 		if (frs->type == UFTRACE_ENTRY) {
 			pr_time(frs->time);
 			pr_out("%5d: [%s] length = %d\n", task->tid, "args ",
@@ -677,7 +679,7 @@ static void dump_raw_task_event(struct uftrace_dump_ops *ops,
 	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
-	if (frs->more) {
+	if (frs->more && show_args) {
 		pr_time(frs->time);
 		pr_out("%5d: [%s] length = %d\n", task->tid, "data ",
 		       task->args.len);
@@ -946,7 +948,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name_buf);
 		}
 
-		if (frs->more) {
+		if (frs->more && show_args) {
 			str_mode |= NEEDS_PAREN | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"arguments\":\"%s\"}}", spec_buf);
@@ -966,7 +968,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid, task->tid, name_buf);
 		}
 
-		if (frs->more) {
+		if (frs->more && show_args) {
 			str_mode |= IS_RETVAL | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
 			pr_out(",\"args\":{\"retval\":\"%s\"}}",
@@ -1656,6 +1658,9 @@ int command_dump(int argc, char *argv[], struct opts *opts)
 	}
 
 	fstack_setup_filters(opts, &handle);
+
+	if (opts->show_args)
+		show_args = true;
 
 	if (opts->chrome_trace) {
 		struct uftrace_chrome_dump dump = {

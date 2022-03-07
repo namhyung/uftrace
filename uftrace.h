@@ -275,6 +275,7 @@ struct opts {
 	bool nest_libcall;
 	bool record;
 	bool auto_args;
+	bool show_args;
 	bool libname;
 	bool no_randomize_addr;
 	bool graphviz;

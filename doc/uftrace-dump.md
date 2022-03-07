@@ -42,6 +42,9 @@ DUMP OPTIONS
     ran less than the sampling time will be removed from the output and
     functions ran longer than the time will be shown as larger.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 COMMON OPTIONS
 ==============
