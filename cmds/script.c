@@ -68,7 +68,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		sc_ctx.address   = rstack->addr;
 		sc_ctx.name      = symname;
 
-		if (tr.flags & TRIGGER_FL_ARGUMENT) {
+		if (tr.flags & TRIGGER_FL_ARGUMENT && opts->show_args) {
 			sc_ctx.argbuf  = task->args.data;
 			sc_ctx.arglen  = task->args.len;
 			sc_ctx.argspec = task->args.args;
@@ -104,7 +104,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			sc_ctx.address   = rstack->addr;
 			sc_ctx.name      = symname;
 
-			if (rstack->more) {
+			if (rstack->more && opts->show_args) {
 				sc_ctx.argbuf  = task->args.data;
 				sc_ctx.arglen  = task->args.len;
 				sc_ctx.argspec = task->args.args;

@@ -250,6 +250,9 @@ REPLAY OPTIONS
 \--libname
 :   Show library name along with function name.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 COMMON ANALYSIS OPTIONS
 =======================

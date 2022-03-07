@@ -30,6 +30,9 @@ SCRIPT OPTIONS
 \--record COMMAND [*command-options*]
 :   Record a new trace before running a given script.
 
+\--no-args
+:   Do not show function arguments and return value.
+
 
 COMMON OPTIONS
 ==============

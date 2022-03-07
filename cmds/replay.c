@@ -889,7 +889,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 		depth += task_column_depth(task, opts);
 
-		if (rstack->more)
+		if (rstack->more && opts->show_args)
 			str_mode |= HAS_MORE;
 		get_argspec_string(task, args, sizeof(args), str_mode);
 
@@ -907,7 +907,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			fstack_consume(handle, next);
 
 			str_mode = IS_RETVAL | NEEDS_SEMI_COLON;
-			if (next->rstack->more) {
+			if (next->rstack->more && opts->show_args) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
 			}
@@ -969,7 +969,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 			depth += task_column_depth(task, opts);
 
 			str_mode = IS_RETVAL;
-			if (rstack->more) {
+			if (rstack->more && opts->show_args) {
 				str_mode |= HAS_MORE;
 				str_mode |= NEEDS_ASSIGNMENT;
 				str_mode |= NEEDS_SEMI_COLON;
