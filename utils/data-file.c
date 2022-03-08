@@ -254,9 +254,9 @@ int read_events_file(struct uftrace_data *handle)
 		unsigned evt_id;
 		struct uftrace_event *ev;
 
-		if (!strncmp(line, "EVENT", 5)) {
-			sscanf(line + 7, "%u %[^:]:%s",
-			       &evt_id, provider, event);
+		if (!strncmp(line, "EVENT", 5) &&
+		     sscanf(line + 7, "%u %[^:]:%s",
+			    &evt_id, provider, event) == 3) {
 
 			ev = xmalloc(sizeof(*ev));
 			ev->id = evt_id;
