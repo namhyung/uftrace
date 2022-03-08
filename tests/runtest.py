@@ -537,7 +537,12 @@ class TestBase:
         test_cmd = self.runcmd()
         self.pr_debug("test command: %s" % test_cmd)
 
-        p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+        if self.debug:
+            # In verbose mode, stderr is printed as is without redirection.
+            # This will inform error messages to users when something goes wrong.
+            p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE)
+        else:
+            p = sp.Popen(test_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 
         class Timeout(Exception):
             pass
