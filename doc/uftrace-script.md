@@ -114,10 +114,10 @@ SCRIPT EXECUTION
 The uftrace tool supports script execution for each function entry and exit.
 The supported script types are Python 2.7, Python 3 and Lua 5.1 as of now.
 
-The user can write four functions. 'uftrace_entry' and 'uftrace_exit' are
+The user can write five functions. 'uftrace_entry' and 'uftrace_exit' are
 executed whenever each function is executed at the entry and exit.  However
 'uftrace_begin' and 'uftrace_end' are only executed once when the target
-program begins and ends.
+program begins and ends.  'uftrace_event' is called when it sees an event.
 
     $ cat scripts/simple.py
     def uftrace_begin(ctx):
@@ -130,6 +130,10 @@ program begins and ends.
     def uftrace_exit(ctx):
         func = ctx["name"]
         print("exit  : " + func + "()")
+
+    def uftrace_event(ctx):
+        name = ctx["name"]
+        print("event : " + name)
 
     def uftrace_end():
         print("program is finished")
@@ -230,6 +234,26 @@ Also a script can have options for record if it requires some form of data
     $ uftrace script -S arg.py
     a has args
     b has retval
+
+Also a script can handle event records and optional event data in "args".  The
+arguments is a string containing KEY=VALUE pairs.  Currently it only works with
+`uftrace script` and not for record.
+
+    $ cat event.py
+    def uftrace_entry(ctx):
+        pass
+    def uftrace_exit(ctx):
+        pass
+    def uftrace_event(ctx):
+        if "args" in ctx:
+            print(ctx["name"] + " ::: " + ctx["args"])
+        else:
+            print(ctx["name"])
+
+    $ uftrace record -T a@read=proc/statm abc
+    $ uftrace script -S event.py
+    read:proc/statm ::: vmsize=31060KB vmrss=15412KB shared=11064KB
+    diff:proc/statm ::: vmsize=+0KB vmrss=+0KB shared=+0KB
 
 
 SEE ALSO
