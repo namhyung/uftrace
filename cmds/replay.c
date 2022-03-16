@@ -12,6 +12,7 @@
 #include "utils/list.h"
 #include "utils/kernel.h"
 #include "utils/field.h"
+#include "utils/event.h"
 
 #include "libtraceevent/event-parse.h"
 
@@ -289,7 +290,8 @@ static void print_event(struct uftrace_task_reader *task,
 			int color)
 {
 	unsigned evt_id = urec->addr;
-	char *evt_name = get_event_name(task->h, evt_id);
+	char *evt_name = event_get_name(task->h, evt_id);
+	char *evt_data = event_get_data_str(evt_id, task->args.data, true);
 
 	if (evt_id == EVENT_ID_EXTERN_DATA) {
 		pr_color(color, "%s: %s", evt_name, (char *)task->args.data);
@@ -298,90 +300,15 @@ static void print_event(struct uftrace_task_reader *task,
 		/* TODO: some events might have arguments */
 		pr_color(color, "%s", evt_name);
 	}
-	else if (evt_id >= EVENT_ID_PERF) {
+	else {
 		pr_color(color, "%s", evt_name);
 
-		if (evt_id == EVENT_ID_PERF_COMM)
-			pr_color(color, " (name=%s)", (char *)task->args.data);
+		if (evt_data)
+			pr_color(color, " (%s)", evt_data);
 	}
-	else if (evt_id >= EVENT_ID_BUILTIN) {
-		union {
-			struct uftrace_proc_statm *statm;
-			struct uftrace_page_fault *page_fault;
-			struct uftrace_pmu_cycle  *cycle;
-			struct uftrace_pmu_cache  *cache;
-			struct uftrace_pmu_branch *branch;
-			int                       *cpu;
-		} u;
 
-		switch (evt_id) {
-		case EVENT_ID_READ_PROC_STATM:
-			u.statm = task->args.data;
-			pr_color(color, "%s (size=%"PRIu64"KB, rss=%"PRIu64"KB, shared=%"PRIu64"KB)",
-				 evt_name, u.statm->vmsize, u.statm->vmrss, u.statm->shared);
-			break;
-		case EVENT_ID_READ_PAGE_FAULT:
-			u.page_fault = task->args.data;
-			pr_color(color, "%s (major=%"PRIu64", minor=%"PRIu64")",
-				 evt_name, u.page_fault->major, u.page_fault->minor);
-			break;
-		case EVENT_ID_READ_PMU_CYCLE:
-			u.cycle = task->args.data;
-			pr_color(color, "%s (cycle=%"PRIu64", instructions=%"PRIu64")",
-				 evt_name, u.cycle->cycles, u.cycle->instrs);
-			break;
-		case EVENT_ID_READ_PMU_CACHE:
-			u.cache = task->args.data;
-			pr_color(color, "%s (refers=%"PRIu64", misses=%"PRIu64")",
-				 evt_name, u.cache->refers, u.cache->misses);
-			break;
-		case EVENT_ID_READ_PMU_BRANCH:
-			u.branch = task->args.data;
-			pr_color(color, "%s (branch=%"PRIu64", misses=%"PRIu64")",
-				 evt_name, u.branch->branch, u.branch->misses);
-			break;
-		case EVENT_ID_DIFF_PROC_STATM:
-			u.statm = task->args.data;
-			pr_color(color, "%s (size=%+"PRId64"KB, rss=%+"PRId64"KB, shared=%+"PRId64"KB)",
-				 evt_name, u.statm->vmsize, u.statm->vmrss, u.statm->shared);
-			break;
-		case EVENT_ID_DIFF_PAGE_FAULT:
-			u.page_fault = task->args.data;
-			pr_color(color, "%s (major=%+"PRId64", minor=%+"PRId64")",
-				 evt_name, u.page_fault->major, u.page_fault->minor);
-			break;
-		case EVENT_ID_DIFF_PMU_CYCLE:
-			u.cycle = task->args.data;
-			pr_color(color, "%s (cycle=%+"PRId64", instructions=%+"PRId64", IPC=%.2f)",
-				 evt_name, u.cycle->cycles, u.cycle->instrs,
-				 (float)u.cycle->instrs / u.cycle->cycles);
-			break;
-		case EVENT_ID_DIFF_PMU_CACHE:
-			u.cache = task->args.data;
-			pr_color(color, "%s (refers=%+"PRId64", misses=%+"PRId64", hit=%"PRId64"%%)",
-				 evt_name, u.cache->refers, u.cache->misses,
-				 (u.cache->refers - u.cache->misses) * 100 / u.cache->refers);
-			break;
-		case EVENT_ID_DIFF_PMU_BRANCH:
-			u.branch = task->args.data;
-			pr_color(color, "%s (branch=%+"PRId64", misses=%+"PRId64", predict=%"PRId64"%%)",
-				 evt_name, u.branch->branch, u.branch->misses,
-				 (u.branch->branch - u.branch->misses) * 100 / u.branch->branch);
-			break;
-		case EVENT_ID_WATCH_CPU:
-			u.cpu = task->args.data;
-			pr_color(color, "%s (cpu=%d)", evt_name, *u.cpu);
-			break;
-		default:
-			pr_color(color, "%s", evt_name);
-		}
-	}
-	else {
-		/* kernel events */
-		pr_color(color, "%s (%.*s)", evt_name,
-			 task->args.len, task->args.data);
-	}
 	free(evt_name);
+	free(evt_data);
 }
 
 static int print_flat_rstack(struct uftrace_data *handle,

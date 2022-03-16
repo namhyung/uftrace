@@ -16,6 +16,7 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
+#include "utils/event.h"
 #include "utils/filter.h"
 #include "utils/symbol.h"
 

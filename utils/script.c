@@ -26,6 +26,7 @@ enum script_type_t script_lang;
 /* The below functions are used both in record time and script command. */
 script_uftrace_entry_t script_uftrace_entry;
 script_uftrace_exit_t script_uftrace_exit;
+script_uftrace_event_t script_uftrace_event;
 script_uftrace_end_t script_uftrace_end;
 script_atfork_prepare_t script_atfork_prepare;
 
@@ -48,6 +49,8 @@ enum script_type_t get_script_type(const char *str)
 		return SCRIPT_PYTHON;
 	else if (!strcmp(ext, ".lua"))
 		return SCRIPT_LUAJIT;
+	else if (!strcmp(ext, ".testing"))
+		return SCRIPT_TESTING;
 
 	return SCRIPT_UNKNOWN;
 }
@@ -90,9 +93,26 @@ void script_finish_filter(void)
 	struct script_filter_item *item, *tmp;
 
 	list_for_each_entry_safe(item, tmp, &filters, list) {
+		list_del(&item->list);
 		free_filter_pattern(&item->patt);
 		free(item);
 	}
+}
+
+static int script_init_for_testing(struct script_info *info,
+				   enum uftrace_pattern_type ptype)
+{
+	int i;
+	char *name;
+
+	strv_for_each(&info->cmds, name, i)
+		script_add_filter(name, ptype);
+
+	return 0;
+}
+
+static void script_finish_for_testing(void)
+{
 }
 
 int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
@@ -119,6 +139,12 @@ int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 			script_pathname = NULL;
 		}
 		break;
+	case SCRIPT_TESTING:
+		if (script_init_for_testing(info, ptype) < 0) {
+			pr_warn("failed to init test scripting\n");
+			script_pathname = NULL;
+		}
+		break;
 	default:
 		pr_warn("unsupported script type: %s\n", script_pathname);
 		script_pathname = NULL;
@@ -140,9 +166,66 @@ void script_finish(void)
 	case SCRIPT_LUAJIT:
 		script_finish_for_luajit();
 		break;
+	case SCRIPT_TESTING:
+		script_finish_for_testing();
+		break;
 	default:
 		break;
 	}
 
 	script_finish_filter();
 }
+
+#ifdef UNIT_TEST
+#include <stdio.h>
+
+#define SCRIPT_FILE  "xxx.testing"
+
+static int setup_testing_script(struct script_info *info)
+{
+	FILE *fp;
+
+	fp = fopen(SCRIPT_FILE, "w+");
+	if (fp == NULL)
+		return -1;
+
+	fprintf(fp, "# uftrace script testing\n");
+
+	strv_append(&info->cmds, "abc");
+	strv_append(&info->cmds, "x*z");
+
+	fclose(fp);
+	return 0;
+}
+
+static int cleanup_testing_script(struct script_info *info)
+{
+	unlink(SCRIPT_FILE);
+	strv_free(&info->cmds);
+	return 0;
+}
+
+TEST_CASE(script_init)
+{
+	struct script_info info = {
+		.version        = "UFTRACE_VERSION",
+		.name		= SCRIPT_FILE,
+	};
+
+	pr_dbg("checking basic script init and finish\n");
+	TEST_EQ(setup_testing_script(&info), 0);
+
+	TEST_EQ(script_init(&info, PATT_GLOB), 0);
+	TEST_EQ(list_empty(&filters), false);
+
+	TEST_EQ(script_match_filter("abc"), 1);
+	TEST_EQ(script_match_filter("xxyyzz"), 1);
+
+	script_finish();
+	TEST_EQ(list_empty(&filters), true);
+
+	TEST_EQ(cleanup_testing_script(&info), 0);
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

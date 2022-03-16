@@ -9,6 +9,7 @@
 #include "version.h"
 #include "utils/list.h"
 #include "utils/utils.h"
+#include "utils/event.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
 #include "utils/kernel.h"
@@ -510,40 +511,18 @@ static void pr_retval(struct fstack_arguments *args)
 	}
 }
 
-static void pr_event(int eid, void *ptr, int len)
+static void pr_event(struct uftrace_task_reader *task, unsigned evt_id)
 {
-	union {
-		struct uftrace_proc_statm *statm;
-		struct uftrace_page_fault *pgfault;
-	} d;
+	char *evt_name = event_get_name(task->h, evt_id);
+	char *evt_data = event_get_data_str(evt_id, task->args.data, false);
 
-	/* built-in events */
-	switch (eid) {
-	case EVENT_ID_READ_PROC_STATM:
-		d.statm = ptr;
-		pr_out("  proc/statm: vmsize=%"PRIu64"K vmrss=%"PRIu64"K shared=%"PRIu64"K\n",
-		       d.statm->vmsize, d.statm->vmrss, d.statm->shared);
-		break;
-	case EVENT_ID_READ_PAGE_FAULT:
-		d.pgfault = ptr;
-		pr_out("  page-fault: major=%"PRIu64" minor=%"PRIu64"\n",
-		       d.pgfault->major, d.pgfault->minor);
-		break;
-	case EVENT_ID_DIFF_PROC_STATM:
-		d.statm = ptr;
-		pr_out("  proc/statm: vmsize=%+"PRId64"K vmrss=%+"PRId64"K shared=%+"PRId64"K\n",
-		       d.statm->vmsize, d.statm->vmrss, d.statm->shared);
-		break;
-	case EVENT_ID_DIFF_PAGE_FAULT:
-		d.pgfault = ptr;
-		pr_out("  page-fault: major=%+"PRId64" minor=%+"PRId64"\n",
-		       d.pgfault->major, d.pgfault->minor);
-		break;
-	default:
-		break;
-	}
+	pr_out("  %s", evt_name);
+	if (evt_data)
+		pr_out(": %s", evt_data);
+	pr_out("\n");
 
-	/* user events */
+	free(evt_name);
+	free(evt_data);
 }
 
 static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
@@ -633,7 +612,7 @@ static void dump_raw_task_rstack(struct uftrace_dump_ops *ops,
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	if (frs->type == UFTRACE_EVENT)
-		name = get_event_name(task->h, frs->addr);
+		name = event_get_name(task->h, frs->addr);
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
@@ -671,7 +650,7 @@ static void dump_raw_task_event(struct uftrace_dump_ops *ops,
 {
 	struct uftrace_record *frs = task->rstack;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
-	char *name = get_event_name(task->h, frs->addr);
+	char *name = event_get_name(task->h, frs->addr);
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIx64") depth: %u\n",
@@ -683,7 +662,7 @@ static void dump_raw_task_event(struct uftrace_dump_ops *ops,
 		pr_time(frs->time);
 		pr_out("%5d: [%s] length = %d\n", task->tid, "data ",
 		       task->args.len);
-		pr_event(frs->addr, task->args.data, task->args.len);
+		pr_event(task, frs->addr);
 		pr_hex(&raw->file_offset, task->args.data,
 		       ALIGN(task->args.len, 8));
 	}
@@ -827,7 +806,7 @@ static void dump_raw_perf_event(struct uftrace_dump_ops *ops,
 				 struct uftrace_record *frs)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
-	char *evt_name = get_event_name(NULL, frs->addr);
+	char *evt_name = event_get_name(NULL, frs->addr);
 
 	pr_time(frs->time);
 	pr_out("%5d: [%s] %s(%"PRIu64")\n",

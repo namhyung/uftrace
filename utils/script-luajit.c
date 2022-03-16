@@ -297,6 +297,31 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 	return 0;
 }
 
+static int luajit_uftrace_event(struct script_context *sc_ctx)
+{
+	dllua_getglobal(L, "uftrace_event");
+	if (dllua_isnil(L, -1)) {
+		dllua_pop(L, 1);
+		return -1;
+	}
+
+	setup_common_context(sc_ctx);
+
+	if (sc_ctx->argbuf) {
+		dllua_pushstring(L, "args");
+		dllua_pushstring(L, sc_ctx->argbuf);
+		dllua_settable(L, -3);
+	}
+
+	if (dllua_pcall(L, 1, 0, 0) != 0) {
+		pr_dbg("uftrace_event failed: %s\n", dllua_tostring(L, -1));
+		dllua_pop(L, 1);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int luajit_uftrace_end(void)
 {
 	dllua_getglobal(L, "uftrace_end");
@@ -370,6 +395,7 @@ int script_init_for_luajit(struct script_info *info,
 	pr_dbg("%s()\n", __func__);
 	script_uftrace_entry = luajit_uftrace_entry;
 	script_uftrace_exit = luajit_uftrace_exit;
+	script_uftrace_event = luajit_uftrace_event;
 	script_uftrace_end = luajit_uftrace_end;
 	script_atfork_prepare = luajit_atfork_prepare;
 

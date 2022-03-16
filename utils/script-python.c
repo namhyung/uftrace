@@ -98,7 +98,7 @@ static inline void __Py_XDECREF(PyObject *obj)
 
 #endif  /* PY_VERSION_HEX >= 0x03080000 */
 
-static PyObject *pModule, *pFuncBegin, *pFuncEntry, *pFuncExit, *pFuncEnd;
+static PyObject *pModule, *pFuncBegin, *pFuncEntry, *pFuncExit, *pFuncEvent, *pFuncEnd;
 
 enum py_context_idx {
 	PY_CTX_TID = 0,
@@ -538,6 +538,27 @@ static void setup_argument_context(PyObject **pDict, bool is_retval,
 	Py_XDECREF(args);
 }
 
+static void setup_event_argument(PyObject *pDict, struct script_context *sc_ctx)
+{
+	char *data = sc_ctx->argbuf;
+	PyObject *args;
+
+	if (data == NULL)
+		data = "";
+
+	args = __PyString_FromString(data);
+	if (__PyErr_Occurred()) {
+		Py_XDECREF(args);
+		args = __PyString_FromString("<invalid value>");
+		__PyErr_Clear();
+	}
+
+	/* arguments will be returned in a tuple */
+	__PyDict_SetItemString(pDict, PYCTX(ARGS), args);
+
+	Py_XDECREF(args);
+}
+
 int python_uftrace_begin(struct script_info *info)
 {
 	PyObject *dict;
@@ -666,6 +687,46 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 	return 0;
 }
 
+int python_uftrace_event(struct script_context *sc_ctx)
+{
+	PyObject *pDict;
+	PyObject *pythonContext;
+
+	if (unlikely(!pFuncEvent))
+		return -1;
+
+	pthread_mutex_lock(&python_interpreter_lock);
+
+	/* Entire arguments are passed into a single dictionary. */
+	pDict = __PyDict_New();
+
+	/* Setup common info into a dictionary */
+	setup_common_context(&pDict, sc_ctx);
+	setup_event_argument(pDict, sc_ctx);
+
+	/* Python function arguments must be passed in a tuple. */
+	pythonContext = __PyTuple_New(1);
+	__PyTuple_SetItem(pythonContext, 0, pDict);
+
+	/* Call python function "uftrace_exit". */
+	__PyObject_CallObject(pFuncEvent, pythonContext);
+	if (debug) {
+		if (__PyErr_Occurred() && !python_error_reported) {
+			pr_dbg("uftrace_event failed:\n");
+			__PyErr_Print();
+
+			python_error_reported = true;
+		}
+	}
+
+	/* Free PyTuple. */
+	Py_XDECREF(pythonContext);
+
+	pthread_mutex_unlock(&python_interpreter_lock);
+
+	return 0;
+}
+
 int python_uftrace_end(void)
 {
 	if (unlikely(!pFuncEnd))
@@ -730,6 +791,7 @@ int script_init_for_python(struct script_info *info,
 	/* Bind script_uftrace functions to python's. */
 	script_uftrace_entry = python_uftrace_entry;
 	script_uftrace_exit = python_uftrace_exit;
+	script_uftrace_event = python_uftrace_event;
 	script_uftrace_end = python_uftrace_end;
 	script_atfork_prepare = python_atfork_prepare;
 
@@ -771,6 +833,7 @@ int script_init_for_python(struct script_info *info,
 	pFuncBegin = get_python_callback("uftrace_begin");
 	pFuncEntry = get_python_callback("uftrace_entry");
 	pFuncExit  = get_python_callback("uftrace_exit");
+	pFuncEvent = get_python_callback("uftrace_event");
 	pFuncEnd   = get_python_callback("uftrace_end");
 
 	/* Call python function "uftrace_begin" immediately if possible. */
