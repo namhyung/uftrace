@@ -54,6 +54,17 @@ def uftrace_exit(ctx):
         ret = ctx["retval"]
         print("  retval  %s: %s" % (type(ret), ret))
 
+# uftrace_event is executed for each event.
+def uftrace_event(ctx):
+    _tid        = ctx["tid"]
+    _time       = ctx["timestamp"]
+    _address    = ctx["address"]
+    _name       = ctx["name"]
+
+    unit = 10 ** 9
+    print("%d.%d %6d: [event] %s(%x)" %
+            (_time / unit, _time % unit, _tid, _name, _address))
+
 # uftrace_end is optional, so can be omitted.
 def uftrace_end():
     print("\nuftrace_end()")

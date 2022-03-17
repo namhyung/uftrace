@@ -52,6 +52,17 @@ function uftrace_exit(ctx)
     end
 end
 
+function uftrace_event(ctx)
+    local _tid        = ctx['tid']
+    local _time       = ctx['timestamp']
+    local _address    = ctx["address"]
+    local _name       = ctx["name"]
+
+    local unit = math.exp(10, 9)
+    print(string.format('%d.%d %6d: [event] %s(%x)',
+            _time / unit, mod(_time, unit), _tid, _name, _address))
+end
+
 function uftrace_end()
     print('\nuftrace_end()')
 end
