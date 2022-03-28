@@ -15,7 +15,7 @@ _uftrace () {
     uftrace_comp="${subcmds} ${options}"
 
     case $prev in
-	-d|--data|--diff|-L|--library-path)
+	-d|--data|--diff|-L|--libmcount-path)
 	    # complete directory name
 	    COMPREPLY=($(compgen -d -- "${cur}"))
 	    ;;

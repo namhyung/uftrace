@@ -176,9 +176,8 @@ RECORD OPTIONS
 
 RECORD CONFIG OPTIONS
 =====================
--L *PATH*, \--library-path=*PATH*
-:   Load necessary internal libraries from this path.  This is mostly for
-    testing purposes.
+\--libmcount-path=*PATH*
+:   Load libmcount libraries from this path.  This is mostly for testing purposes.
 
 -b *SIZE*, \--buffer=*SIZE*
 :   Size of internal buffer in which trace data will be saved.  Default size is

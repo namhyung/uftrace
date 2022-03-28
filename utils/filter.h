@@ -116,8 +116,8 @@ void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
 				 struct rb_root *root,
 				 struct uftrace_filter_setting *setting);
 void uftrace_setup_hide_filter(char *filter_str, struct symtabs *symtabs,
-				 struct rb_root *root,
-				 struct uftrace_filter_setting *setting);
+			       struct rb_root *root,
+			       struct uftrace_filter_setting *setting);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);

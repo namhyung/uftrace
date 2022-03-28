@@ -29,7 +29,7 @@ class TestBase:
     basedir = os.path.dirname(os.getcwd())
     objdir = 'objdir' in os.environ and os.environ['objdir'] or basedir
     uftrace_cmd = objdir + '/uftrace'
-    default_opt = '--no-pager --no-event -L' + objdir
+    default_opt = '--no-pager --no-event --libmcount-path=' + objdir
 
     default_cflags = ['-fno-inline', '-fno-builtin', '-fno-ipa-cp',
                       '-fno-omit-frame-pointer', '-D_FORTIFY_SOURCE=0']

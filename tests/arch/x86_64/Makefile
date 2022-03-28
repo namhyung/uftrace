@@ -1,6 +1,6 @@
 CC = gcc
 RM = rm -f
-UFTRACE = ../../../uftrace -L ../../.. --flat
+UFTRACE = ../../../uftrace --libmcount-path=../../.. --flat
 
 CFLAGS = -g -finstrument-functions
 

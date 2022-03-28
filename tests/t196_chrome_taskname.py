@@ -27,7 +27,7 @@ class TestCase(TestBase):
 {"ts":13453314722.631,"ph":"E","pid":4694,"name":"task_name2"},
 {"ts":13453314722.695,"ph":"E","pid":4694,"name":"main"}
 ], "displayTimeUnit": "ns", "metadata": {
-"command_line":"../uftrace record --no-pager --no-event -L.. t-taskname",
+"command_line":"../uftrace record --no-pager --no-event --libmcount-path=.. t-taskname",
 "recorded_time":"Tue Jan 30 16:05:24 2018"
 } }
 """, sort='chrome')
