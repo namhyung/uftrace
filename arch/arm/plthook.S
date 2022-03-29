@@ -57,12 +57,14 @@ ENTRY(plthook_return)
 	push {r0-r3, lr, pc}  /* ensure 8-byte alignment */
 	mov r0, sp
 #ifdef HAVE_ARM_HARDFP
+	.fpu vfpv2
 	vpush {d0-d1}
 #endif
 
 	bl plthook_exit
 
 #ifdef HAVE_ARM_HARDFP
+	.fpu vfpv2
 	vpop {d0-d1}
 #endif
 	/* update return address (pc) in the stack */
