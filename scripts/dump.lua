@@ -1,10 +1,6 @@
 -- uftrace-option: --auto-args --nest-libcall
 -- UFTRACE_FUNCS = [ "foo", "bar" ]
 
-function mod(lhs, rhs)
-    return lhs - (math.floor(lhs / rhs) * rhs)
-end
-
 function uftrace_begin(ctx)
     print('uftrace_begin(ctx)')
     print(string.format('  record  : %s', ctx['record']))
@@ -23,9 +19,9 @@ function uftrace_entry(ctx)
     local _address    = ctx['address']
     local _name       = ctx['name']
 
-    local unit = math.exp(10, 9)
+    local unit = 1000000000
     print(string.format('%d.%d %6d: [entry] %s(%x) depth: %d',
-            _time / unit, mod(_time, unit), _tid, _name, _address, _depth))
+            _time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if ctx['args'] ~= nil then
         for i, arg in ipairs(ctx['args']) do
@@ -42,14 +38,25 @@ function uftrace_exit(ctx)
     local _address    = ctx["address"]
     local _name       = ctx["name"]
 
-    local unit = math.exp(10, 9)
+    local unit = 1000000000
     print(string.format('%d.%d %6d: [exit ] %s(%x) depth: %d',
-            _time / unit, mod(_time, unit), _tid, _name, _address, _depth))
+            _time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if ctx['retval'] ~= nil then
         local ret = ctx['retval']
         print(string.format('  retval  %s: %s', type(ret), ret))
     end
+end
+
+function uftrace_event(ctx)
+    local _tid        = ctx['tid']
+    local _time       = ctx['timestamp']
+    local _address    = ctx["address"]
+    local _name       = ctx["name"]
+
+    local unit = 1000000000
+    print(string.format('%d.%d %6d: [event] %s(%x)',
+            _time / unit, _time % unit, _tid, _name, _address))
 end
 
 function uftrace_end()
