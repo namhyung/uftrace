@@ -273,6 +273,42 @@ void __pr_color(char code, const char *fmt, ...)
 	color(ec, outfp);
 }
 
+void get_elapsed_time_fmt(char **time_strp, uint64_t sec, uint64_t nsec)
+{
+#define SEC_TO_NSEC  (1000000000ULL)
+
+	uint64_t elapsed = (uint64_t)(sec * NSEC_PER_SEC + nsec);
+	uint64_t delta = llabs(elapsed);
+	uint64_t delta_small = 0;
+	char *units[] = { "us", "ms", "s", "mins", "hour", };
+	unsigned limit[] = { 1000, 1000, 1000, 60, 24, INT_MAX, };
+	unsigned idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(units); idx++) {
+		delta_small = delta % limit[idx];
+		delta = delta / limit[idx];
+
+		if (delta < limit[idx+1])
+			break;
+	}
+
+	assert(idx < ARRAY_SIZE(units));
+
+	/* for some error cases */
+	if (delta > 999)
+		delta = delta_small = 999;
+
+	if (nsec > SEC_TO_NSEC) {
+		nsec += SEC_TO_NSEC;
+		sec--;
+	}
+
+	xasprintf(time_strp, "%"PRIu64".%09"PRIu64" sec "
+			     " (%"PRIu64".%"PRIu64" %s)",
+			     sec, nsec,
+			     delta, delta_small, units[idx]);
+}
+
 static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
 	uint64_t delta = llabs(delta_nsec);

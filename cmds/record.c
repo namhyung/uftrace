@@ -1482,18 +1482,12 @@ static void load_session_symbols(struct opts *opts)
 
 static char *get_child_time(struct timespec *ts1, struct timespec *ts2)
 {
-#define SEC_TO_NSEC  (1000000000ULL)
-
 	char *elapsed_time = NULL;
 	uint64_t  sec = ts2->tv_sec  - ts1->tv_sec;
 	uint64_t nsec = ts2->tv_nsec - ts1->tv_nsec;
 
-	if (nsec > SEC_TO_NSEC) {
-		nsec += SEC_TO_NSEC;
-		sec--;
-	}
+	get_elapsed_time_fmt(&elapsed_time, sec, nsec);
 
-	xasprintf(&elapsed_time, "%"PRIu64".%09"PRIu64" sec", sec, nsec);
 	return elapsed_time;
 }
 

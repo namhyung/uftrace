@@ -337,6 +337,7 @@ int remove_directory(const char *dirname);
 int chown_directory(const char *dirname);
 char *read_exename(void);
 
+void get_elapsed_time_fmt(char **time_strp, uint64_t sec, uint64_t nsec);
 void print_time_unit(uint64_t delta_nsec);
 void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec);
