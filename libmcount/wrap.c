@@ -389,7 +389,7 @@ __visible_default void * __cxa_begin_catch(void *exception)
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
-		pr_dbg2("%s: exception catched begin on [%d]\n",
+		pr_dbg2("%s: exception caught begin on [%d]\n",
 			__func__, mtdp->idx);
 	}
 
@@ -401,7 +401,7 @@ __visible_default void __cxa_end_catch(void)
 	if (unlikely(real_cxa_end_catch == NULL))
 		mcount_hook_functions();
 
-	pr_dbg2("%s: exception catched end\n", __func__);
+	pr_dbg2("%s: exception caught end\n", __func__);
 	real_cxa_end_catch();
 }
 
