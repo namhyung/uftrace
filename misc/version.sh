@@ -26,7 +26,7 @@ if test -d .git -a -n "$(git --version 2>/dev/null)"; then
 fi
 
 if test -z "${GIT_VERSION}" -a -n "${FILE_VERSION}"; then
-    # do not update file version if git version is not avaiable
+    # do not update file version if git version is not available
     exit 0
 fi
 

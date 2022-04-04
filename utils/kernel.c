@@ -406,7 +406,7 @@ static void add_pattern_event(struct list_head *events,
 	filename = get_tracing_file("available_events");
 	fp = fopen(filename, "r");
 	if (fp == NULL)
-		pr_err("failed to open 'tracing/available_event' file");
+		pr_err("failed to open 'tracing/available_events' file");
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		/* it's ok to have a trailing '\n' */
@@ -875,7 +875,7 @@ void list_kernel_events(void)
 	filename = get_tracing_file("available_events");
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
-		pr_dbg("failed to open 'tracing/avaiable_events");
+		pr_dbg("failed to open 'tracing/available_events");
 		return;
 	}
 
