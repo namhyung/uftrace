@@ -166,13 +166,25 @@ void finish_perf_record(struct uftrace_perf_writer *perf)
  */
 void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 {
-	struct perf_event_mmap_page *pc = perf->page[cpu];
-	unsigned char *data = perf->page[cpu] + pc->data_offset;
-	volatile uint64_t *ptr = (void *)&pc->data_head;
-	uint64_t mask = pc->data_size - 1;
+	struct perf_event_mmap_page *pc;
+	unsigned char *data;
+	volatile uint64_t *ptr;
+	uint64_t mask;
 	uint64_t old, pos, start, end;
 	unsigned long size;
 	unsigned char *buf;
+
+	/*
+	 * it can have invalid cpu index due to rounding.
+	 * see cmds/record.c::start_tracing()
+	 */
+	if (cpu < 0)
+		return;
+
+	pc = perf->page[cpu];
+	data = perf->page[cpu] + pc->data_offset;
+	ptr = (void *)&pc->data_head;
+	mask = pc->data_size - 1;
 
 	pos = *ptr;
 	old = perf->data_pos[cpu];
