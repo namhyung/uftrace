@@ -379,6 +379,29 @@ char *read_exename(void)
 	return exename;
 }
 
+clockid_t clock_source = CLOCK_MONOTONIC;
+
+static const struct {
+	const char *name;
+	clockid_t clock_id;
+} trace_clocks[] = {
+	{ "mono",	CLOCK_MONOTONIC		},
+	{ "mono_raw",	CLOCK_MONOTONIC_RAW	},
+	{ "boot",	CLOCK_BOOTTIME		},
+};
+
+void setup_clock_id(const char *clock_str)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(trace_clocks); i++) {
+		if (!strcmp(clock_str, trace_clocks[i].name)) {
+			clock_source = trace_clocks[i].clock_id;
+			break;
+		}
+	}
+}
+
 bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp)
 {
 	/* maybe it's called before first timestamp set */

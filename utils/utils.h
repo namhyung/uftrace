@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <signal.h>
+#include <time.h>
 
 #include "compiler.h"
 
@@ -336,6 +337,9 @@ int create_directory(const char *dirname);
 int remove_directory(const char *dirname);
 int chown_directory(const char *dirname);
 char *read_exename(void);
+
+extern clockid_t clock_source;
+void setup_clock_id(const char *clock_str);
 
 void print_time_unit(uint64_t delta_nsec);
 void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);

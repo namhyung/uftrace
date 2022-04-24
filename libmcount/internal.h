@@ -197,8 +197,6 @@ static inline void mcount_watch_setup(struct mcount_thread_data *mtdp) {}
 static inline void mcount_watch_release(struct mcount_thread_data *mtdp) {}
 #endif /* DISABLE_MCOUNT_FILTER */
 
-extern clockid_t clock_source;
-
 static inline uint64_t mcount_gettime(void)
 {
 	struct timespec ts;
