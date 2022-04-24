@@ -63,6 +63,9 @@ $(CHKDIR)/check-tstamp: PHONY
 	@if [ `id -u` -eq 0 ]; then chmod 666 $@; fi
 
 check-clean:
-	@$(RM) $(shell find $(CHKDIR) -type f -executable 2> /dev/null) $(CHKDIR)/check-tstamp $(CHKDIR)/*.o
+	# This is to find and remove all the executable files.
+	# In overlayfs, entire files are matched with -executable option,
+	# so -perm option is used instead.
+	@$(RM) $(shell find $(CHKDIR) -type f -perm -u=x,g=x,o=x 2> /dev/null) $(CHKDIR)/check-tstamp $(CHKDIR)/*.o
 
 .PHONY: PHONY;
