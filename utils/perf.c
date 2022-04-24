@@ -39,7 +39,7 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
 		.task			= 1,
 		.comm			= 1,
 		.use_clockid		= 1,
-		.clockid		= CLOCK_MONOTONIC,
+		.clockid		= clock_source,
 #ifdef HAVE_PERF_CTXSW
 		.context_switch		= use_ctxsw,
 #endif

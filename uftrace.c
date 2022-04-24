@@ -1322,6 +1322,7 @@ int main(int argc, char *argv[])
 		.event_skip_out = true,
 		.patt_type      = PATT_REGEX,
 		.show_args      = true,
+		.clock		= "mono",
 	};
 	int ret = -1;
 	char *pager = NULL;

@@ -1810,6 +1810,7 @@ static void setup_writers(struct writer_data *wd, struct opts *opts)
 		opts->nr_thread = wd->nr_cpu;
 
 	if (has_perf_event) {
+		setup_clock_id(opts->clock);
 		if (setup_perf_record(perf, wd->nr_cpu, wd->pid,
 				      opts->dirname, has_sched_event) < 0)
 			has_perf_event = false;

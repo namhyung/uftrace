@@ -92,8 +92,6 @@ unsigned long mcount_return_fn;
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
 
-clockid_t clock_source = CLOCK_MONOTONIC;
-
 __weak void dynamic_return(void) { }
 
 #ifdef DISABLE_MCOUNT_FILTER
@@ -1760,15 +1758,6 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
-static const struct {
-	const char *name;
-	clockid_t clock_id;
-} trace_clocks[] = {
-	{ "mono",	CLOCK_MONOTONIC		},
-	{ "mono_raw",	CLOCK_MONOTONIC_RAW	},
-	{ "boot",	CLOCK_BOOTTIME		},
-};
-
 static __used void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1921,16 +1910,8 @@ static __used void mcount_startup(void)
 		mcount_setup_plthook(mcount_exename, nest_libcall);
 	}
 
-	if (clock_str) {
-		size_t i;
-
-		for (i = 0; i < ARRAY_SIZE(trace_clocks); i++) {
-			if (!strcmp(clock_str, trace_clocks[i].name)) {
-				clock_source = trace_clocks[i].clock_id;
-				break;
-			}
-		}
-	}
+	if (clock_str)
+		setup_clock_id(clock_str);
 
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
