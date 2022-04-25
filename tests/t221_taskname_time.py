@@ -9,13 +9,13 @@ class TestCase(TestBase):
         taskname | main() {
         taskname |   task_name1() {
         taskname |     prctl() {
-             foo |       /* linux:task-name (name=foo) */
+             foo |       /* linux:task-name (comm="foo") */
              foo |     } /* prctl */
              foo |   } /* task_name1 */
              foo |   task_name2() {
              foo |     pthread_self();
              foo |     pthread_setname_np() {
-             bar |       /* linux:task-name (name=bar) */
+             bar |       /* linux:task-name (comm="bar") */
              bar |     } /* pthread_setname_np */
              bar |   } /* task_name2 */
              bar | } /* main */
