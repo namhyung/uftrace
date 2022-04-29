@@ -605,6 +605,8 @@ void __close_data_file(struct opts *opts, struct uftrace_data *handle,
 		free(handle->kernel);
 	}
 
+	finish_events_file(handle);
+
 	if (has_perf_data(handle))
 		finish_perf_data(handle);
 

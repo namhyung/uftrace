@@ -241,6 +241,22 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 }
 
 /**
+ * finish_events_file - cleanup memory for events in the given handle
+ * @handle: uftrace_data data structure
+ */
+void finish_events_file(struct uftrace_data *handle)
+{
+	struct uftrace_event *ev, *tmp;
+
+	list_for_each_entry_safe(ev, tmp, &handle->events, list) {
+		list_del(&ev->list);
+		free(ev->provider);
+		free(ev->event);
+		free(ev);
+	}
+}
+
+/**
  * read_events_file - read 'events.txt' file from data directory
  * @handle: uftrace_data data structure
  *
