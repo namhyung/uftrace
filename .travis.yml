@@ -20,7 +20,7 @@ install:
 - python3 -m pip install pre-commit
 - pre-commit install
 
-script: pre-commit run -s HEAD~1 -o HEAD --show-diff-on-failure && ./configure && make ASAN=1 && make ASAN=1 unittest
+script: pre-commit run -s HEAD~1 -o HEAD --show-diff-on-failure && ./configure && make ASAN=1 && make ASAN=1 unittest && (cd tests && ./runtest.py -O2 > /dev/null && cat failed-tests.txt)
 
 env:
   global:
