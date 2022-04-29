@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <inttypes.h>
 
 /* This should be defined before #include "utils.h" */
@@ -237,6 +238,60 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 	}
 
 	return str;
+}
+
+/**
+ * read_events_file - read 'events.txt' file from data directory
+ * @handle: uftrace_data data structure
+ *
+ * This function read the events file in the @handle->dirname and build event
+ * information (for userspace).
+ *
+ * It returns 0 for success, -1 for error.
+ */
+int read_events_file(struct uftrace_data *handle)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char *line = NULL;
+	size_t sz = 0;
+
+	xasprintf(&fname, "%s/%s", handle->dirname, "events.txt");
+
+	fp = fopen(fname, "r");
+	if (fp == NULL) {
+		/* it might hit no events, so no file is ok */
+		if (errno == ENOENT)
+			errno = 0;
+
+		free(fname);
+		return -errno;
+	}
+
+	pr_dbg("reading %s file\n", fname);
+	while (getline(&line, &sz, fp) >= 0) {
+		char provider[512];
+		char event[512];
+		unsigned evt_id;
+		struct uftrace_event *ev;
+
+		if (!strncmp(line, "EVENT", 5) &&
+		     sscanf(line + 7, "%u %[^:]:%s",
+			    &evt_id, provider, event) == 3) {
+
+			ev = xmalloc(sizeof(*ev));
+			ev->id = evt_id;
+			ev->provider = xstrdup(provider);
+			ev->event = xstrdup(event);
+
+			list_add_tail(&ev->list, &handle->events);
+		}
+	}
+
+	free(line);
+	fclose(fp);
+	free(fname);
+	return 0;
 }
 
 #ifdef UNIT_TEST
