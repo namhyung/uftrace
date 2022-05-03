@@ -3419,165 +3419,203 @@ template: title-layout
 ### Dynamic tracing
 - need (recent) compiler support
   - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
-  - convert it to jump at runtime (load-time precisely)
+      - no performance overhead having NOPs
+  - convert it to call at runtime (load-time precisely)
 ---
 ### Dynamic tracing
 - need (recent) compiler support
   - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
-  - convert it to jump at runtime (load-time precisely)
+      - no performance overhead having NOPs
+  - convert it to call at runtime (load-time precisely)
 
 
-- gcc has .red[-mnop-mcount]
-```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
-```
----
-### Dynamic tracing
-- need (recent) compiler support
-  - add a [nop-sled](https://en.wikipedia.org/wiki/NOP_slide) when compile
-  - convert it to jump at runtime (load-time precisely)
+- NOPs can be added by .red[-fpatchable-function-entry=N] option.
+  - The .red[N] should be 5 for x86_64 and 2 for aarch64.
+  - supported since gcc-8.1 and clang-10.
 
-
-- gcc has .red[-mnop-mcount]
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
-```
-
-- clang has .red[-fxray-instrument]
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+  $ gcc `-fpatchable-function-entry=5` foobar.c
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg `-mfentry -mnop-mcount` -o t-abc s-abc.c
+  $ gcc `-fpatchable-function-entry=5` foobar.c
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+  $ gcc -fpatchable-function-entry=5 foobar.c
 
-  $ uftrace t-abc
+  $ uftrace a.out
   `uftrace: /home/honggyu/work/uftrace/cmds/record.c:1503:check_binary`
-   ERROR: Can't find 'mcount' symbol in the 't-abc'.
+   ERROR: Can't find 'mcount' symbol in the 'a.out'.
           It seems not to be compiled with -pg or -finstrument-functions flag
           which generates traceable code.  Please check your binary file.
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+  $ gcc -fpatchable-function-entry=5 foobar.c
 
-  $ uftrace `-P b` --no-libcall t-abc
+  $ uftrace `-P foo` a.out
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+  $ gcc -fpatchable-function-entry=5 foobar.c
 
-  $ uftrace `-P b` --no-libcall t-abc
+  $ uftrace `-P foo` a.out
   # DURATION     TID     FUNCTION
-     1.650 us [153473] | `b`();
+     0.459 us [  4086] | `foo`();
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+  $ gcc -fpatchable-function-entry=5 foobar.c
 
-  $ uftrace `-P main -P b` --no-libcall t-abc
+  $ uftrace `-P main -P foo` a.out
   # DURATION     TID     FUNCTION
-              [153493] | `main`() {
-     1.250 us [153493] |   `b`();
-     3.557 us [153493] | } /* main */
+              [  4153] | `main`() {
+     0.125 us [  4153] |   `foo`();
+     1.333 us [  4153] | } /* main */
 ```
 ---
 ### Dynamic tracing
 ```
-  $ gcc -pg -mfentry -mnop-mcount -o t-abc s-abc.c
+  $ gcc -fpatchable-function-entry=5 foobar.c
 
-  $ uftrace `-P .` --no-libcall t-abc
-  some functions cannot be patched dynamically
+  $ uftrace `-P .` a.out
   # DURATION     TID     FUNCTION
-              [153515] | `main`() {
-              [153515] |   `a`() {
-              [153515] |     `b`() {
-     1.107 us [153515] |       `c`();
-     2.871 us [153515] |     } /* b */
-     3.500 us [153515] |   } /* a */
-     4.644 us [153515] | } /* main */
+              [  4253] | `main`() {
+              [  4253] |   `foo`() {
+     0.083 us [  4253] |     `bar`();
+     1.208 us [  4253] |   } /* foo */
+     0.125 us [  4253] |   `bar`();
+     2.042 us [  4253] | } /* main */
 ```
----
-### Dynamic tracing
-.footnote[[https://llvm.org/docs/XRay.html](https://llvm.org/docs/XRay.html)]
-```
-  $ clang++ `-fxray-instrument -fxray-instruction-threshold=1` s-abc.c
-```
----
-### Dynamic tracing
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
 
-  $ uftrace t-abc
-  `uftrace: /home/honggyu/work/uftrace/cmds/record.c:1503:check_binary`
-   ERROR: Can't find 'mcount' symbol in the 't-abc'.
-          It seems not to be compiled with -pg or -finstrument-functions flag
-          which generates traceable code.  Please check your binary file.
-```
 ---
 ### Dynamic tracing
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
-
-  $ uftrace `-P b` --no-libcall a.out
-```
+- The NOPs can be added by a compiler attribute [patchable_function_entry](https://clang.llvm.org/docs/AttributeReference.html#patchable-function-entry).
+  - add .red[N] NOPs only to the functions with the attribute.
+      - <span class="red">\_\_attribute\_\_((patchable_function_entry(N)))</span>
+  - doesn't require source to be compiled with a compiler flag.
 ---
 ### Dynamic tracing
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+- The NOPs can be added by a compiler attribute [patchable_function_entry](https://clang.llvm.org/docs/AttributeReference.html#patchable-function-entry).
+  - add .red[N] NOPs only to the functions with the attribute.
+      - <span class="red">\_\_attribute\_\_((patchable_function_entry(N)))</span>
+  - doesn't require source to be compiled with a compiler flag.
 
-  $ uftrace `-P b` --no-libcall a.out
-  ==156038==Unable to determine CPU frequency for TSC accounting.
-  ==156038==Unable to determine CPU frequency.
-  ==156038==WARNING: Required CPU features missing for XRay instrumentation,
-  using emulation instead.
-  # DURATION     TID     FUNCTION
-     3.140 us [156038] | `b`();
 ```
+    $ cat foobar.c
+    `__attribute__((patchable_function_entry(5)))`
+    void `bar`() {
+    }
+
+    `__attribute__((patchable_function_entry(5)))`
+    void `foo`() {
+        bar();
+    }
+
+    int main() {
+        foo();
+        bar();
+    }
+```
+
 ---
 ### Dynamic tracing
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+- gcc compiles the source with no extra flags.
+  - but NOPs are added to the attributed functions.
 
-  $ uftrace `-P main -P b` --no-libcall a.out
-  ==156058==Unable to determine CPU frequency for TSC accounting.
-  ==156058==Unable to determine CPU frequency.
-  ==156058==WARNING: Required CPU features missing for XRay instrumentation,
-  using emulation instead.
-  # DURATION     TID     FUNCTION
-              [156058] | `main`() {
-     2.086 us [156058] |   `b`();
-     4.527 us [156058] | } /* main */
+.left30-column[
 ```
+$ gcc foobar.c
+<bar>:
+* nop (5 times)
+  ret
+
+
+<foo>:
+* nop (5 times)
+  call <bar>
+  ret
+
+
+<main>:
+  call <foo>
+  call <bar>
+  ret
+```
+]
 ---
 ### Dynamic tracing
-```
-  $ clang++ -fxray-instrument -fxray-instruction-threshold=1 s-abc.c
+- gcc compiles the source with no extra flags.
+  - but NOPs are added to the attributed functions.
 
-  $ uftrace `-P .` --no-libcall a.out
-  ==156072==Unable to determine CPU frequency for TSC accounting.
-  ==156072==Unable to determine CPU frequency.
-  ==156072==WARNING: Required CPU features missing for XRay instrumentation,
-  using emulation instead.
-  some functions cannot be patched dynamically
-  # DURATION     TID     FUNCTION
-              [156072] | `main`() {
-              [156072] |   `a`() {
-              [156072] |     `b`() {
-     2.193 us [156072] |       `c`();
-     3.893 us [156072] |     } /* b */
-     4.504 us [156072] |   } /* a */
-     5.633 us [156072] | } /* main */
+.left30-column[
 ```
+$ gcc foobar.c
+<bar>:
+* nop (5 times)
+  ret
+
+
+<foo>:
+* nop (5 times)
+  call <bar>
+  ret
+
+
+<main>:
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `--force` a.out
+WARN: cannot open record data: /tmp/uftrace-live- ...
+```
+]
+---
+### Dynamic tracing
+.footnote[.red[-P FUNC]/.red[--patch=FUNC] Patch FUNC dynamically]
+- uftrace patches only NOPs to mcount call at runtime.
+  - `main` doesn't have NOPs so won't show up in the result.
+
+.left30-column[
+```
+$ gcc foobar.c
+<bar>:
+* call <mcount@plt>
+  ret
+
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+
+<main>:
+  call <foo>
+  call <bar>
+  ret
+```
+]
+.right70-column[
+```
+$ uftrace `-P .` a.out
+# DURATION     TID     FUNCTION
+            [ 14813] | `foo`() {
+   0.507 us [ 14813] |   `bar`();
+   4.130 us [ 14813] | } /* foo */
+   0.240 us [ 14813] | `bar`();
+```
+]
 
 ---
 name: full-dynamic-tracing
