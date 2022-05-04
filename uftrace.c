@@ -1233,6 +1233,7 @@ static void free_opts(struct opts *opts)
 	free(opts->patch);
 	free(opts->caller);
 	free(opts->watch);
+	free(opts->hide);
 	free_parsed_cmdline(opts->run_cmd);
 }
 
