@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
@@ -10,6 +11,8 @@
 #include "utils/fstack.h"
 #include "utils/kernel.h"
 #include "utils/utils.h"
+
+#define EVENT_FILE_NAME "events.txt"
 
 /**
  * event_get_name - find event name from event id
@@ -272,7 +275,7 @@ int read_events_file(struct uftrace_data *handle)
 	char *line = NULL;
 	size_t sz = 0;
 
-	xasprintf(&fname, "%s/%s", handle->dirname, "events.txt");
+	xasprintf(&fname, "%s/%s", handle->dirname, EVENT_FILE_NAME);
 
 	fp = fopen(fname, "r");
 	if (fp == NULL) {
@@ -366,6 +369,40 @@ TEST_CASE(event_data)
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}
+	return TEST_OK;
+}
+
+TEST_CASE(event_read_from_file)
+{
+	FILE *fp;
+	char *fname = NULL;
+	struct uftrace_event *ev;
+
+	struct uftrace_data handle = {
+		.dirname = ".",
+	};
+	INIT_LIST_HEAD(&handle.events);
+
+	xasprintf(&fname, "%s/%s", handle.dirname, EVENT_FILE_NAME);
+
+	fp = fopen(fname, "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "EVENT: 1000000 uftrace:event\n");
+	fclose(fp);
+
+	pr_dbg("testing event read from file\n");
+	TEST_EQ(read_events_file(&handle), 0);
+
+	ev = list_first_entry(&handle.events, typeof(*ev), list);
+	TEST_EQ(ev->id, EVENT_ID_USER);
+	TEST_STREQ(ev->provider, "uftrace");
+	TEST_STREQ(ev->event, "event");
+
+	finish_events_file(&handle);
+
+	TEST_EQ(unlink(fname), 0);
+	free(fname);
+
 	return TEST_OK;
 }
 
