@@ -1,3 +1,33 @@
+uftrace v0.12
+=============
+* new options
+  --no-args to hide arguments and return values
+  --clock option to set clock source other than monotonic
+
+* new features
+  support events in uftrace script
+  enable --with-syms for uftrace record
+  adjust sample time for flame graph dump  (#1257)
+
+* dynamic tracing updates
+  support binaries built with -fpatchable-function-entry  (#1238)
+  documentation updates
+
+* bug fixes
+  fix segfault in uftrace record on a large machine  (#1418)
+  various fixes for ARM build failures
+
+* other changes
+  allow -s option to set a sort key for TUI report
+  remove -L option for later use
+  add func-histogram.py script
+  a couple of update in the travis CI setup
+
+And many other fixes and improvements.  Thanks all contributors:
+  Eunseon Lee, Honggyu Kim, ihsinme, Kang Minchul, Nobuhiro Iwamatsu,
+  Paul Cannon, Sangwon Hong, Thomas Petazzoni
+
+
 uftrace v0.11
 =============
 * new options
