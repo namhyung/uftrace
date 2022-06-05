@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT     "event"
@@ -9,6 +11,8 @@
 #include "utils/fstack.h"
 #include "utils/kernel.h"
 #include "utils/utils.h"
+
+#define EVENT_FILE_NAME "events.txt"
 
 /**
  * event_get_name - find event name from event id
@@ -239,6 +243,76 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 	return str;
 }
 
+/**
+ * finish_events_file - cleanup memory for events in the given handle
+ * @handle: uftrace_data data structure
+ */
+void finish_events_file(struct uftrace_data *handle)
+{
+	struct uftrace_event *ev, *tmp;
+
+	list_for_each_entry_safe(ev, tmp, &handle->events, list) {
+		list_del(&ev->list);
+		free(ev->provider);
+		free(ev->event);
+		free(ev);
+	}
+}
+
+/**
+ * read_events_file - read 'events.txt' file from data directory
+ * @handle: uftrace_data data structure
+ *
+ * This function read the events file in the @handle->dirname and build event
+ * information (for userspace).
+ *
+ * It returns 0 for success, -1 for error.
+ */
+int read_events_file(struct uftrace_data *handle)
+{
+	FILE *fp;
+	char *fname = NULL;
+	char *line = NULL;
+	size_t sz = 0;
+
+	xasprintf(&fname, "%s/%s", handle->dirname, EVENT_FILE_NAME);
+
+	fp = fopen(fname, "r");
+	if (fp == NULL) {
+		/* it might hit no events, so no file is ok */
+		if (errno == ENOENT)
+			errno = 0;
+
+		free(fname);
+		return -errno;
+	}
+
+	pr_dbg("reading %s file\n", fname);
+	while (getline(&line, &sz, fp) >= 0) {
+		char provider[512];
+		char event[512];
+		unsigned evt_id;
+		struct uftrace_event *ev;
+
+		if (!strncmp(line, "EVENT", 5) &&
+		     sscanf(line + 7, "%u %[^:]:%s",
+			    &evt_id, provider, event) == 3) {
+
+			ev = xmalloc(sizeof(*ev));
+			ev->id = evt_id;
+			ev->provider = xstrdup(provider);
+			ev->event = xstrdup(event);
+
+			list_add_tail(&ev->list, &handle->events);
+		}
+	}
+
+	free(line);
+	fclose(fp);
+	free(fname);
+	return 0;
+}
+
 #ifdef UNIT_TEST
 
 TEST_CASE(event_name)
@@ -295,6 +369,40 @@ TEST_CASE(event_data)
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}
+	return TEST_OK;
+}
+
+TEST_CASE(event_read_from_file)
+{
+	FILE *fp;
+	char *fname = NULL;
+	struct uftrace_event *ev;
+
+	struct uftrace_data handle = {
+		.dirname = ".",
+	};
+	INIT_LIST_HEAD(&handle.events);
+
+	xasprintf(&fname, "%s/%s", handle.dirname, EVENT_FILE_NAME);
+
+	fp = fopen(fname, "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "EVENT: 1000000 uftrace:event\n");
+	fclose(fp);
+
+	pr_dbg("testing event read from file\n");
+	TEST_EQ(read_events_file(&handle), 0);
+
+	ev = list_first_entry(&handle.events, typeof(*ev), list);
+	TEST_EQ(ev->id, EVENT_ID_USER);
+	TEST_STREQ(ev->provider, "uftrace");
+	TEST_STREQ(ev->event, "event");
+
+	finish_events_file(&handle);
+
+	TEST_EQ(unlink(fname), 0);
+	free(fname);
+
 	return TEST_OK;
 }
 

@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 #include "uftrace.h"
+#include "utils/event.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/filter.h"
@@ -217,60 +218,6 @@ out:
 		errno = EINVAL;
 
 	return ret;
-}
-
-/**
- * read_events_file - read 'events.txt' file from data directory
- * @dirname: name of the data directory
- *
- * This function read the events file in the @dirname and build event
- * information (for userspace).
- *
- * It returns 0 for success, -1 for error.
- */
-int read_events_file(struct uftrace_data *handle)
-{
-	FILE *fp;
-	char *fname = NULL;
-	char *line = NULL;
-	size_t sz = 0;
-
-	xasprintf(&fname, "%s/%s", handle->dirname, "events.txt");
-
-	fp = fopen(fname, "r");
-	if (fp == NULL) {
-		/* it might hit no events, so no file is ok */
-		if (errno == ENOENT)
-			errno = 0;
-
-		free(fname);
-		return -errno;
-	}
-
-	pr_dbg("reading %s file\n", fname);
-	while (getline(&line, &sz, fp) >= 0) {
-		char provider[512];
-		char event[512];
-		unsigned evt_id;
-		struct uftrace_event *ev;
-
-		if (!strncmp(line, "EVENT", 5) &&
-		     sscanf(line + 7, "%u %[^:]:%s",
-			    &evt_id, provider, event) == 3) {
-
-			ev = xmalloc(sizeof(*ev));
-			ev->id = evt_id;
-			ev->provider = xstrdup(provider);
-			ev->event = xstrdup(event);
-
-			list_add_tail(&ev->list, &handle->events);
-		}
-	}
-
-	free(line);
-	fclose(fp);
-	free(fname);
-	return 0;
 }
 
 static void snprint_timestamp(char *buf, size_t sz, uint64_t timestamp)
@@ -657,6 +604,8 @@ void __close_data_file(struct opts *opts, struct uftrace_data *handle,
 		finish_kernel_data(handle->kernel);
 		free(handle->kernel);
 	}
+
+	finish_events_file(handle);
 
 	if (has_perf_data(handle))
 		finish_perf_data(handle);
