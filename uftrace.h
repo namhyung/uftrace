@@ -307,6 +307,7 @@ int command_tui(int argc, char *argv[], struct uftrace_opts *opts);
 
 extern volatile bool uftrace_done;
 
+int open_correct_info_file(const char *dirname, int flags, ...);
 int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle);
 int open_info_file(struct uftrace_opts *opts, struct uftrace_data *handle);
 void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle, bool unload_modules);
@@ -542,6 +543,8 @@ struct rusage;
 
 int fill_file_header(struct uftrace_opts *opts, int status, struct rusage *rusage,
 		     char *elapsed_time);
+void write_header(int fd, struct uftrace_file_header *hdr);
+int read_header(struct uftrace_file_header *hdr, FILE *fp, bool is_info_txt);
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, int status,
 		       struct rusage *rusage, char *elapsed_time);
 int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);

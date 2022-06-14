@@ -418,11 +418,12 @@ int fill_file_header(struct uftrace_opts *opts, int status, struct rusage *rusag
 	char *filename = NULL;
 	struct uftrace_file_header hdr;
 	char elf_ident[EI_NIDENT];
+	char buf[PATH_MAX];
 
-	xasprintf(&filename, "%s/info", opts->dirname);
+	xasprintf(&filename, "%s/info.txt", opts->dirname);
 	pr_dbg3("fill header (metadata) info in %s\n", filename);
 
-	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0)
 		pr_err("cannot open info file");
 
@@ -444,19 +445,16 @@ int fill_file_header(struct uftrace_opts *opts, int status, struct rusage *rusag
 	hdr.unused1 = 0;
 	hdr.unused2 = 0;
 
-	if (write(fd, &hdr, sizeof(hdr)) != (int)sizeof(hdr))
-		pr_err("writing header info failed");
-
 	fill_uftrace_info(&hdr.info_mask, fd, opts, status, rusage, elapsed_time);
 
-try_write:
-	ret = pwrite(fd, &hdr, sizeof(hdr), 0);
-	if (ret != (int)sizeof(hdr)) {
-		static int retry = 0;
+	memset(buf, 0, PATH_MAX);
+	lseek(fd, 0, SEEK_SET);
+	if (read(fd, buf, PATH_MAX) < 0)
+		goto close_efd;
 
-		if (ret > 0 && retry++ < 3)
-			goto try_write;
-
+	lseek(fd, 0, SEEK_SET);
+	write_header(fd, &hdr);
+	if (write(fd, buf, strlen(buf)) < 0) {
 		pr_dbg("writing header info failed.\n");
 		goto close_efd;
 	}
@@ -1352,14 +1350,12 @@ static void send_dbg_files(int sock, const char *dirname)
 static void send_info_file(int sock, const char *dirname)
 {
 	int fd;
-	char *filename = NULL;
 	struct uftrace_file_header hdr;
 	struct stat stbuf;
 	void *info;
 	int len;
 
-	xasprintf(&filename, "%s/info", dirname);
-	fd = open(filename, O_RDONLY);
+	fd = open_correct_info_file(dirname, O_RDONLY);
 	if (fd < 0)
 		pr_err("open info failed");
 
@@ -1379,7 +1375,6 @@ static void send_info_file(int sock, const char *dirname)
 
 	close(fd);
 	free(info);
-	free(filename);
 }
 
 static void send_kernel_metadata(int sock, const char *dirname)

@@ -347,20 +347,55 @@ bool data_is_lp64(struct uftrace_data *handle)
 	return handle->hdr.elf_class == ELFCLASS64;
 }
 
+int open_correct_info_file(const char *dirname, int flags, ...)
+{
+	char buf[PATH_MAX];
+	struct stat statbuf;
+
+	snprintf(buf, sizeof(buf), "%s/info.txt", dirname);
+	if (stat(buf, &statbuf) < 0) {
+		snprintf(buf, sizeof(buf), "%s/info", dirname);
+		if (stat(buf, &statbuf) < 0)
+			return -1;
+	}
+
+	if (flags & O_CREAT) {
+		va_list ap;
+		mode_t mode;
+
+		va_start(ap, flags);
+		mode = va_arg(ap, mode_t);
+		va_end(ap);
+
+		return open(buf, flags, mode);
+	}
+	return open(buf, flags);
+}
+
 int open_info_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	FILE *fp;
-	char buf[PATH_MAX];
+	char info_txt[PATH_MAX];
+	char info_bin[PATH_MAX];
+	bool is_info_txt = true;
 	int saved_errno = 0;
 	struct stat stbuf;
 
 	memset(handle, 0, sizeof(*handle));
 
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+	snprintf(info_txt, sizeof(info_txt), "%s/info.txt", opts->dirname);
 
-	fp = fopen(buf, "rb");
+	fp = fopen(info_txt, "r");
 	if (fp != NULL)
 		goto ok;
+
+	snprintf(info_bin, sizeof(info_bin), "%s/info", opts->dirname);
+
+	fp = fopen(info_bin, "rb");
+	if (fp != NULL) {
+		is_info_txt = false;
+		goto ok;
+	}
 
 	saved_errno = errno;
 	/* provide a better error code for empty/invalid directories */
@@ -370,28 +405,44 @@ int open_info_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 	/* if default dirname is failed */
 	if (!strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
 		/* try again inside the current directory */
-		fp = fopen("./info", "rb");
+		fp = fopen("./info.txt", "r");
 		if (fp != NULL) {
 			opts->dirname = "./";
 			goto ok;
 		}
 
+		fp = fopen("./info", "rb");
+		if (fp != NULL) {
+			opts->dirname = "./";
+			is_info_txt = false;
+			goto ok;
+		}
+
 		/* retry with old default dirname */
-		snprintf(buf, sizeof(buf), "%s/info", UFTRACE_DIR_OLD_NAME);
-		fp = fopen(buf, "rb");
+		snprintf(info_txt, sizeof(info_txt), "%s/info.txt", UFTRACE_DIR_OLD_NAME);
+		fp = fopen(info_txt, "r");
 		if (fp != NULL) {
 			opts->dirname = UFTRACE_DIR_OLD_NAME;
+			goto ok;
+		}
+
+		snprintf(info_bin, sizeof(info_bin), "%s/info", UFTRACE_DIR_OLD_NAME);
+		fp = fopen(info_bin, "rb");
+		if (fp != NULL) {
+			opts->dirname = UFTRACE_DIR_OLD_NAME;
+			is_info_txt = false;
 			goto ok;
 		}
 
 		saved_errno = errno;
 
 		/* restore original file name for error reporting */
-		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+		snprintf(info_txt, sizeof(info_txt), "%s/info.txt", opts->dirname);
+		snprintf(info_bin, sizeof(info_bin), "%s/info", opts->dirname);
 	}
 
 	/* data file loading is failed */
-	pr_dbg("cannot open %s file\n", buf);
+	pr_dbg("cannot open %s or %s file\n", info_txt, info_bin);
 
 	return -saved_errno;
 ok:
@@ -406,7 +457,7 @@ ok:
 	handle->last_perf_idx = -1;
 	INIT_LIST_HEAD(&handle->events);
 
-	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
+	if (read_header(&handle->hdr, fp, is_info_txt) < 0)
 		pr_err("cannot read header data");
 
 	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))

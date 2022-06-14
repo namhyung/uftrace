@@ -972,9 +972,12 @@ static void dump_chrome_footer(struct uftrace_dump_ops *ops, struct uftrace_data
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 
 	/* read recorded date and time */
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-	if (stat(buf, &statbuf) < 0)
-		return;
+	snprintf(buf, sizeof(buf), "%s/info.txt", opts->dirname);
+	if (stat(buf, &statbuf) < 0) {
+		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+		if (stat(buf, &statbuf) < 0)
+			return;
+	}
 
 	ctime_r(&statbuf.st_mtime, buf);
 	buf[strlen(buf) - 1] = '\0';
