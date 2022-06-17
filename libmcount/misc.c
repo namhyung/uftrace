@@ -27,32 +27,36 @@ void update_kernel_tid(int tid)
 	/* update pid filter for function tracing */
 	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
 	fd = open(filename, O_WRONLY | O_APPEND);
-	if (fd < 0)
+	free(filename);
+
+	if (fd < 0) {
+		pr_dbg("open kernel ftrace pid filter failed\n");
 		return;
+	}
 
 	snprintf(buf, sizeof(buf), "%d", tid);
 	len = strlen(buf);
 	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace tid filter failed\n");
+		pr_dbg("update kernel ftrace pid filter failed\n");
 
 	close(fd);
 
-	free(filename);
 
 	/* update pid filter for event tracing */
 	xasprintf(&filename, "%s/set_event_pid", TRACING_DIR);
 	fd = open(filename, O_WRONLY | O_APPEND);
-	if (fd < 0)
+	free(filename);
+	if (fd < 0) {
+		pr_dbg("open kernel event pid filter failed\n");
 		return;
+	}
 
 	snprintf(buf, sizeof(buf), "%d", tid);
 	len = strlen(buf);
 	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace tid filter failed\n");
+		pr_dbg("update kernel event pid filter failed\n");
 
 	close(fd);
-
-	free(filename);
 }
 
 const char *mcount_session_name(void)

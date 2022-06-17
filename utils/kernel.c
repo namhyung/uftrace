@@ -874,6 +874,8 @@ void list_kernel_events(void)
 
 	filename = get_tracing_file("available_events");
 	fp = fopen(filename, "r");
+	put_tracing_file(filename);
+
 	if (fp == NULL) {
 		pr_dbg("failed to open 'tracing/available_events");
 		return;
@@ -883,7 +885,6 @@ void list_kernel_events(void)
 		pr_out("[kernel event] %s", buf);
 
 	fclose(fp);
-	put_tracing_file(filename);
 }
 
 static const char *get_endian_str(void)
@@ -1095,8 +1096,9 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 	int ret = 0;
 
 	xasprintf(&path, "%s/kernel_header", kernel->dirname);
-
 	fp = fopen(path, "r");
+	free(path);
+
 	if (fp == NULL)  /* old data doesn't have the kernel header */
 		return load_current_kernel(kernel);
 
@@ -1182,7 +1184,6 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel)
 	}
 
 	fclose(fp);
-	free(path);
 	return ret;
 }
 
