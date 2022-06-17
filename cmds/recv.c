@@ -432,6 +432,9 @@ static void recv_trace_metadata(int sock, int len)
 		pr_err("recv symfile name length failed");
 
 	namelen = ntohl(namelen);
+	if (namelen > len)
+		pr_err_ns("invalid namelen received");
+
 	filename = xmalloc(namelen + 1);
 
 	if (read_all(sock, filename, namelen) < 0)
