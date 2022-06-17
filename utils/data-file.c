@@ -280,8 +280,8 @@ void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
-	fprintf(fp, "SESS timestamp=%s pid=%d sid=%s exename=\"%s\"\n",
-		ts, smsg->task.pid, smsg->sid, exename);
+	fprintf(fp, "SESS timestamp=%s pid=%d sid=%.*s exename=\"%s\"\n",
+		ts, smsg->task.pid, SESSION_ID_LEN, smsg->sid, exename);
 
 	fclose(fp);
 	free(fname);
@@ -301,8 +301,8 @@ void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), dmsg->task.time);
-	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%s base=%"PRIx64" libname=\"%s\"\n",
-		ts, dmsg->task.tid, dmsg->sid, dmsg->base_addr, libname);
+	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%.*s base=%"PRIx64" libname=\"%s\"\n",
+		ts, dmsg->task.tid, SESSION_ID_LEN, dmsg->sid, dmsg->base_addr, libname);
 
 	fclose(fp);
 	free(fname);
