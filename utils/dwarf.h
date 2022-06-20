@@ -9,7 +9,7 @@
 #include "utils/rbtree.h"
 #include "utils/list.h"
 
-struct symtabs;
+struct uftrace_sym_info;
 
 #ifdef HAVE_LIBDW
 # include <elfutils/libdw.h>
@@ -45,20 +45,20 @@ struct debug_info {
 	char			*base_dir;
 };
 
-extern void prepare_debug_info(struct symtabs *symtabs,
+extern void prepare_debug_info(struct uftrace_sym_info *sinfo,
 			       enum uftrace_pattern_type ptype,
 			       char *argspec, char *retspec,
 			       bool auto_args, bool force);
-extern void finish_debug_info(struct symtabs *symtabs);
+extern void finish_debug_info(struct uftrace_sym_info *sinfo);
 extern bool debug_info_has_argspec(struct debug_info *dinfo);
 extern bool debug_info_has_location(struct debug_info *dinfo);
 extern char * get_dwarf_argspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
 extern char * get_dwarf_retspec(struct debug_info *dinfo, char *name,
 				unsigned long addr);
-struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr);
-extern void save_debug_info(struct symtabs *symtabs, const char *dirname);
-extern void load_debug_info(struct symtabs *symtabs, bool needs_srcline);
+struct debug_location *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr);
+extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
+extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);
 
 #endif /* UFTRACE_DWARF_H */

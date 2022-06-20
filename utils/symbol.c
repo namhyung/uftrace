@@ -860,13 +860,13 @@ out:
 	return ret;
 }
 
-struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
+struct uftrace_mmap *find_map_by_name(struct uftrace_sym_info *sinfo,
 				      const char *prefix)
 {
 	struct uftrace_mmap *map;
 	char *mod_name;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		mod_name = strrchr(map->libname, '/');
 		if (mod_name == NULL)
 			mod_name = map->libname;
@@ -1018,9 +1018,10 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 	return 0;
 }
 
-static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m)
+static void load_module_symbol(struct uftrace_sym_info *sinfo,
+			       struct uftrace_module *m)
 {
-	unsigned flags = symtabs->flags;
+	unsigned flags = sinfo->flags;
 	struct uftrace_symtab dsymtab = {};
 
 	if (flags & SYMTAB_FL_USE_SYMFILE) {
@@ -1029,7 +1030,7 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 		char build_id[BUILD_ID_STR_SIZE];
 
 		xasprintf(&symfile, "%s/%s.sym",
-			  symtabs->symdir, basename(m->name));
+			  sinfo->symdir, basename(m->name));
 		if (access(symfile, F_OK) == 0) {
 			if (check_symbol_file(symfile, buf, sizeof(buf),
 					      build_id, sizeof(build_id)) > 0 &&
@@ -1065,7 +1066,7 @@ static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m
 
 }
 
-struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+struct uftrace_module * load_module_symtab(struct uftrace_sym_info *sinfo,
 					   const char *mod_name,
 					   char *build_id)
 {
@@ -1094,7 +1095,7 @@ struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
 	m = xzalloc(sizeof(*m) + strlen(mod_name) + 1);
 	strcpy(m->name, mod_name);
 	strcpy(m->build_id, build_id);
-	load_module_symbol(symtabs, m);
+	load_module_symbol(sinfo, m);
 
 	rb_link_node(&m->node, parent, p);
 	rb_insert_color(&m->node, &modules);
@@ -1117,7 +1118,7 @@ void unload_module_symtabs(void)
 	}
 }
 
-void load_module_symtabs(struct symtabs *symtabs)
+void load_module_symtabs(struct uftrace_sym_info *sinfo)
 {
 	struct uftrace_mmap *map;
 	static const char * const skip_libs[] = {
@@ -1129,8 +1130,8 @@ void load_module_symtabs(struct symtabs *symtabs)
 	};
 	static const char libstdcpp6[] = "libstdc++.so.6";
 	size_t k;
-	unsigned long flags = symtabs->flags;
-	const char *exec_path = symtabs->filename;
+	unsigned long flags = sinfo->flags;
+	const char *exec_path = sinfo->filename;
 	bool check_cpp = false;
 	bool needs_cpp = false;
 
@@ -1140,7 +1141,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 		needs_cpp = true;
 	}
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		const char *libname = basename(map->libname);
 		bool skip = false;
 
@@ -1170,7 +1171,7 @@ void load_module_symtabs(struct symtabs *symtabs)
 				continue;
 		}
 
-		map->mod = load_module_symtab(symtabs, map->libname,
+		map->mod = load_module_symtab(sinfo, map->libname,
 					      map->build_id);
 	}
 }
@@ -1463,25 +1464,27 @@ bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 	return false;
 }
 
-struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr)
+struct uftrace_mmap * find_map(struct uftrace_sym_info *sinfo,
+			       uint64_t addr)
 {
 	struct uftrace_mmap *map;
 
-	if (is_kernel_address(symtabs, addr))
+	if (is_kernel_address(sinfo, addr))
 		return MAP_KERNEL;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->start <= addr && addr < map->end)
 			return map;
 	}
 	return NULL;
 }
 
-struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
+struct uftrace_mmap * find_symbol_map(struct uftrace_sym_info *sinfo,
+				      char *name)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		struct uftrace_symbol *sym;
 
 		if (map->mod != NULL) {
@@ -1493,16 +1496,17 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 	return NULL;
 }
 
-struct uftrace_symbol * find_symtabs(struct symtabs *symtabs, uint64_t addr)
+struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo,
+				     uint64_t addr)
 {
 	struct uftrace_symtab *stab;
 	struct uftrace_mmap *map;
 	struct uftrace_symbol *sym = NULL;
 
-	map = find_map(symtabs, addr);
+	map = find_map(sinfo, addr);
 	if (map == MAP_KERNEL) {
 		struct uftrace_symtab *ktab = get_kernel_symtab();
-		uint64_t kaddr = get_kernel_address(symtabs, addr);
+		uint64_t kaddr = get_kernel_address(sinfo, addr);
 
 		if (!ktab)
 			return NULL;
@@ -1514,7 +1518,7 @@ struct uftrace_symbol * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 
 	if (map != NULL) {
 		if (map->mod == NULL) {
-			map->mod = load_module_symtab(symtabs, map->libname,
+			map->mod = load_module_symtab(sinfo, map->libname,
 						      map->build_id);
 			if (map->mod == NULL)
 				return NULL;
@@ -1796,7 +1800,7 @@ TEST_CASE(symbol_load_module) {
 
 static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 {
-	struct symtabs *symtabs = data;
+	struct uftrace_sym_info *sym_info = data;
 	struct uftrace_mmap *map;
 	char *exename = NULL;
 	int i;
@@ -1819,13 +1823,13 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 	map->len   = strlen(exename);
 	strcpy(map->libname, exename);
 
-	symtabs->maps = map;
-	symtabs->exec_map = map;
+	sym_info->maps = map;
+	sym_info->exec_map = map;
 	return 1;
 }
 
 TEST_CASE(symbol_load_map) {
-	struct symtabs symtabs = {
+	struct uftrace_sym_info sinfo = {
 		.dirname = "",
 		.symdir = "",
 		.kernel_base = -4096ULL,
@@ -1837,13 +1841,13 @@ TEST_CASE(symbol_load_map) {
 	pr_dbg("load a real map file of the unittest binary\n");
 
 	/* just load a map for main executable */
-	dl_iterate_phdr(add_map, &symtabs);
+	dl_iterate_phdr(add_map, &sinfo);
 	/* load maps and symbols */
-	load_module_symtabs(&symtabs);
+	load_module_symtabs(&sinfo);
 
 	pr_dbg("try to find the map using a real symbol: find_map\n");
 	/* find map by address of a function */
-	map = find_map(&symtabs, (uintptr_t)&find_map);
+	map = find_map(&sinfo, (uintptr_t)&find_map);
 	TEST_NE(map, NULL);
 
 	/* check symbol table of uftrace binary */
@@ -1858,7 +1862,7 @@ TEST_CASE(symbol_load_map) {
 	TEST_EQ(sym->addr + map->start, (uintptr_t)&load_module_symtabs);
 
 	pr_dbg("check entire symbol tables to have: add_map\n");
-	sym = find_symtabs(&symtabs, (uintptr_t)&add_map);
+	sym = find_symtabs(&sinfo, (uintptr_t)&add_map);
 	TEST_NE(sym, NULL);
 	TEST_NE(strstr(sym->name, "add_map"), NULL);
 
@@ -1933,7 +1937,7 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 }
 
 TEST_CASE(symbol_same_file_name1) {
-	struct symtabs test_symtabs = {
+	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.symdir = ".",
 		.flags = SYMTAB_FL_USE_SYMFILE,
@@ -1957,8 +1961,8 @@ TEST_CASE(symbol_same_file_name1) {
 				save_mod[1]->build_id, "name.sym", 0);
 
 	pr_dbg("load symbol table from the files\n");
-	load_module_symbol(&test_symtabs, load_mod[0]);
-	load_module_symbol(&test_symtabs, load_mod[1]);
+	load_module_symbol(&sinfo, load_mod[0]);
+	load_module_symbol(&sinfo, load_mod[1]);
 
 	pr_dbg("check symbol table contents of module1\n");
 	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);
@@ -1999,7 +2003,7 @@ TEST_CASE(symbol_same_file_name1) {
 }
 
 TEST_CASE(symbol_same_file_name2) {
-	struct symtabs test_symtabs = {
+	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.symdir = ".",
 		.flags = SYMTAB_FL_USE_SYMFILE,
@@ -2024,8 +2028,8 @@ TEST_CASE(symbol_same_file_name2) {
 				save_mod[0]->build_id, "name.sym", 0);
 
 	pr_dbg("load symbol table from the files\n");
-	load_module_symbol(&test_symtabs, load_mod[0]);
-	load_module_symbol(&test_symtabs, load_mod[1]);
+	load_module_symbol(&sinfo, load_mod[0]);
+	load_module_symbol(&sinfo, load_mod[1]);
 
 	pr_dbg("check symbol table contents of module1\n");
 	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);

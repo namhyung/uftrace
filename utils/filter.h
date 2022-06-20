@@ -98,24 +98,24 @@ struct uftrace_filter_setting {
 
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
-struct symtabs;
+struct uftrace_sym_info;
 
-void uftrace_setup_filter(char *filter_str, struct symtabs *symtabs,
+void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			  struct rb_root *root, enum filter_mode *mode,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_trigger(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
 			   struct rb_root *root, enum filter_mode *mode,
 			   struct uftrace_filter_setting *setting);
-void uftrace_setup_argument(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_argument(char *trigger_str, struct uftrace_sym_info *sinfo,
 			    struct rb_root *root,
 			    struct uftrace_filter_setting *setting);
-void uftrace_setup_retval(char *trigger_str, struct symtabs *symtabs,
+void uftrace_setup_retval(char *trigger_str, struct uftrace_sym_info *sinfo,
 			  struct rb_root *root,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_caller_filter(char *filter_str, struct symtabs *symtabs,
+void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct rb_root *root,
 				 struct uftrace_filter_setting *setting);
-void uftrace_setup_hide_filter(char *filter_str, struct symtabs *symtabs,
+void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root,
 			       struct uftrace_filter_setting *setting);
 

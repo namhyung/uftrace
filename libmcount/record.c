@@ -1139,7 +1139,7 @@ struct uftrace_mmap * new_map(const char *path, uint64_t start, uint64_t end,
 }
 
 void record_proc_maps(char *dirname, const char *sess_id,
-		      struct symtabs *symtabs)
+		      struct uftrace_sym_info *sinfo)
 {
 	FILE *ifp, *ofp;
 	char buf[PATH_MAX];
@@ -1156,7 +1156,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 	if (ofp == NULL)
 		pr_err("cannot open for writing maps file");
 
-	symtabs->kernel_base = -1ULL;
+	sinfo->kernel_base = -1ULL;
 
 	while (fgets(buf, sizeof(buf), ifp)) {
 		unsigned long start, end;
@@ -1185,7 +1185,7 @@ void record_proc_maps(char *dirname, const char *sess_id,
 				prev_written = true;
 			}
 			if (strncmp(path, "[stack", 6) == 0) {
-				symtabs->kernel_base = guess_kernel_base(buf);
+				sinfo->kernel_base = guess_kernel_base(buf);
 				fprintf(ofp, "%s", buf);
 			}
 			continue;
@@ -1211,13 +1211,13 @@ void record_proc_maps(char *dirname, const char *sess_id,
 		map = new_map(path, start, end, prot);
 
 		/* save map for the executable */
-		if (!strcmp(path, symtabs->filename))
-			symtabs->exec_map = map;
+		if (!strcmp(path, sinfo->filename))
+			sinfo->exec_map = map;
 
 		if (prev_map)
 			prev_map->next = map;
 		else
-			symtabs->maps = map;
+			sinfo->maps = map;
 
 		map->next = NULL;
 		prev_map = map;

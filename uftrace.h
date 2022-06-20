@@ -334,7 +334,7 @@ struct uftrace_session {
 	char			 sid[SESSION_ID_LEN];
 	uint64_t		 start_time;
 	int			 pid, tid;
-	struct symtabs		 symtabs;
+	struct uftrace_sym_info	 sym_info;
 	struct rb_root		 filters;
 	struct rb_root		 fixups;
 	struct list_head	 dlopen_libs;
@@ -437,8 +437,8 @@ struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
 		 bool fork);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
-void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
-void delete_session_map(struct symtabs *symtabs);
+void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid);
+void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
 					      char sid[]);

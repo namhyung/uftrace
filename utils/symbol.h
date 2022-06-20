@@ -102,37 +102,48 @@ enum uftrace_symtab_flag {
 	SYMTAB_FL_SYMS_DIR	= (1U << 5),
 };
 
-struct symtabs {
+struct uftrace_sym_info {
+	/* mmap and symtab info was loaded */
 	bool loaded;
+	/* name of directory which has data files */
 	const char *dirname;
+	/* name of the main executable file of this process */
 	const char *filename;
+	/*
+	 * name of directory containing symbol info.
+	 * mostly same as dirname, but could be different if --with-sym is given.
+	 */
 	const char *symdir;
+	/* symbol table flags: see above */
 	enum uftrace_symtab_flag flags;
+	/* start address of kernel address space */
 	uint64_t kernel_base;
+	/* map for the main executable (cached) */
 	struct uftrace_mmap *exec_map;
+	/* list of memory maping info for executable and libraries */
 	struct uftrace_mmap *maps;
 };
 
-#define for_each_map(symtabs, map)					\
-	for ((map) = (symtabs)->maps; (map) != NULL; (map) = (map)->next)
+#define for_each_map(sym_info, map)					\
+	for ((map) = (sym_info)->maps; (map) != NULL; (map) = (map)->next)
 
 /* addr should be from fstack or something other than rstack (rec) */
-static inline bool is_kernel_address(struct symtabs *symtabs, uint64_t addr)
+static inline bool is_kernel_address(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
-	return addr >= symtabs->kernel_base;
+	return addr >= sinfo->kernel_base;
 }
 
 /* convert rstack->addr (or rec->addr) to full 64-bit address */
-static inline uint64_t get_kernel_address(struct symtabs *symtabs, uint64_t addr)
+static inline uint64_t get_kernel_address(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
-	return addr | symtabs->kernel_base;
+	return addr | sinfo->kernel_base;
 }
 
 uint64_t guess_kernel_base(char *str);
 
 extern struct uftrace_symbol sched_sym;
 
-struct uftrace_symbol * find_symtabs(struct symtabs *symtabs, uint64_t addr);
+struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo, uint64_t addr);
 struct uftrace_symbol * find_sym(struct uftrace_symtab *symtab, uint64_t addr);
 struct uftrace_symbol * find_symname(struct uftrace_symtab *symtab, const char *name);
 void print_symtab(struct uftrace_symtab *symtab);
@@ -143,8 +154,8 @@ int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
 int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
 
-void load_module_symtabs(struct symtabs *symtabs);
-struct uftrace_module * load_module_symtab(struct symtabs *symtabs,
+void load_module_symtabs(struct uftrace_sym_info *sinfo);
+struct uftrace_module * load_module_symtab(struct uftrace_sym_info *sinfo,
 					   const char *mod_name,
 					   char *build_id);
 void save_module_symtabs(const char *dirname);
@@ -167,10 +178,10 @@ char * check_script_file(const char *filename);
 /* pseudo-map for kernel image */
 #define MAP_KERNEL (struct uftrace_mmap *)1
 
-struct uftrace_mmap * find_map(struct symtabs *symtabs, uint64_t addr);
-struct uftrace_mmap * find_map_by_name(struct symtabs *symtabs,
+struct uftrace_mmap * find_map(struct uftrace_sym_info *sinfo, uint64_t addr);
+struct uftrace_mmap * find_map_by_name(struct uftrace_sym_info *sinfo,
 				       const char *prefix);
-struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name);
+struct uftrace_mmap * find_symbol_map(struct uftrace_sym_info *sinfo, char *name);
 
 int save_kernel_symbol(char *dirname);
 int load_kernel_symbol(char *dirname);
@@ -178,9 +189,9 @@ int load_kernel_symbol(char *dirname);
 struct uftrace_symtab * get_kernel_symtab(void);
 struct uftrace_module * get_kernel_module(void);
 
-int load_symbol_file(struct symtabs *symtabs, const char *symfile,
+int load_symbol_file(struct uftrace_sym_info *sinfo, const char *symfile,
 		     uint64_t offset);
-void save_symbol_file(struct symtabs *symtabs, const char *dirname,
+void save_symbol_file(struct uftrace_sym_info *sinfo, const char *dirname,
 		      const char *exename);
 int check_symbol_file(const char *symfile, char *pathname, int pathlen,
 		      char *build_id, int build_id_len);
@@ -203,7 +214,7 @@ void build_dynsym_idxlist(struct uftrace_symtab *dsymtab,
 void destroy_dynsym_idxlist(struct dynsym_idxlist *idxlist);
 bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx);
 
-void setup_skip_idx(struct symtabs *symtabs);
+void setup_skip_idx(struct uftrace_sym_info *sinfo);
 void destroy_skip_idx(void);
 bool should_skip_idx(unsigned idx);
 

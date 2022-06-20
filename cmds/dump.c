@@ -381,7 +381,7 @@ static void pr_args(struct fstack_arguments *args)
 			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
-			map = find_map(&s->symtabs, task->rstack->addr);
+			map = find_map(&s->sym_info, task->rstack->addr);
 			if (!map || !map->mod)
 				goto print_raw;
 
@@ -1401,8 +1401,8 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 				continue;
 			}
 
-			addr = get_kernel_address(&fsess->symtabs, frs->addr);
-			sym = find_symtabs(&fsess->symtabs, addr);
+			addr = get_kernel_address(&fsess->sym_info, frs->addr);
+			sym = find_symtabs(&fsess->sym_info, addr);
 			name = symbol_getname(sym, addr);
 
 			call_if_nonull(ops->kernel_func, ops, kernel, i, frs, name);
@@ -1600,7 +1600,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct opts *opts,
 				fstack[-1].child_time += fstack->total_time;
 
 			/* make sure is_kernel_record() working correctly */
-			if (is_kernel_address(&fsess->symtabs, fstack->addr))
+			if (is_kernel_address(&fsess->sym_info, fstack->addr))
 				task->rstack = &task->kstack;
 			else
 				task->rstack = &task->ustack;

@@ -1817,7 +1817,7 @@ static void extract_dwarf_args(char *argspec, char *retspec,
 	}
 }
 
-void prepare_debug_info(struct symtabs *symtabs,
+void prepare_debug_info(struct uftrace_sym_info *sinfo,
 			enum uftrace_pattern_type ptype,
 			char *argspec, char *retspec,
 			bool auto_args, bool force)
@@ -1826,8 +1826,8 @@ void prepare_debug_info(struct symtabs *symtabs,
 	struct strv dwarf_args = STRV_INIT;
 	struct strv dwarf_rets = STRV_INIT;
 
-	if (symtabs->flags & SYMTAB_FL_SYMS_DIR) {
-		load_debug_info(symtabs, true);
+	if (sinfo->flags & SYMTAB_FL_SYMS_DIR) {
+		load_debug_info(sinfo, true);
 		return;
 	}
 
@@ -1847,7 +1847,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		struct uftrace_symtab *stab = &map->mod->symtab;
 		struct debug_info *dinfo = &map->mod->dinfo;
 
@@ -1862,11 +1862,11 @@ void prepare_debug_info(struct symtabs *symtabs,
 	strv_free(&dwarf_rets);
 }
 
-void finish_debug_info(struct symtabs *symtabs)
+void finish_debug_info(struct uftrace_sym_info *sinfo)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
@@ -2056,11 +2056,11 @@ static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
 	close_debug_file(fp, dirname, basename(filename), build_id);
 }
 
-void save_debug_info(struct symtabs *symtabs, const char *dirname)
+void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
@@ -2197,11 +2197,11 @@ out:
 	return ret;
 }
 
-void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
+void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		struct uftrace_module *mod = map->mod;
 		struct uftrace_symtab *stab;
 		struct debug_info *dinfo;
@@ -2213,7 +2213,7 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 		dinfo = &mod->dinfo;
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
-			load_debug_file(dinfo, stab, symtabs->symdir,
+			load_debug_file(dinfo, stab, sinfo->symdir,
 					map->libname, map->build_id,
 					needs_srcline);
 		}
@@ -2234,7 +2234,7 @@ char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long add
 	return entry ? entry->spec : NULL;
 }
 
-struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
+struct debug_location *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
 	struct uftrace_mmap *map;
 	struct uftrace_symtab *symtab;
@@ -2242,7 +2242,7 @@ struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 	struct uftrace_symbol *sym = NULL;
 	ptrdiff_t idx;
 
-	map = find_map(symtabs, addr);
+	map = find_map(sinfo, addr);
 
 	/* TODO: support kernel debug info */
 	if (map == MAP_KERNEL)

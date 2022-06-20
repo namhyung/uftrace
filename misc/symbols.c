@@ -67,7 +67,7 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 	struct uftrace_symbol *sym;
 	struct debug_location *dloc;
 
-	sym = find_symtabs(&s->symtabs, addr);
+	sym = find_symtabs(&s->sym_info, addr);
 	if (sym == NULL)
 		sym = session_find_dlsym(s, ~0ULL, addr);
 
@@ -76,7 +76,7 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 
 	printf("  %s", sym->name);
 
-	dloc = find_file_line(&s->symtabs, addr);
+	dloc = find_file_line(&s->sym_info, addr);
 	if (dloc && dloc->file)
 		printf(" (at %s:%d)", dloc->file->name, dloc->line);
 

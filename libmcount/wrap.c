@@ -16,7 +16,7 @@
 #include "utils/utils.h"
 #include "utils/compiler.h"
 
-extern struct symtabs symtabs;
+extern struct uftrace_sym_info mcount_sym_info;
 
 struct dlopen_base_data {
 	struct mcount_thread_data *mtdp;
@@ -83,14 +83,14 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 	if (p == NULL)
 		p = buf;
 
-	if (find_map_by_name(&symtabs, uftrace_basename(p)))
+	if (find_map_by_name(&mcount_sym_info, uftrace_basename(p)))
 		return 0;
 
 	/* report a library not found in the session maps */
 	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp,
 			info->dlpi_addr, info->dlpi_name);
 
-	mcount_dynamic_dlopen(&symtabs, info, p);
+	mcount_dynamic_dlopen(&mcount_sym_info, info, p);
 	return 0;
 }
 

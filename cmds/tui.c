@@ -457,7 +457,7 @@ static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
 			return NULL;
@@ -516,7 +516,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 		struct uftrace_session *fsess;
 
 		fsess = task->h->sessions.first;
-		addr = get_kernel_address(&fsess->symtabs, addr);
+		addr = get_kernel_address(&fsess->sym_info, addr);
 	}
 
 	tg = graph_get_task(task, sizeof(*tg));
@@ -1178,7 +1178,7 @@ static void win_footer_graph(struct tui_window *win,
 			snprintf(buf, COLS, "uftrace graph: %s [line:%d]",
 				 dloc->file->name, dloc->line);
 		}
-		else if (find_symtabs(&sess->symtabs, node->n.addr) != NULL) {
+		else if (find_symtabs(&sess->sym_info, node->n.addr) != NULL) {
 			/* some symbols don't have source location */
 			snprintf(buf, COLS, "uftrace graph: %s [at %#"PRIx64"]",
 				 "source location is not available",
@@ -1366,7 +1366,7 @@ static struct debug_location *win_location_graph(struct tui_window *win,
 	struct tui_graph_node *curr = node;
 	struct uftrace_session *sess = graph->ug.sess;
 
-	return find_file_line(&sess->symtabs, curr->n.addr);
+	return find_file_line(&sess->sym_info, curr->n.addr);
 }
 
 static const struct tui_window_ops graph_ops = {
@@ -1613,7 +1613,7 @@ static struct debug_location *win_location_report(struct tui_window *win,
 
 	list_for_each_entry(gnode, &curr->head, link) {
 		sess = gnode->graph->sess;
-		dloc = find_file_line(&sess->symtabs, gnode->n.addr);
+		dloc = find_file_line(&sess->sym_info, gnode->n.addr);
 
 		if (dloc != NULL && dloc->file != NULL)
 			return dloc;

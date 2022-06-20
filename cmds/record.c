@@ -1460,7 +1460,7 @@ static void load_session_symbols(struct opts *opts)
 	}
 
 	for (i = 0; i < maps; i++) {
-		struct symtabs symtabs = {
+		struct uftrace_sym_info sinfo = {
 			.dirname  = opts->dirname,
 			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
@@ -1470,11 +1470,11 @@ static void load_session_symbols(struct opts *opts)
 		free(map_list[i]);
 
 		pr_dbg2("reading symbols for session %s\n", sid);
-		read_session_map(opts->dirname, &symtabs, sid);
+		read_session_map(opts->dirname, &sinfo, sid);
 
-		load_module_symtabs(&symtabs);
+		load_module_symtabs(&sinfo);
 
-		delete_session_map(&symtabs);
+		delete_session_map(&sinfo);
 	}
 
 	free(map_list);
@@ -2023,14 +2023,14 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
-		struct symtabs dlib_symtabs = {
+		struct uftrace_sym_info dlib_sinfo = {
 			.dirname = opts->dirname,
 			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 		char build_id[BUILD_ID_STR_SIZE];
 
 		read_build_id(dlib->libname, build_id, sizeof(build_id));
-		load_module_symtab(&dlib_symtabs, dlib->libname, build_id);
+		load_module_symtab(&dlib_sinfo, dlib->libname, build_id);
 
 		list_del(&dlib->list);
 

@@ -1231,7 +1231,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 	}
 
 	if (opts->print_symtab) {
-		struct symtabs symtabs = {
+		struct uftrace_sym_info sinfo = {
 			.dirname = opts->dirname,
 			.filename = opts->exename,
 			.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE,
@@ -1249,7 +1249,7 @@ int command_info(int argc, char *argv[], struct opts *opts)
 			snprintf(build_id + i * 2, 3, "%02x",
 				 handle.info.build_id[i]);
 		}
-		mod = load_module_symtab(&symtabs, symtabs.filename, build_id);
+		mod = load_module_symtab(&sinfo, sinfo.filename, build_id);
 		if (mod == NULL)
 			goto out;
 

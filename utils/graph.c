@@ -103,7 +103,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 			struct uftrace_special_node *snode;
 			enum uftrace_graph_node_type type = NODE_T_NORMAL;
 
-			sym = find_symtabs(&sess->symtabs, fstack->addr);
+			sym = find_symtabs(&sess->sym_info, fstack->addr);
 			if (sym == NULL)
 				goto out;
 
@@ -145,7 +145,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 		return -1;
 
 	if (tg->lost) {
-		if (is_kernel_address(&tg->task->h->sessions.first->symtabs,
+		if (is_kernel_address(&tg->task->h->sessions.first->sym_info,
 				      fstack->addr))
 			return 1;
 

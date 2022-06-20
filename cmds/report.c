@@ -162,7 +162,7 @@ static void build_function_tree(struct uftrace_data *handle,
 			struct uftrace_session *fsess;
 
 			fsess = sessions->first;
-			addr = get_kernel_address(&fsess->symtabs, rstack->addr);
+			addr = get_kernel_address(&fsess->sym_info, rstack->addr);
 		}
 
 		/* skip it if --no-libcall is given */

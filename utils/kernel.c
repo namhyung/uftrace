@@ -1607,7 +1607,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			time_filter = task->filter.time->threshold;
 
 		/* filter match needs full (64-bit) address */
-		real_addr = get_kernel_address(&sess->symtabs, curr->addr);
+		real_addr = get_kernel_address(&sess->sym_info, curr->addr);
 		/*
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.
@@ -2157,7 +2157,7 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 		handle->tasks[i].fp  = (void *)1;  /* prevent retry */
 	}
 
-	test_sess.symtabs.kernel_base = 0xffff0000UL;
+	test_sess.sym_info.kernel_base = 0xffff0000UL;
 	handle->sessions.first = &test_sess;
 
 	atexit(kernel_test_finish_handle);

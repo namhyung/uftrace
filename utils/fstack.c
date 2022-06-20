@@ -222,7 +222,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters,
 			     &fstack_filter_mode, setting);
 	return 0;
 }
@@ -231,7 +231,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_trigger(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters,
 			      &fstack_filter_mode, setting);
 	return 0;
 }
@@ -240,7 +240,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_caller_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters,
 				    setting);
 	return 0;
 }
@@ -249,7 +249,7 @@ static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_hide_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &s->filters,
 				  setting);
 	return 0;
 }
@@ -378,7 +378,7 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 	pr_dbg("fixup for some special functions\n");
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
-		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
+		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info,
 				      &s->fixups, NULL, &setting);
 	}
 	return 0;
@@ -401,8 +401,8 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_argument(setting->info_str, &s->symtabs, &s->filters,
-				       setting);
+		uftrace_setup_argument(setting->info_str, &s->sym_info,
+				       &s->filters, setting);
 
 	return 0;
 }
@@ -412,8 +412,8 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_retval(setting->info_str, &s->symtabs, &s->filters,
-				     setting);
+		uftrace_setup_retval(setting->info_str, &s->sym_info,
+				     &s->filters, setting);
 
 	return 0;
 }
@@ -580,7 +580,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		if (sess == NULL)
 			sess = sessions->first;
 
-		addr = get_kernel_address(&sess->symtabs, addr);
+		addr = get_kernel_address(&sess->sym_info, addr);
 	}
 
 	if (sess) {
@@ -794,7 +794,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 		else
 			return -1;
 
-		addr = get_kernel_address(&fsess->symtabs, addr);
+		addr = get_kernel_address(&fsess->sym_info, addr);
 	}
 
 	uftrace_match_filter(addr, &sess->filters, &tr);
@@ -1847,10 +1847,10 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		fstack->valid = true;
 
 		if (is_kernel_func) {
-			struct symtabs *symtabs;
+			struct uftrace_sym_info *sinfo;
 
-			symtabs = &task->h->sessions.first->symtabs;
-			fstack->addr = get_kernel_address(symtabs, rstack->addr);
+			sinfo = &task->h->sessions.first->sym_info;
+			fstack->addr = get_kernel_address(sinfo, rstack->addr);
 		}
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
@@ -2436,7 +2436,7 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *
 		handle->sessions.first = &test_sess;
 
 	/* it doesn't have kernel functions */
-	handle->sessions.first->symtabs.kernel_base = -1ULL;
+	handle->sessions.first->sym_info.kernel_base = -1ULL;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
 		if (errno != EEXIST) {
@@ -2520,8 +2520,8 @@ static int fstack_test_setup_exec(struct uftrace_data *handle)
 		       true, false, false);
 	create_task(&handle->sessions, &smsg.task, false);
 
-	handle->sessions.first->symtabs.maps = &map;
-	handle->sessions.first->symtabs.exec_map = &map;
+	handle->sessions.first->sym_info.maps = &map;
+	handle->sessions.first->sym_info.exec_map = &map;
 
 	return fstack_test_setup_file(handle, 1, test_tids,
 				      ARRAY_SIZE(exec_record), exec_tests);

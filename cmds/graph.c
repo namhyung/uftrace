@@ -252,7 +252,7 @@ static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
 			return NULL;
@@ -366,7 +366,7 @@ static int print_backtrace(struct session_graph *graph)
 		pr_out("\n");
 
 		for (k = 0; k < bt->len; k++) {
-			sym = find_symtabs(&graph->ug.sess->symtabs, bt->addr[k]);
+			sym = find_symtabs(&graph->ug.sess->sym_info, bt->addr[k]);
 			if (sym == NULL)
 				sym = session_find_dlsym(graph->ug.sess,
 							 bt->time, bt->addr[k]);
@@ -542,7 +542,7 @@ static void build_graph_node(struct opts *opts,
 	if (unlikely(tg->utg.graph == NULL))
 		return;
 
-	sym = find_symtabs(&tg->utg.graph->sess->symtabs, addr);
+	sym = find_symtabs(&tg->utg.graph->sess->sym_info, addr);
 	if (sym == NULL)
 		sym = session_find_dlsym(tg->utg.graph->sess, time, addr);
 
@@ -610,7 +610,7 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			struct uftrace_session *fsess;
 
 			fsess = task->h->sessions.first;
-			addr = get_kernel_address(&fsess->symtabs, addr);
+			addr = get_kernel_address(&fsess->sym_info, addr);
 		}
 
 		if (frs->type == UFTRACE_LOST) {
@@ -642,10 +642,10 @@ static void build_graph(struct opts *opts, struct uftrace_data *handle,
 			/* force to find a session for kernel function */
 			fsess = task->h->sessions.first;
 			tg = get_task_graph(task, prev_time,
-					    fsess->symtabs.kernel_base + 1);
+					    fsess->sym_info.kernel_base + 1);
 			tg->utg.lost = true;
 
-			if (tg->enabled && is_kernel_address(&fsess->symtabs,
+			if (tg->enabled && is_kernel_address(&fsess->sym_info,
 							     tg->utg.node->addr))
 				pr_dbg("not returning to user after LOST\n");
 
@@ -725,10 +725,10 @@ struct find_func_data {
 static int find_func(struct uftrace_session *s, void *arg)
 {
 	struct find_func_data *data = arg;
-	struct symtabs *symtabs = &s->symtabs;
+	struct uftrace_sym_info *sinfo = &s->sym_info;
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->mod == NULL)
 			continue;
 

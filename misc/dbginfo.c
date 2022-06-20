@@ -48,7 +48,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 int main(int argc, char *argv[])
 {
 	struct uftrace_mmap *map;
-	struct symtabs symtabs = {
+	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.flags = SYMTAB_FL_DEMANGLE,
 	};
@@ -91,14 +91,14 @@ int main(int argc, char *argv[])
 
 	map = xzalloc(sizeof(*map) + strlen(filename) + 1);
 	strcpy(map->libname, filename);
-	symtabs.maps = map;
+	sinfo.maps = map;
 
-	load_module_symtabs(&symtabs);
-	prepare_debug_info(&symtabs, ptype, argspec, retspec, auto_args, false);
+	load_module_symtabs(&sinfo);
+	prepare_debug_info(&sinfo, ptype, argspec, retspec, auto_args, false);
 
 	print_debug_info(&map->mod->dinfo, auto_args);
 
-	finish_debug_info(&symtabs);
+	finish_debug_info(&sinfo);
 	unload_module_symtabs();
 	free(map);
 	return 0;

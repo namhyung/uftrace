@@ -109,7 +109,7 @@ static void print_module(struct field_data *fd)
 
 	s = find_task_session(&task->h->sessions, task->t, timestamp);
 	if (s) {
-		map = find_map(&s->symtabs, fstack->addr);
+		map = find_map(&s->sym_info, fstack->addr);
 		if (map == MAP_KERNEL)
 			modname = "[kernel]";
 		else if (map)
@@ -654,7 +654,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
-			map = find_map(&s->symtabs, task->rstack->addr);
+			map = find_map(&s->sym_info, task->rstack->addr);
 			if (map == NULL || map->mod == NULL) {
 				print_args(&args, &len, "<ENUM?> %x", (int)val.i);
 				goto next;
@@ -773,7 +773,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 		s = find_task_session(sessions, task->t, rstack->time);
 		if (s != NULL) {
-			map = find_symbol_map(&s->symtabs, symname);
+			map = find_symbol_map(&s->sym_info, symname);
 			if (map != NULL)
 				libname = basename(map->libname);
 		}
@@ -1024,7 +1024,7 @@ static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 	if (!has_kernel_data(task->h->kernel) || task->user_stack_count != 0)
 		return false;
 
-	sym = find_symtabs(&task->h->sessions.first->symtabs, fstack->addr);
+	sym = find_symtabs(&task->h->sessions.first->sym_info, fstack->addr);
 	if (sym == NULL)
 		return false;
 
