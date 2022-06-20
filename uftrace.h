@@ -444,17 +444,17 @@ struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
 					      char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 			unsigned long base_addr, const char *libname);
-struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
-				unsigned long addr);
+struct uftrace_symbol * session_find_dlsym(struct uftrace_session *sess,
+					   uint64_t timestamp, unsigned long addr);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
-struct sym * task_find_sym(struct uftrace_session_link *sess,
-			   struct uftrace_task_reader *task,
-			   struct uftrace_record *rec);
-struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr);
+struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sess,
+				      struct uftrace_task_reader *task,
+				      struct uftrace_record *rec);
+struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sess,
+					   struct uftrace_task_reader *task,
+					   uint64_t time, uint64_t addr);
 struct debug_location * task_find_loc_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task,
 					   uint64_t time, uint64_t addr);

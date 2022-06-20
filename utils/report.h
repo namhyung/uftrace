@@ -7,8 +7,6 @@
 #include "uftrace.h"
 #include "utils/rbtree.h"
 
-struct sym;
-
 enum avg_mode {
 	AVG_NONE,
 	AVG_TOTAL,

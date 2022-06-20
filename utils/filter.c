@@ -727,9 +727,9 @@ static int add_trigger_entry(struct rb_root *root,
 			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
-	struct symtab *symtab = &map->mod->symtab;
+	struct uftrace_symtab *symtab = &map->mod->symtab;
 	struct debug_info *dinfo = &map->mod->dinfo;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	unsigned i;
 	int ret = 0;
 
@@ -1032,7 +1032,7 @@ char * uftrace_clear_kernel(char *filter_str)
 
 static void filter_test_load_symtabs(struct symtabs *stabs)
 {
-	static struct sym syms[] = {
+	static struct uftrace_symbol syms[] = {
 		{ 0x1000, 0x1000, ST_GLOBAL_FUNC, "foo::foo" },
 		{ 0x2000, 0x1000, ST_GLOBAL_FUNC, "foo::bar" },
 		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "foo::baz1" },

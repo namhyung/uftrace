@@ -64,7 +64,7 @@ static void parse_option(int argc, char **argv, struct symbols_opts *opts)
 static int print_session_symbol(struct uftrace_session *s, void *arg)
 {
 	uint64_t addr = *(uint64_t *)arg;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct debug_location *dloc;
 
 	sym = find_symtabs(&s->symtabs, addr);

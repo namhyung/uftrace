@@ -311,7 +311,7 @@ struct plthook_data {
 	/* start address of PLT code (PLT0) */
 	unsigned long			plt_addr;
 	/* symbol table for PLT functions */
-	struct symtab			dsymtab;
+	struct uftrace_symtab		dsymtab;
 	/* address of global offset table (GOT) used for PLT */
 	unsigned long			*pltgot_ptr;
 	/* original address of each function (resolved by dynamic linker) */

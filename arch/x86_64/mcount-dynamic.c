@@ -172,7 +172,7 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi,
 }
 
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-			     struct symtab *symtab)
+			     struct uftrace_symtab *symtab)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
@@ -209,7 +209,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	 * signature.
 	 */
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = &symtab->sym[i];
+		struct uftrace_symbol *sym = &symtab->sym[i];
 		void *code_addr = (void *)sym->addr + mdi->map->start;
 
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
@@ -261,7 +261,7 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return mdi->trampoline - (addr + CALL_INSN_SIZE);
 }
 
-static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
@@ -291,18 +291,18 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return INSTRUMENT_SUCCESS;
 }
 
-static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	return patch_fentry_code(mdi, sym);
 }
 
-static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	/* it does the same patch logic with fentry. */
 	return patch_fentry_code(mdi, sym);
 }
 
-static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
+static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			    struct xray_instr_map *xrmap)
 {
 	unsigned char entry_insn[] = { 0xeb, 0x09 };
@@ -357,7 +357,7 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return INSTRUMENT_SUCCESS;
 }
 
-static int patch_xray_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_xray_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	unsigned i;
 	int ret = -2;
@@ -478,7 +478,7 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 				origin_code_addr + info->orig_size);
 }
 
-static int patch_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			     struct mcount_disasm_engine *disasm)
 {
 	uint8_t jmp_insn[15] = { 0x3e, 0xff, 0x25, };
@@ -554,7 +554,7 @@ static int unpatch_func(uint8_t *insn, char *name)
 	return INSTRUMENT_SUCCESS;
 }
 
-static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	uint64_t sym_addr = sym->addr + mdi->map->start;
 
@@ -563,7 +563,7 @@ static int unpatch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 
 static int cmp_loc(const void *a, const void *b)
 {
-	const struct sym *sym = a;
+	const struct uftrace_symbol *sym = a;
 	uintptr_t loc = *(uintptr_t *)b;
 
 	if (sym->addr <= loc && loc < sym->addr + sym->size)
@@ -572,7 +572,7 @@ static int cmp_loc(const void *a, const void *b)
 	return sym->addr > loc ? 1 : -1;
 }
 
-static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	unsigned long *mcount_loc = mdi->patch_target;
 	uintptr_t *loc;
@@ -590,7 +590,7 @@ static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return INSTRUMENT_SKIPPED;
 }
 
-int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 		      struct mcount_disasm_engine *disasm,
 		      unsigned min_size)
 {
@@ -625,7 +625,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return result;
 }
 
-int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			struct mcount_disasm_engine *disasm)
 {
 	int result = INSTRUMENT_SKIPPED;
@@ -645,7 +645,7 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
 	return result;
 }
 
-static void revert_normal_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+static void revert_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			       struct mcount_disasm_engine *disasm)
 {
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;

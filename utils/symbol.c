@@ -34,7 +34,7 @@ static struct uftrace_module kernel;
 /* prevent duplicate symbols table loading */
 static struct rb_root modules = RB_ROOT;
 
-struct sym sched_sym = {
+struct uftrace_symbol sched_sym = {
 	.addr = EVENT_ID_PERF_SCHED_BOTH,
 	.size = 1,
 	.type = ST_LOCAL_FUNC,
@@ -43,8 +43,8 @@ struct sym sched_sym = {
 
 static int addrsort(const void *a, const void *b)
 {
-	const struct sym *syma = a;
-	const struct sym *symb = b;
+	const struct uftrace_symbol *syma = a;
+	const struct uftrace_symbol *symb = b;
 
 	if (syma->addr > symb->addr)
 		return 1;
@@ -56,7 +56,7 @@ static int addrsort(const void *a, const void *b)
 static int addrfind(const void *a, const void *b)
 {
 	uint64_t addr = *(uint64_t *) a;
-	const struct sym *sym = b;
+	const struct uftrace_symbol *sym = b;
 
 	if (sym->addr <= addr && addr < sym->addr + sym->size)
 		return 0;
@@ -68,8 +68,8 @@ static int addrfind(const void *a, const void *b)
 
 static int namesort(const void *a, const void *b)
 {
-	const struct sym *syma = *(const struct sym **)a;
-	const struct sym *symb = *(const struct sym **)b;
+	const struct uftrace_symbol *syma = *(const struct uftrace_symbol **)a;
+	const struct uftrace_symbol *symb = *(const struct uftrace_symbol **)b;
 
 	return strcmp(syma->name, symb->name);
 }
@@ -77,7 +77,7 @@ static int namesort(const void *a, const void *b)
 static int namefind(const void *a, const void *b)
 {
 	const char *name = a;
-	const struct sym *sym = *(const struct sym **)b;
+	const struct uftrace_symbol *sym = *(const struct uftrace_symbol **)b;
 
 	return strcmp(name, sym->name);
 }
@@ -210,12 +210,12 @@ static bool is_symbol_end(const char *name)
 	return false;
 }
 
-static void unload_symtab(struct symtab *symtab)
+static void unload_symtab(struct uftrace_symtab *symtab)
 {
 	size_t i;
 
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = symtab->sym + i;
+		struct uftrace_symbol *sym = symtab->sym + i;
 		free(sym->name);
 	}
 
@@ -227,13 +227,13 @@ static void unload_symtab(struct symtab *symtab)
 	symtab->sym_names = NULL;
 }
 
-static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
+static int load_symbol(struct uftrace_symtab *symtab, unsigned long prev_sym_value,
 		       unsigned long long offset, unsigned long flags,
 		       struct uftrace_elf_data *elf,
 		       struct uftrace_elf_iter *iter)
 {
 	char *name;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	typeof(iter->sym) *elf_sym = &iter->sym;
 
 	if (elf_sym->st_shndx == STN_UNDEF)
@@ -298,7 +298,7 @@ static int load_symbol(struct symtab *symtab, unsigned long prev_sym_value,
 	return 1;
 }
 
-static void sort_symtab(struct symtab *symtab)
+static void sort_symtab(struct uftrace_symtab *symtab)
 {
 	unsigned i;
 	int dup_syms = 0;
@@ -307,8 +307,8 @@ static void sort_symtab(struct symtab *symtab)
 
 	/* remove duplicated (overlapped?) symbols */
 	for (i = 0; i < symtab->nr_sym - 1; i++) {
-		struct sym *curr = &symtab->sym[i];
-		struct sym *next = &symtab->sym[i + 1];
+		struct uftrace_symbol *curr = &symtab->sym[i];
+		struct uftrace_symbol *next = &symtab->sym[i + 1];
 		int count = 0;
 		char *bestname = curr->name;
 
@@ -325,7 +325,7 @@ static void sort_symtab(struct symtab *symtab)
 		}
 
 		if (count) {
-			struct sym *tmp = curr;
+			struct uftrace_symbol *tmp = curr;
 
 			bestname = xstrdup(bestname);
 
@@ -360,7 +360,7 @@ static void sort_symtab(struct symtab *symtab)
 	symtab->name_sorted = true;
 }
 
-static int load_symtab(struct symtab *symtab, const char *filename,
+static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		       unsigned long long offset, unsigned long flags)
 {
 	int ret = -1;
@@ -437,14 +437,14 @@ out:
 	return ret;
 }
 
-static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
+static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx,
 			   unsigned long offset, unsigned long flags,
 			   unsigned long plt_entsize, unsigned long prev_addr,
 			   struct uftrace_elf_data *elf,
 			   struct uftrace_elf_iter *iter)
 {
 	char *name;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	elf_get_symbol(elf, iter, sym_idx);
 	name = elf_get_name(elf, iter, iter->sym.st_name);
@@ -472,7 +472,7 @@ static int load_dyn_symbol(struct symtab *dsymtab, int sym_idx,
 	return 1;
 }
 
-static void sort_dynsymtab(struct symtab *dsymtab)
+static void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 {
 	unsigned i, k;
 
@@ -504,14 +504,14 @@ static void sort_dynsymtab(struct symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-__weak int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
+__weak int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
 				     struct uftrace_elf_data *elf,
 				     unsigned long offset, unsigned long flags)
 {
 	return 0;
 }
 
-int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
+int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags)
 {
 	int ret = -1;
@@ -527,7 +527,7 @@ int load_elf_dynsymtab(struct symtab *dsymtab, struct uftrace_elf_data *elf,
 	struct uftrace_elf_iter dyn_iter;
 	struct uftrace_elf_iter rel_iter;
 	unsigned symidx;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	if (flags & SYMTAB_FL_ADJ_OFFSET) {
 		elf_for_each_phdr(elf, &sec_iter) {
@@ -646,7 +646,7 @@ out:
 	return ret;
 }
 
-static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
+static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
 	int ret;
@@ -664,10 +664,10 @@ static int load_dynsymtab(struct symtab *dsymtab, const char *filename,
 	return ret;
 }
 
-static void merge_symtabs(struct symtab *left, struct symtab *right)
+static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *right)
 {
 	size_t nr_sym = left->nr_sym + right->nr_sym;
-	struct sym *syms;
+	struct uftrace_symbol *syms;
 	size_t i;
 
 	if (right->nr_sym == 0)
@@ -718,7 +718,7 @@ static void merge_symtabs(struct symtab *left, struct symtab *right)
 	left->name_sorted = true;
 }
 
-static int update_symtab_using_dynsym(struct symtab *symtab, const char *filename,
+static int update_symtab_using_dynsym(struct uftrace_symtab *symtab, const char *filename,
 				      unsigned long offset, unsigned long flags)
 {
 	int ret = -1;
@@ -751,7 +751,7 @@ static int update_symtab_using_dynsym(struct symtab *symtab, const char *filenam
 	pr_dbg4("updating symbol name using dynamic symbols\n");
 
 	elf_for_each_dynamic_symbol(&elf, &iter) {
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		char *name;
 		uint64_t addr;
 
@@ -879,7 +879,7 @@ struct uftrace_mmap *find_map_by_name(struct symtabs *symtabs,
 	return NULL;
 }
 
-static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
+static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *symfile,
 				   uint64_t offset)
 {
 	FILE *fp;
@@ -899,7 +899,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 
 	pr_dbg2("loading symbols from %s: offset = %lx\n", symfile, offset);
 	while (getline(&line, &len, fp) > 0) {
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		uint64_t addr;
 		char type;
 		char *name;
@@ -1021,7 +1021,7 @@ static int load_module_symbol_file(struct symtab *symtab, const char *symfile,
 static void load_module_symbol(struct symtabs *symtabs, struct uftrace_module *m)
 {
 	unsigned flags = symtabs->flags;
-	struct symtab dsymtab = {};
+	struct uftrace_symtab dsymtab = {};
 
 	if (flags & SYMTAB_FL_USE_SYMFILE) {
 		char *symfile = NULL;
@@ -1217,7 +1217,7 @@ int check_symbol_file(const char *symfile, char *pathname, int pathlen,
 	return ret;
 }
 
-static bool symbol_is_func(struct sym *sym)
+static bool symbol_is_func(struct uftrace_symbol *sym)
 {
 	switch (sym->type) {
 	case ST_LOCAL_FUNC:
@@ -1255,14 +1255,14 @@ char * make_new_symbol_filename(const char *symfile, const char *pathname,
 }
 
 
-static void save_module_symbol_file(struct symtab *stab, const char *pathname,
+static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pathname,
 				    char *build_id, const char *symfile,
 				    unsigned long offset)
 {
 	FILE *fp;
 	unsigned i;
 	bool prev_was_plt = false;
-	struct sym *sym, *prev;
+	struct uftrace_symbol *sym, *prev;
 	char *newfile = NULL;
 
 	if (stab->nr_sym == 0)
@@ -1412,7 +1412,7 @@ int load_kernel_symbol(char *dirname)
 	return 0;
 }
 
-struct symtab * get_kernel_symtab(void)
+struct uftrace_symtab * get_kernel_symtab(void)
 {
 	return &kernel.symtab;
 }
@@ -1422,7 +1422,8 @@ struct uftrace_module * get_kernel_module(void)
 	return &kernel;
 }
 
-void build_dynsym_idxlist(struct symtab *dsymtab, struct dynsym_idxlist *idxlist,
+void build_dynsym_idxlist(struct uftrace_symtab *dsymtab,
+			  struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
 	unsigned i, k;
@@ -1481,7 +1482,7 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 	struct uftrace_mmap *map;
 
 	for_each_map(symtabs, map) {
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 
 		if (map->mod != NULL) {
 			sym = find_symname(&map->mod->symtab, name);
@@ -1492,15 +1493,15 @@ struct uftrace_mmap * find_symbol_map(struct symtabs *symtabs, char *name)
 	return NULL;
 }
 
-struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
+struct uftrace_symbol * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 {
-	struct symtab *stab;
+	struct uftrace_symtab *stab;
 	struct uftrace_mmap *map;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 
 	map = find_map(symtabs, addr);
 	if (map == MAP_KERNEL) {
-		struct symtab *ktab = get_kernel_symtab();
+		struct uftrace_symtab *ktab = get_kernel_symtab();
 		uint64_t kaddr = get_kernel_address(symtabs, addr);
 
 		if (!ktab)
@@ -1540,12 +1541,12 @@ struct sym * find_symtabs(struct symtabs *symtabs, uint64_t addr)
 	return sym;
 }
 
-struct sym * find_sym(struct symtab *symtab, uint64_t addr)
+struct uftrace_symbol * find_sym(struct uftrace_symtab *symtab, uint64_t addr)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	sym =  bsearch(&addr, symtab->sym, symtab->nr_sym,
-		       sizeof(struct sym), addrfind);
+		       sizeof(struct uftrace_symbol), addrfind);
 
 	if (sym != NULL) {
 		/* these dummy symbols are not part of real symbol table */
@@ -1556,12 +1557,12 @@ struct sym * find_sym(struct symtab *symtab, uint64_t addr)
 	return sym;
 }
 
-struct sym * find_symname(struct symtab *symtab, const char *name)
+struct uftrace_symbol * find_symname(struct uftrace_symtab *symtab, const char *name)
 {
 	size_t i;
 
 	if (symtab->name_sorted) {
-		struct sym **psym;
+		struct uftrace_symbol **psym;
 
 		psym = bsearch(name, symtab->sym_names, symtab->nr_sym,
 			       sizeof(*psym), namefind);
@@ -1572,7 +1573,7 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 	}
 
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = &symtab->sym[i];
+		struct uftrace_symbol *sym = &symtab->sym[i];
 
 		if (!strcmp(name, sym->name))
 			return sym;
@@ -1581,7 +1582,7 @@ struct sym * find_symname(struct symtab *symtab, const char *name)
 	return NULL;
 }
 
-char *symbol_getname(struct sym *sym, uint64_t addr)
+char *symbol_getname(struct uftrace_symbol *sym, uint64_t addr)
 {
 	char *name;
 
@@ -1594,14 +1595,14 @@ char *symbol_getname(struct sym *sym, uint64_t addr)
 }
 
 /* must be used in pair with symbol_getname() */
-void symbol_putname(struct sym *sym, char *name)
+void symbol_putname(struct uftrace_symbol *sym, char *name)
 {
 	if (sym != NULL)
 		return;
 	free(name);
 }
 
-char *symbol_getname_offset(struct sym *sym, uint64_t addr)
+char *symbol_getname_offset(struct uftrace_symbol *sym, uint64_t addr)
 {
 	char *name;
 
@@ -1616,14 +1617,14 @@ char *symbol_getname_offset(struct sym *sym, uint64_t addr)
 	return name;
 }
 
-void print_symtab(struct symtab *symtab)
+void print_symtab(struct uftrace_symtab *symtab)
 {
 	size_t i;
 
 	pr_out("Normal symbols\n");
 	pr_out("==============\n");
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = &symtab->sym[i];
+		struct uftrace_symbol *sym = &symtab->sym[i];
 
 		if (sym->type == ST_PLT_FUNC)
 			continue;
@@ -1636,7 +1637,7 @@ void print_symtab(struct symtab *symtab)
 	pr_out("Dynamic symbols\n");
 	pr_out("===============\n");
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = &symtab->sym[i];
+		struct uftrace_symbol *sym = &symtab->sym[i];
 
 		if (sym->type != ST_PLT_FUNC)
 			continue;
@@ -1737,10 +1738,10 @@ int read_build_id(const char *filename, char *buf, int len)
 #ifdef UNIT_TEST
 
 TEST_CASE(symbol_load_module) {
-	struct symtab stab = {
+	struct uftrace_symtab stab = {
 		.nr_alloc = 0,
 	};
-	struct sym mixed_sym[] = {
+	struct uftrace_symbol mixed_sym[] = {
 		{ 0x100, 256, ST_PLT_FUNC, "plt1" },
 		{ 0x200, 256, ST_PLT_FUNC, "plt2" },
 		{ 0x300, 256, ST_PLT_FUNC, "plt3" },
@@ -1748,7 +1749,7 @@ TEST_CASE(symbol_load_module) {
 		{ 0x1200, 256, ST_LOCAL_FUNC,  "normal2" },
 		{ 0x1300, 256, ST_GLOBAL_FUNC, "normal3" },
 	};
-	struct symtab test = {
+	struct uftrace_symtab test = {
 		.nr_sym = 0,
 	};
 	char symfile[] = "SYM.sym";
@@ -1768,7 +1769,7 @@ TEST_CASE(symbol_load_module) {
 	pr_dbg("check PLT symbols first\n");
 	TEST_EQ(test.nr_sym, ARRAY_SIZE(mixed_sym));
 	for (i = 0; i < 3; i++) {
-		struct sym *sym = &test.sym[i];
+		struct uftrace_symbol *sym = &test.sym[i];
 
 		TEST_EQ(sym->addr, stab.sym[i].addr);
 		TEST_EQ(sym->size, stab.sym[i].size);
@@ -1778,7 +1779,7 @@ TEST_CASE(symbol_load_module) {
 
 	pr_dbg("check normal symbols\n");
 	for (i = 3; i < 6; i++) {
-		struct sym *sym = &test.sym[i];
+		struct uftrace_symbol *sym = &test.sym[i];
 
 		TEST_EQ(sym->addr, stab.sym[i].addr);
 		TEST_EQ(sym->size, stab.sym[i].size);
@@ -1831,7 +1832,7 @@ TEST_CASE(symbol_load_map) {
 		.flags = SYMTAB_FL_ADJ_OFFSET,
 	};
 	struct uftrace_mmap *map;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	pr_dbg("load a real map file of the unittest binary\n");
 
@@ -1897,12 +1898,12 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	const char mod2_name[] = "/different/path/name";
 	const char mod1_build_id[] = "1234567890abcdef";
 	const char mod2_build_id[] = "DUMMY-BUILD-ID";
-	static struct sym mod1_syms[] = {
+	static struct uftrace_symbol mod1_syms[] = {
 		{ 0x1000, 0x1000, ST_PLT_FUNC, "func1" },
 		{ 0x2000, 0x1000, ST_LOCAL_FUNC, "func2" },
 		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "func3" },
 	};
-	static struct sym mod2_syms[] = {
+	static struct uftrace_symbol mod2_syms[] = {
 		{ 0x5000, 0x1000, ST_PLT_FUNC, "funcA" },
 		{ 0x6000, 0x1000, ST_PLT_FUNC, "funcB" },
 		{ 0x7000, 0x1000, ST_PLT_FUNC, "funcC" },
@@ -1962,8 +1963,8 @@ TEST_CASE(symbol_same_file_name1) {
 	pr_dbg("check symbol table contents of module1\n");
 	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);
 	for (i = 0; i < load_mod[0]->symtab.nr_sym; i++) {
-		struct sym *save_sym = &save_mod[0]->symtab.sym[i];
-		struct sym *load_sym = &load_mod[0]->symtab.sym[i];
+		struct uftrace_symbol *save_sym = &save_mod[0]->symtab.sym[i];
+		struct uftrace_symbol *load_sym = &load_mod[0]->symtab.sym[i];
 
 		TEST_EQ(save_sym->addr, load_sym->addr);
 		TEST_EQ(save_sym->size, load_sym->size);
@@ -1974,8 +1975,8 @@ TEST_CASE(symbol_same_file_name1) {
 	pr_dbg("check symbol table contents of module2\n");
 	TEST_EQ(save_mod[1]->symtab.nr_sym, load_mod[1]->symtab.nr_sym);
 	for (i = 0; i < load_mod[1]->symtab.nr_sym; i++) {
-		struct sym *save_sym = &save_mod[1]->symtab.sym[i];
-		struct sym *load_sym = &load_mod[1]->symtab.sym[i];
+		struct uftrace_symbol *save_sym = &save_mod[1]->symtab.sym[i];
+		struct uftrace_symbol *load_sym = &load_mod[1]->symtab.sym[i];
 
 		TEST_EQ(save_sym->addr, load_sym->addr);
 		TEST_EQ(save_sym->size, load_sym->size);
@@ -2029,8 +2030,8 @@ TEST_CASE(symbol_same_file_name2) {
 	pr_dbg("check symbol table contents of module1\n");
 	TEST_EQ(save_mod[0]->symtab.nr_sym, load_mod[0]->symtab.nr_sym);
 	for (i = 0; i < load_mod[0]->symtab.nr_sym; i++) {
-		struct sym *save_sym = &save_mod[0]->symtab.sym[i];
-		struct sym *load_sym = &load_mod[0]->symtab.sym[i];
+		struct uftrace_symbol *save_sym = &save_mod[0]->symtab.sym[i];
+		struct uftrace_symbol *load_sym = &load_mod[0]->symtab.sym[i];
 
 		TEST_EQ(save_sym->addr, load_sym->addr);
 		TEST_EQ(save_sym->size, load_sym->size);
@@ -2041,8 +2042,8 @@ TEST_CASE(symbol_same_file_name2) {
 	pr_dbg("check symbol table contents of module2\n");
 	TEST_EQ(save_mod[1]->symtab.nr_sym, load_mod[1]->symtab.nr_sym);
 	for (i = 0; i < load_mod[1]->symtab.nr_sym; i++) {
-		struct sym *save_sym = &save_mod[1]->symtab.sym[i];
-		struct sym *load_sym = &load_mod[1]->symtab.sym[i];
+		struct uftrace_symbol *save_sym = &save_mod[1]->symtab.sym[i];
+		struct uftrace_symbol *load_sym = &load_mod[1]->symtab.sym[i];
 
 		TEST_EQ(save_sym->addr, load_sym->addr);
 		TEST_EQ(save_sym->size, load_sym->size);

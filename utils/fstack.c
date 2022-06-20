@@ -853,7 +853,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 	while (true) {
 		struct uftrace_record *next_stack = next->rstack;
 		struct uftrace_trigger tr = { 0 };
-		struct sym *sym = task_find_sym(sessions, task, next_stack);
+		struct uftrace_symbol *sym = task_find_sym(sessions, task, next_stack);
 
 		/* skip filtered entries until current matching EXIT records */
 		if (next == task && curr_stack == next_stack &&
@@ -1456,7 +1456,7 @@ int read_task_ustack(struct uftrace_data *handle,
 			read_task_event(task, &task->ustack);
 
 		if (unlikely(task->args.args == NULL || task->args.len == 0)) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			char *symname;
 
 			/* there might be zero-length struct as a return value */
@@ -2502,8 +2502,8 @@ static int fstack_test_setup_single(struct uftrace_data *handle)
 static int fstack_test_setup_exec(struct uftrace_data *handle)
 {
 	struct uftrace_record *exec_tests[] = { exec_record, };
-	static struct sym exec_sym = { .addr = 0x3000, .size = 16,
-				       .name = "execve", .type = ST_PLT_FUNC, };
+	static struct uftrace_symbol exec_sym = { .addr = 0x3000, .size = 16,
+						  .name = "execve", .type = ST_PLT_FUNC, };
 	static struct uftrace_module exec_mod = {
 		.symtab = { .sym = &exec_sym, .nr_sym = 1, },
 	};

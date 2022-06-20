@@ -8,7 +8,7 @@
 #include "uftrace.h"
 #include "utils/filter.h"
 
-struct sym;
+struct uftrace_symbol;
 
 enum fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
@@ -42,7 +42,7 @@ struct uftrace_task_reader {
 	bool display_depth_set;
 	bool fstack_warned;
 	FILE *fp;
-	struct sym *func;
+	struct uftrace_symbol *func;
 	struct uftrace_task *t;
 	struct uftrace_data *h;
 	struct uftrace_record ustack;

@@ -647,7 +647,7 @@ out:
 
 TEST_CASE(dynamic_x86_handle_lea)
 {
-	struct sym sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = { .name = "abc", .addr = 0x3000, .size = 32, };
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
 		.sym  = &sym,
@@ -706,8 +706,8 @@ TEST_CASE(dynamic_x86_handle_lea)
 
 TEST_CASE(dynamic_x86_handle_call)
 {
-	struct sym sym1 = { .name = "a", .addr = 0x3000, .size = 32, };
-	struct sym sym2 = { .name = "b", .addr = 0x4000, .size = 32, };
+	struct uftrace_symbol sym1 = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym2 = { .name = "b", .addr = 0x4000, .size = 32, };
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
 		.sym  = &sym1,
@@ -778,7 +778,7 @@ TEST_CASE(dynamic_x86_handle_call)
 
 TEST_CASE(dynamic_x86_handle_jmp)
 {
-	struct sym sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = { .name = "a", .addr = 0x3000, .size = 32, };
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
 		.sym  = &sym,
@@ -876,7 +876,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 
 TEST_CASE(dynamic_x86_handle_jcc)
 {
-	struct sym sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = { .name = "a", .addr = 0x3000, .size = 32, };
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
 		.sym  = &sym,
@@ -978,7 +978,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 
 TEST_CASE(dynamic_x86_handle_mov_load)
 {
-	struct sym sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = { .name = "abc", .addr = 0x3000, .size = 32, };
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
 		.sym  = &sym,

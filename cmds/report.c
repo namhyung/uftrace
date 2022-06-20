@@ -42,7 +42,7 @@ static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 			     uint64_t timestamp, uint64_t addr, bool needs_srcline)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *symname;
 	struct debug_location *loc = NULL;
 
@@ -122,7 +122,7 @@ static void build_function_tree(struct uftrace_data *handle,
 				struct rb_root *root, struct opts *opts)
 {
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	struct uftrace_record *rstack;
 	struct uftrace_task_reader *task;
 	uint64_t addr;

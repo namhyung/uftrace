@@ -721,7 +721,7 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	pr_warn("=====================================\n");
 
 	while (rstack >= mtdp->rstack) {
-		struct sym *parent, *child;
+		struct uftrace_symbol *parent, *child;
 		char *pname, *cname;
 
 		parent = find_symtabs(&symtabs, rstack->parent_ip);
@@ -949,7 +949,7 @@ static void script_hook_entry(struct mcount_thread_data *mtdp,
 {
 	struct script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
-	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	struct uftrace_symbol *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
 
 	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
@@ -971,7 +971,7 @@ static void script_hook_exit(struct mcount_thread_data *mtdp,
 {
 	struct script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
-	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	struct uftrace_symbol *sym = find_symtabs(&symtabs, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
 
 	if (script_save_context(&sc_ctx, mtdp, rstack, symname,

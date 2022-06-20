@@ -254,7 +254,7 @@ static void print_backtrace(struct uftrace_task_reader *task)
 
 	for (i = 0; i < task->stack_count - 1; i++) {
 		struct display_field *field;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		char *name;
 		struct fstack *fstack = fstack_get(task, i);
 		struct field_data fd = {
@@ -318,7 +318,7 @@ static int print_flat_rstack(struct uftrace_data *handle,
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	char *name;
 	struct fstack *fstack;
 
@@ -623,7 +623,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 		}
 		else if (spec->fmt == ARG_FMT_PTR) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 
 			memcpy(val.v, data, spec->size);
 			sym = task_find_sym_addr(sessions, task,
@@ -737,7 +737,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 {
 	struct uftrace_record *rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	enum argspec_string_bits str_mode = 0;
 	char *symname = NULL;
 	char args[1024];
@@ -1013,7 +1013,7 @@ static void print_warning(struct uftrace_task_reader *task)
 
 static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct fstack *fstack;
 
 	fstack = fstack_get(task, 0);
@@ -1112,7 +1112,7 @@ static void print_remaining_stack(struct opts *opts,
 		while (task->stack_count-- > 0) {
 			uint64_t time;
 			uint64_t ip;
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			char *symname;
 
 			fstack = fstack_get(task, task->stack_count);

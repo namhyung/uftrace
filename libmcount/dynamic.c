@@ -220,21 +220,23 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
 }
 
-__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+__weak int mcount_patch_func(struct mcount_dynamic_info *mdi,
+			     struct uftrace_symbol *sym,
 			     struct mcount_disasm_engine *disasm,
 			     unsigned min_size)
 {
 	return -1;
 }
 
-__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi,
+			       struct uftrace_symbol *sym,
 			       struct mcount_disasm_engine *disasm)
 {
 	return -1;
 }
 
 __weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-				    struct symtab *symtab)
+				    struct uftrace_symtab *symtab)
 {
 }
 
@@ -475,7 +477,7 @@ static void release_pattern_list(void)
 	}
 }
 
-static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
+static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi,
 		     struct uftrace_mmap *map, char *soname)
 {
 	/* skip special startup (csu) functions */
@@ -506,7 +508,7 @@ static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
 }
 
 static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
-					 struct sym *sym)
+					 struct uftrace_symbol *sym)
 {
 	switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
 	case INSTRUMENT_FAILED:
@@ -525,12 +527,12 @@ static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
 static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 					 struct uftrace_mmap *map)
 {
-	struct symtab *symtab;
+	struct uftrace_symtab *symtab;
 	unsigned long *patchable_loc = mdi->patch_target;
 	unsigned i;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char namebuf[BUFSIZ];
-	struct sym fake_sym = {
+	struct uftrace_symbol fake_sym = {
 		.size = UINT_MAX,
 		.name = namebuf,
 	};
@@ -544,7 +546,7 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 	 */
 	for (i = 0; i < mdi->nr_patch_target; i++) {
 		uint64_t rel_addr = patchable_loc[i];
-		struct sym *searched_sym = find_sym(symtab, rel_addr);
+		struct uftrace_symbol *searched_sym = find_sym(symtab, rel_addr);
 
 		if (searched_sym == NULL) {
 			sym = &fake_sym;
@@ -566,9 +568,9 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
 				      struct uftrace_mmap *map)
 {
-	struct symtab *symtab;
+	struct uftrace_symtab *symtab;
 	unsigned i;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	bool found = false;
 	char *soname = get_soname(map->libname);
 
@@ -752,7 +754,7 @@ void mcount_dynamic_finish(void)
 struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 					       unsigned long addr)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct dynamic_bad_symbol *badsym;
 
 	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
@@ -770,7 +772,7 @@ struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 		       unsigned long target)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct dynamic_bad_symbol *badsym;
 
 	if (mcount_find_badsym(mdi, target))
@@ -901,7 +903,7 @@ static int setup_test_map(struct dl_phdr_info *info, size_t sz, void *data)
 	struct mcount_dynamic_info *mdi;
 	struct uftrace_mmap *map;
 	struct uftrace_module *mod;
-	static struct sym syms[] = {
+	static struct uftrace_symbol syms[] = {
 		{ 0x100, 0x100, ST_LOCAL_FUNC, "a" },
 		{ 0x200, 0x100, ST_LOCAL_FUNC, "b" },
 		{ 0x300, 0x100, ST_LOCAL_FUNC, "c" },

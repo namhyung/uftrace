@@ -1331,7 +1331,7 @@ static int get_argspec(Dwarf_Die *die, void *data)
 
 struct build_data {
 	struct debug_info	*dinfo;
-	struct symtab		*symtab;
+	struct uftrace_symtab	*symtab;
 	int			nr_args;
 	int			nr_rets;
 	struct uftrace_pattern	*args;
@@ -1365,7 +1365,7 @@ static char *find_last_component(char *name)
 	return p;
 }
 
-static bool match_name(struct sym *sym, char *name)
+static bool match_name(struct uftrace_symbol *sym, char *name)
 {
 	bool ret;
 
@@ -1411,7 +1411,7 @@ static bool match_name(struct sym *sym, char *name)
 }
 
 static void get_source_location(Dwarf_Die *die, struct build_data *bd,
-				struct sym *sym)
+				struct uftrace_symbol *sym)
 {
 	ptrdiff_t sym_idx;
 	const char *filename;
@@ -1468,7 +1468,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	struct arg_data ad;
 	char *name = NULL;
 	Dwarf_Addr offset;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	int i;
 
 	if (uftrace_done)
@@ -1646,7 +1646,7 @@ static char* get_base_comp_dir(struct rb_root *dirs)
 	return max->name;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
+static void build_dwarf_info(struct debug_info *dinfo, struct uftrace_symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -1742,7 +1742,7 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 	return 0;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
+static void build_dwarf_info(struct debug_info *dinfo, struct uftrace_symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -1848,7 +1848,7 @@ void prepare_debug_info(struct symtabs *symtabs,
 	pr_dbg("prepare debug info\n");
 
 	for_each_map(symtabs, map) {
-		struct symtab *stab = &map->mod->symtab;
+		struct uftrace_symtab *stab = &map->mod->symtab;
 		struct debug_info *dinfo = &map->mod->dinfo;
 
 		if (map->mod == NULL || map->mod->dinfo.loaded)
@@ -2069,7 +2069,7 @@ void save_debug_info(struct symtabs *symtabs, const char *dirname)
 	}
 }
 
-static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
+static int load_debug_file(struct debug_info *dinfo, struct uftrace_symtab *symtab,
 			   const char *dirname, const char *filename,
 			   char *build_id, bool needs_srcline)
 {
@@ -2122,7 +2122,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	while (getline(&line, &len, fp) >= 0) {
 		char *pos;
 		struct rb_root *root = &dinfo->args;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		ptrdiff_t sym_idx;
 		unsigned long lineno;
 
@@ -2203,7 +2203,7 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 
 	for_each_map(symtabs, map) {
 		struct uftrace_module *mod = map->mod;
-		struct symtab *stab;
+		struct uftrace_symtab *stab;
 		struct debug_info *dinfo;
 
 		if (map->mod == NULL)
@@ -2237,9 +2237,9 @@ char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long add
 struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
 {
 	struct uftrace_mmap *map;
-	struct symtab *symtab;
+	struct uftrace_symtab *symtab;
 	struct debug_info *dinfo;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	ptrdiff_t idx;
 
 	map = find_map(symtabs, addr);
@@ -2375,7 +2375,7 @@ static void setup_test_debug_info(struct uftrace_module *mod)
 
 	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 	for (i = 0; i < dinfo->nr_locs; i++) {
-		struct sym *sym = &mod->symtab.sym[i];
+		struct uftrace_symbol *sym = &mod->symtab.sym[i];
 		struct debug_location *loc = &dinfo->locs[i];
 		char argspec[32];
 
@@ -2397,12 +2397,12 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	const char mod2_name[] = "/different/path/name";
 	const char mod1_build_id[] = "1234567890abcdef";
 	const char mod2_build_id[] = "DUMMY-BUILD-ID";
-	static struct sym mod1_syms[] = {
+	static struct uftrace_symbol mod1_syms[] = {
 		{ 0x1000, 0x1000, ST_PLT_FUNC, "func1" },
 		{ 0x2000, 0x1000, ST_LOCAL_FUNC, "func2" },
 		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "func3" },
 	};
-	static struct sym mod2_syms[] = {
+	static struct uftrace_symbol mod2_syms[] = {
 		{ 0x5000, 0x1000, ST_PLT_FUNC, "funcA" },
 		{ 0x6000, 0x1000, ST_PLT_FUNC, "funcB" },
 		{ 0x7000, 0x1000, ST_PLT_FUNC, "funcC" },

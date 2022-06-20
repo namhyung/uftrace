@@ -357,7 +357,7 @@ static int print_backtrace(struct session_graph *graph)
 {
 	int i = 0, k;
 	struct graph_backtrace *bt;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *symname;
 
 	list_for_each_entry(bt, &graph->bt_list, list) {
@@ -534,7 +534,7 @@ static void build_graph_node(struct opts *opts,
 			     uint64_t addr, int type, char *func)
 {
 	struct task_graph *tg;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	char *name;
 	struct debug_location *loc = NULL;
 

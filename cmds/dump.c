@@ -354,7 +354,7 @@ static void pr_args(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_PTR) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			unsigned long val = 0;
 
 			memcpy(&val, ptr, spec->size);
@@ -466,7 +466,7 @@ static void pr_retval(struct fstack_arguments *args)
 			size += 2;
 		}
 		else if (spec->fmt == ARG_FMT_PTR) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			unsigned long val = 0;
 
 			memcpy(&val, ptr, spec->size);
@@ -1323,7 +1323,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 
 		while (!read_task_ustack(handle, task) && !uftrace_done) {
 			struct uftrace_record *frs = &task->ustack;
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			char *name;
 
 			if (frs->more) {
@@ -1382,7 +1382,7 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct opts *opts,
 		while (!read_kernel_cpu_data(kernel, i) && !uftrace_done) {
 			int tid = kernel->tids[i];
 			int losts = kernel->missed_events[i];
-			struct sym *sym = NULL;
+			struct uftrace_symbol *sym = NULL;
 			char *name;
 			uint64_t addr;
 
@@ -1464,7 +1464,7 @@ static void dump_replay_func(struct uftrace_dump_ops *ops,
 {
 	struct uftrace_record *rec = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *name;
 
 	sym = task_find_sym(sessions, task, rec);

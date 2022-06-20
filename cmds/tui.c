@@ -508,7 +508,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
 	struct tui_graph_node *graph_node;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *name;
 	uint64_t addr = rec->addr;
 
@@ -568,7 +568,7 @@ static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
 	struct fstack *fstack;
 	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *tg;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *name;
 	int i;
 

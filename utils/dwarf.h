@@ -24,7 +24,7 @@ struct debug_file {
 };
 
 struct debug_location {
-	struct sym		*sym;
+	struct uftrace_symbol	*sym;
 	struct debug_file	*file;
 	int			line;
 };

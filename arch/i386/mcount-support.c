@@ -199,7 +199,7 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
                                             unsigned long child_ip)
 {
 	if (!search_main_ret) {
-		struct sym *parent_sym, *child_sym;
+		struct uftrace_symbol *parent_sym, *child_sym;
 		char *parent_name, *child_name;
 
 		const char *find_main[] = {

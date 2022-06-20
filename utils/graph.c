@@ -99,7 +99,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 		node->loc = loc;
 
 		if (uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			struct uftrace_special_node *snode;
 			enum uftrace_graph_node_type type = NODE_T_NORMAL;
 

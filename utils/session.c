@@ -379,11 +379,11 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
  * @sess using @addr.  The @timestamp is needed to determine which
  * library should be searched.
  */
-struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
-				unsigned long addr)
+struct uftrace_symbol * session_find_dlsym(struct uftrace_session *sess,
+					   uint64_t timestamp, unsigned long addr)
 {
 	struct uftrace_dlopen_list *pos;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	list_for_each_entry_reverse(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
@@ -665,13 +665,13 @@ void walk_tasks(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct sym * task_find_sym(struct uftrace_session_link *sessions,
-			   struct uftrace_task_reader *task,
-			   struct uftrace_record *rec)
+struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sessions,
+				      struct uftrace_task_reader *task,
+				      struct uftrace_record *rec)
 {
 	struct uftrace_session *sess;
 	struct symtabs *symtabs;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	uint64_t addr = rec->addr;
 
 	sess = find_task_session(sessions, task->t, rec->time);
@@ -703,12 +703,12 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr)
+struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions,
+					   struct uftrace_task_reader *task,
+					   uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 
 	sess = find_task_session(sessions, task->t, time);
 
@@ -750,7 +750,7 @@ struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions
 				uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	struct uftrace_mmap *map;
 	struct debug_info *dinfo;
 	struct debug_location *loc;
@@ -1086,7 +1086,7 @@ TEST_CASE(task_search)
 
 TEST_CASE(task_symbol)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,
@@ -1145,7 +1145,7 @@ TEST_CASE(task_symbol)
 
 TEST_CASE(task_symbol_dlopen)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,

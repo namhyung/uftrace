@@ -28,7 +28,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	char *symname = NULL;
 
 	sym = task_find_sym(sessions, task, rstack);

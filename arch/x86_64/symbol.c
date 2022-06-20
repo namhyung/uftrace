@@ -17,7 +17,7 @@
 #define JMP_INSN_SIZE 6
 #define PLTGOT_SIZE   8
 
-int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
+int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
 			      struct uftrace_elf_data *elf,
 			      unsigned long offset, unsigned long flags)
 {
@@ -51,7 +51,7 @@ int arch_load_dynsymtab_noplt(struct symtab *dsymtab,
 		return 0;
 
 	elf_for_each_rela(elf, &rel_iter) {
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		int symidx;
 		char *name;
 
@@ -123,7 +123,7 @@ void mcount_arch_plthook_setup(struct plthook_data *pd,
 unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct plthook_arch_context *ctx = pd->arch;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	if (ctx->has_plt_sec) {
 		unsigned long sym_addr;
