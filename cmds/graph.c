@@ -174,13 +174,13 @@ static struct display_field *field_task_table[] = {
 	&field_task_tid,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, field_table[GRAPH_F_TOTAL_TIME]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+static void setup_default_task_field(struct list_head *fields, struct uftrace_opts *opts,
 				     struct display_field *p_field_table[])
 {
 	add_field(fields, field_task_table[GRAPH_F_TASK_TOTAL_TIME]);
@@ -227,7 +227,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 	return 0;
 }
 
-static void setup_graph_list(struct uftrace_data *handle, struct opts *opts,
+static void setup_graph_list(struct uftrace_data *handle, struct uftrace_opts *opts,
 			     char *func)
 {
 	struct session_graph *graph;
@@ -492,7 +492,7 @@ static void print_graph_node(struct uftrace_graph *graph,
 	pr_dbg2("del mask (%d) for %s\n", orig_indent, symname);
 }
 
-static int print_graph(struct session_graph *graph, struct opts *opts)
+static int print_graph(struct session_graph *graph, struct uftrace_opts *opts)
 {
 	bool *indent_mask;
 
@@ -529,7 +529,7 @@ static int print_graph(struct session_graph *graph, struct opts *opts)
 	return 1;
 }
 
-static void build_graph_node(struct opts *opts,
+static void build_graph_node(struct uftrace_opts *opts,
 			     struct uftrace_task_reader *task, uint64_t time,
 			     uint64_t addr, int type, char *func)
 {
@@ -580,7 +580,7 @@ out:
 	symbol_putname(sym, name);
 }
 
-static void build_graph(struct opts *opts, struct uftrace_data *handle,
+static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle,
 		       char *func)
 {
 	struct uftrace_task_reader *task;
@@ -741,7 +741,7 @@ static int find_func(struct uftrace_session *s, void *arg)
 	return data->found;
 }
 
-static void synthesize_depth_trigger(struct opts *opts,
+static void synthesize_depth_trigger(struct uftrace_opts *opts,
 				     struct uftrace_data *handle,
 				     char *func)
 {
@@ -774,7 +774,7 @@ static void reset_task_runtime(struct uftrace_data *handle)
 	}
 }
 
-static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
+static void graph_build_task(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	struct uftrace_task_reader *task;
 	struct uftrace_task *t;
@@ -833,7 +833,7 @@ static void graph_build_task(struct opts *opts, struct uftrace_data *handle)
 }
 
 /* returns true if any of child has more runtime than the filter */
-static bool check_time_filter(struct uftrace_task *task, struct opts *opts)
+static bool check_time_filter(struct uftrace_task *task, struct uftrace_opts *opts)
 {
 	struct uftrace_task *child;
 
@@ -848,7 +848,7 @@ static bool check_time_filter(struct uftrace_task *task, struct opts *opts)
 
 static bool is_last_child(struct uftrace_task *task,
 			  struct uftrace_task *parent,
-			  struct opts *opts)
+			  struct uftrace_opts *opts)
 {
 	if (list_is_singular(&parent->children) ||
 	    parent->children.prev == &task->siblings)
@@ -866,7 +866,7 @@ static bool is_last_child(struct uftrace_task *task,
 static bool print_task_node(struct uftrace_task *task,
 			    struct uftrace_task *parent,
 			    bool *indent_mask, int indent,
-			    struct opts *opts)
+			    struct uftrace_opts *opts)
 {
 	char *name = task->comm;
 	struct uftrace_task *child;
@@ -942,7 +942,7 @@ static bool print_task_node(struct uftrace_task *task,
 	return blank;
 }
 
-static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
+static int graph_print_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	bool *indent_mask;
 	struct uftrace_task *task;
@@ -972,7 +972,7 @@ static int graph_print_task(struct uftrace_data *handle, struct opts *opts)
 	return 1;
 }
 
-int command_graph(int argc, char *argv[], struct opts *opts)
+int command_graph(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;

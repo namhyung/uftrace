@@ -24,7 +24,7 @@
 
 static int run_script_for_rstack(struct uftrace_data *handle,
 				 struct uftrace_task_reader *task,
-				 struct opts *opts)
+				 struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
@@ -143,7 +143,7 @@ out:
 	return 0;
 }
 
-int command_script(int argc, char *argv[], struct opts *opts)
+int command_script(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;

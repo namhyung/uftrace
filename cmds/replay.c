@@ -223,7 +223,7 @@ static void print_field(struct uftrace_task_reader *task,
 		pr_out(" | ");
 }
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	if (opts->range.start > 0 || opts->range.stop > 0) {
@@ -236,7 +236,8 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
-static int task_column_depth(struct uftrace_task_reader *task, struct opts *opts)
+static int task_column_depth(struct uftrace_task_reader *task,
+			     struct uftrace_opts *opts)
 {
 	if (!opts->column_view)
 		return 0;
@@ -313,7 +314,7 @@ static void print_event(struct uftrace_task_reader *task,
 
 static int print_flat_rstack(struct uftrace_data *handle,
 			     struct uftrace_task_reader *task,
-			     struct opts *opts)
+			     struct uftrace_opts *opts)
 {
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
@@ -733,7 +734,7 @@ next:
 
 static int print_graph_rstack(struct uftrace_data *handle,
 			      struct uftrace_task_reader *task,
-			      struct opts *opts)
+			      struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
@@ -1011,7 +1012,7 @@ static void print_warning(struct uftrace_task_reader *task)
 	       (task->display_depth + 1) * 2, "");
 }
 
-static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
+static bool skip_sys_exit(struct uftrace_opts *opts, struct uftrace_task_reader *task)
 {
 	struct uftrace_symbol *sym;
 	struct fstack *fstack;
@@ -1037,7 +1038,7 @@ static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 	return false;
 }
 
-static void print_remaining_stack(struct opts *opts,
+static void print_remaining_stack(struct uftrace_opts *opts,
 				  struct uftrace_data *handle)
 {
 	int i, k;
@@ -1135,7 +1136,7 @@ static void print_remaining_stack(struct opts *opts,
 	}
 }
 
-int command_replay(int argc, char *argv[], struct opts *opts)
+int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	uint64_t prev_time = 0;

@@ -22,7 +22,7 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
-static void reset_live_opts(struct opts *opts)
+static void reset_live_opts(struct uftrace_opts *opts)
 {
 	/* this is needed to set display_depth at replay */
 	live_disabled = opts->disabled;
@@ -49,7 +49,7 @@ static void sigsegv_handler(int sig)
 	raise(sig);
 }
 
-static bool can_skip_replay(struct opts *opts, int record_result)
+static bool can_skip_replay(struct uftrace_opts *opts, int record_result)
 {
 	if (opts->nop)
 		return true;
@@ -57,7 +57,7 @@ static bool can_skip_replay(struct opts *opts, int record_result)
 	return false;
 }
 
-static void setup_child_environ(struct opts *opts)
+static void setup_child_environ(struct uftrace_opts *opts)
 {
 	char *old_preload, *libpath;
 
@@ -96,7 +96,7 @@ static void setup_child_environ(struct opts *opts)
 	free(libpath);
 }
 
-int command_live(int argc, char *argv[], struct opts *opts)
+int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	char template[32] = "/tmp/uftrace-live-XXXXXX";
 	int fd;

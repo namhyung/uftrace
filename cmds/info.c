@@ -32,7 +32,7 @@ struct read_handler_arg {
 struct fill_handler_arg {
 	int fd;
 	int exit_status;
-	struct opts *opts;
+	struct uftrace_opts *opts;
 	struct rusage *rusage;
 	char *elapsed_time;
 	char buf[PATH_MAX];
@@ -858,8 +858,8 @@ struct uftrace_info_handler {
 	int (*handler)(void *arg);
 };
 
-void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
-		      struct rusage *rusage, char *elapsed_time)
+void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts,
+		       int status, struct rusage *rusage, char *elapsed_time)
 {
 	size_t i;
 	off_t offset;
@@ -974,7 +974,7 @@ static void print_info(void *unused, const char *fmt, ...)
 	va_end(ap);
 }
 
-void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
+void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data)
 {
@@ -1219,7 +1219,7 @@ static void print_task_info(struct uftrace_data *handle)
 	}
 }
 
-int command_info(int argc, char *argv[], struct opts *opts)
+int command_info(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;

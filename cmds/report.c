@@ -56,7 +56,7 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 }
 
 static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task,
-			    struct opts *opts)
+			    struct uftrace_opts *opts)
 {
 	struct fstack *fstack;
 
@@ -75,7 +75,7 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 }
 
 static void add_remaining_fstack(struct uftrace_data *handle,
-				 struct rb_root *root, struct opts *opts)
+				 struct rb_root *root, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *task;
 	struct fstack *fstack;
@@ -119,7 +119,7 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 }
 
 static void build_function_tree(struct uftrace_data *handle,
-				struct rb_root *root, struct opts *opts)
+				struct rb_root *root, struct uftrace_opts *opts)
 {
 	struct uftrace_session_link *sessions = &handle->sessions;
 	struct uftrace_symbol *sym = NULL;
@@ -236,7 +236,7 @@ static void print_line(struct list_head *output_fields, int space)
 	pr_out("%-.*s\n", maxlen, line);
 }
 
-static void report_functions(struct uftrace_data *handle, struct opts *opts)
+static void report_functions(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct rb_root name_root = RB_ROOT;
 	struct rb_root sort_root = RB_ROOT;
@@ -353,7 +353,7 @@ static void print_task(struct uftrace_report_node *node, void *arg, int space)
 	pr_out("%-16s\n", t->comm);
 }
 
-static void report_task(struct uftrace_data *handle, struct opts *opts)
+static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
@@ -420,9 +420,9 @@ struct diff_data {
 	struct uftrace_data		handle;
 };
 
-static void report_diff(struct uftrace_data *handle, struct opts *opts)
+static void report_diff(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
-	struct opts dummy_opts = {
+	struct uftrace_opts dummy_opts = {
 		.dirname = opts->diff,
 		.kernel  = opts->kernel,
 		.depth   = opts->depth,
@@ -477,7 +477,7 @@ out:
 	__close_data_file(&dummy_opts, &data.handle, false);
 }
 
-int command_report(int argc, char *argv[], struct opts *opts)
+int command_report(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	char *sort_keys;

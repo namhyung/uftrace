@@ -72,7 +72,7 @@ int report_setup_task(const char *key_str);
 void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 		       struct rb_root *sort_root);
 
-void setup_report_field(struct list_head *output_fields, struct opts *opts,
+void setup_report_field(struct list_head *output_fields, struct uftrace_opts *opts,
 			enum avg_mode avg_mode);
 
 #endif /* UFTRACE_REPORT_H */

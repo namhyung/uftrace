@@ -150,7 +150,7 @@ static inline bool is_extern_record(struct uftrace_task_reader *task,
 void setup_fstack_args(char *argspec, char *retspec,
 		       struct uftrace_data *handle,
 		       struct uftrace_filter_setting *setting);
-int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle);
+int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle);
 
 struct fstack * fstack_get(struct uftrace_task_reader *task, int idx);
 int fstack_entry(struct uftrace_task_reader *task,
@@ -161,9 +161,9 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 		  struct fstack *fstack);
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, struct opts *opts);
+				       int curr_depth, struct uftrace_opts *opts);
 bool fstack_check_filter(struct uftrace_task_reader *task);
-bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
+bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *opts);
 void fstack_check_filter_done(struct uftrace_task_reader *task);
 
 bool is_sched_event(uint64_t addr);
@@ -182,7 +182,7 @@ struct uftrace_extern_reader {
 	struct uftrace_record	rec;
 };
 
-int setup_extern_data(struct uftrace_data *handle, struct opts *opts);
+int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts);
 int read_extern_data(struct uftrace_extern_reader *extn);
 struct uftrace_record * get_extern_record(struct uftrace_extern_reader *extn,
 					  struct uftrace_record *rec);

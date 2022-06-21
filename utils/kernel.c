@@ -630,7 +630,7 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts)
+int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct uftrace_opts *opts)
 {
 	int i, n;
 	int ret;

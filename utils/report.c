@@ -987,7 +987,7 @@ static struct display_field *field_task_table[] = {
 	&field_task_nr_func,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
@@ -995,7 +995,7 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_CALL]);
 }
 
-static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_total_field(struct list_head *fields, struct uftrace_opts *opts,
 				  struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_AVG]);
@@ -1003,7 +1003,7 @@ static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MAX]);
 }
 
-static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_self_field(struct list_head *fields, struct uftrace_opts *opts,
 				 struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_AVG]);
@@ -1011,7 +1011,7 @@ static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+static void setup_default_task_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TASK_TOTAL_TIME]);
@@ -1020,7 +1020,7 @@ static void setup_default_task_field(struct list_head *fields, struct opts *opts
 	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
 }
 
-void setup_report_field(struct list_head *output_fields, struct opts *opts,
+void setup_report_field(struct list_head *output_fields, struct uftrace_opts *opts,
 			enum avg_mode avg_mode)
 {
 	struct display_field **f_table;

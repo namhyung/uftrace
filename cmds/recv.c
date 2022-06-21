@@ -26,7 +26,7 @@ struct client_data {
 
 static LIST_HEAD(client_list);
 
-static int server_socket(struct opts *opts)
+static int server_socket(struct uftrace_opts *opts)
 {
 	int sock;
 	int on = 1;
@@ -54,7 +54,7 @@ static int server_socket(struct opts *opts)
 	return sock;
 }
 
-static int signal_fd(struct opts *opts)
+static int signal_fd(struct uftrace_opts *opts)
 {
 	int fd;
 	sigset_t mask;
@@ -75,7 +75,7 @@ static int signal_fd(struct opts *opts)
 }
 
 /* client (record) side API */
-int setup_client_socket(struct opts *opts)
+int setup_client_socket(struct uftrace_opts *opts)
 {
 	struct sockaddr_in addr = {
 		.sin_family	= AF_INET,
@@ -552,7 +552,8 @@ static void handle_server_sock(struct epoll_event *ev, int efd)
 	pr_dbg("new connection added from %s\n", hbuf);
 }
 
-static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opts)
+static void handle_client_sock(struct epoll_event *ev, int efd,
+			       struct uftrace_opts *opts)
 {
 	int sock = ev->data.fd;
 	struct uftrace_msg msg;
@@ -609,7 +610,7 @@ static void handle_client_sock(struct epoll_event *ev, int efd, struct opts *opt
 	}
 }
 
-int command_recv(int argc, char *argv[], struct opts *opts)
+int command_recv(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	struct signalfd_siginfo si;
 	int sock;

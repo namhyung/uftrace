@@ -458,7 +458,7 @@ void setup_fstack_args(char *argspec, char *retspec,
  *
  * This function sets up all kind of filters given by user.
  */
-int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
+int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
 		struct uftrace_filter_setting setting = {
@@ -833,7 +833,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  */
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, struct opts *opts)
+				       int curr_depth, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *next = NULL;
 	struct fstack *fstack;
@@ -1024,7 +1024,7 @@ bool is_sched_event(uint64_t addr)
  * whether it should be filtered out or not.  True means it's ok to
  * process this function and false means it should be skipped.
  */
-bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts)
+bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *opts)
 {
 	struct uftrace_record *rec = task->rstack;
 
@@ -2589,7 +2589,7 @@ TEST_CASE(fstack_skip)
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_trigger tr = { 0, };
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.event_skip_out = true,
 		.libcall        = true,
 	};

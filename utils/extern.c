@@ -25,7 +25,7 @@
 
 #define DEFAULT_FILENAME  "extern.dat"
 
-int setup_extern_data(struct uftrace_data *handle, struct opts *opts)
+int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct uftrace_extern_reader *extn;
 	char *filename;
@@ -138,7 +138,7 @@ TEST_CASE(fstack_extern_data)
 	struct uftrace_data handle = {
 		.dirname = "extern.test",
 	};
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.dirname = "extern.test",
 	};
 	const char extern_data[] = "# test data\n"

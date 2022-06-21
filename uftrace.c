@@ -47,7 +47,7 @@ static bool dbg_domain_set = false;
 
 static bool parsing_default_opts = false;
 
-enum options {
+enum uftrace_short_options {
 	OPT_flat	= 301,
 	OPT_no_libcall,
 	OPT_symbols,
@@ -542,7 +542,7 @@ static char * remove_trailing_slash(char *path)
 	return path;
 }
 
-static int parse_option(struct opts *opts, int key, char *arg)
+static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 {
 	switch (key) {
 	case 'F':
@@ -1015,7 +1015,7 @@ static int parse_option(struct opts *opts, int key, char *arg)
 	return 0;
 }
 
-static void update_subcmd(struct opts *opts, char *cmd)
+static void update_subcmd(struct uftrace_opts *opts, char *cmd)
 {
 	if (!strcmp(cmd, "record"))
 		opts->mode = UFTRACE_MODE_RECORD;
@@ -1041,7 +1041,8 @@ static void update_subcmd(struct opts *opts, char *cmd)
 		opts->mode = UFTRACE_MODE_INVALID;
 }
 
-static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts *opts)
+static void parse_opt_file(int *argc, char ***argv, char *filename,
+			   struct uftrace_opts *opts)
 {
 	int file_argc;
 	char **file_argv;
@@ -1141,7 +1142,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct opts 
  * Note that it only handles some options like filter, trigger,
  * argument, return values and maybe some more.
  */
-void parse_script_opt(struct opts *opts)
+void parse_script_opt(struct uftrace_opts *opts)
 {
 	FILE *fp;
 	int opt_argc;
@@ -1220,7 +1221,7 @@ void parse_script_opt(struct opts *opts)
 	fclose(fp);
 }
 
-static void free_opts(struct opts *opts)
+static void free_opts(struct uftrace_opts *opts)
 {
 	free(opts->filter);
 	free(opts->trigger);
@@ -1237,7 +1238,7 @@ static void free_opts(struct opts *opts)
 	free_parsed_cmdline(opts->run_cmd);
 }
 
-static int parse_options(int argc, char **argv, struct opts *opts)
+static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 {
 	/* initial option parsing index */
 	optind = 1;
@@ -1272,7 +1273,8 @@ static int parse_options(int argc, char **argv, struct opts *opts)
 	return 0;
 }
 
-__used static void apply_default_opts(int *argc, char ***argv, struct opts *opts)
+__used static void apply_default_opts(int *argc, char ***argv,
+				      struct uftrace_opts *opts)
 {
 	char *basename = "default.opts";
 	char opts_file[PATH_MAX];
@@ -1305,7 +1307,7 @@ __used static void apply_default_opts(int *argc, char ***argv, struct opts *opts
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.mode		= UFTRACE_MODE_INVALID,
 		.dirname	= UFTRACE_DIR_NAME,
 		.libcall	= true,
@@ -1548,7 +1550,7 @@ TEST_CASE(option_parsing1)
 
 TEST_CASE(option_parsing2)
 {
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = {
@@ -1582,7 +1584,7 @@ TEST_CASE(option_parsing2)
 
 TEST_CASE(option_parsing3)
 {
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
@@ -1625,7 +1627,7 @@ TEST_CASE(option_parsing3)
 
 TEST_CASE(option_parsing4)
 {
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
@@ -1682,7 +1684,7 @@ TEST_CASE(option_parsing4)
 
 TEST_CASE(option_parsing5)
 {
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, "hello" };
