@@ -12,7 +12,7 @@ enum align_pos {
 /* data for field display */
 struct field_data {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	void *arg;
 };
 

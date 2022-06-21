@@ -312,7 +312,7 @@ static int save_backtrace_addr(struct task_graph *tg)
 		return 0;
 
 	for (i = len - 1; i >= 0; i--) {
-		struct fstack *fstack = fstack_get(task, i + skip);
+		struct uftrace_fstack *fstack = fstack_get(task, i + skip);
 
 		if (fstack != NULL)
 			addrs[i] = fstack->addr;
@@ -345,7 +345,7 @@ found:
 static void save_backtrace_time(struct task_graph *tg)
 {
 	struct uftrace_task_reader *task = tg->utg.task;
-	struct fstack *fstack = fstack_get(task, task->stack_count);
+	struct uftrace_fstack *fstack = fstack_get(task, task->stack_count);
 
 	if (tg->bt_curr != NULL && fstack != NULL)
 		tg->bt_curr->time += fstack->total_time;
@@ -624,7 +624,7 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle,
 
 			/* add partial duration of kernel functions before LOST */
 			while (task->stack_count >= task->user_stack_count) {
-				struct fstack *fstack;
+				struct uftrace_fstack *fstack;
 
 				fstack = fstack_get(task, task->stack_count);
 
@@ -665,7 +665,7 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle,
 	/* add duration of remaining functions */
 	for (i = 0; i < handle->nr_tasks; i++) {
 		uint64_t last_time;
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 
 		task = &handle->tasks[i];
 

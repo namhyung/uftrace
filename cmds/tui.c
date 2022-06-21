@@ -565,7 +565,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 static void add_remaining_node(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	uint64_t last_time;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *tg;
 	struct uftrace_symbol *sym;

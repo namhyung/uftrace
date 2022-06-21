@@ -509,7 +509,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
  * This function returns a pointer to func_stack in @task or %NULL if it has
  * no function call stack or @idx is out of the boundary.
  */
-struct fstack * fstack_get(struct uftrace_task_reader *task, int idx)
+struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx)
 {
 	if (task->func_stack == NULL)
 		return NULL;
@@ -551,7 +551,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		 struct uftrace_record *rstack,
 		 struct uftrace_trigger *tr)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
 	uint64_t addr = rstack->addr;
@@ -674,7 +674,7 @@ int fstack_entry(struct uftrace_task_reader *task,
  */
 void fstack_exit(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	fstack = fstack_get(task, task->stack_count);
 	if (fstack == NULL)
@@ -704,7 +704,7 @@ void fstack_exit(struct uftrace_task_reader *task)
  * flags of @fstack, and return a new depth.
  */
 int fstack_update(int type, struct uftrace_task_reader *task,
-		  struct fstack *fstack)
+		  struct uftrace_fstack *fstack)
 {
 	if (fstack == NULL)
 		return task->display_depth;
@@ -766,7 +766,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 	uint64_t addr = rstack->addr;
 	struct uftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	if (task->filter.out_count > 0)
 		return -1;
@@ -836,7 +836,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       int curr_depth, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *next = NULL;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_record *curr_stack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
 
@@ -917,7 +917,7 @@ next:
  */
 bool fstack_check_filter(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_trigger tr = {};
 
 	if (task->rstack->type == UFTRACE_ENTRY) {
@@ -981,7 +981,7 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
  */
 void fstack_check_filter_done(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	if (task->rstack->type == UFTRACE_ENTRY) {
 		fstack = fstack_get(task, task->stack_count - 1);
@@ -1064,7 +1064,7 @@ void setup_rstack_list(struct uftrace_rstack_list *list)
 
 void add_to_rstack_list(struct uftrace_rstack_list *list,
 			struct uftrace_record *rstack,
-			struct fstack_arguments *args)
+			struct uftrace_fstack_args *args)
 {
 	struct uftrace_rstack_list_node *node;
 
@@ -1197,7 +1197,7 @@ static int read_task_arg(struct uftrace_task_reader *task,
 			 struct uftrace_arg_spec *spec)
 {
 	FILE *fp = task->fp;
-	struct fstack_arguments *args = &task->args;
+	struct uftrace_fstack_args *args = &task->args;
 	unsigned size = spec->size;
 	int rem;
 
@@ -1541,7 +1541,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 			add_to_rstack_list(rstack_list, curr, &task->args);
 
 			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.time;
@@ -1559,7 +1559,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 			bool filtered = false;
 
 			if (task->filter.time) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = task->filter.time;
 				if (tfs->depth == curr->depth &&
@@ -1734,7 +1734,7 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 
 static void fstack_account_time(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_record dummy_rec;
 	bool is_kernel_func = is_kernel_record(task, rstack);
@@ -2108,7 +2108,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 					 struct uftrace_task_reader *task)
 {
 	struct uftrace_record *next_rec;
-	struct fstack *prev_fstack;
+	struct uftrace_fstack *prev_fstack;
 
 	if (task->rstack_list.count == 0)
 		return;

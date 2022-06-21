@@ -58,7 +58,7 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task,
 			    struct uftrace_opts *opts)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	while (task->stack_count >= task->user_stack_count) {
 		fstack = fstack_get(task, task->stack_count);
@@ -78,7 +78,7 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 				 struct rb_root *root, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	int i;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
@@ -267,7 +267,7 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 				      struct rb_root *root)
 {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	char buf[10];
 	int i;
 

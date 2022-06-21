@@ -1621,7 +1621,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			add_kfunc_addr(&kfunc_tree, real_addr);
 
 			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.time;
@@ -1646,7 +1646,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				continue;
 
 			if (task->filter.time) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = task->filter.time;
 				if (tfs->depth == curr->depth &&
@@ -1699,7 +1699,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			}
 		}
 		else if (curr->type == UFTRACE_EVENT) {
-			struct fstack_arguments arg = {
+			struct uftrace_fstack_args arg = {
 				.data = kernel->trace_buf.buffer,
 				.len  = kernel->trace_buf.len + 1,
 			};

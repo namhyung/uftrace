@@ -43,11 +43,11 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct script_context sc_ctx = { 0, };
-		struct fstack *fstack;
-		int depth;
+		struct uftrace_fstack *fstack;
 		struct uftrace_trigger tr = {
 			.flags = 0,
 		};
+		int depth;
 		int ret;
 
 		ret = fstack_entry(task, rstack, &tr);
@@ -80,7 +80,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
 		struct script_context sc_ctx = { 0, };
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 
 		/* function exit */
 		fstack = fstack_get(task, task->stack_count);

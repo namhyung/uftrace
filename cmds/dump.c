@@ -315,7 +315,7 @@ static void pr_hex(uint64_t *offset, void *data, size_t len)
 	*offset = ofs;
 }
 
-static void pr_args(struct fstack_arguments *args)
+static void pr_args(struct uftrace_fstack_args *args)
 {
 	struct uftrace_arg_spec *spec;
 	struct uftrace_task_reader *task;
@@ -428,7 +428,7 @@ print_raw:
 	}
 }
 
-static void pr_retval(struct fstack_arguments *args)
+static void pr_retval(struct uftrace_fstack_args *args)
 {
 	struct uftrace_arg_spec *spec;
 	struct uftrace_task_reader *task;
@@ -878,7 +878,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops,
 	char spec_buf[2048];
 	char name_buf[2048];
 	struct uftrace_record *frs = task->rstack;
-	enum argspec_string_bits str_mode = NEEDS_JSON;
+	enum uftrace_argspec_string_bits str_mode = NEEDS_JSON;
 	struct uftrace_chrome_dump *chrome = container_of(ops, typeof(*chrome), ops);
 	bool is_process = task->t->pid == task->tid;
 	int rec_type = frs->type;
@@ -1057,7 +1057,7 @@ static void adjust_fg_time(struct uftrace_task_graph *tg, void *arg)
 	struct uftrace_dump_ops *ops = arg;
 	struct uftrace_flame_dump *flame = container_of(ops, typeof(*flame), ops);
 	struct uftrace_graph_node *node = tg->node;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	uint64_t curr_time;
 	uint64_t sample_time;
 	uint64_t accounted_time;
@@ -1579,7 +1579,7 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *op
 			last_time = handle->time_range.stop;
 
 		while (--task->stack_count >= 0) {
-			struct fstack *fstack;
+			struct uftrace_fstack *fstack;
 			struct uftrace_session *fsess = handle->sessions.first;
 
 			fstack = fstack_get(task, task->stack_count);

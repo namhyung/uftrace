@@ -510,7 +510,7 @@ static inline bool is_v3_compat(struct uftrace_record *urec)
 	return urec->magic == RECORD_MAGIC && urec->more == 0;
 }
 
-struct fstack_arguments {
+struct uftrace_fstack_args {
 	struct list_head	*args;
 	unsigned		len;
 	void			*data;
@@ -525,19 +525,19 @@ struct uftrace_rstack_list {
 struct uftrace_rstack_list_node {
 	struct list_head list;
 	struct uftrace_record rstack;
-	struct fstack_arguments args;
+	struct uftrace_fstack_args args;
 };
 
 void setup_rstack_list(struct uftrace_rstack_list *list);
 void add_to_rstack_list(struct uftrace_rstack_list *list,
 			struct uftrace_record *rstack,
-			struct fstack_arguments *args);
+			struct uftrace_fstack_args *args);
 struct uftrace_record * get_first_rstack_list(struct uftrace_rstack_list *);
 void consume_first_rstack_list(struct uftrace_rstack_list *list);
 void delete_last_rstack_list(struct uftrace_rstack_list *list);
 void reset_rstack_list(struct uftrace_rstack_list *list);
 
-enum ftrace_ext_type {
+enum uftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
