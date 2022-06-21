@@ -77,7 +77,7 @@ struct uftrace_symtab {
 struct uftrace_module {
 	struct rb_node node;
 	struct uftrace_symtab symtab;
-	struct debug_info dinfo;
+	struct uftrace_dbg_info dinfo;
 	char build_id[BUILD_ID_STR_SIZE];
 	char name[];
 };

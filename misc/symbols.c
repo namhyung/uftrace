@@ -65,7 +65,7 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 {
 	uint64_t addr = *(uint64_t *)arg;
 	struct uftrace_symbol *sym;
-	struct debug_location *dloc;
+	struct uftrace_dbg_loc *dloc;
 
 	sym = find_symtabs(&s->sym_info, addr);
 	if (sym == NULL)

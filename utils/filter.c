@@ -268,7 +268,7 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 		      struct uftrace_trigger *tr, struct uftrace_mmap *map,
-		      bool exact_match, struct debug_info *dinfo,
+		      bool exact_match, struct uftrace_dbg_info *dinfo,
 		      struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
@@ -728,7 +728,7 @@ static int add_trigger_entry(struct rb_root *root,
 {
 	struct uftrace_filter filter;
 	struct uftrace_symtab *symtab = &map->mod->symtab;
-	struct debug_info *dinfo = &map->mod->dinfo;
+	struct uftrace_dbg_info *dinfo = &map->mod->dinfo;
 	struct uftrace_symbol *sym;
 	unsigned i;
 	int ret = 0;

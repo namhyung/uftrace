@@ -745,15 +745,15 @@ struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions
  * This function returns a debug location of symbol
  * that looked up in symbol table in current session
  */
-struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr)
+struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *sessions,
+					    struct uftrace_task_reader *task,
+					    uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
 	struct uftrace_symbol *sym = NULL;
 	struct uftrace_mmap *map;
-	struct debug_info *dinfo;
-	struct debug_location *loc;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_dbg_loc *loc;
 	ptrdiff_t sym_idx;
 
 	sess = find_task_session(sessions, task->t, time);

@@ -647,7 +647,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			struct uftrace_session_link *sessions = &task->h->sessions;
 			struct uftrace_session *s;
 			struct uftrace_mmap *map;
-			struct debug_info *dinfo;
+			struct uftrace_dbg_info *dinfo;
 			char *estr;
 
 			memcpy(val.v, data, spec->size);
@@ -743,7 +743,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 	char args[1024];
 	char *libname = "";
 	struct uftrace_mmap *map = NULL;
-	struct debug_location *loc = NULL;
+	struct uftrace_dbg_loc *loc = NULL;
 	char *str_loc = NULL;
 
 	if (task == NULL)

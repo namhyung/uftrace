@@ -146,7 +146,7 @@ static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
 static struct uftrace_filter *dwarf_argspec_list;
 
 static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
-						  struct debug_info *dinfo,
+						  struct uftrace_dbg_info *dinfo,
 						  bool is_retval,
 						  struct uftrace_filter_setting *setting)
 {
@@ -190,7 +190,7 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 
 struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
+					  struct uftrace_dbg_info *dinfo,
 					  struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_arg = NULL;
@@ -206,7 +206,7 @@ struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 
 struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
+					  struct uftrace_dbg_info *dinfo,
 					  struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_ret = NULL;

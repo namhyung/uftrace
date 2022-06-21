@@ -93,7 +93,7 @@ void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 
 void report_update_node(struct uftrace_report_node *node,
 			struct uftrace_task_reader *task,
-			struct debug_location *loc)
+			struct uftrace_dbg_loc *loc)
 {
 	struct fstack *fstack;
 	uint64_t total_time;

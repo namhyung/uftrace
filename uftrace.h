@@ -455,7 +455,7 @@ struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sess,
 struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task,
 					   uint64_t time, uint64_t addr);
-struct debug_location * task_find_loc_addr(struct uftrace_session_link *sess,
+struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task,
 					   uint64_t time, uint64_t addr);
 

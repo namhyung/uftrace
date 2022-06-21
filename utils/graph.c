@@ -58,8 +58,7 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 }
 
 static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
-			   size_t node_size,
-			   struct debug_location* loc)
+			   size_t node_size, struct uftrace_dbg_loc* loc)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
@@ -205,8 +204,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 }
 
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size,
-		   struct debug_location* loc)
+		   size_t node_size, struct uftrace_dbg_loc* loc)
 {
 	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg, name, node_size, loc);

@@ -536,7 +536,7 @@ static void build_graph_node(struct opts *opts,
 	struct task_graph *tg;
 	struct uftrace_symbol *sym = NULL;
 	char *name;
-	struct debug_location *loc = NULL;
+	struct uftrace_dbg_loc *loc = NULL;
 
 	tg = get_task_graph(task, time, addr);
 	if (unlikely(tg->utg.graph == NULL))

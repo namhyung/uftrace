@@ -26,7 +26,7 @@ struct uftrace_report_node {
 	char				*name;
 	struct report_time_stat 	total;
 	struct report_time_stat 	self;
-	struct debug_location		*loc;
+	struct uftrace_dbg_loc		*loc;
 	uint64_t			call;
 	struct rb_node			name_link;
 	struct rb_node			sort_link;
@@ -54,7 +54,7 @@ void report_add_node(struct rb_root *root, const char *name,
 		     struct uftrace_report_node *node);
 void report_update_node(struct uftrace_report_node *node,
 			struct uftrace_task_reader *task,
-			struct debug_location *loc);
+			struct uftrace_dbg_loc *loc);
 void report_calc_avg(struct rb_root *root);
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node);
 

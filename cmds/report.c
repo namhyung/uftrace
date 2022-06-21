@@ -27,7 +27,7 @@ static void print_field(struct uftrace_report_node *node, int space)
 }
 
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			char *symname, struct debug_location* loc)
+			char *symname, struct uftrace_dbg_loc* loc)
 {
 	struct uftrace_report_node *node;
 
@@ -44,7 +44,7 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 {
 	struct uftrace_symbol *sym;
 	char *symname;
-	struct debug_location *loc = NULL;
+	struct uftrace_dbg_loc *loc = NULL;
 
 	sym = task_find_sym_addr(&task->h->sessions, task, timestamp, addr);
 	if (needs_srcline)

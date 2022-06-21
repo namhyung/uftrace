@@ -63,7 +63,7 @@ struct tui_window_ops {
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
 	bool (*longest_child)(struct tui_window *win, void *node);
-	struct debug_location * (*location)(struct tui_window *win, void *node);
+	struct uftrace_dbg_loc * (*location)(struct tui_window *win, void *node);
 };
 
 struct tui_window {
@@ -1170,7 +1170,7 @@ static void win_footer_graph(struct tui_window *win,
 			 "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct debug_location *dloc;
+		struct uftrace_dbg_loc *dloc;
 
 		dloc = win->ops->location(win, win->curr);
 
@@ -1359,7 +1359,7 @@ static bool win_longest_child_graph(struct tui_window *win, void *node)
 	return true;
 }
 
-static struct debug_location *win_location_graph(struct tui_window *win,
+static struct uftrace_dbg_loc *win_location_graph(struct tui_window *win,
 						 void *node)
 {
 	struct tui_graph *graph = (struct tui_graph *)win;
@@ -1566,7 +1566,7 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 			 tui_search, win->search_count, "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct debug_location *dloc;
+		struct uftrace_dbg_loc *dloc;
 
 		dloc = win->ops->location(win, win->curr);
 
@@ -1603,13 +1603,13 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("%-*.*s", COLS - w, COLS - w, curr->n.name);
 }
 
-static struct debug_location *win_location_report(struct tui_window *win,
+static struct uftrace_dbg_loc *win_location_report(struct tui_window *win,
 						  void *node)
 {
 	struct tui_report_node *curr = node;
 	struct tui_graph_node *gnode;
 	struct uftrace_session *sess;
-	struct debug_location *dloc;
+	struct uftrace_dbg_loc *dloc;
 
 	list_for_each_entry(gnode, &curr->head, link) {
 		sess = gnode->graph->sess;
@@ -2439,7 +2439,7 @@ static bool tui_window_longest_child(struct tui_window *win)
 
 static bool tui_window_open_editor(struct tui_window *win)
 {
-	struct debug_location *dloc;
+	struct uftrace_dbg_loc *dloc;
 	const char *editor = getenv("EDITOR");
 	struct strv editor_strv;
 	int pid, status;

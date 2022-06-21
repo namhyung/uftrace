@@ -8,7 +8,7 @@
 #include "utils/dwarf.h"
 #include "utils/filter.h"
 
-void print_debug_info(struct debug_info *dinfo, bool auto_args)
+void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 {
 	int i;
 	char *argspec = NULL;
@@ -17,7 +17,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 	/* TODO: print enum definitions */
 
 	for (i = 0; i < dinfo->nr_locs; i++) {
-		struct debug_location *loc = &dinfo->locs[i];
+		struct uftrace_dbg_loc *loc = &dinfo->locs[i];
 		int idx = 0;
 
 		if (loc->sym == NULL)

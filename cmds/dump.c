@@ -375,7 +375,7 @@ static void pr_args(struct fstack_arguments *args)
 			long long val = 0;
 			struct uftrace_mmap *map;
 			struct uftrace_session *s;
-			struct debug_info *dinfo;
+			struct uftrace_dbg_info *dinfo;
 			char *enum_def;
 
 			s = find_task_session(sessions, task->t,

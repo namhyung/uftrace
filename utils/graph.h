@@ -19,7 +19,7 @@ struct uftrace_graph_node {
 	struct list_head		head;
 	struct list_head		list;
 	struct uftrace_graph_node	*parent;
-	struct debug_location		*loc;
+	struct uftrace_dbg_loc		*loc;
 };
 
 enum uftrace_graph_node_type {
@@ -63,7 +63,6 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 void graph_remove_task(void);
 
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size,
-		   struct debug_location* loc);
+		   size_t node_size, struct uftrace_dbg_loc* loc);
 
 #endif /* UFTRACE_GRAPH_H */

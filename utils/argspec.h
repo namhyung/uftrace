@@ -65,17 +65,17 @@ void finish_auto_args(void);
 
 void free_arg_spec(struct uftrace_arg_spec *arg);
 
-struct debug_info;
+struct uftrace_dbg_info;
 struct uftrace_filter;
 struct uftrace_trigger;
 
 struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
+					  struct uftrace_dbg_info *dinfo,
 					  struct uftrace_filter_setting *setting);
 struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
 					  struct uftrace_trigger *tr,
-					  struct debug_info *dinfo,
+					  struct uftrace_dbg_info *dinfo,
 					  struct uftrace_filter_setting *setting);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
