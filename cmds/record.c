@@ -413,8 +413,8 @@ static uint64_t calc_feat_mask(struct uftrace_opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct uftrace_opts *opts, int status,
-			    struct rusage *rusage, char *elapsed_time)
+int fill_file_header(struct uftrace_opts *opts, int status,
+		     struct rusage *rusage, char *elapsed_time)
 {
 	int fd, efd;
 	int ret = -1;
