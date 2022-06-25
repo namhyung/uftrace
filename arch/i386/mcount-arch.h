@@ -23,7 +23,7 @@ struct mcount_arch_context {
 };
 
 #define FIX_PARENT_LOC
-unsigned long * mcount_arch_parent_location(struct symtabs *symtabs,
+unsigned long * mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 					    unsigned long *parent_loc,
 					    unsigned long child_ip);
 #define ARCH_PLT0_SIZE  16

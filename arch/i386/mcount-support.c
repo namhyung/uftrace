@@ -194,7 +194,7 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 	we will find it, and we will replace it.
 	GOOD LUCK!
 */
-unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
+unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
                                             unsigned long *parent_loc,
                                             unsigned long child_ip)
 {

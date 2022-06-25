@@ -231,7 +231,7 @@ static void analyze_mcount_instructions(unsigned short *insn, struct lr_offset *
 }
 
 /* This code is only meaningful on THUMB2 mode: @loc = $sp + 4 */
-unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
+unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 					   unsigned long *parent_loc,
 					   unsigned long child_ip)
 {
