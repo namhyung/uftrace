@@ -570,7 +570,7 @@ static int fill_usageinfo(void *arg)
 	struct rusage *r = fha->rusage;
 	struct rusage zero = {};
 
-	if (!memcmp(r, &zero, sizeof(*r)))
+	if (!r || !memcmp(r, &zero, sizeof(*r)))
 		return -1;
 
 	dprintf(fha->fd, "usageinfo:lines=%d\n", NUM_USAGE_INFO);
