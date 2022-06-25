@@ -220,21 +220,23 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
 }
 
-__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+__weak int mcount_patch_func(struct mcount_dynamic_info *mdi,
+			     struct uftrace_symbol *sym,
 			     struct mcount_disasm_engine *disasm,
 			     unsigned min_size)
 {
 	return -1;
 }
 
-__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi,
+			       struct uftrace_symbol *sym,
 			       struct mcount_disasm_engine *disasm)
 {
 	return -1;
 }
 
 __weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-				    struct symtab *symtab)
+				    struct uftrace_symtab *symtab)
 {
 }
 
@@ -262,7 +264,7 @@ __weak void mcount_arch_patch_branch(struct mcount_disasm_info *info,
 }
 
 struct find_module_data {
-	struct symtabs *symtabs;
+	struct uftrace_sym_info *sinfo;
 	bool needs_modules;
 };
 
@@ -303,12 +305,12 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	struct mcount_dynamic_info *mdi;
 	struct find_module_data *fmd = data;
-	struct symtabs *symtabs = fmd->symtabs;
+	struct uftrace_sym_info *sym_info = fmd->sinfo;
 	struct uftrace_mmap *map;
 
 	mdi = create_mdi(info);
 
-	map = find_map(symtabs, mdi->base_addr);
+	map = find_map(sym_info, mdi->base_addr);
 	if (map && map->mod) {
 		mdi->map = map;
 		mcount_arch_find_module(mdi, &map->mod->symtab);
@@ -323,14 +325,14 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct symtabs *symtabs,
+static void prepare_dynamic_update(struct uftrace_sym_info *sinfo,
 				   bool needs_modules)
 {
 	struct find_module_data fmd = {
-		.symtabs = symtabs,
+		.sinfo = sinfo,
 		.needs_modules = needs_modules,
 	};
-	int hash_size = symtabs->exec_map->mod->symtab.nr_sym * 3 / 4;
+	int hash_size = sinfo->exec_map->mod->symtab.nr_sym * 3 / 4;
 
 	if (needs_modules)
 		hash_size *= 2;
@@ -475,7 +477,7 @@ static void release_pattern_list(void)
 	}
 }
 
-static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
+static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi,
 		     struct uftrace_mmap *map, char *soname)
 {
 	/* skip special startup (csu) functions */
@@ -506,7 +508,7 @@ static bool skip_sym(struct sym *sym, struct mcount_dynamic_info *mdi,
 }
 
 static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
-					 struct sym *sym)
+					 struct uftrace_symbol *sym)
 {
 	switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
 	case INSTRUMENT_FAILED:
@@ -525,12 +527,12 @@ static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
 static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 					 struct uftrace_mmap *map)
 {
-	struct symtab *symtab;
+	struct uftrace_symtab *symtab;
 	unsigned long *patchable_loc = mdi->patch_target;
 	unsigned i;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char namebuf[BUFSIZ];
-	struct sym fake_sym = {
+	struct uftrace_symbol fake_sym = {
 		.size = UINT_MAX,
 		.name = namebuf,
 	};
@@ -544,7 +546,7 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 	 */
 	for (i = 0; i < mdi->nr_patch_target; i++) {
 		uint64_t rel_addr = patchable_loc[i];
-		struct sym *searched_sym = find_sym(symtab, rel_addr);
+		struct uftrace_symbol *searched_sym = find_sym(symtab, rel_addr);
 
 		if (searched_sym == NULL) {
 			sym = &fake_sym;
@@ -566,9 +568,9 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
 				      struct uftrace_mmap *map)
 {
-	struct symtab *symtab;
+	struct uftrace_symtab *symtab;
 	unsigned i;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	bool found = false;
 	char *soname = get_soname(map->libname);
 
@@ -606,7 +608,7 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi,
 		patch_normal_func_matched(mdi, map);
 }
 
-static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {
 	struct uftrace_mmap *map;
@@ -615,10 +617,10 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	if (patch_funcs == NULL)
 		return 0;
 
-	def_mod = basename(symtabs->exec_map->libname);
+	def_mod = basename(sinfo->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		struct mcount_dynamic_info *mdi;
 
 		/* TODO: filter out unsuppported libs */
@@ -631,7 +633,7 @@ static int do_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n",
-		       stats.total, basename(symtabs->filename));
+		       stats.total, basename(sinfo->filename));
 	}
 
 	return 0;
@@ -664,7 +666,7 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
-int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
@@ -673,20 +675,20 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 
 	mcount_disasm_init(&disasm);
 
-	prepare_dynamic_update(symtabs, needs_modules);
+	prepare_dynamic_update(sinfo, needs_modules);
 
 	size_filter = getenv("UFTRACE_PATCH_SIZE");
 	if (size_filter != NULL)
 		min_size = strtoul(size_filter, NULL, 0);
 
-	ret = do_dynamic_update(symtabs, patch_funcs, ptype);
+	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
 
 	if (stats.total && stats.failed) {
 		int success = stats.total - stats.failed - stats.skipped;
 		int r, q;
 
 		pr_dbg("dynamic patch stats for '%s'\n",
-		       basename(symtabs->filename));
+		       basename(sinfo->filename));
 		pr_dbg("   total: %8d\n", stats.total);
 		q = calc_percent(success, stats.total, &r);
 		pr_dbg(" patched: %8d (%2d.%02d%%)\n", success, q, r);
@@ -701,7 +703,7 @@ int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
 	return ret;
 }
 
-void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *info,
 			   char *pathname)
 {
 	struct mcount_dynamic_info *mdi;
@@ -721,11 +723,11 @@ void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
 	mcount_memcpy1(map->prot, "r-xp", 4);
 	read_build_id(pathname, map->build_id, sizeof(map->build_id));
 
-	map->next = symtabs->maps;
-	symtabs->maps = map;
+	map->next = sinfo->maps;
+	sinfo->maps = map;
 	mdi->map = map;
 
-	map->mod = load_module_symtab(symtabs, map->libname, map->build_id);
+	map->mod = load_module_symtab(sinfo, map->libname, map->build_id);
 	mcount_arch_find_module(mdi, &map->mod->symtab);
 
 	if (mcount_setup_trampoline(mdi) < 0) {
@@ -752,7 +754,7 @@ void mcount_dynamic_finish(void)
 struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 					       unsigned long addr)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct dynamic_bad_symbol *badsym;
 
 	sym = find_sym(&mdi->map->mod->symtab, addr - mdi->map->start);
@@ -770,7 +772,7 @@ struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
 bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 		       unsigned long target)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct dynamic_bad_symbol *badsym;
 
 	if (mcount_find_badsym(mdi, target))
@@ -901,7 +903,7 @@ static int setup_test_map(struct dl_phdr_info *info, size_t sz, void *data)
 	struct mcount_dynamic_info *mdi;
 	struct uftrace_mmap *map;
 	struct uftrace_module *mod;
-	static struct sym syms[] = {
+	static struct uftrace_symbol syms[] = {
 		{ 0x100, 0x100, ST_LOCAL_FUNC, "a" },
 		{ 0x200, 0x100, ST_LOCAL_FUNC, "b" },
 		{ 0x300, 0x100, ST_LOCAL_FUNC, "c" },

@@ -222,7 +222,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters,
 			     &fstack_filter_mode, setting);
 	return 0;
 }
@@ -231,7 +231,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_trigger(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters,
 			      &fstack_filter_mode, setting);
 	return 0;
 }
@@ -240,7 +240,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_caller_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters,
 				    setting);
 	return 0;
 }
@@ -249,7 +249,7 @@ static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_hide_filter(setting->info_str, &s->symtabs, &s->filters,
+	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &s->filters,
 				  setting);
 	return 0;
 }
@@ -378,7 +378,7 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 	pr_dbg("fixup for some special functions\n");
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
-		uftrace_setup_trigger((char *)fixup_syms[i], &s->symtabs,
+		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info,
 				      &s->fixups, NULL, &setting);
 	}
 	return 0;
@@ -401,8 +401,8 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_argument(setting->info_str, &s->symtabs, &s->filters,
-				       setting);
+		uftrace_setup_argument(setting->info_str, &s->sym_info,
+				       &s->filters, setting);
 
 	return 0;
 }
@@ -412,8 +412,8 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_retval(setting->info_str, &s->symtabs, &s->filters,
-				     setting);
+		uftrace_setup_retval(setting->info_str, &s->sym_info,
+				     &s->filters, setting);
 
 	return 0;
 }
@@ -458,7 +458,7 @@ void setup_fstack_args(char *argspec, char *retspec,
  *
  * This function sets up all kind of filters given by user.
  */
-int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
+int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
 		struct uftrace_filter_setting setting = {
@@ -509,7 +509,7 @@ int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle)
  * This function returns a pointer to func_stack in @task or %NULL if it has
  * no function call stack or @idx is out of the boundary.
  */
-struct fstack * fstack_get(struct uftrace_task_reader *task, int idx)
+struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx)
 {
 	if (task->func_stack == NULL)
 		return NULL;
@@ -551,7 +551,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		 struct uftrace_record *rstack,
 		 struct uftrace_trigger *tr)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
 	uint64_t addr = rstack->addr;
@@ -580,7 +580,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		if (sess == NULL)
 			sess = sessions->first;
 
-		addr = get_kernel_address(&sess->symtabs, addr);
+		addr = get_kernel_address(&sess->sym_info, addr);
 	}
 
 	if (sess) {
@@ -674,7 +674,7 @@ int fstack_entry(struct uftrace_task_reader *task,
  */
 void fstack_exit(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	fstack = fstack_get(task, task->stack_count);
 	if (fstack == NULL)
@@ -704,7 +704,7 @@ void fstack_exit(struct uftrace_task_reader *task)
  * flags of @fstack, and return a new depth.
  */
 int fstack_update(int type, struct uftrace_task_reader *task,
-		  struct fstack *fstack)
+		  struct uftrace_fstack *fstack)
 {
 	if (fstack == NULL)
 		return task->display_depth;
@@ -766,7 +766,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 	uint64_t addr = rstack->addr;
 	struct uftrace_trigger tr = { 0 };
 	int depth = task->filter.depth;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	if (task->filter.out_count > 0)
 		return -1;
@@ -794,7 +794,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 		else
 			return -1;
 
-		addr = get_kernel_address(&fsess->symtabs, addr);
+		addr = get_kernel_address(&fsess->sym_info, addr);
 	}
 
 	uftrace_match_filter(addr, &sess->filters, &tr);
@@ -833,10 +833,10 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  */
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, struct opts *opts)
+				       int curr_depth, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *next = NULL;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_record *curr_stack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
 
@@ -853,7 +853,7 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 	while (true) {
 		struct uftrace_record *next_stack = next->rstack;
 		struct uftrace_trigger tr = { 0 };
-		struct sym *sym = task_find_sym(sessions, task, next_stack);
+		struct uftrace_symbol *sym = task_find_sym(sessions, task, next_stack);
 
 		/* skip filtered entries until current matching EXIT records */
 		if (next == task && curr_stack == next_stack &&
@@ -917,7 +917,7 @@ next:
  */
 bool fstack_check_filter(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_trigger tr = {};
 
 	if (task->rstack->type == UFTRACE_ENTRY) {
@@ -981,7 +981,7 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
  */
 void fstack_check_filter_done(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	if (task->rstack->type == UFTRACE_ENTRY) {
 		fstack = fstack_get(task, task->stack_count - 1);
@@ -1024,7 +1024,7 @@ bool is_sched_event(uint64_t addr)
  * whether it should be filtered out or not.  True means it's ok to
  * process this function and false means it should be skipped.
  */
-bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts)
+bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *opts)
 {
 	struct uftrace_record *rec = task->rstack;
 
@@ -1064,7 +1064,7 @@ void setup_rstack_list(struct uftrace_rstack_list *list)
 
 void add_to_rstack_list(struct uftrace_rstack_list *list,
 			struct uftrace_record *rstack,
-			struct fstack_arguments *args)
+			struct uftrace_fstack_args *args)
 {
 	struct uftrace_rstack_list_node *node;
 
@@ -1197,7 +1197,7 @@ static int read_task_arg(struct uftrace_task_reader *task,
 			 struct uftrace_arg_spec *spec)
 {
 	FILE *fp = task->fp;
-	struct fstack_arguments *args = &task->args;
+	struct uftrace_fstack_args *args = &task->args;
 	unsigned size = spec->size;
 	int rem;
 
@@ -1456,7 +1456,7 @@ int read_task_ustack(struct uftrace_data *handle,
 			read_task_event(task, &task->ustack);
 
 		if (unlikely(task->args.args == NULL || task->args.len == 0)) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			char *symname;
 
 			/* there might be zero-length struct as a return value */
@@ -1541,7 +1541,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 			add_to_rstack_list(rstack_list, curr, &task->args);
 
 			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.time;
@@ -1559,7 +1559,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 			bool filtered = false;
 
 			if (task->filter.time) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = task->filter.time;
 				if (tfs->depth == curr->depth &&
@@ -1734,7 +1734,7 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 
 static void fstack_account_time(struct uftrace_task_reader *task)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_record dummy_rec;
 	bool is_kernel_func = is_kernel_record(task, rstack);
@@ -1847,10 +1847,10 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 		fstack->valid = true;
 
 		if (is_kernel_func) {
-			struct symtabs *symtabs;
+			struct uftrace_sym_info *sinfo;
 
-			symtabs = &task->h->sessions.first->symtabs;
-			fstack->addr = get_kernel_address(symtabs, rstack->addr);
+			sinfo = &task->h->sessions.first->sym_info;
+			fstack->addr = get_kernel_address(sinfo, rstack->addr);
 		}
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
@@ -2108,7 +2108,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 					 struct uftrace_task_reader *task)
 {
 	struct uftrace_record *next_rec;
-	struct fstack *prev_fstack;
+	struct uftrace_fstack *prev_fstack;
 
 	if (task->rstack_list.count == 0)
 		return;
@@ -2436,7 +2436,7 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *
 		handle->sessions.first = &test_sess;
 
 	/* it doesn't have kernel functions */
-	handle->sessions.first->symtabs.kernel_base = -1ULL;
+	handle->sessions.first->sym_info.kernel_base = -1ULL;
 
 	if (mkdir(handle->dirname, 0755) < 0) {
 		if (errno != EEXIST) {
@@ -2502,8 +2502,8 @@ static int fstack_test_setup_single(struct uftrace_data *handle)
 static int fstack_test_setup_exec(struct uftrace_data *handle)
 {
 	struct uftrace_record *exec_tests[] = { exec_record, };
-	static struct sym exec_sym = { .addr = 0x3000, .size = 16,
-				       .name = "execve", .type = ST_PLT_FUNC, };
+	static struct uftrace_symbol exec_sym = { .addr = 0x3000, .size = 16,
+						  .name = "execve", .type = ST_PLT_FUNC, };
 	static struct uftrace_module exec_mod = {
 		.symtab = { .sym = &exec_sym, .nr_sym = 1, },
 	};
@@ -2520,8 +2520,8 @@ static int fstack_test_setup_exec(struct uftrace_data *handle)
 		       true, false, false);
 	create_task(&handle->sessions, &smsg.task, false);
 
-	handle->sessions.first->symtabs.maps = &map;
-	handle->sessions.first->symtabs.exec_map = &map;
+	handle->sessions.first->sym_info.maps = &map;
+	handle->sessions.first->sym_info.exec_map = &map;
 
 	return fstack_test_setup_file(handle, 1, test_tids,
 				      ARRAY_SIZE(exec_record), exec_tests);
@@ -2589,7 +2589,7 @@ TEST_CASE(fstack_skip)
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
 	struct uftrace_trigger tr = { 0, };
-	struct opts opts = {
+	struct uftrace_opts opts = {
 		.event_skip_out = true,
 		.libcall        = true,
 	};

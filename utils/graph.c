@@ -58,12 +58,11 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 }
 
 static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
-			   size_t node_size,
-			   struct debug_location* loc)
+			   size_t node_size, struct uftrace_dbg_loc* loc)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
-	struct fstack *fstack = fstack_get(tg->task, tg->task->stack_count - 1);
+	struct uftrace_fstack *fstack;
 
 	if (tg->lost)
 		return 1;  /* ignore kernel functions after LOST */
@@ -74,6 +73,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 		tg->new_sess = false;
 	}
 
+	fstack = fstack_get(tg->task, tg->task->stack_count - 1);
 	if (curr == NULL || fstack == NULL)
 		return -1;
 
@@ -99,11 +99,11 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 		node->loc = loc;
 
 		if (uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			struct uftrace_special_node *snode;
 			enum uftrace_graph_node_type type = NODE_T_NORMAL;
 
-			sym = find_symtabs(&sess->symtabs, fstack->addr);
+			sym = find_symtabs(&sess->sym_info, fstack->addr);
 			if (sym == NULL)
 				goto out;
 
@@ -138,14 +138,14 @@ out:
 
 static int add_graph_exit(struct uftrace_task_graph *tg)
 {
-	struct fstack *fstack = fstack_get(tg->task, tg->task->stack_count);
+	struct uftrace_fstack *fstack = fstack_get(tg->task, tg->task->stack_count);
 	struct uftrace_graph_node *node = tg->node;
 
 	if (node == NULL || fstack == NULL)
 		return -1;
 
 	if (tg->lost) {
-		if (is_kernel_address(&tg->task->h->sessions.first->symtabs,
+		if (is_kernel_address(&tg->task->h->sessions.first->sym_info,
 				      fstack->addr))
 			return 1;
 
@@ -205,8 +205,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 }
 
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size,
-		   struct debug_location* loc)
+		   size_t node_size, struct uftrace_dbg_loc* loc)
 {
 	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg, name, node_size, loc);

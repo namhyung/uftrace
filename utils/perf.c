@@ -568,7 +568,7 @@ void process_perf_event(struct uftrace_data *handle)
 	struct uftrace_perf_reader *perf;
 	struct uftrace_task_reader *task;
 	struct uftrace_record *rec;
-	struct fstack_arguments args = {};
+	struct uftrace_fstack_args args = {};
 	int p;
 
 	if (handle->perf_event_processed)

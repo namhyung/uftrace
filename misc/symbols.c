@@ -64,10 +64,10 @@ static void parse_option(int argc, char **argv, struct symbols_opts *opts)
 static int print_session_symbol(struct uftrace_session *s, void *arg)
 {
 	uint64_t addr = *(uint64_t *)arg;
-	struct sym *sym;
-	struct debug_location *dloc;
+	struct uftrace_symbol *sym;
+	struct uftrace_dbg_loc *dloc;
 
-	sym = find_symtabs(&s->symtabs, addr);
+	sym = find_symtabs(&s->sym_info, addr);
 	if (sym == NULL)
 		sym = session_find_dlsym(s, ~0ULL, addr);
 
@@ -76,7 +76,7 @@ static int print_session_symbol(struct uftrace_session *s, void *arg)
 
 	printf("  %s", sym->name);
 
-	dloc = find_file_line(&s->symtabs, addr);
+	dloc = find_file_line(&s->sym_info, addr);
 	if (dloc && dloc->file)
 		printf(" (at %s:%d)", dloc->file->name, dloc->line);
 

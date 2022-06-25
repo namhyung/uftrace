@@ -63,7 +63,7 @@ struct tui_window_ops {
 	void (*display)(struct tui_window *win, void *node);
 	bool (*search)(struct tui_window *win, void *node, char *str);
 	bool (*longest_child)(struct tui_window *win, void *node);
-	struct debug_location * (*location)(struct tui_window *win, void *node);
+	struct uftrace_dbg_loc * (*location)(struct tui_window *win, void *node);
 };
 
 struct tui_window {
@@ -369,13 +369,13 @@ static struct display_field *report_field_table[] = {
 	&report_field_call,
 };
 
-static void setup_default_graph_field(struct list_head *fields, struct opts *opts,
+static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,
 				      struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[GRAPH_F_TOTAL_TIME]);
 }
 
-static void setup_default_report_field(struct list_head *fields, struct opts *opts,
+static void setup_default_report_field(struct list_head *fields, struct uftrace_opts *opts,
 				      struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
@@ -411,7 +411,7 @@ static int create_data(struct uftrace_session *sess, void *arg)
 	return 0;
 }
 
-static void tui_setup(struct uftrace_data *handle, struct opts *opts)
+static void tui_setup(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	walk_sessions(&handle->sessions, create_data, NULL);
 
@@ -457,7 +457,7 @@ static struct uftrace_graph * get_graph(struct uftrace_task_reader *task,
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
 			return NULL;
@@ -503,12 +503,12 @@ static void update_report_node(struct uftrace_task_reader *task, char *symname,
 
 static int build_tui_node(struct uftrace_task_reader *task,
 			  struct uftrace_record *rec,
-			  struct opts *opts)
+			  struct uftrace_opts *opts)
 {
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
 	struct tui_graph_node *graph_node;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *name;
 	uint64_t addr = rec->addr;
 
@@ -516,7 +516,7 @@ static int build_tui_node(struct uftrace_task_reader *task,
 		struct uftrace_session *fsess;
 
 		fsess = task->h->sessions.first;
-		addr = get_kernel_address(&fsess->symtabs, addr);
+		addr = get_kernel_address(&fsess->sym_info, addr);
 	}
 
 	tg = graph_get_task(task, sizeof(*tg));
@@ -562,13 +562,13 @@ static int build_tui_node(struct uftrace_task_reader *task,
 	return 0;
 }
 
-static void add_remaining_node(struct opts *opts, struct uftrace_data *handle)
+static void add_remaining_node(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	uint64_t last_time;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	struct uftrace_task_reader *task;
 	struct uftrace_task_graph *tg;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *name;
 	int i;
 
@@ -699,7 +699,7 @@ static void tui_window_init(struct tui_window *win,
 	win->last_index = tui_last_index(win);
 }
 
-static struct tui_graph * tui_graph_init(struct opts *opts)
+static struct tui_graph * tui_graph_init(struct uftrace_opts *opts)
 {
 	struct tui_graph *graph;
 	struct uftrace_graph_node *top, *node;
@@ -1170,7 +1170,7 @@ static void win_footer_graph(struct tui_window *win,
 			 "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct debug_location *dloc;
+		struct uftrace_dbg_loc *dloc;
 
 		dloc = win->ops->location(win, win->curr);
 
@@ -1178,7 +1178,7 @@ static void win_footer_graph(struct tui_window *win,
 			snprintf(buf, COLS, "uftrace graph: %s [line:%d]",
 				 dloc->file->name, dloc->line);
 		}
-		else if (find_symtabs(&sess->symtabs, node->n.addr) != NULL) {
+		else if (find_symtabs(&sess->sym_info, node->n.addr) != NULL) {
 			/* some symbols don't have source location */
 			snprintf(buf, COLS, "uftrace graph: %s [at %#"PRIx64"]",
 				 "source location is not available",
@@ -1359,14 +1359,14 @@ static bool win_longest_child_graph(struct tui_window *win, void *node)
 	return true;
 }
 
-static struct debug_location *win_location_graph(struct tui_window *win,
+static struct uftrace_dbg_loc *win_location_graph(struct tui_window *win,
 						 void *node)
 {
 	struct tui_graph *graph = (struct tui_graph *)win;
 	struct tui_graph_node *curr = node;
 	struct uftrace_session *sess = graph->ug.sess;
 
-	return find_file_line(&sess->symtabs, curr->n.addr);
+	return find_file_line(&sess->sym_info, curr->n.addr);
 }
 
 static const struct tui_window_ops graph_ops = {
@@ -1448,7 +1448,7 @@ static void curr_sort_key_init(char *sort_keys)
 }
 
 /* per-window operations for report window */
-static struct tui_report * tui_report_init(struct opts *opts)
+static struct tui_report * tui_report_init(struct uftrace_opts *opts)
 {
 	struct tui_window *win = &tui_report.win;
 	char *sort_keys;
@@ -1566,7 +1566,7 @@ static void win_footer_report(struct tui_window *win, struct uftrace_data *handl
 			 tui_search, win->search_count, "use '<' and '>' keys to navigate");
 	}
 	else {
-		struct debug_location *dloc;
+		struct uftrace_dbg_loc *dloc;
 
 		dloc = win->ops->location(win, win->curr);
 
@@ -1603,17 +1603,17 @@ static void win_display_report(struct tui_window *win, void *node)
 	printw("%-*.*s", COLS - w, COLS - w, curr->n.name);
 }
 
-static struct debug_location *win_location_report(struct tui_window *win,
+static struct uftrace_dbg_loc *win_location_report(struct tui_window *win,
 						  void *node)
 {
 	struct tui_report_node *curr = node;
 	struct tui_graph_node *gnode;
 	struct uftrace_session *sess;
-	struct debug_location *dloc;
+	struct uftrace_dbg_loc *dloc;
 
 	list_for_each_entry(gnode, &curr->head, link) {
 		sess = gnode->graph->sess;
-		dloc = find_file_line(&sess->symtabs, gnode->n.addr);
+		dloc = find_file_line(&sess->sym_info, gnode->n.addr);
 
 		if (dloc != NULL && dloc->file != NULL)
 			return dloc;
@@ -1685,7 +1685,7 @@ static void build_info_node(void *data, const char *fmt, ...)
 	list_add_tail(&node->list, &info->head);
 }
 
-static struct tui_list * tui_info_init(struct opts *opts,
+static struct tui_list * tui_info_init(struct uftrace_opts *opts,
 				       struct uftrace_data *handle)
 {
 	INIT_LIST_HEAD(&tui_info.head);
@@ -1752,7 +1752,7 @@ static const struct tui_window_ops info_ops = {
 #define TUI_SESS_DUMMY_NR  4
 
 /* per-window operations for session window */
-static struct tui_list * tui_session_init(struct opts *opts)
+static struct tui_list * tui_session_init(struct uftrace_opts *opts)
 {
 	struct tui_graph *graph;
 	struct tui_list_node *node;
@@ -2439,7 +2439,7 @@ static bool tui_window_longest_child(struct tui_window *win)
 
 static bool tui_window_open_editor(struct tui_window *win)
 {
-	struct debug_location *dloc;
+	struct uftrace_dbg_loc *dloc;
 	const char *editor = getenv("EDITOR");
 	struct strv editor_strv;
 	int pid, status;
@@ -2707,7 +2707,7 @@ static inline void cancel_search(void)
 
 
 
-static void tui_main_loop(struct opts *opts, struct uftrace_data *handle)
+static void tui_main_loop(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	int key = 0;
 	bool full_redraw = true;
@@ -3016,7 +3016,7 @@ static void display_loading_msg(void)
 	refresh();
 }
 
-int command_tui(int argc, char *argv[], struct opts *opts)
+int command_tui(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;
@@ -3075,7 +3075,7 @@ int command_tui(int argc, char *argv[], struct opts *opts)
 #include "uftrace.h"
 #include "utils/utils.h"
 
-int command_tui(int argc, char *argv[], struct opts *opts)
+int command_tui(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	pr_warn("TUI is unsupported (libncursesw.so is missing)\n");
 	return 0;

@@ -83,7 +83,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	for (i = 0; i < pd->dsymtab.nr_sym; i++) {
 		uint32_t pcrel;
 		Elf64_Rela *rela;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		unsigned k;
 		bool skip = false;
 

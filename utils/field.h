@@ -12,7 +12,7 @@ enum align_pos {
 /* data for field display */
 struct field_data {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	void *arg;
 };
 
@@ -63,7 +63,7 @@ struct display_field {
 	const char *alias;
 };
 
-typedef void (*setup_default_field_t)(struct list_head *fields, struct opts*,
+typedef void (*setup_default_field_t)(struct list_head *fields, struct uftrace_opts*,
 				      struct display_field *p_field_table[]);
 
 static inline uint64_t effective_addr(uint64_t addr)
@@ -82,7 +82,7 @@ int print_field_data(struct list_head *output_fields, struct field_data *fd,
 int print_empty_field(struct list_head *output_fields, int space);
 void add_field(struct list_head *output_fields, struct display_field *field);
 void del_field(struct display_field *field);
-void setup_field(struct list_head *output_fields, struct opts *opts,
+void setup_field(struct list_head *output_fields, struct uftrace_opts *opts,
 		 setup_default_field_t setup_default_field,
 		 struct display_field *field_table[],
 		 size_t field_table_size);

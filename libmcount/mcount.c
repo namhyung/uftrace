@@ -33,8 +33,8 @@
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
-/* symbol table of main executable */
-struct symtabs symtabs = {
+/* symbol info for current process */
+struct uftrace_sym_info mcount_sym_info = {
 	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
 };
 
@@ -101,16 +101,16 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	if (getenv("UFTRACE_SRCLINE") == NULL)
 		return;
 
-	load_module_symtabs(&symtabs);
+	load_module_symtabs(&mcount_sym_info);
 
 	/* use debug info if available */
-	prepare_debug_info(&symtabs, ptype, NULL, NULL, false, force);
-	save_debug_info(&symtabs, symtabs.dirname);
+	prepare_debug_info(&mcount_sym_info, ptype, NULL, NULL, false, force);
+	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 }
 
 static void mcount_filter_finish(void)
 {
-	finish_debug_info(&symtabs);
+	finish_debug_info(&mcount_sym_info);
 }
 
 #else
@@ -387,7 +387,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	};
 	bool needs_debug_info = false;
 
-	load_module_symtabs(&symtabs);
+	load_module_symtabs(&mcount_sym_info);
 
 	mcount_signal_init(getenv("UFTRACE_SIGNAL"), &filter_setting);
 
@@ -404,22 +404,22 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 	/* use debug info if available */
 	if (needs_debug_info) {
-		prepare_debug_info(&symtabs, ptype, argument_str, retval_str,
+		prepare_debug_info(&mcount_sym_info, ptype, argument_str, retval_str,
 				   !!autoargs_str, force);
-		save_debug_info(&symtabs, symtabs.dirname);
+		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	}
 
-	uftrace_setup_filter(filter_str, &symtabs, &mcount_triggers,
+	uftrace_setup_filter(filter_str, &mcount_sym_info, &mcount_triggers,
 			     &mcount_filter_mode, &filter_setting);
-	uftrace_setup_trigger(trigger_str, &symtabs, &mcount_triggers,
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, &mcount_triggers,
 			      &mcount_filter_mode, &filter_setting);
-	uftrace_setup_argument(argument_str, &symtabs, &mcount_triggers,
+	uftrace_setup_argument(argument_str, &mcount_sym_info, &mcount_triggers,
 			       &filter_setting);
-	uftrace_setup_retval(retval_str, &symtabs, &mcount_triggers,
+	uftrace_setup_retval(retval_str, &mcount_sym_info, &mcount_triggers,
 			     &filter_setting);
 
 	if (caller_str) {
-		uftrace_setup_caller_filter(caller_str, &symtabs,
+		uftrace_setup_caller_filter(caller_str, &mcount_sym_info,
 					    &mcount_triggers, &filter_setting);
 	}
 
@@ -436,9 +436,9 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 		filter_setting.auto_args = true;
 
-		uftrace_setup_argument(autoarg, &symtabs,
+		uftrace_setup_argument(autoarg, &mcount_sym_info,
 				       &mcount_triggers, &filter_setting);
-		uftrace_setup_retval(autoret, &symtabs,
+		uftrace_setup_retval(autoret, &mcount_sym_info,
 				     &mcount_triggers, &filter_setting);
 	}
 
@@ -470,7 +470,7 @@ static void mcount_filter_finish(void)
 	uftrace_cleanup_filter(&mcount_triggers);
 	finish_auto_args();
 
-	finish_debug_info(&symtabs);
+	finish_debug_info(&mcount_sym_info);
 
 	mcount_signal_finish();
 }
@@ -721,12 +721,12 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	pr_warn("=====================================\n");
 
 	while (rstack >= mtdp->rstack) {
-		struct sym *parent, *child;
+		struct uftrace_symbol *parent, *child;
 		char *pname, *cname;
 
-		parent = find_symtabs(&symtabs, rstack->parent_ip);
+		parent = find_symtabs(&mcount_sym_info, rstack->parent_ip);
 		pname = symbol_getname(parent, rstack->parent_ip);
-		child  = find_symtabs(&symtabs, rstack->child_ip);
+		child  = find_symtabs(&mcount_sym_info, rstack->child_ip);
 		cname = symbol_getname(child, rstack->child_ip);
 
 		pr_warn("[%d] (%s[%lx] <= %s[%lx])\n", idx--,
@@ -949,7 +949,7 @@ static void script_hook_entry(struct mcount_thread_data *mtdp,
 {
 	struct script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
-	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	struct uftrace_symbol *sym = find_symtabs(&mcount_sym_info, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
 
 	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
@@ -971,7 +971,7 @@ static void script_hook_exit(struct mcount_thread_data *mtdp,
 {
 	struct script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
-	struct sym *sym = find_symtabs(&symtabs, entry_addr);
+	struct uftrace_symbol *sym = find_symtabs(&mcount_sym_info, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
 
 	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
@@ -1216,7 +1216,7 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 
 #ifndef FIX_PARENT_LOC
 static inline unsigned long *
-mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
+mcount_arch_parent_location(struct uftrace_sym_info *sinfo, unsigned long *parent_loc,
 			    unsigned long child_ip)
 {
 	return parent_loc;
@@ -1225,7 +1225,7 @@ mcount_arch_parent_location(struct symtabs *symtabs, unsigned long *parent_loc,
 
 bool within_same_module(unsigned long addr1, unsigned long addr2)
 {
-	return find_map(&symtabs, addr1) == find_map(&symtabs, addr2);
+	return find_map(&mcount_sym_info, addr1) == find_map(&mcount_sym_info, addr2);
 }
 
 void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
@@ -1327,7 +1327,7 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child,
 	}
 
 	/* fixup the parent_loc in an arch-dependant way (if needed) */
-	parent_loc = mcount_arch_parent_location(&symtabs, parent_loc, child);
+	parent_loc = mcount_arch_parent_location(&mcount_sym_info, parent_loc, child);
 
 	if (mcount_estimate_return)
 		mcount_rstack_inject_return(mtdp, parent_loc, child);
@@ -1867,14 +1867,14 @@ static __used void mcount_startup(void)
 		shmem_bufsize = strtol(bufsize_str, NULL, 0);
 
 	mcount_exename = read_exename();
-	symtabs.dirname = dirname;
-	symtabs.symdir = symdir_str ?: dirname;
-	symtabs.filename = mcount_exename;
+	mcount_sym_info.dirname = dirname;
+	mcount_sym_info.symdir = symdir_str ?: dirname;
+	mcount_sym_info.filename = mcount_exename;
 
 	if (symdir_str)
-		symtabs.flags |= SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_SYMS_DIR;
+		mcount_sym_info.flags |= SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_SYMS_DIR;
 
-	record_proc_maps(dirname, mcount_session_name(), &symtabs);
+	record_proc_maps(dirname, mcount_session_name(), &mcount_sym_info);
 
 	if (pattern_str)
 		patt_type = parse_filter_pattern(pattern_str);
@@ -1894,7 +1894,7 @@ static __used void mcount_startup(void)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&symtabs, patch_str, patt_type);
+		mcount_dynamic_update(&mcount_sym_info, patch_str, patt_type);
 
 	if (event_str)
 		mcount_setup_events(dirname, event_str, patt_type);

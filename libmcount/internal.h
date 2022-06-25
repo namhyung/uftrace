@@ -311,7 +311,7 @@ struct plthook_data {
 	/* start address of PLT code (PLT0) */
 	unsigned long			plt_addr;
 	/* symbol table for PLT functions */
-	struct symtab			dsymtab;
+	struct uftrace_symtab		dsymtab;
 	/* address of global offset table (GOT) used for PLT */
 	unsigned long			*pltgot_ptr;
 	/* original address of each function (resolved by dynamic linker) */
@@ -378,7 +378,7 @@ extern int record_trace_data(struct mcount_thread_data *mtdp,
 extern struct uftrace_mmap * new_map(const char *path, uint64_t start, uint64_t end,
 				     const char *prot);
 extern void record_proc_maps(char *dirname, const char *sess_id,
-			     struct symtabs *symtabs);
+			     struct uftrace_sym_info *sinfo);
 extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
 					unsigned long *frame_pointer,
 					unsigned long addr);

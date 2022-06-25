@@ -232,7 +232,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 
 unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	sym = &pd->dsymtab.sym[0];
 	return sym->addr - ARCH_PLT0_SIZE;

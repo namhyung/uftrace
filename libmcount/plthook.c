@@ -57,7 +57,7 @@ static void resolve_pltgot(struct plthook_data *pd, int idx)
 {
 	if (pd->resolved_addr[idx] == 0) {
 		unsigned long addr;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 
 		sym = &pd->dsymtab.sym[idx];
 		addr = (unsigned long) dlsym(RTLD_DEFAULT, sym->name);
@@ -113,7 +113,7 @@ size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
 static void restore_plt_functions(struct plthook_data *pd)
 {
 	unsigned i, k;
-	struct symtab *dsymtab = &pd->dsymtab;
+	struct uftrace_symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		/*
@@ -127,7 +127,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 		bool skipped = false;
 		unsigned long plthook_addr;
 		unsigned long resolved_addr;
-		struct sym *sym = dsymtab->sym_names[i];
+		struct uftrace_symbol *sym = dsymtab->sym_names[i];
 
 		for (k = 0; k < plt_skip_nr; k++) {
 			const struct plthook_skip_symbol *skip_sym;
@@ -708,7 +708,7 @@ static struct mcount_ret_stack * restore_vfork(struct mcount_thread_data *mtdp,
  */
 __weak unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	sym = &pd->dsymtab.sym[idx];
 	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
@@ -749,7 +749,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr,
 				     unsigned long module_id,
 				     struct mcount_regs *regs)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct mcount_thread_data *mtdp = NULL;
 	struct mcount_ret_stack *rstack;
 	bool skip = false;

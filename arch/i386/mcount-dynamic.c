@@ -58,7 +58,7 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 }
 
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-			     struct symtab *symtab)
+			     struct uftrace_symtab *symtab)
 {
 	unsigned i = 0;
 
@@ -66,7 +66,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 
 	/* check first few functions have fentry signature */
 	for (i = 0; i < symtab->nr_sym; i++) {
-		struct sym *sym = &symtab->sym[i];
+		struct uftrace_symbol *sym = &symtab->sym[i];
 		void *code_addr = (unsigned char *)((uintptr_t)(sym->addr + mdi->map->start));
 
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
@@ -110,7 +110,7 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned l
 	return 0;
 }
 
-static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
+static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	unsigned char *insn = (unsigned char *)((uintptr_t)(sym->addr + mdi->map->start));
 	unsigned int target_addr;
@@ -137,7 +137,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct sym *sym)
 	return 0;
 }
 
-int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
 	int result = INSTRUMENT_SKIPPED;

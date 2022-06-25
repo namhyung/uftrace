@@ -630,7 +630,7 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
  * This function sets up all necessary data structures and configure
  * kernel ftrace subsystem.
  */
-int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct opts *opts)
+int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct uftrace_opts *opts)
 {
 	int i, n;
 	int ret;
@@ -1607,7 +1607,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			time_filter = task->filter.time->threshold;
 
 		/* filter match needs full (64-bit) address */
-		real_addr = get_kernel_address(&sess->symtabs, curr->addr);
+		real_addr = get_kernel_address(&sess->sym_info, curr->addr);
 		/*
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.
@@ -1621,7 +1621,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			add_kfunc_addr(&kfunc_tree, real_addr);
 
 			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.time;
@@ -1646,7 +1646,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				continue;
 
 			if (task->filter.time) {
-				struct time_filter_stack *tfs;
+				struct uftrace_time_filter_stack *tfs;
 
 				tfs = task->filter.time;
 				if (tfs->depth == curr->depth &&
@@ -1699,7 +1699,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			}
 		}
 		else if (curr->type == UFTRACE_EVENT) {
-			struct fstack_arguments arg = {
+			struct uftrace_fstack_args arg = {
 				.data = kernel->trace_buf.buffer,
 				.len  = kernel->trace_buf.len + 1,
 			};
@@ -2157,7 +2157,7 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 		handle->tasks[i].fp  = (void *)1;  /* prevent retry */
 	}
 
-	test_sess.symtabs.kernel_base = 0xffff0000UL;
+	test_sess.sym_info.kernel_base = 0xffff0000UL;
 	handle->sessions.first = &test_sess;
 
 	atexit(kernel_test_finish_handle);

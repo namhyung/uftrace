@@ -24,11 +24,11 @@
 
 static int run_script_for_rstack(struct uftrace_data *handle,
 				 struct uftrace_task_reader *task,
-				 struct opts *opts)
+				 struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	char *symname = NULL;
 
 	sym = task_find_sym(sessions, task, rstack);
@@ -43,11 +43,11 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct script_context sc_ctx = { 0, };
-		struct fstack *fstack;
-		int depth;
+		struct uftrace_fstack *fstack;
 		struct uftrace_trigger tr = {
 			.flags = 0,
 		};
+		int depth;
 		int ret;
 
 		ret = fstack_entry(task, rstack, &tr);
@@ -80,7 +80,7 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
 		struct script_context sc_ctx = { 0, };
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 
 		/* function exit */
 		fstack = fstack_get(task, task->stack_count);
@@ -143,7 +143,7 @@ out:
 	return 0;
 }
 
-int command_script(int argc, char *argv[], struct opts *opts)
+int command_script(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;

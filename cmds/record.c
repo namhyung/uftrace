@@ -62,7 +62,7 @@ static bool has_perf_event;
 static bool has_sched_event;
 static bool finish_received;
 
-static bool can_use_fast_libmcount(struct opts *opts)
+static bool can_use_fast_libmcount(struct uftrace_opts *opts)
 {
 	if (debug)
 		return false;
@@ -93,7 +93,7 @@ static char *build_debug_domain_string(void)
 	return domain;
 }
 
-char * get_libmcount_path(struct opts *opts)
+char * get_libmcount_path(struct uftrace_opts *opts)
 {
 	char *libmcount, *lib = xmalloc(PATH_MAX);
 	bool must_use_multi_thread = has_dependency(opts->exename,
@@ -147,7 +147,7 @@ void put_libmcount_path(char *libpath)
 	free(libpath);
 }
 
-static void setup_child_environ(struct opts *opts, int argc, char *argv[])
+static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[])
 {
 	char buf[PATH_MAX];
 	char *old_preload, *libpath;
@@ -364,7 +364,7 @@ static void setup_child_environ(struct opts *opts, int argc, char *argv[])
 	setenv("GLIBC_TUNABLES", "glibc.cpu.hwcaps=-IBT,-SHSTK", 1);
 }
 
-static uint64_t calc_feat_mask(struct opts *opts)
+static uint64_t calc_feat_mask(struct uftrace_opts *opts)
 {
 	uint64_t features = 0;
 	char *buf = NULL;
@@ -413,8 +413,8 @@ static uint64_t calc_feat_mask(struct opts *opts)
 	return features;
 }
 
-static int fill_file_header(struct opts *opts, int status, struct rusage *rusage,
-			    char *elapsed_time)
+static int fill_file_header(struct uftrace_opts *opts, int status,
+			    struct rusage *rusage, char *elapsed_time)
 {
 	int fd, efd;
 	int ret = -1;
@@ -526,7 +526,7 @@ static void write_buffer_file(const char *dirname, struct buf_list *buf)
 	free(filename);
 }
 
-static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
+static void write_buffer(struct buf_list *buf, struct uftrace_opts *opts, int sock)
 {
 	struct mcount_shmem_buffer *shmbuf = buf->shmem_buf;
 
@@ -541,7 +541,7 @@ static void write_buffer(struct buf_list *buf, struct opts *opts, int sock)
 struct writer_arg {
 	struct list_head		list;
 	struct list_head		bufs;
-	struct opts			*opts;
+	struct uftrace_opts		*opts;
 	struct uftrace_kernel_writer	*kern;
 	struct uftrace_perf_writer	*perf;
 	int				sock;
@@ -551,7 +551,7 @@ struct writer_arg {
 	int				cpus[];
 };
 
-static void write_buf_list(struct list_head *buf_head, struct opts *opts,
+static void write_buf_list(struct list_head *buf_head, struct uftrace_opts *opts,
 			   struct writer_arg *warg)
 {
 	struct buf_list *buf;
@@ -667,7 +667,7 @@ void *writer_thread(void *arg)
 {
 	struct buf_list *buf, *pos;
 	struct writer_arg *warg = arg;
-	struct opts *opts = warg->opts;
+	struct uftrace_opts *opts = warg->opts;
 	struct pollfd *pollfd;
 	int i, dummy;
 	sigset_t sigset;
@@ -873,7 +873,7 @@ static void stop_all_writers(void)
 	thread_ctl[1] = -1;
 }
 
-static void record_remaining_buffer(struct opts *opts, int sock)
+static void record_remaining_buffer(struct uftrace_opts *opts, int sock)
 {
 	struct buf_list *buf;
 
@@ -1423,7 +1423,7 @@ static void send_log_file(int sock, const char *logfile)
 	send_trace_metadata(sock, NULL, (char*)logfile);
 }
 
-static void update_session_maps(struct opts *opts)
+static void update_session_maps(struct uftrace_opts *opts)
 {
 	struct dirent **map_list;
 	int i, maps;
@@ -1447,7 +1447,7 @@ static void update_session_maps(struct opts *opts)
 	free(map_list);
 }
 
-static void load_session_symbols(struct opts *opts)
+static void load_session_symbols(struct uftrace_opts *opts)
 {
 	struct dirent **map_list;
 	int i, maps;
@@ -1460,7 +1460,7 @@ static void load_session_symbols(struct opts *opts)
 	}
 
 	for (i = 0; i < maps; i++) {
-		struct symtabs symtabs = {
+		struct uftrace_sym_info sinfo = {
 			.dirname  = opts->dirname,
 			.flags    = SYMTAB_FL_ADJ_OFFSET,
 		};
@@ -1470,11 +1470,11 @@ static void load_session_symbols(struct opts *opts)
 		free(map_list[i]);
 
 		pr_dbg2("reading symbols for session %s\n", sid);
-		read_session_map(opts->dirname, &symtabs, sid);
+		read_session_map(opts->dirname, &sinfo, sid);
 
-		load_module_symtabs(&symtabs);
+		load_module_symtabs(&sinfo);
 
-		delete_session_map(&symtabs);
+		delete_session_map(&sinfo);
 	}
 
 	free(map_list);
@@ -1580,7 +1580,7 @@ static void find_in_path(char **exename)
 	strv_free(&strv);
 }
 
-static void check_binary(struct opts *opts)
+static void check_binary(struct uftrace_opts *opts)
 {
 	int fd;
 	int chk;
@@ -1671,7 +1671,7 @@ again:
 	close(fd);
 }
 
-static void check_perf_event(struct opts *opts)
+static void check_perf_event(struct uftrace_opts *opts)
 {
 	struct strv strv = STRV_INIT;
 	char *evt;
@@ -1729,7 +1729,7 @@ struct writer_data {
 	struct uftrace_perf_writer	perf;
 };
 
-static void setup_writers(struct writer_data *wd, struct opts *opts)
+static void setup_writers(struct writer_data *wd, struct uftrace_opts *opts)
 {
 	struct uftrace_kernel_writer *kernel = &wd->kernel;
 	struct uftrace_perf_writer *perf = &wd->perf;
@@ -1824,7 +1824,8 @@ out:
 		pr_err("cannot create an eventfd for writer thread");
 }
 
-static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_fd)
+static void start_tracing(struct writer_data *wd, struct uftrace_opts *opts,
+			  int ready_fd)
 {
 	int i, k;
 	uint64_t go = 1;
@@ -1870,7 +1871,7 @@ static void start_tracing(struct writer_data *wd, struct opts *opts, int ready_f
 		pr_err("signal to child failed");
 }
 
-static int stop_tracing(struct writer_data *wd, struct opts *opts)
+static int stop_tracing(struct writer_data *wd, struct uftrace_opts *opts)
 {
 	int status = -1;
 	int ret = UFTRACE_EXIT_SUCCESS;
@@ -1945,7 +1946,7 @@ static int stop_tracing(struct writer_data *wd, struct opts *opts)
 	return ret;
 }
 
-static void finish_writers(struct writer_data *wd, struct opts *opts)
+static void finish_writers(struct writer_data *wd, struct uftrace_opts *opts)
 {
 	int i;
 	char *elapsed_time = get_child_time(&wd->ts1, &wd->ts2);
@@ -1984,7 +1985,7 @@ static void finish_writers(struct writer_data *wd, struct opts *opts)
 		finish_perf_record(&wd->perf);
 }
 
-static void copy_data_files(struct opts *opts, const char *ext)
+static void copy_data_files(struct uftrace_opts *opts, const char *ext)
 {
 	char path[PATH_MAX];
 	glob_t g;
@@ -2002,7 +2003,7 @@ static void copy_data_files(struct opts *opts, const char *ext)
 	globfree(&g);
 }
 
-static void write_symbol_files(struct writer_data *wd, struct opts *opts)
+static void write_symbol_files(struct writer_data *wd, struct uftrace_opts *opts)
 {
 	struct dlopen_list *dlib, *tmp;
 
@@ -2023,14 +2024,14 @@ static void write_symbol_files(struct writer_data *wd, struct opts *opts)
 
 	/* dynamically loaded libraries using dlopen() */
 	list_for_each_entry_safe(dlib, tmp, &dlopen_libs, list) {
-		struct symtabs dlib_symtabs = {
+		struct uftrace_sym_info dlib_sinfo = {
 			.dirname = opts->dirname,
 			.flags = SYMTAB_FL_ADJ_OFFSET,
 		};
 		char build_id[BUILD_ID_STR_SIZE];
 
 		read_build_id(dlib->libname, build_id, sizeof(build_id));
-		load_module_symtab(&dlib_symtabs, dlib->libname, build_id);
+		load_module_symtab(&dlib_sinfo, dlib->libname, build_id);
 
 		list_del(&dlib->list);
 
@@ -2067,7 +2068,7 @@ after_save:
 		chown_directory(opts->dirname);
 }
 
-int do_main_loop(int ready, struct opts *opts, int pid)
+int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 {
 	int ret;
 	struct writer_data wd;
@@ -2128,7 +2129,7 @@ int do_main_loop(int ready, struct opts *opts, int pid)
 	return ret;
 }
 
-int do_child_exec(int ready, struct opts *opts,
+int do_child_exec(int ready, struct uftrace_opts *opts,
 		  int argc, char *argv[])
 {
 	uint64_t dummy;
@@ -2190,7 +2191,7 @@ int do_child_exec(int ready, struct opts *opts,
 	abort();
 }
 
-int command_record(int argc, char *argv[], struct opts *opts)
+int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int pid;
 	int ready;

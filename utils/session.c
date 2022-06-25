@@ -17,19 +17,19 @@ static void delete_tasks(struct uftrace_session_link *sessions);
 /**
  * read_session_map - read memory mappings in a session map file
  * @dirname: directory name of the session
- * @symtabs: symbol table to keep the memory mapping
+ * @addr_space: address space to keep the memory mapping
  * @sid: session id
  *
  * This function reads mapping data from a session map file and
  * construct the address space for a session to resolve symbols
  * in libraries.
  */
-void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
+void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
 	const char *last_libname = NULL;
-	struct uftrace_mmap **maps = &symtabs->maps;
+	struct uftrace_mmap **maps = &sinfo->maps;
 	struct uftrace_mmap *last_map = NULL;
 	const char build_id_prefix[] = "build-id:";
 
@@ -59,7 +59,7 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		/* skip the [stack] mapping */
 		if (path[0] == '[') {
 			if (strncmp(path, "[stack", 6) == 0)
-				symtabs->kernel_base = guess_kernel_base(buf);
+				sinfo->kernel_base = guess_kernel_base(buf);
 			continue;
 		}
 
@@ -88,9 +88,9 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 		}
 
 		/* set mapping of main executable */
-		if (symtabs->exec_map == NULL && symtabs->filename &&
-		    !strcmp(path, symtabs->filename)) {
-			symtabs->exec_map = map;
+		if (sinfo->exec_map == NULL && sinfo->filename &&
+		    !strcmp(path, sinfo->filename)) {
+			sinfo->exec_map = map;
 		}
 
 		last_libname = map->libname;
@@ -103,25 +103,25 @@ void read_session_map(char *dirname, struct symtabs *symtabs, char *sid)
 }
 
 /**
- * delete_session_map - free memory mappings in a symtabs
- * @symtabs: symbol table has the memory mapping
+ * delete_session_map - free memory mappings in an address space
+ * @addr_space: symbol table has the memory mapping
  *
  * This function releases mapping data in a symbol table which
  * was read by read_session_map().
  */
-void delete_session_map(struct symtabs *symtabs)
+void delete_session_map(struct uftrace_sym_info *sinfo)
 {
 	struct uftrace_mmap *map, *tmp;
 
-	map = symtabs->maps;
+	map = sinfo->maps;
 	while (map) {
 		tmp = map->next;
 		free(map);
 		map = tmp;
 	}
 
-	symtabs->maps = NULL;
-	symtabs->exec_map = NULL;
+	sinfo->maps = NULL;
+	sinfo->exec_map = NULL;
 }
 
 /**
@@ -234,19 +234,19 @@ void create_session(struct uftrace_session_link *sessions,
 		s->pid, s->sid);
 
 	if (needs_symtab) {
-		s->symtabs.dirname = dirname;
-		s->symtabs.filename = s->exename;
-		s->symtabs.symdir = symdir;
-		s->symtabs.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
+		s->sym_info.dirname = dirname;
+		s->sym_info.filename = s->exename;
+		s->sym_info.symdir = symdir;
+		s->sym_info.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
-			s->symtabs.flags |= SYMTAB_FL_ADJ_OFFSET;
+			s->sym_info.flags |= SYMTAB_FL_ADJ_OFFSET;
 		if (strcmp(dirname, symdir))
-			s->symtabs.flags |= SYMTAB_FL_SYMS_DIR;
+			s->sym_info.flags |= SYMTAB_FL_SYMS_DIR;
 
-		read_session_map(dirname, &s->symtabs, s->sid);
+		read_session_map(dirname, &s->sym_info, s->sid);
 
-		load_module_symtabs(&s->symtabs);
-		load_debug_info(&s->symtabs, needs_srcline);
+		load_module_symtabs(&s->sym_info);
+		load_debug_info(&s->sym_info, needs_srcline);
 	}
 
 	if (sessions->first == NULL)
@@ -361,7 +361,7 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 	udl->base = base_addr;
 
 	read_build_id(libname, build_id, sizeof(build_id));
-	udl->mod = load_module_symtab(&sess->symtabs, libname, build_id);
+	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -379,11 +379,11 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
  * @sess using @addr.  The @timestamp is needed to determine which
  * library should be searched.
  */
-struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
-				unsigned long addr)
+struct uftrace_symbol * session_find_dlsym(struct uftrace_session *sess,
+					   uint64_t timestamp, unsigned long addr)
 {
 	struct uftrace_dlopen_list *pos;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 
 	list_for_each_entry_reverse(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
@@ -409,8 +409,8 @@ void delete_session(struct uftrace_session *sess)
 		free(udl);
 	}
 
-	finish_debug_info(&sess->symtabs);
-	delete_session_map(&sess->symtabs);
+	finish_debug_info(&sess->sym_info);
+	delete_session_map(&sess->sym_info);
 	uftrace_cleanup_filter(&sess->filters);
 	uftrace_cleanup_filter(&sess->fixups);
 	free(sess);
@@ -665,13 +665,13 @@ void walk_tasks(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct sym * task_find_sym(struct uftrace_session_link *sessions,
-			   struct uftrace_task_reader *task,
-			   struct uftrace_record *rec)
+struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sessions,
+				      struct uftrace_task_reader *task,
+				      struct uftrace_record *rec)
 {
 	struct uftrace_session *sess;
-	struct symtabs *symtabs;
-	struct sym *sym = NULL;
+	struct uftrace_sym_info *sinfo;
+	struct uftrace_symbol *sym = NULL;
 	uint64_t addr = rec->addr;
 
 	sess = find_task_session(sessions, task->t, rec->time);
@@ -679,14 +679,14 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
 	if (is_kernel_record(task, rec)) {
 		if (sess == NULL)
 			sess = sessions->first;
-		addr = get_kernel_address(&sess->symtabs, addr);
+		addr = get_kernel_address(&sess->sym_info, addr);
 	}
 
 	if (sess == NULL)
 		return NULL;
 
-	symtabs = &sess->symtabs;
-	sym = find_symtabs(symtabs, addr);
+	sinfo = &sess->sym_info;
+	sym = find_symtabs(sinfo, addr);
 
 	if (sym == NULL)
 		sym = session_find_dlsym(sess, rec->time, addr);
@@ -703,25 +703,25 @@ struct sym * task_find_sym(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr)
+struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions,
+					   struct uftrace_task_reader *task,
+					   uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 
 	sess = find_task_session(sessions, task->t, time);
 
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
 			return NULL;
 	}
 
-	sym = find_symtabs(&sess->symtabs, addr);
+	sym = find_symtabs(&sess->sym_info, addr);
 	if (sym == NULL)
 		sym = session_find_dlsym(sess, time, addr);
 
@@ -745,15 +745,15 @@ struct sym * task_find_sym_addr(struct uftrace_session_link *sessions,
  * This function returns a debug location of symbol
  * that looked up in symbol table in current session
  */
-struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr)
+struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *sessions,
+					    struct uftrace_task_reader *task,
+					    uint64_t time, uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	struct uftrace_mmap *map;
-	struct debug_info *dinfo;
-	struct debug_location *loc;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_dbg_loc *loc;
 	ptrdiff_t sym_idx;
 
 	sess = find_task_session(sessions, task->t, time);
@@ -761,13 +761,13 @@ struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions
 	if (sess == NULL) {
 		struct uftrace_session *fsess = sessions->first;
 
-		if (is_kernel_address(&fsess->symtabs, addr))
+		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
 			return NULL;
 	}
 
-	sym = find_symtabs(&sess->symtabs, addr);
+	sym = find_symtabs(&sess->sym_info, addr);
 	if (sym == NULL)
 		sym = session_find_dlsym(sess, time, addr);
 
@@ -775,7 +775,7 @@ struct debug_location * task_find_loc_addr(struct uftrace_session_link *sessions
 		return NULL;
 
 	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
-		map = find_map(&sess->symtabs, addr);
+		map = find_map(&sess->sym_info, addr);
 		if (map == NULL)
 			return NULL;
 
@@ -1086,7 +1086,7 @@ TEST_CASE(task_search)
 
 TEST_CASE(task_symbol)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,
@@ -1145,7 +1145,7 @@ TEST_CASE(task_symbol)
 
 TEST_CASE(task_symbol_dlopen)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	struct uftrace_msg_sess msg = {
 		.task = {
 			.pid = 1,
@@ -1201,7 +1201,7 @@ TEST_CASE(session_map_build_id)
 {
 	FILE *fp;
 	struct uftrace_mmap *map;
-	struct symtabs test_symtabs = { .loaded = false, };
+	struct uftrace_sym_info test_sinfo = { .loaded = false, };
 
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);
@@ -1209,10 +1209,10 @@ TEST_CASE(session_map_build_id)
 	fclose(fp);
 
 	pr_dbg("read map file with build-id info\n");
-	read_session_map(".", &test_symtabs, "test");
+	read_session_map(".", &test_sinfo, "test");
 
 	pr_dbg("first entry should have a build-id\n");
-	map = test_symtabs.maps;
+	map = test_sinfo.maps;
 	TEST_NE(map, NULL);
 	TEST_STREQ(map->libname, "unittest");
 	TEST_STREQ(map->build_id, "1234567890abcdef");
@@ -1226,7 +1226,7 @@ TEST_CASE(session_map_build_id)
 	map = map->next;
 	TEST_EQ(map, NULL);
 
-	delete_session_map(&test_symtabs);
+	delete_session_map(&test_sinfo);
 	return TEST_OK;
 }
 

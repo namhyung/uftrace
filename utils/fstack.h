@@ -8,9 +8,9 @@
 #include "uftrace.h"
 #include "utils/filter.h"
 
-struct sym;
+struct uftrace_symbol;
 
-enum fstack_flag {
+enum uftrace_fstack_flag {
 	FSTACK_FL_FILTERED	= (1U << 0),
 	FSTACK_FL_NOTRACE	= (1U << 1),
 	FSTACK_FL_NORECORD	= (1U << 2),
@@ -18,17 +18,17 @@ enum fstack_flag {
 	FSTACK_FL_LONGJMP	= (1U << 4),
 };
 
-enum context {
+enum uftrace_fstack_context {
 	FSTACK_CTX_UNKNOWN	= 0,
 	FSTACK_CTX_USER		= 1,
 	FSTACK_CTX_KERNEL	= 2,
 };
 
-struct time_filter_stack {
-	struct time_filter_stack *next;
+struct uftrace_time_filter_stack {
+	struct uftrace_time_filter_stack *next;
 	uint64_t threshold;
 	int depth;
-	enum context context;
+	enum uftrace_fstack_context context;
 };
 
 struct uftrace_task_reader {
@@ -42,7 +42,7 @@ struct uftrace_task_reader {
 	bool display_depth_set;
 	bool fstack_warned;
 	FILE *fp;
-	struct sym *func;
+	struct uftrace_symbol *func;
 	struct uftrace_task *t;
 	struct uftrace_data *h;
 	struct uftrace_record ustack;
@@ -61,18 +61,18 @@ struct uftrace_task_reader {
 	int column_index;
 	int event_color;
 	int sched_cpu;
-	enum context ctx;
+	enum uftrace_fstack_context ctx;
 	uint64_t timestamp;
 	uint64_t timestamp_last;
 	uint64_t timestamp_next;
 	uint64_t timestamp_estimate;
-	struct filter {
+	struct {
 		int	in_count;
 		int	out_count;
 		int	depth;
-		struct time_filter_stack *time;
+		struct uftrace_time_filter_stack *time;
 	} filter;
-	struct fstack {
+	struct uftrace_fstack {
 		uint64_t addr;
 		bool valid;
 		int orig_depth;
@@ -80,10 +80,10 @@ struct uftrace_task_reader {
 		uint64_t total_time;
 		uint64_t child_time;
 	} *func_stack;
-	struct fstack_arguments args;
+	struct uftrace_fstack_args args;
 };
 
-enum argspec_string_bits {
+enum uftrace_argspec_string_bits {
 	/* bit index */
 	NEEDS_PAREN_BIT,
 	NEEDS_SEMI_COLON_BIT,
@@ -150,27 +150,27 @@ static inline bool is_extern_record(struct uftrace_task_reader *task,
 void setup_fstack_args(char *argspec, char *retspec,
 		       struct uftrace_data *handle,
 		       struct uftrace_filter_setting *setting);
-int fstack_setup_filters(struct opts *opts, struct uftrace_data *handle);
+int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle);
 
-struct fstack * fstack_get(struct uftrace_task_reader *task, int idx);
+struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx);
 int fstack_entry(struct uftrace_task_reader *task,
 		 struct uftrace_record *rstack,
 		 struct uftrace_trigger *tr);
 void fstack_exit(struct uftrace_task_reader *task);
 int fstack_update(int type, struct uftrace_task_reader *task,
-		  struct fstack *fstack);
+		  struct uftrace_fstack *fstack);
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 				       struct uftrace_task_reader *task,
-				       int curr_depth, struct opts *opts);
+				       int curr_depth, struct uftrace_opts *opts);
 bool fstack_check_filter(struct uftrace_task_reader *task);
-bool fstack_check_opts(struct uftrace_task_reader *task, struct opts *opts);
+bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *opts);
 void fstack_check_filter_done(struct uftrace_task_reader *task);
 
 bool is_sched_event(uint64_t addr);
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
-			enum argspec_string_bits str_mode);
+			enum uftrace_argspec_string_bits str_mode);
 
 #define EXTERN_DATA_MAX  1024
 
@@ -182,7 +182,7 @@ struct uftrace_extern_reader {
 	struct uftrace_record	rec;
 };
 
-int setup_extern_data(struct uftrace_data *handle, struct opts *opts);
+int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts);
 int read_extern_data(struct uftrace_extern_reader *extn);
 struct uftrace_record * get_extern_record(struct uftrace_extern_reader *extn,
 					  struct uftrace_record *rec);

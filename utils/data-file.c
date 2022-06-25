@@ -357,7 +357,7 @@ bool data_is_lp64(struct uftrace_data *handle)
 	return handle->hdr.elf_class == ELFCLASS64;
 }
 
-int open_info_file(struct opts *opts, struct uftrace_data *handle)
+int open_info_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
@@ -445,7 +445,7 @@ ok:
 	return 0;
 }
 
-int open_data_file(struct opts *opts, struct uftrace_data *handle)
+int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	int ret;
 	char buf[PATH_MAX];
@@ -594,7 +594,7 @@ out:
 	return ret;
 }
 
-void __close_data_file(struct opts *opts, struct uftrace_data *handle,
+void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 		       bool unload_modules)
 {
 	if (opts->exename == handle->info.exename)

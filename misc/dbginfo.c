@@ -8,7 +8,7 @@
 #include "utils/dwarf.h"
 #include "utils/filter.h"
 
-void print_debug_info(struct debug_info *dinfo, bool auto_args)
+void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 {
 	int i;
 	char *argspec = NULL;
@@ -17,7 +17,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 	/* TODO: print enum definitions */
 
 	for (i = 0; i < dinfo->nr_locs; i++) {
-		struct debug_location *loc = &dinfo->locs[i];
+		struct uftrace_dbg_loc *loc = &dinfo->locs[i];
 		int idx = 0;
 
 		if (loc->sym == NULL)
@@ -48,7 +48,7 @@ void print_debug_info(struct debug_info *dinfo, bool auto_args)
 int main(int argc, char *argv[])
 {
 	struct uftrace_mmap *map;
-	struct symtabs symtabs = {
+	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.flags = SYMTAB_FL_DEMANGLE,
 	};
@@ -91,14 +91,14 @@ int main(int argc, char *argv[])
 
 	map = xzalloc(sizeof(*map) + strlen(filename) + 1);
 	strcpy(map->libname, filename);
-	symtabs.maps = map;
+	sinfo.maps = map;
 
-	load_module_symtabs(&symtabs);
-	prepare_debug_info(&symtabs, ptype, argspec, retspec, auto_args, false);
+	load_module_symtabs(&sinfo);
+	prepare_debug_info(&sinfo, ptype, argspec, retspec, auto_args, false);
 
 	print_debug_info(&map->mod->dinfo, auto_args);
 
-	finish_debug_info(&symtabs);
+	finish_debug_info(&sinfo);
 	unload_module_symtabs();
 	free(map);
 	return 0;

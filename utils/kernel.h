@@ -49,7 +49,7 @@ struct uftrace_kernel_reader {
 
 /* these functions will be used at record time */
 int setup_kernel_tracing(struct uftrace_kernel_writer *kernel,
-			 struct opts *opts);
+			 struct uftrace_opts *opts);
 int start_kernel_tracing(struct uftrace_kernel_writer *kernel);
 int record_kernel_tracing(struct uftrace_kernel_writer *kernel);
 int record_kernel_trace_pipe(struct uftrace_kernel_writer *kernel,

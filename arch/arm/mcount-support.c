@@ -235,7 +235,7 @@ unsigned long *mcount_arch_parent_location(struct symtabs *symtabs,
 					   unsigned long *parent_loc,
 					   unsigned long child_ip)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	unsigned short buf[MAX_ANALYSIS_COUNT];
 	struct lr_offset lr = {
 		.offset = 0,

@@ -93,9 +93,9 @@ void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 
 void report_update_node(struct uftrace_report_node *node,
 			struct uftrace_task_reader *task,
-			struct debug_location *loc)
+			struct uftrace_dbg_loc *loc)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	uint64_t total_time;
 	uint64_t self_time;
 	bool recursive = false;
@@ -106,7 +106,7 @@ void report_update_node(struct uftrace_report_node *node,
 		return;
 
 	for (i = 0; i < task->stack_count; i++) {
-		struct fstack *check = fstack_get(task, i);
+		struct uftrace_fstack *check = fstack_get(task, i);
 		if (check == NULL)
 			break;
 
@@ -987,7 +987,7 @@ static struct display_field *field_task_table[] = {
 	&field_task_nr_func,
 };
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME]);
@@ -995,7 +995,7 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_CALL]);
 }
 
-static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_total_field(struct list_head *fields, struct uftrace_opts *opts,
 				  struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_AVG]);
@@ -1003,7 +1003,7 @@ static void setup_avg_total_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MAX]);
 }
 
-static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
+static void setup_avg_self_field(struct list_head *fields, struct uftrace_opts *opts,
 				 struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_AVG]);
@@ -1011,7 +1011,7 @@ static void setup_avg_self_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
 }
 
-static void setup_default_task_field(struct list_head *fields, struct opts *opts,
+static void setup_default_task_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	add_field(fields, p_field_table[REPORT_F_TASK_TOTAL_TIME]);
@@ -1020,7 +1020,7 @@ static void setup_default_task_field(struct list_head *fields, struct opts *opts
 	add_field(fields, p_field_table[REPORT_F_TASK_NR_FUNC]);
 }
 
-void setup_report_field(struct list_head *output_fields, struct opts *opts,
+void setup_report_field(struct list_head *output_fields, struct uftrace_opts *opts,
 			enum avg_mode avg_mode)
 {
 	struct display_field **f_table;
@@ -1104,7 +1104,7 @@ TEST_CASE(report_sort)
 	struct rb_root sort_tree = RB_ROOT;
 	struct rb_node *rbnode;
 	struct uftrace_report_node *node;
-	static struct fstack fstack[TEST_NODES];
+	static struct uftrace_fstack fstack[TEST_NODES];
 	struct uftrace_data handle = {
 		.hdr = {
 			.max_stack = TEST_NODES,
@@ -1208,12 +1208,12 @@ TEST_CASE(report_diff)
 		},
 		.nr_tasks = 2,
 	};
-	struct fstack orig_fstack[TEST_NODES];
+	struct uftrace_fstack orig_fstack[TEST_NODES];
 	struct uftrace_task_reader orig_task = {
 		.h = &handle,
 		.func_stack = orig_fstack,
 	};
-	struct fstack pair_fstack[TEST_NODES];
+	struct uftrace_fstack pair_fstack[TEST_NODES];
 	struct uftrace_task_reader pair_task = {
 		.h = &handle,
 		.func_stack = pair_fstack,

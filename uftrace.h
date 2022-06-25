@@ -200,7 +200,7 @@ bool data_is_lp64(struct uftrace_data *handle);
 
 #define UFTRACE_MODE_DEFAULT  UFTRACE_MODE_LIVE
 
-struct opts {
+struct uftrace_opts {
 	char *lib_path;
 	char *filter;
 	char *trigger;
@@ -287,32 +287,32 @@ struct opts {
 
 extern struct strv default_opts;
 
-static inline bool opts_has_filter(struct opts *opts)
+static inline bool opts_has_filter(struct uftrace_opts *opts)
 {
 	return opts->filter || opts->trigger || opts->threshold ||
 		opts->depth != OPT_DEPTH_DEFAULT;
 }
 
-void parse_script_opt(struct opts *opts);
+void parse_script_opt(struct uftrace_opts *opts);
 
-int command_record(int argc, char *argv[], struct opts *opts);
-int command_replay(int argc, char *argv[], struct opts *opts);
-int command_live(int argc, char *argv[], struct opts *opts);
-int command_report(int argc, char *argv[], struct opts *opts);
-int command_info(int argc, char *argv[], struct opts *opts);
-int command_recv(int argc, char *argv[], struct opts *opts);
-int command_dump(int argc, char *argv[], struct opts *opts);
-int command_graph(int argc, char *argv[], struct opts *opts);
-int command_script(int argc, char *argv[], struct opts *opts);
-int command_tui(int argc, char *argv[], struct opts *opts);
+int command_record(int argc, char *argv[], struct uftrace_opts *opts);
+int command_replay(int argc, char *argv[], struct uftrace_opts *opts);
+int command_live(int argc, char *argv[], struct uftrace_opts *opts);
+int command_report(int argc, char *argv[], struct uftrace_opts *opts);
+int command_info(int argc, char *argv[], struct uftrace_opts *opts);
+int command_recv(int argc, char *argv[], struct uftrace_opts *opts);
+int command_dump(int argc, char *argv[], struct uftrace_opts *opts);
+int command_graph(int argc, char *argv[], struct uftrace_opts *opts);
+int command_script(int argc, char *argv[], struct uftrace_opts *opts);
+int command_tui(int argc, char *argv[], struct uftrace_opts *opts);
 
 extern volatile bool uftrace_done;
 
-int open_data_file(struct opts *opts, struct uftrace_data *handle);
-int open_info_file(struct opts *opts, struct uftrace_data *handle);
-void __close_data_file(struct opts *opts, struct uftrace_data *handle,
+int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle);
+int open_info_file(struct uftrace_opts *opts, struct uftrace_data *handle);
+void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 		       bool unload_modules);
-static inline void close_data_file(struct opts *opts, struct uftrace_data *handle)
+static inline void close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	__close_data_file(opts, handle, true);
 }
@@ -322,7 +322,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
 		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
 
-char * get_libmcount_path(struct opts *opts);
+char * get_libmcount_path(struct uftrace_opts *opts);
 void put_libmcount_path(char *libpath);
 
 #define SESSION_ID_LEN  16
@@ -334,7 +334,7 @@ struct uftrace_session {
 	char			 sid[SESSION_ID_LEN];
 	uint64_t		 start_time;
 	int			 pid, tid;
-	struct symtabs		 symtabs;
+	struct uftrace_sym_info	 sym_info;
 	struct rb_root		 filters;
 	struct rb_root		 fixups;
 	struct list_head	 dlopen_libs;
@@ -437,25 +437,25 @@ struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg,
 		 bool fork);
 struct uftrace_task *find_task(struct uftrace_session_link *sess, int tid);
-void read_session_map(char *dirname, struct symtabs *symtabs, char *sid);
-void delete_session_map(struct symtabs *symtabs);
+void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid);
+void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session * get_session_from_sid(struct uftrace_session_link *sess,
 					      char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
 			unsigned long base_addr, const char *libname);
-struct sym * session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
-				unsigned long addr);
+struct uftrace_symbol * session_find_dlsym(struct uftrace_session *sess,
+					   uint64_t timestamp, unsigned long addr);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
-struct sym * task_find_sym(struct uftrace_session_link *sess,
-			   struct uftrace_task_reader *task,
-			   struct uftrace_record *rec);
-struct sym * task_find_sym_addr(struct uftrace_session_link *sess,
-				struct uftrace_task_reader *task,
-				uint64_t time, uint64_t addr);
-struct debug_location * task_find_loc_addr(struct uftrace_session_link *sess,
+struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sess,
+				      struct uftrace_task_reader *task,
+				      struct uftrace_record *rec);
+struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sess,
+					   struct uftrace_task_reader *task,
+					   uint64_t time, uint64_t addr);
+struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task,
 					   uint64_t time, uint64_t addr);
 
@@ -466,7 +466,7 @@ typedef int (*walk_tasks_cb_t)(struct uftrace_task *task, void *arg);
 void walk_tasks(struct uftrace_session_link *sess,
 		walk_tasks_cb_t callback, void *arg);
 
-int setup_client_socket(struct opts *opts);
+int setup_client_socket(struct uftrace_opts *opts);
 void send_trace_dir_name(int sock, char *name);
 void send_trace_data(int sock, int tid, void *data, size_t len);
 void send_trace_kernel_data(int sock, int cpu, void *data, size_t len);
@@ -510,7 +510,7 @@ static inline bool is_v3_compat(struct uftrace_record *urec)
 	return urec->magic == RECORD_MAGIC && urec->more == 0;
 }
 
-struct fstack_arguments {
+struct uftrace_fstack_args {
 	struct list_head	*args;
 	unsigned		len;
 	void			*data;
@@ -525,19 +525,19 @@ struct uftrace_rstack_list {
 struct uftrace_rstack_list_node {
 	struct list_head list;
 	struct uftrace_record rstack;
-	struct fstack_arguments args;
+	struct uftrace_fstack_args args;
 };
 
 void setup_rstack_list(struct uftrace_rstack_list *list);
 void add_to_rstack_list(struct uftrace_rstack_list *list,
 			struct uftrace_record *rstack,
-			struct fstack_arguments *args);
+			struct uftrace_fstack_args *args);
 struct uftrace_record * get_first_rstack_list(struct uftrace_rstack_list *);
 void consume_first_rstack_list(struct uftrace_rstack_list *list);
 void delete_last_rstack_list(struct uftrace_rstack_list *list);
 void reset_rstack_list(struct uftrace_rstack_list *list);
 
-enum ftrace_ext_type {
+enum uftrace_ext_type {
 	FTRACE_ARGUMENT		= 1,
 };
 
@@ -553,10 +553,10 @@ static inline bool has_event_data(struct uftrace_data *handle)
 
 struct rusage;
 
-void fill_uftrace_info(uint64_t *info_mask, int fd, struct opts *opts, int status,
+void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, int status,
 		      struct rusage *rusage, char *elapsed_time);
 int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);
-void process_uftrace_info(struct uftrace_data *handle, struct opts *opts,
+void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts,
 			  void (*process)(void *data, const char *fmt, ...),
 			  void *data);
 void clear_uftrace_info(struct uftrace_info *info);

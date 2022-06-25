@@ -70,9 +70,9 @@ struct mcount_disasm_engine {
  */
 #define MAX_COND_BRANCH 3
 
-int mcount_dynamic_update(struct symtabs *symtabs, char *patch_funcs,
+int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
-void mcount_dynamic_dlopen(struct symtabs *symtabs, struct dl_phdr_info *info,
+void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *info,
 			   char *path);
 void mcount_dynamic_finish(void);
 
@@ -105,7 +105,7 @@ struct cond_branch_info {
  * @has_jump : whether jump_target should be added
  */
 struct mcount_disasm_info {
-	struct sym		*sym;
+	struct uftrace_symbol	*sym;
 	unsigned long		addr;
 	unsigned char   	insns[64];
 	int			orig_size;
@@ -127,7 +127,7 @@ void mcount_freeze_code(void);
 int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 
-int mcount_patch_func(struct mcount_dynamic_info *mdi, struct sym *sym,
+int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 		      struct mcount_disasm_engine *disasm, unsigned min_size);
 
 void mcount_disasm_init(struct mcount_disasm_engine *disasm);
@@ -138,7 +138,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_ori
 
 struct dynamic_bad_symbol {
 	struct list_head	list;
-	struct sym		*sym;
+	struct uftrace_symbol	*sym;
 	bool			reverted;
 };
 

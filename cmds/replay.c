@@ -26,7 +26,7 @@ static LIST_HEAD(output_fields);
 
 static void print_duration(struct field_data *fd)
 {
-	struct fstack *fstack = fd->fstack;
+	struct uftrace_fstack *fstack = fd->fstack;
 	void *arg = fd->arg;
 	uint64_t d = 0;
 
@@ -45,7 +45,7 @@ static void print_tid(struct field_data *fd)
 
 static void print_addr(struct field_data *fd)
 {
-	struct fstack *fstack = fd->fstack;
+	struct uftrace_fstack *fstack = fd->fstack;
 
 	/* uftrace records (truncated) 48-bit addresses */
 	int width = sizeof(long) == 4 ? 8 : 12;
@@ -95,7 +95,7 @@ static void print_task(struct field_data *fd)
 static void print_module(struct field_data *fd)
 {
 	struct uftrace_task_reader *task = fd->task;
-	struct fstack *fstack = fd->fstack;
+	struct uftrace_fstack *fstack = fd->fstack;
 	uint64_t timestamp = task->timestamp;
 	struct uftrace_session *s;
 	struct uftrace_mmap *map;
@@ -109,7 +109,7 @@ static void print_module(struct field_data *fd)
 
 	s = find_task_session(&task->h->sessions, task->t, timestamp);
 	if (s) {
-		map = find_map(&s->symtabs, fstack->addr);
+		map = find_map(&s->sym_info, fstack->addr);
 		if (map == MAP_KERNEL)
 			modname = "[kernel]";
 		else if (map)
@@ -211,7 +211,7 @@ static struct display_field *field_table[] = {
 };
 
 static void print_field(struct uftrace_task_reader *task,
-			struct fstack *fstack, void *arg)
+			struct uftrace_fstack *fstack, void *arg)
 {
 	struct field_data fd = {
 		.task = task,
@@ -223,7 +223,7 @@ static void print_field(struct uftrace_task_reader *task,
 		pr_out(" | ");
 }
 
-static void setup_default_field(struct list_head *fields, struct opts *opts,
+static void setup_default_field(struct list_head *fields, struct uftrace_opts *opts,
 				struct display_field *p_field_table[])
 {
 	if (opts->range.start > 0 || opts->range.stop > 0) {
@@ -236,7 +236,8 @@ static void setup_default_field(struct list_head *fields, struct opts *opts,
 	add_field(fields, field_table[REPLAY_F_TID]);
 }
 
-static int task_column_depth(struct uftrace_task_reader *task, struct opts *opts)
+static int task_column_depth(struct uftrace_task_reader *task,
+			     struct uftrace_opts *opts)
 {
 	if (!opts->column_view)
 		return 0;
@@ -254,9 +255,9 @@ static void print_backtrace(struct uftrace_task_reader *task)
 
 	for (i = 0; i < task->stack_count - 1; i++) {
 		struct display_field *field;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		char *name;
-		struct fstack *fstack = fstack_get(task, i);
+		struct uftrace_fstack *fstack = fstack_get(task, i);
 		struct field_data fd = {
 			.task = task,
 			.fstack = fstack,
@@ -313,14 +314,14 @@ static void print_event(struct uftrace_task_reader *task,
 
 static int print_flat_rstack(struct uftrace_data *handle,
 			     struct uftrace_task_reader *task,
-			     struct opts *opts)
+			     struct uftrace_opts *opts)
 {
 	static int count;
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_session_link *sessions = &task->h->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	char *name;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	sym = task_find_sym(sessions, task, rstack);
 	name = symbol_getname(sym, rstack->addr);
@@ -422,7 +423,7 @@ static void print_escaped_char(char **args, size_t *len, const char c)
 
 void get_argspec_string(struct uftrace_task_reader *task,
 			char *args, size_t len,
-			enum argspec_string_bits str_mode)
+			enum uftrace_argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
 	char *str = NULL;
@@ -623,7 +624,7 @@ void get_argspec_string(struct uftrace_task_reader *task,
 		}
 		else if (spec->fmt == ARG_FMT_PTR) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 
 			memcpy(val.v, data, spec->size);
 			sym = task_find_sym_addr(sessions, task,
@@ -647,14 +648,14 @@ void get_argspec_string(struct uftrace_task_reader *task,
 			struct uftrace_session_link *sessions = &task->h->sessions;
 			struct uftrace_session *s;
 			struct uftrace_mmap *map;
-			struct debug_info *dinfo;
+			struct uftrace_dbg_info *dinfo;
 			char *estr;
 
 			memcpy(val.v, data, spec->size);
 			s = find_task_session(sessions, task->t,
 					      task->rstack->time);
 
-			map = find_map(&s->symtabs, task->rstack->addr);
+			map = find_map(&s->sym_info, task->rstack->addr);
 			if (map == NULL || map->mod == NULL) {
 				print_args(&args, &len, "<ENUM?> %x", (int)val.i);
 				goto next;
@@ -733,17 +734,17 @@ next:
 
 static int print_graph_rstack(struct uftrace_data *handle,
 			      struct uftrace_task_reader *task,
-			      struct opts *opts)
+			      struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
-	enum argspec_string_bits str_mode = 0;
+	struct uftrace_symbol *sym = NULL;
+	enum uftrace_argspec_string_bits str_mode = 0;
 	char *symname = NULL;
 	char args[1024];
 	char *libname = "";
 	struct uftrace_mmap *map = NULL;
-	struct debug_location *loc = NULL;
+	struct uftrace_dbg_loc *loc = NULL;
 	char *str_loc = NULL;
 
 	if (task == NULL)
@@ -773,7 +774,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 		s = find_task_session(sessions, task->t, rstack->time);
 		if (s != NULL) {
-			map = find_symbol_map(&s->symtabs, symname);
+			map = find_symbol_map(&s->sym_info, symname);
 			if (map != NULL)
 				libname = basename(map->libname);
 		}
@@ -787,7 +788,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct uftrace_task_reader *next = NULL;
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 		int rstack_depth = rstack->depth;
 		int depth;
 		struct uftrace_trigger tr = {
@@ -883,7 +884,7 @@ static int print_graph_rstack(struct uftrace_data *handle,
 		}
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 
 		/* function exit */
 		fstack = fstack_get(task, task->stack_count);
@@ -945,7 +946,7 @@ lost:
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		int depth;
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 		struct uftrace_task_reader *next = NULL;
 		struct uftrace_record rec = *rstack;
 		uint64_t evt_id = rstack->addr;
@@ -1011,10 +1012,10 @@ static void print_warning(struct uftrace_task_reader *task)
 	       (task->display_depth + 1) * 2, "");
 }
 
-static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
+static bool skip_sys_exit(struct uftrace_opts *opts, struct uftrace_task_reader *task)
 {
-	struct sym *sym;
-	struct fstack *fstack;
+	struct uftrace_symbol *sym;
+	struct uftrace_fstack *fstack;
 
 	fstack = fstack_get(task, 0);
 	if (fstack == NULL)
@@ -1024,7 +1025,7 @@ static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 	if (!has_kernel_data(task->h->kernel) || task->user_stack_count != 0)
 		return false;
 
-	sym = find_symtabs(&task->h->sessions.first->symtabs, fstack->addr);
+	sym = find_symtabs(&task->h->sessions.first->sym_info, fstack->addr);
 	if (sym == NULL)
 		return false;
 
@@ -1037,7 +1038,7 @@ static bool skip_sys_exit(struct opts *opts, struct uftrace_task_reader *task)
 	return false;
 }
 
-static void print_remaining_stack(struct opts *opts,
+static void print_remaining_stack(struct uftrace_opts *opts,
 				  struct uftrace_data *handle)
 {
 	int i, k;
@@ -1052,7 +1053,7 @@ static void print_remaining_stack(struct opts *opts,
 			continue;
 
 		if (task->stack_count == 1) {
-			struct fstack *fstack = fstack_get(task, 0);
+			struct uftrace_fstack *fstack = fstack_get(task, 0);
 
 			/* ignore if it only has a schedule event */
 			if (fstack && fstack->addr == EVENT_ID_PERF_SCHED_OUT)
@@ -1061,7 +1062,7 @@ static void print_remaining_stack(struct opts *opts,
 
 		/* sometimes it has many 0 entries in the fstack. ignore them */
 		for (k = 0; k < task->stack_count; k++) {
-			struct fstack *fstack;
+			struct uftrace_fstack *fstack;
 
 			fstack = fstack_get(task, k);
 			if (fstack != NULL && fstack->addr != 0)
@@ -1080,7 +1081,7 @@ static void print_remaining_stack(struct opts *opts,
 
 	for (i = 0; i < handle->nr_tasks; i++) {
 		struct uftrace_task_reader *task = &handle->tasks[i];
-		struct fstack *fstack;
+		struct uftrace_fstack *fstack;
 		int zero_count = 0;
 
 		if (task->stack_count == 0)
@@ -1112,7 +1113,7 @@ static void print_remaining_stack(struct opts *opts,
 		while (task->stack_count-- > 0) {
 			uint64_t time;
 			uint64_t ip;
-			struct sym *sym;
+			struct uftrace_symbol *sym;
 			char *symname;
 
 			fstack = fstack_get(task, task->stack_count);
@@ -1135,7 +1136,7 @@ static void print_remaining_stack(struct opts *opts,
 	}
 }
 
-int command_replay(int argc, char *argv[], struct opts *opts)
+int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	uint64_t prev_time = 0;

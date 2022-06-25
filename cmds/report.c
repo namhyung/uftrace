@@ -27,7 +27,7 @@ static void print_field(struct uftrace_report_node *node, int space)
 }
 
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			char *symname, struct debug_location* loc)
+			char *symname, struct uftrace_dbg_loc* loc)
 {
 	struct uftrace_report_node *node;
 
@@ -42,9 +42,9 @@ static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *task,
 			     uint64_t timestamp, uint64_t addr, bool needs_srcline)
 {
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	char *symname;
-	struct debug_location *loc = NULL;
+	struct uftrace_dbg_loc *loc = NULL;
 
 	sym = task_find_sym_addr(&task->h->sessions, task, timestamp, addr);
 	if (needs_srcline)
@@ -56,9 +56,9 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 }
 
 static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *task,
-			    struct opts *opts)
+			    struct uftrace_opts *opts)
 {
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 
 	while (task->stack_count >= task->user_stack_count) {
 		fstack = fstack_get(task, task->stack_count);
@@ -75,10 +75,10 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 }
 
 static void add_remaining_fstack(struct uftrace_data *handle,
-				 struct rb_root *root, struct opts *opts)
+				 struct rb_root *root, struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	int i;
 
 	for (i = 0; i < handle->nr_tasks; i++) {
@@ -119,10 +119,10 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 }
 
 static void build_function_tree(struct uftrace_data *handle,
-				struct rb_root *root, struct opts *opts)
+				struct rb_root *root, struct uftrace_opts *opts)
 {
 	struct uftrace_session_link *sessions = &handle->sessions;
-	struct sym *sym = NULL;
+	struct uftrace_symbol *sym = NULL;
 	struct uftrace_record *rstack;
 	struct uftrace_task_reader *task;
 	uint64_t addr;
@@ -162,7 +162,7 @@ static void build_function_tree(struct uftrace_data *handle,
 			struct uftrace_session *fsess;
 
 			fsess = sessions->first;
-			addr = get_kernel_address(&fsess->symtabs, rstack->addr);
+			addr = get_kernel_address(&fsess->sym_info, rstack->addr);
 		}
 
 		/* skip it if --no-libcall is given */
@@ -236,7 +236,7 @@ static void print_line(struct list_head *output_fields, int space)
 	pr_out("%-.*s\n", maxlen, line);
 }
 
-static void report_functions(struct uftrace_data *handle, struct opts *opts)
+static void report_functions(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct rb_root name_root = RB_ROOT;
 	struct rb_root sort_root = RB_ROOT;
@@ -267,7 +267,7 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 				      struct rb_root *root)
 {
 	struct uftrace_task_reader *task;
-	struct fstack *fstack;
+	struct uftrace_fstack *fstack;
 	char buf[10];
 	int i;
 
@@ -353,7 +353,7 @@ static void print_task(struct uftrace_report_node *node, void *arg, int space)
 	pr_out("%-16s\n", t->comm);
 }
 
-static void report_task(struct uftrace_data *handle, struct opts *opts)
+static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack;
 	struct rb_root task_tree = RB_ROOT;
@@ -420,9 +420,9 @@ struct diff_data {
 	struct uftrace_data		handle;
 };
 
-static void report_diff(struct uftrace_data *handle, struct opts *opts)
+static void report_diff(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
-	struct opts dummy_opts = {
+	struct uftrace_opts dummy_opts = {
 		.dirname = opts->diff,
 		.kernel  = opts->kernel,
 		.depth   = opts->depth,
@@ -477,7 +477,7 @@ out:
 	__close_data_file(&dummy_opts, &data.handle, false);
 }
 
-int command_report(int argc, char *argv[], struct opts *opts)
+int command_report(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	char *sort_keys;

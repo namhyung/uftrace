@@ -19,7 +19,7 @@
 #include "utils/symbol.h"
 #include "utils/filter.h"
 
-bool debug_info_has_argspec(struct debug_info *dinfo)
+bool debug_info_has_argspec(struct uftrace_dbg_info *dinfo)
 {
 	if (dinfo == NULL)
 		return false;
@@ -28,7 +28,7 @@ bool debug_info_has_argspec(struct debug_info *dinfo)
 	return !RB_EMPTY_ROOT(&dinfo->args) || !RB_EMPTY_ROOT(&dinfo->rets);
 }
 
-bool debug_info_has_location(struct debug_info *dinfo)
+bool debug_info_has_location(struct uftrace_dbg_info *dinfo)
 {
 	if (dinfo == NULL)
 		return false;
@@ -127,10 +127,10 @@ static void free_debug_entry(struct rb_root *root)
 	}
 }
 
-static struct debug_file * get_debug_file(struct debug_info *dinfo,
-					  const char *filename)
+static struct uftrace_dbg_file * get_debug_file(struct uftrace_dbg_info *dinfo,
+						const char *filename)
 {
-	struct debug_file *df;
+	struct uftrace_dbg_file *df;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &dinfo->files.rb_node;
 	int ret;
@@ -140,7 +140,7 @@ static struct debug_file * get_debug_file(struct debug_info *dinfo,
 
 	while (*p) {
 		parent = *p;
-		df = rb_entry(parent, struct debug_file, node);
+		df = rb_entry(parent, struct uftrace_dbg_file, node);
 
 		ret = strcmp(df->name, filename);
 
@@ -164,7 +164,7 @@ static struct debug_file * get_debug_file(struct debug_info *dinfo,
 
 static void release_debug_file(struct rb_root *root)
 {
-	struct debug_file *df;
+	struct uftrace_dbg_file *df;
 	struct rb_node *node;
 
 	while (!RB_EMPTY_ROOT(root)) {
@@ -188,7 +188,7 @@ static void release_debug_file(struct rb_root *root)
  * but some other info in non-PIE executable has different base
  * address so it needs to convert back and forth.
  */
-static inline unsigned long sym_to_dwarf_addr(struct debug_info *dinfo,
+static inline unsigned long sym_to_dwarf_addr(struct uftrace_dbg_info *dinfo,
 					      unsigned long addr)
 {
 	if (dinfo->file_type == ET_EXEC)
@@ -196,7 +196,7 @@ static inline unsigned long sym_to_dwarf_addr(struct debug_info *dinfo,
 	return addr;
 }
 
-static inline unsigned long dwarf_to_sym_addr(struct debug_info *dinfo,
+static inline unsigned long dwarf_to_sym_addr(struct uftrace_dbg_info *dinfo,
 					      unsigned long addr)
 {
 	if (dinfo->file_type == ET_EXEC)
@@ -209,7 +209,7 @@ struct cu_files {
 	size_t			num;     /* number of files */
 };
 
-static int elf_file_type(struct debug_info *dinfo)
+static int elf_file_type(struct uftrace_dbg_info *dinfo)
 {
 	GElf_Ehdr ehdr;
 
@@ -259,7 +259,7 @@ static char * str_attr(Dwarf_Die *die, int attr, bool follow)
 }
 
 /* setup dwarf info from filename, return 0 for success */
-static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
+static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
 {
 	int fd;
@@ -299,7 +299,7 @@ static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
 	return 0;
 }
 
-static void release_dwarf_info(struct debug_info *dinfo)
+static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 {
 	if (dinfo->dw == NULL)
 		return;
@@ -380,11 +380,11 @@ struct arg_data {
 	int			struct_reg_cnt;
 
 	/* uftrace debug info */
-	struct debug_info	*dinfo;
+	struct uftrace_dbg_info	*dinfo;
 };
 
 static void setup_arg_data(struct arg_data *ad, const char *name,
-			   struct debug_info *dinfo)
+			   struct uftrace_dbg_info *dinfo)
 {
 	memset(ad, 0, sizeof(*ad));
 
@@ -1330,8 +1330,8 @@ static int get_argspec(Dwarf_Die *die, void *data)
 }
 
 struct build_data {
-	struct debug_info	*dinfo;
-	struct symtab		*symtab;
+	struct uftrace_dbg_info	*dinfo;
+	struct uftrace_symtab	*symtab;
 	int			nr_args;
 	int			nr_rets;
 	struct uftrace_pattern	*args;
@@ -1365,7 +1365,7 @@ static char *find_last_component(char *name)
 	return p;
 }
 
-static bool match_name(struct sym *sym, char *name)
+static bool match_name(struct uftrace_symbol *sym, char *name)
 {
 	bool ret;
 
@@ -1411,12 +1411,12 @@ static bool match_name(struct sym *sym, char *name)
 }
 
 static void get_source_location(Dwarf_Die *die, struct build_data *bd,
-				struct sym *sym)
+				struct uftrace_symbol *sym)
 {
 	ptrdiff_t sym_idx;
 	const char *filename;
-	struct debug_info *dinfo = bd->dinfo;
-	struct debug_file *dfile = NULL;
+	struct uftrace_dbg_info *dinfo = bd->dinfo;
+	struct uftrace_dbg_file *dfile = NULL;
 	int dline = 0;
 
 	sym_idx = sym - bd->symtab->sym;
@@ -1468,7 +1468,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	struct arg_data ad;
 	char *name = NULL;
 	Dwarf_Addr offset;
-	struct sym *sym;
+	struct uftrace_symbol *sym;
 	int i;
 
 	if (uftrace_done)
@@ -1646,7 +1646,7 @@ static char* get_base_comp_dir(struct rb_root *dirs)
 	return max->name;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
+static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
@@ -1735,26 +1735,26 @@ static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
 
 #else  /* !HAVE_LIBDW */
 
-static int setup_dwarf_info(const char *filename, struct debug_info *dinfo,
+static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
 {
 	dinfo->dw = NULL;
 	return 0;
 }
 
-static void build_dwarf_info(struct debug_info *dinfo, struct symtab *symtab,
+static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
 			     enum uftrace_pattern_type ptype,
 			     struct strv *args, struct strv *rets)
 {
 }
 
-static void release_dwarf_info(struct debug_info *dinfo)
+static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 {
 }
 
 #endif  /* !HAVE_LIBDW */
 
-static int setup_debug_info(const char *filename, struct debug_info *dinfo,
+static int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
 {
 	dinfo->args = RB_ROOT;
@@ -1766,7 +1766,7 @@ static int setup_debug_info(const char *filename, struct debug_info *dinfo,
 	return setup_dwarf_info(filename, dinfo, offset, force);
 }
 
-static void release_debug_info(struct debug_info *dinfo)
+static void release_debug_info(struct uftrace_dbg_info *dinfo)
 {
 	free_debug_entry(&dinfo->args);
 	free_debug_entry(&dinfo->rets);
@@ -1817,7 +1817,7 @@ static void extract_dwarf_args(char *argspec, char *retspec,
 	}
 }
 
-void prepare_debug_info(struct symtabs *symtabs,
+void prepare_debug_info(struct uftrace_sym_info *sinfo,
 			enum uftrace_pattern_type ptype,
 			char *argspec, char *retspec,
 			bool auto_args, bool force)
@@ -1826,8 +1826,8 @@ void prepare_debug_info(struct symtabs *symtabs,
 	struct strv dwarf_args = STRV_INIT;
 	struct strv dwarf_rets = STRV_INIT;
 
-	if (symtabs->flags & SYMTAB_FL_SYMS_DIR) {
-		load_debug_info(symtabs, true);
+	if (sinfo->flags & SYMTAB_FL_SYMS_DIR) {
+		load_debug_info(sinfo, true);
 		return;
 	}
 
@@ -1847,9 +1847,9 @@ void prepare_debug_info(struct symtabs *symtabs,
 	/* file and line info need be saved regardless of argspec */
 	pr_dbg("prepare debug info\n");
 
-	for_each_map(symtabs, map) {
-		struct symtab *stab = &map->mod->symtab;
-		struct debug_info *dinfo = &map->mod->dinfo;
+	for_each_map(sinfo, map) {
+		struct uftrace_symtab *stab = &map->mod->symtab;
+		struct uftrace_dbg_info *dinfo = &map->mod->dinfo;
 
 		if (map->mod == NULL || map->mod->dinfo.loaded)
 			continue;
@@ -1862,11 +1862,11 @@ void prepare_debug_info(struct symtabs *symtabs,
 	strv_free(&dwarf_rets);
 }
 
-void finish_debug_info(struct symtabs *symtabs)
+void finish_debug_info(struct uftrace_sym_info *sinfo)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
@@ -2007,7 +2007,7 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 	}
 }
 
-static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
+static void save_debug_entries(struct uftrace_dbg_info *dinfo, const char *dirname,
 			       const char *filename, char *build_id)
 {
 	int i;
@@ -2026,7 +2026,7 @@ static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
 	save_enum_def(&dinfo->enums, fp);
 
 	for (i = 0; i < dinfo->nr_locs; i++) {
-		struct debug_location *loc = &dinfo->locs[i];
+		struct uftrace_dbg_loc *loc = &dinfo->locs[i];
 		struct debug_entry *entry;
 
 		if (loc->sym == NULL)
@@ -2056,11 +2056,11 @@ static void save_debug_entries(struct debug_info *dinfo, const char *dirname,
 	close_debug_file(fp, dirname, basename(filename), build_id);
 }
 
-void save_debug_info(struct symtabs *symtabs, const char *dirname)
+void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
@@ -2069,7 +2069,7 @@ void save_debug_info(struct symtabs *symtabs, const char *dirname)
 	}
 }
 
-static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
+static int load_debug_file(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
 			   const char *dirname, const char *filename,
 			   char *build_id, bool needs_srcline)
 {
@@ -2122,7 +2122,7 @@ static int load_debug_file(struct debug_info *dinfo, struct symtab *symtab,
 	while (getline(&line, &len, fp) >= 0) {
 		char *pos;
 		struct rb_root *root = &dinfo->args;
-		struct sym *sym;
+		struct uftrace_symbol *sym;
 		ptrdiff_t sym_idx;
 		unsigned long lineno;
 
@@ -2197,14 +2197,14 @@ out:
 	return ret;
 }
 
-void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
+void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 {
 	struct uftrace_mmap *map;
 
-	for_each_map(symtabs, map) {
+	for_each_map(sinfo, map) {
 		struct uftrace_module *mod = map->mod;
-		struct symtab *stab;
-		struct debug_info *dinfo;
+		struct uftrace_symtab *stab;
+		struct uftrace_dbg_info *dinfo;
 
 		if (map->mod == NULL)
 			continue;
@@ -2213,36 +2213,36 @@ void load_debug_info(struct symtabs *symtabs, bool needs_srcline)
 		dinfo = &mod->dinfo;
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
-			load_debug_file(dinfo, stab, symtabs->symdir,
+			load_debug_file(dinfo, stab, sinfo->symdir,
 					map->libname, map->build_id,
 					needs_srcline);
 		}
 	}
 }
 
-char * get_dwarf_argspec(struct debug_info *dinfo, char *name, unsigned long addr)
+char * get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
 {
 	struct debug_entry *entry = find_debug_entry(&dinfo->args, addr);
 
 	return entry ? entry->spec : NULL;
 }
 
-char * get_dwarf_retspec(struct debug_info *dinfo, char *name, unsigned long addr)
+char * get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
 {
 	struct debug_entry *entry = find_debug_entry(&dinfo->rets, addr);
 
 	return entry ? entry->spec : NULL;
 }
 
-struct debug_location *find_file_line(struct symtabs *symtabs, uint64_t addr)
+struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
 	struct uftrace_mmap *map;
-	struct symtab *symtab;
-	struct debug_info *dinfo;
-	struct sym *sym = NULL;
+	struct uftrace_symtab *symtab;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_symbol *sym = NULL;
 	ptrdiff_t idx;
 
-	map = find_map(symtabs, addr);
+	map = find_map(sinfo, addr);
 
 	/* TODO: support kernel debug info */
 	if (map == MAP_KERNEL)
@@ -2363,8 +2363,8 @@ TEST_CASE(dwarf_srcline_prefix4)
 
 static void setup_test_debug_info(struct uftrace_module *mod)
 {
-	struct debug_info *dinfo = &mod->dinfo;
-	struct debug_file *file;
+	struct uftrace_dbg_info *dinfo = &mod->dinfo;
+	struct uftrace_dbg_file *file;
 	int i;
 
 	file = xzalloc(sizeof(*file));
@@ -2375,8 +2375,8 @@ static void setup_test_debug_info(struct uftrace_module *mod)
 
 	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 	for (i = 0; i < dinfo->nr_locs; i++) {
-		struct sym *sym = &mod->symtab.sym[i];
-		struct debug_location *loc = &dinfo->locs[i];
+		struct uftrace_symbol *sym = &mod->symtab.sym[i];
+		struct uftrace_dbg_loc *loc = &dinfo->locs[i];
 		char argspec[32];
 
 		loc->sym = sym;
@@ -2397,12 +2397,12 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	const char mod2_name[] = "/different/path/name";
 	const char mod1_build_id[] = "1234567890abcdef";
 	const char mod2_build_id[] = "DUMMY-BUILD-ID";
-	static struct sym mod1_syms[] = {
+	static struct uftrace_symbol mod1_syms[] = {
 		{ 0x1000, 0x1000, ST_PLT_FUNC, "func1" },
 		{ 0x2000, 0x1000, ST_LOCAL_FUNC, "func2" },
 		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "func3" },
 	};
-	static struct sym mod2_syms[] = {
+	static struct uftrace_symbol mod2_syms[] = {
 		{ 0x5000, 0x1000, ST_PLT_FUNC, "funcA" },
 		{ 0x6000, 0x1000, ST_PLT_FUNC, "funcB" },
 		{ 0x7000, 0x1000, ST_PLT_FUNC, "funcC" },
@@ -2431,8 +2431,8 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	*pmod2 = mod2;
 }
 
-static int check_test_debug_info(struct debug_info *dinfo1,
-				 struct debug_info *dinfo2)
+static int check_test_debug_info(struct uftrace_dbg_info *dinfo1,
+				 struct uftrace_dbg_info *dinfo2)
 {
 	int i;
 	struct rb_node *node;
@@ -2440,8 +2440,8 @@ static int check_test_debug_info(struct debug_info *dinfo1,
 
 	TEST_EQ(dinfo1->nr_locs, dinfo2->nr_locs);
 	for (i = 0; i < dinfo1->nr_locs; i++) {
-		struct debug_location *save_loc = &dinfo1->locs[i];
-		struct debug_location *load_loc = &dinfo2->locs[i];
+		struct uftrace_dbg_loc *save_loc = &dinfo1->locs[i];
+		struct uftrace_dbg_loc *load_loc = &dinfo2->locs[i];
 
 		TEST_STREQ(save_loc->sym->name, load_loc->sym->name);
 		TEST_STREQ(save_loc->file->name, load_loc->file->name);
