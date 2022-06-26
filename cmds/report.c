@@ -145,8 +145,22 @@ static void build_function_tree(struct uftrace_data *handle, struct rb_root *roo
 		}
 
 		if (rstack->type == UFTRACE_EVENT) {
-			if (rstack->addr == EVENT_ID_PERF_SCHED_IN)
-				insert_node(root, task, sched_sym.name, NULL);
+			if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+				char *name;
+				struct uftrace_fstack *fstack;
+
+				fstack = fstack_get(task, task->stack_count);
+				if (fstack == NULL)
+					continue;
+				if (fstack->addr == EVENT_ID_PERF_SCHED_OUT)
+					name = sched_sym.name;
+				else if (fstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT)
+					name = sched_preempt_sym.name;
+				else
+					continue;
+
+				insert_node(root, task, name, NULL);
+			}
 			continue;
 		}
 

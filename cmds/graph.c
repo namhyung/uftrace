@@ -591,7 +591,8 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle, 
 
 		if (frs->type == UFTRACE_EVENT) {
 			if (frs->addr != EVENT_ID_PERF_SCHED_IN &&
-			    frs->addr != EVENT_ID_PERF_SCHED_OUT)
+			    frs->addr != EVENT_ID_PERF_SCHED_OUT &&
+			    frs->addr != EVENT_ID_PERF_SCHED_OUT_PREEMPT)
 				continue;
 		}
 
@@ -788,6 +789,7 @@ static void graph_build_task(struct uftrace_opts *opts, struct uftrace_data *han
 		if (frs->type == UFTRACE_EVENT) {
 			switch (frs->addr) {
 			case EVENT_ID_PERF_SCHED_OUT:
+			case EVENT_ID_PERF_SCHED_OUT_PREEMPT:
 				t->time.stamp = frs->time;
 				break;
 			case EVENT_ID_PERF_SCHED_IN:
