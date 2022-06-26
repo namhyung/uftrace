@@ -107,6 +107,8 @@ class TestBase:
         self.option = ''
         self.exearg = 't-' + name
         self.test_feature()
+        if Elf.get_elf_machine(self.uftrace_cmd) == 'i386':
+            self.default_cflags.append('-m32')
 
     def set_compiler(self, compiler):
         if compiler == 'gcc':
