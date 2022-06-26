@@ -33,7 +33,7 @@ void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
 	struct uftrace_mmap *last_map = NULL;
 	const char build_id_prefix[] = "build-id:";
 
-	snprintf(buf, sizeof(buf), "%s/sid-%.16s.map", dirname, sid);
+	snprintf(buf, sizeof(buf), "%s/sid-%.*s.map", dirname, SESSION_ID_LEN, sid);
 	fp = fopen(buf, "rb");
 	if (fp == NULL)
 		pr_err("cannot open maps file: %s", buf);
@@ -230,8 +230,8 @@ void create_session(struct uftrace_session_link *sessions,
 	s->filters = RB_ROOT;
 	INIT_LIST_HEAD(&s->dlopen_libs);
 
-	pr_dbg2("new session: pid = %d, session = %.16s\n",
-		s->pid, s->sid);
+	pr_dbg2("new session: pid = %d, session = %.*s\n",
+		s->pid, SESSION_ID_LEN, s->sid);
 
 	if (needs_symtab) {
 		s->sym_info.dirname = dirname;
@@ -459,8 +459,8 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
 	sref->start = timestamp;
 	sref->end = -1ULL;
 
-	pr_dbg2("task session: tid = %d, session = %.16s\n",
-		task->tid, sess->sid);
+	pr_dbg2("task session: tid = %d, session = %.*s\n",
+		task->tid, SESSION_ID_LEN, sess->sid);
 	task->sref_last = sref;
 }
 
@@ -567,9 +567,9 @@ void create_task(struct uftrace_session_link *sessions,
 		t->comm[sizeof(t->comm) - 1] = '\0';
 	}
 
-	pr_dbg2("new task: tid = %d (%.*s), session = %-.16s\n",
+	pr_dbg2("new task: tid = %d (%.*s), session = %-.*s\n",
 		t->tid, sizeof(t->comm), s ? t->comm : "unknown",
-		s ? s->sid : "unknown");
+		SESSION_ID_LEN, s ? s->sid : "unknown");
 
 	if (sessions->first_task == NULL)
 		sessions->first_task = t;

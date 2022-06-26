@@ -169,7 +169,8 @@ static int sort_tests(const void *tc1, const void *tc2)
 	return strcmp(test1->name, test2->name);
 }
 
-static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num)
+static int setup_unit_test(struct uftrace_unit_test **test_cases,
+			   size_t *test_num, char *filter)
 {
 	char *exename;
 	struct uftrace_elf_data elf;
@@ -177,7 +178,7 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 	struct uftrace_unit_test *tcases;
 	bool found_unittest = false;
 	size_t sec_size;
-	unsigned i, num;
+	unsigned i, num, actual;
 	int ret = -1;
 
 	exename = read_exename();
@@ -212,7 +213,7 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
 
 	/* relocate section symbols in case of PIE */
-	for (i = 0; i < num && load_base; i++) {
+	for (i = 0, actual = 0; i < num && load_base; i++) {
 		struct uftrace_unit_test *tc = &tcases[i];
 		unsigned long faddr = (unsigned long)tc->func;
 		unsigned long naddr = (unsigned long)tc->name;
@@ -222,7 +223,12 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 
 	       tc->func = (void *)faddr;
 	       tc->name = (void *)naddr;
+
+	       if (!filter || strstr(tc->name, filter))
+		       actual++;
 	}
+
+	printf("Running %u test cases\n======================\n", actual);
 
 	qsort(tcases, num, sizeof(*tcases), sort_tests);
 
@@ -276,13 +282,6 @@ int main(int argc, char *argv[])
 	char *term;
 	int c;
 
-	if (setup_unit_test(&test_cases, &test_num) < 0) {
-		printf("Cannot run unit tests - failed to load test cases\n");
-		return -1;
-	}
-
-	printf("Running %zd test cases\n======================\n", test_num);
-
 	while ((c = getopt(argc, argv, "dvnpiO:f:")) != -1) {
 		switch (c) {
 		case 'd':
@@ -301,6 +300,11 @@ int main(int argc, char *argv[])
 		filter = argv[optind];
 
 	outfp = logfp = stdout;
+
+	if (setup_unit_test(&test_cases, &test_num, filter) < 0) {
+		printf("Cannot run unit tests - failed to load test cases\n");
+		return -1;
+	}
 
 	term = getenv("TERM");
 	if (term && !strcmp(term, "dumb"))

@@ -624,3 +624,114 @@ void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 	clear_uftrace_info(&handle->info);
 	reset_task_handle(handle);
 }
+
+#ifdef UNIT_TEST
+#define TEST_SESSION_ID "test-session-id"
+#define TEST_EXIT_STATUS  37
+#define TEST_INFO_MASK  (EXE_NAME | EXIT_STATUS)
+
+static int create_data(struct uftrace_opts *opts)
+{
+	struct uftrace_msg_sess sess_msg = {
+		.task = { .time = 100, .pid = 10 },
+		.sid = TEST_SESSION_ID,
+	};
+	struct uftrace_msg_task task_msg = {
+		.time = 200,
+		.pid = 10,
+		.tid = 10,
+	};
+	struct uftrace_msg_task fork_msg = {
+		.time = 300,
+		.pid = 10,
+		.tid = 20,
+	};
+	struct uftrace_msg_dlopen dlopen_msg = {
+		.task = { .time = 400, .tid = 20 },
+		.sid = TEST_SESSION_ID,
+		.base_addr = 0x123000,
+	};
+	char *filename = NULL;
+	FILE *fp;
+
+	if (create_directory(opts->dirname) < 0)
+		return -1;
+
+	write_session_info(opts->dirname, &sess_msg, opts->exename);
+	write_task_info(opts->dirname, &task_msg);
+	write_fork_info(opts->dirname, &fork_msg);
+	write_dlopen_info(opts->dirname, &dlopen_msg, "libnothing.so");
+
+	/* create_session() requires a map file even if it's empty */
+	asprintf(&filename, "%s/sid-%.*s.map",
+		 opts->dirname, SESSION_ID_LEN, TEST_SESSION_ID);
+	creat(filename, 0644);
+	free(filename);
+
+	/* open_data_file() requires at least one non-empty data file */
+	asprintf(&filename, "%s/%d.dat", opts->dirname, task_msg.pid);
+	fp = fopen(filename, "w");
+	fprintf(fp, "%s\n", "empty file");
+	fclose(fp);
+	free(filename);
+
+	fill_file_header(opts, TEST_EXIT_STATUS, NULL, (char *)"1ms");
+
+	return 0;
+}
+
+static int remove_data(struct uftrace_opts *opts)
+{
+	return remove_directory(opts->dirname);
+}
+
+TEST_CASE(data_basic)
+{
+	struct uftrace_opts opts = {
+		.dirname = "data-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+	};
+	struct uftrace_data handle;
+	struct uftrace_session *s;
+	struct uftrace_task *t;
+
+	pr_dbg("create test data\n");
+	if (create_data(&opts) < 0)
+		return TEST_SKIP;
+
+	open_data_file(&opts, &handle);
+
+	pr_dbg("verify header info\n");
+	TEST_NE(handle.hdr.feat_mask & TASK_SESSION, 0);
+	TEST_EQ(handle.hdr.info_mask & TEST_INFO_MASK, TEST_INFO_MASK);
+	TEST_EQ(handle.info.exit_status, TEST_EXIT_STATUS);
+	TEST_STREQ(handle.info.exename, opts.exename);
+
+	pr_dbg("verify session info\n");
+	TEST_NE(handle.sessions.first, NULL);
+	s = handle.sessions.first;
+
+	TEST_EQ(s->start_time, 100);
+	TEST_EQ(s->pid, 10);
+	TEST_STREQ(s->sid, TEST_SESSION_ID);
+	TEST_STREQ(s->exename, opts.exename);
+	TEST_EQ(list_empty(&s->dlopen_libs), false);
+
+	pr_dbg("verify task info\n");
+	TEST_NE(handle.sessions.first_task, NULL);
+	t = handle.sessions.first_task;
+
+	TEST_EQ(t->tid, 10);
+	TEST_EQ(t->tid, t->pid);
+	TEST_STREQ(t->comm, basename(opts.exename));
+
+	close_data_file(&opts, &handle);
+
+	pr_dbg("delete test data\n");
+	if (remove_data(&opts) < 0)
+		pr_dbg("failed to remove data\n");
+
+	return TEST_OK;
+}
+#endif  /* UNIT_TEST */

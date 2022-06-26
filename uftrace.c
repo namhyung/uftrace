@@ -31,14 +31,7 @@
 
 #include "uftrace.h"
 #include "version.h"
-#include "libmcount/mcount.h"
-#include "libtraceevent/kbuffer.h"
 #include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/rbtree.h"
-#include "utils/list.h"
-#include "utils/fstack.h"
-#include "utils/filter.h"
 #include "utils/script.h"
 
 static const char uftrace_version[] = "uftrace " UFTRACE_VERSION;
