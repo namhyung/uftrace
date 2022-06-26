@@ -213,20 +213,25 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases,
 	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
 
 	/* relocate section symbols in case of PIE */
-	for (i = 0, actual = 0; i < num && load_base; i++) {
+	for (i = 0, actual = 0; i < num && (load_base || filter); i++) {
 		struct uftrace_unit_test *tc = &tcases[i];
 		unsigned long faddr = (unsigned long)tc->func;
 		unsigned long naddr = (unsigned long)tc->name;
 
-	       faddr += load_base;
-	       naddr += load_base;
+		if (load_base) {
+			faddr += load_base;
+			naddr += load_base;
 
-	       tc->func = (void *)faddr;
-	       tc->name = (void *)naddr;
+			tc->func = (void *)faddr;
+			tc->name = (void *)naddr;
+		}
 
-	       if (!filter || strstr(tc->name, filter))
-		       actual++;
+		if (filter && strstr(tc->name, filter))
+			actual++;
 	}
+
+	if (!filter)
+		actual = num;
 
 	printf("Running %u test cases\n======================\n", actual);
 
