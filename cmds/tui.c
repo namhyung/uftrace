@@ -503,7 +503,7 @@ static int build_tui_node(struct uftrace_task_reader *task, struct uftrace_recor
 	struct uftrace_task_graph *tg;
 	struct uftrace_graph *graph;
 	struct tui_graph_node *graph_node;
-	struct uftrace_symbol *sym;
+	struct uftrace_symbol *sym = NULL;
 	char *name;
 	uint64_t addr = rec->addr;
 
@@ -535,12 +535,32 @@ static int build_tui_node(struct uftrace_task_reader *task, struct uftrace_recor
 			update_report_node(task, name, tg);
 	}
 	else if (rec->type == UFTRACE_EVENT) {
-		sym = &sched_sym;
-		name = symbol_getname(sym, addr);
+		if (addr == EVENT_ID_PERF_SCHED_IN) {
+			struct uftrace_fstack *fstack;
+			fstack = fstack_get(task, task->stack_count);
 
-		if (addr == EVENT_ID_PERF_SCHED_IN)
+			if (!fstack)
+				return -1;
+
+			if (fstack->addr == EVENT_ID_PERF_SCHED_OUT)
+				sym = &sched_sym;
+			else if (fstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT)
+				sym = &sched_preempt_sym;
+			else
+				return -1;
+
+			name = symbol_getname(sym, addr);
 			update_report_node(task, name, tg);
-		else if (addr != EVENT_ID_PERF_SCHED_OUT)
+		}
+		else if (addr == EVENT_ID_PERF_SCHED_OUT) {
+			sym = &sched_sym;
+			name = symbol_getname(sym, addr);
+		}
+		else if (addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT) {
+			sym = &sched_preempt_sym;
+			name = symbol_getname(sym, addr);
+		}
+		else
 			return 0;
 	}
 	else /* rec->type == UFTRACE_LOST */

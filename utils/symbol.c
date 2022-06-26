@@ -41,6 +41,13 @@ struct uftrace_symbol sched_sym = {
 	.name = "linux:schedule",
 };
 
+struct uftrace_symbol sched_preempt_sym = {
+	.addr = EVENT_ID_PERF_SCHED_BOTH_PREEMPT,
+	.size = 1,
+	.type = ST_LOCAL_FUNC,
+	.name = "linux:schedule (pre-empted)",
+};
+
 static int addrsort(const void *a, const void *b)
 {
 	const struct uftrace_symbol *syma = a;

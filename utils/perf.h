@@ -56,6 +56,7 @@ struct perf_context_switch_event {
 
 struct uftrace_ctxsw_event {
 	bool out;
+	bool preempt;
 };
 
 struct uftrace_task_event {
@@ -107,6 +108,8 @@ static inline void record_perf_data(struct uftrace_perf_writer *perf, int cpu, i
 #define PERF_RECORD_MISC_SWITCH_OUT (1 << 13)
 
 #endif /* HAVE_PERF_CTXSW */
+
+#define PERF_RECORD_MISC_SWITCH_OUT_PREEMPT (1 << 14)
 
 struct uftrace_perf_reader {
 	FILE *fp;

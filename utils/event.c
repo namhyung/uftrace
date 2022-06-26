@@ -57,8 +57,14 @@ char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 		case EVENT_ID_PERF_SCHED_OUT:
 			event_name = "sched-out";
 			break;
+		case EVENT_ID_PERF_SCHED_OUT_PREEMPT:
+			event_name = "sched-out (pre-empted)";
+			break;
 		case EVENT_ID_PERF_SCHED_BOTH:
 			event_name = "schedule";
+			break;
+		case EVENT_ID_PERF_SCHED_BOTH_PREEMPT:
+			event_name = "schedule (pre-empted)";
 			break;
 		case EVENT_ID_PERF_TASK:
 			event_name = "task-new";

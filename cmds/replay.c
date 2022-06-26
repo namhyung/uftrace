@@ -936,14 +936,21 @@ lost:
 		 * try to merge a subsequent sched-in event:
 		 * it might overwrite rstack - use (saved) rec for printing.
 		 */
-		if (evt_id == EVENT_ID_PERF_SCHED_OUT && !opts->no_merge)
+		if ((evt_id == EVENT_ID_PERF_SCHED_OUT ||
+		     evt_id == EVENT_ID_PERF_SCHED_OUT_PREEMPT) &&
+		    !opts->no_merge)
 			next = fstack_skip(handle, task, 0, opts);
 
 		if (task == next && next->rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 			/* consume the matching sched-in record */
 			fstack_consume(handle, next);
 
-			rec.addr = sched_sym.addr;
+			if (evt_id == EVENT_ID_PERF_SCHED_OUT)
+				rec.addr = EVENT_ID_PERF_SCHED_BOTH;
+			else if (evt_id == EVENT_ID_PERF_SCHED_OUT_PREEMPT)
+				rec.addr = EVENT_ID_PERF_SCHED_BOTH_PREEMPT;
+			else
+				pr_warn("unexpected event id\n");
 			evt_id = EVENT_ID_PERF_SCHED_IN;
 		}
 
@@ -1021,7 +1028,8 @@ static void print_remaining_stack(struct uftrace_opts *opts, struct uftrace_data
 			struct uftrace_fstack *fstack = fstack_get(task, 0);
 
 			/* ignore if it only has a schedule event */
-			if (fstack && fstack->addr == EVENT_ID_PERF_SCHED_OUT)
+			if (fstack && (fstack->addr == EVENT_ID_PERF_SCHED_OUT ||
+				       fstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT))
 				continue;
 		}
 
@@ -1056,7 +1064,8 @@ static void print_remaining_stack(struct uftrace_opts *opts, struct uftrace_data
 			fstack = fstack_get(task, 0);
 
 			/* skip if it only has a schedule event */
-			if (fstack && fstack->addr == EVENT_ID_PERF_SCHED_OUT)
+			if (fstack && (fstack->addr == EVENT_ID_PERF_SCHED_OUT ||
+				       fstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT))
 				continue;
 		}
 

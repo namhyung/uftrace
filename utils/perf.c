@@ -349,6 +349,7 @@ again:
 		}
 
 		perf->u.ctxsw.out = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
+		perf->u.ctxsw.preempt = h.misc & PERF_RECORD_MISC_SWITCH_OUT_PREEMPT;
 
 		perf->time = u.cs.sample_id.time;
 		perf->tid = u.cs.sample_id.tid;
@@ -494,8 +495,12 @@ struct uftrace_record *get_perf_record(struct uftrace_data *handle,
 		rec.addr = EVENT_ID_PERF_COMM;
 		break;
 	case PERF_RECORD_SWITCH:
-		if (perf->u.ctxsw.out)
-			rec.addr = EVENT_ID_PERF_SCHED_OUT;
+		if (perf->u.ctxsw.out) {
+			if (perf->u.ctxsw.preempt)
+				rec.addr = EVENT_ID_PERF_SCHED_OUT_PREEMPT;
+			else
+				rec.addr = EVENT_ID_PERF_SCHED_OUT;
+		}
 		else
 			rec.addr = EVENT_ID_PERF_SCHED_IN;
 		break;
@@ -555,7 +560,8 @@ static void remove_event_rstack(struct uftrace_task_reader *task)
 
 		last_addr = last->rstack.addr;
 		delete_last_rstack_list(&task->event_list);
-	} while (last_addr != EVENT_ID_PERF_SCHED_OUT);
+	} while (last_addr != EVENT_ID_PERF_SCHED_OUT &&
+		 last_addr != EVENT_ID_PERF_SCHED_OUT_PREEMPT);
 }
 
 void process_perf_event(struct uftrace_data *handle)
@@ -597,7 +603,8 @@ void process_perf_event(struct uftrace_data *handle)
 			last = list_last_entry(&task->event_list.read, typeof(*last), list);
 
 			/* time filter is meaningful only for schedule events */
-			while (last->rstack.addr != EVENT_ID_PERF_SCHED_OUT) {
+			while (last->rstack.addr != EVENT_ID_PERF_SCHED_OUT &&
+			       last->rstack.addr != EVENT_ID_PERF_SCHED_OUT_PREEMPT) {
 				if (last->list.prev == &task->event_list.read)
 					goto add_it;
 

@@ -986,7 +986,8 @@ void fstack_check_filter_done(struct uftrace_task_reader *task)
 bool is_sched_event(uint64_t addr)
 {
 	if (addr == EVENT_ID_PERF_SCHED_IN || addr == EVENT_ID_PERF_SCHED_OUT ||
-	    addr == EVENT_ID_PERF_SCHED_BOTH)
+	    addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT || addr == EVENT_ID_PERF_SCHED_BOTH ||
+	    addr == EVENT_ID_PERF_SCHED_BOTH_PREEMPT)
 		return true;
 	return false;
 }
@@ -1668,7 +1669,9 @@ static bool convert_perf_event(struct uftrace_task_reader *task, struct uftrace_
 	switch (orig->addr) {
 	case EVENT_ID_PERF_SCHED_IN:
 	case EVENT_ID_PERF_SCHED_OUT:
-		if (orig->addr == EVENT_ID_PERF_SCHED_OUT) {
+	case EVENT_ID_PERF_SCHED_OUT_PREEMPT:
+		if (orig->addr == EVENT_ID_PERF_SCHED_OUT ||
+		    orig->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT) {
 			dummy->type = UFTRACE_ENTRY;
 			task->sched_out_seen = true;
 			task->sched_cpu = task->h->last_perf_idx;
@@ -2080,7 +2083,8 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 	if (prev_fstack == NULL || prev_fstack->addr != next_rec->addr)
 		return;
 
-	if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+	if (task->rstack->addr == EVENT_ID_PERF_SCHED_OUT ||
+	    task->rstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT) {
 		if (task->timestamp_next == 0) {
 			/*
 			 * Get start time of next real (ENTRY) record as
@@ -2252,7 +2256,8 @@ static int __read_rstack(struct uftrace_data *handle, struct uftrace_task_reader
 			task->args.len = strlen(perf->u.comm.comm);
 		}
 		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
-			 task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
+			 task->rstack->addr == EVENT_ID_PERF_SCHED_OUT ||
+			 task->rstack->addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT) {
 			if (handle->hdr.feat_mask & ESTIMATE_RETURN && task->stack_count > 0)
 				adjust_rstack_after_schedule(handle, task);
 		}

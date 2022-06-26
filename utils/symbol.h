@@ -142,6 +142,7 @@ static inline uint64_t get_kernel_address(struct uftrace_sym_info *sinfo, uint64
 uint64_t guess_kernel_base(char *str);
 
 extern struct uftrace_symbol sched_sym;
+extern struct uftrace_symbol sched_preempt_sym;
 
 struct uftrace_symbol *find_symtabs(struct uftrace_sym_info *sinfo, uint64_t addr);
 struct uftrace_symbol *find_sym(struct uftrace_symtab *symtab, uint64_t addr);
