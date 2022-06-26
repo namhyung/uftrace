@@ -10,6 +10,63 @@ import sys
 import tempfile
 import time
 
+class Elf:
+    EI_NIDENT = 16
+
+    @staticmethod
+    def is_32bit(filename):
+        # e_ident[] indexes
+        EI_CLASS      = 4
+
+        # EI_CLASS
+        ELFCLASSNONE  = 0
+        ELFCLASS32    = 1
+        ELFCLASS64    = 2
+        ELFCLASSNUM   = 3
+
+        try:
+            with open(filename, 'rb') as f:
+                elf_ident = list(f.read(Elf.EI_NIDENT))
+                ei_class = ord(elf_ident[EI_CLASS])
+
+            if ei_class == ELFCLASS32:
+                return True
+        except:
+            pass
+
+        return False
+
+    @staticmethod
+    def get_elf_machine(filename):
+        # e_machine (architecture)
+        EM_386        = 3       # Intel 80386
+        EM_ARM        = 40      # ARM
+        EM_X86_64     = 62      # AMD x86-64 architecture
+        EM_AARCH64    = 183     # ARM AARCH64
+
+        machine = {
+            EM_386: 'i386',
+            EM_ARM: 'arm',
+            EM_X86_64: 'x86_64',
+            EM_AARCH64: 'aarch64',
+        }
+
+        try:
+            with open(filename, 'rb') as f:
+                # consume elf_ident and e_type
+                f.read(Elf.EI_NIDENT + 2)
+
+                # read e_machine
+                e_machine = f.read(2)[0]
+                if type(e_machine) is str:
+                    e_machine = ord(e_machine)
+
+            return machine[e_machine]
+        except:
+            pass
+
+        return None
+
 class TestBase:
     supported_lang = {
         'C':   { 'cc': 'gcc', 'flags': 'CFLAGS',   'ext': '.c' },
@@ -418,68 +475,13 @@ class TestBase:
         return True
 
     def is_32bit(self):
-        EI_NIDENT = 16
-
-        # e_ident[] indexes
-        EI_CLASS      = 4
-
-        # EI_CLASS
-        ELFCLASSNONE  = 0
-        ELFCLASS32    = 1
-        ELFCLASS64    = 2
-        ELFCLASSNUM   = 3
-
-        try:
-            elfname = 't-' + self.name
-            f = open(elfname, 'rb')
-            elf_ident = list(f.read(EI_NIDENT))
-            ei_class = ord(elf_ident[EI_CLASS])
-            f.close()
-
-            if ei_class == ELFCLASS32:
-                return True
-        except:
-            pass
-
-        return False
+        return Elf.is_32bit('t-' + self.name)
 
     def get_machine(self):
         return os.uname()[4]
 
     def get_elf_machine(self):
-        EI_NIDENT = 16
-
-        # e_machine (architecture)
-        EM_386        = 3       # Intel 80386
-        EM_ARM        = 40      # ARM
-        EM_X86_64     = 62      # AMD x86-64 architecture
-        EM_AARCH64    = 183     # ARM AARCH64
-
-        machine = {
-            EM_386: 'i386',
-            EM_ARM: 'arm',
-            EM_X86_64: 'x86_64',
-            EM_AARCH64: 'aarch64'
-        }
-
-        try:
-            elfname = 't-' + self.name
-            f = open(elfname, 'rb')
-
-            # consume elf_ident and e_type
-            f.read(EI_NIDENT + 2)
-
-            # read e_machine
-            e_machine = f.read(2)[0]
-            if type(e_machine) is str:
-                e_machine = ord(e_machine)
-            f.close()
-
-            return machine[e_machine]
-        except:
-            pass
-
-        return None
+        return Elf.get_elf_machine('t-' + self.name)
 
     def check_arch_full_dynamic_support(self):
         elf_machine = TestBase.get_elf_machine(self)
