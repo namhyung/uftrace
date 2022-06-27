@@ -324,6 +324,9 @@ static void python_insert_dict(PyObject *dict, char type, const char *key,
 	case 'b':
 		obj = __PyBool_FromLong(val.l);
 		break;
+	case 'f':
+		obj = __PyFloat_FromDouble(val.f);
+		break;
 	default:
 		pr_warn("unsupported data type was added to dict\n");
 		obj = NULL;
@@ -374,6 +377,12 @@ static void insert_dict_string(PyObject *dict, const char *key, char *v)
 {
 	union python_val val = { .s = v, };
 	python_insert_dict(dict, 's', key, val);
+}
+
+static void insert_dict_double(PyObject *dict, const char *key, double v)
+{
+	union python_val val = { .f = v, };
+	python_insert_dict(dict, 'f', key, val);
 }
 
 static void insert_dict_bool(PyObject *dict, const char *key, bool v)
@@ -575,6 +584,7 @@ int python_uftrace_begin(struct script_info *info)
 
 	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
+	insert_dict_double(dict, "elapsed_time", info->elapsed_time);
 
 	cmds = __PyTuple_New(info->cmds.nr);
 
