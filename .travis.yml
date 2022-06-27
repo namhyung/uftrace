@@ -8,8 +8,8 @@ compiler:
   - gcc
   - clang
 
-# Ubuntu 18.04 LTS
-dist: bionic
+# Ubuntu 22.04 LTS
+dist: jammy
 
 sudo: required
 
