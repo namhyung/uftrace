@@ -597,6 +597,7 @@ out:
 void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 		       bool unload_modules)
 {
+	fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
 
@@ -707,7 +708,7 @@ TEST_CASE(data_basic)
 	TEST_EQ(handle.hdr.info_mask & TEST_INFO_MASK, TEST_INFO_MASK);
 	TEST_EQ(handle.info.exit_status, TEST_EXIT_STATUS);
 	TEST_STREQ(handle.info.exename, opts.exename);
-
+#if 0
 	pr_dbg("verify session info\n");
 	TEST_NE(handle.sessions.first, NULL);
 	s = handle.sessions.first;
@@ -725,7 +726,8 @@ TEST_CASE(data_basic)
 	TEST_EQ(t->tid, 10);
 	TEST_EQ(t->tid, t->pid);
 	TEST_STREQ(t->comm, basename(opts.exename));
-
+#endif
+	close_data_file(&opts, &handle);
 	close_data_file(&opts, &handle);
 
 	pr_dbg("delete test data\n");

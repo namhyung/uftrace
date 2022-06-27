@@ -947,6 +947,7 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 
 void clear_uftrace_info(struct uftrace_info *info)
 {
+	fprintf(stderr, "[%s:%d]\n", __func__, __LINE__);
 	free(info->exename);
 	free(info->cmdline);
 	free(info->cpudesc);
