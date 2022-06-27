@@ -1319,6 +1319,12 @@ int main(int argc, char *argv[])
 		.patt_type      = PATT_REGEX,
 		.show_args      = true,
 		.clock		= "mono",
+		.trigger        = xstrdup(
+				  "uftrace_trace_on@trace_on,color=green;"
+				  "uftrace_trace_off@trace_off,color=green;"
+				  "uftrace_trace_finish@finish,color=green;"
+				  "uftrace_trace_block::uftrace_trace_block@trace_on,color=green;"
+				  "uftrace_trace_block::~uftrace_trace_block@trace_off,color=green"),
 	};
 	int ret = -1;
 	char *pager = NULL;
