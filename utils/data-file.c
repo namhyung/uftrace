@@ -628,7 +628,7 @@ void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 #ifdef UNIT_TEST
 #define TEST_SESSION_ID "test-session-id"
 #define TEST_EXIT_STATUS  37
-#define TEST_INFO_MASK  (EXE_NAME | EXIT_STATUS)
+#define TEST_INFO_MASK  ((1U << EXE_NAME) | (1U << EXIT_STATUS))
 
 static int create_data(struct uftrace_opts *opts)
 {

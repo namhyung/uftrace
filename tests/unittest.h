@@ -24,6 +24,7 @@ extern int debug;
 			file, line, test);			\
 		printf("  %-16s = %ld\n", name_a, (long)a);	\
 		printf("  %-16s = %ld\n", name_b, (long)b);	\
+		fflush(stdout);					\
 	}							\
 	return TEST_NG;						\
 })
